@@ -13,7 +13,10 @@
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
 
-      gtag('config', 'G-FS1X56ERC6');
+      // send_page_view is off because this is a single-page app and the URLs
+      // carry join codes and event ids. Page views are sent from the router in
+      // src/lib/analytics.ts with those segments redacted.
+      gtag('config', 'G-FS1X56ERC6', { send_page_view: false });
     </script>
   </head>
   <body>
