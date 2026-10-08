@@ -1,0 +1,98 @@
+# Generate the Xcode project:  brew install xcodegen && xcodegen
+name: Table 1
+options:
+  bundleIdPrefix: site.table1
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: "94889YTX94"
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: "2.20.0"
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS
+    from: "8.0.0"
+targets:
+  Table1:
+    type: application
+    platform: iOS
+    sources:
+      - Table1
+      - Shared
+    dependencies:
+      - target: Table1Widgets
+      - package: Supabase
+        product: Supabase
+      - package: GoogleSignIn
+        product: GoogleSignIn
+      - package: GoogleSignIn
+        product: GoogleSignInSwift
+    entitlements:
+      path: Table1/Table1.entitlements
+      properties:
+        com.apple.developer.applesignin: [Default]
+        com.apple.developer.associated-domains: ["applinks:table-1.site"]
+        # Live Activity pushes. Xcode switches this to production when archiving for TestFlight.
+        aps-environment: development
+        com.apple.security.application-groups: [group.site.table1.events]
+        keychain-access-groups: ["$(AppIdentifierPrefix)site.table1.shared"]
+    info:
+      path: Table1/Info.plist
+      properties:
+        CFBundleDisplayName: Table 1
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIUserInterfaceStyle: Dark
+        # Only standard HTTPS/TLS is used, so no export-compliance question on each upload.
+        ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: Scan an organizer's QR code to join their event.
+        NSLocationWhenInUseUsageDescription: Find events happening near you and pin your event where you are. Your location is never stored.
+        # Google Sign-In: replace with your iOS OAuth client (see SETUP.md).
+        GIDClientID: REPLACE_WITH_IOS_CLIENT_ID.apps.googleusercontent.com
+        CFBundleURLTypes:
+          - CFBundleURLSchemes: [com.googleusercontent.apps.REPLACE_WITH_IOS_CLIENT_ID]
+          # Widget and Live Activity taps: table1://event/<id>
+          - CFBundleURLSchemes: [table1]
+        NSSupportsLiveActivities: true
+        T1SupabaseURL: https://aaozhfcbvqrgkkrihkrd.supabase.co
+        T1SupabaseAnonKey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhb3poZmNidnFyZ2trcmloa3JkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwMDE5MTUsImV4cCI6MjA3OTU3NzkxNX0.7TyCLK4NZsiKXbLU504T3CxLdnHrp95FVKgpnKEMrKI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: site.table1.events
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"
+
+  # Widgets + the player Live Activity (Lock Screen, Dynamic Island, StandBy, Smart Stack).
+  Table1Widgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Table1Widgets
+      - Shared
+    dependencies:
+      - package: Supabase
+        product: Supabase
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    entitlements:
+      path: Table1Widgets/Table1Widgets.entitlements
+      properties:
+        com.apple.security.application-groups: [group.site.table1.events]
+        keychain-access-groups: ["$(AppIdentifierPrefix)site.table1.shared"]
+    info:
+      path: Table1Widgets/Info.plist
+      properties:
+        CFBundleDisplayName: Table 1
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: site.table1.events.widgets
+        TARGETED_DEVICE_FAMILY: "1"
+        SKIP_INSTALL: YES
