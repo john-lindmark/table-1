@@ -268,7 +268,7 @@ final class CatalogStore {
 
     private let fileKey = "catalog.file"
     /// Bumped when the local SQLite schema changes; a file built by an older schema is rebuilt from a fresh pack.
-    private static let schema = "s4"
+    private static let schema = "s5"   // s5: name_norm keeps Han, kana and Hangul
     private let checkedKey = "catalog.checkedAt"
     private let dir: URL = {
         let d = URL.applicationSupportDirectory.appending(path: "Catalog", directoryHint: .isDirectory)
@@ -322,6 +322,7 @@ final class CatalogStore {
             let file = "catalog-\(info.version).\(Self.schema).sqlite"
             let path = dir.appending(path: file).path
             let tmp = dir.appending(path: "building.sqlite").path
+            let started = Date()
             try await Task.detached(priority: .utility) {
                 try await Self.install(info, anyNetwork: anyNetwork, building: tmp, final: path)
             }.value
@@ -334,9 +335,11 @@ final class CatalogStore {
             UserDefaults.standard.set(Date(), forKey: checkedKey)
             old?.close()
             removeOtherPacks(keep: file)
+            Telemetry.capture("catalog_pack_installed", ["seconds": Int(Date().timeIntervalSince(started)), "first": !hadPack])
         } catch {
             // With a pack installed, keep using it quietly and try again next launch.
             if !hadPack { phase = .failed(error.localizedDescription) }
+            if !(error is URLError) { Telemetry.error(error, "catalog_pack") }   // offline is expected
         }
     }
 

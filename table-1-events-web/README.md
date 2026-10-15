@@ -17,7 +17,9 @@ npm test                 # pairings + tiebreaker fixtures
 
 | Path | Who | What |
 | --- | --- | --- |
-| `/` | organizer | Sign in, event list, create event, join by code |
+| `/` | anyone | Signed out: home page (what Table 1 is, sign in, join by code). Signed in: event list, create event, join by code |
+| `/sign-in` | anyone | Sign in or sign up (Apple, Google, email code); signed in, goes to `/` |
+| `/privacy`, `/delete-account` | anyone | Privacy policy and account deletion (public, for Google and Play) |
 | `/e/:eventId` | organizer | Run the event — pairings, results, timer, standings, drops |
 | `/join/:code` | player | Join as a guest with just a name |
 | `/j/:code?s=…` | player | Owner's QR code: signed-in players are seated at once; others sign in or join as a guest |

@@ -32,7 +32,12 @@ enum Repo {
             guard let t = s?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty else { return .null }
             return .string(t)
         }
-        return try await supabase.rpc("create_event_v2", params: [
+        let props: [String: Any] = [
+            "format": draft.formatName, "rounds": draft.rounds, "round_timer": draft.showClock,
+            "kind": draft.cubeName != nil ? "cube" : draft.setCode != nil ? "limited" : "constructed",
+            "team_size": draft.teamSize ?? 0, "organizer_plays": includeMe, "guests": guests.count,
+        ]
+        return try await Telemetry.after("event_created", props) { try await supabase.rpc("create_event_v2", params: [
             "p_format_name": AnyJSON.string(draft.formatName),
             "p_rounds": .integer(draft.rounds),
             "p_set_code": text(draft.setCode),
@@ -45,7 +50,7 @@ enum Repo {
             "p_include_me": .bool(includeMe),
             "p_show_clock": .bool(draft.showClock),
             "p_local_date": .string(EventNaming.localDate()),
-        ]).execute().value
+        ]).execute().value }
     }
 
     /// Scryfall sets for limited events, newest first (optionally filtered by name or code).
@@ -64,14 +69,14 @@ enum Repo {
 
     /// Same call with an explicit visibility: "nearby" | "link_only" | "private".
     static func setEventLocation(eventId: String, lat: Double, lng: Double, venue: String?, visibility: String) async throws {
-        try await supabase.rpc("set_event_location", params: [
+        try await Telemetry.after("event_location_set", ["visibility": visibility]) { try await supabase.rpc("set_event_location", params: [
             "p_event_id": AnyJSON.string(eventId),
             "p_lat": .double(lat),
             "p_lng": .double(lng),
             "p_venue_name": .string(venue ?? ""),
             "p_join_radius_m": .integer(150),
             "p_visibility": .string(visibility),
-        ]).execute()
+        ]).execute() }
     }
 
     /// Setup only (no rounds yet): saves every detail at once — the full current state on each call.
@@ -152,15 +157,16 @@ enum Repo {
     }
 
     static func joinNearby(eventId: String, lat: Double, lng: Double, accuracyM: Int) async throws -> SeatResult {
-        try await supabase.rpc("join_event_nearby", params: [
+        try await Telemetry.after("event_joined", ["via": "nearby"]) { try await supabase.rpc("join_event_nearby", params: [
             "p_event_id": AnyJSON.string(eventId), "p_lat": .double(lat), "p_lng": .double(lng), "p_accuracy_m": .integer(accuracyM),
-        ]).execute().value
+        ]).execute().value }
     }
 
-    static func joinByQr(_ link: JoinLink) async throws -> SeatResult {
-        try await supabase.rpc("join_event_qr", params: [
+    /// `via`: "qr" from the in-app scanner, "link" from a universal link or shared URL (telemetry only).
+    static func joinByQr(_ link: JoinLink, via: String = "qr") async throws -> SeatResult {
+        try await Telemetry.after("event_joined", ["via": via]) { try await supabase.rpc("join_event_qr", params: [
             "p_short_code": AnyJSON.string(link.code), "p_secret": .string(link.secret),
-        ]).execute().value
+        ]).execute().value }
     }
 
     static func joinQr(_ eventId: String, rotate: Bool = false) async throws -> JoinQr {
@@ -170,9 +176,9 @@ enum Repo {
     }
 
     static func respondToInvite(_ eventId: String, accept: Bool) async throws -> SeatResult {
-        try await supabase.rpc("respond_to_invite", params: [
+        try await Telemetry.after("invite_responded", ["accepted": accept]) { try await supabase.rpc("respond_to_invite", params: [
             "p_event_id": AnyJSON.string(eventId), "p_accept": .bool(accept),
-        ]).execute().value
+        ]).execute().value }
     }
 
     /// Foreground only: keeps this account's ~1 km area cell fresh for nearby alerts.
@@ -185,12 +191,13 @@ enum Repo {
         try await supabase.from("notification_prefs")
             .upsert(["user_id": AnyJSON.string(uid), "nearby_alerts": .bool(enabled)])
             .execute()
+        Telemetry.capture("nearby_alerts_changed", ["enabled": enabled])
     }
 
     // MARK: results
 
     static func reportMatch(_ match: MatchRow, side0: Int, side1: Int, draws: Int = 0) async throws -> ReportOutcome {
-        try await supabase.rpc("report_match", params: [
+        let outcome: ReportOutcome = try await supabase.rpc("report_match", params: [
             "p_match_id": AnyJSON.string(match.id),
             "p_side0_wins": .integer(side0),
             "p_side1_wins": .integer(side1),
@@ -198,10 +205,13 @@ enum Repo {
             "p_expected_version": .integer(match.version),
             "p_idempotency_key": .string(UUID().uuidString.lowercased()),
         ]).execute().value
+        Telemetry.capture("match_reported", ["status": outcome.status ?? "unknown", "games": side0 + side1 + draws, "draws": draws])
+        return outcome
     }
 
     static func respondToResult(_ matchId: String, accept: Bool) async throws {
         try await supabase.rpc("respond_to_result", params: ["p_match_id": AnyJSON.string(matchId), "p_accept": .bool(accept)]).execute()
+        Telemetry.capture("result_responded", ["accepted": accept])
     }
 
     static func setMatchResult(_ matchId: String, side0: Int, side1: Int, draws: Int, reason: String) async throws {
@@ -212,6 +222,7 @@ enum Repo {
             "p_draws": .integer(draws),
             "p_reason": .string(reason),
         ]).execute()
+        Telemetry.capture("result_overridden")
     }
 
     /// Closes the round (confirming undisputed reports); on the last round, completes the event.
@@ -222,6 +233,7 @@ enum Repo {
         if finalRound {
             try await supabase.from("events").update(["status": AnyJSON.string("completed")]).eq("id", value: eventId).execute()
         }
+        Telemetry.capture("round_recorded", ["final": finalRound])
     }
 
     enum ClockAction: String { case pause, resume, add }
@@ -235,6 +247,7 @@ enum Repo {
             "p_action": .string(action.rawValue),
             "p_seconds": .integer(seconds),
         ]).execute().data
+        Telemetry.capture("round_clock_changed", ["action": action.rawValue])
         return try wireDecoder.decode(RoundClockResult.self, from: data)
     }
 
@@ -246,12 +259,15 @@ enum Repo {
             .update(["status": AnyJSON.string(status), "dropped_in_round": status == "dropped" ? round : .null])
             .eq("id", value: participantId)
             .execute()
+        Telemetry.capture("player_dropped", ["status": status])
     }
 
     // MARK: engine (server-authoritative pairing + standings)
 
     static func pairNextRound(_ eventId: String) async throws -> PairRoundResponse {
-        try await engine("pair_round", eventId)
+        let r: PairRoundResponse = try await engine("pair_round", eventId)
+        if r.error == nil { Telemetry.capture("round_paired", ["round": r.roundNumber ?? 0]) }
+        return r
     }
 
     /// Individual standings, plus team standings (team events) and seating (draft events).
@@ -264,6 +280,7 @@ enum Repo {
     static func seatPlayers(_ eventId: String) async throws -> [SeatingPod] {
         let r: SeatPlayersResponse = try await supabase.rpc("seat_event", params: ["p_event_id": AnyJSON.string(eventId)])
             .execute().value
+        Telemetry.capture("seating_drawn", ["pods": r.pods.count])
         return r.pods
     }
 
@@ -291,7 +308,9 @@ enum Repo {
 
     /// Shuffles every active player into full teams; anyone left over stays unassigned.
     static func randomizeTeams(_ eventId: String) async throws -> [EventTeam] {
-        try await supabase.rpc("randomize_teams", params: ["p_event_id": AnyJSON.string(eventId)]).execute().value
+        let teams: [EventTeam] = try await supabase.rpc("randomize_teams", params: ["p_event_id": AnyJSON.string(eventId)]).execute().value
+        Telemetry.capture("teams_set", ["teams": teams.count, "random": true])
+        return teams
     }
 
     /// Saves the whole layout. Member order is slot order (slot 1 = seat A).
@@ -299,9 +318,9 @@ enum Repo {
         let payload: [AnyJSON] = teams.map { t in
             .object(["name": .string(t.name), "members": .array(t.members.map { .string($0) })])
         }
-        return try await supabase.rpc("set_teams", params: [
+        return try await Telemetry.after("teams_set", ["teams": teams.count, "random": false]) { try await supabase.rpc("set_teams", params: [
             "p_event_id": AnyJSON.string(eventId), "p_teams": .array(payload),
-        ]).execute().value
+        ]).execute().value }
     }
 
     // MARK: life tracker
@@ -334,12 +353,12 @@ enum Repo {
     }
 
     static func trackerRecordGame(_ sessionId: String, gameNo: Int, winnerSide: Int?, draw: Bool) async throws -> TrackerState {
-        try await supabase.rpc("tracker_record_game", params: [
+        try await Telemetry.after("tracker_game_recorded", ["draw": draw, "game_no": gameNo]) { try await supabase.rpc("tracker_record_game", params: [
             "p_session_id": AnyJSON.string(sessionId),
             "p_game_no": .integer(gameNo),
             "p_winner_side": winnerSide.map { AnyJSON.integer($0) } ?? .null,
             "p_draw": .bool(draw),
-        ]).execute().value
+        ]).execute().value }
     }
 
     enum TrackerChange {
@@ -429,6 +448,7 @@ enum Repo {
                 "updated_at": .string(ISO8601DateFormatter().string(from: Date())),
             ], onConflict: "user_id")
             .execute()
+        Telemetry.capture("tracker_mode_changed", ["mode": mode])
     }
 
     // MARK: account
@@ -445,7 +465,12 @@ enum Repo {
         return rows.first?.nearbyAlerts ?? false
     }
 
-    /// TestFlight only: (re)loads sample events, opponents and results on this account.
+    /// Whether this account is on the server's demo tester list (only testers see or seed demo data).
+    static func isDemoTester() async -> Bool {
+        (try? await supabase.rpc("demo_tester").execute().value as Bool) ?? false
+    }
+
+    /// Testers only: (re)loads sample events, opponents and results on this account.
     static func seedDemo() async throws { try await supabase.rpc("demo_seed").execute() }
     static func removeDemo() async throws { try await supabase.rpc("demo_remove").execute() }
 
@@ -456,6 +481,7 @@ enum Repo {
         try await supabase.rpc("cancel_event", params: [
             "p_event_id": AnyJSON.string(eventId), "p_reason": .string(reason),
         ]).execute()
+        Telemetry.capture("event_cancelled")
     }
 
     /// People who've shared your events, most-shared first (optionally filtered by name).
@@ -470,6 +496,7 @@ enum Repo {
         let r: InviteResult = try await supabase.rpc("invite_players", params: [
             "p_event_id": AnyJSON.string(eventId), "p_user_ids": .array(userIds.map { .string($0) }),
         ]).execute().value
+        Telemetry.capture("players_invited", ["count": r.invited ?? 0, "via": "account"])
         return r.invited ?? 0
     }
 
@@ -478,6 +505,7 @@ enum Repo {
         try await supabase.rpc("invite_by_email", params: [
             "p_event_id": AnyJSON.string(eventId), "p_email": .string(email),
         ]).execute()
+        Telemetry.capture("players_invited", ["count": 1, "via": "email"])
     }
 
 
@@ -508,8 +536,8 @@ enum Repo {
     /// A player by name only, not tied to an account. Refuses duplicate names in the event.
     @discardableResult
     static func addGuest(_ eventId: String, name: String) async throws -> AddedPlayer {
-        try await supabase.rpc("add_guest", params: ["p_event_id": AnyJSON.string(eventId), "p_name": .string(name)])
-            .execute().value
+        try await Telemetry.after("guest_added") { try await supabase.rpc("add_guest", params: ["p_event_id": AnyJSON.string(eventId), "p_name": .string(name)])
+            .execute().value }
     }
 
     /// The organizer joins their own event as a player.
@@ -521,6 +549,7 @@ enum Repo {
     /// Before round 1 only (after that, Drop). Seats after theirs move up one.
     static func removeParticipant(_ participantId: String) async throws {
         try await supabase.rpc("remove_participant", params: ["p_participant_id": AnyJSON.string(participantId)]).execute()
+        Telemetry.capture("player_removed")
     }
 
     // MARK: cubes

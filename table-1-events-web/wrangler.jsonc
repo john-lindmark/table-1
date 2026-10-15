@@ -1,0 +1,17 @@
+// table-1.site: the built web app served as Cloudflare static assets (Workers, the successor to Pages). No server code.
+// Deploy: npm run deploy. public/_headers sets the .well-known content types and asset caching.
+{
+  "$schema": "https://unpkg.com/wrangler@4.146.0/config-schema.json",
+  "name": "table-1",
+  "compatibility_date": "2026-10-01",
+  // Cloudflare creates the DNS records and certificates for these on deploy.
+  "routes": [
+    { "pattern": "table-1.site", "custom_domain": true },
+    { "pattern": "www.table-1.site", "custom_domain": true }
+  ],
+  "assets": {
+    "directory": "./dist",
+    // Unknown paths (/privacy, /j/…, /auth/confirm) load index.html so the router handles them.
+    "not_found_handling": "single-page-application"
+  }
+}

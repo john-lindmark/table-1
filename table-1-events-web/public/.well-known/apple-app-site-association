@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["94889YTX94.site.table1.events"],
+        "components": [
+          { "/": "/j/*", "comment": "Owner's join QR" },
+          { "/": "/auth/confirm", "comment": "Sign-in email link" }
+        ]
+      }
+    ]
+  }
+}

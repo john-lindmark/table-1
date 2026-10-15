@@ -5,7 +5,7 @@
 // work runs in steps (driven by t1_private.catalog_dispatch through pg_net, shared x-t1-secret header):
 //   {step:"stage"}           daily: stream + gunzip the file into ~32MB line-aligned pieces in catalog-staging
 //   {step:"chunk", run, n}   parse one piece and upsert it in batches through catalog_ingest
-//   {step:"names", run}      weekly, after the chunks: one ~12MB slice of all_cards (resumable inflate, inflate.ts)
+//   {step:"names", run}      weekly, after the chunks: one ~10MB slice of all_cards (resumable inflate, inflate.ts)
 //                            → printed names; each step asks for the next (t1_private.catalog_names_cursor)
 //   {step:"pack", run}       build the catalog pack; publish it only if its content changed
 //   {step:"cleanup", run}    remove the run's staging pieces
@@ -115,10 +115,30 @@ async function refreshPoints() {
   }
 }
 
+/** Cards per catalog_pack_part window: each part runs well inside the 8s statement timeout (~0.5s on 2026-10-16). */
+const PACK_WINDOW = 10_000;
+
+/**
+ * The pack body, built in parts (O, P and N lines per window of cards) so it keeps fitting as the catalog grows;
+ * the same text catalog_pack_body() returns.
+ */
+async function packBody() {
+  const parts: string[] = [];
+  let windows = 0;
+  for (let kind = 0; kind < 3; kind++) {
+    for (let w = 0; kind === 0 || w < windows; w++) {
+      const part = await rpc<string | null>("catalog_pack_part", { p_kind: kind, p_from: w * PACK_WINDOW, p_to: (w + 1) * PACK_WINDOW });
+      if (kind === 0 && part == null) { windows = w; break; }
+      if (part) parts.push(part);
+    }
+  }
+  return parts.join("\n");
+}
+
 async function pack(run: number) {
   try {
     await refreshPoints();
-    const body = await rpc<string>("catalog_pack_body", {});
+    const body = await packBody();
     let oracles = 0, printings = 0;
     for (let i = 0; i < body.length;) {
       const c = body.charCodeAt(i);
@@ -160,8 +180,11 @@ async function pack(run: number) {
   }
 }
 
-/** Compressed bytes per names step: ~90MB of JSON inflated, well inside 2s of CPU with the parsing. */
-const NAMES_SLICE_BYTES = 12 * 1024 * 1024;
+/**
+ * Compressed bytes per names step: ~75MB of JSON inflated, inside 2s of CPU with the parsing (12MB until the CJK
+ * languages joined NAME_LANGS and about half the lines got parsed).
+ */
+const NAMES_SLICE_BYTES = 10 * 1024 * 1024;
 /** A step stops before a block when this much of its slice is left (deflate blocks are a few dozen KB). */
 const NAMES_RESERVE_BYTES = 1024 * 1024;
 const b64 = (b: Uint8Array) => {

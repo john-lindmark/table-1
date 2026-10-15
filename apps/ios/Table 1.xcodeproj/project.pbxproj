@@ -19,6 +19,7 @@
 		271F749F426616B562345937 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D2BD7D181061AD027D497369 /* PrivacyInfo.xcprivacy */; };
 		287EA39F0780F5D9D58DB60F /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = DAA1705822C63F5D91855E6F /* GoogleSignInSwift */; };
 		2EA248C65A34333F07407183 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8099FC0F2F66ADD7B29CD544 /* Assets.xcassets */; };
+		2F36C38D763F28B48271612F /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = ADA225913FAE2D658150CD96 /* PostHog */; };
 		31399EE11B591B082148C757 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B05DB41AB23ECB8FD1E9482 /* ProfileView.swift */; };
 		38AC1D672F2DC442D679BF2C /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A08A26022063DCF85E09E341 /* SignInView.swift */; };
 		3E9B2DDEB790DC45ADEF974C /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 161422FB3409119247EDADF8 /* Supabase */; };
@@ -27,6 +28,7 @@
 		43382E3E930D9571C1B5BAFA /* Table1App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66BF17B948514FF1CAA8D71C /* Table1App.swift */; };
 		480DC1EEDE67DB2C303D9F65 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4F692F7B590689C4B898FCA4 /* WidgetKit.framework */; };
 		4A95D8729CE57796B6B8ED89 /* Repo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1343547B4A4B4A62385BDA43 /* Repo.swift */; };
+		4BAE3961425780663A1AE860 /* Telemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E03D5BF830783A2A7CE2C80 /* Telemetry.swift */; };
 		4DF81CE6AE64132B3F5AD949 /* T1Shared.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00C95CF97E3DDF3302A0F73 /* T1Shared.swift */; };
 		54BE2CC6D66BC995207C242E /* CardLists.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAC61F0965BF63C069AA8AEC /* CardLists.swift */; };
 		5DDD56F02FE0A2A2EF4E3194 /* LiveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B262491F1533D678F74DD238 /* LiveStore.swift */; };
@@ -62,6 +64,7 @@
 		C62E2D01E3DC00B5D4A3E97A /* CatalogPack.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD41B679C1BA02ABB15C2B93 /* CatalogPack.swift */; };
 		C6E9C839CF36CDF3635E1AA1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 987E3333D17E6488824405D5 /* PrivacyInfo.xcprivacy */; };
 		D03DE7B217F898EACD3F425E /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF3BBF32A0E4379EB892A339 /* Config.swift */; };
+		D3F6205096B6E98B6F7E6869 /* ScanReports.swift in Sources */ = {isa = PBXBuildFile; fileRef = 239D07747A4039EE164CFB4B /* ScanReports.swift */; };
 		D4915A4044585E2089916731 /* SQLite.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8D5D41DD05383A49BC215B5 /* SQLite.swift */; };
 		DB1EAC45753FE9C33065079C /* T1Shared.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00C95CF97E3DDF3302A0F73 /* T1Shared.swift */; };
 		E1F0E45102E1CC8C52D256A3 /* Kit.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A9DF73F61953DB5F0B47C5 /* Kit.swift */; };
@@ -71,6 +74,7 @@
 		EB58F3FC3B3B21A13A6B061B /* LiveModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51120128682593DE4286B900 /* LiveModels.swift */; };
 		EBC44A72B13A2B2BBA4BC103 /* AddPlayersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C0AE970C6BB94032DAA56D /* AddPlayersView.swift */; };
 		ED1FF068FD14A1771C087171 /* SetIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D4D06C464C0814A55799DF9 /* SetIcon.swift */; };
+		F6F2542FC32A67FB90455CB4 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = F286ACE0B9BD5C9CAAF588DF /* Sentry */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -106,11 +110,13 @@
 
 /* Begin PBXFileReference section */
 		07AD98F6D43A76D8746C5B85 /* LiveActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityController.swift; sourceTree = "<group>"; };
+		0E03D5BF830783A2A7CE2C80 /* Telemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Telemetry.swift; sourceTree = "<group>"; };
 		1343547B4A4B4A62385BDA43 /* Repo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Repo.swift; sourceTree = "<group>"; };
 		13C0AE970C6BB94032DAA56D /* AddPlayersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddPlayersView.swift; sourceTree = "<group>"; };
 		1438B6E1895ED25046190659 /* CardMatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardMatcherTests.swift; sourceTree = "<group>"; };
 		17C7651ABA7EBFC501431ACC /* LifeTrackerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeTrackerView.swift; sourceTree = "<group>"; };
 		1E58FE801DEE1F485996A5C8 /* Catalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Catalog.swift; sourceTree = "<group>"; };
+		239D07747A4039EE164CFB4B /* ScanReports.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanReports.swift; sourceTree = "<group>"; };
 		2510246EB27B41479FAC4C24 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		270F4E7C8101647462A59635 /* CardImages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardImages.swift; sourceTree = "<group>"; };
 		286EEFA6E522FEAA50AF06B4 /* TeamsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamsView.swift; sourceTree = "<group>"; };
@@ -176,6 +182,8 @@
 				5E4918CB77109DBBF00739D0 /* GoogleSignIn in Frameworks */,
 				287EA39F0780F5D9D58DB60F /* GoogleSignInSwift in Frameworks */,
 				1F66EB68FE24E7ACF235E4AB /* SVGView in Frameworks */,
+				2F36C38D763F28B48271612F /* PostHog in Frameworks */,
+				F6F2542FC32A67FB90455CB4 /* Sentry in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -264,6 +272,7 @@
 			children = (
 				BF3BBF32A0E4379EB892A339 /* Config.swift */,
 				66BF17B948514FF1CAA8D71C /* Table1App.swift */,
+				0E03D5BF830783A2A7CE2C80 /* Telemetry.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -361,6 +370,7 @@
 				A149B70408DCB16D736D4918 /* LibraryDemo.swift */,
 				AA1787264FADE7BB2CC0A924 /* LibraryViews.swift */,
 				72DEBB4B6FB502FD419464DB /* Prices.swift */,
+				239D07747A4039EE164CFB4B /* ScanReports.swift */,
 				A8D5D41DD05383A49BC215B5 /* SQLite.swift */,
 				BB923D0FC11DA7387A5E5624 /* Trades.swift */,
 			);
@@ -447,6 +457,8 @@
 				772AD52A8F7AAA91FA28D759 /* GoogleSignIn */,
 				DAA1705822C63F5D91855E6F /* GoogleSignInSwift */,
 				B29FE675356369E91F94A200 /* SVGView */,
+				ADA225913FAE2D658150CD96 /* PostHog */,
+				F286ACE0B9BD5C9CAAF588DF /* Sentry */,
 			);
 			productName = Table1;
 			productReference = 4A4CE128D71E12EDA0482FDD /* Table1.app */;
@@ -483,7 +495,9 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				35EDC623A01E1649F2CF55C4 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				76DEDE5F8604D14E8817D88A /* XCRemoteSwiftPackageReference "posthog-ios" */,
 				9BA5ACD66666A3DA36D7FFD9 /* XCRemoteSwiftPackageReference "SVGView" */,
+				5D6A0AC5F32CD4066523948E /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
 				74216BDCA796BF29689359A6 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -565,12 +579,14 @@
 				4A95D8729CE57796B6B8ED89 /* Repo.swift in Sources */,
 				E4629FB53DD09687F5587E3E /* ResultIntents.swift in Sources */,
 				D4915A4044585E2089916731 /* SQLite.swift in Sources */,
+				D3F6205096B6E98B6F7E6869 /* ScanReports.swift in Sources */,
 				ED1FF068FD14A1771C087171 /* SetIcon.swift in Sources */,
 				86272ABAC2C1C73362AD3010 /* SignIn.swift in Sources */,
 				38AC1D672F2DC442D679BF2C /* SignInView.swift in Sources */,
 				4DF81CE6AE64132B3F5AD949 /* T1Shared.swift in Sources */,
 				43382E3E930D9571C1B5BAFA /* Table1App.swift in Sources */,
 				76C2DC2DA532D1CB04F1D6A9 /* TeamsView.swift in Sources */,
+				4BAE3961425780663A1AE860 /* Telemetry.swift in Sources */,
 				E811FEF95285336653021201 /* TrackerModel.swift in Sources */,
 				8F76AC20A2EAB907F47E8028 /* Trades.swift in Sources */,
 			);
@@ -887,12 +903,28 @@
 				minimumVersion = 8.0.0;
 			};
 		};
+		5D6A0AC5F32CD4066523948E /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.30.0;
+			};
+		};
 		74216BDCA796BF29689359A6 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 2.20.0;
+			};
+		};
+		76DEDE5F8604D14E8817D88A /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PostHog/posthog-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.92.0;
 			};
 		};
 		9BA5ACD66666A3DA36D7FFD9 /* XCRemoteSwiftPackageReference "SVGView" */ = {
@@ -916,6 +948,11 @@
 			package = 35EDC623A01E1649F2CF55C4 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignIn;
 		};
+		ADA225913FAE2D658150CD96 /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 76DEDE5F8604D14E8817D88A /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
+		};
 		B29FE675356369E91F94A200 /* SVGView */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 9BA5ACD66666A3DA36D7FFD9 /* XCRemoteSwiftPackageReference "SVGView" */;
@@ -930,6 +967,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 35EDC623A01E1649F2CF55C4 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignInSwift;
+		};
+		F286ACE0B9BD5C9CAAF588DF /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5D6A0AC5F32CD4066523948E /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

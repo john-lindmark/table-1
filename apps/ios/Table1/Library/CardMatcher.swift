@@ -137,7 +137,7 @@ final class ScanNames: @unchecked Sendable {
     /// A name cut off at the edge of the frame: only one card has names starting with it (its English and printed
     /// names often share a start: "Urza's Saga", "Urzas Sage"), and it's most of one of them.
     func prefix(_ q: String) -> Int? {
-        guard q.count >= 8 else { return nil }
+        guard q.count >= (CardName.hasCJK(q) ? 4 : 8) else { return nil }
         var lo = 0, hi = keys.count
         while lo < hi {
             let mid = (lo + hi) / 2
@@ -154,9 +154,12 @@ final class ScanNames: @unchecked Sendable {
     }
 
     /// A misread name: the closest name within about one edit in eight letters, if no other card's name is as close.
+    /// Han, kana and Hangul carry more per character: four of them at least, and one edit in six, counted in
+    /// characters rather than UTF-8 bytes.
     func fuzzy(_ q: String) -> Int? {
-        guard q.count >= 5, q.utf8.count < 250 else { return nil }
-        let cap = max(1, q.count / 8)
+        let cjk = CardName.hasCJK(q)
+        guard q.count >= (cjk ? 4 : 5), q.utf8.count < 250 else { return nil }
+        let cap = max(1, q.count / (cjk ? 6 : 8))
         let tg = Self.trigrams(q)
         var shared = [UInt8](repeating: 0, count: keys.count)
         var touched: [Int] = []
@@ -172,10 +175,10 @@ final class ScanNames: @unchecked Sendable {
         let enough = (Double(tg.count) * 0.4).rounded(.up)
         let top = touched.filter { Double(shared[$0]) >= enough }
             .sorted { shared[$0] != shared[$1] ? shared[$0] > shared[$1] : $0 < $1 }.prefix(60)
-        let target = Array(q.utf8)
+        let target = cjk ? q.unicodeScalars.map(\.value) : q.utf8.map(UInt32.init)
         var best = (d: cap + 1, i: -1), second = cap + 1
         for i in top {
-            let d = Self.distance(target, Array(keys[i].utf8), cap: cap)
+            let d = Self.distance(target, cjk ? keys[i].unicodeScalars.map(\.value) : keys[i].utf8.map(UInt32.init), cap: cap)
             let other = best.i < 0 || idxs[best.i] != idxs[i]
             if d < best.d { if other { second = best.d }; best = (d, i) } else if d < second && other { second = d }
         }
@@ -183,7 +186,7 @@ final class ScanNames: @unchecked Sendable {
     }
 
     /// Levenshtein distance, giving up (cap + 1) once it's sure to exceed cap.
-    private static func distance(_ a: [UInt8], _ b: [UInt8], cap: Int) -> Int {
+    private static func distance(_ a: [UInt32], _ b: [UInt32], cap: Int) -> Int {
         if abs(a.count - b.count) > cap { return cap + 1 }
         if a.isEmpty || b.isEmpty { return max(a.count, b.count) }
         var prev = Array(0...b.count), cur = prev
@@ -255,21 +258,47 @@ final class CardMatcher: @unchecked Sendable {
         "легендарное", "легендарныи", "легендарная", "сражение",
     ]
 
+    /// Type lines in Japanese, Chinese and Korean, normalized (no spaces): a line containing one of these is a type
+    /// line, since a CJK line normalizes to a single word. "リーチャー": OCR often misreads the ク of クリーチャー.
+    private static let cjkTypeWords = [
+        "リーチャー", "インスタント", "ソーサリー", "エンチャント", "アーティファクト", "プレインズウォーカー", "土地", "伝説の",
+        "召喚", "部族", "同族", "バトル", "割り込み", "インタラプト", "生物", "瞬间", "瞬間", "法术", "法術", "巫术", "巫術", "神器", "结界", "結界", "鹏洛客",
+        "鵬洛客", "传奇", "傳奇", "基本地", "魔法力源", "战役", "戰役", "생물", "순간마법", "집중마법", "마법물체", "부여마법", "마법부여", "대지",
+        "플레인즈워커", "전설적", "소환", "전투", "동족", "부족",
+    ].map(CardName.norm)
+
+    private static func typeLine(_ words: [Substring]) -> Bool {
+        !typeWords.isDisjoint(with: words) || words.contains { w in cjkTypeWords.contains { w.contains($0) } }
+    }
+
+    /// Furigana: a short line of hiragana only, the reading printed over a Japanese name.
+    private static func furigana(_ words: [Substring]) -> Bool {
+        words.count == 1 && words[0].count <= 12 && words[0].unicodeScalars.allSatisfy { (0x3041...0x309F).contains($0.value) }
+    }
+
     /// The card's name: the top lines first (exactly, then cut off or misread), stopping at the type line, which the
     /// name is always above; further down, only an exact name of two words or more (one word is often a keyword).
     private func name(_ lines: [String]) -> Int? {
-        let read = lines.prefix(12).map { ($0, CardName.norm($0).split(separator: " ")) }.filter { (1...12).contains($0.1.count) }
+        // Furigana over a Japanese name isn't a line of its own, unless it's a name itself.
+        let read = lines.prefix(12).map { ($0, CardName.norm($0).split(separator: " ")) }
+            .filter { (1...12).contains($0.1.count) && !(Self.furigana($0.1) && names.exact(String($0.1[0])) == nil) }
         let words = read.map(\.1)
         // A one-word name only from the first two lines of card text, not from a line in capitals: one word lower
         // down is usually a keyword ("Fliegen" is also the German name of Fly), and capitals are a grading label
-        // ("FOIL"), which also doesn't count as a line above the name.
-        let text = read.map { $0.0.contains(where: \.isLowercase) }
-        func fits(_ q: String, _ i: Int) -> Bool { q.contains(" ") || (text[i] && text[..<i].filter { $0 }.count <= 1) }
+        // ("FOIL"), which also doesn't count as a line above the name. Japanese, Chinese and Korean lines are one
+        // word (no spaces in their names) and have no capitals.
+        let text = read.map { $0.0.contains(where: \.isLowercase) || $0.1.contains { CardName.hasCJK(String($0)) } }
+        // A name of one or two Han, kana or Hangul characters only from the first line: on the second it's usually a
+        // keyword ("飛行", Flying, is also the Japanese name of Flight).
+        func fits(_ q: String, _ i: Int) -> Bool {
+            q.contains(" ") || (text[i] && text[..<i].filter { $0 }.count <= (q.count <= 2 && CardName.hasCJK(q) ? 0 : 1))
+        }
+        func long(_ q: String) -> Bool { q.count >= (CardName.hasCJK(q) ? 2 : 3) }
         func exact(_ i: Int) -> Int? {
-            for q in candidates(words[i]) where q.count >= 3 && fits(q, i) { if let o = names.exact(q), allowed(o) { return o } }
+            for q in candidates(words[i]) where long(q) && fits(q, i) { if let o = names.exact(q), allowed(o) { return o } }
             // A name broken over two lines.
             if i + 1 < words.count, words[i].count <= 3, words[i + 1].count <= 3 {
-                for q in candidates(words[i] + words[i + 1]) where q.count >= 3 && fits(q, i) {
+                for q in candidates(words[i] + words[i + 1]) where long(q) && fits(q, i) {
                     if let o = names.exact(q), allowed(o) { return o }
                 }
             }
@@ -277,12 +306,13 @@ final class CardMatcher: @unchecked Sendable {
         }
         for i in 0..<min(3, words.count) {
             if let o = exact(i) { return o }
-            if !Self.typeWords.isDisjoint(with: words[i]) { break }
+            if Self.typeLine(words[i]) { break }
             for q in candidates(words[i]) where fits(q, i) {
                 if let o = names.prefix(q) ?? names.fuzzy(q), allowed(o) { return o }
             }
         }
-        for i in min(3, words.count)..<words.count {
+        // Not a Japanese, Chinese or Korean name: short ones turn up in rules text.
+        for i in min(3, words.count)..<words.count where !words[i].contains(where: { CardName.hasCJK(String($0)) }) {
             if let o = exact(i), oracle(o)?.norm.contains(" ") == true { return o }
         }
         return nil
@@ -290,9 +320,21 @@ final class CardMatcher: @unchecked Sendable {
 
     /// The line itself, then with up to three short trailing tokens (a misread mana cost) dropped.
     private func candidates(_ words: [Substring]) -> [String] {
-        var out = [words.joined(separator: " ")]
+        var out = [Self.join(words[...])]
         for drop in stride(from: 1, through: min(3, words.count - 1), by: 1) where words.suffix(drop).allSatisfy({ $0.count <= 3 }) {
-            out.append(words.dropLast(drop).joined(separator: " "))
+            out.append(Self.join(words.dropLast(drop)))
+        }
+        return out
+    }
+
+    /// Words joined as CardName.norm would: a space, except between two of Han, kana and Hangul (a name over two lines).
+    private static func join(_ words: ArraySlice<Substring>) -> String {
+        var out = ""
+        for w in words {
+            if let a = out.unicodeScalars.last, let b = w.unicodeScalars.first, !(CardName.isCJK(a.value) && CardName.isCJK(b.value)) {
+                out += " "
+            }
+            out += w
         }
         return out
     }
@@ -499,6 +541,46 @@ struct ScanSteadiness {
     }
 
     /// Times in whole milliseconds, so 1.4 s − 1.0 s is 400 ms, not 399.99… (same as Android).
+    private func ms(_ a: Date, _ b: Date) -> Int { Int((a.timeIntervalSince(b) * 1000).rounded()) }
+    private func ms(_ t: TimeInterval) -> Int { Int((t * 1000).rounded()) }
+}
+
+/// Which script the camera reads. Nobody picks a language: it reads like the phone (Latin and Cyrillic, English
+/// first) until there's text in view that names no card for a while, then switches to Chinese, Japanese and Korean
+/// (iOS: Vision's automatic language detection, one reader; Android: ML Kit's Japanese, Chinese and Korean
+/// recognizers, one a frame in turn). It stays there while cards keep matching and goes back after a run of misses.
+/// The frames spent finding the script are frames ScanSteadiness sees nothing in, so a switch never takes a card early.
+struct ScanLanguage: Equatable {
+    /// Text naming no card for this long switches to CJK reading.
+    static let detect: TimeInterval = 0.6
+    /// CJK reading naming no card for this long goes back.
+    static let back: TimeInterval = 1.2
+
+    enum Mode: Equatable { case latin, cjk(Int) }
+
+    /// How many CJK readers there are to try in turn.
+    let readers: Int
+    private(set) var mode = Mode.latin
+    private var missSince: Date?
+
+    init(readers: Int) { self.readers = readers }
+
+    /// Feed every frame: whether its lines named a card, and whether there were any lines at all.
+    mutating func feed(matched: Bool, text: Bool, at now: Date = .now) {
+        if matched { missSince = nil; return }
+        switch mode {
+        case .latin:
+            guard text else { missSince = nil; return }
+            let since = missSince ?? now
+            missSince = since
+            if ms(now, since) >= ms(Self.detect) { mode = .cjk(0); missSince = now }
+        case .cjk(let k):
+            let since = missSince ?? now
+            missSince = since
+            if ms(now, since) >= ms(Self.back) { mode = .latin; missSince = nil } else { mode = .cjk((k + 1) % readers) }
+        }
+    }
+
     private func ms(_ a: Date, _ b: Date) -> Int { Int((a.timeIntervalSince(b) * 1000).rounded()) }
     private func ms(_ t: TimeInterval) -> Int { Int((t * 1000).rounded()) }
 }

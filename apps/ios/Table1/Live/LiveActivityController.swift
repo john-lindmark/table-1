@@ -22,6 +22,8 @@ final class LiveActivityController {
     private var startToken: String?
     private var lastRefresh = Date.distantPast
     private var inFlight: Task<Void, Never>?
+    /// Activities this app started itself (telemetry tells them apart from push-to-start).
+    private var requestedHere = Set<String>()
 
     private let env: String = {
         #if DEBUG
@@ -47,7 +49,13 @@ final class LiveActivityController {
             }
         }
         Task {
-            for await activity in Activity<PlayerActivityAttributes>.activityUpdates { observe(activity) }
+            for await activity in Activity<PlayerActivityAttributes>.activityUpdates {
+                // New since launch; the app's own fallback start is counted where it requests one.
+                if !observed.contains(activity.id), !requestedHere.contains(activity.id) {
+                    Telemetry.capture("live_activity_started", ["via": "push"])
+                }
+                observe(activity)
+            }
         }
         Activity<PlayerActivityAttributes>.activities.forEach(observe)
     }
@@ -104,11 +112,14 @@ final class LiveActivityController {
             } else if snap.state.isPlaying || snap.state.phase == "bye",
                       ActivityAuthorizationInfo().areActivitiesEnabled {
                 // Fallback when push-to-start didn't run (older iOS, or the event was joined mid-round).
-                _ = try? Activity.request(
+                if let started = try? Activity.request(
                     attributes: snap.attributes,
                     content: ActivityContent(state: snap.state, staleDate: snap.state.staleDate),
                     pushType: .token
-                )
+                ) {
+                    requestedHere.insert(started.id)
+                    Telemetry.capture("live_activity_started", ["via": "app"])
+                }
             }
         }
         // Seats that are no longer live on the server.
@@ -125,6 +136,8 @@ final class LiveActivityController {
         }
         Task {
             for await state in activity.activityStateUpdates where state == .ended || state == .dismissed {
+                // "dismissed": the player swiped it away; "ended": the match or event finished.
+                Telemetry.capture("live_activity_ended", ["reason": state == .dismissed ? "dismissed" : "ended"])
                 if let token = activity.pushToken?.hex {
                     _ = try? await supabase.rpc("unregister_live_activity_token", params: ["p_token": AnyJSON.string(token)]).execute()
                     registered.remove(token)

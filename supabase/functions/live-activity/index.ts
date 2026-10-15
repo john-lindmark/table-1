@@ -1,5 +1,5 @@
 // live-activity: keeps a player's Live Activity and widgets in step with their event.
-//   POST { action: "state", include_demo? }        Authorization: Bearer <user JWT>  (demo: TestFlight builds only)
+//   POST { action: "state", include_demo? }        Authorization: Bearer <user JWT>  (demo: listed testers only)
 //        -> { snapshots: [{ eventId, eventName, participantId, state }] }  (widgets + app refresh)
 //   POST { action: "dispatch", kind, event_id, ... }  x-t1-secret: <db secret>   (database triggers only)
 //        kinds: round_started | match | round_recorded | clock | event_ended | dropped
@@ -40,6 +40,8 @@ async function stateFor(authHeader: string, includeDemo: boolean) {
   const asCaller = createClient(url, anonKey, { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } });
   const { data: u, error } = await asCaller.auth.getUser(authHeader.slice(7));
   if (error || !u.user) return json({ error: "Sign in required" }, 401);
+  // Demo events only for accounts on the tester list, whatever the build asks for.
+  if (includeDemo) includeDemo = (await asCaller.rpc("demo_tester")).data === true;
   const { data: seats } = await admin.from("participants").select("id, event_id").eq("user_id", u.user.id);
   const eventIds = [...new Set((seats ?? []).map((s) => s.event_id))];
   if (!eventIds.length) return json({ snapshots: [] });

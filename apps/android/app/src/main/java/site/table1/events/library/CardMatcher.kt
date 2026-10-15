@@ -93,7 +93,7 @@ class ScanNames(catalog: ScanCatalog) {
      * names often share a start: "Urza's Saga", "Urzas Sage"), and it's most of one of them.
      */
     fun prefix(q: String): Int? {
-        if (q.length < 8) return null
+        if (q.length < (if (CardName.hasCjk(q)) 4 else 8)) return null
         var lo = 0
         var hi = keys.size
         while (lo < hi) { val mid = (lo + hi) / 2; if (keys[mid] < q) lo = mid + 1 else hi = mid }
@@ -108,10 +108,14 @@ class ScanNames(catalog: ScanCatalog) {
         return if (most) hit else null
     }
 
-    /** A misread name: the closest name within about one edit in eight letters, if no other card's name is as close. */
+    /**
+     * A misread name: the closest name within about one edit in eight letters, if no other card's name is as close.
+     * Han, kana and Hangul carry more per character: four of them at least, and one edit in six.
+     */
     fun fuzzy(q: String): Int? {
-        if (q.length < 5 || q.length >= 250) return null
-        val cap = maxOf(1, q.length / 8)
+        val cjk = CardName.hasCjk(q)
+        if (q.length < (if (cjk) 4 else 5) || q.toByteArray(Charsets.UTF_8).size >= 250) return null
+        val cap = maxOf(1, q.length / (if (cjk) 6 else 8))
         val tg = trigrams(q)
         val shared = ByteArray(keys.size)
         val touched = ArrayList<Int>()
@@ -150,11 +154,15 @@ class ScanNames(catalog: ScanCatalog) {
 
         private fun trigrams(s: String): Set<Int> = trigramCodes(s).toSet()
 
-        /** The name padded with a space each side, as trigram codes (repeats included). */
+        /**
+         * The name's UTF-8 bytes padded with a space each side, as trigram codes (repeats included); bytes like iOS, so a
+         * Han, kana or Hangul character (three bytes) shares trigrams with its neighbours and a short name misread by
+         * one character still shares enough of them.
+         */
         private fun trigramCodes(s: String): IntArray {
-            val b = " $s "
-            if (b.length < 3) return IntArray(0)
-            return IntArray(b.length - 2) { b[it].code shl 16 or (b[it + 1].code shl 8) or b[it + 2].code }
+            val b = " $s ".toByteArray(Charsets.UTF_8)
+            if (b.size < 3) return IntArray(0)
+            return IntArray(b.size - 2) { (b[it].toInt() and 0xFF) shl 16 or ((b[it + 1].toInt() and 0xFF) shl 8) or (b[it + 2].toInt() and 0xFF) }
         }
 
         /** Levenshtein distance, giving up (cap + 1) once it's sure to exceed cap. */
@@ -210,29 +218,38 @@ class CardMatcher(
      * name is always above; further down, only an exact name of two words or more (one word is often a keyword).
      */
     private fun name(lines: List<String>): Int? {
-        val read = lines.take(12).map { l -> l to CardName.norm(l).split(' ').filter { it.isNotEmpty() } }.filter { it.second.size in 1..12 }
+        // Furigana over a Japanese name isn't a line of its own, unless it's a name itself.
+        val read = lines.take(12).map { l -> l to CardName.norm(l).split(' ').filter { it.isNotEmpty() } }
+            .filter { (_, w) -> w.size in 1..12 && !(furigana(w) && names.exact(w[0]) == null) }
         val words = read.map { it.second }
         /**
          * A one-word name only from the first two lines of card text, not from a line in capitals: one word lower
          * down is usually a keyword ("Fliegen" is also the German name of Fly), and capitals are a grading label
-         * ("FOIL"), which also doesn't count as a line above the name.
+         * ("FOIL"), which also doesn't count as a line above the name. Japanese, Chinese and Korean lines are one
+         * word (no spaces in their names) and have no capitals.
          */
-        val text = read.map { (line, _) -> line.any { it.isLowerCase() } }
-        fun fits(q: String, i: Int) = ' ' in q || (text[i] && (0 until i).count { text[it] } <= 1)
+        val text = read.map { (line, w) -> line.any { it.isLowerCase() } || w.any(CardName::hasCjk) }
+        // A name of one or two Han, kana or Hangul characters only from the first line: on the second it's usually a
+        // keyword ("飛行", Flying, is also the Japanese name of Flight).
+        fun fits(q: String, i: Int) =
+            ' ' in q || (text[i] && (0 until i).count { text[it] } <= (if (q.length <= 2 && CardName.hasCjk(q)) 0 else 1))
+        fun long(q: String) = q.length >= (if (CardName.hasCjk(q)) 2 else 3)
         fun exact(i: Int): Int? {
-            for (q in candidates(words[i])) if (q.length >= 3 && fits(q, i)) names.exact(q)?.takeIf(::allowed)?.let { return it }
+            for (q in candidates(words[i])) if (long(q) && fits(q, i)) names.exact(q)?.takeIf(::allowed)?.let { return it }
             // A name broken over two lines.
             if (i + 1 < words.size && words[i].size <= 3 && words[i + 1].size <= 3) {
-                for (q in candidates(words[i] + words[i + 1])) if (q.length >= 3 && fits(q, i)) names.exact(q)?.takeIf(::allowed)?.let { return it }
+                for (q in candidates(words[i] + words[i + 1])) if (long(q) && fits(q, i)) names.exact(q)?.takeIf(::allowed)?.let { return it }
             }
             return null
         }
         for (i in 0 until minOf(3, words.size)) {
             exact(i)?.let { return it }
-            if (words[i].any { it in TYPE_WORDS }) break
+            if (typeLine(words[i])) break
             for (q in candidates(words[i])) if (fits(q, i)) (names.prefix(q) ?: names.fuzzy(q))?.takeIf(::allowed)?.let { return it }
         }
+        // Not a Japanese, Chinese or Korean name: short ones turn up in rules text.
         for (i in minOf(3, words.size) until words.size) {
+            if (words[i].any(CardName::hasCjk)) continue
             exact(i)?.let { if (oracle(it)?.norm?.contains(' ') == true) return it }
         }
         return null
@@ -240,11 +257,23 @@ class CardMatcher(
 
     /** The line itself, then with up to three short trailing tokens (a misread mana cost) dropped. */
     private fun candidates(words: List<String>): List<String> {
-        val out = mutableListOf(words.joinToString(" "))
+        val out = mutableListOf(join(words))
         for (drop in 1..minOf(3, words.size - 1)) {
-            if (words.takeLast(drop).all { it.length <= 3 }) out.add(words.dropLast(drop).joinToString(" "))
+            if (words.takeLast(drop).all { it.length <= 3 }) out.add(join(words.dropLast(drop)))
         }
         return out
+    }
+
+    /** Words joined as CardName.norm would: a space, except between two of Han, kana and Hangul (a name over two lines). */
+    private fun join(words: List<String>): String {
+        val out = StringBuilder()
+        for (w in words) {
+            if (out.isNotEmpty() && w.isNotEmpty() &&
+                !(CardName.isCjk(Character.codePointBefore(out, out.length)) && CardName.isCjk(w.codePointAt(0)))
+            ) out.append(' ')
+            out.append(w)
+        }
+        return out.toString()
     }
 
     /**
@@ -296,6 +325,22 @@ class CardMatcher(
             "evoca", "interruzione", "leggendaria", "leggendario", "battaglia", "instantanea", "feitico", "artefato", "encantamento",
             "terreno", "lendaria", "lendario", "batalha", "существо", "мгновенное", "волшебство", "артефакт", "чары", "земля",
             "легендарное", "легендарныи", "легендарная", "сражение")
+
+        /**
+         * Type lines in Japanese, Chinese and Korean, normalized (no spaces): a line containing one of these is a type
+         * line, since a CJK line normalizes to a single word. "リーチャー": OCR often misreads the ク of クリーチャー.
+         */
+        val CJK_TYPE_WORDS = listOf(
+            "リーチャー", "インスタント", "ソーサリー", "エンチャント", "アーティファクト", "プレインズウォーカー", "土地", "伝説の",
+            "召喚", "部族", "同族", "バトル", "割り込み", "インタラプト", "生物", "瞬间", "瞬間", "法术", "法術", "巫术", "巫術", "神器", "结界", "結界", "鹏洛客",
+            "鵬洛客", "传奇", "傳奇", "基本地", "魔法力源", "战役", "戰役", "생물", "순간마법", "집중마법", "마법물체", "부여마법", "마법부여", "대지",
+            "플레인즈워커", "전설적", "소환", "전투", "동족", "부족",
+        ).map(CardName::norm)
+
+        fun typeLine(words: List<String>) = words.any { it in TYPE_WORDS } || words.any { w -> CJK_TYPE_WORDS.any { it in w } }
+
+        /** Furigana: a short line of hiragana only, the reading printed over a Japanese name. */
+        fun furigana(words: List<String>) = words.size == 1 && words[0].length <= 12 && words[0].all { it in '\u3041'..'\u309F' }
         /** Month names as a date stamp prints them, normalized: English, then de, fr, it, es, pt, ru. */
         val MONTHS = setOf(
             "jan", "january", "feb", "february", "mar", "march", "apr", "april", "may", "jun", "june", "jul", "july",
@@ -425,5 +470,42 @@ class ScanSteadiness {
         const val GAP_MS = 500L
         /** After a take, the same card has to be out of view this long before it counts again. */
         const val AWAY_MS = 1000L
+    }
+}
+
+/**
+ * Which script the camera reads. Nobody picks a language: it reads like the phone (Latin and Cyrillic, English
+ * first) until there's text in view that names no card for a while, then switches to Chinese, Japanese and Korean
+ * (iOS: Vision's automatic language detection, one reader; Android: ML Kit's Japanese, Chinese and Korean
+ * recognizers, one a frame in turn). It stays there while cards keep matching and goes back after a run of misses.
+ * The frames spent finding the script are frames ScanSteadiness sees nothing in, so a switch never takes a card early.
+ */
+class ScanLanguage(private val readers: Int) {
+    /** -1 reads Latin; 0 until [readers] is the CJK reader in use. */
+    var mode = LATIN
+        private set
+    private var missSince: Long? = null
+
+    /** Feed every frame: whether its lines named a card, and whether there were any lines at all. */
+    fun feed(matched: Boolean, text: Boolean, now: Long = System.currentTimeMillis()) {
+        if (matched) { missSince = null; return }
+        if (mode == LATIN) {
+            if (!text) { missSince = null; return }
+            val since = missSince ?: now
+            missSince = since
+            if (now - since >= DETECT_MS) { mode = 0; missSince = now }
+        } else {
+            val since = missSince ?: now
+            missSince = since
+            if (now - since >= BACK_MS) { mode = LATIN; missSince = null } else mode = (mode + 1) % readers
+        }
+    }
+
+    companion object {
+        const val LATIN = -1
+        /** Text naming no card for this long switches to CJK reading. */
+        const val DETECT_MS = 600L
+        /** CJK reading naming no card for this long goes back. */
+        const val BACK_MS = 1200L
     }
 }

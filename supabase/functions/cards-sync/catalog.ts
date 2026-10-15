@@ -163,16 +163,17 @@ export const packHeader = (version: string, oracles: number, printings: number) 
   `#t1catalog\t${PACK_FORMAT}\t${version}\t${oracles}\t${printings}`;
 
 /**
- * Languages whose printed names go into the pack (N lines). The scanner reads Latin and Cyrillic text (Vision on
- * iOS; ML Kit's Latin model on Android), so Japanese, Korean and Chinese names would be dead weight.
+ * Languages whose printed names go into the pack (N lines): the ones the scanner's OCR reads. Latin and Cyrillic
+ * (Vision on iOS, ML Kit's Latin model on Android), and since 2026-10-16 Japanese, Chinese (simplified and
+ * traditional) and Korean (VisionKit with those languages; ML Kit's Japanese, Chinese and Korean models).
  */
-export const NAME_LANGS = ["de", "es", "fr", "it", "pt", "ru"];
+export const NAME_LANGS = ["de", "es", "fr", "it", "pt", "ru", "ja", "zhs", "zht", "ko"];
 const LANG_KEY = new TextEncoder().encode('"lang":"');
-const NAME_LANG_CODES = new Set(NAME_LANGS.map((l) => l.charCodeAt(0) << 8 | l.charCodeAt(1)));
+const NAME_LANG_SET = new Set(NAME_LANGS);
 
 /**
  * True when a raw all_cards line is a printing in one of NAME_LANGS, read from the bytes without decoding or
- * parsing (all_cards is ~3GB of JSON; only about a third of it is kept). `lang` sits near the start of the object.
+ * parsing (all_cards is ~3GB of JSON; only about half of it is kept). `lang` sits near the start of the object.
  */
 export function isNameLangLine(line: Uint8Array): boolean {
   const end = Math.min(line.length, 4096);
@@ -181,7 +182,8 @@ export function isNameLangLine(line: Uint8Array): boolean {
     while (k < LANG_KEY.length && line[i + k] === LANG_KEY[k]) k++;
     if (k < LANG_KEY.length) continue;
     const j = i + LANG_KEY.length;
-    return line[j + 2] === 34 && NAME_LANG_CODES.has(line[j] << 8 | line[j + 1]);
+    const q = line.indexOf(34, j);
+    return q > j && q - j <= 3 && NAME_LANG_SET.has(String.fromCharCode(...line.subarray(j, q)));
   }
   return false;
 }

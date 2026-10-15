@@ -13,7 +13,8 @@ import {
   myDisplayName,
 } from "../lib/api";
 import type { DraftableSet, FormatName, HomeData, HomeEvent, HomeInvite, LiveSnapshot, TrackerMode } from "../lib/types";
-import { SignInButtons } from "../components/SignInButtons";
+import { JoinByCode } from "../components/JoinByCode";
+import { Landing } from "./Landing";
 import { FormatPicker, PlayersEditor, ProductPicker, RoundTimerSwitch, cubeUrlProblem } from "../components/EventFormFields";
 import { claimAutoOpen, useTrackerMode } from "../lib/settings";
 import { eventNamePreview, isTeamFormat, typeOfFormat } from "../lib/formats";
@@ -27,7 +28,6 @@ import {
   Segmented,
   Stat,
   Stepper,
-  T1Logo,
   TopNav,
   shortWhen,
 } from "../components/kit";
@@ -114,7 +114,7 @@ export function Home({
     );
   }
 
-  if (!session) return <AuthScreen />;
+  if (!session) return <Landing />;
 
   if (creating) {
     return (
@@ -421,39 +421,7 @@ function EmptyEvents({ onCreate }: { onCreate: () => void }) {
   );
 }
 
-function JoinByCode() {
-  const [code, setCode] = useState("");
-  return (
-    <div className="flex gap-px">
-      <input
-        value={code}
-        onChange={(e) => setCode(e.target.value.toUpperCase())}
-        placeholder="EVENT CODE"
-        maxLength={6}
-        className="flex-1 min-w-0 bg-t1-surface px-4 py-4 outline-0 border-0 text-[16px] tracking-[4px] placeholder:text-t1-muted/60 uppercase"
-      />
-      <button
-        disabled={code.trim().length < 4}
-        onClick={() => (window.location.href = `/join/${code.trim()}`)}
-        className="bg-t1-text text-t1-bg px-6 text-[11px] uppercase tracking-[1px] disabled:bg-t1-disabled disabled:text-t1-ink"
-      >
-        Join
-      </button>
-    </div>
-  );
-}
 
-/** The mark, full-bleed, over the sign-in actions. Matches the "Sign in" frames in Figma. */
-function AuthScreen() {
-  return (
-    <Screen>
-      <div className="flex-1 bg-t1-surface flex items-center justify-center pt-10 overflow-hidden">
-        <T1Logo className="w-full max-w-[720px] h-auto" />
-      </div>
-      <SignInButtons />
-    </Screen>
-  );
-}
 
 /**
  * One scrolling form: type → format → product (limited) → teams → rounds → round timer → players.

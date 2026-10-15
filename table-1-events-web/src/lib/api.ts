@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import type { User } from "@supabase/supabase-js";
 import type {
   AccountOverview,
   DraftableSet,
@@ -279,6 +280,58 @@ export async function signInWith(provider: OAuthProvider, returnTo = window.loca
     options: { redirectTo: returnTo },
   });
   if (error) throw error;
+}
+
+/** Email accounts start without a name; one is required before the app opens. Apple and Google bring theirs. */
+export function needsName(user: User | null | undefined): boolean {
+  const ids = user?.identities ?? [];
+  if (!user || ids.length === 0 || !ids.every((i) => i.provider === "email")) return false;
+  return !String(user.user_metadata?.first_name ?? "").trim();
+}
+
+/** First and last name: kept on the account and shown in events as "First Last". */
+export async function saveName(userId: string, first: string, last: string) {
+  const f = first.trim();
+  const l = last.trim();
+  const full = `${f} ${l}`;
+  await setDisplayName(userId, full);
+  const { error } = await supabase.auth.updateUser({ data: { first_name: f, last_name: l, full_name: full } });
+  if (error) throw error;
+}
+
+/** Where the email link should land after signing in, when it is opened in this browser. */
+const EMAIL_RETURN_KEY = "t1.signin.returnTo";
+
+/** Sends the sign-in email: a link (opens the app when installed) and the same one-time code. */
+export async function sendEmailCode(email: string, returnTo = window.location.pathname + window.location.search) {
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+  if (error) throw error;
+  try {
+    localStorage.setItem(EMAIL_RETURN_KEY, returnTo);
+  } catch {
+    /* private mode: the link lands on Home */
+  }
+}
+
+/** The code typed from the email. */
+export async function verifyEmailCode(email: string, code: string) {
+  const { error } = await supabase.auth.verifyOtp({ email, token: code, type: "email" });
+  if (error) throw error;
+}
+
+/** The email's link (/auth/confirm?token_hash=…&type=email). Returns where to go next. */
+export async function verifyEmailLink(tokenHash: string): Promise<string> {
+  const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "email" });
+  if (error) throw error;
+  let next = "/";
+  try {
+    next = localStorage.getItem(EMAIL_RETURN_KEY) || "/";
+    localStorage.removeItem(EMAIL_RETURN_KEY);
+  } catch {
+    /* ignore */
+  }
+  // Same-origin paths only.
+  return next.startsWith("/") && !next.startsWith("//") ? next : "/";
 }
 
 export interface JoinQr {

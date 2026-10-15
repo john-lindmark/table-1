@@ -3423,6 +3423,86 @@
           ]
         }
       }
+    },
+    "scan_report": {
+      "note": "Records a scan the user corrected by what they did (deleted it, changed its printing, or added a card by hand after a deletion or a miss) as a matcher test case (contract/trades-2026-10-16.md, Scanning). Text only. removed: no corrected card; missed: no matched card; the rest need both. At most 12 frames of 80 lines; 200 reports a day per account. Not sent when the device's Improve scanning switch is off. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_kind": {
+            "type": "string",
+            "enum": [
+              "wrong_card",
+              "wrong_printing",
+              "removed",
+              "missed"
+            ]
+          },
+          "p_platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android",
+              "web"
+            ]
+          },
+          "p_frames": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+              "type": "array",
+              "maxItems": 80,
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "OCR lines of the last frames before the take, oldest first, top of frame first"
+          },
+          "p_matched_card_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "p_matched_exact": {
+            "type": "boolean"
+          },
+          "p_corrected_card_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "p_app_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_pack_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_owned_only": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "p_kind",
+          "p_platform",
+          "p_frames",
+          "p_matched_card_id",
+          "p_matched_exact"
+        ]
+      },
+      "result": {
+        "type": "string",
+        "format": "uuid"
+      }
     }
   },
   "functions": {

@@ -5,6 +5,9 @@
 //   small     .accurate at half size (the card further from the camera)
 //   multi     .accurate with automatic language detection (Japanese, Chinese, Korean, Cyrillic read as such; the
 //             scanner reads like this only once it asks for those languages, see testdata/scan/README.md)
+//   title     the card's title bar read on its own, then `multi`: the card rectangle (VNDetectRectanglesRequest),
+//             deskewed, its top 14% left of the mana cost cropped, upscaled 2x and read like `multi`. When no
+//             card-shaped rectangle is found it is `multi` as is.
 // The unit tests on iOS and Android run the matcher over these lines, so OCR runs once here, not in the tests.
 //
 // With `motion`, it writes testdata/scan/motion.json instead: for each photo, a 2.4 s clip of 12 frames (one every
@@ -42,6 +45,49 @@ func scaled(_ image: CGImage, _ s: Double) -> CGImage {
     ctx.interpolationQuality = .medium
     ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
     return ctx.makeImage()!
+}
+
+// MARK: title bar
+
+let ci = CIContext(options: [.cacheIntermediates: false])
+
+/// The card in the photo (the largest card-shaped rectangle), deskewed to an upright 630×880 image.
+func card(_ image: CGImage) throws -> CIImage? {
+    let r = VNDetectRectanglesRequest()
+    r.minimumAspectRatio = 0.6
+    r.maximumAspectRatio = 0.85
+    r.minimumSize = 0.2
+    r.maximumObservations = 4
+    r.quadratureTolerance = 20
+    try VNImageRequestHandler(cgImage: image).perform([r])
+    guard let o = (r.results ?? []).max(by: { $0.boundingBox.width * $0.boundingBox.height < $1.boundingBox.width * $1.boundingBox.height })
+    else { return nil }
+    let w = CGFloat(image.width), h = CGFloat(image.height)
+    var (tl, tr, br, bl) = (o.topLeft, o.topRight, o.bottomRight, o.bottomLeft)
+    // A card lying sideways: the long side is its height.
+    if hypot((tr.x - tl.x) * w, (tr.y - tl.y) * h) > hypot((tl.x - bl.x) * w, (tl.y - bl.y) * h) { (tl, tr, br, bl) = (tr, br, bl, tl) }
+    let f = CIFilter(name: "CIPerspectiveCorrection")!
+    f.setValue(CIImage(cgImage: image), forKey: kCIInputImageKey)
+    for (key, p) in [("inputTopLeft", tl), ("inputTopRight", tr), ("inputBottomRight", br), ("inputBottomLeft", bl)] {
+        f.setValue(CIVector(x: p.x * w, y: p.y * h), forKey: key)
+    }
+    guard let out = f.outputImage else { return nil }
+    let e = out.extent
+    return out.transformed(by: CGAffineTransform(translationX: -e.minX, y: -e.minY))
+        .transformed(by: CGAffineTransform(scaleX: 630 / e.width, y: 880 / e.height))
+}
+
+/// The title bar of a deskewed card: the top 14%, left of the mana cost, upscaled 2x.
+func titleBar(_ card: CIImage) -> CGImage? {
+    let rect = CGRect(x: 630 * 0.04, y: 880 * 0.86, width: 630 * 0.76, height: 880 * 0.14)
+    let crop = card.cropped(to: rect).transformed(by: CGAffineTransform(translationX: -rect.minX, y: -rect.minY))
+        .transformed(by: CGAffineTransform(scaleX: 2, y: 2))
+    return ci.createCGImage(crop, from: crop.extent)
+}
+
+func readTitle(_ image: CGImage) throws -> [String] {
+    guard let c = try card(image), let bar = titleBar(c) else { return [] }
+    return try read(bar, level: .accurate, detectLanguage: true)
 }
 
 // MARK: movement
@@ -89,8 +135,6 @@ func path(_ file: String, kind: Int) -> (Double) -> Pose {
                     roll: roll.at(t, envelope: e), pitch: pitch.at(t, envelope: e), yaw: yaw.at(t, envelope: e))
     }
 }
-
-let ci = CIContext(options: [.cacheIntermediates: false])
 
 /// The frame the camera sees for a pose, blurred along the card's movement since the previous frame.
 func frame(_ image: CGImage, _ p: Pose, previous q: Pose) -> CGImage {
@@ -158,11 +202,13 @@ for row in rows {
         FileHandle.standardError.write("can't read \(file)\n".data(using: .utf8)!)
         continue
     }
+    let multi = try read(image, level: .accurate, detectLanguage: true)
     out[file] = [
         "accurate": try read(image, level: .accurate),
         "fast": try read(image, level: .fast),
         "small": try read(scaled(image, 0.5), level: .accurate),
-        "multi": try read(image, level: .accurate, detectLanguage: true),
+        "multi": multi,
+        "title": try readTitle(image) + multi,
     ]
     FileHandle.standardError.write("\(file): \(out[file]!["accurate"]!.first ?? "-")\n".data(using: .utf8)!)
 }

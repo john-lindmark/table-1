@@ -11,7 +11,7 @@ struct PlayerLiveActivity: Widget {
                            stale: context.isStale)
                 .activityBackgroundTint(W1.bg)
                 .activitySystemActionForegroundColor(W1.accent)
-                .widgetURL(URL(string: "table1://event/\(context.attributes.eventId)"))
+                .widgetURL(URL(string: "table1://event/\(context.attributes.eventId)?src=live_activity"))
         } dynamicIsland: { context in
             let s = context.state
             let snap = LiveSnapshot(eventId: context.attributes.eventId, eventName: context.attributes.eventName,
@@ -51,7 +51,7 @@ struct PlayerLiveActivity: Widget {
                 }
             }
             .keylineTint(W1.accent)
-            .widgetURL(URL(string: "table1://event/\(context.attributes.eventId)"))
+            .widgetURL(URL(string: "table1://event/\(context.attributes.eventId)?src=dynamic_island"))
         }
     }
 }

@@ -44,6 +44,7 @@ import site.table1.events.ui.components.record
 import site.table1.events.ui.components.T1AlertDialog
 import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.T1Switch
+import site.table1.events.library.ScanReports
 import site.table1.events.ui.components.T1TextField
 import site.table1.events.ui.theme.T1
 
@@ -122,6 +123,14 @@ fun AccountScreen(foregrounds: Int) {
                 }
                 ListRow("Nearby alerts", "Get a Join / Decline alert when an event opens near you", onClick = toggleAlerts) {
                     T1Switch(alertsOn) { toggleAlerts() }
+                }
+            }
+            item {
+                var scanReports by remember { mutableStateOf(ScanReports.enabled) }
+                val toggle = { scanReports = !scanReports; ScanReports.enabled = scanReports }
+                ListRow("Improve scanning", "When you fix a scanned card, send the text the camera read (no photos) so we can test the scanner",
+                    onClick = toggle) {
+                    T1Switch(scanReports) { toggle() }
                 }
             }
             item {

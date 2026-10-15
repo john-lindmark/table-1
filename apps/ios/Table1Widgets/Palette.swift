@@ -87,5 +87,6 @@ struct MatchActions: View {
 }
 
 extension LiveSnapshot {
-    var deepLink: URL { URL(string: "table1://event/\(eventId)")! }
+    /// `src` tells the app which surface was tapped (telemetry only).
+    func deepLink(src: String) -> URL { URL(string: "table1://event/\(eventId)?src=\(src)")! }
 }

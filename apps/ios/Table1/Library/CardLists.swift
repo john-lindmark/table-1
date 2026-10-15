@@ -196,6 +196,7 @@ final class ListsStore {
         lists[i] = CardList(id: l.id, kind: l.kind, name: l.name, format: l.format, versions: l.versions + [next])
         openEdit[listId] = nil
         send("list_restore", ["p_list_id": .string(listId), "p_version": .integer(number)])
+        Telemetry.capture("list_version_restored", ["kind": l.kind.rawValue])
         return next
     }
 
@@ -205,7 +206,9 @@ final class ListsStore {
 
     /// A new list, optionally starting with cards (a duplicate, an import or a found decklist).
     @discardableResult
-    func create(kind: CardList.Kind, name: String, format: String, entries: [CardList.Entry] = [], note: String = "Created") -> CardList {
+    /// `from` is for telemetry only: new / duplicate / import / finder.
+    func create(kind: CardList.Kind, name: String, format: String, entries: [CardList.Entry] = [], note: String = "Created",
+                from: String = "new") -> CardList {
         let l = CardList(id: UUID().uuidString.lowercased(), kind: kind, name: name, format: format,
                          versions: [CardList.Version(number: 1, at: .now, note: note, entries: entries)])
         lists.append(l)
@@ -215,6 +218,7 @@ final class ListsStore {
         }
         send("list_create", ["p_id": .string(l.id), "p_kind": .string(kind.rawValue), "p_name": .string(name),
                              "p_format": .string(format), "p_entries": .array(wire), "p_note": .string(note)])
+        Telemetry.capture("list_created", ["kind": kind.rawValue, "format": format, "from": from])
         return l
     }
 
@@ -223,10 +227,11 @@ final class ListsStore {
     func duplicate(listId: String) -> CardList? {
         guard let l = list(id: listId), let cur = l.current else { return nil }
         return create(kind: l.kind, name: "\(l.name) (copy)", format: l.format, entries: cur.entries,
-                      note: "Duplicated from \(l.name) v\(cur.number)")
+                      note: "Duplicated from \(l.name) v\(cur.number)", from: "duplicate")
     }
 
     func delete(listId: String) {
+        if let l = list(id: listId) { Telemetry.capture("list_deleted", ["kind": l.kind.rawValue]) }
         lists.removeAll { $0.id == listId }
         send("list_delete", ["p_list_id": .string(listId)])
     }
@@ -1182,6 +1187,7 @@ struct DeckFinderView: View {
                 resolved = await Task.detached(priority: .userInitiated) { db.printings(names: names) }.value
                 if FormatsCheck.known.contains(d.format) { format = d.format }
             }
+            Telemetry.capture("deck_finder_used", ["found": r.deck != nil])
             result = r
         } catch FunctionsError.httpError(_, let data) {
             result = (try? JSONDecoder.snake.decode(DeckFinderResult.self, from: data))
@@ -1206,7 +1212,7 @@ struct DeckFinderView: View {
         }
         let source = [d.placement, d.event, d.date].filter { !$0.isEmpty }.joined(separator: ", ")
         let l = ListsStore.shared.create(kind: .deck, name: String(d.name.prefix(60)), format: format, entries: entries,
-                                         note: source.isEmpty ? "Found online" : String("Found: \(source)".prefix(120)))
+                                         note: source.isEmpty ? "Found online" : String("Found: \(source)".prefix(120)), from: "finder")
         path.removeLast()
         path.append(.list(l.id))
     }
@@ -1501,7 +1507,9 @@ struct ListImportView: View {
     private func create() {
         let host = result?.sourceUrl.flatMap { URL(string: $0)?.host() }
         let l = ListsStore.shared.create(kind: kind, name: String(name.trimmingCharacters(in: .whitespaces).prefix(60)), format: format,
-                                         entries: entries, note: host.map { "Imported from \($0)" } ?? "Imported")
+                                         entries: entries, note: host.map { "Imported from \($0)" } ?? "Imported", from: "import")
+        Telemetry.capture("list_imported", ["kind": kind.rawValue, "from": result?.sourceUrl == nil ? "paste" : "link",
+                                            "cards": entries.reduce(0) { $0 + $1.qty }])
         path.removeLast()
         path.append(.list(l.id))
     }

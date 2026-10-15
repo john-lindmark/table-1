@@ -5,14 +5,19 @@ import Foundation
 // Supabase dependencies, so the unit tests compile it on its own.
 
 /// Same steps as public.card_name_norm: NFKD, lowercase, drop combining marks, æ → ae, œ → oe, drop
-/// apostrophes, every other run outside [a-z0-9] becomes one space, trimmed.
+/// apostrophes, every other run outside [a-z0-9] becomes one space, trimmed. For the scanner's printed names
+/// (N lines) it also keeps Cyrillic, and Han, kana and Hangul with no space between them (Korean word spaces,
+/// "、" and "・" in a name read differently or not at all), recomposed so kana keep their dakuten and Hangul its
+/// syllables. English names have none of these, so their name_norm is unchanged.
 enum CardName {
     static func norm(_ s: String) -> String {
         var out = String.UnicodeScalarView()
-        var gap = false
-        func emit(_ u: Unicode.Scalar) {
-            if gap && !out.isEmpty { out.append(" ") }
+        var gap = false, lastCJK = false, anyCJK = false
+        func emit(_ u: Unicode.Scalar, cjk: Bool = false) {
+            if gap && !out.isEmpty && !(cjk && lastCJK) { out.append(" ") }
             gap = false
+            lastCJK = cjk
+            anyCJK = anyCJK || cjk
             out.append(u)
         }
         if s.utf8.allSatisfy({ $0 < 0x80 }) { // plain ASCII (most names): nothing to decompose
@@ -26,17 +31,36 @@ enum CardName {
             }
             return String(out)
         }
+        // Furigana written into a Japanese name in brackets ("耕（こう）作（さく）"): the card prints it above the name.
+        let s = s.contains("（") || s.contains("(") ? s.replacingOccurrences(of: furigana, with: "", options: .regularExpression) : s
         for u in s.decomposedStringWithCompatibilityMapping.lowercased().unicodeScalars {
             switch u.value {
             case 0x300...0x36F, 0x27, 0x2019: continue // removed outright, not a gap
             case 0xE6: emit("a"); emit("e")
             case 0x153: emit("o"); emit("e")
             case 0x61...0x7A, 0x30...0x39, 0x430...0x44F: emit(u) // Cyrillic too: printed names (N lines) are read in Russian
+            case _ where isCJK(u.value): emit(u, cjk: true)
             default: gap = true
             }
         }
-        return String(out)
+        return anyCJK ? String(out).precomposedStringWithCanonicalMapping : String(out)
     }
+
+    private static let furigana = "[（(][\u{3041}-\u{309F}\u{30A0}-\u{30FF}]+[）)]"
+
+    /// Han, kana (with the combining dakuten NFKD splits off, and the long-vowel mark, not the middle dot "・") and Hangul.
+    static func isCJK(_ v: UInt32) -> Bool {
+        switch v {
+        case 0x1100...0x11FF, 0x3005...0x3007, 0x3041...0x3096, 0x3099...0x309A, 0x309D...0x309F, 0x30A1...0x30FA,
+             0x30FC...0x30FF, 0x3400...0x4DBF, 0x4E00...0x9FFF, 0xAC00...0xD7A3, 0xF900...0xFAFF, 0x20000...0x3134F:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// True when the normalized text has Han, kana or Hangul in it.
+    static func hasCJK(_ s: String) -> Bool { s.unicodeScalars.contains { isCJK($0.value) } }
 }
 
 struct PackHeader: Equatable {

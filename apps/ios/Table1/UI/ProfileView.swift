@@ -6,13 +6,16 @@ struct AccountView: View {
     @Environment(SessionModel.self) private var session
     @State private var overview: AccountOverview?
     @State private var alertsOn = false
+    /// Send scan corrections as matcher test cases (ScanReports). On by default.
+    @AppStorage(ScanReports.key) private var scanReports = true
+    @State private var sharing = Telemetry.sharing
     @State private var showAllRivals = false
     @State private var editingName = false
     @State private var nameDraft = ""
     @State private var confirmDelete = false
     @State private var deleting = false
     @State private var demoBusy = false
-    @State private var isTest = BuildFlavor.isTest
+    @State private var isDemoTester = false
     @State private var error: String?
     @State private var notice: String?
 
@@ -60,14 +63,20 @@ struct AccountView: View {
                     }
                 }
                 .buttonStyle(.plain)
+                T1Switch(title: "Improve scanning",
+                         detail: "When you fix a scanned card, send the text the camera read (no photos) so we can test the scanner",
+                         isOn: $scanReports)
+                T1Switch(title: "Share usage and crash data",
+                         detail: "Which features you use and crash reports, tied to your account id only: never names, cards or events",
+                         isOn: Binding(get: { sharing }, set: { sharing = $0; Telemetry.setSharing($0) }))
                 Button { if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } } label: {
                     ListRow(title: "Location, notifications, Live Activities", detail: "Managed in iOS Settings") { LabelText("Open", color: T1.text) }
                 }
                 .buttonStyle(.plain)
 
-                if isTest {
-                    Section1("Developer · TestFlight only")
-                    Notice("Sample events, opponents and results on your account. Only TestFlight and Xcode builds show them; your real record never includes them.")
+                if isDemoTester {
+                    Section1("Developer · testers only")
+                    Notice("Sample events, opponents and results on your account. Only accounts on the tester list see them; your real record never includes them.")
                     HStack(spacing: 1) {
                         Ghost(text: demoBusy ? "Working…" : "Load / reset demo", accent: true) { demo(seed: true) }
                         Ghost(text: "Remove demo") { demo(seed: false) }
@@ -119,7 +128,7 @@ struct AccountView: View {
     }
 
     private func load() async {
-        isTest = await BuildFlavor.resolve()
+        isDemoTester = await Repo.isDemoTester()
         await session.loadSettings()
         do {
             overview = try await Repo.accountOverview()

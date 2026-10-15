@@ -106,6 +106,7 @@ final class TradesStore {
     }
 
     func delete(_ t: Trade) async {
+        Telemetry.capture("trade_deleted", ["status": t.status])
         trades.removeAll { $0.id == t.id }
         if isDemo { return }
         do { try await supabase.rpc("trade_delete", params: ["p_trade_id": AnyJSON.string(t.id)]).execute() } catch {
@@ -332,6 +333,7 @@ struct TradeView: View {
         T1Overlays.shared.present(full: true) {
             TradePickView(give: give) { line in
                 add(line, give: give)
+                ScanReports.addedByHand(line.cardId)
             }
         }
     }
@@ -345,8 +347,14 @@ struct TradeView: View {
                     let condition = give ? bestOwnedCondition(c.printing.cardId, c.finish) : c.condition
                     add(TradeLine(cardId: c.printing.cardId, finish: c.finish, condition: condition, lang: "en", qty: 1), give: give)
                 }
+                Telemetry.capture("scan_session_ended", ["context": "trade", "cards": cards.count,
+                                                         "exact": cards.filter(\.exact).count, "cancelled": false])
                 T1Overlays.shared.dismissPanel()
-            }, onCancel: { T1Overlays.shared.dismissPanel() })
+            }, onCancel: {
+                Telemetry.capture("scan_session_ended", ["context": "trade", "cards": 0, "exact": 0, "cancelled": true])
+                T1Overlays.shared.dismissPanel()
+            })
+            .screen("card_scanner")
         }
     }
 
@@ -433,12 +441,13 @@ struct TradeView: View {
         if conflicts.isEmpty { run(removeFromLists: []); return }
         let lines = conflicts.map { "\(names[$0.oracleIdx] ?? "A card") in \($0.list.name)" }
         T1Overlays.shared.showMenu("Cards in your decks", message: "You're giving away copies these lists use: \(lines.joined(separator: ", ")).", [
-            T1MenuItem(title: "Remove them from the lists", detail: "Then confirm the trade") { run(removeFromLists: conflicts) },
-            T1MenuItem(title: "Keep them listed", detail: "The lists will show them as missing") { run(removeFromLists: []) },
+            T1MenuItem(title: "Remove them from the lists", detail: "Then confirm the trade") { run(removeFromLists: conflicts, choice: "removed") },
+            T1MenuItem(title: "Keep them listed", detail: "The lists will show them as missing") { run(removeFromLists: [], choice: "kept") },
         ])
     }
 
-    private func run(removeFromLists conflicts: [(list: CardList, oracleIdx: Int, short: Int)]) {
+    /// `choice` is the list-conflict answer, for telemetry: none / removed / kept.
+    private func run(removeFromLists conflicts: [(list: CardList, oracleIdx: Int, short: Int)], choice: String = "none") {
         guard !busy else { return }
         busy = true
         error = nil
@@ -449,6 +458,8 @@ struct TradeView: View {
                 let saved = try await store.save(trade, partner: partner.isEmpty ? nil : partner, gives: gives, gets: gets)
                 trade = saved
                 _ = try await store.confirm(saved)
+                Telemetry.capture("trade_confirmed", ["gives": gives.reduce(0) { $0 + $1.qty }, "gets": gets.reduce(0) { $0 + $1.qty },
+                                                      "list_conflict": choice])
                 trade = store.trade(saved.id) ?? saved
                 removeFromLists(conflicts)
             } catch {

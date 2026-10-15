@@ -74,7 +74,7 @@ struct MatchWidgetView: View {
                 NoMatchView(family: family)
             }
         }
-        .widgetURL(entry.snap?.deepLink ?? URL(string: "table1://home"))
+        .widgetURL(entry.snap?.deepLink(src: "widget") ?? URL(string: "table1://home?src=widget"))
         .containerBackground(for: .widget) {
             if family == .systemSmall || family == .systemMedium { W1.bg } else { Color.clear }
         }

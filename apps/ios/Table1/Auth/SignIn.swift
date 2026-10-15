@@ -4,7 +4,7 @@ import GoogleSignIn
 import Supabase
 import UIKit
 
-/// Apple and Google only, both through the system sheets (no browser hop).
+/// Apple and Google through the system sheets (no browser hop), or a one-time email code.
 enum SignIn {
     // MARK: Apple
 
@@ -27,6 +27,7 @@ enum SignIn {
         try await supabase.auth.signInWithIdToken(
             credentials: OpenIDConnectCredentials(provider: .apple, idToken: idToken, nonce: currentNonce)
         )
+        Telemetry.capture("signed_in", ["method": "apple"])
         // Remembered so launch can ask Apple whether this Apple ID still allows Table 1.
         UserDefaults.standard.set(credential.user, forKey: appleUserKey)
         // Apple sends the name only on the very first authorization.
@@ -60,9 +61,56 @@ enum SignIn {
                 accessToken: result.user.accessToken.tokenString
             )
         )
+        Telemetry.capture("signed_in", ["method": "google"])
     }
 
-    static func signOut() async {
+    // MARK: Email
+
+    /// Sends the sign-in email (a link and the same code). New addresses get an account.
+    static func sendEmailCode(to email: String) async throws {
+        try await supabase.auth.signInWithOTP(email: email, shouldCreateUser: true)
+        Telemetry.capture("sign_in_email_sent")
+    }
+
+    /// The code typed from the email.
+    static func verifyEmailCode(email: String, code: String) async throws {
+        try await supabase.auth.verifyOTP(email: email, token: code, type: .email)
+        Telemetry.capture("signed_in", ["method": "email_code"])
+    }
+
+    /// The email's button: https://table-1.site/auth/confirm?token_hash=…&type=email, opened as a universal link.
+    /// Returns false for any other URL.
+    static func handleEmailLink(_ url: URL) async throws -> Bool {
+        guard url.host == "table-1.site", url.path.hasPrefix("/auth/confirm"),
+              let hash = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first(where: { $0.name == "token_hash" })?.value, !hash.isEmpty else { return false }
+        try await supabase.auth.verifyOTP(tokenHash: hash, type: .email)
+        Telemetry.capture("signed_in", ["method": "email_link"])
+        return true
+    }
+
+    /// Email accounts start without a name, so one is required before the app opens.
+    /// Apple and Google bring theirs; any account that has a first name saved is done.
+    static func needsName(_ user: User?) -> Bool {
+        guard let user, let identities = user.identities, !identities.isEmpty,
+              identities.allSatisfy({ $0.provider == "email" }) else { return false }
+        return (user.userMetadata["first_name"]?.stringValue ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    /// First and last name: kept on the account and shown in events as "First Last".
+    static func saveName(first: String, last: String) async throws {
+        let first = first.trimmingCharacters(in: .whitespaces), last = last.trimmingCharacters(in: .whitespaces)
+        let full = "\(first) \(last)"
+        try await Repo.setDisplayName(full)
+        _ = try await supabase.auth.update(user: UserAttributes(data: [
+            "first_name": .string(first), "last_name": .string(last), "full_name": .string(full),
+        ]))
+        Telemetry.capture("name_added")
+    }
+
+    static func signOut(reason: String = "user") async {
+        Telemetry.capture("signed_out", ["reason": reason])
+        Telemetry.reset()
         await LiveActivityController.shared.didSignOut()
         try? await supabase.auth.signOut()
         GIDSignIn.sharedInstance.signOut()
@@ -88,7 +136,7 @@ enum SignIn {
         }
         if state == .revoked || state == .notFound {
             UserDefaults.standard.removeObject(forKey: appleUserKey)
-            await signOut()
+            await signOut(reason: "apple_revoked")
         }
     }
 
@@ -100,6 +148,8 @@ enum SignIn {
     static func deleteAccount() async throws {
         let code: String? = isAppleUser ? try await appleAuthorizationCode() : nil
         try await Repo.deleteAccount(appleAuthorizationCode: code)
+        Telemetry.capture("account_deleted")
+        Telemetry.reset()
         UserDefaults.standard.removeObject(forKey: appleUserKey)
         await LiveActivityController.shared.didSignOut()
         try? await supabase.auth.signOut(scope: .local)

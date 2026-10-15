@@ -26,11 +26,17 @@
 				<string>table1</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.89942584264-hdu3fdk26n4p77hoeg95levoqf3pb8k1</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>GIDClientID</key>
-	<string>REPLACE_WITH_IOS_CLIENT_ID.apps.googleusercontent.com</string>
+	<string>89942584264-hdu3fdk26n4p77hoeg95levoqf3pb8k1.apps.googleusercontent.com</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSCameraUsageDescription</key>
@@ -39,6 +45,12 @@
 	<string>Find events happening near you and pin your event where you are. Your location is never stored.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<key>T1PostHogHost</key>
+	<string>https://us.i.posthog.com</string>
+	<key>T1PostHogKey</key>
+	<string>phc_oHJjVpcbVgGC3nKN5bLq2PvnbLeoSaBYKHHUkZVcM4Mx</string>
+	<key>T1SentryDSN</key>
+	<string>https://6097387cbe32a6173982508c203109b2@o4512260999675904.ingest.us.sentry.io/4512261002428416</string>
 	<key>T1SupabaseAnonKey</key>
 	<string>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhb3poZmNidnFyZ2trcmloa3JkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwMDE5MTUsImV4cCI6MjA3OTU3NzkxNX0.7TyCLK4NZsiKXbLU504T3CxLdnHrp95FVKgpnKEMrKI</string>
 	<key>T1SupabaseURL</key>

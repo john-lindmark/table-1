@@ -52,6 +52,21 @@ class CardNameTest {
         assertEquals("азор законотворец", CardName.norm("Азор, Законотворец"))
         assertEquals("легендарныи еж", CardName.norm("Легендарный — Ёж"))
     }
+
+    /**
+     * Japanese, Chinese and Korean printed names keep their characters, with nothing between them: "、", "・" and
+     * Korean word spaces don't count; half-width kana and split dakuten come back as one full-width character.
+     */
+    @Test fun keepsCjk() {
+        assertEquals("死者の災厄ケイヤ", CardName.norm("死者の災厄、ケイヤ"))
+        assertEquals("ジェイスベレレン", CardName.norm("ジェイス・ベレレン"))
+        assertEquals("ガイア", CardName.norm("ｶﾞｲｱ"))
+        assertEquals("불꽃그림자소환술", CardName.norm("불꽃그림자 소환술"))
+        assertEquals("暴行大师 3bb", CardName.norm("暴行大师 3BB"))
+        assertEquals("a i m ボット", CardName.norm("A.I.M.ボット"))
+        assertEquals("耕作", CardName.norm("耕（こう）作（さく）"))
+        assertEquals("沼", CardName.norm("沼（ぬま）"))
+    }
 }
 
 class CatalogPackTest {

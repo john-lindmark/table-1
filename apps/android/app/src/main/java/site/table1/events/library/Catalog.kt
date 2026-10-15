@@ -244,7 +244,7 @@ data class CatalogState(
  */
 object CatalogStore {
     /** Bumped when the local SQLite schema changes; a file built by an older schema is rebuilt from a fresh pack. */
-    private const val SCHEMA = "s4"
+    private const val SCHEMA = "s5"   // s5: name_norm keeps Han, kana and Hangul
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(CatalogState())

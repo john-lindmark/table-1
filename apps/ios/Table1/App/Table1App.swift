@@ -2,13 +2,16 @@ import AuthenticationServices
 import GoogleSignIn
 import Supabase
 import SwiftUI
+import UserNotifications
 
 @main
 struct Table1App: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var session = SessionModel()
     @Environment(\.scenePhase) private var phase
 
     init() {
+        Telemetry.start()
         // Also runs when iOS wakes the app in the background for a pushed Live Activity.
         LiveActivityController.shared.start()
     }
@@ -39,13 +42,14 @@ struct Table1App: App {
                     if GIDSignIn.sharedInstance.handle(url) { return }
                     // Widget / Live Activity taps: table1://event/<id>
                     if url.scheme == "table1" {
+                        Telemetry.surfaceOpened(url)
                         if url.host == "event", let id = url.pathComponents.dropFirst().first { session.pendingEvent = id }
                         return
                     }
-                    if let link = JoinLink(url.absoluteString) { session.pendingJoin = link }
+                    session.openWebLink(url)
                 }
                 .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
-                    if let link = JoinLink(activity.webpageURL?.absoluteString) { session.pendingJoin = link }
+                    if let url = activity.webpageURL { session.openWebLink(url) }
                 }
                 .task { await session.watchAuth() }
                 // Apple ID access can be withdrawn from Settings at any time.
@@ -57,6 +61,7 @@ struct Table1App: App {
                         Task { await session.loadSettings() }
                         Task { await SignIn.checkAppleCredential() }
                         Task { await LiveActivityController.shared.refresh() }
+                        Telemetry.syncSurfaces()
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(
@@ -67,12 +72,29 @@ struct Table1App: App {
     }
 }
 
+/// Notification delegate: without one iOS reports taps to nobody, so PostHog can't see push opens
+/// (`$push_notification_opened`, captured by the SDK) and foreground pushes would be silent.
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async
+        -> UNNotificationPresentationOptions { [.banner, .list, .sound] }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {}
+}
+
 /// Signed in or not, plus a QR join that arrived before sign-in finished.
 @MainActor
 @Observable
 final class SessionModel {
     enum State { case loading, signedOut, signedIn }
     var state: State = .loading
+    /// A new email account: the name step comes before the app (SignIn.needsName).
+    var needsName = false
     var pendingJoin: JoinLink?
     /// An event opened from a widget or the Live Activity.
     var pendingEvent: String?
@@ -86,10 +108,29 @@ final class SessionModel {
     private(set) var trackerMode: TrackerMode = TrackerMode(rawValue: UserDefaults.standard.string(forKey: TrackerMode.cacheKey) ?? "") ?? .elsewhere
     /// The life tracker, shown full screen over the tabs. Nil match = local session.
     var tracker: TrackerLaunch?
+    /// Why the sign-in email's link didn't sign in (used or expired); shown on the sign-in screen.
+    var emailLinkError: String?
+
+    /// https://table-1.site links: the sign-in email's button, or the owner's join QR.
+    func openWebLink(_ url: URL) {
+        if url.path.hasPrefix("/auth/confirm") {
+            emailLinkError = nil
+            Task {
+                do { _ = try await SignIn.handleEmailLink(url) } catch {
+                    Telemetry.capture("sign_in_failed", ["method": "email_link", "reason": "error"])
+                    emailLinkError = "That sign-in link has expired or was already used. Send a new one."
+                }
+            }
+            return
+        }
+        if let link = JoinLink(url.absoluteString) { pendingJoin = link }
+    }
 
     func watchAuth() async {
         for await (event, session) in supabase.auth.authStateChanges {
             state = session == nil ? .signedOut : .signedIn
+            needsName = SignIn.needsName(session?.user)
+            if let id = session?.user.id.uuidString.lowercased() { Telemetry.identify(id) }
             if session != nil, event == .initialSession || event == .signedIn {
                 Task { await LiveActivityController.shared.didSignIn() }
                 Task { await loadSettings() }
@@ -100,6 +141,7 @@ final class SessionModel {
     func openTracker(matchId: String?) {
         T1Overlays.shared.dismissAll()
         tracker = TrackerLaunch(matchId: matchId)
+        Telemetry.capture("life_tracker_opened", ["mode": matchId == nil ? "local" : "match"])
     }
 
     func loadSettings() async {
@@ -142,8 +184,9 @@ struct RootView: View {
     var body: some View {
         switch session.state {
         case .loading: T1Screen { Bar(title: "Table 1") }
-        case .signedOut: SignInView()
-        case .signedIn: SignedInView()
+        case .signedOut: SignInView().screen("sign_in")
+        case .signedIn:
+            if session.needsName { NameView().screen("sign_in_name") } else { SignedInView() }
         }
     }
 }
@@ -180,13 +223,14 @@ struct SignedInView: View {
             ZStack {
                 NavigationStack(path: $path) {
                     EventsHomeView(path: $path, isFront: tab == .events)
+                        .screen("events_home", when: tab == .events)
                         .navigationDestination(for: Route.self) { route in
                             switch route {
-                            case .event(let id): EventView(eventId: id, path: $path)
-                            case .create: CreateEventView(path: $path)
-                            case .nearby: NearbyView(path: $path)
-                            case .scan: ScanView { link in join(link) }
-                            case .addPlayers(let id): AddPlayersView(eventId: id)
+                            case .event(let id): EventView(eventId: id, path: $path).screen("event")
+                            case .create: CreateEventView(path: $path).screen("create_event")
+                            case .nearby: NearbyView(path: $path).screen("nearby")
+                            case .scan: ScanView { link in join(link, via: "qr") }.screen("scan_qr")
+                            case .addPlayers(let id): AddPlayersView(eventId: id).screen("add_players")
                             }
                         }
                 }
@@ -196,13 +240,14 @@ struct SignedInView: View {
 
                 NavigationStack(path: $libraryPath) {
                     LibraryHomeView(path: $libraryPath)
+                        .screen("library_home", when: tab == .collection)
                         .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $libraryPath) }
                 }
                 .opacity(tab == .collection ? 1 : 0)
                 .allowsHitTesting(tab == .collection)
                 .accessibilityHidden(tab != .collection)
 
-                NavigationStack { AccountView() }
+                NavigationStack { AccountView().screen("account", when: tab == .account) }
                     .opacity(tab == .account ? 1 : 0)
                     .allowsHitTesting(tab == .account)
                     .accessibilityHidden(tab != .account)
@@ -241,6 +286,7 @@ struct SignedInView: View {
                     T1Overlays.shared.dismissAll()
                     session.tracker = nil
                 }
+                    .screen("life_tracker")
                     .id(launch.id)
                     .transition(.move(edge: .bottom))
             }
@@ -260,7 +306,7 @@ struct SignedInView: View {
         .task(id: session.pendingJoin) {
             if let link = session.pendingJoin {
                 session.pendingJoin = nil
-                join(link)
+                join(link, via: "link")
             }
         }
         .alert("Couldn't join", isPresented: Binding(get: { joinError != nil }, set: { if !$0 { joinError = nil } })) {
@@ -282,13 +328,21 @@ struct SignedInView: View {
             Task { await ListsStore.shared.sync() }
             CatalogStore.shared.load(userInitiated: true)
         }
+        // Hidden tabs stay alive, so a tab root's onAppear doesn't fire on a switch.
+        if next != tab {
+            switch next {
+            case .events: if path.isEmpty { Telemetry.screen("events_home") }
+            case .collection: if libraryPath.isEmpty { Telemetry.screen("library_home") }
+            case .account: Telemetry.screen("account")
+            }
+        }
         tab = next
     }
 
-    private func join(_ link: JoinLink) {
+    private func join(_ link: JoinLink, via: String) {
         Task {
             do {
-                let seat = try await Repo.joinByQr(link)
+                let seat = try await Repo.joinByQr(link, via: via)
                 session.autoOpenArmed = false
                 tab = .events
                 path = [.event(seat.eventId)]

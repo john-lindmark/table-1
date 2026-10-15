@@ -281,6 +281,8 @@ object CollectionStore {
             put("p_idempotency_key", UUID.randomUUID().toString())
         }
         val res = retryOnce { T1App.supabase.postgrest.rpc("collection_apply", params).decodeAs<ApplyResult>() }
+        // A card added by hand right after a scan was deleted or missed tells which card it was (ScanReports).
+        if (source == "manual") ops.firstOrNull { (it.delta ?: 0) > 0 }?.let { ScanReports.addedByHand(it.cardId) }
         reflect(res)
         syncInBackground()
         return res

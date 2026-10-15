@@ -57,6 +57,19 @@ final class CardNameTests: XCTestCase {
         XCTAssertEqual(CardName.norm("Азор, Законотворец"), "азор законотворец")
         XCTAssertEqual(CardName.norm("Легендарный — Ёж"), "легендарныи еж")
     }
+
+    /// Japanese, Chinese and Korean printed names keep their characters, with nothing between them: "、", "・" and
+    /// Korean word spaces don't count; half-width kana and split dakuten come back as one full-width character.
+    func testKeepsCJK() {
+        XCTAssertEqual(CardName.norm("死者の災厄、ケイヤ"), "死者の災厄ケイヤ")
+        XCTAssertEqual(CardName.norm("ジェイス・ベレレン"), "ジェイスベレレン")
+        XCTAssertEqual(CardName.norm("ｶﾞｲｱ"), "ガイア")
+        XCTAssertEqual(CardName.norm("불꽃그림자 소환술"), "불꽃그림자소환술")
+        XCTAssertEqual(CardName.norm("暴行大师 3BB"), "暴行大师 3bb")
+        XCTAssertEqual(CardName.norm("A.I.M.ボット"), "a i m ボット")
+        XCTAssertEqual(CardName.norm("耕（こう）作（さく）"), "耕作")
+        XCTAssertEqual(CardName.norm("沼（ぬま）"), "沼")
+    }
 }
 
 final class CatalogPackTests: XCTestCase {

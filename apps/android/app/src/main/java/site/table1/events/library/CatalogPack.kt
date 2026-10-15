@@ -10,27 +10,53 @@ import java.util.zip.GZIPInputStream
 
 /**
  * Same steps as public.card_name_norm: NFKD, lowercase, drop combining marks, æ → ae, œ → oe, drop
- * apostrophes, every other run outside [a-z0-9] becomes one space, trimmed.
+ * apostrophes, every other run outside [a-z0-9] becomes one space, trimmed. For the scanner's printed names
+ * (N lines) it also keeps Cyrillic, and Han, kana and Hangul with no space between them (Korean word spaces,
+ * "、" and "・" in a name read differently or not at all), recomposed so kana keep their dakuten and Hangul its
+ * syllables. English names have none of these, so their name_norm is unchanged.
  */
 object CardName {
+    /** Furigana written into a Japanese name in brackets ("耕（こう）作（さく）"): the card prints it above the name. */
+    private val FURIGANA = Regex("[（(][\u3041-\u309F\u30A0-\u30FF]+[）)]")
+
     fun norm(s: String): String {
-        val d = Normalizer.normalize(s, Normalizer.Form.NFKD).lowercase()
+        val plain = if ('（' in s || '(' in s) s.replace(FURIGANA, "") else s
+        val d = Normalizer.normalize(plain, Normalizer.Form.NFKD).lowercase()
         val out = StringBuilder(d.length)
         var gap = false
-        fun emit(c: Char) {
-            if (gap && out.isNotEmpty()) out.append(' ')
+        var lastCjk = false
+        var anyCjk = false
+        fun emit(c: Int, cjk: Boolean = false) {
+            if (gap && out.isNotEmpty() && !(cjk && lastCjk)) out.append(' ')
             gap = false
-            out.append(c)
+            lastCjk = cjk
+            anyCjk = anyCjk || cjk
+            out.appendCodePoint(c)
         }
-        for (c in d) when {
-            c in '̀'..'ͯ' || c == '\'' || c == '’' -> {} // removed outright, not a gap
-            c == 'æ' -> { emit('a'); emit('e') }
-            c == 'œ' -> { emit('o'); emit('e') }
-            c in 'a'..'z' || c in '0'..'9' || c in 'а'..'я' -> emit(c) // Cyrillic too: printed names (N lines) are read in Russian
-            else -> gap = true
+        var i = 0
+        while (i < d.length) {
+            val c = d.codePointAt(i)
+            i += Character.charCount(c)
+            when {
+                c in 0x300..0x36F || c == '\''.code || c == '’'.code -> {} // removed outright, not a gap
+                c == 'æ'.code -> { emit('a'.code); emit('e'.code) }
+                c == 'œ'.code -> { emit('o'.code); emit('e'.code) }
+                c in 'a'.code..'z'.code || c in '0'.code..'9'.code || c in 'а'.code..'я'.code -> emit(c) // Cyrillic too: printed names (N lines) are read in Russian
+                isCjk(c) -> emit(c, cjk = true)
+                else -> gap = true
+            }
         }
-        return out.toString()
+        return if (anyCjk) Normalizer.normalize(out, Normalizer.Form.NFC) else out.toString()
     }
+
+    /** Han, kana (with the combining dakuten NFKD splits off, and the long-vowel mark, not the middle dot "・") and Hangul. */
+    fun isCjk(c: Int): Boolean =
+        c in 0x1100..0x11FF || c in 0x3005..0x3007 || c in 0x3041..0x3096 || c in 0x3099..0x309A || c in 0x309D..0x309F ||
+            c in 0x30A1..0x30FA || c in 0x30FC..0x30FF || c in 0x3400..0x4DBF || c in 0x4E00..0x9FFF || c in 0xAC00..0xD7A3 ||
+            c in 0xF900..0xFAFF || c in 0x20000..0x3134F
+
+    /** True when the text has Han, kana or Hangul in it. */
+    fun hasCjk(s: CharSequence): Boolean = s.codePoints().anyMatch(::isCjk)
 }
 
 data class PackHeader(val version: String, val oracles: Int, val printings: Int)

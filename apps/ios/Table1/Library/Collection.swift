@@ -308,6 +308,11 @@ final class CollectionStore {
             "p_idempotency_key": .string(key),
         ]
         let res: ApplyResult = try await retryOnce { try await supabase.rpc("collection_apply", params: params).execute().value }
+        Telemetry.capture("collection_changed", ["source": source, "ops": ops.count, "copies": ops.reduce(0) { $0 + ($1.delta ?? 0) }])
+        // A card added by hand right after a scan was deleted or missed tells which card it was (ScanReports).
+        if source == "manual", let added = ops.first(where: { ($0.delta ?? 0) > 0 })?.cardId {
+            Task { @MainActor in ScanReports.addedByHand(added) }
+        }
         reflect(res)
         Task { await sync() }
         return res
@@ -324,6 +329,7 @@ final class CollectionStore {
         #endif
         let params: [String: AnyJSON] = ["p_batch_id": .string(batchId), "p_idempotency_key": .string(UUID().uuidString.lowercased())]
         let res: ApplyResult = try await retryOnce { try await supabase.rpc("collection_undo", params: params).execute().value }
+        Telemetry.capture("collection_undone")
         reflect(res)
         Task { await sync() }
         return res

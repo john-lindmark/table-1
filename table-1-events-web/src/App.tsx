@@ -18,6 +18,10 @@ import { Profile } from "./screens/Profile";
 import { QrJoin } from "./screens/QrJoin";
 import { AddPlayers } from "./screens/AddPlayers";
 import { LifeTracker } from "./screens/LifeTracker";
+import { AuthConfirm } from "./screens/AuthConfirm";
+import { DeleteAccountPage, PrivacyPolicy } from "./screens/Legal";
+import { SignInPage } from "./screens/Landing";
+import { NameGate } from "./components/NameGate";
 import type { Board, ListFinish } from "./lib/lists";
 
 /**
@@ -258,13 +262,18 @@ export default function App() {
     <BrowserRouter>
       <RouteAnalytics />
       <Suspense fallback={null}>
+      <NameGate>
       <Routes>
         <Route path="/" element={<HomeRoute />} />
         <Route path="/e/:eventId" element={<OrganizerRoute />} />
         <Route path="/e/:eventId/add" element={<AddPlayersRoute />} />
         <Route path="/join/:code" element={<JoinRoute />} />
         <Route path="/j/:code" element={<QrJoinRoute />} />
+        <Route path="/auth/confirm" element={<AuthConfirm />} />
         <Route path="/me" element={<ProfileRoute />} />
+        <Route path="/sign-in" element={<SignInPage />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/delete-account" element={<DeleteAccountPage />} />
         <Route path="/p/:eventId" element={<PlayerRoute />} />
         <Route path="/s/:eventId" element={<StandingsRoute />} />
         {import.meta.env.DEV && <Route path="/dev/events" element={<EventsDemo />} />}
@@ -287,6 +296,7 @@ export default function App() {
         <Route path="/life/:matchId" element={<LifeRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </NameGate>
       </Suspense>
     </BrowserRouter>
   );

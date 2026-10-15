@@ -7,7 +7,7 @@ import XCTest
 
 /// Lowest accuracy the tests accept: what the set reached when last tuned (README has the numbers).
 private enum Floor {
-    static let englishName = 0.95, englishPrinting = 0.85, foreignName = 0.93
+    static let englishName = 0.95, englishPrinting = 0.85, foreignName = 0.93, cjkName = 0.6
 }
 
 private let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
@@ -95,7 +95,7 @@ final class CardMatcherTests: XCTestCase {
         let cases = try photos()
         var report = ["Still photos (\(cases.count)):"]
         var results: [String: Tally] = [:], englishResults: [String: Tally] = [:]
-        for mode in ["accurate", "fast", "small"] {
+        for mode in ["accurate", "fast", "small", "multi", "title"] {
             var all = Tally(), english = Tally(), foreign = Tally()
             var byTag: [String: Tally] = [:]
             for c in cases {
@@ -126,18 +126,19 @@ final class CardMatcherTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(Double(english.printingOK) / Double(english.printingChecked), Floor.englishPrinting)
         XCTAssertLessThanOrEqual(accurate.exactWrong, 2)
         XCTAssertLessThanOrEqual(results["fast"]!.wrong + results["small"]!.wrong, 1)
+        XCTAssertEqual(results["multi"]!.wrong, 0, "a wrong card from a steady photo read as the scanner reads")
     }
 
-    /// Cards printed in other languages, read two ways: `accurate` is OCR as the scanner reads today (the phone's
-    /// language; Cyrillic comes through, Chinese, Japanese and Korean don't), `multi` is OCR that detects the
-    /// language. Names in other languages come from the catalog pack's N lines (de, es, fr, it, pt, ru so far).
+    /// Cards printed in other languages, read two ways: `accurate` is OCR in the phone's language (Cyrillic comes
+    /// through, Chinese, Japanese and Korean don't), `multi` is OCR that detects the language, as the scanner reads
+    /// since 2026-10-16. Names in other languages come from the catalog pack's N lines.
     func testForeignCards() throws {
         let ocr = try JSONDecoder().decode([String: [String: [String]]].self, from: Data(contentsOf: root.appending(path: "ocr.json")))
         let cases = try photos().filter { $0.lang != "en" }
         let cjk: Set<String> = ["ja", "ko", "zhs", "zht"]
         var report = ["Cards in other languages (\(cases.count)):"]
         var groups: [String: [String: Tally]] = [:]
-        for mode in ["accurate", "multi"] {
+        for mode in ["accurate", "multi", "title"] {
             var byLang: [String: Tally] = [:]
             var byGroup: [String: Tally] = [:]
             for c in cases {
@@ -156,11 +157,52 @@ final class CardMatcherTests: XCTestCase {
             report += byLang.keys.sorted().map { "      \($0): \(byLang[$0]!.line)" }
         }
         print(report.joined(separator: "\n"))
-        for (mode, byGroup) in groups {
+        // `title` (a second pass on the deskewed title bar) is measured, not yet read by the scanner: README.
+        for (mode, byGroup) in groups where mode != "title" {
             for (group, t) in byGroup { XCTAssertEqual(t.wrong, 0, "a wrong card, \(group), \(mode)") }
         }
         let latin = groups["accurate"]!["Latin and Cyrillic"]!
         XCTAssertGreaterThanOrEqual(Double(latin.name) / Double(latin.n), Floor.foreignName)
+        let cjkNames = groups["multi"]!["Chinese, Japanese, Korean"]!
+        XCTAssertGreaterThanOrEqual(Double(cjkNames.name) / Double(cjkNames.n), Floor.cjkName)
+    }
+
+    /// Each still photo as a steady 2.4 s clip (12 frames, 200 ms apart) through ScanLanguage and ScanSteadiness, as
+    /// the scanner runs: frames read like `accurate` (the phone's language) until text names no card for 0.6 s, then
+    /// like `multi` (language detection), and back after misses. Nobody picks a language; this measures what finding
+    /// it costs: cards taken, wrong cards, and time to take.
+    func testLanguageDetection() throws {
+        let ocr = try JSONDecoder().decode([String: [String: [String]]].self, from: Data(contentsOf: root.appending(path: "ocr.json")))
+        let cjk: Set<String> = ["ja", "ko", "zhs", "zht"]
+        var groups: [String: Tally] = [:]
+        var times: [String: [TimeInterval]] = [:]
+        var report = ["Language detection (each photo held 2.4 s, starting in the phone's language):"]
+        for c in try photos() {
+            guard let reads = ocr[c.id], let latin = reads["accurate"], let any = reads["multi"] else { continue }
+            let group = c.lang == "en" ? "English" : cjk.contains(c.lang) ? "Chinese, Japanese, Korean" : "Latin and Cyrillic"
+            let matcher = matcher()
+            var steady = ScanSteadiness(), language = ScanLanguage(readers: 1)
+            var got: (CatalogOracle, CatalogPrinting, Bool, TimeInterval)?
+            for k in 0..<12 {
+                let at = Date(timeIntervalSince1970: Double(k) * 0.2)
+                let lines = language.mode == .latin ? latin : any
+                let m = matcher.match(lines)
+                if let taken = steady.feed(m, at: at), let m { got = (m.oracle, taken.0, taken.1, Double(k) * 0.2); break }
+                language.feed(matched: m != nil, text: !lines.isEmpty, at: at)
+            }
+            if let got, got.0.idx != Self.expectedIdx[CardName.norm(c.name)] { report.append("    WRONG \(c.id): \(got.0.name)") }
+            grade(c, got?.0, got?.1, exact: got?.2 ?? false, into: &groups[group, default: Tally()])
+            if let got { times[group, default: []].append(got.3) }
+        }
+        for g in groups.keys.sorted() {
+            let ts = (times[g] ?? []).sorted()
+            report.append("  \(g): taken \(groups[g]!.line), median \(ts.isEmpty ? 0 : (ts[ts.count / 2] * 10).rounded() / 10) s")
+        }
+        print(report.joined(separator: "\n"))
+        for (g, t) in groups { XCTAssertEqual(t.wrong, 0, "a wrong card taken, \(g)") }
+        let english = groups["English"]!, cjkCards = groups["Chinese, Japanese, Korean"]!
+        XCTAssertGreaterThanOrEqual(Double(english.name) / Double(english.n), Floor.englishName)
+        XCTAssertGreaterThanOrEqual(Double(cjkCards.name) / Double(cjkCards.n), Floor.cjkName)
     }
 
     /// Frames 200 ms apart, as the movement clips were made. Returns the first card taken and when.

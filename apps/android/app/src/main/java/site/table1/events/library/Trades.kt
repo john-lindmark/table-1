@@ -377,7 +377,7 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
         })) { askDelete = false }
     }
     picking?.let { give ->
-        TradePickOverlay(give, onPick = { add(give, it) }, onClose = { picking = null })
+        TradePickOverlay(give, onPick = { add(give, it); ScanReports.addedByHand(it.cardId) }, onClose = { picking = null })
     }
     scanning?.let { give ->
         CardScanOverlay(

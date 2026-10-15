@@ -61,6 +61,8 @@ import site.table1.events.ui.screens.CreateEventScreen
 import site.table1.events.ui.screens.EventScreen
 import site.table1.events.ui.screens.EventsHomeScreen
 import site.table1.events.ui.screens.NearbyScreen
+import site.table1.events.auth.SignIn
+import site.table1.events.ui.screens.NameScreen
 import site.table1.events.ui.screens.SignInScreen
 import site.table1.events.ui.tracker.LifeTrackerScreen
 
@@ -72,7 +74,9 @@ import site.table1.events.ui.tracker.LifeTrackerScreen
 fun AppRoot(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
     val status by T1App.supabase.auth.sessionStatus.collectAsState()
     when (status) {
-        is SessionStatus.Authenticated -> SignedInApp(pendingJoin, onJoinConsumed)
+        is SessionStatus.Authenticated ->
+            if (SignIn.needsName((status as SessionStatus.Authenticated).session.user)) NameScreen()
+            else SignedInApp(pendingJoin, onJoinConsumed)
         is SessionStatus.Initializing -> T1Screen { Bar("Table 1") }
         else -> SignInScreen()
     }

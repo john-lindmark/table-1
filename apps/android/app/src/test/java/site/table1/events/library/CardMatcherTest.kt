@@ -63,6 +63,7 @@ private object Floor {
     const val ENGLISH_NAME = 0.95
     const val ENGLISH_PRINTING = 0.85
     const val FOREIGN_NAME = 0.93
+    const val CJK_NAME = 0.6
 }
 
 private class Tally {
@@ -115,7 +116,7 @@ class CardMatcherTest {
         val report = mutableListOf("Still photos (${cases.size}):")
         val results = HashMap<String, Tally>()
         val englishResults = HashMap<String, Tally>()
-        for (mode in listOf("accurate", "fast", "small")) {
+        for (mode in listOf("accurate", "fast", "small", "multi", "title")) {
             val all = Tally(); val english = Tally(); val foreign = Tally()
             val byTag = sortedMapOf<String, Tally>()
             for (c in cases) {
@@ -140,12 +141,13 @@ class CardMatcherTest {
         assertTrue(english.printingOk.toDouble() / english.printingChecked >= Floor.ENGLISH_PRINTING)
         assertTrue(accurate.exactWrong <= 2)
         assertTrue(results.getValue("fast").wrong + results.getValue("small").wrong <= 1)
+        assertEquals("a wrong card from a steady photo read as the scanner reads", 0, results.getValue("multi").wrong)
     }
 
     /**
-     * Cards printed in other languages, read two ways: `accurate` is OCR as the scanner reads today (the phone's
-     * language; Cyrillic comes through, Chinese, Japanese and Korean don't), `multi` is OCR that detects the
-     * language. Names in other languages come from the catalog pack's N lines (de, es, fr, it, pt, ru so far).
+     * Cards printed in other languages, read two ways: `accurate` is OCR in the phone's language (Cyrillic comes
+     * through, Chinese, Japanese and Korean don't), `multi` is OCR that detects the language, as the scanner reads
+     * since 2026-10-16. Names in other languages come from the catalog pack's N lines.
      */
     @Test
     fun foreignCards() {
@@ -154,7 +156,7 @@ class CardMatcherTest {
         val cjk = setOf("ja", "ko", "zhs", "zht")
         val report = mutableListOf("Cards in other languages (${cases.size}):")
         val groups = HashMap<String, Map<String, Tally>>()
-        for (mode in listOf("accurate", "multi")) {
+        for (mode in listOf("accurate", "multi", "title")) {
             val byLang = sortedMapOf<String, Tally>()
             val byGroup = sortedMapOf<String, Tally>()
             for (c in cases) {
@@ -171,9 +173,12 @@ class CardMatcherTest {
             report += byLang.map { (l, t) -> "      $l: ${t.line()}" }
         }
         println(report.joinToString("\n"))
-        for ((mode, byGroup) in groups) for ((group, t) in byGroup) assertEquals("a wrong card, $group, $mode", 0, t.wrong)
+        // `title` (a second pass on the deskewed title bar) is measured, not yet read by the scanner: README.
+        for ((mode, byGroup) in groups) if (mode != "title") for ((group, t) in byGroup) assertEquals("a wrong card, $group, $mode", 0, t.wrong)
         val latin = groups.getValue("accurate").getValue("Latin and Cyrillic")
         assertTrue(latin.name.toDouble() / latin.n >= Floor.FOREIGN_NAME)
+        val cjkNames = groups.getValue("multi").getValue("Chinese, Japanese, Korean")
+        assertTrue(cjkNames.name.toDouble() / cjkNames.n >= Floor.CJK_NAME)
     }
 
     /** Frames 200 ms apart, as the movement clips were made. Returns the first card taken and when (ms). */
@@ -209,6 +214,53 @@ class CardMatcherTest {
         for ((kind, t) in byKind) assertEquals("a wrong card taken while moving ($kind)", 0, t.wrong)
         assertTrue(byKind.getValue("settle").let { it.name.toDouble() / it.n } >= 0.9)
         assertTrue(byKind.getValue("shake").let { it.name.toDouble() / it.n } >= 0.8)
+    }
+
+    /**
+     * Each still photo as a steady 2.4 s clip (12 frames, 200 ms apart) through ScanLanguage and ScanSteadiness, as
+     * the scanner runs: frames read like `accurate` (Latin) until text names no card for 0.6 s, then like `multi` (here
+     * standing in for every CJK recognizer), and back after misses. Nobody picks a language; this measures what
+     * finding it costs: cards taken, wrong cards, and time to take.
+     */
+    @Test
+    fun languageDetection() {
+        val ocr = Json.parseToJsonElement(File(root, "ocr.json").readText()).jsonObject
+        val cjk = setOf("ja", "ko", "zhs", "zht")
+        val groups = sortedMapOf<String, Tally>()
+        val times = HashMap<String, MutableList<Long>>()
+        val report = mutableListOf("Language detection (each photo held 2.4 s, starting in Latin):")
+        for (c in photos()) {
+            val reads = ocr[c.id]?.jsonObject ?: continue
+            fun read(mode: String) = reads[mode]?.jsonArray?.map { it.jsonPrimitive.content }
+            val latin = read("accurate") ?: continue
+            val any = read("multi") ?: continue
+            val group = if (c.lang == "en") "English" else if (c.lang in cjk) "Chinese, Japanese, Korean" else "Latin and Cyrillic"
+            val matcher = matcher()
+            val steady = ScanSteadiness()
+            val language = ScanLanguage(readers = 3)
+            var got: Pair<ScanMatch, Long>? = null
+            for (k in 0 until 12) {
+                val at = k * 200L
+                val lines = if (language.mode == ScanLanguage.LATIN) latin else any
+                val m = matcher.match(lines)
+                val taken = steady.feed(m, at)
+                if (taken != null && m != null) { got = m.copy(printing = taken.first, exact = taken.second) to at; break }
+                language.feed(matched = m != null, text = lines.isNotEmpty(), now = at)
+            }
+            if (got != null && got.first.oracle.idx != catalog.expected[CardName.norm(c.name)]) report += "    WRONG ${c.id}: ${got.first.oracle.name}"
+            grade(c, got?.first?.oracle, got?.first?.printing, got?.first?.exact ?: false, groups.getOrPut(group) { Tally() })
+            got?.let { times.getOrPut(group) { mutableListOf() }.add(it.second) }
+        }
+        report += groups.map { (g, t) ->
+            val ts = times[g].orEmpty().sorted()
+            "  $g: taken ${t.line()}, median ${if (ts.isEmpty()) 0.0 else ts[ts.size / 2] / 1000.0} s"
+        }
+        println(report.joinToString("\n"))
+        for ((g, t) in groups) assertEquals("a wrong card taken, $g", 0, t.wrong)
+        val english = groups.getValue("English")
+        val cjkCards = groups.getValue("Chinese, Japanese, Korean")
+        assertTrue(english.name.toDouble() / english.n >= Floor.ENGLISH_NAME)
+        assertTrue(cjkCards.name.toDouble() / cjkCards.n >= Floor.CJK_NAME)
     }
 
     /** Scan corrections people reported (testdata/scan/tools/export_reports.py), tracked as they get fixed. */

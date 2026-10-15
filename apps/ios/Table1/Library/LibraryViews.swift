@@ -26,6 +26,28 @@ struct LibraryDestination: View {
     let route: LibraryRoute
     @Binding var path: [LibraryRoute]
     var body: some View {
+        Group { screen }.screen(screenName)
+    }
+
+    /// contract/telemetry-2026-10-15.md; never carries the route's ids.
+    private var screenName: String {
+        switch route {
+        case .allCards: "all_cards"
+        case .add: "add_cards"
+        case .card: "card_detail"
+        case .lists(let kind): kind == .deck ? "decks" : "cubes"
+        case .list(let id): ListsStore.shared.list(id: id)?.kind == .cube ? "cube" : "deck"
+        case .versions, .version: "list_versions"
+        case .listAdd: "list_add"
+        case .findDeck: "deck_finder"
+        case .linePrinting: "list_printing"
+        case .importList: "list_import"
+        case .trades: "trades"
+        case .trade: "trade"
+        }
+    }
+
+    @ViewBuilder private var screen: some View {
         switch route {
         case .allCards: AllCardsView(path: $path)
         case .add: AddCardsView(path: $path)
@@ -322,6 +344,8 @@ struct AddCardsView: View {
         focused = false
         T1Overlays.shared.present(full: true) {
             CardScanView(title: "Scan cards", doneLabel: "Add", onDone: { cards in
+                Telemetry.capture("scan_session_ended", ["context": "add", "cards": cards.count,
+                                                         "exact": cards.filter(\.exact).count, "cancelled": false])
                 T1Overlays.shared.dismissPanel()
                 let ops = cards.map { CollectionOp(cardId: $0.printing.cardId, finish: $0.finish, condition: $0.condition, delta: 1) }
                 Task {
@@ -333,7 +357,11 @@ struct AddCardsView: View {
                         self.error = error.localizedDescription
                     }
                 }
-            }, onCancel: { T1Overlays.shared.dismissPanel() })
+            }, onCancel: {
+                Telemetry.capture("scan_session_ended", ["context": "add", "cards": 0, "exact": 0, "cancelled": true])
+                T1Overlays.shared.dismissPanel()
+            })
+            .screen("card_scanner")
         }
     }
 

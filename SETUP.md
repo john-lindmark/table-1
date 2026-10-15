@@ -26,11 +26,17 @@ Do these once, in this order.
 3. A **Sign in with Apple key** (.p8). Note the Key ID and your Team ID.
 4. Supabase → Authentication → Providers → **Apple**: enable; Client IDs = `site.table1.events,site.table1.events.web`; paste the secret generated from the .p8 (Supabase's Apple docs have the generator).
 
-**Google** (console.cloud.google.com → APIs & Services → Credentials)
-1. OAuth client **Web application** → redirect URI `https://aaozhfcbvqrgkkrihkrd.supabase.co/auth/v1/callback`. This is the *web client ID*.
+**Google** (console.cloud.google.com → APIs & Services)
+0. **OAuth consent screen** (Google Auth Platform → Branding/Audience): app name Table 1, support email, authorized domains `table-1.site` and `aaozhfcbvqrgkkrihkrd.supabase.co` (plain `supabase.co` is a public suffix and is refused), scopes `openid`, `email`, `profile`. Set the audience to **In production** (these scopes need no Google review); while it is in Testing, only listed test users can sign in.
+1. Credentials → OAuth client **Web application** → redirect URI `https://aaozhfcbvqrgkkrihkrd.supabase.co/auth/v1/callback`. This is the *web client ID* (and the only one with a secret).
 2. OAuth client **iOS** → bundle ID `site.table1.events`. This is the *iOS client ID*.
-3. OAuth client **Android** → package `site.table1.events` + SHA-1 of your debug key (`./gradlew signingReport`) and, later, the Play App Signing SHA-1.
-4. Supabase → Authentication → Providers → **Google**: enable; Client ID = web client ID + secret; **Authorized Client IDs** = web, iOS and Android client IDs (comma-separated); turn on **Skip nonce check** (the Google iOS SDK can't pass a nonce).
+3. OAuth client **Android**, one per signing key, all with package `site.table1.events`:
+   - debug key SHA-1 `05:9F:BA:EF:ED:5C:86:77:BC:22:F3:3A:97:B5:7E:CD:49:15:FC:58` (this Mac's `~/.android/debug.keystore`)
+   - upload key SHA-1 (printed by `apps/android/tools/make-upload-key.sh`)
+   - Play App Signing SHA-1 (Play Console → Test and release → App integrity, after the first upload). Builds installed from Play are signed with this one, so Google sign-in from a Play install fails until it is added.
+   The app never uses the Android client IDs directly; Google matches package + SHA-1 to them.
+4. Supabase → Authentication → Sign In / Providers → **Google**: enable; Client ID = web client ID, Client Secret = its secret; **Authorized Client IDs** = web, iOS and Android client IDs (comma-separated); turn on **Skip nonce check** (the Google iOS SDK can't pass a nonce).
+5. Put the IDs in the apps: Android `apps/android/gradle.properties` → `T1_GOOGLE_WEB_CLIENT_ID` = web client ID; iOS `project.yml` → the iOS client ID (see §3); web needs nothing. Until then the Google button is hidden on iOS and Android.
 
 **Apple token revocation on account deletion** (Supabase → Edge Functions → Secrets)
 Apple requires apps with Sign in with Apple to revoke the user's Apple token when they delete their account. The live `delete-account` function does this when these secrets are set (without them, deletion still works and revocation is skipped):
@@ -42,7 +48,7 @@ Apple requires apps with Sign in with Apple to revoke the user's Apple token whe
 **Supabase → Authentication → URL Configuration**
 - Site URL: `https://table-1.site`
 - Redirect URLs: `https://table-1.site/**`, `http://localhost:5173/**`, `table1://auth-callback`
-- Providers → Email: **turn off** (Apple/Google only). This also clears the last security advisor warning. *(Superseded 2026-10-13: email sign-in is being added; see the banner above.)*
+- Providers → Email: **on** (passwordless code + link). Templates, SMTP and subject: `contract/email-sign-in-2026-10-15.md`; the email body is `supabase/templates/sign-in.html`.
 
 ## 2. Web
 
@@ -53,6 +59,22 @@ npm run dev      # http://localhost:5173
 npm test         # 20 tests: pairings, tiebreakers, analytics redaction
 ```
 Review the changes with `git diff` (they are not committed). New routes: `/j/:code?s=…` (QR join) and `/me` (record + head-to-head). The organizer QR now encodes the secure `/j/` link and has a **New code** button.
+
+### Hosting: Cloudflare (table-1.site)
+
+The domain stays registered at Squarespace; its DNS is on Cloudflare (nameservers `colette` / `sid.ns.cloudflare.com`, set 2026-10-15), which hosts the site and forwards `privacy@table-1.site`. The site is a Cloudflare Worker named `table-1` serving `dist/` as static assets (no server code; Cloudflare now deploys Pages projects this way). Config: `table-1-events-web/wrangler.jsonc`. Live at `https://table-1.site` (2026-10-15).
+
+1. **Cloudflare account** (done 2026-10-15): domain added on the Free plan; the Squarespace/Figma Sites website records and the "no email" SPF/DKIM placeholders were deleted, `_dmarc` kept.
+2. **Squarespace** (done): custom nameservers → Cloudflare's two. Cloudflare emails when the domain is active (up to 24 h).
+3. **Deploy** from `table-1-events-web` (with `.env` holding the production Supabase URL and anon key, which are baked into the build):
+   ```bash
+   npm run deploy   # builds, then uploads dist/ with wrangler (pinned version); first run opens the browser to log in
+   ```
+4. **Custom domains** (done 2026-10-15): `table-1.site` and `www.table-1.site` are `routes` in `wrangler.jsonc`, so `npm run deploy` keeps them attached (this also turns off the workers.dev address). Still to do in the dashboard: Rules → Redirect Rules → template "Redirect from WWW to root", so `www` redirects to `table-1.site`.
+5. **Email**: Email → Email Routing → enable (it adds the MX/SPF records) → Routing rules → `privacy@table-1.site` → your Gmail (verify the destination). For `signin@table-1.site` (Supabase SMTP via Resend), add Resend's DKIM/SPF records in Cloudflare DNS, DNS-only (grey cloud).
+6. **Check**: `https://table-1.site/privacy` and `/delete-account` load; `curl -sI https://table-1.site/.well-known/apple-app-site-association` returns 200 and `content-type: application/json` with no redirect; sign in on the site (Supabase already allows `https://table-1.site/**`).
+
+`public/_headers` sets the `.well-known` content types, `nosniff` and long caching for `/assets/*`; `not_found_handling: single-page-application` sends unknown paths to `index.html`, so app routes load directly.
 
 ## 3. iOS (Xcode 16+, iOS 17+)
 
@@ -70,9 +92,21 @@ open Table1.xcodeproj
 
 ## 4. Android (Android Studio Ladybug or newer, JDK 17)
 
-1. Open `apps/android` in Android Studio; let Gradle sync (it downloads Gradle 8.10.2, AGP 8.7.3, Compose and supabase-kt).
+1. Open `apps/android` in Android Studio; let Gradle sync (Gradle 8.11.1, AGP 8.10.1, compile/target SDK 36, which Play requires for new apps since Aug 31 2026).
 2. In `gradle.properties` set `T1_GOOGLE_WEB_CLIENT_ID` to the **web** client ID from step 1.
 3. Run on a device or an emulator with Google Play services (sign-in, code scanner and location use them).
+
+### Play Console internal testing (Android's TestFlight)
+
+Internal testing reaches up to 100 testers by email within minutes, with no review and no 12-tester/14-day rule (that applies to production on new personal accounts).
+
+1. **Upload key** (once): `apps/android/tools/make-upload-key.sh`. It asks for a password, writes `~/.android/table1-upload.jks` and `apps/android/keystore.properties` (both git-ignored) and prints the SHA-1 for Google step 3. Save the .jks and password in your password manager.
+2. **Developer account**: play.google.com/console, $25, identity verification (can take a few days).
+3. **Create app**: name Table 1, app, free. Package name comes from the first upload: `site.table1.events` (permanent).
+4. **Build**: `apps/android/tools/bundle-release.sh` → `apps/android/app/build/outputs/bundle/release/app-release.aab`. Each build gets a newer versionCode (minutes since 1970).
+5. **Internal testing** → Testers: create an email list, save → Create new release → keep **Play App Signing** on (default) → upload the .aab → release notes → Save and publish. Copy the **opt-in link** from Testers and send it to testers (they accept, then install from Play).
+6. **After the first upload**, App integrity → App signing: copy the **SHA-1** into a new Android OAuth client (Google step 3) and the **SHA-256** into `table-1-events-web/public/.well-known/assetlinks.json` (next to the debug one), so Google sign-in and the email/QR app links work for Play installs.
+7. **App content** (Policy → App content) before the first release can be published: privacy policy URL (needed for location and camera), app access (testers sign in with email codes; give review an email they can use, or mark "all functionality available without special access" is false), ads: none, content rating questionnaire, target audience (18+ / not for children), data safety (email, name, approximate and precise location, camera stays on device; account deletion URL). Privacy policy URL: `https://table-1.site/privacy`; account-deletion URL: `https://table-1.site/delete-account` (both public, signed out, in the web app: `src/screens/Legal.tsx`; the policy text is a draft to review, and the contact address `privacy@table-1.site` must exist). Use `/privacy` for the Google consent screen's privacy policy link too. They need table-1.site deployed first.
 
 ## 5. Universal / app links for the QR code
 
@@ -80,9 +114,11 @@ The QR encodes `https://table-1.site/j/<code>?s=<secret>`. Phones without the ap
 
 - `https://table-1.site/.well-known/apple-app-site-association`
   ```json
-  { "applinks": { "details": [ { "appIDs": ["<TEAMID>.site.table1.events"], "components": [ { "/": "/j/*" } ] } ] } }
+  { "applinks": { "details": [ { "appIDs": ["94889YTX94.site.table1.events"], "components": [ { "/": "/j/*" }, { "/": "/auth/confirm" } ] } ] } }
   ```
-- `https://table-1.site/.well-known/assetlinks.json` — generate in Android Studio (Tools → App Links Assistant) with your signing SHA-256.
+- `https://table-1.site/.well-known/assetlinks.json` — currently the debug keystore's SHA-256; add the Play App Signing SHA-256 after the first Play upload (§4).
+
+Both files are in `table-1-events-web/public/.well-known/` and ship with the web build. `/auth/confirm` is the sign-in email's link: the app opens it when installed, the web page signs in otherwise.
 
 ## 6. Known gaps in this first build
 

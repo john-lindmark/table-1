@@ -1,0 +1,97 @@
+<!doctype html>
+<!--
+  Table 1 sign-in email. Used for both Supabase Auth templates:
+    Magic Link      (existing accounts)   subject: Your Table 1 code: {{ .Token }}
+    Confirm signup  (first sign-in)       subject: Your Table 1 code: {{ .Token }}
+  The link is a universal link / app link: it opens the app when installed, otherwise the web
+  page at /auth/confirm signs in. Both verify with type=email (covers magic link and signup).
+  Tables and inline styles only; the logo is the 6x3 tile mark drawn with table cells.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark">
+<title>Sign in to Table 1</title>
+</head>
+<body style="margin:0;padding:0;background:#171725;color:#ffffff;">
+<div style="display:none;max-height:0;overflow:hidden;">Your sign-in code is {{ .Token }}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#171725" style="background:#171725;">
+<tr><td align="center" style="padding:0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;font-family:'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;">
+
+  <!-- Mark on the surface band -->
+  <tr><td bgcolor="#282839" align="left" style="background:#282839;padding:40px 24px 32px 24px;">
+    <table role="presentation" cellpadding="0" cellspacing="2" border="0" aria-label="Table 1">
+      <tr>
+        <td width="20" height="20" bgcolor="#ffffff" style="background:#ffffff;font-size:0;line-height:0;">&nbsp;</td>
+        <td width="20" height="20" bgcolor="#ffffff" style="background:#ffffff;font-size:0;line-height:0;">&nbsp;</td>
+        <td width="20" height="20" bgcolor="#ffffff" style="background:#ffffff;font-size:0;line-height:0;">&nbsp;</td>
+        <td width="20" height="20" bgcolor="#ffffff" style="background:#ffffff;font-size:0;line-height:0;">&nbsp;</td>
+        <td width="20" height="20" bgcolor="#ffffff" style="background:#ffffff;font-size:0;line-height:0;">&nbsp;</td>
+        <td width="20" height="20" style="font-size:0;line-height:0;">&nbsp;</td>
+      </tr>
+      <tr>
+        <td width="20" height="20" style="font-size:0;line-height:0;">&nbsp;</td>
+        <td width="20" height="20" bgcolor="#ffffff" style="background:#ffffff;font-size:0;line-height:0;">&nbsp;</td>
+        <td width="20" height="20" style="font-size:0;line-height:0;">&nbsp;</td>
+        <td width="20" height="20" style="font-size:0;line-height:0;">&nbsp;</td>
+        <td width="20" height="20" bgcolor="#ffffff" style="background:#ffffff;font-size:0;line-height:0;">&nbsp;</td>
+        <td width="20" height="20" style="font-size:0;line-height:0;">&nbsp;</td>
+      </tr>
+      <tr>
+        <td width="20" height="20" style="font-size:0;line-height:0;">&nbsp;</td>
+        <td width="20" height="20" bgcolor="#ffffff" style="background:#ffffff;font-size:0;line-height:0;">&nbsp;</td>
+        <td width="20" height="20" style="font-size:0;line-height:0;">&nbsp;</td>
+        <td width="20" height="20" bgcolor="#ffffff" style="background:#ffffff;font-size:0;line-height:0;">&nbsp;</td>
+        <td width="20" height="20" bgcolor="#ffffff" style="background:#ffffff;font-size:0;line-height:0;">&nbsp;</td>
+        <td width="20" height="20" bgcolor="#ffffff" style="background:#ffffff;font-size:0;line-height:0;">&nbsp;</td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <tr><td height="1" style="font-size:0;line-height:0;">&nbsp;</td></tr>
+
+  <!-- Heading -->
+  <tr><td bgcolor="#282839" style="background:#282839;padding:10px 24px;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#c4c4ca;">
+    Sign in
+  </td></tr>
+
+  <tr><td style="padding:24px;font-size:14px;line-height:22px;color:#ffffff;">
+    Tap the button on the phone that has Table&nbsp;1 installed and the app opens signed in. Without the app it signs you in on table-1.site.
+  </td></tr>
+
+  <!-- The action -->
+  <tr><td style="padding:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr><td bgcolor="#00ffd9" align="center" style="background:#00ffd9;">
+        <a href="https://table-1.site/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email"
+           style="display:block;padding:26px 16px;font-family:'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;font-size:16px;font-weight:bold;letter-spacing:5px;text-transform:uppercase;color:#171725;text-decoration:none;">Sign in</a>
+      </td></tr>
+    </table>
+  </td></tr>
+
+  <tr><td height="1" style="font-size:0;line-height:0;">&nbsp;</td></tr>
+
+  <!-- The code, for typing into the app on another device -->
+  <tr><td bgcolor="#282839" style="background:#282839;padding:10px 24px;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#c4c4ca;">
+    Or enter this code
+  </td></tr>
+  <tr><td style="padding:20px 24px;font-size:34px;line-height:40px;letter-spacing:10px;color:#00ffd9;font-weight:bold;">
+    {{ .Token }}
+  </td></tr>
+
+  <tr><td height="1" bgcolor="#282839" style="background:#282839;font-size:0;line-height:0;">&nbsp;</td></tr>
+
+  <tr><td style="padding:20px 24px 40px 24px;font-size:12px;line-height:18px;color:#c4c4ca;">
+    The link and code work once and expire in an hour. If you didn't ask to sign in, ignore this email.
+    <br><br>
+    <span style="letter-spacing:3px;text-transform:uppercase;font-size:11px;">Table 1 &middot; table-1.site</span>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>
