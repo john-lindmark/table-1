@@ -199,7 +199,7 @@ fun ListsScreen(kind: ListKind, onBack: () -> Unit, onOpen: (String) -> Unit, on
     LaunchedEffect(Unit) { ListsStore.sync() }
     val mine = s.lists.filter { it.kind == kind }
     T1Screen {
-        Bar(if (kind == ListKind.Deck) "Decks" else "Cubes", subtitle = "${mine.size}") { BarAction("Back", onBack) }
+        Bar(if (kind == ListKind.Deck) "Decks" else "Cubes", subtitle = "${mine.size}", onBack = onBack)
         s.error?.let { Notice(it, error = true) }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             item { ListRow(if (kind == ListKind.Deck) "New deck" else "New cube", "Name it, then add cards", onClick = { creating = true }) }
@@ -252,7 +252,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     var confirmDelete by remember { mutableStateOf(false) }
 
     if (list == null) {
-        T1Screen { Bar("List") { BarAction("Back", onBack) }; Notice(if (s.ready) "That list isn't here anymore." else "Loading…") }
+        T1Screen { Bar("List", onBack = onBack); Notice(if (s.ready) "That list isn't here anymore." else "Loading…") }
         return
     }
     val rows = lines(list, meta)
@@ -293,10 +293,9 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     }
 
     T1Screen {
-        Bar(list.name, subtitle = "${CatalogPack.formatName(list.format)} ${list.kind.wire} · v${list.current.number}") {
+        Bar(list.name, subtitle = "${CatalogPack.formatName(list.format)} ${list.kind.wire} · v${list.current.number}", onBack = onBack) {
             BarAction(if (editing) "Done" else "Edit") { editing = !editing }
             if (!editing) BarAction(if (grid) "List" else "Grid") { grid = !grid; prefs.edit().putBoolean("list.grid", grid).apply() }
-            BarAction("Back", onBack)
         }
         s.error?.let { Notice(it, error = true) }
         if (grid && !editing) {
@@ -430,7 +429,7 @@ fun ListVersionsScreen(listId: String, onBack: () -> Unit, onOpen: (Int) -> Unit
     val s by ListsStore.state.collectAsState()
     val list = s.lists.firstOrNull { it.id == listId }
     T1Screen {
-        Bar("Version history", subtitle = list?.name) { BarAction("Back", onBack) }
+        Bar("Version history", subtitle = list?.name, onBack = onBack)
         if (list != null) {
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 items(list.versions.indices.reversed().toList(), key = { list.versions[it].number }) { i ->
@@ -459,7 +458,7 @@ fun ListVersionScreen(listId: String, number: Int, onBack: () -> Unit, onCard: (
     val changes = if (v != null && prev != null) CardList.diff(prev, v) else emptyList()
     val meta = rememberMeta(changes.map { it.cardId }.toSet())
     T1Screen {
-        Bar("v$number · ${v?.note ?: ""}", subtitle = list?.name) { BarAction("Back", onBack) }
+        Bar("v$number · ${v?.note ?: ""}", subtitle = list?.name, onBack = onBack)
         restored?.let { Notice(it) }
         if (list == null || v == null) return@T1Screen
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {

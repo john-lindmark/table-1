@@ -157,7 +157,7 @@ fun ListImportScreen(kind: ListKind, onBack: () -> Unit, onCreated: (String) -> 
     }
 
     T1Screen {
-        Bar(if (kind == ListKind.Deck) "Import deck" else "Import cube", subtitle = "From a link or a pasted list") { BarAction("Back", onBack) }
+        Bar(if (kind == ListKind.Deck) "Import deck" else "Import cube", subtitle = "From a link or a pasted list", onBack = onBack)
         error?.let { Notice(it, error = true) }
         val res = resolved
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {

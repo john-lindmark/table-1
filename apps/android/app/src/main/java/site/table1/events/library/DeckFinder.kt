@@ -154,7 +154,7 @@ fun DeckFinderScreen(onBack: () -> Unit, onCreated: (String) -> Unit) {
     }
 
     T1Screen {
-        Bar("Find a deck", subtitle = "Recent tournament lists") { BarAction("Back", onBack) }
+        Bar("Find a deck", subtitle = "Recent tournament lists", onBack = onBack)
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             item {
                 Box(Modifier.fillMaxWidth().background(T1.surface).padding(16.dp)) {

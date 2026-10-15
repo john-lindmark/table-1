@@ -23,6 +23,7 @@ import site.table1.events.data.Repo
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.BarAction
 import site.table1.events.ui.components.Ghost
+import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.ListRow
 import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.T1Screen
@@ -31,7 +32,7 @@ import site.table1.events.util.currentFix
 
 /** Open events within 150 m, nearest first. Coordinates are sent once per lookup and never stored. */
 @Composable
-fun NearbyScreen(onJoined: (String) -> Unit, onBack: () -> Unit) {
+fun NearbyScreen(onJoined: (String) -> Unit, onOpen: (String) -> Unit, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var fix by remember { mutableStateOf<Fix?>(null) }
@@ -64,9 +65,8 @@ fun NearbyScreen(onJoined: (String) -> Unit, onBack: () -> Unit) {
     }
 
     T1Screen {
-        Bar("Nearby", "Events within 150 m") {
+        Bar("Nearby", "Events within 150 m", onBack = onBack) {
             BarAction("Refresh") { search() }
-            BarAction("Back", onBack)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
             Ghost(if (alerts == true) "Alerts on" else "Alert me when one starts", accent = alerts == true) {
@@ -83,7 +83,10 @@ fun NearbyScreen(onJoined: (String) -> Unit, onBack: () -> Unit) {
                 list == null -> item { Notice("Finding events near you…") }
                 list.isEmpty() -> item { Notice("Nothing open nearby right now.") }
                 else -> items(list, key = { it.eventId }) { e ->
-                    ListRow(e.name, "${e.distanceM} m · ${e.format} · ${e.players}${e.capacity?.let { "/$it" } ?: ""} players${e.venueName?.let { " · $it" } ?: ""}") {
+                    val detail = "${e.distanceM} m · ${e.format} · ${e.players}${e.capacity?.let { "/$it" } ?: ""} players${e.venueName?.let { " · $it" } ?: ""}"
+                    if (e.joined) {
+                        ListRow(e.name, detail, onClick = { onOpen(e.eventId) }) { Label("Joined") }
+                    } else ListRow(e.name, detail) {
                         BarAction("Join") {
                             val f = fix ?: return@BarAction
                             scope.launch {

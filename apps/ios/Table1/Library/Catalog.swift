@@ -96,6 +96,19 @@ final class CatalogDB: @unchecked Sendable {
         return ranked.compactMap { byIdx[$0] }
     }
 
+    /// A card by its exact normalized name, or by the front face of a split or double-faced card. Used by the
+    /// scanner, which reads names off the card.
+    func oracle(nameNorm q: String) -> CatalogOracle? {
+        guard !q.isEmpty else { return nil }
+        if let o = try? db.query("SELECT \(Self.oracleCols) FROM oracles WHERE name_norm = ? LIMIT 1", [.text(q)], Self.oracle).first {
+            return o
+        }
+        return try? db.query("""
+            SELECT \(Self.oracleCols) FROM oracles WHERE name_norm > ? AND name_norm < ? AND instr(name, ' // ') > 0
+            ORDER BY pcount DESC LIMIT 1
+            """, [.text(q + " "), .text(q + "!")], Self.oracle).first
+    }
+
     func oracle(id: String) -> CatalogOracle? {
         try? db.query("SELECT \(Self.oracleCols) FROM oracles WHERE oracle_id = ?", [.text(id)], Self.oracle).first
     }

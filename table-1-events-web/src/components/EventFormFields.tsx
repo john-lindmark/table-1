@@ -187,7 +187,6 @@ export function CubeFields({
             <Row
               key={`${c.cube_name}|${c.cube_url ?? ""}`}
               title={c.cube_name}
-              detail={c.cube_url ? shortLink(c.cube_url) : "No link"}
               value={current(c) ? "Selected" : "Use"}
               accentValue={current(c)}
               onClick={() => use(c)}
@@ -219,16 +218,6 @@ export function CubeFields({
       {urlProblem && <Notice tone="error">Paste a Cube Cobra link (https://cubecobra.com/…)</Notice>}
     </>
   );
-}
-
-/** "cubecobra.com/…/vintagecube" */
-function shortLink(url: string): string {
-  try {
-    const u = new URL(url);
-    return `${u.host.replace(/^www\./, "")}/…/${u.pathname.split("/").filter(Boolean).pop() ?? ""}`;
-  } catch {
-    return url;
-  }
 }
 
 /** "Round timer · 50 min": on shows clocks to everyone; off hides them. Rounds run 50 minutes either way. */

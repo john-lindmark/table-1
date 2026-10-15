@@ -79,6 +79,14 @@ class CatalogDb(file: File, val version: String) {
             .mapNotNull { byIdx[it] }
     }
 
+    /** A card by its exact normalized name, or by the front face of a split or double-faced card (the scanner). */
+    fun oracleByNorm(q: String): CatalogOracle? {
+        if (q.isEmpty()) return null
+        return query("SELECT $ORACLE_COLS FROM oracles WHERE name_norm = ? LIMIT 1", arrayOf(q), ::oracle).firstOrNull()
+            ?: query("SELECT $ORACLE_COLS FROM oracles WHERE name_norm > ? AND name_norm < ? AND instr(name, ' // ') > 0 ORDER BY pcount DESC LIMIT 1",
+                arrayOf("$q ", "$q!"), ::oracle).firstOrNull()
+    }
+
     fun oracle(id: String): CatalogOracle? = query("SELECT $ORACLE_COLS FROM oracles WHERE oracle_id = ?", arrayOf(id), ::oracle).firstOrNull()
 
     /** Every printing of a card: the original paper printing (the default for adds) first, then newest first. */

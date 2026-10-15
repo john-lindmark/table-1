@@ -45,9 +45,12 @@ struct LabelText: View {
 struct Bar<Actions: View>: View {
     let title: String
     var subtitle: String?
+    /// Shown as the left arrow (Figma Bar, node 95:11022) on screens pushed above a tab's root.
+    var back: (() -> Void)?
     @ViewBuilder var actions: Actions
     var body: some View {
         HStack(spacing: 16) {
+            if let back { BackArrowButton(action: back) }
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(T1.mono(13)).lineLimit(1)
                 if let subtitle { LabelText(subtitle) }
@@ -55,16 +58,45 @@ struct Bar<Actions: View>: View {
             Spacer(minLength: 0)
             actions
         }
-        .padding(.horizontal, 16).padding(.vertical, 12)
+        .padding(.leading, back == nil ? 16 : 0).padding(.trailing, 16).padding(.vertical, 12)
         .background(T1.surface)
     }
 }
 
 extension Bar where Actions == EmptyView {
-    init(title: String, subtitle: String? = nil) {
+    init(title: String, subtitle: String? = nil, back: (() -> Void)? = nil) {
         self.title = title
         self.subtitle = subtitle
+        self.back = back
         self.actions = EmptyView()
+    }
+}
+
+/// Material "arrow_left_alt" (weight 300) from the Figma Bar, drawn in an 18 pt box.
+struct BackArrow: Shape {
+    func path(in r: CGRect) -> Path {
+        let s = min(r.width, r.height) / 18
+        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: r.minX + x * s, y: r.minY + y * s) }
+        var p = Path()
+        p.move(to: pt(7.464, 13.2403)); p.addLine(to: pt(3.2235, 9)); p.addLine(to: pt(7.464, 4.75969))
+        p.addLine(to: pt(8.25431, 5.57306)); p.addLine(to: pt(5.38987, 8.4375)); p.addLine(to: pt(14.7765, 8.4375))
+        p.addLine(to: pt(14.7765, 9.5625)); p.addLine(to: pt(5.38987, 9.5625)); p.addLine(to: pt(8.25431, 12.4269))
+        p.closeSubpath()
+        return p
+    }
+}
+
+/// The arrow in a 50 × 50 tap area; the arrow sits 16 pt from the screen edge, like the Figma bar.
+struct BackArrowButton: View {
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            BackArrow().fill(T1.text).frame(width: 18, height: 18)
+                .frame(width: 50, height: 50).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.vertical, -12).padding(.trailing, -16)
+        .accessibilityLabel("Back")
     }
 }
 

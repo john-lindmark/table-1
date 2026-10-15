@@ -40,6 +40,9 @@ const ListAddScreen = lazyNamed(lists, "ListAddScreen");
 const VersionsScreen = lazyNamed(lists, "VersionsScreen");
 const VersionScreen = lazyNamed(lists, "VersionScreen");
 const LinePrintingScreen = lazyNamed(lists, "LinePrintingScreen");
+const trades = () => import("./screens/Trades");
+const TradesScreen = lazyNamed(trades, "TradesScreen");
+const TradeScreen = lazyNamed(trades, "TradeScreen");
 const DeckFinderScreen = lazyNamed(() => import("./screens/DeckFinder"), "DeckFinderScreen");
 const ListImportScreen = lazyNamed(() => import("./screens/ListImport"), "ListImportScreen");
 const EventsDemo = lazyNamed(() => import("./screens/EventsDemo"), "EventsDemo");
@@ -127,7 +130,8 @@ function LibraryHomeRoute() {
   const navigate = useNavigate();
   return (
     <LibraryHome onAllCards={() => navigate("/library/cards")} onAdd={() => navigate("/library/add")}
-                 onDecks={() => navigate("/library/decks")} onCubes={() => navigate("/library/cubes")} />
+                 onDecks={() => navigate("/library/decks")} onCubes={() => navigate("/library/cubes")}
+                 onTrades={() => navigate("/library/trades")} />
   );
 }
 
@@ -219,6 +223,21 @@ function VersionRoute() {
   return <VersionScreen id={listId} number={Number(n)} onBack={back} onCard={(o) => navigate(`/library/card/${o}`)} />;
 }
 
+function TradesRoute() {
+  const navigate = useNavigate();
+  const back = useBack("/library");
+  return <TradesScreen onBack={back} onOpen={(id) => navigate(`/library/trade/${id}`)} onNew={() => navigate("/library/trade/new")} />;
+}
+
+function TradeRoute() {
+  const { tradeId } = useParams();
+  const back = useBack("/library/trades");
+  const id = tradeId && tradeId !== "new" ? tradeId : null;
+  // A new trade gets its id on first save; the address follows without a new history entry.
+  return <TradeScreen key={id ?? "new"} id={id} onBack={back}
+                      onSaved={(saved) => window.history.replaceState(window.history.state, "", `/library/trade/${saved}`)} />;
+}
+
 function StandingsRoute() {
   const { eventId } = useParams();
   if (!eventId) return <Navigate to="/" replace />;
@@ -262,6 +281,8 @@ export default function App() {
         <Route path="/library/list/:listId/add" element={<ListAddRoute />} />
         <Route path="/library/list/:listId/versions" element={<VersionsRoute />} />
         <Route path="/library/list/:listId/v/:n" element={<VersionRoute />} />
+        <Route path="/library/trades" element={<TradesRoute />} />
+        <Route path="/library/trade/:tradeId" element={<TradeRoute />} />
         <Route path="/life" element={<LifeRoute />} />
         <Route path="/life/:matchId" element={<LifeRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -191,8 +191,7 @@ private struct OrganizerSetupView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: event.name, subtitle: "\(event.shortCode) · Setup · \(playersText(b.participants.count)) · \(event.label)") {
-                BarButton("Back") { dismiss() }
+            Bar(title: event.name, subtitle: "\(event.shortCode) · Setup · \(playersText(b.participants.count)) · \(event.label)", back: { dismiss() }) {
                 BarButton("More") { showMore() }
             }
             PhaseTabs(tabs: tabs, selection: $tab)
@@ -630,8 +629,7 @@ private struct OrganizerLiveView: View {
         let groups = MatchGroups(round?.matches ?? [])
         T1Screen {
             TimelineView(.periodic(from: .now, by: 1)) { context in
-                Bar(title: event.name, subtitle: subtitle(at: context.date)) {
-                    BarButton("Back") { dismiss() }
+                Bar(title: event.name, subtitle: subtitle(at: context.date), back: { dismiss() }) {
                     BarButton("More") { showMore() }
                 }
             }
@@ -916,9 +914,7 @@ private struct OrganizerResultsView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: event.name, subtitle: subtitle) {
-                BarButton("Back") { dismiss() }
-            }
+            Bar(title: event.name, subtitle: subtitle, back: { dismiss() })
             PhaseTabs(tabs: tabs, selection: $tab)
             if let error = ctx.error { Notice(error, error: true) }
 

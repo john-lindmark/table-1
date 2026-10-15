@@ -442,7 +442,7 @@ struct ListsView: View {
         let lists = store.lists(kind)
         let owned = ownedByPrinting()
         T1Screen {
-            Bar(title: kind == .deck ? "Decks" : "Cubes", subtitle: "\(lists.count)") { BarButton("Back") { dismiss() } }
+            Bar(title: kind == .deck ? "Decks" : "Cubes", subtitle: "\(lists.count)", back: { dismiss() })
             HairlineList {
                 Button {
                     T1Overlays.shared.present {
@@ -601,11 +601,10 @@ struct ListDetailView: View {
         let rows = list.map { lines(for: $0) } ?? []
         let issues = list.map { ListLine.issues(rows, list: $0) } ?? [:]
         T1Screen {
-            Bar(title: list?.name ?? "List", subtitle: list.map(subtitle)) {
+            Bar(title: list?.name ?? "List", subtitle: list.map(subtitle), back: { dismiss() }) {
                 HStack(spacing: 20) {
                     BarButton(editing ? "Done" : "Edit") { editing.toggle() }
                     if !editing { BarButton(grid ? "List" : "Grid") { grid.toggle() } }
-                    BarButton("Back") { dismiss() }
                 }
             }
             CatalogStatusRow(catalog: catalog)
@@ -821,7 +820,7 @@ struct ListVersionsView: View {
     var body: some View {
         let list = ListsStore.shared.list(id: listId)
         T1Screen {
-            Bar(title: "Version history", subtitle: list?.name) { BarButton("Back") { dismiss() } }
+            Bar(title: "Version history", subtitle: list?.name, back: { dismiss() })
             if let list {
                 HairlineList {
                     ForEach(Array(list.versions.enumerated().reversed()), id: \.element.number) { i, v in
@@ -856,7 +855,7 @@ struct ListVersionView: View {
         let previous = index > 0 ? list?.versions[index - 1] : nil
         let changes = version.map { CardList.diff(previous, $0) } ?? []
         T1Screen {
-            Bar(title: "v\(number) · \(version?.note ?? "")", subtitle: list?.name) { BarButton("Back") { dismiss() } }
+            Bar(title: "v\(number) · \(version?.note ?? "")", subtitle: list?.name, back: { dismiss() })
             if let restored { Notice("Restored as v\(restored). Every earlier version is still here.") }
             if let list, let version {
                 HairlineList {
@@ -1094,7 +1093,7 @@ struct DeckFinderView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Find a deck", subtitle: "Recent tournament lists") { BarButton("Back") { dismiss() } }
+            Bar(title: "Find a deck", subtitle: "Recent tournament lists", back: { dismiss() })
             CatalogStatusRow(catalog: catalog)
             HairlineList {
                 Field(label: "Describe the deck", text: $query).focused($focused)
@@ -1371,7 +1370,7 @@ struct ListImportView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: kind == .deck ? "Import deck" : "Import cube", subtitle: "From a link or a pasted list") { BarButton("Back") { dismiss() } }
+            Bar(title: kind == .deck ? "Import deck" : "Import cube", subtitle: "From a link or a pasted list", back: { dismiss() })
             CatalogStatusRow(catalog: catalog)
             if let error { Notice(error, error: true) }
             HairlineList {

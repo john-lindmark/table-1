@@ -1,6 +1,7 @@
 package site.table1.events.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -88,17 +89,43 @@ fun Label(text: String, modifier: Modifier = Modifier, color: Color = T1.muted) 
 }
 
 @Composable
-fun Bar(title: String, subtitle: String? = null, actions: @Composable RowScope.() -> Unit = {}) {
+fun Bar(title: String, subtitle: String? = null, onBack: (() -> Unit)? = null, actions: @Composable RowScope.() -> Unit = {}) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().background(T1.surface)
+            .padding(start = if (onBack == null) 16.dp else 0.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        if (onBack != null) BackArrowButton(onBack)
         Column(Modifier.weight(1f)) {
             Text(title, color = T1.text, fontFamily = T1.mono, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (subtitle != null) Label(subtitle)
         }
         actions()
+    }
+}
+
+/** Material "arrow_left_alt" (weight 300) from the Figma Bar (node 95:11022), in an 18 dp box. */
+private val BackArrowPath: androidx.compose.ui.graphics.Path by lazy {
+    androidx.compose.ui.graphics.vector.PathParser()
+        .parsePathString("M7.464 13.2403L3.2235 9L7.464 4.75969L8.25431 5.57306L5.38987 8.4375H14.7765V9.5625H5.38987L8.25431 12.4269L7.464 13.2403Z")
+        .toPath()
+}
+
+/** The back arrow in a 50 × 50 dp tap area; the arrow sits 16 dp from the screen edge, like the Figma bar. */
+@Composable
+fun BackArrowButton(onClick: () -> Unit) {
+    Box(
+        // 50 dp wide like the Figma bar; kept to the bar's text height so the bar doesn't grow.
+        Modifier.size(width = 50.dp, height = 40.dp)
+            .clickable(onClickLabel = "Back", onClick = onClick)
+            .semantics { contentDescription = "Back" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(18.dp)) {
+            val k = size.minDimension / 18f
+            scale(k, pivot = androidx.compose.ui.geometry.Offset.Zero) { drawPath(BackArrowPath, T1.text) }
+        }
     }
 }
 

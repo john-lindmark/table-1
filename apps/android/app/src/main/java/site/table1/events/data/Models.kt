@@ -522,6 +522,8 @@ data class NearbyEvent(
     val players: Int = 0,
     val capacity: Int? = null,
     @SerialName("distance_m") val distanceM: Int = 0,
+    /** Already an active player here, or its organizer: open the event instead of joining. */
+    val joined: Boolean = false,
 )
 
 @Serializable

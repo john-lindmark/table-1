@@ -29,7 +29,8 @@ export class DemoBackend {
   items = new Map<string, Item>();
   summary: LibrarySummary;
   private seq = 0;
-  private prices: Fixture["prices"];
+  /** [usd, usd_foil, usd_etched, eur, eur_foil] per printing, as card_prices_get returns them. */
+  readonly prices: Fixture["prices"];
   private ledger = new Map<string, HistoryEntry[]>();
   private batches = new Map<string, { rows: { it: Item; delta: number }[]; undone: boolean }>();
   private seedAt = new Date().toISOString();

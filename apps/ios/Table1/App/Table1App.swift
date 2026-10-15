@@ -209,8 +209,9 @@ struct SignedInView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Hidden while typing so it doesn't ride up on the keyboard.
-            if !keyboardUp {
+            // Only on a tab's main view (anything pushed above it hides the bar), and hidden while typing
+            // so it doesn't ride up on the keyboard.
+            if !keyboardUp && atTabRoot {
                 T1TabBar(items: tabs, selection: tab) { select($0) }
             }
         }
@@ -231,6 +232,7 @@ struct SignedInView: View {
         .onDisappear {
             CollectionStore.shared.stop()
             ListsStore.shared.stop()
+            TradesStore.shared.stop()
         }
         // The life tracker covers the tabs (no tab bar) until it's closed.
         .overlay {
@@ -264,6 +266,14 @@ struct SignedInView: View {
         .alert("Couldn't join", isPresented: Binding(get: { joinError != nil }, set: { if !$0 { joinError = nil } })) {
             Button("OK", role: .cancel) {}
         } message: { Text(joinError ?? "") }
+    }
+
+    private var atTabRoot: Bool {
+        switch tab {
+        case .events: path.isEmpty
+        case .collection: libraryPath.isEmpty
+        case .account: true
+        }
     }
 
     private func select(_ next: Tab) {

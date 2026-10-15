@@ -154,12 +154,17 @@
             },
             "starts_at": {
               "type": "string"
+            },
+            "joined": {
+              "type": "boolean",
+              "description": "The caller is already an active player in this event or organizes it."
             }
           },
           "required": [
             "event_id",
             "name",
-            "distance_m"
+            "distance_m",
+            "joined"
           ]
         }
       }

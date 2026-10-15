@@ -17,6 +17,8 @@ location = "21.3.0"
 zxing = "3.5.3"
 coil = "3.0.4"
 junit = "4.13.2"
+camerax = "1.4.1"
+mlkitText = "19.0.1"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -44,6 +46,11 @@ play-code-scanner = { module = "com.google.android.gms:play-services-code-scanne
 play-location = { module = "com.google.android.gms:play-services-location", version.ref = "location" }
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 junit = { module = "junit:junit", version.ref = "junit" }
+# Card scanning: camera preview + on-device text recognition (ML Kit via Play services, no bundled model).
+camerax-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
+camerax-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
+camerax-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
+mlkit-text = { module = "com.google.android.gms:play-services-mlkit-text-recognition", version.ref = "mlkitText" }
 # Scryfall set icons are SVG only.
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-svg = { module = "io.coil-kt.coil3:coil-svg", version.ref = "coil" }

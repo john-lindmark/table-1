@@ -54,6 +54,8 @@ import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.ListRow
 import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.Section
+import site.table1.events.ui.components.T1Menu
+import site.table1.events.ui.components.T1MenuItem
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.T1TextField
@@ -65,7 +67,7 @@ import java.util.Currency
    printings and its history are each one tap deeper. Built ahead of the Figma Library screens on the
    existing kit (same as the web client); restyle once those land. */
 
-private fun money(n: Double?, code: String): String {
+internal fun money(n: Double?, code: String): String {
     if (n == null) return "—"
     val f = NumberFormat.getCurrencyInstance()
     f.currency = Currency.getInstance(code)
@@ -73,24 +75,16 @@ private fun money(n: Double?, code: String): String {
     return f.format(n)
 }
 
-private fun count(n: Int) = NumberFormat.getIntegerInstance().format(n)
+internal fun count(n: Int) = NumberFormat.getIntegerInstance().format(n)
 
 @Composable
-private fun SoonRow(title: String) {
-    Row(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, Modifier.weight(1f), color = T1.disabled, fontFamily = T1.mono, fontSize = 14.sp)
-        Label("Soon", color = T1.disabled)
-    }
-}
-
-@Composable
-private fun QuietRow(text: String) {
+internal fun QuietRow(text: String) {
     Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 16.dp)) { Label(text) }
 }
 
 /** The catalog's state as a row, or nothing once it's ready. */
 @Composable
-private fun CatalogStatus(state: CatalogState) {
+internal fun CatalogStatus(state: CatalogState) {
     when (state.phase) {
         "ready" -> {}
         "failed" -> Notice(state.error ?: "Couldn't load card data", error = true)
@@ -99,7 +93,7 @@ private fun CatalogStatus(state: CatalogState) {
 }
 
 @Composable
-private fun Hairlines(modifier: Modifier = Modifier, content: LazyListScope.() -> Unit) {
+internal fun Hairlines(modifier: Modifier = Modifier, content: LazyListScope.() -> Unit) {
     LazyColumn(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(1.dp), content = content)
 }
 
@@ -109,13 +103,16 @@ private fun ColumnScope.Filler() = Box(Modifier.weight(1f))
 /* ── home ─────────────────────────────────────────────────────────────── */
 
 @Composable
-fun LibraryHomeScreen(foregrounds: Int, onAllCards: () -> Unit, onAdd: () -> Unit, onDecks: () -> Unit, onCubes: () -> Unit) {
+fun LibraryHomeScreen(foregrounds: Int, onAllCards: () -> Unit, onAdd: () -> Unit, onDecks: () -> Unit, onCubes: () -> Unit,
+                      onTrades: () -> Unit) {
     val lists by ListsStore.state.collectAsState()
     val col by CollectionStore.state.collectAsState()
+    val trades by TradesStore.state.collectAsState()
     // Syncs on open and on every return to the Library or to the app.
     LaunchedEffect(foregrounds) {
         CollectionStore.sync()
         ListsStore.sync()
+        TradesStore.load()
     }
     val s = col.summary
     T1Screen {
@@ -139,16 +136,21 @@ fun LibraryHomeScreen(foregrounds: Int, onAllCards: () -> Unit, onAdd: () -> Uni
             item {
                 val decks = lists.lists.filter { it.kind == ListKind.Deck }
                 ListRow("Decks", if (decks.isEmpty()) "Build and track decks" else decks.take(3).joinToString(" · ") { it.name }, onClick = onDecks) {
-                    if (decks.isNotEmpty()) Text("${decks.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
+                    Text("${decks.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                 }
             }
             item {
                 val cubes = lists.lists.filter { it.kind == ListKind.Cube }
                 ListRow("Cubes", if (cubes.isEmpty()) "Build and track cubes" else cubes.joinToString(" · ") { it.name }, onClick = onCubes) {
-                    if (cubes.isNotEmpty()) Text("${cubes.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
+                    Text("${cubes.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                 }
             }
-            item { SoonRow("Trades") }
+            item {
+                val open = trades.trades.count { !it.confirmed }
+                ListRow("Trades", if (open > 0) "$open open" else "Give and get, then confirm", onClick = onTrades) {
+                    if (trades.loaded) Text("${trades.trades.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
+                }
+            }
         }
     }
 }
@@ -162,7 +164,12 @@ data class CardGroup(
     val qty: Int, val printings: Int, val lastSeq: Long,
     /** The printing shown as the card's picture: the one owned most. */
     val cover: CatalogPrinting? = null,
+    /** Owned (printing id, finish) pairs, for prices. */
+    val owned: List<Pair<String, String>> = emptyList(),
 ) {
+    /** The most a single owned copy is worth (market, USD). */
+    fun price(): Double? = owned.mapNotNull { (id, f) -> PriceBook.usd(id, f) }.maxOrNull()
+
     companion object {
         fun build(items: Collection<CollectionItem>, db: CatalogDb): List<CardGroup> {
             val printings = db.printings(items.map { it.cardId }.toSet())
@@ -172,7 +179,7 @@ data class CardGroup(
                     val o = printings[group[0].cardId]?.let { oracles[it.oracleIdx] }
                     CardGroup(key, o != null, o?.name ?: "Card not in local data yet", o?.norm ?: "", o?.typeLine ?: group[0].cardId,
                         group.sumOf { it.qty }, group.map { it.cardId }.toSet().size, group.maxOf { it.seq },
-                        group.maxByOrNull { it.qty }?.let { printings[it.cardId] })
+                        group.maxByOrNull { it.qty }?.let { printings[it.cardId] }, group.map { it.cardId to it.finish })
                 }
         }
     }
@@ -184,35 +191,47 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
     val cat by CatalogStore.state.collectAsState()
     var groups by remember { mutableStateOf<List<CardGroup>?>(null) }
     var query by remember { mutableStateOf("") }
-    var sort by remember { mutableStateOf(0) }
     val prefs = remember { T1App.instance.getSharedPreferences("library", android.content.Context.MODE_PRIVATE) }
+    // 0 recent, 1 price, 2 set
+    var sort by remember { mutableStateOf(prefs.getInt("allCards.sort", 0)) }
+    val pricesVersion by PriceBook.version.collectAsState()
     var grid by remember { mutableStateOf(prefs.getBoolean("allCards.grid", false)) }
     LaunchedEffect(Unit) { CatalogStore.load(userInitiated = true) }
     LaunchedEffect(col.version, cat.generation) {
         val db = CatalogStore.db ?: return@LaunchedEffect
         val items = col.items.values.toList()
         groups = withContext(Dispatchers.Default) { CardGroup.build(items, db) }
+        PriceBook.load(items.map { it.cardId })
     }
-    val shown = remember(groups, query, sort) {
+    val shown = remember(groups, query, sort, pricesVersion) {
         val n = CardName.norm(query)
         val list = (groups ?: emptyList()).let { g -> if (n.isEmpty()) g else g.filter { it.norm.contains(n) || CardName.norm(it.type).contains(n) } }
         when (sort) {
-            1 -> list.sortedByDescending { it.lastSeq }
-            2 -> list.sortedWith(compareByDescending<CardGroup> { it.qty }.thenBy { it.norm })
-            else -> list.sortedBy { it.norm }
+            1 -> {
+                val p = list.associate { it.id to (it.price() ?: -1.0) }
+                list.sortedWith(compareByDescending<CardGroup> { p[it.id] }.thenBy { it.norm })
+            }
+            // Newest set first; within a set, collector number order.
+            2 -> list.sortedWith(compareByDescending<CardGroup> { it.cover?.releasedAt ?: "" }.thenBy { it.cover?.set ?: "" }
+                .thenBy { it.cover?.cn?.trim { c -> c.isLetter() }?.toIntOrNull() ?: Int.MAX_VALUE }.thenBy { it.norm })
+            else -> list.sortedWith(compareByDescending<CardGroup> { it.lastSeq }.thenBy { it.norm })
         }
     }
+    fun detail(g: CardGroup): String {
+        val price = PriceBook.text(g.price())
+        if (sort == 2 && g.cover != null) return listOfNotNull(g.cover.setLabel, price).joinToString(" · ")
+        return listOfNotNull(price, "${g.printings} printing${if (g.printings == 1) "" else "s"}", g.type).joinToString(" · ")
+    }
     T1Screen {
-        Bar("All cards", subtitle = col.summary?.let { "${count(it.totalQty)} cards" }) {
+        Bar("All cards", subtitle = col.summary?.let { "${count(it.totalQty)} cards" }, onBack = onBack) {
             BarAction(if (grid) "List" else "Grid") { grid = !grid; prefs.edit().putBoolean("allCards.grid", grid).apply() }
-            BarAction("Back", onBack)
         }
         col.error?.let { Notice(it, error = true) }
         CatalogStatus(cat)
         Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp)) {
             T1TextField(query, { query = it }, placeholder = "Name or type")
         }
-        T1Segmented(listOf("A–Z", "Recent", "Most"), sort) { sort = it }
+        T1Segmented(listOf("Recent", "Price", "Set"), sort) { sort = it; prefs.edit().putInt("allCards.sort", it).apply() }
         val g = groups
         if (cat.phase == "ready" && g != null) {
             if (g.isEmpty() && col.ready) ListRow("No cards yet", "Add your first card", onClick = onAdd)
@@ -226,7 +245,7 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
             } else {
                 Hairlines(Modifier.weight(1f)) {
                     items(shown, key = { it.id }) { row ->
-                        CardRow(row.cover, row.name, "${row.printings} printing${if (row.printings == 1) "" else "s"} · ${row.type}",
+                        CardRow(row.cover, row.name, detail(row),
                             onClick = { if (row.known) onOpen(row.id) }) {
                             Text("${row.qty}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                         }
@@ -244,6 +263,11 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
 @Composable
 fun AddCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
     val cat by CatalogStore.state.collectAsState()
+    val scope = rememberCoroutineScope()
+    var scanning by remember { mutableStateOf(false) }
+    var scanned by remember { mutableStateOf<Pair<String, String>?>(null) } // batch id, label
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var hits by remember { mutableStateOf<List<CatalogOracle>>(emptyList()) }
     var covers by remember { mutableStateOf<Map<Int, CatalogPrinting>>(emptyMap()) }
@@ -261,8 +285,22 @@ fun AddCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
         covers = found.second
     }
     T1Screen {
-        Bar("Add cards") { BarAction("Back", onBack) }
+        Bar("Add cards", onBack = onBack) { BarAction("Scan") { scanning = true } }
         CatalogStatus(cat)
+        error?.let { Notice(it, error = true) }
+        scanned?.let { (batchId, label) ->
+            Row(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Label(label, Modifier.weight(1f))
+                BarAction(if (busy) "Undoing…" else "Undo") {
+                    if (busy) return@BarAction
+                    busy = true
+                    scope.launch {
+                        runCatching { CollectionStore.undo(batchId) }.onSuccess { scanned = null }.onFailure { error = it.message }
+                        busy = false
+                    }
+                }
+            }
+        }
         Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp).focusRequester(focus)) {
             T1TextField(query, { query = it }, label = "Card name", placeholder = "Lightning Bolt")
         }
@@ -274,6 +312,17 @@ fun AddCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
                 }
             }
         }
+    }
+    // Scan session: every card goes in as one batch (source "scan") when it's done, so one Undo takes it back.
+    if (scanning) {
+        CardScanOverlay("Scan cards", "Add", owned = null, onDone = { cards ->
+            scanning = false
+            scope.launch {
+                runCatching { CollectionStore.apply(cards.map { CollectionOp(it.printing.cardId, it.finish, it.condition, delta = 1) }, source = "scan") }
+                    .onSuccess { scanned = it.batchId to "Added ${cards.size} scanned card${if (cards.size == 1) "" else "s"}"; error = null }
+                    .onFailure { error = it.message }
+            }
+        }, onCancel = { scanning = false })
     }
 }
 
@@ -312,6 +361,11 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit) {
     var history by remember { mutableStateOf<List<HistoryEntry>?>(null) }
     /** A printing tapped in the list, shown large in place of the owned one. */
     var preview by remember { mutableStateOf<CatalogPrinting?>(null) }
+    val prefs = remember { T1App.instance.getSharedPreferences("library", android.content.Context.MODE_PRIVATE) }
+    /** Condition new copies go in as (remembered; the scanner uses it too). */
+    var addCondition by remember { mutableStateOf(prefs.getString("addCondition", "NM") ?: "NM") }
+    /** Moving copies of one owned item to another condition, when there's more than one copy. */
+    var moving by remember { mutableStateOf<Pair<CollectionItem, String>?>(null) }
 
     LaunchedEffect(Unit) { CatalogStore.load(userInitiated = true) }
     LaunchedEffect(cat.generation) {
@@ -338,19 +392,36 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit) {
     }
     val total = owned.sumOf { it.first.qty }
 
-    fun change(key: String, label: String, op: CollectionOp) {
+    fun change(key: String, label: String, ops: List<CollectionOp>) {
         busy = key
         error = null
         scope.launch {
-            runCatching { CollectionStore.apply(listOf(op)) }
+            runCatching { CollectionStore.apply(ops) }
                 .onSuccess { last = it.batchId to label }
                 .onFailure { error = it.message }
             busy = null
         }
     }
 
+    fun moveCondition(it: CollectionItem, p: CatalogPrinting, to: String, n: Int) {
+        moving = null
+        change(it.key, "Moved $n ${p.setLabel} to $to", listOf(
+            CollectionOp(it.cardId, it.finish, it.condition, it.lang, delta = -n),
+            CollectionOp(it.cardId, it.finish, to, it.lang, delta = n),
+        ))
+    }
+    moving?.let { (it, to) ->
+        val p = byId[it.cardId]
+        if (p != null) {
+            T1Menu("Mark as ${Conditions.name(to).lowercase()}", listOf(
+                T1MenuItem("One copy") { moveCondition(it, p, to, 1) },
+                T1MenuItem("All ${it.qty} copies") { moveCondition(it, p, to, it.qty) },
+            )) { moving = null }
+        }
+    }
+
     T1Screen {
-        Bar(oracle?.name ?: "Card", subtitle = oracle?.let { "$total in collection" }) { BarAction("Back", onBack) }
+        Bar(oracle?.name ?: "Card", subtitle = oracle?.let { "$total in collection" }, onBack = onBack)
         (error ?: col.error)?.let { Notice(it, error = true) }
         CatalogStatus(cat)
         if (looked && oracle == null && cat.phase == "ready") Notice("That card isn't in the card data.", error = true)
@@ -394,13 +465,20 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit) {
                         }
                         Text("${it.qty}", Modifier.padding(horizontal = 12.dp), color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                         StepSquare("−", busy != it.key) {
-                            change(it.key, "Removed 1 ${p.setLabel}", CollectionOp(it.cardId, it.finish, it.condition, it.lang, delta = -1))
+                            change(it.key, "Removed 1 ${p.setLabel}", listOf(CollectionOp(it.cardId, it.finish, it.condition, it.lang, delta = -1)))
                         }
                         StepSquare("+", busy != it.key) {
-                            change(it.key, "Added 1 ${p.setLabel}", CollectionOp(it.cardId, it.finish, it.condition, it.lang, delta = 1))
+                            change(it.key, "Added 1 ${p.setLabel}", listOf(CollectionOp(it.cardId, it.finish, it.condition, it.lang, delta = 1)))
                         }
                     }
                     if (open == it.cardId) {
+                        // Condition of these copies: pick another to move one copy (or all of them) there.
+                        T1Segmented(Conditions.all, Conditions.all.indexOf(it.condition), enabled = busy != it.key) { i ->
+                            val to = Conditions.all[i]
+                            if (to != it.condition) {
+                                if (it.qty == 1) moveCondition(it, p, to, 1) else moving = it to to
+                            }
+                        }
                         Column(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Label("History · ${p.setLabel}")
@@ -419,6 +497,12 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit) {
                 }
             }
             item { Section("Add a printing · ${printings.size}") }
+            item {
+                T1Segmented(Conditions.all, Conditions.all.indexOf(addCondition).coerceAtLeast(0)) { i ->
+                    addCondition = Conditions.all[i]
+                    prefs.edit().putString("addCondition", addCondition).apply()
+                }
+            }
             items(if (showAll) printings else printings.take(12), key = { "add-" + it.cardId }) { p ->
                 val price = prices[p.cardId]
                 val detail = listOfNotNull(price?.setName, CatalogPack.RARITY_NAME[p.rarity], p.releasedAt.take(4).ifEmpty { null }).joinToString(" · ")
@@ -436,7 +520,9 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit) {
                     p.finishList.forEach { f ->
                         val k = "${p.cardId}|${f.wire}"
                         Box(Modifier.fillMaxHeight().background(T1.surfaceHover)
-                            .clickable(enabled = busy != k) { change(k, "Added 1 ${p.setLabel} ${f.label}", CollectionOp(p.cardId, f.wire, delta = 1)) }
+                            .clickable(enabled = busy != k) {
+                                change(k, "Added 1 ${p.setLabel} ${f.label} · $addCondition", listOf(CollectionOp(p.cardId, f.wire, addCondition, delta = 1)))
+                            }
                             .padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
                             Label("+ ${if (f == Finish.Nonfoil) "Card" else f.label}", color = if (busy == k) T1.disabled else T1.text)
                         }

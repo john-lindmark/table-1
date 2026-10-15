@@ -284,8 +284,7 @@ internal fun OrganizerScreen(
     }
 
     T1Screen {
-        Bar(event.name, subtitle) {
-            BarAction("Back", onBack)
+        Bar(event.name, subtitle, onBack = onBack) {
             if (phase != OrganizerPhase.Results) BarAction("More") { moreMenu = true }
         }
         T1Segmented(tabs.map { it.second }, tabs.indexOfFirst { it.first == selected }) { tab = tabs[it].first }

@@ -93,7 +93,7 @@ fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, o
     val b = bundle
     if (b == null) {
         T1Screen {
-            Bar("Event") { BarAction("Back", onBack) }
+            Bar("Event", onBack = onBack)
             Notice(error ?: "Loading…", error = error != null)
         }
         return
@@ -406,9 +406,7 @@ private fun PlayerView(b: EventBundle, standings: StandingsResponse, onBack: () 
 
     T1Screen {
         Bar(b.event.name, listOfNotNull(me?.displayName ?: "Spectating", myTeam, b.event.label,
-            "Round ${active?.number ?: b.event.currentRound} of ${b.event.numberOfRounds}").joinToString(" · ")) {
-            BarAction("Back", onBack)
-        }
+            "Round ${active?.number ?: b.event.currentRound} of ${b.event.numberOfRounds}").joinToString(" · "), onBack = onBack)
         if (b.event.isCancelled) CancelledBanner(b.event.cancelReason)
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             if (active != null && b.event.showClock) item { RoundClock(active.timerEndsAt) }

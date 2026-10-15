@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Bar, Field, Notice, Row, Screen, Section, Segmented, TopNav } from "../components/kit";
+import { Bar, Field, GhostAction, Notice, Row, Screen, Section, Segmented, TopNav } from "../components/kit";
 import { SignInButtons } from "../components/SignInButtons";
 import { errorMessage } from "../lib/api";
 import {
@@ -12,7 +12,14 @@ import { supabase } from "../lib/supabaseClient";
 import { useSession } from "../lib/useSession";
 import { isLibraryDemo, loadDemoLists } from "../lib/libraryDemo";
 import { useLists } from "../lib/lists";
-import { DEMO_USER } from "../lib/collection";
+import { DEMO_USER, type Condition } from "../lib/collection";
+import { usdPrice, usdText, usePrices } from "../lib/prices";
+import { useTrades } from "../lib/trades";
+
+export const CONDITIONS: Condition[] = ["NM", "LP", "MP", "HP", "DMG"];
+export const CONDITION_NAME: Record<Condition, string> = {
+  NM: "Near mint", LP: "Lightly played", MP: "Moderately played", HP: "Heavily played", DMG: "Damaged",
+};
 
 /** The signed-in session, or (dev server, `?demo`) a stand-in account for the demo collection. */
 export function useLibrarySession() {
@@ -185,14 +192,16 @@ export function useStoredFlag(key: string): [boolean, (v: boolean) => void] {
 
 /* ── home ─────────────────────────────────────────────────────────────── */
 
-export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes }: {
-  onAllCards: () => void; onAdd: () => void; onDecks: () => void; onCubes: () => void;
+export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes, onTrades }: {
+  onAllCards: () => void; onAdd: () => void; onDecks: () => void; onCubes: () => void; onTrades: () => void;
 }) {
   const { session, ready, userId } = useLibrarySession();
   const col = useCollection(userId);
   const lists = useLists(userId, userId === DEMO_USER ? loadDemoLists : undefined);
   const decks = lists.lists.filter((l) => l.kind === "deck");
   const cubes = lists.lists.filter((l) => l.kind === "cube");
+  const trades = useTrades();
+  const openTrades = trades.trades.filter((t) => t.status === "draft").length;
   if (!ready) return <Screen><div className="flex-1" /></Screen>;
   if (!session) return <SignedOut title="Library" />;
   const s = col.summary;
@@ -213,10 +222,11 @@ export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes }: {
              value={s ? s.unique_cards.toLocaleString() : undefined} onClick={onAllCards} />
         <Row title="Add cards" detail="Search by name" onClick={onAdd} />
         <Row title="Decks" detail={decks.length ? decks.slice(0, 3).map((l) => l.name).join(" · ") : "Build and track decks"}
-             value={decks.length || undefined} onClick={onDecks} />
+             value={decks.length} onClick={onDecks} />
         <Row title="Cubes" detail={cubes.length ? cubes.map((l) => l.name).join(" · ") : "Build and track cubes"}
-             value={cubes.length || undefined} onClick={onCubes} />
-        <Row title="Trades" detail="Soon" dim />
+             value={cubes.length} onClick={onCubes} />
+        <Row title="Trades" detail={openTrades ? `${openTrades} open` : "Give and get, then confirm"}
+             value={trades.loaded ? trades.trades.length : undefined} onClick={onTrades} />
       </div>
     </Screen>
   );
@@ -236,6 +246,8 @@ interface Group {
   /** The printing shown as the card's picture: the one owned most. */
   cover: number | null;
   coverQty: number;
+  /** Owned printing id|finish pairs, for prices. */
+  owned: [string, Finish][];
 }
 
 function groupItems(items: Map<string, Item>, c: Catalog): Group[] {
@@ -252,13 +264,14 @@ function groupItems(items: Map<string, Item>, c: Catalog): Group[] {
         name: oi >= 0 ? c.oName[oi] : "Card not in local data yet",
         norm: oi >= 0 ? c.oNorm[oi] : "",
         type: oi >= 0 ? c.oType[oi] : it.cardId,
-        qty: 0, printings: 0, lastSeq: 0, cover: null, coverQty: 0,
+        qty: 0, printings: 0, lastSeq: 0, cover: null, coverQty: 0, owned: [],
       };
       by.set(key, g);
       seenPrinting.set(key, new Set());
     }
     g.qty += it.qty;
     g.lastSeq = Math.max(g.lastSeq, it.seq);
+    g.owned.push([it.cardId, it.finish]);
     if (p != null && it.qty > g.coverQty) {
       g.cover = p;
       g.coverQty = it.qty;
@@ -307,28 +320,70 @@ export function AllCards({ onBack, onOpen, onAdd }: { onBack: () => void; onOpen
   const col = useCollection(userId);
   const { catalog, error } = useCatalog();
   const [q, setQ] = useState("");
-  const [sort, setSort] = useState<"name" | "recent" | "qty">("name");
+  const [sort, setSortState] = useState<"recent" | "price" | "set">(() => {
+    try {
+      const v = localStorage.getItem("table1.library.allCards.sort");
+      return v === "price" || v === "set" ? v : "recent";
+    } catch {
+      return "recent";
+    }
+  });
+  const setSort = (v: "recent" | "price" | "set") => {
+    setSortState(v);
+    try {
+      localStorage.setItem("table1.library.allCards.sort", v);
+    } catch {
+      /* storage blocked */
+    }
+  };
   const [grid, setGrid] = useStoredFlag("table1.library.allCards.grid");
 
   const groups = useMemo(() => (catalog ? groupItems(col.items, catalog) : []), [catalog, col.version]);
+  const ids = useMemo(() => [...new Set([...col.items.values()].map((it) => it.cardId))], [col.version]);
+  const pricesV = usePrices(ids);
+  /** The most a single owned copy is worth (market, USD). */
+  const priceOf = (g: Group) => {
+    let best: number | null = null;
+    for (const [id, f] of g.owned) {
+      const p = usdPrice(id, f);
+      if (p != null && (best == null || p > best)) best = p;
+    }
+    return best;
+  };
   const shown = useMemo(() => {
     const n = normName(q);
     const list = n ? groups.filter((g) => g.norm.includes(n) || normName(g.type).includes(n)) : groups.slice();
-    if (sort === "name") list.sort((a, b) => (a.norm < b.norm ? -1 : a.norm > b.norm ? 1 : 0));
-    else if (sort === "recent") list.sort((a, b) => b.lastSeq - a.lastSeq);
-    else list.sort((a, b) => b.qty - a.qty || (a.norm < b.norm ? -1 : 1));
+    const byName = (a: Group, b: Group) => (a.norm < b.norm ? -1 : a.norm > b.norm ? 1 : 0);
+    if (sort === "price") {
+      const p = new Map(list.map((g) => [g.key, priceOf(g) ?? -1]));
+      list.sort((a, b) => p.get(b.key)! - p.get(a.key)! || byName(a, b));
+    } else if (sort === "set" && catalog) {
+      // Newest set first; within a set, collector number order.
+      const rel = (g: Group) => (g.cover == null ? "" : catalog.pReleased[g.cover] ?? "");
+      const set = (g: Group) => (g.cover == null ? "" : catalog.pSet[g.cover]);
+      const cn = (g: Group) => (g.cover == null ? Infinity : parseInt(catalog.pCn[g.cover], 10) || Infinity);
+      list.sort((a, b) => (rel(a) !== rel(b) ? (rel(a) < rel(b) ? 1 : -1) : set(a) !== set(b) ? (set(a) < set(b) ? -1 : 1) : cn(a) - cn(b) || byName(a, b)));
+    } else list.sort((a, b) => b.lastSeq - a.lastSeq || byName(a, b));
     return list;
-  }, [groups, q, sort]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups, q, sort, pricesV, catalog]);
+  const detail = (g: Group) => {
+    const price = usdText(priceOf(g));
+    if (sort === "set" && catalog && g.cover != null) {
+      return [`${catalog.pSet[g.cover].toUpperCase()} #${catalog.pCn[g.cover]}`, price].filter(Boolean).join(" · ");
+    }
+    return [price, `${g.printings} printing${g.printings === 1 ? "" : "s"}`, g.type].filter(Boolean).join(" · ");
+  };
 
   if (!ready) return <Screen><div className="flex-1" /></Screen>;
   if (!session) return <SignedOut title="All cards" />;
   return (
     <LibScreen>
       <Bar title="All cards" subtitle={col.summary ? `${col.summary.total_qty.toLocaleString()} cards` : undefined}
-           right={<span className="flex gap-4"><BarToggle on={grid} onChange={setGrid} /><Back onClick={onBack} /></span>} />
+           onBack={onBack} right={<BarToggle on={grid} onChange={setGrid} />} />
       {(error || col.error) && <Notice tone="error">{error ?? col.error}</Notice>}
       <Field label="Search your cards" value={q} onChange={setQ} placeholder="Name or type" />
-      <Segmented options={[{ value: "name", label: "A–Z" }, { value: "recent", label: "Recent" }, { value: "qty", label: "Most" }]}
+      <Segmented options={[{ value: "recent", label: "Recent" }, { value: "price", label: "Price" }, { value: "set", label: "Set" }]}
                  value={sort} onChange={setSort} />
       {!catalog && !error && <div className="bg-t1-surface px-4 py-4 t1-label">Loading card data…</div>}
       {catalog && col.ready && groups.length === 0 && (
@@ -343,7 +398,7 @@ export function AllCards({ onBack, onOpen, onAdd }: { onBack: () => void; onOpen
         )} />
       ) : (
         <VirtualList rows={shown} render={(g) => (
-          <CardRow c={catalog} p={g.cover} title={g.name} detail={`${g.printings} printing${g.printings === 1 ? "" : "s"} · ${g.type}`}
+          <CardRow c={catalog} p={g.cover} title={g.name} detail={detail(g)}
                    value={g.qty} onClick={() => g.oracle >= 0 && onOpen(g.key)} />
         )} />
       ))}
@@ -359,7 +414,7 @@ export function AddCards({ onBack, onOpen }: { onBack: () => void; onOpen: (orac
   const hits = useMemo(() => (catalog ? searchCatalog(catalog, q, 40) : []), [catalog, q]);
   return (
     <LibScreen>
-      <Bar title="Add cards" right={<Back onClick={onBack} />} />
+      <Bar title="Add cards" onBack={onBack} />
       {error && <Notice tone="error">{error}</Notice>}
       <Field label="Card name" value={q} onChange={setQ} placeholder="Lightning Bolt" autoFocus />
       {!catalog && !error && <div className="bg-t1-surface px-4 py-4 t1-label">Loading card data…</div>}
@@ -404,6 +459,25 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
   /** A printing tapped in the list, shown large in place of the owned one. */
   const [preview, setPreview] = useState<number | null>(null);
+  /** Condition new copies go in as (remembered). */
+  const [addCondition, setAddConditionState] = useState<Condition>(() => {
+    try {
+      const v = localStorage.getItem("table1.library.addCondition") as Condition | null;
+      return v && CONDITIONS.includes(v) ? v : "NM";
+    } catch {
+      return "NM";
+    }
+  });
+  const setAddCondition = (c: Condition) => {
+    setAddConditionState(c);
+    try {
+      localStorage.setItem("table1.library.addCondition", c);
+    } catch {
+      /* storage blocked */
+    }
+  };
+  /** Moving copies of one owned item to another condition, when there's more than one copy. */
+  const [moving, setMoving] = useState<{ k: string; to: Condition } | null>(null);
 
   const oi = catalog ? oracleIndexById(catalog, oracleId) : -1;
   useEffect(() => {
@@ -426,11 +500,12 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
     fetchHistory(open).then(setHistory, (e) => setError(errorMessage(e)));
   }, [open, col.version]);
 
-  const change = async (key: string, label: string, op: Parameters<typeof applyOps>[0][number]) => {
+  const change = async (key: string, label: string, op: Parameters<typeof applyOps>[0][number] | Parameters<typeof applyOps>[0]) => {
     setBusy(key);
     setError(null);
+    setMoving(null);
     try {
-      const res = await applyOps([op]);
+      const res = await applyOps(Array.isArray(op) ? op : [op]);
       setLast({ res, label });
     } catch (e) {
       setError(errorMessage(e));
@@ -451,12 +526,20 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
     }
   };
 
+  const moveCondition = (it: Item, p: number, to: Condition, n: number) => {
+    const label = catalog ? `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}` : "card";
+    void change(it.k, `Moved ${n} ${label} to ${to}`, [
+      { card_id: it.cardId, finish: it.finish, condition: it.condition, lang: it.lang, delta: -n },
+      { card_id: it.cardId, finish: it.finish, condition: to, lang: it.lang, delta: n },
+    ]);
+  };
+
   if (!ready) return <Screen><div className="flex-1" /></Screen>;
   if (!session) return <SignedOut title="Card" />;
   if (!catalog) {
     return (
       <Screen>
-        <Bar title="Card" right={<Back onClick={onBack} />} />
+        <Bar title="Card" onBack={onBack} />
         {catError ? <Notice tone="error">{catError}</Notice> : <div className="bg-t1-surface px-4 py-4 t1-label">Loading card data…</div>}
       </Screen>
     );
@@ -464,7 +547,7 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
   if (oi < 0) {
     return (
       <Screen>
-        <Bar title="Card" right={<Back onClick={onBack} />} />
+        <Bar title="Card" onBack={onBack} />
         <Notice tone="error">That card isn't in the card data.</Notice>
       </Screen>
     );
@@ -481,7 +564,7 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
 
   return (
     <LibScreen>
-      <Bar title={catalog.oName[oi]} subtitle={`${total} in collection`} right={<Back onClick={onBack} />} />
+      <Bar title={catalog.oName[oi]} subtitle={`${total} in collection`} onBack={onBack} />
       {(error || col.error) && <Notice tone="error">{error ?? col.error}</Notice>}
       {last && (
         <div className="bg-t1-surface px-4 py-3 flex items-center justify-between gap-3">
@@ -528,6 +611,22 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
                         className="w-14 ml-px bg-t1-bg hover:bg-t1-surface-hover text-[20px] disabled:opacity-30">+</button>
               </div>
               {open === it.cardId && (
+                <div className="flex flex-col gap-px">
+                  <Segmented options={CONDITIONS.map((c) => ({ value: c, label: c }))} value={it.condition}
+                             onChange={(c) => {
+                               if (c === it.condition) return;
+                               if (it.qty === 1) moveCondition(it, p, c, 1);
+                               else setMoving({ k: it.k, to: c });
+                             }} />
+                  {moving?.k === it.k && (
+                    <div className="flex gap-px">
+                      <GhostAction label={`Move 1 copy to ${moving.to}`} onClick={() => moveCondition(it, p, moving.to, 1)} />
+                      <GhostAction label={`Move all ${it.qty}`} onClick={() => moveCondition(it, p, moving.to, it.qty)} />
+                    </div>
+                  )}
+                </div>
+              )}
+              {open === it.cardId && (
                 <div className="bg-t1-surface px-4 py-3 flex flex-col gap-1">
                   <span className="t1-label">History · {setLabel(p)}</span>
                   {history === null && <span className="t1-label">Loading…</span>}
@@ -542,7 +641,8 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
           );
         })}
 
-        <Section title="Add a printing" count={count} />
+        <Section title="Add a printing" count={count} right={<span title={CONDITION_NAME[addCondition]}>Adds as {addCondition}</span>} />
+        <Segmented options={CONDITIONS.map((c) => ({ value: c, label: c }))} value={addCondition} onChange={setAddCondition} />
         {(showAll ? printings : printings.slice(0, 12)).map((p) => {
           const finishes = (["n", "f", "e"] as const).filter((l) => catalog.pFinishes[p].includes(l)).map((l) => FINISH_LETTER[l]) as Finish[];
           const pr = prices.get(catalog.pId[p]);
@@ -563,7 +663,7 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
                 const k = `${catalog.pId[p]}|${f}`;
                 return (
                   <button key={f} type="button" disabled={busy === k} title={priceFor(pr, f) ?? undefined}
-                          onClick={() => change(k, `Added 1 ${setLabel(p)} ${FINISH_LABEL[f]}`, { card_id: catalog.pId[p], finish: f, delta: 1 })}
+                          onClick={() => change(k, `Added 1 ${setLabel(p)} ${FINISH_LABEL[f]} · ${addCondition}`, { card_id: catalog.pId[p], finish: f, condition: addCondition, delta: 1 })}
                           className="px-3 bg-t1-bg hover:bg-t1-surface-hover text-[11px] uppercase tracking-[1px] disabled:opacity-30">
                     + {f === "nonfoil" ? "Card" : FINISH_LABEL[f]}
                   </button>

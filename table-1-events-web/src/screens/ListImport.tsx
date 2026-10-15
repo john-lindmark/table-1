@@ -6,7 +6,7 @@ import { Bar, BigAction, Field, Notice, Row, Section, Segmented } from "../compo
 import { printingBySetCn, printingsByName, type Catalog } from "../lib/catalog";
 import { BOARD_ORDER, boardTitle, createList, type Board, type Entry, type ListFinish, type ListKind } from "../lib/lists";
 import { supabase } from "../lib/supabaseClient";
-import { Back, CardRow, LibScreen, useCatalog } from "./Library";
+import { CardRow, LibScreen, useCatalog } from "./Library";
 import { useListsData } from "./Lists";
 
 interface ImportLine { qty: number; board: string; name: string; set?: string; cn?: string; scryfall_id?: string; finish?: string }
@@ -85,11 +85,11 @@ export function ListImportScreen({ kind, onBack, onCreated }: { kind: ListKind; 
 
   const title = kind === "deck" ? "Import deck" : "Import cube";
   if (!ready) return <LibScreen><div className="flex-1" /></LibScreen>;
-  if (!session) return <LibScreen><Bar title={title} right={<Back onClick={onBack} />} /><Notice tone="info">Sign in to import lists.</Notice></LibScreen>;
+  if (!session) return <LibScreen><Bar title={title} onBack={onBack} /><Notice tone="info">Sign in to import lists.</Notice></LibScreen>;
   const count = (b: Board) => result?.entries.filter((e) => e.board === b).reduce((n, e) => n + e.qty, 0) ?? 0;
   return (
     <LibScreen>
-      <Bar title={title} subtitle="From a link or a pasted list" right={<Back onClick={onBack} />} />
+      <Bar title={title} subtitle="From a link or a pasted list" onBack={onBack} />
       {error && <Notice tone="error">{error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {!result && (

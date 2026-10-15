@@ -6,7 +6,7 @@ import { Bar, BigAction, Field, Notice, Row, Section, Segmented } from "../compo
 import { printingsByName } from "../lib/catalog";
 import { createList, type Entry } from "../lib/lists";
 import { supabase } from "../lib/supabaseClient";
-import { Back, CardRow, LibScreen, useCatalog } from "./Library";
+import { CardRow, LibScreen, useCatalog } from "./Library";
 import { useListsData } from "./Lists";
 
 interface Line { qty: number; name: string }
@@ -88,7 +88,7 @@ export function DeckFinderScreen({ onBack, onCreated }: { onBack: () => void; on
   };
 
   if (!ready) return <LibScreen><div className="flex-1" /></LibScreen>;
-  if (!session) return <LibScreen><Bar title="Find a deck" right={<Back onClick={onBack} />} /><Notice tone="info">Sign in to find decks.</Notice></LibScreen>;
+  if (!session) return <LibScreen><Bar title="Find a deck" onBack={onBack} /><Notice tone="info">Sign in to find decks.</Notice></LibScreen>;
   const lineRow = (l: Line, i: number) => (
     <div key={i} className="h-[60px]">
       <CardRow c={catalog!} p={resolved.get(l.name) ?? null} title={l.name} value={l.qty} detail={resolved.has(l.name) ? undefined : "Not found"} />
@@ -99,7 +99,7 @@ export function DeckFinderScreen({ onBack, onCreated }: { onBack: () => void; on
 
   return (
     <LibScreen>
-      <Bar title="Find a deck" subtitle="Recent tournament lists" right={<Back onClick={onBack} />} />
+      <Bar title="Find a deck" subtitle="Recent tournament lists" onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         <Field label="Describe the deck" value={query} onChange={setQuery} autoFocus />
         <Segmented options={FORMATS.map((f) => ({ value: f, label: f }))} value={format} onChange={setFormat} columns={4} />

@@ -64,7 +64,8 @@ final class LibraryDemoBackend {
     private(set) var items: [String: CollectionItem] = [:]
     private(set) var summary: LibrarySummary
     private var seq = 0
-    private let prices: [String: [Double?]]
+    /// [usd, usd_foil, usd_etched, eur, eur_foil] per printing, as card_prices_get returns them.
+    let prices: [String: [Double?]]
     private var ledger: [String: [HistoryEntry]] = [:]
     private var batches: [String: (rows: [(item: CollectionItem, delta: Int)], undone: Bool)] = [:]
     private var oracleOf: [String: Int] = [:]
@@ -209,6 +210,20 @@ struct LibraryDemoRoot: View {
         .task {
             loaded = LibraryDemo.start()
             CatalogStore.shared.load(userInitiated: true)
+            path = Self.startRoute
+        }
+    }
+
+    /// Design QA: `-T1LibraryDemo allcards|add|trades|trade` opens that screen.
+    private static var startRoute: [LibraryRoute] {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-T1LibraryDemo"), i + 1 < args.count else { return [] }
+        switch args[i + 1] {
+        case "allcards": return [.allCards]
+        case "add": return [.add]
+        case "trades": return [.trades]
+        case "trade": return [.trades, .trade(nil)]
+        default: return []
         }
     }
 }

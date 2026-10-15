@@ -38,6 +38,9 @@ import site.table1.events.library.CatalogStore
 import site.table1.events.library.CollectionStore
 import site.table1.events.library.DeckFinderScreen
 import site.table1.events.library.LibraryHomeScreen
+import site.table1.events.library.TradeScreen
+import site.table1.events.library.TradesScreen
+import site.table1.events.library.TradesStore
 import site.table1.events.library.LinePrintingScreen
 import site.table1.events.library.ListImportScreen
 import site.table1.events.library.ListAddScreen
@@ -126,7 +129,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
         }
         CatalogStore.load(userInitiated = false)
     }
-    DisposableEffect(Unit) { onDispose { CollectionStore.stop(); ListsStore.stop() } }
+    DisposableEffect(Unit) { onDispose { CollectionStore.stop(); ListsStore.stop(); TradesStore.stop() } }
     LaunchedEffect(foregrounds) { CatalogStore.load(userInitiated = route?.startsWith("collection") == true) }
 
     val topLevel = route == "events" || route == "account" || route == "collection"
@@ -165,6 +168,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
                         onAdd = { nav.navigate("collection/add") },
                         onDecks = { nav.navigate("collection/decks") },
                         onCubes = { nav.navigate("collection/cubes") },
+                        onTrades = { nav.navigate("collection/trades") },
                     )
                 }
                 composable("collection/decks") {
@@ -211,6 +215,13 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
                     ListVersionScreen(e.arguments?.getString("id") ?: "", e.arguments?.getString("n")?.toIntOrNull() ?: 0,
                         onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it") })
                 }
+                composable("collection/trades") {
+                    TradesScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/trade/${it ?: "new"}") })
+                }
+                composable("collection/trade/{id}") { e ->
+                    val id = e.arguments?.getString("id")?.takeIf { it != "new" }
+                    TradeScreen(id, onBack = { nav.popBackStack() })
+                }
                 composable("collection/all") {
                     AllCardsScreen(
                         onBack = { nav.popBackStack() },
@@ -252,7 +263,8 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
                     LifeTrackerScreen(matchId = e.arguments?.getString("matchId"), onClose = { nav.popBackStack() })
                 }
                 composable("nearby") {
-                    NearbyScreen(onJoined = { id -> nav.navigate("event/$id") { popUpTo("events") } }, onBack = { nav.popBackStack() })
+                    NearbyScreen(onJoined = { id -> nav.navigate("event/$id") { popUpTo("events") } }, onOpen = { id -> nav.navigate("event/$id") },
+                        onBack = { nav.popBackStack() })
                 }
             }
         }

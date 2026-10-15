@@ -121,6 +121,7 @@ export function Organizer({
       <Bar
         title={event.name}
         subtitle={subtitle}
+        onBack={onExit}
         right={
           <div className="flex gap-4 shrink-0">
             {phase !== "results" && (
@@ -135,9 +136,6 @@ export function Organizer({
                 Cancel event
               </button>
             )}
-            <button type="button" onClick={onExit} className="t1-label hover:text-t1-text">
-              Events
-            </button>
           </div>
         }
       />

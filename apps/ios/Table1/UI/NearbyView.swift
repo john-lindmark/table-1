@@ -11,9 +11,8 @@ struct NearbyView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Nearby", subtitle: "Events within 150 m") {
+            Bar(title: "Nearby", subtitle: "Events within 150 m", back: { dismiss() }) {
                 BarButton("Refresh") { Task { await search() } }
-                BarButton("Back") { dismiss() }
             }
             Ghost(text: alertsOn == true ? "Alerts on" : "Alert me when one starts", accent: alertsOn == true) {
                 Task {
@@ -26,11 +25,13 @@ struct NearbyView: View {
                 if let events {
                     if events.isEmpty { Notice("Nothing open nearby right now.") }
                     ForEach(events) { e in
-                        ListRow(
-                            title: e.name,
-                            detail: "\(e.distanceM) m · \(e.label) · \(e.players)\(e.capacity.map { "/\($0)" } ?? "") players\(e.venueName.map { " · \($0)" } ?? "")"
-                        ) {
-                            BarButton("Join") { join(e) }
+                        let detail = "\(e.distanceM) m · \(e.label) · \(e.players)\(e.capacity.map { "/\($0)" } ?? "") players\(e.venueName.map { " · \($0)" } ?? "")"
+                        if e.joined == true {
+                            Button { path.append(.event(e.eventId)) } label: {
+                                ListRow(title: e.name, detail: detail) { LabelText("Joined") }
+                            }.buttonStyle(.plain)
+                        } else {
+                            ListRow(title: e.name, detail: detail) { BarButton("Join") { join(e) } }
                         }
                     }
                 } else {

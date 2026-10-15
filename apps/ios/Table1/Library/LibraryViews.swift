@@ -17,6 +17,8 @@ enum LibraryRoute: Hashable {
     case findDeck
     case linePrinting(String, String, String, String) // list id, card id, board, finish
     case importList(CardList.Kind)
+    case trades
+    case trade(String?) // trade id, nil for a new one
 }
 
 /// Every Library screen behind a route, shared by the Collection tab and the Debug demo.
@@ -36,6 +38,8 @@ struct LibraryDestination: View {
         case .findDeck: DeckFinderView(path: $path)
         case .linePrinting(let l, let c, let b, let f): LinePrintingView(listId: l, cardId: c, board: b, finish: f)
         case .importList(let kind): ListImportView(kind: kind, path: $path)
+        case .trades: TradesView(path: $path)
+        case .trade(let id): TradeView(tradeId: id, path: $path)
         }
     }
 }
@@ -43,20 +47,6 @@ struct LibraryDestination: View {
 private func money(_ n: Double?, _ code: String) -> String {
     guard let n else { return "—" }
     return n.formatted(.currency(code: code).precision(.fractionLength(0)))
-}
-
-/// A Table 1 row that reads as unavailable (flat disabled color, no dimming).
-private struct SoonRow: View {
-    let title: String
-    var body: some View {
-        HStack {
-            Text(title).font(T1.mono(14)).foregroundStyle(T1.disabled)
-            Spacer(minLength: 0)
-            LabelText("Soon", color: T1.disabled)
-        }
-        .padding(.horizontal, 16).padding(.vertical, 14)
-        .background(T1.surface)
-    }
 }
 
 private struct LoadingRow: View {
@@ -107,24 +97,27 @@ struct LibraryHomeView: View {
                 Button { path.append(.add) } label: { ListRow(title: "Add cards", detail: "Search by name") }.buttonStyle(.plain)
                 listsRow(.deck, "Decks")
                 listsRow(.cube, "Cubes")
-                SoonRow(title: "Trades")
+                Button { path.append(.trades) } label: {
+                    let open = TradesStore.shared.trades.filter { !$0.confirmed }.count
+                    ListRow(title: "Trades", detail: open > 0 ? "\(open) open" : "Give and get, then confirm") {
+                        if TradesStore.shared.loaded { Text(TradesStore.shared.trades.count.formatted()).font(T1.mono(17)).monospacedDigit() }
+                    }
+                }.buttonStyle(.plain)
             }
         }
         .refreshable { await col.sync() }
+        .task { await TradesStore.shared.load() }
     }
 
-    /// Decks and cubes open once there are any (only the Debug demo until L3 ships them).
-    @ViewBuilder private func listsRow(_ kind: CardList.Kind, _ title: String) -> some View {
+    /// Decks and cubes always open (an empty one shows 0; new ones are created inside).
+    private func listsRow(_ kind: CardList.Kind, _ title: String) -> some View {
         let lists = ListsStore.shared.lists(kind)
-        if lists.isEmpty {
-            SoonRow(title: title)
-        } else {
-            Button { path.append(.lists(kind)) } label: {
-                ListRow(title: title, detail: lists.prefix(3).map(\.name).joined(separator: " · ")) {
-                    Text(lists.count.formatted()).font(T1.mono(17)).monospacedDigit()
-                }
-            }.buttonStyle(.plain)
-        }
+        return Button { path.append(.lists(kind)) } label: {
+            ListRow(title: title, detail: lists.isEmpty ? (kind == .deck ? "Build or import a deck" : "Build or import a cube")
+                                                        : lists.prefix(3).map(\.name).joined(separator: " · ")) {
+                Text(lists.count.formatted()).font(T1.mono(17)).monospacedDigit()
+            }
+        }.buttonStyle(.plain)
     }
 }
 
@@ -143,6 +136,8 @@ struct CardGroup: Identifiable, Hashable, Sendable {
     /// The printing shown as this card's picture: the one owned most.
     var cover: CatalogPrinting?
     var coverQty = 0
+    /// Printing id → finishes owned, for prices.
+    var owned: [String: Set<String>] = [:]
 
     static func build(_ items: [CollectionItem], _ db: CatalogDB) -> [CardGroup] {
         let printings = db.printings(ids: Array(Set(items.map(\.cardId))))
@@ -157,6 +152,7 @@ struct CardGroup: Identifiable, Hashable, Sendable {
             g.qty += it.qty
             g.lastSeq = max(g.lastSeq, it.seq)
             if seen[key, default: []].insert(it.cardId).inserted { g.printings += 1 }
+            g.owned[it.cardId, default: []].insert(it.finish)
             if let p = printings[it.cardId], it.qty > g.coverQty { g.cover = p; g.coverQty = it.qty }
             by[key] = g
         }
@@ -172,32 +168,53 @@ struct AllCardsView: View {
     @State private var groups: [CardGroup] = []
     @State private var built = false
     @State private var query = ""
-    @State private var sort = "name"
+    @AppStorage("library.allCards.sort") private var sort = "recent"
     @AppStorage("library.allCards.grid") private var grid = false
+    private var prices: PriceBook { PriceBook.shared }
+
+    /// The most a single owned copy is worth (market price, USD).
+    private func price(_ g: CardGroup) -> Double? {
+        g.owned.flatMap { id, finishes in finishes.compactMap { prices.usd(id, $0) } }.max()
+    }
 
     private var shown: [CardGroup] {
         let n = CardName.norm(query)
         var list = n.isEmpty ? groups : groups.filter { $0.norm.contains(n) || CardName.norm($0.type).contains(n) }
         switch sort {
-        case "recent": list.sort { $0.lastSeq > $1.lastSeq }
-        case "qty": list.sort { $0.qty != $1.qty ? $0.qty > $1.qty : $0.norm < $1.norm }
-        default: list.sort { $0.norm < $1.norm }
+        case "price":
+            let p = Dictionary(list.map { ($0.id, price($0) ?? -1) }, uniquingKeysWith: { a, _ in a })
+            list.sort { p[$0.id]! != p[$1.id]! ? p[$0.id]! > p[$1.id]! : $0.norm < $1.norm }
+        case "set":
+            // Newest set first; within a set, collector number order.
+            func cn(_ g: CardGroup) -> Int { Int(g.cover?.cn.trimmingCharacters(in: .letters) ?? "") ?? Int.max }
+            list.sort { a, b in
+                let ra = a.cover?.releasedAt ?? "", rb = b.cover?.releasedAt ?? ""
+                if ra != rb { return ra > rb }
+                if a.cover?.set != b.cover?.set { return (a.cover?.set ?? "") < (b.cover?.set ?? "") }
+                return cn(a) != cn(b) ? cn(a) < cn(b) : a.norm < b.norm
+            }
+        default: list.sort { $0.lastSeq != $1.lastSeq ? $0.lastSeq > $1.lastSeq : $0.norm < $1.norm }
         }
         return list
     }
 
+    private func detail(_ g: CardGroup) -> String {
+        let p = PriceBook.text(price(g))
+        if sort == "set", let c = g.cover { return [c.setLabel, p].compactMap { $0 }.joined(separator: " · ") }
+        return [p, "\(g.printings) printing\(g.printings == 1 ? "" : "s")", g.type].compactMap { $0 }.joined(separator: " · ")
+    }
+
     var body: some View {
         T1Screen {
-            Bar(title: "All cards", subtitle: col.summary.map { "\($0.totalQty.formatted()) cards" }) {
+            Bar(title: "All cards", subtitle: col.summary.map { "\($0.totalQty.formatted()) cards" }, back: { dismiss() }) {
                 HStack(spacing: 20) {
                     BarButton(grid ? "List" : "Grid") { grid.toggle() }
-                    BarButton("Back") { dismiss() }
                 }
             }
             if let error = col.error { Notice(error, error: true) }
             CatalogStatus(catalog: catalog)
             T1SearchField(text: $query, prompt: "Name or type")
-            T1Segmented(options: [("name", "A–Z"), ("recent", "Recent"), ("qty", "Most")], selection: $sort)
+            T1Segmented(options: [("recent", "Recent"), ("price", "Price"), ("set", "Set")], selection: $sort)
             if catalog.phase == .ready && built {
                 if groups.isEmpty && col.ready {
                     Button { path.append(.add) } label: { ListRow(title: "No cards yet", detail: "Add your first card") }.buttonStyle(.plain)
@@ -214,7 +231,7 @@ struct AllCardsView: View {
                     HairlineList {
                         ForEach(shown) { g in
                             Button { if g.known { path.append(.card(g.id)) } } label: {
-                                CardRow(printing: g.cover, title: g.name, detail: "\(g.printings) printing\(g.printings == 1 ? "" : "s") · \(g.type)") {
+                                CardRow(printing: g.cover, title: g.name, detail: detail(g)) {
                                     Text("\(g.qty)").font(T1.mono(17)).monospacedDigit()
                                 }
                             }.buttonStyle(.plain)
@@ -231,6 +248,7 @@ struct AllCardsView: View {
             let items = Array(col.items.values)
             groups = await Task.detached(priority: .userInitiated) { CardGroup.build(items, db) }.value
             built = true
+            await prices.load(items.map(\.cardId))
         }
     }
 }
@@ -244,13 +262,31 @@ struct AddCardsView: View {
     @State private var query = ""
     @State private var hits: [CatalogOracle] = []
     @State private var covers: [Int: CatalogPrinting] = [:]
+    @State private var scanned: (batchId: String, label: String)?
+    @State private var error: String?
+    @State private var busy = false
     @FocusState private var focused: Bool
 
     var body: some View {
         T1Screen {
-            Bar(title: "Add cards") { BarButton("Back") { dismiss() } }
+            Bar(title: "Add cards", back: { dismiss() })
             CatalogStatus(catalog: catalog)
-            T1SearchField(text: $query, prompt: "Lightning Bolt").focused($focused)
+            if let error { Notice(error, error: true) }
+            if let scanned {
+                HStack(spacing: 12) {
+                    LabelText(scanned.label)
+                    Spacer(minLength: 0)
+                    BarButton(busy ? "Undoing…" : "Undo") { undoScan() }
+                }
+                .padding(.horizontal, 16).padding(.vertical, 12).background(T1.surface)
+            }
+            HStack(spacing: 1) {
+                T1SearchField(text: $query, prompt: "Lightning Bolt").focused($focused)
+                Button { scan() } label: {
+                    LabelText("Scan", color: T1.text).padding(.horizontal, 16).frame(maxHeight: .infinity).background(T1.surface)
+                }.buttonStyle(.plain)
+            }
+            .fixedSize(horizontal: false, vertical: true)
             HairlineList {
                 if catalog.phase == .ready && CardName.norm(query).count >= 2 && hits.isEmpty {
                     LoadingRow(text: "No card by that name")
@@ -278,6 +314,40 @@ struct AddCardsView: View {
                 return (hits, db.covers(oracleIdxs: hits.map(\.idx)))
             }.value
             if !Task.isCancelled { hits = found.0; covers = found.1 }
+        }
+    }
+
+    /// Scan session: every card goes in as one batch (source "scan") when it's done, so one Undo takes it back.
+    private func scan() {
+        focused = false
+        T1Overlays.shared.present(full: true) {
+            CardScanView(title: "Scan cards", doneLabel: "Add", onDone: { cards in
+                T1Overlays.shared.dismissPanel()
+                let ops = cards.map { CollectionOp(cardId: $0.printing.cardId, finish: $0.finish, condition: $0.condition, delta: 1) }
+                Task {
+                    do {
+                        let res = try await CollectionStore.shared.apply(ops, source: "scan")
+                        scanned = (res.batchId, "Added \(cards.count) scanned card\(cards.count == 1 ? "" : "s")")
+                        error = nil
+                    } catch {
+                        self.error = error.localizedDescription
+                    }
+                }
+            }, onCancel: { T1Overlays.shared.dismissPanel() })
+        }
+    }
+
+    private func undoScan() {
+        guard let scanned, !busy else { return }
+        busy = true
+        Task {
+            defer { busy = false }
+            do {
+                try await CollectionStore.shared.undo(batchId: scanned.batchId)
+                self.scanned = nil
+            } catch {
+                self.error = error.localizedDescription
+            }
         }
     }
 }
@@ -320,6 +390,8 @@ struct CardDetailView: View {
     /// A printing tapped in the list, shown large in place of the owned one.
     @State private var preview: CatalogPrinting?
     @State private var added: String?
+    /// Condition new copies go in as (shared with the scanner).
+    @AppStorage("library.addCondition") private var addCondition = "NM"
 
     private var owned: [(item: CollectionItem, printing: CatalogPrinting)] {
         let byId = Dictionary(printings.map { ($0.cardId, $0) }, uniquingKeysWith: { a, _ in a })
@@ -331,9 +403,7 @@ struct CardDetailView: View {
         let owned = owned
         let total = owned.reduce(0) { $0 + $1.item.qty }
         T1Screen {
-            Bar(title: oracle?.name ?? "Card", subtitle: oracle == nil ? nil : "\(total) in collection") {
-                BarButton("Back") { dismiss() }
-            }
+            Bar(title: oracle?.name ?? "Card", subtitle: oracle == nil ? nil : "\(total) in collection", back: { dismiss() })
             if let message = error ?? col.error { Notice(message, error: true) }
             CatalogStatus(catalog: catalog)
             if looked && oracle == nil && catalog.phase == .ready { Notice("That card isn't in the card data.", error: true) }
@@ -373,6 +443,7 @@ struct CardDetailView: View {
                         }.buttonStyle(.plain)
                     }
                     Section1("Add a printing · \(printings.count)")
+                    T1Segmented(options: Conditions.all.map { ($0, $0) }, selection: $addCondition)
                     ForEach(showAll ? printings : Array(printings.prefix(12)), id: \.cardId) { addRow($0) }
                     if !showAll && printings.count > 12 {
                         Button { showAll = true } label: { ListRow(title: "Show all \(printings.count) printings") }.buttonStyle(.plain)
@@ -466,6 +537,7 @@ struct CardDetailView: View {
             }
             .background(T1.surface)
             if open == it.cardId {
+                conditionRow(it, p)
                 VStack(alignment: .leading, spacing: 4) {
                     LabelText("History · \(p.setLabel)")
                     if let history {
@@ -484,6 +556,38 @@ struct CardDetailView: View {
                 .padding(.horizontal, 16).padding(.vertical, 12).background(T1.surface)
             }
         }
+    }
+
+    /// Condition of these copies: tap another to move one copy (or all of them) there.
+    private func conditionRow(_ it: CollectionItem, _ p: CatalogPrinting) -> some View {
+        HStack(spacing: 1) {
+            ForEach(Conditions.all, id: \.self) { c in
+                let on = c == it.condition
+                Button { if !on { moveCondition(it, p, to: c) } } label: {
+                    LabelText(c, color: on ? T1.ink : T1.text)
+                        .frame(maxWidth: .infinity).padding(.vertical, 12)
+                        .background(on ? T1.text : T1.surface)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(busy == it.key)
+                .accessibilityLabel(Conditions.name(c))
+            }
+        }
+    }
+
+    private func moveCondition(_ it: CollectionItem, _ p: CatalogPrinting, to c: String) {
+        func move(_ n: Int) {
+            change(it.key, "Moved \(n) \(p.setLabel) to \(c)", [
+                CollectionOp(cardId: it.cardId, finish: it.finish, condition: it.condition, lang: it.lang, delta: -n),
+                CollectionOp(cardId: it.cardId, finish: it.finish, condition: c, lang: it.lang, delta: n),
+            ])
+        }
+        if it.qty == 1 { move(1); return }
+        T1Overlays.shared.showMenu("Mark as \(Conditions.name(c).lowercased())", [
+            T1MenuItem(title: "One copy") { move(1) },
+            T1MenuItem(title: "All \(it.qty) copies") { move(it.qty) },
+        ])
     }
 
     private func addRow(_ p: CatalogPrinting) -> some View {
@@ -507,7 +611,8 @@ struct CardDetailView: View {
             ForEach(p.finishList, id: \.self) { f in
                 let k = "\(p.cardId)|\(f.rawValue)"
                 Button {
-                    change(k, "Added 1 \(p.setLabel) \(f.label)", CollectionOp(cardId: p.cardId, finish: f.rawValue, delta: 1))
+                    change(k, "Added 1 \(p.setLabel) \(f.label) · \(addCondition)",
+                           CollectionOp(cardId: p.cardId, finish: f.rawValue, condition: addCondition, delta: 1))
                 } label: {
                     LabelText("+ \(f == .nonfoil ? "Card" : f.label)", color: busy == k ? T1.disabled : T1.text)
                         .padding(.horizontal, 12).frame(maxHeight: .infinity)
@@ -533,13 +638,15 @@ struct CardDetailView: View {
         .disabled(!enabled)
     }
 
-    private func change(_ key: String, _ label: String, _ op: CollectionOp) {
+    private func change(_ key: String, _ label: String, _ op: CollectionOp) { change(key, label, [op]) }
+
+    private func change(_ key: String, _ label: String, _ ops: [CollectionOp]) {
         busy = key
         error = nil
         Task {
             defer { busy = nil }
             do {
-                let res = try await col.apply([op])
+                let res = try await col.apply(ops)
                 last = (res.batchId, label)
             } catch {
                 self.error = error.localizedDescription

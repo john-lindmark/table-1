@@ -331,7 +331,7 @@ struct ScanView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Scan to join", subtitle: "Point at the organizer's QR") { BarButton("Close") { dismiss() } }
+            Bar(title: "Scan to join", subtitle: "Point at the organizer's QR", back: { dismiss() })
             if QRScanner.isAvailable {
                 QRScanner { raw in
                     if let link = JoinLink(raw) {

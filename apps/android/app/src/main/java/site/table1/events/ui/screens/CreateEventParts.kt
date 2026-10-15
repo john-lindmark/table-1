@@ -184,7 +184,7 @@ internal fun CubeFields(
             Label("Recent cubes")
             recent.forEach { c ->
                 val current = c.cubeName == cubeName.trim() && (c.cubeUrl ?: "") == cubeUrl.trim()
-                ListRow(c.cubeName, c.cubeUrl?.substringAfterLast('/')?.let { "cubecobra.com/…/$it" } ?: "No link", onClick = {
+                ListRow(c.cubeName, onClick = {
                     settled = c.cubeUrl ?: ""
                     status = null
                     onLookedUp(c.cubeName, c.cubeUrl ?: "")

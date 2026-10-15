@@ -136,9 +136,7 @@ private struct PlayerView: View {
         let seating = engine.seating ?? []
 
         T1Screen {
-            Bar(title: b.event.name, subtitle: subtitle(me: me, active: active)) {
-                BarButton("Back") { dismiss() }
-            }
+            Bar(title: b.event.name, subtitle: subtitle(me: me, active: active), back: { dismiss() })
             if b.event.isCancelled { CancelledBanner(reason: b.event.cancelReason) }
             HairlineList {
                 if let active, b.event.showClock { RoundClock(endsAt: active.timerEndsAt) }

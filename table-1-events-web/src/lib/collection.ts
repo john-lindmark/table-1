@@ -241,7 +241,7 @@ export function sync(): Promise<void> {
 }
 
 /** One user action = one batch. Shows the result at once, then confirms with a delta sync. */
-export async function applyOps(ops: CollectionOp[], source: "manual" | "scan" | "import" | "adjust" = "manual"): Promise<ApplyResult> {
+export async function applyOps(ops: CollectionOp[], source: "manual" | "scan" | "import" | "adjust" | "trade" = "manual"): Promise<ApplyResult> {
   if (demo) {
     const res = demo.apply(ops, source);
     reflect(res);
@@ -318,3 +318,6 @@ export function useCollection(userId: string | null): CollectionState & { refres
   const refresh = useCallback(() => sync(), []);
   return { ...(snap.userId === userId ? snap : empty), refresh };
 }
+
+/** The dev demo backend while it's running (prices and trades read from it). */
+export const demoBackend = (): DemoBackend | null => demo;

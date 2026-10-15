@@ -7,7 +7,7 @@ import {
   boardTitle, boardsOf, countOf, createList, finishOf, ownKey, type ListFinish, current, deleteList, diff, duplicateList, editList, entriesOf, missingIn, restoreList,
   sectionsFor, useLists, type Board, type CardList, type ListKind,
 } from "../lib/lists";
-import { Back, BarToggle, CardArt, CardRow, CardTile, LibScreen, useCatalog, useLibrarySession, useStoredFlag } from "./Library";
+import { BarToggle, CardArt, CardRow, CardTile, LibScreen, useCatalog, useLibrarySession, useStoredFlag } from "./Library";
 
 /* Decks and cubes on the web (contract/lists-2026-10-15.md): the same lists, sections, groups and version
    history as iOS, read from and written to the database, so a deck built on one device is here too. */
@@ -161,7 +161,7 @@ export function ListsScreen({ kind, onBack, onOpen, onFind, onImport }: {
 
   return (
     <LibScreen>
-      <Bar title={kind === "deck" ? "Decks" : "Cubes"} subtitle={`${mine.length}`} right={<Back onClick={onBack} />} />
+      <Bar title={kind === "deck" ? "Decks" : "Cubes"} subtitle={`${mine.length}`} onBack={onBack} />
       {lists.error && <Notice tone="error">{lists.error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         <Row title={kind === "deck" ? "New deck" : "New cube"} detail="Name it, then add cards" onClick={() => setCreating(true)} />
@@ -219,7 +219,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   if (!list) {
     return (
       <Screen>
-        <Bar title="List" right={<Back onClick={onBack} />} />
+        <Bar title="List" onBack={onBack} />
         <Notice tone="info">{lists.ready ? "That list isn't here anymore." : "Loading…"}</Notice>
       </Screen>
     );
@@ -260,11 +260,10 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
 
   return (
     <LibScreen>
-      <Bar title={list.name} subtitle={`${formatName(list.format)} ${list.kind} · v${v.number}`}
+      <Bar title={list.name} subtitle={`${formatName(list.format)} ${list.kind} · v${v.number}`} onBack={onBack}
            right={<span className="flex gap-4">
              <button type="button" className="t1-label hover:text-t1-text px-2 py-1 -my-1" onClick={() => setEditing(!editing)}>{editing ? "Done" : "Edit"}</button>
              {!editing && <BarToggle on={grid} onChange={setGrid} />}
-             <Back onClick={onBack} />
            </span>} />
       {(lists.error || error) && <Notice tone="error">{lists.error ?? error}</Notice>}
       <div ref={boxRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
@@ -361,10 +360,10 @@ export function ListAddScreen({ id, onDone, onCard }: { id: string; onDone: () =
   const [board, setBoard] = useState<Board>("main");
   const list = lists.lists.find((l) => l.id === id);
   const hits = useMemo(() => (catalog ? searchCatalog(catalog, q, 40) : []), [catalog, q]);
-  if (!list) return <Screen><Bar title="Add cards" right={<Back onClick={onDone} />} /></Screen>;
+  if (!list) return <Screen><Bar title="Add cards" onBack={onDone} /></Screen>;
   return (
     <LibScreen>
-      <Bar title={`Add to ${list.name}`} subtitle={`v${current(list).number}`} right={<Back onClick={onDone} />} />
+      <Bar title={`Add to ${list.name}`} subtitle={`v${current(list).number}`} onBack={onDone} />
       <Segmented options={sectionsFor(list.kind).map((b) => ({ value: b, label: boardTitle(list.kind, b) }))} value={board} onChange={setBoard} />
       <Field label="Card name" value={q} onChange={setQ} autoFocus />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
@@ -393,11 +392,11 @@ export function ListAddScreen({ id, onDone, onCard }: { id: string; onDone: () =
 export function VersionsScreen({ id, onBack, onOpen }: { id: string; onBack: () => void; onOpen: (n: number) => void }) {
   const { lists } = useListsData();
   const list = lists.lists.find((l) => l.id === id);
-  if (!list) return <Screen><Bar title="Version history" right={<Back onClick={onBack} />} /></Screen>;
+  if (!list) return <Screen><Bar title="Version history" onBack={onBack} /></Screen>;
   const vs = list.versions;
   return (
     <LibScreen>
-      <Bar title="Version history" subtitle={list.name} right={<Back onClick={onBack} />} />
+      <Bar title="Version history" subtitle={list.name} onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {vs.map((v, i) => {
           const ch = diff(i > 0 ? vs[i - 1] : null, v);
@@ -417,14 +416,14 @@ export function VersionScreen({ id, number, onBack, onCard }: { id: string; numb
   const [restored, setRestored] = useState<string | null>(null);
   const list = lists.lists.find((l) => l.id === id);
   const i = list ? list.versions.findIndex((v) => v.number === number) : -1;
-  if (!list || i < 0) return <Screen><Bar title={`v${number}`} right={<Back onClick={onBack} />} /></Screen>;
+  if (!list || i < 0) return <Screen><Bar title={`v${number}`} onBack={onBack} /></Screen>;
   const v = list.versions[i];
   const prev = i > 0 ? list.versions[i - 1] : null;
   const changes = prev ? diff(prev, v) : [];
   const count = (b: Board) => v.entries.filter((e) => e.board === b).reduce((n, e) => n + e.qty, 0);
   return (
     <LibScreen>
-      <Bar title={`v${number} · ${v.note}`} subtitle={list.name} right={<Back onClick={onBack} />} />
+      <Bar title={`v${number} · ${v.note}`} subtitle={list.name} onBack={onBack} />
       {restored && <Notice tone="info">{restored}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         <div className="bg-t1-surface py-4 flex">
@@ -477,7 +476,7 @@ export function LinePrintingScreen({ id, cardId, board, finish, onDone }: {
   const have = list ? entriesOf(list).find((e) => e.cardId === cardId && e.board === board && finishOf(e) === finish)?.qty ?? 0 : 0;
   const [count, setCount] = useState(0);
   const n = Math.min(Math.max(count || have, 1), have);
-  if (!list || !catalog) return <LibScreen><Bar title="Printing" right={<Back onClick={onDone} />} /></LibScreen>;
+  if (!list || !catalog) return <LibScreen><Bar title="Printing" onBack={onDone} /></LibScreen>;
   const p0 = catalog.printingIndex.get(cardId);
   const oi = p0 === undefined ? -1 : catalog.pOracle[p0];
   const orig = oi >= 0 ? catalog.oOriginal[oi] : -1;
@@ -486,7 +485,7 @@ export function LinePrintingScreen({ id, cardId, board, finish, onDone }: {
   const label = (p: number) => `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}`;
   return (
     <LibScreen>
-      <Bar title="Printing" subtitle={oi >= 0 ? catalog.oName[oi] : undefined} right={<Back onClick={onDone} />} />
+      <Bar title="Printing" subtitle={oi >= 0 ? catalog.oName[oi] : undefined} onBack={onDone} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {have === 0 && <Notice tone="info">This line has no copies left.</Notice>}
         {have > 0 && p0 !== undefined && (

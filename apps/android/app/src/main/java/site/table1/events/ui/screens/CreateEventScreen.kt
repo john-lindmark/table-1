@@ -249,7 +249,7 @@ internal fun FormBlock(title: String, content: @Composable ColumnScope.() -> Uni
 @Composable
 private fun SetPickerScreen(onPick: (DraftableSet) -> Unit, onBack: () -> Unit) {
     T1Screen {
-        Bar("Pick a set") { BarAction("Back", onBack) }
+        Bar("Pick a set", onBack = onBack)
         SetPickerList(onPick)
     }
 }

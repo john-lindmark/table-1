@@ -420,6 +420,8 @@ struct NearbyEvent: Decodable, Identifiable, Hashable {
     let capacity: Int?
     let distanceM: Int
     let formatLabel: String?
+    /// Already an active player here, or its organizer: open the event instead of joining.
+    let joined: Bool?
     var label: String { formatLabel ?? format.capitalized }
 }
 

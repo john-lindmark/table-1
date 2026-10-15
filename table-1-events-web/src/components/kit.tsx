@@ -13,18 +13,36 @@ export function Screen({ children }: { children: ReactNode }) {
   );
 }
 
+/** Material "arrow_left_alt" (weight 300) from the Figma Bar (node 95:11022). */
+export function BackArrow({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 18 18" width={18} height={18} className={className} fill="currentColor" aria-hidden="true">
+      <path d="M7.464 13.2403L3.2235 9L7.464 4.75969L8.25431 5.57306L5.38987 8.4375H14.7765V9.5625H5.38987L8.25431 12.4269L7.464 13.2403Z" />
+    </svg>
+  );
+}
+
 export function Bar({
   title,
   subtitle,
   right,
+  onBack,
 }: {
   title: string;
   subtitle?: string;
   right?: ReactNode;
+  /** Screens pushed above a tab's main view lead with the back arrow. */
+  onBack?: () => void;
 }) {
   return (
-    <div className="shrink-0 bg-t1-surface px-4 py-3 flex items-center justify-between gap-3">
-      <div className="min-w-0">
+    <div className={`shrink-0 bg-t1-surface ${onBack ? "pr-4" : "px-4"} py-3 flex items-center justify-between gap-3`}>
+      {onBack && (
+        <button type="button" onClick={onBack} aria-label="Back"
+                className="shrink-0 w-[50px] h-[50px] -my-3 -mr-3 flex items-center justify-center hover:text-t1-accent">
+          <BackArrow />
+        </button>
+      )}
+      <div className="min-w-0 flex-1">
         <p className="text-[13px] tracking-[0.5px] truncate">{title}</p>
         {subtitle && <p className="t1-label truncate">{subtitle}</p>}
       </div>

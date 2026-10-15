@@ -380,7 +380,7 @@ struct CubeFields: View {
             Section1("Recent cubes")
             ForEach(recent) { cube in
                 Button { use(cube) } label: {
-                    ListRow(title: cube.cubeName, detail: cube.cubeUrl.map(Self.shortLink) ?? "No link") {
+                    ListRow(title: cube.cubeName) {
                         if isCurrent(cube) { LabelText("Selected", color: T1.accent) } else { LabelText("Use", color: T1.text) }
                     }
                 }
@@ -433,12 +433,6 @@ struct CubeFields: View {
             lookup = .failed(error.localizedDescription)
         }
     }
-
-    /// "cubecobra.com/…/vintagecube"
-    static func shortLink(_ url: String) -> String {
-        guard let u = URL(string: url), let host = u.host else { return url }
-        return "\(host.replacingOccurrences(of: "www.", with: ""))/…/\(u.lastPathComponent)"
-    }
 }
 
 /// Team formats: 3 or 4 players per team.
@@ -464,14 +458,13 @@ struct SetPickerScreen: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Set", subtitle: "Newest first") {
+            Bar(title: "Set", subtitle: "Newest first", back: { dismiss() }) {
                 if selected != nil {
                     BarButton("Clear") {
                         selected = nil
                         dismiss()
                     }
                 }
-                BarButton("Back") { dismiss() }
             }
             T1SearchField(text: $query, prompt: "Search sets")
             HairlineList {
