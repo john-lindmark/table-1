@@ -293,7 +293,7 @@ internal fun OrganizerScreen(
         Box(Modifier.weight(1f)) {
             when (phase) {
                 OrganizerPhase.Setup -> when (selected) {
-                    "players" -> SetupPlayers(b, tags, busy, onAddPlayers, onShowQr = { showQr = true }) { block -> act(block) }
+                    "players" -> SetupPlayers(b, tags, busy, onAddPlayers, onShowQr = { showQr = true }, onChanged = onChanged) { block -> act(block) }
                     "seating" -> SetupSeating(b, standings, busy) { seat() }
                     "teams" -> TeamsTab(b, onChanged)
                     "details" -> DetailsTab(b, onChanged)
@@ -478,14 +478,20 @@ private fun SetupPlayers(
     busy: Boolean,
     onAddPlayers: () -> Unit,
     onShowQr: () -> Unit,
+    onChanged: suspend () -> Unit,
     act: (suspend () -> Unit) -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
+    // Players removed here are hidden at once while the server call and reload catch up.
+    var removed by remember { mutableStateOf(emptySet<String>()) }
+    var removeError by remember { mutableStateOf<String?>(null) }
+    val participants = b.participants.filter { it.id !in removed }
     val myId = Repo.userId
-    val me = b.participants.firstOrNull { it.userId != null && it.userId == myId }
+    val me = participants.firstOrNull { it.userId != null && it.userId == myId }
     var guestName by remember { mutableStateOf("") }
     var removing by remember { mutableStateOf<ParticipantRow?>(null) }
     val guest = tidyName(guestName)
-    val dup = guest.isNotEmpty() && b.participants.any { it.displayName.equals(guest, ignoreCase = true) }
+    val dup = guest.isNotEmpty() && participants.any { it.displayName.equals(guest, ignoreCase = true) }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -498,14 +504,15 @@ private fun SetupPlayers(
                 Text(b.event.shortCode, color = T1.accent, fontFamily = T1.mono, fontSize = 18.sp, letterSpacing = 4.sp)
             }
         }
-        item { Section("Players · ${b.participants.size}") }
+        item { Section("Players · ${participants.size}") }
+        removeError?.let { item { Notice(it, error = true) } }
         if (myId != null && me == null) item {
             ListRow("You're not playing", "Organizing only", onClick = if (busy) null else ({ act { Repo.addSelf(b.event.id) } })) {
                 Label("Join as a player", color = T1.accent)
             }
         }
-        if (b.participants.isEmpty()) item { Notice("No players yet. Add players, or show the join QR to the room.") }
-        items(b.participants, key = { it.id }) { p ->
+        if (participants.isEmpty()) item { Notice("No players yet. Add players, or show the join QR to the room.") }
+        items(participants, key = { it.id }) { p ->
             val team = tags[p.id]?.let { t -> t + (p.teamSlot?.let { " " + slotLetter(it) } ?: "") }
             val detail = listOfNotNull(
                 if (p.userId == null) "Guest" else "Joined",
@@ -539,8 +546,19 @@ private fun SetupPlayers(
             },
             confirm = {
                 BarAction("Remove") {
+                    // The row goes at once; the reload follows. If the server refuses, the player comes back.
                     removing = null
-                    act { Repo.removeParticipant(p.id) }
+                    removeError = null
+                    removed = removed + p.id
+                    scope.launch {
+                        try {
+                            Repo.removeParticipant(p.id)
+                            onChanged()
+                        } catch (e: Exception) {
+                            removed = removed - p.id
+                            removeError = userMessage(e)
+                        }
+                    }
                 }
             },
             dismiss = { BarAction("Keep") { removing = null } },

@@ -166,19 +166,23 @@ private struct OrganizerSetupView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var confirmStart = false
     @State private var removing: ParticipantRow?
+    /// Players removed here, hidden at once while the server call and reload catch up.
+    @State private var removed: Set<String> = []
+    @State private var removeError: String?
     @State private var guestName = ""
 
     private var b: EventBundle { ctx.b }
+    private var participants: [ParticipantRow] { b.participants.filter { !removed.contains($0.id) } }
     private var event: EventRow { ctx.b.event }
-    private var active: [ParticipantRow] { b.participants.filter { $0.status == "active" } }
+    private var active: [ParticipantRow] { participants.filter { $0.status == "active" } }
     private var seating: [SeatingPod] { ctx.engine.seating ?? [] }
-    private var me: ParticipantRow? { b.participants.first { $0.userId != nil && $0.userId == Repo.userId } }
+    private var me: ParticipantRow? { participants.first { $0.userId != nil && $0.userId == Repo.userId } }
     private var guestTrimmed: String {
         guestName.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
     }
     private var guestDuplicate: Bool {
         let t = guestTrimmed.lowercased()
-        return b.participants.contains { $0.displayName.lowercased() == t }
+        return participants.contains { $0.displayName.lowercased() == t }
     }
 
     private var tabs: [(id: String, label: String)] {
@@ -191,7 +195,7 @@ private struct OrganizerSetupView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: event.name, subtitle: "\(event.shortCode) · Setup · \(playersText(b.participants.count)) · \(event.label)", back: { dismiss() }) {
+            Bar(title: event.name, subtitle: "\(event.shortCode) · Setup · \(playersText(participants.count)) · \(event.label)", back: { dismiss() }) {
                 BarButton("More") { showMore() }
             }
             PhaseTabs(tabs: tabs, selection: $tab)
@@ -227,7 +231,8 @@ private struct OrganizerSetupView: View {
             ListRow(title: "Join code") {
                 Text(event.shortCode).font(T1.mono(18)).tracking(4)
             }
-            Section1("Players · \(b.participants.count)")
+            Section1("Players · \(participants.count)")
+            if let removeError { Notice(removeError, error: true) }
             if me == nil {
                 Button { joinAsPlayer() } label: {
                     ListRow(title: "You're not playing", detail: "Organizing only") {
@@ -236,10 +241,10 @@ private struct OrganizerSetupView: View {
                 }
                 .buttonStyle(.plain)
             }
-            if b.participants.isEmpty {
+            if participants.isEmpty {
                 Notice("No one yet. Add people you've played with, or show the join QR.")
             }
-            ForEach(b.participants) { p in
+            ForEach(participants) { p in
                 ListRow(title: p.id == me?.id ? "You · \(p.displayName)" : p.displayName, detail: playerDetail(p)) {
                     if event.isBeforeRound1 {
                         Button { removing = p } label: { LabelText("Remove", color: T1.danger) }
@@ -278,8 +283,19 @@ private struct OrganizerSetupView: View {
 
     @MainActor
     private func remove(_ p: ParticipantRow) {
+        // The row goes at once; the reload follows. If the server refuses, the player comes back.
         let pid = p.id
-        ctx.act { try await Repo.removeParticipant(pid) }
+        removed.insert(pid)
+        removeError = nil
+        Task { @MainActor in
+            do {
+                try await Repo.removeParticipant(pid)
+                await ctx.refresh()
+            } catch {
+                removed.remove(pid)
+                removeError = error.localizedDescription
+            }
+        }
     }
 
     private var seatingTab: some View {

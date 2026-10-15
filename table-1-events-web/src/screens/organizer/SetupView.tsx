@@ -28,7 +28,10 @@ export function SetupView({
   onAddPlayers,
   onTeamsSaved,
 }: PhaseViewProps & { onAddPlayers: () => void; onTeamsSaved: (rows: EventTeam[]) => void }) {
-  const { event, participants } = bundle;
+  const { event } = bundle;
+  // Players removed here are hidden at once while the server call and reload catch up.
+  const [removed, setRemoved] = useState<ReadonlySet<string>>(new Set());
+  const participants = bundle.participants.filter((p) => !removed.has(p.id));
   const [showQr, setShowQr] = useState(false);
   const [seatingBusy, setSeatingBusy] = useState(false);
   const [confirmStart, setConfirmStart] = useState(false);
@@ -40,7 +43,6 @@ export function SetupView({
   const [guestName, setGuestName] = useState("");
   const [playersBusy, setPlayersBusy] = useState(false);
   const [removing, setRemoving] = useState<(typeof participants)[number] | null>(null);
-  const [removeError, setRemoveError] = useState<string | null>(null);
   const guest = tidyName(guestName);
   const guestDup = !!guest && participants.some((p) => p.displayName.toLowerCase() === guest.toLowerCase());
 
@@ -59,16 +61,21 @@ export function SetupView({
 
   async function confirmRemove() {
     if (!removing) return;
-    setPlayersBusy(true);
-    setRemoveError(null);
+    // The row goes at once; the reload follows. If the server refuses, the player comes back.
+    const id = removing.id;
+    setRemoving(null);
+    setActionError(null);
+    setRemoved((s) => new Set(s).add(id));
     try {
-      await removeParticipant(removing.id);
-      setRemoving(null);
+      await removeParticipant(id);
       await refetch();
     } catch (e) {
-      setRemoveError(errorMessage(e));
-    } finally {
-      setPlayersBusy(false);
+      setRemoved((s) => {
+        const next = new Set(s);
+        next.delete(id);
+        return next;
+      });
+      setActionError(errorMessage(e));
     }
   }
 
@@ -145,7 +152,7 @@ export function SetupView({
                 key={p.id}
                 title={p.id === me?.id ? `You · ${p.displayName}` : p.displayName}
                 detail={[playerDetail(p), isDraft && p.seat != null ? `Seat ${p.seat}` : null].filter(Boolean).join(" · ")}
-                action={{ label: "Remove", onClick: () => { setRemoveError(null); setRemoving(p); }, disabled: playersBusy }}
+                action={{ label: "Remove", onClick: () => setRemoving(p), disabled: playersBusy }}
                 dim={p.status === "dropped"}
               />
             ))}
@@ -226,10 +233,7 @@ export function SetupView({
           }
           cancelLabel="Keep"
           confirmLabel="Remove"
-          busyLabel="Removing…"
           tone="danger"
-          busy={playersBusy}
-          error={removeError}
           onCancel={() => setRemoving(null)}
           onConfirm={confirmRemove}
         />
