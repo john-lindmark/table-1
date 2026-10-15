@@ -123,8 +123,8 @@ function Stat({ label, value }: { label: string; value: number }) {
 const DECK_FORMATS = ["modern", "pioneer", "standard", "legacy", "vintage", "pauper", "commander", "other"];
 const CUBE_FORMATS = ["vintage", "legacy", "pauper", "peasant", "other"];
 
-export function ListsScreen({ kind, onBack, onOpen, onFind }: {
-  kind: ListKind; onBack: () => void; onOpen: (id: string) => void; onFind: () => void;
+export function ListsScreen({ kind, onBack, onOpen, onFind, onImport }: {
+  kind: ListKind; onBack: () => void; onOpen: (id: string) => void; onFind: () => void; onImport: () => void;
 }) {
   const { session, ready, lists, owned } = useListsData();
   const [creating, setCreating] = useState(false);
@@ -167,6 +167,8 @@ export function ListsScreen({ kind, onBack, onOpen, onFind }: {
           <Segmented options={(kind === "deck" ? DECK_FORMATS : CUBE_FORMATS).map((f) => ({ value: f, label: f }))}
                      value={format} onChange={setFormat} columns={4} />
           <BigAction label={kind === "deck" ? "Create deck" : "Create cube"} onClick={create} disabled={!name.trim()} busy={busy} />
+          <Row title="Import from a link or list" detail={kind === "deck" ? "Moxfield, ManaBox, Archidekt, MTGGoldfish" : "Cube Cobra, or a pasted list"}
+               onClick={() => { setCreating(false); onImport(); }} />
           {kind === "deck" && <Row title="Find a deck online" detail="Describe it; we load a recent tournament list"
                                    onClick={() => { setCreating(false); onFind(); }} />}
         </Modal>

@@ -22,6 +22,7 @@ import { AddCards, AllCards, CardDetail, LibraryHome } from "./screens/Library";
 import { LinePrintingScreen, ListAddScreen, ListScreen, ListsScreen, VersionScreen, VersionsScreen } from "./screens/Lists";
 import type { Board, ListFinish } from "./lib/lists";
 import { DeckFinderScreen } from "./screens/DeckFinder";
+import { ListImportScreen } from "./screens/ListImport";
 
 /** Back where the user came from, or a sensible default when the tracker was opened directly. */
 function useBack(fallback: string) {
@@ -135,7 +136,7 @@ function ListsRoute({ kind }: { kind: "deck" | "cube" }) {
   const navigate = useNavigate();
   const back = useBack("/library");
   return <ListsScreen key={kind} kind={kind} onBack={back} onOpen={(id) => navigate(`/library/list/${id}`)}
-                      onFind={() => navigate("/library/find")} />;
+                      onFind={() => navigate("/library/find")} onImport={() => navigate(`/library/import/${kind}`)} />;
 }
 
 function ListRoute() {
@@ -158,6 +159,14 @@ function LinePrintingRoute() {
   if (!listId) return <Navigate to="/library" replace />;
   return <LinePrintingScreen id={listId} cardId={q.get("card") ?? ""} board={(q.get("board") ?? "main") as Board}
                              finish={(q.get("finish") ?? "nonfoil") as ListFinish} onDone={back} />;
+}
+
+function ListImportRoute() {
+  const { kind } = useParams();
+  const navigate = useNavigate();
+  const back = useBack(kind === "cube" ? "/library/cubes" : "/library/decks");
+  return <ListImportScreen kind={kind === "cube" ? "cube" : "deck"} onBack={back}
+                           onCreated={(id) => navigate(`/library/list/${id}`, { replace: true })} />;
 }
 
 function DeckFinderRoute() {
@@ -224,6 +233,7 @@ export default function App() {
         <Route path="/library/card/:oracleId" element={<CardDetailRoute />} />
         <Route path="/library/decks" element={<ListsRoute kind="deck" />} />
         <Route path="/library/find" element={<DeckFinderRoute />} />
+        <Route path="/library/import/:kind" element={<ListImportRoute />} />
         <Route path="/library/list/:listId/printing" element={<LinePrintingRoute />} />
         <Route path="/library/cubes" element={<ListsRoute kind="cube" />} />
         <Route path="/library/list/:listId" element={<ListRoute />} />

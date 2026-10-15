@@ -119,6 +119,18 @@ class CatalogDb(file: File, val version: String) {
         return idx.mapNotNull { (n, i) -> covers[i]?.let { n to it } }.toMap()
     }
 
+    /** Printings by set code and collector number ("set|cn"), English first when a set has several languages. */
+    fun printingsBySetCn(pairs: Collection<Pair<String, String>>): Map<String, CatalogPrinting> {
+        val out = HashMap<String, CatalogPrinting>()
+        for ((set, cn) in pairs) {
+            val k = "$set|$cn"
+            if (k in out) continue
+            query("SELECT $PRINTING_COLS FROM printings WHERE set_code = ? AND cn = ? ORDER BY lang = 'en' DESC LIMIT 1",
+                arrayOf(set.lowercase(), cn), ::printing).firstOrNull()?.let { out[k] = it }
+        }
+        return out
+    }
+
     fun oracles(idxs: Collection<Int>): Map<Int, CatalogOracle> =
         idxs.chunked(500).flatMap { chunk ->
             query("SELECT $ORACLE_COLS FROM oracles WHERE idx IN (${chunk.joinToString(",") { "?" }})",

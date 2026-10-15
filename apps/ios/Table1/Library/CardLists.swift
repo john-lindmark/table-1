@@ -437,7 +437,8 @@ struct ListsView: View {
             HairlineList {
                 Button {
                     T1Overlays.shared.present {
-                        NewListPanel(kind: kind, created: { id in path.append(.list(id)) }, find: { path.append(.findDeck) })
+                        NewListPanel(kind: kind, created: { id in path.append(.list(id)) }, find: { path.append(.findDeck) },
+                                     importList: { path.append(.importList(kind)) })
                     }
                 } label: {
                     ListRow(title: kind == .deck ? "New deck" : "New cube", detail: "Name it, then add cards")
@@ -882,6 +883,8 @@ struct NewListPanel: View {
     let created: (String) -> Void
     /// Decks only: opens the deck finder instead.
     var find: (() -> Void)? = nil
+    /// Opens the import screen (a link or a pasted list).
+    var importList: (() -> Void)? = nil
     @State private var name = ""
     @State private var format = "modern"
 
@@ -903,6 +906,15 @@ struct NewListPanel: View {
                 let l = ListsStore.shared.create(kind: kind, name: String(name.trimmingCharacters(in: .whitespaces).prefix(60)), format: format)
                 T1Overlays.shared.dismissPanel()
                 created(l.id)
+            }
+            if let importList {
+                Button {
+                    T1Overlays.shared.dismissPanel()
+                    importList()
+                } label: {
+                    ListRow(title: "Import from a link or list",
+                            detail: kind == .deck ? "Moxfield, ManaBox, Archidekt, MTGGoldfish" : "Cube Cobra, or a pasted list")
+                }.buttonStyle(.plain)
             }
             if kind == .deck, let find {
                 Button {
@@ -1262,5 +1274,192 @@ struct LinePrintingView: View {
         Button(action: action) {
             Text(glyph).font(T1.mono(22)).frame(width: 52).frame(maxHeight: .infinity).background(T1.surfaceHover)
         }.buttonStyle(.plain)
+    }
+}
+
+// MARK: import from a link or a pasted list
+
+/// The list-import function's answer (contract/list-import-2026-10-15.md).
+struct ImportedList: Decodable {
+    struct Line: Decodable, Hashable {
+        let qty: Int
+        let board: String
+        let name: String
+        var set: String?
+        var cn: String?
+        var scryfallId: String?
+        var finish: String?
+    }
+    var kind: String?
+    var name: String?
+    var format: String?
+    var sourceUrl: String?
+    var entries: [Line]?
+    var error: String?
+}
+
+/// A deck or cube from a link (Cube Cobra, Archidekt, MTGGoldfish, ManaBox and other pages) or a pasted list
+/// (Moxfield, ManaBox, Arena, MTGO exports). Lines resolve to exact printings when the source names them,
+/// else to the card's original paper printing.
+struct ListImportView: View {
+    let kind: CardList.Kind
+    @Binding var path: [LibraryRoute]
+    @Environment(\.dismiss) private var dismiss
+    private var catalog: CatalogStore { CatalogStore.shared }
+
+    @State private var link = ""
+    @State private var text = ""
+    @State private var busy = false
+    @State private var error: String?
+    @State private var result: ImportedList?
+    @State private var name = ""
+    @State private var format = "modern"
+    @State private var entries: [CardList.Entry] = []
+    @State private var printings: [String: CatalogPrinting] = [:]
+    @State private var missing: [String] = []
+
+    private var formats: [(String, String)] {
+        kind == .deck
+            ? [("modern", "Modern"), ("pioneer", "Pioneer"), ("standard", "Standard"), ("legacy", "Legacy"),
+               ("vintage", "Vintage"), ("pauper", "Pauper"), ("commander", "Commander"), ("other", "Other")]
+            : [("vintage", "Vintage"), ("legacy", "Legacy"), ("pauper", "Pauper"), ("peasant", "Peasant"), ("other", "Other")]
+    }
+
+    var body: some View {
+        T1Screen {
+            Bar(title: kind == .deck ? "Import deck" : "Import cube", subtitle: "From a link or a pasted list") { BarButton("Back") { dismiss() } }
+            CatalogStatusRow(catalog: catalog)
+            if let error { Notice(error, error: true) }
+            HairlineList {
+                if result == nil {
+                    Field(label: kind == .deck ? "Link (ManaBox, Archidekt, MTGGoldfish…)" : "Cube Cobra link", text: $link, url: true)
+                    VStack(alignment: .leading, spacing: 4) {
+                        LabelText("Or paste a list")
+                        TextEditor(text: $text)
+                            .font(T1.mono(13)).tint(T1.accent)
+                            .scrollContentBackground(.hidden)
+                            .frame(minHeight: 160)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 12).background(T1.surface)
+                    Notice(kind == .deck
+                           ? "Moxfield doesn't share decks with other apps: in Moxfield choose Export, copy the list as text and paste it here."
+                           : "Cube Cobra: paste the cube's link. Any one-card-per-line list works too.")
+                    BigAction(text: busy ? "Reading…" : "Import", enabled: !busy && catalog.db != nil
+                              && !(link.trimmingCharacters(in: .whitespaces).isEmpty && text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)) {
+                        Task { await read() }
+                    }
+                } else {
+                    preview
+                }
+            }
+        }
+        .onAppear {
+            catalog.load(userInitiated: true)
+            if kind == .cube { format = "vintage" }
+        }
+    }
+
+    @ViewBuilder private var preview: some View {
+        let count = { (b: String) in entries.filter { $0.board == b }.reduce(0) { $0 + $1.qty } }
+        Field(label: "Name", text: $name)
+        T1Segmented(options: Array(formats.prefix(4)), selection: $format)
+        if formats.count > 4 { T1Segmented(options: Array(formats.dropFirst(4)), selection: $format) }
+        let parts = kind == .deck
+            ? ["\(count("main")) main", count("side") > 0 ? "\(count("side")) sideboard" : nil, count("maybe") > 0 ? "\(count("maybe")) considering" : nil,
+               count("commander") > 0 ? "\(count("commander")) commander" : nil]
+            : ["\(count("main")) cards", count("maybe") > 0 ? "\(count("maybe")) considering" : nil]
+        ListRow(title: parts.compactMap { $0 }.joined(separator: " · "), detail: result?.sourceUrl.flatMap { URL(string: $0)?.host() })
+        if !missing.isEmpty {
+            Notice("Not in the card data, left out: \(missing.prefix(12).joined(separator: ", "))\(missing.count > 12 ? " and \(missing.count - 12) more" : "")", error: true)
+        }
+        BigAction(text: kind == .deck ? "Create deck" : "Create cube",
+                  enabled: !entries.isEmpty && !name.trimmingCharacters(in: .whitespaces).isEmpty) { create() }
+        Button { result = nil; error = nil } label: { ListRow(title: "Start over") }.buttonStyle(.plain)
+        ForEach(CardList.boardOrder.filter { b in entries.contains { $0.board == b } }, id: \.self) { b in
+            Section1(boardTitle(b))
+            ForEach(entries.filter { $0.board == b }, id: \.self) { e in
+                let p = printings[e.cardId]
+                CardRow(printing: p, title: lineNames[e.cardId] ?? "",
+                        detail: [p?.setLabel, e.finish == "nonfoil" ? nil : e.finish.capitalized].compactMap { $0 }.joined(separator: " · ")) {
+                    Text("\(e.qty)").font(T1.mono(17)).monospacedDigit()
+                }
+            }
+        }
+    }
+
+    @State private var lineNames: [String: String] = [:]
+
+    private func boardTitle(_ b: String) -> String {
+        switch b {
+        case "commander": "Commander"
+        case "main": kind == .deck ? "Main deck" : "Main"
+        case "side": "Sideboard"
+        default: "Considering"
+        }
+    }
+
+    private func read() async {
+        busy = true
+        error = nil
+        defer { busy = false }
+        let body: [String: String] = link.trimmingCharacters(in: .whitespaces).isEmpty ? ["text": text] : ["url": link.trimmingCharacters(in: .whitespaces)]
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        do {
+            let r: ImportedList = try await supabase.functions.invoke("list-import", options: FunctionInvokeOptions(body: body)) { data, _ in
+                try decoder.decode(ImportedList.self, from: data)
+            }
+            guard let lines = r.entries, !lines.isEmpty, let db = catalog.db else { error = r.error ?? "No cards in that list."; return }
+            let k = kind
+            let resolved = await Task.detached(priority: .userInitiated) { Self.resolve(lines, kind: k, db) }.value
+            entries = resolved.entries
+            printings = resolved.printings
+            lineNames = resolved.names
+            missing = resolved.missing
+            name = String((r.name ?? "").prefix(60))
+            if let f = r.format, formats.contains(where: { $0.0 == f }) { format = f }
+            result = r
+        } catch FunctionsError.httpError(_, let data) {
+            error = (try? decoder.decode(ImportedList.self, from: data))?.error ?? "That list couldn't be read."
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Scryfall id, then set + collector number, then the name's original printing. A finish carries over only
+    /// when that printing comes in it. Cubes have no sideboard or commander: those go to the main list.
+    nonisolated static func resolve(_ lines: [ImportedList.Line], kind: CardList.Kind, _ db: CatalogDB)
+        -> (entries: [CardList.Entry], printings: [String: CatalogPrinting], names: [String: String], missing: [String]) {
+        let byId = db.printings(ids: lines.compactMap { $0.scryfallId?.lowercased() })
+        let bySet = db.printings(setCns: lines.compactMap { l in l.set.flatMap { s in l.cn.map { (s, $0) } } })
+        let byName = db.printings(names: lines.map(\.name))
+        var entries: [CardList.Entry] = [], printings: [String: CatalogPrinting] = [:], names: [String: String] = [:], missing: [String] = []
+        for l in lines {
+            let p = l.scryfallId.flatMap { byId[$0.lowercased()] }
+                ?? l.set.flatMap { s in l.cn.flatMap { bySet["\(s)|\($0)"] } }
+                ?? byName[l.name]
+            guard let p else { missing.append(l.name); continue }
+            let finish = l.finish.flatMap { f in p.finishList.contains { $0.rawValue == f } ? f : nil } ?? "nonfoil"
+            var board = ["main", "side", "maybe", "commander"].contains(l.board) ? l.board : "main"
+            if kind == .cube && (board == "side" || board == "commander") { board = "main" }
+            printings[p.cardId] = p
+            names[p.cardId] = l.name
+            if let i = entries.firstIndex(where: { $0.cardId == p.cardId && $0.board == board && $0.finish == finish }) {
+                entries[i] = .init(cardId: p.cardId, board: board, qty: min(999, entries[i].qty + l.qty), finish: finish)
+            } else {
+                entries.append(.init(cardId: p.cardId, board: board, qty: l.qty, finish: finish))
+            }
+        }
+        return (entries, printings, names, Array(Set(missing)).sorted())
+    }
+
+    private func create() {
+        let host = result?.sourceUrl.flatMap { URL(string: $0)?.host() }
+        let l = ListsStore.shared.create(kind: kind, name: String(name.trimmingCharacters(in: .whitespaces).prefix(60)), format: format,
+                                         entries: entries, note: host.map { "Imported from \($0)" } ?? "Imported")
+        path.removeLast()
+        path.append(.list(l.id))
     }
 }

@@ -177,7 +177,7 @@ private val DECK_FORMATS = listOf("modern", "pioneer", "standard", "legacy", "vi
 private val CUBE_FORMATS = listOf("vintage", "legacy", "pauper", "peasant", "other")
 
 @Composable
-fun ListsScreen(kind: ListKind, onBack: () -> Unit, onOpen: (String) -> Unit, onFind: () -> Unit = {}) {
+fun ListsScreen(kind: ListKind, onBack: () -> Unit, onOpen: (String) -> Unit, onFind: () -> Unit = {}, onImport: () -> Unit = {}) {
     val s by ListsStore.state.collectAsState()
     val owned = ownedByPrinting()
     val scope = rememberCoroutineScope()
@@ -217,6 +217,8 @@ fun ListsScreen(kind: ListKind, onBack: () -> Unit, onOpen: (String) -> Unit, on
                     busy = false
                 }
             }
+            ListRow("Import from a link or list", if (kind == ListKind.Deck) "Moxfield, ManaBox, Archidekt, MTGGoldfish" else "Cube Cobra, or a pasted list",
+                onClick = { creating = false; onImport() })
             if (kind == ListKind.Deck) ListRow("Find a deck online", "Describe it; we load a recent tournament list",
                 onClick = { creating = false; onFind() })
         }

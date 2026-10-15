@@ -147,6 +147,18 @@ final class CatalogDB: @unchecked Sendable {
         return idxByName.compactMapValues { covers[$0] }
     }
 
+    /// Printings by set code and collector number ("set|cn"), English first when a set has several languages.
+    func printings(setCns: [(set: String, cn: String)]) -> [String: CatalogPrinting] {
+        var out: [String: CatalogPrinting] = [:]
+        for (set, cn) in setCns where out["\(set)|\(cn)"] == nil {
+            if let p = try? db.query("SELECT \(Self.printingCols) FROM printings WHERE set_code = ? AND cn = ? ORDER BY lang = 'en' DESC LIMIT 1",
+                                     [.text(set.lowercased()), .text(cn)], Self.printing).first {
+                out["\(set)|\(cn)"] = p
+            }
+        }
+        return out
+    }
+
     func oracles(idxs: [Int]) -> [Int: CatalogOracle] {
         var out: [Int: CatalogOracle] = [:]
         for chunk in Self.chunks(idxs) {

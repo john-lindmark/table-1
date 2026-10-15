@@ -277,6 +277,23 @@ export function printingsByName(c: Catalog, names: string[]): Map<string, number
   return out;
 }
 
+const setCnIndexes = new WeakMap<Catalog, Map<string, number>>();
+
+/** A printing by set code and collector number ("set|cn", set in lowercase), English first. */
+export function printingBySetCn(c: Catalog, set: string, cn: string): number | undefined {
+  let index = setCnIndexes.get(c);
+  if (!index) {
+    index = new Map();
+    for (let p = 0; p < c.printings; p++) {
+      const k = `${c.pSet[p]}|${c.pCn[p]}`;
+      const had = index.get(k);
+      if (had === undefined || (c.pLang[p] === "en" && c.pLang[had] !== "en")) index.set(k, p);
+    }
+    setCnIndexes.set(c, index);
+  }
+  return index.get(`${set.toLowerCase()}|${cn}`);
+}
+
 export function oracleIndexById(c: Catalog, oracleId: string): number {
   return c.oId.indexOf(oracleId);
 }

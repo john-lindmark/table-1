@@ -39,6 +39,7 @@ import site.table1.events.library.CollectionStore
 import site.table1.events.library.DeckFinderScreen
 import site.table1.events.library.LibraryHomeScreen
 import site.table1.events.library.LinePrintingScreen
+import site.table1.events.library.ListImportScreen
 import site.table1.events.library.ListAddScreen
 import site.table1.events.library.ListDetailScreen
 import site.table1.events.library.ListKind
@@ -168,7 +169,14 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
                 }
                 composable("collection/decks") {
                     ListsScreen(ListKind.Deck, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/list/$it") },
-                        onFind = { nav.navigate("collection/find") })
+                        onFind = { nav.navigate("collection/find") }, onImport = { nav.navigate("collection/import/deck") })
+                }
+                composable("collection/import/{kind}") { e ->
+                    val kind = if (e.arguments?.getString("kind") == "cube") ListKind.Cube else ListKind.Deck
+                    ListImportScreen(kind, onBack = { nav.popBackStack() }, onCreated = { id ->
+                        nav.popBackStack()
+                        nav.navigate("collection/list/$id")
+                    })
                 }
                 composable("collection/find") {
                     DeckFinderScreen(onBack = { nav.popBackStack() }, onCreated = { id ->
@@ -177,7 +185,8 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
                     })
                 }
                 composable("collection/cubes") {
-                    ListsScreen(ListKind.Cube, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/list/$it") })
+                    ListsScreen(ListKind.Cube, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/list/$it") },
+                        onImport = { nav.navigate("collection/import/cube") })
                 }
                 composable("collection/list/{id}") { e ->
                     val id = e.arguments?.getString("id") ?: ""
