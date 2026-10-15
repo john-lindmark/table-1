@@ -111,6 +111,7 @@ export function ProductPicker({
 
 /**
  * Cube: your recent cubes, a Cube Cobra link (the name fills in from Cube Cobra), and the name.
+ * Picking a recent cube hides the link and name; "Another cube" brings them back.
  * (Your Table 1 cubes join this list once the Library keeps cubes.)
  */
 export function CubeFields({
@@ -127,6 +128,8 @@ export function CubeFields({
   onCommit?: () => void;
 }) {
   const [recent, setRecent] = useState<RecentCube[]>([]);
+  // A recent cube is the choice, so the link and name fields stay hidden.
+  const [picked, setPicked] = useState(false);
   const [lookup, setLookup] = useState<{ kind: "idle" | "looking" } | { kind: "found"; cards: number | null } | { kind: "failed"; message: string }>({ kind: "idle" });
   // The link the last lookup answered for, so writing its canonical form back doesn't look it up again.
   const settled = useRef<string | null>(null);
@@ -135,7 +138,11 @@ export function CubeFields({
 
   useEffect(() => {
     let live = true;
-    fetchRecentCubes().then((rows) => live && setRecent(rows));
+    fetchRecentCubes().then((rows) => {
+      if (!live) return;
+      setRecent(rows);
+      setPicked(rows.some((c) => c.cube_name === cubeName.trim() && (c.cube_url ?? "") === cubeUrl.trim()));
+    });
     return () => {
       live = false;
     };
@@ -173,6 +180,7 @@ export function CubeFields({
     onCubeName(c.cube_name);
     onCubeUrl(c.cube_url ?? "");
     setLookup({ kind: "idle" });
+    setPicked(true);
     onCommit?.();
   };
   const current = (c: RecentCube) => c.cube_name === cubeName.trim() && (c.cube_url ?? "") === cubeUrl.trim();
@@ -192,30 +200,35 @@ export function CubeFields({
               onClick={() => use(c)}
             />
           ))}
+          {picked && <Row title="Another cube" value="Enter" onClick={() => setPicked(false)} />}
         </>
       )}
-      <Section title="Cube" />
-      <Field
-        label="Cube Cobra link"
-        value={cubeUrl}
-        onChange={onCubeUrl}
-        onBlur={onCommit}
-        placeholder="https://cubecobra.com/cube/overview/…"
-        type="url"
-      />
-      {lookup.kind === "looking" && <Notice tone="info">Looking it up on Cube Cobra…</Notice>}
-      {lookup.kind === "found" && (
-        <Notice tone="info">Found on Cube Cobra{lookup.cards != null ? ` · ${lookup.cards} cards` : ""}.</Notice>
+      {!picked && (
+        <>
+          <Section title="Cube" />
+          <Field
+            label="Cube Cobra link"
+            value={cubeUrl}
+            onChange={onCubeUrl}
+            onBlur={onCommit}
+            placeholder="https://cubecobra.com/cube/overview/…"
+            type="url"
+          />
+          {lookup.kind === "looking" && <Notice tone="info">Looking it up on Cube Cobra…</Notice>}
+          {lookup.kind === "found" && (
+            <Notice tone="info">Found on Cube Cobra{lookup.cards != null ? ` · ${lookup.cards} cards` : ""}.</Notice>
+          )}
+          {lookup.kind === "failed" && <Notice tone="error">{lookup.message}</Notice>}
+          <Field
+            label="Cube name"
+            value={cubeName}
+            onChange={(v) => onCubeName(v.slice(0, 80))}
+            onBlur={onCommit}
+            placeholder="e.g. Vintage Cube"
+          />
+          {urlProblem && <Notice tone="error">Paste a Cube Cobra link (https://cubecobra.com/…)</Notice>}
+        </>
       )}
-      {lookup.kind === "failed" && <Notice tone="error">{lookup.message}</Notice>}
-      <Field
-        label="Cube name"
-        value={cubeName}
-        onChange={(v) => onCubeName(v.slice(0, 80))}
-        onBlur={onCommit}
-        placeholder="e.g. Vintage Cube"
-      />
-      {urlProblem && <Notice tone="error">Paste a Cube Cobra link (https://cubecobra.com/…)</Notice>}
     </>
   );
 }

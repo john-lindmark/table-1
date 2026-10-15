@@ -364,6 +364,7 @@ struct SetRow<Trailing: View>: View {
 }
 
 /// Cube: your recent cubes, a Cube Cobra link (the name fills in from Cube Cobra), and the name.
+/// Picking a recent cube hides the link and name; "Another cube" brings them back.
 /// (Your Table 1 cubes join this list once the Library keeps cubes.)
 struct CubeFields: View {
     @Binding var cubeName: String
@@ -372,6 +373,8 @@ struct CubeFields: View {
     @State private var lookup: LookupState = .idle
     /// The link the last lookup answered for, so writing its canonical form back doesn't look it up again.
     @State private var settledUrl: String?
+    /// A recent cube is the choice, so the link and name fields stay hidden.
+    @State private var picked = false
 
     enum LookupState: Equatable { case idle, looking, found(Int?), failed(String) }
 
@@ -386,20 +389,31 @@ struct CubeFields: View {
                 }
                 .buttonStyle(.plain)
             }
+            if picked {
+                Button { picked = false } label: {
+                    ListRow(title: "Another cube") { LabelText("Enter", color: T1.text) }
+                }
+                .buttonStyle(.plain)
+            }
         }
-        Section1("Cube")
-        Field(label: "Cube Cobra link", text: $cubeUrl, url: true)
-        switch lookup {
-        case .idle: EmptyView()
-        case .looking: Notice("Looking it up on Cube Cobra…")
-        case .found(let cards): Notice("Found on Cube Cobra\(cards.map { " · \($0) cards" } ?? "").")
-        case .failed(let message): Notice(message, error: true)
+        if !picked {
+            Section1("Cube")
+            Field(label: "Cube Cobra link", text: $cubeUrl, url: true)
+            switch lookup {
+            case .idle: EmptyView()
+            case .looking: Notice("Looking it up on Cube Cobra…")
+            case .found(let cards): Notice("Found on Cube Cobra\(cards.map { " · \($0) cards" } ?? "").")
+            case .failed(let message): Notice(message, error: true)
+            }
+            Field(label: "Cube name", text: $cubeName)
+                .onChange(of: cubeName) { _, v in if v.count > 80 { cubeName = String(v.prefix(80)) } }
+            if !EventProduct.cubeUrlValid(cubeUrl) && lookup != .looking { Notice("Paste a Cube Cobra link (https://cubecobra.com/…)", error: true) }
         }
-        Field(label: "Cube name", text: $cubeName)
-            .onChange(of: cubeName) { _, v in if v.count > 80 { cubeName = String(v.prefix(80)) } }
-        if !EventProduct.cubeUrlValid(cubeUrl) && lookup != .looking { Notice("Paste a Cube Cobra link (https://cubecobra.com/…)", error: true) }
         Color.clear.frame(height: 0)
-            .task { recent = await Repo.recentCubes() }
+            .task {
+                recent = await Repo.recentCubes()
+                picked = recent.contains(where: isCurrent)
+            }
             .task(id: cubeUrl) { await lookUp() }
     }
 
@@ -412,6 +426,7 @@ struct CubeFields: View {
         cubeName = cube.cubeName
         cubeUrl = cube.cubeUrl ?? ""
         lookup = .idle
+        picked = true
     }
 
     private func lookUp() async {

@@ -148,6 +148,7 @@ internal fun PlayersBlock(includeMe: Boolean, onIncludeMe: (Boolean) -> Unit, my
 
 /**
  * Cube: your recent cubes, a Cube Cobra link (the name fills in from Cube Cobra), and the name.
+ * Picking a recent cube hides the link and name; "Another cube" brings them back.
  * (Your Table 1 cubes join this list once the Library keeps cubes.) [onLookedUp] lets Details save at once.
  */
 @Composable
@@ -162,7 +163,12 @@ internal fun CubeFields(
     var status by remember { mutableStateOf<String?>(null) }
     var failed by remember { mutableStateOf(false) }
     var settled by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) { recent = Repo.recentCubes() }
+    // A recent cube is the choice, so the link and name fields stay hidden.
+    var picked by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        recent = Repo.recentCubes()
+        picked = recent.any { it.cubeName == cubeName.trim() && (it.cubeUrl ?: "") == cubeUrl.trim() }
+    }
     LaunchedEffect(cubeUrl) {
         val link = cubeUrl.trim()
         if (link.isEmpty()) { status = null; return@LaunchedEffect }
@@ -187,14 +193,18 @@ internal fun CubeFields(
                 ListRow(c.cubeName, onClick = {
                     settled = c.cubeUrl ?: ""
                     status = null
+                    picked = true
                     onLookedUp(c.cubeName, c.cubeUrl ?: "")
                 }) { Label(if (current) "Selected" else "Use", color = if (current) T1.accent else T1.text) }
             }
+            if (picked) ListRow("Another cube", onClick = { picked = false }) { Label("Enter", color = T1.text) }
         }
-        T1TextField(cubeUrl, { onCubeUrl(it.take(300)) }, label = "Cube Cobra link", placeholder = "https://cubecobra.com/…",
-            keyboardType = KeyboardType.Uri, error = if (urlBad) "Paste a Cube Cobra link (https://cubecobra.com/…)" else null)
-        status?.let { Text(it, color = if (failed) T1.danger else T1.muted, fontFamily = T1.mono, fontSize = 12.sp) }
-        T1TextField(cubeName, { onCubeName(it.take(80)) }, label = "Cube name")
+        if (!picked) {
+            T1TextField(cubeUrl, { onCubeUrl(it.take(300)) }, label = "Cube Cobra link", placeholder = "https://cubecobra.com/…",
+                keyboardType = KeyboardType.Uri, error = if (urlBad) "Paste a Cube Cobra link (https://cubecobra.com/…)" else null)
+            status?.let { Text(it, color = if (failed) T1.danger else T1.muted, fontFamily = T1.mono, fontSize = 12.sp) }
+            T1TextField(cubeName, { onCubeName(it.take(80)) }, label = "Cube name")
+        }
     }
 }
 
