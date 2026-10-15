@@ -52,7 +52,7 @@ describe("parsePack", () => {
 describe("legality and original printing", () => {
   const pack = [
     "#t1catalog\t1\tv1-test\t2\t3",
-    "O\t0\t5089ec1a-f881-4d55-af14-5d996171203b\tBlack Lotus\tblack lotus\tArtifact\t{0}\t0\t\t\t---BR-B-",
+    "O\t0\t5089ec1a-f881-4d55-af14-5d996171203b\tBlack Lotus\tblack lotus\tArtifact\t{0}\t0\t\t\t---BR-B-\t7",
     "O\t1\t4457ed35-7c10-48c8-9776-456485fdf070\tLightning Bolt\tlightning bolt\tInstant\t{R}\t1\tR\t",
     "P\tbd8fa327-dd41-4737-8f19-2cf5eb1f7cdd\t0\tlea\t232\ten\tr\tn\t1993-08-05\t1\t1\t\t1",
     "P\tf29ba16f-c8fb-42fe-aabf-87089cb214a7\t1\t2x2\t117\ten\tu\tfn\t2022-07-08\t1\t1\t",
@@ -65,6 +65,11 @@ describe("legality and original printing", () => {
     expect(legalityOf(c, 0, "modern")).toBe("not_legal");
     expect(legalityOf(c, 0, "other")).toBeNull();
     expect(legalityOf(c, 1, "modern")).toBeNull(); // no code in the pack
+    expect(legalityOf(c, 0, "canlander")).toBe("legal"); // restricted in Vintage is fine in a singleton format
+  });
+  it("reads Canadian Highlander points", () => {
+    expect(c.oPoints[0]).toBe(7);
+    expect(c.oPoints[1]).toBe(0);
   });
   it("defaults to the original printing, not the newest", () => {
     expect(coverPrinting(c, 1)).toBe(2);

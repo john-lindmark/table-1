@@ -88,8 +88,29 @@ async function sha256Hex(bytes: Uint8Array) {
   return Array.from(d, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/**
+ * Canadian Highlander points (canadianhighlander.ca/points-list) into format_points, before every pack build. A
+ * failed fetch or an unreadable page keeps the points already stored.
+ */
+async function refreshPoints() {
+  try {
+    const res = await fetch("https://canadianhighlander.ca/points-list/", { headers: { "User-Agent": SCRYFALL_HEADERS["User-Agent"], Accept: "text/html" }, signal: AbortSignal.timeout(15_000) });
+    if (!res.ok) return;
+    const html = await res.text();
+    const rows = [...html.matchAll(/<td class="column-1">(.*?)<\/td><td class="column-2">(\d+)<\/td>/g)]
+      .map((m) => ({ name: m[1].replace(/<[^>]+>/g, "").replace(/&#8217;|&rsquo;/g, "'").replace(/&amp;/g, "&").trim(), points: Number(m[2]) }))
+      .filter((r) => r.name && r.points > 0);
+    if (rows.length < 10) return; // the page changed shape: keep what we have
+    const missing = await rpc<string[]>("format_points_replace", { p_format: "canlander", p_rows: rows });
+    if (missing?.length) console.warn("canlander points: no card for", missing.join(", "));
+  } catch (e) {
+    console.warn("canlander points:", String(e));
+  }
+}
+
 async function pack(run: number) {
   try {
+    await refreshPoints();
     const body = await rpc<string>("catalog_pack_body", {});
     let oracles = 0, printings = 0;
     for (let i = 0; i < body.length;) {

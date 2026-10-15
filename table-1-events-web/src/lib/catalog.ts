@@ -27,6 +27,8 @@ export interface Catalog {
   oLegal: string[];
   /** The card's original paper printing (the default for adds), or -1 when the pack doesn't say. */
   oOriginal: Int32Array;
+  /** Canadian Highlander points per card (0 = none). */
+  oPoints: Uint8Array;
   /** Printings of card i are pFirst[i] .. pFirst[i] + pCount[i] - 1, newest first. */
   pFirst: Int32Array;
   pCount: Int32Array;
@@ -67,12 +69,25 @@ export const LEGALITY_FORMATS = ["standard", "pioneer", "modern", "legacy", "vin
 
 export type Legality = "legal" | "restricted" | "banned" | "not_legal";
 
-/** A card's legality in a deck format, or null when the format isn't checked (or the pack predates the code). */
+/**
+ * A card's legality in a deck format, or null when the format isn't checked (or the pack predates the code).
+ * Canadian Highlander ("canlander") follows Vintage, and restricted cards are legal there (every card is a singleton).
+ */
 export function legalityOf(c: Catalog, oi: number, format: string): Legality | null {
-  const i = LEGALITY_FORMATS.indexOf(format.toLowerCase());
+  const f = format.toLowerCase();
+  const i = LEGALITY_FORMATS.indexOf(f === "canlander" ? "vintage" : f);
   const ch = i < 0 ? undefined : c.oLegal[oi]?.[i];
   if (!ch) return null;
-  return ch === "L" ? "legal" : ch === "R" ? "restricted" : ch === "B" ? "banned" : "not_legal";
+  return ch === "L" ? "legal" : ch === "R" ? (f === "canlander" ? "legal" : "restricted") : ch === "B" ? "banned" : "not_legal";
+}
+
+/** Canadian Highlander: at most this many points per deck (canadianhighlander.ca/points-list). */
+export const CANLANDER_POINT_LIMIT = 10;
+
+/** A deck format as players write it. */
+export function formatName(format: string): string {
+  if (format === "canlander") return "Canadian Highlander";
+  return format.charAt(0).toUpperCase() + format.slice(1);
 }
 
 export const FINISH_LETTER: Record<string, "nonfoil" | "foil" | "etched"> = { n: "nonfoil", f: "foil", e: "etched" };
@@ -148,7 +163,7 @@ export function parsePack(version: string, text: string): Catalog {
     version, oracles: nO, printings: nP,
     oId: new Array(nO), oName: new Array(nO), oNorm: new Array(nO), oType: new Array(nO), oCost: new Array(nO),
     oCmc: new Float64Array(nO), oColors: new Array(nO), oFaces: new Array(nO),
-    oLegal: new Array(nO), oOriginal: new Int32Array(nO).fill(-1),
+    oLegal: new Array(nO), oOriginal: new Int32Array(nO).fill(-1), oPoints: new Uint8Array(nO),
     pFirst: new Int32Array(nO).fill(-1), pCount: new Int32Array(nO),
     pId: new Array(nP), pOracle: new Int32Array(nP), pSet: new Array(nP), pCn: new Array(nP), pLang: new Array(nP),
     pRarity: new Array(nP), pFinishes: new Array(nP), pReleased: new Array(nP), pImageTs: new Array(nP),
@@ -165,6 +180,7 @@ export function parsePack(version: string, text: string): Catalog {
       c.oId[i] = f[2]; c.oName[i] = f[3]; c.oNorm[i] = f[4]; c.oType[i] = f[5]; c.oCost[i] = f[6];
       c.oCmc[i] = f[7] ? Number(f[7]) : 0; c.oColors[i] = f[8] ?? ""; c.oFaces[i] = f[9] ?? "";
       c.oLegal[i] = f[10] ?? "";
+      c.oPoints[i] = Number(f[11]) || 0;
       o++;
     } else if (f[0] === "P" && p < nP) {
       const oi = Number(f[2]);

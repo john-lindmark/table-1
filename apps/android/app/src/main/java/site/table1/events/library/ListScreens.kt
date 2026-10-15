@@ -74,7 +74,8 @@ private fun colorGroup(cost: String): String {
 }
 
 data class ListLine(val cardId: String, val printing: CatalogPrinting?, val oracleId: String?, val name: String,
-                    val group: String, val board: String, val qty: Int, val legal: String = "", val finish: String = "nonfoil") {
+                    val group: String, val board: String, val qty: Int, val legal: String = "", val finish: String = "nonfoil",
+                    val points: Int = 0, val basic: Boolean = false) {
     val ownKey get() = ownKey(cardId, finish)
     val key get() = "$board|$cardId|$finish"
     /** "Foil" / "Etched"; null for non-foil. */
@@ -82,7 +83,7 @@ data class ListLine(val cardId: String, val printing: CatalogPrinting?, val orac
 }
 
 private data class CardMeta(val printing: CatalogPrinting?, val oracleId: String?, val name: String, val type: String, val cost: String,
-                            val legal: String)
+                            val legal: String, val points: Int = 0)
 
 private fun resolve(ids: Set<String>, db: CatalogDb): Map<String, CardMeta> {
     val ps = db.printings(ids)
@@ -90,7 +91,7 @@ private fun resolve(ids: Set<String>, db: CatalogDb): Map<String, CardMeta> {
     return ids.associateWith { id ->
         val p = ps[id]
         val o = p?.let { os[it.oracleIdx] }
-        CardMeta(p, o?.oracleId, o?.name ?: "Unknown card", o?.typeLine ?: "", o?.manaCost ?: "", o?.legal ?: "")
+        CardMeta(p, o?.oracleId, o?.name ?: "Unknown card", o?.typeLine ?: "", o?.manaCost ?: "", o?.legal ?: "", o?.points ?: 0)
     }
 }
 
@@ -98,7 +99,7 @@ private fun lines(l: CardList, meta: Map<String, CardMeta>): List<ListLine> = l.
     val m = meta[e.cardId] ?: return@mapNotNull null
     val type = m.type.substringBefore(" // ")
     val group = if (l.kind == ListKind.Deck) typeGroup(type) else if ("Land" in type) "Lands" else colorGroup(m.cost)
-    ListLine(e.cardId, m.printing, m.oracleId, m.name, group, e.board, e.qty, m.legal, e.finish)
+    ListLine(e.cardId, m.printing, m.oracleId, m.name, group, e.board, e.qty, m.legal, e.finish, m.points, "Basic" in type)
 }.sortedBy { it.name }
 
 /**
@@ -116,9 +117,18 @@ internal fun legalityIssues(lines: List<ListLine>, l: CardList): Map<String, Str
             "banned" -> out[key] = "Banned"
             "not_legal" -> out[key] = "Not legal"
             "restricted" -> if ((copies[key] ?: 0) > 1) out[key] = "Restricted to 1"
+            else -> if (l.format == "canlander" && !x.basic && (copies[key] ?: 0) > 1) out[key] = "Singleton"
         }
     }
     return out
+}
+
+/** Canadian Highlander points in the main deck and sideboard (Considering doesn't count), highest first. */
+internal fun canlanderPoints(lines: List<ListLine>): Pair<Int, List<Pair<String, Int>>> {
+    val by = HashMap<String, Int>()
+    lines.filter { it.board != "maybe" && it.points > 0 }.forEach { by.merge(it.name, it.points * it.qty, Int::plus) }
+    val cards = by.toList().sortedWith(compareBy<Pair<String, Int>>({ -it.second }, { it.first }))
+    return cards.sumOf { it.second } to cards
 }
 
 private fun groups(lines: List<ListLine>, kind: ListKind): List<String> {
@@ -173,7 +183,7 @@ private fun StatRow(stats: List<Pair<String, Int>>) {
 
 /* ── lists of one kind ────────────────────────────────────────────────── */
 
-private val DECK_FORMATS = listOf("modern", "pioneer", "standard", "legacy", "vintage", "pauper", "commander", "other")
+private val DECK_FORMATS = listOf("modern", "pioneer", "standard", "legacy", "vintage", "pauper", "commander", "canlander", "other")
 private val CUBE_FORMATS = listOf("vintage", "legacy", "pauper", "peasant", "other")
 
 @Composable
@@ -253,12 +263,22 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             StatRow(listOfNotNull((if (list.kind == ListKind.Deck) "Main" else "Cards") to list.count("main"),
                 if (list.kind == ListKind.Deck) "Side" to list.count("side") else null,
+                if (list.kind == ListKind.Deck && list.format == "canlander") "Points" to canlanderPoints(rows).first else null,
                 "Considering" to list.count("maybe"), "Missing" to list.missing(owned)))
             // Considering cards are flagged on their rows but don't make the deck unplayable.
             val bad = rows.filter { it.board != "maybe" && issues.containsKey(it.oracleId ?: it.cardId) }.map { it.name }.distinct().sorted()
             if (bad.isNotEmpty()) {
                 val names = bad.take(3).joinToString(", ") + if (bad.size > 3) " and ${bad.size - 3} more" else ""
-                Notice("${if (bad.size == 1) "1 card isn't" else "${bad.size} cards aren't"} legal in ${list.format.replaceFirstChar { it.uppercase() }}: $names", error = true)
+                Notice("${if (bad.size == 1) "1 card isn't" else "${bad.size} cards aren't"} legal in ${CatalogPack.formatName(list.format)}: $names", error = true)
+            }
+            if (list.kind == ListKind.Deck && list.format == "canlander") {
+                val (total, cards) = canlanderPoints(rows)
+                val limit = CatalogPack.CANLANDER_POINT_LIMIT
+                val detail = cards.take(6).joinToString(", ") { "${it.first} ${it.second}" } + if (cards.size > 6) ", …" else ""
+                if (total > limit) Notice("Over the points limit: $total of $limit. $detail", error = true)
+                else if (total > 0) Notice("Points: $total of $limit. $detail")
+                val main = list.count("main")
+                if (main < 100) Notice("Canadian Highlander decks need at least 100 cards: $main so far.")
             }
             if (editing) ListRow(if (list.kind == ListKind.Deck) "Duplicate deck" else "Duplicate cube", "A new list with these cards", onClick = {
                 scope.launch { runCatching { ListsStore.duplicate(list.id) }.getOrNull()?.let { editing = false; onOpen(it) } }
@@ -273,7 +293,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     }
 
     T1Screen {
-        Bar(list.name, subtitle = "${list.format} ${list.kind.wire} · v${list.current.number}") {
+        Bar(list.name, subtitle = "${CatalogPack.formatName(list.format)} ${list.kind.wire} · v${list.current.number}") {
             BarAction(if (editing) "Done" else "Edit") { editing = !editing }
             if (!editing) BarAction(if (grid) "List" else "Grid") { grid = !grid; prefs.edit().putBoolean("list.grid", grid).apply() }
             BarAction("Back", onBack)
@@ -322,7 +342,8 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                             } else {
                                 val issue = issues[x.oracleId ?: x.cardId]
                                 val owns = if (considering) (if (have > 0) "Owned $have" else "Not owned") else if (short) "Owned $have · missing ${x.qty - have}" else "Owned $have"
-                                CardRow(x.printing, x.name, listOfNotNull(issue, x.finishLabel, owns).joinToString(" · "),
+                                val pts = if (x.points > 0 && list.format == "canlander") "${x.points} pt${if (x.points == 1) "" else "s"}" else null
+                                CardRow(x.printing, x.name, listOfNotNull(issue, pts, x.finishLabel, owns).joinToString(" · "),
                                     onClick = { x.oracleId?.let(onCard) }) {
                                     Text("${x.qty}", color = if (short || issue != null) T1.error else T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                                 }

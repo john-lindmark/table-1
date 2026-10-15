@@ -12,7 +12,7 @@ import { useListsData } from "./Lists";
 interface ImportLine { qty: number; board: string; name: string; set?: string; cn?: string; scryfall_id?: string; finish?: string }
 interface Imported { kind: ListKind; name: string; format: string; source_url: string; entries: ImportLine[] }
 
-const DECK_FORMATS = ["modern", "pioneer", "standard", "legacy", "vintage", "pauper", "commander", "other"];
+const DECK_FORMATS = ["modern", "pioneer", "standard", "legacy", "vintage", "pauper", "commander", "canlander", "other"];
 const CUBE_FORMATS = ["vintage", "legacy", "pauper", "peasant", "other"];
 const FINISH_LETTER: Record<string, string> = { nonfoil: "n", foil: "f", etched: "e" };
 

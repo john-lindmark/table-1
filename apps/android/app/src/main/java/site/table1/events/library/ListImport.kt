@@ -108,7 +108,7 @@ private suspend fun readImport(link: String, text: String): ImportedList = try {
     ImportedList(error = msg ?: "That list couldn't be read.")
 }
 
-private val IMPORT_DECK_FORMATS = listOf("modern", "pioneer", "standard", "legacy", "vintage", "pauper", "commander", "other")
+private val IMPORT_DECK_FORMATS = listOf("modern", "pioneer", "standard", "legacy", "vintage", "pauper", "commander", "canlander", "other")
 private val IMPORT_CUBE_FORMATS = listOf("vintage", "legacy", "pauper", "peasant", "other")
 
 @Composable

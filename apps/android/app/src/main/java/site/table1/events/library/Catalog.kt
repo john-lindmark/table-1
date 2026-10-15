@@ -37,6 +37,8 @@ data class CatalogOracle(
     val printings: Int,
     /** Legality code ([CatalogPack.LEGALITY_FORMATS]); empty in packs built before it existed. */
     val legal: String = "",
+    /** Canadian Highlander points (0 = none). */
+    val points: Int = 0,
 ) {
     /** Legality in a deck format: legal, restricted, banned, not_legal, or null when the format isn't checked. */
     fun legality(format: String): String? = CatalogPack.legality(legal, format)
@@ -138,12 +140,12 @@ class CatalogDb(file: File, val version: String) {
         }.associateBy { it.idx }
 
     companion object {
-        private const val ORACLE_COLS = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount, legal"
+        private const val ORACLE_COLS = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount, legal, points"
         private const val PRINTING_COLS =
             "card_id, oracle_idx, ord, set_code, cn, lang, rarity, finishes, released_at, image_ts, image_faces, printed_name, original"
 
         private fun oracle(c: Cursor) = CatalogOracle(c.getInt(0), c.getString(1), c.getString(2), c.getString(3),
-            c.getString(4) ?: "", c.getString(5) ?: "", c.getInt(6), c.getString(7) ?: "")
+            c.getString(4) ?: "", c.getString(5) ?: "", c.getInt(6), c.getString(7) ?: "", c.getInt(8))
 
         private fun printing(c: Cursor) = CatalogPrinting(c.getString(0), c.getInt(1), c.getInt(2), c.getString(3) ?: "",
             c.getString(4) ?: "", c.getString(5) ?: "", c.getString(6) ?: "", c.getString(7) ?: "", c.getString(8) ?: "",
@@ -159,14 +161,14 @@ class CatalogDb(file: File, val version: String) {
                 db.execSQL("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT)")
                 db.execSQL("""CREATE TABLE oracles (idx INTEGER PRIMARY KEY, oracle_id TEXT NOT NULL, name TEXT NOT NULL,
                     name_norm TEXT NOT NULL, type_line TEXT, mana_cost TEXT, cmc REAL, colors TEXT, face_names TEXT,
-                    pcount INTEGER NOT NULL DEFAULT 0, legal TEXT NOT NULL DEFAULT '')""")
+                    pcount INTEGER NOT NULL DEFAULT 0, legal TEXT NOT NULL DEFAULT '', points INTEGER NOT NULL DEFAULT 0)""")
                 db.execSQL("""CREATE TABLE printings (card_id TEXT PRIMARY KEY, oracle_idx INTEGER NOT NULL, ord INTEGER NOT NULL,
                     set_code TEXT, cn TEXT, lang TEXT, rarity TEXT, finishes TEXT, released_at TEXT, image_ts TEXT,
                     image_faces INTEGER, printed_name TEXT, original INTEGER NOT NULL DEFAULT 0)""")
                 db.beginTransaction()
                 try {
                     val insO = db.compileStatement(
-                        "INSERT INTO oracles (idx, oracle_id, name, name_norm, type_line, mana_cost, cmc, colors, face_names, legal) VALUES (?,?,?,?,?,?,?,?,?,?)")
+                        "INSERT INTO oracles (idx, oracle_id, name, name_norm, type_line, mana_cost, cmc, colors, face_names, legal, points) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
                     val insP = db.compileStatement("INSERT OR REPLACE INTO printings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
                     var ord = 0L
                     val header = CatalogPack.parse(pack, oracle = { o ->
@@ -175,6 +177,7 @@ class CatalogDb(file: File, val version: String) {
                         insO.bindString(4, o.nameNorm); insO.bindString(5, o.typeLine); insO.bindString(6, o.manaCost)
                         insO.bindDouble(7, o.cmc); insO.bindString(8, o.colors); insO.bindString(9, o.faceNames)
                         insO.bindString(10, o.legal)
+                        insO.bindLong(11, o.points.toLong())
                         insO.executeInsert()
                     }, printing = { p ->
                         insP.clearBindings()
@@ -217,7 +220,7 @@ data class CatalogState(
  */
 object CatalogStore {
     /** Bumped when the local SQLite schema changes; a file built by an older schema is rebuilt from a fresh pack. */
-    private const val SCHEMA = "s2"
+    private const val SCHEMA = "s3"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(CatalogState())

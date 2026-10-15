@@ -46,6 +46,8 @@ struct PackOracle: Equatable {
     let faceNames: String
     /// One character per format in `CatalogPack.legalityFormats`: L legal, R restricted, B banned, - not legal.
     var legal: String = ""
+    /// Canadian Highlander points (0 = none).
+    var points: Int = 0
 }
 
 struct PackPrinting: Equatable {
@@ -81,15 +83,21 @@ enum CatalogPack {
 
     /// A legality code read for one format: "legal", "restricted", "banned", "not_legal", or nil when the
     /// format isn't one the code covers (or the pack predates codes).
+    /// Canadian Highlander ("canlander") follows Vintage's list, and restricted cards are legal there (every card
+    /// is a singleton anyway).
     static func legality(_ code: String, _ format: String) -> String? {
-        guard let i = legalityFormats.firstIndex(of: format.lowercased()), i < code.count else { return nil }
+        let f = format.lowercased()
+        guard let i = legalityFormats.firstIndex(of: f == "canlander" ? "vintage" : f), i < code.count else { return nil }
         switch code[code.index(code.startIndex, offsetBy: i)] {
         case "L": return "legal"
-        case "R": return "restricted"
+        case "R": return f == "canlander" ? "legal" : "restricted"
         case "B": return "banned"
         default: return "not_legal"
         }
     }
+
+    /// Canadian Highlander: at most this many points per deck (canadianhighlander.ca/points-list).
+    static let canlanderPointLimit = 10
 
     static let finishName: [Character: String] = ["n": "nonfoil", "f": "foil", "e": "etched"]
     static let rarityName: [String: String] = [
@@ -123,7 +131,8 @@ enum CatalogPack {
                         if fields[0] == "O", o < h.oracles {
                             try oracle(PackOracle(
                                 idx: Int(at(1)) ?? o, oracleId: at(2), name: at(3), nameNorm: at(4), typeLine: at(5),
-                                manaCost: at(6), cmc: Double(at(7)) ?? 0, colors: at(8), faceNames: at(9), legal: at(10)))
+                                manaCost: at(6), cmc: Double(at(7)) ?? 0, colors: at(8), faceNames: at(9), legal: at(10),
+                                points: Int(at(11)) ?? 0))
                             o += 1
                         } else if fields[0] == "P", p < h.printings {
                             try printing(PackPrinting(

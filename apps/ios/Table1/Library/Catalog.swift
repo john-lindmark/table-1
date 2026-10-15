@@ -24,6 +24,8 @@ struct CatalogOracle: Hashable, Sendable {
     let printings: Int
     /// Legality code (`CatalogPack.legalityFormats`); empty in packs built before it existed.
     var legal: String = ""
+    /// Canadian Highlander points (0 = none).
+    var points: Int = 0
 
     /// Legality in a deck format: "legal", "restricted", "banned", "not_legal", or nil when the format isn't checked.
     func legality(_ format: String) -> String? { CatalogPack.legality(legal, format) }
@@ -69,10 +71,10 @@ final class CatalogDB: @unchecked Sendable {
 
     func close() { db.close() }
 
-    private static let oracleCols = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount, legal"
+    private static let oracleCols = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount, legal, points"
     private static func oracle(_ r: SQLiteDB.Row) -> CatalogOracle {
         CatalogOracle(idx: r.int(0), oracleId: r.text(1), name: r.text(2), norm: r.text(3), typeLine: r.text(4),
-                      manaCost: r.text(5), printings: r.int(6), legal: r.text(7))
+                      manaCost: r.text(5), printings: r.int(6), legal: r.text(7), points: r.int(8))
     }
 
     private static let printingCols =
@@ -187,18 +189,18 @@ final class CatalogDB: @unchecked Sendable {
             CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
             CREATE TABLE oracles (idx INTEGER PRIMARY KEY, oracle_id TEXT NOT NULL, name TEXT NOT NULL,
               name_norm TEXT NOT NULL, type_line TEXT, mana_cost TEXT, cmc REAL, colors TEXT, face_names TEXT,
-              pcount INTEGER NOT NULL DEFAULT 0, legal TEXT NOT NULL DEFAULT '');
+              pcount INTEGER NOT NULL DEFAULT 0, legal TEXT NOT NULL DEFAULT '', points INTEGER NOT NULL DEFAULT 0);
             CREATE TABLE printings (card_id TEXT PRIMARY KEY, oracle_idx INTEGER NOT NULL, ord INTEGER NOT NULL,
               set_code TEXT, cn TEXT, lang TEXT, rarity TEXT, finishes TEXT, released_at TEXT, image_ts TEXT,
               image_faces INTEGER, printed_name TEXT, original INTEGER NOT NULL DEFAULT 0);
             """)
         let header: PackHeader = try db.transaction {
-            let insO = try db.prepare("INSERT INTO oracles (idx, oracle_id, name, name_norm, type_line, mana_cost, cmc, colors, face_names, legal) VALUES (?,?,?,?,?,?,?,?,?,?)")
+            let insO = try db.prepare("INSERT INTO oracles (idx, oracle_id, name, name_norm, type_line, mana_cost, cmc, colors, face_names, legal, points) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
             let insP = try db.prepare("INSERT OR REPLACE INTO printings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
             var ord = 0
             let h = try CatalogPack.parse(pack, oracle: { o in
                 try insO.run([.int(o.idx), .text(o.oracleId), .text(o.name), .text(o.nameNorm), .text(o.typeLine),
-                              .text(o.manaCost), .double(o.cmc), .text(o.colors), .text(o.faceNames), .text(o.legal)])
+                              .text(o.manaCost), .double(o.cmc), .text(o.colors), .text(o.faceNames), .text(o.legal), .int(o.points)])
             }, printing: { p in
                 try insP.run([.text(p.cardId), .int(p.oracleIdx), .int(ord), .text(p.set), .text(p.cn), .text(p.lang),
                               .text(p.rarity), .text(p.finishes), .text(p.releasedAt), .text(p.imageTs), .int(p.imageFaces),
@@ -237,7 +239,7 @@ final class CatalogStore {
 
     private let fileKey = "catalog.file"
     /// Bumped when the local SQLite schema changes; a file built by an older schema is rebuilt from a fresh pack.
-    private static let schema = "s2"
+    private static let schema = "s3"
     private let checkedKey = "catalog.checkedAt"
     private let dir: URL = {
         let d = URL.applicationSupportDirectory.appending(path: "Catalog", directoryHint: .isDirectory)

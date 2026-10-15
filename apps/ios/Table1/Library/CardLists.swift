@@ -414,11 +414,20 @@ func missing(in list: CardList, owned: [String: Int]) -> Int {
 
 private let shortDate: Date.FormatStyle = .dateTime.month(.abbreviated).day().year()
 
-private func statCell(_ label: String, _ value: Int) -> some View {
+private func statCell(_ label: String, _ value: Int, warn: Bool = false) -> some View {
     VStack(spacing: 2) {
         LabelText(label)
-        Text(value.formatted()).font(T1.mono(22)).monospacedDigit()
+        Text(value.formatted()).font(T1.mono(22)).monospacedDigit().foregroundStyle(warn ? T1.error : T1.text)
     }.frame(maxWidth: .infinity)
+}
+
+/// A deck format as players write it.
+func formatName(_ format: String) -> String {
+    switch format {
+    case "canlander": "Canadian Highlander"
+    case "premodern": "Premodern"
+    default: format.capitalized
+    }
 }
 
 // MARK: lists of one kind
@@ -457,7 +466,7 @@ struct ListsView: View {
 
     private func detail(_ l: CardList, missing: Int) -> String {
         let side = l.count("side"), maybe = l.count("maybe")
-        let parts: [String?] = [l.format.capitalized, side > 0 ? "\(side) sideboard" : nil, maybe > 0 ? "\(maybe) considering" : nil,
+        let parts: [String?] = [formatName(l.format), side > 0 ? "\(side) sideboard" : nil, maybe > 0 ? "\(maybe) considering" : nil,
                                 missing == 0 ? "All owned" : "\(missing) missing", "v\(l.current?.number ?? 1)"]
         return parts.compactMap { $0 }.joined(separator: " · ")
     }
@@ -477,6 +486,10 @@ struct ListLine: Identifiable, Hashable {
     /// The card's legality code (`CatalogPack.legalityFormats`).
     var legal: String = ""
     var finish: String = "nonfoil"
+    /// Canadian Highlander points for one copy (0 = none).
+    var points: Int = 0
+    /// Basic lands are exempt from singleton rules.
+    var basic: Bool = false
     /// Key into `ownedByPrinting()`.
     var ownKey: String { "\(cardId)|\(finish)" }
     /// "Foil" / "Etched" for those lines; nil for non-foil.
@@ -494,7 +507,8 @@ struct ListLine: Identifiable, Hashable {
             let type = o?.typeLine.components(separatedBy: " // ").first ?? ""
             let group = kind == .deck ? typeGroup(type) : (type.contains("Land") ? "Lands" : colorGroup(o?.manaCost ?? ""))
             return ListLine(id: "\(e.board)-\(i)", cardId: e.cardId, printing: printings[e.cardId], oracleId: o?.oracleId,
-                            name: o?.name ?? "Unknown card", group: group, board: e.board, qty: e.qty, legal: o?.legal ?? "", finish: e.finish)
+                            name: o?.name ?? "Unknown card", group: group, board: e.board, qty: e.qty, legal: o?.legal ?? "", finish: e.finish,
+                            points: o?.points ?? 0, basic: type.contains("Basic"))
         }
         .sorted { $0.name < $1.name }
     }
@@ -517,10 +531,12 @@ struct ListLine: Identifiable, Hashable {
         return colors.first?.value ?? "Colorless"
     }
 
-    /// Why each card can't be played in the deck's format, by oracle id: banned, not legal, or a restricted card
-    /// with more than one copy across the main deck and sideboard. Cubes and unchecked formats have none.
+    /// Why each card can't be played in the deck's format, by oracle id: banned, not legal, a restricted card with
+    /// more than one copy across the main deck and sideboard, or (Canadian Highlander) a second copy of a non-basic
+    /// card. Cubes and unchecked formats have none.
     static func issues(_ lines: [ListLine], list: CardList) -> [String: String] {
         guard list.kind == .deck else { return [:] }
+        let singleton = list.format == "canlander"
         var copies: [String: Int] = [:]
         for l in lines where l.board != "maybe" { copies[l.oracleId ?? l.cardId, default: 0] += l.qty }
         var out: [String: String] = [:]
@@ -530,10 +546,20 @@ struct ListLine: Identifiable, Hashable {
             case "banned": out[key] = "Banned"
             case "not_legal": out[key] = "Not legal"
             case "restricted" where (copies[key] ?? 0) > 1: out[key] = "Restricted to 1"
-            default: break
+            default:
+                if singleton && !l.basic && (copies[key] ?? 0) > 1 { out[key] = "Singleton" }
             }
         }
         return out
+    }
+
+    /// Canadian Highlander points in the main deck and sideboard (Considering doesn't count), with the cards that
+    /// carry them, highest first.
+    static func points(_ lines: [ListLine]) -> (total: Int, cards: [(name: String, points: Int)]) {
+        var byName: [String: Int] = [:]
+        for l in lines where l.board != "maybe" && l.points > 0 { byName[l.name, default: 0] += l.points * l.qty }
+        let cards = byName.map { (name: $0.key, points: $0.value) }.sorted { $0.points != $1.points ? $0.points > $1.points : $0.name < $1.name }
+        return (cards.reduce(0) { $0 + $1.points }, cards)
     }
 
     static func groups(_ lines: [ListLine], kind: CardList.Kind) -> [String] {
@@ -622,7 +648,8 @@ struct ListDetailView: View {
         list.entries.compactMap { e in
             guard let m = meta[e.cardId] else { return nil }
             return ListLine(id: "\(e.board)|\(e.cardId)|\(e.finish)", cardId: e.cardId, printing: m.printing, oracleId: m.oracleId,
-                            name: m.name, group: m.group, board: e.board, qty: e.qty, legal: m.legal, finish: e.finish)
+                            name: m.name, group: m.group, board: e.board, qty: e.qty, legal: m.legal, finish: e.finish,
+                            points: m.points, basic: m.basic)
         }
         .sorted { $0.name < $1.name }
     }
@@ -635,8 +662,20 @@ struct ListDetailView: View {
             let bad = Array(Set(rows.filter { $0.board != "maybe" && issues[$0.oracleId ?? $0.cardId] != nil }.map(\.name))).sorted()
             if !bad.isEmpty {
                 let names = bad.prefix(3).joined(separator: ", ") + (bad.count > 3 ? " and \(bad.count - 3) more" : "")
-                Notice("\(bad.count == 1 ? "1 card isn't" : "\(bad.count) cards aren't") legal in \(list.format.capitalized): \(names)", error: true)
+                Notice("\(bad.count == 1 ? "1 card isn't" : "\(bad.count) cards aren't") legal in \(formatName(list.format)): \(names)", error: true)
             }
+        }
+        if list.kind == .deck && list.format == "canlander" {
+            let pts = ListLine.points(rows)
+            let limit = CatalogPack.canlanderPointLimit
+            let detail = pts.cards.prefix(6).map { "\($0.name) \($0.points)" }.joined(separator: ", ") + (pts.cards.count > 6 ? ", …" : "")
+            if pts.total > limit {
+                Notice("Over the points limit: \(pts.total) of \(limit). \(detail)", error: true)
+            } else if pts.total > 0 {
+                Notice("Points: \(pts.total) of \(limit). \(detail)")
+            }
+            let main = list.count("main")
+            if main < 100 { Notice("Canadian Highlander decks need at least 100 cards: \(main) so far.") }
         }
         if editing {
             Button {
@@ -666,7 +705,7 @@ struct ListDetailView: View {
     }
 
     private func subtitle(_ l: CardList) -> String {
-        "\(l.format.capitalized) \(l.kind == .deck ? "deck" : "cube") · v\(l.current?.number ?? 1)"
+        "\(formatName(l.format)) \(l.kind == .deck ? "deck" : "cube") · v\(l.current?.number ?? 1)"
     }
 
     private func stats(_ list: CardList, owned: [String: Int]) -> some View {
@@ -674,6 +713,10 @@ struct ListDetailView: View {
             statCell(list.kind == .deck ? "Main" : "Cards", list.count("main"))
             if list.kind == .deck { statCell("Side", list.count("side")) }
             statCell("Considering", list.count("maybe"))
+            if list.kind == .deck && list.format == "canlander" {
+                let pts = ListLine.points(lines(for: list)).total
+                statCell("Points", pts, warn: pts > CatalogPack.canlanderPointLimit)
+            }
             statCell("Missing", missing(in: list, owned: owned))
         }
         .padding(.vertical, 16).background(T1.surface)
@@ -692,7 +735,8 @@ struct ListDetailView: View {
         let short = !considering && owned < line.qty
         let have = considering ? (owned > 0 ? "Owned \(owned)" : "Not owned")
             : short ? "Owned \(owned) · missing \(line.qty - owned)" : "Owned \(owned)"
-        let detail = [issue, line.finishLabel, have].compactMap { $0 }.joined(separator: " · ")
+        let pts = line.points > 0 && ListsStore.shared.list(id: listId)?.format == "canlander" ? "\(line.points) pt\(line.points == 1 ? "" : "s")" : nil
+        let detail = [issue, pts, line.finishLabel, have].compactMap { $0 }.joined(separator: " · ")
         return Button {
             if let o = line.oracleId { path.append(.card(o)) }
         } label: {
@@ -891,7 +935,7 @@ struct NewListPanel: View {
     private var formats: [(String, String)] {
         kind == .deck
             ? [("modern", "Modern"), ("pioneer", "Pioneer"), ("standard", "Standard"), ("legacy", "Legacy"),
-               ("vintage", "Vintage"), ("pauper", "Pauper"), ("commander", "Commander"), ("other", "Other")]
+               ("vintage", "Vintage"), ("pauper", "Pauper"), ("commander", "Commander"), ("canlander", "Canlander"), ("other", "Other")]
             : [("vintage", "Vintage"), ("legacy", "Legacy"), ("pauper", "Pauper"), ("peasant", "Peasant"), ("other", "Other")]
     }
 
@@ -1321,7 +1365,7 @@ struct ListImportView: View {
     private var formats: [(String, String)] {
         kind == .deck
             ? [("modern", "Modern"), ("pioneer", "Pioneer"), ("standard", "Standard"), ("legacy", "Legacy"),
-               ("vintage", "Vintage"), ("pauper", "Pauper"), ("commander", "Commander"), ("other", "Other")]
+               ("vintage", "Vintage"), ("pauper", "Pauper"), ("commander", "Commander"), ("canlander", "Canlander"), ("other", "Other")]
             : [("vintage", "Vintage"), ("legacy", "Legacy"), ("pauper", "Pauper"), ("peasant", "Peasant"), ("other", "Other")]
     }
 

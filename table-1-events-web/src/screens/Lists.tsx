@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BigAction, Field, Modal, Notice, Row, Screen, Section, Segmented } from "../components/kit";
-import { RARITY_NAME, coverPrinting, legalityOf, searchCatalog, type Catalog } from "../lib/catalog";
+import { CANLANDER_POINT_LIMIT, RARITY_NAME, coverPrinting, formatName, legalityOf, searchCatalog, type Catalog } from "../lib/catalog";
 import { DEMO_USER, useCollection } from "../lib/collection";
 import { loadDemoLists } from "../lib/libraryDemo";
 import {
@@ -60,6 +60,8 @@ interface Line {
   qty: number;
   oi: number;
   finish: ListFinish;
+  points: number;
+  basic: boolean;
 }
 
 const FINISH_NAME: Record<ListFinish, string> = { nonfoil: "Non-foil", foil: "Foil", etched: "Etched" };
@@ -71,7 +73,8 @@ function linesOf(l: CardList, c: Catalog): Line[] {
     const oi = p == null ? -1 : c.pOracle[p];
     const type = oi >= 0 ? c.oType[oi].split(" // ")[0] : "";
     const group = l.kind === "deck" ? typeGroup(type) : type.includes("Land") ? "Lands" : colorGroup(oi >= 0 ? c.oCost[oi] : "");
-    return { cardId: e.cardId, p, oracleId: oi >= 0 ? c.oId[oi] : null, name: oi >= 0 ? c.oName[oi] : "Unknown card", group, board: e.board, qty: e.qty, oi, finish: finishOf(e) };
+    return { cardId: e.cardId, p, oracleId: oi >= 0 ? c.oId[oi] : null, name: oi >= 0 ? c.oName[oi] : "Unknown card", group, board: e.board, qty: e.qty, oi, finish: finishOf(e),
+             points: oi >= 0 ? c.oPoints[oi] : 0, basic: type.includes("Basic") };
   }).sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -91,8 +94,17 @@ function issuesOf(lines: Line[], l: CardList, c: Catalog): Map<string, string> {
     if (legal === "banned") out.set(key, "Banned");
     else if (legal === "not_legal") out.set(key, "Not legal");
     else if (legal === "restricted" && (copies.get(key) ?? 0) > 1) out.set(key, "Restricted to 1");
+    else if (l.format === "canlander" && !x.basic && (copies.get(key) ?? 0) > 1) out.set(key, "Singleton");
   }
   return out;
+}
+
+/** Canadian Highlander points in the main deck and sideboard (Considering doesn't count), highest first. */
+function pointsOf(lines: Line[]): { total: number; cards: [string, number][] } {
+  const by = new Map<string, number>();
+  for (const x of lines) if (x.board !== "maybe" && x.points > 0) by.set(x.name, (by.get(x.name) ?? 0) + x.points * x.qty);
+  const cards = [...by].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  return { total: cards.reduce((n, [, p]) => n + p, 0), cards };
 }
 
 function groupsOf(lines: Line[], kind: ListKind): string[] {
@@ -120,7 +132,7 @@ function Stat({ label, value }: { label: string; value: number }) {
 
 /* ── lists of one kind ────────────────────────────────────────────────── */
 
-const DECK_FORMATS = ["modern", "pioneer", "standard", "legacy", "vintage", "pauper", "commander", "other"];
+const DECK_FORMATS = ["modern", "pioneer", "standard", "legacy", "vintage", "pauper", "commander", "canlander", "other"];
 const CUBE_FORMATS = ["vintage", "legacy", "pauper", "peasant", "other"];
 
 export function ListsScreen({ kind, onBack, onOpen, onFind, onImport }: {
@@ -156,7 +168,7 @@ export function ListsScreen({ kind, onBack, onOpen, onFind, onImport }: {
         {mine.map((l) => {
           const miss = missingIn(l, owned);
           const side = countOf(l, "side"), maybe = countOf(l, "maybe");
-          const detail = [l.format, side ? `${side} sideboard` : null, maybe ? `${maybe} considering` : null,
+          const detail = [formatName(l.format), side ? `${side} sideboard` : null, maybe ? `${maybe} considering` : null,
                           miss ? `${miss} missing` : "All owned", `v${current(l).number}`].filter(Boolean).join(" · ");
           return <Row key={l.id} title={l.name} detail={detail} value={countOf(l, "main")} onClick={() => onOpen(l.id)} />;
         })}
@@ -219,6 +231,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   const lineRow = (x: Line) => {
     const have = owned.get(ownKey(x.cardId, x.finish)) ?? 0;
     const fin = x.finish === "nonfoil" ? null : FINISH_NAME[x.finish];
+    const pts = x.points > 0 && list.format === "canlander" ? `${x.points} pt${x.points === 1 ? "" : "s"}` : null;
     const considering = x.board === "maybe";
     const short = !considering && have < x.qty;
     const issue = issues.get(x.oracleId ?? x.cardId);
@@ -239,7 +252,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
     return (
       <div key={lineKey(x)} className="h-[60px]">
         <CardRow c={catalog!} p={x.p} title={x.name} value={x.qty} warn={short || !!issue}
-                 detail={(issue ? `${issue} · ` : "") + (fin ? `${fin} · ` : "") + (considering ? (have ? `Owned ${have}` : "Not owned") : short ? `Owned ${have} · missing ${x.qty - have}` : `Owned ${have}`)}
+                 detail={(issue ? `${issue} · ` : "") + (pts ? `${pts} · ` : "") + (fin ? `${fin} · ` : "") + (considering ? (have ? `Owned ${have}` : "Not owned") : short ? `Owned ${have} · missing ${x.qty - have}` : `Owned ${have}`)}
                  onClick={() => x.oracleId && onCard(x.oracleId)} />
       </div>
     );
@@ -247,7 +260,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
 
   return (
     <LibScreen>
-      <Bar title={list.name} subtitle={`${list.format} ${list.kind} · v${v.number}`}
+      <Bar title={list.name} subtitle={`${formatName(list.format)} ${list.kind} · v${v.number}`}
            right={<span className="flex gap-4">
              <button type="button" className="t1-label hover:text-t1-text px-2 py-1 -my-1" onClick={() => setEditing(!editing)}>{editing ? "Done" : "Edit"}</button>
              {!editing && <BarToggle on={grid} onChange={setGrid} />}
@@ -258,6 +271,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         <div className="bg-t1-surface py-4 flex">
           <Stat label={list.kind === "deck" ? "Main" : "Cards"} value={countOf(list, "main")} />
           {list.kind === "deck" && <Stat label="Side" value={countOf(list, "side")} />}
+          {list.kind === "deck" && list.format === "canlander" && <Stat label="Points" value={pointsOf(lines).total} />}
           <Stat label="Considering" value={countOf(list, "maybe")} />
           <Stat label="Missing" value={missingIn(list, owned)} />
         </div>
@@ -266,8 +280,20 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
           const bad = [...new Set(lines.filter((x) => x.board !== "maybe" && issues.has(x.oracleId ?? x.cardId)).map((x) => x.name))].sort();
           if (!bad.length) return null;
           const names = bad.slice(0, 3).join(", ") + (bad.length > 3 ? ` and ${bad.length - 3} more` : "");
-          const fmt = list.format.charAt(0).toUpperCase() + list.format.slice(1);
+          const fmt = formatName(list.format);
           return <Notice tone="error">{bad.length === 1 ? "1 card isn't" : `${bad.length} cards aren't`} legal in {fmt}: {names}</Notice>;
+        })()}
+        {list.kind === "deck" && list.format === "canlander" && (() => {
+          const pts = pointsOf(lines);
+          const detail = pts.cards.slice(0, 6).map(([n, p]) => `${n} ${p}`).join(", ") + (pts.cards.length > 6 ? ", …" : "");
+          const main = countOf(list, "main");
+          return (
+            <>
+              {pts.total > CANLANDER_POINT_LIMIT && <Notice tone="error">Over the points limit: {pts.total} of {CANLANDER_POINT_LIMIT}. {detail}</Notice>}
+              {pts.total > 0 && pts.total <= CANLANDER_POINT_LIMIT && <Notice tone="info">Points: {pts.total} of {CANLANDER_POINT_LIMIT}. {detail}</Notice>}
+              {main < 100 && <Notice tone="info">Canadian Highlander decks need at least 100 cards: {main} so far.</Notice>}
+            </>
+          );
         })()}
         {editing && <Row title={list.kind === "deck" ? "Duplicate deck" : "Duplicate cube"} detail="A new list with these cards"
                          onClick={() => { void duplicateList(list).then((copy) => { setEditing(false); onOpen(copy); }); }} />}

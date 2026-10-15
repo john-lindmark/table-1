@@ -40,6 +40,8 @@ data class PackOracle(
     val manaCost: String, val cmc: Double, val colors: String, val faceNames: String,
     /** One character per format in [CatalogPack.LEGALITY_FORMATS]: L legal, R restricted, B banned, - not legal. */
     val legal: String = "",
+    /** Canadian Highlander points (0 = none). */
+    val points: Int = 0,
 )
 
 data class PackPrinting(
@@ -57,10 +59,18 @@ object CatalogPack {
 
     /** A legality code read for one format: legal, restricted, banned, not_legal, or null when the format isn't covered. */
     fun legality(code: String, format: String): String? {
-        val i = LEGALITY_FORMATS.indexOf(format.lowercase())
+        // Canadian Highlander follows Vintage, and restricted cards are legal there (every card is a singleton).
+        val f = format.lowercase()
+        val i = LEGALITY_FORMATS.indexOf(if (f == "canlander") "vintage" else f)
         if (i < 0 || i >= code.length) return null
-        return when (code[i]) { 'L' -> "legal"; 'R' -> "restricted"; 'B' -> "banned"; else -> "not_legal" }
+        return when (code[i]) { 'L' -> "legal"; 'R' -> if (f == "canlander") "legal" else "restricted"; 'B' -> "banned"; else -> "not_legal" }
     }
+
+    /** Canadian Highlander: at most this many points per deck (canadianhighlander.ca/points-list). */
+    const val CANLANDER_POINT_LIMIT = 10
+
+    /** A deck format as players write it. */
+    fun formatName(format: String) = if (format == "canlander") "Canadian Highlander" else format.replaceFirstChar { it.uppercase() }
 
     val FINISH_NAME = mapOf('n' to "nonfoil", 'f' to "foil", 'e' to "etched")
     val RARITY_NAME = mapOf("c" to "Common", "u" to "Uncommon", "r" to "Rare", "m" to "Mythic", "s" to "Special", "b" to "Bonus")
@@ -86,7 +96,8 @@ object CatalogPack {
                     if (at(0) != "#t1catalog" || at(1) != "1") throw CatalogFormatException("Unknown card data format")
                     header = PackHeader(at(2), at(3).toIntOrNull() ?: 0, at(4).toIntOrNull() ?: 0)
                 } else if (f[0] == "O" && o < h.oracles) {
-                    oracle(PackOracle(at(1).toIntOrNull() ?: o, at(2), at(3), at(4), at(5), at(6), at(7).toDoubleOrNull() ?: 0.0, at(8), at(9), at(10)))
+                    oracle(PackOracle(at(1).toIntOrNull() ?: o, at(2), at(3), at(4), at(5), at(6), at(7).toDoubleOrNull() ?: 0.0, at(8), at(9), at(10),
+                        at(11).toIntOrNull() ?: 0))
                     o++
                 } else if (f[0] == "P" && p < h.printings) {
                     printing(PackPrinting(at(1), at(2).toIntOrNull() ?: -1, at(3), at(4), at(5), at(6), at(7), at(8), at(9),

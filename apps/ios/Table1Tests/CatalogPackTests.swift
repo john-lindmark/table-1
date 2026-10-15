@@ -118,7 +118,7 @@ final class CatalogPackFieldsTests: XCTestCase {
     func testReadsLegalityAndOriginal() throws {
         let pack = [
             "#t1catalog\t1\tv1-test\t2\t2",
-            "O\t0\t5089ec1a-f881-4d55-af14-5d996171203b\tBlack Lotus\tblack lotus\tArtifact\t{0}\t0\t\t\t---BR-B-",
+            "O\t0\t5089ec1a-f881-4d55-af14-5d996171203b\tBlack Lotus\tblack lotus\tArtifact\t{0}\t0\t\t\t---BR-B-\t7",
             "O\t1\t4457ed35-7c10-48c8-9776-456485fdf070\tLightning Bolt\tlightning bolt\tInstant\t{R}\t1\tR\t",
             "P\tbd8fa327-dd41-4737-8f19-2cf5eb1f7cdd\t0\tlea\t232\ten\tr\tn\t1993-08-05\t1\t1\t\t1",
             "P\tf29ba16f-c8fb-42fe-aabf-87089cb214a7\t1\t2x2\t117\ten\tu\tfn\t2022-07-08\t1\t1\t",
@@ -132,5 +132,7 @@ final class CatalogPackFieldsTests: XCTestCase {
         XCTAssertEqual(CatalogPack.legality(o[0].legal, "modern"), "not_legal")
         XCTAssertNil(CatalogPack.legality(o[0].legal, "other"))
         XCTAssertNil(CatalogPack.legality(o[1].legal, "modern"))
+        XCTAssertEqual(CatalogPack.legality(o[0].legal, "canlander"), "legal")
+        XCTAssertEqual(o.map(\.points), [7, 0])
     }
 }
