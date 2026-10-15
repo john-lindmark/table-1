@@ -1,0 +1,373 @@
+import Foundation
+
+/* Scanner matching: OCR lines in, a card and printing out. Tuned against the photo test set in testdata/scan
+   (README there; accuracy test in Table1Tests/CardMatcherTests.swift). Same rules on Android (CardMatcher.kt). */
+
+/// Names the scanner can read, built once per catalog pack: each card's name and a split or double-faced card's
+/// front face (tokens, art cards, emblems and Vanguard left out), with trigrams for misread names.
+final class ScanNames: @unchecked Sendable {
+    let version: String
+    let sets: Set<String>
+    /// Normalized names, sorted (cut-off names are looked up by prefix).
+    private let keys: [String]
+    private let idxs: [Int]
+    private let byKey: [String: Int]
+    private let grams: [Int: [Int32]]
+
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var cached: ScanNames?
+
+    /// The index for this pack, built on first use (a few hundred milliseconds; call it off the main thread).
+    static func shared(_ db: CatalogDB) -> ScanNames {
+        lock.lock()
+        defer { lock.unlock() }
+        if let c = cached, c.version == db.version { return c }
+        let n = ScanNames(db)
+        cached = n
+        return n
+    }
+
+    init(_ db: CatalogDB) {
+        version = db.version
+        sets = db.setCodes()
+        var best: [String: (idx: Int, printings: Int)] = [:]
+        for o in db.scanNames() where o.printings > 0 && !Self.unscannable(o.typeLine) {
+            var names = [o.norm]
+            if let cut = o.name.range(of: " // ") {
+                let front = CardName.norm(String(o.name[..<cut.lowerBound]))
+                if front == CardName.norm(String(o.name[cut.upperBound...])) { continue } // an art card ("X // X")
+                names.append(front)
+            }
+            for k in names where best[k].map({ o.printings > $0.printings }) ?? true { best[k] = (o.idx, o.printings) }
+        }
+        keys = best.keys.sorted()
+        idxs = keys.map { best[$0]!.idx }
+        byKey = Dictionary(uniqueKeysWithValues: keys.enumerated().map { ($1, $0) })
+        var g: [Int: [Int32]] = [:]
+        for (i, k) in keys.enumerated() { for t in Self.trigrams(k) { g[t, default: []].append(Int32(i)) } }
+        grams = g
+    }
+
+    private static func unscannable(_ typeLine: String) -> Bool {
+        ["Token", "Card", "Emblem", "Vanguard"].contains { typeLine.hasPrefix($0) }
+    }
+
+    private static func trigrams(_ s: String) -> Set<Int> {
+        let b = [UInt8(32)] + Array(s.utf8) + [32]
+        guard b.count >= 3 else { return [] }
+        return Set((0..<(b.count - 2)).map { Int(b[$0]) << 16 | Int(b[$0 + 1]) << 8 | Int(b[$0 + 2]) })
+    }
+
+    func exact(_ q: String) -> Int? { byKey[q].map { idxs[$0] } }
+
+    /// A name cut off at the edge of the frame: the only name starting with it, of which it's most.
+    func prefix(_ q: String) -> Int? {
+        guard q.count >= 8 else { return nil }
+        var lo = 0, hi = keys.count
+        while lo < hi { let mid = (lo + hi) / 2; if keys[mid] < q { lo = mid + 1 } else { hi = mid } }
+        guard lo < keys.count, keys[lo].hasPrefix(q), lo + 1 == keys.count || !keys[lo + 1].hasPrefix(q),
+              Double(q.count) >= 0.6 * Double(keys[lo].count) else { return nil }
+        return idxs[lo]
+    }
+
+    /// A misread name: the closest name within about one edit in six letters, if nothing else is as close.
+    func fuzzy(_ q: String) -> Int? {
+        guard q.count >= 5 else { return nil }
+        let cap = max(1, q.count / 6)
+        let tg = Self.trigrams(q)
+        var shared: [Int32: Int] = [:]
+        for t in tg { for i in grams[t] ?? [] { shared[i, default: 0] += 1 } }
+        let target = Array(q.utf8)
+        var best = (d: cap + 1, i: -1), second = cap + 1
+        for (i, n) in shared.sorted(by: { $0.value > $1.value }).prefix(60) {
+            if Double(n) < Double(tg.count) * 0.4 { break }
+            let d = Self.distance(target, Array(keys[Int(i)].utf8), cap: cap)
+            if d < best.d { second = best.d; best = (d, Int(i)) } else if d < second { second = d }
+        }
+        return best.i >= 0 && best.d <= cap && second > best.d ? idxs[best.i] : nil
+    }
+
+    /// Levenshtein distance, giving up (cap + 1) once it's sure to exceed cap.
+    private static func distance(_ a: [UInt8], _ b: [UInt8], cap: Int) -> Int {
+        if abs(a.count - b.count) > cap { return cap + 1 }
+        if a.isEmpty || b.isEmpty { return max(a.count, b.count) }
+        var prev = Array(0...b.count), cur = prev
+        for i in 1...a.count {
+            cur[0] = i
+            var low = i
+            for j in 1...b.count {
+                cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1))
+                low = min(low, cur[j])
+            }
+            if low > cap { return cap + 1 }
+            swap(&prev, &cur)
+        }
+        return prev[b.count]
+    }
+}
+
+/// Turns OCR lines into a card. Remembers every lookup, so a steady frame costs no database work.
+/// Built off the main thread, then used only on it.
+final class CardMatcher: @unchecked Sendable {
+    let db: CatalogDB
+    /// Owned-only mode (trades: what you give): printing id → finishes owned.
+    let owned: [String: Set<String>]?
+    private let names: ScanNames
+    private var oracles: [Int: CatalogOracle] = [:]
+    private var printingsByOracle: [Int: [CatalogPrinting]] = [:]
+    private var bySetCn: [String: [CatalogPrinting]] = [:]
+
+    init(db: CatalogDB, owned: [String: Set<String>]?, names: ScanNames? = nil) {
+        self.db = db
+        self.owned = owned
+        self.names = names ?? ScanNames.shared(db)
+    }
+
+    func match(_ lines: [String]) -> (oracle: CatalogOracle, printing: CatalogPrinting, exact: Bool)? {
+        let bottom = Collector(lines, sets: names.sets)
+        if let idx = name(lines), let o = oracle(idx) {
+            return pick(o, lines, bottom)
+        }
+        // Not an English name (or none legible): the set code and collector number, when they agree on one card.
+        var hits: [Int: CatalogPrinting] = [:]
+        for s in bottom.sets {
+            for n in bottom.numbers {
+                for p in printings(set: s, cn: n) where hits[p.oracleIdx] == nil { hits[p.oracleIdx] = p }
+            }
+        }
+        guard hits.count == 1, let (idx, p) = hits.first, let o = oracle(idx) else { return nil }
+        return (o, p, true)
+    }
+
+    /// The finish a scanned copy starts as: what you own of it in owned-only mode, else non-foil when printed.
+    func defaultFinish(_ p: CatalogPrinting) -> String {
+        if let have = owned?[p.cardId], let f = Finish.allCases.first(where: { have.contains($0.rawValue) }) { return f.rawValue }
+        return (p.finishList.first ?? .nonfoil).rawValue
+    }
+
+    // MARK: name
+
+    private static let typeWords: Set<Substring> = ["creature", "instant", "sorcery", "artifact", "enchantment", "land",
+                                                    "planeswalker", "battle", "summon", "interrupt", "kindred", "tribal", "legendary"]
+
+    /// The card's name: the top lines first (exactly, then cut off or misread), stopping at the type line, which the
+    /// name is always above; further down, only an exact name of two words or more (one word is often a keyword).
+    private func name(_ lines: [String]) -> Int? {
+        let words = lines.prefix(12).map { CardName.norm($0).split(separator: " ") }.filter { (1...12).contains($0.count) }
+        func exact(_ i: Int) -> Int? {
+            for q in candidates(words[i]) where q.count >= 3 { if let o = names.exact(q), allowed(o) { return o } }
+            // A name broken over two lines.
+            if i + 1 < words.count, words[i].count <= 3, words[i + 1].count <= 3 {
+                for q in candidates(words[i] + words[i + 1]) where q.count >= 3 { if let o = names.exact(q), allowed(o) { return o } }
+            }
+            return nil
+        }
+        for i in 0..<min(3, words.count) {
+            if let o = exact(i) { return o }
+            if !Self.typeWords.isDisjoint(with: words[i]) { break }
+            for q in candidates(words[i]) {
+                if let o = names.prefix(q) ?? names.fuzzy(q), allowed(o) { return o }
+            }
+        }
+        for i in min(3, words.count)..<words.count {
+            if let o = exact(i), oracle(o)?.norm.contains(" ") == true { return o }
+        }
+        return nil
+    }
+
+    /// The line itself, then with up to three short trailing tokens (a misread mana cost) dropped.
+    private func candidates(_ words: [Substring]) -> [String] {
+        var out = [words.joined(separator: " ")]
+        for drop in stride(from: 1, through: min(3, words.count - 1), by: 1) where words.suffix(drop).allSatisfy({ $0.count <= 3 }) {
+            out.append(words.dropLast(drop).joined(separator: " "))
+        }
+        return out
+    }
+
+    // MARK: printing
+
+    /// The printing: set code read (4), collector number read (2), copyright year (1); ties go to English, a
+    /// regular collector number, then the default printing. Exact when the set code and number agree, the set has
+    /// only one printing of the card, or the number and year single one out. A prerelease date stamp picks the
+    /// set's prerelease promo.
+    private func pick(_ o: CatalogOracle, _ lines: [String], _ bottom: Collector)
+        -> (oracle: CatalogOracle, printing: CatalogPrinting, exact: Bool)? {
+        let ps = printings(o.idx)
+        guard !ps.isEmpty else { return nil }
+        let years = Self.years(lines)
+        func number(_ p: CatalogPrinting) -> String { Self.stripZeros(p.cn.lowercased()) }
+        func year(_ p: CatalogPrinting) -> Int? { Int(p.releasedAt.prefix(4)) }
+        func score(_ p: CatalogPrinting) -> Int {
+            (bottom.sets.contains(p.set) ? 4 : 0) + (bottom.numbers.contains(number(p)) ? 2 : 0)
+                + (year(p).map(years.contains) == true ? 1 : 0)
+        }
+        func key(_ p: CatalogPrinting) -> (Int, Int, Int, Int, Int) {
+            (score(p), p.lang == "en" ? 1 : 0, p.cn.hasSuffix("★") ? 0 : 1, p.original ? 1 : 0, -p.ord)
+        }
+        var best = ps.max { key($0) < key($1) }!
+        let exact = (bottom.sets.contains(best.set) && (bottom.numbers.contains(number(best)) || ps.filter { $0.set == best.set }.count == 1))
+            || (bottom.numbers.contains(number(best)) && year(best).map(years.contains) == true
+                && ps.filter { number($0) == number(best) }.count == 1)
+        if Self.dated(lines), let promo = ps.first(where: {
+            $0.set == "p" + best.set && String($0.cn.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "s★"))) == best.cn.lowercased()
+        }) {
+            best = promo
+        }
+        return (o, best, exact)
+    }
+
+    private static func stripZeros(_ s: String) -> String {
+        let t = s.drop { $0 == "0" }
+        return t.isEmpty ? (s.isEmpty ? "" : "0") : String(t)
+    }
+
+    /// Copyright years ("© 2019 Wizards", "1993-2003"): the last year of each.
+    private static func years(_ lines: [String]) -> Set<Int> {
+        var out = Set<Int>()
+        for line in lines {
+            if let m = line.firstMatch(of: yearRange) {
+                if let y = Int(m.output.2) { out.insert(y) }
+            } else if line.range(of: "wizards", options: .caseInsensitive) != nil || line.contains("©"),
+                      let y = line.matches(of: year).last.flatMap({ Int($0.output) }) {
+                out.insert(y)
+            }
+        }
+        return out
+    }
+
+    nonisolated(unsafe) private static let yearRange = #/(19[89]\d)\s*[-–]?\s*(20[0-4]\d)/#
+    nonisolated(unsafe) private static let year = #/19[89]\d|20[0-4]\d/#
+    private static let months: Set<String> = ["jan", "january", "feb", "february", "mar", "march", "apr", "april", "may", "jun", "june",
+                                              "jul", "july", "aug", "august", "sep", "sept", "september", "oct", "october",
+                                              "nov", "november", "dec", "december"]
+
+    /// A prerelease date stamp ("30-31 January 2021"): a month and a year on a line that isn't the copyright.
+    private static func dated(_ lines: [String]) -> Bool {
+        lines.contains { line in
+            let l = line.lowercased()
+            return l.firstMatch(of: year) != nil && !l.contains("wizards")
+                && l.split(whereSeparator: { !$0.isLetter }).contains { months.contains(String($0)) }
+        }
+    }
+
+    // MARK: lookups
+
+    private func oracle(_ idx: Int) -> CatalogOracle? {
+        if let o = oracles[idx] { return o }
+        let o = db.oracles(idxs: [idx])[idx]
+        oracles[idx] = o
+        return o
+    }
+
+    private func printings(_ idx: Int) -> [CatalogPrinting] {
+        if let p = printingsByOracle[idx] { return p }
+        var p = db.printings(oracleIdx: idx)
+        if let owned { p = p.filter { owned[$0.cardId] != nil } }
+        printingsByOracle[idx] = p
+        return p
+    }
+
+    private func printings(set: String, cn: String) -> [CatalogPrinting] {
+        let key = set + "|" + cn
+        if let p = bySetCn[key] { return p }
+        var p = db.printings(set: set, cn: cn)
+        if let owned { p = p.filter { owned[$0.cardId] != nil } }
+        bySetCn[key] = p
+        return p
+    }
+
+    private func allowed(_ idx: Int) -> Bool { owned == nil || !printings(idx).isEmpty }
+}
+
+/// What a card's bottom text says about its printing: "154/196 M", "RIX • RU", "M 0244", "FRA • EN".
+struct Collector {
+    var sets = Set<String>()
+    var numbers = Set<String>()
+
+    private static let langs: Set<String> = ["EN", "DE", "FR", "IT", "ES", "PT", "JP", "JA", "RU", "KR", "KO", "CS", "CT", "PH", "ZHS", "ZHT"]
+    /// An uppercase code, a bullet or star, a language code ("one it ate." in rules text is not a set and a language).
+    nonisolated(unsafe) private static let setLang = #/\b([A-Z0-9]{2,5})\s*[•*·★+.]\s*([A-Z]{2,3})\b/#
+    /// "154/196": the number after the slash is the set's size, which tells it from power/toughness ("6/6").
+    nonisolated(unsafe) private static let ofTotal = #/(?:^|[^\d\/])(\d{1,4})([a-zA-Z]?)\s*\/\s*(\d{2,4})\b/#
+    /// A line that is only a collector number, maybe with its rarity: "667", "R 0244", "0014", "07 29".
+    nonisolated(unsafe) private static let alone = #/\s*(?:[CURMLSTP]\s+)?(\d[\d ]{0,4}\d|\d)(?:\s+[CURMLSTP])?\s*/#
+
+    init(_ lines: [String], sets known: Set<String>) {
+        var langLine = false
+        for line in lines {
+            for m in line.matches(of: Self.setLang) where Self.langs.contains(String(m.output.2)) {
+                langLine = true
+                let code = m.output.1.lowercased()
+                if known.contains(code) { sets.insert(code) }
+            }
+            for m in line.matches(of: Self.ofTotal) where (Int(m.output.3) ?? 0) >= 30 {
+                numbers.insert(Self.strip(String(m.output.1)) + m.output.2.lowercased())
+            }
+        }
+        for line in lines {
+            guard let m = line.wholeMatch(of: Self.alone) else { continue }
+            let n = m.output.1.replacingOccurrences(of: " ", with: "")
+            if n.count <= 4, langLine || n.count == 4 { numbers.insert(Self.strip(n)) }
+        }
+    }
+
+    private static func strip(_ s: String) -> String {
+        let t = s.drop { $0 == "0" }
+        return t.isEmpty ? "0" : String(t)
+    }
+}
+
+/// Holds a candidate until it's steady, and keeps a card from being taken twice while it stays in frame.
+/// Timings from the movement clips in testdata/scan (motion.json): a hand settling a card or holding it with a
+/// little shake is taken within about a second; a card swept past the camera isn't taken at all.
+struct ScanSteadiness {
+    /// Taken this long after it's first seen once its printing is read; without the printing, a little longer.
+    static let quick: TimeInterval = 0.4
+    static let slow: TimeInterval = 0.8
+    /// A blurred or unreadable frame doesn't drop the card in view unless the gap lasts this long.
+    static let gap: TimeInterval = 0.5
+    /// After a take, the same card has to be out of view this long before it counts again.
+    static let away: TimeInterval = 1.0
+
+    private struct Candidate {
+        let idx: Int
+        let since: Date
+        var seen: Date
+        var latest: CatalogPrinting
+        /// Exact reads per printing; the most read one wins.
+        var votes: [String: (CatalogPrinting, Int)] = [:]
+    }
+    private var candidate: Candidate?
+    private var lastAccepted: (idx: Int, seen: Date)?
+
+    /// Feed every frame's match (or nil). Returns the printing once a card should be taken.
+    mutating func feed(_ m: (oracle: CatalogOracle, printing: CatalogPrinting, exact: Bool)?, at now: Date = .now)
+        -> (CatalogPrinting, Bool)? {
+        guard let m else {
+            if let c = candidate, ms(now, c.seen) > ms(Self.gap) { candidate = nil }
+            return nil
+        }
+        if let last = lastAccepted, last.idx == m.oracle.idx, ms(now, last.seen) < ms(Self.away) {
+            lastAccepted = (last.idx, now)
+            return nil
+        }
+        if candidate?.idx != m.oracle.idx || ms(now, candidate!.seen) > ms(Self.gap) {
+            candidate = Candidate(idx: m.oracle.idx, since: now, seen: now, latest: m.printing)
+        }
+        guard var c = candidate else { return nil }
+        c.seen = now
+        c.latest = m.printing
+        if m.exact { c.votes[m.printing.cardId, default: (m.printing, 0)].1 += 1 }
+        candidate = c
+        let voted = c.votes.values.max { $0.1 < $1.1 }?.0
+        let held = ms(now, c.since)
+        guard (voted != nil && held >= ms(Self.quick)) || held >= ms(Self.slow) else { return nil }
+        candidate = nil
+        lastAccepted = (m.oracle.idx, now)
+        return voted.map { ($0, true) } ?? (c.latest, false)
+    }
+
+    /// Times in whole milliseconds, so 1.4 s − 1.0 s is 400 ms, not 399.99… (same as Android).
+    private func ms(_ a: Date, _ b: Date) -> Int { Int((a.timeIntervalSince(b) * 1000).rounded()) }
+    private func ms(_ t: TimeInterval) -> Int { Int((t * 1000).rounded()) }
+}

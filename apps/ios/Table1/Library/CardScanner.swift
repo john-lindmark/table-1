@@ -17,84 +17,6 @@ struct ScannedCard: Identifiable, Hashable {
     let exact: Bool
 }
 
-/// Turns OCR lines into a card. Remembers every lookup, so a steady frame costs no database work.
-final class CardMatcher {
-    let db: CatalogDB
-    /// Owned-only mode (trades: what you give): printing id → finishes owned.
-    let owned: [String: Set<String>]?
-    private var byNorm: [String: CatalogOracle?] = [:]
-    private var printingsByOracle: [Int: [CatalogPrinting]] = [:]
-
-    init(db: CatalogDB, owned: [String: Set<String>]?) {
-        self.db = db
-        self.owned = owned
-    }
-
-    func match(_ lines: [String]) -> (oracle: CatalogOracle, printing: CatalogPrinting, exact: Bool)? {
-        // The name is the line that is a card name; OCR often adds a stray mana symbol or two at the end.
-        var found: CatalogOracle?
-        for line in lines.prefix(12) {
-            let words = CardName.norm(line).split(separator: " ")
-            guard (1...12).contains(words.count) else { continue }
-            for drop in 0...min(2, words.count - 1) {
-                let q = words.dropLast(drop).joined(separator: " ")
-                guard q.count >= 3 else { continue }
-                if let o = lookup(q), allowed(o) { found = o; break }
-            }
-            if found != nil { break }
-        }
-        guard let o = found else { return nil }
-        let printings = printings(o)
-        guard !printings.isEmpty else { return nil }
-
-        // Bottom-of-card text: "0123/280 R", "R 0123", "MH3 • EN".
-        var tokens = Set<String>()
-        var numbers = Set<String>()
-        for line in lines {
-            for raw in line.uppercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber }) {
-                let t = String(raw)
-                if t.allSatisfy(\.isNumber), t.count <= 4 { numbers.insert(String(Int(t) ?? 0)) }
-                else if (2...5).contains(t.count) { tokens.insert(t.lowercased()) }
-            }
-        }
-        func score(_ p: CatalogPrinting) -> Int {
-            let cn = p.cn.trimmingCharacters(in: .letters)
-            return (tokens.contains(p.set) ? 2 : 0) + (numbers.contains(String(Int(cn) ?? -1)) ? 1 : 0)
-        }
-        let best = printings.max { a, b in
-            let sa = score(a), sb = score(b)
-            return sa != sb ? sa < sb : rank(a) > rank(b)
-        } ?? printings[0]
-        return (o, best, score(best) >= 2)
-    }
-
-    /// The finish a scanned copy starts as: what you own of it in owned-only mode, else non-foil when printed.
-    func defaultFinish(_ p: CatalogPrinting) -> String {
-        if let have = owned?[p.cardId], let f = Finish.allCases.first(where: { have.contains($0.rawValue) }) { return f.rawValue }
-        return (p.finishList.first ?? .nonfoil).rawValue
-    }
-
-    private func lookup(_ q: String) -> CatalogOracle? {
-        if let hit = byNorm[q] { return hit }
-        let o = db.oracle(nameNorm: q)
-        byNorm[q] = o
-        return o
-    }
-
-    private func printings(_ o: CatalogOracle) -> [CatalogPrinting] {
-        if let p = printingsByOracle[o.idx] { return p }
-        var p = db.printings(oracleIdx: o.idx)
-        if let owned { p = p.filter { owned[$0.cardId] != nil } }
-        printingsByOracle[o.idx] = p
-        return p
-    }
-
-    private func allowed(_ o: CatalogOracle) -> Bool { owned == nil || !printings(o).isEmpty }
-
-    /// Tie-break (lower first): the default printing, then newest.
-    private func rank(_ p: CatalogPrinting) -> Int { (p.original ? 0 : 1_000_000) + p.ord }
-}
-
 /// Live camera text reader. Calls `onLines` with the text it sees, top of the frame first, on every change.
 struct CardTextScanner: UIViewControllerRepresentable {
     let onLines: ([String]) -> Void
@@ -146,39 +68,6 @@ struct CardTextScanner: UIViewControllerRepresentable {
     }
 }
 
-/// Holds a candidate until it's steady, and keeps a card from being taken twice while it stays in frame.
-struct ScanSteadiness {
-    private var candidate: (idx: Int, since: Date, best: (CatalogPrinting, Bool))?
-    private var lastAccepted: (idx: Int, seen: Date)?
-
-    /// Feed every frame's match (or nil). Returns the printing once a card should be taken.
-    mutating func feed(_ m: (oracle: CatalogOracle, printing: CatalogPrinting, exact: Bool)?, at now: Date = .now)
-        -> (CatalogPrinting, Bool)? {
-        guard let m else {
-            candidate = nil
-            return nil
-        }
-        if let last = lastAccepted, last.idx == m.oracle.idx {
-            // Still the card just taken; it has to leave the frame for a second before it counts again.
-            if now.timeIntervalSince(last.seen) < 1.0 { lastAccepted = (last.idx, now); return nil }
-        }
-        if candidate?.idx != m.oracle.idx {
-            candidate = (m.oracle.idx, now, (m.printing, m.exact))
-            return nil
-        }
-        if m.exact { candidate?.best = (m.printing, true) }
-        guard let c = candidate else { return nil }
-        let held = now.timeIntervalSince(c.since)
-        // Take it quickly once the printing is read; give the small print a little longer otherwise.
-        if (c.best.1 && held >= 0.4) || held >= 1.2 {
-            candidate = nil
-            lastAccepted = (m.oracle.idx, now)
-            return c.best
-        }
-        return nil
-    }
-}
-
 /// Full-screen scanner used by Add cards and Trades. Collects cards until Done; nothing is written here.
 struct CardScanView: View {
     let title: String
@@ -225,11 +114,16 @@ struct CardScanView: View {
         }
         .onAppear {
             catalog.load(userInitiated: true)
-            if let db = catalog.db { matcher = CardMatcher(db: db, owned: owned) }
+            makeMatcher()
         }
-        .onChange(of: catalog.generation) {
-            if let db = catalog.db { matcher = CardMatcher(db: db, owned: owned) }
-        }
+        .onChange(of: catalog.generation) { makeMatcher() }
+    }
+
+    /// The matcher's name index takes a moment to build the first time, so it's built off the main thread.
+    private func makeMatcher() {
+        guard let db = catalog.db, matcher?.db !== db else { return }
+        let owned = owned
+        Task { matcher = await Task.detached(priority: .userInitiated) { CardMatcher(db: db, owned: owned) }.value }
     }
 
     private var count: Int { cards.count }

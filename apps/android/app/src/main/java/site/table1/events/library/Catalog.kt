@@ -60,7 +60,7 @@ data class CatalogPrinting(
 }
 
 /** One installed pack. Read-only after it's built; Android's SQLiteDatabase serializes access itself. */
-class CatalogDb(file: File, val version: String) {
+class CatalogDb(file: File, override val version: String) : ScanCatalog {
     private val db = SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY)
 
     fun close() = db.close()
@@ -79,18 +79,20 @@ class CatalogDb(file: File, val version: String) {
             .mapNotNull { byIdx[it] }
     }
 
-    /** A card by its exact normalized name, or by the front face of a split or double-faced card (the scanner). */
-    fun oracleByNorm(q: String): CatalogOracle? {
-        if (q.isEmpty()) return null
-        return query("SELECT $ORACLE_COLS FROM oracles WHERE name_norm = ? LIMIT 1", arrayOf(q), ::oracle).firstOrNull()
-            ?: query("SELECT $ORACLE_COLS FROM oracles WHERE name_norm > ? AND name_norm < ? AND instr(name, ' // ') > 0 ORDER BY pcount DESC LIMIT 1",
-                arrayOf("$q ", "$q!"), ::oracle).firstOrNull()
-    }
+    override fun scanNames(): List<ScanName> =
+        query("SELECT idx, name, name_norm, type_line, pcount FROM oracles", emptyArray()) {
+            ScanName(it.getInt(0), it.getString(1), it.getString(2), it.getString(3) ?: "", it.getInt(4))
+        }
+
+    override fun setCodes(): Set<String> = query("SELECT DISTINCT set_code FROM printings", emptyArray()) { it.getString(0) }.toSet()
+
+    override fun printings(set: String, cn: String): List<CatalogPrinting> =
+        query("SELECT $PRINTING_COLS FROM printings WHERE set_code = ? AND cn = ? ORDER BY lang = 'en' DESC", arrayOf(set, cn), ::printing)
 
     fun oracle(id: String): CatalogOracle? = query("SELECT $ORACLE_COLS FROM oracles WHERE oracle_id = ?", arrayOf(id), ::oracle).firstOrNull()
 
     /** Every printing of a card: the original paper printing (the default for adds) first, then newest first. */
-    fun printings(oracleIdx: Int): List<CatalogPrinting> =
+    override fun printings(oracleIdx: Int): List<CatalogPrinting> =
         query("SELECT $PRINTING_COLS FROM printings WHERE oracle_idx = ? ORDER BY original DESC, ord", arrayOf(oracleIdx.toString()), ::printing)
 
     fun printings(ids: Collection<String>): Map<String, CatalogPrinting> =
@@ -141,7 +143,7 @@ class CatalogDb(file: File, val version: String) {
         return out
     }
 
-    fun oracles(idxs: Collection<Int>): Map<Int, CatalogOracle> =
+    override fun oracles(idxs: Collection<Int>): Map<Int, CatalogOracle> =
         idxs.chunked(500).flatMap { chunk ->
             query("SELECT $ORACLE_COLS FROM oracles WHERE idx IN (${chunk.joinToString(",") { "?" }})",
                 chunk.map { it.toString() }.toTypedArray(), ::oracle)

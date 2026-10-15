@@ -96,17 +96,22 @@ final class CatalogDB: @unchecked Sendable {
         return ranked.compactMap { byIdx[$0] }
     }
 
-    /// A card by its exact normalized name, or by the front face of a split or double-faced card. Used by the
-    /// scanner, which reads names off the card.
-    func oracle(nameNorm q: String) -> CatalogOracle? {
-        guard !q.isEmpty else { return nil }
-        if let o = try? db.query("SELECT \(Self.oracleCols) FROM oracles WHERE name_norm = ? LIMIT 1", [.text(q)], Self.oracle).first {
-            return o
-        }
-        return try? db.query("""
-            SELECT \(Self.oracleCols) FROM oracles WHERE name_norm > ? AND name_norm < ? AND instr(name, ' // ') > 0
-            ORDER BY pcount DESC LIMIT 1
-            """, [.text(q + " "), .text(q + "!")], Self.oracle).first
+    /// Every card's name, type line and printing count, for the scanner's name index (ScanNames).
+    func scanNames() -> [(idx: Int, name: String, norm: String, typeLine: String, printings: Int)] {
+        (try? db.query("SELECT idx, name, name_norm, type_line, pcount FROM oracles", [], {
+            (idx: $0.int(0), name: $0.text(1), norm: $0.text(2), typeLine: $0.text(3), printings: $0.int(4))
+        })) ?? []
+    }
+
+    /// Every set code in the pack.
+    func setCodes() -> Set<String> {
+        Set((try? db.query("SELECT DISTINCT set_code FROM printings", [], { $0.text(0) })) ?? [])
+    }
+
+    /// Printings by set code and collector number, any card (the scanner reading a card's bottom line).
+    func printings(set: String, cn: String) -> [CatalogPrinting] {
+        (try? db.query("SELECT \(Self.printingCols) FROM printings WHERE set_code = ? AND cn = ? ORDER BY lang = 'en' DESC",
+                       [.text(set), .text(cn)], Self.printing)) ?? []
     }
 
     func oracle(id: String) -> CatalogOracle? {

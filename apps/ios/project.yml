@@ -117,9 +117,11 @@ targets:
   Table1Tests:
     type: bundle.unit-test
     platform: iOS
+    # Hosted in the app (@testable import Table1), so the scanner tests run the real catalog SQL.
     sources:
       - Table1Tests
-      - path: Table1/Library/CatalogPack.swift
+    dependencies:
+      - target: Table1
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: site.table1.events.tests

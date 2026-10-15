@@ -1,4 +1,5 @@
 import XCTest
+@testable import Table1
 
 // Same cases as table-1-events-web/src/lib/catalog.test.ts.
 

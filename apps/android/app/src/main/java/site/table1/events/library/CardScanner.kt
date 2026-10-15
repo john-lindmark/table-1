@@ -30,6 +30,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,6 +54,8 @@ import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.theme.T1
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.UUID
 import java.util.concurrent.Executors
 
@@ -70,83 +73,6 @@ data class ScannedCard(
     /** Read from the card's set code and collector number, not a fallback to the default printing. */
     val exact: Boolean,
 )
-
-data class ScanMatch(val oracle: CatalogOracle, val printing: CatalogPrinting, val exact: Boolean)
-
-/** Turns OCR lines into a card. Remembers every lookup, so a steady frame costs no database work. */
-class CardMatcher(private val db: CatalogDb, private val owned: Map<String, Set<String>>?) {
-    private val byNorm = HashMap<String, CatalogOracle?>()
-    private val printingsByOracle = HashMap<Int, List<CatalogPrinting>>()
-
-    fun match(lines: List<String>): ScanMatch? {
-        // The name is the line that is a card name; OCR often adds a stray mana symbol or two at the end.
-        var found: CatalogOracle? = null
-        loop@ for (line in lines.take(12)) {
-            val words = CardName.norm(line).split(' ').filter { it.isNotEmpty() }
-            if (words.isEmpty() || words.size > 12) continue
-            for (drop in 0..minOf(2, words.size - 1)) {
-                val q = words.dropLast(drop).joinToString(" ")
-                if (q.length < 3) continue
-                val o = lookup(q)
-                if (o != null && printings(o).isNotEmpty()) { found = o; break@loop }
-            }
-        }
-        val o = found ?: return null
-        val ps = printings(o)
-        // Bottom-of-card text: "0123/280 R", "R 0123", "MH3 • EN".
-        val tokens = HashSet<String>()
-        val numbers = HashSet<String>()
-        for (line in lines) for (t in line.uppercase().split(Regex("[^A-Z0-9]+")).filter { it.isNotEmpty() }) {
-            if (t.all { it.isDigit() } && t.length <= 4) numbers.add(t.toInt().toString())
-            else if (t.length in 2..5) tokens.add(t.lowercase())
-        }
-        fun score(p: CatalogPrinting) = (if (p.set in tokens) 2 else 0) +
-            (if (p.cn.trim { it.isLetter() }.toIntOrNull()?.toString()?.let { it in numbers } == true) 1 else 0)
-        val best = ps.sortedWith(compareByDescending<CatalogPrinting> { score(it) }.thenByDescending { it.original }.thenBy { it.ord }).first()
-        return ScanMatch(o, best, score(best) >= 2)
-    }
-
-    /** The finish a scanned copy starts as: what you own of it in owned-only mode, else non-foil when printed. */
-    fun defaultFinish(p: CatalogPrinting): String {
-        owned?.get(p.cardId)?.let { have -> Finish.entries.firstOrNull { it.wire in have }?.let { return it.wire } }
-        return (p.finishList.firstOrNull() ?: Finish.Nonfoil).wire
-    }
-
-    private fun lookup(q: String): CatalogOracle? = byNorm.getOrPut(q) { db.oracleByNorm(q) }
-
-    private fun printings(o: CatalogOracle) = printingsByOracle.getOrPut(o.idx) {
-        db.printings(o.idx).let { all -> if (owned == null) all else all.filter { it.cardId in owned } }
-    }
-}
-
-/** Holds a candidate until it's steady, and keeps a card from being taken twice while it stays in frame. */
-class ScanSteadiness {
-    private var candidate: Int? = null
-    private var since = 0L
-    private var best: Pair<CatalogPrinting, Boolean>? = null
-    private var lastIdx: Int? = null
-    private var lastSeen = 0L
-
-    fun feed(m: ScanMatch?, now: Long = System.currentTimeMillis()): Pair<CatalogPrinting, Boolean>? {
-        if (m == null) { candidate = null; return null }
-        if (lastIdx == m.oracle.idx && now - lastSeen < 1000) { lastSeen = now; return null }
-        if (candidate != m.oracle.idx) {
-            candidate = m.oracle.idx; since = now; best = m.printing to m.exact
-            return null
-        }
-        if (m.exact) best = m.printing to true
-        val b = best ?: return null
-        val held = now - since
-        // Take it quickly once the printing is read; give the small print a little longer otherwise.
-        if ((b.second && held >= 400) || held >= 1200) {
-            candidate = null
-            lastIdx = m.oracle.idx
-            lastSeen = now
-            return b
-        }
-        return null
-    }
-}
 
 /** Full-screen scanner used by Add cards and Trades. Collects cards until Done; nothing is written here. */
 @Composable
@@ -172,7 +98,10 @@ fun CardScanOverlay(
         CatalogStore.load(userInitiated = true)
         if (!granted) permission.launch(Manifest.permission.CAMERA)
     }
-    val matcher = remember(cat.generation) { CatalogStore.db?.let { CardMatcher(it, owned) } }
+    // The matcher's name index takes a moment to build the first time, so it's built off the main thread.
+    val matcher by produceState<CardMatcher?>(null, cat.generation) {
+        value = CatalogStore.db?.let { db -> withContext(Dispatchers.Default) { CardMatcher(db, owned, ScanNames.shared(db)) } }
+    }
     val steady = remember { ScanSteadiness() }
 
     fun see(lines: List<String>) {

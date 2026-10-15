@@ -19,7 +19,6 @@
 		271F749F426616B562345937 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D2BD7D181061AD027D497369 /* PrivacyInfo.xcprivacy */; };
 		287EA39F0780F5D9D58DB60F /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = DAA1705822C63F5D91855E6F /* GoogleSignInSwift */; };
 		2EA248C65A34333F07407183 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8099FC0F2F66ADD7B29CD544 /* Assets.xcassets */; };
-		30139BB0EA4716698479E004 /* CatalogPack.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD41B679C1BA02ABB15C2B93 /* CatalogPack.swift */; };
 		31399EE11B591B082148C757 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B05DB41AB23ECB8FD1E9482 /* ProfileView.swift */; };
 		38AC1D672F2DC442D679BF2C /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A08A26022063DCF85E09E341 /* SignInView.swift */; };
 		3E9B2DDEB790DC45ADEF974C /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 161422FB3409119247EDADF8 /* Supabase */; };
@@ -37,6 +36,7 @@
 		754A2FF43AE93BF1D9C806EB /* LiveSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 806A035192A635C79AA2F3A6 /* LiveSync.swift */; };
 		76C2DC2DA532D1CB04F1D6A9 /* TeamsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 286EEFA6E522FEAA50AF06B4 /* TeamsView.swift */; };
 		7753266A69DC78BB84DC1DB7 /* ResultIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524852D7ADCC9B3C35EC6E7E /* ResultIntents.swift */; };
+		793B3C5654CDC544D3CC0B21 /* CardMatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1438B6E1895ED25046190659 /* CardMatcherTests.swift */; };
 		7C88522BEF2B937ACB01640E /* CardScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3DAC241E9475632B6E8159C /* CardScanner.swift */; };
 		7F49E9FA46F07708E654A482 /* MatchWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DEABA0F74C6845F33051903 /* MatchWidget.swift */; };
 		80E94A6EF4008E87874A6AB4 /* LiveAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38C8BF8FA5B4C62D0B1D1C81 /* LiveAPI.swift */; };
@@ -53,6 +53,7 @@
 		A91695BA51EE13AB55A1B435 /* Prices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72DEBB4B6FB502FD419464DB /* Prices.swift */; };
 		ADEC65DE131491502D3B846C /* LibraryDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A149B70408DCB16D736D4918 /* LibraryDemo.swift */; };
 		AE200AC4696554CC7406AE4C /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1DA5EA10F583F3622B1F29 /* Models.swift */; };
+		B2F842D1E87CF4F8513B8436 /* CardMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6773EAB78C0C783B5ECD9530 /* CardMatcher.swift */; };
 		B72679DFE6E9B307F9182371 /* LiveModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51120128682593DE4286B900 /* LiveModels.swift */; };
 		B90B52F2EBEB5FECBF13B33A /* library-demo.json in Resources */ = {isa = PBXBuildFile; fileRef = C1B39C1F6212A6390E27185D /* library-demo.json */; };
 		BAD44F3D02D492DC863B8103 /* LifeTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17C7651ABA7EBFC501431ACC /* LifeTrackerView.swift */; };
@@ -73,6 +74,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		F1111BC3AAE4D473951759F6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D1E4D45C7E28BC30188503D5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BDB6595C1498771E08197032;
+			remoteInfo = Table1;
+		};
 		F46346D4650280FFDB22FF26 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = D1E4D45C7E28BC30188503D5 /* Project object */;
@@ -100,6 +108,7 @@
 		07AD98F6D43A76D8746C5B85 /* LiveActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityController.swift; sourceTree = "<group>"; };
 		1343547B4A4B4A62385BDA43 /* Repo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Repo.swift; sourceTree = "<group>"; };
 		13C0AE970C6BB94032DAA56D /* AddPlayersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddPlayersView.swift; sourceTree = "<group>"; };
+		1438B6E1895ED25046190659 /* CardMatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardMatcherTests.swift; sourceTree = "<group>"; };
 		17C7651ABA7EBFC501431ACC /* LifeTrackerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeTrackerView.swift; sourceTree = "<group>"; };
 		1E58FE801DEE1F485996A5C8 /* Catalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Catalog.swift; sourceTree = "<group>"; };
 		2510246EB27B41479FAC4C24 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -119,6 +128,7 @@
 		55BC9CD9D4335EFA4FC94D8A /* Table1.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Table1.entitlements; sourceTree = "<group>"; };
 		5B05DB41AB23ECB8FD1E9482 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		66BF17B948514FF1CAA8D71C /* Table1App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Table1App.swift; sourceTree = "<group>"; };
+		6773EAB78C0C783B5ECD9530 /* CardMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardMatcher.swift; sourceTree = "<group>"; };
 		67E76A43B3D3DCD33442A2B6 /* EventView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventView.swift; sourceTree = "<group>"; };
 		72DEBB4B6FB502FD419464DB /* Prices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prices.swift; sourceTree = "<group>"; };
 		746C5DE24C7558EEC963AEB0 /* Palette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Palette.swift; sourceTree = "<group>"; };
@@ -210,6 +220,7 @@
 		0F391E01507BEA4AA50F1BFD /* Table1Tests */ = {
 			isa = PBXGroup;
 			children = (
+				1438B6E1895ED25046190659 /* CardMatcherTests.swift */,
 				52CEDCCE665492AD0AB4B0FF /* CatalogPackTests.swift */,
 			);
 			path = Table1Tests;
@@ -342,6 +353,7 @@
 			children = (
 				270F4E7C8101647462A59635 /* CardImages.swift */,
 				EAC61F0965BF63C069AA8AEC /* CardLists.swift */,
+				6773EAB78C0C783B5ECD9530 /* CardMatcher.swift */,
 				E3DAC241E9475632B6E8159C /* CardScanner.swift */,
 				1E58FE801DEE1F485996A5C8 /* Catalog.swift */,
 				DD41B679C1BA02ABB15C2B93 /* CatalogPack.swift */,
@@ -386,6 +398,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				8BF6730E933B7741AF6289D0 /* PBXTargetDependency */,
 			);
 			name = Table1Tests;
 			packageProductDependencies = (
@@ -511,7 +524,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				30139BB0EA4716698479E004 /* CatalogPack.swift in Sources */,
+				793B3C5654CDC544D3CC0B21 /* CardMatcherTests.swift in Sources */,
 				C2CA6EA5AD21CC9187D9241A /* CatalogPackTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -523,6 +536,7 @@
 				EBC44A72B13A2B2BBA4BC103 /* AddPlayersView.swift in Sources */,
 				666D1A4A2E748925CA4371BD /* CardImages.swift in Sources */,
 				54BE2CC6D66BC995207C242E /* CardLists.swift in Sources */,
+				B2F842D1E87CF4F8513B8436 /* CardMatcher.swift in Sources */,
 				7C88522BEF2B937ACB01640E /* CardScanner.swift in Sources */,
 				9BDE7B9EB2D26C52DBBDEE04 /* Catalog.swift in Sources */,
 				C62E2D01E3DC00B5D4A3E97A /* CatalogPack.swift in Sources */,
@@ -582,6 +596,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		8BF6730E933B7741AF6289D0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BDB6595C1498771E08197032 /* Table1 */;
+			targetProxy = F1111BC3AAE4D473951759F6 /* PBXContainerItemProxy */;
+		};
 		C45654D1C6219A729A188FDE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 81A6F65E259ADA2B18DFBCF2 /* Table1Widgets */;
@@ -603,6 +622,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = site.table1.events.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Table1.app/Table1";
 			};
 			name = Debug;
 		};
@@ -796,6 +816,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = site.table1.events.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Table1.app/Table1";
 			};
 			name = Release;
 		};
