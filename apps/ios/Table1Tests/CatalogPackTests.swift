@@ -51,6 +51,12 @@ final class CardNameTests: XCTestCase {
         ]
         for (input, out) in cases { XCTAssertEqual(CardName.norm(input), out, input) }
     }
+
+    /// Russian printed names (pack N lines) keep their letters; й and ё lose their marks like Latin accents.
+    func testKeepsCyrillic() {
+        XCTAssertEqual(CardName.norm("Азор, Законотворец"), "азор законотворец")
+        XCTAssertEqual(CardName.norm("Легендарный — Ёж"), "легендарныи еж")
+    }
 }
 
 final class CatalogPackTests: XCTestCase {
@@ -69,6 +75,13 @@ final class CatalogPackTests: XCTestCase {
         XCTAssertEqual(c.printings[1].cardId, "f29ba16f-c8fb-42fe-aabf-87089cb214a7")
         XCTAssertEqual(c.printings[1].finishes, "fn")
         XCTAssertEqual(c.printings[3].imageFaces, 0)
+    }
+
+    func testReadsPrintedNames() throws {
+        let pack = PACK.replacingOccurrences(of: "X\tfuture", with: "N\t1\tde\tBlitzschlag\nN\t9\tde\tout of range\nX\tfuture")
+        var names: [PackName] = []
+        try CatalogPack.parse(Data(pack.utf8), oracle: { _ in }, printing: { _ in }, name: { names.append($0) })
+        XCTAssertEqual(names, [PackName(oracleIdx: 1, lang: "de", name: "Blitzschlag")])
     }
 
     func testRejectsAnUnknownFormat() {

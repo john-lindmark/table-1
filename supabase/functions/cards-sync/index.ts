@@ -1,13 +1,20 @@
 // cards-sync: keeps the card catalog (card_oracles / cards / card_prices) in step with Scryfall's
-// default_cards bulk file and publishes the catalog pack clients download.
+// default_cards bulk file, adds printed names in other languages from all_cards (weekly), and publishes the
+// catalog pack clients download.
 // Edge functions get 2s of CPU per request and 256MB of memory, and the bulk file is ~650MB of JSON, so the
 // work runs in steps (driven by t1_private.catalog_dispatch through pg_net, shared x-t1-secret header):
 //   {step:"stage"}           daily: stream + gunzip the file into ~32MB line-aligned pieces in catalog-staging
 //   {step:"chunk", run, n}   parse one piece and upsert it in batches through catalog_ingest
+//   {step:"names", run}      weekly, after the chunks: one ~12MB slice of all_cards (resumable inflate, inflate.ts)
+//                            → printed names; each step asks for the next (t1_private.catalog_names_cursor)
 //   {step:"pack", run}       build the catalog pack; publish it only if its content changed
 //   {step:"cleanup", run}    remove the run's staging pieces
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { INGEST_BATCH, PieceSplitter, STAGE_PIECE_BYTES, packHeader, pieceLines, slimCard, type SlimCard } from "./catalog.ts";
+import {
+  INGEST_BATCH, NAMES_BATCH, PieceSplitter, STAGE_PIECE_BYTES, namesFromSlice, packHeader, pieceLines, slimCard,
+  type SlimCard,
+} from "./catalog.ts";
+import { type InflateCheckpoint, gzipHeaderBytes } from "./inflate.ts";
 
 const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
   auth: { persistSession: false },
@@ -153,6 +160,67 @@ async function pack(run: number) {
   }
 }
 
+/** Compressed bytes per names step: ~90MB of JSON inflated, well inside 2s of CPU with the parsing. */
+const NAMES_SLICE_BYTES = 12 * 1024 * 1024;
+/** A step stops before a block when this much of its slice is left (deflate blocks are a few dozen KB). */
+const NAMES_RESERVE_BYTES = 1024 * 1024;
+const b64 = (b: Uint8Array) => {
+  let s = "";
+  for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000));
+  return btoa(s);
+};
+const unb64 = (s: string | null) => Uint8Array.from(atob(s ?? ""), (c) => c.charCodeAt(0));
+
+/**
+ * One step of the names pass: inflate the next slice of all_cards from the cursor, upsert the printed names of
+ * NAME_LANGS printings, move the cursor. catalog_names_advance asks for the next step (or the pack after the last).
+ */
+async function names(run: number) {
+  const st = await rpc<{ uri: string | null; bit: number | null; step: number; window: string; carry: string } | null>(
+    "catalog_names_state", { p_run: run });
+  if (!st) return { run, skipped: true };
+  try {
+    let uri = st.uri;
+    if (!uri) {
+      const meta = await fetch("https://api.scryfall.com/bulk-data/all-cards", { headers: SCRYFALL_HEADERS });
+      if (!meta.ok) throw new Error(`Scryfall bulk-data ${meta.status}`);
+      const bulk = await meta.json() as { jsonl_download_uri?: string; download_uri?: string };
+      uri = bulk.jsonl_download_uri ?? bulk.download_uri ?? null;
+      if (!uri?.endsWith(".gz")) throw new Error(`all_cards uri: ${uri}`);
+    }
+    const base = st.bit == null ? 0 : Math.floor(st.bit / 8);
+    const res = await fetch(uri, {
+      headers: { "User-Agent": SCRYFALL_HEADERS["User-Agent"], Range: `bytes=${base}-${base + NAMES_SLICE_BYTES - 1}` },
+    });
+    const total = Number(res.headers.get("content-range")?.split("/")[1]);
+    if (res.status !== 206 || !total) {
+      await res.body?.cancel();
+      throw new Error(`all_cards range ${res.status}`);
+    }
+    const data = new Uint8Array(await res.arrayBuffer());
+    const from: InflateCheckpoint = st.bit == null
+      ? { bit: gzipHeaderBytes(data) * 8, window: new Uint8Array(0), final: false }
+      : { bit: st.bit, window: unb64(st.window), final: false };
+    const last = base + data.length >= total;
+
+    const { checkpoint: cp, carry, names: rows } = namesFromSlice(data, base, from, unb64(st.carry), last ? 0 : NAMES_RESERVE_BYTES);
+    if (!cp.final && last) throw new Error("all_cards ended before its last block");
+
+    let added = 0;
+    for (let i = 0; i < rows.length; i += NAMES_BATCH) {
+      added += await rpc<number>("catalog_names_ingest", { p_run: run, p_rows: rows.slice(i, i + NAMES_BATCH) });
+    }
+    await rpc("catalog_names_advance", {
+      p_run: run, p_step: st.step, p_uri: uri, p_bit: cp.bit, p_window: b64(cp.window), p_carry: b64(carry),
+      p_final: cp.final,
+    });
+    return { run, step: st.step, names: rows.length, added, done: cp.final, at: Math.round(cp.bit / 8 / total * 100) + "%" };
+  } catch (e) {
+    await rpc("catalog_names_fail", { p_run: run, p_step: st.step, p_error: String(e) }).catch(() => {});
+    throw e;
+  }
+}
+
 async function cleanup(run: number) {
   const { data } = await admin.storage.from(STAGING).list(String(run), { limit: 1000 });
   const paths = (data ?? []).map((o) => `${run}/${o.name}`);
@@ -172,6 +240,7 @@ Deno.serve(async (req) => {
       case "chunk": return json(await chunk(Number(body.run), Number(body.n)));
       case "pack": return json(await pack(Number(body.run)));
       case "cleanup": return json(await cleanup(Number(body.run)));
+      case "names": return json(await names(Number(body.run)));
       default: return json({ error: "Unknown step" }, 400);
     }
   } catch (e) {

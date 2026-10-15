@@ -46,6 +46,12 @@ class CardNameTest {
             "  Jötun   Grunt " to "jotun grunt",
         ).forEach { (input, out) -> assertEquals(input, out, CardName.norm(input)) }
     }
+
+    /** Russian printed names (pack N lines) keep their letters; й and ё lose their marks like Latin accents. */
+    @Test fun keepsCyrillic() {
+        assertEquals("азор законотворец", CardName.norm("Азор, Законотворец"))
+        assertEquals("легендарныи еж", CardName.norm("Легендарный — Ёж"))
+    }
 }
 
 class CatalogPackTest {
@@ -64,6 +70,13 @@ class CatalogPackTest {
         assertEquals("f29ba16f-c8fb-42fe-aabf-87089cb214a7", c.printings[1].cardId)
         assertEquals("fn", c.printings[1].finishes)
         assertEquals(0, c.printings[3].imageFaces)
+    }
+
+    @Test fun readsPrintedNames() {
+        val pack = PACK.replace("X\tfuture", "N\t1\tde\tBlitzschlag\nN\t9\tde\tout of range\nX\tfuture")
+        val names = mutableListOf<PackName>()
+        CatalogPack.parse(pack, {}, {}, { names.add(it) })
+        assertEquals(listOf(PackName(1, "de", "Blitzschlag")), names)
     }
 
     @Test fun rejectsAnUnknownFormat() {

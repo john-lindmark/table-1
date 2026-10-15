@@ -3,7 +3,8 @@
 
 Ids become short counters and columns the scanner doesn't use (image timestamps, colors, legality, points) are
 emptied; names, type lines, set codes, collector numbers, languages, release dates and the original-printing flag
-stay, so the matcher sees the same names and printings as on a phone. Re-run when the pack format changes:
+stay, and N lines (printed names in other languages) are kept as they are, so the matcher sees the same names and
+printings as on a phone. Re-run when the pack format changes:
 
   python3 -I testdata/scan/tools/trim_pack.py <pack.tsv or pack.tsv.gz>
 """

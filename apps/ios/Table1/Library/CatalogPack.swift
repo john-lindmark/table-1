@@ -15,12 +15,23 @@ enum CardName {
             gap = false
             out.append(u)
         }
+        if s.utf8.allSatisfy({ $0 < 0x80 }) { // plain ASCII (most names): nothing to decompose
+            for b in s.utf8 {
+                switch b {
+                case 0x27: continue
+                case 0x41...0x5A: emit(Unicode.Scalar(b | 0x20))
+                case 0x61...0x7A, 0x30...0x39: emit(Unicode.Scalar(b))
+                default: gap = true
+                }
+            }
+            return String(out)
+        }
         for u in s.decomposedStringWithCompatibilityMapping.lowercased().unicodeScalars {
             switch u.value {
             case 0x300...0x36F, 0x27, 0x2019: continue // removed outright, not a gap
             case 0xE6: emit("a"); emit("e")
             case 0x153: emit("o"); emit("e")
-            case 0x61...0x7A, 0x30...0x39: emit(u)
+            case 0x61...0x7A, 0x30...0x39, 0x430...0x44F: emit(u) // Cyrillic too: printed names (N lines) are read in Russian
             default: gap = true
             }
         }
@@ -48,6 +59,13 @@ struct PackOracle: Equatable {
     var legal: String = ""
     /// Canadian Highlander points (0 = none).
     var points: Int = 0
+}
+
+/// A printed name in another language (N line): what the card is called on its de/es/fr/it/pt/ru printings.
+struct PackName: Equatable {
+    let oracleIdx: Int
+    let lang: String
+    let name: String
 }
 
 struct PackPrinting: Equatable {
@@ -104,10 +122,11 @@ enum CatalogPack {
         "c": "Common", "u": "Uncommon", "r": "Rare", "m": "Mythic", "s": "Special", "b": "Bonus",
     ]
 
-    /// Streams the (already gunzipped) pack: `oracle` for each O line, `printing` for each P line, in file
-    /// order. Unknown line types and extra trailing fields are ignored; a different format is refused.
+    /// Streams the (already gunzipped) pack: `oracle` for each O line, `printing` for each P line, `name` for each
+    /// N line, in file order. Unknown line types and extra trailing fields are ignored; a different format is refused.
     @discardableResult
-    static func parse(_ data: Data, oracle: (PackOracle) throws -> Void, printing: (PackPrinting) throws -> Void) throws -> PackHeader {
+    static func parse(_ data: Data, oracle: (PackOracle) throws -> Void, printing: (PackPrinting) throws -> Void,
+                      name: (PackName) throws -> Void = { _ in }) throws -> PackHeader {
         try data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> PackHeader in
             let bytes = raw.bindMemory(to: UInt8.self)
             let n = bytes.count
@@ -140,6 +159,8 @@ enum CatalogPack {
                                 rarity: at(6), finishes: at(7), releasedAt: at(8), imageTs: at(9),
                                 imageFaces: Int(at(10)) ?? 0, printedName: at(11), original: at(12) == "1"))
                             p += 1
+                        } else if fields[0] == "N", let i = Int(at(1)), i >= 0, i < h.oracles, !at(3).isEmpty {
+                            try name(PackName(oracleIdx: i, lang: at(2), name: at(3)))
                         }
                         // Unknown line types are skipped (format rule).
                     } else {

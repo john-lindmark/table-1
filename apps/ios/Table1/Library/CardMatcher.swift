@@ -4,15 +4,18 @@ import Foundation
    (README there; accuracy test in Table1Tests/CardMatcherTests.swift). Same rules on Android (CardMatcher.kt). */
 
 /// Names the scanner can read, built once per catalog pack: each card's name and a split or double-faced card's
-/// front face (tokens, art cards, emblems and Vanguard left out), with trigrams for misread names.
+/// front face (tokens, art cards, emblems and Vanguard left out), its printed names in other languages (pack N
+/// lines; never over an English name, and left out when two cards share one), with trigrams for misread names.
 final class ScanNames: @unchecked Sendable {
     let version: String
     let sets: Set<String>
-    /// Normalized names, sorted (cut-off names are looked up by prefix).
+    /// Normalized names, sorted by UTF-8 bytes (cut-off names are looked up by prefix).
     private let keys: [String]
     private let idxs: [Int]
     private let byKey: [String: Int]
-    private let grams: [Int: [Int32]]
+    /// Trigram → the keys containing it, as a range of `postings` (key positions, ascending).
+    private let grams: [Int: Range<Int>]
+    private let postings: [Int32]
 
     private static let lock = NSLock()
     nonisolated(unsafe) private static var cached: ScanNames?
@@ -30,7 +33,9 @@ final class ScanNames: @unchecked Sendable {
     init(_ db: CatalogDB) {
         version = db.version
         sets = db.setCodes()
+        // printings -1 marks a printed name in another language; idx -1 one that two cards share.
         var best: [String: (idx: Int, printings: Int)] = [:]
+        var scannable = Set<Int>()
         for o in db.scanNames() where o.printings > 0 && !Self.unscannable(o.typeLine) {
             var names = [o.norm]
             if let cut = o.name.range(of: " // ") {
@@ -38,51 +43,141 @@ final class ScanNames: @unchecked Sendable {
                 if front == CardName.norm(String(o.name[cut.upperBound...])) { continue } // an art card ("X // X")
                 names.append(front)
             }
+            scannable.insert(o.idx)
             for k in names where best[k].map({ o.printings > $0.printings }) ?? true { best[k] = (o.idx, o.printings) }
         }
-        keys = best.keys.sorted()
-        idxs = keys.map { best[$0]!.idx }
+        let foreign = db.scanForeignNames()
+        best.reserveCapacity(best.count + foreign.count)
+        for n in foreign where scannable.contains(n.idx) {
+            if let b = best[n.norm] {
+                if b.printings < 0 && b.idx != n.idx { best[n.norm] = (-1, -1) }
+            } else {
+                best[n.norm] = (n.idx, -1)
+            }
+        }
+        // Byte order: the same as String's < for these normalized names, without its Unicode comparison.
+        let sorted = best.filter { $0.value.idx >= 0 }.sorted { $0.key.utf8.lexicographicallyPrecedes($1.key.utf8) }
+        keys = sorted.map(\.key)
+        idxs = sorted.map(\.value.idx)
         byKey = Dictionary(uniqueKeysWithValues: keys.enumerated().map { ($1, $0) })
-        var g: [Int: [Int32]] = [:]
-        for (i, k) in keys.enumerated() { for t in Self.trigrams(k) { g[t, default: []].append(Int32(i)) } }
+        // Every (trigram, key position), keys in order; a stable radix sort on the 24-bit trigram then gives one
+        // ascending posting list per trigram.
+        var tri: [UInt32] = [], pos: [Int32] = []
+        tri.reserveCapacity(keys.count * 20)
+        pos.reserveCapacity(keys.count * 20)
+        var codes: [Int] = []
+        for (i, k) in keys.enumerated() {
+            codes.removeAll(keepingCapacity: true)
+            Self.trigrams(k, into: &codes)
+            codes.sort()
+            var last = -1
+            for c in codes where c != last { tri.append(UInt32(c)); pos.append(Int32(i)); last = c }
+        }
+        for shift in [0, 12] as [UInt32] {
+            var t2 = [UInt32](repeating: 0, count: tri.count), p2 = [Int32](repeating: 0, count: pos.count)
+            Self.radixPass(tri, pos, shift, &t2, &p2)
+            tri = t2; pos = p2
+        }
+        var g: [Int: Range<Int>] = [:]
+        var start = 0
+        for j in tri.indices where j + 1 == tri.count || tri[j + 1] != tri[j] {
+            g[Int(tri[j])] = start..<(j + 1)
+            start = j + 1
+        }
         grams = g
+        postings = pos
+    }
+
+    /// One stable counting-sort pass on 12 bits of the trigram. On raw buffers: Debug builds don't optimize array
+    /// access, and this runs over ~3M entries.
+    private static func radixPass(_ tri: [UInt32], _ pos: [Int32], _ shift: UInt32, _ t2: inout [UInt32], _ p2: inout [Int32]) {
+        var count = [Int](repeating: 0, count: 4097)
+        tri.withUnsafeBufferPointer { t in
+            pos.withUnsafeBufferPointer { p in
+                t2.withUnsafeMutableBufferPointer { ot in
+                    p2.withUnsafeMutableBufferPointer { op in
+                        count.withUnsafeMutableBufferPointer { c in
+                            for v in t { c[Int(v >> shift & 0xFFF) + 1] += 1 }
+                            for d in 1..<c.count { c[d] += c[d - 1] }
+                            for j in 0..<t.count {
+                                let d = Int(t[j] >> shift & 0xFFF)
+                                ot[c[d]] = t[j]
+                                op[c[d]] = p[j]
+                                c[d] += 1
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private static func unscannable(_ typeLine: String) -> Bool {
         ["Token", "Card", "Emblem", "Vanguard"].contains { typeLine.hasPrefix($0) }
     }
 
+    /// Byte trigrams of the name padded with a space each side.
+    private static func trigrams(_ s: String, into out: inout [Int]) {
+        var a = 32, b = -1
+        for c in s.utf8 {
+            if b >= 0 { out.append(a << 16 | b << 8 | Int(c)); a = b }
+            b = Int(c)
+        }
+        if b >= 0 { out.append(a << 16 | b << 8 | 32) }
+    }
+
     private static func trigrams(_ s: String) -> Set<Int> {
-        let b = [UInt8(32)] + Array(s.utf8) + [32]
-        guard b.count >= 3 else { return [] }
-        return Set((0..<(b.count - 2)).map { Int(b[$0]) << 16 | Int(b[$0 + 1]) << 8 | Int(b[$0 + 2]) })
+        var out: [Int] = []
+        trigrams(s, into: &out)
+        return Set(out)
     }
 
     func exact(_ q: String) -> Int? { byKey[q].map { idxs[$0] } }
 
-    /// A name cut off at the edge of the frame: the only name starting with it, of which it's most.
+    /// A name cut off at the edge of the frame: only one card has names starting with it (its English and printed
+    /// names often share a start: "Urza's Saga", "Urzas Sage"), and it's most of one of them.
     func prefix(_ q: String) -> Int? {
         guard q.count >= 8 else { return nil }
         var lo = 0, hi = keys.count
-        while lo < hi { let mid = (lo + hi) / 2; if keys[mid] < q { lo = mid + 1 } else { hi = mid } }
-        guard lo < keys.count, keys[lo].hasPrefix(q), lo + 1 == keys.count || !keys[lo + 1].hasPrefix(q),
-              Double(q.count) >= 0.6 * Double(keys[lo].count) else { return nil }
-        return idxs[lo]
+        while lo < hi {
+            let mid = (lo + hi) / 2
+            if keys[mid].utf8.lexicographicallyPrecedes(q.utf8) { lo = mid + 1 } else { hi = mid }
+        }
+        var hit: Int?, most = false
+        for j in lo..<min(keys.count, lo + 16) {
+            guard keys[j].hasPrefix(q) else { break }
+            if let h = hit, h != idxs[j] { return nil }
+            hit = idxs[j]
+            if Double(q.count) >= 0.6 * Double(keys[j].count) { most = true }
+        }
+        return most ? hit : nil
     }
 
-    /// A misread name: the closest name within about one edit in six letters, if nothing else is as close.
+    /// A misread name: the closest name within about one edit in six letters, if no other card's name is as close.
     func fuzzy(_ q: String) -> Int? {
-        guard q.count >= 5 else { return nil }
+        guard q.count >= 5, q.utf8.count < 250 else { return nil }
         let cap = max(1, q.count / 6)
         let tg = Self.trigrams(q)
-        var shared: [Int32: Int] = [:]
-        for t in tg { for i in grams[t] ?? [] { shared[i, default: 0] += 1 } }
+        var shared = [UInt8](repeating: 0, count: keys.count)
+        var touched: [Int] = []
+        for t in tg {
+            guard let r = grams[t] else { continue }
+            for j in r {
+                let i = Int(postings[j])
+                if shared[i] == 0 { touched.append(i) }
+                shared[i] &+= 1
+            }
+        }
+        // The 60 names sharing the most trigrams, of those sharing at least 40%.
+        let enough = (Double(tg.count) * 0.4).rounded(.up)
+        let top = touched.filter { Double(shared[$0]) >= enough }
+            .sorted { shared[$0] != shared[$1] ? shared[$0] > shared[$1] : $0 < $1 }.prefix(60)
         let target = Array(q.utf8)
         var best = (d: cap + 1, i: -1), second = cap + 1
-        for (i, n) in shared.sorted(by: { $0.value > $1.value }).prefix(60) {
-            if Double(n) < Double(tg.count) * 0.4 { break }
-            let d = Self.distance(target, Array(keys[Int(i)].utf8), cap: cap)
-            if d < best.d { second = best.d; best = (d, Int(i)) } else if d < second { second = d }
+        for i in top {
+            let d = Self.distance(target, Array(keys[i].utf8), cap: cap)
+            let other = best.i < 0 || idxs[best.i] != idxs[i]
+            if d < best.d { if other { second = best.d }; best = (d, i) } else if d < second && other { second = d }
         }
         return best.i >= 0 && best.d <= cap && second > best.d ? idxs[best.i] : nil
     }
@@ -147,8 +242,18 @@ final class CardMatcher: @unchecked Sendable {
 
     // MARK: name
 
-    private static let typeWords: Set<Substring> = ["creature", "instant", "sorcery", "artifact", "enchantment", "land",
-                                                    "planeswalker", "battle", "summon", "interrupt", "kindred", "tribal", "legendary"]
+    private static let typeWords: Set<Substring> = [
+        "creature", "instant", "sorcery", "artifact", "enchantment", "land", "planeswalker", "battle", "summon", "interrupt",
+        "kindred", "tribal", "legendary",
+        // The same on foreign printings (normalized: no accents).
+        "kreatur", "spontanzauber", "hexerei", "artefakt", "verzauberung", "beschworung", "unterbrechungszauber", "legendare",
+        "legendarer", "legendares", "ephemere", "rituel", "artefact", "enchantement", "terrain", "invocation", "interruption",
+        "legendaire", "bataille", "criatura", "instantaneo", "conjuro", "artefacto", "encantamiento", "tierra", "invocar",
+        "interrupcion", "legendaria", "legendario", "batalla", "creatura", "stregoneria", "artefatto", "incantesimo", "terra",
+        "evoca", "interruzione", "leggendaria", "leggendario", "battaglia", "instantanea", "feitico", "artefato", "encantamento",
+        "terreno", "lendaria", "lendario", "batalha", "существо", "мгновенное", "волшебство", "артефакт", "чары", "земля",
+        "легендарное", "легендарныи", "легендарная", "сражение",
+    ]
 
     /// The card's name: the top lines first (exactly, then cut off or misread), stopping at the type line, which the
     /// name is always above; further down, only an exact name of two words or more (one word is often a keyword).

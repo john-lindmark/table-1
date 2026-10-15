@@ -84,6 +84,9 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog {
             ScanName(it.getInt(0), it.getString(1), it.getString(2), it.getString(3) ?: "", it.getInt(4))
         }
 
+    override fun foreignNames(): List<Pair<Int, String>> =
+        query("SELECT DISTINCT oracle_idx, name_norm FROM names", emptyArray()) { it.getInt(0) to it.getString(1) }
+
     override fun setCodes(): Set<String> = query("SELECT DISTINCT set_code FROM printings", emptyArray()) { it.getString(0) }.toSet()
 
     override fun printings(set: String, cn: String): List<CatalogPrinting> =
@@ -175,11 +178,13 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog {
                 db.execSQL("""CREATE TABLE printings (card_id TEXT PRIMARY KEY, oracle_idx INTEGER NOT NULL, ord INTEGER NOT NULL,
                     set_code TEXT, cn TEXT, lang TEXT, rarity TEXT, finishes TEXT, released_at TEXT, image_ts TEXT,
                     image_faces INTEGER, printed_name TEXT, original INTEGER NOT NULL DEFAULT 0)""")
+                db.execSQL("CREATE TABLE names (oracle_idx INTEGER NOT NULL, lang TEXT NOT NULL, name TEXT NOT NULL, name_norm TEXT NOT NULL)")
                 db.beginTransaction()
                 try {
                     val insO = db.compileStatement(
                         "INSERT INTO oracles (idx, oracle_id, name, name_norm, type_line, mana_cost, cmc, colors, face_names, legal, points) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
                     val insP = db.compileStatement("INSERT OR REPLACE INTO printings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                    val insN = db.compileStatement("INSERT INTO names VALUES (?,?,?,?)")
                     var ord = 0L
                     val header = CatalogPack.parse(pack, oracle = { o ->
                         insO.clearBindings()
@@ -197,6 +202,15 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog {
                         insP.bindLong(11, p.imageFaces.toLong()); insP.bindString(12, p.printedName)
                         insP.bindLong(13, if (p.original) 1 else 0)
                         insP.executeInsert()
+                    }, name = { n ->
+                        // Normalized here, once per pack, so the scanner's name index loads without normalizing 160k names.
+                        val norm = CardName.norm(n.name)
+                        if (norm.isNotEmpty()) {
+                            insN.clearBindings()
+                            insN.bindLong(1, n.oracleIdx.toLong()); insN.bindString(2, n.lang); insN.bindString(3, n.name)
+                            insN.bindString(4, norm)
+                            insN.executeInsert()
+                        }
                     })
                     db.execSQL("CREATE INDEX printings_oracle ON printings (oracle_idx, ord)")
                     db.execSQL("CREATE INDEX printings_set_cn ON printings (set_code, cn, lang)")
@@ -230,7 +244,7 @@ data class CatalogState(
  */
 object CatalogStore {
     /** Bumped when the local SQLite schema changes; a file built by an older schema is rebuilt from a fresh pack. */
-    private const val SCHEMA = "s3"
+    private const val SCHEMA = "s4"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(CatalogState())

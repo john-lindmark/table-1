@@ -26,16 +26,18 @@ private val root: File = generateSequence(File("").absoluteFile) { it.parentFile
 private class PackCatalog(text: String) : ScanCatalog {
     private val oracleList = ArrayList<PackOracle>()
     private val printingList = ArrayList<CatalogPrinting>()
+    private val nameList = LinkedHashSet<Pair<Int, String>>()
     override val version: String = CatalogPack.parse(text, { oracleList.add(it) }, { p ->
         printingList.add(CatalogPrinting(p.cardId, p.oracleIdx, printingList.size, p.set, p.cn, p.lang, p.rarity, p.finishes,
             p.releasedAt, p.imageTs, p.imageFaces, p.printedName, p.original))
-    }).version
+    }, { n -> CardName.norm(n.name).takeIf { it.isNotEmpty() }?.let { nameList.add(n.oracleIdx to it) } }).version
     private val byOracle = printingList.groupBy { it.oracleIdx }
         .mapValues { (_, ps) -> ps.sortedWith(compareByDescending<CatalogPrinting> { it.original }.thenBy { it.ord }) }
     private val bySetCn = printingList.groupBy { "${it.set}|${it.cn}" }
     private val oracleByIdx = oracleList.associateBy { it.idx }
 
     override fun scanNames() = oracleList.map { ScanName(it.idx, it.name, it.nameNorm, it.typeLine, byOracle[it.idx]?.size ?: 0) }
+    override fun foreignNames() = nameList.toList()
     override fun setCodes() = printingList.mapTo(HashSet()) { it.set }
     override fun oracles(idxs: Collection<Int>) = idxs.mapNotNull { i ->
         oracleByIdx[i]?.let { i to CatalogOracle(it.idx, it.oracleId, it.name, it.nameNorm, it.typeLine, it.manaCost, byOracle[i]?.size ?: 0) }
@@ -71,7 +73,9 @@ class CardMatcherTest {
         @BeforeClass @JvmStatic
         fun load() {
             catalog = PackCatalog(String(CatalogPack.gunzip(File(root, "catalog.tsv.gz").readBytes())))
+            val started = System.nanoTime()
             names = ScanNames(catalog)
+            println("Catalog: scanner name index ${(System.nanoTime() - started) / 1_000_000} ms")
         }
     }
 
@@ -108,6 +112,7 @@ class CardMatcherTest {
             for (c in cases) {
                 val lines = ocr[c.id]?.jsonObject?.get(mode)?.jsonArray?.map { it.jsonPrimitive.content } ?: continue
                 val m = matcher().match(lines)
+                if (m != null && m.oracle.idx != catalog.expected[CardName.norm(c.name)]) report += "    WRONG $mode ${c.id}: ${m.oracle.name}"
                 grade(c, m?.oracle, m?.printing, m?.exact ?: false, all)
                 grade(c, m?.oracle, m?.printing, m?.exact ?: false, if ("lang" in c.tags) foreign else english)
                 if (mode == "accurate") for (tag in c.tags) grade(c, m?.oracle, m?.printing, m?.exact ?: false, byTag.getOrPut(tag) { Tally() })

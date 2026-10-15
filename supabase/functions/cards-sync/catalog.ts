@@ -1,10 +1,13 @@
-// Pure helpers for cards-sync: Scryfall card → slim row, and line-aligned splitting of the bulk stream.
-// No Deno or Supabase imports, so this file also runs under Node for local tests against a real bulk file.
+// Pure helpers for cards-sync: Scryfall card → slim row, line-aligned splitting of the bulk stream, and printed
+// names from all_cards. No Deno or Supabase imports, so this file also runs under Node for local tests.
+import { type InflateCheckpoint, inflateBlocks } from "./inflate.ts";
 
 /** Pieces written to the staging bucket stay under the 50MB object limit with room to spare. */
 export const STAGE_PIECE_BYTES = 32 * 1024 * 1024;
 /** Rows per catalog_ingest call. */
 export const INGEST_BATCH = 1000;
+/** Rows per catalog_names_ingest call. */
+export const NAMES_BATCH = 2000;
 
 // deno-lint-ignore no-explicit-any
 type Json = any;
@@ -158,3 +161,81 @@ export const PACK_FORMAT = 1;
 /** First line of a pack: magic, format, version (content hash), counts. Deterministic for the same body. */
 export const packHeader = (version: string, oracles: number, printings: number) =>
   `#t1catalog\t${PACK_FORMAT}\t${version}\t${oracles}\t${printings}`;
+
+/**
+ * Languages whose printed names go into the pack (N lines). The scanner reads Latin and Cyrillic text (Vision on
+ * iOS; ML Kit's Latin model on Android), so Japanese, Korean and Chinese names would be dead weight.
+ */
+export const NAME_LANGS = ["de", "es", "fr", "it", "pt", "ru"];
+const LANG_KEY = new TextEncoder().encode('"lang":"');
+const NAME_LANG_CODES = new Set(NAME_LANGS.map((l) => l.charCodeAt(0) << 8 | l.charCodeAt(1)));
+
+/**
+ * True when a raw all_cards line is a printing in one of NAME_LANGS, read from the bytes without decoding or
+ * parsing (all_cards is ~3GB of JSON; only about a third of it is kept). `lang` sits near the start of the object.
+ */
+export function isNameLangLine(line: Uint8Array): boolean {
+  const end = Math.min(line.length, 4096);
+  for (let i = line.indexOf(34 /* " */); i >= 0 && i < end; i = line.indexOf(34, i + 1)) {
+    let k = 1;
+    while (k < LANG_KEY.length && line[i + k] === LANG_KEY[k]) k++;
+    if (k < LANG_KEY.length) continue;
+    const j = i + LANG_KEY.length;
+    return line[j + 2] === 34 && NAME_LANG_CODES.has(line[j] << 8 | line[j + 1]);
+  }
+  return false;
+}
+
+/** One printed name: what catalog_names_ingest takes. */
+export interface PrintedName {
+  oracle_id: string;
+  lang: string;
+  printed_name: string;
+}
+
+/** A foreign printing's printed names (each face of a multi-faced card), skipping any that equal the English name. */
+export function printedNames(c: Json): PrintedName[] {
+  if (!Array.isArray(c.games) || !c.games.includes("paper") || !c.lang || c.lang === "en") return [];
+  const faces: Json[] = Array.isArray(c.card_faces) ? c.card_faces : [];
+  const out: PrintedName[] = [];
+  const add = (oracle: string | undefined, printed: unknown, name: unknown) => {
+    if (!oracle || typeof printed !== "string") return;
+    const p = printed.replace(/[\t\n\r]+/g, " ").trim();
+    if (p && p !== name) out.push({ oracle_id: oracle, lang: c.lang, printed_name: p });
+  };
+  add(c.oracle_id ?? faces[0]?.oracle_id, c.printed_name, c.name);
+  for (const f of faces) add(f.oracle_id ?? c.oracle_id, f.printed_name, f.name);
+  return out;
+}
+
+/**
+ * One names step's work: inflates a slice of all_cards from checkpoint `from` (`carry` is the partial line the
+ * previous slice ended on) and returns the printed names it found, deduplicated, with where to resume.
+ */
+export function namesFromSlice(data: Uint8Array, base: number, from: InflateCheckpoint, carry: Uint8Array, reserve: number) {
+  const found = new Map<string, PrintedName>();
+  const dec = new TextDecoder();
+  const take = (line: Uint8Array) => {
+    if (!isNameLangLine(line)) return;
+    let s = dec.decode(line).trim();
+    if (s.endsWith(",")) s = s.slice(0, -1);
+    for (const n of printedNames(JSON.parse(s))) found.set(`${n.oracle_id}\t${n.lang}\t${n.printed_name}`, n);
+  };
+  const join = (a: Uint8Array, b: Uint8Array) => {
+    const j = new Uint8Array(a.length + b.length);
+    j.set(a);
+    j.set(b, a.length);
+    return j;
+  };
+  const checkpoint = inflateBlocks(data, base, from, reserve, Infinity, (out) => {
+    let p = 0;
+    for (let i = out.indexOf(10); i >= 0; i = out.indexOf(10, p)) {
+      if (carry.length) { take(join(carry, out.subarray(p, i))); carry = new Uint8Array(0); }
+      else take(out.subarray(p, i));
+      p = i + 1;
+    }
+    if (p < out.length) carry = join(carry, out.subarray(p));
+  });
+  if (checkpoint.final && carry.length) { take(carry); carry = new Uint8Array(0); }
+  return { checkpoint, carry, names: [...found.values()] };
+}

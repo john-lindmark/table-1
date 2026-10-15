@@ -26,7 +26,7 @@ object CardName {
             c in '̀'..'ͯ' || c == '\'' || c == '’' -> {} // removed outright, not a gap
             c == 'æ' -> { emit('a'); emit('e') }
             c == 'œ' -> { emit('o'); emit('e') }
-            c in 'a'..'z' || c in '0'..'9' -> emit(c)
+            c in 'a'..'z' || c in '0'..'9' || c in 'а'..'я' -> emit(c) // Cyrillic too: printed names (N lines) are read in Russian
             else -> gap = true
         }
         return out.toString()
@@ -50,6 +50,9 @@ data class PackPrinting(
     /** The card's original paper printing, the one adds use by default. */
     val original: Boolean = false,
 )
+
+/** A printed name in another language (N line): what the card is called on its de/es/fr/it/pt/ru printings. */
+data class PackName(val oracleIdx: Int, val lang: String, val name: String)
 
 class CatalogFormatException(message: String) : IOException(message)
 
@@ -76,10 +79,10 @@ object CatalogPack {
     val RARITY_NAME = mapOf("c" to "Common", "u" to "Uncommon", "r" to "Rare", "m" to "Mythic", "s" to "Special", "b" to "Bonus")
 
     /**
-     * Streams the (already gunzipped) pack: [oracle] for each O line, [printing] for each P line, in file
-     * order. Unknown line types and extra trailing fields are ignored; a different format is refused.
+     * Streams the (already gunzipped) pack: [oracle] for each O line, [printing] for each P line, [name] for each
+     * N line, in file order. Unknown line types and extra trailing fields are ignored; a different format is refused.
      */
-    fun parse(text: String, oracle: (PackOracle) -> Unit, printing: (PackPrinting) -> Unit): PackHeader {
+    fun parse(text: String, oracle: (PackOracle) -> Unit, printing: (PackPrinting) -> Unit, name: (PackName) -> Unit = {}): PackHeader {
         var header: PackHeader? = null
         var o = 0
         var p = 0
@@ -103,6 +106,9 @@ object CatalogPack {
                     printing(PackPrinting(at(1), at(2).toIntOrNull() ?: -1, at(3), at(4), at(5), at(6), at(7), at(8), at(9),
                         at(10).toIntOrNull() ?: 0, at(11), at(12) == "1"))
                     p++
+                } else if (f[0] == "N") {
+                    val i = at(1).toIntOrNull()
+                    if (i != null && i >= 0 && i < h.oracles && at(3).isNotEmpty()) name(PackName(i, at(2), at(3)))
                 }
                 // Unknown line types are skipped (format rule).
             }

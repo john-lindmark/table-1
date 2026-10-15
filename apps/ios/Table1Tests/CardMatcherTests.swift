@@ -37,9 +37,13 @@ final class CardMatcherTests: XCTestCase {
         super.setUp()
         let path = FileManager.default.temporaryDirectory.appending(path: "scan-test-catalog.sqlite").path
         let pack = try! CatalogPack.gunzip(Data(contentsOf: root.appending(path: "catalog.tsv.gz")))
+        let started = Date()
         let header = try! CatalogDB.build(pack: pack, at: path)
+        let built = Date()
         db = try! CatalogDB(path: path, version: header.version)
         names = ScanNames(db)
+        let ms = { (a: Date, b: Date) in Int(b.timeIntervalSince(a) * 1000) }
+        print("Catalog: pack into SQLite \(ms(started, built)) ms, scanner name index \(ms(built, Date())) ms")
         var printings: [Int: Int] = [:]
         _ = try! CatalogPack.parse(pack, oracle: { _ in }, printing: { printings[$0.oracleIdx, default: 0] += 1 })
         var best: [String: (Int, Int)] = [:]
@@ -91,6 +95,9 @@ final class CardMatcherTests: XCTestCase {
             for c in cases {
                 guard let lines = ocr[c.id]?[mode] else { continue }
                 let m = matcher().match(lines)
+                if let got = m?.oracle, got.idx != Self.expectedIdx[CardName.norm(c.name)] {
+                    report.append("    WRONG \(mode) \(c.id): \(got.name)")
+                }
                 grade(c, m?.oracle, m?.printing, exact: m?.exact ?? false, into: &all)
                 if c.tags.contains("lang") { grade(c, m?.oracle, m?.printing, exact: m?.exact ?? false, into: &foreign) }
                 else { grade(c, m?.oracle, m?.printing, exact: m?.exact ?? false, into: &english) }

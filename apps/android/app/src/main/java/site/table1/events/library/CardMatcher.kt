@@ -10,6 +10,8 @@ interface ScanCatalog {
     val version: String
     /** Every card: index, name, normalized name, type line, number of printings. */
     fun scanNames(): List<ScanName>
+    /** Printed names in other languages (pack N lines): oracle index and normalized name, one per card and name. */
+    fun foreignNames(): List<Pair<Int, String>>
     fun setCodes(): Set<String>
     fun oracles(idxs: Collection<Int>): Map<Int, CatalogOracle>
     fun printings(oracleIdx: Int): List<CatalogPrinting>
@@ -21,7 +23,8 @@ data class ScanName(val idx: Int, val name: String, val norm: String, val typeLi
 
 /**
  * Names the scanner can read, built once per catalog pack: each card's name and a split or double-faced card's
- * front face (tokens, art cards, emblems and Vanguard left out), with trigrams for misread names.
+ * front face (tokens, art cards, emblems and Vanguard left out), its printed names in other languages (pack N
+ * lines; never over an English name, and left out when two cards share one), with trigrams for misread names.
  */
 class ScanNames(catalog: ScanCatalog) {
     val version = catalog.version
@@ -30,10 +33,14 @@ class ScanNames(catalog: ScanCatalog) {
     private val keys: List<String>
     private val idxs: IntArray
     private val byKey: Map<String, Int>
-    private val grams: Map<Int, IntArray>
+    /** Trigram → the keys containing it: a range of [postings] (key positions, ascending), packed start shl 32 or end. */
+    private val grams: HashMap<Int, Long>
+    private val postings: IntArray
 
     init {
+        // Second of the pair: printings, or -1 for a printed name in another language; first -1 when two cards share it.
         val best = HashMap<String, Pair<Int, Int>>()
+        val scannable = HashSet<Int>()
         for (o in catalog.scanNames()) {
             if (o.printings == 0 || UNSCANNABLE.any { o.typeLine.startsWith(it) }) continue
             val names = mutableListOf(o.norm)
@@ -43,43 +50,90 @@ class ScanNames(catalog: ScanCatalog) {
                 if (front == CardName.norm(o.name.substring(cut + 4))) continue // an art card ("X // X")
                 names.add(front)
             }
+            scannable.add(o.idx)
             for (k in names) if (best[k].let { it == null || o.printings > it.second }) best[k] = o.idx to o.printings
         }
-        keys = best.keys.sorted()
+        for ((idx, norm) in catalog.foreignNames()) {
+            if (idx !in scannable) continue
+            val b = best[norm]
+            if (b == null) best[norm] = idx to -1 else if (b.second < 0 && b.first != idx) best[norm] = -1 to -1
+        }
+        keys = best.keys.filter { best.getValue(it).first >= 0 }.sorted()
         idxs = IntArray(keys.size) { best.getValue(keys[it]).first }
-        byKey = keys.withIndex().associate { (i, k) -> k to i }
-        val g = HashMap<Int, MutableList<Int>>()
-        keys.forEachIndexed { i, k -> for (t in trigrams(k)) g.getOrPut(t) { mutableListOf() }.add(i) }
-        grams = g.mapValues { it.value.toIntArray() }
+        byKey = HashMap<String, Int>(keys.size * 2).also { m -> keys.forEachIndexed { i, k -> m[k] = i } }
+        // Every (trigram, key position), sorted, becomes one posting list per trigram.
+        var pairs = LongArray(keys.size * 20)
+        var n = 0
+        keys.forEachIndexed { i, k ->
+            val codes = trigramCodes(k)
+            codes.sort()
+            for (j in codes.indices) {
+                if (j > 0 && codes[j] == codes[j - 1]) continue
+                if (n == pairs.size) pairs = pairs.copyOf(n * 2)
+                pairs[n++] = codes[j].toLong() shl 32 or i.toLong()
+            }
+        }
+        pairs = pairs.copyOf(n)
+        pairs.sort()
+        postings = IntArray(n) { pairs[it].toInt() }
+        grams = HashMap()
+        var start = 0
+        for (j in 0 until n) {
+            if (j + 1 == n || pairs[j + 1] ushr 32 != pairs[j] ushr 32) {
+                grams[(pairs[j] ushr 32).toInt()] = start.toLong() shl 32 or (j + 1).toLong()
+                start = j + 1
+            }
+        }
     }
 
     fun exact(q: String): Int? = byKey[q]?.let { idxs[it] }
 
-    /** A name cut off at the edge of the frame: the only name starting with it, of which it's most. */
+    /**
+     * A name cut off at the edge of the frame: only one card has names starting with it (its English and printed
+     * names often share a start: "Urza's Saga", "Urzas Sage"), and it's most of one of them.
+     */
     fun prefix(q: String): Int? {
         if (q.length < 8) return null
         var lo = 0
         var hi = keys.size
         while (lo < hi) { val mid = (lo + hi) / 2; if (keys[mid] < q) lo = mid + 1 else hi = mid }
-        if (lo >= keys.size || !keys[lo].startsWith(q)) return null
-        if (lo + 1 < keys.size && keys[lo + 1].startsWith(q)) return null
-        return if (q.length >= 0.6 * keys[lo].length) idxs[lo] else null
+        var hit: Int? = null
+        var most = false
+        for (j in lo until minOf(keys.size, lo + 16)) {
+            if (!keys[j].startsWith(q)) break
+            if (hit != null && hit != idxs[j]) return null
+            hit = idxs[j]
+            if (q.length >= 0.6 * keys[j].length) most = true
+        }
+        return if (most) hit else null
     }
 
-    /** A misread name: the closest name within about one edit in six letters, if nothing else is as close. */
+    /** A misread name: the closest name within about one edit in six letters, if no other card's name is as close. */
     fun fuzzy(q: String): Int? {
-        if (q.length < 5) return null
+        if (q.length < 5 || q.length >= 250) return null
         val cap = maxOf(1, q.length / 6)
         val tg = trigrams(q)
-        val shared = HashMap<Int, Int>()
-        for (t in tg) grams[t]?.forEach { shared[it] = (shared[it] ?: 0) + 1 }
+        val shared = ByteArray(keys.size)
+        val touched = ArrayList<Int>()
+        for (t in tg) {
+            val r = grams[t] ?: continue
+            for (j in (r ushr 32).toInt() until r.toInt()) {
+                val i = postings[j]
+                if (shared[i].toInt() == 0) touched.add(i)
+                shared[i]++
+            }
+        }
+        // The 60 names sharing the most trigrams, of those sharing at least 40%.
+        val enough = Math.ceil(tg.size * 0.4)
+        fun count(i: Int) = shared[i].toInt() and 0xFF
+        val top = touched.filter { count(it) >= enough }.sortedWith(compareByDescending<Int> { count(it) }.thenBy { it }).take(60)
         var bestD = cap + 1
         var bestI = -1
         var second = cap + 1
-        for ((i, n) in shared.entries.sortedByDescending { it.value }.take(60)) {
-            if (n < tg.size * 0.4) break
+        for (i in top) {
             val d = distance(q, keys[i], cap)
-            if (d < bestD) { second = bestD; bestD = d; bestI = i } else if (d < second) second = d
+            val other = bestI < 0 || idxs[bestI] != idxs[i]
+            if (d < bestD) { if (other) second = bestD; bestD = d; bestI = i } else if (d < second && other) second = d
         }
         return if (bestI >= 0 && bestD <= cap && second > bestD) idxs[bestI] else null
     }
@@ -94,10 +148,13 @@ class ScanNames(catalog: ScanCatalog) {
 
         private val UNSCANNABLE = listOf("Token", "Card", "Emblem", "Vanguard")
 
-        private fun trigrams(s: String): Set<Int> {
+        private fun trigrams(s: String): Set<Int> = trigramCodes(s).toSet()
+
+        /** The name padded with a space each side, as trigram codes (repeats included). */
+        private fun trigramCodes(s: String): IntArray {
             val b = " $s "
-            if (b.length < 3) return emptySet()
-            return (0..b.length - 3).map { b[it].code shl 16 or (b[it + 1].code shl 8) or b[it + 2].code }.toSet()
+            if (b.length < 3) return IntArray(0)
+            return IntArray(b.length - 2) { b[it].code shl 16 or (b[it + 1].code shl 8) or b[it + 2].code }
         }
 
         /** Levenshtein distance, giving up (cap + 1) once it's sure to exceed cap. */
@@ -222,7 +279,15 @@ class CardMatcher(
 
     private companion object {
         val TYPE_WORDS = setOf("creature", "instant", "sorcery", "artifact", "enchantment", "land", "planeswalker", "battle",
-            "summon", "interrupt", "kindred", "tribal", "legendary")
+            "summon", "interrupt", "kindred", "tribal", "legendary",
+            // The same on foreign printings (normalized: no accents).
+            "kreatur", "spontanzauber", "hexerei", "artefakt", "verzauberung", "beschworung", "unterbrechungszauber", "legendare",
+            "legendarer", "legendares", "ephemere", "rituel", "artefact", "enchantement", "terrain", "invocation", "interruption",
+            "legendaire", "bataille", "criatura", "instantaneo", "conjuro", "artefacto", "encantamiento", "tierra", "invocar",
+            "interrupcion", "legendaria", "legendario", "batalla", "creatura", "stregoneria", "artefatto", "incantesimo", "terra",
+            "evoca", "interruzione", "leggendaria", "leggendario", "battaglia", "instantanea", "feitico", "artefato", "encantamento",
+            "terreno", "lendaria", "lendario", "batalha", "существо", "мгновенное", "волшебство", "артефакт", "чары", "земля",
+            "легендарное", "легендарныи", "легендарная", "сражение")
         val MONTHS = setOf("jan", "january", "feb", "february", "mar", "march", "apr", "april", "may", "jun", "june", "jul", "july",
             "aug", "august", "sep", "sept", "september", "oct", "october", "nov", "november", "dec", "december")
         val YEAR_RANGE = Regex("(19[89]\\d)\\s*[-–]?\\s*(20[0-4]\\d)")

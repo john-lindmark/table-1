@@ -103,6 +103,11 @@ final class CatalogDB: @unchecked Sendable {
         })) ?? []
     }
 
+    /// Printed names in other languages (N lines), normalized, one row per card and name; empty for older packs.
+    func scanForeignNames() -> [(idx: Int, norm: String)] {
+        (try? db.query("SELECT DISTINCT oracle_idx, name_norm FROM names", [], { (idx: $0.int(0), norm: $0.text(1)) })) ?? []
+    }
+
     /// Every set code in the pack.
     func setCodes() -> Set<String> {
         Set((try? db.query("SELECT DISTINCT set_code FROM printings", [], { $0.text(0) })) ?? [])
@@ -211,10 +216,12 @@ final class CatalogDB: @unchecked Sendable {
             CREATE TABLE printings (card_id TEXT PRIMARY KEY, oracle_idx INTEGER NOT NULL, ord INTEGER NOT NULL,
               set_code TEXT, cn TEXT, lang TEXT, rarity TEXT, finishes TEXT, released_at TEXT, image_ts TEXT,
               image_faces INTEGER, printed_name TEXT, original INTEGER NOT NULL DEFAULT 0);
+            CREATE TABLE names (oracle_idx INTEGER NOT NULL, lang TEXT NOT NULL, name TEXT NOT NULL, name_norm TEXT NOT NULL);
             """)
         let header: PackHeader = try db.transaction {
             let insO = try db.prepare("INSERT INTO oracles (idx, oracle_id, name, name_norm, type_line, mana_cost, cmc, colors, face_names, legal, points) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
             let insP = try db.prepare("INSERT OR REPLACE INTO printings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
+            let insN = try db.prepare("INSERT INTO names VALUES (?,?,?,?)")
             var ord = 0
             let h = try CatalogPack.parse(pack, oracle: { o in
                 try insO.run([.int(o.idx), .text(o.oracleId), .text(o.name), .text(o.nameNorm), .text(o.typeLine),
@@ -224,6 +231,10 @@ final class CatalogDB: @unchecked Sendable {
                               .text(p.rarity), .text(p.finishes), .text(p.releasedAt), .text(p.imageTs), .int(p.imageFaces),
                               .text(p.printedName), .int(p.original ? 1 : 0)])
                 ord += 1
+            }, name: { n in
+                // Normalized here, once per pack, so the scanner's name index loads without normalizing 160k names.
+                let norm = CardName.norm(n.name)
+                if !norm.isEmpty { try insN.run([.int(n.oracleIdx), .text(n.lang), .text(n.name), .text(norm)]) }
             })
             try db.exec("""
                 CREATE INDEX printings_oracle ON printings (oracle_idx, ord);
@@ -257,7 +268,7 @@ final class CatalogStore {
 
     private let fileKey = "catalog.file"
     /// Bumped when the local SQLite schema changes; a file built by an older schema is rebuilt from a fresh pack.
-    private static let schema = "s3"
+    private static let schema = "s4"
     private let checkedKey = "catalog.checkedAt"
     private let dir: URL = {
         let d = URL.applicationSupportDirectory.appending(path: "Catalog", directoryHint: .isDirectory)
