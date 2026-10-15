@@ -24,7 +24,7 @@ const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { au
 
 async function loadEvent(eventId: string) {
   const [ev, parts, rounds] = await Promise.all([
-    admin.from("events").select("id, name, status, current_round, number_of_rounds, round_length_seconds, allow_player_reporting").eq("id", eventId).maybeSingle(),
+    admin.from("events").select("id, name, status, current_round, number_of_rounds, round_length_seconds, allow_player_reporting, show_clock").eq("id", eventId).maybeSingle(),
     admin.from("participants").select("id, event_id, pod_id, user_id, display_name, seat, status, dropped_in_round").eq("event_id", eventId),
     admin.from("rounds").select("*, matches(*, match_sides(*))").eq("event_id", eventId).order("number"),
   ]);

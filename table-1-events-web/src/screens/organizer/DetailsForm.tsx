@@ -3,14 +3,14 @@ import { errorMessage, updateEventDetails } from "../../lib/api";
 import { isTeamFormat, typeOfFormat } from "../../lib/formats";
 import { detailsFromEvent, detailsToInput, type DetailsState } from "../../lib/organizer";
 import type { Table1Event } from "../../lib/types";
-import { Field, Notice, Segmented, Stepper } from "../../components/kit";
-import { FormatPicker, ProductPicker, cubeUrlProblem } from "../../components/EventFormFields";
+import { Field, Notice, Row, Segmented, Stepper } from "../../components/kit";
+import { FormatPicker, ProductPicker, RoundTimerSwitch, cubeUrlProblem } from "../../components/EventFormFields";
 
 const DEBOUNCE_MS = 600;
 
 /** What we refuse to send at all (the server's 22023 messages cover the rest). */
 function localProblem(s: DetailsState): string | null {
-  if (!s.name.trim()) return "Name the event (up to 80 characters)";
+  if (!s.autoName && !s.name.trim()) return "Name the event (up to 80 characters)";
   if (typeOfFormat(s.formatName) === "limited" && s.product === "cube") return cubeUrlProblem(s.cubeUrl);
   return null;
 }
@@ -89,7 +89,11 @@ export function DetailsForm({ event, onSaved }: { event: Table1Event; onSaved: (
 
   return (
     <>
-      <Field label="Event name" value={state.name} onChange={(v) => commit({ name: v.slice(0, 80) }, false)} onBlur={flush} />
+      {state.autoName ? (
+        <Row title={event.name} detail="Named from the format and date" />
+      ) : (
+        <Field label="Event name" value={state.name} onChange={(v) => commit({ name: v.slice(0, 80) }, false)} onBlur={flush} />
+      )}
       <FormatPicker
         format={state.formatName}
         onFormat={(f) => commit({ formatName: f }, true)}
@@ -124,15 +128,7 @@ export function DetailsForm({ event, onSaved }: { event: Table1Event; onSaved: (
         />
       )}
       <Stepper label="Rounds" value={state.rounds} onChange={(n) => commit({ rounds: n }, true)} min={1} max={15} />
-      <Stepper
-        label="Round length"
-        value={state.roundMinutes}
-        onChange={(n) => commit({ roundMinutes: n }, true)}
-        min={10}
-        max={240}
-        step={5}
-        suffix="min"
-      />
+      <RoundTimerSwitch on={state.showClock} onChange={(on) => commit({ showClock: on }, true)} />
       {error && <Notice tone="error">{error}</Notice>}
       <Notice tone="info">Details lock when round 1 is paired. Changes save as you make them.</Notice>
     </>

@@ -246,7 +246,7 @@ export function PlayerView({
         </Notice>
       )}
 
-      {activeRound && (
+      {activeRound && event.showClock && (
         <>
           <div className="bg-t1-bg py-4">
             <ClockFace round={activeRound} />

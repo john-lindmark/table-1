@@ -165,11 +165,21 @@ private struct OrganizerSetupView: View {
     @Binding var tab: String
     @Environment(\.dismiss) private var dismiss
     @State private var confirmStart = false
+    @State private var removing: ParticipantRow?
+    @State private var guestName = ""
 
     private var b: EventBundle { ctx.b }
     private var event: EventRow { ctx.b.event }
     private var active: [ParticipantRow] { b.participants.filter { $0.status == "active" } }
     private var seating: [SeatingPod] { ctx.engine.seating ?? [] }
+    private var me: ParticipantRow? { b.participants.first { $0.userId != nil && $0.userId == Repo.userId } }
+    private var guestTrimmed: String {
+        guestName.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+    }
+    private var guestDuplicate: Bool {
+        let t = guestTrimmed.lowercased()
+        return b.participants.contains { $0.displayName.lowercased() == t }
+    }
 
     private var tabs: [(id: String, label: String)] {
         var list: [(id: String, label: String)] = [(id: "players", label: "Players")]
@@ -219,13 +229,58 @@ private struct OrganizerSetupView: View {
                 Text(event.shortCode).font(T1.mono(18)).tracking(4)
             }
             Section1("Players · \(b.participants.count)")
+            if me == nil {
+                Button { joinAsPlayer() } label: {
+                    ListRow(title: "You're not playing", detail: "Organizing only") {
+                        LabelText("Join as a player", color: T1.accent)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
             if b.participants.isEmpty {
                 Notice("No one yet. Add people you've played with, or show the join QR.")
             }
             ForEach(b.participants) { p in
-                ListRow(title: p.displayName, detail: playerDetail(p))
+                ListRow(title: p.id == me?.id ? "You · \(p.displayName)" : p.displayName, detail: playerDetail(p)) {
+                    if event.isBeforeRound1 {
+                        Button { removing = p } label: { LabelText("Remove", color: T1.danger) }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Remove \(p.displayName)")
+                    }
+                }
             }
+            AddByNameRow(text: $guestName, enabled: !guestTrimmed.isEmpty && !guestDuplicate && !ctx.busy) { addGuest() }
+            if guestDuplicate && !guestTrimmed.isEmpty { Notice("\(guestTrimmed) is already in this event.", error: true) }
         }
+        .alert("Remove \(removing?.displayName ?? "player")?", isPresented: Binding(
+            get: { removing != nil }, set: { if !$0 { removing = nil } }
+        ), presenting: removing) { p in
+            Button("Keep", role: .cancel) {}
+            Button("Remove", role: .destructive) { remove(p) }
+        } message: { p in
+            Text(p.seat != nil && event.status == "seated" ? "They'll leave the event. Seats after theirs move up one." : "They'll leave the event.")
+        }
+    }
+
+    @MainActor
+    private func addGuest() {
+        let name = guestTrimmed
+        guard !name.isEmpty, !guestDuplicate else { return }
+        let id = event.id
+        guestName = ""
+        ctx.act { try await Repo.addGuest(id, name: name) }
+    }
+
+    @MainActor
+    private func joinAsPlayer() {
+        let id = event.id
+        ctx.act { try await Repo.addSelf(id) }
+    }
+
+    @MainActor
+    private func remove(_ p: ParticipantRow) {
+        let pid = p.id
+        ctx.act { try await Repo.removeParticipant(pid) }
     }
 
     private var seatingTab: some View {
@@ -234,7 +289,7 @@ private struct OrganizerSetupView: View {
             if seating.isEmpty {
                 Notice("Seat players for the draft, then start the event: round 1 pairs across the table.")
             } else {
-                SeatingList(pods: seating, teamDraft: event.formatName == "team_draft")
+                SeatingTable(pods: seating, teamDraft: event.formatName == "team_draft", highlight: me?.id)
             }
         }
     }
@@ -265,9 +320,9 @@ private struct OrganizerSetupView: View {
     }
 
     private var startMessage: String {
-        let minutes = event.roundLengthSeconds / 60
         let pairs = event.isDraft ? "Pairs round 1 across the table" : "Pairs round 1"
-        return "\(pairs) and starts the \(minutes)-minute clock. Format, rounds and teams lock."
+        let clock = event.showClock ? "starts the \(event.roundLengthSeconds / 60)-minute clock" : "starts the round (clocks hidden)"
+        return "\(pairs) and \(clock). Format, rounds and teams lock."
     }
 
     @MainActor
@@ -346,7 +401,9 @@ private struct EventDetailsEditor: View {
         var cubeUrl: String
         var teamSize: Int
         var rounds: Int
-        var minutes: Int
+        var showClock: Bool
+        /// Older events keep a typed name; new ones are named by the server from these choices.
+        var autoName: Bool
 
         init(_ e: EventRow) {
             let f = FormatOption(rawValue: e.formatName ?? "") ?? Self.legacyFormat(e.format)
@@ -365,7 +422,8 @@ private struct EventDetailsEditor: View {
             cubeUrl = e.cubeUrl ?? ""
             teamSize = e.teamSize ?? 3
             rounds = min(15, max(1, e.numberOfRounds))
-            minutes = min(240, max(10, e.roundLengthSeconds / 60))
+            showClock = e.showClock
+            autoName = e.autoName
         }
 
         /// Events from before typed formats.
@@ -383,7 +441,7 @@ private struct EventDetailsEditor: View {
         func sameChoices(_ o: DetailsForm) -> Bool {
             kind == o.kind && constructedFormat == o.constructedFormat && limitedFormat == o.limitedFormat
                 && product == o.product && chosenSet == o.chosenSet && teamSize == o.teamSize
-                && rounds == o.rounds && minutes == o.minutes
+                && rounds == o.rounds && showClock == o.showClock
         }
 
         /// The full state, as update_event_details takes it.
@@ -392,10 +450,10 @@ private struct EventDetailsEditor: View {
             let useSet = kind == .limited && product == .set
             let useCube = kind == .limited && product == .cube
             return NewEventDraft(
-                name: name,
+                name: autoName ? nil : name,
                 formatName: f.rawValue,
                 rounds: rounds,
-                roundMinutes: minutes,
+                showClock: showClock,
                 setCode: useSet ? chosenSet?.code : nil,
                 setName: useSet ? (chosenSet?.name ?? typedSetName) : nil,
                 cubeName: useCube ? cubeName : nil,
@@ -431,9 +489,14 @@ private struct EventDetailsEditor: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 1) {
-                Section1("Name")
-                Field(label: "Event name", text: $form.name)
-                    .onChange(of: form.name) { _, v in if v.count > 80 { form.name = String(v.prefix(80)) } }
+                if form.autoName {
+                    Section1("Name")
+                    ListRow(title: b.event.name, detail: "Named from the format and date")
+                } else {
+                    Section1("Name")
+                    Field(label: "Event name", text: $form.name)
+                        .onChange(of: form.name) { _, v in if v.count > 80 { form.name = String(v.prefix(80)) } }
+                }
 
                 FormatFields(kind: $form.kind, constructedFormat: $form.constructedFormat,
                              limitedFormat: $form.limitedFormat, formatOther: $form.formatOther)
@@ -451,7 +514,7 @@ private struct EventDetailsEditor: View {
 
                 Section1("Rounds")
                 T1Stepper(label: "Rounds", value: $form.rounds, range: 1...15)
-                T1Stepper(label: "Round length", value: $form.minutes, range: 10...240, step: 5, unit: " min")
+                RoundTimerSwitch(isOn: $form.showClock)
 
                 Section1("Who can find it")
                 T1Segmented(options: visibilityOptions, selection: Binding(
@@ -499,7 +562,7 @@ private struct EventDetailsEditor: View {
 
     @MainActor
     private func save(_ draft: NewEventDraft) async {
-        if draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if let name = draft.name, name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             error = "Name the event (up to 80 characters)"
             return
         }
@@ -592,6 +655,7 @@ private struct OrganizerLiveView: View {
             let last = b.rounds.map(\.number).max() ?? event.currentRound
             return "Round \(last) of \(event.numberOfRounds) · \(event.label)"
         }
+        guard event.showClock else { return "Round \(round.number) of \(event.numberOfRounds) · \(event.label)" }
         let clock: String
         if round.clockPaused {
             clock = "paused"
@@ -608,12 +672,17 @@ private struct OrganizerLiveView: View {
     private func roundTab(_ g: MatchGroups) -> some View {
         HairlineList {
             if let round {
-                RoundClockHero(round: round, caption: caption(round, g))
-                HStack(spacing: 1) {
-                    Ghost(text: round.clockPaused ? "Resume clock" : "Pause clock") {
-                        clock(round, round.clockPaused ? .resume : .pause)
+                if event.showClock {
+                    RoundClockHero(round: round, caption: caption(round, g))
+                    HStack(spacing: 1) {
+                        Ghost(text: round.clockPaused ? "Resume clock" : "Pause clock") {
+                            clock(round, round.clockPaused ? .resume : .pause)
+                        }
+                        Ghost(text: "+5 min") { clock(round, .add) }
                     }
-                    Ghost(text: "+5 min") { clock(round, .add) }
+                } else {
+                    // Round timer off: no clock anywhere for this event (rounds still run 50 minutes).
+                    Notice(caption(round, g))
                 }
                 if !g.disputed.isEmpty {
                     Section1("Disputed · \(g.disputed.count)")

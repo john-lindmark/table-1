@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -65,32 +66,79 @@ object Repo {
             put("p_player_names", JsonArray(emptyList()))
         }).decodeAs()
 
-    /** Typed formats (contract §2). Set or cube for limited events; team formats carry the team size. */
+    /**
+     * Typed formats (contract §2). The server names the event and always runs 50-minute rounds; [showClock] only
+     * decides whether clocks are shown. [includeMe] seats the organizer first; [guests] are players by name only.
+     */
     suspend fun createEventV2(
-        name: String,
         formatName: String,
         rounds: Int?,
-        roundMinutes: Int,
+        showClock: Boolean,
         setCode: String?,
         setName: String?,
         cubeName: String?,
         cubeUrl: String?,
         teamSize: Int?,
         formatOther: String?,
+        includeMe: Boolean,
+        guests: List<String>,
     ): CreateEventResult =
         supabase.postgrest.rpc("create_event_v2", buildJsonObject {
-            put("p_name", name)
             put("p_format_name", formatName)
             put("p_rounds", rounds)
-            put("p_round_seconds", roundMinutes * 60)
             put("p_set_code", setCode)
             put("p_set_name", setName)
             put("p_cube_name", cubeName)
             put("p_cube_url", cubeUrl)
             put("p_team_size", teamSize)
             put("p_format_other", formatOther)
-            put("p_player_names", JsonArray(emptyList()))
+            put("p_player_names", JsonArray(guests.map { JsonPrimitive(it) }))
+            put("p_include_me", includeMe)
+            put("p_show_clock", showClock)
+            put("p_local_date", EventNaming.localDate())
         }).decodeAs()
+
+    /* ── players before round 1 (organizer) ─────────────────────────────────── */
+
+    /** A player by name only, not tied to an account. Refuses a name already in the event. */
+    suspend fun addGuest(eventId: String, name: String): AddedPlayer =
+        supabase.postgrest.rpc("add_guest", buildJsonObject {
+            put("p_event_id", eventId)
+            put("p_name", name)
+        }).decodeAs()
+
+    /** The organizer joins their own event as a player. */
+    suspend fun addSelf(eventId: String): AddedPlayer =
+        supabase.postgrest.rpc("add_self_to_event", buildJsonObject { put("p_event_id", eventId) }).decodeAs()
+
+    /** Before round 1 only (after that, Drop). Seats after theirs move up one. */
+    suspend fun removeParticipant(participantId: String) {
+        supabase.postgrest.rpc("remove_participant", buildJsonObject { put("p_participant_id", participantId) })
+    }
+
+    /** The signed-in player's name as events show it ("You · <name>" on Create). */
+    suspend fun myDisplayName(): String? {
+        val uid = supabase.auth.currentUserOrNull()?.id ?: return null
+        val row = runCatching {
+            supabase.from("profiles").select { filter { eq("id", uid) } }.decodeSingleOrNull<ProfileName>()
+        }.getOrNull()
+        return listOfNotNull(row?.displayName, row?.handle).map { it.trim() }.firstOrNull { it.isNotEmpty() }
+    }
+
+    /* ── cubes ──────────────────────────────────────────────────────────────── */
+
+    suspend fun recentCubes(): List<RecentCube> =
+        runCatching { supabase.postgrest.rpc("recent_cubes", buildJsonObject { put("p_limit", 5) }).decodeList<RecentCube>() }
+            .getOrDefault(emptyList())
+
+    /** Cube Cobra link → name, server-side. Throws with the server's message ("Cube Cobra has no cube at that link"). */
+    suspend fun lookupCube(url: String): CubeLookup {
+        val response = supabase.functions.invoke("cube-lookup", buildJsonObject { put("url", url) })
+        val r = runCatching { json.decodeFromString<CubeLookup>(response.bodyAsText()) }
+            .getOrElse { CubeLookup(error = "Couldn't reach Cube Cobra") }
+        r.error?.let { throw IllegalStateException(it) }
+        return r
+    }
 
     /** Scryfall sets for limited events, newest first. */
     suspend fun draftableSets(query: String, limit: Int = 80): List<DraftableSet> =
@@ -121,10 +169,10 @@ object Repo {
      */
     suspend fun updateEventDetails(
         eventId: String,
-        name: String,
+        name: String?,
         formatName: String,
         rounds: Int,
-        roundSeconds: Int,
+        showClock: Boolean,
         setCode: String?,
         setName: String?,
         cubeName: String?,
@@ -137,7 +185,8 @@ object Repo {
             put("p_name", name)
             put("p_format_name", formatName)
             put("p_rounds", rounds)
-            put("p_round_seconds", roundSeconds)
+            put("p_round_seconds", 3000)
+            put("p_show_clock", showClock)
             put("p_set_code", setCode)
             put("p_set_name", setName)
             put("p_cube_name", cubeName)
@@ -567,3 +616,6 @@ object Repo {
         })
     }
 }
+
+@Serializable
+private data class ProfileName(@SerialName("display_name") val displayName: String? = null, val handle: String? = null)

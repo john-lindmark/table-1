@@ -156,7 +156,11 @@ private struct PlayerHero: View {
 
             VStack(spacing: 6) {
                 Text(e.name).font(T1.mono(15)).lineLimit(1)
-                Countdown(end: s?.endDate ?? e.round?.endDate, paused: s?.pausedRemaining ?? e.round?.remainingSeconds, size: 56)
+                if e.clockShown {
+                    Countdown(end: s?.endDate ?? e.round?.endDate, paused: s?.pausedRemaining ?? e.round?.remainingSeconds, size: 56)
+                } else {
+                    LabelText("Round \(e.round?.number ?? e.currentRound) of \(e.numberOfRounds)", color: T1.text)
+                }
             }
             .frame(maxWidth: .infinity).padding(.vertical, 16).background(T1.bg)
 
@@ -253,7 +257,7 @@ private struct OrganizerHero: View {
             .padding(.horizontal, 16).padding(.vertical, 10).background(T1.surface)
             VStack(spacing: 6) {
                 Text(e.name).font(T1.mono(15)).lineLimit(1)
-                if let r = e.round {
+                if let r = e.round, e.clockShown {
                     Countdown(end: r.endDate, paused: r.remainingSeconds, size: 44)
                 } else {
                     Text("\(e.players) players").font(T1.mono(28))

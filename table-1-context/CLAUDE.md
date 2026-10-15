@@ -30,6 +30,7 @@ Table 1 is John's suite of products for competitive Magic: The Gathering players
 
 ## Where things stand (as of 2026-10-13)
 Built on all three platforms: Events and Account tabs (live card, invitations, upcoming, past collapsed), create event (Constructed/Limited formats, sets from Scryfall via `sets-sync`, team events of 3-4, draft seating), life tracker (synced per match), cancel event, add players (invite only, by email finds existing accounts), organizer screen in three phases (Setup / Live / Results), Live Activities and widgets (iOS), TestFlight demo data. Collection tab exists but is greyed out ("Soon").
+Create event rework (2026-10-14, all platforms): automatic names, organizer plays by default, guests by name, remove before round 1, seating drawn as a table, Round timer switch (hides clocks; rounds always 50 min), recent cubes + Cube Cobra lookup, Scryfall set icons. Contract: `contract/create-event-2026-10-14.md`. Design QA without signing in: iOS Debug `-T1EventsDemo [create|setup|seating]`, web dev `/dev/events`.
 Pending: notify-worker (push), web deploy to table-1.site, Google auth provider setup, universal/app links files, Android release signing.
 
 ## Current direction (John, 2026-10-13) — reopens Library

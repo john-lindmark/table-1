@@ -25,23 +25,26 @@ enum Repo {
     }
 
     /// Typed formats: constructed formats, or limited with a set or a cube; team formats carry a team size.
-    static func createEventV2(_ draft: NewEventDraft) async throws -> CreateEventResult {
+    /// The server names the event and always runs 50-minute rounds. `includeMe` seats the organizer first;
+    /// `guests` are players by name only (no account), each with a claim link.
+    static func createEventV2(_ draft: NewEventDraft, includeMe: Bool, guests: [String]) async throws -> CreateEventResult {
         func text(_ s: String?) -> AnyJSON {
             guard let t = s?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty else { return .null }
             return .string(t)
         }
         return try await supabase.rpc("create_event_v2", params: [
-            "p_name": AnyJSON.string(draft.name.trimmingCharacters(in: .whitespacesAndNewlines)),
-            "p_format_name": .string(draft.formatName),
+            "p_format_name": AnyJSON.string(draft.formatName),
             "p_rounds": .integer(draft.rounds),
-            "p_round_seconds": .integer(draft.roundMinutes * 60),
             "p_set_code": text(draft.setCode),
             "p_set_name": text(draft.setName),
             "p_cube_name": text(draft.cubeName),
             "p_cube_url": text(draft.cubeUrl),
             "p_team_size": draft.teamSize.map { AnyJSON.integer($0) } ?? .null,
             "p_format_other": text(draft.formatOther),
-            "p_player_names": .array([]),
+            "p_player_names": .array(guests.map { .string($0) }),
+            "p_include_me": .bool(includeMe),
+            "p_show_clock": .bool(draft.showClock),
+            "p_local_date": .string(EventNaming.localDate()),
         ]).execute().value
     }
 
@@ -80,10 +83,11 @@ enum Repo {
         }
         let data = try await supabase.rpc("update_event_details", params: [
             "p_event_id": AnyJSON.string(eventId),
-            "p_name": .string(draft.name.trimmingCharacters(in: .whitespacesAndNewlines)),
+            "p_name": text(draft.name),
             "p_format_name": .string(draft.formatName),
             "p_rounds": .integer(draft.rounds),
-            "p_round_seconds": .integer(draft.roundMinutes * 60),
+            "p_round_seconds": .integer(3000),
+            "p_show_clock": .bool(draft.showClock),
             "p_set_code": text(draft.setCode),
             "p_set_name": text(draft.setName),
             "p_cube_name": text(draft.cubeName),
@@ -488,6 +492,53 @@ enum Repo {
     /// Apple only shares the name on the first sign-in, so it is saved the moment it arrives.
     static func saveDisplayName(_ name: String) async {
         try? await setDisplayName(name)
+    }
+
+    /// The signed-in player's name as events show it ("You · <name>" on Create).
+    static func myDisplayName() async -> String? {
+        struct Row: Decodable { let displayName: String?; let handle: String? }
+        guard let uid = userId else { return nil }
+        let row: Row? = try? await supabase.from("profiles").select("display_name, handle").eq("id", value: uid)
+            .single().execute().value
+        return [row?.displayName, row?.handle].compactMap { $0?.trimmingCharacters(in: .whitespaces) }.first { !$0.isEmpty }
+    }
+
+    // MARK: players before round 1 (organizer)
+
+    /// A player by name only, not tied to an account. Refuses duplicate names in the event.
+    @discardableResult
+    static func addGuest(_ eventId: String, name: String) async throws -> AddedPlayer {
+        try await supabase.rpc("add_guest", params: ["p_event_id": AnyJSON.string(eventId), "p_name": .string(name)])
+            .execute().value
+    }
+
+    /// The organizer joins their own event as a player.
+    @discardableResult
+    static func addSelf(_ eventId: String) async throws -> AddedPlayer {
+        try await supabase.rpc("add_self_to_event", params: ["p_event_id": AnyJSON.string(eventId)]).execute().value
+    }
+
+    /// Before round 1 only (after that, Drop). Seats after theirs move up one.
+    static func removeParticipant(_ participantId: String) async throws {
+        try await supabase.rpc("remove_participant", params: ["p_participant_id": AnyJSON.string(participantId)]).execute()
+    }
+
+    // MARK: cubes
+
+    static func recentCubes() async -> [RecentCube] {
+        (try? await supabase.rpc("recent_cubes", params: ["p_limit": AnyJSON.integer(5)]).execute().value) ?? []
+    }
+
+    /// Cube Cobra link → name. Throws with the server's message ("Cube Cobra has no cube at that link").
+    static func lookupCube(_ url: String) async throws -> CubeLookup {
+        do {
+            return try await supabase.functions.invoke(
+                "cube-lookup", options: FunctionInvokeOptions(body: ["url": url])
+            ) { data, _ in try wireDecoder.decode(CubeLookup.self, from: data) }
+        } catch FunctionsError.httpError(_, let data) {
+            let message = (try? wireDecoder.decode(EngineError.self, from: data))?.error ?? "Couldn't reach Cube Cobra"
+            throw NSError(domain: "Table1", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
+        }
     }
 
     static func setDisplayName(_ name: String) async throws {

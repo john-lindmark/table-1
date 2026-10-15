@@ -411,7 +411,7 @@ private fun PlayerView(b: EventBundle, standings: StandingsResponse, onBack: () 
         }
         if (b.event.isCancelled) CancelledBanner(b.event.cancelReason)
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            if (active != null) item { RoundClock(active.timerEndsAt) }
+            if (active != null && b.event.showClock) item { RoundClock(active.timerEndsAt) }
             when {
                 me == null -> item { Notice("You're viewing this event. Scan the organizer's QR to take a seat.") }
                 match == null -> if (!b.event.isFinished) item { Notice(if (active == null) "Waiting for the next round to be paired." else "You're not paired this round.") }
@@ -536,70 +536,6 @@ internal fun LazyListScope.teamStandingItems(teams: List<TeamStanding>, highligh
             }
         }
     }
-}
-
-/** Draft seats per pod, with pass directions and round 1's across-the-table pairs. */
-internal fun LazyListScope.seatingItems(pods: List<SeatingPod>, highlight: String?, teamDraft: Boolean) {
-    item(key = "seating-pass") { Notice("Pack 1 passes left · Pack 2 right · Pack 3 left") }
-    pods.forEach { pod ->
-        if (pods.size > 1) item(key = "pod-${pod.podId}") { Section(pod.name ?: "Pod") }
-        items(pod.seats, key = { "seat-${pod.podId}-${it.participantId}" }) { seat ->
-            Row(
-                Modifier.fillMaxWidth().background(if (seat.participantId == highlight) T1.surfaceHover else T1.surface)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text("${seat.seat}", Modifier.width(28.dp), color = T1.accent, fontFamily = T1.mono, fontSize = 16.sp)
-                Text(seat.displayName, Modifier.weight(1f), color = T1.text, fontFamily = T1.mono, fontSize = 14.sp, maxLines = 1)
-                seat.team?.let { Label(it) }
-            }
-        }
-        item(key = "across-${pod.podId}") {
-            Notice(if (teamDraft) teamDraftRoundOne(pod.seats.sortedBy { it.seat }) else acrossTheTable(pod.seats.map { it.seat }.sorted()))
-        }
-    }
-}
-
-/**
- * Team draft round 1 (seats alternate A1, B1, A2, B2, …): team A slot i plays team B slot (i + 1) mod size,
- * with the same fallback as events-engine pairTeamDraftRound. 3 v 3 → "1 v 4, 3 v 6, 5 v 2".
- */
-private fun teamDraftRoundOne(seats: List<site.table1.events.data.SeatingSeat>): String {
-    val teamA = seats.firstOrNull()?.team
-    val a = seats.filter { it.team == teamA }.map { it.seat }
-    val b = seats.filter { it.team != teamA }.map { it.seat }
-    val size = maxOf(a.size, b.size)
-    val usedB = HashSet<Int>()
-    val pairs = ArrayList<String>()
-    val byes = ArrayList<Int>()
-    a.forEachIndexed { i, seatA ->
-        var opponent: Int? = null
-        var k = 0
-        while (k < size && opponent == null && b.isNotEmpty()) {
-            val cand = b[(i + 1 + k) % b.size]
-            if (cand !in usedB) opponent = cand
-            k++
-        }
-        if (opponent != null) {
-            usedB += opponent
-            pairs += "$seatA v $opponent"
-        } else {
-            byes += seatA
-        }
-    }
-    b.filter { it !in usedB }.forEach { byes += it }
-    return "Round 1: ${pairs.joinToString(", ")}." +
-        if (byes.isEmpty()) "" else " Seat${if (byes.size == 1) "" else "s"} ${byes.joinToString(", ")} ${if (byes.size == 1) "has" else "have"} the bye."
-}
-
-/** "Round 1 pairs across the table: 1 v 5, 2 v 6, 3 v 7, 4 v 8." (odd pods: the last seat has the bye). */
-private fun acrossTheTable(seats: List<Int>): String {
-    val bye = if (seats.size % 2 == 1) seats.last() else null
-    val paired = if (bye != null) seats.dropLast(1) else seats
-    val half = paired.size / 2
-    val pairs = (0 until half).joinToString(", ") { "${paired[it]} v ${paired[it + half]}" }
-    return "Round 1 pairs across the table: $pairs." + (bye?.let { " Seat $it has the bye." } ?: "")
 }
 
 @Composable

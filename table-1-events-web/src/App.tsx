@@ -1,3 +1,4 @@
+import { EventsDemo } from "./screens/EventsDemo";
 import { useEffect } from "react";
 import {
   BrowserRouter,
@@ -227,6 +228,7 @@ export default function App() {
         <Route path="/me" element={<ProfileRoute />} />
         <Route path="/p/:eventId" element={<PlayerRoute />} />
         <Route path="/s/:eventId" element={<StandingsRoute />} />
+        {import.meta.env.DEV && <Route path="/dev/events" element={<EventsDemo />} />}
         <Route path="/library" element={<LibraryHomeRoute />} />
         <Route path="/library/cards" element={<AllCardsRoute />} />
         <Route path="/library/add" element={<AddCardsRoute />} />

@@ -204,10 +204,14 @@ private fun PlayerHero(e: HomeEvent, snap: LiveSnapshot?, onOpen: () -> Unit, on
         }
         Column(Modifier.fillMaxWidth().background(T1.bg).padding(vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(e.name, color = T1.text, fontFamily = T1.mono, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Countdown(
-                endMillis = s?.endsAt?.let { (it * 1000).toLong() } ?: parseInstant(e.round?.endsAt),
-                pausedSeconds = s?.pausedRemaining ?: e.round?.remainingSeconds,
-            )
+            if (e.showClock) {
+                Countdown(
+                    endMillis = s?.endsAt?.let { (it * 1000).toLong() } ?: parseInstant(e.round?.endsAt),
+                    pausedSeconds = s?.pausedRemaining ?: e.round?.remainingSeconds,
+                )
+            } else {
+                Label("Round ${e.round?.number ?: e.currentRound} of ${e.numberOfRounds}", color = T1.text)
+            }
         }
         if (s != null && s.isPlaying) {
             Row(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp),
@@ -269,7 +273,7 @@ private fun OrganizerHero(e: HomeEvent, onOpen: () -> Unit) {
         }
         Column(Modifier.fillMaxWidth().background(T1.bg).padding(vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(e.name, color = T1.text, fontFamily = T1.mono, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (r != null) Countdown(parseInstant(r.endsAt), r.remainingSeconds, size = 44)
+            if (r != null && e.showClock) Countdown(parseInstant(r.endsAt), r.remainingSeconds, size = 44)
             else Text("${e.players} players", color = T1.text, fontFamily = T1.mono, fontSize = 28.sp)
         }
         if (r != null) {

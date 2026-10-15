@@ -18,6 +18,10 @@ packages:
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS
     from: "8.0.0"
+  # Scryfall set icons are SVG only; SwiftUI can't draw SVG.
+  SVGView:
+    url: https://github.com/exyte/SVGView
+    from: "1.0.6"
 targets:
   Table1:
     type: application
@@ -33,6 +37,7 @@ targets:
         product: GoogleSignIn
       - package: GoogleSignIn
         product: GoogleSignInSwift
+      - package: SVGView
     entitlements:
       path: Table1/Table1.entitlements
       properties:

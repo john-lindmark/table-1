@@ -214,7 +214,7 @@ export function liveSubtitle(event: Table1Event, rounds: RoundWithMatches[], now
   const active = activeRoundOf(rounds);
   const r = active?.number ?? lastRoundNumber(rounds);
   const head = `Round ${r} of ${event.numberOfRounds}`;
-  if (!active) return `${head} · ${event.formatLabel}`;
+  if (!active || !event.showClock) return `${head} · ${event.formatLabel}`;
   const left = remainingSeconds(active, now);
   const clock = active.timerStatus === "paused" ? "paused" : left <= 0 ? "time" : `${formatMmSs(left)} left`;
   return `${head} · ${clock} · ${event.formatLabel}`;
@@ -263,9 +263,10 @@ export function startBlocker(activePlayers: number, teamIssue: string | null): s
 export function startDialog(event: Table1Event): { title: string; message: string } {
   const minutes = Math.round(event.roundLengthSeconds / 60);
   const how = isDraftFormat(event.formatName) ? "Pairs round 1 across the table and starts" : "Pairs round 1 and starts";
+  const clock = event.showClock ? `the ${minutes}-minute clock` : "the round (clocks hidden)";
   return {
     title: `Start ${event.name}?`,
-    message: `${how} the ${minutes}-minute clock. Format, rounds and teams lock.`,
+    message: `${how} ${clock}. Format, rounds and teams lock.`,
   };
 }
 
@@ -321,7 +322,9 @@ export interface DetailsState {
   cubeUrl: string;
   teamSize: 3 | 4;
   rounds: number;
-  roundMinutes: number;
+  showClock: boolean;
+  /** Older events keep a typed name; new ones are named by the server. */
+  autoName: boolean;
 }
 
 export function detailsFromEvent(e: Table1Event): DetailsState {
@@ -338,7 +341,8 @@ export function detailsFromEvent(e: Table1Event): DetailsState {
     cubeUrl: e.cubeUrl ?? "",
     teamSize: e.teamSize === 4 ? 4 : 3,
     rounds: Math.min(15, Math.max(1, e.numberOfRounds)),
-    roundMinutes: Math.min(240, Math.max(10, Math.round(e.roundLengthSeconds / 60))),
+    showClock: e.showClock,
+    autoName: e.autoName,
   };
 }
 
@@ -348,10 +352,10 @@ export function detailsToInput(s: DetailsState): EventDetailsInput {
   const cube = limited && s.product === "cube" ? s.cubeName.trim().slice(0, 80) || null : null;
   const set = limited && s.product === "set";
   return {
-    name: s.name.trim().slice(0, 80),
+    name: s.autoName ? null : s.name.trim().slice(0, 80),
     formatName: s.formatName,
     rounds: s.rounds,
-    roundSeconds: s.roundMinutes * 60,
+    showClock: s.showClock,
     setCode: set ? s.set?.code ?? null : null,
     setName: set ? s.set?.name ?? (s.setNameText.trim() || null) : null,
     cubeName: cube,

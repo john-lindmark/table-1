@@ -34,6 +34,10 @@ data class EventRow(
     @SerialName("updated_at") val updatedAt: String? = null,
     @SerialName("cancelled_at") val cancelledAt: String? = null,
     @SerialName("starts_at") val startsAt: String? = null,
+    /** "Round timer" on: clocks are shown. Rounds always run 50 minutes either way. */
+    @SerialName("show_clock") val showClock: Boolean = true,
+    /** Named from its settings ("Draft · Duskmourn · Fri 17 Oct"); older events keep their typed names. */
+    @SerialName("auto_name") val autoName: Boolean = false,
 ) {
     val isCancelled: Boolean get() = status == "cancelled"
     val isFinished: Boolean get() = status in setOf("completed", "archived", "cancelled")
@@ -367,6 +371,8 @@ data class HomeEvent(
     @SerialName("format_label") val formatLabel: String? = null,
     @SerialName("event_type") val eventType: String? = null,
     @SerialName("team_size") val teamSize: Int? = null,
+    /** False when the organizer hid clocks; the round's ends_at / remaining_seconds are then null. */
+    @SerialName("show_clock") val showClock: Boolean = true,
 ) {
     val label: String get() = formatLabel ?: format.replaceFirstChar { it.uppercase() }
     val isCancelled: Boolean get() = status == "cancelled"
@@ -571,4 +577,42 @@ data class JoinLink(val code: String, val secret: String) {
             return JoinLink(m.groupValues[1], m.groupValues[2])
         }
     }
+}
+
+/* ── create event and Setup (2026-10-14) ───────────────────────────────────── */
+
+@Serializable
+data class AddedPlayer(
+    @SerialName("participant_id") val participantId: String,
+    @SerialName("display_name") val displayName: String,
+)
+
+/** recent_cubes: cubes this account has run, newest first. */
+@Serializable
+data class RecentCube(
+    @SerialName("cube_name") val cubeName: String,
+    @SerialName("cube_url") val cubeUrl: String? = null,
+    @SerialName("last_used_at") val lastUsedAt: String? = null,
+)
+
+/** cube-lookup: a Cube Cobra link → the cube's name (error set when the server refused). */
+@Serializable
+data class CubeLookup(
+    @SerialName("cube_id") val cubeId: String? = null,
+    val name: String? = null,
+    @SerialName("card_count") val cardCount: Int? = null,
+    val url: String? = null,
+    val error: String? = null,
+)
+
+/** The name the server gives a new event: "<format label> · <Tue 14 Oct>". Shown as a preview on Create. */
+object EventNaming {
+    fun preview(formatLabel: String, product: String?, date: java.time.LocalDate = java.time.LocalDate.now()): String {
+        val day = date.format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM", java.util.Locale.US))
+        val p = product?.trim().orEmpty()
+        return (if (p.isEmpty()) formatLabel else "$formatLabel · $p") + " · " + day
+    }
+
+    /** The device's date, sent as p_local_date so the name says the day it is here. */
+    fun localDate(): String = java.time.LocalDate.now().toString()
 }

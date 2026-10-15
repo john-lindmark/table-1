@@ -70,8 +70,9 @@ export function buildStates(event: any, participants: Participant[], rounds: Rou
   const now = Date.now() / 1000;
   const active = participants.filter((p) => p.status === "active").length;
 
+  // The organizer can hide clocks for the event ("Round timer" off); rounds still run 50 minutes.
   const clock: Partial<ContentState> = {};
-  if (current && !finished) {
+  if (current && !finished && event.show_clock !== false) {
     if (current.timerStatus === "running" && current.timerLastStartedAt) {
       clock.endsAt = Math.round(Date.parse(current.timerLastStartedAt) / 1000 + current.timerRemainingAtChange);
     } else {

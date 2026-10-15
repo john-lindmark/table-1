@@ -10,17 +10,17 @@ import {
   respondToInvite,
   respondToResult,
   errorMessage,
+  myDisplayName,
 } from "../lib/api";
 import type { DraftableSet, FormatName, HomeData, HomeEvent, HomeInvite, LiveSnapshot, TrackerMode } from "../lib/types";
 import { SignInButtons } from "../components/SignInButtons";
-import { FormatPicker, ProductPicker, cubeUrlProblem } from "../components/EventFormFields";
+import { FormatPicker, PlayersEditor, ProductPicker, RoundTimerSwitch, cubeUrlProblem } from "../components/EventFormFields";
 import { claimAutoOpen, useTrackerMode } from "../lib/settings";
-import { defaultEventName, isTeamFormat, typeOfFormat } from "../lib/formats";
+import { eventNamePreview, isTeamFormat, typeOfFormat } from "../lib/formats";
 import {
   Bar,
   BigAction,
   Countdown,
-  Field,
   GhostAction,
   Notice,
   Screen,
@@ -252,7 +252,11 @@ function PlayerHero({
       <button onClick={onOpen} className="bg-t1-bg py-4 flex flex-col items-center gap-1">
         <span className="text-[15px] truncate max-w-full px-4">{e.name}</span>
         <span className="t1-label">{formatLabelOf(e)}</span>
-        <Countdown endsAt={s?.endsAt ?? e.round?.ends_at} paused={s?.pausedRemaining ?? e.round?.remaining_seconds} />
+        {e.show_clock === false ? (
+          <span className="t1-label text-t1-text!">Round {e.round?.number ?? e.current_round} of {e.number_of_rounds}</span>
+        ) : (
+          <Countdown endsAt={s?.endsAt ?? e.round?.ends_at} paused={s?.pausedRemaining ?? e.round?.remaining_seconds} />
+        )}
       </button>
       {s && playing ? (
         <>
@@ -315,7 +319,11 @@ function OrganizerHero({ e, onOpen }: { e: HomeEvent; onOpen: () => void }) {
       <div className="bg-t1-bg py-3.5 flex flex-col items-center gap-1 w-full">
         <span className="text-[15px] truncate max-w-full px-4">{e.name}</span>
         <span className="t1-label">{formatLabelOf(e)}</span>
-        {r ? <Countdown endsAt={r.ends_at} paused={r.remaining_seconds} size={44} /> : <span className="text-[28px]">{e.players} players</span>}
+        {r && e.show_clock !== false ? (
+          <Countdown endsAt={r.ends_at} paused={r.remaining_seconds} size={44} />
+        ) : (
+          <span className="text-[28px]">{e.players} players</span>
+        )}
       </div>
       {r ? (
         <div className={`px-4 py-3 flex gap-3 w-full ${r.disputed > 0 ? "bg-t1-danger/15" : "bg-t1-surface"}`}>
@@ -448,10 +456,10 @@ function AuthScreen() {
 }
 
 /**
- * One scrolling form: type → format → product (limited) → teams → rounds → round length → name → players.
- * The name follows the format until the organizer types their own.
+ * One scrolling form: type → format → product (limited) → teams → rounds → round timer → players.
+ * The server names the event from these choices ("Draft · Duskmourn · Fri 17 Oct"); rounds are always 50 minutes.
  */
-function NewEvent({
+export function NewEvent({
   onCancel,
   onCreated,
 }: {
@@ -467,32 +475,34 @@ function NewEvent({
   const [cubeUrl, setCubeUrl] = useState("");
   const [teamSize, setTeamSize] = useState<3 | 4>(3);
   const [rounds, setRounds] = useState(3);
-  const [minutes, setMinutes] = useState("50");
-  const [name, setName] = useState<string | null>(null); // null = follow the format
-  const [namesText, setNamesText] = useState("");
+  const [showClock, setShowClock] = useState(true);
+  const [includeMe, setIncludeMe] = useState(true);
+  const [myName, setMyName] = useState<string | null>(null);
+  const [guests, setGuests] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    myDisplayName().then((n) => live && setMyName(n));
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const limited = typeOfFormat(format) === "limited";
   const team = isTeamFormat(format);
   const productName = !limited ? null : product === "cube" ? cubeName.trim() || null : set?.name ?? (setNameText.trim() || null);
-  const suggested = defaultEventName(format, { other: formatOther, product: productName });
-  const eventName = name ?? suggested;
-
-  const playerNames = namesText
-    .split("\n")
-    .map((n) => n.trim())
-    .filter(Boolean);
+  const preview = eventNamePreview(format, { other: formatOther, product: productName });
 
   const cubeUrlBad = limited && product === "cube" && !!cubeUrlProblem(cubeUrl);
-  const problem = !eventName.trim()
-    ? "Name the event"
-    : format === "other_constructed" && !formatOther.trim()
+  const problem =
+    format === "other_constructed" && !formatOther.trim()
       ? "Name the format"
       : limited && product === "cube" && !cubeName.trim()
         ? "Name the cube"
         : cubeUrlBad
-          ? "The CubeCobra link must start with https://"
+          ? "Paste a Cube Cobra link"
           : null;
 
   async function submit() {
@@ -501,17 +511,17 @@ function NewEvent({
     setError(null);
     try {
       const { eventId } = await createEventV2({
-        name: eventName.trim().slice(0, 80),
         formatName: format,
         rounds,
-        roundSeconds: Math.max(1, Number(minutes) || 50) * 60,
+        showClock,
         setCode: limited && product === "set" ? set?.code ?? null : null,
         setName: limited && product === "set" ? set?.name ?? (setNameText.trim() || null) : null,
         cubeName: limited && product === "cube" ? cubeName.trim().slice(0, 80) : null,
         cubeUrl: limited && product === "cube" && cubeUrl.trim() ? cubeUrl.trim() : null,
         teamSize: team ? teamSize : null,
         formatOther: format === "other_constructed" ? formatOther.trim().slice(0, 40) : null,
-        playerNames,
+        playerNames: guests,
+        includeMe,
       });
       onCreated(eventId);
     } catch (e) {
@@ -525,7 +535,7 @@ function NewEvent({
     <Screen>
       <Bar
         title="New event"
-        subtitle={suggested}
+        subtitle={preview}
         right={
           <button onClick={onCancel} className="t1-label shrink-0">
             Cancel
@@ -562,23 +572,8 @@ function NewEvent({
         )}
 
         <Stepper label="Rounds" value={rounds} onChange={setRounds} min={1} max={15} />
-        <Field label="Round length (minutes)" value={minutes} onChange={setMinutes} type="number" />
-        <Field label="Event name" value={eventName} onChange={(v) => setName(v.slice(0, 80))} />
-
-        <label className="bg-t1-surface px-4 py-3 flex flex-col gap-1">
-          <span className="t1-label">Players — one per line (optional, they can also join by code)</span>
-          <textarea
-            value={namesText}
-            onChange={(e) => setNamesText(e.target.value)}
-            rows={6}
-            placeholder={"Alex\nBrit\nCasey\n…"}
-            className="bg-transparent border-0 outline-0 text-[14px] text-t1-text placeholder:text-t1-muted/60 w-full resize-none"
-          />
-        </label>
-        <Notice tone="info">
-          {playerNames.length} player{playerNames.length === 1 ? "" : "s"} · {rounds} round{rounds === 1 ? "" : "s"}
-          {team ? ` · teams of ${teamSize}` : ""}
-        </Notice>
+        <RoundTimerSwitch on={showClock} onChange={setShowClock} />
+        <PlayersEditor includeMe={includeMe} onIncludeMe={setIncludeMe} myName={myName} guests={guests} onGuests={setGuests} />
         {error && <Notice tone="error">{error}</Notice>}
       </div>
       <BigAction label="Create event" tone="accent" busy={busy} disabled={!!problem} onClick={submit} />

@@ -1130,7 +1130,7 @@
       }
     },
     "create_event_v2": {
-      "note": "Typed formats. Limited events may name a set (from draftable_sets) or a cube; team formats need p_team_size 3|4.",
+      "note": "Typed formats. Limited events may name a set (from draftable_sets) or a cube; team formats need p_team_size 3|4. 2026-10-14: name is automatic (p_name ignored), rounds always 3000 s (p_round_seconds ignored); p_include_me seats the organizer first; p_show_clock hides clocks; p_local_date names the day.",
       "params": {
         "type": "object",
         "properties": {
@@ -1205,6 +1205,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "p_include_me": {
+            "type": "boolean"
+          },
+          "p_show_clock": {
+            "type": "boolean"
+          },
+          "p_local_date": {
+            "type": "string",
+            "format": "date"
           }
         },
         "required": [
@@ -1932,7 +1942,7 @@
       }
     },
     "update_event_details": {
-      "note": "Organizer only, setup/seated with no rounds (else 55000 'Details lock once round 1 is paired'). Send the full current state every call. Non-team format releases everyone from teams.",
+      "note": "Organizer only, setup/seated with no rounds (else 55000 'Details lock once round 1 is paired'). Send the full current state every call. Non-team format releases everyone from teams. 2026-10-14: p_show_clock (null keeps); p_round_seconds ignored; p_name ignored for auto-named events.",
       "params": {
         "type": "object",
         "properties": {
@@ -1969,6 +1979,12 @@
           },
           "p_format_other": {
             "type": "string"
+          },
+          "p_show_clock": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           }
         },
         "required": [
@@ -3267,6 +3283,141 @@
           }
         }
       }
+    },
+    "add_guest": {
+      "note": "Organizer only; before round 1. A player by name only (claim token created). 1-40 chars; 23505 duplicate name.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "p_event_id",
+          "p_name"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "participant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "display_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "participant_id",
+          "display_name"
+        ]
+      }
+    },
+    "add_self_to_event": {
+      "note": "Organizer only; before round 1. The organizer joins their own event. 23505 already playing.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_event_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "participant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "display_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "participant_id",
+          "display_name"
+        ]
+      }
+    },
+    "remove_participant": {
+      "note": "Organizer only; before round 1 (55000 after; use Drop). Seated drafts: later seats in the pod move up one. Withdraws a pending invite.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_participant_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_participant_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "participant_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "event_id",
+          "participant_id"
+        ]
+      }
+    },
+    "recent_cubes": {
+      "note": "This account's recent cubes, newest first.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "result": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "cube_name": {
+              "type": "string"
+            },
+            "cube_url": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "last_used_at": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "cube_name"
+          ]
+        }
+      }
     }
   },
   "functions": {
@@ -3412,6 +3563,46 @@
     },
     "cards-sync": {
       "note": "Internal only (x-t1-secret, driven by pg_cron/pg_net). Steps stage/chunk/pack/cleanup keep the card catalog in step with Scryfall default_cards. Clients never call it."
+    },
+    "cube-lookup": {
+      "lookup": {
+        "request": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        },
+        "response": {
+          "type": "object",
+          "properties": {
+            "cube_id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "card_count": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "url": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cube_id",
+            "name",
+            "url"
+          ]
+        }
+      }
     }
   },
   "realtime": {

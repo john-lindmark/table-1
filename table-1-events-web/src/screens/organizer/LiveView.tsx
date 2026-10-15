@@ -111,7 +111,12 @@ export function LiveView(
         {tab === "round" &&
           (active ? (
             <>
-              <RoundClock round={active} caption={roundCaption(event, active)} onClock={clock} />
+              {event.showClock ? (
+                <RoundClock round={active} caption={roundCaption(event, active)} onClock={clock} />
+              ) : (
+                // Round timer off: no clock anywhere for this event (rounds still run 50 minutes).
+                <Notice tone="info">{roundCaption(event, active)}</Notice>
+              )}
               <MatchList round={active} nameOf={nameOf} onOpenMatch={onOpenMatch} />
             </>
           ) : (

@@ -77,6 +77,8 @@ const toEvent = (r: any): Table1Event => ({
   formatOther: r.format_other ?? null,
   cancelledAt: r.cancelled_at ?? null,
   updatedAt: r.updated_at ?? null,
+  showClock: r.show_clock ?? true,
+  autoName: r.auto_name ?? false,
 });
 
 const toParticipant = (r: any): Participant => ({
@@ -482,10 +484,11 @@ export async function setRoundClock(roundId: string, action: ClockAction, second
 
 /** Everything update_event_details takes. Send the full current state on every save. */
 export interface EventDetailsInput {
-  name: string;
+  /** Only for older events with typed names; auto-named events ignore it. */
+  name: string | null;
   formatName: FormatName;
   rounds: number;
-  roundSeconds: number;
+  showClock: boolean;
   setCode: string | null;
   setName: string | null;
   cubeName: string | null;
@@ -519,7 +522,8 @@ export async function updateEventDetails(eventId: string, input: EventDetailsInp
     p_name: input.name,
     p_format_name: input.formatName,
     p_rounds: input.rounds,
-    p_round_seconds: input.roundSeconds,
+    p_round_seconds: 3000,
+    p_show_clock: input.showClock,
     p_set_code: input.setCode,
     p_set_name: input.setName,
     p_cube_name: input.cubeName,
@@ -573,25 +577,27 @@ export async function writeAudit(entry: {
 /* ── 2026-10-13: typed formats, seating, teams ───────────────────────── */
 
 export interface CreateEventV2Input {
-  name: string;
   formatName: FormatName;
   rounds: number;
-  roundSeconds: number;
+  /** Rounds always run 50 minutes; this only decides whether clocks are shown. */
+  showClock: boolean;
   setCode?: string | null;
   setName?: string | null;
   cubeName?: string | null;
   cubeUrl?: string | null;
   teamSize?: 3 | 4 | null;
   formatOther?: string | null;
+  /** Players by name only (no account). */
   playerNames: string[];
+  /** Seat the organizer first (default on). */
+  includeMe: boolean;
 }
 
+/** The server names the event ("Draft · Duskmourn · Fri 17 Oct") using the device's date. */
 export async function createEventV2(input: CreateEventV2Input): Promise<{ eventId: string; shortCode: string }> {
   const { data, error } = await supabase.rpc("create_event_v2", {
-    p_name: input.name,
     p_format_name: input.formatName,
     p_rounds: input.rounds,
-    p_round_seconds: input.roundSeconds,
     p_set_code: input.setCode ?? null,
     p_set_name: input.setName ?? null,
     p_cube_name: input.cubeName ?? null,
@@ -599,9 +605,87 @@ export async function createEventV2(input: CreateEventV2Input): Promise<{ eventI
     p_team_size: input.teamSize ?? null,
     p_format_other: input.formatOther ?? null,
     p_player_names: input.playerNames,
+    p_include_me: input.includeMe,
+    p_show_clock: input.showClock,
+    p_local_date: localDate(),
   });
   if (error) throw error;
   return { eventId: data.event_id, shortCode: data.short_code };
+}
+
+/** The device's calendar date (YYYY-MM-DD), so the event's name says the day it is here. */
+export function localDate(d = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/* ── players before round 1 (organizer) ─────────────────────────────────── */
+
+/** A player by name only, not tied to an account. Refuses a name already in the event. */
+export async function addGuest(eventId: string, name: string) {
+  const { error } = await supabase.rpc("add_guest", { p_event_id: eventId, p_name: name });
+  if (error) throw error;
+}
+
+/** The organizer joins their own event as a player. */
+export async function addSelfToEvent(eventId: string) {
+  const { error } = await supabase.rpc("add_self_to_event", { p_event_id: eventId });
+  if (error) throw error;
+}
+
+/** Before round 1 only (after that, Drop). Seats after theirs move up one. */
+export async function removeParticipant(participantId: string) {
+  const { error } = await supabase.rpc("remove_participant", { p_participant_id: participantId });
+  if (error) throw error;
+}
+
+/** The signed-in player's name as events show it. */
+export async function myDisplayName(): Promise<string | null> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return null;
+  const { data } = await supabase.from("profiles").select("display_name, handle").eq("id", auth.user.id).maybeSingle();
+  return (data?.display_name?.trim() || data?.handle?.trim()) ?? null;
+}
+
+/* ── cubes ──────────────────────────────────────────────────────────────── */
+
+export interface RecentCube {
+  cube_name: string;
+  cube_url: string | null;
+  last_used_at: string | null;
+}
+
+/** Cubes this account has run, newest first. */
+export async function fetchRecentCubes(): Promise<RecentCube[]> {
+  const { data, error } = await supabase.rpc("recent_cubes", { p_limit: 5 });
+  if (error) return [];
+  return (data ?? []) as RecentCube[];
+}
+
+export interface CubeLookup {
+  cube_id: string;
+  name: string;
+  card_count: number | null;
+  url: string;
+}
+
+/** Cube Cobra link → name (server-side, so no CORS). Throws with the server's message. */
+export async function lookupCube(url: string): Promise<CubeLookup> {
+  const { data, error } = await supabase.functions.invoke("cube-lookup", { body: { url } });
+  if (error) {
+    let message = "Couldn't reach Cube Cobra";
+    const ctx = (error as { context?: unknown }).context;
+    if (ctx && typeof (ctx as Response).json === "function") {
+      try {
+        const payload = await (ctx as Response).clone().json();
+        if (payload?.error) message = String(payload.error);
+      } catch {
+        /* not JSON */
+      }
+    }
+    throw new Error(message);
+  }
+  return data as CubeLookup;
 }
 
 /** Scryfall sets for limited events, newest first. */

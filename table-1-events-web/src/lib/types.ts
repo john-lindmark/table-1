@@ -40,6 +40,10 @@ export interface Table1Event {
   formatOther: string | null;
   cancelledAt: string | null;
   updatedAt: string | null;
+  /** "Round timer" on: clocks are shown. Rounds always run 50 minutes either way. */
+  showClock: boolean;
+  /** Named from its settings ("Draft · Duskmourn · Fri 17 Oct"); older events keep their typed names. */
+  autoName: boolean;
 }
 
 export interface Participant {
@@ -123,6 +127,8 @@ export interface HomeEvent {
   format_label?: string | null;
   event_type?: EventType | null;
   team_size?: number | null;
+  /** False when the organizer hid clocks for the event; the round's ends_at / remaining_seconds are then null. */
+  show_clock?: boolean | null;
   status: EventStatus;
   /** live | upcoming | past */
   bucket: "live" | "upcoming" | "past";

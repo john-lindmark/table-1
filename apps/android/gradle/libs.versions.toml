@@ -15,6 +15,7 @@ googleId = "1.1.1"
 codeScanner = "16.1.0"
 location = "21.3.0"
 zxing = "3.5.3"
+coil = "3.0.4"
 junit = "4.13.2"
 
 [libraries]
@@ -43,6 +44,10 @@ play-code-scanner = { module = "com.google.android.gms:play-services-code-scanne
 play-location = { module = "com.google.android.gms:play-services-location", version.ref = "location" }
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 junit = { module = "junit:junit", version.ref = "junit" }
+# Scryfall set icons are SVG only.
+coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-svg = { module = "io.coil-kt.coil3:coil-svg", version.ref = "coil" }
+coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

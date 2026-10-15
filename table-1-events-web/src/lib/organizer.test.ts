@@ -50,7 +50,7 @@ function event(extra: Partial<Table1Event> = {}): Table1Event {
     id: "e1", shortCode: "K7Q2", name: "Friday draft", format: "draft", status: "setup", numberOfRounds: 3, currentRound: 0,
     roundLengthSeconds: 3000, allowPlayerReporting: true, createdBy: "u1", cancelReason: null, formatName: "draft",
     formatLabel: "Draft", eventType: "limited", teamSize: null, setName: null, cubeName: null, cubeUrl: null, setCode: null,
-    formatOther: null, cancelledAt: null, updatedAt: "2026-10-12T20:00:00Z", ...extra,
+    formatOther: null, cancelledAt: null, updatedAt: "2026-10-12T20:00:00Z", showClock: true, autoName: false, ...extra,
   };
 }
 
@@ -240,6 +240,9 @@ describe("big actions", () => {
     expect(startDialog(event({ formatName: "modern", name: "Modern night", roundLengthSeconds: 2700 })).message).toBe(
       "Pairs round 1 and starts the 45-minute clock. Format, rounds and teams lock.",
     );
+    expect(startDialog(event({ showClock: false })).message).toBe(
+      "Pairs round 1 across the table and starts the round (clocks hidden). Format, rounds and teams lock.",
+    );
   });
   it("live: waiting → pair next → finish on the last round", () => {
     const e = event({ status: "in_progress", numberOfRounds: 2 });
@@ -268,7 +271,7 @@ describe("records and details", () => {
   it("details: full state, only what applies to the format", () => {
     const s = detailsFromEvent(event({ setCode: "dsk", setName: "Duskmourn", roundLengthSeconds: 3000 }));
     expect(detailsToInput(s)).toEqual({
-      name: "Friday draft", formatName: "draft", rounds: 3, roundSeconds: 3000, setCode: "dsk", setName: "Duskmourn",
+      name: "Friday draft", formatName: "draft", rounds: 3, showClock: true, setCode: "dsk", setName: "Duskmourn",
       cubeName: null, cubeUrl: null, teamSize: null, formatOther: null,
     });
     expect(detailsToInput({ ...s, formatName: "team_draft", teamSize: 4 }).teamSize).toBe(4);
@@ -278,6 +281,8 @@ describe("records and details", () => {
     expect(detailsToInput({ ...s, formatName: "other_constructed", formatOther: "Oathbreaker" })).toMatchObject({
       setCode: null, setName: null, cubeName: null, formatOther: "Oathbreaker", teamSize: null,
     });
-    expect(detailsToInput({ ...s, roundMinutes: 55 }).roundSeconds).toBe(3300);
+    expect(detailsToInput({ ...s, showClock: false }).showClock).toBe(false);
+    // Auto-named events never send a name; the server names them.
+    expect(detailsToInput(detailsFromEvent(event({ autoName: true }))).name).toBeNull();
   });
 });

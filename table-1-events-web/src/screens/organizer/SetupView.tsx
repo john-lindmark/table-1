@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { errorMessage, pairNextRound, seatPlayers } from "../../lib/api";
+import { addGuest, addSelfToEvent, errorMessage, pairNextRound, removeParticipant, seatPlayers } from "../../lib/api";
+import { useSession } from "../../lib/useSession";
+import { AddByName, tidyName } from "../../components/EventFormFields";
 import { slotLetter } from "../../lib/formats";
 import { startBlocker, startDialog } from "../../lib/organizer";
 import { teamProblems } from "../../lib/teams";
@@ -33,6 +35,42 @@ export function SetupView({
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const { seating: pods, setSeating } = useSeating(eventId, isDraft, participants, teams);
+  const { userId } = useSession();
+  const me = userId ? participants.find((p) => p.userId === userId) ?? null : null;
+  const [guestName, setGuestName] = useState("");
+  const [playersBusy, setPlayersBusy] = useState(false);
+  const [removing, setRemoving] = useState<(typeof participants)[number] | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const guest = tidyName(guestName);
+  const guestDup = !!guest && participants.some((p) => p.displayName.toLowerCase() === guest.toLowerCase());
+
+  async function playersCall(call: () => Promise<void>) {
+    setPlayersBusy(true);
+    setActionError(null);
+    try {
+      await call();
+      await refetch();
+    } catch (e) {
+      setActionError(errorMessage(e));
+    } finally {
+      setPlayersBusy(false);
+    }
+  }
+
+  async function confirmRemove() {
+    if (!removing) return;
+    setPlayersBusy(true);
+    setRemoveError(null);
+    try {
+      await removeParticipant(removing.id);
+      setRemoving(null);
+      await refetch();
+    } catch (e) {
+      setRemoveError(errorMessage(e));
+    } finally {
+      setPlayersBusy(false);
+    }
+  }
 
   const active = participants.filter((p) => p.status === "active");
   const anySeated = active.some((p) => p.seat != null);
@@ -92,18 +130,36 @@ export function SetupView({
             </div>
             <Row title="Join code" value={<span className="tracking-[4px]">{event.shortCode}</span>} />
             <Section title="Players" count={participants.length} />
+            {userId && !me && (
+              <Row
+                title="You're not playing"
+                detail="Organizing only"
+                action={{ label: "Join as a player", onClick: () => void playersCall(() => addSelfToEvent(eventId)), disabled: playersBusy }}
+              />
+            )}
             {participants.length === 0 && (
               <Notice tone="info">Nobody yet. Add players, or show the join QR so they can scan in.</Notice>
             )}
             {participants.map((p) => (
               <Row
                 key={p.id}
-                title={p.displayName}
-                detail={playerDetail(p)}
-                value={isDraft && p.seat != null ? `Seat ${p.seat}` : undefined}
+                title={p.id === me?.id ? `You · ${p.displayName}` : p.displayName}
+                detail={[playerDetail(p), isDraft && p.seat != null ? `Seat ${p.seat}` : null].filter(Boolean).join(" · ")}
+                action={{ label: "Remove", onClick: () => { setRemoveError(null); setRemoving(p); }, disabled: playersBusy }}
                 dim={p.status === "dropped"}
               />
             ))}
+            <AddByName
+              value={guestName}
+              onChange={setGuestName}
+              disabled={!guest || guestDup || playersBusy}
+              onAdd={() => {
+                const name = guest;
+                setGuestName("");
+                void playersCall(() => addGuest(eventId, name));
+              }}
+            />
+            {guestDup && <Notice tone="error">{guest} is already in this event.</Notice>}
           </>
         )}
 
@@ -158,6 +214,25 @@ export function SetupView({
           <SharePanel shortCode={event.shortCode} eventId={event.id} />
           <GhostAction label="Done" onClick={() => setShowQr(false)} />
         </Modal>
+      )}
+
+      {removing && (
+        <Dialog
+          title={`Remove ${removing.displayName}?`}
+          message={
+            removing.seat != null && event.status === "seated"
+              ? "They'll leave the event. Seats after theirs move up one."
+              : "They'll leave the event."
+          }
+          cancelLabel="Keep"
+          confirmLabel="Remove"
+          busyLabel="Removing…"
+          tone="danger"
+          busy={playersBusy}
+          error={removeError}
+          onCancel={() => setRemoving(null)}
+          onConfirm={confirmRemove}
+        />
       )}
 
       {confirmStart && (

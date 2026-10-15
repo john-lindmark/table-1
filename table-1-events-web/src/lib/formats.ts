@@ -40,5 +40,17 @@ export function defaultEventName(f: FormatName, opts: { other?: string; product?
   return `${formatLabel(f)} night`;
 }
 
+/** What the server will call a new event: "<format label> · <Tue 14 Oct>". */
+export function eventNamePreview(
+  f: FormatName,
+  opts: { other?: string; product?: string | null } = {},
+  date = new Date(),
+): string {
+  const base = f === "other_constructed" ? opts.other?.trim() || "Constructed" : formatLabel(f);
+  const product = opts.product?.trim();
+  const day = `${date.toLocaleDateString("en-US", { weekday: "short" })} ${date.getDate()} ${date.toLocaleDateString("en-US", { month: "short" })}`;
+  return `${product ? `${base} · ${product}` : base} · ${day}`;
+}
+
 /** Seat letter on a team: slot 1 = A. */
 export const slotLetter = (slot: number | null | undefined) => (slot && slot > 0 ? String.fromCharCode(64 + slot) : "–");

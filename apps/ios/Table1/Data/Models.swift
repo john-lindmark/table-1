@@ -32,6 +32,10 @@ struct EventRow: Decodable, Identifiable, Hashable {
     var startsAt: String?
     var cancelledAt: String?
     var updatedAt: String?
+    /// "Round timer" on: clocks are shown. Rounds always run 50 minutes either way.
+    var showClock = true
+    /// Named from its settings ("Draft · Duskmourn · Fri 17 Oct"); older events keep their typed names.
+    var autoName = false
 
     var isCancelled: Bool { status == "cancelled" }
     var isFinished: Bool { ["completed", "archived", "cancelled"].contains(status) }
@@ -46,7 +50,7 @@ struct EventRow: Decodable, Identifiable, Hashable {
         case id, shortCode, name, format, status, numberOfRounds, currentRound, roundLengthSeconds,
              allowPlayerReporting, venueName, createdAt, cancelReason, isDemo,
              formatName, formatLabel, eventType, teamSize, setCode, setName, cubeName, cubeUrl,
-             formatOther, visibility, startsAt, cancelledAt, updatedAt
+             formatOther, visibility, startsAt, cancelledAt, updatedAt, showClock, autoName
     }
 
     init(from decoder: Decoder) throws {
@@ -77,6 +81,8 @@ struct EventRow: Decodable, Identifiable, Hashable {
         startsAt = try c.decodeIfPresent(String.self, forKey: .startsAt)
         cancelledAt = try c.decodeIfPresent(String.self, forKey: .cancelledAt)
         updatedAt = try c.decodeIfPresent(String.self, forKey: .updatedAt)
+        showClock = try c.decodeIfPresent(Bool.self, forKey: .showClock) ?? true
+        autoName = try c.decodeIfPresent(Bool.self, forKey: .autoName) ?? false
     }
 }
 
@@ -327,8 +333,10 @@ struct HomeEvent: Decodable, Identifiable, Hashable {
     let formatLabel: String?
     let eventType: String?
     let teamSize: Int?
+    var showClock: Bool?
 
     var isCancelled: Bool { status == "cancelled" }
+    var clockShown: Bool { showClock ?? true }
     var label: String { formatLabel ?? format.capitalized }
     /// A seat in a round that is running right now.
     var playingNow: Bool { playing && myStatus == "active" && round?.timerStatus == "running" }
@@ -419,13 +427,62 @@ struct JoinQr: Decodable { let shortCode: String; let secret: String; let url: S
 struct SeatResult: Decodable { let eventId: String; let participantId: String?; let alreadyJoined: Bool? }
 struct ReportOutcome: Decodable { let ok: Bool?; let status: String?; let version: Int?; let conflict: Bool? }
 struct CreateEventResult: Decodable { let eventId: String; let shortCode: String }
+struct AddedPlayer: Decodable { let participantId: String; let displayName: String }
+
+/// recent_cubes: cubes this account has run, newest first.
+struct RecentCube: Decodable, Hashable, Identifiable {
+    var id: String { "\(cubeName.lowercased())|\(cubeUrl ?? "")" }
+    let cubeName: String
+    let cubeUrl: String?
+    let lastUsedAt: String?
+}
+
+/// cube-lookup: a Cube Cobra link → the cube's name.
+struct CubeLookup: Decodable, Hashable {
+    let cubeId: String
+    let name: String
+    let cardCount: Int?
+    let url: String
+}
+
+/// The name the server gives a new event: "<format label> · <Tue 14 Oct>". Shown as a preview on Create.
+enum EventNaming {
+    static func label(format: String, formatOther: String?, setName: String?, cubeName: String?) -> String {
+        let base: String
+        switch format {
+        case "other_constructed":
+            let o = formatOther?.trimmingCharacters(in: .whitespaces) ?? ""
+            base = o.isEmpty ? "Constructed" : o
+        default: base = FormatOption(rawValue: format)?.label ?? "Event"
+        }
+        let product = [cubeName, setName].compactMap { $0?.trimmingCharacters(in: .whitespaces) }.first { !$0.isEmpty }
+        return product.map { "\(base) · \($0)" } ?? base
+    }
+
+    static func day(_ date: Date = Date()) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "EEE d MMM"
+        return f.string(from: date)
+    }
+
+    /// The device's calendar date, sent as p_local_date so the name says the day it is here.
+    static func localDate(_ date: Date = Date()) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: date)
+    }
+}
 
 /// What the create form sends to create_event_v2 (and Setup → Details to update_event_details).
+/// Rounds always run 50 minutes; `showClock` only decides whether clocks are shown.
 struct NewEventDraft: Equatable {
-    var name: String
+    /// Only for older events with typed names; new events are named by the server.
+    var name: String?
     var formatName: String
     var rounds: Int
-    var roundMinutes: Int
+    var showClock: Bool
     var setCode: String?
     var setName: String?
     var cubeName: String?

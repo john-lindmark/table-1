@@ -25,6 +25,10 @@ struct Table1App: App {
                 .overlay {
                     if ProcessInfo.processInfo.arguments.contains("-T1LibraryDemo") { LibraryDemoRoot() }
                 }
+                // `-T1EventsDemo [create|setup|seating]`: the create form, Setup and the seating table on sample data.
+                .overlay {
+                    if ProcessInfo.processInfo.arguments.contains("-T1EventsDemo") { EventsDemoRoot() }
+                }
                 #endif
                 // App-drawn menus and panels sit above everything (tabs, life tracker); only alerts are native.
                 .overlay { T1OverlayHost() }

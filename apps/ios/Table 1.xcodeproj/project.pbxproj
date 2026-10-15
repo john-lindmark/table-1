@@ -12,8 +12,10 @@
 		10BA11DA58B8E0B86B8C2A76 /* LiveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B262491F1533D678F74DD238 /* LiveStore.swift */; };
 		13F0FFCA274CEE604023B1DB /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8CEF6031CE6F5FCA7347F5DC /* SwiftUI.framework */; };
 		1CF6D35721DE9D5E8CDE8B55 /* Table1Widgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 8FE76B9CA0F768B9F8954BD9 /* Table1Widgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		1F66EB68FE24E7ACF235E4AB /* SVGView in Frameworks */ = {isa = PBXBuildFile; productRef = B29FE675356369E91F94A200 /* SVGView */; };
 		2215C27DC9BA34BF267424EF /* OrganizerPhases.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AEABE616F8D0C366BBECFF0 /* OrganizerPhases.swift */; };
 		228CD8FF50CB5C88106AFF80 /* Collection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4EBF4DF80B3E058AB0E4A51 /* Collection.swift */; };
+		23D409E16AAA4D23D123BAE9 /* EventsDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 312B7979FC297A98B689D311 /* EventsDemo.swift */; };
 		271F749F426616B562345937 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D2BD7D181061AD027D497369 /* PrivacyInfo.xcprivacy */; };
 		287EA39F0780F5D9D58DB60F /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = DAA1705822C63F5D91855E6F /* GoogleSignInSwift */; };
 		2EA248C65A34333F07407183 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8099FC0F2F66ADD7B29CD544 /* Assets.xcassets */; };
@@ -64,6 +66,7 @@
 		EA7FFB31FDA3622BCB2A7381 /* QR.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC94CC26F2066C36E4DE2192 /* QR.swift */; };
 		EB58F3FC3B3B21A13A6B061B /* LiveModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51120128682593DE4286B900 /* LiveModels.swift */; };
 		EBC44A72B13A2B2BBA4BC103 /* AddPlayersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C0AE970C6BB94032DAA56D /* AddPlayersView.swift */; };
+		ED1FF068FD14A1771C087171 /* SetIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D4D06C464C0814A55799DF9 /* SetIcon.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -99,11 +102,13 @@
 		2510246EB27B41479FAC4C24 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		270F4E7C8101647462A59635 /* CardImages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardImages.swift; sourceTree = "<group>"; };
 		286EEFA6E522FEAA50AF06B4 /* TeamsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamsView.swift; sourceTree = "<group>"; };
+		312B7979FC297A98B689D311 /* EventsDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventsDemo.swift; sourceTree = "<group>"; };
 		38C8BF8FA5B4C62D0B1D1C81 /* LiveAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveAPI.swift; sourceTree = "<group>"; };
 		3AEABE616F8D0C366BBECFF0 /* OrganizerPhases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrganizerPhases.swift; sourceTree = "<group>"; };
 		3DEABA0F74C6845F33051903 /* MatchWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchWidget.swift; sourceTree = "<group>"; };
 		49E2DC6EEA4DFED451981849 /* Location.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Location.swift; sourceTree = "<group>"; };
 		4A4CE128D71E12EDA0482FDD /* Table1.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Table1.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4D4D06C464C0814A55799DF9 /* SetIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetIcon.swift; sourceTree = "<group>"; };
 		4F692F7B590689C4B898FCA4 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		51120128682593DE4286B900 /* LiveModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveModels.swift; sourceTree = "<group>"; };
 		524852D7ADCC9B3C35EC6E7E /* ResultIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultIntents.swift; sourceTree = "<group>"; };
@@ -154,6 +159,7 @@
 				3E9B2DDEB790DC45ADEF974C /* Supabase in Frameworks */,
 				5E4918CB77109DBBF00739D0 /* GoogleSignIn in Frameworks */,
 				287EA39F0780F5D9D58DB60F /* GoogleSignInSwift in Frameworks */,
+				1F66EB68FE24E7ACF235E4AB /* SVGView in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -345,12 +351,14 @@
 			children = (
 				13C0AE970C6BB94032DAA56D /* AddPlayersView.swift */,
 				D937184FD4C3DFD141073B51 /* CreateEventView.swift */,
+				312B7979FC297A98B689D311 /* EventsDemo.swift */,
 				67E76A43B3D3DCD33442A2B6 /* EventView.swift */,
 				AC11D94B446E9B472EBB60DB /* HomeView.swift */,
 				C1A9DF73F61953DB5F0B47C5 /* Kit.swift */,
 				7C6C10E91EC9AF7F6D714335 /* NearbyView.swift */,
 				3AEABE616F8D0C366BBECFF0 /* OrganizerPhases.swift */,
 				5B05DB41AB23ECB8FD1E9482 /* ProfileView.swift */,
+				4D4D06C464C0814A55799DF9 /* SetIcon.swift */,
 				A08A26022063DCF85E09E341 /* SignInView.swift */,
 				286EEFA6E522FEAA50AF06B4 /* TeamsView.swift */,
 			);
@@ -416,6 +424,7 @@
 				161422FB3409119247EDADF8 /* Supabase */,
 				772AD52A8F7AAA91FA28D759 /* GoogleSignIn */,
 				DAA1705822C63F5D91855E6F /* GoogleSignInSwift */,
+				B29FE675356369E91F94A200 /* SVGView */,
 			);
 			productName = Table1;
 			productReference = 4A4CE128D71E12EDA0482FDD /* Table1.app */;
@@ -452,6 +461,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				35EDC623A01E1649F2CF55C4 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				9BA5ACD66666A3DA36D7FFD9 /* XCRemoteSwiftPackageReference "SVGView" */,
 				74216BDCA796BF29689359A6 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -510,6 +520,7 @@
 				D03DE7B217F898EACD3F425E /* Config.swift in Sources */,
 				C0F57BCEC4D6442DD18CB0D4 /* CreateEventView.swift in Sources */,
 				82A14A356927E32BF1BA4C09 /* EventView.swift in Sources */,
+				23D409E16AAA4D23D123BAE9 /* EventsDemo.swift in Sources */,
 				4277984630E3FD92D99A840D /* HomeView.swift in Sources */,
 				E1F0E45102E1CC8C52D256A3 /* Kit.swift in Sources */,
 				ADEC65DE131491502D3B846C /* LibraryDemo.swift in Sources */,
@@ -529,6 +540,7 @@
 				4A95D8729CE57796B6B8ED89 /* Repo.swift in Sources */,
 				E4629FB53DD09687F5587E3E /* ResultIntents.swift in Sources */,
 				D4915A4044585E2089916731 /* SQLite.swift in Sources */,
+				ED1FF068FD14A1771C087171 /* SetIcon.swift in Sources */,
 				86272ABAC2C1C73362AD3010 /* SignIn.swift in Sources */,
 				38AC1D672F2DC442D679BF2C /* SignInView.swift in Sources */,
 				4DF81CE6AE64132B3F5AD949 /* T1Shared.swift in Sources */,
@@ -850,6 +862,14 @@
 				minimumVersion = 2.20.0;
 			};
 		};
+		9BA5ACD66666A3DA36D7FFD9 /* XCRemoteSwiftPackageReference "SVGView" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/exyte/SVGView";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.6;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -862,6 +882,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 35EDC623A01E1649F2CF55C4 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignIn;
+		};
+		B29FE675356369E91F94A200 /* SVGView */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BA5ACD66666A3DA36D7FFD9 /* XCRemoteSwiftPackageReference "SVGView" */;
+			productName = SVGView;
 		};
 		D111446BC5CA58EBB7B2A5C1 /* Supabase */ = {
 			isa = XCSwiftPackageProductDependency;

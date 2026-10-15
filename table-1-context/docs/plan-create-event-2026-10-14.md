@@ -1,5 +1,9 @@
 # Plan: create-event and setup changes (2026-10-14)
 
+**Status 2026-10-14: built.** Server, iOS, web and Android all done; client contract in
+`contract/create-event-2026-10-14.md`. Not done: Figma screens for the new pieces (build-first rule: Figma follows),
+and "Your Table 1 cubes" (waits for Library Cubes). Android not yet run on an emulator.
+
 Scope: the Create event form and the organizer's Setup phase (Players / Seating / Details), on web, iOS and Android.
 Order follows the project rule: server first, Figma for the new visuals, then web → iOS → Android in one batch.
 

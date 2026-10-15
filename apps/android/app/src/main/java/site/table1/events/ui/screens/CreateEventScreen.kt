@@ -5,6 +5,13 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import site.table1.events.data.EventNaming
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -68,9 +75,10 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
     var cubeUrl by remember { mutableStateOf("") }
     var teamSize by remember { mutableIntStateOf(4) }
     var rounds by remember { mutableIntStateOf(3) }
-    var minutes by remember { mutableStateOf("50") }
-    /** null = follow the suggested name. */
-    var customName by remember { mutableStateOf<String?>(null) }
+    var showClock by remember { mutableStateOf(true) }
+    var includeMe by remember { mutableStateOf(true) }
+    var myName by remember { mutableStateOf<String?>(null) }
+    var guests by remember { mutableStateOf<List<String>>(emptyList()) }
     var venue by remember { mutableStateOf("") }
     var nearby by remember { mutableStateOf(true) }
     var formatMenu by remember { mutableStateOf(false) }
@@ -81,6 +89,7 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
     // If the set list is empty (not synced yet), fall back to typing the set name.
     LaunchedEffect(Unit) {
         runCatching { Repo.draftableSets("", 1) }.onSuccess { setsUnavailable = it.isEmpty() }
+        myName = Repo.myDisplayName()
     }
 
     val options = if (limited) limitedFormats else constructedFormats
@@ -88,17 +97,14 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
     val isOther = format == "other_constructed"
     val isTeam = format == "team_draft" || format == "team_sealed"
     val setLabel = pickedSet?.name ?: setNameFallback.trim().takeIf { setsUnavailable && it.isNotEmpty() }
-    val suggestedName = when {
-        !limited -> "${if (isOther) formatOther.trim().ifEmpty { "Constructed" } else formatLabel} night"
-        useCube && cubeName.isNotBlank() -> "${cubeName.trim()} ${formatLabel.lowercase()}"
-        !useCube && setLabel != null -> "$setLabel ${formatLabel.lowercase()}"
-        else -> "$formatLabel night"
-    }
-    val name = customName ?: suggestedName
+    // What the server will call it: "Draft · Duskmourn · Wed 14 Oct".
+    val preview = EventNaming.preview(
+        if (isOther) formatOther.trim().ifEmpty { "Constructed" } else formatLabel,
+        if (!limited) null else if (useCube) cubeName else setLabel,
+    )
 
     val cubeUrlOk = cubeUrl.isBlank() || cubeUrl.trim().startsWith("https://")
-    val valid = name.isNotBlank() &&
-        (!isOther || formatOther.isNotBlank()) &&
+    val valid = (!isOther || formatOther.isNotBlank()) &&
         (!limited || !useCube || (cubeName.isNotBlank() && cubeUrlOk))
 
     fun create() {
@@ -107,16 +113,17 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
         scope.launch {
             try {
                 val created = Repo.createEventV2(
-                    name = name.trim().take(80),
                     formatName = format,
                     rounds = rounds,
-                    roundMinutes = minutes.toIntOrNull()?.coerceIn(1, 240) ?: 50,
+                    showClock = showClock,
                     setCode = if (limited && !useCube) pickedSet?.code else null,
                     setName = if (limited && !useCube) setLabel else null,
                     cubeName = if (limited && useCube) cubeName.trim() else null,
                     cubeUrl = if (limited && useCube) cubeUrl.trim().ifEmpty { null } else null,
                     teamSize = if (isTeam) teamSize else null,
                     formatOther = if (isOther) formatOther.trim() else null,
+                    includeMe = includeMe,
+                    guests = guests,
                 )
                 // Pin it where the organizer stands. For nearby events this also alerts opted-in players around.
                 val fix = currentFix(context)
@@ -142,7 +149,7 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
     }
 
     T1Screen {
-        Bar("New event") { BarAction("Cancel", onCancel) }
+        Bar("New event", preview) { BarAction("Cancel", onCancel) }
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(1.dp),
@@ -171,19 +178,19 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
                         if (setsUnavailable) {
                             T1TextField(setNameFallback, { setNameFallback = it.take(80) }, label = "Set name")
                         } else {
-                            T1TextField(
-                                value = pickedSet?.let { "${it.name} (${it.code.uppercase()})" } ?: "",
-                                onChange = {}, label = "Set", placeholder = "Pick a set…", trailing = "›",
-                                onClick = { pickingSet = true },
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                pickedSet?.let { SetIcon(it.code, it.iconSvgUri, 22.dp) }
+                                Box(Modifier.weight(1f)) {
+                                    T1TextField(
+                                        value = pickedSet?.let { "${it.name} (${it.code.uppercase()})" } ?: "",
+                                        onChange = {}, label = "Set", placeholder = "Pick a set…", trailing = "›",
+                                        onClick = { pickingSet = true },
+                                    )
+                                }
+                            }
                         }
                     } else {
-                        T1TextField(cubeName, { cubeName = it.take(80) }, label = "Cube name")
-                        T1TextField(
-                            cubeUrl, { cubeUrl = it.take(300) }, label = "CubeCobra link (optional)",
-                            placeholder = "https://cubecobra.com/…", keyboardType = KeyboardType.Uri,
-                            error = if (!cubeUrlOk) "Links start with https://" else null,
-                        )
+                        CubeFields(cubeName, { cubeName = it }, cubeUrl, { cubeUrl = it })
                     }
                 }
             }
@@ -197,14 +204,9 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
             FormBlock("Rounds") {
                 T1Stepper(null, rounds, 1..15, Modifier.fillMaxWidth()) { rounds = it }
             }
+            RoundTimerRow(showClock) { showClock = it }
 
-            FormBlock("Round length") {
-                T1TextField(minutes, { minutes = it.filter(Char::isDigit).take(3) }, keyboardType = KeyboardType.Number, trailing = "min")
-            }
-
-            FormBlock("Name") {
-                T1TextField(name, { customName = it.take(80) })
-            }
+            PlayersBlock(includeMe, { includeMe = it }, myName, guests) { guests = it }
 
             FormBlock("Location") {
                 T1TextField(venue, { venue = it.take(80) }, label = "Venue (optional)")
@@ -276,7 +278,17 @@ internal fun ColumnScope.SetPickerList(onPick: (DraftableSet) -> Unit) {
         list.isEmpty() -> Notice("No sets match \"$query\".")
         else -> LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             items(list, key = { it.code }) { s ->
-                ListRow(s.name, listOfNotNull(s.code.uppercase(), s.releasedAt?.take(4)).joinToString(" · "), onClick = { onPick(s) })
+                Row(
+                    Modifier.fillMaxWidth().background(T1.surface).clickable { onPick(s) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    SetIcon(s.code, s.iconSvgUri, 20.dp)
+                    Column(Modifier.weight(1f)) {
+                        Text(s.name, color = T1.text, fontFamily = T1.mono, fontSize = 14.sp, maxLines = 1)
+                        Label(listOfNotNull(s.code.uppercase(), s.releasedAt?.take(4)).joinToString(" · "))
+                    }
+                }
             }
         }
     }

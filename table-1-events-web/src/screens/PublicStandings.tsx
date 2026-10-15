@@ -41,7 +41,7 @@ export function PublicStandings({ eventId }: { eventId: string }) {
             : `Round ${activeRound?.number ?? event.currentRound} of ${event.numberOfRounds}`
         }
       />
-      {activeRound && (
+      {activeRound && event.showClock && (
         <div className="bg-t1-bg py-4">
           <ClockFace round={activeRound} size="small" />
         </div>

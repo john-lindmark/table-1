@@ -3,28 +3,34 @@ import SwiftUI
 // MARK: seating
 
 /// Draft seating: each pod's seats in passing order, team per seat, and how round 1 pairs.
-struct SeatingList: View {
+struct SeatingTable: View {
     let pods: [SeatingPod]
-    var highlight: String?
     /// Team draft: seats alternate A1, B1, A2, B2…, and round 1 pairs A slot i with B slot i+1 (wrapping).
     var teamDraft = false
+    var highlight: String?
+    @State private var pack = 1
 
     var body: some View {
+        T1Segmented(options: [(value: 1, label: "Pack 1"), (value: 2, label: "Pack 2"), (value: 3, label: "Pack 3")],
+                    selection: $pack)
         ForEach(pods) { pod in
             Section1("\(pods.count > 1 ? (pod.name ?? "Pod") : "Seating") · \(pod.seats.count) players")
-            Notice("Pack 1 passes left · Pack 2 right · Pack 3 left")
-            ForEach(pod.seats) { seat in
-                HStack(spacing: 12) {
-                    Text("\(seat.seat)").font(T1.mono(18)).foregroundStyle(T1.accent).frame(width: 32, alignment: .leading)
-                    Text(seat.displayName).font(T1.mono(14)).lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    if let team = seat.team { LabelText(team) }
-                }
-                .padding(.horizontal, 16).padding(.vertical, 12)
-                .background(seat.participantId == highlight ? T1.surfaceHover : T1.surface)
-            }
+            PodTable(pod: pod, pairs: Self.pairs(pod, teamDraft: teamDraft), pack: pack, highlight: highlight)
             Notice(teamDraft ? Self.teamDraftText(pod) : Self.acrossText(pod))
         }
+    }
+
+    /// Round 1 pairs as seat numbers (the same rule as the notes below the table).
+    static func pairs(_ pod: SeatingPod, teamDraft: Bool) -> [(Int, Int)] {
+        let seats = pod.seats.map(\.seat).sorted()
+        if teamDraft {
+            let a = stride(from: 0, to: seats.count, by: 2).map { seats[$0] }
+            let b = stride(from: 1, to: seats.count, by: 2).map { seats[$0] }
+            guard !a.isEmpty, a.count == b.count else { return [] }
+            return (0..<a.count).map { (a[$0], b[($0 + 1) % a.count]) }
+        }
+        let half = (seats.count - seats.count % 2) / 2
+        return (0..<half).map { (seats[$0], seats[$0 + half]) }
     }
 
     /// Team draft round 1: team A slot i (seat 2i−1) plays team B slot (i mod n)+1 (seat 2·that),
@@ -48,6 +54,105 @@ struct SeatingList: View {
         let pairs = (0..<half).map { "\(seats[$0]) v \(seats[$0 + half])" }.joined(separator: ", ")
         let bye = seats.count % 2 == 1 ? " Seat \(seats[seats.count - 1]) has the bye." : ""
         return "Round 1 pairs across the table: \(pairs).\(bye)"
+    }
+}
+
+/// One pod drawn as a table: seats clockwise from the top left, two to a side for eight, so seat 1 sits
+/// straight across from seat 5. Lines join round 1 opponents; the middle says which way this pack passes
+/// (left = clockwise, to the next seat number).
+private struct PodTable: View {
+    let pod: SeatingPod
+    let pairs: [(Int, Int)]
+    let pack: Int
+    let highlight: String?
+
+    private var seats: [SeatingPod.Seat] { pod.seats.sorted { $0.seat < $1.seat } }
+    private var passesLeft: Bool { pack % 2 == 1 }
+    private var byeSeat: Int? { seats.count % 2 == 1 && pairs.count * 2 < seats.count ? seats.last?.seat : nil }
+    private var mySeat: Int? { seats.first { $0.participantId == highlight }?.seat }
+
+    var body: some View {
+        GeometryReader { geo in
+            let size = geo.size
+            let chip = CGSize(width: min(104, size.width * 0.28), height: 46)
+            let points = Self.positions(count: seats.count, in: size, chip: chip)
+            let index = Dictionary(uniqueKeysWithValues: seats.enumerated().map { ($1.seat, $0) })
+            ZStack {
+                // The table.
+                Rectangle()
+                    .fill(T1.bg)
+                    .overlay(Rectangle().stroke(T1.disabled, lineWidth: 1))
+                    .frame(width: size.width - chip.width * 2 + 8, height: size.height - chip.height * 2 - 24)
+                    .position(x: size.width / 2, y: size.height / 2)
+                // Round 1 opponents.
+                ForEach(Array(pairs.enumerated()), id: \.offset) { _, pair in
+                    if let i = index[pair.0], let j = index[pair.1] {
+                        let mine = mySeat == pair.0 || mySeat == pair.1
+                        Path { p in
+                            p.move(to: points[i])
+                            p.addLine(to: points[j])
+                        }
+                        .stroke(mine ? T1.accent : T1.disabled, lineWidth: mine ? 2 : 1)
+                    }
+                }
+                VStack(spacing: 4) {
+                    LabelText("Pack \(pack)", color: T1.muted)
+                    Text(passesLeft ? "↻ Pass left" : "↺ Pass right").font(T1.mono(13, .bold)).foregroundStyle(T1.text)
+                }
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .background(T1.bg)
+                .position(x: size.width / 2, y: size.height / 2)
+                ForEach(Array(seats.enumerated()), id: \.element.id) { i, seat in
+                    SeatChip(seat: seat, mine: seat.participantId == highlight, bye: seat.seat == byeSeat)
+                        .frame(width: chip.width, height: chip.height)
+                        .position(points[i])
+                }
+            }
+        }
+        .aspectRatio(0.92, contentMode: .fit)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
+        .background(T1.surface)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Table, pack \(pack) passes \(passesLeft ? "left" : "right")")
+    }
+
+    /// Seat centres on a rectangle around the middle: seat k sits at angle −90° + 360°·(k + ½)/n, so opposite
+    /// seats mirror through the centre.
+    static func positions(count n: Int, in size: CGSize, chip: CGSize) -> [CGPoint] {
+        guard n > 0 else { return [] }
+        let c = CGPoint(x: size.width / 2, y: size.height / 2)
+        let ax = size.width / 2 - chip.width / 2 - 2
+        let ay = size.height / 2 - chip.height / 2 - 2
+        return (0..<n).map { k in
+            let theta = -Double.pi / 2 + 2 * Double.pi * (Double(k) + 0.5) / Double(n)
+            let cx = cos(theta), sy = sin(theta)
+            let t = min(abs(cx) < 1e-9 ? .infinity : ax / abs(cx), abs(sy) < 1e-9 ? .infinity : ay / abs(sy))
+            return CGPoint(x: c.x + t * cx, y: c.y + t * sy)
+        }
+    }
+}
+
+private struct SeatChip: View {
+    let seat: SeatingPod.Seat
+    let mine: Bool
+    let bye: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Text("\(seat.seat)").font(T1.mono(13, .bold)).foregroundStyle(T1.accent)
+                if let team = seat.team { LabelText(team) .lineLimit(1) }
+                if bye { LabelText("Bye", color: T1.warning) }
+            }
+            Text(seat.displayName).font(T1.mono(12)).lineLimit(1).truncationMode(.tail)
+        }
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(mine ? T1.surfaceHover : T1.bg)
+        .overlay(Rectangle().stroke(mine ? T1.accent : T1.disabled, lineWidth: 1))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Seat \(seat.seat), \(seat.displayName)\(seat.team.map { ", \($0)" } ?? "")\(bye ? ", bye" : "")")
     }
 }
 

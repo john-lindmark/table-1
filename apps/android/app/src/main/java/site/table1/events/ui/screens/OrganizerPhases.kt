@@ -1,5 +1,7 @@
 package site.table1.events.ui.screens
 
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.clickable
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -265,7 +267,7 @@ internal fun OrganizerScreen(
         OrganizerPhase.Live -> listOfNotNull(
             "Round ${active?.number ?: event.currentRound} of ${event.numberOfRounds}",
             when {
-                active == null || secondsLeft == null -> null
+                active == null || secondsLeft == null || !event.showClock -> null
                 paused -> "paused"
                 secondsLeft == 0 -> "time"
                 else -> "${clockText(secondsLeft ?: 0)} left"
@@ -292,7 +294,7 @@ internal fun OrganizerScreen(
         Box(Modifier.weight(1f)) {
             when (phase) {
                 OrganizerPhase.Setup -> when (selected) {
-                    "players" -> SetupPlayers(b, tags, onAddPlayers, onShowQr = { showQr = true })
+                    "players" -> SetupPlayers(b, tags, busy, onAddPlayers, onShowQr = { showQr = true }) { block -> act(block) }
                     "seating" -> SetupSeating(b, standings, busy) { seat() }
                     "teams" -> TeamsTab(b, onChanged)
                     "details" -> DetailsTab(b, onChanged)
@@ -375,13 +377,14 @@ internal fun OrganizerScreen(
 
     if (confirmStart) {
         val minutes = event.roundLengthSeconds / 60
+        val clock = if (event.showClock) "the $minutes-minute clock" else "the round (clocks hidden)"
         T1AlertDialog(
             title = "Start ${event.name}?",
             onDismiss = { confirmStart = false },
             body = {
                 DialogText(
-                    if (event.isDraft) "Pairs round 1 across the table and starts the $minutes-minute clock. Format, rounds and teams lock."
-                    else "Pairs round 1 and starts the $minutes-minute clock. Format, rounds and teams lock.",
+                    if (event.isDraft) "Pairs round 1 across the table and starts $clock. Format, rounds and teams lock."
+                    else "Pairs round 1 and starts $clock. Format, rounds and teams lock.",
                 )
             },
             confirm = {
@@ -470,7 +473,20 @@ internal fun OrganizerScreen(
 /* ── setup ──────────────────────────────────────────────────────────────────── */
 
 @Composable
-private fun SetupPlayers(b: EventBundle, tags: Map<String, String>, onAddPlayers: () -> Unit, onShowQr: () -> Unit) {
+private fun SetupPlayers(
+    b: EventBundle,
+    tags: Map<String, String>,
+    busy: Boolean,
+    onAddPlayers: () -> Unit,
+    onShowQr: () -> Unit,
+    act: (suspend () -> Unit) -> Unit,
+) {
+    val myId = Repo.userId
+    val me = b.participants.firstOrNull { it.userId != null && it.userId == myId }
+    var guestName by remember { mutableStateOf("") }
+    var removing by remember { mutableStateOf<ParticipantRow?>(null) }
+    val guest = tidyName(guestName)
+    val dup = guest.isNotEmpty() && b.participants.any { it.displayName.equals(guest, ignoreCase = true) }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -484,6 +500,11 @@ private fun SetupPlayers(b: EventBundle, tags: Map<String, String>, onAddPlayers
             }
         }
         item { Section("Players · ${b.participants.size}") }
+        if (myId != null && me == null) item {
+            ListRow("You're not playing", "Organizing only", onClick = if (busy) null else ({ act { Repo.addSelf(b.event.id) } })) {
+                Label("Join as a player", color = T1.accent)
+            }
+        }
         if (b.participants.isEmpty()) item { Notice("No players yet. Add players, or show the join QR to the room.") }
         items(b.participants, key = { it.id }) { p ->
             val team = tags[p.id]?.let { t -> t + (p.teamSlot?.let { " " + slotLetter(it) } ?: "") }
@@ -492,8 +513,39 @@ private fun SetupPlayers(b: EventBundle, tags: Map<String, String>, onAddPlayers
                 p.seat?.let { "Seat $it" },
                 team,
             ).joinToString(" · ")
-            ListRow(p.displayName, detail)
+            ListRow(if (p.id == me?.id) "You · ${p.displayName}" else p.displayName, detail) {
+                if (b.event.beforeRoundOne) {
+                    Label("Remove", Modifier.clickable(enabled = !busy) { removing = p }, color = T1.danger)
+                }
+            }
         }
+        item {
+            AddByNameRow(guestName, { guestName = it }, enabled = guest.isNotEmpty() && !dup && !busy) {
+                val name = guest
+                guestName = ""
+                act { Repo.addGuest(b.event.id, name) }
+            }
+        }
+        if (dup) item { Notice("$guest is already in this event.", error = true) }
+    }
+    removing?.let { p ->
+        T1AlertDialog(
+            title = "Remove ${p.displayName}?",
+            onDismiss = { removing = null },
+            body = {
+                DialogText(
+                    if (p.seat != null && b.event.status == "seated") "They'll leave the event. Seats after theirs move up one."
+                    else "They'll leave the event.",
+                )
+            },
+            confirm = {
+                BarAction("Remove") {
+                    removing = null
+                    act { Repo.removeParticipant(p.id) }
+                }
+            },
+            dismiss = { BarAction("Keep") { removing = null } },
+        )
     }
 }
 
@@ -526,7 +578,9 @@ private data class DetailsDraft(
     val cubeUrl: String,
     val teamSize: Int,
     val rounds: Int,
-    val minutes: Int,
+    val showClock: Boolean,
+    /** Older events keep a typed name; new ones are named by the server. */
+    val autoName: Boolean,
 ) {
     val limited: Boolean get() = limitedFormats.any { it.first == formatName }
     val team: Boolean get() = formatName == "team_draft" || formatName == "team_sealed"
@@ -564,7 +618,8 @@ private data class DetailsDraft(
             cubeUrl = e.cubeUrl.orEmpty(),
             teamSize = e.teamSize ?: 4,
             rounds = e.numberOfRounds.coerceIn(1, 15),
-            minutes = (e.roundLengthSeconds / 60).coerceIn(10, 240),
+            showClock = e.showClock,
+            autoName = e.autoName,
         )
     }
 }
@@ -609,10 +664,10 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
                 try {
                     Repo.updateEventDetails(
                         eventId = event.id,
-                        name = d.name.trim(),
+                        name = if (d.autoName) null else d.name.trim(),
                         formatName = d.formatName,
                         rounds = d.rounds,
-                        roundSeconds = d.minutes * 60,
+                        showClock = d.showClock,
                         setCode = if (limited && !d.useCube) d.setCode else null,
                         setName = if (limited && !d.useCube) d.setName.trim().ifEmpty { null } else null,
                         cubeName = if (limited && d.useCube) d.cubeName.trim().ifEmpty { null } else null,
@@ -678,8 +733,12 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
     val visibility = pendingVisibility ?: event.visibility
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-        FormBlock("Event name") {
-            T1TextField(d.name, { editText(draft.copy(name = it.take(80))) })
+        if (d.autoName) {
+            ListRow(event.name, "Named from the format and date")
+        } else {
+            FormBlock("Event name") {
+                T1TextField(d.name, { editText(draft.copy(name = it.take(80))) })
+            }
         }
 
         FormBlock("Format") {
@@ -700,18 +759,22 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
                     if (setsUnavailable) {
                         T1TextField(d.setName, { editText(draft.copy(setCode = null, setName = it.take(80))) }, label = "Set name")
                     } else {
-                        T1TextField(
-                            value = d.setCode?.let { "${d.setName.ifEmpty { it.uppercase() }} (${it.uppercase()})" } ?: "",
-                            onChange = {}, label = "Set", placeholder = "Pick a set…", trailing = "›",
-                            onClick = { pickingSet = true },
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            d.setCode?.let { SetIcon(it, size = 22.dp) }
+                            Box(Modifier.weight(1f)) {
+                                T1TextField(
+                                    value = d.setCode?.let { "${d.setName.ifEmpty { it.uppercase() }} (${it.uppercase()})" } ?: "",
+                                    onChange = {}, label = "Set", placeholder = "Pick a set…", trailing = "›",
+                                    onClick = { pickingSet = true },
+                                )
+                            }
+                        }
                     }
                 } else {
-                    T1TextField(d.cubeName, { editText(draft.copy(cubeName = it.take(80))) }, label = "Cube name")
-                    T1TextField(
-                        d.cubeUrl, { editText(draft.copy(cubeUrl = it.take(300))) }, label = "CubeCobra link (optional)",
-                        placeholder = "https://cubecobra.com/…", keyboardType = KeyboardType.Uri,
-                        error = if (!d.cubeUrlOk) "Links start with https://" else null,
+                    CubeFields(
+                        cubeName = d.cubeName, onCubeName = { editText(draft.copy(cubeName = it)) },
+                        cubeUrl = d.cubeUrl, onCubeUrl = { editText(draft.copy(cubeUrl = it)) },
+                        onLookedUp = { name, url -> editNow(draft.copy(cubeName = name, cubeUrl = url)) },
                     )
                 }
             }
@@ -727,9 +790,7 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
             T1Stepper(null, d.rounds, 1..15, Modifier.fillMaxWidth()) { editNow(draft.copy(rounds = it)) }
         }
 
-        FormBlock("Round length · minutes") {
-            T1Stepper(null, d.minutes, 10..240, Modifier.fillMaxWidth(), step = 5) { editNow(draft.copy(minutes = it)) }
-        }
+        RoundTimerRow(d.showClock) { editNow(draft.copy(showClock = it)) }
 
         FormBlock("Who can find it") {
             T1Segmented(
@@ -802,12 +863,17 @@ private fun LiveRound(
         else listOfNotNull(roundLine, "$inCount of $games results in", disputed.size.takeIf { it > 0 }?.let { "$it disputed" })
             .joinToString(" · ")
 
-        item(key = "clock") { BigNumber(clockText(secondsLeft ?: 0), caption) }
-        item(key = "clock-actions") {
-            Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-                Ghost(if (paused) "Resume clock" else "Pause clock", enabled = !busy) { onClock(if (paused) "resume" else "pause") }
-                Ghost("+5 min", enabled = !busy) { onClock("add") }
+        if (event.showClock) {
+            item(key = "clock") { BigNumber(clockText(secondsLeft ?: 0), caption) }
+            item(key = "clock-actions") {
+                Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Ghost(if (paused) "Resume clock" else "Pause clock", enabled = !busy) { onClock(if (paused) "resume" else "pause") }
+                    Ghost("+5 min", enabled = !busy) { onClock("add") }
+                }
             }
+        } else {
+            // Round timer off: no clock anywhere for this event (rounds still run 50 minutes).
+            item(key = "clock") { Notice(caption) }
         }
 
         if (disputed.isNotEmpty()) {

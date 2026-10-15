@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchDraftableSets } from "../lib/api";
 import type { DraftableSet } from "../lib/types";
 import { Field } from "./kit";
+import { SetIcon } from "./SetIcon";
 
 /** Searchable list of draftable sets, newest first. Falls back to a free-text set name when the list is empty. */
 export function SetPicker({
@@ -52,8 +53,17 @@ export function SetPicker({
 
   return (
     <div className="flex flex-col gap-px">
+      {picked && (
+        <div className="bg-t1-surface px-4 py-3 flex items-center gap-3">
+          <SetIcon code={picked.code} uri={picked.icon_svg_uri} size={22} />
+          <span className="flex-1 min-w-0 flex flex-col">
+            <span className="text-[14px] truncate">{picked.name}</span>
+            <span className="t1-label">Set · {picked.code.toUpperCase()}</span>
+          </span>
+        </div>
+      )}
       <label className="bg-t1-surface px-4 py-3 flex flex-col gap-1">
-        <span className="t1-label">{picked ? `Set · ${picked.name}` : "Set"}</span>
+        <span className="t1-label">{picked ? "Change set" : "Set"}</span>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -73,11 +83,7 @@ export function SetPicker({
               onClick={() => onPick(on ? null : s)}
               className={`px-4 py-2.5 flex items-center gap-3 text-left ${on ? "bg-t1-accent text-t1-ink" : "bg-t1-surface hover:bg-t1-surface-hover"}`}
             >
-              {s.icon_svg_uri ? (
-                <img src={s.icon_svg_uri} alt="" className={`size-4 shrink-0 ${on ? "" : "invert"}`} />
-              ) : (
-                <span className="size-4 shrink-0" />
-              )}
+              <SetIcon code={s.code} uri={s.icon_svg_uri} size={18} />
               <span className="flex-1 min-w-0 truncate text-[13px]">{s.name}</span>
               <span className={`t1-label shrink-0 ${on ? "text-t1-ink!" : ""}`}>
                 {s.code.toUpperCase()}

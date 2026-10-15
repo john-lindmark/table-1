@@ -141,7 +141,7 @@ private struct PlayerView: View {
             }
             if b.event.isCancelled { CancelledBanner(reason: b.event.cancelReason) }
             HairlineList {
-                if let active { RoundClock(endsAt: active.timerEndsAt) }
+                if let active, b.event.showClock { RoundClock(endsAt: active.timerEndsAt) }
                 if me == nil {
                     Notice("You're viewing this event. Scan the organizer's QR to take a seat.")
                 } else if let match {
@@ -175,7 +175,7 @@ private struct PlayerView: View {
                 if let notice { Notice(notice) }
                 if let error { Notice(error, error: true) }
                 if b.event.isDraft && b.rounds.isEmpty && !seating.isEmpty {
-                    SeatingList(pods: seating, highlight: me?.id, teamDraft: b.event.formatName == "team_draft")
+                    SeatingTable(pods: seating, teamDraft: b.event.formatName == "team_draft", highlight: me?.id)
                 }
                 Section1("Standings")
                 StandingsRows(engine: engine, highlight: me?.id)
