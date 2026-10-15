@@ -1,0 +1,36 @@
+# Table 1 monorepo: web (table-1-events-web), iOS (apps/ios), Android (apps/android), Supabase, contract, docs.
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+DerivedData/
+*.tsbuildinfo
+.gradle/
+.kotlin/
+.externalNativeBuild/
+.cxx/
+captures/
+
+# Secrets and machine-specific config (.env.example stays tracked)
+.env
+.env.*
+!.env.example
+local.properties
+
+# Xcode / Android Studio per-user state
+xcuserdata/
+*.xcuserstate
+.idea/
+*.iml
+
+# Backups and transfer leftovers
+*.tgz
+.claude-transfer/
+# The web and iOS apps' original repositories, kept after their history was imported here
+.git-legacy/
+
+# OS and editor noise
+.DS_Store
+*.log
+.claude/settings.local.json

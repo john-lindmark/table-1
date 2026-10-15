@@ -1,12 +1,46 @@
 import { useMemo, useState } from "react";
 import { useEvent } from "../lib/useEvent";
-import { fetchEventIdByCode, joinEvent, reportResultAsPlayer } from "../lib/api";
+import {
+  fetchEventIdByCode,
+  joinEvent,
+  reportMatch,
+  reportResultAsPlayer,
+  respondToResult,
+  errorMessage,
+} from "../lib/api";
+import { useSession } from "../lib/useSession";
 import { getLocalParticipant, saveLocalParticipant } from "../lib/session";
 import { StandingsTable } from "../components/StandingsTable";
-import { Bar, BigAction, ClockFace, Field, Notice, Screen, TimerProgress } from "../components/kit";
+import { TeamStandingsTable } from "../components/TeamStandingsTable";
+import { SeatingPanel } from "../components/SeatingPanel";
+import {
+  Bar,
+  BigAction,
+  ClockFace,
+  Field,
+  GhostAction,
+  Notice,
+  Screen,
+  SwitchRow,
+  TimerProgress,
+} from "../components/kit";
+import { isDraftFormat, isTeamFormat, slotLetter } from "../lib/formats";
+import { useTrackerMode } from "../lib/settings";
+import { participantsKey, toTeams, useEventTeams, useSeating } from "../lib/useEventExtras";
+
+const teamTitle = (name: string) => (/^team\b/i.test(name) ? name : `Team ${name}`);
 
 /** What a player sees: their match, their result buttons, the standings. */
-export function PlayerView({ code, eventIdProp }: { code?: string; eventIdProp?: string }) {
+export function PlayerView({
+  code,
+  eventIdProp,
+  onOpenLife,
+}: {
+  code?: string;
+  eventIdProp?: string;
+  /** Opens the shared life tracker for a match. */
+  onOpenLife?: (matchId: string) => void;
+}) {
   const [eventId, setEventId] = useState<string | null>(eventIdProp ?? null);
   const [resolving, setResolving] = useState(!eventIdProp && !!code);
   const [name, setName] = useState("");
@@ -23,16 +57,45 @@ export function PlayerView({ code, eventIdProp }: { code?: string; eventIdProp?:
         if (id) setMe(getLocalParticipant(id));
         if (!id) setJoinError("No event found with that code.");
       })
-      .catch((e) => setJoinError(e instanceof Error ? e.message : String(e)))
+      .catch((e) => setJoinError(errorMessage(e)))
       .finally(() => setResolving(false));
   }, [code, eventId]);
 
   const { bundle, refetch } = useEvent(eventId);
+  const { userId } = useSession();
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // A signed-in player is found by their account; a walk-in guest by the token on this device.
+  const accountSeat = useMemo(
+    () => (userId ? bundle?.participants.find((p) => p.userId === userId) ?? null : null),
+    [bundle, userId],
+  );
+  const viewer = useMemo(() => {
+    if (accountSeat) {
+      return {
+        participantId: accountSeat.id,
+        displayName: accountSeat.displayName,
+        token: null as string | null,
+      };
+    }
+    return me ? { participantId: me.participantId, displayName: me.displayName, token: me.token } : null;
+  }, [accountSeat, me]);
 
   const participants = useMemo(
     () => new Map((bundle?.participants ?? []).map((p) => [p.id, p])),
     [bundle],
   );
+  const formatName = bundle?.event.formatName ?? "draft";
+  const isTeam = !!bundle?.event.teamSize && isTeamFormat(formatName);
+  const isDraft = !!bundle && isDraftFormat(formatName);
+  const teamsState = useEventTeams(eventId, isTeam, participantsKey(bundle?.participants));
+  const beforeRoundOne = !!bundle && bundle.rounds.length === 0;
+  const { seating: pods } = useSeating(eventId, isDraft && beforeRoundOne, bundle?.participants, teamsState.teams);
+  const teamNames = useMemo(
+    () => new Map((teamsState.teams ?? []).map((t) => [t.id, t.name])),
+    [teamsState.teams],
+  );
+  const { mode, setMode } = useTrackerMode();
 
   async function handleJoin() {
     if (!code && !bundle) return;
@@ -53,7 +116,7 @@ export function PlayerView({ code, eventIdProp }: { code?: string; eventIdProp?:
       setEventId(result.event_id);
       await refetch();
     } catch (e) {
-      setJoinError(e instanceof Error ? e.message : String(e));
+      setJoinError(errorMessage(e));
     } finally {
       setJoining(false);
     }
@@ -67,7 +130,7 @@ export function PlayerView({ code, eventIdProp }: { code?: string; eventIdProp?:
     );
   }
 
-  if (!me) {
+  if (!viewer && !(userId && !bundle)) {
     return (
       <Screen>
         <Bar title={bundle?.event.name ?? "Join event"} subtitle={code ? code.toUpperCase() : undefined} />
@@ -96,11 +159,24 @@ export function PlayerView({ code, eventIdProp }: { code?: string; eventIdProp?:
 
   const { event, rounds } = bundle;
   const activeRound = rounds.find((r) => r.status === "active") ?? null;
+  if (!viewer) {
+    return (
+      <Screen>
+        <div className="flex-1 flex items-center justify-center t1-label">Loading…</div>
+      </Screen>
+    );
+  }
   const myMatch = activeRound?.matches.find((m) =>
-    m.sides.some((s) => s.participantId === me.participantId),
+    m.sides.some((s) => s.participantId === viewer.participantId),
   );
-  const mySide = myMatch?.sides.find((s) => s.participantId === me.participantId);
-  const theirSide = myMatch?.sides.find((s) => s.participantId !== me.participantId);
+  const mySide = myMatch?.sides.find((s) => s.participantId === viewer.participantId);
+  const theirSide = myMatch?.sides.find((s) => s.participantId !== viewer.participantId);
+  const opponentReported =
+    !!myMatch &&
+    myMatch.status === "reported" &&
+    !!userId &&
+    !!myMatch.reportedByUser &&
+    myMatch.reportedByUser !== userId;
   const opponentName = theirSide?.participantId
     ? participants.get(theirSide.participantId)?.displayName
     : null;
@@ -110,13 +186,45 @@ export function PlayerView({ code, eventIdProp }: { code?: string; eventIdProp?:
     if (!myMatch || !mySide) return;
     const side0 = mySide.side === 0 ? myWins : theirWins;
     const side1 = mySide.side === 0 ? theirWins : myWins;
+    setNotice(null);
     try {
-      await reportResultAsPlayer(myMatch.id, me!.token, side0, side1, 0);
+      if (viewer!.token) {
+        await reportResultAsPlayer(myMatch.id, viewer!.token, side0, side1, 0);
+      } else {
+        const outcome = await reportMatch(myMatch, side0, side1, 0);
+        if (outcome.conflict) {
+          setNotice(
+            "Your opponent reported a different score. The first result stands until the organizer decides.",
+          );
+        }
+      }
       await refetch();
     } catch (e) {
-      setJoinError(e instanceof Error ? e.message : String(e));
+      setJoinError(errorMessage(e));
     }
   }
+
+  async function respond(accept: boolean) {
+    if (!myMatch) return;
+    try {
+      await respondToResult(myMatch.id, accept);
+      if (!accept) setNotice("Disputed. The organizer has been notified.");
+      await refetch();
+    } catch (e) {
+      setJoinError(errorMessage(e));
+    }
+  }
+
+  const me_ = participants.get(viewer.participantId);
+  const myTeam = me_?.teamId ? teamNames.get(me_.teamId) : null;
+  const where = myTeam
+    ? `${teamTitle(myTeam)} · seat ${slotLetter(me_?.teamSlot)}`
+    : `Seat ${me_?.seat ?? "–"}`;
+  // The shared tracker needs an account on both ends; guests keep score elsewhere.
+  const signedInPlayer = !!userId && !viewer.token;
+  const canTrack =
+    signedInPlayer && !!onOpenLife && !!myMatch && !myMatch.isBye && !!theirSide?.participantId && event.status === "in_progress";
+  const trackerFirst = canTrack && mode === "tracker" && myMatch?.status !== "confirmed";
 
   const options: [string, number, number][] = [
     ["Won 2–0", 2, 0],
@@ -130,8 +238,13 @@ export function PlayerView({ code, eventIdProp }: { code?: string; eventIdProp?:
     <Screen>
       <Bar
         title={event.name}
-        subtitle={`${me.displayName} · Seat ${participants.get(me.participantId)?.seat ?? "–"} · Round ${activeRound?.number ?? event.currentRound} of ${event.numberOfRounds}`}
+        subtitle={`${viewer.displayName} · ${where} · ${event.formatLabel} · Round ${activeRound?.number ?? event.currentRound} of ${event.numberOfRounds}`}
       />
+      {event.status === "cancelled" && (
+        <Notice tone="error">
+          Cancelled by the organizer{event.cancelReason ? `: ${event.cancelReason}` : ""}. Confirmed results still count.
+        </Notice>
+      )}
 
       {activeRound && (
         <>
@@ -153,7 +266,35 @@ export function PlayerView({ code, eventIdProp }: { code?: string; eventIdProp?:
               <p className="t1-label">Table {myMatch.tableNumber} · playing</p>
               <p className="text-[22px] tracking-[1px]">{opponentName ?? "—"}</p>
             </div>
-            {event.allowPlayerReporting ? (
+            {trackerFirst && <BigAction label="Open life tracker" tone="accent" onClick={() => onOpenLife!(myMatch.id)} />}
+            {opponentReported && (
+              <div className="flex flex-col gap-px">
+                <Notice tone="info">
+                  {opponentName ?? "Your opponent"} reported {mySide?.gameWins}–{theirSide?.gameWins} for you.
+                  {myMatch.disputed ? " Disputed — waiting on the organizer." : ""}
+                </Notice>
+                {!myMatch.disputed && (
+                  <div className="flex gap-px">
+                    <button
+                      onClick={() => respond(false)}
+                      className="flex-1 bg-t1-surface hover:bg-t1-surface-hover px-4 py-4 text-[12px] uppercase tracking-[1px]"
+                    >
+                      Dispute
+                    </button>
+                    <button
+                      onClick={() => respond(true)}
+                      className="flex-1 bg-t1-accent text-t1-ink px-4 py-4 text-[12px] uppercase tracking-[1px]"
+                    >
+                      Confirm
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            {myMatch.status === "confirmed" && (
+              <Notice tone="info">Result confirmed. The organizer can still correct it.</Notice>
+            )}
+            {event.allowPlayerReporting && myMatch.status !== "confirmed" && !opponentReported ? (
               <div className="flex flex-col gap-px">
                 {options.map(([label, mine, theirs]) => {
                   const selected =
@@ -180,8 +321,13 @@ export function PlayerView({ code, eventIdProp }: { code?: string; eventIdProp?:
                   </Notice>
                 )}
               </div>
-            ) : (
+            ) : !event.allowPlayerReporting ? (
               <Notice tone="info">The organizer is recording results for this event.</Notice>
+            ) : null}
+            {canTrack && !trackerFirst && (
+              <div className="flex gap-px">
+                <GhostAction label="Open life tracker" onClick={() => onOpenLife!(myMatch.id)} />
+              </div>
             )}
           </>
         )
@@ -191,14 +337,49 @@ export function PlayerView({ code, eventIdProp }: { code?: string; eventIdProp?:
         </Notice>
       )}
 
+      {notice && <Notice tone="info">{notice}</Notice>}
       {joinError && <Notice tone="error">{joinError}</Notice>}
 
+      {signedInPlayer && (
+        <SwitchRow
+          label="Use life tracker"
+          detail={mode === "tracker" ? "Your matches open in the life tracker" : "Keep score elsewhere; report results here"}
+          on={mode === "tracker"}
+          onChange={(on) => setMode(on ? "tracker" : "elsewhere")}
+        />
+      )}
+
+      {isDraft && beforeRoundOne && pods && pods.length > 0 && (
+        <>
+          <div className="bg-t1-surface px-4 py-2 t1-label">Draft seating</div>
+          <SeatingPanel
+            pods={pods}
+            formatName={formatName}
+            participants={bundle.participants}
+            teams={teamsState.teams}
+            highlightParticipantId={viewer.participantId}
+          />
+        </>
+      )}
+
+      {isTeam && (
+        <>
+          <div className="bg-t1-surface px-4 py-2 t1-label">Team standings</div>
+          <TeamStandingsTable
+            teams={toTeams(teamsState.teams ?? [])}
+            participants={bundle.participants}
+            rounds={rounds}
+            highlightParticipantId={viewer.participantId}
+          />
+        </>
+      )}
       <div className="bg-t1-surface px-4 py-2 t1-label">Standings</div>
       <StandingsTable
         participants={bundle.participants}
         rounds={rounds}
-        highlightParticipantId={me.participantId}
+        highlightParticipantId={viewer.participantId}
         compact
+        teamNames={isTeam ? teamNames : undefined}
       />
     </Screen>
   );

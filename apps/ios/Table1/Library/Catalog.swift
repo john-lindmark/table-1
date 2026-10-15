@@ -1,0 +1,292 @@
+import CryptoKit
+import Foundation
+import Supabase
+
+// The offline card catalog (contract/catalog-2026-10-14.md): one gzipped TSV pack, downloaded only when its
+// version changes, verified, and loaded into a local SQLite file. Search, the collection list and card detail
+// all read from here; the server is only asked for prices and history.
+
+struct CatalogInfo: Decodable {
+    let version: String
+    let format: Int
+    let url: String
+    let bytes: Int
+    let sha256: String
+}
+
+struct CatalogOracle: Hashable, Sendable {
+    let idx: Int
+    let oracleId: String
+    let name: String
+    let norm: String
+    let typeLine: String
+    let manaCost: String
+    let printings: Int
+}
+
+struct CatalogPrinting: Hashable, Sendable {
+    let cardId: String
+    let oracleIdx: Int
+    /// Position in the pack; within a card, lower is newer.
+    let ord: Int
+    let set: String
+    let cn: String
+    let lang: String
+    let rarity: String
+    let finishes: String
+    let releasedAt: String
+    let imageTs: String
+    let imageFaces: Int
+    let printedName: String
+
+    var setLabel: String { "\(set.uppercased()) #\(cn)" }
+    var finishList: [Finish] { finishes.compactMap { CatalogPack.finishName[$0].flatMap(Finish.init(rawValue:)) } }
+    func imageURL(_ size: String = "normal") -> URL? {
+        imageFaces == 0 ? nil : CatalogPack.imageURL(cardId: cardId, imageTs: imageTs, size: size)
+    }
+}
+
+/// One installed pack. Read-only after it's built; queries are serialized by the connection's lock.
+final class CatalogDB: @unchecked Sendable {
+    let version: String
+    private let db: SQLiteDB
+
+    init(path: String, version: String) throws {
+        db = try SQLiteDB(path: path, readOnly: true)
+        self.version = version
+    }
+
+    func close() { db.close() }
+
+    private static let oracleCols = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount"
+    private static func oracle(_ r: SQLiteDB.Row) -> CatalogOracle {
+        CatalogOracle(idx: r.int(0), oracleId: r.text(1), name: r.text(2), norm: r.text(3), typeLine: r.text(4),
+                      manaCost: r.text(5), printings: r.int(6))
+    }
+
+    private static let printingCols =
+        "card_id, oracle_idx, ord, set_code, cn, lang, rarity, finishes, released_at, image_ts, image_faces, printed_name"
+    private static func printing(_ r: SQLiteDB.Row) -> CatalogPrinting {
+        CatalogPrinting(cardId: r.text(0), oracleIdx: r.int(1), ord: r.int(2), set: r.text(3), cn: r.text(4), lang: r.text(5),
+                        rarity: r.text(6), finishes: r.text(7), releasedAt: r.text(8), imageTs: r.text(9),
+                        imageFaces: r.int(10), printedName: r.text(11))
+    }
+
+    /// Card name search, ranked like the web client.
+    func search(_ query: String, limit: Int = 40) -> [CatalogOracle] {
+        let q = CardName.norm(query)
+        guard q.count >= 2 else { return [] }
+        let rows = (try? db.query("SELECT \(Self.oracleCols) FROM oracles WHERE instr(name_norm, ?) > 0", [.text(q)], Self.oracle)) ?? []
+        let byIdx = Dictionary(rows.map { ($0.idx, $0) }, uniquingKeysWith: { a, _ in a })
+        let ranked = CatalogPack.rank(rows.map { .init(idx: $0.idx, norm: $0.norm, type: $0.typeLine, printings: $0.printings) },
+                                      query: q, limit: limit)
+        return ranked.compactMap { byIdx[$0] }
+    }
+
+    func oracle(id: String) -> CatalogOracle? {
+        try? db.query("SELECT \(Self.oracleCols) FROM oracles WHERE oracle_id = ?", [.text(id)], Self.oracle).first
+    }
+
+    /// Every printing of a card, newest first.
+    func printings(oracleIdx: Int) -> [CatalogPrinting] {
+        (try? db.query("SELECT \(Self.printingCols) FROM printings WHERE oracle_idx = ? ORDER BY ord", [.int(oracleIdx)], Self.printing)) ?? []
+    }
+
+    func printings(ids: [String]) -> [String: CatalogPrinting] {
+        var out: [String: CatalogPrinting] = [:]
+        for chunk in Self.chunks(ids) {
+            let marks = Array(repeating: "?", count: chunk.count).joined(separator: ",")
+            let rows = (try? db.query("SELECT \(Self.printingCols) FROM printings WHERE card_id IN (\(marks))",
+                                      chunk.map { .text($0) }, Self.printing)) ?? []
+            for p in rows { out[p.cardId] = p }
+        }
+        return out
+    }
+
+    /// One printing per card to show as its picture: the newest English printing with an image, else the newest.
+    func covers(oracleIdxs: [Int]) -> [Int: CatalogPrinting] {
+        var out: [Int: CatalogPrinting] = [:]
+        for chunk in Self.chunks(oracleIdxs) {
+            let marks = Array(repeating: "?", count: chunk.count).joined(separator: ",")
+            let rows = (try? db.query("""
+                SELECT \(Self.printingCols) FROM printings WHERE oracle_idx IN (\(marks))
+                ORDER BY oracle_idx, (lang = 'en' AND image_faces > 0) DESC, ord
+                """, chunk.map { .int($0) }, Self.printing)) ?? []
+            for p in rows where out[p.oracleIdx] == nil { out[p.oracleIdx] = p }
+        }
+        return out
+    }
+
+    func oracles(idxs: [Int]) -> [Int: CatalogOracle] {
+        var out: [Int: CatalogOracle] = [:]
+        for chunk in Self.chunks(idxs) {
+            let marks = Array(repeating: "?", count: chunk.count).joined(separator: ",")
+            let rows = (try? db.query("SELECT \(Self.oracleCols) FROM oracles WHERE idx IN (\(marks))",
+                                      chunk.map { .int($0) }, Self.oracle)) ?? []
+            for o in rows { out[o.idx] = o }
+        }
+        return out
+    }
+
+    private static func chunks<T>(_ xs: [T]) -> [ArraySlice<T>] {
+        stride(from: 0, to: xs.count, by: 500).map { xs[$0..<min($0 + 500, xs.count)] }
+    }
+
+    // MARK: building
+
+    /// Builds a SQLite file from a gunzipped pack in one transaction; indexes are created after the inserts.
+    static func build(pack: Data, at path: String) throws -> PackHeader {
+        try? FileManager.default.removeItem(atPath: path)
+        let db = try SQLiteDB(path: path)
+        defer { db.close() }
+        try db.exec("""
+            PRAGMA journal_mode = OFF;
+            PRAGMA synchronous = OFF;
+            CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
+            CREATE TABLE oracles (idx INTEGER PRIMARY KEY, oracle_id TEXT NOT NULL, name TEXT NOT NULL,
+              name_norm TEXT NOT NULL, type_line TEXT, mana_cost TEXT, cmc REAL, colors TEXT, face_names TEXT,
+              pcount INTEGER NOT NULL DEFAULT 0);
+            CREATE TABLE printings (card_id TEXT PRIMARY KEY, oracle_idx INTEGER NOT NULL, ord INTEGER NOT NULL,
+              set_code TEXT, cn TEXT, lang TEXT, rarity TEXT, finishes TEXT, released_at TEXT, image_ts TEXT,
+              image_faces INTEGER, printed_name TEXT);
+            """)
+        let header: PackHeader = try db.transaction {
+            let insO = try db.prepare("INSERT INTO oracles (idx, oracle_id, name, name_norm, type_line, mana_cost, cmc, colors, face_names) VALUES (?,?,?,?,?,?,?,?,?)")
+            let insP = try db.prepare("INSERT OR REPLACE INTO printings VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
+            var ord = 0
+            let h = try CatalogPack.parse(pack, oracle: { o in
+                try insO.run([.int(o.idx), .text(o.oracleId), .text(o.name), .text(o.nameNorm), .text(o.typeLine),
+                              .text(o.manaCost), .double(o.cmc), .text(o.colors), .text(o.faceNames)])
+            }, printing: { p in
+                try insP.run([.text(p.cardId), .int(p.oracleIdx), .int(ord), .text(p.set), .text(p.cn), .text(p.lang),
+                              .text(p.rarity), .text(p.finishes), .text(p.releasedAt), .text(p.imageTs), .int(p.imageFaces),
+                              .text(p.printedName)])
+                ord += 1
+            })
+            try db.exec("""
+                CREATE INDEX printings_oracle ON printings (oracle_idx, ord);
+                CREATE INDEX printings_set_cn ON printings (set_code, cn, lang);
+                CREATE INDEX oracles_norm ON oracles (name_norm);
+                CREATE INDEX oracles_id ON oracles (oracle_id);
+                UPDATE oracles SET pcount = (SELECT count(*) FROM printings WHERE oracle_idx = oracles.idx);
+                """)
+            try db.run("INSERT INTO meta VALUES ('version', ?)", [.text(h.version)])
+            return h
+        }
+        return header
+    }
+}
+
+/// Owns the installed pack: opens it at launch, checks `catalog_info` at most once a day, and swaps in a new
+/// version atomically (the old one stays in use until the new one is built).
+@MainActor
+@Observable
+final class CatalogStore {
+    static let shared = CatalogStore()
+
+    enum Phase: Equatable { case idle, loading, ready, failed(String) }
+    private(set) var phase: Phase = .idle
+    /// Bumped whenever a pack is opened or replaced; views re-query on it.
+    private(set) var generation = 0
+    @ObservationIgnored private(set) var db: CatalogDB?
+    @ObservationIgnored private var running: Task<Void, Never>?
+    /// With a pack installed, a failed update (offline, cellular) waits an hour before the next try.
+    @ObservationIgnored private var lastAttempt: Date?
+
+    private let fileKey = "catalog.file"
+    private let checkedKey = "catalog.checkedAt"
+    private let dir: URL = {
+        let d = URL.applicationSupportDirectory.appending(path: "Catalog", directoryHint: .isDirectory)
+        try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
+        return d
+    }()
+
+    /// `userInitiated`: the Library is on screen. A first pack then downloads on any network; otherwise (at
+    /// launch, or when a pack is already installed) only on Wi-Fi / unmetered networks.
+    func load(userInitiated: Bool) {
+        if db == nil { openInstalled() }
+        if running != nil { return }
+        if db != nil, let at = UserDefaults.standard.object(forKey: checkedKey) as? Date, Date().timeIntervalSince(at) < 86_400 { return }
+        if db != nil, let at = lastAttempt, Date().timeIntervalSince(at) < 3_600 { return }
+        lastAttempt = Date()
+        running = Task {
+            await refresh(anyNetwork: db == nil && userInitiated)
+            running = nil
+        }
+    }
+
+    private func openInstalled() {
+        guard let file = UserDefaults.standard.string(forKey: fileKey) else { return }
+        let url = dir.appending(path: file)
+        guard FileManager.default.fileExists(atPath: url.path),
+              let version = file.split(separator: ".").first.map({ String($0.dropFirst("catalog-".count)) }),
+              let opened = try? CatalogDB(path: url.path, version: version) else { return }
+        db = opened
+        phase = .ready
+        generation += 1
+    }
+
+    private func refresh(anyNetwork: Bool) async {
+        let hadPack = db != nil
+        if !hadPack { phase = .loading }
+        do {
+            let info: CatalogInfo? = try await supabase.rpc("catalog_info").execute().value
+            guard let info else {
+                if !hadPack { phase = .failed("Card data isn't available yet") }
+                return
+            }
+            if info.version == db?.version {
+                UserDefaults.standard.set(Date(), forKey: checkedKey)
+                return
+            }
+            guard info.format == 1 else {
+                if !hadPack { phase = .failed("Update Table 1 to load the latest card data") }
+                return
+            }
+            if !hadPack && !anyNetwork { phase = .idle; return } // waits for the Library to open
+            let file = "catalog-\(info.version).sqlite"
+            let path = dir.appending(path: file).path
+            let tmp = dir.appending(path: "building.sqlite").path
+            try await Task.detached(priority: .utility) {
+                try await Self.install(info, anyNetwork: anyNetwork, building: tmp, final: path)
+            }.value
+            let opened = try CatalogDB(path: path, version: info.version)
+            let old = db
+            db = opened
+            phase = .ready
+            generation += 1
+            UserDefaults.standard.set(file, forKey: fileKey)
+            UserDefaults.standard.set(Date(), forKey: checkedKey)
+            old?.close()
+            removeOtherPacks(keep: file)
+        } catch {
+            // With a pack installed, keep using it quietly and try again next launch.
+            if !hadPack { phase = .failed(error.localizedDescription) }
+        }
+    }
+
+    nonisolated private static func install(_ info: CatalogInfo, anyNetwork: Bool, building: String, final: String) async throws {
+        guard let url = URL(string: info.url) else { throw CatalogPack.Failure.format }
+        var req = URLRequest(url: url)
+        req.allowsExpensiveNetworkAccess = anyNetwork
+        req.allowsConstrainedNetworkAccess = anyNetwork
+        let (data, response) = try await URLSession.shared.data(for: req)
+        if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+            throw SQLiteDB.Failure(message: "Card data \(http.statusCode)")
+        }
+        let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        guard digest == info.sha256.lowercased() else { throw CatalogPack.Failure.checksum }
+        let pack = try CatalogPack.gunzip(data)
+        _ = try CatalogDB.build(pack: pack, at: building)
+        let fm = FileManager.default
+        try? fm.removeItem(atPath: final)
+        try fm.moveItem(atPath: building, toPath: final)
+    }
+
+    private func removeOtherPacks(keep: String) {
+        let fm = FileManager.default
+        for name in (try? fm.contentsOfDirectory(atPath: dir.path)) ?? [] where name != keep && name.hasPrefix("catalog-") {
+            try? fm.removeItem(at: dir.appending(path: name))
+        }
+    }
+}

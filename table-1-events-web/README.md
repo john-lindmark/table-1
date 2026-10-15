@@ -20,11 +20,17 @@ npm test                 # pairings + tiebreaker fixtures
 | `/` | organizer | Sign in, event list, create event, join by code |
 | `/e/:eventId` | organizer | Run the event — pairings, results, timer, standings, drops |
 | `/join/:code` | player | Join as a guest with just a name |
+| `/j/:code?s=…` | player | Owner's QR code: signed-in players are seated at once; others sign in or join as a guest |
+| `/me` | player | Lifetime record and head-to-head against every opponent |
 | `/p/:eventId` | player | Their match, their result buttons, live standings |
 | `/s/:eventId` | anyone | Read-only standings and pairings — the shareable link |
 
-Players never make an account. `join_event` hands back a token that lives in
-their own `localStorage` and proves they are on a given match.
+Sign-in is Apple or Google only. Signed-in players report with `report_match`
+(versioned, idempotent; the same score from the opponent confirms, a different one
+disputes), and their results feed lifetime records and head-to-head. Walk-in guests
+still work: `join_event` hands back a token that lives in their own `localStorage`
+and proves they are on a given match; signing in later claims that history.
+Organizer corrections go through `set_match_result` (audited with a reason).
 
 ## Tournament rules
 

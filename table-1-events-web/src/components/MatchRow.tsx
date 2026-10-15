@@ -77,11 +77,14 @@ export function MatchRow({
   participants,
   canEdit,
   onCycle,
+  onLife,
 }: {
   match: Match;
   participants: Map<string, Participant>;
   canEdit: boolean;
   onCycle: (side: 0 | 1) => void;
+  /** Shows a small "Life" button that opens this match's shared life tracker. */
+  onLife?: () => void;
 }) {
   const { state, winnerSide } = matchState(match);
   const side0 = match.sides.find((s) => s.side === 0);
@@ -115,6 +118,16 @@ export function MatchRow({
           canEdit={canEdit}
           onTap={() => onCycle(0)}
         />
+        {onLife && (
+          <button
+            type="button"
+            onClick={onLife}
+            aria-label="Open this match's life tracker"
+            className="w-12 shrink-0 bg-t1-surface hover:bg-t1-surface-hover t1-label text-[9px]!"
+          >
+            Life
+          </button>
+        )}
         <Half
           name={nameOf(side1?.participantId)}
           gameWins={side1?.gameWins ?? 0}

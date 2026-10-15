@@ -1,0 +1,288 @@
+import { useState } from "react";
+import { errorMessage, finishEvent, pairNextRound, setParticipantStatus, setRoundClock, writeAudit } from "../../lib/api";
+import type { ClockAction, EventBundle } from "../../lib/api";
+import { slotLetter } from "../../lib/formats";
+import {
+  activeRoundOf,
+  applyClock,
+  formatMmSs,
+  groupMatches,
+  lastRoundNumber,
+  liveAction,
+  matchDetail,
+  matchTitle,
+  matchValue,
+  nameLookup,
+  openMatchCount,
+  remainingSeconds,
+  roundCaption,
+} from "../../lib/organizer";
+import type { Match, Participant, RoundWithMatches } from "../../lib/types";
+import { BigAction, BigNumber, Dialog, GhostAction, Notice, Row, Section, useNow } from "../../components/kit";
+import { TeamsPanel } from "../../components/TeamsPanel";
+import { StandingsBlock, type PhaseViewProps } from "./shared";
+
+const ADD_SECONDS = 300;
+
+/** Live: Round | Standings | Players (+ Teams, read-only). Big action: waiting → pair next → finish. */
+export function LiveView(
+  props: PhaseViewProps & {
+    mutate: (optimistic: (prev: EventBundle) => EventBundle, call: () => Promise<unknown>) => Promise<void>;
+  },
+) {
+  const { eventId, bundle, tab, isTeam, teams, refetch, onOpenMatch, setActionError, mutate } = props;
+  const { event, rounds, participants } = bundle;
+  const active = activeRoundOf(rounds);
+  const currentRound = active?.number ?? lastRoundNumber(rounds);
+  const action = liveAction(event, rounds);
+  const nameOf = nameLookup(participants);
+
+  const [busy, setBusy] = useState(false);
+  const [confirmFinish, setConfirmFinish] = useState(false);
+  const [finishError, setFinishError] = useState<string | null>(null);
+  const [dropping, setDropping] = useState<Participant | null>(null);
+  const [dropError, setDropError] = useState<string | null>(null);
+  const [dropBusy, setDropBusy] = useState(false);
+
+  function clock(kind: ClockAction) {
+    if (!active) return;
+    setActionError(null);
+    void mutate(
+      (prev) => ({
+        ...prev,
+        rounds: prev.rounds.map((r) => (r.id === active.id ? applyClock(r, kind, ADD_SECONDS, Date.now()) : r)),
+      }),
+      () => setRoundClock(active.id, kind, ADD_SECONDS),
+    );
+  }
+
+  async function pairNext() {
+    setBusy(true);
+    setActionError(null);
+    try {
+      await pairNextRound(eventId);
+      await refetch();
+    } catch (e) {
+      setActionError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function finish() {
+    setBusy(true);
+    setFinishError(null);
+    try {
+      await finishEvent(eventId, active?.id ?? null);
+      await writeAudit({ eventId, action: "event.completed", targetType: "event", targetId: eventId });
+      setConfirmFinish(false);
+      await refetch();
+    } catch (e) {
+      setFinishError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setStatus(p: Participant, status: "active" | "dropped") {
+    setDropBusy(true);
+    setDropError(null);
+    try {
+      await setParticipantStatus(p.id, status, status === "dropped" ? currentRound || null : null);
+      setDropping(null);
+      await refetch();
+    } catch (e) {
+      if (status === "dropped") setDropError(errorMessage(e));
+      else setActionError(errorMessage(e));
+    } finally {
+      setDropBusy(false);
+    }
+  }
+
+  const playing = participants.filter((p) => p.status === "active");
+  const dropped = participants.filter((p) => p.status === "dropped");
+  const open = openMatchCount(active);
+  const teamTag = (p: Participant) =>
+    isTeam && p.teamId ? `${props.teamNames.get(p.teamId) ?? "Team"} · ${slotLetter(p.teamSlot)}` : undefined;
+
+  return (
+    <>
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
+        {tab === "round" &&
+          (active ? (
+            <>
+              <RoundClock round={active} caption={roundCaption(event, active)} onClock={clock} />
+              <MatchList round={active} nameOf={nameOf} onOpenMatch={onOpenMatch} />
+            </>
+          ) : (
+            <Notice tone="info">
+              {currentRound >= event.numberOfRounds
+                ? `All ${event.numberOfRounds} rounds are in. Finish the event to send final standings.`
+                : `Round ${currentRound} recorded. Pair round ${currentRound + 1} when the table is ready.`}
+            </Notice>
+          ))}
+
+        {tab === "standings" && (
+          <>
+            {open > 0 && (
+              <Notice tone="info">
+                Live: updates as results come in. {open} match{open === 1 ? "" : "es"} still open.
+              </Notice>
+            )}
+            <StandingsBlock bundle={bundle} isTeam={isTeam} teams={teams} teamNames={props.teamNames} />
+          </>
+        )}
+
+        {tab === "players" && (
+          <>
+            <Section title="Playing" count={playing.length} />
+            {playing.map((p) => (
+              <Row
+                key={p.id}
+                title={p.displayName}
+                detail={teamTag(p)}
+                action={{
+                  label: "Drop",
+                  onClick: () => {
+                    setDropError(null);
+                    setDropping(p);
+                  },
+                }}
+              />
+            ))}
+            <Section title="Dropped" count={dropped.length} />
+            {dropped.map((p) => (
+              <Row
+                key={p.id}
+                title={p.displayName}
+                detail={`Dropped after round ${p.droppedInRound ?? currentRound} · still counts in tiebreakers`}
+                action={{ label: "Reinstate", onClick: () => void setStatus(p, "active"), disabled: dropBusy }}
+                dim
+              />
+            ))}
+          </>
+        )}
+
+        {tab === "teams" && isTeam && (
+          <TeamsPanel
+            eventId={eventId}
+            formatName={event.formatName}
+            teamSize={event.teamSize ?? 3}
+            participants={participants}
+            teams={teams}
+            locked
+            onSaved={() => void refetch()}
+          />
+        )}
+      </div>
+
+      <BigAction
+        label={action.label}
+        busy={busy}
+        disabled={action.kind === "waiting"}
+        onClick={() => {
+          if (action.kind === "pair") void pairNext();
+          else if (action.kind === "finish") {
+            setFinishError(null);
+            setConfirmFinish(true);
+          }
+        }}
+      />
+
+      {confirmFinish && (
+        <Dialog
+          title={`Finish ${event.name}?`}
+          message="Final standings go to every player and the event moves to Past. You can still correct a result afterwards."
+          cancelLabel="Not yet"
+          confirmLabel="Finish"
+          busyLabel="Finishing…"
+          busy={busy}
+          error={finishError}
+          onCancel={() => setConfirmFinish(false)}
+          onConfirm={finish}
+        />
+      )}
+
+      {dropping && (
+        <Dialog
+          title={`Drop ${dropping.displayName}?`}
+          message="They won't be paired again. Their results so far still count."
+          cancelLabel="Keep"
+          confirmLabel="Drop"
+          busyLabel="Dropping…"
+          tone="danger"
+          busy={dropBusy}
+          error={dropError}
+          onCancel={() => setDropping(null)}
+          onConfirm={() => void setStatus(dropping, "dropped")}
+        />
+      )}
+    </>
+  );
+}
+
+/** Big clock that ticks every second (paused: what's left), caption, Pause/Resume and +5 min. */
+function RoundClock({
+  round,
+  caption,
+  onClock,
+}: {
+  round: RoundWithMatches;
+  caption: string;
+  onClock: (action: ClockAction) => void;
+}) {
+  const running = round.timerStatus === "running";
+  const now = useNow(running, 1000);
+  const left = remainingSeconds(round, now);
+  const tone = !running ? "muted" : left <= 0 ? "danger" : left <= 300 ? "warning" : "normal";
+  return (
+    <div className="shrink-0 flex flex-col gap-px">
+      <div className="bg-t1-bg py-6 flex flex-col items-center gap-3">
+        <BigNumber tone={tone}>{formatMmSs(left)}</BigNumber>
+        <p className="t1-label text-center px-4">{caption}</p>
+      </div>
+      <div className="flex gap-px">
+        <GhostAction label={running ? "Pause clock" : "Resume clock"} onClick={() => onClock(running ? "pause" : "resume")} />
+        <GhostAction label="+5 min" onClick={() => onClock("add")} />
+      </div>
+    </div>
+  );
+}
+
+/** Disputed · n, Waiting · n, Results in · n. Tapping a non-bye match opens the set-result panel. */
+function MatchList({
+  round,
+  nameOf,
+  onOpenMatch,
+}: {
+  round: RoundWithMatches;
+  nameOf: (id: string | null | undefined) => string;
+  onOpenMatch: (m: Match) => void;
+}) {
+  const groups = groupMatches(round.matches);
+  const sections: [string, Match[]][] = [
+    ["Disputed", groups.disputed],
+    ["Waiting", groups.waiting],
+    ["Results in", groups.results],
+  ];
+  return (
+    <>
+      {sections.map(([title, list]) =>
+        list.length === 0 ? null : (
+          <div key={title} className="flex flex-col gap-px">
+            <Section title={title} count={list.length} />
+            {list.map((m) => (
+              <Row
+                key={m.id}
+                title={matchTitle(m, nameOf)}
+                detail={matchDetail(m, nameOf) || undefined}
+                value={matchValue(m)}
+                onClick={m.isBye ? undefined : () => onOpenMatch(m)}
+              />
+            ))}
+          </div>
+        ),
+      )}
+    </>
+  );
+}

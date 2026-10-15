@@ -24,6 +24,8 @@
   --t1-warning: #d97706;
   --t1-warning-surface: #fef3c7;
   --t1-danger: #d4183d;
+  /* Library Error (pink). The tracker uses it for the round clock in overtime and a lost total. */
+  --t1-error: #b0359c;
 }
 
 .dark {
@@ -35,6 +37,7 @@
   --t1-warning: #fbbf24;
   --t1-warning-surface: #292315;
   --t1-danger: #f87171;
+  --t1-error: #f2a3e5;
 }
 
 @theme inline {
@@ -49,6 +52,7 @@
   --color-t1-warning: var(--t1-warning);
   --color-t1-warning-surface: var(--t1-warning-surface);
   --color-t1-danger: var(--t1-danger);
+  --color-t1-error: var(--t1-error);
   --font-mono: var(--font-mono);
 }
 
@@ -78,6 +82,16 @@
   :focus-visible {
     outline: 2px solid var(--t1-accent);
     outline-offset: -2px;
+  }
+}
+
+/* Life tracker counter picker: slides down inside its half. */
+@keyframes t1-slide-down {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: none;
   }
 }
 

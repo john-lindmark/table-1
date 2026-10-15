@@ -1,0 +1,6 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Placeholder mark: a single teal table on the dark field. Replace with the brand icon. -->
+    <path android:fillColor="#00FFD9" android:pathData="M34,46h40v8h-40z" />
+    <path android:fillColor="#00FFD9" android:pathData="M38,54h6v14h-6zM64,54h6v14h-6z" />
+</vector>

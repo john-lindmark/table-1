@@ -6,12 +6,16 @@ export function StandingsTable({
   rounds,
   highlightParticipantId,
   compact,
+  teamNames,
 }: {
   participants: Participant[];
   rounds: RoundWithMatches[];
   highlightParticipantId?: string | null;
   compact?: boolean;
+  /** Team events: team id → name, shown as a tag next to each player. */
+  teamNames?: Map<string, string>;
 }) {
+  const teamOf = new Map(participants.map((p) => [p.id, p.teamId ? teamNames?.get(p.teamId) ?? null : null]));
   const standings = computeStandings(participants, rounds);
   if (standings.length === 0) {
     return <div className="bg-t1-surface px-4 py-6 t1-label">No players yet</div>;
@@ -37,10 +41,19 @@ export function StandingsTable({
             }`}
           >
             <span className={`w-6 shrink-0 ${mine ? "" : "text-t1-muted"}`}>{row.rank}</span>
-            <span
-              className={`flex-1 truncate ${row.status === "dropped" ? "line-through opacity-50" : ""}`}
-            >
-              {row.displayName}
+            <span className="flex-1 min-w-0 flex items-center gap-2">
+              <span className={`truncate ${row.status === "dropped" ? "line-through opacity-50" : ""}`}>
+                {row.displayName}
+              </span>
+              {teamOf.get(row.participantId) && (
+                <span
+                  className={`shrink-0 max-w-[45%] truncate text-[9px] uppercase tracking-[1px] px-1.5 py-px border ${
+                    mine ? "border-t1-ink/40" : "border-t1-muted/40 text-t1-muted"
+                  }`}
+                >
+                  {teamOf.get(row.participantId)}
+                </span>
+              )}
             </span>
             <span className="w-12 text-right">{recordLabel(row)}</span>
             <span className="w-8 text-right font-bold">{row.matchPoints}</span>

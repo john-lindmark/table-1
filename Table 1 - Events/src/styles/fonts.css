@@ -1,0 +1,6 @@
+/* SF Mono is a system font on Apple platforms. Provide a robust monospace
+   fallback stack so the tournament UI keeps its mono aesthetic everywhere. */
+:root {
+  --font-sf-mono: "SF Mono", ui-monospace, "SFMono-Regular", "Menlo",
+    "Consolas", "Liberation Mono", monospace;
+}

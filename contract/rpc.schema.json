@@ -1,0 +1,2894 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Table 1 Events V1 client contract",
+  "description": "Every call the iOS, Android and web clients make. Field names are exact wire names (snake_case). Generate Swift/Kotlin models from this file; the hand-written models in apps/ must stay in step with it.",
+  "version": "2026-10-15",
+  "rpc": {
+    "create_event": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_name": {
+            "type": "string"
+          },
+          "p_format": {
+            "enum": [
+              "draft",
+              "sealed",
+              "constructed",
+              "cube"
+            ]
+          },
+          "p_rounds": {
+            "type": "integer"
+          },
+          "p_round_seconds": {
+            "type": "integer"
+          },
+          "p_player_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "p_name",
+          "p_format",
+          "p_rounds",
+          "p_round_seconds",
+          "p_player_names"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "short_code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "short_code"
+        ]
+      }
+    },
+    "set_event_location": {
+      "note": "Organizer only. Stores the event point (never readable by clients). visibility=nearby sends nearby alerts once.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_lat": {
+            "type": "number"
+          },
+          "p_lng": {
+            "type": "number"
+          },
+          "p_venue_name": {
+            "type": "string"
+          },
+          "p_join_radius_m": {
+            "type": "integer"
+          },
+          "p_visibility": {
+            "enum": [
+              "nearby",
+              "link_only",
+              "private"
+            ]
+          }
+        },
+        "required": [
+          "p_event_id",
+          "p_lat",
+          "p_lng",
+          "p_venue_name",
+          "p_join_radius_m",
+          "p_visibility"
+        ]
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "nearby_events": {
+      "note": "Coordinates are used for this query only.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_lat": {
+            "type": "number"
+          },
+          "p_lng": {
+            "type": "number"
+          },
+          "p_accuracy_m": {
+            "type": "integer"
+          },
+          "p_limit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "p_lat",
+          "p_lng"
+        ]
+      },
+      "result": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "event_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": {
+              "type": "string"
+            },
+            "venue_name": {
+              "type": "string"
+            },
+            "format": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "players": {
+              "type": "integer"
+            },
+            "capacity": {
+              "type": "integer"
+            },
+            "distance_m": {
+              "type": "integer"
+            },
+            "starts_at": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "event_id",
+            "name",
+            "distance_m"
+          ]
+        }
+      }
+    },
+    "join_event_nearby": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_lat": {
+            "type": "number"
+          },
+          "p_lng": {
+            "type": "number"
+          },
+          "p_accuracy_m": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "p_event_id",
+          "p_lat",
+          "p_lng",
+          "p_accuracy_m"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "participant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "seat": {
+            "type": "integer"
+          },
+          "already_joined": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "event_id"
+        ]
+      }
+    },
+    "get_join_qr": {
+      "note": "Organizer only. QR payload is url = https://table-1.site/j/<short_code>?s=<secret>. p_rotate invalidates earlier codes.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_rotate": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "p_event_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "short_code": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "short_code",
+          "secret",
+          "url"
+        ]
+      }
+    },
+    "join_event_qr": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_short_code": {
+            "type": "string"
+          },
+          "p_secret": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "p_short_code",
+          "p_secret"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "participant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "seat": {
+            "type": "integer"
+          },
+          "already_joined": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "event_id"
+        ]
+      }
+    },
+    "invite_to_event": {
+      "note": "Organizer only. Same rules as invite_players (setup/seated events only).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_user_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_event_id",
+          "p_user_id"
+        ]
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "respond_to_invite": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_accept": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "p_event_id",
+          "p_accept"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              "accepted",
+              "declined"
+            ]
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "participant_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    },
+    "update_presence": {
+      "note": "Stores only a geohash-6 cell (~1 km) for opt-in nearby alerts.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_lat": {
+            "type": "number"
+          },
+          "p_lng": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "p_lat",
+          "p_lng"
+        ]
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "report_match": {
+      "note": "Signed-in player. Counts immediately. Opponent entering the same score confirms; a different score disputes (first result stands). Retries with the same idempotency key return the first answer.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_match_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_side0_wins": {
+            "type": "integer"
+          },
+          "p_side1_wins": {
+            "type": "integer"
+          },
+          "p_draws": {
+            "type": "integer"
+          },
+          "p_expected_version": {
+            "type": "integer"
+          },
+          "p_idempotency_key": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_match_id",
+          "p_side0_wins",
+          "p_side1_wins"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "reported",
+              "confirmed"
+            ]
+          },
+          "version": {
+            "type": "integer"
+          },
+          "conflict": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "status",
+          "version"
+        ]
+      }
+    },
+    "respond_to_result": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_match_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_accept": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "p_match_id",
+          "p_accept"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "disputed": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ok",
+          "status"
+        ]
+      }
+    },
+    "set_match_result": {
+      "note": "Organizer only; final, audited with reason, records apply the difference.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_match_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_side0_wins": {
+            "type": "integer"
+          },
+          "p_side1_wins": {
+            "type": "integer"
+          },
+          "p_draws": {
+            "type": "integer"
+          },
+          "p_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "p_match_id",
+          "p_side0_wins",
+          "p_side1_wins"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ok",
+          "status",
+          "version"
+        ]
+      }
+    },
+    "claim_participant": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "p_token"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "participant_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "ok",
+          "participant_id"
+        ]
+      }
+    },
+    "register_device": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_platform": {
+            "enum": [
+              "ios",
+              "android",
+              "web"
+            ]
+          },
+          "p_push_token": {
+            "type": "string"
+          },
+          "p_live_activity_token": {
+            "type": "string"
+          },
+          "p_app_version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "p_platform",
+          "p_push_token"
+        ]
+      },
+      "result": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "delete_account": {
+      "params": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "is_event_organizer": {
+      "note": "True when the signed-in account is an owner/organizer of the event. Picks the organizer vs player screen.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_event_id"
+        ]
+      },
+      "result": {
+        "type": "boolean"
+      }
+    },
+    "events_home": {
+      "note": "Everything the Events tab shows. p_include_demo is true only in TestFlight/Xcode iOS builds.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_include_demo": {
+            "type": "boolean"
+          }
+        }
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "short_code": {
+                  "type": "string"
+                },
+                "format": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "setup",
+                    "seated",
+                    "in_progress",
+                    "completed",
+                    "archived",
+                    "cancelled"
+                  ]
+                },
+                "bucket": {
+                  "enum": [
+                    "live",
+                    "upcoming",
+                    "past"
+                  ]
+                },
+                "organizing": {
+                  "type": "boolean"
+                },
+                "playing": {
+                  "type": "boolean"
+                },
+                "venue_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "starts_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "created_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "number_of_rounds": {
+                  "type": "integer"
+                },
+                "current_round": {
+                  "type": "integer"
+                },
+                "round_length_seconds": {
+                  "type": "integer"
+                },
+                "is_demo": {
+                  "type": "boolean"
+                },
+                "cancelled_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "cancel_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "players": {
+                  "type": "integer"
+                },
+                "my_status": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "round": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "number": {
+                      "type": "integer"
+                    },
+                    "timer_status": {
+                      "enum": [
+                        "paused",
+                        "running"
+                      ]
+                    },
+                    "duration_seconds": {
+                      "type": "integer"
+                    },
+                    "ends_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "remaining_seconds": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "results_in": {
+                      "type": "integer"
+                    },
+                    "matches": {
+                      "type": "integer"
+                    },
+                    "disputed": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "invites": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "event_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "format": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "venue_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "starts_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "source": {
+                  "enum": [
+                    "nearby_alert",
+                    "owner_invite"
+                  ]
+                },
+                "invited_by": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "players": {
+                  "type": "integer"
+                },
+                "is_demo": {
+                  "type": "boolean"
+                },
+                "created_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "events",
+          "invites"
+        ]
+      }
+    },
+    "account_overview": {
+      "note": "Profile, lifetime record and head-to-head computed from match_outcomes. p_include_demo as events_home.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_include_demo": {
+            "type": "boolean"
+          }
+        }
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "display_name": {
+                "type": "string"
+              },
+              "handle": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "record": {
+            "type": "object",
+            "properties": {
+              "match_wins": {
+                "type": "integer"
+              },
+              "match_losses": {
+                "type": "integer"
+              },
+              "match_draws": {
+                "type": "integer"
+              },
+              "byes": {
+                "type": "integer"
+              },
+              "game_wins": {
+                "type": "integer"
+              },
+              "game_losses": {
+                "type": "integer"
+              },
+              "game_draws": {
+                "type": "integer"
+              },
+              "events_played": {
+                "type": "integer"
+              }
+            }
+          },
+          "head_to_head": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "opponent_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "match_wins": {
+                  "type": "integer"
+                },
+                "match_losses": {
+                  "type": "integer"
+                },
+                "match_draws": {
+                  "type": "integer"
+                },
+                "game_wins": {
+                  "type": "integer"
+                },
+                "game_losses": {
+                  "type": "integer"
+                },
+                "played": {
+                  "type": "integer"
+                },
+                "last_played_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "cancel_event": {
+      "note": "Organizer only; setup/seated/in_progress. Closes the open round (reported results confirm), ends Live Activities, refuses joins.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "p_event_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "status": {
+            "const": "cancelled"
+          },
+          "already_cancelled": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "suggested_players": {
+      "note": "Organizer only. Co-participants of the caller's events, most shared first; excludes people already seated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_query": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_limit": {
+            "type": "integer"
+          },
+          "p_include_demo": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "p_event_id"
+        ]
+      },
+      "result": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "user_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "display_name": {
+              "type": "string"
+            },
+            "handle": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "shared_events": {
+              "type": "integer"
+            },
+            "last_shared_at": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "invited": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "invite_players": {
+      "note": "Organizer only; setup/seated. Up to 50 per call, 100 per hour. Sends invitations (owner_invite).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_user_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "p_event_id",
+          "p_user_ids"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "invited": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "invite_by_email": {
+      "note": "Organizer only; setup/seated. Existing accounts only, no email sent, same answer either way. 20 lookups per hour.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "p_event_id",
+          "p_email"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "demo_seed": {
+      "note": "Replaces the caller's demo data (TestFlight only in the apps): 12 sample opponents, 9 events in every state.",
+      "params": {
+        "type": "object",
+        "properties": {}
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "events": {
+            "type": "integer"
+          },
+          "people": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "demo_remove": {
+      "note": "Removes the caller's demo data. Also run by delete_account.",
+      "params": {
+        "type": "object",
+        "properties": {}
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "events_removed": {
+            "type": "integer"
+          },
+          "people_removed": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "create_event_v2": {
+      "note": "Typed formats. Limited events may name a set (from draftable_sets) or a cube; team formats need p_team_size 3|4.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_name": {
+            "type": "string"
+          },
+          "p_format_name": {
+            "enum": [
+              "standard",
+              "pioneer",
+              "modern",
+              "legacy",
+              "vintage",
+              "pauper",
+              "premodern",
+              "canadian_highlander",
+              "other_constructed",
+              "draft",
+              "team_draft",
+              "sealed",
+              "team_sealed"
+            ]
+          },
+          "p_rounds": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "p_round_seconds": {
+            "type": "integer"
+          },
+          "p_set_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_set_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_cube_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_cube_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_team_size": {
+            "enum": [
+              3,
+              4,
+              null
+            ]
+          },
+          "p_format_other": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_player_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "p_name",
+          "p_format_name"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "short_code": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "draftable_sets": {
+      "note": "Scryfall sets for limited events, newest first. anon + authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_query": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "result": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "set_type": {
+              "type": "string"
+            },
+            "released_at": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "icon_svg_uri": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "get_event_teams": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_event_id"
+        ]
+      },
+      "result": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": {
+              "type": "string"
+            },
+            "order": {
+              "type": "integer"
+            },
+            "members": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "participant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "display_name": {
+                    "type": "string"
+                  },
+                  "slot": {
+                    "type": "integer"
+                  },
+                  "user_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "active",
+                      "dropped"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "set_teams": {
+      "note": "Organizer, before round 1. Member order is slot order (1 = seat A). Team draft: max 2 teams.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_teams": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "members": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "p_event_id",
+          "p_teams"
+        ]
+      },
+      "result": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": {
+              "type": "string"
+            },
+            "order": {
+              "type": "integer"
+            },
+            "members": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "participant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "display_name": {
+                    "type": "string"
+                  },
+                  "slot": {
+                    "type": "integer"
+                  },
+                  "user_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "active",
+                      "dropped"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "randomize_teams": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_event_id"
+        ]
+      },
+      "result": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": {
+              "type": "string"
+            },
+            "order": {
+              "type": "integer"
+            },
+            "members": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "participant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "display_name": {
+                    "type": "string"
+                  },
+                  "slot": {
+                    "type": "integer"
+                  },
+                  "user_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "active",
+                      "dropped"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "tracker_open": {
+      "note": "The two players of a match (organizer read-only). Creates the shared session on first open.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_match_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_starting_life": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "p_match_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "match_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "starting_life": {
+            "type": "integer"
+          },
+          "my_side": {
+            "enum": [
+              0,
+              1,
+              null
+            ]
+          },
+          "names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "event_name": {
+            "type": "string"
+          },
+          "round": {
+            "type": "integer"
+          },
+          "table": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "games": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "game_no": {
+                  "type": "integer"
+                },
+                "winner_side": {
+                  "enum": [
+                    0,
+                    1,
+                    null
+                  ]
+                },
+                "is_draw": {
+                  "type": "boolean"
+                },
+                "recorded_at": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "ops": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "client_op_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "game_no": {
+                  "type": "integer"
+                },
+                "side": {
+                  "enum": [
+                    0,
+                    1
+                  ]
+                },
+                "counter": {
+                  "enum": [
+                    "life",
+                    "poison",
+                    "energy",
+                    "experience",
+                    "rad",
+                    "speed"
+                  ]
+                },
+                "delta": {
+                  "type": "integer"
+                },
+                "tapped_at": {
+                  "type": "string"
+                },
+                "mine": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "tracker_state": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_session_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_session_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "match_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "starting_life": {
+            "type": "integer"
+          },
+          "my_side": {
+            "enum": [
+              0,
+              1,
+              null
+            ]
+          },
+          "names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "event_name": {
+            "type": "string"
+          },
+          "round": {
+            "type": "integer"
+          },
+          "table": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "clock": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "The match's round timer; null when the match has no round. Running: remaining = timer_remaining_at_change - (now - timer_last_started_at), negative in overtime. Paused: remaining = timer_remaining_at_change (null means timer_duration_seconds).",
+            "properties": {
+              "round_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "timer_status": {
+                "enum": [
+                  "paused",
+                  "running"
+                ]
+              },
+              "timer_last_started_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "timer_remaining_at_change": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "timer_duration_seconds": {
+                "type": "integer"
+              }
+            }
+          },
+          "games": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "game_no": {
+                  "type": "integer"
+                },
+                "winner_side": {
+                  "enum": [
+                    0,
+                    1,
+                    null
+                  ]
+                },
+                "is_draw": {
+                  "type": "boolean"
+                },
+                "recorded_at": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "ops": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "client_op_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "game_no": {
+                  "type": "integer"
+                },
+                "side": {
+                  "enum": [
+                    0,
+                    1
+                  ]
+                },
+                "counter": {
+                  "enum": [
+                    "life",
+                    "poison",
+                    "energy",
+                    "experience",
+                    "rad",
+                    "speed"
+                  ]
+                },
+                "delta": {
+                  "type": "integer"
+                },
+                "tapped_at": {
+                  "type": "string"
+                },
+                "mine": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "tracker_push": {
+      "note": "Up to 200 ops; idempotent by client_op_id; ops for recorded games are ignored.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_ops": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "p_session_id",
+          "p_ops"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "inserted": {
+            "type": "integer"
+          },
+          "game_no": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "tracker_record_game": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_game_no": {
+            "type": "integer"
+          },
+          "p_winner_side": {
+            "enum": [
+              0,
+              1,
+              null
+            ]
+          },
+          "p_draw": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "p_session_id",
+          "p_game_no",
+          "p_winner_side"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "match_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "starting_life": {
+            "type": "integer"
+          },
+          "my_side": {
+            "enum": [
+              0,
+              1,
+              null
+            ]
+          },
+          "names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "event_name": {
+            "type": "string"
+          },
+          "round": {
+            "type": "integer"
+          },
+          "table": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "games": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "game_no": {
+                  "type": "integer"
+                },
+                "winner_side": {
+                  "enum": [
+                    0,
+                    1,
+                    null
+                  ]
+                },
+                "is_draw": {
+                  "type": "boolean"
+                },
+                "recorded_at": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "ops": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "client_op_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "game_no": {
+                  "type": "integer"
+                },
+                "side": {
+                  "enum": [
+                    0,
+                    1
+                  ]
+                },
+                "counter": {
+                  "enum": [
+                    "life",
+                    "poison",
+                    "energy",
+                    "experience",
+                    "rad",
+                    "speed"
+                  ]
+                },
+                "delta": {
+                  "type": "integer"
+                },
+                "tapped_at": {
+                  "type": "string"
+                },
+                "mine": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "update_event_details": {
+      "note": "Organizer only, setup/seated with no rounds (else 55000 'Details lock once round 1 is paired'). Send the full current state every call. Non-team format releases everyone from teams.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_name": {
+            "type": "string"
+          },
+          "p_format_name": {
+            "type": "string"
+          },
+          "p_rounds": {
+            "type": "integer"
+          },
+          "p_round_seconds": {
+            "type": "integer"
+          },
+          "p_set_code": {
+            "type": "string"
+          },
+          "p_set_name": {
+            "type": "string"
+          },
+          "p_cube_name": {
+            "type": "string"
+          },
+          "p_cube_url": {
+            "type": "string"
+          },
+          "p_team_size": {
+            "type": "integer"
+          },
+          "p_format_other": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "p_event_id",
+          "p_name",
+          "p_format_name",
+          "p_rounds",
+          "p_round_seconds"
+        ]
+      },
+      "returns": {
+        "type": "object",
+        "properties": {
+          "event_id": {},
+          "name": {},
+          "format_name": {},
+          "format_label": {},
+          "number_of_rounds": {},
+          "round_length_seconds": {},
+          "set_code": {},
+          "set_name": {},
+          "cube_name": {},
+          "cube_url": {},
+          "team_size": {},
+          "format_other": {}
+        }
+      }
+    },
+    "set_round_clock": {
+      "note": "Organizer only, active round. pause | resume | add (p_seconds, default 300). Keeps timer_ends_at / timer_last_started_at / timer_remaining_at_change consistent; drives Live Activity clock pushes.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_round_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_action": {
+            "enum": [
+              "pause",
+              "resume",
+              "add"
+            ]
+          },
+          "p_seconds": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "p_round_id",
+          "p_action"
+        ]
+      },
+      "returns": {
+        "type": "object",
+        "properties": {
+          "round_id": {},
+          "timer_status": {},
+          "remaining_seconds": {},
+          "duration_seconds": {},
+          "ends_at": {}
+        }
+      }
+    },
+    "search_cards": {
+      "note": "Card name typeahead over Oracle cards (contract/catalog-2026-10-14.md). Needs >= 2 normalized characters; prefix matches first, then fuzzy. anon + authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_query": {
+            "type": "string"
+          },
+          "p_limit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "p_query"
+        ]
+      },
+      "result": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "oracle_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": {
+              "type": "string"
+            },
+            "type_line": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "mana_cost": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "default_card_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            },
+            "image_ts": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "image_faces": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "card_printings": {
+      "note": "All paper printings of one card, newest first, with USD/EUR prices. anon + authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_oracle_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_oracle_id"
+        ]
+      },
+      "result": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "set_code": {
+              "type": "string"
+            },
+            "set_name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "collector_number": {
+              "type": "string"
+            },
+            "lang": {
+              "type": "string"
+            },
+            "rarity": {
+              "type": "string"
+            },
+            "finishes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "nonfoil",
+                  "foil",
+                  "etched"
+                ]
+              }
+            },
+            "released_at": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "image_ts": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "image_faces": {
+              "type": "integer"
+            },
+            "usd": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "usd_foil": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "eur": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "eur_foil": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "catalog_info": {
+      "note": "Latest catalog pack; null before the first sync. Download url only when version changes (contract/catalog-2026-10-14.md). anon + authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {}
+      },
+      "result": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "format": {
+            "type": "integer"
+          },
+          "url": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "integer"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "oracles": {
+            "type": "integer"
+          },
+          "printings": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "collection_apply": {
+      "note": "The one collection write (contract/collection-2026-10-15.md). Ops set qty or add delta; whole batch rejected on any error. Same p_idempotency_key replays return duplicate:true. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_ops": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "card_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "finish": {
+                  "type": "string",
+                  "enum": [
+                    "nonfoil",
+                    "foil",
+                    "etched"
+                  ]
+                },
+                "condition": {
+                  "type": "string",
+                  "enum": [
+                    "NM",
+                    "LP",
+                    "MP",
+                    "HP",
+                    "DMG"
+                  ]
+                },
+                "lang": {
+                  "type": "string"
+                },
+                "delta": {
+                  "type": "integer"
+                },
+                "qty": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "card_id"
+              ]
+            },
+            "maxItems": 5000
+          },
+          "p_source": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "import",
+              "scan",
+              "trade",
+              "adjust"
+            ]
+          },
+          "p_source_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "p_idempotency_key": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_ops",
+          "p_idempotency_key"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "duplicate": {
+            "type": "boolean"
+          },
+          "changes": {
+            "type": "integer"
+          },
+          "seq": {
+            "type": "integer"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "card_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "finish": {
+                  "type": "string"
+                },
+                "condition": {
+                  "type": "string"
+                },
+                "lang": {
+                  "type": "string"
+                },
+                "qty": {
+                  "type": "integer"
+                },
+                "seq": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "total_qty": {
+                "type": "integer"
+              },
+              "unique_printings": {
+                "type": "integer"
+              },
+              "unique_cards": {
+                "type": "integer"
+              },
+              "value_usd": {
+                "type": "number"
+              },
+              "value_eur": {
+                "type": "number"
+              },
+              "seq": {
+                "type": "integer"
+              },
+              "updated_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      }
+    },
+    "collection_undo": {
+      "note": "Reverses one earlier batch, once. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_batch_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_idempotency_key": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_batch_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "duplicate": {
+            "type": "boolean"
+          },
+          "changes": {
+            "type": "integer"
+          },
+          "seq": {
+            "type": "integer"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "card_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "finish": {
+                  "type": "string"
+                },
+                "condition": {
+                  "type": "string"
+                },
+                "lang": {
+                  "type": "string"
+                },
+                "qty": {
+                  "type": "integer"
+                },
+                "seq": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "total_qty": {
+                "type": "integer"
+              },
+              "unique_printings": {
+                "type": "integer"
+              },
+              "unique_cards": {
+                "type": "integer"
+              },
+              "value_usd": {
+                "type": "number"
+              },
+              "value_eur": {
+                "type": "number"
+              },
+              "seq": {
+                "type": "integer"
+              },
+              "updated_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      }
+    },
+    "collection_changes": {
+      "note": "Delta sync by seq. items are compact arrays [card_id, finish, condition, lang, qty, seq]; qty 0 = deleted. Page while more; resync:true = clear local copy and restart from 0. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_after": {
+            "type": "integer"
+          },
+          "p_limit": {
+            "type": "integer",
+            "maximum": 10000
+          }
+        }
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "resync": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          "next": {
+            "type": "integer"
+          },
+          "more": {
+            "type": "boolean"
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "total_qty": {
+                "type": "integer"
+              },
+              "unique_printings": {
+                "type": "integer"
+              },
+              "unique_cards": {
+                "type": "integer"
+              },
+              "value_usd": {
+                "type": "number"
+              },
+              "value_eur": {
+                "type": "number"
+              },
+              "seq": {
+                "type": "integer"
+              },
+              "updated_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      }
+    },
+    "library_summary_get": {
+      "note": "Library top-level numbers (one row read). authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {}
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "total_qty": {
+            "type": "integer"
+          },
+          "unique_printings": {
+            "type": "integer"
+          },
+          "unique_cards": {
+            "type": "integer"
+          },
+          "value_usd": {
+            "type": "number"
+          },
+          "value_eur": {
+            "type": "number"
+          },
+          "seq": {
+            "type": "integer"
+          },
+          "updated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "collection_card_history": {
+      "note": "One printing's ledger, newest first. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_card_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_limit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "p_card_id"
+        ]
+      },
+      "result": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "finish": {
+              "type": "string"
+            },
+            "condition": {
+              "type": "string"
+            },
+            "lang": {
+              "type": "string"
+            },
+            "delta": {
+              "type": "integer"
+            },
+            "qty_after": {
+              "type": "integer"
+            },
+            "source": {
+              "type": "string"
+            },
+            "batch_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "undone": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "seat_event": {
+      "note": "Organizer only; draft/team_draft before round 1 (status setup/seated). One transaction: random seats in pods of up to 8 (team draft: one pod, A1 B1 A2 B2). Calling again re-shuffles. Errors 42501 not organizer, 55000 locked/not a draft/team problems, 22023 no players. Replaces events-engine seat_players (2026-10-14).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_event_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pods": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "pod_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "seats": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "seat": {
+                        "type": "integer"
+                      },
+                      "participant_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "display_name": {
+                        "type": "string"
+                      },
+                      "team": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "seat",
+                      "participant_id",
+                      "display_name",
+                      "team"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "pod_id",
+                "name",
+                "seats"
+              ]
+            }
+          }
+        },
+        "required": [
+          "event_id",
+          "pods"
+        ]
+      }
+    }
+  },
+  "functions": {
+    "events-engine": {
+      "standings": {
+        "request": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "const": "standings"
+            },
+            "event_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "action",
+            "event_id"
+          ]
+        },
+        "response": {
+          "type": "object",
+          "properties": {
+            "event_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "current_round": {
+              "type": "integer"
+            },
+            "standings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "rank": {
+                    "type": "integer"
+                  },
+                  "participant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "display_name": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "match_points": {
+                    "type": "integer"
+                  },
+                  "match_wins": {
+                    "type": "integer"
+                  },
+                  "match_losses": {
+                    "type": "integer"
+                  },
+                  "match_draws": {
+                    "type": "integer"
+                  },
+                  "byes": {
+                    "type": "integer"
+                  },
+                  "omw": {
+                    "type": "number"
+                  },
+                  "gw": {
+                    "type": "number"
+                  },
+                  "ogw": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "rank",
+                  "participant_id",
+                  "display_name",
+                  "status",
+                  "match_points",
+                  "match_wins",
+                  "match_losses",
+                  "match_draws",
+                  "byes",
+                  "omw",
+                  "gw",
+                  "ogw"
+                ]
+              }
+            }
+          },
+          "required": [
+            "event_id",
+            "current_round",
+            "standings"
+          ]
+        }
+      },
+      "pair_round": {
+        "note": "Organizer only (Authorization: Bearer <user JWT>). Records the open round if every match is reported, pairs the next round with the Swiss rules in standings.ts / pairings.ts, starts the server timer and queues the round.paired push.",
+        "request": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "const": "pair_round"
+            },
+            "event_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "action",
+            "event_id"
+          ]
+        },
+        "response": {
+          "type": "object",
+          "properties": {
+            "round_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "round_number": {
+              "type": "integer"
+            },
+            "timer_ends_at": {
+              "type": "string"
+            },
+            "matches": {
+              "type": "array"
+            }
+          },
+          "required": [
+            "round_number"
+          ]
+        }
+      },
+      "note": " New: action seat_players (organizer, draft events before round 1) -> {pods:[{pod_id,name,seats:[{seat,participant_id,display_name,team}]}]}. standings now also returns teams (team events) and seating (draft events). pair_round handles draft round 1 across the table, team draft and team sealed."
+    },
+    "live-activity": {
+      "note": "POST {action:'state', include_demo?} with the user's JWT → {snapshots:[{eventId,eventName,participantId,state}]} (camelCase, Unix seconds). Dispatch is database-only."
+    },
+    "cards-sync": {
+      "note": "Internal only (x-t1-secret, driven by pg_cron/pg_net). Steps stage/chunk/pack/cleanup keep the card catalog in step with Scryfall default_cards. Clients never call it."
+    }
+  },
+  "realtime": {
+    "note": "V1 clients subscribe to Postgres Changes filtered by event_id on matches, match_sides, rounds, participants (and id on events), then refetch. Broadcast topic match:<id> carries {match_id, event_id, round_id, version, status, disputed, game_draws, result_source, sides[]} on every match update for the large-event path.",
+    "tracker": "postgres_changes INSERT on public.tracker_ops and public.tracker_games, filter session_id=eq.<session_id>",
+    "tracker_round": "postgres_changes UPDATE on public.rounds, filter id=eq.<clock.round_id>; the new row's timer_* columns replace clock"
+  },
+  "tables": {
+    "user_settings": "own row: user_id, tracker_mode ('elsewhere'|'tracker'). Upsert on user_id.",
+    "event_teams": "public read: id, event_id, display_order, name, active",
+    "participants": "new: team_id, team_slot",
+    "events": "new: format_name, format_label, event_type, team_size, set_code, set_name, cube_name, cube_url, format_other"
+  }
+}

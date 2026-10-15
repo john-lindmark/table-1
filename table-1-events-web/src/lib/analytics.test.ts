@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { redactPath } from "./analytics";
+import { redactPath, redactSearch } from "./analytics";
 
 describe("redactPath", () => {
   it("strips the join code so it never reaches analytics", () => {
@@ -19,5 +19,16 @@ describe("redactPath", () => {
 
   it("does not redact a path that merely starts with the same letters", () => {
     expect(redactPath("/events/list")).toBe("/events/list");
+  });
+});
+
+describe("QR join links", () => {
+  it("redacts the code in /j/ paths", () => {
+    expect(redactPath("/j/ABCD")).toBe("/j/:id");
+  });
+  it("drops the QR secret and OAuth return values from the query", () => {
+    expect(redactSearch("?s=abc123")).toBe("");
+    expect(redactSearch("?code=xyz&utm_source=flyer")).toBe("?utm_source=flyer");
+    expect(redactSearch("")).toBe("");
   });
 });

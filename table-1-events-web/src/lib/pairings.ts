@@ -11,6 +11,7 @@
 // second — that only happens in very small events.
 
 import { computeStandings } from "./standings";
+import { acrossTheTable } from "./seating";
 import type { Participant, RoundWithMatches } from "./types";
 
 export interface ProposedMatch {
@@ -25,6 +26,10 @@ export interface PairRoundOptions {
   rounds: RoundWithMatches[];
   roundNumber: number;
   rng?: () => number;
+  /** Draft events: round 1 pairs across the table within each pod (needs seats). */
+  draftSeating?: boolean;
+  /** Pod ids in display order, so table numbers run pod by pod. */
+  podOrder?: string[];
 }
 
 /** Deterministic PRNG so a pairing can be reproduced in a test or an audit. */
@@ -95,6 +100,10 @@ export function pairRound(options: PairRoundOptions): ProposedMatch[] {
   const active = participants.filter((p) => p.status === "active");
   if (active.length === 0) return [];
 
+  if (roundNumber <= 1 && options.draftSeating && active.every((p) => p.seat != null)) {
+    return pairAcrossPods(active, options.podOrder);
+  }
+
   const order =
     roundNumber <= 1
       ? shuffle(active, rng).map((p) => p.id)
@@ -142,6 +151,30 @@ export function pairRound(options: PairRoundOptions): ProposedMatch[] {
     });
   }
 
+  return matches;
+}
+
+/** Round 1 of a draft: across the table in every pod; byes (odd pods) go last. */
+export function pairAcrossPods(active: Participant[], podOrder?: string[]): ProposedMatch[] {
+  const pods = new Map<string, Participant[]>();
+  for (const p of active) {
+    const key = p.podId ?? "";
+    pods.set(key, [...(pods.get(key) ?? []), p]);
+  }
+  const ordered = [...pods.entries()].sort(([a], [b]) => (podOrder?.indexOf(a) ?? 0) - (podOrder?.indexOf(b) ?? 0) || a.localeCompare(b))
+    .map(([, pod]) => pod);
+  const matches: ProposedMatch[] = [];
+  const byes: string[] = [];
+  for (const pod of ordered) {
+    const { pairs, bye } = acrossTheTable(pod.map((p) => ({ participantId: p.id, podId: p.podId, seat: p.seat ?? 0 })));
+    for (const [a, b] of pairs) {
+      matches.push({ tableNumber: matches.length + 1, side0ParticipantId: a, side1ParticipantId: b, isBye: false });
+    }
+    if (bye) byes.push(bye);
+  }
+  for (const id of byes) {
+    matches.push({ tableNumber: matches.length + 1, side0ParticipantId: id, side1ParticipantId: null, isBye: true });
+  }
   return matches;
 }
 

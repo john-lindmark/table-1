@@ -3,8 +3,12 @@
 // holds *sides* rather than playerA/playerB, so team events later are a change
 // of cardinality rather than a change of model.
 
-export type EventStatus = "setup" | "seated" | "in_progress" | "completed" | "archived";
+export type EventStatus = "setup" | "seated" | "in_progress" | "completed" | "archived" | "cancelled";
 export type EventFormat = "draft" | "sealed" | "constructed" | "cube";
+export type EventType = "constructed" | "limited";
+export type FormatName =
+  | "standard" | "pioneer" | "modern" | "legacy" | "vintage" | "pauper" | "premodern" | "canadian_highlander"
+  | "other_constructed" | "draft" | "team_draft" | "sealed" | "team_sealed";
 export type MatchStatus = "pending" | "reported" | "confirmed";
 export type ParticipantStatus = "active" | "dropped";
 export type TimerStatus = "paused" | "running";
@@ -22,6 +26,20 @@ export interface Table1Event {
   roundLengthSeconds: number;
   allowPlayerReporting: boolean;
   createdBy: string | null;
+  cancelReason: string | null;
+  formatName: FormatName;
+  formatLabel: string;
+  eventType: EventType;
+  teamSize: number | null;
+  setName: string | null;
+  cubeName: string | null;
+  cubeUrl: string | null;
+  /** Scryfall set code for limited events (lowercase), when one was picked. */
+  setCode: string | null;
+  /** The typed name when the format is "Other" constructed. */
+  formatOther: string | null;
+  cancelledAt: string | null;
+  updatedAt: string | null;
 }
 
 export interface Participant {
@@ -32,6 +50,11 @@ export interface Participant {
   seat: number | null;
   status: ParticipantStatus;
   droppedInRound: number | null;
+  /** Set when the seat belongs to a signed-in account (records and head-to-head follow it). */
+  userId?: string | null;
+  /** Team events: the participant's team and seat letter on it (1 = A). */
+  teamId?: string | null;
+  teamSlot?: number | null;
 }
 
 export interface Round {
@@ -43,6 +66,8 @@ export interface Round {
   timerRemainingAtChange: number;
   timerStatus: TimerStatus;
   timerLastStartedAt: string | null;
+  /** Set while running; the server keeps it equal to last_started_at + remaining_at_change. */
+  timerEndsAt?: string | null;
 }
 
 export interface MatchSide {
@@ -63,8 +88,166 @@ export interface Match {
   intentionalDraw: boolean;
   status: MatchStatus;
   sides: MatchSide[];
+  /** Bumped by the server on every change; sent back as expected_version when reporting. */
+  version?: number;
+  disputed?: boolean;
+  reportedByUser?: string | null;
+  reportedByParticipant?: string | null;
+  /** Who entered the result: a player report or the organizer (set_match_result). */
+  resultSource?: "player" | "organizer" | null;
 }
 
 export interface RoundWithMatches extends Round {
   matches: Match[];
 }
+
+/* ── Events tab (events_home) ─────────────────────────────────────────── */
+
+export interface HomeRound {
+  number: number;
+  timer_status: TimerStatus;
+  duration_seconds: number;
+  ends_at: string | null;
+  remaining_seconds: number | null;
+  results_in: number;
+  matches: number;
+  disputed: number;
+}
+
+export interface HomeEvent {
+  id: string;
+  name: string;
+  short_code: string;
+  format: EventFormat;
+  format_name?: FormatName | null;
+  format_label?: string | null;
+  event_type?: EventType | null;
+  team_size?: number | null;
+  status: EventStatus;
+  /** live | upcoming | past */
+  bucket: "live" | "upcoming" | "past";
+  organizing: boolean;
+  playing: boolean;
+  venue_name: string | null;
+  starts_at: string | null;
+  number_of_rounds: number;
+  current_round: number;
+  cancel_reason: string | null;
+  players: number;
+  my_status: ParticipantStatus | null;
+  round: HomeRound | null;
+}
+
+export interface HomeInvite {
+  event_id: string;
+  name: string;
+  format: EventFormat;
+  format_label?: string | null;
+  source: "nearby_alert" | "owner_invite";
+  venue_name: string | null;
+  starts_at: string | null;
+  invited_by: string | null;
+  players: number;
+}
+
+export interface HomeData {
+  events: HomeEvent[];
+  invites: HomeInvite[];
+}
+
+/** One live seat from the live-activity function (the same state as the iOS Live Activity). */
+export interface LiveSnapshot {
+  eventId: string;
+  participantId: string;
+  state: {
+    phase: string;
+    round: number;
+    rounds: number;
+    endsAt?: number;
+    pausedRemaining?: number;
+    table?: number;
+    myRank?: number;
+    myRecord: string;
+    oppName?: string;
+    oppRank?: number;
+    matchId?: string;
+    matchVersion?: number;
+    mySide?: number;
+    status?: "pending" | "reported_me" | "reported_them" | "disputed" | "confirmed";
+    myWins?: number;
+    theirWins?: number;
+    canReport: boolean;
+  };
+}
+
+/* ── Account tab (account_overview) ───────────────────────────────────── */
+
+export interface AccountOverview {
+  profile: { id: string; display_name: string; handle: string | null } | null;
+  record: {
+    match_wins: number;
+    match_losses: number;
+    match_draws: number;
+    byes: number;
+    game_wins: number;
+    game_losses: number;
+    game_draws: number;
+    events_played: number;
+  };
+  head_to_head: {
+    opponent_id: string;
+    name: string;
+    match_wins: number;
+    match_losses: number;
+    match_draws: number;
+    game_wins: number;
+    game_losses: number;
+    played: number;
+  }[];
+}
+
+/* ── Add players ──────────────────────────────────────────────────────── */
+
+export interface SuggestedPlayer {
+  user_id: string;
+  display_name: string;
+  handle: string | null;
+  shared_events: number;
+  invited: boolean;
+}
+
+/* ── Formats, teams, seating ──────────────────────────────────────────── */
+
+/** draftable_sets row (Scryfall sets for limited events). */
+export interface DraftableSet {
+  code: string;
+  name: string;
+  set_type: string;
+  released_at: string | null;
+  icon_svg_uri: string | null;
+}
+
+/** get_event_teams / set_teams / randomize_teams row. Slot 1 = seat A. */
+export interface EventTeam {
+  id: string;
+  name: string;
+  order: number;
+  members: {
+    participant_id: string;
+    display_name: string;
+    slot: number;
+    user_id: string | null;
+    status: ParticipantStatus;
+  }[];
+}
+
+/** events-engine seat_players / standings.seating pod. */
+export interface SeatingPod {
+  pod_id: string;
+  name: string;
+  seats: { seat: number; participant_id: string; display_name: string; team: string | null }[];
+}
+
+/* ── Life tracker ─────────────────────────────────────────────────────── */
+
+export type TrackerMode = "elsewhere" | "tracker";
