@@ -6,6 +6,7 @@ import { Bar, BigAction, Field, Notice, Row, Section, Segmented } from "../compo
 import { printingsByName } from "../lib/catalog";
 import { createList, type Entry } from "../lib/lists";
 import { supabase } from "../lib/supabaseClient";
+import { capture } from "../lib/telemetry";
 import { CardRow, LibScreen, useCatalog } from "./Library";
 import { useListsData } from "./Lists";
 
@@ -50,6 +51,7 @@ export function DeckFinderScreen({ onBack, onCreated }: { onBack: () => void; on
     setSearching(true);
     try {
       const r = await findDeck(query.trim(), format, with_);
+      if (r.status === "deck" || r.status === "not_found") capture("deck_finder_used", { found: !!r.deck });
       if (r.deck && FORMATS.includes(r.deck.format)) setFormat(r.deck.format);
       setResult(r);
     } finally {
@@ -80,7 +82,7 @@ export function DeckFinderScreen({ onBack, onCreated }: { onBack: () => void; on
       }
       const source = [d.placement, d.event, d.date].filter(Boolean).join(", ");
       const id = await createList("deck", d.name.slice(0, 60), format, [...byKey.values()],
-                                  source ? `Found: ${source}`.slice(0, 120) : "Found online");
+                                  source ? `Found: ${source}`.slice(0, 120) : "Found online", "finder");
       onCreated(id);
     } finally {
       setCreating(false);

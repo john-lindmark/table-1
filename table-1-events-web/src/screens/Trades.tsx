@@ -8,6 +8,7 @@ import { loadDemoLists } from "../lib/libraryDemo";
 import { usdPrice, usdText, usePrices } from "../lib/prices";
 import { confirmTrade, deleteTrade, lineKey, saveTrade, useTrades, type Trade, type TradeLine } from "../lib/trades";
 import { DEMO_USER } from "../lib/collection";
+import { capture } from "../lib/telemetry";
 import { CONDITIONS, CardArt, CardRow, LibScreen, useCatalog, useLibrarySession } from "./Library";
 
 /* Trades (contract/trades-2026-10-16.md): what you give (copies you own) and what you get (any printing). Drafts
@@ -158,6 +159,11 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
       const saved = await saveTrade(trade, partner.trim() || null, gives, gets);
       await confirmTrade(saved);
+      capture("trade_confirmed", {
+        gives: gives.reduce((n, l) => n + l.qty, 0),
+        gets: gets.reduce((n, l) => n + l.qty, 0),
+        list_conflict: remove.length ? "removed" : conflicts ? "kept" : "none",
+      });
       setTrade({ ...saved, status: "confirmed" });
       // Take the missing copies out of each list, sideboard first.
       for (const c of remove) {

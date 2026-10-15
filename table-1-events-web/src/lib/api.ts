@@ -1,5 +1,6 @@
 import { supabase } from "./supabaseClient";
 import type { User } from "@supabase/supabase-js";
+import { capture, signInStarted } from "./telemetry";
 import type {
   AccountOverview,
   DraftableSet,
@@ -222,6 +223,7 @@ export async function joinEvent(code: string, displayName: string) {
     p_display_name: displayName,
   });
   if (error) throw error;
+  capture("event_joined", { via: "link" });
   return data as {
     event_id: string;
     short_code: string;
@@ -246,6 +248,7 @@ export async function reportResultAsPlayer(
     p_draws: draws,
   });
   if (error) throw error;
+  capture("match_reported", { status: "unknown", games: side0Wins + side1Wins + draws, draws });
 }
 
 /**
@@ -267,6 +270,7 @@ export async function setResultAsOrganizer(
     p_reason: reason,
   });
   if (error) throw error;
+  capture("result_overridden");
 }
 
 /* ── V1: accounts, QR join, results, records ─────────────────────────────── */
@@ -275,11 +279,21 @@ export type OAuthProvider = "apple" | "google";
 
 /** Apple or Google, then straight back to the page that asked. */
 export async function signInWith(provider: OAuthProvider, returnTo = window.location.href) {
+  signInStarted(provider);
   const { error } = await supabase.auth.signInWithOAuth({
     provider,
     options: { redirectTo: returnTo },
   });
-  if (error) throw error;
+  if (error) {
+    capture("sign_in_failed", { method: provider, reason: "error" });
+    throw error;
+  }
+}
+
+/** Ends the session here. Telemetry resets on the SIGNED_OUT that follows. */
+export async function signOut() {
+  capture("signed_out", { reason: "user" });
+  await supabase.auth.signOut();
 }
 
 /** Email accounts start without a name; one is required before the app opens. Apple and Google bring theirs. */
@@ -304,6 +318,7 @@ const EMAIL_RETURN_KEY = "t1.signin.returnTo";
 
 /** Sends the sign-in email: a link (opens the app when installed) and the same one-time code. */
 export async function sendEmailCode(email: string, returnTo = window.location.pathname + window.location.search) {
+  signInStarted("email");
   const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
   if (error) throw error;
   try {
@@ -352,7 +367,10 @@ export async function getJoinQr(eventId: string, rotate = false): Promise<JoinQr
 export async function joinEventByQr(shortCode: string, secret: string) {
   const { data, error } = await supabase.rpc("join_event_qr", { p_short_code: shortCode, p_secret: secret });
   if (error) throw error;
-  return data as { event_id: string; participant_id: string; already_joined: boolean };
+  // The web only joins from /j/ links (a phone camera or a shared URL), like a universal link in the apps.
+  const r = data as { event_id: string; participant_id: string; already_joined: boolean };
+  if (!r.already_joined) capture("event_joined", { via: "link" });
+  return r;
 }
 
 export interface ReportOutcome {
@@ -379,17 +397,21 @@ export async function reportMatch(
     p_idempotency_key: idempotencyKey,
   });
   if (error) throw error;
-  return data as ReportOutcome;
+  const outcome = data as ReportOutcome;
+  capture("match_reported", { status: outcome?.status ?? "unknown", games: side0Wins + side1Wins + draws, draws });
+  return outcome;
 }
 
 export async function respondToResult(matchId: string, accept: boolean) {
   const { error } = await supabase.rpc("respond_to_result", { p_match_id: matchId, p_accept: accept });
   if (error) throw error;
+  capture("result_responded", { accepted: accept });
 }
 
 export async function respondToInvite(eventId: string, accept: boolean) {
   const { data, error } = await supabase.rpc("respond_to_invite", { p_event_id: eventId, p_accept: accept });
   if (error) throw error;
+  capture("invite_responded", { accepted: accept });
   return data as { status: string; event_id?: string; participant_id?: string };
 }
 
@@ -397,6 +419,7 @@ export async function respondToInvite(eventId: string, accept: boolean) {
 export async function deleteAccount() {
   const { error } = await supabase.functions.invoke("delete-account", { body: {} });
   if (error) throw error;
+  capture("account_deleted");
   await supabase.auth.signOut({ scope: "local" });
 }
 
@@ -425,7 +448,7 @@ export async function reportFromHome(
   version?: number,
   draws = 0,
 ) {
-  const { error } = await supabase.rpc("report_match", {
+  const { data, error } = await supabase.rpc("report_match", {
     p_match_id: matchId,
     p_side0_wins: mySide === 0 ? my : their,
     p_side1_wins: mySide === 0 ? their : my,
@@ -434,6 +457,7 @@ export async function reportFromHome(
     p_idempotency_key: crypto.randomUUID(),
   });
   if (error) throw error;
+  capture("match_reported", { status: (data as ReportOutcome | null)?.status ?? "unknown", games: my + their + draws, draws });
 }
 
 export async function fetchAccountOverview(): Promise<AccountOverview> {
@@ -450,6 +474,7 @@ export async function fetchNearbyAlerts(userId: string): Promise<boolean> {
 export async function setNearbyAlerts(userId: string, enabled: boolean) {
   const { error } = await supabase.from("notification_prefs").upsert({ user_id: userId, nearby_alerts: enabled });
   if (error) throw error;
+  capture("nearby_alerts_changed", { enabled });
 }
 
 export async function setDisplayName(userId: string, name: string) {
@@ -465,6 +490,7 @@ export async function setDisplayName(userId: string, name: string) {
 export async function cancelEvent(eventId: string, reason: string) {
   const { error } = await supabase.rpc("cancel_event", { p_event_id: eventId, p_reason: reason });
   if (error) throw error;
+  capture("event_cancelled");
 }
 
 /** People who've shared your events, most-shared first (optionally filtered by name). */
@@ -482,13 +508,16 @@ export async function fetchSuggestedPlayers(eventId: string, query: string): Pro
 export async function invitePlayers(eventId: string, userIds: string[]): Promise<number> {
   const { data, error } = await supabase.rpc("invite_players", { p_event_id: eventId, p_user_ids: userIds });
   if (error) throw error;
-  return (data?.invited as number) ?? 0;
+  const invited = (data?.invited as number) ?? 0;
+  capture("players_invited", { count: invited, via: "account" });
+  return invited;
 }
 
 /** Existing accounts only; the answer never says whether the address has one. */
 export async function inviteByEmail(eventId: string, email: string) {
   const { error } = await supabase.rpc("invite_by_email", { p_event_id: eventId, p_email: email });
   if (error) throw error;
+  capture("players_invited", { count: 1, via: "email" });
 }
 
 /**
@@ -508,6 +537,7 @@ export async function finishEvent(eventId: string, openRoundId: string | null) {
     .update({ status: "completed", updated_at: new Date().toISOString() })
     .eq("id", eventId);
   if (e2) throw e2;
+  capture("round_recorded", { final: true });
 }
 
 export type ClockAction = "pause" | "resume" | "add";
@@ -532,6 +562,7 @@ export async function setRoundClock(roundId: string, action: ClockAction, second
     p_seconds: seconds,
   });
   if (error) throw error;
+  capture("round_clock_changed", { action });
   return data as RoundClockResult;
 }
 
@@ -598,6 +629,7 @@ export async function setParticipantStatus(
     .update({ status, dropped_in_round: status === "dropped" ? roundNumber : null })
     .eq("id", participantId);
   if (error) throw error;
+  capture("player_dropped", { status });
 }
 
 export async function addParticipant(eventId: string, podId: string | null, displayName: string, seat: number) {
@@ -663,6 +695,15 @@ export async function createEventV2(input: CreateEventV2Input): Promise<{ eventI
     p_local_date: localDate(),
   });
   if (error) throw error;
+  capture("event_created", {
+    format: input.formatName,
+    kind: input.cubeName ? "cube" : input.setCode ? "limited" : "constructed",
+    rounds: input.rounds,
+    round_timer: input.showClock,
+    team_size: input.teamSize ?? 0,
+    organizer_plays: input.includeMe,
+    guests: input.playerNames.length,
+  });
   return { eventId: data.event_id, shortCode: data.short_code };
 }
 
@@ -678,6 +719,7 @@ export function localDate(d = new Date()): string {
 export async function addGuest(eventId: string, name: string) {
   const { error } = await supabase.rpc("add_guest", { p_event_id: eventId, p_name: name });
   if (error) throw error;
+  capture("guest_added");
 }
 
 /** The organizer joins their own event as a player. */
@@ -690,6 +732,7 @@ export async function addSelfToEvent(eventId: string) {
 export async function removeParticipant(participantId: string) {
   const { error } = await supabase.rpc("remove_participant", { p_participant_id: participantId });
   if (error) throw error;
+  capture("player_removed");
 }
 
 /** The signed-in player's name as events show it. */
@@ -778,10 +821,12 @@ async function invokeEngine<T>(body: Record<string, unknown>): Promise<T> {
 
 /** Pairs (and opens) the next round on the server: Swiss, draft across-the-table, or team pairings. */
 export async function pairNextRound(eventId: string) {
-  return invokeEngine<{ round_id: string; round_number: number; timer_ends_at: string }>({
+  const r = await invokeEngine<{ round_id: string; round_number: number; timer_ends_at: string }>({
     action: "pair_round",
     event_id: eventId,
   });
+  capture("round_paired", { round: r?.round_number ?? 0 });
+  return r;
 }
 
 /** Random draft seats in pods of up to 8. Calling again re-shuffles. */
@@ -789,7 +834,9 @@ export async function pairNextRound(eventId: string) {
 export async function seatPlayers(eventId: string): Promise<SeatingPod[]> {
   const { data, error } = await supabase.rpc("seat_event", { p_event_id: eventId });
   if (error) throw error;
-  return (data?.pods ?? []) as SeatingPod[];
+  const pods = (data?.pods ?? []) as SeatingPod[];
+  capture("seating_drawn", { pods: pods.length });
+  return pods;
 }
 
 export interface EngineStandings {
@@ -811,13 +858,16 @@ export async function fetchEventTeams(eventId: string): Promise<EventTeam[]> {
 export async function randomizeTeams(eventId: string): Promise<EventTeam[]> {
   const { data, error } = await supabase.rpc("randomize_teams", { p_event_id: eventId });
   if (error) throw error;
-  return (data ?? []) as EventTeam[];
+  const teams = (data ?? []) as EventTeam[];
+  capture("teams_set", { teams: teams.length, random: true });
+  return teams;
 }
 
 /** Saves the whole layout. Member order is slot order (1 = seat A). */
 export async function saveTeams(eventId: string, teams: { name: string; members: string[] }[]): Promise<EventTeam[]> {
   const { data, error } = await supabase.rpc("set_teams", { p_event_id: eventId, p_teams: teams });
   if (error) throw error;
+  capture("teams_set", { teams: teams.length, random: false });
   return (data ?? []) as EventTeam[];
 }
 
@@ -875,6 +925,7 @@ export async function trackerRecordGame(
     p_draw: draw,
   });
   if (error) throw error;
+  capture("tracker_game_recorded", { draw, game_no: gameNo });
   return data as TrackerState;
 }
 
@@ -891,4 +942,5 @@ export async function saveTrackerMode(userId: string, mode: TrackerMode) {
     .from("user_settings")
     .upsert({ user_id: userId, tracker_mode: mode, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
   if (error) throw error;
+  capture("tracker_mode_changed", { mode });
 }

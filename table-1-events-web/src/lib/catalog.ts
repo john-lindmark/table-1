@@ -2,6 +2,7 @@
 // version changes, parsed once per page load into column arrays. Search, filters and the collection list all
 // read from here; the server is only asked for prices.
 import { supabase } from "./supabaseClient";
+import { capture, reportError } from "./telemetry";
 
 export interface CatalogInfo {
   version: string;
@@ -139,9 +140,12 @@ async function fetchPack(info: CatalogInfo): Promise<Response> {
     const cache = await caches.open(CACHE_NAME);
     const hit = await cache.match(info.url);
     if (hit) return hit;
+    const started = Date.now();
+    const hadPack = (await cache.keys()).length > 0;
     const res = await fetch(info.url);
     if (!res.ok) throw new Error(`Card data ${res.status}`);
     await cache.put(info.url, res.clone());
+    capture("catalog_pack_installed", { seconds: Math.round((Date.now() - started) / 1000), first: !hadPack });
     // Older packs are dead weight once a new one is in.
     for (const req of await cache.keys()) if (req.url !== info.url) await cache.delete(req);
     return res;
@@ -211,6 +215,7 @@ export function loadCatalog(): Promise<Catalog> {
       return parsePack(info.version, text);
     })().catch((e) => {
       loading = null; // let the next caller retry
+      if (!(e instanceof TypeError)) reportError(e, "catalog_pack"); // a failed fetch (offline) is expected
       throw e;
     });
   }
