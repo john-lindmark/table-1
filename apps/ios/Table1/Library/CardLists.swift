@@ -794,9 +794,11 @@ struct ListDetailView: View {
                     ForEach(list.boards, id: \.self) { board in
                         let lines = rows.filter { $0.board == board }
                         BoardHeader(title: list.boardTitle(board), count: lines.reduce(0) { $0 + $1.qty })
+                        // Ids carry the section: the lazy stack flattens these, and a bare group name ("Creature")
+                        // in the sideboard would reuse the main deck's grid for that group.
                         ForEach(ListLine.groups(lines, kind: list.kind), id: \.self) { g in
                             let inGroup = lines.filter { $0.group == g }
-                            Section1("\(g) · \(inGroup.reduce(0) { $0 + $1.qty })")
+                            Section1("\(g) · \(inGroup.reduce(0) { $0 + $1.qty })").id("h|\(board)|\(g)")
                             LazyVGrid(columns: Array(repeating: GridItem(.fixed(width), spacing: 1), count: 3), spacing: 1) {
                                 ForEach(inGroup) { line in
                                     let have = owned[line.ownKey] ?? 0
@@ -807,6 +809,7 @@ struct ListDetailView: View {
                                     }.buttonStyle(.plain)
                                 }
                             }
+                            .id("g|\(board)|\(g)")
                         }
                     }
                 }
