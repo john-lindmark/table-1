@@ -4,6 +4,7 @@
 // at once, then confirmed by a delta sync.
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { supabase } from "./supabaseClient";
+import { capture } from "./telemetry";
 import { isLibraryDemo, loadDemo, type DemoBackend } from "./libraryDemo";
 
 export type Finish = "nonfoil" | "foil" | "etched";
@@ -252,6 +253,7 @@ export async function applyOps(ops: CollectionOp[], source: "manual" | "scan" | 
   });
   if (error) throw error;
   const res = data as ApplyResult;
+  capture("collection_changed", { source, ops: ops.length, copies: ops.reduce((n, op) => n + (op.delta ?? 0), 0) });
   reflect(res);
   void sync();
   return res;
@@ -267,6 +269,7 @@ export async function undoBatch(batchId: string): Promise<ApplyResult> {
     p_batch_id: batchId, p_idempotency_key: crypto.randomUUID(),
   });
   if (error) throw error;
+  capture("collection_undone");
   const res = data as ApplyResult;
   reflect(res);
   void sync();

@@ -1,21 +1,21 @@
-declare global {
-  interface Window {
-    gtag?: (...args: unknown[]) => void;
-  }
-}
-
 /**
- * A join code is the credential for joining an event — anyone holding it can
- * add themselves as a player — and event ids identify a specific night of
- * someone's tournament. Neither belongs in a third-party analytics property, so
- * the identifying segment is replaced before any page view is sent.
+ * What may leave the browser in a URL. Pure functions, shared by PostHog (`$current_url` and friends) and Sentry
+ * (page URLs, breadcrumbs, transaction names). See contract/telemetry-2026-10-15.md.
  *
- *   /join/ABCD       →  /join/:id
- *   /j/ABCD?s=…      →  /j/:id        (the QR secret is dropped from the query too)
- *   /e/8f3c…         →  /e/:id
+ * A join code is the credential for joining an event — anyone holding it can add themselves as a player — and
+ * event, match, list and trade ids identify someone's own rows. None of them belongs in a third-party tool, so the
+ * identifying segment is replaced before anything is sent.
+ *
+ *   /join/ABCD            →  /join/:id
+ *   /j/ABCD?s=…           →  /j/:id        (the QR secret is dropped from the query too)
+ *   /e/8f3c…/add          →  /e/:id/add
+ *   /life/8f3c…           →  /life/:id
+ *   /library/list/8f3c…   →  /library/list/:id   (also card/…, trade/…; /library/trade/new stays)
  */
 export function redactPath(pathname: string): string {
-  return pathname.replace(/^\/(join|j|e|p|s)\/[^/]+/, "/$1/:id");
+  return pathname
+    .replace(/^\/(join|j|e|p|s|life)\/[^/]+/, "/$1/:id")
+    .replace(/^\/library\/(card|list|trade)\/(?!new(?:\/|$))[^/]+/, "/library/$1/:id");
 }
 
 /** Query parameters that are credentials: the QR join secret and OAuth return values. */
@@ -29,12 +29,80 @@ export function redactSearch(search: string): string {
   return rest ? `?${rest}` : "";
 }
 
-export function trackPageView(pathname: string, search = ""): void {
-  if (typeof window === "undefined" || !window.gtag) return;
-  const path = redactPath(pathname);
-  window.gtag("event", "page_view", {
-    page_path: path,
-    page_location: `${window.location.origin}${path}${redactSearch(search)}`,
-    page_title: document.title,
-  });
+/**
+ * A full URL made safe to send. On this site: redacted path and query, no hash (OAuth tokens can arrive there).
+ * Anywhere else (a referrer): the origin only.
+ */
+export function redactUrl(url: string, origin: string): string {
+  let u: URL;
+  try {
+    u = new URL(url, origin);
+  } catch {
+    return "";
+  }
+  if (u.origin !== origin) return u.protocol.startsWith("http") ? u.origin : "";
+  return `${u.origin}${redactPath(u.pathname)}${redactSearch(u.search)}`;
+}
+
+/** A URL with its query and hash removed (Sentry: PostgREST filters put row ids in query strings). */
+export function stripQuery(url: string): string {
+  const i = url.search(/[?#]/);
+  return i < 0 ? url : url.slice(0, i);
+}
+
+const URL_KEY = /(^|[_$])(url|referrer)$/i;
+const PATH_KEY = /pathname$/i;
+
+/**
+ * Applies the URL rules to a PostHog property bag: the SDK adds `$current_url`, `$pathname`, `$referrer`,
+ * `$initial_*`, `$session_entry_*` and `$initial_person_info` ({ u, r }) on its own.
+ */
+export function scrubProperties(props: Record<string, unknown> | undefined, origin: string) {
+  if (!props) return props;
+  for (const [key, value] of Object.entries(props)) {
+    if (typeof value === "string") {
+      if (URL_KEY.test(key)) props[key] = value && value !== "$direct" ? redactUrl(value, origin) : value;
+      else if (PATH_KEY.test(key)) props[key] = redactPath(value);
+    } else if (key === "$initial_person_info" && value && typeof value === "object") {
+      const info = value as { u?: unknown; r?: unknown };
+      if (typeof info.u === "string") info.u = redactUrl(info.u, origin);
+      if (typeof info.r === "string" && info.r !== "$direct") info.r = redactUrl(info.r, origin);
+    }
+  }
+  return props;
+}
+
+/**
+ * The contract's screen name for a route, so web page views line up with the apps' `$screen` events.
+ * `listKind` answers deck or cube for /library/list/:id (unknown until the lists have loaded).
+ */
+export function screenName(pathname: string, listKind?: (id: string) => "deck" | "cube" | undefined): string | undefined {
+  const p = pathname.replace(/\/+$/, "") || "/";
+  if (p === "/") return "events_home";
+  if (p === "/me") return "account";
+  if (/^\/(e|p|s|join|j)\/[^/]+$/.test(p)) return "event";
+  if (/^\/e\/[^/]+\/add$/.test(p)) return "add_players";
+  if (/^\/life(\/[^/]+)?$/.test(p)) return "life_tracker";
+  const fixed: Record<string, string> = {
+    "/library": "library_home",
+    "/library/cards": "all_cards",
+    "/library/add": "add_cards",
+    "/library/decks": "decks",
+    "/library/cubes": "cubes",
+    "/library/find": "deck_finder",
+    "/library/trades": "trades",
+  };
+  if (fixed[p]) return fixed[p];
+  if (/^\/library\/card\/[^/]+$/.test(p)) return "card_detail";
+  if (/^\/library\/import\/[^/]+$/.test(p)) return "list_import";
+  if (/^\/library\/trade\/[^/]+$/.test(p)) return "trade";
+  const list = p.match(/^\/library\/list\/([^/]+)(\/.*)?$/);
+  if (list) {
+    const rest = list[2] ?? "";
+    if (rest === "") return listKind?.(list[1]);
+    if (rest === "/add") return "list_add";
+    if (rest === "/printing") return "list_printing";
+    if (rest === "/versions" || rest.startsWith("/v/")) return "list_versions";
+  }
+  return undefined;
 }

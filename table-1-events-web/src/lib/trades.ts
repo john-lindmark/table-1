@@ -4,6 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { supabase } from "./supabaseClient";
 import { applyOps, demoBackend, sync, type Condition, type Finish } from "./collection";
 import { isLibraryDemo } from "./libraryDemo";
+import { capture } from "./telemetry";
 
 export interface TradeLine {
   card_id: string;
@@ -98,4 +99,5 @@ export async function deleteTrade(t: Trade) {
   if (demoBackend()) return;
   const { error } = await supabase.rpc("trade_delete", { p_trade_id: t.id });
   if (error) set({ error: error.message });
+  else capture("trade_deleted", { status: t.status });
 }

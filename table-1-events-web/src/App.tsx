@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, type ComponentType } from "react";
+import { Suspense, lazy, useEffect, useRef, type ComponentType } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -9,7 +9,9 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import { trackPageView } from "./lib/analytics";
+import { screenName } from "./lib/analytics";
+import { listKindOf } from "./lib/lists";
+import { pageView } from "./lib/telemetry";
 import { Home } from "./screens/Home";
 import { Organizer } from "./screens/Organizer";
 import { PlayerView } from "./screens/PlayerView";
@@ -247,8 +249,13 @@ function StandingsRoute() {
 /** Sends one redacted page view per navigation, including the first. */
 function RouteAnalytics() {
   const location = useLocation();
+  const last = useRef<string | null>(null);
   useEffect(() => {
-    trackPageView(location.pathname, location.search);
+    // StrictMode runs effects twice in dev; one view per address.
+    const at = location.pathname + location.search;
+    if (last.current === at) return;
+    last.current = at;
+    pageView(location.pathname, location.search, screenName(location.pathname, listKindOf));
   }, [location.pathname, location.search]);
   return null;
 }

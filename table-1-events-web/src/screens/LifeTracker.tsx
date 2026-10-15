@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import { reportFromHome } from "../lib/api";
 import { useSession } from "../lib/useSession";
+import { capture } from "../lib/telemetry";
 import { TrackerSync, type TrackerSnapshot } from "../lib/trackerSync";
 import {
   COUNTER_LABEL,
@@ -249,6 +250,12 @@ function useWakeLock() {
 
 export function LifeTracker({ matchId, onClose }: { matchId?: string; onClose: () => void }) {
   useWakeLock();
+  const opened = useRef(false); // once per mount, also under StrictMode's double effects
+  useEffect(() => {
+    if (opened.current) return;
+    opened.current = true;
+    capture("life_tracker_opened", { mode: matchId ? "match" : "local" });
+  }, [matchId]);
   return matchId ? <SyncedBoard matchId={matchId} onClose={onClose} /> : <LocalBoard onClose={onClose} />;
 }
 

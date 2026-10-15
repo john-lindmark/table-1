@@ -5,13 +5,37 @@ import {
   fetchNearbyAlerts,
   setDisplayName,
   setNearbyAlerts,
+  signOut,
   errorMessage,
 } from "../lib/api";
-import { supabase } from "../lib/supabaseClient";
+import { setSharing, sharing } from "../lib/telemetry";
 import type { AccountOverview } from "../lib/types";
 import { useSession } from "../lib/useSession";
 import { Bar, Notice, Screen, Segmented, TopNav } from "../components/kit";
 import { useTrackerMode } from "../lib/settings";
+
+/** "Share usage and crash data": PostHog and Sentry on this browser (contract/telemetry-2026-10-15.md). */
+function SharingToggle() {
+  const [on, setOn] = useState(sharing);
+  return (
+    <button
+      className="bg-t1-surface hover:bg-t1-surface-hover px-4 py-3.5 flex items-center gap-3 text-left w-full"
+      onClick={() => {
+        setSharing(!on);
+        setOn(!on);
+      }}
+    >
+      <span className="flex-1 min-w-0 flex flex-col">
+        <span className="text-[14px]">Share usage and crash data</span>
+        <span className="t1-label normal-case! tracking-normal!">
+          Which features you use and crash reports, tied to your account id only: never names, cards or events. Saved
+          in this browser.
+        </span>
+      </span>
+      <span className={`t1-label ${on ? "text-t1-accent!" : ""}`}>{on ? "On" : "Off"}</span>
+    </button>
+  );
+}
 
 const record = (w: number, l: number, d: number) => (d > 0 ? `${w}-${l}-${d}` : `${w}-${l}`);
 
@@ -82,6 +106,10 @@ export function Profile({ onSignedOut }: { onSignedOut: () => void }) {
       <Screen>
         <Bar title="Account" />
         <Notice tone="info">Sign in to see your record.</Notice>
+        <div className="flex flex-col gap-px">
+          <div className="bg-t1-surface px-4 py-2 t1-label">Settings</div>
+          <SharingToggle />
+        </div>
       </Screen>
     );
   }
@@ -181,6 +209,7 @@ export function Profile({ onSignedOut }: { onSignedOut: () => void }) {
           </span>
           <span className={`t1-label ${alertsOn ? "text-t1-accent!" : ""}`}>{alertsOn ? "On" : "Off"}</span>
         </button>
+        <SharingToggle />
 
         <div className="bg-t1-surface px-4 py-2 t1-label">Account</div>
         {confirmDelete && (
@@ -201,7 +230,7 @@ export function Profile({ onSignedOut }: { onSignedOut: () => void }) {
             </>
           ) : (
             <>
-              <button className="flex-1 bg-t1-surface py-3.5 t1-label" onClick={() => supabase.auth.signOut().then(onSignedOut)}>
+              <button className="flex-1 bg-t1-surface py-3.5 t1-label" onClick={() => signOut().then(onSignedOut)}>
                 Sign out
               </button>
               <button className="flex-1 bg-t1-surface py-3.5 t1-label" onClick={() => setConfirmDelete(true)}>

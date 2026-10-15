@@ -4,6 +4,7 @@
 // its lists in memory only.
 import { useEffect, useSyncExternalStore } from "react";
 import { supabase } from "./supabaseClient";
+import { capture } from "./telemetry";
 
 export type Board = "main" | "side" | "maybe" | "commander";
 export type ListKind = "deck" | "cube";
@@ -258,8 +259,12 @@ function localEdit(id: string, change: (entries: Entry[]) => Entry[], note = "Ed
   set({ lists: sorted([...state.lists.filter((x) => x.id !== id), { ...l, versions }]) });
 }
 
-/** A new list, optionally starting with cards (a duplicate, an import or a found decklist). */
-export async function createList(kind: ListKind, name: string, format: string, entries: Entry[] = [], note = "Created"): Promise<string> {
+/**
+ * A new list, optionally starting with cards (a duplicate, an import or a found decklist).
+ * `from` is for telemetry only: new / duplicate / import / finder.
+ */
+export async function createList(kind: ListKind, name: string, format: string, entries: Entry[] = [], note = "Created",
+                                 from: "new" | "duplicate" | "import" | "finder" = "new"): Promise<string> {
   const id = crypto.randomUUID();
   if (demo) {
     set({ lists: sorted([...state.lists, { id, kind, name, format, versions: [{ number: 1, at: Date.now() / 1000, note, entries: entries.map((e) => ({ ...e })) }] }]) });
@@ -268,13 +273,14 @@ export async function createList(kind: ListKind, name: string, format: string, e
   await call("list_create", {
     p_id: id, p_kind: kind, p_name: name, p_format: format, p_entries: entries.map((e) => (finishOf(e) === "nonfoil" ? [e.cardId, e.board, e.qty] : [e.cardId, e.board, e.qty, finishOf(e)])), p_note: note,
   });
+  capture("list_created", { kind, format, from });
   return id;
 }
 
 /** A new list with the current version's cards; its history starts fresh and names where it came from. */
 export function duplicateList(l: CardList): Promise<string> {
   const v = current(l);
-  return createList(l.kind, `${l.name} (copy)`.slice(0, 60), l.format, v.entries, `Duplicated from ${l.name} v${v.number}`);
+  return createList(l.kind, `${l.name} (copy)`.slice(0, 60), l.format, v.entries, `Duplicated from ${l.name} v${v.number}`, "duplicate");
 }
 
 export type ListOp =
@@ -331,6 +337,8 @@ export async function restoreList(id: string, number: number): Promise<void> {
     return;
   }
   await call("list_restore", { p_list_id: id, p_version: number });
+  const kind = listKindOf(id);
+  if (kind) capture("list_version_restored", { kind });
 }
 
 export async function deleteList(id: string): Promise<void> {
@@ -340,8 +348,15 @@ export async function deleteList(id: string): Promise<void> {
     set({ error: error.message });
     throw error;
   }
+  const kind = listKindOf(id);
+  if (kind) capture("list_deleted", { kind });
   set({ lists: state.lists.filter((l) => l.id !== id) });
   await saveCache();
+}
+
+/** Deck or cube for a list this browser has loaded (telemetry's screen name). */
+export function listKindOf(id: string): ListKind | undefined {
+  return state.lists.find((l) => l.id === id)?.kind;
 }
 
 export function useLists(userId: string | null, demoLists?: () => Promise<CardList[]>) {
