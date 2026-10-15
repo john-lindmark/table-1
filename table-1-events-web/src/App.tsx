@@ -1,5 +1,4 @@
-import { EventsDemo } from "./screens/EventsDemo";
-import { useEffect } from "react";
+import { Suspense, lazy, useEffect, type ComponentType } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -19,11 +18,31 @@ import { Profile } from "./screens/Profile";
 import { QrJoin } from "./screens/QrJoin";
 import { AddPlayers } from "./screens/AddPlayers";
 import { LifeTracker } from "./screens/LifeTracker";
-import { AddCards, AllCards, CardDetail, LibraryHome } from "./screens/Library";
-import { LinePrintingScreen, ListAddScreen, ListScreen, ListsScreen, VersionScreen, VersionsScreen } from "./screens/Lists";
 import type { Board, ListFinish } from "./lib/lists";
-import { DeckFinderScreen } from "./screens/DeckFinder";
-import { ListImportScreen } from "./screens/ListImport";
+
+/**
+ * The Library (catalog, collection, decks and cubes) loads on first visit, so players who only use events never
+ * download it. One import per module; Vite splits each into its own chunk.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function lazyNamed<M, K extends keyof M>(load: () => Promise<M>, name: K): M[K] {
+  return lazy(() => load().then((m) => ({ default: m[name] as unknown as ComponentType<any> }))) as unknown as M[K];
+}
+const library = () => import("./screens/Library");
+const lists = () => import("./screens/Lists");
+const LibraryHome = lazyNamed(library, "LibraryHome");
+const AllCards = lazyNamed(library, "AllCards");
+const AddCards = lazyNamed(library, "AddCards");
+const CardDetail = lazyNamed(library, "CardDetail");
+const ListsScreen = lazyNamed(lists, "ListsScreen");
+const ListScreen = lazyNamed(lists, "ListScreen");
+const ListAddScreen = lazyNamed(lists, "ListAddScreen");
+const VersionsScreen = lazyNamed(lists, "VersionsScreen");
+const VersionScreen = lazyNamed(lists, "VersionScreen");
+const LinePrintingScreen = lazyNamed(lists, "LinePrintingScreen");
+const DeckFinderScreen = lazyNamed(() => import("./screens/DeckFinder"), "DeckFinderScreen");
+const ListImportScreen = lazyNamed(() => import("./screens/ListImport"), "ListImportScreen");
+const EventsDemo = lazyNamed(() => import("./screens/EventsDemo"), "EventsDemo");
 
 /** Back where the user came from, or a sensible default when the tracker was opened directly. */
 function useBack(fallback: string) {
@@ -219,6 +238,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <RouteAnalytics />
+      <Suspense fallback={null}>
       <Routes>
         <Route path="/" element={<HomeRoute />} />
         <Route path="/e/:eventId" element={<OrganizerRoute />} />
@@ -246,6 +266,7 @@ export default function App() {
         <Route path="/life/:matchId" element={<LifeRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

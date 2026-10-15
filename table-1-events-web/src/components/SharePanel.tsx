@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import QRCode from "qrcode";
 import { getJoinQr } from "../lib/api";
 
 /**
@@ -30,11 +29,12 @@ export function SharePanel({ shortCode, eventId }: { shortCode: string; eventId:
   const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
-    QRCode.toDataURL(joinUrl, {
+    // The QR encoder loads only when an organizer opens sharing.
+    import("qrcode").then(({ default: QRCode }) => QRCode.toDataURL(joinUrl, {
       margin: 1,
       width: 480,
       color: { dark: "#171725", light: "#ffffff" },
-    })
+    }))
       .then(setQr)
       .catch(() => setQr(null));
   }, [joinUrl]);

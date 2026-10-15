@@ -656,7 +656,7 @@ struct ListDetailView: View {
 
     /// Summary, Add cards and Version history: the same in list and grid views.
     @ViewBuilder private func top(_ list: CardList, owned: [String: Int], rows: [ListLine], issues: [String: String]) -> some View {
-        stats(list, owned: owned)
+        stats(list, owned: owned, rows: rows)
         if !issues.isEmpty {
             // Considering cards are flagged on their rows but don't make the deck unplayable.
             let bad = Array(Set(rows.filter { $0.board != "maybe" && issues[$0.oracleId ?? $0.cardId] != nil }.map(\.name))).sorted()
@@ -708,13 +708,13 @@ struct ListDetailView: View {
         "\(formatName(l.format)) \(l.kind == .deck ? "deck" : "cube") · v\(l.current?.number ?? 1)"
     }
 
-    private func stats(_ list: CardList, owned: [String: Int]) -> some View {
+    private func stats(_ list: CardList, owned: [String: Int], rows: [ListLine]) -> some View {
         HStack(spacing: 0) {
             statCell(list.kind == .deck ? "Main" : "Cards", list.count("main"))
             if list.kind == .deck { statCell("Side", list.count("side")) }
             statCell("Considering", list.count("maybe"))
             if list.kind == .deck && list.format == "canlander" {
-                let pts = ListLine.points(lines(for: list)).total
+                let pts = ListLine.points(rows).total
                 statCell("Points", pts, warn: pts > CatalogPack.canlanderPointLimit)
             }
             statCell("Missing", missing(in: list, owned: owned))

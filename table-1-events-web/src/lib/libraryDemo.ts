@@ -113,14 +113,20 @@ export class DemoBackend {
   }
 }
 
+/** The fixture, imported only in dev builds: production drops the import (and the 200 KB chunk) entirely. */
+async function fixture(): Promise<Fixture> {
+  if (!import.meta.env.DEV) throw new Error("The Library demo is dev-only");
+  return (await import("../../../apps/ios/Table1/DebugResources/library-demo.json")).default as unknown as Fixture;
+}
+
 export async function loadDemo(): Promise<DemoBackend> {
-  const f = (await import("../../../apps/ios/Table1/DebugResources/library-demo.json")).default as unknown as Fixture;
+  const f = await fixture();
   return new DemoBackend(f);
 }
 
 /** The demo decks and cube, with their version history, for the lists store. */
 export async function loadDemoLists(): Promise<CardList[]> {
-  const f = (await import("../../../apps/ios/Table1/DebugResources/library-demo.json")).default as unknown as Fixture;
+  const f = await fixture();
   return f.lists.map((l) => ({
     id: l.id, kind: l.kind, name: l.name, format: l.format,
     versions: l.versions.map((v) => ({
