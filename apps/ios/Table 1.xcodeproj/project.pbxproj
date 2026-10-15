@@ -74,7 +74,7 @@
 		EB58F3FC3B3B21A13A6B061B /* LiveModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51120128682593DE4286B900 /* LiveModels.swift */; };
 		EBC44A72B13A2B2BBA4BC103 /* AddPlayersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C0AE970C6BB94032DAA56D /* AddPlayersView.swift */; };
 		ED1FF068FD14A1771C087171 /* SetIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D4D06C464C0814A55799DF9 /* SetIcon.swift */; };
-		F6F2542FC32A67FB90455CB4 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = F286ACE0B9BD5C9CAAF588DF /* Sentry */; };
+		F6F2542FC32A67FB90455CB4 /* Sentry-Dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = B967E990CA99C20AA09E65D9 /* Sentry-Dynamic */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -183,7 +183,7 @@
 				287EA39F0780F5D9D58DB60F /* GoogleSignInSwift in Frameworks */,
 				1F66EB68FE24E7ACF235E4AB /* SVGView in Frameworks */,
 				2F36C38D763F28B48271612F /* PostHog in Frameworks */,
-				F6F2542FC32A67FB90455CB4 /* Sentry in Frameworks */,
+				F6F2542FC32A67FB90455CB4 /* Sentry-Dynamic in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -458,7 +458,7 @@
 				DAA1705822C63F5D91855E6F /* GoogleSignInSwift */,
 				B29FE675356369E91F94A200 /* SVGView */,
 				ADA225913FAE2D658150CD96 /* PostHog */,
-				F286ACE0B9BD5C9CAAF588DF /* Sentry */,
+				B967E990CA99C20AA09E65D9 /* Sentry-Dynamic */,
 			);
 			productName = Table1;
 			productReference = 4A4CE128D71E12EDA0482FDD /* Table1.app */;
@@ -958,6 +958,11 @@
 			package = 9BA5ACD66666A3DA36D7FFD9 /* XCRemoteSwiftPackageReference "SVGView" */;
 			productName = SVGView;
 		};
+		B967E990CA99C20AA09E65D9 /* Sentry-Dynamic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5D6A0AC5F32CD4066523948E /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = "Sentry-Dynamic";
+		};
 		D111446BC5CA58EBB7B2A5C1 /* Supabase */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 74216BDCA796BF29689359A6 /* XCRemoteSwiftPackageReference "supabase-swift" */;
@@ -967,11 +972,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 35EDC623A01E1649F2CF55C4 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignInSwift;
-		};
-		F286ACE0B9BD5C9CAAF588DF /* Sentry */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 5D6A0AC5F32CD4066523948E /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
-			productName = Sentry;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -46,8 +46,10 @@ targets:
         product: GoogleSignInSwift
       - package: SVGView
       - package: PostHog
+      # Sentry-Dynamic ships each slice's dSYM; the static "Sentry" product has none, so App Store Connect
+      # reported "Upload Symbols Failed" for Sentry.framework.
       - package: Sentry
-        product: Sentry
+        product: Sentry-Dynamic
     entitlements:
       path: Table1/Table1.entitlements
       properties:
