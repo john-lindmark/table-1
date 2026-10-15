@@ -55,7 +55,15 @@ private class PackCatalog(text: String) : ScanCatalog {
     }.mapValues { it.value.first }
 }
 
-private class Case(val id: String, val name: String, val set: String, val cn: String, val tags: Set<String>)
+/** One photo or reported case: the card it is, and [lang] the language printed on it. */
+private class Case(val id: String, val name: String, val set: String, val cn: String, val tags: Set<String>, val lang: String = "en")
+
+/** Lowest accuracy the tests accept: what the set reached when last tuned (README has the numbers). */
+private object Floor {
+    const val ENGLISH_NAME = 0.95
+    const val ENGLISH_PRINTING = 0.85
+    const val FOREIGN_NAME = 0.93
+}
 
 private class Tally {
     var n = 0; var name = 0; var wrong = 0; var printingChecked = 0; var printingOk = 0; var exactWrong = 0
@@ -81,7 +89,7 @@ class CardMatcherTest {
 
     private fun photos() = File(root, "photos.tsv").readLines().drop(1).filter { it.isNotBlank() }.map { row ->
         val c = row.split('\t')
-        Case(c[0], c[1], c[2], c[3], c[5].split(',').toSet())
+        Case(c[0], c[1], c[2], c[3], c[5].split(',').toSet(), c[4])
     }
 
     private fun matcher() = CardMatcher(catalog, null, names)
@@ -106,6 +114,7 @@ class CardMatcherTest {
         val cases = photos()
         val report = mutableListOf("Still photos (${cases.size}):")
         val results = HashMap<String, Tally>()
+        val englishResults = HashMap<String, Tally>()
         for (mode in listOf("accurate", "fast", "small")) {
             val all = Tally(); val english = Tally(); val foreign = Tally()
             val byTag = sortedMapOf<String, Tally>()
@@ -118,16 +127,53 @@ class CardMatcherTest {
                 if (mode == "accurate") for (tag in c.tags) grade(c, m?.oracle, m?.printing, m?.exact ?: false, byTag.getOrPut(tag) { Tally() })
             }
             results[mode] = all
+            englishResults[mode] = english
             report += listOf("  $mode: ${all.line()}", "    English: ${english.line()}", "    other languages: ${foreign.line()}")
             if (mode == "accurate") report += byTag.map { (tag, t) -> "      $tag: ${t.line()}" }
         }
         println(report.joinToString("\n"))
+        // Other languages have their own test (foreignCards).
         val accurate = results.getValue("accurate")
+        val english = englishResults.getValue("accurate")
         assertEquals("a wrong card from a steady photo", 0, accurate.wrong)
-        assertTrue(accurate.name.toDouble() / accurate.n >= 0.78)
-        assertTrue(accurate.printingOk.toDouble() / accurate.printingChecked >= 0.84)
+        assertTrue(english.name.toDouble() / english.n >= Floor.ENGLISH_NAME)
+        assertTrue(english.printingOk.toDouble() / english.printingChecked >= Floor.ENGLISH_PRINTING)
         assertTrue(accurate.exactWrong <= 2)
         assertTrue(results.getValue("fast").wrong + results.getValue("small").wrong <= 1)
+    }
+
+    /**
+     * Cards printed in other languages, read two ways: `accurate` is OCR as the scanner reads today (the phone's
+     * language; Cyrillic comes through, Chinese, Japanese and Korean don't), `multi` is OCR that detects the
+     * language. Names in other languages come from the catalog pack's N lines (de, es, fr, it, pt, ru so far).
+     */
+    @Test
+    fun foreignCards() {
+        val ocr = Json.parseToJsonElement(File(root, "ocr.json").readText()).jsonObject
+        val cases = photos().filter { it.lang != "en" }
+        val cjk = setOf("ja", "ko", "zhs", "zht")
+        val report = mutableListOf("Cards in other languages (${cases.size}):")
+        val groups = HashMap<String, Map<String, Tally>>()
+        for (mode in listOf("accurate", "multi")) {
+            val byLang = sortedMapOf<String, Tally>()
+            val byGroup = sortedMapOf<String, Tally>()
+            for (c in cases) {
+                val lines = ocr[c.id]?.jsonObject?.get(mode)?.jsonArray?.map { it.jsonPrimitive.content } ?: continue
+                val m = matcher().match(lines)
+                if (m != null && m.oracle.idx != catalog.expected[CardName.norm(c.name)]) report += "    WRONG $mode ${c.id}: ${m.oracle.name}"
+                val group = if (c.lang in cjk) "Chinese, Japanese, Korean" else "Latin and Cyrillic"
+                grade(c, m?.oracle, m?.printing, m?.exact ?: false, byLang.getOrPut(c.lang) { Tally() })
+                grade(c, m?.oracle, m?.printing, m?.exact ?: false, byGroup.getOrPut(group) { Tally() })
+            }
+            groups[mode] = byGroup
+            report += "  $mode:"
+            report += byGroup.map { (g, t) -> "    $g: ${t.line()}" }
+            report += byLang.map { (l, t) -> "      $l: ${t.line()}" }
+        }
+        println(report.joinToString("\n"))
+        for ((mode, byGroup) in groups) for ((group, t) in byGroup) assertEquals("a wrong card, $group, $mode", 0, t.wrong)
+        val latin = groups.getValue("accurate").getValue("Latin and Cyrillic")
+        assertTrue(latin.name.toDouble() / latin.n >= Floor.FOREIGN_NAME)
     }
 
     /** Frames 200 ms apart, as the movement clips were made. Returns the first card taken and when (ms). */

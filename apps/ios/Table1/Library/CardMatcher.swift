@@ -153,10 +153,10 @@ final class ScanNames: @unchecked Sendable {
         return most ? hit : nil
     }
 
-    /// A misread name: the closest name within about one edit in six letters, if no other card's name is as close.
+    /// A misread name: the closest name within about one edit in eight letters, if no other card's name is as close.
     func fuzzy(_ q: String) -> Int? {
         guard q.count >= 5, q.utf8.count < 250 else { return nil }
-        let cap = max(1, q.count / 6)
+        let cap = max(1, q.count / 8)
         let tg = Self.trigrams(q)
         var shared = [UInt8](repeating: 0, count: keys.count)
         var touched: [Int] = []
@@ -226,7 +226,7 @@ final class CardMatcher: @unchecked Sendable {
         // Not an English name (or none legible): the set code and collector number, when they agree on one card.
         var hits: [Int: CatalogPrinting] = [:]
         for s in bottom.sets {
-            for n in bottom.numbers {
+            for n in bottom.collectorNumbers {
                 for p in printings(set: s, cn: n) where hits[p.oracleIdx] == nil { hits[p.oracleIdx] = p }
             }
         }
@@ -246,7 +246,7 @@ final class CardMatcher: @unchecked Sendable {
         "creature", "instant", "sorcery", "artifact", "enchantment", "land", "planeswalker", "battle", "summon", "interrupt",
         "kindred", "tribal", "legendary",
         // The same on foreign printings (normalized: no accents).
-        "kreatur", "spontanzauber", "hexerei", "artefakt", "verzauberung", "beschworung", "unterbrechungszauber", "legendare",
+        "kreatur", "spontanzauber", "hexerei", "artefakt", "verzauberung", "beschworung", "beschworen", "invoquer", "unterbrechungszauber", "legendare",
         "legendarer", "legendares", "ephemere", "rituel", "artefact", "enchantement", "terrain", "invocation", "interruption",
         "legendaire", "bataille", "criatura", "instantaneo", "conjuro", "artefacto", "encantamiento", "tierra", "invocar",
         "interrupcion", "legendaria", "legendario", "batalla", "creatura", "stregoneria", "artefatto", "incantesimo", "terra",
@@ -258,19 +258,27 @@ final class CardMatcher: @unchecked Sendable {
     /// The card's name: the top lines first (exactly, then cut off or misread), stopping at the type line, which the
     /// name is always above; further down, only an exact name of two words or more (one word is often a keyword).
     private func name(_ lines: [String]) -> Int? {
-        let words = lines.prefix(12).map { CardName.norm($0).split(separator: " ") }.filter { (1...12).contains($0.count) }
+        let read = lines.prefix(12).map { ($0, CardName.norm($0).split(separator: " ")) }.filter { (1...12).contains($0.1.count) }
+        let words = read.map(\.1)
+        // A one-word name only from the first two lines of card text, not from a line in capitals: one word lower
+        // down is usually a keyword ("Fliegen" is also the German name of Fly), and capitals are a grading label
+        // ("FOIL"), which also doesn't count as a line above the name.
+        let text = read.map { $0.0.contains(where: \.isLowercase) }
+        func fits(_ q: String, _ i: Int) -> Bool { q.contains(" ") || (text[i] && text[..<i].filter { $0 }.count <= 1) }
         func exact(_ i: Int) -> Int? {
-            for q in candidates(words[i]) where q.count >= 3 { if let o = names.exact(q), allowed(o) { return o } }
+            for q in candidates(words[i]) where q.count >= 3 && fits(q, i) { if let o = names.exact(q), allowed(o) { return o } }
             // A name broken over two lines.
             if i + 1 < words.count, words[i].count <= 3, words[i + 1].count <= 3 {
-                for q in candidates(words[i] + words[i + 1]) where q.count >= 3 { if let o = names.exact(q), allowed(o) { return o } }
+                for q in candidates(words[i] + words[i + 1]) where q.count >= 3 && fits(q, i) {
+                    if let o = names.exact(q), allowed(o) { return o }
+                }
             }
             return nil
         }
         for i in 0..<min(3, words.count) {
             if let o = exact(i) { return o }
             if !Self.typeWords.isDisjoint(with: words[i]) { break }
-            for q in candidates(words[i]) {
+            for q in candidates(words[i]) where fits(q, i) {
                 if let o = names.prefix(q) ?? names.fuzzy(q), allowed(o) { return o }
             }
         }
@@ -342,14 +350,22 @@ final class CardMatcher: @unchecked Sendable {
 
     nonisolated(unsafe) private static let yearRange = #/(19[89]\d)\s*[-–]?\s*(20[0-4]\d)/#
     nonisolated(unsafe) private static let year = #/19[89]\d|20[0-4]\d/#
-    private static let months: Set<String> = ["jan", "january", "feb", "february", "mar", "march", "apr", "april", "may", "jun", "june",
-                                              "jul", "july", "aug", "august", "sep", "sept", "september", "oct", "october",
-                                              "nov", "november", "dec", "december"]
+    /// Month names as a date stamp prints them, normalized: English, then de, fr, it, es, pt, ru.
+    private static let months: Set<String> = [
+        "jan", "january", "feb", "february", "mar", "march", "apr", "april", "may", "jun", "june", "jul", "july", "aug",
+        "august", "sep", "sept", "september", "oct", "october", "nov", "november", "dec", "december", "januar", "februar",
+        "marz", "mai", "juni", "juli", "oktober", "dezember", "janvier", "fevrier", "mars", "avril", "juin", "juillet",
+        "aout", "septembre", "octobre", "novembre", "decembre", "gennaio", "febbraio", "marzo", "aprile", "maggio",
+        "giugno", "luglio", "agosto", "settembre", "ottobre", "dicembre", "enero", "febrero", "abril", "mayo", "junio",
+        "julio", "septiembre", "octubre", "noviembre", "diciembre", "janeiro", "fevereiro", "marco", "maio", "junho",
+        "julho", "setembro", "outubro", "novembro", "dezembro", "января", "февраля", "марта", "апреля", "мая", "июня",
+        "июля", "августа", "сентября", "октября", "ноября", "декабря",
+    ]
 
-    /// A prerelease date stamp ("30-31 January 2021"): a month and a year on a line that isn't the copyright.
+    /// A prerelease date stamp ("30-31 January 2021", "27-28 giugno 2020"): a month and a year on a line that isn't the copyright.
     private static func dated(_ lines: [String]) -> Bool {
         lines.contains { line in
-            let l = line.lowercased()
+            let l = CardName.norm(line)
             return l.firstMatch(of: year) != nil && !l.contains("wizards")
                 && l.split(whereSeparator: { !$0.isLetter }).contains { months.contains(String($0)) }
         }
@@ -388,6 +404,8 @@ final class CardMatcher: @unchecked Sendable {
 struct Collector {
     var sets = Set<String>()
     var numbers = Set<String>()
+    /// The numbers written as collector numbers ("154/196", "0244", "R 1695", "297"), not a lone "212" that may be a misread 2/2.
+    var collectorNumbers = Set<String>()
 
     private static let langs: Set<String> = ["EN", "DE", "FR", "IT", "ES", "PT", "JP", "JA", "RU", "KR", "KO", "CS", "CT", "PH", "ZHS", "ZHT"]
     /// An uppercase code, a bullet or star, a language code ("one it ate." in rules text is not a set and a language).
@@ -406,13 +424,21 @@ struct Collector {
                 if known.contains(code) { sets.insert(code) }
             }
             for m in line.matches(of: Self.ofTotal) where (Int(m.output.3) ?? 0) >= 30 {
-                numbers.insert(Self.strip(String(m.output.1)) + m.output.2.lowercased())
+                let n = Self.strip(String(m.output.1)) + m.output.2.lowercased()
+                numbers.insert(n)
+                collectorNumbers.insert(n)
             }
         }
         for line in lines {
             guard let m = line.wholeMatch(of: Self.alone) else { continue }
             let n = m.output.1.replacingOccurrences(of: " ", with: "")
-            if n.count <= 4, langLine || n.count == 4 { numbers.insert(Self.strip(n)) }
+            guard n.count <= 4, langLine || n.count == 4 else { continue }
+            numbers.insert(Self.strip(n))
+            // "0244", "R 1695", or three digits that can't be power/toughness read with the slash as 1 or 7 ("2/2" → "212").
+            let toughness = n.count == 3 && "17".contains(Array(n)[1])
+            if (n.count == 4 && n.first == "0") || line.contains(where: \.isLetter) || (n.count == 3 && !toughness) {
+                collectorNumbers.insert(Self.strip(n))
+            }
         }
     }
 

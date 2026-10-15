@@ -1,8 +1,10 @@
 // Reads every photo in testdata/scan/photos.tsv with Apple Vision and writes testdata/scan/ocr.json: for each photo,
-// the text lines top of the frame first (the order CardTextScanner hands the matcher) in three reads:
+// the text lines top of the frame first (the order CardTextScanner hands the matcher) in four reads:
 //   accurate  .accurate recognition at full size (close to VisionKit live text on a steady frame)
 //   fast      .fast recognition (a quick or blurry frame)
 //   small     .accurate at half size (the card further from the camera)
+//   multi     .accurate with automatic language detection (Japanese, Chinese, Korean, Cyrillic read as such; the
+//             scanner reads like this only once it asks for those languages, see testdata/scan/README.md)
 // The unit tests on iOS and Android run the matcher over these lines, so OCR runs once here, not in the tests.
 //
 // With `motion`, it writes testdata/scan/motion.json instead: for each photo, a 2.4 s clip of 12 frames (one every
@@ -17,14 +19,15 @@ import CoreImage
 import Foundation
 import Vision
 
-let root = URL(fileURLWithPath: "testdata/scan")
+let root = URL(fileURLWithPath: ProcessInfo.processInfo.environment["T1_SCAN_ROOT"] ?? "testdata/scan")
 let rows = try String(contentsOf: root.appending(path: "photos.tsv"), encoding: .utf8)
     .split(separator: "\n").dropFirst().map { $0.split(separator: "\t", omittingEmptySubsequences: false).map(String.init) }
 
-func read(_ image: CGImage, level: VNRequestTextRecognitionLevel) throws -> [String] {
+func read(_ image: CGImage, level: VNRequestTextRecognitionLevel, detectLanguage: Bool = false) throws -> [String] {
     let request = VNRecognizeTextRequest()
     request.recognitionLevel = level
     request.usesLanguageCorrection = level == .accurate
+    request.automaticallyDetectsLanguage = detectLanguage
     try VNImageRequestHandler(cgImage: image).perform([request])
     let observations = request.results ?? []
     // Vision's origin is bottom-left: the top of the frame has the largest maxY.
@@ -159,6 +162,7 @@ for row in rows {
         "accurate": try read(image, level: .accurate),
         "fast": try read(image, level: .fast),
         "small": try read(scaled(image, 0.5), level: .accurate),
+        "multi": try read(image, level: .accurate, detectLanguage: true),
     ]
     FileHandle.standardError.write("\(file): \(out[file]!["accurate"]!.first ?? "-")\n".data(using: .utf8)!)
 }

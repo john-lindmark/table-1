@@ -108,10 +108,10 @@ class ScanNames(catalog: ScanCatalog) {
         return if (most) hit else null
     }
 
-    /** A misread name: the closest name within about one edit in six letters, if no other card's name is as close. */
+    /** A misread name: the closest name within about one edit in eight letters, if no other card's name is as close. */
     fun fuzzy(q: String): Int? {
         if (q.length < 5 || q.length >= 250) return null
-        val cap = maxOf(1, q.length / 6)
+        val cap = maxOf(1, q.length / 8)
         val tg = trigrams(q)
         val shared = ByteArray(keys.size)
         val touched = ArrayList<Int>()
@@ -193,7 +193,7 @@ class CardMatcher(
         name(lines)?.let { idx -> oracle(idx)?.let { return pick(it, lines, bottom) } }
         // Not an English name (or none legible): the set code and collector number, when they agree on one card.
         val hits = LinkedHashMap<Int, CatalogPrinting>()
-        for (s in bottom.sets) for (n in bottom.numbers) for (p in printings(s, n)) hits.putIfAbsent(p.oracleIdx, p)
+        for (s in bottom.sets) for (n in bottom.collectorNumbers) for (p in printings(s, n)) hits.putIfAbsent(p.oracleIdx, p)
         if (hits.size != 1) return null
         val (idx, p) = hits.entries.first()
         return oracle(idx)?.let { ScanMatch(it, p, true) }
@@ -210,19 +210,27 @@ class CardMatcher(
      * name is always above; further down, only an exact name of two words or more (one word is often a keyword).
      */
     private fun name(lines: List<String>): Int? {
-        val words = lines.take(12).map { l -> CardName.norm(l).split(' ').filter { it.isNotEmpty() } }.filter { it.size in 1..12 }
+        val read = lines.take(12).map { l -> l to CardName.norm(l).split(' ').filter { it.isNotEmpty() } }.filter { it.second.size in 1..12 }
+        val words = read.map { it.second }
+        /**
+         * A one-word name only from the first two lines of card text, not from a line in capitals: one word lower
+         * down is usually a keyword ("Fliegen" is also the German name of Fly), and capitals are a grading label
+         * ("FOIL"), which also doesn't count as a line above the name.
+         */
+        val text = read.map { (line, _) -> line.any { it.isLowerCase() } }
+        fun fits(q: String, i: Int) = ' ' in q || (text[i] && (0 until i).count { text[it] } <= 1)
         fun exact(i: Int): Int? {
-            for (q in candidates(words[i])) if (q.length >= 3) names.exact(q)?.takeIf(::allowed)?.let { return it }
+            for (q in candidates(words[i])) if (q.length >= 3 && fits(q, i)) names.exact(q)?.takeIf(::allowed)?.let { return it }
             // A name broken over two lines.
             if (i + 1 < words.size && words[i].size <= 3 && words[i + 1].size <= 3) {
-                for (q in candidates(words[i] + words[i + 1])) if (q.length >= 3) names.exact(q)?.takeIf(::allowed)?.let { return it }
+                for (q in candidates(words[i] + words[i + 1])) if (q.length >= 3 && fits(q, i)) names.exact(q)?.takeIf(::allowed)?.let { return it }
             }
             return null
         }
         for (i in 0 until minOf(3, words.size)) {
             exact(i)?.let { return it }
             if (words[i].any { it in TYPE_WORDS }) break
-            for (q in candidates(words[i])) (names.prefix(q) ?: names.fuzzy(q))?.takeIf(::allowed)?.let { return it }
+            for (q in candidates(words[i])) if (fits(q, i)) (names.prefix(q) ?: names.fuzzy(q))?.takeIf(::allowed)?.let { return it }
         }
         for (i in minOf(3, words.size) until words.size) {
             exact(i)?.let { if (oracle(it)?.norm?.contains(' ') == true) return it }
@@ -281,15 +289,24 @@ class CardMatcher(
         val TYPE_WORDS = setOf("creature", "instant", "sorcery", "artifact", "enchantment", "land", "planeswalker", "battle",
             "summon", "interrupt", "kindred", "tribal", "legendary",
             // The same on foreign printings (normalized: no accents).
-            "kreatur", "spontanzauber", "hexerei", "artefakt", "verzauberung", "beschworung", "unterbrechungszauber", "legendare",
+            "kreatur", "spontanzauber", "hexerei", "artefakt", "verzauberung", "beschworung", "beschworen", "invoquer", "unterbrechungszauber", "legendare",
             "legendarer", "legendares", "ephemere", "rituel", "artefact", "enchantement", "terrain", "invocation", "interruption",
             "legendaire", "bataille", "criatura", "instantaneo", "conjuro", "artefacto", "encantamiento", "tierra", "invocar",
             "interrupcion", "legendaria", "legendario", "batalla", "creatura", "stregoneria", "artefatto", "incantesimo", "terra",
             "evoca", "interruzione", "leggendaria", "leggendario", "battaglia", "instantanea", "feitico", "artefato", "encantamento",
             "terreno", "lendaria", "lendario", "batalha", "существо", "мгновенное", "волшебство", "артефакт", "чары", "земля",
             "легендарное", "легендарныи", "легендарная", "сражение")
-        val MONTHS = setOf("jan", "january", "feb", "february", "mar", "march", "apr", "april", "may", "jun", "june", "jul", "july",
-            "aug", "august", "sep", "sept", "september", "oct", "october", "nov", "november", "dec", "december")
+        /** Month names as a date stamp prints them, normalized: English, then de, fr, it, es, pt, ru. */
+        val MONTHS = setOf(
+            "jan", "january", "feb", "february", "mar", "march", "apr", "april", "may", "jun", "june", "jul", "july",
+            "aug", "august", "sep", "sept", "september", "oct", "october", "nov", "november", "dec", "december", "januar",
+            "februar", "marz", "mai", "juni", "juli", "oktober", "dezember", "janvier", "fevrier", "mars", "avril", "juin",
+            "juillet", "aout", "septembre", "octobre", "novembre", "decembre", "gennaio", "febbraio", "marzo", "aprile",
+            "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "dicembre", "enero", "febrero", "abril",
+            "mayo", "junio", "julio", "septiembre", "octubre", "noviembre", "diciembre", "janeiro", "fevereiro", "marco",
+            "maio", "junho", "julho", "setembro", "outubro", "novembro", "dezembro", "января", "февраля", "марта",
+            "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря",
+        )
         val YEAR_RANGE = Regex("(19[89]\\d)\\s*[-–]?\\s*(20[0-4]\\d)")
         val YEAR = Regex("19[89]\\d|20[0-4]\\d")
 
@@ -308,10 +325,10 @@ class CardMatcher(
             return out
         }
 
-        /** A prerelease date stamp ("30-31 January 2021"): a month and a year on a line that isn't the copyright. */
+        /** A prerelease date stamp ("30-31 January 2021", "27-28 giugno 2020"): a month and a year on a line that isn't the copyright. */
         fun dated(lines: List<String>) = lines.any { line ->
-            val l = line.lowercase()
-            YEAR.containsMatchIn(l) && "wizards" !in l && l.split(Regex("[^a-z]+")).any { it in MONTHS }
+            val l = CardName.norm(line)
+            YEAR.containsMatchIn(l) && "wizards" !in l && l.split(Regex("[^a-zа-я]+")).any { it in MONTHS }
         }
     }
 }
@@ -320,6 +337,8 @@ class CardMatcher(
 class Collector(lines: List<String>, known: Set<String>) {
     val sets = HashSet<String>()
     val numbers = HashSet<String>()
+    /** The numbers written as collector numbers ("154/196", "0244", "R 1695", "297"), not a lone "212" that may be a misread 2/2. */
+    val collectorNumbers = HashSet<String>()
 
     init {
         var langLine = false
@@ -331,13 +350,22 @@ class Collector(lines: List<String>, known: Set<String>) {
                 if (code in known) sets.add(code)
             }
             for (m in OF_TOTAL.findAll(line)) {
-                if ((m.groupValues[3].toIntOrNull() ?: 0) >= 30) numbers.add(strip(m.groupValues[1]) + m.groupValues[2].lowercase())
+                if ((m.groupValues[3].toIntOrNull() ?: 0) >= 30) {
+                    val n = strip(m.groupValues[1]) + m.groupValues[2].lowercase()
+                    numbers.add(n)
+                    collectorNumbers.add(n)
+                }
             }
         }
         for (line in lines) {
             val m = ALONE.matchEntire(line) ?: continue
             val n = m.groupValues[1].replace(" ", "")
-            if (n.length <= 4 && (langLine || n.length == 4)) numbers.add(strip(n))
+            if (n.length <= 4 && (langLine || n.length == 4)) {
+                numbers.add(strip(n))
+                // "0244", "R 1695", or three digits that can't be power/toughness read with the slash as 1 or 7 ("2/2" → "212").
+                val toughness = n.length == 3 && n[1] in "17"
+                if ((n.length == 4 && n[0] == '0') || line.any { it.isLetter() } || (n.length == 3 && !toughness)) collectorNumbers.add(strip(n))
+            }
         }
     }
 
