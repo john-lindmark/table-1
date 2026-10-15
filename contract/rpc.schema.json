@@ -2733,6 +2733,540 @@
           "pods"
         ]
       }
+    },
+    "list_create": {
+      "note": "Creates a deck or cube (client-chosen id; idempotent). contract/lists-2026-10-15.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_kind": {
+            "type": "string"
+          },
+          "p_name": {
+            "type": "string"
+          },
+          "p_format": {
+            "type": "string"
+          },
+          "p_entries": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "main",
+                    "side",
+                    "maybe",
+                    "commander"
+                  ]
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          "p_note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "p_id",
+          "p_kind",
+          "p_name",
+          "p_format"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "deck",
+              "cube"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "seq": {
+            "type": "integer"
+          },
+          "current_version": {
+            "type": "integer"
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "type": "integer"
+                },
+                "note": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "number"
+                },
+                "entries": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "main",
+                          "side",
+                          "maybe",
+                          "commander"
+                        ]
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "list_edit": {
+      "note": "Applies edit ops; groups edits within 10 minutes into one version. contract/lists-2026-10-15.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_list_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_ops": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "p_list_id",
+          "p_ops"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "deck",
+              "cube"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "seq": {
+            "type": "integer"
+          },
+          "current_version": {
+            "type": "integer"
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "type": "integer"
+                },
+                "note": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "number"
+                },
+                "entries": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "main",
+                          "side",
+                          "maybe",
+                          "commander"
+                        ]
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "list_restore": {
+      "note": "Appends a copy of an old version. contract/lists-2026-10-15.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_list_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "p_list_id",
+          "p_version"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "deck",
+              "cube"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "seq": {
+            "type": "integer"
+          },
+          "current_version": {
+            "type": "integer"
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "type": "integer"
+                },
+                "note": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "number"
+                },
+                "entries": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "main",
+                          "side",
+                          "maybe",
+                          "commander"
+                        ]
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "list_update": {
+      "note": "Renames or changes format. contract/lists-2026-10-15.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_list_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_format": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "p_list_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "deck",
+              "cube"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "seq": {
+            "type": "integer"
+          },
+          "current_version": {
+            "type": "integer"
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "type": "integer"
+                },
+                "note": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "number"
+                },
+                "entries": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "main",
+                          "side",
+                          "maybe",
+                          "commander"
+                        ]
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "list_delete": {
+      "note": "Deletes for every device (tombstone in lists_changes). contract/lists-2026-10-15.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_list_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_list_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deleted": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "lists_changes": {
+      "note": "Delta sync of lists by seq. contract/lists-2026-10-15.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_after": {
+            "type": "integer"
+          },
+          "p_limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "lists": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "deck",
+                    "cube"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "format": {
+                  "type": "string"
+                },
+                "seq": {
+                  "type": "integer"
+                },
+                "current_version": {
+                  "type": "integer"
+                },
+                "deleted": {
+                  "type": "boolean"
+                },
+                "versions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "version": {
+                        "type": "integer"
+                      },
+                      "note": {
+                        "type": "string"
+                      },
+                      "at": {
+                        "type": "number"
+                      },
+                      "entries": {
+                        "type": "array",
+                        "items": {
+                          "type": "array",
+                          "prefixItems": [
+                            {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "main",
+                                "side",
+                                "maybe",
+                                "commander"
+                              ]
+                            },
+                            {
+                              "type": "integer"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "next": {
+            "type": "integer"
+          },
+          "more": {
+            "type": "boolean"
+          }
+        }
+      }
     }
   },
   "functions": {

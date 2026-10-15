@@ -1,3 +1,4 @@
+import Supabase
 import SwiftUI
 
 // Decks and cubes ("card lists", plan-collection-2026-10-14.md §6). The server tables come with L3; until then
@@ -80,13 +81,107 @@ struct CardList: Identifiable, Hashable, Sendable {
 final class ListsStore {
     static let shared = ListsStore()
     private(set) var lists: [CardList] = []
+    private(set) var syncing = false
+    var error: String?
 
-    func replace(_ lists: [CardList]) { self.lists = lists }
+    /// Signed in: lists live in the database (contract/lists-2026-10-15.md) and sync by seq; this device keeps a
+    /// cached copy so they show instantly and offline. Demo (`replace`): local only.
+    @ObservationIgnored private var userId: String?
+    @ObservationIgnored private var cursor = 0
+    @ObservationIgnored private var demo = false
+    @ObservationIgnored private var syncTask: Task<Void, Never>?
+    @ObservationIgnored private var syncAgain = false
+
+    func replace(_ lists: [CardList]) {
+        demo = true
+        userId = nil
+        self.lists = lists
+    }
+
     func lists(_ kind: CardList.Kind) -> [CardList] { lists.filter { $0.kind == kind } }
     func list(id: String) -> CardList? { lists.first { $0.id == id } }
 
+    // MARK: sync
+
+    func start(userId: String) async {
+        guard self.userId != userId else { return await sync() }
+        demo = false
+        self.userId = userId
+        let cached = Self.loadCache(userId)
+        lists = cached.lists
+        cursor = cached.cursor
+        await sync()
+    }
+
+    func stop() {
+        userId = nil
+        lists = []
+        cursor = 0
+    }
+
+    /// Pulls every list changed after the local cursor. A call during a run schedules one more run after it.
+    func sync() async {
+        guard let user = userId, !demo else { return }
+        if let running = syncTask {
+            syncAgain = true
+            await running.value
+            return
+        }
+        let task = Task {
+            syncing = true
+            defer { syncing = false }
+            do {
+                for _ in 0..<50 {
+                    let page: ListsPage = try await supabase.rpc("lists_changes", params: [
+                        "p_after": AnyJSON.integer(cursor), "p_limit": .integer(100),
+                    ]).execute().value
+                    guard userId == user else { return }
+                    for dto in page.lists { merge(dto) }
+                    cursor = page.next
+                    Self.saveCache(user, lists: lists, cursor: cursor)
+                    if !page.more { break }
+                }
+                error = nil
+            } catch {
+                if userId == user { self.error = error.localizedDescription }
+            }
+        }
+        syncTask = task
+        await task.value
+        syncTask = nil
+        if syncAgain {
+            syncAgain = false
+            await sync()
+        }
+    }
+
+    private func merge(_ dto: ListDTO) {
+        lists.removeAll { $0.id == dto.id }
+        if dto.deleted != true, let l = dto.list { lists.append(l) }
+        lists.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// Sends one change to the server and replaces the local list with the server's version (the source of
+    /// truth: it groups edits into versions). On failure the local copy is re-synced.
+    private func send(_ fn: String, _ params: [String: AnyJSON]) {
+        guard userId != nil, !demo else { return }
+        Task {
+            do {
+                let dto: ListDTO = try await supabase.rpc(fn, params: params).execute().value
+                merge(dto)
+                if let u = userId { Self.saveCache(u, lists: lists, cursor: cursor) }
+                error = nil
+            } catch {
+                self.error = error.localizedDescription
+                await sync()
+            }
+        }
+    }
+
+    // MARK: changes (shown at once, then confirmed by the server)
+
     /// Makes an old version current again by appending a copy of it as a new version (history is never
-    /// rewritten). Local until L3 adds the server table; the demo is the only caller today.
+    /// rewritten).
     @discardableResult
     func restore(listId: String, version number: Int) -> CardList.Version? {
         guard let i = lists.firstIndex(where: { $0.id == listId }), let old = lists[i].version(number),
@@ -96,13 +191,12 @@ final class ListsStore {
                                     note: "Restored v\(number)", entries: old.entries)
         lists[i] = CardList(id: l.id, kind: l.kind, name: l.name, format: l.format, versions: l.versions + [next])
         openEdit[listId] = nil
+        send("list_restore", ["p_list_id": .string(listId), "p_version": .integer(number)])
         return next
     }
 
-    // MARK: editing (every change lands in a version)
-
-    /// The version an editing session is filling: edits within 10 minutes of each other share one version,
-    /// so a quick run of +1s is one entry in the history, not twenty.
+    /// The version an editing session is filling: edits within 10 minutes of each other share one version.
+    /// The server applies the same rule; this keeps the screen in step until its answer arrives.
     @ObservationIgnored private var openEdit: [String: (number: Int, at: Date)] = [:]
 
     @discardableResult
@@ -110,11 +204,18 @@ final class ListsStore {
         let l = CardList(id: UUID().uuidString.lowercased(), kind: kind, name: name, format: format,
                          versions: [CardList.Version(number: 1, at: .now, note: "Created", entries: [])])
         lists.append(l)
+        send("list_create", ["p_id": .string(l.id), "p_kind": .string(kind.rawValue), "p_name": .string(name),
+                             "p_format": .string(format), "p_entries": .array([]), "p_note": .string("Created")])
         return l
     }
 
+    func delete(listId: String) {
+        lists.removeAll { $0.id == listId }
+        send("list_delete", ["p_list_id": .string(listId)])
+    }
+
     func add(listId: String, cardId: String, board: String, delta: Int) {
-        edit(listId) { entries in
+        edit(listId, op: ["card_id": .string(cardId), "board": .string(board), "delta": .integer(delta)]) { entries in
             if let i = entries.firstIndex(where: { $0.cardId == cardId && $0.board == board }) {
                 let q = entries[i].qty + delta
                 if q > 0 { entries[i] = .init(cardId: cardId, board: board, qty: q) } else { entries.remove(at: i) }
@@ -127,7 +228,7 @@ final class ListsStore {
     /// Moves every copy of a line to another section (merging with copies already there).
     func move(listId: String, cardId: String, from: String, to: String) {
         guard from != to else { return }
-        edit(listId) { entries in
+        edit(listId, op: ["card_id": .string(cardId), "from": .string(from), "to": .string(to)]) { entries in
             guard let i = entries.firstIndex(where: { $0.cardId == cardId && $0.board == from }) else { return }
             let q = entries.remove(at: i).qty
             if let j = entries.firstIndex(where: { $0.cardId == cardId && $0.board == to }) {
@@ -139,10 +240,12 @@ final class ListsStore {
     }
 
     func remove(listId: String, cardId: String, board: String) {
-        edit(listId) { $0.removeAll { $0.cardId == cardId && $0.board == board } }
+        edit(listId, op: ["card_id": .string(cardId), "board": .string(board), "qty": .integer(0)]) {
+            $0.removeAll { $0.cardId == cardId && $0.board == board }
+        }
     }
 
-    private func edit(_ listId: String, _ change: (inout [CardList.Entry]) -> Void) {
+    private func edit(_ listId: String, op: [String: AnyJSON], _ change: (inout [CardList.Entry]) -> Void) {
         guard let i = lists.firstIndex(where: { $0.id == listId }), let cur = lists[i].current else { return }
         var entries = cur.entries
         change(&entries)
@@ -157,6 +260,7 @@ final class ListsStore {
         }
         openEdit[listId] = (versions[versions.count - 1].number, .now)
         lists[i] = CardList(id: l.id, kind: l.kind, name: l.name, format: l.format, versions: versions)
+        send("list_edit", ["p_list_id": .string(listId), "p_ops": .array([.object(op)])])
     }
 
     /// Lists that use any of these printings: copies committed (main, side, commander) and copies considered.
@@ -168,6 +272,89 @@ final class ListsStore {
             return q + c > 0 ? (l, q, c) : nil
         }
     }
+
+    // MARK: device cache (one JSON file per account)
+
+    private struct Cache: Codable {
+        var cursor: Int
+        var lists: [ListDTO]
+    }
+
+    nonisolated private static func cacheURL(_ userId: String) -> URL {
+        let dir = URL.applicationSupportDirectory.appending(path: "Library", directoryHint: .isDirectory)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appending(path: "lists-\(userId).json")
+    }
+
+    private static func loadCache(_ userId: String) -> (lists: [CardList], cursor: Int) {
+        guard let data = try? Data(contentsOf: cacheURL(userId)),
+              let c = try? JSONDecoder().decode(Cache.self, from: data) else { return ([], 0) }
+        return (c.lists.compactMap(\.list), c.cursor)
+    }
+
+    private static func saveCache(_ userId: String, lists: [CardList], cursor: Int) {
+        let c = Cache(cursor: cursor, lists: lists.map(ListDTO.init))
+        if let data = try? JSONEncoder().encode(c) { try? data.write(to: cacheURL(userId), options: .atomic) }
+    }
+}
+
+/// A list on the wire (lists_changes and the list_* RPCs): entries are [card_id, board, qty].
+struct ListDTO: Codable {
+    struct VersionDTO: Codable {
+        let version: Int
+        let note: String
+        let at: Double
+        let entries: [[Atom]]
+    }
+    enum Atom: Codable {
+        case text(String), int(Int)
+        init(from decoder: Decoder) throws {
+            let c = try decoder.singleValueContainer()
+            if let i = try? c.decode(Int.self) { self = .int(i) } else { self = .text(try c.decode(String.self)) }
+        }
+        func encode(to encoder: Encoder) throws {
+            var c = encoder.singleValueContainer()
+            switch self {
+            case .text(let s): try c.encode(s)
+            case .int(let i): try c.encode(i)
+            }
+        }
+        var text: String { if case .text(let s) = self { s } else { "" } }
+        var int: Int { if case .int(let i) = self { i } else { 0 } }
+    }
+    let id: String
+    var kind: String?
+    var name: String?
+    var format: String?
+    var deleted: Bool?
+    var versions: [VersionDTO]?
+
+    var list: CardList? {
+        guard let kind, let name, let format, let versions, !versions.isEmpty else { return nil }
+        return CardList(id: id, kind: kind == "cube" ? .cube : .deck, name: name, format: format,
+                        versions: versions.map { v in
+                            CardList.Version(number: v.version, at: Date(timeIntervalSince1970: v.at), note: v.note,
+                                             entries: v.entries.map { CardList.Entry(cardId: $0[0].text, board: $0[1].text, qty: $0[2].int) })
+                        })
+    }
+
+    init(_ l: CardList) {
+        id = l.id
+        kind = l.kind.rawValue
+        name = l.name
+        format = l.format
+        deleted = false
+        versions = l.versions.map { v in
+            VersionDTO(version: v.number, note: v.note, at: v.at.timeIntervalSince1970,
+                       entries: v.entries.map { [.text($0.cardId), .text($0.board), .int($0.qty)] })
+        }
+    }
+}
+
+private struct ListsPage: Decodable {
+    let lists: [ListDTO]
+    let next: Int
+    let more: Bool
 }
 
 /// Copies owned of each printing, over every finish, condition and language.
@@ -327,6 +514,7 @@ struct ListDetailView: View {
                 }
             }
             CatalogStatusRow(catalog: catalog)
+            if let error = ListsStore.shared.error { Notice(error, error: true) }
             if let list {
                 if grid && !editing {
                     gridBody(list, rows: rows, owned: owned)
@@ -373,6 +561,18 @@ struct ListDetailView: View {
     /// Summary, Add cards and Version history: the same in list and grid views.
     @ViewBuilder private func top(_ list: CardList, owned: [String: Int]) -> some View {
         stats(list, owned: owned)
+        if editing {
+            Button {
+                T1Overlays.shared.showMenu("Delete \(list.name)?", message: "It goes from every device. This can't be undone.", [
+                    T1MenuItem(title: list.kind == .deck ? "Delete deck" : "Delete cube", destructive: true) {
+                        ListsStore.shared.delete(listId: list.id)
+                        dismiss()
+                    },
+                ])
+            } label: {
+                ListRow(title: list.kind == .deck ? "Delete deck" : "Delete cube", detail: "From every device")
+            }.buttonStyle(.plain)
+        }
         Button { path.append(.listAdd(list.id)) } label: {
             ListRow(title: "Add cards", detail: list.kind == .deck ? "To the main deck, sideboard or considering" : "To the cube or considering")
         }.buttonStyle(.plain)
@@ -444,7 +644,8 @@ struct ListDetailView: View {
         }.buttonStyle(.plain)
     }
 
-    /// The grid keeps the sections: a header per section, then that section's cards.
+    /// The grid keeps the list's organization: a header per section, then a sub-header per type (decks) or
+    /// color (cubes), each followed by that group's cards.
     private func gridBody(_ list: CardList, rows: [ListLine], owned: [String: Int]) -> some View {
         GeometryReader { geo in
             let width = ((geo.size.width - 2) / 3).rounded(.down)
@@ -454,13 +655,17 @@ struct ListDetailView: View {
                     ForEach(list.boards, id: \.self) { board in
                         let lines = rows.filter { $0.board == board }
                         BoardHeader(title: list.boardTitle(board), count: lines.reduce(0) { $0 + $1.qty })
-                        LazyVGrid(columns: Array(repeating: GridItem(.fixed(width), spacing: 1), count: 3), spacing: 1) {
-                            ForEach(lines) { line in
-                                let have = owned[line.cardId] ?? 0
-                                Button { if let o = line.oracleId { path.append(.card(o)) } } label: {
-                                    CardTile(printing: line.printing, name: line.name, qty: line.qty,
-                                             warn: board != "maybe" && have < line.qty, width: width)
-                                }.buttonStyle(.plain)
+                        ForEach(ListLine.groups(lines, kind: list.kind), id: \.self) { g in
+                            let inGroup = lines.filter { $0.group == g }
+                            Section1("\(g) · \(inGroup.reduce(0) { $0 + $1.qty })")
+                            LazyVGrid(columns: Array(repeating: GridItem(.fixed(width), spacing: 1), count: 3), spacing: 1) {
+                                ForEach(inGroup) { line in
+                                    let have = owned[line.cardId] ?? 0
+                                    Button { if let o = line.oracleId { path.append(.card(o)) } } label: {
+                                        CardTile(printing: line.printing, name: line.name, qty: line.qty,
+                                                 warn: board != "maybe" && have < line.qty, width: width)
+                                    }.buttonStyle(.plain)
+                                }
                             }
                         }
                     }

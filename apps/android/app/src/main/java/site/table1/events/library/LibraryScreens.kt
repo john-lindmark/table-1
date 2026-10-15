@@ -109,11 +109,13 @@ private fun ColumnScope.Filler() = Box(Modifier.weight(1f))
 /* ── home ─────────────────────────────────────────────────────────────── */
 
 @Composable
-fun LibraryHomeScreen(foregrounds: Int, onAllCards: () -> Unit, onAdd: () -> Unit) {
+fun LibraryHomeScreen(foregrounds: Int, onAllCards: () -> Unit, onAdd: () -> Unit, onDecks: () -> Unit, onCubes: () -> Unit) {
+    val lists by ListsStore.state.collectAsState()
     val col by CollectionStore.state.collectAsState()
     // Syncs on open and on every return to the Library or to the app.
     LaunchedEffect(foregrounds) {
         CollectionStore.sync()
+        ListsStore.sync()
     }
     val s = col.summary
     T1Screen {
@@ -134,8 +136,18 @@ fun LibraryHomeScreen(foregrounds: Int, onAllCards: () -> Unit, onAdd: () -> Uni
                 }
             }
             item { ListRow("Add cards", "Search by name", onClick = onAdd) }
-            item { SoonRow("Decks") }
-            item { SoonRow("Cubes") }
+            item {
+                val decks = lists.lists.filter { it.kind == ListKind.Deck }
+                ListRow("Decks", if (decks.isEmpty()) "Build and track decks" else decks.take(3).joinToString(" · ") { it.name }, onClick = onDecks) {
+                    if (decks.isNotEmpty()) Text("${decks.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
+                }
+            }
+            item {
+                val cubes = lists.lists.filter { it.kind == ListKind.Cube }
+                ListRow("Cubes", if (cubes.isEmpty()) "Build and track cubes" else cubes.joinToString(" · ") { it.name }, onClick = onCubes) {
+                    if (cubes.isNotEmpty()) Text("${cubes.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
+                }
+            }
             item { SoonRow("Trades") }
         }
     }

@@ -213,14 +213,21 @@ struct SignedInView: View {
         .background(T1.bg.ignoresSafeArea())
         // The collection mirror syncs on open and on each return; the catalog pack is checked once a day.
         .task {
-            if let id = Repo.userId { await CollectionStore.shared.start(userId: id) }
+            if let id = Repo.userId {
+                await CollectionStore.shared.start(userId: id)
+                await ListsStore.shared.start(userId: id)
+            }
             CatalogStore.shared.load(userInitiated: false)
         }
         .onChange(of: session.foregrounds) {
             Task { await CollectionStore.shared.sync() }
+            Task { await ListsStore.shared.sync() }
             CatalogStore.shared.load(userInitiated: tab == .collection)
         }
-        .onDisappear { CollectionStore.shared.stop() }
+        .onDisappear {
+            CollectionStore.shared.stop()
+            ListsStore.shared.stop()
+        }
         // The life tracker covers the tabs (no tab bar) until it's closed.
         .overlay {
             if let launch = session.tracker {
@@ -258,6 +265,7 @@ struct SignedInView: View {
     private func select(_ next: Tab) {
         if next == .collection {
             Task { await CollectionStore.shared.sync() }
+            Task { await ListsStore.shared.sync() }
             CatalogStore.shared.load(userInitiated: true)
         }
         tab = next

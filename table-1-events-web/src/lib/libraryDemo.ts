@@ -2,6 +2,7 @@
 // demo uses (apps/ios/Table1/DebugResources/library-demo.json: 2,000 cards, five Modern decks, a Vintage
 // cube). Writes stay in memory. Production builds drop all of this (import.meta.env.DEV is false there).
 import type { ApplyResult, CollectionOp, HistoryEntry, Item, LibrarySummary } from "./collection";
+import type { Board, CardList } from "./lists";
 
 const FLAG = "table1.libraryDemo";
 
@@ -17,6 +18,8 @@ export function isLibraryDemo(): boolean {
 }
 
 interface Fixture {
+  lists: { id: string; kind: "deck" | "cube"; name: string; format: string;
+           versions: { version: number; at: number; note: string; entries: [string, string, number][] }[] }[];
   summary: LibrarySummary;
   items: [string, Item["finish"], Item["condition"], string, number][];
   prices: Record<string, (number | null)[]>;
@@ -113,4 +116,16 @@ export class DemoBackend {
 export async function loadDemo(): Promise<DemoBackend> {
   const f = (await import("../../../apps/ios/Table1/DebugResources/library-demo.json")).default as unknown as Fixture;
   return new DemoBackend(f);
+}
+
+/** The demo decks and cube, with their version history, for the lists store. */
+export async function loadDemoLists(): Promise<CardList[]> {
+  const f = (await import("../../../apps/ios/Table1/DebugResources/library-demo.json")).default as unknown as Fixture;
+  return f.lists.map((l) => ({
+    id: l.id, kind: l.kind, name: l.name, format: l.format,
+    versions: l.versions.map((v) => ({
+      number: v.version, at: v.at, note: v.note,
+      entries: v.entries.map(([cardId, board, qty]) => ({ cardId, board: board as Board, qty })),
+    })),
+  }));
 }

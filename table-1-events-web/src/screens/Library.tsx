@@ -10,11 +10,12 @@ import {
 } from "../lib/collection";
 import { supabase } from "../lib/supabaseClient";
 import { useSession } from "../lib/useSession";
-import { isLibraryDemo } from "../lib/libraryDemo";
+import { isLibraryDemo, loadDemoLists } from "../lib/libraryDemo";
+import { useLists } from "../lib/lists";
 import { DEMO_USER } from "../lib/collection";
 
 /** The signed-in session, or (dev server, `?demo`) a stand-in account for the demo collection. */
-function useLibrarySession() {
+export function useLibrarySession() {
   const real = useSession();
   if (import.meta.env.DEV && isLibraryDemo()) return { session: true, ready: true, userId: DEMO_USER, demo: true };
   return { ...real, demo: false };
@@ -24,7 +25,7 @@ function useLibrarySession() {
    printings and its history are each one tap deeper. Built ahead of the Figma Library screens on the
    existing kit; restyle once those land. */
 
-function useCatalog() {
+export function useCatalog() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -37,7 +38,7 @@ function useCatalog() {
   return { catalog, error };
 }
 
-const money = (n: number | null | undefined, cur: "USD" | "EUR") =>
+export const money = (n: number | null | undefined, cur: "USD" | "EUR") =>
   n == null ? "—" : new Intl.NumberFormat(undefined, { style: "currency", currency: cur, maximumFractionDigits: 0 }).format(n);
 const FINISH_LABEL: Record<Finish, string> = { nonfoil: "Non-foil", foil: "Foil", etched: "Etched" };
 
@@ -51,7 +52,7 @@ function SignedOut({ title }: { title: string }) {
   );
 }
 
-function Back({ onClick }: { onClick: () => void }) {
+export function Back({ onClick }: { onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className="t1-label hover:text-t1-text px-2 py-1 -my-1">
       Back
@@ -59,7 +60,7 @@ function Back({ onClick }: { onClick: () => void }) {
   );
 }
 
-function BarToggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+export function BarToggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
   return (
     <button type="button" onClick={() => onChange(!on)} className="t1-label hover:text-t1-text px-2 py-1 -my-1">
       {on ? "List" : "Grid"}
@@ -69,7 +70,7 @@ function BarToggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => vo
 
 /** A full-height screen whose lists scroll inside it (Screen only sets a minimum height, which lets a list
  *  grow to its full length and defeats virtualization). */
-function LibScreen({ children }: { children: ReactNode }) {
+export function LibScreen({ children }: { children: ReactNode }) {
   return <div className="h-[100dvh] w-full bg-t1-bg text-t1-text flex flex-col gap-px overflow-hidden">{children}</div>;
 }
 
@@ -80,7 +81,7 @@ function LibScreen({ children }: { children: ReactNode }) {
 
 const ASPECT = 488 / 680;
 
-function CardArt({ c, p, width, alt = "" }: { c: Catalog; p: number | null; width: number; alt?: string }) {
+export function CardArt({ c, p, width, alt = "" }: { c: Catalog; p: number | null; width: number; alt?: string }) {
   const height = Math.round(width / ASPECT);
   const radius = p == null ? width * 0.0432 : width * cornerRatio(c.pSet[p]);
   if (p == null || c.pFaces[p] === 0) {
@@ -95,7 +96,7 @@ function CardArt({ c, p, width, alt = "" }: { c: Catalog; p: number | null; widt
 }
 
 /** A list row led by a card thumbnail; same type and spacing as Row. */
-function CardRow({ c, p, title, detail, value, warn, onClick }: {
+export function CardRow({ c, p, title, detail, value, warn, onClick }: {
   c: Catalog; p: number | null; title: ReactNode; detail?: ReactNode; value?: ReactNode; warn?: boolean; onClick?: () => void;
 }) {
   return (
@@ -112,7 +113,7 @@ function CardRow({ c, p, title, detail, value, warn, onClick }: {
 }
 
 /** One grid cell: the image with a count tag in the corner. */
-function CardTile({ c, p, name, qty, width, warn, onClick }: {
+export function CardTile({ c, p, name, qty, width, warn, onClick }: {
   c: Catalog; p: number | null; name: string; qty: number; width: number; warn?: boolean; onClick?: () => void;
 }) {
   return (
@@ -163,7 +164,7 @@ function VirtualGrid<T>({ items, cell }: { items: T[]; cell: (item: T, width: nu
   );
 }
 
-function useStoredFlag(key: string): [boolean, (v: boolean) => void] {
+export function useStoredFlag(key: string): [boolean, (v: boolean) => void] {
   const [v, setV] = useState(() => {
     try {
       return localStorage.getItem(key) === "1";
@@ -184,9 +185,14 @@ function useStoredFlag(key: string): [boolean, (v: boolean) => void] {
 
 /* ── home ─────────────────────────────────────────────────────────────── */
 
-export function LibraryHome({ onAllCards, onAdd }: { onAllCards: () => void; onAdd: () => void }) {
+export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes }: {
+  onAllCards: () => void; onAdd: () => void; onDecks: () => void; onCubes: () => void;
+}) {
   const { session, ready, userId } = useLibrarySession();
   const col = useCollection(userId);
+  const lists = useLists(userId, userId === DEMO_USER ? loadDemoLists : undefined);
+  const decks = lists.lists.filter((l) => l.kind === "deck");
+  const cubes = lists.lists.filter((l) => l.kind === "cube");
   if (!ready) return <Screen><div className="flex-1" /></Screen>;
   if (!session) return <SignedOut title="Library" />;
   const s = col.summary;
@@ -206,8 +212,10 @@ export function LibraryHome({ onAllCards, onAdd }: { onAllCards: () => void; onA
         <Row title="All cards" detail={s ? `${s.unique_printings.toLocaleString()} printings` : undefined}
              value={s ? s.unique_cards.toLocaleString() : undefined} onClick={onAllCards} />
         <Row title="Add cards" detail="Search by name" onClick={onAdd} />
-        <Row title="Decks" detail="Soon" dim />
-        <Row title="Cubes" detail="Soon" dim />
+        <Row title="Decks" detail={decks.length ? decks.slice(0, 3).map((l) => l.name).join(" · ") : "Build and track decks"}
+             value={decks.length || undefined} onClick={onDecks} />
+        <Row title="Cubes" detail={cubes.length ? cubes.map((l) => l.name).join(" · ") : "Build and track cubes"}
+             value={cubes.length || undefined} onClick={onCubes} />
         <Row title="Trades" detail="Soon" dim />
       </div>
     </Screen>

@@ -37,6 +37,13 @@ import site.table1.events.library.CardDetailScreen
 import site.table1.events.library.CatalogStore
 import site.table1.events.library.CollectionStore
 import site.table1.events.library.LibraryHomeScreen
+import site.table1.events.library.ListAddScreen
+import site.table1.events.library.ListDetailScreen
+import site.table1.events.library.ListKind
+import site.table1.events.library.ListVersionScreen
+import site.table1.events.library.ListVersionsScreen
+import site.table1.events.library.ListsScreen
+import site.table1.events.library.ListsStore
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.T1Screen
@@ -110,10 +117,13 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
     // The collection mirror syncs on open and on each return; the catalog pack is checked once a day.
     val userId = Repo.userId
     LaunchedEffect(userId) {
-        if (userId != null) CollectionStore.start(userId)
+        if (userId != null) {
+            CollectionStore.start(userId)
+            ListsStore.start(userId)
+        }
         CatalogStore.load(userInitiated = false)
     }
-    DisposableEffect(Unit) { onDispose { CollectionStore.stop() } }
+    DisposableEffect(Unit) { onDispose { CollectionStore.stop(); ListsStore.stop() } }
     LaunchedEffect(foregrounds) { CatalogStore.load(userInitiated = route?.startsWith("collection") == true) }
 
     val topLevel = route == "events" || route == "account" || route == "collection"
@@ -150,7 +160,31 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
                         foregrounds = foregrounds,
                         onAllCards = { nav.navigate("collection/all") },
                         onAdd = { nav.navigate("collection/add") },
+                        onDecks = { nav.navigate("collection/decks") },
+                        onCubes = { nav.navigate("collection/cubes") },
                     )
+                }
+                composable("collection/decks") {
+                    ListsScreen(ListKind.Deck, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/list/$it") })
+                }
+                composable("collection/cubes") {
+                    ListsScreen(ListKind.Cube, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/list/$it") })
+                }
+                composable("collection/list/{id}") { e ->
+                    val id = e.arguments?.getString("id") ?: ""
+                    ListDetailScreen(id, onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it") },
+                        onAdd = { nav.navigate("collection/list/$id/add") }, onVersions = { nav.navigate("collection/list/$id/versions") })
+                }
+                composable("collection/list/{id}/add") { e ->
+                    ListAddScreen(e.arguments?.getString("id") ?: "", onDone = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it") })
+                }
+                composable("collection/list/{id}/versions") { e ->
+                    val id = e.arguments?.getString("id") ?: ""
+                    ListVersionsScreen(id, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/list/$id/v/$it") })
+                }
+                composable("collection/list/{id}/v/{n}") { e ->
+                    ListVersionScreen(e.arguments?.getString("id") ?: "", e.arguments?.getString("n")?.toIntOrNull() ?: 0,
+                        onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it") })
                 }
                 composable("collection/all") {
                     AllCardsScreen(

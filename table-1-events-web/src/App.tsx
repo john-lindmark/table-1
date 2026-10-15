@@ -18,6 +18,7 @@ import { QrJoin } from "./screens/QrJoin";
 import { AddPlayers } from "./screens/AddPlayers";
 import { LifeTracker } from "./screens/LifeTracker";
 import { AddCards, AllCards, CardDetail, LibraryHome } from "./screens/Library";
+import { ListAddScreen, ListScreen, ListsScreen, VersionScreen, VersionsScreen } from "./screens/Lists";
 
 /** Back where the user came from, or a sensible default when the tracker was opened directly. */
 function useBack(fallback: string) {
@@ -100,7 +101,10 @@ function LifeRoute() {
 
 function LibraryHomeRoute() {
   const navigate = useNavigate();
-  return <LibraryHome onAllCards={() => navigate("/library/cards")} onAdd={() => navigate("/library/add")} />;
+  return (
+    <LibraryHome onAllCards={() => navigate("/library/cards")} onAdd={() => navigate("/library/add")}
+                 onDecks={() => navigate("/library/decks")} onCubes={() => navigate("/library/cubes")} />
+  );
 }
 
 function AllCardsRoute() {
@@ -122,6 +126,47 @@ function CardDetailRoute() {
   const back = useBack("/library/cards");
   if (!oracleId) return <Navigate to="/library" replace />;
   return <CardDetail key={oracleId} oracleId={oracleId} onBack={back} />;
+}
+
+function ListsRoute({ kind }: { kind: "deck" | "cube" }) {
+  const navigate = useNavigate();
+  const back = useBack("/library");
+  return <ListsScreen key={kind} kind={kind} onBack={back} onOpen={(id) => navigate(`/library/list/${id}`)} />;
+}
+
+function ListRoute() {
+  const { listId } = useParams();
+  const navigate = useNavigate();
+  const back = useBack("/library/decks");
+  if (!listId) return <Navigate to="/library" replace />;
+  return (
+    <ListScreen id={listId} onBack={back} onCard={(o) => navigate(`/library/card/${o}`)}
+                onAdd={() => navigate(`/library/list/${listId}/add`)} onVersions={() => navigate(`/library/list/${listId}/versions`)} />
+  );
+}
+
+function ListAddRoute() {
+  const { listId } = useParams();
+  const navigate = useNavigate();
+  const back = useBack(`/library/list/${listId}`);
+  if (!listId) return <Navigate to="/library" replace />;
+  return <ListAddScreen id={listId} onDone={back} onCard={(o) => navigate(`/library/card/${o}`)} />;
+}
+
+function VersionsRoute() {
+  const { listId } = useParams();
+  const navigate = useNavigate();
+  const back = useBack(`/library/list/${listId}`);
+  if (!listId) return <Navigate to="/library" replace />;
+  return <VersionsScreen id={listId} onBack={back} onOpen={(n) => navigate(`/library/list/${listId}/v/${n}`)} />;
+}
+
+function VersionRoute() {
+  const { listId, n } = useParams();
+  const navigate = useNavigate();
+  const back = useBack(`/library/list/${listId}/versions`);
+  if (!listId || !n) return <Navigate to="/library" replace />;
+  return <VersionScreen id={listId} number={Number(n)} onBack={back} onCard={(o) => navigate(`/library/card/${o}`)} />;
 }
 
 function StandingsRoute() {
@@ -156,6 +201,12 @@ export default function App() {
         <Route path="/library/cards" element={<AllCardsRoute />} />
         <Route path="/library/add" element={<AddCardsRoute />} />
         <Route path="/library/card/:oracleId" element={<CardDetailRoute />} />
+        <Route path="/library/decks" element={<ListsRoute kind="deck" />} />
+        <Route path="/library/cubes" element={<ListsRoute kind="cube" />} />
+        <Route path="/library/list/:listId" element={<ListRoute />} />
+        <Route path="/library/list/:listId/add" element={<ListAddRoute />} />
+        <Route path="/library/list/:listId/versions" element={<VersionsRoute />} />
+        <Route path="/library/list/:listId/v/:n" element={<VersionRoute />} />
         <Route path="/life" element={<LifeRoute />} />
         <Route path="/life/:matchId" element={<LifeRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />
