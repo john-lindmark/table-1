@@ -15,6 +15,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
@@ -30,9 +31,13 @@ import java.util.UUID
 
 enum class ListKind(val wire: String) { Deck("deck"), Cube("cube") }
 
-data class ListEntry(val cardId: String, val board: String, val qty: Int)
+/** A line is printing × section × finish, so 2 foil and 2 non-foil copies of a card are two lines. */
+data class ListEntry(val cardId: String, val board: String, val qty: Int, val finish: String = "nonfoil")
 data class ListVersion(val number: Int, val at: Double, val note: String, val entries: List<ListEntry>)
-data class ListChange(val cardId: String, val board: String, val delta: Int)
+data class ListChange(val cardId: String, val board: String, val delta: Int, val finish: String = "nonfoil")
+
+/** Key into the owned map: "card_id|finish". */
+fun ownKey(cardId: String, finish: String) = "$cardId|$finish"
 
 data class CardList(val id: String, val kind: ListKind, val name: String, val format: String, val versions: List<ListVersion>) {
     val current get() = versions.last()
@@ -49,9 +54,9 @@ data class CardList(val id: String, val kind: ListKind, val name: String, val fo
         else -> board
     }
 
-    /** Copies still needed: covered only by the printing a line names; Considering never counts. */
+    /** Copies still needed: covered only by the printing and finish a line names; Considering never counts. */
     fun missing(owned: Map<String, Int>): Int =
-        entries.filter { it.board != "maybe" }.groupBy { it.cardId }
+        entries.filter { it.board != "maybe" }.groupBy { ownKey(it.cardId, it.finish) }
             .entries.sumOf { (id, es) -> maxOf(0, es.sumOf { it.qty } - (owned[id] ?: 0)) }
 
     companion object {
@@ -60,9 +65,9 @@ data class CardList(val id: String, val kind: ListKind, val name: String, val fo
         /** What changed from `older` (null = nothing) to `newer`, per card and section; removals first. */
         fun diff(older: ListVersion?, newer: ListVersion): List<ListChange> {
             val q = HashMap<String, Int>()
-            older?.entries?.forEach { q.merge("${it.board}|${it.cardId}", -it.qty, Int::plus) }
-            newer.entries.forEach { q.merge("${it.board}|${it.cardId}", it.qty, Int::plus) }
-            return q.filterValues { it != 0 }.map { (k, d) -> k.split("|", limit = 2).let { ListChange(it[1], it[0], d) } }
+            older?.entries?.forEach { q.merge("${it.board}|${it.cardId}|${it.finish}", -it.qty, Int::plus) }
+            newer.entries.forEach { q.merge("${it.board}|${it.cardId}|${it.finish}", it.qty, Int::plus) }
+            return q.filterValues { it != 0 }.map { (k, d) -> k.split("|", limit = 3).let { ListChange(it[1], it[0], d, it[2]) } }
                 .sortedWith(compareBy<ListChange>({ BOARD_ORDER.indexOf(it.board) }, { it.delta }))
         }
     }
@@ -85,16 +90,21 @@ data class ListWire(
         if (deleted || kind == null || name == null || versions.isEmpty()) return null
         return CardList(id, if (kind == "cube") ListKind.Cube else ListKind.Deck, name, format ?: "", versions.map { v ->
             ListVersion(v.version, v.at, v.note, v.entries.map {
-                ListEntry(it[0].jsonPrimitive.content, it[1].jsonPrimitive.content, it[2].jsonPrimitive.int)
+                ListEntry(it[0].jsonPrimitive.content, it[1].jsonPrimitive.content, it[2].jsonPrimitive.int,
+                    if (it.size > 3) it[3].jsonPrimitive.content else "nonfoil")
             })
         })
     }
 
     companion object {
+        /** [card_id, board, qty] for non-foil; foil and etched add the finish. */
+        fun entryWire(e: ListEntry) = buildJsonArray {
+            add(JsonPrimitive(e.cardId)); add(JsonPrimitive(e.board)); add(JsonPrimitive(e.qty))
+            if (e.finish != "nonfoil") add(JsonPrimitive(e.finish))
+        }
+
         fun of(l: CardList) = ListWire(l.id, false, l.kind.wire, l.name, l.format, l.versions.map { v ->
-            VersionWire(v.number, v.note, v.at, v.entries.map { e ->
-                buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(e.cardId)); add(kotlinx.serialization.json.JsonPrimitive(e.board)); add(kotlinx.serialization.json.JsonPrimitive(e.qty)) }
-            })
+            VersionWire(v.number, v.note, v.at, v.entries.map { entryWire(it) })
         })
     }
 }
@@ -195,23 +205,44 @@ object ListsStore {
         }
     }
 
-    suspend fun create(kind: ListKind, name: String, format: String): String {
+    /** A new list, optionally starting with cards (a duplicate, an import or a found decklist). */
+    suspend fun create(kind: ListKind, name: String, format: String, entries: List<ListEntry> = emptyList(), note: String = "Created"): String {
         val id = UUID.randomUUID().toString()
         call("list_create", buildJsonObject {
             put("p_id", id); put("p_kind", kind.wire); put("p_name", name); put("p_format", format)
-            put("p_entries", buildJsonArray {}); put("p_note", "Created")
+            put("p_entries", buildJsonArray {
+                entries.forEach { e -> add(ListWire.entryWire(e)) }
+            })
+            put("p_note", note)
         })
         return id
     }
 
-    suspend fun add(listId: String, cardId: String, board: String, delta: Int) =
-        edit(listId, buildJsonObject { put("card_id", cardId); put("board", board); put("delta", delta) })
+    /** A new list with the current version's cards; its history starts fresh and names where it came from. */
+    suspend fun duplicate(listId: String): String? {
+        val l = list(listId) ?: return null
+        return create(l.kind, "${l.name} (copy)".take(60), l.format, l.entries, "Duplicated from ${l.name} v${l.current.number}")
+    }
 
-    suspend fun move(listId: String, cardId: String, from: String, to: String) =
-        edit(listId, buildJsonObject { put("card_id", cardId); put("from", from); put("to", to) })
+    suspend fun add(listId: String, cardId: String, board: String, delta: Int, finish: String = "nonfoil") =
+        edit(listId, buildJsonObject { put("card_id", cardId); put("board", board); put("finish", finish); put("delta", delta) })
 
-    suspend fun remove(listId: String, cardId: String, board: String) =
-        edit(listId, buildJsonObject { put("card_id", cardId); put("board", board); put("qty", 0) })
+    suspend fun move(listId: String, cardId: String, from: String, to: String, finish: String = "nonfoil") =
+        edit(listId, buildJsonObject { put("card_id", cardId); put("finish", finish); put("from", from); put("to", to) })
+
+    suspend fun remove(listId: String, cardId: String, board: String, finish: String = "nonfoil") =
+        edit(listId, buildJsonObject { put("card_id", cardId); put("board", board); put("finish", finish); put("qty", 0) })
+
+    /**
+     * Moves [qty] copies (null = all) of a line to another printing and/or finish in the same section: change a
+     * printing, or split 4 non-foil into 2 non-foil and 2 foil.
+     */
+    suspend fun swap(listId: String, cardId: String, board: String, finish: String, toCardId: String, toFinish: String, qty: Int?) =
+        edit(listId, buildJsonObject {
+            put("card_id", cardId); put("board", board); put("finish", finish)
+            put("to_card_id", toCardId); put("to_finish", toFinish)
+            if (qty != null) put("qty", qty)
+        })
 
     private suspend fun edit(listId: String, op: JsonObject) =
         call("list_edit", buildJsonObject { put("p_list_id", listId); put("p_ops", buildJsonArray { add(op) }) })

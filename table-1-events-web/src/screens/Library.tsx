@@ -475,7 +475,9 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
   const heroP = preview ?? (owned.length ? catalog.printingIndex.get(owned[0].cardId)! : coverPrinting(catalog, oi));
   const total = owned.reduce((n, it) => n + it.qty, 0);
   const setLabel = (p: number) => `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}`;
-  const printings = Array.from({ length: count }, (_, i) => first + i);
+  // The original paper printing (the default for adds) first, then newest first.
+  const orig = catalog.oOriginal[oi];
+  const printings = Array.from({ length: count }, (_, i) => first + i).sort((a, b) => Number(b === orig) - Number(a === orig));
 
   return (
     <LibScreen>
@@ -542,7 +544,7 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
 
         <Section title="Add a printing" count={count} />
         {(showAll ? printings : printings.slice(0, 12)).map((p) => {
-          const finishes = [...catalog.pFinishes[p]].map((l) => FINISH_LETTER[l]).filter(Boolean) as Finish[];
+          const finishes = (["n", "f", "e"] as const).filter((l) => catalog.pFinishes[p].includes(l)).map((l) => FINISH_LETTER[l]) as Finish[];
           const pr = prices.get(catalog.pId[p]);
           return (
             <div key={p} className="bg-t1-surface flex items-stretch gap-px">

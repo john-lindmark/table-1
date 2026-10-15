@@ -23,6 +23,10 @@ export interface Catalog {
   oCmc: Float64Array;
   oColors: string[];
   oFaces: string[];
+  /** Legality code per card, one character per LEGALITY_FORMATS entry (L, R, B, -); "" in older packs. */
+  oLegal: string[];
+  /** The card's original paper printing (the default for adds), or -1 when the pack doesn't say. */
+  oOriginal: Int32Array;
   /** Printings of card i are pFirst[i] .. pFirst[i] + pCount[i] - 1, newest first. */
   pFirst: Int32Array;
   pCount: Int32Array;
@@ -56,6 +60,19 @@ export function normName(s: string): string {
     .replace(/['’]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+/** Formats in a card's legality code, in order. */
+export const LEGALITY_FORMATS = ["standard", "pioneer", "modern", "legacy", "vintage", "pauper", "commander", "premodern"];
+
+export type Legality = "legal" | "restricted" | "banned" | "not_legal";
+
+/** A card's legality in a deck format, or null when the format isn't checked (or the pack predates the code). */
+export function legalityOf(c: Catalog, oi: number, format: string): Legality | null {
+  const i = LEGALITY_FORMATS.indexOf(format.toLowerCase());
+  const ch = i < 0 ? undefined : c.oLegal[oi]?.[i];
+  if (!ch) return null;
+  return ch === "L" ? "legal" : ch === "R" ? "restricted" : ch === "B" ? "banned" : "not_legal";
 }
 
 export const FINISH_LETTER: Record<string, "nonfoil" | "foil" | "etched"> = { n: "nonfoil", f: "foil", e: "etched" };
@@ -131,6 +148,7 @@ export function parsePack(version: string, text: string): Catalog {
     version, oracles: nO, printings: nP,
     oId: new Array(nO), oName: new Array(nO), oNorm: new Array(nO), oType: new Array(nO), oCost: new Array(nO),
     oCmc: new Float64Array(nO), oColors: new Array(nO), oFaces: new Array(nO),
+    oLegal: new Array(nO), oOriginal: new Int32Array(nO).fill(-1),
     pFirst: new Int32Array(nO).fill(-1), pCount: new Int32Array(nO),
     pId: new Array(nP), pOracle: new Int32Array(nP), pSet: new Array(nP), pCn: new Array(nP), pLang: new Array(nP),
     pRarity: new Array(nP), pFinishes: new Array(nP), pReleased: new Array(nP), pImageTs: new Array(nP),
@@ -146,12 +164,14 @@ export function parsePack(version: string, text: string): Catalog {
       const i = Number(f[1]);
       c.oId[i] = f[2]; c.oName[i] = f[3]; c.oNorm[i] = f[4]; c.oType[i] = f[5]; c.oCost[i] = f[6];
       c.oCmc[i] = f[7] ? Number(f[7]) : 0; c.oColors[i] = f[8] ?? ""; c.oFaces[i] = f[9] ?? "";
+      c.oLegal[i] = f[10] ?? "";
       o++;
     } else if (f[0] === "P" && p < nP) {
       const oi = Number(f[2]);
       c.pId[p] = f[1]; c.pOracle[p] = oi; c.pSet[p] = f[3]; c.pCn[p] = f[4]; c.pLang[p] = f[5];
       c.pRarity[p] = f[6]; c.pFinishes[p] = f[7]; c.pReleased[p] = f[8]; c.pImageTs[p] = f[9];
       c.pFaces[p] = Number(f[10]) || 0; c.pPrintedName[p] = f[11] ?? "";
+      if (f[12] === "1") c.oOriginal[oi] = p;
       if (c.pFirst[oi] < 0) c.pFirst[oi] = p;
       c.pCount[oi]++;
       c.printingIndex.set(f[1], p);
@@ -214,11 +234,47 @@ export function searchCatalog(c: Catalog, query: string, limit = 30): number[] {
   return out;
 }
 
-/** The printing shown as a card's picture: the newest English printing with an image, else the newest. */
+/**
+ * A card's default printing, shown as its picture and used when it's added: its original paper printing
+ * (flagged in the pack), else the newest English printing with an image, else the newest.
+ */
 export function coverPrinting(c: Catalog, oi: number): number {
+  if (c.oOriginal[oi] >= 0) return c.oOriginal[oi];
   const first = c.pFirst[oi];
   for (let p = first; p < first + c.pCount[oi]; p++) if (c.pLang[p] === "en" && c.pFaces[p] > 0) return p;
   return first;
+}
+
+const nameIndexes = new WeakMap<Catalog, Map<string, number>>();
+
+/**
+ * Default printings for card names as decklists print them: exact names, or the front face of a split or
+ * double-faced card ("Delver of Secrets" finds "Delver of Secrets // Insectile Aberration"). Names that match
+ * no card are left out.
+ */
+export function printingsByName(c: Catalog, names: string[]): Map<string, number> {
+  let index = nameIndexes.get(c);
+  if (!index) {
+    index = new Map();
+    const fronts = new Map<string, number>();
+    for (let i = 0; i < c.oracles; i++) {
+      index.set(c.oNorm[i], i);
+      const front = c.oName[i].split(" // ")[0];
+      if (front !== c.oName[i]) {
+        const k = normName(front);
+        const had = fronts.get(k);
+        if (had === undefined || c.pCount[i] > c.pCount[had]) fronts.set(k, i);
+      }
+    }
+    for (const [k, i] of fronts) if (!index.has(k)) index.set(k, i);
+    nameIndexes.set(c, index);
+  }
+  const out = new Map<string, number>();
+  for (const n of names) {
+    const oi = index.get(normName(n));
+    if (oi !== undefined) out.set(n, coverPrinting(c, oi));
+  }
+  return out;
 }
 
 export function oracleIndexById(c: Catalog, oracleId: string): number {

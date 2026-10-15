@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./supabaseClient", () => ({ supabase: {} }));
-const { normName, parsePack, searchCatalog, cardImageUrl } = await import("./catalog");
+const { normName, parsePack, searchCatalog, cardImageUrl, coverPrinting, legalityOf, printingsByName } = await import("./catalog");
 
 // Header, three cards (sorted by name_norm) and four printings, in pack format 1.
 const PACK = [
@@ -46,6 +46,39 @@ describe("parsePack", () => {
     expect(cardImageUrl(c, 1)).toBe(
       "https://cards.scryfall.io/normal/front/f/2/f29ba16f-c8fb-42fe-aabf-87089cb214a7.jpg?1783930000",
     );
+  });
+});
+
+describe("legality and original printing", () => {
+  const pack = [
+    "#t1catalog\t1\tv1-test\t2\t3",
+    "O\t0\t5089ec1a-f881-4d55-af14-5d996171203b\tBlack Lotus\tblack lotus\tArtifact\t{0}\t0\t\t\t---BR-B-",
+    "O\t1\t4457ed35-7c10-48c8-9776-456485fdf070\tLightning Bolt\tlightning bolt\tInstant\t{R}\t1\tR\t",
+    "P\tbd8fa327-dd41-4737-8f19-2cf5eb1f7cdd\t0\tlea\t232\ten\tr\tn\t1993-08-05\t1\t1\t\t1",
+    "P\tf29ba16f-c8fb-42fe-aabf-87089cb214a7\t1\t2x2\t117\ten\tu\tfn\t2022-07-08\t1\t1\t",
+    "P\t11111111-2222-3333-4444-555555555555\t1\tlea\t161\ten\tc\tn\t1993-08-05\t1\t1\t\t1",
+  ].join("\n");
+  const c = parsePack("v1-test", pack);
+  it("reads legality codes per format", () => {
+    expect(legalityOf(c, 0, "vintage")).toBe("restricted");
+    expect(legalityOf(c, 0, "legacy")).toBe("banned");
+    expect(legalityOf(c, 0, "modern")).toBe("not_legal");
+    expect(legalityOf(c, 0, "other")).toBeNull();
+    expect(legalityOf(c, 1, "modern")).toBeNull(); // no code in the pack
+  });
+  it("defaults to the original printing, not the newest", () => {
+    expect(coverPrinting(c, 1)).toBe(2);
+    expect(coverPrinting(c, 0)).toBe(0);
+  });
+});
+
+describe("printingsByName", () => {
+  const c = parsePack("v1-test", PACK);
+  it("finds exact names, front faces and skips unknown names", () => {
+    const m = printingsByName(c, ["Lightning Bolt", "Fire", "Not A Card"]);
+    expect(m.get("Lightning Bolt")).toBe(coverPrinting(c, 1));
+    expect(m.get("Fire")).toBe(coverPrinting(c, 0));
+    expect(m.has("Not A Card")).toBe(false);
   });
 });
 

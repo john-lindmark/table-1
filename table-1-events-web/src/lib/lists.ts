@@ -8,11 +8,17 @@ import { supabase } from "./supabaseClient";
 export type Board = "main" | "side" | "maybe" | "commander";
 export type ListKind = "deck" | "cube";
 
+export type ListFinish = "nonfoil" | "foil" | "etched";
+
+/** A line is printing × section × finish, so 2 foil and 2 non-foil copies of a card are two lines. */
 export interface Entry {
   cardId: string;
   board: Board;
   qty: number;
+  finish?: ListFinish; // absent = nonfoil
 }
+
+export const finishOf = (e: { finish?: ListFinish }): ListFinish => e.finish ?? "nonfoil";
 
 export interface Version {
   number: number;
@@ -33,6 +39,7 @@ export interface Change {
   cardId: string;
   board: Board;
   delta: number;
+  finish: ListFinish;
 }
 
 export const BOARD_ORDER: Board[] = ["commander", "main", "side", "maybe"];
@@ -55,21 +62,25 @@ export function boardTitle(kind: ListKind, board: Board): string {
 /** What changed from `older` (null = nothing) to `newer`, per card and section; removals first. */
 export function diff(older: Version | null, newer: Version): Change[] {
   const q = new Map<string, number>();
-  for (const e of older?.entries ?? []) q.set(`${e.board}|${e.cardId}`, (q.get(`${e.board}|${e.cardId}`) ?? 0) - e.qty);
-  for (const e of newer.entries) q.set(`${e.board}|${e.cardId}`, (q.get(`${e.board}|${e.cardId}`) ?? 0) + e.qty);
+  const key = (e: Entry) => `${e.board}|${e.cardId}|${finishOf(e)}`;
+  for (const e of older?.entries ?? []) q.set(key(e), (q.get(key(e)) ?? 0) - e.qty);
+  for (const e of newer.entries) q.set(key(e), (q.get(key(e)) ?? 0) + e.qty);
   const out: Change[] = [];
   for (const [k, d] of q) {
     if (d === 0) continue;
-    const [board, cardId] = k.split("|") as [Board, string];
-    out.push({ cardId, board, delta: d });
+    const [board, cardId, finish] = k.split("|") as [Board, string, ListFinish];
+    out.push({ cardId, board, delta: d, finish });
   }
   return out.sort((a, b) => BOARD_ORDER.indexOf(a.board) - BOARD_ORDER.indexOf(b.board) || a.delta - b.delta);
 }
 
-/** Copies a list still needs: covered only by the printing it names; Considering never counts. */
+/** Key into the owned map: "card_id|finish". */
+export const ownKey = (cardId: string, finish: ListFinish = "nonfoil") => `${cardId}|${finish}`;
+
+/** Copies a list still needs: covered only by the printing and finish it names; Considering never counts. */
 export function missingIn(l: CardList, owned: Map<string, number>): number {
   const need = new Map<string, number>();
-  for (const e of entriesOf(l)) if (e.board !== "maybe") need.set(e.cardId, (need.get(e.cardId) ?? 0) + e.qty);
+  for (const e of entriesOf(l)) if (e.board !== "maybe") need.set(ownKey(e.cardId, finishOf(e)), (need.get(ownKey(e.cardId, finishOf(e))) ?? 0) + e.qty);
   let n = 0;
   for (const [id, q] of need) n += Math.max(0, q - (owned.get(id) ?? 0));
   return n;
@@ -83,7 +94,7 @@ interface ListWire {
   kind?: ListKind;
   name?: string;
   format?: string;
-  versions?: { version: number; note: string; at: number; entries: [string, Board, number][] }[];
+  versions?: { version: number; note: string; at: number; entries: ([string, Board, number] | [string, Board, number, ListFinish])[] }[];
 }
 
 export function fromWire(w: ListWire): CardList | null {
@@ -92,7 +103,7 @@ export function fromWire(w: ListWire): CardList | null {
     id: w.id, kind: w.kind, name: w.name, format: w.format ?? "",
     versions: w.versions.map((v) => ({
       number: v.version, at: v.at, note: v.note,
-      entries: v.entries.map(([cardId, board, qty]) => ({ cardId, board, qty })),
+      entries: v.entries.map(([cardId, board, qty, finish]) => (finish && finish !== "nonfoil" ? { cardId, board, qty, finish } : { cardId, board, qty })),
     })),
   };
 }
@@ -247,43 +258,68 @@ function localEdit(id: string, change: (entries: Entry[]) => Entry[], note = "Ed
   set({ lists: sorted([...state.lists.filter((x) => x.id !== id), { ...l, versions }]) });
 }
 
-export async function createList(kind: ListKind, name: string, format: string): Promise<string> {
+/** A new list, optionally starting with cards (a duplicate, an import or a found decklist). */
+export async function createList(kind: ListKind, name: string, format: string, entries: Entry[] = [], note = "Created"): Promise<string> {
   const id = crypto.randomUUID();
   if (demo) {
-    set({ lists: sorted([...state.lists, { id, kind, name, format, versions: [{ number: 1, at: Date.now() / 1000, note: "Created", entries: [] }] }]) });
+    set({ lists: sorted([...state.lists, { id, kind, name, format, versions: [{ number: 1, at: Date.now() / 1000, note, entries: entries.map((e) => ({ ...e })) }] }]) });
     return id;
   }
-  await call("list_create", { p_id: id, p_kind: kind, p_name: name, p_format: format, p_entries: [], p_note: "Created" });
+  await call("list_create", {
+    p_id: id, p_kind: kind, p_name: name, p_format: format, p_entries: entries.map((e) => (finishOf(e) === "nonfoil" ? [e.cardId, e.board, e.qty] : [e.cardId, e.board, e.qty, finishOf(e)])), p_note: note,
+  });
   return id;
 }
 
+/** A new list with the current version's cards; its history starts fresh and names where it came from. */
+export function duplicateList(l: CardList): Promise<string> {
+  const v = current(l);
+  return createList(l.kind, `${l.name} (copy)`.slice(0, 60), l.format, v.entries, `Duplicated from ${l.name} v${v.number}`);
+}
+
 export type ListOp =
-  | { card_id: string; board: Board; delta: number }
-  | { card_id: string; board: Board; qty: number }
-  | { card_id: string; from: Board; to: Board };
+  | { card_id: string; board: Board; finish?: ListFinish; delta: number }
+  | { card_id: string; board: Board; finish?: ListFinish; qty: number }
+  | { card_id: string; finish?: ListFinish; from: Board; to: Board }
+  /** Move qty copies (default all) to another printing and/or finish in the same section. */
+  | { card_id: string; board: Board; finish?: ListFinish; to_card_id?: string; to_finish?: ListFinish; qty?: number; swap: true };
 
 export async function editList(id: string, ops: ListOp[]): Promise<void> {
   if (demo) {
     return localEdit(id, (entries) => {
+      const find = (cardId: string, board: Board, finish: ListFinish) =>
+        entries.findIndex((e) => e.cardId === cardId && e.board === board && finishOf(e) === finish);
+      const put = (cardId: string, board: Board, finish: ListFinish, q: number) => {
+        const j = find(cardId, board, finish);
+        if (j >= 0) entries[j].qty += q;
+        else entries.push(finish === "nonfoil" ? { cardId, board, qty: q } : { cardId, board, qty: q, finish });
+      };
       for (const op of ops) {
+        const fin = op.finish ?? "nonfoil";
         if ("from" in op) {
-          const i = entries.findIndex((e) => e.cardId === op.card_id && e.board === op.from);
+          const i = find(op.card_id, op.from, fin);
           if (i < 0) continue;
-          const q = entries.splice(i, 1)[0].qty;
-          const j = entries.findIndex((e) => e.cardId === op.card_id && e.board === op.to);
-          if (j >= 0) entries[j].qty += q;
-          else entries.push({ cardId: op.card_id, board: op.to, qty: q });
+          put(op.card_id, op.to, fin, entries.splice(i, 1)[0].qty);
+        } else if ("swap" in op) {
+          const i = find(op.card_id, op.board, fin);
+          if (i < 0) continue;
+          const n = Math.min(entries[i].qty, op.qty ?? entries[i].qty);
+          entries[i].qty -= n;
+          if (entries[i].qty <= 0) entries.splice(i, 1);
+          put(op.to_card_id ?? op.card_id, op.board, op.to_finish ?? fin, n);
         } else {
-          const i = entries.findIndex((e) => e.cardId === op.card_id && e.board === op.board);
+          const i = find(op.card_id, op.board, fin);
           const q = "qty" in op ? op.qty : (i >= 0 ? entries[i].qty : 0) + op.delta;
           if (i >= 0 && q > 0) entries[i].qty = q;
           else if (i >= 0) entries.splice(i, 1);
-          else if (q > 0) entries.push({ cardId: op.card_id, board: op.board, qty: q });
+          else if (q > 0) put(op.card_id, op.board, fin, q);
         }
       }
       return entries;
     });
   }
+  // The server tells the printing move apart by its to_* fields; `swap` is a client-side tag.
+  ops = ops.map((op) => ("swap" in op ? (({ swap: _swap, ...rest }) => rest)(op) : op)) as ListOp[];
   await call("list_edit", { p_list_id: id, p_ops: ops });
 }
 

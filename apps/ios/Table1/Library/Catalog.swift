@@ -22,6 +22,11 @@ struct CatalogOracle: Hashable, Sendable {
     let typeLine: String
     let manaCost: String
     let printings: Int
+    /// Legality code (`CatalogPack.legalityFormats`); empty in packs built before it existed.
+    var legal: String = ""
+
+    /// Legality in a deck format: "legal", "restricted", "banned", "not_legal", or nil when the format isn't checked.
+    func legality(_ format: String) -> String? { CatalogPack.legality(legal, format) }
 }
 
 struct CatalogPrinting: Hashable, Sendable {
@@ -38,9 +43,15 @@ struct CatalogPrinting: Hashable, Sendable {
     let imageTs: String
     let imageFaces: Int
     let printedName: String
+    /// The card's original paper printing, the one adds use by default.
+    var original: Bool = false
 
     var setLabel: String { "\(set.uppercased()) #\(cn)" }
-    var finishList: [Finish] { finishes.compactMap { CatalogPack.finishName[$0].flatMap(Finish.init(rawValue:)) } }
+    /// Finishes this printing comes in: non-foil, foil, etched (in that order).
+    var finishList: [Finish] {
+        let have = Set(finishes.compactMap { CatalogPack.finishName[$0].flatMap(Finish.init(rawValue:)) })
+        return Finish.allCases.filter(have.contains)
+    }
     func imageURL(_ size: String = "normal") -> URL? {
         imageFaces == 0 ? nil : CatalogPack.imageURL(cardId: cardId, imageTs: imageTs, size: size)
     }
@@ -58,18 +69,18 @@ final class CatalogDB: @unchecked Sendable {
 
     func close() { db.close() }
 
-    private static let oracleCols = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount"
+    private static let oracleCols = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount, legal"
     private static func oracle(_ r: SQLiteDB.Row) -> CatalogOracle {
         CatalogOracle(idx: r.int(0), oracleId: r.text(1), name: r.text(2), norm: r.text(3), typeLine: r.text(4),
-                      manaCost: r.text(5), printings: r.int(6))
+                      manaCost: r.text(5), printings: r.int(6), legal: r.text(7))
     }
 
     private static let printingCols =
-        "card_id, oracle_idx, ord, set_code, cn, lang, rarity, finishes, released_at, image_ts, image_faces, printed_name"
+        "card_id, oracle_idx, ord, set_code, cn, lang, rarity, finishes, released_at, image_ts, image_faces, printed_name, original"
     private static func printing(_ r: SQLiteDB.Row) -> CatalogPrinting {
         CatalogPrinting(cardId: r.text(0), oracleIdx: r.int(1), ord: r.int(2), set: r.text(3), cn: r.text(4), lang: r.text(5),
                         rarity: r.text(6), finishes: r.text(7), releasedAt: r.text(8), imageTs: r.text(9),
-                        imageFaces: r.int(10), printedName: r.text(11))
+                        imageFaces: r.int(10), printedName: r.text(11), original: r.int(12) != 0)
     }
 
     /// Card name search, ranked like the web client.
@@ -87,9 +98,9 @@ final class CatalogDB: @unchecked Sendable {
         try? db.query("SELECT \(Self.oracleCols) FROM oracles WHERE oracle_id = ?", [.text(id)], Self.oracle).first
     }
 
-    /// Every printing of a card, newest first.
+    /// Every printing of a card: the original paper printing (the default for adds) first, then newest first.
     func printings(oracleIdx: Int) -> [CatalogPrinting] {
-        (try? db.query("SELECT \(Self.printingCols) FROM printings WHERE oracle_idx = ? ORDER BY ord", [.int(oracleIdx)], Self.printing)) ?? []
+        (try? db.query("SELECT \(Self.printingCols) FROM printings WHERE oracle_idx = ? ORDER BY original DESC, ord", [.int(oracleIdx)], Self.printing)) ?? []
     }
 
     func printings(ids: [String]) -> [String: CatalogPrinting] {
@@ -103,18 +114,37 @@ final class CatalogDB: @unchecked Sendable {
         return out
     }
 
-    /// One printing per card to show as its picture: the newest English printing with an image, else the newest.
+    /// One printing per card, shown as its picture and used when it's added: its original paper printing (flagged
+    /// in the pack), else the newest English printing with an image, else the newest.
     func covers(oracleIdxs: [Int]) -> [Int: CatalogPrinting] {
         var out: [Int: CatalogPrinting] = [:]
         for chunk in Self.chunks(oracleIdxs) {
             let marks = Array(repeating: "?", count: chunk.count).joined(separator: ",")
             let rows = (try? db.query("""
                 SELECT \(Self.printingCols) FROM printings WHERE oracle_idx IN (\(marks))
-                ORDER BY oracle_idx, (lang = 'en' AND image_faces > 0) DESC, ord
+                ORDER BY oracle_idx, original DESC, (lang = 'en' AND image_faces > 0) DESC, ord
                 """, chunk.map { .int($0) }, Self.printing)) ?? []
             for p in rows where out[p.oracleIdx] == nil { out[p.oracleIdx] = p }
         }
         return out
+    }
+
+    /// Default printings for card names as decklists print them: exact names, or the front face of a split or
+    /// double-faced card ("Delver of Secrets" finds "Delver of Secrets // Insectile Aberration"). Names that
+    /// match no card are left out.
+    func printings(names: [String]) -> [String: CatalogPrinting] {
+        var idxByName: [String: Int] = [:]
+        for name in Set(names) {
+            let q = CardName.norm(name)
+            if let o = try? db.query("SELECT idx FROM oracles WHERE name_norm = ? LIMIT 1", [.text(q)], { $0.int(0) }).first {
+                idxByName[name] = o
+            } else if let o = try? db.query("SELECT idx FROM oracles WHERE name LIKE ? ORDER BY pcount DESC LIMIT 1",
+                                             [.text(name.replacingOccurrences(of: "%", with: "") + " // %")], { $0.int(0) }).first {
+                idxByName[name] = o
+            }
+        }
+        let covers = covers(oracleIdxs: Array(Set(idxByName.values)))
+        return idxByName.compactMapValues { covers[$0] }
     }
 
     func oracles(idxs: [Int]) -> [Int: CatalogOracle] {
@@ -145,22 +175,22 @@ final class CatalogDB: @unchecked Sendable {
             CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
             CREATE TABLE oracles (idx INTEGER PRIMARY KEY, oracle_id TEXT NOT NULL, name TEXT NOT NULL,
               name_norm TEXT NOT NULL, type_line TEXT, mana_cost TEXT, cmc REAL, colors TEXT, face_names TEXT,
-              pcount INTEGER NOT NULL DEFAULT 0);
+              pcount INTEGER NOT NULL DEFAULT 0, legal TEXT NOT NULL DEFAULT '');
             CREATE TABLE printings (card_id TEXT PRIMARY KEY, oracle_idx INTEGER NOT NULL, ord INTEGER NOT NULL,
               set_code TEXT, cn TEXT, lang TEXT, rarity TEXT, finishes TEXT, released_at TEXT, image_ts TEXT,
-              image_faces INTEGER, printed_name TEXT);
+              image_faces INTEGER, printed_name TEXT, original INTEGER NOT NULL DEFAULT 0);
             """)
         let header: PackHeader = try db.transaction {
-            let insO = try db.prepare("INSERT INTO oracles (idx, oracle_id, name, name_norm, type_line, mana_cost, cmc, colors, face_names) VALUES (?,?,?,?,?,?,?,?,?)")
-            let insP = try db.prepare("INSERT OR REPLACE INTO printings VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
+            let insO = try db.prepare("INSERT INTO oracles (idx, oracle_id, name, name_norm, type_line, mana_cost, cmc, colors, face_names, legal) VALUES (?,?,?,?,?,?,?,?,?,?)")
+            let insP = try db.prepare("INSERT OR REPLACE INTO printings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
             var ord = 0
             let h = try CatalogPack.parse(pack, oracle: { o in
                 try insO.run([.int(o.idx), .text(o.oracleId), .text(o.name), .text(o.nameNorm), .text(o.typeLine),
-                              .text(o.manaCost), .double(o.cmc), .text(o.colors), .text(o.faceNames)])
+                              .text(o.manaCost), .double(o.cmc), .text(o.colors), .text(o.faceNames), .text(o.legal)])
             }, printing: { p in
                 try insP.run([.text(p.cardId), .int(p.oracleIdx), .int(ord), .text(p.set), .text(p.cn), .text(p.lang),
                               .text(p.rarity), .text(p.finishes), .text(p.releasedAt), .text(p.imageTs), .int(p.imageFaces),
-                              .text(p.printedName)])
+                              .text(p.printedName), .int(p.original ? 1 : 0)])
                 ord += 1
             })
             try db.exec("""
@@ -194,6 +224,8 @@ final class CatalogStore {
     @ObservationIgnored private var lastAttempt: Date?
 
     private let fileKey = "catalog.file"
+    /// Bumped when the local SQLite schema changes; a file built by an older schema is rebuilt from a fresh pack.
+    private static let schema = "s2"
     private let checkedKey = "catalog.checkedAt"
     private let dir: URL = {
         let d = URL.applicationSupportDirectory.appending(path: "Catalog", directoryHint: .isDirectory)
@@ -218,7 +250,7 @@ final class CatalogStore {
     private func openInstalled() {
         guard let file = UserDefaults.standard.string(forKey: fileKey) else { return }
         let url = dir.appending(path: file)
-        guard FileManager.default.fileExists(atPath: url.path),
+        guard file.hasSuffix(".\(Self.schema).sqlite"), FileManager.default.fileExists(atPath: url.path),
               let version = file.split(separator: ".").first.map({ String($0.dropFirst("catalog-".count)) }),
               let opened = try? CatalogDB(path: url.path, version: version) else { return }
         db = opened
@@ -244,7 +276,7 @@ final class CatalogStore {
                 return
             }
             if !hadPack && !anyNetwork { phase = .idle; return } // waits for the Library to open
-            let file = "catalog-\(info.version).sqlite"
+            let file = "catalog-\(info.version).\(Self.schema).sqlite"
             let path = dir.appending(path: file).path
             let tmp = dir.appending(path: "building.sqlite").path
             try await Task.detached(priority: .utility) {

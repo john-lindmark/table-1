@@ -179,7 +179,7 @@ enum LibraryDemo {
         let backend = LibraryDemoBackend(f)
         CollectionStore.shared.startDemo(backend)
         func entries(_ rows: [[LibraryDemoFixture.Entry]]) -> [CardList.Entry] {
-            rows.map { CardList.Entry(cardId: $0[0].text, board: $0[1].text, qty: $0[2].int) }
+            rows.map { CardList.Entry(cardId: $0[0].text, board: $0[1].text, qty: $0[2].int, finish: $0.count > 3 ? $0[3].text : "nonfoil") }
         }
         ListsStore.shared.replace(f.lists.map { l in
             let versions = (l.versions ?? []).map {

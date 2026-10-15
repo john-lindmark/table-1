@@ -2861,7 +2861,7 @@
       }
     },
     "list_edit": {
-      "note": "Applies edit ops; groups edits within 10 minutes into one version. contract/lists-2026-10-15.md. authenticated.",
+      "note": "Applies edit ops (each with an optional finish; to_card_id/to_finish moves copies to another printing or finish); groups edits within 10 minutes into one version. contract/lists-2026-10-15.md. authenticated.",
       "params": {
         "type": "object",
         "properties": {

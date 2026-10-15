@@ -7,6 +7,7 @@ import {
   useLocation,
   useNavigate,
   useParams,
+  useSearchParams,
 } from "react-router-dom";
 import { trackPageView } from "./lib/analytics";
 import { Home } from "./screens/Home";
@@ -18,7 +19,9 @@ import { QrJoin } from "./screens/QrJoin";
 import { AddPlayers } from "./screens/AddPlayers";
 import { LifeTracker } from "./screens/LifeTracker";
 import { AddCards, AllCards, CardDetail, LibraryHome } from "./screens/Library";
-import { ListAddScreen, ListScreen, ListsScreen, VersionScreen, VersionsScreen } from "./screens/Lists";
+import { LinePrintingScreen, ListAddScreen, ListScreen, ListsScreen, VersionScreen, VersionsScreen } from "./screens/Lists";
+import type { Board, ListFinish } from "./lib/lists";
+import { DeckFinderScreen } from "./screens/DeckFinder";
 
 /** Back where the user came from, or a sensible default when the tracker was opened directly. */
 function useBack(fallback: string) {
@@ -131,7 +134,8 @@ function CardDetailRoute() {
 function ListsRoute({ kind }: { kind: "deck" | "cube" }) {
   const navigate = useNavigate();
   const back = useBack("/library");
-  return <ListsScreen key={kind} kind={kind} onBack={back} onOpen={(id) => navigate(`/library/list/${id}`)} />;
+  return <ListsScreen key={kind} kind={kind} onBack={back} onOpen={(id) => navigate(`/library/list/${id}`)}
+                      onFind={() => navigate("/library/find")} />;
 }
 
 function ListRoute() {
@@ -141,8 +145,25 @@ function ListRoute() {
   if (!listId) return <Navigate to="/library" replace />;
   return (
     <ListScreen id={listId} onBack={back} onCard={(o) => navigate(`/library/card/${o}`)}
-                onAdd={() => navigate(`/library/list/${listId}/add`)} onVersions={() => navigate(`/library/list/${listId}/versions`)} />
+                onAdd={() => navigate(`/library/list/${listId}/add`)} onVersions={() => navigate(`/library/list/${listId}/versions`)}
+                onOpen={(id) => navigate(`/library/list/${id}`)}
+                onPrinting={(card, board, finish) => navigate(`/library/list/${listId}/printing?card=${card}&board=${board}&finish=${finish}`)} />
   );
+}
+
+function LinePrintingRoute() {
+  const { listId } = useParams();
+  const [q] = useSearchParams();
+  const back = useBack(`/library/list/${listId}`);
+  if (!listId) return <Navigate to="/library" replace />;
+  return <LinePrintingScreen id={listId} cardId={q.get("card") ?? ""} board={(q.get("board") ?? "main") as Board}
+                             finish={(q.get("finish") ?? "nonfoil") as ListFinish} onDone={back} />;
+}
+
+function DeckFinderRoute() {
+  const navigate = useNavigate();
+  const back = useBack("/library/decks");
+  return <DeckFinderScreen onBack={back} onCreated={(id) => navigate(`/library/list/${id}`, { replace: true })} />;
 }
 
 function ListAddRoute() {
@@ -202,6 +223,8 @@ export default function App() {
         <Route path="/library/add" element={<AddCardsRoute />} />
         <Route path="/library/card/:oracleId" element={<CardDetailRoute />} />
         <Route path="/library/decks" element={<ListsRoute kind="deck" />} />
+        <Route path="/library/find" element={<DeckFinderRoute />} />
+        <Route path="/library/list/:listId/printing" element={<LinePrintingRoute />} />
         <Route path="/library/cubes" element={<ListsRoute kind="cube" />} />
         <Route path="/library/list/:listId" element={<ListRoute />} />
         <Route path="/library/list/:listId/add" element={<ListAddRoute />} />

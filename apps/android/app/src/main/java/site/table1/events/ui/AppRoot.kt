@@ -36,7 +36,9 @@ import site.table1.events.library.AllCardsScreen
 import site.table1.events.library.CardDetailScreen
 import site.table1.events.library.CatalogStore
 import site.table1.events.library.CollectionStore
+import site.table1.events.library.DeckFinderScreen
 import site.table1.events.library.LibraryHomeScreen
+import site.table1.events.library.LinePrintingScreen
 import site.table1.events.library.ListAddScreen
 import site.table1.events.library.ListDetailScreen
 import site.table1.events.library.ListKind
@@ -165,7 +167,14 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
                     )
                 }
                 composable("collection/decks") {
-                    ListsScreen(ListKind.Deck, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/list/$it") })
+                    ListsScreen(ListKind.Deck, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/list/$it") },
+                        onFind = { nav.navigate("collection/find") })
+                }
+                composable("collection/find") {
+                    DeckFinderScreen(onBack = { nav.popBackStack() }, onCreated = { id ->
+                        nav.popBackStack()
+                        nav.navigate("collection/list/$id")
+                    })
                 }
                 composable("collection/cubes") {
                     ListsScreen(ListKind.Cube, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/list/$it") })
@@ -173,7 +182,14 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
                 composable("collection/list/{id}") { e ->
                     val id = e.arguments?.getString("id") ?: ""
                     ListDetailScreen(id, onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it") },
-                        onAdd = { nav.navigate("collection/list/$id/add") }, onVersions = { nav.navigate("collection/list/$id/versions") })
+                        onAdd = { nav.navigate("collection/list/$id/add") }, onVersions = { nav.navigate("collection/list/$id/versions") },
+                        onOpen = { nav.navigate("collection/list/$it") },
+                        onPrinting = { card, board, finish -> nav.navigate("collection/list/$id/printing/$card/$board/$finish") })
+                }
+                composable("collection/list/{id}/printing/{card}/{board}/{finish}") { e ->
+                    val a = e.arguments
+                    LinePrintingScreen(a?.getString("id") ?: "", a?.getString("card") ?: "", a?.getString("board") ?: "main",
+                        a?.getString("finish") ?: "nonfoil", onDone = { nav.popBackStack() })
                 }
                 composable("collection/list/{id}/add") { e ->
                     ListAddScreen(e.arguments?.getString("id") ?: "", onDone = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it") })

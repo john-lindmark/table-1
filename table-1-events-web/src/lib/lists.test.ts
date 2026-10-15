@@ -33,12 +33,19 @@ describe("diff and missing", () => {
   const l = fromWire(wire)!;
   it("lists removals before additions, per section", () => {
     expect(diff(l.versions[0], l.versions[1])).toEqual([
-      { cardId: BOLT, board: "main", delta: -1 },
-      { cardId: DELVER, board: "maybe", delta: 2 },
+      { cardId: BOLT, board: "main", delta: -1, finish: "nonfoil" },
+      { cardId: DELVER, board: "maybe", delta: 2, finish: "nonfoil" },
     ]);
   });
   it("never counts Considering as missing", () => {
-    expect(missingIn(l, new Map([[BOLT, 1]]))).toBe(2);
-    expect(missingIn(l, new Map([[BOLT, 3]]))).toBe(0);
+    expect(missingIn(l, new Map([[`${BOLT}|nonfoil`, 1]]))).toBe(2);
+    expect(missingIn(l, new Map([[`${BOLT}|nonfoil`, 3]]))).toBe(0);
+  });
+  it("splits finishes into their own lines and counts foil lines against foil copies", () => {
+    const split = fromWire({ id: "x", kind: "deck", name: "x", format: "modern",
+      versions: [{ version: 1, note: "Created", at: 0, entries: [[BOLT, "main", 2], [BOLT, "main", 2, "foil"]] }] })!;
+    expect(split.versions[0].entries).toEqual([{ cardId: BOLT, board: "main", qty: 2 }, { cardId: BOLT, board: "main", qty: 2, finish: "foil" }]);
+    expect(missingIn(split, new Map([[`${BOLT}|nonfoil`, 4]]))).toBe(2);
+    expect(missingIn(split, new Map([[`${BOLT}|nonfoil`, 2], [`${BOLT}|foil`, 2]]))).toBe(0);
   });
 });

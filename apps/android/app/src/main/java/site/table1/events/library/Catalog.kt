@@ -35,7 +35,12 @@ data class CatalogInfo(val version: String, val format: Int, val url: String, va
 data class CatalogOracle(
     val idx: Int, val oracleId: String, val name: String, val norm: String, val typeLine: String, val manaCost: String,
     val printings: Int,
-)
+    /** Legality code ([CatalogPack.LEGALITY_FORMATS]); empty in packs built before it existed. */
+    val legal: String = "",
+) {
+    /** Legality in a deck format: legal, restricted, banned, not_legal, or null when the format isn't checked. */
+    fun legality(format: String): String? = CatalogPack.legality(legal, format)
+}
 
 data class CatalogPrinting(
     val cardId: String, val oracleIdx: Int,
@@ -43,9 +48,12 @@ data class CatalogPrinting(
     val ord: Int,
     val set: String, val cn: String, val lang: String, val rarity: String, val finishes: String, val releasedAt: String,
     val imageTs: String, val imageFaces: Int, val printedName: String,
+    /** The card's original paper printing, the one adds use by default. */
+    val original: Boolean = false,
 ) {
     val setLabel get() = "${set.uppercase()} #$cn"
-    val finishList: List<Finish> get() = finishes.mapNotNull { l -> CatalogPack.FINISH_NAME[l]?.let { Finish.of(it) } }
+    /** Finishes this printing comes in: non-foil, foil, etched (in that order). */
+    val finishList: List<Finish> get() = finishes.mapNotNull { l -> CatalogPack.FINISH_NAME[l]?.let { Finish.of(it) } }.sortedBy { it.ordinal }
     fun imageUrl(size: String = "normal") = if (imageFaces == 0) null else CatalogPack.imageUrl(cardId, imageTs, size)
 }
 
@@ -71,24 +79,44 @@ class CatalogDb(file: File, val version: String) {
 
     fun oracle(id: String): CatalogOracle? = query("SELECT $ORACLE_COLS FROM oracles WHERE oracle_id = ?", arrayOf(id), ::oracle).firstOrNull()
 
-    /** Every printing of a card, newest first. */
+    /** Every printing of a card: the original paper printing (the default for adds) first, then newest first. */
     fun printings(oracleIdx: Int): List<CatalogPrinting> =
-        query("SELECT $PRINTING_COLS FROM printings WHERE oracle_idx = ? ORDER BY ord", arrayOf(oracleIdx.toString()), ::printing)
+        query("SELECT $PRINTING_COLS FROM printings WHERE oracle_idx = ? ORDER BY original DESC, ord", arrayOf(oracleIdx.toString()), ::printing)
 
     fun printings(ids: Collection<String>): Map<String, CatalogPrinting> =
         ids.chunked(500).flatMap { chunk ->
             query("SELECT $PRINTING_COLS FROM printings WHERE card_id IN (${chunk.joinToString(",") { "?" }})", chunk.toTypedArray(), ::printing)
         }.associateBy { it.cardId }
 
-    /** One printing per card to show as its picture: the newest English printing with an image, else the newest. */
+    /**
+     * One printing per card, shown as its picture and used when it's added: its original paper printing (flagged
+     * in the pack), else the newest English printing with an image, else the newest.
+     */
     fun covers(oracleIdxs: Collection<Int>): Map<Int, CatalogPrinting> {
         val out = HashMap<Int, CatalogPrinting>()
         oracleIdxs.chunked(500).forEach { chunk ->
             query("SELECT $PRINTING_COLS FROM printings WHERE oracle_idx IN (${chunk.joinToString(",") { "?" }}) " +
-                "ORDER BY oracle_idx, (lang = 'en' AND image_faces > 0) DESC, ord",
+                "ORDER BY oracle_idx, original DESC, (lang = 'en' AND image_faces > 0) DESC, ord",
                 chunk.map { it.toString() }.toTypedArray(), ::printing).forEach { p -> out.putIfAbsent(p.oracleIdx, p) }
         }
         return out
+    }
+
+    /**
+     * Default printings for card names as decklists print them: exact names, or the front face of a split or
+     * double-faced card ("Delver of Secrets" finds "Delver of Secrets // Insectile Aberration"). Names that
+     * match no card are left out.
+     */
+    fun printingsByName(names: Collection<String>): Map<String, CatalogPrinting> {
+        val idx = HashMap<String, Int>()
+        for (name in names.toSet()) {
+            val exact = query("SELECT idx FROM oracles WHERE name_norm = ? LIMIT 1", arrayOf(CardName.norm(name))) { it.getInt(0) }.firstOrNull()
+            val found = exact ?: query("SELECT idx FROM oracles WHERE name LIKE ? ORDER BY pcount DESC LIMIT 1",
+                arrayOf(name.replace("%", "") + " // %")) { it.getInt(0) }.firstOrNull()
+            if (found != null) idx[name] = found
+        }
+        val covers = covers(idx.values.toSet())
+        return idx.mapNotNull { (n, i) -> covers[i]?.let { n to it } }.toMap()
     }
 
     fun oracles(idxs: Collection<Int>): Map<Int, CatalogOracle> =
@@ -98,16 +126,16 @@ class CatalogDb(file: File, val version: String) {
         }.associateBy { it.idx }
 
     companion object {
-        private const val ORACLE_COLS = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount"
+        private const val ORACLE_COLS = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount, legal"
         private const val PRINTING_COLS =
-            "card_id, oracle_idx, ord, set_code, cn, lang, rarity, finishes, released_at, image_ts, image_faces, printed_name"
+            "card_id, oracle_idx, ord, set_code, cn, lang, rarity, finishes, released_at, image_ts, image_faces, printed_name, original"
 
         private fun oracle(c: Cursor) = CatalogOracle(c.getInt(0), c.getString(1), c.getString(2), c.getString(3),
-            c.getString(4) ?: "", c.getString(5) ?: "", c.getInt(6))
+            c.getString(4) ?: "", c.getString(5) ?: "", c.getInt(6), c.getString(7) ?: "")
 
         private fun printing(c: Cursor) = CatalogPrinting(c.getString(0), c.getInt(1), c.getInt(2), c.getString(3) ?: "",
             c.getString(4) ?: "", c.getString(5) ?: "", c.getString(6) ?: "", c.getString(7) ?: "", c.getString(8) ?: "",
-            c.getString(9) ?: "", c.getInt(10), c.getString(11) ?: "")
+            c.getString(9) ?: "", c.getInt(10), c.getString(11) ?: "", c.getInt(12) != 0)
 
         /** Builds a SQLite file from a gunzipped pack in one transaction; indexes are created after the inserts. */
         fun build(pack: String, file: File): PackHeader {
@@ -119,21 +147,22 @@ class CatalogDb(file: File, val version: String) {
                 db.execSQL("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT)")
                 db.execSQL("""CREATE TABLE oracles (idx INTEGER PRIMARY KEY, oracle_id TEXT NOT NULL, name TEXT NOT NULL,
                     name_norm TEXT NOT NULL, type_line TEXT, mana_cost TEXT, cmc REAL, colors TEXT, face_names TEXT,
-                    pcount INTEGER NOT NULL DEFAULT 0)""")
+                    pcount INTEGER NOT NULL DEFAULT 0, legal TEXT NOT NULL DEFAULT '')""")
                 db.execSQL("""CREATE TABLE printings (card_id TEXT PRIMARY KEY, oracle_idx INTEGER NOT NULL, ord INTEGER NOT NULL,
                     set_code TEXT, cn TEXT, lang TEXT, rarity TEXT, finishes TEXT, released_at TEXT, image_ts TEXT,
-                    image_faces INTEGER, printed_name TEXT)""")
+                    image_faces INTEGER, printed_name TEXT, original INTEGER NOT NULL DEFAULT 0)""")
                 db.beginTransaction()
                 try {
                     val insO = db.compileStatement(
-                        "INSERT INTO oracles (idx, oracle_id, name, name_norm, type_line, mana_cost, cmc, colors, face_names) VALUES (?,?,?,?,?,?,?,?,?)")
-                    val insP = db.compileStatement("INSERT OR REPLACE INTO printings VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
+                        "INSERT INTO oracles (idx, oracle_id, name, name_norm, type_line, mana_cost, cmc, colors, face_names, legal) VALUES (?,?,?,?,?,?,?,?,?,?)")
+                    val insP = db.compileStatement("INSERT OR REPLACE INTO printings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
                     var ord = 0L
                     val header = CatalogPack.parse(pack, oracle = { o ->
                         insO.clearBindings()
                         insO.bindLong(1, o.idx.toLong()); insO.bindString(2, o.oracleId); insO.bindString(3, o.name)
                         insO.bindString(4, o.nameNorm); insO.bindString(5, o.typeLine); insO.bindString(6, o.manaCost)
                         insO.bindDouble(7, o.cmc); insO.bindString(8, o.colors); insO.bindString(9, o.faceNames)
+                        insO.bindString(10, o.legal)
                         insO.executeInsert()
                     }, printing = { p ->
                         insP.clearBindings()
@@ -141,6 +170,7 @@ class CatalogDb(file: File, val version: String) {
                         insP.bindString(4, p.set); insP.bindString(5, p.cn); insP.bindString(6, p.lang); insP.bindString(7, p.rarity)
                         insP.bindString(8, p.finishes); insP.bindString(9, p.releasedAt); insP.bindString(10, p.imageTs)
                         insP.bindLong(11, p.imageFaces.toLong()); insP.bindString(12, p.printedName)
+                        insP.bindLong(13, if (p.original) 1 else 0)
                         insP.executeInsert()
                     })
                     db.execSQL("CREATE INDEX printings_oracle ON printings (oracle_idx, ord)")
@@ -174,6 +204,9 @@ data class CatalogState(
  * version atomically (the old one stays in use until the new one is built).
  */
 object CatalogStore {
+    /** Bumped when the local SQLite schema changes; a file built by an older schema is rebuilt from a fresh pack. */
+    private const val SCHEMA = "s2"
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(CatalogState())
     val state: StateFlow<CatalogState> = _state.asStateFlow()
@@ -203,7 +236,7 @@ object CatalogStore {
 
     private fun openInstalled() {
         val version = prefs.getString("version", null) ?: return
-        val file = File(dir, "catalog-$version.sqlite")
+        val file = File(dir, "catalog-$version.$SCHEMA.sqlite")
         if (!file.exists()) return
         db = runCatching { CatalogDb(file, version) }.getOrNull() ?: return
         _state.update { it.copy(phase = "ready", error = null, generation = it.generation + 1) }
@@ -234,7 +267,7 @@ object CatalogStore {
                 if (!hadPack) _state.update { it.copy(phase = "idle") } // waits for the Library or Wi-Fi
                 return
             }
-            val file = File(dir, "catalog-${info.version}.sqlite")
+            val file = File(dir, "catalog-${info.version}.$SCHEMA.sqlite")
             withContext(Dispatchers.IO) { install(info, file) }
             val opened = CatalogDb(file, info.version)
             val old = db

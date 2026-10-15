@@ -102,3 +102,26 @@ class CatalogSearchTest {
 
     @Test fun needsTwoCharacters() = assertEquals(emptyList<String>(), c.names("l"))
 }
+
+class CatalogPackFieldsTest {
+    /** Legality code (O field 10) and the original-printing flag (P field 12); older packs leave both empty. */
+    @Test fun readsLegalityAndOriginal() {
+        val pack = listOf(
+            "#t1catalog\t1\tv1-test\t2\t2",
+            "O\t0\t5089ec1a-f881-4d55-af14-5d996171203b\tBlack Lotus\tblack lotus\tArtifact\t{0}\t0\t\t\t---BR-B-",
+            "O\t1\t4457ed35-7c10-48c8-9776-456485fdf070\tLightning Bolt\tlightning bolt\tInstant\t{R}\t1\tR\t",
+            "P\tbd8fa327-dd41-4737-8f19-2cf5eb1f7cdd\t0\tlea\t232\ten\tr\tn\t1993-08-05\t1\t1\t\t1",
+            "P\tf29ba16f-c8fb-42fe-aabf-87089cb214a7\t1\t2x2\t117\ten\tu\tfn\t2022-07-08\t1\t1\t",
+        ).joinToString("\n")
+        val o = mutableListOf<PackOracle>()
+        val p = mutableListOf<PackPrinting>()
+        CatalogPack.parse(pack, { o += it }, { p += it })
+        assertEquals(listOf("---BR-B-", ""), o.map { it.legal })
+        assertEquals(listOf(true, false), p.map { it.original })
+        val lotus = CatalogOracle(0, "", "Black Lotus", "", "", "", 1, o[0].legal)
+        assertEquals("restricted", lotus.legality("vintage"))
+        assertEquals("banned", lotus.legality("legacy"))
+        assertEquals("not_legal", lotus.legality("modern"))
+        assertEquals(null, lotus.legality("other"))
+    }
+}

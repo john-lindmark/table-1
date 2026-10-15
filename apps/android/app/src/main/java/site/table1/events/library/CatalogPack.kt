@@ -38,16 +38,30 @@ data class PackHeader(val version: String, val oracles: Int, val printings: Int)
 data class PackOracle(
     val idx: Int, val oracleId: String, val name: String, val nameNorm: String, val typeLine: String,
     val manaCost: String, val cmc: Double, val colors: String, val faceNames: String,
+    /** One character per format in [CatalogPack.LEGALITY_FORMATS]: L legal, R restricted, B banned, - not legal. */
+    val legal: String = "",
 )
 
 data class PackPrinting(
     val cardId: String, val oracleIdx: Int, val set: String, val cn: String, val lang: String, val rarity: String,
     val finishes: String, val releasedAt: String, val imageTs: String, val imageFaces: Int, val printedName: String,
+    /** The card's original paper printing, the one adds use by default. */
+    val original: Boolean = false,
 )
 
 class CatalogFormatException(message: String) : IOException(message)
 
 object CatalogPack {
+    /** Formats in an O line's legality code, in order. */
+    val LEGALITY_FORMATS = listOf("standard", "pioneer", "modern", "legacy", "vintage", "pauper", "commander", "premodern")
+
+    /** A legality code read for one format: legal, restricted, banned, not_legal, or null when the format isn't covered. */
+    fun legality(code: String, format: String): String? {
+        val i = LEGALITY_FORMATS.indexOf(format.lowercase())
+        if (i < 0 || i >= code.length) return null
+        return when (code[i]) { 'L' -> "legal"; 'R' -> "restricted"; 'B' -> "banned"; else -> "not_legal" }
+    }
+
     val FINISH_NAME = mapOf('n' to "nonfoil", 'f' to "foil", 'e' to "etched")
     val RARITY_NAME = mapOf("c" to "Common", "u" to "Uncommon", "r" to "Rare", "m" to "Mythic", "s" to "Special", "b" to "Bonus")
 
@@ -72,11 +86,11 @@ object CatalogPack {
                     if (at(0) != "#t1catalog" || at(1) != "1") throw CatalogFormatException("Unknown card data format")
                     header = PackHeader(at(2), at(3).toIntOrNull() ?: 0, at(4).toIntOrNull() ?: 0)
                 } else if (f[0] == "O" && o < h.oracles) {
-                    oracle(PackOracle(at(1).toIntOrNull() ?: o, at(2), at(3), at(4), at(5), at(6), at(7).toDoubleOrNull() ?: 0.0, at(8), at(9)))
+                    oracle(PackOracle(at(1).toIntOrNull() ?: o, at(2), at(3), at(4), at(5), at(6), at(7).toDoubleOrNull() ?: 0.0, at(8), at(9), at(10)))
                     o++
                 } else if (f[0] == "P" && p < h.printings) {
                     printing(PackPrinting(at(1), at(2).toIntOrNull() ?: -1, at(3), at(4), at(5), at(6), at(7), at(8), at(9),
-                        at(10).toIntOrNull() ?: 0, at(11)))
+                        at(10).toIntOrNull() ?: 0, at(11), at(12) == "1"))
                     p++
                 }
                 // Unknown line types are skipped (format rule).

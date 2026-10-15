@@ -44,6 +44,8 @@ struct PackOracle: Equatable {
     let cmc: Double
     let colors: String
     let faceNames: String
+    /// One character per format in `CatalogPack.legalityFormats`: L legal, R restricted, B banned, - not legal.
+    var legal: String = ""
 }
 
 struct PackPrinting: Equatable {
@@ -58,6 +60,8 @@ struct PackPrinting: Equatable {
     let imageTs: String
     let imageFaces: Int
     let printedName: String
+    /// The card's original paper printing, the one adds use by default.
+    var original: Bool = false
 }
 
 enum CatalogPack {
@@ -69,6 +73,21 @@ enum CatalogPack {
             case .gzip: "Card data is damaged"
             case .checksum: "Card data didn't download completely"
             }
+        }
+    }
+
+    /// Formats in an O line's legality code, in order.
+    static let legalityFormats = ["standard", "pioneer", "modern", "legacy", "vintage", "pauper", "commander", "premodern"]
+
+    /// A legality code read for one format: "legal", "restricted", "banned", "not_legal", or nil when the
+    /// format isn't one the code covers (or the pack predates codes).
+    static func legality(_ code: String, _ format: String) -> String? {
+        guard let i = legalityFormats.firstIndex(of: format.lowercased()), i < code.count else { return nil }
+        switch code[code.index(code.startIndex, offsetBy: i)] {
+        case "L": return "legal"
+        case "R": return "restricted"
+        case "B": return "banned"
+        default: return "not_legal"
         }
     }
 
@@ -104,13 +123,13 @@ enum CatalogPack {
                         if fields[0] == "O", o < h.oracles {
                             try oracle(PackOracle(
                                 idx: Int(at(1)) ?? o, oracleId: at(2), name: at(3), nameNorm: at(4), typeLine: at(5),
-                                manaCost: at(6), cmc: Double(at(7)) ?? 0, colors: at(8), faceNames: at(9)))
+                                manaCost: at(6), cmc: Double(at(7)) ?? 0, colors: at(8), faceNames: at(9), legal: at(10)))
                             o += 1
                         } else if fields[0] == "P", p < h.printings {
                             try printing(PackPrinting(
                                 cardId: at(1), oracleIdx: Int(at(2)) ?? -1, set: at(3), cn: at(4), lang: at(5),
                                 rarity: at(6), finishes: at(7), releasedAt: at(8), imageTs: at(9),
-                                imageFaces: Int(at(10)) ?? 0, printedName: at(11)))
+                                imageFaces: Int(at(10)) ?? 0, printedName: at(11), original: at(12) == "1"))
                             p += 1
                         }
                         // Unknown line types are skipped (format rule).

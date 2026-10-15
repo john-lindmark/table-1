@@ -14,6 +14,8 @@ enum LibraryRoute: Hashable {
     case versions(String) // list id
     case version(String, Int) // list id, version number
     case listAdd(String) // list id
+    case findDeck
+    case linePrinting(String, String, String, String) // list id, card id, board, finish
 }
 
 /// Every Library screen behind a route, shared by the Collection tab and the Debug demo.
@@ -30,6 +32,8 @@ struct LibraryDestination: View {
         case .versions(let id): ListVersionsView(listId: id, path: $path)
         case .version(let id, let n): ListVersionView(listId: id, number: n, path: $path)
         case .listAdd(let id): ListAddCardsView(listId: id, path: $path)
+        case .findDeck: DeckFinderView(path: $path)
+        case .linePrinting(let l, let c, let b, let f): LinePrintingView(listId: l, cardId: c, board: b, finish: f)
         }
     }
 }
