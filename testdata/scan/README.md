@@ -15,6 +15,7 @@ run the matcher over OCR text read from these photos, so OCR runs once here, on 
 | `tools/ocr.swift` | Makes `ocr.json` (`swift testdata/scan/tools/ocr.swift`) and `motion.json` (`… ocr.swift motion`; compile it with `swiftc -O` first, it's slow interpreted). |
 | `tools/trim_pack.py` | Makes `catalog.tsv.gz` from a downloaded pack. |
 | `tools/export_reports.py` | Exports scan corrections (service key) into `reports/`. |
+| `tools/art_refs.py`, `art_fetch.swift`, `art_match.swift` | The art matching spike (see "Art matching spike"). |
 
 Tags: `frame93` `frame97` `frame03` `frame15` `frame20` (card frame era), `retro`, `borderless`, `showcase`,
 `extended`, `fullart`, `foil`, `etched`, `textured`, `galaxy`, `surge`, `promo`, `prerelease`, `white-border`,
@@ -175,3 +176,86 @@ Known gaps:
 - Prerelease promos whose date stamp doesn't read come out as the regular printing (2 here).
 - The movement clips are synthetic (a real photo moved by a model of a hand), and Vision on a Mac is not
   VisionKit's live-text pipeline on a phone. Real-device reports (`reports/`) are the check on both.
+
+## Art matching spike (2026-10-16; measured, not in the scanners)
+
+Could a card be named by how it looks rather than by its text? Mac-side, on the 291 photos: the card found and
+deskewed as in the title bar pass (no rectangle: the whole photo), then embedded and looked up among Scryfall images.
+Nothing per frame touches the network: the reference images were downloaded once (Scryfall's `unique_artwork` and
+`default_cards` bulk files, then `art_crop` and `border_crop` images from cards.scryfall.io at ≤ 15/s) into
+`~/Library/Caches/table1-art-spike`, outside the repo.
+
+- `tools/art_refs.py` lists the references: one per illustration (49,742 scannable arts, both faces of double-faced
+  cards; no tokens, art series, emblems), the 806 arts the photos show first, then the rest shuffled, so the first N
+  are "the test set plus distractors". Whole cards: the 258 printings the photos show, then one printing per art.
+- `tools/art_fetch.swift arts|cards` downloads them (384 px), `tools/art_match.swift [picks.tsv]` embeds and
+  measures. `picks.tsv` is the app's CardMatcher run on `multi` (CardMatcher, CatalogPack, SQLite and the model
+  part of Catalog.swift compiled on the Mac with a three-line driver): 253/291 right, 0 wrong.
+
+Methods: Apple Vision's `VNGenerateImageFeaturePrintRequest` (768 floats, built into iOS, nothing to ship), cosine
+nearest neighbour; dHash and DCT pHash (64 bits, Hamming). Crops: `art modern` (the 2003+ art box), `art boxes`
+(modern and 1993/97 boxes, each also turned 180°, best of four), `+rect` (also the detected rectangle itself as the art:
+the detector often finds the art box, which is card-shaped too), `whole card` (the deskewed card, and turned).
+
+Right card at top-1 (top-5), all 291 photos, as distractors are added:
+
+| References | art modern | **art boxes** | art boxes+rect | +rect int8 | pHash | dHash | whole card |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 806 (test arts only) | 84% | 84% (93%) | 81% | 85% | 71% | 50% | 58% |
+| 5,000 | 79% | 79% (86%) | 77% | 79% | 70% | 42% | 52% |
+| 20,000 | 75% | 77% (82%) | 73% | 75% | 67% | 35% | 48% |
+| 49,742 (all) | 74% | **77% (82%)**, 225/291 | 73% | 73% | 64% | 32% | 46% |
+
+Text, for comparison: 253/291 (87%), 0 wrong. Accuracy levels off after ~20k references.
+
+- Art is language-blind: at 49,742 references, cards in other languages 120/143, English 105/148. Old frames are
+  nearly perfect (1993 58/61, 1997 32/36, white border 25/25); it fails on foil (75/119), borderless (20/32,
+  the fixed art box is wrong there), modern frames (2020 frame 68/104) and when no rectangle is found (31/47).
+  Many misses are a wrong crop: the rectangle is the art box or the text box, not the card.
+- Whole card is worse everywhere except English: 21/143 other languages (the text differs from Scryfall's English
+  image), 26/61 1993 frames. Frames and text boxes look alike across thousands of cards and drown the art. It reads
+  the printing on 108/247. Art and whole card together: either is right on 251, the clearer margin wins 228; worse
+  than art alone, so whole card adds nothing.
+- Mean-centering the index (against hub arts that are everyone's nearest neighbour) made it worse (69%); int8 costs
+  nothing.
+- A wrong answer is always possible: forced to answer, art boxes is wrong on 66 photos. Answering only when the best
+  card leads the next by more than 0.070 (just above every wrong answer here, so fitted on this set): 145 answers, 0
+  wrong.
+
+As a fallback, where text names nothing (38 photos): art top-1 is right on 32: ko 9/9, zht 8/8, ja 5/8, en 5/7,
+de 3/4, fr, pt. With the 0.070 margin, 23 of them, 0 wrong: names 253 → 276/291 (95%).
+
+As a confirmation of the text matcher's pick (253 right picks; 581 wrong claims: a random card, and Opt, per photo):
+
+| Rule (49,742 arts) | Right picks kept | Wrong claims let through |
+| --- | --- | --- |
+| Claimed card is art's top-1 | 193/253 | 0/581 |
+| Claimed card in art's top 5 | 206/253 | 0/581 |
+| Claimed card in art's top 20 | 212/253 | 1/581 |
+| Claimed card scores ≥ 0.478 (keeps 95%) | 241/253 | 328/581 |
+
+A score threshold alone separates nothing (scores of unrelated arts are high); rank does. Synthetic negatives: a
+keyboard with "option" keys finds no card-shaped rectangle; with the whole frame as the card, Opt ranks 4,904th. A
+list of card names on a dark screen ("4 Opt", "4 Lightning Bolt"…) finds a rectangle; Opt ranks 4,690th, Lightning
+Bolt 629th. Both are rejected by the top-5 rule.
+
+Time on Apple silicon (Mac, median per frame): find and deskew 6.7 ms (the gate already does this), crops 11 ms (8
+crops; 4 for art boxes), feature print 5.0 ms per crop, search of 49,742 arts 1.9 ms per crop (float32, brute force):
+about 40 ms for art boxes, so not every frame. Index: 49,742 × 768 = 152 MB float32, **38 MB int8**; every printing
+(109,573) would be 84 MB int8; a pHash per art is 397 kB but too weak.
+
+**Recommendation: don't ship it as the primary matcher; worth building as a fallback, and as an alternative way
+through the gate, not as a required confirmation.**
+- Primary: no. 77% and wrong answers where text gets 87% with none; text also reads the printing.
+- Fallback for frames text can't name: yes, the one clear gain, mostly Chinese, Japanese and Korean cards with no
+  printed name in the pack (22 of 25 CJK misses named at top-1), run only after text has found nothing for a while,
+  and answering only with a clear margin.
+- Confirmation: top-5 let no wrong claim through and rejects the keyboard and the list of names, but as a hard
+  requirement it would drop 47 of 253 right picks. Use it as one more way to pass the gate (a frame with no type line
+  and no rectangle-bounded text, whose text pick is in art's top 5), not as a new requirement.
+- Before building: (1) Android has no Vision feature print, so it needs its own model and its own index (e.g. a
+  small MobileNet-class embedding in TFLite), which is the larger half of the work; the iOS index must be built with
+  the same feature print revision the phone runs. (2) The margin was fitted on these photos; check it on held-out and
+  real phone frames (`reports/`). (3) 38 MB is a separate optional download next to the catalog pack. (4) Fix the
+  art box for borderless/showcase frames and try the second-largest rectangle when the largest is the art box: most
+  remaining misses are crops, not embeddings.
