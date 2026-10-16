@@ -1,6 +1,6 @@
 # Table 1 docs — read this first
 
-These are copies of the docs from the Table 1 Claude project, bundled 2026-10-13. They were written over several weeks, and **several earlier decisions have since been updated.** Each affected doc has an "UPDATED 2026-10-13" banner at the top. Where a doc and this list disagree, this list wins. Ongoing direction is in `plan-library-scanning-nav.md`; the detailed Library plan (catalog, collection, imports, decks/cubes, trades, scanner, with performance targets) is `plan-collection-2026-10-14.md`.
+These are copies of the docs from the Table 1 Claude project, bundled 2026-10-13. They were written over several weeks, and **several earlier decisions have since been updated.** Each affected doc has an "UPDATED 2026-10-13" banner at the top. Where a doc and this list disagree, this list wins. Ongoing direction is in `plan-library-scanning-nav.md`; the detailed Library plan (catalog, collection, imports, decks/cubes, trades, scanner, with performance targets) is `plan-collection-2026-10-14.md`. Roto (rotisserie) cube events: `plan-roto-2026-10-15.md` (agreed 2026-10-16; server built, clients in progress).
 
 ## Decisions that have changed
 

@@ -6,6 +6,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { computeStandings } from "./standings.ts";
 import { pairRound, type ProposedMatch } from "./pairings.ts";
+import { pairRoundRobin, roundRobinRoster, roundRobinRounds } from "./roundrobin.ts";
 import { computeTeamStandings, membersOf, pairTeamDraftRound, pairTeamSwissRound, teamProblems, type Team } from "./teams.ts";
 import type { Match, MatchSide, Participant, RoundWithMatches } from "./types.ts";
 
@@ -168,7 +169,15 @@ async function pairNextRound(eventId: string, authHeader: string) {
     if (unreported > 0) return json({ error: `Round ${open.number} still has ${unreported} unreported matches` }, 409);
   }
   const roundNumber = (rounds.at(-1)?.number ?? 0) + 1;
-  if (roundNumber > event.number_of_rounds) return json({ error: "All rounds have been played" }, 409);
+  // Roto: rounds start once every pick is in. Round robin: the roster at round 1 fixes the number of rounds.
+  if (event.format_name === "roto" && roundNumber === 1) {
+    const { data: draft, error } = await admin.from("roto_drafts").select("finished_at").eq("event_id", eventId).maybeSingle();
+    if (error) throw error;
+    if (!draft?.finished_at) return json({ error: "Finish the draft before pairing round 1" }, 409);
+  }
+  const roundRobin = event.pairing === "round_robin";
+  const totalRounds = roundRobin ? roundRobinRounds(roundRobinRoster(participants).length) : event.number_of_rounds;
+  if (roundNumber > totalRounds) return json({ error: "All rounds have been played" }, 409);
 
   if (isTeamEvent(event)) {
     const problem = teamProblems(teams, participants, event.team_size ?? 3, event.format_name);
@@ -181,7 +190,9 @@ async function pairNextRound(eventId: string, authHeader: string) {
   }
 
   let proposed: ProposedMatch[];
-  if (event.format_name === "team_draft") {
+  if (roundRobin) {
+    proposed = pairRoundRobin(participants, roundNumber);
+  } else if (event.format_name === "team_draft") {
     proposed = pairTeamDraftRound(membersOf(teams[0].id, participants), membersOf(teams[1].id, participants), roundNumber);
   } else if (event.format_name === "team_sealed") {
     proposed = pairTeamSwissRound(teams, participants, rounds, roundNumber);
@@ -229,7 +240,10 @@ async function pairNextRound(eventId: string, authHeader: string) {
   if (sideError) throw sideError;
 
   const { error: eventError } = await admin.from("events")
-    .update({ current_round: roundNumber, status: "in_progress", updated_at: now.toISOString() }).eq("id", eventId);
+    .update({
+      current_round: roundNumber, status: "in_progress", updated_at: now.toISOString(),
+      ...(roundRobin ? { number_of_rounds: totalRounds } : {}),
+    }).eq("id", eventId);
   if (eventError) throw eventError;
 
   // One push per round, to every account seated in a match (the notify-worker expands it per device).

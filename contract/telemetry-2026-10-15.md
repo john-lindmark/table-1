@@ -45,7 +45,8 @@ properties. Every client sends the same names, so one PostHog insight covers all
 ## Screens
 `sign_in`, `events_home`, `event`, `create_event`, `nearby`, `scan_qr`, `add_players`, `life_tracker`,
 `library_home`, `all_cards`, `card_detail`, `add_cards`, `card_scanner`, `decks`, `cubes`, `deck`, `cube`,
-`list_versions`, `list_add`, `list_printing`, `deck_finder`, `list_import`, `trades`, `trade`, `account`.
+`list_versions`, `list_add`, `list_printing`, `deck_finder`, `list_import`, `trades`, `trade`, `account`,
+`roto_grid`, `roto_cube`, `roto_picks`, `roto_list` (2026-10-16).
 
 ## Events
 
@@ -72,19 +73,32 @@ properties. Every client sends the same names, so one PostHog insight covers all
 ### Play: organizers
 | event | properties |
 |---|---|
-| `event_created` | `format`, `kind`: constructed / limited / cube, `rounds`, `round_timer`: bool, `team_size`: int or 0, `organizer_plays`: bool, `guests`: int |
+| `event_created` | `format`, `kind`: constructed / limited / cube, `rounds`, `round_timer`: bool, `team_size`: int or 0, `organizer_plays`: bool, `guests`: int, `pairing`: swiss / round_robin |
 | `event_location_set` | `visibility` |
 | `players_invited` | `count`, `via`: account / email |
 | `guest_added` | — |
 | `player_removed` | — |
 | `teams_set` | `teams`: int, `random`: bool |
 | `seating_drawn` | `pods`: int |
-| `round_paired` | `round`: int |
+| `round_paired` | `round`: int, `pairing`: swiss / round_robin |
 | `round_clock_changed` | `action`: pause / resume / add |
 | `result_overridden` | — |
 | `player_dropped` | `status`: dropped / active |
 | `round_recorded` | `final`: bool |
 | `event_cancelled` | — |
+
+### Play: roto (2026-10-16; contract `roto-2026-10-16.md`)
+| event | properties |
+|---|---|
+| `roto_cube_set` | `pool`: int, `from`: library / cube_cobra |
+| `roto_started` | `players`: int, `picks_per_player`: int, `pool`: int, `order`: snake / fixed, `clock`: bool, `clock_ranges`: int |
+| `roto_picked` | `how`: player / organizer, `from`: cube / grid / list / detail, `round`: int, `seconds_on_clock`: int, `auto_followed`: int (auto-picks the server ran after it) |
+| `roto_list_changed` | `cards`: int, `auto_pick`: bool. Once per accepted save, not per drag |
+| `roto_clock_changed` | `action`: set / clear / pause / resume, `ranges`: int |
+| `roto_pick_undone` | `picks_removed`: int |
+| `roto_deck_opened` | `from`: event / picks / library |
+
+Timeouts and auto-picks happen on the server; count them in Postgres (`roto_picks.how`), not PostHog.
 
 ### Library
 | event | properties |
