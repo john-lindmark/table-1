@@ -32,6 +32,10 @@ struct Table1App: App {
                 .overlay {
                     if ProcessInfo.processInfo.arguments.contains("-T1EventsDemo") { EventsDemoRoot() }
                 }
+                // `-T1RotoDemo [grid|cube|picks|list|schedule]`: a roto draft (8 players, the demo Vintage cube).
+                .overlay {
+                    if ProcessInfo.processInfo.arguments.contains("-T1RotoDemo") { RotoDemoRoot() }
+                }
                 #endif
                 // App-drawn menus and panels sit above everything (tabs, life tracker); only alerts are native.
                 .overlay { T1OverlayHost() }

@@ -40,6 +40,10 @@ struct CardList: Identifiable, Hashable, Sendable {
     let format: String
     /// Oldest first; never empty.
     let versions: [Version]
+    /// A roto deck linked to its event: filled by the draft, the cards belong to the cube's owner, so it never
+    /// counts Missing (contract/roto-2026-10-16.md).
+    var eventId: String? = nil
+    var eventName: String? = nil
 
     var entries: [Entry] { versions.last?.entries ?? [] }
     var current: Version? { versions.last }
@@ -370,6 +374,8 @@ struct ListDTO: Codable {
     var format: String?
     var deleted: Bool?
     var versions: [VersionDTO]?
+    var eventId: String?
+    var eventName: String?
 
     var list: CardList? {
         guard let kind, let name, let format, let versions, !versions.isEmpty else { return nil }
@@ -378,7 +384,7 @@ struct ListDTO: Codable {
                             CardList.Version(number: v.version, at: Date(timeIntervalSince1970: v.at), note: v.note,
                                              entries: v.entries.map { CardList.Entry(cardId: $0[0].text, board: $0[1].text, qty: $0[2].int,
                                                                                     finish: $0.count > 3 ? $0[3].text : "nonfoil") })
-                        })
+                        }, eventId: eventId, eventName: eventName)
     }
 
     init(_ l: CardList) {
@@ -387,6 +393,8 @@ struct ListDTO: Codable {
         name = l.name
         format = l.format
         deleted = false
+        eventId = l.eventId
+        eventName = l.eventName
         versions = l.versions.map { v in
             VersionDTO(version: v.number, note: v.note, at: v.at.timeIntervalSince1970,
                        entries: v.entries.map { [.text($0.cardId), .text($0.board), .int($0.qty)] + ($0.finish == "nonfoil" ? [] : [.text($0.finish)]) })
@@ -412,6 +420,7 @@ func ownedByPrinting() -> [String: Int] {
 /// excluded.
 @MainActor
 func missing(in list: CardList, owned: [String: Int]) -> Int {
+    guard list.eventId == nil else { return 0 }
     var need: [String: Int] = [:]
     for e in list.entries where e.board != "maybe" { need["\(e.cardId)|\(e.finish)", default: 0] += e.qty }
     return need.reduce(0) { $0 + max(0, $1.value - (owned[$1.key] ?? 0)) }
@@ -471,8 +480,9 @@ struct ListsView: View {
 
     private func detail(_ l: CardList, missing: Int) -> String {
         let side = l.count("side"), maybe = l.count("maybe")
+        let have: String = l.eventName.map { "From \($0)" } ?? (missing == 0 ? "All owned" : "\(missing) missing")
         let parts: [String?] = [formatName(l.format), side > 0 ? "\(side) sideboard" : nil, maybe > 0 ? "\(maybe) considering" : nil,
-                                missing == 0 ? "All owned" : "\(missing) missing", "v\(l.current?.number ?? 1)"]
+                                have, "v\(l.current?.number ?? 1)"]
         return parts.compactMap { $0 }.joined(separator: " · ")
     }
 }
@@ -602,7 +612,8 @@ struct ListDetailView: View {
 
     var body: some View {
         let list = ListsStore.shared.list(id: listId)
-        let owned = ownedByPrinting()
+        // A roto deck's cards come from the cube, never from your collection: treat every line as covered.
+        let owned = list.flatMap { $0.eventId == nil ? nil : eventCover($0) } ?? ownedByPrinting()
         let rows = list.map { lines(for: $0) } ?? []
         let issues = list.map { ListLine.issues(rows, list: $0) } ?? [:]
         T1Screen {
@@ -709,7 +720,15 @@ struct ListDetailView: View {
     }
 
     private func subtitle(_ l: CardList) -> String {
-        "\(formatName(l.format)) \(l.kind == .deck ? "deck" : "cube") · v\(l.current?.number ?? 1)"
+        if let event = l.eventName { return "From \(event) · v\(l.current?.number ?? 1)" }
+        return "\(formatName(l.format)) \(l.kind == .deck ? "deck" : "cube") · v\(l.current?.number ?? 1)"
+    }
+
+    /// Every line's own count, so nothing reads as missing.
+    private func eventCover(_ l: CardList) -> [String: Int] {
+        var out: [String: Int] = [:]
+        for e in l.entries { out["\(e.cardId)|\(e.finish)", default: 0] += e.qty }
+        return out
     }
 
     private func stats(_ list: CardList, owned: [String: Int], rows: [ListLine]) -> some View {
@@ -721,7 +740,7 @@ struct ListDetailView: View {
                 let pts = ListLine.points(rows).total
                 statCell("Points", pts, warn: pts > CatalogPack.canlanderPointLimit)
             }
-            statCell("Missing", missing(in: list, owned: owned))
+            if list.eventId == nil { statCell("Missing", missing(in: list, owned: owned)) }
         }
         .padding(.vertical, 16).background(T1.surface)
     }
@@ -737,7 +756,8 @@ struct ListDetailView: View {
     private func lineRow(_ line: ListLine, owned: Int, issue: String?) -> some View {
         let considering = line.board == "maybe"
         let short = !considering && owned < line.qty
-        let have = considering ? (owned > 0 ? "Owned \(owned)" : "Not owned")
+        let eventDeck = ListsStore.shared.list(id: listId)?.eventId != nil
+        let have: String? = eventDeck ? nil : considering ? (owned > 0 ? "Owned \(owned)" : "Not owned")
             : short ? "Owned \(owned) · missing \(line.qty - owned)" : "Owned \(owned)"
         let pts = line.points > 0 && ListsStore.shared.list(id: listId)?.format == "canlander" ? "\(line.points) pt\(line.points == 1 ? "" : "s")" : nil
         let detail = [issue, pts, line.finishLabel, have].compactMap { $0 }.joined(separator: " · ")

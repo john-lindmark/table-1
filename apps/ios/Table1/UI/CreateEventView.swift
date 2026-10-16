@@ -20,6 +20,9 @@ struct CreateEventView: View {
     @State private var teamSize = 3
     @State private var rounds = 3
     @State private var showClock = true
+    /// Roto only: prefilled from the player count (round robin for 2–8, Swiss for 9+) until changed by hand.
+    @State private var pairing = "round_robin"
+    @State private var pairingTouched = false
     @State private var includeMe = true
     @State private var myName: String?
     @State private var guests: [String] = []
@@ -30,6 +33,10 @@ struct CreateEventView: View {
 
     private var format: FormatOption { kind == .constructed ? constructedFormat : limitedFormat }
     private var isLimited: Bool { kind == .limited }
+    private var isRoto: Bool { isLimited && format == .roto }
+    /// Roto is always a cube.
+    private var usesCube: Bool { isLimited && (product == .cube || isRoto) }
+    private var playerCount: Int { guests.count + (includeMe ? 1 : 0) }
     private var trimmedCubeUrl: String { cubeUrl.trimmingCharacters(in: .whitespaces) }
     private var cubeUrlValid: Bool { EventProduct.cubeUrlValid(cubeUrl) }
 
@@ -37,14 +44,14 @@ struct CreateEventView: View {
     private var previewName: String {
         let label = EventNaming.label(
             format: format.rawValue, formatOther: formatOther,
-            setName: isLimited && product == .set ? (chosenSet?.name ?? typedSetName) : nil,
-            cubeName: isLimited && product == .cube ? cubeName : nil)
+            setName: isLimited && product == .set && !isRoto ? (chosenSet?.name ?? typedSetName) : nil,
+            cubeName: usesCube ? cubeName : nil)
         return "\(label) · \(EventNaming.day())"
     }
 
     private var valid: Bool {
         if format == .otherConstructed && formatOther.trimmingCharacters(in: .whitespaces).isEmpty { return false }
-        if isLimited && product == .cube {
+        if usesCube {
             return !cubeName.trimmingCharacters(in: .whitespaces).isEmpty && cubeUrlValid
         }
         return true
@@ -60,8 +67,12 @@ struct CreateEventView: View {
 
                     if isLimited {
                         ProductFields(product: $product, chosenSet: chosenSet, typedSetName: $typedSetName,
-                                      cubeName: $cubeName, cubeUrl: $cubeUrl, setsUnavailable: setsUnavailable) {
+                                      cubeName: $cubeName, cubeUrl: $cubeUrl, setsUnavailable: setsUnavailable,
+                                      cubeOnly: isRoto) {
                             choosingSet = true
+                        }
+                        if isRoto {
+                            Notice("Roto: every card face up, players take turns picking any card, snake order. The pool is one of your Library cubes; a Cube Cobra link is imported into your Library. You can change it in Setup → Details.")
                         }
                     }
 
@@ -70,8 +81,14 @@ struct CreateEventView: View {
                     }
 
                     Section1("Rounds")
-                    T1Stepper(label: "Rounds", value: $rounds, range: 1...15)
+                    if !(isRoto && pairing == "round_robin") {
+                        T1Stepper(label: "Rounds", value: $rounds, range: 1...15)
+                    }
                     RoundTimerSwitch(isOn: $showClock)
+                    if isRoto {
+                        RotoPairingFields(pairing: Binding(get: { pairing }, set: { pairing = $0; pairingTouched = true }),
+                                          players: playerCount)
+                    }
 
                     PlayersFields(includeMe: $includeMe, myName: myName, guests: $guests)
 
@@ -94,13 +111,14 @@ struct CreateEventView: View {
             if sets.isEmpty { setsUnavailable = true }
             myName = await name
         }
+        .onChange(of: playerCount) { _, n in if !pairingTouched { pairing = RotoMath.defaultPairing(players: n) } }
     }
 
     private func create() {
         busy = true
         error = nil
-        let limitedSet = isLimited && product == .set
-        let cube = isLimited && product == .cube
+        let limitedSet = isLimited && product == .set && !isRoto
+        let cube = usesCube
         let draft = NewEventDraft(
             name: nil,
             formatName: format.rawValue,
@@ -111,8 +129,10 @@ struct CreateEventView: View {
             cubeName: cube ? cubeName : nil,
             cubeUrl: cube ? trimmedCubeUrl : nil,
             teamSize: format.isTeam ? teamSize : nil,
-            formatOther: format == .otherConstructed ? formatOther : nil
+            formatOther: format == .otherConstructed ? formatOther : nil,
+            pairing: isRoto ? pairing : nil
         )
+        let roto = isRoto
         let guests = guests
         let includeMe = includeMe
         Task {
@@ -128,6 +148,9 @@ struct CreateEventView: View {
                 }
                 // Straight to inviting people; Back lands on the new event.
                 path = [.event(created.eventId), .addPlayers(created.eventId)]
+                // Roto: the pool comes from a Library cube. Use the one with this name, or import the Cube Cobra
+                // link into the Library; either can be changed in Setup → Details.
+                if roto { RotoSetup.linkCube(eventId: created.eventId, name: draft.cubeName, url: draft.cubeUrl) }
             } catch {
                 self.error = error.localizedDescription
             }
@@ -223,6 +246,7 @@ enum FormatOption: String, CaseIterable, Identifiable {
     case teamDraft = "team_draft"
     case sealed
     case teamSealed = "team_sealed"
+    case roto
 
     var id: String { rawValue }
     var label: String {
@@ -240,13 +264,14 @@ enum FormatOption: String, CaseIterable, Identifiable {
         case .teamDraft: "Team draft"
         case .sealed: "Sealed"
         case .teamSealed: "Team sealed"
+        case .roto: "Roto"
         }
     }
     var isTeam: Bool { self == .teamDraft || self == .teamSealed }
 
     static let constructed: [FormatOption] = [.standard, .pioneer, .modern, .legacy, .vintage, .pauper, .premodern,
                                               .canadianHighlander, .otherConstructed]
-    static let limited: [FormatOption] = [.draft, .teamDraft, .sealed, .teamSealed]
+    static let limited: [FormatOption] = [.draft, .teamDraft, .sealed, .teamSealed, .roto]
 }
 
 enum EventKind: String, CaseIterable, Identifiable {
@@ -283,7 +308,9 @@ struct FormatFields: View {
 
         Section1("Format")
         if kind == .limited {
-            T1Segmented(options: FormatOption.limited.map { (value: $0, label: $0.label) }, selection: $limitedFormat)
+            // Two rows: single-player formats, then team formats.
+            T1Segmented(options: [FormatOption.draft, .sealed, .roto].map { (value: $0, label: $0.label) }, selection: $limitedFormat)
+            T1Segmented(options: [FormatOption.teamDraft, .teamSealed].map { (value: $0, label: $0.label) }, selection: $limitedFormat)
         } else {
             Button { chooseConstructedFormat() } label: {
                 ListRow(title: "Format", detail: "Constructed") {
@@ -314,11 +341,21 @@ struct ProductFields: View {
     @Binding var cubeName: String
     @Binding var cubeUrl: String
     let setsUnavailable: Bool
+    /// Roto: always a cube, so no Set / Cube choice.
+    var cubeOnly = false
     let chooseSet: () -> Void
 
     var body: some View {
-        Section1("Product")
-        T1Segmented(options: EventProduct.allCases.map { (value: $0, label: $0.label) }, selection: $product)
+        if cubeOnly {
+            CubeFields(cubeName: $cubeName, cubeUrl: $cubeUrl)
+        } else {
+            Section1("Product")
+            T1Segmented(options: EventProduct.allCases.map { (value: $0, label: $0.label) }, selection: $product)
+            productBody
+        }
+    }
+
+    @ViewBuilder private var productBody: some View {
         switch product {
         case .set:
             if setsUnavailable {

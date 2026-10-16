@@ -36,6 +36,8 @@ struct EventRow: Decodable, Identifiable, Hashable {
     var showClock = true
     /// Named from its settings ("Draft · Duskmourn · Fri 17 Oct"); older events keep their typed names.
     var autoName = false
+    /// swiss | round_robin (round robin is roto only for now).
+    var pairing = "swiss"
 
     var isCancelled: Bool { status == "cancelled" }
     var isFinished: Bool { ["completed", "archived", "cancelled"].contains(status) }
@@ -50,7 +52,7 @@ struct EventRow: Decodable, Identifiable, Hashable {
         case id, shortCode, name, format, status, numberOfRounds, currentRound, roundLengthSeconds,
              allowPlayerReporting, venueName, createdAt, cancelReason, isDemo,
              formatName, formatLabel, eventType, teamSize, setCode, setName, cubeName, cubeUrl,
-             formatOther, visibility, startsAt, cancelledAt, updatedAt, showClock, autoName
+             formatOther, visibility, startsAt, cancelledAt, updatedAt, showClock, autoName, pairing
     }
 
     init(from decoder: Decoder) throws {
@@ -83,6 +85,7 @@ struct EventRow: Decodable, Identifiable, Hashable {
         updatedAt = try c.decodeIfPresent(String.self, forKey: .updatedAt)
         showClock = try c.decodeIfPresent(Bool.self, forKey: .showClock) ?? true
         autoName = try c.decodeIfPresent(Bool.self, forKey: .autoName) ?? false
+        pairing = try c.decodeIfPresent(String.self, forKey: .pairing) ?? "swiss"
     }
 }
 
@@ -178,6 +181,7 @@ struct EventDetails: Decodable, Hashable {
     let cubeUrl: String?
     let teamSize: Int?
     let formatOther: String?
+    var pairing: String?
 }
 
 /// set_round_clock: the round's clock after the change.
@@ -491,6 +495,8 @@ struct NewEventDraft: Equatable {
     var cubeUrl: String?
     var teamSize: Int?
     var formatOther: String?
+    /// Roto only: swiss | round_robin (nil lets the server keep or default it).
+    var pairing: String? = nil
 }
 
 /// Everything one event screen needs.

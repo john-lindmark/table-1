@@ -187,7 +187,7 @@ private struct OrganizerSetupView: View {
 
     private var tabs: [(id: String, label: String)] {
         var list: [(id: String, label: String)] = [(id: "players", label: "Players")]
-        if event.isDraft { list.append((id: "seating", label: "Seating")) }
+        if event.isDraft || event.isRoto { list.append((id: "seating", label: event.isRoto ? "Pick order" : "Seating")) }
         if event.isTeamEvent { list.append((id: "teams", label: "Teams")) }
         list.append((id: "details", label: "Details"))
         return list
@@ -202,20 +202,26 @@ private struct OrganizerSetupView: View {
             if let error = ctx.error { Notice(error, error: true) }
 
             switch tab {
-            case "seating": seatingTab
+            case "seating":
+                if event.isRoto { RotoPickOrderTab(b: b, busy: ctx.busy) { seat() } } else { seatingTab }
             case "teams": TeamsEditor(b: b, refresh: ctx.refresh)
             case "details": EventDetailsEditor(b: b, refresh: ctx.refresh)
             default: playersTab
             }
 
-            BigAction(text: startBlocker ?? "Start event · pair round 1", enabled: startBlocker == nil, busy: ctx.busy, accent: true) {
-                confirmStart = true
-            }
-            .alert("Start \(event.name)?", isPresented: $confirmStart) {
-                Button("Not yet", role: .cancel) {}
-                Button("Start") { start() }
-            } message: {
-                Text(startMessage)
+            if event.isRoto {
+                // Roto: Start draft (roto_start) replaces Pair round 1 until the draft is done.
+                RotoStartButton(event: event, store: RotoStores.store(event.id), activePlayers: active.count, busy: ctx.busy, act: ctx.act)
+            } else {
+                BigAction(text: startBlocker ?? "Start event · pair round 1", enabled: startBlocker == nil, busy: ctx.busy, accent: true) {
+                    confirmStart = true
+                }
+                .alert("Start \(event.name)?", isPresented: $confirmStart) {
+                    Button("Not yet", role: .cancel) {}
+                    Button("Start") { start() }
+                } message: {
+                    Text(startMessage)
+                }
             }
         }
     }
@@ -343,7 +349,8 @@ private struct OrganizerSetupView: View {
     @MainActor
     private func start() {
         let id = event.id
-        ctx.act { try await pairNext(id) }
+        let pairing = event.pairing
+        ctx.act { try await pairNext(id, pairing: pairing) }
     }
 
     @MainActor
@@ -417,6 +424,8 @@ private struct EventDetailsEditor: View {
         var teamSize: Int
         var rounds: Int
         var showClock: Bool
+        /// Roto only: swiss | round_robin.
+        var pairing: String
         /// Older events keep a typed name; new ones are named by the server from these choices.
         var autoName: Bool
 
@@ -438,6 +447,7 @@ private struct EventDetailsEditor: View {
             teamSize = e.teamSize ?? 3
             rounds = min(15, max(1, e.numberOfRounds))
             showClock = e.showClock
+            pairing = e.isRoto ? e.pairing : "round_robin"
             autoName = e.autoName
         }
 
@@ -456,14 +466,14 @@ private struct EventDetailsEditor: View {
         func sameChoices(_ o: DetailsForm) -> Bool {
             kind == o.kind && constructedFormat == o.constructedFormat && limitedFormat == o.limitedFormat
                 && product == o.product && chosenSet == o.chosenSet && teamSize == o.teamSize
-                && rounds == o.rounds && showClock == o.showClock
+                && rounds == o.rounds && showClock == o.showClock && pairing == o.pairing
         }
 
         /// The full state, as update_event_details takes it.
         var draft: NewEventDraft {
             let f = format
-            let useSet = kind == .limited && product == .set
-            let useCube = kind == .limited && product == .cube
+            let useSet = kind == .limited && product == .set && f != .roto
+            let useCube = kind == .limited && (product == .cube || f == .roto)
             return NewEventDraft(
                 name: autoName ? nil : name,
                 formatName: f.rawValue,
@@ -474,7 +484,8 @@ private struct EventDetailsEditor: View {
                 cubeName: useCube ? cubeName : nil,
                 cubeUrl: useCube ? cubeUrl.trimmingCharacters(in: .whitespaces) : nil,
                 teamSize: f.isTeam ? teamSize : nil,
-                formatOther: f == .otherConstructed ? formatOther : nil
+                formatOther: f == .otherConstructed ? formatOther : nil,
+                pairing: f == .roto ? pairing : nil
             )
         }
     }
@@ -516,9 +527,13 @@ private struct EventDetailsEditor: View {
                 FormatFields(kind: $form.kind, constructedFormat: $form.constructedFormat,
                              limitedFormat: $form.limitedFormat, formatOther: $form.formatOther)
 
-                if form.kind == .limited {
+                if form.kind == .limited && form.format == .roto && b.event.isRoto {
+                    // The pool is one of your Library cubes (roto_set_cube), not a typed name.
+                    RotoSetupFields(event: b.event, store: RotoStores.store(b.event.id), refresh: refresh)
+                } else if form.kind == .limited {
                     ProductFields(product: $form.product, chosenSet: form.chosenSet, typedSetName: $form.typedSetName,
-                                  cubeName: $form.cubeName, cubeUrl: $form.cubeUrl, setsUnavailable: setsUnavailable) {
+                                  cubeName: $form.cubeName, cubeUrl: $form.cubeUrl, setsUnavailable: setsUnavailable,
+                                  cubeOnly: form.format == .roto) {
                         choosingSet = true
                     }
                 }
@@ -528,8 +543,13 @@ private struct EventDetailsEditor: View {
                 }
 
                 Section1("Rounds")
-                T1Stepper(label: "Rounds", value: $form.rounds, range: 1...15)
+                if !(form.format == .roto && form.pairing == "round_robin") {
+                    T1Stepper(label: "Rounds", value: $form.rounds, range: 1...15)
+                }
                 RoundTimerSwitch(isOn: $form.showClock)
+                if form.format == .roto {
+                    RotoPairingFields(pairing: $form.pairing, players: b.participants.filter { $0.status == "active" }.count)
+                }
 
                 Section1("Who can find it")
                 T1Segmented(options: visibilityOptions, selection: Binding(
@@ -544,6 +564,14 @@ private struct EventDetailsEditor: View {
         .frame(maxHeight: .infinity)
         .navigationDestination(isPresented: $choosingSet) { SetPickerScreen(selected: $form.chosenSet) }
         .onChange(of: form) { old, new in formChanged(from: old, to: new) }
+        // roto_set_cube renames the event's cube; take it in without saving it back.
+        .onChange(of: b.event.cubeName) { _, name in
+            guard b.event.isRoto else { return }
+            lastSaved.cubeName = name
+            lastSaved.cubeUrl = b.event.cubeUrl
+            form.cubeName = name ?? ""
+            form.cubeUrl = b.event.cubeUrl ?? ""
+        }
         .task {
             // No sets synced on the server: type the set's name instead (as on Create).
             let sets = (try? await Repo.draftableSets(query: "")) ?? []
@@ -638,6 +666,7 @@ private struct OrganizerLiveView: View {
             (id: "round", label: "Round"), (id: "standings", label: "Standings"), (id: "players", label: "Players"),
         ]
         if event.isTeamEvent { list.append((id: "teams", label: "Teams")) }
+        if event.pairing == "round_robin" { list.insert((id: "schedule", label: "Schedule"), at: 1) }
         return list
     }
 
@@ -654,6 +683,7 @@ private struct OrganizerLiveView: View {
 
             switch tab {
             case "standings": standingsTab(groups)
+            case "schedule": RotoScheduleView(b: b)
             case "players": playersTab
             case "teams": TeamsEditor(b: b, refresh: ctx.refresh)
             default: roundTab(groups)
@@ -838,7 +868,8 @@ private struct OrganizerLiveView: View {
     @MainActor
     private func pair() {
         let id = event.id
-        ctx.act { try await pairNext(id) }
+        let pairing = event.pairing
+        ctx.act { try await pairNext(id, pairing: pairing) }
     }
 
     /// Records the last round and completes the event.
@@ -852,7 +883,12 @@ private struct OrganizerLiveView: View {
     @MainActor
     private func showMore() {
         let cancel = ctx.cancelEvent
-        T1Overlays.shared.showMenu(event.name, [
+        let id = event.id
+        let name = event.name
+        let pairing = event.pairing
+        T1Overlays.shared.showMenu(event.name, (event.isRoto ? [
+            T1MenuItem(title: "Draft picks") { presentRotoDraft(eventId: id, title: name, isOrganizer: true, pairing: pairing) },
+        ] : []) + [
             T1MenuItem(title: "Cancel event", destructive: true) { cancel() },
         ])
     }
@@ -973,6 +1009,11 @@ private struct OrganizerResultsView: View {
                 Notice("Confirmed results count toward records. Unplayed rounds never do.")
             } else {
                 winnerCard
+                if event.isRoto {
+                    Ghost(text: "Draft picks") {
+                        presentRotoDraft(eventId: event.id, title: event.name, isOrganizer: true, pairing: event.pairing)
+                    }
+                }
                 Section1("Final standings")
                 StandingsRows(engine: ctx.engine, highlight: nil)
             }
@@ -1086,8 +1127,8 @@ private struct PhaseTabs: View {
 }
 
 /// Pairs the next round with the engine; a refusal surfaces the engine's own message.
-private func pairNext(_ eventId: String) async throws {
-    let r = try await Repo.pairNextRound(eventId)
+func pairNext(_ eventId: String, pairing: String = "swiss") async throws {
+    let r = try await Repo.pairNextRound(eventId, pairing: pairing)
     if let message = r.error { throw NSError(domain: "Table1", code: 1, userInfo: [NSLocalizedDescriptionKey: message]) }
 }
 

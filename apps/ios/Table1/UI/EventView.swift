@@ -7,11 +7,22 @@ struct EventView: View {
     @State private var bundle: EventBundle?
     @State private var engine = StandingsResponse()
     @State private var error: String?
+    /// Roto events: the draft (Setup, the Draft phase, and read-only from Live).
+    @State private var roto: RotoStore?
+    @State private var pairing = false
+    @State private var pairError: String?
+    @Environment(\.dismiss) private var dismiss
+    @Environment(SessionModel.self) private var session
 
     var body: some View {
         Group {
             if let bundle {
-                if bundle.isOrganizer {
+                if let roto, bundle.event.isRoto, bundle.rounds.isEmpty, !bundle.event.isFinished, roto.phase != .setup {
+                    // Draft phase: between Setup and Live, for organizers and players alike.
+                    RotoDraftView(store: roto, title: bundle.event.name, isOrganizer: bundle.isOrganizer, back: { dismiss() },
+                                  pairRound1: bundle.isOrganizer ? { pairRound1(bundle.event) } : nil,
+                                  pairing: bundle.event.pairing, busy: pairing, outsideError: pairError)
+                } else if bundle.isOrganizer {
                     OrganizerView(b: bundle, engine: engine, refresh: refresh,
                                   showSeating: { engine.seating = $0 }) { path.append(.addPlayers(eventId)) }
                 } else {
@@ -30,6 +41,28 @@ struct EventView: View {
             for await _ in Repo.eventChanges(eventId) {
                 try? await Task.sleep(for: .milliseconds(250))
                 await refresh()
+            }
+        }
+        .task(id: bundle?.event.isRoto == true) {
+            guard bundle?.event.isRoto == true else { return }
+            let store = RotoStores.store(eventId)
+            roto = store
+            await store.load()
+            await store.listen()
+        }
+        .onChange(of: session.foregrounds) { Task { await roto?.refresh(full: true) } }
+    }
+
+    private func pairRound1(_ event: EventRow) {
+        pairing = true
+        pairError = nil
+        Task {
+            defer { pairing = false }
+            do {
+                try await pairNext(event.id, pairing: event.pairing)
+                await refresh()
+            } catch {
+                pairError = error.localizedDescription
             }
         }
     }
@@ -170,6 +203,16 @@ private struct PlayerView: View {
                     Notice(active == nil ? "Waiting for the next round to be paired." : "You're not paired this round.")
                 }
                 if me != nil && !b.event.isFinished { trackerToggle }
+                if me != nil && b.event.isRoto && !b.rounds.isEmpty {
+                    HStack(spacing: 1) {
+                        Ghost(text: "Draft picks") {
+                            presentRotoDraft(eventId: b.event.id, title: b.event.name, isOrganizer: false, pairing: b.event.pairing)
+                        }
+                        if b.event.pairing == "round_robin" {
+                            Ghost(text: "Schedule") { presentSchedule() }
+                        }
+                    }
+                }
                 if let notice { Notice(notice) }
                 if let error { Notice(error, error: true) }
                 if b.event.isDraft && b.rounds.isEmpty && !seating.isEmpty {
@@ -180,6 +223,17 @@ private struct PlayerView: View {
             }
         }
         .onChange(of: match?.version) { optimistic = nil }
+    }
+
+    @MainActor
+    private func presentSchedule() {
+        let b = b
+        T1Overlays.shared.present(full: true) {
+            T1Screen {
+                Bar(title: "Schedule", subtitle: b.event.name, back: { T1Overlays.shared.dismissPanel() })
+                RotoScheduleView(b: b)
+            }
+        }
     }
 
     /// "Team Lotus · seat B · Round 2 of 3" for team events; otherwise name · format · round.

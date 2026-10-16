@@ -36,6 +36,7 @@ enum Repo {
             "format": draft.formatName, "rounds": draft.rounds, "round_timer": draft.showClock,
             "kind": draft.cubeName != nil ? "cube" : draft.setCode != nil ? "limited" : "constructed",
             "team_size": draft.teamSize ?? 0, "organizer_plays": includeMe, "guests": guests.count,
+            "pairing": draft.pairing ?? "swiss",
         ]
         return try await Telemetry.after("event_created", props) { try await supabase.rpc("create_event_v2", params: [
             "p_format_name": AnyJSON.string(draft.formatName),
@@ -50,6 +51,7 @@ enum Repo {
             "p_include_me": .bool(includeMe),
             "p_show_clock": .bool(draft.showClock),
             "p_local_date": .string(EventNaming.localDate()),
+            "p_pairing": draft.pairing.map { AnyJSON.string($0) } ?? .null,
         ]).execute().value }
     }
 
@@ -99,6 +101,7 @@ enum Repo {
             "p_cube_url": text(draft.cubeUrl),
             "p_team_size": draft.teamSize.map { AnyJSON.integer($0) } ?? .null,
             "p_format_other": text(draft.formatOther),
+            "p_pairing": draft.pairing.map { AnyJSON.string($0) } ?? .null,
         ]).execute().data
         return try wireDecoder.decode(EventDetails.self, from: data)
     }
@@ -264,9 +267,9 @@ enum Repo {
 
     // MARK: engine (server-authoritative pairing + standings)
 
-    static func pairNextRound(_ eventId: String) async throws -> PairRoundResponse {
+    static func pairNextRound(_ eventId: String, pairing: String = "swiss") async throws -> PairRoundResponse {
         let r: PairRoundResponse = try await engine("pair_round", eventId)
-        if r.error == nil { Telemetry.capture("round_paired", ["round": r.roundNumber ?? 0]) }
+        if r.error == nil { Telemetry.capture("round_paired", ["round": r.roundNumber ?? 0, "pairing": pairing]) }
         return r
     }
 
