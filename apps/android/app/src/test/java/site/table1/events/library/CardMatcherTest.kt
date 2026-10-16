@@ -19,11 +19,11 @@ import java.io.File
  * CardMatcherTests.swift.
  */
 
-private val root: File = generateSequence(File("").absoluteFile) { it.parentFile }
+internal val root: File = generateSequence(File("").absoluteFile) { it.parentFile }
     .map { File(it, "testdata/scan") }.first { it.isDirectory }
 
 /** The test pack held in memory, answering what CatalogDb answers on a phone. */
-private class PackCatalog(text: String) : ScanCatalog {
+internal class PackCatalog(text: String) : ScanCatalog {
     private val oracleList = ArrayList<PackOracle>()
     private val printingList = ArrayList<CatalogPrinting>()
     private val nameList = LinkedHashSet<Pair<Int, String>>()

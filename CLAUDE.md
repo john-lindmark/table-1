@@ -49,6 +49,12 @@ Pending: notify-worker (push), web deploy to table-1.site, Google auth: client I
 
 Note: this reverses the Sept 8 decision to cut collection/trades from v1. Keep Play the priority; build Library in the order above and keep Library features from compromising Play correctness.
 
+## Testing (John, 2026-10-16; details in `TESTING.md`)
+- `./test.sh` (fast, ~5 s: web + rules parity + Deno engine + every DB test against all migrations), `./test.sh full` (+ iOS on the `T1-Tests` simulator + Android), `./test.sh perf` (budgets). Local only, no CI; the pre-commit hook (`core.hooksPath tools/githooks`) runs the parts staged files touch.
+- Every bug fix ships with a test that would have caught it; every feature ships with tests for its server functions (happy path, wrong-account refusal, idempotent retry) and non-layout client logic; every new hot path gets a perf budget. Write SQL tests with `supabase/tests/_helpers.sql`.
+- Engine rules are copied to `table-1-events-web/src/lib`; `tools/test/engine-parity.sh` fails if they drift. Edit both copies.
+- A failure in files another session is editing is theirs: report it, don't fix it.
+
 ## Docs
 Full history and decisions are in `table-1-context/docs/` (copies of the project docs): `table-1-events.md`, `events-v1-decisions.md`, `app-setup.md`, `plan-nav-cancel-demo.md`, `plan-tracker-formats-teams.md`, `plan-organizer-phases.md`, `plan-library-scanning-nav.md`, `figma-screens.md`. Start with `table-1-context/docs/README.md`: it lists which earlier decisions have been superseded, and wins where a doc disagrees. `architecture.md`, `brand-visual-rules.md`, `gtm-plan.md` and `research.md` describe the retired Ollo/brand-os work and are not included.
 Client feature specs live in `contract/` (`features-2026-10-13.md`, `organizer-phases-2026-10-14.md`). `SETUP.md` is the run/setup guide (same as `table-1-context/docs/app-setup.md`, which carries the superseded-decision notes).

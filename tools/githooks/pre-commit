@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Runs the fast-tier tests the staged files touch (./test.sh staged): web + rules parity for web/engine changes,
+# Deno for the engine, the database suite for migrations and SQL tests. A few seconds; native builds stay manual.
+# Skip once with `git commit --no-verify` (say why in the message). Enabled by: git config core.hooksPath tools/githooks
+[ -n "${T1_SKIP_TESTS:-}" ] && exit 0
+cd "$(git rev-parse --show-toplevel)" || exit 0
+[ -x ./test.sh ] || exit 0
+./test.sh staged
