@@ -66,7 +66,7 @@ case $TIER in
   *) echo "usage: ./test.sh [fast|full|perf|all|staged]"; exit 2 ;;
 esac
 
-echo; printf '%s\n' "${RESULTS[@]}"
+echo; [ ${#RESULTS[@]} -gt 0 ] && printf '%s\n' "${RESULTS[@]}"
 [ -s "$ROOT/.test-perf.log" ] && { echo "timings:"; cat "$ROOT/.test-perf.log"; }
 rm -f "$ROOT/.test-perf.log"
 exit $((FAILED > 0))
