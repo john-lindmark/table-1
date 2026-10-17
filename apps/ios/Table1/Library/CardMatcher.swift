@@ -161,20 +161,9 @@ final class ScanNames: @unchecked Sendable {
         guard q.count >= (cjk ? 4 : 5), q.utf8.count < 250 else { return nil }
         let cap = max(1, q.count / (cjk ? 6 : 8))
         let tg = Self.trigrams(q)
-        var shared = [UInt8](repeating: 0, count: keys.count)
-        var touched: [Int] = []
-        for t in tg {
-            guard let r = grams[t] else { continue }
-            for j in r {
-                let i = Int(postings[j])
-                if shared[i] == 0 { touched.append(i) }
-                shared[i] &+= 1
-            }
-        }
         // The 60 names sharing the most trigrams, of those sharing at least 40%.
-        let enough = (Double(tg.count) * 0.4).rounded(.up)
-        let top = touched.filter { Double(shared[$0]) >= enough }
-            .sorted { shared[$0] != shared[$1] ? shared[$0] > shared[$1] : $0 < $1 }.prefix(60)
+        let enough = Int((Double(tg.count) * 0.4).rounded(.up))
+        let top = sharing(tg, enough).prefix(60)
         let target = cjk ? q.unicodeScalars.map(\.value) : q.utf8.map(UInt32.init)
         var best = (d: cap + 1, i: -1), second = cap + 1
         for i in top {
@@ -183,6 +172,74 @@ final class ScanNames: @unchecked Sendable {
             if d < best.d { if other { second = best.d }; best = (d, i) } else if d < second && other { second = d }
         }
         return best.i >= 0 && best.d <= cap && second > best.d ? idxs[best.i] : nil
+    }
+
+    /// The key positions sharing at least `enough` of the trigrams, most shared first (then by position). A name
+    /// missing from all of the shortest `lists.count - enough + 1` posting lists shares too few, so only those are
+    /// walked to find candidates; the long lists (" th", "es ", the bulk of a long misread line) are only searched
+    /// for the candidates still able to reach `enough`. While loops on raw pointers, as in radixPass: Debug builds
+    /// don't optimize array access or range iteration, and a misread line of rules text reads thousands of postings.
+    private func sharing(_ tg: Set<Int>, _ enough: Int) -> [Int] {
+        let lists = tg.compactMap { grams[$0] }.sorted { $0.count < $1.count }
+        // Trigrams no name has count as empty lists, the shortest of all.
+        let seed = lists.count - enough + 1
+        guard seed > 0 else { return [] }
+        // Shared trigrams per key position; calloc zeroes it at once (Array(repeating:) fills it byte by byte in Debug).
+        let sh = calloc(max(keys.count, 1), 1)!.assumingMemoryBound(to: UInt8.self)
+        defer { free(sh) }
+        let live = UnsafeMutablePointer<Int32>.allocate(capacity: lists[..<seed].reduce(0) { $0 + $1.count })
+        defer { live.deallocate() }
+        var n = 0
+        /// Drops the candidates that can't reach `enough` with `left` lists to go.
+        func prune(_ left: Int) {
+            var k = 0, j = 0
+            while j < n {
+                if Int(sh[Int(live[j])]) + left >= enough { live[k] = live[j]; k += 1 }
+                j += 1
+            }
+            n = k
+        }
+        postings.withUnsafeBufferPointer { buf in
+            let post = buf.baseAddress!
+            for r in lists[..<seed] {
+                var j = r.lowerBound
+                while j < r.upperBound {
+                    let i = Int(post[j])
+                    if sh[i] == 0 { live[n] = post[j]; n += 1 }
+                    sh[i] &+= 1
+                    j += 1
+                }
+            }
+            var left = lists.count - seed
+            prune(left)
+            for r in lists[seed...] where n > 0 {
+                left -= 1
+                // Walk the list, or binary-search it for each candidate, whichever reads fewer postings.
+                if n * (Int.bitWidth - r.count.leadingZeroBitCount) < r.count {
+                    var c = 0
+                    while c < n {
+                        let i = live[c]
+                        var lo = r.lowerBound, hi = r.upperBound
+                        while lo < hi {
+                            let mid = (lo + hi) / 2
+                            if post[mid] < i { lo = mid + 1 } else { hi = mid }
+                        }
+                        if lo < r.upperBound && post[lo] == i { sh[Int(i)] &+= 1 }
+                        c += 1
+                    }
+                } else {
+                    var j = r.lowerBound
+                    while j < r.upperBound {
+                        let i = Int(post[j])
+                        if sh[i] != 0 { sh[i] &+= 1 }
+                        j += 1
+                    }
+                }
+                prune(left)
+            }
+        }
+        return UnsafeBufferPointer(start: live, count: n).map(Int.init)
+            .sorted { sh[$0] != sh[$1] ? sh[$0] > sh[$1] : $0 < $1 }
     }
 
     /// Levenshtein distance, giving up (cap + 1) once it's sure to exceed cap.
