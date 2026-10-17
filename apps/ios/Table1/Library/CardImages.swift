@@ -235,3 +235,94 @@ extension CardRow where Trailing == EmptyView {
         self.trailing = EmptyView()
     }
 }
+
+/// How a card list is drawn: rows, a three-column grid of whole cards, or stacks that show each card's
+/// title bar with the last card in full (like cards fanned down a playmat).
+enum CardLayout: String, CaseIterable {
+    case list, grid, stacks
+    var title: String { rawValue.capitalized }
+
+    /// The bar's "View" menu: the three layouts, the current one checked.
+    @MainActor static func menu(_ current: Binding<String>, screen: String) {
+        T1Overlays.shared.showMenu("View", allCases.map { l in
+            T1MenuItem(title: l.title, checked: current.wrappedValue == l.rawValue) {
+                guard current.wrappedValue != l.rawValue else { return }
+                current.wrappedValue = l.rawValue
+                Telemetry.capture("card_layout_changed", ["layout": l.rawValue, "screen": screen])
+            }
+        })
+    }
+}
+
+/// One card in a stack. Only its top `CardStack.peek` shows unless it's the last card.
+struct StackCard: Identifiable {
+    let id: String
+    let printing: CatalogPrinting?
+    let name: String
+    let qty: Int
+    var warn = false
+    let open: () -> Void
+}
+
+/// Cards laid over each other, each showing just its title bar (name and mana cost); the last shows in full.
+/// Later cards draw on top, so a tap on a strip lands on that card.
+struct CardStack: View {
+    var title: String?
+    let cards: [StackCard]
+    let width: CGFloat
+
+    /// The share of a card's height left showing: the whole title bar on every modern frame.
+    static let peek: CGFloat = 0.118
+
+    var body: some View {
+        let height = width / CardArt.aspect
+        VStack(alignment: .leading, spacing: 0) {
+            if let title { LabelText(title).lineLimit(1).padding(.horizontal, 4).padding(.vertical, 8) }
+            VStack(spacing: -(height * (1 - Self.peek))) {
+                ForEach(cards) { c in
+                    Button(action: c.open) { face(c, height: height) }.buttonStyle(.plain)
+                }
+            }
+        }
+        .frame(width: width, alignment: .top)
+    }
+
+    private func face(_ c: StackCard, height: CGFloat) -> some View {
+        ZStack(alignment: .topLeading) {
+            if let p = c.printing {
+                p.art(width: width)
+            } else {
+                RoundedRectangle(cornerRadius: width * 0.0432).fill(T1.surface).frame(width: width, height: height)
+                    .overlay(alignment: .topLeading) {
+                        Text(c.name).font(T1.mono(12)).lineLimit(1).padding(.horizontal, 8).frame(height: height * Self.peek)
+                    }
+                    .overlay { RoundedRectangle(cornerRadius: width * 0.0432).strokeBorder(T1.bg, lineWidth: 1) }
+            }
+            // The count sits on the frame's left edge, clear of the name, and only when it says something.
+            if c.qty > 1 || c.warn {
+                Text("\(c.qty)")
+                    .font(T1.mono(11)).monospacedDigit()
+                    .foregroundStyle(c.warn ? T1.bg : T1.text)
+                    .padding(.horizontal, 4).padding(.vertical, 1)
+                    .background(c.warn ? T1.error : T1.bg)
+                    .frame(height: height * Self.peek)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(c.name), \(c.qty)")
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// Stacks two to a row, filling the width; rows are built lazily as they scroll.
+struct StackRows: View {
+    let stacks: [(id: String, title: String?, cards: [StackCard])]
+    let width: CGFloat
+
+    var body: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.fixed(width), spacing: 1, alignment: .top), count: 2), alignment: .leading, spacing: 16) {
+            ForEach(stacks, id: \.id) { s in CardStack(title: s.title, cards: s.cards, width: width) }
+        }
+        .padding(.bottom, 16)
+    }
+}

@@ -52,6 +52,8 @@ const TradeScreen = lazyNamed(trades, "TradeScreen");
 const DeckFinderScreen = lazyNamed(() => import("./screens/DeckFinder"), "DeckFinderScreen");
 const ListImportScreen = lazyNamed(() => import("./screens/ListImport"), "ListImportScreen");
 const EventsDemo = lazyNamed(() => import("./screens/EventsDemo"), "EventsDemo");
+// Dev only: production builds drop the demo and its fixture.
+const RotoDemo = import.meta.env.DEV ? lazyNamed(() => import("./screens/RotoDemo"), "RotoDemo") : () => null;
 
 /** Back where the user came from, or a sensible default when the tracker was opened directly. */
 function useBack(fallback: string) {
@@ -284,6 +286,7 @@ export default function App() {
         <Route path="/p/:eventId" element={<PlayerRoute />} />
         <Route path="/s/:eventId" element={<StandingsRoute />} />
         {import.meta.env.DEV && <Route path="/dev/events" element={<EventsDemo />} />}
+        {import.meta.env.DEV && <Route path="/dev/roto" element={<RotoDemo />} />}
         <Route path="/library" element={<LibraryHomeRoute />} />
         <Route path="/library/cards" element={<AllCardsRoute />} />
         <Route path="/library/add" element={<AddCardsRoute />} />

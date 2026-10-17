@@ -608,7 +608,7 @@ struct ListDetailView: View {
     /// Card names, art and groups, looked up once per card; quantities always come from the live list.
     @State private var meta: [String: ListLine] = [:]
     @State private var editing = false
-    @AppStorage("library.list.grid") private var grid = false
+    @AppStorage("library.list.layout") private var layout = CardLayout.list.rawValue
 
     var body: some View {
         let list = ListsStore.shared.list(id: listId)
@@ -620,14 +620,16 @@ struct ListDetailView: View {
             Bar(title: list?.name ?? "List", subtitle: list.map(subtitle), back: { dismiss() }) {
                 HStack(spacing: 20) {
                     BarButton(editing ? "Done" : "Edit") { editing.toggle() }
-                    if !editing { BarButton(grid ? "List" : "Grid") { grid.toggle() } }
+                    if !editing { BarButton("View") { CardLayout.menu($layout, screen: list?.kind == .cube ? "cube" : "deck") } }
                 }
             }
             CatalogStatusRow(catalog: catalog)
             if let error = ListsStore.shared.error { Notice(error, error: true) }
             if let list {
-                if grid && !editing {
+                if layout == CardLayout.grid.rawValue && !editing {
                     gridBody(list, rows: rows, owned: owned, issues: issues)
+                } else if layout == CardLayout.stacks.rawValue && !editing {
+                    stacksBody(list, rows: rows, owned: owned, issues: issues)
                 } else {
                     HairlineList {
                         top(list, owned: owned, rows: rows, issues: issues)
@@ -669,7 +671,7 @@ struct ListDetailView: View {
         .sorted { $0.name < $1.name }
     }
 
-    /// Summary, Add cards and Version history: the same in list and grid views.
+    /// Summary, Add cards and Version history: the same in every layout.
     @ViewBuilder private func top(_ list: CardList, owned: [String: Int], rows: [ListLine], issues: [String: String]) -> some View {
         stats(list, owned: owned, rows: rows)
         if !issues.isEmpty {
@@ -831,6 +833,37 @@ struct ListDetailView: View {
                             }
                             .id("g|\(board)|\(g)")
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+extension ListDetailView {
+    /// Stacks keep the list's organization too: a header per section, then a stack per type (decks) or
+    /// color (cubes), two to a row.
+    fileprivate func stacksBody(_ list: CardList, rows: [ListLine], owned: [String: Int], issues: [String: String]) -> some View {
+        GeometryReader { geo in
+            let width = ((geo.size.width - 1) / 2).rounded(.down)
+            ScrollView {
+                LazyVStack(spacing: 1) {
+                    top(list, owned: owned, rows: rows, issues: issues)
+                    ForEach(list.boards, id: \.self) { board in
+                        let lines = rows.filter { $0.board == board }
+                        BoardHeader(title: list.boardTitle(board), count: lines.reduce(0) { $0 + $1.qty })
+                        let stacks = ListLine.groups(lines, kind: list.kind).map { g in
+                            let inGroup = lines.filter { $0.group == g }
+                            return (id: "s|\(board)|\(g)", title: Optional("\(g) · \(inGroup.reduce(0) { $0 + $1.qty })"),
+                                    cards: inGroup.map { line in
+                                        let have = owned[line.ownKey] ?? 0
+                                        return StackCard(id: line.id, printing: line.printing, name: line.name, qty: line.qty,
+                                                         warn: (board != "maybe" && have < line.qty) || issues[line.oracleId ?? line.cardId] != nil) {
+                                            if let o = line.oracleId { path.append(.card(o)) }
+                                        }
+                                    })
+                        }
+                        StackRows(stacks: stacks, width: width).id("st|\(board)")
                     }
                 }
             }

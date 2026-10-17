@@ -1,0 +1,249 @@
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 11px/1.4 Inter, system-ui, sans-serif;
+    color: var(--figma-color-text);
+    background: var(--figma-color-bg);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+  header { padding: 12px 12px 8px; border-bottom: 1px solid var(--figma-color-border); }
+  input[type='search'] {
+    width: 100%;
+    padding: 8px;
+    font: inherit;
+    font-size: 12px;
+    color: var(--figma-color-text);
+    background: var(--figma-color-bg-secondary);
+    border: 1px solid var(--figma-color-border);
+    border-radius: 0;
+    outline: none;
+  }
+  input[type='search']:focus { border-color: var(--figma-color-border-selected); }
+  .opts { display: flex; gap: 12px; margin-top: 8px; color: var(--figma-color-text-secondary); }
+  .opts label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .sel { margin-top: 8px; color: var(--figma-color-text-secondary); min-height: 15px; }
+  .sel b { color: var(--figma-color-text); font-weight: 600; }
+  .actions { display: flex; gap: 6px; margin-top: 8px; }
+  button {
+    flex: 1;
+    padding: 6px 8px;
+    font: inherit;
+    color: var(--figma-color-text);
+    background: var(--figma-color-bg-secondary);
+    border: 1px solid var(--figma-color-border);
+    border-radius: 0;
+    cursor: pointer;
+  }
+  button.primary { background: var(--figma-color-bg-brand); color: var(--figma-color-text-onbrand); border-color: transparent; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .status { padding: 6px 12px; color: var(--figma-color-text-secondary); min-height: 28px; }
+  main { flex: 1; overflow-y: auto; padding: 0 12px 12px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tile { padding: 0; border: 0; background: none; text-align: left; cursor: pointer; }
+  .tile img, .tile .noimg {
+    display: block;
+    width: 100%;
+    aspect-ratio: 488 / 680;
+    border-radius: 4.75% / 3.5%;
+    background: var(--figma-color-bg-secondary);
+  }
+  .tile .noimg { display: flex; align-items: center; justify-content: center; padding: 6px; text-align: center; }
+  .tile:hover img { outline: 2px solid var(--figma-color-border-selected); }
+  .tile span { display: block; margin-top: 2px; font-size: 10px; color: var(--figma-color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  footer { padding: 8px 12px; border-top: 1px solid var(--figma-color-border); }
+  details { color: var(--figma-color-text-secondary); }
+  details summary { cursor: pointer; }
+  details code { color: var(--figma-color-text); }
+  details p { margin: 6px 0; }
+  body.busy main { opacity: 0.5; pointer-events: none; }
+</style>
+
+<header>
+  <input id="q" type="search" placeholder="Search Scryfall — name or t:goblin c:r" autofocus />
+  <div class="opts">
+    <label><input id="prints" type="checkbox" /> All printings</label>
+    <label><input id="hideEmpty" type="checkbox" checked /> Hide empty layers</label>
+  </div>
+  <div class="sel" id="sel"></div>
+  <div class="actions">
+    <button id="each" disabled>Fill each</button>
+    <button id="random">Random</button>
+  </div>
+</header>
+<div class="status" id="status">Click a card to fill the selection. Enter fills the first result.</div>
+<main><div class="grid" id="grid"></div></main>
+<footer>
+  <details>
+    <summary>Layer names</summary>
+    <p>Name a layer <code>#field</code>; text layers get text, shapes and frames get image or color fills. Text component properties with these names work too.</p>
+    <p><b>Text:</b> <code>#name</code> <code>#mana_cost</code> <code>#type_line</code> <code>#oracle_text</code> <code>#flavor_text</code> <code>#pt</code> <code>#power</code> <code>#toughness</code> <code>#loyalty</code> <code>#cmc</code> <code>#set</code> <code>#set_name</code> <code>#collector_number</code> <code>#rarity</code> <code>#artist</code> <code>#price</code> <code>#price_foil</code> <code>#price_eur</code> <code>#colors</code> <code>#color_identity</code> <code>#keywords</code> <code>#released_at</code>, or any Scryfall field.</p>
+    <p><b>Image fill:</b> <code>#image</code> <code>#art</code> <code>#image_normal</code> <code>#image_png</code> <code>#border_crop</code>. <b>Color fill:</b> <code>#color</code>.</p>
+    <p>Prefix <code>back.</code> for the back face: <code>#back.name</code>, <code>#back.art</code>.</p>
+  </details>
+  <div class="actions"><button id="scaffold">New card component</button></div>
+</footer>
+
+<script>
+  const API = 'https://api.scryfall.com';
+  const $ = (id) => document.getElementById(id);
+  const q = $('q');
+  let results = [];
+  let resultsFor = null;
+  let total = 0;
+  let selection = { roots: 0, count: 0, fields: [] };
+  let ctrl = null;
+  let timer = null;
+
+  const post = (msg) => parent.postMessage({ pluginMessage: msg }, '*');
+  const setStatus = (t) => ($('status').textContent = t);
+
+  async function scryfall(path, params, signal) {
+    const res = await fetch(API + path + '?' + new URLSearchParams(params), { signal, headers: { Accept: 'application/json' } });
+    const json = await res.json();
+    if (json.object === 'error') throw Object.assign(new Error(json.details), { scryfall: true });
+    return json;
+  }
+
+  async function search() {
+    const query = q.value.trim();
+    if (ctrl) ctrl.abort();
+    if (!query) {
+      results = [];
+      resultsFor = null;
+      render();
+      setStatus('Click a card to fill the selection. Enter fills the first result.');
+      return;
+    }
+    ctrl = new AbortController();
+    setStatus('Searching…');
+    const prints = $('prints').checked;
+    try {
+      const json = await scryfall(
+        '/cards/search',
+        prints ? { q: query, unique: 'prints', order: 'released', dir: 'desc' } : { q: query, unique: 'cards', order: 'name' },
+        ctrl.signal
+      );
+      results = json.data;
+      total = json.total_cards;
+      setStatus(total > results.length ? `Showing ${results.length} of ${total}` : `${total} card${total === 1 ? '' : 's'}`);
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      results = [];
+      setStatus(e.scryfall ? e.message : 'Could not reach Scryfall');
+    }
+    resultsFor = query + '|' + prints;
+    render();
+  }
+
+  function thumb(card) {
+    const uris = card.image_uris || (card.card_faces && card.card_faces[0].image_uris);
+    return uris ? uris.small : null;
+  }
+
+  function render() {
+    const grid = $('grid');
+    grid.textContent = '';
+    const prints = $('prints').checked;
+    results.forEach((card) => {
+      const b = document.createElement('button');
+      b.className = 'tile';
+      b.title = card.name + ' · ' + card.set_name + ' #' + card.collector_number;
+      const src = thumb(card);
+      if (src) {
+        const img = document.createElement('img');
+        img.src = src;
+        img.loading = 'lazy';
+        img.alt = card.name;
+        b.appendChild(img);
+      } else {
+        const d = document.createElement('div');
+        d.className = 'noimg';
+        d.textContent = card.name;
+        b.appendChild(d);
+      }
+      const label = document.createElement('span');
+      label.textContent = prints ? card.set.toUpperCase() + ' · ' + card.collector_number : card.name;
+      b.appendChild(label);
+      b.onclick = () => apply([card], 'all');
+      grid.appendChild(b);
+    });
+    updateButtons();
+  }
+
+  function apply(cards, mode) {
+    if (!selection.roots) {
+      post({ type: 'notify', text: 'Select a frame, component or instance first', error: true });
+      return;
+    }
+    post({ type: 'apply', cards, mode, hideEmpty: $('hideEmpty').checked });
+  }
+
+  function updateButtons() {
+    const each = $('each');
+    each.disabled = selection.roots < 2 || !results.length;
+    each.textContent = selection.roots > 1 ? `Fill each (${Math.min(selection.roots, results.length) || selection.roots})` : 'Fill each';
+    $('random').textContent = selection.roots > 1 ? `Random × ${selection.roots}` : 'Random';
+  }
+
+  async function random() {
+    const n = Math.max(1, selection.roots);
+    const query = q.value.trim();
+    const cards = [];
+    setStatus(n > 1 ? `Fetching ${n} random cards…` : 'Fetching a random card…');
+    try {
+      for (let i = 0; i < n; i++) {
+        if (i) await new Promise((r) => setTimeout(r, 100)); // Scryfall asks for ≤10 requests a second
+        cards.push(await scryfall('/cards/random', query ? { q: query } : {}));
+      }
+    } catch (e) {
+      setStatus(e.scryfall ? e.message : 'Could not reach Scryfall');
+      return;
+    }
+    setStatus(cards.map((c) => c.name).join(', '));
+    apply(cards, n > 1 ? 'each' : 'all');
+  }
+
+  function saveSettings() {
+    post({ type: 'settings', settings: { prints: $('prints').checked, hideEmpty: $('hideEmpty').checked } });
+  }
+
+  q.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(search, 300);
+  });
+  q.addEventListener('keydown', async (e) => {
+    if (e.key !== 'Enter') return;
+    clearTimeout(timer);
+    if (resultsFor !== q.value.trim() + '|' + $('prints').checked) await search();
+    if (results.length) apply([results[0]], 'all');
+  });
+  $('prints').addEventListener('change', () => {
+    saveSettings();
+    search();
+  });
+  $('hideEmpty').addEventListener('change', saveSettings);
+  $('each').onclick = () => apply(results, 'each');
+  $('random').onclick = random;
+  $('scaffold').onclick = () => post({ type: 'scaffold' });
+
+  onmessage = (e) => {
+    const msg = e.data.pluginMessage;
+    if (!msg) return;
+    if (msg.type === 'selection') {
+      selection = msg;
+      const sel = $('sel');
+      if (!msg.roots) sel.textContent = 'Nothing selected';
+      else if (!msg.count) sel.textContent = `${msg.roots} selected · no #field layers inside`;
+      else sel.innerHTML = `<b>${msg.roots}</b> selected · ${msg.count} layer${msg.count === 1 ? '' : 's'}: ${msg.fields.join(', ')}`;
+      updateButtons();
+    } else if (msg.type === 'settings') {
+      if (msg.settings.prints != null) $('prints').checked = msg.settings.prints;
+      if (msg.settings.hideEmpty != null) $('hideEmpty').checked = msg.settings.hideEmpty;
+    } else if (msg.type === 'busy') {
+      document.body.classList.toggle('busy', msg.busy);
+    }
+  };
+</script>

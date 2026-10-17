@@ -12,7 +12,9 @@ import { SeatingPanel } from "../../components/SeatingPanel";
 import { SharePanel } from "../../components/SharePanel";
 import { TeamsPanel } from "../../components/TeamsPanel";
 import { DetailsForm } from "./DetailsForm";
+import { RotoPickOrder, RotoStartAction } from "../roto/lazy";
 import type { PhaseViewProps } from "./shared";
+import { Avatar } from "../../components/Avatar";
 
 /** Setup: Players | Seating (drafts) | Teams (team events) | Details, and "Start event · pair round 1". */
 export function SetupView({
@@ -29,6 +31,7 @@ export function SetupView({
   onTeamsSaved,
 }: PhaseViewProps & { onAddPlayers: () => void; onTeamsSaved: (rows: EventTeam[]) => void }) {
   const { event } = bundle;
+  const isRoto = event.formatName === "roto";
   // Players removed here are hidden at once while the server call and reload catch up.
   const [removed, setRemoved] = useState<ReadonlySet<string>>(new Set());
   const participants = bundle.participants.filter((p) => !removed.has(p.id));
@@ -37,7 +40,7 @@ export function SetupView({
   const [confirmStart, setConfirmStart] = useState(false);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
-  const { seating: pods, setSeating } = useSeating(eventId, isDraft, participants, teams);
+  const { seating: pods, setSeating } = useSeating(eventId, isDraft && !isRoto, participants, teams);
   const { userId } = useSession();
   const me = userId ? participants.find((p) => p.userId === userId) ?? null : null;
   const [guestName, setGuestName] = useState("");
@@ -151,7 +154,8 @@ export function SetupView({
               <Row
                 key={p.id}
                 title={p.id === me?.id ? `You · ${p.displayName}` : p.displayName}
-                detail={[playerDetail(p), isDraft && p.seat != null ? `Seat ${p.seat}` : null].filter(Boolean).join(" · ")}
+                avatar={<Avatar name={p.displayName} userId={p.userId} />}
+                detail={[playerDetail(p), (isDraft || isRoto) && p.seat != null ? `${isRoto ? "Pick" : "Seat"} ${p.seat}` : null].filter(Boolean).join(" · ")}
                 action={{ label: "Remove", onClick: () => setRemoving(p), disabled: playersBusy }}
                 dim={p.status === "dropped"}
               />
@@ -170,7 +174,11 @@ export function SetupView({
           </>
         )}
 
-        {tab === "seating" && isDraft && (
+        {tab === "seating" && isRoto && (
+          <RotoPickOrder participants={participants} meId={me?.id ?? null} busy={seatingBusy} onSeat={() => void seat()} />
+        )}
+
+        {tab === "seating" && isDraft && !isRoto && (
           <>
             <button
               type="button"
@@ -203,9 +211,12 @@ export function SetupView({
           />
         )}
 
-        {tab === "details" && <DetailsForm event={event} onSaved={() => void refetch()} />}
+        {tab === "details" && <DetailsForm event={event} players={active.length} onSaved={() => void refetch()} />}
       </div>
 
+      {isRoto ? (
+        <RotoStartAction event={event} activePlayers={active.length} onStarted={() => void refetch()} />
+      ) : (
       <BigAction
         label={blocker ?? "Start event · pair round 1"}
         disabled={!!blocker}
@@ -215,6 +226,7 @@ export function SetupView({
           setConfirmStart(true);
         }}
       />
+      )}
 
       {showQr && (
         <Modal title={`Join ${event.name}`} onClose={() => setShowQr(false)}>

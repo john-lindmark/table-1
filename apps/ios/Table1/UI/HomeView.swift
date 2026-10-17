@@ -16,12 +16,16 @@ struct EventsHomeView: View {
     private var upcoming: [HomeEvent] { data?.events.filter { $0.bucket == "upcoming" } ?? [] }
     private var past: [HomeEvent] { data?.events.filter { $0.bucket == "past" } ?? [] }
     private var invites: [HomeInvite] { data?.invites ?? [] }
+    /// The match you're playing right now, if any: "Life" opens its synced tracker so the game is recorded.
+    private var liveMatchId: String? {
+        live.lazy.compactMap { e in snapshots[e.id]?.state }.first { $0.isPlaying && $0.matchId != nil }?.matchId
+    }
     private var isEmpty: Bool { data != nil && data!.events.isEmpty && invites.isEmpty }
 
     var body: some View {
         T1Screen {
             Bar(title: "Events", subtitle: live.isEmpty ? nil : "\(live.count) live") {
-                BarButton("Life") { session.openTracker(matchId: nil) }
+                BarButton("Life") { session.openTracker(matchId: liveMatchId, source: "home_life") }
                 BarButton("+ New") { path.append(.create) }
             }
             if let error { Notice(error, error: true) }

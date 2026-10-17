@@ -21,6 +21,9 @@ import type { Match, Participant, RoundWithMatches } from "../../lib/types";
 import { BigAction, BigNumber, Dialog, GhostAction, Notice, Row, Section, useNow } from "../../components/kit";
 import { TeamsPanel } from "../../components/TeamsPanel";
 import { StandingsBlock, type PhaseViewProps } from "./shared";
+import { RotoSchedule } from "../roto/lazy";
+import { useSession } from "../../lib/useSession";
+import { Avatar } from "../../components/Avatar";
 
 const ADD_SECONDS = 300;
 
@@ -36,6 +39,8 @@ export function LiveView(
   const currentRound = active?.number ?? lastRoundNumber(rounds);
   const action = liveAction(event, rounds);
   const nameOf = nameLookup(participants);
+  const { userId } = useSession();
+  const meId = (userId && participants.find((p) => p.userId === userId)?.id) || null;
 
   const [busy, setBusy] = useState(false);
   const [confirmFinish, setConfirmFinish] = useState(false);
@@ -60,7 +65,7 @@ export function LiveView(
     setBusy(true);
     setActionError(null);
     try {
-      await pairNextRound(eventId);
+      await pairNextRound(eventId, event.pairing);
       await refetch();
     } catch (e) {
       setActionError(errorMessage(e));
@@ -127,6 +132,8 @@ export function LiveView(
             </Notice>
           ))}
 
+        {tab === "schedule" && <RotoSchedule bundle={bundle} meId={meId} />}
+
         {tab === "standings" && (
           <>
             {open > 0 && (
@@ -146,6 +153,7 @@ export function LiveView(
                 key={p.id}
                 title={p.displayName}
                 detail={teamTag(p)}
+                avatar={<Avatar name={p.displayName} userId={p.userId} />}
                 action={{
                   label: "Drop",
                   onClick: () => {
@@ -160,6 +168,7 @@ export function LiveView(
               <Row
                 key={p.id}
                 title={p.displayName}
+                avatar={<Avatar name={p.displayName} userId={p.userId} />}
                 detail={`Dropped after round ${p.droppedInRound ?? currentRound} · still counts in tiebreakers`}
                 action={{ label: "Reinstate", onClick: () => void setStatus(p, "active"), disabled: dropBusy }}
                 dim

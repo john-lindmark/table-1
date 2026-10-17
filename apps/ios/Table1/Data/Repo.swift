@@ -106,6 +106,13 @@ enum Repo {
         return try wireDecoder.decode(EventDetails.self, from: data)
     }
 
+    /// Draft seating drawn with players at the ends of the table (organizer; audited).
+    static func setSeatEnds(_ eventId: String, on: Bool) async throws {
+        try await supabase.rpc("set_seat_ends", params: [
+            "p_event_id": AnyJSON.string(eventId), "p_on": .bool(on),
+        ]).execute()
+    }
+
     static func loadEvent(_ eventId: String) async throws -> EventBundle {
         async let event: EventRow = supabase.from("events").select().eq("id", value: eventId).single().execute().value
         async let participants: [ParticipantRow] = supabase.from("participants").select()

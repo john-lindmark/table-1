@@ -36,6 +36,8 @@ struct EventRow: Decodable, Identifiable, Hashable {
     var showClock = true
     /// Named from its settings ("Draft · Duskmourn · Fri 17 Oct"); older events keep their typed names.
     var autoName = false
+    /// Draft seating: players at the two ends of the table too (drawing only).
+    var seatEnds = false
     /// swiss | round_robin (round robin is roto only for now).
     var pairing = "swiss"
 
@@ -52,7 +54,7 @@ struct EventRow: Decodable, Identifiable, Hashable {
         case id, shortCode, name, format, status, numberOfRounds, currentRound, roundLengthSeconds,
              allowPlayerReporting, venueName, createdAt, cancelReason, isDemo,
              formatName, formatLabel, eventType, teamSize, setCode, setName, cubeName, cubeUrl,
-             formatOther, visibility, startsAt, cancelledAt, updatedAt, showClock, autoName, pairing
+             formatOther, visibility, startsAt, cancelledAt, updatedAt, showClock, autoName, seatEnds, pairing
     }
 
     init(from decoder: Decoder) throws {
@@ -85,6 +87,7 @@ struct EventRow: Decodable, Identifiable, Hashable {
         updatedAt = try c.decodeIfPresent(String.self, forKey: .updatedAt)
         showClock = try c.decodeIfPresent(Bool.self, forKey: .showClock) ?? true
         autoName = try c.decodeIfPresent(Bool.self, forKey: .autoName) ?? false
+        seatEnds = try c.decodeIfPresent(Bool.self, forKey: .seatEnds) ?? false
         pairing = try c.decodeIfPresent(String.self, forKey: .pairing) ?? "swiss"
     }
 }

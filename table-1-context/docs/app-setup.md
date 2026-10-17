@@ -123,7 +123,7 @@ Both files are in `table-1-events-web/public/.well-known/` and ship with the web
 ## 6. Known gaps in this first build
 
 - **Not compiled here.** My workspace can't reach the Apple, Google or Maven download servers, so the iOS and Android projects were syntax-checked but not built. Expect a short round of compile fixes on first open; send me the errors and I'll fix them.
-- **Push notifications** are queued in the database (`pgmq` queue `notify`) but nothing sends them yet. Next step: the `notify-worker` edge function (APNs + FCM), `register_device` calls from the apps, and the Live Activity round timer.
+- **Push notifications** (2026-10-16): the `notify-worker` edge function sends the `pgmq` queue `notify` through APNs within seconds (cron `t1-notify-sweep` every minute as backup), using the same APNs secrets as Live Activities. iOS registers its token at sign-in (`register_device`). Android needs FCM: create a Firebase project for `site.table1.events`, add `google-services.json` to the app and set the `FCM_SERVICE_ACCOUNT` secret; until then Android tokens are skipped.
 - **Pairing on web** still runs in the browser (same rules file as the server); native apps use the `events-engine` function. Moving web onto the function is a small follow-up.
 - **Full pairing path untested end to end**: the function's auth checks are verified live, but pairing a real round needs a signed-in organizer, so the first real event is the end-to-end test.
 - Recommended rounds per player count (MTR Appendix E) is still unconfirmed.

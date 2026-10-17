@@ -26,6 +26,7 @@ import {
 } from "../components/kit";
 import { isDraftFormat, isTeamFormat, slotLetter } from "../lib/formats";
 import { useTrackerMode } from "../lib/settings";
+import { RotoDraftGate, RotoDraftOverlay, RotoSchedule } from "./roto/lazy";
 import { participantsKey, toTeams, useEventTeams, useSeating } from "../lib/useEventExtras";
 
 const teamTitle = (name: string) => (/^team\b/i.test(name) ? name : `Team ${name}`);
@@ -64,6 +65,8 @@ export function PlayerView({
   const { bundle, refetch } = useEvent(eventId);
   const { userId } = useSession();
   const [notice, setNotice] = useState<string | null>(null);
+  /** Roto after round 1: the read-only Draft or the round-robin Schedule over this screen. */
+  const [rotoPanel, setRotoPanel] = useState<"draft" | "schedule" | null>(null);
 
   // A signed-in player is found by their account; a walk-in guest by the token on this device.
   const accountSeat = useMemo(
@@ -234,7 +237,8 @@ export function PlayerView({
     ["Lost 0–2", 0, 2],
   ];
 
-  return (
+  const isRoto = formatName === "roto";
+  const screen = (
     <Screen>
       <Bar
         title={event.name}
@@ -340,6 +344,13 @@ export function PlayerView({
       {notice && <Notice tone="info">{notice}</Notice>}
       {joinError && <Notice tone="error">{joinError}</Notice>}
 
+      {isRoto && rounds.length > 0 && (
+        <div className="flex gap-px">
+          <GhostAction label="Draft picks" onClick={() => setRotoPanel("draft")} />
+          {event.pairing === "round_robin" && <GhostAction label="Schedule" onClick={() => setRotoPanel("schedule")} />}
+        </div>
+      )}
+
       {signedInPlayer && (
         <SwitchRow
           label="Use life tracker"
@@ -381,6 +392,20 @@ export function PlayerView({
         compact
         teamNames={isTeam ? teamNames : undefined}
       />
+      {rotoPanel === "draft" && (
+        <RotoDraftOverlay eventId={event.id} title={event.name} isOrganizer={false} pairing={event.pairing} onClose={() => setRotoPanel(null)} />
+      )}
+      {rotoPanel === "schedule" && (
+        <div className="fixed inset-0 z-40 bg-t1-bg overflow-y-auto flex flex-col gap-px">
+          <Bar title="Schedule" subtitle={event.name} onBack={() => setRotoPanel(null)} />
+          <RotoSchedule bundle={bundle} meId={viewer.participantId} />
+        </div>
+      )}
     </Screen>
   );
+  // Roto: the Draft phase sits between joining and round 1.
+  if (isRoto && rounds.length === 0 && event.status !== "cancelled" && event.status !== "completed") {
+    return <RotoDraftGate eventId={event.id} title={event.name} isOrganizer={false}>{screen}</RotoDraftGate>;
+  }
+  return screen;
 }

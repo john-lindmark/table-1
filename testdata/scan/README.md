@@ -124,6 +124,29 @@ and read with language detection; those lines go in front of `multi`'s. A card-s
   second OCR per frame. Worth another look with real phone frames (a live 1080p frame of a card filling the view
   has a sharper title than these photos) once the fuzzy rule is fixed.
 
+### Card gate (`inCard`, `testCardGate`, 2026-10-16; in the iOS scanner)
+
+A phone pointed at a MacBook keyboard read "command" / "option" and took Opt ("Option" is a printed name of it); a
+Cube Cobra page on a screen gave Mana Vault from a list of names (scan reports, 2026-10-15). The scanner now runs
+`VNDetectRectanglesRequest` in the same Vision pass as the text (aspect 0.6–0.85, a fifth of the frame or more,
+upright only: a landscape rectangle is usually the art box) and:
+- with a card found, reads only the text whose centre is inside it (the rectangle grown 10%, since the frame
+  inside the black border is often what's found);
+- with none found, reads the whole frame but takes a card only when the lines have a type line, or a set code and
+  number that agree with the name.
+
+| | Name, all 291 | English (148) | Wrong |
+| --- | --- | --- | --- |
+| No gate (`accurate`) | 235 | 141 | 0 |
+| **Gate (`inCard`, else frame with type line or printing)** | **233** | **140** | **0** |
+| Gate, `multi` | 253 | 140 | 0 |
+| Only the text inside the card, nothing without one | 169 (deskewed) | 90 | 0 |
+| Whole frame, printing required | 143 | 92 | 0 |
+
+A card is found in 220 of 291 photos. Reading the deskewed card on its own (CIPerspectiveCorrection) named far
+fewer cards than filtering the frame's own read, so the scanner filters. Still let through: a list of names with a
+type word in it ("Sorcery (8)" on Cube Cobra) when no card is in view.
+
 Movement clips, English cards, a card taken within 2.4 s:
 
 | | Before (0.4 s / 1.2 s, any miss resets) | Tuned (first 179 photos) | Now (all 148 English cards) |

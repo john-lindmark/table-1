@@ -8,14 +8,14 @@ struct SeatingTable: View {
     /// Team draft: seats alternate A1, B1, A2, B2…, and round 1 pairs A slot i with B slot i+1 (wrapping).
     var teamDraft = false
     var highlight: String?
-    @State private var pack = 1
+    /// Seat the two ends of the table too (event setting; changes only the drawing).
+    var seatEnds = false
 
     var body: some View {
-        T1Segmented(options: [(value: 1, label: "Pack 1"), (value: 2, label: "Pack 2"), (value: 3, label: "Pack 3")],
-                    selection: $pack)
         ForEach(pods) { pod in
             Section1("\(pods.count > 1 ? (pod.name ?? "Pod") : "Seating") · \(pod.seats.count) players")
-            PodTable(pod: pod, pairs: Self.pairs(pod, teamDraft: teamDraft), pack: pack, highlight: highlight)
+            PodTable(pod: pod, pairs: Self.pairs(pod, teamDraft: teamDraft), highlight: highlight,
+                     seatEnds: seatEnds)
             Notice(teamDraft ? Self.teamDraftText(pod) : Self.acrossText(pod))
         }
     }
@@ -57,33 +57,36 @@ struct SeatingTable: View {
     }
 }
 
-/// One pod drawn as a table: seats clockwise from the top left, two to a side for eight, so seat 1 sits
-/// straight across from seat 5. Lines join round 1 opponents; the middle says which way this pack passes
-/// (left = clockwise, to the next seat number).
+/// One pod drawn the way a draft table really seats people: one long table, players along both long sides,
+/// and (when the organizer turns it on) one player at each end. Seats run clockwise: the top end, down the
+/// right side, the bottom end, up the left side. Lines join round 1 opponents; the middle says which way each
+/// pack passes (left = clockwise, to the next seat number: packs 1 and 3; pack 2 goes right). Only the drawing changes; seats and pairings don't.
 private struct PodTable: View {
     let pod: SeatingPod
     let pairs: [(Int, Int)]
-    let pack: Int
     let highlight: String?
+    let seatEnds: Bool
 
     private var seats: [SeatingPod.Seat] { pod.seats.sorted { $0.seat < $1.seat } }
-    private var passesLeft: Bool { pack % 2 == 1 }
     private var byeSeat: Int? { seats.count % 2 == 1 && pairs.count * 2 < seats.count ? seats.last?.seat : nil }
     private var mySeat: Int? { seats.first { $0.participantId == highlight }?.seat }
+    private var layout: TableLayout { TableLayout(count: seats.count, ends: seatEnds) }
 
     var body: some View {
+        let layout = layout
         GeometryReader { geo in
             let size = geo.size
-            let chip = CGSize(width: min(104, size.width * 0.28), height: 46)
-            let points = Self.positions(count: seats.count, in: size, chip: chip)
+            let chip = CGSize(width: min(140, (size.width - 24) * 0.36), height: TableLayout.chipHeight)
+            let points = layout.positions(in: size, chip: chip)
+            let table = layout.tableRect(in: size, chip: chip)
             let index = Dictionary(uniqueKeysWithValues: seats.enumerated().map { ($1.seat, $0) })
             ZStack {
                 // The table.
                 Rectangle()
                     .fill(T1.bg)
                     .overlay(Rectangle().stroke(T1.disabled, lineWidth: 1))
-                    .frame(width: size.width - chip.width * 2 + 8, height: size.height - chip.height * 2 - 24)
-                    .position(x: size.width / 2, y: size.height / 2)
+                    .frame(width: table.width, height: table.height)
+                    .position(x: table.midX, y: table.midY)
                 // Round 1 opponents.
                 ForEach(Array(pairs.enumerated()), id: \.offset) { _, pair in
                     if let i = index[pair.0], let j = index[pair.1] {
@@ -95,13 +98,14 @@ private struct PodTable: View {
                         .stroke(mine ? T1.accent : T1.disabled, lineWidth: mine ? 2 : 1)
                     }
                 }
-                VStack(spacing: 4) {
-                    LabelText("Pack \(pack)", color: T1.muted)
-                    Text(passesLeft ? "↻ Pass left" : "↺ Pass right").font(T1.mono(13, .bold)).foregroundStyle(T1.text)
+                VStack(spacing: 6) {
+                    Text("↻ 1·3 left").font(T1.mono(12, .bold)).foregroundStyle(T1.text)
+                    Text("↺ 2 right").font(T1.mono(12)).foregroundStyle(T1.muted)
                 }
+                .lineLimit(1).minimumScaleFactor(0.7)
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .background(T1.bg)
-                .position(x: size.width / 2, y: size.height / 2)
+                .position(x: table.midX, y: table.midY)
                 ForEach(Array(seats.enumerated()), id: \.element.id) { i, seat in
                     SeatChip(seat: seat, mine: seat.participantId == highlight, bye: seat.seat == byeSeat)
                         .frame(width: chip.width, height: chip.height)
@@ -109,27 +113,61 @@ private struct PodTable: View {
                 }
             }
         }
-        .aspectRatio(0.92, contentMode: .fit)
+        .frame(height: layout.height)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity)
         .background(T1.surface)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Table, pack \(pack) passes \(passesLeft ? "left" : "right")")
+        .accessibilityLabel("Table\(seatEnds ? " with players at the ends" : ""). Packs 1 and 3 pass left, pack 2 passes right")
+    }
+}
+
+/// Where each seat goes around one long table drawn upright (portrait phones): `right` seats down the right
+/// side, then `left` seats up the left side, with an end seat before each side when the ends are seated.
+/// Ends need at least four players; an odd side count puts the extra player on the right.
+struct TableLayout {
+    static let chipHeight: CGFloat = 46
+    static let gap: CGFloat = 10
+    let count: Int
+    let ends: Bool
+    let right: Int
+    let left: Int
+
+    init(count: Int, ends: Bool) {
+        self.count = count
+        self.ends = ends && count >= 4
+        let sides = count - (self.ends ? 2 : 0)
+        right = (sides + 1) / 2
+        left = sides - right
     }
 
-    /// Seat centres on a rectangle around the middle: seat k sits at angle −90° + 360°·(k + ½)/n, so opposite
-    /// seats mirror through the centre.
-    static func positions(count n: Int, in size: CGSize, chip: CGSize) -> [CGPoint] {
-        guard n > 0 else { return [] }
-        let c = CGPoint(x: size.width / 2, y: size.height / 2)
-        let ax = size.width / 2 - chip.width / 2 - 2
-        let ay = size.height / 2 - chip.height / 2 - 2
-        return (0..<n).map { k in
-            let theta = -Double.pi / 2 + 2 * Double.pi * (Double(k) + 0.5) / Double(n)
-            let cx = cos(theta), sy = sin(theta)
-            let t = min(abs(cx) < 1e-9 ? .infinity : ax / abs(cx), abs(sy) < 1e-9 ? .infinity : ay / abs(sy))
-            return CGPoint(x: c.x + t * cx, y: c.y + t * sy)
-        }
+    var rows: Int { max(right, left, 1) }
+    private var step: CGFloat { Self.chipHeight + Self.gap }
+    /// Height of the drawing: the side rows, plus a row above and below for the ends.
+    var height: CGFloat { CGFloat(rows + (ends ? 2 : 0)) * step - Self.gap + 8 }
+    private var firstRowY: CGFloat { 4 + Self.chipHeight / 2 + (ends ? step : 0) }
+
+    /// The table between the two columns, reaching up to the end seats.
+    func tableRect(in size: CGSize, chip: CGSize) -> CGRect {
+        let x0 = chip.width + 12, x1 = size.width - chip.width - 12
+        let y0 = firstRowY - Self.chipHeight / 2 - (ends ? Self.gap / 2 : 0)
+        let y1 = firstRowY + CGFloat(rows - 1) * step + Self.chipHeight / 2 + (ends ? Self.gap / 2 : 0)
+        return CGRect(x: x0, y: y0, width: max(x1 - x0, 40), height: y1 - y0)
+    }
+
+    /// Seat centres in seat order (clockwise from the top end, or from the right side's first seat).
+    func positions(in size: CGSize, chip: CGSize) -> [CGPoint] {
+        guard count > 0 else { return [] }
+        let midX = size.width / 2
+        let rightX = size.width - chip.width / 2 - 4
+        let leftX = chip.width / 2 + 4
+        func rowY(_ r: Int) -> CGFloat { firstRowY + CGFloat(r) * step }
+        var points: [CGPoint] = []
+        if ends { points.append(CGPoint(x: midX, y: 4 + Self.chipHeight / 2)) }
+        for r in 0..<right { points.append(CGPoint(x: rightX, y: rowY(r))) }
+        if ends { points.append(CGPoint(x: midX, y: rowY(rows - 1) + step)) }
+        for r in (0..<left).reversed() { points.append(CGPoint(x: leftX, y: rowY(r + rows - left))) }
+        return points
     }
 }
 

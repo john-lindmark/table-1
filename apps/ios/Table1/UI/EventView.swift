@@ -24,9 +24,9 @@ struct EventView: View {
                                   pairing: bundle.event.pairing, busy: pairing, outsideError: pairError)
                 } else if bundle.isOrganizer {
                     OrganizerView(b: bundle, engine: engine, refresh: refresh,
-                                  showSeating: { engine.seating = $0 }) { path.append(.addPlayers(eventId)) }
+                                  showSeating: { engine.seating = $0 }, open: { path.append($0) }) { path.append(.addPlayers(eventId)) }
                 } else {
-                    PlayerView(b: bundle, engine: engine, refresh: refresh)
+                    PlayerView(b: bundle, engine: engine, refresh: refresh, open: { path.append($0) })
                 }
             } else {
                 T1Screen {
@@ -103,7 +103,7 @@ struct EditResultSheet: View {
             T1Stepper(label: b.name(m.side(1)?.participantId), value: $s1, range: 0...2)
             T1Stepper(label: "Drawn games", value: $draws, range: 0...3)
             if !valid { Notice("At most 3 games in a match.", error: true) }
-            if let onWatch, !m.isBye { Ghost(text: "Watch life tracker") { onWatch() } }
+            if let onWatch, !m.isBye { Ghost(text: "Life tracker") { onWatch() } }
             BigAction(text: "Save result", enabled: valid, accent: true) { onSave(s0, s1, draws) }
         }
         .foregroundStyle(T1.text)
@@ -153,6 +153,7 @@ private struct PlayerView: View {
     let b: EventBundle
     let engine: StandingsResponse
     let refresh: () async -> Void
+    let open: (Route) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(SessionModel.self) private var session
     /// Optimistic: the tapped result shows instantly; the server confirms or the error reverts it.
@@ -202,7 +203,10 @@ private struct PlayerView: View {
                 } else if !b.event.isFinished {
                     Notice(active == nil ? "Waiting for the next round to be paired." : "You're not paired this round.")
                 }
-                if me != nil && !b.event.isFinished { trackerToggle }
+                if me != nil && !b.event.isFinished {
+                    trackerToggle
+                    Ghost(text: "Deck photo") { open(.deckPhotos(b.event.id)) }
+                }
                 if me != nil && b.event.isRoto && !b.rounds.isEmpty {
                     HStack(spacing: 1) {
                         Ghost(text: "Draft picks") {
@@ -213,13 +217,15 @@ private struct PlayerView: View {
                         }
                     }
                 }
+                if me != nil && b.event.isFinished && !b.event.isCancelled { AfterEventLinks(event: b.event, open: open) }
                 if let notice { Notice(notice) }
                 if let error { Notice(error, error: true) }
                 if b.event.isDraft && b.rounds.isEmpty && !seating.isEmpty {
-                    SeatingTable(pods: seating, teamDraft: b.event.formatName == "team_draft", highlight: me?.id)
+                    SeatingTable(pods: seating, teamDraft: b.event.formatName == "team_draft", highlight: me?.id,
+                                 seatEnds: b.event.seatEnds)
                 }
                 Section1("Standings")
-                StandingsRows(engine: engine, highlight: me?.id)
+                StandingsRows(engine: engine, highlight: me?.id, players: b.participants)
             }
         }
         .onChange(of: match?.version) { optimistic = nil }
@@ -352,6 +358,8 @@ struct StandingsList: View {
 struct StandingsRows: View {
     let engine: StandingsResponse
     let highlight: String?
+    /// For avatars: whose account each standing is.
+    var players: [ParticipantRow] = []
 
     var body: some View {
         let teams = engine.teams ?? []
@@ -362,7 +370,8 @@ struct StandingsRows: View {
             Section1("Players")
         }
         ForEach(engine.standings) { s in
-            StandingLine(s: s, highlight: s.participantId == highlight, tag: engine.teamOf(s.participantId)?.name)
+            StandingLine(s: s, highlight: s.participantId == highlight, tag: engine.teamOf(s.participantId)?.name,
+                         userId: players.first { $0.id == s.participantId }?.userId)
         }
     }
 }
@@ -404,9 +413,11 @@ struct StandingLine: View {
     let s: Standing
     let highlight: Bool
     var tag: String?
+    var userId: String?
     var body: some View {
         HStack(spacing: 12) {
             LabelText("\(s.rank)")
+            AvatarView(name: s.displayName, userId: userId)
             Text(s.displayName).font(T1.mono(14)).lineLimit(1)
                 .foregroundStyle(s.status == "dropped" ? T1.muted : T1.text)
                 .frame(maxWidth: .infinity, alignment: .leading)

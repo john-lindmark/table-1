@@ -114,6 +114,7 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `trade_confirmed` | `gives`: int, `gets`: int, `list_conflict`: none / removed / kept |
 | `trade_deleted` | `status`: draft / confirmed |
 | `catalog_pack_installed` | `seconds`: int, `first`: bool |
+| `card_layout_changed` | `layout`: list / grid / stacks, `screen`: all_cards / deck / cube (2026-10-16) |
 
 ### Push, Live Activities, widgets (iOS; Android/web where they have the surface)
 | event | properties |

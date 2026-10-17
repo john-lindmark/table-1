@@ -41,6 +41,22 @@ insert into auth.users (id, email, raw_user_meta_data) values
 insert into public.profiles (id, display_name) select id, raw_user_meta_data->>'name' from auth.users
  where email like 'roto-_@example.test' on conflict (id) do nothing;
 
+-- 360 vintage-legal nonfoil cards in the demo pool's mix (50 per colour, 45 multicolour, 35 colourless, 30 lands),
+-- so the checks don't depend on the live catalog. The test cube takes the first 50 by name.
+insert into public.card_oracles (oracle_id, name, name_norm, layout, type_line, colors, legalities,
+                                 source_card_id, source_rank, content_hash)
+select format('d0000000-0000-4000-8000-%s', lpad(i::text, 12, '0'))::uuid, format('Roto Card %s', lpad(i::text, 3, '0')),
+       format('roto card %s', lpad(i::text, 3, '0')), 'normal',
+       case when i > 330 then 'Land' when i > 295 then 'Artifact' else 'Creature — Test' end,
+       case when i <= 250 then array[(array['W', 'U', 'B', 'R', 'G'])[(i - 1) / 50 + 1]]
+            when i <= 295 then array['W', 'U'] else '{}' end,
+       '{"vintage": "legal"}', format('d1000000-0000-4000-8000-%s', lpad(i::text, 12, '0'))::uuid, 'a', 'h'
+  from generate_series(1, 360) i on conflict do nothing;
+insert into public.cards (id, oracle_id, set_code, collector_number, lang, rarity, finishes, layout, content_hash)
+select format('d1000000-0000-4000-8000-%s', lpad(i::text, 12, '0'))::uuid,
+       format('d0000000-0000-4000-8000-%s', lpad(i::text, 12, '0'))::uuid, 'tst', i::text, 'en', 'common', '{nonfoil}', 'normal', 'h'
+  from generate_series(1, 360) i on conflict do nothing;
+
 -- ------------------------------------------------------------------ create, cube, clock, start
 do $$
 declare
@@ -290,9 +306,16 @@ begin
                       and (name like 'Vintage Cube roto%' or name like 'Legacy Cube roto%')), '0');
 end $$;
 
--- ------------------------------------------------------------------ report (always raises: nothing is kept)
+-- ------------------------------------------------------------------ report
+-- Raises on any failure. Elsewhere it always raises so nothing is kept; the local runner (supabase/tests/run.sh,
+-- throwaway t1_* databases) gets one "ok" notice per passing check instead.
 do $$
+declare t record;
 begin
+  if current_database() like 't1\_%' and not exists (select 1 from t_results where not ok) then
+    for t in select label from t_results order by n loop raise notice 'ok  %', t.label; end loop;
+    return;
+  end if;
   raise exception 'ROTO % of % passed%', (select count(*) from t_results where ok), (select count(*) from t_results),
     coalesce(E'\n' || (select string_agg('FAIL ' || label || ': ' || detail, E'\n' order by n) from t_results where not ok), '');
 end $$;

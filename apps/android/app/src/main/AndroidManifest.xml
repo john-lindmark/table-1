@@ -55,5 +55,15 @@
                 <data android:scheme="table1" android:host="auth-callback" />
             </intent-filter>
         </activity>
+        <!-- Account photo: the camera writes a full-size shot here before it's cropped to 512 px. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.avatars"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/avatar_paths" />
+        </provider>
     </application>
 </manifest>

@@ -214,7 +214,8 @@ struct LibraryDemoRoot: View {
         }
     }
 
-    /// Design QA: `-T1LibraryDemo allcards|add|trades|trade` opens that screen.
+    /// Design QA: `-T1LibraryDemo allcards|add|trades|trade|deck|cube` opens that screen (deck and cube: the
+    /// fixture's first of each).
     private static var startRoute: [LibraryRoute] {
         let args = ProcessInfo.processInfo.arguments
         guard let i = args.firstIndex(of: "-T1LibraryDemo"), i + 1 < args.count else { return [] }
@@ -223,6 +224,9 @@ struct LibraryDemoRoot: View {
         case "add": return [.add]
         case "trades": return [.trades]
         case "trade": return [.trades, .trade(nil)]
+        case "deck", "cube":
+            let kind: CardList.Kind = args[i + 1] == "deck" ? .deck : .cube
+            return ListsStore.shared.lists.first { $0.kind == kind }.map { [.lists(kind), .list($0.id)] } ?? []
         default: return []
         }
     }

@@ -17,9 +17,12 @@ export const LIMITED_FORMATS: { value: FormatName; label: string }[] = [
   { value: "team_draft", label: "Team draft" },
   { value: "sealed", label: "Sealed" },
   { value: "team_sealed", label: "Team sealed" },
+  { value: "roto", label: "Roto" },
 ];
 
 export const isTeamFormat = (f: FormatName | null | undefined) => f === "team_draft" || f === "team_sealed";
+/** Roto: every card face up, players take turns picking any card (always a cube). */
+export const isRotoFormat = (f: FormatName | null | undefined) => f === "roto";
 export const isDraftFormat = (f: FormatName | null | undefined) => f === "draft" || f === "team_draft";
 export const typeOfFormat = (f: FormatName): EventType =>
   LIMITED_FORMATS.some((o) => o.value === f) ? "limited" : "constructed";

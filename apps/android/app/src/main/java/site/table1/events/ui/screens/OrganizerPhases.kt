@@ -48,6 +48,7 @@ import site.table1.events.data.Standing
 import site.table1.events.data.StandingsResponse
 import site.table1.events.data.TeamStanding
 import site.table1.events.data.slotLetter
+import site.table1.events.ui.components.Avatar
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.BarAction
 import site.table1.events.ui.components.BigAction
@@ -306,7 +307,7 @@ internal fun OrganizerScreen(
                     )
                     "standings" -> {
                         val open = active?.matches?.count { !it.isBye && (it.status == "pending" || it.isDisputedOpen) } ?: 0
-                        StandingsList(standings.standings, standings.teams, tags, highlight = null, header = {
+                        StandingsList(standings.standings, standings.teams, tags, highlight = null, userIds = b.userIds, header = {
                             if (open > 0) item { Notice("Live: updates as results come in. ${plural(open, "match", "matches")} still open.") }
                         })
                     }
@@ -519,7 +520,8 @@ private fun SetupPlayers(
                 p.seat?.let { "Seat $it" },
                 team,
             ).joinToString(" · ")
-            ListRow(if (p.id == me?.id) "You · ${p.displayName}" else p.displayName, detail) {
+            ListRow(if (p.id == me?.id) "You · ${p.displayName}" else p.displayName, detail,
+                avatar = { Avatar(p.displayName, p.userId) }) {
                 if (b.event.beforeRoundOne) {
                     Label("Remove", Modifier.clickable(enabled = !busy) { removing = p }, color = T1.danger)
                 }
@@ -946,14 +948,16 @@ private fun LivePlayers(
         item(key = "h-playing") { Section("Playing · ${playing.size}") }
         items(playing, key = { it.id }) { p ->
             val s = byId[p.id]
-            ListRow(p.displayName, s?.let { "${record(it.matchWins, it.matchLosses, it.matchDraws)} · ${it.matchPoints} pts" }) {
+            ListRow(p.displayName, s?.let { "${record(it.matchWins, it.matchLosses, it.matchDraws)} · ${it.matchPoints} pts" },
+                avatar = { Avatar(p.displayName, p.userId) }) {
                 T1TextAction("Drop", enabled = !busy, color = T1.danger) { onDrop(p) }
             }
         }
         if (dropped.isNotEmpty()) {
             item(key = "h-dropped") { Section("Dropped · ${dropped.size}") }
             items(dropped, key = { it.id }) { p ->
-                ListRow(p.displayName, "Dropped after round ${p.droppedInRound ?: "–"} · still counts in tiebreakers") {
+                ListRow(p.displayName, "Dropped after round ${p.droppedInRound ?: "–"} · still counts in tiebreakers",
+                    avatar = { Avatar(p.displayName, p.userId) }) {
                     T1TextAction("Reinstate", enabled = !busy) { onReinstate(p) }
                 }
             }
@@ -982,7 +986,7 @@ private fun ResultsStandings(b: EventBundle, standings: StandingsResponse, tags:
     val event = b.event
     val teams: List<TeamStanding>? = standings.teams
     StandingsList(
-        standings.standings, teams, tags, highlight = null,
+        standings.standings, teams, tags, highlight = null, userIds = b.userIds,
         header = {
             if (event.isCancelled) {
                 item(key = "cancelled") {
@@ -1054,7 +1058,7 @@ private fun ResultsPlayers(b: EventBundle, standings: List<Standing>) {
         items(ordered, key = { it.id }) { p ->
             val s = byId[p.id]
             val detail = if (p.status == "dropped") "Dropped after round ${p.droppedInRound ?: "–"}" else s?.let { "#${it.rank}" }
-            ListRow(p.displayName, detail) {
+            ListRow(p.displayName, detail, avatar = { Avatar(p.displayName, p.userId) }) {
                 if (s != null) {
                     Text(record(s.matchWins, s.matchLosses, s.matchDraws), color = T1.text, fontFamily = T1.mono, fontSize = 14.sp)
                     Label("${s.matchPoints} pts")

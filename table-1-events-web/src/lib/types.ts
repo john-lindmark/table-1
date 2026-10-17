@@ -8,7 +8,7 @@ export type EventFormat = "draft" | "sealed" | "constructed" | "cube";
 export type EventType = "constructed" | "limited";
 export type FormatName =
   | "standard" | "pioneer" | "modern" | "legacy" | "vintage" | "pauper" | "premodern" | "canadian_highlander"
-  | "other_constructed" | "draft" | "team_draft" | "sealed" | "team_sealed";
+  | "other_constructed" | "draft" | "team_draft" | "sealed" | "team_sealed" | "roto";
 export type MatchStatus = "pending" | "reported" | "confirmed";
 export type ParticipantStatus = "active" | "dropped";
 export type TimerStatus = "paused" | "running";
@@ -44,6 +44,8 @@ export interface Table1Event {
   showClock: boolean;
   /** Named from its settings ("Draft · Duskmourn · Fri 17 Oct"); older events keep their typed names. */
   autoName: boolean;
+  /** swiss | round_robin (roto only). */
+  pairing: "swiss" | "round_robin";
 }
 
 export interface Participant {

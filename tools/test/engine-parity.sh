@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 ENGINE=supabase/functions/events-engine; WEB=table-1-events-web/src/lib
 bad=0
-for f in pairings standings seating teams; do  # types.ts differs on purpose (web adds UI fields)
+for f in pairings standings seating teams roundrobin; do  # types.ts differs on purpose (web adds UI fields)
   [ -f "$ENGINE/$f.ts" ] && [ -f "$WEB/$f.ts" ] || { echo "parity: missing $f.ts in one copy"; bad=1; continue; }
   if ! diff -q <(sed -E 's/from "(\.[^"]+)\.ts"/from "\1"/' "$ENGINE/$f.ts") "$WEB/$f.ts" >/dev/null; then
     echo "parity: $f.ts differs between events-engine and web:"

@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,17 +13,22 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +40,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -47,6 +55,8 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import site.table1.events.T1App
 import site.table1.events.ui.components.Label
+import site.table1.events.ui.components.T1Menu
+import site.table1.events.ui.components.T1MenuItem
 import site.table1.events.ui.theme.T1
 import java.io.File
 import java.net.HttpURLConnection
@@ -216,4 +226,111 @@ fun CardGrid(modifier: Modifier = Modifier, content: LazyGridScope.(tileWidth: D
 /** A full-width header cell inside a CardGrid. */
 fun LazyGridScope.gridHeader(key: String, content: @Composable () -> Unit) {
     item(key = key, span = { GridItemSpan(maxLineSpan) }) { content() }
+}
+
+/** How a card list is drawn: rows, a grid of whole cards, or stacks that show each card's title bar with the
+ *  last card in full (like cards fanned down a playmat). Same three as iOS `CardLayout`. */
+enum class CardLayout(val wire: String, val title: String) {
+    List("list", "List"), Grid("grid", "Grid"), Stacks("stacks", "Stacks");
+
+    companion object {
+        /** The saved layout, falling back to the old List/Grid flag and then to list. */
+        fun parse(saved: String?, legacyGrid: Boolean): CardLayout = entries.firstOrNull { it.wire == saved } ?: if (legacyGrid) Grid else List
+    }
+}
+
+/** The layout saved for a screen family under `library` prefs `key`; `legacyGridKey` is the old boolean flag. */
+@Composable
+fun rememberCardLayout(key: String, legacyGridKey: String): MutableState<CardLayout> {
+    val prefs = remember { T1App.instance.getSharedPreferences("library", android.content.Context.MODE_PRIVATE) }
+    val state = remember { mutableStateOf(CardLayout.parse(prefs.getString(key, null), prefs.getBoolean(legacyGridKey, false))) }
+    return remember(state) {
+        object : MutableState<CardLayout> by state {
+            override var value: CardLayout
+                get() = state.value
+                set(v) { state.value = v; prefs.edit().putString(key, v.wire).apply() }
+        }
+    }
+}
+
+/** The bar's "View" menu: the three layouts, the current one selected. `screen` is all_cards / deck / cube.
+ *  Telemetry: `card_layout_changed {layout, screen}` (contract/telemetry-2026-10-15.md) goes here once Android
+ *  has its Telemetry wrapper. */
+@Composable
+fun CardLayoutMenu(layout: MutableState<CardLayout>, @Suppress("UNUSED_PARAMETER") screen: String, onDismiss: () -> Unit) {
+    T1Menu("View", CardLayout.entries.map { l ->
+        T1MenuItem(l.title, selected = l == layout.value) { if (l != layout.value) layout.value = l }
+    }, onDismiss)
+}
+
+/** One card in a stack. Only its top `STACK_PEEK` shows unless it's the last card. */
+data class StackCard(val key: String, val printing: CatalogPrinting?, val name: String, val qty: Int, val warn: Boolean = false,
+                     val onClick: () -> Unit)
+
+data class CardStackSpec(val key: String, val title: String?, val cards: List<StackCard>)
+
+/** The share of a card's height left showing: the whole title bar (name and mana cost) on every modern frame. */
+const val STACK_PEEK = 0.118f
+
+/** Cards laid over each other, each showing just its title bar; the last shows in full. Later cards draw on
+ *  top, so a tap on a strip lands on that card. */
+@Composable
+fun CardStack(spec: CardStackSpec, width: Dp) {
+    val height = width / CARD_ASPECT
+    val strip = height * STACK_PEEK
+    Column(Modifier.width(width)) {
+        spec.title?.let { Label(it, Modifier.padding(horizontal = 4.dp, vertical = 8.dp)) }
+        Box(Modifier.size(width, if (spec.cards.isEmpty()) 0.dp else strip * (spec.cards.size - 1) + height)) {
+            spec.cards.forEachIndexed { i, c ->
+                Box(Modifier.offset(y = strip * i).size(width, height)
+                    .semantics(mergeDescendants = true) { contentDescription = "${c.name}, ${c.qty}" }
+                    .clickable(onClick = c.onClick)) {
+                    CardArt(c.printing, width)
+                    if (c.printing == null) {
+                        Box(Modifier.size(width, strip).border(1.dp, T1.surface).padding(horizontal = 8.dp), contentAlignment = Alignment.CenterStart) {
+                            Text(c.name, color = T1.text, fontFamily = T1.mono, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    // The count sits on the frame's left edge, clear of the name, and only when it says something.
+                    if (c.qty > 1 || c.warn) {
+                        Box(Modifier.height(strip), contentAlignment = Alignment.CenterStart) {
+                            Text("${c.qty}", Modifier.background(if (c.warn) T1.error else T1.bg).padding(horizontal = 4.dp, vertical = 1.dp),
+                                color = if (c.warn) T1.bg else T1.text, fontFamily = T1.mono, fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Stack columns for a width: two to a row on a phone, more on wider screens. */
+fun stackColumns(maxWidth: Dp): Pair<Int, Dp> {
+    val cols = maxOf(2, (maxWidth / 220.dp).toInt())
+    return cols to (maxWidth - 1.dp * (cols - 1)) / cols
+}
+
+/** Stacks in rows of `cols`, one lazy item per row. */
+fun LazyListScope.stackRows(key: String, stacks: List<CardStackSpec>, cols: Int, width: Dp) {
+    items(stacks.chunked(cols), key = { row -> "$key|${row.first().key}" }) { row ->
+        Row(Modifier.padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.Top) {
+            row.forEach { CardStack(it, width) }
+        }
+    }
+}
+
+/** All cards in stacks follows the sort: one stack per run of a set (titled by set code) when sorted by set,
+ *  otherwise runs of ten in sort order. `setOf` returns "" when the set is unknown. A set can come back as a
+ *  second run (Secret Lair drops have their own release dates), so keys carry the run's position. */
+fun <T> runStacks(items: List<T>, bySet: Boolean, setOf: (T) -> String, keyPrefix: String = ""): List<Triple<String, String?, List<T>>> {
+    if (!bySet) return items.chunked(10).mapIndexed { i, run -> Triple("$keyPrefix${i * 10}", null, run) }
+    val out = mutableListOf<Triple<String, String?, MutableList<T>>>()
+    var prev: String? = null
+    for (it in items) {
+        val set = setOf(it)
+        if (set == prev) out.last().third.add(it)
+        else out.add(Triple("set|$set|${out.size}", if (set.isEmpty()) "Unknown set" else set.uppercase(), mutableListOf(it)))
+        prev = set
+    }
+    return out
 }

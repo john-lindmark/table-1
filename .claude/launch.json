@@ -30,6 +30,21 @@
         "--strictPort"
       ],
       "port": 5181
+    },
+    {
+      "name": "web-roto",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "table-1-events-web",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5186",
+        "--strictPort"
+      ],
+      "port": 5186
     }
   ]
 }

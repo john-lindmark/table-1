@@ -33,7 +33,9 @@ struct ScannedCard: Identifiable, Hashable {
 /// language. VisionKit's DataScanner can't switch like that: it reads with the first language it's given only, and
 /// English first turns CJK into noise while Japanese first breaks Korean and Cyrillic.
 struct CardTextScanner: UIViewRepresentable {
-    let onLines: ([String]) -> Bool
+    /// One frame's lines, top first, and whether they're from inside a card found in the frame; returns true when
+    /// they name a card.
+    let onLines: ([String], Bool) -> Bool
 
     static var isAvailable: Bool {
         Coordinator.camera() != nil && ![.denied, .restricted].contains(AVCaptureDevice.authorizationStatus(for: .video))
@@ -65,7 +67,7 @@ struct CardTextScanner: UIViewRepresentable {
     /// Runs the capture session and Vision on its own queue, one frame at a time (late frames are dropped).
     final class Coordinator: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
         // Main thread only.
-        var onLines: ([String]) -> Bool
+        var onLines: ([String], Bool) -> Bool
         private var language = ScanLanguage(readers: 1)
         let session = AVCaptureSession()
         private let queue = DispatchQueue(label: "site.table1.card-text", qos: .userInitiated)
@@ -75,8 +77,46 @@ struct CardTextScanner: UIViewRepresentable {
         private var detect = false
         private let latin = Coordinator.request(detect: false)
         private let anyScript = Coordinator.request(detect: true)
+        private let cards = Coordinator.cardRequest()
 
-        init(onLines: @escaping ([String]) -> Bool) { self.onLines = onLines }
+        init(onLines: @escaping ([String], Bool) -> Bool) { self.onLines = onLines }
+
+        /// Card-shaped rectangles (a card, sleeve or toploader is 0.63–0.75 wide for its height), a fifth of the frame
+        /// or more. A few milliseconds, run in the same pass as the text.
+        private static func cardRequest() -> VNDetectRectanglesRequest {
+            let r = VNDetectRectanglesRequest()
+            r.minimumAspectRatio = 0.6
+            r.maximumAspectRatio = 0.85
+            r.minimumSize = 0.2
+            r.maximumObservations = 4
+            r.quadratureTolerance = 20
+            r.minimumConfidence = 0.6
+            return r
+        }
+
+        /// The largest upright card-shaped rectangle (a landscape one is usually the art box), grown 10% from its
+        /// centre so the title and bottom line are inside even when the frame inside the border is what was found.
+        private static func card(_ found: [VNRectangleObservation]) -> [CGPoint]? {
+            // Normalized to the portrait frame (1080 × 1920): compare the sides in pixels.
+            func len(_ a: CGPoint, _ b: CGPoint) -> CGFloat { hypot((a.x - b.x) * 1080, (a.y - b.y) * 1920) }
+            guard let o = found.filter({ len($0.topLeft, $0.bottomLeft) > len($0.topLeft, $0.topRight) })
+                .max(by: { $0.boundingBox.width * $0.boundingBox.height < $1.boundingBox.width * $1.boundingBox.height })
+            else { return nil }
+            let q = [o.topLeft, o.topRight, o.bottomRight, o.bottomLeft]
+            let c = CGPoint(x: q.map(\.x).reduce(0, +) / 4, y: q.map(\.y).reduce(0, +) / 4)
+            return q.map { CGPoint(x: c.x + ($0.x - c.x) * 1.1, y: c.y + ($0.y - c.y) * 1.1) }
+        }
+
+        /// Whether p is inside the convex quad q.
+        private static func inside(_ p: CGPoint, _ q: [CGPoint]) -> Bool {
+            var sign: CGFloat = 0
+            for i in 0..<4 {
+                let a = q[i], b = q[(i + 1) % 4]
+                let cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)
+                if sign == 0 { sign = cross } else if sign * cross < 0 { return false }
+            }
+            return true
+        }
 
         private static func request(detect: Bool) -> VNRecognizeTextRequest {
             let r = VNRecognizeTextRequest()
@@ -137,12 +177,17 @@ struct CardTextScanner: UIViewRepresentable {
             last = now
             // The sensor is landscape; the app is portrait only.
             let request = detect ? anyScript : latin
-            guard (try? VNImageRequestHandler(cvPixelBuffer: pixels, orientation: .right).perform([request])) != nil else { return }
+            guard (try? VNImageRequestHandler(cvPixelBuffer: pixels, orientation: .right).perform([cards, request])) != nil else { return }
+            // With a card in view, only the text on it: a keyboard or a screen beside it can't name a card.
+            let card = Self.card(cards.results ?? [])
             // Vision's origin is bottom-left: the top of the frame has the largest maxY.
-            let lines = (request.results ?? []).sorted { $0.boundingBox.maxY > $1.boundingBox.maxY }
+            let lines = (request.results ?? [])
+                .filter { o in card.map { Self.inside(CGPoint(x: o.boundingBox.midX, y: o.boundingBox.midY), $0) } ?? true }
+                .sorted { $0.boundingBox.maxY > $1.boundingBox.maxY }
                 .compactMap { $0.topCandidates(1).first?.string }
+            let onCard = card != nil
             DispatchQueue.main.async { [self] in
-                language.feed(matched: onLines(lines), text: !lines.isEmpty)
+                language.feed(matched: onLines(lines, onCard), text: !lines.isEmpty)
                 let cjk = language.mode != .latin
                 queue.async { [self] in detect = cjk }
             }
@@ -169,6 +214,7 @@ struct CardScanView: View {
     @State private var taken = 0
     /// The row whose printing is being changed; the camera is off meanwhile, so nothing is taken behind it.
     @State private var fixing: UUID?
+    @State private var listHeight: CGFloat = 0
     private var catalog: CatalogStore { CatalogStore.shared }
 
     var body: some View {
@@ -204,23 +250,30 @@ struct CardScanView: View {
                                                       : "\(count) scanned", back: cancel)
             if !CardTextScanner.isAvailable {
                 Notice("The camera isn't available. Allow camera access for Table 1 in Settings, or search by name instead.", error: true)
+                Spacer(minLength: 0)
             } else if catalog.phase != .ready {
                 CatalogStatusRow(catalog: catalog)
+                Spacer(minLength: 0)
             } else {
-                CardTextScanner { lines in see(lines) }
-                    .frame(height: 300)
-                    .overlay(alignment: .bottomLeading) {
-                        if let reading { LabelText(reading, color: T1.text).padding(8).background(T1.bg.opacity(0.8)) }
-                    }
+                // The camera takes whatever the header, condition picker, scanned list and footer leave.
+                CardTextScanner { lines, onCard in see(lines, onCard: onCard) }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay { ScanGuide(reading: reading) }
                     .clipped()
             }
             if owned == nil {
                 T1Segmented(options: Conditions.all.map { ($0, $0) }, selection: $condition)
             }
-            ScrollView {
-                HairlineList {
-                    ForEach($cards) { $card in row($card) }
+            if !cards.isEmpty {
+                // Sized to its rows, up to about three, so the camera keeps most of the screen.
+                // Not HairlineList: that is a lazy ScrollView of its own, which only laid out new rows once scrolled.
+                ScrollView {
+                    VStack(spacing: 1) {
+                        ForEach($cards) { $card in row($card) }
+                    }
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
                 }
+                .frame(height: min(listHeight, 210))
             }
             BigAction(text: cards.isEmpty ? "Scan a card" : "\(doneLabel) \(count)", enabled: !cards.isEmpty, accent: true) {
                 onDone(cards)
@@ -242,11 +295,14 @@ struct CardScanView: View {
 
     private var count: Int { cards.count }
 
-    /// One frame's lines; true when they name a card.
-    private func see(_ lines: [String]) -> Bool {
+    /// One frame's lines; true when they name a card. Without a card found in the frame, the text must look like a
+    /// card's: a type line, or a set code and number that agree with the name. Otherwise a keyboard's "option" key
+    /// is Opt (its French name) and a decklist on a screen is a card.
+    private func see(_ lines: [String], onCard: Bool) -> Bool {
         guard let matcher else { return false }
         frames.add(lines)
-        let m = matcher.match(lines)
+        var m = matcher.match(lines)
+        if !onCard, m?.exact != true, !CardMatcher.hasTypeLine(lines) { m = nil }
         reading = m.map { $0.oracle.name }
         guard let taken = steady.feed(m), let m else { return m != nil }
         var card = ScannedCard(oracle: m.oracle, printing: taken.0, finish: matcher.defaultFinish(taken.0),
@@ -290,6 +346,44 @@ struct CardScanView: View {
         }
         .fixedSize(horizontal: false, vertical: true)
         .background(T1.surface)
+    }
+}
+
+/// What to point at: a card-sized outline with where the scanner reads (the name at the top, the set code and
+/// collector number at the bottom left). The outline turns accent while a name is being read.
+private struct ScanGuide: View {
+    let reading: String?
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = min(geo.size.width * 0.72, (geo.size.height - 96) * CardArt.aspect)
+            let h = w / CardArt.aspect
+            let line = reading == nil ? T1.text.opacity(0.7) : T1.accent
+            VStack(spacing: 12) {
+                tip(reading == nil ? "One card, upright, filling the outline" : reading!, color: reading == nil ? T1.text : T1.accent)
+                ZStack {
+                    Rectangle().strokeBorder(line, lineWidth: 1)
+                    VStack {
+                        mark("Name")
+                        Spacer()
+                        HStack { mark("Set · number"); Spacer() }
+                    }
+                    .padding(8)
+                }
+                .frame(width: w, height: h)
+                tip("Light from above, no glare", color: T1.muted)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func tip(_ text: String, color: Color) -> some View {
+        LabelText(text, color: color).lineLimit(1).padding(.horizontal, 8).padding(.vertical, 4).background(T1.bg.opacity(0.8))
+    }
+
+    private func mark(_ text: String) -> some View {
+        LabelText(text, color: T1.muted).padding(.horizontal, 6).padding(.vertical, 2).background(T1.bg.opacity(0.6))
     }
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   deleteAccount,
   fetchAccountOverview,
@@ -8,10 +8,12 @@ import {
   signOut,
   errorMessage,
 } from "../lib/api";
-import { setSharing, sharing } from "../lib/telemetry";
+import { capture, setSharing, sharing } from "../lib/telemetry";
+import { avatarJpeg, clearAvatar, setAvatar, useAvatarPath } from "../lib/avatarStore";
+import { Avatar } from "../components/Avatar";
 import type { AccountOverview } from "../lib/types";
 import { useSession } from "../lib/useSession";
-import { Bar, Notice, Screen, Segmented, TopNav } from "../components/kit";
+import { Bar, Menu, Notice, Screen, Segmented, TopNav, type MenuItem } from "../components/kit";
 import { useTrackerMode } from "../lib/settings";
 
 /** "Share usage and crash data": PostHog and Sentry on this browser (contract/telemetry-2026-10-15.md). */
@@ -50,6 +52,13 @@ export function Profile({ onSignedOut }: { onSignedOut: () => void }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const tracker = useTrackerMode();
+  const [avatarMenu, setAvatarMenu] = useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const avatarPath = useAvatarPath(userId);
+  const cameraInput = useRef<HTMLInputElement>(null);
+  const libraryInput = useRef<HTMLInputElement>(null);
+  // "Take a photo" only where the browser can open a camera (phones); elsewhere capture just picks a file.
+  const hasCamera = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -100,6 +109,40 @@ export function Profile({ onSignedOut }: { onSignedOut: () => void }) {
     }
   };
 
+  const pickAvatar = async (file: File | undefined, source: "camera" | "library") => {
+    if (!file || !userId) return;
+    setAvatarBusy(true);
+    try {
+      await setAvatar(userId, await avatarJpeg(file));
+      setError(null);
+      capture("avatar_photo_set", { source });
+    } catch (e) {
+      setError(`Couldn't save the photo: ${errorMessage(e)}`);
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  const removeAvatar = async () => {
+    if (!userId) return;
+    setAvatarBusy(true);
+    try {
+      await clearAvatar(userId);
+      setError(null);
+      capture("avatar_photo_removed");
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  const avatarItems: MenuItem[] = [
+    ...(hasCamera ? [{ title: "Take a photo", onClick: () => cameraInput.current?.click() }] : []),
+    { title: "Choose from photos", onClick: () => libraryInput.current?.click() },
+    ...(avatarPath ? [{ title: "Remove photo", onClick: () => void removeAvatar() }] : []),
+  ];
+
   if (!ready) return <Screen><div className="flex-1" /></Screen>;
   if (!session) {
     return (
@@ -127,6 +170,37 @@ export function Profile({ onSignedOut }: { onSignedOut: () => void }) {
       {error && <Notice tone="error">{error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         <div className="bg-t1-surface px-4 py-6 flex flex-col items-center gap-1">
+          <button
+            type="button"
+            aria-label="Profile photo"
+            disabled={avatarBusy || !overview?.profile}
+            onClick={() => setAvatarMenu(true)}
+            className="mb-[18px] flex flex-col items-center gap-2"
+          >
+            <Avatar name={overview?.profile?.display_name ?? ""} userId={userId} size={64} />
+            {avatarBusy && <span className="t1-label">Saving…</span>}
+          </button>
+          <input
+            ref={cameraInput}
+            type="file"
+            accept="image/*"
+            capture="user"
+            hidden
+            onChange={(e) => {
+              void pickAvatar(e.target.files?.[0], "camera");
+              e.target.value = "";
+            }}
+          />
+          <input
+            ref={libraryInput}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => {
+              void pickAvatar(e.target.files?.[0], "library");
+              e.target.value = "";
+            }}
+          />
           <p className="t1-label">Lifetime record</p>
           <p className="text-[48px] tabular-nums tracking-[4px] text-t1-accent">
             {r ? record(r.match_wins, r.match_losses, r.match_draws) : "0-0"}
@@ -144,8 +218,9 @@ export function Profile({ onSignedOut }: { onSignedOut: () => void }) {
           <div className="bg-t1-surface px-4 py-6 t1-label">Play a match to start your head-to-head.</div>
         )}
         {(showAll ? rivals : rivals.slice(0, 8)).map((h) => (
-          <div key={h.opponent_id} className="bg-t1-surface px-4 py-3 flex items-center justify-between gap-3">
-            <span className="min-w-0 flex flex-col">
+          <div key={h.opponent_id} className="bg-t1-surface px-4 py-3 flex items-center gap-3">
+            <Avatar name={h.name} userId={h.opponent_id} />
+            <span className="flex-1 min-w-0 flex flex-col">
               <span className="text-[14px] truncate">{h.name}</span>
               <span className="t1-label">
                 {h.played} match{h.played === 1 ? "" : "es"} · games {h.game_wins}-{h.game_losses}
@@ -240,6 +315,7 @@ export function Profile({ onSignedOut }: { onSignedOut: () => void }) {
           )}
         </div>
       </div>
+      {avatarMenu && <Menu title="Profile photo" items={avatarItems} onClose={() => setAvatarMenu(false)} />}
     </Screen>
   );
 }

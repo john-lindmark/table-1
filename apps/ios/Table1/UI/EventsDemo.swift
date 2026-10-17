@@ -21,13 +21,14 @@ struct EventsDemoRoot: View {
                                   (value: "seating", label: "Seating")], selection: $screen)
             switch screen {
             case "setup":
-                OrganizerView(b: DemoData.bundle, engine: DemoData.engine, refresh: {}, showSeating: { _ in }) {}
+                OrganizerView(b: DemoData.bundle, engine: DemoData.engine, refresh: {}, showSeating: { _ in }, open: { _ in }) {}
             case "seating":
                 T1Screen {
                     Bar(title: "Seating", subtitle: "Sample pods")
                     HairlineList {
                         SeatingTable(pods: [DemoData.pod(8)], highlight: "p3")
                         SeatingTable(pods: [DemoData.pod(7)])
+                        SeatingTable(pods: [DemoData.pod(10)], highlight: "p3", seatEnds: true)
                         SeatingTable(pods: [DemoData.teamPod], teamDraft: true)
                     }
                 }
@@ -41,7 +42,7 @@ struct EventsDemoRoot: View {
 }
 
 private enum DemoData {
-    static let names = ["Ann Ito", "Bo Lindqvist", "Cy Park", "Dee Okafor", "Eli Moreau", "Fen Zhou", "Gus Varga", "Hal Brandt"]
+    static let names = ["Ann Ito", "Bo Lindqvist", "Cy Park", "Dee Okafor", "Eli Moreau", "Fen Zhou", "Gus Varga", "Hal Brandt", "Ivy Novak", "Jo Reyes"]
 
     static func pod(_ n: Int) -> SeatingPod {
         decode(SeatingPod.self, """

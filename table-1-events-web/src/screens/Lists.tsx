@@ -7,7 +7,9 @@ import {
   boardTitle, boardsOf, countOf, createList, finishOf, ownKey, type ListFinish, current, deleteList, diff, duplicateList, editList, entriesOf, missingIn, restoreList,
   sectionsFor, useLists, type Board, type CardList, type ListKind,
 } from "../lib/lists";
-import { BarToggle, CardArt, CardRow, CardTile, LibScreen, useCatalog, useLibrarySession, useStoredFlag } from "./Library";
+import {
+  CardArt, CardRow, CardTile, LibScreen, StackRows, ViewButton, useCatalog, useLibrarySession, useStoredLayout, type StackItem,
+} from "./Library";
 
 /* Decks and cubes on the web (contract/lists-2026-10-15.md): the same lists, sections, groups and version
    history as iOS, read from and written to the database, so a deck built on one device is here too. */
@@ -169,7 +171,7 @@ export function ListsScreen({ kind, onBack, onOpen, onFind, onImport }: {
           const miss = missingIn(l, owned);
           const side = countOf(l, "side"), maybe = countOf(l, "maybe");
           const detail = [formatName(l.format), side ? `${side} sideboard` : null, maybe ? `${maybe} considering` : null,
-                          miss ? `${miss} missing` : "All owned", `v${current(l).number}`].filter(Boolean).join(" · ");
+                          l.eventId ? `From ${l.eventName ?? "an event"}` : miss ? `${miss} missing` : "All owned", `v${current(l).number}`].filter(Boolean).join(" · ");
           return <Row key={l.id} title={l.name} detail={detail} value={countOf(l, "main")} onClick={() => onOpen(l.id)} />;
         })}
       </div>
@@ -197,7 +199,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
 }) {
   const { session, ready, lists, owned } = useListsData();
   const { catalog, error } = useCatalog();
-  const [grid, setGrid] = useStoredFlag("table1.library.list.grid");
+  const [layout, setLayout] = useStoredLayout("table1.library.list.layout", "table1.library.list.grid");
   const [editing, setEditing] = useState(false);
   const [moving, setMoving] = useState<Line | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -233,7 +235,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
     const fin = x.finish === "nonfoil" ? null : FINISH_NAME[x.finish];
     const pts = x.points > 0 && list.format === "canlander" ? `${x.points} pt${x.points === 1 ? "" : "s"}` : null;
     const considering = x.board === "maybe";
-    const short = !considering && have < x.qty;
+    const short = !considering && !list.eventId && have < x.qty;
     const issue = issues.get(x.oracleId ?? x.cardId);
     if (editing) {
       return (
@@ -260,10 +262,10 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
 
   return (
     <LibScreen>
-      <Bar title={list.name} subtitle={`${formatName(list.format)} ${list.kind} · v${v.number}`} onBack={onBack}
+      <Bar title={list.name} subtitle={list.eventId ? `From ${list.eventName ?? "an event"} · v${v.number}` : `${formatName(list.format)} ${list.kind} · v${v.number}`} onBack={onBack}
            right={<span className="flex gap-4">
              <button type="button" className="t1-label hover:text-t1-text px-2 py-1 -my-1" onClick={() => setEditing(!editing)}>{editing ? "Done" : "Edit"}</button>
-             {!editing && <BarToggle on={grid} onChange={setGrid} />}
+             {!editing && <ViewButton layout={layout} onChange={setLayout} screen={list.kind === "cube" ? "cube" : "deck"} />}
            </span>} />
       {(lists.error || error) && <Notice tone="error">{lists.error ?? error}</Notice>}
       <div ref={boxRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
@@ -306,12 +308,26 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
           return (
             <div key={board} className="flex flex-col gap-px">
               <BoardHeader title={boardTitle(list.kind, board)} count={inBoard.reduce((n, x) => n + x.qty, 0)} />
-              {groupsOf(inBoard, list.kind).map((g) => {
+              {/* Stacks keep the list's organization: a stack per type (decks) or color (cubes). */}
+              {layout === "stacks" && !editing ? (
+                <StackRows c={catalog} boxWidth={width} stacks={groupsOf(inBoard, list.kind).map((g): StackItem => {
+                  const inGroup = inBoard.filter((x) => x.group === g);
+                  return {
+                    key: g,
+                    title: `${g} · ${inGroup.reduce((n, x) => n + x.qty, 0)}`,
+                    cards: inGroup.map((x) => ({
+                      key: lineKey(x), p: x.p, name: x.name, qty: x.qty,
+                      warn: (board !== "maybe" && (owned.get(ownKey(x.cardId, x.finish)) ?? 0) < x.qty) || issues.has(x.oracleId ?? x.cardId),
+                      onClick: () => x.oracleId && onCard(x.oracleId),
+                    })),
+                  };
+                })} />
+              ) : groupsOf(inBoard, list.kind).map((g) => {
                 const inGroup = inBoard.filter((x) => x.group === g);
                 return (
                   <div key={g} className="flex flex-col gap-px">
                     <Section title={g} count={inGroup.reduce((n, x) => n + x.qty, 0)} />
-                    {grid && !editing ? (
+                    {layout === "grid" && !editing ? (
                       <div className="grid gap-px" style={{ gridTemplateColumns: `repeat(${cols}, ${tile}px)` }}>
                         {inGroup.map((x) => (
                           <CardTile key={lineKey(x)} c={catalog} p={x.p} name={x.name} qty={x.qty} width={tile}

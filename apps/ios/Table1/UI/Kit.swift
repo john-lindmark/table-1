@@ -168,9 +168,12 @@ struct Section1: View {
 struct ListRow<Trailing: View>: View {
     let title: String
     var detail: String?
+    /// A player's tile left of the name.
+    var avatar: AvatarView?
     @ViewBuilder var trailing: Trailing
     var body: some View {
         HStack(spacing: 12) {
+            if let avatar { avatar }
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(T1.mono(14)).lineLimit(1)
                 if let detail { LabelText(detail) }
@@ -186,9 +189,10 @@ struct ListRow<Trailing: View>: View {
 }
 
 extension ListRow where Trailing == EmptyView {
-    init(title: String, detail: String? = nil) {
+    init(title: String, detail: String? = nil, avatar: AvatarView? = nil) {
         self.title = title
         self.detail = detail
+        self.avatar = avatar
         self.trailing = EmptyView()
     }
 }

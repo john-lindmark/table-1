@@ -39,6 +39,8 @@ struct OrganizerContext {
     /// Shows the Cancel event alert.
     let cancelEvent: () -> Void
     let addPlayers: () -> Void
+    /// Pushes a screen over the event (redraft, deck photos).
+    let open: (Route) -> Void
     /// Seats players (or re-seats) and shows the answer at once; the reload follows in the background.
     let seat: () -> Void
 
@@ -51,6 +53,7 @@ struct OrganizerView: View {
     let engine: StandingsResponse
     let refresh: () async -> Void
     let showSeating: ([SeatingPod]) -> Void
+    let open: (Route) -> Void
     let addPlayers: () -> Void
     @Environment(SessionModel.self) private var session
     @State private var tab: String
@@ -60,11 +63,12 @@ struct OrganizerView: View {
     @State private var cancelReason = ""
 
     init(b: EventBundle, engine: StandingsResponse, refresh: @escaping () async -> Void,
-         showSeating: @escaping ([SeatingPod]) -> Void, addPlayers: @escaping () -> Void) {
+         showSeating: @escaping ([SeatingPod]) -> Void, open: @escaping (Route) -> Void, addPlayers: @escaping () -> Void) {
         self.b = b
         self.engine = engine
         self.refresh = refresh
         self.showSeating = showSeating
+        self.open = open
         self.addPlayers = addPlayers
         _tab = State(initialValue: OrganizerPhase.of(b).firstTab)
     }
@@ -77,6 +81,7 @@ struct OrganizerView: View {
             edit: { m, watch in edit(m, watch: watch) },
             cancelEvent: { confirmCancel = true },
             addPlayers: addPlayers,
+            open: open,
             seat: { seat() }
         )
         Group {
@@ -251,7 +256,8 @@ private struct OrganizerSetupView: View {
                 Notice("No one yet. Add people you've played with, or show the join QR.")
             }
             ForEach(participants) { p in
-                ListRow(title: p.id == me?.id ? "You · \(p.displayName)" : p.displayName, detail: playerDetail(p)) {
+                ListRow(title: p.id == me?.id ? "You · \(p.displayName)" : p.displayName, detail: playerDetail(p),
+                        avatar: AvatarView(name: p.displayName, userId: p.userId)) {
                     if event.isBeforeRound1 {
                         Button { removing = p } label: { LabelText("Remove", color: T1.danger) }
                             .buttonStyle(.plain)
@@ -310,7 +316,16 @@ private struct OrganizerSetupView: View {
             if seating.isEmpty {
                 Notice("Seat players for the draft, then start the event: round 1 pairs across the table.")
             } else {
-                SeatingTable(pods: seating, teamDraft: event.formatName == "team_draft", highlight: me?.id)
+                T1Switch(title: "Seat the ends", detail: "Players at both ends of the table, not just the sides",
+                         isOn: Binding(get: { event.seatEnds }, set: { on in
+                             let id = event.id
+                             ctx.act {
+                                 try await Repo.setSeatEnds(id, on: on)
+                                 Telemetry.capture("seat_ends_changed", ["on": on, "players": seating.reduce(0) { $0 + $1.seats.count }])
+                             }
+                         }))
+                SeatingTable(pods: seating, teamDraft: event.formatName == "team_draft", highlight: me?.id,
+                             seatEnds: event.seatEnds)
             }
         }
     }
@@ -654,6 +669,7 @@ private struct OrganizerLiveView: View {
     let ctx: OrganizerContext
     @Binding var tab: String
     @Environment(\.dismiss) private var dismiss
+    @Environment(SessionModel.self) private var session
     @State private var confirmFinish = false
     @State private var dropping: ParticipantRow?
 
@@ -728,6 +744,7 @@ private struct OrganizerLiveView: View {
                     // Round timer off: no clock anywhere for this event (rounds still run 50 minutes).
                     Notice(caption(round, g))
                 }
+                if let mine = myMatch(round) { yourMatch(mine) }
                 if !g.disputed.isEmpty {
                     Section1("Disputed · \(g.disputed.count)")
                     ForEach(g.disputed) { m in
@@ -755,6 +772,29 @@ private struct OrganizerLiveView: View {
                        ? "No round running. Pair round \(next) when everyone is ready."
                        : "Every round is played. Finish the event to send final standings.")
             }
+        }
+    }
+
+    /// The organizer's own match when they're playing this round (organizers play by default).
+    private func myMatch(_ r: RoundRow) -> MatchRow? {
+        guard let me = b.participants.first(where: { $0.userId != nil && $0.userId == Repo.userId }) else { return nil }
+        return r.matches.first { m in !m.isBye && m.matchSides.contains { $0.participantId == me.id } }
+    }
+
+    /// Running the event and playing in it: the life tracker for your match sits above everyone's results.
+    @ViewBuilder
+    private func yourMatch(_ m: MatchRow) -> some View {
+        let me = b.participants.first { $0.userId != nil && $0.userId == Repo.userId }
+        let theirs = m.matchSides.first { $0.participantId != me?.id }
+        Section1("Your match · Table \(m.tableNumber.map(String.init) ?? "–")")
+        ListRow(title: "vs \(b.name(theirs?.participantId))", detail: m.status == "confirmed" ? scoreText(m) : "Playing")
+        HStack(spacing: 1) {
+            Button { session.openTracker(matchId: m.id, source: "organizer_match") } label: {
+                LabelText("Open life tracker", color: T1.ink)
+                    .frame(maxWidth: .infinity).padding(.vertical, 18).background(T1.accent)
+            }
+            .buttonStyle(.plain)
+            Ghost(text: "Set result") { ctx.edit(m, false) }
         }
     }
 
@@ -789,7 +829,7 @@ private struct OrganizerLiveView: View {
             if g.open > 0 {
                 Notice("Live: updates as results come in. \(g.open) \(g.open == 1 ? "match" : "matches") still open.")
             }
-            StandingsRows(engine: ctx.engine, highlight: nil)
+            StandingsRows(engine: ctx.engine, highlight: nil, players: b.participants)
         }
     }
 
@@ -801,7 +841,7 @@ private struct OrganizerLiveView: View {
         return HairlineList {
             Section1("Playing · \(playing.count)")
             ForEach(playing) { p in
-                ListRow(title: p.displayName, detail: recordDetail(p)) {
+                ListRow(title: p.displayName, detail: recordDetail(p), avatar: AvatarView(name: p.displayName, userId: p.userId)) {
                     BarButton("Drop") { dropping = p }
                 }
             }
@@ -810,7 +850,8 @@ private struct OrganizerLiveView: View {
                 ForEach(dropped) { p in
                     ListRow(title: p.displayName,
                             detail: p.droppedInRound.map { "Dropped after round \($0) · still counts in tiebreakers" }
-                                ?? "Dropped · still counts in tiebreakers") {
+                                ?? "Dropped · still counts in tiebreakers",
+                            avatar: AvatarView(name: p.displayName, userId: p.userId)) {
                         BarButton("Reinstate") { setStatus(p, dropped: false) }
                     }
                 }
@@ -883,10 +924,13 @@ private struct OrganizerLiveView: View {
     @MainActor
     private func showMore() {
         let cancel = ctx.cancelEvent
+        let open = ctx.open
         let id = event.id
         let name = event.name
         let pairing = event.pairing
-        T1Overlays.shared.showMenu(event.name, (event.isRoto ? [
+        T1Overlays.shared.showMenu(event.name, [
+            T1MenuItem(title: "Deck photos") { open(.deckPhotos(id)) },
+        ] + (event.isRoto ? [
             T1MenuItem(title: "Draft picks") { presentRotoDraft(eventId: id, title: name, isOrganizer: true, pairing: pairing) },
         ] : []) + [
             T1MenuItem(title: "Cancel event", destructive: true) { cancel() },
@@ -1005,17 +1049,18 @@ private struct OrganizerResultsView: View {
                 let reason = event.cancelReason?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 Notice(reason.isEmpty ? "Cancelled by the organizer." : "Cancelled: \(reason)", error: true)
                 Section1("Standings after round \(lastRound)")
-                StandingsRows(engine: ctx.engine, highlight: nil)
+                StandingsRows(engine: ctx.engine, highlight: nil, players: b.participants)
                 Notice("Confirmed results count toward records. Unplayed rounds never do.")
             } else {
                 winnerCard
+                AfterEventLinks(event: event, open: ctx.open)
                 if event.isRoto {
                     Ghost(text: "Draft picks") {
                         presentRotoDraft(eventId: event.id, title: event.name, isOrganizer: true, pairing: event.pairing)
                     }
                 }
                 Section1("Final standings")
-                StandingsRows(engine: ctx.engine, highlight: nil)
+                StandingsRows(engine: ctx.engine, highlight: nil, players: b.participants)
             }
         }
     }
@@ -1077,7 +1122,7 @@ private struct OrganizerResultsView: View {
             Section1("Players · \(ordered.count)")
             ForEach(ordered) { p in
                 let s = ctx.engine.standings.first { $0.participantId == p.id }
-                ListRow(title: p.displayName, detail: finalDetail(p, s)) {
+                ListRow(title: p.displayName, detail: finalDetail(p, s), avatar: AvatarView(name: p.displayName, userId: p.userId)) {
                     Text(s.map { recordText($0.matchWins, $0.matchLosses, $0.matchDraws) } ?? "–").font(T1.mono(14))
                 }
             }

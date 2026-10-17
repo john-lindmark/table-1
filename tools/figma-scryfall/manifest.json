@@ -1,0 +1,14 @@
+{
+  "name": "Scryfall Fill",
+  "id": "table1-scryfall-fill",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["https://api.scryfall.com", "https://cards.scryfall.io"],
+    "reasoning": "Card search and data from the Scryfall API; card images from Scryfall's image host."
+  },
+  "relaunchButtons": [{ "command": "swap", "name": "Swap card" }]
+}

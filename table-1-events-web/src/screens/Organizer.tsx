@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useEvent } from "../lib/useEvent";
-import { cancelEvent, errorMessage } from "../lib/api";
+import { cancelEvent, errorMessage, pairNextRound } from "../lib/api";
 import { isDraftFormat, isTeamFormat } from "../lib/formats";
 import {
   TAB_LABELS,
@@ -22,6 +22,7 @@ import { LiveView } from "./organizer/LiveView";
 import { ResultsView } from "./organizer/ResultsView";
 import { ResultPanel } from "./organizer/ResultPanel";
 import type { PhaseViewProps } from "./organizer/shared";
+import { RotoDraftGate, RotoDraftOverlay } from "./roto/lazy";
 
 /**
  * The organizer's event screen. One of three views, derived from the event's state (never stored):
@@ -47,6 +48,7 @@ export function Organizer({
   const [cancelBusy, setCancelBusy] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [openMatchId, setOpenMatchId] = useState<string | null>(null);
+  const [draftOpen, setDraftOpen] = useState(false);
 
   const formatName = bundle?.event.formatName ?? "draft";
   const isTeam = !!bundle && isTeamFormat(formatName) && !!bundle.event.teamSize;
@@ -77,7 +79,8 @@ export function Organizer({
   }
 
   const { event, participants, rounds } = bundle;
-  const tabs = phaseTabs(phase, { isTeam, isDraft });
+  const isRoto = event.formatName === "roto";
+  const tabs = phaseTabs(phase, { isTeam, isDraft, isRoto, roundRobin: isRoto && event.pairing === "round_robin" });
   const tab = resolveTab(selected, phase, tabs);
   const activePlayers = participants.filter((p) => p.status === "active").length;
   const subtitle =
@@ -116,7 +119,7 @@ export function Organizer({
     setActionError,
   };
 
-  return (
+  const screen = (
     <Screen>
       <Bar
         title={event.name}
@@ -124,6 +127,11 @@ export function Organizer({
         onBack={onExit}
         right={
           <div className="flex gap-4 shrink-0">
+            {isRoto && rounds.length > 0 && (
+              <button type="button" onClick={() => setDraftOpen(true)} className="t1-label hover:text-t1-text">
+                Draft
+              </button>
+            )}
             {phase !== "results" && (
               <button
                 type="button"
@@ -147,7 +155,7 @@ export function Organizer({
           setActionError(null);
           setSelected({ phase, tab: t });
         }}
-        labels={TAB_LABELS}
+        labels={isRoto ? { ...TAB_LABELS, seating: "Pick order" } : TAB_LABELS}
       />
 
       {sync === "error" && <Notice tone="error">{error ?? "Something failed to save."}</Notice>}
@@ -201,6 +209,22 @@ export function Organizer({
           />
         </Dialog>
       )}
+      {draftOpen && (
+        <RotoDraftOverlay eventId={eventId} title={event.name} isOrganizer pairing={event.pairing} onClose={() => setDraftOpen(false)} />
+      )}
     </Screen>
   );
+  // Roto: the Draft phase sits between Setup and Live; Pair round 1 from there once the draft is done.
+  if (isRoto && rounds.length === 0 && phase !== "results") {
+    return (
+      <RotoDraftGate eventId={eventId} title={event.name} isOrganizer onBack={onExit}
+                     pairRound1={async () => {
+                       await pairNextRound(eventId, event.pairing);
+                       await refetch();
+                     }}>
+        {screen}
+      </RotoDraftGate>
+    );
+  }
+  return screen;
 }

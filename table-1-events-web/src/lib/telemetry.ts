@@ -270,6 +270,32 @@ export async function after<T>(event: string, properties: Props | ((value: T) =>
   return value;
 }
 
+/** A screen inside a route (a tab or segment): `$screen` with the contract's screen name. */
+export function screen(name: string) {
+  run(() => posthog?.capture("$screen", { $screen_name: name }));
+}
+
+export interface Span {
+  finish: (ok?: boolean) => void;
+}
+
+/** A Sentry performance span (e.g. roto.state); a no-op while Sentry is off. Finish it once. */
+export function span(name: string, op: string): Span {
+  let s: ReturnType<typeof SentryNS.startInactiveSpan> | undefined;
+  let done = false;
+  run(() => {
+    if (!done) s = sentry?.startInactiveSpan({ name, op, forceTransaction: true });
+  });
+  return {
+    finish(ok = true) {
+      if (done) return;
+      done = true;
+      if (!ok) s?.setStatus({ code: 2, message: "internal_error" });
+      s?.end();
+    },
+  };
+}
+
 /** One redacted page view per navigation; `screen` is the contract's screen name when the route has one. */
 export function pageView(pathname: string, search: string, screen: string | undefined) {
   const path = redactPath(pathname);

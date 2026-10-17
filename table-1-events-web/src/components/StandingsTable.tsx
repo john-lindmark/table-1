@@ -1,5 +1,6 @@
 import { computeStandings, formatPct, recordLabel } from "../lib/standings";
 import type { Participant, RoundWithMatches } from "../lib/types";
+import { Avatar } from "./Avatar";
 
 export function StandingsTable({
   participants,
@@ -15,6 +16,7 @@ export function StandingsTable({
   /** Team events: team id → name, shown as a tag next to each player. */
   teamNames?: Map<string, string>;
 }) {
+  const userOf = new Map(participants.map((p) => [p.id, p.userId ?? null]));
   const teamOf = new Map(participants.map((p) => [p.id, p.teamId ? teamNames?.get(p.teamId) ?? null : null]));
   const standings = computeStandings(participants, rounds);
   if (standings.length === 0) {
@@ -42,6 +44,7 @@ export function StandingsTable({
           >
             <span className={`w-6 shrink-0 ${mine ? "" : "text-t1-muted"}`}>{row.rank}</span>
             <span className="flex-1 min-w-0 flex items-center gap-2">
+              <Avatar name={row.displayName} userId={userOf.get(row.participantId)} />
               <span className={`truncate ${row.status === "dropped" ? "line-through opacity-50" : ""}`}>
                 {row.displayName}
               </span>

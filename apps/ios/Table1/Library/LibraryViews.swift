@@ -191,7 +191,7 @@ struct AllCardsView: View {
     @State private var built = false
     @State private var query = ""
     @AppStorage("library.allCards.sort") private var sort = "recent"
-    @AppStorage("library.allCards.grid") private var grid = false
+    @AppStorage("library.allCards.layout") private var layout = CardLayout.list.rawValue
     private var prices: PriceBook { PriceBook.shared }
 
     /// The most a single owned copy is worth (market price, USD).
@@ -226,11 +226,31 @@ struct AllCardsView: View {
         return [p, "\(g.printings) printing\(g.printings == 1 ? "" : "s")", g.type].compactMap { $0 }.joined(separator: " · ")
     }
 
+    /// Stacks follow the sort: one per set when sorted by set, otherwise runs of ten in sort order.
+    private func stacks(_ shown: [CardGroup]) -> [(id: String, title: String?, cards: [StackCard])] {
+        func card(_ g: CardGroup) -> StackCard {
+            StackCard(id: g.id, printing: g.cover, name: g.name, qty: g.qty) { if g.known { path.append(.card(g.id)) } }
+        }
+        if sort == "set" {
+            var out: [(id: String, title: String?, cards: [StackCard])] = []
+            for g in shown {
+                let key = g.cover?.set ?? ""
+                if out.last?.id == key { out[out.count - 1].cards.append(card(g)) }
+                else { out.append((key, g.cover.map { $0.set.uppercased() } ?? "Unknown set", [card(g)])) }
+            }
+            return out
+        }
+        return stride(from: 0, to: shown.count, by: 10).map { i in
+            let run = shown[i..<min(i + 10, shown.count)]
+            return ("\(sort)|\(i)", nil, run.map(card))
+        }
+    }
+
     var body: some View {
         T1Screen {
             Bar(title: "All cards", subtitle: col.summary.map { "\($0.totalQty.formatted()) cards" }, back: { dismiss() }) {
                 HStack(spacing: 20) {
-                    BarButton(grid ? "List" : "Grid") { grid.toggle() }
+                    BarButton("View") { CardLayout.menu($layout, screen: "all_cards") }
                 }
             }
             if let error = col.error { Notice(error, error: true) }
@@ -243,7 +263,11 @@ struct AllCardsView: View {
                 }
                 let shown = shown
                 if shown.isEmpty && !groups.isEmpty { ListRow(title: "No matches", detail: "Nothing in your collection by that name or type") }
-                if grid {
+                if layout == CardLayout.stacks.rawValue {
+                    GeometryReader { geo in
+                        ScrollView { StackRows(stacks: stacks(shown), width: ((geo.size.width - 1) / 2).rounded(.down)) }
+                    }
+                } else if layout == CardLayout.grid.rawValue {
                     CardGrid(items: shown) { g, width in
                         Button { if g.known { path.append(.card(g.id)) } } label: {
                             CardTile(printing: g.cover, name: g.name, qty: g.qty, width: width)

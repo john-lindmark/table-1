@@ -44,7 +44,7 @@ ios_unit() {
   return "${PIPESTATUS[0]}"
 }
 android_unit() { (cd apps/android && JAVA_HOME=$JAVA_HOME_17 ./gradlew -q testDebugUnitTest -i) | grep -E "perf android|FAILED|BUILD"; return "${PIPESTATUS[0]}"; }
-web_perf()   { (cd table-1-events-web && T1_PERF=1 npx vitest run src/lib/tournament.perf.test.ts) && tools/test/web-bundle.sh; }
+web_perf()   { (cd table-1-events-web && T1_PERF=1 npx vitest run src/lib/tournament.perf.test.ts src/lib/roto.perf.test.ts) && tools/test/web-bundle.sh; }
 db_perf()    { T1_PERF=1 supabase/tests/run.sh perf_; }
 
 fast() { run "web types + unit" web_unit; run "rules parity" parity; run "engine (deno)" engine; run "database" database; }

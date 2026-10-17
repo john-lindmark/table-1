@@ -5,13 +5,15 @@ import { detailsFromEvent, detailsToInput, type DetailsState } from "../../lib/o
 import type { Table1Event } from "../../lib/types";
 import { Field, Notice, Row, Segmented, Stepper } from "../../components/kit";
 import { FormatPicker, ProductPicker, RoundTimerSwitch, cubeUrlProblem } from "../../components/EventFormFields";
+import { RotoPairingFields, RotoSetupFields } from "../roto/lazy";
 
 const DEBOUNCE_MS = 600;
 
 /** What we refuse to send at all (the server's 22023 messages cover the rest). */
 function localProblem(s: DetailsState): string | null {
   if (!s.autoName && !s.name.trim()) return "Name the event (up to 80 characters)";
-  if (typeOfFormat(s.formatName) === "limited" && s.product === "cube") return cubeUrlProblem(s.cubeUrl);
+  if (s.formatName === "roto" && !s.cubeName.trim()) return "Name the cube, or choose one of your Library cubes";
+  if (typeOfFormat(s.formatName) === "limited" && (s.product === "cube" || s.formatName === "roto")) return cubeUrlProblem(s.cubeUrl);
   return null;
 }
 
@@ -19,7 +21,7 @@ function localProblem(s: DetailsState): string | null {
  * Setup → Details. Every change saves the full state with update_event_details: steppers and pickers at once,
  * text 600 ms after typing stops (or on blur). Saves run one after another so the last one wins.
  */
-export function DetailsForm({ event, onSaved }: { event: Table1Event; onSaved: () => void }) {
+export function DetailsForm({ event, onSaved, players = 0 }: { event: Table1Event; onSaved: () => void; players?: number }) {
   const [state, setState] = useState<DetailsState>(() => detailsFromEvent(event));
   const [error, setError] = useState<string | null>(null);
 
@@ -74,6 +76,13 @@ export function DetailsForm({ event, onSaved }: { event: Table1Event; onSaved: (
     if (timer.current != null) save();
   }
 
+  // Roto: roto_set_cube renames the event's cube; take it in without saving it back.
+  useEffect(() => {
+    if (event.formatName !== "roto" || !event.cubeName || event.cubeName === latest.current.cubeName) return;
+    latest.current = { ...latest.current, cubeName: event.cubeName, cubeUrl: event.cubeUrl ?? "" };
+    setState(latest.current);
+  }, [event.formatName, event.cubeName, event.cubeUrl]);
+
   // Leaving the tab with a pending edit still saves it.
   const saveRef = useRef(save);
   saveRef.current = save;
@@ -86,6 +95,7 @@ export function DetailsForm({ event, onSaved }: { event: Table1Event; onSaved: (
 
   const limited = typeOfFormat(state.formatName) === "limited";
   const team = isTeamFormat(state.formatName);
+  const roto = state.formatName === "roto";
 
   return (
     <>
@@ -101,8 +111,12 @@ export function DetailsForm({ event, onSaved }: { event: Table1Event; onSaved: (
         onFormatOther={(v) => commit({ formatOther: v }, false)}
         onCommit={flush}
       />
-      {limited && (
+      {roto && event.formatName === "roto" ? (
+        // The pool is one of your Library cubes (roto_set_cube), not a typed name.
+        <RotoSetupFields event={event} players={players} onChanged={onSaved} />
+      ) : limited && (
         <ProductPicker
+          cubeOnly={roto}
           product={state.product}
           onProduct={(p) => commit({ product: p }, true)}
           set={state.set}
@@ -127,7 +141,10 @@ export function DetailsForm({ event, onSaved }: { event: Table1Event; onSaved: (
           ]}
         />
       )}
-      <Stepper label="Rounds" value={state.rounds} onChange={(n) => commit({ rounds: n }, true)} min={1} max={15} />
+      {roto && <RotoPairingFields pairing={state.pairing} onPairing={(p) => commit({ pairing: p }, true)} players={players} />}
+      {!(roto && state.pairing === "round_robin") && (
+        <Stepper label="Rounds" value={state.rounds} onChange={(n) => commit({ rounds: n }, true)} min={1} max={15} />
+      )}
       <RoundTimerSwitch on={state.showClock} onChange={(on) => commit({ showClock: on }, true)} />
       {error && <Notice tone="error">{error}</Notice>}
       <Notice tone="info">Details lock when round 1 is paired. Changes save as you make them.</Notice>

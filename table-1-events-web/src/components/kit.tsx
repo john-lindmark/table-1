@@ -467,6 +467,38 @@ export function Modal({
   );
 }
 
+export interface MenuItem {
+  title: string;
+  detail?: string;
+  checked?: boolean;
+  onClick: () => void;
+}
+
+/** The T1 menu (iOS T1MenuPanel): hairline rows rising from the bottom over a scrim, then Cancel. The item's
+ *  action runs after the menu closes. */
+export function Menu({ title, items, onClose }: { title?: string; items: MenuItem[]; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative bg-t1-bg pt-px flex flex-col gap-px w-full max-w-[480px] mx-auto">
+        {title && <div className="bg-t1-surface px-4 py-3 t1-label">{title}</div>}
+        {items.map((it) => (
+          <button key={it.title} type="button" role="menuitemradio" aria-checked={!!it.checked}
+                  onClick={() => { onClose(); it.onClick(); }}
+                  className="bg-t1-surface hover:bg-t1-surface-hover px-4 py-4 flex items-center gap-3 text-left w-full">
+            <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+              <span className="text-[15px] truncate">{it.title}</span>
+              {it.detail && <span className="t1-label truncate">{it.detail}</span>}
+            </span>
+            {it.checked && <span className="t1-label !text-t1-accent">Selected</span>}
+          </button>
+        ))}
+        <button type="button" onClick={onClose} className="bg-t1-surface-hover py-[18px] t1-label !text-t1-text">Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 /**
  * The T1 alert dialog (the web's stand-in for a native alert): title, message, optional body
  * (e.g. a reason field), a cancel button and one action. Never use window.confirm/alert.
@@ -530,7 +562,8 @@ export function Section({ title, count, right }: { title: string; count?: number
 
 /**
  * A list row: title, optional detail line, and a value on the right. With `onClick` the whole row is
- * tappable; with `action` a separate button sits at the right edge instead of the value.
+ * tappable; with `action` a separate button sits at the right edge instead of the value. `avatar` sits left of the
+ * title.
  */
 export function Row({
   title,
@@ -540,6 +573,7 @@ export function Row({
   action,
   dim,
   accentValue,
+  avatar,
 }: {
   title: ReactNode;
   detail?: ReactNode;
@@ -548,9 +582,12 @@ export function Row({
   action?: { label: string; onClick: () => void; disabled?: boolean };
   dim?: boolean;
   accentValue?: boolean;
+  /** A player's tile left of the name. */
+  avatar?: ReactNode;
 }) {
   const body = (
     <>
+      {avatar}
       <span className={`flex-1 min-w-0 flex flex-col gap-0.5 ${dim ? "opacity-60" : ""}`}>
         <span className="text-[13px] truncate">{title}</span>
         {detail && <span className="t1-label truncate">{detail}</span>}

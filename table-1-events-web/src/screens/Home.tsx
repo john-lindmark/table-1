@@ -16,6 +16,8 @@ import type { DraftableSet, FormatName, HomeData, HomeEvent, HomeInvite, LiveSna
 import { JoinByCode } from "../components/JoinByCode";
 import { Landing } from "./Landing";
 import { FormatPicker, PlayersEditor, ProductPicker, RoundTimerSwitch, cubeUrlProblem } from "../components/EventFormFields";
+import { defaultPairing } from "../lib/rotoMath";
+import { RotoPairingFields, linkRotoCube } from "./roto/lazy";
 import { claimAutoOpen, useTrackerMode } from "../lib/settings";
 import { eventNamePreview, isTeamFormat, typeOfFormat } from "../lib/formats";
 import {
@@ -449,6 +451,11 @@ export function NewEvent({
   const [guests, setGuests] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Roto only: prefilled from the player count (round robin for 2–8, Swiss for 9+) until changed by hand.
+  const [pairing, setPairing] = useState<"swiss" | "round_robin" | null>(null);
+  const roto = format === "roto";
+  const playerCount = guests.length + (includeMe ? 1 : 0);
+  const shownPairing = pairing ?? defaultPairing(playerCount);
 
   useEffect(() => {
     let live = true;
@@ -460,14 +467,15 @@ export function NewEvent({
 
   const limited = typeOfFormat(format) === "limited";
   const team = isTeamFormat(format);
-  const productName = !limited ? null : product === "cube" ? cubeName.trim() || null : set?.name ?? (setNameText.trim() || null);
+  const cubeProduct = product === "cube" || roto;
+  const productName = !limited ? null : cubeProduct ? cubeName.trim() || null : set?.name ?? (setNameText.trim() || null);
   const preview = eventNamePreview(format, { other: formatOther, product: productName });
 
-  const cubeUrlBad = limited && product === "cube" && !!cubeUrlProblem(cubeUrl);
+  const cubeUrlBad = limited && cubeProduct && !!cubeUrlProblem(cubeUrl);
   const problem =
     format === "other_constructed" && !formatOther.trim()
       ? "Name the format"
-      : limited && product === "cube" && !cubeName.trim()
+      : limited && cubeProduct && !cubeName.trim()
         ? "Name the cube"
         : cubeUrlBad
           ? "Paste a Cube Cobra link"
@@ -482,15 +490,18 @@ export function NewEvent({
         formatName: format,
         rounds,
         showClock,
-        setCode: limited && product === "set" ? set?.code ?? null : null,
-        setName: limited && product === "set" ? set?.name ?? (setNameText.trim() || null) : null,
-        cubeName: limited && product === "cube" ? cubeName.trim().slice(0, 80) : null,
-        cubeUrl: limited && product === "cube" && cubeUrl.trim() ? cubeUrl.trim() : null,
+        setCode: limited && !cubeProduct ? set?.code ?? null : null,
+        setName: limited && !cubeProduct ? set?.name ?? (setNameText.trim() || null) : null,
+        cubeName: limited && cubeProduct ? cubeName.trim().slice(0, 80) : null,
+        cubeUrl: limited && cubeProduct && cubeUrl.trim() ? cubeUrl.trim() : null,
         teamSize: team ? teamSize : null,
         formatOther: format === "other_constructed" ? formatOther.trim().slice(0, 40) : null,
         playerNames: guests,
         includeMe,
+        pairing: roto ? shownPairing : null,
       });
+      // Roto: the pool comes from a Library cube. Use the one with this name, or import the Cube Cobra link.
+      if (roto) void linkRotoCube(eventId, cubeName, cubeUrl);
       onCreated(eventId);
     } catch (e) {
       setError(errorMessage(e));
@@ -524,7 +535,14 @@ export function NewEvent({
             onCubeName={setCubeName}
             cubeUrl={cubeUrl}
             onCubeUrl={setCubeUrl}
+            cubeOnly={roto}
           />
+        )}
+        {roto && (
+          <Notice tone="info">
+            Roto: every card face up, players take turns picking any card, snake order. The pool is one of your Library
+            cubes; a Cube Cobra link is imported into your Library. You can change it in Setup → Details.
+          </Notice>
         )}
 
         {team && (
@@ -539,7 +557,10 @@ export function NewEvent({
           />
         )}
 
-        <Stepper label="Rounds" value={rounds} onChange={setRounds} min={1} max={15} />
+        {!(roto && shownPairing === "round_robin") && (
+          <Stepper label="Rounds" value={rounds} onChange={setRounds} min={1} max={15} />
+        )}
+        {roto && <RotoPairingFields pairing={shownPairing} onPairing={setPairing} players={playerCount} />}
         <RoundTimerSwitch on={showClock} onChange={setShowClock} />
         <PlayersEditor includeMe={includeMe} onIncludeMe={setIncludeMe} myName={myName} guests={guests} onGuests={setGuests} />
         {error && <Notice tone="error">{error}</Notice>}

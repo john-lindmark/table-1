@@ -1,5 +1,6 @@
 import AuthenticationServices
 import SwiftUI
+import UIKit
 
 /// The Account tab: lifetime record, head-to-head, settings, and the account itself.
 struct AccountView: View {
@@ -18,6 +19,7 @@ struct AccountView: View {
     @State private var isDemoTester = false
     @State private var error: String?
     @State private var notice: String?
+    @State private var avatarBusy = false
 
     var body: some View {
         let r = overview?.record ?? AccountOverview.Record()
@@ -29,6 +31,7 @@ struct AccountView: View {
                 if let notice { Notice(notice) }
 
                 VStack(spacing: 6) {
+                    avatarButton.padding(.bottom, 18)
                     LabelText("Lifetime record")
                     Text(recordText(r.matchWins, r.matchLosses, r.matchDraws))
                         .font(T1.mono(48)).tracking(4).foregroundStyle(T1.accent)
@@ -43,7 +46,8 @@ struct AccountView: View {
                     Notice("Play a match to start your head-to-head.")
                 }
                 ForEach(showAllRivals ? rivals : Array(rivals.prefix(8))) { rival in
-                    ListRow(title: rival.name, detail: "\(rival.played) match\(rival.played == 1 ? "" : "es") · games \(rival.gameWins)-\(rival.gameLosses)") {
+                    ListRow(title: rival.name, detail: "\(rival.played) match\(rival.played == 1 ? "" : "es") · games \(rival.gameWins)-\(rival.gameLosses)",
+                            avatar: AvatarView(name: rival.name, userId: rival.opponentId)) {
                         Text(recordText(rival.matchWins, rival.matchLosses, rival.matchDraws)).font(T1.mono(16))
                     }
                 }
@@ -101,6 +105,70 @@ struct AccountView: View {
         } message: {
             Text("Your sign-in, name and devices are removed. Results you played stay in their events as \"Deleted player\". This can't be undone."
                  + (SignIn.isAppleUser ? " You'll confirm with Apple once more." : ""))
+        }
+    }
+
+    /// Your tile; tap to take or pick a photo, or go back to initials.
+    private var avatarButton: some View {
+        let uid = Repo.userId
+        return Button { avatarMenu() } label: {
+            VStack(spacing: 8) {
+                AvatarView(name: overview?.profile?.displayName ?? "", userId: uid, size: 64)
+                if avatarBusy { LabelText("Saving…") }
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(avatarBusy || overview?.profile == nil)
+        .accessibilityLabel("Profile photo")
+    }
+
+    @MainActor
+    private func avatarMenu() {
+        var items: [T1MenuItem] = []
+        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+            items.append(T1MenuItem(title: "Take a photo") { pickAvatar(camera: true) })
+        }
+        items.append(T1MenuItem(title: "Choose from photos") { pickAvatar(camera: false) })
+        if let uid = Repo.userId, AvatarStore.shared.path(uid) != nil {
+            items.append(T1MenuItem(title: "Remove photo") { removeAvatar() })
+        }
+        T1Overlays.shared.showMenu("Profile photo", items)
+    }
+
+    @MainActor
+    private func pickAvatar(camera: Bool) {
+        T1Overlays.shared.present(full: true) {
+            ImagePicker(camera: camera) { image in
+                T1Overlays.shared.dismissPanel()
+                guard let image else { return }
+                guard let jpeg = image.avatarJPEG() else { error = "Couldn't read that photo."; return }
+                avatarBusy = true
+                Task { @MainActor in
+                    defer { avatarBusy = false }
+                    do {
+                        try await Repo.setAvatar(jpeg)
+                        error = nil
+                        Telemetry.capture("avatar_photo_set", ["source": camera ? "camera" : "library"])
+                    } catch {
+                        self.error = "Couldn't save the photo: \(error.localizedDescription)"
+                    }
+                }
+            }
+            .ignoresSafeArea()
+        }
+    }
+
+    private func removeAvatar() {
+        avatarBusy = true
+        Task { @MainActor in
+            defer { avatarBusy = false }
+            do {
+                try await Repo.clearAvatar()
+                error = nil
+                Telemetry.capture("avatar_photo_removed")
+            } catch {
+                self.error = error.localizedDescription
+            }
         }
     }
 

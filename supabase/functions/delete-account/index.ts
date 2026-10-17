@@ -96,6 +96,10 @@ Deno.serve(async (req) => {
     // Live Activity / widget push tokens go with the account.
     await admin.from("live_activity_tokens").delete().eq("user_id", user.id);
 
+    // Avatar photos are public, so they go too.
+    const { data: avatars } = await admin.storage.from("avatars").list(user.id, { limit: 100 });
+    if (avatars?.length) await admin.storage.from("avatars").remove(avatars.map((f) => `${user.id}/${f.name}`));
+
     const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);
     if (deleteError) throw deleteError;
 

@@ -8,6 +8,7 @@ import io.github.jan.supabase.functions.Functions
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.realtime.Realtime
 import io.github.jan.supabase.serializer.KotlinXSerializer
+import io.github.jan.supabase.storage.Storage
 import kotlinx.serialization.json.Json
 
 /** One Supabase client for the whole app; the session persists across launches. */
@@ -41,6 +42,7 @@ class T1App : Application() {
                 install(Postgrest)
                 install(Realtime)
                 install(Functions)
+                install(Storage)
             }
         }
     }

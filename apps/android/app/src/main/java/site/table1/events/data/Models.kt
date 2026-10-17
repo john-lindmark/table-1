@@ -568,6 +568,8 @@ data class EventBundle(
     fun name(participantId: String?): String =
         participants.firstOrNull { it.id == participantId }?.displayName ?: "—"
     fun teamName(teamId: String?): String? = teams.firstOrNull { it.id == teamId }?.name
+    /** participant id → account id (guests have none), for avatars. */
+    val userIds: Map<String, String> get() = participants.mapNotNull { p -> p.userId?.let { p.id to it } }.toMap()
 }
 
 /** One parsed QR join link: https://table-1.site/j/<code>?s=<secret> */

@@ -112,6 +112,7 @@ enum SignIn {
         Telemetry.capture("signed_out", ["reason": reason])
         Telemetry.reset()
         await LiveActivityController.shared.didSignOut()
+        await PushController.shared.didSignOut()
         try? await supabase.auth.signOut()
         GIDSignIn.sharedInstance.signOut()
     }
@@ -152,6 +153,7 @@ enum SignIn {
         Telemetry.reset()
         UserDefaults.standard.removeObject(forKey: appleUserKey)
         await LiveActivityController.shared.didSignOut()
+        await PushController.shared.didSignOut()
         try? await supabase.auth.signOut(scope: .local)
         GIDSignIn.sharedInstance.signOut()
     }

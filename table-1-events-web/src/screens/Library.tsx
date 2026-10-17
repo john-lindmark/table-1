@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Bar, Field, GhostAction, Notice, Row, Screen, Section, Segmented, TopNav } from "../components/kit";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Bar, Field, GhostAction, Menu, Notice, Row, Screen, Section, Segmented, TopNav } from "../components/kit";
+import { capture } from "../lib/telemetry";
+import { LAYOUTS, parseLayout, runStacks, type CardLayout } from "../lib/cardLayout";
 import { SignInButtons } from "../components/SignInButtons";
 import { errorMessage } from "../lib/api";
 import {
@@ -67,11 +69,48 @@ export function Back({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function BarToggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+const LAYOUT_TITLE: Record<CardLayout, string> = { list: "List", grid: "Grid", stacks: "Stacks" };
+
+/** The layout saved for a screen family. `legacyGridKey` is the old List/Grid flag, read once so a saved grid stays. */
+export function useStoredLayout(key: string, legacyGridKey: string): [CardLayout, (v: CardLayout) => void] {
+  const [v, setV] = useState<CardLayout>(() => {
+    try {
+      return parseLayout(localStorage.getItem(key), localStorage.getItem(legacyGridKey));
+    } catch {
+      return "list";
+    }
+  });
+  const set = (next: CardLayout) => {
+    setV(next);
+    try {
+      localStorage.setItem(key, next);
+    } catch {
+      /* storage blocked: keep it for this visit */
+    }
+  };
+  return [v, set];
+}
+
+/** The bar's "View" button: a menu of the three layouts, the current one marked. */
+export function ViewButton({ layout, onChange, screen }: {
+  layout: CardLayout; onChange: (v: CardLayout) => void; screen: "all_cards" | "deck" | "cube";
+}) {
+  const [open, setOpen] = useState(false);
   return (
-    <button type="button" onClick={() => onChange(!on)} className="t1-label hover:text-t1-text px-2 py-1 -my-1">
-      {on ? "List" : "Grid"}
-    </button>
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="t1-label hover:text-t1-text px-2 py-1 -my-1">View</button>
+      {open && (
+        <Menu title="View" onClose={() => setOpen(false)} items={LAYOUTS.map((l) => ({
+          title: LAYOUT_TITLE[l],
+          checked: l === layout,
+          onClick: () => {
+            if (l === layout) return;
+            onChange(l);
+            capture("card_layout_changed", { layout: l, screen });
+          },
+        }))} />
+      )}
+    </>
   );
 }
 
@@ -171,23 +210,79 @@ function VirtualGrid<T>({ items, cell }: { items: T[]; cell: (item: T, width: nu
   );
 }
 
-export function useStoredFlag(key: string): [boolean, (v: boolean) => void] {
-  const [v, setV] = useState(() => {
-    try {
-      return localStorage.getItem(key) === "1";
-    } catch {
-      return false;
-    }
-  });
-  const set = (next: boolean) => {
-    setV(next);
-    try {
-      localStorage.setItem(key, next ? "1" : "0");
-    } catch {
-      /* storage blocked: keep it for this visit */
-    }
-  };
-  return [v, set];
+/** One card in a stack. Only its top `STACK_PEEK` shows unless it's the last card. */
+export interface StackCardItem {
+  key: string;
+  p: number | null;
+  name: string;
+  qty: number;
+  warn?: boolean;
+  onClick: () => void;
+}
+export interface StackItem { key: string; title?: string; cards: StackCardItem[] }
+
+/** The share of a card's height left showing: the whole title bar (name and mana cost) on every modern frame. */
+export const STACK_PEEK = 0.118;
+
+/** Cards laid over each other, each showing just its title bar; the last shows in full. Later cards draw on
+ *  top, so a click on a strip lands on that card. */
+export function CardStack({ c, title, cards, width }: { c: Catalog; title?: string; cards: StackCardItem[]; width: number }) {
+  const height = Math.round(width / ASPECT);
+  const strip = Math.round(height * STACK_PEEK);
+  return (
+    <div className="flex flex-col" style={{ width }}>
+      {title && <div className="t1-label truncate px-1 py-2">{title}</div>}
+      {cards.map((x, i) => (
+        <button key={x.key} type="button" onClick={x.onClick} aria-label={`${x.name}, ${x.qty}`}
+                className="relative block text-left" style={{ width, height, marginTop: i === 0 ? 0 : strip - height }}>
+          <CardArt c={c} p={x.p} width={width} alt="" />
+          {(x.p == null || c.pFaces[x.p] === 0) && (
+            <span className="absolute left-0 right-0 top-0 px-2 flex items-center text-[12px] truncate border-t border-t1-surface"
+                  style={{ height: strip }}>{x.name}</span>
+          )}
+          {/* The count sits on the frame's left edge, clear of the name, and only when it says something. */}
+          {(x.qty > 1 || x.warn) && (
+            <span className="absolute left-0 top-0 flex items-center" style={{ height: strip }}>
+              <span className={`px-1 text-[11px] leading-[14px] tabular-nums ${x.warn ? "bg-t1-error text-t1-bg" : "bg-t1-bg text-t1-text"}`}>
+                {x.qty}
+              </span>
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Stack width for a box: two to a row on a phone, more columns on wide screens. */
+export function stackColumns(boxWidth: number) {
+  const cols = Math.max(2, Math.floor(boxWidth / 220));
+  return { cols, width: Math.floor((boxWidth - (cols - 1)) / cols) };
+}
+
+/** Stacks in rows, filling the width. */
+export function StackRows({ c, stacks, boxWidth }: { c: Catalog; stacks: StackItem[]; boxWidth: number }) {
+  const { cols, width } = stackColumns(boxWidth);
+  return (
+    <div className="grid items-start gap-x-px gap-y-4 pb-4" style={{ gridTemplateColumns: `repeat(${cols}, ${width}px)` }}>
+      {stacks.map((s) => <CardStack key={s.key} c={c} title={s.title} cards={s.cards} width={width} />)}
+    </div>
+  );
+}
+
+/** Tracks an element's inner width (pass the callback as its ref), for layouts that size cards to it. */
+export function useBoxWidth(): [(el: HTMLElement | null) => void, number] {
+  const [w, setW] = useState(390);
+  const ro = useRef<ResizeObserver | null>(null);
+  const ref = useCallback((el: HTMLElement | null) => {
+    ro.current?.disconnect();
+    ro.current = null;
+    if (!el) return;
+    setW(el.clientWidth);
+    ro.current = new ResizeObserver(() => setW(el.clientWidth));
+    ro.current.observe(el);
+  }, []);
+  return [ref, w];
 }
 
 /* ── home ─────────────────────────────────────────────────────────────── */
@@ -336,7 +431,8 @@ export function AllCards({ onBack, onOpen, onAdd }: { onBack: () => void; onOpen
       /* storage blocked */
     }
   };
-  const [grid, setGrid] = useStoredFlag("table1.library.allCards.grid");
+  const [layout, setLayout] = useStoredLayout("table1.library.allCards.layout", "table1.library.allCards.grid");
+  const [stackBox, stackWidth] = useBoxWidth();
 
   const groups = useMemo(() => (catalog ? groupItems(col.items, catalog) : []), [catalog, col.version]);
   const ids = useMemo(() => [...new Set([...col.items.values()].map((it) => it.cardId))], [col.version]);
@@ -375,12 +471,22 @@ export function AllCards({ onBack, onOpen, onAdd }: { onBack: () => void; onOpen
     return [price, `${g.printings} printing${g.printings === 1 ? "" : "s"}`, g.type].filter(Boolean).join(" · ");
   };
 
+  /** Stacks follow the sort: one per set when sorted by set, otherwise runs of ten in sort order. */
+  const stacks = useMemo(() => {
+    if (!catalog || layout !== "stacks") return [];
+    const card = (g: Group): StackCardItem => ({ key: g.key, p: g.cover, name: g.name, qty: g.qty, onClick: () => g.oracle >= 0 && onOpen(g.key) });
+    const setOf = (g: Group) => (g.cover == null ? "" : catalog.pSet[g.cover]);
+    const out: StackItem[] = runStacks(shown, sort === "set", setOf, `${sort}|`).map((r) => ({ key: r.key, title: r.title, cards: r.items.map(card) }));
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown, catalog, layout, sort]);
+
   if (!ready) return <Screen><div className="flex-1" /></Screen>;
   if (!session) return <SignedOut title="All cards" />;
   return (
     <LibScreen>
       <Bar title="All cards" subtitle={col.summary ? `${col.summary.total_qty.toLocaleString()} cards` : undefined}
-           onBack={onBack} right={<BarToggle on={grid} onChange={setGrid} />} />
+           onBack={onBack} right={<ViewButton layout={layout} onChange={setLayout} screen="all_cards" />} />
       {(error || col.error) && <Notice tone="error">{error ?? col.error}</Notice>}
       <Field label="Search your cards" value={q} onChange={setQ} placeholder="Name or type" />
       <Segmented options={[{ value: "recent", label: "Recent" }, { value: "price", label: "Price" }, { value: "set", label: "Set" }]}
@@ -392,7 +498,11 @@ export function AllCards({ onBack, onOpen, onAdd }: { onBack: () => void; onOpen
       {catalog && groups.length > 0 && shown.length === 0 && (
         <Row title="No matches" detail="Nothing in your collection by that name or type" />
       )}
-      {catalog && shown.length > 0 && (grid ? (
+      {catalog && shown.length > 0 && (layout === "stacks" ? (
+        <div ref={stackBox} className="flex-1 min-h-0 overflow-y-auto">
+          <StackRows c={catalog} stacks={stacks} boxWidth={stackWidth} />
+        </div>
+      ) : layout === "grid" ? (
         <VirtualGrid items={shown} cell={(g, w) => (
           <CardTile c={catalog} p={g.cover} name={g.name} qty={g.qty} width={w} onClick={() => g.oracle >= 0 && onOpen(g.key)} />
         )} />

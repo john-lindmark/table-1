@@ -206,9 +206,15 @@ fun Field(label: String, value: String, onChange: (String) -> Unit, number: Bool
     }
 }
 
-/** A tappable list row with a title, a quiet line and optional trailing content. */
+/** A tappable list row with a title, a quiet line and optional trailing content; `avatar` is a player's tile left of the name. */
 @Composable
-fun ListRow(title: String, detail: String? = null, onClick: (() -> Unit)? = null, trailing: @Composable RowScope.() -> Unit = {}) {
+fun ListRow(
+    title: String,
+    detail: String? = null,
+    onClick: (() -> Unit)? = null,
+    avatar: (@Composable () -> Unit)? = null,
+    trailing: @Composable RowScope.() -> Unit = {},
+) {
     Row(
         modifier = Modifier.fillMaxWidth().background(T1.surface)
             .let { if (onClick != null) it.clickable(onClick = onClick) else it }
@@ -216,6 +222,7 @@ fun ListRow(title: String, detail: String? = null, onClick: (() -> Unit)? = null
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        avatar?.invoke()
         Column(Modifier.weight(1f)) {
             Text(title, color = T1.text, fontFamily = T1.mono, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (detail != null) Label(detail)

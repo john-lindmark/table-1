@@ -45,6 +45,7 @@ import site.table1.events.data.TeamMember
 import site.table1.events.data.TeamStanding
 import site.table1.events.data.slotLetter
 import site.table1.events.tracker.TrackerSettings
+import site.table1.events.ui.components.Avatar
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.BarAction
 import site.table1.events.ui.components.Ghost
@@ -469,7 +470,7 @@ private fun PlayerView(b: EventBundle, standings: StandingsResponse, onBack: () 
                 teamStandingItems(teams, highlightMember = me?.id)
             }
             item { Section(if (standings.teams.isNullOrEmpty()) "Standings" else "Players") }
-            items(standings.standings, key = { it.participantId }) { s -> StandingLine(s, highlight = s.participantId == me?.id, team = tags[s.participantId]) }
+            items(standings.standings, key = { it.participantId }) { s -> StandingLine(s, highlight = s.participantId == me?.id, team = tags[s.participantId], userId = b.userIds[s.participantId]) }
         }
     }
 }
@@ -488,6 +489,8 @@ internal fun StandingsList(
     teams: List<TeamStanding>?,
     tags: Map<String, String>,
     highlight: String?,
+    /** participant id → account id, for avatars. */
+    userIds: Map<String, String> = emptyMap(),
     header: LazyListScope.() -> Unit = {},
     footer: LazyListScope.() -> Unit = {},
 ) {
@@ -498,7 +501,9 @@ internal fun StandingsList(
             teamStandingItems(teams, highlightMember = highlight)
             if (standings.isNotEmpty()) item { Section("Players") }
         }
-        items(standings, key = { it.participantId }) { StandingLine(it, it.participantId == highlight, tags[it.participantId]) }
+        items(standings, key = { it.participantId }) {
+            StandingLine(it, it.participantId == highlight, tags[it.participantId], userIds[it.participantId])
+        }
         footer()
     }
 }
@@ -537,13 +542,14 @@ internal fun LazyListScope.teamStandingItems(teams: List<TeamStanding>, highligh
 }
 
 @Composable
-internal fun StandingLine(s: Standing, highlight: Boolean, team: String? = null) {
+internal fun StandingLine(s: Standing, highlight: Boolean, team: String? = null, userId: String? = null) {
     Row(
         Modifier.fillMaxWidth().background(if (highlight) T1.surfaceHover else T1.surface).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Label("${s.rank}")
+        Avatar(s.displayName, userId)
         Text(s.displayName, Modifier.weight(1f), color = if (s.status == "dropped") T1.muted else T1.text, fontFamily = T1.mono, fontSize = 14.sp)
         team?.let { Label(it) }
         Text(record(s.matchWins, s.matchLosses, s.matchDraws), color = T1.text, fontFamily = T1.mono, fontSize = 14.sp)

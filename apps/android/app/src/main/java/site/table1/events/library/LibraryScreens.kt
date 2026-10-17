@@ -5,6 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -195,7 +198,8 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
     // 0 recent, 1 price, 2 set
     var sort by remember { mutableStateOf(prefs.getInt("allCards.sort", 0)) }
     val pricesVersion by PriceBook.version.collectAsState()
-    var grid by remember { mutableStateOf(prefs.getBoolean("allCards.grid", false)) }
+    val layout = rememberCardLayout("allCards.layout", "allCards.grid")
+    var viewMenu by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { CatalogStore.load(userInitiated = true) }
     LaunchedEffect(col.version, cat.generation) {
         val db = CatalogStore.db ?: return@LaunchedEffect
@@ -224,7 +228,7 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
     }
     T1Screen {
         Bar("All cards", subtitle = col.summary?.let { "${count(it.totalQty)} cards" }, onBack = onBack) {
-            BarAction(if (grid) "List" else "Grid") { grid = !grid; prefs.edit().putBoolean("allCards.grid", grid).apply() }
+            BarAction("View") { viewMenu = true }
         }
         col.error?.let { Notice(it, error = true) }
         CatalogStatus(cat)
@@ -236,7 +240,18 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
         if (cat.phase == "ready" && g != null) {
             if (g.isEmpty() && col.ready) ListRow("No cards yet", "Add your first card", onClick = onAdd)
             if (g.isNotEmpty() && shown.isEmpty()) ListRow("No matches", "Nothing in your collection by that name or type")
-            if (grid) {
+            if (layout.value == CardLayout.Stacks) {
+                // Stacks follow the sort: one per set when sorted by set, otherwise runs of ten in sort order.
+                val stacks = remember(shown, sort) {
+                    runStacks(shown, sort == 2, { it.cover?.set ?: "" }, "$sort|").map { (key, title, run) ->
+                        CardStackSpec(key, title, run.map { g -> StackCard(g.id, g.cover, g.name, g.qty) { if (g.known) onOpen(g.id) } })
+                    }
+                }
+                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                    val (cols, width) = stackColumns(maxWidth)
+                    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 1.dp)) { stackRows("all", stacks, cols, width) }
+                }
+            } else if (layout.value == CardLayout.Grid) {
                 CardGrid(Modifier.weight(1f)) { tile ->
                     gridItems(shown, key = { it.id }) { row ->
                         CardTile(row.cover, row.qty, tile, onClick = { if (row.known) onOpen(row.id) })
@@ -256,6 +271,7 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
             Filler()
         }
     }
+    if (viewMenu) CardLayoutMenu(layout, "all_cards") { viewMenu = false }
 }
 
 /* ── add (search) ─────────────────────────────────────────────────────── */

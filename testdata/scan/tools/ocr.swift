@@ -8,6 +8,8 @@
 //   title     the card's title bar read on its own, then `multi`: the card rectangle (VNDetectRectanglesRequest),
 //             deskewed, its top 14% left of the mana cost cropped, upscaled 2x and read like `multi`. When no
 //             card-shaped rectangle is found it is `multi` as is.
+//   inCard    the lines of `accurate` inside the card the scanner finds (the largest upright card-shaped rectangle,
+//             grown 10%), as CardTextScanner reads since 2026-10-16; no key when no card is found. inCardMulti: `multi`.
 // The unit tests on iOS and Android run the matcher over these lines, so OCR runs once here, not in the tests.
 //
 // With `motion`, it writes testdata/scan/motion.json instead: for each photo, a 2.4 s clip of 12 frames (one every
@@ -88,6 +90,48 @@ func titleBar(_ card: CIImage) -> CGImage? {
 func readTitle(_ image: CGImage) throws -> [String] {
     guard let c = try card(image), let bar = titleBar(c) else { return [] }
     return try read(bar, level: .accurate, detectLanguage: true)
+}
+
+// MARK: card gate
+
+/// The card CardTextScanner finds: the largest upright card-shaped rectangle, grown 10% from its centre.
+func cardQuad(_ image: CGImage) throws -> [CGPoint]? {
+    let r = VNDetectRectanglesRequest()
+    r.minimumAspectRatio = 0.6
+    r.maximumAspectRatio = 0.85
+    r.minimumSize = 0.2
+    r.maximumObservations = 4
+    r.quadratureTolerance = 20
+    r.minimumConfidence = 0.6
+    try VNImageRequestHandler(cgImage: image).perform([r])
+    let w = CGFloat(image.width), h = CGFloat(image.height)
+    func len(_ a: CGPoint, _ b: CGPoint) -> CGFloat { hypot((a.x - b.x) * w, (a.y - b.y) * h) }
+    guard let o = (r.results ?? []).filter({ len($0.topLeft, $0.bottomLeft) > len($0.topLeft, $0.topRight) })
+        .max(by: { $0.boundingBox.width * $0.boundingBox.height < $1.boundingBox.width * $1.boundingBox.height })
+    else { return nil }
+    let q = [o.topLeft, o.topRight, o.bottomRight, o.bottomLeft]
+    let c = CGPoint(x: q.map(\.x).reduce(0, +) / 4, y: q.map(\.y).reduce(0, +) / 4)
+    return q.map { CGPoint(x: c.x + ($0.x - c.x) * 1.1, y: c.y + ($0.y - c.y) * 1.1) }
+}
+
+func inside(_ p: CGPoint, _ q: [CGPoint]) -> Bool {
+    var sign: CGFloat = 0
+    for i in 0..<4 {
+        let a = q[i], b = q[(i + 1) % 4]
+        let cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)
+        if sign == 0 { sign = cross } else if sign * cross < 0 { return false }
+    }
+    return true
+}
+
+func readInside(_ image: CGImage, _ q: [CGPoint], detectLanguage: Bool) throws -> [String] {
+    let request = VNRecognizeTextRequest()
+    request.recognitionLevel = .accurate
+    request.usesLanguageCorrection = true
+    request.automaticallyDetectsLanguage = detectLanguage
+    try VNImageRequestHandler(cgImage: image).perform([request])
+    return (request.results ?? []).filter { inside(CGPoint(x: $0.boundingBox.midX, y: $0.boundingBox.midY), q) }
+        .sorted { $0.boundingBox.maxY > $1.boundingBox.maxY }.compactMap { $0.topCandidates(1).first?.string }
 }
 
 // MARK: movement
@@ -210,6 +254,10 @@ for row in rows {
         "multi": multi,
         "title": try readTitle(image) + multi,
     ]
+    if let q = try cardQuad(image) {
+        out[file]?["inCard"] = try readInside(image, q, detectLanguage: false)
+        out[file]?["inCardMulti"] = try readInside(image, q, detectLanguage: true)
+    }
     FileHandle.standardError.write("\(file): \(out[file]!["accurate"]!.first ?? "-")\n".data(using: .utf8)!)
 }
 let enc = JSONEncoder()

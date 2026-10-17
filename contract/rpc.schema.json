@@ -571,6 +571,13 @@
           },
           "p_app_version": {
             "type": "string"
+          },
+          "p_env": {
+            "enum": [
+              "development",
+              "production"
+            ],
+            "description": "APNs environment of the token (Debug builds: development). Default production."
           }
         },
         "required": [
@@ -1665,7 +1672,8 @@
               0,
               1,
               null
-            ]
+            ],
+            "description": "0/1 for a player; 0 for the organizer when keeper; null = watching (read-only)."
           },
           "names": {
             "type": "array",
@@ -1783,6 +1791,10 @@
                 }
               }
             }
+          },
+          "keeper": {
+            "type": "boolean",
+            "description": "Organizer keeping score for a match with no accounts (guests only): my_side is 0 and the result is reported with set_match_result."
           }
         }
       }
@@ -3521,6 +3533,658 @@
         "format": "uuid"
       }
     },
+    "unregister_device": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_push_token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "p_push_token"
+        ]
+      },
+      "result": {
+        "type": "null"
+      },
+      "description": "Sign-out: the token stops reaching this account."
+    },
+    "set_seat_ends": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_on": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "p_event_id",
+          "p_on"
+        ]
+      },
+      "result": {
+        "type": "null"
+      },
+      "description": "Organizer. Draft seating drawn with players at both ends of the table (events.seat_ends). Drawing only; seats and pairings don't change. Audited."
+    },
+    "redraft_list": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_event_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "total_usd": {
+            "type": "number"
+          },
+          "cards": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "card_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "finish": {
+                  "enum": [
+                    "nonfoil",
+                    "foil",
+                    "etched"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "set": {
+                  "type": "string"
+                },
+                "cn": {
+                  "type": "string"
+                },
+                "image_ts": {
+                  "type": "integer"
+                },
+                "image_faces": {
+                  "type": "integer"
+                },
+                "usd": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "added_by": {
+                  "type": "string"
+                },
+                "mine": {
+                  "type": "boolean"
+                },
+                "added_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            },
+            "description": "Most valuable first (TCGplayer market for the finish), no price last, then name."
+          }
+        }
+      },
+      "description": "Anyone in the event (organizer or seated account)."
+    },
+    "redraft_add": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_cards": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "type": "object",
+              "properties": {
+                "card_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "finish": {
+                  "enum": [
+                    "nonfoil",
+                    "foil",
+                    "etched"
+                  ]
+                }
+              },
+              "required": [
+                "card_id"
+              ]
+            }
+          }
+        },
+        "required": [
+          "p_event_id",
+          "p_cards"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "total_usd": {
+            "type": "number"
+          },
+          "cards": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "card_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "finish": {
+                  "enum": [
+                    "nonfoil",
+                    "foil",
+                    "etched"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "set": {
+                  "type": "string"
+                },
+                "cn": {
+                  "type": "string"
+                },
+                "image_ts": {
+                  "type": "integer"
+                },
+                "image_faces": {
+                  "type": "integer"
+                },
+                "usd": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "added_by": {
+                  "type": "string"
+                },
+                "mine": {
+                  "type": "boolean"
+                },
+                "added_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            },
+            "description": "Most valuable first (TCGplayer market for the finish), no price last, then name."
+          }
+        }
+      },
+      "description": "Set drafts only (not cubes), once the event is completed or archived. Audited."
+    },
+    "redraft_remove": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "total_usd": {
+            "type": "number"
+          },
+          "cards": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "card_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "finish": {
+                  "enum": [
+                    "nonfoil",
+                    "foil",
+                    "etched"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "set": {
+                  "type": "string"
+                },
+                "cn": {
+                  "type": "string"
+                },
+                "image_ts": {
+                  "type": "integer"
+                },
+                "image_faces": {
+                  "type": "integer"
+                },
+                "usd": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "added_by": {
+                  "type": "string"
+                },
+                "mine": {
+                  "type": "boolean"
+                },
+                "added_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            },
+            "description": "Most valuable first (TCGplayer market for the finish), no price last, then name."
+          }
+        }
+      },
+      "description": "Anyone in the event. Audited."
+    },
+    "deck_photos": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_event_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "shared": {
+            "type": "boolean",
+            "description": "Event is over: everyone in it sees all photos."
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "participant_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "player": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string",
+                  "description": "deck-photos bucket: <event_id>/<id>.jpg; read with a signed URL."
+                },
+                "note": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "mine": {
+                  "type": "boolean"
+                },
+                "editable": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      "description": "Own photos always; the organizer sees all; everyone in the event sees all once it is completed or archived."
+    },
+    "deck_photo_add": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_participant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "p_id",
+          "p_event_id",
+          "p_participant_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "shared": {
+            "type": "boolean",
+            "description": "Event is over: everyone in it sees all photos."
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "participant_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "player": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string",
+                  "description": "deck-photos bucket: <event_id>/<id>.jpg; read with a signed URL."
+                },
+                "note": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "mine": {
+                  "type": "boolean"
+                },
+                "editable": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      "description": "Upload the JPEG (≤10 MB) to deck-photos/<event_id>/<p_id>.jpg first. Players add their own; the organizer adds for anyone (guests too). Audited."
+    },
+    "deck_photo_note": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "p_id",
+          "p_note"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "shared": {
+            "type": "boolean",
+            "description": "Event is over: everyone in it sees all photos."
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "participant_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "player": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string",
+                  "description": "deck-photos bucket: <event_id>/<id>.jpg; read with a signed URL."
+                },
+                "note": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "mine": {
+                  "type": "boolean"
+                },
+                "editable": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      "description": "The player or whoever took it. Audited."
+    },
+    "deck_photo_delete": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "shared": {
+            "type": "boolean",
+            "description": "Event is over: everyone in it sees all photos."
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "participant_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "player": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string",
+                  "description": "deck-photos bucket: <event_id>/<id>.jpg; read with a signed URL."
+                },
+                "note": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "mine": {
+                  "type": "boolean"
+                },
+                "editable": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      "description": "The player or whoever took it. The uploader's app also removes the file. Audited."
+    },
+    "avatar_set": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_path": {
+            "type": "string",
+            "description": "<user_id>/<random>.jpg, already uploaded to the avatars bucket."
+          }
+        },
+        "required": [
+          "p_path"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "avatars bucket path <user_id>/<random>.jpg, or null."
+          },
+          "previous": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The old path; the client removes that file."
+          }
+        }
+      },
+      "description": "Sets your avatar photo (contract/avatars-2026-10-16.md)."
+    },
+    "avatar_clear": {
+      "params": {
+        "type": "object",
+        "properties": {}
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "avatars bucket path <user_id>/<random>.jpg, or null."
+          },
+          "previous": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The old path; the client removes that file."
+          }
+        }
+      },
+      "description": "Back to initials."
+    },
     "roto_state": {
       "note": "Players and organizers of the event (42501 otherwise). The one read for a roto: config, seats in pick order, who is on the clock, picks after p_after_pick, the pool (first load), and the caller's list. Unix seconds throughout. Epoch fields null until set.",
       "params": {
@@ -5109,6 +5773,9 @@
           ]
         }
       }
+    },
+    "notify-worker": {
+      "note": "Database-only (x-t1-secret). Drains the pgmq notify queue into APNs alerts; kicked on enqueue and every minute by cron t1-notify-sweep. Payload: aps alert + {kind, event_id, match_id}. Kinds: event.new (organizer's regulars, 90 days), event.nearby, event.invite, event.cancelled, round.paired, result.reported, result.disputed, result.changed. Android (FCM) not yet."
     }
   },
   "realtime": {
@@ -5121,7 +5788,8 @@
     "user_settings": "own row: user_id, tracker_mode ('elsewhere'|'tracker'). Upsert on user_id.",
     "event_teams": "public read: id, event_id, display_order, name, active",
     "participants": "new: team_id, team_slot",
-    "events": "new: format_name, format_label, event_type, team_size, set_code, set_name, cube_name, cube_url, format_other; pairing (swiss|round_robin; round_robin only for format_name roto)",
+    "events": "new: format_name, format_label, event_type, team_size, set_code, set_name, cube_name, cube_url, format_other; seat_ends (boolean, draft seating drawing); pairing (swiss|round_robin; round_robin only for format_name roto)",
+    "profiles": "public read: id, display_name, handle, avatar_url (avatars bucket path or null; set only via avatar_set/avatar_clear)",
     "card_lists": "event_id (uuid, nullable): set on a roto's linked deck; lists_changes/list_* answers carry event_id and event_name. Event decks never count Missing."
   }
 }

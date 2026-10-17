@@ -75,7 +75,8 @@ struct RotoPickOrderTab: View {
                 Section1("Pick order · snake: 1 → \(seated.count), then back")
                 ForEach(seated) { p in
                     ListRow(title: p.userId == Repo.userId && p.userId != nil ? "You · \(p.displayName)" : p.displayName,
-                            detail: p.userId == nil ? "Guest · picks once they claim their seat" : nil) {
+                            detail: p.userId == nil ? "Guest · picks once they claim their seat" : nil,
+                            avatar: AvatarView(name: p.displayName, userId: p.userId)) {
                         Text("\(p.seat ?? 0)").font(T1.mono(17)).monospacedDigit()
                     }
                 }

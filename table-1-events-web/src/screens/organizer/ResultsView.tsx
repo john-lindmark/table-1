@@ -5,6 +5,7 @@ import { toTeams } from "../../lib/useEventExtras";
 import type { Match } from "../../lib/types";
 import { Notice, Row, Section, WinnerCard } from "../../components/kit";
 import { StandingsBlock, type PhaseViewProps } from "./shared";
+import { Avatar } from "../../components/Avatar";
 
 const wld = (w: number, l: number, d: number) => (d > 0 ? `${w}-${l}-${d}` : `${w}-${l}`);
 
@@ -72,6 +73,7 @@ export function ResultsView(props: PhaseViewProps) {
               <Row
                 key={s.participantId}
                 title={s.displayName}
+                avatar={<Avatar name={s.displayName} userId={p?.userId} />}
                 detail={p?.status === "dropped" ? `Dropped after round ${p.droppedInRound ?? lastRoundNumber(rounds)}` : undefined}
                 value={`${recordLabel(s)} · ${s.matchPoints} pts`}
               />

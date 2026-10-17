@@ -129,6 +129,45 @@ final class CardMatcherTests: XCTestCase {
         XCTAssertEqual(results["multi"]!.wrong, 0, "a wrong card from a steady photo read as the scanner reads")
     }
 
+    /// The card gate (2026-10-16): with a card found in the frame (`inCard`: a card-shaped rectangle, upright), only
+    /// the text inside it is read, so text beside it can't name a card; with none found, the whole frame is read but
+    /// a card is taken only when the lines have a type line or a set code and number that agree with the name. A
+    /// keyboard's "command" / "option" keys matched Opt (its French name is Option) before this.
+    func testCardGate() throws {
+        let ocr = try JSONDecoder().decode([String: [String: [String]]].self, from: Data(contentsOf: root.appending(path: "ocr.json")))
+        let cases = try photos()
+        var report = ["Card gate (\(cases.count)):"]
+        var found = 0
+        var tallies: [String: (all: Tally, english: Tally)] = [:]
+        func gated(_ lines: [String], onCard: Bool) -> (oracle: CatalogOracle, printing: CatalogPrinting, exact: Bool)? {
+            guard let m = matcher().match(lines) else { return nil }
+            return onCard || m.exact || CardMatcher.hasTypeLine(lines) ? m : nil
+        }
+        for c in cases {
+            if ocr[c.id]?["inCard"] != nil { found += 1 }
+            for (mode, inCard, frame) in [("accurate", "inCard", "accurate"), ("multi", "inCardMulti", "multi")] {
+                let card = ocr[c.id]?[inCard]
+                guard let lines = card ?? ocr[c.id]?[frame] else { continue }
+                let m = gated(lines, onCard: card != nil)
+                if let got = m?.oracle, got.idx != Self.expectedIdx[CardName.norm(c.name)] { report.append("    WRONG \(mode) \(c.id): \(got.name)") }
+                var t = tallies[mode] ?? (Tally(), Tally())
+                grade(c, m?.oracle, m?.printing, exact: m?.exact ?? false, into: &t.all)
+                if !c.tags.contains("lang") { grade(c, m?.oracle, m?.printing, exact: m?.exact ?? false, into: &t.english) }
+                tallies[mode] = t
+            }
+        }
+        report.append("  card found in \(found)/\(cases.count)")
+        for (mode, t) in tallies.sorted(by: { $0.key < $1.key }) { report += ["  \(mode): \(t.all.line)", "    English: \(t.english.line)"] }
+        print(report.joined(separator: "\n"))
+        for (mode, t) in tallies { XCTAssertEqual(t.all.wrong, 0, "a wrong card through the gate (\(mode))") }
+        let english = tallies["accurate"]!.english
+        XCTAssertGreaterThanOrEqual(Double(english.name) / Double(english.n), 0.94)
+        // No card in view: the keys of a MacBook keyboard, as a phone read them (scan report, 2026-10-15).
+        XCTAssertNotNil(matcher().match(["command", "option"]), "the matcher alone names Opt")
+        XCTAssertNil(gated(["command", "option"], onCard: false))
+        XCTAssertNil(gated(["/", "command", "option"], onCard: false))
+    }
+
     /// Cards printed in other languages, read two ways: `accurate` is OCR in the phone's language (Cyrillic comes
     /// through, Chinese, Japanese and Korean don't), `multi` is OCR that detects the language, as the scanner reads
     /// since 2026-10-16. Names in other languages come from the catalog pack's N lines.

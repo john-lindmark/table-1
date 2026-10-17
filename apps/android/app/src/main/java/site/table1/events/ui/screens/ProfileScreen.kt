@@ -1,14 +1,22 @@
 package site.table1.events.ui.screens
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.core.content.FileProvider
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
@@ -26,12 +34,21 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import site.table1.events.auth.SignIn
 import site.table1.events.data.AccountOverview
 import site.table1.events.data.Repo
 import site.table1.events.tracker.TrackerSettings
+import site.table1.events.ui.components.Avatar
+import site.table1.events.ui.components.AvatarStore
 import site.table1.events.ui.components.Bar
+import site.table1.events.ui.components.T1Menu
+import site.table1.events.ui.components.T1MenuItem
+import site.table1.events.ui.components.avatarJpeg
+import site.table1.events.util.Telemetry
+import java.io.File
 import site.table1.events.ui.components.BarAction
 import site.table1.events.ui.components.BigNumber
 import site.table1.events.ui.components.Ghost
@@ -60,6 +77,46 @@ fun AccountScreen(foregrounds: Int) {
     var confirmDelete by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var avatarMenu by remember { mutableStateOf(false) }
+    var avatarBusy by remember { mutableStateOf(false) }
+
+    // Account photo: the camera writes into cache through a FileProvider (full size, not the thumbnail), the
+    // library comes from the system photo picker; either is cropped to a 512 px JPEG before upload.
+    fun saveAvatar(uri: Uri, source: String) {
+        avatarBusy = true
+        scope.launch {
+            try {
+                val jpeg = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }?.let(::avatarJpeg)
+                }
+                if (jpeg == null) {
+                    error = "Couldn't read that photo."
+                } else {
+                    AvatarStore.upload(jpeg)
+                    error = null
+                    Telemetry.capture("avatar_photo_set", mapOf("source" to source))
+                }
+            } catch (e: Exception) {
+                error = "Couldn't save the photo: ${e.message}"
+            } finally {
+                avatarBusy = false
+            }
+        }
+    }
+    val cameraUri = remember {
+        val file = File(context.cacheDir, "avatar/camera.jpg").apply { parentFile?.mkdirs() }
+        FileProvider.getUriForFile(context, "${context.packageName}.avatars", file)
+    }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+        if (ok) saveAvatar(cameraUri, "camera")
+    }
+    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) camera.launch(cameraUri) else error = "Allow camera access in Android settings to take a photo."
+    }
+    val library = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let { saveAvatar(it, "library") }
+    }
+    val hasCamera = remember { context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY) }
 
     suspend fun load() {
         runCatching { Repo.accountOverview() }.onSuccess { overview = it; error = null }.onFailure { error = it.message }
@@ -75,6 +132,25 @@ fun AccountScreen(foregrounds: Int) {
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             error?.let { item { Notice(it, error = true) } }
             item {
+                // Your tile; tap to take or pick a photo, or go back to initials.
+                val uid = Repo.userId
+                Column(
+                    Modifier.fillMaxWidth().background(T1.surface).padding(top = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Column(
+                        Modifier.clickable(enabled = !avatarBusy && overview?.profile != null, onClickLabel = "Profile photo") {
+                            avatarMenu = true
+                        },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Avatar(overview?.profile?.displayName ?: "", uid, size = 64)
+                    }
+                    if (avatarBusy) Label("Saving…")
+                }
+            }
+            item {
                 BigNumber(
                     record(r?.matchWins ?: 0, r?.matchLosses ?: 0, r?.matchDraws ?: 0),
                     "${r?.matches ?: 0} matches · ${r?.eventsPlayed ?: 0} events · games ${record(r?.gameWins ?: 0, r?.gameLosses ?: 0, r?.gameDraws ?: 0)}" +
@@ -86,7 +162,8 @@ fun AccountScreen(foregrounds: Int) {
                 overview == null -> item { Notice("Loading…") }
                 rivals.isEmpty() -> item { Notice("Play a match to start your head-to-head.") }
                 else -> items(if (showAll) rivals else rivals.take(8), key = { it.opponentId }) { rival ->
-                    ListRow(rival.name, "${rival.played} match${if (rival.played == 1) "" else "es"} · games ${rival.gameWins}-${rival.gameLosses}") {
+                    ListRow(rival.name, "${rival.played} match${if (rival.played == 1) "" else "es"} · games ${rival.gameWins}-${rival.gameLosses}",
+                        avatar = { Avatar(rival.name, rival.opponentId) }) {
                         Text(record(rival.matchWins, rival.matchLosses, rival.matchDraws), color = T1.text, fontFamily = T1.mono, fontSize = 16.sp)
                     }
                 }
@@ -147,6 +224,32 @@ fun AccountScreen(foregrounds: Int) {
                 }
             }
         }
+    }
+
+    if (avatarMenu) {
+        val uid = Repo.userId
+        T1Menu(
+            "Profile photo",
+            listOfNotNull(
+                if (hasCamera) T1MenuItem("Take a photo") {
+                    if (context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) camera.launch(cameraUri)
+                    else cameraPermission.launch(Manifest.permission.CAMERA)
+                } else null,
+                T1MenuItem("Choose from photos") {
+                    library.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                },
+                if (uid != null && AvatarStore.path(uid) != null) T1MenuItem("Remove photo") {
+                    avatarBusy = true
+                    scope.launch {
+                        runCatching { AvatarStore.clear() }
+                            .onSuccess { error = null; Telemetry.capture("avatar_photo_removed") }
+                            .onFailure { error = it.message }
+                        avatarBusy = false
+                    }
+                } else null,
+            ),
+            onDismiss = { avatarMenu = false },
+        )
     }
 
     editingName?.let { draft ->

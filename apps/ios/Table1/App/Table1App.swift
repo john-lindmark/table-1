@@ -56,6 +56,7 @@ struct Table1App: App {
                     if let url = activity.webpageURL { session.openWebLink(url) }
                 }
                 .task { await session.watchAuth() }
+                .task { PushController.shared.openEvent = { session.pendingEvent = $0 } }
                 // Apple ID access can be withdrawn from Settings at any time.
                 .onChange(of: phase) { before, now in
                     if now == .active {
@@ -82,13 +83,21 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        PushController.shared.start()
         return true
+    }
+
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        PushController.shared.didRegister(deviceToken)
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async
         -> UNNotificationPresentationOptions { [.banner, .list, .sound] }
 
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {}
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        let info = response.notification.request.content.userInfo
+        await MainActor.run { PushController.shared.didTap(info) }
+    }
 }
 
 /// Signed in or not, plus a QR join that arrived before sign-in finished.
@@ -137,15 +146,17 @@ final class SessionModel {
             if let id = session?.user.id.uuidString.lowercased() { Telemetry.identify(id) }
             if session != nil, event == .initialSession || event == .signedIn {
                 Task { await LiveActivityController.shared.didSignIn() }
+                Task { await PushController.shared.didSignIn() }
                 Task { await loadSettings() }
             }
         }
     }
 
-    func openTracker(matchId: String?) {
+    /// `source`: where it was opened from (home_life, organizer_match, event, …), for telemetry.
+    func openTracker(matchId: String?, source: String = "event") {
         T1Overlays.shared.dismissAll()
         tracker = TrackerLaunch(matchId: matchId)
-        Telemetry.capture("life_tracker_opened", ["mode": matchId == nil ? "local" : "match"])
+        Telemetry.capture("life_tracker_opened", ["mode": matchId == nil ? "local" : "match", "source": source])
     }
 
     func loadSettings() async {
@@ -201,6 +212,8 @@ enum Route: Hashable {
     case nearby
     case scan
     case addPlayers(String)
+    case redraft(String)
+    case deckPhotos(String)
 }
 
 enum Tab: Hashable { case events, collection, account }
@@ -235,6 +248,8 @@ struct SignedInView: View {
                             case .nearby: NearbyView(path: $path).screen("nearby")
                             case .scan: ScanView { link in join(link, via: "qr") }.screen("scan_qr")
                             case .addPlayers(let id): AddPlayersView(eventId: id).screen("add_players")
+                            case .redraft(let id): RedraftView(eventId: id).screen("redraft")
+                            case .deckPhotos(let id): DeckPhotosView(eventId: id).screen("deck_photos")
                             }
                         }
                 }

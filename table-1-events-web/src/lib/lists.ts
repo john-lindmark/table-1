@@ -34,6 +34,9 @@ export interface CardList {
   name: string;
   format: string;
   versions: Version[]; // oldest first, never empty
+  /** A roto deck linked to its event: filled by the draft from the cube, so it never counts Missing. */
+  eventId?: string | null;
+  eventName?: string | null;
 }
 
 export interface Change {
@@ -80,6 +83,7 @@ export const ownKey = (cardId: string, finish: ListFinish = "nonfoil") => `${car
 
 /** Copies a list still needs: covered only by the printing and finish it names; Considering never counts. */
 export function missingIn(l: CardList, owned: Map<string, number>): number {
+  if (l.eventId) return 0; // a roto deck's cards come from the cube, never from your collection
   const need = new Map<string, number>();
   for (const e of entriesOf(l)) if (e.board !== "maybe") need.set(ownKey(e.cardId, finishOf(e)), (need.get(ownKey(e.cardId, finishOf(e))) ?? 0) + e.qty);
   let n = 0;
@@ -95,6 +99,8 @@ interface ListWire {
   kind?: ListKind;
   name?: string;
   format?: string;
+  event_id?: string | null;
+  event_name?: string | null;
   versions?: { version: number; note: string; at: number; entries: ([string, Board, number] | [string, Board, number, ListFinish])[] }[];
 }
 
@@ -102,6 +108,7 @@ export function fromWire(w: ListWire): CardList | null {
   if (w.deleted || !w.kind || !w.name || !w.versions?.length) return null;
   return {
     id: w.id, kind: w.kind, name: w.name, format: w.format ?? "",
+    ...(w.event_id ? { eventId: w.event_id, eventName: w.event_name ?? null } : {}),
     versions: w.versions.map((v) => ({
       number: v.version, at: v.at, note: v.note,
       entries: v.entries.map(([cardId, board, qty, finish]) => (finish && finish !== "nonfoil" ? { cardId, board, qty, finish } : { cardId, board, qty })),
@@ -353,6 +360,9 @@ export async function deleteList(id: string): Promise<void> {
   set({ lists: state.lists.filter((l) => l.id !== id) });
   await saveCache();
 }
+
+/** The lists held right now (outside React). */
+export const listsNow = (): CardList[] => state.lists;
 
 /** Deck or cube for a list this browser has loaded (telemetry's screen name). */
 export function listKindOf(id: string): ListKind | undefined {

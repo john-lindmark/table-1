@@ -76,6 +76,7 @@ export function ProductPicker({
   cubeUrl,
   onCubeUrl,
   onCommit,
+  cubeOnly,
 }: {
   product: "set" | "cube";
   onProduct: (p: "set" | "cube") => void;
@@ -88,7 +89,12 @@ export function ProductPicker({
   cubeUrl: string;
   onCubeUrl: (v: string) => void;
   onCommit?: () => void;
+  /** Roto: always a cube, so no Set / Cube choice. */
+  cubeOnly?: boolean;
 }) {
+  if (cubeOnly) {
+    return <CubeFields cubeName={cubeName} onCubeName={onCubeName} cubeUrl={cubeUrl} onCubeUrl={onCubeUrl} onCommit={onCommit} />;
+  }
   return (
     <>
       <Segmented

@@ -21,7 +21,7 @@ export function derivePhase(status: EventStatus, roundCount: number): Phase {
   return "live";
 }
 
-export type OrganizerTab = "players" | "seating" | "teams" | "details" | "round" | "standings" | "rounds";
+export type OrganizerTab = "players" | "seating" | "teams" | "details" | "round" | "schedule" | "standings" | "rounds";
 
 export const TAB_LABELS: Record<OrganizerTab, string> = {
   players: "Players",
@@ -29,16 +29,24 @@ export const TAB_LABELS: Record<OrganizerTab, string> = {
   teams: "Teams",
   details: "Details",
   round: "Round",
+  schedule: "Schedule",
   standings: "Standings",
   rounds: "Rounds",
 };
 
 /** The tabs of each phase, first tab first (it's where a phase change lands). */
-export function phaseTabs(phase: Phase, opts: { isTeam: boolean; isDraft: boolean }): OrganizerTab[] {
+export function phaseTabs(
+  phase: Phase,
+  opts: { isTeam: boolean; isDraft: boolean; isRoto?: boolean; roundRobin?: boolean },
+): OrganizerTab[] {
   if (phase === "setup") {
-    return ["players", ...(opts.isDraft ? (["seating"] as const) : []), ...(opts.isTeam ? (["teams"] as const) : []), "details"];
+    // Roto: Seating is the pick order list.
+    const seating = opts.isDraft || opts.isRoto;
+    return ["players", ...(seating ? (["seating"] as const) : []), ...(opts.isTeam ? (["teams"] as const) : []), "details"];
   }
-  if (phase === "live") return ["round", "standings", "players", ...(opts.isTeam ? (["teams"] as const) : [])];
+  if (phase === "live") {
+    return ["round", ...(opts.roundRobin ? (["schedule"] as const) : []), "standings", "players", ...(opts.isTeam ? (["teams"] as const) : [])];
+  }
   return ["standings", "rounds", "players"];
 }
 
@@ -325,6 +333,8 @@ export interface DetailsState {
   showClock: boolean;
   /** Older events keep a typed name; new ones are named by the server. */
   autoName: boolean;
+  /** Roto only. */
+  pairing: "swiss" | "round_robin";
 }
 
 export function detailsFromEvent(e: Table1Event): DetailsState {
@@ -343,14 +353,16 @@ export function detailsFromEvent(e: Table1Event): DetailsState {
     rounds: Math.min(15, Math.max(1, e.numberOfRounds)),
     showClock: e.showClock,
     autoName: e.autoName,
+    pairing: e.formatName === "roto" ? e.pairing : "round_robin",
   };
 }
 
 /** The full state update_event_details takes; only what applies to the format is sent. */
 export function detailsToInput(s: DetailsState): EventDetailsInput {
   const limited = typeOfFormat(s.formatName) === "limited";
-  const cube = limited && s.product === "cube" ? s.cubeName.trim().slice(0, 80) || null : null;
-  const set = limited && s.product === "set";
+  const roto = s.formatName === "roto";
+  const cube = limited && (s.product === "cube" || roto) ? s.cubeName.trim().slice(0, 80) || null : null;
+  const set = limited && s.product === "set" && !roto;
   return {
     name: s.autoName ? null : s.name.trim().slice(0, 80),
     formatName: s.formatName,
@@ -362,5 +374,6 @@ export function detailsToInput(s: DetailsState): EventDetailsInput {
     cubeUrl: cube && s.cubeUrl.trim() ? s.cubeUrl.trim() : null,
     teamSize: isTeamFormat(s.formatName) ? s.teamSize : null,
     formatOther: s.formatName === "other_constructed" ? s.formatOther.trim().slice(0, 40) || null : null,
+    pairing: roto ? s.pairing : undefined,
   };
 }

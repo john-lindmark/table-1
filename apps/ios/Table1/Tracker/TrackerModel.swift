@@ -176,6 +176,8 @@ struct TrackerState: Decodable {
     let eventId: String?
     let startingLife: Int?
     let mySide: Int?
+    /// The organizer keeping score for a match with no accounts (guests only); they report as organizer.
+    let keeper: Bool?
     let names: [String]?
     let eventName: String?
     let round: Int?
@@ -248,6 +250,7 @@ final class TrackerModel {
     var startingLife = 20
     /// Which side this phone plays. Local sessions: 0 ("You"). Organizer watching: nil (read-only).
     var mySide: Int? = 0
+    var keeper = false
     var names = ["You", "Opponent"]
     var games: [TrackerGame] = []
     var ops: [TrackerOp] = []
@@ -390,13 +393,35 @@ final class TrackerModel {
 
     // MARK: changes
 
-    /// One tap (or one hold-repeat step). Clamped to the counter's range.
-    func tap(side: Int, counter: TrackerCounter, delta: Int) {
-        guard !readOnly, case .ready = phase else { return }
+    /// One tap (or one hold-repeat step). Clamped to the counter's range. Returns the change's id (nil when
+    /// nothing changed) so a touch that turns into a swipe can take it back.
+    @discardableResult
+    func tap(side: Int, counter: TrackerCounter, delta: Int) -> String? {
+        guard !readOnly, case .ready = phase else { return nil }
         let current = total(side, counter)
         let next = min(max(current + delta, counter.range.lowerBound), counter.range.upperBound)
-        guard next != current else { return }
-        add(side: side, counter: counter, delta: next - current)
+        guard next != current else { return nil }
+        return add(side: side, counter: counter, delta: next - current).clientOpId
+    }
+
+    /// Takes back one tap: dropped outright while it hasn't left this phone, otherwise cancelled by an
+    /// inverse op stamped like it (the group nets to 0 and drops out of history, as with undo).
+    func retract(_ opId: String) {
+        guard let i = ops.lastIndex(where: { $0.clientOpId == opId }) else { return }
+        let op = ops[i]
+        if !isSynced {
+            ops.remove(at: i)
+            saveLocal()
+        } else if !pushing, let q = queue.firstIndex(where: { $0.clientOpId == opId }) {
+            queue.remove(at: q)
+            ops.remove(at: i)
+            saveQueue()
+        } else if let kind = op.kind {
+            let stamp = ChangeGroup(id: op.clientOpId, game: op.gameNo, side: op.side, counter: kind, delta: op.delta,
+                                    result: 0, start: op.at, end: op.at, lastTappedAt: op.tappedAt,
+                                    opIds: [op.clientOpId], mine: op.mine)
+            add(side: op.side, counter: kind, delta: -op.delta, stampedLike: stamp)
+        }
     }
 
     @discardableResult
@@ -474,6 +499,10 @@ final class TrackerModel {
     /// Reports the tracked match through the usual report_match path (side-oriented scores).
     func report() async throws {
         guard let matchId, let side = mySide else { return }
+        if keeper {
+            try await Repo.setMatchResult(matchId, side0: wins(0), side1: wins(1), draws: draws, reason: "Life tracker")
+            return
+        }
         try await LiveAPI.report(matchId: matchId, mySide: side, my: wins(side), their: wins(1 - side),
                                  draws: draws, version: nil)
     }
@@ -536,6 +565,7 @@ final class TrackerModel {
         }
         startingLife = state.startingLife ?? 20
         mySide = state.mySide
+        keeper = state.keeper ?? false
         if let n = state.names, n.count == 2 { names = n }
         eventName = state.eventName
         round = state.round

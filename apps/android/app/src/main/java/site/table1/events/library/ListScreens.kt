@@ -4,10 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -32,7 +34,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import site.table1.events.T1App
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.BarAction
 import site.table1.events.ui.components.BigAction
@@ -245,8 +246,8 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     val owned = ownedByPrinting()
     val meta = rememberMeta(list?.entries?.map { it.cardId }?.toSet() ?: emptySet())
     val scope = rememberCoroutineScope()
-    val prefs = remember { T1App.instance.getSharedPreferences("library", android.content.Context.MODE_PRIVATE) }
-    var grid by remember { mutableStateOf(prefs.getBoolean("list.grid", false)) }
+    val layout = rememberCardLayout("list.layout", "list.grid")
+    var viewMenu by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     var moving by remember { mutableStateOf<ListLine?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -295,10 +296,30 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     T1Screen {
         Bar(list.name, subtitle = "${CatalogPack.formatName(list.format)} ${list.kind.wire} · v${list.current.number}", onBack = onBack) {
             BarAction(if (editing) "Done" else "Edit") { editing = !editing }
-            if (!editing) BarAction(if (grid) "List" else "Grid") { grid = !grid; prefs.edit().putBoolean("list.grid", grid).apply() }
+            if (!editing) BarAction("View") { viewMenu = true }
         }
         s.error?.let { Notice(it, error = true) }
-        if (grid && !editing) {
+        if (layout.value == CardLayout.Stacks && !editing) {
+            // Stacks keep the organization too: section header, then a stack per type (decks) or color (cubes).
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                val (cols, width) = stackColumns(maxWidth)
+                LazyColumn(Modifier.fillMaxSize()) {
+                    item(key = "top") { top() }
+                    for (board in list.boards) {
+                        val inBoard = rows.filter { it.board == board }
+                        item(key = "b-$board") { Box(Modifier.padding(top = 1.dp)) { BoardHeader(list.boardTitle(board), inBoard.sumOf { it.qty }) } }
+                        val stacks = groups(inBoard, list.kind).map { g ->
+                            val inGroup = inBoard.filter { it.group == g }
+                            CardStackSpec(g, "$g · ${inGroup.sumOf { it.qty }}", inGroup.map { x ->
+                                StackCard(x.key, x.printing, x.name, x.qty,
+                                    warn = (board != "maybe" && (owned[x.ownKey] ?: 0) < x.qty) || issues.containsKey(x.oracleId ?: x.cardId)) { x.oracleId?.let(onCard) }
+                            })
+                        }
+                        stackRows("s-$board", stacks, cols, width)
+                    }
+                }
+            }
+        } else if (layout.value == CardLayout.Grid && !editing) {
             // The grid keeps the organization: section header, then type (decks) or color (cubes) headers.
             CardGrid(Modifier.weight(1f)) { tile ->
                 gridHeader("top") { top() }
@@ -368,6 +389,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
             },
         ), onDismiss = { confirmDelete = false })
     }
+    if (viewMenu) CardLayoutMenu(layout, if (list.kind == ListKind.Cube) "cube" else "deck") { viewMenu = false }
 }
 
 @Composable

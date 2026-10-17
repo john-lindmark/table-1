@@ -81,6 +81,7 @@ const toEvent = (r: any): Table1Event => ({
   updatedAt: r.updated_at ?? null,
   showClock: r.show_clock ?? true,
   autoName: r.auto_name ?? false,
+  pairing: r.pairing === "round_robin" ? "round_robin" : "swiss",
 });
 
 const toParticipant = (r: any): Participant => ({
@@ -579,6 +580,8 @@ export interface EventDetailsInput {
   cubeUrl: string | null;
   teamSize: number | null;
   formatOther: string | null;
+  /** Roto only (null keeps). */
+  pairing?: "swiss" | "round_robin" | null;
 }
 
 export interface EventDetailsResult {
@@ -614,6 +617,7 @@ export async function updateEventDetails(eventId: string, input: EventDetailsInp
     p_cube_url: input.cubeUrl,
     p_team_size: input.teamSize,
     p_format_other: input.formatOther,
+    p_pairing: input.pairing ?? null,
   });
   if (error) throw error;
   return data as EventDetailsResult;
@@ -676,6 +680,8 @@ export interface CreateEventV2Input {
   playerNames: string[];
   /** Seat the organizer first (default on). */
   includeMe: boolean;
+  /** Roto only: swiss | round_robin. */
+  pairing?: "swiss" | "round_robin" | null;
 }
 
 /** The server names the event ("Draft · Duskmourn · Fri 17 Oct") using the device's date. */
@@ -693,6 +699,7 @@ export async function createEventV2(input: CreateEventV2Input): Promise<{ eventI
     p_include_me: input.includeMe,
     p_show_clock: input.showClock,
     p_local_date: localDate(),
+    p_pairing: input.pairing ?? null,
   });
   if (error) throw error;
   capture("event_created", {
@@ -703,6 +710,7 @@ export async function createEventV2(input: CreateEventV2Input): Promise<{ eventI
     team_size: input.teamSize ?? 0,
     organizer_plays: input.includeMe,
     guests: input.playerNames.length,
+    pairing: input.pairing ?? "swiss",
   });
   return { eventId: data.event_id, shortCode: data.short_code };
 }
@@ -820,12 +828,12 @@ async function invokeEngine<T>(body: Record<string, unknown>): Promise<T> {
 }
 
 /** Pairs (and opens) the next round on the server: Swiss, draft across-the-table, or team pairings. */
-export async function pairNextRound(eventId: string) {
+export async function pairNextRound(eventId: string, pairing: "swiss" | "round_robin" = "swiss") {
   const r = await invokeEngine<{ round_id: string; round_number: number; timer_ends_at: string }>({
     action: "pair_round",
     event_id: eventId,
   });
-  capture("round_paired", { round: r?.round_number ?? 0 });
+  capture("round_paired", { round: r?.round_number ?? 0, pairing });
   return r;
 }
 

@@ -267,6 +267,11 @@ final class CardMatcher: @unchecked Sendable {
         "플레인즈워커", "전설적", "소환", "전투", "동족", "부족",
     ].map(CardName.norm)
 
+    /// Whether the lines include a type line ("Instant", "Creature — Elf"): text from a card, not a keyboard or a list.
+    static func hasTypeLine(_ lines: [String]) -> Bool {
+        lines.contains { typeLine(CardName.norm($0).split(separator: " ")) }
+    }
+
     private static func typeLine(_ words: [Substring]) -> Bool {
         !typeWords.isDisjoint(with: words) || words.contains { w in cjkTypeWords.contains { w.contains($0) } }
     }

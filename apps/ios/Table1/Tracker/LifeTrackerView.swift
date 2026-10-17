@@ -248,9 +248,11 @@ struct LifeTrackerView: View {
 
     // MARK: actions
 
-    private func tap(_ side: Int, _ counter: TrackerCounter, _ delta: Int) {
-        model.tap(side: side, counter: counter, delta: delta)
-        haptic.impactOccurred()
+    /// Fires on touch-down; returns the change so a touch that turns into a swipe can take it back.
+    private func tap(_ side: Int, _ counter: TrackerCounter, _ delta: Int) -> String? {
+        let id = model.tap(side: side, counter: counter, delta: delta)
+        if id != nil { haptic.impactOccurred() }
+        return id
     }
 
     private func record(_ choice: WinnerChoice) {
@@ -291,7 +293,7 @@ private struct TrackerHalf: View {
     /// The opponent's half: their "down" is up on screen.
     let rotated: Bool
     @Binding var pickerOpen: Bool
-    let tap: (Int, TrackerCounter, Int) -> Void
+    let tap: (Int, TrackerCounter, Int) -> String?
 
     var body: some View {
         let counters = model.visibleCounters(side)
@@ -299,7 +301,8 @@ private struct TrackerHalf: View {
         let name = model.name(side)
         let life = model.total(side, .life)
         let lifeColumn = CounterColumn(value: life, label: nil, size: counters.isEmpty ? 162 : 120, lost: life <= 0,
-                                       rotated: rotated, enabled: enabled, name: "\(name) life") { tap(side, .life, $0) }
+                                       rotated: rotated, enabled: enabled, name: "\(name) life",
+                                       retract: { model.retract($0) }) { tap(side, .life, $0) }
         ZStack(alignment: rotated ? .bottom : .top) {
             HStack(spacing: 1) {
                 if !rotated { lifeColumn }
@@ -310,7 +313,8 @@ private struct TrackerHalf: View {
                             CounterColumn(value: value, label: counter.shortLabel,
                                           size: counters.count == 1 ? 80 : counters.count == 2 ? 64 : 44,
                                           lost: counter == .poison && value >= 10, rotated: rotated,
-                                          enabled: enabled, name: "\(name) \(counter.label)") { tap(side, counter, $0) }
+                                          enabled: enabled, name: "\(name) \(counter.label)",
+                                          retract: { model.retract($0) }) { tap(side, counter, $0) }
                         }
                     }
                 }
@@ -350,14 +354,15 @@ private struct CounterColumn: View {
     let rotated: Bool
     let enabled: Bool
     let name: String
-    let onDelta: (Int) -> Void
+    let retract: (String) -> Void
+    let onDelta: (Int) -> String?
 
     var body: some View {
         ZStack {
             // +1 on top in the player's orientation: on screen, the rotated half has −1 on top.
             VStack(spacing: 1) {
-                TapZone(enabled: enabled, label: "\(name) \(rotated ? "−1" : "+1")") { onDelta(rotated ? -1 : 1) }
-                TapZone(enabled: enabled, label: "\(name) \(rotated ? "+1" : "−1")") { onDelta(rotated ? 1 : -1) }
+                TapZone(enabled: enabled, label: "\(name) \(rotated ? "−1" : "+1")", retract: retract) { onDelta(rotated ? -1 : 1) }
+                TapZone(enabled: enabled, label: "\(name) \(rotated ? "+1" : "−1")", retract: retract) { onDelta(rotated ? 1 : -1) }
             }
             VStack(spacing: 8) {
                 Text("\(value)")
@@ -365,7 +370,7 @@ private struct CounterColumn: View {
                     .lineLimit(1).minimumScaleFactor(0.4)
                     .foregroundStyle(lost ? T1.error : T1.text)
                     .contentTransition(.numericText(value: Double(value)))
-                    .animation(.snappy(duration: 0.15), value: value)
+                    .animation(.snappy(duration: 0.1), value: value)
                 if let label { LabelText(label, color: T1.disabled) }
             }
             .padding(.horizontal, 4)
@@ -378,32 +383,33 @@ private struct CounterColumn: View {
     }
 }
 
-/// Increment Button. A tap fires on release so a swipe never changes a total; moving more than 10 pt
-/// cancels it. Holding fires after 0.5 s, then every 0.15 s. Pressed = surface.
+/// Increment Button. A tap fires on touch-down so the total moves the instant a finger lands; if the touch
+/// then travels more than 10 pt (a swipe, e.g. opening the counter picker) that change is taken back, so a
+/// swipe still never changes a total. Holding repeats after 0.4 s, then every 0.1 s. Pressed = surface, at once.
 private struct TapZone: View {
     let enabled: Bool
     let label: String
-    let fire: () -> Void
+    let retract: (String) -> Void
+    let fire: () -> String?
     /// The finger's travel while it's down; SwiftUI resets it however the touch ends (even when cancelled).
     @GestureState private var travel: CGFloat?
     @State private var cancelled = false
     @State private var held = false
     @State private var repeater: Task<Void, Never>?
+    /// The change this touch made on landing (taken back if the touch becomes a swipe).
+    @State private var landed: String?
 
     var body: some View {
         let pressed = travel != nil && !cancelled
         Rectangle()
             .fill(pressed ? T1.surface : T1.bg)
-            .animation(.easeOut(duration: 0.15), value: pressed)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .global)
                     .updating($travel) { value, state, _ in
                         state = hypot(value.translation.width, value.translation.height)
                     }
-                    .onEnded { _ in
-                        if enabled && !cancelled && !held { fire() }
-                    },
+                    .onEnded { _ in },
                 including: enabled ? .all : .subviews
             )
             .onChange(of: travel == nil) { _, up in
@@ -412,14 +418,16 @@ private struct TapZone: View {
                 repeater = nil
                 cancelled = false
                 held = false
-                guard !up else { return }
+                landed = nil
+                guard !up, enabled else { return }
+                landed = fire()
                 repeater = Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(500))
+                    try? await Task.sleep(for: .milliseconds(400))
                     guard !Task.isCancelled, !cancelled else { return }
                     held = true
                     while !Task.isCancelled {
-                        fire()
-                        try? await Task.sleep(for: .milliseconds(150))
+                        _ = fire()
+                        try? await Task.sleep(for: .milliseconds(100))
                     }
                 }
             }
@@ -428,12 +436,14 @@ private struct TapZone: View {
                 cancelled = true
                 repeater?.cancel()
                 repeater = nil
+                if let landed { retract(landed) }
+                landed = nil
             }
             .onDisappear { repeater?.cancel() }
             .accessibilityElement()
             .accessibilityLabel(label)
             .accessibilityAddTraits(.isButton)
-            .accessibilityAction { if enabled { fire() } }
+            .accessibilityAction { if enabled { _ = fire() } }
     }
 }
 
