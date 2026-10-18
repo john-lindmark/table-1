@@ -134,11 +134,16 @@ describe("screenName", () => {
     expect(screenName(`/library/list/${UUID}/printing`)).toBe("list_printing");
     expect(screenName(`/library/list/${UUID}/versions`)).toBe("list_versions");
     expect(screenName(`/library/list/${UUID}/v/2`)).toBe("list_versions");
+    expect(screenName(`/library/list/${UUID}/stats/hand`)).toBe("sample_hand");
+    expect(screenName(`/library/list/${UUID}/stats/odds`)).toBe("draw_odds");
+    expect(screenName(`/library/list/${UUID}/stats/pack`)).toBe("sample_pack");
   });
   it("names a list by its kind once it's known", () => {
     expect(screenName(`/library/list/${UUID}`, () => "cube")).toBe("cube");
     expect(screenName(`/library/list/${UUID}`, () => "deck")).toBe("deck");
     expect(screenName(`/library/list/${UUID}`)).toBeUndefined();
+    expect(screenName(`/library/list/${UUID}/stats`, () => "deck")).toBe("deck_stats");
+    expect(screenName(`/library/list/${UUID}/stats`, () => "cube")).toBe("cube_stats");
   });
   it("leaves unknown routes unnamed", () => {
     expect(screenName("/dev/events")).toBeUndefined();

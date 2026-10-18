@@ -46,6 +46,11 @@ const ListAddScreen = lazyNamed(lists, "ListAddScreen");
 const VersionsScreen = lazyNamed(lists, "VersionsScreen");
 const VersionScreen = lazyNamed(lists, "VersionScreen");
 const LinePrintingScreen = lazyNamed(lists, "LinePrintingScreen");
+const listStats = () => import("./screens/ListStats");
+const ListStatsScreen = lazyNamed(listStats, "ListStatsScreen");
+const SampleHandScreen = lazyNamed(listStats, "SampleHandScreen");
+const DrawOddsScreen = lazyNamed(listStats, "DrawOddsScreen");
+const SamplePackScreen = lazyNamed(listStats, "SamplePackScreen");
 const trades = () => import("./screens/Trades");
 const TradesScreen = lazyNamed(trades, "TradesScreen");
 const TradeScreen = lazyNamed(trades, "TradeScreen");
@@ -187,8 +192,27 @@ function ListRoute() {
     <ListScreen id={listId} onBack={back} onCard={(o) => navigate(`/library/card/${o}`)}
                 onAdd={() => navigate(`/library/list/${listId}/add`)} onVersions={() => navigate(`/library/list/${listId}/versions`)}
                 onOpen={(id) => navigate(`/library/list/${id}`)}
-                onPrinting={(card, board, finish) => navigate(`/library/list/${listId}/printing?card=${card}&board=${board}&finish=${finish}`)} />
+                onPrinting={(card, board, finish) => navigate(`/library/list/${listId}/printing?card=${card}&board=${board}&finish=${finish}`)}
+                onStats={() => navigate(`/library/list/${listId}/stats`)} />
   );
+}
+
+function ListStatsRoute() {
+  const { listId } = useParams();
+  const navigate = useNavigate();
+  const back = useBack(`/library/list/${listId}`);
+  if (!listId) return <Navigate to="/library" replace />;
+  const to = (page: string) => () => navigate(`/library/list/${listId}/stats/${page}`);
+  return <ListStatsScreen id={listId} onBack={back} onHand={to("hand")} onOdds={to("odds")} onPack={to("pack")} />;
+}
+
+function StatsToolRoute({ tool }: { tool: "hand" | "odds" | "pack" }) {
+  const { listId } = useParams();
+  const back = useBack(`/library/list/${listId}/stats`);
+  if (!listId) return <Navigate to="/library" replace />;
+  if (tool === "hand") return <SampleHandScreen id={listId} onBack={back} />;
+  if (tool === "odds") return <DrawOddsScreen id={listId} onBack={back} />;
+  return <SamplePackScreen id={listId} onBack={back} />;
 }
 
 function LinePrintingRoute() {
@@ -306,6 +330,10 @@ export default function App() {
         <Route path="/library/cubes" element={<ListsRoute kind="cube" />} />
         <Route path="/library/list/:listId" element={<ListRoute />} />
         <Route path="/library/list/:listId/add" element={<ListAddRoute />} />
+        <Route path="/library/list/:listId/stats" element={<ListStatsRoute />} />
+        <Route path="/library/list/:listId/stats/hand" element={<StatsToolRoute tool="hand" />} />
+        <Route path="/library/list/:listId/stats/odds" element={<StatsToolRoute tool="odds" />} />
+        <Route path="/library/list/:listId/stats/pack" element={<StatsToolRoute tool="pack" />} />
         <Route path="/library/list/:listId/versions" element={<VersionsRoute />} />
         <Route path="/library/list/:listId/v/:n" element={<VersionRoute />} />
         <Route path="/library/trades" element={<TradesRoute />} />
