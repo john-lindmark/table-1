@@ -210,14 +210,18 @@ final class CardMatcher: @unchecked Sendable {
     let db: CatalogDB
     /// Owned-only mode (trades: what you give): printing id → finishes owned.
     let owned: [String: Set<String>]?
+    /// Owned-only: printing id → finishes in for-trade binders. Among printings the card's text scores alike, these win
+    /// (contract/binders-wants-2026-10-17.md), and their finish is the default.
+    let preferred: [String: Set<String>]
     private let names: ScanNames
     private var oracles: [Int: CatalogOracle] = [:]
     private var printingsByOracle: [Int: [CatalogPrinting]] = [:]
     private var bySetCn: [String: [CatalogPrinting]] = [:]
 
-    init(db: CatalogDB, owned: [String: Set<String>]?, names: ScanNames? = nil) {
+    init(db: CatalogDB, owned: [String: Set<String>]?, preferred: [String: Set<String>] = [:], names: ScanNames? = nil) {
         self.db = db
         self.owned = owned
+        self.preferred = preferred
         self.names = names ?? ScanNames.shared(db)
     }
 
@@ -239,6 +243,7 @@ final class CardMatcher: @unchecked Sendable {
 
     /// The finish a scanned copy starts as: what you own of it in owned-only mode, else non-foil when printed.
     func defaultFinish(_ p: CatalogPrinting) -> String {
+        if let trade = preferred[p.cardId], let f = Finish.allCases.first(where: { trade.contains($0.rawValue) }) { return f.rawValue }
         if let have = owned?[p.cardId], let f = Finish.allCases.first(where: { have.contains($0.rawValue) }) { return f.rawValue }
         return (p.finishList.first ?? .nonfoil).rawValue
     }
@@ -361,8 +366,8 @@ final class CardMatcher: @unchecked Sendable {
             (bottom.sets.contains(p.set) ? 4 : 0) + (bottom.numbers.contains(number(p)) ? 2 : 0)
                 + (year(p).map(years.contains) == true ? 1 : 0)
         }
-        func key(_ p: CatalogPrinting) -> (Int, Int, Int, Int, Int) {
-            (score(p), p.lang == "en" ? 1 : 0, p.cn.hasSuffix("★") ? 0 : 1, p.original ? 1 : 0, -p.ord)
+        func key(_ p: CatalogPrinting) -> (Int, Int, Int, Int, Int, Int) {
+            (score(p), preferred[p.cardId] != nil ? 1 : 0, p.lang == "en" ? 1 : 0, p.cn.hasSuffix("★") ? 0 : 1, p.original ? 1 : 0, -p.ord)
         }
         var best = ps.max { key($0) < key($1) }!
         let exact = (bottom.sets.contains(best.set) && (bottom.numbers.contains(number(best)) || ps.filter { $0.set == best.set }.count == 1))

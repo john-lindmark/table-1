@@ -285,6 +285,7 @@ struct SignedInView: View {
             if let id = Repo.userId {
                 await CollectionStore.shared.start(userId: id)
                 await ListsStore.shared.start(userId: id)
+                await BindersStore.shared.start(userId: id)
             }
             CatalogStore.shared.load(userInitiated: false)
         }
@@ -297,6 +298,7 @@ struct SignedInView: View {
             CollectionStore.shared.stop()
             ListsStore.shared.stop()
             TradesStore.shared.stop()
+            BindersStore.shared.stop()
         }
         // The life tracker covers the tabs (no tab bar) until it's closed.
         .overlay {

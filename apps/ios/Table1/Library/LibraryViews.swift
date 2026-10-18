@@ -20,6 +20,9 @@ enum LibraryRoute: Hashable {
     case trades
     case trade(String?) // trade id, nil for a new one
     case collectionImport
+    case binders
+    case binder(String) // binder id, or BinderRoute.unsorted
+    case wants
 }
 
 /// Every Library screen behind a route, shared by the Collection tab and the Debug demo.
@@ -46,6 +49,9 @@ struct LibraryDestination: View {
         case .trades: "trades"
         case .trade: "trade"
         case .collectionImport: "collection_import"
+        case .binders: "binders"
+        case .binder: "binder"
+        case .wants: "wants"
         }
     }
 
@@ -65,6 +71,9 @@ struct LibraryDestination: View {
         case .trades: TradesView(path: $path)
         case .trade(let id): TradeView(tradeId: id, path: $path)
         case .collectionImport: CollectionImportView(path: $path)
+        case .binders: BindersView(path: $path)
+        case .binder(let id): BinderView(binderId: id, path: $path)
+        case .wants: WantsView(path: $path)
         }
     }
 }
@@ -123,6 +132,8 @@ struct LibraryHomeView: View {
                 Button { path.append(.collectionImport) } label: {
                     ListRow(title: "Import and export", detail: "CSV from ManaBox, Moxfield and others")
                 }.buttonStyle(.plain)
+                bindersRow
+                wantsRow
                 listsRow(.deck, "Decks")
                 listsRow(.cube, "Cubes")
                 Button { path.append(.trades) } label: {
@@ -135,6 +146,29 @@ struct LibraryHomeView: View {
         }
         .refreshable { await col.sync() }
         .task { await TradesStore.shared.load() }
+    }
+
+    private var bindersRow: some View {
+        let b = BindersStore.shared
+        let trade = b.binders.filter(\.forTrade).map(\.id)
+        let totals = b.totals(col.items)
+        let forTrade = trade.reduce(0) { $0 + (totals.byBinder[$1] ?? 0) }
+        return Button { path.append(.binders) } label: {
+            ListRow(title: "Binders", detail: b.binders.isEmpty ? "Where your copies are, and what's for trade"
+                                                                : "\(forTrade.formatted()) cards for trade · \(totals.unsorted.formatted()) unsorted") {
+                Text(b.binders.count.formatted()).font(T1.mono(17)).monospacedDigit()
+            }
+        }.buttonStyle(.plain)
+    }
+
+    private var wantsRow: some View {
+        let wanted = BindersStore.shared.liveWants.reduce(0) { $0 + $1.qty }
+        let missing = MissingView.lines(ListsStore.shared.lists, owned: ownedByPrinting()).reduce(0) { $0 + $1.short }
+        return Button { path.append(.wants) } label: {
+            ListRow(title: "Wants", detail: "\(wanted.formatted()) wanted · \(missing.formatted()) missing") {
+                Text(wanted.formatted()).font(T1.mono(17)).monospacedDigit()
+            }
+        }.buttonStyle(.plain)
     }
 
     /// Decks and cubes always open (an empty one shows 0; new ones are created inside).
@@ -500,6 +534,7 @@ struct CardDetailView: View {
                             ListRow(title: "Add to a deck or cube", detail: "Pick the list, then the section")
                         }.buttonStyle(.plain)
                     }
+                    wantRow(oracle)
                     Section1("Add a printing · \(printings.count)")
                     T1Segmented(options: Conditions.all.map { ($0, $0) }, selection: $addCondition)
                     ForEach(showAll ? printings : Array(printings.prefix(12)), id: \.cardId) { addRow($0) }
@@ -534,6 +569,35 @@ struct CardDetailView: View {
     }
 
     private func listPath(_ id: String) { path?.wrappedValue.append(.list(id)) }
+
+    /// Wanting this card: any printing, or the one shown on top. Shows how many are wanted already.
+    private func wantRow(_ o: CatalogOracle) -> some View {
+        let store = BindersStore.shared
+        let mine = store.liveWants.filter { $0.oracleId == o.oracleId }
+        let n = mine.reduce(0) { $0 + $1.qty }
+        return Button {
+            let shown = preview ?? owned.first?.printing ?? printings.first
+            var items = [T1MenuItem(title: "Any printing") { want(o, nil) }]
+            if let shown { items.append(T1MenuItem(title: "Only \(shown.setLabel)") { want(o, shown) }) }
+            if !mine.isEmpty {
+                items.append(T1MenuItem(title: "Open wants") { path?.wrappedValue.append(.wants) })
+            }
+            T1Overlays.shared.showMenu("Want \(o.name)", items)
+        } label: {
+            ListRow(title: n > 0 ? "Wanted · \(n)" : "Add to wants", detail: n > 0 ? "Want one more, or open your wants" : "Trades marks it when you get one")
+        }.buttonStyle(.plain)
+    }
+
+    private func want(_ o: CatalogOracle, _ p: CatalogPrinting?) {
+        Task {
+            do {
+                try await BindersStore.shared.applyWants([WantOp(oracleId: o.oracleId, cardId: p?.cardId, delta: 1)], event: "want_added",
+                                                         props: ["any_printing": p == nil, "has_max": false, "from": "card"])
+                added = "Wanted 1 \(p?.setLabel ?? o.name)"
+                last = nil
+            } catch { self.error = error.localizedDescription }
+        }
+    }
 
     /// Adds one copy of the shown printing to a list: pick the list, then the section.
     private func addToList(_ p: CatalogPrinting?) {
@@ -570,7 +634,9 @@ struct CardDetailView: View {
 
     private func ownedRow(_ it: CollectionItem, _ p: CatalogPrinting) -> some View {
         let price = prices[it.cardId]
+        let _ = BindersStore.shared.version
         let detail = [price?.setName, it.condition, it.lang.uppercased(), price?.text(it.finish)].compactMap { $0 }.joined(separator: " · ")
+        let place = BindersStore.shared.placementText(it)
         return VStack(spacing: 1) {
             HStack(spacing: 1) {
                 Button { open = open == it.cardId ? nil : it.cardId; preview = p } label: {
@@ -579,6 +645,7 @@ struct CardDetailView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(p.setLabel) · \(it.finishLabel)").font(T1.mono(13)).lineLimit(1)
                             LabelText(detail)
+                            if let place { LabelText(place, color: BindersStore.shared.forTrade(it.key).qty > 0 ? T1.accent : T1.muted) }
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -596,6 +663,15 @@ struct CardDetailView: View {
             .background(T1.surface)
             if open == it.cardId {
                 conditionRow(it, p)
+                Button {
+                    BinderMoveFlow.start(it, label: p.setLabel) { label in
+                        if let label { added = label; last = nil }
+                    }
+                } label: {
+                    ListRow(title: "Move", detail: BindersStore.shared.placementText(it) ?? "Unsorted \(it.qty)") {
+                        LabelText("Binders", color: T1.text)
+                    }
+                }.buttonStyle(.plain)
                 VStack(alignment: .leading, spacing: 4) {
                     LabelText("History · \(p.setLabel)")
                     if let history {

@@ -56,6 +56,9 @@ final class CollectionImportModel {
     private(set) var matched: [ResolvedLine] = []
     private(set) var unmatched: [ImportRow] = []
     private(set) var items: [ImportItem] = []
+    /// Copies going into binders (by name), and ManaBox wishlist lines (contract/binders-wants-2026-10-17.md).
+    private(set) var placements: [ImportPlacement] = []
+    private(set) var wantLines: [(cardId: String, finish: String, qty: Int)] = []
     var fixed = 0
     var skipped = 0
     var mode = "add"
@@ -63,14 +66,28 @@ final class CollectionImportModel {
     private(set) var value: (usd: Double, priced: Int)?
     /// Each chunk keeps its key until the import is done, so Try again resends the same batches.
     private var parts: [(key: String, ops: [CollectionOp], batchId: String?)] = []
+    /// Replace mode: binder moves after the quantities are set (copies out to Unsorted, then into binders).
+    private var moveParts: [(key: String, moves: [BinderMove], batchId: String?)]?
+    private var wantsDone = false
     private(set) var batchIds: [String] = []
     private(set) var undone = false
     private(set) var exportNote: String?
     @ObservationIgnored private var resolver: ImportResolver?
 
     var copies: Int { items.reduce(0) { $0 + $1.qty } }
+    var binderCopies: Int { placements.reduce(0) { $0 + $1.qty } }
+    var binderNames: [String] {
+        var seen = Set<String>()
+        return placements.map(\.binder).filter { seen.insert($0.lowercased()).inserted }
+    }
+    /// Binders the import makes (names you don't have yet).
+    var newBinders: [String] {
+        let have = Set(BindersStore.shared.binders.map { $0.name.lowercased() })
+        return binderNames.filter { !have.contains($0.lowercased()) }
+    }
+    var wantCopies: Int { wantLines.reduce(0) { $0 + $1.qty } }
     var partsDone: Int { parts.filter { $0.batchId != nil }.count }
-    var retrying: Bool { partsDone > 0 && partsDone < parts.count }
+    var retrying: Bool { (partsDone > 0 && partsDone < parts.count) || (partsDone > 0 && partsDone == parts.count && error != nil) }
 
     /// Copies held now that a replace would remove (items the file doesn't have).
     var removedByReplace: Int {
@@ -84,10 +101,14 @@ final class CollectionImportModel {
         matched = []
         unmatched = []
         items = []
+        placements = []
+        wantLines = []
         fixed = 0
         skipped = 0
         value = nil
         parts = []
+        moveParts = nil
+        wantsDone = false
         batchIds = []
         undone = false
         resolver = nil
@@ -156,7 +177,47 @@ final class CollectionImportModel {
 
     private func refresh() {
         items = ImportResolver.items(matched)
+        placements = ImportResolver.placements(matched)
+        wantLines = ImportResolver.wants(matched)
         parts = []
+        moveParts = nil
+        wantsDone = false
+    }
+
+    /// Your binder for each name the file uses: matched case-insensitively, else made (for trade when the name says
+    /// "trade"). Lower-cased name → binder id.
+    private func ensureBinders() async throws -> [String: String] {
+        let store = BindersStore.shared
+        var out: [String: String] = [:]
+        for name in binderNames {
+            if let b = store.binders.first(where: { $0.name.lowercased() == name.lowercased() }) {
+                out[name.lowercased()] = b.id
+            } else {
+                let b = try await store.save(name: name, forTrade: name.lowercased().contains("trade"))
+                out[name.lowercased()] = b.id
+            }
+        }
+        return out
+    }
+
+    /// Replace mode, once the quantities are set: each item in the file ends with the file's binders, copies out to
+    /// Unsorted first, then into binders.
+    private func plannedMoves(_ ids: [String: String]) -> [(key: String, moves: [BinderMove], batchId: String?)] {
+        let store = BindersStore.shared
+        var target: [String: [String: Int]] = [:]
+        for p in placements { if let id = ids[p.binder.lowercased()] { target[p.itemKey, default: [:]][id, default: 0] += p.qty } }
+        var out: [BinderMove] = [], into: [BinderMove] = []
+        for it in items {
+            let item = CollectionItem(cardId: it.cardId, finish: it.finish, condition: it.condition, lang: it.lang, qty: it.qty, seq: 0)
+            let want = target[it.key] ?? [:]
+            let cur = Dictionary(store.placement(item).binders.map { ($0.binder.id, $0.qty) }, uniquingKeysWith: +)
+            for (b, n) in cur where n > (want[b] ?? 0) { out.append(BinderMove(item: item, from: b, to: nil, qty: n - (want[b] ?? 0))) }
+            for (b, n) in want where n > (cur[b] ?? 0) { into.append(BinderMove(item: item, from: nil, to: b, qty: n - (cur[b] ?? 0))) }
+        }
+        func chunks(_ ms: [BinderMove]) -> [(key: String, moves: [BinderMove], batchId: String?)] {
+            stride(from: 0, to: ms.count, by: 2500).map { (UUID().uuidString.lowercased(), Array(ms[$0..<min($0 + 2500, ms.count)]), nil) }
+        }
+        return chunks(out) + chunks(into)
     }
 
     private func priceItems() async {
@@ -174,6 +235,14 @@ final class CollectionImportModel {
         let col = CollectionStore.shared
         phase = .writing
         error = nil
+        let binderIds: [String: String]
+        do {
+            binderIds = try await ensureBinders()
+        } catch {
+            phase = .preview
+            self.error = error.localizedDescription
+            return
+        }
         if parts.isEmpty {
             var ops: [CollectionOp]
             if mode == "replace" {
@@ -184,7 +253,20 @@ final class CollectionImportModel {
                     CollectionOp(cardId: $0.cardId, finish: $0.finish, condition: $0.condition, lang: $0.lang, qty: 0)
                 }
             } else {
-                ops = items.map { CollectionOp(cardId: $0.cardId, finish: $0.finish, condition: $0.condition, lang: $0.lang, delta: $0.qty) }
+                // Add: each item's copies go straight into their binders; the rest are Unsorted.
+                let placed = Dictionary(grouping: placements, by: \.itemKey)
+                ops = items.flatMap { it -> [CollectionOp] in
+                    var left = it.qty
+                    var out: [CollectionOp] = []
+                    for p in placed[it.key] ?? [] {
+                        guard let id = binderIds[p.binder.lowercased()], left > 0 else { continue }
+                        let n = min(p.qty, left)
+                        out.append(CollectionOp(cardId: it.cardId, finish: it.finish, condition: it.condition, lang: it.lang, delta: n, binderId: id))
+                        left -= n
+                    }
+                    if left > 0 { out.append(CollectionOp(cardId: it.cardId, finish: it.finish, condition: it.condition, lang: it.lang, delta: left)) }
+                    return out
+                }
             }
             parts = stride(from: 0, to: ops.count, by: 5000).map {
                 (UUID().uuidString.lowercased(), Array(ops[$0..<min($0 + 5000, ops.count)]), nil)
@@ -203,9 +285,41 @@ final class CollectionImportModel {
                 return
             }
         }
-        batchIds = parts.compactMap(\.batchId)
+        if mode == "replace" && !placements.isEmpty {
+            if moveParts == nil {
+                await BindersStore.shared.sync()
+                moveParts = plannedMoves(binderIds)
+            }
+            for i in moveParts!.indices where moveParts![i].batchId == nil {
+                do {
+                    moveParts![i].batchId = try await BindersStore.shared.move(moveParts![i].moves)
+                } catch {
+                    phase = .preview
+                    self.error = "The cards are in; sorting them into binders stopped: \(error.localizedDescription) Try again to finish."
+                    return
+                }
+            }
+        }
+        if !wantLines.isEmpty && !wantsDone {
+            guard let db = CatalogStore.shared.db else { return }
+            let p = db.printings(ids: wantLines.map(\.cardId))
+            let o = db.oracles(idxs: Array(Set(p.values.map(\.oracleIdx))))
+            let ops = wantLines.compactMap { w in
+                p[w.cardId].flatMap { o[$0.oracleIdx] }.map { WantOp(oracleId: $0.oracleId, cardId: w.cardId, finish: w.finish, delta: w.qty) }
+            }
+            do {
+                try await BindersStore.shared.applyWants(ops)
+                wantsDone = true
+            } catch {
+                phase = .preview
+                self.error = "The cards are in; the wants stopped: \(error.localizedDescription) Try again to finish."
+                return
+            }
+        }
+        batchIds = parts.compactMap(\.batchId) + (moveParts ?? []).compactMap(\.batchId)
         Telemetry.capture("collection_imported", ["format": format.rawValue, "mode": mode, "cards": copies, "items": items.count,
-                                                  "parts": parts.count, "fixed": fixed, "skipped": skipped])
+                                                  "parts": parts.count, "fixed": fixed, "skipped": skipped,
+                                                  "binders": binderNames.count, "binder_copies": binderCopies, "wants": wantCopies])
         phase = .done
     }
 
@@ -229,18 +343,34 @@ final class CollectionImportModel {
     func export(_ layout: CollectionCSV.Layout) async -> URL? {
         guard let db = CatalogStore.shared.db else { return nil }
         let held = Array(CollectionStore.shared.items.values)
+        let binders = BindersStore.shared
+        // Item × binder: each binder's copies, then the Unsorted rest.
+        let split: [(item: CollectionItem, binder: String?, forTrade: Bool, qty: Int)] = held.flatMap { it in
+            let p = binders.placement(it)
+            return p.binders.map { (it, Optional($0.binder.name), $0.binder.forTrade, min($0.qty, it.qty)) } + (p.unsorted > 0 ? [(it, nil, false, p.unsorted)] : [])
+        }
+        let wants = binders.liveWants
         let sets = Dictionary(await SetNames.shared.load().map { ($0.code, $0.name) }, uniquingKeysWith: { a, _ in a })
         let (text, cards, left) = await Task.detached(priority: .userInitiated) { () -> (String, Int, Int) in
-            let printings = db.printings(ids: Array(Set(held.map(\.cardId))))
+            let printings = db.printings(ids: Array(Set(held.map(\.cardId)).union(wants.compactMap(\.cardId))))
             let oracles = db.oracles(idxs: Array(Set(printings.values.map(\.oracleIdx))))
             var rows: [CollectionCSV.ExportCard] = []
             var left = 0
-            for it in held {
-                guard let p = printings[it.cardId], let o = oracles[p.oracleIdx] else { left += it.qty; continue }
+            for s in split {
+                let it = s.item
+                guard let p = printings[it.cardId], let o = oracles[p.oracleIdx] else { left += s.qty; continue }
                 rows.append(.init(name: o.name, set: p.set, setName: sets[p.set] ?? p.set.uppercased(), cn: p.cn, rarity: p.rarity,
-                                  cardId: p.cardId, finish: it.finish, condition: it.condition, lang: it.lang, qty: it.qty))
+                                  cardId: p.cardId, finish: it.finish, condition: it.condition, lang: it.lang, qty: s.qty,
+                                  binder: s.binder, forTrade: s.forTrade))
             }
-            return (CollectionCSV.export(rows, layout: layout), rows.reduce(0) { $0 + $1.qty }, left)
+            // Wants: a want for any printing goes out as the card's original printing.
+            for w in wants {
+                guard let o = db.oracle(id: w.oracleId),
+                      let p = w.cardId.flatMap({ printings[$0] }) ?? db.covers(oracleIdxs: [o.idx])[o.idx] else { continue }
+                rows.append(.init(name: o.name, set: p.set, setName: sets[p.set] ?? p.set.uppercased(), cn: p.cn, rarity: p.rarity,
+                                  cardId: p.cardId, finish: w.finish ?? "nonfoil", condition: "NM", lang: "en", qty: w.qty, wanted: true))
+            }
+            return (CollectionCSV.export(rows, layout: layout), rows.filter { !$0.wanted }.reduce(0) { $0 + $1.qty }, left)
         }.value
         let today = Calendar.current.dateComponents([.year, .month, .day], from: .now)
         let day = String(format: "%04d-%02d-%02d", today.year ?? 0, today.month ?? 0, today.day ?? 0)
@@ -372,6 +502,13 @@ struct CollectionImportView: View {
             Stat(label: "Value", value: valueText, alignment: .trailing)
         }
         .padding(.horizontal, 16).padding(.vertical, 12).background(T1.surface)
+        if model.binderCopies > 0 || model.wantCopies > 0 {
+            let names = model.binderNames
+            let fresh = model.newBinders.count
+            Notice([model.binderCopies > 0 ? "\(model.binderCopies.formatted()) cards go into \(names.count) binder\(names.count == 1 ? "" : "s") (\(names.prefix(3).joined(separator: ", "))\(names.count > 3 ? "…" : ""))\(fresh > 0 ? ", \(fresh) new" : "")." : nil,
+                    model.wantCopies > 0 ? "\(model.wantCopies.formatted()) cards from wishlists go into your wants, not your collection." : nil]
+                .compactMap { $0 }.joined(separator: " "))
+        }
         if !model.unmatched.isEmpty {
             HStack {
                 LabelText("Not matched · \(model.unmatched.count)")
@@ -389,7 +526,7 @@ struct CollectionImportView: View {
             Notice("Lines left unmatched aren't imported. Fix them or skip them first.")
         }
         BigAction(text: model.retrying ? "Try again" : model.mode == "replace" ? "Replace with \(copies.formatted()) cards" : "Import \(copies.formatted()) cards",
-                  enabled: model.unmatched.isEmpty && (copies > 0 || model.mode == "replace"),
+                  enabled: model.unmatched.isEmpty && (copies > 0 || model.mode == "replace" || model.wantCopies > 0),
                   busy: model.phase == .writing) {
             if model.mode == "replace" && !model.retrying { confirmReplace = true } else { Task { await model.write() } }
         }

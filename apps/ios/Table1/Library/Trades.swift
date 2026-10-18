@@ -11,6 +11,8 @@ struct TradeLine: Codable, Hashable, Identifiable {
     var condition: String
     var lang: String
     var qty: Int
+    /// A give: the binder the copies come from. A get: the binder they go into. nil = Unsorted.
+    var binderId: String? = nil
     var id: String { CollectionStore.key(cardId, finish, condition, lang) }
 }
 
@@ -32,6 +34,8 @@ private struct TradeConfirmResult: Decodable {
     let batchId: String?
     let duplicate: Bool?
     let trade: Trade
+    let binderItems: [AllocRow]?
+    let wants: [WantRow]?
 }
 
 @MainActor
@@ -84,25 +88,34 @@ final class TradesStore {
         return saved
     }
 
-    /// Applies the trade to the collection. Returns the collection batch (for Undo).
-    func confirm(_ t: Trade) async throws -> String? {
-        let ops = t.gives.map { CollectionOp(cardId: $0.cardId, finish: $0.finish, condition: $0.condition, lang: $0.lang, delta: -$0.qty) }
-            + t.gets.map { CollectionOp(cardId: $0.cardId, finish: $0.finish, condition: $0.condition, lang: $0.lang, delta: $0.qty) }
-        if isDemo {
+    /// Applies the trade to the collection and takes the gets off your wants. Returns the collection batch (for
+    /// Undo) and how many wanted copies it met.
+    func confirm(_ t: Trade) async throws -> (batchId: String?, wantsMet: Int) {
+        let binders = BindersStore.shared
+        func live(_ b: String?) -> String? { b.flatMap { binders.binder($0) == nil ? nil : $0 } }
+        let ops = t.gives.map { CollectionOp(cardId: $0.cardId, finish: $0.finish, condition: $0.condition, lang: $0.lang, delta: -$0.qty, binderId: live($0.binderId)) }
+            + t.gets.map { CollectionOp(cardId: $0.cardId, finish: $0.finish, condition: $0.condition, lang: $0.lang, delta: $0.qty, binderId: live($0.binderId)) }
+        let before = binders.liveWants.reduce(0) { $0 + $1.qty }
+        #if DEBUG
+        if let demo = CollectionStore.shared.demo {
             let res = try await CollectionStore.shared.apply(ops, source: "trade")
+            binders.reflect(wants: demo.meetWants(t.gets, batchId: res.batchId))
             var done = t
             done.status = "confirmed"
             done.batchId = res.batchId
             done.confirmedAt = ISO8601DateFormatter().string(from: .now)
             put(done)
-            return res.batchId
+            return (res.batchId, before - binders.liveWants.reduce(0) { $0 + $1.qty })
         }
+        #endif
         let res: TradeConfirmResult = try await supabase.rpc("trade_confirm", params: [
             "p_trade_id": AnyJSON.string(t.id), "p_idempotency_key": .string(UUID().uuidString.lowercased()),
         ]).execute().value
         put(res.trade)
+        binders.reflect(allocs: res.binderItems?.map(\.alloc) ?? [])
+        binders.reflect(wants: res.wants?.map(\.want) ?? [])
         await CollectionStore.shared.sync()
-        return res.batchId
+        return (res.batchId, max(0, before - binders.liveWants.reduce(0) { $0 + $1.qty }))
     }
 
     func delete(_ t: Trade) async {
@@ -184,6 +197,8 @@ struct TradeView: View {
     @State private var gets: [TradeLine] = []
     @State private var meta: [String: CatalogPrinting] = [:]
     @State private var names: [Int: String] = [:]
+    @State private var oracleIds: [Int: String] = [:]
+    @State private var missingLines: [String: MissingLine] = [:]
     @State private var busy = false
     @State private var error: String?
     @State private var saveTask: Task<Void, Never>?
@@ -279,12 +294,25 @@ struct TradeView: View {
         }
     }
 
+    /// What a get is to you: a want (and whether it's over your max price), or missing from a deck or cube.
+    private func wantNote(_ l: TradeLine) -> (text: String, over: Bool)? {
+        guard let p = meta[l.cardId], let oracleId = oracleIds[p.oracleIdx] else { return nil }
+        if let w = BinderRules.wantFor(oracleId: oracleId, cardId: l.cardId, finish: l.finish, in: BindersStore.shared.liveWants) {
+            if let max = w.maxUsd, let price = prices.usd(l.cardId, l.finish), price > max { return ("Want · over your max $\(max.formatted())", true) }
+            return ("Want", false)
+        }
+        if let m = missingLines["\(l.cardId)|\(l.finish)"] { return ("Missing · \(m.lists.prefix(2).joined(separator: ", "))", false) }
+        return nil
+    }
+
     /// One line in a column: small art, name, printing, finish, condition, price, quantity.
     private func cell(_ line: Binding<TradeLine>, give: Bool, remove: @escaping () -> Void) -> some View {
         let l = line.wrappedValue
         let p = meta[l.cardId]
         let name = p.flatMap { names[$0.oracleIdx] } ?? "Card"
         let price = PriceBook.text(prices.usd(l.cardId, l.finish))
+        let note = give ? nil : wantNote(l)
+        let from = give ? l.binderId.flatMap { BindersStore.shared.binder($0)?.name } : nil
         return Button { if !confirmed { edit(line, give: give, remove: remove) } } label: {
             HStack(spacing: 8) {
                 if let p { p.art(width: 28) } else { Rectangle().fill(T1.bg).frame(width: 28, height: 28 / CardArt.aspect) }
@@ -292,6 +320,8 @@ struct TradeView: View {
                     Text(name).font(T1.mono(12)).lineLimit(1)
                     LabelText([p?.setLabel, Finish(rawValue: l.finish)?.label].compactMap { $0 }.joined(separator: " · "))
                     LabelText([l.condition, price].compactMap { $0 }.joined(separator: " · "))
+                    if let note { LabelText(note.text, color: note.over ? T1.error : T1.accent) }
+                    if let from { LabelText(from) }
                 }
                 Spacer(minLength: 0)
                 Text("\(l.qty)").font(T1.mono(15)).monospacedDigit()
@@ -299,6 +329,7 @@ struct TradeView: View {
             .padding(.horizontal, 8).padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(T1.surface)
+            .overlay(alignment: .leading) { if note != nil { Rectangle().fill(note!.over ? T1.error : T1.accent).frame(width: 2) } }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -341,11 +372,16 @@ struct TradeView: View {
     private func scan(give: Bool) {
         T1Overlays.shared.present(full: true) {
             CardScanView(title: give ? "Scan what you give" : "Scan what you get", doneLabel: "Add", owned: give ? ownedFinishes() : nil,
+                         preferred: give ? BindersStore.shared.forTradePrintings() : [:],
                          onDone: { cards in
                 for c in cards {
-                    // Giving: take the condition you hold most of.
-                    let condition = give ? bestOwnedCondition(c.printing.cardId, c.finish) : c.condition
-                    add(TradeLine(cardId: c.printing.cardId, finish: c.finish, condition: condition, lang: "en", qty: 1), give: give)
+                    // Giving: copies in a for-trade binder first, else the condition you hold most of.
+                    if give, let copy = Self.bestGive(c.printing.cardId, c.finish) {
+                        add(TradeLine(cardId: copy.item.cardId, finish: copy.item.finish, condition: copy.item.condition, lang: copy.item.lang,
+                                      qty: 1, binderId: copy.binderId), give: true)
+                    } else {
+                        add(TradeLine(cardId: c.printing.cardId, finish: c.finish, condition: c.condition, lang: "en", qty: 1), give: give)
+                    }
                 }
                 Telemetry.capture("scan_session_ended", ["context": "trade", "cards": cards.count,
                                                          "exact": cards.filter(\.exact).count, "cancelled": false])
@@ -358,9 +394,15 @@ struct TradeView: View {
         }
     }
 
-    private func bestOwnedCondition(_ cardId: String, _ finish: String) -> String {
-        CollectionStore.shared.items.values.filter { $0.cardId == cardId && $0.finish == finish }
-            .max { $0.qty < $1.qty }?.condition ?? "NM"
+    /// The copy of a printing to give: the item with the most copies in for-trade binders (and that binder), else
+    /// the item you hold most of.
+    static func bestGive(_ cardId: String, _ finish: String) -> (item: CollectionItem, binderId: String?)? {
+        let binders = BindersStore.shared
+        let mine = CollectionStore.shared.items.values.filter { $0.cardId == cardId && $0.finish == finish && $0.qty > 0 }
+        if let t = mine.map({ ($0, binders.forTrade($0.key)) }).filter({ $0.1.qty > 0 }).max(by: { $0.1.qty < $1.1.qty }) {
+            return (t.0, t.1.binderId)
+        }
+        return mine.max { $0.qty < $1.qty }.map { ($0, nil) }
     }
 
     private func add(_ line: TradeLine, give: Bool) {
@@ -377,13 +419,15 @@ struct TradeView: View {
     private func refreshMeta() async {
         guard let db = catalog.db else { return }
         let ids = Array(Set((gives + gets).map(\.cardId)))
-        let found = await Task.detached(priority: .userInitiated) { () -> ([String: CatalogPrinting], [Int: String]) in
+        let found = await Task.detached(priority: .userInitiated) { () -> ([String: CatalogPrinting], [Int: String], [Int: String]) in
             let p = db.printings(ids: ids)
             let o = db.oracles(idxs: Array(Set(p.values.map(\.oracleIdx))))
-            return (p, o.mapValues(\.name))
+            return (p, o.mapValues(\.name), o.mapValues(\.oracleId))
         }.value
         meta = found.0
         names = found.1
+        oracleIds = found.2
+        missingLines = Dictionary(MissingView.lines(ListsStore.shared.lists, owned: ownedByPrinting()).map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         await prices.load(ids)
     }
 
@@ -457,9 +501,10 @@ struct TradeView: View {
                 saveTask?.cancel()
                 let saved = try await store.save(trade, partner: partner.isEmpty ? nil : partner, gives: gives, gets: gets)
                 trade = saved
-                _ = try await store.confirm(saved)
+                let fromTrade = gives.filter { $0.binderId.flatMap { BindersStore.shared.binder($0)?.forTrade } == true }.reduce(0) { $0 + $1.qty }
+                let res = try await store.confirm(saved)
                 Telemetry.capture("trade_confirmed", ["gives": gives.reduce(0) { $0 + $1.qty }, "gets": gets.reduce(0) { $0 + $1.qty },
-                                                      "list_conflict": choice])
+                                                      "list_conflict": choice, "wants_met": res.wantsMet, "from_trade_binder": fromTrade])
                 trade = store.trade(saved.id) ?? saved
                 removeFromLists(conflicts)
             } catch {
@@ -515,10 +560,16 @@ struct TradePickView: View {
                 HairlineList {
                     if give {
                         ForEach(owned, id: \.item.key) { o in
-                            Button { take(TradeLine(cardId: o.item.cardId, finish: o.item.finish, condition: o.item.condition, lang: o.item.lang, qty: 1), o.name) } label: {
+                            let trade = BindersStore.shared.forTrade(o.item.key)
+                            Button {
+                                take(TradeLine(cardId: o.item.cardId, finish: o.item.finish, condition: o.item.condition, lang: o.item.lang, qty: 1,
+                                               binderId: trade.binderId), o.name)
+                            } label: {
                                 CardRow(printing: o.printing, title: o.name,
-                                        detail: "\(o.printing.setLabel) · \(o.item.finishLabel) · \(o.item.condition)") {
-                                    Text("\(o.item.qty)").font(T1.mono(17)).monospacedDigit()
+                                        detail: [o.printing.setLabel, o.item.finishLabel, o.item.condition,
+                                                 trade.binderId.flatMap { BindersStore.shared.binder($0)?.name }.map { "\(trade.qty) in \($0)" }]
+                                            .compactMap { $0 }.joined(separator: " · ")) {
+                                    Text("\(o.item.qty)").font(T1.mono(17)).monospacedDigit().foregroundStyle(trade.qty > 0 ? T1.accent : T1.text)
                                 }
                             }.buttonStyle(.plain)
                         }
@@ -545,7 +596,8 @@ struct TradePickView: View {
             if Task.isCancelled { return }
             if give {
                 let items = Array(CollectionStore.shared.items.values)
-                owned = await Task.detached(priority: .userInitiated) { Self.ownedMatching(q, items, db) }.value
+                let trade = Set(items.filter { BindersStore.shared.forTrade($0.key).qty > 0 }.map(\.key))
+                owned = await Task.detached(priority: .userInitiated) { Self.ownedMatching(q, items, db, forTrade: trade) }.value
             } else {
                 let found = await Task.detached(priority: .userInitiated) { () -> ([CatalogOracle], [Int: CatalogPrinting]) in
                     let h = db.search(q)
@@ -556,7 +608,8 @@ struct TradePickView: View {
         }
     }
 
-    nonisolated private static func ownedMatching(_ q: String, _ items: [CollectionItem], _ db: CatalogDB) -> [OwnedPick] {
+    /// Copies in for-trade binders first, then by name.
+    nonisolated private static func ownedMatching(_ q: String, _ items: [CollectionItem], _ db: CatalogDB, forTrade: Set<String>) -> [OwnedPick] {
         let p = db.printings(ids: Array(Set(items.map(\.cardId))))
         let o = db.oracles(idxs: Array(Set(p.values.map(\.oracleIdx))))
         let n = CardName.norm(q)
@@ -565,7 +618,11 @@ struct TradePickView: View {
             guard let pr = p[it.cardId], let or = o[pr.oracleIdx] else { continue }
             if n.isEmpty || or.norm.contains(n) { out.append(OwnedPick(item: it, printing: pr, name: or.name)) }
         }
-        out.sort { a, b in a.name != b.name ? a.name < b.name : a.item.key < b.item.key }
+        out.sort { a, b in
+            let ta = forTrade.contains(a.item.key), tb = forTrade.contains(b.item.key)
+            if ta != tb { return ta }
+            return a.name != b.name ? a.name < b.name : a.item.key < b.item.key
+        }
         return Array(out.prefix(200))
     }
 

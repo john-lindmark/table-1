@@ -41,6 +41,13 @@ struct ImportRow: Hashable, Sendable {
     var lang: String
     /// Why the line can't be read at all (it's listed as unmatched).
     var problem: String?
+    /// The binder (ManaBox binder, Dragon Shield folder) its copies go into; nil = Unsorted.
+    var binder: String? = nil
+    /// Copies on the tradelist (Deckbox / Moxfield Tradelist Count, Dragon Shield Trade Quantity): they go into
+    /// the for-trade "Trade binder". Never more than qty.
+    var tradeQty = 0
+    /// A ManaBox list row: a wishlist line, not owned copies (contract/binders-wants-2026-10-17.md).
+    var wanted = false
 
     var setLabel: String {
         [setCode?.uppercased() ?? setName, cn.map { "#\($0)" }].compactMap { $0 }.joined(separator: " ")
@@ -119,11 +126,22 @@ enum CollectionCSV {
             }
             var cn = at(cols.cn)
             if let slash = cn.firstIndex(of: "/") { cn = String(cn[..<slash]) }
+            // Binders: ManaBox's binder name and type, Dragon Shield's folder; tradelists go to the trade binder.
+            var binder: String? = at(cols.binderName)
+            var wanted = false
+            switch at(cols.binderType).lowercased() {
+            case "list", "wishlist": wanted = true; binder = nil
+            case "deck": binder = nil
+            default: break
+            }
+            if binder?.isEmpty == true { binder = nil }
+            let tq = at(cols.tradeQty)
+            let trade = tq.isEmpty ? 0 : min(qty, quantity(tq) ?? 0)
             rows.append(ImportRow(
                 line: r.line, name: name, setCode: setCode.isEmpty ? nil : setCode, setName: setName.isEmpty ? nil : setName,
                 cn: cn.isEmpty ? nil : cn, scryfallId: id.isEmpty ? nil : id.lowercased(), qty: qty, finish: finish,
                 condition: condition(rawCondition, cardmarket: format.cardmarketScale), lang: language(at(cols.lang)),
-                problem: problem))
+                problem: problem, binder: binder.map { String($0.prefix(60)) }, tradeQty: wanted ? 0 : trade, wanted: wanted))
         }
         return ParsedImport(format: format, rows: rows)
     }
@@ -147,6 +165,7 @@ enum CollectionCSV {
     /// Which column holds what, by format (contract table "Columns").
     private struct Columns {
         var name, fullName, qty, setCode, setName, setEither, cn, finish, condition, lang, id: Int?
+        var binderName, binderType, tradeQty: Int?
 
         init(_ keys: [String], _ format: CSVFormat) {
             func col(_ names: [String]) -> Int? {
@@ -176,6 +195,9 @@ enum CollectionCSV {
             condition = col(["condition"])
             lang = col(["language", "lang"])
             id = col(["scryfallid", "scryfalluuid"])
+            binderName = col(["bindername", "foldername", "binder"])
+            binderType = col(["bindertype"])
+            tradeQty = col(["tradelistcount", "tradequantity"])
         }
     }
 
@@ -311,7 +333,17 @@ enum CollectionCSV {
         let condition: String
         let lang: String
         let qty: Int
+        /// The binder these copies are in (nil = Unsorted), and whether it's for trade.
+        var binder: String? = nil
+        var forTrade = false
+        /// A want (ManaBox list row); Moxfield's layout leaves wants out.
+        var wanted = false
     }
+
+    /// The name ManaBox's export gives the binder of wants (a "list" binder).
+    static let wantsBinder = "Wants"
+    /// The binder tradelist copies go into on import.
+    static let tradeBinder = "Trade binder"
 
     private static let moxfieldConditions = ["NM": "Near Mint", "LP": "Lightly Played", "MP": "Moderately Played",
                                              "HP": "Heavily Played", "DMG": "Damaged"]
@@ -324,19 +356,35 @@ enum CollectionCSV {
     private static let rarities = ["c": "common", "u": "uncommon", "r": "rare", "m": "mythic", "s": "special", "b": "bonus"]
 
     /// Sorted by name, set and collector number; CRLF line ends.
+    /// Rows are item × binder (Unsorted = no binder) plus wants. ManaBox writes one row each with its Binder Name
+    /// and Binder Type; Moxfield one row per item, with the copies in for-trade binders as its Tradelist Count.
     static func export(_ cards: [ExportCard], layout: Layout) -> String {
-        let sorted = cards.sorted {
-            ($0.name, $0.set, $0.cn.count, $0.cn, "\($0.finish)|\($0.condition)|\($0.lang)")
-                < ($1.name, $1.set, $1.cn.count, $1.cn, "\($1.finish)|\($1.condition)|\($1.lang)")
+        func order(_ c: ExportCard) -> (String, String, Int, String, String, String) {
+            (c.name, c.set, c.cn.count, c.cn, "\(c.finish)|\(c.condition)|\(c.lang)", "\(c.wanted ? 1 : 0)|\(c.binder ?? "")")
         }
+        let sorted = cards.sorted { order($0) < order($1) }
         var lines: [String] = []
         switch layout {
         case .moxfield:
             func q(_ s: String) -> String { "\"" + s.replacingOccurrences(of: "\"", with: "\"\"") + "\"" }
             lines.append(["Count", "Tradelist Count", "Name", "Edition", "Condition", "Language", "Foil", "Tags", "Last Modified",
                           "Collector Number", "Alter", "Proxy", "Purchase Price"].map(q).joined(separator: ","))
-            for c in sorted {
-                lines.append([String(c.qty), "0", c.name, c.set, moxfieldConditions[c.condition] ?? "Near Mint",
+            // One row per item: binders merge, for-trade copies become the tradelist.
+            var merged: [ExportCard] = []
+            var trade: [Int] = []
+            for c in sorted where !c.wanted {
+                if let last = merged.last, (last.cardId, last.finish, last.condition, last.lang) == (c.cardId, c.finish, c.condition, c.lang) {
+                    merged[merged.count - 1] = ExportCard(name: last.name, set: last.set, setName: last.setName, cn: last.cn, rarity: last.rarity,
+                                                          cardId: last.cardId, finish: last.finish, condition: last.condition, lang: last.lang,
+                                                          qty: last.qty + c.qty)
+                    trade[trade.count - 1] += c.forTrade ? c.qty : 0
+                } else {
+                    merged.append(c)
+                    trade.append(c.forTrade ? c.qty : 0)
+                }
+            }
+            for (i, c) in merged.enumerated() {
+                lines.append([String(c.qty), String(trade[i]), c.name, c.set, moxfieldConditions[c.condition] ?? "Near Mint",
                               languageNames[c.lang] ?? "English", c.finish == "nonfoil" ? "" : c.finish, "", "", c.cn,
                               "False", "False", ""].map(q).joined(separator: ","))
             }
@@ -345,9 +393,9 @@ enum CollectionCSV {
                 s.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" || $0 == "\r" })
                     ? "\"" + s.replacingOccurrences(of: "\"", with: "\"\"") + "\"" : s
             }
-            lines.append("Name,Set code,Set name,Collector number,Foil,Rarity,Quantity,ManaBox ID,Scryfall ID,Purchase price,Misprint,Altered,Condition,Language,Purchase price currency")
+            lines.append("Binder Name,Binder Type,Name,Set code,Set name,Collector number,Foil,Rarity,Quantity,ManaBox ID,Scryfall ID,Purchase price,Misprint,Altered,Condition,Language,Purchase price currency")
             for c in sorted {
-                lines.append([c.name, c.set.uppercased(), c.setName, c.cn, c.finish == "nonfoil" ? "normal" : c.finish,
+                lines.append([c.wanted ? wantsBinder : c.binder ?? "", c.wanted ? "list" : "binder", c.name, c.set.uppercased(), c.setName, c.cn, c.finish == "nonfoil" ? "normal" : c.finish,
                               rarities[c.rarity] ?? "common", String(c.qty), "", c.cardId, "", "false", "false",
                               manaboxConditions[c.condition] ?? "near_mint", c.lang, "USD"].map(q).joined(separator: ","))
             }
@@ -378,6 +426,18 @@ struct ImportItem: Hashable, Sendable {
     let lang: String
     var qty: Int
     var key: String { CollectionStore.key(cardId, finish, condition, lang) }
+}
+
+/// Copies of one item the import puts in one binder (by name; matched to yours case-insensitively, or made).
+struct ImportPlacement: Hashable, Sendable {
+    let cardId: String
+    let finish: String
+    let condition: String
+    let lang: String
+    let binder: String
+    var qty: Int
+    var itemKey: String { CollectionStore.key(cardId, finish, condition, lang) }
+    var key: String { "\(binder.lowercased())|\(itemKey)" }
 }
 
 /// Matches imported rows to printings: Scryfall id, then set + collector number, then set + name, then the name's
@@ -461,11 +521,39 @@ final class ImportResolver: @unchecked Sendable {
         return original(oracleIdx).map { line(row, $0, .fixed) }
     }
 
-    /// Lines on the same item summed, in first-seen order.
+    /// Copies the import puts in binders: item × binder name (the tradelist's copies in the trade binder), summed.
+    static func placements(_ lines: [ResolvedLine]) -> [ImportPlacement] {
+        var order: [String] = []
+        var by: [String: ImportPlacement] = [:]
+        func put(_ l: ResolvedLine, _ binder: String, _ n: Int) {
+            guard n > 0 else { return }
+            let p = ImportPlacement(cardId: l.printing.cardId, finish: l.finish, condition: l.row.condition, lang: l.row.lang, binder: binder, qty: n)
+            if by[p.key] == nil { order.append(p.key); by[p.key] = p } else { by[p.key]!.qty += n }
+        }
+        for l in lines where !l.row.wanted {
+            let trade = min(l.row.tradeQty, l.row.qty)
+            put(l, CollectionCSV.tradeBinder, trade)
+            if let b = l.row.binder { put(l, b, l.row.qty - trade) }
+        }
+        return order.map { by[$0]! }
+    }
+
+    /// ManaBox list rows: wanted copies per printing and finish.
+    static func wants(_ lines: [ResolvedLine]) -> [(cardId: String, finish: String, qty: Int)] {
+        var order: [String] = []
+        var by: [String: (cardId: String, finish: String, qty: Int)] = [:]
+        for l in lines where l.row.wanted {
+            let k = "\(l.printing.cardId)|\(l.finish)"
+            if by[k] == nil { order.append(k); by[k] = (l.printing.cardId, l.finish, l.row.qty) } else { by[k]!.qty += l.row.qty }
+        }
+        return order.map { by[$0]! }
+    }
+
+    /// Lines on the same item summed, in first-seen order (wants aren't owned copies, so they're left out).
     static func items(_ lines: [ResolvedLine]) -> [ImportItem] {
         var order: [String] = []
         var by: [String: ImportItem] = [:]
-        for l in lines {
+        for l in lines where !l.row.wanted {
             let it = ImportItem(cardId: l.printing.cardId, finish: l.finish, condition: l.row.condition, lang: l.row.lang, qty: l.row.qty)
             if by[it.key] == nil { order.append(it.key); by[it.key] = it } else { by[it.key]!.qty += it.qty }
         }
