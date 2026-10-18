@@ -114,9 +114,14 @@ Allocations and wants page together by seq. Key allocations `binder_id|card_id|f
   `from`: binder / unsorted), `want_added` (`any_printing`, `has_max`, `from`: search / card / missing),
   `want_changed`, `want_removed`. `trade_confirmed` gains `wants_met` (copies) and `from_trade_binder` (give copies
   that came from for-trade binders). `collection_imported` gains `binders`, `binder_copies`, `wants`. Screens:
-  `binders`, `binder`, `wants`.
-- **Demo:** iOS Debug `-T1LibraryDemo binders|wants` opens those screens; the demo backend applies the same allocation
-  rules (shrink order, moves, deletes, wants met by trades) locally, seeded with two binders.
+  `binders`, `binder`, `wants`, `want_add` (iOS's add-a-want panel).
+- **Demo:** iOS Debug `-T1LibraryDemo binders|binder|wants|card|tradewants` opens those screens (`card`: a card with
+  trade-binder copies; `tradewants`: a draft giving a trade-binder copy and getting a wanted card); web dev
+  `/library/binders?demo`. Both demo backends apply the same allocation rules (shrink order, moves, deletes, wants met
+  by trades, undo) locally, seeded with two binders ("Trade binder" for trade, "Box 1"). Android has no Library demo.
+- **Where it lives:** iOS `Library/Binders.swift` (store, rules), `Library/BindersViews.swift`; web `lib/binders.ts`,
+  `screens/Binders.tsx`; Android `library/Binders.kt`, `library/BindersScreens.kt`. Client tests: iOS `BindersTests`,
+  web `binders.test.ts`, Android `BindersTest` (same cases).
 
 ## Account deletion
 

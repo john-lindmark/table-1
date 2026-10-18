@@ -13,6 +13,11 @@ Framework (`OpenDocument`, text/* and CSV types) and shares exports through the 
 Fixtures: `testdata/collection-import/` (the same 24 cards as each app exports them, plus one line no catalog has;
 `make_fixtures.py` rebuilds them; `expected.json` is what each resolves to).
 
+Binders, tradelists and ManaBox wishlists (2026-10-17): see `contract/binders-wants-2026-10-17.md` § Import and export.
+ManaBox's `Binder Name`/`Binder Type`, Dragon Shield's `Folder Name`/`Trade Quantity` and Deckbox/Moxfield `Tradelist
+Count` are read into binders and the for-trade "Trade binder"; ManaBox `list` rows become wants. Export writes ManaBox's
+`Binder Name, Binder Type` columns and Moxfield's `Tradelist Count`.
+
 ## Reading a file
 
 - **Text:** UTF-8 with or without a BOM. Delimiter is whichever of `,` `\t` `;` appears most in the header line outside
