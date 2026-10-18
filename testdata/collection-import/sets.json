@@ -1,0 +1,90 @@
+[
+ {
+  "code": "2x2",
+  "name": "Double Masters 2022"
+ },
+ {
+  "code": "2xm",
+  "name": "Double Masters"
+ },
+ {
+  "code": "bfz",
+  "name": "Battle for Zendikar"
+ },
+ {
+  "code": "clb",
+  "name": "Commander Legends: Battle for Baldur's Gate"
+ },
+ {
+  "code": "cmm",
+  "name": "Commander Masters"
+ },
+ {
+  "code": "cmr",
+  "name": "Commander Legends"
+ },
+ {
+  "code": "dgm",
+  "name": "Dragon's Maze"
+ },
+ {
+  "code": "eld",
+  "name": "Throne of Eldraine"
+ },
+ {
+  "code": "inv",
+  "name": "Invasion"
+ },
+ {
+  "code": "isd",
+  "name": "Innistrad"
+ },
+ {
+  "code": "khm",
+  "name": "Kaldheim"
+ },
+ {
+  "code": "ltr",
+  "name": "The Lord of the Rings: Tales of Middle-earth"
+ },
+ {
+  "code": "m11",
+  "name": "Magic 2011"
+ },
+ {
+  "code": "mh2",
+  "name": "Modern Horizons 2"
+ },
+ {
+  "code": "mid",
+  "name": "Innistrad: Midnight Hunt"
+ },
+ {
+  "code": "mom",
+  "name": "March of the Machine"
+ },
+ {
+  "code": "neo",
+  "name": "Kamigawa: Neon Dynasty"
+ },
+ {
+  "code": "rix",
+  "name": "Rivals of Ixalan"
+ },
+ {
+  "code": "tmh2",
+  "name": "Modern Horizons 2 Tokens"
+ },
+ {
+  "code": "tmp",
+  "name": "Tempest"
+ },
+ {
+  "code": "voc",
+  "name": "Crimson Vow Commander"
+ },
+ {
+  "code": "znr",
+  "name": "Zendikar Rising"
+ }
+]

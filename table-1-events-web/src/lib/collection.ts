@@ -241,15 +241,19 @@ export function sync(): Promise<void> {
   return syncRun;
 }
 
-/** One user action = one batch. Shows the result at once, then confirms with a delta sync. */
-export async function applyOps(ops: CollectionOp[], source: "manual" | "scan" | "import" | "adjust" | "trade" = "manual"): Promise<ApplyResult> {
+/**
+ * One user action = one batch. Shows the result at once, then confirms with a delta sync. `key`: a caller that retries
+ * a batch itself (an import's chunks) passes the same key each time, so a batch that already landed replays as a duplicate.
+ */
+export async function applyOps(ops: CollectionOp[], source: "manual" | "scan" | "import" | "adjust" | "trade" = "manual",
+                               key: string = crypto.randomUUID()): Promise<ApplyResult> {
   if (demo) {
     const res = demo.apply(ops, source);
     reflect(res);
     return res;
   }
   const { data, error } = await supabase.rpc("collection_apply", {
-    p_ops: ops, p_source: source, p_source_id: null, p_idempotency_key: crypto.randomUUID(),
+    p_ops: ops, p_source: source, p_source_id: null, p_idempotency_key: key,
   });
   if (error) throw error;
   const res = data as ApplyResult;

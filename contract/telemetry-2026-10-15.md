@@ -46,7 +46,7 @@ properties. Every client sends the same names, so one PostHog insight covers all
 `sign_in`, `events_home`, `event`, `create_event`, `nearby`, `scan_qr`, `add_players`, `life_tracker`,
 `library_home`, `all_cards`, `card_detail`, `add_cards`, `card_scanner`, `decks`, `cubes`, `deck`, `cube`,
 `list_versions`, `list_add`, `list_printing`, `deck_finder`, `list_import`, `trades`, `trade`, `account`,
-`roto_grid`, `roto_cube`, `roto_picks`, `roto_list` (2026-10-16).
+`roto_grid`, `roto_cube`, `roto_picks`, `roto_list` (2026-10-16), `collection_import`, `collection_import_fix` (2026-10-17).
 
 ## Events
 
@@ -115,6 +115,9 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `trade_deleted` | `status`: draft / confirmed |
 | `catalog_pack_installed` | `seconds`: int, `first`: bool |
 | `card_layout_changed` | `layout`: list / grid / stacks, `screen`: all_cards / deck / cube (2026-10-16) |
+| `collection_import_previewed` | `format`: manabox / moxfield / archidekt / deckbox / dragonshield / tcgplayer / delverlens / other, `lines`: int, `matched`: int, `unmatched`: int (2026-10-17, `collection-import-2026-10-17.md`) |
+| `collection_imported` | `format`, `mode`: add / replace, `cards`: int, `items`: int, `parts`: int (batches), `fixed`: int, `skipped`: int |
+| `collection_exported` | `layout`: moxfield / manabox, `cards`: int |
 
 ### Push, Live Activities, widgets (iOS; Android/web where they have the surface)
 | event | properties |

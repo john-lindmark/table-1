@@ -42,7 +42,8 @@ suffixes, so the Vitest suite (`tournament`, `teams`, `organizer`, …) tests wh
 everyone paired once, one bye when odd, no second bye. Its time budgets apply under `T1_PERF=1`.
 
 **iOS** (`apps/ios/Table1Tests`, scheme test action). Scanner accuracy floors (`CardMatcherTests`), catalog pack
-(`CatalogPackTests`), and `ScannerPerfTests`: pack → SQLite build, catalog search, matcher per camera frame over
+(`CatalogPackTests`), collection CSV import (`CollectionCSVTests`: every format's fixture in `testdata/collection-import`
+parsed and matched against the test catalog, export read back, `CollectionImportPerfTests` on 20k lines), and `ScannerPerfTests`: pack → SQLite build, catalog search, matcher per camera frame over
 all 1,455 OCR reads in `testdata/scan`. Runs on its own `T1-Tests` simulator with derived data in
 `/var/tmp/t1-test-dd`, so it never touches another session's simulator.
 
@@ -64,6 +65,8 @@ all 1,455 OCR reads in `testdata/scan`. Runs on its own `T1-Tests` simulator wit
 | iOS matcher per frame (Debug) mean / p95 | 6.9 / 33 ms (max 206) | 20 / 90 ms |
 | Android matcher per frame (JVM) mean / p95 | 0.44 / 2.1 ms | 2 / 8 ms |
 | Android scanner name index | 0.7 s | 2.5 s |
+| Collection CSV import, 20k lines, iOS Debug: parse / match by id / by set + number | 210 / 150 / 470 ms | 650 / 1,500 / 1,500 ms |
+| Collection CSV import, 20k lines, web: parse / match by id / by set + number | 30 / 32 / 80 ms | 150 / 400 / 400 ms |
 
 Budgets catch regressions (a lost index, a quadratic loop), not noise. Raise one only on purpose and say why in the commit.
 

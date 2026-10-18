@@ -287,8 +287,8 @@ export function useBoxWidth(): [(el: HTMLElement | null) => void, number] {
 
 /* ── home ─────────────────────────────────────────────────────────────── */
 
-export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes, onTrades }: {
-  onAllCards: () => void; onAdd: () => void; onDecks: () => void; onCubes: () => void; onTrades: () => void;
+export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes, onTrades, onImport }: {
+  onAllCards: () => void; onAdd: () => void; onDecks: () => void; onCubes: () => void; onTrades: () => void; onImport: () => void;
 }) {
   const { session, ready, userId } = useLibrarySession();
   const col = useCollection(userId);
@@ -316,6 +316,7 @@ export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes, onTrades }: {
         <Row title="All cards" detail={s ? `${s.unique_printings.toLocaleString()} printings` : undefined}
              value={s ? s.unique_cards.toLocaleString() : undefined} onClick={onAllCards} />
         <Row title="Add cards" detail="Search by name" onClick={onAdd} />
+        <Row title="Import and export" detail="CSV from ManaBox, Moxfield and others" onClick={onImport} />
         <Row title="Decks" detail={decks.length ? decks.slice(0, 3).map((l) => l.name).join(" · ") : "Build and track decks"}
              value={decks.length} onClick={onDecks} />
         <Row title="Cubes" detail={cubes.length ? cubes.map((l) => l.name).join(" · ") : "Build and track cubes"}

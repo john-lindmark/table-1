@@ -214,14 +214,15 @@ struct LibraryDemoRoot: View {
         }
     }
 
-    /// Design QA: `-T1LibraryDemo allcards|add|trades|trade|deck|cube` opens that screen (deck and cube: the
-    /// fixture's first of each).
+    /// Design QA: `-T1LibraryDemo allcards|add|import|trades|trade|deck|cube` opens that screen (deck and cube: the
+    /// fixture's first of each). `import` with `-T1ImportFile <path>` reads that file as if it had been picked.
     private static var startRoute: [LibraryRoute] {
         let args = ProcessInfo.processInfo.arguments
         guard let i = args.firstIndex(of: "-T1LibraryDemo"), i + 1 < args.count else { return [] }
         switch args[i + 1] {
         case "allcards": return [.allCards]
         case "add": return [.add]
+        case "import": return [.collectionImport]
         case "trades": return [.trades]
         case "trade": return [.trades, .trade(nil)]
         case "deck", "cube":

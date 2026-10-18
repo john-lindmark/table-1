@@ -87,6 +87,7 @@ export function screenName(pathname: string, listKind?: (id: string) => "deck" |
     "/library": "library_home",
     "/library/cards": "all_cards",
     "/library/add": "add_cards",
+    "/library/import": "collection_import",
     "/library/decks": "decks",
     "/library/cubes": "cubes",
     "/library/find": "deck_finder",

@@ -127,6 +127,7 @@ describe("screenName", () => {
     expect(screenName("/library/cubes")).toBe("cubes");
     expect(screenName("/library/find")).toBe("deck_finder");
     expect(screenName("/library/import/deck")).toBe("list_import");
+    expect(screenName("/library/import")).toBe("collection_import");
     expect(screenName("/library/trades")).toBe("trades");
     expect(screenName("/library/trade/new")).toBe("trade");
     expect(screenName(`/library/list/${UUID}/add`)).toBe("list_add");

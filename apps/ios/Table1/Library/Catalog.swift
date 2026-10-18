@@ -113,6 +113,18 @@ final class CatalogDB: @unchecked Sendable {
         Set((try? db.query("SELECT DISTINCT set_code FROM printings", [], { $0.text(0) })) ?? [])
     }
 
+    /// Every card's normalized name and face names, for matching imported names (ImportResolver).
+    func importNames() -> [(idx: Int, norm: String, faces: String, token: Bool, printings: Int)] {
+        (try? db.query("SELECT idx, name_norm, face_names, type_line, pcount FROM oracles", [], {
+            (idx: $0.int(0), norm: $0.text(1), faces: $0.text(2), token: $0.text(3).hasPrefix("Token"), printings: $0.int(4))
+        })) ?? []
+    }
+
+    /// Every printing in one set, newest card first.
+    func printings(set: String) -> [CatalogPrinting] {
+        (try? db.query("SELECT \(Self.printingCols) FROM printings WHERE set_code = ?", [.text(set)], Self.printing)) ?? []
+    }
+
     /// Printings by set code and collector number, any card (the scanner reading a card's bottom line).
     func printings(set: String, cn: String) -> [CatalogPrinting] {
         (try? db.query("SELECT \(Self.printingCols) FROM printings WHERE set_code = ? AND cn = ? ORDER BY lang = 'en' DESC",

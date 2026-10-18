@@ -19,6 +19,7 @@ enum LibraryRoute: Hashable {
     case importList(CardList.Kind)
     case trades
     case trade(String?) // trade id, nil for a new one
+    case collectionImport
 }
 
 /// Every Library screen behind a route, shared by the Collection tab and the Debug demo.
@@ -44,6 +45,7 @@ struct LibraryDestination: View {
         case .importList: "list_import"
         case .trades: "trades"
         case .trade: "trade"
+        case .collectionImport: "collection_import"
         }
     }
 
@@ -62,6 +64,7 @@ struct LibraryDestination: View {
         case .importList(let kind): ListImportView(kind: kind, path: $path)
         case .trades: TradesView(path: $path)
         case .trade(let id): TradeView(tradeId: id, path: $path)
+        case .collectionImport: CollectionImportView(path: $path)
         }
     }
 }
@@ -117,6 +120,9 @@ struct LibraryHomeView: View {
                     }
                 }.buttonStyle(.plain)
                 Button { path.append(.add) } label: { ListRow(title: "Add cards", detail: "Search by name") }.buttonStyle(.plain)
+                Button { path.append(.collectionImport) } label: {
+                    ListRow(title: "Import and export", detail: "CSV from ManaBox, Moxfield and others")
+                }.buttonStyle(.plain)
                 listsRow(.deck, "Decks")
                 listsRow(.cube, "Cubes")
                 Button { path.append(.trades) } label: {

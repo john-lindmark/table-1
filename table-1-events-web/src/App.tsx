@@ -51,6 +51,7 @@ const TradesScreen = lazyNamed(trades, "TradesScreen");
 const TradeScreen = lazyNamed(trades, "TradeScreen");
 const DeckFinderScreen = lazyNamed(() => import("./screens/DeckFinder"), "DeckFinderScreen");
 const ListImportScreen = lazyNamed(() => import("./screens/ListImport"), "ListImportScreen");
+const CollectionImportScreen = lazyNamed(() => import("./screens/CollectionImport"), "CollectionImportScreen");
 const EventsDemo = lazyNamed(() => import("./screens/EventsDemo"), "EventsDemo");
 // Dev only: production builds drop the demo and its fixture.
 const RotoDemo = import.meta.env.DEV ? lazyNamed(() => import("./screens/RotoDemo"), "RotoDemo") : () => null;
@@ -139,8 +140,14 @@ function LibraryHomeRoute() {
   return (
     <LibraryHome onAllCards={() => navigate("/library/cards")} onAdd={() => navigate("/library/add")}
                  onDecks={() => navigate("/library/decks")} onCubes={() => navigate("/library/cubes")}
-                 onTrades={() => navigate("/library/trades")} />
+                 onTrades={() => navigate("/library/trades")} onImport={() => navigate("/library/import")} />
   );
+}
+
+function CollectionImportRoute() {
+  const navigate = useNavigate();
+  const back = useBack("/library");
+  return <CollectionImportScreen onBack={back} onAllCards={() => navigate("/library/cards")} />;
 }
 
 function AllCardsRoute() {
@@ -293,6 +300,7 @@ export default function App() {
         <Route path="/library/card/:oracleId" element={<CardDetailRoute />} />
         <Route path="/library/decks" element={<ListsRoute kind="deck" />} />
         <Route path="/library/find" element={<DeckFinderRoute />} />
+        <Route path="/library/import" element={<CollectionImportRoute />} />
         <Route path="/library/import/:kind" element={<ListImportRoute />} />
         <Route path="/library/list/:listId/printing" element={<LinePrintingRoute />} />
         <Route path="/library/cubes" element={<ListsRoute kind="cube" />} />

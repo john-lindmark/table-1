@@ -292,9 +292,10 @@ final class CollectionStore {
     }
 
     /// One user action = one batch with a fresh idempotency key (reused on the one automatic retry). Shows the
-    /// result at once, then confirms with a delta sync.
+    /// result at once, then confirms with a delta sync. `key`: a caller that retries a batch itself (an import's
+    /// chunks) passes the same key each time, so a batch that already landed replays as a duplicate.
     @discardableResult
-    func apply(_ ops: [CollectionOp], source: String = "manual") async throws -> ApplyResult {
+    func apply(_ ops: [CollectionOp], source: String = "manual", key: String? = nil) async throws -> ApplyResult {
         #if DEBUG
         if let demo {
             let res = try demo.apply(ops, source: source)
@@ -302,7 +303,7 @@ final class CollectionStore {
             return res
         }
         #endif
-        let key = UUID().uuidString.lowercased()
+        let key = key ?? UUID().uuidString.lowercased()
         let params: [String: AnyJSON] = [
             "p_ops": .array(ops.map(\.json)), "p_source": .string(source), "p_source_id": .null,
             "p_idempotency_key": .string(key),
