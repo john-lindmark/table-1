@@ -68,6 +68,10 @@ data class PackOracle(
     val legal: String = "",
     /** Canadian Highlander points (0 = none). */
     val points: Int = 0,
+    /** Mana the card makes, letters from WUBRGCF; null when the pack doesn't say (older packs, cards not yet read). */
+    val produced: String? = null,
+    /** O-line indexes of the tokens it makes, comma-separated. */
+    val tokens: String = "",
 )
 
 data class PackPrinting(
@@ -126,7 +130,7 @@ object CatalogPack {
                     header = PackHeader(at(2), at(3).toIntOrNull() ?: 0, at(4).toIntOrNull() ?: 0)
                 } else if (f[0] == "O" && o < h.oracles) {
                     oracle(PackOracle(at(1).toIntOrNull() ?: o, at(2), at(3), at(4), at(5), at(6), at(7).toDoubleOrNull() ?: 0.0, at(8), at(9), at(10),
-                        at(11).toIntOrNull() ?: 0))
+                        at(11).toIntOrNull() ?: 0, if (f.size > 12) f[12] else null, at(13)))
                     o++
                 } else if (f[0] == "P" && p < h.printings) {
                     printing(PackPrinting(at(1), at(2).toIntOrNull() ?: -1, at(3), at(4), at(5), at(6), at(7), at(8), at(9),

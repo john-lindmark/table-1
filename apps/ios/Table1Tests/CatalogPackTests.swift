@@ -162,4 +162,25 @@ final class CatalogPackFieldsTests: XCTestCase {
         XCTAssertEqual(CatalogPack.legality(o[0].legal, "canlander"), "legal")
         XCTAssertEqual(o.map(\.points), [7, 0])
     }
+
+    /// Produced mana and token links (O fields 12 and 13) survive the SQLite build; a line without them reads as
+    /// unknown (nil), not as "makes no mana".
+    func testProducedAndTokensRoundTrip() throws {
+        let pack = [
+            "#t1catalog\t1\tv1-test\t3\t0",
+            "O\t0\t11111111-1111-1111-1111-111111111111\tElemental\telemental\tToken Creature — Elemental\t\t0\tR\t\t--------\t\t\t",
+            "O\t1\t22222222-2222-2222-2222-222222222222\tPolluted Delta\tpolluted delta\tLand\t\t0\t\t\t--LLL-LL\t",
+            "O\t2\t33333333-3333-3333-3333-333333333333\tYoung Pyromancer\tyoung pyromancer\tCreature — Human Shaman\t{1}{R}\t2\tR\t\t-LLLLLL-\t\t\t0",
+        ].joined(separator: "\n")
+        let path = FileManager.default.temporaryDirectory.appending(path: "produced-\(UUID().uuidString).sqlite").path
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        _ = try CatalogDB.build(pack: Data(pack.utf8), at: path)
+        let db = try CatalogDB(path: path, version: "v1-test")
+        defer { db.close() }
+        let o = db.oracles(idxs: [0, 1, 2])
+        XCTAssertEqual(o[0]?.produced, "")
+        XCTAssertNil(o[1]?.produced)
+        XCTAssertEqual(o[2]?.tokens, [0])
+        XCTAssertEqual(o[1]?.tokens, [])
+    }
 }

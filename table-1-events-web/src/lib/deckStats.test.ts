@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   SampleHand, StatsRng, asfan, asfanLabels, averageMV, colorBalance, curve, curveByColor, deckOf, drawsByTurn, expand,
-  hypergeometric, legality, librarySize, pipTotals, pips, price, sources, statCard, typeCounts, type AsfanBy, type StatCard,
+  hypergeometric, legality, librarySize, pipTotals, pips, price, sources, statCard, tokens, typeCounts, type AsfanBy, type Sources,
+  type StatCard, type TokenUse,
 } from "./deckStats";
 
 /* Deck and cube stats (contract/lists-2026-10-15.md, "Stats"). Every number comes from testdata/deck-stats/cases.json,
@@ -16,7 +17,7 @@ interface Deck {
   cards: Card[];
   expected: {
     curve: { creatures: number[]; other: number[] }; types: number[]; averageWithLands: number; averageWithoutLands: number;
-    pips: number[]; sources: { colors: number[]; unread: number }; price: { total: number; unpriced: number };
+    pips: number[]; sources: Sources; tokens: TokenUse[]; price: { total: number; unpriced: number };
     legality: Issue[]; librarySize: number;
   };
   legalityIn?: Record<string, Issue[]>;
@@ -30,6 +31,7 @@ interface Cases {
   drawsByTurn: { turn: number; onPlay: boolean; draws: number }[];
   deck: Deck;
   commander: Deck;
+  olderPack: { cards: Card[]; sources: Sources };
   mulligan: { size: number; seed: number; script: { do: string; index?: number; expect: { hand: number[]; library: number; toBottom: number; mulligans: number } }[] };
   cube: {
     cards: Card[];
@@ -71,6 +73,7 @@ describe("deck stats: shared cases", () => {
       expect(averageMV(cards, false)).toBeCloseTo(e.averageWithoutLands, 9);
       expect(pipTotals(cards)).toEqual(e.pips);
       expect(sources(cards)).toEqual(e.sources);
+      expect(tokens(cards)).toEqual(e.tokens);
       const p = price(cards);
       expect(Math.abs(p.total - e.price.total)).toBeLessThan(0.006);
       expect(p.unpriced).toBe(e.price.unpriced);
@@ -79,6 +82,10 @@ describe("deck stats: shared cases", () => {
       for (const [format, want] of Object.entries(d.legalityIn ?? {})) expect(legality(cards, format), format).toEqual(want);
     });
   }
+
+  it("an older pack reads lands by their basic land types", () => {
+    expect(sources(cases.olderPack.cards.map(statCard))).toEqual(cases.olderPack.sources);
+  });
 
   it("London mulligan", () => {
     let hand = SampleHand.deal(cases.mulligan.size, cases.mulligan.seed);

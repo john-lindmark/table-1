@@ -17,11 +17,13 @@ struct StatLine: Identifiable, Hashable {
     nonisolated static func resolve(_ entries: [CardList.Entry], _ db: CatalogDB) -> [StatLine] {
         let printings = db.printings(ids: entries.map(\.cardId))
         let oracles = db.oracles(idxs: Array(Set(printings.values.map(\.oracleIdx))))
+        let tokenCards = db.oracles(idxs: Array(Set(oracles.values.flatMap(\.tokens))))
         return entries.enumerated().compactMap { i, e in
             guard let p = printings[e.cardId], let o = oracles[p.oracleIdx] else { return nil }
+            let tokens = o.tokens.compactMap { tokenCards[$0] }.map { StatToken(key: $0.oracleId, name: $0.name, type: $0.typeLine) }
             return StatLine(id: "\(e.board)|\(e.cardId)|\(e.finish)|\(i)",
                             card: StatCard(name: o.name, qty: e.qty, board: e.board, type: o.typeLine, cost: o.manaCost, cmc: o.cmc,
-                                           colors: o.colors, legal: o.legal, rarity: p.rarity),
+                                           colors: o.colors, legal: o.legal, rarity: p.rarity, produced: o.produced, tokens: tokens),
                             cardId: e.cardId, finish: e.finish, printing: p, oracleId: o.oracleId)
         }
     }
@@ -277,6 +279,8 @@ struct ListStatsView: View {
 
         legality(list, cards)
 
+        tokens(cards)
+
         Section1("Price")
         ListRow(title: price.total > 0 ? usd(price.total) : "No prices yet",
                 detail: price.unpriced > 0 ? "TCGplayer market · \(price.unpriced) unpriced" : "TCGplayer market · main and side")
@@ -294,19 +298,55 @@ struct ListStatsView: View {
         let pips = DeckStats.pipTotals(cards)
         let src = DeckStats.sources(cards)
         let pipSum = max(1, pips.reduce(0, +))
-        let lands = max(1, DeckStats.deck(cards).filter(DeckStats.isLand).reduce(0) { $0 + $1.qty })
-        let shown = (0..<5).filter { pips[$0] > 0 || src.colors[$0] > 0 }
+        let total = max(1, src.total)
+        // The deck's colors; a fetch land's other land type (Bloodstained Mire in Boros) isn't one.
+        let hasPips = pips.contains { $0 > 0 }
+        let shown = (0..<5).filter { hasPips ? pips[$0] > 0 : src.colors[$0] > 0 }
         if shown.isEmpty {
-            ListRow(title: "Colorless", detail: "No colored mana symbols or colored lands")
+            ListRow(title: "Colorless", detail: "No colored mana symbols or colored sources")
         } else {
-            StatTable(header: ["Color", "Pips", "Share", "Lands", "Share"],
+            StatTable(header: ["Color", "Pips", "Share", "Sources", "Share"],
                       rows: shown.map { i in
                           [DeckStats.colorGroups[i], "\(pips[i])", pct(Double(pips[i]) / Double(pipSum)),
-                           "\(src.colors[i])", pct(Double(src.colors[i]) / Double(lands))]
+                           "\(src.colors[i])", pct(Double(src.colors[i]) / Double(total))]
                       })
         }
+        ListRow(title: "Mana sources",
+                detail: (["Lands and permanents that make mana"]
+                         + (src.nonLand > 0 ? ["\(src.nonLand) not lands"] : [])
+                         + (src.colorless > 0 ? ["\(src.colorless) colorless"] : [])).joined(separator: " · ")) {
+            Text("\(src.total)").font(T1.mono(17)).monospacedDigit()
+        }
         if src.unread > 0 {
-            Notice("Lands count by their basic land types. \(src.unread) land\(src.unread == 1 ? " has" : "s have") none (fetch or utility lands) and \(src.unread == 1 ? "isn't" : "aren't") counted.")
+            let n = src.unread, one = n == 1
+            if DeckStats.deck(cards).contains(where: { $0.produced == nil }) {
+                Notice("Card data is still updating, so lands count by their basic land types: \(n) land\(one ? "" : "s") without one (fetch or utility lands) \(one ? "isn't" : "aren't") counted.")
+            } else {
+                Notice("\(n) land\(one ? " makes" : "s make") no mana and \(one ? "isn't" : "aren't") counted.")
+            }
+        }
+    }
+
+    @ViewBuilder private func tokens(_ cards: [StatCard]) -> some View {
+        let uses = DeckStats.tokens(cards)
+        Section1("Tokens")
+        if uses.isEmpty {
+            ListRow(title: "None", detail: cards.contains(where: { $0.produced == nil }) ? "Card data is still updating" : "No card here makes tokens")
+        } else {
+            VStack(spacing: 1) {
+                ForEach(uses, id: \.token.key) { u in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 12) {
+                            Text(u.token.name).font(T1.mono(14)).lineLimit(1)
+                            Spacer(minLength: 0)
+                            LabelText(u.token.type.replacingOccurrences(of: "Token ", with: ""))
+                        }
+                        Text("Made by " + u.makers.map { $0.qty > 1 ? "\($0.name) ×\($0.qty)" : $0.name }.joined(separator: ", "))
+                            .font(T1.mono(12)).foregroundStyle(T1.muted).frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 14).background(T1.surface)
+                }
+            }
         }
     }
 

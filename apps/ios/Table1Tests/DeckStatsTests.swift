@@ -13,15 +13,25 @@ private struct Cases: Decodable {
         let name: String, qty: Int, board: String, type: String, cost: String, cmc: Double, colors: String, legal: String
         let rarity: String
         let usd: Double?
-        var stat: StatCard { StatCard(name: name, qty: qty, board: board, type: type, cost: cost, cmc: cmc, colors: colors, legal: legal, rarity: rarity, usd: usd) }
+        let produced: String?
+        let tokens: [Token]
+        var stat: StatCard {
+            StatCard(name: name, qty: qty, board: board, type: type, cost: cost, cmc: cmc, colors: colors, legal: legal, rarity: rarity,
+                     usd: usd, produced: produced, tokens: tokens.map { StatToken(key: $0.key, name: $0.name, type: $0.type) })
+        }
+    }
+    struct Token: Decodable { let key: String, name: String, type: String }
+    struct Sources: Decodable { let colors: [Int]; let colorless: Int; let sources: Int; let nonLand: Int; let unread: Int }
+    struct TokenUse: Decodable {
+        struct Maker: Decodable { let name: String; let qty: Int }
+        let key: String, name: String, type: String, makers: [Maker]
     }
     struct Issue: Decodable, Equatable { let name: String; let reason: String }
     struct DeckExpected: Decodable {
         struct Curve: Decodable { let creatures: [Int]; let other: [Int] }
-        struct Sources: Decodable { let colors: [Int]; let unread: Int }
         struct Price: Decodable { let total: Double; let unpriced: Int }
         let curve: Curve, types: [Int], averageWithLands: Double, averageWithoutLands: Double, pips: [Int]
-        let sources: Sources, price: Price, legality: [Issue], librarySize: Int
+        let sources: Sources, tokens: [TokenUse], price: Price, legality: [Issue], librarySize: Int
     }
     struct Deck: Decodable {
         let format: String, cards: [Card], expected: DeckExpected
@@ -46,7 +56,8 @@ private struct Cases: Decodable {
         let cards: [Card], expected: Expected
     }
     let prng: Prng, bounded: Bounded, shuffles: [Shuffle], pips: [Pip], hypergeometric: [Hyper], drawsByTurn: [Turn]
-    let deck: Deck, commander: Deck, mulligan: Mulligan, cube: Cube
+    struct OlderPack: Decodable { let cards: [Card]; let sources: Sources }
+    let deck: Deck, commander: Deck, olderPack: OlderPack, mulligan: Mulligan, cube: Cube
 
     static let shared: Cases = try! JSONDecoder().decode(Cases.self, from: Data(contentsOf: casesURL))
 }
@@ -86,9 +97,12 @@ final class DeckStatsTests: XCTestCase {
         XCTAssertEqual(DeckStats.averageMV(cards, withLands: true), e.averageWithLands, accuracy: 1e-9)
         XCTAssertEqual(DeckStats.averageMV(cards, withLands: false), e.averageWithoutLands, accuracy: 1e-9)
         XCTAssertEqual(DeckStats.pipTotals(cards), e.pips)
-        let src = DeckStats.sources(cards)
-        XCTAssertEqual(src.colors, e.sources.colors)
-        XCTAssertEqual(src.unread, e.sources.unread)
+        checkSources(DeckStats.sources(cards), e.sources)
+        let tokens = DeckStats.tokens(cards)
+        XCTAssertEqual(tokens.map(\.token.key), e.tokens.map(\.key))
+        XCTAssertEqual(tokens.map(\.token.name), e.tokens.map(\.name))
+        XCTAssertEqual(tokens.map(\.token.type), e.tokens.map(\.type))
+        XCTAssertEqual(tokens.map { $0.makers.map { "\($0.name)×\($0.qty)" } }, e.tokens.map { $0.makers.map { "\($0.name)×\($0.qty)" } })
         let price = DeckStats.price(cards)
         XCTAssertEqual(price.total, e.price.total, accuracy: 0.006)
         XCTAssertEqual(price.unpriced, e.price.unpriced)
@@ -99,7 +113,16 @@ final class DeckStatsTests: XCTestCase {
         }
     }
 
+    private func checkSources(_ got: DeckStats.Sources, _ want: Cases.Sources, _ label: String = "") {
+        XCTAssertEqual(got.colors, want.colors, label)
+        XCTAssertEqual(got.colorless, want.colorless, label)
+        XCTAssertEqual(got.total, want.sources, label)
+        XCTAssertEqual(got.nonLand, want.nonLand, label)
+        XCTAssertEqual(got.unread, want.unread, label)
+    }
+
     func testDeck() { checkDeck(c.deck) }
+    func testOlderPackReadsLandsByBasicType() { checkSources(DeckStats.sources(c.olderPack.cards.map(\.stat)), c.olderPack.sources, "older pack") }
     func testCommanderDeck() { checkDeck(c.commander) }
 
     func testLondonMulligan() {
@@ -166,6 +189,7 @@ final class DeckStatsTests: XCTestCase {
             _ = DeckStats.curve(cube)
             _ = DeckStats.pipTotals(cube)
             _ = DeckStats.sources(cube)
+            _ = DeckStats.tokens(cube)
             _ = DeckStats.averageMV(cube, withLands: false)
             _ = DeckStats.legality(cube, format: "vintage")
             var rng = StatsRNG(seed: 5)

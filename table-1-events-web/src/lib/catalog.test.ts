@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./supabaseClient", () => ({ supabase: {} }));
-const { normName, parsePack, searchCatalog, cardImageUrl, coverPrinting, legalityOf, printingsByName } = await import("./catalog");
+const { normName, parsePack, searchCatalog, cardImageUrl, coverPrinting, legalityOf, printingsByName, tokenIndexes } = await import("./catalog");
 
 // Header, three cards (sorted by name_norm) and four printings, in pack format 1.
 const PACK = [
@@ -46,6 +46,24 @@ describe("parsePack", () => {
     expect(cardImageUrl(c, 1)).toBe(
       "https://cards.scryfall.io/normal/front/f/2/f29ba16f-c8fb-42fe-aabf-87089cb214a7.jpg?1783930000",
     );
+  });
+});
+
+describe("produced mana and tokens", () => {
+  const pack = [
+    "#t1catalog\t1\tv1-test\t3\t0",
+    "O\t0\t11111111-1111-1111-1111-111111111111\tElemental\telemental\tToken Creature — Elemental\t\t0\tR\t\t--------\t\t\t",
+    "O\t1\t22222222-2222-2222-2222-222222222222\tPolluted Delta\tpolluted delta\tLand\t\t0\t\t\t--LLL-LL\t\tUB\t",
+    "O\t2\t33333333-3333-3333-3333-333333333333\tYoung Pyromancer\tyoung pyromancer\tCreature — Human Shaman\t{1}{R}\t2\tR\t\t-LLLLLL-\t\t\t0",
+  ].join("\n");
+  const c = parsePack("v1-test", pack);
+  it("reads the trailing fields", () => {
+    expect(c.oProduced).toEqual(["", "UB", ""]);
+    expect(tokenIndexes(c, 2)).toEqual([0]);
+    expect(tokenIndexes(c, 1)).toEqual([]);
+  });
+  it("leaves produced unknown in older packs", () => {
+    expect(parsePack("v1-test", PACK).oProduced[1]).toBeNull();
   });
 });
 

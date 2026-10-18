@@ -2,7 +2,17 @@
    catalog access, so the same inputs give the same numbers here, on iOS (DeckStats.swift) and on Android
    (DeckStats.kt). testdata/deck-stats/cases.json holds the shared cases; make_cases.py there is the reference. */
 
-/** One list line as the stats read it. `type`, `cost`, `cmc` and `colors` come from the catalog pack's O line. */
+/** A token card a card makes (the pack's O-line tokens field). `key` tells apart token cards with the same name. */
+export interface StatToken {
+  key: string;
+  name: string;
+  type: string;
+}
+
+/**
+ * One list line as the stats read it. `type`, `cost`, `cmc`, `colors`, `produced` and `tokens` come from the catalog
+ * pack's O line.
+ */
 export interface StatCard {
   name: string;
   qty: number;
@@ -15,12 +25,16 @@ export interface StatCard {
   rarity?: string;
   /** One copy's USD market price; null when there's none. */
   usd?: number | null;
+  /** Mana it makes, letters from WUBRGCF; null/undefined when the pack doesn't say (then lands read by basic type). */
+  produced?: string | null;
+  tokens?: StatToken[];
   /** The front face's card types as bits in TYPES order, read once by `statCard`. */
   typeBits?: number;
 }
 
 export const COLORS = ["W", "U", "B", "R", "G"] as const;
 export const TYPES = ["Creature", "Planeswalker", "Instant", "Sorcery", "Artifact", "Enchantment", "Battle", "Land"];
+const PERMANENTS = new Set(["Creature", "Planeswalker", "Artifact", "Enchantment", "Battle", "Land"]);
 export const COLOR_GROUPS = ["White", "Blue", "Black", "Red", "Green", "Multicolor", "Colorless", "Lands"];
 /** Mana value columns: 0 … 6, then 7 and more. */
 export const BUCKETS = ["0", "1", "2", "3", "4", "5", "6", "7+"];
@@ -69,18 +83,32 @@ export function pips(cost: string): number[] {
   return out;
 }
 
-/**
- * Colors a land makes, read from its basic land types (any face). The pack carries no produced-mana field yet, so a
- * land without a basic type (a fetch land, a utility land) reads as none.
- */
-export function produces(c: StatCard): string {
-  if (!isLand(c)) return "";
+/** Colors of the basic land types on any face (Steam Vents → UR). */
+export function basicTypeColors(c: StatCard): string {
   const sub = new Set<string>();
   for (const face of c.type.split(" // ")) {
     const i = face.indexOf(" — ");
     if (i >= 0) for (const w of words(face.slice(i + 3))) sub.add(w);
   }
   return BASIC_TYPES.filter(([t]) => sub.has(t)).map(([, col]) => col).join("");
+}
+
+/** Any face is a permanent (a spell // land card counts through its land). */
+export const isPermanent = (c: StatCard) =>
+  c.type.split(" // ").some((face) => words(face.split(" — ")[0]).some((w) => PERMANENTS.has(w)));
+
+export const isBasic = (c: StatCard) => words(c.type).includes("Basic");
+
+/**
+ * Mana a card makes as WUBRGC letters. With the pack's produced field: permanents only (rituals aren't sources), and
+ * F (searches for any basic land) makes the colors of the deck's basic lands (`basics`). Without it (an older pack):
+ * lands by their basic land types.
+ */
+export function produces(c: StatCard, basics = ""): string {
+  if (c.produced == null) return isLand(c) ? basicTypeColors(c) : "";
+  if (!isPermanent(c)) return "";
+  const got = new Set([...c.produced.replace("F", ""), ...(c.produced.includes("F") ? basics : "")]);
+  return [..."WUBRGC"].filter((x) => got.has(x)).join("");
 }
 
 /** The cube's color group: the card's colors (not its mana cost), lands on their own. */
@@ -135,17 +163,65 @@ export function pipTotals(cards: StatCard[]): number[] {
   return out;
 }
 
-/** Lands that make each color, and how many lands the pack can't read (no basic land type, not a basic). */
-export function sources(cards: StatCard[]): { colors: number[]; unread: number } {
-  const out = [0, 0, 0, 0, 0];
-  let unread = 0;
-  for (const c of deckOf(cards)) {
-    if (!isLand(c)) continue;
-    const p = produces(c);
-    COLORS.forEach((col, i) => { if (p.includes(col)) out[i] += c.qty; });
-    if (!p && !words(c.type).includes("Basic")) unread += c.qty;
+export interface Sources {
+  /** Copies that make each of W U B R G. */
+  colors: number[];
+  colorless: number;
+  /** Copies that make any mana, and the non-land ones among them (dorks, rocks, a spell // land card). */
+  sources: number;
+  nonLand: number;
+  /** Lands (not basics) that make no mana the stats can read. */
+  unread: number;
+}
+
+/** Mana sources in the deck: lands and permanents that make mana. */
+export function sources(cards: StatCard[]): Sources {
+  const deck = deckOf(cards);
+  const basicSet = new Set<string>();
+  for (const c of deck) if (isBasic(c) && isLand(c)) for (const x of basicTypeColors(c)) basicSet.add(x);
+  const basics = [...basicSet].join("");
+  const s: Sources = { colors: [0, 0, 0, 0, 0], colorless: 0, sources: 0, nonLand: 0, unread: 0 };
+  for (const c of deck) {
+    const p = produces(c, basics);
+    if (p) {
+      s.sources += c.qty;
+      if (!isLand(c)) s.nonLand += c.qty;
+      COLORS.forEach((col, i) => { if (p.includes(col)) s.colors[i] += c.qty; });
+      if (p.includes("C")) s.colorless += c.qty;
+    } else if (isLand(c) && !isBasic(c)) {
+      s.unread += c.qty;
+    }
   }
-  return { colors: out, unread };
+  return s;
+}
+
+export interface TokenUse {
+  key: string;
+  name: string;
+  type: string;
+  /** Cards that make it, by name, with their copies. */
+  makers: { name: string; qty: number }[];
+}
+
+const byCode = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+/** Tokens the main deck, commander and sideboard make, by token card in name order. */
+export function tokens(cards: StatCard[]): TokenUse[] {
+  const found = new Map<string, { token: StatToken; makers: Map<string, number> }>();
+  for (const c of cards) {
+    if (c.board === "maybe") continue;
+    for (const t of c.tokens ?? []) {
+      let e = found.get(t.key);
+      if (!e) found.set(t.key, (e = { token: t, makers: new Map() }));
+      e.makers.set(c.name, (e.makers.get(c.name) ?? 0) + c.qty);
+    }
+  }
+  return [...found.values()]
+    .sort((a, b) => byCode(a.token.name, b.token.name) || byCode(a.token.key, b.token.key))
+    .map(({ token, makers }) => ({
+      ...token,
+      makers: [...makers].sort((a, b) => byCode(a[0], b[0])).map(([name, qty]) => ({ name, qty })),
+    }));
 }
 
 /** Main deck, sideboard and commander at market price; copies without a price are counted. */

@@ -11,7 +11,13 @@ import kotlin.math.roundToLong
  * testdata/deck-stats/cases.json holds the shared cases; make_cases.py there is the reference.
  */
 
-/** One list line as the stats read it. `type`, `cost`, `cmc` and `colors` come from the catalog pack's O line. */
+/** A token card a card makes (the pack's O-line tokens field). `key` tells apart token cards with the same name. */
+data class StatToken(val key: String, val name: String, val type: String)
+
+/**
+ * One list line as the stats read it. `type`, `cost`, `cmc`, `colors`, `produced` and `tokens` come from the catalog
+ * pack's O line.
+ */
 data class StatCard(
     val name: String,
     val qty: Int,
@@ -24,6 +30,9 @@ data class StatCard(
     val rarity: String = "",
     /** One copy's USD market price; null when there's none. */
     val usd: Double? = null,
+    /** Mana it makes, letters from WUBRGCF; null when the pack doesn't say (then lands read by basic land type). */
+    val produced: String? = null,
+    val tokens: List<StatToken> = emptyList(),
 ) {
     /** The front face's card types as bits in [DeckStats.TYPES] order, read once (stats ask many times). */
     val typeBits: Int = DeckStats.cardTypes(type).fold(0) { b, t -> b or (1 shl DeckStats.TYPES.indexOf(t)) }
@@ -32,6 +41,7 @@ data class StatCard(
 object DeckStats {
     val COLORS = listOf('W', 'U', 'B', 'R', 'G')
     val TYPES = listOf("Creature", "Planeswalker", "Instant", "Sorcery", "Artifact", "Enchantment", "Battle", "Land")
+    private val PERMANENTS = setOf("Creature", "Planeswalker", "Artifact", "Enchantment", "Battle", "Land")
     val COLOR_GROUPS = listOf("White", "Blue", "Black", "Red", "Green", "Multicolor", "Colorless", "Lands")
     /** Mana value columns: 0 … 6, then 7 and more. */
     val BUCKETS = listOf("0", "1", "2", "3", "4", "5", "6", "7+")
@@ -75,18 +85,31 @@ object DeckStats {
         return out.toList()
     }
 
-    /**
-     * Colors a land makes, read from its basic land types (any face). The pack carries no produced-mana field yet, so a
-     * land without a basic type (a fetch land, a utility land) reads as none.
-     */
-    fun produces(c: StatCard): String {
-        if (!isLand(c)) return ""
+    /** Colors of the basic land types on any face (Steam Vents → UR). */
+    fun basicTypeColors(c: StatCard): String {
         val sub = mutableSetOf<String>()
         for (face in c.type.split(" // ")) {
             val i = face.indexOf(" — ")
             if (i >= 0) sub += words(face.substring(i + 3))
         }
         return BASIC_TYPES.filter { it.first in sub }.map { it.second }.joinToString("")
+    }
+
+    /** Any face is a permanent (a spell // land card counts through its land). */
+    fun isPermanent(c: StatCard) = c.type.split(" // ").any { face -> words(face.split(" — ").first()).any { it in PERMANENTS } }
+
+    fun isBasic(c: StatCard) = "Basic" in words(c.type)
+
+    /**
+     * Mana a card makes as WUBRGC letters. With the pack's produced field: permanents only (rituals aren't sources), and
+     * F (searches for any basic land) makes the colors of the deck's basic lands ([basics]). Without it (an older
+     * pack): lands by their basic land types.
+     */
+    fun produces(c: StatCard, basics: String = ""): String {
+        val p = c.produced ?: return if (isLand(c)) basicTypeColors(c) else ""
+        if (!isPermanent(c)) return ""
+        val got = p.replace("F", "").toSet() + (if ('F' in p) basics.toSet() else emptySet())
+        return "WUBRGC".filter { it in got }
     }
 
     /** The cube's color group: the card's colors (not its mana cost), lands on their own. */
@@ -137,17 +160,56 @@ object DeckStats {
         return out.toList()
     }
 
-    /** Lands that make each color, and how many lands the pack can't read (no basic land type, not a basic). */
-    fun sources(cards: List<StatCard>): Pair<List<Int>, Int> {
+    data class Sources(
+        /** Copies that make each of W U B R G. */
+        val colors: List<Int>,
+        val colorless: Int,
+        /** Copies that make any mana, and the non-land ones among them (dorks, rocks, a spell // land card). */
+        val total: Int,
+        val nonLand: Int,
+        /** Lands (not basics) that make no mana the stats can read. */
+        val unread: Int,
+    )
+
+    /** Mana sources in the deck: lands and permanents that make mana. */
+    fun sources(cards: List<StatCard>): Sources {
+        val deck = deck(cards)
+        val basics = deck.filter { isBasic(it) && isLand(it) }.flatMap { basicTypeColors(it).toList() }.toSet().joinToString("")
         val out = IntArray(5)
+        var colorless = 0
+        var total = 0
+        var nonLand = 0
         var unread = 0
-        for (c in deck(cards)) {
-            if (!isLand(c)) continue
-            val p = produces(c)
-            COLORS.forEachIndexed { i, col -> if (col in p) out[i] += c.qty }
-            if (p.isEmpty() && "Basic" !in words(c.type)) unread += c.qty
+        for (c in deck) {
+            val p = produces(c, basics)
+            if (p.isNotEmpty()) {
+                total += c.qty
+                if (!isLand(c)) nonLand += c.qty
+                COLORS.forEachIndexed { i, col -> if (col in p) out[i] += c.qty }
+                if ('C' in p) colorless += c.qty
+            } else if (isLand(c) && !isBasic(c)) {
+                unread += c.qty
+            }
         }
-        return out.toList() to unread
+        return Sources(out.toList(), colorless, total, nonLand, unread)
+    }
+
+    /** A token card and the cards that make it, by name, with their copies. */
+    data class TokenUse(val token: StatToken, val makers: List<Pair<String, Int>>)
+
+    /** Tokens the main deck, commander and sideboard make, by token card in name order. */
+    fun tokens(cards: List<StatCard>): List<TokenUse> {
+        val found = LinkedHashMap<String, Pair<StatToken, MutableMap<String, Int>>>()
+        for (c in cards) {
+            if (c.board == "maybe") continue
+            for (t in c.tokens) {
+                val makers = found.getOrPut(t.key) { t to mutableMapOf() }.second
+                makers[c.name] = (makers[c.name] ?: 0) + c.qty
+            }
+        }
+        return found.values
+            .sortedWith(compareBy<Pair<StatToken, MutableMap<String, Int>>> { it.first.name }.thenBy { it.first.key })
+            .map { (t, m) -> TokenUse(t, m.entries.sortedBy { it.key }.map { it.key to it.value }) }
     }
 
     /** Main deck, sideboard and commander at market price; copies without a price are counted. */

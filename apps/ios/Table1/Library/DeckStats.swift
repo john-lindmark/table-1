@@ -4,7 +4,15 @@ import Foundation
    catalog access, so the same inputs give the same numbers here, on the web (src/lib/deckStats.ts) and on Android
    (DeckStats.kt). testdata/deck-stats/cases.json holds the shared cases; make_cases.py there is the reference. */
 
-/// One list line as the stats read it. `type`, `cost`, `cmc` and `colors` come from the catalog pack's O line.
+/// A token card a card makes (the pack's O-line tokens field). `key` tells apart token cards with the same name.
+struct StatToken: Hashable, Sendable {
+    let key: String
+    let name: String
+    let type: String
+}
+
+/// One list line as the stats read it. `type`, `cost`, `cmc`, `colors`, `produced` and `tokens` come from the catalog
+/// pack's O line.
 struct StatCard: Hashable, Sendable {
     var name: String
     var qty: Int
@@ -17,13 +25,17 @@ struct StatCard: Hashable, Sendable {
     var rarity: String = ""
     /// One copy's USD market price; nil when there's none.
     var usd: Double?
+    /// Mana it makes, letters from WUBRGCF; nil when the pack doesn't say (then lands read by basic land type).
+    var produced: String?
+    var tokens: [StatToken]
     /// The front face's card types as bits in `DeckStats.types` order, read once (stats ask many times).
     let typeBits: Int
 
     init(name: String, qty: Int, board: String, type: String, cost: String, cmc: Double, colors: String,
-         legal: String = "", rarity: String = "", usd: Double? = nil) {
+         legal: String = "", rarity: String = "", usd: Double? = nil, produced: String? = nil, tokens: [StatToken] = []) {
         self.name = name; self.qty = qty; self.board = board; self.type = type; self.cost = cost; self.cmc = cmc
-        self.colors = colors; self.legal = legal; self.rarity = rarity; self.usd = usd
+        self.colors = colors; self.legal = legal; self.rarity = rarity; self.usd = usd; self.produced = produced
+        self.tokens = tokens
         typeBits = DeckStats.cardTypes(type).reduce(0) { $0 | 1 << DeckStats.types.firstIndex(of: $1)! }
     }
 }
@@ -31,6 +43,7 @@ struct StatCard: Hashable, Sendable {
 enum DeckStats {
     static let colors: [Character] = ["W", "U", "B", "R", "G"]
     static let types = ["Creature", "Planeswalker", "Instant", "Sorcery", "Artifact", "Enchantment", "Battle", "Land"]
+    private static let permanents: Set<String> = ["Creature", "Planeswalker", "Artifact", "Enchantment", "Battle", "Land"]
     static let colorGroups = ["White", "Blue", "Black", "Red", "Green", "Multicolor", "Colorless", "Lands"]
     /// Mana value columns: 0 … 6, then 7 and more.
     static let buckets = ["0", "1", "2", "3", "4", "5", "6", "7+"]
@@ -79,16 +92,33 @@ enum DeckStats {
         return out
     }
 
-    /// Colors a land makes, read from its basic land types (any face). The pack carries no produced-mana field
-    /// yet, so a land without a basic type (a fetch land, a utility land) reads as none.
-    static func produces(_ c: StatCard) -> String {
-        guard isLand(c) else { return "" }
+    /// Colors of the basic land types on any face (Steam Vents → UR).
+    static func basicTypeColors(_ c: StatCard) -> String {
         var sub = Set<String>()
         for face in c.type.components(separatedBy: " // ") {
             let parts = face.components(separatedBy: " — ")
             if parts.count > 1 { sub.formUnion(words(parts[1])) }
         }
         return String(basicTypes.filter { sub.contains($0.0) }.map(\.1))
+    }
+
+    /// Any face is a permanent (a spell // land card counts through its land).
+    static func isPermanent(_ c: StatCard) -> Bool {
+        c.type.components(separatedBy: " // ").contains { face in
+            !permanents.isDisjoint(with: words(face.components(separatedBy: " — ").first ?? ""))
+        }
+    }
+
+    static func isBasic(_ c: StatCard) -> Bool { words(c.type).contains("Basic") }
+
+    /// Mana a card makes as WUBRGC letters. With the pack's produced field: permanents only (rituals aren't
+    /// sources), and F (searches for any basic land) makes the colors of the deck's basic lands (`basics`). Without
+    /// it (an older pack): lands by their basic land types.
+    static func produces(_ c: StatCard, basics: String) -> String {
+        guard let p = c.produced else { return isLand(c) ? basicTypeColors(c) : "" }
+        guard isPermanent(c) else { return "" }
+        let got = Set(p.filter { $0 != "F" } + (p.contains("F") ? basics : ""))
+        return String("WUBRGC".filter { got.contains($0) })
     }
 
     /// The cube's color group: the card's colors (not its mana cost), lands on their own.
@@ -135,15 +165,59 @@ enum DeckStats {
         return out
     }
 
-    /// Lands that make each color, and how many lands the pack can't read (no basic land type, not a basic).
-    static func sources(_ cards: [StatCard]) -> (colors: [Int], unread: Int) {
-        var out = [0, 0, 0, 0, 0], unread = 0
-        for c in deck(cards) where isLand(c) {
-            let p = produces(c)
-            for (i, col) in colors.enumerated() where p.contains(col) { out[i] += c.qty }
-            if p.isEmpty && !words(c.type).contains("Basic") { unread += c.qty }
+    struct Sources: Equatable {
+        /// Copies that make each of W U B R G.
+        var colors = [0, 0, 0, 0, 0]
+        var colorless = 0
+        /// Copies that make any mana, and the non-land ones among them (dorks, rocks, a spell // land card).
+        var total = 0
+        var nonLand = 0
+        /// Lands (not basics) that make no mana the stats can read.
+        var unread = 0
+    }
+
+    /// Mana sources in the deck: lands and permanents that make mana.
+    static func sources(_ cards: [StatCard]) -> Sources {
+        let d = deck(cards)
+        var basicSet = Set<Character>()
+        for c in d where isBasic(c) && isLand(c) { basicSet.formUnion(basicTypeColors(c)) }
+        let basics = String(basicSet)
+        var s = Sources()
+        for c in d {
+            let p = produces(c, basics: basics)
+            if !p.isEmpty {
+                s.total += c.qty
+                if !isLand(c) { s.nonLand += c.qty }
+                for (i, col) in colors.enumerated() where p.contains(col) { s.colors[i] += c.qty }
+                if p.contains("C") { s.colorless += c.qty }
+            } else if isLand(c) && !isBasic(c) {
+                s.unread += c.qty
+            }
         }
-        return (out, unread)
+        return s
+    }
+
+    struct TokenUse: Equatable {
+        let token: StatToken
+        /// Cards that make it, by name, with their copies.
+        let makers: [(name: String, qty: Int)]
+        static func == (a: TokenUse, b: TokenUse) -> Bool {
+            a.token == b.token && a.makers.map(\.name) == b.makers.map(\.name) && a.makers.map(\.qty) == b.makers.map(\.qty)
+        }
+    }
+
+    /// Tokens the main deck, commander and sideboard make, by token card in name order.
+    static func tokens(_ cards: [StatCard]) -> [TokenUse] {
+        var found: [String: (token: StatToken, makers: [String: Int])] = [:]
+        for c in cards where c.board != "maybe" {
+            for t in c.tokens {
+                found[t.key, default: (t, [:])].makers[c.name, default: 0] += c.qty
+            }
+        }
+        let byName = { (a: String, b: String) in Array(a.utf8).lexicographicallyPrecedes(Array(b.utf8)) }
+        return found.values
+            .sorted { $0.token.name != $1.token.name ? byName($0.token.name, $1.token.name) : byName($0.token.key, $1.token.key) }
+            .map { TokenUse(token: $0.token, makers: $0.makers.sorted { byName($0.key, $1.key) }.map { ($0.key, $0.value) }) }
     }
 
     /// Main deck, sideboard and commander at market price; copies without a price are counted.

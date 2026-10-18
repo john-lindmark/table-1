@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, Notice, Row, Section, Segmented, Stepper } from "../components/kit";
-import { LEGALITY_FORMATS, formatName, type Catalog } from "../lib/catalog";
+import { LEGALITY_FORMATS, formatName, tokenIndexes, type Catalog } from "../lib/catalog";
 import {
   BUCKETS, COLOR_GROUPS, SampleHand, StatsRng, TYPES, asfan, asfanLabels, averageMV, colorBalance, curve, curveByColor, deckOf,
-  drawsByTurn, expand, hypergeometric, isLand, legality, pipTotals, price, sources, statCard, typeCounts, type AsfanBy, type StatCard,
+  drawsByTurn, expand, hypergeometric, isLand, legality, pipTotals, price, sources, statCard, tokens, typeCounts, type AsfanBy,
+  type StatCard,
 } from "../lib/deckStats";
 import { entriesOf, finishOf, type CardList, type ListFinish } from "../lib/lists";
 import { usdPrice, usePrices } from "../lib/prices";
@@ -33,7 +34,8 @@ function statLines(l: CardList, c: Catalog): StatLine[] {
     const finish = finishOf(e);
     out.push({
       card: statCard({ name: c.oName[oi], qty: e.qty, board: e.board, type: c.oType[oi], cost: c.oCost[oi], cmc: c.oCmc[oi], colors: c.oColors[oi],
-                       legal: c.oLegal[oi], rarity: c.pRarity[p], usd: usdPrice(e.cardId, finish) }),
+                       legal: c.oLegal[oi], rarity: c.pRarity[p], usd: usdPrice(e.cardId, finish), produced: c.oProduced[oi],
+                       tokens: tokenIndexes(c, oi).map((t) => ({ key: c.oId[t], name: c.oName[t], type: c.oType[t] })) }),
       cardId: e.cardId, finish, p,
     });
   }
@@ -222,7 +224,10 @@ function DeckStats({ list, cards, onHand, onOdds }: { list: CardList; cards: Sta
   const pips = pipTotals(cards);
   const src = sources(cards);
   const pipSum = Math.max(1, sum(pips));
-  const shown = [0, 1, 2, 3, 4].filter((i) => pips[i] > 0 || src.colors[i] > 0);
+  const olderPack = deck.some((c) => c.produced == null);
+  const made = tokens(cards);
+  // The deck's colors; a fetch land's other land type (Bloodstained Mire in Boros) isn't one.
+  const shown = [0, 1, 2, 3, 4].filter((i) => (sum(pips) > 0 ? pips[i] > 0 : src.colors[i] > 0));
   const p = price(cards);
   const issues = CHECKED.includes(list.format) ? legality(cards, list.format) : null;
   const others = CHECKED.filter((f) => f !== list.format).map((f) => [f === "canlander" ? "Canlander" : formatName(f), legality(cards, f).length] as const);
@@ -239,13 +244,18 @@ function DeckStats({ list, cards, onHand, onOdds }: { list: CardList; cards: Sta
       {sum(types) > size && <Notice tone="info">A card counts once for each of its types: an artifact creature is in both.</Notice>}
 
       <Section title="Colors · pips in costs vs sources" />
-      {shown.length === 0 ? <Row title="Colorless" detail="No colored mana symbols or colored lands" /> : (
-        <Table header={["Color", "Pips", "Share", "Lands", "Share"]}
-               rows={shown.map((i) => [COLOR_GROUPS[i], String(pips[i]), pct(pips[i] / pipSum), String(src.colors[i]), pct(src.colors[i] / Math.max(1, lands))])} />
+      {shown.length === 0 ? <Row title="Colorless" detail="No colored mana symbols or colored sources" /> : (
+        <Table header={["Color", "Pips", "Share", "Sources", "Share"]}
+               rows={shown.map((i) => [COLOR_GROUPS[i], String(pips[i]), pct(pips[i] / pipSum), String(src.colors[i]), pct(src.colors[i] / Math.max(1, src.sources))])} />
       )}
+      <Row title="Mana sources" value={src.sources}
+           detail={["Lands and permanents that make mana", ...(src.nonLand ? [`${src.nonLand} not lands`] : []),
+                    ...(src.colorless ? [`${src.colorless} colorless`] : [])].join(" · ")} />
       {src.unread > 0 && (
         <Notice tone="info">
-          Lands count by their basic land types. {src.unread} land{src.unread === 1 ? " has" : "s have"} none (fetch or utility lands) and {src.unread === 1 ? "isn't" : "aren't"} counted.
+          {olderPack
+            ? `Card data is still updating, so lands count by their basic land types: ${src.unread} land${src.unread === 1 ? "" : "s"} without one (fetch or utility lands) ${src.unread === 1 ? "isn't" : "aren't"} counted.`
+            : `${src.unread} land${src.unread === 1 ? " makes" : "s make"} no mana and ${src.unread === 1 ? "isn't" : "aren't"} counted.`}
         </Notice>
       )}
 
@@ -261,6 +271,19 @@ function DeckStats({ list, cards, onHand, onOdds }: { list: CardList; cards: Sta
           </div>
         ))}
       </div>
+
+      <Section title="Tokens" />
+      {made.length === 0
+        ? <Row title="None" detail={cards.some((c) => c.produced == null) ? "Card data is still updating" : "No card here makes tokens"} />
+        : made.map((t) => (
+          <div key={t.key} className="bg-t1-surface px-4 py-3 flex flex-col gap-1 min-w-0">
+            <div className="flex items-baseline gap-3 min-w-0">
+              <span className="text-[13px] truncate flex-1">{t.name}</span>
+              <span className="t1-label shrink-0">{t.type.replace("Token ", "")}</span>
+            </div>
+            <span className="text-[12px] text-t1-muted">Made by {t.makers.map((m) => (m.qty > 1 ? `${m.name} ×${m.qty}` : m.name)).join(", ")}</span>
+          </div>
+        ))}
 
       <Section title="Price" />
       <Row title={p.total > 0 ? usd(p.total) : "No prices yet"} detail={p.unpriced > 0 ? `TCGplayer market · ${p.unpriced} unpriced` : "TCGplayer market · main and side"} />
