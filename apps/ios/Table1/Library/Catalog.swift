@@ -26,8 +26,8 @@ struct CatalogOracle: Hashable, Sendable {
     var legal: String = ""
     /// Canadian Highlander points (0 = none).
     var points: Int = 0
+    /// Mana value and colors (WUBRG letters, empty = colorless), for deck and cube stats.
     var cmc: Double = 0
-    /// WUBRG letters; empty = colorless.
     var colors: String = ""
 
     /// Legality in a deck format: "legal", "restricted", "banned", "not_legal", or nil when the format isn't checked.

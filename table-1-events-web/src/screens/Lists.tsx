@@ -14,6 +14,7 @@ import { capture } from "../lib/telemetry";
 import {
   CardArt, CardRow, CardTile, LibScreen, StackRows, ViewButton, useCatalog, useLibrarySession, useStoredLayout, type StackItem,
 } from "./Library";
+import { ListStatsRow } from "./ListStats";
 
 /* Decks and cubes on the web (contract/lists-2026-10-15.md): the same lists, sections, groups and version
    history as iOS, read from and written to the database, so a deck built on one device is here too. */
@@ -250,9 +251,9 @@ function ExportModal({ list, catalog, onClose }: { list: CardList; catalog: Cata
   );
 }
 
-export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPrinting }: {
+export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPrinting, onStats }: {
   id: string; onBack: () => void; onCard: (oracleId: string) => void; onAdd: () => void; onVersions: () => void;
-  onOpen: (listId: string) => void; onPrinting: (cardId: string, board: Board, finish: ListFinish) => void;
+  onOpen: (listId: string) => void; onPrinting: (cardId: string, board: Board, finish: ListFinish) => void; onStats: () => void;
 }) {
   const { session, ready, lists, owned } = useListsData();
   const { catalog, error } = useCatalog();
@@ -357,6 +358,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         {editing && <Row title={list.kind === "deck" ? "Duplicate deck" : "Duplicate cube"} detail="A new list with these cards"
                          onClick={() => { void duplicateList(list).then((copy) => { setEditing(false); onOpen(copy); }); }} />}
         {editing && <Row title={list.kind === "deck" ? "Delete deck" : "Delete cube"} detail="From every device" onClick={() => setConfirmDelete(true)} />}
+        {!editing && catalog && <ListStatsRow list={list} catalog={catalog} onOpen={onStats} />}
         <Row title="Add cards" detail={list.kind === "deck" ? "To the main deck, sideboard or considering" : "To the cube or considering"} onClick={onAdd} />
         <Row title="Version history" detail={`v${v.number} · ${v.note} · ${fmtDate(v.at)}`} value={list.versions.length} onClick={onVersions} />
         {entriesOf(list).length > 0 && !editing && catalog &&

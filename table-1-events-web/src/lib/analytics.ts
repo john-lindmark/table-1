@@ -104,6 +104,13 @@ export function screenName(pathname: string, listKind?: (id: string) => "deck" |
     if (rest === "/add") return "list_add";
     if (rest === "/printing") return "list_printing";
     if (rest === "/versions" || rest.startsWith("/v/")) return "list_versions";
+    if (rest === "/stats") {
+      const kind = listKind?.(list[1]);
+      return kind ? `${kind}_stats` : undefined;
+    }
+    if (rest === "/stats/hand") return "sample_hand";
+    if (rest === "/stats/odds") return "draw_odds";
+    if (rest === "/stats/pack") return "sample_pack";
   }
   return undefined;
 }

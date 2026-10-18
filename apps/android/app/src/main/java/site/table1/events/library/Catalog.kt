@@ -39,8 +39,8 @@ data class CatalogOracle(
     val legal: String = "",
     /** Canadian Highlander points (0 = none). */
     val points: Int = 0,
+    /** Mana value and colors (WUBRG letters, empty = colorless), for deck and cube stats. */
     val cmc: Double = 0.0,
-    /** WUBRG letters; empty = colorless. */
     val colors: String = "",
 ) {
     /** Legality in a deck format: legal, restricted, banned, not_legal, or null when the format isn't checked. */

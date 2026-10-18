@@ -44,7 +44,8 @@ everyone paired once, one bye when odd, no second bye. Its time budgets apply un
 **iOS** (`apps/ios/Table1Tests`, scheme test action). Scanner accuracy floors (`CardMatcherTests`), catalog pack
 (`CatalogPackTests`), collection CSV import (`CollectionCSVTests`: every format's fixture in `testdata/collection-import`
 parsed and matched against the test catalog, export read back, `CollectionImportPerfTests` on 20k lines), and `ScannerPerfTests`: pack → SQLite build, catalog search, matcher per camera frame over
-all 1,455 OCR reads in `testdata/scan`. Runs on its own `T1-Tests` simulator with derived data in
+all 1,455 OCR reads in `testdata/scan`. `DeckStatsTests`: deck and cube stats against the shared cases in
+`testdata/deck-stats/cases.json` (the web's `deckStats.test.ts` and Android's `DeckStatsTest` read the same file). Runs on its own `T1-Tests` simulator with derived data in
 `/var/tmp/t1-test-dd`, so it never touches another session's simulator.
 
 **Android** (`apps/android/app/src/test`). Same scanner accuracy and pack tests, `ListsTest`, `ScannerPerfTest`, and
@@ -71,6 +72,7 @@ the test JVM's heap.
 | Collection CSV import, 20k lines, iOS Debug: parse / match by id / by set + number | 210 / 150 / 470 ms | 650 / 1,500 / 1,500 ms |
 | Collection CSV import, 20k lines, web: parse / match by id / by set + number | 30 / 32 / 80 ms | 150 / 400 / 400 ms |
 | Collection CSV import, 20k lines, Android (JVM): parse / match by id / by set + number | 20 / 30 / 60 ms | 100 / 200 / 200 ms |
+| Deck and cube stats, every stat on a 540-card cube: iOS Debug / web / Android (JVM) | 14 / 0.7 / 1.7 ms | 30 / 5 / 10 ms |
 
 Budgets catch regressions (a lost index, a quadratic loop), not noise. Raise one only on purpose and say why in the commit.
 

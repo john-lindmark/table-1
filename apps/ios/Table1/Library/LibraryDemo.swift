@@ -214,9 +214,10 @@ struct LibraryDemoRoot: View {
         }
     }
 
-    /// Design QA: `-T1LibraryDemo allcards|add|import|trades|trade|deck|cube` opens that screen (deck and cube: the
-    /// fixture's first of each; `-T1ListExport arena|moxfield|mtgo|text|cubecobra` then exports it). `import` with
-    /// `-T1ImportFile <path>` reads that file as if it had been picked.
+    /// Design QA: `-T1LibraryDemo allcards|add|import|trades|trade|deck|cube|deckstats|cubestats|hand|odds|pack` opens
+    /// that screen (deck and cube: the fixture's first of each; stats, sample hand, draw odds and sample pack on it;
+    /// `-T1ListExport arena|moxfield|mtgo|text|cubecobra` then exports it). `import` with `-T1ImportFile <path>` reads
+    /// that file as if it had been picked.
     private static var startRoute: [LibraryRoute] {
         let args = ProcessInfo.processInfo.arguments
         guard let i = args.firstIndex(of: "-T1LibraryDemo"), i + 1 < args.count else { return [] }
@@ -226,9 +227,17 @@ struct LibraryDemoRoot: View {
         case "import": return [.collectionImport]
         case "trades": return [.trades]
         case "trade": return [.trades, .trade(nil)]
-        case "deck", "cube":
-            let kind: CardList.Kind = args[i + 1] == "deck" ? .deck : .cube
-            return ListsStore.shared.lists.first { $0.kind == kind }.map { [.lists(kind), .list($0.id)] } ?? []
+        case "deck", "cube", "deckstats", "cubestats", "hand", "odds", "pack":
+            let kind: CardList.Kind = ["cube", "cubestats", "pack"].contains(args[i + 1]) ? .cube : .deck
+            guard let l = ListsStore.shared.lists.first(where: { $0.kind == kind }) else { return [] }
+            let base: [LibraryRoute] = [.lists(kind), .list(l.id)]
+            switch args[i + 1] {
+            case "deckstats", "cubestats": return base + [.listStats(l.id)]
+            case "hand": return base + [.listStats(l.id), .sampleHand(l.id)]
+            case "odds": return base + [.listStats(l.id), .drawOdds(l.id)]
+            case "pack": return base + [.listStats(l.id), .samplePack(l.id)]
+            default: return base
+            }
         default: return []
         }
     }
