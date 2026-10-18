@@ -26,7 +26,7 @@ internal val root: File = generateSequence(File("").absoluteFile) { it.parentFil
 internal val testPack: PackCatalog by lazy { PackCatalog(String(CatalogPack.gunzip(File(root, "catalog.tsv.gz").readBytes()))) }
 
 /** The test pack held in memory, answering what CatalogDb answers on a phone (scanner and CSV import). */
-internal class PackCatalog(text: String) : ScanCatalog, ImportCatalog {
+internal class PackCatalog(text: String) : ScanCatalog, ImportCatalog, ListCatalog {
     private val oracleList = ArrayList<PackOracle>()
     private val printingList = ArrayList<CatalogPrinting>()
     private val nameList = LinkedHashSet<Pair<Int, String>>()
@@ -43,7 +43,8 @@ internal class PackCatalog(text: String) : ScanCatalog, ImportCatalog {
     override fun foreignNames() = nameList.toList()
     override fun setCodes() = printingList.mapTo(HashSet()) { it.set }
     override fun oracles(idxs: Collection<Int>) = idxs.mapNotNull { i ->
-        oracleByIdx[i]?.let { i to CatalogOracle(it.idx, it.oracleId, it.name, it.nameNorm, it.typeLine, it.manaCost, byOracle[i]?.size ?: 0) }
+        oracleByIdx[i]?.let { i to CatalogOracle(it.idx, it.oracleId, it.name, it.nameNorm, it.typeLine, it.manaCost, byOracle[i]?.size ?: 0,
+            it.legal, it.points, it.cmc, it.colors) }
     }.toMap()
     override fun printings(oracleIdx: Int) = byOracle[oracleIdx] ?: emptyList()
     override fun printings(set: String, cn: String) = (bySetCn["$set|$cn"] ?: emptyList()).sortedByDescending { it.lang == "en" }
@@ -58,6 +59,18 @@ internal class PackCatalog(text: String) : ScanCatalog, ImportCatalog {
         byOracle[i]?.minWithOrNull(compareBy<CatalogPrinting>({ if (it.original) 0 else 1 }, { if (it.lang == "en" && it.imageFaces > 0) 0 else 1 }, { it.ord }))
             ?.let { i to it }
     }.toMap()
+
+    private val byNorm by lazy { oracleList.groupBy { it.nameNorm }.mapValues { it.value.first().idx } }
+    /** Same lookups as CatalogDb.printingsByName: the exact name, else a front face (most printings first). */
+    override fun printingsByName(names: Collection<String>): Map<String, CatalogPrinting> {
+        val idx = names.toSet().mapNotNull { n ->
+            (byNorm[CardName.norm(n)] ?: oracleList.filter { it.name.startsWith("$n // ") }.maxByOrNull { byOracle[it.idx]?.size ?: 0 }?.idx)?.let { n to it }
+        }.toMap()
+        val covers = covers(idx.values.toSet())
+        return idx.mapNotNull { (n, i) -> covers[i]?.let { n to it } }.toMap()
+    }
+    override fun printingsBySetCn(pairs: Collection<Pair<String, String>>) =
+        pairs.mapNotNull { (s, c) -> printings(s.lowercase(), c).firstOrNull()?.let { "$s|$c" to it } }.toMap()
 
     /** Normalized name (and a split or double-faced card's front face) → oracle index, for the expected cards. */
     val expected: Map<String, Int> = HashMap<String, Pair<Int, Int>>().also { best ->

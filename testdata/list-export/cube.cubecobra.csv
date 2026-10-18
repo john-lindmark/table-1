@@ -1,0 +1,10 @@
+name,CMC,Type,Color,Set,Collector Number,Rarity,Color Category,status,Finish,board,maybeboard,image URL,image Back URL,tags,Notes,MTGO ID,Custom,Voucher,Artist
+"Bonecrusher Giant",3,"Creature - Giant // Instant — Adventure",R,"eld","115",rare,,,Non-foil,mainboard,false,,,"","",,false,false,""
+"Delver of Secrets",1,"Creature - Human Wizard // Creature — Human Insect",U,"isd","51",common,,,Non-foil,mainboard,false,,,"","",,false,false,""
+"Fire // Ice",4,"Instant // Instant",UR,"mh2","290",rare,,,Foil,mainboard,false,,,"","",,false,false,""
+"Kenrith, the Returned King",5,"Legendary Creature - Human Noble",W,"mul","69",mythic,,,Etched,mainboard,false,,,"","",,false,false,""
+"Kongming, ""Sleeping Dragon""",7,"Legendary Creature - Human Advisor",W,"a25","20",uncommon,,,Non-foil,mainboard,false,,,"","",,false,false,""
+"Lightning Bolt",1,"Instant",R,"2x2","117",uncommon,,,Non-foil,mainboard,false,,,"","",,false,false,""
+"Lightning Bolt",1,"Instant",R,"2x2","117",uncommon,,,Non-foil,mainboard,false,,,"","",,false,false,""
+"Plague Sliver",4,"Creature - Sliver",B,"sld","633Φ",rare,,,Foil,mainboard,false,,,"","",,false,false,""
+"Sol Ring",1,"Artifact",,"lea","269",uncommon,,,Non-foil,maybeboard,true,,,"","",,false,false,""

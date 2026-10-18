@@ -608,6 +608,8 @@ struct ListDetailView: View {
     /// Card names, art and groups, looked up once per card; quantities always come from the live list.
     @State private var meta: [String: ListLine] = [:]
     @State private var editing = false
+    @State private var share: ShareFile?
+    @State private var exportNote: String?
     @AppStorage("library.list.layout") private var layout = CardLayout.list.rawValue
 
     var body: some View {
@@ -658,6 +660,50 @@ struct ListDetailView: View {
             let resolved = await Task.detached(priority: .userInitiated) { ListLine.resolve(entries, kind: kind, db) }.value
             for line in resolved { meta[line.cardId] = line }
         }
+        .sheet(item: $share) { ShareSheet(share: $0).ignoresSafeArea() }
+        #if DEBUG
+        // Design QA: `-T1LibraryDemo deck|cube -T1ListExport <format>` exports once the card data is in.
+        .task(id: catalog.db == nil) {
+            let args = ProcessInfo.processInfo.arguments
+            guard catalog.db != nil, share == nil, let i = args.firstIndex(of: "-T1ListExport"), i + 1 < args.count,
+                  let f = ListExport.Format(rawValue: args[i + 1]), let list = ListsStore.shared.list(id: listId) else { return }
+            await export(list, f)
+        }
+        #endif
+    }
+
+    private func exportMenu(_ list: CardList) {
+        T1Overlays.shared.showMenu("Export \(list.name)", message: "The current version, v\(list.current?.number ?? 1)",
+                                   ListExport.Format.formats(list.kind).map { f in
+            T1MenuItem(title: f.label, detail: f.detail) { Task { await export(list, f) } }
+        })
+    }
+
+    /// The current version in that format, handed to the share sheet: a file for MTGO and Cube Cobra, text to copy
+    /// for the formats other apps paste in.
+    private func export(_ list: CardList, _ format: ListExport.Format) async {
+        guard let db = catalog.db else { return }
+        let entries = list.entries, kind = list.kind
+        let (text, cards, left) = await Task.detached(priority: .userInitiated) { () -> (String, Int, Int) in
+            let r = ListExport.lines(entries, db)
+            return (ListExport.render(r.lines, kind: kind, format: format), r.lines.reduce(0) { $0 + $1.qty }, r.left)
+        }.value
+        exportNote = left > 0 ? "\(left) card\(left == 1 ? "" : "s") newer than the card data \(left == 1 ? "was" : "were") left out." : nil
+        if format.fileExtension != nil {
+            let dir = FileManager.default.temporaryDirectory.appending(path: "list-export")
+            let url = dir.appending(path: ListExport.fileName(list.name, kind: kind, format: format))
+            do {
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                try Data(text.utf8).write(to: url, options: .atomic)
+            } catch {
+                exportNote = error.localizedDescription
+                return
+            }
+            share = ShareFile(url: url)
+        } else {
+            share = ShareFile(text: text)
+        }
+        Telemetry.capture("list_exported", ["kind": kind.rawValue, "format": format.rawValue, "cards": cards, "left": left])
     }
 
     /// The list's current lines: live quantities and sections, with card details from `meta`.
@@ -718,6 +764,13 @@ struct ListDetailView: View {
             ListRow(title: "Add cards", detail: list.kind == .deck ? "To the main deck, sideboard or considering" : "To the cube or considering")
         }.buttonStyle(.plain)
         historyRow(list)
+        if !list.entries.isEmpty && !editing {
+            Button { exportMenu(list) } label: {
+                ListRow(title: "Export", detail: list.kind == .deck ? "For Arena, Moxfield, MTGO or as plain text" : "For Cube Cobra or as plain text")
+            }.buttonStyle(.plain)
+            .disabled(catalog.db == nil)
+            if let exportNote { Notice(exportNote) }
+        }
         if list.entries.isEmpty { ListRow(title: "No cards yet", detail: "Add cards to start this list") }
     }
 

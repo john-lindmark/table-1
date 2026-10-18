@@ -13,7 +13,7 @@ New deck / New cube → **Import from a link or list**. Built on iOS (`ListImpor
 | MTGGoldfish (`/deck/<id>`) | `deck/download/<id>` text, parsed like a pasted list |
 | Moxfield | Refused (Moxfield blocks other apps): "In Moxfield choose Export, copy the list as text and paste it here." |
 | Any other public page (ManaBox, TappedOut, mtgdecks, melee.gg …) | Page fetched (no private/local hosts), stripped to text, read by Claude (`claude-opus-5-5`, effort low, strict `report_list` tool). 403 → "export it there and paste it here". |
-| Pasted text | Parsed on the server (`parse.ts`): `4 Name`, `4x Name`, `(SET) 123` or `[SET] 123`, `*F*` / `*E*` / `(Foil)`, Moxfield `#tags` dropped, headers (Deck, Sideboard, Maybeboard, Considering, Commander, Companion, with `//` or `:`), `SB:` prefix, Arena `About / Name`, a blank line before the sideboard when there are no headers, and count-less one-per-line cube lists. |
+| Pasted text | Parsed on the server (`parse.ts`): `4 Name`, `4x Name`, `(SET) 123` or `[SET] 123`, `*F*` / `*E*` / `(Foil)`, Moxfield `#tags` dropped, headers (Deck, Sideboard, Maybeboard, Considering, Commander, Companion, with `//` or `:`), `SB:` prefix, Arena `About / Name`, a blank line before the sideboard when there are no headers, count-less one-per-line cube lists, and card CSVs with a name column (Cube Cobra's export; see lists-2026-10-15.md, Export). |
 
 ## Clients
 

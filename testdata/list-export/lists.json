@@ -1,0 +1,52 @@
+{
+  "about": "Deck and cube export fixture (contract/lists-2026-10-15.md, Export). Card ids are printings in testdata/scan/catalog.tsv.gz; cards repeats what that pack says about them (its cmc and colors columns are trimmed, so they're given here). Every platform renders these lists and must produce the files next to this one byte for byte; supabase/functions/list-import/parse.test.ts re-parses each file and checks it reads back as the same lines.",
+  "cards": {
+    "p88108": { "name": "Kenrith, the Returned King", "type_line": "Legendary Creature — Human Noble", "cmc": 5, "colors": "W", "set": "eld", "cn": "303", "rarity": "m" },
+    "p91226": { "name": "Lightning Bolt", "type_line": "Instant", "cmc": 1, "colors": "R", "set": "2x2", "cn": "117", "rarity": "u" },
+    "p91219": { "name": "Lightning Bolt", "type_line": "Instant", "cmc": 1, "colors": "R", "set": "sld", "cn": "1638★", "rarity": "r" },
+    "p69762": { "name": "Fire // Ice", "type_line": "Instant // Instant", "cmc": 4, "colors": "UR", "set": "mh2", "cn": "290", "rarity": "r" },
+    "p59639": { "name": "Delver of Secrets // Insectile Aberration", "type_line": "Creature — Human Wizard // Creature — Human Insect", "cmc": 1, "colors": "U", "set": "isd", "cn": "51", "rarity": "c" },
+    "p48176": { "name": "Bonecrusher Giant // Stomp", "type_line": "Creature — Giant // Instant — Adventure", "cmc": 3, "colors": "R", "set": "eld", "cn": "115", "rarity": "r" },
+    "p54769": { "name": "Commit // Memory", "type_line": "Instant // Sorcery", "cmc": 10, "colors": "U", "set": "akh", "cn": "211", "rarity": "r" },
+    "p89100": { "name": "Kongming, \"Sleeping Dragon\"", "type_line": "Legendary Creature — Human Advisor", "cmc": 7, "colors": "W", "set": "a25", "cn": "20", "rarity": "u" },
+    "p85880": { "name": "Jace, the Mind Sculptor", "type_line": "Legendary Planeswalker — Jace", "cmc": 4, "colors": "U", "set": "2xm", "cn": "56", "rarity": "m" },
+    "p122998": { "name": "Snapcaster Mage", "type_line": "Creature — Human Wizard", "cmc": 2, "colors": "U", "set": "isd", "cn": "78", "rarity": "r" },
+    "p106861": { "name": "Plague Sliver", "type_line": "Creature — Sliver", "cmc": 4, "colors": "B", "set": "sld", "cn": "633Φ", "rarity": "r" },
+    "p123369": { "name": "Sol Ring", "type_line": "Artifact", "cmc": 1, "colors": "", "set": "lea", "cn": "269", "rarity": "u" },
+    "p85488": { "name": "Island", "type_line": "Basic Land — Island", "cmc": 0, "colors": "", "set": "lea", "cn": "288", "rarity": "c" },
+    "p88107": { "name": "Kenrith, the Returned King", "type_line": "Legendary Creature — Human Noble", "cmc": 5, "colors": "W", "set": "mul", "cn": "69", "rarity": "m" }
+  },
+  "deck": {
+    "name": "Izzet: \"Tempo\" / test",
+    "entries": [
+      ["p88108", "commander", 1],
+      ["p91226", "main", 3],
+      ["p91219", "main", 1, "foil"],
+      ["p69762", "main", 1, "etched"],
+      ["p69762", "main", 1, "foil"],
+      ["p59639", "main", 4],
+      ["p48176", "main", 2],
+      ["p54769", "main", 1],
+      ["p89100", "main", 1],
+      ["p85880", "main", 1],
+      ["p85488", "main", 10],
+      ["p122998", "side", 2],
+      ["p106861", "side", 1, "foil"],
+      ["p91226", "side", 1],
+      ["p123369", "maybe", 1]
+    ]
+  },
+  "cube": {
+    "name": "Vintage cube",
+    "entries": [
+      ["p91226", "main", 2],
+      ["p69762", "main", 1, "foil"],
+      ["p59639", "main", 1],
+      ["p48176", "main", 1],
+      ["p89100", "main", 1],
+      ["p88107", "main", 1, "etched"],
+      ["p106861", "main", 1, "foil"],
+      ["p123369", "maybe", 1]
+    ]
+  }
+}

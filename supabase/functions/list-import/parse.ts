@@ -6,6 +6,8 @@
 // Section headers (Deck, Sideboard, Maybeboard, Considering, Commander, Companion; with or without "//" and ":")
 // switch sections; without headers, the first blank line after main deck cards starts the sideboard. Lines with
 // no count are one copy each, but only when no line in the list has a count (a cube list).
+// A CSV with a name column and a set, collector number or board column (Cube Cobra's export and bulk upload, or
+// a collection export) is read by its columns instead: one copy per row unless it has a count column.
 
 export interface Line {
   qty: number;
@@ -19,7 +21,7 @@ export interface Line {
 
 const HEADER = /^(?:\/\/\s*)?(deck|main|mainboard|main deck|sideboard|side|side board|maybe|maybeboard|considering|commander|companion|tokens?)\s*:?\s*(?:\(\d+\))?\s*$/i;
 const CARD = /^(\d{1,3})\s*x?\s+(.+?)\s*$/i;
-const PRINTING = /\s+[([]([A-Za-z0-9]{2,6})[)\]](?:\s+([A-Za-z0-9★†\-]+))?/;
+const PRINTING = /\s+[([]([A-Za-z0-9]{2,6})[)\]](?:\s+([A-Za-z0-9★†Φ_\-]+))?/;
 
 function boardFor(header: string): Line["board"] | "skip" {
   const h = header.toLowerCase();
@@ -50,7 +52,55 @@ function cardOf(rest: string): Omit<Line, "qty" | "board"> | null {
   return name ? { name, set, cn, finish } : null;
 }
 
+/** RFC 4180 rows: quoted fields may hold commas, doubled quotes and line breaks. */
+function csvRows(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [], field = "", quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quoted) {
+      if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
+      else if (c === '"') quoted = false;
+      else field += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ",") { row.push(field); field = ""; }
+    else if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+    else if (c !== "\r") field += c;
+  }
+  if (field || row.length) { row.push(field); rows.push(row); }
+  return rows.filter((r) => r.some((f) => f.trim()));
+}
+
+/** Cube Cobra's CSV (name, CMC, Type, …, Set, Collector Number, Finish, board, maybeboard, …) and other card CSVs. */
+function parseCsv(text: string): Line[] | null {
+  const rows = csvRows(text);
+  const head = (rows[0] ?? []).map((h) => h.trim().toLowerCase());
+  const col = (...names: string[]) => head.findIndex((h) => names.includes(h));
+  const name = col("name", "card name", "card");
+  const set = col("set", "set code", "edition"), cn = col("collector number", "card number", "number");
+  const board = col("board"), maybe = col("maybeboard"), finish = col("finish", "foil"), count = col("count", "quantity", "qty");
+  if (name < 0 || (set < 0 && cn < 0 && board < 0 && maybe < 0)) return null;
+  const out: Line[] = [];
+  for (const r of rows.slice(1)) {
+    const at = (i: number) => (i >= 0 ? (r[i] ?? "").trim() : "");
+    if (!at(name)) continue;
+    const b = at(board).toLowerCase().replace(/\s+/g, "");
+    const f = at(finish).toLowerCase();
+    out.push({
+      qty: count >= 0 ? Number(at(count)) || 0 : 1,
+      board: b.startsWith("maybe") || (!b && at(maybe).toLowerCase() === "true") ? "maybe" : b.startsWith("side") ? "side" : b === "commander" ? "commander" : "main",
+      name: at(name),
+      set: /^[A-Za-z0-9]{2,6}$/.test(at(set)) ? at(set).toLowerCase() : undefined,
+      cn: at(cn) || undefined,
+      finish: f.includes("etched") ? "etched" : /foil/.test(f) && !/^non/.test(f) ? "foil" : undefined,
+    });
+  }
+  return out;
+}
+
 export function parseList(text: string): { name?: string; entries: Line[] } {
+  const csv = parseCsv(text.replace(/^\uFEFF/, "").trimStart());
+  if (csv) return { entries: csv };
   const counted: Line[] = [];
   const bare: Line[] = [];
   let board: Line["board"] | "skip" = "main";

@@ -4,7 +4,8 @@
 // Links: Cube Cobra and Archidekt through their JSON (exact printings and finishes), MTGGoldfish through its text
 // download, Moxfield is refused with how to paste instead (it blocks other apps), and any other page (ManaBox,
 // TappedOut, mtgdecks, melee.gg, ...) is fetched and read by Claude. Pasted text is parsed here: Moxfield, ManaBox,
-// Arena and MTGO exports ("4 Lightning Bolt (2X2) 117 *F*", section headers, a blank line before the sideboard).
+// Arena and MTGO exports ("4 Lightning Bolt (2X2) 117 *F*", section headers, a blank line before the sideboard), and
+// card CSVs such as Cube Cobra's export.
 // The client resolves each line against its catalog: scryfall_id, then set + collector number, then the name.
 // Secrets: ANTHROPIC_API_KEY (only for pages without a known format).
 import Anthropic from "npm:@anthropic-ai/sdk@0.110.0";

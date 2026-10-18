@@ -73,7 +73,7 @@ data class ImportedList(
 data class ResolvedImport(val entries: List<ListEntry>, val printings: Map<String, CatalogPrinting>, val names: Map<String, String>, val missing: List<String>)
 
 /** Scryfall id, then set + collector number, then the name's original printing. Cubes fold side/commander into main. */
-fun resolveImport(lines: List<ImportedList.Line>, kind: ListKind, db: CatalogDb): ResolvedImport {
+fun resolveImport(lines: List<ImportedList.Line>, kind: ListKind, db: ListCatalog): ResolvedImport {
     val byId = db.printings(lines.mapNotNull { it.scryfallId?.lowercase() })
     val bySet = db.printingsBySetCn(lines.mapNotNull { l -> l.set?.let { s -> l.cn?.let { s to it } } })
     val byName = db.printingsByName(lines.map { it.name })
