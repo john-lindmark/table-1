@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { errorMessage, finishEvent, pairNextRound, setParticipantStatus, setRoundClock, writeAudit } from "../../lib/api";
+import { errorMessage, finishEvent, pairNextRound, setParticipantStatus, setRoundClock } from "../../lib/api";
 import type { ClockAction, EventBundle } from "../../lib/api";
 import { slotLetter } from "../../lib/formats";
 import {
@@ -79,7 +79,6 @@ export function LiveView(
     setFinishError(null);
     try {
       await finishEvent(eventId, active?.id ?? null);
-      await writeAudit({ eventId, action: "event.completed", targetType: "event", targetId: eventId });
       setConfirmFinish(false);
       await refetch();
     } catch (e) {

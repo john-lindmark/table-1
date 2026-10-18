@@ -236,13 +236,13 @@ enum Repo {
     }
 
     /// Closes the round (confirming undisputed reports); on the last round, completes the event.
+    /// One audited server call; refuses to finish while a result is disputed.
     static func recordRound(eventId: String, roundId: String, finalRound: Bool) async throws {
-        try await supabase.from("rounds")
-            .update(["status": AnyJSON.string("recorded"), "recorded_at": .string(ISO8601DateFormatter().string(from: Date()))])
-            .eq("id", value: roundId).execute()
-        if finalRound {
-            try await supabase.from("events").update(["status": AnyJSON.string("completed")]).eq("id", value: eventId).execute()
-        }
+        try await supabase.rpc("record_round", params: [
+            "p_event_id": AnyJSON.string(eventId),
+            "p_round_id": .string(roundId),
+            "p_final": .bool(finalRound),
+        ]).execute()
         Telemetry.capture("round_recorded", ["final": finalRound])
     }
 
@@ -262,13 +262,14 @@ enum Repo {
     }
 
     /// Drop ("dropped", with the round they dropped after) or reinstate ("active", round cleared).
-    /// A direct update: organizer RLS allows it.
+    /// Organizer only, audited on the server.
     static func setParticipantStatus(participantId: String, status: String, droppedInRound: Int?) async throws {
         let round: AnyJSON = droppedInRound.map { AnyJSON.integer($0) } ?? .null
-        try await supabase.from("participants")
-            .update(["status": AnyJSON.string(status), "dropped_in_round": status == "dropped" ? round : .null])
-            .eq("id", value: participantId)
-            .execute()
+        try await supabase.rpc("set_participant_status", params: [
+            "p_participant_id": AnyJSON.string(participantId),
+            "p_status": .string(status),
+            "p_dropped_in_round": status == "dropped" ? round : .null,
+        ]).execute()
         Telemetry.capture("player_dropped", ["status": status])
     }
 

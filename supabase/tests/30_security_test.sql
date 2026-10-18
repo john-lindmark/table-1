@@ -15,6 +15,21 @@ select pg_temp.eq('event_locations / event_join_secrets have no select policy fo
   (select coalesce(string_agg(tablename || ':' || policyname, ','), '') from pg_policies
     where schemaname = 'public' and tablename in ('event_join_secrets') and cmd in ('SELECT', 'ALL')), '');
 
+-- Event tables are written only by security definer RPCs and the service role: no client write policy,
+-- no client write grant. (20261017120000_rpc_only_event_writes; a new write path needs an RPC.)
+select pg_temp.eq('no client write policies on event tables',
+  (select coalesce(string_agg(tablename || ':' || policyname, ',' order by tablename, policyname), '') from pg_policies
+    where schemaname = 'public' and cmd <> 'SELECT'
+      and tablename in ('events', 'event_members', 'event_teams', 'pods', 'participants', 'rounds', 'matches',
+                        'match_sides', 'audit_log', 'participant_tokens')), '');
+select pg_temp.eq('no client write grants on event tables',
+  (select coalesce(string_agg(table_name || ':' || grantee || ':' || privilege_type, ',' order by 1), '')
+     from information_schema.role_table_grants
+    where table_schema = 'public' and grantee in ('anon', 'authenticated')
+      and privilege_type in ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE')
+      and table_name in ('events', 'event_members', 'event_teams', 'pods', 'participants', 'rounds', 'matches',
+                         'match_sides', 'audit_log')), '');
+
 -- Every security definer function pins its search_path (otherwise a caller's schema can hijack it).
 select pg_temp.eq('security definer functions set search_path',
   (select coalesce(string_agg(n.nspname || '.' || p.proname, ',' order by p.proname), '') from pg_proc p

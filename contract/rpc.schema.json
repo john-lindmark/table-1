@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Table 1 Events V1 client contract",
   "description": "Every call the iOS, Android and web clients make. Field names are exact wire names (snake_case). Generate Swift/Kotlin models from this file; the hand-written models in apps/ must stay in step with it.",
-  "version": "2026-10-16",
+  "version": "2026-10-17",
   "rpc": {
     "create_event": {
       "params": {
@@ -5586,6 +5586,117 @@
         "required": [
           "picks_made",
           "overdue"
+        ]
+      }
+    },
+    "record_round": {
+      "note": "Organizer only. Marks the round recorded (confirms its undisputed reports) and, with p_final, completes the event in the same call. p_round_id may be null only with p_final (no open round). Final with an open dispute: 22023. Retry-safe; audited (round.recorded, event.completed). Replaces the direct rounds/events updates (contract/rpc-only-writes-2026-10-17.md).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_round_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "p_final": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "p_event_id",
+          "p_round_id",
+          "p_final"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "event_status": {
+            "type": "string"
+          },
+          "round_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "round_status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_status"
+        ]
+      }
+    },
+    "set_participant_status": {
+      "note": "Organizer only; drop ('dropped', after p_dropped_in_round, default the current round) or reinstate ('active', round cleared). Not after the event is over (22023). Retry-safe; audited (participant.dropped / participant.reinstated). Replaces the direct participants update.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_participant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "dropped"
+            ]
+          },
+          "p_dropped_in_round": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "p_participant_id",
+          "p_status"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "participant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "dropped"
+            ]
+          },
+          "dropped_in_round": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "participant_id",
+          "status"
         ]
       }
     }

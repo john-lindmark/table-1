@@ -522,22 +522,17 @@ export async function inviteByEmail(eventId: string, email: string) {
 }
 
 /**
- * Ends the event: records the open round (if any) and marks the event completed.
+ * Ends the event: records the open round (if any) and marks the event completed, in one audited server call.
  * Pairing the next round records the previous one on the server, so this is only for the last round.
+ * Refused while a result is disputed (resolve it with setMatchResult first).
  */
 export async function finishEvent(eventId: string, openRoundId: string | null) {
-  if (openRoundId) {
-    const { error } = await supabase
-      .from("rounds")
-      .update({ status: "recorded", recorded_at: new Date().toISOString() })
-      .eq("id", openRoundId);
-    if (error) throw error;
-  }
-  const { error: e2 } = await supabase
-    .from("events")
-    .update({ status: "completed", updated_at: new Date().toISOString() })
-    .eq("id", eventId);
-  if (e2) throw e2;
+  const { error } = await supabase.rpc("record_round", {
+    p_event_id: eventId,
+    p_round_id: openRoundId,
+    p_final: true,
+  });
+  if (error) throw error;
   capture("round_recorded", { final: true });
 }
 
@@ -623,44 +618,19 @@ export async function updateEventDetails(eventId: string, input: EventDetailsInp
   return data as EventDetailsResult;
 }
 
+/** Drop (with the round they dropped after) or reinstate. Organizer only, audited on the server. */
 export async function setParticipantStatus(
   participantId: string,
   status: "active" | "dropped",
   roundNumber: number | null,
 ) {
-  const { error } = await supabase
-    .from("participants")
-    .update({ status, dropped_in_round: status === "dropped" ? roundNumber : null })
-    .eq("id", participantId);
+  const { error } = await supabase.rpc("set_participant_status", {
+    p_participant_id: participantId,
+    p_status: status,
+    p_dropped_in_round: status === "dropped" ? roundNumber : null,
+  });
   if (error) throw error;
   capture("player_dropped", { status });
-}
-
-export async function addParticipant(eventId: string, podId: string | null, displayName: string, seat: number) {
-  const { error } = await supabase
-    .from("participants")
-    .insert({ event_id: eventId, pod_id: podId, display_name: displayName, seat });
-  if (error) throw error;
-}
-
-export async function writeAudit(entry: {
-  eventId: string;
-  action: string;
-  targetType?: string;
-  targetId?: string;
-  reason?: string;
-  before?: unknown;
-  after?: unknown;
-}) {
-  await supabase.from("audit_log").insert({
-    event_id: entry.eventId,
-    action: entry.action,
-    target_type: entry.targetType,
-    target_id: entry.targetId,
-    reason: entry.reason,
-    before: entry.before ?? null,
-    after: entry.after ?? null,
-  });
 }
 
 /* ── 2026-10-13: typed formats, seating, teams ───────────────────────── */
