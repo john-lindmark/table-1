@@ -46,6 +46,10 @@ import site.table1.events.library.LinePrintingScreen
 import site.table1.events.library.ListImportScreen
 import site.table1.events.library.ListAddScreen
 import site.table1.events.library.ListDetailScreen
+import site.table1.events.library.ListStatsScreen
+import site.table1.events.library.SampleHandScreen
+import site.table1.events.library.DrawOddsScreen
+import site.table1.events.library.SamplePackScreen
 import site.table1.events.library.ListKind
 import site.table1.events.library.ListVersionScreen
 import site.table1.events.library.ListVersionsScreen
@@ -203,8 +207,17 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
                     ListDetailScreen(id, onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it") },
                         onAdd = { nav.navigate("collection/list/$id/add") }, onVersions = { nav.navigate("collection/list/$id/versions") },
                         onOpen = { nav.navigate("collection/list/$it") },
-                        onPrinting = { card, board, finish -> nav.navigate("collection/list/$id/printing/$card/$board/$finish") })
+                        onPrinting = { card, board, finish -> nav.navigate("collection/list/$id/printing/$card/$board/$finish") },
+                        onStats = { nav.navigate("collection/list/$id/stats") })
                 }
+                composable("collection/list/{id}/stats") { e ->
+                    val id = e.arguments?.getString("id") ?: ""
+                    ListStatsScreen(id, onBack = { nav.popBackStack() }, onHand = { nav.navigate("collection/list/$id/stats/hand") },
+                        onOdds = { nav.navigate("collection/list/$id/stats/odds") }, onPack = { nav.navigate("collection/list/$id/stats/pack") })
+                }
+                composable("collection/list/{id}/stats/hand") { e -> SampleHandScreen(e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() }) }
+                composable("collection/list/{id}/stats/odds") { e -> DrawOddsScreen(e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() }) }
+                composable("collection/list/{id}/stats/pack") { e -> SamplePackScreen(e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() }) }
                 composable("collection/list/{id}/printing/{card}/{board}/{finish}") { e ->
                     val a = e.arguments
                     LinePrintingScreen(a?.getString("id") ?: "", a?.getString("card") ?: "", a?.getString("board") ?: "main",

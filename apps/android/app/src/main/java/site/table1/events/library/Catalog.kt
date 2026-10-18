@@ -39,6 +39,9 @@ data class CatalogOracle(
     val legal: String = "",
     /** Canadian Highlander points (0 = none). */
     val points: Int = 0,
+    /** Mana value and colors (WUBRG letters, empty = colorless), for deck and cube stats. */
+    val cmc: Double = 0.0,
+    val colors: String = "",
 ) {
     /** Legality in a deck format: legal, restricted, banned, not_legal, or null when the format isn't checked. */
     fun legality(format: String): String? = CatalogPack.legality(legal, format)
@@ -161,12 +164,12 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog, ImportC
         }.associateBy { it.idx }
 
     companion object {
-        private const val ORACLE_COLS = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount, legal, points"
+        private const val ORACLE_COLS = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount, legal, points, cmc, colors"
         private const val PRINTING_COLS =
             "card_id, oracle_idx, ord, set_code, cn, lang, rarity, finishes, released_at, image_ts, image_faces, printed_name, original"
 
         private fun oracle(c: Cursor) = CatalogOracle(c.getInt(0), c.getString(1), c.getString(2), c.getString(3),
-            c.getString(4) ?: "", c.getString(5) ?: "", c.getInt(6), c.getString(7) ?: "", c.getInt(8))
+            c.getString(4) ?: "", c.getString(5) ?: "", c.getInt(6), c.getString(7) ?: "", c.getInt(8), c.getDouble(9), c.getString(10) ?: "")
 
         private fun printing(c: Cursor) = CatalogPrinting(c.getString(0), c.getInt(1), c.getInt(2), c.getString(3) ?: "",
             c.getString(4) ?: "", c.getString(5) ?: "", c.getString(6) ?: "", c.getString(7) ?: "", c.getString(8) ?: "",
