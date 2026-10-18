@@ -265,9 +265,10 @@ object CollectionStore {
 
     /**
      * One user action = one batch with a fresh idempotency key (reused on the one automatic retry). Shows the
-     * result at once, then confirms with a delta sync.
+     * result at once, then confirms with a delta sync. [key]: a caller that retries a batch itself (an import's
+     * chunks) passes the same key each time, so a batch that already landed replays as a duplicate.
      */
-    suspend fun apply(ops: List<CollectionOp>, source: String = "manual"): ApplyResult {
+    suspend fun apply(ops: List<CollectionOp>, source: String = "manual", key: String? = null): ApplyResult {
         val params = buildJsonObject {
             put("p_ops", buildJsonArray {
                 for (op in ops) add(buildJsonObject {
@@ -278,7 +279,7 @@ object CollectionStore {
             })
             put("p_source", source)
             put("p_source_id", JsonNull)
-            put("p_idempotency_key", UUID.randomUUID().toString())
+            put("p_idempotency_key", key ?: UUID.randomUUID().toString())
         }
         val res = retryOnce { T1App.supabase.postgrest.rpc("collection_apply", params).decodeAs<ApplyResult>() }
         // A card added by hand right after a scan was deleted or missed tells which card it was (ScanReports).

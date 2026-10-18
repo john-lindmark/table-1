@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="avatar" path="avatar/" />
+    <!-- Collection CSV exports, shared through the same provider. -->
+    <cache-path name="export" path="export/" />
 </paths>

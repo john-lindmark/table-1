@@ -38,6 +38,7 @@ import site.table1.events.library.CatalogStore
 import site.table1.events.library.CollectionStore
 import site.table1.events.library.DeckFinderScreen
 import site.table1.events.library.LibraryHomeScreen
+import site.table1.events.library.CollectionImportScreen
 import site.table1.events.library.TradeScreen
 import site.table1.events.library.TradesScreen
 import site.table1.events.library.TradesStore
@@ -170,6 +171,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
                         foregrounds = foregrounds,
                         onAllCards = { nav.navigate("collection/all") },
                         onAdd = { nav.navigate("collection/add") },
+                        onImportExport = { nav.navigate("collection/csv") },
                         onDecks = { nav.navigate("collection/decks") },
                         onCubes = { nav.navigate("collection/cubes") },
                         onTrades = { nav.navigate("collection/trades") },
@@ -232,6 +234,9 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
                         onOpen = { nav.navigate("collection/card/$it") },
                         onAdd = { nav.navigate("collection/add") },
                     )
+                }
+                composable("collection/csv") {
+                    CollectionImportScreen(onBack = { nav.popBackStack() }, onAllCards = { nav.navigate("collection/all") })
                 }
                 composable("collection/add") {
                     AddCardsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/card/$it") })

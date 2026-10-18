@@ -22,7 +22,7 @@ private object Budget {
 class ScannerPerfTest {
     @Test
     fun matcherPerFrame() {
-        val catalog = PackCatalog(String(CatalogPack.gunzip(File(root, "catalog.tsv.gz").readBytes())))
+        val catalog = testPack
         val t0 = System.nanoTime()
         val names = ScanNames(catalog)
         val indexMs = (System.nanoTime() - t0) / 1e6

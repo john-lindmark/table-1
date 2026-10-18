@@ -22,8 +22,11 @@ import java.io.File
 internal val root: File = generateSequence(File("").absoluteFile) { it.parentFile }
     .map { File(it, "testdata/scan") }.first { it.isDirectory }
 
-/** The test pack held in memory, answering what CatalogDb answers on a phone. */
-internal class PackCatalog(text: String) : ScanCatalog {
+/** The test pack, built once per test run and shared: two copies of it don't fit the test JVM's heap. */
+internal val testPack: PackCatalog by lazy { PackCatalog(String(CatalogPack.gunzip(File(root, "catalog.tsv.gz").readBytes()))) }
+
+/** The test pack held in memory, answering what CatalogDb answers on a phone (scanner and CSV import). */
+internal class PackCatalog(text: String) : ScanCatalog, ImportCatalog {
     private val oracleList = ArrayList<PackOracle>()
     private val printingList = ArrayList<CatalogPrinting>()
     private val nameList = LinkedHashSet<Pair<Int, String>>()
@@ -44,6 +47,17 @@ internal class PackCatalog(text: String) : ScanCatalog {
     }.toMap()
     override fun printings(oracleIdx: Int) = byOracle[oracleIdx] ?: emptyList()
     override fun printings(set: String, cn: String) = (bySetCn["$set|$cn"] ?: emptyList()).sortedByDescending { it.lang == "en" }
+
+    private val bySet by lazy { printingList.groupBy { it.set } }
+    private val byCardId by lazy { printingList.associateBy { it.cardId } }
+    override fun importNames() = oracleList.map { ImportName(it.idx, it.nameNorm, it.faceNames, it.typeLine.startsWith("Token"), byOracle[it.idx]?.size ?: 0) }
+    override fun printings(set: String) = bySet[set] ?: emptyList()
+    override fun printings(ids: Collection<String>) = ids.mapNotNull { byCardId[it] }.associateBy { it.cardId }
+    /** Same order as CatalogDb.covers: original, then English with an image, then newest. */
+    override fun covers(oracleIdxs: Collection<Int>) = oracleIdxs.mapNotNull { i ->
+        byOracle[i]?.minWithOrNull(compareBy<CatalogPrinting>({ if (it.original) 0 else 1 }, { if (it.lang == "en" && it.imageFaces > 0) 0 else 1 }, { it.ord }))
+            ?.let { i to it }
+    }.toMap()
 
     /** Normalized name (and a split or double-faced card's front face) → oracle index, for the expected cards. */
     val expected: Map<String, Int> = HashMap<String, Pair<Int, Int>>().also { best ->
@@ -81,7 +95,7 @@ class CardMatcherTest {
 
         @BeforeClass @JvmStatic
         fun load() {
-            catalog = PackCatalog(String(CatalogPack.gunzip(File(root, "catalog.tsv.gz").readBytes())))
+            catalog = testPack
             val started = System.nanoTime()
             names = ScanNames(catalog)
             println("Catalog: scanner name index ${(System.nanoTime() - started) / 1_000_000} ms")

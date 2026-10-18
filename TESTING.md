@@ -47,7 +47,10 @@ parsed and matched against the test catalog, export read back, `CollectionImport
 all 1,455 OCR reads in `testdata/scan`. Runs on its own `T1-Tests` simulator with derived data in
 `/var/tmp/t1-test-dd`, so it never touches another session's simulator.
 
-**Android** (`apps/android/app/src/test`). Same scanner accuracy and pack tests, `ListsTest`, and `ScannerPerfTest`.
+**Android** (`apps/android/app/src/test`). Same scanner accuracy and pack tests, `ListsTest`, `ScannerPerfTest`, and
+collection CSV import (`CollectionCSVTest`: the same cases as iOS against `testdata/collection-import` and the test pack,
+`CollectionImportPerfTest` on 20k lines). The tests share one in-memory copy of the test pack (`testPack`): two don't fit
+the test JVM's heap.
 
 ## Budgets (measured 2026-10-16, John's Mac)
 
@@ -67,6 +70,7 @@ all 1,455 OCR reads in `testdata/scan`. Runs on its own `T1-Tests` simulator wit
 | Android scanner name index | 0.7 s | 2.5 s |
 | Collection CSV import, 20k lines, iOS Debug: parse / match by id / by set + number | 210 / 150 / 470 ms | 650 / 1,500 / 1,500 ms |
 | Collection CSV import, 20k lines, web: parse / match by id / by set + number | 30 / 32 / 80 ms | 150 / 400 / 400 ms |
+| Collection CSV import, 20k lines, Android (JVM): parse / match by id / by set + number | 20 / 30 / 60 ms | 100 / 200 / 200 ms |
 
 Budgets catch regressions (a lost index, a quadratic loop), not noise. Raise one only on purpose and say why in the commit.
 

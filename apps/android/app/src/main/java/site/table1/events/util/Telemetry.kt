@@ -12,4 +12,7 @@ object Telemetry {
     fun capture(event: String, properties: Map<String, Any> = emptyMap()) {
         if (BuildConfig.DEBUG) Log.d("Telemetry", "$event $properties")
     }
+
+    /** A screen shown: `$screen` with a name from the contract's screen list (never ids). */
+    fun screen(name: String) = capture("\$screen", mapOf("\$screen_name" to name))
 }

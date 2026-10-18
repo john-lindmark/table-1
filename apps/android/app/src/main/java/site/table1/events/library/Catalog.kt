@@ -60,7 +60,7 @@ data class CatalogPrinting(
 }
 
 /** One installed pack. Read-only after it's built; Android's SQLiteDatabase serializes access itself. */
-class CatalogDb(file: File, override val version: String) : ScanCatalog {
+class CatalogDb(file: File, override val version: String) : ScanCatalog, ImportCatalog {
     private val db = SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY)
 
     fun close() = db.close()
@@ -89,6 +89,14 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog {
 
     override fun setCodes(): Set<String> = query("SELECT DISTINCT set_code FROM printings", emptyArray()) { it.getString(0) }.toSet()
 
+    override fun importNames(): List<ImportName> =
+        query("SELECT idx, name_norm, face_names, type_line, pcount FROM oracles", emptyArray()) {
+            ImportName(it.getInt(0), it.getString(1), it.getString(2) ?: "", (it.getString(3) ?: "").startsWith("Token"), it.getInt(4))
+        }
+
+    override fun printings(set: String): List<CatalogPrinting> =
+        query("SELECT $PRINTING_COLS FROM printings WHERE set_code = ?", arrayOf(set), ::printing)
+
     override fun printings(set: String, cn: String): List<CatalogPrinting> =
         query("SELECT $PRINTING_COLS FROM printings WHERE set_code = ? AND cn = ? ORDER BY lang = 'en' DESC", arrayOf(set, cn), ::printing)
 
@@ -98,7 +106,7 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog {
     override fun printings(oracleIdx: Int): List<CatalogPrinting> =
         query("SELECT $PRINTING_COLS FROM printings WHERE oracle_idx = ? ORDER BY original DESC, ord", arrayOf(oracleIdx.toString()), ::printing)
 
-    fun printings(ids: Collection<String>): Map<String, CatalogPrinting> =
+    override fun printings(ids: Collection<String>): Map<String, CatalogPrinting> =
         ids.chunked(500).flatMap { chunk ->
             query("SELECT $PRINTING_COLS FROM printings WHERE card_id IN (${chunk.joinToString(",") { "?" }})", chunk.toTypedArray(), ::printing)
         }.associateBy { it.cardId }
@@ -107,7 +115,7 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog {
      * One printing per card, shown as its picture and used when it's added: its original paper printing (flagged
      * in the pack), else the newest English printing with an image, else the newest.
      */
-    fun covers(oracleIdxs: Collection<Int>): Map<Int, CatalogPrinting> {
+    override fun covers(oracleIdxs: Collection<Int>): Map<Int, CatalogPrinting> {
         val out = HashMap<Int, CatalogPrinting>()
         oracleIdxs.chunked(500).forEach { chunk ->
             query("SELECT $PRINTING_COLS FROM printings WHERE oracle_idx IN (${chunk.joinToString(",") { "?" }}) " +

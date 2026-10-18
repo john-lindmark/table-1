@@ -106,8 +106,8 @@ private fun ColumnScope.Filler() = Box(Modifier.weight(1f))
 /* ── home ─────────────────────────────────────────────────────────────── */
 
 @Composable
-fun LibraryHomeScreen(foregrounds: Int, onAllCards: () -> Unit, onAdd: () -> Unit, onDecks: () -> Unit, onCubes: () -> Unit,
-                      onTrades: () -> Unit) {
+fun LibraryHomeScreen(foregrounds: Int, onAllCards: () -> Unit, onAdd: () -> Unit, onImportExport: () -> Unit, onDecks: () -> Unit,
+                      onCubes: () -> Unit, onTrades: () -> Unit) {
     val lists by ListsStore.state.collectAsState()
     val col by CollectionStore.state.collectAsState()
     val trades by TradesStore.state.collectAsState()
@@ -136,6 +136,7 @@ fun LibraryHomeScreen(foregrounds: Int, onAllCards: () -> Unit, onAdd: () -> Uni
                 }
             }
             item { ListRow("Add cards", "Search by name", onClick = onAdd) }
+            item { ListRow("Import and export", "CSV from ManaBox, Moxfield and others", onClick = onImportExport) }
             item {
                 val decks = lists.lists.filter { it.kind == ListKind.Deck }
                 ListRow("Decks", if (decks.isEmpty()) "Build and track decks" else decks.take(3).joinToString(" · ") { it.name }, onClick = onDecks) {

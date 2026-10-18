@@ -6,8 +6,10 @@ round-trips. No new server code: parsing and matching run on the device against 
 (`contract/catalog-2026-10-14.md`), writes are ordinary `collection_apply` batches (`contract/collection-2026-10-15.md`).
 Decks and cubes still import through `list-import` (`contract/list-import-2026-10-15.md`).
 
-Built on iOS (`Library/CollectionCSV.swift`, `Library/CollectionImport.swift`, route `.collectionImport`) and web
-(`lib/collectionCsv.ts`, `screens/CollectionImport.tsx`, `/library/import`). Android follows in a later batch.
+Built on iOS (`Library/CollectionCSV.swift`, `Library/CollectionImport.swift`, route `.collectionImport`), web
+(`lib/collectionCsv.ts`, `screens/CollectionImport.tsx`, `/library/import`) and Android (`library/CollectionCSV.kt`,
+`library/CollectionImport.kt`, route `collection/csv`; 2026-10-17). Android picks the file with the Storage Access
+Framework (`OpenDocument`, text/* and CSV types) and shares exports through the app's FileProvider (`ACTION_SEND`).
 Fixtures: `testdata/collection-import/` (the same 24 cards as each app exports them, plus one line no catalog has;
 `make_fixtures.py` rebuilds them; `expected.json` is what each resolves to).
 
@@ -124,8 +126,10 @@ Screen `collection_import`. Events: `collection_import_previewed` (`format`, `li
 iOS Debug: `-T1LibraryDemo import` opens the screen; add `-T1ImportFile <path>` to read a file as if picked and
 `-T1ImportAuto import|undo` to skip unmatched lines and import (then undo) without taps. Web dev: `/library/import?demo`
 (drop a file on the page). Demo prices cover only the demo collection's cards, so an imported file's value shows "—".
+Android has no Library demo mode; its screen needs a signed-in account.
 
 ## Performance
 
 Parsing a 20,000-line ManaBox file and matching it against the full catalog have budgets: iOS
-`CollectionImportPerfTests` (Debug, Simulator), web `collectionCsv.perf.test.ts` (`./test.sh perf`). See TESTING.md.
+`CollectionImportPerfTests` (Debug, Simulator), web `collectionCsv.perf.test.ts` (`./test.sh perf`), Android
+`CollectionImportPerfTest` (JVM, `testDebugUnitTest`). See TESTING.md.
