@@ -20,6 +20,10 @@ enum LibraryRoute: Hashable {
     case trades
     case trade(String?) // trade id, nil for a new one
     case collectionImport
+    case listStats(String) // list id
+    case sampleHand(String) // list id
+    case drawOdds(String) // list id
+    case samplePack(String) // list id
 }
 
 /// Every Library screen behind a route, shared by the Collection tab and the Debug demo.
@@ -46,6 +50,10 @@ struct LibraryDestination: View {
         case .trades: "trades"
         case .trade: "trade"
         case .collectionImport: "collection_import"
+        case .listStats(let id): ListsStore.shared.list(id: id)?.kind == .cube ? "cube_stats" : "deck_stats"
+        case .sampleHand: "sample_hand"
+        case .drawOdds: "draw_odds"
+        case .samplePack: "sample_pack"
         }
     }
 
@@ -65,6 +73,10 @@ struct LibraryDestination: View {
         case .trades: TradesView(path: $path)
         case .trade(let id): TradeView(tradeId: id, path: $path)
         case .collectionImport: CollectionImportView(path: $path)
+        case .listStats(let id): ListStatsView(listId: id, path: $path)
+        case .sampleHand(let id): SampleHandView(listId: id)
+        case .drawOdds(let id): DrawOddsView(listId: id)
+        case .samplePack(let id): SamplePackView(listId: id)
         }
     }
 }

@@ -714,6 +714,7 @@ struct ListDetailView: View {
                 ListRow(title: list.kind == .deck ? "Delete deck" : "Delete cube", detail: "From every device")
             }.buttonStyle(.plain)
         }
+        if !editing { ListStatsRow(listId: list.id, path: $path) }
         Button { path.append(.listAdd(list.id)) } label: {
             ListRow(title: "Add cards", detail: list.kind == .deck ? "To the main deck, sideboard or considering" : "To the cube or considering")
         }.buttonStyle(.plain)

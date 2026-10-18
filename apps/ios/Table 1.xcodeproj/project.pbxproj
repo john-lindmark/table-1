@@ -38,6 +38,7 @@
 		5E4918CB77109DBBF00739D0 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 772AD52A8F7AAA91FA28D759 /* GoogleSignIn */; };
 		666D1A4A2E748925CA4371BD /* CardImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 270F4E7C8101647462A59635 /* CardImages.swift */; };
 		69759B62DE7F92787905013F /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = D111446BC5CA58EBB7B2A5C1 /* Supabase */; };
+		746A77656FBD47D4545F9244 /* ListStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = D32E44C4EB38C9E8A620A495 /* ListStats.swift */; };
 		754A2FF43AE93BF1D9C806EB /* LiveSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 806A035192A635C79AA2F3A6 /* LiveSync.swift */; };
 		76C2DC2DA532D1CB04F1D6A9 /* TeamsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 286EEFA6E522FEAA50AF06B4 /* TeamsView.swift */; };
 		7753266A69DC78BB84DC1DB7 /* ResultIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524852D7ADCC9B3C35EC6E7E /* ResultIntents.swift */; };
@@ -61,6 +62,7 @@
 		9BDE7B9EB2D26C52DBBDEE04 /* Catalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E58FE801DEE1F485996A5C8 /* Catalog.swift */; };
 		9D2DB016FBD579C0827EAC17 /* RotoStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6B8EFE76370BBE1C6831870 /* RotoStoreTests.swift */; };
 		A91695BA51EE13AB55A1B435 /* Prices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72DEBB4B6FB502FD419464DB /* Prices.swift */; };
+		ABFF22B51BC01146BF2C6D1A /* DeckStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F04DEBE4B56F89397A9AC63 /* DeckStats.swift */; };
 		ADEC65DE131491502D3B846C /* LibraryDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A149B70408DCB16D736D4918 /* LibraryDemo.swift */; };
 		AE200AC4696554CC7406AE4C /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1DA5EA10F583F3622B1F29 /* Models.swift */; };
 		B27CD6B6E6888120C3F4CBF0 /* Avatar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59C86AD83E780247A2D36857 /* Avatar.swift */; };
@@ -78,6 +80,7 @@
 		D3F6205096B6E98B6F7E6869 /* ScanReports.swift in Sources */ = {isa = PBXBuildFile; fileRef = 239D07747A4039EE164CFB4B /* ScanReports.swift */; };
 		D4915A4044585E2089916731 /* SQLite.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8D5D41DD05383A49BC215B5 /* SQLite.swift */; };
 		DB1EAC45753FE9C33065079C /* T1Shared.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00C95CF97E3DDF3302A0F73 /* T1Shared.swift */; };
+		DF246074B284841D5C11B4B8 /* DeckStatsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C23AB8F5588863F9D0B84282 /* DeckStatsTests.swift */; };
 		E1653E41E6B091A494CAE849 /* CollectionCSV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EAF46D535765875C2F293C5 /* CollectionCSV.swift */; };
 		E1F0E45102E1CC8C52D256A3 /* Kit.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A9DF73F61953DB5F0B47C5 /* Kit.swift */; };
 		E4629FB53DD09687F5587E3E /* ResultIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524852D7ADCC9B3C35EC6E7E /* ResultIntents.swift */; };
@@ -128,6 +131,7 @@
 		07AD98F6D43A76D8746C5B85 /* LiveActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityController.swift; sourceTree = "<group>"; };
 		08682F89E12E0BD4142A428C /* EventExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventExtras.swift; sourceTree = "<group>"; };
 		0E03D5BF830783A2A7CE2C80 /* Telemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Telemetry.swift; sourceTree = "<group>"; };
+		0F04DEBE4B56F89397A9AC63 /* DeckStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckStats.swift; sourceTree = "<group>"; };
 		1343547B4A4B4A62385BDA43 /* Repo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Repo.swift; sourceTree = "<group>"; };
 		13C0AE970C6BB94032DAA56D /* AddPlayersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddPlayersView.swift; sourceTree = "<group>"; };
 		1438B6E1895ED25046190659 /* CardMatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardMatcherTests.swift; sourceTree = "<group>"; };
@@ -189,8 +193,10 @@
 		C1A9DF73F61953DB5F0B47C5 /* Kit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Kit.swift; sourceTree = "<group>"; };
 		C1B39C1F6212A6390E27185D /* library-demo.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "library-demo.json"; sourceTree = "<group>"; };
 		C1FAD524C919FA3CAC42C46C /* Table1Widgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Table1Widgets.entitlements; sourceTree = "<group>"; };
+		C23AB8F5588863F9D0B84282 /* DeckStatsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckStatsTests.swift; sourceTree = "<group>"; };
 		CC94CC26F2066C36E4DE2192 /* QR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QR.swift; sourceTree = "<group>"; };
 		D2BD7D181061AD027D497369 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		D32E44C4EB38C9E8A620A495 /* ListStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListStats.swift; sourceTree = "<group>"; };
 		D6B8EFE76370BBE1C6831870 /* RotoStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RotoStoreTests.swift; sourceTree = "<group>"; };
 		D937184FD4C3DFD141073B51 /* CreateEventView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateEventView.swift; sourceTree = "<group>"; };
 		DD41B679C1BA02ABB15C2B93 /* CatalogPack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogPack.swift; sourceTree = "<group>"; };
@@ -262,6 +268,7 @@
 				1438B6E1895ED25046190659 /* CardMatcherTests.swift */,
 				52CEDCCE665492AD0AB4B0FF /* CatalogPackTests.swift */,
 				3013FC3AC8C4757DF4B44684 /* CollectionCSVTests.swift */,
+				C23AB8F5588863F9D0B84282 /* DeckStatsTests.swift */,
 				D6B8EFE76370BBE1C6831870 /* RotoStoreTests.swift */,
 				73C481FEC74206632E64BFC0 /* RotoTests.swift */,
 				5B9DEC99DA160E4BD09F6783 /* ScannerPerfTests.swift */,
@@ -405,8 +412,10 @@
 				E4EBF4DF80B3E058AB0E4A51 /* Collection.swift */,
 				4EAF46D535765875C2F293C5 /* CollectionCSV.swift */,
 				FC2EF68A6DFF8AD55E77C723 /* CollectionImport.swift */,
+				0F04DEBE4B56F89397A9AC63 /* DeckStats.swift */,
 				A149B70408DCB16D736D4918 /* LibraryDemo.swift */,
 				AA1787264FADE7BB2CC0A924 /* LibraryViews.swift */,
+				D32E44C4EB38C9E8A620A495 /* ListStats.swift */,
 				72DEBB4B6FB502FD419464DB /* Prices.swift */,
 				239D07747A4039EE164CFB4B /* ScanReports.swift */,
 				A8D5D41DD05383A49BC215B5 /* SQLite.swift */,
@@ -594,6 +603,7 @@
 				793B3C5654CDC544D3CC0B21 /* CardMatcherTests.swift in Sources */,
 				C2CA6EA5AD21CC9187D9241A /* CatalogPackTests.swift in Sources */,
 				41BE4E1D043A7DB82D3CCE45 /* CollectionCSVTests.swift in Sources */,
+				DF246074B284841D5C11B4B8 /* DeckStatsTests.swift in Sources */,
 				9D2DB016FBD579C0827EAC17 /* RotoStoreTests.swift in Sources */,
 				95AF2811706379735B0AB370 /* RotoTests.swift in Sources */,
 				870EDE7184C95307A98BC4A1 /* ScannerPerfTests.swift in Sources */,
@@ -617,6 +627,7 @@
 				CA63687551A197A2D85140AC /* CollectionImport.swift in Sources */,
 				D03DE7B217F898EACD3F425E /* Config.swift in Sources */,
 				C0F57BCEC4D6442DD18CB0D4 /* CreateEventView.swift in Sources */,
+				ABFF22B51BC01146BF2C6D1A /* DeckStats.swift in Sources */,
 				98C2486F64FEBA82C457D922 /* EventExtras.swift in Sources */,
 				82A14A356927E32BF1BA4C09 /* EventView.swift in Sources */,
 				23D409E16AAA4D23D123BAE9 /* EventsDemo.swift in Sources */,
@@ -625,6 +636,7 @@
 				ADEC65DE131491502D3B846C /* LibraryDemo.swift in Sources */,
 				82EB09856DF4B433377F5903 /* LibraryViews.swift in Sources */,
 				BAD44F3D02D492DC863B8103 /* LifeTrackerView.swift in Sources */,
+				746A77656FBD47D4545F9244 /* ListStats.swift in Sources */,
 				80E94A6EF4008E87874A6AB4 /* LiveAPI.swift in Sources */,
 				046C42743FDBE276677F46BE /* LiveActivityController.swift in Sources */,
 				EB58F3FC3B3B21A13A6B061B /* LiveModels.swift in Sources */,
