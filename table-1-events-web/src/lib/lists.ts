@@ -361,6 +361,14 @@ export async function deleteList(id: string): Promise<void> {
   await saveCache();
 }
 
+/** The Library cube an event's cube fields point at: a cube list with that name (any case) and no Cube Cobra link.
+ *  Create event and Setup → Details show it as Selected; a roto draws its pool from it. */
+export function chosenLibraryCube(lists: CardList[], cubeName: string, cubeUrl: string): CardList | undefined {
+  const name = cubeName.trim().toLowerCase();
+  if (!name || cubeUrl.trim()) return undefined;
+  return lists.find((l) => l.kind === "cube" && l.name.trim().toLowerCase() === name);
+}
+
 /** The lists held right now (outside React). */
 export const listsNow = (): CardList[] => state.lists;
 

@@ -74,6 +74,7 @@ properties. Every client sends the same names, so one PostHog insight covers all
 | event | properties |
 |---|---|
 | `event_created` | `format`, `kind`: constructed / limited / cube, `rounds`, `round_timer`: bool, `team_size`: int or 0, `organizer_plays`: bool, `guests`: int, `pairing`: swiss / round_robin |
+| `event_cube_picked` | `source`: library / recent, `cards`: int (library only). Create event or Setup → Details (2026-10-18) |
 | `event_location_set` | `visibility` |
 | `players_invited` | `count`, `via`: account / email |
 | `guest_added` | — |

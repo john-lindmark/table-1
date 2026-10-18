@@ -400,13 +400,14 @@ struct SetRow<Trailing: View>: View {
     }
 }
 
-/// Cube: your recent cubes, a Cube Cobra link (the name fills in from Cube Cobra), and the name.
-/// Picking a recent cube hides the link and name; "Another cube" brings them back.
-/// (Your Table 1 cubes join this list once the Library keeps cubes.)
+/// Cube: your Library cubes, your recent cubes, a Cube Cobra link (the name fills in from Cube Cobra), and the name.
+/// Picking a Library or recent cube hides the link and name; "Another cube" brings them back. A Library cube goes in
+/// by name with no link; a roto then draws its pool from that Library cube (RotoSetup.linkCube).
 struct CubeFields: View {
     @Binding var cubeName: String
     @Binding var cubeUrl: String
     @State private var recent: [RecentCube] = []
+    private var library: [CardList] { ListsStore.shared.lists(.cube) }
     @State private var lookup: LookupState = .idle
     /// The link the last lookup answered for, so writing its canonical form back doesn't look it up again.
     @State private var settledUrl: String?
@@ -416,6 +417,17 @@ struct CubeFields: View {
     enum LookupState: Equatable { case idle, looking, found(Int?), failed(String) }
 
     var body: some View {
+        if !library.isEmpty {
+            Section1("Your cubes")
+            ForEach(library) { cube in
+                Button { use(cube) } label: {
+                    ListRow(title: cube.name, detail: "\(cube.count("main")) cards · Library") {
+                        if isCurrent(cube) { LabelText("Selected", color: T1.accent) } else { LabelText("Use", color: T1.text) }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
         if !recent.isEmpty {
             Section1("Recent cubes")
             ForEach(recent) { cube in
@@ -426,12 +438,12 @@ struct CubeFields: View {
                 }
                 .buttonStyle(.plain)
             }
-            if picked {
-                Button { picked = false } label: {
-                    ListRow(title: "Another cube") { LabelText("Enter", color: T1.text) }
-                }
-                .buttonStyle(.plain)
+        }
+        if picked {
+            Button { picked = false } label: {
+                ListRow(title: "Another cube") { LabelText("Enter", color: T1.text) }
             }
+            .buttonStyle(.plain)
         }
         if !picked {
             Section1("Cube")
@@ -448,8 +460,10 @@ struct CubeFields: View {
         }
         Color.clear.frame(height: 0)
             .task {
+                picked = library.contains(where: isCurrent)
                 recent = await Repo.recentCubes()
-                picked = recent.contains(where: isCurrent)
+                await ListsStore.shared.sync()
+                picked = picked || recent.contains(where: isCurrent) || library.contains(where: isCurrent)
             }
             .task(id: cubeUrl) { await lookUp() }
     }
@@ -458,12 +472,36 @@ struct CubeFields: View {
         cube.cubeName == cubeName.trimmingCharacters(in: .whitespaces) && (cube.cubeUrl ?? "") == cubeUrl.trimmingCharacters(in: .whitespaces)
     }
 
+    private func isCurrent(_ cube: CardList) -> Bool {
+        Self.chosenLibraryCube(library, name: cubeName, url: cubeUrl)?.id == cube.id
+    }
+
+    /// The Library cube the fields point at: a cube list with that name (any case) and no Cube Cobra link.
+    /// Same rule as the web's chosenLibraryCube; a roto draws its pool from it.
+    static func chosenLibraryCube(_ lists: [CardList], name: String, url: String) -> CardList? {
+        let wanted = name.trimmingCharacters(in: .whitespaces)
+        guard !wanted.isEmpty, url.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
+        return lists.first {
+            $0.kind == .cube && $0.name.trimmingCharacters(in: .whitespaces).caseInsensitiveCompare(wanted) == .orderedSame
+        }
+    }
+
     private func use(_ cube: RecentCube) {
         settledUrl = cube.cubeUrl ?? ""
         cubeName = cube.cubeName
         cubeUrl = cube.cubeUrl ?? ""
         lookup = .idle
         picked = true
+        Telemetry.capture("event_cube_picked", ["source": "recent"])
+    }
+
+    private func use(_ cube: CardList) {
+        settledUrl = ""
+        cubeName = String(cube.name.prefix(80))
+        cubeUrl = ""
+        lookup = .idle
+        picked = true
+        Telemetry.capture("event_cube_picked", ["source": "library", "cards": cube.count("main")])
     }
 
     private func lookUp() async {

@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchRecentCubes, lookupCube, type RecentCube } from "../lib/api";
+import { chosenLibraryCube, countOf, useLists, type CardList } from "../lib/lists";
+import { capture } from "../lib/telemetry";
+import { useSession } from "../lib/useSession";
 import { CONSTRUCTED_FORMATS, LIMITED_FORMATS, typeOfFormat } from "../lib/formats";
 import type { DraftableSet, FormatName } from "../lib/types";
 import { SetPicker } from "./SetPicker";
@@ -116,9 +119,9 @@ export function ProductPicker({
 }
 
 /**
- * Cube: your recent cubes, a Cube Cobra link (the name fills in from Cube Cobra), and the name.
- * Picking a recent cube hides the link and name; "Another cube" brings them back.
- * (Your Table 1 cubes join this list once the Library keeps cubes.)
+ * Cube: your Library cubes, your recent cubes, a Cube Cobra link (the name fills in from Cube Cobra), and the name.
+ * Picking a Library or recent cube hides the link and name; "Another cube" brings them back. A Library cube goes in
+ * by name with no link; a roto then draws its pool from that Library cube (linkRotoCube).
  */
 export function CubeFields({
   cubeName,
@@ -134,7 +137,9 @@ export function CubeFields({
   onCommit?: () => void;
 }) {
   const [recent, setRecent] = useState<RecentCube[]>([]);
-  // A recent cube is the choice, so the link and name fields stay hidden.
+  const { userId } = useSession();
+  const library = useLists(userId).lists.filter((l) => l.kind === "cube");
+  // A Library or recent cube is the choice, so the link and name fields stay hidden.
   const [picked, setPicked] = useState(false);
   const [lookup, setLookup] = useState<{ kind: "idle" | "looking" } | { kind: "found"; cards: number | null } | { kind: "failed"; message: string }>({ kind: "idle" });
   // The link the last lookup answered for, so writing its canonical form back doesn't look it up again.
@@ -147,12 +152,16 @@ export function CubeFields({
     fetchRecentCubes().then((rows) => {
       if (!live) return;
       setRecent(rows);
-      setPicked(rows.some((c) => c.cube_name === cubeName.trim() && (c.cube_url ?? "") === cubeUrl.trim()));
+      setPicked((was) => was || rows.some((c) => c.cube_name === cubeName.trim() && (c.cube_url ?? "") === cubeUrl.trim()));
     });
     return () => {
       live = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (chosenLibraryCube(library, cubeName, cubeUrl)) setPicked(true);
+  }, [library.length]);
 
   useEffect(() => {
     const link = cubeUrl.trim();
@@ -188,12 +197,38 @@ export function CubeFields({
     setLookup({ kind: "idle" });
     setPicked(true);
     onCommit?.();
+    capture("event_cube_picked", { source: "recent" });
   };
+  const pickLibrary = (l: CardList) => {
+    settled.current = "";
+    onCubeName(l.name.slice(0, 80));
+    onCubeUrl("");
+    setLookup({ kind: "idle" });
+    setPicked(true);
+    onCommit?.();
+    capture("event_cube_picked", { source: "library", cards: countOf(l, "main") });
+  };
+  const currentLibrary = (l: CardList) => chosenLibraryCube(library, cubeName, cubeUrl)?.id === l.id;
   const current = (c: RecentCube) => c.cube_name === cubeName.trim() && (c.cube_url ?? "") === cubeUrl.trim();
   const urlProblem = lookup.kind !== "looking" ? cubeUrlProblem(cubeUrl) : null;
 
   return (
     <>
+      {library.length > 0 && (
+        <>
+          <Section title="Your cubes" />
+          {library.map((l) => (
+            <Row
+              key={l.id}
+              title={l.name}
+              detail={`${countOf(l, "main")} cards · Library`}
+              value={currentLibrary(l) ? "Selected" : "Use"}
+              accentValue={currentLibrary(l)}
+              onClick={() => pickLibrary(l)}
+            />
+          ))}
+        </>
+      )}
       {recent.length > 0 && (
         <>
           <Section title="Recent cubes" />
@@ -206,9 +241,9 @@ export function CubeFields({
               onClick={() => use(c)}
             />
           ))}
-          {picked && <Row title="Another cube" value="Enter" onClick={() => setPicked(false)} />}
         </>
       )}
+      {picked && <Row title="Another cube" value="Enter" onClick={() => setPicked(false)} />}
       {!picked && (
         <>
           <Section title="Cube" />

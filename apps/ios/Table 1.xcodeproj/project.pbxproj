@@ -13,6 +13,7 @@
 		10BA11DA58B8E0B86B8C2A76 /* LiveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B262491F1533D678F74DD238 /* LiveStore.swift */; };
 		13F0FFCA274CEE604023B1DB /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8CEF6031CE6F5FCA7347F5DC /* SwiftUI.framework */; };
 		154CD4E163B070FAD660FA69 /* RotoRepo.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA5585D460ED8D0ECA5B05DA /* RotoRepo.swift */; };
+		1C9E91CE73E8640C92729A23 /* CubeFieldsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CF2A00D5FD0FCF89937DEA6 /* CubeFieldsTests.swift */; };
 		1CF6D35721DE9D5E8CDE8B55 /* Table1Widgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 8FE76B9CA0F768B9F8954BD9 /* Table1Widgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1F66EB68FE24E7ACF235E4AB /* SVGView in Frameworks */ = {isa = PBXBuildFile; productRef = B29FE675356369E91F94A200 /* SVGView */; };
 		2215C27DC9BA34BF267424EF /* OrganizerPhases.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AEABE616F8D0C366BBECFF0 /* OrganizerPhases.swift */; };
@@ -178,6 +179,7 @@
 		765B605747718678A86DE601 /* Table1Tests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = Table1Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7A0116C775E63477E5DF1B3E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		7C6C10E91EC9AF7F6D714335 /* NearbyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyView.swift; sourceTree = "<group>"; };
+		7CF2A00D5FD0FCF89937DEA6 /* CubeFieldsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CubeFieldsTests.swift; sourceTree = "<group>"; };
 		806A035192A635C79AA2F3A6 /* LiveSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSync.swift; sourceTree = "<group>"; };
 		8099FC0F2F66ADD7B29CD544 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8CEF6031CE6F5FCA7347F5DC /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -279,6 +281,7 @@
 				1438B6E1895ED25046190659 /* CardMatcherTests.swift */,
 				52CEDCCE665492AD0AB4B0FF /* CatalogPackTests.swift */,
 				3013FC3AC8C4757DF4B44684 /* CollectionCSVTests.swift */,
+				7CF2A00D5FD0FCF89937DEA6 /* CubeFieldsTests.swift */,
 				C23AB8F5588863F9D0B84282 /* DeckStatsTests.swift */,
 				C461CEB0826AC133A60E7A86 /* ListExportTests.swift */,
 				D6B8EFE76370BBE1C6831870 /* RotoStoreTests.swift */,
@@ -619,6 +622,7 @@
 				793B3C5654CDC544D3CC0B21 /* CardMatcherTests.swift in Sources */,
 				C2CA6EA5AD21CC9187D9241A /* CatalogPackTests.swift in Sources */,
 				41BE4E1D043A7DB82D3CCE45 /* CollectionCSVTests.swift in Sources */,
+				1C9E91CE73E8640C92729A23 /* CubeFieldsTests.swift in Sources */,
 				DF246074B284841D5C11B4B8 /* DeckStatsTests.swift in Sources */,
 				4303E1375FC42EE4288E5DAB /* ListExportTests.swift in Sources */,
 				9D2DB016FBD579C0827EAC17 /* RotoStoreTests.swift in Sources */,

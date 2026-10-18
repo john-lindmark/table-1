@@ -38,6 +38,8 @@ struct EventsDemoRoot: View {
         }
         .background(T1.bg)
         .environment(SessionModel())
+        // The Library demo's cubes, so the cube fields show "Your cubes".
+        .task { if ListsStore.shared.lists.isEmpty { LibraryDemo.start() } }
     }
 }
 
