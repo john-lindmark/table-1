@@ -297,3 +297,27 @@ create policy participants_read on public.participants for select to anon, authe
 create policy rounds_read on public.rounds for select to anon, authenticated using (true);
 create policy matches_read on public.matches for select to anon, authenticated using (true);
 create policy match_sides_read on public.match_sides for select to anon, authenticated using (true);
+
+-- Live organizer write policies (dashboard-created; copied from the project 2026-10-17).
+-- 20261017120000_rpc_only_event_writes drops them; they stay here so tests run against what live has.
+create policy events_insert_authenticated on public.events for insert to authenticated
+  with check (created_by = (select auth.uid()));
+create policy events_organizer_write on public.events for all using (public.is_event_organizer(id))
+  with check (public.is_event_organizer(id));
+create policy event_members_owner_write on public.event_members for all using (public.is_event_organizer(event_id))
+  with check (public.is_event_organizer(event_id));
+create policy pods_organizer_write on public.pods for all using (public.is_event_organizer(event_id))
+  with check (public.is_event_organizer(event_id));
+create policy participants_organizer_write on public.participants for all using (public.is_event_organizer(event_id))
+  with check (public.is_event_organizer(event_id));
+create policy rounds_organizer_write on public.rounds for all using (public.is_event_organizer(event_id))
+  with check (public.is_event_organizer(event_id));
+create policy matches_organizer_write on public.matches for all using (public.is_event_organizer(event_id))
+  with check (public.is_event_organizer(event_id));
+create policy match_sides_organizer_write on public.match_sides for all
+  using (exists (select 1 from public.matches m where m.id = match_sides.match_id and public.is_event_organizer(m.event_id)))
+  with check (exists (select 1 from public.matches m where m.id = match_sides.match_id and public.is_event_organizer(m.event_id)));
+create policy audit_log_organizer_write on public.audit_log for insert with check (public.is_event_organizer(event_id));
+create policy audit_log_organizer_read on public.audit_log for select using (public.is_event_organizer(event_id));
+create policy event_members_read on public.event_members for select
+  using (user_id = (select auth.uid()) or public.is_event_organizer(event_id));

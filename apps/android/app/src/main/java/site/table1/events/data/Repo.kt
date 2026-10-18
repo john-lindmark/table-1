@@ -357,25 +357,25 @@ object Repo {
             put("p_seconds", seconds)
         }).decodeAs()
 
-    /** Drop ('dropped', with the round it happened in) or reinstate ('active') a player. Organizer RLS allows it. */
+    /** Drop ('dropped', with the round it happened in) or reinstate ('active') a player. Organizer only, audited on the server. */
     suspend fun setParticipantStatus(participantId: String, status: String, droppedInRound: Int?) {
-        supabase.from("participants").update(buildJsonObject {
-            put("status", status)
-            put("dropped_in_round", if (status == "dropped") droppedInRound else null)
-        }) { filter { eq("id", participantId) } }
+        supabase.postgrest.rpc("set_participant_status", buildJsonObject {
+            put("p_participant_id", participantId)
+            put("p_status", status)
+            put("p_dropped_in_round", if (status == "dropped") droppedInRound else null)
+        })
     }
 
-    /** Closes the round (confirming undisputed reports); on the last round, completes the event. */
+    /**
+     * Closes the round (confirming undisputed reports); on the last round, completes the event.
+     * One audited server call; refuses to finish while a result is disputed.
+     */
     suspend fun recordRound(eventId: String, roundId: String, finalRound: Boolean) {
-        supabase.from("rounds").update(buildJsonObject {
-            put("status", "recorded")
-            put("recorded_at", java.time.Instant.now().toString())
-        }) { filter { eq("id", roundId) } }
-        if (finalRound) {
-            supabase.from("events").update(buildJsonObject { put("status", "completed") }) {
-                filter { eq("id", eventId) }
-            }
-        }
+        supabase.postgrest.rpc("record_round", buildJsonObject {
+            put("p_event_id", eventId)
+            put("p_round_id", roundId)
+            put("p_final", finalRound)
+        })
     }
 
     /* ── engine: pairing + standings (server-authoritative) ─────────────────── */

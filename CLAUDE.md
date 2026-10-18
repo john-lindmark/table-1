@@ -16,6 +16,7 @@ Table 1 is John's suite of products for competitive Magic: The Gathering players
 - **Server-authoritative rules.** Pairings in `events-engine`, standings from a Postgres function. Clients render and submit only. Standings are computed from results, never stored.
 - A match holds *sides*, not player_a/player_b. Pods are first-class even with one pod. Every mutation writes an audit row.
 - Claim tokens live in `participant_tokens` (RLS on, no policy). Event location lives in `event_locations`.
+- Event tables (events, event_members, event_teams, pods, participants, rounds, matches, match_sides, audit_log) are RPC-only: no client write policy or grant (2026-10-17, `contract/rpc-only-writes-2026-10-17.md`). A new write needs a security definer RPC that audits itself. Clients can only link a participant to their own account.
 - Results: single entry counts; opponent's same score confirms, different score disputes; auto-confirm at round end; organizer can override (audited). Unresolved disputes block pairing the next round.
 - Tournament rules follow the WPN Magic Tournament Rules (Feb 27 2026): 3/1/0 match points, bye 3, OMW/GW/OGW with 33% floor. Open: Appendix E recommended-rounds table is unconfirmed.
 - Auth: Sign in with Apple + Google + email (passwordless code and link, built 2026-10-15 on all clients; `contract/email-sign-in-2026-10-15.md`). The email link `https://table-1.site/auth/confirm` opens the app via universal/app links. Account deletion must revoke the Apple token.
