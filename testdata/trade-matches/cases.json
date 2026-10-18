@@ -1,0 +1,78 @@
+{
+  "about": "Trade matches (contract/friends-sharing-2026-10-18.md): wants meet copies in trade_confirm's order (that printing and finish, then that printing, then any printing); within one want NM first, then cheaper (no price last), then English. A copy is used once, a want up to its qty. Lines group per copy (card, finish, condition, lang) and name the most specific want. Same cases as supabase/tests/80_friends_sharing_test.sql. Read by iOS FriendsTests, web friends.test.ts, Android FriendsTest.",
+  "cases": [
+    {
+      "name": "tiers: exact, then printing, then any (cheaper first); over max flagged",
+      "wants": [
+        {"oracle_id": "bolt", "card_id": "bolt-m10", "finish": "foil", "qty": 1},
+        {"oracle_id": "bolt", "card_id": "bolt-m10", "qty": 2},
+        {"oracle_id": "bolt", "qty": 4},
+        {"oracle_id": "goyf", "qty": 1, "max_usd": 20}
+      ],
+      "copies": [
+        {"oracle_id": "bolt", "card_id": "bolt-m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 3, "usd": 2},
+        {"oracle_id": "bolt", "card_id": "bolt-m10", "finish": "foil", "condition": "NM", "lang": "en", "qty": 1, "usd": 9},
+        {"oracle_id": "bolt", "card_id": "bolt-m11", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 2, "usd": 1},
+        {"oracle_id": "goyf", "card_id": "goyf-fut", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 1, "usd": 30}
+      ],
+      "lines": [
+        {"card_id": "bolt-m10", "finish": "foil", "condition": "NM", "lang": "en", "qty": 1, "want": "exact", "over_max": false},
+        {"card_id": "bolt-m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 3, "want": "printing", "over_max": false},
+        {"card_id": "bolt-m11", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 2, "want": "any", "over_max": false},
+        {"card_id": "goyf-fut", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 1, "want": "any", "over_max": true}
+      ]
+    },
+    {
+      "name": "near mint before played, even when dearer",
+      "wants": [{"oracle_id": "opt", "qty": 2}],
+      "copies": [
+        {"oracle_id": "opt", "card_id": "opt-xln", "finish": "nonfoil", "condition": "LP", "lang": "en", "qty": 2, "usd": 0.1},
+        {"oracle_id": "opt", "card_id": "opt-dom", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 1, "usd": 0.5}
+      ],
+      "lines": [
+        {"card_id": "opt-dom", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 1, "want": "any", "over_max": false},
+        {"card_id": "opt-xln", "finish": "nonfoil", "condition": "LP", "lang": "en", "qty": 1, "want": "any", "over_max": false}
+      ]
+    },
+    {
+      "name": "same price: English first; no price goes last",
+      "wants": [{"oracle_id": "opt", "card_id": "opt-xln", "qty": 2}],
+      "copies": [
+        {"oracle_id": "opt", "card_id": "opt-xln", "finish": "nonfoil", "condition": "NM", "lang": "ja", "qty": 1, "usd": 0.1},
+        {"oracle_id": "opt", "card_id": "opt-xln", "finish": "foil", "condition": "NM", "lang": "en", "qty": 1},
+        {"oracle_id": "opt", "card_id": "opt-xln", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 1, "usd": 0.1}
+      ],
+      "lines": [
+        {"card_id": "opt-xln", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 1, "want": "printing", "over_max": false},
+        {"card_id": "opt-xln", "finish": "nonfoil", "condition": "NM", "lang": "ja", "qty": 1, "want": "printing", "over_max": false}
+      ]
+    },
+    {
+      "name": "a want is met only up to what's there; other printings don't meet a printing want",
+      "wants": [
+        {"oracle_id": "bolt", "card_id": "bolt-m11", "qty": 5},
+        {"oracle_id": "opt", "qty": 10}
+      ],
+      "copies": [
+        {"oracle_id": "bolt", "card_id": "bolt-m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 4, "usd": 2},
+        {"oracle_id": "opt", "card_id": "opt-xln", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 3, "usd": 0.1}
+      ],
+      "lines": [
+        {"card_id": "opt-xln", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 3, "want": "any", "over_max": false}
+      ]
+    },
+    {
+      "name": "one copy line split over two wants names the most specific",
+      "wants": [
+        {"oracle_id": "bolt", "card_id": "bolt-m10", "finish": "nonfoil", "qty": 1},
+        {"oracle_id": "bolt", "qty": 2, "max_usd": 1}
+      ],
+      "copies": [
+        {"oracle_id": "bolt", "card_id": "bolt-m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 4, "usd": 2}
+      ],
+      "lines": [
+        {"card_id": "bolt-m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 3, "want": "exact", "over_max": true}
+      ]
+    }
+  ]
+}

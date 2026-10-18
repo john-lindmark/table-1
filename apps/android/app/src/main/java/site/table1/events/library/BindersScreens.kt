@@ -44,6 +44,7 @@ import site.table1.events.ui.components.T1Menu
 import site.table1.events.ui.components.T1MenuItem
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Switch
+import site.table1.events.T1App
 import site.table1.events.ui.components.T1TextField
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
@@ -51,6 +52,23 @@ import site.table1.events.util.Telemetry
 /* Binders and wants (contract/binders-wants-2026-10-17.md). Library → Binders: Unsorted and each binder; a binder
    lists its cards and can be renamed, flagged for trade or deleted. Library → Wants: the wishlist, then everything
    a deck or cube is missing. Card detail moves copies with BinderMoveFlow. Same screens as the iOS app. */
+
+/** `library_searched` once per visit, when the screen's search is first used (never the text). */
+@Composable
+fun SearchUsed(query: String, screen: String) {
+    var sent by remember { mutableStateOf(false) }
+    LaunchedEffect(query.isEmpty()) {
+        if (query.isNotEmpty() && !sent) { sent = true; Telemetry.capture("library_searched", mapOf("screen" to screen)) }
+    }
+}
+
+/** A search field on the surface band, as on the binder screen. */
+@Composable
+fun SearchBand(query: String, placeholder: String, onChange: (String) -> Unit) {
+    Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp)) {
+        T1TextField(query, onChange, placeholder = placeholder)
+    }
+}
 
 /** The route id for copies no binder holds. */
 const val UNSORTED = "unsorted"
@@ -60,18 +78,60 @@ private fun value(items: List<CollectionItem>): Double? =
     items.mapNotNull { it -> PriceBook.usd(it.cardId, it.finish)?.let { p -> p * it.qty } }.takeIf { it.isNotEmpty() }?.sum()
 
 @Composable
-fun BindersScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
+fun BindersScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onCard: (String) -> Unit = {}) {
     val col by CollectionStore.state.collectAsState()
     val b by BindersStore.state.collectAsState()
+    val cat by CatalogStore.state.collectAsState()
     val pricesVersion by PriceBook.version.collectAsState()
     var creating by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    // Owned cards matching the search, most copies first, each saying where its copies are.
+    var found by remember { mutableStateOf<List<Pair<CardGroup, String>>>(emptyList()) }
+    SearchUsed(query, "binders")
+    LaunchedEffect(query, col.version, b.version, cat.generation) {
+        val q = query
+        if (CardName.norm(q).isEmpty()) { found = emptyList(); return@LaunchedEffect }
+        CatalogStore.load(userInitiated = true)
+        val db = CatalogStore.db ?: return@LaunchedEffect
+        delay(120)
+        val items = col.items.values.toList()
+        val (groups, keyOf) = withContext(Dispatchers.Default) {
+            val ps = db.printings(items.map { it.cardId }.toSet())
+            val os = db.oracles(ps.values.map { it.oracleIdx }.toSet())
+            val keyOf = items.associate { it.cardId to (ps[it.cardId]?.let { p -> os[p.oracleIdx]?.oracleId } ?: it.cardId) }
+            CardGroup.build(items, db).filter { CardSearch.matches(q, it.name, it.type) }
+                .sortedWith(compareByDescending<CardGroup> { it.qty }.thenBy { it.norm }) to keyOf
+        }
+        val byBinder = mutableMapOf<String, MutableMap<String, Int>>()
+        val unsortedBy = mutableMapOf<String, Int>()
+        for (it in items) {
+            val k = keyOf[it.cardId] ?: continue
+            val (held, u) = b.placement(it)
+            for ((bd, n) in held) byBinder.getOrPut(k) { mutableMapOf() }.merge(bd.name, n, Int::plus)
+            unsortedBy.merge(k, u, Int::plus)
+        }
+        found = groups.map { g ->
+            val named = (byBinder[g.id] ?: emptyMap<String, Int>()).entries.sortedBy { it.key.lowercase() }.map { "${it.key} ${it.value}" }
+            val u = unsortedBy[g.id] ?: 0
+            g to (named + listOfNotNull(if (u > 0) "Unsorted $u" else null)).joinToString(" · ")
+        }
+    }
     LaunchedEffect(Unit) { Telemetry.screen("binders") }
     LaunchedEffect(col.version) { PriceBook.load(col.items.values.map { it.cardId }.toSet()) }
     val (by, unsorted) = remember(col.version, b.version) { b.totals(col.items) }
     T1Screen {
         Bar("Binders", subtitle = "${b.binders.size} · ${b.binders.count { it.forTrade }} for trade", onBack = onBack)
         (b.error ?: col.error)?.let { Notice(it, error = true) }
-        Hairlines(Modifier.weight(1f)) {
+        if (col.items.isNotEmpty()) SearchBand(query, "Find a card in your binders") { query = it }
+        if (CardName.norm(query).isNotEmpty()) Hairlines(Modifier.weight(1f)) {
+            item { Section("Cards · ${found.size}") }
+            if (found.isEmpty()) item { ListRow("No cards you own match") }
+            items(found, key = { it.first.id }) { (g, place) ->
+                CardRow(g.cover, g.name, place, onClick = { if (g.known) onCard(g.id) }) {
+                    Text("${g.qty}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
+                }
+            }
+        } else Hairlines(Modifier.weight(1f)) {
             item { ListRow("New binder", "A box, a deck box, a trade binder", onClick = { creating = true }) }
             item {
                 ListRow("Unsorted", "Copies not in a binder", onClick = { onOpen(UNSORTED) }) {
@@ -143,7 +203,9 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
     var menu by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     var askDelete by remember { mutableStateOf(false) }
+    var adding by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    SearchUsed(query, "binder")
     val items = remember(col.version, b.version, id) { b.itemsIn(if (unsorted) null else id, col.items) }
     LaunchedEffect(Unit) {
         Telemetry.screen("binder")
@@ -166,11 +228,14 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
         Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp)) {
             T1TextField(query, { query = it }, placeholder = "Name or type")
         }
-        val n = CardName.norm(query)
-        val shown = if (n.isEmpty()) groups else groups.filter { it.norm.contains(n) || CardName.norm(it.type).contains(n) }
+        val shown = if (CardName.norm(query).isEmpty()) groups else groups.filter { CardSearch.matches(query, it.name, it.type) }
         Hairlines(Modifier.weight(1f)) {
+            if (unsorted || binder != null) item {
+                ListRow("Add cards", if (unsorted) "New copies, or copies out of a binder" else "Move in copies you own, or add new ones", onClick = { adding = true })
+            }
+            if (shown.isEmpty() && groups.isNotEmpty()) item { ListRow("No cards match") }
             if (groups.isEmpty() && cat.phase == "ready") item {
-                Notice(if (unsorted) "Every copy is in a binder." else "No cards here yet. Open a card and move copies here, or add copies straight into this binder from a trade or an import.")
+                Notice(if (unsorted) "Every copy is in a binder." else "No cards here yet. Add cards moves in copies you own or adds new ones; trades and imports can fill it too.")
             }
             items(shown, key = { it.id }) { g ->
                 CardRow(g.cover, g.name, "${g.printings} printing${if (g.printings == 1) "" else "s"} · ${g.type}", onClick = { if (g.known) onCard(g.id) }) {
@@ -189,6 +254,7 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
         )) { menu = false }
     }
     if (editing && binder != null) BinderEditDialog(binder, onClose = { editing = false })
+    if (adding) BinderAddOverlay(if (unsorted) null else id, onClose = { adding = false })
     if (askDelete && binder != null) {
         T1AlertDialog(
             title = "Delete ${binder.name}?",
@@ -202,6 +268,100 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
             dismiss = { TextButton(onClick = { askDelete = false }) { Label("Cancel", color = T1.text) } },
             body = { Text("Its ${count(copies)} cards stay in your collection, Unsorted. This can't be undone.", color = T1.muted, fontFamily = T1.mono, fontSize = 13.sp) },
         )
+    }
+}
+
+/**
+ * Binder → Add cards: search the catalog; Move in takes one copy you own from elsewhere (`moveInSource`), + New adds a
+ * new copy of the card's original printing straight into the binder (`binderId` null = Unsorted).
+ */
+@Composable
+private fun BinderAddOverlay(binderId: String?, onClose: () -> Unit) {
+    val col by CollectionStore.state.collectAsState()
+    val b by BindersStore.state.collectAsState()
+    val scope = rememberCoroutineScope()
+    var query by remember { mutableStateOf("") }
+    var hits by remember { mutableStateOf<List<CatalogOracle>>(emptyList()) }
+    var covers by remember { mutableStateOf<Map<Int, CatalogPrinting>>(emptyMap()) }
+    var owned by remember { mutableStateOf<Map<Int, List<CollectionItem>>>(emptyMap()) }
+    var last by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val condition = remember { T1App.instance.getSharedPreferences("library", android.content.Context.MODE_PRIVATE).getString("addCondition", "NM") ?: "NM" }
+    val target = b.binder(binderId)?.name ?: "Unsorted"
+    LaunchedEffect(Unit) { Telemetry.screen("binder_add") }
+    LaunchedEffect(query) {
+        val db = CatalogStore.db ?: return@LaunchedEffect
+        delay(120)
+        val q = query
+        val found = withContext(Dispatchers.Default) { db.search(q).let { h -> h to db.covers(h.map { it.idx }) } }
+        hits = found.first
+        covers = found.second
+    }
+    LaunchedEffect(col.version) {
+        val db = CatalogStore.db ?: return@LaunchedEffect
+        val items = col.items.values.toList()
+        owned = withContext(Dispatchers.Default) {
+            val ps = db.printings(items.map { it.cardId }.toSet())
+            items.groupBy { ps[it.cardId]?.oracleIdx ?: -1 }
+        }
+    }
+    fun run(label: String, work: suspend () -> String) {
+        busy = true
+        error = null
+        scope.launch {
+            runCatching { work() }.onSuccess { batch -> last = if (batch.isEmpty()) null else batch to label }.onFailure { error = it.message }
+            busy = false
+        }
+    }
+    androidx.compose.ui.window.Dialog(onDismissRequest = onClose,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(Modifier.fillMaxSize().background(T1.bg)) {
+            T1Screen {
+                Bar("Add to $target", onBack = onClose)
+                error?.let { Notice(it, error = true) }
+                last?.let { (batch, label) ->
+                    Row(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Label(label, modifier = Modifier.weight(1f))
+                        BarAction("Undo") { run("") { CollectionStore.undo(batch); "" } }
+                    }
+                }
+                SearchBand(query, "Card name") { query = it }
+                Hairlines(Modifier.weight(1f)) {
+                    if (query.isEmpty()) item {
+                        Notice("Move in takes a copy you own from Unsorted or another binder. + New adds a new copy ($condition, original printing) to your collection, in $target.")
+                    }
+                    items(hits, key = { it.idx }) { o ->
+                        val places = b.places(owned[o.idx] ?: emptyList())
+                        val here = places.filter { it.from?.id == binderId }.sumOf { it.qty }
+                        val where = places.filter { it.from?.id != binderId }.groupBy { it.from?.name ?: "Unsorted" }.mapValues { (_, v) -> v.sumOf { it.qty } }
+                        val detail = if (places.isEmpty()) "Not in your collection"
+                            else (listOfNotNull(if (here > 0) "$here here" else null) + where.entries.sortedBy { it.key }.map { "${it.key} ${it.value}" }).joinToString(" · ")
+                        val source = moveInSource(places, binderId)
+                        val p = covers[o.idx]
+                        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                            Box(Modifier.weight(1f)) { CardRow(p, o.name, detail) }
+                            if (source != null) {
+                                Box(Modifier.fillMaxHeight().background(T1.surfaceHover).clickable(enabled = !busy) {
+                                    run("Moved 1 ${o.name} from ${b.binder(source.second)?.name ?: "Unsorted"}") {
+                                        BindersStore.move(listOf(BinderMove(source.first, source.second, binderId, 1)))
+                                    }
+                                }.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) { Label("Move in", color = T1.text) }
+                            }
+                            if (p != null) {
+                                Box(Modifier.fillMaxHeight().background(T1.surfaceHover).clickable(enabled = !busy) {
+                                    val finish = p.finishList.firstOrNull()?.wire ?: "nonfoil"
+                                    run("Added 1 ${o.name} · $condition") {
+                                        CollectionStore.apply(listOf(CollectionOp(p.cardId, finish, condition, delta = 1, binderId = binderId))).batchId
+                                    }
+                                }.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) { Label("+ New", color = T1.text) }
+                            }
+                        }
+                    }
+                }
+                BigAction("Done") { onClose() }
+            }
+        }
     }
 }
 
@@ -254,8 +414,8 @@ fun BinderMoveFlow(item: CollectionItem, label: String, onClose: () -> Unit, onM
 
 /* ── wants ────────────────────────────────────────────────────────────── */
 
-private data class WantRowView(val want: Want, val name: String, val printing: CatalogPrinting?)
-private data class MissingRowView(val line: MissingLine, val printing: CatalogPrinting?, val name: String, val oracleId: String?)
+private data class WantRowView(val want: Want, val name: String, val printing: CatalogPrinting?, val type: String = "")
+private data class MissingRowView(val line: MissingLine, val printing: CatalogPrinting?, val name: String, val oracleId: String?, val type: String = "")
 
 @Composable
 fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
@@ -271,6 +431,9 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
     var pricing by remember { mutableStateOf<Want?>(null) }
     var showAll by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var query by remember { mutableStateOf("") }
+    var repointing by remember { mutableStateOf<Want?>(null) }
+    SearchUsed(query, "wants")
     LaunchedEffect(Unit) {
         Telemetry.screen("wants")
         CatalogStore.load(userInitiated = true)
@@ -284,12 +447,12 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
             val printings = db.printings(wants.mapNotNull { it.cardId }.toSet())
             val shown = wants.map { w ->
                 val o = db.oracle(w.oracleId)
-                WantRowView(w, o?.name ?: "Card not in local data yet", w.cardId?.let { printings[it] } ?: o?.let { db.covers(listOf(it.idx))[it.idx] })
+                WantRowView(w, o?.name ?: "Card not in local data yet", w.cardId?.let { printings[it] } ?: o?.let { db.covers(listOf(it.idx))[it.idx] }, o?.typeLine ?: "")
             }
             val lines = MissingView.lines(ls, owned)
             val mp = db.printings(lines.map { it.cardId }.toSet())
             val mo = db.oracles(mp.values.map { it.oracleIdx }.toSet())
-            shown to lines.map { l -> val o = mp[l.cardId]?.let { mo[it.oracleIdx] }; MissingRowView(l, mp[l.cardId], o?.name ?: "Card not in local data yet", o?.oracleId) }
+            shown to lines.map { l -> val o = mp[l.cardId]?.let { mo[it.oracleIdx] }; MissingRowView(l, mp[l.cardId], o?.name ?: "Card not in local data yet", o?.oracleId, o?.typeLine ?: "") }
         }
         rows = out.first
         missing = out.second
@@ -300,15 +463,20 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
     }
     val wanted = rows.sumOf { it.want.qty }
     val short = missing.sumOf { it.line.short }
+    val searching = CardName.norm(query).isNotEmpty()
+    val shownWants = if (searching) rows.filter { CardSearch.matches(query, it.name, it.type) } else rows
+    val shownMissing = if (searching) missing.filter { CardSearch.matches(query, it.name, it.type) } else missing
     T1Screen {
         Bar("Wants", subtitle = "$wanted wanted · $short missing", onBack = onBack)
         (error ?: b.error)?.let { Notice(it, error = true) }
         CatalogStatus(cat)
+        if (rows.isNotEmpty() || missing.isNotEmpty()) SearchBand(query, "Name or type") { query = it }
         Hairlines(Modifier.weight(1f)) {
             item { ListRow("Add a want", "Any printing, or one in particular", onClick = { adding = true }) }
-            item { Section("Wanted · ${rows.size}") }
-            if (rows.isEmpty()) item { Notice("Cards you're after. Gets in a trade that match are marked, and confirming takes them off.") }
-            items(rows, key = { "w-" + it.want.key }) { r ->
+            item { Section("Wanted · ${shownWants.size}") }
+            if (shownWants.isEmpty() && searching) item { ListRow("No wants match") }
+            else if (rows.isEmpty()) item { Notice("Cards you're after. Gets in a trade that match are marked, and confirming takes them off.") }
+            items(shownWants, key = { "w-" + it.want.key }) { r ->
                 val w = r.want
                 val which = if (w.cardId == null) "Any printing" else listOfNotNull(r.printing?.setLabel, w.finish?.let { Finish.of(it)?.label }).joinToString(" · ")
                 val now = w.cardId?.let { PriceBook.usd(it, w.finish ?: "nonfoil") }
@@ -317,9 +485,10 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
                     Text("${w.qty}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                 }
             }
-            item { Section("Missing from decks and cubes · $short") }
-            if (missing.isEmpty() && cat.phase == "ready") item { Notice("Your decks and cubes have every card they need.") }
-            items(if (showAll) missing else missing.take(60), key = { "m-" + it.line.key }) { m ->
+            item { Section(if (searching) "Missing from decks and cubes · ${shownMissing.size} match" else "Missing from decks and cubes · $short") }
+            if (shownMissing.isEmpty() && searching) item { ListRow("Nothing missing matches") }
+            else if (missing.isEmpty() && cat.phase == "ready") item { Notice("Your decks and cubes have every card they need.") }
+            items(if (showAll) shownMissing else shownMissing.take(60), key = { "m-" + it.line.key }) { m ->
                 Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                     Box(Modifier.weight(1f)) {
                         CardRow(m.printing, m.name, listOfNotNull(if (m.line.finish == "nonfoil") null else m.line.finish, m.line.lists.joinToString(", ")).joinToString(" · "),
@@ -330,12 +499,12 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
                     val o = m.oracleId
                     if (o != null && rows.none { it.want.oracleId == o }) {
                         Box(Modifier.fillMaxHeight().background(T1.surfaceHover).clickable {
-                            run(listOf(WantOp(o, delta = m.line.short)), "want_added", mapOf("any_printing" to true, "has_max" to false, "from" to "missing"))
+                            run(listOf(WantOp(o, delta = m.line.short)), "want_added", mapOf("any_printing" to true, "finish" to false, "has_max" to false, "from" to "missing"))
                         }.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) { Label("Want", color = T1.text) }
                     }
                 }
             }
-            if (!showAll && missing.size > 60) item { ListRow("Show all ${missing.size}", onClick = { showAll = true }) }
+            if (!showAll && shownMissing.size > 60) item { ListRow("Show all ${shownMissing.size}", onClick = { showAll = true }) }
         }
     }
     editing?.let { r ->
@@ -344,12 +513,7 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
             add(T1MenuItem("One more") { run(listOf(WantOp(w.oracleId, w.cardId, w.finish, delta = 1)), "want_changed") })
             add(T1MenuItem("One fewer", enabled = w.qty > 1) { run(listOf(WantOp(w.oracleId, w.cardId, w.finish, delta = -1)), "want_changed") })
             add(T1MenuItem("Max price · ${w.maxUsd?.let { "$$it" } ?: "none"}") { pricing = w })
-            val p = r.printing
-            if (w.cardId == null && p != null) add(T1MenuItem("Only ${p.setLabel}") {
-                run(listOf(WantOp(w.oracleId, qty = 0), WantOp(w.oracleId, p.cardId, qty = w.qty, setMax = true, maxUsd = w.maxUsd)))
-            }) else if (w.cardId != null) add(T1MenuItem("Any printing") {
-                run(listOf(WantOp(w.oracleId, w.cardId, w.finish, qty = 0), WantOp(w.oracleId, delta = w.qty, setMax = true, maxUsd = w.maxUsd)))
-            })
+            add(T1MenuItem("Printing · ${if (w.cardId == null) "any" else r.printing?.setLabel ?: "one"}") { repointing = w })
             add(T1MenuItem("Open card") { onCard(w.oracleId) })
             add(T1MenuItem("Remove", danger = true) { run(listOf(WantOp(w.oracleId, w.cardId, w.finish, qty = 0)), "want_removed") })
         }) { editing = null }
@@ -371,17 +535,19 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
         )
     }
     if (adding) WantPickOverlay(onClose = { adding = false }) { o ->
-        run(listOf(WantOp(o.oracleId, delta = 1)), "want_added", mapOf("any_printing" to true, "has_max" to false, "from" to "search"))
+        run(listOf(WantOp(o.oracleId, delta = 1)), "want_added", mapOf("any_printing" to true, "finish" to false, "has_max" to false, "from" to "search"))
     }
+    repointing?.let { w -> WantPrintingOverlay(w.oracleId, replacing = w, onClose = { repointing = null }) { error = it } }
 }
 
-/** Search for a card to want (any printing). */
+/** Search for a card to want: Want adds any printing; tapping the card picks one printing or finish. */
 @Composable
 private fun WantPickOverlay(onClose: () -> Unit, onPick: (CatalogOracle) -> Unit) {
     var query by remember { mutableStateOf("") }
     var hits by remember { mutableStateOf<List<CatalogOracle>>(emptyList()) }
     var covers by remember { mutableStateOf<Map<Int, CatalogPrinting>>(emptyMap()) }
     var added by remember { mutableStateOf<String?>(null) }
+    var picking by remember { mutableStateOf<CatalogOracle?>(null) }
     LaunchedEffect(query) {
         val db = CatalogStore.db ?: return@LaunchedEffect
         delay(120)
@@ -395,15 +561,108 @@ private fun WantPickOverlay(onClose: () -> Unit, onPick: (CatalogOracle) -> Unit
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
                 Bar("Add a want", subtitle = added, onBack = onClose)
-                Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp)) {
-                    T1TextField(query, { query = it }, placeholder = "Lightning Bolt")
-                }
+                SearchBand(query, "Lightning Bolt") { query = it }
                 Hairlines(Modifier.weight(1f)) {
+                    if (query.isEmpty()) item { Notice("Want adds any printing. Tap a card to want one printing or finish.") }
                     items(hits, key = { it.idx }) { o ->
-                        CardRow(covers[o.idx], o.name, o.typeLine, onClick = { onPick(o); added = "Wanted ${o.name}" }) { Label("Want", color = T1.text) }
+                        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                            Box(Modifier.weight(1f)) {
+                                CardRow(covers[o.idx], o.name, o.typeLine, onClick = { picking = o }) { Label("Printing") }
+                            }
+                            Box(Modifier.fillMaxHeight().background(T1.surfaceHover).clickable { onPick(o); added = "Wanted ${o.name}" }
+                                .padding(horizontal = 14.dp), contentAlignment = Alignment.Center) { Label("Want", color = T1.text) }
+                        }
                     }
                 }
                 BigAction("Done") { onClose() }
+            }
+        }
+    }
+    picking?.let { o -> WantPrintingOverlay(o.oracleId, from = "search", onClose = { picking = null }, onDone = { added = it }) { added = it } }
+}
+
+/**
+ * Which printing of a card to want: any printing, one printing in any finish (tap the printing), or one printing in
+ * one finish (its finish buttons). Adds one copy, or with `replacing` points that want at the pick, keeping its count
+ * and max price.
+ */
+@Composable
+fun WantPrintingOverlay(oracleId: String, replacing: Want? = null, from: String = "search", onClose: () -> Unit,
+                        onDone: (String) -> Unit = {}, onFail: (String) -> Unit) {
+    val scope = rememberCoroutineScope()
+    val pricesVersion by PriceBook.version.collectAsState()
+    var name by remember { mutableStateOf("") }
+    var printings by remember { mutableStateOf<List<CatalogPrinting>>(emptyList()) }
+    var query by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { Telemetry.screen("want_printing") }
+    LaunchedEffect(oracleId) {
+        val db = CatalogStore.db ?: return@LaunchedEffect
+        val found = withContext(Dispatchers.Default) { db.oracle(oracleId)?.let { o -> o.name to db.printings(o.idx) } }
+        name = found?.first ?: ""
+        printings = found?.second ?: emptyList()
+        PriceBook.load(printings.map { it.cardId }.toSet())
+    }
+    fun pick(p: CatalogPrinting?, finish: String?) {
+        val label = p?.let { listOfNotNull(it.setLabel, finish?.let { f -> Finish.of(f)?.label }).joinToString(" ") } ?: name
+        val ops: List<WantOp>
+        val event: String
+        val props = mutableMapOf<String, Any>("any_printing" to (p == null), "finish" to (finish != null))
+        if (replacing != null) {
+            ops = repointWant(replacing, p?.cardId, finish) ?: run { onClose(); return }
+            event = "want_changed"
+            props["printing"] = true
+        } else {
+            ops = listOf(WantOp(oracleId, p?.cardId, finish, delta = 1))
+            event = "want_added"
+            props["has_max"] = false
+            props["from"] = from
+        }
+        busy = true
+        scope.launch {
+            runCatching { BindersStore.applyWants(ops, event, props) }
+                .onSuccess { onClose(); onDone(if (replacing == null) "Wanted 1 $label" else "Now wanting $label") }
+                .onFailure { onFail(it.message ?: "Couldn't save that want"); onClose() }
+            busy = false
+        }
+    }
+    val shown = if (query.isEmpty()) printings else printings.filter { CardSearch.matchesPrinting(query, it.set, it.cn, it.releasedAt) }
+    val anyNow = replacing != null && replacing.cardId == null
+    androidx.compose.ui.window.Dialog(onDismissRequest = onClose,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(Modifier.fillMaxSize().background(T1.bg)) {
+            T1Screen {
+                Bar(if (replacing == null) "Want which printing" else "Change printing", subtitle = name, onBack = onClose)
+                if (printings.size > 8) SearchBand(query, "Set, number or year") { query = it }
+                Hairlines(Modifier.weight(1f)) {
+                    item {
+                        ListRow("Any printing", "A get of any printing meets it", onClick = if (anyNow || busy) null else ({ pick(null, null) })) {
+                            if (anyNow) Label("Current", color = T1.disabled)
+                        }
+                    }
+                    item { Section(if (query.isEmpty()) "One printing · ${printings.size}" else "One printing · ${shown.size} of ${printings.size}") }
+                    if (shown.isEmpty() && query.isNotEmpty()) item { ListRow("No printings match") }
+                    items(shown, key = { it.cardId }) { p ->
+                        val samePrinting = replacing?.cardId == p.cardId
+                        val price = remember(pricesVersion, p.cardId) { PriceBook.usd(p.cardId, p.finishList.firstOrNull()?.wire ?: "nonfoil") }
+                        val detail = listOfNotNull(if (samePrinting && replacing?.finish == null) "Current" else null, CatalogPack.RARITY_NAME[p.rarity],
+                            p.releasedAt.take(4).ifEmpty { null }, if (p.original) "Original" else null, if (p.lang == "en") null else p.lang.uppercase(),
+                            PriceBook.text(price)).joinToString(" · ")
+                        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                            Box(Modifier.weight(1f)) {
+                                CardRow(p, p.setLabel, detail, onClick = if (busy || (samePrinting && replacing?.finish == null)) null else ({ pick(p, null) }))
+                            }
+                            // A finish button only matters when the printing comes in more than one.
+                            if (p.finishList.size > 1) p.finishList.forEach { f ->
+                                val same = samePrinting && replacing?.finish == f.wire
+                                Box(Modifier.fillMaxHeight().background(T1.surfaceHover).clickable(enabled = !same && !busy) { pick(p, f.wire) }
+                                    .padding(horizontal = 10.dp), contentAlignment = Alignment.Center) {
+                                    Label(if (same) "Current" else f.label, color = if (same) T1.disabled else T1.text)
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

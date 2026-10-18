@@ -1,8 +1,10 @@
 import { useMemo, useRef, useState } from "react";
-import { Bar, Dialog, Field, Menu, Notice, Row, Screen, Section, SwitchRow, type MenuItem } from "../components/kit";
+import { Bar, Dialog, Field, Menu, Modal, Notice, Row, Screen, Section, SwitchRow, type MenuItem } from "../components/kit";
 import { errorMessage } from "../lib/api";
-import { coverPrinting, normName, oracleIndexById, searchCatalog, type Catalog } from "../lib/catalog";
-import { DEMO_USER, useCollection, type Item } from "../lib/collection";
+import { RARITY_NAME, coverPrinting, normName, oracleIndexById, searchCatalog, type Catalog } from "../lib/catalog";
+import { DEMO_USER, applyOps, undoBatch, useCollection, type Finish, type Item } from "../lib/collection";
+import { cardMatches, moveInSource, printingMatches, repointWant, type Place } from "../lib/librarySearch";
+import { capture } from "../lib/telemetry";
 import { loadDemoLists } from "../lib/libraryDemo";
 import { useLists } from "../lib/lists";
 import { usdPrice, usdText, usePrices } from "../lib/prices";
@@ -31,6 +33,27 @@ const value = (items: Item[]) => {
 function SignedOut({ title, onBack }: { title: string; onBack: () => void }) {
   return <Screen><Bar title={title} onBack={onBack} /><Notice tone="info">Sign in to sort your collection.</Notice></Screen>;
 }
+
+/** `library_searched` once per visit, when the screen's search is first used (never the text). */
+export function useSearchUsed(q: string, screen: string) {
+  const sent = useRef(false);
+  if (q && !sent.current) {
+    sent.current = true;
+    queueMicrotask(() => capture("library_searched", { screen }));
+  }
+}
+
+/** The card an item is a copy of: oracle id, or the printing id when the card is newer than the local catalog. */
+const cardKey = (it: Item, c: Catalog) => {
+  const p = c.printingIndex.get(it.cardId);
+  return p == null ? it.cardId : c.oId[c.pOracle[p]];
+};
+
+/** Every place an item's copies are, Unsorted as a null binder. */
+const placesOf = (items: Item[]): Place[] => items.flatMap((it) => {
+  const p = placement(it);
+  return [...p.binders.map((h) => ({ item: it, from: h.binder, qty: h.qty })), ...(p.unsorted ? [{ item: it, from: null, qty: p.unsorted }] : [])];
+});
 
 /** Name and "for trade" for a new binder or an existing one. */
 export function BinderEditor({ binder, onClose, onSaved }: { binder: Binder | null; onClose: () => void; onSaved?: (b: Binder) => void }) {
@@ -62,7 +85,7 @@ export function BinderEditor({ binder, onClose, onSaved }: { binder: Binder | nu
   );
 }
 
-export function BindersScreen({ onBack, onOpen }: { onBack: () => void; onOpen: (id: string) => void }) {
+export function BindersScreen({ onBack, onOpen, onCard }: { onBack: () => void; onOpen: (id: string) => void; onCard?: (oracleId: string) => void }) {
   const { session, ready, userId } = useLibrarySession();
   const col = useCollection(userId);
   const b = useBinders(userId);
@@ -70,12 +93,44 @@ export function BindersScreen({ onBack, onOpen }: { onBack: () => void; onOpen: 
   const ids = useMemo(() => [...new Set([...col.items.values()].map((it) => it.cardId))], [col.version]);
   usePrices(ids);
   const totals = useMemo(() => binderTotals(col.items), [col.version, b.version]);
+  const { catalog } = useCatalog();
+  const [q, setQ] = useState("");
+  useSearchUsed(q, "binders");
+  // Owned cards matching the search, most copies first, each saying where its copies are.
+  const found = useMemo(() => {
+    if (!catalog || !normName(q)) return [];
+    const items = [...col.items.values()];
+    return group(items, catalog).filter((g) => cardMatches(q, g.name, g.type)).map((g) => {
+      const where = new Map<string, number>();
+      let un = 0;
+      for (const it of items) {
+        if (cardKey(it, catalog) !== g.key) continue;
+        const p = placement(it);
+        for (const h of p.binders) where.set(h.binder.name, (where.get(h.binder.name) ?? 0) + h.qty);
+        un += p.unsorted;
+      }
+      const named = [...where].sort((x, y) => x[0].toLowerCase().localeCompare(y[0].toLowerCase())).map(([n, v]) => `${n} ${v}`);
+      return { g, place: [...named, ...(un ? [`Unsorted ${un}`] : [])].join(" · ") };
+    });
+  }, [catalog, q, col.version, b.version]);
   if (!ready) return <Screen><div className="flex-1" /></Screen>;
   if (!session) return <SignedOut title="Binders" onBack={onBack} />;
   return (
     <Screen>
       <Bar title="Binders" subtitle={`${b.binders.length} · ${b.binders.filter((x) => x.for_trade).length} for trade`} onBack={onBack} />
       {(b.error || col.error) && <Notice tone="error">{b.error ?? col.error}</Notice>}
+      {col.items.size > 0 && <Field label="Find a card in your binders" value={q} onChange={setQ} placeholder="Name or type" />}
+      {normName(q) ? (
+        <>
+          <Section title="Cards" count={found.length} />
+          {!found.length && <Row title="No cards you own match" />}
+          {catalog && found.map(({ g, place }) => (
+            <div key={g.key} style={{ height: 60 }}>
+              <CardRow c={catalog} p={g.cover} title={g.name} detail={place} value={g.qty} onClick={() => g.oracle >= 0 && onCard?.(g.key)} />
+            </div>
+          ))}
+        </>
+      ) : <>
       <Row title="New binder" detail="A box, a deck box, a trade binder" onClick={() => setCreating(true)} />
       <Row title="Unsorted" detail="Copies not in a binder" value={totals.unsorted.toLocaleString()} onClick={() => onOpen(UNSORTED)} />
       {b.binders.map((x) => (
@@ -86,6 +141,7 @@ export function BindersScreen({ onBack, onOpen }: { onBack: () => void; onOpen: 
       {!b.binders.length && (
         <Notice tone="info">Binders say where your copies are. Flag one for trade and Trades offers its cards first when you give.</Notice>
       )}
+      </>}
       {creating && <BinderEditor binder={null} onClose={() => setCreating(false)} onSaved={(x) => onOpen(x.id)} />}
     </Screen>
   );
@@ -121,13 +177,14 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [fail, setFail] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  useSearchUsed(q, "binder");
   const unsorted = id === UNSORTED;
   const binder = unsorted ? undefined : binderById(id);
   const items = useMemo(() => itemsIn(unsorted ? null : id, col.items), [id, col.version, b.version]);
   usePrices(useMemo(() => items.map((it) => it.cardId), [items]));
   const groups = useMemo(() => (catalog ? group(items, catalog) : []), [catalog, items]);
-  const n = normName(q);
-  const shown = n ? groups.filter((g) => g.norm.includes(n) || normName(g.type).includes(n)) : groups;
+  const shown = normName(q) ? groups.filter((g) => cardMatches(q, g.name, g.type)) : groups;
   const copies = items.reduce((s, it) => s + it.qty, 0);
   if (!ready) return <Screen><div className="flex-1" /></Screen>;
   if (!session) return <SignedOut title="Binder" onBack={onBack} />;
@@ -148,8 +205,13 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
       <Field label="Search this binder" value={q} onChange={setQ} placeholder="Name or type" />
       {!catalog && !error && <div className="bg-t1-surface px-4 py-4 t1-label">Loading card data…</div>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
+        {(unsorted || binder) && (
+          <Row title="Add cards" detail={unsorted ? "New copies, or copies out of a binder" : "Move in copies you own, or add new ones"}
+               onClick={() => setAdding(true)} />
+        )}
+        {catalog && !!groups.length && !shown.length && <Row title="No cards match" />}
         {catalog && !groups.length && (
-          <Notice tone="info">{unsorted ? "Every copy is in a binder." : "No cards here yet. Open a card and move copies here, or add copies straight into this binder from a trade or an import."}</Notice>
+          <Notice tone="info">{unsorted ? "Every copy is in a binder." : "No cards here yet. Add cards moves in copies you own or adds new ones; trades and imports can fill it too."}</Notice>
         )}
         {catalog && shown.map((g) => (
           <div key={g.key} style={{ height: 60 }}>
@@ -160,6 +222,7 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
         ))}
       </div>
       {menu && binder && <Menu title={binder.name} items={menuItems} onClose={() => setMenu(false)} />}
+      {adding && catalog && <BinderAdd catalog={catalog} binderId={unsorted ? null : id} items={col.items} onClose={() => setAdding(false)} />}
       {editing && binder && <BinderEditor binder={binder} onClose={() => setEditing(false)} />}
       {confirmDelete && binder && (
         <Dialog title={`Delete ${binder.name}?`} tone="danger" cancelLabel="Cancel" confirmLabel="Delete" busy={busy} error={fail}
@@ -178,6 +241,83 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
                 }} />
       )}
     </LibScreen>
+  );
+}
+
+/**
+ * Binder → Add cards: search the catalog; Move in takes one copy you own from elsewhere (`moveInSource`), + New adds a
+ * new copy of the card's original printing straight into the binder (`binderId` null = Unsorted).
+ */
+function BinderAdd({ catalog, binderId, items, onClose }: { catalog: Catalog; binderId: string | null; items: Map<string, Item>; onClose: () => void }) {
+  const [q, setQ] = useState("");
+  const [last, setLast] = useState<{ batch: string; label: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [fail, setFail] = useState<string | null>(null);
+  const target = binderById(binderId)?.name ?? "Unsorted";
+  const condition = (() => { try { return localStorage.getItem("table1.library.addCondition") ?? "NM"; } catch { return "NM"; } })() as Item["condition"];
+  const hits = useMemo(() => searchCatalog(catalog, q, 30), [catalog, q]);
+  const byOracle = useMemo(() => {
+    const m = new Map<number, Item[]>();
+    for (const it of items.values()) {
+      const p = catalog.printingIndex.get(it.cardId);
+      if (p == null) continue;
+      const oi = catalog.pOracle[p];
+      m.set(oi, [...(m.get(oi) ?? []), it]);
+    }
+    return m;
+  }, [catalog, items]);
+  const run = async (label: string, work: () => Promise<string>) => {
+    setBusy(true);
+    setFail(null);
+    try {
+      const batch = await work();
+      setLast(batch ? { batch, label } : null);
+    } catch (e) {
+      setFail(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal title={`Add to ${target}`} onClose={onClose}>
+      {fail && <Notice tone="error">{fail}</Notice>}
+      {last && (
+        <div className="bg-t1-surface px-4 py-3 flex items-center gap-3">
+          <span className="t1-label flex-1">{last.label}</span>
+          <button type="button" className="t1-label hover:text-t1-text" disabled={busy}
+                  onClick={() => void run("", async () => { await undoBatch(last.batch); return ""; })}>Undo</button>
+        </div>
+      )}
+      <Field label="Card name" value={q} onChange={setQ} autoFocus />
+      {!q && <p className="t1-label">Move in takes a copy you own from Unsorted or another binder. + New adds a new copy ({condition}, original printing) to your collection, in {target}.</p>}
+      <div className="max-h-[50vh] overflow-y-auto flex flex-col gap-px">
+        {hits.map((oi) => {
+          const its = byOracle.get(oi) ?? [];
+          const places = placesOf(its);
+          const here = places.filter((pl) => (pl.from?.id ?? null) === binderId).reduce((n, pl) => n + pl.qty, 0);
+          const where = new Map<string, number>();
+          for (const pl of places) if ((pl.from?.id ?? null) !== binderId) where.set(pl.from?.name ?? "Unsorted", (where.get(pl.from?.name ?? "Unsorted") ?? 0) + pl.qty);
+          const detail = !its.length ? "Not in your collection"
+            : [here ? `${here} here` : null, ...[...where].sort((a, b) => a[0].localeCompare(b[0])).map(([n, v]) => `${n} ${v}`)].filter(Boolean).join(" · ");
+          const source = moveInSource(places, binderId);
+          const p = coverPrinting(catalog, oi);
+          const finish = (["nonfoil", "foil", "etched"] as Finish[]).find((f) => catalog.pFinishes[p]?.includes(f[0])) ?? "nonfoil";
+          return (
+            <div key={oi} className="flex items-stretch gap-px h-[60px]">
+              <div className="flex-1 min-w-0"><CardRow c={catalog} p={p} title={catalog.oName[oi]} detail={detail} /></div>
+              {source && (
+                <button type="button" disabled={busy} className="px-3 bg-t1-surface-hover t1-label hover:text-t1-text"
+                        onClick={() => void run(`Moved 1 ${catalog.oName[oi]} from ${binderById(source.from)?.name ?? "Unsorted"}`,
+                                                () => moveCopies([{ item: source.item, from: source.from, to: binderId, qty: 1 }]))}>Move in</button>
+              )}
+              <button type="button" disabled={busy} className="px-3 bg-t1-surface-hover t1-label hover:text-t1-text"
+                      onClick={() => void run(`Added 1 ${catalog.oName[oi]} · ${condition}`,
+                                              async () => (await applyOps([{ card_id: catalog.pId[p], finish, condition, delta: 1, binder_id: binderId }])).batch_id)}>+ New</button>
+            </div>
+          );
+        })}
+      </div>
+    </Modal>
   );
 }
 
@@ -249,6 +389,9 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
   const [pricing, setPricing] = useState<Want | null>(null);
   const [fail, setFail] = useState<string | null>(null);
   const [all, setAll] = useState(false);
+  const [q, setQ] = useState("");
+  const [repointing, setRepointing] = useState<Want | null>(null);
+  useSearchUsed(q, "wants");
   const wants = useMemo(() => liveWants(), [b.version]);
   const missing = useMemo(() => {
     const owned = new Map<string, number>();
@@ -260,6 +403,17 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
   if (!session) return <SignedOut title="Wants" onBack={onBack} />;
   const wanted = wants.reduce((n, w) => n + w.qty, 0);
   const short = missing.reduce((n, m) => n + m.short, 0);
+  const nameOf = (oi: number) => (catalog && oi >= 0 ? catalog.oName[oi] : "");
+  const typeOf = (oi: number) => (catalog && oi >= 0 ? catalog.oType[oi] : "");
+  const shownWants = !catalog || !normName(q) ? wants : wants.filter((w) => {
+    const oi = oracleIndexById(catalog, w.oracleId);
+    return cardMatches(q, nameOf(oi), typeOf(oi));
+  });
+  const shownMissing = !catalog || !normName(q) ? missing : missing.filter((m) => {
+    const p = catalog.printingIndex.get(m.cardId);
+    const oi = p == null ? -1 : catalog.pOracle[p];
+    return cardMatches(q, nameOf(oi), typeOf(oi));
+  });
   const run = (p: Promise<unknown>) => p.catch((e) => setFail(errorMessage(e)));
   const printingOf = (w: Want): number | null => {
     if (!catalog) return null;
@@ -280,14 +434,8 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
       { title: "One more", onClick: () => void run(applyWants([{ ...base, delta: 1 }], "want_changed")) },
       ...(w.qty > 1 ? [{ title: "One fewer", onClick: () => void run(applyWants([{ ...base, delta: -1 }], "want_changed")) }] : []),
       { title: "Max price", detail: w.maxUsd != null ? `$${w.maxUsd}` : "None", onClick: () => setPricing(w) },
-      ...(w.cardId == null && p != null && catalog ? [{
-        title: `Only ${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}`, detail: "Want that printing instead of any",
-        onClick: () => void run(applyWants([{ oracle_id: w.oracleId, qty: 0 },
-                                            { oracle_id: w.oracleId, card_id: catalog.pId[p], qty: w.qty, max_usd: w.maxUsd }])),
-      }] : w.cardId != null ? [{
-        title: "Any printing",
-        onClick: () => void run(applyWants([{ ...base, qty: 0 }, { oracle_id: w.oracleId, delta: w.qty, max_usd: w.maxUsd }])),
-      }] : []),
+      { title: "Printing", detail: w.cardId == null ? "Any printing" : p != null && catalog ? `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}` : undefined,
+        onClick: () => setRepointing(w) },
       { title: "Open card", onClick: () => onCard(w.oracleId) },
       { title: "Remove", onClick: () => void run(applyWants([{ ...base, qty: 0 }], "want_removed")) },
     ];
@@ -296,11 +444,13 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
     <LibScreen>
       <Bar title="Wants" subtitle={`${wanted} wanted · ${short} missing`} onBack={onBack} />
       {(error || fail || b.error) && <Notice tone="error">{error ?? fail ?? b.error}</Notice>}
+      {(wants.length > 0 || missing.length > 0) && <Field label="Search wants" value={q} onChange={setQ} placeholder="Name or type" />}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         <Row title="Add a want" detail="Any printing, or one in particular" onClick={() => setAdding(true)} />
-        <Section title="Wanted" count={wants.length} />
-        {!wants.length && <Notice tone="info">Cards you're after. Gets in a trade that match are marked, and confirming takes them off.</Notice>}
-        {catalog && wants.map((w) => {
+        <Section title="Wanted" count={shownWants.length} />
+        {!shownWants.length && !!q && <Row title="No wants match" />}
+        {!wants.length && !q && <Notice tone="info">Cards you're after. Gets in a trade that match are marked, and confirming takes them off.</Notice>}
+        {catalog && shownWants.map((w) => {
           const p = printingOf(w);
           const oi = oracleIndexById(catalog, w.oracleId);
           return (
@@ -310,9 +460,10 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
             </div>
           );
         })}
-        <Section title="Missing from decks and cubes" count={short} />
+        <Section title="Missing from decks and cubes" count={normName(q) ? shownMissing.length : short} />
+        {catalog && !shownMissing.length && !!normName(q) && <Row title="Nothing missing matches" />}
         {catalog && !missing.length && <Notice tone="info">Your decks and cubes have every card they need.</Notice>}
-        {catalog && (all ? missing : missing.slice(0, 60)).map((m) => {
+        {catalog && (all ? shownMissing : shownMissing.slice(0, 60)).map((m) => {
           const p = catalog.printingIndex.get(m.cardId) ?? null;
           const oi = p == null ? -1 : catalog.pOracle[p];
           const wantedAlready = oi >= 0 && wants.some((w) => w.oracleId === catalog.oId[oi]);
@@ -326,18 +477,22 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
               {oi >= 0 && !wantedAlready && (
                 <button type="button" className="bg-t1-surface-hover px-4 t1-label !text-t1-text"
                         onClick={() => void run(applyWants([{ oracle_id: catalog.oId[oi], delta: m.short }], "want_added",
-                                                           { any_printing: true, has_max: false, from: "missing" }))}>Want</button>
+                                                           { any_printing: true, finish: false, has_max: false, from: "missing" }))}>Want</button>
               )}
             </div>
           );
         })}
-        {!all && missing.length > 60 && <Row title={`Show all ${missing.length}`} onClick={() => setAll(true)} />}
+        {!all && shownMissing.length > 60 && <Row title={`Show all ${shownMissing.length}`} onClick={() => setAll(true)} />}
       </div>
       {adding && catalog && <WantPicker catalog={catalog} onClose={() => setAdding(false)} onFail={setFail} />}
       {editing && catalog && (
         <Menu title={catalog.oName[oracleIndexById(catalog, editing.oracleId)] ?? "Want"} items={editItems(editing)} onClose={() => setEditing(null)} />
       )}
       {pricing && <WantPrice want={pricing} onClose={() => setPricing(null)} onFail={setFail} />}
+      {repointing && catalog && (
+        <WantPrinting catalog={catalog} oi={oracleIndexById(catalog, repointing.oracleId)} replacing={repointing}
+                      onClose={() => setRepointing(null)} onFail={setFail} />
+      )}
     </LibScreen>
   );
 }
@@ -359,22 +514,31 @@ function WantPrice({ want, onClose, onFail }: { want: Want; onClose: () => void;
   );
 }
 
-/** Search for a card to want (any printing). */
+/** Search for a card to want: Want adds any printing; tapping the card picks one printing or finish. */
 function WantPicker({ catalog, onClose, onFail }: { catalog: Catalog; onClose: () => void; onFail: (e: string) => void }) {
   const [q, setQ] = useState("");
   const [added, setAdded] = useState<string | null>(null);
+  const [picking, setPicking] = useState<number | null>(null);
   const hits = useMemo(() => searchCatalog(catalog, q, 30), [catalog, q]);
+  if (picking != null) {
+    return <WantPrinting catalog={catalog} oi={picking} from="search" onFail={onFail}
+                         onClose={(text) => { setPicking(null); if (text) setAdded(text); }} />;
+  }
   return (
     <Dialog title="Add a want" cancelLabel="Done" confirmLabel="Done" onCancel={onClose} onConfirm={onClose}>
       <Field label="Card name" value={q} onChange={setQ} placeholder="Lightning Bolt" autoFocus />
-      {added && <p className="t1-label">{added}</p>}
+      {added ? <p className="t1-label">{added}</p> : !q && <p className="t1-label">Want adds any printing. Pick a card to want one printing or finish.</p>}
       <div className="max-h-[50vh] overflow-y-auto flex flex-col gap-px">
         {hits.map((o) => (
-          <div key={o} style={{ height: 60 }}>
-            <CardRow c={catalog} p={coverPrinting(catalog, o)} title={catalog.oName[o]} detail={catalog.oType[o]} value="Want"
-                     onClick={() => void applyWants([{ oracle_id: catalog.oId[o], delta: 1 }], "want_added",
-                                                    { any_printing: true, has_max: false, from: "search" })
-                       .then(() => setAdded(`Wanted ${catalog.oName[o]}`), (e) => onFail(errorMessage(e)))} />
+          <div key={o} className="flex items-stretch gap-px" style={{ height: 60 }}>
+            <div className="flex-1 min-w-0">
+              <CardRow c={catalog} p={coverPrinting(catalog, o)} title={catalog.oName[o]} detail={catalog.oType[o]} value="Printing"
+                       onClick={() => setPicking(o)} />
+            </div>
+            <button type="button" className="bg-t1-surface-hover px-4 t1-label !text-t1-text"
+                    onClick={() => void applyWants([{ oracle_id: catalog.oId[o], delta: 1 }], "want_added",
+                                                   { any_printing: true, finish: false, has_max: false, from: "search" })
+                      .then(() => setAdded(`Wanted ${catalog.oName[o]}`), (e) => onFail(errorMessage(e)))}>Want</button>
           </div>
         ))}
       </div>
@@ -382,16 +546,98 @@ function WantPicker({ catalog, onClose, onFail }: { catalog: Catalog; onClose: (
   );
 }
 
-/** "Add to wants" on card detail: any printing, or the one shown. */
+/**
+ * Which printing of a card to want: any printing, one printing in any finish (pick the printing), or one printing in
+ * one finish (its finish buttons). Adds one copy, or with `replacing` points that want at the pick, keeping its count
+ * and max price.
+ */
+function WantPrinting({ catalog, oi, replacing, from = "search", onClose, onFail }: {
+  catalog: Catalog; oi: number; replacing?: Want; from?: string; onClose: (text?: string) => void; onFail: (e: string) => void;
+}) {
+  const [q, setQ] = useState("");
+  const [busy, setBusy] = useState(false);
+  const orig = catalog.oOriginal[oi];
+  const printings = useMemo(() => Array.from({ length: catalog.pCount[oi] }, (_, i) => catalog.pFirst[oi] + i)
+    .sort((a, b) => Number(b === orig) - Number(a === orig)), [catalog, oi]);
+  usePrices(useMemo(() => printings.map((p) => catalog.pId[p]), [printings]));
+  const shown = q ? printings.filter((p) => printingMatches(q, catalog.pSet[p], catalog.pCn[p], catalog.pReleased[p] ?? "")) : printings;
+  const label = (p: number) => `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}`;
+  const pick = async (p: number | null, finish: Finish | null) => {
+    const cardId = p == null ? null : catalog.pId[p];
+    const text = p == null ? catalog.oName[oi] : [label(p), finish ? FINISH_LABEL[finish] : null].filter(Boolean).join(" ");
+    let ops, event, props: Record<string, string | number | boolean> = { any_printing: p == null, finish: finish != null };
+    if (replacing) {
+      ops = repointWant(replacing, cardId, finish);
+      if (!ops) return onClose();
+      event = "want_changed";
+      props = { ...props, printing: true };
+    } else {
+      ops = [{ oracle_id: catalog.oId[oi], card_id: cardId, finish, delta: 1 }];
+      event = "want_added";
+      props = { ...props, has_max: false, from };
+    }
+    setBusy(true);
+    try {
+      await applyWants(ops, event, props);
+      onClose(replacing ? `Now wanting ${text}` : `Wanted 1 ${text}`);
+    } catch (e) {
+      onFail(errorMessage(e));
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
+  const anyNow = replacing != null && replacing.cardId == null;
+  return (
+    <Modal title={`${replacing ? "Change printing" : "Want which printing"} · ${catalog.oName[oi]}`} onClose={() => onClose()}>
+      {printings.length > 8 && <Field label="Set, number or year" value={q} onChange={setQ} autoFocus />}
+      <div className="max-h-[60vh] overflow-y-auto flex flex-col gap-px">
+        <Row title="Any printing" detail="A get of any printing meets it" value={anyNow ? "Current" : undefined}
+             onClick={anyNow || busy ? undefined : () => void pick(null, null)} />
+        <Section title="One printing" count={shown.length} />
+        {!shown.length && <Row title="No printings match" />}
+        {shown.map((p) => {
+          const finishes = (["nonfoil", "foil", "etched"] as Finish[]).filter((f) => catalog.pFinishes[p].includes(f[0]));
+          const samePrinting = replacing?.cardId === catalog.pId[p];
+          const price = usdPrice(catalog.pId[p], finishes[0] ?? "nonfoil");
+          const detail = [samePrinting && replacing?.finish == null ? "Current" : null, RARITY_NAME[catalog.pRarity[p]], catalog.pReleased[p]?.slice(0, 4),
+                          p === orig ? "Original" : null, catalog.pLang[p] !== "en" ? catalog.pLang[p].toUpperCase() : null,
+                          price != null ? usdText(price) : null].filter(Boolean).join(" · ");
+          return (
+            <div key={p} className="flex items-stretch gap-px h-[60px]">
+              <div className="flex-1 min-w-0">
+                <CardRow c={catalog} p={p} title={label(p)} detail={detail}
+                         onClick={busy || (samePrinting && replacing?.finish == null) ? undefined : () => void pick(p, null)} />
+              </div>
+              {finishes.length > 1 && finishes.map((f) => {
+                const same = samePrinting && replacing?.finish === f;
+                return (
+                  <button key={f} type="button" disabled={same || busy}
+                          className="px-2 bg-t1-surface-hover t1-label hover:text-t1-text disabled:text-t1-disabled"
+                          onClick={() => void pick(p, f)}>{same ? "Current" : FINISH_LABEL[f]}</button>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    </Modal>
+  );
+}
+
+const FINISH_LABEL: Record<Finish, string> = { nonfoil: "Non-foil", foil: "Foil", etched: "Etched" };
+
+/** "Add to wants" on card detail: any printing, the one shown, or a printing picked from all of them. */
 export function WantCardRow({ catalog, oi, shown, onAdded }: { catalog: Catalog; oi: number; shown: number | null; onAdded: (t: string) => void }) {
   const { userId } = useLibrarySession();
   const b = useBinders(userId);
   const [open, setOpen] = useState(false);
+  const [picking, setPicking] = useState(false);
   const mine = useMemo(() => liveWants().filter((w) => w.oracleId === catalog.oId[oi]), [b.version, catalog, oi]);
   const n = mine.reduce((s, w) => s + w.qty, 0);
   const want = (p: number | null) =>
     void applyWants([{ oracle_id: catalog.oId[oi], card_id: p == null ? null : catalog.pId[p], delta: 1 }], "want_added",
-                    { any_printing: p == null, has_max: false, from: "card" })
+                    { any_printing: p == null, finish: false, has_max: false, from: "card" })
       .then(() => onAdded(`Wanted 1 ${p == null ? catalog.oName[oi] : `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}`}`));
   return (
     <>
@@ -400,8 +646,10 @@ export function WantCardRow({ catalog, oi, shown, onAdded }: { catalog: Catalog;
         <Menu title={`Want ${catalog.oName[oi]}`} onClose={() => setOpen(false)} items={[
           { title: "Any printing", onClick: () => want(null) },
           ...(shown != null ? [{ title: `Only ${catalog.pSet[shown].toUpperCase()} #${catalog.pCn[shown]}`, onClick: () => want(shown) }] : []),
+          { title: "Pick a printing…", detail: "One printing, or one finish", onClick: () => setPicking(true) },
         ]} />
       )}
+      {picking && <WantPrinting catalog={catalog} oi={oi} from="card" onFail={onAdded} onClose={(t) => { setPicking(false); if (t) onAdded(t); }} />}
     </>
   );
 }

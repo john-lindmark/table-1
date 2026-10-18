@@ -56,7 +56,10 @@ struct Table1App: App {
                     if let url = activity.webpageURL { session.openWebLink(url) }
                 }
                 .task { await session.watchAuth() }
-                .task { PushController.shared.openEvent = { session.pendingEvent = $0 } }
+                .task {
+                    PushController.shared.openEvent = { session.pendingEvent = $0 }
+                    PushController.shared.openFriends = { session.pendingFriends = true }
+                }
                 // Apple ID access can be withdrawn from Settings at any time.
                 .onChange(of: phase) { before, now in
                     if now == .active {
@@ -111,6 +114,8 @@ final class SessionModel {
     var pendingJoin: JoinLink?
     /// An event opened from a widget or the Live Activity.
     var pendingEvent: String?
+    /// A tapped friend push: Account → Friends.
+    var pendingFriends = false
     /// While a round you're playing is running, the app opens straight into it — once per launch or
     /// return from the background. Cleared as soon as it fires.
     var autoOpenArmed = true
@@ -226,6 +231,8 @@ struct SignedInView: View {
     @State private var tab: Tab = .events
     @State private var path: [Route] = []
     @State private var libraryPath: [LibraryRoute] = []
+    /// Account → Friends, profiles, Sharing (the Library's routes, so a profile's cards and trades open in place).
+    @State private var accountPath: [LibraryRoute] = []
     @State private var joinError: String?
     @State private var keyboardUp = false
 
@@ -266,7 +273,11 @@ struct SignedInView: View {
                 .allowsHitTesting(tab == .collection)
                 .accessibilityHidden(tab != .collection)
 
-                NavigationStack { AccountView().screen("account", when: tab == .account) }
+                NavigationStack(path: $accountPath) {
+                    AccountView(path: $accountPath)
+                        .screen("account", when: tab == .account)
+                        .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $accountPath) }
+                }
                     .opacity(tab == .account ? 1 : 0)
                     .allowsHitTesting(tab == .account)
                     .accessibilityHidden(tab != .account)
@@ -286,6 +297,7 @@ struct SignedInView: View {
                 await CollectionStore.shared.start(userId: id)
                 await ListsStore.shared.start(userId: id)
                 await BindersStore.shared.start(userId: id)
+                await FriendsStore.shared.load()
             }
             CatalogStore.shared.load(userInitiated: false)
         }
@@ -299,6 +311,7 @@ struct SignedInView: View {
             ListsStore.shared.stop()
             TradesStore.shared.stop()
             BindersStore.shared.stop()
+            FriendsStore.shared.stop()
         }
         // The life tracker covers the tabs (no tab bar) until it's closed.
         .overlay {
@@ -324,6 +337,13 @@ struct SignedInView: View {
                 path = [.event(id)]
             }
         }
+        .task(id: session.pendingFriends) {
+            if session.pendingFriends {
+                session.pendingFriends = false
+                tab = .account
+                accountPath = [.social(.friends)]
+            }
+        }
         .task(id: session.pendingJoin) {
             if let link = session.pendingJoin {
                 session.pendingJoin = nil
@@ -339,7 +359,7 @@ struct SignedInView: View {
         switch tab {
         case .events: path.isEmpty
         case .collection: libraryPath.isEmpty
-        case .account: true
+        case .account: accountPath.isEmpty
         }
     }
 
@@ -354,7 +374,7 @@ struct SignedInView: View {
             switch next {
             case .events: if path.isEmpty { Telemetry.screen("events_home") }
             case .collection: if libraryPath.isEmpty { Telemetry.screen("library_home") }
-            case .account: Telemetry.screen("account")
+            case .account: if accountPath.isEmpty { Telemetry.screen("account") }
             }
         }
         tab = next

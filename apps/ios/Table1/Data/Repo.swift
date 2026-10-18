@@ -503,11 +503,12 @@ enum Repo {
         ]).execute().value
     }
 
-    static func invitePlayers(_ eventId: String, userIds: [String]) async throws -> Int {
+    /// `friends`: how many of them are friends (telemetry only).
+    static func invitePlayers(_ eventId: String, userIds: [String], friends: Int = 0) async throws -> Int {
         let r: InviteResult = try await supabase.rpc("invite_players", params: [
             "p_event_id": AnyJSON.string(eventId), "p_user_ids": .array(userIds.map { .string($0) }),
         ]).execute().value
-        Telemetry.capture("players_invited", ["count": r.invited ?? 0, "via": "account"])
+        Telemetry.capture("players_invited", ["count": r.invited ?? 0, "via": "account", "friends": friends])
         return r.invited ?? 0
     }
 

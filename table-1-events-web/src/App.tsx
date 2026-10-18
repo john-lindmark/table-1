@@ -58,6 +58,14 @@ const binders = () => import("./screens/Binders");
 const BindersScreen = lazyNamed(binders, "BindersScreen");
 const BinderScreen = lazyNamed(binders, "BinderScreen");
 const WantsScreen = lazyNamed(binders, "WantsScreen");
+const friends = () => import("./screens/Friends");
+const FriendsScreen = lazyNamed(friends, "FriendsScreen");
+const FriendAddScreen = lazyNamed(friends, "FriendAddScreen");
+const ProfileScreen = lazyNamed(friends, "ProfileScreen");
+const ProfileCardsScreen = lazyNamed(friends, "ProfileCardsScreen");
+const SharingScreen = lazyNamed(friends, "SharingScreen");
+const TradeMatchesScreen = lazyNamed(friends, "TradeMatchesScreen");
+const TradeMatchScreen = lazyNamed(friends, "TradeMatchScreen");
 const DeckFinderScreen = lazyNamed(() => import("./screens/DeckFinder"), "DeckFinderScreen");
 const ListImportScreen = lazyNamed(() => import("./screens/ListImport"), "ListImportScreen");
 const CollectionImportScreen = lazyNamed(() => import("./screens/CollectionImport"), "CollectionImportScreen");
@@ -128,7 +136,8 @@ function QrJoinRoute() {
 
 function ProfileRoute() {
   const navigate = useNavigate();
-  return <Profile onSignedOut={() => navigate("/")} />;
+  return <Profile onSignedOut={() => navigate("/")} onFriends={() => navigate("/friends")} onSharing={() => navigate("/sharing")}
+                  onProfile={(id) => navigate(`/u/${id}`)} />;
 }
 
 function PlayerRoute() {
@@ -150,14 +159,60 @@ function LibraryHomeRoute() {
     <LibraryHome onAllCards={() => navigate("/library/cards")} onAdd={() => navigate("/library/add")}
                  onDecks={() => navigate("/library/decks")} onCubes={() => navigate("/library/cubes")}
                  onTrades={() => navigate("/library/trades")} onImport={() => navigate("/library/import")}
-                 onBinders={() => navigate("/library/binders")} onWants={() => navigate("/library/wants")} />
+                 onBinders={() => navigate("/library/binders")} onWants={() => navigate("/library/wants")}
+                 onMatches={() => navigate("/library/matches")} />
   );
 }
 
+/* Friends, profiles, sharing and trade matches (contract/friends-sharing-2026-10-18.md). */
+function FriendsRoute() {
+  const navigate = useNavigate();
+  const back = useBack("/me");
+  return <FriendsScreen onBack={back} onProfile={(id) => navigate(`/u/${id}`)} onAdd={() => navigate("/friends/add")} />;
+}
+function FriendAddRoute() {
+  return <FriendAddScreen onBack={useBack("/friends")} />;
+}
+function ProfileUserRoute() {
+  const { userId } = useParams();
+  const navigate = useNavigate();
+  const back = useBack("/friends");
+  if (!userId) return <Navigate to="/friends" replace />;
+  return <ProfileScreen userId={userId} onBack={back} onSharing={() => navigate("/sharing")}
+                        onMatch={() => navigate(`/library/match/${userId}`)}
+                        onSection={(kind, id) => navigate(`/u/${userId}/${kind}${id ? `/${id}` : ""}`)} />;
+}
+function ProfileCardsRoute() {
+  const { userId, section, itemId } = useParams();
+  const navigate = useNavigate();
+  const back = useBack(`/u/${userId}`);
+  const kinds = ["all_cards", "for_trade", "wants", "binder", "deck", "cube"] as const;
+  const kind = kinds.find((k) => k === section);
+  if (!userId || !kind) return <Navigate to="/friends" replace />;
+  return <ProfileCardsScreen userId={userId} section={kind} item={itemId ?? null} onBack={back}
+                             onCard={(o) => navigate(`/library/card/${o}`)} />;
+}
+function SharingRoute() {
+  return <SharingScreen onBack={useBack("/me")} />;
+}
+function TradeMatchesRoute() {
+  const navigate = useNavigate();
+  const back = useBack("/library");
+  return <TradeMatchesScreen onBack={back} onOpen={(id) => navigate(`/library/match/${id}`)}
+                             onFriends={() => navigate("/friends")} onSharing={() => navigate("/sharing")} />;
+}
+function TradeMatchRoute() {
+  const { userId } = useParams();
+  const navigate = useNavigate();
+  const back = useBack("/library/matches");
+  if (!userId) return <Navigate to="/library/matches" replace />;
+  return <TradeMatchScreen userId={userId} onBack={back} onProfile={() => navigate(`/u/${userId}`)}
+                           onCard={(o) => navigate(`/library/card/${o}`)} onTrade={(id) => navigate(`/library/trade/${id}`)} />;
+}
 function BindersRoute() {
   const navigate = useNavigate();
   const back = useBack("/library");
-  return <BindersScreen onBack={back} onOpen={(id) => navigate(`/library/binder/${id}`)} />;
+  return <BindersScreen onBack={back} onOpen={(id) => navigate(`/library/binder/${id}`)} onCard={(o) => navigate(`/library/card/${o}`)} />;
 }
 
 function BinderRoute() {
@@ -365,6 +420,14 @@ export default function App() {
         <Route path="/library/binders" element={<BindersRoute />} />
         <Route path="/library/binder/:binderId" element={<BinderRoute />} />
         <Route path="/library/wants" element={<WantsRoute />} />
+        <Route path="/library/matches" element={<TradeMatchesRoute />} />
+        <Route path="/library/match/:userId" element={<TradeMatchRoute />} />
+        <Route path="/friends" element={<FriendsRoute />} />
+        <Route path="/friends/add" element={<FriendAddRoute />} />
+        <Route path="/sharing" element={<SharingRoute />} />
+        <Route path="/u/:userId" element={<ProfileUserRoute />} />
+        <Route path="/u/:userId/:section" element={<ProfileCardsRoute />} />
+        <Route path="/u/:userId/:section/:itemId" element={<ProfileCardsRoute />} />
         <Route path="/library/trade/:tradeId" element={<TradeRoute />} />
         <Route path="/life" element={<LifeRoute />} />
         <Route path="/life/:matchId" element={<LifeRoute />} />

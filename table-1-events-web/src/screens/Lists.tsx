@@ -10,7 +10,9 @@ import {
   boardTitle, boardsOf, countOf, createList, finishOf, ownKey, type ListFinish, current, deleteList, diff, duplicateList, editList, entriesOf, missingIn, restoreList,
   sectionsFor, useLists, type Board, type CardList, type ListKind,
 } from "../lib/lists";
+import { cardMatches, matchingLines } from "../lib/librarySearch";
 import { capture } from "../lib/telemetry";
+import { useSearchUsed } from "./Binders";
 import {
   CardArt, CardRow, CardTile, LibScreen, StackRows, ViewButton, useCatalog, useLibrarySession, useStoredLayout, type StackItem,
 } from "./Library";
@@ -69,6 +71,7 @@ interface Line {
   finish: ListFinish;
   points: number;
   basic: boolean;
+  type: string;
 }
 
 const FINISH_NAME: Record<ListFinish, string> = { nonfoil: "Non-foil", foil: "Foil", etched: "Etched" };
@@ -81,7 +84,7 @@ function linesOf(l: CardList, c: Catalog): Line[] {
     const type = oi >= 0 ? c.oType[oi].split(" // ")[0] : "";
     const group = l.kind === "deck" ? typeGroup(type) : type.includes("Land") ? "Lands" : colorGroup(oi >= 0 ? c.oCost[oi] : "");
     return { cardId: e.cardId, p, oracleId: oi >= 0 ? c.oId[oi] : null, name: oi >= 0 ? c.oName[oi] : "Unknown card", group, board: e.board, qty: e.qty, oi, finish: finishOf(e),
-             points: oi >= 0 ? c.oPoints[oi] : 0, basic: type.includes("Basic") };
+             points: oi >= 0 ? c.oPoints[oi] : 0, basic: type.includes("Basic"), type: oi >= 0 ? c.oType[oi] : "" };
   }).sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -262,7 +265,9 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   const [moving, setMoving] = useState<Line | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [q, setQ] = useState("");
   const list = lists.lists.find((l) => l.id === id) ?? null;
+  useSearchUsed(q, list?.kind === "deck" ? "deck" : "cube");
   const lines = useMemo(() => (list && catalog ? linesOf(list, catalog) : []), [list, catalog]);
   const issues = useMemo(() => (list && catalog ? issuesOf(lines, list, catalog) : new Map<string, string>()), [lines, list, catalog]);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -285,6 +290,8 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
       </Screen>
     );
   }
+  const searching = q.trim().length > 0;
+  const shown = searching ? lines.filter((x) => cardMatches(q, x.name, x.type)) : lines;
   const cols = Math.max(3, Math.floor(width / 180));
   const tile = Math.floor((width - (cols - 1)) / cols);
   const v = current(list);
@@ -327,7 +334,10 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
              {!editing && <ViewButton layout={layout} onChange={setLayout} screen={list.kind === "cube" ? "cube" : "deck"} />}
            </span>} />
       {(lists.error || error) && <Notice tone="error">{lists.error ?? error}</Notice>}
+      {entriesOf(list).length > 0 && <Field label={list.kind === "cube" ? "Search this cube" : "Search this deck"} value={q} onChange={setQ} placeholder="Name or type" />}
       <div ref={boxRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
+        {/* While searching, matches come first. */}
+        {!searching && <>
         <div className="bg-t1-surface py-4 flex">
           <Stat label={list.kind === "deck" ? "Main" : "Cards"} value={countOf(list, "main")} />
           {list.kind === "deck" && <Stat label="Side" value={countOf(list, "side")} />}
@@ -359,15 +369,17 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
                          onClick={() => { void duplicateList(list).then((copy) => { setEditing(false); onOpen(copy); }); }} />}
         {editing && <Row title={list.kind === "deck" ? "Delete deck" : "Delete cube"} detail="From every device" onClick={() => setConfirmDelete(true)} />}
         {!editing && catalog && <ListStatsRow list={list} catalog={catalog} onOpen={onStats} />}
-        <Row title="Add cards" detail={list.kind === "deck" ? "To the main deck, sideboard or considering" : "To the cube or considering"} onClick={onAdd} />
+        <Row title="Add, remove or replace" detail={list.kind === "deck" ? "Main deck, sideboard or considering" : "Search the catalog, or this cube's own cards"} onClick={onAdd} />
         <Row title="Version history" detail={`v${v.number} · ${v.note} · ${fmtDate(v.at)}`} value={list.versions.length} onClick={onVersions} />
         {entriesOf(list).length > 0 && !editing && catalog &&
           <Row title="Export" detail={list.kind === "deck" ? "For Arena, Moxfield, MTGO or as plain text" : "For Cube Cobra or as plain text"}
                onClick={() => setExporting(true)} />}
         {entriesOf(list).length === 0 && <Row title="No cards yet" detail="Add cards to start this list" />}
+        </>}
+        {searching && catalog && !shown.length && <Row title="No cards match" />}
         {!catalog && <div className="bg-t1-surface px-4 py-4 t1-label">Loading card data…</div>}
-        {catalog && boardsOf(list).map((board) => {
-          const inBoard = lines.filter((x) => x.board === board);
+        {catalog && boardsOf(list).filter((bd) => !searching || shown.some((x) => x.board === bd)).map((board) => {
+          const inBoard = shown.filter((x) => x.board === board);
           return (
             <div key={board} className="flex flex-col gap-px">
               <BoardHeader title={boardTitle(list.kind, board)} count={inBoard.reduce((n, x) => n + x.qty, 0)} />
@@ -433,32 +445,87 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
 
 /* ── adding cards to a list ───────────────────────────────────────────── */
 
+/**
+ * Search the catalog and add cards straight into a section of a list. Remove or replace (Cube Cobra's Remove/Replace)
+ * searches only the list's own cards: Remove takes one copy out; Replace then searches the catalog for the card that
+ * takes its place, in the same section, as one edit.
+ */
 export function ListAddScreen({ id, onDone, onCard }: { id: string; onDone: () => void; onCard: (oracleId: string) => void }) {
   const { lists } = useListsData();
   const { catalog } = useCatalog();
   const [q, setQ] = useState("");
   const [board, setBoard] = useState<Board>("main");
+  const [mode, setMode] = useState<"add" | "remove">("add");
+  const [replacing, setReplacing] = useState<Line | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const list = lists.lists.find((l) => l.id === id);
-  const hits = useMemo(() => (catalog ? searchCatalog(catalog, q, 40) : []), [catalog, q]);
+  const removing = mode === "remove" && !replacing;
+  const hits = useMemo(() => (catalog && !removing ? searchCatalog(catalog, q, 40) : []), [catalog, q, removing]);
+  const lines = useMemo(() => (list && catalog && mode === "remove" ? linesOf(list, catalog) : []), [list, catalog, mode]);
   if (!list) return <Screen><Bar title="Add cards" onBack={onDone} /></Screen>;
+  const target = replacing?.board ?? board;
+  const found = removing ? matchingLines(lines, q) : [];
+  const switchMode = (m: "add" | "remove") => { setMode(m); setReplacing(null); setQ(""); setNote(null); };
   return (
     <LibScreen>
-      <Bar title={`Add to ${list.name}`} subtitle={`v${current(list).number}`} onBack={onDone} />
-      <Segmented options={sectionsFor(list.kind).map((b) => ({ value: b, label: boardTitle(list.kind, b) }))} value={board} onChange={setBoard} />
-      <Field label="Card name" value={q} onChange={setQ} autoFocus />
+      <Bar title={`${replacing ? "Replace in" : removing ? "Remove from" : "Add to"} ${list.name}`} subtitle={`v${current(list).number}`} onBack={onDone} />
+      <Segmented options={[{ value: "add", label: "Add" }, { value: "remove", label: "Remove or replace" }]} value={mode} onChange={switchMode} />
+      {replacing ? (
+        <div className="bg-t1-surface px-4 py-3 flex items-center gap-3">
+          <span className="t1-label !text-t1-text flex-1">Replacing {replacing.name} · {boardTitle(list.kind, replacing.board)}</span>
+          <button type="button" className="t1-label hover:text-t1-text" onClick={() => { setReplacing(null); setQ(""); }}>Cancel</button>
+        </div>
+      ) : mode === "add" && (
+        <Segmented options={sectionsFor(list.kind).map((b) => ({ value: b, label: boardTitle(list.kind, b) }))} value={board} onChange={setBoard} />
+      )}
+      {note && <Notice tone="info">{note}</Notice>}
+      <Field key={`${mode}-${replacing ? "r" : ""}`} label={removing ? (list.kind === "cube" ? "Card in this cube" : "Card in this deck") : replacing ? "Card to put in" : "Card name"}
+             value={q} onChange={setQ} autoFocus />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
-        {catalog && hits.map((oi) => {
+        {removing && catalog && (!q.trim()
+          ? <Notice tone="info">Search the cards in {list.name}. Remove takes one copy out; Replace swaps it for another card in the same section.</Notice>
+          : !found.length && <Row title={`No card in ${list.name} matches`} />)}
+        {removing && catalog && found.map((x) => (
+          <div key={lineKey(x)} className="flex items-stretch gap-px h-[60px]">
+            <div className="flex-1 min-w-0">
+              <CardRow c={catalog} p={x.p} title={x.name}
+                       detail={[boardTitle(list.kind, x.board), x.finish === "nonfoil" ? null : FINISH_NAME[x.finish], x.qty > 1 ? `${x.qty} copies` : null].filter(Boolean).join(" · ")}
+                       onClick={() => x.oracleId && onCard(x.oracleId)} />
+            </div>
+            <button type="button" className="px-3 bg-t1-surface-hover t1-label hover:text-t1-text"
+                    onClick={() => {
+                      void editList(list.id, [{ card_id: x.cardId, board: x.board, finish: x.finish, delta: -1 }]);
+                      capture("list_card_removed", { kind: list.kind });
+                      setNote(`Removed 1 ${x.name} from ${boardTitle(list.kind, x.board)}`);
+                    }}>Remove</button>
+            <button type="button" className="px-3 bg-t1-surface-hover t1-label hover:text-t1-text"
+                    onClick={() => { setReplacing(x); setNote(null); setQ(""); }}>Replace</button>
+          </div>
+        ))}
+        {!removing && catalog && hits.map((oi) => {
           const p = coverPrinting(catalog, oi);
-          const inList = entriesOf(list).filter((e) => e.cardId === catalog.pId[p] && e.board === board).reduce((n, e) => n + e.qty, 0);
+          const inList = entriesOf(list).filter((e) => e.cardId === catalog.pId[p] && e.board === target).reduce((n, e) => n + e.qty, 0);
           return (
             <div key={oi} className="flex items-stretch gap-px h-[60px]">
               <div className="flex-1 min-w-0">
                 <CardRow c={catalog} p={p} title={catalog.oName[oi]}
-                         detail={inList ? `${inList} in ${boardTitle(list.kind, board)}` : catalog.oType[oi]}
+                         detail={inList ? `${inList} in ${boardTitle(list.kind, target)}` : catalog.oType[oi]}
                          onClick={() => onCard(catalog.oId[oi])} />
               </div>
               <button type="button" className="px-4 bg-t1-surface-hover t1-label hover:text-t1-text"
-                      onClick={() => editList(list.id, [{ card_id: catalog.pId[p], board, delta: 1 }])}>+ Add</button>
+                      onClick={() => {
+                        if (replacing) {
+                          const toFinish = (["nonfoil", "foil", "etched"] as ListFinish[]).find((f) => catalog.pFinishes[p]?.includes(f[0])) ?? "nonfoil";
+                          void editList(list.id, [{ card_id: replacing.cardId, board: replacing.board, finish: replacing.finish,
+                                                    to_card_id: catalog.pId[p], to_finish: toFinish, qty: 1, swap: true }]);
+                          capture("list_card_replaced", { kind: list.kind });
+                          setNote(`Replaced ${replacing.name} with ${catalog.oName[oi]}`);
+                          setReplacing(null);
+                          setQ("");
+                        } else {
+                          void editList(list.id, [{ card_id: catalog.pId[p], board, delta: 1 }]);
+                        }
+                      }}>{replacing ? "Put in" : "+ Add"}</button>
             </div>
           );
         })}

@@ -60,6 +60,14 @@ import site.table1.events.library.ListVersionScreen
 import site.table1.events.library.ListVersionsScreen
 import site.table1.events.library.ListsScreen
 import site.table1.events.library.ListsStore
+import site.table1.events.library.FriendAddScreen
+import site.table1.events.library.FriendsScreen
+import site.table1.events.library.FriendsStore
+import site.table1.events.library.ProfileCardsScreen
+import site.table1.events.library.ProfileUserScreen
+import site.table1.events.library.SharingScreen
+import site.table1.events.library.TradeMatchScreen
+import site.table1.events.library.TradeMatchesScreen
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.T1Screen
@@ -144,7 +152,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
         }
         CatalogStore.load(userInitiated = false)
     }
-    DisposableEffect(Unit) { onDispose { CollectionStore.stop(); ListsStore.stop(); TradesStore.stop(); BindersStore.stop() } }
+    DisposableEffect(Unit) { onDispose { CollectionStore.stop(); ListsStore.stop(); TradesStore.stop(); BindersStore.stop(); FriendsStore.stop() } }
     LaunchedEffect(foregrounds) { CatalogStore.load(userInitiated = route?.startsWith("collection") == true) }
 
     val topLevel = route == "events" || route == "account" || route == "collection"
@@ -175,7 +183,36 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
                         )
                     }
                 }
-                composable("account") { AccountScreen(foregrounds = foregrounds) }
+                composable("account") {
+                    AccountScreen(foregrounds = foregrounds, onFriends = { nav.navigate("friends") }, onSharing = { nav.navigate("sharing") },
+                        onProfile = { nav.navigate("profile/$it") })
+                }
+                // Friends, profiles, sharing and trade matches (contract/friends-sharing-2026-10-18.md).
+                composable("friends") {
+                    FriendsScreen(onBack = { nav.popBackStack() }, onProfile = { nav.navigate("profile/$it") }, onAdd = { nav.navigate("friends/add") })
+                }
+                composable("friends/add") { FriendAddScreen(onBack = { nav.popBackStack() }) }
+                composable("sharing") { SharingScreen(onBack = { nav.popBackStack() }) }
+                composable("profile/{id}") { e ->
+                    val id = e.arguments?.getString("id") ?: ""
+                    ProfileUserScreen(id, onBack = { nav.popBackStack() },
+                        onSection = { kind, item -> nav.navigate("profile/$id/$kind/${item ?: "-"}") },
+                        onMatch = { nav.navigate("collection/match/$id") }, onSharing = { nav.navigate("sharing") })
+                }
+                composable("profile/{id}/{section}/{item}") { e ->
+                    ProfileCardsScreen(e.arguments?.getString("id") ?: "", e.arguments?.getString("section") ?: "",
+                        e.arguments?.getString("item")?.takeIf { it != "-" }, onBack = { nav.popBackStack() },
+                        onCard = { nav.navigate("collection/card/$it") })
+                }
+                composable("collection/matches") {
+                    TradeMatchesScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/match/$it") },
+                        onFriends = { nav.navigate("friends") }, onSharing = { nav.navigate("sharing") })
+                }
+                composable("collection/match/{id}") { e ->
+                    val id = e.arguments?.getString("id") ?: ""
+                    TradeMatchScreen(id, onBack = { nav.popBackStack() }, onProfile = { nav.navigate("profile/$id") },
+                        onCard = { nav.navigate("collection/card/$it") }, onTrade = { nav.navigate("collection/trade/$it") })
+                }
                 composable("collection") {
                     LibraryHomeScreen(
                         foregrounds = foregrounds,
@@ -187,10 +224,12 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
                         onTrades = { nav.navigate("collection/trades") },
                         onBinders = { nav.navigate("collection/binders") },
                         onWants = { nav.navigate("collection/wants") },
+                        onMatches = { nav.navigate("collection/matches") },
                     )
                 }
                 composable("collection/binders") {
-                    BindersScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/binder/$it") })
+                    BindersScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/binder/$it") },
+                        onCard = { nav.navigate("collection/card/$it") })
                 }
                 composable("collection/binder/{id}") { e ->
                     BinderScreen(e.arguments?.getString("id") ?: UNSORTED, onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it") })

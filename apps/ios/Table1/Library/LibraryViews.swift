@@ -27,6 +27,7 @@ enum LibraryRoute: Hashable {
     case binders
     case binder(String) // binder id, or BinderRoute.unsorted
     case wants
+    case social(SocialRoute) // friends, profiles, sharing, trade matches (FriendsViews.swift)
 }
 
 /// Every Library screen behind a route, shared by the Collection tab and the Debug demo.
@@ -60,6 +61,7 @@ struct LibraryDestination: View {
         case .binders: "binders"
         case .binder: "binder"
         case .wants: "wants"
+        case .social(let r): r.screenName
         }
     }
 
@@ -86,6 +88,7 @@ struct LibraryDestination: View {
         case .binders: BindersView(path: $path)
         case .binder(let id): BinderView(binderId: id, path: $path)
         case .wants: WantsView(path: $path)
+        case .social(let r): SocialDestination(route: r, path: $path)
         }
     }
 }
@@ -148,6 +151,7 @@ struct LibraryHomeView: View {
                 wantsRow
                 listsRow(.deck, "Decks")
                 listsRow(.cube, "Cubes")
+                TradeMatchesRow(path: $path)
                 Button { path.append(.trades) } label: {
                     let open = TradesStore.shared.trades.filter { !$0.confirmed }.count
                     ListRow(title: "Trades", detail: open > 0 ? "\(open) open" : "Give and get, then confirm") {
@@ -591,6 +595,11 @@ struct CardDetailView: View {
             let shown = preview ?? owned.first?.printing ?? printings.first
             var items = [T1MenuItem(title: "Any printing") { want(o, nil) }]
             if let shown { items.append(T1MenuItem(title: "Only \(shown.setLabel)") { want(o, shown) }) }
+            items.append(T1MenuItem(title: "Pick a printing…", detail: "One printing, or one finish") {
+                T1Overlays.shared.present(full: true) {
+                    WantPrintingPanel(oracleId: o.oracleId, from: "card") { added = $0; last = nil }.screen("want_printing")
+                }
+            })
             if !mine.isEmpty {
                 items.append(T1MenuItem(title: "Open wants") { path?.wrappedValue.append(.wants) })
             }
@@ -604,7 +613,7 @@ struct CardDetailView: View {
         Task {
             do {
                 try await BindersStore.shared.applyWants([WantOp(oracleId: o.oracleId, cardId: p?.cardId, delta: 1)], event: "want_added",
-                                                         props: ["any_printing": p == nil, "has_max": false, "from": "card"])
+                                                         props: ["any_printing": p == nil, "finish": false, "has_max": false, "from": "card"])
                 added = "Wanted 1 \(p?.setLabel ?? o.name)"
                 last = nil
             } catch { self.error = error.localizedDescription }

@@ -56,7 +56,18 @@ final class PushController {
         Task { await register() }
     }
 
+    /// A tapped friend request or acceptance (no event): opens Account → Friends.
+    private var pendingFriends = false
+    var openFriends: (() -> Void)? {
+        didSet { if pendingFriends, let openFriends { pendingFriends = false; openFriends() } }
+    }
+
     func didTap(_ userInfo: [AnyHashable: Any]) {
+        if let kind = userInfo["kind"] as? String, kind.hasPrefix("friend.") {
+            Telemetry.capture("push_opened", ["kind": kind])
+            if let openFriends { openFriends() } else { pendingFriends = true }
+            return
+        }
         guard let id = userInfo["event_id"] as? String else { return }
         Telemetry.capture("push_opened", ["kind": userInfo["kind"] as? String ?? "unknown"])
         if let openEvent { openEvent(id) } else { pendingEvent = id }

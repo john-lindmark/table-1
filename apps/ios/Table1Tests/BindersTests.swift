@@ -123,3 +123,75 @@ final class BinderCSVTests: XCTestCase {
         XCTAssertEqual(mox.map { "\($0.qty)/\($0.tradeQty)" }, ["4/2"], "one row per item; for-trade copies are the tradelist")
     }
 }
+
+/* Searching inside screens, wants pointed at another printing, Move in and cube Replace
+   (contract/library-search-2026-10-18.md). Search cases are shared with web and Android. */
+final class LibrarySearchTests: XCTestCase {
+    private struct Cases: Decodable {
+        struct Card: Decodable { let query: String; let name: String; let type: String; let match: Bool }
+        struct Printing: Decodable { let query: String; let set: String; let cn: String; let releasedAt: String; let match: Bool }
+        let cards: [Card]
+        let printings: [Printing]
+    }
+
+    func testSharedCases() throws {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appending(path: "../../../testdata/library-search/cases.json").standardized
+        let cases = try JSONDecoder().decode(Cases.self, from: Data(contentsOf: url))
+        for c in cases.cards {
+            XCTAssertEqual(CardSearch.matches(c.query, name: c.name, type: c.type), c.match, "\(c.query) / \(c.name)")
+        }
+        for c in cases.printings {
+            XCTAssertEqual(CardSearch.matches(c.query, set: c.set, cn: c.cn, releasedAt: c.releasedAt), c.match, "\(c.query) / \(c.set) \(c.cn)")
+        }
+    }
+
+    func testRepointMovesCountAndMax() {
+        let w = Want(oracleId: "o", cardId: nil, finish: nil, qty: 3, maxUsd: 5, seq: 1)
+        let ops = BinderRules.repoint(w, cardId: "p", finish: "foil")!
+        XCTAssertEqual(ops.count, 2)
+        XCTAssertEqual(ops[0].qty, 0)
+        XCTAssertNil(ops[0].cardId)
+        XCTAssertEqual(ops[1].cardId, "p")
+        XCTAssertEqual(ops[1].finish, "foil")
+        XCTAssertEqual(ops[1].delta, 3)
+        XCTAssertEqual(ops[1].maxUsd, .some(5))
+        // Same place: nothing. Any printing drops the finish.
+        XCTAssertNil(BinderRules.repoint(w, cardId: nil, finish: "foil"))
+        let back = BinderRules.repoint(Want(oracleId: "o", cardId: "p", finish: "foil", qty: 1, maxUsd: nil, seq: 2), cardId: nil, finish: "foil")!
+        XCTAssertNil(back[1].cardId)
+        XCTAssertNil(back[1].finish)
+    }
+
+    func testMoveInTakesUnsortedThenNonTradeThenTrade() {
+        let trade = Binder(id: "t", name: "A trade", forTrade: true, seq: 1)
+        let box = Binder(id: "b", name: "Box", forTrade: false, seq: 2)
+        let a = CollectionItem(cardId: "c1", finish: "nonfoil", condition: "NM", lang: "en", qty: 4, seq: 1)
+        let b = CollectionItem(cardId: "c2", finish: "foil", condition: "NM", lang: "en", qty: 1, seq: 2)
+        var places: [(item: CollectionItem, from: Binder?, qty: Int)] = [(a, trade, 2), (a, box, 1), (b, nil, 1)]
+        XCTAssertEqual(BinderRules.moveInSource(places, into: "x")?.item.cardId, "c2")
+        places.removeLast()
+        XCTAssertEqual(BinderRules.moveInSource(places, into: "x")?.from, "b")
+        XCTAssertEqual(BinderRules.moveInSource(places, into: "b")?.from, "t")
+        XCTAssertNil(BinderRules.moveInSource([(a, box, 1)], into: "b"))
+    }
+
+    func testReplaceSwapsOneCopyForAnotherCard() {
+        var entries = [CardList.Entry(cardId: "bolt", board: "main", qty: 1),
+                       CardList.Entry(cardId: "chain", board: "main", qty: 2, finish: "foil")]
+        ListsStore.shift(&entries, cardId: "bolt", board: "main", finish: "nonfoil", toCardId: "helix", toBoard: "main", toFinish: "nonfoil", qty: 1)
+        XCTAssertEqual(entries.map(\.cardId).sorted(), ["chain", "helix"])
+        ListsStore.shift(&entries, cardId: "chain", board: "main", finish: "foil", toCardId: "helix", toBoard: "main", toFinish: "nonfoil", qty: 1)
+        XCTAssertEqual(entries.first { $0.cardId == "helix" }?.qty, 2)
+        XCTAssertEqual(entries.first { $0.cardId == "chain" }?.qty, 1)
+    }
+
+    func testRemoveSearchOnlyOffersTheListsOwnCards() {
+        let lines = [ListLine(id: "1", cardId: "a", printing: nil, oracleId: "oa", name: "Lightning Bolt", group: "Red", board: "main", qty: 1, type: "Instant"),
+                     ListLine(id: "2", cardId: "b", printing: nil, oracleId: "ob", name: "Lightning Helix", group: "Multicolor", board: "maybe", qty: 1, type: "Instant"),
+                     ListLine(id: "3", cardId: "c", printing: nil, oracleId: "oc", name: "Counterspell", group: "Blue", board: "main", qty: 1, type: "Instant")]
+        XCTAssertEqual(ListLine.matching(lines, "light").map(\.name), ["Lightning Bolt", "Lightning Helix"])
+        XCTAssertEqual(ListLine.matching(lines, "").count, 0)
+        XCTAssertEqual(ListLine.matching(lines, "lightning strike").count, 0)
+    }
+}

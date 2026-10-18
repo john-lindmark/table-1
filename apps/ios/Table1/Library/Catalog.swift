@@ -389,3 +389,24 @@ final class CatalogStore {
         }
     }
 }
+
+/// Searching inside a screen (a cube, a binder, all binders, wants) and among one card's printings. Same rules on
+/// every platform; cases in testdata/library-search/cases.json.
+enum CardSearch {
+    /// Every word of the query is in the card's name or its type line (normalized like card names, so "jace" finds
+    /// "Jace, the Mind Sculptor" and "legendary creature" finds legends). An empty query matches everything.
+    static func matches(_ query: String, name: String, type: String) -> Bool {
+        let words = CardName.norm(query).split(separator: " ")
+        if words.isEmpty { return true }
+        let hay = CardName.norm(name) + " | " + CardName.norm(type)
+        return words.allSatisfy { hay.contains($0) }
+    }
+
+    /// One printing by set code, collector number or year: every word starts one of them ("mh2", "mh2 130",
+    /// "2021", "130").
+    static func matches(_ query: String, set: String, cn: String, releasedAt: String) -> Bool {
+        let words = query.lowercased().split(whereSeparator: { $0 == " " || $0 == "#" })
+        let hay = [set.lowercased(), cn.lowercased(), String(releasedAt.prefix(4))]
+        return words.allSatisfy { w in hay.contains { $0.hasPrefix(w) } }
+    }
+}

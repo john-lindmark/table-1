@@ -1,0 +1,25 @@
+{
+  "_doc": "In-screen search (contract/library-search-2026-10-18.md). cards: every normalized word of the query is in the card's name or type line. printings: every word (split on spaces and #) starts the set code, collector number or year. Tested by iOS LibrarySearchTests, web librarySearch.test.ts, Android LibrarySearchTest.",
+  "cards": [
+    {"query": "", "name": "Lightning Bolt", "type": "Instant", "match": true},
+    {"query": "bolt", "name": "Lightning Bolt", "type": "Instant", "match": true},
+    {"query": "BOLT light", "name": "Lightning Bolt", "type": "Instant", "match": true},
+    {"query": "jace mind", "name": "Jace, the Mind Sculptor", "type": "Legendary Planeswalker — Jace", "match": true},
+    {"query": "legendary creature", "name": "Ragavan, Nimble Pilferer", "type": "Legendary Creature — Monkey Pirate", "match": true},
+    {"query": "goblin", "name": "Ragavan, Nimble Pilferer", "type": "Legendary Creature — Monkey Pirate", "match": false},
+    {"query": "aether vial", "name": "Æther Vial", "type": "Artifact", "match": true},
+    {"query": "urzas saga", "name": "Urza's Saga", "type": "Enchantment Land — Urza's Saga", "match": true},
+    {"query": "lightning strike", "name": "Lightning Bolt", "type": "Instant", "match": false},
+    {"query": "fire ice", "name": "Fire // Ice", "type": "Instant // Instant", "match": true}
+  ],
+  "printings": [
+    {"query": "", "set": "mh2", "cn": "130", "releasedAt": "2021-06-18", "match": true},
+    {"query": "mh2", "set": "mh2", "cn": "130", "releasedAt": "2021-06-18", "match": true},
+    {"query": "MH", "set": "mh2", "cn": "130", "releasedAt": "2021-06-18", "match": true},
+    {"query": "mh2 #130", "set": "mh2", "cn": "130", "releasedAt": "2021-06-18", "match": true},
+    {"query": "2021", "set": "mh2", "cn": "130", "releasedAt": "2021-06-18", "match": true},
+    {"query": "2022", "set": "mh2", "cn": "130", "releasedAt": "2021-06-18", "match": false},
+    {"query": "mh2 131", "set": "mh2", "cn": "130", "releasedAt": "2021-06-18", "match": false},
+    {"query": "lea", "set": "mh2", "cn": "130", "releasedAt": "2021-06-18", "match": false}
+  ]
+}

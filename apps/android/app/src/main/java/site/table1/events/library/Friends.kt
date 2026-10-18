@@ -1,0 +1,442 @@
+package site.table1.events.library
+
+import io.github.jan.supabase.postgrest.postgrest
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.put
+import site.table1.events.T1App
+import site.table1.events.util.Telemetry
+import java.util.UUID
+
+/* Friends, public profiles, sharing and trade matches (contract/friends-sharing-2026-10-18.md). Friendships are
+   mutual; every part of the Library is private until its owner shares it (Account → Sharing). The server checks who
+   may see what on every read, so this store only holds what came back. Trade matches put your wants next to friends'
+   for-trade copies (and theirs next to yours) in trade_confirm's order. Same rules as
+   apps/ios/Table1/Library/Friends.swift. */
+
+enum class Visibility(val wire: String, val label: String, /** What it asks of a viewer: public 0, friends 1, private 3. */ val asks: Int) {
+    Private("private", "Private", 3), Friends("friends", "Friends", 1), Public("public", "Public", 0);
+
+    companion object {
+        fun of(s: String?) = entries.firstOrNull { it.wire == s }
+    }
+}
+
+@Serializable
+data class Person(
+    @SerialName("user_id") val userId: String,
+    @SerialName("display_name") val displayName: String,
+    val handle: String? = null,
+    @SerialName("avatar_url") val avatarUrl: String? = null,
+    val since: String? = null,
+    val at: String? = null,
+    @SerialName("shared_events") val sharedEvents: Int? = null,
+    /** self / friend / requested (you asked) / incoming (they asked) / blocked / none */
+    val relation: String? = null,
+)
+
+@Serializable
+data class FriendsList(
+    val friends: List<Person> = emptyList(), val incoming: List<Person> = emptyList(),
+    val outgoing: List<Person> = emptyList(), val blocked: List<Person> = emptyList(),
+)
+
+/* ── sharing ── */
+
+enum class SharePart(val wire: String, val label: String, val detail: String) {
+    Profile("profile", "Profile", "Who can open your profile at all"),
+    Record("record", "Record", "Lifetime wins, losses and draws"),
+    Library("library", "Library", "The default for everything in it"),
+    AllCards("all_cards", "All cards", "Your whole collection"),
+    ForTrade("for_trade", "For trade", "Copies in for-trade binders, as one list. Trade matches read this"),
+    Wants("wants", "Wants", "Your wishlist, without max prices"),
+    Binders("binders", "Binders", "The default for each binder"),
+    Decks("decks", "Decks", "The default for each deck"),
+    Cubes("cubes", "Cubes", "The default for each cube");
+
+    /** Library parts can be "Same as Library". */
+    val inherits get() = this != Profile && this != Library && this != Record
+
+    companion object {
+        val libraryParts = listOf(AllCards, ForTrade, Wants, Binders, Decks, Cubes)
+    }
+}
+
+@Serializable
+data class ShareItem(val kind: String, val id: String, val name: String, @SerialName("for_trade") val forTrade: Boolean? = null,
+                     val visibility: String? = null) {
+    val group get() = when (kind) { "binder" -> SharePart.Binders; "cube" -> SharePart.Cubes; else -> SharePart.Decks }
+    val vis get() = Visibility.of(visibility)
+}
+
+@Serializable
+data class Sharing(
+    val profile: String = "friends", val library: String = "private",
+    @SerialName("all_cards") val allCards: String? = null, @SerialName("for_trade") val forTrade: String? = null,
+    val wants: String? = null, val binders: String? = null, val decks: String? = null, val cubes: String? = null,
+    val record: String = "private", val items: List<ShareItem> = emptyList(),
+) {
+    /** A part's own setting (null = same as the level above). */
+    fun own(p: SharePart): Visibility? = Visibility.of(when (p) {
+        SharePart.Profile -> profile; SharePart.Library -> library; SharePart.Record -> record
+        SharePart.AllCards -> allCards; SharePart.ForTrade -> forTrade; SharePart.Wants -> wants
+        SharePart.Binders -> binders; SharePart.Decks -> decks; SharePart.Cubes -> cubes
+    })
+
+    fun with(p: SharePart, v: Visibility?): Sharing {
+        val w = v?.wire
+        return when (p) {
+            SharePart.Profile -> copy(profile = w ?: "friends"); SharePart.Library -> copy(library = w ?: "private")
+            SharePart.Record -> copy(record = w ?: "private"); SharePart.AllCards -> copy(allCards = w)
+            SharePart.ForTrade -> copy(forTrade = w); SharePart.Wants -> copy(wants = w); SharePart.Binders -> copy(binders = w)
+            SharePart.Decks -> copy(decks = w); SharePart.Cubes -> copy(cubes = w)
+        }
+    }
+}
+
+object SharingRules {
+    /** What a part is set to after following "Same as …" up the tree. */
+    fun effective(s: Sharing, p: SharePart): Visibility = s.own(p) ?: if (p.inherits) s.own(SharePart.Library)!! else Visibility.Private
+
+    fun effective(s: Sharing, item: ShareItem): Visibility = item.vis ?: effective(s, item.group)
+
+    /** Who it actually reaches: the profile caps every part. */
+    fun reach(s: Sharing, v: Visibility): Visibility {
+        val profile = s.own(SharePart.Profile)!!
+        return if (profile.asks >= v.asks) profile else v
+    }
+
+    /** The part is set wider than the profile lets it go. */
+    fun capped(s: Sharing, v: Visibility) = s.own(SharePart.Profile)!!.asks > v.asks
+
+    /** The server's check: a viewer at [level] (3 you, 1 friend, 0 any other account, -1 blocked) sees it. */
+    fun sees(level: Int, profile: Visibility, part: Visibility) = level >= 3 || (level >= 0 && level >= profile.asks && level >= part.asks)
+
+    fun sharedCount(s: Sharing): Int =
+        (SharePart.libraryParts + SharePart.Record).count { reach(s, effective(s, it)) != Visibility.Private } +
+            s.items.count { it.vis != null && reach(s, effective(s, it)) != Visibility.Private }
+
+    fun summary(s: Sharing): String {
+        val n = sharedCount(s)
+        return "Profile ${s.own(SharePart.Profile)!!.label.lowercase()} · " + if (n == 0) "nothing shared" else "$n shared"
+    }
+
+    fun change(p: SharePart, v: Visibility?): JsonObject = buildJsonObject { put(p.wire, v?.wire?.let(::JsonPrimitive) ?: JsonNull) }
+
+    fun change(item: ShareItem, v: Visibility?): JsonObject = buildJsonObject {
+        put("items", buildJsonArray {
+            add(buildJsonObject {
+                put("kind", item.kind); put("id", item.id)
+                put("visibility", v?.wire?.let(::JsonPrimitive) ?: JsonNull)
+            })
+        })
+    }
+}
+
+/* ── profiles ── */
+
+@Serializable
+data class ProfileData(
+    @SerialName("user_id") val userId: String,
+    @SerialName("display_name") val displayName: String,
+    val handle: String? = null,
+    @SerialName("avatar_url") val avatarUrl: String? = null,
+    val relation: String = "none",
+    @SerialName("friends_since") val friendsSince: String? = null,
+    val visible: Boolean = false,
+    val sections: Sections = Sections(),
+) {
+    @Serializable data class Counts(val cards: Int, val printings: Int? = null, @SerialName("value_usd") val valueUsd: Double? = null)
+    @Serializable data class BinderSummary(val id: String, val name: String, @SerialName("for_trade") val forTrade: Boolean = false, val cards: Int = 0)
+    @Serializable data class ListSummary(val id: String, val name: String, val format: String = "", val cards: Int = 0)
+    @Serializable data class Record(
+        @SerialName("match_wins") val matchWins: Int, @SerialName("match_losses") val matchLosses: Int,
+        @SerialName("match_draws") val matchDraws: Int, @SerialName("events_played") val eventsPlayed: Int,
+    )
+    @Serializable data class Sections(
+        @SerialName("all_cards") val allCards: Counts? = null, @SerialName("for_trade") val forTrade: Counts? = null,
+        val wants: Counts? = null, val binders: List<BinderSummary>? = null, val decks: List<ListSummary>? = null,
+        val cubes: List<ListSummary>? = null, val record: Record? = null,
+    )
+
+    /** Sections that reach you (binders, decks and cubes count one each). */
+    val sectionCount get() = listOf(sections.allCards, sections.forTrade, sections.wants, sections.record).count { it != null } +
+        (sections.binders?.size ?: 0) + (sections.decks?.size ?: 0) + (sections.cubes?.size ?: 0)
+}
+
+/** One row of profile_cards, whatever the section's shape. */
+data class ProfileCard(
+    val cardId: String? = null, val oracleId: String? = null, val finish: String? = null, val condition: String? = null,
+    val lang: String? = null, val board: String? = null, val qty: Int,
+) {
+    companion object {
+        /** all_cards [card, finish, qty] · for_trade / binder [card, finish, condition, lang, qty] · deck / cube
+         *  [card, board, qty] · wants [oracle, card?, finish?, qty] */
+        fun parse(section: String, r: List<JsonElement>): ProfileCard? {
+            fun s(i: Int) = (r.getOrNull(i) as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
+            fun n(i: Int) = (r.getOrNull(i) as? JsonPrimitive)?.takeIf { !it.isString }?.intOrNull
+            return when (section) {
+                "all_cards" -> n(2)?.let { ProfileCard(cardId = s(0), finish = s(1), qty = it) }
+                "for_trade", "binder" -> n(4)?.let { ProfileCard(cardId = s(0), finish = s(1), condition = s(2), lang = s(3), qty = it) }
+                "deck", "cube" -> n(2)?.let { ProfileCard(cardId = s(0), board = s(1), qty = it) }
+                "wants" -> n(3)?.let { ProfileCard(cardId = s(1), oracleId = s(0), finish = s(2), qty = it) }
+                else -> null
+            }
+        }
+    }
+}
+
+@Serializable
+private data class ProfileCardsPage(val rows: List<JsonArray> = emptyList(), val more: Boolean = false)
+
+/* ── trade matches ── */
+
+@Serializable
+data class WantKey(@SerialName("oracle_id") val oracleId: String, @SerialName("card_id") val cardId: String? = null, val finish: String? = null) {
+    /** exact / printing / any */
+    val tier get() = if (finish != null) "exact" else if (cardId != null) "printing" else "any"
+}
+
+@Serializable
+data class MatchLine(
+    @SerialName("card_id") val cardId: String, val finish: String, val condition: String = "NM", val lang: String = "en",
+    /** They want: your binder the copies are in. */
+    @SerialName("binder_id") val binderId: String? = null,
+    val qty: Int, val want: WantKey, val usd: Double? = null,
+    /** They have: your want has a max and the price is above it. */
+    @SerialName("over_max") val overMax: Boolean? = null,
+) {
+    val key get() = itemKey(cardId, finish, condition, lang)
+}
+
+@Serializable
+data class TradeMatch(
+    @SerialName("user_id") val userId: String, @SerialName("display_name") val displayName: String, val handle: String? = null,
+    @SerialName("avatar_url") val avatarUrl: String? = null, val friend: Boolean = false,
+    @SerialName("they_have") val theyHave: List<MatchLine> = emptyList(), @SerialName("they_want") val theyWant: List<MatchLine> = emptyList(),
+    @SerialName("have_copies") val haveCopies: Int = 0, @SerialName("want_copies") val wantCopies: Int = 0,
+    @SerialName("have_usd") val haveUsd: Double = 0.0, @SerialName("want_usd") val wantUsd: Double = 0.0,
+) {
+    /** The list row: "Has 3 · wants 2". */
+    val short get() = listOfNotNull(if (haveCopies > 0) "Has $haveCopies" else null,
+        if (wantCopies > 0) "${if (haveCopies > 0) "wants" else "Wants"} $wantCopies" else null).joinToString(" · ")
+    val summary get() = listOfNotNull(if (haveCopies > 0) "Has $haveCopies you want" else null,
+        if (wantCopies > 0) "Wants $wantCopies you have" else null).joinToString(" · ")
+}
+
+@Serializable private data class MatchesResult(val people: List<TradeMatch> = emptyList())
+@Serializable private data class Status(val status: String? = null)
+@Serializable private data class Started(val id: String)
+
+/**
+ * The server's matching (t1_private.want_match) on the device, for the shared test cases in testdata/trade-matches.
+ * Wants for that printing and finish take copies first, then wants for that printing in any finish, then wants for any
+ * printing; within a want NM first, then cheaper (no price last), then English. A copy is used once; a want up to its qty.
+ */
+object TradeMatcher {
+    data class WantIn(val oracleId: String, val cardId: String? = null, val finish: String? = null, val qty: Int, val maxUsd: Double? = null) {
+        val key get() = WantKey(oracleId, cardId, finish)
+    }
+    data class CopyIn(val oracleId: String, val cardId: String, val finish: String, val condition: String, val lang: String,
+                      val binderId: String? = null, val qty: Int, val usd: Double? = null)
+
+    private data class Part(val qty: Int, val tier: Int, val want: WantIn)
+
+    fun lines(wants: List<WantIn>, copies: List<CopyIn>): List<MatchLine> {
+        fun crank(c: String) = mapOf("NM" to 0, "LP" to 1, "MP" to 2, "HP" to 3)[c] ?: 4
+        val order = copies.indices.sortedWith { a, b ->
+            val x = copies[a]; val y = copies[b]
+            when {
+                crank(x.condition) != crank(y.condition) -> crank(x.condition) - crank(y.condition)
+                x.usd != null && y.usd != null && x.usd != y.usd -> x.usd.compareTo(y.usd)
+                x.usd != null && y.usd == null -> -1
+                x.usd == null && y.usd != null -> 1
+                (x.lang == "en") != (y.lang == "en") -> if (x.lang == "en") -1 else 1
+                else -> a - b
+            }
+        }
+        val left = copies.map { it.qty }.toIntArray()
+        val got = sortedMapOf<Int, MutableList<Part>>()
+        val tiers: List<Triple<Int, (WantIn) -> Boolean, (WantIn, CopyIn) -> Boolean>> = listOf(
+            Triple(0, { w -> w.cardId != null && w.finish != null }, { w, c -> c.cardId == w.cardId && c.finish == w.finish }),
+            Triple(1, { w -> w.cardId != null && w.finish == null }, { w, c -> c.cardId == w.cardId }),
+            Triple(2, { w -> w.cardId == null }, { w, c -> c.oracleId == w.oracleId }),
+        )
+        for ((tier, isTier, meets) in tiers) {
+            for (w in wants) {
+                if (w.qty <= 0 || !isTier(w)) continue
+                var need = w.qty
+                for (i in order) {
+                    if (need <= 0) break
+                    if (left[i] <= 0 || !meets(w, copies[i])) continue
+                    val n = minOf(need, left[i])
+                    left[i] -= n
+                    need -= n
+                    got.getOrPut(i) { mutableListOf() }.add(Part(n, tier, w))
+                }
+            }
+        }
+        return got.map { (i, parts) ->
+            val c = copies[i]
+            val first = parts.minBy { it.tier }
+            val over = parts.any { p -> p.want.maxUsd != null && c.usd != null && c.usd > p.want.maxUsd }
+            MatchLine(c.cardId, c.finish, c.condition, c.lang, c.binderId, parts.sumOf { it.qty }, first.want.key, c.usd, over)
+        }.sortedWith(compareBy<MatchLine>({ it.cardId }, { it.finish }, { it.condition }, { it.lang }))
+    }
+
+    /** They have: under-max first, dearest first (the server's order). */
+    fun shown(lines: List<MatchLine>) = lines.sortedWith(compareBy<MatchLine>({ it.overMax == true }, { -(it.usd ?: -1.0) }, { it.cardId }, { it.finish }))
+
+    fun value(lines: List<MatchLine>, skipOverMax: Boolean) = lines.filter { !(skipOverMax && it.overMax == true) }.sumOf { it.qty * (it.usd ?: 0.0) }
+}
+
+/* ── store ── */
+
+data class FriendsState(
+    val list: FriendsList? = null, val sharing: Sharing? = null, val matches: List<TradeMatch>? = null, val error: String? = null,
+) {
+    val requestsWaiting get() = list?.incoming?.size ?: 0
+}
+
+object FriendsStore {
+    private val _state = MutableStateFlow(FriendsState())
+    val state: StateFlow<FriendsState> = _state.asStateFlow()
+    private val rpc get() = T1App.supabase.postgrest
+
+    fun stop() { _state.value = FriendsState() }
+
+    private fun fail(e: Throwable) = _state.update { it.copy(error = e.message) }
+
+    suspend fun load() {
+        runCatching { rpc.rpc("friends_list").decodeAs<FriendsList>() }
+            .onSuccess { l -> _state.update { it.copy(list = l, error = null) } }.onFailure(::fail)
+    }
+
+    /** Played-with suggestions (empty query) or a search that also finds public profiles. */
+    suspend fun search(query: String): List<Person> = rpc.rpc("friend_search", buildJsonObject {
+        val q = query.trim()
+        if (q.isEmpty()) put("p_query", JsonNull) else put("p_query", q)
+        put("p_limit", 30)
+    }).decodeAs()
+
+    /** Asks them (or accepts, if they asked you). [via]: search / played_with / profile. */
+    suspend fun request(userId: String, via: String): String {
+        val r = rpc.rpc("friend_request", buildJsonObject { put("p_user_id", userId) }).decodeAs<Status>()
+        Telemetry.capture("friend_request_sent", mapOf("via" to via))
+        load()
+        return r.status ?: "requested"
+    }
+
+    suspend fun requestByEmail(email: String) {
+        rpc.rpc("friend_request_by_email", buildJsonObject { put("p_email", email) })
+        Telemetry.capture("friend_request_sent", mapOf("via" to "email"))
+        load()
+    }
+
+    suspend fun respond(userId: String, accept: Boolean) {
+        rpc.rpc("friend_respond", buildJsonObject { put("p_user_id", userId); put("p_accept", accept) })
+        Telemetry.capture("friend_request_responded", mapOf("accepted" to accept))
+        load()
+    }
+
+    /** Cancels your request, or unfriends. */
+    suspend fun remove(userId: String) {
+        val wasFriend = _state.value.list?.friends?.any { it.userId == userId } == true
+        rpc.rpc("friend_remove", buildJsonObject { put("p_user_id", userId) })
+        Telemetry.capture(if (wasFriend) "friend_removed" else "friend_request_cancelled")
+        load()
+        _state.update { s -> s.copy(matches = s.matches?.filter { it.userId != userId }) }
+    }
+
+    suspend fun block(userId: String, on: Boolean) {
+        rpc.rpc("user_block", buildJsonObject { put("p_user_id", userId); put("p_blocked", on) })
+        Telemetry.capture("user_blocked", mapOf("blocked" to on))
+        load()
+        if (on) _state.update { s -> s.copy(matches = s.matches?.filter { it.userId != userId }) }
+    }
+
+    suspend fun loadSharing() {
+        runCatching { rpc.rpc("sharing_get").decodeAs<Sharing>() }
+            .onSuccess { s -> _state.update { it.copy(sharing = s, error = null) } }.onFailure(::fail)
+    }
+
+    suspend fun set(p: SharePart, v: Visibility?) {
+        val s = _state.value.sharing ?: return
+        if (s.own(p) == v || (!p.inherits && v == null)) return
+        save(s, s.with(p, v), SharingRules.change(p, v), p.wire, v)
+    }
+
+    suspend fun set(item: ShareItem, v: Visibility?) {
+        val s = _state.value.sharing ?: return
+        if (item.vis == v) return
+        save(s, s.copy(items = s.items.map { if (it.id == item.id) it.copy(visibility = v?.wire) else it }), SharingRules.change(item, v), item.kind, v)
+    }
+
+    private suspend fun save(before: Sharing, next: Sharing, change: JsonObject, part: String, v: Visibility?) {
+        _state.update { it.copy(sharing = next) } // shows at once; put back if the server refuses
+        runCatching { rpc.rpc("sharing_set", buildJsonObject { put("p_settings", change) }).decodeAs<Sharing>() }
+            .onSuccess { s ->
+                _state.update { it.copy(sharing = s, error = null) }
+                Telemetry.capture("sharing_changed", mapOf("part" to part, "visibility" to (v?.wire ?: "inherit")))
+            }
+            .onFailure { e -> _state.update { it.copy(sharing = before, error = e.message) } }
+    }
+
+    suspend fun profile(userId: String): ProfileData =
+        rpc.rpc("profile_view", buildJsonObject { put("p_user_id", userId) }).decodeAs()
+
+    /** Every row of a section, 5000 at a time. */
+    suspend fun cards(userId: String, section: String, item: String?): List<ProfileCard> {
+        val out = mutableListOf<ProfileCard>()
+        var after = 0
+        while (true) {
+            val page = rpc.rpc("profile_cards", buildJsonObject {
+                put("p_user_id", userId); put("p_section", section)
+                if (item == null) put("p_id", JsonNull) else put("p_id", item)
+                put("p_after", after); put("p_limit", 5000)
+            }).decodeAs<ProfileCardsPage>()
+            page.rows.mapNotNullTo(out) { ProfileCard.parse(section, it) }
+            after += page.rows.size
+            if (!page.more || page.rows.isEmpty()) return out
+        }
+    }
+
+    private suspend fun fetchMatches(only: String?): List<TradeMatch> = rpc.rpc("trade_matches", buildJsonObject {
+        if (only == null) put("p_user_id", JsonNull) else put("p_user_id", only)
+    }).decodeAs<MatchesResult>().people
+
+    suspend fun loadMatches() {
+        runCatching { fetchMatches(null) }.onSuccess { m -> _state.update { it.copy(matches = m, error = null) } }.onFailure(::fail)
+    }
+
+    suspend fun matchWith(userId: String): TradeMatch? {
+        val m = fetchMatches(userId).firstOrNull()
+        if (m != null) _state.update { s ->
+            s.copy(matches = s.matches?.let { all -> if (all.any { it.userId == userId }) all.map { if (it.userId == userId) m else it } else all + m })
+        }
+        return m
+    }
+
+    /** A trade draft from the match with that person; returns its id (in TradesStore once this returns). */
+    suspend fun startTrade(m: TradeMatch): String {
+        val t = rpc.rpc("trade_match_start", buildJsonObject {
+            put("p_user_id", m.userId); put("p_idempotency_key", UUID.randomUUID().toString())
+        }).decodeAs<Started>()
+        TradesStore.load()
+        Telemetry.capture("trade_started_from_match", mapOf("gives" to m.wantCopies, "gets" to m.haveCopies))
+        return t.id
+    }
+}

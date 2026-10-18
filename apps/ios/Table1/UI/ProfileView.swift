@@ -2,8 +2,9 @@ import AuthenticationServices
 import SwiftUI
 import UIKit
 
-/// The Account tab: lifetime record, head-to-head, settings, and the account itself.
+/// The Account tab: lifetime record, friends and sharing, head-to-head, settings, and the account itself.
 struct AccountView: View {
+    @Binding var path: [LibraryRoute]
     @Environment(SessionModel.self) private var session
     @State private var overview: AccountOverview?
     @State private var alertsOn = false
@@ -38,6 +39,8 @@ struct AccountView: View {
                     LabelText("\(r.matches) matches · \(r.eventsPlayed) events · games \(recordText(r.gameWins, r.gameLosses, r.gameDraws))\(r.byes > 0 ? " · \(r.byes) byes" : "")")
                 }
                 .frame(maxWidth: .infinity).padding(.vertical, 24).background(T1.surface)
+
+                AccountSocialRows(path: $path)
 
                 Section1("Head-to-head")
                 if overview == nil {
@@ -205,6 +208,8 @@ struct AccountView: View {
             self.error = error.localizedDescription
         }
         alertsOn = await Repo.nearbyAlertsOn()
+        await FriendsStore.shared.load()
+        await FriendsStore.shared.loadSharing()
     }
 
     private func toggleAlerts() {

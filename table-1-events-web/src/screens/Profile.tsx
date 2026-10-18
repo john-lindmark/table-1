@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import {
   deleteAccount,
   fetchAccountOverview,
@@ -42,7 +42,12 @@ function SharingToggle() {
 const record = (w: number, l: number, d: number) => (d > 0 ? `${w}-${l}-${d}` : `${w}-${l}`);
 
 /** The Account tab: lifetime record, head-to-head, settings, and the account itself. */
-export function Profile({ onSignedOut }: { onSignedOut: () => void }) {
+/** Friends and Sharing rows; their store loads with the Friends chunk, not the entry bundle. */
+const FriendsAccountRows = lazy(() => import("./Friends").then((m) => ({ default: m.FriendsAccountRows })));
+
+export function Profile({ onSignedOut, onFriends, onSharing, onProfile }: {
+  onSignedOut: () => void; onFriends: () => void; onSharing: () => void; onProfile: (userId: string) => void;
+}) {
   const { session, ready, userId } = useSession();
   const [overview, setOverview] = useState<AccountOverview | null>(null);
   const [alertsOn, setAlertsOn] = useState(false);
@@ -211,6 +216,12 @@ export function Profile({ onSignedOut }: { onSignedOut: () => void }) {
             {r?.byes ? ` · ${r.byes} byes` : ""}
           </p>
         </div>
+
+        {userId && (
+          <Suspense fallback={null}>
+            <FriendsAccountRows onFriends={onFriends} onSharing={onSharing} onProfile={() => onProfile(userId)} />
+          </Suspense>
+        )}
 
         <div className="bg-t1-surface px-4 py-2 t1-label">Head-to-head</div>
         {overview === null && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}

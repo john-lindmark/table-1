@@ -506,11 +506,12 @@ export async function fetchSuggestedPlayers(eventId: string, query: string): Pro
   return (data ?? []) as SuggestedPlayer[];
 }
 
-export async function invitePlayers(eventId: string, userIds: string[]): Promise<number> {
+/** `friends`: how many of them are friends (telemetry only). */
+export async function invitePlayers(eventId: string, userIds: string[], friends = 0): Promise<number> {
   const { data, error } = await supabase.rpc("invite_players", { p_event_id: eventId, p_user_ids: userIds });
   if (error) throw error;
   const invited = (data?.invited as number) ?? 0;
-  capture("players_invited", { count: invited, via: "account" });
+  capture("players_invited", { count: invited, via: "account", friends });
   return invited;
 }
 

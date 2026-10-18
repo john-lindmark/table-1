@@ -125,6 +125,29 @@ enum BinderRules {
         return out
     }
 
+    /// Ops that point a want at another printing (`cardId` nil = any printing; `finish` only with a printing): the
+    /// old want comes off and its copies are added to the new one (merging into a want already there), keeping its
+    /// max price. Nil when it already points there.
+    static func repoint(_ w: Want, cardId: String?, finish: String?) -> [WantOp]? {
+        let finish = cardId == nil ? nil : finish
+        if w.cardId == cardId && w.finish == finish { return nil }
+        return [WantOp(oracleId: w.oracleId, cardId: w.cardId, finish: w.finish, qty: 0),
+                WantOp(oracleId: w.oracleId, cardId: cardId, finish: finish, delta: w.qty, maxUsd: .some(w.maxUsd))]
+    }
+
+    /// Where Move in (adding a card you own to a binder, `target` nil = Unsorted) takes one copy from: Unsorted
+    /// first, then binders not for trade, then for-trade binders, each by name; in one place, the item with the most
+    /// copies there. Never the target itself. Nil when every copy is already there.
+    static func moveInSource(_ places: [(item: CollectionItem, from: Binder?, qty: Int)], into target: String?) -> (item: CollectionItem, from: String?)? {
+        places.filter { $0.qty > 0 && $0.from?.id != target }
+            .min { a, b in
+                let ka = (a.from == nil ? 0 : a.from!.forTrade ? 2 : 1, a.from?.name.lowercased() ?? "", -a.qty, a.item.key)
+                let kb = (b.from == nil ? 0 : b.from!.forTrade ? 2 : 1, b.from?.name.lowercased() ?? "", -b.qty, b.item.key)
+                return ka < kb
+            }
+            .map { ($0.item, $0.from?.id) }
+    }
+
     /// The want a trade's get meets first: that printing and finish, then that printing, then any printing.
     static func wantFor(oracleId: String, cardId: String, finish: String, in wants: [Want]) -> Want? {
         let live = wants.filter { $0.oracleId == oracleId && $0.qty > 0 }
@@ -256,6 +279,14 @@ final class BindersStore {
         let held = (byItem[item.key] ?? []).compactMap { a in binder(a.binderId).map { ($0, a.qty) } }
             .sorted { $0.0.name.lowercased() < $1.0.name.lowercased() }
         return (held, max(0, item.qty - held.reduce(0) { $0 + $1.1 }))
+    }
+
+    /// Every place an item's copies are, Unsorted as a nil binder.
+    func places(_ items: [CollectionItem]) -> [(item: CollectionItem, from: Binder?, qty: Int)] {
+        items.flatMap { it -> [(item: CollectionItem, from: Binder?, qty: Int)] in
+            let p = placement(it)
+            return p.binders.map { (it, Optional($0.binder), $0.qty) } + (p.unsorted > 0 ? [(it, nil, p.unsorted)] : [])
+        }
     }
 
     /// "Trade binder 2 · Unsorted 1", or nil when every copy is Unsorted.

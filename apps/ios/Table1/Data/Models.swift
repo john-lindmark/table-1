@@ -411,6 +411,8 @@ struct SuggestedPlayer: Decodable, Identifiable, Hashable {
     let handle: String?
     let sharedEvents: Int
     let invited: Bool
+    /// A friend (contract/friends-sharing-2026-10-18.md): listed first.
+    var friend: Bool? = nil
     var label: String { (handle?.isEmpty == false ? handle : nil) ?? displayName }
 }
 

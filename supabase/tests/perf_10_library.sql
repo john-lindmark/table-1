@@ -109,3 +109,41 @@ select pg_temp.eq('allocations within copies after the perf writes',
      left join public.collection_items i on i.user_id = :BIG and i.card_id = s.card_id and i.finish = s.finish
                                        and i.condition = s.condition and i.lang = s.lang
     where s.a > coalesce(i.qty, 0)), '0');
+
+-- Trade matches (contract/friends-sharing-2026-10-18.md): 200 friends, each with a for-trade binder of 500 printings
+-- and 200 wants spread over the catalog, shared with friends; one of them a big trader (5,000 for trade, 2,000 wants
+-- overlapping the big account's). The big account wants 500 and has 400 copies in for-trade binders.
+insert into auth.users (id, email)
+select md5('friend' || i)::uuid, 'f' || i || '@example.com' from generate_series(1, 200) i;
+insert into public.friendships (user_lo, user_hi, requested_by, status)
+select least(:BIG::uuid, md5('friend' || i)::uuid), greatest(:BIG::uuid, md5('friend' || i)::uuid), :BIG, 'accepted'
+  from generate_series(1, 200) i;
+insert into public.share_settings (user_id, for_trade, wants)
+select md5('friend' || i)::uuid, 'friends', 'friends' from generate_series(1, 200) i;
+insert into public.binders (id, user_id, name, for_trade, seq)
+select md5('fbinder' || i)::uuid, md5('friend' || i)::uuid, 'Trade', true, nextval('public.collection_seq')
+  from generate_series(1, 200) i;
+create temp table fcopies as
+select distinct on (u, g) md5('friend' || i)::uuid u, md5('fbinder' || i)::uuid b, g, 1 + (i + g) % 3 q
+  from (select i, 1 + (i::bigint * 7919 + k::bigint * 104729) % 35000 g from generate_series(2, 200) i, generate_series(1, 500) k
+        union all
+        select 1, 29001 + k from generate_series(0, 4999) k) s;
+insert into public.collection_items (user_id, card_id, finish, condition, lang, qty, seq)
+select u, md5('c' || g || '-0')::uuid, 'nonfoil', 'NM', 'en', q, nextval('public.collection_seq') from fcopies;
+insert into public.binder_items (user_id, binder_id, card_id, finish, condition, lang, qty, seq)
+select u, b, md5('c' || g || '-0')::uuid, 'nonfoil', 'NM', 'en', q, nextval('public.collection_seq') from fcopies;
+insert into public.wants (user_id, oracle_id, qty, seq)
+select distinct on (u, g) u, md5('o' || g)::uuid, 1 + g % 2, nextval('public.collection_seq')
+  from (select md5('friend' || i)::uuid u, 1 + (i::bigint * 15485863 + k::bigint * 32452843) % 35000 g
+          from generate_series(2, 200) i, generate_series(1, 200) k
+        union all
+        select md5('friend1')::uuid, k from generate_series(1, 2000) k) s;
+analyze;
+set role authenticated;
+select pg_temp.as_user(:BIG);
+select public.trade_matches() as tm \gset
+select pg_temp.eq('matches found across friends', (jsonb_array_length((:'tm'::jsonb)->'people') > 40)::text, 'true');
+select pg_temp.ms('trade_matches, 200 friends', $$select public.trade_matches()$$, 500);
+select pg_temp.ms('trade_matches, the big trader', $$select public.trade_matches(md5('friend1')::uuid)$$, 150);
+select pg_temp.ms('profile_view of a friend', $$select public.profile_view(md5('friend1')::uuid)$$, 25);
+reset role;

@@ -17,7 +17,7 @@ const STALE_MS = 30 * 60 * 1000;
 
 interface Message {
   kind: string;
-  event_id: string;
+  event_id: string | null;
   user_ids: string[];
   data: Record<string, unknown>;
 }
@@ -63,6 +63,11 @@ function copy(m: Message, eventName: string, mine?: { table: number | null; oppo
       return { title: "Result disputed", body: `Table ${d.table ?? "–"} reported different scores. ${name}` };
     case "result.changed":
       return { title: "Result changed", body: `The organizer set your match to ${score(d)}.`, priority: 5 };
+    // Friends (contract/friends-sharing-2026-10-18.md): no event; the app opens Account → Friends.
+    case "friend.request":
+      return { title: "Friend request", body: `${d.from_name ?? "Someone"} wants to be friends on Table 1.`, priority: 5 };
+    case "friend.accepted":
+      return { title: "New friend", body: `${d.from_name ?? "Someone"} accepted your friend request.`, priority: 5 };
     default:
       return null;
   }
@@ -116,7 +121,9 @@ async function run() {
     const [{ data: devices }, { data: prefs }, { data: event }] = await Promise.all([
       admin.from("devices").select("user_id, platform, push_token, env").in("user_id", users),
       admin.from("notification_prefs").select("user_id, muted_kinds").in("user_id", users),
-      admin.from("events").select("name, is_demo").eq("id", m.event_id).maybeSingle(),
+      m.event_id
+        ? admin.from("events").select("name, is_demo").eq("id", m.event_id).maybeSingle()
+        : Promise.resolve({ data: null }),
     ]);
     if (!devices?.length) continue;
     const muted = new Set((prefs ?? []).filter((p) => (p.muted_kinds ?? []).includes(m.kind)).map((p) => p.user_id));
@@ -129,9 +136,9 @@ async function run() {
       if (!c) continue;
       alerts.push({
         token: d.push_token, env: d.env === "development" ? "development" : "production", priority: c.priority ?? 10,
-        collapseId: `${m.kind}:${m.event_id}`.slice(0, 64),
+        collapseId: `${m.kind}:${m.event_id ?? m.data?.user_id ?? ""}`.slice(0, 64),
         payload: {
-          aps: { alert: { title: c.title, body: c.body }, sound: "default", "thread-id": m.event_id },
+          aps: { alert: { title: c.title, body: c.body }, sound: "default", "thread-id": m.event_id ?? "friends" },
           kind: m.kind, event_id: m.event_id, match_id: m.data?.match_id ?? null,
         },
       });

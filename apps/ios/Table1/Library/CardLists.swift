@@ -271,7 +271,7 @@ final class ListsStore {
         }
     }
 
-    private static func shift(_ entries: inout [CardList.Entry], cardId: String, board: String, finish: String,
+    nonisolated static func shift(_ entries: inout [CardList.Entry], cardId: String, board: String, finish: String,
                               toCardId: String, toBoard: String, toFinish: String, qty: Int?) {
         guard let i = entries.firstIndex(where: { $0.cardId == cardId && $0.board == board && $0.finish == finish }) else { return }
         let have = entries[i].qty
@@ -283,6 +283,13 @@ final class ListsStore {
         } else {
             entries.append(.init(cardId: toCardId, board: toBoard, qty: n, finish: toFinish))
         }
+    }
+
+    /// Replaces one copy of a line with another card (Cube Cobra's Remove/Replace), in the same section: one edit,
+    /// so the version history shows the swap.
+    func replaceCard(listId: String, cardId: String, board: String, finish: String, with toCardId: String, toFinish: String) {
+        swap(listId: listId, cardId: cardId, board: board, finish: finish, toCardId: toCardId, toFinish: toFinish, qty: 1)
+        Telemetry.capture("list_card_replaced", ["kind": list(id: listId)?.kind.rawValue ?? "cube"])
     }
 
     func remove(listId: String, cardId: String, board: String, finish: String = "nonfoil") {
@@ -505,6 +512,7 @@ struct ListLine: Identifiable, Hashable {
     var points: Int = 0
     /// Basic lands are exempt from singleton rules.
     var basic: Bool = false
+    var type: String = ""
     /// Key into `ownedByPrinting()`.
     var ownKey: String { "\(cardId)|\(finish)" }
     /// "Foil" / "Etched" for those lines; nil for non-foil.
@@ -523,10 +531,19 @@ struct ListLine: Identifiable, Hashable {
             let group = kind == .deck ? typeGroup(type) : (type.contains("Land") ? "Lands" : colorGroup(o?.manaCost ?? ""))
             return ListLine(id: "\(e.board)-\(i)", cardId: e.cardId, printing: printings[e.cardId], oracleId: o?.oracleId,
                             name: o?.name ?? "Unknown card", group: group, board: e.board, qty: e.qty, legal: o?.legal ?? "", finish: e.finish,
-                            points: o?.points ?? 0, basic: type.contains("Basic"))
+                            points: o?.points ?? 0, basic: type.contains("Basic"), type: o?.typeLine ?? "")
         }
         .sorted { $0.name < $1.name }
     }
+
+    /// The list's own lines whose card matches a search (name or type), by name: what Remove or replace offers.
+    static func matching(_ lines: [ListLine], _ query: String) -> [ListLine] {
+        guard !CardName.norm(query).isEmpty else { return [] }
+        return lines.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
+            .sorted { $0.name != $1.name ? $0.name < $1.name : (boardOrderIndex($0.board), $0.finish) < (boardOrderIndex($1.board), $1.finish) }
+    }
+
+    private static func boardOrderIndex(_ b: String) -> Int { CardList.boardOrder.firstIndex(of: b) ?? 9 }
 
     nonisolated static func typeGroup(_ t: String) -> String {
         if t.contains("Creature") { return "Creatures" }
@@ -610,6 +627,7 @@ struct ListDetailView: View {
     @State private var editing = false
     @State private var share: ShareFile?
     @State private var exportNote: String?
+    @State private var query = ""
     @AppStorage("library.list.layout") private var layout = CardLayout.list.rawValue
 
     var body: some View {
@@ -618,6 +636,7 @@ struct ListDetailView: View {
         let owned = list.flatMap { $0.eventId == nil ? nil : eventCover($0) } ?? ownedByPrinting()
         let rows = list.map { lines(for: $0) } ?? []
         let issues = list.map { ListLine.issues(rows, list: $0) } ?? [:]
+        let shown = query.isEmpty ? rows : rows.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
         T1Screen {
             Bar(title: list?.name ?? "List", subtitle: list.map(subtitle), back: { dismiss() }) {
                 HStack(spacing: 20) {
@@ -628,15 +647,18 @@ struct ListDetailView: View {
             CatalogStatusRow(catalog: catalog)
             if let error = ListsStore.shared.error { Notice(error, error: true) }
             if let list {
+                if !list.entries.isEmpty { T1SearchField(text: $query, prompt: list.kind == .cube ? "Search this cube" : "Search this deck") }
                 if layout == CardLayout.grid.rawValue && !editing {
-                    gridBody(list, rows: rows, owned: owned, issues: issues)
+                    gridBody(list, rows: rows, shown: shown, owned: owned, issues: issues)
                 } else if layout == CardLayout.stacks.rawValue && !editing {
-                    stacksBody(list, rows: rows, owned: owned, issues: issues)
+                    stacksBody(list, rows: rows, shown: shown, owned: owned, issues: issues)
                 } else {
                     HairlineList {
-                        top(list, owned: owned, rows: rows, issues: issues)
-                        ForEach(list.boards, id: \.self) { board in
-                            let lines = rows.filter { $0.board == board }
+                        // While searching, matches come first: the summary rows would push them under the keyboard.
+                        if query.isEmpty { top(list, owned: owned, rows: rows, issues: issues) }
+                        if shown.isEmpty && !query.isEmpty { ListRow(title: "No cards match") }
+                        ForEach(list.boards.filter { b in query.isEmpty || shown.contains { $0.board == b } }, id: \.self) { board in
+                            let lines = shown.filter { $0.board == board }
                             BoardHeader(title: list.boardTitle(board), count: lines.reduce(0) { $0 + $1.qty })
                             ForEach(ListLine.groups(lines, kind: list.kind), id: \.self) { g in
                                 let inGroup = lines.filter { $0.group == g }
@@ -661,6 +683,7 @@ struct ListDetailView: View {
             for line in resolved { meta[line.cardId] = line }
         }
         .sheet(item: $share) { ShareSheet(share: $0).ignoresSafeArea() }
+        .searchUsed(query, screen: ListsStore.shared.list(id: listId)?.kind == .deck ? "deck" : "cube")
         #if DEBUG
         // Design QA: `-T1LibraryDemo deck|cube -T1ListExport <format>` exports once the card data is in.
         .task(id: catalog.db == nil) {
@@ -712,7 +735,7 @@ struct ListDetailView: View {
             guard let m = meta[e.cardId] else { return nil }
             return ListLine(id: "\(e.board)|\(e.cardId)|\(e.finish)", cardId: e.cardId, printing: m.printing, oracleId: m.oracleId,
                             name: m.name, group: m.group, board: e.board, qty: e.qty, legal: m.legal, finish: e.finish,
-                            points: m.points, basic: m.basic)
+                            points: m.points, basic: m.basic, type: m.type)
         }
         .sorted { $0.name < $1.name }
     }
@@ -762,7 +785,7 @@ struct ListDetailView: View {
         }
         if !editing { ListStatsRow(listId: list.id, path: $path) }
         Button { path.append(.listAdd(list.id)) } label: {
-            ListRow(title: "Add cards", detail: list.kind == .deck ? "To the main deck, sideboard or considering" : "To the cube or considering")
+            ListRow(title: "Add, remove or replace", detail: list.kind == .deck ? "Main deck, sideboard or considering" : "Search the catalog, or this cube's own cards")
         }.buttonStyle(.plain)
         historyRow(list)
         if !list.entries.isEmpty && !editing {
@@ -861,14 +884,14 @@ struct ListDetailView: View {
 
     /// The grid keeps the list's organization: a header per section, then a sub-header per type (decks) or
     /// color (cubes), each followed by that group's cards.
-    private func gridBody(_ list: CardList, rows: [ListLine], owned: [String: Int], issues: [String: String]) -> some View {
+    private func gridBody(_ list: CardList, rows: [ListLine], shown: [ListLine], owned: [String: Int], issues: [String: String]) -> some View {
         GeometryReader { geo in
             let width = ((geo.size.width - 2) / 3).rounded(.down)
             ScrollView {
                 LazyVStack(spacing: 1) {
-                    top(list, owned: owned, rows: rows, issues: issues)
-                    ForEach(list.boards, id: \.self) { board in
-                        let lines = rows.filter { $0.board == board }
+                    if query.isEmpty { top(list, owned: owned, rows: rows, issues: issues) }
+                    ForEach(list.boards.filter { b in query.isEmpty || shown.contains { $0.board == b } }, id: \.self) { board in
+                        let lines = shown.filter { $0.board == board }
                         BoardHeader(title: list.boardTitle(board), count: lines.reduce(0) { $0 + $1.qty })
                         // Ids carry the section: the lazy stack flattens these, and a bare group name ("Creature")
                         // in the sideboard would reuse the main deck's grid for that group.
@@ -897,14 +920,14 @@ struct ListDetailView: View {
 extension ListDetailView {
     /// Stacks keep the list's organization too: a header per section, then a stack per type (decks) or
     /// color (cubes), two to a row.
-    fileprivate func stacksBody(_ list: CardList, rows: [ListLine], owned: [String: Int], issues: [String: String]) -> some View {
+    fileprivate func stacksBody(_ list: CardList, rows: [ListLine], shown: [ListLine], owned: [String: Int], issues: [String: String]) -> some View {
         GeometryReader { geo in
             let width = ((geo.size.width - 1) / 2).rounded(.down)
             ScrollView {
                 LazyVStack(spacing: 1) {
-                    top(list, owned: owned, rows: rows, issues: issues)
-                    ForEach(list.boards, id: \.self) { board in
-                        let lines = rows.filter { $0.board == board }
+                    if query.isEmpty { top(list, owned: owned, rows: rows, issues: issues) }
+                    ForEach(list.boards.filter { b in query.isEmpty || shown.contains { $0.board == b } }, id: \.self) { board in
+                        let lines = shown.filter { $0.board == board }
                         BoardHeader(title: list.boardTitle(board), count: lines.reduce(0) { $0 + $1.qty })
                         let stacks = ListLine.groups(lines, kind: list.kind).map { g in
                             let inGroup = lines.filter { $0.group == g }
@@ -1088,7 +1111,9 @@ struct NewListPanel: View {
 }
 
 /// Search the catalog and add cards straight into a section of a list. Each card goes in as its original
-/// paper printing (change the printing from the card page).
+/// paper printing (change the printing from the card page). Remove or replace (Cube Cobra's Remove/Replace)
+/// searches only the list's own cards: Remove takes one copy out; Replace then searches the catalog for the card
+/// that takes its place, in the same section, as one edit.
 struct ListAddCardsView: View {
     let listId: String
     @Binding var path: [LibraryRoute]
@@ -1096,36 +1121,41 @@ struct ListAddCardsView: View {
     private var catalog: CatalogStore { CatalogStore.shared }
     @State private var query = ""
     @State private var board = "main"
+    @State private var mode = "add"
     @State private var hits: [CatalogOracle] = []
     @State private var covers: [Int: CatalogPrinting] = [:]
+    /// The list's lines with names, for Remove or replace.
+    @State private var lines: [ListLine] = []
+    /// The line a Replace takes out; while set, the catalog search picks its replacement.
+    @State private var replacing: ListLine?
+    @State private var note: String?
     @FocusState private var focused: Bool
 
     var body: some View {
         let list = ListsStore.shared.list(id: listId)
         let sections = list?.kind == .cube ? ["main", "maybe"] : ["main", "side", "maybe"]
+        let removing = mode == "remove" && replacing == nil
         T1Screen {
-            Bar(title: "Add to \(list?.name ?? "list")", subtitle: list.map { "v\($0.current?.number ?? 1)" }) { BarButton("Done") { dismiss() } }
+            Bar(title: "\(replacing != nil ? "Replace in" : removing ? "Remove from" : "Add to") \(list?.name ?? "list")",
+                subtitle: list.map { "v\($0.current?.number ?? 1)" }) { BarButton("Done") { dismiss() } }
             CatalogStatusRow(catalog: catalog)
             if let list {
-                T1Segmented(options: sections.map { ($0, list.boardTitle($0)) }, selection: $board)
-                T1SearchField(text: $query, prompt: "Card name").focused($focused)
-                HairlineList {
-                    ForEach(hits, id: \.idx) { o in
-                        let p = covers[o.idx]
-                        let inList = p.map { pc in list.entries.filter { $0.cardId == pc.cardId && $0.board == board }.reduce(0) { $0 + $1.qty } } ?? 0
-                        HStack(spacing: 1) {
-                            Button { path.append(.card(o.oracleId)) } label: {
-                                CardRow(printing: p, title: o.name, detail: inList > 0 ? "\(inList) in \(list.boardTitle(board))" : o.typeLine)
-                            }.buttonStyle(.plain)
-                            Button {
-                                if let p { ListsStore.shared.add(listId: listId, cardId: p.cardId, board: board, delta: 1) }
-                            } label: {
-                                LabelText("+ Add", color: p == nil ? T1.disabled : T1.text)
-                                    .padding(.horizontal, 16).frame(maxHeight: .infinity).background(T1.surfaceHover)
-                            }.buttonStyle(.plain).disabled(p == nil)
-                        }
-                        .fixedSize(horizontal: false, vertical: true)
+                T1Segmented(options: [("add", "Add"), ("remove", "Remove or replace")], selection: $mode)
+                if let r = replacing {
+                    HStack(spacing: 12) {
+                        LabelText("Replacing \(r.name) · \(list.boardTitle(r.board))", color: T1.text)
+                        Spacer(minLength: 0)
+                        BarButton("Cancel") { replacing = nil; query = "" }
                     }
+                    .padding(.horizontal, 16).padding(.vertical, 12).background(T1.surface)
+                } else if mode == "add" {
+                    T1Segmented(options: sections.map { ($0, list.boardTitle($0)) }, selection: $board)
+                }
+                if let note { Notice(note) }
+                T1SearchField(text: $query, prompt: removing ? (list.kind == .cube ? "Card in this cube" : "Card in this deck")
+                              : replacing != nil ? "Card to put in" : "Card name").focused($focused)
+                HairlineList {
+                    if removing { removeRows(list) } else { addRows(list) }
                 }
             }
         }
@@ -1133,8 +1163,14 @@ struct ListAddCardsView: View {
             catalog.load(userInitiated: true)
             focused = true
         }
-        .task(id: "\(query)-\(catalog.generation)") {
-            guard let db = catalog.db else { hits = []; return }
+        .onChange(of: mode) { _, _ in
+            replacing = nil
+            query = ""
+            note = nil
+            focused = true
+        }
+        .task(id: "\(query)-\(catalog.generation)-\(removing)") {
+            guard !removing, let db = catalog.db else { hits = []; return }
             let q = query
             try? await Task.sleep(for: .milliseconds(120))
             if Task.isCancelled { return }
@@ -1143,6 +1179,78 @@ struct ListAddCardsView: View {
                 return (h, db.covers(oracleIdxs: h.map(\.idx)))
             }.value
             if !Task.isCancelled { hits = found.0; covers = found.1 }
+        }
+        .task(id: "\(catalog.generation)-\(list?.current?.number ?? 0)-\(list?.entries.count ?? 0)-\(mode)") {
+            guard mode == "remove", let db = catalog.db, let list else { return }
+            let entries = list.entries, kind = list.kind
+            lines = await Task.detached(priority: .userInitiated) { ListLine.resolve(entries, kind: kind, db) }.value
+        }
+    }
+
+    /// Catalog hits: + Add into the chosen section, or (replacing) the card that takes the line's place.
+    @ViewBuilder private func addRows(_ list: CardList) -> some View {
+        let target = replacing?.board ?? board
+        ForEach(hits, id: \.idx) { o in
+            let p = covers[o.idx]
+            let inList = p.map { pc in list.entries.filter { $0.cardId == pc.cardId && $0.board == target }.reduce(0) { $0 + $1.qty } } ?? 0
+            HStack(spacing: 1) {
+                Button { path.append(.card(o.oracleId)) } label: {
+                    CardRow(printing: p, title: o.name, detail: inList > 0 ? "\(inList) in \(list.boardTitle(target))" : o.typeLine)
+                }.buttonStyle(.plain)
+                Button {
+                    guard let p else { return }
+                    if let r = replacing {
+                        ListsStore.shared.replaceCard(listId: listId, cardId: r.cardId, board: r.board, finish: r.finish,
+                                                      with: p.cardId, toFinish: p.finishList.first?.rawValue ?? "nonfoil")
+                        note = "Replaced \(r.name) with \(o.name)"
+                        replacing = nil
+                        mode = "remove"
+                        query = ""
+                    } else {
+                        ListsStore.shared.add(listId: listId, cardId: p.cardId, board: board, delta: 1)
+                    }
+                } label: {
+                    LabelText(replacing == nil ? "+ Add" : "Put in", color: p == nil ? T1.disabled : T1.text)
+                        .padding(.horizontal, 16).frame(maxHeight: .infinity).background(T1.surfaceHover)
+                }.buttonStyle(.plain).disabled(p == nil)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// Only the list's own cards: Remove takes one copy out, Replace picks what goes in instead.
+    @ViewBuilder private func removeRows(_ list: CardList) -> some View {
+        let found = ListLine.matching(lines, query)
+        if CardName.norm(query).isEmpty {
+            Notice("Search the cards in \(list.name). Remove takes one copy out; Replace swaps it for another card in the same section.")
+        } else if found.isEmpty {
+            ListRow(title: "No card in \(list.name) matches")
+        }
+        ForEach(found) { line in
+            let qty = list.entries.first { $0.cardId == line.cardId && $0.board == line.board && $0.finish == line.finish }?.qty ?? line.qty
+            HStack(spacing: 1) {
+                Button { if let o = line.oracleId { path.append(.card(o)) } } label: {
+                    // No count or set on the right: the two actions need the room, and a cube line is nearly always 1.
+                    CardRow(printing: line.printing, title: line.name,
+                            detail: [list.boardTitle(line.board), line.finishLabel, qty > 1 ? "\(qty) copies" : nil].compactMap { $0 }.joined(separator: " · "))
+                }.buttonStyle(.plain)
+                Button {
+                    ListsStore.shared.add(listId: listId, cardId: line.cardId, board: line.board, finish: line.finish, delta: -1)
+                    Telemetry.capture("list_card_removed", ["kind": list.kind.rawValue])
+                    note = "Removed 1 \(line.name) from \(list.boardTitle(line.board))"
+                } label: {
+                    LabelText("Remove", color: T1.text).padding(.horizontal, 10).frame(maxHeight: .infinity).background(T1.surfaceHover)
+                }.buttonStyle(.plain)
+                Button {
+                    replacing = line
+                    note = nil
+                    query = ""
+                    focused = true
+                } label: {
+                    LabelText("Replace", color: T1.text).padding(.horizontal, 10).frame(maxHeight: .infinity).background(T1.surfaceHover)
+                }.buttonStyle(.plain)
+            }
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

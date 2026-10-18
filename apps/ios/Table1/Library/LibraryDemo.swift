@@ -328,6 +328,7 @@ enum LibraryDemo {
         let backend = LibraryDemoBackend(f)
         backend.seedBinders()
         CollectionStore.shared.startDemo(backend)
+        FriendsDemo.start()
         BindersStore.shared.startDemo(binders: Array(backend.binders.values), allocs: Array(backend.allocs.values), wants: [])
         func entries(_ rows: [[LibraryDemoFixture.Entry]]) -> [CardList.Entry] {
             rows.map { CardList.Entry(cardId: $0[0].text, board: $0[1].text, qty: $0[2].int, finish: $0.count > 3 ? $0[3].text : "nonfoil") }
@@ -379,6 +380,7 @@ struct LibraryDemoRoot: View {
         }
         .task(id: CatalogStore.shared.generation) {
             LibraryDemo.seedWants()
+            await FriendsDemo.seed()
             // `card`: a card with copies in the trade binder. `tradewants`: a draft giving a trade-binder copy and
             // getting a wanted card (the want is marked). Both need the card data, so they open once it's in.
             guard let db = CatalogStore.shared.db, path.isEmpty, let arg = Self.arg, ["card", "tradewants"].contains(arg) else { return }
@@ -396,7 +398,7 @@ struct LibraryDemoRoot: View {
     }
 
     /// Design QA: `-T1LibraryDemo allcards|add|import|trades|trade|tradewants|binders|binder|wants|card|deck|cube|
-    /// deckstats|cubestats|hand|odds|pack` opens that screen (deck and cube: the fixture's first of each; stats, sample
+    /// deckstats|cubestats|hand|odds|pack|friends|profile|sharing|matches|match` opens that screen (deck and cube: the fixture's first of each; stats, sample
     /// hand, draw odds and sample pack on it; `-T1ListExport arena|moxfield|mtgo|text|cubecobra` then exports it).
     /// `import` with `-T1ImportFile <path>` reads that file as if it had been picked.
     private static var arg: String? {
@@ -428,7 +430,7 @@ struct LibraryDemoRoot: View {
             case "pack": return base + [.listStats(l.id), .samplePack(l.id)]
             default: return base
             }
-        default: return []
+        default: return FriendsDemo.route(args[i + 1]) ?? []
         }
     }
 }

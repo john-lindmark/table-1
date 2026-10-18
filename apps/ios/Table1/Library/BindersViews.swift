@@ -23,6 +23,10 @@ struct BindersView: View {
     @Environment(\.dismiss) private var dismiss
     private var store: BindersStore { BindersStore.shared }
     private var col: CollectionStore { CollectionStore.shared }
+    private var catalog: CatalogStore { CatalogStore.shared }
+    @State private var query = ""
+    /// Owned cards matching the search, with where their copies are.
+    @State private var found: [(group: CardGroup, place: String)] = []
 
     var body: some View {
         let totals = store.totals(col.items)
@@ -30,29 +34,78 @@ struct BindersView: View {
         T1Screen {
             Bar(title: "Binders", subtitle: "\(store.binders.count) · \(store.binders.filter(\.forTrade).count) for trade", back: { dismiss() })
             if let error = store.error { Notice(error, error: true) }
+            if !col.items.isEmpty { T1SearchField(text: $query, prompt: "Find a card in your binders") }
             HairlineList {
-                Button { newBinder() } label: { ListRow(title: "New binder", detail: "A box, a deck box, a trade binder") }.buttonStyle(.plain)
-                Button { path.append(.binder(BinderRoute.unsorted)) } label: {
-                    ListRow(title: "Unsorted", detail: "Copies not in a binder") {
-                        Text(totals.unsorted.formatted()).font(T1.mono(17)).monospacedDigit()
+                if !query.isEmpty {
+                    Section1("Cards · \(found.count)")
+                    if found.isEmpty { ListRow(title: "No cards you own match") }
+                    ForEach(found, id: \.group.id) { f in
+                        Button { if f.group.known { path.append(.card(f.group.id)) } } label: {
+                            CardRow(printing: f.group.cover, title: f.group.name, detail: f.place) {
+                                Text("\(f.group.qty)").font(T1.mono(17)).monospacedDigit()
+                            }
+                        }.buttonStyle(.plain)
                     }
-                }.buttonStyle(.plain)
-                ForEach(store.binders) { b in
-                    let rows = store.items(in: b.id, col.items)
-                    Button { path.append(.binder(b.id)) } label: {
-                        ListRow(title: b.name, detail: [b.forTrade ? "For trade" : nil, money(value(rows))].compactMap { $0 }.joined(separator: " · ")) {
-                            Text((totals.byBinder[b.id] ?? 0).formatted()).font(T1.mono(17)).monospacedDigit()
-                                .foregroundStyle(b.forTrade ? T1.accent : T1.text)
+                } else {
+                    Button { newBinder() } label: { ListRow(title: "New binder", detail: "A box, a deck box, a trade binder") }.buttonStyle(.plain)
+                    Button { path.append(.binder(BinderRoute.unsorted)) } label: {
+                        ListRow(title: "Unsorted", detail: "Copies not in a binder") {
+                            Text(totals.unsorted.formatted()).font(T1.mono(17)).monospacedDigit()
                         }
                     }.buttonStyle(.plain)
-                }
-                if store.binders.isEmpty {
-                    Notice("Binders say where your copies are. Flag one for trade and Trades offers its cards first when you give.")
+                    ForEach(store.binders) { b in
+                        let rows = store.items(in: b.id, col.items)
+                        Button { path.append(.binder(b.id)) } label: {
+                            ListRow(title: b.name, detail: [b.forTrade ? "For trade" : nil, money(value(rows))].compactMap { $0 }.joined(separator: " · ")) {
+                                Text((totals.byBinder[b.id] ?? 0).formatted()).font(T1.mono(17)).monospacedDigit()
+                                    .foregroundStyle(b.forTrade ? T1.accent : T1.text)
+                            }
+                        }.buttonStyle(.plain)
+                    }
+                    if store.binders.isEmpty {
+                        Notice("Binders say where your copies are. Flag one for trade and Trades offers its cards first when you give.")
+                    }
                 }
             }
         }
         .refreshable { await col.sync() }
         .task(id: col.version) { await PriceBook.shared.load(col.items.values.map(\.cardId)) }
+        .task(id: "\(query)-\(col.version)-\(store.version)-\(catalog.generation)") { await search() }
+        .searchUsed(query, screen: "binders")
+    }
+
+    /// Every owned card matching the search, most copies first, each saying where its copies are:
+    /// "Trade binder 2 · Box 1 1 · Unsorted 1".
+    private func search() async {
+        let q = query
+        guard !q.isEmpty else { found = []; return }
+        catalog.load(userInitiated: true)
+        guard let db = catalog.db else { return }
+        try? await Task.sleep(for: .milliseconds(120))
+        if Task.isCancelled { return }
+        let items = Array(col.items.values)
+        let (groups, keyOf) = await Task.detached(priority: .userInitiated) { () -> ([CardGroup], [String: String]) in
+            let printings = db.printings(ids: Array(Set(items.map(\.cardId))))
+            let oracles = db.oracles(idxs: Array(Set(printings.values.map(\.oracleIdx))))
+            var keyOf: [String: String] = [:]
+            for it in items { keyOf[it.cardId] = printings[it.cardId].flatMap { oracles[$0.oracleIdx]?.oracleId } ?? it.cardId }
+            let groups = CardGroup.build(items, db).filter { CardSearch.matches(q, name: $0.name, type: $0.type) }
+                .sorted { $0.qty != $1.qty ? $0.qty > $1.qty : $0.norm < $1.norm }
+            return (groups, keyOf)
+        }.value
+        if Task.isCancelled { return }
+        var byBinder: [String: [String: Int]] = [:], unsorted: [String: Int] = [:]
+        for it in items {
+            guard let k = keyOf[it.cardId] else { continue }
+            let p = store.placement(it)
+            for (b, n) in p.binders { byBinder[k, default: [:]][b.name, default: 0] += n }
+            unsorted[k, default: 0] += p.unsorted
+        }
+        found = groups.map { g in
+            let named = (byBinder[g.id] ?? [:]).sorted { $0.key.lowercased() < $1.key.lowercased() }.map { "\($0.key) \($0.value)" }
+            let u = unsorted[g.id] ?? 0
+            return (g, (named + (u > 0 ? ["Unsorted \(u)"] : [])).joined(separator: " · "))
+        }
     }
 
     private func newBinder() {
@@ -137,10 +190,17 @@ struct BinderView: View {
             CatalogStatusRow(catalog: catalog)
             T1SearchField(text: $query, prompt: "Name or type")
             HairlineList {
-                let n = CardName.norm(query)
-                let shown = n.isEmpty ? groups : groups.filter { $0.norm.contains(n) || CardName.norm($0.type).contains(n) }
+                if unsorted || binder != nil {
+                    Button {
+                        T1Overlays.shared.present(full: true) { BinderAddPanel(binderId: unsorted ? nil : binderId).screen("binder_add") }
+                    } label: {
+                        ListRow(title: "Add cards", detail: unsorted ? "New copies, or copies out of a binder" : "Move in copies you own, or add new ones")
+                    }.buttonStyle(.plain)
+                }
+                let shown = query.isEmpty ? groups : groups.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
+                if shown.isEmpty && !groups.isEmpty { ListRow(title: "No cards match") }
                 if groups.isEmpty && catalog.phase == .ready {
-                    Notice(unsorted ? "Every copy is in a binder." : "No cards here yet. Open a card and move copies here, or add copies straight into this binder from a trade or an import.")
+                    Notice(unsorted ? "Every copy is in a binder." : "No cards here yet. Add cards moves in copies you own or adds new ones; trades and imports can fill it too.")
                 }
                 ForEach(shown) { g in
                     Button { if g.known { path.append(.card(g.id)) } } label: {
@@ -162,6 +222,7 @@ struct BinderView: View {
         } message: {
             Text("Its \(copies.formatted()) cards stay in your collection, Unsorted. This can't be undone.")
         }
+        .searchUsed(query, screen: "binder")
         .task(id: "\(col.version)-\(store.version)-\(catalog.generation)") {
             catalog.load(userInitiated: true)
             guard let db = catalog.db else { return }
@@ -181,6 +242,141 @@ struct BinderView: View {
             },
             T1MenuItem(title: "Delete binder", destructive: true) { confirmDelete = true },
         ])
+    }
+}
+
+/// Binder → Add cards: search the catalog; Move in takes one copy you own from elsewhere (`BinderRules.moveInSource`),
+/// + New adds a new copy of the card's original printing straight into the binder (`binderId` nil = Unsorted).
+struct BinderAddPanel: View {
+    let binderId: String?
+    private var store: BindersStore { BindersStore.shared }
+    private var col: CollectionStore { CollectionStore.shared }
+    private var catalog: CatalogStore { CatalogStore.shared }
+    @State private var query = ""
+    @State private var hits: [CatalogOracle] = []
+    @State private var covers: [Int: CatalogPrinting] = [:]
+    /// Owned items by card (oracle idx).
+    @State private var owned: [Int: [CollectionItem]] = [:]
+    @State private var last: (batchId: String, label: String)?
+    @State private var busy = false
+    @State private var error: String?
+    @AppStorage("library.addCondition") private var addCondition = "NM"
+    @FocusState private var focused: Bool
+
+    private var target: String { binderId.flatMap { store.binder($0)?.name } ?? "Unsorted" }
+
+    var body: some View {
+        let _ = store.version
+        T1Screen {
+            Bar(title: "Add to \(target)", back: { T1Overlays.shared.dismissPanel() })
+            if let message = error ?? store.error { Notice(message, error: true) }
+            CatalogStatusRow(catalog: catalog)
+            if let last {
+                HStack(spacing: 12) {
+                    LabelText(last.label)
+                    Spacer(minLength: 0)
+                    BarButton("Undo") { undo(last.batchId) }
+                }
+                .padding(.horizontal, 16).padding(.vertical, 12).background(T1.surface)
+            }
+            T1SearchField(text: $query, prompt: "Card name").focused($focused)
+            HairlineList {
+                if query.isEmpty {
+                    Notice("Move in takes a copy you own from Unsorted or another binder. + New adds a new copy (\(addCondition), original printing) to your collection, in \(target).")
+                }
+                ForEach(hits, id: \.idx) { o in row(o) }
+            }
+            BigAction(text: "Done", accent: false) { T1Overlays.shared.dismissPanel() }
+        }
+        .onAppear { focused = true }
+        .task(id: "\(query)-\(catalog.generation)") {
+            catalog.load(userInitiated: true)
+            guard let db = catalog.db else { return }
+            let q = query
+            try? await Task.sleep(for: .milliseconds(120))
+            if Task.isCancelled { return }
+            let found = await Task.detached(priority: .userInitiated) { () -> ([CatalogOracle], [Int: CatalogPrinting]) in
+                let h = db.search(q)
+                return (h, db.covers(oracleIdxs: h.map(\.idx)))
+            }.value
+            if !Task.isCancelled { hits = found.0; covers = found.1 }
+        }
+        .task(id: "\(col.version)-\(catalog.generation)") {
+            guard let db = catalog.db else { return }
+            let items = Array(col.items.values)
+            owned = await Task.detached(priority: .userInitiated) { () -> [Int: [CollectionItem]] in
+                let printings = db.printings(ids: Array(Set(items.map(\.cardId))))
+                var out: [Int: [CollectionItem]] = [:]
+                for it in items { if let p = printings[it.cardId] { out[p.oracleIdx, default: []].append(it) } }
+                return out
+            }.value
+        }
+    }
+
+    private func row(_ o: CatalogOracle) -> some View {
+        let items = owned[o.idx] ?? []
+        let places = store.places(items)
+        let here = places.filter { $0.from?.id == binderId }.reduce(0) { $0 + $1.qty }
+        let elsewhere = places.filter { $0.from?.id != binderId }
+        var where_: [String: Int] = [:]
+        for pl in elsewhere { where_[pl.from?.name ?? "Unsorted", default: 0] += pl.qty }
+        let detail = items.isEmpty ? "Not in your collection"
+            : ([here > 0 ? "\(here) here" : nil] + where_.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }).compactMap { $0 }.joined(separator: " · ")
+        let source = BinderRules.moveInSource(places, into: binderId)
+        return HStack(spacing: 1) {
+            CardRow(printing: covers[o.idx], title: o.name, detail: detail)
+            if let source {
+                action("Move in") { moveIn(o, source) }
+            }
+            action("+ New") { addNew(o) }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func action(_ title: String, _ run: @escaping () -> Void) -> some View {
+        Button(action: run) {
+            LabelText(title, color: busy ? T1.disabled : T1.text).padding(.horizontal, 12).frame(maxHeight: .infinity)
+                .background(T1.surfaceHover).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
+    }
+
+    private func moveIn(_ o: CatalogOracle, _ s: (item: CollectionItem, from: String?)) {
+        let fromName = s.from.flatMap { store.binder($0)?.name } ?? "Unsorted"
+        run("Moved 1 \(o.name) from \(fromName)") {
+            try await store.move([BinderMove(item: s.item, from: s.from, to: binderId, qty: 1)])
+        }
+    }
+
+    private func addNew(_ o: CatalogOracle) {
+        guard let p = covers[o.idx] else { return }
+        let finish = p.finishList.first?.rawValue ?? "nonfoil"
+        let target = binderId
+        run("Added 1 \(o.name) · \(addCondition)") {
+            try await col.apply([CollectionOp(cardId: p.cardId, finish: finish, condition: addCondition, delta: 1, binderId: target)]).batchId
+        }
+    }
+
+    private func run(_ label: String, _ work: @escaping () async throws -> String) {
+        busy = true
+        error = nil
+        Task {
+            defer { busy = false }
+            do {
+                let batch = try await work()
+                last = batch.isEmpty ? nil : (batch, label)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            } catch { self.error = error.localizedDescription }
+        }
+    }
+
+    private func undo(_ batchId: String) {
+        busy = true
+        Task {
+            defer { busy = false }
+            do { _ = try await col.undo(batchId: batchId); last = nil } catch { self.error = error.localizedDescription }
+        }
     }
 }
 
@@ -249,37 +445,44 @@ struct WantsView: View {
     private var store: BindersStore { BindersStore.shared }
     private var catalog: CatalogStore { CatalogStore.shared }
     @State private var rows: [WantDisplay] = []
-    @State private var missing: [(line: MissingLine, printing: CatalogPrinting?, name: String, oracleId: String?)] = []
+    @State private var missing: [(line: MissingLine, printing: CatalogPrinting?, name: String, oracleId: String?, type: String)] = []
     @State private var showAllMissing = false
+    @State private var query = ""
 
     struct WantDisplay: Identifiable {
         let want: Want
         let name: String
         let printing: CatalogPrinting?
+        var type = ""
         var id: String { want.id }
     }
 
     var body: some View {
         let wanted = rows.reduce(0) { $0 + $1.want.qty }
         let short = missing.reduce(0) { $0 + $1.line.short }
+        let shownWants = query.isEmpty ? rows : rows.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
+        let shownMissing = query.isEmpty ? missing : missing.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
         T1Screen {
             Bar(title: "Wants", subtitle: "\(wanted) wanted · \(short) missing", back: { dismiss() })
             if let error = store.error { Notice(error, error: true) }
             CatalogStatusRow(catalog: catalog)
+            if !rows.isEmpty || !missing.isEmpty { T1SearchField(text: $query, prompt: "Name or type") }
             HairlineList {
                 Button { addWant() } label: { ListRow(title: "Add a want", detail: "Any printing, or one in particular") }.buttonStyle(.plain)
-                Section1("Wanted · \(rows.count)")
-                if rows.isEmpty { Notice("Cards you're after. Gets in a trade that match are marked, and confirming takes them off.") }
-                ForEach(rows) { r in
+                Section1("Wanted · \(shownWants.count)")
+                if shownWants.isEmpty && !query.isEmpty { ListRow(title: "No wants match") }
+                else if rows.isEmpty { Notice("Cards you're after. Gets in a trade that match are marked, and confirming takes them off.") }
+                ForEach(shownWants) { r in
                     Button { edit(r) } label: {
                         CardRow(printing: r.printing, title: r.name, detail: detail(r.want, r.printing)) {
                             Text("\(r.want.qty)").font(T1.mono(17)).monospacedDigit()
                         }
                     }.buttonStyle(.plain)
                 }
-                Section1("Missing from decks and cubes · \(short)")
-                if missing.isEmpty && catalog.phase == .ready { Notice("Your decks and cubes have every card they need.") }
-                ForEach(Array((showAllMissing ? missing : Array(missing.prefix(60))).enumerated()), id: \.element.line.id) { _, m in
+                Section1(query.isEmpty ? "Missing from decks and cubes · \(short)" : "Missing from decks and cubes · \(shownMissing.count) match")
+                if shownMissing.isEmpty && !query.isEmpty { ListRow(title: "Nothing missing matches") }
+                else if shownMissing.isEmpty && catalog.phase == .ready { Notice("Your decks and cubes have every card they need.") }
+                ForEach(Array((showAllMissing ? shownMissing : Array(shownMissing.prefix(60))).enumerated()), id: \.element.line.id) { _, m in
                     HStack(spacing: 1) {
                         Button { if let o = m.oracleId { path.append(.card(o)) } } label: {
                             CardRow(printing: m.printing, title: m.name,
@@ -297,12 +500,13 @@ struct WantsView: View {
                     }
                     .fixedSize(horizontal: false, vertical: true)
                 }
-                if !showAllMissing && missing.count > 60 {
-                    Button { showAllMissing = true } label: { ListRow(title: "Show all \(missing.count)") }.buttonStyle(.plain)
+                if !showAllMissing && shownMissing.count > 60 {
+                    Button { showAllMissing = true } label: { ListRow(title: "Show all \(shownMissing.count)") }.buttonStyle(.plain)
                 }
             }
         }
         .task(id: "\(store.version)-\(CollectionStore.shared.version)-\(catalog.generation)-\(ListsStore.shared.lists.count)") { await rebuild() }
+        .searchUsed(query, screen: "wants")
     }
 
     private func detail(_ w: Want, _ p: CatalogPrinting?) -> String {
@@ -317,7 +521,7 @@ struct WantsView: View {
         let wants = store.liveWants
         let lists = ListsStore.shared.lists
         let owned = ownedByPrinting()
-        let out = await Task.detached(priority: .userInitiated) { () -> ([WantDisplay], [(MissingLine, CatalogPrinting?, String, String?)]) in
+        let out = await Task.detached(priority: .userInitiated) { () -> ([WantDisplay], [(MissingLine, CatalogPrinting?, String, String?, String)]) in
             var shown: [WantDisplay] = []
             var oracleCache: [String: CatalogOracle] = [:]
             let printings = db.printings(ids: wants.compactMap(\.cardId))
@@ -325,19 +529,19 @@ struct WantsView: View {
                 let o = oracleCache[w.oracleId] ?? db.oracle(id: w.oracleId)
                 if let o { oracleCache[w.oracleId] = o }
                 let p = w.cardId.flatMap { printings[$0] } ?? o.flatMap { db.covers(oracleIdxs: [$0.idx])[$0.idx] }
-                shown.append(WantDisplay(want: w, name: o?.name ?? "Card not in local data yet", printing: p))
+                shown.append(WantDisplay(want: w, name: o?.name ?? "Card not in local data yet", printing: p, type: o?.typeLine ?? ""))
             }
             let lines = MissingView.lines(lists, owned: owned)
             let mp = db.printings(ids: lines.map(\.cardId))
             let mo = db.oracles(idxs: Array(Set(mp.values.map(\.oracleIdx))))
-            let miss = lines.map { l -> (MissingLine, CatalogPrinting?, String, String?) in
+            let miss = lines.map { l -> (MissingLine, CatalogPrinting?, String, String?, String) in
                 let o = mp[l.cardId].flatMap { mo[$0.oracleIdx] }
-                return (l, mp[l.cardId], o?.name ?? "Card not in local data yet", o?.oracleId)
+                return (l, mp[l.cardId], o?.name ?? "Card not in local data yet", o?.oracleId, o?.typeLine ?? "")
             }
             return (shown, miss)
         }.value
         rows = out.0
-        missing = out.1.map { ($0.0, $0.1, $0.2, $0.3) }
+        missing = out.1.map { ($0.0, $0.1, $0.2, $0.3, $0.4) }
         await PriceBook.shared.load(wants.compactMap(\.cardId))
     }
 
@@ -345,7 +549,7 @@ struct WantsView: View {
         Task {
             do {
                 try await store.applyWants([WantOp(oracleId: oracleId, delta: m.short)], event: "want_added",
-                                           props: ["any_printing": true, "has_max": false, "from": "missing"])
+                                           props: ["any_printing": true, "finish": false, "has_max": false, "from": "missing"])
             } catch { store.error = error.localizedDescription }
         }
     }
@@ -367,25 +571,9 @@ struct WantsView: View {
                 T1Overlays.shared.present { WantPricePanel(want: w) }
             },
         ]
-        if w.cardId == nil, let p = r.printing {
-            items.append(T1MenuItem(title: "Only \(p.setLabel)", detail: "Want that printing instead of any") {
-                Task {
-                    do {
-                        try await store.applyWants([WantOp(oracleId: w.oracleId, qty: 0),
-                                                    WantOp(oracleId: w.oracleId, cardId: p.cardId, qty: w.qty, maxUsd: .some(w.maxUsd))])
-                    } catch { store.error = error.localizedDescription }
-                }
-            })
-        } else if w.cardId != nil {
-            items.append(T1MenuItem(title: "Any printing") {
-                Task {
-                    do {
-                        try await store.applyWants([WantOp(oracleId: w.oracleId, cardId: w.cardId, finish: w.finish, qty: 0),
-                                                    WantOp(oracleId: w.oracleId, delta: w.qty, maxUsd: .some(w.maxUsd))])
-                    } catch { store.error = error.localizedDescription }
-                }
-            })
-        }
+        items.append(T1MenuItem(title: "Printing", detail: w.cardId == nil ? "Any printing" : r.printing?.setLabel) {
+            T1Overlays.shared.present(full: true) { WantPrintingPanel(oracleId: w.oracleId, replacing: w).screen("want_printing") }
+        })
         items.append(T1MenuItem(title: "Open card") { path.append(.card(w.oracleId)) })
         items.append(T1MenuItem(title: "Remove", destructive: true) { var o = base; o.qty = 0; set(o, "want_removed") })
         T1Overlays.shared.showMenu(r.name, items)
@@ -419,7 +607,7 @@ struct WantPricePanel: View {
     private var price: Double? { Double(text.replacingOccurrences(of: ",", with: ".")).flatMap { $0 >= 0 ? $0 : nil } }
 }
 
-/// Search for a card to want (any printing).
+/// Search for a card to want: Want adds any printing; tapping the card picks one printing or finish.
 struct WantPickPanel: View {
     private var catalog: CatalogStore { CatalogStore.shared }
     @State private var query = ""
@@ -434,10 +622,18 @@ struct WantPickPanel: View {
             CatalogStatusRow(catalog: catalog)
             T1SearchField(text: $query, prompt: "Lightning Bolt").focused($focused)
             HairlineList {
+                if query.isEmpty { Notice("Want adds any printing. Tap a card to want one printing or finish.") }
                 ForEach(hits, id: \.idx) { o in
-                    Button { add(o) } label: {
-                        CardRow(printing: covers[o.idx], title: o.name, detail: o.typeLine) { LabelText("Want", color: T1.text) }
-                    }.buttonStyle(.plain)
+                    HStack(spacing: 1) {
+                        Button { pickPrinting(o) } label: {
+                            CardRow(printing: covers[o.idx], title: o.name, detail: o.typeLine) { LabelText("Printing", color: T1.muted) }
+                        }.buttonStyle(.plain)
+                        Button { add(o) } label: {
+                            LabelText("Want", color: T1.text).padding(.horizontal, 14).frame(maxHeight: .infinity)
+                                .background(T1.surfaceHover).contentShape(Rectangle())
+                        }.buttonStyle(.plain)
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
                 }
             }
             BigAction(text: "Done", accent: false) { T1Overlays.shared.dismissPanel() }
@@ -456,14 +652,159 @@ struct WantPickPanel: View {
         }
     }
 
+    private func pickPrinting(_ o: CatalogOracle) {
+        focused = false
+        T1Overlays.shared.present(full: true) {
+            WantPrintingPanel(oracleId: o.oracleId, from: "search") { added = $0 }.screen("want_printing")
+        }
+    }
+
     private func add(_ o: CatalogOracle) {
         Task {
             do {
                 try await BindersStore.shared.applyWants([WantOp(oracleId: o.oracleId, delta: 1)], event: "want_added",
-                                                         props: ["any_printing": true, "has_max": false, "from": "search"])
+                                                         props: ["any_printing": true, "finish": false, "has_max": false, "from": "search"])
                 added = "Wanted \(o.name)"
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             } catch { BindersStore.shared.error = error.localizedDescription }
+        }
+    }
+}
+
+/// Which printing of a card to want: any printing, one printing in any finish (tap the printing), or one printing
+/// in one finish (its finish buttons). Adds one copy, or with `replacing` points that want at the pick, keeping
+/// its count and max price.
+struct WantPrintingPanel: View {
+    let oracleId: String
+    var replacing: Want?
+    var from = "search"
+    var done: ((String) -> Void)?
+    private var catalog: CatalogStore { CatalogStore.shared }
+    @State private var printings: [CatalogPrinting] = []
+    @State private var name = ""
+    @State private var query = ""
+    @State private var busy = false
+    @State private var error: String?
+
+    var body: some View {
+        let shown = query.isEmpty ? printings : printings.filter { CardSearch.matches(query, set: $0.set, cn: $0.cn, releasedAt: $0.releasedAt) }
+        T1Screen {
+            Bar(title: replacing == nil ? "Want which printing" : "Change printing", subtitle: name, back: { T1Overlays.shared.dismissPanel() })
+            if let error { Notice(error, error: true) }
+            CatalogStatusRow(catalog: catalog)
+            if printings.count > 8 { T1SearchField(text: $query, prompt: "Set, number or year") }
+            HairlineList {
+                let anyNow = replacing != nil && replacing?.cardId == nil
+                Button { pick(nil, nil) } label: {
+                    ListRow(title: "Any printing", detail: "A get of any printing meets it") {
+                        if anyNow { LabelText("Current", color: T1.disabled) }
+                    }
+                }.buttonStyle(.plain).disabled(anyNow || busy)
+                Section1(query.isEmpty ? "One printing · \(printings.count)" : "One printing · \(shown.count) of \(printings.count)")
+                if shown.isEmpty && !query.isEmpty { ListRow(title: "No printings match") }
+                ForEach(shown, id: \.cardId) { row($0) }
+            }
+        }
+        .task(id: catalog.generation) {
+            catalog.load(userInitiated: true)
+            guard let db = catalog.db else { return }
+            let id = oracleId
+            let found = await Task.detached(priority: .userInitiated) { () -> (String, [CatalogPrinting]) in
+                guard let o = db.oracle(id: id) else { return ("", []) }
+                return (o.name, db.printings(oracleIdx: o.idx))
+            }.value
+            name = found.0
+            printings = found.1
+            await PriceBook.shared.load(found.1.map(\.cardId))
+        }
+    }
+
+    private func row(_ p: CatalogPrinting) -> some View {
+        let price = PriceBook.shared.usd(p.cardId, p.finishList.first?.rawValue ?? "nonfoil")
+        let detail = [CatalogPack.rarityName[p.rarity], p.releasedAt.isEmpty ? nil : String(p.releasedAt.prefix(4)),
+                      p.original ? "Original" : nil, p.lang == "en" ? nil : p.lang.uppercased(),
+                      money(price)].compactMap { $0 }.joined(separator: " · ")
+        let samePrinting = replacing?.cardId == p.cardId
+        return HStack(spacing: 1) {
+            Button { pick(p, nil) } label: {
+                HStack(spacing: 12) {
+                    p.art(width: 36)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(p.setLabel).font(T1.mono(13)).lineLimit(1)
+                        LabelText(samePrinting && replacing?.finish == nil ? "Current · \(detail)" : detail)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 16).padding(.vertical, 8)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(busy || (samePrinting && replacing?.finish == nil))
+            // A finish button only matters when the printing comes in more than one.
+            if p.finishList.count > 1 {
+                ForEach(p.finishList, id: \.self) { f in
+                    let same = samePrinting && replacing?.finish == f.rawValue
+                    Button { pick(p, f.rawValue) } label: {
+                        LabelText(same ? "Current" : f.label, color: same ? T1.disabled : T1.text)
+                            .padding(.horizontal, 12).frame(maxHeight: .infinity)
+                            .background(T1.surfaceHover)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(same || busy)
+                }
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .background(T1.surface)
+    }
+
+    private func pick(_ p: CatalogPrinting?, _ finish: String?) {
+        let store = BindersStore.shared
+        let label = p.map { [$0.setLabel, finish.flatMap { Finish(rawValue: $0)?.label }].compactMap { $0 }.joined(separator: " ") } ?? name
+        let ops: [WantOp]
+        let event: String
+        var props: [String: Any] = ["any_printing": p == nil, "finish": finish != nil]
+        if let w = replacing {
+            guard let r = BinderRules.repoint(w, cardId: p?.cardId, finish: finish) else { T1Overlays.shared.dismissPanel(); return }
+            ops = r
+            event = "want_changed"
+            props["printing"] = true
+        } else {
+            ops = [WantOp(oracleId: oracleId, cardId: p?.cardId, finish: finish, delta: 1)]
+            event = "want_added"
+            props["has_max"] = false
+            props["from"] = from
+        }
+        busy = true
+        error = nil
+        Task {
+            defer { busy = false }
+            do {
+                try await store.applyWants(ops, event: event, props: props)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                T1Overlays.shared.dismissPanel()
+                done?(replacing == nil ? "Wanted 1 \(label)" : "Now wanting \(label)")
+            } catch { self.error = error.localizedDescription }
+        }
+    }
+}
+
+extension View {
+    /// `library_searched` once per visit, when a search field on the screen is first used (never the text).
+    func searchUsed(_ query: String, screen: String) -> some View { modifier(SearchUsed(query: query, screen: screen)) }
+}
+
+private struct SearchUsed: ViewModifier {
+    let query: String
+    let screen: String
+    @State private var sent = false
+    func body(content: Content) -> some View {
+        content.onChange(of: query.isEmpty) { _, empty in
+            if !empty && !sent {
+                sent = true
+                Telemetry.capture("library_searched", ["screen": screen])
+            }
         }
     }
 }

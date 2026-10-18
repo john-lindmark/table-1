@@ -505,6 +505,8 @@ data class SuggestedPlayer(
     val handle: String? = null,
     @SerialName("shared_events") val sharedEvents: Int = 0,
     val invited: Boolean = false,
+    /** A friend (contract/friends-sharing-2026-10-18.md): listed first. */
+    val friend: Boolean = false,
 ) {
     val label: String get() = handle?.takeIf { it.isNotBlank() } ?: displayName
 }

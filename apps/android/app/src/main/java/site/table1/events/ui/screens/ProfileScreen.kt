@@ -23,6 +23,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,12 +63,15 @@ import site.table1.events.ui.components.T1AlertDialog
 import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.T1Switch
 import site.table1.events.library.ScanReports
+import site.table1.events.library.FriendsStore
+import site.table1.events.library.friendsAccountRows
 import site.table1.events.ui.components.T1TextField
 import site.table1.events.ui.theme.T1
 
 /** The Account tab: lifetime record, head-to-head, settings, and the account itself. */
 @Composable
-fun AccountScreen(foregrounds: Int) {
+fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit, onProfile: (String) -> Unit) {
+    val friends by FriendsStore.state.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var overview by remember { mutableStateOf<AccountOverview?>(null) }
@@ -123,7 +127,11 @@ fun AccountScreen(foregrounds: Int) {
         alertsOn = Repo.nearbyAlertsOn()
         TrackerSettings.refresh()
     }
-    LaunchedEffect(foregrounds) { load() }
+    LaunchedEffect(foregrounds) {
+        load()
+        FriendsStore.load()
+        FriendsStore.loadSharing()
+    }
 
     val r = overview?.record
     val rivals = overview?.headToHead.orEmpty()
@@ -157,6 +165,7 @@ fun AccountScreen(foregrounds: Int) {
                         if ((r?.byes ?: 0) > 0) " · ${r?.byes} byes" else "",
                 )
             }
+            Repo.userId?.let { me -> friendsAccountRows(friends, onFriends, onSharing) { onProfile(me) } }
             item { Section("Head-to-head") }
             when {
                 overview == null -> item { Notice("Loading…") }

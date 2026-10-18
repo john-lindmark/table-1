@@ -31,11 +31,17 @@ That template is rebuilt only when a migration changes; each `NN_*_test.sql` run
   allocations, wants (any printing / printing / finish, max price), trade confirm with binder lines meeting wants
   and undone, `library_changes` paging and resync, and the invariant (allocations never exceed copies) after 300
   random mixed writes
+- `80_friends_sharing` friends (ask, idempotent retry, quiet decline, ask-back accepts, cancel, unfriend, block hides
+  everything and answers as usual), email lookups that never say whether an account exists (rate limited), the
+  visibility matrix (owner / friend / stranger / blocked × profile cap × Same-as chain × per-binder/deck), max prices never
+  shown, trade matches in trade_confirm's order (exact → printing → any, over max flagged), people you played with only
+  when public, `trade_match_start` idempotent, Add players friends first, account deletion, anon refused
 - `50_demo` demo data only for `t1_private.demo_testers`, never in `player_records`, `demo_remove` clears it
 - `perf_10_library` (perf tier) 35k Oracle cards / 105k printings, a 5,000-printing collection: `search_cards`,
   `card_prices_get`, `collection_changes`, `collection_apply` (500 ops), `catalog_pack_part` per 10k window; with
   4,000 allocations in 20 binders and 500 wants: `library_changes`, `binder_move` (500), `collection_apply` (500
-  removals that shrink binders)
+  removals that shrink binders); with 200 friends (500 for-trade printings and 200 wants each, one trading 5,000):
+  `trade_matches`, `profile_view`
 
 Write tests with the helpers in `_helpers.sql`: `pg_temp.as_user(uuid)`, `pg_temp.eq(label, got, want)`,
 `pg_temp.throws(label, sql, sqlstate)`, `pg_temp.ms(label, sql, budget_ms)`. Run one file: `supabase/tests/run.sh 40_`.
@@ -71,6 +77,7 @@ the test JVM's heap.
 | `collection_changes`, 5,000 items | 5 ms | 30 ms |
 | `library_changes`, 4,500 rows / nothing new (2026-10-17, machine under load) | 11 / 0.2 ms | 40 / 5 ms |
 | `binder_move` 500 moves; `collection_apply` 500 removals shrinking binders (under load) | 81 / 238 ms | 300 / 300 ms |
+| `trade_matches`, 200 friends / one big trader; `profile_view` (2026-10-18) | 97 / 25 / 5 ms | 500 / 150 / 25 ms |
 | `catalog_pack_part`, 10k window (oracles / printings) | 27 / 86 ms | 200 / 500 ms (live ≈ 5× local; timeout 8 s) |
 | Web JS, gzipped (all / entry) | 314 / 54 KB | 380 / 70 KB |
 | iOS pack → SQLite (Debug, Simulator) | 6.0 s | 18 s |

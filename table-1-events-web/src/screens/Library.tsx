@@ -19,6 +19,7 @@ import { usdPrice, usdText, usePrices } from "../lib/prices";
 import { useTrades } from "../lib/trades";
 import { binderTotals, forTrade, liveWants, missingLines, placementText, useBinders } from "../lib/binders";
 import { MoveCopies, WantCardRow } from "./Binders";
+import { TradeMatchesRow } from "./Friends";
 
 export const CONDITIONS: Condition[] = ["NM", "LP", "MP", "HP", "DMG"];
 export const CONDITION_NAME: Record<Condition, string> = {
@@ -289,9 +290,9 @@ export function useBoxWidth(): [(el: HTMLElement | null) => void, number] {
 
 /* ── home ─────────────────────────────────────────────────────────────── */
 
-export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes, onTrades, onImport, onBinders, onWants }: {
+export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes, onTrades, onImport, onBinders, onWants, onMatches }: {
   onAllCards: () => void; onAdd: () => void; onDecks: () => void; onCubes: () => void; onTrades: () => void; onImport: () => void;
-  onBinders: () => void; onWants: () => void;
+  onBinders: () => void; onWants: () => void; onMatches: () => void;
 }) {
   const { session, ready, userId } = useLibrarySession();
   const col = useCollection(userId);
@@ -338,6 +339,7 @@ export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes, onTrades, onI
              value={decks.length} onClick={onDecks} />
         <Row title="Cubes" detail={cubes.length ? cubes.map((l) => l.name).join(" · ") : "Build and track cubes"}
              value={cubes.length} onClick={onCubes} />
+        <TradeMatchesRow onClick={onMatches} />
         <Row title="Trades" detail={openTrades ? `${openTrades} open` : "Give and get, then confirm"}
              value={trades.loaded ? trades.trades.length : undefined} onClick={onTrades} />
       </div>

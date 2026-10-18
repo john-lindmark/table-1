@@ -40,10 +40,13 @@ import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.Section
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.theme.T1
+import site.table1.events.ui.components.Avatar
+import site.table1.events.util.Telemetry
+import androidx.compose.foundation.lazy.LazyListScope
 
 /**
- * Invite people to an event you're organizing. People you've shared the most events with come first;
- * search narrows that list. Email reaches existing accounts only and never says whether one exists.
+ * Invite people to an event you're organizing. Friends come first, then people you've shared the most events
+ * with; search narrows both. Email reaches existing accounts only and never says whether one exists.
  */
 @Composable
 fun AddPlayersScreen(eventId: String, onDone: () -> Unit) {
@@ -69,26 +72,37 @@ fun AddPlayersScreen(eventId: String, onDone: () -> Unit) {
 
     T1Screen {
         Bar("Add players", "Invitations — they accept to take a seat") { BarAction("Done", onDone) }
-        SearchField(query, "Search people you've played with") { query = it }
+        SearchField(query, "Search friends and people you've played with") { query = it }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             error?.let { item { Notice(it, error = true) } }
             notice?.let { item { Notice(it) } }
-            item { Section(if (query.isEmpty()) "Suggested · played with you most" else "Matches") }
             val list = people
-            when {
-                list == null -> item { Notice("Loading…") }
-                list.isEmpty() -> item {
-                    Notice(if (query.isEmpty()) "No one yet. People you play with show up here; until then, invite by email below or share the QR from the event."
-                           else "No one you've played with matches \"$query\".")
-                }
-                else -> items(list, key = { it.userId }) { p ->
+            if (list == null) item { Notice("Loading…") } else {
+                val friends = list.filter { it.friend }
+                val others = list.filter { !it.friend }
+                fun LazyListScope.rows(ps: List<SuggestedPlayer>) = items(ps, key = { it.userId }) { p ->
                     val on = p.userId in picked
-                    ListRow(p.label, "${p.sharedEvents} event${if (p.sharedEvents == 1) "" else "s"} together",
-                        onClick = if (p.invited) null else ({ picked = if (on) picked - p.userId else picked + p.userId })) {
+                    val together = "${p.sharedEvents} event${if (p.sharedEvents == 1) "" else "s"} together"
+                    ListRow(p.label, if (p.friend) (if (p.sharedEvents > 0) "Friend · $together" else "Friend") else together,
+                        onClick = if (p.invited) null else ({ picked = if (on) picked - p.userId else picked + p.userId }),
+                        avatar = { Avatar(p.displayName, p.userId) }) {
                         if (p.invited) Label("Invited")
                         else Box(Modifier.size(20.dp).background(if (on) T1.accent else T1.bg))
                     }
                 }
+                if (friends.isNotEmpty()) {
+                    item { Section("Friends · ${friends.size}") }
+                    rows(friends)
+                }
+                item { Section(if (query.isEmpty()) "Suggested · played with you most" else if (friends.isEmpty()) "Matches" else "Played with you") }
+                if (others.isEmpty()) item {
+                    Notice(when {
+                        query.isNotEmpty() -> "No one else you've played with matches \"$query\"."
+                        friends.isNotEmpty() -> "People you play with show up here too."
+                        else -> "No one yet. Friends and people you play with show up here; until then, invite by email below or share the QR from the event."
+                    })
+                }
+                rows(others)
             }
             item { Section("Invite by email") }
             item {
@@ -115,7 +129,9 @@ fun AddPlayersScreen(eventId: String, onDone: () -> Unit) {
         BigAction(if (picked.isEmpty()) "Select players" else "Invite ${picked.size}", enabled = picked.isNotEmpty(), busy = busy, accent = true) {
             busy = true
             scope.launch {
-                runCatching { Repo.invitePlayers(eventId, picked.toList()) }
+                val friends = people.orEmpty().count { it.friend && it.userId in picked }
+                runCatching { Repo.invitePlayers(eventId, picked.toList()).also { n ->
+                    Telemetry.capture("players_invited", mapOf("count" to n, "via" to "account", "friends" to friends)) } }
                     .onSuccess { n -> picked = emptySet(); notice = if (n == 1) "1 invitation sent." else "$n invitations sent."; load() }
                     .onFailure { error = it.message }
                 busy = false

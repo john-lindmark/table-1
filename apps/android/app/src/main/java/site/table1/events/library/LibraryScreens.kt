@@ -107,7 +107,7 @@ private fun ColumnScope.Filler() = Box(Modifier.weight(1f))
 
 @Composable
 fun LibraryHomeScreen(foregrounds: Int, onAllCards: () -> Unit, onAdd: () -> Unit, onImportExport: () -> Unit, onDecks: () -> Unit,
-                      onCubes: () -> Unit, onTrades: () -> Unit, onBinders: () -> Unit, onWants: () -> Unit) {
+                      onCubes: () -> Unit, onTrades: () -> Unit, onBinders: () -> Unit, onWants: () -> Unit, onMatches: () -> Unit) {
     val lists by ListsStore.state.collectAsState()
     val col by CollectionStore.state.collectAsState()
     val binders by BindersStore.state.collectAsState()
@@ -167,6 +167,7 @@ fun LibraryHomeScreen(foregrounds: Int, onAllCards: () -> Unit, onAdd: () -> Uni
                     Text("${cubes.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                 }
             }
+            item { TradeMatchesRow(onMatches) }
             item {
                 val open = trades.trades.count { !it.confirmed }
                 ListRow("Trades", if (open > 0) "$open open" else "Give and get, then confirm", onClick = onTrades) {
@@ -405,6 +406,7 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit) {
     /** Moving copies of one owned item between binders, and wanting the card. */
     var sorting by remember { mutableStateOf<CollectionItem?>(null) }
     var wanting by remember { mutableStateOf(false) }
+    var pickingPrinting by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) { CatalogStore.load(userInitiated = true) }
@@ -471,14 +473,18 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit) {
             scope.launch {
                 runCatching {
                     BindersStore.applyWants(listOf(WantOp(o.oracleId, cardId = p?.cardId, delta = 1)), "want_added",
-                        mapOf("any_printing" to (p == null), "has_max" to false, "from" to "card"))
+                        mapOf("any_printing" to (p == null), "finish" to false, "has_max" to false, "from" to "card"))
                 }.onSuccess { note = "Wanted 1 ${p?.setLabel ?: o.name}"; last = null }.onFailure { error = it.message }
             }
         }
         T1Menu("Want ${o?.name ?: "this card"}", listOfNotNull(
             T1MenuItem("Any printing") { want(null) },
             shown?.let { p -> T1MenuItem("Only ${p.setLabel}") { want(p) } },
+            T1MenuItem("Pick a printing…") { pickingPrinting = true },
         )) { wanting = false }
+    }
+    if (pickingPrinting) oracle?.let { o ->
+        WantPrintingOverlay(o.oracleId, from = "card", onClose = { pickingPrinting = false }, onDone = { note = it; last = null }) { error = it }
     }
 
     T1Screen {

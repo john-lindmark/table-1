@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Invite people to an event you're organizing. People you've shared the most events with come first;
-/// search narrows that list. Email reaches existing accounts only and never says whether one exists.
+/// Invite people to an event you're organizing. Friends come first, then people you've shared the most events
+/// with; search narrows both. Email reaches existing accounts only and never says whether one exists.
 struct AddPlayersView: View {
     let eventId: String
     @Environment(\.dismiss) private var dismiss
@@ -20,7 +20,7 @@ struct AddPlayersView: View {
             }
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(T1.muted)
-                TextField("", text: $query, prompt: Text("Search people you've played with").foregroundStyle(T1.muted))
+                TextField("", text: $query, prompt: Text("Search friends and people you've played with").foregroundStyle(T1.muted))
                     .font(T1.mono(15)).tint(T1.accent)
                     .textInputAutocapitalization(.words).autocorrectionDisabled()
             }
@@ -30,29 +30,21 @@ struct AddPlayersView: View {
                 if let error { Notice(error, error: true) }
                 if let notice { Notice(notice) }
 
-                Section1(query.isEmpty ? "Suggested · played with you most" : "Matches")
                 if let people {
-                    if people.isEmpty {
+                    let friends = people.filter { $0.friend == true }
+                    if !friends.isEmpty {
+                        Section1("Friends · \(friends.count)")
+                        ForEach(friends) { row($0) }
+                    }
+                    Section1(query.isEmpty ? "Suggested · played with you most" : friends.isEmpty ? "Matches" : "Played with you")
+                    let others = people.filter { $0.friend != true }
+                    if others.isEmpty {
                         Notice(query.isEmpty
-                               ? "No one yet. People you play with show up here; until then, invite by email below or share the QR from the event."
-                               : "No one you've played with matches \"\(query)\".")
+                               ? (friends.isEmpty ? "No one yet. Friends and people you play with show up here; until then, invite by email below or share the QR from the event."
+                                                  : "People you play with show up here too.")
+                               : "No one else you've played with matches \"\(query)\".")
                     }
-                    ForEach(people) { p in
-                        Button { toggle(p) } label: {
-                            ListRow(title: p.label, detail: "\(p.sharedEvents) event\(p.sharedEvents == 1 ? "" : "s") together") {
-                                if p.invited {
-                                    LabelText("Invited", color: T1.muted)
-                                } else {
-                                    Image(systemName: picked.contains(p.userId) ? "checkmark.square.fill" : "square")
-                                        .font(.system(size: 20))
-                                        .foregroundStyle(picked.contains(p.userId) ? T1.accent : T1.muted)
-                                }
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(p.invited)
-                        .sensoryFeedback(.selection, trigger: picked.contains(p.userId))
-                    }
+                    ForEach(others) { row($0) }
                 } else {
                     Notice("Loading…")
                 }
@@ -84,6 +76,26 @@ struct AddPlayersView: View {
         }
     }
 
+    private func row(_ p: SuggestedPlayer) -> some View {
+        let detail = p.friend == true
+            ? (p.sharedEvents > 0 ? "Friend · \(p.sharedEvents) event\(p.sharedEvents == 1 ? "" : "s") together" : "Friend")
+            : "\(p.sharedEvents) event\(p.sharedEvents == 1 ? "" : "s") together"
+        return Button { toggle(p) } label: {
+            ListRow(title: p.label, detail: detail, avatar: AvatarView(name: p.displayName, userId: p.userId)) {
+                if p.invited {
+                    LabelText("Invited", color: T1.muted)
+                } else {
+                    Image(systemName: picked.contains(p.userId) ? "checkmark.square.fill" : "square")
+                        .font(.system(size: 20))
+                        .foregroundStyle(picked.contains(p.userId) ? T1.accent : T1.muted)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(p.invited)
+        .sensoryFeedback(.selection, trigger: picked.contains(p.userId))
+    }
+
     private var emailValid: Bool {
         let e = email.trimmingCharacters(in: .whitespaces)
         return e.count > 5 && e.contains("@") && e.split(separator: "@").last?.contains(".") == true
@@ -110,7 +122,8 @@ struct AddPlayersView: View {
         Task {
             defer { busy = false }
             do {
-                let n = try await Repo.invitePlayers(eventId, userIds: Array(picked))
+                let friends = people?.filter { $0.friend == true && picked.contains($0.userId) }.count ?? 0
+                let n = try await Repo.invitePlayers(eventId, userIds: Array(picked), friends: friends)
                 picked.removeAll()
                 notice = n == 1 ? "1 invitation sent." : "\(n) invitations sent."
                 await load()

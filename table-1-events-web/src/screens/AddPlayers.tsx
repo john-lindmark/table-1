@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchSuggestedPlayers, inviteByEmail, invitePlayers, errorMessage } from "../lib/api";
 import type { SuggestedPlayer } from "../lib/types";
 import { Bar, BigAction, Notice, Screen } from "../components/kit";
+import { Avatar } from "../components/Avatar";
 
 /**
- * Invite people to an event you're organizing. People you've shared the most events with come first;
- * search narrows that list. Email reaches existing accounts only and never says whether one exists.
+ * Invite people to an event you're organizing. Friends come first, then people you've shared the most events
+ * with; search narrows both. Email reaches existing accounts only and never says whether one exists.
  */
 export function AddPlayers({ eventId, onDone }: { eventId: string; onDone: () => void }) {
   const [query, setQuery] = useState("");
@@ -40,12 +41,39 @@ export function AddPlayers({ eventId, onDone }: { eventId: string; onDone: () =>
     });
 
   const emailValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
+  const friends = (people ?? []).filter((p) => p.friend);
+  const others = (people ?? []).filter((p) => !p.friend);
+
+  const row = (p: SuggestedPlayer) => {
+    const on = picked.has(p.user_id);
+    const together = `${p.shared_events} event${p.shared_events === 1 ? "" : "s"} together`;
+    return (
+      <button
+        key={p.user_id}
+        disabled={p.invited}
+        onClick={() => toggle(p.user_id)}
+        className="bg-t1-surface hover:bg-t1-surface-hover px-4 py-3.5 flex items-center gap-3 text-left disabled:hover:bg-t1-surface"
+      >
+        <Avatar name={p.display_name} userId={p.user_id} />
+        <span className="flex-1 min-w-0 flex flex-col">
+          <span className="text-[14px] truncate">{p.handle || p.display_name}</span>
+          <span className="t1-label">{p.friend ? (p.shared_events ? `Friend · ${together}` : "Friend") : together}</span>
+        </span>
+        {p.invited ? (
+          <span className="t1-label">Invited</span>
+        ) : (
+          <span aria-hidden className={`w-5 h-5 ${on ? "bg-t1-accent" : "bg-t1-bg"}`} />
+        )}
+      </button>
+    );
+  };
 
   async function invite() {
     setBusy(true);
     setError(null);
     try {
-      const n = await invitePlayers(eventId, [...picked]);
+      const friends = (people ?? []).filter((p) => p.friend && picked.has(p.user_id)).length;
+      const n = await invitePlayers(eventId, [...picked], friends);
       setPicked(new Set());
       setNotice(n === 1 ? "1 invitation sent." : `${n} invitations sent.`);
       await load(query);
@@ -85,44 +113,30 @@ export function AddPlayers({ eventId, onDone }: { eventId: string; onDone: () =>
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search people you've played with"
+        placeholder="Search friends and people you've played with"
         className="bg-t1-surface px-4 py-4 outline-0 border-0 text-[15px] placeholder:text-t1-muted/60"
       />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {error && <Notice tone="error">{error}</Notice>}
         {notice && <Notice tone="info">{notice}</Notice>}
-        <div className="bg-t1-surface px-4 py-2 t1-label">{query ? "Matches" : "Suggested · played with you most"}</div>
         {people === null && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
-        {people?.length === 0 && (
+        {friends.length > 0 && <div className="bg-t1-surface px-4 py-2 t1-label">Friends · {friends.length}</div>}
+        {friends.map(row)}
+        {people && (
+          <div className="bg-t1-surface px-4 py-2 t1-label">
+            {query ? (friends.length ? "Played with you" : "Matches") : "Suggested · played with you most"}
+          </div>
+        )}
+        {people && others.length === 0 && (
           <Notice tone="info">
             {query
-              ? `No one you've played with matches "${query}".`
-              : "No one yet. People you play with show up here; until then, invite by email below or share the QR from the event."}
+              ? `No one else you've played with matches "${query}".`
+              : friends.length
+                ? "People you play with show up here too."
+                : "No one yet. Friends and people you play with show up here; until then, invite by email below or share the QR from the event."}
           </Notice>
         )}
-        {people?.map((p) => {
-          const on = picked.has(p.user_id);
-          return (
-            <button
-              key={p.user_id}
-              disabled={p.invited}
-              onClick={() => toggle(p.user_id)}
-              className="bg-t1-surface hover:bg-t1-surface-hover px-4 py-3.5 flex items-center gap-3 text-left disabled:hover:bg-t1-surface"
-            >
-              <span className="flex-1 min-w-0 flex flex-col">
-                <span className="text-[14px] truncate">{p.handle || p.display_name}</span>
-                <span className="t1-label">
-                  {p.shared_events} event{p.shared_events === 1 ? "" : "s"} together
-                </span>
-              </span>
-              {p.invited ? (
-                <span className="t1-label">Invited</span>
-              ) : (
-                <span aria-hidden className={`w-5 h-5 ${on ? "bg-t1-accent" : "bg-t1-bg"}`} />
-              )}
-            </button>
-          );
-        })}
+        {others.map(row)}
         <div className="bg-t1-surface px-4 py-2 t1-label">Invite by email</div>
         <div className="flex gap-px">
           <input

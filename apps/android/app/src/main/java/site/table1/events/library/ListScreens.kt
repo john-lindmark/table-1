@@ -82,7 +82,7 @@ private fun colorGroup(cost: String): String {
 
 data class ListLine(val cardId: String, val printing: CatalogPrinting?, val oracleId: String?, val name: String,
                     val group: String, val board: String, val qty: Int, val legal: String = "", val finish: String = "nonfoil",
-                    val points: Int = 0, val basic: Boolean = false) {
+                    val points: Int = 0, val basic: Boolean = false, val type: String = "") {
     val ownKey get() = ownKey(cardId, finish)
     val key get() = "$board|$cardId|$finish"
     /** "Foil" / "Etched"; null for non-foil. */
@@ -106,7 +106,7 @@ private fun lines(l: CardList, meta: Map<String, CardMeta>): List<ListLine> = l.
     val m = meta[e.cardId] ?: return@mapNotNull null
     val type = m.type.substringBefore(" // ")
     val group = if (l.kind == ListKind.Deck) typeGroup(type) else if ("Land" in type) "Lands" else colorGroup(m.cost)
-    ListLine(e.cardId, m.printing, m.oracleId, m.name, group, e.board, e.qty, m.legal, e.finish, m.points, "Basic" in type)
+    ListLine(e.cardId, m.printing, m.oracleId, m.name, group, e.board, e.qty, m.legal, e.finish, m.points, "Basic" in type, m.type)
 }.sortedBy { it.name }
 
 /**
@@ -260,6 +260,8 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     var confirmDelete by remember { mutableStateOf(false) }
     var exportMenu by remember { mutableStateOf(false) }
     var exportNote by remember { mutableStateOf<String?>(null) }
+    var query by remember { mutableStateOf("") }
+    SearchUsed(query, if (list?.kind == ListKind.Deck) "deck" else "cube")
     val context = LocalContext.current
     // Read so the Export row appears once a pack is opened.
     val catalog by CatalogStore.state.collectAsState()
@@ -271,6 +273,10 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     }
     val rows = lines(list, meta)
     val issues = legalityIssues(rows, list)
+    val searching = CardName.norm(query).isNotEmpty()
+    val shown = if (searching) rows.filter { CardSearch.matches(query, it.name, it.type) } else rows
+    // While searching, matches come first: the summary rows would push them under the keyboard.
+    val boards = list.boards.filter { b -> !searching || shown.any { it.board == b } }
 
     // Summary, Add cards, Version history: the same block above both the list and the grid.
     val top: @Composable () -> Unit = {
@@ -299,7 +305,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
             })
             if (editing) ListRow(if (list.kind == ListKind.Deck) "Delete deck" else "Delete cube", "From every device", onClick = { confirmDelete = true })
             if (!editing) ListStatsRow(list.id, onStats)
-            ListRow("Add cards", if (list.kind == ListKind.Deck) "To the main deck, sideboard or considering" else "To the cube or considering", onClick = onAdd)
+            ListRow("Add, remove or replace", if (list.kind == ListKind.Deck) "Main deck, sideboard or considering" else "Search the catalog, or this cube's own cards", onClick = onAdd)
             ListRow("Version history", "v${list.current.number} · ${list.current.note} · ${fmtDate(list.current.at)}", onClick = onVersions) {
                 Text("${list.versions.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
             }
@@ -318,14 +324,16 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
             if (!editing) BarAction("View") { viewMenu = true }
         }
         s.error?.let { Notice(it, error = true) }
+        if (list.entries.isNotEmpty()) SearchBand(query, if (list.kind == ListKind.Cube) "Search this cube" else "Search this deck") { query = it }
+        if (searching && shown.isEmpty()) ListRow("No cards match")
         if (layout.value == CardLayout.Stacks && !editing) {
             // Stacks keep the organization too: section header, then a stack per type (decks) or color (cubes).
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                 val (cols, width) = stackColumns(maxWidth)
                 LazyColumn(Modifier.fillMaxSize()) {
-                    item(key = "top") { top() }
-                    for (board in list.boards) {
-                        val inBoard = rows.filter { it.board == board }
+                    if (!searching) item(key = "top") { top() }
+                    for (board in boards) {
+                        val inBoard = shown.filter { it.board == board }
                         item(key = "b-$board") { Box(Modifier.padding(top = 1.dp)) { BoardHeader(list.boardTitle(board), inBoard.sumOf { it.qty }) } }
                         val stacks = groups(inBoard, list.kind).map { g ->
                             val inGroup = inBoard.filter { it.group == g }
@@ -341,9 +349,9 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
         } else if (layout.value == CardLayout.Grid && !editing) {
             // The grid keeps the organization: section header, then type (decks) or color (cubes) headers.
             CardGrid(Modifier.weight(1f)) { tile ->
-                gridHeader("top") { top() }
-                for (board in list.boards) {
-                    val inBoard = rows.filter { it.board == board }
+                if (!searching) gridHeader("top") { top() }
+                for (board in boards) {
+                    val inBoard = shown.filter { it.board == board }
                     gridHeader("b-$board") { BoardHeader(list.boardTitle(board), inBoard.sumOf { it.qty }) }
                     for (g in groups(inBoard, list.kind)) {
                         val inGroup = inBoard.filter { it.group == g }
@@ -357,9 +365,9 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
             }
         } else {
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                item(key = "top") { top() }
-                for (board in list.boards) {
-                    val inBoard = rows.filter { it.board == board }
+                if (!searching) item(key = "top") { top() }
+                for (board in boards) {
+                    val inBoard = shown.filter { it.board == board }
                     item(key = "b-$board") { BoardHeader(list.boardTitle(board), inBoard.sumOf { it.qty }) }
                     for (g in groups(inBoard, list.kind)) {
                         val inGroup = inBoard.filter { it.group == g }
@@ -459,6 +467,11 @@ private fun Step(glyph: String, onClick: () -> Unit) {
 
 /* ── adding cards to a list ───────────────────────────────────────────── */
 
+/**
+ * Search the catalog and add cards straight into a section of a list. Remove or replace (Cube Cobra's Remove/Replace)
+ * searches only the list's own cards: Remove takes one copy out; Replace then searches the catalog for the card that
+ * takes its place, in the same section, as one edit.
+ */
 @Composable
 fun ListAddScreen(listId: String, onDone: () -> Unit, onCard: (String) -> Unit) {
     val s by ListsStore.state.collectAsState()
@@ -467,34 +480,89 @@ fun ListAddScreen(listId: String, onDone: () -> Unit, onCard: (String) -> Unit) 
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
     var board by remember { mutableStateOf(0) }
+    var mode by remember { mutableStateOf(0) } // 0 add, 1 remove or replace
+    var replacing by remember { mutableStateOf<ListLine?>(null) }
+    var note by remember { mutableStateOf<String?>(null) }
     var hits by remember { mutableStateOf<List<CatalogOracle>>(emptyList()) }
     var covers by remember { mutableStateOf<Map<Int, CatalogPrinting>>(emptyMap()) }
-    LaunchedEffect(query, cat.generation) {
+    val removing = mode == 1 && replacing == null
+    val meta = rememberMeta(if (mode == 1) list.entries.map { it.cardId }.toSet() else emptySet())
+    LaunchedEffect(query, cat.generation, removing) {
         val db = CatalogStore.db ?: return@LaunchedEffect
+        if (removing) { hits = emptyList(); return@LaunchedEffect }
         delay(120)
         val q = query
         val found = withContext(Dispatchers.Default) { db.search(q).let { h -> h to db.covers(h.map { it.idx }) } }
         hits = found.first; covers = found.second
     }
     val b = list.sections[board.coerceIn(0, list.sections.size - 1)]
+    val target = replacing?.board ?: b
+    val found = if (removing) CardSearch.matchingLines(lines(list, meta), query, { it.name }, { it.type }, { it.board }, { it.finish }) else emptyList()
+    fun button(text: String, onClick: () -> Unit): @Composable () -> Unit = {
+        Box(Modifier.fillMaxHeight().background(T1.surfaceHover).clickable(onClick = onClick).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+            Label(text, color = T1.text)
+        }
+    }
     T1Screen {
-        Bar("Add to ${list.name}", subtitle = "v${list.current.number}") { BarAction("Done", onDone) }
-        T1Segmented(list.sections.map { list.boardTitle(it) }, board) { board = it }
+        Bar("${if (replacing != null) "Replace in" else if (removing) "Remove from" else "Add to"} ${list.name}", subtitle = "v${list.current.number}") { BarAction("Done", onDone) }
+        T1Segmented(listOf("Add", "Remove or replace"), mode) { mode = it; replacing = null; query = ""; note = null }
+        val r = replacing
+        if (r != null) {
+            Row(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Label("Replacing ${r.name} · ${list.boardTitle(r.board)}", modifier = Modifier.weight(1f), color = T1.text)
+                BarAction("Cancel") { replacing = null; query = "" }
+            }
+        } else if (mode == 0) {
+            T1Segmented(list.sections.map { list.boardTitle(it) }, board) { board = it }
+        }
+        note?.let { Notice(it) }
         Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp)) {
-            T1TextField(query, { query = it }, label = "Card name")
+            T1TextField(query, { query = it }, label = if (removing) (if (list.kind == ListKind.Cube) "Card in this cube" else "Card in this deck")
+                else if (replacing != null) "Card to put in" else "Card name")
         }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            items(hits, key = { it.idx }) { o ->
-                val p = covers[o.idx]
-                val inList = p?.let { pc -> list.entries.filter { it.cardId == pc.cardId && it.board == b }.sumOf { it.qty } } ?: 0
-                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-                    Box(Modifier.weight(1f)) {
-                        CardRow(p, o.name, if (inList > 0) "$inList in ${list.boardTitle(b)}" else o.typeLine, onClick = { onCard(o.oracleId) })
+            if (removing) {
+                if (CardName.norm(query).isEmpty()) item {
+                    Notice("Search the cards in ${list.name}. Remove takes one copy out; Replace swaps it for another card in the same section.")
+                } else if (found.isEmpty()) item { ListRow("No card in ${list.name} matches") }
+                items(found, key = { "l-${it.key}" }) { x ->
+                    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Box(Modifier.weight(1f)) {
+                            CardRow(x.printing, x.name, listOfNotNull(list.boardTitle(x.board), x.finishLabel, if (x.qty > 1) "${x.qty} copies" else null).joinToString(" · "),
+                                onClick = { x.oracleId?.let(onCard) })
+                        }
+                        button("Remove") {
+                            scope.launch { runCatching { ListsStore.add(list.id, x.cardId, x.board, -1, x.finish) } }
+                            Telemetry.capture("list_card_removed", mapOf("kind" to list.kind.wire))
+                            note = "Removed 1 ${x.name} from ${list.boardTitle(x.board)}"
+                        }()
+                        button("Replace") { replacing = x; note = null; query = "" }()
                     }
-                    Box(Modifier.fillMaxHeight().background(T1.surfaceHover).clickable(enabled = p != null) {
-                        p?.let { scope.launch { runCatching { ListsStore.add(list.id, it.cardId, b, 1) } } }
-                    }.padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
-                        Label("+ Add", color = if (p == null) T1.disabled else T1.text)
+                }
+            } else {
+                items(hits, key = { it.idx }) { o ->
+                    val p = covers[o.idx]
+                    val inList = p?.let { pc -> list.entries.filter { it.cardId == pc.cardId && it.board == target }.sumOf { it.qty } } ?: 0
+                    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Box(Modifier.weight(1f)) {
+                            CardRow(p, o.name, if (inList > 0) "$inList in ${list.boardTitle(target)}" else o.typeLine, onClick = { onCard(o.oracleId) })
+                        }
+                        Box(Modifier.fillMaxHeight().background(T1.surfaceHover).clickable(enabled = p != null) {
+                            val pc = p ?: return@clickable
+                            val rr = replacing
+                            if (rr != null) {
+                                val toFinish = pc.finishList.firstOrNull()?.wire ?: "nonfoil"
+                                scope.launch { runCatching { ListsStore.swap(list.id, rr.cardId, rr.board, rr.finish, pc.cardId, toFinish, 1) } }
+                                Telemetry.capture("list_card_replaced", mapOf("kind" to list.kind.wire))
+                                note = "Replaced ${rr.name} with ${o.name}"
+                                replacing = null
+                                query = ""
+                            } else {
+                                scope.launch { runCatching { ListsStore.add(list.id, pc.cardId, b, 1) } }
+                            }
+                        }.padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+                            Label(if (replacing != null) "Put in" else "+ Add", color = if (p == null) T1.disabled else T1.text)
+                        }
                     }
                 }
             }

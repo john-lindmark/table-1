@@ -222,6 +222,8 @@ export interface SuggestedPlayer {
   handle: string | null;
   shared_events: number;
   invited: boolean;
+  /** A friend (contract/friends-sharing-2026-10-18.md): listed first. */
+  friend?: boolean;
 }
 
 /* ── Formats, teams, seating ──────────────────────────────────────────── */

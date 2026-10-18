@@ -106,6 +106,8 @@ Allocations and wants page together by seq. Key allocations `binder_id|card_id|f
 - **Wants screen:** two sections. Wanted (qty, which printing, max price; tap to change qty, printing, max price or
   remove) and Missing from decks and cubes (copies short, which lists; Add to wants). Add a want: search, then any
   printing by default.
+- **2026-10-18:** search in a binder, across binders and in Wants, a printing picker for wants, and binder Add cards:
+  `contract/library-search-2026-10-18.md`.
 - **Card detail:** each owned item says where its copies are ("Trade binder 2 · Unsorted 1"); **Move** (in the opened
   item) picks a source when there are several, how many, then the destination (a binder, Unsorted or a new binder).
   **Add to wants** sits next to "Add to a deck or cube".

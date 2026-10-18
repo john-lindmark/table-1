@@ -46,7 +46,9 @@ properties. Every client sends the same names, so one PostHog insight covers all
 `sign_in`, `events_home`, `event`, `create_event`, `nearby`, `scan_qr`, `add_players`, `life_tracker`,
 `library_home`, `all_cards`, `card_detail`, `add_cards`, `card_scanner`, `decks`, `cubes`, `deck`, `cube`,
 `list_versions`, `list_add`, `list_printing`, `deck_finder`, `list_import`, `trades`, `trade`, `account`,
-`roto_grid`, `roto_cube`, `roto_picks`, `roto_list` (2026-10-16), `collection_import`, `collection_import_fix` (2026-10-17), `deck_stats`, `cube_stats`, `sample_hand`, `draw_odds`, `sample_pack` (2026-10-17), `binders`, `binder`, `wants`, `want_add` (2026-10-17, binders and wants).
+`roto_grid`, `roto_cube`, `roto_picks`, `roto_list` (2026-10-16), `collection_import`, `collection_import_fix` (2026-10-17), `deck_stats`, `cube_stats`, `sample_hand`, `draw_odds`, `sample_pack` (2026-10-17), `binders`, `binder`, `wants`, `want_add` (2026-10-17, binders and wants), `friends`, `friend_add`, `profile`,
+`profile_cards`, `sharing`, `trade_matches`, `trade_match` (2026-10-18, friends and sharing), `want_printing`, `binder_add`
+(2026-10-18, `library-search-2026-10-18.md`).
 
 ## Events
 
@@ -76,7 +78,7 @@ properties. Every client sends the same names, so one PostHog insight covers all
 | `event_created` | `format`, `kind`: constructed / limited / cube, `rounds`, `round_timer`: bool, `team_size`: int or 0, `organizer_plays`: bool, `guests`: int, `pairing`: swiss / round_robin |
 | `event_cube_picked` | `source`: library / recent, `cards`: int (library only). Create event or Setup → Details (2026-10-18) |
 | `event_location_set` | `visibility` |
-| `players_invited` | `count`, `via`: account / email |
+| `players_invited` | `count`, `via`: account / email, `friends`: int (how many were friends; 2026-10-18) |
 | `guest_added` | — |
 | `player_removed` | — |
 | `teams_set` | `teams`: int, `random`: bool |
@@ -127,9 +129,22 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `binder_updated` | `renamed`: bool, `for_trade`: bool |
 | `binder_deleted` | `copies`: int |
 | `binder_copies_moved` | `copies`: int, `from`: binder / unsorted, `to`: binder / unsorted |
-| `want_added` | `any_printing`: bool, `has_max`: bool, `from`: search / card / missing |
-| `want_changed` | — |
+| `want_added` | `any_printing`: bool, `finish`: bool (one finish picked; 2026-10-18), `has_max`: bool, `from`: search / card / missing |
+| `want_changed` | `printing`: true, `any_printing`: bool, `finish`: bool when the want was pointed at another printing (2026-10-18); otherwise — |
 | `want_removed` | — |
+| `library_searched` | `screen`: cube / deck / wants / binder / binders. Once per visit, when that screen's search is first used; never the text (2026-10-18, `library-search-2026-10-18.md`) |
+| `list_card_removed` | `kind`: deck / cube. Remove in Add, remove or replace |
+| `list_card_replaced` | `kind`. Replace swaps one copy for another card in one edit |
+| `friend_request_sent` | `via`: search / played_with / email / profile (2026-10-18, `friends-sharing-2026-10-18.md`) |
+| `friend_request_responded` | `accepted`: bool |
+| `friend_request_cancelled` | — |
+| `friend_removed` | — |
+| `user_blocked` | `blocked`: bool |
+| `sharing_changed` | `part`: profile / library / all_cards / for_trade / wants / binders / decks / cubes / record / binder / deck / cube, `visibility`: private / friends / public / inherit |
+| `profile_viewed` | `relation`: self / friend / requested / incoming / blocked / none, `sections`: int |
+| `profile_section_opened` | `section`: all_cards / for_trade / wants / binder / deck / cube |
+| `trade_matches_viewed` | `people`: int, `have`: int, `want`: int (copies) |
+| `trade_started_from_match` | `gives`: int, `gets`: int (copies) |
 
 ### Push, Live Activities, widgets (iOS; Android/web where they have the surface)
 | event | properties |

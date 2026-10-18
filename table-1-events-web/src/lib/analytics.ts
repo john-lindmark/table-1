@@ -10,12 +10,14 @@
  *   /j/ABCD?s=…           →  /j/:id        (the QR secret is dropped from the query too)
  *   /e/8f3c…/add          →  /e/:id/add
  *   /life/8f3c…           →  /life/:id
- *   /library/list/8f3c…   →  /library/list/:id   (also card/…, trade/…; /library/trade/new stays)
+ *   /library/list/8f3c…   →  /library/list/:id   (also card/…, trade/…, match/…; /library/trade/new stays)
+ *   /u/8f3c…/deck/2b1d…   →  /u/:id/deck/:id     (profiles and their binders, decks and cubes)
  */
 export function redactPath(pathname: string): string {
   return pathname
-    .replace(/^\/(join|j|e|p|s|life)\/[^/]+/, "/$1/:id")
-    .replace(/^\/library\/(card|list|trade)\/(?!new(?:\/|$))[^/]+/, "/library/$1/:id");
+    .replace(/^\/(join|j|e|p|s|life|u)\/[^/]+/, "/$1/:id")
+    .replace(/^(\/u\/:id\/(?:binder|deck|cube))\/[^/]+/, "$1/:id")
+    .replace(/^\/library\/(card|list|trade|match)\/(?!new(?:\/|$))[^/]+/, "/library/$1/:id");
 }
 
 /** Query parameters that are credentials: the QR join secret and OAuth return values. */
@@ -94,12 +96,19 @@ export function screenName(pathname: string, listKind?: (id: string) => "deck" |
     "/library/trades": "trades",
     "/library/binders": "binders",
     "/library/wants": "wants",
+    "/library/matches": "trade_matches",
+    "/friends": "friends",
+    "/friends/add": "friend_add",
+    "/sharing": "sharing",
   };
   if (fixed[p]) return fixed[p];
   if (/^\/library\/card\/[^/]+$/.test(p)) return "card_detail";
   if (/^\/library\/import\/[^/]+$/.test(p)) return "list_import";
   if (/^\/library\/trade\/[^/]+$/.test(p)) return "trade";
   if (/^\/library\/binder\/[^/]+$/.test(p)) return "binder";
+  if (/^\/library\/match\/[^/]+$/.test(p)) return "trade_match";
+  if (/^\/u\/[^/]+$/.test(p)) return "profile";
+  if (/^\/u\/[^/]+\/[^/]+(\/[^/]+)?$/.test(p)) return "profile_cards";
   const list = p.match(/^\/library\/list\/([^/]+)(\/.*)?$/);
   if (list) {
     const rest = list[2] ?? "";
