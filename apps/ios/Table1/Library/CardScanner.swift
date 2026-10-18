@@ -201,6 +201,8 @@ struct CardScanView: View {
     let doneLabel: String
     /// Owned-only matching (cards you give in a trade): printing id → finishes owned.
     var owned: [String: Set<String>]?
+    /// Owned-only: printing id → finishes in for-trade binders, preferred when the text doesn't settle the printing.
+    var preferred: [String: Set<String>] = [:]
     let onDone: ([ScannedCard]) -> Void
     let onCancel: () -> Void
 
@@ -289,8 +291,8 @@ struct CardScanView: View {
     /// The matcher's name index takes a moment to build the first time, so it's built off the main thread.
     private func makeMatcher() {
         guard let db = catalog.db, matcher?.db !== db else { return }
-        let owned = owned
-        Task { matcher = await Task.detached(priority: .userInitiated) { CardMatcher(db: db, owned: owned) }.value }
+        let owned = owned, preferred = preferred
+        Task { matcher = await Task.detached(priority: .userInitiated) { CardMatcher(db: db, owned: owned, preferred: preferred) }.value }
     }
 
     private var count: Int { cards.count }

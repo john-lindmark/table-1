@@ -38,6 +38,11 @@ import site.table1.events.library.CatalogStore
 import site.table1.events.library.CollectionStore
 import site.table1.events.library.DeckFinderScreen
 import site.table1.events.library.LibraryHomeScreen
+import site.table1.events.library.BindersStore
+import site.table1.events.library.BindersScreen
+import site.table1.events.library.BinderScreen
+import site.table1.events.library.WantsScreen
+import site.table1.events.library.UNSORTED
 import site.table1.events.library.CollectionImportScreen
 import site.table1.events.library.TradeScreen
 import site.table1.events.library.TradesScreen
@@ -135,10 +140,11 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
         if (userId != null) {
             CollectionStore.start(userId)
             ListsStore.start(userId)
+            BindersStore.start(userId)
         }
         CatalogStore.load(userInitiated = false)
     }
-    DisposableEffect(Unit) { onDispose { CollectionStore.stop(); ListsStore.stop(); TradesStore.stop() } }
+    DisposableEffect(Unit) { onDispose { CollectionStore.stop(); ListsStore.stop(); TradesStore.stop(); BindersStore.stop() } }
     LaunchedEffect(foregrounds) { CatalogStore.load(userInitiated = route?.startsWith("collection") == true) }
 
     val topLevel = route == "events" || route == "account" || route == "collection"
@@ -179,7 +185,18 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
                         onDecks = { nav.navigate("collection/decks") },
                         onCubes = { nav.navigate("collection/cubes") },
                         onTrades = { nav.navigate("collection/trades") },
+                        onBinders = { nav.navigate("collection/binders") },
+                        onWants = { nav.navigate("collection/wants") },
                     )
+                }
+                composable("collection/binders") {
+                    BindersScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/binder/$it") })
+                }
+                composable("collection/binder/{id}") { e ->
+                    BinderScreen(e.arguments?.getString("id") ?: UNSORTED, onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it") })
+                }
+                composable("collection/wants") {
+                    WantsScreen(onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it") })
                 }
                 composable("collection/decks") {
                     ListsScreen(ListKind.Deck, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/list/$it") },

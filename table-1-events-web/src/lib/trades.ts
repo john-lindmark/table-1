@@ -4,6 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { supabase } from "./supabaseClient";
 import { applyOps, demoBackend, sync, type Condition, type Finish } from "./collection";
 import { isLibraryDemo } from "./libraryDemo";
+import { binderById, liveWants, reflectBinders, type AllocRow, type WantRow } from "./binders";
 import { capture } from "./telemetry";
 
 export interface TradeLine {
@@ -12,6 +13,8 @@ export interface TradeLine {
   condition: Condition;
   lang: string;
   qty: number;
+  /** A give: the binder the copies come from. A get: the binder they go into. Absent = Unsorted. */
+  binder_id?: string | null;
 }
 
 export interface Trade {
@@ -76,22 +79,32 @@ export async function saveTrade(t: Trade | null, partner: string | null, gives: 
   return data as Trade;
 }
 
-/** Applies the trade to the collection; returns the collection batch id (for Undo). */
-export async function confirmTrade(t: Trade): Promise<string | null> {
-  if (demoBackend()) {
+const wanted = () => liveWants().reduce((n, w) => n + w.qty, 0);
+
+/**
+ * Applies the trade to the collection and takes the gets off your wants. Returns the collection batch id (for Undo)
+ * and how many wanted copies it met. `oracleOf` (the catalog) is only needed by the dev demo.
+ */
+export async function confirmTrade(t: Trade, oracleOf?: (cardId: string) => string | null): Promise<{ batchId: string | null; wantsMet: number }> {
+  const before = wanted();
+  const demo = demoBackend();
+  if (demo) {
+    const live = (b?: string | null) => (b && binderById(b) ? b : null);
     const res = await applyOps([
-      ...t.gives.map((l) => ({ ...l, delta: -l.qty, qty: undefined })),
-      ...t.gets.map((l) => ({ ...l, delta: l.qty, qty: undefined })),
+      ...t.gives.map((l) => ({ ...l, delta: -l.qty, qty: undefined, binder_id: live(l.binder_id) })),
+      ...t.gets.map((l) => ({ ...l, delta: l.qty, qty: undefined, binder_id: live(l.binder_id) })),
     ], "trade");
+    reflectBinders({ wants: demo.meetTradeWants(t.gets, res.batch_id, oracleOf ?? (() => null)) });
     put({ ...t, status: "confirmed", batch_id: res.batch_id, confirmed_at: new Date().toISOString() });
-    return res.batch_id;
+    return { batchId: res.batch_id, wantsMet: Math.max(0, before - wanted()) };
   }
   const { data, error } = await supabase.rpc("trade_confirm", { p_trade_id: t.id, p_idempotency_key: crypto.randomUUID() });
   if (error) throw error;
-  const res = data as { batch_id?: string; trade: Trade };
+  const res = data as { batch_id?: string; trade: Trade; binder_items?: AllocRow[]; wants?: WantRow[] };
   put(res.trade);
+  reflectBinders(res);
   await sync();
-  return res.batch_id ?? null;
+  return { batchId: res.batch_id ?? null, wantsMet: Math.max(0, before - wanted()) };
 }
 
 export async function deleteTrade(t: Trade) {

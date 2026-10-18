@@ -131,7 +131,7 @@ describe("exportCsv", () => {
 
   it("writes the apps' headers", () => {
     expect(exportCsv(cards, "moxfield").startsWith('"Count","Tradelist Count","Name","Edition"')).toBe(true);
-    expect(exportCsv(cards, "manabox").startsWith("Name,Set code,Set name,Collector number,Foil,Rarity,Quantity")).toBe(true);
+    expect(exportCsv(cards, "manabox").startsWith("Binder Name,Binder Type,Name,Set code,Set name,Collector number,Foil,Rarity,Quantity")).toBe(true);
   });
 });
 

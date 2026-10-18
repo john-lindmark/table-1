@@ -160,7 +160,7 @@ final class CollectionCSVParseTests: XCTestCase {
             if layout == .manabox { XCTAssertEqual(Set(p.rows.compactMap(\.scryfallId)), Set(cards.map { $0.cardId.lowercased() })) }
         }
         XCTAssertTrue(CollectionCSV.export(cards, layout: .moxfield).hasPrefix("\"Count\",\"Tradelist Count\",\"Name\",\"Edition\""))
-        XCTAssertTrue(CollectionCSV.export(cards, layout: .manabox).hasPrefix("Name,Set code,Set name,Collector number,Foil,Rarity,Quantity"))
+        XCTAssertTrue(CollectionCSV.export(cards, layout: .manabox).hasPrefix("Binder Name,Binder Type,Name,Set code,Set name,Collector number,Foil,Rarity,Quantity"))
     }
 }
 

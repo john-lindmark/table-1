@@ -46,7 +46,7 @@ properties. Every client sends the same names, so one PostHog insight covers all
 `sign_in`, `events_home`, `event`, `create_event`, `nearby`, `scan_qr`, `add_players`, `life_tracker`,
 `library_home`, `all_cards`, `card_detail`, `add_cards`, `card_scanner`, `decks`, `cubes`, `deck`, `cube`,
 `list_versions`, `list_add`, `list_printing`, `deck_finder`, `list_import`, `trades`, `trade`, `account`,
-`roto_grid`, `roto_cube`, `roto_picks`, `roto_list` (2026-10-16), `collection_import`, `collection_import_fix` (2026-10-17), `deck_stats`, `cube_stats`, `sample_hand`, `draw_odds`, `sample_pack` (2026-10-17).
+`roto_grid`, `roto_cube`, `roto_picks`, `roto_list` (2026-10-16), `collection_import`, `collection_import_fix` (2026-10-17), `deck_stats`, `cube_stats`, `sample_hand`, `draw_odds`, `sample_pack` (2026-10-17), `binders`, `binder`, `wants`, `want_add` (2026-10-17, binders and wants).
 
 ## Events
 
@@ -111,17 +111,24 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `deck_finder_used` | `found`: bool |
 | `list_imported` | `kind`, `from`: link / paste, `cards`: int |
 | `scan_session_ended` | `context`: add / trade, `cards`: int, `exact`: int (read from set + collector number), `cancelled`: bool |
-| `trade_confirmed` | `gives`: int, `gets`: int, `list_conflict`: none / removed / kept |
+| `trade_confirmed` | `gives`: int, `gets`: int, `list_conflict`: none / removed / kept, `wants_met`: int (copies), `from_trade_binder`: int (give copies from for-trade binders) |
 | `trade_deleted` | `status`: draft / confirmed |
 | `catalog_pack_installed` | `seconds`: int, `first`: bool |
 | `card_layout_changed` | `layout`: list / grid / stacks, `screen`: all_cards / deck / cube (2026-10-16) |
 | `collection_import_previewed` | `format`: manabox / moxfield / archidekt / deckbox / dragonshield / tcgplayer / delverlens / other, `lines`: int, `matched`: int, `unmatched`: int (2026-10-17, `collection-import-2026-10-17.md`) |
-| `collection_imported` | `format`, `mode`: add / replace, `cards`: int, `items`: int, `parts`: int (batches), `fixed`: int, `skipped`: int |
+| `collection_imported` | `format`, `mode`: add / replace, `cards`: int, `items`: int, `parts`: int (batches), `fixed`: int, `skipped`: int, `binders`: int, `binder_copies`: int, `wants`: int |
 | `collection_exported` | `layout`: moxfield / manabox, `cards`: int |
 | `sample_hand_used` | `hands`: int, `mulligans`: int, `draws`: int. Once when leaving the sample hand (2026-10-17, lists contract "Stats") |
 | `draw_odds_used` | `group`: land / creature / instant / … / card, `turn`: int, `on_play`: bool, `at_least`: int. Once when leaving, if anything was changed |
 | `sample_pack_used` | `packs`: int, `size`: int. Once when leaving the sample pack |
 | `cube_asfan_changed` | `by`: color / type / mv, `pack`: int |
+| `binder_created` | `for_trade`: bool (2026-10-17, `binders-wants-2026-10-17.md`) |
+| `binder_updated` | `renamed`: bool, `for_trade`: bool |
+| `binder_deleted` | `copies`: int |
+| `binder_copies_moved` | `copies`: int, `from`: binder / unsorted, `to`: binder / unsorted |
+| `want_added` | `any_printing`: bool, `has_max`: bool, `from`: search / card / missing |
+| `want_changed` | — |
+| `want_removed` | — |
 
 ### Push, Live Activities, widgets (iOS; Android/web where they have the surface)
 | event | properties |

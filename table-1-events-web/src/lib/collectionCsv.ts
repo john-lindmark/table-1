@@ -28,7 +28,18 @@ export interface ImportRow {
   lang: string;
   /** Why the line can't be read at all (it's listed as unmatched). */
   problem: string | null;
+  /** The binder (ManaBox binder, Dragon Shield folder) its copies go into; null = Unsorted. */
+  binder?: string | null;
+  /** Copies on the tradelist (Deckbox / Moxfield Tradelist Count, Dragon Shield Trade Quantity): they go into the
+   *  for-trade "Trade binder". Never more than qty. */
+  tradeQty?: number;
+  /** A ManaBox list row: a wishlist line, not owned copies (contract/binders-wants-2026-10-17.md). */
+  wanted?: boolean;
 }
+
+/** The binder tradelist copies go into on import, and the one ManaBox exports wants under. */
+export const TRADE_BINDER = "Trade binder";
+export const WANTS_BINDER = "Wants";
 
 export interface ParsedImport {
   format: CsvFormat;
@@ -93,6 +104,9 @@ function columns(keys: string[], format: CsvFormat) {
     condition: col(["condition"]),
     lang: col(["language", "lang"]),
     id: col(["scryfallid", "scryfalluuid"]),
+    binderName: col(["bindername", "foldername", "binder"]),
+    binderType: col(["bindertype"]),
+    tradeQty: col(["tradelistcount", "tradequantity"]),
   };
 }
 
@@ -262,10 +276,19 @@ export function parseCsv(input: string): ParsedImport {
     }
     let cn = at(cols.cn);
     if (cn.includes("/")) cn = cn.slice(0, cn.indexOf("/"));
+    // Binders: ManaBox's binder name and type, Dragon Shield's folder; tradelists go to the trade binder.
+    let binder: string | null = at(cols.binderName) || null;
+    let wanted = false;
+    const type = at(cols.binderType).toLowerCase();
+    if (type === "list" || type === "wishlist") { wanted = true; binder = null; }
+    else if (type === "deck") binder = null;
+    const tq = at(cols.tradeQty);
+    const tradeQty = wanted || !tq ? 0 : Math.min(qty, parseQuantity(tq) ?? 0);
     rows.push({
       line: r.line, name, setCode: setCode || null, setName: setName || null, cn: cn || null,
       scryfallId: id ? id.toLowerCase() : null, qty, finish,
       condition: parseCondition(rawCondition, cardmarket), lang: parseLanguage(at(cols.lang)), problem,
+      binder: binder ? binder.slice(0, 60) : null, tradeQty, wanted,
     });
   }
   return { format, rows };
@@ -286,6 +309,11 @@ export interface ExportCard {
   condition: Condition;
   lang: string;
   qty: number;
+  /** The binder these copies are in (absent = Unsorted), and whether it's for trade. */
+  binder?: string | null;
+  forTrade?: boolean;
+  /** A want (ManaBox list row); Moxfield's layout leaves wants out. */
+  wanted?: boolean;
 }
 
 const MOXFIELD_CONDITION: Record<Condition, string> = {
@@ -301,25 +329,40 @@ const RARITY: Record<string, string> = { c: "common", u: "uncommon", r: "rare", 
 
 const cmp = (a: string | number, b: string | number) => (a < b ? -1 : a > b ? 1 : 0);
 
-/** Sorted by name, set and collector number; CRLF line ends. */
+/**
+ * Sorted by name, set and collector number; CRLF line ends. Rows are item × binder (Unsorted = no binder) plus wants:
+ * ManaBox writes one row each with its Binder Name and Binder Type; Moxfield one row per item, with the copies in
+ * for-trade binders as its Tradelist Count.
+ */
 export function exportCsv(cards: ExportCard[], layout: ExportLayout): string {
   const sorted = [...cards].sort((a, b) =>
     cmp(a.name, b.name) || cmp(a.set, b.set) || cmp(a.cn.length, b.cn.length) || cmp(a.cn, b.cn)
-    || cmp(`${a.finish}|${a.condition}|${a.lang}`, `${b.finish}|${b.condition}|${b.lang}`));
+    || cmp(`${a.finish}|${a.condition}|${a.lang}`, `${b.finish}|${b.condition}|${b.lang}`)
+    || cmp(`${a.wanted ? 1 : 0}|${a.binder ?? ""}`, `${b.wanted ? 1 : 0}|${b.binder ?? ""}`));
   const lines: string[] = [];
   if (layout === "moxfield") {
     const q = (s: string) => `"${s.replace(/"/g, '""')}"`;
     lines.push(["Count", "Tradelist Count", "Name", "Edition", "Condition", "Language", "Foil", "Tags", "Last Modified",
       "Collector Number", "Alter", "Proxy", "Purchase Price"].map(q).join(","));
+    // One row per item: binders merge, for-trade copies become the tradelist.
+    const merged: (ExportCard & { trade: number })[] = [];
     for (const c of sorted) {
-      lines.push([String(c.qty), "0", c.name, c.set, MOXFIELD_CONDITION[c.condition] ?? "Near Mint", LANGUAGE_NAME[c.lang] ?? "English",
+      if (c.wanted) continue;
+      const last = merged[merged.length - 1];
+      if (last && last.cardId === c.cardId && last.finish === c.finish && last.condition === c.condition && last.lang === c.lang) {
+        last.qty += c.qty;
+        last.trade += c.forTrade ? c.qty : 0;
+      } else merged.push({ ...c, trade: c.forTrade ? c.qty : 0 });
+    }
+    for (const c of merged) {
+      lines.push([String(c.qty), String(c.trade), c.name, c.set, MOXFIELD_CONDITION[c.condition] ?? "Near Mint", LANGUAGE_NAME[c.lang] ?? "English",
         c.finish === "nonfoil" ? "" : c.finish, "", "", c.cn, "False", "False", ""].map(q).join(","));
     }
   } else {
     const q = (s: string) => (/[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
-    lines.push("Name,Set code,Set name,Collector number,Foil,Rarity,Quantity,ManaBox ID,Scryfall ID,Purchase price,Misprint,Altered,Condition,Language,Purchase price currency");
+    lines.push("Binder Name,Binder Type,Name,Set code,Set name,Collector number,Foil,Rarity,Quantity,ManaBox ID,Scryfall ID,Purchase price,Misprint,Altered,Condition,Language,Purchase price currency");
     for (const c of sorted) {
-      lines.push([c.name, c.set.toUpperCase(), c.setName, c.cn, c.finish === "nonfoil" ? "normal" : c.finish, RARITY[c.rarity] ?? "common",
+      lines.push([c.wanted ? WANTS_BINDER : c.binder ?? "", c.wanted ? "list" : "binder", c.name, c.set.toUpperCase(), c.setName, c.cn, c.finish === "nonfoil" ? "normal" : c.finish, RARITY[c.rarity] ?? "common",
         String(c.qty), "", c.cardId, "", "false", "false", MANABOX_CONDITION[c.condition] ?? "near_mint", c.lang, "USD"].map(q).join(","));
     }
   }
@@ -351,10 +394,47 @@ export interface ImportItem {
 export const importItemKey = (it: { cardId: string; finish: string; condition: string; lang: string }) =>
   `${it.cardId}|${it.finish}|${it.condition}|${it.lang}`;
 
-/** Lines on the same item summed, in first-seen order. */
+/** Copies of one item the import puts in one binder (by name; matched to yours case-insensitively, or made). */
+export interface ImportPlacement extends ImportItem { binder: string }
+
+/** Copies the import puts in binders: item × binder name (the tradelist's copies in the trade binder), summed. */
+export function importPlacements(c: Catalog, lines: ResolvedLine[]): ImportPlacement[] {
+  const by = new Map<string, ImportPlacement>();
+  const put = (l: ResolvedLine, binder: string, qty: number) => {
+    if (qty <= 0) return;
+    const p: ImportPlacement = { cardId: c.pId[l.p], finish: l.finish, condition: l.row.condition, lang: l.row.lang, qty, binder };
+    const k = `${binder.toLowerCase()}|${importItemKey(p)}`;
+    const had = by.get(k);
+    if (had) had.qty += qty;
+    else by.set(k, p);
+  };
+  for (const l of lines) {
+    if (l.row.wanted) continue;
+    const trade = Math.min(l.row.tradeQty ?? 0, l.row.qty);
+    put(l, TRADE_BINDER, trade);
+    if (l.row.binder) put(l, l.row.binder, l.row.qty - trade);
+  }
+  return [...by.values()];
+}
+
+/** ManaBox list rows: wanted copies per printing and finish. */
+export function importWants(c: Catalog, lines: ResolvedLine[]): { cardId: string; finish: Finish; qty: number }[] {
+  const by = new Map<string, { cardId: string; finish: Finish; qty: number }>();
+  for (const l of lines) {
+    if (!l.row.wanted) continue;
+    const k = `${c.pId[l.p]}|${l.finish}`;
+    const had = by.get(k);
+    if (had) had.qty += l.row.qty;
+    else by.set(k, { cardId: c.pId[l.p], finish: l.finish, qty: l.row.qty });
+  }
+  return [...by.values()];
+}
+
+/** Lines on the same item summed, in first-seen order (wants aren't owned copies, so they're left out). */
 export function importItems(c: Catalog, lines: ResolvedLine[]): ImportItem[] {
   const by = new Map<string, ImportItem>();
   for (const l of lines) {
+    if (l.row.wanted) continue;
     const it: ImportItem = { cardId: c.pId[l.p], finish: l.finish, condition: l.row.condition, lang: l.row.lang, qty: l.row.qty };
     const k = importItemKey(it);
     const had = by.get(k);

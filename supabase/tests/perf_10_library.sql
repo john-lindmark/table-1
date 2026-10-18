@@ -63,3 +63,42 @@ reset role;
 
 select pg_temp.ms('catalog_pack_part oracles, 10k window', $$select length(public.catalog_pack_part(0, 0, 10000))$$, 200, 1);
 select pg_temp.ms('catalog_pack_part printings, 10k window', $$select length(public.catalog_pack_part(1, 0, 10000))$$, 500, 1);
+
+-- Binders (contract/binders-wants-2026-10-17.md): 4,000 of the 5,000 printings sorted into 20 binders, plus 500 wants.
+set role authenticated;
+select pg_temp.as_user(:BIG);
+do $$
+declare i int;
+begin
+  for i in 1..20 loop
+    perform public.binder_save(md5('binder' || i)::uuid, 'Binder ' || i, i <= 2);
+  end loop;
+  for i in 0..7 loop
+    perform public.binder_move(
+      (select jsonb_agg(jsonb_build_object('card_id', md5('c' || g || '-0'), 'from', null,
+                                           'to', md5('binder' || (1 + g % 20))::uuid, 'qty', 1))
+         from generate_series(i * 500 + 1, i * 500 + 500) g), gen_random_uuid());
+  end loop;
+  perform public.wants_apply((select jsonb_agg(jsonb_build_object('oracle_id', md5('o' || g)::uuid, 'qty', 1 + g % 3))
+                                from generate_series(30001, 30500) g), gen_random_uuid());
+end $$;
+reset role;
+select pg_temp.eq('seeded 4000 allocations', (select count(*)::text from public.binder_items where user_id = :BIG and qty > 0), '4000');
+set role authenticated;
+select pg_temp.as_user(:BIG);
+select pg_temp.ms('library_changes first page (4500 rows)', $$select public.library_changes(0, 5000)$$, 40);
+select pg_temp.ms('library_changes nothing new', $$select public.library_changes(1000000000, 5000)$$, 5);
+select pg_temp.ms('binder_move 500 moves',
+  $$select public.binder_move((select jsonb_agg(jsonb_build_object('card_id', md5('c' || g || '-0'),
+      'from', md5('binder' || (1 + g % 20))::uuid, 'to', md5('binder' || (1 + (g + 1) % 20))::uuid, 'qty', 1))
+      from generate_series(1, 500) g), gen_random_uuid())$$, 300, 1);
+select pg_temp.ms('collection_apply 500 removals that shrink binders',
+  $$select public.collection_apply((select jsonb_agg(jsonb_build_object('card_id', md5('c' || g || '-0'), 'delta', -1))
+      from generate_series(501, 1000) g), 'manual', null, gen_random_uuid())$$, 300, 1);
+reset role;
+select pg_temp.eq('allocations within copies after the perf writes',
+  (select count(*)::text from (select card_id, finish, condition, lang, sum(qty) a from public.binder_items
+                                where user_id = :BIG group by 1, 2, 3, 4) s
+     left join public.collection_items i on i.user_id = :BIG and i.card_id = s.card_id and i.finish = s.finish
+                                       and i.condition = s.condition and i.lang = s.lang
+    where s.a > coalesce(i.qty, 0)), '0');

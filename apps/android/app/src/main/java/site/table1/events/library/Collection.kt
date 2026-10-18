@@ -57,7 +57,11 @@ data class LibrarySummary(
 data class CollectionOp(
     val cardId: String, val finish: String = Finish.Nonfoil.wire, val condition: String = "NM", val lang: String = "en",
     val delta: Int? = null, val qty: Int? = null,
-)
+    /** With a delta: added copies go into this binder; removed copies come out of it first. */
+    val binderId: String? = null,
+) {
+    val key get() = itemKey(cardId, finish, condition, lang)
+}
 
 @Serializable
 data class ApplyResult(
@@ -65,6 +69,9 @@ data class ApplyResult(
     val duplicate: Boolean = false,
     val items: List<Row> = emptyList(),
     val summary: LibrarySummary,
+    /** Allocations the batch changed, and wants a trade met or an undo put back (contract/binders-wants-2026-10-17.md). */
+    @SerialName("binder_items") val binderItems: List<JsonArray> = emptyList(),
+    val wants: List<JsonArray> = emptyList(),
 ) {
     @Serializable
     data class Row(
@@ -221,7 +228,10 @@ object CollectionStore {
         if (syncAgain) {
             syncAgain = false
             sync()
+            return
         }
+        // Binders, allocations and wants follow the items (their own cursor, library_changes).
+        BindersStore.sync()
     }
 
     private suspend fun runSync() {
@@ -275,6 +285,7 @@ object CollectionStore {
                     put("card_id", op.cardId); put("finish", op.finish); put("condition", op.condition); put("lang", op.lang)
                     op.delta?.let { put("delta", it) }
                     op.qty?.let { put("qty", it) }
+                    op.binderId?.let { put("binder_id", it) }
                 })
             })
             put("p_source", source)
@@ -321,6 +332,7 @@ object CollectionStore {
             }
             s.copy(items = items, summary = res.summary)
         }
+        BindersStore.reflect(res.binderItems, res.wants)
     }
 }
 

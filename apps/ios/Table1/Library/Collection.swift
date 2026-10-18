@@ -43,6 +43,8 @@ struct CollectionOp {
     var lang = "en"
     var delta: Int?
     var qty: Int?
+    /// With a delta: added copies go into this binder; removed copies come out of it first.
+    var binderId: String?
 
     var json: AnyJSON {
         var o: [String: AnyJSON] = [
@@ -50,8 +52,10 @@ struct CollectionOp {
         ]
         if let delta { o["delta"] = .integer(delta) }
         if let qty { o["qty"] = .integer(qty) }
+        if let binderId { o["binder_id"] = .string(binderId) }
         return .object(o)
     }
+    var itemKey: String { CollectionStore.key(cardId, finish, condition, lang) }
 }
 
 struct ApplyResult: Decodable {
@@ -67,6 +71,31 @@ struct ApplyResult: Decodable {
     let duplicate: Bool
     let items: [Row]
     let summary: LibrarySummary
+    /// Allocations the batch changed (contract/binders-wants-2026-10-17.md).
+    var binderItems: [BinderAlloc] = []
+    /// Wants a trade met, or an undo put back.
+    var wants: [Want] = []
+
+    private enum CodingKeys: String, CodingKey { case batchId, duplicate, items, summary, binderItems, wants }
+
+    init(batchId: String, duplicate: Bool, items: [Row], summary: LibrarySummary, binderItems: [BinderAlloc] = [], wants: [Want] = []) {
+        self.batchId = batchId
+        self.duplicate = duplicate
+        self.items = items
+        self.summary = summary
+        self.binderItems = binderItems
+        self.wants = wants
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        batchId = try c.decode(String.self, forKey: .batchId)
+        duplicate = try c.decode(Bool.self, forKey: .duplicate)
+        items = try c.decodeIfPresent([Row].self, forKey: .items) ?? []
+        summary = try c.decode(LibrarySummary.self, forKey: .summary)
+        binderItems = try c.decodeIfPresent([AllocRow].self, forKey: .binderItems)?.map(\.alloc) ?? []
+        wants = try c.decodeIfPresent([WantRow].self, forKey: .wants)?.map(\.want) ?? []
+    }
 }
 
 struct HistoryEntry: Decodable, Hashable {
@@ -245,7 +274,10 @@ final class CollectionStore {
         if syncAgain {
             syncAgain = false
             await sync()
+            return
         }
+        // Binders, allocations and wants follow the items (their own cursor, library_changes).
+        await BindersStore.shared.sync()
     }
 
     private func runSync() async {
@@ -351,13 +383,15 @@ final class CollectionStore {
     }
 
     /// Writes a batch result into memory (not the file or the cursor: the following sync owns those).
-    private func reflect(_ res: ApplyResult) {
+    func reflect(_ res: ApplyResult) {
         if res.duplicate { return }
         for r in res.items {
             let it = CollectionItem(cardId: r.cardId, finish: r.finish, condition: r.condition, lang: r.lang, qty: r.qty, seq: r.seq)
             items[it.key] = it.qty > 0 ? it : nil
         }
         summary = res.summary
+        BindersStore.shared.reflect(allocs: res.binderItems)
+        BindersStore.shared.reflect(wants: res.wants)
         version += 1
     }
 }

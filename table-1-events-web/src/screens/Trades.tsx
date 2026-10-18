@@ -9,6 +9,7 @@ import { usdPrice, usdText, usePrices } from "../lib/prices";
 import { confirmTrade, deleteTrade, lineKey, saveTrade, useTrades, type Trade, type TradeLine } from "../lib/trades";
 import { DEMO_USER } from "../lib/collection";
 import { capture } from "../lib/telemetry";
+import { binderById, forTrade, liveWants, missingLines, useBinders, wantFor } from "../lib/binders";
 import { CONDITIONS, CardArt, CardRow, LibScreen, useCatalog, useLibrarySession } from "./Library";
 
 /* Trades (contract/trades-2026-10-16.md): what you give (copies you own) and what you get (any printing). Drafts
@@ -52,6 +53,7 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
   const lists = useLists(userId, userId === DEMO_USER ? loadDemoLists : undefined);
   const { catalog, error: catError } = useCatalog();
   const { trades, loaded } = useTrades();
+  const binders = useBinders(userId);
   const [trade, setTrade] = useState<Trade | null>(null);
   const [partner, setPartner] = useState("");
   const [gives, setGives] = useState<TradeLine[]>([]);
@@ -79,6 +81,24 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
   }, [loaded, id, trades, started]);
 
   const ids = useMemo(() => [...new Set([...gives, ...gets].map((l) => l.card_id))], [gives, gets]);
+  /** What a get is to you: a want (and whether it's over your max price), or missing from a deck or cube. */
+  const missing = useMemo(() => {
+    const owned = new Map<string, number>();
+    for (const it of col.items.values()) owned.set(`${it.cardId}|${it.finish}`, (owned.get(`${it.cardId}|${it.finish}`) ?? 0) + it.qty);
+    return new Map(missingLines(lists.lists, owned).map((m) => [`${m.cardId}|${m.finish}`, m]));
+  }, [lists.lists, col.version]);
+  const wantNote = (l: TradeLine): { text: string; over: boolean } | null => {
+    const p = catalog?.printingIndex.get(l.card_id);
+    if (!catalog || p == null) return null;
+    const w = wantFor(catalog.oId[catalog.pOracle[p]], l.card_id, l.finish, liveWants());
+    if (w) {
+      const price = usdPrice(l.card_id, l.finish);
+      return w.maxUsd != null && price != null && price > w.maxUsd ? { text: `Want · over your max $${w.maxUsd}`, over: true } : { text: "Want", over: false };
+    }
+    const m = missing.get(`${l.card_id}|${l.finish}`);
+    return m ? { text: `Missing · ${m.lists.slice(0, 2).join(", ")}`, over: false } : null;
+  };
+  void binders.version;
   usePrices(ids);
 
   // Drafts save half a second after the last change.
@@ -158,11 +178,16 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
     try {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
       const saved = await saveTrade(trade, partner.trim() || null, gives, gets);
-      await confirmTrade(saved);
+      const fromTrade = gives.filter((l) => binderById(l.binder_id)?.for_trade).reduce((n, l) => n + l.qty, 0);
+      const res = await confirmTrade(saved, (cardId) => {
+        const p = catalog?.printingIndex.get(cardId);
+        return catalog && p != null ? catalog.oId[catalog.pOracle[p]] : null;
+      });
       capture("trade_confirmed", {
         gives: gives.reduce((n, l) => n + l.qty, 0),
         gets: gets.reduce((n, l) => n + l.qty, 0),
         list_conflict: remove.length ? "removed" : conflicts ? "kept" : "none",
+        wants_met: res.wantsMet, from_trade_binder: fromTrade,
       });
       setTrade({ ...saved, status: "confirmed" });
       // Take the missing copies out of each list, sideboard first.
@@ -211,15 +236,20 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
     const state = [l.condition, usdText(usdPrice(l.card_id, l.finish))].filter(Boolean).join(" · ");
     const k = lineKey(l);
     const open = editing?.side === side && editing.k === k;
+    const note = side === "get" ? wantNote(l) : null;
+    const from = side === "give" ? binderById(l.binder_id)?.name : undefined;
     return (
       <div key={k} className="flex flex-col gap-px">
         <button type="button" onClick={confirmed ? undefined : () => setEditing(open ? null : { side, k })}
-                className="bg-t1-surface hover:bg-t1-surface-hover px-2 py-1.5 flex items-center gap-2 text-left w-full">
+                className={`bg-t1-surface hover:bg-t1-surface-hover px-2 py-1.5 flex items-center gap-2 text-left w-full border-l-2 ${
+                  note ? (note.over ? "border-t1-error" : "border-t1-accent") : "border-transparent"}`}>
           <CardArt c={catalog} p={p} width={28} />
           <span className="flex-1 min-w-0 flex flex-col gap-0.5">
             <span className="text-[12px] truncate">{name}</span>
             <span className="t1-label truncate">{printing}</span>
             <span className="t1-label truncate">{state}</span>
+            {note && <span className={`t1-label truncate ${note.over ? "!text-t1-error" : "!text-t1-accent"}`}>{note.text}</span>}
+            {from && <span className="t1-label truncate">{from}</span>}
           </span>
           <span className="shrink-0 text-[15px] tabular-nums">{l.qty}</span>
         </button>
@@ -331,7 +361,9 @@ function PickPanel({ catalog, give, items, onPick, onClose }: {
       if (n && !catalog.oNorm[o].includes(n)) continue;
       out.push({ it, p, name: catalog.oName[o] });
     }
-    return out.sort((a, b) => a.name.localeCompare(b.name) || a.it.k.localeCompare(b.it.k)).slice(0, 100);
+    // Copies in for-trade binders first (contract/binders-wants-2026-10-17.md), then by name.
+    const trade = (it: Item) => (forTrade(it.k).qty > 0 ? 0 : 1);
+    return out.sort((a, b) => trade(a.it) - trade(b.it) || a.name.localeCompare(b.name) || a.it.k.localeCompare(b.it.k)).slice(0, 100);
   }, [catalog, items, q, give]);
   const take = (l: TradeLine, name: string) => {
     onPick(l);
@@ -342,13 +374,17 @@ function PickPanel({ catalog, give, items, onPick, onClose }: {
       <Field label={give ? "Search your collection" : "Card name"} value={q} onChange={setQ} placeholder="Lightning Bolt" autoFocus />
       {added && <p className="t1-label">{added}</p>}
       <div className="max-h-[50vh] overflow-y-auto flex flex-col gap-px">
-        {give ? owned.map(({ it, p, name }) => (
-          <div key={it.k} style={{ height: 60 }}>
-            <CardRow c={catalog} p={p} title={name} value={it.qty}
-                     detail={`${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]} · ${FINISH_LABEL[it.finish]} · ${it.condition}`}
-                     onClick={() => take({ card_id: it.cardId, finish: it.finish, condition: it.condition, lang: it.lang, qty: 1 }, name)} />
-          </div>
-        )) : hits.map((o) => {
+        {give ? owned.map(({ it, p, name }) => {
+          const t = forTrade(it.k);
+          const where = t.binderId ? `${t.qty} in ${binderById(t.binderId)?.name}` : null;
+          return (
+            <div key={it.k} style={{ height: 60 }}>
+              <CardRow c={catalog} p={p} title={name} value={it.qty}
+                       detail={[`${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}`, FINISH_LABEL[it.finish], it.condition, where].filter(Boolean).join(" · ")}
+                       onClick={() => take({ card_id: it.cardId, finish: it.finish, condition: it.condition, lang: it.lang, qty: 1, binder_id: t.binderId }, name)} />
+            </div>
+          );
+        }) : hits.map((o) => {
           const p: number | null = coverPrinting(catalog, o);
           return (
             <div key={o} style={{ height: 60 }}>

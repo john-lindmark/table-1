@@ -50,6 +50,10 @@ select pg_temp.throws('anon cannot create events', $$select public.create_event_
 select pg_temp.throws('anon cannot write the collection', $$select public.collection_apply('[]'::jsonb, 'manual', null, gen_random_uuid())$$);
 select pg_temp.throws('anon cannot save trades', $$select public.trade_save(null, 'x', null, '[]'::jsonb, '[]'::jsonb)$$);
 select pg_temp.throws('anon cannot seed demo data', $$select public.demo_seed()$$);
+select pg_temp.throws('anon cannot make binders', $$select public.binder_save(gen_random_uuid(), 'x', false)$$);
+select pg_temp.throws('anon cannot move copies', $$select public.binder_move('[]'::jsonb, gen_random_uuid())$$);
+select pg_temp.throws('anon cannot change wants', $$select public.wants_apply('[]'::jsonb, gen_random_uuid())$$);
+select pg_temp.throws('anon cannot sync binders', $$select public.library_changes(0, 10)$$);
 select pg_temp.eq('anon reads no tokens', (select count(*)::text from public.participant_tokens), '0');
 reset role;
 

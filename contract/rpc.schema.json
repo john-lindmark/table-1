@@ -2283,7 +2283,7 @@
       }
     },
     "collection_apply": {
-      "note": "The one collection write (contract/collection-2026-10-15.md). Ops set qty or add delta; whole batch rejected on any error. Same p_idempotency_key replays return duplicate:true. authenticated.",
+      "note": "The one collection write (contract/collection-2026-10-15.md). Ops set qty or add delta; whole batch rejected on any error. Same p_idempotency_key replays return duplicate:true. binder_id (with delta only): added copies go into that binder, removed copies come out of it first; allocations an item can no longer cover shrink Unsorted first, then binders not for trade, then for-trade binders (contract/binders-wants-2026-10-17.md). authenticated.",
       "params": {
         "type": "object",
         "properties": {
@@ -2323,6 +2323,10 @@
                 "qty": {
                   "type": "integer",
                   "minimum": 0
+                },
+                "binder_id": {
+                  "type": "string",
+                  "format": "uuid"
                 }
               },
               "required": [
@@ -2430,12 +2434,44 @@
                 "format": "date-time"
               }
             }
+          },
+          "binder_items": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "description": "[binder_id, card_id, finish, condition, lang, qty, seq]; qty 0 = gone",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
           }
         }
       }
     },
     "collection_undo": {
-      "note": "Reverses one earlier batch, once. authenticated.",
+      "note": "Reverses one earlier batch, once: items, the binder allocations it changed, and wants a trade met. Binder deletions and wishlist batches can't be undone. authenticated.",
       "params": {
         "type": "object",
         "properties": {
@@ -2523,6 +2559,76 @@
                 ],
                 "format": "date-time"
               }
+            }
+          },
+          "binder_items": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "description": "[binder_id, card_id, finish, condition, lang, qty, seq]; qty 0 = gone",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          "wants": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "description": "[oracle_id, card_id|null, finish|null, qty, max_usd|null, seq]; qty 0 = gone",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                {
+                  "type": "integer"
+                }
+              ]
             }
           }
         }
@@ -5698,6 +5804,1065 @@
           "participant_id",
           "status"
         ]
+      }
+    },
+    "trade_save": {
+      "note": "Creates (p_trade_id null) or replaces a draft (contract/trades-2026-10-16.md). A line's binder_id: where a give comes from / a get goes. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_trade_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "p_partner": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_gives": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "card_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "finish": {
+                  "type": "string",
+                  "enum": [
+                    "nonfoil",
+                    "foil",
+                    "etched"
+                  ]
+                },
+                "condition": {
+                  "type": "string"
+                },
+                "lang": {
+                  "type": "string"
+                },
+                "qty": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "binder_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "card_id",
+                "qty"
+              ]
+            },
+            "maxItems": 500
+          },
+          "p_gets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "card_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "finish": {
+                  "type": "string",
+                  "enum": [
+                    "nonfoil",
+                    "foil",
+                    "etched"
+                  ]
+                },
+                "condition": {
+                  "type": "string"
+                },
+                "lang": {
+                  "type": "string"
+                },
+                "qty": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "binder_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "card_id",
+                "qty"
+              ]
+            },
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "p_trade_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "partner": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "confirmed"
+            ]
+          },
+          "gives": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "card_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "finish": {
+                  "type": "string",
+                  "enum": [
+                    "nonfoil",
+                    "foil",
+                    "etched"
+                  ]
+                },
+                "condition": {
+                  "type": "string"
+                },
+                "lang": {
+                  "type": "string"
+                },
+                "qty": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "binder_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "card_id",
+                "qty"
+              ]
+            }
+          },
+          "gets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "card_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "finish": {
+                  "type": "string",
+                  "enum": [
+                    "nonfoil",
+                    "foil",
+                    "etched"
+                  ]
+                },
+                "condition": {
+                  "type": "string"
+                },
+                "lang": {
+                  "type": "string"
+                },
+                "qty": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "binder_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "card_id",
+                "qty"
+              ]
+            }
+          },
+          "batch_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "confirmed_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "trade_confirm": {
+      "note": "Applies a draft as one collection batch (source trade), then reduces the wants its gets meet (exact printing+finish, then printing, then any printing). Same key replays as duplicate. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_trade_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_idempotency_key": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_trade_id",
+          "p_idempotency_key"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "duplicate": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "card_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "finish": {
+                  "type": "string"
+                },
+                "condition": {
+                  "type": "string"
+                },
+                "lang": {
+                  "type": "string"
+                },
+                "qty": {
+                  "type": "integer"
+                },
+                "seq": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "binder_items": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "description": "[binder_id, card_id, finish, condition, lang, qty, seq]; qty 0 = gone",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "total_qty": {
+                "type": "integer"
+              },
+              "unique_printings": {
+                "type": "integer"
+              },
+              "unique_cards": {
+                "type": "integer"
+              },
+              "value_usd": {
+                "type": "number"
+              },
+              "value_eur": {
+                "type": "number"
+              },
+              "seq": {
+                "type": "integer"
+              },
+              "updated_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              }
+            }
+          },
+          "trade": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "partner": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "note": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "draft",
+                  "confirmed"
+                ]
+              },
+              "gives": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "card_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "finish": {
+                      "type": "string",
+                      "enum": [
+                        "nonfoil",
+                        "foil",
+                        "etched"
+                      ]
+                    },
+                    "condition": {
+                      "type": "string"
+                    },
+                    "lang": {
+                      "type": "string"
+                    },
+                    "qty": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "binder_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "required": [
+                    "card_id",
+                    "qty"
+                  ]
+                }
+              },
+              "gets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "card_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "finish": {
+                      "type": "string",
+                      "enum": [
+                        "nonfoil",
+                        "foil",
+                        "etched"
+                      ]
+                    },
+                    "condition": {
+                      "type": "string"
+                    },
+                    "lang": {
+                      "type": "string"
+                    },
+                    "qty": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "binder_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "required": [
+                    "card_id",
+                    "qty"
+                  ]
+                }
+              },
+              "batch_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              },
+              "confirmed_at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "wants": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "description": "[oracle_id, card_id|null, finish|null, qty, max_usd|null, seq]; qty 0 = gone",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "binder_save": {
+      "note": "Creates (new client id) or renames / flags a binder. Names unique per account, up to 60 chars, 200 binders. Another account's id: 42501. contract/binders-wants-2026-10-17.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_for_trade": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "p_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "for_trade": {
+            "type": "boolean"
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "seq": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "binder_delete": {
+      "note": "Deletes a binder; its copies go back to Unsorted (one ledgered batch, not undoable). Already deleted: duplicate true. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_idempotency_key": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_id",
+          "p_idempotency_key"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "duplicate": {
+            "type": "boolean"
+          },
+          "binder": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              },
+              "for_trade": {
+                "type": "boolean"
+              },
+              "deleted": {
+                "type": "boolean"
+              },
+              "seq": {
+                "type": "integer"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "binder_items": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "description": "[binder_id, card_id, finish, condition, lang, qty, seq]; qty 0 = gone",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "binder_move": {
+      "note": "Moves copies between binders and Unsorted (from/to null = Unsorted), up to 2500 moves; refused whole if a source holds fewer. A collection batch (source binder) with no item change: same key = duplicate, collection_undo moves them back. Returns the collection_apply result. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_moves": {
+            "type": "array",
+            "maxItems": 2500,
+            "items": {
+              "type": "object",
+              "properties": {
+                "card_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "finish": {
+                  "type": "string",
+                  "enum": [
+                    "nonfoil",
+                    "foil",
+                    "etched"
+                  ]
+                },
+                "condition": {
+                  "type": "string"
+                },
+                "lang": {
+                  "type": "string"
+                },
+                "from": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "to": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "qty": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "card_id",
+                "qty"
+              ]
+            }
+          },
+          "p_idempotency_key": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_moves",
+          "p_idempotency_key"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "duplicate": {
+            "type": "boolean"
+          },
+          "changes": {
+            "type": "integer"
+          },
+          "seq": {
+            "type": "integer"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "card_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "finish": {
+                  "type": "string"
+                },
+                "condition": {
+                  "type": "string"
+                },
+                "lang": {
+                  "type": "string"
+                },
+                "qty": {
+                  "type": "integer"
+                },
+                "seq": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "total_qty": {
+                "type": "integer"
+              },
+              "unique_printings": {
+                "type": "integer"
+              },
+              "unique_cards": {
+                "type": "integer"
+              },
+              "value_usd": {
+                "type": "number"
+              },
+              "value_eur": {
+                "type": "number"
+              },
+              "seq": {
+                "type": "integer"
+              },
+              "updated_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              }
+            }
+          },
+          "binder_items": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "description": "[binder_id, card_id, finish, condition, lang, qty, seq]; qty 0 = gone",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "wants_apply": {
+      "note": "Wishlist edits as one batch (source wants): {oracle_id | card_id, finish?, qty | delta, max_usd?}. No card_id = any printing; finish needs card_id. qty 0 removes; max_usd null clears. Same key = duplicate. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_ops": {
+            "type": "array",
+            "maxItems": 5000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "oracle_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "card_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "finish": {
+                  "type": "string",
+                  "enum": [
+                    "nonfoil",
+                    "foil",
+                    "etched"
+                  ]
+                },
+                "qty": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 999
+                },
+                "delta": {
+                  "type": "integer"
+                },
+                "max_usd": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "p_idempotency_key": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_ops",
+          "p_idempotency_key"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "duplicate": {
+            "type": "boolean"
+          },
+          "wants": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "description": "[oracle_id, card_id|null, finish|null, qty, max_usd|null, seq]; qty 0 = gone",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "library_changes": {
+      "note": "Delta sync of binders, allocations and wants by seq (one cursor, separate from collection_changes). Page while more; resync:true = clear the local binders/allocations/wants and restart from 0. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_after": {
+            "type": "integer"
+          },
+          "p_limit": {
+            "type": "integer",
+            "maximum": 10000
+          }
+        }
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "resync": {
+            "type": "boolean"
+          },
+          "binders": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "for_trade": {
+                  "type": "boolean"
+                },
+                "deleted": {
+                  "type": "boolean"
+                },
+                "seq": {
+                  "type": "integer"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          "binder_items": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "description": "[binder_id, card_id, finish, condition, lang, qty, seq]; qty 0 = gone",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          "wants": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "description": "[oracle_id, card_id|null, finish|null, qty, max_usd|null, seq]; qty 0 = gone",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          "next": {
+            "type": "integer"
+          },
+          "more": {
+            "type": "boolean"
+          }
+        }
       }
     }
   },

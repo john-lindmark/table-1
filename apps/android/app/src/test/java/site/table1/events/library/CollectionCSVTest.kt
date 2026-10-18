@@ -180,7 +180,7 @@ class CollectionCSVParseTest {
             }
         }
         assertTrue(CollectionCSV.export(cards, CollectionCSV.Layout.Moxfield).startsWith("\"Count\",\"Tradelist Count\",\"Name\",\"Edition\""))
-        assertTrue(CollectionCSV.export(cards, CollectionCSV.Layout.ManaBox).startsWith("Name,Set code,Set name,Collector number,Foil,Rarity,Quantity"))
+        assertTrue(CollectionCSV.export(cards, CollectionCSV.Layout.ManaBox).startsWith("Binder Name,Binder Type,Name,Set code,Set name,Collector number,Foil,Rarity,Quantity"))
     }
 }
 

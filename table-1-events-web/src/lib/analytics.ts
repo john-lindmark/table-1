@@ -92,11 +92,14 @@ export function screenName(pathname: string, listKind?: (id: string) => "deck" |
     "/library/cubes": "cubes",
     "/library/find": "deck_finder",
     "/library/trades": "trades",
+    "/library/binders": "binders",
+    "/library/wants": "wants",
   };
   if (fixed[p]) return fixed[p];
   if (/^\/library\/card\/[^/]+$/.test(p)) return "card_detail";
   if (/^\/library\/import\/[^/]+$/.test(p)) return "list_import";
   if (/^\/library\/trade\/[^/]+$/.test(p)) return "trade";
+  if (/^\/library\/binder\/[^/]+$/.test(p)) return "binder";
   const list = p.match(/^\/library\/list\/([^/]+)(\/.*)?$/);
   if (list) {
     const rest = list[2] ?? "";

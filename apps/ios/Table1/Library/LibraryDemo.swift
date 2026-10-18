@@ -68,6 +68,12 @@ final class LibraryDemoBackend {
     let prices: [String: [Double?]]
     private var ledger: [String: [HistoryEntry]] = [:]
     private var batches: [String: (rows: [(item: CollectionItem, delta: Int)], undone: Bool)] = [:]
+    /// Binders, allocations and wants, with what each batch did to them (for undo).
+    private(set) var binders: [String: Binder] = [:]
+    private(set) var allocs: [String: BinderAlloc] = [:]
+    private(set) var wants: [String: Want] = [:]
+    private var batchAllocs: [String: [(alloc: BinderAlloc, delta: Int)]] = [:]
+    private var batchWants: [String: [(want: Want, delta: Int)]] = [:]
     private var oracleOf: [String: Int] = [:]
     private let seedAt = ISO8601DateFormatter().string(from: .now)
     private var seed: [String: CollectionItem] = [:]
@@ -106,6 +112,13 @@ final class LibraryDemoBackend {
             throw DemoError(message: "Not enough copies (have \(bad.cur))")
         }
 
+        if source != "undo", let bad = ops.first(where: { $0.binderId != nil && binders[$0.binderId!] == nil }) {
+            throw DemoError(message: "That binder is gone (\(bad.binderId!))")
+        }
+        if ops.contains(where: { $0.binderId != nil && $0.qty != nil }) {
+            throw DemoError(message: "A binder goes with copies added or removed, not a set quantity")
+        }
+
         let batchId = UUID().uuidString.lowercased()
         var rows: [ApplyResult.Row] = []
         var done: [(item: CollectionItem, delta: Int)] = []
@@ -121,17 +134,133 @@ final class LibraryDemoBackend {
                                                                batchId: batchId, undone: false), at: 0)
         }
         batches[batchId] = (done, false)
+        // Allocations: hints, then whatever an item no longer has copies for (BinderRules, as the server does).
+        var hints: [String: [String: Int]] = [:]
+        for op in ops { if let b = op.binderId, let d = op.delta, binders[b] != nil { hints[op.itemKey, default: [:]][b, default: 0] += d } }
+        var changed: [BinderAlloc] = []
+        for (key, p) in plan {
+            var cur: [String: Int] = [:]
+            for a in allocs.values where a.itemKey == key && a.qty > 0 { cur[a.binderId] = a.qty }
+            let next = BinderRules.plan(current: cur, hints: hints[key] ?? [:], newQty: p.new, binders: binders)
+            for (b, q) in next where q != (cur[b] ?? 0) {
+                seq += 1
+                let a = BinderAlloc(binderId: b, cardId: p.op.cardId, finish: p.op.finish, condition: p.op.condition, lang: p.op.lang, qty: q, seq: seq)
+                allocs[a.key] = q > 0 ? a : nil
+                changed.append(a)
+                batchAllocs[batchId, default: []].append((a, q - (cur[b] ?? 0)))
+            }
+        }
         recompute()
-        return ApplyResult(batchId: batchId, duplicate: false, items: rows, summary: summary)
+        return ApplyResult(batchId: batchId, duplicate: false, items: rows, summary: summary, binderItems: changed)
+    }
+
+    // MARK: binders and wants
+
+    func saveBinder(id: String, name: String, forTrade: Bool) throws -> Binder {
+        let n = name.trimmingCharacters(in: .whitespaces)
+        guard !n.isEmpty else { throw DemoError(message: "Name the binder") }
+        if binders.values.contains(where: { $0.id != id && $0.name.lowercased() == n.lowercased() }) {
+            throw DemoError(message: "You already have a binder called \(n)")
+        }
+        seq += 1
+        let b = Binder(id: id, name: String(n.prefix(60)), forTrade: forTrade, seq: seq)
+        binders[id] = b
+        return b
+    }
+
+    func deleteBinder(_ id: String) -> [BinderAlloc] {
+        binders[id] = nil
+        var out: [BinderAlloc] = []
+        for (k, a) in allocs where a.binderId == id {
+            seq += 1
+            out.append(BinderAlloc(binderId: id, cardId: a.cardId, finish: a.finish, condition: a.condition, lang: a.lang, qty: 0, seq: seq))
+            allocs[k] = nil
+        }
+        return out
+    }
+
+    /// binder_move: refused whole if a source holds fewer copies than asked.
+    func move(_ moves: [BinderMove]) throws -> ApplyResult {
+        for m in moves {
+            let have = m.from.map { allocs["\($0)|\(m.item.key)"]?.qty ?? 0 }
+                ?? max(0, (items[m.item.key]?.qty ?? 0) - allocs.values.filter { $0.itemKey == m.item.key }.reduce(0) { $0 + $1.qty })
+            if m.qty > have { throw DemoError(message: "Not that many copies there") }
+        }
+        let ops = moves.flatMap { m in [
+            CollectionOp(cardId: m.item.cardId, finish: m.item.finish, condition: m.item.condition, lang: m.item.lang, delta: -m.qty, binderId: m.from),
+            CollectionOp(cardId: m.item.cardId, finish: m.item.finish, condition: m.item.condition, lang: m.item.lang, delta: m.qty, binderId: m.to),
+        ] }
+        return try apply(ops, source: "binder")
+    }
+
+    func applyWants(_ ops: [WantOp], batchId: String? = nil) throws -> [Want] {
+        let db = CatalogStore.shared.db
+        var out: [Want] = []
+        for op in ops {
+            var oracle = op.oracleId
+            if let c = op.cardId, let db, let p = db.printings(ids: [c])[c], let o = db.oracles(idxs: [p.oracleIdx])[p.oracleIdx] { oracle = o.oracleId }
+            let key = Want.key(oracle, op.cardId, op.finish)
+            let cur = wants[key]
+            let qty = min(999, max(0, op.qty ?? ((cur?.qty ?? 0) + (op.delta ?? 0))))
+            if cur == nil && qty == 0 { continue }
+            seq += 1
+            let w = Want(oracleId: oracle, cardId: op.cardId, finish: op.finish, qty: qty,
+                         maxUsd: op.maxUsd.map { $0 } ?? cur?.maxUsd, seq: seq)
+            wants[key] = qty > 0 ? w : nil
+            out.append(w)
+            if let batchId, qty != (cur?.qty ?? 0) { batchWants[batchId, default: []].append((w, qty - (cur?.qty ?? 0))) }
+        }
+        return out
+    }
+
+    /// trade_confirm's second half: the gets come off the wants they meet, recorded on the trade's batch.
+    func meetWants(_ gets: [TradeLine], batchId: String) -> [Want] {
+        guard let db = CatalogStore.shared.db else { return [] }
+        let p = db.printings(ids: gets.map(\.cardId))
+        let o = db.oracles(idxs: Array(Set(p.values.map(\.oracleIdx))))
+        var changed: [Want] = []
+        for g in gets {
+            guard let oracle = p[g.cardId].flatMap({ o[$0.oracleIdx] })?.oracleId else { continue }
+            let before = wants
+            for w in BinderRules.meet(oracleId: oracle, cardId: g.cardId, finish: g.finish, qty: g.qty, wants: &wants) {
+                seq += 1
+                var nw = w
+                nw.seq = seq
+                wants[w.id] = nw.qty > 0 ? nw : nil
+                changed.append(nw)
+                batchWants[batchId, default: []].append((nw, nw.qty - (before[w.id]?.qty ?? 0)))
+            }
+        }
+        return changed
     }
 
     func undo(batchId: String) throws -> ApplyResult {
         guard let b = batches[batchId] else { throw DemoError(message: "Nothing to undo") }
         if b.undone { throw DemoError(message: "Already undone") }
-        let ops = b.rows.map { CollectionOp(cardId: $0.item.cardId, finish: $0.item.finish, condition: $0.item.condition,
-                                            lang: $0.item.lang, delta: -$0.delta) }
-        let res = try apply(ops, source: "undo")
+        // Per item: each binder's copies go back where they were; the rest to or from Unsorted (as on the server).
+        var ops: [CollectionOp] = []
+        var net: [String: (op: CollectionOp, d: Int, bd: Int)] = [:]
+        for r in b.rows {
+            net[r.item.key] = (CollectionOp(cardId: r.item.cardId, finish: r.item.finish, condition: r.item.condition, lang: r.item.lang), r.delta, 0)
+        }
+        for (a, d) in batchAllocs[batchId] ?? [] {
+            ops.append(CollectionOp(cardId: a.cardId, finish: a.finish, condition: a.condition, lang: a.lang, delta: -d, binderId: a.binderId))
+            let k = a.itemKey
+            var v = net[k] ?? (CollectionOp(cardId: a.cardId, finish: a.finish, condition: a.condition, lang: a.lang), 0, 0)
+            v.bd += d
+            net[k] = v
+        }
+        for (_, v) in net where -v.d + v.bd != 0 {
+            var op = v.op
+            op.delta = -v.d + v.bd
+            ops.append(op)
+        }
+        guard !ops.isEmpty else { throw DemoError(message: "Nothing to undo") }
+        var res = try apply(ops, source: "undo")
         batches[batchId]?.undone = true
+        if let ws = batchWants[batchId] {
+            res.wants = (try? applyWants(ws.map { WantOp(oracleId: $0.want.oracleId, cardId: $0.want.cardId, finish: $0.want.finish, delta: -$0.delta) })) ?? []
+        }
         for (card, list) in ledger {
             ledger[card] = list.map { e in
                 e.batchId == batchId ? HistoryEntry(at: e.at, finish: e.finish, condition: e.condition, lang: e.lang, delta: e.delta,
@@ -139,6 +268,25 @@ final class LibraryDemoBackend {
             }
         }
         return res
+    }
+
+    /// Two binders to start with: a for-trade binder holding a copy or two of every seventh item and "Box 1" holding
+    /// every fifth item's other copies (the rest stay Unsorted).
+    func seedBinders() {
+        let trade = Binder(id: "d0000000-0000-0000-0000-00000000b001", name: "Trade binder", forTrade: true, seq: 1)
+        let box = Binder(id: "d0000000-0000-0000-0000-00000000b002", name: "Box 1", forTrade: false, seq: 2)
+        binders = [trade.id: trade, box.id: box]
+        for (i, it) in items.values.sorted(by: { $0.key < $1.key }).enumerated() {
+            var left = it.qty
+            if i % 7 == 0 {
+                let n = min(left, 1 + i % 2)
+                allocs["\(trade.id)|\(it.key)"] = BinderAlloc(binderId: trade.id, cardId: it.cardId, finish: it.finish, condition: it.condition, lang: it.lang, qty: n, seq: 0)
+                left -= n
+            }
+            if i % 5 == 0 && left > 0 {
+                allocs["\(box.id)|\(it.key)"] = BinderAlloc(binderId: box.id, cardId: it.cardId, finish: it.finish, condition: it.condition, lang: it.lang, qty: left, seq: 0)
+            }
+        }
     }
 
     /// Changes made in the demo, newest first, then the copies the fixture started with (shown as one import).
@@ -178,7 +326,9 @@ enum LibraryDemo {
     static func start() -> Bool {
         guard let f = LibraryDemoFixture.load() else { return false }
         let backend = LibraryDemoBackend(f)
+        backend.seedBinders()
         CollectionStore.shared.startDemo(backend)
+        BindersStore.shared.startDemo(binders: Array(backend.binders.values), allocs: Array(backend.allocs.values), wants: [])
         func entries(_ rows: [[LibraryDemoFixture.Entry]]) -> [CardList.Entry] {
             rows.map { CardList.Entry(cardId: $0[0].text, board: $0[1].text, qty: $0[2].int, finish: $0.count > 3 ? $0[3].text : "nonfoil") }
         }
@@ -190,6 +340,21 @@ enum LibraryDemo {
                             versions: versions.isEmpty ? [CardList.Version(number: 1, at: .now, note: "Imported", entries: entries(l.entries))] : versions)
         })
         return true
+    }
+
+    /// Once the card data is there: three wants from the demo lists (one with a max price, one a specific printing).
+    @MainActor
+    static func seedWants() {
+        guard let demo = CollectionStore.shared.demo, demo.wants.isEmpty, let db = CatalogStore.shared.db else { return }
+        let ids = Array(Set(ListsStore.shared.lists.flatMap { $0.entries.map(\.cardId) })).sorted().prefix(3)
+        let p = db.printings(ids: Array(ids))
+        let o = db.oracles(idxs: Array(Set(p.values.map(\.oracleIdx))))
+        var ops: [WantOp] = []
+        for (i, id) in ids.enumerated() {
+            guard let oracle = p[id].flatMap({ o[$0.oracleIdx] })?.oracleId else { continue }
+            ops.append(WantOp(oracleId: oracle, cardId: i == 2 ? id : nil, qty: 2 - i % 2, maxUsd: i == 1 ? .some(5) : nil))
+        }
+        if let rows = try? demo.applyWants(ops) { BindersStore.shared.reflect(wants: rows) }
     }
 }
 
@@ -212,12 +377,34 @@ struct LibraryDemoRoot: View {
             CatalogStore.shared.load(userInitiated: true)
             path = Self.startRoute
         }
+        .task(id: CatalogStore.shared.generation) {
+            LibraryDemo.seedWants()
+            // `card`: a card with copies in the trade binder. `tradewants`: a draft giving a trade-binder copy and
+            // getting a wanted card (the want is marked). Both need the card data, so they open once it's in.
+            guard let db = CatalogStore.shared.db, path.isEmpty, let arg = Self.arg, ["card", "tradewants"].contains(arg) else { return }
+            let store = BindersStore.shared
+            guard let a = store.allocs.values.filter({ store.binder($0.binderId)?.forTrade == true }).sorted(by: { $0.key < $1.key }).first,
+                  let p = db.printings(ids: [a.cardId])[a.cardId], let o = db.oracles(idxs: [p.oracleIdx])[p.oracleIdx] else { return }
+            if arg == "card" { path = [.card(o.oracleId)]; return }
+            guard let w = store.liveWants.first(where: { $0.maxUsd != nil }) ?? store.liveWants.first,
+                  let wo = db.oracle(id: w.oracleId), let wp = w.cardId.flatMap({ db.printings(ids: [$0])[$0] }) ?? db.covers(oracleIdxs: [wo.idx])[wo.idx]
+            else { return }
+            let give = TradeLine(cardId: a.cardId, finish: a.finish, condition: a.condition, lang: a.lang, qty: 1, binderId: a.binderId)
+            let get = TradeLine(cardId: wp.cardId, finish: "nonfoil", condition: "NM", lang: "en", qty: 1)
+            if let t = try? await TradesStore.shared.save(nil, partner: "Demo", gives: [give], gets: [get]) { path = [.trades, .trade(t.id)] }
+        }
     }
 
-    /// Design QA: `-T1LibraryDemo allcards|add|import|trades|trade|deck|cube|deckstats|cubestats|hand|odds|pack` opens
-    /// that screen (deck and cube: the fixture's first of each; stats, sample hand, draw odds and sample pack on it;
-    /// `-T1ListExport arena|moxfield|mtgo|text|cubecobra` then exports it). `import` with `-T1ImportFile <path>` reads
-    /// that file as if it had been picked.
+    /// Design QA: `-T1LibraryDemo allcards|add|import|trades|trade|tradewants|binders|binder|wants|card|deck|cube|
+    /// deckstats|cubestats|hand|odds|pack` opens that screen (deck and cube: the fixture's first of each; stats, sample
+    /// hand, draw odds and sample pack on it; `-T1ListExport arena|moxfield|mtgo|text|cubecobra` then exports it).
+    /// `import` with `-T1ImportFile <path>` reads that file as if it had been picked.
+    private static var arg: String? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-T1LibraryDemo"), i + 1 < args.count else { return nil }
+        return args[i + 1]
+    }
+
     private static var startRoute: [LibraryRoute] {
         let args = ProcessInfo.processInfo.arguments
         guard let i = args.firstIndex(of: "-T1LibraryDemo"), i + 1 < args.count else { return [] }
@@ -226,6 +413,9 @@ struct LibraryDemoRoot: View {
         case "add": return [.add]
         case "import": return [.collectionImport]
         case "trades": return [.trades]
+        case "binders": return [.binders]
+        case "binder": return [.binders, .binder("d0000000-0000-0000-0000-00000000b001")]
+        case "wants": return [.wants]
         case "trade": return [.trades, .trade(nil)]
         case "deck", "cube", "deckstats", "cubestats", "hand", "odds", "pack":
             let kind: CardList.Kind = ["cube", "cubestats", "pack"].contains(args[i + 1]) ? .cube : .deck

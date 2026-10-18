@@ -17,6 +17,8 @@ import { useLists } from "../lib/lists";
 import { DEMO_USER, type Condition } from "../lib/collection";
 import { usdPrice, usdText, usePrices } from "../lib/prices";
 import { useTrades } from "../lib/trades";
+import { binderTotals, forTrade, liveWants, missingLines, placementText, useBinders } from "../lib/binders";
+import { MoveCopies, WantCardRow } from "./Binders";
 
 export const CONDITIONS: Condition[] = ["NM", "LP", "MP", "HP", "DMG"];
 export const CONDITION_NAME: Record<Condition, string> = {
@@ -287,8 +289,9 @@ export function useBoxWidth(): [(el: HTMLElement | null) => void, number] {
 
 /* ── home ─────────────────────────────────────────────────────────────── */
 
-export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes, onTrades, onImport }: {
+export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes, onTrades, onImport, onBinders, onWants }: {
   onAllCards: () => void; onAdd: () => void; onDecks: () => void; onCubes: () => void; onTrades: () => void; onImport: () => void;
+  onBinders: () => void; onWants: () => void;
 }) {
   const { session, ready, userId } = useLibrarySession();
   const col = useCollection(userId);
@@ -297,6 +300,15 @@ export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes, onTrades, onI
   const cubes = lists.lists.filter((l) => l.kind === "cube");
   const trades = useTrades();
   const openTrades = trades.trades.filter((t) => t.status === "draft").length;
+  const binders = useBinders(userId);
+  const totals = useMemo(() => binderTotals(col.items), [col.version, binders.version]);
+  const forTradeCopies = binders.binders.filter((b) => b.for_trade).reduce((n, b) => n + (totals.byBinder.get(b.id) ?? 0), 0);
+  const wanted = useMemo(() => liveWants().reduce((n, w) => n + w.qty, 0), [binders.version]);
+  const missing = useMemo(() => {
+    const owned = new Map<string, number>();
+    for (const it of col.items.values()) owned.set(`${it.cardId}|${it.finish}`, (owned.get(`${it.cardId}|${it.finish}`) ?? 0) + it.qty);
+    return missingLines(lists.lists, owned).reduce((n, m) => n + m.short, 0);
+  }, [lists.lists, col.version]);
   if (!ready) return <Screen><div className="flex-1" /></Screen>;
   if (!session) return <SignedOut title="Library" />;
   const s = col.summary;
@@ -317,6 +329,11 @@ export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes, onTrades, onI
              value={s ? s.unique_cards.toLocaleString() : undefined} onClick={onAllCards} />
         <Row title="Add cards" detail="Search by name" onClick={onAdd} />
         <Row title="Import and export" detail="CSV from ManaBox, Moxfield and others" onClick={onImport} />
+        <Row title="Binders" value={binders.binders.length} onClick={onBinders}
+             detail={binders.binders.length ? `${forTradeCopies.toLocaleString()} cards for trade · ${totals.unsorted.toLocaleString()} unsorted`
+                                            : "Where your copies are, and what's for trade"} />
+        <Row title="Wants" value={wanted} onClick={onWants}
+             detail={`${wanted.toLocaleString()} wanted · ${missing.toLocaleString()} missing`} />
         <Row title="Decks" detail={decks.length ? decks.slice(0, 3).map((l) => l.name).join(" · ") : "Build and track decks"}
              value={decks.length} onClick={onDecks} />
         <Row title="Cubes" detail={cubes.length ? cubes.map((l) => l.name).join(" · ") : "Build and track cubes"}
@@ -589,6 +606,10 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
   };
   /** Moving copies of one owned item to another condition, when there's more than one copy. */
   const [moving, setMoving] = useState<{ k: string; to: Condition } | null>(null);
+  /** Moving copies of one owned item between binders. */
+  const [sorting, setSorting] = useState<Item | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const binders = useBinders(userId);
 
   const oi = catalog ? oracleIndexById(catalog, oracleId) : -1;
   useEffect(() => {
@@ -677,6 +698,11 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
     <LibScreen>
       <Bar title={catalog.oName[oi]} subtitle={`${total} in collection`} onBack={onBack} />
       {(error || col.error) && <Notice tone="error">{error ?? col.error}</Notice>}
+      {note && !last && <Notice tone="info">{note}</Notice>}
+      {sorting && (
+        <MoveCopies item={sorting} label={setLabel(catalog.printingIndex.get(sorting.cardId)!)} onClose={() => setSorting(null)}
+                    onMoved={(t) => { setSorting(null); setNote(t); setLast(null); }} />
+      )}
       {last && (
         <div className="bg-t1-surface px-4 py-3 flex items-center justify-between gap-3">
           <span className="t1-label truncate">{last.label}</span>
@@ -711,6 +737,9 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
                     <span className="t1-label truncate">
                       {[prices.get(it.cardId)?.set_name, it.condition, it.lang.toUpperCase(), price].filter(Boolean).join(" · ")}
                     </span>
+                    {binders.version >= 0 && placementText(it) && (
+                      <span className={`t1-label truncate ${forTrade(it.k).qty > 0 ? "!text-t1-accent" : ""}`}>{placementText(it)}</span>
+                    )}
                   </span>
                 </button>
                 <span className="px-3 flex items-center text-[17px] tabular-nums">{it.qty}</span>
@@ -729,6 +758,7 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
                                if (it.qty === 1) moveCondition(it, p, c, 1);
                                else setMoving({ k: it.k, to: c });
                              }} />
+                  <Row title="Move" detail={placementText(it) ?? `Unsorted ${it.qty}`} onClick={() => setSorting(it)} />
                   {moving?.k === it.k && (
                     <div className="flex gap-px">
                       <GhostAction label={`Move 1 copy to ${moving.to}`} onClick={() => moveCondition(it, p, moving.to, 1)} />
@@ -752,6 +782,8 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
           );
         })}
 
+        <WantCardRow catalog={catalog} oi={oi} shown={preview ?? (owned.length ? catalog.printingIndex.get(owned[0].cardId)! : null)}
+                     onAdded={(t) => { setNote(t); setLast(null); }} />
         <Section title="Add a printing" count={count} right={<span title={CONDITION_NAME[addCondition]}>Adds as {addCondition}</span>} />
         <Segmented options={CONDITIONS.map((c) => ({ value: c, label: c }))} value={addCondition} onChange={setAddCondition} />
         {(showAll ? printings : printings.slice(0, 12)).map((p) => {

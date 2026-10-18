@@ -26,9 +26,16 @@ That template is rebuilt only when a migration changes; each `NN_*_test.sql` run
   trigger functions not callable. A new migration that forgets one of these fails without a new test.
 - `40_library` `collection_apply` idempotency, whole-batch rejection, ledger = items, undo once, delta sync,
   per-account isolation, trade confirm as one batch, retry-safe, can't give what you don't own
+- `70_binders_wants` binders (create/rename/flag idempotent, unique names, wrong account refused), adds into a
+  binder, strict moves, shrink order (Unsorted, then non-trade binders by name, then for-trade), undo restores
+  allocations, wants (any printing / printing / finish, max price), trade confirm with binder lines meeting wants
+  and undone, `library_changes` paging and resync, and the invariant (allocations never exceed copies) after 300
+  random mixed writes
 - `50_demo` demo data only for `t1_private.demo_testers`, never in `player_records`, `demo_remove` clears it
 - `perf_10_library` (perf tier) 35k Oracle cards / 105k printings, a 5,000-printing collection: `search_cards`,
-  `card_prices_get`, `collection_changes`, `collection_apply` (500 ops), `catalog_pack_part` per 10k window
+  `card_prices_get`, `collection_changes`, `collection_apply` (500 ops), `catalog_pack_part` per 10k window; with
+  4,000 allocations in 20 binders and 500 wants: `library_changes`, `binder_move` (500), `collection_apply` (500
+  removals that shrink binders)
 
 Write tests with the helpers in `_helpers.sql`: `pg_temp.as_user(uuid)`, `pg_temp.eq(label, got, want)`,
 `pg_temp.throws(label, sql, sqlstate)`, `pg_temp.ms(label, sql, budget_ms)`. Run one file: `supabase/tests/run.sh 40_`.
@@ -62,6 +69,8 @@ the test JVM's heap.
 | `search_cards` (prefix / two words / typo) | 18 / 23 / 23 ms | 100 / 100 / 120 ms |
 | `collection_apply`, 500 ops | 80 ms | 300 ms |
 | `collection_changes`, 5,000 items | 5 ms | 30 ms |
+| `library_changes`, 4,500 rows / nothing new (2026-10-17, machine under load) | 11 / 0.2 ms | 40 / 5 ms |
+| `binder_move` 500 moves; `collection_apply` 500 removals shrinking binders (under load) | 81 / 238 ms | 300 / 300 ms |
 | `catalog_pack_part`, 10k window (oracles / printings) | 27 / 86 ms | 200 / 500 ms (live ≈ 5× local; timeout 8 s) |
 | Web JS, gzipped (all / entry) | 314 / 54 KB | 380 / 70 KB |
 | iOS pack → SQLite (Debug, Simulator) | 6.0 s | 18 s |
