@@ -4,9 +4,13 @@ import { CANLANDER_POINT_LIMIT, RARITY_NAME, coverPrinting, formatName, legality
 import { DEMO_USER, useCollection } from "../lib/collection";
 import { loadDemoLists } from "../lib/libraryDemo";
 import {
+  EXPORT_DETAIL, EXPORT_FILE, EXPORT_LABEL, exportFileName, exportFormats, exportLines, renderList, type ExportFormat,
+} from "../lib/listExport";
+import {
   boardTitle, boardsOf, countOf, createList, finishOf, ownKey, type ListFinish, current, deleteList, diff, duplicateList, editList, entriesOf, missingIn, restoreList,
   sectionsFor, useLists, type Board, type CardList, type ListKind,
 } from "../lib/lists";
+import { capture } from "../lib/telemetry";
 import {
   CardArt, CardRow, CardTile, LibScreen, StackRows, ViewButton, useCatalog, useLibrarySession, useStoredLayout, type StackItem,
 } from "./Library";
@@ -193,6 +197,59 @@ export function ListsScreen({ kind, onBack, onOpen, onFind, onImport }: {
 
 /* ── one list ─────────────────────────────────────────────────────────── */
 
+/** The current version in another app's format (contract/lists-2026-10-15.md, Export): copied for the formats other
+ *  apps paste in, downloaded for MTGO and Cube Cobra. Same formats and output as iOS and Android. */
+function ExportModal({ list, catalog, onClose }: { list: CardList; catalog: Catalog; onClose: () => void }) {
+  const [note, setNote] = useState<string | null>(null);
+  const download = (text: string, name: string) => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type: name.endsWith(".csv") ? "text/csv;charset=utf-8" : "text/plain;charset=utf-8" }));
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+  };
+  const run = async (format: ExportFormat) => {
+    const { lines, left } = exportLines(catalog, entriesOf(list));
+    const text = renderList(lines, list.kind, format);
+    const name = exportFileName(list.name, list.kind, format);
+    let done: string;
+    if (EXPORT_FILE[format]) {
+      download(text, name);
+      done = `Downloaded ${name}.`;
+    } else {
+      try {
+        await navigator.clipboard.writeText(text);
+        done = format === "text" ? "Copied." : `Copied. Paste it into ${EXPORT_LABEL[format]}'s Import.`;
+      } catch {
+        download(text, name);
+        done = `Downloaded ${name}.`;
+      }
+    }
+    if (left) done += ` ${left} card${left === 1 ? "" : "s"} newer than the card data ${left === 1 ? "was" : "were"} left out.`;
+    setNote(done);
+    capture("list_exported", { kind: list.kind, format, cards: lines.reduce((n, l) => n + l.qty, 0), left });
+  };
+  return (
+    <Modal title={`Export ${list.name}`} onClose={onClose}>
+      <p className="text-[12px] text-t1-muted">The current version, v{current(list).number}.</p>
+      <div className="flex flex-col gap-px">
+        {exportFormats(list.kind).map((f) => (
+          <div key={f} className="bg-t1-surface px-4 py-3 flex items-center gap-3">
+            <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+              <span className="text-[13px]">{EXPORT_LABEL[f]}</span>
+              <span className="t1-label">{EXPORT_DETAIL[f]}</span>
+            </span>
+            <button type="button" className="shrink-0 t1-label hover:text-t1-text px-2 py-1 -my-1" onClick={() => void run(f)}>
+              {EXPORT_FILE[f] ? "Download" : "Copy"}
+            </button>
+          </div>
+        ))}
+      </div>
+      {note && <Notice tone="info">{note}</Notice>}
+    </Modal>
+  );
+}
+
 export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPrinting }: {
   id: string; onBack: () => void; onCard: (oracleId: string) => void; onAdd: () => void; onVersions: () => void;
   onOpen: (listId: string) => void; onPrinting: (cardId: string, board: Board, finish: ListFinish) => void;
@@ -203,6 +260,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   const [editing, setEditing] = useState(false);
   const [moving, setMoving] = useState<Line | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const list = lists.lists.find((l) => l.id === id) ?? null;
   const lines = useMemo(() => (list && catalog ? linesOf(list, catalog) : []), [list, catalog]);
   const issues = useMemo(() => (list && catalog ? issuesOf(lines, list, catalog) : new Map<string, string>()), [lines, list, catalog]);
@@ -301,6 +359,9 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         {editing && <Row title={list.kind === "deck" ? "Delete deck" : "Delete cube"} detail="From every device" onClick={() => setConfirmDelete(true)} />}
         <Row title="Add cards" detail={list.kind === "deck" ? "To the main deck, sideboard or considering" : "To the cube or considering"} onClick={onAdd} />
         <Row title="Version history" detail={`v${v.number} · ${v.note} · ${fmtDate(v.at)}`} value={list.versions.length} onClick={onVersions} />
+        {entriesOf(list).length > 0 && !editing && catalog &&
+          <Row title="Export" detail={list.kind === "deck" ? "For Arena, Moxfield, MTGO or as plain text" : "For Cube Cobra or as plain text"}
+               onClick={() => setExporting(true)} />}
         {entriesOf(list).length === 0 && <Row title="No cards yet" detail="Add cards to start this list" />}
         {!catalog && <div className="bg-t1-surface px-4 py-4 t1-label">Loading card data…</div>}
         {catalog && boardsOf(list).map((board) => {
@@ -357,6 +418,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
           </div>
         </Modal>
       )}
+      {exporting && catalog && <ExportModal list={list} catalog={catalog} onClose={() => setExporting(false)} />}
       {confirmDelete && (
         <Modal title={`Delete ${list.name}?`} onClose={() => setConfirmDelete(false)}>
           <p className="text-[12px] text-t1-muted">It goes from every device. This can't be undone.</p>

@@ -257,16 +257,19 @@ final class CollectionImportModel {
     }
 }
 
-private struct ShareFile: Identifiable {
+/// What the share sheet hands over: a file URL (Save to Files, AirDrop, Mail …) or text (Copy, Messages, Notes …).
+struct ShareFile: Identifiable {
     let id = UUID()
-    let url: URL
+    let item: Any
+    init(url: URL) { item = url }
+    init(text: String) { item = text }
 }
 
-/// The system share sheet for one file (Save to Files, AirDrop, Mail …).
-private struct ShareSheet: UIViewControllerRepresentable {
-    let url: URL
+/// The system share sheet for one file or text.
+struct ShareSheet: UIViewControllerRepresentable {
+    let share: ShareFile
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        UIActivityViewController(activityItems: [share.item], applicationActivities: nil)
     }
     func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
 }
@@ -305,7 +308,7 @@ struct CollectionImportView: View {
         } message: {
             Text("Your collection becomes exactly this file. \(model.removedByReplace.formatted()) cards that aren't in it are removed. Undo puts them back.")
         }
-        .sheet(item: $share) { ShareSheet(url: $0.url).ignoresSafeArea() }
+        .sheet(item: $share) { ShareSheet(share: $0).ignoresSafeArea() }
         .onAppear { catalog.load(userInitiated: true) }
         #if DEBUG
         .task(id: catalog.generation) {

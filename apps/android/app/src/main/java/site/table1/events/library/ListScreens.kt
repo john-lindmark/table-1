@@ -1,5 +1,7 @@
 package site.table1.events.library
 
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -28,8 +30,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -48,6 +52,8 @@ import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.T1TextField
 import site.table1.events.ui.theme.T1
+import site.table1.events.util.Telemetry
+import java.io.File
 import java.text.DateFormat
 import java.util.Date
 
@@ -251,6 +257,12 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     var editing by remember { mutableStateOf(false) }
     var moving by remember { mutableStateOf<ListLine?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var exportMenu by remember { mutableStateOf(false) }
+    var exportNote by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    // Read so the Export row appears once a pack is opened.
+    val catalog by CatalogStore.state.collectAsState()
+    val catalogReady = catalog.generation >= 0 && CatalogStore.db != null
 
     if (list == null) {
         T1Screen { Bar("List", onBack = onBack); Notice(if (s.ready) "That list isn't here anymore." else "Loading…") }
@@ -288,6 +300,11 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
             ListRow("Add cards", if (list.kind == ListKind.Deck) "To the main deck, sideboard or considering" else "To the cube or considering", onClick = onAdd)
             ListRow("Version history", "v${list.current.number} · ${list.current.note} · ${fmtDate(list.current.at)}", onClick = onVersions) {
                 Text("${list.versions.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
+            }
+            if (list.entries.isNotEmpty() && !editing && catalogReady) {
+                ListRow("Export", if (list.kind == ListKind.Deck) "For Arena, Moxfield, MTGO or as plain text" else "For Cube Cobra or as plain text",
+                    onClick = { exportMenu = true })
+                exportNote?.let { Notice(it) }
             }
             if (list.entries.isEmpty()) ListRow("No cards yet", "Add cards to start this list")
         }
@@ -389,7 +406,46 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
             },
         ), onDismiss = { confirmDelete = false })
     }
+    if (exportMenu) {
+        T1Menu("Export ${list.name} · v${list.current.number}", ListExport.Format.formats(list.kind).map { f ->
+            T1MenuItem(if (f.fileExtension != null) "${f.label} (.${f.fileExtension})" else f.label) {
+                scope.launch { exportNote = runCatching { shareList(context, list, f) }.getOrElse { it.message } }
+            }
+        }, onDismiss = { exportMenu = false })
+    }
     if (viewMenu) CardLayoutMenu(layout, if (list.kind == ListKind.Cube) "cube" else "deck") { viewMenu = false }
+}
+
+/**
+ * The current version in another app's format (contract/lists-2026-10-15.md, Export) through the system share sheet:
+ * a file for MTGO and Cube Cobra (the export FileProvider path), text to copy for the formats other apps paste in.
+ * Returns a note when cards newer than the card data were left out.
+ */
+private suspend fun shareList(context: Context, list: CardList, format: ListExport.Format): String? {
+    val db = CatalogStore.db ?: return null
+    val (text, cards, left) = withContext(Dispatchers.Default) {
+        val (lines, left) = ListExport.lines(list.entries, db)
+        Triple(ListExport.render(lines, list.kind, format), lines.sumOf { it.qty }, left)
+    }
+    val name = ListExport.fileName(list.name, list.kind, format)
+    val send = Intent(Intent.ACTION_SEND)
+    if (format.fileExtension != null) {
+        val file = File(context.cacheDir, "export/lists/$name")
+        withContext(Dispatchers.IO) {
+            file.parentFile?.mkdirs()
+            file.writeText(text)
+        }
+        send.type = if (format.fileExtension == "csv") "text/csv" else "text/plain"
+        send.putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.avatars", file))
+        send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    } else {
+        send.type = "text/plain"
+        send.putExtra(Intent.EXTRA_TEXT, text)
+        send.putExtra(Intent.EXTRA_TITLE, list.name)
+    }
+    context.startActivity(Intent.createChooser(send, name))
+    Telemetry.capture("list_exported", mapOf("kind" to list.kind.wire, "format" to format.wire, "cards" to cards, "left" to left))
+    return if (left > 0) "$left card${if (left == 1) "" else "s"} newer than the card data ${if (left == 1) "was" else "were"} left out." else null
 }
 
 @Composable

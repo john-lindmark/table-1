@@ -215,7 +215,8 @@ struct LibraryDemoRoot: View {
     }
 
     /// Design QA: `-T1LibraryDemo allcards|add|import|trades|trade|deck|cube` opens that screen (deck and cube: the
-    /// fixture's first of each). `import` with `-T1ImportFile <path>` reads that file as if it had been picked.
+    /// fixture's first of each; `-T1ListExport arena|moxfield|mtgo|text|cubecobra` then exports it). `import` with
+    /// `-T1ImportFile <path>` reads that file as if it had been picked.
     private static var startRoute: [LibraryRoute] {
         let args = ProcessInfo.processInfo.arguments
         guard let i = args.firstIndex(of: "-T1LibraryDemo"), i + 1 < args.count else { return [] }

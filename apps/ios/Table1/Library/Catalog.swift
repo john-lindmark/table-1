@@ -26,6 +26,9 @@ struct CatalogOracle: Hashable, Sendable {
     var legal: String = ""
     /// Canadian Highlander points (0 = none).
     var points: Int = 0
+    var cmc: Double = 0
+    /// WUBRG letters; empty = colorless.
+    var colors: String = ""
 
     /// Legality in a deck format: "legal", "restricted", "banned", "not_legal", or nil when the format isn't checked.
     func legality(_ format: String) -> String? { CatalogPack.legality(legal, format) }
@@ -71,10 +74,10 @@ final class CatalogDB: @unchecked Sendable {
 
     func close() { db.close() }
 
-    private static let oracleCols = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount, legal, points"
+    private static let oracleCols = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount, legal, points, cmc, colors"
     private static func oracle(_ r: SQLiteDB.Row) -> CatalogOracle {
         CatalogOracle(idx: r.int(0), oracleId: r.text(1), name: r.text(2), norm: r.text(3), typeLine: r.text(4),
-                      manaCost: r.text(5), printings: r.int(6), legal: r.text(7), points: r.int(8))
+                      manaCost: r.text(5), printings: r.int(6), legal: r.text(7), points: r.int(8), cmc: r.double(9), colors: r.text(10))
     }
 
     private static let printingCols =
