@@ -30,6 +30,10 @@ export interface Catalog {
   oOriginal: Int32Array;
   /** Canadian Highlander points per card (0 = none). */
   oPoints: Uint8Array;
+  /** Mana the card makes, letters from WUBRGCF; null when the pack doesn't say (older packs, cards not yet read). */
+  oProduced: (string | null)[];
+  /** Token cards it makes: O-line indexes, comma-separated ("" = none). */
+  oTokens: string[];
   /** Printings of card i are pFirst[i] .. pFirst[i] + pCount[i] - 1, newest first. */
   pFirst: Int32Array;
   pCount: Int32Array;
@@ -168,6 +172,7 @@ export function parsePack(version: string, text: string): Catalog {
     oId: new Array(nO), oName: new Array(nO), oNorm: new Array(nO), oType: new Array(nO), oCost: new Array(nO),
     oCmc: new Float64Array(nO), oColors: new Array(nO), oFaces: new Array(nO),
     oLegal: new Array(nO), oOriginal: new Int32Array(nO).fill(-1), oPoints: new Uint8Array(nO),
+    oProduced: new Array(nO).fill(null), oTokens: new Array(nO).fill(""),
     pFirst: new Int32Array(nO).fill(-1), pCount: new Int32Array(nO),
     pId: new Array(nP), pOracle: new Int32Array(nP), pSet: new Array(nP), pCn: new Array(nP), pLang: new Array(nP),
     pRarity: new Array(nP), pFinishes: new Array(nP), pReleased: new Array(nP), pImageTs: new Array(nP),
@@ -185,6 +190,7 @@ export function parsePack(version: string, text: string): Catalog {
       c.oCmc[i] = f[7] ? Number(f[7]) : 0; c.oColors[i] = f[8] ?? ""; c.oFaces[i] = f[9] ?? "";
       c.oLegal[i] = f[10] ?? "";
       c.oPoints[i] = Number(f[11]) || 0;
+      if (f.length > 12) { c.oProduced[i] = f[12]; c.oTokens[i] = f[13] ?? ""; }
       o++;
     } else if (f[0] === "P" && p < nP) {
       const oi = Number(f[2]);
@@ -313,6 +319,12 @@ export function printingBySetCn(c: Catalog, set: string, cn: string): number | u
     setCnIndexes.set(c, index);
   }
   return index.get(`${set.toLowerCase()}|${cn}`);
+}
+
+/** The token cards card `oi` makes, as O-line indexes. */
+export function tokenIndexes(c: Catalog, oi: number): number[] {
+  const t = c.oTokens[oi];
+  return t ? t.split(",").map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n < c.oracles) : [];
 }
 
 export function oracleIndexById(c: Catalog, oracleId: string): number {

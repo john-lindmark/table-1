@@ -39,6 +39,10 @@ export interface SlimCard {
   usd_etched: string | null;
   eur: string | null;
   eur_foil: string | null;
+  /** Letters from WUBRGCF in that order; see producedMana. */
+  produced_mana: string;
+  /** Scryfall ids of the token printings the card makes (all_parts, component "token"), sorted. */
+  token_card_ids: string[];
 }
 
 const KEEP_LEGALITY = new Set(["legal", "restricted", "banned"]);
@@ -88,7 +92,44 @@ export function slimCard(c: Json): SlimCard | null {
     usd_etched: p.usd_etched ?? null,
     eur: p.eur ?? null,
     eur_foil: p.eur_foil ?? null,
+    produced_mana: producedMana(c),
+    token_card_ids: tokenCardIds(c),
   };
+}
+
+const MANA_ORDER = "WUBRGCF";
+const BASIC_TYPES: [RegExp, string][] = [
+  [/\bPlains\b/, "W"], [/\bIslands?\b/, "U"], [/\bSwamps?\b/, "B"], [/\bMountains?\b/, "R"], [/\bForests?\b/, "G"],
+];
+
+/**
+ * The mana a card makes, as letters from WUBRGCF: Scryfall produced_mana (W U B R G C), plus, for a land, the colors
+ * of the basic land types it searches for ("Search your library for a Plains or Island card" → W U) and F when it
+ * searches for any basic land (Evolving Wilds, Prismatic Vista). Empty when it makes none.
+ */
+export function producedMana(c: Json): string {
+  const got = new Set<string>();
+  for (const m of Array.isArray(c.produced_mana) ? c.produced_mana : []) if ("WUBRGC".includes(m)) got.add(m);
+  const faces: Json[] = Array.isArray(c.card_faces) ? c.card_faces : [];
+  const typeLine: string = c.type_line ?? faces[0]?.type_line ?? "";
+  if (/\bLand\b/.test(typeLine.split(" // ")[0].split(" — ")[0])) {
+    const text = [c.oracle_text, ...faces.map((f) => f.oracle_text)].filter((t) => typeof t === "string").join("\n");
+    for (const m of text.matchAll(/search your library for ([^.]*)/gi)) {
+      let typed = false;
+      for (const [re, color] of BASIC_TYPES) if (re.test(m[1])) { got.add(color); typed = true; }
+      if (!typed && /\bbasic land cards?\b/i.test(m[1])) got.add("F");
+    }
+  }
+  return [...MANA_ORDER].filter((x) => got.has(x)).join("");
+}
+
+/** Token printings the card makes, from all_parts (component "token"), never the card itself. */
+export function tokenCardIds(c: Json): string[] {
+  const ids = new Set<string>();
+  for (const p of Array.isArray(c.all_parts) ? c.all_parts : []) {
+    if (p?.component === "token" && typeof p.id === "string" && p.id !== c.id) ids.add(p.id);
+  }
+  return [...ids].sort();
 }
 
 /**

@@ -64,10 +64,13 @@ data class StatLine(val card: StatCard, val cardId: String, val finish: String, 
 private fun resolveStatLines(list: CardList, db: CatalogDb): List<StatLine> {
     val ps = db.printings(list.entries.map { it.cardId }.toSet())
     val os = db.oracles(ps.values.map { it.oracleIdx }.toSet())
+    val tokenCards = db.oracles(os.values.flatMap { it.tokens }.toSet())
     return list.entries.mapNotNull { e ->
         val p = ps[e.cardId] ?: return@mapNotNull null
         val o = os[p.oracleIdx] ?: return@mapNotNull null
-        StatLine(StatCard(o.name, e.qty, e.board, o.typeLine, o.manaCost, o.cmc, o.colors, o.legal, p.rarity), e.cardId, e.finish, p)
+        val tokens = o.tokens.mapNotNull { tokenCards[it] }.map { StatToken(it.oracleId, it.name, it.typeLine) }
+        StatLine(StatCard(o.name, e.qty, e.board, o.typeLine, o.manaCost, o.cmc, o.colors, o.legal, p.rarity, produced = o.produced, tokens = tokens),
+            e.cardId, e.finish, p)
     }
 }
 
@@ -237,9 +240,13 @@ private fun LazyListScope.deckStats(list: CardList, cards: List<StatCard>, onHan
     val (creatures, other) = DeckStats.curve(cards)
     val types = DeckStats.typeCounts(deck)
     val pips = DeckStats.pipTotals(cards)
-    val (src, unread) = DeckStats.sources(cards)
+    val src = DeckStats.sources(cards)
+    val unread = src.unread
+    val olderPack = deck.any { it.produced == null }
+    val made = DeckStats.tokens(cards)
     val pipSum = maxOf(1, pips.sum())
-    val shown = (0 until 5).filter { pips[it] > 0 || src[it] > 0 }
+    // The deck's colors; a fetch land's other land type (Bloodstained Mire in Boros) isn't one.
+    val shown = (0 until 5).filter { if (pips.sum() > 0) pips[it] > 0 else src.colors[it] > 0 }
     val (total, unpriced) = DeckStats.price(cards)
     item("cells") { Cells(listOf("Cards" to "$size", "Lands" to "$lands", "Spells" to "${size - lands}", "Avg MV" to dec(DeckStats.averageMV(cards, false)))) }
     item("curve-h") { Section("Mana curve · spells by mana value") }
@@ -252,13 +259,24 @@ private fun LazyListScope.deckStats(list: CardList, cards: List<StatCard>, onHan
     if (types.sum() > size) item("types-note") { Notice("A card counts once for each of its types: an artifact creature is in both.") }
     item("colors-h") { Section("Colors · pips in costs vs sources") }
     item("colors") {
-        if (shown.isEmpty()) ListRow("Colorless", "No colored mana symbols or colored lands")
-        else StatTable(listOf("Color", "Pips", "Share", "Lands", "Share"), shown.map { i ->
-            listOf(DeckStats.COLOR_GROUPS[i], "${pips[i]}", pct(pips[i].toDouble() / pipSum), "${src[i]}", pct(src[i].toDouble() / maxOf(1, lands)))
+        if (shown.isEmpty()) ListRow("Colorless", "No colored mana symbols or colored sources")
+        else StatTable(listOf("Color", "Pips", "Share", "Sources", "Share"), shown.map { i ->
+            listOf(DeckStats.COLOR_GROUPS[i], "${pips[i]}", pct(pips[i].toDouble() / pipSum), "${src.colors[i]}",
+                pct(src.colors[i].toDouble() / maxOf(1, src.total)))
         })
     }
+    item("sources") {
+        val detail = (listOf("Lands and permanents that make mana") +
+            (if (src.nonLand > 0) listOf("${src.nonLand} not lands") else emptyList()) +
+            (if (src.colorless > 0) listOf("${src.colorless} colorless") else emptyList())).joinToString(" · ")
+        ListRow("Mana sources", detail) { Trailing("${src.total}") }
+    }
     if (unread > 0) item("unread") {
-        Notice("Lands count by their basic land types. $unread land${if (unread == 1) " has" else "s have"} none (fetch or utility lands) and ${if (unread == 1) "isn't" else "aren't"} counted.")
+        val one = unread == 1
+        Notice(
+            if (olderPack) "Card data is still updating, so lands count by their basic land types: $unread land${if (one) "" else "s"} without one (fetch or utility lands) ${if (one) "isn't" else "aren't"} counted."
+            else "$unread land${if (one) " makes" else "s make"} no mana and ${if (one) "isn't" else "aren't"} counted.",
+        )
     }
     item("legal-h") { Section("Legality · ${CatalogPack.formatName(list.format)}") }
     if (list.format in CHECKED) {
@@ -279,6 +297,22 @@ private fun LazyListScope.deckStats(list: CardList, cards: List<StatCard>, onHan
                     }
                     repeat(4 - row.size) { Spacer(Modifier.weight(1f).fillMaxHeight().background(T1.surface)) }
                 }
+            }
+        }
+    }
+    item("tokens-h") { Section("Tokens") }
+    if (made.isEmpty()) item("tokens") {
+        ListRow("None", if (cards.any { it.produced == null }) "Card data is still updating" else "No card here makes tokens")
+    }
+    made.forEach { u ->
+        item("token-${u.token.key}") {
+            Column(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(u.token.name, Modifier.weight(1f), color = T1.text, fontFamily = T1.mono, fontSize = 14.sp, maxLines = 1)
+                    Label(u.token.type.replace("Token ", ""))
+                }
+                Text("Made by " + u.makers.joinToString(", ") { (name, qty) -> if (qty > 1) "$name ×$qty" else name },
+                    color = T1.muted, fontFamily = T1.mono, fontSize = 12.sp)
             }
         }
     }

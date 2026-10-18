@@ -351,7 +351,9 @@
     "colors": "R",
     "legal": "--LLLLLL",
     "rarity": "c",
-    "usd": 1.5
+    "usd": 1.5,
+    "produced": "",
+    "tokens": []
    },
    {
     "name": "Delver of Secrets // Insectile Aberration",
@@ -363,7 +365,9 @@
     "colors": "U",
     "legal": "--LLLLL-",
     "rarity": "c",
-    "usd": 0.25
+    "usd": 0.25,
+    "produced": "",
+    "tokens": []
    },
    {
     "name": "Brazen Borrower // Petty Theft",
@@ -375,7 +379,9 @@
     "colors": "U",
     "legal": "-LLLL-L-",
     "rarity": "c",
-    "usd": 12.0
+    "usd": 12.0,
+    "produced": "",
+    "tokens": []
    },
    {
     "name": "Fire // Ice",
@@ -387,7 +393,9 @@
     "colors": "UR",
     "legal": "--LLLLLL",
     "rarity": "c",
-    "usd": 0.5
+    "usd": 0.5,
+    "produced": "",
+    "tokens": []
    },
    {
     "name": "Snapcaster Mage",
@@ -399,7 +407,9 @@
     "colors": "U",
     "legal": "-LLLL-L-",
     "rarity": "c",
-    "usd": 20.0
+    "usd": 20.0,
+    "produced": "",
+    "tokens": []
    },
    {
     "name": "Tarmogoyf",
@@ -411,7 +421,9 @@
     "colors": "G",
     "legal": "--LLL-L-",
     "rarity": "c",
-    "usd": 8.0
+    "usd": 8.0,
+    "produced": "",
+    "tokens": []
    },
    {
     "name": "Gut Shot",
@@ -423,7 +435,9 @@
     "colors": "R",
     "legal": "--BLL-L-",
     "rarity": "c",
-    "usd": 0.3
+    "usd": 0.3,
+    "produced": "",
+    "tokens": []
    },
    {
     "name": "Kitchen Finks",
@@ -435,7 +449,9 @@
     "colors": "GW",
     "legal": "--LLL-LL",
     "rarity": "c",
-    "usd": 0.4
+    "usd": 0.4,
+    "produced": "",
+    "tokens": []
    },
    {
     "name": "Spectral Procession",
@@ -447,7 +463,15 @@
     "colors": "W",
     "legal": "--LLL-L-",
     "rarity": "c",
-    "usd": 3.0
+    "usd": 3.0,
+    "produced": "",
+    "tokens": [
+     {
+      "key": "t-spirit",
+      "name": "Spirit",
+      "type": "Token Creature — Spirit"
+     }
+    ]
    },
    {
     "name": "Emrakul, the Aeons Torn",
@@ -459,7 +483,9 @@
     "colors": "",
     "legal": "--LLL-B-",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": "",
+    "tokens": []
    },
    {
     "name": "Jace, the Mind Sculptor",
@@ -471,7 +497,9 @@
     "colors": "U",
     "legal": "--LLL-L-",
     "rarity": "c",
-    "usd": 15.0
+    "usd": 15.0,
+    "produced": "",
+    "tokens": []
    },
    {
     "name": "Ornithopter",
@@ -483,7 +511,85 @@
     "colors": "",
     "legal": "-LLLLLLL",
     "rarity": "c",
-    "usd": 0.1
+    "usd": 0.1,
+    "produced": "",
+    "tokens": []
+   },
+   {
+    "name": "Young Pyromancer",
+    "qty": 2,
+    "board": "main",
+    "type": "Creature — Human Shaman",
+    "cost": "{1}{R}",
+    "cmc": 2,
+    "colors": "R",
+    "legal": "-LLLLLL-",
+    "rarity": "c",
+    "usd": 0.5,
+    "produced": "",
+    "tokens": [
+     {
+      "key": "t-elemental",
+      "name": "Elemental",
+      "type": "Token Creature — Elemental"
+     }
+    ]
+   },
+   {
+    "name": "Birds of Paradise",
+    "qty": 1,
+    "board": "main",
+    "type": "Creature — Bird",
+    "cost": "{G}",
+    "cmc": 1,
+    "colors": "G",
+    "legal": "-LLLL-L-",
+    "rarity": "c",
+    "usd": 7.0,
+    "produced": "WUBRG",
+    "tokens": []
+   },
+   {
+    "name": "Mind Stone",
+    "qty": 2,
+    "board": "main",
+    "type": "Artifact",
+    "cost": "{2}",
+    "cmc": 2,
+    "colors": "",
+    "legal": "-LLLLLL-",
+    "rarity": "c",
+    "usd": 0.3,
+    "produced": "C",
+    "tokens": []
+   },
+   {
+    "name": "Dark Ritual",
+    "qty": 1,
+    "board": "main",
+    "type": "Instant",
+    "cost": "{B}",
+    "cmc": 1,
+    "colors": "B",
+    "legal": "---LLLL-",
+    "rarity": "c",
+    "usd": 0.5,
+    "produced": "B",
+    "tokens": []
+   },
+   {
+    "name": "Sea Gate Restoration // Sea Gate, Reborn",
+    "qty": 1,
+    "board": "main",
+    "type": "Sorcery // Land",
+    "cost": "{4}{U}{U}{U}",
+    "cmc": 7,
+    "colors": "U",
+    "legal": "LLLLL-L-",
+    "rarity": "c",
+    "usd": 4.0,
+    "produced": "U",
+    "tokens": []
    },
    {
     "name": "Steam Vents",
@@ -495,7 +601,9 @@
     "colors": "",
     "legal": "LLLLL-L-",
     "rarity": "c",
-    "usd": 14.0
+    "usd": 14.0,
+    "produced": "UR",
+    "tokens": []
    },
    {
     "name": "Island",
@@ -507,7 +615,9 @@
     "colors": "",
     "legal": "LLLLLLLL",
     "rarity": "c",
-    "usd": 0.05
+    "usd": 0.05,
+    "produced": "U",
+    "tokens": []
    },
    {
     "name": "Mountain",
@@ -519,7 +629,9 @@
     "colors": "",
     "legal": "LLLLLLLL",
     "rarity": "c",
-    "usd": 0.05
+    "usd": 0.05,
+    "produced": "R",
+    "tokens": []
    },
    {
     "name": "Polluted Delta",
@@ -531,7 +643,37 @@
     "colors": "",
     "legal": "--LLL-LL",
     "rarity": "c",
-    "usd": 25.0
+    "usd": 25.0,
+    "produced": "UB",
+    "tokens": []
+   },
+   {
+    "name": "Prismatic Vista",
+    "qty": 1,
+    "board": "main",
+    "type": "Land",
+    "cost": "",
+    "cmc": 0,
+    "colors": "",
+    "legal": "--LLL-L-",
+    "rarity": "c",
+    "usd": 5.0,
+    "produced": "F",
+    "tokens": []
+   },
+   {
+    "name": "Maze of Ith",
+    "qty": 1,
+    "board": "main",
+    "type": "Land",
+    "cost": "",
+    "cmc": 0,
+    "colors": "",
+    "legal": "---LL-L-",
+    "rarity": "c",
+    "usd": 3.0,
+    "produced": "",
+    "tokens": []
    },
    {
     "name": "Dryad Arbor",
@@ -543,7 +685,9 @@
     "colors": "G",
     "legal": "--LLL-L-",
     "rarity": "c",
-    "usd": 2.0
+    "usd": 2.0,
+    "produced": "G",
+    "tokens": []
    },
    {
     "name": "Wastes",
@@ -555,7 +699,9 @@
     "colors": "",
     "legal": "--LLLLL-",
     "rarity": "c",
-    "usd": 0.1
+    "usd": 0.1,
+    "produced": "C",
+    "tokens": []
    },
    {
     "name": "Breeding Pool",
@@ -567,7 +713,9 @@
     "colors": "",
     "legal": "-LLLL-L-",
     "rarity": "c",
-    "usd": 10.0
+    "usd": 10.0,
+    "produced": "GU",
+    "tokens": []
    },
    {
     "name": "Lightning Bolt",
@@ -579,7 +727,9 @@
     "colors": "R",
     "legal": "--LLLLLL",
     "rarity": "c",
-    "usd": 1.5
+    "usd": 1.5,
+    "produced": "",
+    "tokens": []
    },
    {
     "name": "Ancient Grudge",
@@ -591,7 +741,9 @@
     "colors": "R",
     "legal": "--LLLLLL",
     "rarity": "c",
-    "usd": 0.2
+    "usd": 0.2,
+    "produced": "",
+    "tokens": []
    },
    {
     "name": "Black Lotus",
@@ -603,7 +755,34 @@
     "colors": "",
     "legal": "---BR-B-",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": "WUBRG",
+    "tokens": []
+   },
+   {
+    "name": "Lingering Souls",
+    "qty": 1,
+    "board": "side",
+    "type": "Sorcery",
+    "cost": "{2}{W}",
+    "cmc": 3,
+    "colors": "W",
+    "legal": "--LLL-L-",
+    "rarity": "c",
+    "usd": 0.5,
+    "produced": "",
+    "tokens": [
+     {
+      "key": "t-spirit",
+      "name": "Spirit",
+      "type": "Token Creature — Spirit"
+     },
+     {
+      "key": "t-spirit-2",
+      "name": "Spirit",
+      "type": "Token Creature — Spirit"
+     }
+    ]
    },
    {
     "name": "Counterspell",
@@ -615,15 +794,37 @@
     "colors": "U",
     "legal": "---LLLLL",
     "rarity": "c",
-    "usd": 1.0
+    "usd": 1.0,
+    "produced": "",
+    "tokens": []
+   },
+   {
+    "name": "Hordeling Outburst",
+    "qty": 1,
+    "board": "maybe",
+    "type": "Sorcery",
+    "cost": "{1}{R}{R}",
+    "cmc": 3,
+    "colors": "R",
+    "legal": "--LLLLL-",
+    "rarity": "c",
+    "usd": 0.2,
+    "produced": "",
+    "tokens": [
+     {
+      "key": "t-goblin",
+      "name": "Goblin",
+      "type": "Token Creature — Goblin"
+     }
+    ]
    }
   ],
   "expected": {
    "curve": {
     "creatures": [
      1,
-     4,
-     3,
+     5,
+     5,
      4,
      0,
      0,
@@ -632,51 +833,97 @@
     ],
     "other": [
      0,
-     5,
-     0,
+     6,
+     2,
      0,
      3,
      0,
      1,
-     0
+     1
     ]
    },
    "types": [
-    14,
+    17,
     1,
-    7,
-    1,
-    1,
+    8,
+    2,
+    3,
     0,
     0,
-    17
+    19
    ],
-   "averageWithLands": 1.5384615384615385,
-   "averageWithoutLands": 2.727272727272727,
+   "averageWithLands": 1.6041666666666667,
+   "averageWithoutLands": 2.6551724137931036,
    "pips": [
     5,
-    19,
-    0,
-    7,
-    3
+    22,
+    1,
+    9,
+    4
    ],
    "sources": {
     "colors": [
-     0,
-     9,
-     0,
-     6,
-     2
+     1,
+     16,
+     5,
+     8,
+     3
     ],
-    "unread": 4
+    "colorless": 3,
+    "sources": 22,
+    "nonLand": 4,
+    "unread": 1
    },
+   "tokens": [
+    {
+     "key": "t-elemental",
+     "name": "Elemental",
+     "type": "Token Creature — Elemental",
+     "makers": [
+      {
+       "name": "Young Pyromancer",
+       "qty": 2
+      }
+     ]
+    },
+    {
+     "key": "t-spirit",
+     "name": "Spirit",
+     "type": "Token Creature — Spirit",
+     "makers": [
+      {
+       "name": "Lingering Souls",
+       "qty": 1
+      },
+      {
+       "name": "Spectral Procession",
+       "qty": 1
+      }
+     ]
+    },
+    {
+     "key": "t-spirit-2",
+     "name": "Spirit",
+     "type": "Token Creature — Spirit",
+     "makers": [
+      {
+       "name": "Lingering Souls",
+       "qty": 1
+      }
+     ]
+    }
+   ],
    "price": {
-    "total": 281.1,
+    "total": 302.7,
     "unpriced": 2
    },
    "legality": [
     {
      "name": "Black Lotus",
+     "reason": "Not legal"
+    },
+    {
+     "name": "Dark Ritual",
      "reason": "Not legal"
     },
     {
@@ -686,9 +933,13 @@
     {
      "name": "Lightning Bolt",
      "reason": "More than 4 copies"
+    },
+    {
+     "name": "Maze of Ith",
+     "reason": "Not legal"
     }
    ],
-   "librarySize": 39
+   "librarySize": 48
   },
   "legalityIn": {
    "legacy": [
@@ -708,6 +959,10 @@
     }
    ],
    "pauper": [
+    {
+     "name": "Birds of Paradise",
+     "reason": "Not legal"
+    },
     {
      "name": "Black Lotus",
      "reason": "Not legal"
@@ -745,7 +1000,23 @@
      "reason": "More than 4 copies"
     },
     {
+     "name": "Lingering Souls",
+     "reason": "Not legal"
+    },
+    {
+     "name": "Maze of Ith",
+     "reason": "Not legal"
+    },
+    {
      "name": "Polluted Delta",
+     "reason": "Not legal"
+    },
+    {
+     "name": "Prismatic Vista",
+     "reason": "Not legal"
+    },
+    {
+     "name": "Sea Gate Restoration // Sea Gate, Reborn",
      "reason": "Not legal"
     },
     {
@@ -787,6 +1058,10 @@
      "reason": "Singleton"
     },
     {
+     "name": "Mind Stone",
+     "reason": "Singleton"
+    },
+    {
      "name": "Polluted Delta",
      "reason": "Singleton"
     },
@@ -796,6 +1071,10 @@
     },
     {
      "name": "Steam Vents",
+     "reason": "Singleton"
+    },
+    {
+     "name": "Young Pyromancer",
      "reason": "Singleton"
     }
    ],
@@ -815,7 +1094,9 @@
     "colors": "WUBG",
     "legal": "--LLL-L-",
     "rarity": "c",
-    "usd": 6.0
+    "usd": 6.0,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Sol Ring",
@@ -827,7 +1108,9 @@
     "colors": "",
     "legal": "---BRLL-",
     "rarity": "c",
-    "usd": 2.0
+    "usd": 2.0,
+    "produced": "C",
+    "tokens": []
    },
    {
     "name": "Forest",
@@ -839,7 +1122,9 @@
     "colors": "",
     "legal": "LLLLLLLL",
     "rarity": "c",
-    "usd": 0.05
+    "usd": 0.05,
+    "produced": "G",
+    "tokens": []
    },
    {
     "name": "Relentless Rats",
@@ -851,7 +1136,23 @@
     "colors": "B",
     "legal": "-LLLLLL-",
     "rarity": "c",
-    "usd": 0.3
+    "usd": 0.3,
+    "produced": "",
+    "tokens": []
+   },
+   {
+    "name": "Evolving Wilds",
+    "qty": 1,
+    "board": "main",
+    "type": "Land",
+    "cost": "",
+    "cmc": 0,
+    "colors": "",
+    "legal": "LLLLLLLL",
+    "rarity": "c",
+    "usd": 0.1,
+    "produced": "F",
+    "tokens": []
    }
   ],
   "expected": {
@@ -885,9 +1186,9 @@
     2,
     0,
     0,
-    30
+    31
    ],
-   "averageWithLands": 0.8372093023255814,
+   "averageWithLands": 0.8181818181818182,
    "averageWithoutLands": 2.769230769230769,
    "pips": [
     1,
@@ -902,12 +1203,16 @@
      0,
      0,
      0,
-     30
+     31
     ],
+    "colorless": 2,
+    "sources": 33,
+    "nonLand": 2,
     "unread": 0
    },
+   "tokens": [],
    "price": {
-    "total": 14.5,
+    "total": 14.6,
     "unpriced": 0
    },
    "legality": [
@@ -916,7 +1221,472 @@
      "reason": "Singleton"
     }
    ],
-   "librarySize": 42
+   "librarySize": 43
+  }
+ },
+ "olderPack": {
+  "cards": [
+   {
+    "name": "Lightning Bolt",
+    "qty": 4,
+    "board": "main",
+    "type": "Instant",
+    "cost": "{R}",
+    "cmc": 1,
+    "colors": "R",
+    "legal": "--LLLLLL",
+    "rarity": "c",
+    "usd": 1.5,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Delver of Secrets // Insectile Aberration",
+    "qty": 4,
+    "board": "main",
+    "type": "Creature — Human Wizard // Creature — Human Insect",
+    "cost": "{U}",
+    "cmc": 1,
+    "colors": "U",
+    "legal": "--LLLLL-",
+    "rarity": "c",
+    "usd": 0.25,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Brazen Borrower // Petty Theft",
+    "qty": 3,
+    "board": "main",
+    "type": "Creature — Faerie Rogue // Instant — Adventure",
+    "cost": "{1}{U}{U} // {1}{U}",
+    "cmc": 3,
+    "colors": "U",
+    "legal": "-LLLL-L-",
+    "rarity": "c",
+    "usd": 12.0,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Fire // Ice",
+    "qty": 2,
+    "board": "main",
+    "type": "Instant // Instant",
+    "cost": "{1}{R} // {1}{U}",
+    "cmc": 4,
+    "colors": "UR",
+    "legal": "--LLLLLL",
+    "rarity": "c",
+    "usd": 0.5,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Snapcaster Mage",
+    "qty": 2,
+    "board": "main",
+    "type": "Creature — Human Wizard",
+    "cost": "{1}{U}",
+    "cmc": 2,
+    "colors": "U",
+    "legal": "-LLLL-L-",
+    "rarity": "c",
+    "usd": 20.0,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Tarmogoyf",
+    "qty": 1,
+    "board": "main",
+    "type": "Creature — Lhurgoyf",
+    "cost": "{1}{G}",
+    "cmc": 2,
+    "colors": "G",
+    "legal": "--LLL-L-",
+    "rarity": "c",
+    "usd": 8.0,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Gut Shot",
+    "qty": 1,
+    "board": "main",
+    "type": "Instant",
+    "cost": "{R/P}",
+    "cmc": 1,
+    "colors": "R",
+    "legal": "--BLL-L-",
+    "rarity": "c",
+    "usd": 0.3,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Kitchen Finks",
+    "qty": 1,
+    "board": "main",
+    "type": "Creature — Ouphe",
+    "cost": "{1}{G/W}{G/W}",
+    "cmc": 3,
+    "colors": "GW",
+    "legal": "--LLL-LL",
+    "rarity": "c",
+    "usd": 0.4,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Spectral Procession",
+    "qty": 1,
+    "board": "main",
+    "type": "Sorcery",
+    "cost": "{2/W}{2/W}{2/W}",
+    "cmc": 6,
+    "colors": "W",
+    "legal": "--LLL-L-",
+    "rarity": "c",
+    "usd": 3.0,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Emrakul, the Aeons Torn",
+    "qty": 1,
+    "board": "main",
+    "type": "Legendary Creature — Eldrazi",
+    "cost": "{15}",
+    "cmc": 15,
+    "colors": "",
+    "legal": "--LLL-B-",
+    "rarity": "c",
+    "usd": null,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Jace, the Mind Sculptor",
+    "qty": 1,
+    "board": "main",
+    "type": "Legendary Planeswalker — Jace",
+    "cost": "{2}{U}{U}",
+    "cmc": 4,
+    "colors": "U",
+    "legal": "--LLL-L-",
+    "rarity": "c",
+    "usd": 15.0,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Ornithopter",
+    "qty": 1,
+    "board": "main",
+    "type": "Artifact Creature — Thopter",
+    "cost": "{0}",
+    "cmc": 0,
+    "colors": "",
+    "legal": "-LLLLLLL",
+    "rarity": "c",
+    "usd": 0.1,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Young Pyromancer",
+    "qty": 2,
+    "board": "main",
+    "type": "Creature — Human Shaman",
+    "cost": "{1}{R}",
+    "cmc": 2,
+    "colors": "R",
+    "legal": "-LLLLLL-",
+    "rarity": "c",
+    "usd": 0.5,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Birds of Paradise",
+    "qty": 1,
+    "board": "main",
+    "type": "Creature — Bird",
+    "cost": "{G}",
+    "cmc": 1,
+    "colors": "G",
+    "legal": "-LLLL-L-",
+    "rarity": "c",
+    "usd": 7.0,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Mind Stone",
+    "qty": 2,
+    "board": "main",
+    "type": "Artifact",
+    "cost": "{2}",
+    "cmc": 2,
+    "colors": "",
+    "legal": "-LLLLLL-",
+    "rarity": "c",
+    "usd": 0.3,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Dark Ritual",
+    "qty": 1,
+    "board": "main",
+    "type": "Instant",
+    "cost": "{B}",
+    "cmc": 1,
+    "colors": "B",
+    "legal": "---LLLL-",
+    "rarity": "c",
+    "usd": 0.5,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Sea Gate Restoration // Sea Gate, Reborn",
+    "qty": 1,
+    "board": "main",
+    "type": "Sorcery // Land",
+    "cost": "{4}{U}{U}{U}",
+    "cmc": 7,
+    "colors": "U",
+    "legal": "LLLLL-L-",
+    "rarity": "c",
+    "usd": 4.0,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Steam Vents",
+    "qty": 4,
+    "board": "main",
+    "type": "Land — Island Mountain",
+    "cost": "",
+    "cmc": 0,
+    "colors": "",
+    "legal": "LLLLL-L-",
+    "rarity": "c",
+    "usd": 14.0,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Island",
+    "qty": 4,
+    "board": "main",
+    "type": "Basic Land — Island",
+    "cost": "",
+    "cmc": 0,
+    "colors": "",
+    "legal": "LLLLLLLL",
+    "rarity": "c",
+    "usd": 0.05,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Mountain",
+    "qty": 2,
+    "board": "main",
+    "type": "Basic Land — Mountain",
+    "cost": "",
+    "cmc": 0,
+    "colors": "",
+    "legal": "LLLLLLLL",
+    "rarity": "c",
+    "usd": 0.05,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Polluted Delta",
+    "qty": 4,
+    "board": "main",
+    "type": "Land",
+    "cost": "",
+    "cmc": 0,
+    "colors": "",
+    "legal": "--LLL-LL",
+    "rarity": "c",
+    "usd": 25.0,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Prismatic Vista",
+    "qty": 1,
+    "board": "main",
+    "type": "Land",
+    "cost": "",
+    "cmc": 0,
+    "colors": "",
+    "legal": "--LLL-L-",
+    "rarity": "c",
+    "usd": 5.0,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Maze of Ith",
+    "qty": 1,
+    "board": "main",
+    "type": "Land",
+    "cost": "",
+    "cmc": 0,
+    "colors": "",
+    "legal": "---LL-L-",
+    "rarity": "c",
+    "usd": 3.0,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Dryad Arbor",
+    "qty": 1,
+    "board": "main",
+    "type": "Land Creature — Forest Dryad",
+    "cost": "",
+    "cmc": 0,
+    "colors": "G",
+    "legal": "--LLL-L-",
+    "rarity": "c",
+    "usd": 2.0,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Wastes",
+    "qty": 1,
+    "board": "main",
+    "type": "Basic Land",
+    "cost": "",
+    "cmc": 0,
+    "colors": "",
+    "legal": "--LLLLL-",
+    "rarity": "c",
+    "usd": 0.1,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Breeding Pool",
+    "qty": 1,
+    "board": "main",
+    "type": "Land — Forest Island",
+    "cost": "",
+    "cmc": 0,
+    "colors": "",
+    "legal": "-LLLL-L-",
+    "rarity": "c",
+    "usd": 10.0,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Lightning Bolt",
+    "qty": 1,
+    "board": "side",
+    "type": "Instant",
+    "cost": "{R}",
+    "cmc": 1,
+    "colors": "R",
+    "legal": "--LLLLLL",
+    "rarity": "c",
+    "usd": 1.5,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Ancient Grudge",
+    "qty": 2,
+    "board": "side",
+    "type": "Instant",
+    "cost": "{1}{R}",
+    "cmc": 2,
+    "colors": "R",
+    "legal": "--LLLLLL",
+    "rarity": "c",
+    "usd": 0.2,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Black Lotus",
+    "qty": 1,
+    "board": "side",
+    "type": "Artifact",
+    "cost": "{0}",
+    "cmc": 0,
+    "colors": "",
+    "legal": "---BR-B-",
+    "rarity": "c",
+    "usd": null,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Lingering Souls",
+    "qty": 1,
+    "board": "side",
+    "type": "Sorcery",
+    "cost": "{2}{W}",
+    "cmc": 3,
+    "colors": "W",
+    "legal": "--LLL-L-",
+    "rarity": "c",
+    "usd": 0.5,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Counterspell",
+    "qty": 2,
+    "board": "maybe",
+    "type": "Instant",
+    "cost": "{U}{U}",
+    "cmc": 2,
+    "colors": "U",
+    "legal": "---LLLLL",
+    "rarity": "c",
+    "usd": 1.0,
+    "produced": null,
+    "tokens": []
+   },
+   {
+    "name": "Hordeling Outburst",
+    "qty": 1,
+    "board": "maybe",
+    "type": "Sorcery",
+    "cost": "{1}{R}{R}",
+    "cmc": 3,
+    "colors": "R",
+    "legal": "--LLLLL-",
+    "rarity": "c",
+    "usd": 0.2,
+    "produced": null,
+    "tokens": []
+   }
+  ],
+  "sources": {
+   "colors": [
+    0,
+    9,
+    0,
+    6,
+    2
+   ],
+   "colorless": 0,
+   "sources": 12,
+   "nonLand": 0,
+   "unread": 6
   }
  },
  "mulligan": {
@@ -1071,7 +1841,9 @@
     "colors": "W",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Thalia, Guardian of Thraben",
@@ -1083,7 +1855,9 @@
     "colors": "W",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Wrath of God",
@@ -1095,7 +1869,9 @@
     "colors": "W",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Brightling",
@@ -1107,7 +1883,9 @@
     "colors": "W",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Counterspell",
@@ -1119,7 +1897,9 @@
     "colors": "U",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Ancestral Vision",
@@ -1131,7 +1911,9 @@
     "colors": "U",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Delver of Secrets // Insectile Aberration",
@@ -1143,7 +1925,9 @@
     "colors": "U",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Control Magic",
@@ -1155,7 +1939,9 @@
     "colors": "U",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Dark Ritual",
@@ -1167,7 +1953,9 @@
     "colors": "B",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Bloodghast",
@@ -1179,7 +1967,9 @@
     "colors": "B",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Grave Titan",
@@ -1191,7 +1981,9 @@
     "colors": "B",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Lightning Bolt",
@@ -1203,7 +1995,9 @@
     "colors": "R",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Goblin Guide",
@@ -1215,7 +2009,9 @@
     "colors": "R",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Fireblast",
@@ -1227,7 +2023,9 @@
     "colors": "R",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Inferno Titan",
@@ -1239,7 +2037,9 @@
     "colors": "R",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Llanowar Elves",
@@ -1251,7 +2051,9 @@
     "colors": "G",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Tarmogoyf",
@@ -1263,7 +2065,9 @@
     "colors": "G",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Craterhoof Behemoth",
@@ -1275,7 +2079,9 @@
     "colors": "G",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Fire // Ice",
@@ -1287,7 +2093,9 @@
     "colors": "UR",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Kitchen Finks",
@@ -1299,7 +2107,9 @@
     "colors": "GW",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Baleful Strix",
@@ -1311,7 +2121,9 @@
     "colors": "UB",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Sol Ring",
@@ -1323,7 +2135,9 @@
     "colors": "",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Wurmcoil Engine",
@@ -1335,7 +2149,9 @@
     "colors": "",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Karn, Scion of Urza",
@@ -1347,7 +2163,9 @@
     "colors": "",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Kozilek, Butcher of Truth",
@@ -1359,7 +2177,9 @@
     "colors": "",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Volcanic Island",
@@ -1371,7 +2191,9 @@
     "colors": "",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Scalding Tarn",
@@ -1383,7 +2205,9 @@
     "colors": "",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Strip Mine",
@@ -1395,7 +2219,9 @@
     "colors": "",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Dryad Arbor",
@@ -1407,7 +2233,9 @@
     "colors": "G",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Invasion of Zendikar // Awakened Skyclash",
@@ -1419,7 +2247,9 @@
     "colors": "G",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    },
    {
     "name": "Lightning Bolt",
@@ -1431,7 +2261,9 @@
     "colors": "R",
     "legal": "",
     "rarity": "c",
-    "usd": null
+    "usd": null,
+    "produced": null,
+    "tokens": []
    }
   ],
   "expected": {

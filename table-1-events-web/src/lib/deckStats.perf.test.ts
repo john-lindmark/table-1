@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
-  StatsRng, asfan, averageMV, colorBalance, curve, curveByColor, legality, pipTotals, sources, statCard, typeCounts, type AsfanBy,
+  StatsRng, asfan, averageMV, colorBalance, curve, curveByColor, legality, pipTotals, sources, statCard, tokens, typeCounts, type AsfanBy,
   type StatCard,
 } from "./deckStats";
 
@@ -28,6 +28,7 @@ describe("deck stats perf", () => {
       curve(cube);
       pipTotals(cube);
       sources(cube);
+      tokens(cube);
       averageMV(cube, false);
       legality(cube, "vintage");
       new StatsRng(5).shuffle(540);

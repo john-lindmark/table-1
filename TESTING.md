@@ -5,7 +5,7 @@ The pre-commit hook is on via `git config core.hooksPath tools/githooks` (set 20
 
 | Command | What runs | Time |
 | --- | --- | --- |
-| `./test.sh` | **Fast tier.** Web `tsc` + Vitest, engine/web rules parity, Deno engine tests, every database test file | ~5 s (+~10 s when a migration changed) |
+| `./test.sh` | **Fast tier.** Web `tsc` + Vitest, engine/web rules parity, Deno engine and cards-sync tests, every database test file | ~5 s (+~10 s when a migration changed) |
 | `./test.sh staged` | What the pre-commit hook runs: only the fast-tier parts the staged paths touch | 0–5 s |
 | `./test.sh full` | Fast + iOS unit tests on the `T1-Tests` simulator + Android `testDebugUnitTest` | a few minutes |
 | `./test.sh perf` | Performance budgets: Swiss events of 8–512 players, database RPC timings on a live-sized catalog, web bundle size | ~5 s |

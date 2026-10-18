@@ -25,6 +25,13 @@ insert into public.cards (id, oracle_id, set_code, collector_number, lang, rarit
 select md5('c' || g || '-' || k)::uuid, md5('o' || g)::uuid, 's' || (g % 300), g::text || chr(97 + k), 'en', 'common',
        '{nonfoil,foil}', 'normal', 'h', date '2000-01-01' + (g % 9000)
   from generate_series(1, 35000) g, generate_series(0, 2) k;
+-- Every card makes some mana; one in eight makes two tokens (O lines resolve token printings to pack indexes).
+update public.card_oracles o
+   set produced_mana = substr('WUBRGC', 1 + abs(hashtext(o.oracle_id::text)) % 6, 1),
+       token_card_ids = case when abs(hashtext(o.name)) % 8 = 0
+                             then array[md5('c' || (1 + abs(hashtext(o.name)) % 35000) || '-0')::uuid,
+                                        md5('c' || (1 + abs(hashtext(o.name_norm || 'x')) % 35000) || '-1')::uuid]
+                             else '{}' end;
 insert into public.card_names (name_norm, oracle_id, is_face)
 select name_norm, oracle_id, false from public.card_oracles on conflict do nothing;
 insert into public.card_prices (card_id, usd, usd_foil, eur, updated_at)

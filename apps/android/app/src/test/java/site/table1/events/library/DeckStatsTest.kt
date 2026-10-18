@@ -37,7 +37,17 @@ class DeckStatsTest {
         name = e.str("name"), qty = e.obj("qty").jsonPrimitive.int, board = e.str("board"), type = e.str("type"), cost = e.str("cost"),
         cmc = e.obj("cmc").jsonPrimitive.double, colors = e.str("colors"), legal = e.str("legal"), rarity = e.str("rarity"),
         usd = e.obj("usd").let { if (it is JsonNull) null else it.jsonPrimitive.double },
+        produced = e.obj("produced").let { if (it is JsonNull) null else it.jsonPrimitive.content },
+        tokens = e.obj("tokens").jsonArray.map { StatToken(it.str("key"), it.str("name"), it.str("type")) },
     )
+
+    private fun checkSources(want: JsonElement, got: DeckStats.Sources) {
+        assertEquals(want.obj("colors").ints(), got.colors)
+        assertEquals(want.obj("colorless").jsonPrimitive.int, got.colorless)
+        assertEquals(want.obj("sources").jsonPrimitive.int, got.total)
+        assertEquals(want.obj("nonLand").jsonPrimitive.int, got.nonLand)
+        assertEquals(want.obj("unread").jsonPrimitive.int, got.unread)
+    }
 
     private fun issues(e: JsonElement) = e.jsonArray.map { it.str("name") to it.str("reason") }
 
@@ -78,9 +88,13 @@ class DeckStatsTest {
         assertEquals(e.obj("averageWithLands").jsonPrimitive.double, DeckStats.averageMV(cards, true), 1e-9)
         assertEquals(e.obj("averageWithoutLands").jsonPrimitive.double, DeckStats.averageMV(cards, false), 1e-9)
         assertEquals(e.obj("pips").ints(), DeckStats.pipTotals(cards))
-        val (src, unread) = DeckStats.sources(cards)
-        assertEquals(e.obj("sources").obj("colors").ints(), src)
-        assertEquals(e.obj("sources").obj("unread").jsonPrimitive.int, unread)
+        checkSources(e.obj("sources"), DeckStats.sources(cards))
+        assertEquals(
+            e.obj("tokens").jsonArray.map { t ->
+                listOf(t.str("key"), t.str("name"), t.str("type")) + t.obj("makers").jsonArray.map { "${it.str("name")}×${it.obj("qty").jsonPrimitive.int}" }
+            },
+            DeckStats.tokens(cards).map { u -> listOf(u.token.key, u.token.name, u.token.type) + u.makers.map { "${it.first}×${it.second}" } },
+        )
         val (total, unpriced) = DeckStats.price(cards)
         assertEquals(e.obj("price").obj("total").jsonPrimitive.double, total, 0.006)
         assertEquals(e.obj("price").obj("unpriced").jsonPrimitive.int, unpriced)
@@ -91,6 +105,10 @@ class DeckStatsTest {
 
     @Test fun deck() = checkDeck(cases.obj("deck"))
     @Test fun commanderDeck() = checkDeck(cases.obj("commander"))
+    @Test fun olderPackReadsLandsByBasicType() {
+        val o = cases.obj("olderPack")
+        checkSources(o.obj("sources"), DeckStats.sources(o.obj("cards").jsonArray.map(::card)))
+    }
 
     @Test fun londonMulligan() {
         val m = cases.obj("mulligan")
@@ -161,6 +179,7 @@ class DeckStatsTest {
             DeckStats.curve(cube)
             DeckStats.pipTotals(cube)
             DeckStats.sources(cube)
+            DeckStats.tokens(cube)
             DeckStats.averageMV(cube, false)
             DeckStats.legality(cube, "vintage")
             StatsRng(5).shuffle(540)

@@ -83,6 +83,10 @@ struct PackOracle: Equatable {
     var legal: String = ""
     /// Canadian Highlander points (0 = none).
     var points: Int = 0
+    /// Mana the card makes, letters from WUBRGCF; nil when the pack doesn't say (older packs, cards not yet read).
+    var produced: String? = nil
+    /// O-line indexes of the tokens it makes, comma-separated.
+    var tokens: String = ""
 }
 
 /// A printed name in another language (N line): what the card is called on its de/es/fr/it/pt/ru printings.
@@ -158,7 +162,7 @@ enum CatalogPack {
             var o = 0, p = 0
             var start = 0
             var fields: [String] = []
-            fields.reserveCapacity(12)
+            fields.reserveCapacity(14)
             while start < n {
                 var end = start
                 while end < n && bytes[end] != 0x0A { end += 1 }
@@ -175,7 +179,7 @@ enum CatalogPack {
                             try oracle(PackOracle(
                                 idx: Int(at(1)) ?? o, oracleId: at(2), name: at(3), nameNorm: at(4), typeLine: at(5),
                                 manaCost: at(6), cmc: Double(at(7)) ?? 0, colors: at(8), faceNames: at(9), legal: at(10),
-                                points: Int(at(11)) ?? 0))
+                                points: Int(at(11)) ?? 0, produced: fields.count > 12 ? fields[12] : nil, tokens: at(13)))
                             o += 1
                         } else if fields[0] == "P", p < h.printings {
                             try printing(PackPrinting(

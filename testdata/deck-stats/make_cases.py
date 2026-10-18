@@ -13,6 +13,7 @@ from pathlib import Path
 M = 0xFFFFFFFF
 COLORS = "WUBRG"
 TYPES = ["Creature", "Planeswalker", "Instant", "Sorcery", "Artifact", "Enchantment", "Battle", "Land"]
+PERMANENTS = {"Creature", "Planeswalker", "Artifact", "Enchantment", "Battle", "Land"}
 BASIC_TYPES = {"Plains": "W", "Island": "U", "Swamp": "B", "Mountain": "R", "Forest": "G"}
 COLOR_GROUPS = ["White", "Blue", "Black", "Red", "Green", "Multicolor", "Colorless", "Lands"]
 COLOR_NAMES = dict(zip(COLORS, COLOR_GROUPS))
@@ -80,14 +81,33 @@ def pips(cost):
     return out
 
 
-def produces(c):
-    if not is_land(c):
-        return ""
+def basic_type_colors(c):
+    """Colors of the basic land types on any face (Steam Vents → UR)."""
     subtypes = set()
     for face in c["type"].split(" // "):
         if " — " in face:
             subtypes.update(words(face.split(" — ", 1)[1]))
     return "".join(col for t, col in BASIC_TYPES.items() if t in subtypes)
+
+
+def is_permanent(c):
+    """Any face is a permanent (a spell // land card counts through its land)."""
+    return any(PERMANENTS & set(words(face.split(" — ")[0])) for face in c["type"].split(" // "))
+
+
+def produces(c, basics):
+    """Mana a card makes as WUBRGC letters. With the pack's produced field: permanents only (rituals aren't
+    sources), F (searches for any basic land) becomes the colors of the deck's basic lands. Without it (an older
+    pack): lands by their basic land types."""
+    p = c.get("produced")
+    if p is None:
+        return basic_type_colors(c) if is_land(c) else ""
+    if not is_permanent(c):
+        return ""
+    got = set(p) - {"F"}
+    if "F" in p:
+        got |= set(basics)
+    return "".join(x for x in COLORS + "C" if x in got)
 
 
 def card_types(c):
@@ -146,19 +166,50 @@ def pip_totals(cards):
     return out
 
 
+def is_basic(c):
+    return "Basic" in words(c["type"])
+
+
 def sources(cards):
+    """Copies that make each color, colorless, all sources, the non-land ones among them, and lands that make
+    nothing the stats can read (not basics)."""
+    deck = deck_cards(cards)
+    basics = set()
+    for c in deck:
+        if is_basic(c) and is_land(c):
+            basics |= set(basic_type_colors(c))
     out = [0] * 5
-    unread = 0
-    for c in deck_cards(cards):
-        if not is_land(c):
-            continue
-        p = produces(c)
-        for i, col in enumerate(COLORS):
-            if col in p:
-                out[i] += c["qty"]
-        if not p and "Basic" not in words(c["type"]):
+    colorless = total = non_land = unread = 0
+    for c in deck:
+        p = produces(c, basics)
+        if p:
+            total += c["qty"]
+            if not is_land(c):
+                non_land += c["qty"]
+            for i, col in enumerate(COLORS):
+                if col in p:
+                    out[i] += c["qty"]
+            if "C" in p:
+                colorless += c["qty"]
+        elif is_land(c) and not is_basic(c):
             unread += c["qty"]
-    return {"colors": out, "unread": unread}
+    return {"colors": out, "colorless": colorless, "sources": total, "nonLand": non_land, "unread": unread}
+
+
+def tokens(cards):
+    """Tokens the main deck, commander and sideboard make, by token card: name order, then key. Each lists the
+    cards that make it (name order) with their copies."""
+    found = {}
+    for c in cards:
+        if c["board"] == "maybe":
+            continue
+        for t in c.get("tokens", []):
+            e = found.setdefault(t["key"], {"key": t["key"], "name": t["name"], "type": t["type"], "makers": {}})
+            e["makers"][c["name"]] = e["makers"].get(c["name"], 0) + c["qty"]
+    out = []
+    for e in sorted(found.values(), key=lambda e: (e["name"], e["key"])):
+        out.append({**e, "makers": [{"name": n, "qty": q} for n, q in sorted(e["makers"].items())]})
+    return out
 
 
 def price(cards):
@@ -306,45 +357,68 @@ def asfan(cards, pack, by):
 
 # ---- fixtures ----
 
-def card(name, qty, board, type_, cost, cmc, colors, legal, usd=None, rarity="c"):
+def card(name, qty, board, type_, cost, cmc, colors, legal, usd=None, rarity="c", produced=None, tokens=()):
     return {"name": name, "qty": qty, "board": board, "type": type_, "cost": cost, "cmc": cmc, "colors": colors,
-            "legal": legal, "rarity": rarity, "usd": usd}
+            "legal": legal, "rarity": rarity, "usd": usd, "produced": produced, "tokens": list(tokens)}
+
+
+ELEMENTAL = {"key": "t-elemental", "name": "Elemental", "type": "Token Creature — Elemental"}
+SPIRIT = {"key": "t-spirit", "name": "Spirit", "type": "Token Creature — Spirit"}
+SPIRIT_2 = {"key": "t-spirit-2", "name": "Spirit", "type": "Token Creature — Spirit"}  # another Spirit token card
+GOBLIN = {"key": "t-goblin", "name": "Goblin", "type": "Token Creature — Goblin"}
 
 
 DECK = [
-    card("Lightning Bolt", 4, "main", "Instant", "{R}", 1, "R", "--LLLLLL", 1.5),
+    card("Lightning Bolt", 4, "main", "Instant", "{R}", 1, "R", "--LLLLLL", 1.5, produced=""),
     card("Delver of Secrets // Insectile Aberration", 4, "main", "Creature — Human Wizard // Creature — Human Insect",
-         "{U}", 1, "U", "--LLLLL-", 0.25),
+         "{U}", 1, "U", "--LLLLL-", 0.25, produced=""),
     card("Brazen Borrower // Petty Theft", 3, "main", "Creature — Faerie Rogue // Instant — Adventure", "{1}{U}{U} // {1}{U}",
-         3, "U", "-LLLL-L-", 12.0),
-    card("Fire // Ice", 2, "main", "Instant // Instant", "{1}{R} // {1}{U}", 4, "UR", "--LLLLLL", 0.5),
-    card("Snapcaster Mage", 2, "main", "Creature — Human Wizard", "{1}{U}", 2, "U", "-LLLL-L-", 20.0),
-    card("Tarmogoyf", 1, "main", "Creature — Lhurgoyf", "{1}{G}", 2, "G", "--LLL-L-", 8.0),
-    card("Gut Shot", 1, "main", "Instant", "{R/P}", 1, "R", "--BLL-L-", 0.3),
-    card("Kitchen Finks", 1, "main", "Creature — Ouphe", "{1}{G/W}{G/W}", 3, "GW", "--LLL-LL", 0.4),
-    card("Spectral Procession", 1, "main", "Sorcery", "{2/W}{2/W}{2/W}", 6, "W", "--LLL-L-", 3.0),
-    card("Emrakul, the Aeons Torn", 1, "main", "Legendary Creature — Eldrazi", "{15}", 15, "", "--LLL-B-", None),
-    card("Jace, the Mind Sculptor", 1, "main", "Legendary Planeswalker — Jace", "{2}{U}{U}", 4, "U", "--LLL-L-", 15.0),
-    card("Ornithopter", 1, "main", "Artifact Creature — Thopter", "{0}", 0, "", "-LLLLLLL", 0.1),
-    card("Steam Vents", 4, "main", "Land — Island Mountain", "", 0, "", "LLLLL-L-", 14.0),
-    card("Island", 4, "main", "Basic Land — Island", "", 0, "", "LLLLLLLL", 0.05),
-    card("Mountain", 2, "main", "Basic Land — Mountain", "", 0, "", "LLLLLLLL", 0.05),
-    card("Polluted Delta", 4, "main", "Land", "", 0, "", "--LLL-LL", 25.0),
-    card("Dryad Arbor", 1, "main", "Land Creature — Forest Dryad", "", 0, "G", "--LLL-L-", 2.0),
-    card("Wastes", 1, "main", "Basic Land", "", 0, "", "--LLLLL-", 0.1),
-    card("Breeding Pool", 1, "main", "Land — Forest Island", "", 0, "", "-LLLL-L-", 10.0),
-    card("Lightning Bolt", 1, "side", "Instant", "{R}", 1, "R", "--LLLLLL", 1.5),
-    card("Ancient Grudge", 2, "side", "Instant", "{1}{R}", 2, "R", "--LLLLLL", 0.2),
-    card("Black Lotus", 1, "side", "Artifact", "{0}", 0, "", "---BR-B-", None),
-    card("Counterspell", 2, "maybe", "Instant", "{U}{U}", 2, "U", "---LLLLL", 1.0),
+         3, "U", "-LLLL-L-", 12.0, produced=""),
+    card("Fire // Ice", 2, "main", "Instant // Instant", "{1}{R} // {1}{U}", 4, "UR", "--LLLLLL", 0.5, produced=""),
+    card("Snapcaster Mage", 2, "main", "Creature — Human Wizard", "{1}{U}", 2, "U", "-LLLL-L-", 20.0, produced=""),
+    card("Tarmogoyf", 1, "main", "Creature — Lhurgoyf", "{1}{G}", 2, "G", "--LLL-L-", 8.0, produced=""),
+    card("Gut Shot", 1, "main", "Instant", "{R/P}", 1, "R", "--BLL-L-", 0.3, produced=""),
+    card("Kitchen Finks", 1, "main", "Creature — Ouphe", "{1}{G/W}{G/W}", 3, "GW", "--LLL-LL", 0.4, produced=""),
+    card("Spectral Procession", 1, "main", "Sorcery", "{2/W}{2/W}{2/W}", 6, "W", "--LLL-L-", 3.0, produced="",
+         tokens=[SPIRIT]),
+    card("Emrakul, the Aeons Torn", 1, "main", "Legendary Creature — Eldrazi", "{15}", 15, "", "--LLL-B-", None,
+         produced=""),
+    card("Jace, the Mind Sculptor", 1, "main", "Legendary Planeswalker — Jace", "{2}{U}{U}", 4, "U", "--LLL-L-", 15.0,
+         produced=""),
+    card("Ornithopter", 1, "main", "Artifact Creature — Thopter", "{0}", 0, "", "-LLLLLLL", 0.1, produced=""),
+    card("Young Pyromancer", 2, "main", "Creature — Human Shaman", "{1}{R}", 2, "R", "-LLLLLL-", 0.5, produced="",
+         tokens=[ELEMENTAL]),
+    card("Birds of Paradise", 1, "main", "Creature — Bird", "{G}", 1, "G", "-LLLL-L-", 7.0, produced="WUBRG"),
+    card("Mind Stone", 2, "main", "Artifact", "{2}", 2, "", "-LLLLLL-", 0.3, produced="C"),
+    card("Dark Ritual", 1, "main", "Instant", "{B}", 1, "B", "---LLLL-", 0.5, produced="B"),
+    card("Sea Gate Restoration // Sea Gate, Reborn", 1, "main", "Sorcery // Land", "{4}{U}{U}{U}", 7, "U",
+         "LLLLL-L-", 4.0, produced="U"),
+    card("Steam Vents", 4, "main", "Land — Island Mountain", "", 0, "", "LLLLL-L-", 14.0, produced="UR"),
+    card("Island", 4, "main", "Basic Land — Island", "", 0, "", "LLLLLLLL", 0.05, produced="U"),
+    card("Mountain", 2, "main", "Basic Land — Mountain", "", 0, "", "LLLLLLLL", 0.05, produced="R"),
+    card("Polluted Delta", 4, "main", "Land", "", 0, "", "--LLL-LL", 25.0, produced="UB"),
+    card("Prismatic Vista", 1, "main", "Land", "", 0, "", "--LLL-L-", 5.0, produced="F"),
+    card("Maze of Ith", 1, "main", "Land", "", 0, "", "---LL-L-", 3.0, produced=""),
+    card("Dryad Arbor", 1, "main", "Land Creature — Forest Dryad", "", 0, "G", "--LLL-L-", 2.0, produced="G"),
+    card("Wastes", 1, "main", "Basic Land", "", 0, "", "--LLLLL-", 0.1, produced="C"),
+    card("Breeding Pool", 1, "main", "Land — Forest Island", "", 0, "", "-LLLL-L-", 10.0, produced="GU"),
+    card("Lightning Bolt", 1, "side", "Instant", "{R}", 1, "R", "--LLLLLL", 1.5, produced=""),
+    card("Ancient Grudge", 2, "side", "Instant", "{1}{R}", 2, "R", "--LLLLLL", 0.2, produced=""),
+    card("Black Lotus", 1, "side", "Artifact", "{0}", 0, "", "---BR-B-", None, produced="WUBRG"),
+    card("Lingering Souls", 1, "side", "Sorcery", "{2}{W}", 3, "W", "--LLL-L-", 0.5, produced="",
+         tokens=[SPIRIT, SPIRIT_2]),
+    card("Counterspell", 2, "maybe", "Instant", "{U}{U}", 2, "U", "---LLLLL", 1.0, produced=""),
+    card("Hordeling Outburst", 1, "maybe", "Sorcery", "{1}{R}{R}", 3, "R", "--LLLLL-", 0.2, produced="",
+         tokens=[GOBLIN]),
 ]
 
 COMMANDER = [
     card("Atraxa, Praetors' Voice", 1, "commander", "Legendary Creature — Phyrexian Angel Horror", "{G}{W}{U}{B}", 4, "WUBG",
          "--LLL-L-", 6.0),
-    card("Sol Ring", 2, "main", "Artifact", "{1}", 1, "", "---BRLL-", 2.0),
-    card("Forest", 30, "main", "Basic Land — Forest", "", 0, "", "LLLLLLLL", 0.05),
-    card("Relentless Rats", 10, "main", "Creature — Rat", "{1}{B}{B}", 3, "B", "-LLLLLL-", 0.3),
+    card("Sol Ring", 2, "main", "Artifact", "{1}", 1, "", "---BRLL-", 2.0, produced="C"),
+    card("Forest", 30, "main", "Basic Land — Forest", "", 0, "", "LLLLLLLL", 0.05, produced="G"),
+    card("Relentless Rats", 10, "main", "Creature — Rat", "{1}{B}{B}", 3, "B", "-LLLLLL-", 0.3, produced=""),
+    card("Evolving Wilds", 1, "main", "Land", "", 0, "", "LLLLLLLL", 0.1, produced="F"),
 ]
 
 CUBE_SPECS = [
@@ -384,6 +458,9 @@ CUBE = [card(n, 1, "main", t, cost, cmc, col, "") for n, t, cost, cmc, col in CU
 CUBE.append(card("Lightning Bolt", 1, "maybe", "Instant", "{R}", 1, "R", ""))  # Considering: never counted
 
 
+OLDER_PACK = [{**c, "produced": None, "tokens": []} for c in DECK]
+
+
 def deck_expected(cards, fmt):
     return {
         "curve": curve(cards),
@@ -392,6 +469,7 @@ def deck_expected(cards, fmt):
         "averageWithoutLands": average_mv(cards, False),
         "pips": pip_totals(cards),
         "sources": sources(cards),
+        "tokens": tokens(cards),
         "price": price(cards),
         "legality": legality(cards, fmt),
         "librarySize": sum(c["qty"] for c in cards if c["board"] == "main"),
@@ -453,6 +531,8 @@ def main():
         "deck": {"format": "modern", "cards": DECK, "expected": deck_expected(DECK, "modern"),
                  "legalityIn": {f: legality(DECK, f) for f in ("legacy", "vintage", "pauper", "canlander", "cube")}},
         "commander": {"format": "commander", "cards": COMMANDER, "expected": deck_expected(COMMANDER, "commander")},
+        # The same deck read from a pack without the produced field: lands by their basic land types only.
+        "olderPack": {"cards": OLDER_PACK, "sources": sources(OLDER_PACK)},
         "mulligan": {"size": 40, "seed": 12345, "script": script},
         "cube": cube,
     }

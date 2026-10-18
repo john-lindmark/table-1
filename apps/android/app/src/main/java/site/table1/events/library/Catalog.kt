@@ -42,6 +42,9 @@ data class CatalogOracle(
     /** Mana value and colors (WUBRG letters, empty = colorless), for deck and cube stats. */
     val cmc: Double = 0.0,
     val colors: String = "",
+    /** Mana it makes (letters from WUBRGCF), null when the pack doesn't say; the token cards it makes (O-line idx). */
+    val produced: String? = null,
+    val tokens: List<Int> = emptyList(),
 ) {
     /** Legality in a deck format: legal, restricted, banned, not_legal, or null when the format isn't checked. */
     fun legality(format: String): String? = CatalogPack.legality(legal, format)
@@ -164,12 +167,13 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog, ImportC
         }.associateBy { it.idx }
 
     companion object {
-        private const val ORACLE_COLS = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount, legal, points, cmc, colors"
+        private const val ORACLE_COLS = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount, legal, points, cmc, colors, produced, tokens"
         private const val PRINTING_COLS =
             "card_id, oracle_idx, ord, set_code, cn, lang, rarity, finishes, released_at, image_ts, image_faces, printed_name, original"
 
         private fun oracle(c: Cursor) = CatalogOracle(c.getInt(0), c.getString(1), c.getString(2), c.getString(3),
-            c.getString(4) ?: "", c.getString(5) ?: "", c.getInt(6), c.getString(7) ?: "", c.getInt(8), c.getDouble(9), c.getString(10) ?: "")
+            c.getString(4) ?: "", c.getString(5) ?: "", c.getInt(6), c.getString(7) ?: "", c.getInt(8), c.getDouble(9), c.getString(10) ?: "",
+            if (c.isNull(11)) null else c.getString(11), (c.getString(12) ?: "").split(',').mapNotNull { it.toIntOrNull() })
 
         private fun printing(c: Cursor) = CatalogPrinting(c.getString(0), c.getInt(1), c.getInt(2), c.getString(3) ?: "",
             c.getString(4) ?: "", c.getString(5) ?: "", c.getString(6) ?: "", c.getString(7) ?: "", c.getString(8) ?: "",
@@ -185,7 +189,8 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog, ImportC
                 db.execSQL("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT)")
                 db.execSQL("""CREATE TABLE oracles (idx INTEGER PRIMARY KEY, oracle_id TEXT NOT NULL, name TEXT NOT NULL,
                     name_norm TEXT NOT NULL, type_line TEXT, mana_cost TEXT, cmc REAL, colors TEXT, face_names TEXT,
-                    pcount INTEGER NOT NULL DEFAULT 0, legal TEXT NOT NULL DEFAULT '', points INTEGER NOT NULL DEFAULT 0)""")
+                    pcount INTEGER NOT NULL DEFAULT 0, legal TEXT NOT NULL DEFAULT '', points INTEGER NOT NULL DEFAULT 0,
+                    produced TEXT, tokens TEXT NOT NULL DEFAULT '')""")
                 db.execSQL("""CREATE TABLE printings (card_id TEXT PRIMARY KEY, oracle_idx INTEGER NOT NULL, ord INTEGER NOT NULL,
                     set_code TEXT, cn TEXT, lang TEXT, rarity TEXT, finishes TEXT, released_at TEXT, image_ts TEXT,
                     image_faces INTEGER, printed_name TEXT, original INTEGER NOT NULL DEFAULT 0)""")
@@ -193,7 +198,7 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog, ImportC
                 db.beginTransaction()
                 try {
                     val insO = db.compileStatement(
-                        "INSERT INTO oracles (idx, oracle_id, name, name_norm, type_line, mana_cost, cmc, colors, face_names, legal, points) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
+                        "INSERT INTO oracles (idx, oracle_id, name, name_norm, type_line, mana_cost, cmc, colors, face_names, legal, points, produced, tokens) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
                     val insP = db.compileStatement("INSERT OR REPLACE INTO printings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
                     val insN = db.compileStatement("INSERT INTO names VALUES (?,?,?,?)")
                     var ord = 0L
@@ -204,6 +209,8 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog, ImportC
                         insO.bindDouble(7, o.cmc); insO.bindString(8, o.colors); insO.bindString(9, o.faceNames)
                         insO.bindString(10, o.legal)
                         insO.bindLong(11, o.points.toLong())
+                        o.produced?.let { insO.bindString(12, it) } // unbound = NULL: the pack doesn't say
+                        insO.bindString(13, o.tokens)
                         insO.executeInsert()
                     }, printing = { p ->
                         insP.clearBindings()
@@ -255,7 +262,7 @@ data class CatalogState(
  */
 object CatalogStore {
     /** Bumped when the local SQLite schema changes; a file built by an older schema is rebuilt from a fresh pack. */
-    private const val SCHEMA = "s5"   // s5: name_norm keeps Han, kana and Hangul
+    private const val SCHEMA = "s6"   // s6: oracles.produced and oracles.tokens
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(CatalogState())

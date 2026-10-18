@@ -154,4 +154,18 @@ class CatalogPackFieldsTest {
         assertEquals("legal", lotus.legality("canlander"))
         assertEquals(listOf(7, 0), o.map { it.points })
     }
+
+    /** Produced mana and token links (O fields 12 and 13); a line without them reads as unknown, not "makes no mana". */
+    @Test fun readsProducedAndTokens() {
+        val pack = listOf(
+            "#t1catalog\t1\tv1-test\t3\t0",
+            "O\t0\t11111111-1111-1111-1111-111111111111\tElemental\telemental\tToken Creature — Elemental\t\t0\tR\t\t--------\t\t\t",
+            "O\t1\t22222222-2222-2222-2222-222222222222\tPolluted Delta\tpolluted delta\tLand\t\t0\t\t\t--LLL-LL\t",
+            "O\t2\t33333333-3333-3333-3333-333333333333\tYoung Pyromancer\tyoung pyromancer\tCreature — Human Shaman\t{1}{R}\t2\tR\t\t-LLLLLL-\t\t\t0",
+        ).joinToString("\n")
+        val o = mutableListOf<PackOracle>()
+        CatalogPack.parse(pack, { o += it }, {})
+        assertEquals(listOf("", null, ""), o.map { it.produced })
+        assertEquals(listOf("", "", "0"), o.map { it.tokens })
+    }
 }
