@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -59,6 +60,8 @@ import site.table1.events.ui.components.T1MenuItem
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1TextField
 import site.table1.events.ui.theme.T1
+import site.table1.events.util.Telemetry
+import kotlinx.serialization.json.JsonArray
 import java.util.UUID
 
 /* Trades (contract/trades-2026-10-16.md). A trade is this account's record of a swap: what you give (copies you
@@ -72,6 +75,8 @@ data class TradeLine(
     val condition: String = "NM",
     val lang: String = "en",
     val qty: Int = 1,
+    /** A give: the binder the copies come from. A get: the binder they go into. Null = Unsorted. */
+    @SerialName("binder_id") val binderId: String? = null,
 ) {
     val key get() = itemKey(cardId, finish, condition, lang)
 }
@@ -93,7 +98,10 @@ data class Trade(
 }
 
 @Serializable
-private data class TradeConfirmResult(@SerialName("batch_id") val batchId: String? = null, val trade: Trade)
+private data class TradeConfirmResult(
+    @SerialName("batch_id") val batchId: String? = null, val trade: Trade,
+    @SerialName("binder_items") val binderItems: List<JsonArray> = emptyList(), val wants: List<JsonArray> = emptyList(),
+)
 
 data class TradesState(val trades: List<Trade> = emptyList(), val loaded: Boolean = false, val error: String? = null)
 
@@ -130,14 +138,17 @@ object TradesStore {
         return saved
     }
 
-    /** Applies the trade to the collection. */
-    suspend fun confirm(t: Trade) {
+    /** Applies the trade to the collection and takes the gets off your wants. Returns how many wanted copies it met. */
+    suspend fun confirm(t: Trade): Int {
+        val before = BindersStore.state.value.liveWants.sumOf { it.qty }
         val res = T1App.supabase.postgrest.rpc("trade_confirm", buildJsonObject {
             put("p_trade_id", t.id)
             put("p_idempotency_key", UUID.randomUUID().toString())
         }).decodeAs<TradeConfirmResult>()
         put(res.trade)
+        BindersStore.reflect(res.binderItems, res.wants)
         CollectionStore.sync()
+        return maxOf(0, before - BindersStore.state.value.liveWants.sumOf { it.qty })
     }
 
     suspend fun delete(t: Trade) {
@@ -189,8 +200,11 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
     val col by CollectionStore.state.collectAsState()
     val cat by CatalogStore.state.collectAsState()
     val pricesVersion by PriceBook.version.collectAsState()
+    val binders by BindersStore.state.collectAsState()
+    val lists by ListsStore.state.collectAsState()
     val scope = rememberCoroutineScope()
     var trade by remember { mutableStateOf<Trade?>(null) }
+    var oracleIds by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
     var partner by remember { mutableStateOf("") }
     var gives by remember { mutableStateOf<List<TradeLine>>(emptyList()) }
     var gets by remember { mutableStateOf<List<TradeLine>>(emptyList()) }
@@ -220,10 +234,12 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
         val ids = (gives + gets).map { it.cardId }.toSet()
         val found = withContext(Dispatchers.Default) {
             val p = db.printings(ids)
-            p to db.oracles(p.values.map { it.oracleIdx }.toSet()).mapValues { it.value.name }
+            val o = db.oracles(p.values.map { it.oracleIdx }.toSet())
+            Triple(p, o.mapValues { it.value.name }, o.mapValues { it.value.oracleId })
         }
         meta = found.first
         names = found.second
+        oracleIds = found.third
         PriceBook.load(ids)
     }
     // Drafts save half a second after the last change.
@@ -235,6 +251,30 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
             runCatching { TradesStore.save(trade, partner.trim().ifEmpty { null }, gives, gets) }
                 .onSuccess { trade = it }.onFailure { error = it.message }
         }
+    }
+
+    val missing = remember(lists.lists, col.version) {
+        MissingView.lines(lists.lists, col.items.values.groupBy { ownKey(it.cardId, it.finish) }.mapValues { (_, v) -> v.sumOf { it.qty } })
+            .associateBy { it.key }
+    }
+
+    /** What a get is to you: a want (and whether it's over your max price), or missing from a deck or cube. */
+    fun wantNote(l: TradeLine): Pair<String, Boolean>? {
+        val oracle = meta[l.cardId]?.let { oracleIds[it.oracleIdx] } ?: return null
+        BinderRules.wantFor(oracle, l.cardId, l.finish, binders.liveWants)?.let { w ->
+            val price = PriceBook.usd(l.cardId, l.finish)
+            return if (w.maxUsd != null && price != null && price > w.maxUsd) "Want · over your max $${w.maxUsd}" to true else "Want" to false
+        }
+        return missing[ownKey(l.cardId, l.finish)]?.let { "Missing · ${it.lists.take(2).joinToString(", ")}" to false }
+    }
+
+    /** The copy of a printing to give: the item with the most copies in for-trade binders (and that binder), else the one held most. */
+    fun bestGive(cardId: String, finish: String): TradeLine? {
+        val mine = col.items.values.filter { it.cardId == cardId && it.finish == finish && it.qty > 0 }
+        mine.map { it to binders.forTrade(it.key) }.filter { it.second.first > 0 }.maxByOrNull { it.second.first }?.let { (it, t) ->
+            return TradeLine(it.cardId, it.finish, it.condition, it.lang, 1, t.second)
+        }
+        return mine.maxByOrNull { it.qty }?.let { TradeLine(it.cardId, it.finish, it.condition, it.lang, 1) }
     }
 
     /** Market value of a side; null when none of its cards has a market price. */
@@ -275,6 +315,7 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
     }
 
     fun run(remove: List<Conflict>) {
+        val choice = if (remove.isNotEmpty()) "removed" else if (conflicts != null) "kept" else "none"
         conflicts = null
         busy = true
         error = null
@@ -282,7 +323,11 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
             runCatching {
                 saveJob?.cancel()
                 val saved = TradesStore.save(trade, partner.trim().ifEmpty { null }, gives, gets)
-                TradesStore.confirm(saved)
+                val fromTrade = gives.filter { binders.binder(it.binderId)?.forTrade == true }.sumOf { it.qty }
+                val met = TradesStore.confirm(saved)
+                Telemetry.capture("trade_confirmed", mapOf("gives" to gives.sumOf { it.qty }, "gets" to gets.sumOf { it.qty },
+                    "list_conflict" to choice,
+                    "wants_met" to met, "from_trade_binder" to fromTrade))
                 trade = TradesStore.trade(saved.id) ?: saved
                 // Take the missing copies out of each list, sideboard first.
                 val db = CatalogStore.db
@@ -323,9 +368,11 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                         lines.forEach { l ->
                             val p = meta[l.cardId]
+                            val note = if (give) null else wantNote(l)
                             TradeCell(p, p?.let { names[it.oracleIdx] } ?: "Card",
-                                listOfNotNull(p?.setLabel, Finish.of(l.finish)?.label, l.condition, PriceBook.text(PriceBook.usd(l.cardId, l.finish).also { pricesVersion })),
-                                l.qty) { if (!confirmed) editing = give to l.key }
+                                listOfNotNull(p?.setLabel, Finish.of(l.finish)?.label, l.condition, PriceBook.text(PriceBook.usd(l.cardId, l.finish).also { pricesVersion }),
+                                    if (give) binders.binder(l.binderId)?.name else null),
+                                l.qty, note = note) { if (!confirmed) editing = give to l.key }
                         }
                     }
                     if (!confirmed) {
@@ -384,11 +431,12 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
             title = if (give) "Scan what you give" else "Scan what you get",
             doneLabel = "Add",
             owned = if (give) ownedFinishes() else null,
+            preferred = if (give) binders.forTradePrintings() else emptyMap(),
             onDone = { cards ->
                 for (c in cards) {
-                    val condition = if (give) col.items.values.filter { it.cardId == c.printing.cardId && it.finish == c.finish }
-                        .maxByOrNull { it.qty }?.condition ?: "NM" else c.condition
-                    add(give, TradeLine(c.printing.cardId, c.finish, condition, "en", 1))
+                    // Giving: copies in a for-trade binder first, else the condition you hold most of.
+                    val line = if (give) bestGive(c.printing.cardId, c.finish) else null
+                    add(give, line ?: TradeLine(c.printing.cardId, c.finish, c.condition, "en", 1))
                 }
                 scanning = null
             },
@@ -398,15 +446,20 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
 }
 
 @Composable
-private fun TradeCell(p: CatalogPrinting?, name: String, detail: List<String>, qty: Int, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().background(T1.surface).clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun TradeCell(p: CatalogPrinting?, name: String, detail: List<String>, qty: Int, note: Pair<String, Boolean>? = null, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).background(T1.surface).clickable(onClick = onClick)) {
+        // A get that's wanted (or missing from a deck) gets an accent edge; over the max price, the error color.
+        if (note != null) Box(Modifier.fillMaxHeight().width(2.dp).background(if (note.second) T1.error else T1.accent))
+        Row(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         CardArt(p, 28.dp)
         Column(Modifier.weight(1f)) {
             Text(name, color = T1.text, fontFamily = T1.mono, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             detail.forEach { Label(it) }
+            note?.let { Label(it.first, color = if (it.second) T1.error else T1.accent) }
         }
         Text("$qty", color = T1.text, fontFamily = T1.mono, fontSize = 15.sp)
+        }
     }
 }
 
@@ -421,6 +474,7 @@ private fun SmallAction(text: String, modifier: Modifier, onClick: () -> Unit) {
 @Composable
 private fun TradePickOverlay(give: Boolean, onPick: (TradeLine) -> Unit, onClose: () -> Unit) {
     val col by CollectionStore.state.collectAsState()
+    val binders by BindersStore.state.collectAsState()
     var query by remember { mutableStateOf("") }
     var added by remember { mutableStateOf<String?>(null) }
     var rows by remember { mutableStateOf<List<Triple<TradeLine, CatalogPrinting?, String>>>(emptyList()) }
@@ -437,8 +491,9 @@ private fun TradePickOverlay(give: Boolean, onPick: (TradeLine) -> Unit, onClose
                 items.mapNotNull { it ->
                     val pr = p[it.cardId] ?: return@mapNotNull null
                     val or = o[pr.oracleIdx] ?: return@mapNotNull null
-                    if (n.isNotEmpty() && !or.norm.contains(n)) null else Triple(TradeLine(it.cardId, it.finish, it.condition, it.lang, 1), pr, or.name)
-                }.sortedBy { it.third }.take(200)
+                    if (n.isNotEmpty() && !or.norm.contains(n)) null
+                    else Triple(TradeLine(it.cardId, it.finish, it.condition, it.lang, 1, binders.forTrade(it.key).second), pr, or.name)
+                }.sortedWith(compareBy<Triple<TradeLine, CatalogPrinting?, String>>({ it.first.binderId == null }, { it.third })).take(200)
             } else {
                 val hits = db.search(q)
                 val covers = db.covers(hits.map { it.idx })
@@ -456,7 +511,9 @@ private fun TradePickOverlay(give: Boolean, onPick: (TradeLine) -> Unit, onClose
                 }
                 Hairlines(Modifier.weight(1f)) {
                     items(rows, key = { it.first.key }) { (line, p, name) ->
-                        CardRow(p, name, if (give) listOfNotNull(p?.setLabel, Finish.of(line.finish)?.label, line.condition).joinToString(" · ") else p?.setLabel,
+                        val trade = if (give) binders.forTrade(line.key) else (0 to null)
+                        CardRow(p, name, if (give) listOfNotNull(p?.setLabel, Finish.of(line.finish)?.label, line.condition,
+                            binders.binder(trade.second)?.let { "${trade.first} in ${it.name}" }).joinToString(" · ") else p?.setLabel,
                             onClick = { onPick(line); added = "Added $name" }) {
                             if (give) Text("${col.items[line.key]?.qty ?: 0}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                         }

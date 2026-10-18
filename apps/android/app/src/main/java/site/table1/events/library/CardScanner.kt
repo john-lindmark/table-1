@@ -95,6 +95,8 @@ fun CardScanOverlay(
     owned: Map<String, Set<String>>?,
     onDone: (List<ScannedCard>) -> Unit,
     onCancel: () -> Unit,
+    /** Owned-only: printing id → finishes in for-trade binders, preferred when the text doesn't settle the printing. */
+    preferred: Map<String, Set<String>> = emptyMap(),
 ) {
     val context = LocalContext.current
     val cat by CatalogStore.state.collectAsState()
@@ -113,7 +115,7 @@ fun CardScanOverlay(
     }
     // The matcher's name index takes a moment to build the first time, so it's built off the main thread.
     val matcher by produceState<CardMatcher?>(null, cat.generation) {
-        value = CatalogStore.db?.let { db -> withContext(Dispatchers.Default) { CardMatcher(db, owned, ScanNames.shared(db)) } }
+        value = CatalogStore.db?.let { db -> withContext(Dispatchers.Default) { CardMatcher(db, owned, ScanNames.shared(db), preferred) } }
     }
     var steady by remember { mutableStateOf(ScanSteadiness()) }
     val frames = remember { ScanFrames() }

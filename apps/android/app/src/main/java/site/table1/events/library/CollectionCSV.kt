@@ -31,6 +31,13 @@ data class ImportRow(
     val lang: String = "en",
     /** Why the line can't be read at all (it's listed as unmatched). */
     val problem: String? = null,
+    /** The binder (ManaBox binder, Dragon Shield folder) its copies go into; null = Unsorted. */
+    val binder: String? = null,
+    /** Copies on the tradelist (Deckbox / Moxfield Tradelist Count, Dragon Shield Trade Quantity): they go into the
+     *  for-trade "Trade binder". Never more than qty. */
+    val tradeQty: Int = 0,
+    /** A ManaBox list row: a wishlist line, not owned copies (contract/binders-wants-2026-10-17.md). */
+    val wanted: Boolean = false,
 ) {
     val setLabel get() = listOfNotNull(setCode?.uppercase() ?: setName, cn?.let { "#$it" }).joinToString(" ")
 }
@@ -94,10 +101,18 @@ object CollectionCSV {
                 if (setName.isEmpty()) setName = v
             }
             val cn = at(cols.cn).substringBefore('/')
+            // Binders: ManaBox's binder name and type, Dragon Shield's folder; tradelists go to the trade binder.
+            var binder: String? = at(cols.binderName).ifEmpty { null }
+            val type = at(cols.binderType).lowercase()
+            val wanted = type == "list" || type == "wishlist"
+            if (wanted || type == "deck") binder = null
+            val tq = at(cols.tradeQty)
+            val trade = if (wanted || tq.isEmpty()) 0 else minOf(qty, quantity(tq) ?: 0)
             rows.add(ImportRow(
                 line = r.line, name = name, setCode = setCode.ifEmpty { null }, setName = setName.ifEmpty { null },
                 cn = cn.ifEmpty { null }, scryfallId = id.ifEmpty { null }?.lowercase(), qty = qty, finish = finish,
                 condition = condition(rawCondition, format.cardmarketScale), lang = language(at(cols.lang)), problem = problem,
+                binder = binder?.take(60), tradeQty = trade, wanted = wanted,
             ))
         }
         return ParsedImport(format, rows)
@@ -137,6 +152,9 @@ object CollectionCSV {
         val condition = col("condition")
         val lang = col("language", "lang")
         val id = col("scryfallid", "scryfalluuid")
+        val binderName = col("bindername", "foldername", "binder")
+        val binderType = col("bindertype")
+        val tradeQty = col("tradelistcount", "tradequantity")
 
         init {
             when (format) {
@@ -282,7 +300,15 @@ object CollectionCSV {
     data class ExportCard(
         val name: String, val set: String, val setName: String, val cn: String, val rarity: String, val cardId: String,
         val finish: String, val condition: String, val lang: String, val qty: Int,
+        /** The binder these copies are in (null = Unsorted), and whether it's for trade. */
+        val binder: String? = null, val forTrade: Boolean = false,
+        /** A want (ManaBox list row); Moxfield's layout leaves wants out. */
+        val wanted: Boolean = false,
     )
+
+    /** The binder tradelist copies go into on import, and the one ManaBox exports wants under. */
+    const val TRADE_BINDER = "Trade binder"
+    const val WANTS_BINDER = "Wants"
 
     private val moxfieldConditions = mapOf("NM" to "Near Mint", "LP" to "Lightly Played", "MP" to "Moderately Played",
         "HP" to "Heavily Played", "DMG" to "Damaged")
@@ -294,27 +320,41 @@ object CollectionCSV {
     )
     private val rarities = mapOf("c" to "common", "u" to "uncommon", "r" to "rare", "m" to "mythic", "s" to "special", "b" to "bonus")
 
-    /** Sorted by name, set and collector number; CRLF line ends. */
+    /**
+     * Sorted by name, set and collector number; CRLF line ends. Rows are item × binder (Unsorted = no binder) plus wants:
+     * ManaBox writes one row each with its Binder Name and Binder Type; Moxfield one row per item, with the copies in
+     * for-trade binders as its Tradelist Count.
+     */
     fun export(cards: List<ExportCard>, layout: Layout): String {
         val sorted = cards.sortedWith(compareBy<ExportCard>({ it.name }, { it.set }, { it.cn.length }, { it.cn },
-            { "${it.finish}|${it.condition}|${it.lang}" }))
+            { "${it.finish}|${it.condition}|${it.lang}" }, { "${if (it.wanted) 1 else 0}|${it.binder ?: ""}" }))
         val lines = ArrayList<String>(sorted.size + 1)
         when (layout) {
             Layout.Moxfield -> {
                 fun q(s: String) = "\"" + s.replace("\"", "\"\"") + "\""
                 lines.add(listOf("Count", "Tradelist Count", "Name", "Edition", "Condition", "Language", "Foil", "Tags", "Last Modified",
                     "Collector Number", "Alter", "Proxy", "Purchase Price").joinToString(",", transform = ::q))
+                // One row per item: binders merge, for-trade copies become the tradelist.
+                val merged = ArrayList<Pair<ExportCard, Int>>()
                 for (c in sorted) {
-                    lines.add(listOf(c.qty.toString(), "0", c.name, c.set, moxfieldConditions[c.condition] ?: "Near Mint",
+                    if (c.wanted) continue
+                    val last = merged.lastOrNull()?.first
+                    if (last != null && last.cardId == c.cardId && last.finish == c.finish && last.condition == c.condition && last.lang == c.lang) {
+                        val (l, t) = merged.removeAt(merged.size - 1)
+                        merged.add(l.copy(qty = l.qty + c.qty) to t + if (c.forTrade) c.qty else 0)
+                    } else merged.add(c to if (c.forTrade) c.qty else 0)
+                }
+                for ((c, trade) in merged) {
+                    lines.add(listOf(c.qty.toString(), trade.toString(), c.name, c.set, moxfieldConditions[c.condition] ?: "Near Mint",
                         languageNames[c.lang] ?: "English", if (c.finish == "nonfoil") "" else c.finish, "", "", c.cn,
                         "False", "False", "").joinToString(",", transform = ::q))
                 }
             }
             Layout.ManaBox -> {
                 fun q(s: String) = if (s.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) "\"" + s.replace("\"", "\"\"") + "\"" else s
-                lines.add("Name,Set code,Set name,Collector number,Foil,Rarity,Quantity,ManaBox ID,Scryfall ID,Purchase price,Misprint,Altered,Condition,Language,Purchase price currency")
+                lines.add("Binder Name,Binder Type,Name,Set code,Set name,Collector number,Foil,Rarity,Quantity,ManaBox ID,Scryfall ID,Purchase price,Misprint,Altered,Condition,Language,Purchase price currency")
                 for (c in sorted) {
-                    lines.add(listOf(c.name, c.set.uppercase(), c.setName, c.cn, if (c.finish == "nonfoil") "normal" else c.finish,
+                    lines.add(listOf(if (c.wanted) WANTS_BINDER else c.binder ?: "", if (c.wanted) "list" else "binder", c.name, c.set.uppercase(), c.setName, c.cn, if (c.finish == "nonfoil") "normal" else c.finish,
                         rarities[c.rarity] ?: "common", c.qty.toString(), "", c.cardId, "", "false", "false",
                         manaboxConditions[c.condition] ?: "near_mint", c.lang, "USD").joinToString(",", transform = ::q))
                 }
@@ -344,6 +384,11 @@ data class ImportName(val idx: Int, val norm: String, val faces: String, val tok
 enum class MatchHow { Id, SetNumber, SetName, Name, Fixed }
 
 data class ResolvedLine(val row: ImportRow, val printing: CatalogPrinting, val finish: String, val how: MatchHow)
+
+/** Copies of one item the import puts in one binder (by name; matched to yours case-insensitively, or made). */
+data class ImportPlacement(val cardId: String, val finish: String, val condition: String, val lang: String, val binder: String, val qty: Int) {
+    val itemKey get() = itemKey(cardId, finish, condition, lang)
+}
 
 /** One collection item the import writes. */
 data class ImportItem(val cardId: String, val finish: String, val condition: String, val lang: String, val qty: Int) {
@@ -432,10 +477,40 @@ class ImportResolver(private val db: ImportCatalog, setNames: List<Pair<String, 
     }
 
     companion object {
-        /** Lines on the same item summed, in first-seen order. */
+        /** Copies the import puts in binders: item × binder name (the tradelist's copies in the trade binder), summed. */
+        fun placements(lines: List<ResolvedLine>): List<ImportPlacement> {
+            val by = LinkedHashMap<String, ImportPlacement>()
+            fun put(l: ResolvedLine, binder: String, n: Int) {
+                if (n <= 0) return
+                val p = ImportPlacement(l.printing.cardId, l.finish, l.row.condition, l.row.lang, binder, n)
+                val k = "${binder.lowercase()}|${p.itemKey}"
+                by[k] = by[k]?.let { it.copy(qty = it.qty + n) } ?: p
+            }
+            for (l in lines) {
+                if (l.row.wanted) continue
+                val trade = minOf(l.row.tradeQty, l.row.qty)
+                put(l, CollectionCSV.TRADE_BINDER, trade)
+                l.row.binder?.let { put(l, it, l.row.qty - trade) }
+            }
+            return by.values.toList()
+        }
+
+        /** ManaBox list rows: wanted copies per printing and finish. */
+        fun wants(lines: List<ResolvedLine>): List<Triple<String, String, Int>> {
+            val by = LinkedHashMap<String, Triple<String, String, Int>>()
+            for (l in lines) {
+                if (!l.row.wanted) continue
+                val k = "${l.printing.cardId}|${l.finish}"
+                by[k] = by[k]?.let { it.copy(third = it.third + l.row.qty) } ?: Triple(l.printing.cardId, l.finish, l.row.qty)
+            }
+            return by.values.toList()
+        }
+
+        /** Lines on the same item summed, in first-seen order (wants aren't owned copies, so they're left out). */
         fun items(lines: List<ResolvedLine>): List<ImportItem> {
             val by = LinkedHashMap<String, ImportItem>()
             for (l in lines) {
+                if (l.row.wanted) continue
                 val it = ImportItem(l.printing.cardId, l.finish, l.row.condition, l.row.lang, l.row.qty)
                 val held = by[it.key]
                 by[it.key] = if (held == null) it else held.copy(qty = held.qty + it.qty)

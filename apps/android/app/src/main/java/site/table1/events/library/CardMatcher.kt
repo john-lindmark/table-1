@@ -191,6 +191,9 @@ class CardMatcher(
     private val catalog: ScanCatalog,
     private val owned: Map<String, Set<String>>?,
     private val names: ScanNames = ScanNames(catalog),
+    /** Owned-only: printing id → finishes in for-trade binders. Among printings the text scores alike these win
+     *  (contract/binders-wants-2026-10-17.md), and their finish is the default. */
+    private val preferred: Map<String, Set<String>> = emptyMap(),
 ) {
     private val oracles = HashMap<Int, CatalogOracle?>()
     private val printingsByOracle = HashMap<Int, List<CatalogPrinting>>()
@@ -209,6 +212,7 @@ class CardMatcher(
 
     /** The finish a scanned copy starts as: what you own of it in owned-only mode, else non-foil when printed. */
     fun defaultFinish(p: CatalogPrinting): String {
+        preferred[p.cardId]?.let { trade -> Finish.entries.firstOrNull { it.wire in trade }?.let { return it.wire } }
         owned?.get(p.cardId)?.let { have -> Finish.entries.firstOrNull { it.wire in have }?.let { return it.wire } }
         return (p.finishList.firstOrNull() ?: Finish.Nonfoil).wire
     }
@@ -291,7 +295,7 @@ class CardMatcher(
         fun score(p: CatalogPrinting) = (if (p.set in bottom.sets) 4 else 0) + (if (number(p) in bottom.numbers) 2 else 0) +
             (if (year(p) in years) 1 else 0)
         var best = ps.sortedWith(
-            compareByDescending<CatalogPrinting> { score(it) }.thenByDescending { it.lang == "en" }
+            compareByDescending<CatalogPrinting> { score(it) }.thenByDescending { it.cardId in preferred }.thenByDescending { it.lang == "en" }
                 .thenBy { it.cn.endsWith("★") }.thenByDescending { it.original }.thenBy { it.ord },
         ).first()
         val exact = (best.set in bottom.sets && (number(best) in bottom.numbers || ps.count { it.set == best.set } == 1)) ||

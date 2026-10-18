@@ -107,9 +107,10 @@ private fun ColumnScope.Filler() = Box(Modifier.weight(1f))
 
 @Composable
 fun LibraryHomeScreen(foregrounds: Int, onAllCards: () -> Unit, onAdd: () -> Unit, onImportExport: () -> Unit, onDecks: () -> Unit,
-                      onCubes: () -> Unit, onTrades: () -> Unit) {
+                      onCubes: () -> Unit, onTrades: () -> Unit, onBinders: () -> Unit, onWants: () -> Unit) {
     val lists by ListsStore.state.collectAsState()
     val col by CollectionStore.state.collectAsState()
+    val binders by BindersStore.state.collectAsState()
     val trades by TradesStore.state.collectAsState()
     // Syncs on open and on every return to the Library or to the app.
     LaunchedEffect(foregrounds) {
@@ -137,6 +138,23 @@ fun LibraryHomeScreen(foregrounds: Int, onAllCards: () -> Unit, onAdd: () -> Uni
             }
             item { ListRow("Add cards", "Search by name", onClick = onAdd) }
             item { ListRow("Import and export", "CSV from ManaBox, Moxfield and others", onClick = onImportExport) }
+            item {
+                val (by, unsorted) = remember(col.version, binders.version) { binders.totals(col.items) }
+                val forTrade = binders.binders.filter { it.forTrade }.sumOf { by[it.id] ?: 0 }
+                ListRow("Binders", if (binders.binders.isEmpty()) "Where your copies are, and what's for trade"
+                    else "${count(forTrade)} cards for trade · ${count(unsorted)} unsorted", onClick = onBinders) {
+                    Text("${binders.binders.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
+                }
+            }
+            item {
+                val wanted = binders.liveWants.sumOf { it.qty }
+                val missing = remember(col.version, lists.lists) {
+                    MissingView.lines(lists.lists, col.items.values.groupBy { ownKey(it.cardId, it.finish) }.mapValues { (_, v) -> v.sumOf { it.qty } }).sumOf { it.short }
+                }
+                ListRow("Wants", "${count(wanted)} wanted · ${count(missing)} missing", onClick = onWants) {
+                    Text(count(wanted), color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
+                }
+            }
             item {
                 val decks = lists.lists.filter { it.kind == ListKind.Deck }
                 ListRow("Decks", if (decks.isEmpty()) "Build and track decks" else decks.take(3).joinToString(" · ") { it.name }, onClick = onDecks) {
@@ -383,6 +401,11 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit) {
     var addCondition by remember { mutableStateOf(prefs.getString("addCondition", "NM") ?: "NM") }
     /** Moving copies of one owned item to another condition, when there's more than one copy. */
     var moving by remember { mutableStateOf<Pair<CollectionItem, String>?>(null) }
+    val binders by BindersStore.state.collectAsState()
+    /** Moving copies of one owned item between binders, and wanting the card. */
+    var sorting by remember { mutableStateOf<CollectionItem?>(null) }
+    var wanting by remember { mutableStateOf(false) }
+    var note by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) { CatalogStore.load(userInitiated = true) }
     LaunchedEffect(cat.generation) {
@@ -437,9 +460,31 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit) {
         }
     }
 
+    sorting?.let { it ->
+        BinderMoveFlow(it, byId[it.cardId]?.setLabel ?: "card", onClose = { sorting = null }) { label -> sorting = null; note = label; last = null }
+    }
+    if (wanting) {
+        val o = oracle
+        val shown = preview ?: owned.firstOrNull()?.second ?: printings.firstOrNull()
+        fun want(p: CatalogPrinting?) {
+            if (o == null) return
+            scope.launch {
+                runCatching {
+                    BindersStore.applyWants(listOf(WantOp(o.oracleId, cardId = p?.cardId, delta = 1)), "want_added",
+                        mapOf("any_printing" to (p == null), "has_max" to false, "from" to "card"))
+                }.onSuccess { note = "Wanted 1 ${p?.setLabel ?: o.name}"; last = null }.onFailure { error = it.message }
+            }
+        }
+        T1Menu("Want ${o?.name ?: "this card"}", listOfNotNull(
+            T1MenuItem("Any printing") { want(null) },
+            shown?.let { p -> T1MenuItem("Only ${p.setLabel}") { want(p) } },
+        )) { wanting = false }
+    }
+
     T1Screen {
         Bar(oracle?.name ?: "Card", subtitle = oracle?.let { "$total in collection" }, onBack = onBack)
-        (error ?: col.error)?.let { Notice(it, error = true) }
+        (error ?: col.error ?: binders.error)?.let { Notice(it, error = true) }
+        note?.takeIf { last == null }?.let { Notice(it) }
         CatalogStatus(cat)
         if (looked && oracle == null && cat.phase == "ready") Notice("That card isn't in the card data.", error = true)
         last?.let { (batchId, label) ->
@@ -478,6 +523,7 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit) {
                                 Text("${p.setLabel} · ${it.finishLabel}", color = T1.text, fontFamily = T1.mono, fontSize = 13.sp,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Label(detail)
+                                binders.placementText(it)?.let { t -> Label(t, color = if (binders.forTrade(it.key).first > 0) T1.accent else T1.muted) }
                             }
                         }
                         Text("${it.qty}", Modifier.padding(horizontal = 12.dp), color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
@@ -496,6 +542,7 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit) {
                                 if (it.qty == 1) moveCondition(it, p, to, 1) else moving = it to to
                             }
                         }
+                        ListRow("Move", binders.placementText(it) ?: "Unsorted ${it.qty}", onClick = { sorting = it }) { Label("Binders", color = T1.text) }
                         Column(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Label("History · ${p.setLabel}")
@@ -512,6 +559,11 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit) {
                         }
                     }
                 }
+            }
+            item {
+                val n = binders.liveWants.filter { it.oracleId == o.oracleId }.sumOf { it.qty }
+                ListRow(if (n > 0) "Wanted · $n" else "Add to wants", if (n > 0) "Want one more" else "Trades marks it when you get one",
+                    onClick = { wanting = true })
             }
             item { Section("Add a printing · ${printings.size}") }
             item {

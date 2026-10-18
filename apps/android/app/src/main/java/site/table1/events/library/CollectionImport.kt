@@ -134,6 +134,17 @@ class CollectionImportModel : ViewModel() {
     var matched by mutableStateOf<List<ResolvedLine>>(emptyList()); private set
     var unmatched by mutableStateOf<List<ImportRow>>(emptyList()); private set
     var items by mutableStateOf<List<ImportItem>>(emptyList()); private set
+    /** Copies going into binders (by name), and ManaBox wishlist lines (contract/binders-wants-2026-10-17.md). */
+    var placements by mutableStateOf<List<ImportPlacement>>(emptyList()); private set
+    var wantLines by mutableStateOf<List<Triple<String, String, Int>>>(emptyList()); private set
+    /** Replace mode: binder moves after the quantities are set (copies out to Unsorted, then into binders). */
+    private var moveParts: MutableList<Pair<List<BinderMove>, String?>>? = null
+    private var wantsDone = false
+    val binderCopies get() = placements.sumOf { it.qty }
+    val wantCopies get() = wantLines.sumOf { it.third }
+    val binderNames get() = placements.map { it.binder }.distinctBy { it.lowercase() }
+    /** Binders the import makes (names you don't have yet). */
+    val newBinders get() = binderNames.filter { n -> BindersStore.state.value.binders.none { it.name.equals(n, ignoreCase = true) } }
     var fixed by mutableIntStateOf(0); private set
     var skipped by mutableIntStateOf(0); private set
     var mode by mutableStateOf("add")
@@ -147,7 +158,7 @@ class CollectionImportModel : ViewModel() {
 
     val copies get() = items.sumOf { it.qty }
     val partsDone get() = parts.count { it.batchId != null }
-    val retrying get() = partsDone > 0 && partsDone < parts.size
+    val retrying get() = (partsDone > 0 && partsDone < parts.size) || (partsDone > 0 && partsDone == parts.size && error != null)
 
     /** Copies held now that a replace would remove (items the file doesn't have). */
     fun removedByReplace(held: Map<String, CollectionItem>): Int {
@@ -161,6 +172,10 @@ class CollectionImportModel : ViewModel() {
         matched = emptyList()
         unmatched = emptyList()
         items = emptyList()
+        placements = emptyList()
+        wantLines = emptyList()
+        moveParts = null
+        wantsDone = false
         fixed = 0
         skipped = 0
         value = null
@@ -243,7 +258,34 @@ class CollectionImportModel : ViewModel() {
 
     private fun refresh() {
         items = ImportResolver.items(matched)
+        placements = ImportResolver.placements(matched)
+        wantLines = ImportResolver.wants(matched)
         parts = emptyList()
+        moveParts = null
+        wantsDone = false
+    }
+
+    /** Your binder for each name the file uses: matched case-insensitively, else made (for trade when the name says
+     *  "trade"). Lower-cased name → binder id. */
+    private suspend fun ensureBinders(): Map<String, String> = binderNames.associate { name ->
+        val have = BindersStore.state.value.binders.firstOrNull { it.name.equals(name, ignoreCase = true) }
+        name.lowercase() to (have?.id ?: BindersStore.save(null, name, name.lowercase().contains("trade")).id)
+    }
+
+    /** Replace mode, once the quantities are set: each item in the file ends with the file's binders. */
+    private fun plannedMoves(ids: Map<String, String>): MutableList<Pair<List<BinderMove>, String?>> {
+        val b = BindersStore.state.value
+        val target = HashMap<String, HashMap<String, Int>>()
+        for (p in placements) ids[p.binder.lowercase()]?.let { id -> target.getOrPut(p.itemKey) { HashMap() }.merge(id, p.qty, Int::plus) }
+        val out = ArrayList<BinderMove>(); val into = ArrayList<BinderMove>()
+        for (it in items) {
+            val item = CollectionItem(it.cardId, it.finish, it.condition, it.lang, it.qty, 0)
+            val want = target[item.key] ?: emptyMap<String, Int>()
+            val cur = b.placement(item).first.associate { h -> h.first.id to h.second }
+            for ((bid, n) in cur) if (n > (want[bid] ?: 0)) out.add(BinderMove(item, bid, null, n - (want[bid] ?: 0)))
+            for ((bid, n) in want) if (n > (cur[bid] ?: 0)) into.add(BinderMove(item, null, bid, n - (cur[bid] ?: 0)))
+        }
+        return (out.chunked(2500) + into.chunked(2500)).map { it to (null as String?) }.toMutableList()
     }
 
     private suspend fun priceItems() {
@@ -260,6 +302,11 @@ class CollectionImportModel : ViewModel() {
         viewModelScope.launch {
             phase = Phase.Writing
             error = null
+            val ids = try { ensureBinders() } catch (e: Exception) {
+                phase = Phase.Preview
+                error = e.message ?: "Couldn't make the binders"
+                return@launch
+            }
             if (parts.isEmpty()) {
                 val ops = if (mode == "replace") {
                     CollectionStore.sync()
@@ -268,7 +315,21 @@ class CollectionImportModel : ViewModel() {
                         CollectionStore.state.value.items.values.filter { it.key !in keep }
                             .map { CollectionOp(it.cardId, it.finish, it.condition, it.lang, qty = 0) }
                 } else {
-                    items.map { CollectionOp(it.cardId, it.finish, it.condition, it.lang, delta = it.qty) }
+                    // Add: each item's copies go straight into their binders; the rest are Unsorted.
+                    val placed = placements.groupBy { it.itemKey }
+                    items.flatMap { it ->
+                        var left = it.qty
+                        val out = ArrayList<CollectionOp>()
+                        for (p in placed[it.key] ?: emptyList()) {
+                            val id = ids[p.binder.lowercase()] ?: continue
+                            if (left <= 0) break
+                            val n = minOf(p.qty, left)
+                            out.add(CollectionOp(it.cardId, it.finish, it.condition, it.lang, delta = n, binderId = id))
+                            left -= n
+                        }
+                        if (left > 0) out.add(CollectionOp(it.cardId, it.finish, it.condition, it.lang, delta = left))
+                        out
+                    }
                 }
                 parts = ops.chunked(5000).map { Part(UUID.randomUUID().toString(), it) }
             }
@@ -285,9 +346,38 @@ class CollectionImportModel : ViewModel() {
                     return@launch
                 }
             }
-            batchIds = parts.mapNotNull { it.batchId }
+            if (mode == "replace" && placements.isNotEmpty()) {
+                val moves = moveParts ?: run { BindersStore.sync(); plannedMoves(ids).also { moveParts = it } }
+                for (i in moves.indices) {
+                    if (moves[i].second != null) continue
+                    try {
+                        moves[i] = moves[i].first to BindersStore.move(moves[i].first)
+                    } catch (e: Exception) {
+                        phase = Phase.Preview
+                        error = "The cards are in; sorting them into binders stopped: ${e.message} Try again to finish."
+                        return@launch
+                    }
+                }
+            }
+            if (wantLines.isNotEmpty() && !wantsDone) {
+                val db = CatalogStore.db
+                val p = db?.printings(wantLines.mapTo(HashSet()) { it.first }) ?: emptyMap()
+                val o = db?.oracles(p.values.mapTo(HashSet()) { it.oracleIdx }) ?: emptyMap()
+                try {
+                    BindersStore.applyWants(wantLines.mapNotNull { (card, finish, n) ->
+                        p[card]?.let { o[it.oracleIdx] }?.let { WantOp(it.oracleId, card, finish, delta = n) }
+                    })
+                    wantsDone = true
+                } catch (e: Exception) {
+                    phase = Phase.Preview
+                    error = "The cards are in; the wants stopped: ${e.message} Try again to finish."
+                    return@launch
+                }
+            }
+            batchIds = parts.mapNotNull { it.batchId } + (moveParts ?: emptyList()).mapNotNull { it.second }
             Telemetry.capture("collection_imported", mapOf("format" to format.wire, "mode" to mode, "cards" to copies,
-                "items" to items.size, "parts" to parts.size, "fixed" to fixed, "skipped" to skipped))
+                "items" to items.size, "parts" to parts.size, "fixed" to fixed, "skipped" to skipped,
+                "binders" to binderNames.size, "binder_copies" to binderCopies, "wants" to wantCopies))
             phase = Phase.Done
         }
     }
@@ -311,20 +401,34 @@ class CollectionImportModel : ViewModel() {
     suspend fun export(context: Context, layout: CollectionCSV.Layout): File? {
         val db = CatalogStore.db ?: return null
         val held = CollectionStore.state.value.items.values.toList()
+        val b = BindersStore.state.value
+        // Item × binder: each binder's copies, then the Unsorted rest.
+        val split = held.flatMap { it ->
+            val (inBinders, unsorted) = b.placement(it)
+            inBinders.map { h -> Triple(it, h.first, minOf(h.second, it.qty)) } + (if (unsorted > 0) listOf(Triple(it, null, unsorted)) else emptyList())
+        }
+        val wants = b.liveWants
         val sets = SetNames.load().toMap()
         val (text, cards, left) = withContext(Dispatchers.Default) {
-            val printings = db.printings(held.mapTo(HashSet()) { it.cardId })
+            val printings = db.printings(held.mapTo(HashSet()) { it.cardId } + wants.mapNotNull { it.cardId })
             val oracles = db.oracles(printings.values.mapTo(HashSet()) { it.oracleIdx })
             val rows = ArrayList<CollectionCSV.ExportCard>()
             var left = 0
-            for (it in held) {
+            for ((it, binder, n) in split) {
                 val p = printings[it.cardId]
                 val o = p?.let { oracles[p.oracleIdx] }
-                if (p == null || o == null) { left += it.qty; continue }
+                if (p == null || o == null) { left += n; continue }
                 rows.add(CollectionCSV.ExportCard(o.name, p.set, sets[p.set] ?: p.set.uppercase(), p.cn, p.rarity, p.cardId,
-                    it.finish, it.condition, it.lang, it.qty))
+                    it.finish, it.condition, it.lang, n, binder?.name, binder?.forTrade == true))
             }
-            Triple(CollectionCSV.export(rows, layout), rows.sumOf { it.qty }, left)
+            // Wants: a want for any printing goes out as the card's original printing.
+            for (w in wants) {
+                val o = db.oracle(w.oracleId) ?: continue
+                val p = w.cardId?.let { printings[it] } ?: db.covers(listOf(o.idx))[o.idx] ?: continue
+                rows.add(CollectionCSV.ExportCard(o.name, p.set, sets[p.set] ?: p.set.uppercase(), p.cn, p.rarity, p.cardId,
+                    w.finish ?: "nonfoil", "NM", "en", w.qty, wanted = true))
+            }
+            Triple(CollectionCSV.export(rows, layout), rows.filter { !it.wanted }.sumOf { it.qty }, left)
         }
         val file = File(context.cacheDir, "export/table1-collection-${layout.wire}-${LocalDate.now()}.csv")
         try {
@@ -431,6 +535,14 @@ fun CollectionImportScreen(onBack: () -> Unit, onAllCards: () -> Unit) {
                             Stat("Value", model.value.let { v -> if (v == null) "…" else if (v.second == 0) "—" else money(v.first, "USD") }, end = true)
                         }
                     }
+                    if (model.binderCopies > 0 || model.wantCopies > 0) item {
+                        val names = model.binderNames
+                        val fresh = model.newBinders.size
+                        Notice(listOfNotNull(
+                            if (model.binderCopies > 0) "${count(model.binderCopies)} cards go into ${names.size} binder${if (names.size == 1) "" else "s"} (${names.take(3).joinToString(", ")}${if (names.size > 3) "…" else ""})${if (fresh > 0) ", $fresh new" else ""}." else null,
+                            if (model.wantCopies > 0) "${count(model.wantCopies)} cards from wishlists go into your wants, not your collection." else null,
+                        ).joinToString(" "))
+                    }
                     if (model.unmatched.isNotEmpty()) {
                         item {
                             Row(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 8.dp),
@@ -460,7 +572,7 @@ fun CollectionImportScreen(onBack: () -> Unit, onAllCards: () -> Unit) {
                             model.mode == "replace" -> "Replace with ${count(copies)} cards"
                             else -> "Import ${count(copies)} cards"
                         }
-                        BigAction(text, enabled = model.unmatched.isEmpty() && (copies > 0 || model.mode == "replace"), busy = writing) {
+                        BigAction(text, enabled = model.unmatched.isEmpty() && (copies > 0 || model.wantCopies > 0 || model.mode == "replace"), busy = writing) {
                             if (model.mode == "replace" && !model.retrying) confirmReplace = true else model.write()
                         }
                     }
