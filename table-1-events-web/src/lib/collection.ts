@@ -6,6 +6,7 @@ import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { supabase } from "./supabaseClient";
 import { capture } from "./telemetry";
 import { isLibraryDemo, loadDemo, type DemoBackend } from "./libraryDemo";
+import { reflectBinders, startBinders, syncBinders, type AllocRow, type WantRow } from "./binders";
 
 export type Finish = "nonfoil" | "foil" | "etched";
 export type Condition = "NM" | "LP" | "MP" | "HP" | "DMG";
@@ -36,6 +37,8 @@ export interface CollectionOp {
   lang?: string;
   delta?: number;
   qty?: number;
+  /** With a delta: added copies go into this binder; removed copies come out of it first (contract/binders-wants-2026-10-17.md). */
+  binder_id?: string | null;
 }
 
 export interface ApplyResult {
@@ -44,6 +47,9 @@ export interface ApplyResult {
   changes: number;
   items: { card_id: string; finish: Finish; condition: Condition; lang: string; qty: number; seq: number }[];
   summary: LibrarySummary;
+  /** Allocations the batch changed, and wants a trade met or an undo put back. */
+  binder_items?: AllocRow[];
+  wants?: WantRow[];
 }
 
 /** The account id the dev demo runs under. */
@@ -152,6 +158,7 @@ async function start(userId: string) {
     demo = await loadDemo();
     state = { ...empty, userId, items: new Map(demo.items), summary: demo.summary, ready: true, version: state.version + 1 };
     listeners.forEach((l) => l());
+    startBinders(userId);
     return;
   }
   demo = null;
@@ -235,6 +242,9 @@ export function sync(): Promise<void> {
       if (syncAgain) {
         syncAgain = false;
         void sync();
+      } else {
+        // Binders, allocations and wants follow the items (their own cursor, library_changes).
+        void syncBinders();
       }
     }
   })();
@@ -289,6 +299,7 @@ function reflect(res: ApplyResult) {
     else items.delete(it.k);
   }
   set({ items, summary: res.summary });
+  reflectBinders(res);
 }
 
 export interface HistoryEntry {

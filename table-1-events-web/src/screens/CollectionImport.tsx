@@ -5,15 +5,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BigAction, Dialog, Field, Notice, Row, Section, Segmented, Stat } from "../components/kit";
 import { errorMessage } from "../lib/api";
-import { coverPrinting, searchCatalog, type Catalog } from "../lib/catalog";
+import { coverPrinting, oracleIndexById, searchCatalog, type Catalog } from "../lib/catalog";
 import { applyOps, sync, undoBatch, useCollection, type CollectionOp, type Item } from "../lib/collection";
 import {
-  CsvError, FORMAT_LABEL, ImportResolver, exportCsv, importItemKey, importItems, parseCsv, rowSetLabel,
+  CsvError, FORMAT_LABEL, ImportResolver, exportCsv, importItemKey, importItems, importPlacements, importWants, parseCsv, rowSetLabel,
   type CsvFormat, type ExportCard, type ExportLayout, type ImportItem, type ImportRow, type ResolvedLine,
 } from "../lib/collectionCsv";
 import { usdPrice, usePrices } from "../lib/prices";
 import { supabase } from "../lib/supabaseClient";
 import { capture } from "../lib/telemetry";
+import { applyWants, bindersNow, liveWants, moveCopies, placement, saveBinder, syncBinders, type BinderMove } from "../lib/binders";
 import { CardRow, LibScreen, useCatalog, useLibrarySession } from "./Library";
 
 /* ── set names (mtg_sets, readable signed out), cached for offline imports ── */
@@ -68,20 +69,36 @@ interface Preview {
 
 type Part = { key: string; ops: CollectionOp[]; batchId: string | null };
 
-/** The collection as ManaBox/Moxfield rows; items whose printing isn't in the catalog are counted, not written. */
+/**
+ * The collection as ManaBox/Moxfield rows, one per item × binder (Unsorted last), plus wants; items whose printing
+ * isn't in the catalog are counted, not written.
+ */
 function exportCards(c: Catalog, items: Iterable<Item>, sets: Map<string, string>): { cards: ExportCard[]; left: number } {
   const cards: ExportCard[] = [];
   let left = 0;
+  const card = (p: number, x: Omit<ExportCard, "name" | "set" | "setName" | "cn" | "rarity">): ExportCard => ({
+    name: c.oName[c.pOracle[p]], set: c.pSet[p], setName: sets.get(c.pSet[p]) ?? c.pSet[p].toUpperCase(), cn: c.pCn[p], rarity: c.pRarity[p], ...x,
+  });
   for (const it of items) {
     const p = c.printingIndex.get(it.cardId);
     if (p === undefined) {
       left += it.qty;
       continue;
     }
-    cards.push({
-      name: c.oName[c.pOracle[p]], set: c.pSet[p], setName: sets.get(c.pSet[p]) ?? c.pSet[p].toUpperCase(), cn: c.pCn[p],
-      rarity: c.pRarity[p], cardId: it.cardId, finish: it.finish, condition: it.condition, lang: it.lang, qty: it.qty,
-    });
+    const base = { cardId: it.cardId, finish: it.finish, condition: it.condition, lang: it.lang };
+    const where = placement(it);
+    for (const h of where.binders) cards.push(card(p, { ...base, qty: Math.min(h.qty, it.qty), binder: h.binder.name, forTrade: h.binder.for_trade }));
+    if (where.unsorted > 0) cards.push(card(p, { ...base, qty: where.unsorted }));
+  }
+  // Wants: a want for any printing goes out as the card's original printing.
+  for (const w of liveWants()) {
+    let p = w.cardId ? c.printingIndex.get(w.cardId) : undefined;
+    if (p === undefined && !w.cardId) {
+      const oi = oracleIndexById(c, w.oracleId);
+      if (oi >= 0) p = coverPrinting(c, oi);
+    }
+    if (p === undefined) continue;
+    cards.push(card(p, { cardId: c.pId[p], finish: w.finish ?? "nonfoil", condition: "NM", lang: "en", qty: w.qty, wanted: true }));
   }
   return { cards, left };
 }
@@ -105,6 +122,18 @@ export function CollectionImportScreen({ onBack, onAllCards }: { onBack: () => v
   const fileInput = useRef<HTMLInputElement>(null);
 
   const items: ImportItem[] = useMemo(() => (catalog && preview ? importItems(catalog, preview.matched) : []), [catalog, preview]);
+  // Binders and wants the file carries (contract/binders-wants-2026-10-17.md).
+  const placements = useMemo(() => (catalog && preview ? importPlacements(catalog, preview.matched) : []), [catalog, preview]);
+  const wantLines = useMemo(() => (catalog && preview ? importWants(catalog, preview.matched) : []), [catalog, preview]);
+  const binderNames = useMemo(() => {
+    const seen = new Set<string>();
+    return placements.map((p) => p.binder).filter((n) => !seen.has(n.toLowerCase()) && !!seen.add(n.toLowerCase()));
+  }, [placements]);
+  const binderCopies = placements.reduce((n, p) => n + p.qty, 0);
+  const wantCopies = wantLines.reduce((n, w) => n + w.qty, 0);
+  const newBinders = binderNames.filter((n) => !bindersNow().binders.some((b) => b.name.toLowerCase() === n.toLowerCase()));
+  const [moveParts, setMoveParts] = useState<{ key: string; moves: BinderMove[]; batchId: string | null }[] | null>(null);
+  const [wantsDone, setWantsDone] = useState(false);
   const copies = items.reduce((n, it) => n + it.qty, 0);
   const priceIds = useMemo(() => items.map((it) => it.cardId), [items]);
   usePrices(priceIds);
@@ -123,7 +152,7 @@ export function CollectionImportScreen({ onBack, onAllCards }: { onBack: () => v
     return n;
   }, [items, col.items]);
   const partsDone = parts.filter((p) => p.batchId).length;
-  const retrying = partsDone > 0 && partsDone < parts.length;
+  const retrying = (partsDone > 0 && partsDone < parts.length) || (partsDone > 0 && partsDone === parts.length && !!error);
 
   useEffect(() => {
     void loadSetNames();
@@ -134,6 +163,8 @@ export function CollectionImportScreen({ onBack, onAllCards }: { onBack: () => v
     setParts([]);
     setDone(null);
     setError(null);
+    setMoveParts(null);
+    setWantsDone(false);
     resolver.current = null;
   };
 
@@ -165,6 +196,19 @@ export function CollectionImportScreen({ onBack, onAllCards }: { onBack: () => v
   const change = (next: Preview) => {
     setPreview(next);
     setParts([]); // the ops change, so a retry starts over with new keys
+    setMoveParts(null);
+    setWantsDone(false);
+  };
+
+  /** Your binder for each name the file uses: matched case-insensitively, else made (for trade when the name says
+   *  "trade"). Lower-cased name → binder id. */
+  const ensureBinders = async (): Promise<Map<string, string>> => {
+    const out = new Map<string, string>();
+    for (const name of binderNames) {
+      const have = bindersNow().binders.find((b) => b.name.toLowerCase() === name.toLowerCase());
+      out.set(name.toLowerCase(), have ? have.id : (await saveBinder(null, name, name.toLowerCase().includes("trade"))).id);
+    }
+    return out;
   };
   const fix = (row: ImportRow, oracle: number) => {
     if (!preview || !resolver.current) return;
@@ -180,6 +224,14 @@ export function CollectionImportScreen({ onBack, onAllCards }: { onBack: () => v
     if (!preview) return;
     setWriting(true);
     setError(null);
+    let ids: Map<string, string>;
+    try {
+      ids = await ensureBinders();
+    } catch (e) {
+      setError(errorMessage(e));
+      setWriting(false);
+      return;
+    }
     let todo = parts;
     if (!todo.length) {
       let ops: CollectionOp[];
@@ -191,7 +243,23 @@ export function CollectionImportScreen({ onBack, onAllCards }: { onBack: () => v
           if (!keep.has(importItemKey(it))) ops.push({ card_id: it.cardId, finish: it.finish, condition: it.condition, lang: it.lang, qty: 0 });
         }
       } else {
-        ops = items.map((it) => ({ card_id: it.cardId, finish: it.finish, condition: it.condition, lang: it.lang, delta: it.qty }));
+        // Add: each item's copies go straight into their binders; the rest are Unsorted.
+        const placed = new Map<string, typeof placements>();
+        for (const p of placements) placed.set(importItemKey(p), [...(placed.get(importItemKey(p)) ?? []), p]);
+        ops = items.flatMap((it) => {
+          const base = { card_id: it.cardId, finish: it.finish, condition: it.condition, lang: it.lang };
+          let left = it.qty;
+          const out: CollectionOp[] = [];
+          for (const p of placed.get(importItemKey(it)) ?? []) {
+            const id = ids.get(p.binder.toLowerCase());
+            if (!id || left <= 0) continue;
+            const n = Math.min(p.qty, left);
+            out.push({ ...base, delta: n, binder_id: id });
+            left -= n;
+          }
+          if (left > 0) out.push({ ...base, delta: left });
+          return out;
+        });
       }
       todo = [];
       for (let i = 0; i < ops.length; i += 5000) todo.push({ key: crypto.randomUUID(), ops: ops.slice(i, i + 5000), batchId: null });
@@ -210,10 +278,66 @@ export function CollectionImportScreen({ onBack, onAllCards }: { onBack: () => v
       }
     }
     setParts(next);
+    // Replace: once the quantities are set, each item in the file ends with the file's binders (copies out to
+    // Unsorted first, then into binders).
+    let moves = moveParts;
+    if (mode === "replace" && placements.length) {
+      if (!moves) {
+        await syncBinders();
+        const target = new Map<string, Map<string, number>>();
+        for (const p of placements) {
+          const id = ids.get(p.binder.toLowerCase());
+          if (!id) continue;
+          const t = target.get(importItemKey(p)) ?? new Map<string, number>();
+          t.set(id, (t.get(id) ?? 0) + p.qty);
+          target.set(importItemKey(p), t);
+        }
+        const out: BinderMove[] = [], into: BinderMove[] = [];
+        for (const it of items) {
+          const item: Item = { k: importItemKey(it), ...it, seq: 0 };
+          const want = target.get(item.k) ?? new Map<string, number>();
+          const cur = new Map(placement(item).binders.map((h) => [h.binder.id, h.qty]));
+          for (const [b, n] of cur) if (n > (want.get(b) ?? 0)) out.push({ item, from: b, to: null, qty: n - (want.get(b) ?? 0) });
+          for (const [b, n] of want) if (n > (cur.get(b) ?? 0)) into.push({ item, from: null, to: b, qty: n - (cur.get(b) ?? 0) });
+        }
+        const chunks = (ms: BinderMove[]) => {
+          const r: { key: string; moves: BinderMove[]; batchId: string | null }[] = [];
+          for (let i = 0; i < ms.length; i += 2500) r.push({ key: crypto.randomUUID(), moves: ms.slice(i, i + 2500), batchId: null });
+          return r;
+        };
+        moves = [...chunks(out), ...chunks(into)];
+      }
+      for (const m of moves) {
+        if (m.batchId) continue;
+        try {
+          m.batchId = await moveCopies(m.moves);
+        } catch (e) {
+          setMoveParts([...moves]);
+          setError(`The cards are in; sorting them into binders stopped: ${errorMessage(e)} Try again to finish.`);
+          setWriting(false);
+          return;
+        }
+      }
+      setMoveParts([...moves]);
+    }
+    if (wantLines.length && !wantsDone && catalog) {
+      try {
+        await applyWants(wantLines.flatMap((w) => {
+          const p = catalog.printingIndex.get(w.cardId);
+          return p == null ? [] : [{ oracle_id: catalog.oId[catalog.pOracle[p]], card_id: w.cardId, finish: w.finish, delta: w.qty }];
+        }));
+        setWantsDone(true);
+      } catch (e) {
+        setError(`The cards are in; the wants stopped: ${errorMessage(e)} Try again to finish.`);
+        setWriting(false);
+        return;
+      }
+    }
     setWriting(false);
-    setDone({ batchIds: next.map((p) => p.batchId!), undone: false });
+    setDone({ batchIds: [...next.map((p) => p.batchId!), ...(moves ?? []).map((m) => m.batchId!)], undone: false });
     capture("collection_imported", { format: preview.format, mode, cards: copies, items: items.length, parts: next.length,
-                                     fixed: preview.fixed, skipped: preview.skipped });
+                                     fixed: preview.fixed, skipped: preview.skipped, binders: binderNames.length,
+                                     binder_copies: binderCopies, wants: wantCopies });
   };
 
   const undo = async () => {
@@ -289,6 +413,13 @@ export function CollectionImportScreen({ onBack, onAllCards }: { onBack: () => v
               <Stat label="Printings" value={items.length.toLocaleString()} />
               <Stat label="Value" value={priced ? usd0(value) : "—"} end />
             </div>
+            {(binderCopies > 0 || wantCopies > 0) && (
+              <Notice tone="info">
+                {[binderCopies > 0 ? `${binderCopies.toLocaleString()} cards go into ${binderNames.length} binder${binderNames.length === 1 ? "" : "s"} (${binderNames.slice(0, 3).join(", ")}${binderNames.length > 3 ? "…" : ""})${newBinders.length ? `, ${newBinders.length} new` : ""}.` : null,
+                  wantCopies > 0 ? `${wantCopies.toLocaleString()} cards from wishlists go into your wants, not your collection.` : null]
+                  .filter(Boolean).join(" ")}
+              </Notice>
+            )}
             {preview.unmatched.length > 0 && (
               <>
                 <Section title="Not matched" count={preview.unmatched.length}
@@ -316,7 +447,7 @@ export function CollectionImportScreen({ onBack, onAllCards }: { onBack: () => v
             )}
             {preview.unmatched.length > 0 && <Notice tone="info">Lines left unmatched aren't imported. Fix them or skip them first.</Notice>}
             <BigAction label={retrying ? "Try again" : mode === "replace" ? `Replace with ${copies.toLocaleString()} cards` : `Import ${copies.toLocaleString()} cards`}
-                       disabled={preview.unmatched.length > 0 || (copies === 0 && mode === "add")} busy={writing}
+                       disabled={preview.unmatched.length > 0 || (copies === 0 && wantCopies === 0 && mode === "add")} busy={writing}
                        onClick={() => (mode === "replace" && !retrying ? setConfirmReplace(true) : void write())} />
             <Section title="Matched" count={preview.matched.length} />
             {preview.matched.slice(0, SHOWN).map((l, i) => (

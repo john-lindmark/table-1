@@ -49,6 +49,10 @@ const LinePrintingScreen = lazyNamed(lists, "LinePrintingScreen");
 const trades = () => import("./screens/Trades");
 const TradesScreen = lazyNamed(trades, "TradesScreen");
 const TradeScreen = lazyNamed(trades, "TradeScreen");
+const binders = () => import("./screens/Binders");
+const BindersScreen = lazyNamed(binders, "BindersScreen");
+const BinderScreen = lazyNamed(binders, "BinderScreen");
+const WantsScreen = lazyNamed(binders, "WantsScreen");
 const DeckFinderScreen = lazyNamed(() => import("./screens/DeckFinder"), "DeckFinderScreen");
 const ListImportScreen = lazyNamed(() => import("./screens/ListImport"), "ListImportScreen");
 const CollectionImportScreen = lazyNamed(() => import("./screens/CollectionImport"), "CollectionImportScreen");
@@ -140,8 +144,29 @@ function LibraryHomeRoute() {
   return (
     <LibraryHome onAllCards={() => navigate("/library/cards")} onAdd={() => navigate("/library/add")}
                  onDecks={() => navigate("/library/decks")} onCubes={() => navigate("/library/cubes")}
-                 onTrades={() => navigate("/library/trades")} onImport={() => navigate("/library/import")} />
+                 onTrades={() => navigate("/library/trades")} onImport={() => navigate("/library/import")}
+                 onBinders={() => navigate("/library/binders")} onWants={() => navigate("/library/wants")} />
   );
+}
+
+function BindersRoute() {
+  const navigate = useNavigate();
+  const back = useBack("/library");
+  return <BindersScreen onBack={back} onOpen={(id) => navigate(`/library/binder/${id}`)} />;
+}
+
+function BinderRoute() {
+  const { binderId } = useParams();
+  const navigate = useNavigate();
+  const back = useBack("/library/binders");
+  if (!binderId) return <Navigate to="/library/binders" replace />;
+  return <BinderScreen key={binderId} id={binderId} onBack={back} onCard={(o) => navigate(`/library/card/${o}`)} />;
+}
+
+function WantsRoute() {
+  const navigate = useNavigate();
+  const back = useBack("/library");
+  return <WantsScreen onBack={back} onCard={(o) => navigate(`/library/card/${o}`)} />;
 }
 
 function CollectionImportRoute() {
@@ -309,6 +334,9 @@ export default function App() {
         <Route path="/library/list/:listId/versions" element={<VersionsRoute />} />
         <Route path="/library/list/:listId/v/:n" element={<VersionRoute />} />
         <Route path="/library/trades" element={<TradesRoute />} />
+        <Route path="/library/binders" element={<BindersRoute />} />
+        <Route path="/library/binder/:binderId" element={<BinderRoute />} />
+        <Route path="/library/wants" element={<WantsRoute />} />
         <Route path="/library/trade/:tradeId" element={<TradeRoute />} />
         <Route path="/life" element={<LifeRoute />} />
         <Route path="/life/:matchId" element={<LifeRoute />} />
