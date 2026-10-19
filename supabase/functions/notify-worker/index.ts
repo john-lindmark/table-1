@@ -162,7 +162,7 @@ async function run() {
       if (!c) continue;
       alerts.push({
         token: d.push_token, env: d.env === "development" ? "development" : "production", priority: c.priority ?? 10,
-        collapseId: `${m.kind}:${m.event_id ?? m.data?.user_id ?? ""}`.slice(0, 64),
+        collapseId: `${m.kind}:${m.event_id ?? m.data?.user_id ?? m.data?.bug_id ?? ""}`.slice(0, 64),
         payload: {
           aps: { alert: { title: c.title, body: c.body }, sound: "default", "thread-id": m.event_id ?? (m.kind.startsWith("ops.") ? "ops" : "friends") },
           kind: m.kind, event_id: m.event_id, match_id: m.data?.match_id ?? null,
