@@ -76,8 +76,17 @@ async function sentry(req: Request) {
     sentrySecret = null;   // re-read next time, in case it was just set
     return json({ error: "Bad signature" }, 401);
   }
-  const report = parseSentry(req.headers.get("sentry-hook-resource"), JSON.parse(body));
-  if (!report) return json({ ok: true, filed: false });
+  const resource = req.headers.get("sentry-hook-resource");
+  const payload = JSON.parse(body);
+  const report = parseSentry(resource, payload);
+  if (!report) {
+    // Shape only (field names, never values), so a payload Sentry changed can be recognised later.
+    const data = (payload?.data ?? {}) as Record<string, unknown>;
+    const keys = (o: unknown) => (o && typeof o === "object" ? Object.keys(o as object).sort() : []);
+    console.log("bugs: sentry webhook not filed", JSON.stringify({ resource, action: payload?.action, data: keys(data),
+      event: keys(data.event), issue: keys(data.issue) }));
+    return json({ ok: true, filed: false });
+  }
   const r = await rpc<{ id: number; status: string } | null>("bug_report", { p: report });
   // Rate it now so an S1 reaches John in seconds, not at the next tick.
   if (r?.status === "new") await triage();
