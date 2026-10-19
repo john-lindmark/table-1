@@ -51,7 +51,10 @@ Sentry (iOS, Android, web) ──webhook──▶ bugs edge function ──▶ t
 A `fixed` bug that keeps reporting before its fix ships is just counted (old builds); after it ships it reopens.
 
 ## Runner (John's Mac)
-- `tools/bugs/install.sh` installs a launchd job running `tools/bugs/runner.sh` every 5 minutes. It asks the register
+- `tools/bugs/install.sh` installs a launchd job running `runner.sh --poll` every 5 minutes. launchd jobs can't read
+  `~/Documents` (macOS privacy; Full Disk Access for bash didn't help on macOS 26), so the poll runs from copies in
+  `~/.table1-bugs/` (rerun install.sh after changing runner.sh or bugs.py) and hands each run to Terminal
+  (`open -g -a Terminal ~/.table1-bugs/run.command`), which can read the repo. It asks the register
   for `open_s1` / `open_total` (free) and starts a headless Claude Code run only when there is work:
   an open **S1** → `/fix-bugs S1` at once (cap $15); the **08:00 and 18:00** windows → `/fix-bugs S4` once each (cap $40),
   most severe first. One run at a time. Logs in `~/Library/Logs/Table1Bugs/`. Pause: `touch ~/.table1-bugs/paused`.
@@ -87,8 +90,9 @@ A `fixed` bug that keeps reporting before its fix ships is just counted (old bui
 4. In each of the three projects, two alert rules with the action "Send a notification via Table 1 Bugs":
    **"T1 bugs: new or regressed"** (a new issue is created; an issue changes state from resolved to unresolved;
    an issue escalates) and **"T1 bugs: spike"** (seen more than 50 times in 1 hour; the name must contain "spike").
-5. `tools/bugs/install.sh`. On the first run macOS may ask whether bash may access the Documents folder: allow it.
-   Check with `tools/bugs/runner.sh --dry`.
+5. `tools/bugs/install.sh`, and sign the `claude` CLI in once in Terminal (`claude`, then `/login`): the desktop app's
+   sign-in doesn't carry over. Check with `tools/bugs/runner.sh --dry`. Optional: Terminal → Settings → Profiles →
+   Shell → "When the shell exits: Close if the shell exited cleanly", so run windows close themselves.
 
 ## Not yet
 - PostHog signals (e.g. `sign_in_failed` with `reason: error` rising, scan sessions cancelled empty): needs a PostHog
