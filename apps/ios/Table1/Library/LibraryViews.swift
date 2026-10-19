@@ -9,6 +9,7 @@ enum LibraryRoute: Hashable {
     case allCards
     case add
     case card(String) // oracle id
+    case cardIn(String, CardContext) // oracle id, opened from a deck/cube or a binder
     case lists(CardList.Kind)
     case list(String) // list id
     case versions(String) // list id
@@ -43,7 +44,7 @@ struct LibraryDestination: View {
         switch route {
         case .allCards: "all_cards"
         case .add: "add_cards"
-        case .card: "card_detail"
+        case .card, .cardIn: "card_detail"
         case .lists(let kind): kind == .deck ? "decks" : "cubes"
         case .list(let id): ListsStore.shared.list(id: id)?.kind == .cube ? "cube" : "deck"
         case .versions, .version: "list_versions"
@@ -70,13 +71,14 @@ struct LibraryDestination: View {
         case .allCards: AllCardsView(path: $path)
         case .add: AddCardsView(path: $path)
         case .card(let id): CardDetailView(oracleId: id, path: $path)
+        case .cardIn(let id, let context): CardDetailView(oracleId: id, path: $path, context: context)
         case .lists(let kind): ListsView(kind: kind, path: $path)
         case .list(let id): ListDetailView(listId: id, path: $path)
         case .versions(let id): ListVersionsView(listId: id, path: $path)
         case .version(let id, let n): ListVersionView(listId: id, number: n, path: $path)
         case .listAdd(let id): ListAddCardsView(listId: id, path: $path)
         case .findDeck: DeckFinderView(path: $path)
-        case .linePrinting(let l, let c, let b, let f): LinePrintingView(listId: l, cardId: c, board: b, finish: f)
+        case .linePrinting(let l, let c, let b, let f): ChangePrintingView(target: .listLine(listId: l, cardId: c, board: b, finish: f))
         case .importList(let kind): ListImportView(kind: kind, path: $path)
         case .trades: TradesView(path: $path)
         case .trade(let id): TradeView(tradeId: id, path: $path)
@@ -478,9 +480,17 @@ private struct PrintingPrice: Decodable {
     }
 }
 
+/// Where card detail was opened from: that deck/cube's lines or that binder's copies of the card come first, each
+/// with Change printing.
+enum CardContext: Hashable {
+    case list(String) // list id
+    case binder(String) // binder id, or BinderRoute.unsorted
+}
+
 struct CardDetailView: View {
     let oracleId: String
     var path: Binding<[LibraryRoute]>?
+    var context: CardContext?
     @Environment(\.dismiss) private var dismiss
     private var col: CollectionStore { CollectionStore.shared }
     private var catalog: CatalogStore { CatalogStore.shared }
@@ -526,7 +536,8 @@ struct CardDetailView: View {
             }
             if let oracle {
                 HairlineList {
-                    hero(oracle, preview ?? owned.first?.printing ?? printings.first)
+                    hero(oracle, preview ?? contextPrinting(owned) ?? owned.first?.printing ?? printings.first)
+                    contextSection(owned)
                     Section1("In collection · \(owned.count)")
                     if owned.isEmpty { LoadingRow(text: "None yet. Pick a printing below.") }
                     ForEach(owned, id: \.item.key) { pair in ownedRow(pair.item, pair.printing) }
@@ -585,6 +596,90 @@ struct CardDetailView: View {
     }
 
     private func listPath(_ id: String) { path?.wrappedValue.append(.list(id)) }
+
+    // MARK: opened from a deck, cube or binder
+
+    /// This card's lines in the list it was opened from: (entry, printing).
+    private func contextLines(_ list: CardList) -> [(entry: CardList.Entry, printing: CatalogPrinting)] {
+        let byId = Dictionary(printings.map { ($0.cardId, $0) }, uniquingKeysWith: { a, _ in a })
+        return list.entries.compactMap { e in byId[e.cardId].map { (e, $0) } }
+            .sorted { list.boards.firstIndex(of: $0.entry.board) ?? 0 < list.boards.firstIndex(of: $1.entry.board) ?? 0 }
+    }
+
+    /// This card's copies in the binder (or Unsorted) it was opened from.
+    private func contextCopies(_ owned: [(item: CollectionItem, printing: CatalogPrinting)], binderId: String)
+        -> [(item: CollectionItem, printing: CatalogPrinting, qty: Int)] {
+        let _ = BindersStore.shared.version
+        return owned.compactMap { pair in
+            let here = PrintingChange.places(pair.item).first { $0.place == binderId }?.qty ?? 0
+            return here > 0 ? (pair.item, pair.printing, here) : nil
+        }
+    }
+
+    private func contextPrinting(_ owned: [(item: CollectionItem, printing: CatalogPrinting)]) -> CatalogPrinting? {
+        switch context {
+        case .list(let id): ListsStore.shared.list(id: id).flatMap { contextLines($0).first?.printing }
+        case .binder(let id): contextCopies(owned, binderId: id).first?.printing
+        case nil: nil
+        }
+    }
+
+    @ViewBuilder private func contextSection(_ owned: [(item: CollectionItem, printing: CatalogPrinting)]) -> some View {
+        switch context {
+        case .list(let id):
+            if let list = ListsStore.shared.list(id: id) {
+                let lines = contextLines(list)
+                Section1("In \(list.name) · \(lines.reduce(0) { $0 + $1.entry.qty })")
+                if lines.isEmpty { LoadingRow(text: "Not in this \(list.kind == .deck ? "deck" : "cube") any more.") }
+                ForEach(lines, id: \.entry) { l in
+                    Button {
+                        T1Overlays.shared.present(full: true) {
+                            ChangePrintingView(target: .listLine(listId: list.id, cardId: l.entry.cardId, board: l.entry.board, finish: l.entry.finish),
+                                               close: { T1Overlays.shared.dismissPanel() }).screen("list_printing")
+                        }
+                    } label: {
+                        CardRow(printing: l.printing, title: "\(l.printing.setLabel) · \(Finish(rawValue: l.entry.finish)?.label ?? l.entry.finish)",
+                                detail: list.boardTitle(l.entry.board)) {
+                            changeLabel(l.entry.qty)
+                        }
+                    }.buttonStyle(.plain)
+                }
+            }
+        case .binder(let id):
+            let copies = contextCopies(owned, binderId: id)
+            let name = id == BinderRoute.unsorted ? "Unsorted" : BindersStore.shared.binder(id)?.name ?? "Binder"
+            Section1("In \(name) · \(copies.reduce(0) { $0 + $1.qty })")
+            if copies.isEmpty { LoadingRow(text: "None here any more.") }
+            // Ids apart from In collection's below: the lazy stack flattens both, and a shared id drops a row.
+            ForEach(copies, id: \.item.key.inBinder) { c in
+                Button { changePrinting(c.item, place: id) } label: {
+                    CardRow(printing: c.printing, title: "\(c.printing.setLabel) · \(c.item.finishLabel)",
+                            detail: [c.item.condition, c.item.lang == "en" ? nil : c.item.lang.uppercased()].compactMap { $0 }.joined(separator: " · ")) {
+                        changeLabel(c.qty)
+                    }
+                }.buttonStyle(.plain)
+            }
+        case nil:
+            EmptyView()
+        }
+    }
+
+    /// The count, with "Change" so the row says what a tap does.
+    private func changeLabel(_ qty: Int) -> some View {
+        HStack(spacing: 12) {
+            LabelText("Change", color: T1.text)
+            Text("\(qty)").font(T1.mono(17)).monospacedDigit()
+        }
+    }
+
+    /// Owned copies → another printing or finish, in the same place; Undo shows here.
+    private func changePrinting(_ it: CollectionItem, place: String?) {
+        T1Overlays.shared.present(full: true) {
+            ChangePrintingView(target: .owned(it, place: place), close: { T1Overlays.shared.dismissPanel() },
+                               changed: { batchId, label in last = (batchId, label); added = nil; error = nil })
+                .screen("item_printing")
+        }
+    }
 
     /// Wanting this card: any printing, or the one shown on top. Shows how many are wanted already.
     private func wantRow(_ o: CatalogOracle) -> some View {
@@ -684,6 +779,11 @@ struct CardDetailView: View {
             .background(T1.surface)
             if open == it.cardId {
                 conditionRow(it, p)
+                Button { changePrinting(it, place: nil) } label: {
+                    ListRow(title: "Change printing", detail: "Or finish · keeps condition and binder") {
+                        LabelText(p.setLabel, color: T1.text)
+                    }
+                }.buttonStyle(.plain)
                 Button {
                     BinderMoveFlow.start(it, label: p.setLabel) { label in
                         if let label { added = label; last = nil }
@@ -840,4 +940,9 @@ struct CardGrid<Item: Identifiable, Cell: View>: View {
             }
         }
     }
+}
+
+private extension String {
+    /// A binder-context row's id, apart from the same item's In collection row.
+    var inBinder: String { "in|" + self }
 }

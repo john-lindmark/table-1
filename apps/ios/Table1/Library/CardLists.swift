@@ -843,7 +843,7 @@ struct ListDetailView: View {
         let pts = line.points > 0 && ListsStore.shared.list(id: listId)?.format == "canlander" ? "\(line.points) pt\(line.points == 1 ? "" : "s")" : nil
         let detail = [issue, pts, line.finishLabel, have].compactMap { $0 }.joined(separator: " · ")
         return Button {
-            if let o = line.oracleId { path.append(.card(o)) }
+            if let o = line.oracleId { path.append(.cardIn(o, .list(listId))) }
         } label: {
             CardRow(printing: line.printing, title: line.name, detail: detail) {
                 Text("\(line.qty)").font(T1.mono(17)).monospacedDigit().foregroundStyle(short || issue != nil ? T1.error : T1.text)
@@ -903,7 +903,7 @@ struct ListDetailView: View {
                             LazyVGrid(columns: Array(repeating: GridItem(.fixed(width), spacing: 1), count: 3), spacing: 1) {
                                 ForEach(inGroup) { line in
                                     let have = owned[line.ownKey] ?? 0
-                                    Button { if let o = line.oracleId { path.append(.card(o)) } } label: {
+                                    Button { if let o = line.oracleId { path.append(.cardIn(o, .list(listId))) } } label: {
                                         CardTile(printing: line.printing, name: line.name, qty: line.qty,
                                                  warn: (board != "maybe" && have < line.qty) || issues[line.oracleId ?? line.cardId] != nil,
                                                  width: width)
@@ -938,7 +938,7 @@ extension ListDetailView {
                                         let have = owned[line.ownKey] ?? 0
                                         return StackCard(id: line.id, printing: line.printing, name: line.name, qty: line.qty,
                                                          warn: (board != "maybe" && have < line.qty) || issues[line.oracleId ?? line.cardId] != nil) {
-                                            if let o = line.oracleId { path.append(.card(o)) }
+                                            if let o = line.oracleId { path.append(.cardIn(o, .list(listId))) }
                                         }
                                     })
                         }
@@ -1196,7 +1196,7 @@ struct ListAddCardsView: View {
             let p = covers[o.idx]
             let inList = p.map { pc in list.entries.filter { $0.cardId == pc.cardId && $0.board == target }.reduce(0) { $0 + $1.qty } } ?? 0
             HStack(spacing: 1) {
-                Button { path.append(.card(o.oracleId)) } label: {
+                Button { path.append(.cardIn(o.oracleId, .list(listId))) } label: {
                     CardRow(printing: p, title: o.name, detail: inList > 0 ? "\(inList) in \(list.boardTitle(target))" : o.typeLine)
                 }.buttonStyle(.plain)
                 Button {
@@ -1231,7 +1231,7 @@ struct ListAddCardsView: View {
         ForEach(found) { line in
             let qty = list.entries.first { $0.cardId == line.cardId && $0.board == line.board && $0.finish == line.finish }?.qty ?? line.qty
             HStack(spacing: 1) {
-                Button { if let o = line.oracleId { path.append(.card(o)) } } label: {
+                Button { if let o = line.oracleId { path.append(.cardIn(o, .list(listId))) } } label: {
                     // No count or set on the right: the two actions need the room, and a cube line is nearly always 1.
                     CardRow(printing: line.printing, title: line.name,
                             detail: [list.boardTitle(line.board), line.finishLabel, qty > 1 ? "\(qty) copies" : nil].compactMap { $0 }.joined(separator: " · "))
@@ -1448,102 +1448,6 @@ private extension JSONDecoder {
         d.keyDecodingStrategy = .convertFromSnakeCase
         return d
     }()
-}
-
-// MARK: changing a line's printing or finish
-
-/// One deck or cube line: move some or all of its copies to another printing or finish. Splitting 4 non-foil
-/// into 2 non-foil and 2 foil is "move 2" to the foil finish of the same printing.
-struct LinePrintingView: View {
-    let listId: String
-    let cardId: String
-    let board: String
-    let finish: String
-    @Environment(\.dismiss) private var dismiss
-    private var catalog: CatalogStore { CatalogStore.shared }
-    @State private var printings: [CatalogPrinting] = []
-    @State private var name = ""
-    @State private var count = 0
-
-    var body: some View {
-        let list = ListsStore.shared.list(id: listId)
-        let have = list?.entries.first { $0.cardId == cardId && $0.board == board && $0.finish == finish }?.qty ?? 0
-        let current = printings.first { $0.cardId == cardId }
-        T1Screen {
-            Bar(title: "Printing", subtitle: name) { BarButton("Done") { dismiss() } }
-            CatalogStatusRow(catalog: catalog)
-            if have == 0 {
-                Notice("This line has no copies left.")
-            } else {
-                HairlineList {
-                    CardRow(printing: current, title: name,
-                            detail: [current?.setLabel, Finish(rawValue: finish)?.label ?? finish, list.map { $0.boardTitle(board) }].compactMap { $0 }.joined(separator: " · ")) {
-                        Text("\(have)").font(T1.mono(17)).monospacedDigit()
-                    }
-                    HStack(spacing: 1) {
-                        LabelText("Change \(min(max(count, 1), have)) of \(have)")
-                            .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16)
-                        stepper("−") { count = max(1, min(count, have) - 1) }
-                        stepper("+") { count = min(have, max(count, 1) + 1) }
-                    }
-                    .frame(height: 52).background(T1.surface)
-                    Section1("Move them to")
-                    ForEach(printings, id: \.cardId) { p in row(p, n: min(max(count, 1), have)) }
-                }
-            }
-        }
-        .onAppear { if count == 0 { count = have } }
-        .task(id: catalog.generation) {
-            catalog.load(userInitiated: true)
-            guard let db = catalog.db else { return }
-            let id = cardId
-            let found = await Task.detached(priority: .userInitiated) { () -> (String, [CatalogPrinting]) in
-                guard let p = db.printings(ids: [id])[id], let o = db.oracles(idxs: [p.oracleIdx])[p.oracleIdx] else { return ("", []) }
-                return (o.name, db.printings(oracleIdx: o.idx))
-            }.value
-            name = found.0
-            printings = found.1
-        }
-    }
-
-    private func row(_ p: CatalogPrinting, n: Int) -> some View {
-        let detail = [CatalogPack.rarityName[p.rarity], p.releasedAt.isEmpty ? nil : String(p.releasedAt.prefix(4)),
-                      p.original ? "Original" : nil, p.lang == "en" ? nil : p.lang.uppercased()].compactMap { $0 }.joined(separator: " · ")
-        return HStack(spacing: 1) {
-            HStack(spacing: 12) {
-                p.art(width: 36)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(p.setLabel).font(T1.mono(13)).lineLimit(1)
-                    LabelText(detail)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16).padding(.vertical, 8)
-            ForEach(p.finishList, id: \.self) { f in
-                let same = p.cardId == cardId && f.rawValue == finish
-                Button {
-                    ListsStore.shared.swap(listId: listId, cardId: cardId, board: board, finish: finish,
-                                           toCardId: p.cardId, toFinish: f.rawValue, qty: n)
-                    dismiss()
-                } label: {
-                    LabelText(same ? "Current" : f.label, color: same ? T1.disabled : T1.text)
-                        .padding(.horizontal, 12).frame(maxHeight: .infinity)
-                        .background(T1.surfaceHover)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .disabled(same)
-            }
-        }
-        .fixedSize(horizontal: false, vertical: true)
-        .background(T1.surface)
-    }
-
-    private func stepper(_ glyph: String, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(glyph).font(T1.mono(22)).frame(width: 52).frame(maxHeight: .infinity).background(T1.surfaceHover)
-        }.buttonStyle(.plain)
-    }
 }
 
 // MARK: import from a link or a pasted list

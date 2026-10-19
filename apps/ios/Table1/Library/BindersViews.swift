@@ -205,7 +205,7 @@ struct BinderView: View {
                     Notice(unsorted ? "Every copy is in a binder." : "No cards here yet. Add cards moves in copies you own or adds new ones; trades and imports can fill it too.")
                 }
                 ForEach(shown) { g in
-                    Button { if g.known { path.append(.card(g.id)) } } label: {
+                    Button { if g.known { path.append(.cardIn(g.id, .binder(binderId))) } } label: {
                         CardRow(printing: g.cover, title: g.name, detail: "\(g.printings) printing\(g.printings == 1 ? "" : "s") · \(g.type)") {
                             Text("\(g.qty)").font(T1.mono(17)).monospacedDigit()
                         }
@@ -576,7 +576,7 @@ struct WantsView: View {
                 T1Overlays.shared.present { WantPricePanel(want: w) }
             },
         ]
-        items.append(T1MenuItem(title: "Printing", detail: w.cardId == nil ? "Any printing" : r.printing?.setLabel) {
+        items.append(T1MenuItem(title: "Change printing", detail: w.cardId == nil ? "Any printing" : r.printing?.setLabel) {
             T1Overlays.shared.present(full: true) { WantPrintingPanel(oracleId: w.oracleId, replacing: w).screen("want_printing") }
         })
         items.append(T1MenuItem(title: "Open card") { path.append(.card(w.oracleId)) })
