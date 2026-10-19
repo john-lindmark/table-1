@@ -120,6 +120,21 @@
         "--strictPort"
       ],
       "port": 5199
+    },
+    {
+      "name": "web-lockdown",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "table-1-events-web",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5203",
+        "--strictPort"
+      ],
+      "port": 5203
     }
   ]
 }

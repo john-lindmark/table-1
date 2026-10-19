@@ -29,11 +29,14 @@ async function flush() {
   try {
     while (pending.size > 0) {
       const ids = [...pending].slice(0, 100);
-      const { data, error } = await supabase.from("profiles").select("id, avatar_url").in("id", ids);
+      // people() returns only accounts you have a reason to see (contract/privacy-lockdown-2026-10-18.md); anyone
+      // else, across a block, or every id when signed out, comes back missing and draws initials.
+      const { data, error } = await supabase.rpc("people", { p_ids: ids });
       ids.forEach((id) => pending.delete(id));
-      if (error || !data) continue; // offline: ask again next time it's drawn
+      // Offline: ask again next time it's drawn. Refused (signed out): initials, without asking on every draw.
+      if (error && error.code !== "42501") continue;
       ids.forEach((id) => paths.set(id, null));
-      for (const r of data as { id: string; avatar_url: string | null }[]) paths.set(r.id, r.avatar_url);
+      for (const r of (data ?? []) as { user_id: string; avatar_url: string | null }[]) paths.set(r.user_id, r.avatar_url);
       changed();
     }
   } finally {

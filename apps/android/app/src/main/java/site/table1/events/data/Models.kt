@@ -65,6 +65,19 @@ data class ParticipantRow(
 
 /** public.event_teams (active rows). */
 @Serializable
+data class EventBundleWire(
+    val event: EventRow,
+    val participants: List<ParticipantRow> = emptyList(),
+    val rounds: List<RoundRow> = emptyList(),
+    val teams: List<BundleTeam> = emptyList(),
+    @SerialName("is_organizer") val isOrganizer: Boolean = false,
+)
+
+/** A team as event_bundle sends it (get_event_teams' shape; members are read from participants). */
+@Serializable
+data class BundleTeam(val id: String, val name: String, val order: Int = 0)
+
+@Serializable
 data class EventTeamRow(
     val id: String,
     val name: String,

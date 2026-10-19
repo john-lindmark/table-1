@@ -1,0 +1,232 @@
+{
+  "access": "organizer",
+  "event": {
+    "allow_player_reporting": true,
+    "auto_name": false,
+    "cancel_reason": null,
+    "cancelled_at": null,
+    "cancelled_by": null,
+    "capacity": null,
+    "created_at": "2026-10-19T13:21:38.05012-06:00",
+    "created_by": "00000000-0000-0000-0000-0000000000a1",
+    "cube_name": null,
+    "cube_url": null,
+    "current_round": 2,
+    "demo_owner": null,
+    "discoverable_until": null,
+    "event_type": "limited",
+    "format": "draft",
+    "format_label": "Draft \u00b7 Murders at Karlov Manor",
+    "format_name": "draft",
+    "format_other": null,
+    "id": "e0000000-0000-0000-0000-000000000001",
+    "is_demo": false,
+    "join_radius_m": 150,
+    "name": "Fixture draft",
+    "name_date": null,
+    "nearby_alerts_sent_at": null,
+    "number_of_rounds": 3,
+    "pairing": "swiss",
+    "regulars_alerted_at": null,
+    "round_length_seconds": 3000,
+    "seat_ends": false,
+    "set_code": null,
+    "set_name": "Murders at Karlov Manor",
+    "short_code": "FIXT",
+    "show_clock": true,
+    "starts_at": null,
+    "status": "in_progress",
+    "team_size": null,
+    "updated_at": "2026-10-19T13:21:38.05012-06:00",
+    "venue_name": "Denver Card Shop",
+    "visibility": "link_only"
+  },
+  "is_organizer": true,
+  "participants": [
+    {
+      "created_at": "2026-10-19T13:21:38.053452-06:00",
+      "display_name": "Ana Organizer",
+      "dropped_in_round": null,
+      "event_id": "e0000000-0000-0000-0000-000000000001",
+      "id": "f0000000-0000-0000-0000-000000000001",
+      "pod_id": "d0000000-0000-0000-0000-000000000001",
+      "seat": 1,
+      "status": "active",
+      "team_id": null,
+      "team_slot": null,
+      "user_id": "00000000-0000-0000-0000-0000000000a1"
+    },
+    {
+      "created_at": "2026-10-19T13:21:38.053452-06:00",
+      "display_name": "Ben Player",
+      "dropped_in_round": null,
+      "event_id": "e0000000-0000-0000-0000-000000000001",
+      "id": "f0000000-0000-0000-0000-000000000002",
+      "pod_id": "d0000000-0000-0000-0000-000000000001",
+      "seat": 2,
+      "status": "active",
+      "team_id": null,
+      "team_slot": null,
+      "user_id": "00000000-0000-0000-0000-0000000000b1"
+    },
+    {
+      "created_at": "2026-10-19T13:21:38.053452-06:00",
+      "display_name": "Guest Cara",
+      "dropped_in_round": null,
+      "event_id": "e0000000-0000-0000-0000-000000000001",
+      "id": "f0000000-0000-0000-0000-000000000003",
+      "pod_id": "d0000000-0000-0000-0000-000000000001",
+      "seat": 3,
+      "status": "active",
+      "team_id": null,
+      "team_slot": null,
+      "user_id": null
+    }
+  ],
+  "rounds": [
+    {
+      "event_id": "e0000000-0000-0000-0000-000000000001",
+      "id": "a0000000-0000-0000-0000-000000000001",
+      "matches": [
+        {
+          "created_at": "2026-10-19T13:21:38.055939-06:00",
+          "disputed": false,
+          "event_id": "e0000000-0000-0000-0000-000000000001",
+          "game_draws": 1,
+          "id": "b0000000-0000-0000-0000-000000000001",
+          "intentional_draw": false,
+          "is_bye": false,
+          "match_sides": [
+            {
+              "event_id": "e0000000-0000-0000-0000-000000000001",
+              "game_wins": 2,
+              "id": "fd6e1be9-2286-4a1f-9740-3c757c945d33",
+              "match_id": "b0000000-0000-0000-0000-000000000001",
+              "participant_id": "f0000000-0000-0000-0000-000000000001",
+              "side": 0,
+              "user_id": "00000000-0000-0000-0000-0000000000a1"
+            },
+            {
+              "event_id": "e0000000-0000-0000-0000-000000000001",
+              "game_wins": 1,
+              "id": "712a0525-434b-4d75-a9bf-a00d5c730d79",
+              "match_id": "b0000000-0000-0000-0000-000000000001",
+              "participant_id": "f0000000-0000-0000-0000-000000000003",
+              "side": 1,
+              "user_id": null
+            }
+          ],
+          "pod_id": null,
+          "reported_at": null,
+          "reported_by_participant": null,
+          "reported_by_user": null,
+          "result_at": null,
+          "result_source": null,
+          "round_id": "a0000000-0000-0000-0000-000000000001",
+          "status": "confirmed",
+          "table_number": 1,
+          "updated_at": "2026-10-19T13:21:38.055939-06:00",
+          "version": 0
+        }
+      ],
+      "number": 1,
+      "pairings_published_at": null,
+      "recorded_at": null,
+      "started_at": null,
+      "status": "recorded",
+      "timer_duration_seconds": 3000,
+      "timer_ends_at": null,
+      "timer_last_started_at": null,
+      "timer_remaining_at_change": 3000,
+      "timer_status": "paused"
+    },
+    {
+      "event_id": "e0000000-0000-0000-0000-000000000001",
+      "id": "a0000000-0000-0000-0000-000000000002",
+      "matches": [
+        {
+          "created_at": "2026-10-19T13:21:38.055939-06:00",
+          "disputed": false,
+          "event_id": "e0000000-0000-0000-0000-000000000001",
+          "game_draws": 0,
+          "id": "b0000000-0000-0000-0000-000000000002",
+          "intentional_draw": false,
+          "is_bye": false,
+          "match_sides": [
+            {
+              "event_id": "e0000000-0000-0000-0000-000000000001",
+              "game_wins": 0,
+              "id": "e177b579-393b-49dc-b9df-39fe6c6e3b96",
+              "match_id": "b0000000-0000-0000-0000-000000000002",
+              "participant_id": "f0000000-0000-0000-0000-000000000001",
+              "side": 0,
+              "user_id": "00000000-0000-0000-0000-0000000000a1"
+            },
+            {
+              "event_id": "e0000000-0000-0000-0000-000000000001",
+              "game_wins": 0,
+              "id": "5f3c45e8-0c00-42aa-b023-39bae8d5cc43",
+              "match_id": "b0000000-0000-0000-0000-000000000002",
+              "participant_id": "f0000000-0000-0000-0000-000000000002",
+              "side": 1,
+              "user_id": "00000000-0000-0000-0000-0000000000b1"
+            }
+          ],
+          "pod_id": null,
+          "reported_at": null,
+          "reported_by_participant": null,
+          "reported_by_user": null,
+          "result_at": null,
+          "result_source": null,
+          "round_id": "a0000000-0000-0000-0000-000000000002",
+          "status": "pending",
+          "table_number": 1,
+          "updated_at": "2026-10-19T13:21:38.055939-06:00",
+          "version": 0
+        },
+        {
+          "created_at": "2026-10-19T13:21:38.057142-06:00",
+          "disputed": false,
+          "event_id": "e0000000-0000-0000-0000-000000000001",
+          "game_draws": 0,
+          "id": "b0000000-0000-0000-0000-000000000003",
+          "intentional_draw": false,
+          "is_bye": true,
+          "match_sides": [
+            {
+              "event_id": "e0000000-0000-0000-0000-000000000001",
+              "game_wins": 2,
+              "id": "00701744-e760-42f6-8034-b3b22567139f",
+              "match_id": "b0000000-0000-0000-0000-000000000003",
+              "participant_id": "f0000000-0000-0000-0000-000000000003",
+              "side": 0,
+              "user_id": null
+            }
+          ],
+          "pod_id": null,
+          "reported_at": null,
+          "reported_by_participant": null,
+          "reported_by_user": null,
+          "result_at": null,
+          "result_source": null,
+          "round_id": "a0000000-0000-0000-0000-000000000002",
+          "status": "confirmed",
+          "table_number": null,
+          "updated_at": "2026-10-19T13:21:38.057142-06:00",
+          "version": 0
+        }
+      ],
+      "number": 2,
+      "pairings_published_at": null,
+      "recorded_at": null,
+      "started_at": null,
+      "status": "active",
+      "timer_duration_seconds": 3000,
+      "timer_ends_at": null,
+      "timer_last_started_at": null,
+      "timer_remaining_at_change": 3000,
+      "timer_status": "paused"
+    }
+  ],
+  "teams": []
+}

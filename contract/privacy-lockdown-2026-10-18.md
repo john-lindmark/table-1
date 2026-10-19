@@ -60,7 +60,16 @@ no read policy, no select grant for anon or authenticated. Another account's lif
 `profile_view`, which applies their Record setting. Yours comes from `account_overview` / `profile_view(self)`. Team
 balancing (`teams.ts` in events-engine) reads them with the service role. No client read these tables directly.
 
-## Client changes (step 2; not done yet)
+## Client changes (step 2; built 2026-10-19; 170000 and events-engine v8 live 2026-10-19)
+
+Built on all three platforms. They call RPCs from migration `20261018170000_privacy_lockdown.sql`, so a build with them
+must not ship before that migration is applied to live (it's additive; older builds keep working). Decoding is tested
+against what the real RPCs return: `testdata/event-bundle/` (`bundle.json`, `public.json`, `preview.json`, regenerated
+by `testdata/event-bundle/make.sh` from a database with every migration), read by iOS `EventBundleTests`, web
+`eventBundle.test.ts` and Android `EventBundleTest`. Web also: the join screen shows the preview (format, venue,
+organizer, players) and no longer waits for a bundle a visitor can't read; `/s` renders `event_public` pairings and the
+engine's ranked rows (no participant list); guests send their claim token to `event_bundle`, `event_public`,
+`get_event_teams` and the engine. Avatars: a refused `people` call (signed out) draws initials without asking again.
 
 | Platform | Change |
 |---|---|

@@ -95,7 +95,7 @@ object AvatarStore {
     fun url(path: String) = "${BuildConfig.SUPABASE_URL}/storage/v1/object/public/avatars/$path"
 
     @Serializable
-    private data class Row(val id: String, @SerialName("avatar_url") val avatarUrl: String? = null)
+    private data class Row(@SerialName("user_id") val userId: String, @SerialName("avatar_url") val avatarUrl: String? = null)
 
     fun want(userId: String) {
         if (paths.containsKey(userId) || userId in pending) return
@@ -108,15 +108,17 @@ object AvatarStore {
             try {
                 while (pending.isNotEmpty()) {
                     val ids = pending.take(100)
+                    // people() returns only accounts you have a reason to see (contract/privacy-lockdown-2026-10-18.md);
+                    // anyone else, or across a block, comes back missing and draws initials.
                     val rows = runCatching {
-                        T1App.supabase.from("profiles").select(Columns.list("id", "avatar_url")) {
-                            filter { isIn("id", ids) }
-                        }.decodeList<Row>()
+                        T1App.supabase.postgrest.rpc("people", buildJsonObject {
+                            put("p_ids", kotlinx.serialization.json.JsonArray(ids.map { kotlinx.serialization.json.JsonPrimitive(it) }))
+                        }).decodeList<Row>()
                     }.getOrNull()
                     pending -= ids.toSet()
                     if (rows == null) continue   // offline: ask again next time it's drawn
                     ids.forEach { paths[it] = null }
-                    rows.forEach { paths[it.id] = it.avatarUrl }
+                    rows.forEach { paths[it.userId] = it.avatarUrl }
                 }
             } finally {
                 flushing = false

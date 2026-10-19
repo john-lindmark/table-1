@@ -9,6 +9,7 @@ import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.postgrest.query.filter.FilterOperator
 import io.github.jan.supabase.realtime.PostgresAction
 import io.github.jan.supabase.realtime.RealtimeChannel
+import io.github.jan.supabase.realtime.broadcastFlow
 import io.github.jan.supabase.realtime.channel
 import io.github.jan.supabase.realtime.postgresChangeFlow
 import io.github.jan.supabase.realtime.realtime
@@ -25,6 +26,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonArray
@@ -195,61 +197,41 @@ object Repo {
             put("p_format_other", formatOther)
         }).decodeAs()
 
-    suspend fun loadEvent(eventId: String): EventBundle = coroutineScope {
-        val event = async {
-            supabase.from("events").select { filter { eq("id", eventId) } }.decodeSingle<EventRow>()
-        }
-        val participants = async {
-            supabase.from("participants").select {
-                filter { eq("event_id", eventId) }
-                order("seat", Order.ASCENDING)
-            }.decodeList<ParticipantRow>()
-        }
-        val rounds = async {
-            supabase.from("rounds").select(Columns.raw("*, matches(*, match_sides(*))")) {
-                filter { eq("event_id", eventId) }
-                order("number", Order.ASCENDING)
-            }.decodeList<RoundRow>()
-        }
-        val organizer = async {
-            runCatching {
-                supabase.postgrest.rpc("is_event_organizer", buildJsonObject { put("p_event_id", eventId) })
-                    .decodeAs<Boolean>()
-            }.getOrDefault(false)
-        }
-        val teams = async {
-            runCatching {
-                supabase.from("event_teams").select {
-                    filter {
-                        eq("event_id", eventId)
-                        eq("active", true)
-                    }
-                    order("display_order", Order.ASCENDING)
-                }.decodeList<EventTeamRow>()
-            }.getOrDefault(emptyList())
-        }
-        EventBundle(
-            event = event.await(),
-            participants = participants.await(),
-            rounds = rounds.await().map { r -> r.copy(matches = r.matches.sortedBy { it.tableNumber ?: 0 }) },
-            isOrganizer = organizer.await(),
-            teams = teams.await(),
-        )
-    }
+    /**
+     * The whole event in one call (contract/privacy-lockdown-2026-10-18.md): event_bundle checks who's asking
+     * (organizer or player) and refuses anyone else with "That event isn't available".
+     */
+    suspend fun loadEvent(eventId: String): EventBundle =
+        bundle(supabase.postgrest.rpc("event_bundle", buildJsonObject { put("p_event_id", eventId) }).decodeAs<EventBundleWire>())
 
-    /** Emits whenever anything in the event changes, so the screen can refetch. */
+    /** event_bundle's rows into the screen's bundle (testdata/event-bundle/bundle.json in EventBundleTest). */
+    fun bundle(w: EventBundleWire): EventBundle = EventBundle(
+        event = w.event,
+        participants = w.participants,
+        rounds = w.rounds.map { r -> r.copy(matches = r.matches.sortedBy { it.tableNumber ?: 0 }) },
+        isOrganizer = w.isOrganizer,
+        teams = w.teams.sortedBy { it.order }.map { EventTeamRow(id = it.id, name = it.name, displayOrder = it.order) },
+    )
+
+    /**
+     * Emits whenever anything in the event changes, so the screen can refetch. The server pings the public topic
+     * `event:<id>` (event `changed`, no data) once per write; a rejoin also emits, since a ping sent while away is lost.
+     */
     fun eventChanges(eventId: String): Flow<Unit> = callbackFlow {
-        val channel = supabase.channel("event-$eventId-${UUID.randomUUID()}")
-        val flows = listOf("matches", "match_sides", "rounds", "participants", "events").map { t ->
-            channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-                table = t
-                filter(if (t == "events") "id" else "event_id", FilterOperator.EQ, eventId)
+        val channel = supabase.channel("event:$eventId")
+        val pings = channel.broadcastFlow<JsonObject>(event = "changed")
+        val job = launch { pings.collect { trySend(Unit) } }
+        val rejoins = launch {
+            var first = true
+            channel.status.collect { s ->
+                if (s != RealtimeChannel.Status.SUBSCRIBED) return@collect
+                if (first) first = false else trySend(Unit)
             }
         }
-        val job = launch { merge(*flows.toTypedArray()).collect { trySend(Unit) } }
         channel.subscribe()
         awaitClose {
             job.cancel()
+            rejoins.cancel()
             CoroutineScope(Dispatchers.IO).launch { supabase.realtime.removeChannel(channel) }
         }
     }

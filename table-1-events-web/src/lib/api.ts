@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import { getLocalParticipant } from "./session";
 import type { User } from "@supabase/supabase-js";
 import { capture, signInStarted } from "./telemetry";
 import type {
@@ -139,35 +140,145 @@ const toRound = (r: any): RoundWithMatches => ({
 
 /* ── reads ───────────────────────────────────────────────────────────────── */
 
-export async function fetchEventIdByCode(code: string): Promise<string | null> {
-  const { data, error } = await supabase
-    .from("events")
-    .select("id")
-    .ilike("short_code", code.trim())
-    .maybeSingle();
-  if (error) throw error;
-  return data?.id ?? null;
+/** What someone sees before joining (contract/privacy-lockdown-2026-10-18.md): no player list, no account ids. */
+export interface EventPreview {
+  eventId: string;
+  access: "organizer" | "player" | "guest" | "invited" | "link";
+  shortCode: string;
+  name: string;
+  formatLabel: string | null;
+  status: string;
+  startsAt: string | null;
+  venueName: string | null;
+  capacity: number | null;
+  players: number;
+  organizerName: string | null;
 }
 
-export async function fetchBundle(eventId: string): Promise<EventBundle> {
-  const [eventRes, participantRes, roundRes] = await Promise.all([
-    supabase.from("events").select("*").eq("id", eventId).single(),
-    supabase.from("participants").select("*").eq("event_id", eventId).order("seat"),
-    supabase
-      .from("rounds")
-      .select("*, matches(*, match_sides(*))")
-      .eq("event_id", eventId)
-      .order("number"),
-  ]);
-  if (eventRes.error) throw eventRes.error;
-  if (participantRes.error) throw participantRes.error;
-  if (roundRes.error) throw roundRes.error;
+/** By the code typed at the table (open events only, rate-limited) or by id (a link). null = nothing to show. */
+export async function fetchEventPreview(by: { code: string } | { eventId: string }): Promise<EventPreview | null> {
+  const { data, error } = await supabase.rpc(
+    "event_preview",
+    "code" in by ? { p_code: by.code.trim() } : { p_event_id: by.eventId },
+  );
+  if (error) throw error;
+  return toPreview(data);
+}
 
+export function toPreview(r: any): EventPreview | null {
+  if (!r?.event_id || r.access === "none") return null;
   return {
-    event: toEvent(eventRes.data),
-    participants: (participantRes.data ?? []).map(toParticipant),
-    rounds: (roundRes.data ?? []).map(toRound),
+    eventId: r.event_id,
+    access: r.access,
+    shortCode: r.short_code,
+    name: r.name,
+    formatLabel: r.format_label ?? null,
+    status: r.status,
+    startsAt: r.starts_at ?? null,
+    venueName: r.venue_name ?? null,
+    capacity: r.capacity ?? null,
+    players: r.players ?? 0,
+    organizerName: r.organizer_name ?? null,
   };
+}
+
+/** The whole event in one call. event_bundle lets in organizers, players and (with the claim token kept on this
+ *  device) walk-in guests; anyone else gets "That event isn't available". */
+export async function fetchBundle(eventId: string): Promise<EventBundle> {
+  const token = getLocalParticipant(eventId)?.token ?? null;
+  const { data, error } = await supabase.rpc("event_bundle", { p_event_id: eventId, p_token: token });
+  if (error) throw error;
+  return toBundle(data);
+}
+
+export function toBundle(r: any): EventBundle {
+  return {
+    event: toEvent(r.event),
+    participants: (r.participants ?? []).map(toParticipant),
+    rounds: (r.rounds ?? []).map(toRound),
+  };
+}
+
+/** The /s page: the event, the clock and current pairings by name (no account ids), for anyone with the link. */
+export interface PublicPairing {
+  matchId: string;
+  tableNumber: number | null;
+  isBye: boolean;
+  status: string;
+  gameDraws: number;
+  sides: { side: number; participantId: string | null; displayName: string; gameWins: number }[];
+}
+export interface PublicEvent {
+  eventId: string;
+  name: string;
+  status: string;
+  currentRound: number;
+  numberOfRounds: number;
+  showClock: boolean;
+  round: RoundWithMatches | null;
+  pairings: PublicPairing[];
+}
+
+export async function fetchPublicEvent(eventId: string): Promise<PublicEvent> {
+  const token = getLocalParticipant(eventId)?.token ?? null;
+  const { data, error } = await supabase.rpc("event_public", { p_event_id: eventId, p_token: token });
+  if (error) throw error;
+  return toPublicEvent(data);
+}
+
+export function toPublicEvent(r: any): PublicEvent {
+  return {
+    eventId: r.event_id,
+    name: r.name,
+    status: r.status,
+    currentRound: r.current_round ?? 0,
+    numberOfRounds: r.number_of_rounds ?? 0,
+    showClock: r.show_clock ?? true,
+    round: r.round ? toRound({ ...r.round, event_id: r.event_id, matches: [] }) : null,
+    pairings: (r.pairings ?? []).map((m: any) => ({
+      matchId: m.match_id,
+      tableNumber: m.table_number ?? null,
+      isBye: m.is_bye,
+      status: m.status,
+      gameDraws: m.game_draws ?? 0,
+      sides: (m.sides ?? [])
+        .map((s: any) => ({ side: s.side, participantId: s.participant_id ?? null, displayName: s.display_name, gameWins: s.game_wins ?? 0 }))
+        .sort((a: { side: number }, b: { side: number }) => a.side - b.side),
+    })),
+  };
+}
+
+/** Ranked rows from events-engine (the server's standings; the /s page has no participant list to compute them). */
+export interface PublicStandingRow {
+  rank: number;
+  participantId: string;
+  displayName: string;
+  status: string;
+  matchPoints: number;
+  matchWins: number;
+  matchLosses: number;
+  matchDraws: number;
+  byes: number;
+  omw: number;
+  gw: number;
+}
+
+export async function fetchPublicStandings(eventId: string): Promise<PublicStandingRow[]> {
+  const token = getLocalParticipant(eventId)?.token ?? null;
+  const data = await invokeEngine<{ standings?: any[] }>({ action: "standings", event_id: eventId, token });
+  return (data.standings ?? []).map((s) => ({
+    rank: s.rank,
+    participantId: s.participant_id,
+    displayName: s.display_name,
+    status: s.status,
+    matchPoints: s.match_points,
+    matchWins: s.match_wins,
+    matchLosses: s.match_losses,
+    matchDraws: s.match_draws,
+    byes: s.byes,
+    omw: s.omw,
+    gw: s.gw,
+  }));
 }
 
 /**
@@ -175,23 +286,22 @@ export async function fetchBundle(eventId: string): Promise<EventBundle> {
  * many rows (seating updates every participant), so a burst of changes becomes one refetch.
  */
 export function subscribeToEvent(eventId: string, onChange: () => void) {
+  // The server pings the public topic event:<id> (event `changed`, no data) on every write, so guests hear it too;
+  // the data itself comes from event_bundle / event_public, which check who's asking. A rejoin also refetches, since
+  // a ping sent while away is lost.
   const channel = supabase.channel(`event:${eventId}`);
   let timer: number | undefined;
+  let joined = false;
   const changed = () => {
     window.clearTimeout(timer);
     timer = window.setTimeout(onChange, 120);
   };
-  const filters: [string, string][] = [
-    ["events", `id=eq.${eventId}`],
-    ["participants", `event_id=eq.${eventId}`],
-    ["rounds", `event_id=eq.${eventId}`],
-    ["matches", `event_id=eq.${eventId}`],
-    ["match_sides", `event_id=eq.${eventId}`],
-  ];
-  for (const [table, filter] of filters) {
-    channel.on("postgres_changes", { event: "*", schema: "public", table, filter }, changed);
-  }
-  channel.subscribe();
+  channel.on("broadcast", { event: "changed" }, changed);
+  channel.subscribe((status) => {
+    if (status !== "SUBSCRIBED") return;
+    if (joined) changed();
+    joined = true;
+  });
   return () => {
     window.clearTimeout(timer);
     supabase.removeChannel(channel);
@@ -826,12 +936,15 @@ export interface EngineStandings {
 
 /** Public. Used here for the seating view (pods with names, team per seat). */
 export async function fetchEngineStandings(eventId: string): Promise<EngineStandings> {
-  const data = await invokeEngine<{ seating?: SeatingPod[] | null }>({ action: "standings", event_id: eventId });
+  const data = await invokeEngine<{ seating?: SeatingPod[] | null }>({
+    action: "standings", event_id: eventId, token: getLocalParticipant(eventId)?.token ?? null,
+  });
   return { seating: data.seating ?? null };
 }
 
 export async function fetchEventTeams(eventId: string): Promise<EventTeam[]> {
-  const { data, error } = await supabase.rpc("get_event_teams", { p_event_id: eventId });
+  const token = getLocalParticipant(eventId)?.token ?? null;
+  const { data, error } = await supabase.rpc("get_event_teams", { p_event_id: eventId, p_token: token });
   if (error) throw error;
   return (data ?? []) as EventTeam[];
 }

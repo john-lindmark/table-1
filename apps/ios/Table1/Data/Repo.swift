@@ -113,31 +113,38 @@ enum Repo {
         ]).execute()
     }
 
+    /// event_bundle's shape (rows exactly as the tables return them); testdata/event-bundle/bundle.json in tests.
+    struct BundleWire: Decodable {
+        let event: EventRow
+        let participants: [ParticipantRow]
+        let rounds: [RoundRow]
+        let isOrganizer: Bool
+    }
+
+    /// The whole event in one call (contract/privacy-lockdown-2026-10-18.md): event_bundle checks who's asking
+    /// (organizer or player) and refuses anyone else with "That event isn't available".
     static func loadEvent(_ eventId: String) async throws -> EventBundle {
-        async let event: EventRow = supabase.from("events").select().eq("id", value: eventId).single().execute().value
-        async let participants: [ParticipantRow] = supabase.from("participants").select()
-            .eq("event_id", value: eventId).order("seat").execute().value
-        async let rounds: [RoundRow] = supabase.from("rounds").select("*, matches(*, match_sides(*))")
-            .eq("event_id", value: eventId).order("number").execute().value
-        let organizer: Bool = (try? await supabase.rpc("is_event_organizer", params: ["p_event_id": AnyJSON.string(eventId)])
-            .execute().value) ?? false
-        let sorted = try await rounds.map { row -> RoundRow in
+        let w: BundleWire = try await supabase.rpc("event_bundle", params: ["p_event_id": AnyJSON.string(eventId)]).execute().value
+        return bundle(w)
+    }
+
+    static func bundle(_ w: BundleWire) -> EventBundle {
+        let rounds = w.rounds.map { row -> RoundRow in
             var r = row
             r.matches.sort { ($0.tableNumber ?? 0) < ($1.tableNumber ?? 0) }
             return r
         }
-        return try await EventBundle(event: event, participants: participants, rounds: sorted, isOrganizer: organizer)
+        return EventBundle(event: w.event, participants: w.participants, rounds: rounds, isOrganizer: w.isOrganizer)
     }
 
-    /// Yields whenever anything in the event changes, so the screen can refetch. Holds at most one
-    /// pending signal: a burst of row changes (seating touches every player) is one more reload, not one each.
+    /// Yields whenever anything in the event changes, so the screen can refetch. The server pings the public topic
+    /// `event:<id>` (event `changed`, no data) once per write; it also yields when the channel rejoins, since a ping
+    /// sent while away is lost. Holds at most one pending signal: a burst of changes is one more reload, not one each.
     static func eventChanges(_ eventId: String) -> AsyncStream<Void> {
         AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
-            let channel = supabase.channel("event-\(eventId)-\(UUID().uuidString)")
-            let streams = ["matches", "match_sides", "rounds", "participants"].map { table in
-                channel.postgresChange(AnyAction.self, schema: "public", table: table, filter: .eq("event_id", value: eventId))
-            }
-            let eventStream = channel.postgresChange(AnyAction.self, schema: "public", table: "events", filter: .eq("id", value: eventId))
+            let channel = supabase.channel("event:\(eventId)")
+            let pings = channel.broadcastStream(event: "changed")
+            let status = channel.statusChange
             let task = Task {
                 do {
                     try await channel.subscribeWithError()
@@ -146,8 +153,13 @@ enum Repo {
                     return
                 }
                 await withTaskGroup(of: Void.self) { group in
-                    for stream in streams + [eventStream] {
-                        group.addTask { for await _ in stream { continuation.yield(()) } }
+                    group.addTask { for await _ in pings { continuation.yield(()) } }
+                    group.addTask {
+                        var first = true
+                        for await s in status where s == .subscribed {
+                            if first { first = false; continue }
+                            continuation.yield(())
+                        }
                     }
                 }
             }

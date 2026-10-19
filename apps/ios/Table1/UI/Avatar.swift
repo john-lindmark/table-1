@@ -63,13 +63,15 @@ final class AvatarStore {
         defer { flushing = false }
         while !pending.isEmpty {
             let ids = Array(pending.prefix(100))
-            struct Row: Decodable { let id: String; let avatarUrl: String? }
-            let rows: [Row]? = try? await supabase.from("profiles").select("id, avatar_url").in("id", values: ids)
+            // people() returns only accounts you have a reason to see (contract/privacy-lockdown-2026-10-18.md);
+            // anyone else, or across a block, comes back missing and draws initials.
+            struct Row: Decodable { let userId: String; let avatarUrl: String? }
+            let rows: [Row]? = try? await supabase.rpc("people", params: ["p_ids": AnyJSON.array(ids.map { .string($0) })])
                 .execute().value
             pending.subtract(ids)
             guard let rows else { continue }   // offline: ask again next time it's drawn
             var found = Dictionary(uniqueKeysWithValues: ids.map { ($0, String?.none) })
-            for r in rows { found[r.id] = r.avatarUrl }
+            for r in rows { found[r.userId] = r.avatarUrl }
             paths.merge(found) { _, new in new }
         }
     }

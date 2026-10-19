@@ -1,0 +1,70 @@
+{
+  "access": "link",
+  "capacity": null,
+  "cube_name": null,
+  "current_round": 2,
+  "event_id": "e0000000-0000-0000-0000-000000000001",
+  "format_label": "Draft \u00b7 Murders at Karlov Manor",
+  "format_name": "draft",
+  "name": "Fixture draft",
+  "number_of_rounds": 3,
+  "organizer_name": "Ana Organizer",
+  "pairings": [
+    {
+      "game_draws": 0,
+      "intentional_draw": false,
+      "is_bye": false,
+      "match_id": "b0000000-0000-0000-0000-000000000002",
+      "sides": [
+        {
+          "display_name": "Ana Organizer",
+          "game_wins": 0,
+          "participant_id": "f0000000-0000-0000-0000-000000000001",
+          "side": 0
+        },
+        {
+          "display_name": "Ben Player",
+          "game_wins": 0,
+          "participant_id": "f0000000-0000-0000-0000-000000000002",
+          "side": 1
+        }
+      ],
+      "status": "pending",
+      "table_number": 1
+    },
+    {
+      "game_draws": 0,
+      "intentional_draw": false,
+      "is_bye": true,
+      "match_id": "b0000000-0000-0000-0000-000000000003",
+      "sides": [
+        {
+          "display_name": "Guest Cara",
+          "game_wins": 2,
+          "participant_id": "f0000000-0000-0000-0000-000000000003",
+          "side": 0
+        }
+      ],
+      "status": "confirmed",
+      "table_number": null
+    }
+  ],
+  "players": 3,
+  "round": {
+    "id": "a0000000-0000-0000-0000-000000000002",
+    "number": 2,
+    "status": "active",
+    "timer_duration_seconds": 3000,
+    "timer_ends_at": null,
+    "timer_last_started_at": null,
+    "timer_remaining_at_change": 3000,
+    "timer_status": "paused"
+  },
+  "set_name": "Murders at Karlov Manor",
+  "short_code": "FIXT",
+  "show_clock": true,
+  "starts_at": null,
+  "status": "in_progress",
+  "team_size": null,
+  "venue_name": "Denver Card Shop"
+}

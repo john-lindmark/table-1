@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useEvent } from "../lib/useEvent";
 import {
-  fetchEventIdByCode,
+  fetchEventPreview,
+  type EventPreview,
   joinEvent,
   reportMatch,
   reportResultAsPlayer,
@@ -48,21 +49,30 @@ export function PlayerView({
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [me, setMe] = useState(() => (eventIdProp ? getLocalParticipant(eventIdProp) : null));
+  /** What a visitor sees before joining (no player list): event_preview by the code, or by id for a link. */
+  const [preview, setPreview] = useState<EventPreview | null>(null);
 
-  // Resolve a short code to an event id once.
+  // Resolve a short code to an event once.
   useMemo(() => {
     if (eventId || !code) return;
-    fetchEventIdByCode(code)
-      .then((id) => {
-        setEventId(id);
-        if (id) setMe(getLocalParticipant(id));
-        if (!id) setJoinError("No event found with that code.");
+    fetchEventPreview({ code })
+      .then((p) => {
+        setPreview(p);
+        setEventId(p?.eventId ?? null);
+        if (p) setMe(getLocalParticipant(p.eventId));
+        if (!p) setJoinError("No open event has that code.");
       })
       .catch((e) => setJoinError(errorMessage(e)))
       .finally(() => setResolving(false));
   }, [code, eventId]);
 
-  const { bundle, refetch } = useEvent(eventId);
+  const { bundle, error: bundleError, refetch } = useEvent(eventId);
+
+  // A link (no code) to an event you're not in yet: the preview for the join form.
+  useEffect(() => {
+    if (!eventIdProp || preview || me) return;
+    fetchEventPreview({ eventId: eventIdProp }).then(setPreview).catch(() => {});
+  }, [eventIdProp, preview, me]);
   const { userId } = useSession();
   const [notice, setNotice] = useState<string | null>(null);
   /** Roto after round 1: the read-only Draft or the round-robin Schedule over this screen. */
@@ -133,10 +143,17 @@ export function PlayerView({
     );
   }
 
-  if (!viewer && !(userId && !bundle)) {
+  // Not seated here: the join form. A signed-in visitor waits for the bundle only while it can still find their seat;
+  // when event_bundle turns them away, they aren't in the event yet.
+  if (!viewer && !(userId && !bundle && !bundleError)) {
+    const facts = preview
+      ? [preview.formatLabel, preview.venueName, preview.organizerName && `Run by ${preview.organizerName}`,
+         `${preview.players}${preview.capacity ? `/${preview.capacity}` : ""} players`].filter(Boolean).join(" · ")
+      : null;
     return (
       <Screen>
-        <Bar title={bundle?.event.name ?? "Join event"} subtitle={code ? code.toUpperCase() : undefined} />
+        <Bar title={preview?.name ?? bundle?.event.name ?? "Join event"} subtitle={code ? code.toUpperCase() : undefined} />
+        {facts && <Notice tone="info">{facts}</Notice>}
         <Notice tone="info">Enter the name your opponents will see at the table.</Notice>
         <Field label="Your name" value={name} onChange={setName} autoFocus placeholder="e.g. John L" />
         {joinError && <Notice tone="error">{joinError}</Notice>}

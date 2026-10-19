@@ -45,6 +45,7 @@
 		5E4918CB77109DBBF00739D0 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 772AD52A8F7AAA91FA28D759 /* GoogleSignIn */; };
 		666D1A4A2E748925CA4371BD /* CardImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 270F4E7C8101647462A59635 /* CardImages.swift */; };
 		69759B62DE7F92787905013F /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = D111446BC5CA58EBB7B2A5C1 /* Supabase */; };
+		6FFBC533401E8181E8339258 /* EventBundleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6D6321319755E4BE5D209E3 /* EventBundleTests.swift */; };
 		70B4BE14B1DCD8D72628B8EB /* FriendsDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = D14AB06BD876B8A78DC502CD /* FriendsDemo.swift */; };
 		746A77656FBD47D4545F9244 /* ListStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = D32E44C4EB38C9E8A620A495 /* ListStats.swift */; };
 		754A2FF43AE93BF1D9C806EB /* LiveSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 806A035192A635C79AA2F3A6 /* LiveSync.swift */; };
@@ -209,6 +210,7 @@
 		AC8D687C8D0C6D6382A361AB /* Table 1.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Table 1.entitlements"; sourceTree = "<group>"; };
 		AC9DAD9D64E358A76554E1AB /* FriendsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsTests.swift; sourceTree = "<group>"; };
 		B262491F1533D678F74DD238 /* LiveStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveStore.swift; sourceTree = "<group>"; };
+		B6D6321319755E4BE5D209E3 /* EventBundleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventBundleTests.swift; sourceTree = "<group>"; };
 		B6EB72928D7AFA1E731CE966 /* SignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignIn.swift; sourceTree = "<group>"; };
 		BA5585D460ED8D0ECA5B05DA /* RotoRepo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RotoRepo.swift; sourceTree = "<group>"; };
 		BA8DF19517F082A44841191D /* PlayerLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerLiveActivity.swift; sourceTree = "<group>"; };
@@ -300,6 +302,7 @@
 				3013FC3AC8C4757DF4B44684 /* CollectionCSVTests.swift */,
 				7CF2A00D5FD0FCF89937DEA6 /* CubeFieldsTests.swift */,
 				C23AB8F5588863F9D0B84282 /* DeckStatsTests.swift */,
+				B6D6321319755E4BE5D209E3 /* EventBundleTests.swift */,
 				AC9DAD9D64E358A76554E1AB /* FriendsTests.swift */,
 				C461CEB0826AC133A60E7A86 /* ListExportTests.swift */,
 				D6B8EFE76370BBE1C6831870 /* RotoStoreTests.swift */,
@@ -649,6 +652,7 @@
 				41BE4E1D043A7DB82D3CCE45 /* CollectionCSVTests.swift in Sources */,
 				1C9E91CE73E8640C92729A23 /* CubeFieldsTests.swift in Sources */,
 				DF246074B284841D5C11B4B8 /* DeckStatsTests.swift in Sources */,
+				6FFBC533401E8181E8339258 /* EventBundleTests.swift in Sources */,
 				CD75E6012B375BE40A5B50DB /* FriendsTests.swift in Sources */,
 				4303E1375FC42EE4288E5DAB /* ListExportTests.swift in Sources */,
 				9D2DB016FBD579C0827EAC17 /* RotoStoreTests.swift in Sources */,

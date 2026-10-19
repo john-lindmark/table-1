@@ -1,0 +1,15 @@
+{
+  "access": "link",
+  "capacity": null,
+  "cube_name": null,
+  "event_id": "e0000000-0000-0000-0000-000000000001",
+  "format_label": "Draft \u00b7 Murders at Karlov Manor",
+  "name": "Fixture draft",
+  "organizer_name": "Ana Organizer",
+  "players": 3,
+  "set_name": "Murders at Karlov Manor",
+  "short_code": "FIXT",
+  "starts_at": null,
+  "status": "in_progress",
+  "venue_name": "Denver Card Shop"
+}
