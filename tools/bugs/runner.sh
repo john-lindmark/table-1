@@ -39,8 +39,16 @@ run() {  # run S1|S4: the headless fix-bugs run, under the lock
   local log; log="$LOGS/$(date +%Y%m%d-%H%M%S)-$max.log"
   echo "$(date '+%F %T') run max=$max budget=\$$budget" >>"$LOGS/runner.log"
   cd "$REPO" || exit 1
+  # The runner secret goes to bugs.py through the environment: the Claude run never reads the Keychain itself.
+  T1_BUG_RUNNER_SECRET=$(security find-generic-password -s table1-bug-runner -w 2>/dev/null) || {
+    echo "$(date '+%F %T') no runner secret in the Keychain (bugs.py init-secret)" >>"$LOGS/runner.log"; exit 1; }
+  export T1_BUG_RUNNER_SECRET
+  # Auto mode, with the register CLI, the tests and the worktree/merge steps the skill runs approved up front.
   T1_RUNNER_NAME="runner-$(date +%H%M)" claude -p "/fix-bugs $max" \
-    --permission-mode auto --max-budget-usd "$budget" --output-format text >"$log" 2>&1
+    --permission-mode auto --max-budget-usd "$budget" --output-format text \
+    --allowedTools "Bash(python3 tools/bugs/bugs.py:*)" "Bash(./test.sh:*)" "Bash(git worktree:*)" \
+      "Bash(git merge --no-edit main)" "Bash(git merge --ff-only:*)" "Bash(git branch -d:*)" \
+      "Bash(git commit:*)" "Bash(git add:*)" >"$log" 2>&1
   local rc=$?
   echo "$(date '+%F %T') done max=$max exit=$rc log=$log" >>"$LOGS/runner.log"
   tail -20 "$log"
