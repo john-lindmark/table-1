@@ -434,7 +434,7 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
       { title: "One more", onClick: () => void run(applyWants([{ ...base, delta: 1 }], "want_changed")) },
       ...(w.qty > 1 ? [{ title: "One fewer", onClick: () => void run(applyWants([{ ...base, delta: -1 }], "want_changed")) }] : []),
       { title: "Max price", detail: w.maxUsd != null ? `$${w.maxUsd}` : "None", onClick: () => setPricing(w) },
-      { title: "Printing", detail: w.cardId == null ? "Any printing" : p != null && catalog ? `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}` : undefined,
+      { title: "Change printing", detail: w.cardId == null ? "Any printing" : p != null && catalog ? `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}` : undefined,
         onClick: () => setRepointing(w) },
       { title: "Open card", onClick: () => onCard(w.oracleId) },
       { title: "Remove", onClick: () => void run(applyWants([{ ...base, qty: 0 }], "want_removed")) },

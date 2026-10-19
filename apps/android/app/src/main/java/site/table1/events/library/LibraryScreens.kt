@@ -380,9 +380,19 @@ private data class PrintingPrice(
     }
 }
 
+/** Where card detail was opened from: that deck/cube's lines or that binder's copies (or Unsorted's) come first, each
+ *  with Change printing (contract/change-printing-2026-10-18.md). */
+sealed interface CardContext {
+    data class InList(val listId: String) : CardContext
+    data class InBinder(val binderId: String) : CardContext
+}
+
 @Composable
-fun CardDetailScreen(oracleId: String, onBack: () -> Unit) {
+fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext? = null) {
     val col by CollectionStore.state.collectAsState()
+    val lists by ListsStore.state.collectAsState()
+    /** The Change printing screen over this one, and its screen name. */
+    var changing by remember { mutableStateOf<Pair<PrintingTarget, String>?>(null) }
     val cat by CatalogStore.state.collectAsState()
     val scope = rememberCoroutineScope()
     var oracle by remember { mutableStateOf<CatalogOracle?>(null) }
@@ -483,6 +493,20 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit) {
             T1MenuItem("Pick a printing…") { pickingPrinting = true },
         )) { wanting = false }
     }
+    changing?.let { (target, screen) ->
+        ChangePrintingOverlay(target, screen, onClose = { changing = null }) { batch, label -> last = batch to label; note = null; error = null }
+    }
+    // Opened from a deck/cube: this card's lines there; from a binder (or Unsorted): this card's copies there.
+    val ctxList = (context as? CardContext.InList)?.let { c -> lists.lists.firstOrNull { it.id == c.listId } }
+    val ctxLines = ctxList?.entries?.mapNotNull { e -> byId[e.cardId]?.let { e to it } }
+        ?.sortedBy { CardList.BOARD_ORDER.indexOf(it.first.board) } ?: emptyList()
+    val ctxBinder = (context as? CardContext.InBinder)?.binderId
+    val ctxCopies = ctxBinder?.let { b ->
+        owned.mapNotNull { (it, p) -> PrintingChange.places(it, binders).firstOrNull { pl -> pl.place == b }?.qty?.let { q -> Triple(it, p, q) } }
+    } ?: emptyList()
+    val ctxPrinting = ctxLines.firstOrNull()?.second ?: ctxCopies.firstOrNull()?.second
+    fun changeOwned(it: CollectionItem, place: String?) { changing = PrintingTarget.Owned(it, place) to "item_printing" }
+
     if (pickingPrinting) oracle?.let { o ->
         WantPrintingOverlay(o.oracleId, from = "card", onClose = { pickingPrinting = false }, onDone = { note = it; last = null }) { error = it }
     }
@@ -512,7 +536,24 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit) {
             return@T1Screen
         }
         Hairlines(Modifier.weight(1f)) {
-            item { Hero(o, preview ?: owned.firstOrNull()?.second ?: printings.firstOrNull()) }
+            item { Hero(o, preview ?: ctxPrinting ?: owned.firstOrNull()?.second ?: printings.firstOrNull()) }
+            if (context is CardContext.InList) {
+                item { Section("In ${ctxList?.name ?: "this list"} · ${ctxLines.sumOf { it.first.qty }}") }
+                if (ctxLines.isEmpty()) item { QuietRow("Not in this ${if (ctxList?.kind == ListKind.Cube) "cube" else "deck"} any more.") }
+                if (ctxList != null) items(ctxLines, key = { (e, _) -> "line|${e.board}|${e.cardId}|${e.finish}" }) { (e, p) ->
+                    CardRow(p, "${p.setLabel} · ${Finish.of(e.finish)?.label ?: e.finish}", ctxList.boardTitle(e.board),
+                        onClick = { changing = PrintingTarget.ListLine(ctxList.id, e.cardId, e.board, e.finish) to "list_printing" }) { ChangeCount(e.qty) }
+                }
+            }
+            if (ctxBinder != null) {
+                item { Section("In ${if (ctxBinder == UNSORTED) "Unsorted" else binders.binder(ctxBinder)?.name ?: "Binder"} · ${ctxCopies.sumOf { it.third }}") }
+                if (ctxCopies.isEmpty()) item { QuietRow("None here any more.") }
+                // Keys apart from In collection's below, which lists the same items.
+                items(ctxCopies, key = { "in|" + it.first.key }) { (it, p, q) ->
+                    CardRow(p, "${p.setLabel} · ${it.finishLabel}", listOfNotNull(it.condition, if (it.lang == "en") null else it.lang.uppercase()).joinToString(" · "),
+                        onClick = { changeOwned(it, ctxBinder) }) { ChangeCount(q) }
+                }
+            }
             item { Section("In collection · ${owned.size}") }
             if (owned.isEmpty()) item { QuietRow("None yet. Pick a printing below.") }
             items(owned, key = { it.first.key }) { (it, p) ->
@@ -548,6 +589,7 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit) {
                                 if (it.qty == 1) moveCondition(it, p, to, 1) else moving = it to to
                             }
                         }
+                        ListRow("Change printing", "Or finish · keeps condition and binder", onClick = { changeOwned(it, null) }) { Label(p.setLabel, color = T1.text) }
                         ListRow("Move", binders.placementText(it) ?: "Unsorted ${it.qty}", onClick = { sorting = it }) { Label("Binders", color = T1.text) }
                         Column(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -606,6 +648,15 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit) {
             }
             if (!showAll && printings.size > 12) item { ListRow("Show all ${printings.size} printings", onClick = { showAll = true }) }
         }
+    }
+}
+
+/** A context row's count, with "Change" so the row says what a tap does. */
+@Composable
+private fun ChangeCount(qty: Int) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Label("Change", color = T1.text)
+        Text("$qty", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
     }
 }
 

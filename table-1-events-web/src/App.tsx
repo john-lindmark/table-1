@@ -25,6 +25,7 @@ import { DeleteAccountPage, PrivacyPolicy } from "./screens/Legal";
 import { SignInPage } from "./screens/Landing";
 import { NameGate } from "./components/NameGate";
 import type { Board, ListFinish } from "./lib/lists";
+import type { CardContext } from "./screens/Library";
 
 /**
  * The Library (catalog, collection, decks and cubes) loads on first visit, so players who only use events never
@@ -45,7 +46,7 @@ const ListScreen = lazyNamed(lists, "ListScreen");
 const ListAddScreen = lazyNamed(lists, "ListAddScreen");
 const VersionsScreen = lazyNamed(lists, "VersionsScreen");
 const VersionScreen = lazyNamed(lists, "VersionScreen");
-const LinePrintingScreen = lazyNamed(lists, "LinePrintingScreen");
+const ChangePrintingScreen = lazyNamed(() => import("./screens/ChangePrinting"), "ChangePrintingScreen");
 const listStats = () => import("./screens/ListStats");
 const ListStatsScreen = lazyNamed(listStats, "ListStatsScreen");
 const SampleHandScreen = lazyNamed(listStats, "SampleHandScreen");
@@ -220,7 +221,7 @@ function BinderRoute() {
   const navigate = useNavigate();
   const back = useBack("/library/binders");
   if (!binderId) return <Navigate to="/library/binders" replace />;
-  return <BinderScreen key={binderId} id={binderId} onBack={back} onCard={(o) => navigate(`/library/card/${o}`)} />;
+  return <BinderScreen key={binderId} id={binderId} onBack={back} onCard={(o) => navigate(`/library/card/${o}`, { state: { binder: binderId } })} />;
 }
 
 function WantsRoute() {
@@ -252,8 +253,10 @@ function AddCardsRoute() {
 function CardDetailRoute() {
   const { oracleId } = useParams();
   const back = useBack("/library/cards");
+  // Opened from a deck/cube or a binder: in the history state, so no row id lands in the URL.
+  const state = useLocation().state as CardContext | null;
   if (!oracleId) return <Navigate to="/library" replace />;
-  return <CardDetail key={oracleId} oracleId={oracleId} onBack={back} />;
+  return <CardDetail key={oracleId} oracleId={oracleId} onBack={back} context={state?.list || state?.binder ? state : undefined} />;
 }
 
 function ListsRoute({ kind }: { kind: "deck" | "cube" }) {
@@ -269,7 +272,7 @@ function ListRoute() {
   const back = useBack("/library/decks");
   if (!listId) return <Navigate to="/library" replace />;
   return (
-    <ListScreen id={listId} onBack={back} onCard={(o) => navigate(`/library/card/${o}`)}
+    <ListScreen id={listId} onBack={back} onCard={(o) => navigate(`/library/card/${o}`, { state: { list: listId } })}
                 onAdd={() => navigate(`/library/list/${listId}/add`)} onVersions={() => navigate(`/library/list/${listId}/versions`)}
                 onOpen={(id) => navigate(`/library/list/${id}`)}
                 onPrinting={(card, board, finish) => navigate(`/library/list/${listId}/printing?card=${card}&board=${board}&finish=${finish}`)}
@@ -300,8 +303,8 @@ function LinePrintingRoute() {
   const [q] = useSearchParams();
   const back = useBack(`/library/list/${listId}`);
   if (!listId) return <Navigate to="/library" replace />;
-  return <LinePrintingScreen id={listId} cardId={q.get("card") ?? ""} board={(q.get("board") ?? "main") as Board}
-                             finish={(q.get("finish") ?? "nonfoil") as ListFinish} onDone={back} />;
+  return <ChangePrintingScreen target={{ kind: "list", listId, cardId: q.get("card") ?? "", board: (q.get("board") ?? "main") as Board,
+                                        finish: (q.get("finish") ?? "nonfoil") as ListFinish }} onClose={back} />;
 }
 
 function ListImportRoute() {
@@ -323,7 +326,7 @@ function ListAddRoute() {
   const navigate = useNavigate();
   const back = useBack(`/library/list/${listId}`);
   if (!listId) return <Navigate to="/library" replace />;
-  return <ListAddScreen id={listId} onDone={back} onCard={(o) => navigate(`/library/card/${o}`)} />;
+  return <ListAddScreen id={listId} onDone={back} onCard={(o) => navigate(`/library/card/${o}`, { state: { list: listId } })} />;
 }
 
 function VersionsRoute() {

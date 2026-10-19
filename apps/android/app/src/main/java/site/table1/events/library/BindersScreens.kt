@@ -513,7 +513,7 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
             add(T1MenuItem("One more") { run(listOf(WantOp(w.oracleId, w.cardId, w.finish, delta = 1)), "want_changed") })
             add(T1MenuItem("One fewer", enabled = w.qty > 1) { run(listOf(WantOp(w.oracleId, w.cardId, w.finish, delta = -1)), "want_changed") })
             add(T1MenuItem("Max price · ${w.maxUsd?.let { "$$it" } ?: "none"}") { pricing = w })
-            add(T1MenuItem("Printing · ${if (w.cardId == null) "any" else r.printing?.setLabel ?: "one"}") { repointing = w })
+            add(T1MenuItem("Change printing · ${if (w.cardId == null) "any" else r.printing?.setLabel ?: "one"}") { repointing = w })
             add(T1MenuItem("Open card") { onCard(w.oracleId) })
             add(T1MenuItem("Remove", danger = true) { run(listOf(WantOp(w.oracleId, w.cardId, w.finish, qty = 0)), "want_removed") })
         }) { editing = null }

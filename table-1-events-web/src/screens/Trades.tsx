@@ -10,6 +10,8 @@ import { confirmTrade, deleteTrade, lineKey, saveTrade, useTrades, type Trade, t
 import { DEMO_USER } from "../lib/collection";
 import { capture } from "../lib/telemetry";
 import { binderById, forTrade, liveWants, missingLines, useBinders, wantFor } from "../lib/binders";
+import { repointTradeLine } from "../lib/changePrinting";
+import { ChangePrintingScreen } from "./ChangePrinting";
 import { CONDITIONS, CardArt, CardRow, LibScreen, useCatalog, useLibrarySession } from "./Library";
 
 /* Trades (contract/trades-2026-10-16.md): what you give (copies you own) and what you get (any printing). Drafts
@@ -65,6 +67,8 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  /** A get on the Change printing screen. */
+  const [changing, setChanging] = useState<TradeLine | null>(null);
   const saveTimer = useRef<number | null>(null);
   const confirmed = trade?.status === "confirmed";
 
@@ -137,6 +141,12 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
     setter((lines) => (next ? lines.map((l) => (lineKey(l) === k ? next : l)) : lines.filter((l) => lineKey(l) !== k)));
     if (next && lineKey(next) !== k) setEditing({ side, k: lineKey(next) });
     if (!next) setEditing(null);
+  };
+  /** A get's printing or finish change, merging into a get that already has that copy. */
+  const repoint = (k: string, cardId: string, finish: Finish) => {
+    setGets((lines) => repointTradeLine(lines, k, cardId, finish));
+    const l = gets.find((x) => lineKey(x) === k);
+    if (l) setEditing({ side: "get", k: lineKey({ ...l, card_id: cardId, finish }) });
   };
 
   /** Lists that would need more copies than you'll have left after giving these away. */
@@ -229,6 +239,11 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
     );
   }
 
+  if (changing) {
+    return <ChangePrintingScreen screenName="trade_printing" onClose={() => setChanging(null)}
+                                 target={{ kind: "trade", line: changing, apply: (cardId, finish) => repoint(lineKey(changing), cardId, finish) }} />;
+  }
+
   const line = (side: "give" | "get", l: TradeLine) => {
     const p = catalog.printingIndex.get(l.card_id) ?? null;
     const name = p == null ? "Card" : catalog.oName[catalog.pOracle[p]];
@@ -263,9 +278,10 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
             <GhostAction label="Remove" onClick={() => update(side, k, null)} />
             {side === "get" && p != null && (
               <>
+                <GhostAction label={`Change printing · ${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}`} onClick={() => setChanging(l)} />
                 {finishesOf(catalog, p).length > 1 && (
                   <Segmented options={finishesOf(catalog, p).map((f) => ({ value: f, label: FINISH_LABEL[f] }))} value={l.finish}
-                             onChange={(f) => update(side, k, { ...l, finish: f })} />
+                             onChange={(f) => repoint(k, l.card_id, f)} />
                 )}
                 <Segmented columns={3} options={CONDITIONS.map((c) => ({ value: c, label: c }))} value={l.condition}
                            onChange={(c) => update(side, k, { ...l, condition: c })} />

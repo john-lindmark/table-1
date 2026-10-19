@@ -53,4 +53,11 @@ own.
 - **iOS** built 2026-10-18 (`Library/ChangePrinting.swift`; card detail context in `LibraryViews.swift`; trades in
   `Trades.swift`). Tests `Table1Tests/ChangePrintingTests` (ops, language, trade merge, binder copies + undo through
   the demo backend). Demo: `-T1LibraryDemo deckcard|deckprinting|bindercard|binderprinting`.
-- **Web, Android:** to do.
+- **Web** built 2026-10-18 (`screens/ChangePrinting.tsx`, logic `lib/changePrinting.ts`; card detail context in
+  `screens/Library.tsx`, passed in the router's history state so no list or binder id lands in the URL; trades in
+  `screens/Trades.tsx`). Tests `lib/changePrinting.test.ts` (same cases; binder copies + undo through the dev demo
+  backend). Checked in the dev demo (`/library?demo`): a deck line split, an owned item, Box 1 copies staying in Box 1
+  with Undo, and a trade get merging into an existing get.
+- **Android** built and unit-tested 2026-10-18, not run on a device (`library/ChangePrinting.kt`; card detail context
+  as `collection/card/{id}?list=` / `?binder=` in `AppRoot.kt`; trades in `Trades.kt`). Tests `ChangePrintingTest`
+  (same cases; binder copies through `BinderRules.plan`, no demo backend on Android).
