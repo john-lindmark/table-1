@@ -208,6 +208,8 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
     var partner by remember { mutableStateOf("") }
     var gives by remember { mutableStateOf<List<TradeLine>>(emptyList()) }
     var gets by remember { mutableStateOf<List<TradeLine>>(emptyList()) }
+    /** A get on the Change printing screen. */
+    var changing by remember { mutableStateOf<TradeLine?>(null) }
     var started by remember { mutableStateOf(tradeId == null) }
     var meta by remember { mutableStateOf<Map<String, CatalogPrinting>>(emptyMap()) }
     var names by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
@@ -404,12 +406,17 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
             add(T1MenuItem("One more", enabled = !give || l.qty < have) { update(give, key, l.copy(qty = l.qty + 1)) })
             add(T1MenuItem("One fewer", enabled = l.qty > 1) { update(give, key, l.copy(qty = l.qty - 1)) })
             if (!give) {
-                p?.finishList?.filter { it.wire != l.finish }?.forEach { f -> add(T1MenuItem("Make it ${f.label.lowercase()}") { update(give, key, l.copy(finish = f.wire)) }) }
+                // A get's printing or finish change merges into a get that already has that copy.
+                add(T1MenuItem("Change printing · ${p?.setLabel ?: "one"}") { changing = l })
+                p?.finishList?.filter { it.wire != l.finish }?.forEach { f -> add(T1MenuItem("Make it ${f.label.lowercase()}") { gets = gets.repoint(key, l.cardId, f.wire) }) }
                 Conditions.all.filter { it != l.condition }.forEach { c -> add(T1MenuItem("Condition: ${Conditions.name(c)}") { update(give, key, l.copy(condition = c)) }) }
             }
             add(T1MenuItem("Remove", danger = true) { update(give, key, null) })
         }
         T1Menu(p?.let { names[it.oracleIdx] }, items) { editing = null }
+    }
+    changing?.let { l ->
+        ChangePrintingOverlay(PrintingTarget.TradeGet(l) { c, f -> gets = gets.repoint(l.key, c, f) }, "trade_printing", onClose = { changing = null })
     }
     conflicts?.let { c ->
         T1Menu("Cards in your decks: " + c.joinToString(", ") { "${names[it.oracleIdx] ?: "a card"} in ${it.list.name}" }, listOf(
