@@ -129,4 +129,49 @@ class FriendsTest {
         assertEquals(ProfileCard(oracleId = "o", qty = 1), ProfileCard.parse("wants", row("o", null, null, 1)))
         assertNull(ProfileCard.parse("wants", row("o")))
     }
+
+    private val json = Json { ignoreUnknownKeys = true }
+
+    /** Privacy fixes: an email ask comes back as {email, at} with no user_id; asks by id stay a Person. */
+    @Test fun decodesSentByIdAndByEmail() {
+        val l = json.decodeFromString(FriendsList.serializer(), """
+            {"friends":[],"incoming":[],"blocked":[],"outgoing":[
+              {"email":"jo@example.com","at":"2026-10-18T10:00:00Z"},
+              {"user_id":"u1","display_name":"Lee Park","handle":null,"avatar_url":null,"at":"2026-10-17T10:00:00Z"}]}
+        """.trimIndent())
+        assertEquals(2, l.outgoing.size)
+        assertNull(l.outgoing[0].person)
+        assertEquals("jo@example.com", l.outgoing[0].email)
+        assertEquals("2026-10-18T10:00:00Z", l.outgoing[0].at)
+        assertEquals("jo@example.com", l.outgoing[0].label)
+        assertEquals("u1", l.outgoing[1].person?.userId)
+        assertEquals("Lee Park", l.outgoing[1].label)
+        assertEquals("2026-10-17T10:00:00Z", l.outgoing[1].at)
+        assertTrue(l.outgoing[0].key != l.outgoing[1].key)
+        // Round trip.
+        assertEquals(l, json.decodeFromString(FriendsList.serializer(), json.encodeToString(FriendsList.serializer(), l)))
+    }
+
+    /** Older servers sent only Person rows; a null user_id reads as an address. */
+    @Test fun decodesOldSentShape() {
+        val l = json.decodeFromString(FriendsList.serializer(), """
+            {"outgoing":[{"user_id":"u2","display_name":"Kai","at":"2026-10-16T10:00:00Z"},
+                         {"user_id":null,"email":"x@example.com","at":"2026-10-15T10:00:00Z"}]}
+        """.trimIndent())
+        assertEquals(listOf("u2", null), l.outgoing.map { it.person?.userId })
+        assertEquals("x@example.com", l.outgoing[1].email)
+    }
+
+    /** value_usd is on your own profile only now; an older server's value on someone else's profile isn't shown. */
+    @Test fun collectionValueOnlyOnYourOwnProfile() {
+        fun profile(relation: String, allCards: String) = json.decodeFromString(ProfileData.serializer(), """
+            {"user_id":"u","display_name":"A","relation":"$relation","visible":true,"sections":{"all_cards":$allCards}}
+        """.trimIndent())
+        assertEquals(42.5, profile("self", """{"cards":10,"printings":8,"value_usd":42.5}""").valueUsd!!, 0.0)
+        val theirs = profile("friend", """{"cards":10,"printings":8}""")
+        assertEquals(10, theirs.sections.allCards?.cards)
+        assertNull(theirs.sections.allCards?.valueUsd)
+        assertNull(theirs.valueUsd)
+        assertNull(profile("friend", """{"cards":10,"printings":8,"value_usd":42.5}""").valueUsd)
+    }
 }

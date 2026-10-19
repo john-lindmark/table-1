@@ -223,4 +223,60 @@ final class FriendsTests: XCTestCase {
         XCTAssertEqual(w.title, "Show to friends?")
         XCTAssertEqual(Visibility.public.label, "Anyone")
     }
+
+    private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
+        let d = JSONDecoder()
+        d.keyDecodingStrategy = .convertFromSnakeCase
+        return try d.decode(type, from: Data(json.utf8))
+    }
+
+    /// Privacy fixes: an email ask comes back as {email, at} with no user_id; asks by id stay a Person.
+    func testDecodesSentByIdAndByEmail() throws {
+        let l = try decode(FriendsList.self, """
+            {"friends":[],"incoming":[],"blocked":[],"outgoing":[
+              {"email":"jo@example.com","at":"2026-10-18T10:00:00Z"},
+              {"user_id":"u1","display_name":"Lee Park","handle":null,"avatar_url":null,"at":"2026-10-17T10:00:00Z"}]}
+            """)
+        XCTAssertEqual(l.outgoing.count, 2)
+        XCTAssertNil(l.outgoing[0].person)
+        XCTAssertEqual(l.outgoing[0].email, "jo@example.com")
+        XCTAssertEqual(l.outgoing[0].at, "2026-10-18T10:00:00Z")
+        XCTAssertEqual(l.outgoing[0].label, "jo@example.com")
+        XCTAssertEqual(l.outgoing[1].person?.userId, "u1")
+        XCTAssertEqual(l.outgoing[1].label, "Lee Park")
+        XCTAssertEqual(l.outgoing[1].at, "2026-10-17T10:00:00Z")
+        XCTAssertNotEqual(l.outgoing[0].id, l.outgoing[1].id)
+        // Round trip (the store keeps it as is).
+        let e = JSONEncoder()
+        e.keyEncodingStrategy = .convertToSnakeCase
+        XCTAssertEqual(try decode(FriendsList.self, String(decoding: try e.encode(l), as: UTF8.self)), l)
+    }
+
+    /// Older servers sent only Person rows (an email ask that found an account as that Person); a null user_id reads as an address.
+    func testDecodesOldSentShape() throws {
+        let l = try decode(FriendsList.self, """
+            {"friends":[],"incoming":[],"blocked":[],"outgoing":[
+              {"user_id":"u2","display_name":"Kai","at":"2026-10-16T10:00:00Z"},
+              {"user_id":null,"email":"x@example.com","at":"2026-10-15T10:00:00Z"}]}
+            """)
+        XCTAssertEqual(l.outgoing.map(\.person?.userId), ["u2", nil])
+        XCTAssertEqual(l.outgoing[1].email, "x@example.com")
+    }
+
+    /// value_usd is on your own profile only now; an older server's value on someone else's profile isn't shown.
+    func testCollectionValueOnlyOnYourOwnProfile() throws {
+        func profile(_ relation: String, _ allCards: String) throws -> ProfileData {
+            try decode(ProfileData.self, """
+                {"user_id":"u","display_name":"A","handle":null,"avatar_url":null,"relation":"\(relation)","friends_since":null,
+                 "visible":true,"sections":{"all_cards":\(allCards)}}
+                """)
+        }
+        let mine = try profile("self", #"{"cards":10,"printings":8,"value_usd":42.5}"#)
+        XCTAssertEqual(mine.valueUsd, 42.5)
+        let theirs = try profile("friend", #"{"cards":10,"printings":8}"#)
+        XCTAssertEqual(theirs.sections.allCards?.cards, 10)
+        XCTAssertNil(theirs.sections.allCards?.valueUsd)
+        XCTAssertNil(theirs.valueUsd)
+        XCTAssertNil(try profile("friend", #"{"cards":10,"printings":8,"value_usd":42.5}"#).valueUsd)
+    }
 }

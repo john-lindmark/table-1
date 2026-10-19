@@ -2,9 +2,10 @@
 import Foundation
 
 /// Friends, profiles, sharing and matches on demo data (Debug only, `-T1LibraryDemo friends|profile|sharing|matches|
-/// match`). Two friends hold for-trade copies of the demo account's wants and want some of its for-trade copies, so
+/// match|me`). Two friends hold for-trade copies of the demo account's wants and want some of its for-trade copies, so
 /// Trade matches has something to show; one player from an event shares For trade publicly. Built once the card
-/// data is in; matching runs TradeMatcher, the same rules as the server.
+/// data is in; matching runs TradeMatcher, the same rules as the server. Sent holds one request by id and one by
+/// email (an address only, as the server shows every email ask).
 @MainActor
 final class FriendsDemoBackend {
     struct Someone {
@@ -29,13 +30,14 @@ final class FriendsDemoBackend {
 
     nonisolated static func id(_ n: Int) -> String { String(format: "d0000000-0000-0000-0000-0000000f%04d", n) }
     nonisolated static let mara = id(1), theo = id(2), ines = id(3), sam = id(4), lee = id(5), kai = id(6)
-    /// The demo account itself, for Your profile and View as.
+    /// The demo account itself: Your profile, View as (`-T1LibraryDemo me|myprofile`).
     nonisolated static let me = id(0)
 
     init() {
         func p(_ id: String, _ name: String, _ handle: String? = nil) -> Person { Person(userId: id, displayName: name, handle: handle) }
         list = FriendsList(friends: [p(Self.mara, "Mara Quinn", "maraq"), p(Self.theo, "Theo Vance")],
-                           incoming: [p(Self.sam, "Sam Okafor")], outgoing: [p(Self.lee, "Lee Park")])
+                           incoming: [p(Self.sam, "Sam Okafor")], outgoing: [SentRequest(email: "jo.ng@example.com", at: "2026-10-18T09:30:00Z"),
+                                                                                .init(person: p(Self.lee, "Lee Park"))])
         playedWith = [Person(userId: Self.ines, displayName: "Ines Ruiz", sharedEvents: 3, relation: Rel.none),
                       Person(userId: Self.kai, displayName: "Kai Brandt", sharedEvents: 2, relation: Rel.none),
                       Person(userId: Self.sam, displayName: "Sam Okafor", sharedEvents: 1, relation: .incoming)]
@@ -97,13 +99,13 @@ final class FriendsDemoBackend {
     func relation(_ id: String) -> Relation {
         if list.friends.contains(where: { $0.userId == id }) { return .friend }
         if list.incoming.contains(where: { $0.userId == id }) { return .incoming }
-        if list.outgoing.contains(where: { $0.userId == id }) { return .requested }
+        if list.outgoing.contains(where: { $0.person?.userId == id }) { return .requested }
         if list.blocked.contains(where: { $0.userId == id }) { return .blocked }
         return .none
     }
 
     private func person(_ id: String) -> Person {
-        people[id]?.person ?? (list.incoming + list.outgoing + list.blocked + playedWith).first { $0.userId == id }
+        people[id]?.person ?? (list.incoming + list.outgoing.compactMap(\.person) + list.blocked + playedWith).first { $0.userId == id }
             ?? Person(userId: id, displayName: "Nadia Stone")
     }
 
@@ -113,7 +115,7 @@ final class FriendsDemoBackend {
             return "friends"
         }
         if relation(id) == .friend { return "friends" }
-        if relation(id) == .none { list.outgoing.insert(person(id), at: 0) }
+        if relation(id) == .none { list.outgoing.insert(.init(person: person(id)), at: 0) }
         return "requested"
     }
 
@@ -125,8 +127,19 @@ final class FriendsDemoBackend {
 
     func remove(_ id: String) {
         list.friends.removeAll { $0.userId == id }
-        list.outgoing.removeAll { $0.userId == id }
+        list.outgoing.removeAll { $0.person?.userId == id }
         people[id]?.level = 0
+    }
+
+    /// An email ask shows as the address, account or not.
+    func requestByEmail(_ email: String) {
+        let e = email.lowercased()
+        guard !list.outgoing.contains(where: { $0.email == e }) else { return }
+        list.outgoing.insert(SentRequest(email: e, at: ISO8601DateFormatter().string(from: Date())), at: 0)
+    }
+
+    func cancelEmail(_ email: String) {
+        list.outgoing.removeAll { $0.email == email.lowercased() }
     }
 
     func block(_ id: String, _ on: Bool) {
@@ -162,7 +175,15 @@ final class FriendsDemoBackend {
             if SharingRules.sees(level: lv, profile: s.profile, part: s.wants) {
                 sec.wants = .init(cards: s.wanted.reduce(0) { $0 + $1.qty })
             }
-            if lv >= 1 { sec.decks = s.decks; sec.record = s.record }
+            if lv >= 1 {
+                sec.decks = s.decks
+                sec.record = s.record
+                // Older servers sent value_usd to everyone who sees All cards: the profile must still hide it.
+                if id == Self.mara {
+                    sec.allCards = .init(cards: s.copies.reduce(0) { $0 + $1.qty }, printings: s.copies.count,
+                                         valueUsd: TradeMatcher.CopyIn.value(s.copies))
+                }
+            }
             sec.decks = sec.decks ?? []
             sec.cubes = []
             sec.binders = sec.binders ?? []
@@ -196,6 +217,8 @@ final class FriendsDemoBackend {
     func cards(_ id: String, _ section: ProfileSection) -> [ProfileCard] {
         guard let s = people[id] else { return [] }
         switch section.kind {
+        case "all_cards":
+            return s.copies.map { ProfileCard(cardId: $0.cardId, finish: $0.finish, qty: $0.qty) }
         case "for_trade", "binder":
             return s.copies.map { ProfileCard(cardId: $0.cardId, finish: $0.finish, condition: $0.condition, lang: $0.lang, qty: $0.qty) }
         case "wants":
@@ -246,6 +269,10 @@ final class FriendsDemoBackend {
     }
 }
 
+private extension TradeMatcher.CopyIn {
+    static func value(_ copies: [Self]) -> Double { copies.reduce(0) { $0 + Double($1.qty) * ($1.usd ?? 0) } }
+}
+
 enum FriendsDemo {
     /// Turns the demo on (called when the Library demo starts) and fills it once the card data is in.
     @MainActor
@@ -266,7 +293,7 @@ enum FriendsDemo {
         await FriendsStore.shared.loadSharing()
     }
 
-    /// `-T1LibraryDemo friends|profile|sharing|matches|match|myprofile|notices|review`.
+    /// `-T1LibraryDemo friends|profile|sharing|matches|match|me|myprofile|notices|review`.
     static func route(_ arg: String) -> [LibraryRoute]? {
         switch arg {
         case "friends": [.social(.friends)]
@@ -274,6 +301,7 @@ enum FriendsDemo {
         case "sharing": [.social(.sharing)]
         case "matches": [.social(.matches)]
         case "match": [.social(.matches), .social(.match(FriendsDemoBackend.mara))]
+        case "me": [.social(.profile(FriendsDemoBackend.me))]
         case "myprofile": [.social(.sharing), .social(.profile(FriendsDemoBackend.me))]
         case "notices": [.social(.notices)]
         case "review": [.social(.review)]

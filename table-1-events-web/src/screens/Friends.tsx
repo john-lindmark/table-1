@@ -9,7 +9,8 @@ import { usePrices, usdPrice, usdText } from "../lib/prices";
 import {
   LIBRARY_PARTS, PART_DETAIL, PART_LABEL, VIS_LABEL, VISIBILITIES, blockUser, capped, effective, effectiveItem, fetchProfile,
   fetchProfileCards, groupOf, inherits, loadFriends, loadMatches, loadSharing, matchShort, matchSummary, matchWith, reach,
-  removeFriend, requestFriend, requestFriendByEmail, respondFriend, searchPeople, sectionCount, setItem, setPart, sharingSummary,
+  cancelSent, profileValue, removeFriend, requestFriend, requestFriendByEmail, respondFriend, searchPeople, sectionCount, sentLabel,
+  setItem, setPart, sharingSummary,
   startTradeFromMatch, useFriends, friendsNow, wantTier, type MatchLine, type Person, type ProfileCard, type ProfileData, type SectionKind,
   type SharePart, type ShareItem, type Sharing, type TradeMatch, type Visibility,
 } from "../lib/friends";
@@ -124,7 +125,12 @@ function FriendsBody({ onBack, onProfile, onAdd }: { onBack: () => void; onProfi
         )}
         {l?.friends.map((p) => person(p, p.handle ? `@${p.handle}` : "Friend"))}
         {l && l.outgoing.length > 0 && <Section title="Sent" count={l.outgoing.length} />}
-        {l?.outgoing.map((p) => person(p, "Requested", { label: "Cancel", onClick: () => run(p.user_id, () => removeFriend(p.user_id)) }))}
+        {l?.outgoing.map((r) => {
+          const cancel = { label: "Cancel", onClick: () => run(r.key, () => cancelSent(r)) };
+          if (r.person) return person(r.person, "Requested", cancel);
+          // Asked by email: only the address (the server never says whose account it is).
+          return <Row key={r.key} title={sentLabel(r)} detail={busy === r.key ? "Working…" : "Asked by email"} action={cancel} />;
+        })}
         {l && l.blocked.length > 0 && <Section title="Blocked" count={l.blocked.length} />}
         {l?.blocked.map((p) => person(p, "Can't see you or ask you", { label: "Unblock", onClick: () => run(p.user_id, () => blockUser(p.user_id, false)) }))}
       </div>
@@ -311,7 +317,7 @@ function ProfileBody({ userId, onBack, onSection, onMatch, onSharing }: {
           <Notice tone="info">{d.display_name} hasn't shared anything with you yet.</Notice>
         )}
         {s && (s.all_cards || s.for_trade || s.wants) && <Section title="Library" />}
-        {s?.all_cards && open("All cards", [plural(s.all_cards.cards, "card"), s.all_cards.value_usd ? usdText(s.all_cards.value_usd) : null].filter(Boolean).join(" · "), "all_cards")}
+        {s?.all_cards && open("All cards", [plural(s.all_cards.cards, "card"), d && profileValue(d) ? usdText(profileValue(d)!) : null].filter(Boolean).join(" · "), "all_cards")}
         {s?.for_trade && open("For trade", plural(s.for_trade.cards, "card"), "for_trade")}
         {s?.wants && open("Wants", `${plural(s.wants.cards, "card")} wanted`, "wants")}
         {!!s?.binders?.length && <Section title="Binders" count={s.binders.length} />}

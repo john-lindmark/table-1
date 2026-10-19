@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
-  DEFAULT_SHARING, capped, effective, effectiveItem, linesValue, matchLines, matchShort, parseCardRow, reach, sees, sharedCount,
-  sharingSummary, shownLines, wantTier, type CopyIn, type MatchLine, type Sharing, type TradeMatch, type WantIn,
+  DEFAULT_SHARING, capped, effective, effectiveItem, linesValue, matchLines, matchShort, parseCardRow, parseFriendsList, profileValue,
+  reach, sees, sentLabel, sharedCount, sharingSummary, type ProfileData, shownLines, wantTier, type CopyIn, type MatchLine, type Sharing, type TradeMatch, type WantIn,
 } from "./friends";
 import { redactPath, screenName } from "./analytics";
 
@@ -108,5 +108,44 @@ describe("profile and match addresses", () => {
     expect(screenName(`/u/${U}/binder/${D}`)).toBe("profile_cards");
     expect(screenName("/library/matches")).toBe("trade_matches");
     expect(screenName(`/library/match/${U}`)).toBe("trade_match");
+  });
+});
+
+describe("privacy fixes (contract § Privacy fixes)", () => {
+  it("decodes Sent rows asked by id and by email", () => {
+    const l = parseFriendsList({
+      friends: [], incoming: [], blocked: [],
+      outgoing: [
+        { email: "jo@example.com", at: "2026-10-18T10:00:00Z" },
+        { user_id: "u1", display_name: "Lee Park", handle: null, avatar_url: null, at: "2026-10-17T10:00:00Z" },
+      ],
+    });
+    expect(l.outgoing.map((r) => [r.person?.user_id ?? null, r.email, r.at, sentLabel(r)])).toEqual([
+      [null, "jo@example.com", "2026-10-18T10:00:00Z", "jo@example.com"],
+      ["u1", null, "2026-10-17T10:00:00Z", "Lee Park"],
+    ]);
+    expect(new Set(l.outgoing.map((r) => r.key)).size).toBe(2);
+  });
+
+  it("reads older servers' Person-only Sent rows, and a null user_id as an address", () => {
+    const l = parseFriendsList({
+      friends: [], incoming: [], blocked: [],
+      outgoing: [{ user_id: "u2", display_name: "Kai", handle: null, avatar_url: null },
+                 { user_id: null, email: "x@example.com", at: "2026-10-15T10:00:00Z" } as never],
+    });
+    expect(l.outgoing.map((r) => r.person?.user_id ?? r.email)).toEqual(["u2", "x@example.com"]);
+    expect(l.outgoing[0].at).toBeNull();
+  });
+
+  it("shows the collection value on your own profile only", () => {
+    const profile = (relation: ProfileData["relation"], value_usd?: number): ProfileData => ({
+      user_id: "u", display_name: "A", handle: null, avatar_url: null, relation, friends_since: null, visible: true,
+      sections: { all_cards: { cards: 10, printings: 8, ...(value_usd == null ? {} : { value_usd }) } },
+    });
+    expect(profileValue(profile("self", 42.5))).toBe(42.5);
+    expect(profileValue(profile("friend"))).toBeNull();
+    // An older server still sends it to others: not shown.
+    expect(profileValue(profile("friend", 42.5))).toBeNull();
+    expect(profileValue({ ...profile("self"), sections: {} })).toBeNull();
   });
 });

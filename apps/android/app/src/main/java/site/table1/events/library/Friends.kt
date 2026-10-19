@@ -5,8 +5,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.buildClassSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonEncoder
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -16,6 +23,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import site.table1.events.T1App
 import site.table1.events.util.Telemetry
@@ -48,10 +56,38 @@ data class Person(
     val relation: String? = null,
 )
 
+/**
+ * A request you sent: to an account (asked by id: a Person) or to an address (asked by email: `{email, at}` with no
+ * user_id, account or not, so the server never says whose it is). Older servers sent email asks as a Person.
+ */
+@Serializable(with = SentRequestSerializer::class)
+data class SentRequest(val person: Person? = null, val email: String? = null, val at: String? = null) {
+    val key get() = person?.userId ?: "email:$email"
+    val label get() = person?.displayName ?: email.orEmpty()
+}
+
+object SentRequestSerializer : KSerializer<SentRequest> {
+    override val descriptor: SerialDescriptor = buildClassSerialDescriptor("SentRequest")
+
+    override fun deserialize(decoder: Decoder): SentRequest {
+        val d = decoder as JsonDecoder
+        val o = d.decodeJsonElement().jsonObject
+        fun str(k: String) = (o[k] as? JsonPrimitive)?.contentOrNull
+        return if (str("user_id") != null) SentRequest(person = d.json.decodeFromJsonElement(Person.serializer(), o), at = str("at"))
+        else SentRequest(email = str("email"), at = str("at"))
+    }
+
+    override fun serialize(encoder: Encoder, value: SentRequest) {
+        val e = encoder as JsonEncoder
+        e.encodeJsonElement(value.person?.let { e.json.encodeToJsonElement(Person.serializer(), it) }
+            ?: buildJsonObject { value.email?.let { put("email", it) }; value.at?.let { put("at", it) } })
+    }
+}
+
 @Serializable
 data class FriendsList(
     val friends: List<Person> = emptyList(), val incoming: List<Person> = emptyList(),
-    val outgoing: List<Person> = emptyList(), val blocked: List<Person> = emptyList(),
+    val outgoing: List<SentRequest> = emptyList(), val blocked: List<Person> = emptyList(),
 )
 
 /* ── sharing ── */
@@ -171,6 +207,10 @@ data class ProfileData(
         val wants: Counts? = null, val binders: List<BinderSummary>? = null, val decks: List<ListSummary>? = null,
         val cubes: List<ListSummary>? = null, val record: Record? = null,
     )
+
+    /** The collection's value, on your own profile only (the server sends it only there now; older servers sent it to
+     *  anyone who saw All cards). */
+    val valueUsd get() = if (relation == "self") sections.allCards?.valueUsd else null
 
     /** Sections that reach you (binders, decks and cubes count one each). */
     val sectionCount get() = listOf(sections.allCards, sections.forTrade, sections.wants, sections.record).count { it != null } +
@@ -359,6 +399,18 @@ object FriendsStore {
         Telemetry.capture(if (wasFriend) "friend_removed" else "friend_request_cancelled")
         load()
         _state.update { s -> s.copy(matches = s.matches?.filter { it.userId != userId }) }
+    }
+
+    /** Cancels a request you made by email (an `{email, at}` row in Sent). */
+    suspend fun cancelEmail(email: String) {
+        rpc.rpc("friend_cancel_email", buildJsonObject { put("p_email", email) })
+        Telemetry.capture("friend_request_cancelled", mapOf("via" to "email"))
+        load()
+    }
+
+    /** Cancels a row in Sent, whichever way it was asked. */
+    suspend fun cancel(r: SentRequest) {
+        if (r.person != null) remove(r.person.userId) else r.email?.let { cancelEmail(it) }
     }
 
     suspend fun block(userId: String, on: Boolean) {

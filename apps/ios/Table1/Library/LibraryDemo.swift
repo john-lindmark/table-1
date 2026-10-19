@@ -398,7 +398,7 @@ struct LibraryDemoRoot: View {
     }
 
     /// Design QA: `-T1LibraryDemo allcards|add|import|trades|trade|tradewants|binders|binder|wants|card|deck|cube|
-    /// deckstats|cubestats|hand|odds|pack|friends|profile|sharing|matches|match` opens that screen (deck and cube: the fixture's first of each; stats, sample
+    /// deckstats|cubestats|hand|odds|pack|friends|profile|sharing|matches|match|me` opens that screen (deck and cube: the fixture's first of each; stats, sample
     /// hand, draw odds and sample pack on it; `-T1ListExport arena|moxfield|mtgo|text|cubecobra` then exports it).
     /// `import` with `-T1ImportFile <path>` reads that file as if it had been picked.
     private static var arg: String? {

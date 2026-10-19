@@ -29,7 +29,26 @@ export interface Person {
   relation?: Relation;
 }
 
-export interface FriendsList { friends: Person[]; incoming: Person[]; outgoing: Person[]; blocked: Person[] }
+/** A request you sent: to an account (asked by id: a Person) or to an address (asked by email: `{email, at}` with no
+ *  user_id, account or not, so the server never says whose it is). Older servers sent email asks as a Person. */
+export interface SentRequest { key: string; person: Person | null; email: string | null; at: string | null }
+
+export interface FriendsList { friends: Person[]; incoming: Person[]; outgoing: SentRequest[]; blocked: Person[] }
+
+/** friends_list as sent: outgoing rows are a Person or `{email, at}`. */
+export interface FriendsListWire { friends: Person[]; incoming: Person[]; outgoing: (Person | { email: string; at?: string })[]; blocked: Person[] }
+
+export function sentRequest(r: Person | { email: string; at?: string; user_id?: null }): SentRequest {
+  if ("user_id" in r && r.user_id) return { key: r.user_id, person: r, email: null, at: r.at ?? null };
+  const email = (r as { email?: string }).email ?? "";
+  return { key: `email:${email}`, person: null, email, at: r.at ?? null };
+}
+
+export const sentLabel = (r: SentRequest) => r.person?.display_name ?? r.email ?? "";
+
+export function parseFriendsList(w: FriendsListWire): FriendsList {
+  return { friends: w.friends ?? [], incoming: w.incoming ?? [], outgoing: (w.outgoing ?? []).map(sentRequest), blocked: w.blocked ?? [] };
+}
 
 /* ── sharing ─────────────────────────────────────────────────────────── */
 
@@ -112,6 +131,7 @@ export interface ProfileData {
   friends_since: string | null;
   visible: boolean;
   sections: {
+    /** value_usd: your own profile only (older servers sent it to anyone who saw All cards). */
     all_cards?: { cards: number; printings?: number; value_usd?: number };
     for_trade?: { cards: number };
     wants?: { cards: number };
@@ -121,6 +141,9 @@ export interface ProfileData {
     record?: { match_wins: number; match_losses: number; match_draws: number; events_played: number };
   };
 }
+
+/** The collection's value, shown on your own profile only. */
+export const profileValue = (p: ProfileData): number | null => (p.relation === "self" ? p.sections.all_cards?.value_usd ?? null : null);
 
 export const sectionCount = (p: ProfileData) =>
   [p.sections.all_cards, p.sections.for_trade, p.sections.wants, p.sections.record].filter(Boolean).length
@@ -271,6 +294,8 @@ export interface FriendsDemo {
   request(id: string): string;
   respond(id: string, accept: boolean): void;
   remove(id: string): void;
+  requestByEmail(email: string): void;
+  cancelEmail(email: string): void;
   block(id: string, on: boolean): void;
   profile(id: string): ProfileData;
   cards(id: string, section: SectionKind, item: string | null): ProfileCard[];
@@ -319,7 +344,7 @@ export async function loadFriends() {
   if (demoPending()) return;
   try {
     const d = demoOn();
-    set({ list: d ? { ...d.list } : await rpc<FriendsList>("friends_list"), error: null });
+    set({ list: d ? { ...d.list } : parseFriendsList(await rpc<FriendsListWire>("friends_list")), error: null });
   } catch (e) {
     set({ error: (e as Error).message });
   }
@@ -342,7 +367,9 @@ export async function requestFriend(userId: string, via: "search" | "played_with
 }
 
 export async function requestFriendByEmail(email: string) {
-  if (!demoOn()) await rpc("friend_request_by_email", { p_email: email });
+  const d = demoOn();
+  if (d) d.requestByEmail(email);
+  else await rpc("friend_request_by_email", { p_email: email });
   capture("friend_request_sent", { via: "email" });
   await loadFriends();
 }
@@ -365,6 +392,18 @@ export async function removeFriend(userId: string) {
   await loadFriends();
   if (state.matches) set({ matches: state.matches.filter((m) => m.user_id !== userId) });
 }
+
+/** Cancels a request you made by email (an `{email, at}` row in Sent). */
+export async function cancelEmailRequest(email: string) {
+  const d = demoOn();
+  if (d) d.cancelEmail(email);
+  else await rpc<{ removed: boolean }>("friend_cancel_email", { p_email: email });
+  capture("friend_request_cancelled", { via: "email" });
+  await loadFriends();
+}
+
+/** Cancels a row in Sent, whichever way it was asked. */
+export const cancelSent = (r: SentRequest) => (r.person ? removeFriend(r.person.user_id) : cancelEmailRequest(r.email ?? ""));
 
 export async function blockUser(userId: string, on: boolean) {
   const d = demoOn();

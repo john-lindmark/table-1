@@ -1,13 +1,15 @@
 -- Friends, profiles, sharing and trade matches (contract/friends-sharing-2026-10-18.md).
 \ir _helpers.sql
 
--- Ana (me), Ben (friend to be), Cal (played with Ana, not a friend), Dee (stranger), Eve (deleted), Zed (demo).
+-- Ana (me), Ben (friend to be), Cal (played with Ana, not a friend), Dee (stranger), Eve (deleted), Zed (demo),
+-- Fay (blocks Ana).
 insert into auth.users (id, email, raw_user_meta_data) values
   ('00000000-0000-0000-0000-0000000000a1', 'ana@example.com', '{"full_name": "Ana Lind"}'),
   ('00000000-0000-0000-0000-0000000000b1', 'ben@example.com', '{"full_name": "Ben Ortiz"}'),
   ('00000000-0000-0000-0000-0000000000c1', 'cal@example.com', '{"full_name": "Cal Reyes"}'),
   ('00000000-0000-0000-0000-0000000000d1', 'dee@example.com', '{"full_name": "Dee Park"}'),
-  ('00000000-0000-0000-0000-0000000000e1', 'eve@example.com', '{"full_name": "Eve Gone"}');
+  ('00000000-0000-0000-0000-0000000000e1', 'eve@example.com', '{"full_name": "Eve Gone"}'),
+  ('00000000-0000-0000-0000-0000000000a2', 'fay@example.com', '{"full_name": "Fay Moss"}');
 update public.profiles set deleted_at = now(), display_name = 'Deleted player' where id = '00000000-0000-0000-0000-0000000000e1';
 insert into public.profiles (id, display_name, is_demo, demo_owner) values
   ('00000000-0000-0000-0000-0000000000f1', 'Demo Zed', true, '00000000-0000-0000-0000-0000000000a1');
@@ -17,6 +19,7 @@ insert into public.profiles (id, display_name, is_demo, demo_owner) values
 \set DEE '''00000000-0000-0000-0000-0000000000d1'''
 \set EVE '''00000000-0000-0000-0000-0000000000e1'''
 \set ZED '''00000000-0000-0000-0000-0000000000f1'''
+\set FAY '''00000000-0000-0000-0000-0000000000a2'''
 
 -- Cards: Bolt (m10 nonfoil+foil, m11), Opt, Goyf.
 insert into public.card_oracles (oracle_id, name, name_norm, layout, source_card_id, source_rank, content_hash) values
@@ -52,6 +55,14 @@ insert into public.participants (event_id, user_id, display_name, seat) values
   ('e1000000-0000-0000-0000-000000000001', :CAL, 'Cal Reyes', 2);
 
 create or replace function pg_temp.j(v jsonb, path text[]) returns text language sql as $$ select v #>> path $$;
+-- friend.request pushes from one account to another.
+create or replace function pg_temp.pushes(p_from uuid, p_to uuid) returns text language sql as $$
+  select count(*)::text from pgmq.messages
+   where msg->>'kind' = 'friend.request' and msg->'data'->>'user_id' = p_from::text and msg->'user_ids' ? p_to::text $$;
+-- Sent (outgoing) as email-or-name:has-user_id, newest first.
+create or replace function pg_temp.sent(v jsonb) returns text language sql as $$
+  select coalesce(string_agg(coalesce(o->>'email', o->>'display_name') || ':' || (o ? 'user_id')::text, ',' order by ord), '')
+    from jsonb_array_elements(v->'outgoing') with ordinality x(o, ord) $$;
 
 set role authenticated;
 
@@ -104,6 +115,71 @@ select pg_temp.as_user(:DEE);
 select pg_temp.as_user(:ANA);
 select pg_temp.eq('the email request reached Ana', pg_temp.j(public.friends_list(), '{incoming,0,display_name}'), 'Dee Park');
 
+-- Asking by email never tells the asker whose address it was (privacy fix 1).
+select pg_temp.as_user(:DEE);
+select pg_temp.eq('Sent shows both emails alike, no Person', pg_temp.sent(public.friends_list()),
+  'ana@example.com:false,nobody@example.com:false');
+select pg_temp.eq('Sent email rows are {email, at} only',
+  (select string_agg(k, ',' order by k) from jsonb_object_keys(public.friends_list()->'outgoing'->0) k), 'at,email');
+select pg_temp.eq('Ana''s profile reads none, not requested', public.profile_view(:ANA)->>'relation', 'none');
+select pg_temp.eq('friend_remove by a guessed id finds nothing', public.friend_remove(:ANA)->>'removed', 'false');
+select pg_temp.throws('friend_respond by a guessed id: gone', $$select public.friend_respond('00000000-0000-0000-0000-0000000000a1', true)$$, 'P0002');
+select pg_temp.eq('cancel by email: an address with no account', public.friend_cancel_email('nobody@example.com')->>'removed', 'true');
+select pg_temp.eq('cancel by email: Ana''s address', public.friend_cancel_email('Ana@example.com ')->>'removed', 'true');
+select pg_temp.eq('cancel twice: nothing to cancel', public.friend_cancel_email('ana@example.com')->>'removed', 'false');
+select pg_temp.eq('Sent is empty', pg_temp.sent(public.friends_list()), '');
+select pg_temp.as_user(:ANA);
+select pg_temp.eq('Dee''s request is gone from Ana''s Requests', jsonb_array_length(public.friends_list()->'incoming')::text, '0');
+-- Ana asks Cal (played with) by email: search says none; asking from the profile names it; accepting clears it.
+select public.friend_request_by_email('cal@example.com');
+select pg_temp.eq('search: an email request reads none',
+  (select r->>'relation' from jsonb_array_elements(public.friend_search(null)) r where r->>'display_name' = 'Cal Reyes'), 'none');
+select pg_temp.eq('Sent: the email only', pg_temp.sent(public.friends_list()), 'cal@example.com:false');
+select pg_temp.eq('asking Cal by id answers requested', public.friend_request(:CAL)->>'status', 'requested');
+select pg_temp.eq('… and now reads requested', public.profile_view(:CAL)->>'relation', 'requested');
+select pg_temp.eq('… Sent shows Cal and still the email', pg_temp.sent(public.friends_list()), 'cal@example.com:false,Cal Reyes:true');
+reset role;
+select pg_temp.eq('one push to Cal for both asks', pg_temp.pushes(:ANA, :CAL), '1');
+set role authenticated;
+select pg_temp.as_user(:CAL);
+select pg_temp.eq('Cal sees Ana''s request', pg_temp.j(public.friends_list(), '{incoming,0,display_name}'), 'Ana Lind');
+select pg_temp.eq('Cal accepts', public.friend_respond(:ANA, true)->>'status', 'friends');
+select pg_temp.as_user(:ANA);
+select pg_temp.eq('accepted: the email leaves Sent', pg_temp.sent(public.friends_list()), '');
+select pg_temp.as_user(:CAL);
+select pg_temp.eq('Cal unfriends Ana', public.friend_remove(:ANA)->>'removed', 'true');
+select pg_temp.as_user(:ANA);
+select pg_temp.eq('unfriended: the email does not come back', pg_temp.sent(public.friends_list()), '');
+
+-- A decline is remembered: cancelling and asking again sends no push (privacy fix 2).
+select pg_temp.as_user(:CAL);
+select pg_temp.eq('Cal asks Dee', public.friend_request(:DEE)->>'status', 'requested');
+select pg_temp.as_user(:DEE);
+select public.friend_respond(:CAL, false);
+select pg_temp.as_user(:CAL);
+select pg_temp.eq('Cal cancels the declined request', public.friend_remove(:DEE)->>'removed', 'true');
+select pg_temp.eq('Cal asks again', public.friend_request(:DEE)->>'status', 'requested');
+select pg_temp.eq('… it still reads requested', public.profile_view(:DEE)->>'relation', 'requested');
+select public.friend_remove(:DEE);
+select public.friend_request(:DEE);
+reset role;
+select pg_temp.eq('only the first ask pushed to Dee', pg_temp.pushes(:CAL, :DEE), '1');
+set role authenticated;
+select pg_temp.as_user(:DEE);
+select pg_temp.eq('… and nothing waits in Dee''s Requests', jsonb_array_length(public.friends_list()->'incoming')::text, '0');
+select pg_temp.eq('Dee asking back still makes friends', public.friend_request(:CAL)->>'status', 'friends');
+select public.friend_remove(:CAL);
+-- At most 3 request pushes to one person in 30 days, however often you cancel and ask.
+select pg_temp.as_user(:BEN);
+select public.friend_request(:CAL), public.friend_remove(:CAL) from generate_series(1, 5);
+reset role;
+select pg_temp.eq('per-person push cap', pg_temp.pushes(:BEN, :CAL), '3');
+set role authenticated;
+select pg_temp.as_user(:BEN);
+select pg_temp.eq('… the request itself still goes in', public.friend_request(:CAL)->>'status', 'requested');
+select public.friend_remove(:CAL);
+select pg_temp.as_user(:ANA);
+
 -- Block: drops the request, hides everything, the blocked side gets the usual answers.
 select pg_temp.eq('Ana blocks Dee', public.user_block(:DEE, true)->>'blocked', 'true');
 select pg_temp.eq('blocking drops the request', jsonb_array_length(public.friends_list()->'incoming')::text, '0');
@@ -116,6 +192,30 @@ select pg_temp.eq('… and writes nothing', (select count(*)::text from public.f
   where '00000000-0000-0000-0000-0000000000d1' in (user_lo, user_hi) and '00000000-0000-0000-0000-0000000000a1' in (user_lo, user_hi)), '0');
 set role authenticated;
 select pg_temp.eq('Dee sees no relation', public.profile_view(:ANA)->>'relation', 'none');
+
+-- Invites and new-event alerts skip blocks either way, with the usual answers (privacy fix 3).
+select pg_temp.as_user(:FAY);
+select public.user_block(:ANA, true);
+select pg_temp.as_user(:ANA);
+select pg_temp.eq('inviting someone Ana blocked: the usual answer',
+  public.invite_players('e1000000-0000-0000-0000-000000000002', array['00000000-0000-0000-0000-0000000000d1'::uuid])::text,
+  '{"ok": true, "invited": 1}');
+select pg_temp.eq('inviting someone who blocked Ana: the usual answer',
+  public.invite_players('e1000000-0000-0000-0000-000000000002', array['00000000-0000-0000-0000-0000000000a2'::uuid])->>'invited', '1');
+select pg_temp.eq('by email: the usual answer', public.invite_by_email('e1000000-0000-0000-0000-000000000002', 'dee@example.com')->>'ok', 'true');
+select pg_temp.eq('… by email the other way', public.invite_by_email('e1000000-0000-0000-0000-000000000002', 'fay@example.com')->>'ok', 'true');
+reset role;
+select pg_temp.eq('… and no invitation written', (select count(*)::text from public.event_invites
+  where event_id = 'e1000000-0000-0000-0000-000000000002'), '0');
+select pg_temp.eq('… or pushed', (select count(*)::text from pgmq.messages where msg->>'kind' = 'event.invite'), '0');
+select pg_temp.eq('new event alerts the regular (Cal)', public._send_regulars_alert('e1000000-0000-0000-0000-000000000002')::text, '1');
+insert into public.user_blocks (user_id, blocked_id) values ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000a1');
+select pg_temp.eq('… not once Cal blocked Ana', public._send_regulars_alert('e1000000-0000-0000-0000-000000000002')::text, '0');
+update public.user_blocks set user_id = blocked_id, blocked_id = user_id where user_id = '00000000-0000-0000-0000-0000000000c1';
+select pg_temp.eq('… nor once Ana blocked Cal', public._send_regulars_alert('e1000000-0000-0000-0000-000000000002')::text, '0');
+delete from public.user_blocks where blocked_id = '00000000-0000-0000-0000-0000000000c1';
+select pg_temp.eq('event.new pushes: only the first', (select count(*)::text from pgmq.messages where msg->>'kind' = 'event.new'), '1');
+set role authenticated;
 
 -- Clients can't touch the tables.
 select pg_temp.throws('no direct read of friendships', $$select * from public.friendships$$, '42501');
@@ -247,6 +347,11 @@ select pg_temp.as_user(:BEN);
 select public.sharing_set('{"library": "friends"}');
 select pg_temp.as_user(:ANA);
 select pg_temp.eq('Library friends: friend sees all cards', pg_temp.j(public.profile_view(:BEN), '{sections,all_cards,cards}'), '9');
+select pg_temp.eq('… but not their value (privacy fix 4)',
+  (select string_agg(k, ',' order by k) from jsonb_object_keys(public.profile_view(:BEN)->'sections'->'all_cards') k), 'cards,printings');
+select pg_temp.as_user(:BEN);
+select pg_temp.eq('the owner sees the value', pg_temp.j(public.profile_view(:BEN), '{sections,all_cards,value_usd}'), '107.00');
+select pg_temp.as_user(:ANA);
 select pg_temp.eq('… and the deck', pg_temp.j(public.profile_view(:BEN), '{sections,decks,0,cards}'), '4');
 select pg_temp.eq('deck rows include considering', jsonb_array_length(public.profile_cards(:BEN, 'deck', 'd1000000-0000-0000-0000-000000000001')->'rows')::text, '2');
 select pg_temp.eq('all cards rows per printing and finish', jsonb_array_length(public.profile_cards(:BEN, 'all_cards')->'rows')::text, '4');
