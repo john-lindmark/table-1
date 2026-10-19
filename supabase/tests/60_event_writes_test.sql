@@ -127,8 +127,10 @@ set role authenticated;
 select pg_temp.as_user(:A);
 select pg_temp.throws('a definer RPC cannot link another account for a client',
   $$select public.t_link('f2000000-0000-0000-0000-00000000000f', '00000000-0000-0000-0000-0000000000d1')$$, '42501');
+reset role;
 select pg_temp.eq('Dee has no record from the refused link',
   (select count(*)::text from public.player_records where user_id = :D), '0');
+set role authenticated;
 select pg_temp.as_user(:D);
 select public.claim_participant('guest-token');
 select pg_temp.eq('claiming a seat links the claimer',

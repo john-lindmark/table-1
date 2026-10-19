@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Table 1 Events V1 client contract",
   "description": "Every call the iOS, Android and web clients make. Field names are exact wire names (snake_case). Generate Swift/Kotlin models from this file; the hand-written models in apps/ must stay in step with it.",
-  "version": "2026-10-17",
+  "version": "2026-10-18",
   "rpc": {
     "create_event": {
       "params": {
@@ -1310,6 +1310,13 @@
           "p_event_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "p_token": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A web guest's claim token (lib/session.ts). Organizers and players leave it out."
           }
         },
         "required": [
@@ -1363,6 +1370,9 @@
             }
           }
         }
+      },
+      "errors": {
+        "42501": "That event isn't available (not organizer, player or guest)"
       }
     },
     "set_teams": {
@@ -6864,6 +6874,582 @@
           }
         }
       }
+    },
+    "event_bundle": {
+      "description": "Everything a member sees (privacy-lockdown-2026-10-18.md). Organizer, player, or guest with p_token; anon may call. Replaces the reads from events, participants and rounds(matches(match_sides)).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_token": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "p_event_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "object",
+            "description": "The table row as select * returns it (every column)."
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "The table row as select * returns it (every column)."
+            },
+            "description": "By seat (nulls last)."
+          },
+          "rounds": {
+            "type": "array",
+            "description": "By number. Each round row plus matches (by table_number), each match row plus match_sides (by side).",
+            "items": {
+              "type": "object",
+              "properties": {
+                "matches": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "match_sides": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "description": "The table row as select * returns it (every column)."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "teams": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "order": {
+                  "type": "integer"
+                },
+                "members": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "participant_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "display_name": {
+                        "type": "string"
+                      },
+                      "slot": {
+                        "type": "integer"
+                      },
+                      "user_id": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "status": {
+                        "enum": [
+                          "active",
+                          "dropped"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "is_organizer": {
+            "type": "boolean"
+          },
+          "access": {
+            "enum": [
+              "organizer",
+              "player",
+              "guest"
+            ]
+          }
+        },
+        "required": [
+          "event",
+          "participants",
+          "rounds",
+          "teams",
+          "is_organizer",
+          "access"
+        ]
+      },
+      "errors": {
+        "42501": "That event isn't available (also for a missing event)"
+      }
+    },
+    "event_preview": {
+      "description": "What someone sees before joining: by code (open events only; rate-limited) or by id. Anon may call. Not available = {event_id: null, access: 'none'} (a result, not an error).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_event_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "access": {
+            "enum": [
+              "organizer",
+              "player",
+              "guest",
+              "invited",
+              "link",
+              "none"
+            ]
+          },
+          "short_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "format_label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "set_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cube_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "starts_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "venue_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "capacity": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "players": {
+            "type": "integer"
+          },
+          "organizer_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "access"
+        ]
+      },
+      "errors": {
+        "53400": "Too many tries, wait a few minutes"
+      }
+    },
+    "event_public": {
+      "description": "The shared standings page (/s/:eventId) for link and above: preview fields, the active round's clock and its pairings by name. No account ids. Standings rows come from events-engine 'standings'.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_token": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "p_event_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "access": {
+            "enum": [
+              "organizer",
+              "player",
+              "guest",
+              "invited",
+              "link",
+              "none"
+            ]
+          },
+          "short_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "format_label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "set_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cube_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "starts_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "venue_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "capacity": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "players": {
+            "type": "integer"
+          },
+          "organizer_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "current_round": {
+            "type": "integer"
+          },
+          "number_of_rounds": {
+            "type": "integer"
+          },
+          "show_clock": {
+            "type": "boolean"
+          },
+          "format_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "team_size": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "round": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "number": {
+                "type": "integer"
+              },
+              "status": {
+                "type": "string"
+              },
+              "timer_duration_seconds": {
+                "type": "integer"
+              },
+              "timer_remaining_at_change": {
+                "type": "integer"
+              },
+              "timer_status": {
+                "type": "string"
+              },
+              "timer_last_started_at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "timer_ends_at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "pairings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "match_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "table_number": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "is_bye": {
+                  "type": "boolean"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "game_draws": {
+                  "type": "integer"
+                },
+                "intentional_draw": {
+                  "type": "boolean"
+                },
+                "sides": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "side": {
+                        "type": "integer"
+                      },
+                      "participant_id": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "format": "uuid"
+                      },
+                      "display_name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "game_wins": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "event_id",
+          "access",
+          "pairings"
+        ]
+      },
+      "errors": {
+        "42501": "That event isn't available"
+      }
+    },
+    "people": {
+      "description": "Name and avatar for ids the caller may see (self, friendship rows, a shared event, an invite's organizers, public profiles; never across a block). Others are left out quietly. Signed in only.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "p_ids"
+        ]
+      },
+      "result": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "user_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "display_name": {
+              "type": "string"
+            },
+            "handle": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "avatar_url": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "user_id",
+            "display_name",
+            "handle",
+            "avatar_url"
+          ]
+        }
+      },
+      "errors": {
+        "22023": "At most 500 people at a time",
+        "28000": "Sign in first"
+      }
+    },
+    "join_event": {
+      "description": "Join by the 4-character code (web). Open events only; private events need an invite; rate-limited; an account already in the event gets its seat back.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_code": {
+            "type": "string"
+          },
+          "p_display_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "p_code",
+          "p_display_name"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "short_code": {
+            "type": "string"
+          },
+          "participant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "token": {
+            "type": "string"
+          },
+          "already_joined": {
+            "type": "boolean"
+          },
+          "error": {
+            "enum": [
+              "not_found",
+              "cancelled",
+              "finished",
+              "private"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "description": "Either the seat, or {error, message} when the code doesn't lead to a joinable event."
+      },
+      "errors": {
+        "53400": "Too many tries, wait a few minutes"
+      }
     }
   },
   "functions": {
@@ -6878,6 +7464,10 @@
             "event_id": {
               "type": "string",
               "format": "uuid"
+            },
+            "token": {
+              "type": "string",
+              "description": "A web guest's claim token, for private events."
             }
           },
           "required": [
@@ -6960,6 +7550,9 @@
             "current_round",
             "standings"
           ]
+        },
+        "errors": {
+          "404": "That event isn't available (whoever event_public refuses)"
         }
       },
       "pair_round": {
@@ -7058,7 +7651,8 @@
     "note": "V1 clients subscribe to Postgres Changes filtered by event_id on matches, match_sides, rounds, participants (and id on events), then refetch. Broadcast topic match:<id> carries {match_id, event_id, round_id, version, status, disputed, game_draws, result_source, sides[]} on every match update for the large-event path.",
     "tracker": "postgres_changes INSERT on public.tracker_ops and public.tracker_games, filter session_id=eq.<session_id>",
     "tracker_round": "postgres_changes UPDATE on public.rounds, filter id=eq.<clock.round_id>; the new row's timer_* columns replace clock",
-    "roto": "Broadcast topic roto:<event_id>, event roto_changed, payload {event_id, kind: started|pick|timeout|undo|clock, picks_made}. One per change (an auto-pick chain is one message). On receipt call roto_state(p_after_pick = last pick you hold); if picks_made < yours (undo), drop picks above it."
+    "roto": "Broadcast topic roto:<event_id>, event roto_changed, payload {event_id, kind: started|pick|timeout|undo|clock, picks_made}. One per change (an auto-pick chain is one message). On receipt call roto_state(p_after_pick = last pick you hold); if picks_made < yours (undo), drop picks above it.",
+    "event": "Broadcast topic event:<event_id>, event changed, payload {} (no data), once per event per statement that writes events, participants, rounds, matches, match_sides or event_teams. On receipt refetch event_bundle (members, guests) or event_public (link). Replaces the Postgres Changes in note."
   },
   "tables": {
     "user_settings": "own row: user_id, tracker_mode ('elsewhere'|'tracker'). Upsert on user_id.",

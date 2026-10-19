@@ -224,6 +224,8 @@ export async function joinEvent(code: string, displayName: string) {
     p_display_name: displayName,
   });
   if (error) throw error;
+  // A code that leads nowhere joinable comes back as {error, message} (so the server's miss count sticks).
+  if (data?.error) throw new Error(data.message ?? "No event found with that code");
   capture("event_joined", { via: "link" });
   return data as {
     event_id: string;

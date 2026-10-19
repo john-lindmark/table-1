@@ -4,12 +4,15 @@
 
 create or replace function pg_temp.as_user(p uuid) returns void language plpgsql as $$
 begin perform set_config('request.jwt.claim.sub', coalesce(p::text, ''), false); end $$;
-create or replace function pg_temp.rec(p uuid) returns text language sql as $$
+-- Records are server-only (20261018170000_privacy_lockdown): these helpers read them as the test owner.
+create or replace function pg_temp.rec(p uuid) returns text language sql security definer as $$
   select coalesce((select format('%s-%s-%s b%s g%s-%s-%s', match_wins, match_losses, match_draws, byes, game_wins, game_losses, game_draws)
                      from public.player_records where user_id = p), 'none') $$;
-create or replace function pg_temp.h2h(a uuid, b uuid) returns text language sql as $$
+create or replace function pg_temp.h2h(a uuid, b uuid) returns text language sql security definer as $$
   select coalesce((select format('%s-%s-%s g%s-%s-%s', match_wins, match_losses, match_draws, game_wins, game_losses, game_draws)
                      from public.head_to_head where user_id = a and opponent_id = b), 'none') $$;
+create or replace function pg_temp.h2h_rows(a uuid) returns text language sql security definer as $$
+  select count(*)::text from public.head_to_head where user_id = a $$;
 create or replace function pg_temp.eq(label text, got text, want text) returns void language plpgsql as $$
 begin
   if got is distinct from want then raise exception 'FAIL %: got %, want %', label, got, want; end if;
@@ -185,7 +188,7 @@ set role authenticated;
 select pg_temp.as_user(:B);
 select public.report_match('50000000-0000-0000-0000-000000000003', 2, 0, 0, 0);
 select pg_temp.eq('win over walk-in counts for bob', pg_temp.rec(:B), '1-1-0 b0 g3-2-0');
-select pg_temp.eq('no h2h against a walk-in', (select count(*)::text from public.head_to_head where user_id = :B), '1');
+select pg_temp.eq('no h2h against a walk-in', pg_temp.h2h_rows(:B), '1');
 select pg_temp.as_user(:W);
 select public.claim_participant('walker-token');
 select pg_temp.eq('claimed history backfills wes', pg_temp.rec(:W), '0-1-0 b0 g0-2-0');
@@ -261,7 +264,16 @@ do $$ begin
 exception when insufficient_privilege then raise notice 'ok  clients cannot write records';
 end $$;
 select pg_temp.as_user(:D);
-select pg_temp.eq('h2h is public', (select count(*)::text from public.head_to_head where user_id = :C), '1');
+do $$ begin
+  perform count(*) from public.head_to_head;
+  raise exception 'FAIL clients read head_to_head';
+exception when insufficient_privilege then raise notice 'ok  h2h is not readable by clients';
+end $$;
+do $$ begin
+  perform count(*) from public.player_records;
+  raise exception 'FAIL clients read player_records';
+exception when insufficient_privilege then raise notice 'ok  lifetime records are not readable by clients';
+end $$;
 select pg_temp.as_user(:B);
 select public.register_device('ios', 'apns-token-bob', 'la-token-bob', '1.0.0');
 select pg_temp.as_user(:C);

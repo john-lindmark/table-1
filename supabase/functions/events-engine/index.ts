@@ -1,5 +1,7 @@
 // events-engine: the one place Table 1's tournament rules run.
-//   POST { action: "standings", event_id }     -> computed standings, plus team standings for team events (public)
+//   POST { action: "standings", event_id, token? } -> computed standings, plus team standings for team events, for
+//                                                  anyone public.event_public lets in (link holders of non-private
+//                                                  events, members, guests with their claim token)
 //   POST { action: "seat_players", event_id }  -> random draft seats via rpc seat_event (organizers only; older builds)
 //   POST { action: "pair_round", event_id }    -> pairs and opens the next round (organizers only)
 // Rules are the same files the web app ships (standings, pairings, seating, teams), so web and server agree.
@@ -124,9 +126,22 @@ async function seatPlayers(eventId: string, authHeader: string) {
   return json(data);
 }
 
-async function standings(eventId: string) {
+/** Whoever public.event_public refuses (private events, demo, cancelled for non-members) gets nothing here either. */
+async function callerCanSee(eventId: string, authHeader: string, token: string | null) {
+  const asCaller = createClient(url, anonKey, {
+    global: { headers: { Authorization: authHeader || `Bearer ${anonKey}` } },
+    auth: { persistSession: false },
+  });
+  const { error } = await asCaller.rpc("event_public", { p_event_id: eventId, p_token: token });
+  if (!error) return null;
+  return json({ error: "That event isn't available" }, error.code === "42501" ? 404 : 401);
+}
+
+async function standings(eventId: string, authHeader: string, token: string | null) {
+  const refused = await callerCanSee(eventId, authHeader, token);
+  if (refused) return refused;
   const { event, participants, rounds, teams, pods } = await loadEvent(eventId);
-  if (!event) return json({ error: "Event not found" }, 404);
+  if (!event) return json({ error: "That event isn't available" }, 404);
   const rows = computeStandings(participants, rounds).map((s) => ({
     rank: s.rank,
     participant_id: s.participantId,
@@ -272,7 +287,10 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const eventId = String(body.event_id ?? "");
     if (!/^[0-9a-f-]{36}$/i.test(eventId)) return json({ error: "event_id is required" }, 400);
-    if (body.action === "standings") return await standings(eventId);
+    if (body.action === "standings") {
+      const token = typeof body.token === "string" && body.token ? body.token : null;
+      return await standings(eventId, req.headers.get("Authorization") ?? "", token);
+    }
     if (body.action === "pair_round" || body.action === "seat_players") {
       const auth = req.headers.get("Authorization") ?? "";
       if (!auth.startsWith("Bearer ")) return json({ error: "Sign in required" }, 401);
