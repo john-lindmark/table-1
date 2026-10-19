@@ -8,17 +8,19 @@ import {
   FINISH_LETTER, RARITY_NAME, cardImageUrl, cornerRatio, coverPrinting, loadCatalog, normName, oracleIndexById, searchCatalog, type Catalog,
 } from "../lib/catalog";
 import {
-  applyOps, fetchHistory, undoBatch, useCollection, type ApplyResult, type Finish, type HistoryEntry, type Item,
+  applyOps, fetchHistory, undoBatch, useCollection, type Finish, type HistoryEntry, type Item,
 } from "../lib/collection";
 import { supabase } from "../lib/supabaseClient";
 import { useSession } from "../lib/useSession";
 import { isLibraryDemo, loadDemoLists } from "../lib/libraryDemo";
-import { useLists } from "../lib/lists";
 import { DEMO_USER, type Condition } from "../lib/collection";
 import { usdPrice, usdText, usePrices } from "../lib/prices";
 import { useTrades } from "../lib/trades";
-import { binderTotals, forTrade, liveWants, missingLines, placementText, useBinders } from "../lib/binders";
-import { MoveCopies, WantCardRow } from "./Binders";
+import { binderById, binderTotals, forTrade, liveWants, missingLines, placementText, useBinders } from "../lib/binders";
+import { MoveCopies, UNSORTED, WantCardRow } from "./Binders";
+import { ChangePrintingScreen, type PrintingTarget } from "./ChangePrinting";
+import { printingPlaces } from "../lib/changePrinting";
+import { BOARD_ORDER, boardTitle, entriesOf, finishOf, useLists, type Entry } from "../lib/lists";
 import { TradeMatchesRow } from "./Friends";
 
 export const CONDITIONS: Condition[] = ["NM", "LP", "MP", "HP", "DMG"];
@@ -576,14 +578,21 @@ function priceFor(pr: PrintingPrice | undefined, f: Finish) {
   return [usd != null ? `$${usd}` : null, eur != null ? `€${eur}` : null].filter(Boolean).join(" · ");
 }
 
-export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () => void }) {
+/** Where card detail was opened from: that deck/cube's lines or that binder's copies (or Unsorted's) come first, each
+ *  with Change printing (contract/change-printing-2026-10-18.md). */
+export interface CardContext { list?: string; binder?: string }
+
+export function CardDetail({ oracleId, onBack, context }: { oracleId: string; onBack: () => void; context?: CardContext }) {
   const { session, ready, userId } = useLibrarySession();
   const col = useCollection(userId);
+  const lists = useLists(userId, userId === DEMO_USER ? loadDemoLists : undefined);
+  /** The Change printing screen, over this one. */
+  const [changing, setChanging] = useState<{ target: PrintingTarget; screen: string } | null>(null);
   const { catalog, error: catError } = useCatalog();
   const [prices, setPrices] = useState<Map<string, PrintingPrice>>(new Map());
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [last, setLast] = useState<{ res: ApplyResult; label: string } | null>(null);
+  const [last, setLast] = useState<{ batch: string; label: string } | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
@@ -640,7 +649,7 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
     setMoving(null);
     try {
       const res = await applyOps(Array.isArray(op) ? op : [op]);
-      setLast({ res, label });
+      setLast({ batch: res.batch_id, label });
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -651,7 +660,7 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
     if (!last) return;
     setBusy("undo");
     try {
-      await undoBatch(last.res.batch_id);
+      await undoBatch(last.batch);
       setLast(null);
     } catch (e) {
       setError(errorMessage(e));
@@ -687,9 +696,31 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
     );
   }
 
+  if (changing) {
+    return <ChangePrintingScreen target={changing.target} screenName={changing.screen} onClose={() => setChanging(null)}
+                                 onChanged={(batch, label) => { setLast({ batch, label }); setNote(null); setError(null); }} />;
+  }
+
   const first = catalog.pFirst[oi];
   const count = catalog.pCount[oi];
-  const heroP = preview ?? (owned.length ? catalog.printingIndex.get(owned[0].cardId)! : coverPrinting(catalog, oi));
+  // Opened from a deck/cube: this card's lines there; from a binder (or Unsorted): this card's copies there.
+  const ctxList = context?.list ? lists.lists.find((l) => l.id === context.list) : undefined;
+  const ctxLines: { e: Entry; p: number }[] = ctxList
+    ? entriesOf(ctxList).flatMap((e) => {
+      const p = catalog.printingIndex.get(e.cardId);
+      return p != null && catalog.pOracle[p] === oi ? [{ e, p }] : [];
+    }).sort((a, b) => BOARD_ORDER.indexOf(a.e.board) - BOARD_ORDER.indexOf(b.e.board))
+    : [];
+  void binders.version;
+  const ctxCopies = context?.binder
+    ? owned.flatMap((it) => {
+      const here = printingPlaces(it).find((pl) => pl.place === context.binder)?.qty ?? 0;
+      return here > 0 ? [{ it, p: catalog.printingIndex.get(it.cardId)!, qty: here }] : [];
+    })
+    : [];
+  const ctxPrinting = ctxLines[0]?.p ?? ctxCopies[0]?.p;
+  const changeOwned = (it: Item, place: string | null) => setChanging({ target: { kind: "owned", item: it, place }, screen: "item_printing" });
+  const heroP = preview ?? ctxPrinting ?? (owned.length ? catalog.printingIndex.get(owned[0].cardId)! : coverPrinting(catalog, oi));
   const total = owned.reduce((n, it) => n + it.qty, 0);
   const setLabel = (p: number) => `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}`;
   // The original paper printing (the default for adds) first, then newest first.
@@ -723,6 +754,33 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
           </div>
         </div>
 
+        {context?.list && (
+          <>
+            <Section title={`In ${ctxList?.name ?? "this list"}`} count={ctxLines.reduce((n, l) => n + l.e.qty, 0)} />
+            {!ctxLines.length && <div className="bg-t1-surface px-4 py-4 t1-label">Not in this {ctxList?.kind === "cube" ? "cube" : "deck"} any more.</div>}
+            {ctxList && ctxLines.map(({ e, p }) => (
+              <div key={`${e.board}|${e.cardId}|${finishOf(e)}`} className="h-[60px] shrink-0">
+                <CardRow c={catalog} p={p} title={`${setLabel(p)} · ${FINISH_LABEL[finishOf(e)]}`} detail={boardTitle(ctxList.kind, e.board)}
+                         value={<ChangeValue qty={e.qty} />}
+                         onClick={() => setChanging({ target: { kind: "list", listId: ctxList.id, cardId: e.cardId, board: e.board, finish: finishOf(e) }, screen: "list_printing" })} />
+              </div>
+            ))}
+          </>
+        )}
+        {context?.binder && (
+          <>
+            <Section title={`In ${context.binder === UNSORTED ? "Unsorted" : binderById(context.binder)?.name ?? "Binder"}`}
+                     count={ctxCopies.reduce((n, c) => n + c.qty, 0)} />
+            {!ctxCopies.length && <div className="bg-t1-surface px-4 py-4 t1-label">None here any more.</div>}
+            {ctxCopies.map(({ it, p, qty }) => (
+              <div key={`in|${it.k}`} className="h-[60px] shrink-0">
+                <CardRow c={catalog} p={p} title={`${setLabel(p)} · ${FINISH_LABEL[it.finish]}`}
+                         detail={[it.condition, it.lang === "en" ? null : it.lang.toUpperCase()].filter(Boolean).join(" · ")}
+                         value={<ChangeValue qty={qty} />} onClick={() => changeOwned(it, context.binder!)} />
+              </div>
+            ))}
+          </>
+        )}
         <Section title="In collection" count={owned.length} />
         {owned.length === 0 && <div className="bg-t1-surface px-4 py-4 t1-label">None yet. Pick a printing below.</div>}
         {owned.map((it) => {
@@ -760,6 +818,7 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
                                if (it.qty === 1) moveCondition(it, p, c, 1);
                                else setMoving({ k: it.k, to: c });
                              }} />
+                  <Row title="Change printing" detail="Or finish · keeps condition and binder" value={setLabel(p)} onClick={() => changeOwned(it, null)} />
                   <Row title="Move" detail={placementText(it) ?? `Unsorted ${it.qty}`} onClick={() => setSorting(it)} />
                   {moving?.k === it.k && (
                     <div className="flex gap-px">
@@ -821,4 +880,9 @@ export function CardDetail({ oracleId, onBack }: { oracleId: string; onBack: () 
       </div>
     </LibScreen>
   );
+}
+
+/** A context row's count, with "Change" so the row says what a tap does. */
+function ChangeValue({ qty }: { qty: number }) {
+  return <span className="flex items-center gap-3"><span className="t1-label !text-t1-text">Change</span><span>{qty}</span></span>;
 }

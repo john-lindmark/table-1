@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BigAction, Field, Modal, Notice, Row, Screen, Section, Segmented } from "../components/kit";
-import { CANLANDER_POINT_LIMIT, RARITY_NAME, coverPrinting, formatName, legalityOf, searchCatalog, type Catalog } from "../lib/catalog";
+import { CANLANDER_POINT_LIMIT, coverPrinting, formatName, legalityOf, searchCatalog, type Catalog } from "../lib/catalog";
 import { DEMO_USER, useCollection } from "../lib/collection";
 import { loadDemoLists } from "../lib/libraryDemo";
 import {
@@ -14,7 +14,7 @@ import { cardMatches, matchingLines } from "../lib/librarySearch";
 import { capture } from "../lib/telemetry";
 import { useSearchUsed } from "./Binders";
 import {
-  CardArt, CardRow, CardTile, LibScreen, StackRows, ViewButton, useCatalog, useLibrarySession, useStoredLayout, type StackItem,
+  CardRow, CardTile, LibScreen, StackRows, ViewButton, useCatalog, useLibrarySession, useStoredLayout, type StackItem,
 } from "./Library";
 import { ListStatsRow } from "./ListStats";
 
@@ -602,80 +602,6 @@ export function VersionScreen({ id, number, onBack, onCard }: { id: string; numb
           <BigAction label={`Restore v${number}`} onClick={() => {
             void restoreList(list.id, number).then(() => setRestored(`Restored as a new version. Every earlier version is still here.`));
           }} />
-        )}
-      </div>
-    </LibScreen>
-  );
-}
-
-/* ── a line's printing and finish ─────────────────────────────────────── */
-
-/**
- * Moves some or all copies of one line to another printing or finish. Splitting 4 non-foil into 2 non-foil
- * and 2 foil is "move 2" to the foil finish of the same printing.
- */
-export function LinePrintingScreen({ id, cardId, board, finish, onDone }: {
-  id: string; cardId: string; board: Board; finish: ListFinish; onDone: () => void;
-}) {
-  const { lists } = useListsData();
-  const { catalog } = useCatalog();
-  const list = lists.lists.find((l) => l.id === id);
-  const have = list ? entriesOf(list).find((e) => e.cardId === cardId && e.board === board && finishOf(e) === finish)?.qty ?? 0 : 0;
-  const [count, setCount] = useState(0);
-  const n = Math.min(Math.max(count || have, 1), have);
-  if (!list || !catalog) return <LibScreen><Bar title="Printing" onBack={onDone} /></LibScreen>;
-  const p0 = catalog.printingIndex.get(cardId);
-  const oi = p0 === undefined ? -1 : catalog.pOracle[p0];
-  const orig = oi >= 0 ? catalog.oOriginal[oi] : -1;
-  const printings = oi < 0 ? [] : Array.from({ length: catalog.pCount[oi] }, (_, i) => catalog.pFirst[oi] + i)
-    .sort((a, b) => Number(b === orig) - Number(a === orig));
-  const label = (p: number) => `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}`;
-  return (
-    <LibScreen>
-      <Bar title="Printing" subtitle={oi >= 0 ? catalog.oName[oi] : undefined} onBack={onDone} />
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
-        {have === 0 && <Notice tone="info">This line has no copies left.</Notice>}
-        {have > 0 && p0 !== undefined && (
-          <>
-            <div className="h-[60px]">
-              <CardRow c={catalog} p={p0} title={catalog.oName[oi]} value={have}
-                       detail={[label(p0), FINISH_NAME[finish], boardTitle(list.kind, board)].join(" · ")} />
-            </div>
-            <div className="bg-t1-surface flex items-stretch gap-px h-[52px]">
-              <span className="flex-1 px-4 flex items-center t1-label">Change {n} of {have}</span>
-              <button type="button" aria-label="Fewer" className="w-14 bg-t1-surface-hover text-[20px]" onClick={() => setCount(Math.max(1, n - 1))}>−</button>
-              <button type="button" aria-label="More" className="w-14 bg-t1-surface-hover text-[20px]" onClick={() => setCount(Math.min(have, n + 1))}>+</button>
-            </div>
-            <Section title="Move them to" />
-            {printings.map((p) => {
-              const finishes = (["nonfoil", "foil", "etched"] as ListFinish[]).filter((f) => catalog.pFinishes[p].includes(f[0]));
-              return (
-                <div key={p} className="bg-t1-surface flex items-stretch gap-px">
-                  <div className="flex-1 min-w-0 px-4 py-[5px] flex items-center gap-3">
-                    <CardArt c={catalog} p={p} width={36} />
-                    <span className="min-w-0 flex flex-col gap-0.5">
-                      <span className="text-[13px] truncate">{label(p)}</span>
-                      <span className="t1-label truncate">
-                        {[RARITY_NAME[catalog.pRarity[p]], catalog.pReleased[p]?.slice(0, 4), p === orig ? "Original" : null,
-                          catalog.pLang[p] !== "en" ? catalog.pLang[p].toUpperCase() : null].filter(Boolean).join(" · ")}
-                      </span>
-                    </span>
-                  </div>
-                  {finishes.map((f) => {
-                    const same = catalog.pId[p] === cardId && f === finish;
-                    return (
-                      <button key={f} type="button" disabled={same}
-                              className="px-3 bg-t1-surface-hover t1-label hover:text-t1-text disabled:text-t1-disabled"
-                              onClick={() => {
-                                void editList(id, [{ card_id: cardId, board, finish, to_card_id: catalog.pId[p], to_finish: f, qty: n, swap: true }]);
-                                onDone();
-                              }}>{same ? "Current" : FINISH_NAME[f]}</button>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </>
         )}
       </div>
     </LibScreen>
