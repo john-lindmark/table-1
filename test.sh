@@ -7,6 +7,7 @@
 #                        iOS and Android scanner/catalog timings
 #   ./test.sh all        full + perf
 #   ./test.sh staged     what the pre-commit hook runs: only the fast-tier parts the staged files touch
+#   ./test.sh ios        iOS unit tests only; ./test.sh android   Android unit tests only (the fix runner's per-platform check)
 #
 # Every part prints PASS/FAIL; the run fails if any part fails. Needs: brew install postgresql@17 postgis deno.
 set -uo pipefail
@@ -34,7 +35,7 @@ run() {  # run <name> <command...>
 
 web_unit()   { (cd table-1-events-web && npx tsc -b && npx vitest run); }
 parity()     { tools/test/engine-parity.sh; }
-engine()     { (cd supabase/functions && deno test --quiet events-engine/ cards-sync/ && deno test --quiet --allow-read=../../testdata list-import/ moderate/); }
+engine()     { (cd supabase/functions && deno test --quiet events-engine/ cards-sync/ && deno test --quiet --allow-read=../../testdata list-import/ moderate/ bugs/); }
 database()   { supabase/tests/run.sh; }
 ios_unit() {
   xcrun simctl list devices | grep -q " $IOS_SIM (" || xcrun simctl create "$IOS_SIM" "iPhone 17" >/dev/null
@@ -55,7 +56,7 @@ staged() {
   local files; files=$(git diff --cached --name-only)
   [ -z "$files" ] && { echo "nothing staged"; return; }
   grep -qE '^(table-1-events-web/|supabase/functions/events-engine/)' <<<"$files" && { run "web types + unit" web_unit; run "rules parity" parity; }
-  grep -qE '^(supabase/functions/(events-engine|list-import|cards-sync|moderate)/|testdata/(list-export|moderation)/)' <<<"$files" && run "engine (deno)" engine
+  grep -qE '^(supabase/functions/(events-engine|list-import|cards-sync|moderate|bugs)/|testdata/(list-export|moderation|bugs)/)' <<<"$files" && run "engine (deno)" engine
   grep -qE '^supabase/(migrations|tests)/' <<<"$files" && run "database" database
   true
 }
@@ -63,7 +64,8 @@ staged() {
 : >"$ROOT/.test-perf.log"
 case $TIER in
   fast) fast ;; full) full ;; perf) perf ;; all) full; perf ;; staged) staged ;;
-  *) echo "usage: ./test.sh [fast|full|perf|all|staged]"; exit 2 ;;
+  ios) run "ios unit + perf" ios_unit ;; android) run "android unit + perf" android_unit ;;
+  *) echo "usage: ./test.sh [fast|full|perf|all|staged|ios|android]"; exit 2 ;;
 esac
 
 echo; [ ${#RESULTS[@]} -gt 0 ] && printf '%s\n' "${RESULTS[@]}"

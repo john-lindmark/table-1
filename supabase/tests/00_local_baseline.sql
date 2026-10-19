@@ -62,6 +62,8 @@ create function cron.schedule(job_name text, schedule text, command text) return
 $$;
 create function cron.unschedule(job_name text) returns boolean language sql as
 $$ with d as (delete from cron.job where jobname = job_name returning 1) select exists (select 1 from d) $$;
+create table cron.job_run_details (jobid bigint, runid bigserial primary key, job_pid integer, database text,
+  username text, command text, status text, return_message text, start_time timestamptz, end_time timestamptz);
 
 -- pg_net stub: requests are recorded, never sent ---------------------------
 create schema net;
@@ -69,6 +71,8 @@ create table net.requests (id bigserial primary key, url text, body jsonb, heade
 create function net.http_post(url text, body jsonb default '{}'::jsonb, params jsonb default '{}'::jsonb,
   headers jsonb default '{"Content-Type": "application/json"}'::jsonb, timeout_milliseconds integer default 5000)
 returns bigint language sql as $$ insert into net.requests(url, body, headers) values (url, body, headers) returning id $$;
+create table net._http_response (id bigint primary key, status_code integer, content_type text, headers jsonb,
+  content text, timed_out boolean, error_msg text, created timestamptz not null default now());
 
 -- storage -------------------------------------------------------------------
 create schema storage;

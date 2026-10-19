@@ -1,0 +1,37 @@
+{
+  "action": "triggered",
+  "installation": { "uuid": "00000000-0000-0000-0000-000000000000" },
+  "data": {
+    "triggered_rule": "T1 bugs: new or regressed",
+    "event": {
+      "event_id": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+      "issue_id": "6012345678",
+      "web_url": "https://table1.sentry.io/issues/6012345678/events/a1b2c3d4e5f60718293a4b5c6d7e8f90/",
+      "title": "EXC_BAD_ACCESS: Fatal error: Index out of range",
+      "culprit": "StandingsView.body.getter",
+      "level": "fatal",
+      "platform": "cocoa",
+      "release": "site.table1.events@1.0+8",
+      "environment": "testflight",
+      "datetime": "2026-10-18T19:12:03.000000Z",
+      "sdk": { "name": "sentry.cocoa" },
+      "user": { "id": "00000000-0000-0000-0000-0000000000a1", "ip_address": "203.0.113.9", "email": "ana@example.com" },
+      "contexts": { "app": { "app_version": "1.0", "app_build": "8" } },
+      "tags": [["environment", "testflight"], ["os.name", "iOS"], ["os", "iOS 26.0"], ["device", "iPhone17,1"], ["release", "site.table1.events@1.0+8"], ["user", "id:00000000-0000-0000-0000-0000000000a1"]],
+      "exception": { "values": [{
+        "type": "EXC_BAD_ACCESS", "value": "Fatal error: Index out of range",
+        "mechanism": { "type": "mach", "handled": false },
+        "stacktrace": { "frames": [
+          { "function": "start", "package": "dyld", "in_app": false },
+          { "function": "Table1App.main()", "filename": "Table1App.swift", "lineno": 12, "in_app": true },
+          { "function": "StandingsView.body.getter", "filename": "OrganizerPhases.swift", "lineno": 841, "in_app": true },
+          { "function": "Array.subscript.getter", "package": "libswiftCore.dylib", "in_app": false }
+        ] }
+      }] },
+      "breadcrumbs": { "values": [
+        { "category": "ui.lifecycle", "message": "OrganizerPhasesView", "level": "info" },
+        { "category": "http", "level": "info", "data": { "url": "https://aaozhfcbvqrgkkrihkrd.supabase.co/rest/v1/rpc/event_bundle?event_id=eq.123", "status_code": 200 } }
+      ] }
+    }
+  }
+}

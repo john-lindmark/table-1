@@ -81,10 +81,23 @@ function copy(m: Message, eventName: string, mine?: { table: number | null; oppo
       if (d.urgent) return { title: "Urgent review", body: "A photo was taken down for child safety. Review it now.", priority: 10 };
       if (d.appeal) return { title: "New appeal", body: "Someone appealed a moderation decision.", priority: 5 };
       return { title: "To review", body: `${d.open ?? "Some"} item${d.open === 1 ? "" : "s"} waiting in Review.`, priority: 5 };
+    // contract/bug-pipeline-2026-10-18.md: only the bug watchers (John) get these.
+    case "ops.bug":
+      return { title: `${d.regressed ? "S1 is back" : "New S1"} · ${platformName(d.platform)}`, body: String(d.title ?? "A severe bug came in."), priority: 10 };
+    case "ops.build": {
+      const server = d.server === true;
+      const builds = (Array.isArray(d.platforms) ? d.platforms : []).filter((p) => p !== "server");
+      const title = builds.length
+        ? `${builds.map(platformName).join(" + ")} build needed${server ? " + server deploy" : ""}`
+        : "Server deploy needed";
+      return { title, body: `Fixes waiting: ${d.summary ?? ""}`, priority: 5 };
+    }
     default:
       return null;
   }
 }
+
+const platformName = (p: unknown) => ({ ios: "iOS", android: "Android", web: "Web", server: "Server" } as Record<string, string>)[String(p)] ?? "App";
 
 /** For kinds about "your match": each recipient's match (table, opponent, side). */
 async function matchesFor(m: Message): Promise<Map<string, { table: number | null; opponent: string | null; side: number }>> {
@@ -151,7 +164,7 @@ async function run() {
         token: d.push_token, env: d.env === "development" ? "development" : "production", priority: c.priority ?? 10,
         collapseId: `${m.kind}:${m.event_id ?? m.data?.user_id ?? ""}`.slice(0, 64),
         payload: {
-          aps: { alert: { title: c.title, body: c.body }, sound: "default", "thread-id": m.event_id ?? "friends" },
+          aps: { alert: { title: c.title, body: c.body }, sound: "default", "thread-id": m.event_id ?? (m.kind.startsWith("ops.") ? "ops" : "friends") },
           kind: m.kind, event_id: m.event_id, match_id: m.data?.match_id ?? null,
         },
       });

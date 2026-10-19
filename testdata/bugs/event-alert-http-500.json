@@ -1,0 +1,21 @@
+{
+  "action": "triggered",
+  "data": {
+    "triggered_rule": "T1 bugs: spike",
+    "event": {
+      "event_id": "0f0e0d0c0b0a09080706050403020100",
+      "issue_id": "6012345999",
+      "web_url": "https://table1.sentry.io/issues/6012345999/",
+      "title": "HTTP Client Error with status code: 500",
+      "culprit": "POST /rest/v1/rpc/report_result",
+      "level": "error",
+      "platform": "javascript",
+      "release": "site.table1.events@2026.10.18",
+      "environment": "production",
+      "sdk": { "name": "sentry.javascript.react" },
+      "request": { "method": "POST", "url": "https://aaozhfcbvqrgkkrihkrd.supabase.co/rest/v1/rpc/report_result?select=*" },
+      "tags": [["environment", "production"], ["browser", "Safari 26.0"], ["url", "https://table-1.site/events/abc?code=XYZW"]],
+      "exception": { "values": [{ "type": "HTTPClientError", "value": "HTTP Client Error with status code: 500", "mechanism": { "type": "http.client", "handled": false } }] }
+    }
+  }
+}

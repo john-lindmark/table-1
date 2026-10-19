@@ -39,6 +39,9 @@ That template is rebuilt only when a migration changes; each `NN_*_test.sql` run
 - `88_moderation` what gets checked (never private content), worker claim/record, cached verdicts, shadow vs enforce,
   child safety in any mode, reversible actions (revert never clobbers a later change), notices and one appeal,
   reports and the trusted-reporter threshold, restrictions, permissions, three failed tries go to review, deletion
+- `95_bug_pipeline` bug intake and grouping (debug ignored), triage with regression and volume floors, one push per S1,
+  the runner's claim/outcomes (stale claims, three tries → John), shipping per platform and build-due pushes, the
+  server sweep (failed cron runs, pg_net 5xx/timeouts), service role only
 - `50_demo` demo data only for `t1_private.demo_testers`, never in `player_records`, `demo_remove` clears it
 - `perf_10_library` (perf tier) 35k Oracle cards / 105k printings, a 5,000-printing collection: `search_cards`,
   `card_prices_get`, `collection_changes`, `collection_apply` (500 ops), `catalog_pack_part` per 10k window; with

@@ -1,0 +1,14 @@
+{
+  "action": "created",
+  "data": { "issue": {
+    "id": "6012340001", "shortId": "TABLE1-ANDROID-1A",
+    "title": "IllegalStateException: Collection mirror out of sync",
+    "culprit": "site.table1.events.library.CollectionRepo in apply",
+    "level": "error", "platform": "java", "status": "unresolved",
+    "project": { "slug": "table1-android", "id": "4512261002428499" },
+    "count": "1", "userCount": 1,
+    "firstSeen": "2026-10-18T18:00:00Z", "lastSeen": "2026-10-18T18:00:00Z",
+    "permalink": "https://table1.sentry.io/issues/6012340001/",
+    "metadata": { "type": "IllegalStateException", "value": "Collection mirror out of sync", "filename": "CollectionRepo.kt", "function": "apply" }
+  } }
+}
