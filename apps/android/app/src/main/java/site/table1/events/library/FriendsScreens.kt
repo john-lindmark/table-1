@@ -131,9 +131,15 @@ fun FriendsScreen(onBack: () -> Unit, onProfile: (String) -> Unit, onAdd: () -> 
                     ListRow(p.displayName, p.handle?.let { "@$it" } ?: "Friend", onClick = { onProfile(p.userId) }, avatar = { Avatar(p.displayName, p.userId) })
                 }
                 if (l.outgoing.isNotEmpty()) item { Section("Sent · ${l.outgoing.size}") }
-                items(l.outgoing, key = { "out" + it.userId }) { p ->
-                    ListRow(p.displayName, if (busy == p.userId) "Working…" else "Requested", onClick = { onProfile(p.userId) },
-                        avatar = { Avatar(p.displayName, p.userId) }) { RowAction("Cancel") { run(p.userId) { FriendsStore.remove(p.userId) } } }
+                items(l.outgoing, key = { "out" + it.key }) { r ->
+                    val p = r.person
+                    if (p != null) {
+                        ListRow(p.displayName, if (busy == r.key) "Working…" else "Requested", onClick = { onProfile(p.userId) },
+                            avatar = { Avatar(p.displayName, p.userId) }) { RowAction("Cancel") { run(r.key) { FriendsStore.cancel(r) } } }
+                    } else {
+                        // Asked by email: only the address (the server never says whose account it is).
+                        ListRow(r.label, if (busy == r.key) "Working…" else "Asked by email") { RowAction("Cancel") { run(r.key) { FriendsStore.cancel(r) } } }
+                    }
                 }
                 if (l.blocked.isNotEmpty()) item { Section("Blocked · ${l.blocked.size}") }
                 items(l.blocked, key = { "b" + it.userId }) { p ->
@@ -321,7 +327,7 @@ fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: Stri
                 })
             }
             if (s.allCards != null || s.forTrade != null || s.wants != null) item { Section("Library") }
-            s.allCards?.let { c -> open("All cards", listOfNotNull(plural(c.cards, "card"), c.valueUsd?.takeIf { it > 0 }?.let(PriceBook::text)).joinToString(" · "), "all_cards") }
+            s.allCards?.let { c -> open("All cards", listOfNotNull(plural(c.cards, "card"), p.valueUsd?.takeIf { it > 0 }?.let(PriceBook::text)).joinToString(" · "), "all_cards") }
             s.forTrade?.let { open("For trade", plural(it.cards, "card"), "for_trade") }
             s.wants?.let { open("Wants", "${plural(it.cards, "card")} wanted", "wants") }
             s.binders?.takeIf { it.isNotEmpty() }?.let { b ->

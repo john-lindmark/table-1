@@ -51,10 +51,42 @@ struct Person: Codable, Hashable, Identifiable, Sendable {
     var label: String { displayName }
 }
 
+/// A request you sent: to an account (asked by id: a Person) or to an address (asked by email: `{email, at}`, no
+/// user_id, account or not, so the server never says whose it is). Older servers sent email asks as a Person.
+struct SentRequest: Codable, Hashable, Identifiable, Sendable {
+    var person: Person?
+    var email: String?
+    var at: String?
+    var id: String { person?.userId ?? "email:\(email ?? "")" }
+    var label: String { person?.displayName ?? email ?? "" }
+
+    init(person: Person) { self.person = person; at = person.at }
+    init(email: String, at: String? = nil) { self.email = email; self.at = at }
+
+    private enum Keys: String, CodingKey { case userId, email, at }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: Keys.self)
+        at = try c.decodeIfPresent(String.self, forKey: .at)
+        if c.contains(.userId), (try? c.decodeNil(forKey: .userId)) == false {
+            person = try Person(from: decoder)
+        } else {
+            email = try c.decodeIfPresent(String.self, forKey: .email)
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        if let person { try person.encode(to: encoder); return }
+        var c = encoder.container(keyedBy: Keys.self)
+        try c.encodeIfPresent(email, forKey: .email)
+        try c.encodeIfPresent(at, forKey: .at)
+    }
+}
+
 struct FriendsList: Codable, Equatable, Sendable {
     var friends: [Person] = []
     var incoming: [Person] = []
-    var outgoing: [Person] = []
+    var outgoing: [SentRequest] = []
     var blocked: [Person] = []
 }
 
@@ -223,6 +255,10 @@ struct ProfileData: Decodable, Sendable {
     }
 
     var person: Person { Person(userId: userId, displayName: displayName, handle: handle, avatarUrl: avatarUrl, relation: relation) }
+
+    /// The collection's value, on your own profile only (the server sends it only there now; older servers sent it to
+    /// anyone who saw All cards).
+    var valueUsd: Double? { relation == .me ? sections.allCards?.valueUsd : nil }
 
     /// Sections that reach you (binders, decks and cubes count one each).
     var sectionCount: Int {
@@ -424,14 +460,6 @@ final class FriendsStore {
     @ObservationIgnored var demo: FriendsDemoBackend?
     #endif
 
-    private var isDemo: Bool {
-        #if DEBUG
-        demo != nil
-        #else
-        false
-        #endif
-    }
-
     var requestsWaiting: Int { list?.incoming.count ?? 0 }
 
     func stop() {
@@ -486,11 +514,17 @@ final class FriendsStore {
     }
 
     func requestByEmail(_ email: String) async throws {
-        if !isDemo {
-            try await supabase.rpc("friend_request_by_email", params: ["p_email": AnyJSON.string(email)]).execute()
-        }
+        #if DEBUG
+        if let demo { demo.requestByEmail(email) } else { try await remoteRequestByEmail(email) }
+        #else
+        try await remoteRequestByEmail(email)
+        #endif
         Telemetry.capture("friend_request_sent", ["via": "email"])
         await load()
+    }
+
+    private func remoteRequestByEmail(_ email: String) async throws {
+        try await supabase.rpc("friend_request_by_email", params: ["p_email": AnyJSON.string(email)]).execute()
     }
 
     func respond(_ userId: String, accept: Bool) async throws {
@@ -522,6 +556,26 @@ final class FriendsStore {
 
     private func remoteRemove(_ userId: String) async throws {
         try await supabase.rpc("friend_remove", params: ["p_user_id": AnyJSON.string(userId)]).execute()
+    }
+
+    /// Cancels a request you made by email (an `{email, at}` row in Sent).
+    func cancelEmail(_ email: String) async throws {
+        #if DEBUG
+        if let demo { demo.cancelEmail(email) } else { try await remoteCancelEmail(email) }
+        #else
+        try await remoteCancelEmail(email)
+        #endif
+        Telemetry.capture("friend_request_cancelled", ["via": "email"])
+        await load()
+    }
+
+    private func remoteCancelEmail(_ email: String) async throws {
+        try await supabase.rpc("friend_cancel_email", params: ["p_email": AnyJSON.string(email)]).execute()
+    }
+
+    /// Cancels a row in Sent, whichever way it was asked.
+    func cancel(_ r: SentRequest) async throws {
+        if let p = r.person { try await remove(p.userId) } else if let e = r.email { try await cancelEmail(e) }
     }
 
     func block(_ userId: String, _ on: Bool) async throws {

@@ -154,9 +154,16 @@ struct FriendsView: View {
                     }
                     if !l.outgoing.isEmpty {
                         Section1("Sent · \(l.outgoing.count)")
-                        ForEach(l.outgoing) { p in
-                            row(p, detail: "Requested") {
-                                RowAction(text: "Cancel") { run(p.userId) { try await store.remove(p.userId) } }
+                        ForEach(l.outgoing) { r in
+                            if let p = r.person {
+                                row(p, detail: "Requested") {
+                                    RowAction(text: "Cancel") { run(r.id) { try await store.cancel(r) } }
+                                }
+                            } else {
+                                // Asked by email: only the address (the server never says whose account it is).
+                                ListRow(title: r.label, detail: busy == r.id ? "Working…" : "Asked by email") {
+                                    RowAction(text: "Cancel") { run(r.id) { try await store.cancel(r) } }
+                                }
                             }
                         }
                     }
@@ -421,7 +428,8 @@ struct ProfileScreen: View {
         }
         if s.allCards != nil || s.forTrade != nil || s.wants != nil { Section1("Library") }
         if let c = s.allCards {
-            open("All cards", detail: [plural(c.cards, "card"), c.valueUsd.flatMap { PriceBook.text($0) }].compactMap { $0 }.joined(separator: " · "), kind: "all_cards")
+            let value = d.valueUsd.flatMap { PriceBook.text($0) }
+            open("All cards", detail: [plural(c.cards, "card"), value].compactMap { $0 }.joined(separator: " · "), kind: "all_cards")
         }
         if let c = s.forTrade { open("For trade", detail: plural(c.cards, "card"), kind: "for_trade") }
         if let c = s.wants { open("Wants", detail: plural(c.cards, "card") + " wanted", kind: "wants") }

@@ -153,7 +153,7 @@ were friends).
   `sections`: int), `profile_section_opened` (`section`), `trade_matches_viewed` (`people`, `have`, `want`: copies),
   `trade_started_from_match` (`gives`, `gets`: copies). `players_invited` gains `friends`. Screens: `friends`,
   `friend_add`, `profile`, `profile_cards`, `sharing`, `trade_matches`, `trade_match`.
-- **Demo:** iOS Debug `-T1LibraryDemo friends|profile|sharing|matches|match` (two demo friends with trade binders and
+- **Demo:** iOS Debug `-T1LibraryDemo friends|profile|sharing|matches|match|me` (`me`: your own profile; two demo friends with trade binders and
   wants that match the fixture's, one public player from an event); web dev `/friends?demo`, `/library/matches?demo`,
   `/sharing?demo`, `/u/d0000000-0000-0000-0000-0000000f0001?demo`. Both demos match with `TradeMatcher` / `matchLines`
   (the server's rules on the device). Android has no Library demo.
@@ -189,6 +189,12 @@ From the privacy review of this feature. Server-side; tests in `80_friends_shari
    in both directions, with their usual answers. No client change.
 4. **Collection value.** `profile_view` returns `all_cards.value_usd` only on your own profile. **Client change:**
    treat it as optional; show the value only on your own profile.
+
+Clients (2026-10-18, all three): `outgoing` decodes both shapes (`SentRequest` on iOS/Android, `parseFriendsList` on
+web; a Person row from an older server still reads as a Person), Sent shows an email row as the address ("Asked by
+email") with Cancel → `friend_cancel_email`, and All cards shows the value only when `relation` is `self` (also when an
+older server still sends it). Tests: iOS `FriendsTests`, web `friends.test.ts`, Android `FriendsTest`. Demos have one
+email row in Sent; Mara's All cards carries a `value_usd` on purpose (the old shape) to show it stays hidden.
 
 Not covered here (waiting on John): anon-readable profiles / events / participants, Record = private being
 bypassable through event data, reporting. Also still open: an organizer can read `event_invites`, so a missing

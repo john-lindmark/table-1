@@ -1,13 +1,14 @@
 // Dev server only (`?demo`): friends, profiles, sharing and trade matches on the Library demo, as the iOS Debug demo
 // does. Two friends hold for-trade copies of the demo account's wants and want some of its for-trade copies; one
-// player from an event shares For trade publicly. Matching runs matchLines, the same rules as the server.
+// player from an event shares For trade publicly. Matching runs matchLines, the same rules as the server. Sent holds one
+// request by id and one by email (an address only, as the server shows every email ask).
 import { applyWants, binderById, bindersNow, liveWants, allocItemKey, type Alloc, type WantOp } from "./binders";
 import { coverPrinting, oracleIndexById, type Catalog } from "./catalog";
 import { loadDemoLists } from "./libraryDemo";
 import { loadPrices, usdPrice } from "./prices";
 import {
   DEFAULT_SHARING, linesValue, matchLines, sees, setFriendsDemo, shownLines, type CopyIn, type FriendsDemo, type FriendsList,
-  type Person, type ProfileCard, type ProfileData, type Relation, type SectionKind, type Sharing, type TradeMatch, type Visibility,
+  sentRequest, type Person, type ProfileCard, type ProfileData, type Relation, type SectionKind, type Sharing, type TradeMatch, type Visibility,
   type WantIn,
 } from "./friends";
 
@@ -32,7 +33,8 @@ const p = (n: number, name: string, extra: Partial<Person> = {}): Person =>
 class Demo implements FriendsDemo {
   list: FriendsList = {
     friends: [p(1, "Mara Quinn", { handle: "maraq" }), p(2, "Theo Vance")],
-    incoming: [p(4, "Sam Okafor")], outgoing: [p(5, "Lee Park")], blocked: [],
+    incoming: [p(4, "Sam Okafor")], blocked: [],
+    outgoing: [sentRequest({ email: "jo.ng@example.com", at: "2026-10-18T09:30:00Z" }), sentRequest(p(5, "Lee Park"))],
   };
   sharing: Sharing = { ...DEFAULT_SHARING, for_trade: "friends", wants: "friends" };
   private people = new Map<string, Someone>();
@@ -97,14 +99,15 @@ class Demo implements FriendsDemo {
 
   relation(uid: string): Relation {
     const has = (l: Person[]) => l.some((x) => x.user_id === uid);
-    return has(this.list.friends) ? "friend" : has(this.list.incoming) ? "incoming" : has(this.list.outgoing) ? "requested"
+    const asked = this.list.outgoing.some((x) => x.person?.user_id === uid);
+    return has(this.list.friends) ? "friend" : has(this.list.incoming) ? "incoming" : asked ? "requested"
       : has(this.list.blocked) ? "blocked" : "none";
   }
 
   private level = (uid: string) => (this.relation(uid) === "blocked" ? -1 : this.relation(uid) === "friend" ? 1 : 0);
 
   private person(uid: string): Person {
-    return this.people.get(uid)?.person ?? [...this.list.incoming, ...this.list.outgoing, ...this.list.blocked, ...this.playedWith]
+    return this.people.get(uid)?.person ?? [...this.list.incoming, ...this.list.outgoing.flatMap((x) => (x.person ? [x.person] : [])), ...this.list.blocked, ...this.playedWith]
       .find((x) => x.user_id === uid) ?? p(7, "Nadia Stone", { handle: "nstone" });
   }
 
@@ -122,7 +125,7 @@ class Demo implements FriendsDemo {
       return "friends";
     }
     if (this.relation(uid) === "friend") return "friends";
-    if (this.relation(uid) === "none") this.list.outgoing.unshift(this.person(uid));
+    if (this.relation(uid) === "none") this.list.outgoing.unshift(sentRequest(this.person(uid)));
     return "requested";
   }
 
@@ -135,7 +138,17 @@ class Demo implements FriendsDemo {
 
   remove(uid: string) {
     this.list.friends = this.list.friends.filter((x) => x.user_id !== uid);
-    this.list.outgoing = this.list.outgoing.filter((x) => x.user_id !== uid);
+    this.list.outgoing = this.list.outgoing.filter((x) => x.person?.user_id !== uid);
+  }
+
+  /** An email ask shows as the address, account or not. */
+  requestByEmail(email: string) {
+    const e = email.toLowerCase();
+    if (!this.list.outgoing.some((x) => x.email === e)) this.list.outgoing.unshift(sentRequest({ email: e, at: new Date().toISOString() }));
+  }
+
+  cancelEmail(email: string) {
+    this.list.outgoing = this.list.outgoing.filter((x) => x.email !== email.toLowerCase());
   }
 
   block(uid: string, on: boolean) {
@@ -166,6 +179,11 @@ class Demo implements FriendsDemo {
       sections.decks = lv >= 1 ? s.decks : [];
       sections.cubes = [];
       if (lv >= 1 && s.record) sections.record = s.record;
+      // Older servers sent value_usd to everyone who sees All cards: the profile must still hide it.
+      if (lv >= 1 && uid === DEMO_FRIEND) {
+        sections.all_cards = { cards: s.copies.reduce((n, c) => n + c.qty, 0), printings: s.copies.length,
+                               value_usd: s.copies.reduce((n, c) => n + c.qty * (c.usd ?? 0), 0) };
+      }
     }
     return { ...base, friends_since: lv === 1 ? "2026-09-12T19:00:00Z" : null, visible, sections };
   }
@@ -173,6 +191,7 @@ class Demo implements FriendsDemo {
   cards(uid: string, section: SectionKind, item: string | null): ProfileCard[] {
     const s = this.people.get(uid);
     if (!s) return [];
+    if (section === "all_cards") return s.copies.map((c) => ({ cardId: c.card_id, finish: c.finish, qty: c.qty }));
     if (section === "for_trade" || section === "binder") {
       return s.copies.map((c) => ({ cardId: c.card_id, finish: c.finish, condition: c.condition, lang: c.lang, qty: c.qty }));
     }
