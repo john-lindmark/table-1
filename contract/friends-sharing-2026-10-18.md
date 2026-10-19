@@ -172,7 +172,7 @@ were friends).
 `delete_account` removes your friendships, requests, blocks (both ways), sharing settings and audit rows, and clears
 `partner_id` on other people's trades with you.
 
-## Privacy fixes (2026-10-18, migration `20261018160000_friends_privacy_fixes.sql`)
+## Privacy fixes (2026-10-18, migration `20261018160000_friends_privacy_fixes.sql`, live 2026-10-18)
 
 From the privacy review of this feature. Server-side; tests in `80_friends_sharing_test.sql`.
 
