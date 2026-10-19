@@ -220,6 +220,15 @@ fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit
                 }
             }
             item {
+                var sharing by remember { mutableStateOf(Telemetry.sharing) }
+                val toggle = { sharing = !sharing; Telemetry.setSharing(sharing) }
+                ListRow("Share usage and crash data",
+                    "Which features you use and crash reports, tied to your account id only: never names, cards or events",
+                    onClick = toggle) {
+                    T1Switch(sharing) { toggle() }
+                }
+            }
+            item {
                 ListRow("Location and notifications", "Managed in Android settings", onClick = {
                     context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
                 }) { Label("Open", color = T1.text) }

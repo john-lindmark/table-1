@@ -166,16 +166,22 @@ when notify-worker ships). That's what PostHog needs to send pushes itself. Turn
 `analytics_opted_out` is sent once, just before capture stops.
 
 ## Sentry
-- One project per platform (`table1-ios`, `table1-android`, `table1-web`). `release` = `site.table1.events@<version>+<build>`, `environment` as above.
+- One project per platform (`table-1-ios`, `table-1-android`, `table-1-web`; the bug pipeline maps these slugs). `release` = `site.table1.events@<version>+<build>`, `environment` as above.
 - `sendDefaultPii` off. The user is set to `{ id }` only. Query strings are stripped from breadcrumbs and request URLs (PostgREST filters
   carry ids). Failed-request capture covers 5xx only, since 4xx is how RLS and validation reply.
-- Traces sampled at 10% in production and 100% in TestFlight. Profiling and session replay are off. App-hang tracking is on (iOS, 2 s).
+- Traces sampled at 10% in production and 100% in TestFlight. Profiling and session replay are off. App-hang tracking is on (iOS, 2 s); ANR tracking is on (Android, the system's 5 s).
+- Non-fatal errors: `Telemetry.error(error, area)` on every platform, tagged `area` (e.g. `sign_in`, `catalog_pack`); cancellations and offline errors are not reported.
+- Android: no session replay module, no screenshots or view hierarchy. Release builds tag `environment` from `T1_ENVIRONMENT` in gradle.properties
+  (`testflight` while every Play upload goes to internal testing; `production` for production-track bundles), since Play can't tell the app which track installed it.
 - Upload dSYMs (iOS) and ProGuard mappings (Android, once release signing exists) on archive.
 
 ## Keys
 Client keys are public by design, like the Supabase anon key. iOS reads `T1PostHogKey`, `T1PostHogHost` (default `https://us.i.posthog.com`)
-and `T1SentryDSN` from Info.plist (set in `project.yml`); empty means telemetry is off. Android reads `BuildConfig`, web reads `VITE_POSTHOG_KEY`
+and `T1SentryDSN` from Info.plist (set in `project.yml`); empty means telemetry is off. Android reads `BuildConfig` (Sentry: `T1_SENTRY_DSN` in gradle.properties; Debug sends only when built with `-PT1_TELEMETRY=1`), web reads `VITE_POSTHOG_KEY`
 and `VITE_SENTRY_DSN`. Web drops GA4 (`gtag`) for PostHog but keeps `redactPath` / `redactSearch` for `$current_url`.
 
 ## Rollout
-iOS (2026-10-15) → web → Android, per the build order. Server-side capture from `events-engine` is not needed while business numbers come from Postgres.
+iOS (2026-10-15) → web → Android, per the build order. Android Sentry (crashes, native crashes, ANRs, non-fatal errors, 5xx
+from the Supabase client) built 2026-10-19 with the Account opt-out; off until `T1_SENTRY_DSN` is set and the `table-1-android` alert rules
+point at the Table 1 Bugs integration; not yet run on a device; ProGuard mapping upload waits for release signing. Android PostHog is not wired yet
+(`Telemetry.capture` logs in Debug). Server-side capture from `events-engine` is not needed while business numbers come from Postgres.

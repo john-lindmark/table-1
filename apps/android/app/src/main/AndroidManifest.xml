@@ -20,6 +20,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Table1">
 
+        <!-- Sentry starts from Telemetry.start (DSN, opt-out, scrubbing), not from its own provider. -->
+        <meta-data android:name="io.sentry.auto-init" android:value="false" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

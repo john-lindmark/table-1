@@ -24,6 +24,7 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
+import site.table1.events.util.Telemetry
 
 // The offline card catalog (contract/catalog-2026-10-14.md): one gzipped TSV pack, downloaded only when its
 // version changes, verified, and loaded into a local SQLite file. Search, the collection list and card detail
@@ -334,6 +335,7 @@ object CatalogStore {
             old?.close()
             dir.listFiles()?.filter { it.name != file.name && it.name.startsWith("catalog-") }?.forEach { it.delete() }
         } catch (e: Exception) {
+            if (e !is java.io.IOException) Telemetry.error(e, "catalog_pack")   // offline is expected
             // With a pack installed, keep using it quietly and try again next launch.
             if (!hadPack) fail(e.message ?: "Couldn't load card data")
         }
