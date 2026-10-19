@@ -48,7 +48,7 @@ properties. Every client sends the same names, so one PostHog insight covers all
 `list_versions`, `list_add`, `list_printing`, `deck_finder`, `list_import`, `trades`, `trade`, `account`,
 `roto_grid`, `roto_cube`, `roto_picks`, `roto_list` (2026-10-16), `collection_import`, `collection_import_fix` (2026-10-17), `deck_stats`, `cube_stats`, `sample_hand`, `draw_odds`, `sample_pack` (2026-10-17), `binders`, `binder`, `wants`, `want_add` (2026-10-17, binders and wants), `friends`, `friend_add`, `profile`,
 `profile_cards`, `sharing`, `trade_matches`, `trade_match` (2026-10-18, friends and sharing), `want_printing`, `binder_add`
-(2026-10-18, `library-search-2026-10-18.md`).
+(2026-10-18, `library-search-2026-10-18.md`), `item_printing`, `trade_printing` (2026-10-18, `change-printing-2026-10-18.md`).
 
 ## Events
 
@@ -135,6 +135,7 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `library_searched` | `screen`: cube / deck / wants / binder / binders. Once per visit, when that screen's search is first used; never the text (2026-10-18, `library-search-2026-10-18.md`) |
 | `list_card_removed` | `kind`: deck / cube. Remove in Add, remove or replace |
 | `list_card_replaced` | `kind`. Replace swaps one copy for another card in one edit |
+| `printing_changed` | `where`: list / collection / binder / trade, `copies`, `finish_only`: bool (2026-10-18, `change-printing-2026-10-18.md`) |
 | `friend_request_sent` | `via`: search / played_with / email / profile (2026-10-18, `friends-sharing-2026-10-18.md`) |
 | `friend_request_responded` | `accepted`: bool |
 | `friend_request_cancelled` | — |

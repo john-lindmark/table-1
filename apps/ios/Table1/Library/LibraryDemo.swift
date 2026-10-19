@@ -383,11 +383,35 @@ struct LibraryDemoRoot: View {
             await FriendsDemo.seed()
             // `card`: a card with copies in the trade binder. `tradewants`: a draft giving a trade-binder copy and
             // getting a wanted card (the want is marked). Both need the card data, so they open once it's in.
-            guard let db = CatalogStore.shared.db, path.isEmpty, let arg = Self.arg, ["card", "tradewants"].contains(arg) else { return }
+            guard let db = CatalogStore.shared.db, path.isEmpty, let arg = Self.arg,
+                  ["card", "tradewants", "deckcard", "deckprinting", "bindercard", "binderprinting"].contains(arg) else { return }
             let store = BindersStore.shared
+            // Change printing (contract/change-printing-2026-10-18.md): card detail opened from the deck's first main
+            // line, or from the trade binder; `…printing` also opens Change printing on it.
+            if arg.hasPrefix("deck"), let l = ListsStore.shared.lists.first(where: { $0.kind == .deck }),
+               let e = l.entries.first(where: { $0.board == "main" }),
+               let p = db.printings(ids: [e.cardId])[e.cardId], let o = db.oracles(idxs: [p.oracleIdx])[p.oracleIdx] {
+                path = [.lists(.deck), .list(l.id), .cardIn(o.oracleId, .list(l.id))]
+                if arg == "deckprinting" {
+                    T1Overlays.shared.present(full: true) {
+                        ChangePrintingView(target: .listLine(listId: l.id, cardId: e.cardId, board: e.board, finish: e.finish),
+                                           close: { T1Overlays.shared.dismissPanel() })
+                    }
+                }
+                return
+            }
             guard let a = store.allocs.values.filter({ store.binder($0.binderId)?.forTrade == true }).sorted(by: { $0.key < $1.key }).first,
                   let p = db.printings(ids: [a.cardId])[a.cardId], let o = db.oracles(idxs: [p.oracleIdx])[p.oracleIdx] else { return }
             if arg == "card" { path = [.card(o.oracleId)]; return }
+            if arg.hasPrefix("binder") {
+                path = [.binders, .binder(a.binderId), .cardIn(o.oracleId, .binder(a.binderId))]
+                if arg == "binderprinting", let it = CollectionStore.shared.items[a.itemKey] {
+                    T1Overlays.shared.present(full: true) {
+                        ChangePrintingView(target: .owned(it, place: a.binderId), close: { T1Overlays.shared.dismissPanel() })
+                    }
+                }
+                return
+            }
             guard let w = store.liveWants.first(where: { $0.maxUsd != nil }) ?? store.liveWants.first,
                   let wo = db.oracle(id: w.oracleId), let wp = w.cardId.flatMap({ db.printings(ids: [$0])[$0] }) ?? db.covers(oracleIdxs: [wo.idx])[wo.idx]
             else { return }
@@ -397,7 +421,7 @@ struct LibraryDemoRoot: View {
         }
     }
 
-    /// Design QA: `-T1LibraryDemo allcards|add|import|trades|trade|tradewants|binders|binder|wants|card|deck|cube|
+    /// Design QA: `-T1LibraryDemo allcards|add|import|trades|trade|tradewants|binders|binder|wants|card|deckcard|deckprinting|bindercard|binderprinting|deck|cube|
     /// deckstats|cubestats|hand|odds|pack|friends|profile|sharing|matches|match|me` opens that screen (deck and cube: the fixture's first of each; stats, sample
     /// hand, draw odds and sample pack on it; `-T1ListExport arena|moxfield|mtgo|text|cubecobra` then exports it).
     /// `import` with `-T1ImportFile <path>` reads that file as if it had been picked.

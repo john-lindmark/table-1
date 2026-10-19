@@ -270,7 +270,11 @@ struct TradeView: View {
             .padding(.horizontal, 12).padding(.vertical, 8).background(T1.surface)
             ScrollView {
                 VStack(spacing: 1) {
-                    ForEach(lines) { $line in cell($line, give: give) { lines.wrappedValue.removeAll { $0.id == line.id } } }
+                    ForEach(lines) { $line in
+                        cell($line, give: give, repoint: { c, f in
+                            lines.wrappedValue = TradeLine.repoint(lines.wrappedValue, id: line.id, cardId: c, finish: f)
+                        }) { lines.wrappedValue.removeAll { $0.id == line.id } }
+                    }
                 }
             }
             .frame(maxHeight: .infinity)
@@ -306,14 +310,15 @@ struct TradeView: View {
     }
 
     /// One line in a column: small art, name, printing, finish, condition, price, quantity.
-    private func cell(_ line: Binding<TradeLine>, give: Bool, remove: @escaping () -> Void) -> some View {
+    private func cell(_ line: Binding<TradeLine>, give: Bool, repoint: @escaping (String, String) -> Void,
+                      remove: @escaping () -> Void) -> some View {
         let l = line.wrappedValue
         let p = meta[l.cardId]
         let name = p.flatMap { names[$0.oracleIdx] } ?? "Card"
         let price = PriceBook.text(prices.usd(l.cardId, l.finish))
         let note = give ? nil : wantNote(l)
         let from = give ? l.binderId.flatMap { BindersStore.shared.binder($0)?.name } : nil
-        return Button { if !confirmed { edit(line, give: give, remove: remove) } } label: {
+        return Button { if !confirmed { edit(line, give: give, repoint: repoint, remove: remove) } } label: {
             HStack(spacing: 8) {
                 if let p { p.art(width: 28) } else { Rectangle().fill(T1.bg).frame(width: 28, height: 28 / CardArt.aspect) }
                 VStack(alignment: .leading, spacing: 2) {
@@ -337,8 +342,9 @@ struct TradeView: View {
 
     // MARK: actions
 
-    /// Line menu: quantity, finish, condition, remove.
-    private func edit(_ line: Binding<TradeLine>, give: Bool, remove: @escaping () -> Void) {
+    /// Line menu: quantity, printing, finish, condition, remove. A get's printing or finish change merges into a
+    /// line that already has that copy.
+    private func edit(_ line: Binding<TradeLine>, give: Bool, repoint: @escaping (String, String) -> Void, remove: @escaping () -> Void) {
         let l = line.wrappedValue
         let p = meta[l.cardId]
         let ownedQty = CollectionStore.shared.items[l.id]?.qty ?? 0
@@ -347,8 +353,13 @@ struct TradeView: View {
             T1MenuItem(title: "One fewer", enabled: l.qty > 1) { line.wrappedValue.qty -= 1 },
         ]
         if !give {
+            items.append(T1MenuItem(title: "Change printing", detail: p?.setLabel) {
+                T1Overlays.shared.present(full: true) {
+                    ChangePrintingView(target: .tradeGet(l, apply: repoint), close: { T1Overlays.shared.dismissPanel() }).screen("trade_printing")
+                }
+            })
             for f in p?.finishList ?? [] where f.rawValue != l.finish {
-                items.append(T1MenuItem(title: "Make it \(f.label.lowercased())") { line.wrappedValue.finish = f.rawValue })
+                items.append(T1MenuItem(title: "Make it \(f.label.lowercased())") { repoint(l.cardId, f.rawValue) })
             }
             items.append(T1MenuItem(title: "Condition", detail: Conditions.name(l.condition)) {
                 T1Overlays.shared.showMenu("Condition", Conditions.all.map { c in
