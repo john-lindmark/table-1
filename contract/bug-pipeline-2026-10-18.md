@@ -14,7 +14,7 @@ Sentry (iOS, Android, web) ──webhook──▶ bugs edge function ──▶ t
 ```
 
 ## Intake
-- **Sentry** (one project per platform: `table1-ios`, `table1-android`, `table1-web`; see `telemetry-2026-10-15.md`). An
+- **Sentry** (one project per platform: `table-1-ios` live; `table-1-web` once web has a DSN; `table-1-android` once Android has Sentry; see `telemetry-2026-10-15.md`). An
   internal integration posts webhooks to `https://aaozhfcbvqrgkkrihkrd.supabase.co/functions/v1/bugs`, signed with its
   client secret (stored server-side by `bugs.py setup-sentry`). Two resources are used:
   - `event_alert`: an alert rule fired, with the full event. Each fire counts one occurrence and replaces the bug's
@@ -87,7 +87,7 @@ A `fixed` bug that keeps reporting before its fix ships is just counted (old bui
 3. Sentry → Settings → Developer Settings → Custom Integrations → **New Internal Integration** "Table 1 Bugs":
    webhook URL above, **Alert Rule Action** on, permissions Issue & Event: Read, webhooks: `issue`. Copy its client
    secret and run `tools/bugs/bugs.py setup-sentry`.
-4. In each of the three projects, two alert rules with the action "Send a notification via Table 1 Bugs":
+4. In each Sentry project, two alert rules with the action "Send a notification via Table 1 Bugs":
    **"T1 bugs: new or regressed"** (a new issue is created; an issue changes state from resolved to unresolved;
    an issue escalates) and **"T1 bugs: spike"** (seen more than 50 times in 1 hour; the name must contain "spike").
 5. `tools/bugs/install.sh`, and sign the `claude` CLI in once in Terminal (`claude`, then `/login`): the desktop app's

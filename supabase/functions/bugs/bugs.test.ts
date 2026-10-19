@@ -54,6 +54,7 @@ Deno.test("issue created carries the user count; other actions and resources fil
 
 Deno.test("platform from project slug, else SDK", () => {
   assertEquals(platformOf({ project: "table1-web" }), "web");
+  assertEquals(platformOf({ project: "table-1-ios", platform: "python" }), "ios");
   assertEquals(platformOf({ sdk: "sentry.java.android" }), "android");
   assertEquals(platformOf({ platform: "cocoa" }), "ios");
   assertEquals(platformOf({ platform: "python" }), "unknown");

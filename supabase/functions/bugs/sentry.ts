@@ -32,7 +32,10 @@ export async function verify(body: string, signature: string | null, secret: str
   return diff === 0;
 }
 
-const PROJECTS: Record<string, Report["platform"]> = { "table1-ios": "ios", "table1-android": "android", "table1-web": "web" };
+const PROJECTS: Record<string, Report["platform"]> = {
+  "table-1-ios": "ios", "table-1-android": "android", "table-1-web": "web",
+  "table1-ios": "ios", "table1-android": "android", "table1-web": "web",
+};
 
 export function platformOf(p: { project?: string; platform?: string; sdk?: string }): Report["platform"] {
   if (p.project && PROJECTS[p.project]) return PROJECTS[p.project];
