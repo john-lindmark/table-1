@@ -9,11 +9,21 @@ import Supabase
 enum Visibility: String, Codable, CaseIterable, Sendable {
     case `private`, friends, `public`
 
+    /// "Anyone" always means anyone on Table 1; the UI never says "Public" (the wire value stays `public`).
     var label: String {
         switch self {
         case .private: "Private"
         case .friends: "Friends"
-        case .public: "Public"
+        case .public: "Anyone"
+        }
+    }
+
+    /// Who it reaches, in a sentence: "only you" / "friends" / "anyone on Table 1".
+    var who: String {
+        switch self {
+        case .private: "only you"
+        case .friends: "friends"
+        case .public: "anyone on Table 1"
         }
     }
 
@@ -185,6 +195,107 @@ enum SharingRules {
         return "Profile \(s.profile.label.lowercased()) · " + (n == 0 ? "nothing shared" : "\(n) shared")
     }
 
+    /// Who a part reaches once the profile cap applies (Record and the Library parts).
+    static func reachOf(_ s: SharingSettings, _ p: SharePart) -> Visibility {
+        p == .profile ? s.profile : reach(s, effective(s, p))
+    }
+
+    static func reachOf(_ s: SharingSettings, _ item: ShareItem) -> Visibility { reach(s, effective(s, item)) }
+
+    /// What newly reaches friends and anyone when settings go from `a` to `b` (contract § UX rules 4). Empty = the
+    /// change only narrows or does nothing, so it applies without asking. Group defaults (Library, Binders, Decks,
+    /// Cubes) show up through the parts and items that follow them, never on their own.
+    struct Widening: Equatable, Sendable {
+        var friends: [String] = []
+        var anyone: [String] = []
+        var allCardsToAnyone = false
+        var profileToAnyone = false
+        var isEmpty: Bool { friends.isEmpty && anyone.isEmpty }
+
+        var title: String { anyone.isEmpty ? "Show to friends?" : "Show to anyone on Table 1?" }
+
+        var message: String {
+            var lines: [String] = []
+            if !anyone.isEmpty { lines.append("Anyone on Table 1 will see: \(anyone.joined(separator: ", ")).") }
+            if !friends.isEmpty { lines.append("Friends will see: \(friends.joined(separator: ", ")).") }
+            if allCardsToAnyone { lines.append("Every card you own. Your total value is never shown.") }
+            if profileToAnyone { lines.append("Your profile shows up when people search your name.") }
+            return lines.joined(separator: "\n\n")
+        }
+    }
+
+    static let shownParts: [(SharePart, String)] = [(.profile, "your profile"), (.record, "your record"),
+                                                     (.allCards, "All cards"), (.forTrade, "For trade"), (.wants, "Wants")]
+
+    static func widening(_ a: SharingSettings, _ b: SharingSettings) -> Widening {
+        var w = Widening()
+        func add(_ name: String, _ to: Visibility) { if to == .public { w.anyone.append(name) } else { w.friends.append(name) } }
+        for (p, name) in shownParts {
+            let ra = reachOf(a, p), rb = reachOf(b, p)
+            guard rb.asks < ra.asks else { continue }
+            add(name, rb)
+            if p == .allCards && rb == .public { w.allCardsToAnyone = true }
+            if p == .profile && rb == .public { w.profileToAnyone = true }
+        }
+        let before = Dictionary(a.items.map { ($0.id, $0) }, uniquingKeysWith: { x, _ in x })
+        for kind in ["binder", "deck", "cube"] {
+            for to in [Visibility.public, .friends] {
+                let opened = b.items.filter { item in
+                    guard item.kind == kind, reachOf(b, item) == to else { return false }
+                    let was = before[item.id].map { reachOf(a, $0) } ?? .private
+                    return to.asks < was.asks
+                }
+                if opened.count == 1 { add(opened[0].name, to) }
+                else if opened.count > 1 { add("\(opened.count) \(kind)s", to) }
+            }
+        }
+        return w
+    }
+
+    /// One line per audience for the top of Sharing (contract § UX rules 5): "Friends see: your name and photo, For
+    /// trade, 2 decks." Name and photo always show to signed-in accounts; the rest only through the profile.
+    static func seesLine(_ s: SharingSettings, level: Int) -> String {
+        var names = ["your name and photo"]
+        let profile = s.profile
+        if level >= profile.asks {
+            for (p, name) in shownParts where p != .profile && sees(level: level, profile: profile, part: effective(s, p)) {
+                names.append(name)
+            }
+            for kind in ["binder", "deck", "cube"] {
+                let n = s.items.filter { $0.kind == kind && sees(level: level, profile: profile, part: effective(s, $0)) }.count
+                if n > 0 { names.append("\(n) \(kind)\(n == 1 ? "" : "s")") }
+            }
+        }
+        return (level >= 1 ? "Friends see: " : "Anyone on Table 1 sees: ") + names.joined(separator: ", ") + "."
+    }
+
+    /// Your own profile as a friend (level 1) or anyone (level 0) would get it from profile_view (contract § UX
+    /// rules 5), worked out from sharing_get and what profile_view returns to you. Others never see a value.
+    static func viewAs(_ d: ProfileData, _ s: SharingSettings, level: Int) -> ProfileData {
+        var out = d
+        out.relation = level >= 1 ? .friend : .none
+        out.visible = level >= s.profile.asks
+        guard out.visible else { out.sections = ProfileData.Sections(); return out }
+        let profile = s.profile
+        func ok(_ v: Visibility) -> Bool { sees(level: level, profile: profile, part: v) }
+        let items = Dictionary(s.items.map { ($0.id, $0) }, uniquingKeysWith: { x, _ in x })
+        func itemOk(_ id: String, _ kind: String, _ group: SharePart) -> Bool {
+            ok(items[id].map { effective(s, $0) } ?? effective(s, group))
+        }
+        var x = ProfileData.Sections()
+        if var c = d.sections.allCards, ok(effective(s, .allCards)) { c.valueUsd = nil; x.allCards = c }
+        let tradeOk = ok(effective(s, .forTrade))
+        let tradeBinders = (d.sections.binders ?? []).filter { $0.forTrade && (tradeOk || itemOk($0.id, "binder", .binders)) }
+        if !tradeBinders.isEmpty { x.forTrade = ProfileData.Counts(cards: tradeBinders.reduce(0) { $0 + $1.cards }) }
+        if d.sections.wants != nil, ok(effective(s, .wants)) { x.wants = d.sections.wants }
+        x.binders = (d.sections.binders ?? []).filter { itemOk($0.id, "binder", .binders) }
+        x.decks = (d.sections.decks ?? []).filter { itemOk($0.id, "deck", .decks) }
+        x.cubes = (d.sections.cubes ?? []).filter { itemOk($0.id, "cube", .cubes) }
+        if ok(s.record) { x.record = d.sections.record }
+        out.sections = x
+        return out
+    }
+
     /// p_settings for one change.
     static func change(_ p: SharePart, _ v: Visibility?) -> AnyJSON {
         .object([p.rawValue: v.map { .string($0.rawValue) } ?? .null])
@@ -196,6 +307,69 @@ enum SharingRules {
     }
 }
 
+// MARK: offers
+
+/// Sharing offers made at the moment they help, once per account on this device (contract § UX rules 8). Not now
+/// counts as an answer.
+@MainActor
+enum SharingOffer: String {
+    case forTrade = "for_trade", matches, record
+
+    private var key: String { "t1.sharing_offer.\(rawValue).\(Repo.userId ?? "none")" }
+    var answered: Bool { UserDefaults.standard.bool(forKey: key) }
+
+    func answer(_ accepted: Bool) {
+        UserDefaults.standard.set(true, forKey: key)
+        Telemetry.capture("sharing_offer", ["offer": rawValue, "accepted": accepted])
+    }
+
+    /// Asks "share with friends?" for these parts, then saves them (no second confirm: the question is the confirm).
+    func ask(_ title: String, message: String, parts: [SharePart]) {
+        guard !answered else { return }
+        T1Overlays.shared.ask(title, message: message, action: "Share with friends", cancel: "Not now",
+                              onCancel: { answer(false) }) {
+            answer(true)
+            FriendsStore.shared.change(parts.map { ($0, .friends) }, ask: false)
+        }
+    }
+
+    /// After a binder is marked For trade: offer to share For trade when no one can see any of it yet.
+    static func afterForTrade() async {
+        let store = FriendsStore.shared
+        guard !SharingOffer.forTrade.answered else { return }
+        if store.sharing == nil { await store.loadSharing() }
+        guard let s = store.sharing, SharingRules.reachOf(s, .forTrade) == .private,
+              !s.items.contains(where: { $0.forTrade == true && SharingRules.reachOf(s, $0) != .private }) else { return }
+        SharingOffer.forTrade.ask("Share For trade with friends?",
+                                  message: "Friends can see these copies, and trade matches can find you.", parts: [.forTrade])
+    }
+}
+
+/// What players are told before joining an event (contract § UX rules 9).
+enum JoinNotice {
+    static let text = "Your name shows in this event's pairings and standings, to its players and anyone with its standings link."
+}
+
+// MARK: reports
+
+/// user_report's reasons (contract § UX rules 6).
+enum ReportReason: String, CaseIterable, Sendable {
+    case spam, harassment, offensiveProfile = "offensive_profile", offensiveContent = "offensive_content", other
+
+    var label: String {
+        switch self {
+        case .spam: "Spam or fake account"
+        case .harassment: "Harassment"
+        case .offensiveProfile: "Offensive name or photo"
+        case .offensiveContent: "Offensive deck, binder or cube name"
+        case .other: "Something else"
+        }
+    }
+
+    /// Harassment suggests blocking too.
+    var blocksByDefault: Bool { self == .harassment }
+}
+
 // MARK: profiles
 
 struct ProfileData: Decodable, Sendable {
@@ -205,8 +379,8 @@ struct ProfileData: Decodable, Sendable {
     let avatarUrl: String?
     var relation: Relation
     let friendsSince: String?
-    let visible: Bool
-    let sections: Sections
+    var visible: Bool
+    var sections: Sections
 
     struct Counts: Decodable, Sendable { let cards: Int; var printings: Int?; var valueUsd: Double? }
     struct BinderSummary: Decodable, Identifiable, Sendable { let id: String; let name: String; let forTrade: Bool; let cards: Int }
@@ -562,11 +736,79 @@ final class FriendsStore {
     }
 
     func set(_ item: ShareItem, _ v: Visibility?) async {
-        guard var s = sharing, let i = s.items.firstIndex(where: { $0.id == item.id }), s.items[i].visibility != v else { return }
-        let before = s
-        s.items[i].visibility = v
+        guard let before = sharing else { return }
+        var s = before
+        if let i = s.items.firstIndex(where: { $0.id == item.id }) {
+            guard s.items[i].visibility != v else { return }
+            s.items[i].visibility = v
+        } else {
+            var x = item
+            x.visibility = v
+            s.items.append(x)
+        }
         sharing = s
         await save(SharingRules.change(item, v), before: before, part: item.kind, v)
+    }
+
+    /// The UI's way in (contract § UX rules 4): a change that makes anything reach more people asks first, listing
+    /// what newly reaches friends and anyone; narrowing applies at once. `confirmed` runs after it applies.
+    func change(_ part: SharePart, _ v: Visibility?, confirmed: (() -> Void)? = nil) {
+        guard var after = sharing else { return }
+        after.set(part, v)
+        guarded(after) { await self.set(part, v); confirmed?() }
+    }
+
+    func change(_ item: ShareItem, _ v: Visibility?, confirmed: (() -> Void)? = nil) {
+        guard var after = sharing else { return }
+        if let i = after.items.firstIndex(where: { $0.id == item.id }) { after.items[i].visibility = v }
+        else { var x = item; x.visibility = v; after.items.append(x) }
+        guarded(after) { await self.set(item, v); confirmed?() }
+    }
+
+    /// Several parts at once, one save. The sharing offers ask their own question, so they pass `ask: false`.
+    func change(_ parts: [(SharePart, Visibility)], ask: Bool = true, confirmed: (() -> Void)? = nil, cancelled: (() -> Void)? = nil) {
+        guard var after = sharing else { return }
+        for (p, v) in parts { after.set(p, v) }
+        guarded(ask ? after : sharing!, cancelled: cancelled) {
+            guard let before = self.sharing else { return }
+            self.sharing = after
+            await self.save(.object(Dictionary(parts.map { ($0.0.rawValue, AnyJSON.string($0.1.rawValue)) }, uniquingKeysWith: { a, _ in a })),
+                            before: before, part: parts.map(\.0.rawValue).joined(separator: "+"), parts.first?.1)
+            confirmed?()
+        }
+    }
+
+    private func guarded(_ after: SharingSettings, cancelled: (() -> Void)? = nil, apply: @escaping () async -> Void) {
+        guard let before = sharing else { return }
+        let w = SharingRules.widening(before, after)
+        if w.isEmpty { Task { await apply() }; return }
+        let names = w.friends + w.anyone
+        let parts = SharingRules.shownParts.filter { names.contains($0.1) }.count
+        func answered(_ yes: Bool) {
+            Telemetry.capture("sharing_confirmed", ["to": w.anyone.isEmpty ? "friends" : "public", "parts": parts,
+                                                    "items": names.count - parts, "accepted": yes])
+        }
+        T1Overlays.shared.ask(w.title, message: w.message, action: "Show", onCancel: { answered(false); cancelled?() }) {
+            answered(true)
+            Task { await apply() }
+        }
+    }
+
+    /// A binder, deck or cube as Sharing knows it; one Sharing hasn't heard of yet (just made) is a new item: a deck
+    /// starts private on its own setting, the rest follow their group (contract § UX rules 3).
+    func shareItem(kind: String, id: String, name: String, forTrade: Bool? = nil) -> ShareItem {
+        sharing?.items.first { $0.id == id }
+            ?? ShareItem(kind: kind, id: id, name: name, forTrade: forTrade, visibility: kind == "deck" ? .private : nil)
+    }
+
+    /// ListsStore made a list: Sharing shows it at once with the server's starting setting.
+    func noteCreated(kind: String, id: String, name: String) {
+        guard var s = sharing, !s.items.contains(where: { $0.id == id }) else { return }
+        s.items.append(ShareItem(kind: kind, id: id, name: name, visibility: kind == "deck" ? .private : nil))
+        sharing = s
+        #if DEBUG
+        demo?.sharing = s
+        #endif
     }
 
     private func save(_ change: AnyJSON, before: SharingSettings, part: String, _ v: Visibility?) async {
@@ -582,6 +824,34 @@ final class FriendsStore {
             sharing = before
             self.error = error.localizedDescription
         }
+    }
+
+    // reports
+
+    /// Reports an account (contract § UX rules 6); `block` also blocks them.
+    func report(_ userId: String, reason: ReportReason, note: String, from: String, item: (kind: String, id: String)? = nil,
+                block: Bool) async throws {
+        var ctx: [String: AnyJSON] = ["from": .string(from)]
+        if let item { ctx["kind"] = .string(item.kind); ctx["id"] = .string(item.id) }
+        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        #if DEBUG
+        if let demo { if block { demo.block(userId, true) } } else { try await remoteReport(userId, reason, trimmed, ctx, block) }
+        #else
+        try await remoteReport(userId, reason, trimmed, ctx, block)
+        #endif
+        Telemetry.capture("user_reported", ["reason": reason.rawValue, "from": from, "blocked": block])
+        if block {
+            Telemetry.capture("user_blocked", ["blocked": true])
+            matches?.removeAll { $0.userId == userId }
+        }
+        await load()
+    }
+
+    private func remoteReport(_ userId: String, _ reason: ReportReason, _ note: String, _ ctx: [String: AnyJSON], _ block: Bool) async throws {
+        try await supabase.rpc("user_report", params: [
+            "p_user_id": AnyJSON.string(userId), "p_reason": .string(reason.rawValue),
+            "p_note": note.isEmpty ? .null : .string(String(note.prefix(500))), "p_context": .object(ctx), "p_block": .bool(block),
+        ]).execute()
     }
 
     private func remoteSharing(_ change: AnyJSON) async throws -> SharingSettings {

@@ -164,3 +164,67 @@ were friends).
 
 `delete_account` removes your friendships, requests, blocks (both ways), sharing settings and audit rows, and clears
 `partner_id` on other people's trades with you.
+
+## UX rules (John, 2026-10-18)
+
+How sharing should feel, on every platform. Server migration `20261018180000_sharing_ux.sql` (reports, new decks
+private). Shared rule cases: `testdata/sharing/cases.json`. iOS built 2026-10-18 (demo `-T1LibraryDemo sharing|myprofile|deck|profile`);
+web and Android to follow. Migration applied to live 2026-10-18 (smoke-tested in a rolled-back transaction).
+
+1. **Wording.** The three choices read **Private · Friends · Anyone**. "Anyone" always means **anyone on Table 1**
+   (accounts are free, so in practice anyone). It never says "Public". The wire value stays `public`. Each control gets a
+   one-line effect under it (e.g. "Friends see every card in this binder, with condition and language").
+   An inherited value shows its result: "Same as Decks · Private". When the profile caps a part, that row says so:
+   "Set to Anyone, but only friends see it: your profile is Friends."
+2. **Visibility on the thing itself.** Every deck, cube and binder screen has a **Who sees this** row at the top with
+   the effective value (PRIVATE / FRIENDS / ANYONE). It opens a menu: Same as <group> (<value>), Private, Friends, Anyone,
+   with the cap note when it applies. Unsorted has none. Account → Sharing stays the overview.
+3. **New decks start Private.** A new deck (made, duplicated, imported, found or filled by a roto) is stored with
+   its own `private` setting, not "Same as Decks", so a brew never leaks because the group setting is open. Changing
+   Decks changes only the decks still on Same. Cubes and binders still start on Same. (Server: a `before insert`
+   trigger on `card_lists`.)
+4. **Widening asks first, narrowing never does.** Any change that makes something reach more people (Private →
+   Friends, Friends → Anyone, Same → wider, a parent or the profile that opens children) shows a native confirm that
+   lists what newly reaches whom. Example: "Friends will see: All cards, Wants, 3 decks, 2 binders." "Anyone on Table 1
+   will see: …" comes first when both apply. Opening All cards to Anyone adds "Every card you own. Your total value is
+   never shown." Widening the profile to Anyone adds "Your profile shows up when people search your name." Buttons:
+   **Show** / Cancel. A change that only narrows or does nothing applies at once. Rule: `SharingRules.widening(before,
+   after)` (cases in `testdata/sharing/cases.json`).
+5. **View as.** Your own profile has a **You · A friend · Anyone** switch at the top. It renders exactly what
+   `profile_view` would return to that viewer, worked out on the device from `sharing_get` and your own profile
+   (`SharingRules.viewAs`). Others never see a value. Sharing opens with a plain summary: "Friends see: For trade,
+   Wants, 2 decks." / "Anyone on Table 1 sees: your name and photo." (Name and photo always show to signed-in
+   accounts. Nothing else does unless shared.)
+6. **Block and report wherever a person appears.** Profile (More), friend, request and sent rows, Add a friend results,
+   trade-match rows and the trade-match screen (More). Rows also take a long press → the same Table 1 menu: Unfriend /
+   Cancel request, **Block**, **Report**. Block confirms in plain words: "They won't be able to find you, see your
+   Library or ask to be friends. They won't be told. You'll still both be in any event you're both playing."
+   **Report** opens a panel: a reason (Spam or fake account `spam` · Harassment `harassment` · Offensive name or photo
+   `offensive_profile` · Offensive deck, binder or cube name `offensive_content` · Something else `other`), an optional note (500 characters), and **Also block them** (on for
+   Harassment, off otherwise). Sending says "Thanks. We'll look into it. They won't know you reported them."
+   Server: `user_report(p_user_id, p_reason, p_note?, p_context?, p_block=false)` → `{ok, blocked}`.
+   `p_context`: `{from: profile | friends | request | search | trade_match, kind?: binder | deck | cube, id?}`. It keeps a
+   snapshot of their name, handle, photo and the named item at the time of the report. 20 reports a day. Reporting
+   yourself, a deleted account or a demo account is refused. Audited (`account_audit` `user.reported`). Reports are
+   reviewed in Supabase (`public.user_reports`, `status` open → actioned / dismissed). App Review expects action within 24 h.
+   Deleting your account clears your id from reports you made. Reports about you are kept for moderation.
+7. **Requests carry no pressure.** Incoming requests show **Accept · Ignore** (not "Decline") and how you know them
+   ("3 events together", from `friend_search`'s played-with rows). Friend counts are never shown to anyone else.
+   Unfriending and ignoring are never announced.
+8. **Ask at the moment it helps, once.** Each offer appears once per account (stored on the device), and Not now
+   counts as an answer:
+   - **Marking a binder For trade** while For trade reaches no one: "Share For trade with friends? Friends can see
+     these copies, and trade matches can find you." → For trade = Friends.
+   - **Trade matches with For trade and Wants both private**: a row "Share For trade and Wants with friends" → one
+     confirm → both = Friends.
+   - **Account, after your first event** (events played ≥ 1, Record private): "Show your record on your profile?"
+     → Friends / Not now.
+9. **Tell players before they join.** Nearby, the invitation card and the in-app QR scanner say (a QR link opened from the
+   Camera app joins straight away, with no screen to say it on): "Your name shows in this event's
+   pairings and standings, to its players and anyone with its standings link."
+10. **What a viewer sees when something is hidden.** "Nothing shared yet" on a profile. "This isn't available" for anything
+    that's hidden or gone (it never says which). Never "That's private" in the UI.
+
+Telemetry (no names, ids or free text): `sharing_confirmed` (`to`: friends / public, `parts`, `items`: counts,
+`accepted`: bool), `profile_view_as` (`as`: friend / anyone), `user_reported` (`reason`, `from`, `blocked`: bool),
+`sharing_offer` (`offer`: for_trade / matches / record, `accepted`: bool). Screens: `report`.

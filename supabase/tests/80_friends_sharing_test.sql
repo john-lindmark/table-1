@@ -146,6 +146,9 @@ select public.wants_apply(jsonb_build_array(jsonb_build_object('oracle_id', :OPT
   'e2000000-0000-0000-0000-000000000002');
 select public.list_create('d1000000-0000-0000-0000-000000000001', 'deck', 'Ben burn', 'modern',
   jsonb_build_array(jsonb_build_array(:BOLT, 'main', 4), jsonb_build_array(:OPT, 'maybe', 1)));
+-- New decks start private (20261018180000_sharing_ux.sql); this one follows Decks so the Same-as chain is tested.
+select public.sharing_set(jsonb_build_object('items', jsonb_build_array(
+  jsonb_build_object('kind', 'deck', 'id', 'd1000000-0000-0000-0000-000000000001', 'visibility', null))));
 
 select pg_temp.as_user(:CAL);
 select public.binder_save('b2000000-0000-0000-0000-000000000001', 'Cal trades', true);
@@ -200,13 +203,14 @@ select pg_temp.throws('a deck id as a cube refused',
 select pg_temp.eq('set for_trade + wants', public.sharing_set('{"for_trade": "friends", "wants": "friends"}')->>'wants', 'friends');
 select public.sharing_set('{"items": [{"kind": "binder", "id": "b1000000-0000-0000-0000-000000000001", "visibility": "public"}]}');
 reset role;
+-- 3: these two, plus putting the new deck back on Same above.
 select pg_temp.eq('settings audited once each', (select count(*)::text from public.account_audit
-  where actor = '00000000-0000-0000-0000-0000000000b1' and action in ('sharing.set', 'sharing.item')), '2');
+  where actor = '00000000-0000-0000-0000-0000000000b1' and action in ('sharing.set', 'sharing.item')), '3');
 set role authenticated;
 select public.sharing_set('{"for_trade": "friends", "wants": "friends"}');
 reset role;
 select pg_temp.eq('same values: no new audit row', (select count(*)::text from public.account_audit
-  where actor = '00000000-0000-0000-0000-0000000000b1' and action in ('sharing.set', 'sharing.item')), '2');
+  where actor = '00000000-0000-0000-0000-0000000000b1' and action in ('sharing.set', 'sharing.item')), '3');
 set role authenticated;
 
 -- Friend (Ana) vs stranger (Cal) vs owner (Ben).

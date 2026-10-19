@@ -29,6 +29,8 @@ final class FriendsDemoBackend {
 
     nonisolated static func id(_ n: Int) -> String { String(format: "d0000000-0000-0000-0000-0000000f%04d", n) }
     nonisolated static let mara = id(1), theo = id(2), ines = id(3), sam = id(4), lee = id(5), kai = id(6)
+    /// The demo account itself, for Your profile and View as.
+    nonisolated static let me = id(0)
 
     init() {
         func p(_ id: String, _ name: String, _ handle: String? = nil) -> Person { Person(userId: id, displayName: name, handle: handle) }
@@ -143,6 +145,7 @@ final class FriendsDemoBackend {
     }
 
     func profile(_ id: String) throws -> ProfileData {
+        if id == Self.me { return mine() }
         let p = person(id)
         let lv = level(id)
         guard let s = people[id] else {
@@ -166,6 +169,28 @@ final class FriendsDemoBackend {
         }
         return ProfileData(userId: id, displayName: p.displayName, handle: p.handle, avatarUrl: nil, relation: relation(id),
                            friendsSince: lv == 1 ? "2026-09-12T19:00:00Z" : nil, visible: visible, sections: sec)
+    }
+
+    /// Your own profile as profile_view returns it to you: everything, from the demo Library.
+    private func mine() -> ProfileData {
+        let col = CollectionStore.shared, b = BindersStore.shared
+        var sec = ProfileData.Sections()
+        let total = col.items.values.reduce(0) { $0 + $1.qty }
+        sec.allCards = .init(cards: total, printings: col.items.count, valueUsd: col.summary?.valueUsd)
+        sec.binders = b.binders.map { x in
+            ProfileData.BinderSummary(id: x.id, name: x.name, forTrade: x.forTrade, cards: b.items(in: x.id, col.items).reduce(0) { $0 + $1.qty })
+        }
+        let trade = (sec.binders ?? []).filter(\.forTrade).reduce(0) { $0 + $1.cards }
+        if trade > 0 { sec.forTrade = .init(cards: trade) }
+        sec.wants = .init(cards: b.liveWants.reduce(0) { $0 + $1.qty })
+        func summary(_ l: CardList) -> ProfileData.ListSummary {
+            .init(id: l.id, name: l.name, format: l.format, cards: l.entries.filter { $0.board != "maybe" }.reduce(0) { $0 + $1.qty })
+        }
+        sec.decks = ListsStore.shared.lists.filter { $0.kind == .deck }.map(summary)
+        sec.cubes = ListsStore.shared.lists.filter { $0.kind == .cube }.map(summary)
+        sec.record = .init(matchWins: 12, matchLosses: 7, matchDraws: 1, eventsPlayed: 5)
+        return ProfileData(userId: Self.me, displayName: "You", handle: "demo", avatarUrl: nil, relation: .me,
+                           friendsSince: nil, visible: true, sections: sec)
     }
 
     func cards(_ id: String, _ section: ProfileSection) -> [ProfileCard] {
@@ -226,6 +251,7 @@ enum FriendsDemo {
     @MainActor
     static func start() {
         if FriendsStore.shared.demo == nil { FriendsStore.shared.demo = FriendsDemoBackend() }
+        if ModerationStore.shared.demo == nil { ModerationStore.shared.demo = ModerationDemo() }
     }
 
     @MainActor
@@ -240,7 +266,7 @@ enum FriendsDemo {
         await FriendsStore.shared.loadSharing()
     }
 
-    /// `-T1LibraryDemo friends|profile|sharing|matches|match`.
+    /// `-T1LibraryDemo friends|profile|sharing|matches|match|myprofile|notices|review`.
     static func route(_ arg: String) -> [LibraryRoute]? {
         switch arg {
         case "friends": [.social(.friends)]
@@ -248,6 +274,9 @@ enum FriendsDemo {
         case "sharing": [.social(.sharing)]
         case "matches": [.social(.matches)]
         case "match": [.social(.matches), .social(.match(FriendsDemoBackend.mara))]
+        case "myprofile": [.social(.sharing), .social(.profile(FriendsDemoBackend.me))]
+        case "notices": [.social(.notices)]
+        case "review": [.social(.review)]
         default: nil
         }
     }

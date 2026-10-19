@@ -40,7 +40,9 @@ struct AccountView: View {
                 }
                 .frame(maxWidth: .infinity).padding(.vertical, 24).background(T1.surface)
 
+                RecordOffer(eventsPlayed: r.eventsPlayed)
                 AccountSocialRows(path: $path)
+                ModerationAccountRows(path: $path)
 
                 Section1("Head-to-head")
                 if overview == nil {

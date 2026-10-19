@@ -23,7 +23,7 @@ struct NearbyView: View {
             if let error { Notice(error, error: true) }
             HairlineList {
                 if let events {
-                    if events.isEmpty { Notice("Nothing open nearby right now.") }
+                    if events.isEmpty { Notice("Nothing open nearby right now.") } else { Notice(JoinNotice.text) }
                     ForEach(events) { e in
                         let detail = "\(e.distanceM) m · \(e.label) · \(e.players)\(e.capacity.map { "/\($0)" } ?? "") players\(e.venueName.map { " · \($0)" } ?? "")"
                         if e.joined == true {

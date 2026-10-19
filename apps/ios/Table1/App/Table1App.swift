@@ -58,7 +58,7 @@ struct Table1App: App {
                 .task { await session.watchAuth() }
                 .task {
                     PushController.shared.openEvent = { session.pendingEvent = $0 }
-                    PushController.shared.openFriends = { session.pendingFriends = true }
+                    PushController.shared.openSocial = { session.pendingSocial = $0 }
                 }
                 // Apple ID access can be withdrawn from Settings at any time.
                 .onChange(of: phase) { before, now in
@@ -115,7 +115,7 @@ final class SessionModel {
     /// An event opened from a widget or the Live Activity.
     var pendingEvent: String?
     /// A tapped friend push: Account → Friends.
-    var pendingFriends = false
+    var pendingSocial: SocialRoute?
     /// While a round you're playing is running, the app opens straight into it — once per launch or
     /// return from the background. Cleared as soon as it fires.
     var autoOpenArmed = true
@@ -312,6 +312,7 @@ struct SignedInView: View {
             TradesStore.shared.stop()
             BindersStore.shared.stop()
             FriendsStore.shared.stop()
+            ModerationStore.shared.stop()
         }
         // The life tracker covers the tabs (no tab bar) until it's closed.
         .overlay {
@@ -337,11 +338,11 @@ struct SignedInView: View {
                 path = [.event(id)]
             }
         }
-        .task(id: session.pendingFriends) {
-            if session.pendingFriends {
-                session.pendingFriends = false
+        .task(id: session.pendingSocial) {
+            if let route = session.pendingSocial {
+                session.pendingSocial = nil
                 tab = .account
-                accountPath = [.social(.friends)]
+                accountPath = [.social(route)]
             }
         }
         .task(id: session.pendingJoin) {

@@ -47,6 +47,7 @@ struct EventsHomeView: View {
                     }
                     if !invites.isEmpty {
                         Section1("Invitations")
+                        Notice(JoinNotice.text)
                         ForEach(invites) { invite in
                             ListRow(title: invite.name, detail: inviteDetail(invite)) {
                                 BarButton("Decline") { answer(invite, accept: false) }
@@ -346,6 +347,7 @@ struct ScanView: View {
                     }
                 }
                 .frame(maxHeight: .infinity)
+                Notice(JoinNotice.text)
             } else {
                 Notice("This device can't scan here. Use the Camera app instead — the link opens Table 1.")
             }

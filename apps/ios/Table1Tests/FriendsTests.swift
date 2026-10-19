@@ -8,6 +8,29 @@ import Supabase
 
 private let casesURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
     .appending(path: "../../../testdata/trade-matches/cases.json").standardized
+private let sharingCasesURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+    .appending(path: "../../../testdata/sharing/cases.json").standardized
+
+/// testdata/sharing/cases.json (contract § UX rules): widening, the Sharing summary lines, view as.
+private struct SharingCases: Decodable {
+    struct W: Decodable {
+        let name: String, before: SharingSettings, after: SharingSettings
+        let friends: [String], anyone: [String]
+        let allCardsToAnyone: Bool, profileToAnyone: Bool
+    }
+    struct S: Decodable { let name: String; let settings: SharingSettings; let friends: String; let anyone: String }
+    struct Want: Decodable, Equatable {
+        let visible: Bool
+        let allCards: Int?, value: Double?, forTrade: Int?, wants: Int?
+        let binders: [String], decks: [String], cubes: [String]
+        let record: Bool
+    }
+    struct V: Decodable { let name: String; let settings: SharingSettings; let level: Int; let want: Want }
+    let widening: [W]
+    let sees: [S]
+    let viewAsProfile: ProfileData
+    let viewAs: [V]
+}
 
 private struct Cases: Decodable {
     struct W: Decodable { let oracleId: String; let cardId: String?; let finish: String?; let qty: Int; let maxUsd: Double? }
@@ -149,5 +172,55 @@ final class FriendsTests: XCTestCase {
         XCTAssertEqual(ProfileCard.parse("wants", [.string("o"), .null, .null, .integer(1)]),
                        ProfileCard(oracleId: "o", qty: 1))
         XCTAssertNil(ProfileCard.parse("wants", [.string("o")]))
+    }
+
+    private func sharingCases() throws -> SharingCases {
+        let d = JSONDecoder()
+        d.keyDecodingStrategy = .convertFromSnakeCase
+        return try d.decode(SharingCases.self, from: Data(contentsOf: sharingCasesURL))
+    }
+
+    func testWideningSharedCases() throws {
+        let cases = try sharingCases().widening
+        XCTAssertGreaterThanOrEqual(cases.count, 6)
+        for c in cases {
+            let w = SharingRules.widening(c.before, c.after)
+            XCTAssertEqual(w.friends, c.friends, c.name)
+            XCTAssertEqual(w.anyone, c.anyone, c.name)
+            XCTAssertEqual(w.allCardsToAnyone, c.allCardsToAnyone, c.name)
+            XCTAssertEqual(w.profileToAnyone, c.profileToAnyone, c.name)
+            // Undoing a widening never asks (no case both widens and narrows).
+            if !w.isEmpty { XCTAssertTrue(SharingRules.widening(c.after, c.before).isEmpty, c.name) }
+        }
+    }
+
+    func testSeesLineSharedCases() throws {
+        for c in try sharingCases().sees {
+            XCTAssertEqual(SharingRules.seesLine(c.settings, level: 1), c.friends, c.name)
+            XCTAssertEqual(SharingRules.seesLine(c.settings, level: 0), c.anyone, c.name)
+        }
+    }
+
+    func testViewAsSharedCases() throws {
+        let all = try sharingCases()
+        XCTAssertEqual(all.viewAsProfile.relation, .me)
+        for c in all.viewAs {
+            let v = SharingRules.viewAs(all.viewAsProfile, c.settings, level: c.level)
+            let got = SharingCases.Want(visible: v.visible, allCards: v.sections.allCards?.cards, value: v.sections.allCards?.valueUsd,
+                                        forTrade: v.sections.forTrade?.cards, wants: v.sections.wants?.cards,
+                                        binders: (v.sections.binders ?? []).map(\.name), decks: (v.sections.decks ?? []).map(\.name),
+                                        cubes: (v.sections.cubes ?? []).map(\.name), record: v.sections.record != nil)
+            XCTAssertEqual(got, c.want, c.name)
+            XCTAssertEqual(v.relation, c.level >= 1 ? .friend : Relation.none, c.name)
+        }
+    }
+
+    func testWideningMessage() {
+        var w = SharingRules.Widening(friends: ["Wants"], anyone: ["All cards", "Burn"], allCardsToAnyone: true)
+        XCTAssertEqual(w.title, "Show to anyone on Table 1?")
+        XCTAssertEqual(w.message, "Anyone on Table 1 will see: All cards, Burn.\n\nFriends will see: Wants.\n\nEvery card you own. Your total value is never shown.")
+        w = SharingRules.Widening(friends: ["your record"])
+        XCTAssertEqual(w.title, "Show to friends?")
+        XCTAssertEqual(Visibility.public.label, "Anyone")
     }
 }

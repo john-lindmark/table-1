@@ -155,6 +155,7 @@ struct BinderEditPanel: View {
                 let b = try await BindersStore.shared.save(id: binder?.id, name: String(trimmed.prefix(60)), forTrade: forTrade)
                 T1Overlays.shared.dismissPanel()
                 if binder == nil { created?(b.id) }
+                if forTrade && binder?.forTrade != true { await SharingOffer.afterForTrade() }
             } catch {
                 self.error = error.localizedDescription
             }
@@ -190,6 +191,7 @@ struct BinderView: View {
             CatalogStatusRow(catalog: catalog)
             T1SearchField(text: $query, prompt: "Name or type")
             HairlineList {
+                if let binder { WhoSeesRow(kind: "binder", id: binder.id, name: binder.name, forTrade: binder.forTrade) }
                 if unsorted || binder != nil {
                     Button {
                         T1Overlays.shared.present(full: true) { BinderAddPanel(binderId: unsorted ? nil : binderId).screen("binder_add") }
@@ -237,7 +239,10 @@ struct BinderView: View {
             T1MenuItem(title: "Rename") { T1Overlays.shared.present { BinderEditPanel(binder: b) } },
             T1MenuItem(title: b.forTrade ? "Not for trade" : "For trade", detail: b.forTrade ? "Trades stops offering these first" : "Trades offers these first when you give") {
                 Task {
-                    do { try await store.save(id: b.id, name: b.name, forTrade: !b.forTrade) } catch { store.error = error.localizedDescription }
+                    do {
+                        try await store.save(id: b.id, name: b.name, forTrade: !b.forTrade)
+                        if !b.forTrade { await SharingOffer.afterForTrade() }
+                    } catch { store.error = error.localizedDescription }
                 }
             },
             T1MenuItem(title: "Delete binder", destructive: true) { confirmDelete = true },

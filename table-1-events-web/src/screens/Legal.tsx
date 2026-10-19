@@ -163,6 +163,20 @@ export function PrivacyPolicy() {
         </p>
       </Section>
 
+      <Section title="Keeping Table 1 safe">
+        <p>
+          Content other players can see (display names, handles, profile photos, names of decks, cubes and binders you
+          share, event and guest names, and deck photos and their notes) is checked automatically for hate, harassment,
+          sexual content, spam, personal contact details and impersonation. The text or image is sent to Anthropic
+          (Claude) without your account id or email; Anthropic processes it for us and does not use it to train its
+          models. Anything you keep private is never checked. If something breaks the rules, we make the smallest change
+          we can (for example reset a name or stop sharing a deck), tell you in Account → From Table 1, and you can appeal
+          it once to a person. Reports you make go to us, never to the person you reported. We keep what was checked for
+          180 days, then delete the text. Photos that appear to involve the sexual abuse of children are removed, kept
+          securely, and reported to the National Center for Missing &amp; Exploited Children as US law requires.
+        </p>
+      </Section>
+
       <Section title="Usage and crash data">
         <p>
           The apps send usage events (which screens and features are used, counts like "cards added") to PostHog and crash
@@ -178,7 +192,7 @@ export function PrivacyPolicy() {
           <li>Supabase: database, sign-in and server functions, hosted on Amazon Web Services in the United States (us-east-1).</li>
           <li>Apple and Google: sign-in, and push notifications and Live Activities on iOS.</li>
           <li>Our email provider: sends sign-in codes and links.</li>
-          <li>Anthropic: deck finder and link imports, as described above.</li>
+          <li>Anthropic: deck finder, link imports and safety checks, as described above.</li>
           <li>PostHog, Sentry and Google Analytics: usage and crash data, as described above.</li>
           <li>
             Scryfall: card data, prices and images. Your device loads card images and set icons from Scryfall, which sees

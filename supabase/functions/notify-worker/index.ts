@@ -68,6 +68,19 @@ function copy(m: Message, eventName: string, mine?: { table: number | null; oppo
       return { title: "Friend request", body: `${d.from_name ?? "Someone"} wants to be friends on Table 1.`, priority: 5 };
     case "friend.accepted":
       return { title: "New friend", body: `${d.from_name ?? "Someone"} accepted your friend request.`, priority: 5 };
+    // contract/moderation-2026-10-18.md: what changed, never why in the alert (the Notices screen says why).
+    case "moderation.notice": {
+      if (d.restricted_days) return { title: "Table 1", body: `You can't send friend requests for ${d.restricted_days} days. Tap for details.`, priority: 5 };
+      if (d.appeal === "revert") return { title: "Appeal accepted", body: `${d.label ?? "Your content"} is back.`, priority: 5 };
+      if (d.appeal === "uphold") return { title: "Appeal reviewed", body: `The change to ${String(d.label ?? "your content").toLowerCase()} stays.`, priority: 5 };
+      const what = d.action === "unshare" ? `${d.label} is no longer shared` : d.action === "hide_photo" ? "Your deck photo was hidden"
+        : d.action === "remove_avatar" ? "Your profile photo was removed" : `${d.label ?? "Something you posted"} was changed`;
+      return { title: "From Table 1", body: `${what}. Tap to see why or appeal.`, priority: 5 };
+    }
+    case "moderation.review":
+      if (d.urgent) return { title: "Urgent review", body: "A photo was taken down for child safety. Review it now.", priority: 10 };
+      if (d.appeal) return { title: "New appeal", body: "Someone appealed a moderation decision.", priority: 5 };
+      return { title: "To review", body: `${d.open ?? "Some"} item${d.open === 1 ? "" : "s"} waiting in Review.`, priority: 5 };
     default:
       return null;
   }

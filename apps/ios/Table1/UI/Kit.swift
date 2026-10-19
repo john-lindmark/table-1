@@ -464,6 +464,17 @@ struct T1MenuItem: Identifiable {
     let action: () -> Void
 }
 
+struct T1Confirm: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
+    let action: String
+    var destructive = false
+    var cancel = "Cancel"
+    let onConfirm: () -> Void
+    var onCancel: (() -> Void)?
+}
+
 struct T1MenuSpec: Identifiable {
     let id = UUID()
     let title: String?
@@ -486,6 +497,14 @@ final class T1Overlays {
     static let shared = T1Overlays()
     var menu: T1MenuSpec?
     var panels: [T1PanelSpec] = []
+    /// A native confirm (alerts are the one platform-native piece), shown over everything.
+    var confirm: T1Confirm?
+
+    func ask(_ title: String, message: String, action: String, destructive: Bool = false, cancel: String = "Cancel",
+             onCancel: (() -> Void)? = nil, onConfirm: @escaping () -> Void) {
+        confirm = T1Confirm(title: title, message: message, action: action, destructive: destructive, cancel: cancel,
+                            onConfirm: onConfirm, onCancel: onCancel)
+    }
 
     func showMenu(_ title: String? = nil, message: String? = nil, _ items: [T1MenuItem]) {
         menu = T1MenuSpec(title: title, message: message, items: items)
@@ -535,6 +554,14 @@ struct T1OverlayHost: View {
             }
         }
         .foregroundStyle(T1.text)
+        .alert(overlays.confirm?.title ?? "", isPresented: Binding(get: { overlays.confirm != nil },
+                                                                   set: { if !$0 { overlays.confirm = nil } }),
+               presenting: overlays.confirm) { c in
+            Button(c.action, role: c.destructive ? .destructive : nil) { c.onConfirm() }
+            Button(c.cancel, role: .cancel) { c.onCancel?() }
+        } message: { c in
+            Text(c.message)
+        }
         .animation(.snappy(duration: 0.22), value: overlays.panels.map(\.id))
         .animation(.snappy(duration: 0.18), value: overlays.menu?.id)
     }

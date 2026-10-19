@@ -12,6 +12,8 @@ enum SocialRoute: Hashable {
     case sharingItems(String) // binder / deck / cube
     case matches
     case match(String) // user id
+    case notices
+    case review
 
     /// contract/telemetry-2026-10-15.md; never carries ids.
     var screenName: String {
@@ -22,6 +24,8 @@ enum SocialRoute: Hashable {
         case .sharing, .sharingItems: "sharing"
         case .matches: "trade_matches"
         case .match: "trade_match"
+        case .notices: "moderation_notices"
+        case .review: "moderation_review"
         }
     }
 }
@@ -40,6 +44,8 @@ struct SocialDestination: View {
         case .sharingItems(let kind): SharingItemsView(kind: kind)
         case .matches: TradeMatchesView(path: $path)
         case .match(let id): TradeMatchView(userId: id, path: $path)
+        case .notices: NoticesView()
+        case .review: ReviewView()
         }
     }
 }
@@ -118,6 +124,8 @@ struct FriendsView: View {
     @Environment(\.dismiss) private var dismiss
     private var store: FriendsStore { FriendsStore.shared }
     @State private var busy: String?
+    /// How you know people (played-with suggestions), for request rows.
+    @State private var together: [String: Int] = [:]
 
     var body: some View {
         let l = store.list
@@ -135,10 +143,12 @@ struct FriendsView: View {
                     if !l.incoming.isEmpty {
                         Section1("Requests · \(l.incoming.count)")
                         ForEach(l.incoming) { p in
-                            row(p, detail: "Asked you") {
+                            row(p, .incoming, detail: ["Asked you", together[p.userId].map { plural($0, "event") + " together" }]
+                                    .compactMap { $0 }.joined(separator: " · ")) {
                                 HStack(spacing: 1) {
                                     RowAction(text: "Accept", accent: true) { run(p.userId) { try await store.respond(p.userId, accept: true) } }
-                                    RowAction(text: "Decline") { run(p.userId) { try await store.respond(p.userId, accept: false) } }
+                                    RowAction(text: "Ignore") { run(p.userId) { try await store.respond(p.userId, accept: false) } }
+                                    RowAction(text: "More") { PersonActions.menu(p, .incoming, from: "request") }
                                 }
                             }
                         }
@@ -148,14 +158,16 @@ struct FriendsView: View {
                         Notice("No friends yet. Friends see what you share with them, show up first in Add players, and their trades are matched against your wants.")
                     }
                     ForEach(l.friends) { p in
-                        Button { path.append(.social(.profile(p.userId))) } label: {
+                        Button { open(p) } label: {
                             ListRow(title: p.displayName, detail: p.handle.map { "@\($0)" }, avatar: AvatarView(name: p.displayName, userId: p.userId))
-                        }.buttonStyle(.plain)
+                        }
+                        .buttonStyle(.plain)
+                        .personMenu { PersonActions.menu(p, .friend, from: "friends") }
                     }
                     if !l.outgoing.isEmpty {
                         Section1("Sent · \(l.outgoing.count)")
                         ForEach(l.outgoing) { p in
-                            row(p, detail: "Requested") {
+                            row(p, .requested, detail: "Requested") {
                                 RowAction(text: "Cancel") { run(p.userId) { try await store.remove(p.userId) } }
                             }
                         }
@@ -163,7 +175,7 @@ struct FriendsView: View {
                     if !l.blocked.isEmpty {
                         Section1("Blocked · \(l.blocked.count)")
                         ForEach(l.blocked) { p in
-                            row(p, detail: "Can't see you or ask you") {
+                            row(p, .blocked, detail: "Can't find you, see your Library or ask you") {
                                 RowAction(text: "Unblock") { run(p.userId) { try await store.block(p.userId, false) } }
                             }
                         }
@@ -173,17 +185,28 @@ struct FriendsView: View {
                 }
             }
         }
-        .task { await store.load() }
+        .task {
+            await store.load()
+            if let people = try? await store.search("") {
+                together = Dictionary(people.compactMap { p in p.sharedEvents.map { (p.userId, $0) } }, uniquingKeysWith: { a, _ in a })
+            }
+        }
         .refreshable { await store.load() }
     }
 
-    private func row(_ p: Person, detail: String, @ViewBuilder trailing: () -> some View) -> some View {
-        Button { path.append(.social(.profile(p.userId))) } label: {
+    /// A long press that opened a menu also lifts the finger on the row: don't open the profile then.
+    private func open(_ p: Person) {
+        if T1Overlays.shared.menu == nil { path.append(.social(.profile(p.userId))) }
+    }
+
+    private func row(_ p: Person, _ relation: Relation, detail: String, @ViewBuilder trailing: () -> some View) -> some View {
+        Button { open(p) } label: {
             ListRow(title: p.displayName, detail: busy == p.userId ? "Working…" : detail, avatar: AvatarView(name: p.displayName, userId: p.userId)) {
                 trailing()
             }
         }
         .buttonStyle(.plain)
+        .personMenu { PersonActions.menu(p, relation, from: relation == .incoming ? "request" : "friends") }
     }
 
     private func run(_ id: String, _ work: @escaping () async throws -> Void) {
@@ -232,6 +255,8 @@ struct FriendAddPanel: View {
                                 avatar: AvatarView(name: p.displayName, userId: p.userId)) {
                             action(p)
                         }
+                        .contentShape(Rectangle())
+                        .personMenu { PersonActions.menu(p, p.relation ?? .none, from: "search") { Task { await load() } } }
                     }
                 } else {
                     Notice("Loading…")
@@ -326,9 +351,8 @@ struct ProfileScreen: View {
     @State private var match: TradeMatch?
     @State private var busy = false
     @State private var error: String?
-    @State private var confirm: Confirm?
-
-    enum Confirm: Identifiable { case unfriend, block; var id: Self { self } }
+    /// Your own profile as: 3 you, 1 a friend, 0 anyone (contract § UX rules 5).
+    @State private var viewAs = 3
 
     var body: some View {
         T1Screen {
@@ -338,27 +362,36 @@ struct ProfileScreen: View {
             HairlineList {
                 if let error { Notice(error, error: true) }
                 if let data {
-                    header(data)
-                    relationActions(data)
-                    sections(data)
+                    if data.relation == .me {
+                        T1Segmented(options: [(3, "You"), (1, "A friend"), (0, "Anyone")], selection: Binding(get: { viewAs }, set: { v in
+                            viewAs = v
+                            if v < 3 { Telemetry.capture("profile_view_as", ["as": v == 1 ? "friend" : "anyone"]) }
+                        }))
+                    }
+                    let shown = displayed(data)
+                    header(shown)
+                    relationActions(shown)
+                    sections(shown)
                 } else if error == nil {
                     Notice("Loading…")
                 }
             }
         }
-        .task { await load() }
-        .refreshable { await load() }
-        .alert(confirm == .block ? "Block \(data?.displayName ?? "them")?" : "Unfriend \(data?.displayName ?? "them")?",
-               isPresented: Binding(get: { confirm != nil }, set: { if !$0 { confirm = nil } }), presenting: confirm) { c in
-            Button(c == .block ? "Block" : "Unfriend", role: .destructive) {
-                run { if c == .block { try await store.block(userId, true) } else { try await store.remove(userId) } }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: { c in
-            Text(c == .block ? "They won't be told. They can't ask you again or see anything of yours, even what's public."
-                             : "You'll stop seeing what each of you shares with friends.")
+        .task {
+            await load()
+            if data?.relation == .me, store.sharing == nil { await store.loadSharing() }
         }
+        .refreshable { await load() }
     }
+
+    /// What this screen shows: your profile as you picked to view it, anyone else's as it came back.
+    private func displayed(_ d: ProfileData) -> ProfileData {
+        guard d.relation == .me, viewAs < 3, let s = store.sharing else { return d }
+        return SharingRules.viewAs(d, s, level: viewAs)
+    }
+
+    /// Viewing your own profile as someone else.
+    private var asOther: Bool { data?.relation == .me && viewAs < 3 }
 
     private var subtitle: String? {
         guard let data else { return nil }
@@ -371,6 +404,8 @@ struct ProfileScreen: View {
         case .none: return data.handle.map { "@\($0)" } ?? "Profile"
         }
     }
+
+    private var person: Person? { data?.person }
 
     private func header(_ d: ProfileData) -> some View {
         VStack(spacing: 8) {
@@ -387,13 +422,13 @@ struct ProfileScreen: View {
     }
 
     @ViewBuilder private func relationActions(_ d: ProfileData) -> some View {
-        switch d.relation {
+        switch asOther ? .me : d.relation {
         case .none: Ghost(text: busy ? "Working…" : "Add friend", accent: true) { run { try await store.request(userId, via: "profile") } }
         case .requested: Ghost(text: busy ? "Working…" : "Requested · Cancel") { run { try await store.remove(userId) } }
         case .incoming:
             HStack(spacing: 1) {
                 Ghost(text: "Accept", accent: true) { run { try await store.respond(userId, accept: true) } }
-                Ghost(text: "Decline") { run { try await store.respond(userId, accept: false) } }
+                Ghost(text: "Ignore") { run { try await store.respond(userId, accept: false) } }
             }
         case .blocked: Ghost(text: "Unblock") { run { try await store.block(userId, false) } }
         case .friend, .me: EmptyView()
@@ -402,8 +437,12 @@ struct ProfileScreen: View {
 
     @ViewBuilder private func sections(_ d: ProfileData) -> some View {
         let s = d.sections
-        if d.relation == .me {
-            Notice("You see everything here. Others see only what reaches them in Sharing.")
+        if asOther {
+            Notice(viewAs == 1 ? "This is what a friend sees." : "This is what anyone on Table 1 sees.")
+        } else if d.relation == .me {
+            Notice("You see everything here. Switch to A friend or Anyone to see what they see.")
+        }
+        if data?.relation == .me {
             Button { path.append(.social(.sharing)) } label: { ListRow(title: "Sharing", detail: "Choose who sees each part") }.buttonStyle(.plain)
         }
         if let match, d.relation != .me {
@@ -415,13 +454,16 @@ struct ProfileScreen: View {
             }.buttonStyle(.plain)
         }
         if !d.visible {
-            Notice(d.relation == .blocked ? "You blocked \(d.displayName)." : "Only \(d.displayName)'s friends can see their profile.")
+            Notice(asOther ? "Only your friends can see your profile. Anyone else sees your name and photo."
+                   : d.relation == .blocked ? "You blocked \(d.displayName)." : "Only \(d.displayName)'s friends can see their profile.")
         } else if d.sectionCount == 0 && d.relation != .me {
-            Notice("\(d.displayName) hasn't shared anything with you yet.")
+            Notice("Nothing shared yet.")
         }
         if s.allCards != nil || s.forTrade != nil || s.wants != nil { Section1("Library") }
         if let c = s.allCards {
-            open("All cards", detail: [plural(c.cards, "card"), c.valueUsd.flatMap { PriceBook.text($0) }].compactMap { $0 }.joined(separator: " · "), kind: "all_cards")
+            // Your total value is only ever shown to you.
+            open("All cards", detail: [plural(c.cards, "card"), d.relation == .me ? c.valueUsd.flatMap { PriceBook.text($0) } : nil]
+                .compactMap { $0 }.joined(separator: " · "), kind: "all_cards")
         }
         if let c = s.forTrade { open("For trade", detail: plural(c.cards, "card"), kind: "for_trade") }
         if let c = s.wants { open("Wants", detail: plural(c.cards, "card") + " wanted", kind: "wants") }
@@ -448,14 +490,7 @@ struct ProfileScreen: View {
     }
 
     private func menu(_ d: ProfileData) {
-        var items: [T1MenuItem] = []
-        if d.relation == .friend { items.append(T1MenuItem(title: "Unfriend") { confirm = .unfriend }) }
-        if d.relation == .blocked {
-            items.append(T1MenuItem(title: "Unblock") { run { try await store.block(userId, false) } })
-        } else {
-            items.append(T1MenuItem(title: "Block", detail: "They can't ask you or see anything of yours", destructive: true) { confirm = .block })
-        }
-        T1Overlays.shared.showMenu(d.displayName, items)
+        PersonActions.menu(d.person, d.relation, from: "profile") { Task { await load() } }
     }
 
     private func load() async {
@@ -466,7 +501,7 @@ struct ProfileScreen: View {
             error = nil
             if d.relation != .me && d.visible { match = try? await store.match(with: userId) }
         } catch {
-            self.error = error.localizedDescription
+            self.error = FriendsStore.message(error)
         }
     }
 
@@ -474,7 +509,7 @@ struct ProfileScreen: View {
         busy = true
         Task {
             defer { busy = false }
-            do { try await work(); await load() } catch { self.error = error.localizedDescription }
+            do { try await work(); await load() } catch { self.error = FriendsStore.message(error) }
         }
     }
 }
@@ -515,7 +550,7 @@ struct ProfileCardsView: View {
             }
         }
         .task {
-            do { rows = try await FriendsStore.shared.cards(userId, section) } catch { self.error = error.localizedDescription; rows = [] }
+            do { rows = try await FriendsStore.shared.cards(userId, section) } catch { self.error = FriendsStore.message(error); rows = [] }
         }
         .task(id: "\(rows?.count ?? -1)-\(catalog.generation)") {
             catalog.load(userInitiated: true)
@@ -559,7 +594,14 @@ struct SharingView: View {
             HairlineList {
                 if let error = store.error { Notice(error, error: true) }
                 if let s = store.sharing {
-                    Notice("Everything starts private. Friends see what's Friends or Public; anyone on Table 1 sees what's Public. Your profile caps the rest.")
+                    Notice(SharingRules.seesLine(s, level: 1))
+                    Notice(SharingRules.seesLine(s, level: 0))
+                    if let me = Repo.userId ?? demoUserId {
+                        Button { path.append(.social(.profile(me))) } label: {
+                            ListRow(title: "View your profile as…", detail: "A friend, or anyone on Table 1")
+                        }.buttonStyle(.plain)
+                    }
+                    Notice("Everything starts private, and new decks stay private until you share them. Your profile caps the rest.")
                     part(.profile, s)
                     part(.record, s)
                     Section1("Library")
@@ -571,7 +613,7 @@ struct SharingView: View {
                             if !items.isEmpty {
                                 Button { path.append(.social(.sharingItems(kind))) } label: {
                                     let own = items.filter { $0.visibility != nil }.count
-                                    ListRow(title: "Each \(kind)", detail: "\(plural(items.count, kind)) · \(own == 0 ? "all \(SharingRules.effective(s, p).label.lowercased())" : "\(own) set on their own")") {
+                                    ListRow(title: "Each \(kind)", detail: "\(plural(items.count, kind)) · \(own == 0 ? "all \(SharingRules.effective(s, p).label.lowercased())" : "\(own) with their own setting")") {
                                         LabelText("Open", color: T1.text)
                                     }
                                 }.buttonStyle(.plain)
@@ -589,14 +631,43 @@ struct SharingView: View {
     private func part(_ p: SharePart, _ s: SharingSettings) -> some View {
         SharingControl(title: p.label, detail: p.detail, own: s.own(p), inherits: p.inherits,
                        parent: p == .profile || p == .library || p == .record ? nil : ("Library", s.library),
-                       settings: s, isProfile: p == .profile) { v in
-            Task { await store.set(p, v) }
+                       settings: s, isProfile: p == .profile, effect: effect(p)) { v in
+            store.change(p, v)
+        }
+    }
+
+    private var demoUserId: String? {
+        #if DEBUG
+        store.demo != nil ? FriendsDemoBackend.me : nil
+        #else
+        nil
+        #endif
+    }
+
+    /// What the part shows, for the line under its control.
+    private func effect(_ p: SharePart) -> String {
+        switch p {
+        case .profile: "your profile and what reaches them"
+        case .library, .binders, .decks, .cubes: "what follows this"
+        case .allCards: "every card you own"
+        case .forTrade: "your for-trade copies"
+        case .wants: "your wants, without max prices"
+        case .record: "your lifetime record"
         }
     }
 }
 
-/// One part's row and its Private / Friends / Public control ("Same" first when it can follow the level above).
+/// One part's row and its Private / Friends / Anyone control ("Same" first when it can follow the level above).
 struct SharingControl: View {
+    /// "Friends see every card you own." / "Only you see it."
+    static func effectLine(_ reach: Visibility, _ what: String) -> String {
+        switch reach {
+        case .private: "Only you see \(what)."
+        case .friends: "Friends see \(what)."
+        case .public: "Anyone on Table 1 sees \(what)."
+        }
+    }
+
     let title: String
     let detail: String
     let own: Visibility?
@@ -604,6 +675,8 @@ struct SharingControl: View {
     let parent: (name: String, value: Visibility)?
     let settings: SharingSettings
     var isProfile = false
+    /// "every card in this binder": what reaches them, for the line under the control.
+    var effect: String = "it"
     let set: (Visibility?) -> Void
 
     private enum Choice: Hashable { case same, v(Visibility) }
@@ -622,10 +695,12 @@ struct SharingControl: View {
                 set: { c in if case .v(let v) = c { set(v) } else { set(nil) } }
             ))
             if own == nil, let parent {
-                Notice("Same as \(parent.name): \(parent.value.label.lowercased()).")
+                Notice("Same as \(parent.name) · \(parent.value.label).")
             }
             if capped {
-                Notice("Shows to \(SharingRules.reach(settings, effective) == .friends ? "friends" : "you") only: your profile is \(settings.profile.label.lowercased()).")
+                Notice("Set to \(effective.label), but only \(SharingRules.reach(settings, effective) == .friends ? "friends see it" : "you see it"): your profile is \(settings.profile.label).")
+            } else {
+                Notice(SharingControl.effectLine(isProfile ? settings.profile : SharingRules.reach(settings, effective), effect))
             }
         }
     }
@@ -646,8 +721,8 @@ struct SharingItemsView: View {
                     ForEach(s.items.filter { $0.kind == kind }) { item in
                         SharingControl(title: item.name, detail: item.forTrade == true ? "For trade" : kind.capitalized,
                                        own: item.visibility, inherits: true, parent: (group.label, SharingRules.effective(s, group)),
-                                       settings: s) { v in
-                            Task { await store.set(item, v) }
+                                       settings: s, effect: WhoSeesRow.effect(kind)) { v in
+                            store.change(item, v)
                         }
                     }
                 }
@@ -663,6 +738,8 @@ struct TradeMatchesView: View {
     @Binding var path: [LibraryRoute]
     @Environment(\.dismiss) private var dismiss
     private var store: FriendsStore { FriendsStore.shared }
+    /// Sharing is loaded, so the offer row can decide.
+    @State private var offered = false
 
     var body: some View {
         let m = store.matches
@@ -671,6 +748,18 @@ struct TradeMatchesView: View {
             HairlineList {
                 if let error = store.error { Notice(error, error: true) }
                 Notice("Your wants against friends' for-trade cards, and theirs against yours. People you've played with count when they share publicly.")
+                if let s = store.sharing, !SharingOffer.matches.answered, offered,
+                   SharingRules.reachOf(s, .forTrade) == .private, SharingRules.reachOf(s, .wants) == .private {
+                    Button {
+                        SharingOffer.matches.ask("Share For trade and Wants with friends?",
+                                                 message: "Friends can see your for-trade copies and your wants (never your max prices), so their matches can find you.",
+                                                 parts: [.forTrade, .wants])
+                    } label: {
+                        ListRow(title: "Share For trade and Wants with friends", detail: "So friends' matches can find you too") {
+                            LabelText("Share", color: T1.accent)
+                        }
+                    }.buttonStyle(.plain)
+                }
                 if let m {
                     if m.isEmpty {
                         Notice("No matches yet. Matches show once friends share For trade or Wants, and you have wants or a for-trade binder.")
@@ -678,12 +767,14 @@ struct TradeMatchesView: View {
                         Button { path.append(.social(.sharing)) } label: { ListRow(title: "Sharing", detail: "Share your For trade and Wants") }.buttonStyle(.plain)
                     }
                     ForEach(m) { x in
-                        Button { path.append(.social(.match(x.userId))) } label: {
+                        Button { if T1Overlays.shared.menu == nil { path.append(.social(.match(x.userId))) } } label: {
                             ListRow(title: x.displayName, detail: x.short + (x.friend ? "" : " · played with you"),
                                     avatar: AvatarView(name: x.displayName, userId: x.userId)) {
                                 if x.haveUsd + x.wantUsd > 0, let v = PriceBook.text(x.haveUsd + x.wantUsd) { Text(v).font(T1.mono(15)).monospacedDigit() }
                             }
-                        }.buttonStyle(.plain)
+                        }
+                        .buttonStyle(.plain)
+                        .personMenu { PersonActions.menu(x.person, x.friend ? .friend : .none, from: "trade_match") }
                     }
                 } else {
                     Notice("Looking…")
@@ -691,6 +782,8 @@ struct TradeMatchesView: View {
             }
         }
         .task {
+            if store.sharing == nil { await store.loadSharing() }
+            offered = true
             await store.loadMatches()
             if let m = store.matches {
                 Telemetry.capture("trade_matches_viewed", ["people": m.count, "have": m.reduce(0) { $0 + $1.haveCopies },
@@ -717,7 +810,16 @@ struct TradeMatchView: View {
     var body: some View {
         T1Screen {
             Bar(title: match?.displayName ?? "Trade match", subtitle: match.map { $0.friend ? "Friend" : "Played with you" }, back: { dismiss() }) {
-                BarButton("Profile") { path.append(.social(.profile(userId))) }
+                HStack(spacing: 20) {
+                    BarButton("Profile") { path.append(.social(.profile(userId))) }
+                    if let m = match {
+                        BarButton("More") {
+                            PersonActions.menu(m.person, m.friend ? .friend : .none, from: "trade_match") {
+                                if FriendsStore.shared.list?.blocked.contains(where: { $0.userId == userId }) == true { dismiss() }
+                            }
+                        }
+                    }
+                }
             }
             HairlineList {
                 if let error { Notice(error, error: true) }
@@ -792,6 +894,219 @@ struct TradeMatchView: View {
                 path.append(.trade(id))
             } catch {
                 self.error = error.localizedDescription
+            }
+        }
+    }
+}
+
+// MARK: block and report (contract § UX rules 6)
+
+extension FriendsStore {
+    /// What the UI says for a failed read: anything hidden or gone reads "This isn't available" (never "That's private").
+    static func message(_ error: Error) -> String {
+        let text = error.localizedDescription
+        return text.contains("That's private") || text.contains("42501") ? "This isn't available." : text
+    }
+}
+
+/// The menu wherever a person appears: Unfriend / Cancel request / Ignore, Block (or Unblock), Report.
+@MainActor
+enum PersonActions {
+    static func menu(_ p: Person, _ relation: Relation, from: String, changed: (() -> Void)? = nil) {
+        let store = FriendsStore.shared
+        func run(_ work: @escaping () async throws -> Void) {
+            Task {
+                do { try await work(); changed?() } catch { store.error = FriendsStore.message(error) }
+            }
+        }
+        var items: [T1MenuItem] = []
+        switch relation {
+        case .friend:
+            items.append(T1MenuItem(title: "Unfriend", detail: "They aren't told") {
+                T1Overlays.shared.ask("Unfriend \(p.displayName)?",
+                                      message: "You'll stop seeing what each of you shares with friends. They aren't told.",
+                                      action: "Unfriend", destructive: true) { run { try await store.remove(p.userId) } }
+            })
+        case .requested: items.append(T1MenuItem(title: "Cancel request") { run { try await store.remove(p.userId) } })
+        case .incoming: items.append(T1MenuItem(title: "Ignore request", detail: "They aren't told") { run { try await store.respond(p.userId, accept: false) } })
+        case .blocked, .none, .me: break
+        }
+        if relation == .blocked {
+            items.append(T1MenuItem(title: "Unblock") { run { try await store.block(p.userId, false) } })
+        } else if relation != .me {
+            items.append(T1MenuItem(title: "Block", detail: "They can't find you or ask you", destructive: true) {
+                confirmBlock(p) { run { try await store.block(p.userId, true) } }
+            })
+        }
+        if relation != .me {
+            items.append(T1MenuItem(title: "Report", detail: "Tell Table 1 about this account", destructive: true) {
+                report(p, from: from, changed: changed)
+            })
+        }
+        T1Overlays.shared.showMenu(p.displayName, items)
+    }
+
+    static func confirmBlock(_ p: Person, _ block: @escaping () -> Void) {
+        T1Overlays.shared.ask("Block \(p.displayName)?",
+                              message: "They won't be able to find you, see your Library or ask to be friends. They won't be told. You'll still both be in any event you're both playing.",
+                              action: "Block", destructive: true, onConfirm: block)
+    }
+
+    static func report(_ p: Person, from: String, item: (kind: String, id: String, name: String)? = nil, changed: (() -> Void)? = nil) {
+        T1Overlays.shared.present(full: true) {
+            ReportPanel(person: p, from: from, item: item.map { ReportPanel.Item(kind: $0.kind, id: $0.id, name: $0.name) }, changed: changed)
+                .screen("report")
+        }
+    }
+}
+
+extension View {
+    /// Long press on a person's row opens their menu (VoiceOver: the "More" action). Rows check
+    /// `T1Overlays.shared.menu == nil` before opening, so lifting the finger doesn't also open the row.
+    func personMenu(_ open: @escaping () -> Void) -> some View {
+        simultaneousGesture(LongPressGesture(minimumDuration: 0.45).onEnded { _ in open() })
+            .accessibilityAction(named: "More", open)
+    }
+}
+
+/// Report an account: a reason, an optional note, and Also block them (on for Harassment).
+struct ReportPanel: View {
+    struct Item { let kind: String; let id: String; let name: String }
+    let person: Person
+    let from: String
+    var item: Item?
+    var changed: (() -> Void)?
+    @State private var reason: ReportReason?
+    @State private var note = ""
+    @State private var block = false
+    @State private var busy = false
+    @State private var sent = false
+    @State private var error: String?
+
+    var body: some View {
+        T1Screen {
+            Bar(title: "Report \(person.displayName)", subtitle: item?.name ?? "They won't know you reported them") {
+                BarButton(sent ? "Done" : "Cancel") { T1Overlays.shared.dismissPanel() }
+            }
+            HairlineList {
+                if let error { Notice(error, error: true) }
+                if sent {
+                    Notice("Thanks. We'll look into it. They won't know you reported them.")
+                    if block { Notice("You blocked \(person.displayName). Unblock them any time in Friends.") }
+                } else {
+                    Section1("What's wrong")
+                    ForEach(ReportReason.allCases, id: \.self) { r in
+                        Button {
+                            reason = r
+                            block = r.blocksByDefault
+                        } label: {
+                            ListRow(title: r.label) {
+                                if reason == r { LabelText("Picked", color: T1.accent) }
+                            }
+                        }.buttonStyle(.plain)
+                    }
+                    Section1("Anything else · optional")
+                    TextField("", text: $note, prompt: Text("What happened").foregroundStyle(T1.muted), axis: .vertical)
+                        .lineLimit(3...6)
+                        .font(T1.mono(15)).tint(T1.accent)
+                        .padding(.horizontal, 16).padding(.vertical, 14).background(T1.surface)
+                        .onChange(of: note) { _, v in if v.count > 500 { note = String(v.prefix(500)) } }
+                    T1Switch(title: "Also block them", detail: "They can't find you or ask you", isOn: $block)
+                }
+            }
+            if !sent {
+                BigAction(text: "Send report", enabled: reason != nil, busy: busy, accent: true) { send() }
+            }
+        }
+    }
+
+    private func send() {
+        guard let reason else { return }
+        busy = true
+        Task {
+            defer { busy = false }
+            do {
+                try await FriendsStore.shared.report(person.userId, reason: reason, note: note, from: from,
+                                                     item: item.map { ($0.kind, $0.id) }, block: block)
+                sent = true
+                error = nil
+                changed?()
+            } catch {
+                self.error = FriendsStore.message(error)
+            }
+        }
+    }
+}
+
+// MARK: visibility on the thing itself (contract § UX rules 2)
+
+/// "Who sees this" at the top of a deck, cube or binder: the effective value, and a menu to change it.
+struct WhoSeesRow: View {
+    let kind: String // binder / deck / cube
+    let id: String
+    let name: String
+    var forTrade: Bool?
+    private var store: FriendsStore { FriendsStore.shared }
+
+    static func effect(_ kind: String) -> String {
+        kind == "binder" ? "every card in this binder, with condition and language" : "every card in this \(kind)"
+    }
+
+    var body: some View {
+        let s = store.sharing
+        let item = store.shareItem(kind: kind, id: id, name: name, forTrade: forTrade)
+        let group: SharePart = kind == "binder" ? .binders : kind == "cube" ? .cubes : .decks
+        Button { if let s { menu(s, item, group) } } label: {
+            if let s {
+                let eff = SharingRules.effective(s, item), reach = SharingRules.reachOf(s, item)
+                ListRow(title: "Who sees this",
+                        detail: SharingRules.capped(s, eff) ? "Set to \(eff.label), capped by your profile"
+                            : item.visibility == nil ? "Same as \(group.label)" : "Its own setting") {
+                    LabelText(reach.label, color: reach == .private ? T1.muted : T1.accent)
+                }
+            } else {
+                ListRow(title: "Who sees this", detail: "Loading…")
+            }
+        }
+        .buttonStyle(.plain)
+        .task { if store.sharing == nil { await store.loadSharing() } }
+    }
+
+    private func menu(_ s: SharingSettings, _ item: ShareItem, _ group: SharePart) {
+        let groupValue = SharingRules.effective(s, group)
+        var items = [T1MenuItem(title: "Same as \(group.label) · \(groupValue.label)", detail: "Follows Account → Sharing", checked: item.visibility == nil) {
+            store.change(item, nil)
+        }]
+        for v in Visibility.allCases {
+            items.append(T1MenuItem(title: v.label, detail: v == .private ? "Only you" : v == .friends ? "Your friends" : "Anyone on Table 1",
+                                    checked: item.visibility == v) { store.change(item, v) })
+        }
+        T1Overlays.shared.showMenu("Who sees \(name)", message: s.profile == .public ? nil : "Your profile is \(s.profile.label), so nothing here goes further than that.", items)
+    }
+}
+
+// MARK: offers (contract § UX rules 8)
+
+/// Account tab, after your first event while Record is private: "Show your record on your profile?"
+struct RecordOffer: View {
+    let eventsPlayed: Int
+    private var store: FriendsStore { FriendsStore.shared }
+    @State private var hidden = false
+
+    var body: some View {
+        if !hidden, eventsPlayed >= 1, !SharingOffer.record.answered, let s = store.sharing, s.record == .private {
+            ListRow(title: "Show your record on your profile?", detail: "Friends would see your wins, losses and draws") {
+                HStack(spacing: 1) {
+                    RowAction(text: "Friends", accent: true) {
+                        SharingOffer.record.answer(true)
+                        hidden = true
+                        store.change([(.record, .friends)], ask: false)
+                    }
+                    RowAction(text: "Not now") {
+                        SharingOffer.record.answer(false)
+                        hidden = true
+                    }
+                }
             }
         }
     }

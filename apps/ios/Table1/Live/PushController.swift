@@ -56,16 +56,17 @@ final class PushController {
         Task { await register() }
     }
 
-    /// A tapped friend request or acceptance (no event): opens Account → Friends.
-    private var pendingFriends = false
-    var openFriends: (() -> Void)? {
-        didSet { if pendingFriends, let openFriends { pendingFriends = false; openFriends() } }
+    /// A tapped friend or moderation push (no event): opens Account → Friends, From Table 1 or Review.
+    private var pendingSocial: SocialRoute?
+    var openSocial: ((SocialRoute) -> Void)? {
+        didSet { if let r = pendingSocial, let openSocial { pendingSocial = nil; openSocial(r) } }
     }
 
     func didTap(_ userInfo: [AnyHashable: Any]) {
-        if let kind = userInfo["kind"] as? String, kind.hasPrefix("friend.") {
+        if let kind = userInfo["kind"] as? String, kind.hasPrefix("friend.") || kind.hasPrefix("moderation.") {
             Telemetry.capture("push_opened", ["kind": kind])
-            if let openFriends { openFriends() } else { pendingFriends = true }
+            let route: SocialRoute = kind == "moderation.notice" ? .notices : kind == "moderation.review" ? .review : .friends
+            if let openSocial { openSocial(route) } else { pendingSocial = route }
             return
         }
         guard let id = userInfo["event_id"] as? String else { return }

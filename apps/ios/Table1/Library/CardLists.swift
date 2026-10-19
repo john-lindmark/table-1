@@ -223,6 +223,7 @@ final class ListsStore {
         send("list_create", ["p_id": .string(l.id), "p_kind": .string(kind.rawValue), "p_name": .string(name),
                              "p_format": .string(format), "p_entries": .array(wire), "p_note": .string(note)])
         Telemetry.capture("list_created", ["kind": kind.rawValue, "format": format, "from": from])
+        FriendsStore.shared.noteCreated(kind: kind == .cube ? "cube" : "deck", id: l.id, name: name)
         return l
     }
 
@@ -742,6 +743,7 @@ struct ListDetailView: View {
 
     /// Summary, Add cards and Version history: the same in every layout.
     @ViewBuilder private func top(_ list: CardList, owned: [String: Int], rows: [ListLine], issues: [String: String]) -> some View {
+        WhoSeesRow(kind: list.kind == .cube ? "cube" : "deck", id: list.id, name: list.name)
         stats(list, owned: owned, rows: rows)
         if !issues.isEmpty {
             // Considering cards are flagged on their rows but don't make the deck unplayable.
