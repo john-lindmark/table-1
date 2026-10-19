@@ -20,6 +20,7 @@ junit = "4.13.2"
 camerax = "1.4.1"
 mlkitText = "19.0.1"
 mlkitTextCjk = "16.0.1"
+sentry = "8.59.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -61,6 +62,10 @@ mlkit-text-korean = { module = "com.google.android.gms:play-services-mlkit-text-
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-svg = { module = "io.coil-kt.coil3:coil-svg", version.ref = "coil" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
+# Crash, ANR and error reporting (contract/telemetry-2026-10-15.md § Sentry). No session replay module.
+sentry-android-core = { module = "io.sentry:sentry-android-core", version.ref = "sentry" }
+sentry-android-ndk = { module = "io.sentry:sentry-android-ndk", version.ref = "sentry" }
+sentry-okhttp = { module = "io.sentry:sentry-okhttp", version.ref = "sentry" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

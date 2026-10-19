@@ -39,6 +39,7 @@ import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.T1Logo
 import site.table1.events.ui.components.T1TextField
 import site.table1.events.ui.theme.T1
+import site.table1.events.util.Telemetry
 
 private enum class Step { Providers, Email, Code }
 
@@ -79,6 +80,7 @@ fun SignInScreen() {
                 // Closed the Google account sheet: no error.
             } catch (e: Exception) {
                 error = message
+                Telemetry.error(e, "sign_in")
             } finally {
                 busy = null
             }
@@ -184,6 +186,7 @@ fun NameScreen() {
                         SignIn.saveName(first, last)
                     } catch (e: Exception) {
                         error = "Couldn't save your name. Try again."
+                        Telemetry.error(e, "sign_in_name")
                     } finally {
                         busy = false
                     }
