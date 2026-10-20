@@ -32,4 +32,5 @@ places are listed and highlighted inside them.
 - Telemetry: `hero_added` / `hero_removed` (`scope`, `count`).
 - Status: iOS built and checked in the demo (`-T1LibraryDemo` seeds a hero per deck and cube and two for the collection).
   Web built and checked in `/library?demo` (the demo seeds heroes the same way); Android built and unit-tested, not yet run
-  on a device. Migration written and tested locally, not applied to live.
+  on a device. Migration applied to live 2026-10-19 with John's OK and smoke-tested in a rolled-back transaction;
+  not yet used by a signed-in client.
