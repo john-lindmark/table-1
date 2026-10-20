@@ -36,7 +36,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -167,9 +183,10 @@ object CardImageLoader {
     }
 }
 
-/** A card image at a fixed width with the printing's real corner radius; flat placeholder until loaded. */
+/** A card image at a fixed width with the printing's real corner radius; flat placeholder until loaded. `finish`
+ *  nonfoil | foil | etched: foil copies get a light sheen, etched a dimmer one. */
 @Composable
-fun CardArt(printing: CatalogPrinting?, width: Dp, modifier: Modifier = Modifier) {
+fun CardArt(printing: CatalogPrinting?, width: Dp, modifier: Modifier = Modifier, finish: String = "nonfoil") {
     val density = LocalDensity.current
     val height = width / CARD_ASPECT
     val maxPx = with(density) { height.roundToPx() }
@@ -177,22 +194,69 @@ fun CardArt(printing: CatalogPrinting?, width: Dp, modifier: Modifier = Modifier
     val shape = RoundedCornerShape(width * CardCorners.ratio(printing?.set ?: ""))
     var image by remember(url) { mutableStateOf(url?.let { CardImageLoader.cached(it, maxPx) }) }
     LaunchedEffect(url) { if (url != null && image == null) image = CardImageLoader.load(url, maxPx) }
-    Box(modifier.size(width, height).clip(shape).background(T1.bg)) {
+    Box(modifier.size(width, height).clip(shape).background(T1.bg).let { if (finish != "nonfoil") it.foilSheen(finish == "etched") else it }) {
         image?.let { Image(it, contentDescription = null, Modifier.size(width, height), contentScale = ContentScale.Crop) }
     }
 }
 
-/** A list row led by a card thumbnail; same type and spacing as ListRow. */
+private val SPECTRUM = listOf(Color(1f, 0.45f, 0.75f), Color(1f, 0.85f, 0.4f), Color(0.45f, 1f, 0.7f), Color(0.35f, 0.75f, 1f),
+    Color(0.75f, 0.5f, 1f), Color(1f, 0.45f, 0.75f))
+
+/** A foil's rainbow sheen over the card image (contract/library-polish-2026-10-19.md § Foil): a diagonal spectrum blended
+ *  into the art plus one soft highlight band. Etched foils are matte, so theirs is dimmer. */
+private fun Modifier.foilSheen(etched: Boolean) = graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        val end = Offset(size.width, size.height)
+        drawRect(Brush.linearGradient(SPECTRUM, Offset.Zero, end), alpha = if (etched) 0.3f else 0.55f, blendMode = BlendMode.Overlay)
+        drawRect(Brush.linearGradient(0.3f to Color.Transparent, 0.45f to Color.White.copy(alpha = 0.35f), 0.6f to Color.Transparent,
+            start = Offset.Zero, end = end), alpha = if (etched) 0.5f else 1f, blendMode = BlendMode.Softlight)
+    }
+
+/** The mark a hero card's row carries on its left edge (white, not the accent: teal means "the result"). */
+private fun Modifier.heroEdge() = drawBehind { drawRect(T1.text, size = Size(2.dp.toPx(), size.height)) }
+    .semantics { stateDescription = "Hero card" }
+
+/** A hero card's outline in the grid and in stacks. */
+private fun Modifier.heroFrame(width: Dp) = border(2.dp, T1.text, RoundedCornerShape(width * 0.0432f))
+
+/** The chevron column at the right of a card with several printings: opens or closes its printings. */
+@Composable
+fun PrintingsChevron(open: Boolean, hero: Boolean = false, onClick: () -> Unit) {
+    Box(Modifier.width(44.dp).fillMaxHeight().background(if (hero) T1.surfaceHover else T1.surface).clickable(onClick = onClick)
+        .semantics { contentDescription = if (open) "Hide printings" else "Show printings" }, contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(12.dp, 8.dp)) {
+            val (top, bottom) = if (open) size.height to 0f else 0f to size.height
+            drawPath(Path().apply { moveTo(0f, top); lineTo(size.width / 2, bottom); lineTo(size.width, top) }, T1.muted,
+                style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round))
+        }
+    }
+}
+
+/** A card row with a printings chevron when it has several printings or finishes. */
+@Composable
+fun WithChevron(parts: Int, open: Boolean, hero: Boolean = false, onToggle: () -> Unit, row: @Composable () -> Unit) {
+    if (parts < 2) return row()
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+        Box(Modifier.weight(1f)) { row() }
+        PrintingsChevron(open, hero, onToggle)
+    }
+}
+
+/** A list row led by a card thumbnail; same type and spacing as ListRow. A hero card's row is a shade lighter with a
+ *  white left edge; `indent` is a printing row under its card. */
 @Composable
 fun CardRow(printing: CatalogPrinting?, title: String, detail: String? = null, onClick: (() -> Unit)? = null,
+            finish: String = "nonfoil", hero: Boolean = false, indent: Boolean = false,
             trailing: @Composable () -> Unit = {}) {
     Row(
-        Modifier.fillMaxWidth().background(T1.surface)
+        Modifier.fillMaxWidth().background(if (hero) T1.surfaceHover else T1.surface)
+            .let { if (hero) it.heroEdge() else it }
             .let { if (onClick != null) it.clickable(onClick = onClick) else it }
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(start = if (indent) 40.dp else 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
-        CardArt(printing, 36.dp)
+        CardArt(printing, 36.dp, finish = finish)
         Column(Modifier.weight(1f)) {
             Text(title, color = T1.text, fontFamily = T1.mono, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             detail?.let { Label(it) }
@@ -203,9 +267,10 @@ fun CardRow(printing: CatalogPrinting?, title: String, detail: String? = null, o
 
 /** One grid cell: the image with a count tag inset from the rounded corner. */
 @Composable
-fun CardTile(printing: CatalogPrinting?, qty: Int, width: Dp, warn: Boolean = false, onClick: (() -> Unit)? = null) {
+fun CardTile(printing: CatalogPrinting?, qty: Int, width: Dp, warn: Boolean = false, onClick: (() -> Unit)? = null,
+             finish: String = "nonfoil", hero: Boolean = false) {
     Box(Modifier.width(width).let { if (onClick != null) it.clickable(onClick = onClick) else it }) {
-        CardArt(printing, width)
+        CardArt(printing, width, if (hero) Modifier.heroFrame(width) else Modifier, finish = finish)
         Text("$qty", Modifier.align(Alignment.BottomEnd).padding(width * 0.05f)
             .background(if (warn) T1.error else T1.bg).padding(horizontal = 6.dp, vertical = 2.dp),
             color = if (warn) T1.bg else T1.text, fontFamily = T1.mono, fontSize = 13.sp)
@@ -253,19 +318,30 @@ fun rememberCardLayout(key: String, legacyGridKey: String): MutableState<CardLay
     }
 }
 
-/** The bar's "View" menu: the three layouts, the current one selected. `screen` is all_cards / deck / cube.
- *  Telemetry: `card_layout_changed {layout, screen}` (contract/telemetry-2026-10-15.md) goes here once Android
- *  has its Telemetry wrapper. */
+/** The bar's "View" menu: the three layouts, the current one selected, then expanding or collapsing every card's
+ *  printings when the screen has them. `screen` is all_cards / deck / cube. */
 @Composable
-fun CardLayoutMenu(layout: MutableState<CardLayout>, @Suppress("UNUSED_PARAMETER") screen: String, onDismiss: () -> Unit) {
+fun CardLayoutMenu(layout: MutableState<CardLayout>, screen: String, printings: MutableState<PrintingsDisclosure>? = null, onDismiss: () -> Unit) {
+    val all = printings?.value?.all == true
     T1Menu("View", CardLayout.entries.map { l ->
-        T1MenuItem(l.title, selected = l == layout.value) { if (l != layout.value) layout.value = l }
-    }, onDismiss)
+        T1MenuItem(l.title, selected = l == layout.value) {
+            if (l != layout.value) {
+                layout.value = l
+                site.table1.events.util.Telemetry.capture("card_layout_changed", mapOf("layout" to l.wire, "screen" to screen))
+            }
+        }
+    } + listOfNotNull(printings?.let { p ->
+        T1MenuItem(if (all) "Collapse all printings" else "Expand all printings") {
+            p.value = p.value.setAll(!all)
+            site.table1.events.util.Telemetry.capture("printings_toggled",
+                mapOf("expanded" to !all, "all" to true, "screen" to if (screen == "all_cards") "all_cards" else "list"))
+        }
+    }), onDismiss)
 }
 
 /** One card in a stack. Only its top `STACK_PEEK` shows unless it's the last card. */
 data class StackCard(val key: String, val printing: CatalogPrinting?, val name: String, val qty: Int, val warn: Boolean = false,
-                     val onClick: () -> Unit)
+                     val finish: String = "nonfoil", val hero: Boolean = false, val onClick: () -> Unit)
 
 data class CardStackSpec(val key: String, val title: String?, val cards: List<StackCard>)
 
@@ -283,9 +359,9 @@ fun CardStack(spec: CardStackSpec, width: Dp) {
         Box(Modifier.size(width, if (spec.cards.isEmpty()) 0.dp else strip * (spec.cards.size - 1) + height)) {
             spec.cards.forEachIndexed { i, c ->
                 Box(Modifier.offset(y = strip * i).size(width, height)
-                    .semantics(mergeDescendants = true) { contentDescription = "${c.name}, ${c.qty}" }
+                    .semantics(mergeDescendants = true) { contentDescription = "${c.name}, ${c.qty}${if (c.hero) ", hero card" else ""}" }
                     .clickable(onClick = c.onClick)) {
-                    CardArt(c.printing, width)
+                    CardArt(c.printing, width, if (c.hero) Modifier.heroFrame(width) else Modifier, finish = c.finish)
                     if (c.printing == null) {
                         Box(Modifier.size(width, strip).border(1.dp, T1.surface).padding(horizontal = 8.dp), contentAlignment = Alignment.CenterStart) {
                             Text(c.name, color = T1.text, fontFamily = T1.mono, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)

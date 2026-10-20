@@ -387,7 +387,7 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
                             TradeCell(p, p?.let { names[it.oracleIdx] } ?: "Card",
                                 listOfNotNull(p?.setLabel, Finish.of(l.finish)?.label, l.condition, PriceBook.text(PriceBook.usd(l.cardId, l.finish).also { pricesVersion }),
                                     if (give) binders.binder(l.binderId)?.name else null),
-                                l.qty, note = note) { if (!confirmed) editing = give to l.key }
+                                l.qty, note = note, finish = l.finish) { if (!confirmed) editing = give to l.key }
                         }
                     }
                     if (!confirmed) {
@@ -454,6 +454,7 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
             owned = if (give) ownedFinishes() else null,
             preferred = if (give) binders.forTradePrintings() else emptyMap(),
             onDone = { cards ->
+                Telemetry.capture("scan_session_ended", mapOf("context" to "trade", "cards" to cards.size, "exact" to cards.count { it.exact }, "cancelled" to false))
                 for (c in cards) {
                     // Giving: copies in a for-trade binder first, else the condition you hold most of.
                     val line = if (give) bestGive(c.printing.cardId, c.finish) else null
@@ -461,19 +462,23 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
                 }
                 scanning = null
             },
-            onCancel = { scanning = null },
+            onCancel = {
+                Telemetry.capture("scan_session_ended", mapOf("context" to "trade", "cards" to 0, "exact" to 0, "cancelled" to true))
+                scanning = null
+            },
         )
     }
 }
 
 @Composable
-private fun TradeCell(p: CatalogPrinting?, name: String, detail: List<String>, qty: Int, note: Pair<String, Boolean>? = null, onClick: () -> Unit) {
+private fun TradeCell(p: CatalogPrinting?, name: String, detail: List<String>, qty: Int, note: Pair<String, Boolean>? = null, finish: String = "nonfoil",
+                      onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).background(T1.surface).clickable(onClick = onClick)) {
         // A get that's wanted (or missing from a deck) gets an accent edge; over the max price, the error color.
         if (note != null) Box(Modifier.fillMaxHeight().width(2.dp).background(if (note.second) T1.error else T1.accent))
         Row(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        CardArt(p, 28.dp)
+        CardArt(p, 28.dp, finish = finish)
         Column(Modifier.weight(1f)) {
             Text(name, color = T1.text, fontFamily = T1.mono, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             detail.forEach { Label(it) }
@@ -535,7 +540,7 @@ private fun TradePickOverlay(give: Boolean, onPick: (TradeLine) -> Unit, onClose
                         val trade = if (give) binders.forTrade(line.key) else (0 to null)
                         CardRow(p, name, if (give) listOfNotNull(p?.setLabel, Finish.of(line.finish)?.label, line.condition,
                             binders.binder(trade.second)?.let { "${trade.first} in ${it.name}" }).joinToString(" · ") else p?.setLabel,
-                            onClick = { onPick(line); added = "Added $name" }) {
+                            onClick = { onPick(line); added = "Added $name" }, finish = line.finish) {
                             if (give) Text("${col.items[line.key]?.qty ?: 0}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                         }
                     }

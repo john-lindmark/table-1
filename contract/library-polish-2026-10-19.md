@@ -52,4 +52,9 @@ A batch of Library changes from John's notes. Hero cards have their own contract
 - Cases shared by every platform: `testdata/card-query/cases.json` (queries, whether they run locally, matches; the form's output).
 
 ## Status
-iOS built, unit-tested (`CardQueryTests`) and checked in the demo. Web and Android to do.
+iOS built, unit-tested (`CardQueryTests`) and checked in the demo.
+Web (2026-10-19): built, unit-tested (`src/lib/cardQuery.test.ts`, same cases) and checked in `/library?demo`. No scanner on the web,
+so no Scan; back is the browser's. Browsers can't set a User-Agent, so Scryfall requests carry the browser's own.
+Android (2026-10-19): built and unit-tested (`CardQueryTest`, same cases); not yet run on a device. Back: system back and
+predictive back (`enableOnBackInvokedCallback`); full-screen panels are dialogs, so back closes them. Scan on every Add cards
+screen; `scan_session_ended` is now sent on Android for every context (it wasn't for add/trade before).

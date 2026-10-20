@@ -41,6 +41,7 @@ import site.table1.events.library.CollectionStore
 import site.table1.events.library.DeckFinderScreen
 import site.table1.events.library.LibraryHomeScreen
 import site.table1.events.library.BindersStore
+import site.table1.events.library.HeroesStore
 import site.table1.events.library.BindersScreen
 import site.table1.events.library.BinderScreen
 import site.table1.events.library.WantsScreen
@@ -152,11 +153,15 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
             CollectionStore.start(userId)
             ListsStore.start(userId)
             BindersStore.start(userId)
+            HeroesStore.start(userId)
         }
         CatalogStore.load(userInitiated = false)
     }
-    DisposableEffect(Unit) { onDispose { CollectionStore.stop(); ListsStore.stop(); TradesStore.stop(); BindersStore.stop(); FriendsStore.stop() } }
-    LaunchedEffect(foregrounds) { CatalogStore.load(userInitiated = route?.startsWith("collection") == true) }
+    DisposableEffect(Unit) { onDispose { CollectionStore.stop(); ListsStore.stop(); TradesStore.stop(); BindersStore.stop(); HeroesStore.stop(); FriendsStore.stop() } }
+    LaunchedEffect(foregrounds) {
+        CatalogStore.load(userInitiated = route?.startsWith("collection") == true)
+        if (foregrounds > 0) HeroesStore.refresh()
+    }
 
     val topLevel = route == "events" || route == "account" || route == "collection"
     Column(Modifier.fillMaxSize()) {

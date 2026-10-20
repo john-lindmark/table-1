@@ -31,4 +31,5 @@ places are listed and highlighted inside them.
   per-account cache; toggling shows at once and the RPC's answer replaces it (on failure, refetch).
 - Telemetry: `hero_added` / `hero_removed` (`scope`, `count`).
 - Status: iOS built and checked in the demo (`-T1LibraryDemo` seeds a hero per deck and cube and two for the collection).
-  Web and Android to do. Migration written and tested locally, not applied to live.
+  Web built and checked in `/library?demo` (the demo seeds heroes the same way); Android built and unit-tested, not yet run
+  on a device. Migration written and tested locally, not applied to live.

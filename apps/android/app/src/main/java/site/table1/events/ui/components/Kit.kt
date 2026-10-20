@@ -418,6 +418,8 @@ fun T1TextField(
     error: String? = null,
     trailing: String? = null,
     onClick: (() -> Unit)? = null,
+    /** The keyboard's Search key (a search box: usually picks the top hit). */
+    onSubmit: (() -> Unit)? = null,
 ) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         label?.let { Label(it, color = if (error != null) T1.danger else T1.muted) }
@@ -438,7 +440,9 @@ fun T1TextField(
                         value = value, onValueChange = onChange, singleLine = true,
                         textStyle = TextStyle(color = T1.text, fontFamily = T1.mono, fontSize = 15.sp),
                         cursorBrush = SolidColor(T1.accent),
-                        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+                        keyboardOptions = KeyboardOptions(keyboardType = keyboardType,
+                            imeAction = if (onSubmit != null) androidx.compose.ui.text.input.ImeAction.Search else androidx.compose.ui.text.input.ImeAction.Default),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { onSubmit?.invoke() }),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }

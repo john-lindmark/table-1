@@ -30,6 +30,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -205,6 +209,18 @@ fun ListsScreen(kind: ListKind, onBack: () -> Unit, onOpen: (String) -> Unit, on
     var busy by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { ListsStore.sync() }
     val mine = s.lists.filter { it.kind == kind }
+    val heroes by HeroesStore.state.collectAsState()
+    val cat by CatalogStore.state.collectAsState()
+    /** Each list's hero cards, as the printings it holds. */
+    var heroArt by remember { mutableStateOf<Map<String, List<CatalogPrinting>>>(emptyMap()) }
+    LaunchedEffect(heroes, cat.generation, mine.map { "${it.id}${it.current.number}" }) {
+        val db = CatalogStore.db ?: return@LaunchedEffect
+        val wanted = mine.mapNotNull { l ->
+            val h = heroes.heroes(HeroScope.InList(l.id))
+            if (h.isEmpty()) null else Triple(l.id, h, l.entries.sortedByDescending { it.qty }.map { it.cardId })
+        }
+        heroArt = withContext(Dispatchers.Default) { wanted.associate { (id, h, held) -> id to HeroArt.printings(h, held, db) } }
+    }
     T1Screen {
         Bar(if (kind == ListKind.Deck) "Decks" else "Cubes", subtitle = "${mine.size}", onBack = onBack)
         s.error?.let { Notice(it, error = true) }
@@ -215,7 +231,7 @@ fun ListsScreen(kind: ListKind, onBack: () -> Unit, onOpen: (String) -> Unit, on
                 val side = l.count("side"); val maybe = l.count("maybe")
                 val detail = listOfNotNull(l.format, if (side > 0) "$side sideboard" else null, if (maybe > 0) "$maybe considering" else null,
                     if (miss == 0) "All owned" else "$miss missing", "v${l.current.number}").joinToString(" · ")
-                ListRow(l.name, detail, onClick = { onOpen(l.id) }) {
+                HeroListRow(heroArt[l.id] ?: emptyList(), l.name, detail, onClick = { onOpen(l.id) }) {
                     Text("${l.count("main")}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                 }
             }
@@ -261,6 +277,10 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     var exportMenu by remember { mutableStateOf(false) }
     var exportNote by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }
+    val printings = remember { mutableStateOf(PrintingsDisclosure()) }
+    val heroes by HeroesStore.state.collectAsState()
+    val heroScope = HeroScope.InList(listId)
+    var heroFull by remember { mutableStateOf<String?>(null) }
     SearchUsed(query, if (list?.kind == ListKind.Deck) "deck" else "cube")
     val context = LocalContext.current
     // Read so the Export row appears once a pack is opened.
@@ -281,10 +301,6 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     // Summary, Add cards, Version history: the same block above both the list and the grid.
     val top: @Composable () -> Unit = {
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            StatRow(listOfNotNull((if (list.kind == ListKind.Deck) "Main" else "Cards") to list.count("main"),
-                if (list.kind == ListKind.Deck) "Side" to list.count("side") else null,
-                if (list.kind == ListKind.Deck && list.format == "canlander") "Points" to canlanderPoints(rows).first else null,
-                "Considering" to list.count("maybe"), "Missing" to list.missing(owned)))
             // Considering cards are flagged on their rows but don't make the deck unplayable.
             val bad = rows.filter { it.board != "maybe" && issues.containsKey(it.oracleId ?: it.cardId) }.map { it.name }.distinct().sorted()
             if (bad.isNotEmpty()) {
@@ -318,12 +334,52 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
         }
     }
 
+    val lineRow: @Composable (ListLine, Boolean) -> Unit = { x, sub ->
+        val have = owned[x.ownKey] ?: 0
+        val considering = x.board == "maybe"
+        val short = !considering && have < x.qty
+        val issue = issues[x.oracleId ?: x.cardId]
+        val owns = if (considering) (if (have > 0) "Owned $have" else "Not owned") else if (short) "Owned $have · missing ${x.qty - have}" else "Owned $have"
+        val pts = if (x.points > 0 && list.format == "canlander") "${x.points} pt${if (x.points == 1) "" else "s"}" else null
+        CardRow(x.printing, if (sub) x.printing?.setLabel ?: x.name else x.name, listOfNotNull(if (sub) null else issue, pts, x.finishLabel, owns).joinToString(" · "),
+            onClick = { x.oracleId?.let(onCard) }, finish = x.finish, hero = !sub && heroes.isHero(x.oracleId, heroScope), indent = sub) {
+            Text("${x.qty}", color = if (short || issue != null) T1.error else T1.text, fontFamily = T1.mono, fontSize = 17.sp)
+        }
+    }
+    /** A card with several lines: a summary row with a chevron that opens one row per printing and finish. */
+    val groupRow: @Composable (LineGroup, Boolean) -> Unit = { cg, open ->
+        val lead = cg.lead
+        val hero = heroes.isHero(lead.oracleId, heroScope)
+        val considering = lead.board == "maybe"
+        val issue = issues[cg.key]
+        val short = cg.lines.sumOf { (it.qty - (owned[it.ownKey] ?: 0)).coerceAtLeast(0) }
+        val have = cg.lines.sumOf { owned[it.ownKey] ?: 0 }
+        val haveText = if (considering) (if (have > 0) "Owned $have" else "Not owned") else if (short > 0) "Missing $short" else "All owned"
+        WithChevron(cg.lines.size, open, hero, {
+            printings.value = printings.value.toggle(cg.id)
+            Telemetry.capture("printings_toggled", mapOf("expanded" to !open, "all" to false, "screen" to "list"))
+        }) {
+            CardRow(lead.printing, lead.name, listOfNotNull(issue, "${cg.lines.size} printings", haveText).joinToString(" · "),
+                onClick = { lead.oracleId?.let(onCard) }, finish = lead.finish, hero = hero) {
+                Text("${cg.qty}", color = if ((!considering && short > 0) || issue != null) T1.error else T1.text, fontFamily = T1.mono, fontSize = 17.sp)
+            }
+        }
+    }
+    /** Grid and stack cards for one group: one per card, or with every printing expanded, one per line. */
+    fun tiles(inGroup: List<ListLine>): List<StackCard> = LineGroup.of(inGroup).flatMap { cg ->
+        val hero = heroes.isHero(cg.lead.oracleId, heroScope)
+        val open = { cg.lead.oracleId?.let(onCard); Unit }
+        fun warn(ls: List<ListLine>) = (cg.lead.board != "maybe" && ls.any { (owned[it.ownKey] ?: 0) < it.qty }) || issues.containsKey(cg.key)
+        if (!printings.value.all || cg.lines.size < 2) listOf(StackCard(cg.id, cg.lead.printing, cg.lead.name, cg.qty, warn(cg.lines), cg.lead.finish, hero, open))
+        else cg.lines.map { l -> StackCard(l.key, l.printing, l.name, l.qty, warn(listOf(l)), l.finish, hero, open) }
+    }
+
     T1Screen {
         Bar(list.name, subtitle = "${CatalogPack.formatName(list.format)} ${list.kind.wire} · v${list.current.number}", onBack = onBack) {
             BarAction(if (editing) "Done" else "Edit") { editing = !editing }
             if (!editing) BarAction("View") { viewMenu = true }
         }
-        s.error?.let { Notice(it, error = true) }
+        (s.error ?: heroFull)?.let { Notice(it, error = true) }
         if (list.entries.isNotEmpty()) SearchBand(query, if (list.kind == ListKind.Cube) "Search this cube" else "Search this deck") { query = it }
         if (searching && shown.isEmpty()) ListRow("No cards match")
         if (layout.value == CardLayout.Stacks && !editing) {
@@ -337,10 +393,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                         item(key = "b-$board") { Box(Modifier.padding(top = 1.dp)) { BoardHeader(list.boardTitle(board), inBoard.sumOf { it.qty }) } }
                         val stacks = groups(inBoard, list.kind).map { g ->
                             val inGroup = inBoard.filter { it.group == g }
-                            CardStackSpec(g, "$g · ${inGroup.sumOf { it.qty }}", inGroup.map { x ->
-                                StackCard(x.key, x.printing, x.name, x.qty,
-                                    warn = (board != "maybe" && (owned[x.ownKey] ?: 0) < x.qty) || issues.containsKey(x.oracleId ?: x.cardId)) { x.oracleId?.let(onCard) }
-                            })
+                            CardStackSpec("$g|${printings.value.all}", "$g · ${inGroup.sumOf { it.qty }}", tiles(inGroup))
                         }
                         stackRows("s-$board", stacks, cols, width)
                     }
@@ -356,9 +409,8 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                     for (g in groups(inBoard, list.kind)) {
                         val inGroup = inBoard.filter { it.group == g }
                         gridHeader("g-$board-$g") { Section("$g · ${inGroup.sumOf { it.qty }}") }
-                        gridItems(inGroup, key = { "t-${it.key}" }) { x ->
-                            CardTile(x.printing, x.qty, tile, warn = (board != "maybe" && (owned[x.ownKey] ?: 0) < x.qty) || issues.containsKey(x.oracleId ?: x.cardId),
-                                onClick = { x.oracleId?.let(onCard) })
+                        gridItems(tiles(inGroup), key = { "t-${it.key}" }) { t ->
+                            CardTile(t.printing, t.qty, tile, warn = t.warn, onClick = t.onClick, finish = t.finish, hero = t.hero)
                         }
                     }
                 }
@@ -372,27 +424,26 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                     for (g in groups(inBoard, list.kind)) {
                         val inGroup = inBoard.filter { it.group == g }
                         item(key = "g-$board-$g") { Section("$g · ${inGroup.sumOf { it.qty }}") }
-                        items(inGroup, key = { "r-${it.key}" }) { x ->
-                            val have = owned[x.ownKey] ?: 0
-                            val considering = x.board == "maybe"
-                            val short = !considering && have < x.qty
+                        if (!editing) {
+                            for (cg in LineGroup.of(inGroup)) {
+                                if (cg.lines.size == 1) item(key = "r-${cg.lead.key}") { lineRow(cg.lead, false) }
+                                else {
+                                    val open = printings.value.open(cg.id)
+                                    item(key = "cg-${cg.id}") { groupRow(cg, open) }
+                                    if (open) items(cg.lines, key = { "s-${it.key}" }) { x -> lineRow(x, true) }
+                                }
+                            }
+                        } else items(inGroup, key = { "r-${it.key}" }) { x ->
                             if (editing) {
                                 Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                                     Box(Modifier.weight(1f)) {
-                                        CardRow(x.printing, x.name, listOfNotNull(x.finishLabel, "Tap to move, change or remove").joinToString(" · "), onClick = { moving = x }) {
+                                        CardRow(x.printing, x.name, listOfNotNull(x.finishLabel, "Tap to move, change or remove").joinToString(" · "), onClick = { moving = x },
+                                            finish = x.finish, hero = heroes.isHero(x.oracleId, heroScope)) {
                                             Text("${x.qty}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                                         }
                                     }
                                     Step("−") { scope.launch { runCatching { ListsStore.add(list.id, x.cardId, x.board, -1, x.finish) } } }
                                     Step("+") { scope.launch { runCatching { ListsStore.add(list.id, x.cardId, x.board, 1, x.finish) } } }
-                                }
-                            } else {
-                                val issue = issues[x.oracleId ?: x.cardId]
-                                val owns = if (considering) (if (have > 0) "Owned $have" else "Not owned") else if (short) "Owned $have · missing ${x.qty - have}" else "Owned $have"
-                                val pts = if (x.points > 0 && list.format == "canlander") "${x.points} pt${if (x.points == 1) "" else "s"}" else null
-                                CardRow(x.printing, x.name, listOfNotNull(issue, pts, x.finishLabel, owns).joinToString(" · "),
-                                    onClick = { x.oracleId?.let(onCard) }) {
-                                    Text("${x.qty}", color = if (short || issue != null) T1.error else T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                                 }
                             }
                         }
@@ -405,6 +456,12 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
         T1Menu(x.name, list.sections.filter { it != x.board }.map { b ->
             T1MenuItem("Move to ${list.boardTitle(b)}") { scope.launch { runCatching { ListsStore.move(list.id, x.cardId, x.board, b, x.finish) } } }
         } + T1MenuItem("Change printing or finish") { onPrinting(x.cardId, x.board, x.finish) } +
+            listOfNotNull(x.oracleId?.let { o ->
+                val on = heroes.isHero(o, heroScope)
+                T1MenuItem(if (on) "Not a hero card" else "Make it a hero card") {
+                    if (!HeroesStore.toggle(o, heroScope)) heroFull = "${list.name} has ${HeroesStore.LIMIT} hero cards already."
+                }
+            }) +
             T1MenuItem("Remove from ${list.boardTitle(x.board)}", danger = true) {
             scope.launch { runCatching { ListsStore.remove(list.id, x.cardId, x.board, x.finish) } }
         }, onDismiss = { moving = null })
@@ -423,7 +480,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
             }
         }, onDismiss = { exportMenu = false })
     }
-    if (viewMenu) CardLayoutMenu(layout, if (list.kind == ListKind.Cube) "cube" else "deck") { viewMenu = false }
+    if (viewMenu) CardLayoutMenu(layout, if (list.kind == ListKind.Cube) "cube" else "deck", printings) { viewMenu = false }
 }
 
 /**
@@ -468,105 +525,142 @@ private fun Step(glyph: String, onClick: () -> Unit) {
 /* ── adding cards to a list ───────────────────────────────────────────── */
 
 /**
- * Search the catalog and add cards straight into a section of a list. Remove or replace (Cube Cobra's Remove/Replace)
- * searches only the list's own cards: Remove takes one copy out; Replace then searches the catalog for the card that
- * takes its place, in the same section, as one edit.
+ * Add, remove or replace, like Cube Cobra's edit panel (contract/library-polish-2026-10-19.md): an Add box (the catalog,
+ * Scryfall syntax, or the scanner) and a Remove or replace box (only the list's own cards) on one screen. Pick a card in
+ * either box; with only Remove picked the button removes one copy, with both picked it replaces that copy with the added
+ * card in the same section, as one edit (so the history shows a swap). Each card goes in as its original paper printing
+ * unless a search or scan named another; change it from the card page.
  */
 @Composable
-fun ListAddScreen(listId: String, onDone: () -> Unit, onCard: (String) -> Unit) {
+fun ListAddScreen(listId: String, onDone: () -> Unit, @Suppress("UNUSED_PARAMETER") onCard: (String) -> Unit) {
     val s by ListsStore.state.collectAsState()
-    val cat by CatalogStore.state.collectAsState()
     val list = s.lists.firstOrNull { it.id == listId } ?: run { T1Screen { Bar("Add cards") { BarAction("Done", onDone) } }; return }
     val scope = rememberCoroutineScope()
-    var query by remember { mutableStateOf("") }
+    var addQuery by remember { mutableStateOf("") }
+    var removeQuery by remember { mutableStateOf("") }
     var board by remember { mutableStateOf(0) }
-    var mode by remember { mutableStateOf(0) } // 0 add, 1 remove or replace
-    var replacing by remember { mutableStateOf<ListLine?>(null) }
+    var addPick by remember { mutableStateOf<Pair<CatalogOracle, CatalogPrinting>?>(null) }
+    var removePick by remember { mutableStateOf<ListLine?>(null) }
+    /** Which box was typed in last: the list below follows it. */
+    var removeFocus by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<String?>(null) }
-    var hits by remember { mutableStateOf<List<CatalogOracle>>(emptyList()) }
-    var covers by remember { mutableStateOf<Map<Int, CatalogPrinting>>(emptyMap()) }
-    val removing = mode == 1 && replacing == null
-    val meta = rememberMeta(if (mode == 1) list.entries.map { it.cardId }.toSet() else emptySet())
-    LaunchedEffect(query, cat.generation, removing) {
-        val db = CatalogStore.db ?: return@LaunchedEffect
-        if (removing) { hits = emptyList(); return@LaunchedEffect }
-        delay(120)
-        val q = query
-        val found = withContext(Dispatchers.Default) { db.search(q).let { h -> h to db.covers(h.map { it.idx }) } }
-        hits = found.first; covers = found.second
-    }
+    var scanning by remember { mutableStateOf(false) }
+    val meta = rememberMeta(list.entries.map { it.cardId }.toSet())
+    val result = rememberCardSearch(if (addPick == null) addQuery else "")
     val b = list.sections[board.coerceIn(0, list.sections.size - 1)]
-    val target = replacing?.board ?: b
-    val found = if (removing) CardSearch.matchingLines(lines(list, meta), query, { it.name }, { it.type }, { it.board }, { it.finish }) else emptyList()
-    fun button(text: String, onClick: () -> Unit): @Composable () -> Unit = {
-        Box(Modifier.fillMaxHeight().background(T1.surfaceHover).clickable(onClick = onClick).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
-            Label(text, color = T1.text)
+    val lines = lines(list, meta)
+    val removeHits = CardSearch.matchingLines(lines, removeQuery, { it.name }, { it.type }, { it.board }, { it.finish })
+    val showingRemove = removePick == null && removeFocus
+    fun finishOf(p: CatalogPrinting) = p.finishList.firstOrNull()?.wire ?: "nonfoil"
+    fun reset() { addPick = null; removePick = null; addQuery = ""; removeQuery = ""; removeFocus = false }
+    fun pickAdd(o: CatalogOracle, p: CatalogPrinting) { addPick = o to p; addQuery = o.name }
+    fun pickRemove(x: ListLine) { removePick = x; removeQuery = x.name; removeFocus = false }
+    fun add() {
+        val (o, p) = addPick ?: return
+        scope.launch { runCatching { ListsStore.add(list.id, p.cardId, b, 1, finishOf(p)) } }
+        Telemetry.capture("list_card_added", mapOf("kind" to list.kind.wire, "from" to "edit"))
+        note = "Added 1 ${o.name} to ${list.boardTitle(b)}"
+        reset()
+    }
+    fun removeOrReplace() {
+        val r = removePick ?: return
+        val a = addPick
+        if (a != null) {
+            scope.launch { runCatching { ListsStore.swap(list.id, r.cardId, r.board, r.finish, a.second.cardId, finishOf(a.second), 1) } }
+            Telemetry.capture("list_card_replaced", mapOf("kind" to list.kind.wire))
+            note = "Replaced ${r.name} with ${a.first.name} in ${list.boardTitle(r.board)}"
+        } else {
+            scope.launch { runCatching { ListsStore.add(list.id, r.cardId, r.board, -1, r.finish) } }
+            Telemetry.capture("list_card_removed", mapOf("kind" to list.kind.wire))
+            note = "Removed 1 ${r.name} from ${list.boardTitle(r.board)}"
+        }
+        reset()
+    }
+    @Composable
+    fun picked(p: CatalogPrinting?, name: String, detail: String, finish: String = "nonfoil", clear: () -> Unit) {
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+            Box(Modifier.weight(1f)) { CardRow(p, name, detail, finish = finish) }
+            Box(Modifier.fillMaxHeight().background(T1.surface).clickable(onClick = clear).padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+                Label("Clear", color = T1.text)
+            }
+        }
+    }
+    @Composable
+    fun RowScope.action(text: String, enabled: Boolean, run: () -> Unit) {
+        Box(Modifier.weight(1f).background(if (enabled) T1.text else T1.disabled).clickable(enabled = enabled, onClick = run).padding(vertical = 16.dp),
+            contentAlignment = Alignment.Center) {
+            Text(text.uppercase(), color = T1.ink, fontFamily = T1.mono, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
         }
     }
     T1Screen {
-        Bar("${if (replacing != null) "Replace in" else if (removing) "Remove from" else "Add to"} ${list.name}", subtitle = "v${list.current.number}") { BarAction("Done", onDone) }
-        T1Segmented(listOf("Add", "Remove or replace"), mode) { mode = it; replacing = null; query = ""; note = null }
-        val r = replacing
-        if (r != null) {
-            Row(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Label("Replacing ${r.name} · ${list.boardTitle(r.board)}", modifier = Modifier.weight(1f), color = T1.text)
-                BarAction("Cancel") { replacing = null; query = "" }
-            }
-        } else if (mode == 0) {
-            T1Segmented(list.sections.map { list.boardTitle(it) }, board) { board = it }
-        }
+        Bar("Edit ${list.name}", subtitle = "v${list.current.number}") { BarAction("Done", onDone) }
         note?.let { Notice(it) }
-        Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp)) {
-            T1TextField(query, { query = it }, label = if (removing) (if (list.kind == ListKind.Cube) "Card in this cube" else "Card in this deck")
-                else if (replacing != null) "Card to put in" else "Card name")
+        Section("Add to")
+        T1Segmented(list.sections.map { list.boardTitle(it) }, board) { board = it }
+        val ap = addPick
+        if (ap != null) picked(ap.second, ap.first.name, list.boardTitle(removePick?.board ?: b)) { addPick = null; addQuery = "" }
+        else CardSearchBar(addQuery, { addQuery = it; removeFocus = false }, placeholder = "Card to add", onScan = { scanning = true },
+            onSubmit = { result?.hits?.firstOrNull()?.let { o -> result.covers[o.idx]?.let { pickAdd(o, it) } } })
+        Section("Remove or replace")
+        val rp = removePick
+        if (rp != null) picked(rp.printing, rp.name, listOfNotNull(list.boardTitle(rp.board), rp.finishLabel).joinToString(" · "), rp.finish) {
+            removePick = null; removeQuery = ""; removeFocus = true
+        } else Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp)) {
+            T1TextField(removeQuery, { removeQuery = it; removeFocus = true }, placeholder = if (list.kind == ListKind.Cube) "Card in this cube" else "Card in this deck",
+                onClick = if (removeFocus) null else ({ removeFocus = true }), onSubmit = { removeHits.firstOrNull()?.let { pickRemove(it) } })
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+            action("Add", addPick != null) { add() }
+            action(if (addPick != null && removePick != null) "Replace" else "Remove", removePick != null) { removeOrReplace() }
         }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            if (removing) {
-                if (CardName.norm(query).isEmpty()) item {
-                    Notice("Search the cards in ${list.name}. Remove takes one copy out; Replace swaps it for another card in the same section.")
-                } else if (found.isEmpty()) item { ListRow("No card in ${list.name} matches") }
-                items(found, key = { "l-${it.key}" }) { x ->
-                    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-                        Box(Modifier.weight(1f)) {
-                            CardRow(x.printing, x.name, listOfNotNull(list.boardTitle(x.board), x.finishLabel, if (x.qty > 1) "${x.qty} copies" else null).joinToString(" · "),
-                                onClick = { x.oracleId?.let(onCard) })
-                        }
-                        button("Remove") {
-                            scope.launch { runCatching { ListsStore.add(list.id, x.cardId, x.board, -1, x.finish) } }
-                            Telemetry.capture("list_card_removed", mapOf("kind" to list.kind.wire))
-                            note = "Removed 1 ${x.name} from ${list.boardTitle(x.board)}"
-                        }()
-                        button("Replace") { replacing = x; note = null; query = "" }()
-                    }
+            if (showingRemove) {
+                if (CardName.norm(removeQuery).isEmpty()) item {
+                    Notice("Search the cards in ${list.name}. Remove takes one copy out; with a card picked to add, Replace swaps it in the same section.")
+                } else if (removeHits.isEmpty()) item { ListRow("No card in ${list.name} matches") }
+                items(removeHits, key = { "l-${it.key}" }) { x ->
+                    CardRow(x.printing, x.name, listOfNotNull(list.boardTitle(x.board), x.finishLabel, if (x.qty > 1) "${x.qty} copies" else null).joinToString(" · "),
+                        onClick = { pickRemove(x) }, finish = x.finish)
                 }
-            } else {
-                items(hits, key = { it.idx }) { o ->
-                    val p = covers[o.idx]
-                    val inList = p?.let { pc -> list.entries.filter { it.cardId == pc.cardId && it.board == target }.sumOf { it.qty } } ?: 0
+            } else if (addPick == null) {
+                item { CardSearchStatus(addQuery, result) }
+                if (addQuery.isEmpty() && removeQuery.isEmpty()) item {
+                    Notice("Pick a card to add, a card to remove, or both: with both, Replace swaps them in the same section. + adds a card at once. Scan adds what you scan to ${list.boardTitle(b)}.")
+                }
+                items(if (addQuery.isBlank()) emptyList() else result?.hits ?: emptyList(), key = { it.idx }) { o ->
+                    val p = result?.covers?.get(o.idx)
+                    val inList = p?.let { pc -> list.entries.filter { it.cardId == pc.cardId && it.board == b }.sumOf { it.qty } } ?: 0
                     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                         Box(Modifier.weight(1f)) {
-                            CardRow(p, o.name, if (inList > 0) "$inList in ${list.boardTitle(target)}" else o.typeLine, onClick = { onCard(o.oracleId) })
+                            CardRow(p, o.name, if (inList > 0) "$inList in ${list.boardTitle(b)}" else o.typeLine, onClick = { p?.let { pickAdd(o, it) } })
                         }
-                        Box(Modifier.fillMaxHeight().background(T1.surfaceHover).clickable(enabled = p != null) {
+                        Box(Modifier.width(52.dp).fillMaxHeight().background(T1.surfaceHover).clickable(enabled = p != null) {
                             val pc = p ?: return@clickable
-                            val rr = replacing
-                            if (rr != null) {
-                                val toFinish = pc.finishList.firstOrNull()?.wire ?: "nonfoil"
-                                scope.launch { runCatching { ListsStore.swap(list.id, rr.cardId, rr.board, rr.finish, pc.cardId, toFinish, 1) } }
-                                Telemetry.capture("list_card_replaced", mapOf("kind" to list.kind.wire))
-                                note = "Replaced ${rr.name} with ${o.name}"
-                                replacing = null
-                                query = ""
-                            } else {
-                                scope.launch { runCatching { ListsStore.add(list.id, pc.cardId, b, 1) } }
-                            }
-                        }.padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
-                            Label(if (replacing != null) "Put in" else "+ Add", color = if (p == null) T1.disabled else T1.text)
+                            scope.launch { runCatching { ListsStore.add(list.id, pc.cardId, b, 1, finishOf(pc)) } }
+                            Telemetry.capture("list_card_added", mapOf("kind" to list.kind.wire, "from" to "quick"))
+                            note = "Added 1 ${o.name} to ${list.boardTitle(b)}"
+                        }.semantics { contentDescription = "Add ${o.name}" }, contentAlignment = Alignment.Center) {
+                            Text("+", color = if (p == null) T1.disabled else T1.text, fontFamily = T1.mono, fontSize = 22.sp)
                         }
                     }
                 }
             }
         }
+    }
+    // Scanned cards go into the chosen section as one edit, each in the printing and finish the scanner read.
+    if (scanning) {
+        val target = b
+        CardScanOverlay("Scan into ${list.boardTitle(target)}", "Add", owned = null, onDone = { cards ->
+            scanning = false
+            Telemetry.capture("scan_session_ended", mapOf("context" to list.kind.wire, "cards" to cards.size, "exact" to cards.count { it.exact }, "cancelled" to false))
+            if (cards.isNotEmpty()) {
+                scope.launch { runCatching { ListsStore.addMany(list.id, target, cards.map { it.printing.cardId to it.finish }) } }
+                note = "Added ${cards.size} scanned card${if (cards.size == 1) "" else "s"} to ${list.boardTitle(target)}"
+            }
+        }, onCancel = {
+            scanning = false
+            Telemetry.capture("scan_session_ended", mapOf("context" to list.kind.wire, "cards" to 0, "exact" to 0, "cancelled" to true))
+        })
     }
 }
 

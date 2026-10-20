@@ -181,7 +181,7 @@ fun CardScanOverlay(
                                 // Tap the card to change its printing (a misread set code or collector number).
                                 CardRow(c.printing, c.oracle.name, listOfNotNull(c.printing.setLabel, Finish.of(c.finish)?.label,
                                     if (owned == null) c.condition else null, if (c.exact || c.fixed) null else "Check printing").joinToString(" · "),
-                                    onClick = { fixing = c.id }) {
+                                    onClick = { fixing = c.id }, finish = c.finish) {
                                     Label("Printing", color = if (c.exact || c.fixed) T1.muted else T1.text)
                                 }
                             }
