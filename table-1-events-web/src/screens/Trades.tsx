@@ -258,7 +258,7 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
         <button type="button" onClick={confirmed ? undefined : () => setEditing(open ? null : { side, k })}
                 className={`bg-t1-surface hover:bg-t1-surface-hover px-2 py-1.5 flex items-center gap-2 text-left w-full border-l-2 ${
                   note ? (note.over ? "border-t1-error" : "border-t1-accent") : "border-transparent"}`}>
-          <CardArt c={catalog} p={p} width={28} />
+          <CardArt c={catalog} p={p} width={28} finish={l.finish} />
           <span className="flex-1 min-w-0 flex flex-col gap-0.5">
             <span className="text-[12px] truncate">{name}</span>
             <span className="t1-label truncate">{printing}</span>
@@ -395,7 +395,7 @@ function PickPanel({ catalog, give, items, onPick, onClose }: {
           const where = t.binderId ? `${t.qty} in ${binderById(t.binderId)?.name}` : null;
           return (
             <div key={it.k} style={{ height: 60 }}>
-              <CardRow c={catalog} p={p} title={name} value={it.qty}
+              <CardRow c={catalog} p={p} title={name} value={it.qty} finish={it.finish}
                        detail={[`${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}`, FINISH_LABEL[it.finish], it.condition, where].filter(Boolean).join(" · ")}
                        onClick={() => take({ card_id: it.cardId, finish: it.finish, condition: it.condition, lang: it.lang, qty: 1, binder_id: t.binderId }, name)} />
             </div>

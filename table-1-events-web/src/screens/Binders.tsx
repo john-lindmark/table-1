@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Bar, Dialog, Field, Menu, Modal, Notice, Row, Screen, Section, SwitchRow, type MenuItem } from "../components/kit";
 import { errorMessage } from "../lib/api";
-import { RARITY_NAME, coverPrinting, normName, oracleIndexById, searchCatalog, type Catalog } from "../lib/catalog";
+import { RARITY_NAME, coverPrinting, normName, oracleIndexById, type Catalog } from "../lib/catalog";
 import { DEMO_USER, applyOps, undoBatch, useCollection, type Finish, type Item } from "../lib/collection";
 import { cardMatches, moveInSource, printingMatches, repointWant, type Place } from "../lib/librarySearch";
 import { capture } from "../lib/telemetry";
@@ -12,7 +12,10 @@ import {
   applyWants, binderById, binderTotals, deleteBinder, itemsIn, liveWants, missingLines, moveCopies, placement, saveBinder, useBinders,
   type Binder, type Want,
 } from "../lib/binders";
-import { CardRow, LibScreen, useCatalog, useLibrarySession } from "./Library";
+import { CardGroupRow, CardRow, HeroListRow, LibScreen, useCatalog, useLibraryHeroes, useLibrarySession } from "./Library";
+import { COLLAPSED, addPart, isOpen, setAll, sortParts, toggleOne, type Disclosure, type Part } from "../lib/printings";
+import { heroPrintings, heroesOf, isHero } from "../lib/heroes";
+import { CardSearchBar, CardSearchStatus, useCardSearch } from "./CardSearch";
 
 /* Binders and wants (contract/binders-wants-2026-10-17.md). Library → Binders: Unsorted and each binder; a binder
    lists its cards and can be renamed, flagged for trade or deleted. Library → Wants: the wishlist, then everything a
@@ -96,6 +99,17 @@ export function BindersScreen({ onBack, onOpen, onCard }: { onBack: () => void; 
   const { catalog } = useCatalog();
   const [q, setQ] = useState("");
   useSearchUsed(q, "binders");
+  const heroes = useLibraryHeroes();
+  /** Each binder's hero cards, as the printings it holds. */
+  const heroArt = useMemo(() => {
+    const m = new Map<string, number[]>();
+    if (!catalog) return m;
+    for (const x of b.binders) {
+      const h = heroesOf({ kind: "binder", id: x.id }, heroes);
+      if (h.length) m.set(x.id, heroPrintings(catalog, h, itemsIn(x.id, col.items).slice().sort((i, j) => j.qty - i.qty).map((it) => it.cardId)));
+    }
+    return m;
+  }, [catalog, heroes, b.version, col.version]);
   // Owned cards matching the search, most copies first, each saying where its copies are.
   const found = useMemo(() => {
     if (!catalog || !normName(q)) return [];
@@ -134,9 +148,9 @@ export function BindersScreen({ onBack, onOpen, onCard }: { onBack: () => void; 
       <Row title="New binder" detail="A box, a deck box, a trade binder" onClick={() => setCreating(true)} />
       <Row title="Unsorted" detail="Copies not in a binder" value={totals.unsorted.toLocaleString()} onClick={() => onOpen(UNSORTED)} />
       {b.binders.map((x) => (
-        <Row key={x.id} title={x.name} accentValue={x.for_trade}
-             detail={[x.for_trade ? "For trade" : null, usdText(value(itemsIn(x.id, col.items)))].filter(Boolean).join(" · ") || undefined}
-             value={(totals.byBinder.get(x.id) ?? 0).toLocaleString()} onClick={() => onOpen(x.id)} />
+        <HeroListRow key={x.id} c={catalog} heroes={heroArt.get(x.id) ?? []} title={x.name} accentValue={x.for_trade}
+                     detail={[x.for_trade ? "For trade" : null, usdText(value(itemsIn(x.id, col.items)))].filter(Boolean).join(" · ") || undefined}
+                     value={(totals.byBinder.get(x.id) ?? 0).toLocaleString()} onClick={() => onOpen(x.id)} />
       ))}
       {!b.binders.length && (
         <Notice tone="info">Binders say where your copies are. Flag one for trade and Trades offers its cards first when you give.</Notice>
@@ -147,7 +161,12 @@ export function BindersScreen({ onBack, onOpen, onCard }: { onBack: () => void; 
   );
 }
 
-interface CardGroup { key: string; oracle: number; cover: number | null; name: string; norm: string; type: string; qty: number; printings: number }
+interface CardGroup {
+  key: string; oracle: number; cover: number | null; name: string; norm: string; type: string; qty: number; printings: number;
+  coverFinish: Finish;
+  /** Copies per printing and finish, oldest printing first: the rows a card opens into. */
+  parts: Part[];
+}
 
 function group(items: Item[], c: Catalog): CardGroup[] {
   const by = new Map<string, CardGroup & { seen: Set<string>; coverQty: number }>();
@@ -156,12 +175,15 @@ function group(items: Item[], c: Catalog): CardGroup[] {
     const oi = p == null ? -1 : c.pOracle[p];
     const key = oi >= 0 ? c.oId[oi] : it.cardId;
     const g = by.get(key) ?? { key, oracle: oi, cover: null, coverQty: 0, name: oi >= 0 ? c.oName[oi] : "Card not in local data yet",
-                               norm: oi >= 0 ? c.oNorm[oi] : "", type: oi >= 0 ? c.oType[oi] : "", qty: 0, printings: 0, seen: new Set<string>() };
+                               norm: oi >= 0 ? c.oNorm[oi] : "", type: oi >= 0 ? c.oType[oi] : "", qty: 0, printings: 0, seen: new Set<string>(),
+                               coverFinish: "nonfoil" as Finish, parts: [] };
     g.qty += it.qty;
     if (!g.seen.has(it.cardId)) { g.seen.add(it.cardId); g.printings++; }
-    if (p != null && it.qty > g.coverQty) { g.cover = p; g.coverQty = it.qty; }
+    if (p != null && it.qty > g.coverQty) { g.cover = p; g.coverQty = it.qty; g.coverFinish = it.finish; }
+    addPart(g.parts, it.cardId, it.finish, it.qty, p ?? null);
     by.set(key, g);
   }
+  for (const g of by.values()) sortParts(c, g.parts);
   return [...by.values()].sort((a, b) => b.qty - a.qty || (a.norm < b.norm ? -1 : 1));
 }
 
@@ -178,6 +200,8 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
   const [busy, setBusy] = useState(false);
   const [fail, setFail] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [printings, setPrintings] = useState<Disclosure>(COLLAPSED);
+  const heroes = useLibraryHeroes();
   useSearchUsed(q, "binder");
   const unsorted = id === UNSORTED;
   const binder = unsorted ? undefined : binderById(id);
@@ -199,7 +223,15 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
     <LibScreen>
       <Bar title={unsorted ? "Unsorted" : binder?.name ?? "Binder"} onBack={onBack}
            subtitle={[`${copies.toLocaleString()} cards`, binder?.for_trade ? "For trade" : null, usdText(value(items))].filter(Boolean).join(" · ")}
-           right={binder ? <button type="button" onClick={() => setMenu(true)} className="t1-label hover:text-t1-text px-2 py-1 -my-1">Edit</button> : undefined} />
+           right={<span className="flex gap-4">
+             {groups.some((g) => g.parts.length > 1) && (
+               <button type="button" className="t1-label hover:text-t1-text px-2 py-1 -my-1"
+                       onClick={() => { setPrintings(setAll(!printings.all)); capture("printings_toggled", { expanded: !printings.all, all: true, screen: "binder" }); }}>
+                 {printings.all ? "Collapse" : "Expand"}
+               </button>
+             )}
+             {binder && <button type="button" onClick={() => setMenu(true)} className="t1-label hover:text-t1-text px-2 py-1 -my-1">Edit</button>}
+           </span>} />
       {!unsorted && !binder && <Notice tone="info">This binder was deleted.</Notice>}
       {(error || fail || b.error) && <Notice tone="error">{error ?? fail ?? b.error}</Notice>}
       <Field label="Search this binder" value={q} onChange={setQ} placeholder="Name or type" />
@@ -213,13 +245,30 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
         {catalog && !groups.length && (
           <Notice tone="info">{unsorted ? "Every copy is in a binder." : "No cards here yet. Add cards moves in copies you own or adds new ones; trades and imports can fill it too."}</Notice>
         )}
-        {catalog && shown.map((g) => (
-          <div key={g.key} style={{ height: 60 }}>
-            <CardRow c={catalog} p={g.cover} title={g.name} value={g.qty}
-                     detail={`${g.printings} printing${g.printings === 1 ? "" : "s"} · ${g.type}`}
-                     onClick={() => g.oracle >= 0 && onCard(g.key)} />
-          </div>
-        ))}
+        {catalog && shown.map((g) => {
+          const hero = !unsorted && isHero(g.key, { kind: "binder", id }, heroes);
+          const open = isOpen(printings, g.key);
+          return (
+            <div key={g.key} className="flex flex-col gap-px">
+              <div className="h-[60px] shrink-0">
+                <CardGroupRow open={open} parts={g.parts.length} hero={hero}
+                              onToggle={() => { setPrintings(toggleOne(printings, g.key)); capture("printings_toggled", { expanded: !open, all: false, screen: "binder" }); }}>
+                  <CardRow c={catalog} p={g.cover} title={g.name} value={g.qty} finish={g.coverFinish} hero={hero}
+                           detail={`${g.printings} printing${g.printings === 1 ? "" : "s"} · ${g.type}`}
+                           onClick={() => g.oracle >= 0 && onCard(g.key)} />
+                </CardGroupRow>
+              </div>
+              {open && g.parts.length > 1 && g.parts.map((pt) => (
+                <div key={`${pt.cardId}|${pt.finish}`} className="h-[60px] shrink-0">
+                  <CardRow c={catalog} p={pt.p} indent finish={pt.finish} value={pt.qty}
+                           title={[pt.p == null ? null : `${catalog.pSet[pt.p].toUpperCase()} #${catalog.pCn[pt.p]}`, pt.finish === "nonfoil" ? null : FINISH_LABEL[pt.finish]].filter(Boolean).join(" · ")}
+                           detail={usdText(usdPrice(pt.cardId, pt.finish)) || undefined}
+                           onClick={() => g.oracle >= 0 && onCard(g.key)} />
+                </div>
+              ))}
+            </div>
+          );
+        })}
       </div>
       {menu && binder && <Menu title={binder.name} items={menuItems} onClose={() => setMenu(false)} />}
       {adding && catalog && <BinderAdd catalog={catalog} binderId={unsorted ? null : id} items={col.items} onClose={() => setAdding(false)} />}
@@ -255,7 +304,8 @@ function BinderAdd({ catalog, binderId, items, onClose }: { catalog: Catalog; bi
   const [fail, setFail] = useState<string | null>(null);
   const target = binderById(binderId)?.name ?? "Unsorted";
   const condition = (() => { try { return localStorage.getItem("table1.library.addCondition") ?? "NM"; } catch { return "NM"; } })() as Item["condition"];
-  const hits = useMemo(() => searchCatalog(catalog, q, 30), [catalog, q]);
+  const found = useCardSearch(catalog, q, 30);
+  const hits = q.trim() ? found?.result.hits ?? [] : [];
   const byOracle = useMemo(() => {
     const m = new Map<number, Item[]>();
     for (const it of items.values()) {
@@ -288,7 +338,8 @@ function BinderAdd({ catalog, binderId, items, onClose }: { catalog: Catalog; bi
                   onClick={() => void run("", async () => { await undoBatch(last.batch); return ""; })}>Undo</button>
         </div>
       )}
-      <Field label="Card name" value={q} onChange={setQ} autoFocus />
+      <CardSearchBar label="Card" value={q} onChange={setQ} placeholder="Name, or Scryfall syntax" autoFocus />
+      <CardSearchStatus query={q} found={found} />
       {!q && <p className="t1-label">Move in takes a copy you own from Unsorted or another binder. + New adds a new copy ({condition}, original printing) to your collection, in {target}.</p>}
       <div className="max-h-[50vh] overflow-y-auto flex flex-col gap-px">
         {hits.map((oi) => {
@@ -300,7 +351,7 @@ function BinderAdd({ catalog, binderId, items, onClose }: { catalog: Catalog; bi
           const detail = !its.length ? "Not in your collection"
             : [here ? `${here} here` : null, ...[...where].sort((a, b) => a[0].localeCompare(b[0])).map(([n, v]) => `${n} ${v}`)].filter(Boolean).join(" · ");
           const source = moveInSource(places, binderId);
-          const p = coverPrinting(catalog, oi);
+          const p = found?.result.covers.get(oi) ?? coverPrinting(catalog, oi);
           const finish = (["nonfoil", "foil", "etched"] as Finish[]).find((f) => catalog.pFinishes[p]?.includes(f[0])) ?? "nonfoil";
           return (
             <div key={oi} className="flex items-stretch gap-px h-[60px]">
@@ -519,20 +570,22 @@ function WantPicker({ catalog, onClose, onFail }: { catalog: Catalog; onClose: (
   const [q, setQ] = useState("");
   const [added, setAdded] = useState<string | null>(null);
   const [picking, setPicking] = useState<number | null>(null);
-  const hits = useMemo(() => searchCatalog(catalog, q, 30), [catalog, q]);
+  const found = useCardSearch(catalog, q, 30);
+  const hits = q.trim() ? found?.result.hits ?? [] : [];
   if (picking != null) {
     return <WantPrinting catalog={catalog} oi={picking} from="search" onFail={onFail}
                          onClose={(text) => { setPicking(null); if (text) setAdded(text); }} />;
   }
   return (
     <Dialog title="Add a want" cancelLabel="Done" confirmLabel="Done" onCancel={onClose} onConfirm={onClose}>
-      <Field label="Card name" value={q} onChange={setQ} placeholder="Lightning Bolt" autoFocus />
+      <CardSearchBar label="Card" value={q} onChange={setQ} placeholder="Lightning Bolt, or Scryfall syntax" autoFocus />
+      <CardSearchStatus query={q} found={found} />
       {added ? <p className="t1-label">{added}</p> : !q && <p className="t1-label">Want adds any printing. Pick a card to want one printing or finish.</p>}
       <div className="max-h-[50vh] overflow-y-auto flex flex-col gap-px">
         {hits.map((o) => (
           <div key={o} className="flex items-stretch gap-px" style={{ height: 60 }}>
             <div className="flex-1 min-w-0">
-              <CardRow c={catalog} p={coverPrinting(catalog, o)} title={catalog.oName[o]} detail={catalog.oType[o]} value="Printing"
+              <CardRow c={catalog} p={found?.result.covers.get(o) ?? coverPrinting(catalog, o)} title={catalog.oName[o]} detail={catalog.oType[o]} value="Printing"
                        onClick={() => setPicking(o)} />
             </div>
             <button type="button" className="bg-t1-surface-hover px-4 t1-label !text-t1-text"
