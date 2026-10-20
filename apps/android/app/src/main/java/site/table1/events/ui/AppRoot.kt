@@ -210,7 +210,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
                 composable("profile/{id}/{section}/{item}") { e ->
                     ProfileCardsScreen(e.arguments?.getString("id") ?: "", e.arguments?.getString("section") ?: "",
                         e.arguments?.getString("item")?.takeIf { it != "-" }, onBack = { nav.popBackStack() },
-                        onCard = { nav.navigate("collection/card/$it") })
+                        onCard = { nav.navigate("collection/card/$it") }, onList = { nav.navigate("collection/list/$it") })
                 }
                 composable("collection/matches") {
                     TradeMatchesScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/match/$it") },

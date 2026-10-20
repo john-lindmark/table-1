@@ -1,7 +1,5 @@
 package site.table1.events.library
 
-import android.content.Context
-import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,10 +32,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -57,44 +53,27 @@ import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.T1TextField
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
-import java.io.File
 import java.text.DateFormat
 import java.util.Date
 
 /* Decks and cubes on Android (contract/lists-2026-10-15.md): the same lists, sections, groups and version
    history as iOS and the web, read from and written to the database. */
 
-private val TYPE_ORDER = listOf("Creatures", "Planeswalkers", "Instants", "Sorceries", "Artifacts", "Enchantments", "Battles", "Lands", "Other")
-private val COLOR_ORDER = listOf("White", "Blue", "Black", "Red", "Green", "Multicolor", "Colorless", "Lands")
-
-private fun typeGroup(t: String) = when {
-    "Creature" in t -> "Creatures"
-    "Planeswalker" in t -> "Planeswalkers"
-    "Land" in t -> "Lands"
-    "Instant" in t -> "Instants"
-    "Sorcery" in t -> "Sorceries"
-    "Artifact" in t -> "Artifacts"
-    "Enchantment" in t -> "Enchantments"
-    "Battle" in t -> "Battles"
-    else -> "Other"
-}
-
-private fun colorGroup(cost: String): String {
-    val colors = listOf('W' to "White", 'U' to "Blue", 'B' to "Black", 'R' to "Red", 'G' to "Green").filter { cost.contains(it.first) }
-    return if (colors.size > 1) "Multicolor" else colors.firstOrNull()?.second ?: "Colorless"
-}
+/* Groups: CardGrouping.kt (decks start on Type, cubes on Color; Group by in the View menu). */
 
 data class ListLine(val cardId: String, val printing: CatalogPrinting?, val oracleId: String?, val name: String,
                     val group: String, val board: String, val qty: Int, val legal: String = "", val finish: String = "nonfoil",
-                    val points: Int = 0, val basic: Boolean = false, val type: String = "") {
+                    val points: Int = 0, val basic: Boolean = false, val type: String = "",
+                    /** Its group under each grouping (Group by in the View menu). */
+                    val keys: GroupKeys = GroupKeys()) {
     val ownKey get() = ownKey(cardId, finish)
     val key get() = "$board|$cardId|$finish"
     /** "Foil" / "Etched"; null for non-foil. */
     val finishLabel get() = if (finish == "nonfoil") null else finish.replaceFirstChar { it.uppercase() }
 }
 
-private data class CardMeta(val printing: CatalogPrinting?, val oracleId: String?, val name: String, val type: String, val cost: String,
-                            val legal: String, val points: Int = 0)
+private data class CardMeta(val printing: CatalogPrinting?, val oracleId: String?, val name: String, val type: String,
+                            val legal: String, val points: Int = 0, val keys: GroupKeys = GroupKeys())
 
 private fun resolve(ids: Set<String>, db: CatalogDb): Map<String, CardMeta> {
     val ps = db.printings(ids)
@@ -102,16 +81,22 @@ private fun resolve(ids: Set<String>, db: CatalogDb): Map<String, CardMeta> {
     return ids.associateWith { id ->
         val p = ps[id]
         val o = p?.let { os[it.oracleIdx] }
-        CardMeta(p, o?.oracleId, o?.name ?: "Unknown card", o?.typeLine ?: "", o?.manaCost ?: "", o?.legal ?: "", o?.points ?: 0)
+        CardMeta(p, o?.oracleId, o?.name ?: "Unknown card", o?.typeLine ?: "", o?.legal ?: "", o?.points ?: 0, GroupKeys.of(o))
     }
 }
 
-private fun lines(l: CardList, meta: Map<String, CardMeta>): List<ListLine> = l.entries.mapNotNull { e ->
+private fun lines(l: CardList, meta: Map<String, CardMeta>, by: CardGrouping): List<ListLine> = lines(l.entries, meta, by)
+
+/** Entries as lines with card details, by name, each under its group for `by`. */
+private fun lines(entries: List<ListEntry>, meta: Map<String, CardMeta>, by: CardGrouping): List<ListLine> = entries.mapNotNull { e ->
     val m = meta[e.cardId] ?: return@mapNotNull null
     val type = m.type.substringBefore(" // ")
-    val group = if (l.kind == ListKind.Deck) typeGroup(type) else if ("Land" in type) "Lands" else colorGroup(m.cost)
-    ListLine(e.cardId, m.printing, m.oracleId, m.name, group, e.board, e.qty, m.legal, e.finish, m.points, "Basic" in type, m.type)
+    ListLine(e.cardId, m.printing, m.oracleId, m.name, m.keys[by], e.board, e.qty, m.legal, e.finish, m.points, "Basic" in type, m.type, m.keys)
 }.sortedBy { it.name }
+
+/** A shared deck's or cube's entries as lines (ProfileCardsScreen), resolved off the main thread. */
+internal fun resolveLines(entries: List<ListEntry>, db: CatalogDb, by: CardGrouping): List<ListLine> =
+    lines(entries, resolve(entries.map { it.cardId }.toSet(), db), by)
 
 /**
  * Why each card can't be played in the deck's format, by oracle id: banned, not legal, or a restricted card
@@ -142,10 +127,7 @@ internal fun canlanderPoints(lines: List<ListLine>): Pair<Int, List<Pair<String,
     return cards.sumOf { it.second } to cards
 }
 
-private fun groups(lines: List<ListLine>, kind: ListKind): List<String> {
-    val order = if (kind == ListKind.Deck) TYPE_ORDER else COLOR_ORDER
-    return lines.map { it.group }.distinct().sortedBy { order.indexOf(it) }
-}
+internal fun groups(lines: List<ListLine>, by: CardGrouping): List<String> = by.sorted(lines.map { it.group })
 
 /** Card details for a list's printings, looked up once per card; quantities always come from the live list. */
 @Composable
@@ -173,7 +155,7 @@ private fun ownedByPrinting(): Map<String, Int> {
 private fun fmtDate(epoch: Double): String = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date((epoch * 1000).toLong()))
 
 @Composable
-private fun BoardHeader(title: String, count: Int) {
+internal fun BoardHeader(title: String, count: Int) {
     Row(Modifier.fillMaxWidth().background(T1.surfaceHover).padding(horizontal = 16.dp, vertical = 14.dp)) {
         Text(title.uppercase(), Modifier.weight(1f), color = T1.text, fontFamily = T1.mono, fontSize = 13.sp, letterSpacing = 2.sp)
         Text("$count", color = T1.text, fontFamily = T1.mono, fontSize = 15.sp)
@@ -274,15 +256,14 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     var editing by remember { mutableStateOf(false) }
     var moving by remember { mutableStateOf<ListLine?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
-    var exportMenu by remember { mutableStateOf(false) }
-    var exportNote by remember { mutableStateOf<String?>(null) }
+    var exporting by remember { mutableStateOf(false) }
+    val grouping = rememberListGrouping(list?.kind)
     var query by remember { mutableStateOf("") }
     val printings = remember { mutableStateOf(PrintingsDisclosure()) }
     val heroes by HeroesStore.state.collectAsState()
     val heroScope = HeroScope.InList(listId)
     var heroFull by remember { mutableStateOf<String?>(null) }
     SearchUsed(query, if (list?.kind == ListKind.Deck) "deck" else "cube")
-    val context = LocalContext.current
     // Read so the Export row appears once a pack is opened.
     val catalog by CatalogStore.state.collectAsState()
     val catalogReady = catalog.generation >= 0 && CatalogStore.db != null
@@ -291,7 +272,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
         T1Screen { Bar("List", onBack = onBack); Notice(if (s.ready) "That list isn't here anymore." else "Loading…") }
         return
     }
-    val rows = lines(list, meta)
+    val rows = lines(list, meta, grouping.value)
     val issues = legalityIssues(rows, list)
     val searching = CardName.norm(query).isNotEmpty()
     val shown = if (searching) rows.filter { CardSearch.matches(query, it.name, it.type) } else rows
@@ -326,9 +307,8 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                 Text("${list.versions.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
             }
             if (list.entries.isNotEmpty() && !editing && catalogReady) {
-                ListRow("Export", if (list.kind == ListKind.Deck) "For Arena, Moxfield, MTGO or as plain text" else "For Cube Cobra or as plain text",
-                    onClick = { exportMenu = true })
-                exportNote?.let { Notice(it) }
+                ListRow("Export", if (list.kind == ListKind.Deck) "Text, Arena, MTGO, download or copy" else "Text, Cube Cobra, download or copy",
+                    onClick = { exporting = true })
             }
             if (list.entries.isEmpty()) ListRow("No cards yet", "Add cards to start this list")
         }
@@ -391,9 +371,9 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                     for (board in boards) {
                         val inBoard = shown.filter { it.board == board }
                         item(key = "b-$board") { Box(Modifier.padding(top = 1.dp)) { BoardHeader(list.boardTitle(board), inBoard.sumOf { it.qty }) } }
-                        val stacks = groups(inBoard, list.kind).map { g ->
+                        val stacks = groups(inBoard, grouping.value).map { g ->
                             val inGroup = inBoard.filter { it.group == g }
-                            CardStackSpec("$g|${printings.value.all}", "$g · ${inGroup.sumOf { it.qty }}", tiles(inGroup))
+                            CardStackSpec("${grouping.value.wire}|$g|${printings.value.all}", "${grouping.value.label(g)} · ${inGroup.sumOf { it.qty }}", tiles(inGroup))
                         }
                         stackRows("s-$board", stacks, cols, width)
                     }
@@ -406,9 +386,9 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                 for (board in boards) {
                     val inBoard = shown.filter { it.board == board }
                     gridHeader("b-$board") { BoardHeader(list.boardTitle(board), inBoard.sumOf { it.qty }) }
-                    for (g in groups(inBoard, list.kind)) {
+                    for (g in groups(inBoard, grouping.value)) {
                         val inGroup = inBoard.filter { it.group == g }
-                        gridHeader("g-$board-$g") { Section("$g · ${inGroup.sumOf { it.qty }}") }
+                        gridHeader("g-$board-$g") { Section("${grouping.value.label(g)} · ${inGroup.sumOf { it.qty }}") }
                         gridItems(tiles(inGroup), key = { "t-${it.key}" }) { t ->
                             CardTile(t.printing, t.qty, tile, warn = t.warn, onClick = t.onClick, finish = t.finish, hero = t.hero)
                         }
@@ -421,9 +401,9 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                 for (board in boards) {
                     val inBoard = shown.filter { it.board == board }
                     item(key = "b-$board") { BoardHeader(list.boardTitle(board), inBoard.sumOf { it.qty }) }
-                    for (g in groups(inBoard, list.kind)) {
+                    for (g in groups(inBoard, grouping.value)) {
                         val inGroup = inBoard.filter { it.group == g }
-                        item(key = "g-$board-$g") { Section("$g · ${inGroup.sumOf { it.qty }}") }
+                        item(key = "g-$board-$g") { Section("${grouping.value.label(g)} · ${inGroup.sumOf { it.qty }}") }
                         if (!editing) {
                             for (cg in LineGroup.of(inGroup)) {
                                 if (cg.lines.size == 1) item(key = "r-${cg.lead.key}") { lineRow(cg.lead, false) }
@@ -473,46 +453,8 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
             },
         ), onDismiss = { confirmDelete = false })
     }
-    if (exportMenu) {
-        T1Menu("Export ${list.name} · v${list.current.number}", ListExport.Format.formats(list.kind).map { f ->
-            T1MenuItem(if (f.fileExtension != null) "${f.label} (.${f.fileExtension})" else f.label) {
-                scope.launch { exportNote = runCatching { shareList(context, list, f) }.getOrElse { it.message } }
-            }
-        }, onDismiss = { exportMenu = false })
-    }
-    if (viewMenu) CardLayoutMenu(layout, if (list.kind == ListKind.Cube) "cube" else "deck", printings) { viewMenu = false }
-}
-
-/**
- * The current version in another app's format (contract/lists-2026-10-15.md, Export) through the system share sheet:
- * a file for MTGO and Cube Cobra (the export FileProvider path), text to copy for the formats other apps paste in.
- * Returns a note when cards newer than the card data were left out.
- */
-private suspend fun shareList(context: Context, list: CardList, format: ListExport.Format): String? {
-    val db = CatalogStore.db ?: return null
-    val (text, cards, left) = withContext(Dispatchers.Default) {
-        val (lines, left) = ListExport.lines(list.entries, db)
-        Triple(ListExport.render(lines, list.kind, format), lines.sumOf { it.qty }, left)
-    }
-    val name = ListExport.fileName(list.name, list.kind, format)
-    val send = Intent(Intent.ACTION_SEND)
-    if (format.fileExtension != null) {
-        val file = File(context.cacheDir, "export/lists/$name")
-        withContext(Dispatchers.IO) {
-            file.parentFile?.mkdirs()
-            file.writeText(text)
-        }
-        send.type = if (format.fileExtension == "csv") "text/csv" else "text/plain"
-        send.putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.avatars", file))
-        send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    } else {
-        send.type = "text/plain"
-        send.putExtra(Intent.EXTRA_TEXT, text)
-        send.putExtra(Intent.EXTRA_TITLE, list.name)
-    }
-    context.startActivity(Intent.createChooser(send, name))
-    Telemetry.capture("list_exported", mapOf("kind" to list.kind.wire, "format" to format.wire, "cards" to cards, "left" to left))
-    return if (left > 0) "$left card${if (left == 1) "" else "s"} newer than the card data ${if (left == 1) "was" else "were"} left out." else null
+    if (exporting) ListExportScreen(list.name, list.kind, list.entries, "own") { exporting = false }
+    if (viewMenu) CardLayoutMenu(layout, if (list.kind == ListKind.Cube) "cube" else "deck", printings, grouping, list = true) { viewMenu = false }
 }
 
 @Composable
@@ -548,7 +490,8 @@ fun ListAddScreen(listId: String, onDone: () -> Unit, @Suppress("UNUSED_PARAMETE
     val meta = rememberMeta(list.entries.map { it.cardId }.toSet())
     val result = rememberCardSearch(if (addPick == null) addQuery else "")
     val b = list.sections[board.coerceIn(0, list.sections.size - 1)]
-    val lines = lines(list, meta)
+    // Remove or replace searches only the list's own cards; their groups don't show here.
+    val lines = lines(list, meta, CardGrouping.Type)
     val removeHits = CardSearch.matchingLines(lines, removeQuery, { it.name }, { it.type }, { it.board }, { it.finish })
     val showingRemove = removePick == null && removeFocus
     fun finishOf(p: CatalogPrinting) = p.finishList.firstOrNull()?.wire ?: "nonfoil"

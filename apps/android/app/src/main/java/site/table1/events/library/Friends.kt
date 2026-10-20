@@ -240,6 +240,29 @@ data class ProfileCard(
 }
 
 @Serializable
+/** A deck or cube opened from a profile: what Export and Copy to my Library need beyond its cards
+ *  (contract/shared-lists-grouping-2026-10-20.md §1). */
+object SharedList {
+    fun kind(section: String): ListKind? = when (section) { "deck" -> ListKind.Deck; "cube" -> ListKind.Cube; else -> null }
+
+    /** The shared rows as list lines (profile_cards sends no finish, so copies are non-foil), merged per card and board. */
+    fun entries(rows: List<ProfileCard>): List<ListEntry> {
+        val qty = LinkedHashMap<Pair<String, String>, Int>()
+        for (r in rows) {
+            val id = r.cardId ?: continue
+            if (r.qty <= 0) continue
+            qty.merge(id to (r.board ?: "main"), r.qty, Int::plus)
+        }
+        return qty.map { (k, n) -> ListEntry(k.first, k.second, n) }
+    }
+
+    /** A deck's count leaves out Considering, like the profile row. */
+    fun count(rows: List<ProfileCard>, kind: ListKind?): Int = rows.filter { kind != ListKind.Deck || it.board != "maybe" }.sumOf { it.qty }
+
+    /** The first version's note on a copy, so its history says where it came from (owner null: your own profile). */
+    fun copyNote(owner: String?, name: String) = if (owner != null) "Copied from $owner's $name" else "Copied from $name"
+}
+
 private data class ProfileCardsPage(val rows: List<JsonArray> = emptyList(), val more: Boolean = false)
 
 /* ── trade matches ── */

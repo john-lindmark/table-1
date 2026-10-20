@@ -149,7 +149,7 @@ fun ListImportScreen(kind: ListKind, onBack: () -> Unit, onCreated: (String) -> 
         busy = true
         val host = result?.sourceUrl?.let { runCatching { android.net.Uri.parse(it).host }.getOrNull() }
         scope.launch {
-            runCatching { ListsStore.create(kind, name.trim().take(60), formats[format], res.entries, host?.let { "Imported from $it" } ?: "Imported") }
+            runCatching { ListsStore.create(kind, name.trim().take(60), formats[format], res.entries, host?.let { "Imported from $it" } ?: "Imported", "import") }
                 .onSuccess(onCreated)
                 .onFailure { error = it.message }
             busy = false

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
-  DEFAULT_SHARING, capped, effective, effectiveItem, linesValue, matchLines, matchShort, parseCardRow, parseFriendsList, profileValue,
+  DEFAULT_SHARING, capped, copyNote, effective, sharedCardCount, sharedEntries, sharedListKind, effectiveItem, linesValue, matchLines, matchShort, parseCardRow, parseFriendsList, profileValue,
   reach, sees, sentLabel, sharedCount, sharingSummary, type ProfileData, shownLines, wantTier, type CopyIn, type MatchLine, type Sharing, type TradeMatch, type WantIn,
 } from "./friends";
 import { redactPath, screenName } from "./analytics";
@@ -147,5 +147,31 @@ describe("privacy fixes (contract § Privacy fixes)", () => {
     // An older server still sends it to others: not shown.
     expect(profileValue(profile("friend", 42.5))).toBeNull();
     expect(profileValue({ ...profile("self"), sections: {} })).toBeNull();
+  });
+});
+
+describe("shared decks and cubes", () => {
+  const rows = [
+    { cardId: "a", board: "main", qty: 2 }, { cardId: "b", board: "side", qty: 1 }, { cardId: "a", board: "main", qty: 1 },
+    { cardId: "a", board: "side", qty: 1 }, { cardId: "c", board: "maybe", qty: 3 }, { cardId: null, board: "main", qty: 1 },
+  ];
+  it("merges per card and board, non-foil", () => {
+    expect(sharedEntries(rows)).toEqual([
+      { cardId: "a", board: "main", qty: 3 }, { cardId: "b", board: "side", qty: 1 }, { cardId: "a", board: "side", qty: 1 },
+      { cardId: "c", board: "maybe", qty: 3 },
+    ]);
+  });
+  it("counts a deck without Considering", () => {
+    expect(sharedCardCount(rows, "deck")).toBe(6);
+    expect(sharedCardCount(rows, "cube")).toBe(9);
+  });
+  it("names where a copy came from", () => {
+    expect(copyNote("Sam", "Mono Red")).toBe("Copied from Sam's Mono Red");
+    expect(copyNote(null, "Mono Red")).toBe("Copied from Mono Red");
+  });
+  it("knows which sections are lists", () => {
+    expect(sharedListKind("deck")).toBe("deck");
+    expect(sharedListKind("cube")).toBe("cube");
+    expect(sharedListKind("binder")).toBeNull();
   });
 });

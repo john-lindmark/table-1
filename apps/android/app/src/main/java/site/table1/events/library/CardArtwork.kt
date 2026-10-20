@@ -319,9 +319,11 @@ fun rememberCardLayout(key: String, legacyGridKey: String): MutableState<CardLay
 }
 
 /** The bar's "View" menu: the three layouts, the current one selected, then expanding or collapsing every card's
- *  printings when the screen has them. `screen` is all_cards / deck / cube. */
+ *  printings when the screen has them, then Group by (`list`: a deck or cube, no None). `screen` is all_cards / deck /
+ *  cube / binder / profile_<section>. */
 @Composable
-fun CardLayoutMenu(layout: MutableState<CardLayout>, screen: String, printings: MutableState<PrintingsDisclosure>? = null, onDismiss: () -> Unit) {
+fun CardLayoutMenu(layout: MutableState<CardLayout>, screen: String, printings: MutableState<PrintingsDisclosure>? = null,
+                   grouping: MutableState<CardGrouping>? = null, list: Boolean = false, onDismiss: () -> Unit) {
     val all = printings?.value?.all == true
     T1Menu("View", CardLayout.entries.map { l ->
         T1MenuItem(l.title, selected = l == layout.value) {
@@ -336,7 +338,7 @@ fun CardLayoutMenu(layout: MutableState<CardLayout>, screen: String, printings: 
             site.table1.events.util.Telemetry.capture("printings_toggled",
                 mapOf("expanded" to !all, "all" to true, "screen" to if (screen == "all_cards" || screen == "binder") screen else "list"))
         }
-    }), onDismiss)
+    }) + (grouping?.let { groupingMenuItems(it, list, screen) } ?: emptyList()), onDismiss)
 }
 
 /** One card in a stack. Only its top `STACK_PEEK` shows unless it's the last card. */

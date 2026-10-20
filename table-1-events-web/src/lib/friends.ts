@@ -9,6 +9,7 @@ import { capture } from "./telemetry";
 import { isLibraryDemo } from "./libraryDemo";
 import { loadTrades, saveTrade, type Trade, type TradeLine } from "./trades";
 import type { Condition, Finish } from "./collection";
+import type { Board, Entry, ListKind } from "./lists";
 
 export type Visibility = "private" | "friends" | "public";
 export const VISIBILITIES: Visibility[] = ["private", "friends", "public"];
@@ -175,6 +176,31 @@ export function parseCardRow(section: SectionKind, r: unknown[]): ProfileCard | 
     case "wants": return n(3) == null ? null : { oracleId: s(0) ?? "", cardId: s(1), finish: s(2) as Finish | null, qty: n(3)! };
   }
 }
+
+/* ── shared decks and cubes (contract/shared-lists-grouping-2026-10-20.md §1) ───────────────────────────── */
+
+export const sharedListKind = (section: SectionKind): ListKind | null => (section === "deck" ? "deck" : section === "cube" ? "cube" : null);
+
+/** The shared rows as list lines (profile_cards sends no finish, so copies are non-foil), merged per card and board. */
+export function sharedEntries(rows: ProfileCard[]): Entry[] {
+  const by = new Map<string, Entry>();
+  for (const r of rows) {
+    if (!r.cardId || r.qty <= 0) continue;
+    const board = (r.board ?? "main") as Board;
+    const key = `${board}|${r.cardId}`;
+    const e = by.get(key);
+    if (e) e.qty += r.qty;
+    else by.set(key, { cardId: r.cardId, board, qty: r.qty });
+  }
+  return [...by.values()];
+}
+
+/** A shared deck's count leaves out Considering, like the profile row. */
+export const sharedCardCount = (rows: ProfileCard[], kind: ListKind | null) =>
+  rows.filter((r) => kind !== "deck" || r.board !== "maybe").reduce((n, r) => n + r.qty, 0);
+
+/** The first version's note on a copy, so its history says where it came from (owner null: your own profile). */
+export const copyNote = (owner: string | null, name: string) => (owner ? `Copied from ${owner}'s ${name}` : `Copied from ${name}`);
 
 /* ── trade matches ───────────────────────────────────────────────────── */
 

@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bar, BigAction, Field, Modal, Notice, Row, Screen, Section, Segmented } from "../components/kit";
+import { Bar, BigAction, Field, GhostAction, Modal, Notice, Row, Screen, Section, Segmented } from "../components/kit";
 import { CANLANDER_POINT_LIMIT, coverPrinting, formatName, legalityOf, type Catalog } from "../lib/catalog";
 import { DEMO_USER, useCollection } from "../lib/collection";
 import { loadDemoLists } from "../lib/libraryDemo";
 import {
-  EXPORT_DETAIL, EXPORT_FILE, EXPORT_LABEL, exportFileName, exportFormats, exportLines, renderList, type ExportFormat,
+  EXPORT_DETAIL, EXPORT_FILE, exportFileName, exportFormats, exportLines, renderList, type ExportFormat,
 } from "../lib/listExport";
+import { GROUPING_KEY, groupLabel, keyFor, keysOf, sortGroups, useStoredGrouping, type GroupKeys, type Grouping } from "../lib/cardGrouping";
 import {
   boardTitle, boardsOf, countOf, createList, finishOf, ownKey, type ListFinish, current, deleteList, diff, duplicateList, editList, entriesOf, missingIn, restoreList,
-  sectionsFor, useLists, type Board, type CardList, type ListKind,
+  sectionsFor, useLists, type Board, type CardList, type Entry, type ListKind,
 } from "../lib/lists";
 import { cardMatches, matchingLines } from "../lib/librarySearch";
 import { capture } from "../lib/telemetry";
@@ -40,35 +41,17 @@ export function useListsData() {
 
 const fmtDate = (epoch: number) => new Date(epoch * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 
-/* ── grouping (same rules as iOS) ─────────────────────────────────────── */
+/* ── grouping: lib/cardGrouping (decks start on Type, cubes on Color; Group by in the View menu) ── */
 
-const TYPE_ORDER = ["Creatures", "Planeswalkers", "Instants", "Sorceries", "Artifacts", "Enchantments", "Battles", "Lands", "Other"];
-const COLOR_ORDER = ["White", "Blue", "Black", "Red", "Green", "Multicolor", "Colorless", "Lands"];
-
-function typeGroup(t: string): string {
-  if (t.includes("Creature")) return "Creatures";
-  if (t.includes("Planeswalker")) return "Planeswalkers";
-  if (t.includes("Land")) return "Lands";
-  if (t.includes("Instant")) return "Instants";
-  if (t.includes("Sorcery")) return "Sorceries";
-  if (t.includes("Artifact")) return "Artifacts";
-  if (t.includes("Enchantment")) return "Enchantments";
-  if (t.includes("Battle")) return "Battles";
-  return "Other";
-}
-
-function colorGroup(cost: string): string {
-  const colors = (["W", "U", "B", "R", "G"] as const).filter((c) => cost.includes(c));
-  if (colors.length > 1) return "Multicolor";
-  return ({ W: "White", U: "Blue", B: "Black", R: "Red", G: "Green" } as const)[colors[0]] ?? "Colorless";
-}
-
-interface Line {
+export interface Line {
   cardId: string;
   p: number | null;
   oracleId: string | null;
   name: string;
+  /** The heading it sits under: type for decks, color for cubes, or the Group by picked. */
   group: string;
+  /** Its group under each grouping. */
+  keys: GroupKeys;
   board: Board;
   qty: number;
   oi: number;
@@ -82,12 +65,18 @@ const FINISH_NAME: Record<ListFinish, string> = { nonfoil: "Non-foil", foil: "Fo
 const lineKey = (x: Line) => `${x.board}|${x.cardId}|${x.finish}`;
 
 function linesOf(l: CardList, c: Catalog): Line[] {
-  return entriesOf(l).map((e) => {
+  return resolveLines(entriesOf(l), l.kind, c);
+}
+
+/** A list's entries as lines with card details, by name; grouped by type (decks) or color (cubes) to start. */
+export function resolveLines(entries: Entry[], kind: ListKind, c: Catalog): Line[] {
+  return entries.map((e) => {
     const p = c.printingIndex.get(e.cardId) ?? null;
     const oi = p == null ? -1 : c.pOracle[p];
     const type = oi >= 0 ? c.oType[oi].split(" // ")[0] : "";
-    const group = l.kind === "deck" ? typeGroup(type) : type.includes("Land") ? "Lands" : colorGroup(oi >= 0 ? c.oCost[oi] : "");
-    return { cardId: e.cardId, p, oracleId: oi >= 0 ? c.oId[oi] : null, name: oi >= 0 ? c.oName[oi] : "Unknown card", group, board: e.board, qty: e.qty, oi, finish: finishOf(e),
+    const keys = keysOf(c, oi);
+    return { cardId: e.cardId, p, oracleId: oi >= 0 ? c.oId[oi] : null, name: oi >= 0 ? c.oName[oi] : "Unknown card", group: keys[kind === "deck" ? "type" : "color"], keys,
+             board: e.board, qty: e.qty, oi, finish: finishOf(e),
              points: oi >= 0 ? c.oPoints[oi] : 0, basic: type.includes("Basic"), type: oi >= 0 ? c.oType[oi] : "" };
   }).sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -121,12 +110,19 @@ function pointsOf(lines: Line[]): { total: number; cards: [string, number][] } {
   return { total: cards.reduce((n, [, p]) => n + p, 0), cards };
 }
 
-function groupsOf(lines: Line[], kind: ListKind): string[] {
-  const order = kind === "deck" ? TYPE_ORDER : COLOR_ORDER;
-  return [...new Set(lines.map((x) => x.group))].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+export const groupsOf = (lines: { group: string }[], by: Grouping): string[] => sortGroups(by, lines.map((x) => x.group));
+
+/** The lines under another grouping. */
+export const regrouped = <T extends { group: string; keys: GroupKeys }>(lines: T[], by: Grouping): T[] => lines.map((x) => ({ ...x, group: keyFor(x.keys, by) }));
+
+/** Group by for decks or cubes, shared between your own and the ones shared with you. */
+export function useListGrouping(kind: ListKind | null | undefined): [Grouping, (g: Grouping) => void] {
+  const deck = useStoredGrouping(GROUPING_KEY.deck, "type", true);
+  const cube = useStoredGrouping(GROUPING_KEY.cube, "color", true);
+  return kind === "cube" ? cube : deck;
 }
 
-function BoardHeader({ title, count }: { title: string; count: number }) {
+export function BoardHeader({ title, count }: { title: string; count: number }) {
   return (
     <div className="bg-t1-surface-hover px-4 py-3.5 flex items-center justify-between">
       <span className="text-[13px] uppercase tracking-[2px]">{title}</span>
@@ -218,56 +214,100 @@ export function ListsScreen({ kind, onBack, onOpen, onFind, onImport }: {
 
 /* ── one list ─────────────────────────────────────────────────────────── */
 
-/** The current version in another app's format (contract/lists-2026-10-15.md, Export): copied for the formats other
- *  apps paste in, downloaded for MTGO and Cube Cobra. Same formats and output as iOS and Android. */
-function ExportModal({ list, catalog, onClose }: { list: CardList; catalog: Catalog; onClose: () => void }) {
+const EXPORT_SHORT: Record<ExportFormat, string> = { text: "Text", arena: "Arena", moxfield: "Moxfield", mtgo: "MTGO", cubecobra: "Cube Cobra" };
+
+function download(text: string, name: string) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: name.endsWith(".csv") ? "text/csv;charset=utf-8" : "text/plain;charset=utf-8" }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+}
+
+/** The Clipboard API, or where a browser refuses it (no permission, an embedded frame), a selected text area. */
+async function writeClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    area.remove();
+    if (!ok) throw e;
+  }
+}
+
+/**
+ * Export for a deck or cube (contract/shared-lists-grouping-2026-10-20.md §2), over the page: a format picker, the list
+ * as selectable text in that format, then the ways out: to Arena (copied: Arena imports from the clipboard) and MTGO
+ * (a .txt file) for decks, to Cube Cobra (a CSV file) for cubes, and Download / Copy of the text shown. Your own lists
+ * and decks or cubes shared with you on a profile use the same screen. Output is listExport's, unchanged.
+ */
+export function ExportScreen({ name, kind, entries, catalog, from, onClose }: {
+  name: string; kind: ListKind; entries: Entry[]; catalog: Catalog; from: "own" | "profile"; onClose: () => void;
+}) {
+  const formats: ExportFormat[] = ["text", ...exportFormats(kind).filter((f) => f !== "text")];
+  const [format, setFormat] = useState<ExportFormat>("text");
   const [note, setNote] = useState<string | null>(null);
-  const download = (text: string, name: string) => {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([text], { type: name.endsWith(".csv") ? "text/csv;charset=utf-8" : "text/plain;charset=utf-8" }));
-    a.download = name;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
-  };
-  const run = async (format: ExportFormat) => {
-    const { lines, left } = exportLines(catalog, entriesOf(list));
-    const text = renderList(lines, list.kind, format);
-    const name = exportFileName(list.name, list.kind, format);
-    let done: string;
-    if (EXPORT_FILE[format]) {
-      download(text, name);
-      done = `Downloaded ${name}.`;
-    } else {
-      try {
-        await navigator.clipboard.writeText(text);
-        done = format === "text" ? "Copied." : `Copied. Paste it into ${EXPORT_LABEL[format]}'s Import.`;
-      } catch {
-        download(text, name);
-        done = `Downloaded ${name}.`;
-      }
+  const [fail, setFail] = useState<string | null>(null);
+  const { texts, cards, left } = useMemo(() => {
+    const { lines, left } = exportLines(catalog, entries);
+    return { texts: new Map(formats.map((f) => [f, renderList(lines, kind, f)])), cards: lines.reduce((n, l) => n + l.qty, 0), left };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalog, entries, kind]);
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [onClose]);
+  const sent = (f: ExportFormat, how: "copy" | "download") => capture("list_exported", { kind, format: f, cards, left, from, how });
+  const copy = async (f: ExportFormat, done: string) => {
+    try {
+      await writeClipboard(texts.get(f)!);
+      setNote(done);
+      setFail(null);
+      sent(f, "copy");
+    } catch {
+      setFail("Couldn't copy here. Select the text and copy it, or download it.");
     }
-    if (left) done += ` ${left} card${left === 1 ? "" : "s"} newer than the card data ${left === 1 ? "was" : "were"} left out.`;
-    setNote(done);
-    capture("list_exported", { kind: list.kind, format, cards: lines.reduce((n, l) => n + l.qty, 0), left });
   };
+  const save = (f: ExportFormat) => {
+    const file = exportFileName(name, kind, f);
+    download(texts.get(f)!, file);
+    setNote(`Downloaded ${file}.`);
+    setFail(null);
+    sent(f, "download");
+  };
+  const leftNote = left ? `${left} card${left === 1 ? "" : "s"} newer than the card data ${left === 1 ? "was" : "were"} left out.` : null;
+  const accent = "flex-1 bg-t1-surface hover:bg-t1-surface-hover px-4 py-3 text-[11px] uppercase tracking-[1px] text-t1-accent";
   return (
-    <Modal title={`Export ${list.name}`} onClose={onClose}>
-      <p className="text-[12px] text-t1-muted">The current version, v{current(list).number}.</p>
-      <div className="flex flex-col gap-px">
-        {exportFormats(list.kind).map((f) => (
-          <div key={f} className="bg-t1-surface px-4 py-3 flex items-center gap-3">
-            <span className="flex-1 min-w-0 flex flex-col gap-0.5">
-              <span className="text-[13px]">{EXPORT_LABEL[f]}</span>
-              <span className="t1-label">{EXPORT_DETAIL[f]}</span>
-            </span>
-            <button type="button" className="shrink-0 t1-label hover:text-t1-text px-2 py-1 -my-1" onClick={() => void run(f)}>
-              {EXPORT_FILE[f] ? "Download" : "Copy"}
-            </button>
-          </div>
-        ))}
+    <div className="fixed inset-0 z-50 bg-t1-bg text-t1-text flex flex-col gap-px" role="dialog" aria-modal="true" aria-label={`Export ${name}`}>
+      <Bar title="Export" subtitle={name} onBack={onClose} />
+      <Segmented options={formats.map((f) => ({ value: f, label: EXPORT_SHORT[f] }))} value={format}
+                 onChange={(f) => { setFormat(f); setNote(null); setFail(null); }} />
+      <Notice tone="info">{EXPORT_DETAIL[format]}</Notice>
+      <pre className="flex-1 min-h-0 overflow-auto bg-t1-surface p-4 m-0 text-[13px] leading-[19px] whitespace-pre select-text font-[inherit]">
+        {texts.get(format)}
+      </pre>
+      {fail && <Notice tone="error">{fail}</Notice>}
+      {(note ?? leftNote) && <Notice tone="info">{note ?? leftNote}</Notice>}
+      <div className="shrink-0 flex gap-px">
+        {kind === "deck" ? (<>
+          <button type="button" className={accent} onClick={() => void copy("arena", "Copied for MTG Arena. In Arena: Decks → Import.")}>To Arena</button>
+          <button type="button" className={accent} onClick={() => save("mtgo")}>To MTGO</button>
+        </>) : (
+          <button type="button" className={accent} onClick={() => save("cubecobra")}>To Cube Cobra</button>
+        )}
       </div>
-      {note && <Notice tone="info">{note}</Notice>}
-    </Modal>
+      <div className="shrink-0 flex gap-px pb-px">
+        <GhostAction label={`Download .${EXPORT_FILE[format] ?? "txt"}`} onClick={() => save(format)} />
+        <GhostAction label="Copy text" onClick={() => void copy(format, "Copied.")} />
+      </div>
+    </div>
   );
 }
 
@@ -287,9 +327,10 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   const [heroFull, setHeroFull] = useState<string | null>(null);
   const heroes = useLibraryHeroes();
   const list = lists.lists.find((l) => l.id === id) ?? null;
+  const [grouping, setGrouping] = useListGrouping(list?.kind);
   const heroScope: HeroScope = { kind: "list", id };
   useSearchUsed(q, list?.kind === "deck" ? "deck" : "cube");
-  const lines = useMemo(() => (list && catalog ? linesOf(list, catalog) : []), [list, catalog]);
+  const lines = useMemo(() => (list && catalog ? regrouped(linesOf(list, catalog), grouping) : []), [list, catalog, grouping]);
   const issues = useMemo(() => (list && catalog ? issuesOf(lines, list, catalog) : new Map<string, string>()), [lines, list, catalog]);
   const boxRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(390);
@@ -394,7 +435,8 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
       <Bar title={list.name} subtitle={list.eventId ? `From ${list.eventName ?? "an event"} · v${v.number}` : `${formatName(list.format)} ${list.kind} · v${v.number}`} onBack={onBack}
            right={<span className="flex gap-4">
              <button type="button" className="t1-label hover:text-t1-text px-2 py-1 -my-1" onClick={() => setEditing(!editing)}>{editing ? "Done" : "Edit"}</button>
-             {!editing && <ViewButton layout={layout} onChange={setLayout} screen={list.kind === "cube" ? "cube" : "deck"} printings={printings} onPrintings={setPrintings} />}
+             {!editing && <ViewButton layout={layout} onChange={setLayout} screen={list.kind === "cube" ? "cube" : "deck"} printings={printings} onPrintings={setPrintings}
+                                      grouping={grouping} onGrouping={setGrouping} list />}
            </span>} />
       {(lists.error || error || heroFull) && <Notice tone="error">{lists.error ?? error ?? heroFull}</Notice>}
       {entriesOf(list).length > 0 && <Field label={list.kind === "cube" ? "Search this cube" : "Search this deck"} value={q} onChange={setQ} placeholder="Name or type" />}
@@ -428,7 +470,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         <Row title="Add, remove or replace" detail={list.kind === "deck" ? "Main deck, sideboard or considering" : "Search the catalog, or this cube's own cards"} onClick={onAdd} />
         <Row title="Version history" detail={`v${v.number} · ${v.note} · ${fmtDate(v.at)}`} value={list.versions.length} onClick={onVersions} />
         {entriesOf(list).length > 0 && !editing && catalog &&
-          <Row title="Export" detail={list.kind === "deck" ? "For Arena, Moxfield, MTGO or as plain text" : "For Cube Cobra or as plain text"}
+          <Row title="Export" detail={list.kind === "deck" ? "Text, Arena, MTGO, download or copy" : "Text, Cube Cobra, download or copy"}
                onClick={() => setExporting(true)} />}
         {entriesOf(list).length === 0 && <Row title="No cards yet" detail="Add cards to start this list" />}
         </>}
@@ -441,19 +483,19 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
               <BoardHeader title={boardTitle(list.kind, board)} count={inBoard.reduce((n, x) => n + x.qty, 0)} />
               {/* Stacks keep the list's organization: a stack per type (decks) or color (cubes). */}
               {layout === "stacks" && !editing ? (
-                <StackRows c={catalog} boxWidth={width} stacks={groupsOf(inBoard, list.kind).map((g): StackItem => {
+                <StackRows c={catalog} boxWidth={width} stacks={groupsOf(inBoard, grouping).map((g): StackItem => {
                   const inGroup = inBoard.filter((x) => x.group === g);
                   return {
-                    key: `${g}|${printings.all}`,
-                    title: `${g} · ${inGroup.reduce((n, x) => n + x.qty, 0)}`,
+                    key: `${grouping}|${g}|${printings.all}`,
+                    title: `${groupLabel(grouping, g)} · ${inGroup.reduce((n, x) => n + x.qty, 0)}`,
                     cards: tiles(inGroup),
                   };
                 })} />
-              ) : groupsOf(inBoard, list.kind).map((g) => {
+              ) : groupsOf(inBoard, grouping).map((g) => {
                 const inGroup = inBoard.filter((x) => x.group === g);
                 return (
                   <div key={g} className="flex flex-col gap-px">
-                    <Section title={g} count={inGroup.reduce((n, x) => n + x.qty, 0)} />
+                    <Section title={groupLabel(grouping, g)} count={inGroup.reduce((n, x) => n + x.qty, 0)} />
                     {layout === "grid" && !editing ? (
                       <div className="grid gap-px" style={{ gridTemplateColumns: `repeat(${cols}, ${tile}px)` }}>
                         {tiles(inGroup).map((t) => (
@@ -494,7 +536,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
           </div>
         </Modal>
       )}
-      {exporting && catalog && <ExportModal list={list} catalog={catalog} onClose={() => setExporting(false)} />}
+      {exporting && catalog && <ExportScreen name={list.name} kind={list.kind} entries={entriesOf(list)} catalog={catalog} from="own" onClose={() => setExporting(false)} />}
       {confirmDelete && (
         <Modal title={`Delete ${list.name}?`} onClose={() => setConfirmDelete(false)}>
           <p className="text-[12px] text-t1-muted">It goes from every device. This can't be undone.</p>

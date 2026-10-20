@@ -174,4 +174,21 @@ class FriendsTest {
         assertNull(theirs.valueUsd)
         assertNull(profile("friend", """{"cards":10,"printings":8,"value_usd":42.5}""").valueUsd)
     }
+
+    @Test fun sharedDecksAndCubes() {
+        val rows = listOf(
+            ProfileCard(cardId = "a", board = "main", qty = 2), ProfileCard(cardId = "b", board = "side", qty = 1),
+            ProfileCard(cardId = "a", board = "main", qty = 1), ProfileCard(cardId = "a", board = "side", qty = 1),
+            ProfileCard(cardId = "c", board = "maybe", qty = 3), ProfileCard(cardId = null, board = "main", qty = 1),
+        )
+        assertEquals(listOf(ListEntry("a", "main", 3), ListEntry("b", "side", 1), ListEntry("a", "side", 1), ListEntry("c", "maybe", 3)),
+            SharedList.entries(rows))
+        assertEquals(6, SharedList.count(rows, ListKind.Deck))
+        assertEquals(9, SharedList.count(rows, ListKind.Cube))
+        assertEquals("Copied from Sam's Mono Red", SharedList.copyNote("Sam", "Mono Red"))
+        assertEquals("Copied from Mono Red", SharedList.copyNote(null, "Mono Red"))
+        assertEquals(ListKind.Deck, SharedList.kind("deck"))
+        assertEquals(ListKind.Cube, SharedList.kind("cube"))
+        assertNull(SharedList.kind("binder"))
+    }
 }

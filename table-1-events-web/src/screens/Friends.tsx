@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Avatar } from "../components/Avatar";
-import { BigAction, Bar, Dialog, Menu, Notice, Row, Screen, Section, Segmented, type MenuItem } from "../components/kit";
+import { BigAction, Bar, Dialog, Field, Menu, Notice, Row, Screen, Section, Segmented, type MenuItem } from "../components/kit";
 import { errorMessage } from "../lib/api";
-import { coverPrinting, normName, oracleIndexById, type Catalog } from "../lib/catalog";
+import { coverPrinting, oracleIndexById, type Catalog } from "../lib/catalog";
 import { useCollection } from "../lib/collection";
 import { useBinders } from "../lib/binders";
 import { usePrices, usdPrice, usdText } from "../lib/prices";
@@ -11,12 +11,21 @@ import {
   fetchProfileCards, groupOf, inherits, loadFriends, loadMatches, loadSharing, matchShort, matchSummary, matchWith, reach,
   cancelSent, profileValue, removeFriend, requestFriend, requestFriendByEmail, respondFriend, searchPeople, sectionCount, sentLabel,
   setItem, setPart, sharingSummary,
-  startTradeFromMatch, useFriends, friendsNow, wantTier, type MatchLine, type Person, type ProfileCard, type ProfileData, type SectionKind,
+  startTradeFromMatch, useFriends, friendsNow, wantTier, copyNote, sharedCardCount, sharedEntries, sharedListKind, type MatchLine, type Person, type ProfileCard, type ProfileData, type SectionKind,
   type SharePart, type ShareItem, type Sharing, type TradeMatch, type Visibility,
 } from "../lib/friends";
 import { startFriendsDemo } from "../lib/friendsDemo";
 import { capture } from "../lib/telemetry";
-import { CardRow, LibScreen, useCatalog, useLibrarySession } from "./Library";
+import {
+  CardGroupRow, CardRow, CardTile, LibScreen, StackRows, ViewButton, useBoxWidth, useCatalog, useLibrarySession, useStoredLayout, type StackCardItem,
+} from "./Library";
+import { BoardHeader, ExportScreen, groupsOf, regrouped, resolveLines, useListGrouping, useListsData, type Line } from "./Lists";
+import { useSearchUsed } from "./Binders";
+import { GROUPING_KEY, groupLabel, groupSections, keysOf, useStoredGrouping } from "../lib/cardGrouping";
+import { BOARD_ORDER, boardTitle, createList, type ListKind } from "../lib/lists";
+import { cardMatches } from "../lib/librarySearch";
+import { COLLAPSED, addPart, isOpen, lineGroups, sortParts, toggleOne, type Disclosure, type LineGroup, type Part } from "../lib/printings";
+import type { Finish } from "../lib/collection";
 
 /* Friends, profiles, sharing and trade matches (contract/friends-sharing-2026-10-18.md). Same screens as the iOS app:
    Account → Friends / Sharing / Your profile; Library → Trade matches. */
@@ -351,14 +360,16 @@ function captureSection(kind: SectionKind) {
   capture("profile_section_opened", { section: kind });
 }
 
-const BOARD: Record<string, string> = { main: "Main", side: "Sideboard", commander: "Commander", maybe: "Considering" };
-const BOARD_ORDER = ["commander", "main", "", "side", "maybe"];
+interface Group {
+  key: string; oracle: number; cover: number | null; coverFinish: Finish; name: string; norm: string; type: string; qty: number;
+  /** Copies per printing and finish, oldest printing first: the rows a card opens into. */
+  parts: Part[];
+}
 
-interface Group { key: string; oracle: number; cover: number | null; name: string; norm: string; type: string; qty: number }
-
-/** Groups rows by board (decks and cubes) and card; wants for any printing show the card's default printing. */
-export function groupProfileCards(rows: ProfileCard[], c: Catalog): { board: string; cards: Group[] }[] {
-  const boards = new Map<string, Map<string, Group>>();
+/** Binders, all cards, for trade and wants: one group per card, by name; wants for any printing show the card's
+ *  default printing. (Decks and cubes go through the list lines instead.) */
+export function groupProfileCards(rows: ProfileCard[], c: Catalog): Group[] {
+  const by = new Map<string, Group & { coverQty: number }>();
   for (const r of rows) {
     let p = r.cardId ? c.printingIndex.get(r.cardId) ?? null : null;
     let oi = p != null ? c.pOracle[p] : -1;
@@ -367,67 +378,215 @@ export function groupProfileCards(rows: ProfileCard[], c: Catalog): { board: str
       if (oi >= 0) p = coverPrinting(c, oi);
     }
     const key = oi >= 0 ? c.oId[oi] : r.cardId ?? r.oracleId ?? "?";
-    const by = boards.get(r.board ?? "") ?? new Map<string, Group>();
-    const g = by.get(key) ?? { key, oracle: oi, cover: p, name: oi >= 0 ? c.oName[oi] : "Card not in local data yet",
-                               norm: oi >= 0 ? c.oNorm[oi] : "", type: oi >= 0 ? c.oType[oi] : "", qty: 0 };
+    const finish: Finish = r.finish ?? "nonfoil";
+    const g = by.get(key) ?? { key, oracle: oi, cover: p, coverQty: 0, coverFinish: finish, name: oi >= 0 ? c.oName[oi] : "Card not in local data yet",
+                               norm: oi >= 0 ? c.oNorm[oi] : "", type: oi >= 0 ? c.oType[oi] : "", qty: 0, parts: [] };
     g.qty += r.qty;
+    if (p != null && r.qty > g.coverQty) { g.cover = p; g.coverQty = r.qty; g.coverFinish = finish; }
+    addPart(g.parts, p != null ? c.pId[p] : r.cardId ?? key, finish, r.qty, p);
     by.set(key, g);
-    boards.set(r.board ?? "", by);
   }
-  return [...boards.keys()].sort((a, b) => BOARD_ORDER.indexOf(a) - BOARD_ORDER.indexOf(b))
-    .map((board) => ({ board, cards: [...boards.get(board)!.values()].sort((a, b) => (a.norm < b.norm ? -1 : 1)) }));
+  for (const g of by.values()) sortParts(c, g.parts);
+  return [...by.values()].sort((a, b) => (a.norm < b.norm ? -1 : a.norm > b.norm ? 1 : 0));
 }
 
-/** The cards behind one shared section, read-only; tap opens the card (your own copies of it). */
+const FINISH_NAME: Record<Finish, string> = { nonfoil: "Non-foil", foil: "Foil", etched: "Etched" };
+const partTitle = (c: Catalog, pt: Part) =>
+  [pt.p == null ? null : `${c.pSet[pt.p].toUpperCase()} #${c.pCn[pt.p]}`, pt.finish === "nonfoil" ? null : FINISH_NAME[pt.finish]].filter(Boolean).join(" · ");
+
+/** The cards behind one shared section, read-only, in the View you pick (list, grid or stacks, like your own); tap
+ *  opens the card (your own copies of it). Decks and cubes group by section, then by Group by, and add Export and
+ *  Copy to my Library (contract/shared-lists-grouping-2026-10-20.md). */
 export function ProfileCardsScreen(props: {
-  userId: string; section: SectionKind; item: string | null; onBack: () => void; onCard: (oracleId: string) => void;
+  userId: string; section: SectionKind; item: string | null; onBack: () => void; onCard: (oracleId: string) => void; onList: (listId: string) => void;
 }) {
   return <Gate title="Cards" onBack={props.onBack}>{() => <ProfileCardsBody {...props} />}</Gate>;
 }
 
-function ProfileCardsBody({ userId, section, item, onBack, onCard }: {
-  userId: string; section: SectionKind; item: string | null; onBack: () => void; onCard: (oracleId: string) => void;
+function ProfileCardsBody({ userId, section, item, onBack, onCard, onList }: {
+  userId: string; section: SectionKind; item: string | null; onBack: () => void; onCard: (oracleId: string) => void; onList: (listId: string) => void;
 }) {
   const { catalog, error: catError } = useCatalog();
+  useListsData(); // your lists, so a copy lands in them (the dev demo's too)
   const [rows, setRows] = useState<ProfileCard[] | null>(null);
-  const [title, setTitle] = useState<string>("");
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const [layout, setLayout] = useStoredLayout("table1.library.shared.layout", "table1.library.shared.grid");
+  const kind = sharedListKind(section);
+  const [listGrouping, setListGrouping] = useListGrouping(kind);
+  const [cardsGrouping, setCardsGrouping] = useStoredGrouping(GROUPING_KEY.shared, "none", false);
+  const [grouping, setGrouping] = kind ? [listGrouping, setListGrouping] : [cardsGrouping, setCardsGrouping];
+  const [printings, setPrintings] = useState<Disclosure>(COLLAPSED);
+  const [exporting, setExporting] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const [boxRef, width] = useBoxWidth();
+  useSearchUsed(q, "profile_cards");
   useEffect(() => {
     fetchProfileCards(userId, section, item).then(setRows, (e) => { setError(errorMessage(e)); setRows([]); });
-    // The address carries ids only; the title comes from the profile.
-    fetchProfile(userId).then((p) => {
-      const s = p.sections;
-      const named = [...(s.binders ?? []), ...(s.decks ?? []), ...(s.cubes ?? [])].find((x) => x.id === item)?.name;
-      setTitle(`${p.display_name} · ${named ?? { all_cards: "All cards", for_trade: "For trade", wants: "Wants" }[section as string] ?? "Cards"}`);
-    }, () => {});
+    // The address carries ids only; the title, a list's format and its owner come from the profile.
+    fetchProfile(userId).then(setProfile, () => {});
   }, [userId, section, item]);
-  const groups = useMemo(() => (catalog && rows ? groupProfileCards(rows, catalog) : []), [catalog, rows]);
-  const n = normName(q);
-  const copies = rows?.reduce((s, r) => s + r.qty, 0) ?? 0;
+  const s = profile?.sections;
+  const shared = [...(s?.binders ?? []), ...(s?.decks ?? []), ...(s?.cubes ?? [])].find((x) => x.id === item);
+  const listFormat = kind && shared && "format" in shared ? shared.format : null;
+  const name = shared?.name ?? ({ all_cards: "All cards", for_trade: "For trade", wants: "Wants" } as Record<string, string>)[section] ?? "Cards";
+  /** Whose it is; null on your own profile (no Copy there: your deck screen has Duplicate). */
+  const owner = profile && profile.relation !== "self" ? profile.display_name : null;
+  const entries = useMemo(() => (rows ? sharedEntries(rows) : []), [rows]);
+  const lines = useMemo(() => (kind && catalog ? regrouped(resolveLines(entries, kind, catalog), grouping) : []), [kind, catalog, entries, grouping]);
+  const groups = useMemo(() => (!kind && catalog && rows ? groupProfileCards(rows, catalog) : []), [kind, catalog, rows]);
+  const searching = q.trim().length > 0;
+  const cols = Math.max(3, Math.floor(width / 180));
+  const tile = Math.floor((width - (cols - 1)) / cols);
+  const title = (sec: { key: string; qty: number }) => `${groupLabel(grouping, sec.key)} · ${sec.qty}`;
+  const sum = (xs: { qty: number }[]) => xs.reduce((n, x) => n + x.qty, 0);
+
+  const copy = async () => {
+    if (!kind || !listFormat) return;
+    setCopying(true);
+    try {
+      onList(await createList(kind, name.slice(0, 60), listFormat, entries, copyNote(owner, name), "profile"));
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setCopying(false);
+    }
+  };
+
+  const grid = (cards: StackCardItem[]) => (
+    <div className="grid gap-px shrink-0" style={{ gridTemplateColumns: `repeat(${cols}, ${tile}px)` }}>
+      {cards.map((t) => <CardTile key={t.key} c={catalog!} p={t.p} name={t.name} qty={t.qty} width={tile} finish={t.finish} onClick={t.onClick} />)}
+    </div>
+  );
+
+  /* decks and cubes */
+
+  const lineTiles = (inGroup: Line[]): StackCardItem[] => lineGroups(inGroup).flatMap((cg) => {
+    const lead = cg.lines[0];
+    const onClick = () => lead.oracleId && onCard(lead.oracleId);
+    if (!printings.all || cg.lines.length < 2) return [{ key: cg.id, p: lead.p, name: lead.name, qty: cg.qty, finish: lead.finish, onClick }];
+    return cg.lines.map((l) => ({ key: `${l.board}|${l.cardId}|${l.finish}`, p: l.p, name: l.name, qty: l.qty, finish: l.finish, onClick }));
+  });
+  /** One card's lines in a section: a row, with its printings under a chevron when there are several. */
+  const lineRows = (cg: LineGroup<Line>) => {
+    const lead = cg.lines[0];
+    const open = cg.lines.length > 1 && isOpen(printings, cg.id);
+    return (
+      <div key={cg.id} className="flex flex-col gap-px shrink-0">
+        <div className="h-[60px]">
+          <CardGroupRow open={open} parts={cg.lines.length}
+                        onToggle={() => { setPrintings(toggleOne(printings, cg.id)); capture("printings_toggled", { expanded: !open, all: false, screen: "list" }); }}>
+            <CardRow c={catalog!} p={lead.p} title={lead.name} detail={cg.lines.length > 1 ? `${cg.lines.length} printings · ${lead.type}` : lead.type}
+                     value={cg.qty} finish={lead.finish} onClick={() => lead.oracleId && onCard(lead.oracleId)} />
+          </CardGroupRow>
+        </div>
+        {open && cg.lines.map((l) => (
+          <div key={`${l.cardId}|${l.finish}`} className="h-[60px]">
+            <CardRow c={catalog!} p={l.p} indent finish={l.finish} value={l.qty} onClick={() => l.oracleId && onCard(l.oracleId)}
+                     title={partTitle(catalog!, { cardId: l.cardId, finish: l.finish, qty: l.qty, p: l.p })} />
+          </div>
+        ))}
+      </div>
+    );
+  };
+  const listBody = (k: ListKind) => {
+    const shown = searching ? lines.filter((x) => cardMatches(q, x.name, x.type)) : lines;
+    return (<>
+      {searching && !shown.length && !!lines.length && <Row title="No cards match" />}
+      {BOARD_ORDER.filter((b) => shown.some((x) => x.board === b)).map((board) => {
+        const inBoard = shown.filter((x) => x.board === board);
+        const groupKeys = groupsOf(inBoard, grouping);
+        return (
+          <div key={board} className="flex flex-col gap-px shrink-0">
+            <BoardHeader title={boardTitle(k, board)} count={sum(inBoard)} />
+            {layout === "stacks" ? (
+              <StackRows c={catalog!} boxWidth={width} stacks={groupKeys.map((g) => {
+                const inGroup = inBoard.filter((x) => x.group === g);
+                return { key: `${grouping}|${g}|${printings.all}`, title: title({ key: g, qty: sum(inGroup) }), cards: lineTiles(inGroup) };
+              })} />
+            ) : groupKeys.map((g) => {
+              const inGroup = inBoard.filter((x) => x.group === g);
+              return (
+                <div key={g} className="flex flex-col gap-px shrink-0">
+                  <Section title={groupLabel(grouping, g)} count={sum(inGroup)} />
+                  {layout === "grid" ? grid(lineTiles(inGroup)) : lineGroups(inGroup).map(lineRows)}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </>);
+  };
+
+  /* binders, all cards, for trade, wants */
+
+  const groupTiles = (gs: Group[]): StackCardItem[] => gs.flatMap((g) => {
+    const onClick = () => g.oracle >= 0 && onCard(g.key);
+    if (!printings.all || g.parts.length < 2) return [{ key: g.key, p: g.cover, name: g.name, qty: g.qty, finish: g.coverFinish, onClick }];
+    return g.parts.map((pt) => ({ key: `${g.key}|${pt.cardId}|${pt.finish}`, p: pt.p, name: g.name, qty: pt.qty, finish: pt.finish, onClick }));
+  });
+  const cardsBody = () => {
+    const shown = searching ? groups.filter((g) => cardMatches(q, g.name, g.type)) : groups;
+    const sections = groupSections(shown, grouping, (g) => keysOf(catalog!, g.oracle));
+    return (<>
+      {searching && !shown.length && !!groups.length && <Row title="No cards match" />}
+      {layout === "stacks" ? (
+        // Grouped: one stack per group; None: stacks of ten.
+        <StackRows c={catalog!} boxWidth={width} stacks={grouping !== "none"
+          ? sections.map((sec) => ({ key: `st|${sec.key}|${printings.all}`, title: title({ key: sec.key, qty: sum(sec.items) }), cards: groupTiles(sec.items) }))
+          : (() => {
+            const all = groupTiles(shown);
+            return Array.from({ length: Math.ceil(all.length / 10) }, (_, i) => ({ key: `st|${printings.all}|${i}`, cards: all.slice(i * 10, i * 10 + 10) }));
+          })()} />
+      ) : sections.map((sec) => (
+        <div key={sec.key} className="flex flex-col gap-px shrink-0">
+          {grouping !== "none" && <Section title={groupLabel(grouping, sec.key)} count={sum(sec.items)} />}
+          {layout === "grid" ? grid(groupTiles(sec.items)) : sec.items.map((g) => {
+            const open = g.parts.length > 1 && isOpen(printings, g.key);
+            return (
+              <div key={g.key} className="flex flex-col gap-px shrink-0">
+                <div className="h-[60px]">
+                  <CardGroupRow open={open} parts={g.parts.length}
+                                onToggle={() => { setPrintings(toggleOne(printings, g.key)); capture("printings_toggled", { expanded: !open, all: false, screen: "list" }); }}>
+                    <CardRow c={catalog!} p={g.cover} title={g.name} detail={g.type} value={g.qty} finish={g.coverFinish} onClick={() => g.oracle >= 0 && onCard(g.key)} />
+                  </CardGroupRow>
+                </div>
+                {open && g.parts.map((pt) => (
+                  <div key={`${pt.cardId}|${pt.finish}`} className="h-[60px]">
+                    <CardRow c={catalog!} p={pt.p} indent finish={pt.finish} value={pt.qty} title={partTitle(catalog!, pt)} onClick={() => g.oracle >= 0 && onCard(g.key)} />
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </>);
+  };
+
   return (
     <LibScreen>
-      <Bar title={title || "Cards"} subtitle={rows ? plural(copies, "card") : undefined} onBack={onBack} />
+      <Bar title={profile ? `${profile.display_name} · ${name}` : "Cards"} subtitle={rows ? plural(sharedCardCount(rows, kind), "card") : undefined} onBack={onBack}
+           right={<ViewButton layout={layout} onChange={setLayout} screen={`profile_${section}`} printings={printings} onPrintings={setPrintings}
+                              grouping={grouping} onGrouping={setGrouping} list={!!kind} />} />
       {(error || catError) && <Notice tone="error">{error ?? catError}</Notice>}
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or type"
-             className="bg-t1-surface px-4 py-4 outline-0 border-0 text-[15px] placeholder:text-t1-muted/60" />
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
+      <Field label="Search these cards" value={q} onChange={setQ} placeholder="Name or type" />
+      <div ref={boxRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {(!catalog || !rows) && !error && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
         {rows?.length === 0 && !error && <Notice tone="info">Nothing here.</Notice>}
-        {catalog && groups.map((g) => {
-          const shown = n ? g.cards.filter((x) => x.norm.includes(n) || normName(x.type).includes(n)) : g.cards;
-          return (
-            <div key={g.board} className="flex flex-col gap-px">
-              {groups.length > 1 && shown.length > 0 && <Section title={BOARD[g.board] ?? "Cards"} count={shown.reduce((s, x) => s + x.qty, 0)} />}
-              {shown.map((x) => (
-                <div key={x.key} style={{ height: 60 }}>
-                  <CardRow c={catalog} p={x.cover} title={x.name} detail={x.type} value={x.qty} onClick={() => x.oracle >= 0 && onCard(x.key)} />
-                </div>
-              ))}
-            </div>
-          );
-        })}
+        {kind && catalog && !!rows?.length && !searching && (<>
+          <Row title="Export" detail={kind === "deck" ? "Text, Arena, MTGO, download or copy" : "Text, Cube Cobra, download or copy"}
+               onClick={() => setExporting(true)} />
+          {owner && listFormat && (
+            <Row title={copying ? "Copying…" : "Copy to my Library"} detail={kind === "deck" ? "A new private deck with these cards" : "A new cube with these cards"}
+                 onClick={copying ? undefined : () => void copy()} />
+          )}
+        </>)}
+        {catalog && rows && (kind ? listBody(kind) : cardsBody())}
       </div>
+      {exporting && kind && catalog && <ExportScreen name={name} kind={kind} entries={entries} catalog={catalog} from="profile" onClose={() => setExporting(false)} />}
     </LibScreen>
   );
 }

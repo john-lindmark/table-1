@@ -213,6 +213,8 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
     val unsorted = id == UNSORTED
     val binder = if (unsorted) null else b.binder(id)
     var groups by remember { mutableStateOf<List<CardGroup>>(emptyList()) }
+    var keys by remember { mutableStateOf<Map<String, GroupKeys>>(emptyMap()) }
+    val grouping = rememberCardGrouping(GroupingKey.BINDER, CardGrouping.None, list = false)
     var query by remember { mutableStateOf("") }
     var menu by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
@@ -232,7 +234,11 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
     }
     LaunchedEffect(items, cat.generation) {
         val db = CatalogStore.db ?: return@LaunchedEffect
-        groups = withContext(Dispatchers.Default) { CardGroup.build(items, db).sortedWith(compareByDescending<CardGroup> { it.qty }.thenBy { it.norm }) }
+        val (g, k) = withContext(Dispatchers.Default) {
+            CardGroup.build(items, db).sortedWith(compareByDescending<CardGroup> { it.qty }.thenBy { it.norm }).let { it to GroupKeys.forGroups(it, db) }
+        }
+        groups = g
+        keys = k
         PriceBook.load(items.map { it.cardId }.toSet())
     }
     val copies = items.sumOf { it.qty }
@@ -263,16 +269,25 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
                 }
             }
         }
-        val tiles = groupTiles(shown, printings.all, { !unsorted && heroes.isHero(it.id, HeroScope.InBinder(id)) }) { if (it.known) onCard(it.id) }
+        // Group by: most copies first inside each group.
+        val sections = groupSections(shown, grouping.value) { keys[it.id] }
+        val grouped = grouping.value != CardGrouping.None
+        fun title(key: String, cards: List<CardGroup>) = "${grouping.value.label(key)} · ${cards.sumOf { it.qty }}"
+        fun tiles(cards: List<CardGroup>) = groupTiles(cards, printings.all, { !unsorted && heroes.isHero(it.id, HeroScope.InBinder(id)) }) { if (it.known) onCard(it.id) }
         if (layout.value == CardLayout.Grid) {
             CardGrid(Modifier.weight(1f)) { tile ->
                 gridHeader("top") { top() }
-                gridItems(tiles, key = { "t-${it.key}" }) { t -> CardTile(t.printing, t.qty, tile, onClick = t.onClick, finish = t.finish, hero = t.hero) }
+                for ((key, cards) in sections) {
+                    if (grouped) gridHeader("h-$key") { Section(title(key, cards)) }
+                    gridItems(tiles(cards), key = { "t-${it.key}" }) { t -> CardTile(t.printing, t.qty, tile, onClick = t.onClick, finish = t.finish, hero = t.hero) }
+                }
             }
         } else if (layout.value == CardLayout.Stacks) {
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                 val (cols, width) = stackColumns(maxWidth)
-                val stacks = runStacks(tiles, false, { "" }, "st|${printings.all}|").map { (key, title, run) -> CardStackSpec(key, title, run) }
+                // Grouped: one stack per group; None: stacks of ten.
+                val stacks = if (grouped) sections.map { (key, cards) -> CardStackSpec("st|$key|${printings.all}", title(key, cards), tiles(cards)) }
+                    else runStacks(tiles(shown), false, { "" }, "st|${printings.all}|").map { (key, title, run) -> CardStackSpec(key, title, run) }
                 LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     item(key = "top") { top() }
                     stackRows("binder", stacks, cols, width)
@@ -280,18 +295,21 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
             }
         } else Hairlines(Modifier.weight(1f)) {
             item(key = "top") { top() }
-            for (g in shown) {
-                val open = printings.open(g.id)
-                cardGroupRows(g, "${g.printings} printing${if (g.printings == 1) "" else "s"} · ${g.type}",
-                    !unsorted && heroes.isHero(g.id, HeroScope.InBinder(id)), open,
-                    toggle = {
-                        printings = printings.toggle(g.id)
-                        Telemetry.capture("printings_toggled", mapOf("expanded" to !open, "all" to false, "screen" to "binder"))
-                    }) { if (g.known) onCard(g.id) }
+            for ((key, cards) in sections) {
+                if (grouped) item(key = "h-$key") { Section(title(key, cards)) }
+                for (g in cards) {
+                    val open = printings.open(g.id)
+                    cardGroupRows(g, "${g.printings} printing${if (g.printings == 1) "" else "s"} · ${g.type}",
+                        !unsorted && heroes.isHero(g.id, HeroScope.InBinder(id)), open,
+                        toggle = {
+                            printings = printings.toggle(g.id)
+                            Telemetry.capture("printings_toggled", mapOf("expanded" to !open, "all" to false, "screen" to "binder"))
+                        }) { if (g.known) onCard(g.id) }
+                }
             }
         }
     }
-    if (viewMenu) CardLayoutMenu(layout, "binder", printingsState) { viewMenu = false }
+    if (viewMenu) CardLayoutMenu(layout, "binder", printingsState, grouping) { viewMenu = false }
     if (menu && binder != null) {
         T1Menu(binder.name, listOf(
             T1MenuItem("Rename") { editing = true },

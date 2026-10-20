@@ -206,7 +206,10 @@ object ListsStore {
     }
 
     /** A new list, optionally starting with cards (a duplicate, an import or a found decklist). */
-    suspend fun create(kind: ListKind, name: String, format: String, entries: List<ListEntry> = emptyList(), note: String = "Created"): String {
+    /** A new list, optionally starting with cards. `from` is for telemetry only: new / duplicate / import / finder /
+     *  profile (a copy of a shared deck or cube). */
+    suspend fun create(kind: ListKind, name: String, format: String, entries: List<ListEntry> = emptyList(), note: String = "Created",
+                       from: String = "new"): String {
         val id = UUID.randomUUID().toString()
         call("list_create", buildJsonObject {
             put("p_id", id); put("p_kind", kind.wire); put("p_name", name); put("p_format", format)
@@ -215,13 +218,14 @@ object ListsStore {
             })
             put("p_note", note)
         })
+        site.table1.events.util.Telemetry.capture("list_created", mapOf("kind" to kind.wire, "format" to format, "from" to from))
         return id
     }
 
     /** A new list with the current version's cards; its history starts fresh and names where it came from. */
     suspend fun duplicate(listId: String): String? {
         val l = list(listId) ?: return null
-        return create(l.kind, "${l.name} (copy)".take(60), l.format, l.entries, "Duplicated from ${l.name} v${l.current.number}")
+        return create(l.kind, "${l.name} (copy)".take(60), l.format, l.entries, "Duplicated from ${l.name} v${l.current.number}", "duplicate")
     }
 
     suspend fun add(listId: String, cardId: String, board: String, delta: Int, finish: String = "nonfoil") =

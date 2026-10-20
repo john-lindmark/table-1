@@ -268,8 +268,10 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
     val col by CollectionStore.state.collectAsState()
     val cat by CatalogStore.state.collectAsState()
     var groups by remember { mutableStateOf<List<CardGroup>?>(null) }
+    var keys by remember { mutableStateOf<Map<String, GroupKeys>>(emptyMap()) }
     var query by remember { mutableStateOf("") }
     val prefs = remember { T1App.instance.getSharedPreferences("library", android.content.Context.MODE_PRIVATE) }
+    val grouping = rememberCardGrouping(GroupingKey.ALL_CARDS, CardGrouping.None, list = false)
     // 0 recent, 1 price, 2 set
     var sort by remember { mutableStateOf(prefs.getInt("allCards.sort", 0)) }
     val pricesVersion by PriceBook.version.collectAsState()
@@ -281,7 +283,9 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
     LaunchedEffect(col.version, cat.generation) {
         val db = CatalogStore.db ?: return@LaunchedEffect
         val items = col.items.values.toList()
-        groups = withContext(Dispatchers.Default) { CardGroup.build(items, db) }
+        val (g, k) = withContext(Dispatchers.Default) { CardGroup.build(items, db).let { it to GroupKeys.forGroups(it, db) } }
+        groups = g
+        keys = k
         PriceBook.load(items.map { it.cardId })
     }
     val shown = remember(groups, query, sort, pricesVersion) {
@@ -299,6 +303,9 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
             else -> list.sortedWith(compareByDescending<CardGroup> { it.lastSeq }.thenBy { it.norm })
         }
     }
+    /** Group by: the sorted cards in sections, the sort kept inside each. */
+    val sections = remember(shown, grouping.value, keys) { groupSections(shown, grouping.value) { keys[it.id] } }
+    fun title(key: String, cards: List<CardGroup>) = "${grouping.value.label(key)} · ${cards.sumOf { it.qty }}"
     fun detail(g: CardGroup): String {
         val price = PriceBook.text(g.price())
         if (sort == 2 && g.cover != null) return listOfNotNull(g.cover.setLabel, price).joinToString(" · ")
@@ -319,10 +326,14 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
             if (g.isEmpty() && col.ready) ListRow("No cards yet", "Add your first card", onClick = onAdd)
             if (g.isNotEmpty() && shown.isEmpty()) ListRow("No matches", "Nothing in your collection by that name or type")
             if (layout.value == CardLayout.Stacks) {
-                // Stacks follow the sort: one per set when sorted by set, otherwise runs of ten in sort order.
-                val stacks = remember(shown, sort, printings.value.all, heroes) {
-                    val tiles = groupTiles(shown, printings.value.all, { heroes.isHero(it.id, HeroScope.Collection) }) { if (it.known) onOpen(it.id) }
-                    runStacks(tiles, sort == 2, { it.printing?.set ?: "" }, "$sort|${printings.value.all}|").map { (key, title, run) ->
+                // Stacks follow Group by (one per group), else the sort: one per set when sorted by set, otherwise runs of
+                // ten in sort order.
+                val stacks = remember(sections, sort, printings.value.all, heroes) {
+                    fun tiles(cards: List<CardGroup>) =
+                        groupTiles(cards, printings.value.all, { heroes.isHero(it.id, HeroScope.Collection) }) { if (it.known) onOpen(it.id) }
+                    if (grouping.value != CardGrouping.None) sections.map { (key, cards) ->
+                        CardStackSpec("${grouping.value.wire}|$key|$sort|${printings.value.all}", title(key, cards), tiles(cards))
+                    } else runStacks(tiles(shown), sort == 2, { it.printing?.set ?: "" }, "$sort|${printings.value.all}|").map { (key, title, run) ->
                         CardStackSpec(key, title, run)
                     }
                 }
@@ -332,20 +343,26 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
                 }
             } else if (layout.value == CardLayout.Grid) {
                 CardGrid(Modifier.weight(1f)) { tile ->
-                    val tiles = groupTiles(shown, printings.value.all, { heroes.isHero(it.id, HeroScope.Collection) }) { if (it.known) onOpen(it.id) }
-                    gridItems(tiles, key = { it.key }) { t ->
-                        CardTile(t.printing, t.qty, tile, onClick = t.onClick, finish = t.finish, hero = t.hero)
+                    for ((key, cards) in sections) {
+                        if (grouping.value != CardGrouping.None) gridHeader("h-$key") { Section(title(key, cards)) }
+                        val tiles = groupTiles(cards, printings.value.all, { heroes.isHero(it.id, HeroScope.Collection) }) { if (it.known) onOpen(it.id) }
+                        gridItems(tiles, key = { it.key }) { t ->
+                            CardTile(t.printing, t.qty, tile, onClick = t.onClick, finish = t.finish, hero = t.hero)
+                        }
                     }
                 }
             } else {
                 Hairlines(Modifier.weight(1f)) {
-                    for (row in shown) {
-                        val open = printings.value.open(row.id)
-                        cardGroupRows(row, detail(row), heroes.isHero(row.id, HeroScope.Collection), open,
-                            toggle = {
-                                printings.value = printings.value.toggle(row.id)
-                                Telemetry.capture("printings_toggled", mapOf("expanded" to !open, "all" to false, "screen" to "all_cards"))
-                            }) { if (row.known) onOpen(row.id) }
+                    for ((key, cards) in sections) {
+                        if (grouping.value != CardGrouping.None) item(key = "h-$key") { Section(title(key, cards)) }
+                        for (row in cards) {
+                            val open = printings.value.open(row.id)
+                            cardGroupRows(row, detail(row), heroes.isHero(row.id, HeroScope.Collection), open,
+                                toggle = {
+                                    printings.value = printings.value.toggle(row.id)
+                                    Telemetry.capture("printings_toggled", mapOf("expanded" to !open, "all" to false, "screen" to "all_cards"))
+                                }) { if (row.known) onOpen(row.id) }
+                        }
                     }
                 }
             }
@@ -353,7 +370,7 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
             Filler()
         }
     }
-    if (viewMenu) CardLayoutMenu(layout, "all_cards", printings) { viewMenu = false }
+    if (viewMenu) CardLayoutMenu(layout, "all_cards", printings, grouping) { viewMenu = false }
 }
 
 /* ── add (search) ─────────────────────────────────────────────────────── */

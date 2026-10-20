@@ -4,11 +4,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -371,68 +375,206 @@ fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: Stri
     }
 }
 
-/** Groups rows by board (decks and cubes) and card; wants for any printing show the card's default printing. */
-internal fun groupProfileCards(rows: List<ProfileCard>, db: CatalogDb): List<Pair<String, List<CardGroup>>> {
+/** Binders, all cards, for trade and wants: one group per card, by name; wants for any printing show the card's default
+ *  printing. (Decks and cubes go through the list lines instead.) */
+internal fun groupProfileCards(rows: List<ProfileCard>, db: CatalogDb): List<CardGroup> {
     val oracles = rows.filter { it.cardId == null }.mapNotNull { it.oracleId }.toSet().mapNotNull { db.oracle(it) }
     val covers = db.covers(oracles.map { it.idx })
     val coverOf = oracles.associate { it.oracleId to covers[it.idx]?.cardId }
-    val order = listOf("commander", "main", "", "side", "maybe")
-    return rows.mapNotNull { r ->
+    val items = rows.mapNotNull { r ->
         val card = r.cardId ?: r.oracleId?.let { coverOf[it] } ?: return@mapNotNull null
-        (r.board ?: "") to CollectionItem(card, r.finish ?: "nonfoil", r.condition ?: "NM", r.lang ?: "en", r.qty, 0)
-    }.groupBy({ it.first }, { it.second }).toList().sortedBy { order.indexOf(it.first).let { i -> if (i < 0) 9 else i } }
-        .map { (board, items) -> board to CardGroup.build(items, db).sortedBy { it.norm } }
+        CollectionItem(card, r.finish ?: "nonfoil", r.condition ?: "NM", r.lang ?: "en", r.qty, 0)
+    }
+    return CardGroup.build(items, db).sortedBy { it.norm }
 }
 
-private val BOARD = mapOf("main" to "Main", "side" to "Sideboard", "commander" to "Commander", "maybe" to "Considering")
+private fun boardTitle(board: String, kind: ListKind) = when (board) {
+    "commander" -> "Commander"
+    "main" -> if (kind == ListKind.Deck) "Main deck" else "Main"
+    "side" -> "Sideboard"
+    "maybe" -> "Considering"
+    else -> "Cards"
+}
 
-/** The cards behind one shared section, read-only; tap opens the card (your own copies of it). */
+/**
+ * The cards behind one shared section, read-only, in the View you pick (list, grid or stacks, like your own); tap opens
+ * the card (your own copies of it). Decks and cubes group by section, then by Group by, and add Export and Copy to my
+ * Library (contract/shared-lists-grouping-2026-10-20.md).
+ */
 @Composable
-fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: () -> Unit, onCard: (String) -> Unit) {
+fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: () -> Unit, onCard: (String) -> Unit, onList: (String) -> Unit) {
     val cat by CatalogStore.state.collectAsState()
+    val scope = rememberCoroutineScope()
+    val kind = SharedList.kind(section)
     var rows by remember { mutableStateOf<List<ProfileCard>?>(null) }
-    var groups by remember { mutableStateOf<List<Pair<String, List<CardGroup>>>>(emptyList()) }
-    var title by remember { mutableStateOf("Cards") }
+    var profile by remember { mutableStateOf<ProfileData?>(null) }
+    /** Binders, all cards, for trade, wants: one group per card. */
+    var groups by remember { mutableStateOf<List<CardGroup>>(emptyList()) }
+    var keys by remember { mutableStateOf<Map<String, GroupKeys>>(emptyMap()) }
+    /** Decks and cubes: one line per card, board and printing. */
+    var lines by remember { mutableStateOf<List<ListLine>>(emptyList()) }
     var query by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
+    var viewMenu by remember { mutableStateOf(false) }
+    var exporting by remember { mutableStateOf(false) }
+    var copying by remember { mutableStateOf(false) }
+    val printings = remember { mutableStateOf(PrintingsDisclosure()) }
+    val layout = rememberCardLayout("shared.layout", "shared.grid")
+    // Decks and cubes share Group by with your own; everything else has its own (None to start).
+    val grouping = if (kind != null) rememberListGrouping(kind) else rememberCardGrouping(GroupingKey.SHARED, CardGrouping.None, list = false)
+    SearchUsed(query, "profile_cards")
     LaunchedEffect(userId, section, item) {
         Telemetry.screen("profile_cards")
         CatalogStore.load(userInitiated = true)
         runCatching { FriendsStore.cards(userId, section, item) }.onSuccess { rows = it }.onFailure { error = it.message; rows = emptyList() }
-        // The route carries ids only; the title comes from the profile.
-        runCatching { FriendsStore.profile(userId) }.onSuccess { p ->
-            val s = p.sections
-            val named = ((s.binders?.map { it.id to it.name } ?: emptyList()) + (s.decks.orEmpty() + s.cubes.orEmpty()).map { it.id to it.name })
-                .firstOrNull { it.first == item }?.second
-            title = "${p.displayName} · " + (named ?: mapOf("all_cards" to "All cards", "for_trade" to "For trade", "wants" to "Wants")[section] ?: "Cards")
-        }
+        // The route carries ids only; the title, a list's format and its owner come from the profile.
+        runCatching { FriendsStore.profile(userId) }.onSuccess { profile = it }
     }
-    LaunchedEffect(rows, cat.generation) {
+    val entries = remember(rows) { rows?.let { SharedList.entries(it) } ?: emptyList() }
+    LaunchedEffect(rows, cat.generation, grouping.value) {
         val db = CatalogStore.db ?: return@LaunchedEffect
         val r = rows ?: return@LaunchedEffect
-        groups = withContext(Dispatchers.Default) { groupProfileCards(r, db) }
+        if (kind != null) lines = withContext(Dispatchers.Default) { resolveLines(entries, db, grouping.value) }
+        else withContext(Dispatchers.Default) { groupProfileCards(r, db).let { it to GroupKeys.forGroups(it, db) } }.let { (g, k) -> groups = g; keys = k }
     }
+    val s = profile?.sections
+    val shared = (s?.decks.orEmpty() + s?.cubes.orEmpty()).firstOrNull { it.id == item }
+    val name = shared?.name ?: s?.binders?.firstOrNull { it.id == item }?.name
+        ?: mapOf("all_cards" to "All cards", "for_trade" to "For trade", "wants" to "Wants")[section] ?: "Cards"
+    /** Whose it is; null on your own profile (no Copy there: your deck screen has Duplicate). */
+    val owner = profile?.takeIf { it.relation != "self" }?.displayName
+    val searching = CardName.norm(query).isNotEmpty()
+    val g = grouping.value
+    fun title(key: String, qty: Int) = "${g.label(key)} · $qty"
+    fun openCard(oracleId: String?) { oracleId?.let(onCard) }
+
+    /* decks and cubes */
+    fun lineTiles(inGroup: List<ListLine>): List<StackCard> = LineGroup.of(inGroup).flatMap { cg ->
+        val open = { openCard(cg.lead.oracleId) }
+        if (!printings.value.all || cg.lines.size < 2) listOf(StackCard(cg.id, cg.lead.printing, cg.lead.name, cg.qty, finish = cg.lead.finish, onClick = open))
+        else cg.lines.map { l -> StackCard(l.key, l.printing, l.name, l.qty, finish = l.finish, onClick = open) }
+    }
+    val shownLines = if (searching) lines.filter { CardSearch.matches(query, it.name, it.type) } else lines
+    val boards = CardList.BOARD_ORDER.filter { b -> shownLines.any { it.board == b } }
+    /* binders, all cards, for trade, wants */
+    val shownGroups = if (searching) groups.filter { CardSearch.matches(query, it.name, it.type) } else groups
+    val sections = groupSections(shownGroups, g) { keys[it.id] }
+    fun groupTiles(cards: List<CardGroup>) = groupTiles(cards, printings.value.all, { false }) { if (it.known) onCard(it.id) }
+
+    // Export and Copy to my Library, above the cards.
+    val top: @Composable () -> Unit = {
+        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            if (rows?.isEmpty() == true && error == null) Notice("Nothing here.")
+            if (kind != null && !rows.isNullOrEmpty() && !searching && CatalogStore.db != null) {
+                ListRow("Export", if (kind == ListKind.Deck) "Text, Arena, MTGO, download or copy" else "Text, Cube Cobra, download or copy",
+                    onClick = { exporting = true })
+                if (owner != null && shared != null) {
+                    ListRow(if (copying) "Copying…" else "Copy to my Library",
+                        if (kind == ListKind.Deck) "A new private deck with these cards" else "A new cube with these cards",
+                        onClick = {
+                            if (copying) return@ListRow
+                            copying = true
+                            scope.launch {
+                                runCatching { ListsStore.create(kind, name.take(60), shared.format, entries, SharedList.copyNote(owner, name), "profile") }
+                                    .onSuccess(onList).onFailure { error = it.message }
+                                copying = false
+                            }
+                        })
+                }
+            }
+            if (searching && ((kind != null && shownLines.isEmpty() && lines.isNotEmpty()) || (kind == null && shownGroups.isEmpty() && groups.isNotEmpty()))) {
+                ListRow("No cards match")
+            }
+        }
+    }
+
     T1Screen {
-        Bar(title, rows?.let { plural(it.sumOf { r -> r.qty }, "card") }, onBack = onBack)
+        Bar(profile?.let { "${it.displayName} · $name" } ?: "Cards", rows?.let { plural(SharedList.count(it, kind), "card") }, onBack = onBack) {
+            BarAction("View") { viewMenu = true }
+        }
         error?.let { Notice(it, error = true) }
         CatalogStatus(cat)
-        Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp)) {
-            T1TextField(query, { query = it }, placeholder = "Name or type")
-        }
-        val n = CardName.norm(query)
-        Hairlines(Modifier.weight(1f)) {
-            if (rows?.isEmpty() == true && error == null) item { Notice("Nothing here.") }
-            for ((board, cards) in groups) {
-                val shown = if (n.isEmpty()) cards else cards.filter { it.norm.contains(n) || CardName.norm(it.type).contains(n) }
-                if (groups.size > 1 && shown.isNotEmpty()) item(key = "s$board") { Section("${BOARD[board] ?: "Cards"} · ${shown.sumOf { it.qty }}") }
-                items(shown, key = { "$board|${it.id}" }) { g ->
-                    CardRow(g.cover, g.name, g.type, onClick = { if (g.known) onCard(g.id) }) {
-                        Text("${g.qty}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
+        SearchBand(query, "Name or type") { query = it }
+        if (layout.value == CardLayout.Stacks) {
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                val (cols, width) = stackColumns(maxWidth)
+                LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    item(key = "top") { top() }
+                    if (kind != null) for (board in boards) {
+                        val inBoard = shownLines.filter { it.board == board }
+                        item(key = "b-$board") { BoardHeader(boardTitle(board, kind), inBoard.sumOf { it.qty }) }
+                        stackRows("s-$board", groups(inBoard, g).map { key ->
+                            val inGroup = inBoard.filter { it.group == key }
+                            CardStackSpec("${g.wire}|$key|${printings.value.all}", title(key, inGroup.sumOf { it.qty }), lineTiles(inGroup))
+                        }, cols, width)
+                    } else {
+                        // Grouped: one stack per group; None: stacks of ten.
+                        val stacks = if (g != CardGrouping.None) sections.map { (key, cards) ->
+                            CardStackSpec("st|$key|${printings.value.all}", title(key, cards.sumOf { it.qty }), groupTiles(cards))
+                        } else runStacks(groupTiles(shownGroups), false, { "" }, "st|${printings.value.all}|").map { (key, t, run) -> CardStackSpec(key, t, run) }
+                        stackRows("cards", stacks, cols, width)
                     }
+                }
+            }
+        } else if (layout.value == CardLayout.Grid) {
+            CardGrid(Modifier.weight(1f)) { tile ->
+                gridHeader("top") { top() }
+                if (kind != null) for (board in boards) {
+                    val inBoard = shownLines.filter { it.board == board }
+                    gridHeader("b-$board") { BoardHeader(boardTitle(board, kind), inBoard.sumOf { it.qty }) }
+                    for (key in groups(inBoard, g)) {
+                        val inGroup = inBoard.filter { it.group == key }
+                        gridHeader("g-$board-$key") { Section(title(key, inGroup.sumOf { it.qty })) }
+                        gridItems(lineTiles(inGroup), key = { "t-$board-${it.key}" }) { t -> CardTile(t.printing, t.qty, tile, onClick = t.onClick, finish = t.finish) }
+                    }
+                } else for ((key, cards) in sections) {
+                    if (g != CardGrouping.None) gridHeader("h-$key") { Section(title(key, cards.sumOf { it.qty })) }
+                    gridItems(groupTiles(cards), key = { "t-${it.key}" }) { t -> CardTile(t.printing, t.qty, tile, onClick = t.onClick, finish = t.finish) }
+                }
+            }
+        } else Hairlines(Modifier.weight(1f)) {
+            item(key = "top") { top() }
+            if (kind != null) for (board in boards) {
+                val inBoard = shownLines.filter { it.board == board }
+                item(key = "b-$board") { BoardHeader(boardTitle(board, kind), inBoard.sumOf { it.qty }) }
+                for (key in groups(inBoard, g)) {
+                    val inGroup = inBoard.filter { it.group == key }
+                    item(key = "g-$board-$key") { Section(title(key, inGroup.sumOf { it.qty })) }
+                    for (cg in LineGroup.of(inGroup)) {
+                        val open = cg.lines.size > 1 && printings.value.open(cg.id)
+                        item(key = "cg-${cg.id}") {
+                            WithChevron(cg.lines.size, open, onToggle = {
+                                printings.value = printings.value.toggle(cg.id)
+                                Telemetry.capture("printings_toggled", mapOf("expanded" to !open, "all" to false, "screen" to "list"))
+                            }) {
+                                CardRow(cg.lead.printing, cg.lead.name, if (cg.lines.size > 1) "${cg.lines.size} printings · ${cg.lead.type}" else cg.lead.type,
+                                    onClick = { openCard(cg.lead.oracleId) }, finish = cg.lead.finish) {
+                                    Text("${cg.qty}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
+                                }
+                            }
+                        }
+                        if (open) items(cg.lines, key = { "l-${it.key}" }) { l ->
+                            CardRow(l.printing, listOfNotNull(l.printing?.setLabel, l.finishLabel).joinToString(" · "), null,
+                                onClick = { openCard(l.oracleId) }, finish = l.finish, indent = true) {
+                                Text("${l.qty}", color = T1.muted, fontFamily = T1.mono, fontSize = 15.sp)
+                            }
+                        }
+                    }
+                }
+            } else for ((key, cards) in sections) {
+                if (g != CardGrouping.None) item(key = "h-$key") { Section(title(key, cards.sumOf { it.qty })) }
+                for (c in cards) {
+                    val open = printings.value.open(c.id)
+                    cardGroupRows(c, c.type, false, open, toggle = {
+                        printings.value = printings.value.toggle(c.id)
+                        Telemetry.capture("printings_toggled", mapOf("expanded" to !open, "all" to false, "screen" to "list"))
+                    }) { if (c.known) onCard(c.id) }
                 }
             }
         }
     }
+    if (viewMenu) CardLayoutMenu(layout, "profile_$section", printings, grouping, list = kind != null) { viewMenu = false }
+    if (exporting && kind != null) ListExportScreen(name, kind, entries, "profile") { exporting = false }
 }
 
 /* ── sharing ── */

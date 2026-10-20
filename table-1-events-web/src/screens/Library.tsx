@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Bar, Field, GhostAction, Menu, Notice, Row, Screen, Section, Segmented, TopNav } from "../components/kit";
 import { capture } from "../lib/telemetry";
 import { LAYOUTS, parseLayout, runStacks, type CardLayout } from "../lib/cardLayout";
+import { GROUPING_KEY, GROUPING_TITLE, groupLabel, groupSections, groupingOptions, keysOf, useStoredGrouping, type Grouping } from "../lib/cardGrouping";
 import { SignInButtons } from "../components/SignInButtons";
 import { errorMessage } from "../lib/api";
 import {
@@ -22,6 +23,7 @@ import { ChangePrintingScreen, type PrintingTarget } from "./ChangePrinting";
 import { printingPlaces } from "../lib/changePrinting";
 import { BOARD_ORDER, boardTitle, entriesOf, finishOf, useLists, type Entry } from "../lib/lists";
 import { TradeMatchesRow } from "./Friends";
+import type { SectionKind } from "../lib/friends";
 import { COLLAPSED, addPart, isOpen, oldestFirst, priceRank, setAll, sortParts, toggleOne, type Disclosure, type Part } from "../lib/printings";
 import { COLLECTION_SCOPE, heroPrintings, heroesOf, isHero, scopeOf, startDemoHeroes, toggleHero, useHeroes, HERO_LIMIT } from "../lib/heroes";
 import { CardSearchBar, CardSearchStatus, useCardSearch } from "./CardSearch";
@@ -103,10 +105,13 @@ export function useStoredLayout(key: string, legacyGridKey: string): [CardLayout
 }
 
 /** The bar's "View" button: a menu of the three layouts, the current one marked, then expanding or collapsing every
- *  card's printings when the screen has them. */
-export function ViewButton({ layout, onChange, screen, printings, onPrintings }: {
-  layout: CardLayout; onChange: (v: CardLayout) => void; screen: "all_cards" | "deck" | "cube" | "binder";
+ *  card's printings when the screen has them, then Group by (contract/shared-lists-grouping-2026-10-20.md §4). */
+export function ViewButton({ layout, onChange, screen, printings, onPrintings, grouping, onGrouping, list = false }: {
+  layout: CardLayout; onChange: (v: CardLayout) => void; screen: "all_cards" | "deck" | "cube" | "binder" | `profile_${SectionKind}`;
   printings?: Disclosure; onPrintings?: (d: Disclosure) => void;
+  grouping?: Grouping; onGrouping?: (g: Grouping) => void;
+  /** A deck or cube: Group by has no None. */
+  list?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const all = !!printings?.all;
@@ -129,7 +134,15 @@ export function ViewButton({ layout, onChange, screen, printings, onPrintings }:
             onPrintings(setAll(!all));
             capture("printings_toggled", { expanded: !all, all: true, screen: screen === "all_cards" || screen === "binder" ? screen : "list" });
           },
-        }] : [])]} />
+        }] : []), ...(grouping && onGrouping ? groupingOptions(list).map((g) => ({
+          title: GROUPING_TITLE[g],
+          checked: g === grouping,
+          onClick: () => {
+            if (g === grouping) return;
+            onGrouping(g);
+            capture("card_grouping_changed", { grouping: g, screen });
+          },
+        })) : [])]} />
       )}
     </>
   );
@@ -277,9 +290,17 @@ export function HeroListRow({ c, heroes, title, detail, value, accentValue, onCl
   );
 }
 
+/** Height of a group's heading in the virtualized list and grid. */
+const HEADING_H = 36;
+
+/** A group's heading inside a virtualized list or grid ("Creatures · 12"). */
+function GroupHeading({ title }: { title: string }) {
+  return <div className="h-full bg-t1-surface px-4 flex items-center t1-label truncate">{title}</div>;
+}
+
 /** A card grid that fills the width (three columns on a phone, more on wide screens) and renders only the
- *  rows in view. */
-function VirtualGrid<T>({ items, cell }: { items: T[]; cell: (item: T, width: number) => ReactNode }) {
+ *  rows in view. With sections (Group by), each starts on a new row under its heading. */
+function VirtualGrid<T>({ sections, cell }: { sections: { key: string; title?: string; items: T[] }[]; cell: (item: T, width: number) => ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState(0);
   const [box, setBox] = useState({ w: 390, h: 800 });
@@ -293,22 +314,34 @@ function VirtualGrid<T>({ items, cell }: { items: T[]; cell: (item: T, width: nu
   const cols = Math.max(3, Math.floor(box.w / 180));
   const tile = Math.floor((box.w - (cols - 1)) / cols);
   const rowH = Math.round(tile / ASPECT) + 1;
-  const rows = Math.ceil(items.length / cols);
-  const first = Math.max(0, Math.floor(top / rowH) - 2);
-  const last = Math.min(rows, Math.ceil((top + box.h) / rowH) + 2);
-  const out: ReactNode[] = [];
-  for (let r = first; r < last; r++) {
-    for (let k = 0; k < cols; k++) {
-      const i = r * cols + k;
-      if (i >= items.length) break;
-      out.push(
-        <div key={i} style={{ position: "absolute", top: r * rowH, left: k * (tile + 1), width: tile }}>{cell(items[i], tile)}</div>,
-      );
+  // Rows top to bottom: a heading, or up to `cols` cards of one section.
+  type GridRow = { key: string; y: number; h: number; title?: string; items?: T[] };
+  const rows: GridRow[] = [];
+  let y = 0;
+  for (const s of sections) {
+    if (s.title) {
+      rows.push({ key: `h|${s.key}`, y, h: HEADING_H + 1, title: s.title });
+      y += HEADING_H + 1;
     }
+    for (let i = 0; i < s.items.length; i += cols) {
+      rows.push({ key: `r|${s.key}|${i}`, y, h: rowH, items: s.items.slice(i, i + cols) });
+      y += rowH;
+    }
+  }
+  const out: ReactNode[] = [];
+  for (const r of rows) {
+    if (r.y + r.h < top - 2 * rowH || r.y > top + box.h + 2 * rowH) continue;
+    if (r.title) {
+      out.push(<div key={r.key} style={{ position: "absolute", top: r.y, left: 0, right: 0, height: HEADING_H }}><GroupHeading title={r.title} /></div>);
+      continue;
+    }
+    r.items!.forEach((it, k) => out.push(
+      <div key={`${r.key}|${k}`} style={{ position: "absolute", top: r.y, left: k * (tile + 1), width: tile }}>{cell(it, tile)}</div>,
+    ));
   }
   return (
     <div ref={ref} className="flex-1 min-h-0 overflow-y-auto" onScroll={(e) => setTop(e.currentTarget.scrollTop)}>
-      <div style={{ height: rows * rowH, position: "relative" }}>{out}</div>
+      <div style={{ height: y, position: "relative" }}>{out}</div>
     </div>
   );
 }
@@ -554,8 +587,9 @@ function groupItems(items: Map<string, Item>, c: Catalog): Group[] {
 
 const ROW_H = 60;
 
-/** Renders only the rows in view; the list scrolls inside its own box. */
-function VirtualList<T>({ rows, render }: { rows: T[]; render: (row: T) => ReactNode }) {
+/** Renders only the rows in view; the list scrolls inside its own box. Rows are 60 high unless `heightOf` says
+ *  otherwise (group headings). */
+function VirtualList<T>({ rows, render, heightOf }: { rows: T[]; render: (row: T) => ReactNode; heightOf?: (row: T) => number }) {
   const ref = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState(0);
   const [height, setHeight] = useState(800);
@@ -566,13 +600,29 @@ function VirtualList<T>({ rows, render }: { rows: T[]; render: (row: T) => React
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const first = Math.max(0, Math.floor(top / ROW_H) - 8);
-  const last = Math.min(rows.length, Math.ceil((top + height) / ROW_H) + 8);
+  const ys = useMemo(() => {
+    const out = new Array<number>(rows.length + 1);
+    out[0] = 0;
+    for (let i = 0; i < rows.length; i++) out[i + 1] = out[i] + (heightOf ? heightOf(rows[i]) : ROW_H) + 1;
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows]);
+  // First row ending below the top (binary search), then on until past the bottom.
+  let lo = 0, hi = rows.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (ys[mid + 1] <= top) lo = mid + 1;
+    else hi = mid;
+  }
+  const first = Math.max(0, lo - 8);
+  let last = lo;
+  while (last < rows.length && ys[last] < top + height) last++;
+  last = Math.min(rows.length, last + 8);
   return (
     <div ref={ref} className="flex-1 min-h-0 overflow-y-auto" onScroll={(e) => setTop(e.currentTarget.scrollTop)}>
-      <div style={{ height: rows.length * (ROW_H + 1), position: "relative" }}>
+      <div style={{ height: ys[rows.length], position: "relative" }}>
         {rows.slice(first, last).map((r, i) => (
-          <div key={first + i} style={{ position: "absolute", top: (first + i) * (ROW_H + 1), left: 0, right: 0, height: ROW_H }}
+          <div key={first + i} style={{ position: "absolute", top: ys[first + i], left: 0, right: 0, height: ys[first + i + 1] - ys[first + i] - 1 }}
                className="overflow-hidden">
             {render(r)}
           </div>
@@ -604,11 +654,14 @@ export function AllCards({ onBack, onOpen, onAdd }: { onBack: () => void; onOpen
     }
   };
   const [layout, setLayout] = useStoredLayout("table1.library.allCards.layout", "table1.library.allCards.grid");
+  const [grouping, setGrouping] = useStoredGrouping(GROUPING_KEY.allCards, "none", false);
   const [stackBox, stackWidth] = useBoxWidth();
   const [printings, setPrintings] = useState<Disclosure>(COLLAPSED);
   const heroes = useLibraryHeroes();
 
   const groups = useMemo(() => (catalog ? groupItems(col.items, catalog) : []), [catalog, col.version]);
+  /** Each card's groups under Group by, worked out once per card. */
+  const keys = useMemo(() => new Map(catalog ? groups.map((g) => [g.key, keysOf(catalog, g.oracle)]) : []), [groups, catalog]);
   const ids = useMemo(() => [...new Set([...col.items.values()].map((it) => it.cardId))], [col.version]);
   const pricesV = usePrices(ids);
   /** The most a single owned copy is worth (market, USD). */
@@ -646,36 +699,73 @@ export function AllCards({ onBack, onOpen, onAdd }: { onBack: () => void; onOpen
     return [price, `${g.printings} printing${g.printings === 1 ? "" : "s"}`, g.type].filter(Boolean).join(" · ");
   };
 
+  /** Group by: the sorted cards in sections, the sort kept inside each. */
+  const sections = useMemo(() => groupSections(shown, grouping, (g) => keys.get(g.key)!), [shown, grouping, keys]);
+  const sectionTitle = (sec: { key: string; items: Group[] }) =>
+    grouping === "none" ? undefined : `${groupLabel(grouping, sec.key)} · ${sec.items.reduce((n, g) => n + g.qty, 0)}`;
+
   /** Grid and stacks: one card per Oracle card, or with every printing expanded, one per printing and finish. */
-  const tiles = useMemo((): StackCardItem[] => shown.flatMap((g) => {
+  const tilesOf = (gs: Group[]): StackCardItem[] => gs.flatMap((g) => {
     const hero = isHero(g.key, COLLECTION_SCOPE, heroes);
     const onClick = () => g.oracle >= 0 && onOpen(g.key);
     if (!printings.all || g.parts.length < 2) return [{ key: g.key, p: g.cover, name: g.name, qty: g.qty, finish: g.coverFinish, hero, onClick }];
     return g.parts.map((pt) => ({ key: `${g.key}|${pt.cardId}|${pt.finish}`, p: pt.p, name: g.name, qty: pt.qty, finish: pt.finish, hero, onClick }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [shown, printings.all, heroes]);
+  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const tileSections = useMemo(() => sections.map((sec) => ({ key: `${sec.key}|${sort}|${printings.all}`, title: sectionTitle(sec), items: tilesOf(sec.items) })),
+                               [sections, printings.all, heroes]);
 
-  /** Stacks follow the sort: one per set when sorted by set, otherwise runs of ten in sort order. */
+  /** Stacks follow Group by (one per group), else the sort: one per set when sorted by set, otherwise runs of ten
+   *  in sort order. */
   const stacks = useMemo(() => {
     if (!catalog || layout !== "stacks") return [];
+    if (grouping !== "none") return tileSections.map((t): StackItem => ({ key: `${grouping}|${t.key}`, title: t.title, cards: t.items }));
     const setOf = (t: StackCardItem) => (t.p == null ? "" : catalog.pSet[t.p]);
-    const out: StackItem[] = runStacks(tiles, sort === "set", setOf, `${sort}|${printings.all}|`).map((r) => ({ key: r.key, title: r.title, cards: r.items }));
+    const out: StackItem[] = runStacks(tileSections[0]?.items ?? [], sort === "set", setOf, `${sort}|${printings.all}|`).map((r) => ({ key: r.key, title: r.title, cards: r.items }));
     return out;
-  }, [tiles, catalog, layout, sort, printings.all]);
+  }, [tileSections, catalog, layout, sort, printings.all, grouping]);
 
-  /** List rows: each card, and under an open card one row per printing and finish. */
-  type ListRowItem = { g: Group; part?: Part };
-  const rows = useMemo((): ListRowItem[] => shown.flatMap((g) => {
-    const head: ListRowItem = { g };
-    return g.parts.length > 1 && isOpen(printings, g.key) ? [head, ...g.parts.map((part) => ({ g, part }))] : [head];
-  }), [shown, printings]);
+  /** List rows: each group's heading, each card, and under an open card one row per printing and finish. */
+  type ListRowItem = { g: Group; part?: Part; heading?: undefined } | { heading: string; g?: undefined; part?: undefined };
+  const rows = useMemo((): ListRowItem[] => sections.flatMap((sec) => {
+    const title = sectionTitle(sec);
+    const cards = sec.items.flatMap((g): ListRowItem[] => {
+      const head: ListRowItem = { g };
+      return g.parts.length > 1 && isOpen(printings, g.key) ? [head, ...g.parts.map((part) => ({ g, part }))] : [head];
+    });
+    return title ? [{ heading: title }, ...cards] : cards;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [sections, printings]);
+
+  /** One list row: a group's heading, a card, or one of an open card's printings. */
+  const listRow = (r: ListRowItem) => {
+    if (r.heading != null) return <GroupHeading title={r.heading} />;
+    const { g, part } = r;
+    if (!catalog) return null;
+    if (part) {
+      return (
+        <CardRow c={catalog} p={part.p} indent finish={part.finish}
+                 title={[part.p == null ? null : `${catalog.pSet[part.p].toUpperCase()} #${catalog.pCn[part.p]}`, part.finish === "nonfoil" ? null : FINISH_LABEL[part.finish]].filter(Boolean).join(" · ")}
+                 detail={usdText(usdPrice(part.cardId, part.finish)) || undefined}
+                 value={part.qty} onClick={() => g.oracle >= 0 && onOpen(g.key)} />
+      );
+    }
+    return (
+      <CardGroupRow open={isOpen(printings, g.key)} parts={g.parts.length} hero={isHero(g.key, COLLECTION_SCOPE, heroes)}
+                    onToggle={() => { setPrintings(toggleOne(printings, g.key)); capture("printings_toggled", { expanded: !isOpen(printings, g.key), all: false, screen: "all_cards" }); }}>
+        <CardRow c={catalog} p={g.cover} title={g.name} detail={detail(g)} finish={g.coverFinish} hero={isHero(g.key, COLLECTION_SCOPE, heroes)}
+                 value={g.qty} onClick={() => g.oracle >= 0 && onOpen(g.key)} />
+      </CardGroupRow>
+    );
+  };
 
   if (!ready) return <Screen><div className="flex-1" /></Screen>;
   if (!session) return <SignedOut title="All cards" />;
   return (
     <LibScreen>
       <Bar title="All cards" subtitle={col.summary ? `${col.summary.total_qty.toLocaleString()} cards` : undefined}
-           onBack={onBack} right={<ViewButton layout={layout} onChange={setLayout} screen="all_cards" printings={printings} onPrintings={setPrintings} />} />
+           onBack={onBack} right={<ViewButton layout={layout} onChange={setLayout} screen="all_cards" printings={printings} onPrintings={setPrintings}
+                                         grouping={grouping} onGrouping={setGrouping} />} />
       {(error || col.error) && <Notice tone="error">{error ?? col.error}</Notice>}
       <Field label="Search your cards" value={q} onChange={setQ} placeholder="Name or type" />
       <Segmented options={[{ value: "recent", label: "Recent" }, { value: "price", label: "Price" }, { value: "set", label: "Set" }]}
@@ -692,22 +782,11 @@ export function AllCards({ onBack, onOpen, onAdd }: { onBack: () => void; onOpen
           <StackRows c={catalog} stacks={stacks} boxWidth={stackWidth} />
         </div>
       ) : layout === "grid" ? (
-        <VirtualGrid items={tiles} cell={(t, w) => (
+        <VirtualGrid sections={tileSections} cell={(t, w) => (
           <CardTile c={catalog} p={t.p} name={t.name} qty={t.qty} width={w} finish={t.finish} hero={t.hero} onClick={t.onClick} />
         )} />
       ) : (
-        <VirtualList rows={rows} render={({ g, part }) => part ? (
-          <CardRow c={catalog} p={part.p} indent finish={part.finish}
-                   title={[part.p == null ? null : `${catalog.pSet[part.p].toUpperCase()} #${catalog.pCn[part.p]}`, part.finish === "nonfoil" ? null : FINISH_LABEL[part.finish]].filter(Boolean).join(" · ")}
-                   detail={usdText(usdPrice(part.cardId, part.finish)) || undefined}
-                   value={part.qty} onClick={() => g.oracle >= 0 && onOpen(g.key)} />
-        ) : (
-          <CardGroupRow open={isOpen(printings, g.key)} parts={g.parts.length} hero={isHero(g.key, COLLECTION_SCOPE, heroes)}
-                        onToggle={() => { setPrintings(toggleOne(printings, g.key)); capture("printings_toggled", { expanded: !isOpen(printings, g.key), all: false, screen: "all_cards" }); }}>
-            <CardRow c={catalog} p={g.cover} title={g.name} detail={detail(g)} finish={g.coverFinish} hero={isHero(g.key, COLLECTION_SCOPE, heroes)}
-                     value={g.qty} onClick={() => g.oracle >= 0 && onOpen(g.key)} />
-          </CardGroupRow>
-        )} />
+        <VirtualList rows={rows} heightOf={(r) => (r.heading ? HEADING_H : ROW_H)} render={listRow} />
       ))}
     </LibScreen>
   );

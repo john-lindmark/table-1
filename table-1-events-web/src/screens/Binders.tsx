@@ -5,6 +5,7 @@ import { RARITY_NAME, coverPrinting, normName, oracleIndexById, type Catalog } f
 import { DEMO_USER, applyOps, undoBatch, useCollection, type Finish, type Item } from "../lib/collection";
 import { cardMatches, moveInSource, printingMatches, repointWant, type Place } from "../lib/librarySearch";
 import { capture } from "../lib/telemetry";
+import { GROUPING_KEY, groupLabel, groupSections, keysOf, useStoredGrouping } from "../lib/cardGrouping";
 import { loadDemoLists } from "../lib/libraryDemo";
 import { useLists } from "../lib/lists";
 import { usdPrice, usdText, usePrices } from "../lib/prices";
@@ -207,6 +208,7 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
   const [adding, setAdding] = useState(false);
   const [printings, setPrintings] = useState<Disclosure>(COLLAPSED);
   const [layout, setLayout] = useStoredLayout("table1.library.binder.layout", "table1.library.binder.grid");
+  const [grouping, setGrouping] = useStoredGrouping(GROUPING_KEY.binder, "none", false);
   const [boxRef, boxWidth] = useBoxWidth();
   const heroes = useLibraryHeroes();
   useSearchUsed(q, "binder");
@@ -217,8 +219,11 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
   const groups = useMemo(() => (catalog ? group(items, catalog) : []), [catalog, items]);
   const shown = normName(q) ? groups.filter((g) => cardMatches(q, g.name, g.type)) : groups;
   const copies = items.reduce((s, it) => s + it.qty, 0);
+  /** Group by: most copies first inside each group. */
+  const sections = catalog ? groupSections(shown, grouping, (g) => keysOf(catalog, g.oracle)) : [];
+  const sectionTitle = (sec: { key: string; items: CardGroup[] }) => `${groupLabel(grouping, sec.key)} · ${sec.items.reduce((n, g) => n + g.qty, 0)}`;
   /** Grid and stacks: one card per Oracle card, or with every printing expanded, one per printing and finish. */
-  const tiles: StackCardItem[] = shown.flatMap((g) => {
+  const tiles = (shown: CardGroup[]): StackCardItem[] => shown.flatMap((g) => {
     const hero = !unsorted && isHero(g.key, { kind: "binder", id }, heroes);
     const onClick = () => g.oracle >= 0 && onCard(g.key);
     if (!printings.all || g.parts.length < 2) return [{ key: g.key, p: g.cover, name: g.name, qty: g.qty, finish: g.coverFinish, hero, onClick }];
@@ -238,7 +243,8 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
       <Bar title={unsorted ? "Unsorted" : binder?.name ?? "Binder"} onBack={onBack}
            subtitle={[`${copies.toLocaleString()} cards`, binder?.for_trade ? "For trade" : null, usdText(value(items))].filter(Boolean).join(" · ")}
            right={<span className="flex gap-4">
-             <ViewButton layout={layout} onChange={setLayout} screen="binder" printings={printings} onPrintings={setPrintings} />
+             <ViewButton layout={layout} onChange={setLayout} screen="binder" printings={printings} onPrintings={setPrintings}
+                         grouping={grouping} onGrouping={setGrouping} />
              {binder && <button type="button" onClick={() => setMenu(true)} className="t1-label hover:text-t1-text px-2 py-1 -my-1">Edit</button>}
            </span>} />
       {!unsorted && !binder && <Notice tone="info">This binder was deleted.</Notice>}
@@ -257,40 +263,53 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
         {catalog && layout === "grid" && (() => {
           const cols = Math.max(3, Math.floor(boxWidth / 180));
           const tile = Math.floor((boxWidth - (cols - 1)) / cols);
-          return (
-            <div className="grid gap-px shrink-0" style={{ gridTemplateColumns: `repeat(${cols}, ${tile}px)` }}>
-              {tiles.map((t) => <CardTile key={t.key} c={catalog} p={t.p} name={t.name} qty={t.qty} width={tile} finish={t.finish} hero={t.hero} onClick={t.onClick} />)}
-            </div>
-          );
-        })()}
-        {catalog && layout === "stacks" && (
-          <StackRows c={catalog} boxWidth={boxWidth} stacks={Array.from({ length: Math.ceil(tiles.length / 10) }, (_, i) => (
-            { key: `st|${printings.all}|${i}`, cards: tiles.slice(i * 10, i * 10 + 10) }))} />
-        )}
-        {catalog && layout === "list" && shown.map((g) => {
-          const hero = !unsorted && isHero(g.key, { kind: "binder", id }, heroes);
-          const open = isOpen(printings, g.key);
-          return (
-            <div key={g.key} className="flex flex-col gap-px">
-              <div className="h-[60px] shrink-0">
-                <CardGroupRow open={open} parts={g.parts.length} hero={hero}
-                              onToggle={() => { setPrintings(toggleOne(printings, g.key)); capture("printings_toggled", { expanded: !open, all: false, screen: "binder" }); }}>
-                  <CardRow c={catalog} p={g.cover} title={g.name} value={g.qty} finish={g.coverFinish} hero={hero}
-                           detail={`${g.printings} printing${g.printings === 1 ? "" : "s"} · ${g.type}`}
-                           onClick={() => g.oracle >= 0 && onCard(g.key)} />
-                </CardGroupRow>
+          return sections.map((sec) => (
+            <div key={sec.key} className="flex flex-col gap-px shrink-0">
+              {grouping !== "none" && <Section title={sectionTitle(sec)} />}
+              <div className="grid gap-px shrink-0" style={{ gridTemplateColumns: `repeat(${cols}, ${tile}px)` }}>
+                {tiles(sec.items).map((t) => <CardTile key={t.key} c={catalog} p={t.p} name={t.name} qty={t.qty} width={tile} finish={t.finish} hero={t.hero} onClick={t.onClick} />)}
               </div>
-              {open && g.parts.length > 1 && g.parts.map((pt) => (
-                <div key={`${pt.cardId}|${pt.finish}`} className="h-[60px] shrink-0">
-                  <CardRow c={catalog} p={pt.p} indent finish={pt.finish} value={pt.qty}
-                           title={[pt.p == null ? null : `${catalog.pSet[pt.p].toUpperCase()} #${catalog.pCn[pt.p]}`, pt.finish === "nonfoil" ? null : FINISH_LABEL[pt.finish]].filter(Boolean).join(" · ")}
-                           detail={usdText(usdPrice(pt.cardId, pt.finish)) || undefined}
-                           onClick={() => g.oracle >= 0 && onCard(g.key)} />
-                </div>
-              ))}
             </div>
-          );
-        })}
+          ));
+        })()}
+        {/* Grouped: one stack per group; None: stacks of ten. */}
+        {catalog && layout === "stacks" && (
+          <StackRows c={catalog} boxWidth={boxWidth} stacks={grouping !== "none"
+            ? sections.map((sec) => ({ key: `st|${sec.key}|${printings.all}`, title: sectionTitle(sec), cards: tiles(sec.items) }))
+            : (() => {
+              const all = tiles(shown);
+              return Array.from({ length: Math.ceil(all.length / 10) }, (_, i) => ({ key: `st|${printings.all}|${i}`, cards: all.slice(i * 10, i * 10 + 10) }));
+            })()} />
+        )}
+        {catalog && layout === "list" && sections.map((sec) => (
+          <div key={sec.key} className="flex flex-col gap-px shrink-0">
+            {grouping !== "none" && <Section title={sectionTitle(sec)} />}
+            {sec.items.map((g) => {
+              const hero = !unsorted && isHero(g.key, { kind: "binder", id }, heroes);
+              const open = isOpen(printings, g.key);
+              return (
+                <div key={g.key} className="flex flex-col gap-px">
+                  <div className="h-[60px] shrink-0">
+                    <CardGroupRow open={open} parts={g.parts.length} hero={hero}
+                                  onToggle={() => { setPrintings(toggleOne(printings, g.key)); capture("printings_toggled", { expanded: !open, all: false, screen: "binder" }); }}>
+                      <CardRow c={catalog} p={g.cover} title={g.name} value={g.qty} finish={g.coverFinish} hero={hero}
+                               detail={`${g.printings} printing${g.printings === 1 ? "" : "s"} · ${g.type}`}
+                               onClick={() => g.oracle >= 0 && onCard(g.key)} />
+                    </CardGroupRow>
+                  </div>
+                  {open && g.parts.length > 1 && g.parts.map((pt) => (
+                    <div key={`${pt.cardId}|${pt.finish}`} className="h-[60px] shrink-0">
+                      <CardRow c={catalog} p={pt.p} indent finish={pt.finish} value={pt.qty}
+                               title={[pt.p == null ? null : `${catalog.pSet[pt.p].toUpperCase()} #${catalog.pCn[pt.p]}`, pt.finish === "nonfoil" ? null : FINISH_LABEL[pt.finish]].filter(Boolean).join(" · ")}
+                               detail={usdText(usdPrice(pt.cardId, pt.finish)) || undefined}
+                               onClick={() => g.oracle >= 0 && onCard(g.key)} />
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
       {menu && binder && <Menu title={binder.name} items={menuItems} onClose={() => setMenu(false)} />}
       {adding && catalog && <BinderAdd catalog={catalog} binderId={unsorted ? null : id} items={col.items} onClose={() => setAdding(false)} />}

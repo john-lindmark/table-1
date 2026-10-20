@@ -191,7 +191,7 @@ function ProfileCardsRoute() {
   const kind = kinds.find((k) => k === section);
   if (!userId || !kind) return <Navigate to="/friends" replace />;
   return <ProfileCardsScreen userId={userId} section={kind} item={itemId ?? null} onBack={back}
-                             onCard={(o) => navigate(`/library/card/${o}`)} />;
+                             onCard={(o) => navigate(`/library/card/${o}`)} onList={(id) => navigate(`/library/list/${id}`)} />;
 }
 function SharingRoute() {
   return <SharingScreen onBack={useBack("/me")} />;

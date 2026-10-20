@@ -147,7 +147,7 @@ fun DeckFinderScreen(onBack: () -> Unit, onCreated: (String) -> Unit) {
         scope.launch {
             runCatching {
                 ListsStore.create(ListKind.Deck, d.name.take(60), FINDER_FORMATS[format], entries.values.toList(),
-                    if (source.isEmpty()) "Found online" else "Found: $source".take(120))
+                    if (source.isEmpty()) "Found online" else "Found: $source".take(120), "finder")
             }.onSuccess(onCreated)
             creating = false
         }
