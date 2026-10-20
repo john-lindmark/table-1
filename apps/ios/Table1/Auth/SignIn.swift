@@ -12,9 +12,10 @@ enum SignIn {
     private(set) static var currentNonce = ""
 
     static func prepare(_ request: ASAuthorizationAppleIDRequest) {
-        currentNonce = randomNonce()
+        let nonce = Nonce()
+        currentNonce = nonce.raw
         request.requestedScopes = [.fullName, .email]
-        request.nonce = sha256(currentNonce)
+        request.nonce = nonce.hashed
     }
 
     static func complete(_ result: Result<ASAuthorization, Error>) async throws {
@@ -52,13 +53,19 @@ enum SignIn {
             .compactMap({ ($0 as? UIWindowScene)?.keyWindow?.rootViewController }).first else {
             throw SignInError.noWindow
         }
-        let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: root)
+        // Google puts a nonce in every ID token; Supabase refuses the token unless it gets the raw
+        // value whose SHA-256 that nonce is. So Google gets the hash and Supabase the raw, as for Apple.
+        let nonce = Nonce()
+        let result = try await GIDSignIn.sharedInstance.signIn(
+            withPresenting: root, hint: nil, additionalScopes: nil, nonce: nonce.hashed
+        )
         guard let idToken = result.user.idToken?.tokenString else { throw SignInError.missingToken }
         try await supabase.auth.signInWithIdToken(
             credentials: OpenIDConnectCredentials(
                 provider: .google,
                 idToken: idToken,
-                accessToken: result.user.accessToken.tokenString
+                accessToken: result.user.accessToken.tokenString,
+                nonce: nonce.raw
             )
         )
         Telemetry.capture("signed_in", ["method": "google"])
@@ -187,15 +194,24 @@ enum SignIn {
         }
     }
 
-    private static func randomNonce(length: Int = 32) -> String {
-        let charset = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
-        var bytes = [UInt8](repeating: 0, count: length)
-        _ = SecRandomCopyBytes(kSecRandomDefault, length, &bytes)
-        return String(bytes.map { charset[Int($0) % charset.count] })
-    }
+    /// A sign-in nonce: the provider (Apple, Google) gets `hashed`, Supabase gets `raw` and checks
+    /// that the token's nonce is its SHA-256 in lowercase hex.
+    struct Nonce {
+        let raw: String
+        var hashed: String { Self.sha256(raw) }
 
-    private static func sha256(_ input: String) -> String {
-        SHA256.hash(data: Data(input.utf8)).map { String(format: "%02x", $0) }.joined()
+        init(raw: String = Self.random()) { self.raw = raw }
+
+        static func random(length: Int = 32) -> String {
+            let charset = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+            var bytes = [UInt8](repeating: 0, count: length)
+            _ = SecRandomCopyBytes(kSecRandomDefault, length, &bytes)
+            return String(bytes.map { charset[Int($0) % charset.count] })
+        }
+
+        static func sha256(_ input: String) -> String {
+            SHA256.hash(data: Data(input.utf8)).map { String(format: "%02x", $0) }.joined()
+        }
     }
 }
 

@@ -17,7 +17,7 @@ packages:
     from: "2.20.0"
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS
-    from: "8.0.0"
+    from: "9.0.0"
   # Scryfall set icons are SVG only; SwiftUI can't draw SVG.
   SVGView:
     url: https://github.com/exyte/SVGView
