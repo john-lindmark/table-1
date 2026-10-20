@@ -187,6 +187,7 @@ struct BinderView: View {
     @State private var query = ""
     @State private var confirmDelete = false
     @State private var printings = PrintingsDisclosure()
+    @AppStorage("library.binder.layout") private var layout = CardLayout.list.rawValue
 
     private var binder: Binder? { store.binder(binderId) }
     private var unsorted: Bool { binderId == BinderRoute.unsorted }
@@ -199,38 +200,54 @@ struct BinderView: View {
                 subtitle: ["\(copies.formatted()) cards", binder?.forTrade == true ? "For trade" : nil, money(value(rows))].compactMap { $0 }.joined(separator: " · "),
                 back: { dismiss() }) {
                 HStack(spacing: 20) {
-                    if groups.contains(where: { $0.parts.count > 1 }) {
-                        BarButton(printings.all ? "Collapse" : "Expand") {
-                            printings.setAll(!printings.all)
-                            Telemetry.capture("printings_toggled", ["expanded": printings.all, "all": true, "screen": "binder"])
-                        }
-                    }
                     if let binder { BarButton("Edit") { menu(binder) } }
+                    BarButton("View") { CardLayout.menu($layout, screen: "binder", printings: $printings) }
                 }
             }
             if !unsorted && binder == nil { Notice("This binder was deleted.") }
             CatalogStatusRow(catalog: catalog)
             T1SearchField(text: $query, prompt: "Name or type")
-            HairlineList {
-                if let binder { WhoSeesRow(kind: "binder", id: binder.id, name: binder.name, forTrade: binder.forTrade) }
-                if unsorted || binder != nil {
-                    Button {
-                        T1Overlays.shared.present(full: true) { BinderAddPanel(binderId: unsorted ? nil : binderId).screen("binder_add") }
-                    } label: {
-                        ListRow(title: "Add cards", detail: unsorted ? "New copies, or copies out of a binder" : "Move in copies you own, or add new ones")
-                    }.buttonStyle(.plain)
-                }
-                let shown = query.isEmpty ? groups : groups.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
-                if shown.isEmpty && !groups.isEmpty { ListRow(title: "No cards match") }
-                if groups.isEmpty && catalog.phase == .ready {
-                    Notice(unsorted ? "Every copy is in a binder." : "No cards here yet. Add cards moves in copies you own or adds new ones; trades and imports can fill it too.")
-                }
-                ForEach(shown) { g in
-                    CardGroupRows(group: g, detail: "\(g.printings) printing\(g.printings == 1 ? "" : "s") · \(g.type)",
-                                  hero: !unsorted && HeroesStore.shared.isHero(g.id, .binder(binderId)), open: printings.open(g.id),
-                                  partDetail: { PriceBook.text(PriceBook.shared.usd($0.cardId, $0.finish)) },
-                                  toggle: { printings.toggle(g.id) },
-                                  tap: { _ in if g.known { path.append(.cardIn(g.id, .binder(binderId))) } })
+            GeometryReader { geo in
+                ScrollView {
+                    LazyVStack(spacing: 1) {
+                        if let binder { WhoSeesRow(kind: "binder", id: binder.id, name: binder.name, forTrade: binder.forTrade) }
+                        if unsorted || binder != nil {
+                            Button {
+                                T1Overlays.shared.present(full: true) { BinderAddPanel(binderId: unsorted ? nil : binderId).screen("binder_add") }
+                            } label: {
+                                ListRow(title: "Add cards", detail: unsorted ? "New copies, or copies out of a binder" : "Move in copies you own, or add new ones")
+                            }.buttonStyle(.plain)
+                        }
+                        let shown = query.isEmpty ? groups : groups.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
+                        if shown.isEmpty && !groups.isEmpty { ListRow(title: "No cards match") }
+                        if groups.isEmpty && catalog.phase == .ready {
+                            Notice(unsorted ? "Every copy is in a binder." : "No cards here yet. Add cards moves in copies you own or adds new ones; trades and imports can fill it too.")
+                        }
+                        if layout == CardLayout.grid.rawValue {
+                            let width = ((geo.size.width - 2) / 3).rounded(.down)
+                            LazyVGrid(columns: Array(repeating: GridItem(.fixed(width), spacing: 1), count: 3), spacing: 1) {
+                                ForEach(tiles(shown)) { c in
+                                    Button(action: c.open) {
+                                        CardTile(printing: c.printing, name: c.name, qty: c.qty, width: width, finish: c.finish, hero: c.hero)
+                                    }.buttonStyle(.plain)
+                                }
+                            }
+                            .id("grid|\(printings.all)")
+                        } else if layout == CardLayout.stacks.rawValue {
+                            let cards = tiles(shown)
+                            StackRows(stacks: stride(from: 0, to: cards.count, by: 10).map { i in
+                                ("st|\(printings.all)|\(i)", nil, Array(cards[i..<min(i + 10, cards.count)]))
+                            }, width: ((geo.size.width - 1) / 2).rounded(.down))
+                        } else {
+                            ForEach(shown) { g in
+                                CardGroupRows(group: g, detail: "\(g.printings) printing\(g.printings == 1 ? "" : "s") · \(g.type)",
+                                              hero: isHero(g), open: printings.open(g.id),
+                                              partDetail: { PriceBook.text(PriceBook.shared.usd($0.cardId, $0.finish)) },
+                                              toggle: { printings.toggle(g.id) },
+                                              tap: { _ in open(g) })
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -252,6 +269,22 @@ struct BinderView: View {
             let items = rows.map { r in CollectionItem(cardId: r.item.cardId, finish: r.item.finish, condition: r.item.condition, lang: r.item.lang, qty: r.qty, seq: r.item.seq) }
             groups = await Task.detached(priority: .userInitiated) { CardGroup.build(items, db).sorted { $0.qty != $1.qty ? $0.qty > $1.qty : $0.norm < $1.norm } }.value
             await PriceBook.shared.load(items.map(\.cardId))
+        }
+    }
+
+    private func isHero(_ g: CardGroup) -> Bool { !unsorted && HeroesStore.shared.isHero(g.id, .binder(binderId)) }
+
+    private func open(_ g: CardGroup) { if g.known { path.append(.cardIn(g.id, .binder(binderId))) } }
+
+    /// Grid and stacks: one card per Oracle card, or with every printing expanded, one per printing and finish.
+    private func tiles(_ shown: [CardGroup]) -> [StackCard] {
+        shown.flatMap { g -> [StackCard] in
+            guard printings.all, g.parts.count > 1 else {
+                return [StackCard(id: g.id, printing: g.cover, name: g.name, qty: g.qty, finish: g.coverFinish, hero: isHero(g)) { open(g) }]
+            }
+            return g.parts.map { p in
+                StackCard(id: "\(g.id)|\(p.id)", printing: p.printing, name: g.name, qty: p.qty, finish: p.finish, hero: isHero(g)) { open(g) }
+            }
         }
     }
 
@@ -288,6 +321,7 @@ struct BinderAddPanel: View {
     @State private var busy = false
     @State private var error: String?
     @AppStorage("library.addCondition") private var addCondition = "NM"
+    @AppStorage("library.addLang") private var addLang = "en"
     @FocusState private var focused: Bool
 
     private var target: String { binderId.flatMap { store.binder($0)?.name } ?? "Unsorted" }
@@ -311,6 +345,9 @@ struct BinderAddPanel: View {
             HairlineList {
                 if query.isEmpty {
                     Notice("Move in takes a copy you own from Unsorted or another binder. + New adds a new copy (\(addCondition), original printing) to your collection, in \(target). Scan adds the cards you scan, new, in \(target).")
+                    LanguageRow(lang: addLang, title: "New copies in") {
+                        LanguagePicker.present(current: addLang, subtitle: "For new copies") { addLang = $0 }
+                    }
                 }
                 ForEach(hits, id: \.idx) { o in row(o) }
             }
@@ -386,7 +423,7 @@ struct BinderAddPanel: View {
                 guard !cards.isEmpty else { return }
                 run("Added \(cards.count) scanned card\(cards.count == 1 ? "" : "s")") {
                     try await col.apply(cards.map { CollectionOp(cardId: $0.printing.cardId, finish: $0.finish, condition: $0.condition,
-                                                                 delta: 1, binderId: target) }, source: "scan").batchId
+                                                                 lang: $0.lang, delta: 1, binderId: target) }, source: "scan").batchId
                 }
             }, onCancel: {
                 Telemetry.capture("scan_session_ended", ["context": "binder", "cards": 0, "exact": 0, "cancelled": true])
@@ -400,8 +437,9 @@ struct BinderAddPanel: View {
         guard let p = covers[o.idx] else { return }
         let finish = p.finishList.first?.rawValue ?? "nonfoil"
         let target = binderId
-        run("Added 1 \(o.name) · \(addCondition)") {
-            try await col.apply([CollectionOp(cardId: p.cardId, finish: finish, condition: addCondition, delta: 1, binderId: target)]).batchId
+        let lang = Languages.forNew(p, picked: addLang)
+        run("Added 1 \(o.name) · \(addCondition)\(lang == "en" ? "" : " · \(lang.uppercased())")") {
+            try await col.apply([CollectionOp(cardId: p.cardId, finish: finish, condition: addCondition, lang: lang, delta: 1, binderId: target)]).batchId
         }
     }
 

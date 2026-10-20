@@ -339,7 +339,7 @@ struct TradeView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(name).font(T1.mono(12)).lineLimit(1)
                     LabelText([p?.setLabel, Finish(rawValue: l.finish)?.label].compactMap { $0 }.joined(separator: " · "))
-                    LabelText([l.condition, price].compactMap { $0 }.joined(separator: " · "))
+                    LabelText([l.condition, l.lang == "en" ? nil : l.lang.uppercased(), price].compactMap { $0 }.joined(separator: " · "))
                     if let note { LabelText(note.text, color: note.over ? T1.error : T1.accent) }
                     if let from { LabelText(from) }
                 }
@@ -381,6 +381,12 @@ struct TradeView: View {
                     T1MenuItem(title: Conditions.name(c), checked: c == l.condition) { line.wrappedValue.condition = c }
                 })
             })
+            items.append(T1MenuItem(title: "Language", detail: Languages.name(l.lang)) {
+                LanguagePicker.present(current: l.lang, subtitle: p.flatMap { names[$0.oracleIdx] }) { lang in
+                    line.wrappedValue.lang = lang
+                    Telemetry.capture("language_changed", ["where": "trade", "copies": l.qty])
+                }
+            })
         }
         items.append(T1MenuItem(title: "Remove", destructive: true) { remove() })
         T1Overlays.shared.showMenu(p.flatMap { names[$0.oracleIdx] }, items)
@@ -406,7 +412,7 @@ struct TradeView: View {
                         add(TradeLine(cardId: copy.item.cardId, finish: copy.item.finish, condition: copy.item.condition, lang: copy.item.lang,
                                       qty: 1, binderId: copy.binderId), give: true)
                     } else {
-                        add(TradeLine(cardId: c.printing.cardId, finish: c.finish, condition: c.condition, lang: "en", qty: 1), give: give)
+                        add(TradeLine(cardId: c.printing.cardId, finish: c.finish, condition: c.condition, lang: c.lang, qty: 1), give: give)
                     }
                 }
                 Telemetry.capture("scan_session_ended", ["context": "trade", "cards": cards.count,
@@ -603,7 +609,8 @@ struct TradePickView: View {
                         ForEach(hits, id: \.idx) { o in
                             Button {
                                 if let p = covers[o.idx] {
-                                    take(TradeLine(cardId: p.cardId, finish: (p.finishList.first ?? .nonfoil).rawValue, condition: "NM", lang: "en", qty: 1), o.name)
+                                    take(TradeLine(cardId: p.cardId, finish: (p.finishList.first ?? .nonfoil).rawValue, condition: "NM",
+                                                  lang: Languages.forNew(p, picked: UserDefaults.standard.string(forKey: "library.addLang") ?? "en"), qty: 1), o.name)
                                 }
                             } label: {
                                 CardRow(printing: covers[o.idx], title: o.name, detail: o.typeLine)
