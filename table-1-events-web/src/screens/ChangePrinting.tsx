@@ -13,6 +13,8 @@ import { capture, screen } from "../lib/telemetry";
 import type { TradeLine } from "../lib/trades";
 import { useSearchUsed } from "./Binders";
 import { CardArt, CardRow, LibScreen, useCatalog, useLibrarySession } from "./Library";
+import { LanguagePicker, LanguageRow } from "./Languages";
+import { languageChangeOps, languageName } from "../lib/languages";
 
 /* Change printing (contract/change-printing-2026-10-18.md): every card line that names a printing can point some or
    all of its copies at another printing or finish, from this one screen: a deck or cube line, owned copies (from the
@@ -49,6 +51,7 @@ export function ChangePrintingScreen({ target, onClose, onChanged, screenName }:
   const { catalog, error: catError } = useCatalog();
   const [count, setCount] = useState(0);
   const [place, setPlace] = useState<string | null>(null);
+  const [pickingLang, setPickingLang] = useState(false);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -126,6 +129,25 @@ export function ChangePrintingScreen({ target, onClose, onChanged, screenName }:
     }
   };
 
+  /** Owned copies: the same printing and finish in another language, `n` of them from the chosen place. */
+  const changeLanguage = async (lang: string) => {
+    if (!live) return;
+    const ops = languageChangeOps(live, printingPlaces(live), lang, n, selected);
+    if (!ops) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await applyOps(ops);
+      capture("language_changed", { where: target.kind === "owned" && target.place != null ? "binder" : "collection", copies: n });
+      onChanged?.(res.batch_id, `Moved ${n} to ${languageName(lang)}`);
+      onClose();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <LibScreen>
       <Bar title="Change printing" subtitle={name} onBack={onClose} />
@@ -153,6 +175,7 @@ export function ChangePrintingScreen({ target, onClose, onChanged, screenName }:
                 <button type="button" aria-label="More" className="w-14 bg-t1-surface-hover text-[20px]" onClick={() => setCount(Math.min(have, n + 1))}>+</button>
               </div>
             )}
+            {live && <LanguageRow lang={live.lang} onClick={() => setPickingLang(true)} />}
             <Section title={q ? `Change to · ${shown.length} of ${printings.length}` : `Change to · ${printings.length}`} />
             {q && !shown.length && <Row title="No printings match" />}
             {shown.map((p) => {
@@ -182,6 +205,9 @@ export function ChangePrintingScreen({ target, onClose, onChanged, screenName }:
             })}
           </div>
         </>
+      )}
+      {pickingLang && live && (
+        <LanguagePicker current={live.lang} subtitle={name ?? undefined} onClose={() => setPickingLang(false)} onPick={(l) => void changeLanguage(l)} />
       )}
     </LibScreen>
   );

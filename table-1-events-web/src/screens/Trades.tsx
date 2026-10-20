@@ -13,6 +13,8 @@ import { binderById, forTrade, liveWants, missingLines, useBinders, wantFor } fr
 import { repointTradeLine } from "../lib/changePrinting";
 import { ChangePrintingScreen } from "./ChangePrinting";
 import { CONDITIONS, CardArt, CardRow, LibScreen, useCatalog, useLibrarySession } from "./Library";
+import { LanguagePicker } from "./Languages";
+import { langForNew, languageName, storedAddLang } from "../lib/languages";
 
 /* Trades (contract/trades-2026-10-16.md): what you give (copies you own) and what you get (any printing). Drafts
    save as you build them; Confirm applies both sides to the collection in one batch. Scanning is on the apps. */
@@ -136,6 +138,8 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
       return lines.map((l, j) => (j === i ? { ...l, qty: side === "give" ? Math.min(l.qty + line.qty, have) : l.qty + line.qty } : l));
     });
   };
+  /** A get line whose language is being picked. */
+  const [pickingLang, setPickingLang] = useState<{ k: string; l: TradeLine } | null>(null);
   const update = (side: "give" | "get", k: string, next: TradeLine | null) => {
     const setter = side === "give" ? setGives : setGets;
     setter((lines) => (next ? lines.map((l) => (lineKey(l) === k ? next : l)) : lines.filter((l) => lineKey(l) !== k)));
@@ -248,7 +252,7 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
     const p = catalog.printingIndex.get(l.card_id) ?? null;
     const name = p == null ? "Card" : catalog.oName[catalog.pOracle[p]];
     const printing = [p == null ? null : `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}`, FINISH_LABEL[l.finish]].filter(Boolean).join(" · ");
-    const state = [l.condition, usdText(usdPrice(l.card_id, l.finish))].filter(Boolean).join(" · ");
+    const state = [l.condition, l.lang === "en" ? null : l.lang.toUpperCase(), usdText(usdPrice(l.card_id, l.finish))].filter(Boolean).join(" · ");
     const k = lineKey(l);
     const open = editing?.side === side && editing.k === k;
     const note = side === "get" ? wantNote(l) : null;
@@ -285,6 +289,7 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
                 )}
                 <Segmented columns={3} options={CONDITIONS.map((c) => ({ value: c, label: c }))} value={l.condition}
                            onChange={(c) => update(side, k, { ...l, condition: c })} />
+                <GhostAction label={`Language · ${languageName(l.lang)}`} onClick={() => setPickingLang({ k, l })} />
               </>
             )}
           </div>
@@ -325,6 +330,12 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
         <Row title="Market value" detail={`Give ${usdText(g) ?? "—"} · get ${usdText(r) ?? "—"} · TCGplayer market`}
              value={g != null && r != null ? `${r - g >= 0 ? "+" : "−"}${usdText(Math.abs(r - g))}` : undefined} />
       </div>
+      {pickingLang && (
+        <LanguagePicker current={pickingLang.l.lang} onClose={() => setPickingLang(null)} onPick={(lang) => {
+          update("get", pickingLang.k, { ...pickingLang.l, lang });
+          capture("language_changed", { where: "trade", copies: pickingLang.l.qty });
+        }} />
+      )}
       {!confirmed && (
         <BigAction label="Confirm trade" tone="accent" busy={busy} disabled={!gives.length && !gets.length} onClick={confirm} />
       )}
@@ -406,7 +417,8 @@ function PickPanel({ catalog, give, items, onPick, onClose }: {
             <div key={o} style={{ height: 60 }}>
               <CardRow c={catalog} p={p} title={catalog.oName[o]} detail={catalog.oType[o]}
                        onClick={() => p != null && take({
-                         card_id: catalog.pId[p], finish: finishesOf(catalog, p)[0] ?? "nonfoil", condition: "NM" as Condition, lang: "en", qty: 1,
+                         card_id: catalog.pId[p], finish: finishesOf(catalog, p)[0] ?? "nonfoil", condition: "NM" as Condition,
+                         lang: langForNew(catalog.pLang[p], storedAddLang()), qty: 1,
                        }, catalog.oName[o])} />
             </div>
           );

@@ -26,6 +26,8 @@ import { COLLAPSED, addPart, isOpen, oldestFirst, priceRank, setAll, sortParts, 
 import { COLLECTION_SCOPE, heroPrintings, heroesOf, isHero, scopeOf, startDemoHeroes, toggleHero, useHeroes, HERO_LIMIT } from "../lib/heroes";
 import { CardSearchBar, CardSearchStatus, useCardSearch } from "./CardSearch";
 import { hasSyntax } from "../lib/cardQuery";
+import { langForNew, storeAddLang, storedAddLang } from "../lib/languages";
+import { NewCopiesLanguageRow, OwnedLanguageRow } from "./Languages";
 
 export const CONDITIONS: Condition[] = ["NM", "LP", "MP", "HP", "DMG"];
 export const CONDITION_NAME: Record<Condition, string> = {
@@ -103,7 +105,7 @@ export function useStoredLayout(key: string, legacyGridKey: string): [CardLayout
 /** The bar's "View" button: a menu of the three layouts, the current one marked, then expanding or collapsing every
  *  card's printings when the screen has them. */
 export function ViewButton({ layout, onChange, screen, printings, onPrintings }: {
-  layout: CardLayout; onChange: (v: CardLayout) => void; screen: "all_cards" | "deck" | "cube";
+  layout: CardLayout; onChange: (v: CardLayout) => void; screen: "all_cards" | "deck" | "cube" | "binder";
   printings?: Disclosure; onPrintings?: (d: Disclosure) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -125,7 +127,7 @@ export function ViewButton({ layout, onChange, screen, printings, onPrintings }:
           detail: all ? "One row per card" : "Every printing and finish on its own row",
           onClick: () => {
             onPrintings(setAll(!all));
-            capture("printings_toggled", { expanded: !all, all: true, screen: screen === "all_cards" ? "all_cards" : "list" });
+            capture("printings_toggled", { expanded: !all, all: true, screen: screen === "all_cards" || screen === "binder" ? screen : "list" });
           },
         }] : [])]} />
       )}
@@ -804,6 +806,9 @@ export function CardDetail({ oracleId, onBack, context }: { oracleId: string; on
       /* storage blocked */
     }
   };
+  /** Language new English-printing copies go in as (shared with binder adds and trades). */
+  const [addLang, setAddLangState] = useState(storedAddLang);
+  const setAddLang = (code: string) => { setAddLangState(code); storeAddLang(code); };
   /** Moving copies of one owned item to another condition, when there's more than one copy. */
   const [moving, setMoving] = useState<{ k: string; to: Condition } | null>(null);
   /** Moving copies of one owned item between binders. */
@@ -1007,6 +1012,8 @@ export function CardDetail({ oracleId, onBack, context }: { oracleId: string; on
                                if (it.qty === 1) moveCondition(it, p, c, 1);
                                else setMoving({ k: it.k, to: c });
                              }} />
+                  <OwnedLanguageRow item={it} label={setLabel(p)} onError={setError}
+                                    onDone={(batch, text) => { setLast({ batch, label: text }); setNote(null); setError(null); }} />
                   <Row title="Change printing" detail="Or finish · keeps condition and binder" value={setLabel(p)} onClick={() => changeOwned(it, null)} />
                   <Row title="Move" detail={placementText(it) ?? `Unsorted ${it.qty}`} onClick={() => setSorting(it)} />
                   {moving?.k === it.k && (
@@ -1037,6 +1044,7 @@ export function CardDetail({ oracleId, onBack, context }: { oracleId: string; on
         <HeroToggleRow oracleId={catalog.oId[oi]} context={context} heroes={heroes} lists={lists.lists} onFull={setError} />
         <Section title="Add a printing" count={count} right={<span title={CONDITION_NAME[addCondition]}>Adds as {addCondition}</span>} />
         <Segmented options={CONDITIONS.map((c) => ({ value: c, label: c }))} value={addCondition} onChange={setAddCondition} />
+        <NewCopiesLanguageRow lang={addLang} onChange={setAddLang} />
         {(showAll ? printings : printings.slice(0, 12)).map((p) => {
           const finishes = (["n", "f", "e"] as const).filter((l) => catalog.pFinishes[p].includes(l)).map((l) => FINISH_LETTER[l]) as Finish[];
           const pr = prices.get(catalog.pId[p]);
@@ -1055,9 +1063,11 @@ export function CardDetail({ oracleId, onBack, context }: { oracleId: string; on
               </button>
               {finishes.map((f) => {
                 const k = `${catalog.pId[p]}|${f}`;
+                const lang = langForNew(catalog.pLang[p], addLang);
                 return (
                   <button key={f} type="button" disabled={busy === k} title={priceFor(pr, f) ?? undefined}
-                          onClick={() => change(k, `Added 1 ${setLabel(p)} ${FINISH_LABEL[f]} · ${addCondition}`, { card_id: catalog.pId[p], finish: f, condition: addCondition, delta: 1 })}
+                          onClick={() => change(k, `Added 1 ${setLabel(p)} ${FINISH_LABEL[f]} · ${addCondition}${lang === "en" ? "" : ` · ${lang.toUpperCase()}`}`,
+                                                { card_id: catalog.pId[p], finish: f, condition: addCondition, lang, delta: 1 })}
                           className="px-3 bg-t1-bg hover:bg-t1-surface-hover text-[11px] uppercase tracking-[1px] disabled:opacity-30">
                     + {f === "nonfoil" ? "Card" : FINISH_LABEL[f]}
                   </button>
