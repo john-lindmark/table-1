@@ -22,6 +22,8 @@ struct ScannedCard: Identifiable, Hashable {
     var matched: Matched? = nil
     /// The user fixed this row: the printing is theirs, not a guess.
     var fixed = false
+    /// The language the copy goes in as: its printing's when that isn't English, else the one picked for adds.
+    var lang = "en"
 
     struct Matched: Hashable { let cardId: String; let exact: Bool }
 }
@@ -43,6 +45,8 @@ struct CardTextScanner: UIViewRepresentable {
 
     func makeUIView(context: Context) -> PreviewView {
         let view = PreviewView()
+        let coordinator = context.coordinator
+        view.onSize = { coordinator.viewSize($0) }
         view.preview.session = context.coordinator.session
         view.preview.videoGravity = .resizeAspectFill
         context.coordinator.start()
@@ -62,6 +66,11 @@ struct CardTextScanner: UIViewRepresentable {
     final class PreviewView: UIView {
         override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
         var preview: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+        var onSize: ((CGSize) -> Void)?
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            onSize?(bounds.size)
+        }
     }
 
     /// Runs the capture session and Vision on its own queue, one frame at a time (late frames are dropped).
@@ -78,8 +87,12 @@ struct CardTextScanner: UIViewRepresentable {
         private let latin = Coordinator.request(detect: false)
         private let anyScript = Coordinator.request(detect: true)
         private let cards = Coordinator.cardRequest()
+        /// The preview's size (main thread writes it through `queue`), to place the guide box in the image.
+        private var view: CGSize = .zero
 
         init(onLines: @escaping ([String], Bool) -> Bool) { self.onLines = onLines }
+
+        func viewSize(_ size: CGSize) { queue.async { [self] in view = size } }
 
         /// Card-shaped rectangles (a card, sleeve or toploader is 0.63–0.75 wide for its height), a fifth of the frame
         /// or more. A few milliseconds, run in the same pass as the text.
@@ -94,14 +107,22 @@ struct CardTextScanner: UIViewRepresentable {
             return r
         }
 
-        /// The largest upright card-shaped rectangle (a landscape one is usually the art box), grown 10% from its
-        /// centre so the title and bottom line are inside even when the frame inside the border is what was found.
-        private static func card(_ found: [VNRectangleObservation]) -> [CGPoint]? {
-            // Normalized to the portrait frame (1080 × 1920): compare the sides in pixels.
-            func len(_ a: CGPoint, _ b: CGPoint) -> CGFloat { hypot((a.x - b.x) * 1080, (a.y - b.y) * 1920) }
-            guard let o = found.filter({ len($0.topLeft, $0.bottomLeft) > len($0.topLeft, $0.topRight) })
-                .max(by: { $0.boundingBox.width * $0.boundingBox.height < $1.boundingBox.width * $1.boundingBox.height })
-            else { return nil }
+        /// The upright card-shaped rectangle (a landscape one is usually the art box) in the guide box, nearest its
+        /// centre (`ScanRegion.pick`), so cards lying around the one being scanned are never read; the largest when
+        /// the guide isn't placed yet. Grown 10% from its centre so the title and bottom line are inside even when
+        /// the frame inside the border is what was found.
+        private static func card(_ found: [VNRectangleObservation], guide: CGRect?, image: CGSize) -> [CGPoint]? {
+            // Normalized to the portrait frame: compare the sides in pixels.
+            func len(_ a: CGPoint, _ b: CGPoint) -> CGFloat { hypot((a.x - b.x) * image.width, (a.y - b.y) * image.height) }
+            let upright = found.filter { len($0.topLeft, $0.bottomLeft) > len($0.topLeft, $0.topRight) }
+            let o: VNRectangleObservation?
+            if let guide {
+                o = ScanRegion.pick(upright.map { [$0.topLeft, $0.topRight, $0.bottomRight, $0.bottomLeft] }, guide: guide, image: image)
+                    .map { upright[$0] }
+            } else {
+                o = upright.max(by: { $0.boundingBox.width * $0.boundingBox.height < $1.boundingBox.width * $1.boundingBox.height })
+            }
+            guard let o else { return nil }
             let q = [o.topLeft, o.topRight, o.bottomRight, o.bottomLeft]
             let c = CGPoint(x: q.map(\.x).reduce(0, +) / 4, y: q.map(\.y).reduce(0, +) / 4)
             return q.map { CGPoint(x: c.x + ($0.x - c.x) * 1.1, y: c.y + ($0.y - c.y) * 1.1) }
@@ -178,11 +199,19 @@ struct CardTextScanner: UIViewRepresentable {
             // The sensor is landscape; the app is portrait only.
             let request = detect ? anyScript : latin
             guard (try? VNImageRequestHandler(cvPixelBuffer: pixels, orientation: .right).perform([cards, request])) != nil else { return }
-            // With a card in view, only the text on it: a keyboard or a screen beside it can't name a card.
-            let card = Self.card(cards.results ?? [])
+            let image = CGSize(width: CVPixelBufferGetHeight(pixels), height: CVPixelBufferGetWidth(pixels))
+            let guide = view.width > 0 ? ScanRegion.normalized(ScanRegion.viewBox(view), view: view, image: image) : nil
+            // With a card in the guide, only the text on it: a keyboard, a screen or another card beside it can't name
+            // a card. Without one, only the text inside the guide.
+            let card = Self.card(cards.results ?? [], guide: guide, image: image)
+            let reading = guide.map { ScanRegion.grown($0, 0.1) }
             // Vision's origin is bottom-left: the top of the frame has the largest maxY.
             let lines = (request.results ?? [])
-                .filter { o in card.map { Self.inside(CGPoint(x: o.boundingBox.midX, y: o.boundingBox.midY), $0) } ?? true }
+                .filter { o in
+                    let c = CGPoint(x: o.boundingBox.midX, y: o.boundingBox.midY)
+                    if let card { return Self.inside(c, card) }
+                    return reading?.contains(c) ?? true
+                }
                 .sorted { $0.boundingBox.maxY > $1.boundingBox.maxY }
                 .compactMap { $0.topCandidates(1).first?.string }
             let onCard = card != nil
@@ -207,7 +236,10 @@ struct CardScanView: View {
     let onCancel: () -> Void
 
     @AppStorage("library.addCondition") private var condition = "NM"
+    @AppStorage("library.addLang") private var addLang = "en"
     @State private var cards: [ScannedCard] = []
+    /// The row whose language is being changed; the camera is off meanwhile, like `fixing`.
+    @State private var languageFor: UUID?
     @State private var matcher: CardMatcher?
     @State private var steady = ScanSteadiness()
     @State private var reading: String?
@@ -226,10 +258,17 @@ struct CardScanView: View {
                 if let i = cards.firstIndex(where: { $0.id == id }) {
                     cards[i].printing = p
                     cards[i].fixed = true
+                    if p.lang != "en" { cards[i].lang = p.lang }
                     if !p.finishList.contains(where: { $0.rawValue == cards[i].finish }) { cards[i].finish = matcher?.defaultFinish(p) ?? cards[i].finish }
                 }
                 closePrinting()
             }, onClose: closePrinting)
+        } else if let id = languageFor, let card = cards.first(where: { $0.id == id }) {
+            LanguagePicker(current: card.lang, subtitle: card.oracle.name, pick: { lang in
+                if let i = cards.firstIndex(where: { $0.id == id }) { cards[i].lang = lang }
+                languageFor = nil
+                closePrinting()
+            }, cancel: { languageFor = nil; closePrinting() })
         } else {
             scanner
         }
@@ -309,6 +348,7 @@ struct CardScanView: View {
         guard let taken = steady.feed(m), let m else { return m != nil }
         var card = ScannedCard(oracle: m.oracle, printing: taken.0, finish: matcher.defaultFinish(taken.0),
                                condition: owned == nil ? condition : "NM", exact: taken.1)
+        card.lang = Languages.forNew(taken.0, picked: addLang)
         card.frames = frames.frames
         card.matched = .init(cardId: taken.0.cardId, exact: taken.1)
         self.taken += 1
@@ -325,11 +365,21 @@ struct CardScanView: View {
             Button { fixing = c.id } label: {
                 CardRow(printing: c.printing, title: c.oracle.name,
                         detail: [c.printing.setLabel, Finish(rawValue: c.finish)?.label, owned == nil ? c.condition : nil,
+                                 owned == nil && c.lang != "en" ? c.lang.uppercased() : nil,
                                  c.exact || c.fixed ? nil : "Check printing"].compactMap { $0 }.joined(separator: " · "),
                         finish: c.finish) {
                     LabelText("Printing", color: c.exact || c.fixed ? T1.muted : T1.text)
                 }
             }.buttonStyle(.plain)
+            if owned == nil {
+                // The language: the card's own when the scanner read a non-English printing, else the add default.
+                Button { languageFor = c.id } label: {
+                    LabelText(c.lang.uppercased(), color: T1.text)
+                        .padding(.horizontal, 12).frame(maxHeight: .infinity).background(T1.surfaceHover)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Language, \(Languages.name(c.lang))")
+            }
             if finishes.count > 1 {
                 // Foil can't be told from the camera: tap to switch.
                 Button {
@@ -352,6 +402,37 @@ struct CardScanView: View {
     }
 }
 
+/// Where the scanner looks: the guide box drawn over the camera, and where it lands in the camera image.
+enum ScanRegion {
+    /// The guide box in the camera view: 72% of the width (or what the height allows), card-shaped, centred.
+    static func viewBox(_ size: CGSize) -> CGRect {
+        let w = max(0, min(size.width * 0.72, (size.height - 96) * CardArt.aspect))
+        let h = w / CardArt.aspect
+        return CGRect(x: (size.width - w) / 2, y: (size.height - h) / 2, width: w, height: h)
+    }
+
+    /// A rect in the preview (which fills the view with the upright image, cropping the overflow) in Vision's
+    /// normalized image coordinates (origin bottom-left).
+    static func normalized(_ r: CGRect, view: CGSize, image: CGSize) -> CGRect {
+        let s = max(view.width / image.width, view.height / image.height)
+        let ox = (view.width - image.width * s) / 2, oy = (view.height - image.height * s) / 2
+        let x = (r.minX - ox) / s / image.width, w = r.width / s / image.width
+        let top = (r.minY - oy) / s / image.height, h = r.height / s / image.height
+        return CGRect(x: x, y: 1 - top - h, width: w, height: h)
+    }
+
+    static func grown(_ r: CGRect, _ f: CGFloat) -> CGRect { r.insetBy(dx: -r.width * f / 2, dy: -r.height * f / 2) }
+
+    /// Of card-shaped quads (normalized corners), the one to read: its centre inside the guide grown by a quarter
+    /// (a card held a little off still counts), nearest the guide's centre in pixels. Nil when none is in the guide.
+    static func pick(_ quads: [[CGPoint]], guide: CGRect, image: CGSize) -> Int? {
+        let zone = grown(guide, 0.25)
+        func centre(_ q: [CGPoint]) -> CGPoint { CGPoint(x: q.map(\.x).reduce(0, +) / CGFloat(q.count), y: q.map(\.y).reduce(0, +) / CGFloat(q.count)) }
+        func dist(_ p: CGPoint) -> CGFloat { hypot((p.x - guide.midX) * image.width, (p.y - guide.midY) * image.height) }
+        return quads.indices.filter { zone.contains(centre(quads[$0])) }.min { dist(centre(quads[$0])) < dist(centre(quads[$1])) }
+    }
+}
+
 /// What to point at: a card-sized outline with where the scanner reads (the name at the top, the set code and
 /// collector number at the bottom left). The outline turns accent while a name is being read.
 private struct ScanGuide: View {
@@ -359,8 +440,9 @@ private struct ScanGuide: View {
 
     var body: some View {
         GeometryReader { geo in
-            let w = min(geo.size.width * 0.72, (geo.size.height - 96) * CardArt.aspect)
-            let h = w / CardArt.aspect
+            // The same box the scanner reads inside (ScanRegion).
+            let box = ScanRegion.viewBox(geo.size)
+            let w = box.width, h = box.height
             let line = reading == nil ? T1.text.opacity(0.7) : T1.accent
             VStack(spacing: 12) {
                 tip(reading == nil ? "One card, upright, filling the outline" : reading!, color: reading == nil ? T1.text : T1.accent)

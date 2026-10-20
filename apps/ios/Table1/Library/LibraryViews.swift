@@ -503,7 +503,7 @@ struct AddCardsView: View {
                 Telemetry.capture("scan_session_ended", ["context": "add", "cards": cards.count,
                                                          "exact": cards.filter(\.exact).count, "cancelled": false])
                 T1Overlays.shared.dismissPanel()
-                let ops = cards.map { CollectionOp(cardId: $0.printing.cardId, finish: $0.finish, condition: $0.condition, delta: 1) }
+                let ops = cards.map { CollectionOp(cardId: $0.printing.cardId, finish: $0.finish, condition: $0.condition, lang: $0.lang, delta: 1) }
                 Task {
                     do {
                         let res = try await CollectionStore.shared.apply(ops, source: "scan")
@@ -584,6 +584,8 @@ struct CardDetailView: View {
     @State private var added: String?
     /// Condition new copies go in as (shared with the scanner).
     @AppStorage("library.addCondition") private var addCondition = "NM"
+    /// Language new English-printing copies go in as (shared with the scanner and binder adds).
+    @AppStorage("library.addLang") private var addLang = "en"
 
     private var owned: [(item: CollectionItem, printing: CatalogPrinting)] {
         let byId = Dictionary(printings.map { ($0.cardId, $0) }, uniquingKeysWith: { a, _ in a })
@@ -639,6 +641,9 @@ struct CardDetailView: View {
                     heroRow(oracle)
                     Section1("Add a printing · \(printings.count)")
                     T1Segmented(options: Conditions.all.map { ($0, $0) }, selection: $addCondition)
+                    LanguageRow(lang: addLang, title: "New copies in") {
+                        LanguagePicker.present(current: addLang, subtitle: "For new copies") { addLang = $0 }
+                    }
                     ForEach(showAll ? printings : Array(printings.prefix(12)), id: \.cardId) { addRow($0) }
                     if !showAll && printings.count > 12 {
                         Button { showAll = true } label: { ListRow(title: "Show all \(printings.count) printings") }.buttonStyle(.plain)
@@ -877,6 +882,14 @@ struct CardDetailView: View {
             .background(T1.surface)
             if open == it.cardId {
                 conditionRow(it, p)
+                LanguageRow(lang: it.lang) {
+                    LanguageChange.start(it, label: p.setLabel) { result in
+                        switch result {
+                        case .success(let r): last = r; added = nil; error = nil
+                        case .failure(let e): error = e.localizedDescription
+                        }
+                    }
+                }
                 Button { changePrinting(it, place: nil) } label: {
                     ListRow(title: "Change printing", detail: "Or finish · keeps condition and binder") {
                         LabelText(p.setLabel, color: T1.text)
@@ -964,8 +977,9 @@ struct CardDetailView: View {
             ForEach(p.finishList, id: \.self) { f in
                 let k = "\(p.cardId)|\(f.rawValue)"
                 Button {
-                    change(k, "Added 1 \(p.setLabel) \(f.label) · \(addCondition)",
-                           CollectionOp(cardId: p.cardId, finish: f.rawValue, condition: addCondition, delta: 1))
+                    let lang = Languages.forNew(p, picked: addLang)
+                    change(k, "Added 1 \(p.setLabel) \(f.label) · \(addCondition)\(lang == "en" ? "" : " · \(lang.uppercased())")",
+                           CollectionOp(cardId: p.cardId, finish: f.rawValue, condition: addCondition, lang: lang, delta: 1))
                 } label: {
                     LabelText("+ \(f == .nonfoil ? "Card" : f.label)", color: busy == k ? T1.disabled : T1.text)
                         .padding(.horizontal, 12).frame(maxHeight: .infinity)

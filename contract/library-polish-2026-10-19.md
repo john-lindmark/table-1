@@ -51,8 +51,24 @@ A batch of Library changes from John's notes. Hero cards have their own contract
   Offline, it says card text needs a connection. A status line shows the count and "from Scryfall".
 - Cases shared by every platform: `testdata/card-query/cases.json` (queries, whether they run locally, matches; the form's output).
 
+## Binder views
+- A binder (and Unsorted) has View like All cards and decks: List, Grid or Stacks (remembered), plus Expand all
+  printings. Who sees this and Add cards stay at the top in every view. Grid and stacks show one card per Oracle card,
+  or one per printing and finish with Expand all; heroes get their outline.
+
+## Scanner reads the guide box
+- The scanner looks only at the card in the guide box drawn over the camera, so cards lying around it are never read:
+  - Of the card-shaped rectangles found, it reads the one whose centre is inside the guide (grown by a quarter, for a
+    card held a little off), nearest the guide's centre. Before, the largest anywhere in the frame won.
+  - With no card found in the guide, only text whose centre is inside the guide (grown 10%) is read. Before, all the
+    text in the frame was.
+- The guide box is the same rect on screen and in the image: 72% of the camera view's width (or what its height
+  allows), card-shaped, centred; mapped into the image the way the preview fills the view (aspect fill, cropped).
+- iOS: `ScanRegion` in `CardScanner.swift`, tests `Table1Tests/ScanRegionTests.swift`. Not yet tried on a real camera.
+  Android to do (same rule over ML Kit's text blocks and its card rectangle).
+
 ## Status
-iOS built, unit-tested (`CardQueryTests`) and checked in the demo.
+iOS built, unit-tested (`CardQueryTests`, `ScanRegionTests`) and checked in the demo.
 Web (2026-10-19): built, unit-tested (`src/lib/cardQuery.test.ts`, same cases) and checked in `/library?demo`. No scanner on the web,
 so no Scan; back is the browser's. Browsers can't set a User-Agent, so Scryfall requests carry the browser's own.
 Android (2026-10-19): built and unit-tested (`CardQueryTest`, same cases); not yet run on a device. Back: system back and

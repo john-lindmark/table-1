@@ -141,6 +141,9 @@ struct ChangePrintingView: View {
                         }
                         .frame(height: 52).background(T1.surface)
                     }
+                    if case .owned(let it, _) = target {
+                        LanguageRow(lang: it.lang) { changeLanguage(n: n) }
+                    }
                     Section1(query.isEmpty ? "Change to · \(printings.count)" : "Change to · \(shown.count) of \(printings.count)")
                     if shown.isEmpty && !query.isEmpty { ListRow(title: "No printings match") }
                     ForEach(shown, id: \.cardId) { row($0, n: n) }
@@ -256,6 +259,28 @@ struct ChangePrintingView: View {
                     Telemetry.capture("printing_changed", props)
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                     changed?(res.batchId, label)
+                    finish()
+                } catch { self.error = error.localizedDescription }
+            }
+        }
+    }
+
+    /// Owned copies: the same printing and finish in another language, `n` of them from the chosen place.
+    private func changeLanguage(n: Int) {
+        guard case .owned(let it, _) = target else { return }
+        let live = CollectionStore.shared.items[it.key] ?? it
+        LanguagePicker.present(current: live.lang, subtitle: name) { lang in
+            let places = PrintingChange.places(live).map { (place: $0.place, qty: $0.qty) }
+            guard let ops = LanguageChange.ops(live, places: places, to: lang, qty: n, from: selectedPlace) else { return }
+            busy = true
+            error = nil
+            Task {
+                defer { busy = false }
+                do {
+                    let res = try await CollectionStore.shared.apply(ops)
+                    Telemetry.capture("language_changed", ["where": target.telemetryWhere, "copies": n])
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    changed?(res.batchId, "Moved \(n) to \(Languages.name(lang))")
                     finish()
                 } catch { self.error = error.localizedDescription }
             }

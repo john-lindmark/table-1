@@ -117,7 +117,7 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `trade_confirmed` | `gives`: int, `gets`: int, `list_conflict`: none / removed / kept, `wants_met`: int (copies), `from_trade_binder`: int (give copies from for-trade binders) |
 | `trade_deleted` | `status`: draft / confirmed |
 | `catalog_pack_installed` | `seconds`: int, `first`: bool |
-| `card_layout_changed` | `layout`: list / grid / stacks, `screen`: all_cards / deck / cube (2026-10-16) |
+| `card_layout_changed` | `layout`: list / grid / stacks, `screen`: all_cards / deck / cube / binder (2026-10-16; binder 2026-10-19) |
 | `collection_import_previewed` | `format`: manabox / moxfield / archidekt / deckbox / dragonshield / tcgplayer / delverlens / other, `lines`: int, `matched`: int, `unmatched`: int (2026-10-17, `collection-import-2026-10-17.md`) |
 | `collection_imported` | `format`, `mode`: add / replace, `cards`: int, `items`: int, `parts`: int (batches), `fixed`: int, `skipped`: int, `binders`: int, `binder_copies`: int, `wants`: int |
 | `collection_exported` | `layout`: moxfield / manabox, `cards`: int |
@@ -139,6 +139,7 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `hero_added` / `hero_removed` | `scope`: collection / list / binder, `count`: heroes now in that scope (2026-10-19) |
 | `printings_toggled` | `expanded`: bool, `all`: bool (Expand all vs one card), `screen`: all_cards / list / binder (2026-10-19) |
 | `advanced_search_used` | `text`, `mv`, `set`: bool, `colors`, `rarity`: counts, `format` (the Advanced form's Search; never the query text) (2026-10-19) |
+| `language_changed` | `where`: owned / collection / binder / trade, `copies`: int (2026-10-19) |
 | `printing_changed` | `where`: list / collection / binder / trade, `copies`, `finish_only`: bool (2026-10-18, `change-printing-2026-10-18.md`) |
 | `friend_request_sent` | `via`: search / played_with / email / profile (2026-10-18, `friends-sharing-2026-10-18.md`) |
 | `friend_request_responded` | `accepted`: bool |
