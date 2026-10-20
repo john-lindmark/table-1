@@ -27,6 +27,8 @@ struct BindersView: View {
     @State private var query = ""
     /// Owned cards matching the search, with where their copies are.
     @State private var found: [(group: CardGroup, place: String)] = []
+    /// Each binder's hero cards, as the printings it holds.
+    @State private var heroArt: [String: [CatalogPrinting]] = [:]
 
     var body: some View {
         let totals = store.totals(col.items)
@@ -56,7 +58,7 @@ struct BindersView: View {
                     ForEach(store.binders) { b in
                         let rows = store.items(in: b.id, col.items)
                         Button { path.append(.binder(b.id)) } label: {
-                            ListRow(title: b.name, detail: [b.forTrade ? "For trade" : nil, money(value(rows))].compactMap { $0 }.joined(separator: " · ")) {
+                            HeroListRow(heroes: heroArt[b.id] ?? [], title: b.name, detail: [b.forTrade ? "For trade" : nil, money(value(rows))].compactMap { $0 }.joined(separator: " · ")) {
                                 Text((totals.byBinder[b.id] ?? 0).formatted()).font(T1.mono(17)).monospacedDigit()
                                     .foregroundStyle(b.forTrade ? T1.accent : T1.text)
                             }
@@ -71,6 +73,16 @@ struct BindersView: View {
         .refreshable { await col.sync() }
         .task(id: col.version) { await PriceBook.shared.load(col.items.values.map(\.cardId)) }
         .task(id: "\(query)-\(col.version)-\(store.version)-\(catalog.generation)") { await search() }
+        .task(id: "\(HeroesStore.shared.heroes)-\(catalog.generation)-\(store.version)") {
+            guard let db = catalog.db else { return }
+            let wanted = store.binders.compactMap { b -> (String, [String], [String])? in
+                let h = HeroesStore.shared.heroes(.binder(b.id))
+                return h.isEmpty ? nil : (b.id, h, store.items(in: b.id, col.items).sorted { $0.qty > $1.qty }.map(\.item.cardId))
+            }
+            heroArt = await Task.detached(priority: .userInitiated) {
+                Dictionary(wanted.map { ($0.0, HeroArt.printings($0.1, held: $0.2, db)) }, uniquingKeysWith: { a, _ in a })
+            }.value
+        }
         .searchUsed(query, screen: "binders")
     }
 
@@ -174,6 +186,7 @@ struct BinderView: View {
     @State private var groups: [CardGroup] = []
     @State private var query = ""
     @State private var confirmDelete = false
+    @State private var printings = PrintingsDisclosure()
 
     private var binder: Binder? { store.binder(binderId) }
     private var unsorted: Bool { binderId == BinderRoute.unsorted }
@@ -185,7 +198,15 @@ struct BinderView: View {
             Bar(title: unsorted ? "Unsorted" : binder?.name ?? "Binder",
                 subtitle: ["\(copies.formatted()) cards", binder?.forTrade == true ? "For trade" : nil, money(value(rows))].compactMap { $0 }.joined(separator: " · "),
                 back: { dismiss() }) {
-                if let binder { BarButton("Edit") { menu(binder) } }
+                HStack(spacing: 20) {
+                    if groups.contains(where: { $0.parts.count > 1 }) {
+                        BarButton(printings.all ? "Collapse" : "Expand") {
+                            printings.setAll(!printings.all)
+                            Telemetry.capture("printings_toggled", ["expanded": printings.all, "all": true, "screen": "binder"])
+                        }
+                    }
+                    if let binder { BarButton("Edit") { menu(binder) } }
+                }
             }
             if !unsorted && binder == nil { Notice("This binder was deleted.") }
             CatalogStatusRow(catalog: catalog)
@@ -205,11 +226,11 @@ struct BinderView: View {
                     Notice(unsorted ? "Every copy is in a binder." : "No cards here yet. Add cards moves in copies you own or adds new ones; trades and imports can fill it too.")
                 }
                 ForEach(shown) { g in
-                    Button { if g.known { path.append(.cardIn(g.id, .binder(binderId))) } } label: {
-                        CardRow(printing: g.cover, title: g.name, detail: "\(g.printings) printing\(g.printings == 1 ? "" : "s") · \(g.type)") {
-                            Text("\(g.qty)").font(T1.mono(17)).monospacedDigit()
-                        }
-                    }.buttonStyle(.plain)
+                    CardGroupRows(group: g, detail: "\(g.printings) printing\(g.printings == 1 ? "" : "s") · \(g.type)",
+                                  hero: !unsorted && HeroesStore.shared.isHero(g.id, .binder(binderId)), open: printings.open(g.id),
+                                  partDetail: { PriceBook.text(PriceBook.shared.usd($0.cardId, $0.finish)) },
+                                  toggle: { printings.toggle(g.id) },
+                                  tap: { _ in if g.known { path.append(.cardIn(g.id, .binder(binderId))) } })
                 }
             }
         }
@@ -260,6 +281,7 @@ struct BinderAddPanel: View {
     @State private var query = ""
     @State private var hits: [CatalogOracle] = []
     @State private var covers: [Int: CatalogPrinting] = [:]
+    @State private var result: CardSearchEngine.Result?
     /// Owned items by card (oracle idx).
     @State private var owned: [Int: [CollectionItem]] = [:]
     @State private var last: (batchId: String, label: String)?
@@ -284,10 +306,11 @@ struct BinderAddPanel: View {
                 }
                 .padding(.horizontal, 16).padding(.vertical, 12).background(T1.surface)
             }
-            T1SearchField(text: $query, prompt: "Card name").focused($focused)
+            CardSearchBar(query: $query, prompt: "Card name, or Scryfall syntax", scan: { scan() }, focused: $focused)
+            CardSearchStatus(query: query, result: result)
             HairlineList {
                 if query.isEmpty {
-                    Notice("Move in takes a copy you own from Unsorted or another binder. + New adds a new copy (\(addCondition), original printing) to your collection, in \(target).")
+                    Notice("Move in takes a copy you own from Unsorted or another binder. + New adds a new copy (\(addCondition), original printing) to your collection, in \(target). Scan adds the cards you scan, new, in \(target).")
                 }
                 ForEach(hits, id: \.idx) { o in row(o) }
             }
@@ -298,13 +321,10 @@ struct BinderAddPanel: View {
             catalog.load(userInitiated: true)
             guard let db = catalog.db else { return }
             let q = query
-            try? await Task.sleep(for: .milliseconds(120))
+            try? await Task.sleep(for: CardSearchEngine.debounce(q))
             if Task.isCancelled { return }
-            let found = await Task.detached(priority: .userInitiated) { () -> ([CatalogOracle], [Int: CatalogPrinting]) in
-                let h = db.search(q)
-                return (h, db.covers(oracleIdxs: h.map(\.idx)))
-            }.value
-            if !Task.isCancelled { hits = found.0; covers = found.1 }
+            let found = await Task.detached(priority: .userInitiated) { await CardSearchEngine.run(q, db) }.value
+            if !Task.isCancelled { hits = found.hits; covers = found.covers; result = found }
         }
         .task(id: "\(col.version)-\(catalog.generation)") {
             guard let db = catalog.db else { return }
@@ -351,6 +371,28 @@ struct BinderAddPanel: View {
         let fromName = s.from.flatMap { store.binder($0)?.name } ?? "Unsorted"
         run("Moved 1 \(o.name) from \(fromName)") {
             try await store.move([BinderMove(item: s.item, from: s.from, to: binderId, qty: 1)])
+        }
+    }
+
+    /// Scanned cards go in new, straight into this binder, as one batch (source "scan") that one Undo takes back.
+    private func scan() {
+        focused = false
+        let target = binderId
+        T1Overlays.shared.present(full: true, swipeBack: false) {
+            CardScanView(title: "Scan into \(self.target)", doneLabel: "Add", onDone: { cards in
+                Telemetry.capture("scan_session_ended", ["context": "binder", "cards": cards.count,
+                                                         "exact": cards.filter(\.exact).count, "cancelled": false])
+                T1Overlays.shared.dismissPanel()
+                guard !cards.isEmpty else { return }
+                run("Added \(cards.count) scanned card\(cards.count == 1 ? "" : "s")") {
+                    try await col.apply(cards.map { CollectionOp(cardId: $0.printing.cardId, finish: $0.finish, condition: $0.condition,
+                                                                 delta: 1, binderId: target) }, source: "scan").batchId
+                }
+            }, onCancel: {
+                Telemetry.capture("scan_session_ended", ["context": "binder", "cards": 0, "exact": 0, "cancelled": true])
+                T1Overlays.shared.dismissPanel()
+            })
+            .screen("card_scanner")
         }
     }
 
@@ -619,15 +661,17 @@ struct WantPickPanel: View {
     @State private var hits: [CatalogOracle] = []
     @State private var covers: [Int: CatalogPrinting] = [:]
     @State private var added: String?
+    @State private var result: CardSearchEngine.Result?
     @FocusState private var focused: Bool
 
     var body: some View {
         T1Screen {
             Bar(title: "Add a want", subtitle: added, back: { T1Overlays.shared.dismissPanel() })
             CatalogStatusRow(catalog: catalog)
-            T1SearchField(text: $query, prompt: "Lightning Bolt").focused($focused)
+            CardSearchBar(query: $query, prompt: "Lightning Bolt, or Scryfall syntax", scan: { scan() }, focused: $focused)
+            CardSearchStatus(query: query, result: result)
             HairlineList {
-                if query.isEmpty { Notice("Want adds any printing. Tap a card to want one printing or finish.") }
+                if query.isEmpty { Notice("Want adds any printing. Tap a card to want one printing or finish. Scan wants each card you scan, any printing.") }
                 ForEach(hits, id: \.idx) { o in
                     HStack(spacing: 1) {
                         Button { pickPrinting(o) } label: {
@@ -647,13 +691,34 @@ struct WantPickPanel: View {
         .task(id: "\(query)-\(catalog.generation)") {
             guard let db = catalog.db else { return }
             let q = query
-            try? await Task.sleep(for: .milliseconds(120))
+            try? await Task.sleep(for: CardSearchEngine.debounce(q))
             if Task.isCancelled { return }
-            let found = await Task.detached(priority: .userInitiated) { () -> ([CatalogOracle], [Int: CatalogPrinting]) in
-                let h = db.search(q)
-                return (h, db.covers(oracleIdxs: h.map(\.idx)))
-            }.value
-            if !Task.isCancelled { hits = found.0; covers = found.1 }
+            let found = await Task.detached(priority: .userInitiated) { await CardSearchEngine.run(q, db) }.value
+            if !Task.isCancelled { hits = found.hits; covers = found.covers; result = found }
+        }
+    }
+
+    /// Each scanned card becomes a want for one copy, any printing.
+    private func scan() {
+        focused = false
+        T1Overlays.shared.present(full: true, swipeBack: false) {
+            CardScanView(title: "Scan what you want", doneLabel: "Want", onDone: { cards in
+                Telemetry.capture("scan_session_ended", ["context": "wants", "cards": cards.count,
+                                                         "exact": cards.filter(\.exact).count, "cancelled": false])
+                T1Overlays.shared.dismissPanel()
+                guard !cards.isEmpty else { return }
+                Task {
+                    do {
+                        try await BindersStore.shared.applyWants(cards.map { WantOp(oracleId: $0.oracle.oracleId, delta: 1) }, event: "want_added",
+                                                                 props: ["any_printing": true, "finish": false, "has_max": false, "from": "scan"])
+                        added = "Wanted \(cards.count) scanned card\(cards.count == 1 ? "" : "s")"
+                    } catch { BindersStore.shared.error = error.localizedDescription }
+                }
+            }, onCancel: {
+                Telemetry.capture("scan_session_ended", ["context": "wants", "cards": 0, "exact": 0, "cancelled": true])
+                T1Overlays.shared.dismissPanel()
+            })
+            .screen("card_scanner")
         }
     }
 

@@ -335,7 +335,7 @@ struct TradeView: View {
         let from = give ? l.binderId.flatMap { BindersStore.shared.binder($0)?.name } : nil
         return Button { if !confirmed { edit(line, give: give, repoint: repoint, remove: remove) } } label: {
             HStack(spacing: 8) {
-                if let p { p.art(width: 28) } else { Rectangle().fill(T1.bg).frame(width: 28, height: 28 / CardArt.aspect) }
+                if let p { p.art(width: 28, finish: l.finish) } else { Rectangle().fill(T1.bg).frame(width: 28, height: 28 / CardArt.aspect) }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(name).font(T1.mono(12)).lineLimit(1)
                     LabelText([p?.setLabel, Finish(rawValue: l.finish)?.label].compactMap { $0 }.joined(separator: " · "))
@@ -396,7 +396,7 @@ struct TradeView: View {
     }
 
     private func scan(give: Bool) {
-        T1Overlays.shared.present(full: true) {
+        T1Overlays.shared.present(full: true, swipeBack: false) {
             CardScanView(title: give ? "Scan what you give" : "Scan what you get", doneLabel: "Add", owned: give ? ownedFinishes() : nil,
                          preferred: give ? BindersStore.shared.forTradePrintings() : [:],
                          onDone: { cards in

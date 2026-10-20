@@ -210,7 +210,7 @@ struct RedraftView: View {
     private func scan() {
         guard !busy else { return }
         let id = eventId
-        T1Overlays.shared.present(full: true) {
+        T1Overlays.shared.present(full: true, swipeBack: false) {
             CardScanView(title: "Scan the redraft", doneLabel: "Add", onDone: { cards in
                 T1Overlays.shared.dismissPanel()
                 guard !cards.isEmpty else { return }
@@ -333,7 +333,7 @@ struct DeckPhotosView: View {
 
     @MainActor
     private func capture(for player: ParticipantRow, camera: Bool) {
-        T1Overlays.shared.present(full: true) {
+        T1Overlays.shared.present(full: true, swipeBack: false) {
             ImagePicker(camera: camera) { image in
                 T1Overlays.shared.dismissPanel()
                 guard let image else { return }

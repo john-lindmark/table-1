@@ -297,6 +297,7 @@ struct SignedInView: View {
                 await CollectionStore.shared.start(userId: id)
                 await ListsStore.shared.start(userId: id)
                 await BindersStore.shared.start(userId: id)
+                await HeroesStore.shared.start(userId: id)
                 await FriendsStore.shared.load()
             }
             CatalogStore.shared.load(userInitiated: false)
@@ -304,6 +305,7 @@ struct SignedInView: View {
         .onChange(of: session.foregrounds) {
             Task { await CollectionStore.shared.sync() }
             Task { await ListsStore.shared.sync() }
+            Task { await HeroesStore.shared.refresh() }
             CatalogStore.shared.load(userInitiated: tab == .collection)
         }
         .onDisappear {
@@ -311,6 +313,7 @@ struct SignedInView: View {
             ListsStore.shared.stop()
             TradesStore.shared.stop()
             BindersStore.shared.stop()
+            HeroesStore.shared.stop()
             FriendsStore.shared.stop()
             ModerationStore.shared.stop()
         }

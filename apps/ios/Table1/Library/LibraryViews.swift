@@ -125,11 +125,13 @@ private struct CatalogStatus: View {
 struct LibraryHomeView: View {
     @Binding var path: [LibraryRoute]
     private var col: CollectionStore { CollectionStore.shared }
+    /// The collection's hero cards, shown on the All cards row.
+    @State private var heroArt: [CatalogPrinting] = []
 
     var body: some View {
         let s = col.summary
         T1Screen {
-            Bar(title: "Library", subtitle: col.isDemo ? "Demo data" : col.syncing ? "Syncing…" : nil)
+            Bar(title: "Collection", subtitle: col.isDemo ? "Demo data" : col.syncing ? "Syncing…" : nil)
             if let error = col.error { Notice(error, error: true) }
             HairlineList {
                 VStack(spacing: 4) {
@@ -141,11 +143,11 @@ struct LibraryHomeView: View {
                 .frame(maxWidth: .infinity).padding(.vertical, 24).background(T1.surface)
 
                 Button { path.append(.allCards) } label: {
-                    ListRow(title: "All cards", detail: s.map { "\($0.uniquePrintings.formatted()) printings" }) {
+                    HeroListRow(heroes: heroArt, title: "All cards", detail: s.map { "\($0.uniquePrintings.formatted()) printings" }) {
                         if let s { Text(s.uniqueCards.formatted()).font(T1.mono(17)).monospacedDigit() }
                     }
                 }.buttonStyle(.plain)
-                Button { path.append(.add) } label: { ListRow(title: "Add cards", detail: "Search by name") }.buttonStyle(.plain)
+                Button { path.append(.add) } label: { ListRow(title: "Add cards", detail: "Search, Scryfall syntax or scan") }.buttonStyle(.plain)
                 Button { path.append(.collectionImport) } label: {
                     ListRow(title: "Import and export", detail: "CSV from ManaBox, Moxfield and others")
                 }.buttonStyle(.plain)
@@ -164,6 +166,12 @@ struct LibraryHomeView: View {
         }
         .refreshable { await col.sync() }
         .task { await TradesStore.shared.load() }
+        .task(id: "\(HeroesStore.shared.heroes(.collection))-\(CatalogStore.shared.generation)-\(col.version)") {
+            guard let db = CatalogStore.shared.db else { heroArt = []; return }
+            let heroes = HeroesStore.shared.heroes(.collection)
+            let held = col.items.values.sorted { $0.qty > $1.qty }.map(\.cardId)
+            heroArt = await Task.detached(priority: .userInitiated) { HeroArt.printings(heroes, held: held, db) }.value
+        }
     }
 
     private var bindersRow: some View {
@@ -218,6 +226,20 @@ struct CardGroup: Identifiable, Hashable, Sendable {
     var coverQty = 0
     /// Printing id → finishes owned, for prices.
     var owned: [String: Set<String>] = [:]
+    /// The finish of the copies shown as the picture.
+    var coverFinish = "nonfoil"
+    /// Copies per printing and finish (over conditions and languages), oldest printing first: the rows a card
+    /// opens into.
+    var parts: [Part] = []
+
+    struct Part: Hashable, Sendable, Identifiable {
+        let cardId: String
+        let finish: String
+        var qty: Int
+        let printing: CatalogPrinting?
+        var id: String { "\(cardId)|\(finish)" }
+        var finishLabel: String { Finish(rawValue: finish)?.label ?? finish }
+    }
 
     static func build(_ items: [CollectionItem], _ db: CatalogDB) -> [CardGroup] {
         let printings = db.printings(ids: Array(Set(items.map(\.cardId))))
@@ -233,10 +255,58 @@ struct CardGroup: Identifiable, Hashable, Sendable {
             g.lastSeq = max(g.lastSeq, it.seq)
             if seen[key, default: []].insert(it.cardId).inserted { g.printings += 1 }
             g.owned[it.cardId, default: []].insert(it.finish)
-            if let p = printings[it.cardId], it.qty > g.coverQty { g.cover = p; g.coverQty = it.qty }
+            if let p = printings[it.cardId], it.qty > g.coverQty { g.cover = p; g.coverQty = it.qty; g.coverFinish = it.finish }
+            if let i = g.parts.firstIndex(where: { $0.cardId == it.cardId && $0.finish == it.finish }) { g.parts[i].qty += it.qty }
+            else { g.parts.append(Part(cardId: it.cardId, finish: it.finish, qty: it.qty, printing: printings[it.cardId])) }
             by[key] = g
         }
-        return Array(by.values)
+        return by.values.map { g in
+            var g = g
+            g.parts.sort { a, b in
+                guard let pa = a.printing, let pb = b.printing else { return a.printing != nil }
+                if pa.cardId != pb.cardId { return CatalogPrinting.oldestFirst(pa, pb) }
+                return (Finish(rawValue: a.finish).flatMap { Finish.allCases.firstIndex(of: $0) } ?? 9)
+                    < (Finish(rawValue: b.finish).flatMap { Finish.allCases.firstIndex(of: $0) } ?? 9)
+            }
+            return g
+        }
+    }
+}
+
+/// A card's collapsed row (and, open, one row per printing and finish under it) in All cards and binders.
+struct CardGroupRows: View {
+    let group: CardGroup
+    let detail: String
+    var hero = false
+    var open = false
+    var partDetail: (CardGroup.Part) -> String? = { _ in nil }
+    let toggle: () -> Void
+    let tap: (CardGroup.Part?) -> Void
+
+    var body: some View {
+        HStack(spacing: 1) {
+            Button { tap(nil) } label: {
+                CardRow(printing: group.cover, title: group.name, detail: detail, finish: group.coverFinish, hero: hero) {
+                    Text("\(group.qty)").font(T1.mono(17)).monospacedDigit()
+                }
+            }.buttonStyle(.plain)
+            if group.parts.count > 1 { PrintingsChevron(open: open, hero: hero, action: toggle) }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        if open && group.parts.count > 1 {
+            ForEach(group.parts) { part in
+                Button { tap(part) } label: {
+                    CardRow(printing: part.printing, title: [part.printing?.setLabel, part.finish == "nonfoil" ? nil : part.finishLabel]
+                                .compactMap { $0 }.joined(separator: " · "),
+                            detail: partDetail(part), finish: part.finish) {
+                        Text("\(part.qty)").font(T1.mono(15)).monospacedDigit().foregroundStyle(T1.muted)
+                    }
+                    .padding(.leading, 24).background(T1.surface)
+                }
+                .buttonStyle(.plain)
+                .id("\(group.id)|\(part.id)")
+            }
+        }
     }
 }
 
@@ -250,7 +320,9 @@ struct AllCardsView: View {
     @State private var query = ""
     @AppStorage("library.allCards.sort") private var sort = "recent"
     @AppStorage("library.allCards.layout") private var layout = CardLayout.list.rawValue
+    @State private var printings = PrintingsDisclosure()
     private var prices: PriceBook { PriceBook.shared }
+    private var heroes: HeroesStore { HeroesStore.shared }
 
     /// The most a single owned copy is worth (market price, USD).
     private func price(_ g: CardGroup) -> Double? {
@@ -262,7 +334,8 @@ struct AllCardsView: View {
         var list = n.isEmpty ? groups : groups.filter { $0.norm.contains(n) || CardName.norm($0.type).contains(n) }
         switch sort {
         case "price":
-            let p = Dictionary(list.map { ($0.id, price($0) ?? -1) }, uniquingKeysWith: { a, _ in a })
+            // No price yet reads as the most valuable: those are the cards worth checking first.
+            let p = Dictionary(list.map { ($0.id, price($0) ?? .infinity) }, uniquingKeysWith: { a, _ in a })
             list.sort { p[$0.id]! != p[$1.id]! ? p[$0.id]! > p[$1.id]! : $0.norm < $1.norm }
         case "set":
             // Newest set first; within a set, collector number order.
@@ -284,23 +357,32 @@ struct AllCardsView: View {
         return [p, "\(g.printings) printing\(g.printings == 1 ? "" : "s")", g.type].compactMap { $0 }.joined(separator: " · ")
     }
 
+    /// Grid and stacks: one card per Oracle card, or with every printing expanded, one per printing and finish.
+    private func tiles(_ shown: [CardGroup]) -> [StackCard] {
+        shown.flatMap { g -> [StackCard] in
+            let hero = heroes.isHero(g.id, .collection)
+            let open = { if g.known { path.append(.card(g.id)) } }
+            guard printings.all, g.parts.count > 1 else {
+                return [StackCard(id: g.id, printing: g.cover, name: g.name, qty: g.qty, finish: g.coverFinish, hero: hero, open: open)]
+            }
+            return g.parts.map { StackCard(id: "\(g.id)|\($0.id)", printing: $0.printing, name: g.name, qty: $0.qty, finish: $0.finish, hero: hero, open: open) }
+        }
+    }
+
     /// Stacks follow the sort: one per set when sorted by set, otherwise runs of ten in sort order.
     private func stacks(_ shown: [CardGroup]) -> [(id: String, title: String?, cards: [StackCard])] {
-        func card(_ g: CardGroup) -> StackCard {
-            StackCard(id: g.id, printing: g.cover, name: g.name, qty: g.qty) { if g.known { path.append(.card(g.id)) } }
-        }
+        let cards = tiles(shown)
         if sort == "set" {
             var out: [(id: String, title: String?, cards: [StackCard])] = []
-            for g in shown {
-                let key = g.cover?.set ?? ""
-                if out.last?.id == key { out[out.count - 1].cards.append(card(g)) }
-                else { out.append((key, g.cover.map { $0.set.uppercased() } ?? "Unknown set", [card(g)])) }
+            for c in cards {
+                let key = c.printing?.set ?? ""
+                if out.last?.id == key { out[out.count - 1].cards.append(c) }
+                else { out.append((key, c.printing.map { $0.set.uppercased() } ?? "Unknown set", [c])) }
             }
             return out
         }
-        return stride(from: 0, to: shown.count, by: 10).map { i in
-            let run = shown[i..<min(i + 10, shown.count)]
-            return ("\(sort)|\(i)", nil, run.map(card))
+        return stride(from: 0, to: cards.count, by: 10).map { i in
+            ("\(sort)|\(printings.all)|\(i)", nil, Array(cards[i..<min(i + 10, cards.count)]))
         }
     }
 
@@ -308,7 +390,7 @@ struct AllCardsView: View {
         T1Screen {
             Bar(title: "All cards", subtitle: col.summary.map { "\($0.totalQty.formatted()) cards" }, back: { dismiss() }) {
                 HStack(spacing: 20) {
-                    BarButton("View") { CardLayout.menu($layout, screen: "all_cards") }
+                    BarButton("View") { CardLayout.menu($layout, screen: "all_cards", printings: $printings) }
                 }
             }
             if let error = col.error { Notice(error, error: true) }
@@ -326,19 +408,18 @@ struct AllCardsView: View {
                         ScrollView { StackRows(stacks: stacks(shown), width: ((geo.size.width - 1) / 2).rounded(.down)) }
                     }
                 } else if layout == CardLayout.grid.rawValue {
-                    CardGrid(items: shown) { g, width in
-                        Button { if g.known { path.append(.card(g.id)) } } label: {
-                            CardTile(printing: g.cover, name: g.name, qty: g.qty, width: width)
+                    CardGrid(items: tiles(shown)) { c, width in
+                        Button(action: c.open) {
+                            CardTile(printing: c.printing, name: c.name, qty: c.qty, width: width, finish: c.finish, hero: c.hero)
                         }.buttonStyle(.plain)
                     }
                 } else {
                     HairlineList {
                         ForEach(shown) { g in
-                            Button { if g.known { path.append(.card(g.id)) } } label: {
-                                CardRow(printing: g.cover, title: g.name, detail: detail(g)) {
-                                    Text("\(g.qty)").font(T1.mono(17)).monospacedDigit()
-                                }
-                            }.buttonStyle(.plain)
+                            CardGroupRows(group: g, detail: detail(g), hero: heroes.isHero(g.id, .collection), open: printings.open(g.id),
+                                          partDetail: { PriceBook.text(prices.usd($0.cardId, $0.finish)) },
+                                          toggle: { printings.toggle(g.id) },
+                                          tap: { _ in if g.known { path.append(.card(g.id)) } })
                         }
                     }
                 }
@@ -366,6 +447,7 @@ struct AddCardsView: View {
     @State private var query = ""
     @State private var hits: [CatalogOracle] = []
     @State private var covers: [Int: CatalogPrinting] = [:]
+    @State private var result: CardSearchEngine.Result?
     @State private var scanned: (batchId: String, label: String)?
     @State private var error: String?
     @State private var busy = false
@@ -384,15 +466,10 @@ struct AddCardsView: View {
                 }
                 .padding(.horizontal, 16).padding(.vertical, 12).background(T1.surface)
             }
-            HStack(spacing: 1) {
-                T1SearchField(text: $query, prompt: "Lightning Bolt").focused($focused)
-                Button { scan() } label: {
-                    LabelText("Scan", color: T1.text).padding(.horizontal, 16).frame(maxHeight: .infinity).background(T1.surface)
-                }.buttonStyle(.plain)
-            }
-            .fixedSize(horizontal: false, vertical: true)
+            CardSearchBar(query: $query, prompt: "Lightning Bolt, or t:dragon c:r", scan: { scan() }, focused: $focused)
+            CardSearchStatus(query: query, result: result)
             HairlineList {
-                if catalog.phase == .ready && CardName.norm(query).count >= 2 && hits.isEmpty {
+                if catalog.phase == .ready && CardName.norm(query).count >= 2 && hits.isEmpty && !CardQuery.hasSyntax(query) {
                     LoadingRow(text: "No card by that name")
                 }
                 ForEach(hits, id: \.idx) { o in
@@ -411,20 +488,17 @@ struct AddCardsView: View {
         .task(id: "\(query)-\(catalog.generation)") {
             guard let db = catalog.db else { hits = []; return }
             let q = query
-            try? await Task.sleep(for: .milliseconds(120)) // let typing settle
+            try? await Task.sleep(for: CardSearchEngine.debounce(q)) // let typing settle
             if Task.isCancelled { return }
-            let found = await Task.detached(priority: .userInitiated) { () -> ([CatalogOracle], [Int: CatalogPrinting]) in
-                let hits = db.search(q)
-                return (hits, db.covers(oracleIdxs: hits.map(\.idx)))
-            }.value
-            if !Task.isCancelled { hits = found.0; covers = found.1 }
+            let found = await Task.detached(priority: .userInitiated) { await CardSearchEngine.run(q, db) }.value
+            if !Task.isCancelled { hits = found.hits; covers = found.covers; result = found }
         }
     }
 
     /// Scan session: every card goes in as one batch (source "scan") when it's done, so one Undo takes it back.
     private func scan() {
         focused = false
-        T1Overlays.shared.present(full: true) {
+        T1Overlays.shared.present(full: true, swipeBack: false) {
             CardScanView(title: "Scan cards", doneLabel: "Add", onDone: { cards in
                 Telemetry.capture("scan_session_ended", ["context": "add", "cards": cards.count,
                                                          "exact": cards.filter(\.exact).count, "cancelled": false])
@@ -514,7 +588,7 @@ struct CardDetailView: View {
     private var owned: [(item: CollectionItem, printing: CatalogPrinting)] {
         let byId = Dictionary(printings.map { ($0.cardId, $0) }, uniquingKeysWith: { a, _ in a })
         return col.items.values.compactMap { it in byId[it.cardId].map { (it, $0) } }
-            .sorted { $0.printing.ord != $1.printing.ord ? $0.printing.ord < $1.printing.ord : $0.item.key < $1.item.key }
+            .sorted { $0.printing.cardId != $1.printing.cardId ? CatalogPrinting.oldestFirst($0.printing, $1.printing) : $0.item.key < $1.item.key }
     }
 
     var body: some View {
@@ -562,6 +636,7 @@ struct CardDetailView: View {
                         }.buttonStyle(.plain)
                     }
                     wantRow(oracle)
+                    heroRow(oracle)
                     Section1("Add a printing · \(printings.count)")
                     T1Segmented(options: Conditions.all.map { ($0, $0) }, selection: $addCondition)
                     ForEach(showAll ? printings : Array(printings.prefix(12)), id: \.cardId) { addRow($0) }
@@ -582,7 +657,7 @@ struct CardDetailView: View {
                 return (o, db.printings(oracleIdx: o.idx))
             }.value
             oracle = found.0
-            printings = found.1
+            printings = found.1.sorted(by: CatalogPrinting.oldestFirst)
             looked = true
         }
         .task(id: oracleId) {
@@ -639,7 +714,7 @@ struct CardDetailView: View {
                         }
                     } label: {
                         CardRow(printing: l.printing, title: "\(l.printing.setLabel) · \(Finish(rawValue: l.entry.finish)?.label ?? l.entry.finish)",
-                                detail: list.boardTitle(l.entry.board)) {
+                                detail: list.boardTitle(l.entry.board), finish: l.entry.finish) {
                             changeLabel(l.entry.qty)
                         }
                     }.buttonStyle(.plain)
@@ -654,7 +729,8 @@ struct CardDetailView: View {
             ForEach(copies, id: \.item.key.inBinder) { c in
                 Button { changePrinting(c.item, place: id) } label: {
                     CardRow(printing: c.printing, title: "\(c.printing.setLabel) · \(c.item.finishLabel)",
-                            detail: [c.item.condition, c.item.lang == "en" ? nil : c.item.lang.uppercased()].compactMap { $0 }.joined(separator: " · ")) {
+                            detail: [c.item.condition, c.item.lang == "en" ? nil : c.item.lang.uppercased()].compactMap { $0 }.joined(separator: " · "),
+                            finish: c.item.finish) {
                         changeLabel(c.qty)
                     }
                 }.buttonStyle(.plain)
@@ -702,6 +778,28 @@ struct CardDetailView: View {
         } label: {
             ListRow(title: n > 0 ? "Wanted · \(n)" : "Add to wants", detail: n > 0 ? "Want one more, or open your wants" : "Trades marks it when you get one")
         }.buttonStyle(.plain)
+    }
+
+    /// Makes the card a hero of where it was opened from: the deck or cube, the binder, or (from anywhere else)
+    /// the collection.
+    @ViewBuilder private func heroRow(_ o: CatalogOracle) -> some View {
+        if let scope = HeroScope(context) {
+            let store = HeroesStore.shared
+            let on = store.isHero(o.oracleId, scope)
+            let place: String = switch scope {
+            case .collection: "your collection"
+            case .list(let id): ListsStore.shared.list(id: id)?.name ?? "this list"
+            case .binder(let id): BindersStore.shared.binder(id)?.name ?? "this binder"
+            }
+            Button {
+                if !store.toggle(o.oracleId, scope) { error = "\(place.prefix(1).uppercased() + place.dropFirst()) has \(HeroesStore.limit) hero cards already." }
+            } label: {
+                ListRow(title: on ? "Hero of \(place)" : "Make it a hero",
+                        detail: on ? "Tap to stop highlighting it" : "Highlighted in \(place) and where it's listed") {
+                    if on { LabelText("Hero", color: T1.text) }
+                }
+            }.buttonStyle(.plain)
+        }
     }
 
     private func want(_ o: CatalogOracle, _ p: CatalogPrinting?) {
@@ -757,7 +855,7 @@ struct CardDetailView: View {
             HStack(spacing: 1) {
                 Button { open = open == it.cardId ? nil : it.cardId; preview = p } label: {
                     HStack(spacing: 12) {
-                        p.art(width: 36)
+                        p.art(width: 36, finish: it.finish)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(p.setLabel) · \(it.finishLabel)").font(T1.mono(13)).lineLimit(1)
                             LabelText(detail)

@@ -325,7 +325,8 @@ struct CardScanView: View {
             Button { fixing = c.id } label: {
                 CardRow(printing: c.printing, title: c.oracle.name,
                         detail: [c.printing.setLabel, Finish(rawValue: c.finish)?.label, owned == nil ? c.condition : nil,
-                                 c.exact || c.fixed ? nil : "Check printing"].compactMap { $0 }.joined(separator: " · ")) {
+                                 c.exact || c.fixed ? nil : "Check printing"].compactMap { $0 }.joined(separator: " · "),
+                        finish: c.finish) {
                     LabelText("Printing", color: c.exact || c.fixed ? T1.muted : T1.text)
                 }
             }.buttonStyle(.plain)

@@ -6875,6 +6875,116 @@
         }
       }
     },
+    "library_heroes_set": {
+      "note": "Sets the hero cards (Oracle ids, in order, up to 10; duplicates dropped; empty clears) of the collection (p_target_id null), a deck/cube (list id) or a binder. Not yours: 42501; unknown card or bad scope: 22023. contract/library-heroes-2026-10-19.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_scope": {
+            "type": "string",
+            "enum": [
+              "collection",
+              "list",
+              "binder"
+            ]
+          },
+          "p_target_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "p_oracle_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "p_scope",
+          "p_oracle_ids"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "collection",
+              "list",
+              "binder"
+            ]
+          },
+          "target_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "oracle_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 10
+          }
+        },
+        "required": [
+          "scope",
+          "target_id",
+          "oracle_ids"
+        ]
+      }
+    },
+    "library_heroes": {
+      "note": "Every hero row of the caller's collection and live decks, cubes and binders. contract/library-heroes-2026-10-19.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {}
+      },
+      "result": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string",
+              "enum": [
+                "collection",
+                "list",
+                "binder"
+              ]
+            },
+            "target_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            },
+            "oracle_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "maxItems": 10
+            }
+          },
+          "required": [
+            "scope",
+            "target_id",
+            "oracle_ids"
+          ]
+        }
+      }
+    },
     "event_bundle": {
       "description": "Everything a member sees (privacy-lockdown-2026-10-18.md). Organizer, player, or guest with p_token; anon may call. Replaces the reads from events, participants and rounds(matches(match_sides)).",
       "params": {

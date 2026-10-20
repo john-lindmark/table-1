@@ -60,6 +60,11 @@ struct CatalogPrinting: Hashable, Sendable {
         let have = Set(finishes.compactMap { CatalogPack.finishName[$0].flatMap(Finish.init(rawValue:)) })
         return Finish.allCases.filter(have.contains)
     }
+    /// Card detail lists printings by release, earliest first (the pack's order is newest first).
+    static func oldestFirst(_ a: CatalogPrinting, _ b: CatalogPrinting) -> Bool {
+        a.releasedAt != b.releasedAt ? a.releasedAt < b.releasedAt : a.ord > b.ord
+    }
+
     func imageURL(_ size: String = "normal") -> URL? {
         imageFaces == 0 ? nil : CatalogPack.imageURL(cardId: cardId, imageTs: imageTs, size: size)
     }
@@ -76,6 +81,28 @@ final class CatalogDB: @unchecked Sendable {
     }
 
     func close() { db.close() }
+
+    /// Every card and every printing, read once for advanced search (CardQuery) and kept while the pack is open.
+    private let cacheLock = NSLock()
+    private var oracleCache: [CatalogOracle]?
+    private var printingCache: [CatalogPrinting]?
+
+    func allOracles() -> [CatalogOracle] {
+        cacheLock.lock(); defer { cacheLock.unlock() }
+        if let oracleCache { return oracleCache }
+        let rows = (try? db.query("SELECT \(Self.oracleCols) FROM oracles", [], Self.oracle)) ?? []
+        oracleCache = rows
+        return rows
+    }
+
+    /// In pack order (newest first within a card).
+    func allPrintings() -> [CatalogPrinting] {
+        cacheLock.lock(); defer { cacheLock.unlock() }
+        if let printingCache { return printingCache }
+        let rows = (try? db.query("SELECT \(Self.printingCols) FROM printings ORDER BY ord", [], Self.printing)) ?? []
+        printingCache = rows
+        return rows
+    }
 
     private static let oracleCols = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount, legal, points, cmc, colors, produced, tokens"
     private static func oracle(_ r: SQLiteDB.Row) -> CatalogOracle {

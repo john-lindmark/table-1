@@ -142,7 +142,7 @@ struct AccountView: View {
 
     @MainActor
     private func pickAvatar(camera: Bool) {
-        T1Overlays.shared.present(full: true) {
+        T1Overlays.shared.present(full: true, swipeBack: false) {
             ImagePicker(camera: camera) { image in
                 T1Overlays.shared.dismissPanel()
                 guard let image else { return }

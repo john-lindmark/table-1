@@ -330,6 +330,7 @@ enum LibraryDemo {
         CollectionStore.shared.startDemo(backend)
         FriendsDemo.start()
         BindersStore.shared.startDemo(binders: Array(backend.binders.values), allocs: Array(backend.allocs.values), wants: [])
+        HeroesStore.shared.startDemo()
         func entries(_ rows: [[LibraryDemoFixture.Entry]]) -> [CardList.Entry] {
             rows.map { CardList.Entry(cardId: $0[0].text, board: $0[1].text, qty: $0[2].int, finish: $0.count > 3 ? $0[3].text : "nonfoil") }
         }
@@ -356,6 +357,25 @@ enum LibraryDemo {
             ops.append(WantOp(oracleId: oracle, cardId: i == 2 ? id : nil, qty: 2 - i % 2, maxUsd: i == 1 ? .some(5) : nil))
         }
         if let rows = try? demo.applyWants(ops) { BindersStore.shared.reflect(wants: rows) }
+        seedHeroes(db)
+    }
+
+    /// One hero per deck and cube (its first main-deck card by id), and the collection's two most-owned cards.
+    @MainActor
+    private static func seedHeroes(_ db: CatalogDB) {
+        guard HeroesStore.shared.heroes.isEmpty else { return }
+        var seed: [String: [String]] = [:]
+        func oracle(_ cardId: String) -> String? { db.printings(ids: [cardId])[cardId].flatMap { db.oracles(idxs: [$0.oracleIdx])[$0.oracleIdx]?.oracleId } }
+        for l in ListsStore.shared.lists {
+            if let first = l.entries.filter({ $0.board == "main" }).map(\.cardId).sorted().first, let o = oracle(first) {
+                seed[HeroScope.list(l.id).key] = [o]
+            }
+        }
+        let top = CollectionStore.shared.items.values.sorted { $0.qty != $1.qty ? $0.qty > $1.qty : $0.cardId < $1.cardId }
+        var picked: [String] = []
+        for it in top where picked.count < 2 { if let o = oracle(it.cardId), !picked.contains(o) { picked.append(o) } }
+        if !picked.isEmpty { seed[HeroScope.collection.key] = picked }
+        HeroesStore.shared.startDemo(seed)
     }
 }
 

@@ -140,6 +140,8 @@ struct CardArt: View {
     var faces = 1
     var set = ""
     let width: CGFloat
+    /// nonfoil | foil | etched: foil copies get a light sheen, etched a dimmer one.
+    var finish = "nonfoil"
     @Environment(\.displayScale) private var scale
     @State private var image: UIImage?
 
@@ -157,6 +159,7 @@ struct CardArt: View {
             .overlay {
                 if let image { Image(uiImage: image).resizable().interpolation(.medium).scaledToFill() }
             }
+            .overlay { if finish != "nonfoil" { FoilSheen(etched: finish == "etched") } }
             .clipShape(RoundedRectangle(cornerRadius: width * CardCorners.ratio(set: set), style: .circular))
             .task(id: url) {
                 guard let url else { image = nil; return }
@@ -168,7 +171,35 @@ struct CardArt: View {
 }
 
 extension CatalogPrinting {
-    func art(width: CGFloat) -> CardArt { CardArt(cardId: cardId, imageTs: imageTs, faces: imageFaces, set: set, width: width) }
+    func art(width: CGFloat, finish: String = "nonfoil") -> CardArt {
+        CardArt(cardId: cardId, imageTs: imageTs, faces: imageFaces, set: set, width: width, finish: finish)
+    }
+}
+
+/// A foil's rainbow sheen over the card image: a diagonal spectrum blended into the art plus one soft highlight
+/// band. Etched foils are matte, so theirs is dimmer.
+struct FoilSheen: View {
+    var etched = false
+
+    private static let spectrum: [Color] = [
+        Color(red: 1, green: 0.45, blue: 0.75), Color(red: 1, green: 0.85, blue: 0.4), Color(red: 0.45, green: 1, blue: 0.7),
+        Color(red: 0.35, green: 0.75, blue: 1), Color(red: 0.75, green: 0.5, blue: 1), Color(red: 1, green: 0.45, blue: 0.75),
+    ]
+
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: Self.spectrum, startPoint: .topLeading, endPoint: .bottomTrailing)
+                .blendMode(.overlay)
+                .opacity(etched ? 0.3 : 0.55)
+            LinearGradient(stops: [.init(color: .clear, location: 0.3), .init(color: .white.opacity(0.35), location: 0.45),
+                                   .init(color: .clear, location: 0.6)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+                .blendMode(.softLight)
+                .opacity(etched ? 0.5 : 1)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
 }
 
 /// A list row led by a card thumbnail; same layout and type as ListRow.
@@ -176,12 +207,15 @@ struct CardRow<Trailing: View>: View {
     let printing: CatalogPrinting?
     let title: String
     var detail: String?
+    var finish = "nonfoil"
+    /// A hero card of the list, binder or collection on screen: a lighter row with a white edge.
+    var hero = false
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
         HStack(spacing: 12) {
             if let printing {
-                printing.art(width: 36)
+                printing.art(width: 36, finish: finish)
             } else {
                 RoundedRectangle(cornerRadius: 36 * 0.0432).fill(T1.bg).frame(width: 36, height: 36 / CardArt.aspect)
             }
@@ -194,9 +228,15 @@ struct CardRow<Trailing: View>: View {
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
         .frame(maxWidth: .infinity)
-        .background(T1.surface)
+        .background(hero ? T1.surfaceHover : T1.surface)
+        .overlay(alignment: .leading) { if hero { HeroEdge() } }
         .contentShape(Rectangle())
     }
+}
+
+/// The mark a hero card's row carries on its left edge.
+struct HeroEdge: View {
+    var body: some View { Rectangle().fill(T1.text).frame(width: 2).accessibilityLabel("Hero card") }
 }
 
 /// One cell of a card grid: the image with a quantity tag in the corner.
@@ -206,11 +246,13 @@ struct CardTile: View {
     let qty: Int
     var warn = false
     let width: CGFloat
+    var finish = "nonfoil"
+    var hero = false
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             if let printing {
-                printing.art(width: width)
+                printing.art(width: width, finish: finish)
             } else {
                 RoundedRectangle(cornerRadius: width * 0.0432).fill(T1.surface).frame(width: width, height: width / CardArt.aspect)
                     .overlay { LabelText(name).padding(6) }
@@ -222,16 +264,19 @@ struct CardTile: View {
                 .background(warn ? T1.error : T1.bg)
                 .padding(width * 0.05) // inset past the rounded corner so the tag never gets clipped
         }
+        .overlay { if hero { HeroFrame(width: width) } }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(name), \(qty)")
+        .accessibilityLabel("\(name), \(qty)\(hero ? ", hero card" : "")")
     }
 }
 
 extension CardRow where Trailing == EmptyView {
-    init(printing: CatalogPrinting?, title: String, detail: String? = nil) {
+    init(printing: CatalogPrinting?, title: String, detail: String? = nil, finish: String = "nonfoil", hero: Bool = false) {
         self.printing = printing
         self.title = title
         self.detail = detail
+        self.finish = finish
+        self.hero = hero
         self.trailing = EmptyView()
     }
 }
@@ -242,15 +287,54 @@ enum CardLayout: String, CaseIterable {
     case list, grid, stacks
     var title: String { rawValue.capitalized }
 
-    /// The bar's "View" menu: the three layouts, the current one checked.
-    @MainActor static func menu(_ current: Binding<String>, screen: String) {
-        T1Overlays.shared.showMenu("View", allCases.map { l in
+    /// The bar's "View" menu: the three layouts, the current one checked, then expanding or collapsing every card's
+    /// printings when the screen has them.
+    @MainActor static func menu(_ current: Binding<String>, screen: String, printings: Binding<PrintingsDisclosure>? = nil) {
+        var items = allCases.map { l in
             T1MenuItem(title: l.title, checked: current.wrappedValue == l.rawValue) {
                 guard current.wrappedValue != l.rawValue else { return }
                 current.wrappedValue = l.rawValue
                 Telemetry.capture("card_layout_changed", ["layout": l.rawValue, "screen": screen])
             }
-        })
+        }
+        if let printings {
+            let all = printings.wrappedValue.all
+            items.append(T1MenuItem(title: all ? "Collapse all printings" : "Expand all printings",
+                                    detail: all ? "One row per card" : "Every printing and finish on its own row") {
+                printings.wrappedValue.setAll(!all)
+                Telemetry.capture("printings_toggled", ["expanded": !all, "all": true, "screen": screen])
+            })
+        }
+        T1Overlays.shared.showMenu("View", items)
+    }
+}
+
+/// Which cards show each printing on its own row. Collapsed by default; Expand all opens every card, and a card's
+/// own chevron flips just that card.
+struct PrintingsDisclosure: Equatable {
+    var all = false
+    var flipped: Set<String> = []
+
+    func open(_ id: String) -> Bool { all != flipped.contains(id) }
+    mutating func toggle(_ id: String) { if !flipped.insert(id).inserted { flipped.remove(id) } }
+    mutating func setAll(_ on: Bool) { all = on; flipped = [] }
+}
+
+/// The chevron column at the right of a card with several printings: opens or closes its printings.
+struct PrintingsChevron: View {
+    let open: Bool
+    var hero = false
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: open ? "chevron.up" : "chevron.down").font(.system(size: 13, weight: .regular))
+                .foregroundStyle(T1.muted)
+                .frame(width: 44).frame(maxHeight: .infinity)
+                .background(hero ? T1.surfaceHover : T1.surface)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(open ? "Hide printings" : "Show printings")
     }
 }
 
@@ -261,7 +345,17 @@ struct StackCard: Identifiable {
     let name: String
     let qty: Int
     var warn = false
+    var finish = "nonfoil"
+    var hero = false
     let open: () -> Void
+}
+
+/// A hero card's outline in the grid and in stacks.
+struct HeroFrame: View {
+    let width: CGFloat
+    var body: some View {
+        RoundedRectangle(cornerRadius: width * 0.0432).strokeBorder(T1.text, lineWidth: 2).allowsHitTesting(false)
+    }
 }
 
 /// Cards laid over each other, each showing just its title bar (name and mana cost); the last shows in full.
@@ -290,7 +384,7 @@ struct CardStack: View {
     private func face(_ c: StackCard, height: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
             if let p = c.printing {
-                p.art(width: width)
+                p.art(width: width, finish: c.finish)
             } else {
                 RoundedRectangle(cornerRadius: width * 0.0432).fill(T1.surface).frame(width: width, height: height)
                     .overlay(alignment: .topLeading) {
@@ -308,8 +402,9 @@ struct CardStack: View {
                     .frame(height: height * Self.peek)
             }
         }
+        .overlay { if c.hero { HeroFrame(width: width) } }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(c.name), \(c.qty)")
+        .accessibilityLabel("\(c.name), \(c.qty)\(c.hero ? ", hero card" : "")")
         .accessibilityAddTraits(.isButton)
     }
 }

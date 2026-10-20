@@ -113,7 +113,7 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `list_version_restored` | `kind` |
 | `deck_finder_used` | `found`: bool |
 | `list_imported` | `kind`, `from`: link / paste, `cards`: int |
-| `scan_session_ended` | `context`: add / trade, `cards`: int, `exact`: int (read from set + collector number), `cancelled`: bool |
+| `scan_session_ended` | `context`: add / trade / deck / cube / binder / wants (2026-10-19), `cards`: int, `exact`: int (read from set + collector number), `cancelled`: bool |
 | `trade_confirmed` | `gives`: int, `gets`: int, `list_conflict`: none / removed / kept, `wants_met`: int (copies), `from_trade_binder`: int (give copies from for-trade binders) |
 | `trade_deleted` | `status`: draft / confirmed |
 | `catalog_pack_installed` | `seconds`: int, `first`: bool |
@@ -135,6 +135,10 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `library_searched` | `screen`: cube / deck / wants / binder / binders. Once per visit, when that screen's search is first used; never the text (2026-10-18, `library-search-2026-10-18.md`) |
 | `list_card_removed` | `kind`: deck / cube. Remove in Add, remove or replace |
 | `list_card_replaced` | `kind`. Replace swaps one copy for another card in one edit |
+| `list_card_added` | `kind`, `from`: edit (picked, then Add) / quick (the + on a hit) (2026-10-19) |
+| `hero_added` / `hero_removed` | `scope`: collection / list / binder, `count`: heroes now in that scope (2026-10-19) |
+| `printings_toggled` | `expanded`: bool, `all`: bool (Expand all vs one card), `screen`: all_cards / list / binder (2026-10-19) |
+| `advanced_search_used` | `text`, `mv`, `set`: bool, `colors`, `rarity`: counts, `format` (the Advanced form's Search; never the query text) (2026-10-19) |
 | `printing_changed` | `where`: list / collection / binder / trade, `copies`, `finish_only`: bool (2026-10-18, `change-printing-2026-10-18.md`) |
 | `friend_request_sent` | `via`: search / played_with / email / profile (2026-10-18, `friends-sharing-2026-10-18.md`) |
 | `friend_request_responded` | `accepted`: bool |

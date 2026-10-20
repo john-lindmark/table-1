@@ -18,6 +18,7 @@
 		1CF6D35721DE9D5E8CDE8B55 /* Table1Widgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 8FE76B9CA0F768B9F8954BD9 /* Table1Widgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1DB29EDAD128740207CF2B4C /* ChangePrinting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BAA27E3D98FA9DA777E5BE6 /* ChangePrinting.swift */; };
 		1F66EB68FE24E7ACF235E4AB /* SVGView in Frameworks */ = {isa = PBXBuildFile; productRef = B29FE675356369E91F94A200 /* SVGView */; };
+		21A24A59133F57CD0FF6B17D /* CardQuery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7458D31D7677A2D5A263837C /* CardQuery.swift */; };
 		2215C27DC9BA34BF267424EF /* OrganizerPhases.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AEABE616F8D0C366BBECFF0 /* OrganizerPhases.swift */; };
 		228CD8FF50CB5C88106AFF80 /* Collection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4EBF4DF80B3E058AB0E4A51 /* Collection.swift */; };
 		230D198D165140462945A16A /* RotoModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91F111256FB3908BC5FBA4FE /* RotoModel.swift */; };
@@ -28,9 +29,11 @@
 		2F36C38D763F28B48271612F /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = ADA225913FAE2D658150CD96 /* PostHog */; };
 		31399EE11B591B082148C757 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B05DB41AB23ECB8FD1E9482 /* ProfileView.swift */; };
 		3154609B2E9CCDB92CA6F94F /* ListExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4FD05A2370970B0956A621 /* ListExport.swift */; };
+		31DA78E34F82EEE3583A63DA /* CardQueryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAC6D1FF89F34055819401D7 /* CardQueryTests.swift */; };
 		38AC1D672F2DC442D679BF2C /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A08A26022063DCF85E09E341 /* SignInView.swift */; };
 		3E9B2DDEB790DC45ADEF974C /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 161422FB3409119247EDADF8 /* Supabase */; };
 		41BE4E1D043A7DB82D3CCE45 /* CollectionCSVTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3013FC3AC8C4757DF4B44684 /* CollectionCSVTests.swift */; };
+		41E5C634E0E2F9D3AAB0DC2D /* CardSearchViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFB41212CC7781116C821C1A /* CardSearchViews.swift */; };
 		4277984630E3FD92D99A840D /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC11D94B446E9B472EBB60DB /* HomeView.swift */; };
 		42804C31512F004C9F111E00 /* NearbyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C6C10E91EC9AF7F6D714335 /* NearbyView.swift */; };
 		4303E1375FC42EE4288E5DAB /* ListExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C461CEB0826AC133A60E7A86 /* ListExportTests.swift */; };
@@ -92,6 +95,7 @@
 		CD75E6012B375BE40A5B50DB /* FriendsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC9DAD9D64E358A76554E1AB /* FriendsTests.swift */; };
 		D03DE7B217F898EACD3F425E /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF3BBF32A0E4379EB892A339 /* Config.swift */; };
 		D172AACC964D36009F24DF10 /* RotoDraftView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D37DEAB0271A674B48F9D14 /* RotoDraftView.swift */; };
+		D2B75A5E0490A08016A2DAC3 /* Heroes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2ADDE7A837AA5B71EAC4F54 /* Heroes.swift */; };
 		D3F6205096B6E98B6F7E6869 /* ScanReports.swift in Sources */ = {isa = PBXBuildFile; fileRef = 239D07747A4039EE164CFB4B /* ScanReports.swift */; };
 		D4915A4044585E2089916731 /* SQLite.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8D5D41DD05383A49BC215B5 /* SQLite.swift */; };
 		DB1EAC45753FE9C33065079C /* T1Shared.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00C95CF97E3DDF3302A0F73 /* T1Shared.swift */; };
@@ -190,6 +194,7 @@
 		72DEBB4B6FB502FD419464DB /* Prices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prices.swift; sourceTree = "<group>"; };
 		73A2A1FF06A5359F6C3CC271 /* RotoDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RotoDemo.swift; sourceTree = "<group>"; };
 		73C481FEC74206632E64BFC0 /* RotoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RotoTests.swift; sourceTree = "<group>"; };
+		7458D31D7677A2D5A263837C /* CardQuery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardQuery.swift; sourceTree = "<group>"; };
 		746C5DE24C7558EEC963AEB0 /* Palette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Palette.swift; sourceTree = "<group>"; };
 		765B605747718678A86DE601 /* Table1Tests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = Table1Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7A0116C775E63477E5DF1B3E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -224,8 +229,11 @@
 		C23AB8F5588863F9D0B84282 /* DeckStatsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckStatsTests.swift; sourceTree = "<group>"; };
 		C43C53CE7466CCA393B65C8C /* TradesStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TradesStoreTests.swift; sourceTree = "<group>"; };
 		C461CEB0826AC133A60E7A86 /* ListExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListExportTests.swift; sourceTree = "<group>"; };
+		CAC6D1FF89F34055819401D7 /* CardQueryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardQueryTests.swift; sourceTree = "<group>"; };
 		CC94CC26F2066C36E4DE2192 /* QR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QR.swift; sourceTree = "<group>"; };
+		CFB41212CC7781116C821C1A /* CardSearchViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardSearchViews.swift; sourceTree = "<group>"; };
 		D14AB06BD876B8A78DC502CD /* FriendsDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsDemo.swift; sourceTree = "<group>"; };
+		D2ADDE7A837AA5B71EAC4F54 /* Heroes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Heroes.swift; sourceTree = "<group>"; };
 		D2BD7D181061AD027D497369 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		D32E44C4EB38C9E8A620A495 /* ListStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListStats.swift; sourceTree = "<group>"; };
 		D6B8EFE76370BBE1C6831870 /* RotoStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RotoStoreTests.swift; sourceTree = "<group>"; };
@@ -299,6 +307,7 @@
 			children = (
 				196E92FD5C2527C32FD93DEE /* BindersTests.swift */,
 				1438B6E1895ED25046190659 /* CardMatcherTests.swift */,
+				CAC6D1FF89F34055819401D7 /* CardQueryTests.swift */,
 				52CEDCCE665492AD0AB4B0FF /* CatalogPackTests.swift */,
 				BE2E6A0A7DB915829889FB54 /* ChangePrintingTests.swift */,
 				3013FC3AC8C4757DF4B44684 /* CollectionCSVTests.swift */,
@@ -447,7 +456,9 @@
 				270F4E7C8101647462A59635 /* CardImages.swift */,
 				EAC61F0965BF63C069AA8AEC /* CardLists.swift */,
 				6773EAB78C0C783B5ECD9530 /* CardMatcher.swift */,
+				7458D31D7677A2D5A263837C /* CardQuery.swift */,
 				E3DAC241E9475632B6E8159C /* CardScanner.swift */,
+				CFB41212CC7781116C821C1A /* CardSearchViews.swift */,
 				1E58FE801DEE1F485996A5C8 /* Catalog.swift */,
 				DD41B679C1BA02ABB15C2B93 /* CatalogPack.swift */,
 				2BAA27E3D98FA9DA777E5BE6 /* ChangePrinting.swift */,
@@ -458,6 +469,7 @@
 				1BF1D64ED2F48A2ED7D09F04 /* Friends.swift */,
 				D14AB06BD876B8A78DC502CD /* FriendsDemo.swift */,
 				1AB3891C530AC888BF13E49D /* FriendsViews.swift */,
+				D2ADDE7A837AA5B71EAC4F54 /* Heroes.swift */,
 				A149B70408DCB16D736D4918 /* LibraryDemo.swift */,
 				AA1787264FADE7BB2CC0A924 /* LibraryViews.swift */,
 				1C4FD05A2370970B0956A621 /* ListExport.swift */,
@@ -650,6 +662,7 @@
 			files = (
 				CA5C3B3D631F2AFFF9BAC25A /* BindersTests.swift in Sources */,
 				793B3C5654CDC544D3CC0B21 /* CardMatcherTests.swift in Sources */,
+				31DA78E34F82EEE3583A63DA /* CardQueryTests.swift in Sources */,
 				C2CA6EA5AD21CC9187D9241A /* CatalogPackTests.swift in Sources */,
 				1AA9CDFCE1AEB879B35ADA40 /* ChangePrintingTests.swift in Sources */,
 				41BE4E1D043A7DB82D3CCE45 /* CollectionCSVTests.swift in Sources */,
@@ -676,7 +689,9 @@
 				666D1A4A2E748925CA4371BD /* CardImages.swift in Sources */,
 				54BE2CC6D66BC995207C242E /* CardLists.swift in Sources */,
 				B2F842D1E87CF4F8513B8436 /* CardMatcher.swift in Sources */,
+				21A24A59133F57CD0FF6B17D /* CardQuery.swift in Sources */,
 				7C88522BEF2B937ACB01640E /* CardScanner.swift in Sources */,
+				41E5C634E0E2F9D3AAB0DC2D /* CardSearchViews.swift in Sources */,
 				9BDE7B9EB2D26C52DBBDEE04 /* Catalog.swift in Sources */,
 				C62E2D01E3DC00B5D4A3E97A /* CatalogPack.swift in Sources */,
 				1DB29EDAD128740207CF2B4C /* ChangePrinting.swift in Sources */,
@@ -692,6 +707,7 @@
 				81AFCD9AE878DC40DF1FDDB8 /* Friends.swift in Sources */,
 				70B4BE14B1DCD8D72628B8EB /* FriendsDemo.swift in Sources */,
 				7F04FB92FE551A1B7F9FBDF8 /* FriendsViews.swift in Sources */,
+				D2B75A5E0490A08016A2DAC3 /* Heroes.swift in Sources */,
 				4277984630E3FD92D99A840D /* HomeView.swift in Sources */,
 				E1F0E45102E1CC8C52D256A3 /* Kit.swift in Sources */,
 				ADEC65DE131491502D3B846C /* LibraryDemo.swift in Sources */,

@@ -33,6 +33,19 @@ struct T1Screen<Content: View>: View {
     }
 }
 
+/// T1Screen hides the system bar (our Bar draws the back arrow), which also turns off the system's swipe from the
+/// left edge to go back. This turns it back on for every pushed screen; a root screen has nothing to swipe to.
+extension UINavigationController: @retroactive UIGestureRecognizerDelegate {
+    override open func viewDidLoad() {
+        super.viewDidLoad()
+        interactivePopGestureRecognizer?.delegate = self
+    }
+
+    public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        gestureRecognizer == interactivePopGestureRecognizer ? viewControllers.count > 1 : true
+    }
+}
+
 struct LabelText: View {
     let text: String
     var color: Color = T1.muted
@@ -486,6 +499,8 @@ struct T1PanelSpec: Identifiable {
     let id = UUID()
     /// Full screen, or a panel rising from the bottom over a dimmed scrim.
     let full: Bool
+    /// Full screens close with a swipe from the left edge, like a pushed screen's back arrow. Off for the camera.
+    var swipeBack = true
     let content: AnyView
 }
 
@@ -510,8 +525,8 @@ final class T1Overlays {
         menu = T1MenuSpec(title: title, message: message, items: items)
     }
 
-    func present<V: View>(full: Bool = false, @ViewBuilder _ content: () -> V) {
-        panels.append(T1PanelSpec(full: full, content: AnyView(content())))
+    func present<V: View>(full: Bool = false, swipeBack: Bool = true, @ViewBuilder _ content: () -> V) {
+        panels.append(T1PanelSpec(full: full, swipeBack: swipeBack, content: AnyView(content())))
     }
 
     func dismissPanel() {
@@ -530,10 +545,12 @@ struct T1OverlayHost: View {
         ZStack {
             ForEach(overlays.panels) { panel in
                 if panel.full {
-                    panel.content
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(T1.bg.ignoresSafeArea())
-                        .transition(.move(edge: .bottom))
+                    EdgeSwipeBack(enabled: panel.swipeBack && panel.id == overlays.panels.last?.id) { overlays.dismissPanel() } content: {
+                        panel.content
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(T1.bg.ignoresSafeArea())
+                    }
+                    .transition(.move(edge: .bottom))
                 } else {
                     ZStack(alignment: .bottom) {
                         T1Scrim { overlays.dismissPanel() }
@@ -564,6 +581,42 @@ struct T1OverlayHost: View {
         }
         .animation(.snappy(duration: 0.22), value: overlays.panels.map(\.id))
         .animation(.snappy(duration: 0.18), value: overlays.menu?.id)
+    }
+}
+
+/// A full-screen panel follows a drag that starts at the left edge and closes past a third of the width (or on a
+/// quick flick), like the system's swipe back on pushed screens.
+struct EdgeSwipeBack<Content: View>: View {
+    let enabled: Bool
+    let back: () -> Void
+    @ViewBuilder let content: Content
+    @State private var offset: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { geo in
+            content
+                .offset(x: offset)
+                // Alongside the content's own gestures, so buttons and scrolling near the edge still work.
+                .simultaneousGesture(DragGesture(minimumDistance: 10, coordinateSpace: .global)
+                    .onChanged { v in
+                        guard enabled, v.startLocation.x < 24 else { return }
+                        offset = max(0, v.translation.width)
+                    }
+                    .onEnded { v in
+                        guard enabled, v.startLocation.x < 24 else { return }
+                        let w = geo.size.width
+                        if v.translation.width > w / 3 || v.predictedEndTranslation.width > w / 2 {
+                            withAnimation(.snappy(duration: 0.2)) { offset = w }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                var t = Transaction()
+                                t.disablesAnimations = true
+                                withTransaction(t) { back() }
+                            }
+                        } else {
+                            withAnimation(.snappy(duration: 0.2)) { offset = 0 }
+                        }
+                    })
+        }
     }
 }
 
