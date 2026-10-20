@@ -109,12 +109,24 @@ object TradesStore {
     private val _state = MutableStateFlow(TradesState())
     val state: StateFlow<TradesState> = _state.asStateFlow()
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    /**
+     * Trades deleted this session. A list read that started before the delete committed can still carry the trade,
+     * and an editor's pending autosave can still name it: neither may bring it back (bug #5).
+     */
+    private val deleted = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     suspend fun load() {
         runCatching {
             T1App.supabase.postgrest.rpc("trades_list", buildJsonObject { put("p_limit", 200) }).decodeAs<List<Trade>>()
-        }.onSuccess { list -> _state.update { TradesState(list, true, null) } }
+        }.onSuccess { list -> applyLoaded(list) }
             .onFailure { e -> _state.update { it.copy(error = e.message) } }
+    }
+
+    internal fun applyLoaded(list: List<Trade>) = _state.update { TradesState(list.filter { it.id !in deleted }, true, null) }
+
+    internal fun forget(id: String) {
+        deleted.add(id)
+        _state.update { s -> s.copy(trades = s.trades.filter { it.id != id }) }
     }
 
     fun stop() { _state.value = TradesState() }
@@ -122,11 +134,12 @@ object TradesStore {
     fun trade(id: String) = _state.value.trades.firstOrNull { it.id == id }
 
     private fun put(t: Trade) = _state.update { s ->
-        s.copy(trades = if (s.trades.any { it.id == t.id }) s.trades.map { if (it.id == t.id) t else it } else listOf(t) + s.trades)
+        if (t.id in deleted) s else s.copy(trades = if (s.trades.any { it.id == t.id }) s.trades.map { if (it.id == t.id) t else it } else listOf(t) + s.trades)
     }
 
     /** Saves a draft (creating it when [t] is null) and returns it. */
     suspend fun save(t: Trade?, partner: String?, gives: List<TradeLine>, gets: List<TradeLine>): Trade {
+        if (t != null && t.id in deleted) return t
         val saved = T1App.supabase.postgrest.rpc("trade_save", buildJsonObject {
             if (t == null) put("p_trade_id", JsonNull) else put("p_trade_id", t.id)
             if (partner == null) put("p_partner", JsonNull) else put("p_partner", partner)
@@ -152,7 +165,7 @@ object TradesStore {
     }
 
     suspend fun delete(t: Trade) {
-        _state.update { s -> s.copy(trades = s.trades.filter { it.id != t.id }) }
+        forget(t.id)
         runCatching { T1App.supabase.postgrest.rpc("trade_delete", buildJsonObject { put("p_trade_id", t.id) }) }
             .onFailure { e -> _state.update { it.copy(error = e.message) } }
     }
@@ -426,6 +439,7 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
     }
     if (askDelete) {
         T1Menu("Delete this trade?", listOf(T1MenuItem("Delete", danger = true) {
+            saveJob?.cancel()
             trade?.let { t -> scope.launch { TradesStore.delete(t) } }
             onBack()
         })) { askDelete = false }

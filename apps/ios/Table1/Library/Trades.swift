@@ -45,18 +45,30 @@ final class TradesStore {
     private(set) var trades: [Trade] = []
     private(set) var loaded = false
     var error: String?
+    /// Trades deleted this session. A list read that started before the delete committed can still carry the trade,
+    /// and an editor's pending autosave can still name it: neither may bring it back (bug #5).
+    private var deleted: Set<String> = []
 
     var isDemo: Bool { CollectionStore.shared.isDemo }
 
     func load() async {
         if isDemo { loaded = true; return }
         do {
-            trades = try await supabase.rpc("trades_list", params: ["p_limit": AnyJSON.integer(200)]).execute().value
-            loaded = true
-            error = nil
+            applyLoaded(try await supabase.rpc("trades_list", params: ["p_limit": AnyJSON.integer(200)]).execute().value)
         } catch {
             self.error = error.localizedDescription
         }
+    }
+
+    func applyLoaded(_ list: [Trade]) {
+        trades = list.filter { !deleted.contains($0.id) }
+        loaded = true
+        error = nil
+    }
+
+    func forget(_ id: String) {
+        deleted.insert(id)
+        trades.removeAll { $0.id == id }
     }
 
     func stop() {
@@ -70,6 +82,7 @@ final class TradesStore {
     /// Saves a draft (creating it when `id` is nil) and returns it.
     @discardableResult
     func save(_ t: Trade?, partner: String?, gives: [TradeLine], gets: [TradeLine]) async throws -> Trade {
+        if let t, deleted.contains(t.id) { return t }
         if isDemo {
             let saved = Trade(id: t?.id ?? UUID().uuidString.lowercased(), partner: partner, note: nil, status: "draft",
                               gives: gives, gets: gets, batchId: nil, createdAt: t?.createdAt ?? ISO8601DateFormatter().string(from: .now),
@@ -120,7 +133,7 @@ final class TradesStore {
 
     func delete(_ t: Trade) async {
         Telemetry.capture("trade_deleted", ["status": t.status])
-        trades.removeAll { $0.id == t.id }
+        forget(t.id)
         if isDemo { return }
         do { try await supabase.rpc("trade_delete", params: ["p_trade_id": AnyJSON.string(t.id)]).execute() } catch {
             self.error = error.localizedDescription
@@ -128,6 +141,7 @@ final class TradesStore {
     }
 
     private func put(_ t: Trade) {
+        if deleted.contains(t.id) { return }
         if let i = trades.firstIndex(where: { $0.id == t.id }) { trades[i] = t } else { trades.insert(t, at: 0) }
     }
 }
@@ -213,6 +227,7 @@ struct TradeView: View {
                     BarButton("Delete") {
                         T1Overlays.shared.showMenu("Delete this trade?", [
                             T1MenuItem(title: "Delete", destructive: true) {
+                                saveTask?.cancel()
                                 if let t = trade { Task { await store.delete(t) } }
                                 dismiss()
                             },

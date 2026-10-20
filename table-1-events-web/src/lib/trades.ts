@@ -38,7 +38,25 @@ const set = (next: Partial<typeof state>) => {
   state = { ...state, ...next };
   for (const s of subs) s();
 };
+/**
+ * Trades deleted this session. A list read that started before the delete committed can still carry the trade, and
+ * an editor's pending autosave can still name it: neither may bring it back (bug #5).
+ */
+const deleted = new Set<string>();
+
+export const tradesState = () => state;
+
+export function applyLoadedTrades(trades: Trade[]) {
+  set({ trades: trades.filter((t) => !deleted.has(t.id)), loaded: true, error: null });
+}
+
+export function forgetTrade(id: string) {
+  deleted.add(id);
+  set({ trades: state.trades.filter((x) => x.id !== id) });
+}
+
 const put = (t: Trade) => {
+  if (deleted.has(t.id)) return;
   const i = state.trades.findIndex((x) => x.id === t.id);
   set({ trades: i >= 0 ? state.trades.map((x) => (x.id === t.id ? t : x)) : [t, ...state.trades] });
 };
@@ -47,7 +65,7 @@ export async function loadTrades() {
   if (isLibraryDemo()) return set({ loaded: true });
   const { data, error } = await supabase.rpc("trades_list", { p_limit: 200 });
   if (error) return set({ error: error.message });
-  set({ trades: data as Trade[], loaded: true, error: null });
+  applyLoadedTrades(data as Trade[]);
 }
 
 export function useTrades() {
@@ -62,6 +80,7 @@ export function useTrades() {
 }
 
 export async function saveTrade(t: Trade | null, partner: string | null, gives: TradeLine[], gets: TradeLine[]): Promise<Trade> {
+  if (t && deleted.has(t.id)) return t;
   if (demoBackend()) {
     const now = new Date().toISOString();
     const saved: Trade = {
@@ -108,7 +127,7 @@ export async function confirmTrade(t: Trade, oracleOf?: (cardId: string) => stri
 }
 
 export async function deleteTrade(t: Trade) {
-  set({ trades: state.trades.filter((x) => x.id !== t.id) });
+  forgetTrade(t.id);
   if (demoBackend()) return;
   const { error } = await supabase.rpc("trade_delete", { p_trade_id: t.id });
   if (error) set({ error: error.message });
