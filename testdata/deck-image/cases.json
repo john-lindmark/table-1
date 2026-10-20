@@ -1,0 +1,77 @@
+{
+ "about": "Deck image card sizes (contract/deck-image-2026-10-20.md): DeckImage.fit(main unique cards, side unique cards) on iOS, web and Android. Written by make_cases.py; step rounded to 4 places.",
+ "fit": [
+  {
+   "main": 21,
+   "side": 9,
+   "cols": 7,
+   "cw": 109,
+   "step": 28.9112,
+   "height": 675
+  },
+  {
+   "main": 15,
+   "side": 6,
+   "cols": 5,
+   "cw": 109,
+   "step": 28.9112,
+   "height": 675
+  },
+  {
+   "main": 8,
+   "side": 0,
+   "cols": 4,
+   "cw": 172,
+   "step": 0,
+   "height": 675
+  },
+  {
+   "main": 1,
+   "side": 1,
+   "cols": 2,
+   "cw": 350,
+   "step": 0,
+   "height": 675
+  },
+  {
+   "main": 30,
+   "side": 15,
+   "cols": 10,
+   "cw": 85,
+   "step": 22.5454,
+   "height": 675
+  },
+  {
+   "main": 60,
+   "side": 0,
+   "cols": 13,
+   "cw": 72,
+   "step": 0,
+   "height": 763
+  },
+  {
+   "main": 100,
+   "side": 0,
+   "cols": 13,
+   "cw": 72,
+   "step": 0,
+   "height": 1131
+  },
+  {
+   "main": 99,
+   "side": 10,
+   "cols": 11,
+   "cw": 72,
+   "step": 19.0973,
+   "height": 1253
+  },
+  {
+   "main": 36,
+   "side": 12,
+   "cols": 9,
+   "cw": 78,
+   "step": 20.6887,
+   "height": 675
+  }
+ ]
+}

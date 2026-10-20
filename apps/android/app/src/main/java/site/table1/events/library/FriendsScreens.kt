@@ -417,6 +417,7 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
     var error by remember { mutableStateOf<String?>(null) }
     var viewMenu by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
+    var imaging by remember { mutableStateOf(false) }
     var copying by remember { mutableStateOf(false) }
     val printings = remember { mutableStateOf(PrintingsDisclosure()) }
     val layout = rememberCardLayout("shared.layout", "shared.grid")
@@ -468,6 +469,7 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
             if (kind != null && !rows.isNullOrEmpty() && !searching && CatalogStore.db != null) {
                 ListRow("Export", if (kind == ListKind.Deck) "Text, Arena, MTGO, download or copy" else "Text, Cube Cobra, download or copy",
                     onClick = { exporting = true })
+                if (kind == ListKind.Deck) ListRow("Deck image", "The cards as a picture, to save or share", onClick = { imaging = true })
                 if (owner != null && shared != null) {
                     ListRow(if (copying) "Copying…" else "Copy to my Library",
                         if (kind == ListKind.Deck) "A new private deck with these cards" else "A new cube with these cards",
@@ -575,6 +577,7 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
     }
     if (viewMenu) CardLayoutMenu(layout, "profile_$section", printings, grouping, list = kind != null) { viewMenu = false }
     if (exporting && kind != null) ListExportScreen(name, kind, entries, "profile") { exporting = false }
+    if (imaging && kind == ListKind.Deck) DeckImageScreen(name, shared?.format ?: "", entries, owner = owner, from = "profile") { imaging = false }
 }
 
 /* ── sharing ── */

@@ -1,7 +1,9 @@
 # Deck image (2026-10-20)
 
-Client-only, made on the device (nothing uploaded). iOS built and checked in the demo (`-T1LibraryDemo deck
--T1DeckImage`); web and Android to do. Tests: iOS `DeckImageTests`.
+Client-only, made on the device (nothing uploaded). All three platforms (2026-10-20): iOS built and checked in the demo
+(`-T1LibraryDemo deck -T1DeckImage`); web built and checked in `/library?demo` (own deck) and the friends demo (Mara
+Quinn's deck); Android built and unit-tested, not run on a device. Tests: iOS `DeckImageTests`, web `deckImage.test.ts`,
+Android `DeckImageTest`; card sizes from the shared cases `testdata/deck-image/cases.json` (`make_cases.py`).
 
 ## Where
 
@@ -32,7 +34,17 @@ only (a cube is too many cards for one picture). Opens a full screen: options, a
 - Card art: each line's printing (the most-held printing for a card in several), from Scryfall's CDN at "normal" size,
   downsampled; foils get the sheen. A card whose image can't load shows its name on a plain tile, with a note.
 
+## Per platform
+
+- **iOS**: SwiftUI `ImageRenderer` at 2×; Save to Photos asks for add-only Photos access; Share sends the JPEG.
+- **Web**: drawn on a 2D canvas at 2× from Scryfall's CDN images (cross-origin reads allowed). **Download** saves the
+  JPEG; **Share** uses the browser's file share sheet where it has one, otherwise reads **Copy image** and copies a PNG
+  to the clipboard. Options are remembered in local storage.
+- **Android**: drawn on an `android.graphics.Canvas` at 2× from the app's card image cache. **Save to Photos** writes
+  `Pictures/Table 1/<deck>.jpg` through MediaStore (no permission on Android 10+; on 8–9 it fails with a note to use
+  Share); **Share** sends the JPEG through the FileProvider. Options are remembered in the `library` preferences.
+
 ## Telemetry
 
 `deck_image_shared`: `layout` (grid / stacks), `grouping`, `sideboard` (bool), `cards`, `from` (own / profile), `how`
-(photos / share).
+(photos / share; web: download / share / copy).

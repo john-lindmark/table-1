@@ -150,6 +150,21 @@
         "--strictPort"
       ],
       "port": 5211
+    },
+    {
+      "name": "web-deck-image",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "table-1-events-web",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5221",
+        "--strictPort"
+      ],
+      "port": 5221
     }
   ]
 }

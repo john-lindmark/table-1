@@ -120,7 +120,7 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `card_layout_changed` | `layout`: list / grid / stacks, `screen`: all_cards / deck / cube / binder / profile_<section> (2026-10-16; binder 2026-10-19; profile 2026-10-20) |
 | `card_grouping_changed` | `grouping`: none / type / color / manaValue, `screen`: as `card_layout_changed` (2026-10-20) |
 | `list_exported` | `kind`, `format`, `cards`, `left`, `from`: own / profile, `how`: copy / download (from/how 2026-10-20) |
-| `deck_image_shared` | `layout`: grid / stacks, `grouping`, `sideboard`, `cards`, `from`: own / profile, `how`: photos / share (2026-10-20) |
+| `deck_image_shared` | `layout`: grid / stacks, `grouping`, `sideboard`, `cards`, `from`: own / profile, `how`: photos / share (web: download / share / copy) (2026-10-20) |
 | `collection_import_previewed` | `format`: manabox / moxfield / archidekt / deckbox / dragonshield / tcgplayer / delverlens / other, `lines`: int, `matched`: int, `unmatched`: int (2026-10-17, `collection-import-2026-10-17.md`) |
 | `collection_imported` | `format`, `mode`: add / replace, `cards`: int, `items`: int, `parts`: int (batches), `fixed`: int, `skipped`: int, `binders`: int, `binder_copies`: int, `wants`: int |
 | `collection_exported` | `layout`: moxfield / manabox, `cards`: int |

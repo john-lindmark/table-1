@@ -19,6 +19,7 @@ import { capture } from "../lib/telemetry";
 import {
   CardGroupRow, CardRow, CardTile, LibScreen, StackRows, ViewButton, useBoxWidth, useCatalog, useLibrarySession, useStoredLayout, type StackCardItem,
 } from "./Library";
+import { DeckImageScreen } from "./DeckImage";
 import { BoardHeader, ExportScreen, groupsOf, regrouped, resolveLines, useListGrouping, useListsData, type Line } from "./Lists";
 import { useSearchUsed } from "./Binders";
 import { GROUPING_KEY, groupLabel, groupSections, keysOf, useStoredGrouping } from "../lib/cardGrouping";
@@ -419,6 +420,7 @@ function ProfileCardsBody({ userId, section, item, onBack, onCard, onList }: {
   const [grouping, setGrouping] = kind ? [listGrouping, setListGrouping] : [cardsGrouping, setCardsGrouping];
   const [printings, setPrintings] = useState<Disclosure>(COLLAPSED);
   const [exporting, setExporting] = useState(false);
+  const [imaging, setImaging] = useState(false);
   const [copying, setCopying] = useState(false);
   const [boxRef, width] = useBoxWidth();
   useSearchUsed(q, "profile_cards");
@@ -579,6 +581,7 @@ function ProfileCardsBody({ userId, section, item, onBack, onCard, onList }: {
         {kind && catalog && !!rows?.length && !searching && (<>
           <Row title="Export" detail={kind === "deck" ? "Text, Arena, MTGO, download or copy" : "Text, Cube Cobra, download or copy"}
                onClick={() => setExporting(true)} />
+          {kind === "deck" && <Row title="Deck image" detail="The cards as a picture, to save or share" onClick={() => setImaging(true)} />}
           {owner && listFormat && (
             <Row title={copying ? "Copying…" : "Copy to my Library"} detail={kind === "deck" ? "A new private deck with these cards" : "A new cube with these cards"}
                  onClick={copying ? undefined : () => void copy()} />
@@ -587,6 +590,7 @@ function ProfileCardsBody({ userId, section, item, onBack, onCard, onList }: {
         {catalog && rows && (kind ? listBody(kind) : cardsBody())}
       </div>
       {exporting && kind && catalog && <ExportScreen name={name} kind={kind} entries={entries} catalog={catalog} from="profile" onClose={() => setExporting(false)} />}
+      {imaging && kind === "deck" && catalog && <DeckImageScreen name={name} format={listFormat ?? ""} entries={entries} catalog={catalog} owner={owner} from="profile" onClose={() => setImaging(false)} />}
     </LibScreen>
   );
 }

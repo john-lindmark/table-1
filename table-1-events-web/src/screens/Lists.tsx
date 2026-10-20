@@ -22,6 +22,7 @@ import { COLLAPSED, isOpen, lineGroups, toggleOne, type Disclosure, type LineGro
 import { HERO_LIMIT, heroPrintings, heroesOf, isHero, toggleHero, type HeroScope } from "../lib/heroes";
 import { CardSearchBar, CardSearchStatus, useCardSearch } from "./CardSearch";
 import { ListStatsRow } from "./ListStats";
+import { DeckImageScreen } from "./DeckImage";
 
 /* Decks and cubes on the web (contract/lists-2026-10-15.md): the same lists, sections, groups and version
    history as iOS, read from and written to the database, so a deck built on one device is here too. */
@@ -322,6 +323,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   const [moving, setMoving] = useState<Line | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [imaging, setImaging] = useState(false);
   const [q, setQ] = useState("");
   const [printings, setPrintings] = useState<Disclosure>(COLLAPSED);
   const [heroFull, setHeroFull] = useState<string | null>(null);
@@ -472,6 +474,8 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         {entriesOf(list).length > 0 && !editing && catalog &&
           <Row title="Export" detail={list.kind === "deck" ? "Text, Arena, MTGO, download or copy" : "Text, Cube Cobra, download or copy"}
                onClick={() => setExporting(true)} />}
+        {entriesOf(list).length > 0 && !editing && catalog && list.kind === "deck" &&
+          <Row title="Deck image" detail="The cards as a picture, to save or share" onClick={() => setImaging(true)} />}
         {entriesOf(list).length === 0 && <Row title="No cards yet" detail="Add cards to start this list" />}
         </>}
         {searching && catalog && !shown.length && <Row title="No cards match" />}
@@ -537,6 +541,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         </Modal>
       )}
       {exporting && catalog && <ExportScreen name={list.name} kind={list.kind} entries={entriesOf(list)} catalog={catalog} from="own" onClose={() => setExporting(false)} />}
+      {imaging && catalog && <DeckImageScreen name={list.name} format={list.format} entries={entriesOf(list)} catalog={catalog} owner={null} from="own" onClose={() => setImaging(false)} />}
       {confirmDelete && (
         <Modal title={`Delete ${list.name}?`} onClose={() => setConfirmDelete(false)}>
           <p className="text-[12px] text-t1-muted">It goes from every device. This can't be undone.</p>

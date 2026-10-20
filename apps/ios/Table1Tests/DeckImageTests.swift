@@ -1,7 +1,16 @@
 import XCTest
 @testable import Table1
 
-/* Deck image layout (Library/DeckImage.swift): which cards, in what order, and how big they draw. */
+/* Deck image layout (Library/DeckImage.swift): which cards, in what order, and how big they draw. Card sizes against
+   testdata/deck-image/cases.json, which web deckImage.test.ts and Android DeckImageTest read too. */
+
+private let casesURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+    .appending(path: "../../../testdata/deck-image/cases.json").standardized
+
+private struct FitCases: Decodable {
+    struct Case: Decodable { let main, side, cols: Int; let cw: CGFloat; let step: Double; let height: CGFloat }
+    let fit: [Case]
+}
 
 final class DeckImageTests: XCTestCase {
     private func line(_ name: String, _ board: String, _ qty: Int, type: String, mv: Double, card: String? = nil) -> ListLine {
@@ -57,5 +66,18 @@ final class DeckImageTests: XCTestCase {
         XCTAssertEqual(cols.map(\.cards.count), [9, 3])
         XCTAssertEqual(cols.map(\.title), ["Lands · 12", nil])
         XCTAssertEqual(DeckImage.fileName("Izzet: Tempo!"), "Izzet Tempo.jpg")
+    }
+
+    func testFitSharedCases() throws {
+        let cases = try JSONDecoder().decode(FitCases.self, from: Data(contentsOf: casesURL))
+        XCTAssertGreaterThanOrEqual(cases.fit.count, 9)
+        for c in cases.fit {
+            let f = DeckImage.fit(main: c.main, side: c.side)
+            let name = "\(c.main) + \(c.side)"
+            XCTAssertEqual(f.cols, c.cols, name)
+            XCTAssertEqual(f.cw, c.cw, name)
+            XCTAssertEqual(f.height, c.height, name)
+            XCTAssertEqual(Double(f.step), c.step, accuracy: 0.001, name)
+        }
     }
 }
