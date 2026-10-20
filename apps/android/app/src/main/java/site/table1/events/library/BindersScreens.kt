@@ -25,6 +25,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -216,7 +219,10 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
     var askDelete by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var printings by remember { mutableStateOf(PrintingsDisclosure()) }
+    val printingsState = remember { mutableStateOf(PrintingsDisclosure()) }
+    var printings by printingsState
+    val layout = rememberCardLayout("binder.layout", "binder.grid")
+    var viewMenu by remember { mutableStateOf(false) }
     val heroes by HeroesStore.state.collectAsState()
     SearchUsed(query, "binder")
     val items = remember(col.version, b.version, id) { b.itemsIn(if (unsorted) null else id, col.items) }
@@ -235,10 +241,7 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
         Bar(if (unsorted) "Unsorted" else binder?.name ?: "Binder",
             subtitle = listOfNotNull("${count(copies)} cards", if (binder?.forTrade == true) "For trade" else null, PriceBook.text(v)).joinToString(" · "),
             onBack = onBack) {
-            if (groups.any { it.parts.size > 1 }) BarAction(if (printings.all) "Collapse" else "Expand") {
-                printings = printings.setAll(!printings.all)
-                Telemetry.capture("printings_toggled", mapOf("expanded" to printings.all, "all" to true, "screen" to "binder"))
-            }
+            BarAction("View") { viewMenu = true }
             if (binder != null) BarAction("Edit") { menu = true }
         }
         if (!unsorted && binder == null) Notice("This binder was deleted.")
@@ -248,14 +251,35 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
             T1TextField(query, { query = it }, placeholder = "Name or type")
         }
         val shown = if (CardName.norm(query).isEmpty()) groups else groups.filter { CardSearch.matches(query, it.name, it.type) }
-        Hairlines(Modifier.weight(1f)) {
-            if (unsorted || binder != null) item {
-                ListRow("Add cards", if (unsorted) "New copies, or copies out of a binder" else "Move in copies you own, or add new ones", onClick = { adding = true })
+        // Add cards and the empty notes stay at the top in every view.
+        val top: @Composable () -> Unit = {
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                if (unsorted || binder != null) {
+                    ListRow("Add cards", if (unsorted) "New copies, or copies out of a binder" else "Move in copies you own, or add new ones", onClick = { adding = true })
+                }
+                if (shown.isEmpty() && groups.isNotEmpty()) ListRow("No cards match")
+                if (groups.isEmpty() && cat.phase == "ready") {
+                    Notice(if (unsorted) "Every copy is in a binder." else "No cards here yet. Add cards moves in copies you own or adds new ones; trades and imports can fill it too.")
+                }
             }
-            if (shown.isEmpty() && groups.isNotEmpty()) item { ListRow("No cards match") }
-            if (groups.isEmpty() && cat.phase == "ready") item {
-                Notice(if (unsorted) "Every copy is in a binder." else "No cards here yet. Add cards moves in copies you own or adds new ones; trades and imports can fill it too.")
+        }
+        val tiles = groupTiles(shown, printings.all, { !unsorted && heroes.isHero(it.id, HeroScope.InBinder(id)) }) { if (it.known) onCard(it.id) }
+        if (layout.value == CardLayout.Grid) {
+            CardGrid(Modifier.weight(1f)) { tile ->
+                gridHeader("top") { top() }
+                gridItems(tiles, key = { "t-${it.key}" }) { t -> CardTile(t.printing, t.qty, tile, onClick = t.onClick, finish = t.finish, hero = t.hero) }
             }
+        } else if (layout.value == CardLayout.Stacks) {
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                val (cols, width) = stackColumns(maxWidth)
+                val stacks = runStacks(tiles, false, { "" }, "st|${printings.all}|").map { (key, title, run) -> CardStackSpec(key, title, run) }
+                LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    item(key = "top") { top() }
+                    stackRows("binder", stacks, cols, width)
+                }
+            }
+        } else Hairlines(Modifier.weight(1f)) {
+            item(key = "top") { top() }
             for (g in shown) {
                 val open = printings.open(g.id)
                 cardGroupRows(g, "${g.printings} printing${if (g.printings == 1) "" else "s"} · ${g.type}",
@@ -267,6 +291,7 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
             }
         }
     }
+    if (viewMenu) CardLayoutMenu(layout, "binder", printingsState) { viewMenu = false }
     if (menu && binder != null) {
         T1Menu(binder.name, listOf(
             T1MenuItem("Rename") { editing = true },
@@ -308,6 +333,7 @@ private fun BinderAddOverlay(binderId: String?, onClose: () -> Unit) {
     val hits = if (query.isBlank()) emptyList() else result?.hits ?: emptyList()
     val covers = result?.covers ?: emptyMap()
     var scanning by remember { mutableStateOf(false) }
+    var addLang by remember { mutableStateOf(Languages.addLang) }
     var owned by remember { mutableStateOf<Map<Int, List<CollectionItem>>>(emptyMap()) }
     var last by remember { mutableStateOf<Pair<String, String>?>(null) }
     var busy by remember { mutableStateOf(false) }
@@ -345,6 +371,7 @@ private fun BinderAddOverlay(binderId: String?, onClose: () -> Unit) {
                 }
                 CardSearchBar(query, { query = it }, placeholder = "Card name, or Scryfall syntax", onScan = { scanning = true })
                 CardSearchStatus(query, result)
+                NewCopiesLanguageRow { addLang = it }
                 Hairlines(Modifier.weight(1f)) {
                     if (query.isEmpty()) item {
                         Notice("Move in takes a copy you own from Unsorted or another binder. + New adds a new copy ($condition, original printing) to your collection, in $target. Scan adds the cards you scan, new, in $target.")
@@ -369,8 +396,9 @@ private fun BinderAddOverlay(binderId: String?, onClose: () -> Unit) {
                             if (p != null) {
                                 Box(Modifier.fillMaxHeight().background(T1.surfaceHover).clickable(enabled = !busy) {
                                     val finish = p.finishList.firstOrNull()?.wire ?: "nonfoil"
-                                    run("Added 1 ${o.name} · $condition") {
-                                        CollectionStore.apply(listOf(CollectionOp(p.cardId, finish, condition, delta = 1, binderId = binderId))).batchId
+                                    val lang = Languages.forNew(p.lang, addLang)
+                                    run("Added 1 ${o.name} · $condition${if (lang == "en") "" else " · ${lang.uppercase()}"}") {
+                                        CollectionStore.apply(listOf(CollectionOp(p.cardId, finish, condition, lang, delta = 1, binderId = binderId))).batchId
                                     }
                                 }.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) { Label("+ New", color = T1.text) }
                             }
@@ -387,7 +415,7 @@ private fun BinderAddOverlay(binderId: String?, onClose: () -> Unit) {
             scanning = false
             Telemetry.capture("scan_session_ended", mapOf("context" to "binder", "cards" to cards.size, "exact" to cards.count { it.exact }, "cancelled" to false))
             if (cards.isNotEmpty()) run("Added ${cards.size} scanned card${if (cards.size == 1) "" else "s"}") {
-                CollectionStore.apply(cards.map { CollectionOp(it.printing.cardId, it.finish, it.condition, delta = 1, binderId = binderId) }, source = "scan").batchId
+                CollectionStore.apply(cards.map { CollectionOp(it.printing.cardId, it.finish, it.condition, it.lang, delta = 1, binderId = binderId) }, source = "scan").batchId
             }
         }, onCancel = {
             scanning = false

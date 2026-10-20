@@ -223,6 +223,8 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
     var gets by remember { mutableStateOf<List<TradeLine>>(emptyList()) }
     /** A get on the Change printing screen. */
     var changing by remember { mutableStateOf<TradeLine?>(null) }
+    /** A get line whose language is being picked. */
+    var pickingLang by remember { mutableStateOf<TradeLine?>(null) }
     var started by remember { mutableStateOf(tradeId == null) }
     var meta by remember { mutableStateOf<Map<String, CatalogPrinting>>(emptyMap()) }
     var names by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
@@ -385,7 +387,7 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
                             val p = meta[l.cardId]
                             val note = if (give) null else wantNote(l)
                             TradeCell(p, p?.let { names[it.oracleIdx] } ?: "Card",
-                                listOfNotNull(p?.setLabel, Finish.of(l.finish)?.label, l.condition, PriceBook.text(PriceBook.usd(l.cardId, l.finish).also { pricesVersion }),
+                                listOfNotNull(p?.setLabel, Finish.of(l.finish)?.label, l.condition, if (l.lang == "en") null else l.lang.uppercase(), PriceBook.text(PriceBook.usd(l.cardId, l.finish).also { pricesVersion }),
                                     if (give) binders.binder(l.binderId)?.name else null),
                                 l.qty, note = note, finish = l.finish) { if (!confirmed) editing = give to l.key }
                         }
@@ -423,10 +425,17 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
                 add(T1MenuItem("Change printing · ${p?.setLabel ?: "one"}") { changing = l })
                 p?.finishList?.filter { it.wire != l.finish }?.forEach { f -> add(T1MenuItem("Make it ${f.label.lowercase()}") { gets = gets.repoint(key, l.cardId, f.wire) }) }
                 Conditions.all.filter { it != l.condition }.forEach { c -> add(T1MenuItem("Condition: ${Conditions.name(c)}") { update(give, key, l.copy(condition = c)) }) }
+                add(T1MenuItem("Language · ${Languages.name(l.lang)}") { pickingLang = l })
             }
             add(T1MenuItem("Remove", danger = true) { update(give, key, null) })
         }
         T1Menu(p?.let { names[it.oracleIdx] }, items) { editing = null }
+    }
+    pickingLang?.let { l ->
+        LanguagePicker(l.lang, meta[l.cardId]?.let { names[it.oracleIdx] }, onClose = { pickingLang = null }) { lang ->
+            update(false, l.key, l.copy(lang = lang))
+            Telemetry.capture("language_changed", mapOf("where" to "trade", "copies" to l.qty))
+        }
     }
     changing?.let { l ->
         ChangePrintingOverlay(PrintingTarget.TradeGet(l) { c, f -> gets = gets.repoint(l.key, c, f) }, "trade_printing", onClose = { changing = null })
@@ -458,7 +467,7 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
                 for (c in cards) {
                     // Giving: copies in a for-trade binder first, else the condition you hold most of.
                     val line = if (give) bestGive(c.printing.cardId, c.finish) else null
-                    add(give, line ?: TradeLine(c.printing.cardId, c.finish, c.condition, "en", 1))
+                    add(give, line ?: TradeLine(c.printing.cardId, c.finish, c.condition, c.lang, 1))
                 }
                 scanning = null
             },
@@ -523,7 +532,7 @@ private fun TradePickOverlay(give: Boolean, onPick: (TradeLine) -> Unit, onClose
             } else {
                 val hits = db.search(q)
                 val covers = db.covers(hits.map { it.idx })
-                hits.mapNotNull { o -> covers[o.idx]?.let { p -> Triple(TradeLine(p.cardId, (p.finishList.firstOrNull() ?: Finish.Nonfoil).wire), p, o.name) } }
+                hits.mapNotNull { o -> covers[o.idx]?.let { p -> Triple(TradeLine(p.cardId, (p.finishList.firstOrNull() ?: Finish.Nonfoil).wire, lang = Languages.forNew(p.lang, Languages.addLang)), p, o.name) } }
             }
         }
     }

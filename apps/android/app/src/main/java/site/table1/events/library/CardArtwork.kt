@@ -334,7 +334,7 @@ fun CardLayoutMenu(layout: MutableState<CardLayout>, screen: String, printings: 
         T1MenuItem(if (all) "Collapse all printings" else "Expand all printings") {
             p.value = p.value.setAll(!all)
             site.table1.events.util.Telemetry.capture("printings_toggled",
-                mapOf("expanded" to !all, "all" to true, "screen" to if (screen == "all_cards") "all_cards" else "list"))
+                mapOf("expanded" to !all, "all" to true, "screen" to if (screen == "all_cards" || screen == "binder") screen else "list"))
         }
     }), onDismiss)
 }

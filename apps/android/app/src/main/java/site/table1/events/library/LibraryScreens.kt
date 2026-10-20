@@ -412,7 +412,7 @@ fun AddCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
             scanning = false
             Telemetry.capture("scan_session_ended", mapOf("context" to "add", "cards" to cards.size, "exact" to cards.count { it.exact }, "cancelled" to false))
             scope.launch {
-                runCatching { CollectionStore.apply(cards.map { CollectionOp(it.printing.cardId, it.finish, it.condition, delta = 1) }, source = "scan") }
+                runCatching { CollectionStore.apply(cards.map { CollectionOp(it.printing.cardId, it.finish, it.condition, it.lang, delta = 1) }, source = "scan") }
                     .onSuccess { scanned = it.batchId to "Added ${cards.size} scanned card${if (cards.size == 1) "" else "s"}"; error = null }
                     .onFailure { error = it.message }
             }
@@ -471,6 +471,8 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
     val prefs = remember { T1App.instance.getSharedPreferences("library", android.content.Context.MODE_PRIVATE) }
     /** Condition new copies go in as (remembered; the scanner uses it too). */
     var addCondition by remember { mutableStateOf(prefs.getString("addCondition", "NM") ?: "NM") }
+    /** Language new English-printing copies go in as (shared with the scanner, binder adds and trades). */
+    var addLang by remember { mutableStateOf(Languages.addLang) }
     /** Moving copies of one owned item to another condition, when there's more than one copy. */
     var moving by remember { mutableStateOf<Pair<CollectionItem, String>?>(null) }
     val binders by BindersStore.state.collectAsState()
@@ -650,6 +652,7 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
                                 if (it.qty == 1) moveCondition(it, p, to, 1) else moving = it to to
                             }
                         }
+                        OwnedLanguageRow(it, p.setLabel, binders, onDone = { batch, text -> last = batch to text; note = null; error = null }) { e -> error = e }
                         ListRow("Change printing", "Or finish · keeps condition and binder", onClick = { changeOwned(it, null) }) { Label(p.setLabel, color = T1.text) }
                         ListRow("Move", binders.placementText(it) ?: "Unsorted ${it.qty}", onClick = { sorting = it }) { Label("Binders", color = T1.text) }
                         Column(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp),
@@ -682,6 +685,7 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
                     prefs.edit().putString("addCondition", addCondition).apply()
                 }
             }
+            item { NewCopiesLanguageRow { addLang = it } }
             items(if (showAll) printings else printings.take(12), key = { "add-" + it.cardId }) { p ->
                 val price = prices[p.cardId]
                 val detail = listOfNotNull(price?.setName, CatalogPack.RARITY_NAME[p.rarity], p.releasedAt.take(4).ifEmpty { null }).joinToString(" · ")
@@ -696,11 +700,13 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
                             Label(detail)
                         }
                     }
+                    val lang = Languages.forNew(p.lang, addLang)
                     p.finishList.forEach { f ->
                         val k = "${p.cardId}|${f.wire}"
                         Box(Modifier.fillMaxHeight().background(T1.surfaceHover)
                             .clickable(enabled = busy != k) {
-                                change(k, "Added 1 ${p.setLabel} ${f.label} · $addCondition", listOf(CollectionOp(p.cardId, f.wire, addCondition, delta = 1)))
+                                change(k, "Added 1 ${p.setLabel} ${f.label} · $addCondition${if (lang == "en") "" else " · ${lang.uppercase()}"}",
+                                    listOf(CollectionOp(p.cardId, f.wire, addCondition, lang, delta = 1)))
                             }
                             .padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
                             Label("+ ${if (f == Finish.Nonfoil) "Card" else f.label}", color = if (busy == k) T1.disabled else T1.text)
