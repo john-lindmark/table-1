@@ -71,6 +71,7 @@ targets:
         # Only standard HTTPS/TLS is used, so no export-compliance question on each upload.
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: Scan an organizer's QR code to join their event, scan cards into your collection, a trade or a redraft, and photograph your deck.
+        NSPhotoLibraryAddUsageDescription: Save deck images to your photos.
         NSLocationWhenInUseUsageDescription: Find events happening near you and pin your event where you are. Your location is never stored.
         # Google Sign-In: the iOS OAuth client (Google Cloud), also listed in Supabase Auth > Google.
         GIDClientID: 89942584264-hdu3fdk26n4p77hoeg95levoqf3pb8k1.apps.googleusercontent.com

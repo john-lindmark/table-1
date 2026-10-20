@@ -1,6 +1,16 @@
 import Foundation
 import Supabase
 
+extension Error {
+    /// A request dropped because its task was cancelled (a screen's .task ends when the screen goes away or
+    /// reappears, e.g. a tapped push re-routing): not a failure, so never shown.
+    var isCancellation: Bool {
+        if self is CancellationError { return true }
+        if let e = self as? URLError, e.code == .cancelled { return true }
+        return (self as NSError).domain == NSURLErrorDomain && (self as NSError).code == NSURLErrorCancelled
+    }
+}
+
 /// Every call the app makes. Writes are RPCs (validated, audited and broadcast server-side);
 /// pairing and standings come from the events-engine edge function so the rules exist once.
 enum Repo {

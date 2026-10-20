@@ -1,0 +1,20 @@
+{
+  "about": "Group by (View menu) for every card list: type, color and mana value per card. iOS CardGroupingTests reads this; web and Android should too. Lands get their own color and mana-value group; a land creature is a creature with its colors and mana value.",
+  "cards": [
+    {"name": "Lightning Bolt", "typeLine": "Instant", "manaCost": "{R}", "colors": "R", "cmc": 1, "type": "Instants", "color": "Red", "manaValue": "1"},
+    {"name": "Mountain", "typeLine": "Basic Land — Mountain", "manaCost": "", "colors": "", "cmc": 0, "type": "Lands", "color": "Lands", "manaValue": "Lands"},
+    {"name": "Dryad Arbor", "typeLine": "Land Creature — Forest Dryad", "manaCost": "", "colors": "G", "cmc": 0, "type": "Creatures", "color": "Green", "manaValue": "0"},
+    {"name": "Ajani, Nacatl Pariah", "typeLine": "Legendary Creature — Cat Warrior // Legendary Planeswalker — Ajani", "manaCost": "{1}{W}", "colors": "W", "cmc": 2, "type": "Creatures", "color": "White", "manaValue": "2"},
+    {"name": "Ancestral Vision", "typeLine": "Sorcery", "manaCost": "", "colors": "U", "cmc": 0, "type": "Sorceries", "color": "Blue", "manaValue": "0"},
+    {"name": "Lightning Helix", "typeLine": "Instant", "manaCost": "{R}{W}", "colors": "RW", "cmc": 2, "type": "Instants", "color": "Multicolor", "manaValue": "2"},
+    {"name": "Emrakul, the Aeons Torn", "typeLine": "Legendary Creature — Eldrazi", "manaCost": "{15}", "colors": "", "cmc": 15, "type": "Creatures", "color": "Colorless", "manaValue": "7+"},
+    {"name": "Old pack (no colors)", "typeLine": "Sorcery", "manaCost": "{2}{B}{B}", "colors": "", "cmc": 4, "type": "Sorceries", "color": "Black", "manaValue": "4"},
+    {"name": "Fable of the Mirror-Breaker", "typeLine": "Enchantment — Saga // Enchantment Creature — Goblin Shaman", "manaCost": "{2}{R}", "colors": "R", "cmc": 3, "type": "Enchantments", "color": "Red", "manaValue": "3"},
+    {"name": "Invasion of Zendikar", "typeLine": "Battle — Siege // Creature — Elemental", "manaCost": "{3}{G}", "colors": "G", "cmc": 4, "type": "Battles", "color": "Green", "manaValue": "4"}
+  ],
+  "order": {
+    "type": ["Creatures", "Planeswalkers", "Instants", "Sorceries", "Artifacts", "Enchantments", "Battles", "Lands", "Other"],
+    "color": ["White", "Blue", "Black", "Red", "Green", "Multicolor", "Colorless", "Lands"],
+    "manaValue": ["0", "1", "2", "3", "4", "5", "6", "7+", "Lands"]
+  }
+}

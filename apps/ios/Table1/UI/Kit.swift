@@ -236,7 +236,17 @@ struct HairlineList<Content: View>: View {
     @ViewBuilder let content: Content
     var body: some View {
         ScrollView { LazyVStack(spacing: 1) { content } }
+            .scrollDismissesKeyboard(.interactively)
             .frame(maxHeight: .infinity)
+    }
+}
+
+/// Puts the keyboard away wherever the focused field is. Hidden tabs stay alive (opacity 0), so a field focused in
+/// one keeps the keyboard up over another tab unless something resigns it.
+@MainActor
+enum Keyboard {
+    static func dismiss() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }
 
@@ -526,14 +536,17 @@ final class T1Overlays {
     }
 
     func present<V: View>(full: Bool = false, swipeBack: Bool = true, @ViewBuilder _ content: () -> V) {
+        Keyboard.dismiss()
         panels.append(T1PanelSpec(full: full, swipeBack: swipeBack, content: AnyView(content())))
     }
 
     func dismissPanel() {
+        Keyboard.dismiss()
         if !panels.isEmpty { panels.removeLast() }
     }
 
     func dismissAll() {
+        if !panels.isEmpty { Keyboard.dismiss() }
         menu = nil
         panels = []
     }

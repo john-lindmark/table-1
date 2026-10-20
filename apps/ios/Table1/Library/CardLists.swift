@@ -534,9 +534,12 @@ struct ListLine: Identifiable, Hashable {
     let printing: CatalogPrinting?
     let oracleId: String?
     let name: String
-    let group: String
+    /// The section heading it sits under (type for decks, color for cubes, or the Group by picked).
+    var group: String
     let board: String
     let qty: Int
+    /// Its group under each grouping (Group by in the View menu).
+    var keys = GroupKeys()
     /// The card's legality code (`CatalogPack.legalityFormats`).
     var legal: String = ""
     var finish: String = "nonfoil"
@@ -560,9 +563,10 @@ struct ListLine: Identifiable, Hashable {
         return entries.enumerated().map { i, e in
             let o = printings[e.cardId].flatMap { oracles[$0.oracleIdx] }
             let type = o?.typeLine.components(separatedBy: " // ").first ?? ""
-            let group = kind == .deck ? typeGroup(type) : (type.contains("Land") ? "Lands" : colorGroup(o?.manaCost ?? ""))
+            let keys = GroupKeys(o)
             return ListLine(id: "\(e.board)-\(i)", cardId: e.cardId, printing: printings[e.cardId], oracleId: o?.oracleId,
-                            name: o?.name ?? "Unknown card", group: group, board: e.board, qty: e.qty, legal: o?.legal ?? "", finish: e.finish,
+                            name: o?.name ?? "Unknown card", group: keys[kind == .deck ? .type : .color], board: e.board, qty: e.qty,
+                            keys: keys, legal: o?.legal ?? "", finish: e.finish,
                             points: o?.points ?? 0, basic: type.contains("Basic"), type: o?.typeLine ?? "")
         }
         .sorted { $0.name < $1.name }
@@ -627,8 +631,14 @@ struct ListLine: Identifiable, Hashable {
     }
 
     static func groups(_ lines: [ListLine], kind: CardList.Kind) -> [String] {
-        let order = kind == .deck ? typeOrder : colorOrder
-        return Array(Set(lines.map(\.group))).sorted { (order.firstIndex(of: $0) ?? 99) < (order.firstIndex(of: $1) ?? 99) }
+        groups(lines, by: kind == .deck ? .type : .color)
+    }
+
+    static func groups(_ lines: [ListLine], by: CardGrouping) -> [String] { by.sorted(lines.map(\.group)) }
+
+    /// The lines under another grouping.
+    static func regrouped(_ lines: [ListLine], by: CardGrouping) -> [ListLine] {
+        lines.map { l in var l = l; l.group = l.keys[by]; return l }
     }
 }
 
@@ -656,7 +666,7 @@ struct LineGroup: Identifiable {
 }
 
 /// A section title that reads above the group headers: "MAIN DECK · 60".
-private struct BoardHeader: View {
+struct BoardHeader: View {
     let title: String
     let count: Int
     var body: some View {
@@ -680,12 +690,18 @@ struct ListDetailView: View {
     /// Card names, art and groups, looked up once per card; quantities always come from the live list.
     @State private var meta: [String: ListLine] = [:]
     @State private var editing = false
-    @State private var share: ShareFile?
-    @State private var exportNote: String?
     @State private var query = ""
     @AppStorage("library.list.layout") private var layout = CardLayout.list.rawValue
+    @AppStorage("library.deck.grouping") private var deckGrouping = CardGrouping.type.rawValue
+    @AppStorage("library.cube.grouping") private var cubeGrouping = CardGrouping.color.rawValue
     @State private var printings = PrintingsDisclosure()
     private var heroScope: HeroScope { .list(listId) }
+
+    /// Group by, kept apart for decks (Type) and cubes (Color).
+    private var grouping: CardGrouping {
+        let kind = ListsStore.shared.list(id: listId)?.kind ?? .deck
+        return CardGrouping(rawValue: kind == .deck ? deckGrouping : cubeGrouping) ?? (kind == .deck ? .type : .color)
+    }
 
     var body: some View {
         let list = ListsStore.shared.list(id: listId)
@@ -698,7 +714,12 @@ struct ListDetailView: View {
             Bar(title: list?.name ?? "List", subtitle: list.map(subtitle), back: { dismiss() }) {
                 HStack(spacing: 20) {
                     BarButton(editing ? "Done" : "Edit") { editing.toggle() }
-                    if !editing { BarButton("View") { CardLayout.menu($layout, screen: list?.kind == .cube ? "cube" : "deck", printings: $printings) } }
+                    if !editing {
+                        BarButton("View") {
+                            CardLayout.menu($layout, screen: list?.kind == .cube ? "cube" : "deck", printings: $printings,
+                                            grouping: list?.kind == .cube ? $cubeGrouping : $deckGrouping, list: true)
+                        }
+                    }
                 }
             }
             CatalogStatusRow(catalog: catalog)
@@ -717,9 +738,9 @@ struct ListDetailView: View {
                         ForEach(list.boards.filter { b in query.isEmpty || shown.contains { $0.board == b } }, id: \.self) { board in
                             let lines = shown.filter { $0.board == board }
                             BoardHeader(title: list.boardTitle(board), count: lines.reduce(0) { $0 + $1.qty })
-                            ForEach(ListLine.groups(lines, kind: list.kind), id: \.self) { g in
+                            ForEach(ListLine.groups(lines, by: grouping), id: \.self) { g in
                                 let inGroup = lines.filter { $0.group == g }
-                                Section1("\(g) · \(inGroup.reduce(0) { $0 + $1.qty })")
+                                Section1("\(grouping.label(g)) · \(inGroup.reduce(0) { $0 + $1.qty })")
                                 if editing {
                                     ForEach(inGroup) { line in editRow(line, list: list) }
                                 } else {
@@ -741,51 +762,36 @@ struct ListDetailView: View {
             let resolved = await Task.detached(priority: .userInitiated) { ListLine.resolve(entries, kind: kind, db) }.value
             for line in resolved { meta[line.cardId] = line }
         }
-        .sheet(item: $share) { ShareSheet(share: $0).ignoresSafeArea() }
         .searchUsed(query, screen: ListsStore.shared.list(id: listId)?.kind == .deck ? "deck" : "cube")
         #if DEBUG
         // Design QA: `-T1LibraryDemo deck|cube -T1ListExport <format>` exports once the card data is in.
         .task(id: catalog.db == nil) {
             let args = ProcessInfo.processInfo.arguments
-            guard catalog.db != nil, share == nil, let i = args.firstIndex(of: "-T1ListExport"), i + 1 < args.count,
+            guard catalog.db != nil, T1Overlays.shared.panels.isEmpty, let i = args.firstIndex(of: "-T1ListExport"), i + 1 < args.count,
                   let f = ListExport.Format(rawValue: args[i + 1]), let list = ListsStore.shared.list(id: listId) else { return }
-            await export(list, f)
+            exportList(list, f)
+        }
+        // Design QA: `-T1LibraryDemo deck -T1DeckImage` opens Deck image once the card data is in.
+        .task(id: catalog.db == nil) {
+            guard catalog.db != nil, T1Overlays.shared.panels.isEmpty, ProcessInfo.processInfo.arguments.contains("-T1DeckImage"),
+                  let list = ListsStore.shared.list(id: listId), list.kind == .deck else { return }
+            deckImage(list)
         }
         #endif
     }
 
-    private func exportMenu(_ list: CardList) {
-        T1Overlays.shared.showMenu("Export \(list.name)", message: "The current version, v\(list.current?.number ?? 1)",
-                                   ListExport.Format.formats(list.kind).map { f in
-            T1MenuItem(title: f.label, detail: f.detail) { Task { await export(list, f) } }
-        })
+    private func deckImage(_ list: CardList) {
+        let entries = list.entries
+        T1Overlays.shared.present(full: true) {
+            DeckImagePanel(name: list.name, format: list.format, entries: entries, from: "own").screen("deck_image")
+        }
     }
 
-    /// The current version in that format, handed to the share sheet: a file for MTGO and Cube Cobra, text to copy
-    /// for the formats other apps paste in.
-    private func export(_ list: CardList, _ format: ListExport.Format) async {
-        guard let db = catalog.db else { return }
-        let entries = list.entries, kind = list.kind
-        let (text, cards, left) = await Task.detached(priority: .userInitiated) { () -> (String, Int, Int) in
-            let r = ListExport.lines(entries, db)
-            return (ListExport.render(r.lines, kind: kind, format: format), r.lines.reduce(0) { $0 + $1.qty }, r.left)
-        }.value
-        exportNote = left > 0 ? "\(left) card\(left == 1 ? "" : "s") newer than the card data \(left == 1 ? "was" : "were") left out." : nil
-        if format.fileExtension != nil {
-            let dir = FileManager.default.temporaryDirectory.appending(path: "list-export")
-            let url = dir.appending(path: ListExport.fileName(list.name, kind: kind, format: format))
-            do {
-                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-                try Data(text.utf8).write(to: url, options: .atomic)
-            } catch {
-                exportNote = error.localizedDescription
-                return
-            }
-            share = ShareFile(url: url)
-        } else {
-            share = ShareFile(text: text)
+    private func exportList(_ list: CardList, _ format: ListExport.Format = .text) {
+        let entries = list.entries
+        T1Overlays.shared.present(full: true) {
+            ListExportPanel(name: list.name, kind: list.kind, entries: entries, from: "own", format: format).screen("list_export")
         }
-        Telemetry.capture("list_exported", ["kind": kind.rawValue, "format": format.rawValue, "cards": cards, "left": left])
     }
 
     /// The list's current lines: live quantities and sections, with card details from `meta`.
@@ -793,7 +799,7 @@ struct ListDetailView: View {
         list.entries.compactMap { e in
             guard let m = meta[e.cardId] else { return nil }
             return ListLine(id: "\(e.board)|\(e.cardId)|\(e.finish)", cardId: e.cardId, printing: m.printing, oracleId: m.oracleId,
-                            name: m.name, group: m.group, board: e.board, qty: e.qty, legal: m.legal, finish: e.finish,
+                            name: m.name, group: m.keys[grouping], board: e.board, qty: e.qty, keys: m.keys, legal: m.legal, finish: e.finish,
                             points: m.points, basic: m.basic, type: m.type)
         }
         .sorted { $0.name < $1.name }
@@ -848,11 +854,14 @@ struct ListDetailView: View {
         }.buttonStyle(.plain)
         historyRow(list)
         if !list.entries.isEmpty && !editing {
-            Button { exportMenu(list) } label: {
-                ListRow(title: "Export", detail: list.kind == .deck ? "For Arena, Moxfield, MTGO or as plain text" : "For Cube Cobra or as plain text")
+            Button { exportList(list) } label: {
+                ListRow(title: "Export", detail: list.kind == .deck ? "Text, Arena, MTGO, download or copy" : "Text, Cube Cobra, download or copy")
             }.buttonStyle(.plain)
-            .disabled(catalog.db == nil)
-            if let exportNote { Notice(exportNote) }
+            if list.kind == .deck {
+                Button { deckImage(list) } label: {
+                    ListRow(title: "Deck image", detail: "The cards as a picture, to save or share")
+                }.buttonStyle(.plain)
+            }
         }
         if list.entries.isEmpty { ListRow(title: "No cards yet", detail: "Add cards to start this list") }
     }
@@ -986,9 +995,9 @@ struct ListDetailView: View {
                         BoardHeader(title: list.boardTitle(board), count: lines.reduce(0) { $0 + $1.qty })
                         // Ids carry the section: the lazy stack flattens these, and a bare group name ("Creature")
                         // in the sideboard would reuse the main deck's grid for that group.
-                        ForEach(ListLine.groups(lines, kind: list.kind), id: \.self) { g in
+                        ForEach(ListLine.groups(lines, by: grouping), id: \.self) { g in
                             let inGroup = lines.filter { $0.group == g }
-                            Section1("\(g) · \(inGroup.reduce(0) { $0 + $1.qty })").id("h|\(board)|\(g)")
+                            Section1("\(grouping.label(g)) · \(inGroup.reduce(0) { $0 + $1.qty })").id("h|\(board)|\(g)")
                             LazyVGrid(columns: Array(repeating: GridItem(.fixed(width), spacing: 1), count: 3), spacing: 1) {
                                 ForEach(tiles(inGroup, owned: owned, issues: issues)) { c in
                                     Button(action: c.open) {
@@ -1035,9 +1044,9 @@ extension ListDetailView {
                     ForEach(list.boards.filter { b in query.isEmpty || shown.contains { $0.board == b } }, id: \.self) { board in
                         let lines = shown.filter { $0.board == board }
                         BoardHeader(title: list.boardTitle(board), count: lines.reduce(0) { $0 + $1.qty })
-                        let stacks = ListLine.groups(lines, kind: list.kind).map { g in
+                        let stacks = ListLine.groups(lines, by: grouping).map { g in
                             let inGroup = lines.filter { $0.group == g }
-                            return (id: "s|\(board)|\(g)|\(printings.all)", title: Optional("\(g) · \(inGroup.reduce(0) { $0 + $1.qty })"),
+                            return (id: "s|\(board)|\(g)|\(printings.all)", title: Optional("\(grouping.label(g)) · \(inGroup.reduce(0) { $0 + $1.qty })"),
                                     cards: tiles(inGroup, owned: owned, issues: issues))
                         }
                         StackRows(stacks: stacks, width: width).id("st|\(board)")

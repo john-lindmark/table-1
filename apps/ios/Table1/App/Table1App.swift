@@ -330,6 +330,8 @@ struct SignedInView: View {
             }
         }
         .animation(.snappy(duration: 0.25), value: session.tracker?.id)
+        // A field focused on a hidden tab mustn't keep the keyboard up over the next one (a tapped push switches tabs).
+        .onChange(of: tab) { Keyboard.dismiss() }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in keyboardUp = true }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in keyboardUp = false }
         .task(id: session.pendingEvent) {

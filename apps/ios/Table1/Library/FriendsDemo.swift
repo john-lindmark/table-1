@@ -293,11 +293,14 @@ enum FriendsDemo {
         await FriendsStore.shared.loadSharing()
     }
 
-    /// `-T1LibraryDemo friends|profile|sharing|matches|match|me|myprofile|notices|review`.
+    /// `-T1LibraryDemo friends|profile|profiledeck|sharing|matches|match|me|myprofile|notices|review`.
     static func route(_ arg: String) -> [LibraryRoute]? {
         switch arg {
         case "friends": [.social(.friends)]
         case "profile": [.social(.friends), .social(.profile(FriendsDemoBackend.mara))]
+        case "profiledeck": [.social(.profile(FriendsDemoBackend.mara)),
+                             .social(.profileCards(FriendsDemoBackend.mara, "deck", "d0000000-0000-0000-0000-0000000fd001", "Mono-red prowess",
+                                                   SharedList(format: "modern", owner: "Mara")))]
         case "sharing": [.social(.sharing)]
         case "matches": [.social(.matches)]
         case "match": [.social(.matches), .social(.match(FriendsDemoBackend.mara))]

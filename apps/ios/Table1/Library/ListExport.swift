@@ -176,3 +176,18 @@ enum ListExport {
         return "\(base.isEmpty ? kind.rawValue : String(base.prefix(60))).\(format.fileExtension ?? "txt")"
     }
 }
+
+extension ListExport {
+    /// The text as a file named for the list (.txt, or .csv for Cube Cobra), for the share sheet.
+    static func file(_ text: String, name: String, kind: CardList.Kind, format: Format) throws -> URL {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "list-export")
+        let url = dir.appending(path: fileName(name, kind: kind, format: format))
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try Data(text.utf8).write(to: url, options: .atomic)
+        return url
+    }
+
+    static func leftOutNote(_ left: Int) -> String? {
+        left > 0 ? "\(left) card\(left == 1 ? "" : "s") newer than the card data \(left == 1 ? "was" : "were") left out." : nil
+    }
+}

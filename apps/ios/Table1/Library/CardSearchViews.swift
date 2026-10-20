@@ -15,7 +15,6 @@ struct CardSearchBar: View {
         HStack(spacing: 1) {
             field
             Button {
-                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                 T1Overlays.shared.present(full: true) {
                     AdvancedSearchPanel(start: query) { query = $0 }.screen("advanced_search")
                 }

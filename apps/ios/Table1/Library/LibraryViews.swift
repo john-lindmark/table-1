@@ -320,8 +320,11 @@ struct AllCardsView: View {
     @State private var query = ""
     @AppStorage("library.allCards.sort") private var sort = "recent"
     @AppStorage("library.allCards.layout") private var layout = CardLayout.list.rawValue
+    @AppStorage("library.allCards.grouping") private var groupingRaw = CardGrouping.none.rawValue
+    @State private var keys: [String: GroupKeys] = [:]
     @State private var printings = PrintingsDisclosure()
     private var prices: PriceBook { PriceBook.shared }
+    private var grouping: CardGrouping { CardGrouping(rawValue: groupingRaw) ?? .none }
     private var heroes: HeroesStore { HeroesStore.shared }
 
     /// The most a single owned copy is worth (market price, USD).
@@ -369,8 +372,14 @@ struct AllCardsView: View {
         }
     }
 
-    /// Stacks follow the sort: one per set when sorted by set, otherwise runs of ten in sort order.
+    /// Stacks follow Group by (one per group), else the sort: one per set when sorted by set, otherwise runs of ten
+    /// in sort order.
     private func stacks(_ shown: [CardGroup]) -> [(id: String, title: String?, cards: [StackCard])] {
+        if grouping != .none {
+            return CardGroup.sections(shown, by: grouping, keys: keys).map { s in
+                ("\(grouping.rawValue)|\(s.key)|\(sort)|\(printings.all)", "\(grouping.label(s.key)) · \(s.cards.reduce(0) { $0 + $1.qty })", tiles(s.cards))
+            }
+        }
         let cards = tiles(shown)
         if sort == "set" {
             var out: [(id: String, title: String?, cards: [StackCard])] = []
@@ -390,7 +399,7 @@ struct AllCardsView: View {
         T1Screen {
             Bar(title: "All cards", subtitle: col.summary.map { "\($0.totalQty.formatted()) cards" }, back: { dismiss() }) {
                 HStack(spacing: 20) {
-                    BarButton("View") { CardLayout.menu($layout, screen: "all_cards", printings: $printings) }
+                    BarButton("View") { CardLayout.menu($layout, screen: "all_cards", printings: $printings, grouping: $groupingRaw, list: false) }
                 }
             }
             if let error = col.error { Notice(error, error: true) }
@@ -408,18 +417,24 @@ struct AllCardsView: View {
                         ScrollView { StackRows(stacks: stacks(shown), width: ((geo.size.width - 1) / 2).rounded(.down)) }
                     }
                 } else if layout == CardLayout.grid.rawValue {
-                    CardGrid(items: tiles(shown)) { c, width in
+                    SectionedCardGrid(sections: CardGroup.sections(shown, by: grouping, keys: keys).map { s in
+                        (key: "\(s.key)|\(sort)|\(printings.all)", title: grouping == .none ? nil : "\(grouping.label(s.key)) · \(s.cards.reduce(0) { $0 + $1.qty })",
+                         items: tiles(s.cards))
+                    }) { c, width in
                         Button(action: c.open) {
                             CardTile(printing: c.printing, name: c.name, qty: c.qty, width: width, finish: c.finish, hero: c.hero)
                         }.buttonStyle(.plain)
                     }
                 } else {
                     HairlineList {
-                        ForEach(shown) { g in
-                            CardGroupRows(group: g, detail: detail(g), hero: heroes.isHero(g.id, .collection), open: printings.open(g.id),
-                                          partDetail: { PriceBook.text(prices.usd($0.cardId, $0.finish)) },
-                                          toggle: { printings.toggle(g.id) },
-                                          tap: { _ in if g.known { path.append(.card(g.id)) } })
+                        ForEach(CardGroup.sections(shown, by: grouping, keys: keys), id: \.key) { s in
+                            if grouping != .none { Section1("\(grouping.label(s.key)) · \(s.cards.reduce(0) { $0 + $1.qty })").id("h|\(s.key)") }
+                            ForEach(s.cards) { g in
+                                CardGroupRows(group: g, detail: detail(g), hero: heroes.isHero(g.id, .collection), open: printings.open(g.id),
+                                              partDetail: { PriceBook.text(prices.usd($0.cardId, $0.finish)) },
+                                              toggle: { printings.toggle(g.id) },
+                                              tap: { _ in if g.known { path.append(.card(g.id)) } })
+                            }
                         }
                     }
                 }
@@ -431,7 +446,10 @@ struct AllCardsView: View {
             catalog.load(userInitiated: true)
             guard let db = catalog.db else { return }
             let items = Array(col.items.values)
-            groups = await Task.detached(priority: .userInitiated) { CardGroup.build(items, db) }.value
+            (groups, keys) = await Task.detached(priority: .userInitiated) { () -> ([CardGroup], [String: GroupKeys]) in
+                let g = CardGroup.build(items, db)
+                return (g, CardGroup.keys(g, db))
+            }.value
             built = true
             await prices.load(items.map(\.cardId))
         }

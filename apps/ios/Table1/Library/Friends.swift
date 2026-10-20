@@ -447,6 +447,34 @@ struct ProfileSection: Hashable, Sendable {
     var id: String?
 }
 
+/// A deck or cube opened from a profile: what Export and Copy to my Library need beyond its cards.
+struct SharedList: Hashable, Sendable {
+    let format: String
+    /// Whose it is; nil on your own profile (no Copy there: your deck screen has Duplicate).
+    var owner: String?
+
+    static func kind(_ section: String) -> CardList.Kind? {
+        section == "deck" ? .deck : section == "cube" ? .cube : nil
+    }
+
+    /// The shared rows as list lines (profile_cards sends no finish, so copies are non-foil), merged per card and board.
+    static func entries(_ rows: [ProfileCard]) -> [CardList.Entry] {
+        var qty: [String: Int] = [:], order: [(String, String)] = []
+        for r in rows {
+            guard let id = r.cardId, r.qty > 0 else { continue }
+            let key = "\(r.board ?? "main")|\(id)"
+            if qty[key] == nil { order.append((id, r.board ?? "main")) }
+            qty[key, default: 0] += r.qty
+        }
+        return order.map { CardList.Entry(cardId: $0.0, board: $0.1, qty: qty["\($0.1)|\($0.0)"]!) }
+    }
+
+    /// The first version's note on a copy, so its history says where it came from.
+    func copyNote(_ name: String) -> String {
+        owner.map { "Copied from \($0)'s \(name)" } ?? "Copied from \(name)"
+    }
+}
+
 /// One row of profile_cards, whatever the section's shape.
 struct ProfileCard: Hashable, Sendable {
     var cardId: String?
@@ -650,9 +678,9 @@ final class FriendsStore {
             #endif
             list = try await supabase.rpc("friends_list").execute().value
             error = nil
-        } catch {
+        } catch where !error.isCancellation {
             self.error = error.localizedDescription
-        }
+        } catch {}
     }
 
     /// Played-with suggestions (empty query) or a search that also finds public profiles.
@@ -776,9 +804,9 @@ final class FriendsStore {
             #endif
             sharing = try await supabase.rpc("sharing_get").execute().value
             error = nil
-        } catch {
+        } catch where !error.isCancellation {
             self.error = error.localizedDescription
-        }
+        } catch {}
     }
 
     func set(_ part: SharePart, _ v: Visibility?) async {
@@ -944,9 +972,9 @@ final class FriendsStore {
         do {
             matches = try await fetchMatches(nil)
             error = nil
-        } catch {
+        } catch where !error.isCancellation {
             self.error = error.localizedDescription
-        }
+        } catch {}
     }
 
     func match(with userId: String) async throws -> TradeMatch? {

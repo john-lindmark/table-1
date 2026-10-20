@@ -289,7 +289,8 @@ enum CardLayout: String, CaseIterable {
 
     /// The bar's "View" menu: the three layouts, the current one checked, then expanding or collapsing every card's
     /// printings when the screen has them.
-    @MainActor static func menu(_ current: Binding<String>, screen: String, printings: Binding<PrintingsDisclosure>? = nil) {
+    @MainActor static func menu(_ current: Binding<String>, screen: String, printings: Binding<PrintingsDisclosure>? = nil,
+                                extra: [T1MenuItem] = []) {
         var items = allCases.map { l in
             T1MenuItem(title: l.title, checked: current.wrappedValue == l.rawValue) {
                 guard current.wrappedValue != l.rawValue else { return }
@@ -305,7 +306,7 @@ enum CardLayout: String, CaseIterable {
                 Telemetry.capture("printings_toggled", ["expanded": !all, "all": true, "screen": screen])
             })
         }
-        T1Overlays.shared.showMenu("View", items)
+        T1Overlays.shared.showMenu("View", items + extra)
     }
 }
 

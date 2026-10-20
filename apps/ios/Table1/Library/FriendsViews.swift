@@ -7,7 +7,7 @@ import SwiftUI
 enum SocialRoute: Hashable {
     case friends
     case profile(String) // user id
-    case profileCards(String, String, String?, String) // user id, section, binder/list id, title
+    case profileCards(String, String, String?, String, SharedList? = nil) // user id, section, binder/list id, title, deck/cube
     case sharing
     case sharingItems(String) // binder / deck / cube
     case matches
@@ -38,8 +38,8 @@ struct SocialDestination: View {
         switch route {
         case .friends: FriendsView(path: $path)
         case .profile(let id): ProfileScreen(userId: id, path: $path)
-        case .profileCards(let id, let kind, let item, let title):
-            ProfileCardsView(userId: id, section: ProfileSection(kind: kind, id: item), title: title, path: $path)
+        case .profileCards(let id, let kind, let item, let title, let list):
+            ProfileCardsView(userId: id, section: ProfileSection(kind: kind, id: item), title: title, list: list, path: $path)
         case .sharing: SharingView(path: $path)
         case .sharingItems(let kind): SharingItemsView(kind: kind)
         case .matches: TradeMatchesView(path: $path)
@@ -220,7 +220,7 @@ struct FriendsView: View {
         busy = id
         Task {
             defer { busy = nil }
-            do { try await work() } catch { store.error = error.localizedDescription }
+            do { try await work() } catch where !error.isCancellation { store.error = error.localizedDescription } catch {}
         }
     }
 
@@ -312,7 +312,7 @@ struct FriendAddPanel: View {
             people = try await store.search(query)
             error = nil
         } catch {
-            self.error = error.localizedDescription
+            if !error.isCancellation { self.error = error.localizedDescription }
             if people == nil { people = [] }
         }
     }
@@ -480,18 +480,22 @@ struct ProfileScreen: View {
         }
         if let l = s.decks, !l.isEmpty {
             Section1("Decks · \(l.count)")
-            ForEach(l) { x in open(x.name, detail: "\(x.format) · \(plural(x.cards, "card"))", kind: "deck", id: x.id) }
+            ForEach(l) { x in open(x.name, detail: "\(x.format) · \(plural(x.cards, "card"))", kind: "deck", id: x.id, list: shared(d, x)) }
         }
         if let l = s.cubes, !l.isEmpty {
             Section1("Cubes · \(l.count)")
-            ForEach(l) { x in open(x.name, detail: plural(x.cards, "card"), kind: "cube", id: x.id) }
+            ForEach(l) { x in open(x.name, detail: plural(x.cards, "card"), kind: "cube", id: x.id, list: shared(d, x)) }
         }
     }
 
-    private func open(_ title: String, detail: String, kind: String, id: String? = nil) -> some View {
+    private func shared(_ d: ProfileData, _ x: ProfileData.ListSummary) -> SharedList {
+        SharedList(format: x.format, owner: d.relation == .me ? nil : d.displayName)
+    }
+
+    private func open(_ title: String, detail: String, kind: String, id: String? = nil, list: SharedList? = nil) -> some View {
         Button {
             Telemetry.capture("profile_section_opened", ["section": kind])
-            path.append(.social(.profileCards(userId, kind, id, title)))
+            path.append(.social(.profileCards(userId, kind, id, title, list)))
         } label: { ListRow(title: title, detail: detail) }
         .buttonStyle(.plain)
     }
@@ -507,9 +511,9 @@ struct ProfileScreen: View {
             data = d
             error = nil
             if d.relation != .me && d.visible { match = try? await store.match(with: userId) }
-        } catch {
+        } catch where !error.isCancellation {
             self.error = FriendsStore.message(error)
-        }
+        } catch {}
     }
 
     private func run(_ work: @escaping () async throws -> Void) {
@@ -521,70 +525,248 @@ struct ProfileScreen: View {
     }
 }
 
-/// The cards behind one shared section: read-only rows; tap opens the card (your own copies of it).
+/// The cards behind one shared section: read-only, in the View you pick (list, grid or stacks, like your own);
+/// tap opens the card (your own copies of it). Decks and cubes group by section and type (cubes by color), like your
+/// own, and add Export and Copy to my Library.
 struct ProfileCardsView: View {
     let userId: String
     let section: ProfileSection
     let title: String
+    /// A deck or cube: Export and Copy to my Library.
+    var list: SharedList?
     @Binding var path: [LibraryRoute]
     @Environment(\.dismiss) private var dismiss
     private var catalog: CatalogStore { CatalogStore.shared }
     @State private var rows: [ProfileCard]?
-    @State private var groups: [(board: String, cards: [CardGroup])] = []
+    /// Binders, all cards, for trade, wants: one group per card.
+    @State private var groups: [CardGroup] = []
+    /// Decks and cubes: one line per card, board and finish.
+    @State private var lines: [ListLine] = []
     @State private var query = ""
     @State private var error: String?
+    @State private var printings = PrintingsDisclosure()
+    @State private var keys: [String: GroupKeys] = [:]
+    @AppStorage("library.shared.layout") private var layout = CardLayout.list.rawValue
+    /// Decks and cubes share Group by with your own; everything else has its own (None to start).
+    @AppStorage("library.deck.grouping") private var deckGrouping = CardGrouping.type.rawValue
+    @AppStorage("library.cube.grouping") private var cubeGrouping = CardGrouping.color.rawValue
+    @AppStorage("library.shared.grouping") private var cardsGrouping = CardGrouping.none.rawValue
+
+    private var kind: CardList.Kind? { SharedList.kind(section.kind) }
+
+    private var groupingBinding: Binding<String> {
+        switch kind { case .deck: $deckGrouping; case .cube: $cubeGrouping; case nil: $cardsGrouping }
+    }
+    private var grouping: CardGrouping {
+        CardGrouping(rawValue: groupingBinding.wrappedValue) ?? (kind == .deck ? .type : kind == .cube ? .color : .none)
+    }
 
     var body: some View {
-        let copies = rows?.reduce(0) { $0 + $1.qty } ?? 0
+        // A deck's count leaves out Considering, like the profile's.
+        let copies = rows?.filter { kind != .deck || $0.board != "maybe" }.reduce(0) { $0 + $1.qty } ?? 0
         T1Screen {
-            Bar(title: title, subtitle: rows == nil ? nil : plural(copies, "card"), back: { dismiss() })
-            CatalogStatusRow(catalog: catalog)
-            T1SearchField(text: $query, prompt: "Name or type")
-            HairlineList {
-                if let error { Notice(error, error: true) }
-                if rows?.isEmpty == true { Notice("Nothing here.") }
-                ForEach(groups, id: \.board) { g in
-                    let shown = query.isEmpty ? g.cards : g.cards.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
-                    if groups.count > 1 && !shown.isEmpty { Section1("\(Self.boardName(g.board)) · \(shown.reduce(0) { $0 + $1.qty })") }
-                    ForEach(shown) { c in
-                        Button { if c.known { path.append(.card(c.id)) } } label: {
-                            CardRow(printing: c.cover, title: c.name, detail: c.type) {
-                                Text("\(c.qty)").font(T1.mono(17)).monospacedDigit()
-                            }
-                        }.buttonStyle(.plain)
-                    }
+            Bar(title: title, subtitle: rows == nil ? nil : plural(copies, "card"), back: { dismiss() }) {
+                BarButton("View") {
+                    CardLayout.menu($layout, screen: "profile_\(section.kind)", printings: $printings, grouping: groupingBinding, list: kind != nil)
                 }
             }
+            CatalogStatusRow(catalog: catalog)
+            T1SearchField(text: $query, prompt: "Name or type")
+            GeometryReader { geo in
+                ScrollView {
+                    LazyVStack(spacing: 1) {
+                        if let error { Notice(error, error: true) }
+                        if rows?.isEmpty == true { Notice("Nothing here.") }
+                        if let list, let kind, let rows, !rows.isEmpty, query.isEmpty { listActions(list, kind, rows) }
+                        if let kind { listBody(kind, width: geo.size.width) } else { cardsBody(width: geo.size.width) }
+                    }
+                }
+                .scrollDismissesKeyboard(.interactively)
+            }
         }
+        .searchUsed(query, screen: "profile_cards")
         .task {
-            do { rows = try await FriendsStore.shared.cards(userId, section) } catch { self.error = FriendsStore.message(error); rows = [] }
+            do { rows = try await FriendsStore.shared.cards(userId, section) } catch { if !error.isCancellation { self.error = FriendsStore.message(error); rows = [] } }
         }
         .task(id: "\(rows?.count ?? -1)-\(catalog.generation)") {
             catalog.load(userInitiated: true)
             guard let rows, let db = catalog.db else { return }
-            groups = await Task.detached(priority: .userInitiated) { Self.build(rows, db) }.value
+            if let kind {
+                let entries = SharedList.entries(rows)
+                lines = await Task.detached(priority: .userInitiated) { ListLine.resolve(entries, kind: kind, db).sorted { $0.name < $1.name } }.value
+            } else {
+                (groups, keys) = await Task.detached(priority: .userInitiated) { () -> ([CardGroup], [String: GroupKeys]) in
+                    let g = Self.build(rows, db)
+                    return (g, CardGroup.keys(g, db))
+                }.value
+            }
         }
     }
 
-    static func boardName(_ b: String) -> String {
-        ["main": "Main", "side": "Sideboard", "commander": "Commander", "maybe": "Considering"][b] ?? "Cards"
+    // MARK: decks and cubes
+
+    @ViewBuilder private func listBody(_ kind: CardList.Kind, width: CGFloat) -> some View {
+        let all = ListLine.regrouped(lines, by: grouping)
+        let shown = query.isEmpty ? all : all.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
+        if shown.isEmpty && !lines.isEmpty { ListRow(title: "No cards match") }
+        ForEach(CardList.boardOrder.filter { b in shown.contains { $0.board == b } }, id: \.self) { board in
+            let inBoard = shown.filter { $0.board == board }
+            BoardHeader(title: Self.boardTitle(board, kind), count: inBoard.reduce(0) { $0 + $1.qty })
+            let types = ListLine.groups(inBoard, by: grouping)
+            if layout == CardLayout.stacks.rawValue {
+                StackRows(stacks: types.map { g in
+                    let inGroup = inBoard.filter { $0.group == g }
+                    return (id: "s|\(board)|\(g)|\(printings.all)", title: Optional("\(grouping.label(g)) · \(inGroup.reduce(0) { $0 + $1.qty })"), cards: tiles(inGroup))
+                }, width: ((width - 1) / 2).rounded(.down)).id("st|\(board)")
+            } else {
+                ForEach(types, id: \.self) { g in
+                    let inGroup = inBoard.filter { $0.group == g }
+                    Section1("\(grouping.label(g)) · \(inGroup.reduce(0) { $0 + $1.qty })").id("h|\(board)|\(g)")
+                    if layout == CardLayout.grid.rawValue {
+                        grid(tiles(inGroup), width: width).id("g|\(board)|\(g)|\(printings.all)")
+                    } else {
+                        ForEach(LineGroup.of(inGroup)) { cg in lineRows(cg) }
+                    }
+                }
+            }
+        }
     }
 
-    /// Groups by board (decks and cubes) and card; wants for any printing show the card's cover printing.
-    nonisolated static func build(_ rows: [ProfileCard], _ db: CatalogDB) -> [(board: String, cards: [CardGroup])] {
-        var items: [String: [CollectionItem]] = [:]
+    /// One card's lines in a section: a row, with its printings under a chevron when there are several.
+    @ViewBuilder private func lineRows(_ cg: LineGroup) -> some View {
+        let open = printings.open(cg.id) && cg.lines.count > 1
+        HStack(spacing: 1) {
+            Button { openCard(cg.lead.oracleId) } label: {
+                CardRow(printing: cg.lead.printing, title: cg.lead.name, detail: cg.lead.type, finish: cg.lead.finish) {
+                    Text("\(cg.qty)").font(T1.mono(17)).monospacedDigit()
+                }
+            }.buttonStyle(.plain)
+            if cg.lines.count > 1 { PrintingsChevron(open: open) { printings.toggle(cg.id) } }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        if open {
+            ForEach(cg.lines) { l in
+                Button { openCard(l.oracleId) } label: {
+                    CardRow(printing: l.printing, title: [l.printing?.setLabel, l.finishLabel].compactMap { $0 }.joined(separator: " · "),
+                            detail: nil, finish: l.finish) {
+                        Text("\(l.qty)").font(T1.mono(15)).monospacedDigit().foregroundStyle(T1.muted)
+                    }
+                    .padding(.leading, 24).background(T1.surface)
+                }.buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func tiles(_ lines: [ListLine]) -> [StackCard] {
+        LineGroup.of(lines).flatMap { cg -> [StackCard] in
+            let open = { openCard(cg.lead.oracleId) }
+            guard printings.all, cg.lines.count > 1 else {
+                return [StackCard(id: cg.id, printing: cg.lead.printing, name: cg.lead.name, qty: cg.qty, finish: cg.lead.finish, open: open)]
+            }
+            return cg.lines.map { l in StackCard(id: l.id, printing: l.printing, name: l.name, qty: l.qty, finish: l.finish, open: open) }
+        }
+    }
+
+    // MARK: binders, all cards, for trade, wants
+
+    @ViewBuilder private func cardsBody(width: CGFloat) -> some View {
+        let shown = query.isEmpty ? groups : groups.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
+        if shown.isEmpty && !groups.isEmpty { ListRow(title: "No cards match") }
+        let sections = CardGroup.sections(shown, by: grouping, keys: keys)
+        if layout == CardLayout.stacks.rawValue {
+            // Grouped: one stack per group; None: stacks of ten.
+            let stacks = sections.flatMap { sec -> [(id: String, title: String?, cards: [StackCard])] in
+                let cards = groupTiles(sec.cards)
+                if grouping != .none {
+                    return [("st|\(sec.key)|\(printings.all)", "\(grouping.label(sec.key)) · \(sec.cards.reduce(0) { $0 + $1.qty })", cards)]
+                }
+                return stride(from: 0, to: cards.count, by: 10).map { i in ("st|\(printings.all)|\(i)", nil, Array(cards[i..<min(i + 10, cards.count)])) }
+            }
+            StackRows(stacks: stacks, width: ((width - 1) / 2).rounded(.down)).id("st|\(grouping.rawValue)")
+        } else {
+            ForEach(sections, id: \.key) { sec in
+                if grouping != .none { Section1("\(grouping.label(sec.key)) · \(sec.cards.reduce(0) { $0 + $1.qty })").id("h|\(sec.key)") }
+                if layout == CardLayout.grid.rawValue {
+                    grid(groupTiles(sec.cards), width: width).id("grid|\(sec.key)|\(printings.all)")
+                } else {
+                    ForEach(sec.cards) { g in
+                        CardGroupRows(group: g, detail: g.type, open: printings.open(g.id), toggle: { printings.toggle(g.id) },
+                                      tap: { _ in if g.known { path.append(.card(g.id)) } })
+                    }
+                }
+            }
+        }
+    }
+
+    private func groupTiles(_ shown: [CardGroup]) -> [StackCard] {
+        shown.flatMap { g -> [StackCard] in
+            let open = { if g.known { path.append(.card(g.id)) } }
+            guard printings.all, g.parts.count > 1 else {
+                return [StackCard(id: g.id, printing: g.cover, name: g.name, qty: g.qty, finish: g.coverFinish, open: open)]
+            }
+            return g.parts.map { p in StackCard(id: "\(g.id)|\(p.id)", printing: p.printing, name: g.name, qty: p.qty, finish: p.finish, open: open) }
+        }
+    }
+
+    private func grid(_ cards: [StackCard], width: CGFloat) -> some View {
+        let w = ((width - 2) / 3).rounded(.down)
+        return LazyVGrid(columns: Array(repeating: GridItem(.fixed(w), spacing: 1), count: 3), spacing: 1) {
+            ForEach(cards) { c in
+                Button(action: c.open) { CardTile(printing: c.printing, name: c.name, qty: c.qty, width: w, finish: c.finish) }.buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func openCard(_ oracleId: String?) {
+        if let oracleId { path.append(.card(oracleId)) }
+    }
+
+    // MARK: export and copy
+
+    /// A deck or cube shared with you: export it like your own, or copy it into your Library as a new list.
+    @ViewBuilder private func listActions(_ list: SharedList, _ kind: CardList.Kind, _ rows: [ProfileCard]) -> some View {
+        let entries = SharedList.entries(rows)
+        Button {
+            T1Overlays.shared.present(full: true) {
+                ListExportPanel(name: title, kind: kind, entries: entries, from: "profile").screen("list_export")
+            }
+        } label: {
+            ListRow(title: "Export", detail: kind == .deck ? "Text, Arena, MTGO, download or copy" : "Text, Cube Cobra, download or copy")
+        }.buttonStyle(.plain)
+        if kind == .deck {
+            Button {
+                T1Overlays.shared.present(full: true) {
+                    DeckImagePanel(name: title, format: list.format, entries: entries, owner: list.owner, from: "profile").screen("deck_image")
+                }
+            } label: {
+                ListRow(title: "Deck image", detail: "The cards as a picture, to save or share")
+            }.buttonStyle(.plain)
+        }
+        if list.owner != nil {
+            Button {
+                let copy = ListsStore.shared.create(kind: kind, name: title, format: list.format, entries: entries,
+                                                    note: list.copyNote(title), from: "profile")
+                path.append(.list(copy.id))
+            } label: {
+                ListRow(title: "Copy to my Library", detail: kind == .deck ? "A new private deck with these cards" : "A new cube with these cards")
+            }.buttonStyle(.plain)
+        }
+    }
+
+    static func boardTitle(_ b: String, _ kind: CardList.Kind) -> String {
+        ["commander": "Commander", "main": kind == .deck ? "Main deck" : "Main", "side": "Sideboard", "maybe": "Considering"][b] ?? "Cards"
+    }
+
+    /// Groups by card; wants for any printing show the card's cover printing.
+    nonisolated static func build(_ rows: [ProfileCard], _ db: CatalogDB) -> [CardGroup] {
         let oracles = rows.filter { $0.cardId == nil }.compactMap(\.oracleId).compactMap { db.oracle(id: $0) }
         let covers = db.covers(oracleIdxs: oracles.map(\.idx))
         let coverOf = Dictionary(oracles.map { ($0.oracleId, covers[$0.idx]?.cardId) }, uniquingKeysWith: { a, _ in a })
-        for r in rows {
-            guard let card = r.cardId ?? r.oracleId.flatMap({ coverOf[$0] ?? nil }) else { continue }
-            items[r.board ?? "", default: []].append(CollectionItem(cardId: card, finish: r.finish ?? "nonfoil", condition: r.condition ?? "NM",
-                                                                      lang: r.lang ?? "en", qty: r.qty, seq: 0))
+        let items = rows.compactMap { r -> CollectionItem? in
+            guard let card = r.cardId ?? r.oracleId.flatMap({ coverOf[$0] ?? nil }) else { return nil }
+            return CollectionItem(cardId: card, finish: r.finish ?? "nonfoil", condition: r.condition ?? "NM", lang: r.lang ?? "en", qty: r.qty, seq: 0)
         }
-        let order = ["commander", "main", "", "side", "maybe"]
-        return items.keys.sorted { (order.firstIndex(of: $0) ?? 9) < (order.firstIndex(of: $1) ?? 9) }.map { b in
-            (b, CardGroup.build(items[b]!, db).sorted { $0.norm < $1.norm })
-        }
+        return CardGroup.build(items, db).sorted { $0.norm < $1.norm }
     }
 }
 
@@ -845,7 +1027,7 @@ struct TradeMatchView: View {
         }
         .task {
             match = store.matches?.first { $0.userId == userId }
-            do { match = try await store.match(with: userId) } catch { self.error = error.localizedDescription }
+            do { match = try await store.match(with: userId) } catch where !error.isCancellation { self.error = error.localizedDescription } catch {}
             loaded = true
         }
         .task(id: "\(match?.haveCopies ?? -1)-\(match?.wantCopies ?? -1)-\(catalog.generation)") {

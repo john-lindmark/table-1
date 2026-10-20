@@ -188,6 +188,9 @@ struct BinderView: View {
     @State private var confirmDelete = false
     @State private var printings = PrintingsDisclosure()
     @AppStorage("library.binder.layout") private var layout = CardLayout.list.rawValue
+    @AppStorage("library.binder.grouping") private var groupingRaw = CardGrouping.none.rawValue
+    @State private var keys: [String: GroupKeys] = [:]
+    private var grouping: CardGrouping { CardGrouping(rawValue: groupingRaw) ?? .none }
 
     private var binder: Binder? { store.binder(binderId) }
     private var unsorted: Bool { binderId == BinderRoute.unsorted }
@@ -201,7 +204,7 @@ struct BinderView: View {
                 back: { dismiss() }) {
                 HStack(spacing: 20) {
                     if let binder { BarButton("Edit") { menu(binder) } }
-                    BarButton("View") { CardLayout.menu($layout, screen: "binder", printings: $printings) }
+                    BarButton("View") { CardLayout.menu($layout, screen: "binder", printings: $printings, grouping: $groupingRaw, list: false) }
                 }
             }
             if !unsorted && binder == nil { Notice("This binder was deleted.") }
@@ -223,28 +226,40 @@ struct BinderView: View {
                         if groups.isEmpty && catalog.phase == .ready {
                             Notice(unsorted ? "Every copy is in a binder." : "No cards here yet. Add cards moves in copies you own or adds new ones; trades and imports can fill it too.")
                         }
-                        if layout == CardLayout.grid.rawValue {
-                            let width = ((geo.size.width - 2) / 3).rounded(.down)
-                            LazyVGrid(columns: Array(repeating: GridItem(.fixed(width), spacing: 1), count: 3), spacing: 1) {
-                                ForEach(tiles(shown)) { c in
-                                    Button(action: c.open) {
-                                        CardTile(printing: c.printing, name: c.name, qty: c.qty, width: width, finish: c.finish, hero: c.hero)
-                                    }.buttonStyle(.plain)
+                        let sections = CardGroup.sections(shown, by: grouping, keys: keys)
+                        if layout == CardLayout.stacks.rawValue {
+                            // Grouped: one stack per group; None: stacks of ten.
+                            StackRows(stacks: sections.flatMap { sec -> [(id: String, title: String?, cards: [StackCard])] in
+                                let cards = tiles(sec.cards)
+                                if grouping != .none {
+                                    return [("st|\(sec.key)|\(printings.all)", "\(grouping.label(sec.key)) · \(sec.cards.reduce(0) { $0 + $1.qty })", cards)]
                                 }
-                            }
-                            .id("grid|\(printings.all)")
-                        } else if layout == CardLayout.stacks.rawValue {
-                            let cards = tiles(shown)
-                            StackRows(stacks: stride(from: 0, to: cards.count, by: 10).map { i in
-                                ("st|\(printings.all)|\(i)", nil, Array(cards[i..<min(i + 10, cards.count)]))
-                            }, width: ((geo.size.width - 1) / 2).rounded(.down))
+                                return stride(from: 0, to: cards.count, by: 10).map { i in
+                                    ("st|\(printings.all)|\(i)", nil, Array(cards[i..<min(i + 10, cards.count)]))
+                                }
+                            }, width: ((geo.size.width - 1) / 2).rounded(.down)).id("st|\(grouping.rawValue)")
                         } else {
-                            ForEach(shown) { g in
-                                CardGroupRows(group: g, detail: "\(g.printings) printing\(g.printings == 1 ? "" : "s") · \(g.type)",
-                                              hero: isHero(g), open: printings.open(g.id),
-                                              partDetail: { PriceBook.text(PriceBook.shared.usd($0.cardId, $0.finish)) },
-                                              toggle: { printings.toggle(g.id) },
-                                              tap: { _ in open(g) })
+                            ForEach(sections, id: \.key) { sec in
+                                if grouping != .none { Section1("\(grouping.label(sec.key)) · \(sec.cards.reduce(0) { $0 + $1.qty })").id("h|\(sec.key)") }
+                                if layout == CardLayout.grid.rawValue {
+                                    let width = ((geo.size.width - 2) / 3).rounded(.down)
+                                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(width), spacing: 1), count: 3), spacing: 1) {
+                                        ForEach(tiles(sec.cards)) { c in
+                                            Button(action: c.open) {
+                                                CardTile(printing: c.printing, name: c.name, qty: c.qty, width: width, finish: c.finish, hero: c.hero)
+                                            }.buttonStyle(.plain)
+                                        }
+                                    }
+                                    .id("grid|\(sec.key)|\(printings.all)")
+                                } else {
+                                    ForEach(sec.cards) { g in
+                                        CardGroupRows(group: g, detail: "\(g.printings) printing\(g.printings == 1 ? "" : "s") · \(g.type)",
+                                                      hero: isHero(g), open: printings.open(g.id),
+                                                      partDetail: { PriceBook.text(PriceBook.shared.usd($0.cardId, $0.finish)) },
+                                                      toggle: { printings.toggle(g.id) },
+                                                      tap: { _ in open(g) })
+                                    }
+                                }
                             }
                         }
                     }
@@ -267,7 +282,10 @@ struct BinderView: View {
             catalog.load(userInitiated: true)
             guard let db = catalog.db else { return }
             let items = rows.map { r in CollectionItem(cardId: r.item.cardId, finish: r.item.finish, condition: r.item.condition, lang: r.item.lang, qty: r.qty, seq: r.item.seq) }
-            groups = await Task.detached(priority: .userInitiated) { CardGroup.build(items, db).sorted { $0.qty != $1.qty ? $0.qty > $1.qty : $0.norm < $1.norm } }.value
+            (groups, keys) = await Task.detached(priority: .userInitiated) { () -> ([CardGroup], [String: GroupKeys]) in
+                let g = CardGroup.build(items, db).sorted { $0.qty != $1.qty ? $0.qty > $1.qty : $0.norm < $1.norm }
+                return (g, CardGroup.keys(g, db))
+            }.value
             await PriceBook.shared.load(items.map(\.cardId))
         }
     }

@@ -279,4 +279,40 @@ final class FriendsTests: XCTestCase {
         XCTAssertNil(theirs.valueUsd)
         XCTAssertNil(try profile("friend", #"{"cards":10,"printings":8,"value_usd":42.5}"#).valueUsd)
     }
+
+    /// A Friends screen whose load was cancelled (a tapped push re-routing) showed "Swift.CancellationError error 1".
+    func testCancellationIsNotAnError() {
+        XCTAssertTrue(CancellationError().isCancellation)
+        XCTAssertTrue(URLError(.cancelled).isCancellation)
+        XCTAssertTrue(NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled).isCancellation)
+        XCTAssertFalse(URLError(.timedOut).isCancellation)
+        XCTAssertFalse(NSError(domain: "x", code: 1).isCancellation)
+    }
+
+    @MainActor
+    func testCancelledLoadLeavesNoError() async {
+        let store = FriendsStore.shared
+        store.stop()
+        let task = Task { @MainActor in await store.load() }
+        task.cancel()
+        await task.value
+        XCTAssertNil(store.error)
+    }
+
+    /// A deck or cube shared on a profile copies as non-foil lines, one per card and board.
+    func testSharedListEntries() {
+        let rows = [
+            ProfileCard(cardId: "a", board: "main", qty: 2), ProfileCard(cardId: "b", board: "side", qty: 1),
+            ProfileCard(cardId: "a", board: "main", qty: 1), ProfileCard(cardId: "a", board: "side", qty: 1),
+            ProfileCard(oracleId: "o", board: "main", qty: 1), ProfileCard(cardId: "c", board: nil, qty: 0),
+        ]
+        XCTAssertEqual(SharedList.entries(rows), [
+            CardList.Entry(cardId: "a", board: "main", qty: 3), CardList.Entry(cardId: "b", board: "side", qty: 1),
+            CardList.Entry(cardId: "a", board: "side", qty: 1),
+        ])
+        XCTAssertEqual(SharedList.kind("deck"), .deck)
+        XCTAssertEqual(SharedList.kind("cube"), .cube)
+        XCTAssertNil(SharedList.kind("binder"))
+        XCTAssertEqual(SharedList(format: "modern", owner: "Mara").copyNote("Izzet"), "Copied from Mara's Izzet")
+    }
 }
