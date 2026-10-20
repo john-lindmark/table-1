@@ -252,8 +252,11 @@ struct AccountView: View {
             do {
                 try await SignIn.deleteAccount()   // session ends; RootView switches to sign-in
             } catch {
-                self.error = (error as? ASAuthorizationError)?.code == .canceled
-                    ? nil : "Couldn't delete the account: \(error.localizedDescription)"
+                switch SignIn.Failure(error) {
+                case .cancelled: self.error = nil
+                case .appleUnavailable: self.error = "Apple didn't confirm it's you. Check you're signed in to your Apple Account in Settings and try again."
+                case .failed: self.error = "Couldn't delete the account: \(error.localizedDescription)"
+                }
                 deleting = false
             }
         }

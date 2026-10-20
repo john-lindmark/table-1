@@ -43,11 +43,7 @@ struct SignInView: View {
             SignIn.prepare(request)
         } onCompletion: { result in
             Task {
-                do { try await SignIn.complete(result) } catch {
-                    let cancelled = (error as? ASAuthorizationError)?.code == .canceled
-                    Telemetry.capture("sign_in_failed", ["method": "apple", "reason": cancelled ? "cancelled" : "error"])
-                    if !cancelled { self.error = "Sign-in failed. Try again."; Telemetry.error(error, "sign_in") }
-                }
+                do { try await SignIn.complete(result) } catch { failed(error, method: "apple") }
             }
         }
         .signInWithAppleButtonStyle(.white)
@@ -58,12 +54,7 @@ struct SignInView: View {
                 busy = true
                 Task {
                     defer { busy = false }
-                    do { try await SignIn.google() } catch {
-                        // GIDSignInError.canceled is -5.
-                        let cancelled = (error as NSError).domain == "com.google.GIDSignIn" && (error as NSError).code == -5
-                        Telemetry.capture("sign_in_failed", ["method": "google", "reason": cancelled ? "cancelled" : "error"])
-                        if !cancelled { self.error = "Sign-in failed. Try again."; Telemetry.error(error, "sign_in") }
-                    }
+                    do { try await SignIn.google() } catch { failed(error, method: "google") }
                 }
             }
         }
@@ -119,6 +110,14 @@ struct SignInView: View {
         session.emailLinkError = nil
         step = next
         focused = next != .providers
+    }
+
+    /// Apple or Google ended without signing in: say so unless it was a cancel; report only real failures.
+    private func failed(_ error: Error, method: String) {
+        let failure = SignIn.Failure(error)
+        Telemetry.capture("sign_in_failed", ["method": method, "reason": failure.reason])
+        if let message = failure.message { self.error = message }
+        if failure == .failed { Telemetry.error(error, "sign_in") }
     }
 
     private func send() {

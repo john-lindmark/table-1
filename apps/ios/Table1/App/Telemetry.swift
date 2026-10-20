@@ -20,8 +20,15 @@ enum Telemetry {
     static var sharing: Bool { !UserDefaults.standard.bool(forKey: optOutKey) }
 
     private static var allowedInBuild: Bool {
+        allowed(arguments: ProcessInfo.processInfo.arguments, environment: ProcessInfo.processInfo.environment)
+    }
+
+    /// Never while XCTest hosts the app: a unit-test run on a phone sent a slow test to Sentry as a fatal
+    /// app hang (TABLE-1-IOS-1, 2026-10-16).
+    static func allowed(arguments: [String], environment: [String: String]) -> Bool {
+        if environment["XCTestConfigurationFilePath"] != nil || environment["XCTestSessionIdentifier"] != nil { return false }
         #if DEBUG
-        return ProcessInfo.processInfo.arguments.contains("-T1Telemetry")
+        return arguments.contains("-T1Telemetry")
         #else
         return true
         #endif

@@ -184,6 +184,47 @@ enum SignIn {
 
     // MARK: helpers
 
+    /// How a sign-in sheet ended without signing in. Only `.failed` is a bug worth a Sentry report.
+    enum Failure: Equatable {
+        case cancelled
+        /// Apple's sheet gave up on this device (ASAuthorizationError 1000 unknown, 1005 not interactive):
+        /// no Apple Account signed in, Screen Time limits, or the sheet dismissed in a way Apple doesn't
+        /// call a cancel. Nothing the app can fix, so it's counted, not reported (TABLE-1-IOS-3, 2026-10-20).
+        case appleUnavailable
+        case failed
+
+        init(_ error: Error) {
+            if let apple = error as? ASAuthorizationError {
+                switch apple.code {
+                case .canceled: self = .cancelled
+                case .unknown, .notInteractive: self = .appleUnavailable
+                default: self = .failed
+                }
+                return
+            }
+            // GIDSignInError.canceled is -5.
+            let ns = error as NSError
+            self = ns.domain == "com.google.GIDSignIn" && ns.code == -5 ? .cancelled : .failed
+        }
+
+        var reason: String {
+            switch self {
+            case .cancelled: "cancelled"
+            case .appleUnavailable: "apple_unavailable"
+            case .failed: "error"
+            }
+        }
+
+        /// What the sign-in screen says; nil for a cancel.
+        var message: String? {
+            switch self {
+            case .cancelled: nil
+            case .appleUnavailable: "Sign in with Apple didn't finish. Check you're signed in to your Apple Account in Settings, or continue with email."
+            case .failed: "Sign-in failed. Try again."
+            }
+        }
+    }
+
     enum SignInError: LocalizedError {
         case missingToken, noWindow
         var errorDescription: String? {
