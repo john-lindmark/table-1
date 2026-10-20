@@ -64,6 +64,12 @@ data class CatalogPrinting(
     /** Finishes this printing comes in: non-foil, foil, etched (in that order). */
     val finishList: List<Finish> get() = finishes.mapNotNull { l -> CatalogPack.FINISH_NAME[l]?.let { Finish.of(it) } }.sortedBy { it.ordinal }
     fun imageUrl(size: String = "normal") = if (imageFaces == 0) null else CatalogPack.imageUrl(cardId, imageTs, size)
+
+    companion object {
+        /** Card detail lists printings by release, earliest first (the pack's order is newest first, so on the same day
+         *  the later pack position is the older printing). */
+        val oldestFirst: Comparator<CatalogPrinting> = compareBy<CatalogPrinting> { it.releasedAt }.thenByDescending { it.ord }
+    }
 }
 
 /** One installed pack. Read-only after it's built; Android's SQLiteDatabase serializes access itself. */
@@ -71,6 +77,17 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog, ImportC
     private val db = SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY)
 
     fun close() = db.close()
+
+    /** Every card and every printing, read once for advanced search (CardQuery) and kept while the pack is open. */
+    @Volatile private var oracleCache: List<CatalogOracle>? = null
+    @Volatile private var printingCache: List<CatalogPrinting>? = null
+
+    @Synchronized fun allOracles(): List<CatalogOracle> =
+        oracleCache ?: query("SELECT $ORACLE_COLS FROM oracles", emptyArray(), ::oracle).also { oracleCache = it }
+
+    /** In pack order (newest first within a card). */
+    @Synchronized fun allPrintings(): List<CatalogPrinting> =
+        printingCache ?: query("SELECT $PRINTING_COLS FROM printings ORDER BY ord", emptyArray(), ::printing).also { printingCache = it }
 
     private inline fun <T> query(sql: String, args: Array<String>, map: (Cursor) -> T): List<T> = runCatching {
         db.rawQuery(sql, args).use { c -> buildList { while (c.moveToNext()) add(map(c)) } }

@@ -57,6 +57,14 @@ import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Segmented
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import site.table1.events.ui.theme.T1
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -83,6 +91,8 @@ data class ScannedCard(
     val matched: Matched? = null,
     /** The user changed the printing: it's theirs, not a guess. */
     val fixed: Boolean = false,
+    /** The language the copy goes in as: its printing's when that isn't English, else the one picked for adds. */
+    val lang: String = "en",
 ) {
     data class Matched(val cardId: String, val exact: Boolean)
 }
@@ -123,6 +133,8 @@ fun CardScanOverlay(
     var taken by remember { mutableStateOf(0) }
     /** The row whose printing is being changed; the camera is off meanwhile, so nothing is taken behind it. */
     var fixing by remember { mutableStateOf<String?>(null) }
+    /** The row whose language is being changed; the camera is off meanwhile, like `fixing`. */
+    var languageFor by remember { mutableStateOf<String?>(null) }
     val cancel = {
         ScanReports.scannerClosed(taken, frames, owned != null)
         onCancel()
@@ -139,18 +151,28 @@ fun CardScanOverlay(
         taken++
         cards.add(0, ScannedCard(oracle = o, printing = take.first, finish = m.defaultFinish(take.first),
             condition = if (owned == null) condition else "NM", exact = take.second,
-            frames = frames.frames.toList(), matched = ScannedCard.Matched(take.first.cardId, take.second)))
+            frames = frames.frames.toList(), matched = ScannedCard.Matched(take.first.cardId, take.second),
+            lang = Languages.forNew(take.first.lang, Languages.addLang)))
         return true
     }
 
     Dialog(onDismissRequest = cancel, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         val fix = fixing?.let { id -> cards.firstOrNull { it.id == id } }
-        if (fix != null) {
+        val langCard = languageFor?.let { id -> cards.firstOrNull { it.id == id } }
+        if (langCard != null) {
+            // The camera is off while the picker is open, like `fixing`, so nothing is taken behind it.
+            val close = { languageFor = null; steady = ScanSteadiness(); frames.clear() }
+            Box(Modifier.fillMaxSize().background(T1.bg))
+            LanguagePicker(langCard.lang, langCard.oracle.name, onClose = close) { lang ->
+                val at = cards.indexOfFirst { it.id == langCard.id }
+                if (at >= 0) cards[at] = langCard.copy(lang = lang)
+            }
+        } else if (fix != null) {
             val close = { fixing = null; steady = ScanSteadiness(); frames.clear() }
             ScanPrintingScreen(fix, owned, onPick = { p ->
                 ScanReports.printingChanged(fix, p.cardId, owned != null)
                 val at = cards.indexOfFirst { it.id == fix.id }
-                if (at >= 0) cards[at] = fix.copy(printing = p, fixed = true,
+                if (at >= 0) cards[at] = fix.copy(printing = p, fixed = true, lang = if (p.lang != "en") p.lang else fix.lang,
                     finish = if (p.finishList.any { it.wire == fix.finish }) fix.finish else matcher?.defaultFinish(p) ?: fix.finish)
                 close()
             }, onClose = close)
@@ -164,6 +186,7 @@ fun CardScanOverlay(
                     cat.phase != "ready" -> CatalogStatus(cat)
                     else -> Box(Modifier.fillMaxWidth().height(300.dp)) {
                         CameraText { see(it) }
+                        ScanGuide(reading != null)
                         reading?.let { Label(it, Modifier.align(Alignment.BottomStart).background(T1.bg).padding(8.dp), color = T1.text) }
                     }
                 }
@@ -180,8 +203,9 @@ fun CardScanOverlay(
                             Box(Modifier.weight(1f)) {
                                 // Tap the card to change its printing (a misread set code or collector number).
                                 CardRow(c.printing, c.oracle.name, listOfNotNull(c.printing.setLabel, Finish.of(c.finish)?.label,
-                                    if (owned == null) c.condition else null, if (c.exact || c.fixed) null else "Check printing").joinToString(" · "),
-                                    onClick = { fixing = c.id }) {
+                                    if (owned == null) c.condition else null, if (owned == null && c.lang != "en") c.lang.uppercase() else null,
+                                    if (c.exact || c.fixed) null else "Check printing").joinToString(" · "),
+                                    onClick = { fixing = c.id }, finish = c.finish) {
                                     Label("Printing", color = if (c.exact || c.fixed) T1.muted else T1.text)
                                 }
                             }
@@ -195,6 +219,13 @@ fun CardScanOverlay(
                                 }.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
                                     Label(Finish.of(c.finish)?.label ?: c.finish, color = T1.text)
                                 }
+                            }
+                            // The language: the card's own when the scanner read a non-English printing, else the add default.
+                            // Owned-only scans (giving in a trade) keep the owned copy's language.
+                            if (owned == null) Box(Modifier.fillMaxHeight().background(T1.surfaceHover).clickable { languageFor = c.id }
+                                .semantics { contentDescription = "Language, ${Languages.name(c.lang)}" }
+                                .padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+                                Label(c.lang.uppercase(), color = T1.text)
                             }
                             Box(Modifier.width(52.dp).fillMaxHeight().background(T1.surfaceHover).clickable {
                                 ScanReports.removed(c, owned != null)
@@ -222,9 +253,26 @@ fun CardScanOverlay(
  * after a run of misses. One recognizer per frame; the CJK ones are made (and their models fetched by Play
  * services) only the first time they're needed.
  */
+/** Space kept above and below the guide box when the camera view's height limits it. */
+private val GUIDE_MARGIN = 24.dp
+
+/** What to point at: the card-sized box the scanner reads inside (ScanRegion); accent while a name is being read. */
+@Composable
+private fun ScanGuide(reading: Boolean) {
+    val margin = with(LocalDensity.current) { GUIDE_MARGIN.toPx() }
+    Canvas(Modifier.fillMaxSize()) {
+        val b = ScanRegion.viewBox(size.width, size.height, margin)
+        drawRect(if (reading) T1.accent else T1.text.copy(alpha = 0.7f), topLeft = Offset(b.x, b.y), size = Size(b.w, b.h),
+            style = Stroke(width = 1.dp.toPx()))
+    }
+}
+
 @Composable
 private fun CameraText(onLines: (List<String>) -> Boolean) {
     val context = LocalContext.current
+    /** The preview's size in px (main thread writes it), to place the guide box in the image. */
+    val viewSize = remember { java.util.concurrent.atomic.AtomicReference(0f to 0f) }
+    val margin = with(LocalDensity.current) { GUIDE_MARGIN.toPx() }
     val owner = LocalLifecycleOwner.current
     val callback = remember { mutableStateOf(onLines) }
     callback.value = onLines
@@ -265,7 +313,16 @@ private fun CameraText(onLines: (List<String>) -> Boolean) {
                 if (media == null) { proxy.close(); return@setAnalyzer }
                 recognizer(reading.get()).process(InputImage.fromMediaImage(media, proxy.imageInfo.rotationDegrees))
                     .addOnSuccessListener { text ->
-                        val lines = text.textBlocks.flatMap { it.lines }.sortedBy { it.boundingBox?.top ?: 0 }.map { it.text }
+                        // Only the text inside the guide box: a keyboard, a screen or another card beside it can't name a
+                        // card. ML Kit finds no card rectangle on Android, so this is the "no card found" rule.
+                        val upright = proxy.imageInfo.rotationDegrees % 180 != 0
+                        val iw = (if (upright) proxy.height else proxy.width).toFloat()
+                        val ih = (if (upright) proxy.width else proxy.height).toFloat()
+                        val (vw, vh) = viewSize.get()
+                        val guide = if (vw > 0 && vh > 0) ScanRegion.normalized(ScanRegion.viewBox(vw, vh, margin), vw, vh, iw, ih) else null
+                        val lines = text.textBlocks.flatMap { it.lines }
+                            .filter { l -> l.boundingBox?.let { b -> ScanRegion.readsText(guide, b.exactCenterX() / iw, b.exactCenterY() / ih) } ?: false }
+                            .sortedBy { it.boundingBox?.top ?: 0 }.map { it.text }
                         ContextCompat.getMainExecutor(context).execute { fed(lines) }
                     }
                     // A CJK model still downloading (Play services fetches it on first use) fails: a miss, so the next
@@ -279,7 +336,7 @@ private fun CameraText(onLines: (List<String>) -> Boolean) {
             }
         }, ContextCompat.getMainExecutor(ctx))
         view
-    }, modifier = Modifier.fillMaxSize(), onRelease = {
+    }, modifier = Modifier.fillMaxSize().onSizeChanged { viewSize.set(it.width.toFloat() to it.height.toFloat()) }, onRelease = {
         runCatching { ProcessCameraProvider.getInstance(context).get().unbindAll() }
     })
 }

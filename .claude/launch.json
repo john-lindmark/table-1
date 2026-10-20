@@ -135,6 +135,21 @@
         "--strictPort"
       ],
       "port": 5203
+    },
+    {
+      "name": "web-library-polish",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "table-1-events-web",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5211",
+        "--strictPort"
+      ],
+      "port": 5211
     }
   ]
 }

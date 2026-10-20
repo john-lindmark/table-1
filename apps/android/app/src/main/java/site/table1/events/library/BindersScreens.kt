@@ -25,6 +25,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -118,6 +121,17 @@ fun BindersScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onCard: (String)
     }
     LaunchedEffect(Unit) { Telemetry.screen("binders") }
     LaunchedEffect(col.version) { PriceBook.load(col.items.values.map { it.cardId }.toSet()) }
+    val heroes by HeroesStore.state.collectAsState()
+    /** Each binder's hero cards, as the printings it holds. */
+    var heroArt by remember { mutableStateOf<Map<String, List<CatalogPrinting>>>(emptyMap()) }
+    LaunchedEffect(heroes, cat.generation, b.version, col.version) {
+        val db = CatalogStore.db ?: return@LaunchedEffect
+        val wanted = b.binders.mapNotNull { x ->
+            val h = heroes.heroes(HeroScope.InBinder(x.id))
+            if (h.isEmpty()) null else Triple(x.id, h, b.itemsIn(x.id, col.items).sortedByDescending { it.qty }.map { it.cardId })
+        }
+        heroArt = withContext(Dispatchers.Default) { wanted.associate { (id, h, held) -> id to HeroArt.printings(h, held, db) } }
+    }
     val (by, unsorted) = remember(col.version, b.version) { b.totals(col.items) }
     T1Screen {
         Bar("Binders", subtitle = "${b.binders.size} · ${b.binders.count { it.forTrade }} for trade", onBack = onBack)
@@ -140,7 +154,7 @@ fun BindersScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onCard: (String)
             }
             items(b.binders, key = { it.id }) { x ->
                 val v = remember(col.version, b.version, pricesVersion) { value(b.itemsIn(x.id, col.items)) }
-                ListRow(x.name, listOfNotNull(if (x.forTrade) "For trade" else null, PriceBook.text(v)).joinToString(" · ").ifEmpty { null },
+                HeroListRow(heroArt[x.id] ?: emptyList(), x.name, listOfNotNull(if (x.forTrade) "For trade" else null, PriceBook.text(v)).joinToString(" · ").ifEmpty { null },
                     onClick = { onOpen(x.id) }) {
                     Text(count(by[x.id] ?: 0), color = if (x.forTrade) T1.accent else T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                 }
@@ -205,6 +219,11 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
     var askDelete by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    val printingsState = remember { mutableStateOf(PrintingsDisclosure()) }
+    var printings by printingsState
+    val layout = rememberCardLayout("binder.layout", "binder.grid")
+    var viewMenu by remember { mutableStateOf(false) }
+    val heroes by HeroesStore.state.collectAsState()
     SearchUsed(query, "binder")
     val items = remember(col.version, b.version, id) { b.itemsIn(if (unsorted) null else id, col.items) }
     LaunchedEffect(Unit) {
@@ -221,7 +240,10 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
     T1Screen {
         Bar(if (unsorted) "Unsorted" else binder?.name ?: "Binder",
             subtitle = listOfNotNull("${count(copies)} cards", if (binder?.forTrade == true) "For trade" else null, PriceBook.text(v)).joinToString(" · "),
-            onBack = onBack) { if (binder != null) BarAction("Edit") { menu = true } }
+            onBack = onBack) {
+            BarAction("View") { viewMenu = true }
+            if (binder != null) BarAction("Edit") { menu = true }
+        }
         if (!unsorted && binder == null) Notice("This binder was deleted.")
         (error ?: b.error)?.let { Notice(it, error = true) }
         CatalogStatus(cat)
@@ -229,21 +251,47 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
             T1TextField(query, { query = it }, placeholder = "Name or type")
         }
         val shown = if (CardName.norm(query).isEmpty()) groups else groups.filter { CardSearch.matches(query, it.name, it.type) }
-        Hairlines(Modifier.weight(1f)) {
-            if (unsorted || binder != null) item {
-                ListRow("Add cards", if (unsorted) "New copies, or copies out of a binder" else "Move in copies you own, or add new ones", onClick = { adding = true })
-            }
-            if (shown.isEmpty() && groups.isNotEmpty()) item { ListRow("No cards match") }
-            if (groups.isEmpty() && cat.phase == "ready") item {
-                Notice(if (unsorted) "Every copy is in a binder." else "No cards here yet. Add cards moves in copies you own or adds new ones; trades and imports can fill it too.")
-            }
-            items(shown, key = { it.id }) { g ->
-                CardRow(g.cover, g.name, "${g.printings} printing${if (g.printings == 1) "" else "s"} · ${g.type}", onClick = { if (g.known) onCard(g.id) }) {
-                    Text("${g.qty}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
+        // Add cards and the empty notes stay at the top in every view.
+        val top: @Composable () -> Unit = {
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                if (unsorted || binder != null) {
+                    ListRow("Add cards", if (unsorted) "New copies, or copies out of a binder" else "Move in copies you own, or add new ones", onClick = { adding = true })
+                }
+                if (shown.isEmpty() && groups.isNotEmpty()) ListRow("No cards match")
+                if (groups.isEmpty() && cat.phase == "ready") {
+                    Notice(if (unsorted) "Every copy is in a binder." else "No cards here yet. Add cards moves in copies you own or adds new ones; trades and imports can fill it too.")
                 }
             }
         }
+        val tiles = groupTiles(shown, printings.all, { !unsorted && heroes.isHero(it.id, HeroScope.InBinder(id)) }) { if (it.known) onCard(it.id) }
+        if (layout.value == CardLayout.Grid) {
+            CardGrid(Modifier.weight(1f)) { tile ->
+                gridHeader("top") { top() }
+                gridItems(tiles, key = { "t-${it.key}" }) { t -> CardTile(t.printing, t.qty, tile, onClick = t.onClick, finish = t.finish, hero = t.hero) }
+            }
+        } else if (layout.value == CardLayout.Stacks) {
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                val (cols, width) = stackColumns(maxWidth)
+                val stacks = runStacks(tiles, false, { "" }, "st|${printings.all}|").map { (key, title, run) -> CardStackSpec(key, title, run) }
+                LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    item(key = "top") { top() }
+                    stackRows("binder", stacks, cols, width)
+                }
+            }
+        } else Hairlines(Modifier.weight(1f)) {
+            item(key = "top") { top() }
+            for (g in shown) {
+                val open = printings.open(g.id)
+                cardGroupRows(g, "${g.printings} printing${if (g.printings == 1) "" else "s"} · ${g.type}",
+                    !unsorted && heroes.isHero(g.id, HeroScope.InBinder(id)), open,
+                    toggle = {
+                        printings = printings.toggle(g.id)
+                        Telemetry.capture("printings_toggled", mapOf("expanded" to !open, "all" to false, "screen" to "binder"))
+                    }) { if (g.known) onCard(g.id) }
+            }
+        }
     }
+    if (viewMenu) CardLayoutMenu(layout, "binder", printingsState) { viewMenu = false }
     if (menu && binder != null) {
         T1Menu(binder.name, listOf(
             T1MenuItem("Rename") { editing = true },
@@ -281,8 +329,11 @@ private fun BinderAddOverlay(binderId: String?, onClose: () -> Unit) {
     val b by BindersStore.state.collectAsState()
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
-    var hits by remember { mutableStateOf<List<CatalogOracle>>(emptyList()) }
-    var covers by remember { mutableStateOf<Map<Int, CatalogPrinting>>(emptyMap()) }
+    val result = rememberCardSearch(query)
+    val hits = if (query.isBlank()) emptyList() else result?.hits ?: emptyList()
+    val covers = result?.covers ?: emptyMap()
+    var scanning by remember { mutableStateOf(false) }
+    var addLang by remember { mutableStateOf(Languages.addLang) }
     var owned by remember { mutableStateOf<Map<Int, List<CollectionItem>>>(emptyMap()) }
     var last by remember { mutableStateOf<Pair<String, String>?>(null) }
     var busy by remember { mutableStateOf(false) }
@@ -290,14 +341,6 @@ private fun BinderAddOverlay(binderId: String?, onClose: () -> Unit) {
     val condition = remember { T1App.instance.getSharedPreferences("library", android.content.Context.MODE_PRIVATE).getString("addCondition", "NM") ?: "NM" }
     val target = b.binder(binderId)?.name ?: "Unsorted"
     LaunchedEffect(Unit) { Telemetry.screen("binder_add") }
-    LaunchedEffect(query) {
-        val db = CatalogStore.db ?: return@LaunchedEffect
-        delay(120)
-        val q = query
-        val found = withContext(Dispatchers.Default) { db.search(q).let { h -> h to db.covers(h.map { it.idx }) } }
-        hits = found.first
-        covers = found.second
-    }
     LaunchedEffect(col.version) {
         val db = CatalogStore.db ?: return@LaunchedEffect
         val items = col.items.values.toList()
@@ -326,10 +369,12 @@ private fun BinderAddOverlay(binderId: String?, onClose: () -> Unit) {
                         BarAction("Undo") { run("") { CollectionStore.undo(batch); "" } }
                     }
                 }
-                SearchBand(query, "Card name") { query = it }
+                CardSearchBar(query, { query = it }, placeholder = "Card name, or Scryfall syntax", onScan = { scanning = true })
+                CardSearchStatus(query, result)
+                NewCopiesLanguageRow { addLang = it }
                 Hairlines(Modifier.weight(1f)) {
                     if (query.isEmpty()) item {
-                        Notice("Move in takes a copy you own from Unsorted or another binder. + New adds a new copy ($condition, original printing) to your collection, in $target.")
+                        Notice("Move in takes a copy you own from Unsorted or another binder. + New adds a new copy ($condition, original printing) to your collection, in $target. Scan adds the cards you scan, new, in $target.")
                     }
                     items(hits, key = { it.idx }) { o ->
                         val places = b.places(owned[o.idx] ?: emptyList())
@@ -351,8 +396,9 @@ private fun BinderAddOverlay(binderId: String?, onClose: () -> Unit) {
                             if (p != null) {
                                 Box(Modifier.fillMaxHeight().background(T1.surfaceHover).clickable(enabled = !busy) {
                                     val finish = p.finishList.firstOrNull()?.wire ?: "nonfoil"
-                                    run("Added 1 ${o.name} · $condition") {
-                                        CollectionStore.apply(listOf(CollectionOp(p.cardId, finish, condition, delta = 1, binderId = binderId))).batchId
+                                    val lang = Languages.forNew(p.lang, addLang)
+                                    run("Added 1 ${o.name} · $condition${if (lang == "en") "" else " · ${lang.uppercase()}"}") {
+                                        CollectionStore.apply(listOf(CollectionOp(p.cardId, finish, condition, lang, delta = 1, binderId = binderId))).batchId
                                     }
                                 }.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) { Label("+ New", color = T1.text) }
                             }
@@ -362,6 +408,19 @@ private fun BinderAddOverlay(binderId: String?, onClose: () -> Unit) {
                 BigAction("Done") { onClose() }
             }
         }
+    }
+    // Scanned cards go in new, straight into this binder, as one batch (source "scan") that one Undo takes back.
+    if (scanning) {
+        CardScanOverlay("Scan into $target", "Add", owned = null, onDone = { cards ->
+            scanning = false
+            Telemetry.capture("scan_session_ended", mapOf("context" to "binder", "cards" to cards.size, "exact" to cards.count { it.exact }, "cancelled" to false))
+            if (cards.isNotEmpty()) run("Added ${cards.size} scanned card${if (cards.size == 1) "" else "s"}") {
+                CollectionStore.apply(cards.map { CollectionOp(it.printing.cardId, it.finish, it.condition, it.lang, delta = 1, binderId = binderId) }, source = "scan").batchId
+            }
+        }, onCancel = {
+            scanning = false
+            Telemetry.capture("scan_session_ended", mapOf("context" to "binder", "cards" to 0, "exact" to 0, "cancelled" to true))
+        })
     }
 }
 
@@ -534,7 +593,10 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
             body = { T1TextField(text, { text = it.take(10) }, label = "Most you'd pay, USD (empty for none)", keyboardType = KeyboardType.Decimal) },
         )
     }
-    if (adding) WantPickOverlay(onClose = { adding = false }) { o ->
+    if (adding) WantPickOverlay(onClose = { adding = false }, onScanned = { cards ->
+        // Each scanned card is wanted once, any printing.
+        run(cards.map { WantOp(it.oracle.oracleId, delta = 1) }, "want_added", mapOf("any_printing" to true, "finish" to false, "has_max" to false, "from" to "scan"))
+    }) { o ->
         run(listOf(WantOp(o.oracleId, delta = 1)), "want_added", mapOf("any_printing" to true, "finish" to false, "has_max" to false, "from" to "search"))
     }
     repointing?.let { w -> WantPrintingOverlay(w.oracleId, replacing = w, onClose = { repointing = null }) { error = it } }
@@ -542,28 +604,23 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
 
 /** Search for a card to want: Want adds any printing; tapping the card picks one printing or finish. */
 @Composable
-private fun WantPickOverlay(onClose: () -> Unit, onPick: (CatalogOracle) -> Unit) {
+private fun WantPickOverlay(onClose: () -> Unit, onScanned: (List<ScannedCard>) -> Unit, onPick: (CatalogOracle) -> Unit) {
     var query by remember { mutableStateOf("") }
-    var hits by remember { mutableStateOf<List<CatalogOracle>>(emptyList()) }
-    var covers by remember { mutableStateOf<Map<Int, CatalogPrinting>>(emptyMap()) }
+    val result = rememberCardSearch(query)
+    val hits = if (query.isBlank()) emptyList() else result?.hits ?: emptyList()
+    val covers = result?.covers ?: emptyMap()
     var added by remember { mutableStateOf<String?>(null) }
     var picking by remember { mutableStateOf<CatalogOracle?>(null) }
-    LaunchedEffect(query) {
-        val db = CatalogStore.db ?: return@LaunchedEffect
-        delay(120)
-        val q = query
-        val found = withContext(Dispatchers.Default) { db.search(q).let { h -> h to db.covers(h.map { it.idx }) } }
-        hits = found.first
-        covers = found.second
-    }
+    var scanning by remember { mutableStateOf(false) }
     androidx.compose.ui.window.Dialog(onDismissRequest = onClose,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
                 Bar("Add a want", subtitle = added, onBack = onClose)
-                SearchBand(query, "Lightning Bolt") { query = it }
+                CardSearchBar(query, { query = it }, placeholder = "Lightning Bolt, or Scryfall syntax", onScan = { scanning = true })
+                CardSearchStatus(query, result)
                 Hairlines(Modifier.weight(1f)) {
-                    if (query.isEmpty()) item { Notice("Want adds any printing. Tap a card to want one printing or finish.") }
+                    if (query.isEmpty()) item { Notice("Want adds any printing. Tap a card to want one printing or finish. Scan wants each card you scan, any printing.") }
                     items(hits, key = { it.idx }) { o ->
                         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                             Box(Modifier.weight(1f)) {
@@ -579,6 +636,19 @@ private fun WantPickOverlay(onClose: () -> Unit, onPick: (CatalogOracle) -> Unit
         }
     }
     picking?.let { o -> WantPrintingOverlay(o.oracleId, from = "search", onClose = { picking = null }, onDone = { added = it }) { added = it } }
+    if (scanning) {
+        CardScanOverlay("Scan what you want", "Want", owned = null, onDone = { cards ->
+            scanning = false
+            Telemetry.capture("scan_session_ended", mapOf("context" to "wants", "cards" to cards.size, "exact" to cards.count { it.exact }, "cancelled" to false))
+            if (cards.isNotEmpty()) {
+                onScanned(cards)
+                added = "Wanted ${cards.size} scanned card${if (cards.size == 1) "" else "s"}"
+            }
+        }, onCancel = {
+            scanning = false
+            Telemetry.capture("scan_session_ended", mapOf("context" to "wants", "cards" to 0, "exact" to 0, "cancelled" to true))
+        })
+    }
 }
 
 /**

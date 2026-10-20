@@ -65,7 +65,15 @@ A batch of Library changes from John's notes. Hero cards have their own contract
 - The guide box is the same rect on screen and in the image: 72% of the camera view's width (or what its height
   allows), card-shaped, centred; mapped into the image the way the preview fills the view (aspect fill, cropped).
 - iOS: `ScanRegion` in `CardScanner.swift`, tests `Table1Tests/ScanRegionTests.swift`. Not yet tried on a real camera.
-  Android to do (same rule over ML Kit's text blocks and its card rectangle).
+  Android (2026-10-19): `ScanRegion.kt`, tests in `LanguageTest`; the guide box is drawn over the camera and only text whose
+  centre is inside it (grown 10%) is read. ML Kit has no card-rectangle detector, so Android always reads by the text rule
+  (`pick` is ported and tested for when one is added). Not yet tried on a device. Web has no scanner.
+- Binder views: web and Android built (2026-10-19); web checked in `/library?demo`.
 
 ## Status
-iOS built, unit-tested (`CardQueryTests`, `ScanRegionTests`) and checked in the demo. Web and Android to do.
+iOS built, unit-tested (`CardQueryTests`, `ScanRegionTests`) and checked in the demo.
+Web (2026-10-19): built, unit-tested (`src/lib/cardQuery.test.ts`, same cases) and checked in `/library?demo`. No scanner on the web,
+so no Scan; back is the browser's. Browsers can't set a User-Agent, so Scryfall requests carry the browser's own.
+Android (2026-10-19): built and unit-tested (`CardQueryTest`, same cases); not yet run on a device. Back: system back and
+predictive back (`enableOnBackInvokedCallback`); full-screen panels are dialogs, so back closes them. Scan on every Add cards
+screen; `scan_session_ended` is now sent on Android for every context (it wasn't for add/trade before).

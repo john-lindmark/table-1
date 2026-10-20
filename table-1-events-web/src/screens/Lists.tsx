@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BigAction, Field, Modal, Notice, Row, Screen, Section, Segmented } from "../components/kit";
-import { CANLANDER_POINT_LIMIT, coverPrinting, formatName, legalityOf, searchCatalog, type Catalog } from "../lib/catalog";
+import { CANLANDER_POINT_LIMIT, coverPrinting, formatName, legalityOf, type Catalog } from "../lib/catalog";
 import { DEMO_USER, useCollection } from "../lib/collection";
 import { loadDemoLists } from "../lib/libraryDemo";
 import {
@@ -14,8 +14,12 @@ import { cardMatches, matchingLines } from "../lib/librarySearch";
 import { capture } from "../lib/telemetry";
 import { useSearchUsed } from "./Binders";
 import {
-  CardRow, CardTile, LibScreen, StackRows, ViewButton, useCatalog, useLibrarySession, useStoredLayout, type StackItem,
+  CardGroupRow, CardRow, CardTile, HeroListRow, LibScreen, StackRows, ViewButton, useCatalog, useLibraryHeroes, useLibrarySession, useStoredLayout,
+  type StackCardItem, type StackItem,
 } from "./Library";
+import { COLLAPSED, isOpen, lineGroups, toggleOne, type Disclosure, type LineGroup } from "../lib/printings";
+import { HERO_LIMIT, heroPrintings, heroesOf, isHero, toggleHero, type HeroScope } from "../lib/heroes";
+import { CardSearchBar, CardSearchStatus, useCardSearch } from "./CardSearch";
 import { ListStatsRow } from "./ListStats";
 
 /* Decks and cubes on the web (contract/lists-2026-10-15.md): the same lists, sections, groups and version
@@ -154,6 +158,19 @@ export function ListsScreen({ kind, onBack, onOpen, onFind, onImport }: {
   const [format, setFormat] = useState(kind === "deck" ? "modern" : "vintage");
   const [busy, setBusy] = useState(false);
   const mine = lists.lists.filter((l) => l.kind === kind);
+  const heroes = useLibraryHeroes();
+  const { catalog } = useCatalog();
+  /** Each list's hero cards, as the printings it holds. */
+  const heroArt = useMemo(() => {
+    const m = new Map<string, number[]>();
+    if (!catalog) return m;
+    for (const l of mine) {
+      const h = heroesOf({ kind: "list", id: l.id }, heroes);
+      if (h.length) m.set(l.id, heroPrintings(catalog, h, entriesOf(l).slice().sort((a, b) => b.qty - a.qty).map((e) => e.cardId)));
+    }
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalog, heroes, lists.lists, kind]);
   if (!ready) return <Screen><div className="flex-1" /></Screen>;
   if (!session) return <Screen><Bar title={kind === "deck" ? "Decks" : "Cubes"} /><Notice tone="info">Sign in to keep decks and cubes.</Notice></Screen>;
 
@@ -180,7 +197,7 @@ export function ListsScreen({ kind, onBack, onOpen, onFind, onImport }: {
           const side = countOf(l, "side"), maybe = countOf(l, "maybe");
           const detail = [formatName(l.format), side ? `${side} sideboard` : null, maybe ? `${maybe} considering` : null,
                           l.eventId ? `From ${l.eventName ?? "an event"}` : miss ? `${miss} missing` : "All owned", `v${current(l).number}`].filter(Boolean).join(" · ");
-          return <Row key={l.id} title={l.name} detail={detail} value={countOf(l, "main")} onClick={() => onOpen(l.id)} />;
+          return <HeroListRow key={l.id} c={catalog} heroes={heroArt.get(l.id) ?? []} title={l.name} detail={detail} value={countOf(l, "main")} onClick={() => onOpen(l.id)} />;
         })}
       </div>
       {creating && (
@@ -266,7 +283,11 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [q, setQ] = useState("");
+  const [printings, setPrintings] = useState<Disclosure>(COLLAPSED);
+  const [heroFull, setHeroFull] = useState<string | null>(null);
+  const heroes = useLibraryHeroes();
   const list = lists.lists.find((l) => l.id === id) ?? null;
+  const heroScope: HeroScope = { kind: "list", id };
   useSearchUsed(q, list?.kind === "deck" ? "deck" : "cube");
   const lines = useMemo(() => (list && catalog ? linesOf(list, catalog) : []), [list, catalog]);
   const issues = useMemo(() => (list && catalog ? issuesOf(lines, list, catalog) : new Map<string, string>()), [lines, list, catalog]);
@@ -296,7 +317,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   const tile = Math.floor((width - (cols - 1)) / cols);
   const v = current(list);
 
-  const lineRow = (x: Line) => {
+  const lineRow = (x: Line, sub = false) => {
     const have = owned.get(ownKey(x.cardId, x.finish)) ?? 0;
     const fin = x.finish === "nonfoil" ? null : FINISH_NAME[x.finish];
     const pts = x.points > 0 && list.format === "canlander" ? `${x.points} pt${x.points === 1 ? "" : "s"}` : null;
@@ -308,7 +329,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         <div key={lineKey(x)} className="flex items-stretch gap-px h-[60px]">
           <div className="flex-1 min-w-0">
             <CardRow c={catalog!} p={x.p} title={x.name} detail={[fin, "Tap to move, change or remove"].filter(Boolean).join(" · ")}
-                     value={x.qty} onClick={() => setMoving(x)} />
+                     finish={x.finish} hero={isHero(x.oracleId, heroScope, heroes)} value={x.qty} onClick={() => setMoving(x)} />
           </div>
           <button type="button" aria-label="Remove one" className="w-14 bg-t1-surface-hover text-[20px]"
                   onClick={() => editList(list.id, [{ card_id: x.cardId, board: x.board, finish: x.finish, delta: -1 }])}>−</button>
@@ -318,33 +339,68 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
       );
     }
     return (
-      <div key={lineKey(x)} className="h-[60px]">
-        <CardRow c={catalog!} p={x.p} title={x.name} value={x.qty} warn={short || !!issue}
-                 detail={(issue ? `${issue} · ` : "") + (pts ? `${pts} · ` : "") + (fin ? `${fin} · ` : "") + (considering ? (have ? `Owned ${have}` : "Not owned") : short ? `Owned ${have} · missing ${x.qty - have}` : `Owned ${have}`)}
+      <div key={lineKey(x)} className="h-[60px] shrink-0">
+        <CardRow c={catalog!} p={x.p} value={x.qty} warn={short || !!issue} finish={x.finish} indent={sub}
+                 title={sub && x.p != null ? `${catalog!.pSet[x.p].toUpperCase()} #${catalog!.pCn[x.p]}` : x.name}
+                 hero={!sub && isHero(x.oracleId, heroScope, heroes)}
+                 detail={(issue && !sub ? `${issue} · ` : "") + (pts ? `${pts} · ` : "") + (fin ? `${fin} · ` : "") + (considering ? (have ? `Owned ${have}` : "Not owned") : short ? `Owned ${have} · missing ${x.qty - have}` : `Owned ${have}`)}
                  onClick={() => x.oracleId && onCard(x.oracleId)} />
       </div>
     );
   };
+
+  /** A card with one line is that line's row; with several, a summary row with a chevron that opens one row per
+   *  printing and finish. */
+  const groupRows = (cg: LineGroup<Line>) => {
+    if (cg.lines.length === 1) return lineRow(cg.lines[0]);
+    const lead = cg.lines[0];
+    const open = isOpen(printings, cg.id);
+    const hero = isHero(lead.oracleId, heroScope, heroes);
+    const considering = lead.board === "maybe";
+    const issue = issues.get(lead.oracleId ?? lead.cardId);
+    const short = cg.lines.reduce((n, l) => n + Math.max(0, l.qty - (owned.get(ownKey(l.cardId, l.finish)) ?? 0)), 0);
+    const have = cg.lines.reduce((n, l) => n + (owned.get(ownKey(l.cardId, l.finish)) ?? 0), 0);
+    const haveText = list.eventId ? null : considering ? (have ? `Owned ${have}` : "Not owned") : short ? `Missing ${short}` : "All owned";
+    return (
+      <div key={cg.id} className="flex flex-col gap-px">
+        <div className="h-[60px] shrink-0">
+          <CardGroupRow open={open} parts={cg.lines.length} hero={hero}
+                        onToggle={() => { setPrintings(toggleOne(printings, cg.id)); capture("printings_toggled", { expanded: !open, all: false, screen: "list" }); }}>
+            <CardRow c={catalog!} p={lead.p} title={lead.name} value={cg.qty} warn={(!considering && short > 0 && !list.eventId) || !!issue}
+                     finish={lead.finish} hero={hero}
+                     detail={[issue, `${cg.lines.length} printings`, haveText].filter(Boolean).join(" · ")}
+                     onClick={() => lead.oracleId && onCard(lead.oracleId)} />
+          </CardGroupRow>
+        </div>
+        {open && cg.lines.map((l) => lineRow(l, true))}
+      </div>
+    );
+  };
+
+  /** Grid and stack cards for one group: one per card, or with every printing expanded, one per line. */
+  const tiles = (inGroup: Line[]): StackCardItem[] => lineGroups(inGroup).flatMap((cg) => {
+    const lead = cg.lines[0];
+    const hero = isHero(lead.oracleId, heroScope, heroes);
+    const onClick = () => lead.oracleId && onCard(lead.oracleId);
+    const warn = (ls: Line[]) => (lead.board !== "maybe" && ls.some((l) => (owned.get(ownKey(l.cardId, l.finish)) ?? 0) < l.qty)) || issues.has(lead.oracleId ?? lead.cardId);
+    if (!printings.all || cg.lines.length < 2) {
+      return [{ key: cg.id, p: lead.p, name: lead.name, qty: cg.qty, warn: warn(cg.lines), finish: lead.finish, hero, onClick }];
+    }
+    return cg.lines.map((l) => ({ key: lineKey(l), p: l.p, name: l.name, qty: l.qty, warn: warn([l]), finish: l.finish, hero, onClick }));
+  });
 
   return (
     <LibScreen>
       <Bar title={list.name} subtitle={list.eventId ? `From ${list.eventName ?? "an event"} · v${v.number}` : `${formatName(list.format)} ${list.kind} · v${v.number}`} onBack={onBack}
            right={<span className="flex gap-4">
              <button type="button" className="t1-label hover:text-t1-text px-2 py-1 -my-1" onClick={() => setEditing(!editing)}>{editing ? "Done" : "Edit"}</button>
-             {!editing && <ViewButton layout={layout} onChange={setLayout} screen={list.kind === "cube" ? "cube" : "deck"} />}
+             {!editing && <ViewButton layout={layout} onChange={setLayout} screen={list.kind === "cube" ? "cube" : "deck"} printings={printings} onPrintings={setPrintings} />}
            </span>} />
-      {(lists.error || error) && <Notice tone="error">{lists.error ?? error}</Notice>}
+      {(lists.error || error || heroFull) && <Notice tone="error">{lists.error ?? error ?? heroFull}</Notice>}
       {entriesOf(list).length > 0 && <Field label={list.kind === "cube" ? "Search this cube" : "Search this deck"} value={q} onChange={setQ} placeholder="Name or type" />}
       <div ref={boxRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {/* While searching, matches come first. */}
         {!searching && <>
-        <div className="bg-t1-surface py-4 flex">
-          <Stat label={list.kind === "deck" ? "Main" : "Cards"} value={countOf(list, "main")} />
-          {list.kind === "deck" && <Stat label="Side" value={countOf(list, "side")} />}
-          {list.kind === "deck" && list.format === "canlander" && <Stat label="Points" value={pointsOf(lines).total} />}
-          <Stat label="Considering" value={countOf(list, "maybe")} />
-          <Stat label="Missing" value={missingIn(list, owned)} />
-        </div>
         {(() => {
           // Considering cards are flagged on their rows but don't make the deck unplayable.
           const bad = [...new Set(lines.filter((x) => x.board !== "maybe" && issues.has(x.oracleId ?? x.cardId)).map((x) => x.name))].sort();
@@ -388,13 +444,9 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
                 <StackRows c={catalog} boxWidth={width} stacks={groupsOf(inBoard, list.kind).map((g): StackItem => {
                   const inGroup = inBoard.filter((x) => x.group === g);
                   return {
-                    key: g,
+                    key: `${g}|${printings.all}`,
                     title: `${g} · ${inGroup.reduce((n, x) => n + x.qty, 0)}`,
-                    cards: inGroup.map((x) => ({
-                      key: lineKey(x), p: x.p, name: x.name, qty: x.qty,
-                      warn: (board !== "maybe" && (owned.get(ownKey(x.cardId, x.finish)) ?? 0) < x.qty) || issues.has(x.oracleId ?? x.cardId),
-                      onClick: () => x.oracleId && onCard(x.oracleId),
-                    })),
+                    cards: tiles(inGroup),
                   };
                 })} />
               ) : groupsOf(inBoard, list.kind).map((g) => {
@@ -404,13 +456,12 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
                     <Section title={g} count={inGroup.reduce((n, x) => n + x.qty, 0)} />
                     {layout === "grid" && !editing ? (
                       <div className="grid gap-px" style={{ gridTemplateColumns: `repeat(${cols}, ${tile}px)` }}>
-                        {inGroup.map((x) => (
-                          <CardTile key={lineKey(x)} c={catalog} p={x.p} name={x.name} qty={x.qty} width={tile}
-                                    warn={(board !== "maybe" && (owned.get(ownKey(x.cardId, x.finish)) ?? 0) < x.qty) || issues.has(x.oracleId ?? x.cardId)}
-                                    onClick={() => x.oracleId && onCard(x.oracleId)} />
+                        {tiles(inGroup).map((t) => (
+                          <CardTile key={t.key} c={catalog} p={t.p} name={t.name} qty={t.qty} width={tile} warn={t.warn}
+                                    finish={t.finish} hero={t.hero} onClick={t.onClick} />
                         ))}
                       </div>
-                    ) : inGroup.map(lineRow)}
+                    ) : editing ? inGroup.map((x) => lineRow(x)) : lineGroups(inGroup).map(groupRows)}
                   </div>
                 );
               })}
@@ -427,6 +478,17 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
             ))}
             <Row title="Change printing or finish" detail="Or split copies between finishes"
                  onClick={() => { const m = moving; setMoving(null); onPrinting(m.cardId, m.board, m.finish); }} />
+            {moving.oracleId && (() => {
+              const on = isHero(moving.oracleId, heroScope, heroes);
+              return (
+                <Row title={on ? "Not a hero card" : "Make it a hero card"}
+                     detail={on ? "Stop highlighting it" : `Highlighted here and in your ${list.kind === "deck" ? "decks" : "cubes"}`}
+                     onClick={() => {
+                       if (!toggleHero(moving.oracleId!, heroScope)) setHeroFull(`${list.name} has ${HERO_LIMIT} hero cards already.`);
+                       setMoving(null);
+                     }} />
+              );
+            })()}
             <Row title={`Remove from ${boardTitle(list.kind, moving.board)}`}
                  onClick={() => { void editList(list.id, [{ card_id: moving.cardId, board: moving.board, finish: moving.finish, qty: 0 }]); setMoving(null); }} />
           </div>
@@ -446,89 +508,154 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
 /* ── adding cards to a list ───────────────────────────────────────────── */
 
 /**
- * Search the catalog and add cards straight into a section of a list. Remove or replace (Cube Cobra's Remove/Replace)
- * searches only the list's own cards: Remove takes one copy out; Replace then searches the catalog for the card that
- * takes its place, in the same section, as one edit.
+ * Add, remove or replace, like Cube Cobra's edit panel (contract/library-polish-2026-10-19.md): an Add box (the catalog or
+ * Scryfall syntax) and a Remove or replace box (only the list's own cards) on one screen. Pick a card in either box; with
+ * only Remove picked the button removes one copy, with both picked it replaces that copy with the added card in the same
+ * section, as one edit (so the history shows a swap). Each card goes in as its original paper printing unless a search
+ * named another; change it from the card page.
  */
-export function ListAddScreen({ id, onDone, onCard }: { id: string; onDone: () => void; onCard: (oracleId: string) => void }) {
+export function ListAddScreen({ id, onDone }: { id: string; onDone: () => void; onCard?: (oracleId: string) => void }) {
   const { lists } = useListsData();
   const { catalog } = useCatalog();
-  const [q, setQ] = useState("");
+  const [addQuery, setAddQuery] = useState("");
+  const [removeQuery, setRemoveQuery] = useState("");
   const [board, setBoard] = useState<Board>("main");
-  const [mode, setMode] = useState<"add" | "remove">("add");
-  const [replacing, setReplacing] = useState<Line | null>(null);
+  const [addPick, setAddPick] = useState<{ oi: number; p: number } | null>(null);
+  const [removePick, setRemovePick] = useState<Line | null>(null);
+  /** Which box was typed in last: the list below follows it. */
+  const [focus, setFocus] = useState<"add" | "remove">("add");
   const [note, setNote] = useState<string | null>(null);
+  const addInput = useRef<HTMLInputElement>(null);
+  const removeInput = useRef<HTMLInputElement>(null);
   const list = lists.lists.find((l) => l.id === id);
-  const removing = mode === "remove" && !replacing;
-  const hits = useMemo(() => (catalog && !removing ? searchCatalog(catalog, q, 40) : []), [catalog, q, removing]);
-  const lines = useMemo(() => (list && catalog && mode === "remove" ? linesOf(list, catalog) : []), [list, catalog, mode]);
+  const found = useCardSearch(catalog, addPick ? "" : addQuery);
+  const lines = useMemo(() => (list && catalog ? linesOf(list, catalog) : []), [list, catalog]);
   if (!list) return <Screen><Bar title="Add cards" onBack={onDone} /></Screen>;
-  const target = replacing?.board ?? board;
-  const found = removing ? matchingLines(lines, q) : [];
-  const switchMode = (m: "add" | "remove") => { setMode(m); setReplacing(null); setQ(""); setNote(null); };
+  const showingRemove = !removePick && focus === "remove";
+  const removeHits = matchingLines(lines, removeQuery);
+  const finishFor = (p: number): ListFinish => (["nonfoil", "foil", "etched"] as ListFinish[]).find((f) => catalog?.pFinishes[p]?.includes(f[0])) ?? "nonfoil";
+  const title = (b: Board) => boardTitle(list.kind, b);
+
+  const reset = () => {
+    setAddPick(null);
+    setRemovePick(null);
+    setAddQuery("");
+    setRemoveQuery("");
+    setFocus("add");
+    addInput.current?.focus();
+  };
+  const pickAdd = (oi: number, p: number) => {
+    setAddPick({ oi, p });
+    setAddQuery(catalog!.oName[oi]);
+  };
+  const pickRemove = (x: Line) => {
+    setRemovePick(x);
+    setRemoveQuery(x.name);
+    setFocus("add");
+  };
+  const add = () => {
+    if (!addPick || !catalog) return;
+    void editList(list.id, [{ card_id: catalog.pId[addPick.p], board, finish: finishFor(addPick.p), delta: 1 }]);
+    capture("list_card_added", { kind: list.kind, from: "edit" });
+    setNote(`Added 1 ${catalog.oName[addPick.oi]} to ${title(board)}`);
+    reset();
+  };
+  const removeOrReplace = () => {
+    if (!removePick || !catalog) return;
+    const r = removePick;
+    if (addPick) {
+      void editList(list.id, [{ card_id: r.cardId, board: r.board, finish: r.finish, to_card_id: catalog.pId[addPick.p],
+                                to_finish: finishFor(addPick.p), qty: 1, swap: true }]);
+      capture("list_card_replaced", { kind: list.kind });
+      setNote(`Replaced ${r.name} with ${catalog.oName[addPick.oi]} in ${title(r.board)}`);
+    } else {
+      void editList(list.id, [{ card_id: r.cardId, board: r.board, finish: r.finish, delta: -1 }]);
+      capture("list_card_removed", { kind: list.kind });
+      setNote(`Removed 1 ${r.name} from ${title(r.board)}`);
+    }
+    reset();
+  };
+  const action = (label: string, enabled: boolean, run: () => void) => (
+    <button type="button" disabled={!enabled} onClick={run}
+            className={`flex-1 py-4 text-[13px] font-bold uppercase tracking-[3px] text-t1-ink ${enabled ? "bg-t1-text" : "bg-t1-disabled"}`}>
+      {label}
+    </button>
+  );
+  /** A picked card in place of its box, with Clear. */
+  const picked = (p: number | null, name: string, detail: string, clear: () => void, finish?: ListFinish) => (
+    <div className="shrink-0 h-[60px] flex items-stretch gap-px">
+      <div className="flex-1 min-w-0"><CardRow c={catalog!} p={p} title={name} detail={detail} finish={finish} /></div>
+      <button type="button" onClick={clear} className="bg-t1-surface hover:bg-t1-surface-hover px-4 t1-label !text-t1-text">Clear</button>
+    </div>
+  );
+  const hits = addQuery.trim() && !addPick ? found?.result.hits ?? [] : [];
+
   return (
     <LibScreen>
-      <Bar title={`${replacing ? "Replace in" : removing ? "Remove from" : "Add to"} ${list.name}`} subtitle={`v${current(list).number}`} onBack={onDone} />
-      <Segmented options={[{ value: "add", label: "Add" }, { value: "remove", label: "Remove or replace" }]} value={mode} onChange={switchMode} />
-      {replacing ? (
-        <div className="bg-t1-surface px-4 py-3 flex items-center gap-3">
-          <span className="t1-label !text-t1-text flex-1">Replacing {replacing.name} · {boardTitle(list.kind, replacing.board)}</span>
-          <button type="button" className="t1-label hover:text-t1-text" onClick={() => { setReplacing(null); setQ(""); }}>Cancel</button>
-        </div>
-      ) : mode === "add" && (
-        <Segmented options={sectionsFor(list.kind).map((b) => ({ value: b, label: boardTitle(list.kind, b) }))} value={board} onChange={setBoard} />
-      )}
+      <Bar title={`Edit ${list.name}`} subtitle={`v${current(list).number}`}
+           right={<button type="button" className="t1-label hover:text-t1-text px-2 py-1 -my-1" onClick={onDone}>Done</button>} />
       {note && <Notice tone="info">{note}</Notice>}
-      <Field key={`${mode}-${replacing ? "r" : ""}`} label={removing ? (list.kind === "cube" ? "Card in this cube" : "Card in this deck") : replacing ? "Card to put in" : "Card name"}
-             value={q} onChange={setQ} autoFocus />
+      <Section title="Add to" />
+      <Segmented options={sectionsFor(list.kind).map((b) => ({ value: b, label: title(b) }))} value={board} onChange={setBoard} />
+      {addPick && catalog
+        ? picked(addPick.p, catalog.oName[addPick.oi], title(removePick?.board ?? board), () => { setAddPick(null); setAddQuery(""); setFocus("add"); setTimeout(() => addInput.current?.focus()); })
+        : <CardSearchBar label="Card to add" value={addQuery} onChange={(v) => { setAddQuery(v); setFocus("add"); }} placeholder="Name, or Scryfall syntax"
+                         autoFocus inputRef={addInput} onFocus={() => setFocus("add")}
+                         onSubmit={() => { const oi = hits[0]; if (oi != null && found) pickAdd(oi, found.result.covers.get(oi) ?? coverPrinting(catalog!, oi)); }} />}
+      <Section title="Remove or replace" />
+      {removePick
+        ? picked(removePick.p, removePick.name, [title(removePick.board), removePick.finish === "nonfoil" ? null : FINISH_NAME[removePick.finish]].filter(Boolean).join(" · "),
+                 () => { setRemovePick(null); setRemoveQuery(""); setFocus("remove"); setTimeout(() => removeInput.current?.focus()); }, removePick.finish)
+        : (
+          <label className="shrink-0 bg-t1-surface px-4 py-3 flex flex-col gap-1">
+            <span className="t1-label">{list.kind === "cube" ? "Card in this cube" : "Card in this deck"}</span>
+            <input type="search" ref={removeInput} value={removeQuery} onFocus={() => setFocus("remove")}
+                   onChange={(e) => { setRemoveQuery(e.target.value); setFocus("remove"); }}
+                   onKeyDown={(e) => { if (e.key === "Enter" && removeHits[0]) { e.preventDefault(); pickRemove(removeHits[0]); } }}
+                   className="bg-transparent border-0 outline-0 text-[15px] text-t1-text w-full" />
+          </label>
+        )}
+      <div className="shrink-0 flex gap-px">
+        {action("Add", !!addPick, add)}
+        {action(addPick && removePick ? "Replace" : "Remove", !!removePick, removeOrReplace)}
+      </div>
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
-        {removing && catalog && (!q.trim()
-          ? <Notice tone="info">Search the cards in {list.name}. Remove takes one copy out; Replace swaps it for another card in the same section.</Notice>
-          : !found.length && <Row title={`No card in ${list.name} matches`} />)}
-        {removing && catalog && found.map((x) => (
-          <div key={lineKey(x)} className="flex items-stretch gap-px h-[60px]">
-            <div className="flex-1 min-w-0">
-              <CardRow c={catalog} p={x.p} title={x.name}
-                       detail={[boardTitle(list.kind, x.board), x.finish === "nonfoil" ? null : FINISH_NAME[x.finish], x.qty > 1 ? `${x.qty} copies` : null].filter(Boolean).join(" · ")}
-                       onClick={() => x.oracleId && onCard(x.oracleId)} />
+        {!catalog && <div className="bg-t1-surface px-4 py-4 t1-label">Loading card data…</div>}
+        {catalog && showingRemove && (<>
+          {!removeQuery.trim()
+            ? <Notice tone="info">Search the cards in {list.name}. Remove takes one copy out; with a card picked to add, Replace swaps it in the same section.</Notice>
+            : !removeHits.length && <Row title={`No card in ${list.name} matches`} />}
+          {removeHits.map((x) => (
+            <div key={lineKey(x)} className="h-[60px] shrink-0">
+              <CardRow c={catalog} p={x.p} title={x.name} finish={x.finish} onClick={() => pickRemove(x)}
+                       detail={[title(x.board), x.finish === "nonfoil" ? null : FINISH_NAME[x.finish], x.qty > 1 ? `${x.qty} copies` : null].filter(Boolean).join(" · ")} />
             </div>
-            <button type="button" className="px-3 bg-t1-surface-hover t1-label hover:text-t1-text"
-                    onClick={() => {
-                      void editList(list.id, [{ card_id: x.cardId, board: x.board, finish: x.finish, delta: -1 }]);
-                      capture("list_card_removed", { kind: list.kind });
-                      setNote(`Removed 1 ${x.name} from ${boardTitle(list.kind, x.board)}`);
-                    }}>Remove</button>
-            <button type="button" className="px-3 bg-t1-surface-hover t1-label hover:text-t1-text"
-                    onClick={() => { setReplacing(x); setNote(null); setQ(""); }}>Replace</button>
-          </div>
-        ))}
-        {!removing && catalog && hits.map((oi) => {
-          const p = coverPrinting(catalog, oi);
-          const inList = entriesOf(list).filter((e) => e.cardId === catalog.pId[p] && e.board === target).reduce((n, e) => n + e.qty, 0);
-          return (
-            <div key={oi} className="flex items-stretch gap-px h-[60px]">
-              <div className="flex-1 min-w-0">
-                <CardRow c={catalog} p={p} title={catalog.oName[oi]}
-                         detail={inList ? `${inList} in ${boardTitle(list.kind, target)}` : catalog.oType[oi]}
-                         onClick={() => onCard(catalog.oId[oi])} />
+          ))}
+        </>)}
+        {catalog && !showingRemove && !addPick && (<>
+          <CardSearchStatus query={addQuery} found={found} />
+          {!addQuery && !removeQuery && (
+            <Notice tone="info">Pick a card to add, a card to remove, or both: with both, Replace swaps them in the same section. + adds a card at once.</Notice>
+          )}
+          {hits.map((oi) => {
+            const p = found?.result.covers.get(oi) ?? coverPrinting(catalog, oi);
+            const inList = entriesOf(list).filter((e) => e.cardId === catalog.pId[p] && e.board === board).reduce((n, e) => n + e.qty, 0);
+            return (
+              <div key={oi} className="flex items-stretch gap-px h-[60px] shrink-0">
+                <div className="flex-1 min-w-0">
+                  <CardRow c={catalog} p={p} title={catalog.oName[oi]} onClick={() => pickAdd(oi, p)}
+                           detail={inList ? `${inList} in ${title(board)}` : catalog.oType[oi]} />
+                </div>
+                <button type="button" aria-label={`Add ${catalog.oName[oi]}`} className="w-[52px] bg-t1-surface-hover text-[22px] hover:text-t1-accent"
+                        onClick={() => {
+                          void editList(list.id, [{ card_id: catalog.pId[p], board, finish: finishFor(p), delta: 1 }]);
+                          capture("list_card_added", { kind: list.kind, from: "quick" });
+                          setNote(`Added 1 ${catalog.oName[oi]} to ${title(board)}`);
+                        }}>+</button>
               </div>
-              <button type="button" className="px-4 bg-t1-surface-hover t1-label hover:text-t1-text"
-                      onClick={() => {
-                        if (replacing) {
-                          const toFinish = (["nonfoil", "foil", "etched"] as ListFinish[]).find((f) => catalog.pFinishes[p]?.includes(f[0])) ?? "nonfoil";
-                          void editList(list.id, [{ card_id: replacing.cardId, board: replacing.board, finish: replacing.finish,
-                                                    to_card_id: catalog.pId[p], to_finish: toFinish, qty: 1, swap: true }]);
-                          capture("list_card_replaced", { kind: list.kind });
-                          setNote(`Replaced ${replacing.name} with ${catalog.oName[oi]}`);
-                          setReplacing(null);
-                          setQ("");
-                        } else {
-                          void editList(list.id, [{ card_id: catalog.pId[p], board, delta: 1 }]);
-                        }
-                      }}>{replacing ? "Put in" : "+ Add"}</button>
-            </div>
-          );
-        })}
+            );
+          })}
+        </>)}
       </div>
     </LibScreen>
   );

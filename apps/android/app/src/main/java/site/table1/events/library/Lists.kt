@@ -244,6 +244,19 @@ object ListsStore {
             if (qty != null) put("qty", qty)
         })
 
+    /** Several cards into one section as one edit (a scan session): one request, one step in the history. */
+    suspend fun addMany(listId: String, board: String, cards: List<Pair<String, String>>) {
+        if (cards.isEmpty()) return
+        call("list_edit", buildJsonObject {
+            put("p_list_id", listId)
+            put("p_ops", buildJsonArray {
+                cards.forEach { (cardId, finish) ->
+                    add(buildJsonObject { put("card_id", cardId); put("board", board); put("finish", finish); put("delta", 1) })
+                }
+            })
+        })
+    }
+
     private suspend fun edit(listId: String, op: JsonObject) =
         call("list_edit", buildJsonObject { put("p_list_id", listId); put("p_ops", buildJsonArray { add(op) }) })
 

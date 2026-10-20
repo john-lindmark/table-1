@@ -143,6 +143,7 @@ fun ChangePrintingScreen(target: PrintingTarget, onClose: () -> Unit, onChanged:
     var query by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var pickingLang by remember { mutableStateOf(false) }
     SearchUsed(query, "change_printing")
     LaunchedEffect(cat.generation) {
         CatalogStore.load(userInitiated = true)
@@ -171,6 +172,25 @@ fun ChangePrintingScreen(target: PrintingTarget, onClose: () -> Unit, onChanged:
     val finishLabel = { f: String -> Finish.of(f)?.label ?: f }
     val current = printings.firstOrNull { it.cardId == target.cardId }
     val shown = if (query.isEmpty()) printings else printings.filter { CardSearch.matchesPrinting(query, it.set, it.cn, it.releasedAt) }
+
+    /** Owned copies: the same printing and finish in another language, `n` of them from the chosen place. */
+    fun changeLanguage(lang: String) {
+        val it = live ?: return
+        val ops = LanguageChange.ops(it, places.map { pl -> pl.place to pl.qty }, lang, n, selected) ?: return
+        busy = true
+        error = null
+        scope.launch {
+            runCatching { CollectionStore.apply(ops) }
+                .onSuccess { r ->
+                    Telemetry.capture("language_changed", mapOf("where" to target.telemetryWhere, "copies" to n))
+                    onChanged(r.batchId, "Moved $n to ${Languages.name(lang)}")
+                    onClose()
+                }
+                .onFailure { e -> error = e.message }
+            busy = false
+        }
+    }
+    if (pickingLang && live != null) LanguagePicker(live.lang, name.ifEmpty { null }, onClose = { pickingLang = false }) { changeLanguage(it) }
 
     fun pick(p: CatalogPrinting, toFinish: String) {
         val props = mapOf("where" to target.telemetryWhere, "copies" to n, "finish_only" to (p.cardId == target.cardId))
@@ -237,6 +257,7 @@ fun ChangePrintingScreen(target: PrintingTarget, onClose: () -> Unit, onChanged:
                     Stepper("+") { count = minOf(have, n + 1) }
                 }
             }
+            if (live != null) item { LanguageRow(live.lang) { pickingLang = true } }
             item { Section(if (query.isEmpty()) "Change to · ${printings.size}" else "Change to · ${shown.size} of ${printings.size}") }
             if (shown.isEmpty() && query.isNotEmpty()) item { ListRow("No printings match") }
             items(shown, key = { it.cardId }) { p ->

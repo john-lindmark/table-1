@@ -35,4 +35,6 @@ Codes: en de fr it es pt ja ko ru zhs zht he la grc ar sa ph qya. One full-scree
 `language_changed` with `where`: owned / collection / binder / trade and `copies`.
 
 ## Status
-iOS built and unit-tested. Web and Android to do.
+iOS built and unit-tested.
+Web (2026-10-19): built, unit-tested (`src/lib/languages.test.ts`, same cases) and checked in `/library?demo`; no scanner.
+Android (2026-10-19): built and unit-tested (`LanguageTest`, same cases), scanner rows included; not yet run on a device.
