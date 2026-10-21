@@ -126,6 +126,12 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog, ImportC
 
     fun oracle(id: String): CatalogOracle? = query("SELECT $ORACLE_COLS FROM oracles WHERE oracle_id = ?", arrayOf(id), ::oracle).firstOrNull()
 
+    /** Cards by Oracle id (lowercase keys); ids the pack doesn't know are left out. */
+    fun oraclesById(ids: Collection<String>): Map<String, CatalogOracle> =
+        ids.map { it.lowercase() }.chunked(500).flatMap { chunk ->
+            query("SELECT $ORACLE_COLS FROM oracles WHERE oracle_id IN (${chunk.joinToString(",") { "?" }})", chunk.toTypedArray(), ::oracle)
+        }.associateBy { it.oracleId.lowercase() }
+
     /** Every printing of a card: the original paper printing (the default for adds) first, then newest first. */
     override fun printings(oracleIdx: Int): List<CatalogPrinting> =
         query("SELECT $PRINTING_COLS FROM printings WHERE oracle_idx = ? ORDER BY original DESC, ord", arrayOf(oracleIdx.toString()), ::printing)

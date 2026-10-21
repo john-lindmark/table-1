@@ -100,6 +100,7 @@ export function screenName(pathname: string, listKind?: (id: string) => "deck" |
     "/friends": "friends",
     "/friends/add": "friend_add",
     "/sharing": "sharing",
+    "/library/rankings": "rankings",
   };
   if (fixed[p]) return fixed[p];
   if (/^\/library\/card\/[^/]+$/.test(p)) return "card_detail";
@@ -109,6 +110,11 @@ export function screenName(pathname: string, listKind?: (id: string) => "deck" |
   if (/^\/library\/match\/[^/]+$/.test(p)) return "trade_match";
   if (/^\/u\/[^/]+$/.test(p)) return "profile";
   if (/^\/u\/[^/]+\/[^/]+(\/[^/]+)?$/.test(p)) return "profile_cards";
+  const ranking = p.match(/^\/library\/ranking\/[^/]+(\/[^/]+)?/);
+  if (ranking) {
+    return ({ "": "ranking", "/screen": "ranking_screen", "/lists": "ranking_lists", "/card": "ranking_card", "/compare": "ranking_compare",
+              "/pack": "ranking_pack", "/changes": "ranking_changes" } as Record<string, string>)[ranking[1] ?? ""];
+  }
   const list = p.match(/^\/library\/list\/([^/]+)(\/.*)?$/);
   if (list) {
     const rest = list[2] ?? "";
@@ -123,6 +129,7 @@ export function screenName(pathname: string, listKind?: (id: string) => "deck" |
     if (rest === "/stats/hand") return "sample_hand";
     if (rest === "/stats/odds") return "draw_odds";
     if (rest === "/stats/pack") return "sample_pack";
+    if (rest === "/rankings") return "rankings";
   }
   return undefined;
 }

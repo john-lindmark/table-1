@@ -7560,6 +7560,1211 @@
       "errors": {
         "53400": "Too many tries, wait a few minutes"
       }
+    },
+    "cube_ranking_create": {
+      "note": "Starts a ranking (client id; a retry returns it) of a cube the caller can see. Can't see the cube: 42501; bad depth/top/sharing or 200 rankings already: 22023. contract/cube-rankings-2026-10-21.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_list_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_depth": {
+            "type": "string",
+            "enum": [
+              "half",
+              "full"
+            ]
+          },
+          "p_top": {
+            "type": "integer",
+            "enum": [
+              50,
+              100
+            ]
+          },
+          "p_sharing": {
+            "type": "string",
+            "enum": [
+              "cube",
+              "private"
+            ]
+          }
+        },
+        "required": [
+          "p_id",
+          "p_list_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "list_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "depth": {
+            "type": "string",
+            "enum": [
+              "half",
+              "full"
+            ]
+          },
+          "top": {
+            "type": "integer",
+            "enum": [
+              50,
+              100
+            ]
+          },
+          "sharing": {
+            "type": "string",
+            "enum": [
+              "cube",
+              "private"
+            ]
+          },
+          "screens": {
+            "type": "integer"
+          },
+          "rev": {
+            "type": "integer"
+          },
+          "sorted": {
+            "type": "integer"
+          },
+          "categories": {
+            "type": "integer"
+          },
+          "ranked": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mine": {
+            "type": "boolean"
+          },
+          "by": {
+            "type": "object",
+            "properties": {
+              "user_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "display_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "handle": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "avatar_url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "list_id",
+          "name",
+          "depth",
+          "top",
+          "sharing",
+          "screens",
+          "rev",
+          "sorted",
+          "categories",
+          "ranked",
+          "mine",
+          "by"
+        ]
+      }
+    },
+    "cube_ranking_update": {
+      "note": "Renames or changes depth / top / sharing of your ranking; null leaves a field alone. Not yours: 42501. contract/cube-rankings-2026-10-21.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_depth": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "half",
+              "full",
+              null
+            ]
+          },
+          "p_top": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "enum": [
+              50,
+              100,
+              null
+            ]
+          },
+          "p_sharing": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "cube",
+              "private",
+              null
+            ]
+          }
+        },
+        "required": [
+          "p_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "list_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "depth": {
+            "type": "string",
+            "enum": [
+              "half",
+              "full"
+            ]
+          },
+          "top": {
+            "type": "integer",
+            "enum": [
+              50,
+              100
+            ]
+          },
+          "sharing": {
+            "type": "string",
+            "enum": [
+              "cube",
+              "private"
+            ]
+          },
+          "screens": {
+            "type": "integer"
+          },
+          "rev": {
+            "type": "integer"
+          },
+          "sorted": {
+            "type": "integer"
+          },
+          "categories": {
+            "type": "integer"
+          },
+          "ranked": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mine": {
+            "type": "boolean"
+          },
+          "by": {
+            "type": "object",
+            "properties": {
+              "user_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "display_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "handle": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "avatar_url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "list_id",
+          "name",
+          "depth",
+          "top",
+          "sharing",
+          "screens",
+          "rev",
+          "sorted",
+          "categories",
+          "ranked",
+          "mine",
+          "by"
+        ]
+      }
+    },
+    "cube_ranking_push": {
+      "note": "Keeps the first p_keep screens of the log and appends p_add (append: keep all; undo: all but the last; redo of screen i: keep i, re-send the rest). p_rev must be the current rev (else 40001: reload); a retry with the same p_op_id returns the stored result. p_changes is appended to the change log (newest 5000 kept). Bad screens or over 6000: 22023. contract/cube-rankings-2026-10-21.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_rev": {
+            "type": "integer"
+          },
+          "p_keep": {
+            "type": "integer"
+          },
+          "p_add": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "s": {
+                  "type": "string",
+                  "enum": [
+                    "W",
+                    "U",
+                    "B",
+                    "R",
+                    "G",
+                    "M",
+                    "C",
+                    "L",
+                    "F",
+                    "P"
+                  ]
+                },
+                "o": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "minItems": 2,
+                  "maxItems": 15
+                },
+                "t": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "s",
+                "o"
+              ],
+              "note": "2-4 cards in order; a P1P1 pick (s P) is the picked card then the rest of its pack, up to 15."
+            },
+            "maxItems": 1000
+          },
+          "p_sorted": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "p_categories": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "p_ranked": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "p_op_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "p_changes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "s": {
+                  "type": "string",
+                  "enum": [
+                    "W",
+                    "U",
+                    "B",
+                    "R",
+                    "G",
+                    "M",
+                    "C",
+                    "L",
+                    "F"
+                  ]
+                },
+                "c": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "f": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "to": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "t": {
+                  "type": "number"
+                },
+                "by": {
+                  "type": "string",
+                  "enum": [
+                    "screen",
+                    "undo",
+                    "redo",
+                    "pick",
+                    "pick_win",
+                    "settings"
+                  ]
+                },
+                "n": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "s",
+                "c"
+              ]
+            },
+            "maxItems": 2000
+          }
+        },
+        "required": [
+          "p_id",
+          "p_rev",
+          "p_keep",
+          "p_add"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "list_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "depth": {
+            "type": "string",
+            "enum": [
+              "half",
+              "full"
+            ]
+          },
+          "top": {
+            "type": "integer",
+            "enum": [
+              50,
+              100
+            ]
+          },
+          "sharing": {
+            "type": "string",
+            "enum": [
+              "cube",
+              "private"
+            ]
+          },
+          "screens": {
+            "type": "integer"
+          },
+          "rev": {
+            "type": "integer"
+          },
+          "sorted": {
+            "type": "integer"
+          },
+          "categories": {
+            "type": "integer"
+          },
+          "ranked": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mine": {
+            "type": "boolean"
+          },
+          "by": {
+            "type": "object",
+            "properties": {
+              "user_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "display_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "handle": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "avatar_url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "list_id",
+          "name",
+          "depth",
+          "top",
+          "sharing",
+          "screens",
+          "rev",
+          "sorted",
+          "categories",
+          "ranked",
+          "mine",
+          "by"
+        ]
+      }
+    },
+    "cube_ranking_delete": {
+      "note": "Deletes your ranking. {deleted: false} when it's already gone; someone else's: 42501. contract/cube-rankings-2026-10-21.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "deleted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "deleted"
+        ]
+      }
+    },
+    "cube_rankings": {
+      "note": "With p_list_id: the cube and the rankings of it the caller can see (theirs first, then newest), can_rank when the caller can see the cube; a cube they can't see and haven't ranked: 42501. Without: every ranking of the caller's, each with its cube. contract/cube-rankings-2026-10-21.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_list_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "cube": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              },
+              "mine": {
+                "type": "boolean"
+              },
+              "owner": {
+                "type": "object",
+                "properties": {
+                  "user_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "display_name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "handle": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "avatar_url": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              "can_see": {
+                "type": "boolean"
+              },
+              "cards": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "note": "cube_ranking_get only, when can_see: distinct main-board Oracle ids, sorted"
+              }
+            }
+          },
+          "can_rank": {
+            "type": "boolean"
+          },
+          "rankings": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "list_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string",
+                      "maxLength": 60
+                    },
+                    "depth": {
+                      "type": "string",
+                      "enum": [
+                        "half",
+                        "full"
+                      ]
+                    },
+                    "top": {
+                      "type": "integer",
+                      "enum": [
+                        50,
+                        100
+                      ]
+                    },
+                    "sharing": {
+                      "type": "string",
+                      "enum": [
+                        "cube",
+                        "private"
+                      ]
+                    },
+                    "screens": {
+                      "type": "integer"
+                    },
+                    "rev": {
+                      "type": "integer"
+                    },
+                    "sorted": {
+                      "type": "integer"
+                    },
+                    "categories": {
+                      "type": "integer"
+                    },
+                    "ranked": {
+                      "type": "integer"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updated_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "mine": {
+                      "type": "boolean"
+                    },
+                    "by": {
+                      "type": "object",
+                      "properties": {
+                        "user_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "display_name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "handle": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "avatar_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "list_id",
+                    "name",
+                    "depth",
+                    "top",
+                    "sharing",
+                    "screens",
+                    "rev",
+                    "sorted",
+                    "categories",
+                    "ranked",
+                    "mine",
+                    "by"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "cube": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "mine": {
+                          "type": "boolean"
+                        },
+                        "owner": {
+                          "type": "object",
+                          "properties": {
+                            "user_id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "display_name": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "handle": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "avatar_url": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        "can_see": {
+                          "type": "boolean"
+                        },
+                        "cards": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "note": "cube_ranking_get only, when can_see: distinct main-board Oracle ids, sorted"
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "cube",
+          "can_rank",
+          "rankings"
+        ]
+      }
+    },
+    "cube_ranking_get": {
+      "note": "One ranking the caller can see, with its whole log and its cube (cards when the caller can see the cube). Otherwise 42501. contract/cube-rankings-2026-10-21.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_id"
+        ]
+      },
+      "result": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "list_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 60
+              },
+              "depth": {
+                "type": "string",
+                "enum": [
+                  "half",
+                  "full"
+                ]
+              },
+              "top": {
+                "type": "integer",
+                "enum": [
+                  50,
+                  100
+                ]
+              },
+              "sharing": {
+                "type": "string",
+                "enum": [
+                  "cube",
+                  "private"
+                ]
+              },
+              "screens": {
+                "type": "integer"
+              },
+              "rev": {
+                "type": "integer"
+              },
+              "sorted": {
+                "type": "integer"
+              },
+              "categories": {
+                "type": "integer"
+              },
+              "ranked": {
+                "type": "integer"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "mine": {
+                "type": "boolean"
+              },
+              "by": {
+                "type": "object",
+                "properties": {
+                  "user_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "display_name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "handle": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "avatar_url": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            },
+            "required": [
+              "id",
+              "list_id",
+              "name",
+              "depth",
+              "top",
+              "sharing",
+              "screens",
+              "rev",
+              "sorted",
+              "categories",
+              "ranked",
+              "mine",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "log": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "s": {
+                      "type": "string",
+                      "enum": [
+                        "W",
+                        "U",
+                        "B",
+                        "R",
+                        "G",
+                        "M",
+                        "C",
+                        "L",
+                        "F",
+                        "P"
+                      ]
+                    },
+                    "o": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "minItems": 2,
+                      "maxItems": 15
+                    },
+                    "t": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "s",
+                    "o"
+                  ],
+                  "note": "2-4 cards in order; a P1P1 pick (s P) is the picked card then the rest of its pack, up to 15."
+                }
+              },
+              "cube": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "mine": {
+                    "type": "boolean"
+                  },
+                  "owner": {
+                    "type": "object",
+                    "properties": {
+                      "user_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "display_name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "handle": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "avatar_url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  },
+                  "can_see": {
+                    "type": "boolean"
+                  },
+                  "cards": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "note": "cube_ranking_get only, when can_see: distinct main-board Oracle ids, sorted"
+                  }
+                }
+              },
+              "changes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "s": {
+                      "type": "string",
+                      "enum": [
+                        "W",
+                        "U",
+                        "B",
+                        "R",
+                        "G",
+                        "M",
+                        "C",
+                        "L",
+                        "F"
+                      ]
+                    },
+                    "c": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "f": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "to": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "t": {
+                      "type": "number"
+                    },
+                    "by": {
+                      "type": "string",
+                      "enum": [
+                        "screen",
+                        "undo",
+                        "redo",
+                        "pick",
+                        "pick_win",
+                        "settings"
+                      ]
+                    },
+                    "n": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "s",
+                    "c"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "log",
+              "cube"
+            ]
+          }
+        ]
+      }
+    },
+    "rankable_cubes": {
+      "note": "Other people's live cubes the caller can see, owned by a friend or someone they've played with; by owner then name, at most 300. contract/cube-rankings-2026-10-21.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {}
+      },
+      "result": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": {
+              "type": "string"
+            },
+            "owner": {
+              "type": "object",
+              "properties": {
+                "user_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "display_name": {
+                  "type": "string"
+                },
+                "handle": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "avatar_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "cards": {
+              "type": "integer"
+            },
+            "rankings": {
+              "type": "integer"
+            },
+            "mine": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "owner",
+            "cards",
+            "rankings",
+            "mine"
+          ]
+        }
+      }
     }
   },
   "functions": {
@@ -7755,6 +8960,64 @@
     },
     "notify-worker": {
       "note": "Database-only (x-t1-secret). Drains the pgmq notify queue into APNs alerts; kicked on enqueue and every minute by cron t1-notify-sweep. Payload: aps alert + {kind, event_id, match_id}. Kinds: event.new (organizer's regulars, 90 days), event.nearby, event.invite, event.cancelled, round.paired, result.reported, result.disputed, result.changed. Android (FCM) not yet."
+    },
+    "ranking-brief": {
+      "note": "Claude's 2-5 sentence comparison of two cube rankings for one list, cached per pair, list and inputs. Reads both rankings as the caller (403 if either is private to them). 60 new briefs per account per day (429). contract/cube-rankings-2026-10-21.md § Brief. Authorization: Bearer <user JWT>.",
+      "request": {
+        "type": "object",
+        "properties": {
+          "a": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "b": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "list": {
+            "type": "string",
+            "enum": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G",
+              "M",
+              "C",
+              "L",
+              "F"
+            ]
+          }
+        },
+        "required": [
+          "a",
+          "b",
+          "list"
+        ]
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "brief": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "cached": {
+            "type": "boolean"
+          },
+          "model": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      }
     }
   },
   "realtime": {

@@ -29,6 +29,14 @@ enum LibraryRoute: Hashable {
     case binder(String) // binder id, or BinderRoute.unsorted
     case wants
     case social(SocialRoute) // friends, profiles, sharing, trade matches (FriendsViews.swift)
+    case rankings(String?) // a cube's rankings (list id), or every ranking of yours (RankingsViews.swift)
+    case ranking(String) // ranking id
+    case rankingPick(String, String) // ranking id, job (W U B R G M C L F)
+    case rankingLists(String, String) // ranking id, job
+    case rankingCard(String, String, String) // ranking id, oracle id, job
+    case rankingCompare(String, String, String) // ranking id, the other ranking's id, job
+    case rankingPack(String) // ranking id: P1P1 packs and pick history
+    case rankingChanges(String) // ranking id: the change log
 }
 
 /// Every Library screen behind a route, shared by the Collection tab and the Debug demo.
@@ -63,6 +71,14 @@ struct LibraryDestination: View {
         case .binder: "binder"
         case .wants: "wants"
         case .social(let r): r.screenName
+        case .rankings: "rankings"
+        case .ranking: "ranking"
+        case .rankingPick: "ranking_screen"
+        case .rankingLists: "ranking_lists"
+        case .rankingCard: "ranking_card"
+        case .rankingCompare: "ranking_compare"
+        case .rankingPack: "ranking_pack"
+        case .rankingChanges: "ranking_changes"
         }
     }
 
@@ -91,6 +107,15 @@ struct LibraryDestination: View {
         case .binder(let id): BinderView(binderId: id, path: $path)
         case .wants: WantsView(path: $path)
         case .social(let r): SocialDestination(route: r, path: $path)
+        case .rankings(let list): RankingsView(listId: list, path: $path)
+        case .ranking(let id): RankingView(rankingId: id, path: $path)
+        case .rankingPick(let id, let job): RankingPickView(rankingId: id, job: RankJob(rawValue: job) ?? .final, path: $path)
+        case .rankingLists(let id, let job): RankingListsView(rankingId: id, job: RankJob(rawValue: job) ?? .final, path: $path)
+        case .rankingCard(let id, let card, let job): RankingCardView(rankingId: id, oracleId: card, job: RankJob(rawValue: job) ?? .final, path: $path)
+        case .rankingCompare(let id, let other, let job):
+            RankingCompareView(rankingId: id, otherId: other, job: RankJob(rawValue: job) ?? .final, path: $path)
+        case .rankingPack(let id): RankingPackView(rankingId: id, path: $path)
+        case .rankingChanges(let id): RankingChangesView(rankingId: id, path: $path)
         }
     }
 }

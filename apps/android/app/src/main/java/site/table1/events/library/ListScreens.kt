@@ -180,7 +180,8 @@ private val DECK_FORMATS = listOf("modern", "pioneer", "standard", "legacy", "vi
 private val CUBE_FORMATS = listOf("vintage", "legacy", "pauper", "peasant", "other")
 
 @Composable
-fun ListsScreen(kind: ListKind, onBack: () -> Unit, onOpen: (String) -> Unit, onFind: () -> Unit = {}, onImport: () -> Unit = {}) {
+fun ListsScreen(kind: ListKind, onBack: () -> Unit, onOpen: (String) -> Unit, onFind: () -> Unit = {}, onImport: () -> Unit = {},
+                onRankings: (() -> Unit)? = null) {
     val s by ListsStore.state.collectAsState()
     val owned = ownedByPrinting()
     val scope = rememberCoroutineScope()
@@ -208,6 +209,7 @@ fun ListsScreen(kind: ListKind, onBack: () -> Unit, onOpen: (String) -> Unit, on
         s.error?.let { Notice(it, error = true) }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             item { ListRow(if (kind == ListKind.Deck) "New deck" else "New cube", "Name it, then add cards", onClick = { creating = true }) }
+            if (kind == ListKind.Cube && onRankings != null) item { ListRow("Rankings", "Yours, and friends' cubes you can rank", onClick = onRankings) }
             items(mine, key = { it.id }) { l ->
                 val miss = l.missing(owned)
                 val side = l.count("side"); val maybe = l.count("maybe")
@@ -245,7 +247,7 @@ fun ListsScreen(kind: ListKind, onBack: () -> Unit, onOpen: (String) -> Unit, on
 @Composable
 fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Unit, onAdd: () -> Unit, onVersions: () -> Unit,
                      onOpen: (String) -> Unit, onPrinting: (cardId: String, board: String, finish: String) -> Unit = { _, _, _ -> },
-                     onStats: () -> Unit = {}) {
+                     onStats: () -> Unit = {}, onRankings: (() -> Unit)? = null) {
     val s by ListsStore.state.collectAsState()
     val list = s.lists.firstOrNull { it.id == listId }
     val owned = ownedByPrinting()
@@ -303,6 +305,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
             })
             if (editing) ListRow(if (list.kind == ListKind.Deck) "Delete deck" else "Delete cube", "From every device", onClick = { confirmDelete = true })
             if (!editing) ListStatsRow(list.id, onStats)
+            if (!editing && list.kind == ListKind.Cube && list.entries.isNotEmpty() && onRankings != null) RankingsRow(list.id, onRankings)
             ListRow("Add, remove or replace", if (list.kind == ListKind.Deck) "Main deck, sideboard or considering" else "Search the catalog, or this cube's own cards", onClick = onAdd)
             ListRow("Version history", "v${list.current.number} · ${list.current.note} · ${fmtDate(list.current.at)}", onClick = onVersions) {
                 Text("${list.versions.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)

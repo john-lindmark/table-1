@@ -146,4 +146,24 @@ select pg_temp.eq('matches found across friends', (jsonb_array_length((:'tm'::js
 select pg_temp.ms('trade_matches, 200 friends', $$select public.trade_matches()$$, 500);
 select pg_temp.ms('trade_matches, the big trader', $$select public.trade_matches(md5('friend1')::uuid)$$, 150);
 select pg_temp.ms('profile_view of a friend', $$select public.profile_view(md5('friend1')::uuid)$$, 25);
+-- Cube rankings: a 540-card cube ranked over 6,000 screens (the most a ranking holds).
+select public.list_create('e7000000-0000-0000-0000-0000000000f1', 'cube', 'Big cube', 'vintage',
+  (select jsonb_agg(jsonb_build_array(md5('c' || g || '-0')::uuid, 'main', 1)) from generate_series(1, 540) g));
+select public.cube_ranking_create('f7000000-0000-0000-0000-0000000000f1', 'e7000000-0000-0000-0000-0000000000f1', 'Big run');
+create temp table rank_screens as
+select jsonb_agg(jsonb_build_object('s', 'F', 't', k, 'o', jsonb_build_array(
+         md5('o' || (1 + (k * 4) % 540))::uuid, md5('o' || (1 + (k * 4 + 1) % 540))::uuid,
+         md5('o' || (1 + (k * 4 + 2) % 540))::uuid, md5('o' || (1 + (k * 4 + 3) % 540))::uuid))) a
+  from generate_series(1, 1000) k;
+do $$ begin
+  for i in 0..5 loop
+    perform public.cube_ranking_push('f7000000-0000-0000-0000-0000000000f1', i, i * 1000, (select a from rank_screens));
+  end loop;
+end $$;
+select pg_temp.eq('6000 screens', public.cube_ranking_get('f7000000-0000-0000-0000-0000000000f1')->>'screens', '6000');
+select pg_temp.ms('cube_ranking_get, 6000 screens', $$select public.cube_ranking_get('f7000000-0000-0000-0000-0000000000f1')$$, 150);
+select pg_temp.ms('cube_ranking_push, one screen onto 5999', $$select public.cube_ranking_push('f7000000-0000-0000-0000-0000000000f1',
+  (public.cube_rankings('e7000000-0000-0000-0000-0000000000f1')->'rankings'->0->>'rev')::int, 5999,
+  jsonb_build_array((select a->0 from rank_screens)))$$, 250);
+select pg_temp.ms('cube_rankings of a cube', $$select public.cube_rankings('e7000000-0000-0000-0000-0000000000f1')$$, 25);
 reset role;

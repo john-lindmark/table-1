@@ -401,6 +401,44 @@ struct LibraryDemoRoot: View {
         .task(id: CatalogStore.shared.generation) {
             LibraryDemo.seedWants()
             await FriendsDemo.seed()
+            // Rankings (contract/cube-rankings-2026-10-21.md) on the fixture's cube: `rankings`, `ranking` (yours, part
+            // sorted), `rankpick` (its next screen), `ranklist` (a friend's top 100), `rankcard`, `rankcompare`, `rankimage`.
+            if let db = CatalogStore.shared.db, RankingsStore.shared.demo == nil,
+               let cube = ListsStore.shared.lists.first(where: { $0.kind == .cube }) {
+                let entries = cube.entries.filter { $0.board == "main" }.map(\.cardId)
+                let made = await Task.detached(priority: .userInitiated) { () -> RankingsDemoBackend? in
+                    let printings = db.printings(ids: entries)
+                    let oracles = db.oracles(idxs: Array(Set(printings.values.map(\.oracleIdx))))
+                    var cats: [String: RankJob] = [:]
+                    for o in oracles.values { if let j = RankJob(colorGroup: GroupKeys(o).color) { cats[o.oracleId.lowercased()] = j } }
+                    return RankingsDemoBackend(cubeId: cube.id, cubeName: cube.name, cards: cats.keys.sorted(), categories: cats)
+                }.value
+                RankingsStore.shared.demo = made
+                if path.isEmpty, let arg = Self.arg {
+                    let mine = RankingsDemoBackend.mine
+                    let friend = "d0000000-0000-0000-0000-0000000aa002", other = "d0000000-0000-0000-0000-0000000aa003"
+                    let base: [LibraryRoute] = [.lists(.cube), .list(cube.id), .rankings(cube.id)]
+                    switch arg {
+                    case "rankings": path = base
+                    case "rankmine": path = [.lists(.cube), .rankings(nil)]
+                    case "rankfriend": path = [.lists(.cube), .rankings(nil), .rankings(RankingsDemoBackend.maraCube)]
+                    case "ranking": path = base + [.ranking(mine)]
+                    case "rankpick": path = base + [.ranking(mine), .rankingPick(mine, "R")]
+                    case "rankfinal": path = base + [.ranking(friend), .rankingPick(friend, "F")]
+                    case "ranklist": path = base + [.ranking(friend), .rankingLists(friend, "F")]
+                    case "rankcard":
+                        if let st = try? made?.get(friend), let c = st.log.last?.o.first { path = base + [.ranking(friend), .rankingCard(friend, c, "F")] }
+                    case "rankcompare": path = base + [.ranking(friend), .rankingCompare(friend, other, "F")]
+                    case "rankpack": path = base + [.ranking(mine), .rankingPack(mine)]
+                    case "rankpicks": path = base + [.ranking(friend), .rankingPack(friend)]
+                    case "rankchanges": path = base + [.ranking(friend), .rankingChanges(friend)]
+                    case "rankimage":
+                        path = base + [.ranking(friend)]
+                        T1Overlays.shared.present(full: true) { RankingImagePanel(model: RankingsStore.shared.model(friend)) }
+                    default: break
+                    }
+                }
+            }
             // `card`: a card with copies in the trade binder. `tradewants`: a draft giving a trade-binder copy and
             // getting a wanted card (the want is marked). Both need the card data, so they open once it's in.
             guard let db = CatalogStore.shared.db, path.isEmpty, let arg = Self.arg,

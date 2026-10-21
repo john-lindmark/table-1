@@ -15,6 +15,7 @@ import {
   type SharePart, type ShareItem, type Sharing, type TradeMatch, type Visibility,
 } from "../lib/friends";
 import { startFriendsDemo } from "../lib/friendsDemo";
+import { RankingsRow } from "./Rankings";
 import { capture } from "../lib/telemetry";
 import {
   CardGroupRow, CardRow, CardTile, LibScreen, StackRows, ViewButton, useBoxWidth, useCatalog, useLibrarySession, useStoredLayout, type StackCardItem,
@@ -400,12 +401,14 @@ const partTitle = (c: Catalog, pt: Part) =>
  *  Copy to my Library (contract/shared-lists-grouping-2026-10-20.md). */
 export function ProfileCardsScreen(props: {
   userId: string; section: SectionKind; item: string | null; onBack: () => void; onCard: (oracleId: string) => void; onList: (listId: string) => void;
+  onRankings?: (listId: string) => void;
 }) {
   return <Gate title="Cards" onBack={props.onBack}>{() => <ProfileCardsBody {...props} />}</Gate>;
 }
 
-function ProfileCardsBody({ userId, section, item, onBack, onCard, onList }: {
+function ProfileCardsBody({ userId, section, item, onBack, onCard, onList, onRankings }: {
   userId: string; section: SectionKind; item: string | null; onBack: () => void; onCard: (oracleId: string) => void; onList: (listId: string) => void;
+  onRankings?: (listId: string) => void;
 }) {
   const { catalog, error: catError } = useCatalog();
   useListsData(); // your lists, so a copy lands in them (the dev demo's too)
@@ -582,6 +585,7 @@ function ProfileCardsBody({ userId, section, item, onBack, onCard, onList }: {
           <Row title="Export" detail={kind === "deck" ? "Text, Arena, MTGO, download or copy" : "Text, Cube Cobra, download or copy"}
                onClick={() => setExporting(true)} />
           {kind === "deck" && <Row title="Deck image" detail="The cards as a picture, to save or share" onClick={() => setImaging(true)} />}
+          {kind === "cube" && item && onRankings && <RankingsRow listId={item} onOpen={() => onRankings(item)} />}
           {owner && listFormat && (
             <Row title={copying ? "Copying…" : "Copy to my Library"} detail={kind === "deck" ? "A new private deck with these cards" : "A new cube with these cards"}
                  onClick={copying ? undefined : () => void copy()} />

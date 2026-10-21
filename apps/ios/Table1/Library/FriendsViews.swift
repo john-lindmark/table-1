@@ -742,6 +742,7 @@ struct ProfileCardsView: View {
                 ListRow(title: "Deck image", detail: "The cards as a picture, to save or share")
             }.buttonStyle(.plain)
         }
+        if kind == .cube, let id = section.id { RankingsRow(listId: id, path: $path) }
         if list.owner != nil {
             Button {
                 let copy = ListsStore.shared.create(kind: kind, name: title, format: list.format, entries: entries,

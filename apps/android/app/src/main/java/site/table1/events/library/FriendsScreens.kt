@@ -402,7 +402,8 @@ private fun boardTitle(board: String, kind: ListKind) = when (board) {
  * Library (contract/shared-lists-grouping-2026-10-20.md).
  */
 @Composable
-fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: () -> Unit, onCard: (String) -> Unit, onList: (String) -> Unit) {
+fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: () -> Unit, onCard: (String) -> Unit, onList: (String) -> Unit,
+                       onRankings: ((String) -> Unit)? = null) {
     val cat by CatalogStore.state.collectAsState()
     val scope = rememberCoroutineScope()
     val kind = SharedList.kind(section)
@@ -470,6 +471,7 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
                 ListRow("Export", if (kind == ListKind.Deck) "Text, Arena, MTGO, download or copy" else "Text, Cube Cobra, download or copy",
                     onClick = { exporting = true })
                 if (kind == ListKind.Deck) ListRow("Deck image", "The cards as a picture, to save or share", onClick = { imaging = true })
+                if (kind == ListKind.Cube && item != null && onRankings != null) RankingsRow(item) { onRankings(item) }
                 if (owner != null && shared != null) {
                     ListRow(if (copying) "Copying…" else "Copy to my Library",
                         if (kind == ListKind.Deck) "A new private deck with these cards" else "A new cube with these cards",

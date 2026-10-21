@@ -118,6 +118,14 @@ describe("screenName", () => {
     expect(screenName("/j/ABCD")).toBe("event");
     expect(screenName(`/e/${UUID}/add`)).toBe("add_players");
     expect(screenName("/life")).toBe("life_tracker");
+    expect(screenName("/library/rankings")).toBe("rankings");
+    expect(screenName(`/library/list/${UUID}/rankings`)).toBe("rankings");
+    expect(screenName(`/library/ranking/${UUID}`)).toBe("ranking");
+    expect(screenName(`/library/ranking/${UUID}/screen/W`)).toBe("ranking_screen");
+    expect(screenName(`/library/ranking/${UUID}/card/${UUID}/F`)).toBe("ranking_card");
+    expect(screenName(`/library/ranking/${UUID}/compare/${UUID}/F`)).toBe("ranking_compare");
+    expect(screenName(`/library/ranking/${UUID}/pack`)).toBe("ranking_pack");
+    expect(screenName(`/library/ranking/${UUID}/changes`)).toBe("ranking_changes");
     expect(screenName(`/life/${UUID}`)).toBe("life_tracker");
     expect(screenName("/library")).toBe("library_home");
     expect(screenName("/library/cards")).toBe("all_cards");

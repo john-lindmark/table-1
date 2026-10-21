@@ -32,6 +32,15 @@ import io.github.jan.supabase.auth.status.SessionStatus
 import site.table1.events.T1App
 import site.table1.events.data.JoinLink
 import site.table1.events.data.Repo
+import site.table1.events.library.RankingsScreen
+import site.table1.events.library.RankingScreen
+import site.table1.events.library.RankingPickScreen
+import site.table1.events.library.RankingListsScreen
+import site.table1.events.library.RankingCardScreen
+import site.table1.events.library.RankingCompareScreen
+import site.table1.events.library.RankingPackScreen
+import site.table1.events.library.RankingChangesScreen
+import site.table1.events.library.RankJob
 import site.table1.events.library.AddCardsScreen
 import site.table1.events.library.AllCardsScreen
 import site.table1.events.library.CardContext
@@ -210,7 +219,8 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
                 composable("profile/{id}/{section}/{item}") { e ->
                     ProfileCardsScreen(e.arguments?.getString("id") ?: "", e.arguments?.getString("section") ?: "",
                         e.arguments?.getString("item")?.takeIf { it != "-" }, onBack = { nav.popBackStack() },
-                        onCard = { nav.navigate("collection/card/$it") }, onList = { nav.navigate("collection/list/$it") })
+                        onCard = { nav.navigate("collection/card/$it") }, onList = { nav.navigate("collection/list/$it") },
+                        onRankings = { nav.navigate("collection/list/$it/rankings") })
                 }
                 composable("collection/matches") {
                     TradeMatchesScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/match/$it") },
@@ -265,7 +275,47 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
                 }
                 composable("collection/cubes") {
                     ListsScreen(ListKind.Cube, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/list/$it") },
-                        onImport = { nav.navigate("collection/import/cube") })
+                        onImport = { nav.navigate("collection/import/cube") }, onRankings = { nav.navigate("collection/rankings") })
+                }
+                // Cube rankings (contract/cube-rankings-2026-10-21.md).
+                composable("collection/rankings") {
+                    RankingsScreen(null, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/ranking/$it") },
+                        onCube = { nav.navigate("collection/list/$it/rankings") })
+                }
+                composable("collection/list/{id}/rankings") { e ->
+                    RankingsScreen(e.arguments?.getString("id"), onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/ranking/$it") })
+                }
+                composable("collection/ranking/{id}") { e ->
+                    val id = e.arguments?.getString("id") ?: ""
+                    RankingScreen(id, onBack = { nav.popBackStack() }, go = { nav.navigate("collection/ranking/$id/$it") })
+                }
+                composable("collection/ranking/{id}/screen/{job}") { e ->
+                    val id = e.arguments?.getString("id") ?: ""
+                    RankingPickScreen(id, RankJob.of(e.arguments?.getString("job") ?: "F") ?: RankJob.Final, onBack = { nav.popBackStack() },
+                        go = { nav.navigate("collection/ranking/$id/$it") })
+                }
+                composable("collection/ranking/{id}/lists/{job}") { e ->
+                    val id = e.arguments?.getString("id") ?: ""
+                    RankingListsScreen(id, RankJob.of(e.arguments?.getString("job") ?: "F") ?: RankJob.Final, onBack = { nav.popBackStack() },
+                        go = { nav.navigate("collection/ranking/$id/$it") })
+                }
+                composable("collection/ranking/{id}/card/{card}/{job}") { e ->
+                    val id = e.arguments?.getString("id") ?: ""
+                    RankingCardScreen(id, e.arguments?.getString("card") ?: "", RankJob.of(e.arguments?.getString("job") ?: "F") ?: RankJob.Final,
+                        onBack = { nav.popBackStack() }, go = { nav.navigate("collection/ranking/$id/$it") })
+                }
+                composable("collection/ranking/{id}/compare/{other}/{job}") { e ->
+                    val id = e.arguments?.getString("id") ?: ""
+                    RankingCompareScreen(id, e.arguments?.getString("other") ?: "", RankJob.of(e.arguments?.getString("job") ?: "F") ?: RankJob.Final,
+                        onBack = { nav.popBackStack() }, go = { nav.navigate("collection/ranking/$id/$it") })
+                }
+                composable("collection/ranking/{id}/pack") { e ->
+                    val id = e.arguments?.getString("id") ?: ""
+                    RankingPackScreen(id, onBack = { nav.popBackStack() }, go = { nav.navigate("collection/ranking/$id/$it") })
+                }
+                composable("collection/ranking/{id}/changes") { e ->
+                    val id = e.arguments?.getString("id") ?: ""
+                    RankingChangesScreen(id, onBack = { nav.popBackStack() }, go = { nav.navigate("collection/ranking/$id/$it") })
                 }
                 composable("collection/list/{id}") { e ->
                     val id = e.arguments?.getString("id") ?: ""
@@ -273,7 +323,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
                         onAdd = { nav.navigate("collection/list/$id/add") }, onVersions = { nav.navigate("collection/list/$id/versions") },
                         onOpen = { nav.navigate("collection/list/$it") },
                         onPrinting = { card, board, finish -> nav.navigate("collection/list/$id/printing/$card/$board/$finish") },
-                        onStats = { nav.navigate("collection/list/$id/stats") })
+                        onStats = { nav.navigate("collection/list/$id/stats") }, onRankings = { nav.navigate("collection/list/$id/rankings") })
                 }
                 composable("collection/list/{id}/stats") { e ->
                     val id = e.arguments?.getString("id") ?: ""

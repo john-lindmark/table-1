@@ -177,7 +177,7 @@ fun DeckImageScreen(name: String, format: String, entries: List<ListEntry>, owne
 }
 
 /** Pictures/Table 1 through MediaStore (no permission on Android 10+; the legacy public folder before). */
-private suspend fun saveToPhotos(context: Context, image: Bitmap, fileName: String) = withContext(Dispatchers.IO) {
+internal suspend fun saveToPhotos(context: Context, image: Bitmap, fileName: String) = withContext(Dispatchers.IO) {
     val values = ContentValues().apply {
         put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
         put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
@@ -195,7 +195,7 @@ private suspend fun saveToPhotos(context: Context, image: Bitmap, fileName: Stri
 }
 
 /** A JPEG under the export FileProvider path, to the share sheet. */
-private suspend fun shareImage(context: Context, image: Bitmap, fileName: String) {
+internal suspend fun shareImage(context: Context, image: Bitmap, fileName: String) {
     val file = File(context.cacheDir, "export/deck-image/$fileName")
     withContext(Dispatchers.IO) {
         file.parentFile?.mkdirs()

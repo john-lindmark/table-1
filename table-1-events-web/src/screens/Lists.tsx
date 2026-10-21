@@ -22,6 +22,7 @@ import { COLLAPSED, isOpen, lineGroups, toggleOne, type Disclosure, type LineGro
 import { HERO_LIMIT, heroPrintings, heroesOf, isHero, toggleHero, type HeroScope } from "../lib/heroes";
 import { CardSearchBar, CardSearchStatus, useCardSearch } from "./CardSearch";
 import { ListStatsRow } from "./ListStats";
+import { RankingsRow } from "./Rankings";
 import { DeckImageScreen } from "./DeckImage";
 
 /* Decks and cubes on the web (contract/lists-2026-10-15.md): the same lists, sections, groups and version
@@ -146,8 +147,10 @@ function Stat({ label, value }: { label: string; value: number }) {
 const DECK_FORMATS = ["modern", "pioneer", "standard", "legacy", "vintage", "pauper", "commander", "canlander", "other"];
 const CUBE_FORMATS = ["vintage", "legacy", "pauper", "peasant", "other"];
 
-export function ListsScreen({ kind, onBack, onOpen, onFind, onImport }: {
+export function ListsScreen({ kind, onBack, onOpen, onFind, onImport, onRankings }: {
   kind: ListKind; onBack: () => void; onOpen: (id: string) => void; onFind: () => void; onImport: () => void;
+  /** Cubes: every ranking of yours (contract/cube-rankings-2026-10-21.md). */
+  onRankings?: () => void;
 }) {
   const { session, ready, lists, owned } = useListsData();
   const [creating, setCreating] = useState(false);
@@ -189,6 +192,7 @@ export function ListsScreen({ kind, onBack, onOpen, onFind, onImport }: {
       {lists.error && <Notice tone="error">{lists.error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         <Row title={kind === "deck" ? "New deck" : "New cube"} detail="Name it, then add cards" onClick={() => setCreating(true)} />
+        {kind === "cube" && onRankings && <Row title="Rankings" detail="Yours, and friends' cubes you can rank" onClick={onRankings} />}
         {mine.map((l) => {
           const miss = missingIn(l, owned);
           const side = countOf(l, "side"), maybe = countOf(l, "maybe");
@@ -312,9 +316,11 @@ export function ExportScreen({ name, kind, entries, catalog, from, onClose }: {
   );
 }
 
-export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPrinting, onStats }: {
+export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPrinting, onStats, onRankings }: {
   id: string; onBack: () => void; onCard: (oracleId: string) => void; onAdd: () => void; onVersions: () => void;
   onOpen: (listId: string) => void; onPrinting: (cardId: string, board: Board, finish: ListFinish) => void; onStats: () => void;
+  /** Cubes: the Rankings row. */
+  onRankings?: () => void;
 }) {
   const { session, ready, lists, owned } = useListsData();
   const { catalog, error } = useCatalog();
@@ -469,6 +475,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
                          onClick={() => { void duplicateList(list).then((copy) => { setEditing(false); onOpen(copy); }); }} />}
         {editing && <Row title={list.kind === "deck" ? "Delete deck" : "Delete cube"} detail="From every device" onClick={() => setConfirmDelete(true)} />}
         {!editing && catalog && <ListStatsRow list={list} catalog={catalog} onOpen={onStats} />}
+        {!editing && list.kind === "cube" && onRankings && entriesOf(list).length > 0 && <RankingsRow listId={list.id} onOpen={onRankings} />}
         <Row title="Add, remove or replace" detail={list.kind === "deck" ? "Main deck, sideboard or considering" : "Search the catalog, or this cube's own cards"} onClick={onAdd} />
         <Row title="Version history" detail={`v${v.number} · ${v.note} · ${fmtDate(v.at)}`} value={list.versions.length} onClick={onVersions} />
         {entriesOf(list).length > 0 && !editing && catalog &&

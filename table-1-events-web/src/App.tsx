@@ -25,6 +25,7 @@ import { DeleteAccountPage, PrivacyPolicy } from "./screens/Legal";
 import { SignInPage } from "./screens/Landing";
 import { NameGate } from "./components/NameGate";
 import type { Board, ListFinish } from "./lib/lists";
+import type { RankJob } from "./lib/cubeRanking";
 import type { CardContext } from "./screens/Library";
 
 /**
@@ -67,6 +68,15 @@ const ProfileCardsScreen = lazyNamed(friends, "ProfileCardsScreen");
 const SharingScreen = lazyNamed(friends, "SharingScreen");
 const TradeMatchesScreen = lazyNamed(friends, "TradeMatchesScreen");
 const TradeMatchScreen = lazyNamed(friends, "TradeMatchScreen");
+const rankings = () => import("./screens/Rankings");
+const RankingsList = lazyNamed(rankings, "RankingsScreen");
+const RankingOverview = lazyNamed(rankings, "RankingScreen");
+const RankingPick = lazyNamed(rankings, "RankingPickScreen");
+const RankingLists = lazyNamed(rankings, "RankingListsScreen");
+const RankingCard = lazyNamed(rankings, "RankingCardScreen");
+const RankingCompare = lazyNamed(rankings, "RankingCompareScreen");
+const RankingPack = lazyNamed(rankings, "RankingPackScreen");
+const RankingChanges = lazyNamed(rankings, "RankingChangesScreen");
 const DeckFinderScreen = lazyNamed(() => import("./screens/DeckFinder"), "DeckFinderScreen");
 const ListImportScreen = lazyNamed(() => import("./screens/ListImport"), "ListImportScreen");
 const CollectionImportScreen = lazyNamed(() => import("./screens/CollectionImport"), "CollectionImportScreen");
@@ -191,7 +201,8 @@ function ProfileCardsRoute() {
   const kind = kinds.find((k) => k === section);
   if (!userId || !kind) return <Navigate to="/friends" replace />;
   return <ProfileCardsScreen userId={userId} section={kind} item={itemId ?? null} onBack={back}
-                             onCard={(o) => navigate(`/library/card/${o}`)} onList={(id) => navigate(`/library/list/${id}`)} />;
+                             onCard={(o) => navigate(`/library/card/${o}`)} onList={(id) => navigate(`/library/list/${id}`)}
+                             onRankings={(id) => navigate(`/library/list/${id}/rankings`)} />;
 }
 function SharingRoute() {
   return <SharingScreen onBack={useBack("/me")} />;
@@ -263,7 +274,8 @@ function ListsRoute({ kind }: { kind: "deck" | "cube" }) {
   const navigate = useNavigate();
   const back = useBack("/library");
   return <ListsScreen key={kind} kind={kind} onBack={back} onOpen={(id) => navigate(`/library/list/${id}`)}
-                      onFind={() => navigate("/library/find")} onImport={() => navigate(`/library/import/${kind}`)} />;
+                      onFind={() => navigate("/library/find")} onImport={() => navigate(`/library/import/${kind}`)}
+                      onRankings={() => navigate("/library/rankings")} />;
 }
 
 function ListRoute() {
@@ -276,8 +288,39 @@ function ListRoute() {
                 onAdd={() => navigate(`/library/list/${listId}/add`)} onVersions={() => navigate(`/library/list/${listId}/versions`)}
                 onOpen={(id) => navigate(`/library/list/${id}`)}
                 onPrinting={(card, board, finish) => navigate(`/library/list/${listId}/printing?card=${card}&board=${board}&finish=${finish}`)}
-                onStats={() => navigate(`/library/list/${listId}/stats`)} />
+                onStats={() => navigate(`/library/list/${listId}/stats`)} onRankings={() => navigate(`/library/list/${listId}/rankings`)} />
   );
+}
+
+const RankingsScreens = lazyNamed(rankings, "RankingsDemoGate");
+function rankingGo(navigate: ReturnType<typeof useNavigate>, id: string) {
+  return (path: string) => navigate(`/library/ranking/${id}/${path}`);
+}
+function RankingsRoute() {
+  const { listId } = useParams();
+  const navigate = useNavigate();
+  const back = useBack(listId ? `/library/list/${listId}` : "/library/cubes");
+  return <RankingsScreens><RankingsList key={listId ?? "mine"} listId={listId ?? null} onBack={back} onOpen={(id) => navigate(`/library/ranking/${id}`)}
+                                        onCube={(id) => navigate(`/library/list/${id}/rankings`)} /></RankingsScreens>;
+}
+function RankingRoute() {
+  const { rankingId, job, oracleId, otherId } = useParams();
+  const navigate = useNavigate();
+  const loc = useLocation();
+  const base = `/library/ranking/${rankingId}`;
+  const back = useBack(loc.pathname === base ? "/library/cubes" : base);
+  if (!rankingId) return <Navigate to="/library" replace />;
+  const go = rankingGo(navigate, rankingId);
+  const j = (job ?? "F") as RankJob;
+  const part = loc.pathname.slice(base.length).split("/")[1] ?? "";
+  const screen = part === "screen" ? <RankingPick id={rankingId} job={j} onBack={back} go={go} />
+    : part === "lists" ? <RankingLists id={rankingId} job={j} onBack={back} go={go} />
+    : part === "card" && oracleId ? <RankingCard id={rankingId} oracleId={oracleId} job={j} onBack={back} go={go} />
+    : part === "compare" && otherId ? <RankingCompare id={rankingId} otherId={otherId} job={j} onBack={back} go={go} />
+    : part === "pack" ? <RankingPack id={rankingId} onBack={back} go={go} />
+    : part === "changes" ? <RankingChanges id={rankingId} onBack={back} go={go} />
+    : <RankingOverview id={rankingId} onBack={back} go={go} />;
+  return <RankingsScreens>{screen}</RankingsScreens>;
 }
 
 function ListStatsRoute() {
@@ -414,6 +457,15 @@ export default function App() {
         <Route path="/library/list/:listId" element={<ListRoute />} />
         <Route path="/library/list/:listId/add" element={<ListAddRoute />} />
         <Route path="/library/list/:listId/stats" element={<ListStatsRoute />} />
+        <Route path="/library/list/:listId/rankings" element={<RankingsRoute />} />
+        <Route path="/library/rankings" element={<RankingsRoute />} />
+        <Route path="/library/ranking/:rankingId" element={<RankingRoute />} />
+        <Route path="/library/ranking/:rankingId/screen/:job" element={<RankingRoute />} />
+        <Route path="/library/ranking/:rankingId/lists/:job" element={<RankingRoute />} />
+        <Route path="/library/ranking/:rankingId/card/:oracleId/:job" element={<RankingRoute />} />
+        <Route path="/library/ranking/:rankingId/compare/:otherId/:job" element={<RankingRoute />} />
+        <Route path="/library/ranking/:rankingId/pack" element={<RankingRoute />} />
+        <Route path="/library/ranking/:rankingId/changes" element={<RankingRoute />} />
         <Route path="/library/list/:listId/stats/hand" element={<StatsToolRoute tool="hand" />} />
         <Route path="/library/list/:listId/stats/odds" element={<StatsToolRoute tool="odds" />} />
         <Route path="/library/list/:listId/stats/pack" element={<StatsToolRoute tool="pack" />} />

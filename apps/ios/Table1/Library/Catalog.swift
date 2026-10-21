@@ -230,6 +230,18 @@ final class CatalogDB: @unchecked Sendable {
         return out
     }
 
+    /// Cards by Oracle id (lowercase keys); ids the pack doesn't know are left out.
+    func oracles(oracleIds: [String]) -> [String: CatalogOracle] {
+        var out: [String: CatalogOracle] = [:]
+        for chunk in Self.chunks(oracleIds.map { $0.lowercased() }) {
+            let marks = Array(repeating: "?", count: chunk.count).joined(separator: ",")
+            let rows = (try? db.query("SELECT \(Self.oracleCols) FROM oracles WHERE oracle_id IN (\(marks))",
+                                      chunk.map { .text($0) }, Self.oracle)) ?? []
+            for o in rows { out[o.oracleId.lowercased()] = o }
+        }
+        return out
+    }
+
     func oracles(idxs: [Int]) -> [Int: CatalogOracle] {
         var out: [Int: CatalogOracle] = [:]
         for chunk in Self.chunks(idxs) {

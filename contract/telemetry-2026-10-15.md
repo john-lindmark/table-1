@@ -48,7 +48,9 @@ properties. Every client sends the same names, so one PostHog insight covers all
 `list_versions`, `list_add`, `list_printing`, `deck_finder`, `list_import`, `trades`, `trade`, `account`,
 `roto_grid`, `roto_cube`, `roto_picks`, `roto_list` (2026-10-16), `collection_import`, `collection_import_fix` (2026-10-17), `deck_stats`, `cube_stats`, `sample_hand`, `draw_odds`, `sample_pack` (2026-10-17), `binders`, `binder`, `wants`, `want_add` (2026-10-17, binders and wants), `friends`, `friend_add`, `profile`,
 `profile_cards`, `sharing`, `trade_matches`, `trade_match` (2026-10-18, friends and sharing), `want_printing`, `binder_add`
-(2026-10-18, `library-search-2026-10-18.md`), `item_printing`, `trade_printing` (2026-10-18, `change-printing-2026-10-18.md`).
+(2026-10-18, `library-search-2026-10-18.md`), `item_printing`, `trade_printing` (2026-10-18, `change-printing-2026-10-18.md`), `rankings`, `ranking`, `ranking_screen`,
+`ranking_lists`, `ranking_card`, `ranking_compare`, `ranking_pack`, `ranking_changes`, `ranking_image` (2026-10-21,
+`cube-rankings-2026-10-21.md`).
 
 ## Events
 
@@ -139,6 +141,14 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `list_card_removed` | `kind`: deck / cube. Remove in Add, remove or replace |
 | `list_card_replaced` | `kind`. Replace swaps one copy for another card in one edit |
 | `list_card_added` | `kind`, `from`: edit (picked, then Add) / quick (the + on a hit) (2026-10-19) |
+| `ranking_created` | `depth`: half / full, `top`: 50 / 100, `sharing`: cube / private, `own_cube`: bool (2026-10-21, `cube-rankings-2026-10-21.md`) |
+| `ranking_job_done` | `job`: W U B R G M C L F, `screens`: int |
+| `ranking_undo` / `ranking_redo` / `ranking_deleted` / `ranking_changes_opened` | — |
+| `ranking_pick` | `disagreed`: int (pack cards the ranking put above the pick), `resolution`: none / keep / pick_wins, `removed`: screens taken out |
+| `ranking_compared` | `list`: W … L / F |
+| `ranking_brief_shown` / `ranking_brief_missing` | `list`, `cached`: bool (a brief, or the reason there isn't one) |
+| `ranking_list_copied` | `list` |
+| `ranking_image` | `how`: photos / share (web: download / share) |
 | `hero_added` / `hero_removed` | `scope`: collection / list / binder, `count`: heroes now in that scope (2026-10-19) |
 | `printings_toggled` | `expanded`: bool, `all`: bool (Expand all vs one card), `screen`: all_cards / list / binder (2026-10-19) |
 | `advanced_search_used` | `text`, `mv`, `set`: bool, `colors`, `rarity`: counts, `format` (the Advanced form's Search; never the query text) (2026-10-19) |
