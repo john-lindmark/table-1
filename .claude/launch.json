@@ -165,6 +165,21 @@
         "--strictPort"
       ],
       "port": 5221
+    },
+    {
+      "name": "web-tracker-options",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "table-1-events-web",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5225",
+        "--strictPort"
+      ],
+      "port": 5225
     }
   ]
 }

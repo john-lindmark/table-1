@@ -160,6 +160,13 @@ class TrackerController(context: Context, private val matchId: String?) {
         update(d.withCounterToggled(side, id))
     }
 
+    /** Local: games and every game's totals back to the start; names, starting life and columns stay. */
+    fun resetMatch() {
+        val d = doc ?: return
+        if (synced) return resetGame()
+        update(d.copy(games = emptyList(), ops = emptyList(), promptedAt = 0))
+    }
+
     /** Local: start over. */
     fun newMatch() {
         val d = doc ?: return

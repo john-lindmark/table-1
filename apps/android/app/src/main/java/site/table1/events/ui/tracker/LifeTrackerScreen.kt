@@ -90,6 +90,7 @@ import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1TextAction
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.theme.T1
+import site.table1.events.util.Telemetry
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -100,7 +101,8 @@ private data class Winner(val side: Int?, val draw: Boolean)
 /**
  * Two-player life tracker (Figma "Life tracker — On its own", 73:5420). [matchId] null = local session on
  * this device only; otherwise the shared session for that match. Two halves (the opponent's rotated to face
- * them) around the info strip: round clock, Close, Record, History. Swipe down on a half, in that player's
+ * them) around the info strip: round clock, Record, Options (chooser, dice, history, leave; 231:9191), Reset.
+ * Swipe down on a half, in that player's
  * orientation, to choose its counter columns. Full screen, screen kept on.
  */
 @Composable
@@ -145,6 +147,8 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
 
     val haptics = LocalHapticFeedback.current
     var showHistory by remember { mutableStateOf(false) }
+    var panel by remember { mutableStateOf<String?>(null) }
+    var resetting by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf<Winner?>(null) }
     var startingLife by remember { mutableStateOf(false) }
@@ -178,17 +182,63 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
             },
             recordAccent = !d.readOnly && d.loseCondition() != null,
             busy = controller.busy,
-            onClose = onClose,
+            onOptions = { panel = "options" },
+            onReset = { resetting = true },
             onRecord = {
                 val lose = d.loseCondition()
                 if (lose != null) confirming = Winner(lose.second, false) else picking = true
             },
-            onHistory = { showHistory = true },
         )
         TrackerHalf(
             d, side = me, pickerOpen = picker == me, onPicker = { picker = if (it) me else null },
             onTap = ::tap, onToggle = { controller.toggleCounter(me, it) },
             modifier = Modifier.weight(1f),
+        )
+    }
+
+    when (panel) {
+        "options" -> TrackerOptionsPanel(
+            onDismiss = { panel = null },
+            onChooser = { panel = "chooser" },
+            onDice = { panel = "dice" },
+            onHistory = { showHistory = true },
+            onLeave = onClose,
+        )
+        "dice" -> TrackerDicePanel(onDismiss = { panel = null })
+        "chooser" -> TrackerChooser(onDismiss = { panel = null })
+    }
+
+    if (resetting) {
+        // Only this device's own games can be cleared, never an event's recorded ones.
+        val canResetMatch = !controller.synced && d.games.isNotEmpty()
+        val score = "${d.wins(me)}–${d.wins(them)}"
+        val life = "Life goes back to ${d.startingLife} and counters to 0."
+        fun reset(match: Boolean) {
+            resetting = false
+            if (match) controller.resetMatch() else controller.resetGame()
+            Telemetry.capture("tracker_reset", mapOf("scope" to if (match) "match" else "game",
+                "mode" to if (controller.synced) "match" else "local"))
+        }
+        T1AlertDialog(
+            title = if (canResetMatch) "Reset?" else "Reset game $game?",
+            onDismiss = { resetting = false },
+            body = {
+                Text(
+                    when {
+                        canResetMatch -> "$life Reset match also clears the games ($score)."
+                        controller.synced && d.games.isNotEmpty() -> "$life Recorded games stay ($score)."
+                        else -> life
+                    },
+                    fontFamily = T1.mono, color = T1.muted, fontSize = 13.sp,
+                )
+            },
+            confirm = {
+                Row {
+                    if (canResetMatch) T1TextAction("Reset game") { reset(false) }
+                    T1TextAction(if (canResetMatch) "Reset match" else "Reset", color = T1.danger) { reset(canResetMatch) }
+                }
+            },
+            dismiss = { BarAction("Cancel") { resetting = false } },
         )
     }
 
@@ -311,7 +361,7 @@ private fun toneColor(tone: ClockTone): Color = when (tone) {
     ClockTone.Overtime -> T1.error
 }
 
-/** Lifetracker Info (73:5617): clock + context, the progress bar, then Close / Record / History. */
+/** Lifetracker Info (73:5617): clock + context, the progress bar, then Record / Options / Reset. */
 @Composable
 private fun InfoStrip(
     d: TrackerDoc,
@@ -319,9 +369,9 @@ private fun InfoStrip(
     contextColor: Color,
     recordAccent: Boolean,
     busy: Boolean,
-    onClose: () -> Unit,
     onRecord: () -> Unit,
-    onHistory: () -> Unit,
+    onOptions: () -> Unit,
+    onReset: () -> Unit,
 ) {
     val clock = d.clock
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -350,16 +400,20 @@ private fun InfoStrip(
             }
         }
         Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) { StripButton("Close", onClick = onClose) }
-            if (!d.readOnly) StripButton(if (busy) "Saving…" else "Record", accent = recordAccent, onClick = { if (!busy) onRecord() })
-            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) { StripButton("History", onClick = onHistory) }
+            Box(Modifier.weight(1f)) {
+                if (!d.readOnly) StripButton(if (busy) "Saving…" else "Record", accent = recordAccent, onClick = { if (!busy) onRecord() })
+            }
+            StripButton("Options", onClick = onOptions)
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                if (!d.readOnly) StripButton("Reset", onClick = onReset)
+            }
         }
     }
 }
 
 /** Strip Button: a label with a surface fill while pressed. Accent means "the result" (a game was lost). */
 @Composable
-private fun StripButton(text: String, accent: Boolean = false, onClick: () -> Unit) {
+internal fun StripButton(text: String, accent: Boolean = false, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val fill by animateColorAsState(if (pressed) T1.surface else T1.bg, tween(150), label = "strip")

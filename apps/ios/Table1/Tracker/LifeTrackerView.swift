@@ -2,7 +2,8 @@ import SwiftUI
 import UIKit
 
 /// The life tracker (Figma "Life tracker — On its own", 73:5420): two halves (mine at the bottom, the
-/// opponent's rotated to face them) around the info strip with the round clock, Close, Record and History.
+/// opponent's rotated to face them) around the info strip with the round clock, Record, Options and Reset.
+/// Options (231:9191) holds the chooser, dice, history and Leave tracker.
 /// Swipe down on a half, in that player's orientation, to choose its counter columns. Full screen, no tab
 /// bar, screen kept on.
 struct LifeTrackerView: View {
@@ -15,6 +16,7 @@ struct LifeTrackerView: View {
     @State private var busy = false
     @State private var notice: String?
     @State private var actionError: String?
+    @State private var resetPrompt = false
     private let haptic = UIImpactFeedbackGenerator(style: .light)
 
     struct WinnerChoice: Equatable {
@@ -96,6 +98,17 @@ struct LifeTrackerView: View {
         .alert("Couldn't do that", isPresented: Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil } })) {
             Button("OK", role: .cancel) {}
         } message: { Text(actionError ?? "") }
+        .alert(resetTitle, isPresented: $resetPrompt) {
+            Button("Cancel", role: .cancel) {}
+            if model.canResetMatch {
+                Button("Reset game") { reset(match: false) }
+                Button("Reset match", role: .destructive) { reset(match: true) }
+            } else {
+                Button("Reset", role: .destructive) { reset(match: false) }
+            }
+        } message: {
+            Text(resetMessage)
+        }
     }
 
     private var isReady: Bool {
@@ -141,13 +154,20 @@ struct LifeTrackerView: View {
                 }
             }
             HStack(spacing: 0) {
-                StripButton("Close") { onClose() }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if !model.readOnly {
-                    StripButton(busy ? "Saving…" : "Record", accent: model.losingSide != nil) { if !busy { recordTapped() } }
+                // Equal sides keep Options centred, also when watching (no Record or Reset).
+                ZStack(alignment: .leading) {
+                    Color.clear
+                    if !model.readOnly {
+                        StripButton(busy ? "Saving…" : "Record", accent: model.losingSide != nil) { if !busy { recordTapped() } }
+                    }
                 }
-                StripButton("History") { showHistory() }
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                .frame(maxWidth: .infinity)
+                StripButton("Options") { showOptions() }
+                ZStack(alignment: .trailing) {
+                    Color.clear
+                    if !model.readOnly { StripButton("Reset") { resetPrompt = true } }
+                }
+                .frame(maxWidth: .infinity)
             }
             .frame(height: 48)
         }
@@ -180,6 +200,17 @@ struct LifeTrackerView: View {
     }
 
     // MARK: menus (app-drawn)
+
+    private func showOptions() {
+        T1Overlays.shared.present {
+            TrackerOptionsPanel(
+                chooser: { T1Overlays.shared.present(full: true, swipeBack: false) { TrackerChooserScreen() } },
+                dice: { T1Overlays.shared.present { TrackerDicePanel() } },
+                history: { showHistory() },
+                leave: { onClose() }
+            )
+        }
+    }
 
     private func showHistory() {
         let model = model
@@ -232,6 +263,15 @@ struct LifeTrackerView: View {
         return "Match is \(mine)–\(theirs)."
     }
 
+    private var resetTitle: String { model.canResetMatch ? "Reset?" : "Reset game \(model.currentGame)?" }
+
+    private var resetMessage: String {
+        let life = "Life goes back to \(model.startingLife) and counters to 0."
+        if model.canResetMatch { return life + " Reset match also clears the games (\(model.scoreText))." }
+        if model.isSynced && !model.games.isEmpty { return life + " Recorded games stay (\(model.scoreText))." }
+        return life
+    }
+
     private var decidedTitle: String {
         model.isSynced && model.mySide != nil ? "Report \(model.reportText) to the event?" : "Match over"
     }
@@ -253,6 +293,11 @@ struct LifeTrackerView: View {
         let id = model.tap(side: side, counter: counter, delta: delta)
         if id != nil { haptic.impactOccurred() }
         return id
+    }
+
+    private func reset(match: Bool) {
+        if match { model.resetMatch() } else { model.resetGame() }
+        Telemetry.capture("tracker_reset", ["scope": match ? "match" : "game", "mode": model.isSynced ? "match" : "local"])
     }
 
     private func record(_ choice: WinnerChoice) {
@@ -507,7 +552,7 @@ private struct CounterPicker: View {
 }
 
 /// Strip Button: a label with a surface fill while pressed. Accent means "the result" (a game was lost).
-private struct StripButton: View {
+struct StripButton: View {
     let title: String
     var accent = false
     var rotated = false
@@ -531,7 +576,7 @@ private struct StripButton: View {
     }
 }
 
-private struct PressFill: ButtonStyle {
+struct PressFill: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(configuration.isPressed ? T1.surface : T1.bg)

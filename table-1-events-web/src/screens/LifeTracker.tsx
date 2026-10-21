@@ -36,6 +36,7 @@ import {
   type TrackerOp,
 } from "../lib/tracker";
 import { GhostAction, Modal, Notice, useNow } from "../components/kit";
+import { TrackerChooser, TrackerDicePanel, TrackerOptionsPanel } from "./TrackerOptions";
 
 /* ── model ─────────────────────────────────────────────────────────────────
    One board for both kinds of session. Local: no event, stored on this device.
@@ -320,6 +321,8 @@ function Board({ ctl, prefsKey, onClose }: { ctl: Controller; prefsKey: string; 
   const [prefs, setPrefs] = useCounterPrefs(prefsKey);
   const [picker, setPicker] = useState<Side | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [panel, setPanel] = useState<"options" | "dice" | "chooser" | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
   const [flow, setFlow] = useState<RecordFlow | null>(null);
   const [recording, setRecording] = useState(false);
   const [flowError, setFlowError] = useState<string | null>(null);
@@ -415,7 +418,7 @@ function Board({ ctl, prefsKey, onClose }: { ctl: Controller; prefsKey: string; 
     <div className="fixed inset-0 bg-t1-bg text-t1-text flex flex-col gap-px overflow-hidden select-none" style={{ touchAction: "manipulation" }}>
       {half(top, true)}
 
-      {/* Lifetracker Info (Figma 73:5617): clock + context, progress bar, Close / Record / History. */}
+      {/* Lifetracker Info (Figma 73:5617): clock + context, progress bar, Record / Options / Reset. */}
       <div className="shrink-0 flex flex-col gap-px bg-t1-bg">
         <div className="h-12 flex items-center">
           {remaining != null && tone && (
@@ -435,25 +438,55 @@ function Board({ ctl, prefsKey, onClose }: { ctl: Controller; prefsKey: string; 
         </div>
         <div className="h-12 flex items-stretch">
           <div className="flex-1 flex">
-            <StripButton onClick={onClose}>Close</StripButton>
+            {canEdit && (
+              <StripButton
+                accent={loser != null}
+                onClick={() =>
+                  setFlow(loser != null ? { step: "confirm", winner: loser === 0 ? 1 : 0, draw: false } : { step: "pick" })
+                }
+              >
+                Record
+              </StripButton>
+            )}
           </div>
-          {canEdit && (
-            <StripButton
-              accent={loser != null}
-              onClick={() =>
-                setFlow(loser != null ? { step: "confirm", winner: loser === 0 ? 1 : 0, draw: false } : { step: "pick" })
-              }
-            >
-              Record
-            </StripButton>
-          )}
+          <StripButton onClick={() => setPanel("options")}>Options</StripButton>
           <div className="flex-1 flex justify-end">
-            <StripButton onClick={() => setHistoryOpen(true)}>History</StripButton>
+            {canEdit && <StripButton onClick={() => setResetOpen(true)}>Reset</StripButton>}
           </div>
         </div>
       </div>
 
       {half(bottom, false)}
+
+      {panel === "options" && (
+        <TrackerOptionsPanel
+          onClose={() => setPanel(null)}
+          onChooser={() => setPanel("chooser")}
+          onDice={() => setPanel("dice")}
+          onHistory={() => setHistoryOpen(true)}
+          onLeave={onClose}
+        />
+      )}
+      {panel === "dice" && <TrackerDicePanel onClose={() => setPanel(null)} />}
+      {panel === "chooser" && <TrackerChooser onClose={() => setPanel(null)} />}
+
+      {resetOpen && (
+        <ResetDialog
+          gameNo={gameNo}
+          startingLife={m.startingLife}
+          score={scoreLabel(myWins, theirWins, score.draws)}
+          // Only this device's own games can be cleared, never an event's recorded ones.
+          canResetMatch={!m.synced && m.games.length > 0 && !!ctl.newMatch}
+          keepsGames={m.synced && m.games.length > 0}
+          onClose={() => setResetOpen(false)}
+          onReset={(match) => {
+            if (match) ctl.newMatch?.();
+            else ctl.resetGame();
+            setResetOpen(false);
+            capture("tracker_reset", { scope: match ? "match" : "game", mode: m.synced ? "match" : "local" });
+          }}
+        />
+      )}
 
       {historyOpen && (
         <Sheet title="History" onClose={() => setHistoryOpen(false)}
@@ -620,6 +653,47 @@ function Board({ ctl, prefsKey, onClose }: { ctl: Controller; prefsKey: string; 
         />
       )}
     </div>
+  );
+}
+
+/** Reset asks first: life back to starting life and counters to 0; on this device's own games, the match too. */
+function ResetDialog({
+  gameNo,
+  startingLife,
+  score,
+  canResetMatch,
+  keepsGames,
+  onClose,
+  onReset,
+}: {
+  gameNo: number;
+  startingLife: number;
+  score: string;
+  canResetMatch: boolean;
+  keepsGames: boolean;
+  onClose: () => void;
+  onReset: (match: boolean) => void;
+}) {
+  const life = `Life goes back to ${startingLife} and counters to 0.`;
+  const message = canResetMatch
+    ? `${life} Reset match also clears the games (${score}).`
+    : keepsGames
+      ? `${life} Recorded games stay (${score}).`
+      : life;
+  return (
+    <Modal title={canResetMatch ? "Reset?" : `Reset game ${gameNo}?`} onClose={onClose}>
+      <p className="text-[12px] leading-[18px] text-t1-muted">{message}</p>
+      <div className="flex gap-px">
+        <GhostAction label="Cancel" onClick={onClose} />
+        {canResetMatch && <GhostAction label="Reset game" onClick={() => onReset(false)} />}
+        <button
+          onClick={() => onReset(canResetMatch)}
+          className="flex-1 bg-t1-text text-t1-bg px-4 py-3 text-[11px] uppercase tracking-[1px]"
+        >
+          {canResetMatch ? "Reset match" : "Reset"}
+        </button>
+      </div>
+    </Modal>
   );
 }
 

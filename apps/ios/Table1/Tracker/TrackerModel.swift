@@ -462,6 +462,17 @@ final class TrackerModel {
         }
     }
 
+    /// Reset can also clear the games: only on this device's own (local) games, never an event's recorded ones.
+    var canResetMatch: Bool { !isSynced && !games.isEmpty }
+
+    /// Local only: games and every game's totals back to the start; names, starting life and columns stay.
+    func resetMatch() {
+        guard !isSynced else { return resetGame() }
+        games = []
+        ops = []
+        saveLocal()
+    }
+
     /// Local only.
     func setStartingLife(_ life: Int) {
         guard !isSynced else { return }
