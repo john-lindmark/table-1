@@ -255,7 +255,7 @@ struct AccountView: View {
                 switch SignIn.Failure(error) {
                 case .cancelled: self.error = nil
                 case .appleUnavailable: self.error = "Apple didn't confirm it's you. Check you're signed in to your Apple Account in Settings and try again."
-                case .failed: self.error = "Couldn't delete the account: \(error.localizedDescription)"
+                case .googleUnavailable, .failed: self.error = "Couldn't delete the account: \(error.localizedDescription)"
                 }
                 deleting = false
             }

@@ -191,6 +191,9 @@ enum SignIn {
         /// no Apple Account signed in, Screen Time limits, or the sheet dismissed in a way Apple doesn't
         /// call a cancel. Nothing the app can fix, so it's counted, not reported (TABLE-1-IOS-3, 2026-10-20).
         case appleUnavailable
+        /// iOS wouldn't start Google's web sign-in sheet (AppAuth's "Unable to open Safari.", surfaced as
+        /// GIDSignIn -1): the app wasn't frontmost or the system refused the session. Counted, not reported (bug #9).
+        case googleUnavailable
         case failed
 
         init(_ error: Error) {
@@ -202,15 +205,21 @@ enum SignIn {
                 }
                 return
             }
-            // GIDSignInError.canceled is -5.
+            // GIDSignInError.canceled is -5; -1 (unknown) keeps only AppAuth's description.
             let ns = error as NSError
-            self = ns.domain == "com.google.GIDSignIn" && ns.code == -5 ? .cancelled : .failed
+            guard ns.domain == "com.google.GIDSignIn" else { self = .failed; return }
+            switch ns.code {
+            case -5: self = .cancelled
+            case -1 where ns.localizedDescription == "Unable to open Safari.": self = .googleUnavailable
+            default: self = .failed
+            }
         }
 
         var reason: String {
             switch self {
             case .cancelled: "cancelled"
             case .appleUnavailable: "apple_unavailable"
+            case .googleUnavailable: "google_unavailable"
             case .failed: "error"
             }
         }
@@ -220,6 +229,7 @@ enum SignIn {
             switch self {
             case .cancelled: nil
             case .appleUnavailable: "Sign in with Apple didn't finish. Check you're signed in to your Apple Account in Settings, or continue with email."
+            case .googleUnavailable: "Google sign-in didn't open. Try again, or continue with email."
             case .failed: "Sign-in failed. Try again."
             }
         }

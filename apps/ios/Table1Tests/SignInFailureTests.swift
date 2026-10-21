@@ -4,7 +4,9 @@ import XCTest
 
 /* How a sign-in sheet ended. ASAuthorizationError 1000 (unknown) reached Sentry as a bug from three TestFlight users
    (TABLE-1-IOS-3, 2026-10-20): it's Apple's sheet giving up on the device (no Apple Account, Screen Time), so it's
-   shown and counted but not reported. Real failures still are. */
+   shown and counted but not reported. Real failures still are.
+   Google's "Unable to open Safari." (GIDSignIn -1, bug #9, 2026-10-21) is iOS refusing to start the web sign-in
+   sheet (app not frontmost); AppAuth drops the underlying error, so only its description says which -1 it is. */
 
 final class SignInFailureTests: XCTestCase {
     func testAppleUnknownIsUnavailableNotABug() {
@@ -13,6 +15,15 @@ final class SignInFailureTests: XCTestCase {
         XCTAssertEqual(f.reason, "apple_unavailable")
         XCTAssertNotNil(f.message)
         XCTAssertEqual(SignIn.Failure(ASAuthorizationError(.notInteractive)), .appleUnavailable)
+    }
+
+    func testGoogleSheetThatWontOpenIsUnavailableNotABug() {
+        let ns = NSError(domain: "com.google.GIDSignIn", code: -1,
+                         userInfo: [NSLocalizedDescriptionKey: "Unable to open Safari."])
+        let f = SignIn.Failure(ns)
+        XCTAssertEqual(f, .googleUnavailable)
+        XCTAssertEqual(f.reason, "google_unavailable")
+        XCTAssertNotNil(f.message)
     }
 
     func testCancelsSayNothing() {
