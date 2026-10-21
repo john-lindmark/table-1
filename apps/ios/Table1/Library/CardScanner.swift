@@ -22,7 +22,8 @@ struct ScannedCard: Identifiable, Hashable {
     var matched: Matched? = nil
     /// The user fixed this row: the printing is theirs, not a guess.
     var fixed = false
-    /// The language the copy goes in as: its printing's when that isn't English, else the one picked for adds.
+    /// The language the copy goes in as: its printing's when that isn't English, else the language of the printed
+    /// name read (Languages.forScan), else the one picked for adds.
     var lang = "en"
 
     struct Matched: Hashable { let cardId: String; let exact: Bool }
@@ -348,7 +349,8 @@ struct CardScanView: View {
         guard let taken = steady.feed(m), let m else { return m != nil }
         var card = ScannedCard(oracle: m.oracle, printing: taken.0, finish: matcher.defaultFinish(taken.0),
                                condition: owned == nil ? condition : "NM", exact: taken.1)
-        card.lang = Languages.forNew(taken.0, picked: addLang)
+        // Owned-only scans (giving in a trade) keep the owned copy's language.
+        card.lang = owned == nil ? Languages.forScan(taken.0, read: m.langs, picked: addLang) : Languages.forNew(taken.0, picked: addLang)
         card.frames = frames.frames
         card.matched = .init(cardId: taken.0.cardId, exact: taken.1)
         self.taken += 1
@@ -372,7 +374,7 @@ struct CardScanView: View {
                 }
             }.buttonStyle(.plain)
             if owned == nil {
-                // The language: the card's own when the scanner read a non-English printing, else the add default.
+                // The language: the printing's or the printed name's the scanner read, else the add default.
                 Button { languageFor = c.id } label: {
                     LabelText(c.lang.uppercased(), color: T1.text)
                         .padding(.horizontal, 12).frame(maxHeight: .infinity).background(T1.surfaceHover)

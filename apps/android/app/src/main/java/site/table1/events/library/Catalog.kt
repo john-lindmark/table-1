@@ -108,8 +108,8 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog, ImportC
             ScanName(it.getInt(0), it.getString(1), it.getString(2), it.getString(3) ?: "", it.getInt(4))
         }
 
-    override fun foreignNames(): List<Pair<Int, String>> =
-        query("SELECT DISTINCT oracle_idx, name_norm FROM names", emptyArray()) { it.getInt(0) to it.getString(1) }
+    override fun foreignNames(): List<ForeignName> =
+        query("SELECT DISTINCT oracle_idx, lang, name_norm FROM names", emptyArray()) { ForeignName(it.getInt(0), it.getString(1), it.getString(2)) }
 
     override fun setCodes(): Set<String> = query("SELECT DISTINCT set_code FROM printings", emptyArray()) { it.getString(0) }.toSet()
 

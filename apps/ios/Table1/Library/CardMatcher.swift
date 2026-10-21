@@ -6,12 +6,18 @@ import Foundation
 /// Names the scanner can read, built once per catalog pack: each card's name and a split or double-faced card's
 /// front face (tokens, art cards, emblems and Vanguard left out), its printed names in other languages (pack N
 /// lines; never over an English name, and left out when two cards share one), with trigrams for misread names.
+/// Each name knows the languages it's printed in, so a card read by its German name goes in as German.
 final class ScanNames: @unchecked Sendable {
     let version: String
     let sets: Set<String>
+    /// A card the name belongs to, and the languages it's printed in (empty for an English name, which doesn't
+    /// tell: a German card whose name is the English one reads the same).
+    struct Hit: Equatable { let idx: Int; let langs: [String] }
     /// Normalized names, sorted by UTF-8 bytes (cut-off names are looked up by prefix).
     private let keys: [String]
     private let idxs: [Int]
+    /// Per key, a bit per language in `Languages.all` (0 = an English name).
+    private let langBits: [UInt32]
     private let byKey: [String: Int]
     /// Trigram → the keys containing it, as a range of `postings` (key positions, ascending).
     private let grams: [Int: Range<Int>]
@@ -34,7 +40,7 @@ final class ScanNames: @unchecked Sendable {
         version = db.version
         sets = db.setCodes()
         // printings -1 marks a printed name in another language; idx -1 one that two cards share.
-        var best: [String: (idx: Int, printings: Int)] = [:]
+        var best: [String: (idx: Int, printings: Int, langs: UInt32)] = [:]
         var scannable = Set<Int>()
         for o in db.scanNames() where o.printings > 0 && !Self.unscannable(o.typeLine) {
             var names = [o.norm]
@@ -44,21 +50,25 @@ final class ScanNames: @unchecked Sendable {
                 names.append(front)
             }
             scannable.insert(o.idx)
-            for k in names where best[k].map({ o.printings > $0.printings }) ?? true { best[k] = (o.idx, o.printings) }
+            for k in names where best[k].map({ o.printings > $0.printings }) ?? true { best[k] = (o.idx, o.printings, 0) }
         }
         let foreign = db.scanForeignNames()
         best.reserveCapacity(best.count + foreign.count)
+        let bit = Dictionary(uniqueKeysWithValues: Languages.all.enumerated().map { ($1.code, UInt32(1) << UInt32($0)) })
         for n in foreign where scannable.contains(n.idx) {
+            let l = bit[n.lang] ?? 0
             if let b = best[n.norm] {
-                if b.printings < 0 && b.idx != n.idx { best[n.norm] = (-1, -1) }
+                if b.printings < 0 && b.idx != n.idx { best[n.norm] = (-1, -1, 0) }
+                else if b.printings < 0 && b.idx == n.idx { best[n.norm] = (b.idx, -1, b.langs | l) }
             } else {
-                best[n.norm] = (n.idx, -1)
+                best[n.norm] = (n.idx, -1, l)
             }
         }
         // Byte order: the same as String's < for these normalized names, without its Unicode comparison.
         let sorted = best.filter { $0.value.idx >= 0 }.sorted { $0.key.utf8.lexicographicallyPrecedes($1.key.utf8) }
         keys = sorted.map(\.key)
         idxs = sorted.map(\.value.idx)
+        langBits = sorted.map(\.value.langs)
         byKey = Dictionary(uniqueKeysWithValues: keys.enumerated().map { ($1, $0) })
         // Every (trigram, key position), keys in order; a stable radix sort on the 24-bit trigram then gives one
         // ascending posting list per trigram.
@@ -132,11 +142,17 @@ final class ScanNames: @unchecked Sendable {
         return Set(out)
     }
 
-    func exact(_ q: String) -> Int? { byKey[q].map { idxs[$0] } }
+    func exact(_ q: String) -> Hit? { byKey[q].map(hit) }
+
+    private func hit(_ i: Int) -> Hit { Hit(idx: idxs[i], langs: Self.langs(langBits[i])) }
+
+    private static func langs(_ bits: UInt32) -> [String] {
+        Languages.all.indices.filter { bits & (1 << UInt32($0)) != 0 }.map { Languages.all[$0].code }
+    }
 
     /// A name cut off at the edge of the frame: only one card has names starting with it (its English and printed
     /// names often share a start: "Urza's Saga", "Urzas Sage"), and it's most of one of them.
-    func prefix(_ q: String) -> Int? {
+    func prefix(_ q: String) -> Hit? {
         guard q.count >= (CardName.hasCJK(q) ? 4 : 8) else { return nil }
         var lo = 0, hi = keys.count
         while lo < hi {
@@ -144,19 +160,22 @@ final class ScanNames: @unchecked Sendable {
             if keys[mid].utf8.lexicographicallyPrecedes(q.utf8) { lo = mid + 1 } else { hi = mid }
         }
         var hit: Int?, most = false
+        // The languages of the names it starts; none when one of them is English (it doesn't tell).
+        var bits: UInt32?
         for j in lo..<min(keys.count, lo + 16) {
             guard keys[j].hasPrefix(q) else { break }
             if let h = hit, h != idxs[j] { return nil }
             hit = idxs[j]
+            bits = bits == 0 || langBits[j] == 0 ? 0 : (bits ?? 0) | langBits[j]
             if Double(q.count) >= 0.6 * Double(keys[j].count) { most = true }
         }
-        return most ? hit : nil
+        return most ? hit.map { Hit(idx: $0, langs: Self.langs(bits ?? 0)) } : nil
     }
 
     /// A misread name: the closest name within about one edit in eight letters, if no other card's name is as close.
     /// Han, kana and Hangul carry more per character: four of them at least, and one edit in six, counted in
     /// characters rather than UTF-8 bytes.
-    func fuzzy(_ q: String) -> Int? {
+    func fuzzy(_ q: String) -> Hit? {
         let cjk = CardName.hasCJK(q)
         guard q.count >= (cjk ? 4 : 5), q.utf8.count < 250 else { return nil }
         let cap = max(1, q.count / (cjk ? 6 : 8))
@@ -171,7 +190,7 @@ final class ScanNames: @unchecked Sendable {
             let other = best.i < 0 || idxs[best.i] != idxs[i]
             if d < best.d { if other { second = best.d }; best = (d, i) } else if d < second && other { second = d }
         }
-        return best.i >= 0 && best.d <= cap && second > best.d ? idxs[best.i] : nil
+        return best.i >= 0 && best.d <= cap && second > best.d ? hit(best.i) : nil
     }
 
     /// The key positions sharing at least `enough` of the trigrams, most shared first (then by position). A name
@@ -282,10 +301,15 @@ final class CardMatcher: @unchecked Sendable {
         self.names = names ?? ScanNames.shared(db)
     }
 
-    func match(_ lines: [String]) -> (oracle: CatalogOracle, printing: CatalogPrinting, exact: Bool)? {
+    /// A card read, its printing and whether that was read (`exact`), and the languages its text says it's in
+    /// (`langs`): the language code by the set code ("WAR • JP"), else the languages of the printed name read; empty
+    /// when neither tells (an English name, which many cards print in every language).
+    typealias Match = (oracle: CatalogOracle, printing: CatalogPrinting, exact: Bool, langs: [String])
+
+    func match(_ lines: [String]) -> Match? {
         let bottom = Collector(lines, sets: names.sets)
-        if let idx = name(lines), let o = oracle(idx) {
-            return pick(o, lines, bottom)
+        if let hit = name(lines), let o = oracle(hit.idx), let (p, exact) = pick(o, lines, bottom) {
+            return (o, p, exact, bottom.lang.map { [$0] } ?? hit.langs)
         }
         // Not an English name (or none legible): the set code and collector number, when they agree on one card.
         var hits: [Int: CatalogPrinting] = [:]
@@ -295,7 +319,7 @@ final class CardMatcher: @unchecked Sendable {
             }
         }
         guard hits.count == 1, let (idx, p) = hits.first, let o = oracle(idx) else { return nil }
-        return (o, p, true)
+        return (o, p, true, bottom.lang.map { [$0] } ?? [])
     }
 
     /// The finish a scanned copy starts as: what you own of it in owned-only mode, else non-foil when printed.
@@ -345,7 +369,7 @@ final class CardMatcher: @unchecked Sendable {
 
     /// The card's name: the top lines first (exactly, then cut off or misread), stopping at the type line, which the
     /// name is always above; further down, only an exact name of two words or more (one word is often a keyword).
-    private func name(_ lines: [String]) -> Int? {
+    private func name(_ lines: [String]) -> ScanNames.Hit? {
         // Furigana over a Japanese name isn't a line of its own, unless it's a name itself.
         let read = lines.prefix(12).map { ($0, CardName.norm($0).split(separator: " ")) }
             .filter { (1...12).contains($0.1.count) && !(Self.furigana($0.1) && names.exact(String($0.1[0])) == nil) }
@@ -361,12 +385,12 @@ final class CardMatcher: @unchecked Sendable {
             q.contains(" ") || (text[i] && text[..<i].filter { $0 }.count <= (q.count <= 2 && CardName.hasCJK(q) ? 0 : 1))
         }
         func long(_ q: String) -> Bool { q.count >= (CardName.hasCJK(q) ? 2 : 3) }
-        func exact(_ i: Int) -> Int? {
-            for q in candidates(words[i]) where long(q) && fits(q, i) { if let o = names.exact(q), allowed(o) { return o } }
+        func exact(_ i: Int) -> ScanNames.Hit? {
+            for q in candidates(words[i]) where long(q) && fits(q, i) { if let o = names.exact(q), allowed(o.idx) { return o } }
             // A name broken over two lines.
             if i + 1 < words.count, words[i].count <= 3, words[i + 1].count <= 3 {
                 for q in candidates(words[i] + words[i + 1]) where long(q) && fits(q, i) {
-                    if let o = names.exact(q), allowed(o) { return o }
+                    if let o = names.exact(q), allowed(o.idx) { return o }
                 }
             }
             return nil
@@ -375,12 +399,12 @@ final class CardMatcher: @unchecked Sendable {
             if let o = exact(i) { return o }
             if Self.typeLine(words[i]) { break }
             for q in candidates(words[i]) where fits(q, i) {
-                if let o = names.prefix(q) ?? names.fuzzy(q), allowed(o) { return o }
+                if let o = names.prefix(q) ?? names.fuzzy(q), allowed(o.idx) { return o }
             }
         }
         // Not a Japanese, Chinese or Korean name: short ones turn up in rules text.
         for i in min(3, words.count)..<words.count where !words[i].contains(where: { CardName.hasCJK(String($0)) }) {
-            if let o = exact(i), oracle(o)?.norm.contains(" ") == true { return o }
+            if let o = exact(i), oracle(o.idx)?.norm.contains(" ") == true { return o }
         }
         return nil
     }
@@ -412,8 +436,7 @@ final class CardMatcher: @unchecked Sendable {
     /// regular collector number, then the default printing. Exact when the set code and number agree, the set has
     /// only one printing of the card, or the number and year single one out. A prerelease date stamp picks the
     /// set's prerelease promo.
-    private func pick(_ o: CatalogOracle, _ lines: [String], _ bottom: Collector)
-        -> (oracle: CatalogOracle, printing: CatalogPrinting, exact: Bool)? {
+    private func pick(_ o: CatalogOracle, _ lines: [String], _ bottom: Collector) -> (CatalogPrinting, Bool)? {
         let ps = printings(o.idx)
         guard !ps.isEmpty else { return nil }
         let years = Self.years(lines)
@@ -435,7 +458,7 @@ final class CardMatcher: @unchecked Sendable {
         }) {
             best = promo
         }
-        return (o, best, exact)
+        return (best, exact)
     }
 
     private static func stripZeros(_ s: String) -> String {
@@ -515,8 +538,14 @@ struct Collector {
     var numbers = Set<String>()
     /// The numbers written as collector numbers ("154/196", "0244", "R 1695", "297"), not a lone "212" that may be a misread 2/2.
     var collectorNumbers = Set<String>()
+    /// The language printed by a known set code ("WAR • JP" → ja), when only one is.
+    var lang: String?
 
-    private static let langs: Set<String> = ["EN", "DE", "FR", "IT", "ES", "PT", "JP", "JA", "RU", "KR", "KO", "CS", "CT", "PH", "ZHS", "ZHT"]
+    /// The codes printed by the set code, as Scryfall's language codes.
+    private static let langs: [String: String] = [
+        "EN": "en", "DE": "de", "FR": "fr", "IT": "it", "ES": "es", "PT": "pt", "JP": "ja", "JA": "ja", "RU": "ru",
+        "KR": "ko", "KO": "ko", "CS": "zhs", "CT": "zht", "PH": "ph", "ZHS": "zhs", "ZHT": "zht",
+    ]
     /// An uppercase code, a bullet or star, a language code ("one it ate." in rules text is not a set and a language).
     nonisolated(unsafe) private static let setLang = #/\b([A-Z0-9]{2,5})\s*[•*·★+.]\s*([A-Z]{2,3})\b/#
     /// "154/196": the number after the slash is the set's size, which tells it from power/toughness ("6/6").
@@ -526,11 +555,13 @@ struct Collector {
 
     init(_ lines: [String], sets known: Set<String>) {
         var langLine = false
+        var printed = Set<String>()
         for line in lines {
-            for m in line.matches(of: Self.setLang) where Self.langs.contains(String(m.output.2)) {
+            for m in line.matches(of: Self.setLang) {
+                guard let lang = Self.langs[String(m.output.2)] else { continue }
                 langLine = true
                 let code = m.output.1.lowercased()
-                if known.contains(code) { sets.insert(code) }
+                if known.contains(code) { sets.insert(code); printed.insert(lang) }
             }
             for m in line.matches(of: Self.ofTotal) where (Int(m.output.3) ?? 0) >= 30 {
                 let n = Self.strip(String(m.output.1)) + m.output.2.lowercased()
@@ -538,6 +569,7 @@ struct Collector {
                 collectorNumbers.insert(n)
             }
         }
+        if printed.count == 1 { lang = printed.first }
         for line in lines {
             guard let m = line.wholeMatch(of: Self.alone) else { continue }
             let n = m.output.1.replacingOccurrences(of: " ", with: "")
@@ -581,7 +613,7 @@ struct ScanSteadiness {
     private var lastAccepted: (idx: Int, seen: Date)?
 
     /// Feed every frame's match (or nil). Returns the printing once a card should be taken.
-    mutating func feed(_ m: (oracle: CatalogOracle, printing: CatalogPrinting, exact: Bool)?, at now: Date = .now)
+    mutating func feed(_ m: CardMatcher.Match?, at now: Date = .now)
         -> (CatalogPrinting, Bool)? {
         guard let m else {
             if let c = candidate, ms(now, c.seen) > ms(Self.gap) { candidate = nil }

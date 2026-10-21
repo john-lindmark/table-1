@@ -19,6 +19,14 @@ enum Languages {
 
     /// The language new copies go in as: a non-English printing is in its own language; otherwise the one picked for adds.
     static func forNew(_ p: CatalogPrinting, picked: String) -> String { p.lang != "en" ? p.lang : picked }
+
+    /// The language a scanned copy goes in as: a non-English printing's own; else the one the card's text says
+    /// (`read`: the code by its set code, or the languages of the printed name read; the one picked for adds when
+    /// that's one of them, a name several languages print alike); else the one picked. Empty `read` doesn't tell.
+    static func forScan(_ p: CatalogPrinting, read: [String], picked: String) -> String {
+        if p.lang != "en" { return p.lang }
+        return read.isEmpty || read.contains(picked) ? picked : read[0]
+    }
 }
 
 enum LanguageChange {

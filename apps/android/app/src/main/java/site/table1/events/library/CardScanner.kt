@@ -91,7 +91,10 @@ data class ScannedCard(
     val matched: Matched? = null,
     /** The user changed the printing: it's theirs, not a guess. */
     val fixed: Boolean = false,
-    /** The language the copy goes in as: its printing's when that isn't English, else the one picked for adds. */
+    /**
+     * The language the copy goes in as: its printing's when that isn't English, else the language of the printed
+     * name read (Languages.forScan), else the one picked for adds.
+     */
     val lang: String = "en",
 ) {
     data class Matched(val cardId: String, val exact: Boolean)
@@ -152,7 +155,8 @@ fun CardScanOverlay(
         cards.add(0, ScannedCard(oracle = o, printing = take.first, finish = m.defaultFinish(take.first),
             condition = if (owned == null) condition else "NM", exact = take.second,
             frames = frames.frames.toList(), matched = ScannedCard.Matched(take.first.cardId, take.second),
-            lang = Languages.forNew(take.first.lang, Languages.addLang)))
+            // Owned-only scans (giving in a trade) keep the owned copy's language.
+            lang = if (owned == null) Languages.forScan(take.first.lang, hit.langs, Languages.addLang) else Languages.forNew(take.first.lang, Languages.addLang)))
         return true
     }
 

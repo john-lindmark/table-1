@@ -137,9 +137,9 @@ final class CatalogDB: @unchecked Sendable {
         })) ?? []
     }
 
-    /// Printed names in other languages (N lines), normalized, one row per card and name; empty for older packs.
-    func scanForeignNames() -> [(idx: Int, norm: String)] {
-        (try? db.query("SELECT DISTINCT oracle_idx, name_norm FROM names", [], { (idx: $0.int(0), norm: $0.text(1)) })) ?? []
+    /// Printed names in other languages (N lines), normalized, one row per card, language and name; empty for older packs.
+    func scanForeignNames() -> [(idx: Int, lang: String, norm: String)] {
+        (try? db.query("SELECT DISTINCT oracle_idx, lang, name_norm FROM names", [], { (idx: $0.int(0), lang: $0.text(1), norm: $0.text(2)) })) ?? []
     }
 
     /// Every set code in the pack.

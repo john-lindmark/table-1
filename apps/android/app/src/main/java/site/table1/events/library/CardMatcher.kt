@@ -3,15 +3,20 @@ package site.table1.events.library
 /* Scanner matching: OCR lines in, a card and printing out. Tuned against the photo test set in testdata/scan
    (README there; accuracy test in CardMatcherTest.kt). Same rules as iOS (CardMatcher.swift). */
 
-data class ScanMatch(val oracle: CatalogOracle, val printing: CatalogPrinting, val exact: Boolean)
+/**
+ * A card read, its printing and whether that was read ([exact]), and the languages its text says it's in ([langs]):
+ * the language code by the set code ("WAR • JP"), else the languages of the printed name read; empty when neither
+ * tells (an English name, which many cards print in every language).
+ */
+data class ScanMatch(val oracle: CatalogOracle, val printing: CatalogPrinting, val exact: Boolean, val langs: List<String> = emptyList())
 
 /** What the matcher reads from the catalog; CatalogDb on a phone, the test pack in unit tests. */
 interface ScanCatalog {
     val version: String
     /** Every card: index, name, normalized name, type line, number of printings. */
     fun scanNames(): List<ScanName>
-    /** Printed names in other languages (pack N lines): oracle index and normalized name, one per card and name. */
-    fun foreignNames(): List<Pair<Int, String>>
+    /** Printed names in other languages (pack N lines), one per card, language and name. */
+    fun foreignNames(): List<ForeignName>
     fun setCodes(): Set<String>
     fun oracles(idxs: Collection<Int>): Map<Int, CatalogOracle>
     fun printings(oracleIdx: Int): List<CatalogPrinting>
@@ -21,25 +26,37 @@ interface ScanCatalog {
 
 data class ScanName(val idx: Int, val name: String, val norm: String, val typeLine: String, val printings: Int)
 
+/** A printed name in another language, normalized. */
+data class ForeignName(val idx: Int, val lang: String, val norm: String)
+
 /**
  * Names the scanner can read, built once per catalog pack: each card's name and a split or double-faced card's
  * front face (tokens, art cards, emblems and Vanguard left out), its printed names in other languages (pack N
  * lines; never over an English name, and left out when two cards share one), with trigrams for misread names.
+ * Each name knows the languages it's printed in, so a card read by its German name goes in as German.
  */
 class ScanNames(catalog: ScanCatalog) {
     val version = catalog.version
     val sets = catalog.setCodes()
+    /**
+     * A card the name belongs to, and the languages it's printed in (empty for an English name, which doesn't
+     * tell: a German card whose name is the English one reads the same).
+     */
+    data class Hit(val idx: Int, val langs: List<String>)
     /** Normalized names, sorted (cut-off names are looked up by prefix). */
     private val keys: List<String>
     private val idxs: IntArray
+    /** Per key, a bit per language in [Languages.all] (0 = an English name). */
+    private val langBits: IntArray
     private val byKey: Map<String, Int>
     /** Trigram → the keys containing it: a range of [postings] (key positions, ascending), packed start shl 32 or end. */
     private val grams: HashMap<Int, Long>
     private val postings: IntArray
 
     init {
-        // Second of the pair: printings, or -1 for a printed name in another language; first -1 when two cards share it.
-        val best = HashMap<String, Pair<Int, Int>>()
+        // printings -1 marks a printed name in another language; idx -1 one that two cards share.
+        class Best(val idx: Int, val printings: Int, val langs: Int = 0)
+        val best = HashMap<String, Best>()
         val scannable = HashSet<Int>()
         for (o in catalog.scanNames()) {
             if (o.printings == 0 || UNSCANNABLE.any { o.typeLine.startsWith(it) }) continue
@@ -51,15 +68,20 @@ class ScanNames(catalog: ScanCatalog) {
                 names.add(front)
             }
             scannable.add(o.idx)
-            for (k in names) if (best[k].let { it == null || o.printings > it.second }) best[k] = o.idx to o.printings
+            for (k in names) if (best[k].let { it == null || o.printings > it.printings }) best[k] = Best(o.idx, o.printings)
         }
-        for ((idx, norm) in catalog.foreignNames()) {
+        val bit = Languages.all.withIndex().associate { (i, l) -> l.first to (1 shl i) }
+        for ((idx, lang, norm) in catalog.foreignNames()) {
             if (idx !in scannable) continue
+            val l = bit[lang] ?: 0
             val b = best[norm]
-            if (b == null) best[norm] = idx to -1 else if (b.second < 0 && b.first != idx) best[norm] = -1 to -1
+            if (b == null) best[norm] = Best(idx, -1, l)
+            else if (b.printings < 0 && b.idx != idx) best[norm] = Best(-1, -1)
+            else if (b.printings < 0 && b.idx == idx) best[norm] = Best(idx, -1, b.langs or l)
         }
-        keys = best.keys.filter { best.getValue(it).first >= 0 }.sorted()
-        idxs = IntArray(keys.size) { best.getValue(keys[it]).first }
+        keys = best.keys.filter { best.getValue(it).idx >= 0 }.sorted()
+        idxs = IntArray(keys.size) { best.getValue(keys[it]).idx }
+        langBits = IntArray(keys.size) { best.getValue(keys[it]).langs }
         byKey = HashMap<String, Int>(keys.size * 2).also { m -> keys.forEachIndexed { i, k -> m[k] = i } }
         // Every (trigram, key position), sorted, becomes one posting list per trigram.
         var pairs = LongArray(keys.size * 20)
@@ -86,33 +108,40 @@ class ScanNames(catalog: ScanCatalog) {
         }
     }
 
-    fun exact(q: String): Int? = byKey[q]?.let { idxs[it] }
+    fun exact(q: String): Hit? = byKey[q]?.let(::hit)
+
+    private fun hit(i: Int) = Hit(idxs[i], langs(langBits[i]))
+
+    private fun langs(bits: Int) = Languages.all.indices.filter { bits and (1 shl it) != 0 }.map { Languages.all[it].first }
 
     /**
      * A name cut off at the edge of the frame: only one card has names starting with it (its English and printed
      * names often share a start: "Urza's Saga", "Urzas Sage"), and it's most of one of them.
      */
-    fun prefix(q: String): Int? {
+    fun prefix(q: String): Hit? {
         if (q.length < (if (CardName.hasCjk(q)) 4 else 8)) return null
         var lo = 0
         var hi = keys.size
         while (lo < hi) { val mid = (lo + hi) / 2; if (keys[mid] < q) lo = mid + 1 else hi = mid }
         var hit: Int? = null
         var most = false
+        // The languages of the names it starts; none when one of them is English (it doesn't tell).
+        var bits: Int? = null
         for (j in lo until minOf(keys.size, lo + 16)) {
             if (!keys[j].startsWith(q)) break
             if (hit != null && hit != idxs[j]) return null
             hit = idxs[j]
+            bits = if (bits == 0 || langBits[j] == 0) 0 else (bits ?: 0) or langBits[j]
             if (q.length >= 0.6 * keys[j].length) most = true
         }
-        return if (most) hit else null
+        return if (most) hit?.let { Hit(it, langs(bits ?: 0)) } else null
     }
 
     /**
      * A misread name: the closest name within about one edit in eight letters, if no other card's name is as close.
      * Han, kana and Hangul carry more per character: four of them at least, and one edit in six.
      */
-    fun fuzzy(q: String): Int? {
+    fun fuzzy(q: String): Hit? {
         val cjk = CardName.hasCjk(q)
         if (q.length < (if (cjk) 4 else 5) || q.toByteArray(Charsets.UTF_8).size >= 250) return null
         val cap = maxOf(1, q.length / (if (cjk) 6 else 8))
@@ -139,7 +168,7 @@ class ScanNames(catalog: ScanCatalog) {
             val other = bestI < 0 || idxs[bestI] != idxs[i]
             if (d < bestD) { if (other) second = bestD; bestD = d; bestI = i } else if (d < second && other) second = d
         }
-        return if (bestI >= 0 && bestD <= cap && second > bestD) idxs[bestI] else null
+        return if (bestI >= 0 && bestD <= cap && second > bestD) hit(bestI) else null
     }
 
     companion object {
@@ -201,13 +230,14 @@ class CardMatcher(
 
     fun match(lines: List<String>): ScanMatch? {
         val bottom = Collector(lines, names.sets)
-        name(lines)?.let { idx -> oracle(idx)?.let { return pick(it, lines, bottom) } }
+        val read = { name: List<String> -> bottom.lang?.let { listOf(it) } ?: name }
+        name(lines)?.let { hit -> oracle(hit.idx)?.let { o -> return pick(o, lines, bottom)?.copy(langs = read(hit.langs)) } }
         // Not an English name (or none legible): the set code and collector number, when they agree on one card.
         val hits = LinkedHashMap<Int, CatalogPrinting>()
         for (s in bottom.sets) for (n in bottom.collectorNumbers) for (p in printings(s, n)) hits.putIfAbsent(p.oracleIdx, p)
         if (hits.size != 1) return null
         val (idx, p) = hits.entries.first()
-        return oracle(idx)?.let { ScanMatch(it, p, true) }
+        return oracle(idx)?.let { ScanMatch(it, p, true, read(emptyList())) }
     }
 
     /** The finish a scanned copy starts as: what you own of it in owned-only mode, else non-foil when printed. */
@@ -221,7 +251,7 @@ class CardMatcher(
      * The card's name: the top lines first (exactly, then cut off or misread), stopping at the type line, which the
      * name is always above; further down, only an exact name of two words or more (one word is often a keyword).
      */
-    private fun name(lines: List<String>): Int? {
+    private fun name(lines: List<String>): ScanNames.Hit? {
         // Furigana over a Japanese name isn't a line of its own, unless it's a name itself.
         val read = lines.take(12).map { l -> l to CardName.norm(l).split(' ').filter { it.isNotEmpty() } }
             .filter { (_, w) -> w.size in 1..12 && !(furigana(w) && names.exact(w[0]) == null) }
@@ -238,23 +268,23 @@ class CardMatcher(
         fun fits(q: String, i: Int) =
             ' ' in q || (text[i] && (0 until i).count { text[it] } <= (if (q.length <= 2 && CardName.hasCjk(q)) 0 else 1))
         fun long(q: String) = q.length >= (if (CardName.hasCjk(q)) 2 else 3)
-        fun exact(i: Int): Int? {
-            for (q in candidates(words[i])) if (long(q) && fits(q, i)) names.exact(q)?.takeIf(::allowed)?.let { return it }
+        fun exact(i: Int): ScanNames.Hit? {
+            for (q in candidates(words[i])) if (long(q) && fits(q, i)) names.exact(q)?.takeIf { allowed(it.idx) }?.let { return it }
             // A name broken over two lines.
             if (i + 1 < words.size && words[i].size <= 3 && words[i + 1].size <= 3) {
-                for (q in candidates(words[i] + words[i + 1])) if (long(q) && fits(q, i)) names.exact(q)?.takeIf(::allowed)?.let { return it }
+                for (q in candidates(words[i] + words[i + 1])) if (long(q) && fits(q, i)) names.exact(q)?.takeIf { allowed(it.idx) }?.let { return it }
             }
             return null
         }
         for (i in 0 until minOf(3, words.size)) {
             exact(i)?.let { return it }
             if (typeLine(words[i])) break
-            for (q in candidates(words[i])) if (fits(q, i)) (names.prefix(q) ?: names.fuzzy(q))?.takeIf(::allowed)?.let { return it }
+            for (q in candidates(words[i])) if (fits(q, i)) (names.prefix(q) ?: names.fuzzy(q))?.takeIf { allowed(it.idx) }?.let { return it }
         }
         // Not a Japanese, Chinese or Korean name: short ones turn up in rules text.
         for (i in minOf(3, words.size) until words.size) {
             if (words[i].any(CardName::hasCjk)) continue
-            exact(i)?.let { if (oracle(it)?.norm?.contains(' ') == true) return it }
+            exact(i)?.let { if (oracle(it.idx)?.norm?.contains(' ') == true) return it }
         }
         return null
     }
@@ -388,15 +418,18 @@ class Collector(lines: List<String>, known: Set<String>) {
     val numbers = HashSet<String>()
     /** The numbers written as collector numbers ("154/196", "0244", "R 1695", "297"), not a lone "212" that may be a misread 2/2. */
     val collectorNumbers = HashSet<String>()
+    /** The language printed by a known set code ("WAR • JP" → ja), when only one is. */
+    val lang: String?
 
     init {
         var langLine = false
+        val printed = HashSet<String>()
         for (line in lines) {
             for (m in SET_LANG.findAll(line)) {
-                if (m.groupValues[2] !in LANGS) continue
+                val lang = LANGS[m.groupValues[2]] ?: continue
                 langLine = true
                 val code = m.groupValues[1].lowercase()
-                if (code in known) sets.add(code)
+                if (code in known) { sets.add(code); printed.add(lang) }
             }
             for (m in OF_TOTAL.findAll(line)) {
                 if ((m.groupValues[3].toIntOrNull() ?: 0) >= 30) {
@@ -406,6 +439,7 @@ class Collector(lines: List<String>, known: Set<String>) {
                 }
             }
         }
+        lang = printed.singleOrNull()
         for (line in lines) {
             val m = ALONE.matchEntire(line) ?: continue
             val n = m.groupValues[1].replace(" ", "")
@@ -419,7 +453,11 @@ class Collector(lines: List<String>, known: Set<String>) {
     }
 
     private companion object {
-        val LANGS = setOf("EN", "DE", "FR", "IT", "ES", "PT", "JP", "JA", "RU", "KR", "KO", "CS", "CT", "PH", "ZHS", "ZHT")
+        /** The codes printed by the set code, as Scryfall's language codes. */
+        val LANGS = mapOf(
+            "EN" to "en", "DE" to "de", "FR" to "fr", "IT" to "it", "ES" to "es", "PT" to "pt", "JP" to "ja", "JA" to "ja", "RU" to "ru",
+            "KR" to "ko", "KO" to "ko", "CS" to "zhs", "CT" to "zht", "PH" to "ph", "ZHS" to "zhs", "ZHT" to "zht",
+        )
         /** An uppercase code, a bullet or star, a language code ("one it ate." in rules text is not a set and a language). */
         val SET_LANG = Regex("\\b([A-Z0-9]{2,5})\\s*[•*·★+.]\\s*([A-Z]{2,3})\\b")
         /** "154/196": the number after the slash is the set's size, which tells it from power/toughness ("6/6"). */

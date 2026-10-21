@@ -8,6 +8,8 @@ import XCTest
 /// Lowest accuracy the tests accept: what the set reached when last tuned (README has the numbers).
 private enum Floor {
     static let englishName = 0.95, englishPrinting = 0.85, foreignName = 0.93, cjkName = 0.6
+    /// Of the cards in other languages named right, how many go in as their own language (2026-10-20).
+    static let language = 0.93
 }
 
 private let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
@@ -95,6 +97,8 @@ final class CardMatcherTests: XCTestCase {
         let cases = try photos()
         var report = ["Still photos (\(cases.count)):"]
         var results: [String: Tally] = [:], englishResults: [String: Tally] = [:]
+        // English cards a scan would put in another language (a misread English name close to a printed one).
+        var notEnglish: [String: Int] = [:]
         for mode in ["accurate", "fast", "small", "multi", "title"] {
             var all = Tally(), english = Tally(), foreign = Tally()
             var byTag: [String: Tally] = [:]
@@ -103,6 +107,10 @@ final class CardMatcherTests: XCTestCase {
                 let m = matcher().match(lines)
                 if let got = m?.oracle, got.idx != Self.expectedIdx[CardName.norm(c.name)] {
                     report.append("    WRONG \(mode) \(c.id): \(got.name)")
+                }
+                if c.lang == "en", let m, Languages.forScan(m.printing, read: m.langs, picked: "en") != "en" {
+                    notEnglish[mode, default: 0] += 1
+                    report.append("    LANGUAGE \(mode) \(c.id): \(m.langs)")
                 }
                 grade(c, m?.oracle, m?.printing, exact: m?.exact ?? false, into: &all)
                 if c.tags.contains("lang") { grade(c, m?.oracle, m?.printing, exact: m?.exact ?? false, into: &foreign) }
@@ -127,6 +135,7 @@ final class CardMatcherTests: XCTestCase {
         XCTAssertLessThanOrEqual(accurate.exactWrong, 2)
         XCTAssertLessThanOrEqual(results["fast"]!.wrong + results["small"]!.wrong, 1)
         XCTAssertEqual(results["multi"]!.wrong, 0, "a wrong card from a steady photo read as the scanner reads")
+        XCTAssertEqual(notEnglish["accurate", default: 0] + notEnglish["multi", default: 0], 0, "an English card put in another language")
     }
 
     /// The card gate (2026-10-16): with a card found in the frame (`inCard`: a card-shaped rectangle, upright), only
@@ -139,7 +148,7 @@ final class CardMatcherTests: XCTestCase {
         var report = ["Card gate (\(cases.count)):"]
         var found = 0
         var tallies: [String: (all: Tally, english: Tally)] = [:]
-        func gated(_ lines: [String], onCard: Bool) -> (oracle: CatalogOracle, printing: CatalogPrinting, exact: Bool)? {
+        func gated(_ lines: [String], onCard: Bool) -> CardMatcher.Match? {
             guard let m = matcher().match(lines) else { return nil }
             return onCard || m.exact || CardMatcher.hasTypeLine(lines) ? m : nil
         }
@@ -168,6 +177,15 @@ final class CardMatcherTests: XCTestCase {
         XCTAssertNil(gated(["/", "command", "option"], onCard: false))
     }
 
+    /// The language code printed by the set code, only by a set the catalog has.
+    func testCollectorLanguage() {
+        XCTAssertEqual(Collector(["154/264 M", "WAR • JP Artist"], sets: ["war"]).lang, "ja")
+        XCTAssertEqual(Collector(["RIX • RU"], sets: ["rix"]).lang, "ru")
+        XCTAssertEqual(Collector(["M21 • EN"], sets: ["m21"]).lang, "en")
+        XCTAssertNil(Collector(["one IT • ES ate"], sets: ["war"]).lang, "not a set code")
+        XCTAssertNil(Collector(["WAR • JP", "WAR • EN"], sets: ["war"]).lang, "two codes")
+    }
+
     /// Cards printed in other languages, read two ways: `accurate` is OCR in the phone's language (Cyrillic comes
     /// through, Chinese, Japanese and Korean don't), `multi` is OCR that detects the language, as the scanner reads
     /// since 2026-10-16. Names in other languages come from the catalog pack's N lines.
@@ -177,6 +195,8 @@ final class CardMatcherTests: XCTestCase {
         let cjk: Set<String> = ["ja", "ko", "zhs", "zht"]
         var report = ["Cards in other languages (\(cases.count)):"]
         var groups: [String: [String: Tally]] = [:]
+        // Cards named right, and of those, put in their own language (as added with English picked for adds).
+        var langs: [String: (named: Int, right: Int)] = [:]
         for mode in ["accurate", "multi", "title"] {
             var byLang: [String: Tally] = [:]
             var byGroup: [String: Tally] = [:]
@@ -186,6 +206,12 @@ final class CardMatcherTests: XCTestCase {
                 if let got = m?.oracle, got.idx != Self.expectedIdx[CardName.norm(c.name)] {
                     report.append("    WRONG \(mode) \(c.id): \(got.name)")
                 }
+                if let m, m.oracle.idx == Self.expectedIdx[CardName.norm(c.name)] {
+                    let lang = Languages.forScan(m.printing, read: m.langs, picked: "en")
+                    langs[mode, default: (0, 0)].named += 1
+                    if lang == c.lang { langs[mode, default: (0, 0)].right += 1 }
+                    else if mode != "title" { report.append("    LANGUAGE \(mode) \(c.id): \(lang), is \(c.lang)") }
+                }
                 let group = cjk.contains(c.lang) ? "Chinese, Japanese, Korean" : "Latin and Cyrillic"
                 grade(c, m?.oracle, m?.printing, exact: m?.exact ?? false, into: &byLang[c.lang, default: Tally()])
                 grade(c, m?.oracle, m?.printing, exact: m?.exact ?? false, into: &byGroup[group, default: Tally()])
@@ -194,6 +220,7 @@ final class CardMatcherTests: XCTestCase {
             report.append("  \(mode):")
             report += byGroup.keys.sorted().map { "    \($0): \(byGroup[$0]!.line)" }
             report += byLang.keys.sorted().map { "      \($0): \(byLang[$0]!.line)" }
+            if let l = langs[mode] { report.append("    language right \(l.right)/\(l.named) (\(pct(l.right, l.named)))") }
         }
         print(report.joined(separator: "\n"))
         // `title` (a second pass on the deskewed title bar) is measured, not yet read by the scanner: README.
@@ -204,6 +231,10 @@ final class CardMatcherTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(Double(latin.name) / Double(latin.n), Floor.foreignName)
         let cjkNames = groups["multi"]!["Chinese, Japanese, Korean"]!
         XCTAssertGreaterThanOrEqual(Double(cjkNames.name) / Double(cjkNames.n), Floor.cjkName)
+        for mode in ["accurate", "multi"] {
+            let l = langs[mode]!
+            XCTAssertGreaterThanOrEqual(Double(l.right) / Double(l.named), Floor.language, "cards put in their own language, \(mode)")
+        }
     }
 
     /// Each still photo as a steady 2.4 s clip (12 frames, 200 ms apart) through ScanLanguage and ScanSteadiness, as

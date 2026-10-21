@@ -94,6 +94,15 @@ Where the 25 CJK misses in `multi` come from:
 - 4 graded slabs (the label is abbreviated English, "LILIANA, DREAD.GNRL."; the card is behind it) and 2 basic lands
   read only by their type line ("基本土地 — 沼").
 
+### Language of the copy (2026-10-20; `testForeignCards` / `foreignCards`)
+
+A scanned copy goes in as the language its text says (contract/card-language-2026-10-19.md): the code by the set
+code ("WAR • JP"), else the languages of the printed name read; English is picked for adds in the test. Of the cards
+in other languages named right, `accurate` puts 88/94 (94%) in their own language, `multi` 105/112 (94%); floor 93%.
+No English card goes in as another language (`testStillPhotos`). The misses: Pendelhaven, Eureka (it), Triskelion,
+Manifold Key (de) print the English name; Barbarian Lunatic (es, read as it) and Yavimaya Coast (pt, read as es) are
+names those languages print alike once accents go; Ball Lightning (zht) read as Simplified.
+
 ### Title bar pass (`title`, 2026-10-16; measured, not in the scanners)
 
 A second OCR pass on the title bar alone: `VNDetectRectanglesRequest` finds the card (aspect 0.6–0.85, the largest),

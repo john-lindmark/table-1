@@ -49,6 +49,16 @@ class LanguageTest {
         assertEquals("de", Languages.forNew("en", "de"))
     }
 
+    /** A scanned copy goes in as the language of the printed name the scanner read. */
+    @Test
+    fun scannedCopiesFollowTheNameRead() {
+        assertEquals("de", Languages.forScan("en", listOf("de"), "en"))
+        assertEquals("an English name doesn't tell", "fr", Languages.forScan("en", emptyList(), "fr"))
+        assertEquals("the printing's own language first", "ja", Languages.forScan("ja", listOf("zhs"), "en"))
+        assertEquals("printed alike: the picked one", "pt", Languages.forScan("en", listOf("es", "pt"), "pt"))
+        assertEquals("es", Languages.forScan("en", listOf("es", "pt"), "en"))
+    }
+
     @Test
     fun everyCodeFitsTheServer() {
         // collection_items.lang: ^[a-z]{2,3}$

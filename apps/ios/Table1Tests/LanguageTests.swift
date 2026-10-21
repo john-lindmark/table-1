@@ -47,6 +47,19 @@ final class LanguageTests: XCTestCase {
         XCTAssertEqual(Languages.forNew(p("en"), picked: "de"), "de")
     }
 
+    /// A scanned copy goes in as the language of the printed name the scanner read.
+    func testScannedCopiesFollowTheNameRead() {
+        func p(_ lang: String) -> CatalogPrinting {
+            CatalogPrinting(cardId: "p", oracleIdx: 0, ord: 0, set: "dom", cn: "1", lang: lang, rarity: "c", finishes: "n",
+                            releasedAt: "", imageTs: "", imageFaces: 1, printedName: "")
+        }
+        XCTAssertEqual(Languages.forScan(p("en"), read: ["de"], picked: "en"), "de")
+        XCTAssertEqual(Languages.forScan(p("en"), read: [], picked: "fr"), "fr", "an English name doesn't tell")
+        XCTAssertEqual(Languages.forScan(p("ja"), read: ["zhs"], picked: "en"), "ja", "the printing's own language first")
+        XCTAssertEqual(Languages.forScan(p("en"), read: ["es", "pt"], picked: "pt"), "pt", "printed alike: the picked one")
+        XCTAssertEqual(Languages.forScan(p("en"), read: ["es", "pt"], picked: "en"), "es")
+    }
+
     func testEveryCodeFitsTheServer() {
         // collection_items.lang: ^[a-z]{2,3}$
         for l in Languages.all { XCTAssertNotNil(l.code.range(of: "^[a-z]{2,3}$", options: .regularExpression), l.code) }

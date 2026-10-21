@@ -29,11 +29,11 @@ internal val testPack: PackCatalog by lazy { PackCatalog(String(CatalogPack.gunz
 internal class PackCatalog(text: String) : ScanCatalog, ImportCatalog, ListCatalog {
     private val oracleList = ArrayList<PackOracle>()
     private val printingList = ArrayList<CatalogPrinting>()
-    private val nameList = LinkedHashSet<Pair<Int, String>>()
+    private val nameList = LinkedHashSet<ForeignName>()
     override val version: String = CatalogPack.parse(text, { oracleList.add(it) }, { p ->
         printingList.add(CatalogPrinting(p.cardId, p.oracleIdx, printingList.size, p.set, p.cn, p.lang, p.rarity, p.finishes,
             p.releasedAt, p.imageTs, p.imageFaces, p.printedName, p.original))
-    }, { n -> CardName.norm(n.name).takeIf { it.isNotEmpty() }?.let { nameList.add(n.oracleIdx to it) } }).version
+    }, { n -> CardName.norm(n.name).takeIf { it.isNotEmpty() }?.let { nameList.add(ForeignName(n.oracleIdx, n.lang, it)) } }).version
     private val byOracle = printingList.groupBy { it.oracleIdx }
         .mapValues { (_, ps) -> ps.sortedWith(compareByDescending<CatalogPrinting> { it.original }.thenBy { it.ord }) }
     private val bySetCn = printingList.groupBy { "${it.set}|${it.cn}" }
@@ -91,6 +91,8 @@ private object Floor {
     const val ENGLISH_PRINTING = 0.85
     const val FOREIGN_NAME = 0.93
     const val CJK_NAME = 0.6
+    /** Of the cards in other languages named right, how many go in as their own language (2026-10-20). */
+    const val LANGUAGE = 0.93
 }
 
 private class Tally {
@@ -143,6 +145,8 @@ class CardMatcherTest {
         val report = mutableListOf("Still photos (${cases.size}):")
         val results = HashMap<String, Tally>()
         val englishResults = HashMap<String, Tally>()
+        // English cards a scan would put in another language (a misread English name close to a printed one).
+        val notEnglish = HashMap<String, Int>()
         for (mode in listOf("accurate", "fast", "small", "multi", "title")) {
             val all = Tally(); val english = Tally(); val foreign = Tally()
             val byTag = sortedMapOf<String, Tally>()
@@ -150,6 +154,10 @@ class CardMatcherTest {
                 val lines = ocr[c.id]?.jsonObject?.get(mode)?.jsonArray?.map { it.jsonPrimitive.content } ?: continue
                 val m = matcher().match(lines)
                 if (m != null && m.oracle.idx != catalog.expected[CardName.norm(c.name)]) report += "    WRONG $mode ${c.id}: ${m.oracle.name}"
+                if (c.lang == "en" && m != null && Languages.forScan(m.printing.lang, m.langs, "en") != "en") {
+                    notEnglish.merge(mode, 1, Int::plus)
+                    report += "    LANGUAGE $mode ${c.id}: ${m.langs}"
+                }
                 grade(c, m?.oracle, m?.printing, m?.exact ?: false, all)
                 grade(c, m?.oracle, m?.printing, m?.exact ?: false, if ("lang" in c.tags) foreign else english)
                 if (mode == "accurate") for (tag in c.tags) grade(c, m?.oracle, m?.printing, m?.exact ?: false, byTag.getOrPut(tag) { Tally() })
@@ -169,6 +177,17 @@ class CardMatcherTest {
         assertTrue(accurate.exactWrong <= 2)
         assertTrue(results.getValue("fast").wrong + results.getValue("small").wrong <= 1)
         assertEquals("a wrong card from a steady photo read as the scanner reads", 0, results.getValue("multi").wrong)
+        assertEquals("an English card put in another language", 0, (notEnglish["accurate"] ?: 0) + (notEnglish["multi"] ?: 0))
+    }
+
+    /** The language code printed by the set code, only by a set the catalog has. */
+    @Test
+    fun collectorLanguage() {
+        assertEquals("ja", Collector(listOf("154/264 M", "WAR • JP Artist"), setOf("war")).lang)
+        assertEquals("ru", Collector(listOf("RIX • RU"), setOf("rix")).lang)
+        assertEquals("en", Collector(listOf("M21 • EN"), setOf("m21")).lang)
+        assertEquals("not a set code", null, Collector(listOf("one IT • ES ate"), setOf("war")).lang)
+        assertEquals("two codes", null, Collector(listOf("WAR • JP", "WAR • EN"), setOf("war")).lang)
     }
 
     /**
@@ -183,6 +202,9 @@ class CardMatcherTest {
         val cjk = setOf("ja", "ko", "zhs", "zht")
         val report = mutableListOf("Cards in other languages (${cases.size}):")
         val groups = HashMap<String, Map<String, Tally>>()
+        // Cards named right, and of those, put in their own language (as added with English picked for adds).
+        val named = HashMap<String, Int>()
+        val right = HashMap<String, Int>()
         for (mode in listOf("accurate", "multi", "title")) {
             val byLang = sortedMapOf<String, Tally>()
             val byGroup = sortedMapOf<String, Tally>()
@@ -190,6 +212,12 @@ class CardMatcherTest {
                 val lines = ocr[c.id]?.jsonObject?.get(mode)?.jsonArray?.map { it.jsonPrimitive.content } ?: continue
                 val m = matcher().match(lines)
                 if (m != null && m.oracle.idx != catalog.expected[CardName.norm(c.name)]) report += "    WRONG $mode ${c.id}: ${m.oracle.name}"
+                if (m != null && m.oracle.idx == catalog.expected[CardName.norm(c.name)]) {
+                    val lang = Languages.forScan(m.printing.lang, m.langs, "en")
+                    named.merge(mode, 1, Int::plus)
+                    if (lang == c.lang) right.merge(mode, 1, Int::plus)
+                    else if (mode != "title") report += "    LANGUAGE $mode ${c.id}: $lang, is ${c.lang}"
+                }
                 val group = if (c.lang in cjk) "Chinese, Japanese, Korean" else "Latin and Cyrillic"
                 grade(c, m?.oracle, m?.printing, m?.exact ?: false, byLang.getOrPut(c.lang) { Tally() })
                 grade(c, m?.oracle, m?.printing, m?.exact ?: false, byGroup.getOrPut(group) { Tally() })
@@ -198,6 +226,7 @@ class CardMatcherTest {
             report += "  $mode:"
             report += byGroup.map { (g, t) -> "    $g: ${t.line()}" }
             report += byLang.map { (l, t) -> "      $l: ${t.line()}" }
+            report += "    language right ${right[mode] ?: 0}/${named[mode] ?: 0}"
         }
         println(report.joinToString("\n"))
         // `title` (a second pass on the deskewed title bar) is measured, not yet read by the scanner: README.
@@ -206,6 +235,9 @@ class CardMatcherTest {
         assertTrue(latin.name.toDouble() / latin.n >= Floor.FOREIGN_NAME)
         val cjkNames = groups.getValue("multi").getValue("Chinese, Japanese, Korean")
         assertTrue(cjkNames.name.toDouble() / cjkNames.n >= Floor.CJK_NAME)
+        for (mode in listOf("accurate", "multi")) {
+            assertTrue("cards put in their own language, $mode", (right[mode] ?: 0).toDouble() / named.getValue(mode) >= Floor.LANGUAGE)
+        }
     }
 
     /** Frames 200 ms apart, as the movement clips were made. Returns the first card taken and when (ms). */

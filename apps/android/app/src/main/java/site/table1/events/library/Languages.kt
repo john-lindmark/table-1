@@ -49,6 +49,17 @@ object Languages {
     /** The language new copies go in as: a non-English printing is in its own language; otherwise the one picked for adds. */
     fun forNew(printingLang: String, picked: String) = if (printingLang != "en") printingLang else picked
 
+    /**
+     * The language a scanned copy goes in as: a non-English printing's own; else the one the card's text says
+     * ([read]: the code by its set code, or the languages of the printed name read; the one picked for adds when
+     * that's one of them, a name several languages print alike); else the one picked. Empty [read] doesn't tell.
+     */
+    fun forScan(printingLang: String, read: List<String>, picked: String) = when {
+        printingLang != "en" -> printingLang
+        read.isEmpty() || picked in read -> picked
+        else -> read[0]
+    }
+
     private val prefs get() = T1App.instance.getSharedPreferences("library", Context.MODE_PRIVATE)
 
     /** The language picked for new copies (shared by card detail, binder adds, the scanner and trades). */
