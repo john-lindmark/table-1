@@ -85,13 +85,21 @@ Comparing two rankings shows **In brief** first: 2–5 sentences, written by Cla
 differ — color preferences, mana fixing, archetypes (aggro, tempo, control, combo, ramp, …), cheap interaction versus big
 threats, the curve. One per pair, list (a color or the final top N) and ranking state.
 - **Edge function `ranking-brief`** (`supabase/functions/ranking-brief/`): `POST {a, b, list}` with the user's token →
-  `{brief, cached, model}` or `{brief: null, reason}` (fewer than 8 cards placed by both). It reads both rankings with
+  `{brief, cached, model}` or `{brief: null, reason}` (fewer than 5 cards placed by both). It reads both rankings with
   the caller's own token (`cube_ranking_get`), so a brief only ever covers rankings the caller can see; works both lists
   out with the shared engine (`ranking-brief/cubeRanking.ts`, the web module byte for byte, checked by
   `tools/test/engine-parity.sh`); sends Claude per-card rows (name, colors, type, cost, mana made, both places) plus each
   ranking's shape (colors, average mana value, creatures, lands, fixing, cheap spells), the overlap and the biggest
   differences; and asks for one paragraph (structured output). In the top 100, rows are each list's first 50 places plus
-  the 10 biggest differences (~4k input tokens at most).
+  the 10 biggest differences (~4.3k input tokens at most; a color is ~2k).
+- **Agreement is computed, not judged:** `overlap.both_rank_near_the_top` lists the cards in both lists' first quarter (at
+  least their first 5); the brief starts there and says they agree on little when it's empty or short (Haiku otherwise
+  claimed shared taste that wasn't there).
+- **No gendering:** the model never sees the players' names or ranking names: they're "Player A" and "Player B", and
+  `named()` puts the display names back afterwards (literally, so a `$` in a name stays). A brief that still says
+  he/she/him/his/her/hers (`GENDERED`) is sent back once to be rewritten; if the rewrite does it too, nothing is stored and
+  the caller sees "The brief came back empty. Try again." The prompt also forbids counts and averages in the text.
+- **Trimming:** at most five sentences, split only at `.`/`!`/`?` followed by a space (a decimal never drops text).
 - **Model:** `claude-haiku-5-5` at low effort (John, 2026-10-21: not Opus — a short summary of numbers we compute, cached
   per change; under $0.001 a brief). One constant (`MODEL` in `brief.ts`); move to `claude-sonnet-5-5` if briefs read thin.
   No refusal fallback on Haiku: a refusal reads "A brief couldn't be written for these rankings."
@@ -100,12 +108,17 @@ threats, the curve. One per pair, list (a color or the final top N) and ranking 
   RLS on, no policies; deleting a ranking deletes its briefs. 60 new briefs per account per day; cached ones always show.
 - **Clients:** the brief loads with the comparison and is kept for the session; "Written by Claude from both rankings";
   a failure shows "No brief yet · <reason>. Tap to try again." The demos show a marked sample (no server).
-- **Eval mode:** `POST {eval: {cube: [names], list, depth?, top?, a: {by, order: [names]}, b: {by, order}}}` with the DB
-  secret (`x-t1-secret`, posted via pg_net like `moderate`'s eval): plays both rankings from those orders, returns the brief
-  with the prompt's size and token use, and stores nothing.
-- Tests: `ranking-brief/brief.test.ts` (colors, lists from logs, prompt contents and trimming, paragraph cleaning, cache
-  key, the eval simulation).
-  **Not deployed**, and no brief has been written by the live model yet (no API key on the dev machine).
+- **Eval mode:** `POST {eval: {cube: [names], list, depth?, top?, a: {by, order: [names]}, b: {by, order}, model?}}` with
+  the DB secret (`x-t1-secret`, posted via pg_net like `moderate`'s eval): plays both rankings from those orders, returns
+  the brief with the prompt's size and token use, and stores nothing. `model` may be `claude-sonnet-5-5` to compare.
+- Tests: `ranking-brief/brief.test.ts` (colors, lists from logs, prompt contents and trimming, agreement list, labels and
+  `named()`, paragraph cleaning incl. decimals, the gendered check, cache key, the eval simulation).
+- **Live** (v8, 2026-10-21). Eval on a 63-card vintage-style cube with an aggro ranker and a blue control ranker: v1
+  called Sol Ring fixing, recited counts and missed red (fixed: fixing defined, minimum 5); v2 claimed shared taste in the
+  top 50 that wasn't there (fixed: `both_rank_near_the_top`); v3–v6 gendered players from their names about one brief in
+  three (fixed: labels + check + rewrite) and dropped text at "1.5" (fixed: trimming). v8: 8 of 8 briefs (whole cube,
+  red ×3, blue, black, lands ×2) accurate, named, ungendered, first try. Haiku: ~2k input tokens for a color, ~4.3k for
+  the top 50, ~250 output. Sonnet read slightly richer on the whole cube at ~20× the cost; Haiku stays.
 
 ## Server
 
@@ -183,8 +196,10 @@ keep / pick_wins, `removed`: screens), `ranking_changes_opened`, `ranking_job_do
   pick win, change-log diffs, a contradiction, a card that left the cube, estimates). iOS `CubeRankingTests`,
   `RankingModelTests` (save / undo / redo / picks / change log on the demo backend); web `cubeRanking.test.ts`,
   `cubeRanking.perf.test.ts` (540-card cube, 645 screens: open ~19 ms, lock-in p95 ~3.5 ms); Android `CubeRankingTest`.
-- Server: migration written and tested locally (`97_cube_rankings_test.sql`, perf budgets in `perf_10_library.sql`, every
-  DB test passes); **not applied to live** (needs John's OK).
+- Server: migration tested locally (`97_cube_rankings_test.sql`, perf budgets in `perf_10_library.sql`, every DB test
+  passes) and **applied to live 2026-10-21** with John's OK, after checking the functions it replaces matched live
+  (post-apply definitions match the file); smoke-tested in a rolled-back transaction (create, push, pick, get, owner
+  visibility, rankable cubes, moderation queue). `ranking-brief` deployed (v8, `verify_jwt` off; it checks the token itself).
 - iOS: built, checked in the Simulator demo (`-T1LibraryDemo rankings|ranking|rankpick|rankfinal|ranklist|rankcard|
   rankcompare|rankimage|rankpack|rankpicks|rankchanges|rankmine|rankfriend`, the last two for ranking Mara's cube, which isn't yours; the demo plays two friends' full rankings on the fixture's cube,
   so it takes ~30 s to open in Debug). Drag and tap were not tried by hand (no simulator input this session).

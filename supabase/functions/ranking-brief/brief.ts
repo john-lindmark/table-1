@@ -10,7 +10,7 @@ export const MODEL = "claude-haiku-5-5";
  *  differences): they cost tokens and rarely change the story. */
 export const ROW_PLACES = 50;
 /** Fewer cards placed by both than this, and there's nothing worth describing yet. */
-export const MIN_COMPARED = 8;
+export const MIN_COMPARED = 5;
 
 /** What the server knows about a card (public.card_oracles). */
 export interface CardFact {
@@ -66,7 +66,7 @@ const listName = (list: RankJob, top: number) => (list === "F" ? `the top ${top}
 function placeText(s: Side, id: string): string {
   const p = s.places.get(id);
   if (p != null) return `#${p}`;
-  return s.done && s.places.size < s.size ? `below its top ${s.places.size}` : "not placed yet";
+  return s.done && s.places.size < s.size ? `below their top ${s.places.size}` : "not placed yet";
 }
 
 /** Per-ranking shape of its list: colors, curve, creatures, fixing. Over the first `n` places. */
@@ -87,10 +87,20 @@ function shape(s: Side, facts: Map<string, CardFact>, n: number) {
   };
 }
 
-/** The user message: who, which list, the numbers, and every card either ranking placed (best place first). */
+/** What the model calls the two players: a name says nothing about how someone is referred to, and these keep it from
+ *  guessing. named() puts the names back. */
+export const LABELS = ["Player A", "Player B"] as const;
+
+/** The brief with each label replaced by that player's name. */
+export function named(brief: string, a: string, b: string): string {
+  return brief.replace(/\bPlayer A\b/gi, () => a).replace(/\bPlayer B\b/gi, () => b);
+}
+
+/** The user message: which list, the numbers, and every card either ranking placed (best place first), with the
+ *  players as LABELS. Ranking names stay out: they're the players' own words. */
 export function prompt(cards: CardFact[], a: RankingIn, b: RankingIn, list: RankJob, cubeName: string): { text: string; compared: number } {
   const facts = new Map(cards.map((c) => [c.oracle_id.toLowerCase(), c]));
-  const { a: sa, b: sb, cmp } = sides(cards, a, b, list);
+  const { a: sa, b: sb, cmp } = sides(cards, { ...a, by: LABELS[0] }, { ...b, by: LABELS[1] }, list);
   const ids = [...new Set([...sa.places.keys(), ...sb.places.keys()])].sort((x, y) => {
     const bx = Math.min(sa.places.get(x) ?? 1e9, sb.places.get(x) ?? 1e9), by = Math.min(sa.places.get(y) ?? 1e9, sb.places.get(y) ?? 1e9);
     return bx - by || (x < y ? -1 : 1);
@@ -99,6 +109,9 @@ export function prompt(cards: CardFact[], a: RankingIn, b: RankingIn, list: Rank
   const both = ids.filter((id) => sa.places.has(id) && sb.places.has(id)).length;
   const top10 = (s: Side) => new Set([...s.places].filter(([, p]) => p <= 10).map(([id]) => id));
   const t10a = top10(sa), t10b = top10(sb);
+  // Near the top for both: each list's first quarter (at least its first 5).
+  const near = (s: Side) => Math.max(5, Math.ceil(s.places.size / 4));
+  const bothHigh = ids.filter((id) => (sa.places.get(id) ?? 1e9) <= near(sa) && (sb.places.get(id) ?? 1e9) <= near(sb));
   const notable = new Set(cmp.biggest.map((g) => g.card));
   const shown = list === "F"
     ? ids.filter((id) => Math.min(sa.places.get(id) ?? 1e9, sb.places.get(id) ?? 1e9) <= ROW_PLACES || notable.has(id))
@@ -113,8 +126,8 @@ export function prompt(cards: CardFact[], a: RankingIn, b: RankingIn, list: Rank
     cube: cubeName,
     list: listName(list, Math.max(a.top, b.top)),
     rankings: [
-      { who: sa.label, ranking_name: a.name, placed: sa.places.size, sorts: a.depth === "half" && list !== "F" ? "only the top half" : "every place", shape: shape(sa, facts, n) },
-      { who: sb.label, ranking_name: b.name, placed: sb.places.size, sorts: b.depth === "half" && list !== "F" ? "only the top half" : "every place", shape: shape(sb, facts, n) },
+      { who: sa.label, placed: sa.places.size, sorts: a.depth === "half" && list !== "F" ? "only the top half" : "every place", shape: shape(sa, facts, n) },
+      { who: sb.label, placed: sb.places.size, sorts: b.depth === "half" && list !== "F" ? "only the top half" : "every place", shape: shape(sb, facts, n) },
     ],
     overlap: {
       cards_both_placed: both,
@@ -122,6 +135,7 @@ export function prompt(cards: CardFact[], a: RankingIn, b: RankingIn, list: Rank
       average_places_apart: cmp.avgTenths / 10,
       average_is_a_lower_bound: cmp.atLeast,
       shared_top_10: [...t10a].filter((id) => t10b.has(id)).map((id) => facts.get(id)?.name ?? id),
+      both_rank_near_the_top: bothHigh.map((id) => facts.get(id)?.name ?? id),
     },
     biggest_differences: cmp.biggest.map((g) => ({
       card: facts.get(g.card)?.name ?? g.card,
@@ -135,18 +149,20 @@ Summary numbers (JSON):
 ${JSON.stringify(data)}
 
 ${list === "F" ? `Cards either of them placed in their top ${ROW_PLACES}, and the biggest differences` : "Every card either of them placed"}, best place first (name | colors | type | cost | mana it makes | places):
-${rows.join("\n")}`;
+${rows.join("\n")}
+
+Call them ${sa.label} and ${sb.label} (or they/them), never he or she.`;
   return { text, compared: cmp.compared };
 }
 
 export const SYSTEM = `You write short comparisons of two Magic: The Gathering players' cube rankings for Table 1, an app for competitive players. Each player stack-ranked the same cube's cards, best first. You get one list (a color, or the top cards across the whole cube) as both of them placed it.
 
-Write 2 to 5 plain sentences, as one paragraph, naming the two players. Start with where they agree (the cards or kinds of cards both rank highly), then where they differ and what that says about how each likes to draft this cube. Look for:
+Write 2 to 5 plain sentences, as one paragraph, calling the two players Player A and Player B (the app puts their names in) or they/them; never he, she, his or her. Start with where they agree: the cards in overlap.both_rank_near_the_top, the only cards both of them rank highly. If that list is empty or short, say they agree on little; never say both rank something highly that isn't in it. Then where they differ and what that says about how each likes to draft this cube. Look for:
 - color preferences (one ranks a color's cards higher or puts more of them in the list),
-- mana fixing (dual lands, fetch lands, mana rocks and dorks that make several colors),
+- mana fixing: lands and permanents that make two or more colors (the "makes" letters; F means it fetches a basic). Colorless mana (Sol Ring, Mana Crypt, Ancient Tomb) is fast mana, not fixing. Name a land's colors from what it makes (a land that makes RW is red-white),
 - archetypes and strategies: aggro, tempo, control, midrange, ramp, combo, reanimator, storm, artifacts, tokens, spells or graveyard decks,
 - power level versus flexibility, cheap interaction versus big threats, creatures versus spells, the mana curve.
-Use what you know about the cards from their names, and the type, cost and mana information given. Mention a few specific cards as examples, by name. Only say what the places support; when the lists are short or mostly agree, say that rather than inventing a contrast. If a player sorts only the top half, a card "below its top N" may still be good to them; don't overstate it.
+Use what you know about the cards from their names, and the type, cost and mana information given. Use the numbers to find the story, but never put a count, average or number of places apart in the brief (a card's place, like #1, is fine). Mention a few specific cards as examples, by name. Only say what the places support; when the lists are short or mostly agree, say that rather than inventing a contrast. If a player sorts only the top half, a card "below their top N" may still be good to them; don't overstate it.
 
 No headings, lists, markdown or preamble: only the paragraph.`;
 
@@ -163,10 +179,16 @@ export function cleanBrief(raw: unknown): string | null {
   const s = typeof raw === "object" && raw && typeof (raw as { brief?: unknown }).brief === "string" ? (raw as { brief: string }).brief : null;
   if (!s) return null;
   const one = s.replace(/\s+/g, " ").trim();
-  const sentences = one.match(/[^.!?]+[.!?]+(\s|$)/g) ?? [one];
-  const kept = sentences.slice(0, 5).join("").trim();
+  // Sentence ends are . ! ? followed by a space, so a decimal (1.5) never splits one and no text is dropped.
+  const kept = one.split(/(?<=[.!?])\s+/).slice(0, 5).join(" ");
   return kept.length >= 20 ? kept.slice(0, 1200) : null;
 }
+
+/** He, she and the like: players are never gendered from their names. A brief that does it isn't kept. */
+export const GENDERED = /\b(he|she|him|his|her|hers|himself|herself)\b/i;
+
+/** The follow-up that asks for a gendered brief again, with the labels or they/them. */
+export const REWRITE = "Rewrite that brief without he, she, him, his, her or hers: use Player A, Player B or they/them. Keep everything else.";
 
 /** Cache key: the inputs that change the brief. */
 export async function inputHash(a: RankingIn, b: RankingIn, list: RankJob, cards: string[]): Promise<string> {
