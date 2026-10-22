@@ -1,6 +1,7 @@
 import type { PostHog } from "posthog-js/dist/module.slim";
 import type * as SentryNS from "./sentry";
 import { redactPath, redactSearch, redactUrl, scrubProperties, stripQuery } from "./analytics";
+import { layoutNow } from "./desktop";
 import { supabase } from "./supabaseClient";
 
 /**
@@ -296,10 +297,11 @@ export function span(name: string, op: string): Span {
   };
 }
 
-/** One redacted page view per navigation; `screen` is the contract's screen name when the route has one. */
+/** One redacted page view per navigation; `screen` is the contract's screen name when the route has one, `layout`
+ *  whether the desktop layout was showing. */
 export function pageView(pathname: string, search: string, screen: string | undefined) {
   const path = redactPath(pathname);
-  const props: Props = { $current_url: `${window.location.origin}${path}${redactSearch(search)}`, $pathname: path };
+  const props: Props = { $current_url: `${window.location.origin}${path}${redactSearch(search)}`, $pathname: path, layout: layoutNow() };
   if (screen) props.$screen_name = screen;
   run(() => posthog?.capture("$pageview", props));
 }

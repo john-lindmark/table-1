@@ -5,12 +5,57 @@ import type { RoundWithMatches } from "../lib/types";
 /* Shared primitives for the Table 1 look: hard rectangles, 1px hairline gaps,
    monospace uppercase labels, one teal accent. */
 
-export function Screen({ children }: { children: ReactNode }) {
+/** How wide a screen gets on a desktop window (contract/web-desktop-2026-10-22.md): `column` (default) is a
+ *  centered column for lists and forms; `wide` for card grids, decks and running an event; `full` for the signed-out
+ *  landing page. Phones fill the width either way. */
+export type ScreenWidth = "column" | "wide" | "full";
+export const SCREEN_WIDTH: Record<ScreenWidth, string> = {
+  column: "lg:max-w-[960px] lg:mx-auto",
+  wide: "lg:max-w-[1600px] lg:mx-auto",
+  full: "",
+};
+
+export function Screen({ children, width = "column" }: { children: ReactNode; width?: ScreenWidth }) {
   return (
-    <div className="min-h-[100dvh] w-full bg-t1-bg text-t1-text flex flex-col gap-px">
+    <div className={`min-h-[100dvh] w-full bg-t1-bg text-t1-text flex flex-col gap-px ${SCREEN_WIDTH[width]}`}>
       {children}
     </div>
   );
+}
+
+/**
+ * Two columns on a desktop window: the main content and a narrower aside (standings next to a round, Join next to
+ * your events). On a phone they stack, main first. `at="xl"` waits for 1280 px, for a main column that needs the room
+ * (the round clock).
+ */
+const COLUMNS_AT = {
+  lg: { row: "lg:flex-row lg:items-start", main: "lg:flex-1", aside: "lg:shrink-0 lg:w-[var(--aside-w)]" },
+  xl: { row: "xl:flex-row xl:items-start", main: "xl:flex-1", aside: "xl:shrink-0 xl:w-[var(--aside-w)]" },
+};
+export function Columns({ children, aside, asideWidth = 360, at = "lg" }: {
+  children: ReactNode; aside?: ReactNode; asideWidth?: number; at?: "lg" | "xl";
+}) {
+  if (!aside) return <>{children}</>;
+  const c = COLUMNS_AT[at];
+  return (
+    <div className={`flex flex-col gap-px ${c.row}`}>
+      <div className={`min-w-0 flex flex-col gap-px ${c.main}`}>{children}</div>
+      <div className={`min-w-0 flex flex-col gap-px ${c.aside}`} style={{ ["--aside-w" as string]: `${asideWidth}px` }}>
+        {aside}
+      </div>
+    </div>
+  );
+}
+
+/** Esc closes a dialog or menu on a keyboard. */
+export function useEscape(onEscape: () => void) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onEscape();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 }
 
 /** Material "arrow_left_alt" (weight 300) from the Figma Bar (node 95:11022). */
@@ -253,14 +298,15 @@ export function T1Logo({ className = "" }: { className?: string }) {
   );
 }
 
-/** Events | Collection | Account. Shown on the top-level screens once signed in. */
+/** Events | Collection | Account. Shown on the top-level screens once signed in; a desktop window has the
+ *  sidebar instead. */
 export function TopNav() {
   const tab = ({ isActive }: { isActive: boolean }) =>
     `flex-1 py-3 text-center text-[11px] uppercase tracking-[1.5px] ${
       isActive ? "bg-t1-accent text-t1-ink" : "bg-t1-surface hover:bg-t1-surface-hover text-t1-text"
     }`;
   return (
-    <nav className="shrink-0 flex gap-px items-stretch">
+    <nav className="shrink-0 flex gap-px items-stretch lg:hidden">
       <div className="bg-t1-surface px-4 flex items-center">
         <T1Logo className="h-4 w-auto" />
       </div>
@@ -456,6 +502,7 @@ export function Modal({
   children: ReactNode;
   onClose: () => void;
 }) {
+  useEscape(onClose);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-label={title}>
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
@@ -474,13 +521,14 @@ export interface MenuItem {
   onClick: () => void;
 }
 
-/** The T1 menu (iOS T1MenuPanel): hairline rows rising from the bottom over a scrim, then Cancel. The item's
- *  action runs after the menu closes. */
+/** The T1 menu (iOS T1MenuPanel): hairline rows rising from the bottom over a scrim, then Cancel; centered on a
+ *  desktop window. The item's action runs after the menu closes. */
 export function Menu({ title, items, onClose }: { title?: string; items: MenuItem[]; onClose: () => void }) {
+  useEscape(onClose);
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label={title}>
+    <div className="fixed inset-0 z-50 flex flex-col justify-end lg:justify-center" role="dialog" aria-modal="true" aria-label={title}>
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-t1-bg pt-px flex flex-col gap-px w-full max-w-[480px] mx-auto">
+      <div className="relative bg-t1-bg pt-px flex flex-col gap-px w-full max-w-[480px] mx-auto lg:max-w-[420px] lg:max-h-[80dvh] lg:overflow-y-auto lg:p-px">
         {title && <div className="bg-t1-surface px-4 py-3 t1-label">{title}</div>}
         {items.map((it) => (
           <button key={it.title} type="button" role="menuitemradio" aria-checked={!!it.checked}

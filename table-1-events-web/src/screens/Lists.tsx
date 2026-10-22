@@ -439,7 +439,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   });
 
   return (
-    <LibScreen>
+    <LibScreen width="wide">
       <Bar title={list.name} subtitle={list.eventId ? `From ${list.eventName ?? "an event"} · v${v.number}` : `${formatName(list.format)} ${list.kind} · v${v.number}`} onBack={onBack}
            right={<span className="flex gap-4">
              <button type="button" className="t1-label hover:text-t1-text px-2 py-1 -my-1" onClick={() => setEditing(!editing)}>{editing ? "Done" : "Edit"}</button>
@@ -471,6 +471,8 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
             </>
           );
         })()}
+        {/* Desktop: the screen's actions three across. */}
+        <div className="flex flex-col gap-px lg:grid lg:grid-cols-3">
         {editing && <Row title={list.kind === "deck" ? "Duplicate deck" : "Duplicate cube"} detail="A new list with these cards"
                          onClick={() => { void duplicateList(list).then((copy) => { setEditing(false); onOpen(copy); }); }} />}
         {editing && <Row title={list.kind === "deck" ? "Delete deck" : "Delete cube"} detail="From every device" onClick={() => setConfirmDelete(true)} />}
@@ -484,6 +486,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         {entriesOf(list).length > 0 && !editing && catalog && list.kind === "deck" &&
           <Row title="Deck image" detail="The cards as a picture, to save or share" onClick={() => setImaging(true)} />}
         {entriesOf(list).length === 0 && <Row title="No cards yet" detail="Add cards to start this list" />}
+        </div>
         </>}
         {searching && catalog && !shown.length && <Row title="No cards match" />}
         {!catalog && <div className="bg-t1-surface px-4 py-4 t1-label">Loading card data…</div>}
@@ -502,10 +505,13 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
                     cards: tiles(inGroup),
                   };
                 })} />
-              ) : groupsOf(inBoard, grouping).map((g) => {
+              ) : (
+                // Rows (not the grid): on a desktop the groups flow into columns, as on a deck site.
+                <div className={layout === "grid" && !editing ? "flex flex-col gap-px" : "flex flex-col gap-px lg:block lg:columns-[340px] lg:gap-x-px"}>
+                {groupsOf(inBoard, grouping).map((g) => {
                 const inGroup = inBoard.filter((x) => x.group === g);
                 return (
-                  <div key={g} className="flex flex-col gap-px">
+                  <div key={g} className="flex flex-col gap-px lg:break-inside-avoid lg:mb-px">
                     <Section title={groupLabel(grouping, g)} count={inGroup.reduce((n, x) => n + x.qty, 0)} />
                     {layout === "grid" && !editing ? (
                       <div className="grid gap-px" style={{ gridTemplateColumns: `repeat(${cols}, ${tile}px)` }}>
@@ -517,7 +523,9 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
                     ) : editing ? inGroup.map((x) => lineRow(x)) : lineGroups(inGroup).map(groupRows)}
                   </div>
                 );
-              })}
+                })}
+                </div>
+              )}
             </div>
           );
         })}

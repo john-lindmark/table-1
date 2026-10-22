@@ -572,7 +572,7 @@ function ProfileCardsBody({ userId, section, item, onBack, onCard, onList, onRan
   };
 
   return (
-    <LibScreen>
+    <LibScreen width={layout === "list" ? "column" : "wide"}>
       <Bar title={profile ? `${profile.display_name} · ${name}` : "Cards"} subtitle={rows ? plural(sharedCardCount(rows, kind), "card") : undefined} onBack={onBack}
            right={<ViewButton layout={layout} onChange={setLayout} screen={`profile_${section}`} printings={printings} onPrintings={setPrintings}
                               grouping={grouping} onGrouping={setGrouping} list={!!kind} />} />

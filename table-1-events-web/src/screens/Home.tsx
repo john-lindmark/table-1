@@ -20,9 +20,11 @@ import { defaultPairing } from "../lib/rotoMath";
 import { RotoPairingFields, linkRotoCube } from "./roto/lazy";
 import { claimAutoOpen, useTrackerMode } from "../lib/settings";
 import { eventNamePreview, isTeamFormat, typeOfFormat } from "../lib/formats";
+import { useDesktop } from "../lib/desktop";
 import {
   Bar,
   BigAction,
+  Columns,
   Countdown,
   GhostAction,
   Notice,
@@ -58,6 +60,7 @@ export function Home({
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const { mode } = useTrackerMode();
+  const desktop = useDesktop();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -132,6 +135,51 @@ export function Home({
 
   const open = (e: HomeEvent) => (e.organizing ? onOpenEvent(e.id) : onOpenPlayer(e.id));
   const empty = data !== null && data.events.length === 0 && invites.length === 0;
+  // Live, invitations, (Join,) upcoming and past: the whole page on a phone, the left column on a desktop.
+  const lists = (
+    <>
+      {live.map((e) =>
+        e.playing && !e.organizing ? (
+          <PlayerHero
+            key={e.id}
+            e={e}
+            snap={snaps[e.id]}
+            mode={mode}
+            onOpen={() => open(e)}
+            onOpenLife={onOpenLife}
+            onChanged={load}
+          />
+        ) : (
+          <OrganizerHero key={e.id} e={e} onOpen={() => open(e)} />
+        ),
+      )}
+      {invites.length > 0 && (
+        <>
+          <div className="bg-t1-surface px-4 py-2 t1-label">Invitations</div>
+          {invites.map((i) => (
+            <InviteRow key={i.event_id} invite={i} onJoined={onOpenPlayer} onChanged={load} />
+          ))}
+        </>
+      )}
+      {!desktop && <JoinByCode />}
+      {upcoming.length > 0 && (
+        <>
+          <div className="bg-t1-surface px-4 py-2 t1-label">Upcoming</div>
+          {upcoming.map((e) => (
+            <EventLine key={e.id} e={e} onOpen={() => open(e)} />
+          ))}
+        </>
+      )}
+      {past.length > 0 && (
+        <>
+          <button onClick={() => setShowPast((v) => !v)} className="bg-t1-surface px-4 py-2 t1-label text-left">
+            {showPast ? "Past · hide" : `Past · ${past.length}`}
+          </button>
+          {showPast && past.map((e) => <EventLine key={e.id} e={e} onOpen={() => open(e)} />)}
+        </>
+      )}
+    </>
+  );
 
   return (
     <Screen>
@@ -154,52 +202,29 @@ export function Home({
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {data === null && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
         {empty && <EmptyEvents onCreate={() => setCreating(true)} />}
-        {!empty && data && (
-          <>
-            {live.map((e) =>
-              e.playing && !e.organizing ? (
-                <PlayerHero
-                  key={e.id}
-                  e={e}
-                  snap={snaps[e.id]}
-                  mode={mode}
-                  onOpen={() => open(e)}
-                  onOpenLife={onOpenLife}
-                  onChanged={load}
-                />
-              ) : (
-                <OrganizerHero key={e.id} e={e} onOpen={() => open(e)} />
-              ),
-            )}
-            {invites.length > 0 && (
-              <>
-                <div className="bg-t1-surface px-4 py-2 t1-label">Invitations</div>
-                {invites.map((i) => (
-                  <InviteRow key={i.event_id} invite={i} onJoined={onOpenPlayer} onChanged={load} />
-                ))}
-              </>
-            )}
-            <JoinByCode />
-            {upcoming.length > 0 && (
-              <>
-                <div className="bg-t1-surface px-4 py-2 t1-label">Upcoming</div>
-                {upcoming.map((e) => (
-                  <EventLine key={e.id} e={e} onOpen={() => open(e)} />
-                ))}
-              </>
-            )}
-            {past.length > 0 && (
-              <>
-                <button onClick={() => setShowPast((v) => !v)} className="bg-t1-surface px-4 py-2 t1-label text-left">
-                  {showPast ? "Past · hide" : `Past · ${past.length}`}
-                </button>
-                {showPast && past.map((e) => <EventLine key={e.id} e={e} onOpen={() => open(e)} />)}
-              </>
-            )}
-          </>
+        {!empty && data && desktop && (
+          // Desktop: your events on the left; joining, creating and the tracker on the right.
+          <Columns aside={<HomeActions onCreate={() => setCreating(true)} onOpenLife={() => onOpenLife()} />}>
+            {lists}
+          </Columns>
         )}
+        {!empty && data && !desktop && lists}
       </div>
     </Screen>
+  );
+}
+
+/** Desktop Events home: the right column. */
+function HomeActions({ onCreate, onOpenLife }: { onCreate: () => void; onOpenLife: () => void }) {
+  return (
+    <>
+      <div className="bg-t1-surface px-4 pt-4 pb-2 t1-label">Join with an event code</div>
+      <JoinByCode />
+      <BigAction label="Create an event" tone="accent" onClick={onCreate} />
+      <div className="flex gap-px">
+        <GhostAction label="Life tracker" onClick={onOpenLife} />
+      </div>
+    </>
   );
 }
 

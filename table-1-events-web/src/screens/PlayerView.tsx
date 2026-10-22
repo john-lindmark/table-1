@@ -18,6 +18,7 @@ import {
   Bar,
   BigAction,
   ClockFace,
+  Columns,
   Field,
   GhostAction,
   Notice,
@@ -255,128 +256,9 @@ export function PlayerView({
   ];
 
   const isRoto = formatName === "roto";
-  const screen = (
-    <Screen>
-      <Bar
-        title={event.name}
-        subtitle={`${viewer.displayName} · ${where} · ${event.formatLabel} · Round ${activeRound?.number ?? event.currentRound} of ${event.numberOfRounds}`}
-      />
-      {event.status === "cancelled" && (
-        <Notice tone="error">
-          Cancelled by the organizer{event.cancelReason ? `: ${event.cancelReason}` : ""}. Confirmed results still count.
-        </Notice>
-      )}
-
-      {activeRound && event.showClock && (
-        <>
-          <div className="bg-t1-bg py-4">
-            <ClockFace round={activeRound} />
-          </div>
-          <TimerProgress round={activeRound} />
-        </>
-      )}
-
-      {myMatch ? (
-        myMatch.isBye ? (
-          <div className="bg-t1-accent text-t1-ink px-4 py-6 text-center text-[15px] tracking-[1px] uppercase">
-            You have the bye this round
-          </div>
-        ) : (
-          <>
-            <div className="bg-t1-surface px-4 py-5 flex flex-col gap-1 items-center">
-              <p className="t1-label">Table {myMatch.tableNumber} · playing</p>
-              <p className="text-[22px] tracking-[1px]">{opponentName ?? "—"}</p>
-            </div>
-            {trackerFirst && <BigAction label="Open life tracker" tone="accent" onClick={() => onOpenLife!(myMatch.id)} />}
-            {opponentReported && (
-              <div className="flex flex-col gap-px">
-                <Notice tone="info">
-                  {opponentName ?? "Your opponent"} reported {mySide?.gameWins}–{theirSide?.gameWins} for you.
-                  {myMatch.disputed ? " Disputed — waiting on the organizer." : ""}
-                </Notice>
-                {!myMatch.disputed && (
-                  <div className="flex gap-px">
-                    <button
-                      onClick={() => respond(false)}
-                      className="flex-1 bg-t1-surface hover:bg-t1-surface-hover px-4 py-4 text-[12px] uppercase tracking-[1px]"
-                    >
-                      Dispute
-                    </button>
-                    <button
-                      onClick={() => respond(true)}
-                      className="flex-1 bg-t1-accent text-t1-ink px-4 py-4 text-[12px] uppercase tracking-[1px]"
-                    >
-                      Confirm
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-            {myMatch.status === "confirmed" && (
-              <Notice tone="info">Result confirmed. The organizer can still correct it.</Notice>
-            )}
-            {event.allowPlayerReporting && myMatch.status !== "confirmed" && !opponentReported ? (
-              <div className="flex flex-col gap-px">
-                {options.map(([label, mine, theirs]) => {
-                  const selected =
-                    reported &&
-                    mySide?.gameWins === mine &&
-                    theirSide?.gameWins === theirs;
-                  return (
-                    <button
-                      key={label}
-                      onClick={() => report(mine, theirs)}
-                      className={`px-4 py-4 text-[14px] tracking-[1px] uppercase ${
-                        selected
-                          ? "bg-t1-accent text-t1-ink"
-                          : "bg-t1-surface hover:bg-t1-surface-hover"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-                {reported && (
-                  <Notice tone="info">
-                    Reported. Tap a different result to correct it before the round is recorded.
-                  </Notice>
-                )}
-              </div>
-            ) : !event.allowPlayerReporting ? (
-              <Notice tone="info">The organizer is recording results for this event.</Notice>
-            ) : null}
-            {canTrack && !trackerFirst && (
-              <div className="flex gap-px">
-                <GhostAction label="Open life tracker" onClick={() => onOpenLife!(myMatch.id)} />
-              </div>
-            )}
-          </>
-        )
-      ) : (
-        <Notice tone="info">
-          {activeRound ? "You are not paired this round." : "Waiting for the next round to be paired."}
-        </Notice>
-      )}
-
-      {notice && <Notice tone="info">{notice}</Notice>}
-      {joinError && <Notice tone="error">{joinError}</Notice>}
-
-      {isRoto && rounds.length > 0 && (
-        <div className="flex gap-px">
-          <GhostAction label="Draft picks" onClick={() => setRotoPanel("draft")} />
-          {event.pairing === "round_robin" && <GhostAction label="Schedule" onClick={() => setRotoPanel("schedule")} />}
-        </div>
-      )}
-
-      {signedInPlayer && (
-        <SwitchRow
-          label="Use life tracker"
-          detail={mode === "tracker" ? "Your matches open in the life tracker" : "Keep score elsewhere; report results here"}
-          on={mode === "tracker"}
-          onChange={(on) => setMode(on ? "tracker" : "elsewhere")}
-        />
-      )}
-
+  // Seating and standings: below your match on a phone, the right column on a desktop.
+  const tables = (
+    <>
       {isDraft && beforeRoundOne && pods && pods.length > 0 && (
         <>
           <div className="bg-t1-surface px-4 py-2 t1-label">Draft seating</div>
@@ -409,6 +291,132 @@ export function PlayerView({
         compact
         teamNames={isTeam ? teamNames : undefined}
       />
+    </>
+  );
+  const screen = (
+    <Screen width="wide">
+      <Bar
+        title={event.name}
+        subtitle={`${viewer.displayName} · ${where} · ${event.formatLabel} · Round ${activeRound?.number ?? event.currentRound} of ${event.numberOfRounds}`}
+      />
+      {/* Desktop: your match on the left, seating and standings on the right; a phone stacks them. */}
+      <Columns at="xl" asideWidth={480} aside={tables}>
+        {event.status === "cancelled" && (
+          <Notice tone="error">
+            Cancelled by the organizer{event.cancelReason ? `: ${event.cancelReason}` : ""}. Confirmed results still count.
+          </Notice>
+        )}
+
+        {activeRound && event.showClock && (
+          <>
+            <div className="bg-t1-bg py-4">
+              <ClockFace round={activeRound} />
+            </div>
+            <TimerProgress round={activeRound} />
+          </>
+        )}
+
+        {myMatch ? (
+          myMatch.isBye ? (
+            <div className="bg-t1-accent text-t1-ink px-4 py-6 text-center text-[15px] tracking-[1px] uppercase">
+              You have the bye this round
+            </div>
+          ) : (
+            <>
+              <div className="bg-t1-surface px-4 py-5 flex flex-col gap-1 items-center">
+                <p className="t1-label">Table {myMatch.tableNumber} · playing</p>
+                <p className="text-[22px] tracking-[1px]">{opponentName ?? "—"}</p>
+              </div>
+              {trackerFirst && <BigAction label="Open life tracker" tone="accent" onClick={() => onOpenLife!(myMatch.id)} />}
+              {opponentReported && (
+                <div className="flex flex-col gap-px">
+                  <Notice tone="info">
+                    {opponentName ?? "Your opponent"} reported {mySide?.gameWins}–{theirSide?.gameWins} for you.
+                    {myMatch.disputed ? " Disputed — waiting on the organizer." : ""}
+                  </Notice>
+                  {!myMatch.disputed && (
+                    <div className="flex gap-px">
+                      <button
+                        onClick={() => respond(false)}
+                        className="flex-1 bg-t1-surface hover:bg-t1-surface-hover px-4 py-4 text-[12px] uppercase tracking-[1px]"
+                      >
+                        Dispute
+                      </button>
+                      <button
+                        onClick={() => respond(true)}
+                        className="flex-1 bg-t1-accent text-t1-ink px-4 py-4 text-[12px] uppercase tracking-[1px]"
+                      >
+                        Confirm
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {myMatch.status === "confirmed" && (
+                <Notice tone="info">Result confirmed. The organizer can still correct it.</Notice>
+              )}
+              {event.allowPlayerReporting && myMatch.status !== "confirmed" && !opponentReported ? (
+                <div className="flex flex-col gap-px">
+                  {options.map(([label, mine, theirs]) => {
+                    const selected =
+                      reported &&
+                      mySide?.gameWins === mine &&
+                      theirSide?.gameWins === theirs;
+                    return (
+                      <button
+                        key={label}
+                        onClick={() => report(mine, theirs)}
+                        className={`px-4 py-4 text-[14px] tracking-[1px] uppercase ${
+                          selected
+                            ? "bg-t1-accent text-t1-ink"
+                            : "bg-t1-surface hover:bg-t1-surface-hover"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                  {reported && (
+                    <Notice tone="info">
+                      Reported. Tap a different result to correct it before the round is recorded.
+                    </Notice>
+                  )}
+                </div>
+              ) : !event.allowPlayerReporting ? (
+                <Notice tone="info">The organizer is recording results for this event.</Notice>
+              ) : null}
+              {canTrack && !trackerFirst && (
+                <div className="flex gap-px">
+                  <GhostAction label="Open life tracker" onClick={() => onOpenLife!(myMatch.id)} />
+                </div>
+              )}
+            </>
+          )
+        ) : (
+          <Notice tone="info">
+            {activeRound ? "You are not paired this round." : "Waiting for the next round to be paired."}
+          </Notice>
+        )}
+
+        {notice && <Notice tone="info">{notice}</Notice>}
+        {joinError && <Notice tone="error">{joinError}</Notice>}
+
+        {isRoto && rounds.length > 0 && (
+          <div className="flex gap-px">
+            <GhostAction label="Draft picks" onClick={() => setRotoPanel("draft")} />
+            {event.pairing === "round_robin" && <GhostAction label="Schedule" onClick={() => setRotoPanel("schedule")} />}
+          </div>
+        )}
+
+        {signedInPlayer && (
+          <SwitchRow
+            label="Use life tracker"
+            detail={mode === "tracker" ? "Your matches open in the life tracker" : "Keep score elsewhere; report results here"}
+            on={mode === "tracker"}
+            onChange={(on) => setMode(on ? "tracker" : "elsewhere")}
+          />
+        )}
+      </Columns>
       {rotoPanel === "draft" && (
         <RotoDraftOverlay eventId={event.id} title={event.name} isOrganizer={false} pairing={event.pairing} onClose={() => setRotoPanel(null)} />
       )}

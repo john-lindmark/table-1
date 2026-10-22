@@ -18,7 +18,8 @@ import {
   roundCaption,
 } from "../../lib/organizer";
 import type { Match, Participant, RoundWithMatches } from "../../lib/types";
-import { BigAction, BigNumber, Dialog, GhostAction, Notice, Row, Section, useNow } from "../../components/kit";
+import { BigAction, BigNumber, Columns, Dialog, GhostAction, Notice, Row, Section, useNow } from "../../components/kit";
+import { useDesktop } from "../../lib/desktop";
 import { TeamsPanel } from "../../components/TeamsPanel";
 import { StandingsBlock, type PhaseViewProps } from "./shared";
 import { RotoSchedule } from "../roto/lazy";
@@ -40,6 +41,7 @@ export function LiveView(
   const action = liveAction(event, rounds);
   const nameOf = nameLookup(participants);
   const { userId } = useSession();
+  const desktop = useDesktop();
   const meId = (userId && participants.find((p) => p.userId === userId)?.id) || null;
 
   const [busy, setBusy] = useState(false);
@@ -112,24 +114,33 @@ export function LiveView(
   return (
     <>
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
-        {tab === "round" &&
-          (active ? (
+        {tab === "round" && (
+          // Desktop: live standings beside the round, so the organizer needn't switch tabs.
+          <Columns at="xl" asideWidth={440} aside={desktop ? (
             <>
-              {event.showClock ? (
-                <RoundClock round={active} caption={roundCaption(event, active)} onClock={clock} />
-              ) : (
-                // Round timer off: no clock anywhere for this event (rounds still run 50 minutes).
-                <Notice tone="info">{roundCaption(event, active)}</Notice>
-              )}
-              <MatchList round={active} nameOf={nameOf} onOpenMatch={onOpenMatch} />
+              <Section title="Standings" right={open > 0 ? `${open} open` : undefined} />
+              <StandingsBlock bundle={bundle} isTeam={isTeam} teams={teams} teamNames={props.teamNames} />
             </>
-          ) : (
-            <Notice tone="info">
-              {currentRound >= event.numberOfRounds
-                ? `All ${event.numberOfRounds} rounds are in. Finish the event to send final standings.`
-                : `Round ${currentRound} recorded. Pair round ${currentRound + 1} when the table is ready.`}
-            </Notice>
-          ))}
+          ) : undefined}>
+            {active ? (
+              <>
+                {event.showClock ? (
+                  <RoundClock round={active} caption={roundCaption(event, active)} onClock={clock} />
+                ) : (
+                  // Round timer off: no clock anywhere for this event (rounds still run 50 minutes).
+                  <Notice tone="info">{roundCaption(event, active)}</Notice>
+                )}
+                <MatchList round={active} nameOf={nameOf} onOpenMatch={onOpenMatch} />
+              </>
+            ) : (
+              <Notice tone="info">
+                {currentRound >= event.numberOfRounds
+                  ? `All ${event.numberOfRounds} rounds are in. Finish the event to send final standings.`
+                  : `Round ${currentRound} recorded. Pair round ${currentRound + 1} when the table is ready.`}
+              </Notice>
+            )}
+          </Columns>
+        )}
 
         {tab === "schedule" && <RotoSchedule bundle={bundle} meId={meId} />}
 

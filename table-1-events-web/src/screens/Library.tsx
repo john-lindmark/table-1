@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Bar, Field, GhostAction, Menu, Notice, Row, Screen, Section, Segmented, TopNav } from "../components/kit";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { Bar, Field, GhostAction, Menu, Notice, Row, SCREEN_WIDTH, Screen, Section, Segmented, TopNav, type ScreenWidth } from "../components/kit";
 import { capture } from "../lib/telemetry";
 import { LAYOUTS, parseLayout, runStacks, type CardLayout } from "../lib/cardLayout";
 import { GROUPING_KEY, GROUPING_TITLE, groupLabel, groupSections, groupingOptions, keysOf, useStoredGrouping, type Grouping } from "../lib/cardGrouping";
@@ -30,6 +30,8 @@ import { CardSearchBar, CardSearchStatus, useCardSearch } from "./CardSearch";
 import { hasSyntax } from "../lib/cardQuery";
 import { langForNew, storeAddLang, storedAddLang } from "../lib/languages";
 import { NewCopiesLanguageRow, OwnedLanguageRow } from "./Languages";
+import { hidePeek, movePeek, showPeek } from "../components/CardPeek";
+import { PEEK_W, useDesktop, useHoverPreview } from "../lib/desktop";
 
 export const CONDITIONS: Condition[] = ["NM", "LP", "MP", "HP", "DMG"];
 export const CONDITION_NAME: Record<Condition, string> = {
@@ -150,8 +152,8 @@ export function ViewButton({ layout, onChange, screen, printings, onPrintings, g
 
 /** A full-height screen whose lists scroll inside it (Screen only sets a minimum height, which lets a list
  *  grow to its full length and defeats virtualization). */
-export function LibScreen({ children }: { children: ReactNode }) {
-  return <div className="h-[100dvh] w-full bg-t1-bg text-t1-text flex flex-col gap-px overflow-hidden">{children}</div>;
+export function LibScreen({ children, width = "column" }: { children: ReactNode; width?: ScreenWidth }) {
+  return <div className={`h-[100dvh] w-full bg-t1-bg text-t1-text flex flex-col gap-px overflow-hidden ${SCREEN_WIDTH[width]}`}>{children}</div>;
 }
 
 /* ── card images ──────────────────────────────────────────────────────
@@ -199,6 +201,19 @@ export function CardArt({ c, p, width, alt = "", finish = "nonfoil" }: { c: Cata
   );
 }
 
+/** Pointer handlers that show a card large beside the pointer (desktop with a mouse only; contract/web-desktop-2026-10-22.md
+ *  § Card preview). Spread onto the row or card. */
+export function usePeek(c: Catalog, p: number | null, finish: CardFinish = "nonfoil") {
+  const on = useHoverPreview();
+  if (!on || p == null || c.pFaces[p] === 0) return {};
+  return {
+    onMouseEnter: (e: MouseEvent) => showPeek(<CardArt c={c} p={p} width={PEEK_W} finish={finish} />, e.clientX, e.clientY),
+    onMouseMove: (e: MouseEvent) => movePeek(e.clientX, e.clientY),
+    onMouseLeave: hidePeek,
+    onMouseDown: hidePeek,
+  };
+}
+
 /** The mark a hero card's row carries on its left edge (white, not the accent: teal means "the result"). */
 function HeroEdge() {
   return <span aria-label="Hero card" className="absolute left-0 top-0 bottom-0 w-[2px] bg-t1-text" />;
@@ -212,8 +227,9 @@ export function CardRow({ c, p, title, detail, value, warn, onClick, finish, her
   /** A printing row under its card. */
   indent?: boolean;
 }) {
+  const peek = usePeek(c, p, finish);
   return (
-    <button type="button" onClick={onClick}
+    <button type="button" onClick={onClick} {...peek}
             className={`relative ${hero ? "bg-t1-surface-hover" : "bg-t1-surface hover:bg-t1-surface-hover"} ${indent ? "pl-10" : "pl-4"} pr-4 py-[5px] h-full flex items-center gap-3 text-left w-full`}>
       {hero && <HeroEdge />}
       <CardArt c={c} p={p} width={36} finish={finish} />
@@ -371,25 +387,33 @@ export function CardStack({ c, title, cards, width }: { c: Catalog; title?: stri
     <div className="flex flex-col" style={{ width }}>
       {title && <div className="t1-label truncate px-1 py-2">{title}</div>}
       {cards.map((x, i) => (
-        <button key={x.key} type="button" onClick={x.onClick} aria-label={`${x.name}, ${x.qty}${x.hero ? ", hero card" : ""}`}
-                className="relative block text-left" style={{ width, height, marginTop: i === 0 ? 0 : strip - height }}>
-          <CardArt c={c} p={x.p} width={width} alt="" finish={x.finish} />
-          {x.hero && <HeroFrame width={width} />}
-          {(x.p == null || c.pFaces[x.p] === 0) && (
-            <span className="absolute left-0 right-0 top-0 px-2 flex items-center text-[12px] truncate border-t border-t1-surface"
-                  style={{ height: strip }}>{x.name}</span>
-          )}
-          {/* The count sits on the frame's left edge, clear of the name, and only when it says something. */}
-          {(x.qty > 1 || x.warn) && (
-            <span className="absolute left-0 top-0 flex items-center" style={{ height: strip }}>
-              <span className={`px-1 text-[11px] leading-[14px] tabular-nums ${x.warn ? "bg-t1-error text-t1-bg" : "bg-t1-bg text-t1-text"}`}>
-                {x.qty}
-              </span>
-            </span>
-          )}
-        </button>
+        <StackCard key={x.key} c={c} x={x} width={width} height={height} strip={strip} first={i === 0} />
       ))}
     </div>
+  );
+}
+
+/** One card of a stack; on a desktop, resting the pointer on its strip shows the whole card. */
+function StackCard({ c, x, width, height, strip, first }: { c: Catalog; x: StackCardItem; width: number; height: number; strip: number; first: boolean }) {
+  const peek = usePeek(c, x.p, x.finish);
+  return (
+    <button type="button" onClick={x.onClick} aria-label={`${x.name}, ${x.qty}${x.hero ? ", hero card" : ""}`} {...peek}
+            className="relative block text-left" style={{ width, height, marginTop: first ? 0 : strip - height }}>
+      <CardArt c={c} p={x.p} width={width} alt="" finish={x.finish} />
+      {x.hero && <HeroFrame width={width} />}
+      {(x.p == null || c.pFaces[x.p] === 0) && (
+        <span className="absolute left-0 right-0 top-0 px-2 flex items-center text-[12px] truncate border-t border-t1-surface"
+              style={{ height: strip }}>{x.name}</span>
+      )}
+      {/* The count sits on the frame's left edge, clear of the name, and only when it says something. */}
+      {(x.qty > 1 || x.warn) && (
+        <span className="absolute left-0 top-0 flex items-center" style={{ height: strip }}>
+          <span className={`px-1 text-[11px] leading-[14px] tabular-nums ${x.warn ? "bg-t1-error text-t1-bg" : "bg-t1-bg text-t1-text"}`}>
+            {x.qty}
+          </span>
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -496,8 +520,9 @@ export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes, onTrades, onI
       <TopNav />
       <Bar title="Collection" subtitle={userId === DEMO_USER ? "Demo data" : col.syncing ? "Syncing…" : undefined} />
       {col.error && <Notice tone="error">{col.error}</Notice>}
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
-        <div className="bg-t1-surface px-4 py-6 flex flex-col items-center gap-1">
+      {/* Desktop: the summary across the top, the sections two across under it. */}
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px lg:grid lg:grid-cols-2 lg:content-start">
+        <div className="bg-t1-surface px-4 py-6 flex flex-col items-center gap-1 lg:col-span-2">
           <p className="t1-label">Cards</p>
           <p className="text-[48px] tabular-nums tracking-[4px]">{s ? s.total_qty.toLocaleString() : col.ready ? "0" : "…"}</p>
           <p className="t1-label">
@@ -762,7 +787,7 @@ export function AllCards({ onBack, onOpen, onAdd }: { onBack: () => void; onOpen
   if (!ready) return <Screen><div className="flex-1" /></Screen>;
   if (!session) return <SignedOut title="All cards" />;
   return (
-    <LibScreen>
+    <LibScreen width={layout === "list" ? "column" : "wide"}>
       <Bar title="All cards" subtitle={col.summary ? `${col.summary.total_qty.toLocaleString()} cards` : undefined}
            onBack={onBack} right={<ViewButton layout={layout} onChange={setLayout} screen="all_cards" printings={printings} onPrintings={setPrintings}
                                          grouping={grouping} onGrouping={setGrouping} />} />
@@ -868,6 +893,7 @@ export function CardDetail({ oracleId, onBack, context }: { oracleId: string; on
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
   /** A printing tapped in the list, shown large in place of the owned one. */
   const [preview, setPreview] = useState<number | null>(null);
+  const desktop = useDesktop();
   /** Condition new copies go in as (remembered). */
   const [addCondition, setAddConditionState] = useState<Condition>(() => {
     try {
@@ -1017,15 +1043,29 @@ export function CardDetail({ oracleId, onBack, context }: { oracleId: string; on
           </button>
         </div>
       )}
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
-        <div className="bg-t1-surface px-4 py-4 flex gap-4 items-start">
-          <CardArt key={heroP} c={catalog} p={heroP} width={146} alt={catalog.oName[oi]} />
-          <div className="min-w-0 flex flex-col gap-1">
+      {/* Desktop: the card large in its own column; the copies, lists and printings scroll beside it. */}
+      <div className="flex-1 min-h-0 flex gap-px">
+      {desktop && (
+        <div className="w-[332px] shrink-0 bg-t1-surface p-4 flex flex-col gap-3 overflow-y-auto">
+          <CardArt key={heroP} c={catalog} p={heroP} width={300} alt={catalog.oName[oi]} />
+          <div className="flex flex-col gap-1">
             <p className="text-[13px]">{catalog.oType[oi]}</p>
             {catalog.oCost[oi] && <p className="t1-label">{catalog.oCost[oi]}</p>}
-            <p className="t1-label">{count} printings</p>
+            <p className="t1-label">{count} printings · pick one to see it here</p>
           </div>
         </div>
+      )}
+      <div className="flex-1 min-w-0 min-h-0 overflow-y-auto flex flex-col gap-px">
+        {!desktop && (
+          <div className="bg-t1-surface px-4 py-4 flex gap-4 items-start">
+            <CardArt key={heroP} c={catalog} p={heroP} width={146} alt={catalog.oName[oi]} />
+            <div className="min-w-0 flex flex-col gap-1">
+              <p className="text-[13px]">{catalog.oType[oi]}</p>
+              {catalog.oCost[oi] && <p className="t1-label">{catalog.oCost[oi]}</p>}
+              <p className="t1-label">{count} printings</p>
+            </div>
+          </div>
+        )}
 
         {context?.list && (
           <>
@@ -1156,6 +1196,7 @@ export function CardDetail({ oracleId, onBack, context }: { oracleId: string; on
           );
         })}
         {!showAll && count > 12 && <Row title={`Show all ${count} printings`} onClick={() => setShowAll(true)} />}
+      </div>
       </div>
     </LibScreen>
   );

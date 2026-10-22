@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { Screen, Segmented } from "../components/kit";
+import { Screen, Segmented, TabBar } from "../components/kit";
 import { SeatingPanel } from "../components/SeatingPanel";
+import { toBundle } from "../lib/api";
+import { TAB_LABELS, type OrganizerTab } from "../lib/organizer";
 import type { Participant, SeatingPod } from "../lib/types";
 import { NewEvent } from "./Home";
+import { LiveView } from "./organizer/LiveView";
 
-// Design QA without signing in (dev server only): /dev/events shows the create form and the seating table on
-// sample data. Server calls made from here fail (no session).
+// Design QA without signing in (dev server only): /dev/events shows the create form, the seating table and the
+// organizer's Live round (two columns on a desktop window) on sample data. Server calls made from here fail (no
+// session).
 const NAMES = ["Ann Ito", "Bo Lindqvist", "Cy Park", "Dee Okafor", "Eli Moreau", "Fen Zhou", "Gus Varga", "Hal Brandt"];
 
 function pod(n: number, id = `pod${n}`): SeatingPod {
@@ -20,10 +24,63 @@ const people: Participant[] = NAMES.map((n, i) => ({
   id: `p${i + 1}`, eventId: "demo", podId: "pod8", displayName: n, seat: i + 1, status: "active", droppedInRound: null,
 }));
 
-export function EventsDemo() {
-  const [screen, setScreen] = useState<"create" | "seating">("seating");
+/** An 8-player draft in round 2 of 3, round 1 played, in event_bundle's wire shape. */
+function liveBundle() {
+  const E = "demo-event";
+  const side = (m: string, p: number, s: number, wins: number) =>
+    ({ id: `${m}-${s}`, match_id: m, event_id: E, participant_id: `p${p}`, side: s, game_wins: wins, user_id: null });
+  const match = (r: number, t: number, a: number, b: number, wa: number, wb: number, status: string) => {
+    const id = `m${r}-${t}`;
+    return {
+      id, round_id: `r${r}`, event_id: E, pod_id: null, table_number: t, is_bye: false, status, disputed: false, game_draws: 0,
+      intentional_draw: false, version: 0, reported_at: null, result_at: null, result_source: null, reported_by_participant: null,
+      reported_by_user: null, created_at: "2026-10-22T18:00:00Z", updated_at: "2026-10-22T18:00:00Z",
+      match_sides: [side(id, a, 0, wa), side(id, b, 1, wb)],
+    };
+  };
+  const round = (n: number, status: string, matches: unknown[]) => ({
+    id: `r${n}`, event_id: E, number: n, status, matches, pairings_published_at: null, recorded_at: null, started_at: null,
+    timer_duration_seconds: 3000, timer_ends_at: null, timer_last_started_at: null, timer_remaining_at_change: 1724, timer_status: "paused",
+  });
+  return toBundle({
+    access: "organizer", is_organizer: true, teams: [],
+    event: {
+      id: E, name: "Draft · Duskmourn · Fri 24 Oct", short_code: "DEMO", status: "in_progress", format: "draft", format_name: "draft",
+      format_label: "Draft · Duskmourn", event_type: "limited", current_round: 2, number_of_rounds: 3, pairing: "swiss", show_clock: true,
+      allow_player_reporting: true, round_length_seconds: 3000, visibility: "link_only", venue_name: "Denver Card Shop", team_size: null,
+      set_name: "Duskmourn", created_by: null, created_at: "2026-10-22T18:00:00Z", updated_at: "2026-10-22T18:00:00Z",
+    },
+    participants: NAMES.map((n, i) => ({
+      id: `p${i + 1}`, event_id: E, pod_id: "pod8", display_name: n, seat: i + 1, status: "active", dropped_in_round: null,
+      team_id: null, team_slot: null, user_id: null, created_at: "2026-10-22T18:00:00Z",
+    })),
+    rounds: [
+      round(1, "completed", [match(1, 1, 1, 5, 2, 0, "confirmed"), match(1, 2, 2, 6, 2, 1, "confirmed"),
+                             match(1, 3, 3, 7, 1, 2, "confirmed"), match(1, 4, 4, 8, 0, 2, "confirmed")]),
+      round(2, "active", [match(2, 1, 1, 2, 2, 1, "confirmed"), match(2, 2, 7, 8, 1, 0, "reported"),
+                          match(2, 3, 5, 6, 0, 0, "pending"), match(2, 4, 3, 4, 0, 0, "pending")]),
+    ],
+  });
+}
+
+const LIVE_TABS: OrganizerTab[] = ["round", "standings", "players"];
+
+function LiveDemo() {
+  const [tab, setTab] = useState<OrganizerTab>("round");
+  const [bundle] = useState(liveBundle);
   return (
-    <Screen>
+    <>
+      <TabBar tabs={LIVE_TABS} value={tab} onChange={setTab} labels={TAB_LABELS} />
+      <LiveView eventId="demo-event" bundle={bundle} tab={tab} isTeam={false} isDraft teams={null} teamNames={new Map()}
+                refetch={async () => {}} onOpenMatch={() => {}} setActionError={() => {}} mutate={async () => {}} />
+    </>
+  );
+}
+
+export function EventsDemo() {
+  const [screen, setScreen] = useState<"create" | "seating" | "live">("seating");
+  return (
+    <Screen width={screen === "live" ? "wide" : "column"}>
       <Segmented
         label="Demo"
         value={screen}
@@ -31,9 +88,12 @@ export function EventsDemo() {
         options={[
           { value: "create", label: "Create" },
           { value: "seating", label: "Seating" },
+          { value: "live", label: "Live" },
         ]}
       />
-      {screen === "create" ? (
+      {screen === "live" ? (
+        <LiveDemo />
+      ) : screen === "create" ? (
         <NewEvent onCancel={() => setScreen("seating")} onCreated={() => {}} />
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">

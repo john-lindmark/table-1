@@ -24,6 +24,7 @@ import { AuthConfirm } from "./screens/AuthConfirm";
 import { DeleteAccountPage, PrivacyPolicy } from "./screens/Legal";
 import { SignInPage } from "./screens/Landing";
 import { NameGate } from "./components/NameGate";
+import { DesktopShell } from "./components/DesktopShell";
 import type { Board, ListFinish } from "./lib/lists";
 import type { RankJob } from "./lib/cubeRanking";
 import type { CardContext } from "./screens/Library";
@@ -429,6 +430,7 @@ export default function App() {
       <RouteAnalytics />
       <Suspense fallback={null}>
       <NameGate>
+      <DesktopShell>
       <Routes>
         <Route path="/" element={<HomeRoute />} />
         <Route path="/e/:eventId" element={<OrganizerRoute />} />
@@ -488,6 +490,7 @@ export default function App() {
         <Route path="/life/:matchId" element={<LifeRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </DesktopShell>
       </NameGate>
       </Suspense>
     </BrowserRouter>

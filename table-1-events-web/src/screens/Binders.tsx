@@ -239,7 +239,7 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
     { title: "Delete binder", onClick: () => setConfirmDelete(true) },
   ] : [];
   return (
-    <LibScreen>
+    <LibScreen width={layout === "list" ? "column" : "wide"}>
       <Bar title={unsorted ? "Unsorted" : binder?.name ?? "Binder"} onBack={onBack}
            subtitle={[`${copies.toLocaleString()} cards`, binder?.for_trade ? "For trade" : null, usdText(value(items))].filter(Boolean).join(" · ")}
            right={<span className="flex gap-4">

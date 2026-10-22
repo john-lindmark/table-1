@@ -23,7 +23,7 @@ const FEATURES: { title: string; body: string }[] = [
 export function Landing() {
   const navigate = useNavigate();
   return (
-    <Screen>
+    <Screen width="full">
       <nav className="shrink-0 flex gap-px items-stretch">
         <div className="flex-1 bg-t1-surface px-4 flex items-center">
           <T1Logo className="h-4 w-auto" />

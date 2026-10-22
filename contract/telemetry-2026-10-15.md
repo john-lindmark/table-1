@@ -184,6 +184,7 @@ when notify-worker ships). That's what PostHog needs to send pushes itself. Turn
 ### App
 `Application Opened`, `Application Backgrounded`, `Application Installed` and `Application Updated` come from the SDK's lifecycle capture.
 `analytics_opted_out` is sent once, just before capture stops.
+Web (2026-10-22, `web-desktop-2026-10-22.md`): `$pageview` carries `layout`: desktop / mobile; `desktop_nav_used` `{to}`: the sidebar item's key.
 
 ## Sentry
 - One project per platform (`table-1-ios`, `table-1-android`, `table-1-web`; the bug pipeline maps these slugs). `release` = `site.table1.events@<version>+<build>`, `environment` as above.

@@ -120,7 +120,7 @@ export function Organizer({
   };
 
   const screen = (
-    <Screen>
+    <Screen width="wide">
       <Bar
         title={event.name}
         subtitle={subtitle}
