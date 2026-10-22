@@ -1,17 +1,17 @@
 What's new in this build
 
-WIDGETS AND QUICK ACTIONS
-• Running an event: while a round is on, your Lock Screen and Dynamic Island show it. You'll see the clock, "5/8 in" with a mark for each match (teal = result in, red = disputed), and what's next: "Waiting on 3 results", then "Ready: Pair round 4" or "Ready: Finish event". Disputes to decide and guest matches you enter yourself are listed under it. You get an alert when a match is disputed and when the last result of a round comes in. Tap it to open the event.
-• Next event widget (home screen and Lock Screen): when and where your next event is, how many are playing, and whether you're organizing. The medium size shows the one after it and any invitations.
-• Collection value widget (home screen): what your collection is worth, the change over 7 days and a 30-day line. It starts tracking the day you add it, and it hides the numbers while your phone is locked.
-• Life tracker and Scan cards open in one tap from Shortcuts or the Action Button, and on iOS 18 and later from Control Center and the Lock Screen's buttons. Scan cards opens with the camera already scanning.
+LINKS OPEN THE APP
+• Tap any table-1.site link and it opens that screen in the app: an event, its standings, a join link, the life tracker, a deck, cube, binder, card, ranking, trade, a profile or Friends. People without the app still get the website.
+• Join links with just a code now join from the app and open the event. If you're already in it, it just opens; if you can't join, it says why.
+• Standings links open the event for its players; anyone else sees the standings page.
+• Pages the app doesn't have (the privacy policy, account deletion) stay in Safari.
 
 PLEASE TRY
-1. Add the Next event and Collection value widgets: long-press the home screen → Edit → Add Widget → Table 1. Do they show the right event and value? Does tapping them open the right screen?
-2. Add Next event to your Lock Screen too.
-3. Run a small event, even 2 players or guests. Once round 1 is paired, lock your phone. Does the organizer view appear? Report a result and dispute one. Does it update, and do the alerts come?
-4. Pull down Control Center → + → add Table 1's Life tracker and Scan cards. Do they open straight in, even when the app was closed?
-5. If your phone has an Action Button: Settings → Action Button → Shortcut → Table 1.
-6. If you organize and play in the same event, you'll see two Live Activities, one for each. Is that useful or too much?
+Links can take up to a day after this build arrives to start opening the app. If one opens Safari, try again later, or delete and reinstall the app.
+1. Send yourself a join link (Copy join link on the website's event screen) and tap it in Messages or Notes. Does it join and open the event?
+2. Tap a standings link for an event you played in, then one for an event you didn't. The first should open the event, the second the standings page.
+3. Open a deck on table-1.site, copy its address, and tap it on your phone. Does the deck open, and does Back lead to Decks?
+4. Tap table-1.site/privacy. It should stay in Safari.
+5. Sign out, tap a deck link, sign in. Does the deck open after sign-in?
 
 Anything odd: screenshot it and send it with TestFlight's feedback.
