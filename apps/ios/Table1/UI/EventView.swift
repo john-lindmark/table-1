@@ -77,7 +77,8 @@ struct EventView: View {
             if bundle == nil { self.error = error.localizedDescription }
         }
         if let latest = await latestStandings { engine = latest }
-        if bundle?.isOrganizer == false { await LiveActivityController.shared.refresh() }
+        // Players' seats and the organizer's own activity (at most every 20 s however often this screen refreshes).
+        if bundle != nil { await LiveActivityController.shared.refresh() }
     }
 }
 

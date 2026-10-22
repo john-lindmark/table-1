@@ -554,3 +554,12 @@ enum T1Date {
         return d.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute())
     }
 }
+
+extension NextEventItem {
+    /// The Events tab's row, as the Next event widget keeps it.
+    init(_ e: HomeEvent) {
+        self.init(id: e.id, name: e.name, status: e.status, bucket: e.bucket, organizing: e.organizing, playing: e.playing,
+                  venueName: e.venueName, startsAt: e.startsAt, numberOfRounds: e.numberOfRounds, currentRound: e.currentRound,
+                  players: e.players, formatLabel: e.formatLabel, format: e.format)
+    }
+}

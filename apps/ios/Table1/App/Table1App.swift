@@ -32,6 +32,10 @@ struct Table1App: App {
                 .overlay {
                     if ProcessInfo.processInfo.arguments.contains("-T1EventsDemo") { EventsDemoRoot() }
                 }
+                // `-T1WidgetsDemo [organizer|next|value]`: the widgets batch drawn on sample data.
+                .overlay {
+                    if ProcessInfo.processInfo.arguments.contains("-T1WidgetsDemo") { WidgetsDemoRoot() }
+                }
                 // `-T1RotoDemo [grid|cube|picks|list|schedule]`: a roto draft (8 players, the demo Vintage cube).
                 .overlay {
                     if ProcessInfo.processInfo.arguments.contains("-T1RotoDemo") { RotoDemoRoot() }
@@ -44,10 +48,9 @@ struct Table1App: App {
                 // Owner's QR from the camera (universal link) or a shared link; Google's sign-in return.
                 .onOpenURL { url in
                     if GIDSignIn.sharedInstance.handle(url) { return }
-                    // Widget / Live Activity taps: table1://event/<id>
+                    // Widget, Live Activity and control taps: table1://event/<id>, events, collection, tracker, scan
                     if url.scheme == "table1" {
-                        Telemetry.surfaceOpened(url)
-                        if url.host == "event", let id = url.pathComponents.dropFirst().first { session.pendingEvent = id }
+                        session.openAppLink(url)
                         return
                     }
                     session.openWebLink(url)
@@ -60,6 +63,7 @@ struct Table1App: App {
                     PushController.shared.openEvent = { session.pendingEvent = $0 }
                     PushController.shared.openSocial = { session.pendingSocial = $0 }
                     PushController.shared.openLibrary = { session.pendingLibrary = $0 }
+                    AppIntentRouter.handler = { session.openAppLink($0) }
                 }
                 // Apple ID access can be withdrawn from Settings at any time.
                 .onChange(of: phase) { before, now in
@@ -117,8 +121,13 @@ final class SessionModel {
     var pendingEvent: String?
     /// A tapped friend push: Account → Friends.
     var pendingSocial: SocialRoute?
-    /// A tapped Collection push (someone ranking your cube): the Collection tab's stack.
+    /// A tapped Collection push (someone ranking your cube), the value widget or the Scan cards control: the
+    /// Collection tab's stack.
     var pendingLibrary: [LibraryRoute]?
+    /// The Next event widget with nothing to open: the Events tab's root.
+    var pendingEventsTab = false
+    /// The Life tracker control: a local tracker once signed in (a cold launch is still loading the session).
+    var pendingTracker = false
     /// While a round you're playing is running, the app opens straight into it — once per launch or
     /// return from the background. Cleared as soon as it fires.
     var autoOpenArmed = true
@@ -131,6 +140,27 @@ final class SessionModel {
     var tracker: TrackerLaunch?
     /// Why the sign-in email's link didn't sign in (used or expired); shown on the sign-in screen.
     var emailLinkError: String?
+
+    /// table1:// links from widgets, Live Activities and controls (contract/widgets-2026-10-22.md).
+    func openAppLink(_ url: URL) {
+        Telemetry.surfaceOpened(url)
+        switch url.host() {
+        case "event":
+            if let id = url.pathComponents.dropFirst().first { pendingEvent = id }
+        case "events":
+            pendingEventsTab = true
+        case "collection":
+            pendingLibrary = []
+        case "tracker":
+            Telemetry.capture("control_used", ["control": "tracker"])
+            pendingTracker = true
+        case "scan":
+            Telemetry.capture("control_used", ["control": "scan"])
+            pendingLibrary = [.addScan]
+        default:
+            break
+        }
+    }
 
     /// https://table-1.site links: the sign-in email's button, or the owner's join QR.
     func openWebLink(_ url: URL) {
@@ -350,8 +380,24 @@ struct SignedInView: View {
         .task(id: session.pendingLibrary) {
             if let p = session.pendingLibrary {
                 session.pendingLibrary = nil
-                tab = .collection
+                session.tracker = nil
+                T1Overlays.shared.dismissAll()
+                select(.collection)
                 libraryPath = p
+            }
+        }
+        .task(id: session.pendingTracker) {
+            if session.pendingTracker {
+                session.pendingTracker = false
+                session.openTracker(matchId: nil, source: "control")
+            }
+        }
+        .task(id: session.pendingEventsTab) {
+            if session.pendingEventsTab {
+                session.pendingEventsTab = false
+                session.tracker = nil
+                select(.events)
+                path = []
             }
         }
         .task(id: session.pendingSocial) {

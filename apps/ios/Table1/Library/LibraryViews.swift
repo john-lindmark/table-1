@@ -8,6 +8,7 @@ import Supabase
 enum LibraryRoute: Hashable {
     case allCards
     case add
+    case addScan // Add cards with the scanner already up (the Scan cards control)
     case card(String) // oracle id
     case cardIn(String, CardContext) // oracle id, opened from a deck/cube or a binder
     case lists(CardList.Kind)
@@ -51,7 +52,7 @@ struct LibraryDestination: View {
     private var screenName: String {
         switch route {
         case .allCards: "all_cards"
-        case .add: "add_cards"
+        case .add, .addScan: "add_cards"
         case .card, .cardIn: "card_detail"
         case .lists(let kind): kind == .deck ? "decks" : "cubes"
         case .list(let id): ListsStore.shared.list(id: id)?.kind == .cube ? "cube" : "deck"
@@ -86,6 +87,7 @@ struct LibraryDestination: View {
         switch route {
         case .allCards: AllCardsView(path: $path)
         case .add: AddCardsView(path: $path)
+        case .addScan: AddCardsView(path: $path, scanOnOpen: true)
         case .card(let id): CardDetailView(oracleId: id, path: $path)
         case .cardIn(let id, let context): CardDetailView(oracleId: id, path: $path, context: context)
         case .lists(let kind): ListsView(kind: kind, path: $path)
@@ -485,6 +487,7 @@ struct AllCardsView: View {
 
 struct AddCardsView: View {
     @Binding var path: [LibraryRoute]
+    var scanOnOpen = false
     @Environment(\.dismiss) private var dismiss
     private var catalog: CatalogStore { CatalogStore.shared }
     @State private var query = ""
@@ -494,6 +497,7 @@ struct AddCardsView: View {
     @State private var scanned: (batchId: String, label: String)?
     @State private var error: String?
     @State private var busy = false
+    @State private var autoScanned = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -526,7 +530,12 @@ struct AddCardsView: View {
         }
         .onAppear {
             catalog.load(userInitiated: true)
-            focused = true
+            if scanOnOpen && !autoScanned {
+                autoScanned = true
+                scan()
+            } else {
+                focused = true
+            }
         }
         .task(id: "\(query)-\(catalog.generation)") {
             guard let db = catalog.db else { hits = []; return }

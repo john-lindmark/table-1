@@ -5,6 +5,13 @@ import WidgetKit
 struct Table1WidgetsBundle: WidgetBundle {
     var body: some Widget {
         MatchWidget()
+        NextEventWidget()
+        ValueWidget()
         PlayerLiveActivity()
+        OrganizerLiveActivity()
+        if #available(iOS 18.0, *) {
+            LifeTrackerControl()
+            ScanCardsControl()
+        }
     }
 }

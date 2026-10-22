@@ -40,6 +40,7 @@ final class LiveActivityController {
     func start() {
         guard !started else { return }
         started = true
+        OrganizerActivityController.shared.start()
         if #available(iOS 17.2, *) {
             Task {
                 for await data in Activity<PlayerActivityAttributes>.pushToStartTokenUpdates {
@@ -52,7 +53,7 @@ final class LiveActivityController {
             for await activity in Activity<PlayerActivityAttributes>.activityUpdates {
                 // New since launch; the app's own fallback start is counted where it requests one.
                 if !observed.contains(activity.id), !requestedHere.contains(activity.id) {
-                    Telemetry.capture("live_activity_started", ["via": "push"])
+                    Telemetry.capture("live_activity_started", ["via": "push", "type": "player"])
                 }
                 observe(activity)
             }
@@ -62,6 +63,7 @@ final class LiveActivityController {
 
     func didSignIn() async {
         registered.removeAll()
+        await OrganizerActivityController.shared.didSignIn()
         await registerStartToken()
         for activity in Activity<PlayerActivityAttributes>.activities {
             if let token = activity.pushToken?.hex { await registerUpdate(token, activity) }
@@ -74,7 +76,10 @@ final class LiveActivityController {
             await activity.end(nil, dismissalPolicy: .immediate)
         }
         registered.removeAll()
+        await OrganizerActivityController.shared.didSignOut()
         LiveStore.clear()
+        NextEventStore.clear()
+        ValueStore.clear()
         WidgetCenter.shared.reloadAllTimelines()
     }
 
@@ -94,8 +99,10 @@ final class LiveActivityController {
     // MARK: - private
 
     private func reconcile() async {
-        guard let snaps = try? await LiveAPI.fetch() else { return }
+        guard let all = try? await LiveAPI.fetchAll() else { return }
+        let snaps = all.snapshots
         if LiveStore.save(snaps) { WidgetCenter.shared.reloadAllTimelines() }
+        await OrganizerActivityController.shared.reconcile(all.organizer)
 
         let activities = Activity<PlayerActivityAttributes>.activities
         for snap in snaps {
@@ -118,7 +125,7 @@ final class LiveActivityController {
                     pushType: .token
                 ) {
                     requestedHere.insert(started.id)
-                    Telemetry.capture("live_activity_started", ["via": "app"])
+                    Telemetry.capture("live_activity_started", ["via": "app", "type": "player"])
                 }
             }
         }
@@ -137,7 +144,7 @@ final class LiveActivityController {
         Task {
             for await state in activity.activityStateUpdates where state == .ended || state == .dismissed {
                 // "dismissed": the player swiped it away; "ended": the match or event finished.
-                Telemetry.capture("live_activity_ended", ["reason": state == .dismissed ? "dismissed" : "ended"])
+                Telemetry.capture("live_activity_ended", ["reason": state == .dismissed ? "dismissed" : "ended", "type": "player"])
                 if let token = activity.pushToken?.hex {
                     _ = try? await supabase.rpc("unregister_live_activity_token", params: ["p_token": AnyJSON.string(token)]).execute()
                     registered.remove(token)

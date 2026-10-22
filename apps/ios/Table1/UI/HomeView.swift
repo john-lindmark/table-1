@@ -1,4 +1,5 @@
 import SwiftUI
+import WidgetKit
 
 /// The Events tab. What's happening now comes first and biggest; getting into events (scan, nearby,
 /// create) is secondary until there's nothing to show.
@@ -102,8 +103,13 @@ struct EventsHomeView: View {
     private func load() async {
         await BuildFlavor.resolve()
         do {
-            data = try await Repo.eventsHome()
+            let home = try await Repo.eventsHome()
+            data = home
             error = nil
+            // The Next event widget reads the same data from the App Group.
+            if NextEventStore.save(events: home.events.map(NextEventItem.init), invites: home.invites.count) {
+                WidgetCenter.shared.reloadTimelines(ofKind: "site.table1.next")
+            }
         } catch {
             if data == nil { self.error = error.localizedDescription; data = HomeData() }
         }

@@ -97,7 +97,8 @@ targets:
         Release:
           EXCLUDED_SOURCE_FILE_NAMES: "library-demo.json"
 
-  # Widgets + the player Live Activity (Lock Screen, Dynamic Island, StandBy, Smart Stack).
+  # Widgets, the player and organizer Live Activities (Lock Screen, Dynamic Island, StandBy, Smart Stack) and the
+  # iOS 18 controls (contract/widgets-2026-10-22.md).
   Table1Widgets:
     type: app-extension
     platform: iOS

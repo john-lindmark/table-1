@@ -1,5 +1,6 @@
 import Foundation
 import Supabase
+import WidgetKit
 
 // The signed-in player's collection, mirrored locally (contract/collection-2026-10-15.md). Items live in a
 // SQLite file per account and in memory while the app runs; the server is asked only for what changed since
@@ -240,6 +241,14 @@ final class CollectionStore {
         await sync()
     }
 
+    /// The Collection value widget's daily point (contract/widgets-2026-10-22.md); never for the demo.
+    private func noteValue() {
+        guard !isDemo, let userId, let s = summary else { return }
+        if ValueStore.note(userId: userId, usd: s.valueUsd, cards: s.uniqueCards, copies: s.totalQty) {
+            WidgetCenter.shared.reloadTimelines(ofKind: "site.table1.value")
+        }
+    }
+
     /// Signed out: forget the in-memory copy (the account's file stays for next time).
     func stop() {
         #if DEBUG
@@ -314,6 +323,7 @@ final class CollectionStore {
                 cursor = page.next
                 try local?.commit(put: put, delete: del, cursor: cursor, summary: page.summary)
                 summary = page.summary
+                noteValue()
                 ready = true
                 version += 1
                 if !page.more { break }
@@ -390,6 +400,7 @@ final class CollectionStore {
             items[it.key] = it.qty > 0 ? it : nil
         }
         summary = res.summary
+        noteValue()
         BindersStore.shared.reflect(allocs: res.binderItems)
         BindersStore.shared.reflect(wants: res.wants)
         version += 1

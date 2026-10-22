@@ -3,15 +3,28 @@ import Supabase
 
 /// The three calls the Live Activity and widgets make. Each is a single small request.
 enum LiveAPI {
-    private struct StateResponse: Decodable { let snapshots: [LiveSnapshot] }
+    struct StateResponse: Decodable {
+        let snapshots: [LiveSnapshot]
+        /// Events this account runs (contract/widgets-2026-10-22.md); absent from older servers.
+        var organizer: [OrganizerSnapshot] = []
+        private enum CodingKeys: String, CodingKey { case snapshots, organizer }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            snapshots = try c.decode([LiveSnapshot].self, forKey: .snapshots)
+            organizer = try c.decodeIfPresent([OrganizerSnapshot].self, forKey: .organizer) ?? []
+        }
+    }
     private struct StateRequest: Encodable { let action = "state"; let include_demo: Bool }
 
     /// Every live seat for the signed-in player, with rank, opponent and clock (one request).
-    static func fetch() async throws -> [LiveSnapshot] {
+    static func fetch() async throws -> [LiveSnapshot] { try await fetchAll().snapshots }
+
+    /// Seats and the events this account runs, in the same request.
+    static func fetchAll() async throws -> StateResponse {
         try await T1Shared.client.functions.invoke(
             "live-activity",
             options: FunctionInvokeOptions(body: StateRequest(include_demo: BuildFlavor.isTest))
-        ) { data, _ in try JSONDecoder().decode(StateResponse.self, from: data).snapshots }
+        ) { data, _ in try JSONDecoder().decode(StateResponse.self, from: data) }
     }
 
     /// Reports a result from this player's side. Same RPC, version check and idempotency as the app.
