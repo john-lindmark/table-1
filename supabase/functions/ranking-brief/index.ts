@@ -1,4 +1,4 @@
-// ranking-brief: a 2-5 sentence comparison of two cube rankings for one list (contract/cube-rankings-2026-10-21.md
+// ranking-brief: a 2-4 sentence comparison of two cube rankings for one list (contract/cube-rankings-2026-10-21.md
 // § Brief), written by Claude and cached per pair, list and inputs.
 //   POST { a: ranking id, b: ranking id, list: "W" | "U" | "B" | "R" | "G" | "M" | "C" | "L" | "F" }
 //   Authorization: Bearer <user JWT>
@@ -11,7 +11,7 @@
 // Secrets: ANTHROPIC_API_KEY.
 import Anthropic from "npm:@anthropic-ai/sdk@0.110.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { cleanBrief, GENDERED, inputHash, MIN_COMPARED, MODEL, named, prompt, REWRITE, SCHEMA, simulateLog, SYSTEM, type CardFact, type RankingIn } from "./brief.ts";
+import { cleanBrief, GENDERED, inputHash, MIN_COMPARED, MODEL, named, problems, prompt, SCHEMA, simulateLog, SYSTEM, type CardFact, type RankingIn } from "./brief.ts";
 import { COLOR_JOBS, type RankJob } from "./cubeRanking.ts";
 
 const cors = {
@@ -40,17 +40,18 @@ const toIn = (d: Detail): RankingIn => {
   return { id: d.id, rev: d.rev, depth: d.depth, top: d.top, name: d.name, by: d.by?.display_name?.trim() || "Someone", log: d.log ?? [], fresh };
 };
 
-/** The paragraph; one that calls a player he or she is sent back once to be rewritten. Null for a refusal or an
- *  unusable answer. */
-async function write(text: string, model = MODEL): Promise<{ brief: string | null; model: string; usage: unknown; refused: boolean }> {
+/** The paragraph; one that genders a player, runs long or calls a utility land fixing is sent back once to be rewritten
+ *  (problems()). Null for a refusal, an unusable answer, or a rewrite that still genders. */
+async function write(text: string, utility: string[], model = MODEL): Promise<{ brief: string | null; model: string; usage: unknown; refused: boolean; rewritten: boolean }> {
   const first = await ask(text, model);
-  if (first.refused || !first.brief || !GENDERED.test(first.brief)) return first;
-  const again = await ask(text, model, first.brief);
-  return { ...again, brief: again.brief && !GENDERED.test(again.brief) ? again.brief : null };
+  const fix = first.brief ? problems(first.brief, utility) : null;
+  if (first.refused || !first.brief || !fix) return { ...first, rewritten: false };
+  const again = await ask(text, model, first.brief, fix);
+  return { ...again, brief: again.brief && !GENDERED.test(again.brief) ? again.brief : null, rewritten: true };
 }
 
-/** One Messages request for the paragraph, or for `previous` rewritten. */
-async function ask(text: string, model: string, previous?: string): Promise<{ brief: string | null; model: string; usage: unknown; refused: boolean }> {
+/** One Messages request for the paragraph, or for `previous` rewritten as `rewrite` asks. */
+async function ask(text: string, model: string, previous?: string, rewrite?: string): Promise<{ brief: string | null; model: string; usage: unknown; refused: boolean }> {
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set");
   const client = new Anthropic({ apiKey, maxRetries: 2, timeout: 60_000 });
@@ -62,7 +63,7 @@ async function ask(text: string, model: string, previous?: string): Promise<{ br
     output_config: { effort: "low", format: { type: "json_schema", schema: SCHEMA } },
     messages: [
       { role: "user", content: text },
-      ...(previous ? [{ role: "assistant", content: JSON.stringify({ brief: previous }) }, { role: "user", content: REWRITE }] : []),
+      ...(previous ? [{ role: "assistant", content: JSON.stringify({ brief: previous }) }, { role: "user", content: rewrite! }] : []),
     ],
   } as unknown as Anthropic.Beta.MessageCreateParamsNonStreaming);
   if (msg.stop_reason === "refusal") return { brief: null, model: msg.model, usage: msg.usage, refused: true };
@@ -91,10 +92,11 @@ async function evaluate(e: { cube: string[]; list?: string; depth?: "half" | "fu
   const side = (s: EvalSide, id: string): RankingIn =>
     ({ id, rev: 1, depth, top, name: `${s.by}'s ranking`, by: s.by, log: simulateLog(facts, id, depth, top, ids(s.order)) });
   const a = side(e.a, crypto.randomUUID()), b = side(e.b, crypto.randomUUID());
-  const { text, compared } = prompt(facts, a, b, list, "Eval cube");
-  const w = compared >= MIN_COMPARED ? await write(text, EVAL_MODELS.includes(e.model ?? "") ? e.model : MODEL) : null;
+  const { text, compared, utility } = prompt(facts, a, b, list, "Eval cube");
+  const w = compared >= MIN_COMPARED ? await write(text, utility, EVAL_MODELS.includes(e.model ?? "") ? e.model : MODEL) : null;
   return { list, cards: facts.length, missing, compared, screens: [a.log.length, b.log.length], prompt_chars: text.length + SYSTEM.length,
-           brief: w?.brief ? named(w.brief, a.by, b.by) : null, model: w?.model ?? null, usage: w?.usage ?? null, refused: w?.refused ?? false };
+           brief: w?.brief ? named(w.brief, a.by, b.by) : null, words: w?.brief?.split(/\s+/).length ?? 0, rewritten: w?.rewritten ?? false,
+           model: w?.model ?? null, usage: w?.usage ?? null, refused: w?.refused ?? false };
 }
 
 Deno.serve(async (req) => {
@@ -139,7 +141,7 @@ Deno.serve(async (req) => {
     if (error) return json({ error: error.message }, 500);
     facts.push(...(data as CardFact[]));
   }
-  const { text, compared } = prompt(facts, ia, ib, list, da.cube?.name ?? db.cube?.name ?? "this cube");
+  const { text, compared, utility } = prompt(facts, ia, ib, list, da.cube?.name ?? db.cube?.name ?? "this cube");
   if (compared < MIN_COMPARED) return json({ brief: null, reason: "Not enough cards placed by both yet to describe the difference." });
 
   if (!Deno.env.get("ANTHROPIC_API_KEY")) return json({ error: "Briefs aren't set up yet" }, 503);
@@ -150,7 +152,7 @@ Deno.serve(async (req) => {
 
   let brief: string | null = null, model = MODEL;
   try {
-    const w = await write(text);
+    const w = await write(text, utility);
     if (w.refused) return json({ brief: null, reason: "A brief couldn't be written for these rankings." });
     brief = w.brief && named(w.brief, ia.by, ib.by);
     model = w.model;

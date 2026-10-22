@@ -113,7 +113,7 @@ Read `make_cases.py`'s docstring; in short:
 
 ## Brief (John, 2026-10-21)
 
-Comparing two rankings shows **In brief** first: 2–5 sentences, written by Claude, on where the two agree and where they
+Comparing two rankings shows **In brief** first: 2–4 short sentences (at most about 60 words), written by Claude, on where the two agree and where they
 differ — color preferences, mana fixing, archetypes (aggro, tempo, control, combo, ramp, …), cheap interaction versus big
 threats, the curve. One per pair, list (a color or the final top N) and ranking state.
 - **Edge function `ranking-brief`** (`supabase/functions/ranking-brief/`): `POST {a, b, list}` with the user's token →
@@ -131,12 +131,22 @@ threats, the curve. One per pair, list (a color or the final top N) and ranking 
   `named()` puts the display names back afterwards (literally, so a `$` in a name stays). A brief that still says
   he/she/him/his/her/hers (`GENDERED`) is sent back once to be rewritten; if the rewrite does it too, nothing is stored and
   the caller sees "The brief came back empty. Try again." The prompt also forbids counts and averages in the text.
-- **Trimming:** at most five sentences, split only at `.`/`!`/`?` followed by a space (a decimal never drops text).
+- **Mana roles (2026-10-22):** each row says what the card does for the mana: `fixing land` (makes two or more colors
+  or fetches), `utility land, not fixing` (Strip Mine, Karakas, Library of Alexandria, Mishra's Workshop…) or `mana
+  fixing` (a nonland that fixes); the shape counts fixing lands, utility lands and other fixing apart. The prompt says
+  to call a card fixing only when its row does, and to give a card's color only from its colors column (Haiku had
+  called Strip Mine and Karakas "fixing lands" and Pyrogoyf blue-black interaction in a live brief).
+- **One rewrite (`problems()`):** a brief that genders a player, runs over 72 words, or calls a utility land fixing in
+  the same clause (a clause that also says "utility" is fine) goes back once with what to change. Only gendering is
+  fatal after the rewrite.
+- **Trimming:** at most four sentences and 700 characters, split only at `.`/`!`/`?` followed by a space (a decimal
+  never drops text).
 - **Model:** `claude-haiku-5-5` at low effort (John, 2026-10-21: not Opus — a short summary of numbers we compute, cached
   per change; under $0.001 a brief). One constant (`MODEL` in `brief.ts`); move to `claude-sonnet-5-5` if briefs read thin.
   No refusal fallback on Haiku: a refusal reads "A brief couldn't be written for these rankings."
 - **Cache:** `public.ranking_briefs (a, b, list, input_hash, brief, model, created_by)`; the hash covers both revs and
-  settings, both names, the cube's cards and the model, so a new screen in either ranking writes a new brief next time.
+  settings, both names, the cube's cards, the model and `PROMPT_VERSION` (bumped with every prompt change, so older briefs are written again),
+  so a new screen in either ranking writes a new brief next time.
   RLS on, no policies; deleting a ranking deletes its briefs. 60 new briefs per account per day; cached ones always show.
 - **Clients:** the brief loads with the comparison and is kept for the session; "Written by Claude from both rankings";
   a failure shows "No brief yet · <reason>. Tap to try again." The demos show a marked sample (no server).
@@ -151,6 +161,11 @@ threats, the curve. One per pair, list (a color or the final top N) and ranking 
   three (fixed: labels + check + rewrite) and dropped text at "1.5" (fixed: trimming). v8: 8 of 8 briefs (whole cube,
   red ×3, blue, black, lands ×2) accurate, named, ungendered, first try. Haiku: ~2k input tokens for a color, ~4.3k for
   the top 50, ~250 output. Sonnet read slightly richer on the whole cube at ~20× the cost; Haiku stays.
+  v10 (2026-10-22, after John found a live brief too long and calling Strip Mine and Karakas fixing): 2–4 sentences,
+  at most 60 words, mana roles on every row, the rewrite check. Eval on a 64-card vintage cube (white aggro + utility
+  lands vs blue-black tempo + duals and fetches; whole cube, lands, red, and a near-identical pair): 58–70 words (was
+  ~125), utility lands never called fixing, duals and fetches called fixing. Left: on a near-identical pair Haiku still
+  names a one-place shift as a difference.
 
 ## Server
 

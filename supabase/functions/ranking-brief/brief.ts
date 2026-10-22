@@ -1,6 +1,6 @@
 // The brief's data and prompt (contract/cube-rankings-2026-10-21.md § Brief), kept pure so brief.test.ts can check it
 // without the network. index.ts reads both rankings as the caller, works their lists out with the shared engine
-// (cubeRanking.ts, the web copy, kept identical by tools/test/engine-parity.sh) and asks Claude for 2-5 sentences.
+// (cubeRanking.ts, the web copy, kept identical by tools/test/engine-parity.sh) and asks Claude for 2-4 short sentences.
 import { COLOR_JOBS, JOB_TITLE, RankingState, compare, type RankJob, type RankScreen } from "./cubeRanking.ts";
 
 /** A short summary of numbers worked out here, cached per change: the fast, inexpensive model. The prompt carries each
@@ -49,6 +49,16 @@ const isLand = (f: CardFact) => colorJob(f) === "L";
 /** Makes two or more colors, or fetches a basic: what players call fixing. */
 const fixes = (f: CardFact) => !!f.produced_mana && (f.produced_mana.includes("F") || f.produced_mana.replace(/[CF]/g, "").length >= 2);
 
+/** A card's part in the mana, spelled out on its row: Haiku called Strip Mine and Karakas "fixing lands" from the
+ *  letters alone (2026-10-22). Lands that don't fix are utility lands (Strip Mine, Karakas, Library of Alexandria). */
+export function manaRole(f: CardFact): string {
+  if (isLand(f)) return fixes(f) ? "fixing land" : "utility land, not fixing";
+  return fixes(f) ? "mana fixing" : "";
+}
+
+/** Lands the brief must never call fixing. */
+export const utilityLands = (cards: CardFact[]) => cards.filter((f) => isLand(f) && !fixes(f)).map((f) => f.name);
+
 export interface Side { label: string; places: Map<string, number>; done: boolean; size: number; cut: number }
 
 /** Both rankings' places in one list, worked out from their logs on the same cube. */
@@ -84,8 +94,9 @@ function shape(s: Side, facts: Map<string, CardFact>, n: number) {
     by_color: byColor,
     average_mana_value_of_spells: Math.round(mv * 100) / 100,
     creatures: fs.filter((f) => (f.type_line ?? "").split(" // ")[0].includes("Creature")).length,
-    lands: fs.filter(isLand).length,
-    fixing: fs.filter(fixes).length,
+    fixing_lands: fs.filter((f) => isLand(f) && fixes(f)).length,
+    utility_lands: fs.filter((f) => isLand(f) && !fixes(f)).length,
+    other_fixing: fs.filter((f) => !isLand(f) && fixes(f)).length,
     cheap_spells_mv_0_to_2: spells.filter((f) => Number(f.cmc ?? 0) <= 2).length,
   };
 }
@@ -101,7 +112,7 @@ export function named(brief: string, a: string, b: string): string {
 
 /** The user message: which list, the numbers, and every card either ranking placed (best place first), with the
  *  players as LABELS. Ranking names stay out: they're the players' own words. */
-export function prompt(cards: CardFact[], a: RankingIn, b: RankingIn, list: RankJob, cubeName: string): { text: string; compared: number } {
+export function prompt(cards: CardFact[], a: RankingIn, b: RankingIn, list: RankJob, cubeName: string): { text: string; compared: number; utility: string[] } {
   const facts = new Map(cards.map((c) => [c.oracle_id.toLowerCase(), c]));
   const { a: sa, b: sb, cmp } = sides(cards, { ...a, by: LABELS[0] }, { ...b, by: LABELS[1] }, list);
   const ids = [...new Set([...sa.places.keys(), ...sb.places.keys()])].sort((x, y) => {
@@ -123,7 +134,7 @@ export function prompt(cards: CardFact[], a: RankingIn, b: RankingIn, list: Rank
     const f = facts.get(id);
     const colors = f?.colors?.length ? f.colors.join("") : "colorless";
     return [f?.name ?? id, colors, f?.type_line ?? "", f?.mana_cost ?? "", f?.produced_mana ? `makes ${f.produced_mana}` : "",
-            `${sa.label} ${placeText(sa, id)}`, `${sb.label} ${placeText(sb, id)}`].filter(Boolean).join(" | ");
+            f ? manaRole(f) : "", `${sa.label} ${placeText(sa, id)}`, `${sb.label} ${placeText(sb, id)}`].filter(Boolean).join(" | ");
   });
   const data = {
     cube: cubeName,
@@ -151,52 +162,72 @@ export function prompt(cards: CardFact[], a: RankingIn, b: RankingIn, list: Rank
 Summary numbers (JSON):
 ${JSON.stringify(data)}
 
-${list === "F" ? `Cards either of them placed in their top ${ROW_PLACES}, and the biggest differences` : "Every card either of them placed"}, best place first (name | colors | type | cost | mana it makes | places):
+${list === "F" ? `Cards either of them placed in their top ${ROW_PLACES}, and the biggest differences` : "Every card either of them placed"}, best place first (name | colors | type | cost | mana it makes | role in the mana | places):
 ${rows.join("\n")}
 
 Call them ${sa.label} and ${sb.label} (or they/them), never he or she.`;
-  return { text, compared: cmp.compared };
+  return { text, compared: cmp.compared, utility: utilityLands(cards) };
 }
 
 export const SYSTEM = `You write short comparisons of two Magic: The Gathering players' cube rankings for Table 1, an app for competitive players. Each player stack-ranked the same cube's cards, best first. You get one list (a color, or the top cards across the whole cube) as both of them placed it.
 
-Write 2 to 5 plain sentences, as one paragraph, calling the two players Player A and Player B (the app puts their names in) or they/them; never he, she, his or her. Start with where they agree: the cards in overlap.both_rank_near_the_top, the only cards both of them rank highly. If that list is empty or short, say they agree on little; never say both rank something highly that isn't in it. Then where they differ and what that says about how each likes to draft this cube. Look for:
+Write 2 to 4 short, plain sentences, as one paragraph of at most 60 words, calling the two players Player A and Player B (the app puts their names in) or they/them; never he, she, his or her. Name each player at most twice. Start with where they agree: the cards in overlap.both_rank_near_the_top, the only cards both of them rank highly. If that list is empty or short, say they agree on little; never say both rank something highly that isn't in it. Then the one or two clearest differences and what they say about how each likes to draft this cube. Look for:
 - color preferences (one ranks a color's cards higher or puts more of them in the list),
-- mana fixing: lands and permanents that make two or more colors (the "makes" letters; F means it fetches a basic). Colorless mana (Sol Ring, Mana Crypt, Ancient Tomb) is fast mana, not fixing. Name a land's colors from what it makes (a land that makes RW is red-white),
+- mana: each row's "role in the mana" says what a card does for it. Call a card fixing only when its role says fixing. A "utility land, not fixing" (Strip Mine, Wasteland, Karakas, Library of Alexandria, Mishra's Workshop) is valued for what it does, never for fixing. Colorless mana (Sol Ring, Mana Crypt, Ancient Tomb) is fast mana, not fixing. Name a land's colors from what it makes (a land that makes RW is red-white),
 - archetypes and strategies: aggro, tempo, control, midrange, ramp, combo, reanimator, storm, artifacts, tokens, spells or graveyard decks,
 - power level versus flexibility, cheap interaction versus big threats, creatures versus spells, the mana curve.
-Use what you know about the cards from their names, and the type, cost and mana information given. Use the numbers to find the story, but never put a count, average or number of places apart in the brief (a card's place, like #1, is fine). Mention a few specific cards as examples, by name. Only say what the places support; when the lists are short or mostly agree, say that rather than inventing a contrast. If a player sorts only the top half, a card "below their top N" may still be good to them; don't overstate it.
+Use what you know about the cards from their names, and the type, cost and mana information given. Give a card's color only from its colors column. Use the numbers to find the story, but never put a count, average or number of places apart in the brief (a card's place, like #1, is fine). Name two or three cards per point as examples, never a long run of names. Only say what the places support; when the lists are short or mostly agree, say that in a sentence or two and stop, rather than inventing a contrast. If a player sorts only the top half, a card "below their top N" may still be good to them; don't overstate it.
 
 No headings, lists, markdown or preamble: only the paragraph.`;
+
+/** Over this many words the brief goes back once to be shortened (the prompt asks for at most 60; Haiku ran 67-78
+ *  words on the eval asked for 70, John found 120 too verbose). */
+export const MAX_WORDS = 72;
 
 /** Structured output: just the paragraph. */
 export const SCHEMA = {
   type: "object",
   additionalProperties: false,
   required: ["brief"],
-  properties: { brief: { type: "string", description: "2 to 5 sentences, one paragraph." } },
+  properties: { brief: { type: "string", description: "2 to 4 short sentences, one paragraph, at most 60 words." } },
 } as const;
 
-/** The paragraph, trimmed, at most five sentences and 1200 characters; null when it isn't usable. */
+/** Sentence ends are . ! ? followed by a space, so a decimal (1.5) never splits one and no text is dropped. */
+const sentences = (s: string) => s.split(/(?<=[.!?])\s+/);
+
+/** The paragraph, trimmed, at most four sentences and 700 characters; null when it isn't usable. */
 export function cleanBrief(raw: unknown): string | null {
   const s = typeof raw === "object" && raw && typeof (raw as { brief?: unknown }).brief === "string" ? (raw as { brief: string }).brief : null;
   if (!s) return null;
-  const one = s.replace(/\s+/g, " ").trim();
-  // Sentence ends are . ! ? followed by a space, so a decimal (1.5) never splits one and no text is dropped.
-  const kept = one.split(/(?<=[.!?])\s+/).slice(0, 5).join(" ");
-  return kept.length >= 20 ? kept.slice(0, 1200) : null;
+  const kept = sentences(s.replace(/\s+/g, " ").trim()).slice(0, 4).join(" ");
+  return kept.length >= 20 ? kept.slice(0, 700) : null;
 }
 
 /** He, she and the like: players are never gendered from their names. A brief that does it isn't kept. */
 export const GENDERED = /\b(he|she|him|his|her|hers|himself|herself)\b/i;
 
-/** The follow-up that asks for a gendered brief again, with the labels or they/them. */
-export const REWRITE = "Rewrite that brief without he, she, him, his, her or hers: use Player A, Player B or they/them. Keep everything else.";
+/** What's wrong with a brief, as the follow-up that asks for it again; null when it's fine. Gendering is fatal if the
+ *  rewrite keeps it (index.ts); length and a utility land called fixing only earn one rewrite. */
+export function problems(brief: string, utility: string[]): string | null {
+  const asks: string[] = [];
+  if (GENDERED.test(brief)) asks.push("Don't use he, she, him, his, her or hers: use Player A, Player B or they/them.");
+  const words = brief.split(/\s+/).filter(Boolean).length;
+  if (words > MAX_WORDS) asks.push(`It's ${words} words: cut it to at most 60, keeping only the clearest points.`);
+  // By clause: "A values Strip Mine; B wants fixing like Tundra" and "B puts fixing ahead of utility lands like Karakas"
+  // are fine, "A prizes fixing lands like Strip Mine" isn't.
+  const clauses = sentences(brief).flatMap((s) => s.split(/[;:]|,?\s+(?:while|whereas|but)\s+/i));
+  const named = utility.filter((n) => clauses.some((c) => /\bfix/i.test(c) && !/\butility\b/i.test(c) && c.toLowerCase().includes(n.toLowerCase())));
+  if (named.length) asks.push(`${named.join(" and ")} ${named.length === 1 ? "isn't" : "aren't"} fixing (utility ${named.length === 1 ? "land" : "lands"}): never call ${named.length === 1 ? "it" : "them"} fixing.`);
+  return asks.length ? `Rewrite that brief. ${asks.join(" ")} Keep everything else.` : null;
+}
+
+/** Changes whenever the prompt does, so cached briefs from an older prompt are written again. */
+export const PROMPT_VERSION = 3;
 
 /** Cache key: the inputs that change the brief. */
 export async function inputHash(a: RankingIn, b: RankingIn, list: RankJob, cards: string[]): Promise<string> {
   const text = JSON.stringify([a.id, a.rev, a.depth, a.top, a.by, b.id, b.rev, b.depth, b.top, b.by, list, [...cards].map((c) => c.toLowerCase()).sort(), MODEL,
-                               [...(a.fresh ?? [])].sort(), [...(b.fresh ?? [])].sort()]);
+                               [...(a.fresh ?? [])].sort(), [...(b.fresh ?? [])].sort(), PROMPT_VERSION]);
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return [...new Uint8Array(digest)].map((x) => x.toString(16).padStart(2, "0")).join("");
 }

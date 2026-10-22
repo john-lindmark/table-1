@@ -1,7 +1,7 @@
 // The brief's data and prompt, on the shared cube-ranking cases (testdata/cube-ranking/cases.json). No network:
 // the Claude call itself is only in index.ts.
 import { assert, assertEquals, assertMatch, assertNotEquals } from "jsr:@std/assert@1";
-import { cleanBrief, colorJob, inputHash, prompt, sides, simulateLog, SYSTEM, GENDERED, named, type CardFact, type RankingIn } from "./brief.ts";
+import { cleanBrief, colorJob, inputHash, manaRole, MAX_WORDS, problems, prompt, sides, simulateLog, SYSTEM, GENDERED, named, utilityLands, type CardFact, type RankingIn } from "./brief.ts";
 import type { RankJob, RankScreen } from "./cubeRanking.ts";
 
 const cases = JSON.parse(await Deno.readTextFile(new URL("../../../testdata/cube-ranking/cases.json", import.meta.url)));
@@ -86,9 +86,38 @@ Deno.test("a long top 100 keeps only each list's first 50 places and the biggest
   assertMatch(text, /in their top 50, and the biggest differences/);
 });
 
-Deno.test("the brief is one paragraph of at most five sentences", () => {
+Deno.test("each row says what a card does for the mana; utility lands are never fixing", () => {
+  const f = (name: string, type_line: string, produced_mana: string | null, colors: string[] = []): CardFact =>
+    ({ oracle_id: name, name, type_line, mana_cost: "", cmc: 0, colors, produced_mana });
+  const strip = f("Strip Mine", "Land", "C"), karakas = f("Karakas", "Legendary Land", "W"), strand = f("Flooded Strand", "Land", "F"),
+        tundra = f("Tundra", "Land — Plains Island", "WU"), signet = f("Azorius Signet", "Artifact", "WU"), ring = f("Sol Ring", "Artifact", "C");
+  assertEquals([strip, karakas, strand, tundra, signet, ring].map(manaRole),
+               ["utility land, not fixing", "utility land, not fixing", "fixing land", "fixing land", "mana fixing", ""]);
+  assertEquals(utilityLands([strip, karakas, strand, tundra, signet]), ["Strip Mine", "Karakas"]);
+  const landRows = prompt(facts, a, b, "L", "Test cube").text.split("\n").filter((l) => /^Card \d+ \|/.test(l));
+  assert(landRows.length > 0 && landRows.every((r) => /\| (fixing land|utility land, not fixing) \|/.test(r)), landRows[0]);
+  assertMatch(SYSTEM, /Call a card fixing only when its role says fixing/);
+});
+
+Deno.test("a long brief, or one calling a utility land fixing, goes back once", () => {
+  // The live brief John flagged on 2026-10-22 (names as the model writes them).
+  const flagged = "Both players agree on the power cards at the very top, with Black Lotus, Mana Crypt, Sol Ring, the Moxes, Ancestral Recall, Time Walk and The One Ring all sitting near the front of each list. They part ways further down: Player A leans harder into white, placing Karakas, Ajani, Nacatl Pariah, Minsc & Boo, Timeless Heroes and Phelia higher, while Player B favors blue and black interaction such as Force of Will absent from its top 50 but Tinker, Dismember and Pyrogoyf inside it. Player B also ranks Tinker and Dismember highly while Player A drops them entirely, suggesting Player B drafts a more tempo-oriented, cheap-spell style, whereas Player A prizes fixing lands like Strip Mine and Karakas and gravitates toward white creatures and planeswalkers.";
+  const ask = problems(flagged, ["Strip Mine", "Karakas", "Library of Alexandria"])!;
+  assertMatch(ask, /words: cut it to at most 60/);
+  assertMatch(ask, /Strip Mine and Karakas aren't fixing/);
+  assert(!/Library of Alexandria/.test(ask), "only the lands the brief called fixing");
+  assertEquals(problems("Both rank Black Lotus first. Player A values Strip Mine and Karakas; Player B wants fixing like Tundra.", ["Strip Mine", "Karakas"]), null,
+               "a utility land in a sentence without fixing is fine");
+  // From the eval after the fix (2026-10-22): right, so not sent back.
+  assertEquals(problems("Player B instead leads with Underground Sea and Polluted Delta, putting fixing ahead of utility lands like Karakas and Strip Mine.",
+                        ["Strip Mine", "Karakas"]), null, "calling them utility lands next to fixing is fine");
+  assertMatch(problems("Player A likes Bolt, so he drafts red.", [])!, /Player A, Player B or they\/them/);
+  assert(MAX_WORDS < flagged.split(/\s+/).length);
+});
+
+Deno.test("the brief is one paragraph of at most four sentences", () => {
   assertEquals(cleanBrief({ brief: "  Both love Bolt.\n\nAna drafts red. Ben drafts blue. They agree on fixing. Ana likes aggro. Ben likes control. Extra." }),
-               "Both love Bolt. Ana drafts red. Ben drafts blue. They agree on fixing. Ana likes aggro.");
+               "Both love Bolt. Ana drafts red. Ben drafts blue. They agree on fixing.");
   assertEquals(cleanBrief({ brief: "Ana's curve averages 1.5, Ben's 3.75! Both like Mox Opal. Really? Yes." }),
                "Ana's curve averages 1.5, Ben's 3.75! Both like Mox Opal. Really? Yes.", "a decimal never splits a sentence or drops text");
   assertEquals(cleanBrief({ brief: "" }), null);
