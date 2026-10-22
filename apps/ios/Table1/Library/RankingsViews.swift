@@ -20,7 +20,8 @@ struct RankingsRow: View {
             ListRow(title: "Rankings", detail: detail ?? "Stack-rank this cube's cards")
         }
         .buttonStyle(.plain)
-        .task {
+        .task(id: ListsStore.shared.unsaved[listId] == nil) {
+            if ListsStore.shared.unsaved[listId] != nil { detail = "Once this cube is saved to your account"; return }
             guard let r = try? await RankingsStore.shared.rankings(listId: listId) else { return }
             let mine = r.rankings.first(where: \.mine)
             if r.rankings.isEmpty { detail = "Rank this cube's cards" } else {
@@ -79,10 +80,15 @@ struct RankingsView: View {
                 }
             }
         }
-        .task { await load() }
+        .task(id: listId.map { ListsStore.shared.unsaved[$0] == nil } ?? true) { await load() }
     }
 
     private func load() async {
+        // A cube only this phone has yet: the server can't rank it, and would only say it can't see it.
+        if let listId, let why = ListsStore.shared.unsaved[listId] {
+            error = "This cube isn't saved to your account yet, so it can't be ranked." + (why.isEmpty ? " It's being saved now." : " \(why)")
+            return
+        }
         do {
             data = try await RankingsStore.shared.rankings(listId: listId)
             if listId == nil { others = try await RankingsStore.shared.rankable() }

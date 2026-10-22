@@ -101,3 +101,31 @@ select (public.trade_save(null, 'Too generous', null,
 select pg_temp.throws('cannot give more than you own', format($$select public.trade_confirm('%s', gen_random_uuid())$$, :'big'));
 reset role;
 select pg_temp.eq('failed trade wrote nothing', pg_temp.qty(:ANA, :BOLT), '2');
+
+-- Lists: a line asking for a finish its printing doesn't come in is saved in one it does (2026-10-22) -----------
+-- A foil-only Bolt printing (a Secret Lair). An imported cube listed it without a finish and was refused outright.
+insert into public.cards (id, oracle_id, set_code, collector_number, lang, rarity, finishes, layout, content_hash) values
+  ('c1000000-0000-0000-0000-000000000003', 'c0000000-0000-0000-0000-000000000001', 'sld', '9', 'en', 'rare', '{foil}', 'normal', 'h');
+\set SLD '''c1000000-0000-0000-0000-000000000003'''
+\set CUBE '''d0000000-0000-0000-0000-0000000000c1'''
+create or replace function pg_temp.line(l uuid, c uuid, b text) returns text language sql as
+$$ select coalesce((select string_agg(qty || ' ' || finish, ', ' order by finish) from public.card_list_entries
+                     where list_id = l and card_id = c and board = b), 'none') $$;
+set role authenticated;
+select pg_temp.as_user(:ANA);
+select public.list_create(:CUBE, 'cube', 'Imported', 'vintage', jsonb_build_array(
+  jsonb_build_array(:SLD, 'main', 1), jsonb_build_array(:SLD, 'main', 1, 'foil'),
+  jsonb_build_array(:OPT, 'main', 2, 'foil'), jsonb_build_array(:BOLT, 'main', 1, 'etched'))) is not null as created \gset
+reset role;
+select pg_temp.eq('a list with a finish its printing lacks is saved', :'created', 't');
+select pg_temp.eq('foil-only printing listed as non-foil is foil, merged with the foil line', pg_temp.line(:CUBE, :SLD, 'main'), '2 foil');
+select pg_temp.eq('non-foil-only printing asked as foil is non-foil', pg_temp.line(:CUBE, :OPT, 'main'), '2 nonfoil');
+select pg_temp.eq('etched asked of a non-foil + foil printing is non-foil', pg_temp.line(:CUBE, :BOLT, 'main'), '1 nonfoil');
+select pg_temp.eq('the version holds the same lines',
+  (select entries::text from public.card_list_versions where list_id = :CUBE and version = 1),
+  format('[["%s", "main", 1], ["%s", "main", 2], ["%s", "main", 2, "foil"]]', :BOLT, :OPT, :SLD));
+set role authenticated;
+select pg_temp.as_user(:ANA);
+select public.list_edit(:CUBE, jsonb_build_array(jsonb_build_object('card_id', :SLD, 'board', 'maybe', 'delta', 1))) is not null as edited \gset
+reset role;
+select pg_temp.eq('an edit adding it without a finish adds it as foil', pg_temp.line(:CUBE, :SLD, 'maybe'), '1 foil');

@@ -91,6 +91,10 @@ final class ListsStore {
     private(set) var lists: [CardList] = []
     private(set) var syncing = false
     var error: String?
+    /// Lists made on this device that the server hasn't saved yet, with why the last try failed ("" = not tried
+    /// yet, or offline). Each sync sends them again until the server has them, so a refused create never leaves a
+    /// list that only this phone knows about without saying so.
+    private(set) var unsaved: [String: String] = [:]
 
     /// Signed in: lists live in the database (contract/lists-2026-10-15.md) and sync by seq; this device keeps a
     /// cached copy so they show instantly and offline. Demo (`replace`): local only.
@@ -99,6 +103,8 @@ final class ListsStore {
     @ObservationIgnored private var demo = false
     @ObservationIgnored private var syncTask: Task<Void, Never>?
     @ObservationIgnored private var syncAgain = false
+    /// A cache from before `unsaved` was kept: pull everything once and mark any list the server didn't send.
+    @ObservationIgnored private var audit = false
 
     func replace(_ lists: [CardList]) {
         demo = true
@@ -117,7 +123,9 @@ final class ListsStore {
         self.userId = userId
         let cached = Self.loadCache(userId)
         lists = cached.lists
-        cursor = cached.cursor
+        cursor = cached.audited ? cached.cursor : 0
+        unsaved = cached.unsaved
+        audit = !cached.audited
         await sync()
     }
 
@@ -125,6 +133,7 @@ final class ListsStore {
         userId = nil
         lists = []
         cursor = 0
+        unsaved = [:]
     }
 
     /// Pulls every list changed after the local cursor. A call during a run schedules one more run after it.
@@ -138,21 +147,27 @@ final class ListsStore {
         let task = Task {
             syncing = true
             defer { syncing = false }
+            let from = cursor
+            var seen = Set<String>()
             do {
                 for _ in 0..<50 {
                     let page: ListsPage = try await supabase.rpc("lists_changes", params: [
                         "p_after": AnyJSON.integer(cursor), "p_limit": .integer(100),
                     ]).execute().value
                     guard userId == user else { return }
-                    for dto in page.lists { merge(dto) }
+                    for dto in page.lists { merge(dto); seen.insert(dto.id) }
                     cursor = page.next
-                    Self.saveCache(user, lists: lists, cursor: cursor)
+                    persist()
                     if !page.more { break }
                 }
+                unsaved = Self.unsavedAfterPull(unsaved, seen: seen, local: lists.map(\.id), full: audit && from == 0)
+                audit = false
+                persist()
                 error = nil
             } catch {
                 if userId == user { self.error = error.localizedDescription }
             }
+            for id in unsaved.keys.sorted() { await save(id) }
         }
         syncTask = task
         await task.value
@@ -161,6 +176,65 @@ final class ListsStore {
             syncAgain = false
             await sync()
         }
+    }
+
+    /// After a pull: lists the server sent are saved. After a full pull (`full`), a list this device holds that the
+    /// server didn't send was never saved (an old cache from before `unsaved` was kept, or a create the server
+    /// refused), so it's sent again.
+    nonisolated static func unsavedAfterPull(_ unsaved: [String: String], seen: Set<String>, local: [String], full: Bool) -> [String: String] {
+        var out = unsaved.filter { !seen.contains($0.key) }
+        if full { for id in local where !seen.contains(id) && out[id] == nil { out[id] = "" } }
+        return out
+    }
+
+    /// Sends a list the server doesn't have yet with what this device holds now. One save per list at a time: a
+    /// second call waits for the one on its way.
+    private func save(_ id: String) async {
+        if let running = saveTasks[id] { return await running.value }
+        guard let user = userId, !demo, let l = list(id: id), let cur = l.current else { unsaved[id] = nil; return }
+        // The contents are read now, with the task marked as on its way, so a change made after this is sent after
+        // the save lands (see send) and never twice.
+        let task = Task { await saveNow(l, cur, user) }
+        saveTasks[id] = task
+        await task.value
+        saveTasks[id] = nil
+    }
+    @ObservationIgnored private var saveTasks: [String: Task<Void, Never>] = [:]
+
+    /// list_create returns the list it already has for a retried id. A failure is kept on the list, and the next
+    /// sync tries again.
+    private func saveNow(_ l: CardList, _ cur: CardList.Version, _ user: String) async {
+        let id = l.id
+        do {
+            let dto: ListDTO = try await supabase.rpc("list_create", params: [
+                "p_id": AnyJSON.string(l.id), "p_kind": .string(l.kind.rawValue), "p_name": .string(l.name),
+                "p_format": .string(l.format), "p_entries": .array(cur.entries.map(Self.wire)),
+                "p_note": .string(l.versions.first?.note ?? "Created"),
+            ]).execute().value
+            guard userId == user else { return }
+            unsaved[id] = nil
+            merge(dto)
+            persist()
+        } catch where !error.isCancellation {
+            guard userId == user else { return }
+            unsaved[id] = error.localizedDescription
+            persist()
+        } catch {}
+    }
+
+    /// What a list's screen says while the server doesn't have it.
+    nonisolated static func unsavedNotice(_ l: CardList, _ why: String) -> String {
+        let kind = l.kind == .cube ? "cube" : "deck"
+        return why.isEmpty ? "Saving this \(kind) to your account…"
+            : "This \(kind) isn't saved to your account yet: \(why) It's sent again each time Table 1 syncs."
+    }
+
+    nonisolated static func wire(_ e: CardList.Entry) -> AnyJSON {
+        .array([.string(e.cardId), .string(e.board), .integer(e.qty)] + (e.finish == "nonfoil" ? [] : [.string(e.finish)]))
+    }
+
+    private func persist() {
+        if let u = userId { Self.saveCache(u, lists: lists, cursor: cursor, unsaved: unsaved) }
     }
 
     private func merge(_ dto: ListDTO) {
@@ -173,11 +247,21 @@ final class ListsStore {
     /// truth: it groups edits into versions). On failure the local copy is re-synced.
     private func send(_ fn: String, _ params: [String: AnyJSON]) {
         guard userId != nil, !demo else { return }
+        // A list the server doesn't have yet: save it first (with this change, which is already on this device), or
+        // let a save on its way land and then send the change.
+        if case .string(let id)? = params["p_list_id"], unsaved[id] != nil {
+            persist()
+            Task {
+                if let running = saveTasks[id] { await running.value } else { await save(id); return }
+                if unsaved[id] == nil { send(fn, params) } else { await save(id) }
+            }
+            return
+        }
         Task {
             do {
                 let dto: ListDTO = try await supabase.rpc(fn, params: params).execute().value
                 merge(dto)
-                if let u = userId { Self.saveCache(u, lists: lists, cursor: cursor) }
+                persist()
                 error = nil
             } catch {
                 self.error = error.localizedDescription
@@ -217,11 +301,11 @@ final class ListsStore {
                          versions: [CardList.Version(number: 1, at: .now, note: note, entries: entries)])
         lists.append(l)
         lists.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        let wire: [AnyJSON] = entries.map { e in
-            .array([.string(e.cardId), .string(e.board), .integer(e.qty)] + (e.finish == "nonfoil" ? [] : [.string(e.finish)]))
+        if userId != nil, !demo {
+            unsaved[l.id] = ""
+            persist()
+            Task { await save(l.id) }
         }
-        send("list_create", ["p_id": .string(l.id), "p_kind": .string(kind.rawValue), "p_name": .string(name),
-                             "p_format": .string(format), "p_entries": .array(wire), "p_note": .string(note)])
         Telemetry.capture("list_created", ["kind": kind.rawValue, "format": format, "from": from])
         FriendsStore.shared.noteCreated(kind: kind == .cube ? "cube" : "deck", id: l.id, name: name)
         return l
@@ -238,6 +322,7 @@ final class ListsStore {
     func delete(listId: String) {
         if let l = list(id: listId) { Telemetry.capture("list_deleted", ["kind": l.kind.rawValue]) }
         lists.removeAll { $0.id == listId }
+        if unsaved.removeValue(forKey: listId) != nil { persist(); return }
         send("list_delete", ["p_list_id": .string(listId)])
     }
 
@@ -348,9 +433,11 @@ final class ListsStore {
 
     // MARK: device cache (one JSON file per account)
 
-    private struct Cache: Codable {
+    struct Cache: Codable {
         var cursor: Int
         var lists: [ListDTO]
+        /// Missing in caches written before 2026-10-22 (nil): those get one full pull to find unsaved lists.
+        var unsaved: [String: String]?
     }
 
     nonisolated private static func cacheURL(_ userId: String) -> URL {
@@ -359,14 +446,19 @@ final class ListsStore {
         return dir.appending(path: "lists-\(userId).json")
     }
 
-    private static func loadCache(_ userId: String) -> (lists: [CardList], cursor: Int) {
-        guard let data = try? Data(contentsOf: cacheURL(userId)),
-              let c = try? JSONDecoder().decode(Cache.self, from: data) else { return ([], 0) }
-        return (c.lists.compactMap(\.list), c.cursor)
+    private static func loadCache(_ userId: String) -> (lists: [CardList], cursor: Int, unsaved: [String: String], audited: Bool) {
+        guard let data = try? Data(contentsOf: cacheURL(userId)) else { return ([], 0, [:], true) }
+        return decodeCache(data)
     }
 
-    private static func saveCache(_ userId: String, lists: [CardList], cursor: Int) {
-        let c = Cache(cursor: cursor, lists: lists.map(ListDTO.init))
+    /// No cache needs no audit (nothing to find); an unreadable one is treated like an old one.
+    nonisolated static func decodeCache(_ data: Data) -> (lists: [CardList], cursor: Int, unsaved: [String: String], audited: Bool) {
+        guard let c = try? JSONDecoder().decode(Cache.self, from: data) else { return ([], 0, [:], false) }
+        return (c.lists.compactMap(\.list), c.cursor, c.unsaved ?? [:], c.unsaved != nil)
+    }
+
+    private static func saveCache(_ userId: String, lists: [CardList], cursor: Int, unsaved: [String: String]) {
+        let c = Cache(cursor: cursor, lists: lists.map(ListDTO.init), unsaved: unsaved)
         if let data = try? JSONEncoder().encode(c) { try? data.write(to: cacheURL(userId), options: .atomic) }
     }
 }
@@ -729,6 +821,7 @@ struct ListDetailView: View {
             }
             CatalogStatusRow(catalog: catalog)
             if let error = ListsStore.shared.error { Notice(error, error: true) }
+            if let list, let why = ListsStore.shared.unsaved[list.id] { Notice(ListsStore.unsavedNotice(list, why), error: !why.isEmpty) }
             if let list {
                 if !list.entries.isEmpty { T1SearchField(text: $query, prompt: list.kind == .cube ? "Search this cube" : "Search this deck") }
                 if layout == CardLayout.grid.rawValue && !editing {
