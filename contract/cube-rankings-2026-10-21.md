@@ -69,8 +69,9 @@ checked against `testdata/cube-ranking/cases.json`, written by the independent r
   The push carries `ranking_id`; iOS opens that ranking (routing in `Library/Bugs.swift` `PushRoutes`).
 - Server: migration `20261022160000_ranking_cube_changes.sql`, tests in `97_cube_rankings_test.sql`; applied to live 2026-10-22 with
   John's OK (the three functions it replaces matched live first) and smoke-tested on his ranking in a rolled-back
-  transaction (baseline 540 of 540, catch-up, a new ranking's baseline, no push for your own ranking). The push copy
-  ships with the next `notify-worker` deploy (with the push deep-linking work).
+  transaction (baseline 540 of 540, catch-up, a new ranking's baseline, no push for your own ranking). The push went
+  live with `notify-worker` v5 on 2026-10-22 (deployed with the bug-inbox work, commit eff62f7); the iOS tap that
+  opens the ranking reaches phones with the next build.
 
 ## The engine (all client-side, from the log)
 
