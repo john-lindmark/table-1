@@ -279,6 +279,7 @@ enum FriendsDemo {
     static func start() {
         if FriendsStore.shared.demo == nil { FriendsStore.shared.demo = FriendsDemoBackend() }
         if ModerationStore.shared.demo == nil { ModerationStore.shared.demo = ModerationDemo() }
+        if BugsStore.shared.demo == nil { BugsStore.shared.demo = BugsDemo() }
     }
 
     @MainActor
@@ -293,7 +294,7 @@ enum FriendsDemo {
         await FriendsStore.shared.loadSharing()
     }
 
-    /// `-T1LibraryDemo friends|profile|profiledeck|sharing|matches|match|me|myprofile|notices|review`.
+    /// `-T1LibraryDemo friends|profile|profiledeck|sharing|matches|match|me|myprofile|notices|review|bugs|bug`.
     static func route(_ arg: String) -> [LibraryRoute]? {
         switch arg {
         case "friends": [.social(.friends)]
@@ -308,6 +309,8 @@ enum FriendsDemo {
         case "myprofile": [.social(.sharing), .social(.profile(FriendsDemoBackend.me))]
         case "notices": [.social(.notices)]
         case "review": [.social(.review)]
+        case "bugs": [.social(.bugs)]
+        case "bug": PushRoutes.path(.bug(10))
         default: nil
         }
     }

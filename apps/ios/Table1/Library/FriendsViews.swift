@@ -14,6 +14,8 @@ enum SocialRoute: Hashable {
     case match(String) // user id
     case notices
     case review
+    case bugs
+    case bug(Int)
 
     /// contract/telemetry-2026-10-15.md; never carries ids.
     var screenName: String {
@@ -26,6 +28,8 @@ enum SocialRoute: Hashable {
         case .match: "trade_match"
         case .notices: "moderation_notices"
         case .review: "moderation_review"
+        case .bugs: "bugs"
+        case .bug: "bug"
         }
     }
 }
@@ -46,6 +50,8 @@ struct SocialDestination: View {
         case .match(let id): TradeMatchView(userId: id, path: $path)
         case .notices: NoticesView()
         case .review: ReviewView()
+        case .bugs: BugsView(path: $path)
+        case .bug(let id): BugView(id: id)
         }
     }
 }

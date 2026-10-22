@@ -56,16 +56,26 @@ final class PushController {
         Task { await register() }
     }
 
-    /// A tapped friend or moderation push (no event): opens Account → Friends, From Table 1 or Review.
+    /// A tapped push with no event (friends, moderation, bugs): opens Account → Friends, From Table 1, Review or Bugs.
     private var pendingSocial: SocialRoute?
     var openSocial: ((SocialRoute) -> Void)? {
         didSet { if let r = pendingSocial, let openSocial { pendingSocial = nil; openSocial(r) } }
     }
 
+    /// A tapped Collection push (a ranking of your cube): opens that stack on the Collection tab.
+    private var pendingLibrary: [LibraryRoute]?
+    var openLibrary: (([LibraryRoute]) -> Void)? {
+        didSet { if let p = pendingLibrary, let openLibrary { pendingLibrary = nil; openLibrary(p) } }
+    }
+
     func didTap(_ userInfo: [AnyHashable: Any]) {
-        if let kind = userInfo["kind"] as? String, kind.hasPrefix("friend.") || kind.hasPrefix("moderation.") {
-            Telemetry.capture("push_opened", ["kind": kind])
-            let route: SocialRoute = kind == "moderation.notice" ? .notices : kind == "moderation.review" ? .review : .friends
+        if let path = PushRoutes.library(userInfo) {
+            Telemetry.capture("push_opened", ["kind": userInfo["kind"] as? String ?? "unknown"])
+            if let openLibrary { openLibrary(path) } else { pendingLibrary = path }
+            return
+        }
+        if let route = PushRoutes.route(userInfo) {
+            Telemetry.capture("push_opened", ["kind": userInfo["kind"] as? String ?? "unknown"])
             if let openSocial { openSocial(route) } else { pendingSocial = route }
             return
         }

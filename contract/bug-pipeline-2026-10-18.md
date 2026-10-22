@@ -76,10 +76,36 @@ A `fixed` bug that keeps reporting before its fix ships is just counted (old bui
   without `--commit`, all pending on that platform).
 
 ## Pushes (notify-worker, watchers only: `t1_private.bug_watchers`, John)
-| kind | title | body |
-|---|---|---|
-| `ops.bug` | New S1 · iOS (or "S1 is back") | the bug title |
-| `ops.build` | iOS + Web build needed + server deploy | Fixes waiting: iOS 2 (S1), web 1 (S2) |
+| kind | title | body | tap opens (iOS) |
+|---|---|---|---|
+| `ops.bug` | New S1 · iOS (or "S1 is back") | the bug title | Account → Bugs → that bug (`bug_id` in the payload) |
+| `ops.build` | iOS + Web build needed + server deploy | Fixes waiting: iOS 2 (S1), web 1 (S2) | Account → Bugs (To ship) |
+
+Recipients are checked twice: the database queues ops pushes for `bug_watcher_ids()` only, and notify-worker keeps
+only the watchers among an ops message's recipients (`notify_ops_recipients`, service role) whoever queued it,
+dropping the push if that check fails. `enqueue_notification` is service-role only.
+
+## Inbox (2026-10-22; migration `20261022150000_bug_inbox.sql`, tests `98_bug_inbox_test.sql`, iOS `BugsTests`)
+Account → **Bugs**, shown only to watchers (`bugs_me` answers `{watcher: false}` to anyone else; every other
+function below raises 42501 for them).
+- `bugs_me()` → `{watcher, needs_you, open, to_ship}` for the Account row.
+- `bugs_inbox(p_closed)` → `{bugs: [row], pending: bug_pending()}`: everything new/open/fixing/needs_john or fixed
+  but not shipped everywhere (plus what closed in 30 days with `p_closed`), most severe first. A row carries the
+  runner's last note line (`last_note`: its question) and the count of John's notes.
+- `bugs_detail(id)` → the bug (no fingerprint), its latest sample, the runner's notes, the fix, and `log`: John's
+  notes and changes (`t1_private.bug_notes`, kinds `note` / `change`).
+- `bugs_update(id, {severity?, status?: open|wontfix|needs_john, note?, key?})`: applies only what changed, logs it,
+  and returns the detail. A bug being fixed keeps its status (PT409); sending to the runner needs a severity; a
+  retried `key` changes nothing.
+- `bugs_ship(platform)`: marks every pending fix on that platform shipped (as `bugs.py shipped <platform>` without
+  `--commit`); nothing pending → nothing happens.
+- The runner gets John's notes as `john_notes` from `bug_next` and `bug_get`: they are John's guidance for that bug.
+
+Screens: the inbox (To ship per platform with Mark shipped / Mark deployed, Needs you with the runner's question,
+Open, Show closed) and one bug (the runner's question with Answer, which notes and sends the bug back; Severity
+S1–S4; status actions; the fix and where it shipped; Notes; the latest occurrence: exception, frames innermost
+first, tags, breadcrumbs; Sentry link). iOS only for now: pushes reach iOS only (Android has no FCM yet), and web
+and Android have no Bugs screen. iOS demo `-T1LibraryDemo bugs|bug`.
 
 ## Setup (once)
 1. Apply `20261018200000_bug_pipeline.sql`, deploy `bugs` (verify_jwt off) and `notify-worker` (ops copy).

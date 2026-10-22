@@ -68,6 +68,9 @@ function copy(m: Message, eventName: string, mine?: { table: number | null; oppo
       return { title: "Friend request", body: `${d.from_name ?? "Someone"} wants to be friends on Table 1.`, priority: 5 };
     case "friend.accepted":
       return { title: "New friend", body: `${d.from_name ?? "Someone"} accepted your friend request.`, priority: 5 };
+    // contract/cube-rankings-2026-10-21.md: someone else started a ranking of your cube; the app opens it.
+    case "ranking.started":
+      return { title: d.cube_name ? String(d.cube_name) : "Your cube", body: `${d.from_name ?? "Someone"} is ranking your cube. Tap to watch.`, priority: 5 };
     // contract/moderation-2026-10-18.md: what changed, never why in the alert (the Notices screen says why).
     case "moderation.notice": {
       if (d.restricted_days) return { title: "Table 1", body: `You can't send friend requests for ${d.restricted_days} days. Tap for details.`, priority: 5 };
@@ -142,7 +145,13 @@ async function run() {
     done.push(row.msg_id);
     const m = row.message;
     if (Date.now() - new Date(row.enqueued_at).getTime() > STALE_MS) { stale++; continue; }
-    const users = [...new Set(m.user_ids ?? [])];
+    let users = [...new Set(m.user_ids ?? [])];
+    // Ops pushes (bugs, builds) reach the bug watchers only, whoever queued them.
+    if (m.kind.startsWith("ops.") && users.length) {
+      const { data: watchers, error: werr } = await admin.rpc("notify_ops_recipients", { p_user_ids: users });
+      if (werr) console.error("ops recipients", werr.message);   // fail closed: nobody, and the rest still go out
+      users = werr ? [] : (watchers ?? []) as string[];
+    }
     if (!users.length) continue;
     const [{ data: devices }, { data: prefs }, { data: event }] = await Promise.all([
       admin.from("devices").select("user_id, platform, push_token, env").in("user_id", users),
@@ -162,10 +171,11 @@ async function run() {
       if (!c) continue;
       alerts.push({
         token: d.push_token, env: d.env === "development" ? "development" : "production", priority: c.priority ?? 10,
-        collapseId: `${m.kind}:${m.event_id ?? m.data?.user_id ?? m.data?.bug_id ?? ""}`.slice(0, 64),
+        collapseId: `${m.kind}:${m.event_id ?? m.data?.ranking_id ?? m.data?.user_id ?? m.data?.bug_id ?? ""}`.slice(0, 64),
         payload: {
-          aps: { alert: { title: c.title, body: c.body }, sound: "default", "thread-id": m.event_id ?? (m.kind.startsWith("ops.") ? "ops" : "friends") },
-          kind: m.kind, event_id: m.event_id, match_id: m.data?.match_id ?? null,
+          aps: { alert: { title: c.title, body: c.body }, sound: "default",
+                 "thread-id": m.event_id ?? (m.kind.startsWith("ops.") ? "ops" : m.kind.startsWith("ranking.") ? "rankings" : "friends") },
+          kind: m.kind, event_id: m.event_id, match_id: m.data?.match_id ?? null, ranking_id: m.data?.ranking_id ?? null, bug_id: m.data?.bug_id ?? null,
         },
       });
     }
