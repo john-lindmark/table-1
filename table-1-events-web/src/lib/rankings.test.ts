@@ -2,7 +2,21 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./supabaseClient", () => ({ supabase: {} }));
 const { parsePack, coverPrinting } = await import("./catalog");
-const { resolveCards } = await import("./rankings");
+const { resolveCards, rankingsGate } = await import("./rankings");
+
+describe("rankings pages before their content", () => {
+  it("signed out says to sign in instead of the refused RPC's error", () => {
+    expect(rankingsGate({ ready: true, session: null, demo: false, demoReady: false })).toBe("signIn");
+  });
+  it("waits while the session loads, then shows", () => {
+    expect(rankingsGate({ ready: false, session: null, demo: false, demoReady: false })).toBe("wait");
+    expect(rankingsGate({ ready: true, session: { user: {} }, demo: false, demoReady: false })).toBe("show");
+  });
+  it("the dev demo needs no session, only its rankings", () => {
+    expect(rankingsGate({ ready: true, session: true, demo: true, demoReady: false })).toBe("demoSetup");
+    expect(rankingsGate({ ready: true, session: true, demo: true, demoReady: true })).toBe("show");
+  });
+});
 
 // Lightning Bolt in three printings (pack format 1), as in catalog.test.ts.
 const PACK = [

@@ -9,7 +9,7 @@ import {
   type CubeRankings, type RankCard, type RankableCube, type RankingBrief, type RankingModel, type RankingRow,
 } from "../lib/rankings";
 import { entriesOf } from "../lib/lists";
-import { rankingsDemo, startRankingsDemo } from "../lib/rankings";
+import { rankingsDemo, rankingsGate, startRankingsDemo } from "../lib/rankings";
 import { capture } from "../lib/telemetry";
 import { CardArt, CardRow, LibScreen, useCatalog, useLibrarySession } from "./Library";
 import { useListsData } from "./Lists";
@@ -908,7 +908,7 @@ export { rankingModel };
 
 /** Dev demo (`?demo`): rankings of the fixture's cube, built once the card data and demo lists are in. Signed in: as is. */
 export function RankingsDemoGate({ children }: { children: ReactNode }) {
-  const { demo } = useLibrarySession();
+  const { demo, ready, session } = useLibrarySession();
   const { catalog } = useCatalog();
   const { lists } = useListsData();
   const [, setReady] = useState(0);
@@ -919,6 +919,10 @@ export function RankingsDemoGate({ children }: { children: ReactNode }) {
     startRankingsDemo(catalog, { id: cube.id, name: cube.name, cardIds: entriesOf(cube).filter((e) => e.board === "main").map((e) => e.cardId) });
     setReady((n) => n + 1);
   }, [demo, catalog, lists.ready]);
-  if (demo && !rankingsDemo()) return <LibScreen><Bar title="Rankings" /><Notice tone="info">Setting up the demo rankings…</Notice></LibScreen>;
-  return <>{children}</>;
+  switch (rankingsGate({ ready, session, demo, demoReady: !!rankingsDemo() })) {
+    case "wait": return <LibScreen><div className="flex-1" /></LibScreen>;
+    case "signIn": return <LibScreen><Bar title="Rankings" /><Notice tone="info">Sign in to rank cubes.</Notice></LibScreen>;
+    case "demoSetup": return <LibScreen><Bar title="Rankings" /><Notice tone="info">Setting up the demo rankings…</Notice></LibScreen>;
+    case "show": return <>{children}</>;
+  }
 }

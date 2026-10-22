@@ -644,6 +644,14 @@ function hash(s: string) {
   return h;
 }
 
+/** What every rankings page shows before its own content. Signed out, the RPCs refuse ("permission denied for
+ *  function cube_rankings"), so a link opened signed out says to sign in instead. */
+export function rankingsGate(s: { ready: boolean; session: unknown; demo: boolean; demoReady: boolean }): "wait" | "signIn" | "demoSetup" | "show" {
+  if (s.demo) return s.demoReady ? "show" : "demoSetup";
+  if (!s.ready) return "wait";
+  return s.session ? "show" : "signIn";
+}
+
 /** Dev demo: builds the rankings demo on the fixture's cube once the card data is in. */
 export function startRankingsDemo(catalog: Catalog, cube: { id: string; name: string; cardIds: string[] }) {
   if (demo) return;
