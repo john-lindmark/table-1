@@ -204,6 +204,49 @@ select pg_temp.eq('the maker is told', (select label || '/' || action from publi
 select t1_private.moderation_revert((select id from public.moderation_actions where subject_kind = 'ranking_name'));
 select pg_temp.eq('a revert shares it again', (select sharing from public.cube_rankings where id = 'f7000000-0000-0000-0000-000000000002'), 'cube');
 
+-- The cube changes; telling the owner (2026-10-22) ----------------------------------------------------------------
+select pg_temp.eq('the owner hears when a friend and a stranger share rankings of her cube, never of her own',
+  (select string_agg((msg->'data'->>'from_name') || ' on ' || (msg->'data'->>'cube_name'), ', ' order by msg_id)
+     from pgmq.messages where msg->>'kind' = 'ranking.started' and msg->'user_ids' ? '00000000-0000-0000-0000-0000000000a1'),
+  'Ben Ortiz on Pauper cube, Cal Reyes on Pauper cube');
+set role authenticated;
+select pg_temp.as_user(:BEN);
+select public.cube_ranking_create('f7000000-0000-0000-0000-000000000005', :CUBE, 'Ben again') is not null as again \gset
+select public.cube_ranking_create('f7000000-0000-0000-0000-000000000006', :CUBE, 'Ben quiet', 'half', 100, 'private') is not null as quiet \gset
+select public.cube_ranking_update('f7000000-0000-0000-0000-000000000006', p_sharing := 'cube') is not null as shared \gset
+reset role;
+select pg_temp.eq('at most one a week per person and cube, and none for Only me',
+  (select count(*)::text from pgmq.messages where msg->>'kind' = 'ranking.started'), '2');
+update t1_private.ranking_notices set sent_at = now() - interval '8 days';
+set role authenticated;
+select pg_temp.as_user(:BEN);
+select public.cube_ranking_update('f7000000-0000-0000-0000-000000000006', p_sharing := 'private') is not null as hid \gset
+select public.cube_ranking_update('f7000000-0000-0000-0000-000000000006', p_sharing := 'cube') is not null as reshared \gset
+reset role;
+select pg_temp.eq('a week later, sharing an Only me ranking with the cube tells her',
+  (select count(*)::text from pgmq.messages where msg->>'kind' = 'ranking.started'), '3');
+select pg_temp.eq('the push says which ranking to open',
+  (select (msg->'data'->>'ranking_id') || '/' || (msg->'data'->>'list_id') from pgmq.messages
+    where msg->>'kind' = 'ranking.started' order by msg_id desc limit 1),
+  'f7000000-0000-0000-0000-000000000006/e7000000-0000-0000-0000-000000000001');
+
+set role authenticated;
+select pg_temp.as_user(:ANA);
+select pg_temp.eq('a ranking remembers the cube it started from',
+  (public.cube_ranking_get(:R1)->'baseline')::text, (public.cube_ranking_get(:R1)->'cube'->'cards')::text);
+select public.list_edit(:CUBE, jsonb_build_array(jsonb_build_object('card_id', 'c1000000-0000-0000-0000-000000000004', 'board', 'main', 'delta', 1),
+                                                   jsonb_build_object('card_id', 'c1000000-0000-0000-0000-000000000003', 'board', 'main', 'qty', 0))) is not null as edited \gset
+select pg_temp.eq('after the cube changes, the cube''s cards and the baseline differ: Brainstorm in, Goyf out',
+  (select (d->'baseline')::text || ' -> ' || (d->'cube'->'cards')::text from public.cube_ranking_get(:R1) d),
+  '["c0000000-0000-0000-0000-000000000001", "c0000000-0000-0000-0000-000000000002", "c0000000-0000-0000-0000-000000000003"] -> ["c0000000-0000-0000-0000-000000000001", "c0000000-0000-0000-0000-000000000002", "c0000000-0000-0000-0000-000000000004"]');
+select pg_temp.as_user(:BEN);
+select pg_temp.throws('only the maker catches a ranking up', $$select public.cube_ranking_catch_up('f7000000-0000-0000-0000-000000000001')$$, '42501');
+select pg_temp.as_user(:ANA);
+select pg_temp.eq('catching up takes the cube as it is now',
+  (public.cube_ranking_catch_up(:R1)->'baseline')::text, (public.cube_ranking_get(:R1)->'cube'->'cards')::text);
+select pg_temp.eq('and is harmless again', (public.cube_ranking_catch_up(:R1)->'baseline')::text, (public.cube_ranking_get(:R1)->'baseline')::text);
+reset role;
+
 -- Deleting ----------------------------------------------------------------------------------------------------
 set role authenticated;
 select pg_temp.as_user(:BEN);

@@ -294,7 +294,7 @@ function ListRoute() {
 
 const RankingsScreens = lazyNamed(rankings, "RankingsDemoGate");
 function rankingGo(navigate: ReturnType<typeof useNavigate>, id: string) {
-  return (path: string) => navigate(`/library/ranking/${id}/${path}`);
+  return (path: string, replace = false) => navigate(`/library/ranking/${id}/${path}`, { replace });
 }
 function RankingsRoute() {
   const { listId } = useParams();

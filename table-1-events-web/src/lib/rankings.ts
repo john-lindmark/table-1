@@ -26,7 +26,8 @@ export interface RankingRow {
 export interface CubeRankings { cube: RankingCube | null; can_rank: boolean; rankings: RankingRow[] }
 /** rankable_cubes: someone else's cube you can rank, with how many rankings of it you can see and how many are yours. */
 export interface RankableCube { id: string; name: string; owner: Person | null; cards: number; rankings: number; mine: number }
-export interface RankingDetail extends RankingRow { log: RankScreen[]; changes: RankChange[]; cube: RankingCube | null }
+/** `baseline`: the cube's cards the ranking last caught up with; cards added since wait outside its lists. */
+export interface RankingDetail extends RankingRow { log: RankScreen[]; changes: RankChange[]; cube: RankingCube | null; baseline?: string[] }
 
 export const whose = (r: RankingRow) => (r.mine ? "Your ranking" : `${r.by?.display_name ?? "Someone"}'s ranking`);
 export const progressText = (r: RankingRow) => `${r.sorted}/${r.categories} sorted · ${r.ranked}/${r.top} ranked`;
@@ -78,6 +79,16 @@ export async function fetchBrief(a: string, b: string, list: RankJob): Promise<R
 export const fetchRankable = (): Promise<RankableCube[]> => (demo ? Promise.resolve(demo.rankable()) : rpc("rankable_cubes", {}));
 
 export const fetchRanking = (id: string): Promise<RankingDetail> => (demo ? Promise.resolve(demo.get(id)) : rpc("cube_ranking_get", { p_id: id }));
+const catchUpRanking = (id: string): Promise<{ baseline: string[] }> =>
+  demo ? Promise.resolve(demo.catchUp(id)) : rpc("cube_ranking_catch_up", { p_id: id });
+
+/** What changed in the cube since a ranking last caught up: cards added (they wait to be placed) and removed (gone
+ *  from its lists). Empty without a baseline or the cube's cards. */
+export function cubeChangeOf(cubeCards: string[] | null | undefined, baseline: string[] | null | undefined): { added: string[]; removed: string[] } {
+  if (!cubeCards || !baseline) return { added: [], removed: [] };
+  const now = new Set(cubeCards.map((c) => c.toLowerCase())), then = new Set(baseline.map((c) => c.toLowerCase()));
+  return { added: [...now].filter((c) => !then.has(c)).sort(), removed: [...then].filter((c) => !now.has(c)).sort() };
+}
 
 export async function createRanking(o: { listId: string; name: string; depth: "half" | "full"; top: number; sharing: "cube" | "private"; ownCube: boolean }) {
   const id = crypto.randomUUID().toLowerCase();
@@ -138,6 +149,8 @@ export class RankingModel {
   error: string | null = null;
   notice: string | null = null;
   cubeGone = false;
+  /** The cube's cards the ranking last caught up with (cube_ranking_get's baseline). */
+  baseline: string[] | null = null;
   version = 0;
   private serverLog: RankScreen[] = [];
   private pending: RankChange[] = [];
@@ -171,9 +184,12 @@ export class RankingModel {
 
   private adopt(d: RankingDetail) {
     const same = JSON.stringify(d.log) === JSON.stringify(this.serverLog);
-    const changed = !same || this.row?.depth !== d.depth || this.row?.top !== d.top || !this.state;
+    const cubeMoved = JSON.stringify(d.cube?.cards ?? null) !== JSON.stringify(this.cube?.cards ?? null)
+      || JSON.stringify(d.baseline ?? null) !== JSON.stringify(this.baseline);
+    const changed = !same || cubeMoved || this.row?.depth !== d.depth || this.row?.top !== d.top || !this.state;
     this.row = d;
     this.cube = d.cube;
+    this.baseline = d.baseline ?? null;
     if (changed) this.lastChange = Date.now();
     if (this.saving || (this.unsaved && same)) return;
     this.serverLog = d.log;
@@ -183,18 +199,61 @@ export class RankingModel {
     if (changed || !this.cards.size) this.rebuild(d.cube?.cards ?? null);
   }
 
+  /** The cube's cards make the jobs; cards that left it (in the log or the baseline) are looked up too, for their names. */
   private rebuild(cubeCards: string[] | null) {
     if (!this.row || !this.catalog) return;
     this.cubeGone = cubeCards == null;
-    const ids = cubeCards ?? (this.cards.size ? [...this.cards.keys()] : [...new Set(this.log.flatMap((s) => s.o))]);
-    const { cards, jobs } = resolveCards(this.catalog, ids, this.cube?.printings);
+    const ids = cubeCards ?? (this.state ? [...this.state.category.keys()] : [...new Set(this.log.flatMap((s) => s.o))]);
+    const inCube = new Set(ids.map((c) => c.toLowerCase()));
+    const all = [...new Set([...ids, ...this.log.flatMap((s) => s.o), ...(this.baseline ?? [])].map((c) => c.toLowerCase()))];
+    const { cards, jobs } = resolveCards(this.catalog, all, this.cube?.printings);
     this.cards = cards;
-    this.state = new RankingState(this.id, jobs, this.log, this.row.depth, this.row.top);
+    const cubeJobs = new Map([...jobs].filter(([c]) => inCube.has(c)));
+    this.state = new RankingState(this.id, cubeJobs, this.log, this.row.depth, this.row.top, undefined, this.cubeChange.added);
+    this.maybeCatchUp();
   }
 
   private rebuildState() {
     if (!this.state || !this.row) return;
-    this.state = new RankingState(this.id, this.state.category, this.log, this.row.depth, this.row.top);
+    this.state = new RankingState(this.id, this.state.category, this.log, this.row.depth, this.row.top, undefined, this.state.fresh);
+  }
+
+  /** Cards added to the cube since this ranking caught up, and cards removed. */
+  get cubeChange() { return this.cubeGone ? { added: [], removed: [] } : cubeChangeOf(this.cube?.cards, this.baseline); }
+
+  /** Where a re-rank starts: the first list with new cards to place (colors, then the final), else the first list a
+   *  removed card left short. */
+  get reRankJob(): RankJob | null {
+    const st = this.state;
+    if (!st) return null;
+    const order = [...st.jobs, "F" as RankJob];
+    return order.find((j) => st.session(j).waiting.length > 0) ?? null;
+  }
+
+  private catching = false;
+  /** Your ranking caught up with its cube once every new card is placed; then the cube's change is no longer news. */
+  private maybeCatchUp() {
+    const st = this.state;
+    if (!st || !this.mine || this.catching || this.unsaved || this.saving) return;
+    const { added } = this.cubeChange;
+    if (!added.length || st.waiting.length) return;
+    void this.catchUp();
+  }
+
+  /** Takes the cube as it is now as this ranking's baseline (after placing new cards, or to dismiss removals). */
+  async catchUp() {
+    if (this.catching || !this.mine) return;
+    this.catching = true;
+    try {
+      this.baseline = (await catchUpRanking(this.id)).baseline;
+      if (this.row) this.rebuild(this.cube?.cards ?? null);
+      capture("ranking_caught_up");
+    } catch (e) {
+      this.error = (e as Error).message;
+    } finally {
+      this.catching = false;
+      this.bump();
+    }
   }
 
   /** The next screen of a job: a redone screen's cards first while their order is open. */
@@ -285,7 +344,7 @@ export class RankingModel {
     const screen: RankScreen = { s: "P", o: [picked, ...pk.filter((c) => c !== picked)], t: now() };
     this.log = [...this.log.filter((_, i) => !removed.includes(i)), screen];
     this.reask = null;
-    const next = removed.length ? new RankingState(this.id, st.category, this.log, this.row.depth, this.row.top) : st.appending(screen);
+    const next = removed.length ? new RankingState(this.id, st.category, this.log, this.row.depth, this.row.top, undefined, st.fresh) : st.appending(screen);
     this.state = next;
     this.record(st, next, removed.length ? "pick_win" : "pick", this.log.length);
     capture("ranking_pick", { disagreed, resolution: disagreed === 0 ? "none" : wins ? "pick_wins" : "keep", removed: removed.length });
@@ -349,7 +408,7 @@ export class RankingModel {
         this.error = null;
         this.lastChange = Date.now();
         this.saving = false;
-        if (this.unsaved) this.save();
+        if (this.unsaved) this.save(); else this.maybeCatchUp();
       } catch (e) {
         this.saving = false;
         if (["PT409", "40001"].includes((e as { code?: string }).code ?? "")) {
@@ -357,7 +416,11 @@ export class RankingModel {
           this.pending = [];
           this.serverLog = [];
           this.notice = "This ranking changed on another device, so it has been reloaded. Check the screen you just locked in.";
-          try { const d = await fetchRanking(this.id); this.serverLog = d.log; this.log = d.log.slice(); this.row = d; this.changes = d.changes ?? []; this.reask = null; this.rebuild(d.cube?.cards ?? null); } catch { /* next poll */ }
+          try {
+            const d = await fetchRanking(this.id);
+            this.serverLog = d.log; this.log = d.log.slice(); this.row = d; this.cube = d.cube; this.baseline = d.baseline ?? null;
+            this.changes = d.changes ?? []; this.reask = null; this.rebuild(d.cube?.cards ?? null);
+          } catch { /* next poll */ }
         } else {
           this.error = `Couldn't save: ${(e as Error).message}. It's kept here and saves on the next lock-in.`;
         }
@@ -384,24 +447,32 @@ export class RankingModel {
     return () => { stop = true; clearTimeout(timer); };
   }
 
-  /** A job's list: the placed cards, best first, then the rest by name. */
+  /** A job's list: the placed cards, best first, then the cube's new cards waiting to be placed, then the rest by name.
+   *  Only the cube's cards: one that left it is in no list. */
   list(job: RankJob) {
     if (!this.state) return null;
     const st = this.state;
     const s = st.session(job);
     const placed = s.top.map((x) => this.cardAt(x)).filter((c): c is RankCard => !!c);
-    const inTop = new Set(s.top);
+    const skip = new Set([...s.top, ...s.waiting]);
     const scope: number[] = [];
-    st.knowledge.ids.forEach((id, i) => { if ((job === "F" || st.category.get(id) === job) && !inTop.has(i)) scope.push(i); });
-    const rest = scope.map((x) => this.cardAt(x)).filter((c): c is RankCard => !!c).sort((a, b) => a.name.localeCompare(b.name));
-    const restTitle = !rest.length ? null : s.done ? `Below the top ${s.target}, in no particular order · ${rest.length}` : `Not placed yet · ${rest.length}`;
-    return { placed, rest, restTitle, session: s };
+    st.knowledge.ids.forEach((id, i) => {
+      const c = st.category.get(id);
+      if (c && (job === "F" || c === job) && !skip.has(i)) scope.push(i);
+    });
+    const byName = (a: RankCard, b: RankCard) => a.name.localeCompare(b.name);
+    const waiting = s.waiting.map((x) => this.cardAt(x)).filter((c): c is RankCard => !!c).sort(byName);
+    const rest = scope.map((x) => this.cardAt(x)).filter((c): c is RankCard => !!c).sort(byName);
+    const waitingTitle = waiting.length ? `New in the cube, not placed yet · ${waiting.length}` : null;
+    const restTitle = !rest.length ? null : s.top.length >= s.target ? `Below the top ${s.target}, in no particular order · ${rest.length}` : `Not placed yet · ${rest.length}`;
+    return { placed, waiting, waitingTitle, rest, restTitle, session: s };
   }
 
   listText(job: RankJob) {
     const l = this.list(job);
     if (!l) return "";
     const lines = l.placed.map((c, i) => `${i + 1}. ${c.name}`);
+    if (l.waitingTitle) lines.push("", l.waitingTitle, ...l.waiting.map((c) => c.name));
     if (l.restTitle && l.rest.length) lines.push("", l.restTitle, ...l.rest.map((c) => c.name));
     return lines.join("\n") + "\n";
   }
@@ -429,6 +500,9 @@ export class DemoRankings {
   private rows = new Map<string, RankingRow>();
   private logs = new Map<string, RankScreen[]>();
   private changeLogs = new Map<string, RankChange[]>();
+  private baselines = new Map<string, string[]>();
+  /** The cube now: the fixture's cards less the two that "left" it (the demo's cube changed after you ranked it). */
+  private now: string[];
   static readonly mine = "d0000000-0000-0000-0000-0000000aa001";
   static readonly mara = "d0000000-0000-0000-0000-0000000aa002";
   static readonly theo = "d0000000-0000-0000-0000-0000000aa003";
@@ -437,7 +511,14 @@ export class DemoRankings {
   static readonly maraCubeName = "Mara's Legacy Cube";
   private static readonly maraPerson: Person = { user_id: "d0000000-0000-0000-0000-0000000f0001", display_name: "Mara Quinn" };
 
-  constructor(private cubeId: string, private cubeName: string, private cards: string[], categories: Map<string, RankJob>) {
+  constructor(private cubeId: string, private cubeName: string, cards: string[], categories: Map<string, RankJob>) {
+    // The cube changed after you started ranking it: one White, one Blue and one Black card joined it (your ranking has
+    // never seen them), and a White and a Blue card you placed left it. Everyone else's ranking has caught up.
+    const ofColor = (j: RankJob) => cards.filter((c) => categories.get(c) === j).sort((a, b) => hash("new" + a) - hash("new" + b));
+    const added = (["W", "U", "B"] as RankJob[]).map((j) => ofColor(j)[0]).filter((c): c is string => !!c);
+    const left = (["W", "U"] as RankJob[]).map((j) => ofColor(j)[1]).filter((c): c is string => !!c);
+    this.now = cards.filter((c) => !left.includes(c));
+    const before = new Map([...categories].filter(([c]) => !added.includes(c)));
     const fnvTaste = (salt: string) => {
       const order = cards.slice().sort((a, b) => hash(salt + a) - hash(salt + b));
       return new Map(order.map((c, i) => [c, i]));
@@ -450,7 +531,7 @@ export class DemoRankings {
     };
     const run = (id: string, who: Person, name: string, depth: "half" | "full", top: number, mine: boolean, finalScreens: number | null,
                  t: Map<string, number>, listId = cubeId, stopAfter: RankJob | null = mine ? "B" : null) => {
-      let st = new RankingState(id, categories, [], depth, top);
+      let st = new RankingState(id, mine ? before : categories, [], depth, top);
       const log: RankScreen[] = [], changes: RankChange[] = [];
       for (const job of [...st.jobs, "F" as RankJob]) {
         let n = 0;
@@ -479,6 +560,7 @@ export class DemoRankings {
                           updated_at: new Date().toISOString(), mine, by: who });
       this.logs.set(id, log);
       this.changeLogs.set(id, changes);
+      this.baselines.set(id, mine ? [...before.keys()].sort() : this.now.slice().sort());
     };
     run(DemoRankings.mara, { user_id: "d0000000-0000-0000-0000-0000000f0001", display_name: "Mara Quinn" }, "Aggro all the way", "half", 100, false, null, mixed("mara"));
     run(DemoRankings.theo, { user_id: "d0000000-0000-0000-0000-0000000f0002", display_name: "Theo Vance" }, "Theo's picks", "half", 50, false, null, mixed("theo"));
@@ -490,7 +572,7 @@ export class DemoRankings {
     const base = listId === DemoRankings.maraCube
       ? { id: listId, name: DemoRankings.maraCubeName, mine: false, owner: DemoRankings.maraPerson }
       : { id: this.cubeId, name: this.cubeName, mine: true, owner: { user_id: "d0000000-0000-0000-0000-0000000f0000", display_name: "You" } };
-    return { ...base, can_see: true, ...(cards ? { cards: this.cards } : {}) };
+    return { ...base, can_see: true, ...(cards ? { cards: this.now } : {}) };
   }
 
   rankings(listId: string | null): CubeRankings {
@@ -512,14 +594,20 @@ export class DemoRankings {
   /** Cubes of other people you can rank: Mara's. */
   rankable(): RankableCube[] {
     const of = [...this.rows.values()].filter((r) => r.list_id === DemoRankings.maraCube);
-    return [{ id: DemoRankings.maraCube, name: DemoRankings.maraCubeName, owner: DemoRankings.maraPerson, cards: this.cards.length,
+    return [{ id: DemoRankings.maraCube, name: DemoRankings.maraCubeName, owner: DemoRankings.maraPerson, cards: this.now.length,
               rankings: of.length, mine: of.filter((r) => r.mine).length }];
   }
 
   get(id: string): RankingDetail {
     const r = this.rows.get(id);
     if (!r) throw new Error("That's private");
-    return { ...r, log: this.logs.get(id) ?? [], changes: this.changeLogs.get(id) ?? [], cube: this.cube(r.list_id, true) };
+    return { ...r, log: this.logs.get(id) ?? [], changes: this.changeLogs.get(id) ?? [], cube: this.cube(r.list_id, true),
+             baseline: this.baselines.get(id) ?? this.now.slice().sort() };
+  }
+
+  catchUp(id: string): { baseline: string[] } {
+    this.baselines.set(id, this.now.slice().sort());
+    return { baseline: this.baselines.get(id)! };
   }
 
   create(id: string, listId: string, name: string, depth: "half" | "full", top: number, sharing: "cube" | "private"): RankingRow {
@@ -528,6 +616,7 @@ export class DemoRankings {
     this.rows.set(id, r);
     this.logs.set(id, []);
     this.changeLogs.set(id, []);
+    this.baselines.set(id, this.now.slice().sort());
     return r;
   }
 

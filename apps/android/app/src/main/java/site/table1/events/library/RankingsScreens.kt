@@ -255,6 +255,35 @@ private fun Tabs(st: RankingState, shown: RankJob?, all: Boolean = false, onSele
 
 // ── one ranking
 
+/** The cube changed since this ranking caught up: what's new and gone, and (yours) Re-rank, which asks only about the
+ *  new cards. Your order stays; removed cards are already off the lists. */
+@Composable
+private fun CubeChanged(m: RankingModel, row: RankingRow, go: (String) -> Unit) {
+    val change = m.cubeChange
+    if (change.isEmpty) return
+    fun names(ids: List<String>): String {
+        val ns = ids.mapNotNull { m.card(it)?.name }
+        return if (ns.size > 3) "${ns.take(3).joinToString(", ")} and ${ns.size - 3} more" else ns.joinToString(", ")
+    }
+    val parts = listOfNotNull(
+        if (change.added.isEmpty()) null else "${plural(change.added.size, "card")} joined (${names(change.added)})",
+        if (change.removed.isEmpty()) null else "${plural(change.removed.size, "card")} left (${names(change.removed)})",
+    ).joinToString(" and ")
+    val cube = m.cube?.name ?: "This cube"
+    if (!row.mine) {
+        Notice("$cube changed since ${row.by?.displayName ?: "they"} last ranked it: $parts." +
+            if (change.added.isEmpty()) "" else " The new cards wait outside the lists until they're placed.")
+        return
+    }
+    val job = m.reRankJob
+    Notice("$cube changed since you ranked it: $parts." + (if (change.removed.isEmpty()) "" else " Removed cards are off your lists.") +
+        if (job == null) "" else " Re-rank to place the new cards: you're only asked about them, and your order stays as it is.")
+    Row {
+        if (job != null) Ghost("Re-rank", accent = true) { Telemetry.capture("ranking_rerank", mapOf("list" to job.key)); go("screen/${job.key}") }
+        else Ghost("OK") { m.catchUp() }
+    }
+}
+
 @Composable
 fun RankingScreen(id: String, onBack: () -> Unit, go: (String) -> Unit) {
     LaunchedEffect(Unit) { Telemetry.screen("ranking") }
@@ -269,12 +298,14 @@ fun RankingScreen(id: String, onBack: () -> Unit, go: (String) -> Unit) {
     Frame(row?.name ?: "Ranking", m, onBack, listOfNotNull(row?.whose, m.cube?.name).joinToString(" · ")) { st ->
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             if (m.cubeGone) Notice("This cube isn't shared with you any more, so only its lists show.")
+            if (row != null) CubeChanged(m, row, go)
             if (row != null && !row.mine) Notice("You're watching ${row.by?.displayName ?: "someone"}'s ranking. It updates live as they pick.")
             if (row?.depth == "half") Notice("This ranking orders only the top half of each color.")
             for (job in st.jobs) {
                 val s = st.session(job); val used = st.knowledge.perJob[job.key] ?: 0; val size = st.size(job)
                 val note = when {
                     s.done -> if (s.target < size) "Top ${s.target} of $size sorted in ${plural(used, "screen")}." else "All $size sorted in ${plural(used, "screen")}."
+                    s.waiting.isNotEmpty() -> "${s.top.size} of the top ${s.target} placed · ${plural(s.waiting.size, "new card")} to place"
                     used == 0 -> "${plural(size, "card")} · about ${plural(st.expected(job), "screen")}"
                     else -> "${s.top.size} of the top ${s.target} placed · about ${plural(maxOf(1, st.expected(job) - used), "screen")} to go"
                 }
@@ -353,14 +384,18 @@ fun RankingPickScreen(id: String, job: RankJob, onBack: () -> Unit, go: (String)
     Frame(listTitle(job, m.row?.top ?: 100).let { if (job == RankJob.Final) "Final" else it }, m, onBack) { st ->
         val qq = q ?: return@Frame
         val s = qq.session; val used = st.knowledge.perJob[job.key] ?: 0; val label = if (job == RankJob.Final) "Final" else job.title
+        val placing = s.waiting.isNotEmpty()
         Column(Modifier.fillMaxWidth().background(T1.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (!m.mine) Label("Watching ${m.row?.by?.displayName ?: "someone"}'s ranking live")
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text(if (s.done) "✓" else "#${s.top.size + 1}", color = T1.accent, fontFamily = T1.mono, fontSize = 44.sp, fontWeight = FontWeight.Bold)
+                Text(if (s.done) "✓" else if (placing) "+${s.waiting.size}" else "#${s.top.size + 1}", color = T1.accent, fontFamily = T1.mono, fontSize = 44.sp, fontWeight = FontWeight.Bold)
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Label(if (s.done) "$label · done" else "$label · deciding #${s.top.size + 1} of the top ${s.target}", color = T1.text)
-                    Text("${s.top.size} of the top ${s.target} (${plural(s.size, "card")}) placed", color = T1.muted, fontFamily = T1.mono, fontSize = 12.sp)
-                    Text(if (s.done) "Done in ${plural(used, "screen")}" else "Screen ${st.knowledge.screens + 1} of this ranking · about ${maxOf(1, st.expected(job) - used)} to go in $label",
+                    Label(if (s.done) "$label · done" else if (placing) "$label · placing new cards" else "$label · deciding #${s.top.size + 1} of the top ${s.target}", color = T1.text)
+                    Text(if (placing) "${plural(s.waiting.size, "new card")} to place; your order stays as it is" else "${s.top.size} of the top ${s.target} (${plural(s.size, "card")}) placed",
+                        color = T1.muted, fontFamily = T1.mono, fontSize = 12.sp)
+                    Text(if (s.done) "Done in ${plural(used, "screen")}"
+                         else if (placing) "Screen ${st.knowledge.screens + 1} of this ranking · only the new cards are asked about"
+                         else "Screen ${st.knowledge.screens + 1} of this ranking · about ${maxOf(1, st.expected(job) - used)} to go in $label",
                         color = T1.muted, fontFamily = T1.mono, fontSize = 11.sp)
                 }
             }
@@ -368,7 +403,10 @@ fun RankingPickScreen(id: String, job: RankJob, onBack: () -> Unit, go: (String)
         }
         if (s.done) {
             Notice(if (job == RankJob.Final) "Top ${s.target} complete. All ${s.target} places are ranked." else "$label sorted.")
-            Row { Ghost(if (job == RankJob.Final) "Top ${s.target} list" else "$label list", accent = true) { go("lists/${job.key}") } }
+            val next = if (m.mine) m.reRankJob?.takeIf { it != job } else null
+            // In place of this screen, so Back still returns to the ranking.
+            if (next != null) Row { Ghost("Next: place new cards in ${if (next == RankJob.Final) "the final" else next.title}", accent = true) { onBack(); go("screen/${next.key}") } }
+            Row { Ghost(if (job == RankJob.Final) "Top ${s.target} list" else "$label list", accent = next == null) { go("lists/${job.key}") } }
             Row { Ghost("Back to the ranking") { onBack() } }
             return@Frame
         }
@@ -461,6 +499,8 @@ fun RankingListsScreen(id: String, job: RankJob, onBack: () -> Unit, go: (String
                 else -> "${s.top.size} of the top ${s.target} placed so far, best first."
             })
             l.placed.forEachIndexed { i, c -> CardRow(c.printing, "${i + 1}. ${c.name}", onClick = { go("card/${c.oracleId}/${tab.key}") }) }
+            l.waitingTitle?.let { Section(it) }
+            l.waiting.forEach { c -> CardRow(c.printing, c.name, onClick = { go("card/${c.oracleId}/${tab.key}") }) }
             l.restTitle?.let { Section(it) }
             l.rest.forEach { c -> CardRow(c.printing, c.name, onClick = { go("card/${c.oracleId}/${tab.key}") }) }
             Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {

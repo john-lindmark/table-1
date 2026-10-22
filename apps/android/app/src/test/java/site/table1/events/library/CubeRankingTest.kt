@@ -46,7 +46,41 @@ class CubeRankingTest {
             assertEquals("$label $key screens", w["screens"]!!.jsonPrimitive.int, st.knowledge.perJob[key] ?: 0)
             assertEquals("$label $key question", strings(w["question"]), s.question?.map(st::id))
             strings(w["pinned"])?.let { assertEquals("$label $key pinned", it, s.pinned.map(st::id)) }
+            assertEquals("$label $key waiting", strings(w["waiting"]) ?: emptyList<String>(), s.waiting.map(st::id))
         }
+    }
+
+    /** The cube changes after a ranking finished: removed cards leave the lists and new ones wait, the order holds, and a
+     *  re-rank asks only what it must until every list is whole again. */
+    @Test fun cubeChange() {
+        val cc = cases["cubeChange"]!!.jsonObject
+        val run = runs.first { it["id"]!!.jsonPrimitive.content == cc["id"]!!.jsonPrimitive.content }
+        val removed = strings(cc["removed"])!!.toSet()
+        val cube = cards.filterKeys { it !in removed } + cc["added"]!!.jsonObject.mapValues { RankJob.of(it.value.jsonPrimitive.content)!! }
+        val fresh = strings(cc["new"])!!.toSet()
+        fun at(l: List<RankScreen>) = RankingState(cc["id"]!!.jsonPrimitive.content, cube, l, cc["depth"]!!.jsonPrimitive.content, cc["top"]!!.jsonPrimitive.int, fresh)
+        val l = log(run).toMutableList()
+        checkSummary(at(l), cc["before"]!!.jsonObject, "before")
+        assertEquals(fresh.sorted(), at(l).waiting)
+        val start = at(l)
+        var st = start
+        for (step in cc["steps"]!!.jsonArray.map { it.jsonObject }) {
+            val job = RankJob.of(step["s"]!!.jsonPrimitive.content)!!
+            val s = st.session(job)
+            assertEquals("change screen ${step["at"]}", strings(step["question"]), s.question?.map(st::id))
+            assertEquals(strings(step["pinned"]), s.pinned.map(st::id))
+            assertEquals(strings(step["waiting"]), s.waiting.map(st::id))
+            assertEquals("the list stays whole at ${step["at"]}", strings(step["top"]), s.top.map(st::id))
+            val screen = RankScreen(job.key, strings(step["answer"])!!)
+            st = st.appending(screen)
+            l += screen
+        }
+        checkSummary(at(l), cc["after"]!!.jsonObject, "after")
+        assertEquals(emptyList<String>(), at(l).waiting)
+        assertEquals(wantRows(cc["changes"]), changeRows(RankChange.diff(start.places(), at(l).places())))
+        val c = CubeChange.of(listOf("a", "B", "c"), listOf("b", "c", "d"))
+        assertEquals(listOf("a") to listOf("d"), c.added to c.removed)
+        assertTrue("no baseline yet: nothing to say", CubeChange.of(listOf("a"), null).isEmpty)
     }
 
     private fun changeRows(cs: List<RankChange>) = cs.map { listOf(it.s, it.c, it.f?.toString() ?: "null", it.to?.toString() ?: "null") }

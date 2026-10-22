@@ -148,6 +148,8 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `ranking_compared` | `list`: W … L / F |
 | `ranking_brief_shown` / `ranking_brief_missing` | `list`, `cached`: bool (a brief, or the reason there isn't one) |
 | `ranking_list_copied` | `list` |
+| `ranking_rerank` | `list`: where Re-rank started (the cube changed; 2026-10-22) |
+| `ranking_caught_up` | — (every new card placed, or removals dismissed) |
 | `ranking_image` | `how`: photos / share (web: download / share) |
 | `hero_added` / `hero_removed` | `scope`: collection / list / binder, `count`: heroes now in that scope (2026-10-19) |
 | `printings_toggled` | `expanded`: bool, `all`: bool (Expand all vs one card), `screen`: all_cards / list / binder (2026-10-19) |

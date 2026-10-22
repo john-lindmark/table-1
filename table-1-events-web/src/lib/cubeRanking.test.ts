@@ -9,7 +9,7 @@ import {
    testdata/cube-ranking/cases.json, written by the reference make_cases.py; iOS CubeRankingTests and Android
    CubeRankingTest read the same file. */
 
-type Summary = Record<string, { top: string[]; done: boolean; target: number; size: number; screens: number; question: string[] | null; pinned: string[] | null }>;
+type Summary = Record<string, { top: string[]; done: boolean; target: number; size: number; screens: number; question: string[] | null; pinned: string[] | null; waiting: string[] }>;
 interface Step { s: RankJob; at: number; question: string[]; pinned: string[]; answer: string[]; pack?: string[]; disagree?: string[] }
 interface Run { id: string; depth: "half" | "full"; top: number; steps: Step[]; summary: Summary; contradicted?: Record<string, [string, string][]> }
 type ChangeRow = [string, string, number | null, number | null];
@@ -22,6 +22,8 @@ interface Cases {
   redo: { remove: number; changesNothing: boolean; session: RankJob; reaskOpen: boolean; after: Summary; changes: ChangeRow[] }[];
   pickWins: { at: number; pack: string[]; picked: string; disagree: string[]; removed: number[]; after: Summary; changes: ChangeRow[] };
   edge: { log: RankScreen[]; known: [string, string][] };
+  cubeChange: { id: string; depth: "half" | "full"; top: number; removed: string[]; added: Record<string, RankJob>; new: string[];
+                before: Summary; after: Summary; changes: ChangeRow[]; steps: (Step & { waiting: string[]; top: string[] })[] };
   estimates: { sort: [number, number, number][]; merge: [number[], number, number][] };
 }
 const cases: Cases = JSON.parse(readFileSync(new URL("../../../testdata/cube-ranking/cases.json", import.meta.url), "utf8"));
@@ -35,8 +37,9 @@ function checkSummary(st: RankingState, want: Summary) {
     const s = st.session(key as RankJob);
     expect({ key, top: s.top.map((x) => st.id(x)), done: s.done, target: s.target, size: s.size,
              screens: st.knowledge.perJob[key as RankJob] ?? 0, question: s.question?.map((x) => st.id(x)) ?? null,
-             pinned: s.question ? s.pinned.map((x) => st.id(x)) : null })
-      .toEqual({ key, top: w.top, done: w.done, target: w.target, size: w.size, screens: w.screens, question: w.question, pinned: w.pinned });
+             pinned: s.question ? s.pinned.map((x) => st.id(x)) : null, waiting: s.waiting.map((x) => st.id(x)) })
+      .toEqual({ key, top: w.top, done: w.done, target: w.target, size: w.size, screens: w.screens, question: w.question, pinned: w.pinned,
+                 waiting: w.waiting });
   }
 }
 
@@ -125,6 +128,31 @@ describe("why, redo and edge cases", () => {
     for (let x = 0; x < K.size; x++) for (const y of members(K.beats[x])) known.push([K.ids[x], K.ids[y]]);
     known.sort((p, q) => (p[0] < q[0] ? -1 : p[0] > q[0] ? 1 : p[1] < q[1] ? -1 : p[1] > q[1] ? 1 : 0));
     expect(known).toEqual(cases.edge.known);
+  });
+});
+
+describe("when the cube changes", () => {
+  const cc = cases.cubeChange;
+  const run = cases.runs.find((r) => r.id === cc.id)!;
+  const cube = new Map([...cards].filter(([c]) => !cc.removed.includes(c)).concat(Object.entries(cc.added)));
+  const at = (log: RankScreen[]) => new RankingState(cc.id, cube, log, cc.depth, cc.top, undefined, cc.new);
+  it("removed cards leave the lists, new ones wait, and the order holds", () => {
+    checkSummary(at(logOf(run)), cc.before);
+    expect(at(logOf(run)).waiting).toEqual([...cc.new].sort());
+  });
+  it("re-ranking asks only what it must and every list stays in place", () => {
+    const log = logOf(run);
+    let st = at(log);
+    for (const step of cc.steps) {
+      const s = st.session(step.s);
+      expect([s.question?.map((x) => st.id(x)), s.pinned.map((x) => st.id(x)), s.waiting.map((x) => st.id(x)), s.top.map((x) => st.id(x))])
+        .toEqual([step.question, step.pinned, step.waiting, step.top]);
+      st = st.appending({ s: step.s, o: step.answer });
+      log.push({ s: step.s, o: step.answer });
+    }
+    checkSummary(at(log), cc.after);
+    expect(at(log).waiting).toEqual([]);
+    expect(diffPlaces(at(logOf(run)).places(), at(log).places()).map(changeRow)).toEqual(cc.changes);
   });
 });
 

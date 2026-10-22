@@ -215,11 +215,13 @@ export function RankingScreen({ id, onBack, go }: { id: string; onBack: () => vo
       {(st, c) => (
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
           {m.cubeGone && <Notice tone="info">This cube isn't shared with you any more, so only its lists show.</Notice>}
+          <CubeChanged m={m} go={go} />
           {row && !row.mine && <Notice tone="info">You're watching {row.by?.display_name ?? "someone"}'s ranking. It updates live as they pick.</Notice>}
           {row?.depth === "half" && <Notice tone="info">This ranking orders only the top half of each color.</Notice>}
           {st.jobs.map((job) => {
             const s = st.session(job), used = st.knowledge.perJob[job] ?? 0, size = st.size(job);
             const note = s.done ? (s.target < size ? `Top ${s.target} of ${size} sorted in ${plural(used, "screen")}.` : `All ${size} sorted in ${plural(used, "screen")}.`)
+              : s.waiting.length ? `${s.top.length} of the top ${s.target} placed · ${plural(s.waiting.length, "new card")} to place`
               : used === 0 ? `${plural(size, "card")} · about ${plural(st.expected(job), "screen")}`
               : `${s.top.length} of the top ${s.target} placed · about ${plural(Math.max(1, st.expected(job) - used), "screen")} to go`;
             return (
@@ -283,9 +285,39 @@ export function RankingScreen({ id, onBack, go }: { id: string; onBack: () => vo
   );
 }
 
+/** The cube changed since this ranking caught up: what's new and gone, and (yours) Re-rank, which asks only about the
+ *  new cards. Your order stays; removed cards are already off the lists. */
+function CubeChanged({ m, go }: { m: RankingModel; go: (path: string) => void }) {
+  const { added, removed } = m.cubeChange;
+  if (!added.length && !removed.length) return null;
+  const names = (ids: string[]) => {
+    const ns = ids.map((c) => m.card(c)?.name).filter((n): n is string => !!n);
+    return ns.length > 3 ? `${ns.slice(0, 3).join(", ")} and ${ns.length - 3} more` : ns.join(", ");
+  };
+  const job = m.reRankJob;
+  const cube = m.cube?.name ?? "This cube";
+  const parts = [added.length ? `${plural(added.length, "card")} joined (${names(added)})` : null,
+                 removed.length ? `${plural(removed.length, "card")} left (${names(removed)})` : null].filter(Boolean).join(" and ");
+  if (!m.mine) {
+    return <Notice tone="info">{cube} changed since {m.row?.by?.display_name ?? "they"} last ranked it: {parts}.{added.length ? " The new cards wait outside the lists until they're placed." : ""}</Notice>;
+  }
+  return (
+    <div className="flex flex-col gap-px">
+      <Notice tone="info">
+        {cube} changed since you ranked it: {parts}.
+        {removed.length ? " Removed cards are off your lists." : ""}
+        {job ? " Re-rank to place the new cards: you're only asked about them, and your order stays as it is." : ""}
+      </Notice>
+      {job
+        ? <Btn label="Re-rank" accent onClick={() => { capture("ranking_rerank", { list: job }); go(`screen/${job}`); }} />
+        : <Btn label="OK" onClick={() => void m.catchUp()} />}
+    </div>
+  );
+}
+
 /* ── the picking screen ─────────────────────────────────────────────── */
 
-export function RankingPickScreen({ id, job, onBack, go }: { id: string; job: RankJob; onBack: () => void; go: (path: string) => void }) {
+export function RankingPickScreen({ id, job, onBack, go }: { id: string; job: RankJob; onBack: () => void; go: (path: string, replace?: boolean) => void }) {
   const { catalog } = useCatalog();
   const m = useRanking(id, catalog);
   const q = m.question(job);
@@ -362,16 +394,20 @@ export function RankingPickScreen({ id, job, onBack, go }: { id: string; job: Ra
       {(st, c) => {
         if (!q) return null;
         const s = q.session, used = st.knowledge.perJob[job] ?? 0, label = job === "F" ? "Final" : JOB_TITLE[job];
+        const placing = s.waiting.length > 0, next = m.reRankJob;
         return (
           <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
             <div className="bg-t1-surface p-4 flex flex-col gap-2">
               {!m.mine && <p className="t1-label">Watching {m.row?.by?.display_name ?? "someone"}'s ranking live</p>}
               <div className="flex items-baseline gap-3.5">
-                <span className="text-[44px] font-bold text-t1-accent tabular-nums leading-none">{s.done ? "✓" : `#${s.top.length + 1}`}</span>
+                <span className="text-[44px] font-bold text-t1-accent tabular-nums leading-none">{s.done ? "✓" : placing ? `+${s.waiting.length}` : `#${s.top.length + 1}`}</span>
                 <div className="flex flex-col gap-1 min-w-0">
-                  <span className="t1-label !text-t1-text">{s.done ? `${label} · done` : `${label} · deciding #${s.top.length + 1} of the top ${s.target}`}</span>
-                  <span className="text-[12px] text-t1-muted">{s.top.length} of the top {s.target} ({plural(s.size, "card")}) placed</span>
+                  <span className="t1-label !text-t1-text">{s.done ? `${label} · done` : placing ? `${label} · placing new cards`
+                    : `${label} · deciding #${s.top.length + 1} of the top ${s.target}`}</span>
+                  <span className="text-[12px] text-t1-muted">{placing ? `${plural(s.waiting.length, "new card")} to place; your order stays as it is`
+                    : `${s.top.length} of the top ${s.target} (${plural(s.size, "card")}) placed`}</span>
                   <span className="text-[11px] text-t1-muted">{s.done ? `Done in ${plural(used, "screen")}`
+                    : placing ? `Screen ${(st.knowledge.screens + 1).toLocaleString()} of this ranking · only the new cards are asked about`
                     : `Screen ${(st.knowledge.screens + 1).toLocaleString()} of this ranking · about ${Math.max(1, st.expected(job) - used)} to go in ${label}`}</span>
                 </div>
               </div>
@@ -379,7 +415,9 @@ export function RankingPickScreen({ id, job, onBack, go }: { id: string; job: Ra
             </div>
             {s.done ? (<>
               <Notice tone="info">{job === "F" ? `Top ${s.target} complete. All ${s.target} places are ranked.` : `${label} sorted.`}</Notice>
-              <Btn label={job === "F" ? `Top ${s.target} list` : `${label} list`} accent onClick={() => go(`lists/${job}`)} />
+              {m.mine && next && next !== job && <Btn label={`Next: place new cards in ${next === "F" ? "the final" : JOB_TITLE[next]}`} accent
+                                                        onClick={() => go(`screen/${next}`, true)} />}
+              <Btn label={job === "F" ? `Top ${s.target} list` : `${label} list`} accent={!(m.mine && next && next !== job)} onClick={() => go(`lists/${job}`)} />
               <Btn label="Back to the ranking" onClick={onBack} />
             </>) : (<>
               {m.mine && (pinned.size ? <Notice tone="info">Locked cards keep the order you already gave them. Move the free card to where it belongs.</Notice>
@@ -442,6 +480,8 @@ export function RankingListsScreen({ id, job, onBack, go }: { id: string; job: R
           <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
             <Notice tone="info">{lede}</Notice>
             {l.placed.map((card, i) => <CardRow key={card.oracleId} c={c} p={card.p} title={`${i + 1}. ${card.name}`} onClick={() => go(`card/${card.oracleId}/${tab}`)} />)}
+            {l.waitingTitle && <Section title={l.waitingTitle} />}
+            {l.waiting.map((card) => <CardRow key={card.oracleId} c={c} p={card.p} title={card.name} onClick={() => go(`card/${card.oracleId}/${tab}`)} />)}
             {l.restTitle && <Section title={l.restTitle} />}
             {l.rest.map((card) => <CardRow key={card.oracleId} c={c} p={card.p} title={card.name} onClick={() => go(`card/${card.oracleId}/${tab}`)} />)}
             <div className="flex gap-px">

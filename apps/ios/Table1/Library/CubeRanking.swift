@@ -4,7 +4,10 @@ import Foundation
    undo, redo and watching never need repair. Same rules as the reference testdata/cube-ranking/make_cases.py, checked
    against its cases.json by CubeRankingTests:
    - A screen is 2-4 cards put in order, best first; every pair on it is known. Knowledge is the transitive closure,
-     applied in log order; a pair that contradicts what's known is skipped and cards no longer in the cube are left out.
+     applied in log order; a pair that contradicts what's known is skipped. It covers the cube's cards and every card in
+     the log, so a card that left the cube still carries what it settled; jobs and lists only hold the cube's cards.
+   - Cards added since the ranking last caught up with its cube ("fresh") wait outside the lists until they're placed
+     (in a list with nothing placed yet they're simply part of what's left to sort).
    - A job (a color, or the final over every card) places from the top: the next place goes to the card known to beat
      every other card still in; a card with `target` or more known above it is out.
    - The next screen: the cards nothing still in is known to beat (fewest known below, then a seeded hash), filled to
@@ -99,7 +102,7 @@ struct RankKnowledge: Sendable {
     private(set) var contradicted: [Int: [(Int, Int)]] = [:]
 
     init(cards: [String], log: [RankScreen] = []) {
-        ids = Array(Set(cards.map { $0.lowercased() })).sorted()
+        ids = Array(Set((cards + log.flatMap(\.o)).map { $0.lowercased() })).sorted()
         index = Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($1, $0) })
         beats = Array(repeating: RankBits(count: ids.count), count: ids.count)
         below = beats
@@ -116,12 +119,12 @@ struct RankKnowledge: Sendable {
     }
 
     /// What a screen says, as (winner, loser) pairs: every pair in order, or for a pick the picked card over each
-    /// other card of its pack (only while the picked card is in the cube).
+    /// other card of its pack.
     func pairs(_ screen: RankScreen) -> [(Int, Int)] {
         let xs = indexes(screen.o)
         if screen.s == RankJob.pick.rawValue {
-            guard let first = screen.o.first, index[first.lowercased()] != nil else { return [] }
-            return xs.dropFirst().map { (xs[0], $0) }
+            guard let first = xs.first else { return [] }
+            return xs.dropFirst().map { (first, $0) }
         }
         var out: [(Int, Int)] = []
         for i in xs.indices { for j in (i + 1)..<xs.count { out.append((xs[i], xs[j])) } }
@@ -166,6 +169,8 @@ struct RankSession: Sendable {
     let pinned: [Int]
     /// Cards still in and not yet placed.
     let open: RankBits
+    /// New cards that can still make the list and aren't placed yet: `top` leaves them out.
+    var waiting: [Int] = []
 }
 
 enum CubeRanking {
@@ -178,15 +183,9 @@ enum CubeRanking {
         return h
     }
 
-    /// One job: `scope` is the cards in it; `groups` maps a card index to its color (final only).
-    static func session(_ K: RankKnowledge, scope: RankBits, target: Int, seed: String, groups: [Int]? = nil) -> RankSession {
-        let members = scope.members
-        let n = members.count
-        let T = min(target, n)
-        var live = RankBits(count: K.count)
-        for x in members where K.belowSet(x).intersectionCount(scope) < T { live.insert(x) }
+    /// Places from the top: the next place goes to the card in U known to beat every other card in U (U loses them).
+    private static func ranked(_ K: RankKnowledge, _ U: inout RankBits, _ T: Int) -> [Int] {
         var top: [Int] = []
-        var U = live
         while top.count < T {
             var found: Int?
             for x in U.members {
@@ -203,8 +202,32 @@ enum CubeRanking {
             top.append(f)
             U.remove(f)
         }
-        let done = top.count >= T
-        guard !done else { return RankSession(top: top, done: true, target: T, size: n, question: nil, pinned: [], open: U) }
+        return top
+    }
+
+    /// One job: `scope` is the cards in it; `groups` maps a card index to its color (final only); `fresh` the cube's new
+    /// cards. The list (`top`) leaves out new cards still waiting to be placed (`waiting`); screens and `done` count all.
+    static func session(_ K: RankKnowledge, scope: RankBits, target: Int, seed: String, groups: [Int]? = nil,
+                        fresh: RankBits? = nil) -> RankSession {
+        let members = scope.members
+        let n = members.count
+        let T = min(target, n)
+        var live = RankBits(count: K.count)
+        for x in members where K.belowSet(x).intersectionCount(scope) < T { live.insert(x) }
+        var U = live
+        let full = ranked(K, &U, T)
+        let done = full.count >= T
+        let placed = Set(full)
+        var waiting = fresh.map { f in live.members.filter { f.contains($0) && !placed.contains($0) } } ?? []
+        var top = full
+        if !waiting.isEmpty {
+            var shown = live
+            for x in waiting { shown.remove(x) }
+            top = ranked(K, &shown, T)
+            // A list with nothing placed yet: new cards are simply part of what's left to sort.
+            if top.isEmpty { top = full; waiting = [] }
+        }
+        guard !done else { return RankSession(top: top, done: true, target: T, size: n, question: nil, pinned: [], open: U, waiting: waiting) }
 
         var hashes: [Int: UInt32] = [:]
         func h(_ x: Int) -> UInt32 {
@@ -238,7 +261,7 @@ enum CubeRanking {
         }
         var pinned: [Int] = []
         if picked.count == 2 { (picked, pinned) = placement(K, U, picked[0], picked[1], h) }
-        return RankSession(top: top, done: false, target: T, size: n, question: picked, pinned: pinned, open: U)
+        return RankSession(top: top, done: false, target: T, size: n, question: picked, pinned: pinned, open: U, waiting: waiting)
     }
 
     private static func choose(_ K: RankKnowledge, _ order: [Int], _ groups: [Int]?, _ start: [Int]) -> [Int] {
@@ -457,17 +480,29 @@ struct RankingState: Sendable {
     let category: [String: RankJob] // oracle id → color
     let depth: String
     let top: Int
+    /// The cube's cards added since the ranking last caught up: they wait outside the lists until they're placed.
+    let fresh: Set<String>
 
-    init(rankingId: String, cards: [String: RankJob], log: [RankScreen], depth: String, top: Int) {
+    /// `cards` are the cube's cards now (a card in the log but not here has left the cube); `fresh` its new cards.
+    init(rankingId: String, cards: [String: RankJob], log: [RankScreen], depth: String, top: Int, fresh: Set<String> = []) {
         self.rankingId = rankingId.lowercased()
         category = Dictionary(cards.map { ($0.key.lowercased(), $0.value) }, uniquingKeysWith: { a, _ in a })
         knowledge = RankKnowledge(cards: Array(category.keys), log: log)
         self.depth = depth
         self.top = top
+        let cube = category
+        self.fresh = Set(fresh.map { $0.lowercased() }.filter { cube[$0] != nil })
     }
 
     private init(_ s: RankingState, knowledge: RankKnowledge) {
-        rankingId = s.rankingId; category = s.category; depth = s.depth; top = s.top; self.knowledge = knowledge
+        rankingId = s.rankingId; category = s.category; depth = s.depth; top = s.top; fresh = s.fresh; self.knowledge = knowledge
+    }
+
+    /// New cards not placed yet in any list: a re-rank is due.
+    var waiting: [String] {
+        var out = Set<String>()
+        for job in jobs + [.final] { for x in session(job).waiting { out.insert(id(x)) } }
+        return out.sorted()
     }
 
     /// The same ranking with one more screen.
@@ -479,11 +514,13 @@ struct RankingState: Sendable {
 
     func scope(_ job: RankJob) -> RankBits {
         var m = RankBits(count: knowledge.count)
-        for (i, id) in knowledge.ids.enumerated() where job == .final || category[id] == job { m.insert(i) }
+        for (i, id) in knowledge.ids.enumerated() {
+            if let c = category[id], job == .final || c == job { m.insert(i) }
+        }
         return m
     }
 
-    func size(_ job: RankJob) -> Int { job == .final ? knowledge.count : knowledge.ids.filter { category[$0] == job }.count }
+    func size(_ job: RankJob) -> Int { job == .final ? category.count : category.values.filter { $0 == job }.count }
 
     func target(_ job: RankJob) -> Int {
         if job == .final { return top }
@@ -497,8 +534,14 @@ struct RankingState: Sendable {
     func session(_ job: RankJob) -> RankSession {
         let groups: [Int]? = job == .final
             ? knowledge.ids.map { RankJob.colors.firstIndex(of: category[$0] ?? .c) ?? 0 } : nil
+        var freshBits: RankBits?
+        if !fresh.isEmpty {
+            var b = RankBits(count: knowledge.count)
+            for c in fresh { if let i = knowledge.index[c] { b.insert(i) } }
+            freshBits = b
+        }
         return CubeRanking.session(knowledge, scope: scope(job), target: target(job),
-                                   seed: "\(rankingId):\(job.rawValue):\(knowledge.screens)", groups: groups)
+                                   seed: "\(rankingId):\(job.rawValue):\(knowledge.screens)", groups: groups, fresh: freshBits)
     }
 
     func expected(_ job: RankJob) -> Int {

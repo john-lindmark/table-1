@@ -70,16 +70,18 @@ struct CubeRankings: Decodable, Sendable {
     var rankings: [RankingRow]
 }
 
-/// cube_ranking_get: the row, its whole log, its change log and its cube.
+/// cube_ranking_get: the row, its whole log, its change log, its cube and the cube's cards it last caught up with.
 struct RankingDetail: Decodable, Sendable {
     var row: RankingRow
     var log: [RankScreen]
     var changes: [RankChange] = []
     var cube: RankingCube?
+    /// The cube's cards when the ranking last caught up: cards added since wait outside its lists until placed.
+    var baseline: [String]?
 
-    private enum K: String, CodingKey { case log, changes, cube }
-    init(row: RankingRow, log: [RankScreen], changes: [RankChange] = [], cube: RankingCube?) {
-        self.row = row; self.log = log; self.changes = changes; self.cube = cube
+    private enum K: String, CodingKey { case log, changes, cube, baseline }
+    init(row: RankingRow, log: [RankScreen], changes: [RankChange] = [], cube: RankingCube?, baseline: [String]? = nil) {
+        self.row = row; self.log = log; self.changes = changes; self.cube = cube; self.baseline = baseline
     }
     init(from d: Decoder) throws {
         row = try RankingRow(from: d)
@@ -87,6 +89,22 @@ struct RankingDetail: Decodable, Sendable {
         log = try c.decode([RankScreen].self, forKey: .log)
         changes = try c.decodeIfPresent([RankChange].self, forKey: .changes) ?? []
         cube = try c.decodeIfPresent(RankingCube.self, forKey: .cube)
+        baseline = try c.decodeIfPresent([String].self, forKey: .baseline)
+    }
+}
+
+/// What changed in a cube since a ranking last caught up: cards added (they wait to be placed) and removed (gone from
+/// its lists). Empty without a baseline or the cube's cards.
+struct CubeChange: Equatable, Sendable {
+    var added: [String] = []
+    var removed: [String] = []
+    var isEmpty: Bool { added.isEmpty && removed.isEmpty }
+
+    init(cubeCards: [String]?, baseline: [String]?) {
+        guard let cubeCards, let baseline else { return }
+        let now = Set(cubeCards.map { $0.lowercased() }), then = Set(baseline.map { $0.lowercased() })
+        added = now.subtracting(then).sorted()
+        removed = then.subtracting(now).sorted()
     }
 }
 
@@ -168,6 +186,16 @@ final class RankingsStore {
         if let demo { return try demo.get(id) }
         #endif
         return try await supabase.rpc("cube_ranking_get", params: ["p_id": id]).execute().value
+    }
+
+    /// The ranking takes its cube as it is now as the cards it has caught up with; returns them.
+    func catchUp(_ id: String) async throws -> [String] {
+        #if DEBUG
+        if let demo { return demo.catchUp(id) }
+        #endif
+        struct R: Decodable { let baseline: [String] }
+        let r: R = try await supabase.rpc("cube_ranking_catch_up", params: ["p_id": id]).execute().value
+        return r.baseline
     }
 
     func create(listId: String, name: String, depth: String, top: Int, sharing: String, ownCube: Bool) async throws -> RankingRow {
@@ -263,6 +291,8 @@ final class RankingModel {
     private(set) var loading = false
     /// The cube can't be read any more (unshared or deleted): lists still show, the cards don't.
     private(set) var cubeGone = false
+    /// The cube's cards the ranking last caught up with.
+    private(set) var baseline: [String]?
 
     @ObservationIgnored private var serverLog: [RankScreen] = []
     /// Changes not yet saved; sent with the next push.
@@ -293,9 +323,11 @@ final class RankingModel {
     }
 
     private func adopt(_ d: RankingDetail) async {
-        let changed = d.log != serverLog || row?.depth != d.row.depth || row?.top != d.row.top || state == nil
+        let cubeMoved = d.cube?.cards != cube?.cards || d.baseline != baseline
+        let changed = d.log != serverLog || cubeMoved || row?.depth != d.row.depth || row?.top != d.row.top || state == nil
         row = d.row
         cube = d.cube
+        baseline = d.baseline
         if changed { lastChange = .now }
         if saving || unsaved && d.log == serverLog { return }
         serverLog = d.log
@@ -337,20 +369,55 @@ final class RankingModel {
         }
     }
 
-    /// Resolves the cube's cards against the catalog and works out the state.
+    /// Resolves the cube's cards against the catalog and works out the state. Cards that left the cube (in the log or the
+    /// baseline) are looked up too, for their names; only the cube's cards make the lists.
     private func rebuild(cubeCards: [String]?) async {
         guard let row else { return }
         var ids = cubeCards?.map { $0.lowercased() }
-        if ids == nil, cards.isEmpty == false { ids = Array(cards.keys) }
+        if ids == nil, let state { ids = Array(state.category.keys) }
         cubeGone = cubeCards == nil
-        let wanted: [String] = ids ?? Array(Set(log.flatMap(\.o).map { $0.lowercased() }))
+        let inCube = Set(ids ?? log.flatMap(\.o).map { $0.lowercased() })
+        let wanted = Array(inCube.union(log.flatMap(\.o).map { $0.lowercased() }).union((baseline ?? []).map { $0.lowercased() }))
         guard let resolved = await Self.resolve(wanted) else { return }
         cards = Self.asInCube(resolved.mapValues(\.0), printings: cube?.printings ?? [:],
                               found: await Self.printings(Array(Set((cube?.printings ?? [:]).values))))
-        let log = self.log, depth = row.depth, top = row.top, rid = id
+        let log = self.log, depth = row.depth, top = row.top, rid = id, fresh = Set(cubeChange.added)
+        let jobs = resolved.filter { inCube.contains($0.key) }.mapValues(\.1)
         state = await Task.detached(priority: .userInitiated) {
-            RankingState(rankingId: rid, cards: resolved.mapValues(\.1), log: log, depth: depth, top: top)
+            RankingState(rankingId: rid, cards: jobs, log: log, depth: depth, top: top, fresh: fresh)
         }.value
+        maybeCatchUp()
+    }
+
+    /// Cards added to the cube since this ranking caught up, and cards removed.
+    var cubeChange: CubeChange { cubeGone ? CubeChange(cubeCards: nil, baseline: nil) : CubeChange(cubeCards: cube?.cards, baseline: baseline) }
+
+    /// Where a re-rank starts: the first list with new cards to place (colors, then the final).
+    var reRankJob: RankJob? {
+        guard let state else { return nil }
+        return (state.jobs + [.final]).first { !state.session($0).waiting.isEmpty }
+    }
+
+    @ObservationIgnored private var catching = false
+    /// Your ranking has caught up with its cube once every new card is placed: then the change is no longer news.
+    private func maybeCatchUp() {
+        guard let state, mine, !catching, !unsaved, !saving, !cubeChange.added.isEmpty, state.waiting.isEmpty else { return }
+        Task { await catchUp() }
+    }
+
+    /// Takes the cube as it is now as the cards this ranking has caught up with (after placing new cards, or to dismiss
+    /// removals).
+    func catchUp() async {
+        guard mine, !catching else { return }
+        catching = true
+        defer { catching = false }
+        do {
+            baseline = try await RankingsStore.shared.catchUp(id)
+            await rebuild(cubeCards: cube?.cards)
+            Telemetry.capture("ranking_caught_up")
+        } catch where !error.isCancellation {
+            self.error = error.localizedDescription
+        } catch {}
     }
 
     /// The next screen of a job: a redone screen's cards first while their order is open.
@@ -447,7 +514,7 @@ final class RankingModel {
         log.append(screen)
         reask = nil
         let next = removed.isEmpty ? state.appending(screen)
-            : RankingState(rankingId: id, cards: state.category, log: log, depth: row.depth, top: row.top)
+            : RankingState(rankingId: id, cards: state.category, log: log, depth: row.depth, top: row.top, fresh: state.fresh)
         self.state = next
         record(state, next, by: removed.isEmpty ? "pick" : "pick_win", screen: log.count)
         Telemetry.capture("ranking_pick", ["disagreed": disagreed, "resolution": disagreed == 0 ? "none" : wins ? "pick_wins" : "keep",
@@ -474,7 +541,7 @@ final class RankingModel {
 
     private func rebuildState() {
         guard let state, let row else { return }
-        self.state = RankingState(rankingId: id, cards: state.category, log: log, depth: row.depth, top: row.top)
+        self.state = RankingState(rankingId: id, cards: state.category, log: log, depth: row.depth, top: row.top, fresh: state.fresh)
     }
 
     /// Settings moved places but no screens: push the change log alone.
@@ -509,7 +576,7 @@ final class RankingModel {
                 pendingOp = nil
                 error = nil
                 lastChange = .now
-                if unsaved { saving = false; save() }
+                if unsaved { saving = false; save() } else { saving = false; maybeCatchUp() }
             } catch let e as PostgrestError where e.code == "PT409" || e.code == "40001" {
                 pendingOp = nil
                 pendingChanges = []
@@ -517,7 +584,7 @@ final class RankingModel {
                 serverLog = []
                 saving = false
                 if let d = try? await RankingsStore.shared.get(id) {
-                    serverLog = d.log; log = d.log; self.row = d.row; reask = nil; changes = d.changes
+                    serverLog = d.log; log = d.log; self.row = d.row; cube = d.cube; baseline = d.baseline; reask = nil; changes = d.changes
                     await rebuild(cubeCards: d.cube?.cards)
                 }
             } catch where !error.isCancellation {
@@ -554,23 +621,30 @@ final class RankingModel {
 
     // MARK: lists
 
-    /// A job's list: the placed cards, best first, then the rest by name.
-    func list(_ job: RankJob) -> (placed: [RankCard], rest: [RankCard], restTitle: String?)? {
+    /// A job's list: the placed cards, best first, then the cube's new cards waiting to be placed, then the rest by name.
+    /// Only the cube's cards: one that left it is in no list.
+    func list(_ job: RankJob) -> (placed: [RankCard], waiting: [RankCard], waitingTitle: String?, rest: [RankCard], restTitle: String?)? {
         guard let state else { return nil }
         let s = state.session(job)
         let placed = s.top.compactMap(card)
-        let inList = Set(s.top)
-        let rest = state.scope(job).members.filter { !inList.contains($0) }.compactMap(card)
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        let skip = Set(s.top + s.waiting)
+        let byName: (RankCard, RankCard) -> Bool = { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        let waiting = s.waiting.compactMap(card).sorted(by: byName)
+        let rest = state.scope(job).members.filter { !skip.contains($0) }.compactMap(card).sorted(by: byName)
         let title: String? = rest.isEmpty ? nil
-            : s.done ? "Below the top \(s.target), in no particular order · \(rest.count)" : "Not placed yet · \(rest.count)"
-        return (placed, rest, title)
+            : s.top.count >= s.target ? "Below the top \(s.target), in no particular order · \(rest.count)" : "Not placed yet · \(rest.count)"
+        return (placed, waiting, waiting.isEmpty ? nil : "New in the cube, not placed yet · \(waiting.count)", rest, title)
     }
 
-    /// "1. Name" lines, then the rest, for Copy list.
+    /// "1. Name" lines, then the new cards and the rest, for Copy list.
     func listText(_ job: RankJob) -> String {
         guard let l = list(job) else { return "" }
         var lines = l.placed.enumerated().map { "\($0.offset + 1). \($0.element.name)" }
+        if let t = l.waitingTitle {
+            lines.append("")
+            lines.append(t)
+            lines += l.waiting.map(\.name)
+        }
         if let t = l.restTitle, !l.rest.isEmpty {
             lines.append("")
             lines.append(t)
@@ -593,19 +667,30 @@ final class RankingsDemoBackend: @unchecked Sendable {
     private var rows: [String: RankingRow] = [:]
     private var logs: [String: [RankScreen]] = [:]
     private var changeLogs: [String: [RankChange]] = [:]
+    private var baselines: [String: [String]] = [:]
     let cubeId: String
     let cubeName: String
+    /// The cube's cards now (with `changed`: less the two that left it).
     let cards: [String]
     static let mine = "d0000000-0000-0000-0000-0000000aa001"
     /// Mara's cube, shared with you: one that isn't yours to rank.
     static let maraCube = "d0000000-0000-0000-0000-0000000fc001"
     static let maraCubeName = "Mara's Legacy Cube"
 
-    init?(cubeId: String, cubeName: String, cards: [String], categories: [String: RankJob]) {
+    /// `changed`: the cube changed after you started ranking it: one White, one Blue and one Black card joined it (your
+    /// ranking has never seen them), and a White and a Blue card you placed left it. Everyone else's has caught up.
+    init?(cubeId: String, cubeName: String, cards: [String], categories: [String: RankJob], changed: Bool = false) {
         guard cards.count >= 8 else { return nil }
         self.cubeId = cubeId
         self.cubeName = cubeName
-        self.cards = cards
+        func ofColor(_ j: RankJob) -> [String] {
+            cards.filter { categories[$0] == j }.sorted { CubeRanking.fnv1a("new" + $0) < CubeRanking.fnv1a("new" + $1) }
+        }
+        let added = changed ? [RankJob.w, .u, .b].compactMap { ofColor($0).first } : []
+        let left = changed ? [RankJob.w, .u].compactMap { ofColor($0).dropFirst().first } : []
+        self.cards = cards.filter { !left.contains($0) }
+        let before = categories.filter { !added.contains($0.key) }
+        let now = self.cards.sorted()
         let me = Person(userId: FriendsDemoBackend.me, displayName: "You")
         let mara = Person(userId: FriendsDemoBackend.mara, displayName: "Mara Quinn")
         let theo = Person(userId: FriendsDemoBackend.theo, displayName: "Theo Vance")
@@ -616,7 +701,7 @@ final class RankingsDemoBackend: @unchecked Sendable {
         }
         func run(_ id: String, _ who: Person, _ name: String, _ depth: String, _ top: Int, mine: Bool, finalScreens: Int?,
                  taste t: [String: Int], cube listId: String? = nil, stopAfter: RankJob? = nil) {
-            var st = RankingState(rankingId: id, cards: categories, log: [], depth: depth, top: top)
+            var st = RankingState(rankingId: id, cards: mine ? before : categories, log: [], depth: depth, top: top)
             var log: [RankScreen] = []
             var changes: [RankChange] = []
             let jobs = st.jobs + [.final]
@@ -650,6 +735,7 @@ final class RankingsDemoBackend: @unchecked Sendable {
             }
             logs[id] = log
             changeLogs[id] = changes
+            baselines[id] = mine ? before.keys.sorted() : now
         }
         let base = taste("base")
         func mixed(_ salt: String) -> [String: Int] {
@@ -699,7 +785,13 @@ final class RankingsDemoBackend: @unchecked Sendable {
 
     func get(_ id: String) throws -> RankingDetail {
         guard let r = rows[id] else { throw DemoError("That's private") }
-        return RankingDetail(row: r, log: logs[id] ?? [], changes: changeLogs[id] ?? [], cube: cube(r.listId, withCards: true))
+        return RankingDetail(row: r, log: logs[id] ?? [], changes: changeLogs[id] ?? [], cube: cube(r.listId, withCards: true),
+                             baseline: baselines[id] ?? cards.sorted())
+    }
+
+    func catchUp(_ id: String) -> [String] {
+        baselines[id] = cards.sorted()
+        return cards.sorted()
     }
 
     func create(id: String, listId: String, name: String, depth: String, top: Int, sharing: String) -> RankingRow {
@@ -708,6 +800,7 @@ final class RankingsDemoBackend: @unchecked Sendable {
                            mine: true, by: Person(userId: FriendsDemoBackend.me, displayName: "You"))
         rows[id] = r
         logs[id] = []
+        baselines[id] = cards.sorted()
         return r
     }
 

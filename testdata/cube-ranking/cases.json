@@ -994,6 +994,7 @@
      ],
      "done": true,
      "target": 4,
+     "waiting": [],
      "size": 7,
      "screens": 5,
      "question": null,
@@ -1008,6 +1009,7 @@
      ],
      "done": true,
      "target": 4,
+     "waiting": [],
      "size": 8,
      "screens": 4,
      "question": null,
@@ -1021,6 +1023,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 6,
      "screens": 4,
      "question": null,
@@ -1034,6 +1037,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 5,
      "screens": 2,
      "question": null,
@@ -1046,6 +1050,7 @@
      ],
      "done": true,
      "target": 2,
+     "waiting": [],
      "size": 4,
      "screens": 1,
      "question": null,
@@ -1059,6 +1064,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 6,
      "screens": 4,
      "question": null,
@@ -1071,6 +1077,7 @@
      ],
      "done": true,
      "target": 2,
+     "waiting": [],
      "size": 3,
      "screens": 1,
      "question": null,
@@ -1086,6 +1093,7 @@
      ],
      "done": true,
      "target": 5,
+     "waiting": [],
      "size": 9,
      "screens": 6,
      "question": null,
@@ -1116,6 +1124,7 @@
      ],
      "done": true,
      "target": 20,
+     "waiting": [],
      "size": 48,
      "screens": 25,
      "question": null,
@@ -2179,6 +2188,7 @@
      ],
      "done": true,
      "target": 7,
+     "waiting": [],
      "size": 7,
      "screens": 5,
      "question": null,
@@ -2197,6 +2207,7 @@
      ],
      "done": true,
      "target": 8,
+     "waiting": [],
      "size": 8,
      "screens": 7,
      "question": null,
@@ -2213,6 +2224,7 @@
      ],
      "done": true,
      "target": 6,
+     "waiting": [],
      "size": 6,
      "screens": 3,
      "question": null,
@@ -2228,6 +2240,7 @@
      ],
      "done": true,
      "target": 5,
+     "waiting": [],
      "size": 5,
      "screens": 2,
      "question": null,
@@ -2242,6 +2255,7 @@
      ],
      "done": true,
      "target": 4,
+     "waiting": [],
      "size": 4,
      "screens": 2,
      "question": null,
@@ -2258,6 +2272,7 @@
      ],
      "done": true,
      "target": 6,
+     "waiting": [],
      "size": 6,
      "screens": 3,
      "question": null,
@@ -2271,6 +2286,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 3,
      "screens": 1,
      "question": null,
@@ -2290,6 +2306,7 @@
      ],
      "done": true,
      "target": 9,
+     "waiting": [],
      "size": 9,
      "screens": 5,
      "question": null,
@@ -2320,6 +2337,7 @@
      ],
      "done": true,
      "target": 20,
+     "waiting": [],
      "size": 48,
      "screens": 31,
      "question": null,
@@ -3394,6 +3412,7 @@
      ],
      "done": true,
      "target": 4,
+     "waiting": [],
      "size": 7,
      "screens": 3,
      "question": null,
@@ -3408,6 +3427,7 @@
      ],
      "done": true,
      "target": 4,
+     "waiting": [],
      "size": 8,
      "screens": 4,
      "question": null,
@@ -3421,6 +3441,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 6,
      "screens": 3,
      "question": null,
@@ -3434,6 +3455,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 5,
      "screens": 2,
      "question": null,
@@ -3446,6 +3468,7 @@
      ],
      "done": true,
      "target": 2,
+     "waiting": [],
      "size": 4,
      "screens": 1,
      "question": null,
@@ -3459,6 +3482,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 6,
      "screens": 3,
      "question": null,
@@ -3471,6 +3495,7 @@
      ],
      "done": true,
      "target": 2,
+     "waiting": [],
      "size": 3,
      "screens": 1,
      "question": null,
@@ -3486,6 +3511,7 @@
      ],
      "done": true,
      "target": 5,
+     "waiting": [],
      "size": 9,
      "screens": 5,
      "question": null,
@@ -3516,6 +3542,7 @@
      ],
      "done": true,
      "target": 20,
+     "waiting": [],
      "size": 48,
      "screens": 22,
      "question": null,
@@ -3658,6 +3685,7 @@
     ],
     "done": true,
     "target": 4,
+    "waiting": [],
     "size": 7,
     "screens": 3,
     "question": null,
@@ -3672,6 +3700,7 @@
     ],
     "done": true,
     "target": 4,
+    "waiting": [],
     "size": 8,
     "screens": 4,
     "question": null,
@@ -3685,6 +3714,7 @@
     ],
     "done": true,
     "target": 3,
+    "waiting": [],
     "size": 6,
     "screens": 3,
     "question": null,
@@ -3698,6 +3728,7 @@
     ],
     "done": true,
     "target": 3,
+    "waiting": [],
     "size": 5,
     "screens": 2,
     "question": null,
@@ -3710,6 +3741,7 @@
     ],
     "done": true,
     "target": 2,
+    "waiting": [],
     "size": 4,
     "screens": 1,
     "question": null,
@@ -3723,6 +3755,7 @@
     ],
     "done": true,
     "target": 3,
+    "waiting": [],
     "size": 6,
     "screens": 3,
     "question": null,
@@ -3735,6 +3768,7 @@
     ],
     "done": true,
     "target": 2,
+    "waiting": [],
     "size": 3,
     "screens": 1,
     "question": null,
@@ -3750,6 +3784,7 @@
     ],
     "done": true,
     "target": 5,
+    "waiting": [],
     "size": 9,
     "screens": 3,
     "question": null,
@@ -3764,6 +3799,7 @@
     ],
     "done": false,
     "target": 20,
+    "waiting": [],
     "size": 48,
     "screens": 18,
     "question": [
@@ -4963,6 +4999,7 @@
      ],
      "done": true,
      "target": 4,
+     "waiting": [],
      "size": 7,
      "screens": 4,
      "question": null,
@@ -4977,6 +5014,7 @@
      ],
      "done": true,
      "target": 4,
+     "waiting": [],
      "size": 8,
      "screens": 4,
      "question": null,
@@ -4990,6 +5028,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 6,
      "screens": 4,
      "question": null,
@@ -5003,6 +5042,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 5,
      "screens": 2,
      "question": null,
@@ -5015,6 +5055,7 @@
      ],
      "done": true,
      "target": 2,
+     "waiting": [],
      "size": 4,
      "screens": 1,
      "question": null,
@@ -5028,6 +5069,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 6,
      "screens": 4,
      "question": null,
@@ -5040,6 +5082,7 @@
      ],
      "done": true,
      "target": 2,
+     "waiting": [],
      "size": 3,
      "screens": 1,
      "question": null,
@@ -5055,6 +5098,7 @@
      ],
      "done": true,
      "target": 5,
+     "waiting": [],
      "size": 9,
      "screens": 6,
      "question": null,
@@ -5085,6 +5129,7 @@
      ],
      "done": true,
      "target": 20,
+     "waiting": [],
      "size": 48,
      "screens": 25,
      "question": null,
@@ -5125,6 +5170,7 @@
      ],
      "done": false,
      "target": 4,
+     "waiting": [],
      "size": 7,
      "screens": 4,
      "question": [
@@ -5146,6 +5192,7 @@
      ],
      "done": true,
      "target": 4,
+     "waiting": [],
      "size": 8,
      "screens": 4,
      "question": null,
@@ -5159,6 +5206,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 6,
      "screens": 4,
      "question": null,
@@ -5172,6 +5220,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 5,
      "screens": 2,
      "question": null,
@@ -5184,6 +5233,7 @@
      ],
      "done": true,
      "target": 2,
+     "waiting": [],
      "size": 4,
      "screens": 1,
      "question": null,
@@ -5197,6 +5247,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 6,
      "screens": 4,
      "question": null,
@@ -5209,6 +5260,7 @@
      ],
      "done": true,
      "target": 2,
+     "waiting": [],
      "size": 3,
      "screens": 1,
      "question": null,
@@ -5224,6 +5276,7 @@
      ],
      "done": true,
      "target": 5,
+     "waiting": [],
      "size": 9,
      "screens": 6,
      "question": null,
@@ -5253,6 +5306,7 @@
      ],
      "done": false,
      "target": 20,
+     "waiting": [],
      "size": 48,
      "screens": 25,
      "question": [
@@ -5286,6 +5340,7 @@
      ],
      "done": true,
      "target": 4,
+     "waiting": [],
      "size": 7,
      "screens": 5,
      "question": null,
@@ -5300,6 +5355,7 @@
      ],
      "done": true,
      "target": 4,
+     "waiting": [],
      "size": 8,
      "screens": 4,
      "question": null,
@@ -5313,6 +5369,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 6,
      "screens": 4,
      "question": null,
@@ -5326,6 +5383,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 5,
      "screens": 2,
      "question": null,
@@ -5338,6 +5396,7 @@
      ],
      "done": true,
      "target": 2,
+     "waiting": [],
      "size": 4,
      "screens": 1,
      "question": null,
@@ -5351,6 +5410,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 6,
      "screens": 4,
      "question": null,
@@ -5363,6 +5423,7 @@
      ],
      "done": true,
      "target": 2,
+     "waiting": [],
      "size": 3,
      "screens": 1,
      "question": null,
@@ -5377,6 +5438,7 @@
      ],
      "done": false,
      "target": 5,
+     "waiting": [],
      "size": 9,
      "screens": 5,
      "question": [
@@ -5411,6 +5473,7 @@
      ],
      "done": true,
      "target": 20,
+     "waiting": [],
      "size": 48,
      "screens": 25,
      "question": null,
@@ -5441,6 +5504,7 @@
      ],
      "done": true,
      "target": 4,
+     "waiting": [],
      "size": 7,
      "screens": 5,
      "question": null,
@@ -5455,6 +5519,7 @@
      ],
      "done": true,
      "target": 4,
+     "waiting": [],
      "size": 8,
      "screens": 4,
      "question": null,
@@ -5468,6 +5533,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 6,
      "screens": 4,
      "question": null,
@@ -5481,6 +5547,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 5,
      "screens": 2,
      "question": null,
@@ -5493,6 +5560,7 @@
      ],
      "done": true,
      "target": 2,
+     "waiting": [],
      "size": 4,
      "screens": 1,
      "question": null,
@@ -5506,6 +5574,7 @@
      ],
      "done": true,
      "target": 3,
+     "waiting": [],
      "size": 6,
      "screens": 4,
      "question": null,
@@ -5518,6 +5587,7 @@
      ],
      "done": true,
      "target": 2,
+     "waiting": [],
      "size": 3,
      "screens": 1,
      "question": null,
@@ -5533,6 +5603,7 @@
      ],
      "done": true,
      "target": 5,
+     "waiting": [],
      "size": 9,
      "screens": 6,
      "question": null,
@@ -5562,6 +5633,7 @@
      ],
      "done": false,
      "target": 20,
+     "waiting": [],
      "size": 48,
      "screens": 24,
      "question": [
@@ -5618,8 +5690,20 @@
     "c3f1c82a-45dd-41b2-8001-17ad8a0c0ce8"
    ],
    [
+    "c1f1c504-43dd-4e8c-8003-176fa9aaa548",
+    "ffffffff-ffff-4fff-8fff-ffffffffffff"
+   ],
+   [
+    "c2f1c697-44dd-401f-8002-178e99db5918",
+    "ffffffff-ffff-4fff-8fff-ffffffffffff"
+   ],
+   [
     "c3f1c82a-45dd-41b2-8001-17ad8a0c0ce8",
     "c2f1c697-44dd-401f-8002-178e99db5918"
+   ],
+   [
+    "c3f1c82a-45dd-41b2-8001-17ad8a0c0ce8",
+    "ffffffff-ffff-4fff-8fff-ffffffffffff"
    ],
    [
     "c4f1c9bd-46dd-4345-8000-17cc7a3cc0b8",
@@ -5628,6 +5712,869 @@
    [
     "c4f1c9bd-46dd-4345-8000-17cc7a3cc0b8",
     "c3f1c82a-45dd-41b2-8001-17ad8a0c0ce8"
+   ],
+   [
+    "c4f1c9bd-46dd-4345-8000-17cc7a3cc0b8",
+    "ffffffff-ffff-4fff-8fff-ffffffffffff"
+   ]
+  ]
+ },
+ "cubeChange": {
+  "id": "a1b2c3d4-0000-4000-8000-00000000000b",
+  "depth": "full",
+  "top": 20,
+  "removed": [
+   "bff1c1de-41dd-4b66-8005-1731c9493da8",
+   "c4f1c9bd-46dd-4345-8000-17cc7a3cc0b8"
+  ],
+  "added": {
+   "fcd57502-501f-4f9a-8384-1e8d5f1e1878": "W",
+   "fdd57695-511f-412d-8385-1eac4f4ecc48": "L",
+   "fad571dc-4e1f-4c74-8386-1e4f7ebcb0d8": "M"
+  },
+  "new": [
+   "fcd57502-501f-4f9a-8384-1e8d5f1e1878",
+   "fdd57695-511f-412d-8385-1eac4f4ecc48",
+   "fad571dc-4e1f-4c74-8386-1e4f7ebcb0d8"
+  ],
+  "before": {
+   "W": {
+    "top": [
+     "bef1c04b-40dd-49d3-8006-1712d91889d8",
+     "c0f1c371-42dd-4cf9-8004-1750b979f178",
+     "c3f1c82a-45dd-41b2-8001-17ad8a0c0ce8",
+     "c1f1c504-43dd-4e8c-8003-176fa9aaa548",
+     "c2f1c697-44dd-401f-8002-178e99db5918"
+    ],
+    "done": false,
+    "target": 6,
+    "waiting": [
+     "fcd57502-501f-4f9a-8384-1e8d5f1e1878"
+    ],
+    "size": 6,
+    "screens": 5,
+    "question": [
+     "bef1c04b-40dd-49d3-8006-1712d91889d8",
+     "c3f1c82a-45dd-41b2-8001-17ad8a0c0ce8",
+     "c2f1c697-44dd-401f-8002-178e99db5918",
+     "fcd57502-501f-4f9a-8384-1e8d5f1e1878"
+    ],
+    "pinned": [
+     "bef1c04b-40dd-49d3-8006-1712d91889d8",
+     "c3f1c82a-45dd-41b2-8001-17ad8a0c0ce8",
+     "c2f1c697-44dd-401f-8002-178e99db5918"
+    ]
+   },
+   "U": {
+    "top": [
+     "8d9dfdc8-7b4e-4c80-800c-111d358b7a38",
+     "909e0281-7e4e-4139-800b-117a061d95a8",
+     "8e9dff5b-7c4e-4e13-800d-113c25bc2e08",
+     "bbf1bb92-4ddd-4e4a-8009-16b618868798",
+     "bcf1bd25-4edd-4fdd-8008-16d508b73b68",
+     "8f9e00ee-7d4e-4fa6-800a-115b15ece1d8",
+     "bdf1beb8-3fdd-4840-8007-16f3e8e7d608",
+     "939e073a-814e-45f2-800e-11d6d6afb118"
+    ],
+    "done": true,
+    "target": 8,
+    "waiting": [],
+    "size": 8,
+    "screens": 7,
+    "question": null,
+    "pinned": null
+   },
+   "B": {
+    "top": [
+     "889df5e9-864e-4dd1-8013-108294981058",
+     "919e0414-7f4e-42cc-8010-1198f64e4978",
+     "879df456-854e-4c3e-8012-1063a4675c88",
+     "949e08cd-824e-4785-800f-11f5c6e064e8",
+     "929e05a7-804e-445f-8011-11b7e67efd48",
+     "899bb8e5-974c-49fd-8014-10a14f587dc8"
+    ],
+    "done": true,
+    "target": 6,
+    "waiting": [],
+    "size": 6,
+    "screens": 3,
+    "question": null,
+    "pinned": null
+   },
+   "R": {
+    "top": [
+     "849bb106-924c-421e-8019-10069e64fab8",
+     "869bb42c-944c-4544-8017-10447ec66258",
+     "859bb299-934c-43b1-8018-10258e95ae88",
+     "889bb752-964c-486a-8015-10825f27c9f8",
+     "879bb5bf-954c-46d7-8016-10636ef71628"
+    ],
+    "done": true,
+    "target": 5,
+    "waiting": [],
+    "size": 5,
+    "screens": 2,
+    "question": null,
+    "pinned": null
+   },
+   "G": {
+    "top": [
+     "839baf73-914c-408b-801a-0fe7ae3446e8",
+     "829bade0-904b-4ef8-801b-0fc8be039318",
+     "909bc3ea-8e4b-4bd2-801d-1179d0ad4f48",
+     "919bc57d-8f4b-4d65-801c-1198c0de0318"
+    ],
+    "done": true,
+    "target": 4,
+    "waiting": [],
+    "size": 4,
+    "screens": 2,
+    "question": null,
+    "pinned": null
+   },
+   "M": {
+    "top": [
+     "8499726f-9249-4387-801f-100658f49b28",
+     "7f996a90-8d49-4ba8-8022-0f6ba8011818",
+     "80996c23-8e49-4d3b-8023-0f8a9831cbe8",
+     "839970dc-9149-41f4-801e-0fe768c3e758",
+     "85997402-9349-451a-8020-102549254ef8",
+     "86997595-9449-46ad-8021-1044395602c8"
+    ],
+    "done": false,
+    "target": 7,
+    "waiting": [
+     "fad571dc-4e1f-4c74-8386-1e4f7ebcb0d8"
+    ],
+    "size": 7,
+    "screens": 3,
+    "question": [
+     "8499726f-9249-4387-801f-100658f49b28",
+     "839970dc-9149-41f4-801e-0fe768c3e758",
+     "86997595-9449-46ad-8021-1044395602c8",
+     "fad571dc-4e1f-4c74-8386-1e4f7ebcb0d8"
+    ],
+    "pinned": [
+     "8499726f-9249-4387-801f-100658f49b28",
+     "839970dc-9149-41f4-801e-0fe768c3e758",
+     "86997595-9449-46ad-8021-1044395602c8"
+    ]
+   },
+   "C": {
+    "top": [
+     "82996f49-9049-4061-8025-0fc878933388",
+     "81996db6-8f49-4ece-8024-0fa988627fb8",
+     "8b997d74-8949-455c-8026-10deda496ca8"
+    ],
+    "done": true,
+    "target": 3,
+    "waiting": [],
+    "size": 3,
+    "screens": 1,
+    "question": null,
+    "pinned": null
+   },
+   "L": {
+    "top": [
+     "ff966279-0d46-4391-802a-1ee24a36d088",
+     "039668c5-1146-49dd-802e-006f0af99fc8",
+     "fd965f53-0b46-406b-8028-1ea469d568e8",
+     "fc965dc0-0a46-4ed8-8029-1e8579a4b518",
+     "8c997f07-8a49-46ef-8027-10fdca7a2078",
+     "fe9660e6-0c46-41fe-802b-1ec35a061cb8",
+     "02966732-1046-484a-802f-00501ac8ebf8",
+     "0096640c-0e46-4524-802d-00123a678458",
+     "0196659f-0f46-46b7-802c-00312a983828"
+    ],
+    "done": false,
+    "target": 10,
+    "waiting": [
+     "fdd57695-511f-412d-8385-1eac4f4ecc48"
+    ],
+    "size": 10,
+    "screens": 5,
+    "question": [
+     "ff966279-0d46-4391-802a-1ee24a36d088",
+     "8c997f07-8a49-46ef-8027-10fdca7a2078",
+     "0196659f-0f46-46b7-802c-00312a983828",
+     "fdd57695-511f-412d-8385-1eac4f4ecc48"
+    ],
+    "pinned": [
+     "ff966279-0d46-4391-802a-1ee24a36d088",
+     "8c997f07-8a49-46ef-8027-10fdca7a2078",
+     "0196659f-0f46-46b7-802c-00312a983828"
+    ]
+   },
+   "F": {
+    "top": [
+     "8499726f-9249-4387-801f-100658f49b28",
+     "7f996a90-8d49-4ba8-8022-0f6ba8011818",
+     "889df5e9-864e-4dd1-8013-108294981058",
+     "839baf73-914c-408b-801a-0fe7ae3446e8",
+     "ff966279-0d46-4391-802a-1ee24a36d088",
+     "8d9dfdc8-7b4e-4c80-800c-111d358b7a38",
+     "849bb106-924c-421e-8019-10069e64fab8",
+     "bef1c04b-40dd-49d3-8006-1712d91889d8",
+     "909e0281-7e4e-4139-800b-117a061d95a8",
+     "919e0414-7f4e-42cc-8010-1198f64e4978",
+     "039668c5-1146-49dd-802e-006f0af99fc8",
+     "829bade0-904b-4ef8-801b-0fc8be039318",
+     "879df456-854e-4c3e-8012-1063a4675c88",
+     "8e9dff5b-7c4e-4e13-800d-113c25bc2e08",
+     "80996c23-8e49-4d3b-8023-0f8a9831cbe8",
+     "bbf1bb92-4ddd-4e4a-8009-16b618868798",
+     "839970dc-9149-41f4-801e-0fe768c3e758",
+     "fd965f53-0b46-406b-8028-1ea469d568e8",
+     "bcf1bd25-4edd-4fdd-8008-16d508b73b68"
+    ],
+    "done": false,
+    "target": 20,
+    "waiting": [
+     "fad571dc-4e1f-4c74-8386-1e4f7ebcb0d8",
+     "fcd57502-501f-4f9a-8384-1e8d5f1e1878",
+     "fdd57695-511f-412d-8385-1eac4f4ecc48"
+    ],
+    "size": 49,
+    "screens": 31,
+    "question": [
+     "fad571dc-4e1f-4c74-8386-1e4f7ebcb0d8",
+     "fdd57695-511f-412d-8385-1eac4f4ecc48",
+     "fcd57502-501f-4f9a-8384-1e8d5f1e1878",
+     "8499726f-9249-4387-801f-100658f49b28"
+    ],
+    "pinned": []
+   }
+  },
+  "steps": [
+   {
+    "s": "W",
+    "at": 59,
+    "question": [
+     "bef1c04b-40dd-49d3-8006-1712d91889d8",
+     "c3f1c82a-45dd-41b2-8001-17ad8a0c0ce8",
+     "c2f1c697-44dd-401f-8002-178e99db5918",
+     "fcd57502-501f-4f9a-8384-1e8d5f1e1878"
+    ],
+    "pinned": [
+     "bef1c04b-40dd-49d3-8006-1712d91889d8",
+     "c3f1c82a-45dd-41b2-8001-17ad8a0c0ce8",
+     "c2f1c697-44dd-401f-8002-178e99db5918"
+    ],
+    "answer": [
+     "fcd57502-501f-4f9a-8384-1e8d5f1e1878",
+     "bef1c04b-40dd-49d3-8006-1712d91889d8",
+     "c3f1c82a-45dd-41b2-8001-17ad8a0c0ce8",
+     "c2f1c697-44dd-401f-8002-178e99db5918"
+    ],
+    "waiting": [
+     "fcd57502-501f-4f9a-8384-1e8d5f1e1878"
+    ],
+    "top": [
+     "bef1c04b-40dd-49d3-8006-1712d91889d8",
+     "c0f1c371-42dd-4cf9-8004-1750b979f178",
+     "c3f1c82a-45dd-41b2-8001-17ad8a0c0ce8",
+     "c1f1c504-43dd-4e8c-8003-176fa9aaa548",
+     "c2f1c697-44dd-401f-8002-178e99db5918"
+    ]
+   },
+   {
+    "s": "M",
+    "at": 60,
+    "question": [
+     "8499726f-9249-4387-801f-100658f49b28",
+     "839970dc-9149-41f4-801e-0fe768c3e758",
+     "86997595-9449-46ad-8021-1044395602c8",
+     "fad571dc-4e1f-4c74-8386-1e4f7ebcb0d8"
+    ],
+    "pinned": [
+     "8499726f-9249-4387-801f-100658f49b28",
+     "839970dc-9149-41f4-801e-0fe768c3e758",
+     "86997595-9449-46ad-8021-1044395602c8"
+    ],
+    "answer": [
+     "8499726f-9249-4387-801f-100658f49b28",
+     "839970dc-9149-41f4-801e-0fe768c3e758",
+     "86997595-9449-46ad-8021-1044395602c8",
+     "fad571dc-4e1f-4c74-8386-1e4f7ebcb0d8"
+    ],
+    "waiting": [
+     "fad571dc-4e1f-4c74-8386-1e4f7ebcb0d8"
+    ],
+    "top": [
+     "8499726f-9249-4387-801f-100658f49b28",
+     "7f996a90-8d49-4ba8-8022-0f6ba8011818",
+     "80996c23-8e49-4d3b-8023-0f8a9831cbe8",
+     "839970dc-9149-41f4-801e-0fe768c3e758",
+     "85997402-9349-451a-8020-102549254ef8",
+     "86997595-9449-46ad-8021-1044395602c8"
+    ]
+   },
+   {
+    "s": "L",
+    "at": 61,
+    "question": [
+     "ff966279-0d46-4391-802a-1ee24a36d088",
+     "8c997f07-8a49-46ef-8027-10fdca7a2078",
+     "0196659f-0f46-46b7-802c-00312a983828",
+     "fdd57695-511f-412d-8385-1eac4f4ecc48"
+    ],
+    "pinned": [
+     "ff966279-0d46-4391-802a-1ee24a36d088",
+     "8c997f07-8a49-46ef-8027-10fdca7a2078",
+     "0196659f-0f46-46b7-802c-00312a983828"
+    ],
+    "answer": [
+     "ff966279-0d46-4391-802a-1ee24a36d088",
+     "fdd57695-511f-412d-8385-1eac4f4ecc48",
+     "8c997f07-8a49-46ef-8027-10fdca7a2078",
+     "0196659f-0f46-46b7-802c-00312a983828"
+    ],
+    "waiting": [
+     "fdd57695-511f-412d-8385-1eac4f4ecc48"
+    ],
+    "top": [
+     "ff966279-0d46-4391-802a-1ee24a36d088",
+     "039668c5-1146-49dd-802e-006f0af99fc8",
+     "fd965f53-0b46-406b-8028-1ea469d568e8",
+     "fc965dc0-0a46-4ed8-8029-1e8579a4b518",
+     "8c997f07-8a49-46ef-8027-10fdca7a2078",
+     "fe9660e6-0c46-41fe-802b-1ec35a061cb8",
+     "02966732-1046-484a-802f-00501ac8ebf8",
+     "0096640c-0e46-4524-802d-00123a678458",
+     "0196659f-0f46-46b7-802c-00312a983828"
+    ]
+   },
+   {
+    "s": "L",
+    "at": 62,
+    "question": [
+     "039668c5-1146-49dd-802e-006f0af99fc8",
+     "fd965f53-0b46-406b-8028-1ea469d568e8",
+     "fc965dc0-0a46-4ed8-8029-1e8579a4b518",
+     "fdd57695-511f-412d-8385-1eac4f4ecc48"
+    ],
+    "pinned": [
+     "039668c5-1146-49dd-802e-006f0af99fc8",
+     "fd965f53-0b46-406b-8028-1ea469d568e8",
+     "fc965dc0-0a46-4ed8-8029-1e8579a4b518"
+    ],
+    "answer": [
+     "039668c5-1146-49dd-802e-006f0af99fc8",
+     "fd965f53-0b46-406b-8028-1ea469d568e8",
+     "fdd57695-511f-412d-8385-1eac4f4ecc48",
+     "fc965dc0-0a46-4ed8-8029-1e8579a4b518"
+    ],
+    "waiting": [
+     "fdd57695-511f-412d-8385-1eac4f4ecc48"
+    ],
+    "top": [
+     "ff966279-0d46-4391-802a-1ee24a36d088",
+     "039668c5-1146-49dd-802e-006f0af99fc8",
+     "fd965f53-0b46-406b-8028-1ea469d568e8",
+     "fc965dc0-0a46-4ed8-8029-1e8579a4b518",
+     "8c997f07-8a49-46ef-8027-10fdca7a2078",
+     "fe9660e6-0c46-41fe-802b-1ec35a061cb8",
+     "02966732-1046-484a-802f-00501ac8ebf8",
+     "0096640c-0e46-4524-802d-00123a678458",
+     "0196659f-0f46-46b7-802c-00312a983828"
+    ]
+   },
+   {
+    "s": "F",
+    "at": 63,
+    "question": [
+     "8499726f-9249-4387-801f-100658f49b28",
+     "839baf73-914c-408b-801a-0fe7ae3446e8",
+     "849bb106-924c-421e-8019-10069e64fab8",
+     "fcd57502-501f-4f9a-8384-1e8d5f1e1878"
+    ],
+    "pinned": [
+     "8499726f-9249-4387-801f-100658f49b28",
+     "839baf73-914c-408b-801a-0fe7ae3446e8",
+     "849bb106-924c-421e-8019-10069e64fab8"
+    ],
+    "answer": [
+     "8499726f-9249-4387-801f-100658f49b28",
+     "fcd57502-501f-4f9a-8384-1e8d5f1e1878",
+     "839baf73-914c-408b-801a-0fe7ae3446e8",
+     "849bb106-924c-421e-8019-10069e64fab8"
+    ],
+    "waiting": [
+     "fcd57502-501f-4f9a-8384-1e8d5f1e1878",
+     "fdd57695-511f-412d-8385-1eac4f4ecc48"
+    ],
+    "top": [
+     "8499726f-9249-4387-801f-100658f49b28",
+     "7f996a90-8d49-4ba8-8022-0f6ba8011818",
+     "889df5e9-864e-4dd1-8013-108294981058",
+     "839baf73-914c-408b-801a-0fe7ae3446e8",
+     "ff966279-0d46-4391-802a-1ee24a36d088",
+     "8d9dfdc8-7b4e-4c80-800c-111d358b7a38",
+     "849bb106-924c-421e-8019-10069e64fab8",
+     "bef1c04b-40dd-49d3-8006-1712d91889d8",
+     "909e0281-7e4e-4139-800b-117a061d95a8",
+     "919e0414-7f4e-42cc-8010-1198f64e4978",
+     "039668c5-1146-49dd-802e-006f0af99fc8",
+     "829bade0-904b-4ef8-801b-0fc8be039318",
+     "879df456-854e-4c3e-8012-1063a4675c88",
+     "8e9dff5b-7c4e-4e13-800d-113c25bc2e08",
+     "80996c23-8e49-4d3b-8023-0f8a9831cbe8",
+     "bbf1bb92-4ddd-4e4a-8009-16b618868798",
+     "839970dc-9149-41f4-801e-0fe768c3e758",
+     "fd965f53-0b46-406b-8028-1ea469d568e8",
+     "bcf1bd25-4edd-4fdd-8008-16d508b73b68"
+    ]
+   },
+   {
+    "s": "F",
+    "at": 64,
+    "question": [
+     "7f996a90-8d49-4ba8-8022-0f6ba8011818",
+     "889df5e9-864e-4dd1-8013-108294981058",
+     "fcd57502-501f-4f9a-8384-1e8d5f1e1878"
+    ],
+    "pinned": [
+     "7f996a90-8d49-4ba8-8022-0f6ba8011818",
+     "889df5e9-864e-4dd1-8013-108294981058"
+    ],
+    "answer": [
+     "fcd57502-501f-4f9a-8384-1e8d5f1e1878",
+     "7f996a90-8d49-4ba8-8022-0f6ba8011818",
+     "889df5e9-864e-4dd1-8013-108294981058"
+    ],
+    "waiting": [
+     "fcd57502-501f-4f9a-8384-1e8d5f1e1878",
+     "fdd57695-511f-412d-8385-1eac4f4ecc48"
+    ],
+    "top": [
+     "8499726f-9249-4387-801f-100658f49b28",
+     "7f996a90-8d49-4ba8-8022-0f6ba8011818",
+     "889df5e9-864e-4dd1-8013-108294981058",
+     "839baf73-914c-408b-801a-0fe7ae3446e8",
+     "ff966279-0d46-4391-802a-1ee24a36d088",
+     "8d9dfdc8-7b4e-4c80-800c-111d358b7a38",
+     "849bb106-924c-421e-8019-10069e64fab8",
+     "bef1c04b-40dd-49d3-8006-1712d91889d8",
+     "909e0281-7e4e-4139-800b-117a061d95a8",
+     "919e0414-7f4e-42cc-8010-1198f64e4978",
+     "039668c5-1146-49dd-802e-006f0af99fc8",
+     "829bade0-904b-4ef8-801b-0fc8be039318",
+     "879df456-854e-4c3e-8012-1063a4675c88",
+     "8e9dff5b-7c4e-4e13-800d-113c25bc2e08",
+     "80996c23-8e49-4d3b-8023-0f8a9831cbe8",
+     "bbf1bb92-4ddd-4e4a-8009-16b618868798",
+     "839970dc-9149-41f4-801e-0fe768c3e758",
+     "fd965f53-0b46-406b-8028-1ea469d568e8",
+     "bcf1bd25-4edd-4fdd-8008-16d508b73b68"
+    ]
+   },
+   {
+    "s": "F",
+    "at": 65,
+    "question": [
+     "fdd57695-511f-412d-8385-1eac4f4ecc48",
+     "bcf1bd25-4edd-4fdd-8008-16d508b73b68"
+    ],
+    "pinned": [],
+    "answer": [
+     "bcf1bd25-4edd-4fdd-8008-16d508b73b68",
+     "fdd57695-511f-412d-8385-1eac4f4ecc48"
+    ],
+    "waiting": [
+     "fdd57695-511f-412d-8385-1eac4f4ecc48"
+    ],
+    "top": [
+     "8499726f-9249-4387-801f-100658f49b28",
+     "fcd57502-501f-4f9a-8384-1e8d5f1e1878",
+     "7f996a90-8d49-4ba8-8022-0f6ba8011818",
+     "889df5e9-864e-4dd1-8013-108294981058",
+     "839baf73-914c-408b-801a-0fe7ae3446e8",
+     "ff966279-0d46-4391-802a-1ee24a36d088",
+     "8d9dfdc8-7b4e-4c80-800c-111d358b7a38",
+     "849bb106-924c-421e-8019-10069e64fab8",
+     "bef1c04b-40dd-49d3-8006-1712d91889d8",
+     "909e0281-7e4e-4139-800b-117a061d95a8",
+     "919e0414-7f4e-42cc-8010-1198f64e4978",
+     "039668c5-1146-49dd-802e-006f0af99fc8",
+     "829bade0-904b-4ef8-801b-0fc8be039318",
+     "879df456-854e-4c3e-8012-1063a4675c88",
+     "8e9dff5b-7c4e-4e13-800d-113c25bc2e08",
+     "80996c23-8e49-4d3b-8023-0f8a9831cbe8",
+     "bbf1bb92-4ddd-4e4a-8009-16b618868798",
+     "839970dc-9149-41f4-801e-0fe768c3e758",
+     "fd965f53-0b46-406b-8028-1ea469d568e8",
+     "bcf1bd25-4edd-4fdd-8008-16d508b73b68"
+    ]
+   }
+  ],
+  "after": {
+   "W": {
+    "top": [
+     "fcd57502-501f-4f9a-8384-1e8d5f1e1878",
+     "bef1c04b-40dd-49d3-8006-1712d91889d8",
+     "c0f1c371-42dd-4cf9-8004-1750b979f178",
+     "c3f1c82a-45dd-41b2-8001-17ad8a0c0ce8",
+     "c1f1c504-43dd-4e8c-8003-176fa9aaa548",
+     "c2f1c697-44dd-401f-8002-178e99db5918"
+    ],
+    "done": true,
+    "target": 6,
+    "waiting": [],
+    "size": 6,
+    "screens": 6,
+    "question": null,
+    "pinned": null
+   },
+   "U": {
+    "top": [
+     "8d9dfdc8-7b4e-4c80-800c-111d358b7a38",
+     "909e0281-7e4e-4139-800b-117a061d95a8",
+     "8e9dff5b-7c4e-4e13-800d-113c25bc2e08",
+     "bbf1bb92-4ddd-4e4a-8009-16b618868798",
+     "bcf1bd25-4edd-4fdd-8008-16d508b73b68",
+     "8f9e00ee-7d4e-4fa6-800a-115b15ece1d8",
+     "bdf1beb8-3fdd-4840-8007-16f3e8e7d608",
+     "939e073a-814e-45f2-800e-11d6d6afb118"
+    ],
+    "done": true,
+    "target": 8,
+    "waiting": [],
+    "size": 8,
+    "screens": 7,
+    "question": null,
+    "pinned": null
+   },
+   "B": {
+    "top": [
+     "889df5e9-864e-4dd1-8013-108294981058",
+     "919e0414-7f4e-42cc-8010-1198f64e4978",
+     "879df456-854e-4c3e-8012-1063a4675c88",
+     "949e08cd-824e-4785-800f-11f5c6e064e8",
+     "929e05a7-804e-445f-8011-11b7e67efd48",
+     "899bb8e5-974c-49fd-8014-10a14f587dc8"
+    ],
+    "done": true,
+    "target": 6,
+    "waiting": [],
+    "size": 6,
+    "screens": 3,
+    "question": null,
+    "pinned": null
+   },
+   "R": {
+    "top": [
+     "849bb106-924c-421e-8019-10069e64fab8",
+     "869bb42c-944c-4544-8017-10447ec66258",
+     "859bb299-934c-43b1-8018-10258e95ae88",
+     "889bb752-964c-486a-8015-10825f27c9f8",
+     "879bb5bf-954c-46d7-8016-10636ef71628"
+    ],
+    "done": true,
+    "target": 5,
+    "waiting": [],
+    "size": 5,
+    "screens": 2,
+    "question": null,
+    "pinned": null
+   },
+   "G": {
+    "top": [
+     "839baf73-914c-408b-801a-0fe7ae3446e8",
+     "829bade0-904b-4ef8-801b-0fc8be039318",
+     "909bc3ea-8e4b-4bd2-801d-1179d0ad4f48",
+     "919bc57d-8f4b-4d65-801c-1198c0de0318"
+    ],
+    "done": true,
+    "target": 4,
+    "waiting": [],
+    "size": 4,
+    "screens": 2,
+    "question": null,
+    "pinned": null
+   },
+   "M": {
+    "top": [
+     "8499726f-9249-4387-801f-100658f49b28",
+     "7f996a90-8d49-4ba8-8022-0f6ba8011818",
+     "80996c23-8e49-4d3b-8023-0f8a9831cbe8",
+     "839970dc-9149-41f4-801e-0fe768c3e758",
+     "85997402-9349-451a-8020-102549254ef8",
+     "86997595-9449-46ad-8021-1044395602c8",
+     "fad571dc-4e1f-4c74-8386-1e4f7ebcb0d8"
+    ],
+    "done": true,
+    "target": 7,
+    "waiting": [],
+    "size": 7,
+    "screens": 4,
+    "question": null,
+    "pinned": null
+   },
+   "C": {
+    "top": [
+     "82996f49-9049-4061-8025-0fc878933388",
+     "81996db6-8f49-4ece-8024-0fa988627fb8",
+     "8b997d74-8949-455c-8026-10deda496ca8"
+    ],
+    "done": true,
+    "target": 3,
+    "waiting": [],
+    "size": 3,
+    "screens": 1,
+    "question": null,
+    "pinned": null
+   },
+   "L": {
+    "top": [
+     "ff966279-0d46-4391-802a-1ee24a36d088",
+     "039668c5-1146-49dd-802e-006f0af99fc8",
+     "fd965f53-0b46-406b-8028-1ea469d568e8",
+     "fdd57695-511f-412d-8385-1eac4f4ecc48",
+     "fc965dc0-0a46-4ed8-8029-1e8579a4b518",
+     "8c997f07-8a49-46ef-8027-10fdca7a2078",
+     "fe9660e6-0c46-41fe-802b-1ec35a061cb8",
+     "02966732-1046-484a-802f-00501ac8ebf8",
+     "0096640c-0e46-4524-802d-00123a678458",
+     "0196659f-0f46-46b7-802c-00312a983828"
+    ],
+    "done": true,
+    "target": 10,
+    "waiting": [],
+    "size": 10,
+    "screens": 7,
+    "question": null,
+    "pinned": null
+   },
+   "F": {
+    "top": [
+     "8499726f-9249-4387-801f-100658f49b28",
+     "fcd57502-501f-4f9a-8384-1e8d5f1e1878",
+     "7f996a90-8d49-4ba8-8022-0f6ba8011818",
+     "889df5e9-864e-4dd1-8013-108294981058",
+     "839baf73-914c-408b-801a-0fe7ae3446e8",
+     "ff966279-0d46-4391-802a-1ee24a36d088",
+     "8d9dfdc8-7b4e-4c80-800c-111d358b7a38",
+     "849bb106-924c-421e-8019-10069e64fab8",
+     "bef1c04b-40dd-49d3-8006-1712d91889d8",
+     "909e0281-7e4e-4139-800b-117a061d95a8",
+     "919e0414-7f4e-42cc-8010-1198f64e4978",
+     "039668c5-1146-49dd-802e-006f0af99fc8",
+     "829bade0-904b-4ef8-801b-0fc8be039318",
+     "879df456-854e-4c3e-8012-1063a4675c88",
+     "8e9dff5b-7c4e-4e13-800d-113c25bc2e08",
+     "80996c23-8e49-4d3b-8023-0f8a9831cbe8",
+     "bbf1bb92-4ddd-4e4a-8009-16b618868798",
+     "839970dc-9149-41f4-801e-0fe768c3e758",
+     "fd965f53-0b46-406b-8028-1ea469d568e8",
+     "bcf1bd25-4edd-4fdd-8008-16d508b73b68"
+    ],
+    "done": true,
+    "target": 20,
+    "waiting": [],
+    "size": 49,
+    "screens": 34,
+    "question": null,
+    "pinned": null
+   }
+  },
+  "changes": [
+   [
+    "W",
+    "bef1c04b-40dd-49d3-8006-1712d91889d8",
+    1,
+    2
+   ],
+   [
+    "W",
+    "fcd57502-501f-4f9a-8384-1e8d5f1e1878",
+    null,
+    1
+   ],
+   [
+    "W",
+    "c0f1c371-42dd-4cf9-8004-1750b979f178",
+    2,
+    3
+   ],
+   [
+    "W",
+    "c3f1c82a-45dd-41b2-8001-17ad8a0c0ce8",
+    3,
+    4
+   ],
+   [
+    "W",
+    "c1f1c504-43dd-4e8c-8003-176fa9aaa548",
+    4,
+    5
+   ],
+   [
+    "W",
+    "c2f1c697-44dd-401f-8002-178e99db5918",
+    5,
+    6
+   ],
+   [
+    "M",
+    "fad571dc-4e1f-4c74-8386-1e4f7ebcb0d8",
+    null,
+    7
+   ],
+   [
+    "L",
+    "fc965dc0-0a46-4ed8-8029-1e8579a4b518",
+    4,
+    5
+   ],
+   [
+    "L",
+    "fdd57695-511f-412d-8385-1eac4f4ecc48",
+    null,
+    4
+   ],
+   [
+    "L",
+    "8c997f07-8a49-46ef-8027-10fdca7a2078",
+    5,
+    6
+   ],
+   [
+    "L",
+    "fe9660e6-0c46-41fe-802b-1ec35a061cb8",
+    6,
+    7
+   ],
+   [
+    "L",
+    "02966732-1046-484a-802f-00501ac8ebf8",
+    7,
+    8
+   ],
+   [
+    "L",
+    "0096640c-0e46-4524-802d-00123a678458",
+    8,
+    9
+   ],
+   [
+    "L",
+    "0196659f-0f46-46b7-802c-00312a983828",
+    9,
+    10
+   ],
+   [
+    "F",
+    "7f996a90-8d49-4ba8-8022-0f6ba8011818",
+    2,
+    3
+   ],
+   [
+    "F",
+    "fcd57502-501f-4f9a-8384-1e8d5f1e1878",
+    null,
+    2
+   ],
+   [
+    "F",
+    "889df5e9-864e-4dd1-8013-108294981058",
+    3,
+    4
+   ],
+   [
+    "F",
+    "839baf73-914c-408b-801a-0fe7ae3446e8",
+    4,
+    5
+   ],
+   [
+    "F",
+    "ff966279-0d46-4391-802a-1ee24a36d088",
+    5,
+    6
+   ],
+   [
+    "F",
+    "8d9dfdc8-7b4e-4c80-800c-111d358b7a38",
+    6,
+    7
+   ],
+   [
+    "F",
+    "849bb106-924c-421e-8019-10069e64fab8",
+    7,
+    8
+   ],
+   [
+    "F",
+    "bef1c04b-40dd-49d3-8006-1712d91889d8",
+    8,
+    9
+   ],
+   [
+    "F",
+    "909e0281-7e4e-4139-800b-117a061d95a8",
+    9,
+    10
+   ],
+   [
+    "F",
+    "919e0414-7f4e-42cc-8010-1198f64e4978",
+    10,
+    11
+   ],
+   [
+    "F",
+    "039668c5-1146-49dd-802e-006f0af99fc8",
+    11,
+    12
+   ],
+   [
+    "F",
+    "829bade0-904b-4ef8-801b-0fc8be039318",
+    12,
+    13
+   ],
+   [
+    "F",
+    "879df456-854e-4c3e-8012-1063a4675c88",
+    13,
+    14
+   ],
+   [
+    "F",
+    "8e9dff5b-7c4e-4e13-800d-113c25bc2e08",
+    14,
+    15
+   ],
+   [
+    "F",
+    "80996c23-8e49-4d3b-8023-0f8a9831cbe8",
+    15,
+    16
+   ],
+   [
+    "F",
+    "bbf1bb92-4ddd-4e4a-8009-16b618868798",
+    16,
+    17
+   ],
+   [
+    "F",
+    "839970dc-9149-41f4-801e-0fe768c3e758",
+    17,
+    18
+   ],
+   [
+    "F",
+    "fd965f53-0b46-406b-8028-1ea469d568e8",
+    18,
+    19
+   ],
+   [
+    "F",
+    "bcf1bd25-4edd-4fdd-8008-16d508b73b68",
+    19,
+    20
    ]
   ]
  },

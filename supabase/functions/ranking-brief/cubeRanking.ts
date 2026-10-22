@@ -2,7 +2,10 @@
 // undo, redo and watching never need repair. Same rules as the reference testdata/cube-ranking/make_cases.py and iOS
 // CubeRanking.swift, checked against its cases.json by cubeRanking.test.ts:
 // - A screen is 2-4 cards put in order, best first; every pair on it is known. Knowledge is the transitive closure,
-//   applied in log order; a pair that contradicts what's known is skipped and cards no longer in the cube are left out.
+//   applied in log order; a pair that contradicts what's known is skipped. It covers the cube's cards and every card in
+//   the log, so a card that left the cube still carries what it settled; jobs and lists only hold the cube's cards.
+// - Cards added since the ranking last caught up with its cube ("new") wait outside the lists until they're placed
+//   (in a list with nothing placed yet they're simply part of what's left to sort).
 // - A job (a color, or the final over every card) places from the top: the next place goes to the card known to beat
 //   every other card still in; a card with `target` or more known above it is out.
 // - The next screen: the cards nothing still in is known to beat (fewest known below, then a seeded hash), filled to
@@ -76,7 +79,7 @@ export class Knowledge {
   readonly contradicted = new Map<number, [number, number][]>();
 
   constructor(cards: string[], log: RankScreen[] = []) {
-    this.ids = [...new Set(cards.map((c) => c.toLowerCase()))].sort();
+    this.ids = [...new Set([...cards, ...log.flatMap((s) => s.o)].map((c) => c.toLowerCase()))].sort();
     this.ids.forEach((id, i) => this.index.set(id, i));
     const w = words(this.ids.length);
     this.beats = this.ids.map(() => new Uint32Array(w));
@@ -111,13 +114,10 @@ export class Knowledge {
   }
 
   /** What a screen says, as [winner, loser] pairs: every pair in order, or for a pick the picked card over each other
-   *  card of its pack (only while the picked card is in the cube). */
+   *  card of its pack. */
   pairs(screen: RankScreen): [number, number][] {
     const xs = this.indexes(screen.o);
-    if (screen.s === "P") {
-      if (!screen.o.length || this.index.get(screen.o[0].toLowerCase()) == null) return [];
-      return xs.slice(1).map((y) => [xs[0], y]);
-    }
+    if (screen.s === "P") return xs.slice(1).map((y) => [xs[0], y]);
     const out: [number, number][] = [];
     for (let i = 0; i < xs.length; i++) for (let j = i + 1; j < xs.length; j++) out.push([xs[i], xs[j]]);
     return out;
@@ -160,17 +160,13 @@ export interface RankSession {
   pinned: number[];
   /** Cards still in and not yet placed. */
   open: Bits;
+  /** New cards that can still make the list and aren't placed yet: `top` leaves them out. */
+  waiting: number[];
 }
 
-/** One job: `scope` is the cards in it; `groups` maps a card index to its color (final only). */
-export function session(K: Knowledge, scope: Bits, target: number, seed: string, groups: number[] | null = null): RankSession {
-  const inScope = members(scope);
-  const n = inScope.length;
-  const T = Math.min(target, n);
-  const live = new Uint32Array(scope.length);
-  for (const x of inScope) if (andCount(K.below[x], scope) < T) put(live, x);
+/** Places from the top: the next place goes to the card in U known to beat every other card in U (U loses them). */
+function ranked(K: Knowledge, U: Bits, T: number): number[] {
   const top: number[] = [];
-  const U = live;
   while (top.length < T) {
     let found = -1;
     for (const x of members(U)) {
@@ -187,8 +183,32 @@ export function session(K: Knowledge, scope: Bits, target: number, seed: string,
     top.push(found);
     drop(U, found);
   }
-  const done = top.length >= T;
-  if (done) return { top, done, target: T, size: n, question: null, pinned: [], open: U };
+  return top;
+}
+
+/** One job: `scope` is the cards in it; `groups` maps a card index to its color (final only); `fresh` is the cube's new
+ *  cards. The list (`top`) leaves out new cards still waiting to be placed (`waiting`); screens and `done` count all. */
+export function session(K: Knowledge, scope: Bits, target: number, seed: string, groups: number[] | null = null,
+                        fresh: Bits | null = null): RankSession {
+  const inScope = members(scope);
+  const n = inScope.length;
+  const T = Math.min(target, n);
+  const live = new Uint32Array(scope.length);
+  for (const x of inScope) if (andCount(K.below[x], scope) < T) put(live, x);
+  const U = live.slice();
+  const full = ranked(K, U, T);
+  const done = full.length >= T;
+  const placed = new Set(full);
+  const waiting = fresh ? members(live).filter((x) => has(fresh, x) && !placed.has(x)) : [];
+  let top = full;
+  if (waiting.length) {
+    const shown = live.slice();
+    for (const x of waiting) drop(shown, x);
+    top = ranked(K, shown, T);
+    // A list with nothing placed yet: new cards are simply part of what's left to sort.
+    if (!top.length) { top = full; waiting.length = 0; }
+  }
+  if (done) return { top, done, target: T, size: n, question: null, pinned: [], open: U, waiting };
 
   const hashes = new Map<number, number>();
   const h = (x: number) => {
@@ -210,7 +230,7 @@ export function session(K: Knowledge, scope: Bits, target: number, seed: string,
   }
   let pinned: number[] = [];
   if (picked.length === 2) [picked, pinned] = placement(K, U, picked[0], picked[1], h);
-  return { top, done: false, target: T, size: n, question: picked, pinned, open: U };
+  return { top, done: false, target: T, size: n, question: picked, pinned, open: U, waiting };
 }
 
 function choose(K: Knowledge, order: number[], groups: number[] | null, start: number[]): number[] {
@@ -438,32 +458,47 @@ export class RankingState {
   readonly category: Map<string, RankJob>;
   readonly depth: "half" | "full";
   readonly top: number;
+  /** The cube's cards added since the ranking last caught up: they wait outside the lists until they're placed. */
+  readonly fresh: Set<string>;
   private cache = new Map<RankJob, RankSession>();
 
-  constructor(rankingId: string, cards: Map<string, RankJob>, log: RankScreen[], depth: "half" | "full", top: number, knowledge?: Knowledge) {
+  /** `cards` are the cube's cards now (a card in the log but not here has left the cube); `fresh` its new cards. */
+  constructor(rankingId: string, cards: Map<string, RankJob>, log: RankScreen[], depth: "half" | "full", top: number, knowledge?: Knowledge,
+              fresh: Iterable<string> = []) {
     this.rankingId = rankingId.toLowerCase();
     this.category = new Map([...cards].map(([k, v]) => [k.toLowerCase(), v]));
     this.knowledge = knowledge ?? new Knowledge([...this.category.keys()], log);
     this.depth = depth;
     this.top = top;
+    this.fresh = new Set([...fresh].map((c) => c.toLowerCase()).filter((c) => this.category.has(c)));
   }
 
   /** The same ranking with one more screen. */
   appending(screen: RankScreen): RankingState {
     const k = this.knowledge.clone();
     k.apply(screen);
-    return new RankingState(this.rankingId, this.category, [], this.depth, this.top, k);
+    return new RankingState(this.rankingId, this.category, [], this.depth, this.top, k, this.fresh);
+  }
+
+  /** New cards not placed yet in any list: a re-rank is due. */
+  get waiting(): string[] {
+    const out = new Set<string>();
+    for (const job of [...this.jobs, "F" as RankJob]) for (const x of this.session(job).waiting) out.add(this.id(x));
+    return [...out].sort();
   }
 
   id(x: number) { return this.knowledge.ids[x]; }
 
   scope(job: RankJob): Bits {
     const m = new Uint32Array(words(this.knowledge.size));
-    this.knowledge.ids.forEach((id, i) => { if (job === "F" || this.category.get(id) === job) put(m, i); });
+    this.knowledge.ids.forEach((id, i) => {
+      const c = this.category.get(id);
+      if (c && (job === "F" || c === job)) put(m, i);
+    });
     return m;
   }
 
-  size(job: RankJob) { return job === "F" ? this.knowledge.size : this.knowledge.ids.filter((id) => this.category.get(id) === job).length; }
+  size(job: RankJob) { return job === "F" ? this.category.size : [...this.category.values()].filter((c) => c === job).length; }
 
   target(job: RankJob) {
     if (job === "F") return this.top;
@@ -478,7 +513,12 @@ export class RankingState {
     const hit = this.cache.get(job);
     if (hit) return hit;
     const groups = job === "F" ? this.knowledge.ids.map((id) => Math.max(0, COLOR_JOBS.indexOf(this.category.get(id) ?? "C"))) : null;
-    const s = session(this.knowledge, this.scope(job), this.target(job), `${this.rankingId}:${job}:${this.knowledge.screens}`, groups);
+    let fresh: Bits | null = null;
+    if (this.fresh.size) {
+      fresh = new Uint32Array(words(this.knowledge.size));
+      for (const c of this.fresh) { const i = this.knowledge.index.get(c); if (i != null) put(fresh, i); }
+    }
+    const s = session(this.knowledge, this.scope(job), this.target(job), `${this.rankingId}:${job}:${this.knowledge.screens}`, groups, fresh);
     this.cache.set(job, s);
     return s;
   }

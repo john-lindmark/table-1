@@ -42,12 +42,43 @@ checked against `testdata/cube-ranking/cases.json`, written by the independent r
 - **Not built** (cuberanker has them): Discord sign-in (Table 1 accounts instead), a public watch link (there is no
   signed-out view; rankings open from the cube, see Where), the redo cost estimate ("about N more screens").
 
+## Cube changes and telling the owner (John, 2026-10-22)
+
+- **A card leaves the cube:** it's in no list any more, and what it settled still counts (knowledge covers the cube's
+  cards and every card in the log), so the rest keep their order. Removing a card can free a place (a final's #4 left)
+  or shrink a top half: that list then asks one more screen.
+- **A card joins:** it waits outside the lists until it's placed ("New in the cube, not placed yet"), so a sorted list
+  never empties; the next screens place it, mostly placement screens against what you've sorted. In a list with
+  nothing placed yet, new cards are just part of what's left. Adding a card can lengthen a top half by one place.
+- **Baseline:** each ranking keeps the cube's cards it last caught up with (`cube_rankings.baseline`, returned by
+  `cube_ranking_get`). New = the cube's cards less the baseline; removed = the baseline less the cube's.
+  `cube_ranking_catch_up` (the maker) sets it to the cube as it is now: clients call it once every new card is placed
+  (nothing waiting in any list), and from **OK** when only cards left. Existing rankings took their cube as it was on
+  2026-10-22.
+- **Callout** on the ranking: "<Cube> changed since you ranked it: 3 cards joined (…) and 2 cards left (…). Removed cards
+  are off your lists. Re-rank to place the new cards: you're only asked about them, and your order stays as it is."
+  **Re-rank** opens the first list with new cards (colors, then the final); its screen reads "+1 · placing new cards";
+  when it's done, **Next: place new cards in Blue** replaces it (Back still returns to the ranking). Watchers see "<Cube>
+  changed since <name> last ranked it…" with no button. Tiles say "1 new card to place".
+- **Engine:** `session(…, fresh)` returns `waiting` (new cards still live and not placed) and a `top` worked out without
+  them; `done` and the screens count every card. Shared case `cubeChange` in `cases.json` (two removed, three added after
+  run B; 7 screens put everything back).
+- **ranking.started:** when someone else starts a ranking of your cube that you can see (shared with the cube, not Only
+  me), or switches one from Only me to shared, you get a push ("<Cube>: <name> is ranking your cube. Tap to watch.").
+  At most one per person and cube a week (`t1_private.ranking_notices`), never for your own rankings or across a block.
+  The push carries `ranking_id`; iOS opens that ranking (routing in `Library/Bugs.swift` `PushRoutes`).
+- Server: migration `20261022160000_ranking_cube_changes.sql`, tests in `97_cube_rankings_test.sql`; applied to live 2026-10-22 with
+  John's OK (the three functions it replaces matched live first) and smoke-tested on his ranking in a rolled-back
+  transaction (baseline 540 of 540, catch-up, a new ranking's baseline, no push for your own ranking). The push copy
+  ships with the next `notify-worker` deploy (with the push deep-linking work).
+
 ## The engine (all client-side, from the log)
 
 Read `make_cases.py`'s docstring; in short:
 - **Log:** `[{s, o: [oracle ids, best first], t?}]`, oldest first. Knowledge is the transitive closure of every screen's
-  pairs, applied in order; a pair that contradicts what's known is skipped (only two devices racing can cause it);
-  cards no longer in the cube are left out. Card indexes are the cube's Oracle ids sorted as strings.
+  pairs, applied in order; a pair that contradicts what's known is skipped (only two devices racing can cause it). It
+  covers the cube's cards and every card in the log (a card that left the cube still carries what it settled); jobs
+  only hold the cube's cards. Card indexes are those Oracle ids sorted as strings.
 - **A job** (a color, or the final over every card) with a target: a card with `target` or more cards known above it is
   out ("below the top N"). The next place goes to the card known to beat every other card still in. Done when the
   target is placed.
@@ -58,7 +89,7 @@ Read `make_cases.py`'s docstring; in short:
   other (the leader, the middle and the end of the run that sits below it), **locked** in their known order; only the
   free card moves.
 - **Picks** (`s` = `P`): `o` is the picked card, then the rest of its pack in pack order. Pairs: the picked card over
-  each other card (only while the picked card is in the cube). The pack: the cube's cards sorted by FNV-1a 32 of
+  each other card. The pack: the cube's cards sorted by FNV-1a 32 of
   `"<ranking id>:P:<picks so far>:<oracle id>"`, then index; the first 15. Disagreements: pack cards known to beat the
   picked card, in pack order. **Let the pick win**: while there's a disagreement, take the first one's shortest why-chain
   and remove its newest screen (at most 30), then append the pick. Knowledge records each screen's skipped

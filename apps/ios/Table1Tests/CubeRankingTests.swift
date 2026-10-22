@@ -41,7 +41,50 @@ final class CubeRankingTests: XCTestCase {
             XCTAssertEqual(st.knowledge.perJob[key] ?? 0, w["screens"] as! Int, "\(label) \(key) screens")
             XCTAssertEqual(s.question?.map(st.id), w["question"] as? [String], "\(label) \(key) question")
             if let p = w["pinned"] as? [String] { XCTAssertEqual(s.pinned.map(st.id), p, "\(label) \(key) pinned") }
+            XCTAssertEqual(s.waiting.map(st.id), w["waiting"] as? [String] ?? [], "\(label) \(key) waiting")
         }
+    }
+
+    /// The cube changes after a ranking finished: removed cards leave the lists and new ones wait, the order holds, and a
+    /// re-rank asks only what it must until every list is whole again.
+    func testCubeChange() {
+        let cc = cases["cubeChange"] as! [String: Any]
+        let run = runs.first { $0["id"] as? String == cc["id"] as? String }!
+        let removed = Set(cc["removed"] as! [String])
+        var cube = cards.filter { !removed.contains($0.key) }
+        for (c, j) in cc["added"] as! [String: String] { cube[c] = RankJob(rawValue: j) }
+        let fresh = Set(cc["new"] as! [String])
+        func at(_ l: [RankScreen]) -> RankingState {
+            RankingState(rankingId: cc["id"] as! String, cards: cube, log: l, depth: cc["depth"] as! String, top: cc["top"] as! Int, fresh: fresh)
+        }
+        var l = log(run)
+        checkSummary(at(l), cc["before"] as! [String: Any], "before")
+        XCTAssertEqual(at(l).waiting, fresh.sorted())
+        let start = at(l)
+        var st = start
+        for step in cc["steps"] as! [[String: Any]] {
+            let job = RankJob(rawValue: step["s"] as! String)!
+            let s = st.session(job)
+            XCTAssertEqual(s.question?.map(st.id), step["question"] as? [String], "change screen \(step["at"]!)")
+            XCTAssertEqual(s.pinned.map(st.id), step["pinned"] as! [String])
+            XCTAssertEqual(s.waiting.map(st.id), step["waiting"] as! [String])
+            XCTAssertEqual(s.top.map(st.id), step["top"] as! [String], "the list stays whole at \(step["at"]!)")
+            let screen = RankScreen(s: job.rawValue, o: step["answer"] as! [String])
+            st = st.appending(screen)
+            l.append(screen)
+        }
+        checkSummary(at(l), cc["after"] as! [String: Any], "after")
+        XCTAssertEqual(at(l).waiting, [])
+        let want = (cc["changes"] as! [[Any]]).map { r in [r[0] as! String, r[1] as! String, (r[2] as? Int).map(String.init) ?? "-", (r[3] as? Int).map(String.init) ?? "-"] }
+        let got = RankChange.diff(start.places, at(l).places).map { [$0.s, $0.c, $0.f.map(String.init) ?? "-", $0.to.map(String.init) ?? "-"] }
+        XCTAssertEqual(got, want)
+    }
+
+    func testCubeChangeOfABaseline() {
+        let c = CubeChange(cubeCards: ["a", "B", "c"], baseline: ["b", "c", "d"])
+        XCTAssertEqual(c.added, ["a"])
+        XCTAssertEqual(c.removed, ["d"])
+        XCTAssertTrue(CubeChange(cubeCards: ["a"], baseline: nil).isEmpty, "no baseline yet: nothing to say")
     }
 
     func testReplayEveryScreen() {

@@ -8415,7 +8415,7 @@
       }
     },
     "cube_ranking_get": {
-      "note": "One ranking the caller can see, with its whole log and its cube (cards when the caller can see the cube). Otherwise 42501. contract/cube-rankings-2026-10-21.md. authenticated.",
+      "note": "One ranking the caller can see, with its whole log, its cube (cards and the printing it holds of each when the caller can see the cube) and its baseline (the cube's cards it last caught up with; cards added since wait outside its lists). Otherwise 42501. contract/cube-rankings-2026-10-21.md. authenticated.",
       "params": {
         "type": "object",
         "properties": {
@@ -8693,6 +8693,14 @@
                     "c"
                   ]
                 }
+              },
+              "baseline": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "The cube's main-board Oracle ids this ranking last caught up with."
               }
             },
             "required": [
@@ -8764,6 +8772,36 @@
             "mine"
           ]
         }
+      }
+    },
+    "cube_ranking_catch_up": {
+      "note": "Your ranking takes the cube as it is now as its baseline (after placing every new card, or to dismiss removals). Someone else's: 42501. contract/cube-rankings-2026-10-21.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "baseline": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "baseline"
+        ]
       }
     }
   },

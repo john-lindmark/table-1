@@ -32,6 +32,8 @@ export interface RankingIn {
   name: string;
   by: string;
   log: RankScreen[];
+  /** The cube's cards added since this ranking caught up: they wait outside its lists until placed. */
+  fresh?: string[];
 }
 
 /** The cube's Group by color, the same rule as every client (CardGrouping / cardGrouping.ts). */
@@ -52,7 +54,8 @@ export interface Side { label: string; places: Map<string, number>; done: boolea
 /** Both rankings' places in one list, worked out from their logs on the same cube. */
 export function sides(cards: CardFact[], a: RankingIn, b: RankingIn, list: RankJob) {
   const jobs = new Map(cards.map((c) => [c.oracle_id.toLowerCase(), colorJob(c)]));
-  const sa = new RankingState(a.id, jobs, a.log, a.depth, a.top), sb = new RankingState(b.id, jobs, b.log, b.depth, b.top);
+  const sa = new RankingState(a.id, jobs, a.log, a.depth, a.top, undefined, a.fresh ?? []),
+        sb = new RankingState(b.id, jobs, b.log, b.depth, b.top, undefined, b.fresh ?? []);
   const pa = sa.session(list), pb = sb.session(list);
   const translated = { top: pb.top.map((x) => sa.knowledge.index.get(sb.id(x))!).filter((x) => x != null), done: pb.done, size: pb.size };
   const cmp = compare(sa.knowledge, pa, translated, sa.scope(list));
@@ -192,7 +195,8 @@ export const REWRITE = "Rewrite that brief without he, she, him, his, her or her
 
 /** Cache key: the inputs that change the brief. */
 export async function inputHash(a: RankingIn, b: RankingIn, list: RankJob, cards: string[]): Promise<string> {
-  const text = JSON.stringify([a.id, a.rev, a.depth, a.top, a.by, b.id, b.rev, b.depth, b.top, b.by, list, [...cards].map((c) => c.toLowerCase()).sort(), MODEL]);
+  const text = JSON.stringify([a.id, a.rev, a.depth, a.top, a.by, b.id, b.rev, b.depth, b.top, b.by, list, [...cards].map((c) => c.toLowerCase()).sort(), MODEL,
+                               [...(a.fresh ?? [])].sort(), [...(b.fresh ?? [])].sort()]);
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return [...new Uint8Array(digest)].map((x) => x.toString(16).padStart(2, "0")).join("");
 }

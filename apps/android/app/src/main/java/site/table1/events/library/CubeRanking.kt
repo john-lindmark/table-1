@@ -10,7 +10,10 @@ import kotlin.math.ln
 // CubeRanking.swift and web cubeRanking.ts, checked against its cases.json by CubeRankingTest:
 // - A screen is 2-4 cards put in order, best first; every pair on it is known. A P1P1 pick ("P") is the picked card,
 //   then the rest of its pack: the picked card beats each of them. Knowledge is the transitive closure, applied in log
-//   order; a pair that contradicts what's known is skipped and cards no longer in the cube are left out.
+//   order; a pair that contradicts what's known is skipped. It covers the cube's cards and every card in the log, so a
+//   card that left the cube still carries what it settled; jobs and lists only hold the cube's cards.
+// - Cards added since the ranking last caught up with its cube ("fresh") wait outside the lists until they're placed
+//   (in a list with nothing placed yet they're simply part of what's left to sort).
 // - A job (a color, or the final over every card) places from the top: the next place goes to the card known to beat
 //   every other card still in; a card with `target` or more known above it is out.
 // - The next screen: the cards nothing still in is known to beat (fewest known below, then a seeded hash), filled to
@@ -103,11 +106,11 @@ class RankKnowledge private constructor(
     }
 
     /** What a screen says, as (winner, loser) pairs: every pair in order, or for a pick the picked card over each other
-     *  card of its pack (only while the picked card is in the cube). */
+     *  card of its pack. */
     fun pairs(screen: RankScreen): List<Pair<Int, Int>> {
         val xs = indexes(screen.o)
         if (screen.s == RankJob.Pick.key) {
-            if (screen.o.isEmpty() || idx[screen.o[0].lowercase()] == null) return emptyList()
+            if (xs.isEmpty()) return emptyList()
             return xs.drop(1).map { xs[0] to it }
         }
         val out = ArrayList<Pair<Int, Int>>()
@@ -138,7 +141,7 @@ class RankKnowledge private constructor(
 
     companion object {
         fun of(cards: Collection<String>, log: List<RankScreen> = emptyList()): RankKnowledge {
-            val ids = cards.map { it.lowercase() }.toSortedSet().toList()
+            val ids = (cards + log.flatMap { it.o }).map { it.lowercase() }.toSortedSet().toList()
             val k = RankKnowledge(ids, ids.withIndex().associate { it.value to it.index }, Array(ids.size) { RankBits(ids.size) },
                                   Array(ids.size) { RankBits(ids.size) }, 0, HashMap(), HashMap())
             log.forEach { k.apply(it) }
@@ -148,7 +151,9 @@ class RankKnowledge private constructor(
 }
 
 /** One job's state: who is placed, whether it's done, and the next screen. */
-class RankSession(val top: List<Int>, val done: Boolean, val target: Int, val size: Int, val question: List<Int>?, val pinned: List<Int>, val open: RankBits)
+class RankSession(val top: List<Int>, val done: Boolean, val target: Int, val size: Int, val question: List<Int>?, val pinned: List<Int>, val open: RankBits,
+                  /** New cards that can still make the list and aren't placed yet: [top] leaves them out. */
+                  val waiting: List<Int> = emptyList())
 
 object CubeRanking {
     const val PACK_SIZE = 15
@@ -162,13 +167,8 @@ object CubeRanking {
         return h
     }
 
-    /** One job: [scope] is the cards in it; [groups] maps a card index to its color (final only). */
-    fun session(K: RankKnowledge, scope: RankBits, target: Int, seed: String, groups: IntArray? = null): RankSession {
-        val inScope = scope.members
-        val n = inScope.size
-        val T = minOf(target, n)
-        val u = RankBits(K.size)
-        for (x in inScope) if (K.belowSet(x).andCount(scope) < T) u.add(x)
+    /** Places from the top: the next place goes to the card in [u] known to beat every other card in [u] (u loses them). */
+    private fun ranked(K: RankKnowledge, u: RankBits, T: Int): List<Int> {
         val top = ArrayList<Int>()
         while (top.size < T) {
             var found = -1
@@ -186,7 +186,30 @@ object CubeRanking {
             top += found
             u.remove(found)
         }
-        if (top.size >= T) return RankSession(top, true, T, n, null, emptyList(), u)
+        return top
+    }
+
+    /** One job: [scope] is the cards in it; [groups] maps a card index to its color (final only); [fresh] the cube's new
+     *  cards. The list (`top`) leaves out new cards still waiting to be placed (`waiting`); screens and `done` count all. */
+    fun session(K: RankKnowledge, scope: RankBits, target: Int, seed: String, groups: IntArray? = null, fresh: RankBits? = null): RankSession {
+        val inScope = scope.members
+        val n = inScope.size
+        val T = minOf(target, n)
+        val live = RankBits(K.size)
+        for (x in inScope) if (K.belowSet(x).andCount(scope) < T) live.add(x)
+        val u = live.copy()
+        val full = ranked(K, u, T)
+        val placed = full.toSet()
+        var waiting = if (fresh == null) emptyList() else live.members.filter { it in fresh && it !in placed }
+        var top = full
+        if (waiting.isNotEmpty()) {
+            val shown = live.copy()
+            for (x in waiting) shown.remove(x)
+            top = ranked(K, shown, T)
+            // A list with nothing placed yet: new cards are simply part of what's left to sort.
+            if (top.isEmpty()) { top = full; waiting = emptyList() }
+        }
+        if (full.size >= T) return RankSession(top, true, T, n, null, emptyList(), u, waiting)
 
         val hashes = HashMap<Int, Long>()
         fun h(x: Int) = hashes.getOrPut(x) { fnv1a("$seed:${K.ids[x]}") }
@@ -202,7 +225,7 @@ object CubeRanking {
         }
         var pinned = emptyList<Int>()
         if (picked.size == 2) placement(K, u, picked[0], picked[1], ::h).let { picked = it.first; pinned = it.second }
-        return RankSession(top, false, T, n, picked, pinned, u)
+        return RankSession(top, false, T, n, picked, pinned, u, waiting)
     }
 
     private fun choose(K: RankKnowledge, order: List<Int>, groups: IntArray?, start: List<Int>): List<Int> {
@@ -354,28 +377,36 @@ object CubeRanking {
 }
 
 /** A whole ranking worked out from its log: the cube's cards and colors, depth and final size. */
-class RankingState private constructor(val rankingId: String, val category: Map<String, RankJob>, val knowledge: RankKnowledge, val depth: String, val top: Int) {
-    constructor(rankingId: String, cards: Map<String, RankJob>, log: List<RankScreen>, depth: String, top: Int) : this(
-        rankingId.lowercase(), cards.mapKeys { it.key.lowercase() }, RankKnowledge.of(cards.keys, log), depth, top)
+class RankingState private constructor(val rankingId: String, val category: Map<String, RankJob>, val knowledge: RankKnowledge, val depth: String, val top: Int,
+                                       /** The cube's cards added since the ranking last caught up: they wait outside the lists until placed. */
+                                       val fresh: Set<String>) {
+    /** [cards] are the cube's cards now (a card in the log but not here has left the cube); [fresh] its new cards. */
+    constructor(rankingId: String, cards: Map<String, RankJob>, log: List<RankScreen>, depth: String, top: Int, fresh: Set<String> = emptySet()) : this(
+        rankingId.lowercase(), cards.mapKeys { it.key.lowercase() }, RankKnowledge.of(cards.keys, log), depth, top,
+        fresh.map { it.lowercase() }.filter { f -> cards.keys.any { it.lowercase() == f } }.toSet())
 
     private val cache = HashMap<RankJob, RankSession>()
 
-    fun appending(screen: RankScreen) = RankingState(rankingId, category, knowledge.copy().also { it.apply(screen) }, depth, top)
+    fun appending(screen: RankScreen) = RankingState(rankingId, category, knowledge.copy().also { it.apply(screen) }, depth, top, fresh)
     fun id(x: Int) = knowledge.ids[x]
+
+    /** New cards not placed yet in any list: a re-rank is due. */
+    val waiting: List<String> get() = (jobs + RankJob.Final).flatMap { j -> session(j).waiting.map(::id) }.toSortedSet().toList()
 
     fun scope(job: RankJob): RankBits {
         val m = RankBits(knowledge.size)
-        knowledge.ids.forEachIndexed { i, id -> if (job == RankJob.Final || category[id] == job) m.add(i) }
+        knowledge.ids.forEachIndexed { i, id -> val c = category[id]; if (c != null && (job == RankJob.Final || c == job)) m.add(i) }
         return m
     }
 
-    fun size(job: RankJob) = if (job == RankJob.Final) knowledge.size else knowledge.ids.count { category[it] == job }
+    fun size(job: RankJob) = if (job == RankJob.Final) category.size else category.values.count { it == job }
     fun target(job: RankJob): Int = if (job == RankJob.Final) top else size(job).let { if (depth == "half") (it + 1) / 2 else it }
     val jobs: List<RankJob> get() = RankJob.colors.filter { size(it) > 0 }
 
     fun session(job: RankJob): RankSession = cache.getOrPut(job) {
         val groups = if (job == RankJob.Final) IntArray(knowledge.size) { maxOf(0, RankJob.colors.indexOf(category[knowledge.ids[it]] ?: RankJob.C)) } else null
-        CubeRanking.session(knowledge, scope(job), target(job), "$rankingId:${job.key}:${knowledge.screens}", groups)
+        val freshBits = if (fresh.isEmpty()) null else RankBits(knowledge.size).also { b -> fresh.forEach { c -> knowledge.indexOf(c)?.let(b::add) } }
+        CubeRanking.session(knowledge, scope(job), target(job), "$rankingId:${job.key}:${knowledge.screens}", groups, freshBits)
     }
 
     fun expected(job: RankJob) =

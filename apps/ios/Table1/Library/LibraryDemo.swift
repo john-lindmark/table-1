@@ -402,7 +402,8 @@ struct LibraryDemoRoot: View {
             LibraryDemo.seedWants()
             await FriendsDemo.seed()
             // Rankings (contract/cube-rankings-2026-10-21.md) on the fixture's cube: `rankings`, `ranking` (yours, part
-            // sorted), `rankpick` (its next screen), `ranklist` (a friend's top 100), `rankcard`, `rankcompare`, `rankimage`.
+            // sorted), `rankpick` (its next screen), `ranklist` (a friend's top 100), `rankcard`, `rankcompare`, `rankimage`;
+            // `rankchanged` / `rankchangedlist`: your ranking after the cube changed (three cards joined, two left).
             if let db = CatalogStore.shared.db, RankingsStore.shared.demo == nil,
                let cube = ListsStore.shared.lists.first(where: { $0.kind == .cube }) {
                 let entries = cube.entries.filter { $0.board == "main" }.map(\.cardId)
@@ -411,7 +412,8 @@ struct LibraryDemoRoot: View {
                     let oracles = db.oracles(idxs: Array(Set(printings.values.map(\.oracleIdx))))
                     var cats: [String: RankJob] = [:]
                     for o in oracles.values { if let j = RankJob(colorGroup: GroupKeys(o).color) { cats[o.oracleId.lowercased()] = j } }
-                    return RankingsDemoBackend(cubeId: cube.id, cubeName: cube.name, cards: cats.keys.sorted(), categories: cats)
+                    return RankingsDemoBackend(cubeId: cube.id, cubeName: cube.name, cards: cats.keys.sorted(), categories: cats,
+                                               changed: Self.arg?.hasPrefix("rankchanged") == true)
                 }.value
                 RankingsStore.shared.demo = made
                 if path.isEmpty, let arg = Self.arg {
@@ -422,7 +424,8 @@ struct LibraryDemoRoot: View {
                     case "rankings": path = base
                     case "rankmine": path = [.lists(.cube), .rankings(nil)]
                     case "rankfriend": path = [.lists(.cube), .rankings(nil), .rankings(RankingsDemoBackend.maraCube)]
-                    case "ranking": path = base + [.ranking(mine)]
+                    case "ranking", "rankchanged": path = base + [.ranking(mine)]
+                    case "rankchangedlist": path = base + [.ranking(mine), .rankingLists(mine, "W")]
                     case "rankpick": path = base + [.ranking(mine), .rankingPick(mine, "R")]
                     case "rankfinal": path = base + [.ranking(friend), .rankingPick(friend, "F")]
                     case "ranklist": path = base + [.ranking(friend), .rankingLists(friend, "F")]

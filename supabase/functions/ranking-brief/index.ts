@@ -30,11 +30,15 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 interface Detail {
   id: string; list_id: string; name: string; depth: "half" | "full"; top: number; rev: number; mine: boolean;
-  by: { display_name?: string } | null; log: RankingIn["log"]; cube: { name: string; cards?: string[] } | null;
+  by: { display_name?: string } | null; log: RankingIn["log"]; cube: { name: string; cards?: string[] } | null; baseline?: string[];
 }
 
-const toIn = (d: Detail): RankingIn =>
-  ({ id: d.id, rev: d.rev, depth: d.depth, top: d.top, name: d.name, by: d.by?.display_name?.trim() || "Someone", log: d.log ?? [] });
+/** A ranking as the brief reads it: the cube's cards it hasn't caught up with yet wait outside its lists. */
+const toIn = (d: Detail): RankingIn => {
+  const seen = new Set((d.baseline ?? []).map((c) => c.toLowerCase()));
+  const fresh = d.baseline ? (d.cube?.cards ?? []).filter((c) => !seen.has(c.toLowerCase())) : [];
+  return { id: d.id, rev: d.rev, depth: d.depth, top: d.top, name: d.name, by: d.by?.display_name?.trim() || "Someone", log: d.log ?? [], fresh };
+};
 
 /** The paragraph; one that calls a player he or she is sent back once to be rewritten. Null for a refusal or an
  *  unusable answer. */

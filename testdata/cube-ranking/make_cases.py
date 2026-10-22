@@ -8,7 +8,13 @@ three clients. It writes cases.json, which the iOS (CubeRankingTests), web (cube
 The engine is pure: everything comes from the ranking's screen log, so undo, redo and watching never need repair.
 - A screen is 2-4 cards in the order the ranker put them, best first. Every pair on it is "known": a beats b.
 - Knowledge is the transitive closure of every screen's pairs, applied in log order. A pair that contradicts what is
-  already known is skipped (only possible when two devices race), and cards no longer in the cube are left out.
+  already known is skipped (only possible when two devices race). It covers the cube's cards and every card in the log,
+  so a card that left the cube still carries what it settled (A above X above B keeps A above B); jobs and lists only
+  ever hold the cube's cards.
+- Cards added to the cube after the ranking last caught up ("new", the cube's cards less its baseline) wait outside the
+  lists until they're placed: a job's list is worked out without the new cards it hasn't placed yet, so adding a card
+  never empties a sorted list; the next screens place them (mostly placement screens against the sorted run). A list
+  with nothing placed yet has nothing to keep: there, new cards are just part of what's left to sort.
 - A job (a color's sort, or the final top N across every card) places cards from the top: the next place goes to the
   card known to beat every other card that can still make the list. A card with `target` or more cards known above it
   can't make the list and is left out ("below the top N").
@@ -55,7 +61,7 @@ class Knowledge:
     """The log as a transitive "beats" relation over the cube's cards (indexed by sorted Oracle id)."""
 
     def __init__(self, cards, screens):
-        self.ids = sorted(set(cards))
+        self.ids = sorted(set(cards) | {c for sc in screens for c in sc["o"]})
         self.idx = {c: i for i, c in enumerate(self.ids)}
         n = len(self.ids)
         self.beats = [0] * n   # beats[x]: cards x is known to beat
@@ -99,24 +105,16 @@ def indexes(K, cards):
 
 def pairs(K, sc):
     """What a screen says, as (winner, loser) index pairs: every pair in order, or for a pick the picked card over
-    each other card in its pack (only when the picked card is still in the cube)."""
+    each other card in its pack."""
     xs = indexes(K, sc["o"])
     if sc["s"] == PICK:
-        if not sc["o"] or K.idx.get(sc["o"][0]) is None:
-            return []
-        return [(xs[0], y) for y in xs[1:]]
+        return [(xs[0], y) for y in xs[1:]] if xs else []
     return [(xs[i], xs[j]) for i in range(len(xs)) for j in range(i + 1, len(xs))]
 
 
-def session(K, scope, target, seed, groups=None):
-    """One job: scope is a bitmask of card indexes; groups maps a card index to its color (final only)."""
-    n = pop(scope)
-    T = min(target, n)
-    live = 0
-    for x in bits(scope):
-        if pop(K.below[x] & scope) < T:
-            live |= 1 << x
-    top, U = [], live
+def ranked(K, U, T):
+    """Places from the top: the next place goes to the card in U known to beat every other card in U."""
+    top = []
     while len(top) < T:
         found = None
         for x in bits(U):
@@ -127,7 +125,25 @@ def session(K, scope, target, seed, groups=None):
             break
         top.append(found)
         U &= ~(1 << found)
+    return top, U
+
+
+def session(K, scope, target, seed, groups=None, new=0):
+    """One job: scope is a bitmask of card indexes; groups maps a card index to its color (final only); new is the
+    cube's new cards (bitmask). The list (`top`) leaves out new cards still waiting to be placed (`waiting`); the
+    screens and `done` count every card."""
+    n = pop(scope)
+    T = min(target, n)
+    live = 0
+    for x in bits(scope):
+        if pop(K.below[x] & scope) < T:
+            live |= 1 << x
+    top, U = ranked(K, live, T)
     done = len(top) >= T
+    waiting = [x for x in bits(new & live) if x not in top]
+    shown = ranked(K, live & ~new | sum(1 << x for x in bits(new & live) if x in top), T)[0] if waiting else top
+    if not shown:  # a list with nothing placed yet: new cards are simply part of what's left to sort
+        waiting, shown = [], top
     question, pinned = None, []
     if not done:
         h = lambda x: fnv1a(seed + ":" + K.ids[x])
@@ -141,7 +157,8 @@ def session(K, scope, target, seed, groups=None):
         question, pinned = picked, []
         if len(picked) == 2:
             question, pinned = placement(K, U, picked[0], picked[1], h)
-    return {"top": top, "done": done, "target": T, "size": n, "question": question, "pinned": pinned, "open": U}
+    return {"top": shown, "done": done, "target": T, "size": n, "question": question, "pinned": pinned, "open": U,
+            "waiting": waiting}
 
 
 def placement(K, U, a, b, h):
@@ -205,10 +222,19 @@ def reask_open(K, st, cards):
 # ---- the whole ranking ----
 
 def scope_of(K, cats, key):
+    """The job's cards: the cube's (cats holds only the cube's cards), in one color or (final) all of them."""
     m = 0
     for i, c in enumerate(K.ids):
-        if key == FINAL or cats[c] == key:
+        if c in cats and (key == FINAL or cats[c] == key):
             m |= 1 << i
+    return m
+
+
+def new_of(K, new_cards):
+    m = 0
+    for c in new_cards:
+        if c in K.idx:
+            m |= 1 << K.idx[c]
     return m
 
 
@@ -223,12 +249,12 @@ def seed_of(ranking_id, key, K):
     return f"{ranking_id}:{key}:{K.screens}"
 
 
-def state(K, cats, ranking_id, key, depth, top_size):
+def state(K, cats, ranking_id, key, depth, top_size, new_cards=()):
     groups = None
     if key == FINAL:
-        groups = [SESSIONS.index(cats[c]) for c in K.ids]
+        groups = [SESSIONS.index(cats.get(c, "C")) for c in K.ids]
     return session(K, scope_of(K, cats, key), target_of(K, cats, key, depth, top_size),
-                   seed_of(ranking_id, key, K), groups)
+                   seed_of(ranking_id, key, K), groups, new_of(K, new_cards))
 
 
 # ---- estimates ----
@@ -339,12 +365,12 @@ def pick_wins(cards, log, picked, pack_ids):
 
 # ---- the change log ----
 
-def places(K, cats, ranking_id, depth, top_size):
+def places(K, cats, ranking_id, depth, top_size, new_cards=()):
     out = {}
     for key in SESSIONS + [FINAL]:
         if pop(scope_of(K, cats, key)) == 0:
             continue
-        st = state(K, cats, ranking_id, key, depth, top_size)
+        st = state(K, cats, ranking_id, key, depth, top_size, new_cards)
         out[key] = {K.ids[x]: i + 1 for i, x in enumerate(st["top"])}
     return out
 
@@ -436,13 +462,14 @@ def simulate(ranking_id, cards, cats, depth, top_size, order_of_jobs, true_order
     return log, steps
 
 
-def summary(K, cats, ranking_id, depth, top_size):
+def summary(K, cats, ranking_id, depth, top_size, new_cards=()):
     out = {}
     for key in SESSIONS + [FINAL]:
         if pop(scope_of(K, cats, key)) == 0:
             continue
-        st = state(K, cats, ranking_id, key, depth, top_size)
+        st = state(K, cats, ranking_id, key, depth, top_size, new_cards)
         out[key] = {"top": [K.ids[x] for x in st["top"]], "done": st["done"], "target": st["target"],
+                    "waiting": [K.ids[x] for x in st["waiting"]],
                     "size": st["size"], "screens": K.per_session.get(key, 0),
                     "question": [K.ids[x] for x in st["question"]] if st["question"] else None,
                     "pinned": [K.ids[x] for x in st["pinned"]] if st["question"] else None}
@@ -561,6 +588,40 @@ def main():
            "changes": changes(places(Kc, cats, c_id, "half", top), places(K_after, cats, c_id, "half", top))}
     contradicted = {str(k): [[Kc.ids[w], Kc.ids[l]] for w, l in v] for k, v in Kc.contradicted.items()}
 
+    # D: the cube changes after B finished. Two cards leave (one sat in B's final), three join (White, Lands,
+    # Multicolor). Lists keep their order without the removed cards, the new ones wait; then only the new cards (and
+    # the final's freed place) are asked, in the order a re-rank goes: colors with new cards, then the final.
+    gone = [sum_b["W"]["top"][2], sum_b[FINAL]["top"][4]]
+    added = {card_id(900): "W", card_id(901): "L", card_id(902): "M"}
+    cards_d = [c for c in cards if c not in gone] + list(added)
+    cats_d = {c: k for c, k in cats.items() if c not in gone}
+    cats_d.update(added)
+    true_d = truth(cards_d, "b:")
+    rank_d = {c: i for i, c in enumerate(true_b) if c in cats_d}
+    for c in added:
+        rank_d[c] = true_d.index(c) * len(true_b) / len(true_d)
+    new_d = list(added)
+    log_d, steps_d = list(log_b), []
+    Kd0 = Knowledge(cards_d, log_d)
+    before_d = summary(Kd0, cats_d, b_id, "full", top, new_d)
+    for key in [k for k in SESSIONS if before_d.get(k, {}).get("waiting")] + [FINAL]:
+        while True:
+            K = Knowledge(cards_d, log_d)
+            st = state(K, cats_d, b_id, key, "full", top, new_d)
+            if st["done"]:
+                break
+            q = [K.ids[x] for x in st["question"]]
+            ans = sorted(q, key=lambda c: rank_d[c])
+            steps_d.append({"s": key, "at": len(log_d), "question": q, "pinned": [K.ids[x] for x in st["pinned"]],
+                            "answer": ans, "waiting": [K.ids[x] for x in st["waiting"]], "top": [K.ids[x] for x in st["top"]]})
+            log_d.append({"s": key, "o": ans})
+    Kd = Knowledge(cards_d, log_d)
+    cube_change = {
+        "id": b_id, "depth": "full", "top": top, "removed": gone, "added": added, "new": new_d,
+        "before": before_d, "steps": steps_d, "after": summary(Kd, cats_d, b_id, "full", top, new_d),
+        "changes": changes(places(Kd0, cats_d, b_id, "full", top, new_d), places(Kd, cats_d, b_id, "full", top, new_d)),
+    }
+
     out = {
         "about": "Cube rankings (contract/cube-rankings-2026-10-21.md). Written by make_cases.py, the reference engine; "
                  "iOS CubeRankingTests, web cubeRanking.test.ts and Android CubeRankingTest read it. Cards are indexed by "
@@ -578,11 +639,12 @@ def main():
         "why": whys,
         "redo": redos,
         "edge": {"log": edge_log, "known": edge_known},
+        "cubeChange": cube_change,
         "estimates": estimates,
     }
     path = Path(__file__).with_name("cases.json")
     path.write_text(json.dumps(out, indent=1) + "\n")
-    print(f"wrote {path}: A {len(log_a)} screens, B {len(log_b)} screens")
+    print(f"wrote {path}: A {len(log_a)} screens, B {len(log_b)} screens, cube change {len(steps_d)} screens")
 
 
 if __name__ == "__main__":

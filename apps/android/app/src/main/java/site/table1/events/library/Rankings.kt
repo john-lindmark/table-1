@@ -66,6 +66,8 @@ data class RankingDetail(
     val screens: Int, val rev: Int, val sorted: Int, val categories: Int, val ranked: Int,
     @SerialName("updated_at") val updatedAt: String? = null, val mine: Boolean, val by: Person? = null,
     val log: List<RankScreen> = emptyList(), val changes: List<RankChange> = emptyList(), val cube: RankingCube? = null,
+    /** The cube's cards when the ranking last caught up: cards added since wait outside its lists until placed. */
+    val baseline: List<String>? = null,
 ) {
     val row get() = RankingRow(id, listId, name, depth, top, sharing, screens, rev, sorted, categories, ranked, updatedAt, mine, by)
 }
@@ -110,6 +112,12 @@ object RankingsStore {
 
     suspend fun get(id: String): RankingDetail =
         T1App.supabase.postgrest.rpc("cube_ranking_get", buildJsonObject { put("p_id", id) }).decodeAs<RankingDetail>()
+
+    @Serializable private data class CaughtUp(val baseline: List<String>)
+
+    /** The ranking takes its cube as it is now as the cards it has caught up with; returns them. */
+    suspend fun catchUp(id: String): List<String> =
+        T1App.supabase.postgrest.rpc("cube_ranking_catch_up", buildJsonObject { put("p_id", id) }).decodeAs<CaughtUp>().baseline
 
     suspend fun create(listId: String, name: String, depth: String, top: Int, sharing: String, ownCube: Boolean): RankingRow {
         val row = T1App.supabase.postgrest.rpc("cube_ranking_create", buildJsonObject {
@@ -172,6 +180,8 @@ class RankingModel(val id: String) {
     var error: String? = null
     var notice: String? = null
     var cubeGone = false; private set
+    /** The cube's cards the ranking last caught up with. */
+    var baseline: List<String>? = null; private set
 
     private var serverLog: List<RankScreen> = emptyList()
     private var pending = ArrayList<RankChange>()
@@ -192,22 +202,27 @@ class RankingModel(val id: String) {
 
     private suspend fun adopt(d: RankingDetail) {
         val same = d.log == serverLog
-        val changed = !same || row?.depth != d.depth || row?.top != d.top || state == null
-        row = d.row; cube = d.cube
+        val cubeMoved = d.cube?.cards != cube?.cards || d.baseline != baseline
+        val changed = !same || cubeMoved || row?.depth != d.depth || row?.top != d.top || state == null
+        row = d.row; cube = d.cube; baseline = d.baseline
         if (changed) lastChange = System.currentTimeMillis()
         if (saving || (unsaved && same)) return
         serverLog = d.log; log = d.log; changes = d.changes; pending.clear()
         if (changed || cards.isEmpty()) rebuild(d.cube?.cards)
     }
 
+    /** Resolves the cube's cards against the catalog and works out the state. Cards that left the cube (in the log or
+     *  the baseline) are looked up too, for their names; only the cube's cards make the lists. */
     private suspend fun rebuild(cubeCards: List<String>?) {
         val r = row ?: return
         cubeGone = cubeCards == null
         CatalogStore.load(userInitiated = true)
         val db = CatalogStore.db ?: return
-        val ids = cubeCards ?: cards.keys.toList().ifEmpty { log.flatMap { it.o }.distinct() }
+        val ids = (cubeCards ?: state?.category?.keys?.toList() ?: log.flatMap { it.o }.distinct()).map { it.lowercase() }
+        val inCube = ids.toSet()
+        val wanted = (ids + log.flatMap { it.o } + baseline.orEmpty()).map { it.lowercase() }.distinct()
         val resolved = withContext(Dispatchers.Default) {
-            val oracles = db.oraclesById(ids)
+            val oracles = db.oraclesById(wanted)
             val covers = db.covers(oracles.values.map { it.idx })
             val held = cube?.printings.orEmpty()
             val found = if (held.isEmpty()) emptyMap() else db.printings(held.values.toSet())
@@ -217,7 +232,38 @@ class RankingModel(val id: String) {
         }
         cards = resolved.mapValues { it.value.first }
         val l = log
-        state = withContext(Dispatchers.Default) { RankingState(id, resolved.mapValues { it.value.second }, l, r.depth, r.top) }
+        val fresh = cubeChange.added.toSet()
+        val jobs = resolved.filterKeys { it in inCube }.mapValues { it.value.second }
+        state = withContext(Dispatchers.Default) { RankingState(id, jobs, l, r.depth, r.top, fresh) }
+        maybeCatchUp()
+    }
+
+    /** Cards added to the cube since this ranking caught up, and cards removed. */
+    val cubeChange: CubeChange get() = if (cubeGone) CubeChange.of(null, null) else CubeChange.of(cube?.cards, baseline)
+
+    /** Where a re-rank starts: the first list with new cards to place (colors, then the final). */
+    val reRankJob: RankJob? get() = state?.let { st -> (st.jobs + RankJob.Final).firstOrNull { st.session(it).waiting.isNotEmpty() } }
+
+    private var catching = false
+    /** Your ranking has caught up with its cube once every new card is placed: then the change is no longer news. */
+    private fun maybeCatchUp() {
+        val st = state ?: return
+        if (!mine || catching || unsaved || saving || cubeChange.added.isEmpty() || st.waiting.isNotEmpty()) return
+        catchUp()
+    }
+
+    /** Takes the cube as it is now as the cards this ranking has caught up with (after placing new cards, or to dismiss
+     *  removals). */
+    fun catchUp() {
+        if (!mine || catching) return
+        catching = true
+        scope.launch {
+            runCatching { RankingsStore.catchUp(id) }
+                .onSuccess { baseline = it; rebuild(cube?.cards); Telemetry.capture("ranking_caught_up") }
+                .onFailure { error = it.message }
+            catching = false
+            bump()
+        }
     }
 
     companion object {
@@ -228,7 +274,7 @@ class RankingModel(val id: String) {
 
     private fun rebuildState() {
         val st = state ?: return; val r = row ?: return
-        state = RankingState(id, st.category, log, r.depth, r.top)
+        state = RankingState(id, st.category, log, r.depth, r.top, st.fresh)
     }
 
     data class Question(val session: RankSession, val cards: List<Int>, val pinned: List<Int>)
@@ -317,7 +363,7 @@ class RankingModel(val id: String) {
         val screen = RankScreen(RankJob.Pick.key, listOf(picked) + pack.filter { it != picked }, now())
         log = log.filterIndexed { k, _ -> k !in removed } + screen
         reask = null
-        val next = if (removed.isEmpty()) st.appending(screen) else RankingState(id, st.category, log, r.depth, r.top)
+        val next = if (removed.isEmpty()) st.appending(screen) else RankingState(id, st.category, log, r.depth, r.top, st.fresh)
         state = next
         record(st, next, if (removed.isEmpty()) "pick" else "pick_win", log.size)
         Telemetry.capture("ranking_pick", mapOf("disagreed" to disagreed, "resolution" to (if (disagreed == 0) "none" else if (wins) "pick_wins" else "keep"),
@@ -372,7 +418,7 @@ class RankingModel(val id: String) {
                     repeat(minOf(sending.size, pending.size)) { pending.removeAt(0) }
                     op = null; error = null; lastChange = System.currentTimeMillis()
                     saving = false
-                    if (unsaved) save()
+                    if (unsaved) save() else maybeCatchUp()
                 }
                 .onFailure { e ->
                     saving = false
@@ -380,7 +426,8 @@ class RankingModel(val id: String) {
                         op = null; pending.clear(); serverLog = emptyList()
                         notice = "This ranking changed on another device, so it has been reloaded. Check the screen you just locked in."
                         runCatching { RankingsStore.get(id) }.onSuccess { d ->
-                            serverLog = d.log; log = d.log; row = d.row; changes = d.changes; reask = null; rebuild(d.cube?.cards)
+                            serverLog = d.log; log = d.log; row = d.row; cube = d.cube; baseline = d.baseline; changes = d.changes; reask = null
+                            rebuild(d.cube?.cards)
                         }
                     } else {
                         error = "Couldn't save: ${e.message}. It's kept here and saves on the next lock-in."
@@ -399,23 +446,45 @@ class RankingModel(val id: String) {
         }
     }
 
-    data class JobList(val placed: List<RankCard>, val rest: List<RankCard>, val restTitle: String?, val session: RankSession)
+    data class JobList(val placed: List<RankCard>, val waiting: List<RankCard>, val waitingTitle: String?, val rest: List<RankCard>,
+                       val restTitle: String?, val session: RankSession)
 
-    /** A job's list: the placed cards, best first, then the rest by name. */
+    /** A job's list: the placed cards, best first, then the cube's new cards waiting to be placed, then the rest by name.
+     *  Only the cube's cards: one that left it is in no list. */
     fun list(job: RankJob): JobList? {
         val st = state ?: return null
         val s = st.session(job)
         val placed = s.top.mapNotNull(::cardAt)
-        val inTop = s.top.toSet()
-        val rest = st.scope(job).members.filter { it !in inTop }.mapNotNull(::cardAt).sortedBy { it.name.lowercase() }
-        val title = when { rest.isEmpty() -> null; s.done -> "Below the top ${s.target}, in no particular order · ${rest.size}"; else -> "Not placed yet · ${rest.size}" }
-        return JobList(placed, rest, title, s)
+        val skip = (s.top + s.waiting).toSet()
+        val waiting = s.waiting.mapNotNull(::cardAt).sortedBy { it.name.lowercase() }
+        val rest = st.scope(job).members.filter { it !in skip }.mapNotNull(::cardAt).sortedBy { it.name.lowercase() }
+        val title = when {
+            rest.isEmpty() -> null
+            s.top.size >= s.target -> "Below the top ${s.target}, in no particular order · ${rest.size}"
+            else -> "Not placed yet · ${rest.size}"
+        }
+        return JobList(placed, waiting, if (waiting.isEmpty()) null else "New in the cube, not placed yet · ${waiting.size}", rest, title, s)
     }
 
     fun listText(job: RankJob): String {
         val l = list(job) ?: return ""
         val lines = l.placed.mapIndexed { i, c -> "${i + 1}. ${c.name}" }.toMutableList()
+        if (l.waitingTitle != null) { lines += ""; lines += l.waitingTitle; lines += l.waiting.map { it.name } }
         if (l.restTitle != null && l.rest.isNotEmpty()) { lines += ""; lines += l.restTitle; lines += l.rest.map { it.name } }
         return lines.joinToString("\n") + "\n"
+    }
+}
+
+/** What changed in a cube since a ranking last caught up: cards added (they wait to be placed) and removed (gone from its
+ *  lists). Empty without a baseline or the cube's cards. */
+data class CubeChange(val added: List<String> = emptyList(), val removed: List<String> = emptyList()) {
+    val isEmpty get() = added.isEmpty() && removed.isEmpty()
+
+    companion object {
+        fun of(cubeCards: List<String>?, baseline: List<String>?): CubeChange {
+            if (cubeCards == null || baseline == null) return CubeChange()
+            val now = cubeCards.map { it.lowercase() }.toSet(); val then = baseline.map { it.lowercase() }.toSet()
+            return CubeChange((now - then).sorted(), (then - now).sorted())
+        }
     }
 }

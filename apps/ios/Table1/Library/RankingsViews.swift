@@ -180,6 +180,7 @@ struct RankingView: View {
                 if let e = m.error { Notice(e, error: true) }
                 if let n = m.notice { Notice(n) }
                 if m.cubeGone, m.row != nil { Notice("This cube isn't shared with you any more, so only its lists show.") }
+                if let row = m.row, m.state != nil { cubeChanged(m, row) }
                 if let row = m.row, let st = m.state {
                     if !row.mine { Notice("You're watching \(row.by?.displayName ?? "someone")'s ranking. It updates live as they pick.") }
                     if row.depth == "half" { Notice("This ranking orders only the top half of each color.") }
@@ -236,6 +237,40 @@ struct RankingView: View {
         .background(T1.surface)
     }
 
+    /// The cube changed since this ranking caught up: what's new and gone, and (yours) Re-rank, which asks only about the
+    /// new cards. Your order stays; removed cards are already off the lists.
+    @ViewBuilder private func cubeChanged(_ m: RankingModel, _ row: RankingRow) -> some View {
+        let change = m.cubeChange
+        if !change.isEmpty {
+            let parts = [change.added.isEmpty ? nil : "\(plural(change.added.count, "card")) joined (\(names(m, change.added)))",
+                         change.removed.isEmpty ? nil : "\(plural(change.removed.count, "card")) left (\(names(m, change.removed)))"]
+                .compactMap { $0 }.joined(separator: " and ")
+            let cube = m.cube?.name ?? "This cube"
+            if !row.mine {
+                Notice("\(cube) changed since \(row.by?.displayName ?? "they") last ranked it: \(parts)." +
+                       (change.added.isEmpty ? "" : " The new cards wait outside the lists until they're placed."))
+            } else {
+                let job = m.reRankJob
+                Notice("\(cube) changed since you ranked it: \(parts)." + (change.removed.isEmpty ? "" : " Removed cards are off your lists.") +
+                       (job == nil ? "" : " Re-rank to place the new cards: you're only asked about them, and your order stays as it is."))
+                if let job {
+                    BigAction(text: "Re-rank") {
+                        Telemetry.capture("ranking_rerank", ["list": job.rawValue])
+                        path.append(.rankingPick(rankingId, job.rawValue))
+                    }
+                } else {
+                    Ghost(text: "OK") { Task { await m.catchUp() } }
+                }
+            }
+        }
+    }
+
+    /// "A, B, C and 2 more".
+    private func names(_ m: RankingModel, _ ids: [String]) -> String {
+        let ns = ids.compactMap { m.card($0)?.name }
+        return ns.count > 3 ? "\(ns.prefix(3).joined(separator: ", ")) and \(ns.count - 3) more" : ns.joined(separator: ", ")
+    }
+
     private func tile(_ job: RankJob, _ st: RankingState, _ row: RankingRow) -> some View {
         let s = st.session(job)
         let used = st.knowledge.perJob[job.rawValue] ?? 0
@@ -243,6 +278,8 @@ struct RankingView: View {
         let note: String
         if s.done {
             note = s.target < size ? "Top \(s.target) of \(size) sorted in \(plural(used, "screen"))." : "All \(size) sorted in \(plural(used, "screen"))."
+        } else if !s.waiting.isEmpty {
+            note = "\(s.top.count) of the top \(s.target) placed · \(plural(s.waiting.count, "new card")) to place"
         } else if used == 0 {
             note = "\(plural(size, "card")) · about \(plural(st.expected(job), "screen"))"
         } else {
@@ -405,15 +442,20 @@ struct RankingPickView: View {
         let used = st.knowledge.perJob[job.rawValue] ?? 0
         let place = s.top.count + 1
         let label = job == .final ? "Final" : job.title
+        let placing = !s.waiting.isEmpty
+        let screen = "Screen \((st.knowledge.screens + 1).formatted()) of this ranking"
         return VStack(alignment: .leading, spacing: 8) {
             if !row.mine { LabelText("Watching \(row.by?.displayName ?? "someone")'s ranking live") }
             HStack(alignment: .firstTextBaseline, spacing: 14) {
-                Text(s.done ? "✓" : "#\(place)").font(T1.mono(44, .bold)).foregroundStyle(T1.accent).monospacedDigit()
+                Text(s.done ? "✓" : placing ? "+\(s.waiting.count)" : "#\(place)").font(T1.mono(44, .bold)).foregroundStyle(T1.accent).monospacedDigit()
                 VStack(alignment: .leading, spacing: 4) {
-                    LabelText(s.done ? "\(label) · done" : "\(label) · deciding #\(place) of the top \(s.target)", color: T1.text)
-                    Text("\(s.top.count) of the top \(s.target) (\(plural(s.size, "card"))) placed").font(T1.mono(12)).foregroundStyle(T1.muted)
+                    LabelText(s.done ? "\(label) · done" : placing ? "\(label) · placing new cards" : "\(label) · deciding #\(place) of the top \(s.target)",
+                              color: T1.text)
+                    Text(placing ? "\(plural(s.waiting.count, "new card")) to place; your order stays as it is"
+                                 : "\(s.top.count) of the top \(s.target) (\(plural(s.size, "card"))) placed").font(T1.mono(12)).foregroundStyle(T1.muted)
                     Text(s.done ? "Done in \(plural(used, "screen"))"
-                                : "Screen \((st.knowledge.screens + 1).formatted()) of this ranking · about \(max(1, st.expected(job) - used)) to go in \(label)")
+                         : placing ? "\(screen) · only the new cards are asked about"
+                         : "\(screen) · about \(max(1, st.expected(job) - used)) to go in \(label)")
                         .font(T1.mono(11)).foregroundStyle(T1.muted)
                 }
             }
@@ -432,7 +474,14 @@ struct RankingPickView: View {
     private func done(_ st: RankingState, _ s: RankSession) -> some View {
         VStack(spacing: 1) {
             Notice(job == .final ? "Top \(s.target) complete. All \(s.target) places are ranked." : "\(job.title) sorted.")
-            Ghost(text: job == .final ? "Top \(s.target) list" : "\(job.title) list", accent: true) {
+            let next = model.mine ? model.reRankJob.flatMap { $0 == job ? nil : $0 } : nil
+            if let next {
+                // Instead of this screen, so Back still returns to the ranking.
+                Ghost(text: "Next: place new cards in \(next == .final ? "the final" : next.title)", accent: true) {
+                    if !path.isEmpty { path[path.count - 1] = .rankingPick(rankingId, next.rawValue) }
+                }
+            }
+            Ghost(text: job == .final ? "Top \(s.target) list" : "\(job.title) list", accent: next == nil) {
                 path.append(.rankingLists(rankingId, job.rawValue))
             }
             Ghost(text: "Back to the ranking") { dismiss() }
@@ -572,6 +621,14 @@ struct RankingListsView: View {
                             Button { path.append(.rankingCard(rankingId, c.oracleId, shown.rawValue)) } label: {
                                 CardRow(printing: c.printing, title: "\(i + 1). \(c.name)")
                             }.buttonStyle(.plain)
+                        }
+                        if let t = l.waitingTitle {
+                            Section1(t)
+                            ForEach(l.waiting, id: \.oracleId) { c in
+                                Button { path.append(.rankingCard(rankingId, c.oracleId, shown.rawValue)) } label: {
+                                    CardRow(printing: c.printing, title: c.name)
+                                }.buttonStyle(.plain)
+                            }
                         }
                         if let t = l.restTitle {
                             Section1(t)
