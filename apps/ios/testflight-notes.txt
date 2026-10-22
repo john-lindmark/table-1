@@ -1,30 +1,17 @@
 What's new in this build
 
-CUBE RANKINGS
-• Stack-rank the cards of any cube you can see: your own, or one a friend or someone you've played with shares on their profile. Open a cube and tap Rankings, or Collection → Cubes → Rankings for every cube you can rank.
-• Sort each color four cards at a time: drag them into order (or tap two to swap), then Lock in. Then the Final puts the top 100 (or 50) in order across the whole cube. The app works out the rest, so it never asks the same thing twice, and it says about how many screens are left.
-• Undo the last screen, or redo any earlier one from a card's history. "Why is it above…" shows the screens that put one card over another.
-• Lists for each color and the final, Copy list, and a Top 100 image.
-• P1P1: once the final is done, open a 15-card pack and pick the card you'd take first. If your ranking disagrees with your pick, the app says so: keep your ranking, or let the pick win.
-• Changes: every move in your ranking, newest first.
-• Compare two rankings of the same cube, with a short In brief written by Claude about where the two of you agree and where you differ.
-• A ranking is shared with the cube's audience to start with; switch it to Only me in Settings.
-• Cards show in the printing your cube holds (your Secret Lair Bolt, not the original).
-• When your cube changes, your ranking keeps its order: removed cards drop out, new cards wait under "New in the cube", and Re-rank asks only about the new ones.
-
-SIGN-IN
-• When iPhone won't open the Google sign-in window, the sign-in screen now says to try again or use email.
-
-FIXES
-• A cube or deck that didn't reach your account (for example an imported cube with foil-only cards) is now saved when the app syncs, and says so on its screen until it is. Such a cube used to say "That's private" in Rankings.
-• When a ranking is out of date on this phone, it reloads and says so, instead of the save hanging until it times out.
+WIDGETS AND QUICK ACTIONS
+• Running an event: while a round is on, your Lock Screen and Dynamic Island show it. You'll see the clock, "5/8 in" with a mark for each match (teal = result in, red = disputed), and what's next: "Waiting on 3 results", then "Ready: Pair round 4" or "Ready: Finish event". Disputes to decide and guest matches you enter yourself are listed under it. You get an alert when a match is disputed and when the last result of a round comes in. Tap it to open the event.
+• Next event widget (home screen and Lock Screen): when and where your next event is, how many are playing, and whether you're organizing. The medium size shows the one after it and any invitations.
+• Collection value widget (home screen): what your collection is worth, the change over 7 days and a 30-day line. It starts tracking the day you add it, and it hides the numbers while your phone is locked.
+• Life tracker and Scan cards open in one tap from Shortcuts or the Action Button, and on iOS 18 and later from Control Center and the Lock Screen's buttons. Scan cards opens with the camera already scanning.
 
 PLEASE TRY
-1. Open a cube (import one from a Cube Cobra link if you have none), tap Rankings → New ranking and do a few screens in one color. Is dragging and swapping easy? Is Lock in where your thumb expects it?
-2. Tap Undo, then Lock in again. Does the same screen come back?
-3. Open the list for that color and tap a card. Does "Why is it above…" make sense?
-4. Leave and come back to the ranking. Is everything where you left it?
-5. If a friend shares a cube with you, rank it too, and both of you compare your rankings. Does the In brief sound right to you? Is anything in it wrong?
-6. After the final, open a few P1P1 packs. When a pick disagrees, try both Keep my ranking and Let the pick win.
+1. Add the Next event and Collection value widgets: long-press the home screen → Edit → Add Widget → Table 1. Do they show the right event and value? Does tapping them open the right screen?
+2. Add Next event to your Lock Screen too.
+3. Run a small event, even 2 players or guests. Once round 1 is paired, lock your phone. Does the organizer view appear? Report a result and dispute one. Does it update, and do the alerts come?
+4. Pull down Control Center → + → add Table 1's Life tracker and Scan cards. Do they open straight in, even when the app was closed?
+5. If your phone has an Action Button: Settings → Action Button → Shortcut → Table 1.
+6. If you organize and play in the same event, you'll see two Live Activities, one for each. Is that useful or too much?
 
 Anything odd: screenshot it and send it with TestFlight's feedback.
