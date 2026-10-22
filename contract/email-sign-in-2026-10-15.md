@@ -33,6 +33,6 @@ Accounts with the same verified email as an Apple/Google identity are linked by 
 - OTP expiry 3600 s (the email says "an hour"). Code length 6–10 accepted by the clients.
 
 ## App-link files (served by table-1.site, `table-1-events-web/public/.well-known/`)
-- `apple-app-site-association`: `/j/*` and `/auth/confirm` for `94889YTX94.site.table1.events`. Serve as
+- `apple-app-site-association`: every page the apps have a screen for (`contract/universal-links-2026-10-22.md`), incl. `/j/*` and `/auth/confirm`, for `94889YTX94.site.table1.events`. Serve as
   `application/json`, no redirect.
 - `assetlinks.json`: currently the **debug** keystore SHA-256; add the release key's when Android release signing exists.

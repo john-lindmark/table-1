@@ -54,7 +54,7 @@ targets:
       path: Table1/Table1.entitlements
       properties:
         com.apple.developer.applesignin: [Default]
-        com.apple.developer.associated-domains: ["applinks:table-1.site"]
+        com.apple.developer.associated-domains: ["applinks:table-1.site", "applinks:www.table-1.site"]
         # Live Activity pushes. Xcode switches this to production when archiving for TestFlight.
         aps-environment: development
         com.apple.security.application-groups: [group.site.table1.events]

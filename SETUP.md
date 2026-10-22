@@ -108,17 +108,14 @@ Internal testing reaches up to 100 testers by email within minutes, with no revi
 6. **After the first upload**, App integrity → App signing: copy the **SHA-1** into a new Android OAuth client (Google step 3) and the **SHA-256** into `table-1-events-web/public/.well-known/assetlinks.json` (next to the debug one), so Google sign-in and the email/QR app links work for Play installs.
 7. **App content** (Policy → App content) before the first release can be published: privacy policy URL (needed for location and camera), app access (testers sign in with email codes; give review an email they can use, or mark "all functionality available without special access" is false), ads: none, content rating questionnaire, target audience (18+ / not for children), data safety (email, name, approximate and precise location, camera stays on device; account deletion URL). Privacy policy URL: `https://table-1.site/privacy`; account-deletion URL: `https://table-1.site/delete-account` (both public, signed out, in the web app: `src/screens/Legal.tsx`; the policy text is a draft to review, and the contact address `privacy@table-1.site` must exist). Use `/privacy` for the Google consent screen's privacy policy link too. They need table-1.site deployed first.
 
-## 5. Universal / app links for the QR code
+## 5. Universal / app links
 
-The QR encodes `https://table-1.site/j/<code>?s=<secret>`. Phones without the app open the web join page; with the app installed it opens straight into a join once these two files are served by table-1.site:
+Every table-1.site page the apps have a screen for opens in the app when it's installed and on the web when it isn't: the join QR (`/j/<code>?s=<secret>`), join links, events, standings, the life tracker, the whole Collection, Account, friends and profiles, and the sign-in email's `/auth/confirm`. The list and how each address maps to a screen are in `contract/universal-links-2026-10-22.md` (cases `testdata/universal-links/cases.json`). Both hosts, `table-1.site` and `www.table-1.site`, serve:
 
-- `https://table-1.site/.well-known/apple-app-site-association`
-  ```json
-  { "applinks": { "details": [ { "appIDs": ["94889YTX94.site.table1.events"], "components": [ { "/": "/j/*" }, { "/": "/auth/confirm" } ] } ] } }
-  ```
-- `https://table-1.site/.well-known/assetlinks.json` — currently the debug keystore's SHA-256; add the Play App Signing SHA-256 after the first Play upload (§4).
+- `/.well-known/apple-app-site-association`: the paths for `94889YTX94.site.table1.events` (iOS entitlement `applinks:table-1.site` + `applinks:www.table-1.site` in `project.yml`).
+- `/.well-known/assetlinks.json`: currently the debug keystore's SHA-256; add the Play App Signing SHA-256 after the first Play upload (§4). The Android manifest's `autoVerify` filter lists the same paths.
 
-Both files are in `table-1-events-web/public/.well-known/` and ship with the web build. `/auth/confirm` is the sign-in email's link: the app opens it when installed, the web page signs in otherwise.
+Both files are in `table-1-events-web/public/.well-known/` and ship with the web build. `src/lib/universalLinks.test.ts` fails if the two files, the manifest and the web routes drift apart.
 
 ## 6. Known gaps in this first build
 

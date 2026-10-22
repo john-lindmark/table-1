@@ -4,8 +4,26 @@
       {
         "appIDs": ["94889YTX94.site.table1.events"],
         "components": [
+          { "#": "*access_token=*", "exclude": true, "comment": "A web sign-in returning to the browser that asked" },
+          { "#": "*error_description=*", "exclude": true, "comment": "A web sign-in that failed" },
+          { "?": { "code": "?*" }, "exclude": true, "comment": "A web sign-in's code exchange" },
+          { "/": "/", "comment": "Events" },
+          { "/": "/sign-in" },
+          { "/": "/e/*", "comment": "An event (organizer)" },
+          { "/": "/p/*", "comment": "An event (player)" },
+          { "/": "/s/*", "comment": "Standings: the event for its players, else the web page" },
+          { "/": "/join/*", "comment": "Join by code" },
           { "/": "/j/*", "comment": "Owner's join QR" },
-          { "/": "/auth/confirm", "comment": "Sign-in email link" }
+          { "/": "/auth/confirm", "comment": "Sign-in email link" },
+          { "/": "/life" },
+          { "/": "/life/*", "comment": "Life tracker" },
+          { "/": "/library" },
+          { "/": "/library/*", "comment": "Collection" },
+          { "/": "/me", "comment": "Account" },
+          { "/": "/friends" },
+          { "/": "/friends/*" },
+          { "/": "/sharing" },
+          { "/": "/u/*", "comment": "Profiles" }
         ]
       }
     ]

@@ -12,6 +12,15 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
+    <!-- Links the app has no screen for go back to the browser (WebLink.kt), so it must see which one is the default. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+
     <application
         android:name=".T1App"
         android:allowBackup="false"
@@ -34,21 +43,34 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Owner's QR code: https://table-1.site/j/<code>?s=<secret> opens straight into a join.
-                 autoVerify needs /.well-known/assetlinks.json on table-1.site (see SETUP.md). -->
+            <!-- table-1.site links open here when the app is installed (contract/universal-links-2026-10-22.md): every
+                 page the app has a screen for, the same list as public/.well-known/apple-app-site-association. Anything
+                 else under these paths (or a web sign-in coming back) goes back to the browser (WebLink.kt).
+                 autoVerify needs /.well-known/assetlinks.json on both hosts (see SETUP.md). -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="table-1.site" android:pathPrefix="/j/" />
-            </intent-filter>
-
-            <!-- The sign-in email's button: https://table-1.site/auth/confirm?token_hash=… -->
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="table-1.site" android:path="/auth/confirm" />
+                <data android:scheme="https" />
+                <data android:host="table-1.site" />
+                <data android:host="www.table-1.site" />
+                <data android:path="/" />
+                <data android:path="/sign-in" />
+                <data android:pathPrefix="/e/" />
+                <data android:pathPrefix="/p/" />
+                <data android:pathPrefix="/s/" />
+                <data android:pathPrefix="/join/" />
+                <data android:pathPrefix="/j/" />
+                <data android:path="/auth/confirm" />
+                <data android:path="/life" />
+                <data android:pathPrefix="/life/" />
+                <data android:path="/library" />
+                <data android:pathPrefix="/library/" />
+                <data android:path="/me" />
+                <data android:path="/friends" />
+                <data android:pathPrefix="/friends/" />
+                <data android:path="/sharing" />
+                <data android:pathPrefix="/u/" />
             </intent-filter>
 
             <!-- Sign in with Apple returns here from the browser. -->

@@ -174,6 +174,7 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `live_activity_started` | `via`: push (push-to-start from the server) / app (the app's own fallback) |
 | `live_activity_ended` | `reason`: ended (match or event over, or signed out) / dismissed (swiped away) |
 | `surface_opened` | `source`: widget / live_activity / dynamic_island, `target`: event / home |
+| `link_opened` | `to`: event / events / standings / join_code / join_qr / sign_in / tracker / collection / account / web. A tapped table-1.site link reached the app (contract/universal-links-2026-10-22.md); never the address or ids |
 | `widgets_changed` | `count`: int, `families`: [systemSmall, accessoryCircular, …]. Sent when the installed set changes |
 
 Super properties `live_activities_enabled` (bool) and `widgets` (count) are refreshed at launch and on each foreground.

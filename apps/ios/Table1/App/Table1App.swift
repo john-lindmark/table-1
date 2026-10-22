@@ -43,6 +43,7 @@ struct Table1App: App {
                 #endif
                 // App-drawn menus and panels sit above everything (tabs, life tracker); only alerts are native.
                 .overlay { T1OverlayHost() }
+                .sheet(item: $session.webPage) { WebPageView(url: $0.url).ignoresSafeArea() }
                 .environment(session)
                 .preferredColorScheme(.dark)
                 // Owner's QR from the camera (universal link) or a shared link; Google's sign-in return.
@@ -117,6 +118,10 @@ final class SessionModel {
     /// A new email account: the name step comes before the app (SignIn.needsName).
     var needsName = false
     var pendingJoin: JoinLink?
+    /// A tapped table-1.site link waiting for the signed-in app (WebLink).
+    var pendingLink: WebLink?
+    /// A table-1.site page with no screen in the app, shown in the browser over everything.
+    var webPage: WebPage?
     /// An event opened from a widget or the Live Activity.
     var pendingEvent: String?
     /// A tapped friend push: Account → Friends.
@@ -162,9 +167,13 @@ final class SessionModel {
         }
     }
 
-    /// https://table-1.site links: the sign-in email's button, or the owner's join QR.
+    /// https://table-1.site links (contract/universal-links-2026-10-22.md): the screen the web address shows, once
+    /// signed in; pages the app has no screen for open in the browser over the app.
     func openWebLink(_ url: URL) {
-        if url.path.hasPrefix("/auth/confirm") {
+        guard let link = WebLink.parse(url) else { return }
+        Telemetry.capture("link_opened", ["to": link.kind])
+        switch link {
+        case .signIn:
             emailLinkError = nil
             Task {
                 do { _ = try await SignIn.handleEmailLink(url) } catch {
@@ -172,14 +181,21 @@ final class SessionModel {
                     emailLinkError = "That sign-in link has expired or was already used. Send a new one."
                 }
             }
-            return
+        case .joinQr(let join): pendingJoin = join
+        case .web: webPage = WebPage(url: url)
+        // Standings need no account: someone signed out reads them on the web instead of a sign-in screen.
+        case .standings where state == .signedOut: webPage = WebPage(url: url)
+        default: pendingLink = link
         }
-        if let link = JoinLink(url.absoluteString) { pendingJoin = link }
     }
 
     func watchAuth() async {
         for await (event, session) in supabase.auth.authStateChanges {
             state = session == nil ? .signedOut : .signedIn
+            if state == .signedOut, case .standings(let id)? = pendingLink {
+                pendingLink = nil
+                webPage = WebPage(url: WebLink.standingsURL(id))
+            }
             needsName = SignIn.needsName(session?.user)
             if let id = session?.user.id.uuidString.lowercased() { Telemetry.identify(id) }
             if session != nil, event == .initialSession || event == .signedIn {
@@ -413,6 +429,12 @@ struct SignedInView: View {
                 join(link, via: "link")
             }
         }
+        .task(id: session.pendingLink) {
+            if let link = session.pendingLink {
+                session.pendingLink = nil
+                open(link)
+            }
+        }
         .alert("Couldn't join", isPresented: Binding(get: { joinError != nil }, set: { if !$0 { joinError = nil } })) {
             Button("OK", role: .cancel) {}
         } message: { Text(joinError ?? "") }
@@ -441,6 +463,52 @@ struct SignedInView: View {
             }
         }
         tab = next
+    }
+
+    /// A tapped table-1.site link: the screens behind its web address, on a fresh stack (contract/universal-links-2026-10-22.md).
+    private func open(_ link: WebLink) {
+        session.autoOpenArmed = false
+        session.tracker = nil
+        T1Overlays.shared.dismissAll()
+        switch link {
+        case .events(let stack):
+            select(.events)
+            path = stack
+        case .collection(let stack):
+            select(.collection)
+            libraryPath = stack
+        case .account(let stack):
+            select(.account)
+            accountPath = stack
+        case .tracker(let matchId): session.openTracker(matchId: matchId, source: "link")
+        case .joinCode(let code): joinByCode(code)
+        case .standings(let id): openStandings(id)
+        case .signIn, .joinQr, .web: break
+        }
+    }
+
+    /// The event screen has the standings for its organizer and players; anyone else gets the public page.
+    private func openStandings(_ id: String) {
+        Task {
+            if let access = await Repo.eventAccess(id), access == "organizer" || access == "player" {
+                select(.events)
+                path = [.event(id)]
+            } else {
+                session.webPage = WebPage(url: WebLink.standingsURL(id))
+            }
+        }
+    }
+
+    private func joinByCode(_ code: String) {
+        Task {
+            do {
+                let seat = try await Repo.joinByCode(code)
+                select(.events)
+                path = [.event(seat.eventId)]
+            } catch {
+                joinError = error.localizedDescription
+            }
+        }
     }
 
     private func join(_ link: JoinLink, via: String) {

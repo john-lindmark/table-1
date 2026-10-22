@@ -35,6 +35,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.add
 import site.table1.events.T1App
+import site.table1.events.util.Telemetry
 import java.util.UUID
 
 /**
@@ -258,6 +259,23 @@ object Repo {
             put("p_short_code", link.code)
             put("p_secret", link.secret)
         }).decodeAs()
+
+    /** A shared /join/<code> link (open events only, rate-limited). An account already in the event lands on it. */
+    suspend fun joinByCode(code: String): SeatResult {
+        val w = supabase.postgrest.rpc("join_event", buildJsonObject {
+            put("p_code", code)
+            put("p_display_name", myDisplayName() ?: "Player")
+        }).decodeAs<JoinCodeWire>()
+        // A code that leads nowhere joinable comes back as {error, message} (so the server's miss count sticks).
+        val eventId = w.eventId ?: throw IllegalStateException(w.message ?: "No event found with that code")
+        if (!w.alreadyJoined) Telemetry.capture("event_joined", mapOf("via" to "link"))
+        return SeatResult(eventId = eventId, participantId = w.participantId, alreadyJoined = w.alreadyJoined)
+    }
+
+    /** How this account can see an event (event_preview: organizer / player / guest / invited / link / none); null if unknown. */
+    suspend fun eventAccess(eventId: String): String? = runCatching {
+        supabase.postgrest.rpc("event_preview", buildJsonObject { put("p_event_id", eventId) }).decodeAs<EventAccessWire>().access
+    }.getOrNull()
 
     suspend fun joinQr(eventId: String, rotate: Boolean = false): JoinQr =
         supabase.postgrest.rpc("get_join_qr", buildJsonObject {
@@ -598,6 +616,17 @@ object Repo {
         })
     }
 }
+
+@Serializable
+private data class JoinCodeWire(
+    @SerialName("event_id") val eventId: String? = null,
+    @SerialName("participant_id") val participantId: String? = null,
+    @SerialName("already_joined") val alreadyJoined: Boolean = false,
+    val message: String? = null,
+)
+
+@Serializable
+private data class EventAccessWire(val access: String? = null)
 
 @Serializable
 private data class ProfileName(@SerialName("display_name") val displayName: String? = null, val handle: String? = null)

@@ -1,5 +1,6 @@
 package site.table1.events.ui
 
+import android.net.Uri
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -18,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -31,6 +33,8 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import site.table1.events.T1App
 import site.table1.events.data.JoinLink
+import site.table1.events.data.WebLink
+import site.table1.events.openInBrowser
 import site.table1.events.data.Repo
 import site.table1.events.library.RankingsScreen
 import site.table1.events.library.RankingScreen
@@ -102,19 +106,28 @@ import site.table1.events.ui.tracker.LifeTrackerScreen
  * sign-in (camera scan, notification) is held and completed right after.
  */
 @Composable
-fun AppRoot(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
+fun AppRoot(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pendingLink: WebLink?, onLinkConsumed: () -> Unit) {
     val status by T1App.supabase.auth.sessionStatus.collectAsState()
     when (status) {
         is SessionStatus.Authenticated ->
             if (SignIn.needsName((status as SessionStatus.Authenticated).session.user)) NameScreen()
-            else SignedInApp(pendingJoin, onJoinConsumed)
+            else SignedInApp(pendingJoin, onJoinConsumed, pendingLink, onLinkConsumed)
         is SessionStatus.Initializing -> T1Screen { Bar("Table 1") }
-        else -> SignInScreen()
+        else -> {
+            // Standings tapped while the app was still starting: read them on the web rather than signing in first.
+            val context = LocalContext.current
+            LaunchedEffect(pendingLink) {
+                val link = pendingLink as? WebLink.Standings ?: return@LaunchedEffect
+                onLinkConsumed()
+                openInBrowser(context, Uri.parse(WebLink.standingsUrl(link.eventId)))
+            }
+            SignInScreen()
+        }
     }
 }
 
 @Composable
-private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
+private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pendingLink: WebLink?, onLinkConsumed: () -> Unit) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
@@ -147,6 +160,30 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit) {
         val link = pendingJoin ?: return@LaunchedEffect
         onJoinConsumed()
         join(link)
+    }
+
+    // A tapped table-1.site link (contract/universal-links-2026-10-22.md): its tab, then the screens above it.
+    val context = LocalContext.current
+    fun show(tab: String, stack: List<String>) {
+        nav.navigate(tab) { popUpTo(nav.graph.findStartDestination().id); launchSingleTop = true }
+        stack.forEach { nav.navigate(it) }
+    }
+    LaunchedEffect(pendingLink) {
+        val link = pendingLink ?: return@LaunchedEffect
+        onLinkConsumed()
+        autoOpenArmed = false
+        when (link) {
+            is WebLink.Screens -> show(link.tab, link.stack)
+            is WebLink.Tracker -> show("events", listOf(link.matchId?.let { "tracker/$it" } ?: "tracker"))
+            is WebLink.JoinCode -> runCatching { Repo.joinByCode(link.code) }
+                .onSuccess { show("events", listOf("event/${it.eventId}")) }
+                .onFailure { joinError = it.message; show("events", emptyList()) }
+            // The event screen has the standings for its organizer and players; anyone else gets the public page.
+            is WebLink.Standings ->
+                if (Repo.eventAccess(link.eventId) in setOf("organizer", "player")) show("events", listOf("event/${link.eventId}"))
+                else openInBrowser(context, Uri.parse(WebLink.standingsUrl(link.eventId)))
+            WebLink.SignIn, is WebLink.JoinQr, WebLink.Web -> {}
+        }
     }
 
     fun tab(to: String) = nav.navigate(to) {

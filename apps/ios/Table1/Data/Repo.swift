@@ -201,6 +201,28 @@ enum Repo {
         ]).execute().value }
     }
 
+    /// A shared /join/<code> link (open events only, rate-limited). An account already in the event lands on it.
+    static func joinByCode(_ code: String) async throws -> SeatResult {
+        struct Wire: Decodable { let eventId: String?; let participantId: String?; let alreadyJoined: Bool?; let message: String? }
+        let name = await myDisplayName() ?? "Player"
+        let w: Wire = try await supabase.rpc("join_event", params: [
+            "p_code": AnyJSON.string(code), "p_display_name": .string(name),
+        ]).execute().value
+        // A code that leads nowhere joinable comes back as {error, message} (so the server's miss count sticks).
+        guard let eventId = w.eventId else {
+            throw NSError(domain: "Table1", code: 1, userInfo: [NSLocalizedDescriptionKey: w.message ?? "No event found with that code"])
+        }
+        if w.alreadyJoined != true { Telemetry.capture("event_joined", ["via": "link"]) }
+        return SeatResult(eventId: eventId, participantId: w.participantId, alreadyJoined: w.alreadyJoined)
+    }
+
+    /// How this account can see an event (event_preview: organizer / player / guest / invited / link / none); nil if unknown.
+    static func eventAccess(_ eventId: String) async -> String? {
+        struct Wire: Decodable { let access: String? }
+        let w: Wire? = try? await supabase.rpc("event_preview", params: ["p_event_id": AnyJSON.string(eventId)]).execute().value
+        return w?.access
+    }
+
     static func joinQr(_ eventId: String, rotate: Bool = false) async throws -> JoinQr {
         try await supabase.rpc("get_join_qr", params: [
             "p_event_id": AnyJSON.string(eventId), "p_rotate": .bool(rotate),
