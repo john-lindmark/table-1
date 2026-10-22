@@ -62,3 +62,12 @@ select pg_temp.eq('trigger functions not executable by anon',
   (select coalesce(string_agg(p.proname, ',' order by p.proname), '') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.prorettype = 'trigger'::regtype and p.prosecdef
       and has_function_privilege('anon', p.oid, 'execute')), '');
+
+-- PostgREST retries a request whose transaction fails with 40001 or 40P01 and keeps retrying while it fails, holding
+-- an API connection the whole time; on 2026-10-22 stale ranking pushes did this until the pool ran out and the whole
+-- API timed out. No function the API can call may raise either code: use PT409 (HTTP 409) for a conflict.
+select pg_temp.eq('no function raises a code PostgREST retries forever',
+  (select coalesce(string_agg(n.nspname || '.' || p.proname, ', ' order by 1), 'none')
+     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname in ('public', 't1_private') and p.prosrc ~ $re$errcode\s*=\s*'40(001|P01)'$re$),
+  'none');

@@ -152,4 +152,19 @@ final class RankingModelTests: XCTestCase {
         m.undo(.final)
         XCTAssertEqual(m.log, before)
     }
+
+    /// The ranker shows each card as the cube has it; a printing the card data lacks keeps the usual art.
+    func testCardsShowInTheCubesPrinting() {
+        func p(_ id: String) -> CatalogPrinting {
+            CatalogPrinting(cardId: id, oracleIdx: 0, ord: 0, set: "x", cn: "1", lang: "en", rarity: "c", finishes: "n",
+                            releasedAt: "", imageTs: "", imageFaces: 1, printedName: "")
+        }
+        let cards = ["bolt": RankCard(oracleId: "bolt", name: "Lightning Bolt", printing: p("alpha-bolt")),
+                     "opt": RankCard(oracleId: "opt", name: "Opt", printing: p("xln-opt")),
+                     "goyf": RankCard(oracleId: "goyf", name: "Tarmogoyf", printing: p("fut-goyf"))]
+        let shown = RankingModel.asInCube(cards, printings: ["bolt": "sld-bolt", "opt": "missing-opt"], found: ["sld-bolt": p("sld-bolt")])
+        XCTAssertEqual(shown["bolt"]?.printing?.cardId, "sld-bolt", "the cube's Secret Lair Bolt, not Alpha")
+        XCTAssertEqual(shown["opt"]?.printing?.cardId, "xln-opt", "a printing the card data doesn't have keeps the usual art")
+        XCTAssertEqual(shown["goyf"]?.printing?.cardId, "fut-goyf", "no printing from the cube: the usual art")
+    }
 }

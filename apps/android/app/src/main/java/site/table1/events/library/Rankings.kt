@@ -35,7 +35,9 @@ import java.util.UUID
 
 @Serializable
 data class RankingCube(val id: String, val name: String, val mine: Boolean = false, val owner: Person? = null,
-                       @SerialName("can_see") val canSee: Boolean? = null, val cards: List<String>? = null)
+                       @SerialName("can_see") val canSee: Boolean? = null, val cards: List<String>? = null,
+                       /** cube_ranking_get only: Oracle id → the printing the cube holds, so cards show as they are in the cube. */
+                       val printings: Map<String, String>? = null)
 
 @Serializable
 data class RankingRow(
@@ -207,13 +209,21 @@ class RankingModel(val id: String) {
         val resolved = withContext(Dispatchers.Default) {
             val oracles = db.oraclesById(ids)
             val covers = db.covers(oracles.values.map { it.idx })
+            val held = cube?.printings.orEmpty()
+            val found = if (held.isEmpty()) emptyMap() else db.printings(held.values.toSet())
             oracles.mapNotNull { (id, o) ->
                 RankJob.ofColor(GroupKeys.of(o)[CardGrouping.Color])?.let { id to (RankCard(id, o.name, covers[o.idx]) to it) }
-            }.toMap()
+            }.toMap().mapValues { (_, v) -> asInCube(v.first, held, found) to v.second }
         }
         cards = resolved.mapValues { it.value.first }
         val l = log
         state = withContext(Dispatchers.Default) { RankingState(id, resolved.mapValues { it.value.second }, l, r.depth, r.top) }
+    }
+
+    companion object {
+        /** A card in the printing the cube holds; one the card data doesn't have keeps its usual art. */
+        fun asInCube(c: RankCard, printings: Map<String, String>, found: Map<String, CatalogPrinting>): RankCard =
+            printings[c.oracleId]?.let { found[it] }?.let { c.copy(printing = it) } ?: c
     }
 
     private fun rebuildState() {

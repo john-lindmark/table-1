@@ -13,7 +13,11 @@ import { supabase } from "./supabaseClient";
 import { capture } from "./telemetry";
 
 export interface Person { user_id: string; display_name: string; handle?: string | null; avatar_url?: string | null }
-export interface RankingCube { id: string; name: string; mine: boolean; owner?: Person | null; can_see?: boolean; cards?: string[] }
+export interface RankingCube {
+  id: string; name: string; mine: boolean; owner?: Person | null; can_see?: boolean; cards?: string[];
+  /** cube_ranking_get only: Oracle id → the printing the cube holds, so cards show as they are in the cube. */
+  printings?: Record<string, string>;
+}
 export interface RankingRow {
   id: string; list_id: string; name: string; depth: "half" | "full"; top: number; sharing: "cube" | "private";
   screens: number; rev: number; sorted: number; categories: number; ranked: number; updated_at?: string; mine: boolean;
@@ -100,8 +104,9 @@ function oracleOf(c: Catalog, id: string): number | undefined {
   return m.get(id.toLowerCase());
 }
 
-/** The cube's cards with how they show and their color; cards the pack doesn't know are left out. */
-export function resolveCards(c: Catalog, ids: string[]): { cards: Map<string, RankCard>; jobs: Map<string, RankJob> } {
+/** The cube's cards with how they show and their color; cards the pack doesn't know are left out. Each shows in the
+ *  printing the cube holds (`printings`), else its usual art. */
+export function resolveCards(c: Catalog, ids: string[], printings: Record<string, string> = {}): { cards: Map<string, RankCard>; jobs: Map<string, RankJob> } {
   const cards = new Map<string, RankCard>(), jobs = new Map<string, RankJob>();
   for (const raw of ids) {
     const id = raw.toLowerCase();
@@ -109,7 +114,9 @@ export function resolveCards(c: Catalog, ids: string[]): { cards: Map<string, Ra
     if (oi == null) continue;
     const job = jobOfColor(keysOf(c, oi).color);
     if (!job) continue;
-    cards.set(id, { oracleId: id, name: c.oName[oi], p: coverPrinting(c, oi) });
+    const held = printings[id] ?? printings[raw];
+    const p = held != null ? c.printingIndex.get(held.toLowerCase()) : undefined;
+    cards.set(id, { oracleId: id, name: c.oName[oi], p: p ?? coverPrinting(c, oi) });
     jobs.set(id, job);
   }
   return { cards, jobs };
@@ -180,7 +187,7 @@ export class RankingModel {
     if (!this.row || !this.catalog) return;
     this.cubeGone = cubeCards == null;
     const ids = cubeCards ?? (this.cards.size ? [...this.cards.keys()] : [...new Set(this.log.flatMap((s) => s.o))]);
-    const { cards, jobs } = resolveCards(this.catalog, ids);
+    const { cards, jobs } = resolveCards(this.catalog, ids, this.cube?.printings);
     this.cards = cards;
     this.state = new RankingState(this.id, jobs, this.log, this.row.depth, this.row.top);
   }
@@ -345,7 +352,7 @@ export class RankingModel {
         if (this.unsaved) this.save();
       } catch (e) {
         this.saving = false;
-        if ((e as { code?: string }).code === "40001") {
+        if (["PT409", "40001"].includes((e as { code?: string }).code ?? "")) {
           this.op = null;
           this.pending = [];
           this.serverLog = [];

@@ -129,11 +129,11 @@ maker's client last reported, for list rows; everything else is worked out from 
 |---|---|
 | `cube_ranking_create(p_id, p_list_id, p_name?, p_depth='half', p_top=100, p_sharing='cube')` | Starts a ranking; a retry with the same id returns it. Name: trimmed, ≤ 60, blank → "My ranking". At most 200 per account. |
 | `cube_ranking_update(p_id, p_name?, p_depth?, p_top?, p_sharing?)` | Yours only. |
-| `cube_ranking_push(p_id, p_rev, p_keep, p_add, p_sorted?, p_categories?, p_ranked?, p_op_id?, p_changes?)` | Keeps the first `p_keep` screens, appends `p_add` (2–4 distinct known Oracle ids each, or 2–15 for a pick `P`; `s` one of `W U B R G M C L F P`, optional `t` epoch ms; ≤ 1000 per push, ≤ 6000 in all) and `p_changes` to the change log (≤ 2000 per push; the newest 5000 kept). `p_rev` must match (else 40001 "This ranking changed on another device": reload, check the last screen). A retry with the same `p_op_id` returns the stored result. |
+| `cube_ranking_push(p_id, p_rev, p_keep, p_add, p_sorted?, p_categories?, p_ranked?, p_op_id?, p_changes?)` | Keeps the first `p_keep` screens, appends `p_add` (2–4 distinct known Oracle ids each, or 2–15 for a pick `P`; `s` one of `W U B R G M C L F P`, optional `t` epoch ms; ≤ 1000 per push, ≤ 6000 in all) and `p_changes` to the change log (≤ 2000 per push; the newest 5000 kept). `p_rev` must match (else PT409, HTTP 409 "This ranking changed on another device": reload, check the last screen; never 40001, which PostgREST retries in a loop: see migration `20261022120000_ranking_conflict_409.sql`). A retry with the same `p_op_id` returns the stored result. |
 | `cube_ranking_delete(p_id)` | Yours only; `{deleted}`. |
 | `rankable_cubes()` | Other people's live cubes the caller can see, owned by a friend or someone they've played with: `[{id, name, owner: Person, cards (distinct main-board cards), rankings (that the caller can see), mine (the caller's own)}]`, by owner then name, at most 300. |
 | `cube_rankings(p_list_id?)` | A cube's rankings you can see (yours first, then newest) with `cube` and `can_rank`; no cube = all of yours, each with its `cube`. |
-| `cube_ranking_get(p_id)` | One ranking with `log`, `changes` and `cube` (`cards`: the main board's Oracle ids, sorted, when you can see the cube). |
+| `cube_ranking_get(p_id)` | One ranking with `log`, `changes` and `cube` (`cards`: the main board's Oracle ids, sorted, when you can see the cube; `printings`: Oracle id → the main-board printing the cube holds most copies of, ties the lowest card id, 2026-10-22, migration `20261022130000_ranking_cube_printings.sql`, applied to live 2026-10-22 with John's OK and smoke-tested read-only on his ranking: 540 of 540 cards carry their printing). Every screen, list, pack and the top-100 image draws a card in that printing, else its usual art. |
 
 Ranking row: `{id, list_id, name, depth, top, sharing, screens, rev, sorted, categories, ranked, created_at,
 updated_at, mine, by: Person}`. Errors read like the rest of sharing: not yours / not visible / gone = "That's private"
@@ -207,3 +207,8 @@ keep / pick_wins, `removed`: screens), `ranking_changes_opened`, `ranking_job_do
   Let the pick win, change log, compare). The demo's writes stay in memory and reset on reload.
 - Android: built and unit-tested, not run on a device.
 - Not yet used by a signed-in client on any platform.
+- **Outage 2026-10-22:** stale pushes raised 40001, which PostgREST retries in a loop holding a connection; from 04:57 to
+  13:55 one loop, then ~20, used up the API's pool and every request on the project timed out (504, PGRST003). Fixed live
+  in place at 13:55 by raising PT409 instead (migration `20261022120000_ranking_conflict_409.sql` records it, applied to the migration history afterwards with John's OK; a stale push smoke-tested to PT409 with nothing written); clients
+  treat PT409 like 40001 (Android matches the message). `30_security_test.sql` fails if any function raises 40001/40P01.
+  Why the pushes were stale: a push that timed out on the phone had landed, so the next one carried an old rev.

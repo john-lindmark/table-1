@@ -84,6 +84,9 @@ select pg_temp.throws('a private ranking stays private', $$select public.cube_ra
 select pg_temp.eq('the cube''s main cards come with a ranking, one per card',
   (public.cube_ranking_get(:R1)->'cube'->'cards')::text,
   '["c0000000-0000-0000-0000-000000000001", "c0000000-0000-0000-0000-000000000002", "c0000000-0000-0000-0000-000000000003"]');
+select pg_temp.eq('and the printing the cube holds of each (two of a card: the lowest card id)',
+  (public.cube_ranking_get(:R1)->'cube'->'printings')::text,
+  '{"c0000000-0000-0000-0000-000000000001": "c1000000-0000-0000-0000-000000000001", "c0000000-0000-0000-0000-000000000002": "c1000000-0000-0000-0000-000000000002", "c0000000-0000-0000-0000-000000000003": "c1000000-0000-0000-0000-000000000003"}');
 select pg_temp.eq('a friend''s shared cube is listed as one to rank',
   (select x->>'name' || '/' || (x->'owner'->>'display_name') || '/' || (x->>'cards') || '/' || (x->>'rankings') || '/' || (x->>'mine')
      from jsonb_array_elements(public.rankable_cubes()) x), 'Pauper cube/Ana Lind/3/2/1');
@@ -121,7 +124,7 @@ select pg_temp.eq('append a screen', (select r->>'screens' || '/' || (r->>'rev')
   jsonb_build_array(pg_temp.screen('R', :BOLT, :OPT) || '{"t": 1}'), 1, 3, 0, :OP1) r), '1/1');
 select pg_temp.eq('a retried push is answered, not refused', (public.cube_ranking_push(:R1, 0, 0,
   jsonb_build_array(pg_temp.screen('R', :BOLT, :OPT)), 1, 3, 0, :OP1))->>'rev', '1');
-select pg_temp.throws('an old rev is a conflict', $$select public.cube_ranking_push('f7000000-0000-0000-0000-000000000001', 0, 1, '[]')$$, '40001');
+select pg_temp.throws('an old rev is a conflict PostgREST won''t retry', $$select public.cube_ranking_push('f7000000-0000-0000-0000-000000000001', 0, 1, '[]')$$, 'PT409');
 select public.cube_ranking_push(:R1, 1, 1, jsonb_build_array(pg_temp.screen('U', :OPT, :GOYF), pg_temp.screen('F', :GOYF, :BOLT, :OPT)), 2, 3, 3);
 select pg_temp.eq('three screens, kept in order with their times',
   (public.cube_ranking_get(:R1)->'log')::text,

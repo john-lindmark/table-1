@@ -14,6 +14,8 @@ struct RankingCube: Decodable, Hashable, Sendable {
     var canSee: Bool?
     /// cube_ranking_get only: the main board's Oracle ids.
     var cards: [String]?
+    /// cube_ranking_get only: Oracle id → the printing the cube holds, so cards show as they are in the cube.
+    var printings: [String: String]?
 }
 
 struct RankingRow: Decodable, Hashable, Identifiable, Sendable {
@@ -320,6 +322,21 @@ final class RankingModel {
         }.value
     }
 
+    /// Printings by card id from the card data; tests swap it.
+    @ObservationIgnored static var printings: @MainActor ([String]) async -> [String: CatalogPrinting] = { ids in
+        guard !ids.isEmpty, let db = CatalogStore.shared.db else { return [:] }
+        return await Task.detached(priority: .userInitiated) { db.printings(ids: ids) }.value
+    }
+
+    /// Each card in the printing the cube holds; a card whose printing isn't in the card data keeps its usual art.
+    nonisolated static func asInCube(_ cards: [String: RankCard], printings: [String: String],
+                                     found: [String: CatalogPrinting]) -> [String: RankCard] {
+        cards.mapValues { c in
+            guard let id = printings[c.oracleId], let p = found[id] else { return c }
+            return RankCard(oracleId: c.oracleId, name: c.name, printing: p)
+        }
+    }
+
     /// Resolves the cube's cards against the catalog and works out the state.
     private func rebuild(cubeCards: [String]?) async {
         guard let row else { return }
@@ -328,7 +345,8 @@ final class RankingModel {
         cubeGone = cubeCards == nil
         let wanted: [String] = ids ?? Array(Set(log.flatMap(\.o).map { $0.lowercased() }))
         guard let resolved = await Self.resolve(wanted) else { return }
-        cards = resolved.mapValues(\.0)
+        cards = Self.asInCube(resolved.mapValues(\.0), printings: cube?.printings ?? [:],
+                              found: await Self.printings(Array(Set((cube?.printings ?? [:]).values))))
         let log = self.log, depth = row.depth, top = row.top, rid = id
         state = await Task.detached(priority: .userInitiated) {
             RankingState(rankingId: rid, cards: resolved.mapValues(\.1), log: log, depth: depth, top: top)
@@ -492,7 +510,7 @@ final class RankingModel {
                 error = nil
                 lastChange = .now
                 if unsaved { saving = false; save() }
-            } catch let e as PostgrestError where e.code == "40001" {
+            } catch let e as PostgrestError where e.code == "PT409" || e.code == "40001" {
                 pendingOp = nil
                 pendingChanges = []
                 notice = "This ranking changed on another device, so it has been reloaded. Check the screen you just locked in."

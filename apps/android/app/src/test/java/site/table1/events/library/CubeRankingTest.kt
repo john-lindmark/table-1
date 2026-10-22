@@ -149,4 +149,14 @@ class CubeRankingTest {
         assertEquals(0x811C9DC5L, CubeRanking.fnv1a(""))
         assertEquals(0xE40C292CL, CubeRanking.fnv1a("a"))
     }
+
+    /** The ranker shows each card as the cube has it; a printing the card data lacks keeps the usual art. */
+    @Test fun cardsShowInTheCubesPrinting() {
+        fun p(id: String) = CatalogPrinting(id, 0, 0, "x", "1", "en", "c", "n", "", "", 1, "")
+        val held = mapOf("bolt" to "sld-bolt", "opt" to "missing-opt")
+        val found = mapOf("sld-bolt" to p("sld-bolt"))
+        assertEquals("sld-bolt", RankingModel.asInCube(RankCard("bolt", "Lightning Bolt", p("alpha-bolt")), held, found).printing?.cardId)
+        assertEquals("xln-opt", RankingModel.asInCube(RankCard("opt", "Opt", p("xln-opt")), held, found).printing?.cardId)
+        assertEquals("fut-goyf", RankingModel.asInCube(RankCard("goyf", "Tarmogoyf", p("fut-goyf")), held, found).printing?.cardId)
+    }
 }
