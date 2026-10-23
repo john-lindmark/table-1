@@ -82,6 +82,7 @@
 		776960C21849FF94E6FD930D /* OrganizerModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED753FFB443A9E07ADDF24C9 /* OrganizerModels.swift */; };
 		793B3C5654CDC544D3CC0B21 /* CardMatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1438B6E1895ED25046190659 /* CardMatcherTests.swift */; };
 		7C88522BEF2B937ACB01640E /* CardScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3DAC241E9475632B6E8159C /* CardScanner.swift */; };
+		7DCF0110672BAA635A495A55 /* JoinPreviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87060BF860713B82E0B3F998 /* JoinPreviewTests.swift */; };
 		7F04FB92FE551A1B7F9FBDF8 /* FriendsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AB3891C530AC888BF13E49D /* FriendsViews.swift */; };
 		7F49E9FA46F07708E654A482 /* MatchWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DEABA0F74C6845F33051903 /* MatchWidget.swift */; };
 		80E94A6EF4008E87874A6AB4 /* LiveAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38C8BF8FA5B4C62D0B1D1C81 /* LiveAPI.swift */; };
@@ -279,6 +280,7 @@
 		7CF2A00D5FD0FCF89937DEA6 /* CubeFieldsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CubeFieldsTests.swift; sourceTree = "<group>"; };
 		806A035192A635C79AA2F3A6 /* LiveSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSync.swift; sourceTree = "<group>"; };
 		8099FC0F2F66ADD7B29CD544 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		87060BF860713B82E0B3F998 /* JoinPreviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JoinPreviewTests.swift; sourceTree = "<group>"; };
 		8774B240DCCD61D7613C0870 /* ControlIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlIntents.swift; sourceTree = "<group>"; };
 		8CEF6031CE6F5FCA7347F5DC /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		8D37DEAB0271A674B48F9D14 /* RotoDraftView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RotoDraftView.swift; sourceTree = "<group>"; };
@@ -410,6 +412,7 @@
 				C23AB8F5588863F9D0B84282 /* DeckStatsTests.swift */,
 				B6D6321319755E4BE5D209E3 /* EventBundleTests.swift */,
 				AC9DAD9D64E358A76554E1AB /* FriendsTests.swift */,
+				87060BF860713B82E0B3F998 /* JoinPreviewTests.swift */,
 				5C7B65AB3CD8BAFB67DBE23F /* LanguageTests.swift */,
 				C461CEB0826AC133A60E7A86 /* ListExportTests.swift */,
 				C3A9CA48F46607665C58D26E /* ListsUnsavedTests.swift */,
@@ -806,6 +809,7 @@
 				DF246074B284841D5C11B4B8 /* DeckStatsTests.swift in Sources */,
 				6FFBC533401E8181E8339258 /* EventBundleTests.swift in Sources */,
 				CD75E6012B375BE40A5B50DB /* FriendsTests.swift in Sources */,
+				7DCF0110672BAA635A495A55 /* JoinPreviewTests.swift in Sources */,
 				50360418066F5F3304A048A9 /* LanguageTests.swift in Sources */,
 				4303E1375FC42EE4288E5DAB /* ListExportTests.swift in Sources */,
 				B81A52CE3760971E29E5946C /* ListToCollectionTests.swift in Sources */,

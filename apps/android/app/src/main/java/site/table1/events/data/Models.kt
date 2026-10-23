@@ -598,6 +598,37 @@ data class JoinLink(val code: String, val secret: String) {
     }
 }
 
+/**
+ * The event behind a scanned QR, shown over sign-in (event_preview by the code; contract/qr-sign-up-2026-10-23.md).
+ * [from] is null when there's nothing to show: private, cancelled or unknown codes fall back to the code itself.
+ */
+data class JoinPreview(val title: String, val facts: String) {
+    @Serializable
+    data class Wire(
+        @SerialName("event_id") val eventId: String? = null,
+        val access: String? = null,
+        val name: String? = null,
+        @SerialName("format_label") val formatLabel: String? = null,
+        @SerialName("venue_name") val venueName: String? = null,
+        val capacity: Int? = null,
+        val players: Int? = null,
+        @SerialName("organizer_name") val organizerName: String? = null,
+    )
+
+    companion object {
+        fun from(w: Wire): JoinPreview? {
+            fun text(s: String?) = s?.trim()?.takeIf { it.isNotEmpty() }
+            val name = text(w.name)
+            if (w.eventId == null || w.access == "none" || name == null) return null
+            val players = w.players ?: 0
+            val cap = w.capacity ?: 0
+            val count = if (cap > 0) "$players/$cap players" else if (players == 1) "1 player" else "$players players"
+            val facts = listOfNotNull(text(w.formatLabel), text(w.venueName), text(w.organizerName)?.let { "Run by $it" }, count)
+            return JoinPreview(name, facts.joinToString(" · "))
+        }
+    }
+}
+
 /* ── create event and Setup (2026-10-14) ───────────────────────────────────── */
 
 @Serializable

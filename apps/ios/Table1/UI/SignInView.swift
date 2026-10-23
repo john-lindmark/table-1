@@ -25,6 +25,7 @@ struct SignInView: View {
     var body: some View {
         VStack(spacing: 1) {
             SignInMark()
+            if let join = session.pendingJoin { JoinHeader(link: join) }
             if let message = error ?? session.emailLinkError { Notice(message, error: true) }
             switch step {
             case .providers: providers
@@ -166,6 +167,31 @@ private struct SignInMark: View {
     }
 }
 
+/// A scanned join QR waiting on sign-in: which event it is, and that any way in (a new account too) takes the seat.
+private struct JoinHeader: View {
+    let link: JoinLink
+    /// On the name step, after sign-in.
+    var naming = false
+    @State private var preview: JoinPreview?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            LabelText("Joining")
+            Text(preview?.title ?? "Event \(link.code.uppercased())").font(T1.mono(17, .bold))
+            if let facts = preview?.facts { Text(facts).font(T1.mono(12)).foregroundStyle(T1.muted) }
+            Text(naming ? "Add your name and you're in." : "New to Table 1? Any option below makes your account. You're seated as soon as you're in.")
+                .font(T1.mono(12)).lineSpacing(4).foregroundStyle(T1.muted).padding(.top, 4)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(T1.surface)
+        .task(id: link.code) {
+            preview = await Repo.joinPreview(code: link.code)
+            if !naming { Telemetry.capture("join_prompt_viewed", ["event": preview != nil]) }
+        }
+    }
+}
+
 private struct SignInField: View {
     let label: String
     @Binding var text: String
@@ -200,6 +226,7 @@ struct NameView: View {
     var body: some View {
         VStack(spacing: 1) {
             SignInMark()
+            if let join = session.pendingJoin { JoinHeader(link: join, naming: true) }
             if let error { Notice(error, error: true) }
             Notice("Add your name. Opponents and organizers see it on pairings and standings.")
             SignInField(label: "First name", text: $first, prompt: "First name")

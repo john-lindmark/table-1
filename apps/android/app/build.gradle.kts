@@ -93,6 +93,7 @@ dependencies {
     implementation(libs.play.code.scanner)
     implementation(libs.play.location)
     implementation(libs.zxing.core)
+    implementation(libs.installreferrer)
     implementation(libs.coil.compose)
     implementation(libs.coil.svg)
     implementation(libs.coil.network.okhttp)

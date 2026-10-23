@@ -533,6 +533,37 @@ struct JoinLink: Equatable {
     }
 }
 
+/// The event behind a scanned QR, shown over sign-in (event_preview by the code; contract/qr-sign-up-2026-10-23.md).
+/// Nil when there's nothing to show: private, cancelled or unknown codes fall back to the code itself.
+struct JoinPreview: Equatable {
+    struct Wire: Decodable {
+        let eventId: String?
+        let access: String?
+        let name: String?
+        let formatLabel: String?
+        let venueName: String?
+        let capacity: Int?
+        let players: Int?
+        let organizerName: String?
+    }
+
+    let title: String
+    let facts: String
+
+    init?(_ w: Wire) {
+        func text(_ s: String?) -> String? {
+            let t = s?.trimmingCharacters(in: .whitespaces) ?? ""
+            return t.isEmpty ? nil : t
+        }
+        guard w.eventId != nil, w.access != "none", let name = text(w.name) else { return nil }
+        let players = w.players ?? 0
+        let count = (w.capacity ?? 0) > 0 ? "\(players)/\(w.capacity!) players" : players == 1 ? "1 player" : "\(players) players"
+        title = name
+        facts = [text(w.formatLabel), text(w.venueName), text(w.organizerName).map { "Run by \($0)" }, count]
+            .compactMap { $0 }.joined(separator: " · ")
+    }
+}
+
 func recordText(_ w: Int, _ l: Int, _ d: Int) -> String { d > 0 ? "\(w)-\(l)-\(d)" : "\(w)-\(l)" }
 
 /// Postgres timestamps ("2026-10-12T01:47:38.449639+00:00"): microseconds are trimmed before parsing,

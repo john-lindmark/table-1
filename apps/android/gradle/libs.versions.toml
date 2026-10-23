@@ -21,6 +21,7 @@ camerax = "1.4.1"
 mlkitText = "19.0.1"
 mlkitTextCjk = "16.0.1"
 sentry = "8.59.0"
+installReferrer = "2.2"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -49,6 +50,8 @@ play-code-scanner = { module = "com.google.android.gms:play-services-code-scanne
 play-location = { module = "com.google.android.gms:play-services-location", version.ref = "location" }
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 junit = { module = "junit:junit", version.ref = "junit" }
+# The event a web "Get the app" link carried through the Play install (contract/qr-sign-up-2026-10-23.md).
+installreferrer = { module = "com.android.installreferrer:installreferrer", version.ref = "installReferrer" }
 # Card scanning: camera preview + on-device text recognition (ML Kit via Play services, no bundled model).
 camerax-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
 camerax-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }

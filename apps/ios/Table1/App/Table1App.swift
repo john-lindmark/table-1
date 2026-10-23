@@ -40,6 +40,14 @@ struct Table1App: App {
                 .overlay {
                     if ProcessInfo.processInfo.arguments.contains("-T1RotoDemo") { RotoDemoRoot() }
                 }
+                // `-T1OpenURL <table-1.site address>`: as if the link were tapped (the simulator can't open universal
+                // links from an unsigned build), e.g. a join QR while signed out.
+                .task {
+                    let args = ProcessInfo.processInfo.arguments
+                    if let i = args.firstIndex(of: "-T1OpenURL"), i + 1 < args.count, let url = URL(string: args[i + 1]) {
+                        session.openWebLink(url)
+                    }
+                }
                 #endif
                 // App-drawn menus and panels sit above everything (tabs, life tracker); only alerts are native.
                 .overlay { T1OverlayHost() }

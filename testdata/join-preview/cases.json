@@ -1,0 +1,45 @@
+{
+  "_note": "contract/qr-sign-up-2026-10-23.md. `wire` is event_preview's JSON (looked up by the QR's code while signed out); `want` is the header shown over sign-in: the event's name and one facts line, or null when there is nothing to show (private, cancelled, unknown code: the header falls back to the code).",
+  "cases": [
+    {
+      "name": "everything",
+      "wire": { "event_id": "E1", "access": "link", "short_code": "AB12", "name": "Friday Cube", "format_label": "Cube draft", "status": "open", "venue_name": "Lindmark's", "capacity": 8, "players": 6, "organizer_name": "John L" },
+      "want": { "title": "Friday Cube", "facts": "Cube draft · Lindmark's · Run by John L · 6/8 players" }
+    },
+    {
+      "name": "no cap",
+      "wire": { "event_id": "E1", "access": "link", "short_code": "AB12", "name": "Modern 1v1", "format_label": "Modern", "status": "open", "venue_name": null, "capacity": null, "players": 2, "organizer_name": "Sam" },
+      "want": { "title": "Modern 1v1", "facts": "Modern · Run by Sam · 2 players" }
+    },
+    {
+      "name": "one player",
+      "wire": { "event_id": "E1", "access": "link", "short_code": "AB12", "name": "Pauper", "format_label": null, "status": "open", "venue_name": null, "capacity": null, "players": 1, "organizer_name": null },
+      "want": { "title": "Pauper", "facts": "1 player" }
+    },
+    {
+      "name": "players missing",
+      "wire": { "event_id": "E1", "access": "link", "short_code": "AB12", "name": "Draft", "format_label": "Draft", "status": "open" },
+      "want": { "title": "Draft", "facts": "Draft · 0 players" }
+    },
+    {
+      "name": "blank strings are left out",
+      "wire": { "event_id": "E1", "access": "link", "short_code": "AB12", "name": "Draft", "format_label": " ", "status": "open", "venue_name": "", "capacity": 0, "players": 3, "organizer_name": "" },
+      "want": { "title": "Draft", "facts": "3 players" }
+    },
+    {
+      "name": "not available",
+      "wire": { "event_id": null, "access": "none" },
+      "want": null
+    },
+    {
+      "name": "access none with an id",
+      "wire": { "event_id": "E1", "access": "none", "name": "Secret" },
+      "want": null
+    },
+    {
+      "name": "no name",
+      "wire": { "event_id": "E1", "access": "link", "short_code": "AB12", "name": "", "players": 4 },
+      "want": null
+    }
+  ]
+}

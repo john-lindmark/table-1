@@ -223,6 +223,12 @@ enum Repo {
         return w?.access
     }
 
+    /// The event behind a scanned QR's code, for the header over sign-in (works signed out; open events only).
+    static func joinPreview(code: String) async -> JoinPreview? {
+        let w: JoinPreview.Wire? = try? await supabase.rpc("event_preview", params: ["p_code": AnyJSON.string(code)]).execute().value
+        return w.flatMap(JoinPreview.init)
+    }
+
     static func joinQr(_ eventId: String, rotate: Bool = false) async throws -> JoinQr {
         try await supabase.rpc("get_join_qr", params: [
             "p_event_id": AnyJSON.string(eventId), "p_rotate": .bool(rotate),

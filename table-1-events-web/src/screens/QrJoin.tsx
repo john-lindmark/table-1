@@ -3,12 +3,14 @@ import { joinEventByQr, joinEvent, errorMessage } from "../lib/api";
 import { saveLocalParticipant } from "../lib/session";
 import { useSession } from "../lib/useSession";
 import { SignInButtons } from "../components/SignInButtons";
+import { JoinBanner } from "../components/JoinBanner";
 import { Bar, BigAction, Field, Notice, Screen } from "../components/kit";
 
 /**
  * The owner's QR code lands here: /j/<code>?s=<secret>.
  * Signed in → seated immediately, record and head-to-head follow the account.
- * Not signed in → sign in with Apple/Google (comes back here), or join as a walk-in guest.
+ * Not signed in → the event named over sign-in with Apple/Google/email, which also makes new accounts (comes back
+ * here), or join as a walk-in guest.
  */
 export function QrJoin({
   code,
@@ -79,7 +81,7 @@ export function QrJoin({
   return (
     <Screen>
       <Bar title="Join event" subtitle={code.toUpperCase()} />
-      <Notice tone="info">Sign in to keep your record and head-to-head from this event.</Notice>
+      <JoinBanner code={code} />
       <SignInButtons />
       <div className="bg-t1-surface px-4 py-2 t1-label">Or join as a guest</div>
       <Field label="Your name" value={guestName} onChange={setGuestName} placeholder="e.g. John L" />

@@ -1,4 +1,6 @@
 import { useState, type ReactNode } from "react";
+import { matchPath, useLocation } from "react-router-dom";
+import { JoinBanner } from "./JoinBanner";
 import { needsName, saveName } from "../lib/api";
 import { supabase } from "../lib/supabaseClient";
 import { useSession } from "../lib/useSession";
@@ -18,6 +20,8 @@ function NameScreen({ userId, onDone }: { userId: string; onDone: () => void }) 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const valid = first.trim().length > 0 && last.trim().length > 0;
+  // A new account made from a join QR: the event it's about to join.
+  const joinCode = matchPath("/j/:code", useLocation().pathname)?.params.code;
 
   async function save() {
     if (!valid) return;
@@ -60,6 +64,7 @@ function NameScreen({ userId, onDone }: { userId: string; onDone: () => void }) 
           save();
         }}
       >
+        {joinCode && <JoinBanner code={joinCode} naming />}
         {error && <Notice tone="error">{error}</Notice>}
         <Notice tone="info">Add your name. Opponents and organizers see it on pairings and standings.</Notice>
         {field("First name", first, setFirst, "given-name", true)}

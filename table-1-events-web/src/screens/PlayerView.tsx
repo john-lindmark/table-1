@@ -14,6 +14,7 @@ import { getLocalParticipant, saveLocalParticipant } from "../lib/session";
 import { StandingsTable } from "../components/StandingsTable";
 import { TeamStandingsTable } from "../components/TeamStandingsTable";
 import { SeatingPanel } from "../components/SeatingPanel";
+import { GetTheApp } from "../components/GetTheApp";
 import {
   Bar,
   BigAction,
@@ -400,6 +401,8 @@ export function PlayerView({
 
         {notice && <Notice tone="info">{notice}</Notice>}
         {joinError && <Notice tone="error">{joinError}</Notice>}
+
+        {signedInPlayer && ["setup", "seated", "in_progress"].includes(event.status) && <GetTheApp eventId={event.id} />}
 
         {isRoto && rounds.length > 0 && (
           <div className="flex gap-px">

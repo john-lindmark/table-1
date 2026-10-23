@@ -17,6 +17,7 @@ import io.github.jan.supabase.auth.handleDeeplinks
 import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.launch
 import site.table1.events.auth.SignIn
+import site.table1.events.data.InstallReferrer
 import site.table1.events.data.JoinLink
 import site.table1.events.data.WebLink
 import site.table1.events.ui.AppRoot
@@ -32,6 +33,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         // Recreated (e.g. after a configuration change): that intent was already handled.
         if (savedInstanceState == null) handle(intent)
+        // First launch after installing from a web "Get the app" link: that event, once signed in.
+        InstallReferrer.readOnce(this) { url ->
+            val link = WebLink.parse(url) ?: return@readOnce
+            Telemetry.capture("link_opened", mapOf("to" to link.kind, "via" to "install_referrer"))
+            runOnUiThread { if (pendingLink == null && pendingJoin == null) pendingLink = link }
+        }
         setContent {
             Table1Theme {
                 AppRoot(

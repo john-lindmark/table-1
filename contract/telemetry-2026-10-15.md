@@ -59,6 +59,8 @@ properties. Every client sends the same names, so one PostHog insight covers all
 |---|---|
 | `signed_in` | `method`: apple / google / email |
 | `sign_in_failed` | `method`, `reason`: cancelled / error |
+| `join_prompt_viewed` | `event`: bool. Signed out on a scanned join QR, the Joining header showed (whether it could name the event); contract/qr-sign-up-2026-10-23.md |
+| `app_handoff_shown` / `app_handoff_tapped` | `platform`: ios / android. Web player screen, Get the app after joining on a phone (contract/qr-sign-up-2026-10-23.md) |
 | `signed_out` | `reason`: user / apple_revoked |
 | `account_deleted` | — |
 
@@ -174,7 +176,7 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `live_activity_started` | `via`: push (push-to-start from the server) / app (the app's own fallback) |
 | `live_activity_ended` | `reason`: ended (match or event over, or signed out) / dismissed (swiped away) |
 | `surface_opened` | `source`: widget / live_activity / dynamic_island, `target`: event / home |
-| `link_opened` | `to`: event / events / standings / join_code / join_qr / sign_in / tracker / collection / account / web. A tapped table-1.site link reached the app (contract/universal-links-2026-10-22.md); never the address or ids |
+| `link_opened` | `to`: event / events / standings / join_code / join_qr / sign_in / tracker / collection / account / web. A tapped table-1.site link reached the app (contract/universal-links-2026-10-22.md); never the address or ids. Android adds `via: install_referrer` when the link came through a Play install (contract/qr-sign-up-2026-10-23.md) |
 | `widgets_changed` | `count`: int, `families`: [systemSmall, accessoryCircular, …]. Sent when the installed set changes |
 
 Super properties `live_activities_enabled` (bool) and `widgets` (count) are refreshed at launch and on each foreground.

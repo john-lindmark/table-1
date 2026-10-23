@@ -33,8 +33,12 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import site.table1.events.auth.SignIn
+import site.table1.events.data.JoinLink
+import site.table1.events.data.JoinPreview
+import site.table1.events.data.Repo
 import site.table1.events.ui.components.BigAction
 import site.table1.events.ui.components.Ghost
+import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.T1Logo
 import site.table1.events.ui.components.T1TextField
@@ -50,7 +54,7 @@ private val EMAIL = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
  * Email is two steps under the mark: the address, then the code (or tap the link in the email).
  */
 @Composable
-fun SignInScreen() {
+fun SignInScreen(join: JoinLink? = null) {
     val context: Context = LocalContext.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf<String?>(null) }
@@ -105,6 +109,7 @@ fun SignInScreen() {
             Modifier.weight(1f).fillMaxWidth().background(T1.surface).statusBarsPadding().padding(top = 40.dp),
             contentAlignment = Alignment.Center,
         ) { T1Logo(Modifier.fillMaxWidth()) }
+        join?.let { JoinHeader(it) }
         (error ?: SignIn.emailLinkError)?.let { Notice(it, error = true) }
         when (step) {
             Step.Providers -> {
@@ -155,7 +160,7 @@ fun SignInScreen() {
 
 /** New email accounts: first and last name, both required, before the app opens. */
 @Composable
-fun NameScreen() {
+fun NameScreen(join: JoinLink? = null) {
     val scope = rememberCoroutineScope()
     var first by remember { mutableStateOf("") }
     var last by remember { mutableStateOf("") }
@@ -168,6 +173,7 @@ fun NameScreen() {
             Modifier.weight(1f).fillMaxWidth().background(T1.surface).statusBarsPadding().padding(top = 40.dp),
             contentAlignment = Alignment.Center,
         ) { T1Logo(Modifier.fillMaxWidth()) }
+        join?.let { JoinHeader(it, naming = true) }
         error?.let { Notice(it, error = true) }
         Notice("Add your name. Opponents and organizers see it on pairings and standings.")
         Column(Modifier.background(T1.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -193,5 +199,29 @@ fun NameScreen() {
                 }
             }
         }
+    }
+}
+
+/** A scanned join QR waiting on sign-in: which event it is, and that any way in (a new account too) takes the seat. */
+@Composable
+private fun JoinHeader(link: JoinLink, naming: Boolean = false) {
+    var preview by remember { mutableStateOf<JoinPreview?>(null) }
+    LaunchedEffect(link.code) {
+        preview = Repo.joinPreview(link.code)
+        if (!naming) Telemetry.capture("join_prompt_viewed", mapOf("event" to (preview != null)))
+    }
+    Column(
+        Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Label("Joining")
+        Text(preview?.title ?: "Event ${link.code.uppercase()}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        preview?.let { Text(it.facts, color = T1.muted, fontFamily = T1.mono, fontSize = 12.sp) }
+        Text(
+            if (naming) "Add your name and you're in."
+            else "New to Table 1? Any option below makes your account. You're seated as soon as you're in.",
+            color = T1.muted, fontFamily = T1.mono, fontSize = 12.sp, lineHeight = 18.sp,
+            modifier = Modifier.padding(top = 4.dp),
+        )
     }
 }

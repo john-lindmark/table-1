@@ -2,6 +2,7 @@ import { supabase } from "./supabaseClient";
 import { getLocalParticipant } from "./session";
 import type { User } from "@supabase/supabase-js";
 import { capture, signInStarted } from "./telemetry";
+import { joinHeader, type JoinHeader } from "./joinPreview";
 import type {
   AccountOverview,
   DraftableSet,
@@ -475,6 +476,12 @@ export async function getJoinQr(eventId: string, rotate = false): Promise<JoinQr
   // Point the QR at this web origin so it also works on staging and localhost.
   const url = `${window.location.origin}/j/${data.short_code}?s=${data.secret}`;
   return { shortCode: data.short_code, secret: data.secret, url };
+}
+
+/** The event behind a scanned QR's code, for the header over sign-in (works signed out; open events only). */
+export async function fetchJoinHeader(shortCode: string): Promise<JoinHeader | null> {
+  const { data, error } = await supabase.rpc("event_preview", { p_code: shortCode });
+  return error ? null : joinHeader(data);
 }
 
 export async function joinEventByQr(shortCode: string, secret: string) {

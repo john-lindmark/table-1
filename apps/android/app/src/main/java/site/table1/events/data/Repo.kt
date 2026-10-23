@@ -277,6 +277,11 @@ object Repo {
         supabase.postgrest.rpc("event_preview", buildJsonObject { put("p_event_id", eventId) }).decodeAs<EventAccessWire>().access
     }.getOrNull()
 
+    /** The event behind a scanned QR's code, for the header over sign-in (works signed out; open events only). */
+    suspend fun joinPreview(code: String): JoinPreview? = runCatching {
+        JoinPreview.from(supabase.postgrest.rpc("event_preview", buildJsonObject { put("p_code", code) }).decodeAs<JoinPreview.Wire>())
+    }.getOrNull()
+
     suspend fun joinQr(eventId: String, rotate: Boolean = false): JoinQr =
         supabase.postgrest.rpc("get_join_qr", buildJsonObject {
             put("p_event_id", eventId)

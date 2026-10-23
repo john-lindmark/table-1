@@ -110,7 +110,7 @@ fun AppRoot(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pendingLink: Web
     val status by T1App.supabase.auth.sessionStatus.collectAsState()
     when (status) {
         is SessionStatus.Authenticated ->
-            if (SignIn.needsName((status as SessionStatus.Authenticated).session.user)) NameScreen()
+            if (SignIn.needsName((status as SessionStatus.Authenticated).session.user)) NameScreen(pendingJoin)
             else SignedInApp(pendingJoin, onJoinConsumed, pendingLink, onLinkConsumed)
         is SessionStatus.Initializing -> T1Screen { Bar("Table 1") }
         else -> {
@@ -121,7 +121,7 @@ fun AppRoot(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pendingLink: Web
                 onLinkConsumed()
                 openInBrowser(context, Uri.parse(WebLink.standingsUrl(link.eventId)))
             }
-            SignInScreen()
+            SignInScreen(pendingJoin)
         }
     }
 }
