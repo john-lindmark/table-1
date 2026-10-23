@@ -403,7 +403,9 @@ private fun boardTitle(board: String, kind: ListKind) = when (board) {
  */
 @Composable
 fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: () -> Unit, onCard: (String) -> Unit, onList: (String) -> Unit,
-                       onRankings: ((String) -> Unit)? = null) {
+                       onRankings: ((String) -> Unit)? = null,
+                       /** A share link's token and what it shows (contract/share-links-2026-10-23.md): the cards come through it. */
+                       link: Pair<String, SharedLinkData>? = null) {
     val cat by CatalogStore.state.collectAsState()
     val scope = rememberCoroutineScope()
     val kind = SharedList.kind(section)
@@ -428,6 +430,10 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
     LaunchedEffect(userId, section, item) {
         Telemetry.screen("profile_cards")
         CatalogStore.load(userInitiated = true)
+        if (link != null) {
+            runCatching { FriendsStore.sharedCards(link.first, section) }.onSuccess { rows = it }.onFailure { error = it.message; rows = emptyList() }
+            return@LaunchedEffect
+        }
         runCatching { FriendsStore.cards(userId, section, item) }.onSuccess { rows = it }.onFailure { error = it.message; rows = emptyList() }
         // The route carries ids only; the title, a list's format and its owner come from the profile.
         runCatching { FriendsStore.profile(userId) }.onSuccess { profile = it }
@@ -441,10 +447,11 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
     }
     val s = profile?.sections
     val shared = (s?.decks.orEmpty() + s?.cubes.orEmpty()).firstOrNull { it.id == item }
-    val name = shared?.name ?: s?.binders?.firstOrNull { it.id == item }?.name
+    val name = link?.second?.title ?: shared?.name ?: s?.binders?.firstOrNull { it.id == item }?.name
         ?: mapOf("all_cards" to "All cards", "for_trade" to "For trade", "wants" to "Wants")[section] ?: "Cards"
     /** Whose it is; null on your own profile (no Copy there: your deck screen has Duplicate). */
-    val owner = profile?.takeIf { it.relation != "self" }?.displayName
+    val owner = if (link != null) link.second.owner.displayName.takeIf { !link.second.mine } else profile?.takeIf { it.relation != "self" }?.displayName
+    val listFormat = if (link != null) link.second.format else shared?.format
     val searching = CardName.norm(query).isNotEmpty()
     val g = grouping.value
     fun title(key: String, qty: Int) = "${g.label(key)} · $qty"
@@ -466,20 +473,21 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
     // Export and Copy to my Library, above the cards.
     val top: @Composable () -> Unit = {
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            if (link != null && !searching) ListRow(link.second.byline, avatar = { Avatar(link.second.owner.displayName, null) })
             if (rows?.isEmpty() == true && error == null) Notice("Nothing here.")
             if (kind != null && !rows.isNullOrEmpty() && !searching && CatalogStore.db != null) {
                 ListRow("Export", if (kind == ListKind.Deck) "Text, Arena, MTGO, download or copy" else "Text, Cube Cobra, download or copy",
                     onClick = { exporting = true })
                 if (kind == ListKind.Deck) ListRow("Deck image", "The cards as a picture, to save or share", onClick = { imaging = true })
-                if (kind == ListKind.Cube && item != null && onRankings != null) RankingsRow(item) { onRankings(item) }
-                if (owner != null && shared != null) {
+                if (kind == ListKind.Cube && item != null && onRankings != null && link == null) RankingsRow(item) { onRankings(item) }
+                if (owner != null && listFormat != null) {
                     ListRow(if (copying) "Copying…" else "Copy to my Library",
                         if (kind == ListKind.Deck) "A new private deck with these cards" else "A new cube with these cards",
                         onClick = {
                             if (copying) return@ListRow
                             copying = true
                             scope.launch {
-                                runCatching { ListsStore.create(kind, name.take(60), shared.format, entries, SharedList.copyNote(owner, name), "profile") }
+                                runCatching { ListsStore.create(kind, name.take(60), listFormat, entries, SharedList.copyNote(owner, name), "profile") }
                                     .onSuccess(onList).onFailure { error = it.message }
                                 copying = false
                             }
@@ -493,7 +501,7 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
     }
 
     T1Screen {
-        Bar(profile?.let { "${it.displayName} · $name" } ?: "Cards", rows?.let { plural(SharedList.count(it, kind), "card") }, onBack = onBack) {
+        Bar(if (link != null) name else profile?.let { "${it.displayName} · $name" } ?: "Cards", rows?.let { plural(SharedList.count(it, kind), "card") }, onBack = onBack) {
             BarAction("View") { viewMenu = true }
         }
         error?.let { Notice(it, error = true) }
@@ -579,7 +587,7 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
     }
     if (viewMenu) CardLayoutMenu(layout, "profile_$section", printings, grouping, list = kind != null) { viewMenu = false }
     if (exporting && kind != null) ListExportScreen(name, kind, entries, "profile") { exporting = false }
-    if (imaging && kind == ListKind.Deck) DeckImageScreen(name, shared?.format ?: "", entries, owner = owner, from = "profile") { imaging = false }
+    if (imaging && kind == ListKind.Deck) DeckImageScreen(name, listFormat ?: "", entries, owner = owner, from = "profile") { imaging = false }
 }
 
 /* ── sharing ── */

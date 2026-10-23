@@ -59,6 +59,7 @@
                 <data android:pathPrefix="/e/" />
                 <data android:pathPrefix="/p/" />
                 <data android:pathPrefix="/s/" />
+                <data android:pathPrefix="/l/" />
                 <data android:pathPrefix="/join/" />
                 <data android:pathPrefix="/j/" />
                 <data android:path="/auth/confirm" />

@@ -102,6 +102,16 @@ select pg_temp.ms('binder_move 500 moves',
 select pg_temp.ms('collection_apply 500 removals that shrink binders',
   $$select public.collection_apply((select jsonb_agg(jsonb_build_object('card_id', md5('c' || g || '-0'), 'delta', -1))
       from generate_series(501, 1000) g), 'manual', null, gen_random_uuid())$$, 300, 1);
+-- Share links (contract/share-links-2026-10-23.md): the whole collection and the for-trade binders, signed out.
+select public.share_link_create('all_cards')->>'token' as all_tok \gset
+select public.share_link_create('for_trade')->>'token' as trade_tok \gset
+set role anon;
+select pg_temp.as_user(null);
+select pg_temp.ms('shared_view all cards', format('select public.shared_view(%L)', :'all_tok'), 10);
+select pg_temp.ms('shared_cards all cards first page (5000)', format('select public.shared_cards(%L, 0, 5000)', :'all_tok'), 60);
+select pg_temp.ms('shared_cards for trade', format('select public.shared_cards(%L, 0, 5000)', :'trade_tok'), 40);
+set role authenticated;
+select pg_temp.as_user(:BIG);
 reset role;
 select pg_temp.eq('allocations within copies after the perf writes',
   (select count(*)::text from (select card_id, finish, condition, lang, sum(qty) a from public.binder_items

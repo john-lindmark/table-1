@@ -12,6 +12,7 @@
           { "/": "/e/*", "comment": "An event (organizer)" },
           { "/": "/p/*", "comment": "An event (player)" },
           { "/": "/s/*", "comment": "Standings: the event for its players, else the web page" },
+          { "/": "/l/*", "comment": "Share links: the shared part when signed in, else the web page" },
           { "/": "/join/*", "comment": "Join by code" },
           { "/": "/j/*", "comment": "Owner's join QR" },
           { "/": "/auth/confirm", "comment": "Sign-in email link" },

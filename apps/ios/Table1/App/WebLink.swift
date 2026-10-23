@@ -10,6 +10,8 @@ enum WebLink: Equatable {
     case joinCode(String)
     /// The event if you organize or play in it, else the public standings page on the web.
     case standings(String)
+    /// A share link's token: the shared part for someone signed in, else the web page (no account needed).
+    case shared(String)
     case events([Route])
     case collection([LibraryRoute])
     case account([LibraryRoute])
@@ -37,6 +39,7 @@ enum WebLink: Equatable {
         case "e" where p.count == 3 && p[2] == "add": return .events([.event(p[1]), .addPlayers(p[1])])
         case "p" where p.count == 2: return .events([.event(p[1])])
         case "s" where p.count == 2: return .standings(p[1])
+        case "l" where p.count == 2: return .shared(p[1])
         case "join" where p.count == 2: return .joinCode(p[1])
         case "j": return JoinLink(url.absoluteString).map { .joinQr($0) } ?? .web
         case "auth" where p == ["auth", "confirm"]: return .signIn
@@ -121,6 +124,7 @@ enum WebLink: Equatable {
         case .joinQr: "join_qr"
         case .joinCode: "join_code"
         case .standings: "standings"
+        case .shared: "shared"
         case .events(let s): s.isEmpty ? "events" : "event"
         case .collection: "collection"
         case .account: "account"

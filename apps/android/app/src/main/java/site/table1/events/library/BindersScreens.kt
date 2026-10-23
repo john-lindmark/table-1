@@ -152,6 +152,7 @@ fun BindersScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onCard: (String)
                     Text(count(unsorted), color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                 }
             }
+            if (b.binders.any { it.forTrade }) item(key = "share") { ShareRow(ShareTarget.ForTrade, "binders") }
             items(b.binders, key = { it.id }) { x ->
                 val v = remember(col.version, b.version, pricesVersion) { value(b.itemsIn(x.id, col.items)) }
                 HeroListRow(heroArt[x.id] ?: emptyList(), x.name, listOfNotNull(if (x.forTrade) "For trade" else null, PriceBook.text(v)).joinToString(" · ").ifEmpty { null },
@@ -260,6 +261,7 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
         // Add cards and the empty notes stay at the top in every view.
         val top: @Composable () -> Unit = {
             Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                if (binder != null) ShareRow(ShareTarget("binder", binder.id, binder.name, binder.forTrade), "binder")
                 if (unsorted || binder != null) {
                     ListRow("Add cards", if (unsorted) "New copies, or copies out of a binder" else "Move in copies you own, or add new ones", onClick = { adding = true })
                 }
@@ -550,6 +552,7 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
         if (rows.isNotEmpty() || missing.isNotEmpty()) SearchBand(query, "Name or type") { query = it }
         Hairlines(Modifier.weight(1f)) {
             item { ListRow("Add a want", "Any printing, or one in particular", onClick = { adding = true }) }
+            if (rows.isNotEmpty() && !searching) item(key = "share") { ShareRow(ShareTarget.Wants, "wants") }
             item { Section("Wanted · ${shownWants.size}") }
             if (shownWants.isEmpty() && searching) item { ListRow("No wants match") }
             else if (rows.isEmpty()) item { Notice("Cards you're after. Gets in a trade that match are marked, and confirming takes them off.") }

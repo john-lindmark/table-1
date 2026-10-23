@@ -124,6 +124,8 @@ data class Sharing(
     @SerialName("all_cards") val allCards: String? = null, @SerialName("for_trade") val forTrade: String? = null,
     val wants: String? = null, val binders: String? = null, val decks: String? = null, val cubes: String? = null,
     val record: String = "private", val items: List<ShareItem> = emptyList(),
+    /** Live share links (contract/share-links-2026-10-23.md); null from a server without them. */
+    val links: List<PartLink>? = null,
 ) {
     /** A part's own setting (null = same as the level above). */
     fun own(p: SharePart): Visibility? = Visibility.of(when (p) {
@@ -141,6 +143,60 @@ data class Sharing(
             SharePart.Decks -> copy(decks = w); SharePart.Cubes -> copy(cubes = w)
         }
     }
+}
+
+/* ── share links (contract/share-links-2026-10-23.md) ── */
+
+/** "Anyone with the link" for one part: whoever holds it sees that part and nothing else, signed out too. */
+@Serializable
+data class PartLink(val part: String, val id: String? = null, val token: String, @SerialName("created_at") val createdAt: String? = null) {
+    val url get() = url(token)
+    companion object { fun url(token: String) = "https://table-1.site/l/$token" }
+}
+
+/** A part of your Library you can share: All cards, For trade, Wants, or one binder, deck or cube. */
+data class ShareTarget(val part: String, val id: String? = null, val name: String? = null, val forTrade: Boolean? = null) {
+    val title get() = name ?: partTitle(part)
+    val isItem get() = id != null
+    /** The Sharing part behind All cards / For trade / Wants (items use their ShareItem). */
+    val sharePart get() = SharePart.entries.firstOrNull { it.wire == part && it in listOf(SharePart.AllCards, SharePart.ForTrade, SharePart.Wants) }
+
+    /** What a link shows, for "Anyone with it sees …". */
+    val what get() = when (part) {
+        "all_cards" -> "every card you own"
+        "for_trade" -> "the copies in your for-trade binders"
+        "wants" -> "your wishlist"
+        "binder" -> "every card in this binder, with condition and language"
+        else -> "every card in this $part"
+    }
+
+    /** The confirm before making a link. */
+    val confirmMessage get() = buildString {
+        append("Anyone with the link sees $what, even without a Table 1 account. Nothing else on your profile shows. You can stop sharing it any time.")
+        if (part == "all_cards") append(" Your total value is never shown.")
+        if (part == "wants") append(" Your max prices are never shown.")
+    }
+
+    /** The same part on your profile, for people the settings already reach. */
+    fun profileUrl(me: String) = "https://table-1.site/u/$me/$part" + (id?.let { "/$it" } ?: "")
+    fun matches(l: PartLink) = l.part == part && l.id == id
+
+    companion object {
+        val AllCards = ShareTarget("all_cards"); val ForTrade = ShareTarget("for_trade"); val Wants = ShareTarget("wants")
+        fun partTitle(part: String) = mapOf("all_cards" to "All cards", "for_trade" to "For trade", "wants" to "Wants")[part]
+            ?: part.replaceFirstChar { it.uppercase() }
+    }
+}
+
+/** What a link shows before its cards: the part, its name, the owner's name and photo. */
+@Serializable
+data class SharedLinkData(
+    val part: String, val id: String? = null, val name: String? = null, val format: String? = null,
+    @SerialName("for_trade") val forTrade: Boolean? = null, val cards: Int = 0, val owner: Owner, val mine: Boolean = false,
+) {
+    @Serializable data class Owner(@SerialName("display_name") val displayName: String, @SerialName("avatar_url") val avatarUrl: String? = null)
+    val title get() = name ?: ShareTarget.partTitle(part)
+    val byline get() = if (mine) "Your link · anyone with it sees this" else "Shared by ${owner.displayName}"
 }
 
 object SharingRules {
@@ -468,6 +524,44 @@ object FriendsStore {
                 Telemetry.capture("sharing_changed", mapOf("part" to part, "visibility" to (v?.wire ?: "inherit")))
             }
             .onFailure { e -> _state.update { it.copy(sharing = before, error = e.message) } }
+    }
+
+    // share links
+
+    fun link(t: ShareTarget): PartLink? = _state.value.sharing?.links?.firstOrNull(t::matches)
+
+    /** The live link for a part, made if there isn't one; [new] retires the old link first. */
+    suspend fun makeLink(t: ShareTarget, new: Boolean = false): PartLink {
+        val l = rpc.rpc("share_link_create", buildJsonObject {
+            put("p_part", t.part); if (t.id == null) put("p_id", JsonNull) else put("p_id", t.id); put("p_new", new)
+        }).decodeAs<PartLink>()
+        _state.update { s -> s.copy(sharing = s.sharing?.let { sh -> sh.copy(links = (sh.links ?: emptyList()).filterNot(t::matches) + l) }) }
+        Telemetry.capture("share_link_created", mapOf("part" to t.part, "new" to new))
+        return l
+    }
+
+    /** Stop sharing the link: it stops working for anyone holding it. The part's setting doesn't change. */
+    suspend fun stopLink(t: ShareTarget) {
+        rpc.rpc("share_link_revoke", buildJsonObject { put("p_part", t.part); if (t.id == null) put("p_id", JsonNull) else put("p_id", t.id) })
+        _state.update { s -> s.copy(sharing = s.sharing?.let { sh -> sh.copy(links = (sh.links ?: emptyList()).filterNot(t::matches)) }) }
+        Telemetry.capture("share_link_stopped", mapOf("part" to t.part))
+    }
+
+    /** What a link shows (the server checks the link). */
+    suspend fun shared(token: String): SharedLinkData = rpc.rpc("shared_view", buildJsonObject { put("p_token", token) }).decodeAs()
+
+    /** Every card behind a link, 5000 at a time, in profile_cards' shapes. */
+    suspend fun sharedCards(token: String, part: String): List<ProfileCard> {
+        val out = mutableListOf<ProfileCard>()
+        var after = 0
+        while (true) {
+            val page = rpc.rpc("shared_cards", buildJsonObject {
+                put("p_token", token); put("p_after", after); put("p_limit", 5000)
+            }).decodeAs<ProfileCardsPage>()
+            page.rows.mapNotNullTo(out) { ProfileCard.parse(part, it) }
+            after += page.rows.size
+            if (!page.more || page.rows.isEmpty()) return out
+        }
     }
 
     suspend fun profile(userId: String): ProfileData =

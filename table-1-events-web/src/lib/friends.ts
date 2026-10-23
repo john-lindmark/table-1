@@ -86,7 +86,62 @@ export interface Sharing {
   cubes: Visibility | null;
   record: Visibility;
   items: ShareItem[];
+  /** Live share links (contract/share-links-2026-10-23.md); missing from a server without them. */
+  links?: PartLink[];
 }
+
+/* ── share links (contract/share-links-2026-10-23.md) ───────────────────── */
+
+/** "Anyone with the link" for one part: whoever holds it sees that part and nothing else, signed out too. */
+export interface PartLink { part: SectionKind; id: string | null; token: string; created_at?: string }
+
+/** A part of your Library you can share: All cards, For trade, Wants, or one binder, deck or cube. */
+export interface ShareTarget { part: SectionKind; id: string | null; name: string | null; for_trade?: boolean }
+
+export const linkUrl = (token: string) => `https://table-1.site/l/${token}`;
+export const PART_TITLE: Record<string, string> = { all_cards: "All cards", for_trade: "For trade", wants: "Wants" };
+export const targetTitle = (t: { part: string; name?: string | null }) => t.name ?? PART_TITLE[t.part] ?? t.part;
+export const isItemPart = (part: string) => part === "binder" || part === "deck" || part === "cube";
+
+/** What a link shows, for "Anyone with it sees …". */
+export function shareWhat(part: string): string {
+  switch (part) {
+    case "all_cards": return "every card you own";
+    case "for_trade": return "the copies in your for-trade binders";
+    case "wants": return "your wishlist";
+    case "binder": return "every card in this binder, with condition and language";
+    default: return `every card in this ${part}`;
+  }
+}
+
+/** The confirm before making a link. */
+export function shareConfirm(part: string): string {
+  let m = `Anyone with the link sees ${shareWhat(part)}, even without a Table 1 account. Nothing else on your profile shows. You can stop sharing it any time.`;
+  if (part === "all_cards") m += " Your total value is never shown.";
+  if (part === "wants") m += " Your max prices are never shown.";
+  return m;
+}
+
+/** The same part on your profile, for people the settings already reach. */
+export const profilePartUrl = (me: string, t: ShareTarget) => `https://table-1.site/u/${me}/${t.part}${t.id ? `/${t.id}` : ""}`;
+export const linkMatches = (t: { part: string; id: string | null }, l: PartLink) => l.part === t.part && (l.id ?? null) === (t.id ?? null);
+export const linkFor = (s: Sharing | null, t: { part: string; id: string | null }) => s?.links?.find((l) => linkMatches(t, l)) ?? null;
+
+/** Who a target reaches on Table 1 once the profile cap applies. */
+export function targetReach(s: Sharing, t: ShareTarget): Visibility {
+  if (!isItemPart(t.part)) return reach(s, effective(s, t.part as SharePart));
+  const item = s.items.find((i) => i.id === t.id) ?? { kind: t.part as ShareItem["kind"], id: t.id ?? "", name: t.name ?? "",
+                                                     visibility: t.part === "deck" ? "private" as Visibility : null };
+  return reach(s, effectiveItem(s, item));
+}
+
+/** What a link shows before its cards. */
+export interface SharedLinkData {
+  part: SectionKind; id?: string; name?: string; format?: string; for_trade?: boolean; cards: number;
+  owner: { display_name: string; avatar_url?: string }; mine: boolean;
+}
+export const sharedTitle = (d: SharedLinkData) => targetTitle({ part: d.part, name: d.name ?? null });
+export const sharedByline = (d: SharedLinkData) => (d.mine ? "Your link · anyone with it sees this" : `Shared by ${d.owner.display_name}`);
 
 export const DEFAULT_SHARING: Sharing = {
   profile: "friends", library: "private", all_cards: null, for_trade: null, wants: null, binders: null, decks: null, cubes: null,
@@ -326,6 +381,8 @@ export interface FriendsDemo {
   profile(id: string): ProfileData;
   cards(id: string, section: SectionKind, item: string | null): ProfileCard[];
   matches(only: string | null): TradeMatch[];
+  shared(token: string): SharedLinkData;
+  sharedCards(token: string): ProfileCard[];
 }
 let demo: FriendsDemo | null = null;
 export function setFriendsDemo(d: FriendsDemo | null) {
@@ -493,6 +550,55 @@ export async function fetchProfileCards(userId: string, section: SectionKind, it
     });
     for (const r of page.rows) {
       const c = parseCardRow(section, r);
+      if (c) out.push(c);
+    }
+    after += page.rows.length;
+    if (!page.more || !page.rows.length) return out;
+  }
+}
+
+export async function makeLink(t: ShareTarget, fresh = false): Promise<PartLink> {
+  const d = demoOn();
+  const old = linkFor(state.sharing, t);
+  const l: PartLink = d
+    ? (!fresh && old) || { part: t.part, id: t.id, token: crypto.randomUUID().replace(/-/g, "").slice(0, 22) }
+    : await rpc<PartLink>("share_link_create", { p_part: t.part, p_id: t.id, p_new: fresh });
+  if (state.sharing) {
+    const next = { ...state.sharing, links: [...(state.sharing.links ?? []).filter((x) => !linkMatches(t, x)), l] };
+    if (d) d.sharing = next;
+    set({ sharing: next });
+  }
+  capture("share_link_created", { part: t.part, new: fresh });
+  return l;
+}
+
+/** Stop sharing the link: it stops working for anyone holding it. The part's setting doesn't change. */
+export async function stopLink(t: ShareTarget) {
+  const d = demoOn();
+  if (!d) await rpc("share_link_revoke", { p_part: t.part, p_id: t.id });
+  if (state.sharing) {
+    const next = { ...state.sharing, links: (state.sharing.links ?? []).filter((x) => !linkMatches(t, x)) };
+    if (d) d.sharing = next;
+    set({ sharing: next });
+  }
+  capture("share_link_stopped", { part: t.part });
+}
+
+/** What a link shows (signed out too: the server checks the link). */
+export async function fetchShared(token: string): Promise<SharedLinkData> {
+  const d = demoOn();
+  return d ? d.shared(token) : rpc<SharedLinkData>("shared_view", { p_token: token });
+}
+
+/** Every card behind a link, 5000 at a time, in profile_cards' shapes. */
+export async function fetchSharedCards(token: string, part: SectionKind): Promise<ProfileCard[]> {
+  const d = demoOn();
+  if (d) return d.sharedCards(token);
+  const out: ProfileCard[] = [];
+  for (let after = 0; ;) {
+    const page = await rpc<{ rows: unknown[][]; more: boolean }>("shared_cards", { p_token: token, p_after: after, p_limit: 5000 });
+    for (const r of page.rows) {
+      const c = parseCardRow(part, r);
       if (c) out.push(c);
     }
     after += page.rows.length;

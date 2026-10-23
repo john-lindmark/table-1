@@ -230,6 +230,52 @@ final class FriendsDemoBackend {
         }
     }
 
+    // share links: your own links show your parts; `maraLink` is Mara's deck, as a stranger would open it.
+
+    nonisolated static let maraLink = "demoMaraPublicDeckLink"
+    struct Unavailable: LocalizedError { var errorDescription: String? { "This isn't available." } }
+
+    func shared(_ token: String) throws -> SharedLinkData {
+        if token == Self.maraLink, let d = people[Self.mara]?.decks.first {
+            return SharedLinkData(part: "deck", id: d.id, name: d.name, format: d.format, cards: d.cards,
+                                  owner: .init(displayName: "Mara Quinn"), mine: false)
+        }
+        guard let l = sharing.links?.first(where: { $0.token == token }) else { throw Unavailable() }
+        let sec = mine().sections
+        let you = SharedLinkData.Owner(displayName: "You")
+        switch l.part {
+        case "all_cards": return SharedLinkData(part: l.part, cards: sec.allCards?.cards ?? 0, owner: you, mine: true)
+        case "for_trade": return SharedLinkData(part: l.part, cards: sec.forTrade?.cards ?? 0, owner: you, mine: true)
+        case "wants": return SharedLinkData(part: l.part, cards: sec.wants?.cards ?? 0, owner: you, mine: true)
+        case "binder":
+            guard let b = sec.binders?.first(where: { $0.id == l.id }) else { throw Unavailable() }
+            return SharedLinkData(part: l.part, id: b.id, name: b.name, forTrade: b.forTrade, cards: b.cards, owner: you, mine: true)
+        default:
+            guard let d = ((sec.decks ?? []) + (sec.cubes ?? [])).first(where: { $0.id == l.id }) else { throw Unavailable() }
+            return SharedLinkData(part: l.part, id: d.id, name: d.name, format: d.format, cards: d.cards, owner: you, mine: true)
+        }
+    }
+
+    func sharedCards(_ token: String) -> [ProfileCard] {
+        if token == Self.maraLink {
+            return cards(Self.mara, ProfileSection(kind: "deck", id: people[Self.mara]?.decks.first?.id))
+        }
+        guard let l = sharing.links?.first(where: { $0.token == token }) else { return [] }
+        let col = CollectionStore.shared, b = BindersStore.shared
+        switch l.part {
+        case "all_cards":
+            return col.items.values.map { ProfileCard(cardId: $0.cardId, finish: $0.finish, qty: $0.qty) }
+        case "for_trade", "binder":
+            let ids = l.part == "binder" ? [l.id ?? ""] : b.binders.filter(\.forTrade).map(\.id)
+            return ids.flatMap { b.items(in: $0, col.items) }
+                .map { ProfileCard(cardId: $0.item.cardId, finish: $0.item.finish, condition: $0.item.condition, lang: $0.item.lang, qty: $0.qty) }
+        case "wants":
+            return b.liveWants.map { ProfileCard(cardId: $0.cardId, oracleId: $0.oracleId, finish: $0.finish, qty: $0.qty) }
+        default:
+            return (ListsStore.shared.list(id: l.id ?? "")?.entries ?? []).map { ProfileCard(cardId: $0.cardId, board: $0.board, qty: $0.qty) }
+        }
+    }
+
     /// Your for-trade copies, one per item (in the binder holding most of them).
     private func myCopies(_ db: CatalogDB) -> [TradeMatcher.CopyIn] {
         let b = BindersStore.shared
@@ -294,15 +340,28 @@ enum FriendsDemo {
         await FriendsStore.shared.loadSharing()
     }
 
-    /// `-T1LibraryDemo friends|profile|profiledeck|sharing|matches|match|me|myprofile|notices|review|bugs|bug`.
+    /// `-T1LibraryDemo friends|profile|profiledeck|sharing|share|shareall|shareon|sharedlink|badlink|matches|match|me|myprofile|notices|review|bugs|bug`.
+    @MainActor
     static func route(_ arg: String) -> [LibraryRoute]? {
-        switch arg {
+        if arg == "shareon" {
+            // All cards with a live link, its setting widened to Friends so Send profile link shows too.
+            FriendsStore.shared.demo?.sharing.links = [PartLink(part: "all_cards", token: "demoAllCardsLinkToken0")]
+            FriendsStore.shared.demo?.sharing.allCards = .friends
+        }
+        return switch arg {
         case "friends": [.social(.friends)]
         case "profile": [.social(.friends), .social(.profile(FriendsDemoBackend.mara))]
         case "profiledeck": [.social(.profile(FriendsDemoBackend.mara)),
                              .social(.profileCards(FriendsDemoBackend.mara, "deck", "d0000000-0000-0000-0000-0000000fd001", "Mono-red prowess",
                                                    SharedList(format: "modern", owner: "Mara")))]
         case "sharing": [.social(.sharing)]
+        case "share": ListsStore.shared.lists.first { $0.kind == .deck && $0.eventId == nil }.map { d in
+            [.lists(.deck), .list(d.id), .social(.share(.item(kind: "deck", id: d.id, name: d.name)))]
+        } ?? [.social(.share(.allCards))]
+        case "shareall": [.allCards, .social(.share(.allCards))]
+        case "shareon": [.allCards, .social(.share(.allCards))]
+        case "sharedlink": [.social(.sharedLink(FriendsDemoBackend.maraLink))]
+        case "badlink": [.social(.sharedLink("nope"))]
         case "matches": [.social(.matches)]
         case "match": [.social(.matches), .social(.match(FriendsDemoBackend.mara))]
         case "me": [.social(.profile(FriendsDemoBackend.me))]

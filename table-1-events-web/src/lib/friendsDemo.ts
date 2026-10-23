@@ -8,12 +8,14 @@ import { loadDemoLists } from "./libraryDemo";
 import { loadPrices, usdPrice } from "./prices";
 import {
   DEFAULT_SHARING, linesValue, matchLines, sees, setFriendsDemo, shownLines, type CopyIn, type FriendsDemo, type FriendsList,
-  sentRequest, type Person, type ProfileCard, type ProfileData, type Relation, type SectionKind, type Sharing, type TradeMatch, type Visibility,
+  sentRequest, type Person, type ProfileCard, type ProfileData, type Relation, type SectionKind, type Sharing, type SharedLinkData, type TradeMatch, type Visibility,
   type WantIn,
 } from "./friends";
 
 const id = (n: number) => `d0000000-0000-0000-0000-0000000f${String(n).padStart(4, "0")}`;
 export const DEMO_FRIEND = id(1);
+/** `/l/<DEMO_LINK>?demo`: a share link to Mara's deck. */
+export const DEMO_LINK = "demoMaraPublicDeckLink";
 
 interface Someone {
   person: Person;
@@ -198,6 +200,17 @@ class Demo implements FriendsDemo {
     if (section === "wants") return s.wanted.map((w) => ({ oracleId: w.oracle_id, cardId: w.card_id ?? null, finish: w.finish ?? null, qty: w.qty }));
     if (section === "deck") return s.deckEntries.get(item ?? "") ?? [];
     return [];
+  }
+
+  /** DEMO_LINK is Mara's deck, as a stranger opens it; other demo links read as closed (the dev demo has no server). */
+  shared(token: string): SharedLinkData {
+    const mara = this.people.get(DEMO_FRIEND)?.decks[0];
+    if (token !== DEMO_LINK || !mara) throw new Error("This isn't available");
+    return { part: "deck", id: mara.id, name: mara.name, format: mara.format, cards: mara.cards, owner: { display_name: "Mara Quinn" }, mine: false };
+  }
+
+  sharedCards(token: string): ProfileCard[] {
+    return token === DEMO_LINK ? this.cards(DEMO_FRIEND, "deck", this.people.get(DEMO_FRIEND)?.decks[0]?.id ?? null) : [];
   }
 
   matches(only: string | null): TradeMatch[] {

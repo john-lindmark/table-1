@@ -193,6 +193,8 @@ final class SessionModel {
         case .web: webPage = WebPage(url: url)
         // Standings need no account: someone signed out reads them on the web instead of a sign-in screen.
         case .standings where state == .signedOut: webPage = WebPage(url: url)
+        // So do share links (contract/share-links-2026-10-23.md).
+        case .shared where state == .signedOut: webPage = WebPage(url: url)
         default: pendingLink = link
         }
     }
@@ -203,6 +205,10 @@ final class SessionModel {
             if state == .signedOut, case .standings(let id)? = pendingLink {
                 pendingLink = nil
                 webPage = WebPage(url: WebLink.standingsURL(id))
+            }
+            if state == .signedOut, case .shared(let token)? = pendingLink {
+                pendingLink = nil
+                webPage = WebPage(url: PartLink.url(token))
             }
             needsName = SignIn.needsName(session?.user)
             if let id = session?.user.id.uuidString.lowercased() { Telemetry.identify(id) }
@@ -491,6 +497,9 @@ struct SignedInView: View {
         case .tracker(let matchId): session.openTracker(matchId: matchId, source: "link")
         case .joinCode(let code): joinByCode(code)
         case .standings(let id): openStandings(id)
+        case .shared(let token):
+            select(.collection)
+            libraryPath = [.social(.sharedLink(token))]
         case .signIn, .joinQr, .web: break
         }
     }

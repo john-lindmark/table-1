@@ -8,7 +8,7 @@ import { useBinders } from "../lib/binders";
 import { usePrices, usdPrice, usdText } from "../lib/prices";
 import {
   LIBRARY_PARTS, PART_DETAIL, PART_LABEL, VIS_LABEL, VISIBILITIES, blockUser, capped, effective, effectiveItem, fetchProfile,
-  fetchProfileCards, groupOf, inherits, loadFriends, loadMatches, loadSharing, matchShort, matchSummary, matchWith, reach,
+  fetchProfileCards, fetchSharedCards, sharedByline, sharedTitle, type SharedLinkData, groupOf, inherits, loadFriends, loadMatches, loadSharing, matchShort, matchSummary, matchWith, reach,
   cancelSent, profileValue, removeFriend, requestFriend, requestFriendByEmail, respondFriend, searchPeople, sectionCount, sentLabel,
   setItem, setPart, sharingSummary,
   startTradeFromMatch, useFriends, friendsNow, wantTier, copyNote, sharedCardCount, sharedEntries, sharedListKind, type MatchLine, type Person, type ProfileCard, type ProfileData, type SectionKind,
@@ -406,9 +406,12 @@ export function ProfileCardsScreen(props: {
   return <Gate title="Cards" onBack={props.onBack}>{() => <ProfileCardsBody {...props} />}</Gate>;
 }
 
-function ProfileCardsBody({ userId, section, item, onBack, onCard, onList, onRankings }: {
+/** A share link's part (contract/share-links-2026-10-23.md): the same screen, its cards through the link. */
+export interface LinkSource { token: string; data: SharedLinkData; signedIn: boolean; onSignIn: () => void }
+
+export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList, onRankings, link }: {
   userId: string; section: SectionKind; item: string | null; onBack: () => void; onCard: (oracleId: string) => void; onList: (listId: string) => void;
-  onRankings?: (listId: string) => void;
+  onRankings?: (listId: string) => void; link?: LinkSource;
 }) {
   const { catalog, error: catError } = useCatalog();
   useListsData(); // your lists, so a copy lands in them (the dev demo's too)
@@ -428,16 +431,23 @@ function ProfileCardsBody({ userId, section, item, onBack, onCard, onList, onRan
   const [boxRef, width] = useBoxWidth();
   useSearchUsed(q, "profile_cards");
   useEffect(() => {
+    if (link) {
+      fetchSharedCards(link.token, section).then(setRows, (e) => { setError(errorMessage(e)); setRows([]); });
+      return;
+    }
     fetchProfileCards(userId, section, item).then(setRows, (e) => { setError(errorMessage(e)); setRows([]); });
     // The address carries ids only; the title, a list's format and its owner come from the profile.
     fetchProfile(userId).then(setProfile, () => {});
-  }, [userId, section, item]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, section, item, link?.token]);
   const s = profile?.sections;
   const shared = [...(s?.binders ?? []), ...(s?.decks ?? []), ...(s?.cubes ?? [])].find((x) => x.id === item);
-  const listFormat = kind && shared && "format" in shared ? shared.format : null;
-  const name = shared?.name ?? ({ all_cards: "All cards", for_trade: "For trade", wants: "Wants" } as Record<string, string>)[section] ?? "Cards";
+  const listFormat = link ? (kind ? link.data.format ?? null : null) : kind && shared && "format" in shared ? shared.format : null;
+  const name = link ? sharedTitle(link.data)
+    : shared?.name ?? ({ all_cards: "All cards", for_trade: "For trade", wants: "Wants" } as Record<string, string>)[section] ?? "Cards";
   /** Whose it is; null on your own profile (no Copy there: your deck screen has Duplicate). */
-  const owner = profile && profile.relation !== "self" ? profile.display_name : null;
+  const owner = link ? (link.data.mine ? null : link.data.owner.display_name) : profile && profile.relation !== "self" ? profile.display_name : null;
+  const canCopy = !!owner && (!link || link.signedIn);
   const entries = useMemo(() => (rows ? sharedEntries(rows) : []), [rows]);
   const lines = useMemo(() => (kind && catalog ? regrouped(resolveLines(entries, kind, catalog), grouping) : []), [kind, catalog, entries, grouping]);
   const groups = useMemo(() => (!kind && catalog && rows ? groupProfileCards(rows, catalog) : []), [kind, catalog, rows]);
@@ -573,25 +583,29 @@ function ProfileCardsBody({ userId, section, item, onBack, onCard, onList, onRan
 
   return (
     <LibScreen width={layout === "list" ? "column" : "wide"}>
-      <Bar title={profile ? `${profile.display_name} · ${name}` : "Cards"} subtitle={rows ? plural(sharedCardCount(rows, kind), "card") : undefined} onBack={onBack}
+      <Bar title={link ? name : profile ? `${profile.display_name} · ${name}` : "Cards"} subtitle={rows ? plural(sharedCardCount(rows, kind), "card") : undefined} onBack={onBack}
            right={<ViewButton layout={layout} onChange={setLayout} screen={`profile_${section}`} printings={printings} onPrintings={setPrintings}
                               grouping={grouping} onGrouping={setGrouping} list={!!kind} />} />
       {(error || catError) && <Notice tone="error">{error ?? catError}</Notice>}
       <Field label="Search these cards" value={q} onChange={setQ} placeholder="Name or type" />
       <div ref={boxRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
+        {link && !searching && (
+          <Row title={sharedByline(link.data)} avatar={<Avatar name={link.data.owner.display_name} size={24} />} />
+        )}
         {(!catalog || !rows) && !error && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
         {rows?.length === 0 && !error && <Notice tone="info">Nothing here.</Notice>}
         {kind && catalog && !!rows?.length && !searching && (<>
           <Row title="Export" detail={kind === "deck" ? "Text, Arena, MTGO, download or copy" : "Text, Cube Cobra, download or copy"}
                onClick={() => setExporting(true)} />
           {kind === "deck" && <Row title="Deck image" detail="The cards as a picture, to save or share" onClick={() => setImaging(true)} />}
-          {kind === "cube" && item && onRankings && <RankingsRow listId={item} onOpen={() => onRankings(item)} />}
-          {owner && listFormat && (
+          {kind === "cube" && item && onRankings && !link && <RankingsRow listId={item} onOpen={() => onRankings(item)} />}
+          {canCopy && listFormat && (
             <Row title={copying ? "Copying…" : "Copy to my Library"} detail={kind === "deck" ? "A new private deck with these cards" : "A new cube with these cards"}
                  onClick={copying ? undefined : () => void copy()} />
           )}
         </>)}
         {catalog && rows && (kind ? listBody(kind) : cardsBody())}
+        {link && !link.signedIn && rows && <Row title="Make your own on Table 1" detail="Sign in to copy decks, track your collection and trade" onClick={link.onSignIn} />}
       </div>
       {exporting && kind && catalog && <ExportScreen name={name} kind={kind} entries={entries} catalog={catalog} from="profile" onClose={() => setExporting(false)} />}
       {imaging && kind === "deck" && catalog && <DeckImageScreen name={name} format={listFormat ?? ""} entries={entries} catalog={catalog} owner={owner} from="profile" onClose={() => setImaging(false)} />}

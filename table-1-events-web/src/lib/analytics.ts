@@ -15,7 +15,7 @@
  */
 export function redactPath(pathname: string): string {
   return pathname
-    .replace(/^\/(join|j|e|p|s|life|u)\/[^/]+/, "/$1/:id")
+    .replace(/^\/(join|j|e|p|s|l|life|u)\/[^/]+/, "/$1/:id")
     .replace(/^(\/u\/:id\/(?:binder|deck|cube))\/[^/]+/, "$1/:id")
     .replace(/^\/library\/(card|list|trade|match)\/(?!new(?:\/|$))[^/]+/, "/library/$1/:id");
 }
@@ -108,6 +108,7 @@ export function screenName(pathname: string, listKind?: (id: string) => "deck" |
   if (/^\/library\/trade\/[^/]+$/.test(p)) return "trade";
   if (/^\/library\/binder\/[^/]+$/.test(p)) return "binder";
   if (/^\/library\/match\/[^/]+$/.test(p)) return "trade_match";
+  if (/^\/l\/[^/]+$/.test(p)) return "shared_link";
   if (/^\/u\/[^/]+$/.test(p)) return "profile";
   if (/^\/u\/[^/]+\/[^/]+(\/[^/]+)?$/.test(p)) return "profile_cards";
   const ranking = p.match(/^\/library\/ranking\/[^/]+(\/[^/]+)?/);

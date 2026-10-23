@@ -55,6 +55,7 @@ struct BindersView: View {
                             Text(totals.unsorted.formatted()).font(T1.mono(17)).monospacedDigit()
                         }
                     }.buttonStyle(.plain)
+                    if store.binders.contains(where: \.forTrade) { ShareRow(target: .forTrade, from: "binders", path: $path) }
                     ForEach(store.binders) { b in
                         let rows = store.items(in: b.id, col.items)
                         Button { path.append(.binder(b.id)) } label: {
@@ -213,7 +214,10 @@ struct BinderView: View {
             GeometryReader { geo in
                 ScrollView {
                     LazyVStack(spacing: 1) {
-                        if let binder { WhoSeesRow(kind: "binder", id: binder.id, name: binder.name, forTrade: binder.forTrade) }
+                        if let binder {
+                            WhoSeesRow(kind: "binder", id: binder.id, name: binder.name, forTrade: binder.forTrade)
+                            ShareRow(target: .item(kind: "binder", id: binder.id, name: binder.name, forTrade: binder.forTrade), from: "binder", path: $path)
+                        }
                         if unsorted || binder != nil {
                             Button {
                                 T1Overlays.shared.present(full: true) { BinderAddPanel(binderId: unsorted ? nil : binderId).screen("binder_add") }
@@ -572,6 +576,7 @@ struct WantsView: View {
             if !rows.isEmpty || !missing.isEmpty { T1SearchField(text: $query, prompt: "Name or type") }
             HairlineList {
                 Button { addWant() } label: { ListRow(title: "Add a want", detail: "Any printing, or one in particular") }.buttonStyle(.plain)
+                if !rows.isEmpty && query.isEmpty { ShareRow(target: .wants, from: "wants", path: $path) }
                 Section1("Wanted · \(shownWants.count)")
                 if shownWants.isEmpty && !query.isEmpty { ListRow(title: "No wants match") }
                 else if rows.isEmpty { Notice("Cards you're after. Gets in a trade that match are marked, and confirming takes them off.") }

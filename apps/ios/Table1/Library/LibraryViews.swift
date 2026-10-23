@@ -165,7 +165,7 @@ struct LibraryHomeView: View {
                     LabelText("Cards")
                     Text(s.map { $0.totalQty.formatted() } ?? (col.ready ? "0" : "…"))
                         .font(T1.mono(48)).tracking(4).monospacedDigit()
-                    LabelText(s.map { "\($0.uniqueCards.formatted()) distinct · \(money($0.valueUsd, "USD")) · \(money($0.valueEur, "EUR"))" } ?? " ")
+                    LabelText(s.map { "\($0.uniqueCards.formatted()) distinct · \(money($0.valueUsd, "USD"))" } ?? " ")
                 }
                 .frame(maxWidth: .infinity).padding(.vertical, 24).background(T1.surface)
 
@@ -426,6 +426,10 @@ struct AllCardsView: View {
         T1Screen {
             Bar(title: "All cards", subtitle: col.summary.map { "\($0.totalQty.formatted()) cards" }, back: { dismiss() }) {
                 HStack(spacing: 20) {
+                    BarButton("Share") {
+                        Telemetry.capture("share_opened", ["part": "all_cards", "from": "all_cards"])
+                        path.append(.social(.share(.allCards)))
+                    }
                     BarButton("View") { CardLayout.menu($layout, screen: "all_cards", printings: $printings, grouping: $groupingRaw, list: false) }
                 }
             }

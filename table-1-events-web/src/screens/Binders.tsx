@@ -22,6 +22,7 @@ import { NewCopiesLanguageRow } from "./Languages";
 import { COLLAPSED, addPart, isOpen, sortParts, toggleOne, type Disclosure, type Part } from "../lib/printings";
 import { heroPrintings, heroesOf, isHero } from "../lib/heroes";
 import { CardSearchBar, CardSearchStatus, useCardSearch } from "./CardSearch";
+import { ShareRow } from "./Share";
 
 /* Binders and wants (contract/binders-wants-2026-10-17.md). Library → Binders: Unsorted and each binder; a binder
    lists its cards and can be renamed, flagged for trade or deleted. Library → Wants: the wishlist, then everything a
@@ -153,6 +154,7 @@ export function BindersScreen({ onBack, onOpen, onCard }: { onBack: () => void; 
       ) : <>
       <Row title="New binder" detail="A box, a deck box, a trade binder" onClick={() => setCreating(true)} />
       <Row title="Unsorted" detail="Copies not in a binder" value={totals.unsorted.toLocaleString()} onClick={() => onOpen(UNSORTED)} />
+      {b.binders.some((x) => x.for_trade) && <ShareRow target={{ part: "for_trade", id: null, name: null }} from="binders" />}
       {b.binders.map((x) => (
         <HeroListRow key={x.id} c={catalog} heroes={heroArt.get(x.id) ?? []} title={x.name} accentValue={x.for_trade}
                      detail={[x.for_trade ? "For trade" : null, usdText(value(itemsIn(x.id, col.items)))].filter(Boolean).join(" · ") || undefined}
@@ -252,6 +254,7 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
       <Field label="Search this binder" value={q} onChange={setQ} placeholder="Name or type" />
       {!catalog && !error && <div className="bg-t1-surface px-4 py-4 t1-label">Loading card data…</div>}
       <div ref={boxRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
+        {binder && <ShareRow target={{ part: "binder", id: binder.id, name: binder.name, for_trade: binder.for_trade }} from="binder" />}
         {(unsorted || binder) && (
           <Row title="Add cards" detail={unsorted ? "New copies, or copies out of a binder" : "Move in copies you own, or add new ones"}
                onClick={() => setAdding(true)} />
@@ -543,6 +546,7 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
       {(wants.length > 0 || missing.length > 0) && <Field label="Search wants" value={q} onChange={setQ} placeholder="Name or type" />}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         <Row title="Add a want" detail="Any printing, or one in particular" onClick={() => setAdding(true)} />
+        {wants.length > 0 && !q && <ShareRow target={{ part: "wants", id: null, name: null }} from="wants" />}
         <Section title="Wanted" count={shownWants.length} />
         {!shownWants.length && !!q && <Row title="No wants match" />}
         {!wants.length && !q && <Notice tone="info">Cards you're after. Gets in a trade that match are marked, and confirming takes them off.</Notice>}

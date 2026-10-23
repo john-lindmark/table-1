@@ -33,6 +33,7 @@ import { langForNew, storeAddLang, storedAddLang } from "../lib/languages";
 import { NewCopiesLanguageRow, OwnedLanguageRow } from "./Languages";
 import { hidePeek, movePeek, showPeek } from "../components/CardPeek";
 import { PEEK_W, useDesktop, useHoverPreview } from "../lib/desktop";
+import { ShareButton } from "./Share";
 
 export const CONDITIONS: Condition[] = ["NM", "LP", "MP", "HP", "DMG"];
 
@@ -548,7 +549,7 @@ export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes, onTrades, onI
           <p className="t1-label">Cards</p>
           <p className="text-[48px] tabular-nums tracking-[4px]">{s ? s.total_qty.toLocaleString() : col.ready ? "0" : "…"}</p>
           <p className="t1-label">
-            {s ? `${s.unique_cards.toLocaleString()} distinct · ${money(s.value_usd, "USD")} · ${money(s.value_eur, "EUR")}` : " "}
+            {s ? `${s.unique_cards.toLocaleString()} distinct · ${money(s.value_usd, "USD")}` : " "}
           </p>
         </div>
         <HeroListRow c={catalog} heroes={heroArt} title="All cards" detail={s ? `${s.unique_printings.toLocaleString()} printings` : undefined}
@@ -811,8 +812,11 @@ export function AllCards({ onBack, onOpen, onAdd }: { onBack: () => void; onOpen
   return (
     <LibScreen width={layout === "list" ? "column" : "wide"}>
       <Bar title="All cards" subtitle={col.summary ? `${col.summary.total_qty.toLocaleString()} cards` : undefined}
-           onBack={onBack} right={<ViewButton layout={layout} onChange={setLayout} screen="all_cards" printings={printings} onPrintings={setPrintings}
-                                         grouping={grouping} onGrouping={setGrouping} />} />
+           onBack={onBack} right={<span className="flex gap-4">
+             <ShareButton target={{ part: "all_cards", id: null, name: null }} from="all_cards" />
+             <ViewButton layout={layout} onChange={setLayout} screen="all_cards" printings={printings} onPrintings={setPrintings}
+                         grouping={grouping} onGrouping={setGrouping} />
+           </span>} />
       {(error || col.error) && <Notice tone="error">{error ?? col.error}</Notice>}
       <Field label="Search your cards" value={q} onChange={setQ} placeholder="Name or type" />
       <Segmented options={[{ value: "recent", label: "Recent" }, { value: "price", label: "Price" }, { value: "set", label: "Set" }]}

@@ -160,6 +160,8 @@ struct SharingSettings: Codable, Equatable, Sendable {
     var cubes: Visibility?
     var record: Visibility = .private
     var items: [ShareItem] = []
+    /// Live share links (contract/share-links-2026-10-23.md); nil from a server without them.
+    var links: [PartLink]?
 
     /// A part's own setting (nil = same as the level above).
     func own(_ p: SharePart) -> Visibility? {
@@ -509,6 +511,87 @@ extension ProfileCard {
         default: return nil
         }
     }
+}
+
+// MARK: share links (contract/share-links-2026-10-23.md)
+
+/// "Anyone with the link" for one part: whoever holds it sees that part and nothing else, signed out too.
+struct PartLink: Codable, Hashable, Sendable {
+    /// all_cards / for_trade / wants / binder / deck / cube
+    let part: String
+    var id: String?
+    let token: String
+    var createdAt: String?
+
+    var url: URL { PartLink.url(token) }
+    static func url(_ token: String) -> URL { URL(string: "https://table-1.site/l/\(token)")! }
+}
+
+/// A part of your Library you can share: All cards, For trade, Wants, or one binder, deck or cube.
+struct ShareTarget: Hashable, Sendable {
+    let part: String
+    var id: String?
+    var name: String?
+    var forTrade: Bool?
+
+    static let allCards = ShareTarget(part: "all_cards"), forTrade = ShareTarget(part: "for_trade"), wants = ShareTarget(part: "wants")
+
+    static func item(kind: String, id: String, name: String, forTrade: Bool? = nil) -> ShareTarget {
+        ShareTarget(part: kind, id: id, name: name, forTrade: forTrade)
+    }
+
+    var isItem: Bool { id != nil }
+    var title: String { name ?? ShareTarget.partTitle(part) }
+
+    static func partTitle(_ part: String) -> String {
+        ["all_cards": "All cards", "for_trade": "For trade", "wants": "Wants"][part] ?? part.capitalized
+    }
+
+    /// The Sharing part behind All cards / For trade / Wants (items use their ShareItem).
+    var sharePart: SharePart? { SharePart(rawValue: part).flatMap { [.allCards, .forTrade, .wants].contains($0) ? $0 : nil } }
+
+    /// What a link shows, for "Anyone with it sees …".
+    var what: String {
+        switch part {
+        case "all_cards": "every card you own"
+        case "for_trade": "the copies in your for-trade binders"
+        case "wants": "your wishlist"
+        case "binder": "every card in this binder, with condition and language"
+        default: "every card in this \(part)"
+        }
+    }
+
+    /// The confirm before making a link.
+    var confirmMessage: String {
+        var m = "Anyone with the link sees \(what), even without a Table 1 account. Nothing else on your profile shows. You can stop sharing it any time."
+        if part == "all_cards" { m += " Your total value is never shown." }
+        if part == "wants" { m += " Your max prices are never shown." }
+        return m
+    }
+
+    /// The same part on your profile, for people the settings already reach.
+    func profileURL(_ me: String) -> URL {
+        URL(string: "https://table-1.site/u/\(me)/\(part)" + (id.map { "/\($0)" } ?? ""))!
+    }
+
+    func matches(_ l: PartLink) -> Bool { l.part == part && l.id == id }
+}
+
+/// What a link shows before its cards: the part, its name, the owner's name and photo.
+struct SharedLinkData: Decodable, Sendable {
+    struct Owner: Decodable, Sendable { let displayName: String; var avatarUrl: String? }
+    let part: String
+    var id: String?
+    var name: String?
+    var format: String?
+    var forTrade: Bool?
+    let cards: Int
+    let owner: Owner
+    let mine: Bool
+
+    /// A binder, deck or cube's own name, else "All cards" / "For trade" / "Wants".
+    var title: String { name ?? ShareTarget.partTitle(part) }
+    var byline: String { mine ? "Your link · anyone with it sees this" : "Shared by \(owner.displayName)" }
 }
 
 // MARK: trade matches
@@ -905,6 +988,87 @@ final class FriendsStore {
         } catch {
             sharing = before
             self.error = error.localizedDescription
+        }
+    }
+
+    // share links
+
+    func link(_ t: ShareTarget) -> PartLink? { sharing?.links?.first(where: t.matches) }
+
+    /// The live link for a part, made if there isn't one; `new` retires the old link first.
+    @discardableResult
+    func makeLink(_ t: ShareTarget, new: Bool = false) async throws -> PartLink {
+        let l: PartLink
+        #if DEBUG
+        if demo != nil {
+            l = (!new ? link(t) : nil) ?? PartLink(part: t.part, id: t.id, token: String(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(22)))
+        } else { l = try await remoteMakeLink(t, new) }
+        #else
+        l = try await remoteMakeLink(t, new)
+        #endif
+        if var s = sharing {
+            var links = (s.links ?? []).filter { !t.matches($0) }
+            links.append(l)
+            s.links = links
+            sharing = s
+            #if DEBUG
+            demo?.sharing = s
+            #endif
+        }
+        Telemetry.capture("share_link_created", ["part": t.part, "new": new])
+        return l
+    }
+
+    private func remoteMakeLink(_ t: ShareTarget, _ new: Bool) async throws -> PartLink {
+        try await supabase.rpc("share_link_create", params: [
+            "p_part": AnyJSON.string(t.part), "p_id": t.id.map { .string($0) } ?? .null, "p_new": .bool(new),
+        ]).execute().value
+    }
+
+    /// Stop sharing the link: it stops working for anyone holding it. The part's setting doesn't change.
+    func stopLink(_ t: ShareTarget) async throws {
+        #if DEBUG
+        if demo == nil { try await remoteStopLink(t) }
+        #else
+        try await remoteStopLink(t)
+        #endif
+        if var s = sharing {
+            s.links = (s.links ?? []).filter { !t.matches($0) }
+            sharing = s
+            #if DEBUG
+            demo?.sharing = s
+            #endif
+        }
+        Telemetry.capture("share_link_stopped", ["part": t.part])
+    }
+
+    private func remoteStopLink(_ t: ShareTarget) async throws {
+        try await supabase.rpc("share_link_revoke", params: [
+            "p_part": AnyJSON.string(t.part), "p_id": t.id.map { .string($0) } ?? .null,
+        ]).execute()
+    }
+
+    /// What a link shows (anyone may ask; the server checks the link).
+    func shared(_ token: String) async throws -> SharedLinkData {
+        #if DEBUG
+        if let demo { return try demo.shared(token) }
+        #endif
+        return try await supabase.rpc("shared_view", params: ["p_token": AnyJSON.string(token)]).execute().value
+    }
+
+    /// Every card behind a link, a page of 5000 at a time, in profile_cards' shapes.
+    func sharedCards(_ token: String, part: String) async throws -> [ProfileCard] {
+        #if DEBUG
+        if let demo { return demo.sharedCards(token) }
+        #endif
+        var out: [ProfileCard] = [], after = 0
+        while true {
+            let page: ProfileCardsPage = try await supabase.rpc("shared_cards", params: [
+                "p_token": AnyJSON.string(token), "p_after": .integer(after), "p_limit": .integer(5000),
+            ]).execute().value
+            out += page.rows.compactMap { ProfileCard.parse(part, $0) }
+            after += page.rows.count
+            if !page.more || page.rows.isEmpty { return out }
         }
     }
 

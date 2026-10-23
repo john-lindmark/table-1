@@ -289,7 +289,9 @@ select pg_temp.throws('demo profile', $$select public.profile_view('00000000-000
 
 -- Sharing settings ---------------------------------------------------------------------------------
 select pg_temp.as_user(:BEN);
-select pg_temp.eq('defaults', (public.sharing_get() - 'items')::text,
+-- `links` (share links, 89_share_links_test.sql) start empty.
+select pg_temp.eq('no links yet', (public.sharing_get()->'links')::text, '[]');
+select pg_temp.eq('defaults', (public.sharing_get() - 'items' - 'links')::text,
   '{"cubes": null, "decks": null, "wants": null, "record": "private", "binders": null, "library": "private", "profile": "friends", "all_cards": null, "for_trade": null}');
 select pg_temp.eq('items list binders and decks', jsonb_array_length(public.sharing_get()->'items')::text, '3');
 select pg_temp.throws('bad value refused', $$select public.sharing_set('{"wants": "everyone"}')$$, '22023');

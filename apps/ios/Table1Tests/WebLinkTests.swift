@@ -28,6 +28,7 @@ final class WebLinkTests: XCTestCase {
         case .joinQr(let j): "join-qr \(j.code) \(j.secret)"
         case .joinCode(let c): "join-code \(c)"
         case .standings(let id): "standings \(id)"
+        case .shared(let t): "shared \(t)"
         case .tracker(let m): m.map { "tracker \($0)" } ?? "tracker"
         case .web: "web"
         case .events(let s): (["events"] + s.map(screen)).joined(separator: " > ")

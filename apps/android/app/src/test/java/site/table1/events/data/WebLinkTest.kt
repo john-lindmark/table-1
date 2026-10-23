@@ -28,6 +28,7 @@ class WebLinkTest {
         is WebLink.JoinQr -> "join-qr ${link.link.code} ${link.link.secret}"
         is WebLink.JoinCode -> "join-code ${link.code}"
         is WebLink.Standings -> "standings ${link.eventId}"
+        is WebLink.Shared -> "shared ${link.token}"
         is WebLink.Tracker -> listOfNotNull("tracker", link.matchId).joinToString(" ")
         WebLink.Web -> "web"
         is WebLink.Screens -> (listOf(link.tab) + link.stack.map(::screen)).joinToString(" > ")

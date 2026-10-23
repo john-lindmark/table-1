@@ -10,6 +10,8 @@ enum SocialRoute: Hashable {
     case profileCards(String, String, String?, String, SharedList? = nil) // user id, section, binder/list id, title, deck/cube
     case sharing
     case sharingItems(String) // binder / deck / cube
+    case share(ShareTarget) // the Share screen for one part of your Library
+    case sharedLink(String) // a share link's token (table-1.site/l/<token>)
     case matches
     case match(String) // user id
     case notices
@@ -24,6 +26,8 @@ enum SocialRoute: Hashable {
         case .profile: "profile"
         case .profileCards: "profile_cards"
         case .sharing, .sharingItems: "sharing"
+        case .share: "share"
+        case .sharedLink: "shared_link"
         case .matches: "trade_matches"
         case .match: "trade_match"
         case .notices: "moderation_notices"
@@ -46,6 +50,8 @@ struct SocialDestination: View {
             ProfileCardsView(userId: id, section: ProfileSection(kind: kind, id: item), title: title, list: list, path: $path)
         case .sharing: SharingView(path: $path)
         case .sharingItems(let kind): SharingItemsView(kind: kind)
+        case .share(let target): ShareView(target: target, path: $path)
+        case .sharedLink(let token): SharedLinkView(token: token, path: $path)
         case .matches: TradeMatchesView(path: $path)
         case .match(let id): TradeMatchView(userId: id, path: $path)
         case .notices: NoticesView()
@@ -540,6 +546,10 @@ struct ProfileCardsView: View {
     let title: String
     /// A deck or cube: Export and Copy to my Library.
     var list: SharedList?
+    /// Opened from a share link: its cards come through the link, not the profile.
+    var token: String?
+    /// "Shared by Ana Lind" on a link.
+    var byline: String?
     @Binding var path: [LibraryRoute]
     @Environment(\.dismiss) private var dismiss
     private var catalog: CatalogStore { CatalogStore.shared }
@@ -582,6 +592,7 @@ struct ProfileCardsView: View {
                 ScrollView {
                     LazyVStack(spacing: 1) {
                         if let error { Notice(error, error: true) }
+                        if let byline, query.isEmpty { Notice(byline) }
                         if rows?.isEmpty == true { Notice("Nothing here.") }
                         if let list, let kind, let rows, !rows.isEmpty, query.isEmpty { listActions(list, kind, rows) }
                         if let kind { listBody(kind, width: geo.size.width) } else { cardsBody(width: geo.size.width) }
@@ -592,7 +603,10 @@ struct ProfileCardsView: View {
         }
         .searchUsed(query, screen: "profile_cards")
         .task {
-            do { rows = try await FriendsStore.shared.cards(userId, section) } catch { if !error.isCancellation { self.error = FriendsStore.message(error); rows = [] } }
+            do {
+                if let token { rows = try await FriendsStore.shared.sharedCards(token, part: section.kind) }
+                else { rows = try await FriendsStore.shared.cards(userId, section) }
+            } catch { if !error.isCancellation { self.error = FriendsStore.message(error); rows = [] } }
         }
         .task(id: "\(rows?.count ?? -1)-\(catalog.generation)") {
             catalog.load(userInitiated: true)
@@ -748,7 +762,7 @@ struct ProfileCardsView: View {
                 ListRow(title: "Deck image", detail: "The cards as a picture, to save or share")
             }.buttonStyle(.plain)
         }
-        if kind == .cube, let id = section.id { RankingsRow(listId: id, path: $path) }
+        if kind == .cube, token == nil, let id = section.id { RankingsRow(listId: id, path: $path) }
         if list.owner != nil {
             Button {
                 let copy = ListsStore.shared.create(kind: kind, name: title, format: list.format, entries: entries,
@@ -915,7 +929,8 @@ struct SharingItemsView: View {
                 if let error = store.error { Notice(error, error: true) }
                 if let s = store.sharing {
                     ForEach(s.items.filter { $0.kind == kind }) { item in
-                        SharingControl(title: item.name, detail: item.forTrade == true ? "For trade" : kind.capitalized,
+                        let linkOn = store.link(.item(kind: kind, id: item.id, name: item.name)) != nil
+                        SharingControl(title: item.name, detail: (item.forTrade == true ? "For trade" : kind.capitalized) + (linkOn ? " · Link on" : ""),
                                        own: item.visibility, inherits: true, parent: (group.label, SharingRules.effective(s, group)),
                                        settings: s, effect: WhoSeesRow.effect(kind)) { v in
                             store.change(item, v)
@@ -1101,7 +1116,7 @@ extension FriendsStore {
     /// What the UI says for a failed read: anything hidden or gone reads "This isn't available" (never "That's private").
     static func message(_ error: Error) -> String {
         let text = error.localizedDescription
-        return text.contains("That's private") || text.contains("42501") ? "This isn't available." : text
+        return text.contains("That's private") || text.contains("This isn't available") || text.contains("42501") ? "This isn't available." : text
     }
 }
 
@@ -1255,9 +1270,10 @@ struct WhoSeesRow: View {
         Button { if let s { menu(s, item, group) } } label: {
             if let s {
                 let eff = SharingRules.effective(s, item), reach = SharingRules.reachOf(s, item)
+                let linkOn = store.link(.item(kind: kind, id: id, name: name)) != nil
                 ListRow(title: "Who sees this",
-                        detail: SharingRules.capped(s, eff) ? "Set to \(eff.label), capped by your profile"
-                            : item.visibility == nil ? "Same as \(group.label)" : "Its own setting") {
+                        detail: (SharingRules.capped(s, eff) ? "Set to \(eff.label), capped by your profile"
+                            : item.visibility == nil ? "Same as \(group.label)" : "Its own setting") + (linkOn ? " · Link on" : "")) {
                     LabelText(reach.label, color: reach == .private ? T1.muted : T1.accent)
                 }
             } else {
@@ -1278,6 +1294,212 @@ struct WhoSeesRow: View {
                                     checked: item.visibility == v) { store.change(item, v) })
         }
         T1Overlays.shared.showMenu("Who sees \(name)", message: s.profile == .public ? nil : "Your profile is \(s.profile.label), so nothing here goes further than that.", items)
+    }
+}
+
+// MARK: share (contract/share-links-2026-10-23.md)
+
+/// "Share" on All cards, Wants, Binders (For trade), each binder, deck and cube.
+struct ShareRow: View {
+    let target: ShareTarget
+    /// Telemetry: all_cards / wants / binders / binder / deck / cube.
+    let from: String
+    @Binding var path: [LibraryRoute]
+
+    var body: some View {
+        Button {
+            Telemetry.capture("share_opened", ["part": target.part, "from": from])
+            path.append(.social(.share(target)))
+        } label: {
+            ListRow(title: target.part == "for_trade" ? "Share For trade" : "Share", detail: "Link, or who sees it on Table 1") {
+                if FriendsStore.shared.link(target) != nil { LabelText("Link on", color: T1.accent) }
+            }
+        }
+        .buttonStyle(.plain)
+        .task { if FriendsStore.shared.sharing == nil { await FriendsStore.shared.loadSharing() } }
+    }
+}
+
+/// One part's Share screen: Anyone with the link, who sees it on Table 1, and (decks and cubes) a copy as text or a picture.
+struct ShareView: View {
+    let target: ShareTarget
+    @Binding var path: [LibraryRoute]
+    @Environment(\.dismiss) private var dismiss
+    private var store: FriendsStore { FriendsStore.shared }
+    @State private var busy = false
+    @State private var error: String?
+    @State private var note: String?
+    @State private var share: ShareFile?
+
+    var body: some View {
+        T1Screen {
+            Bar(title: "Share", subtitle: target.title, back: { dismiss() })
+            HairlineList {
+                if let error { Notice(error, error: true) }
+                Section1("Anyone with the link")
+                if let link = store.link(target) {
+                    linkRows(link)
+                } else {
+                    Button { make() } label: {
+                        ListRow(title: busy ? "Making a link…" : "Make a link", detail: "Works without an account")
+                    }
+                    .buttonStyle(.plain).disabled(busy || store.sharing == nil)
+                }
+                Section1("On Table 1")
+                onTable1
+                if let list = target.id.flatMap({ ListsStore.shared.list(id: $0) }), target.part == "deck" || target.part == "cube" {
+                    Section1("As a copy")
+                    Button {
+                        T1Overlays.shared.present(full: true) {
+                            ListExportPanel(name: list.name, kind: list.kind, entries: list.entries, from: "own").screen("list_export")
+                        }
+                    } label: {
+                        ListRow(title: "Export", detail: list.kind == .deck ? "Text, Arena, MTGO, download or copy" : "Text, Cube Cobra, download or copy")
+                    }.buttonStyle(.plain)
+                    if list.kind == .deck {
+                        Button {
+                            T1Overlays.shared.present(full: true) {
+                                DeckImagePanel(name: list.name, format: list.format, entries: list.entries, from: "own").screen("deck_image")
+                            }
+                        } label: {
+                            ListRow(title: "Deck image", detail: "The cards as a picture, to save or share")
+                        }.buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .sheet(item: $share) { ShareSheet(share: $0).ignoresSafeArea() }
+        .task { if store.sharing == nil { await store.loadSharing() } }
+    }
+
+    @ViewBuilder private func linkRows(_ link: PartLink) -> some View {
+        Notice("Anyone with this link sees \(target.what), even without a Table 1 account. Nothing else on your profile shows.")
+        ListRow(title: link.url.absoluteString.replacingOccurrences(of: "https://", with: ""), detail: note ?? "Link on")
+        Button {
+            share = ShareFile(url: link.url)
+            Telemetry.capture("share_link_sent", ["part": target.part, "how": "share"])
+        } label: { ListRow(title: "Share link") }.buttonStyle(.plain)
+        Button {
+            UIPasteboard.general.url = link.url
+            note = "Copied"
+            Telemetry.capture("share_link_sent", ["part": target.part, "how": "copy"])
+        } label: { ListRow(title: "Copy link") }.buttonStyle(.plain)
+        Button {
+            T1Overlays.shared.ask("Make a new link?", message: "The old link stops working for anyone who has it.", action: "New link") {
+                run { try await store.makeLink(target, new: true) }
+            }
+        } label: { ListRow(title: "New link") }.buttonStyle(.plain).disabled(busy)
+        Button {
+            T1Overlays.shared.ask("Stop sharing the link?", message: "It stops working for anyone who has it. Who sees this on Table 1 doesn't change.",
+                                  action: "Stop sharing", destructive: true) {
+                run { try await store.stopLink(target) }
+            }
+        } label: {
+            ListRow(title: "Stop sharing link") { LabelText("Off", color: T1.danger) }
+        }.buttonStyle(.plain).disabled(busy)
+    }
+
+    /// The part's own setting (the same menu and confirm as everywhere), then its profile address once it reaches someone.
+    @ViewBuilder private var onTable1: some View {
+        if let s = store.sharing {
+            let reach: Visibility = {
+                if let p = target.sharePart { return SharingRules.reachOf(s, p) }
+                return SharingRules.reachOf(s, store.shareItem(kind: target.part, id: target.id ?? "", name: target.title))
+            }()
+            if let p = target.sharePart {
+                Button { partMenu(s, p) } label: {
+                    ListRow(title: "Who sees this", detail: s.own(p) == nil ? "Same as Library" : "Its own setting") {
+                        LabelText(reach.label, color: reach == .private ? T1.muted : T1.accent)
+                    }
+                }.buttonStyle(.plain)
+            } else if let id = target.id {
+                WhoSeesRow(kind: target.part, id: id, name: target.title, forTrade: target.forTrade)
+            }
+            if reach == .private {
+                Notice("Only you see it on Table 1. A link works without changing that.")
+            } else if let me = Repo.userId ?? demoUserId {
+                Button {
+                    share = ShareFile(url: target.profileURL(me))
+                    Telemetry.capture("share_profile_link_sent", ["part": target.part])
+                } label: {
+                    ListRow(title: "Send profile link", detail: "Only \(reach.who) can open it")
+                }.buttonStyle(.plain)
+            }
+        } else {
+            Notice("Loading…")
+        }
+    }
+
+    private func partMenu(_ s: SharingSettings, _ p: SharePart) {
+        var items = [T1MenuItem(title: "Same as Library · \(s.library.label)", detail: "Follows Account → Sharing", checked: s.own(p) == nil) {
+            store.change(p, nil)
+        }]
+        for v in Visibility.allCases {
+            items.append(T1MenuItem(title: v.label, detail: v == .private ? "Only you" : v == .friends ? "Your friends" : "Anyone on Table 1",
+                                    checked: s.own(p) == v) { store.change(p, v) })
+        }
+        T1Overlays.shared.showMenu("Who sees \(p.label)", message: s.profile == .public ? nil : "Your profile is \(s.profile.label), so nothing here goes further than that.", items)
+    }
+
+    private func make() {
+        T1Overlays.shared.ask("Make a link to \(target.title)?", message: target.confirmMessage, action: "Make link") {
+            run { try await store.makeLink(target) }
+        }
+    }
+
+    private func run(_ work: @escaping () async throws -> Void) {
+        busy = true
+        Task {
+            defer { busy = false }
+            do { try await work(); error = nil; note = nil } catch { self.error = FriendsStore.message(error) }
+        }
+    }
+
+    private var demoUserId: String? {
+        #if DEBUG
+        store.demo != nil ? FriendsDemoBackend.me : nil
+        #else
+        nil
+        #endif
+    }
+}
+
+/// table-1.site/l/<token> in the app (signed in): what the link shows, like a profile section.
+struct SharedLinkView: View {
+    let token: String
+    @Binding var path: [LibraryRoute]
+    @Environment(\.dismiss) private var dismiss
+    @State private var data: SharedLinkData?
+    @State private var error: String?
+
+    var body: some View {
+        if let data {
+            ProfileCardsView(userId: "", section: ProfileSection(kind: data.part, id: data.id), title: data.title,
+                             list: data.format.map { SharedList(format: $0, owner: data.mine ? nil : data.owner.displayName) },
+                             token: token, byline: data.byline,
+                             path: $path)
+        } else {
+            T1Screen {
+                Bar(title: "Shared", back: { dismiss() })
+                HairlineList {
+                    if let error {
+                        Notice(error, error: true)
+                        Notice("The link may have been turned off.")
+                    } else {
+                        Notice("Loading…")
+                    }
+                }
+            }
+            .task {
+                do {
+                    let d = try await FriendsStore.shared.shared(token)
+                    Telemetry.capture("shared_link_opened", ["part": d.part, "signed_in": true, "mine": d.mine])
+                    data = d
+                } catch where !error.isCancellation {
+                    self.error = FriendsStore.message(error)
+                } catch {}
+            }
+        }
     }
 }
 

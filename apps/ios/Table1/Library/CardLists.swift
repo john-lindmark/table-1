@@ -911,6 +911,10 @@ struct ListDetailView: View {
     /// Summary, Add cards and Version history: the same in every layout.
     @ViewBuilder private func top(_ list: CardList, owned: [String: Int], rows: [ListLine], issues: [String: String]) -> some View {
         WhoSeesRow(kind: list.kind == .cube ? "cube" : "deck", id: list.id, name: list.name)
+        if list.eventId == nil {
+            let kind = list.kind == .cube ? "cube" : "deck"
+            ShareRow(target: .item(kind: kind, id: list.id, name: list.name), from: kind, path: $path)
+        }
         if !issues.isEmpty {
             // Considering cards are flagged on their rows but don't make the deck unplayable.
             let bad = Array(Set(rows.filter { $0.board != "maybe" && issues[$0.oracleId ?? $0.cardId] != nil }.map(\.name))).sorted()

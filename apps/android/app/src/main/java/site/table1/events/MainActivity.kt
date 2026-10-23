@@ -69,6 +69,10 @@ class MainActivity : ComponentActivity() {
             is WebLink.Standings ->
                 if (T1App.supabase.auth.sessionStatus.value is SessionStatus.NotAuthenticated) openInBrowser(this, Uri.parse(WebLink.standingsUrl(link.eventId)))
                 else pendingLink = link
+            // So do share links (contract/share-links-2026-10-23.md).
+            is WebLink.Shared ->
+                if (T1App.supabase.auth.sessionStatus.value is SessionStatus.NotAuthenticated) openInBrowser(this, Uri.parse(WebLink.sharedUrl(link.token)))
+                else pendingLink = link
             else -> pendingLink = link
         }
     }

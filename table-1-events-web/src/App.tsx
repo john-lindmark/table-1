@@ -58,6 +58,7 @@ const trades = () => import("./screens/Trades");
 const TradesScreen = lazyNamed(trades, "TradesScreen");
 const TradeScreen = lazyNamed(trades, "TradeScreen");
 const binders = () => import("./screens/Binders");
+const SharedLinkScreen = lazyNamed(() => import("./screens/Share"), "SharedLinkScreen");
 const BindersScreen = lazyNamed(binders, "BindersScreen");
 const BinderScreen = lazyNamed(binders, "BinderScreen");
 const WantsScreen = lazyNamed(binders, "WantsScreen");
@@ -404,6 +405,16 @@ function TradeRoute() {
                       onSaved={(saved) => window.history.replaceState(window.history.state, "", `/library/trade/${saved}`)} />;
 }
 
+/** A share link (contract/share-links-2026-10-23.md): signed in or out. */
+function SharedLinkRoute() {
+  const { token } = useParams();
+  const navigate = useNavigate();
+  const back = useBack("/");
+  if (!token) return <Navigate to="/" replace />;
+  return <SharedLinkScreen token={token} onBack={back} onCard={(o) => navigate(`/library/card/${o}`)}
+                           onList={(id) => navigate(`/library/list/${id}`)} onSignIn={() => navigate("/sign-in")} />;
+}
+
 function StandingsRoute() {
   const { eventId } = useParams();
   if (!eventId) return <Navigate to="/" replace />;
@@ -444,6 +455,7 @@ export default function App() {
         <Route path="/delete-account" element={<DeleteAccountPage />} />
         <Route path="/p/:eventId" element={<PlayerRoute />} />
         <Route path="/s/:eventId" element={<StandingsRoute />} />
+        <Route path="/l/:token" element={<SharedLinkRoute />} />
         {import.meta.env.DEV && <Route path="/dev/events" element={<EventsDemo />} />}
         {import.meta.env.DEV && <Route path="/dev/roto" element={<RotoDemo />} />}
         <Route path="/library" element={<LibraryHomeRoute />} />

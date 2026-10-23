@@ -14,6 +14,8 @@ sealed interface WebLink {
     data class JoinCode(val code: String) : WebLink
     /** The event if you organize or play in it, else the public standings page in the browser. */
     data class Standings(val eventId: String) : WebLink
+    /** A share link's token: the shared part for someone signed in, else the web page (no account needed). */
+    data class Shared(val token: String) : WebLink
     /** A tab ("events", "collection", "account") and the nav routes above it, parents first. */
     data class Screens(val tab: String, val stack: List<String>) : WebLink
     data class Tracker(val matchId: String?) : WebLink
@@ -26,6 +28,7 @@ sealed interface WebLink {
         is JoinQr -> "join_qr"
         is JoinCode -> "join_code"
         is Standings -> "standings"
+        is Shared -> "shared"
         is Screens -> if (tab == "events" && stack.isNotEmpty()) "event" else tab
         is Tracker -> "tracker"
         Web -> "web"
@@ -36,6 +39,7 @@ sealed interface WebLink {
         private val jobs = setOf("W", "U", "B", "R", "G", "M", "C", "L", "F")
 
         fun standingsUrl(eventId: String) = "https://table-1.site/s/$eventId"
+        fun sharedUrl(token: String) = "https://table-1.site/l/$token"
 
         /** null when [raw] isn't a table-1.site link at all. */
         fun parse(raw: String?): WebLink? {
@@ -56,6 +60,7 @@ sealed interface WebLink {
                 p.size == 3 && p[0] == "e" && p[2] == "add" -> events("event/${p[1]}", "add/${p[1]}")
                 p.size == 2 && p[0] == "p" -> events("event/${p[1]}")
                 p.size == 2 && p[0] == "s" -> Standings(p[1])
+                p.size == 2 && p[0] == "l" -> Shared(p[1])
                 p.size == 2 && p[0] == "join" -> JoinCode(p[1])
                 p.firstOrNull() == "j" -> JoinLink.parse(raw)?.let { JoinQr(it) } ?: Web
                 p == listOf("auth", "confirm") -> SignIn

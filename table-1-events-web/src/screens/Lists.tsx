@@ -25,6 +25,7 @@ import { ListStatsRow } from "./ListStats";
 import { RankingsRow } from "./Rankings";
 import { DeckImageScreen } from "./DeckImage";
 import { ListToCollectionScreen } from "./ListToCollection";
+import { ShareRow } from "./Share";
 
 /* Decks and cubes on the web (contract/lists-2026-10-15.md): the same lists, sections, groups and version
    history as iOS, read from and written to the database, so a deck built on one device is here too. */
@@ -482,6 +483,11 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         {!editing && list.kind === "cube" && onRankings && entriesOf(list).length > 0 && <RankingsRow listId={list.id} onOpen={onRankings} />}
         <Row title="Add, remove or replace" detail={list.kind === "deck" ? "Main deck, sideboard or considering" : "Search the catalog, or this cube's own cards"} onClick={onAdd} />
         <Row title="Version history" detail={`v${v.number} · ${v.note} · ${fmtDate(v.at)}`} value={list.versions.length} onClick={onVersions} />
+        {!editing && !list.eventId && (
+          <ShareRow target={{ part: list.kind, id: list.id, name: list.name }} from={list.kind}
+                    onExport={entriesOf(list).length > 0 && catalog ? () => setExporting(true) : undefined}
+                    onImage={entriesOf(list).length > 0 && catalog && list.kind === "deck" ? () => setImaging(true) : undefined} />
+        )}
         {entriesOf(list).length > 0 && !editing && catalog &&
           <Row title="Export" detail={list.kind === "deck" ? "Text, Arena, MTGO, download or copy" : "Text, Cube Cobra, download or copy"}
                onClick={() => setExporting(true)} />}

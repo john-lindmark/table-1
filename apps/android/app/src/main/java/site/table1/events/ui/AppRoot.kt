@@ -37,6 +37,7 @@ import site.table1.events.data.WebLink
 import site.table1.events.openInBrowser
 import site.table1.events.data.Repo
 import site.table1.events.library.RankingsScreen
+import site.table1.events.library.SharedLinkScreen
 import site.table1.events.library.RankingScreen
 import site.table1.events.library.RankingPickScreen
 import site.table1.events.library.RankingListsScreen
@@ -117,9 +118,13 @@ fun AppRoot(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pendingLink: Web
             // Standings tapped while the app was still starting: read them on the web rather than signing in first.
             val context = LocalContext.current
             LaunchedEffect(pendingLink) {
-                val link = pendingLink as? WebLink.Standings ?: return@LaunchedEffect
+                val url = when (val link = pendingLink) {
+                    is WebLink.Standings -> WebLink.standingsUrl(link.eventId)
+                    is WebLink.Shared -> WebLink.sharedUrl(link.token)
+                    else -> return@LaunchedEffect
+                }
                 onLinkConsumed()
-                openInBrowser(context, Uri.parse(WebLink.standingsUrl(link.eventId)))
+                openInBrowser(context, Uri.parse(url))
             }
             SignInScreen(pendingJoin)
         }
@@ -182,6 +187,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
             is WebLink.Standings ->
                 if (Repo.eventAccess(link.eventId) in setOf("organizer", "player")) show("events", listOf("event/${link.eventId}"))
                 else openInBrowser(context, Uri.parse(WebLink.standingsUrl(link.eventId)))
+            is WebLink.Shared -> show("collection", listOf("collection/shared/${link.token}"))
             WebLink.SignIn, is WebLink.JoinQr, WebLink.Web -> {}
         }
     }
@@ -258,6 +264,11 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                         e.arguments?.getString("item")?.takeIf { it != "-" }, onBack = { nav.popBackStack() },
                         onCard = { nav.navigate("collection/card/$it") }, onList = { nav.navigate("collection/list/$it") },
                         onRankings = { nav.navigate("collection/list/$it/rankings") })
+                }
+                // A share link (contract/share-links-2026-10-23.md).
+                composable("collection/shared/{token}") { e ->
+                    SharedLinkScreen(e.arguments?.getString("token") ?: "", onBack = { nav.popBackStack() },
+                        onCard = { nav.navigate("collection/card/$it") }, onList = { nav.navigate("collection/list/$it") })
                 }
                 composable("collection/matches") {
                     TradeMatchesScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/match/$it") },

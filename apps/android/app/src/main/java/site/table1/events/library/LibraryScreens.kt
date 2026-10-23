@@ -139,7 +139,7 @@ fun LibraryHomeScreen(foregrounds: Int, onAllCards: () -> Unit, onAdd: () -> Uni
                     Label("Cards")
                     Text(s?.let { count(it.totalQty) } ?: if (col.ready) "0" else "…", color = T1.text, fontFamily = T1.mono,
                         fontSize = 48.sp, letterSpacing = 4.sp)
-                    Label(s?.let { "${count(it.uniqueCards)} distinct · ${money(it.valueUsd, "USD")} · ${money(it.valueEur, "EUR")}" } ?: " ")
+                    Label(s?.let { "${count(it.uniqueCards)} distinct · ${money(it.valueUsd, "USD")}" } ?: " ")
                 }
             }
             item {
@@ -277,6 +277,7 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
     val pricesVersion by PriceBook.version.collectAsState()
     val layout = rememberCardLayout("allCards.layout", "allCards.grid")
     var viewMenu by remember { mutableStateOf(false) }
+    var sharing by remember { mutableStateOf(false) }
     val printings = remember { mutableStateOf(PrintingsDisclosure()) }
     val heroes by HeroesStore.state.collectAsState()
     LaunchedEffect(Unit) { CatalogStore.load(userInitiated = true) }
@@ -313,8 +314,13 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
     }
     T1Screen {
         Bar("All cards", subtitle = col.summary?.let { "${count(it.totalQty)} cards" }, onBack = onBack) {
+            BarAction("Share") {
+                Telemetry.capture("share_opened", mapOf("part" to "all_cards", "from" to "all_cards"))
+                sharing = true
+            }
             BarAction("View") { viewMenu = true }
         }
+        if (sharing) ShareScreen(ShareTarget.AllCards, onClose = { sharing = false })
         col.error?.let { Notice(it, error = true) }
         CatalogStatus(cat)
         Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp)) {

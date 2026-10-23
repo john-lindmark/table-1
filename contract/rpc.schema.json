@@ -8853,6 +8853,226 @@
           "baseline"
         ]
       }
+    },
+    "share_link_create": {
+      "note": "Your live link for a part, made if there isn't one; p_new retires the old one first. Not yours: 42501; bad part/id: 22023; 50 a day: 53400. contract/share-links-2026-10-23.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_part": {
+            "type": "string",
+            "enum": [
+              "all_cards",
+              "for_trade",
+              "wants",
+              "binder",
+              "deck",
+              "cube"
+            ]
+          },
+          "p_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "p_new": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "p_part"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "part": {
+            "type": "string",
+            "enum": [
+              "all_cards",
+              "for_trade",
+              "wants",
+              "binder",
+              "deck",
+              "cube"
+            ]
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "token": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "part",
+          "id",
+          "token",
+          "created_at"
+        ]
+      }
+    },
+    "share_link_revoke": {
+      "note": "Stop sharing a part's link. contract/share-links-2026-10-23.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_part": {
+            "type": "string",
+            "enum": [
+              "all_cards",
+              "for_trade",
+              "wants",
+              "binder",
+              "deck",
+              "cube"
+            ]
+          },
+          "p_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_part"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "revoked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "revoked"
+        ]
+      }
+    },
+    "shared_view": {
+      "note": "What a link shows: the part, its name (binder/deck/cube), format (deck/cube), for_trade (binder), card count, owner name and photo, mine. Closed/unknown/blocked: 42501. contract/share-links-2026-10-23.md. anon + authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "p_token"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "part": {
+            "type": "string",
+            "enum": [
+              "all_cards",
+              "for_trade",
+              "wants",
+              "binder",
+              "deck",
+              "cube"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "for_trade": {
+            "type": "boolean"
+          },
+          "cards": {
+            "type": "integer"
+          },
+          "owner": {
+            "type": "object",
+            "properties": {
+              "display_name": {
+                "type": "string"
+              },
+              "avatar_url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "display_name"
+            ]
+          },
+          "mine": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "part",
+          "cards",
+          "owner",
+          "mine"
+        ]
+      }
+    },
+    "shared_cards": {
+      "note": "The cards behind a link, paged by offset, in profile_cards' row shapes. contract/share-links-2026-10-23.md. anon + authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_token": {
+            "type": "string"
+          },
+          "p_after": {
+            "type": "integer"
+          },
+          "p_limit": {
+            "type": "integer",
+            "maximum": 10000
+          }
+        },
+        "required": [
+          "p_token"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "array"
+            }
+          },
+          "more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "rows",
+          "more"
+        ]
+      }
     }
   },
   "functions": {
