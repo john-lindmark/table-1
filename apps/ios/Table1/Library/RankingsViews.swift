@@ -7,6 +7,15 @@ import SwiftUI
 
 private func plural(_ n: Int, _ one: String, _ many: String? = nil) -> String { "\(n.formatted()) \(n == 1 ? one : many ?? one + "s")" }
 
+private let depthOptions: [(value: String, label: String)] = [("quarter", "Top 1/4"), ("third", "Top 1/3"), ("half", "Top half"), ("full", "Every card")]
+
+/// What a depth means for this ranking (contract § Depth).
+private func depthNote(_ depth: String, top: Int) -> String {
+    if depth == "full" { return "Every card of each color is put in order." }
+    return "Each color is ordered until its \(RankDepth.phrase(depth)) is in order; the rest sit below it. The final top \(top) still comes out exact: "
+        + "if a color has more cards in it than that, the final asks about them itself."
+}
+
 // MARK: the row on a cube
 
 /// "Rankings" on a cube screen (yours or shared with you), with how many there are and how far yours has got.
@@ -45,8 +54,10 @@ struct RankingsView: View {
     @State private var error: String?
     @State private var creating = false
     @State private var name = "My ranking"
-    @State private var depth = "half"
     @State private var top = 100
+    /// Follows the top until the person picks a depth: a quarter of each color for a top 50, a third for a top 100.
+    @State private var pickedDepth: String?
+    private var depth: String { pickedDepth ?? RankDepth.suggested(top: top) }
     @State private var sharing = "cube"
     @State private var busy = false
 
@@ -117,10 +128,9 @@ struct RankingsView: View {
     @ViewBuilder private func newRanking(_ cube: RankingCube) -> some View {
         if creating {
             Field(label: "Name", text: $name)
-            T1Segmented(options: [("half", "Top half"), ("full", "Every card")], selection: $depth)
-            Notice(depth == "half" ? "Each color is ordered until its top half is in order; the rest sit below it. About half the screens."
-                                   : "Every card of each color is put in order.")
             T1Segmented(options: [(100, "Top 100"), (50, "Top 50")], selection: $top)
+            T1Segmented(options: depthOptions, selection: Binding(get: { depth }, set: { pickedDepth = $0 }))
+            Notice(depthNote(depth, top: top))
             T1Segmented(options: [("cube", "Shared with the cube"), ("private", "Only me")], selection: $sharing)
             Notice(sharing == "cube" ? "Who sees this: everyone who can see \(cube.name)\(cube.mine ? "" : ", including \(cube.owner?.displayName ?? "its owner")")."
                                      : "Who sees this: only you.")
@@ -183,7 +193,7 @@ struct RankingView: View {
                 if let row = m.row, m.state != nil { cubeChanged(m, row) }
                 if let row = m.row, let st = m.state {
                     if !row.mine { Notice("You're watching \(row.by?.displayName ?? "someone")'s ranking. It updates live as they pick.") }
-                    if row.depth == "half" { Notice("This ranking orders only the top half of each color.") }
+                    if row.depth != "full" { Notice("This ranking orders only the \(RankDepth.phrase(row.depth)) of each color.") }
                     ForEach(st.jobs, id: \.self) { tile($0, st, row) }
                     finalTile(st, row)
                     pickTile(row)
@@ -349,8 +359,9 @@ struct RankingView: View {
                 Task { await model.update(name: n.isEmpty ? nil : n); newName = "" }
             }
         }
-        T1Segmented(options: [("half", "Top half"), ("full", "Every card")],
+        T1Segmented(options: depthOptions,
                     selection: Binding(get: { row.depth }, set: { d in Task { await model.update(depth: d) } }))
+        Notice(depthNote(row.depth, top: row.top))
         T1Segmented(options: [(100, "Top 100"), (50, "Top 50")],
                     selection: Binding(get: { row.top }, set: { t in Task { await model.update(top: t) } }))
         T1Segmented(options: [("cube", "Shared with the cube"), ("private", "Only me")],
@@ -962,8 +973,8 @@ struct RankingCompareView: View {
             Section1(job == .final ? "Biggest differences" : "\(job.title): biggest differences")
             Notice("Comparing \(plural(c.compared, job == .final ? "card" : "\(job.title.lowercased()) card")) both rankings have placed. " +
                    "On average they sit \(c.atLeast ? "at least " : "")\(avg) places apart; these \(c.biggest.count) differ the most." +
-                   (job != .final && (ra.depth == "half" || rb.depth == "half")
-                    ? " A ranking that sorts only the top half puts a card below its cut at the first place past it, so its gap is at least what's shown." : ""))
+                   (job != .final && (ra.depth != "full" || rb.depth != "full")
+                    ? " A ranking that sorts only part of each color puts a card below its cut at the first place past it, so its gap is at least what's shown." : ""))
             ForEach(c.biggest, id: \.self) { gapRow($0, na, nb) }
             let oneSide = c.oneSide
             if !oneSide.isEmpty {

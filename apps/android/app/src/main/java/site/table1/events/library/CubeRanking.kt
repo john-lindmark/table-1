@@ -33,6 +33,20 @@ enum class RankJob(val key: String, val title: String) {
     }
 }
 
+/**
+ * How much of each color a ranking sorts: the top quarter, third or half, or every card (2026-10-23: quarter and third
+ * added). The final top N comes out exact at any depth; it just asks about a card itself when a color has more cards in
+ * the top N than it sorted.
+ */
+object RankDepth {
+    val all = listOf("quarter", "third", "half", "full")
+    fun divisor(depth: String): Int? = mapOf("half" to 2, "third" to 3, "quarter" to 4)[depth] ?: if (depth == "full") null else 2
+    fun target(n: Int, depth: String): Int = divisor(depth)?.let { (n + it - 1) / it } ?: n
+    fun phrase(depth: String) = mapOf("half" to "top half", "third" to "top third", "quarter" to "top quarter")[depth] ?: "every card"
+    /** The depth a new ranking starts with: a quarter of each color for a top 50, a third for a top 100. */
+    fun suggested(top: Int) = if (top <= 50) "quarter" else "third"
+}
+
 /** One screen of the log: the cards as locked in (best first), its job, and when (epoch ms). */
 @Serializable
 data class RankScreen(val s: String, val o: List<String>, val t: Double? = null) {
@@ -400,7 +414,7 @@ class RankingState private constructor(val rankingId: String, val category: Map<
     }
 
     fun size(job: RankJob) = if (job == RankJob.Final) category.size else category.values.count { it == job }
-    fun target(job: RankJob): Int = if (job == RankJob.Final) top else size(job).let { if (depth == "half") (it + 1) / 2 else it }
+    fun target(job: RankJob): Int = if (job == RankJob.Final) top else RankDepth.target(size(job), depth)
     val jobs: List<RankJob> get() = RankJob.colors.filter { size(it) > 0 }
 
     fun session(job: RankJob): RankSession = cache.getOrPut(job) {

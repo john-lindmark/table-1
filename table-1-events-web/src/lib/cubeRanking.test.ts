@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   Knowledge, RankingState, compare, diffPlaces, disagreements, expectedMerge, expectedSort, fnv1a, members, pack, pickWins, reaskOpen, why,
-  type RankJob, type RankScreen, type RankSession,
+  type RankDepth, type RankJob, type RankScreen, type RankSession,
 } from "./cubeRanking";
 
 /* Cube rankings engine (contract/cube-rankings-2026-10-21.md) against the shared cases in
@@ -11,7 +11,7 @@ import {
 
 type Summary = Record<string, { top: string[]; done: boolean; target: number; size: number; screens: number; question: string[] | null; pinned: string[] | null; waiting: string[] }>;
 interface Step { s: RankJob; at: number; question: string[]; pinned: string[]; answer: string[]; pack?: string[]; disagree?: string[] }
-interface Run { id: string; depth: "half" | "full"; top: number; steps: Step[]; summary: Summary; contradicted?: Record<string, [string, string][]> }
+interface Run { id: string; depth: RankDepth; top: number; steps: Step[]; summary: Summary; contradicted?: Record<string, [string, string][]> }
 type ChangeRow = [string, string, number | null, number | null];
 type Row = [string, number, boolean, number, boolean, number, boolean];
 interface Cases {
@@ -22,7 +22,7 @@ interface Cases {
   redo: { remove: number; changesNothing: boolean; session: RankJob; reaskOpen: boolean; after: Summary; changes: ChangeRow[] }[];
   pickWins: { at: number; pack: string[]; picked: string; disagree: string[]; removed: number[]; after: Summary; changes: ChangeRow[] };
   edge: { log: RankScreen[]; known: [string, string][] };
-  cubeChange: { id: string; depth: "half" | "full"; top: number; removed: string[]; added: Record<string, RankJob>; new: string[];
+  cubeChange: { id: string; depth: RankDepth; top: number; removed: string[]; added: Record<string, RankJob>; new: string[];
                 before: Summary; after: Summary; changes: ChangeRow[]; steps: (Step & { waiting: string[]; top: string[] })[] };
   estimates: { sort: [number, number, number][]; merge: [number[], number, number][] };
 }

@@ -7,8 +7,9 @@ import { coverPrinting, type Catalog } from "./catalog";
 import { keysOf } from "./cardGrouping";
 import {
   COLOR_JOBS, JOB_TITLE, Knowledge, RankingState, diffPlaces, disagreements as disagreementsOf, pack as packOf, pickWins, reaskOpen,
-  jobOfColor, type RankChange, type RankJob, type RankScreen, type RankSession,
+  jobOfColor, type RankChange, type RankDepth, type RankJob, type RankScreen, type RankSession,
 } from "./cubeRanking";
+import { RankSaver, pendingStore, screenKey, type PushArgs } from "./rankSync";
 import { supabase } from "./supabaseClient";
 import { capture } from "./telemetry";
 
@@ -19,7 +20,7 @@ export interface RankingCube {
   printings?: Record<string, string>;
 }
 export interface RankingRow {
-  id: string; list_id: string; name: string; depth: "half" | "full"; top: number; sharing: "cube" | "private";
+  id: string; list_id: string; name: string; depth: RankDepth; top: number; sharing: "cube" | "private";
   screens: number; rev: number; sorted: number; categories: number; ranked: number; updated_at?: string; mine: boolean;
   by?: Person | null; cube?: RankingCube | null;
 }
@@ -90,7 +91,7 @@ export function cubeChangeOf(cubeCards: string[] | null | undefined, baseline: s
   return { added: [...now].filter((c) => !then.has(c)).sort(), removed: [...then].filter((c) => !now.has(c)).sort() };
 }
 
-export async function createRanking(o: { listId: string; name: string; depth: "half" | "full"; top: number; sharing: "cube" | "private"; ownCube: boolean }) {
+export async function createRanking(o: { listId: string; name: string; depth: RankDepth; top: number; sharing: "cube" | "private"; ownCube: boolean }) {
   const id = crypto.randomUUID().toLowerCase();
   const row: RankingRow = demo ? demo.create(id, o.listId, o.name, o.depth, o.top, o.sharing)
     : await rpc("cube_ranking_create", { p_id: id, p_list_id: o.listId, p_name: o.name, p_depth: o.depth, p_top: o.top, p_sharing: o.sharing });
@@ -152,22 +153,63 @@ export class RankingModel {
   /** The cube's cards the ranking last caught up with (cube_ranking_get's baseline). */
   baseline: string[] | null = null;
   version = 0;
-  private serverLog: RankScreen[] = [];
-  private pending: RankChange[] = [];
-  private saving = false;
-  private force = false;
-  private op: { keep: number; count: number; id: string } | null = null;
+  /** The server's log and what's waiting to be saved (rankSync.ts): `log` is always its plan. */
+  private saver: RankSaver<RankingRow, RankingDetail>;
   private lastChange = Date.now();
   private listeners = new Set<() => void>();
   private catalog: Catalog | null = null;
 
-  constructor(id: string) { this.id = id; }
+  constructor(id: string) {
+    this.id = id;
+    this.saver = new RankSaver<RankingRow, RankingDetail>({
+      push: async (a: PushArgs) => {
+        const progress = this.state?.progress ?? { sorted: 0, categories: 0, ranked: 0 };
+        return demo ? demo.push(this.id, a, progress)
+          : rpc("cube_ranking_push", { p_id: this.id, p_rev: a.rev, p_keep: a.count, p_count: a.count, p_add: a.add, p_drop: a.drop,
+                                       p_removed: a.drop.length, p_sorted: progress.sorted, p_categories: progress.categories,
+                                       p_ranked: progress.ranked, p_op_id: a.opId, p_changes: a.changes });
+      },
+      reload: () => fetchRanking(this.id),
+      isConflict: (e) => e instanceof DemoConflict || ["PT409", "40001"].includes((e as { code?: string })?.code ?? ""),
+      storage: { load: () => pendingStore.load(id), save: (p) => pendingStore.save(id, p) },
+    });
+    this.saver.onSaved = (r) => {
+      this.row = { ...this.row!, ...r };
+      this.lastChange = Date.now();
+      this.error = null;
+      this.relog();
+    };
+    this.saver.onReloaded = (d, theirs) => {
+      capture("ranking_save_conflict", { waiting: this.saver.waitingScreens });
+      this.row = d; this.cube = d.cube; this.baseline = d.baseline ?? null;
+      this.changes = [...(d.changes ?? []), ...this.saver.pending.changes];
+      this.log = this.saver.log;
+      this.rebuild(d.cube?.cards ?? null);
+      if (theirs) this.notice = "This ranking changed on another device. Your screens were added on top of it.";
+    };
+    this.saver.onChange = () => {
+      if (this.saver.error) { this.error = this.saver.error; capture("ranking_save_failed", { waiting: this.saver.waitingScreens }); }
+      if (!this.saver.unsaved && !this.saver.saving) this.maybeCatchUp();
+      this.bump();
+    };
+    if (this.saver.unsaved) capture("ranking_save_restored", { screens: this.saver.waitingScreens });
+  }
+
+  /** The log to show is the server's plus what's waiting; rebuilt only if that differs from what's shown. */
+  private relog() {
+    const next = this.saver.log;
+    if (JSON.stringify(next) === JSON.stringify(this.log)) return;
+    this.log = next;
+    this.rebuildState();
+  }
 
   subscribe = (l: () => void) => { this.listeners.add(l); return () => this.listeners.delete(l); };
   private bump() { this.version++; this.listeners.forEach((l) => l()); }
 
   get mine() { return this.row?.mine ?? false; }
-  get unsaved() { return JSON.stringify(this.log) !== JSON.stringify(this.serverLog); }
+  /** Something done here isn't saved yet (it's kept in this browser and sent until it is). */
+  get unsaved() { return this.saver.unsaved; }
+  get unsavedScreens() { return this.saver.waitingScreens; }
   card(id: string) { return this.cards.get(id.toLowerCase()); }
   cardAt(x: number) { return this.state ? this.cards.get(this.state.id(x)) : undefined; }
 
@@ -183,7 +225,7 @@ export class RankingModel {
   }
 
   private adopt(d: RankingDetail) {
-    const same = JSON.stringify(d.log) === JSON.stringify(this.serverLog);
+    const same = JSON.stringify(d.log) === JSON.stringify(this.saver.server);
     const cubeMoved = JSON.stringify(d.cube?.cards ?? null) !== JSON.stringify(this.cube?.cards ?? null)
       || JSON.stringify(d.baseline ?? null) !== JSON.stringify(this.baseline);
     const changed = !same || cubeMoved || this.row?.depth !== d.depth || this.row?.top !== d.top || !this.state;
@@ -191,12 +233,12 @@ export class RankingModel {
     this.cube = d.cube;
     this.baseline = d.baseline ?? null;
     if (changed) this.lastChange = Date.now();
-    if (this.saving || (this.unsaved && same)) return;
-    this.serverLog = d.log;
-    this.log = d.log.slice();
-    this.changes = d.changes ?? [];
-    this.pending = [];
-    if (changed || !this.cards.size) this.rebuild(d.cube?.cards ?? null);
+    if (this.saver.saving) return;  // the save in flight reloads if it has to
+    const shown = this.log;
+    this.saver.adopt(d.log, d.rev);
+    this.log = this.saver.log;
+    this.changes = [...(d.changes ?? []), ...this.saver.pending.changes];
+    if (changed || JSON.stringify(shown) !== JSON.stringify(this.log) || !this.cards.size) this.rebuild(d.cube?.cards ?? null);
   }
 
   /** The cube's cards make the jobs; cards that left it (in the log or the baseline) are looked up too, for their names. */
@@ -234,7 +276,7 @@ export class RankingModel {
   /** Your ranking caught up with its cube once every new card is placed; then the cube's change is no longer news. */
   private maybeCatchUp() {
     const st = this.state;
-    if (!st || !this.mine || this.catching || this.unsaved || this.saving) return;
+    if (!st || !this.mine || this.catching || this.unsaved || this.saver.saving) return;
     const { added } = this.cubeChange;
     if (!added.length || st.waiting.length) return;
     void this.catchUp();
@@ -272,11 +314,17 @@ export class RankingModel {
     const t = now();
     const rows = diffPlaces(before.places(only), after.places(only)).map((c) => ({ ...c, t, by, ...(screen ? { n: screen } : {}) }));
     this.changes = [...this.changes, ...rows];
-    this.pending.push(...rows);
+    this.saver.changes(rows);
   }
 
+  /** Locks a screen in (yours only) and saves it. A tap meant for a screen that's already gone (a double tap) is ignored. */
   lockIn(job: RankJob, order: number[]) {
     if (!this.mine || !this.state) return;
+    const q = this.question(job);
+    if (!q || order.length < 2 || order.length !== q.cards.length || !q.cards.every((x) => order.includes(x))) {
+      capture("ranking_lockin_stale");
+      return;
+    }
     const st = this.state;
     const screen: RankScreen = { s: job, o: order.map((x) => st.id(x)), t: now() };
     const wasDone = st.session(job).done;
@@ -286,8 +334,8 @@ export class RankingModel {
     this.state = next;
     this.record(st, next, "screen", this.log.length, job === "F" ? undefined : [job, "F"]);
     if (!wasDone && next.session(job).done) capture("ranking_job_done", { job, screens: next.knowledge.perJob[job] ?? 0 });
+    this.saver.add(screen);
     this.bump();
-    this.save();
   }
 
   undo(job: RankJob) {
@@ -296,26 +344,28 @@ export class RankingModel {
     if (i < 0) return;
     const removed = this.log[i];
     this.log = this.log.filter((_, k) => k !== i);
+    this.saver.drop([removed]);
     this.reask = { job, cards: removed.o };
     capture("ranking_undo");
     const before = this.state;
     this.rebuildState();
     this.record(before, this.state, "undo", i + 1);
+    this.saver.save();
     this.bump();
-    this.save();
   }
 
   redo(i: number) {
     if (!this.mine || !this.log[i]) return;
     const removed = this.log[i];
     this.log = this.log.filter((_, k) => k !== i);
+    this.saver.drop([removed]);
     this.reask = removed.s === "P" ? null : { job: removed.s, cards: removed.o };
     capture("ranking_redo");
     const before = this.state;
     this.rebuildState();
     this.record(before, this.state, "redo", i + 1);
+    this.saver.save();
     this.bump();
-    this.save();
   }
 
   redoChangesNothing(i: number) {
@@ -338,18 +388,23 @@ export class RankingModel {
 
   pick(picked: string, pk: string[], wins: boolean) {
     if (!this.mine || !this.state || !this.row) return;
+    if (JSON.stringify(pk) !== JSON.stringify(this.pack) || !pk.includes(picked)) {
+      capture("ranking_lockin_stale", { pick: true });
+      return;
+    }
     const st = this.state;
     const disagreed = this.disagreements(picked, pk).length;
     const removed = wins ? this.pickWinRemovals(picked, pk) : [];
     const screen: RankScreen = { s: "P", o: [picked, ...pk.filter((c) => c !== picked)], t: now() };
+    this.saver.drop(removed.map((i) => this.log[i]));
     this.log = [...this.log.filter((_, i) => !removed.includes(i)), screen];
     this.reask = null;
     const next = removed.length ? new RankingState(this.id, st.category, this.log, this.row.depth, this.row.top, undefined, st.fresh) : st.appending(screen);
     this.state = next;
     this.record(st, next, removed.length ? "pick_win" : "pick", this.log.length);
     capture("ranking_pick", { disagreed, resolution: disagreed === 0 ? "none" : wins ? "pick_wins" : "keep", removed: removed.length });
+    this.saver.add(screen);
     this.bump();
-    this.save();
   }
 
   /** Every pick so far, newest first: how many of its orders disagreed with the ranking and were kept out, and whether
@@ -362,7 +417,7 @@ export class RankingModel {
       .filter((p) => p.screen.s === "P").reverse();
   }
 
-  async update(patch: { name?: string; depth?: "half" | "full"; top?: number; sharing?: "cube" | "private" }) {
+  async update(patch: { name?: string; depth?: RankDepth; top?: number; sharing?: "cube" | "private" }) {
     try {
       const before = this.state;
       const row: RankingRow = demo ? demo.update(this.id, patch)
@@ -372,61 +427,13 @@ export class RankingModel {
       this.rebuildState();
       if (patch.depth || patch.top) {
         this.record(before, this.state, "settings", undefined);
-        this.force = true;
-        this.save();
+        this.saver.save();
       }
       this.error = null;
     } catch (e) {
       this.error = (e as Error).message;
     }
     this.bump();
-  }
-
-  /** One push at a time: keep what the server and this device agree on, send the rest. */
-  private save() {
-    if (this.saving || !this.row || (!this.unsaved && !this.force)) return;
-    this.force = false;
-    this.saving = true;
-    const local = this.log.slice();
-    let keep = 0;
-    while (keep < Math.min(local.length, this.serverLog.length) && JSON.stringify(local[keep]) === JSON.stringify(this.serverLog[keep])) keep++;
-    const add = local.slice(keep);
-    const opId = this.op && this.op.keep === keep && this.op.count === local.length ? this.op.id : crypto.randomUUID().toLowerCase();
-    this.op = { keep, count: local.length, id: opId };
-    const progress = this.state?.progress ?? { sorted: 0, categories: 0, ranked: 0 };
-    const sending = this.pending.slice();
-    const rev = this.row.rev;
-    void (async () => {
-      try {
-        const r: RankingRow = demo ? demo.push(this.id, keep, add, progress, sending)
-          : await rpc("cube_ranking_push", { p_id: this.id, p_rev: rev, p_keep: keep, p_add: add, p_sorted: progress.sorted,
-                                             p_categories: progress.categories, p_ranked: progress.ranked, p_op_id: opId, p_changes: sending });
-        this.row = { ...this.row!, ...r };
-        this.serverLog = local;
-        this.pending.splice(0, sending.length);
-        this.op = null;
-        this.error = null;
-        this.lastChange = Date.now();
-        this.saving = false;
-        if (this.unsaved) this.save(); else this.maybeCatchUp();
-      } catch (e) {
-        this.saving = false;
-        if (["PT409", "40001"].includes((e as { code?: string }).code ?? "")) {
-          this.op = null;
-          this.pending = [];
-          this.serverLog = [];
-          this.notice = "This ranking changed on another device, so it has been reloaded. Check the screen you just locked in.";
-          try {
-            const d = await fetchRanking(this.id);
-            this.serverLog = d.log; this.log = d.log.slice(); this.row = d; this.cube = d.cube; this.baseline = d.baseline ?? null;
-            this.changes = d.changes ?? []; this.reask = null; this.rebuild(d.cube?.cards ?? null);
-          } catch { /* next poll */ }
-        } else {
-          this.error = `Couldn't save: ${(e as Error).message}. It's kept here and saves on the next lock-in.`;
-        }
-      }
-      this.bump();
-    })();
   }
 
   /** Watching: someone else's ranking every 10 s (60 s once nothing changed for a minute); yours every 60 s. */
@@ -437,8 +444,9 @@ export class RankingModel {
       const quiet = Date.now() - this.lastChange > 60_000;
       timer = setTimeout(async () => {
         if (stop) return;
-        if (!document.hidden && !this.saving && !this.unsaved) {
-          try { this.adopt(await fetchRanking(this.id)); this.bump(); } catch { /* try again next tick */ }
+        if (!document.hidden && !this.saver.saving) {
+          if (this.unsaved) this.saver.save();
+          else try { this.adopt(await fetchRanking(this.id)); this.bump(); } catch { /* try again next tick */ }
         }
         if (!stop) tick();
       }, this.mine || quiet ? 60_000 : 10_000);
@@ -529,7 +537,7 @@ export class DemoRankings {
       const order = cards.slice().sort((a, b) => 3 * base.get(a)! + own.get(a)! - (3 * base.get(b)! + own.get(b)!));
       return new Map(order.map((c, i) => [c, i]));
     };
-    const run = (id: string, who: Person, name: string, depth: "half" | "full", top: number, mine: boolean, finalScreens: number | null,
+    const run = (id: string, who: Person, name: string, depth: RankDepth, top: number, mine: boolean, finalScreens: number | null,
                  t: Map<string, number>, listId = cubeId, stopAfter: RankJob | null = mine ? "B" : null) => {
       let st = new RankingState(id, mine ? before : categories, [], depth, top);
       const log: RankScreen[] = [], changes: RankChange[] = [];
@@ -610,7 +618,7 @@ export class DemoRankings {
     return { baseline: this.baselines.get(id)! };
   }
 
-  create(id: string, listId: string, name: string, depth: "half" | "full", top: number, sharing: "cube" | "private"): RankingRow {
+  create(id: string, listId: string, name: string, depth: RankDepth, top: number, sharing: "cube" | "private"): RankingRow {
     const r: RankingRow = { id, list_id: listId, name: name || "My ranking", depth, top, sharing, screens: 0, rev: 0, sorted: 0, categories: 0, ranked: 0,
                             updated_at: new Date().toISOString(), mine: true, by: { user_id: "d0000000-0000-0000-0000-0000000f0000", display_name: "You" } };
     this.rows.set(id, r);
@@ -626,17 +634,33 @@ export class DemoRankings {
     return r;
   }
 
-  push(id: string, keep: number, add: RankScreen[], p: { sorted: number; categories: number; ranked: number }, changes: RankChange[]): RankingRow {
-    const log = [...(this.logs.get(id) ?? []).slice(0, keep), ...add];
+  /** cube_ranking_push as the server does it (migration 20261022180000_ranking_push_guard.sql): rev and count must match,
+   *  drops are taken out by key, adds appended; a retried op id is answered with what's there. */
+  private lastOp = new Map<string, string>();
+  push(id: string, a: PushArgs, p: { sorted: number; categories: number; ranked: number }): RankingRow {
+    const row = this.rows.get(id)!;
+    if (this.lastOp.get(id) === a.opId) return row;
+    const log = [...(this.logs.get(id) ?? [])];
+    if (a.rev !== row.rev || a.count !== log.length) throw new DemoConflict();
+    for (const d of a.drop) {
+      const i = log.findIndex((x) => screenKey(x) === screenKey(d));
+      if (i < 0) throw new DemoConflict();
+      log.splice(i, 1);
+    }
+    log.push(...a.add);
     this.logs.set(id, log);
-    this.changeLogs.set(id, [...(this.changeLogs.get(id) ?? []), ...changes]);
-    const r = { ...this.rows.get(id)!, rev: this.rows.get(id)!.rev + 1, screens: log.length, ...p, updated_at: new Date().toISOString() };
+    this.lastOp.set(id, a.opId);
+    this.changeLogs.set(id, [...(this.changeLogs.get(id) ?? []), ...a.changes]);
+    const r = { ...row, rev: row.rev + 1, screens: log.length, ...p, updated_at: new Date().toISOString() };
     this.rows.set(id, r);
     return r;
   }
 
   delete(id: string) { this.rows.delete(id); this.logs.delete(id); this.changeLogs.delete(id); }
 }
+
+/** The dev demo's refusal of a stale push (the server's PT409). */
+export class DemoConflict extends Error { constructor() { super("This ranking changed on another device"); } }
 
 function hash(s: string) {
   let h = 0x811c9dc5;

@@ -26,6 +26,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import site.table1.events.T1App
 import site.table1.events.util.Telemetry
+import java.io.File
 import java.util.UUID
 
 // Cube rankings (contract/cube-rankings-2026-10-21.md): stack-rank a cube's cards, cuberanker.com style, refined with
@@ -137,14 +138,18 @@ object RankingsStore {
             if (sharing != null) put("p_sharing", sharing) else put("p_sharing", JsonNull)
         }).decodeAs<RankingRow>()
 
-    suspend fun push(id: String, rev: Int, keep: Int, add: List<RankScreen>, progress: RankingState.Progress, changes: List<RankChange>, opId: String): RankingRow =
+    /** cube_ranking_push the safe way: the whole log as last read is kept (p_keep = p_count), `drop` names the screens to
+     *  take out, `add` the ones to append (contract § Saving). */
+    suspend fun push(id: String, rev: Int, count: Int, add: List<RankScreen>, drop: List<RankScreen>, progress: RankingState.Progress,
+                     changes: List<RankChange>, opId: String): RankingRow =
         T1App.supabase.postgrest.rpc("cube_ranking_push", buildJsonObject {
-            put("p_id", id); put("p_rev", rev); put("p_keep", keep)
-            putJsonArray("p_add") {
-                for (s in add) add(buildJsonObject {
+            put("p_id", id); put("p_rev", rev); put("p_keep", count); put("p_count", count); put("p_removed", drop.size)
+            fun screens(name: String, list: List<RankScreen>) = putJsonArray(name) {
+                for (s in list) add(buildJsonObject {
                     put("s", s.s); putJsonArray("o") { s.o.forEach { add(JsonPrimitive(it)) } }; s.t?.let { put("t", it) }
                 })
             }
+            screens("p_add", add); screens("p_drop", drop)
             put("p_sorted", progress.sorted); put("p_categories", progress.categories); put("p_ranked", progress.ranked); put("p_op_id", opId)
             putJsonArray("p_changes") {
                 for (c in changes) add(buildJsonObject {
@@ -155,6 +160,9 @@ object RankingsStore {
                 })
             }
         }).decodeAs<RankingRow>()
+
+    /** A push the server refused because its log isn't the one this device last read (PT409; 40001 from before the fix). */
+    fun isConflict(e: Throwable) = e.message?.contains("changed on another device") == true || e.message?.contains("PT409") == true
 
     suspend fun delete(id: String) {
         T1App.supabase.postgrest.rpc("cube_ranking_delete", buildJsonObject { put("p_id", id) })
@@ -183,15 +191,48 @@ class RankingModel(val id: String) {
     /** The cube's cards the ranking last caught up with. */
     var baseline: List<String>? = null; private set
 
-    private var serverLog: List<RankScreen> = emptyList()
-    private var pending = ArrayList<RankChange>()
-    private var saving = false
-    private var force = false
-    private var op: Triple<Int, Int, String>? = null
+    /** The server's log and what's waiting to be saved (RankSync.kt): `log` is always its plan. */
+    private val saver = RankSaver(object : RankSaveIO<RankingRow, RankingDetail> {
+        override suspend fun push(rev: Int, count: Int, add: List<RankScreen>, drop: List<RankScreen>, changes: List<RankChange>, opId: String) =
+            RankingsStore.push(id, rev, count, add, drop, state?.progress ?: RankingState.Progress(0, 0, 0), changes, opId)
+        override suspend fun reload() = RankingsStore.get(id)
+        override fun isConflict(e: Throwable) = RankingsStore.isConflict(e)
+        override fun revOf(r: RankingRow) = r.rev
+        override fun screensOf(r: RankingRow) = r.screens
+        override fun revOfDetail(d: RankingDetail) = d.row.rev
+        override fun logOf(d: RankingDetail) = d.log
+        private val file = RankPendingFile(File(T1App.instance.filesDir, "rankings"), id)
+        override fun load() = file.load()
+        override fun save(p: RankPending) = file.save(p)
+    }, scope).also { s ->
+        s.onSaved = { r -> row = r; lastChange = System.currentTimeMillis(); error = null; relog() }
+        s.onReloaded = { d, theirs ->
+            Telemetry.capture("ranking_save_conflict", mapOf("waiting" to s.waitingScreens))
+            row = d.row; cube = d.cube; baseline = d.baseline; changes = d.changes + s.pending.changes; log = s.log
+            scope.launch { rebuild(d.cube?.cards); bump() }
+            if (theirs) notice = "This ranking changed on another device. Your screens were added on top of it."
+        }
+        s.onChange = {
+            s.error?.let { error = it; Telemetry.capture("ranking_save_failed", mapOf("waiting" to s.waitingScreens)) }
+            if (!s.unsaved && !s.saving) maybeCatchUp()
+            bump()
+        }
+        if (s.unsaved) Telemetry.capture("ranking_save_restored", mapOf("screens" to s.waitingScreens))
+    }
     private var lastChange = System.currentTimeMillis()
 
     val mine get() = row?.mine ?: false
-    val unsaved get() = log != serverLog
+    /** Something done here isn't saved yet (it's kept on the device and sent until it is). */
+    val unsaved get() = saver.unsaved
+    val unsavedScreens get() = saver.waitingScreens
+
+    /** The log to show is the server's plus what's waiting; the state is rebuilt only if that differs. */
+    private fun relog() {
+        val next = saver.log
+        if (next == log) return
+        log = next
+        rebuildState()
+    }
     fun card(id: String) = cards[id.lowercase()]
     fun cardAt(x: Int) = state?.let { cards[it.id(x)] }
 
@@ -201,14 +242,17 @@ class RankingModel(val id: String) {
     }
 
     private suspend fun adopt(d: RankingDetail) {
-        val same = d.log == serverLog
+        val same = d.log == saver.server
         val cubeMoved = d.cube?.cards != cube?.cards || d.baseline != baseline
         val changed = !same || cubeMoved || row?.depth != d.depth || row?.top != d.top || state == null
         row = d.row; cube = d.cube; baseline = d.baseline
         if (changed) lastChange = System.currentTimeMillis()
-        if (saving || (unsaved && same)) return
-        serverLog = d.log; log = d.log; changes = d.changes; pending.clear()
-        if (changed || cards.isEmpty()) rebuild(d.cube?.cards)
+        if (saver.saving) return  // the save in flight reloads if it has to
+        val shown = log
+        saver.adopt(d.log, d.row.rev)
+        log = saver.log
+        changes = d.changes + saver.pending.changes
+        if (changed || log != shown || cards.isEmpty()) rebuild(d.cube?.cards)
     }
 
     /** Resolves the cube's cards against the catalog and works out the state. Cards that left the cube (in the log or
@@ -248,7 +292,7 @@ class RankingModel(val id: String) {
     /** Your ranking has caught up with its cube once every new card is placed: then the change is no longer news. */
     private fun maybeCatchUp() {
         val st = state ?: return
-        if (!mine || catching || unsaved || saving || cubeChange.added.isEmpty() || st.waiting.isNotEmpty()) return
+        if (!mine || catching || unsaved || saver.saving || cubeChange.added.isEmpty() || st.waiting.isNotEmpty()) return
         catchUp()
     }
 
@@ -296,12 +340,18 @@ class RankingModel(val id: String) {
         val t = now()
         val rows = RankChange.diff(before.places(only), after.places(only)).map { it.copy(t = t, by = by, n = screen) }
         changes = changes + rows
-        pending += rows
+        saver.changes(rows)
     }
 
+    /** Locks a screen in (yours only) and saves it. A tap meant for a screen that's already gone (a double tap) is ignored. */
     fun lockIn(job: RankJob, order: List<Int>) {
         val st = state ?: return
         if (!mine) return
+        val q = question(job)
+        if (q == null || order.size < 2 || order.size != q.cards.size || order.toSet() != q.cards.toSet()) {
+            Telemetry.capture("ranking_lockin_stale")
+            return
+        }
         val screen = RankScreen(job.key, order.map(st::id), now())
         val wasDone = st.session(job).done
         log = log + screen
@@ -310,7 +360,8 @@ class RankingModel(val id: String) {
         state = next
         record(st, next, "screen", log.size, if (job == RankJob.Final) null else listOf(job, RankJob.Final))
         if (!wasDone && next.session(job).done) Telemetry.capture("ranking_job_done", mapOf("job" to job.key, "screens" to (next.knowledge.perJob[job.key] ?: 0)))
-        bump(); save()
+        saver.add(screen)
+        bump()
     }
 
     fun undo(job: RankJob) {
@@ -319,24 +370,28 @@ class RankingModel(val id: String) {
         if (i < 0) return
         val removed = log[i]
         log = log.filterIndexed { k, _ -> k != i }
+        saver.drop(listOf(removed))
         reask = job to removed.o
         Telemetry.capture("ranking_undo")
         val before = state
         rebuildState()
         record(before, state, "undo", i + 1)
-        bump(); save()
+        saver.save()
+        bump()
     }
 
     fun redo(i: Int) {
         if (!mine || i !in log.indices) return
         val removed = log[i]
         log = log.filterIndexed { k, _ -> k != i }
+        saver.drop(listOf(removed))
         reask = if (removed.s == RankJob.Pick.key) null else removed.job?.let { it to removed.o }
         Telemetry.capture("ranking_redo")
         val before = state
         rebuildState()
         record(before, state, "redo", i + 1)
-        bump(); save()
+        saver.save()
+        bump()
     }
 
     fun redoChangesNothing(i: Int): Boolean {
@@ -358,9 +413,14 @@ class RankingModel(val id: String) {
     fun pick(picked: String, pack: List<String>, wins: Boolean) {
         val st = state ?: return; val r = row ?: return
         if (!mine) return
+        if (pack != this.pack || picked !in pack) {
+            Telemetry.capture("ranking_lockin_stale", mapOf("pick" to true))
+            return
+        }
         val disagreed = disagreements(picked, pack).size
         val removed = if (wins) pickWinRemovals(picked, pack) else emptyList()
         val screen = RankScreen(RankJob.Pick.key, listOf(picked) + pack.filter { it != picked }, now())
+        saver.drop(removed.map { log[it] })
         log = log.filterIndexed { k, _ -> k !in removed } + screen
         reask = null
         val next = if (removed.isEmpty()) st.appending(screen) else RankingState(id, st.category, log, r.depth, r.top, st.fresh)
@@ -368,7 +428,8 @@ class RankingModel(val id: String) {
         record(st, next, if (removed.isEmpty()) "pick" else "pick_win", log.size)
         Telemetry.capture("ranking_pick", mapOf("disagreed" to disagreed, "resolution" to (if (disagreed == 0) "none" else if (wins) "pick_wins" else "keep"),
             "removed" to removed.size))
-        bump(); save()
+        saver.add(screen)
+        bump()
     }
 
     data class Pick(val index: Int, val screen: RankScreen, val disagreed: Int, val won: Boolean)
@@ -389,50 +450,10 @@ class RankingModel(val id: String) {
                 .onSuccess {
                     row = it
                     rebuildState()
-                    if (depth != null || top != null) { record(before, state, "settings", null); force = true; save() }
+                    if (depth != null || top != null) { record(before, state, "settings", null); saver.save() }
                     error = null
                 }
                 .onFailure { error = it.message }
-            bump()
-        }
-    }
-
-    /** One push at a time: keep what the server and this device agree on, send the rest. */
-    private fun save() {
-        val r = row ?: return
-        if (saving || (!unsaved && !force)) return
-        force = false
-        saving = true
-        val local = log
-        var keep = 0
-        while (keep < minOf(local.size, serverLog.size) && local[keep] == serverLog[keep]) keep++
-        val add = local.drop(keep)
-        val opId = op?.takeIf { it.first == keep && it.second == local.size }?.third ?: UUID.randomUUID().toString().lowercase()
-        op = Triple(keep, local.size, opId)
-        val progress = state?.progress ?: RankingState.Progress(0, 0, 0)
-        val sending = pending.toList()
-        scope.launch {
-            runCatching { RankingsStore.push(id, r.rev, keep, add, progress, sending, opId) }
-                .onSuccess {
-                    row = it; serverLog = local
-                    repeat(minOf(sending.size, pending.size)) { pending.removeAt(0) }
-                    op = null; error = null; lastChange = System.currentTimeMillis()
-                    saving = false
-                    if (unsaved) save() else maybeCatchUp()
-                }
-                .onFailure { e ->
-                    saving = false
-                    if (e.message?.contains("changed on another device") == true) {
-                        op = null; pending.clear(); serverLog = emptyList()
-                        notice = "This ranking changed on another device, so it has been reloaded. Check the screen you just locked in."
-                        runCatching { RankingsStore.get(id) }.onSuccess { d ->
-                            serverLog = d.log; log = d.log; row = d.row; cube = d.cube; baseline = d.baseline; changes = d.changes; reask = null
-                            rebuild(d.cube?.cards)
-                        }
-                    } else {
-                        error = "Couldn't save: ${e.message}. It's kept here and saves on the next lock-in."
-                    }
-                }
             bump()
         }
     }
@@ -442,7 +463,8 @@ class RankingModel(val id: String) {
         while (kotlin.coroutines.coroutineContext.isActive) {
             val quiet = System.currentTimeMillis() - lastChange > 60_000
             delay(if (mine || quiet) 60_000 else 10_000)
-            if (!saving && !unsaved) runCatching { RankingsStore.get(id) }.onSuccess { adopt(it); bump() }
+            if (saver.saving) continue
+            if (unsaved) saver.save() else runCatching { RankingsStore.get(id) }.onSuccess { adopt(it); bump() }
         }
     }
 

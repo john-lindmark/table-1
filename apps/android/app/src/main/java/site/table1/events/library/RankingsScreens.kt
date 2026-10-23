@@ -89,6 +89,14 @@ private fun day(ms: Double?) = ms?.let { Instant.ofEpochMilli(it.toLong()).atZon
 
 // ── the row on a cube
 
+private val DEPTH_LABELS = listOf("Top 1/4", "Top 1/3", "Top half", "Every card")
+
+/** What a depth means for this ranking (contract § Depth). */
+private fun depthNote(depth: String, top: Int): String =
+    if (depth == "full") "Every card of each color is put in order."
+    else "Each color is ordered until its ${RankDepth.phrase(depth)} is in order; the rest sit below it. The final top $top still comes out exact: " +
+        "if a color has more cards in it than that, the final asks about them itself."
+
 @Composable
 fun RankingsRow(listId: String, onOpen: () -> Unit) {
     var detail by remember { mutableStateOf<String?>(null) }
@@ -114,8 +122,10 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
     var error by remember { mutableStateOf<String?>(null) }
     var creating by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("My ranking") }
-    var depth by remember { mutableStateOf("half") }
     var top by remember { mutableStateOf(100) }
+    // Follows the top until the person picks a depth: a quarter of each color for a top 50, a third for a top 100.
+    var pickedDepth by remember { mutableStateOf<String?>(null) }
+    val depth = pickedDepth ?: RankDepth.suggested(top)
     var sharing by remember { mutableStateOf("cube") }
     var busy by remember { mutableStateOf(false) }
     LaunchedEffect(listId) {
@@ -135,10 +145,9 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
             if (d.canRank && cube != null) {
                 if (creating) {
                     Field("Name", name, { name = it })
-                    T1Segmented(listOf("Top half", "Every card"), if (depth == "half") 0 else 1) { depth = if (it == 0) "half" else "full" }
-                    Notice(if (depth == "half") "Each color is ordered until its top half is in order; the rest sit below it. About half the screens."
-                           else "Every card of each color is put in order.")
                     T1Segmented(listOf("Top 100", "Top 50"), if (top == 100) 0 else 1) { top = if (it == 0) 100 else 50 }
+                    T1Segmented(DEPTH_LABELS, RankDepth.all.indexOf(depth).coerceAtLeast(0)) { pickedDepth = RankDepth.all[it] }
+                    Notice(depthNote(depth, top))
                     T1Segmented(listOf("Shared with the cube", "Only me"), if (sharing == "cube") 0 else 1) { sharing = if (it == 0) "cube" else "private" }
                     Notice(if (sharing == "cube") "Who sees this: everyone who can see ${cube.name}${if (cube.mine) "" else ", including ${cube.owner?.displayName ?: "its owner"}"}."
                            else "Who sees this: only you.")
@@ -297,7 +306,7 @@ fun RankingScreen(id: String, onBack: () -> Unit, go: (String) -> Unit) {
             if (m.cubeGone) Notice("This cube isn't shared with you any more, so only its lists show.")
             if (row != null) CubeChanged(m, row, go)
             if (row != null && !row.mine) Notice("You're watching ${row.by?.displayName ?: "someone"}'s ranking. It updates live as they pick.")
-            if (row?.depth == "half") Notice("This ranking orders only the top half of each color.")
+            if (row != null && row.depth != "full") Notice("This ranking orders only the ${RankDepth.phrase(row.depth)} of each color.")
             for (job in st.jobs) {
                 val s = st.session(job); val used = st.knowledge.perJob[job.key] ?: 0; val size = st.size(job)
                 val note = when {
@@ -336,7 +345,8 @@ fun RankingScreen(id: String, onBack: () -> Unit, go: (String) -> Unit) {
                 Field("Name", newName ?: row.name, { newName = it })
                 val n = newName
                 if (n != null && n.isNotBlank() && n != row.name) Row { Ghost("Rename", accent = true) { m.update(name = n.trim()); newName = null } }
-                T1Segmented(listOf("Top half", "Every card"), if (row.depth == "half") 0 else 1) { m.update(depth = if (it == 0) "half" else "full") }
+                T1Segmented(DEPTH_LABELS, RankDepth.all.indexOf(row.depth).coerceAtLeast(0)) { m.update(depth = RankDepth.all[it]) }
+                Notice(depthNote(row.depth, row.top))
                 T1Segmented(listOf("Top 100", "Top 50"), if (row.top == 100) 0 else 1) { m.update(top = if (it == 0) 100 else 50) }
                 T1Segmented(listOf("Shared with the cube", "Only me"), if (row.sharing == "cube") 0 else 1) { m.update(sharing = if (it == 0) "cube" else "private") }
                 ListRow("Delete this ranking", "Every pick, on every device", onClick = { confirmDelete = true })
@@ -688,7 +698,7 @@ fun RankingCompareScreen(id: String, otherId: String, job: RankJob, onBack: () -
                 Section(if (tab == RankJob.Final) "Biggest differences" else "${tab.title}: biggest differences")
                 Notice("Comparing ${plural(c.compared, if (tab == RankJob.Final) "card" else "${tab.title.lowercase()} card")} both rankings have placed. " +
                     "On average they sit ${if (c.atLeast) "at least " else ""}${c.avgTenths / 10}.${c.avgTenths % 10} places apart; these ${c.biggest.size} differ the most." +
-                    if (tab != RankJob.Final && (ma.row?.depth == "half" || mb.row?.depth == "half")) " A ranking that sorts only the top half puts a card below its cut at the first place past it, so its gap is at least what's shown." else "")
+                    if (tab != RankJob.Final && ((ma.row?.depth ?: "full") != "full" || (mb.row?.depth ?: "full") != "full")) " A ranking that sorts only part of each color puts a card below its cut at the first place past it, so its gap is at least what's shown." else "")
                 c.biggest.forEach { gapRow(it) }
                 if (c.oneSide.isNotEmpty()) {
                     Section(if (tab == RankJob.Final) "In one top ${sa.top}, not the other" else "In one top half, not the other")

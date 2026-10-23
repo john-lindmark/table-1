@@ -12,7 +12,7 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.110.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { cleanBrief, GENDERED, inputHash, MIN_COMPARED, MODEL, named, problems, prompt, SCHEMA, simulateLog, SYSTEM, type CardFact, type RankingIn } from "./brief.ts";
-import { COLOR_JOBS, type RankJob } from "./cubeRanking.ts";
+import { COLOR_JOBS, type RankDepth, type RankJob } from "./cubeRanking.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -29,7 +29,7 @@ const DAILY_LIMIT = 60;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 interface Detail {
-  id: string; list_id: string; name: string; depth: "half" | "full"; top: number; rev: number; mine: boolean;
+  id: string; list_id: string; name: string; depth: RankDepth; top: number; rev: number; mine: boolean;
   by: { display_name?: string } | null; log: RankingIn["log"]; cube: { name: string; cards?: string[] } | null; baseline?: string[];
 }
 
@@ -79,7 +79,7 @@ interface EvalSide { by: string; order: string[] }
 const EVAL_MODELS = ["claude-haiku-5-5", "claude-sonnet-5-5"];
 
 /** Eval: names → cards, both rankings played from the given orders, the brief written; nothing stored. */
-async function evaluate(e: { cube: string[]; list?: string; depth?: "half" | "full"; top?: number; a: EvalSide; b: EvalSide; model?: string }) {
+async function evaluate(e: { cube: string[]; list?: string; depth?: RankDepth; top?: number; a: EvalSide; b: EvalSide; model?: string }) {
   const { data, error } = await admin.from("card_oracles")
     .select("oracle_id, name, type_line, mana_cost, cmc, colors, produced_mana").in("name", e.cube);
   if (error) throw error;

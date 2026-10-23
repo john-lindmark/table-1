@@ -176,7 +176,7 @@ maker's client last reported, for list rows; everything else is worked out from 
 |---|---|
 | `cube_ranking_create(p_id, p_list_id, p_name?, p_depth='half', p_top=100, p_sharing='cube')` | Starts a ranking; a retry with the same id returns it. Name: trimmed, ≤ 60, blank → "My ranking". At most 200 per account. |
 | `cube_ranking_update(p_id, p_name?, p_depth?, p_top?, p_sharing?)` | Yours only. |
-| `cube_ranking_push(p_id, p_rev, p_keep, p_add, p_sorted?, p_categories?, p_ranked?, p_op_id?, p_changes?)` | Keeps the first `p_keep` screens, appends `p_add` (2–4 distinct known Oracle ids each, or 2–15 for a pick `P`; `s` one of `W U B R G M C L F P`, optional `t` epoch ms; ≤ 1000 per push, ≤ 6000 in all) and `p_changes` to the change log (≤ 2000 per push; the newest 5000 kept). `p_rev` must match (else PT409, HTTP 409 "This ranking changed on another device": reload, check the last screen; never 40001, which PostgREST retries in a loop: see migration `20261022120000_ranking_conflict_409.sql`). A retry with the same `p_op_id` returns the stored result. |
+| `cube_ranking_push(p_id, p_rev, p_keep, p_add, p_sorted?, p_categories?, p_ranked?, p_op_id?, p_changes?, p_count?, p_removed?, p_drop?)` | Saves the log (see **Saving**). Apps send `p_keep` = `p_count` = the log as they last read it, `p_drop` = the screens they took out (matched by session, cards and time, wherever they sit), `p_add` = what they locked in (2–4 distinct known Oracle ids each, or 2–15 for a pick `P`; `s` one of `W U B R G M C L F P`, optional `t` epoch ms; ≤ 1000 per push, ≤ 6000 in all), `p_removed` = how many screens it takes out, and `p_changes` for the change log (≤ 2000 per push; the newest 5000 kept). `p_rev` and `p_count` must match and the push must remove exactly `p_removed` screens, else PT409 (HTTP 409 "This ranking changed on another device": reload and plan again; never 40001, which PostgREST retries in a loop: see migration `20261022120000_ranking_conflict_409.sql`). Apps built before 2026-10-23 send neither `p_count` nor `p_removed` and may remove at most 25 screens. Every removed screen is kept in `t1_private.cube_ranking_removed` (where it sat, which push), and `t1_private.cube_ranking_restore_removed(entry)` puts one push's removals back (support only). A retry with the same `p_op_id` returns the stored result. Migration `20261022180000_ranking_push_guard.sql`. |
 | `cube_ranking_delete(p_id)` | Yours only; `{deleted}`. |
 | `rankable_cubes()` | Other people's live cubes the caller can see, owned by a friend or someone they've played with: `[{id, name, owner: Person, cards (distinct main-board cards), rankings (that the caller can see), mine (the caller's own)}]`, by owner then name, at most 300. |
 | `cube_rankings(p_list_id?)` | A cube's rankings you can see (yours first, then newest) with `cube` and `can_rank`; no cube = all of yours, each with its `cube`. |
@@ -186,6 +186,58 @@ Ranking row: `{id, list_id, name, depth, top, sharing, screens, rev, sorted, cat
 updated_at, mine, by: Person}`. Errors read like the rest of sharing: not yours / not visible / gone = "That's private"
 (42501). Deleting the cube deletes its rankings; deleting the account deletes yours. Moderation: a shared ranking's
 name is checked like a list name (`ranking_name`; a block makes it Only me, with a notice and one appeal).
+
+## Depth (2026-10-23)
+
+A ranking sorts the **top quarter**, **top third** or **top half** of each color, or **every card** (`depth` `quarter` /
+`third` / `half` / `full`; a color of n cards sorts ceil(n/4), ceil(n/3), ceil(n/2) or n). New rankings start at a
+quarter for a top 50 and a third for a top 100, until the person picks a depth (John, 2026-10-23: "reduce the cards
+needed for each section"). The final top N comes out exact at any depth: it places a card only once it's known to beat
+every card still in the running, and asks about a card itself when a color has more cards in the top N than it sorted.
+Simulated on a 540-card cube with a top 50 (the reference engine): half 609 screens, third 488, quarter 415, a sixth 356,
+every one with the exact top 50, also when Blue and Colorless held 29 of the 50. The new screens say "Each color is
+ordered until its top quarter is in order; the rest sit below it. The final top 50 still comes out exact: if a color has
+more cards in it than that, the final asks about them itself." The shared cases have a quarter run and a third run
+(`testdata/cube-ranking/cases.json`, runs D and E). Server: migration `20261022190000_ranking_depths.sql`. Apps built
+before this treat an unknown depth as every card (more screens, nothing wrong).
+
+## Saving (2026-10-23)
+
+Twice in one night (00:17 and 03:03 UTC) an iPhone on build 18/20 wiped a 500-screen ranking. Fast lock-ins sent
+overlapping pushes (`defer { saving = false }` let a second push start while one was out); one got a conflict; its
+recovery set the app's copy of the server's log to empty before reloading, and a push still waiting read that copy late
+(`min(keep, serverLog.count)`) and went out as "keep 0, add 1" with a current rev, which the server took. The ranking was
+rebuilt by hand (black, red, multicolor, colorless and lands from the change log, white, blue and green from the screens
+redone that night) and the guard went live at 03:13 UTC; the person carried on ranking with no further loss.
+
+Now, on every client (`RankSync.swift`, `rankSync.ts`, `RankSync.kt`; reference `testdata/ranking-save/make_cases.py`,
+shared cases `testdata/ranking-save/cases.json`):
+
+- **Nothing is worked out by comparing logs.** The app keeps the server's log as it last read it, plus what was done
+  here and not yet saved: *adds* (lock-ins, picks) and *drops* (undo, redo, let the pick win), in order. What's shown
+  and what's sent both come from `plan(server, adds, drops)`: the server's log, then each add it doesn't already hold,
+  less each drop (one that was only an add here cancels it; one already gone is skipped). Screens leave the log only
+  through drops the person made.
+- **One push at a time**, `p_keep` = `p_count` = the server's log, `p_add`, `p_drop`, `p_removed`. The server refuses it
+  unless its log is that long and the push removes exactly that many screens, so a stale app can only be told to reload.
+- **A conflict reloads and plans again**: what's waiting goes on top of the server's log; nothing done here is thrown
+  away. "This ranking changed on another device. Your screens were added on top of it." when someone else had changed it.
+  After 5 conflicts in a row it stops and retries later.
+- **What's waiting is kept on the device** (iOS Application Support `Rankings/pending-<id>.json`, Android
+  `filesDir/rankings/`, web `localStorage` `t1.ranking.pending.<id>`) after every change, so a crash, a force-quit, a
+  closed tab or no signal loses nothing; the next open of that ranking shows it and sends it. A push's op id is kept with
+  it, so a push that landed but whose answer was lost is answered, not applied twice.
+- **No signal**: "Not saved yet: … It's kept on this device and saved when Table 1 can." Retries after 2 s, 5 s, 15 s,
+  30 s, then every minute while the ranking is open, and on each lock-in.
+- **Stale taps are ignored**: Lock in only takes the cards of the screen being shown (a double tap, or Enter before the
+  next screen draws, would otherwise lock the old order in again); a pick only takes the pack being shown.
+- Telemetry: `ranking_save_conflict` (`waiting`), `ranking_save_failed` (`waiting` / `kind`), `ranking_save_restored`
+  (`screens`), `ranking_lockin_stale` (`pick`).
+- Tests: SQL `97_cube_rankings_test.sql` (the wipe refused three ways, drops, history, restore), perf
+  `perf_10_library.sql` (redo of the first of 6000 by `p_drop`); iOS `RankSyncTests` + `RankingModelTests` (fast lock-ins
+  with a conflict mid-burst, undo/redo by name, unsaved work surviving a relaunch offline, a landed push retried, a
+  conflict never emptying the log); web `rankSync.test.ts`; Android `RankSyncTest` (the same scenarios against a fake
+  server that refuses stale pushes like the real one).
 
 ## Where (all clients)
 

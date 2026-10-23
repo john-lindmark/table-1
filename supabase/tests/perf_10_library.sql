@@ -165,5 +165,9 @@ select pg_temp.ms('cube_ranking_get, 6000 screens', $$select public.cube_ranking
 select pg_temp.ms('cube_ranking_push, one screen onto 5999', $$select public.cube_ranking_push('f7000000-0000-0000-0000-0000000000f1',
   (public.cube_rankings('e7000000-0000-0000-0000-0000000000f1')->'rankings'->0->>'rev')::int, 5999,
   jsonb_build_array((select a->0 from rank_screens)))$$, 250);
+-- The guard matches the p_drop screens against the whole log: a redo of the first of 6000, the new apps' way.
+select pg_temp.ms('cube_ranking_push, redo of the first of 6000 (p_drop)', $$select public.cube_ranking_push('f7000000-0000-0000-0000-0000000000f1',
+  (public.cube_rankings('e7000000-0000-0000-0000-0000000000f1')->'rankings'->0->>'rev')::int, 6000, '[]', p_count := 6000, p_removed := 1,
+  p_drop := jsonb_build_array(public.cube_ranking_get('f7000000-0000-0000-0000-0000000000f1')->'log'->0))$$, 400, 1);
 select pg_temp.ms('cube_rankings of a cube', $$select public.cube_rankings('e7000000-0000-0000-0000-0000000000f1')$$, 25);
 reset role;

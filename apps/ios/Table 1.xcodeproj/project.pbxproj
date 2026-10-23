@@ -11,8 +11,10 @@
 		02A5667316F26E62CD4970C8 /* Controls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33A21DAB0495F4693D23EC24 /* Controls.swift */; };
 		046C42743FDBE276677F46BE /* LiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07AD98F6D43A76D8746C5B85 /* LiveActivityController.swift */; };
 		04CFDF06D56EA387E0B1135F /* PlayerLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA8DF19517F082A44841191D /* PlayerLiveActivity.swift */; };
+		06FD4A71EF2A46B079F935E2 /* RankSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B517A25D93C588325FD387E1 /* RankSyncTests.swift */; };
 		09D30F71F458EFC5B53CAFBF /* OrganizerActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0C14458A0104608C91F3E1 /* OrganizerActivityController.swift */; };
 		0F58630FAD25EDCCC90EC4A8 /* Shortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAB3F9FB299F02F34955D5A3 /* Shortcuts.swift */; };
+		107F3904D521E87AF5BBCEBC /* RankSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDA4C1289215B2E1BF32D184 /* RankSync.swift */; };
 		10ABA73914D5034CA1FD7EBB /* Binders.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2481391075D52535293DC84 /* Binders.swift */; };
 		10BA11DA58B8E0B86B8C2A76 /* LiveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B262491F1533D678F74DD238 /* LiveStore.swift */; };
 		13F0FFCA274CEE604023B1DB /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8CEF6031CE6F5FCA7347F5DC /* SwiftUI.framework */; };
@@ -296,6 +298,7 @@
 		AC9DAD9D64E358A76554E1AB /* FriendsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsTests.swift; sourceTree = "<group>"; };
 		B262491F1533D678F74DD238 /* LiveStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveStore.swift; sourceTree = "<group>"; };
 		B315C86A391E28E160556A28 /* TelemetryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryTests.swift; sourceTree = "<group>"; };
+		B517A25D93C588325FD387E1 /* RankSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankSyncTests.swift; sourceTree = "<group>"; };
 		B6D6321319755E4BE5D209E3 /* EventBundleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventBundleTests.swift; sourceTree = "<group>"; };
 		B6EB72928D7AFA1E731CE966 /* SignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignIn.swift; sourceTree = "<group>"; };
 		BA5585D460ED8D0ECA5B05DA /* RotoRepo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RotoRepo.swift; sourceTree = "<group>"; };
@@ -312,6 +315,7 @@
 		C461CEB0826AC133A60E7A86 /* ListExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListExportTests.swift; sourceTree = "<group>"; };
 		CAC6D1FF89F34055819401D7 /* CardQueryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardQueryTests.swift; sourceTree = "<group>"; };
 		CC94CC26F2066C36E4DE2192 /* QR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QR.swift; sourceTree = "<group>"; };
+		CDA4C1289215B2E1BF32D184 /* RankSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankSync.swift; sourceTree = "<group>"; };
 		CFB41212CC7781116C821C1A /* CardSearchViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardSearchViews.swift; sourceTree = "<group>"; };
 		D14AB06BD876B8A78DC502CD /* FriendsDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsDemo.swift; sourceTree = "<group>"; };
 		D2ADDE7A837AA5B71EAC4F54 /* Heroes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Heroes.swift; sourceTree = "<group>"; };
@@ -411,6 +415,7 @@
 				C3A9CA48F46607665C58D26E /* ListsUnsavedTests.swift */,
 				36B0C34DF29680952B5D56B1 /* ListToCollectionTests.swift */,
 				42CF56D442321A69A4FB21C5 /* RankingModelTests.swift */,
+				B517A25D93C588325FD387E1 /* RankSyncTests.swift */,
 				D6B8EFE76370BBE1C6831870 /* RotoStoreTests.swift */,
 				73C481FEC74206632E64BFC0 /* RotoTests.swift */,
 				5B9DEC99DA160E4BD09F6783 /* ScannerPerfTests.swift */,
@@ -602,6 +607,7 @@
 				72DEBB4B6FB502FD419464DB /* Prices.swift */,
 				E8B652BBD0758CE6F2D6B13D /* Rankings.swift */,
 				2075E9FF3F5F167D9C6B9D93 /* RankingsViews.swift */,
+				CDA4C1289215B2E1BF32D184 /* RankSync.swift */,
 				239D07747A4039EE164CFB4B /* ScanReports.swift */,
 				A8D5D41DD05383A49BC215B5 /* SQLite.swift */,
 				BB923D0FC11DA7387A5E5624 /* Trades.swift */,
@@ -804,6 +810,7 @@
 				4303E1375FC42EE4288E5DAB /* ListExportTests.swift in Sources */,
 				B81A52CE3760971E29E5946C /* ListToCollectionTests.swift in Sources */,
 				34BE806648871D0494191D8A /* ListsUnsavedTests.swift in Sources */,
+				06FD4A71EF2A46B079F935E2 /* RankSyncTests.swift in Sources */,
 				3A2BC4BC770631432A1F8A57 /* RankingModelTests.swift in Sources */,
 				9D2DB016FBD579C0827EAC17 /* RotoStoreTests.swift in Sources */,
 				95AF2811706379735B0AB370 /* RotoTests.swift in Sources */,
@@ -883,6 +890,7 @@
 				31399EE11B591B082148C757 /* ProfileView.swift in Sources */,
 				F1D9BD70162B19F8B4D20264 /* PushController.swift in Sources */,
 				EA7FFB31FDA3622BCB2A7381 /* QR.swift in Sources */,
+				107F3904D521E87AF5BBCEBC /* RankSync.swift in Sources */,
 				5DC0D4A8361D45780A65169B /* Rankings.swift in Sources */,
 				E0A4337BD8959473005866A9 /* RankingsViews.swift in Sources */,
 				4A95D8729CE57796B6B8ED89 /* Repo.swift in Sources */,

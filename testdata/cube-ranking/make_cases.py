@@ -238,11 +238,16 @@ def new_of(K, new_cards):
     return m
 
 
+# How much of each color a ranking sorts (2026-10-23: "third" and "quarter" added; the final top N still comes out exact,
+# it just asks about a card itself when a color has more cards in the top N than it sorted).
+DEPTHS = {"half": 2, "third": 3, "quarter": 4}
+
+
 def target_of(K, cats, key, depth, top_size):
     if key == FINAL:
         return top_size
     n = pop(scope_of(K, cats, key))
-    return (n + 1) // 2 if depth == "half" else n
+    return n if depth == "full" else -(-n // DEPTHS.get(depth, 2))
 
 
 def seed_of(ranking_id, key, K):
@@ -499,6 +504,16 @@ def main():
                             "answer": ans})
             log_b.append({"s": key, "o": ans})
 
+    # D and E: the top quarter and the top third of each color, then the final (exact either way).
+    q_id, t_id = "a1b2c3d4-0000-4000-8000-00000000000d", "a1b2c3d4-0000-4000-8000-00000000000e"
+    true_q = truth(cards, "d:")
+    log_q, steps_q = simulate(q_id, cards, cats, "quarter", top, SESSIONS + [FINAL], true_q)
+    sum_q = summary(Knowledge(cards, log_q), cats, q_id, "quarter", top)
+    assert sum_q[FINAL]["top"] == true_q[:top], "a quarter of each color still gives the exact final"
+    log_t, steps_t = simulate(t_id, cards, cats, "third", top, SESSIONS + [FINAL], true_q)
+    sum_t = summary(Knowledge(cards, log_t), cats, t_id, "third", top)
+    assert sum_t[FINAL]["top"] == true_q[:top]
+
     Ka, Kb = Knowledge(cards, log_a), Knowledge(cards, log_b)
     sum_a = summary(Ka, cats, a_id, "half", top)
     sum_b = summary(Kb, cats, b_id, "full", top)
@@ -633,6 +648,8 @@ def main():
             {"id": a_id, "depth": "half", "top": top, "steps": steps_a, "summary": sum_a},
             {"id": b_id, "depth": "full", "top": top, "steps": steps_b, "summary": sum_b},
             {"id": c_id, "depth": "half", "top": top, "steps": steps_c, "summary": sum_c, "contradicted": contradicted},
+            {"id": q_id, "depth": "quarter", "top": top, "steps": steps_q, "summary": sum_q},
+            {"id": t_id, "depth": "third", "top": top, "steps": steps_t, "summary": sum_t},
         ],
         "pickWins": win,
         "compare": comparisons,

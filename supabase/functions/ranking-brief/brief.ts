@@ -1,7 +1,7 @@
 // The brief's data and prompt (contract/cube-rankings-2026-10-21.md § Brief), kept pure so brief.test.ts can check it
 // without the network. index.ts reads both rankings as the caller, works their lists out with the shared engine
 // (cubeRanking.ts, the web copy, kept identical by tools/test/engine-parity.sh) and asks Claude for 2-4 short sentences.
-import { COLOR_JOBS, JOB_TITLE, RankingState, compare, type RankJob, type RankScreen } from "./cubeRanking.ts";
+import { COLOR_JOBS, JOB_TITLE, RankingState, compare, depthPhrase, type RankDepth, type RankJob, type RankScreen } from "./cubeRanking.ts";
 
 /** A short summary of numbers worked out here, cached per change: the fast, inexpensive model. The prompt carries each
  *  card's type, cost and mana so it needn't know every card by name; switch to claude-sonnet-5-5 if briefs read thin. */
@@ -27,7 +27,7 @@ export interface CardFact {
 export interface RankingIn {
   id: string;
   rev: number;
-  depth: "half" | "full";
+  depth: RankDepth;
   top: number;
   name: string;
   by: string;
@@ -140,8 +140,8 @@ export function prompt(cards: CardFact[], a: RankingIn, b: RankingIn, list: Rank
     cube: cubeName,
     list: listName(list, Math.max(a.top, b.top)),
     rankings: [
-      { who: sa.label, placed: sa.places.size, sorts: a.depth === "half" && list !== "F" ? "only the top half" : "every place", shape: shape(sa, facts, n) },
-      { who: sb.label, placed: sb.places.size, sorts: b.depth === "half" && list !== "F" ? "only the top half" : "every place", shape: shape(sb, facts, n) },
+      { who: sa.label, placed: sa.places.size, sorts: a.depth !== "full" && list !== "F" ? `only the ${depthPhrase(a.depth)}` : "every place", shape: shape(sa, facts, n) },
+      { who: sb.label, placed: sb.places.size, sorts: b.depth !== "full" && list !== "F" ? `only the ${depthPhrase(b.depth)}` : "every place", shape: shape(sb, facts, n) },
     ],
     overlap: {
       cards_both_placed: both,
@@ -176,7 +176,7 @@ Write 2 to 4 short, plain sentences, as one paragraph of at most 60 words, calli
 - mana: each row's "role in the mana" says what a card does for it. Call a card fixing only when its role says fixing. A "utility land, not fixing" (Strip Mine, Wasteland, Karakas, Library of Alexandria, Mishra's Workshop) is valued for what it does, never for fixing. Colorless mana (Sol Ring, Mana Crypt, Ancient Tomb) is fast mana, not fixing. Name a land's colors from what it makes (a land that makes RW is red-white),
 - archetypes and strategies: aggro, tempo, control, midrange, ramp, combo, reanimator, storm, artifacts, tokens, spells or graveyard decks,
 - power level versus flexibility, cheap interaction versus big threats, creatures versus spells, the mana curve.
-Use what you know about the cards from their names, and the type, cost and mana information given. Give a card's color only from its colors column. Use the numbers to find the story, but never put a count, average or number of places apart in the brief (a card's place, like #1, is fine). Name two or three cards per point as examples, never a long run of names. Only say what the places support; when the lists are short or mostly agree, say that in a sentence or two and stop, rather than inventing a contrast. If a player sorts only the top half, a card "below their top N" may still be good to them; don't overstate it.
+Use what you know about the cards from their names, and the type, cost and mana information given. Give a card's color only from its colors column. Use the numbers to find the story, but never put a count, average or number of places apart in the brief (a card's place, like #1, is fine). Name two or three cards per point as examples, never a long run of names. Only say what the places support; when the lists are short or mostly agree, say that in a sentence or two and stop, rather than inventing a contrast. If a player sorts only part of each color (the top quarter, third or half), a card "below their top N" may still be good to them; don't overstate it.
 
 No headings, lists, markdown or preamble: only the paragraph.`;
 
@@ -234,7 +234,7 @@ export async function inputHash(a: RankingIn, b: RankingIn, list: RankJob, cards
 
 /** Plays a whole ranking (every color, then the final) by a person's order of the cards, best first: what a ranker
  *  with that taste would lock in. For the function's eval mode and tests. */
-export function simulateLog(cards: CardFact[], id: string, depth: "half" | "full", top: number, order: string[]): RankScreen[] {
+export function simulateLog(cards: CardFact[], id: string, depth: RankDepth, top: number, order: string[]): RankScreen[] {
   const jobs = new Map(cards.map((c) => [c.oracle_id.toLowerCase(), colorJob(c)]));
   const rank = new Map(order.map((o, i) => [o.toLowerCase(), i]));
   const at = (c: string) => rank.get(c) ?? 1e6;

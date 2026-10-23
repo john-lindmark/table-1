@@ -58,7 +58,7 @@ select pg_temp.eq('a ranking starts empty, top half, top 100, shared with the cu
   (select r->>'name' || '/' || (r->>'depth') || '/' || (r->>'top') || '/' || (r->>'sharing') || '/' || (r->>'screens') || '/' || (r->>'rev')
      from public.cube_ranking_create(:R1, :CUBE, '  Ana''s picks  ') r), 'Ana''s picks/half/100/cube/0/0');
 select pg_temp.eq('creating again returns it', public.cube_ranking_create(:R1, :CUBE, 'Other')->>'name', 'Ana''s picks');
-select pg_temp.throws('bad depth', $$select public.cube_ranking_create(gen_random_uuid(), 'e7000000-0000-0000-0000-000000000001', 'x', 'third')$$, '22023');
+select pg_temp.throws('bad depth', $$select public.cube_ranking_create(gen_random_uuid(), 'e7000000-0000-0000-0000-000000000001', 'x', 'tenth')$$, '22023');
 select pg_temp.throws('bad top', $$select public.cube_ranking_create(gen_random_uuid(), 'e7000000-0000-0000-0000-000000000001', 'x', 'half', 30)$$, '22023');
 select pg_temp.eq('a blank name gets one', public.cube_ranking_create(:R3, :CUBE, '', 'full', 50, 'private')->>'name', 'My ranking');
 
@@ -246,6 +246,85 @@ select pg_temp.eq('catching up takes the cube as it is now',
   (public.cube_ranking_catch_up(:R1)->'baseline')::text, (public.cube_ranking_get(:R1)->'cube'->'cards')::text);
 select pg_temp.eq('and is harmless again', (public.cube_ranking_catch_up(:R1)->'baseline')::text, (public.cube_ranking_get(:R1)->'baseline')::text);
 reset role;
+
+-- Depth: the top quarter, third or half of each color, or every card (2026-10-23) ------------------------------------
+set role authenticated;
+select pg_temp.as_user(:ANA);
+select pg_temp.eq('a ranking can sort the top quarter',
+  public.cube_ranking_create('f7000000-0000-0000-0000-0000000000a6', :CUBE, 'Quick', 'quarter', 50)->>'depth', 'quarter');
+select pg_temp.eq('and change to the top third', public.cube_ranking_update('f7000000-0000-0000-0000-0000000000a6', p_depth := 'third')->>'depth', 'third');
+select pg_temp.throws('but not a fifth', $$select public.cube_ranking_update('f7000000-0000-0000-0000-0000000000a6', p_depth := 'fifth')$$, '22023');
+select pg_temp.throws('nor start with one', $$select public.cube_ranking_create('f7000000-0000-0000-0000-0000000000a7', 'e7000000-0000-0000-0000-000000000001', 'x', 'fifth')$$, '22023');
+select pg_temp.eq('apps that don''t say still get the top half',
+  public.cube_ranking_create('f7000000-0000-0000-0000-0000000000a8', :CUBE, 'Default')->>'depth', 'half');
+select public.cube_ranking_delete('f7000000-0000-0000-0000-0000000000a6') is not null as d1 \gset
+select public.cube_ranking_delete('f7000000-0000-0000-0000-0000000000a8') is not null as d2 \gset
+reset role;
+
+-- A push can't wipe a ranking (2026-10-23: a stale push with the current rev and a small keep replaced 504 screens) --
+\set G '''f7000000-0000-0000-0000-0000000000a5'''
+set role authenticated;
+select pg_temp.as_user(:ANA);
+select public.cube_ranking_create(:G, :CUBE, 'Guarded') is not null as guarded \gset
+create or replace function pg_temp.screens(a int, b int) returns jsonb language sql as $$
+  select jsonb_agg(jsonb_build_object('s', 'R', 'o', jsonb_build_array('c0000000-0000-0000-0000-000000000001',
+                                                                      'c0000000-0000-0000-0000-000000000002'), 't', k) order by k)
+    from generate_series(a, b) k $$;
+select pg_temp.eq('thirty screens, the app saying what it knows',
+  public.cube_ranking_push(:G, 0, 0, pg_temp.screens(1, 30), p_count := 0, p_removed := 0)->>'screens', '30');
+select pg_temp.eq('a lock-in appends', public.cube_ranking_push(:G, 1, 30, pg_temp.screens(31, 31), p_count := 30, p_removed := 0)->>'screens', '31');
+select pg_temp.throws('the wipe: an app that thinks the log is 5 screens long is a conflict',
+  $$select public.cube_ranking_push('f7000000-0000-0000-0000-0000000000a5', 2, 5, pg_temp.screens(32, 32), p_count := 5, p_removed := 0)$$, 'PT409');
+select pg_temp.throws('the wipe with the right count: removing 26 when it said none is a conflict',
+  $$select public.cube_ranking_push('f7000000-0000-0000-0000-0000000000a5', 2, 5, pg_temp.screens(32, 32), p_count := 31, p_removed := 0)$$, 'PT409');
+select pg_temp.throws('the wipe from an app built before the guard (it says nothing): more than 25 is refused',
+  $$select public.cube_ranking_push('f7000000-0000-0000-0000-0000000000a5', 2, 5, pg_temp.screens(32, 32))$$, 'PT409');
+select pg_temp.eq('nothing was written by the refusals', (select d->>'rev' || '/' || (d->>'screens') from public.cube_ranking_get(:G) d), '2/31');
+select pg_temp.eq('undo says it takes one out',
+  public.cube_ranking_push(:G, 2, 30, '[]', p_count := 31, p_removed := 1)->>'screens', '30');
+select pg_temp.eq('redo of the first re-sends the rest; only the first counts as removed',
+  public.cube_ranking_push(:G, 3, 0, pg_temp.screens(2, 30), p_count := 30, p_removed := 1)->>'screens', '29');
+select pg_temp.throws('a re-sent screen with a different time is not the same screen',
+  $$select public.cube_ranking_push('f7000000-0000-0000-0000-0000000000a5', 4, 0,
+      (select jsonb_agg(e || '{"t": 999}') from jsonb_array_elements(pg_temp.screens(2, 30)) e), p_count := 29, p_removed := 0)$$, 'PT409');
+select pg_temp.eq('an old app''s undo still works',
+  public.cube_ranking_push(:G, 4, 28, '[]')->>'screens', '28');
+select pg_temp.eq('a retry of a saved push is answered, with its op id',
+  (select a->>'rev' || '/' || (b->>'rev') from (select public.cube_ranking_push(:G, 5, 28, pg_temp.screens(40, 40), null, null, null, :OP1, '[]', 28, 0) a) x,
+       lateral (select public.cube_ranking_push(:G, 5, 28, pg_temp.screens(40, 40), null, null, null, :OP1, '[]', 28, 0) b) y), '6/6');
+select pg_temp.eq('a new app takes a screen out by naming it, without re-sending the log',
+  (select r->>'screens' || '/' || (r->>'rev') from public.cube_ranking_push(:G, 6, 29, '[]', p_count := 29, p_removed := 1, p_drop := pg_temp.screens(10, 10)) r), '28/7');
+select pg_temp.throws('naming a screen that is already gone is a conflict (it said it would remove one)',
+  $$select public.cube_ranking_push('f7000000-0000-0000-0000-0000000000a5', 7, 28, '[]', p_count := 28, p_removed := 1, p_drop := pg_temp.screens(10, 10))$$, 'PT409');
+select pg_temp.eq('a removal and a lock-in in one push',
+  (select r->>'screens' || '/' || (r->>'rev') from public.cube_ranking_push(:G, 7, 28, pg_temp.screens(41, 41), p_count := 28, p_removed := 1, p_drop := pg_temp.screens(11, 11)) r), '28/8');
+select pg_temp.eq('the log is the rest, in order, then the lock-in',
+  (select string_agg(e->>'t', ',' order by n) from jsonb_array_elements(public.cube_ranking_get(:G)->'log') with ordinality x(e, n)),
+  '2,3,4,5,6,7,8,9,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,40,41');
+select pg_temp.throws('the removal history is not readable', $$select * from t1_private.cube_ranking_removed$$, '42501');
+select pg_temp.throws('nor can an app restore', $$select t1_private.cube_ranking_restore_removed(1)$$, '42501');
+select pg_temp.as_user(:BEN);
+select pg_temp.throws('someone else''s push is refused before anything is counted',
+  $$select public.cube_ranking_push('f7000000-0000-0000-0000-0000000000a5', 8, 0, '[]', p_count := 28, p_removed := 28)$$, '42501');
+reset role;
+select pg_temp.eq('every removal is kept with where it sat',
+  (select string_agg(keep || ':' || (select string_agg((x->>'i') || '=' || (x->'screen'->>'t'), ',') from jsonb_array_elements(screens) x)
+                     || ':' || declared, ' ' order by id)
+     from t1_private.cube_ranking_removed where ranking_id = :G), '30:30=31:true 0:0=1:true 28:28=30:false 29:8=10:true 28:8=11:true');
+select pg_temp.eq('support puts the redone screen back at the end',
+  (select r->>'restored' || '/' || (r->>'screens') || '/' || (r->>'rev')
+     from t1_private.cube_ranking_restore_removed((select min(id) + 1 from t1_private.cube_ranking_removed where ranking_id = :G)) r), '1/29/9');
+select pg_temp.eq('the restored screen is the one that left', (select screens->-1->>'t' from public.cube_rankings where id = :G), '1');
+select pg_temp.eq('restoring again adds nothing',
+  (select r->>'restored' || '/' || (r->>'rev') from t1_private.cube_ranking_restore_removed(
+     (select min(id) + 1 from t1_private.cube_ranking_removed where ranking_id = :G)) r), '0/9');
+set role authenticated;
+select pg_temp.as_user(:ANA);
+select pg_temp.throws('an app holding the old rev after a restore gets a conflict, so it reloads',
+  $$select public.cube_ranking_push('f7000000-0000-0000-0000-0000000000a5', 6, 29, pg_temp.screens(41, 41), p_count := 29, p_removed := 0)$$, 'PT409');
+select pg_temp.eq('deleting the ranking', public.cube_ranking_delete(:G)->>'deleted', 'true');
+reset role;
+select pg_temp.eq('deletes its removal history', (select count(*)::text from t1_private.cube_ranking_removed where ranking_id = :G), '0');
 
 -- Deleting ----------------------------------------------------------------------------------------------------
 set role authenticated;

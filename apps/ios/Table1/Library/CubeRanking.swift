@@ -43,6 +43,19 @@ enum RankJob: String, CaseIterable, Hashable, Sendable {
     }
 }
 
+/// How much of each color a ranking sorts: the top quarter, third or half, or every card (2026-10-23: quarter and third
+/// added). The final top N comes out exact at any depth; it just asks about a card itself when a color has more cards in
+/// the top N than it sorted.
+enum RankDepth {
+    static let all = ["quarter", "third", "half", "full"]
+    static func divisor(_ depth: String) -> Int? { ["half": 2, "third": 3, "quarter": 4][depth] ?? (depth == "full" ? nil : 2) }
+    static func target(_ n: Int, _ depth: String) -> Int { divisor(depth).map { (n + $0 - 1) / $0 } ?? n }
+    /// "top half" / "top third" / "top quarter" / "every card".
+    static func phrase(_ depth: String) -> String { ["half": "top half", "third": "top third", "quarter": "top quarter"][depth] ?? "every card" }
+    /// The depth a new ranking starts with: a quarter of each color for a top 50, a third for a top 100.
+    static func suggested(top: Int) -> String { top <= 50 ? "quarter" : "third" }
+}
+
 /// A set of card indexes.
 struct RankBits: Equatable, Sendable {
     var words: [UInt64]
@@ -524,8 +537,7 @@ struct RankingState: Sendable {
 
     func target(_ job: RankJob) -> Int {
         if job == .final { return top }
-        let n = size(job)
-        return depth == "half" ? (n + 1) / 2 : n
+        return RankDepth.target(size(job), depth)
     }
 
     /// Colors with at least one card, in order.

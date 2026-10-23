@@ -65,7 +65,7 @@ export function fnv1a(s: string): number {
   return h >>> 0;
 }
 
-/* ── knowledge ──────────────────────────────────────────────────────── */
+/* ── knowledge ────────────────────────────────────────────────────────── */
 
 /** The log as a transitive "beats" relation over the cube's cards, indexed by sorted Oracle id. */
 export class Knowledge {
@@ -147,7 +147,7 @@ export class Knowledge {
   }
 }
 
-/* ── one job ────────────────────────────────────────────────────────── */
+/* ── one job ────────────────────────────────────────────────────────────── */
 
 export interface RankSession {
   top: number[];
@@ -284,7 +284,7 @@ export function reaskOpen(K: Knowledge, st: RankSession, cards: string[]): boole
   return true;
 }
 
-/* ── estimates ──────────────────────────────────────────────────────── */
+/* ── estimates ────────────────────────────────────────────────────────── */
 
 /** About how many screens a job takes: ordering the top k of n cards. */
 export function expectedSort(n: number, k: number): number {
@@ -315,7 +315,7 @@ export function expectedMerge(sizes: number[], top: number): number {
   return Math.ceil((1.78 * Math.log2(f[T])) / Math.log2(24));
 }
 
-/* ── why ────────────────────────────────────────────────────────────── */
+/* ── why ──────────────────────────────────────────────────────────────── */
 
 export interface Link { winner: string; loser: string; screen: number }
 
@@ -359,7 +359,7 @@ export function why(K: Knowledge, log: RankScreen[], hi: string, lo: string): Li
   return chain.reverse();
 }
 
-/* ── P1P1 picks ─────────────────────────────────────────────────────── */
+/* ── P1P1 picks ───────────────────────────────────────────────────────── */
 
 export const PACK_SIZE = 15;
 
@@ -400,7 +400,17 @@ export function pickWins(cards: string[], log: RankScreen[], picked: string, pac
   return removed.sort((a, b) => a - b);
 }
 
-/* ── the change log ─────────────────────────────────────────────────── */
+/* ── the change log ───────────────────────────────────────────────────── */
+
+/** How much of each color a ranking sorts (2026-10-23: quarter and third added). The final top N comes out exact at any
+ *  depth; it just asks about a card itself when a color has more cards in the top N than it sorted. */
+export type RankDepth = "quarter" | "third" | "half" | "full";
+export const RANK_DEPTHS: RankDepth[] = ["quarter", "third", "half", "full"];
+const DIVISOR: Record<string, number> = { half: 2, third: 3, quarter: 4 };
+export const depthTarget = (n: number, depth: string) => (depth === "full" ? n : Math.ceil(n / (DIVISOR[depth] ?? 2)));
+export const depthPhrase = (depth: string) => ({ half: "top half", third: "top third", quarter: "top quarter" } as Record<string, string>)[depth] ?? "every card";
+/** The depth a new ranking starts with: a quarter of each color for a top 50, a third for a top 100. */
+export const suggestedDepth = (top: number): RankDepth => (top <= 50 ? "quarter" : "third");
 
 /** One line of the change log: a card's place in a list went from → to (null = not placed). */
 export interface RankChange { s: RankJob; c: string; f: number | null; to: number | null; t?: number; by?: string; n?: number }
@@ -421,7 +431,7 @@ export function diffPlaces(before: Places, after: Places): RankChange[] {
   return out;
 }
 
-/* ── compare ────────────────────────────────────────────────────────── */
+/* ── compare ──────────────────────────────────────────────────────────── */
 
 export interface Gap { card: string; a: number; aOut: boolean; b: number; bOut: boolean; gap: number; atLeast: boolean }
 export interface Comparison { compared: number; avgTenths: number; atLeast: boolean; biggest: Gap[]; oneSide: Gap[] }
@@ -449,21 +459,21 @@ export function compare(K: Knowledge, a: Pick<RankSession, "top" | "done" | "siz
   return { compared: n, avgTenths: n ? Math.floor((20 * total + n) / (2 * n)) : 0, atLeast: rows.some((r) => r.gap.atLeast), biggest, oneSide };
 }
 
-/* ── the whole ranking ──────────────────────────────────────────────── */
+/* ── the whole ranking ────────────────────────────────────────────────── */
 
 /** A whole ranking worked out from its log: the cube's cards and colors, depth and final size. */
 export class RankingState {
   readonly rankingId: string;
   readonly knowledge: Knowledge;
   readonly category: Map<string, RankJob>;
-  readonly depth: "half" | "full";
+  readonly depth: RankDepth;
   readonly top: number;
   /** The cube's cards added since the ranking last caught up: they wait outside the lists until they're placed. */
   readonly fresh: Set<string>;
   private cache = new Map<RankJob, RankSession>();
 
   /** `cards` are the cube's cards now (a card in the log but not here has left the cube); `fresh` its new cards. */
-  constructor(rankingId: string, cards: Map<string, RankJob>, log: RankScreen[], depth: "half" | "full", top: number, knowledge?: Knowledge,
+  constructor(rankingId: string, cards: Map<string, RankJob>, log: RankScreen[], depth: RankDepth, top: number, knowledge?: Knowledge,
               fresh: Iterable<string> = []) {
     this.rankingId = rankingId.toLowerCase();
     this.category = new Map([...cards].map(([k, v]) => [k.toLowerCase(), v]));
@@ -503,7 +513,7 @@ export class RankingState {
   target(job: RankJob) {
     if (job === "F") return this.top;
     const n = this.size(job);
-    return this.depth === "half" ? Math.floor((n + 1) / 2) : n;
+    return depthTarget(n, this.depth);
   }
 
   /** Colors with at least one card, in order. */

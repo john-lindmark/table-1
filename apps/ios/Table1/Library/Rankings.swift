@@ -229,10 +229,24 @@ final class RankingsStore {
         ]).execute().value
     }
 
-    func push(_ id: String, rev: Int, keep: Int, add: [RankScreen], progress: (sorted: Int, categories: Int, ranked: Int),
+    /// A push answered with a log of the wrong length: read the log again.
+    struct Mismatch: Error {}
+
+    /// A push the server refused because its log isn't the one this device last read (PT409; 40001 from before the fix).
+    static func isConflict(_ error: Error) -> Bool {
+        if let e = error as? PostgrestError { return e.code == "PT409" || e.code == "40001" }
+        #if DEBUG
+        if error is RankingsDemoBackend.Conflict { return true }
+        #endif
+        return error is Mismatch
+    }
+
+    /// cube_ranking_push the safe way: the whole log as last read is kept (p_keep = p_count), `drop` names the screens to
+    /// take out, `add` the ones to append.
+    func push(_ id: String, rev: Int, count: Int, add: [RankScreen], drop: [RankScreen], progress: (sorted: Int, categories: Int, ranked: Int),
               changes: [RankChange], opId: String) async throws -> RankingRow {
         #if DEBUG
-        if let demo { return try demo.push(id, rev: rev, keep: keep, add: add, progress: progress, changes: changes) }
+        if let demo { return try await demo.push(id, rev: rev, count: count, add: add, drop: drop, progress: progress, changes: changes, opId: opId) }
         #endif
         let changeRows: [AnyJSON] = changes.map { c in
             var o: [String: AnyJSON] = ["s": .string(c.s), "c": .string(c.c), "f": c.f.map { .integer($0) } ?? .null,
@@ -242,13 +256,14 @@ final class RankingsStore {
             if let n = c.n { o["n"] = .integer(n) }
             return .object(o)
         }
-        let screens: [AnyJSON] = add.map { s in
+        func json(_ s: RankScreen) -> AnyJSON {
             var o: [String: AnyJSON] = ["s": .string(s.s), "o": .array(s.o.map { .string($0) })]
             if let t = s.t { o["t"] = .double(t) }
             return .object(o)
         }
         return try await supabase.rpc("cube_ranking_push", params: [
-            "p_id": AnyJSON.string(id), "p_rev": .integer(rev), "p_keep": .integer(keep), "p_add": .array(screens),
+            "p_id": AnyJSON.string(id), "p_rev": .integer(rev), "p_keep": .integer(count), "p_count": .integer(count),
+            "p_add": .array(add.map(json)), "p_drop": .array(drop.map(json)), "p_removed": .integer(drop.count),
             "p_sorted": .integer(progress.sorted), "p_categories": .integer(progress.categories), "p_ranked": .integer(progress.ranked),
             "p_op_id": .string(opId), "p_changes": .array(changeRows),
         ]).execute().value
@@ -294,17 +309,23 @@ final class RankingModel {
     /// The cube's cards the ranking last caught up with.
     private(set) var baseline: [String]?
 
+    /// The log as the server last said it is. `log` is always RankSync.plan(serverLog, pending) (see RankSync.swift).
     @ObservationIgnored private var serverLog: [RankScreen] = []
-    /// Changes not yet saved; sent with the next push.
-    @ObservationIgnored private var pendingChanges: [RankChange] = []
+    /// Lock-ins, removals and change rows not yet saved, kept on the device until the server has them.
+    @ObservationIgnored private var pending = RankPending()
+    @ObservationIgnored private var pendingLoaded = false
     @ObservationIgnored private var saving = false
-    @ObservationIgnored private var pendingOp: (keep: Int, count: Int, op: String)?
+    @ObservationIgnored private var failures = 0
+    @ObservationIgnored private var retry: Task<Void, Never>?
     @ObservationIgnored private var lastChange = Date.now
 
     init(id: String) { self.id = id }
 
     var mine: Bool { row?.mine ?? false }
-    var unsaved: Bool { log != serverLog }
+    /// Something done here isn't saved yet (it's kept on the device and sent until it is).
+    var unsaved: Bool { !pending.isEmpty }
+    /// Screens waiting to be saved, for the "not saved yet" notice.
+    var unsavedScreens: Int { pending.adds.count + pending.drops.count }
 
     func card(_ x: Int) -> RankCard? { state.flatMap { cards[$0.id(x)] } }
     func card(_ oracleId: String) -> RankCard? { cards[oracleId.lowercased()] }
@@ -313,6 +334,11 @@ final class RankingModel {
     func load() async {
         loading = true
         defer { loading = false }
+        if !pendingLoaded {
+            pendingLoaded = true
+            pending = RankPendingStore.load(id)
+            if !pending.isEmpty { Telemetry.capture("ranking_save_restored", ["screens": unsavedScreens]) }
+        }
         do {
             let d = try await RankingsStore.shared.get(id)
             await adopt(d)
@@ -329,13 +355,21 @@ final class RankingModel {
         cube = d.cube
         baseline = d.baseline
         if changed { lastChange = .now }
-        if saving || unsaved && d.log == serverLog { return }
+        if saving { return }  // the save in flight reloads if it has to
         serverLog = d.log
-        log = d.log
-        changes = d.changes
-        pendingChanges = []
-        if changed || cards.isEmpty { await rebuild(cubeCards: d.cube?.cards) }
+        let shown = log
+        relog()
+        changes = d.changes + pending.changes
+        if changed || log != shown || cards.isEmpty { await rebuild(cubeCards: d.cube?.cards) }
+        if unsaved, mine { save() }
     }
+
+    /// The log to show: the server's, plus what's waiting here.
+    private func relog() {
+        log = RankSync.plan(server: serverLog, adds: pending.adds, drops: pending.drops).log
+    }
+
+    private func keep() { RankPendingStore.save(id, pending) }
 
     /// Cards by Oracle id → how they show and their color; nil until the card data is in. Tests swap it.
     @ObservationIgnored static var resolve: @MainActor ([String]) async -> [String: (RankCard, RankJob)]? = { wanted in
@@ -439,14 +473,24 @@ final class RankingModel {
         let t = Self.now
         let rows = RankChange.diff(before.places(only), after.places(only)).map { var c = $0; c.t = t; c.by = by; c.n = screen; return c }
         changes += rows
-        pendingChanges += rows
+        pending.changes += rows
     }
 
-    /// Locks a screen in (yours only) and saves it.
+    /// Takes screens out of the log (undo, redo, let the pick win): the only way a screen ever leaves it.
+    private func drop(_ screens: [RankScreen]) {
+        pending.drops += screens
+    }
+
+    /// Locks a screen in (yours only) and saves it. A tap meant for a screen that's already gone (a double tap) is ignored.
     func lockIn(_ job: RankJob, order: [Int]) {
         guard mine, let state else { return }
+        guard let q = question(job), order.count >= 2, order.count == q.cards.count, Set(order) == Set(q.cards) else {
+            Telemetry.capture("ranking_lockin_stale")
+            return
+        }
         let screen = RankScreen(s: job.rawValue, o: order.map(state.id), t: Self.now)
         let wasDone = state.session(job).done
+        pending.adds.append(screen)
         log.append(screen)
         reask = nil
         let next = state.appending(screen)
@@ -462,6 +506,7 @@ final class RankingModel {
     func undo(_ job: RankJob) {
         guard mine, let i = log.lastIndex(where: { $0.s == job.rawValue }) else { return }
         let removed = log.remove(at: i)
+        drop([removed])
         reask = (job, removed.o)
         Telemetry.capture("ranking_undo")
         let before = state
@@ -474,6 +519,7 @@ final class RankingModel {
     func redo(_ i: Int) {
         guard mine, log.indices.contains(i), let job = log[i].job else { return }
         let removed = log.remove(at: i)
+        drop([removed])
         reask = job == .pick ? nil : (job, removed.o)
         Telemetry.capture("ranking_redo")
         let before = state
@@ -507,10 +553,16 @@ final class RankingModel {
     /// Saves a pick. `wins`: first take out the screens behind its disagreements.
     func pick(_ picked: String, pack: [String], wins: Bool) {
         guard mine, let state, let row else { return }
+        guard pack == self.pack, pack.contains(picked) else {
+            Telemetry.capture("ranking_lockin_stale", ["pick": true])
+            return
+        }
         let disagreed = disagreements(picked: picked, pack: pack).count
         let removed = wins ? pickWinRemovals(picked: picked, pack: pack) : []
         let screen = RankScreen(s: RankJob.pick.rawValue, o: [picked] + pack.filter { $0 != picked }, t: Self.now)
+        drop(removed.map { log[$0] })
         for i in removed.reversed() { log.remove(at: i) }
+        pending.adds.append(screen)
         log.append(screen)
         reask = nil
         let next = removed.isEmpty ? state.appending(screen)
@@ -544,52 +596,87 @@ final class RankingModel {
         self.state = RankingState(rankingId: id, cards: state.category, log: log, depth: row.depth, top: row.top, fresh: state.fresh)
     }
 
-    /// Settings moved places but no screens: push the change log alone.
-    private func saveChangesOnly() {
-        if unsaved { save(); return }
-        guard !saving, !pendingChanges.isEmpty else { return }
-        forceSave = true
-        save()
-    }
-    @ObservationIgnored private var forceSave = false
-
-    /// One push at a time: keep what the server and this device agree on, send the rest.
+    /// Saves what's waiting, one push at a time, until nothing is (contract § Saving). Each push names exactly what it adds
+    /// and takes out against the log the server last sent; the server refuses it unless its log is that log, so a stale
+    /// push can only cause a reload, never a loss. After a conflict the server's log is read again and what's waiting
+    /// here goes on top of it: nothing done here is thrown away. With no signal, it's kept on the device and tried again.
     private func save() {
-        guard !saving, unsaved || forceSave, let row else { return }
-        forceSave = false
+        keep()
+        guard !saving, mine, unsaved, row != nil else { return }
         saving = true
-        let local = log
-        let keep = zip(serverLog, local).prefix { $0 == $1 }.count
-        let add = Array(local[keep...])
-        let op = pendingOp.flatMap { $0.keep == keep && $0.count == local.count ? $0.op : nil } ?? UUID().uuidString.lowercased()
-        pendingOp = (keep, local.count, op)
-        let progress = state?.progress ?? (0, 0, 0)
-        let sending = pendingChanges
+        retry?.cancel()
         Task {
-            defer { saving = false }
+            await flush()
+            saving = false
+            if !unsaved { maybeCatchUp() }
+        }
+    }
+
+    private func flush() async {
+        var conflicts = 0
+        while unsaved, let row {
+            let p = RankSync.plan(server: serverLog, adds: pending.adds, drops: pending.drops)
+            let op: RankPending.Op = {
+                if let o = pending.op, o.rev == row.rev, o.count == serverLog.count, o.adds == pending.adds.count,
+                   o.drops == pending.drops.count, o.changes == pending.changes.count { return o }
+                return RankPending.Op(id: UUID().uuidString.lowercased(), rev: row.rev, count: serverLog.count, adds: pending.adds.count,
+                                      drops: pending.drops.count, changes: pending.changes.count)
+            }()
+            pending.op = op
+            keep()
             do {
-                let r = try await RankingsStore.shared.push(id, rev: row.rev, keep: min(keep, serverLog.count), add: add, progress: progress,
-                                                            changes: sending, opId: op)
+                let r = try await RankingsStore.shared.push(id, rev: row.rev, count: p.keep, add: p.add, drop: p.drop,
+                                                            progress: state?.progress ?? (0, 0, 0),
+                                                            changes: Array(pending.changes.prefix(op.changes)), opId: op.id)
+                guard r.screens == p.log.count else { throw RankingsStore.Mismatch() }
                 self.row = r
-                serverLog = local
-                pendingChanges.removeFirst(min(sending.count, pendingChanges.count))
-                pendingOp = nil
+                serverLog = p.log
+                pending.settle(op)
+                keep()
+                let shown = log
+                relog()
+                if log != shown { rebuildState() }
+                failures = 0
                 error = nil
                 lastChange = .now
-                if unsaved { saving = false; save() } else { saving = false; maybeCatchUp() }
-            } catch let e as PostgrestError where e.code == "PT409" || e.code == "40001" {
-                pendingOp = nil
-                pendingChanges = []
-                notice = "This ranking changed on another device, so it has been reloaded. Check the screen you just locked in."
-                serverLog = []
-                saving = false
-                if let d = try? await RankingsStore.shared.get(id) {
-                    serverLog = d.log; log = d.log; self.row = d.row; cube = d.cube; baseline = d.baseline; reask = nil; changes = d.changes
-                    await rebuild(cubeCards: d.cube?.cards)
+            } catch where RankingsStore.isConflict(error) {
+                conflicts += 1
+                Telemetry.capture("ranking_save_conflict", ["attempt": conflicts, "waiting": unsavedScreens])
+                pending.op = nil
+                guard conflicts <= 5, let d = try? await RankingsStore.shared.get(id) else {
+                    self.error = "Couldn't save just now. What you've done is kept on this device and saved when Table 1 can."
+                    Telemetry.capture("ranking_save_failed", ["kind": "conflict"])
+                    later()
+                    return
                 }
-            } catch where !error.isCancellation {
-                self.error = "Couldn't save: \(error.localizedDescription). It's kept here and saves on the next lock-in."
-            } catch {}
+                let theirs = d.log != serverLog
+                serverLog = d.log
+                self.row = d.row; cube = d.cube; baseline = d.baseline
+                changes = d.changes + pending.changes
+                relog()
+                await rebuild(cubeCards: d.cube?.cards)
+                if theirs { notice = "This ranking changed on another device. Your screens were added on top of it." }
+            } catch where error.isCancellation {
+                later()
+                return
+            } catch {
+                self.error = "Not saved yet: \(error.localizedDescription). It's kept on this device and saved when Table 1 can."
+                Telemetry.capture("ranking_save_failed", ["kind": "error"])
+                later()
+                return
+            }
+        }
+    }
+
+    /// Tries again after a failure: 2 s, 5 s, 15 s, 30 s, then every minute while this ranking is open.
+    private func later() {
+        failures += 1
+        let wait = [2.0, 5, 15, 30, 60][min(failures, 5) - 1]
+        retry?.cancel()
+        retry = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(wait))
+            guard !Task.isCancelled else { return }
+            self?.save()
         }
     }
 
@@ -600,7 +687,7 @@ final class RankingModel {
             row = try await RankingsStore.shared.update(id, name: name, depth: depth, top: top, sharing: sharing)
             rebuildState()
             if depth != nil || top != nil { record(before, state, by: "settings", screen: nil) }
-            if depth != nil || top != nil { saveChangesOnly() }
+            if depth != nil || top != nil { save() }
             error = nil
         } catch {
             self.error = error.localizedDescription
@@ -615,7 +702,9 @@ final class RankingModel {
             let wait: Double = mine || quiet ? 60 : 10
             try? await Task.sleep(for: .seconds(wait))
             if Task.isCancelled { return }
-            if !saving, !unsaved, let d = try? await RankingsStore.shared.get(id) { await adopt(d) }
+            if saving { continue }
+            if unsaved { save(); continue }
+            if let d = try? await RankingsStore.shared.get(id) { await adopt(d) }
         }
     }
 
@@ -814,11 +903,32 @@ final class RankingsDemoBackend: @unchecked Sendable {
         return r
     }
 
-    func push(_ id: String, rev: Int, keep: Int, add: [RankScreen], progress: (sorted: Int, categories: Int, ranked: Int),
-              changes: [RankChange] = []) throws -> RankingRow {
+    /// The server's refusal of a stale push (PT409).
+    struct Conflict: LocalizedError { var errorDescription: String? { "This ranking changed on another device" } }
+    /// Tests: how long each push takes, and pushes to fail as if there were no signal.
+    var latency: Duration = .zero
+    var failNext = 0
+    private var lastOp: [String: String] = [:]
+
+    /// cube_ranking_push as the server does it (migration 20261022180000_ranking_push_guard.sql): rev and count must match,
+    /// p_drop screens are taken out by key, p_add appended; a retried op id is answered with what's there.
+    func push(_ id: String, rev: Int, count: Int, add: [RankScreen], drop: [RankScreen], progress: (sorted: Int, categories: Int, ranked: Int),
+              changes: [RankChange] = [], opId: String? = nil) async throws -> RankingRow {
+        if latency > .zero { try await Task.sleep(for: latency) }
+        if failNext > 0 { failNext -= 1; throw URLError(.notConnectedToInternet) }
         guard var r = rows[id], var log = logs[id] else { throw DemoError("That's private") }
-        log = Array(log.prefix(keep)) + add
+        if let opId, lastOp[id] == opId { return r }
+        guard rev == r.rev, count == log.count else { throw Conflict() }
+        var removed = 0
+        for d in drop {
+            guard let i = log.firstIndex(where: { RankSync.key($0) == RankSync.key(d) }) else { continue }
+            log.remove(at: i)
+            removed += 1
+        }
+        guard removed == drop.count else { throw Conflict() }
+        log += add
         logs[id] = log
+        lastOp[id] = opId
         changeLogs[id, default: []] += changes
         r.rev += 1
         r.screens = log.count
@@ -826,6 +936,15 @@ final class RankingsDemoBackend: @unchecked Sendable {
         r.updatedAt = ISO8601DateFormatter().string(from: .now)
         rows[id] = r
         return r
+    }
+
+    /// Tests: another device saves a screen.
+    func pushElsewhere(_ id: String, _ screen: RankScreen) {
+        guard var r = rows[id] else { return }
+        logs[id, default: []].append(screen)
+        r.rev += 1
+        r.screens = logs[id]?.count ?? 0
+        rows[id] = r
     }
 
     func delete(_ id: String) {

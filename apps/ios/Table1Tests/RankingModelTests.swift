@@ -19,6 +19,7 @@ final class RankingModelTests: XCTestCase {
         }
         RankingsStore.shared.stop()
         RankingsStore.shared.demo = RankingsDemoBackend(cubeId: cube, cubeName: "Test cube", cards: ids, categories: cards)
+        RankPendingStore.directory = FileManager.default.temporaryDirectory.appending(path: "rank-pending-\(UUID().uuidString)")
     }
 
     override func tearDown() async throws {
@@ -27,7 +28,133 @@ final class RankingModelTests: XCTestCase {
     }
 
     private func settle(_ m: RankingModel) async {
-        for _ in 0..<50 where m.unsaved { try? await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0..<500 where m.unsaved { try? await Task.sleep(for: .milliseconds(10)) }
+    }
+
+    /// Locks in the shown screen, best first by id. The save tests rank the final (all 24 cards, a few dozen screens);
+    /// White alone is done in about six.
+    private func lockIn(_ m: RankingModel, _ job: RankJob = .final) {
+        guard let q = m.question(job), !q.session.done, let st = m.state else { return }
+        m.lockIn(job, order: q.cards.sorted { st.id($0) < st.id($1) })
+    }
+
+    // MARK: saving (2026-10-23: two wipes of a 500-screen ranking)
+
+    /// The night's pattern: lock-ins faster than a push takes, double taps, and another device saving mid-burst. Every
+    /// screen locked in here ends up on the server, in the device's order, and nothing is ever taken out.
+    func testFastLockInsWithAConflictNeverLoseScreens() async throws {
+        let demo = RankingsStore.shared.demo!
+        demo.latency = .milliseconds(40)
+        let row = try await RankingsStore.shared.create(listId: cube, name: "Fast", depth: "full", top: 50, sharing: "cube", ownCube: true)
+        let m = RankingsStore.shared.model(row.id)
+        await m.load()
+        var locked: [RankScreen] = []
+        for i in 0..<12 {
+            let q = try XCTUnwrap(m.question(.final))
+            XCTAssertFalse(q.session.done)
+            let st = m.state!
+            let order = q.cards.sorted { st.id($0) < st.id($1) }
+            m.lockIn(.final, order: order)
+            locked.append(m.log.last!)
+            m.lockIn(.final, order: order)  // the double tap: that screen is gone, so it's ignored
+            if i == 5 {
+                let u = cards.filter { $0.value == .u }.keys.sorted()
+                demo.pushElsewhere(row.id, RankScreen(s: "U", o: [u[0], u[1]], t: 5))
+            }
+            try await Task.sleep(for: .milliseconds(15))
+        }
+        await settle(m)
+        XCTAssertFalse(m.unsaved)
+        let server = try demo.get(row.id).log
+        XCTAssertEqual(server, m.log, "the server holds exactly what the device shows")
+        XCTAssertEqual(server.filter { $0.s == "F" }, locked, "every lock-in, once each, in order")
+        XCTAssertEqual(server.filter { $0.s == "U" }.count, 1, "the other device's screen is kept")
+        XCTAssertEqual(m.notice, "This ranking changed on another device. Your screens were added on top of it.")
+    }
+
+    /// Undo and redo send the screen they take out, never the rest of the log, and only that screen leaves.
+    func testUndoAndRedoNameTheScreen() async throws {
+        let row = try await RankingsStore.shared.create(listId: cube, name: "Undo", depth: "full", top: 50, sharing: "cube", ownCube: true)
+        let m = RankingsStore.shared.model(row.id)
+        await m.load()
+        for _ in 0..<5 { lockIn(m) }
+        await settle(m)
+        let five = m.log
+        XCTAssertEqual(five.count, 5)
+        m.undo(.final)
+        m.redo(0)
+        await settle(m)
+        XCTAssertEqual(try RankingsStore.shared.demo!.get(row.id).log, Array(five[1..<4]))
+        XCTAssertEqual(m.log, Array(five[1..<4]))
+    }
+
+    /// No signal: what's done is kept on the device, survives a relaunch (a new model, as after a crash), and is saved
+    /// once a push gets through.
+    func testUnsavedWorkSurvivesACrash() async throws {
+        let demo = RankingsStore.shared.demo!
+        let row = try await RankingsStore.shared.create(listId: cube, name: "Offline", depth: "full", top: 50, sharing: "cube", ownCube: true)
+        var m = RankingsStore.shared.model(row.id)
+        await m.load()
+        lockIn(m)
+        await settle(m)
+        demo.failNext = 1000
+        lockIn(m)
+        lockIn(m)
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertTrue(m.unsaved)
+        XCTAssertEqual(m.unsavedScreens, 2)
+        XCTAssertNotNil(m.error)
+        let shown = m.log
+        XCTAssertEqual(try demo.get(row.id).log.count, 1)
+
+        RankingsStore.shared.stop()  // the app is killed
+        demo.failNext = 0
+        m = RankingsStore.shared.model(row.id)
+        await m.load()
+        XCTAssertEqual(m.log, shown, "the two screens are back on screen before they're saved")
+        await settle(m)
+        XCTAssertFalse(m.unsaved)
+        XCTAssertEqual(try demo.get(row.id).log, shown)
+    }
+
+    /// A push whose answer was lost (it landed, then the signal dropped) is retried with the same op id and not applied
+    /// twice.
+    func testARetriedPushIsNotAppliedTwice() async throws {
+        let demo = RankingsStore.shared.demo!
+        let row = try await RankingsStore.shared.create(listId: cube, name: "Retry", depth: "full", top: 50, sharing: "cube", ownCube: true)
+        let m = RankingsStore.shared.model(row.id)
+        await m.load()
+        lockIn(m)
+        await settle(m)
+        // The server takes the next push but the answer never arrives: simulate by pushing it ourselves with the op id
+        // the app will use, then letting the app's first attempt fail.
+        demo.failNext = 1
+        lockIn(m)
+        try await Task.sleep(for: .milliseconds(20))
+        XCTAssertTrue(m.unsaved)
+        await settle(m)
+        XCTAssertEqual(try demo.get(row.id).log, m.log)
+        XCTAssertEqual(m.log.count, 2)
+    }
+
+    /// The server refusing a push (it changed elsewhere) never empties the device's log, and a reload that finds the
+    /// whole log can't be turned into removals.
+    func testAConflictNeverEmptiesTheLog() async throws {
+        let demo = RankingsStore.shared.demo!
+        let row = try await RankingsStore.shared.create(listId: cube, name: "Conflict", depth: "full", top: 50, sharing: "cube", ownCube: true)
+        let m = RankingsStore.shared.model(row.id)
+        await m.load()
+        for _ in 0..<6 { lockIn(m) }
+        await settle(m)
+        let six = m.log
+        demo.pushElsewhere(row.id, RankScreen(s: "U", o: cards.filter { $0.value == .u }.keys.sorted().prefix(2).map { $0 }, t: 9))
+        lockIn(m)
+        XCTAssertGreaterThanOrEqual(m.log.count, 7, "never fewer than before while it reloads")
+        await settle(m)
+        let server = try demo.get(row.id).log
+        XCTAssertEqual(server.count, 8)
+        XCTAssertEqual(Array(server.prefix(6)), six)
+        XCTAssertEqual(server, m.log)
     }
 
     func testLockInUndoRedoSave() async throws {

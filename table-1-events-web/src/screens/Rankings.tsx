@@ -3,12 +3,23 @@ import { Avatar } from "../components/Avatar";
 import { Bar, Dialog, Field, GhostAction, Menu, Notice, Row, Section, Segmented, type MenuItem } from "../components/kit";
 import { ZoomablePreview } from "../components/ZoomImage";
 import { cardImageUrl, cornerRatio, type Catalog } from "../lib/catalog";
-import { JOB_TITLE, compare, why, type Link, type RankChange, type RankJob, type RankSession, type RankingState } from "../lib/cubeRanking";
+import { JOB_TITLE, compare, depthPhrase, suggestedDepth, why, type Link, type RankChange, type RankDepth, type RankJob, type RankSession, type RankingState } from "../lib/cubeRanking";
 import { fileName } from "../lib/deckImage";
 import {
   createRanking, deleteRanking, fetchBrief, fetchRankable, fetchRankings, progressText, rankingModel, shortDate, useRanking, whose,
   type CubeRankings, type RankCard, type RankableCube, type RankingBrief, type RankingModel, type RankingRow,
 } from "../lib/rankings";
+
+const DEPTH_OPTIONS: { value: RankDepth; label: string }[] = [
+  { value: "quarter", label: "Top 1/4" }, { value: "third", label: "Top 1/3" }, { value: "half", label: "Top half" }, { value: "full", label: "Every card" },
+];
+
+/** What a depth means for this ranking (contract § Depth). */
+function depthNote(depth: RankDepth, top: number) {
+  if (depth === "full") return "Every card of each color is put in order.";
+  return `Each color is ordered until its ${depthPhrase(depth)} is in order; the rest sit below it. The final top ${top} still comes out exact: `
+    + `if a color has more cards in it than that, the final asks about them itself.`;
+}
 import { entriesOf } from "../lib/lists";
 import { rankingsDemo, rankingsGate, startRankingsDemo } from "../lib/rankings";
 import { capture } from "../lib/telemetry";
@@ -54,8 +65,10 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube }: {
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("My ranking");
-  const [depth, setDepth] = useState<"half" | "full">("half");
   const [top, setTop] = useState(100);
+  /** Follows the top until the person picks a depth: a quarter of each color for a top 50, a third for a top 100. */
+  const [picked, setPicked] = useState<RankDepth | null>(null);
+  const depth = picked ?? suggestedDepth(top);
   const [sharing, setSharing] = useState<"cube" | "private">("cube");
   const [busy, setBusy] = useState(false);
   const load = () => Promise.all([fetchRankings(listId), listId == null ? fetchRankable() : Promise.resolve([])])
@@ -94,10 +107,9 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube }: {
         )}
         {data?.can_rank && cube && (creating ? (<>
           <Field label="Name" value={name} onChange={setName} />
-          <Segmented options={[{ value: "half", label: "Top half" }, { value: "full", label: "Every card" }]} value={depth} onChange={setDepth} />
-          <Notice tone="info">{depth === "half" ? "Each color is ordered until its top half is in order; the rest sit below it. About half the screens."
-                                                : "Every card of each color is put in order."}</Notice>
           <Segmented options={[{ value: 100, label: "Top 100" }, { value: 50, label: "Top 50" }]} value={top} onChange={setTop} />
+          <Segmented options={DEPTH_OPTIONS} value={depth} onChange={setPicked} />
+          <Notice tone="info">{depthNote(depth, top)}</Notice>
           <Segmented options={[{ value: "cube", label: "Shared with the cube" }, { value: "private", label: "Only me" }]} value={sharing} onChange={setSharing} />
           <Notice tone="info">{sharing === "cube" ? `Who sees this: everyone who can see ${cube.name}${cube.mine ? "" : `, including ${cube.owner?.display_name ?? "its owner"}`}.`
                                                   : "Who sees this: only you."}</Notice>
@@ -218,7 +230,7 @@ export function RankingScreen({ id, onBack, go }: { id: string; onBack: () => vo
           {m.cubeGone && <Notice tone="info">This cube isn't shared with you any more, so only its lists show.</Notice>}
           <CubeChanged m={m} go={go} />
           {row && !row.mine && <Notice tone="info">You're watching {row.by?.display_name ?? "someone"}'s ranking. It updates live as they pick.</Notice>}
-          {row?.depth === "half" && <Notice tone="info">This ranking orders only the top half of each color.</Notice>}
+          {row && row.depth !== "full" && <Notice tone="info">This ranking orders only the {depthPhrase(row.depth)} of each color.</Notice>}
           {st.jobs.map((job) => {
             const s = st.session(job), used = st.knowledge.perJob[job] ?? 0, size = st.size(job);
             const note = s.done ? (s.target < size ? `Top ${s.target} of ${size} sorted in ${plural(used, "screen")}.` : `All ${size} sorted in ${plural(used, "screen")}.`)
@@ -267,7 +279,8 @@ export function RankingScreen({ id, onBack, go }: { id: string; onBack: () => vo
             {newName != null && newName.trim() && newName !== row.name && (
               <Btn label="Rename" accent onClick={() => { void m.update({ name: newName.trim() }); setNewName(null); }} />
             )}
-            <Segmented options={[{ value: "half", label: "Top half" }, { value: "full", label: "Every card" }]} value={row.depth} onChange={(d) => void m.update({ depth: d })} />
+            <Segmented options={DEPTH_OPTIONS} value={row.depth} onChange={(d) => void m.update({ depth: d })} />
+            <Notice tone="info">{depthNote(row.depth, row.top)}</Notice>
             <Segmented options={[{ value: 100, label: "Top 100" }, { value: 50, label: "Top 50" }]} value={row.top} onChange={(t) => void m.update({ top: t })} />
             <Segmented options={[{ value: "cube", label: "Shared with the cube" }, { value: "private", label: "Only me" }]} value={row.sharing}
                        onChange={(s) => void m.update({ sharing: s })} />
@@ -661,7 +674,7 @@ export function RankingCompareScreen({ id, otherId, job, onBack, go }: { id: str
               <Notice tone="info">
                 Comparing {plural(cmp.compared, tab === "F" ? "card" : `${JOB_TITLE[tab].toLowerCase()} card`)} both rankings have placed. On average they sit {cmp.atLeast ? "at least " : ""}
                 {Math.floor(cmp.avgTenths / 10)}.{cmp.avgTenths % 10} places apart; these {cmp.biggest.length} differ the most.
-                {tab !== "F" && (ma.row?.depth === "half" || mb.row?.depth === "half") && " A ranking that sorts only the top half puts a card below its cut at the first place past it, so its gap is at least what's shown."}
+                {tab !== "F" && ((ma.row && ma.row.depth !== "full") || (mb.row && mb.row.depth !== "full")) && " A ranking that sorts only part of each color puts a card below its cut at the first place past it, so its gap is at least what's shown."}
               </Notice>
               {cmp.biggest.map(gapRow)}
               {cmp.oneSide.length > 0 && (<>

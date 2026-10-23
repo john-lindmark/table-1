@@ -63,6 +63,10 @@ Deno.test("the prompt names the list and lists every card either placed, with th
   const color = prompt(facts, a, b, "W", "Test cube").text;
   assertMatch(color, /White \(the cube's white cards\)/);
   assertMatch(color, /"sorts":"only the top half"/);
+  // A ranking that sorts a quarter of each color (2026-10-23) says so, rather than "every place".
+  const quarter = run(3, "Cai");
+  assertEquals(quarter.depth, "quarter");
+  assertMatch(prompt(facts, quarter, b, "W", "Test cube").text, /"sorts":"only the top quarter"/);
 });
 
 Deno.test("a long top 100 keeps only each list's first 50 places and the biggest differences", () => {

@@ -7875,7 +7875,7 @@
       }
     },
     "cube_ranking_push": {
-      "note": "Keeps the first p_keep screens of the log and appends p_add (append: keep all; undo: all but the last; redo of screen i: keep i, re-send the rest). p_rev must be the current rev (else 40001: reload); a retry with the same p_op_id returns the stored result. p_changes is appended to the change log (newest 5000 kept). Bad screens or over 6000: 22023. contract/cube-rankings-2026-10-21.md. authenticated.",
+      "note": "Saves a ranking's log (contract/cube-rankings-2026-10-21.md, Saving). Apps send p_keep = p_count = the log as last read, p_drop = the screens they took out (undo, redo, let the pick win; matched by session, cards and time), p_add = what they locked in, p_removed = p_drop's length. p_rev and p_count must match and the push must remove exactly p_removed screens, else PT409 (HTTP 409: reload and plan again; never 40001). Without p_removed (apps before 2026-10-23) at most 25 screens may be removed. Every removed screen is kept in t1_private.cube_ranking_removed. A retry with the same p_op_id returns the stored result. p_changes is appended to the change log (newest 5000 kept). Bad screens, over 1000 in one save or over 6000 in all: 22023. authenticated.",
       "params": {
         "type": "object",
         "properties": {
@@ -8014,6 +8014,56 @@
               ]
             },
             "maxItems": 2000
+          },
+          "p_count": {
+            "type": "integer",
+            "note": "The number of screens the app believes the log holds (its last read)."
+          },
+          "p_removed": {
+            "type": "integer",
+            "note": "How many screens this push takes out; must match what it would really remove."
+          },
+          "p_drop": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "s": {
+                  "type": "string",
+                  "enum": [
+                    "W",
+                    "U",
+                    "B",
+                    "R",
+                    "G",
+                    "M",
+                    "C",
+                    "L",
+                    "F",
+                    "P"
+                  ]
+                },
+                "o": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "minItems": 2,
+                  "maxItems": 15
+                },
+                "t": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "s",
+                "o"
+              ],
+              "note": "2-4 cards in order; a P1P1 pick (s P) is the picked card then the rest of its pack, up to 15."
+            },
+            "maxItems": 1000,
+            "note": "Screens to take out wherever they sit, one each; one already gone is skipped (and then p_removed won't match)."
           }
         },
         "required": [
