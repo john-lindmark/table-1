@@ -1,17 +1,27 @@
 What's new in this build
 
-LINKS OPEN THE APP
-• Tap any table-1.site link and it opens that screen in the app: an event, its standings, a join link, the life tracker, a deck, cube, binder, card, ranking, trade, a profile or Friends. People without the app still get the website.
-• Join links with just a code now join from the app and open the event. If you're already in it, it just opens; if you can't join, it says why.
-• Standings links open the event for its players; anyone else sees the standings page.
-• Pages the app doesn't have (the privacy policy, account deletion) stay in Safari.
+RANKINGS NEVER LOSE YOUR SCREENS
+• Each screen you lock in saves on its own, one at a time. Undo and Redo take out only the screen you chose.
+• Anything not saved yet stays on your phone through a crash, a force-quit or no signal, and is sent again until it's saved.
+• If the ranking changed on another device, your screens are added on top of it instead of being thrown away.
+• A second tap on Lock in no longer locks the old order in twice.
+
+RANK FASTER: TOP 1/4 OR TOP 1/3
+• A ranking can now sort just the top quarter or top third of each color, as well as the top half or every card. Your final top 50 or 100 still comes out exactly right.
+• New rankings start at a quarter for a top 50 and a third for a top 100. Change it any time in the ranking's Settings.
+
+ADD A DECK OR CUBE TO YOUR COLLECTION
+• Every deck and cube has Add to collection: just the cards you're missing, or every card, with or without the sideboard, in the condition and language you pick. Undo takes it back out.
+• A card opened from a deck or cube can add its missing copies, every copy listed, or one more.
+
+ZOOM ON PICTURES
+• Tap the deck image or a ranking's top 100 image to open it full screen. Pinch to zoom, drag to look around, double-tap to jump in and out.
 
 PLEASE TRY
-Links can take up to a day after this build arrives to start opening the app. If one opens Safari, try again later, or delete and reinstall the app.
-1. Send yourself a join link (Copy join link on the website's event screen) and tap it in Messages or Notes. Does it join and open the event?
-2. Tap a standings link for an event you played in, then one for an event you didn't. The first should open the event, the second the standings page.
-3. Open a deck on table-1.site, copy its address, and tap it on your phone. Does the deck open, and does Back lead to Decks?
-4. Tap table-1.site/privacy. It should stay in Safari.
-5. Sign out, tap a deck link, sign in. Does the deck open after sign-in?
+1. Open a cube ranking and lock in screens as fast as you can, tapping Lock in twice now and then. Leave the ranking and open it again: is every screen still there?
+2. Turn on Airplane Mode, lock in three screens, then force-quit the app. Turn Airplane Mode off and open the ranking again: are the three screens back, and do they save?
+3. Start a new ranking: does it offer Top 1/4, Top 1/3, Top half and Every card, and does picking Top 50 suggest Top 1/4?
+4. Add a deck you own to your collection with Missing, then tap Undo. Is the collection back as it was?
+5. Open a deck image and pinch in on a card.
 
 Anything odd: screenshot it and send it with TestFlight's feedback.
