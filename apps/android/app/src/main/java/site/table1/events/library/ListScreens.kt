@@ -260,6 +260,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     var confirmDelete by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
     var imaging by remember { mutableStateOf(false) }
+    var adding by remember { mutableStateOf(false) }
     val grouping = rememberListGrouping(list?.kind)
     var query by remember { mutableStateOf("") }
     val printings = remember { mutableStateOf(PrintingsDisclosure()) }
@@ -314,6 +315,8 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                 ListRow("Export", if (list.kind == ListKind.Deck) "Text, Arena, MTGO, download or copy" else "Text, Cube Cobra, download or copy",
                     onClick = { exporting = true })
                 if (list.kind == ListKind.Deck) ListRow("Deck image", "The cards as a picture, to save or share", onClick = { imaging = true })
+                val short = list.missing(owned)
+                ListRow("Add to collection", if (short > 0) "Missing $short · or every card" else "You own every card · add more copies", onClick = { adding = true })
             }
             if (list.entries.isEmpty()) ListRow("No cards yet", "Add cards to start this list")
         }
@@ -460,6 +463,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     }
     if (exporting) ListExportScreen(list.name, list.kind, list.entries, "own") { exporting = false }
     if (imaging) DeckImageScreen(list.name, list.format, list.entries, owner = null, from = "own") { imaging = false }
+    if (adding) ListToCollectionScreen(list, owned) { adding = false }
     if (viewMenu) CardLayoutMenu(layout, if (list.kind == ListKind.Cube) "cube" else "deck", printings, grouping, list = true) { viewMenu = false }
 }
 

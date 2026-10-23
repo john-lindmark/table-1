@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,9 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -906,7 +903,7 @@ private fun RankingImageScreen(m: RankingModel, onClose: () -> Unit) {
                     val img = image
                     when {
                         cards.isEmpty() -> Notice("Nothing ranked in the final yet.")
-                        img != null -> Image(img.asImageBitmap(), "Top ${cards.size} of $name", Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
+                        img != null -> ZoomablePreview(img, "Top ${m.row?.top ?: 100} image", name, "ranking_image")
                         else -> Notice("Getting card images… ${progress.first} of ${progress.second}")
                     }
                 }

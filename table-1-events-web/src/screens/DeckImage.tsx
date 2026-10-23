@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, GhostAction, Notice, Segmented, SwitchRow } from "../components/kit";
+import { ZoomablePreview } from "../components/ZoomImage";
 import { cardImageUrl, cornerRatio, formatName, type Catalog } from "../lib/catalog";
 import { type Grouping } from "../lib/cardGrouping";
 import {
@@ -169,7 +170,7 @@ export function DeckImageScreen({ name, format, entries, catalog, owner, from, o
         {!owner && <SwitchRow label="Your name" detail={me ?? "Not set"} on={showName} onChange={setShowName} />}
         {fail && <Notice tone="error">{fail}</Notice>}
         {note && <Notice tone="info">{note}</Notice>}
-        {url ? <img src={url} alt={`Deck image of ${name}`} className="w-full h-auto block" />
+        {url ? <ZoomablePreview src={url} alt={`Deck image of ${name}`} title="Deck image" subtitle={name} screen="deck_image" />
           : <Notice tone="info">{art ? "Laying out the cards…" : `Getting card images… ${progress[0]} of ${progress[1]}`}</Notice>}
       </div>
       <div className="shrink-0 flex gap-px pb-px">

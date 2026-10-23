@@ -24,6 +24,7 @@ import { CardSearchBar, CardSearchStatus, useCardSearch } from "./CardSearch";
 import { ListStatsRow } from "./ListStats";
 import { RankingsRow } from "./Rankings";
 import { DeckImageScreen } from "./DeckImage";
+import { ListToCollectionScreen } from "./ListToCollection";
 
 /* Decks and cubes on the web (contract/lists-2026-10-15.md): the same lists, sections, groups and version
    history as iOS, read from and written to the database, so a deck built on one device is here too. */
@@ -330,6 +331,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [imaging, setImaging] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [q, setQ] = useState("");
   const [printings, setPrintings] = useState<Disclosure>(COLLAPSED);
   const [heroFull, setHeroFull] = useState<string | null>(null);
@@ -485,6 +487,11 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
                onClick={() => setExporting(true)} />}
         {entriesOf(list).length > 0 && !editing && catalog && list.kind === "deck" &&
           <Row title="Deck image" detail="The cards as a picture, to save or share" onClick={() => setImaging(true)} />}
+        {/* A roto deck's cards are the cube's, not yours to add. */}
+        {entriesOf(list).length > 0 && !editing && catalog && !list.eventId && (() => {
+          const miss = missingIn(list, owned);
+          return <Row title="Add to collection" detail={miss ? `Missing ${miss} · or every card` : "You own every card · add more copies"} onClick={() => setAdding(true)} />;
+        })()}
         {entriesOf(list).length === 0 && <Row title="No cards yet" detail="Add cards to start this list" />}
         </div>
         </>}
@@ -556,6 +563,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         </Modal>
       )}
       {exporting && catalog && <ExportScreen name={list.name} kind={list.kind} entries={entriesOf(list)} catalog={catalog} from="own" onClose={() => setExporting(false)} />}
+      {adding && catalog && <ListToCollectionScreen list={list} catalog={catalog} owned={owned} onClose={() => setAdding(false)} />}
       {imaging && catalog && <DeckImageScreen name={list.name} format={list.format} entries={entriesOf(list)} catalog={catalog} owner={null} from="own" onClose={() => setImaging(false)} />}
       {confirmDelete && (
         <Modal title={`Delete ${list.name}?`} onClose={() => setConfirmDelete(false)}>

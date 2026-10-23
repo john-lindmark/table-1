@@ -324,8 +324,7 @@ struct DeckImagePanel: View {
                 if let error { Notice(error, error: true) }
                 if let note { Notice(note) }
                 if let image {
-                    Image(uiImage: image).resizable().scaledToFit().frame(maxWidth: .infinity)
-                        .accessibilityLabel("Deck image of \(name)")
+                    ZoomablePreview(title: "Deck image", subtitle: name, image: image, screen: "deck_image")
                 } else if let progress {
                     Notice("Getting card images… \(progress.done) of \(progress.of)")
                 } else {

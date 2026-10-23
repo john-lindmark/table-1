@@ -1089,7 +1089,7 @@ struct RankingImagePanel: View {
                 if cards.isEmpty {
                     Notice("Nothing ranked in the final yet.")
                 } else if let image {
-                    Image(uiImage: image).resizable().scaledToFit().frame(maxWidth: .infinity).accessibilityLabel("Top \(cards.count) image")
+                    ZoomablePreview(title: "Top \(cards.count) image", subtitle: model.row?.name, image: image, screen: "ranking_image")
                 } else if let progress {
                     Notice("Getting card images… \(progress.done) of \(progress.of)")
                 } else {

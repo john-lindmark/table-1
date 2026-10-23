@@ -498,6 +498,8 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
     var wanting by remember { mutableStateOf(false) }
     var pickingPrinting by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<String?>(null) }
+    /** The Add to collection menu, opened from a deck or cube. */
+    var listAdding by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { CatalogStore.load(userInitiated = true) }
     LaunchedEffect(cat.generation) {
@@ -587,6 +589,29 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
     val ctxPrinting = ctxLines.firstOrNull()?.second ?: ctxCopies.firstOrNull()?.second
     fun changeOwned(it: CollectionItem, place: String?) { changing = PrintingTarget.Owned(it, place) to "item_printing" }
 
+    if (listAdding && ctxList != null) {
+        val only = ctxLines.map { it.first.cardId }.toSet()
+        val ownedBy = col.items.values.filter { it.cardId in only }.groupBy { ownKey(it.cardId, it.finish) }.mapValues { (_, v) -> v.sumOf { it.qty } }
+        val missing = ListToCollection.ops(ctxList.entries, ctxList.kind, ownedBy, ListToCollection.Mode.Missing, only = only)
+        val all = ListToCollection.ops(ctxList.entries, ctxList.kind, ownedBy, ListToCollection.Mode.All, only = only)
+        val m = ListToCollection.copies(missing)
+        val a = ListToCollection.copies(all)
+        val name = oracle?.name ?: "card"
+        fun add(ops: List<ListToCollection.Op>, mode: String) {
+            val n = ListToCollection.copies(ops)
+            change("listadd", "Added $n $name to your collection", ListToCollection.collectionOps(ops, { byId[it]?.lang }, addCondition, addLang))
+            Telemetry.capture("list_added_to_collection", mapOf("kind" to ctxList.kind.wire, "mode" to mode, "sideboard" to true,
+                "copies" to n, "lines" to ops.size, "from" to "card"))
+        }
+        T1Menu("Add $name to your collection", listOfNotNull(
+            if (m > 0) T1MenuItem("Add the $m missing · $addCondition") { add(missing, "missing") } else null,
+            if (a > 0 && a != m) T1MenuItem("Add all $a · $addCondition") { add(all, "all") } else null,
+        ) + ctxLines.take(4).map { (e, p) ->
+            T1MenuItem("Add 1 ${p.setLabel}${if (e.finish == "nonfoil") "" else " · ${Finish.of(e.finish)?.label ?: e.finish}"} · ${ctxList.boardTitle(e.board)}") {
+                add(listOf(ListToCollection.Op(e.cardId, e.finish, 1)), "one")
+            }
+        }) { listAdding = false }
+    }
     if (pickingPrinting) oracle?.let { o ->
         WantPrintingOverlay(o.oracleId, from = "card", onClose = { pickingPrinting = false }, onDone = { note = it; last = null }) { error = it }
     }
@@ -623,6 +648,14 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
                 if (ctxList != null) items(ctxLines, key = { (e, _) -> "line|${e.board}|${e.cardId}|${e.finish}" }) { (e, p) ->
                     CardRow(p, "${p.setLabel} · ${Finish.of(e.finish)?.label ?: e.finish}", ctxList.boardTitle(e.board), finish = e.finish,
                         onClick = { changing = PrintingTarget.ListLine(ctxList.id, e.cardId, e.board, e.finish) to "list_printing" }) { ChangeCount(e.qty) }
+                }
+                if (ctxList != null && ctxLines.isNotEmpty()) item {
+                    // Add to collection: what this card lacks here, every copy listed, or one of a listed printing.
+                    val only = ctxLines.map { it.first.cardId }.toSet()
+                    val ownedBy = col.items.values.filter { it.cardId in only }.groupBy { ownKey(it.cardId, it.finish) }.mapValues { (_, v) -> v.sumOf { it.qty } }
+                    val m = ListToCollection.copies(ListToCollection.ops(ctxList.entries, ctxList.kind, ownedBy, ListToCollection.Mode.Missing, only = only))
+                    ListRow("Add to collection", if (m > 0) "Missing $m · the printing listed here" else "You own every copy listed here",
+                        onClick = { if (busy != "listadd") listAdding = true }) { Label(if (busy == "listadd") "Adding…" else "Add", color = T1.text) }
                 }
             }
             if (ctxBinder != null) {

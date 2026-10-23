@@ -875,6 +875,11 @@ struct ListDetailView: View {
                   let list = ListsStore.shared.list(id: listId), list.kind == .deck else { return }
             deckImage(list)
         }
+        // Design QA: `-T1LibraryDemo deck|cube -T1AddToCollection` opens Add to collection.
+        .task {
+            guard T1Overlays.shared.panels.isEmpty, ProcessInfo.processInfo.arguments.contains("-T1AddToCollection") else { return }
+            T1Overlays.shared.present(full: true) { ListToCollectionPanel(listId: listId).screen("list_to_collection") }
+        }
         #endif
     }
 
@@ -959,6 +964,15 @@ struct ListDetailView: View {
             if list.kind == .deck {
                 Button { deckImage(list) } label: {
                     ListRow(title: "Deck image", detail: "The cards as a picture, to save or share")
+                }.buttonStyle(.plain)
+            }
+            // A roto deck's cards are the cube's, not yours to add.
+            if list.eventId == nil {
+                let short = missing(in: list, owned: owned)
+                Button {
+                    T1Overlays.shared.present(full: true) { ListToCollectionPanel(listId: list.id).screen("list_to_collection") }
+                } label: {
+                    ListRow(title: "Add to collection", detail: short > 0 ? "Missing \(short) · or every card" : "You own every card · add more copies")
                 }.buttonStyle(.plain)
             }
         }

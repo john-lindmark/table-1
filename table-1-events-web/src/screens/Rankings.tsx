@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Avatar } from "../components/Avatar";
 import { Bar, Dialog, Field, GhostAction, Menu, Notice, Row, Section, Segmented, type MenuItem } from "../components/kit";
+import { ZoomablePreview } from "../components/ZoomImage";
 import { cardImageUrl, cornerRatio, type Catalog } from "../lib/catalog";
 import { JOB_TITLE, compare, why, type Link, type RankChange, type RankJob, type RankSession, type RankingState } from "../lib/cubeRanking";
 import { fileName } from "../lib/deckImage";
@@ -893,7 +894,7 @@ function RankingImage({ m, c, onClose }: { m: RankingModel; c: Catalog; onClose:
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {note && <Notice tone="info">{note}</Notice>}
         {!cards.length ? <Notice tone="info">Nothing ranked in the final yet.</Notice>
-          : url ? <img src={url} alt={`Top ${cards.length} of ${name}`} className="w-full h-auto block" />
+          : url ? <ZoomablePreview src={url} alt={`Top ${cards.length} of ${name}`} title={`Top ${m.row?.top ?? 100} image`} subtitle={name} screen="ranking_image" />
           : <Notice tone="info">Getting card images… {progress[0]} of {progress[1]}</Notice>}
       </div>
       <div className="shrink-0 flex gap-px pb-px">

@@ -1,0 +1,104 @@
+{
+  "about": "Add a deck or cube to the collection (contract/list-to-collection-2026-10-22.md). Each line goes in as the printing and finish the list names. Main and Commander always count; a deck's sideboard counts unless sideboard is false; Considering never does. 'missing' adds only what the collection lacks of each printing + finish (owned is keyed 'card_id|finish', every condition and language); 'all' adds every copy listed. 'only' limits it to some printings (card detail). Ops come out sorted by card_id, then finish, and only with delta > 0. iOS ListToCollectionTests, web listToCollection.test.ts and Android ListToCollectionTest read this.",
+  "cases": [
+    {
+      "name": "deck, every copy: main and sideboard, not considering",
+      "kind": "deck", "mode": "all",
+      "entries": [
+        {"card_id": "b", "board": "main", "finish": "nonfoil", "qty": 4},
+        {"card_id": "a", "board": "side", "finish": "nonfoil", "qty": 2},
+        {"card_id": "c", "board": "maybe", "finish": "nonfoil", "qty": 1}
+      ],
+      "owned": {"b|nonfoil": 4},
+      "ops": [{"card_id": "a", "finish": "nonfoil", "delta": 2}, {"card_id": "b", "finish": "nonfoil", "delta": 4}],
+      "copies": 6
+    },
+    {
+      "name": "deck, what's missing",
+      "kind": "deck", "mode": "missing",
+      "entries": [
+        {"card_id": "b", "board": "main", "finish": "nonfoil", "qty": 4},
+        {"card_id": "a", "board": "side", "finish": "nonfoil", "qty": 2},
+        {"card_id": "c", "board": "maybe", "finish": "nonfoil", "qty": 1}
+      ],
+      "owned": {"b|nonfoil": 1, "c|nonfoil": 0},
+      "ops": [{"card_id": "a", "finish": "nonfoil", "delta": 2}, {"card_id": "b", "finish": "nonfoil", "delta": 3}],
+      "copies": 5
+    },
+    {
+      "name": "commander counts like main",
+      "kind": "deck", "mode": "all",
+      "entries": [
+        {"card_id": "k", "board": "commander", "finish": "foil", "qty": 1},
+        {"card_id": "b", "board": "main", "finish": "nonfoil", "qty": 1}
+      ],
+      "owned": {},
+      "ops": [{"card_id": "b", "finish": "nonfoil", "delta": 1}, {"card_id": "k", "finish": "foil", "delta": 1}],
+      "copies": 2
+    },
+    {
+      "name": "deck without the sideboard",
+      "kind": "deck", "mode": "missing", "sideboard": false,
+      "entries": [
+        {"card_id": "b", "board": "main", "finish": "nonfoil", "qty": 4},
+        {"card_id": "a", "board": "side", "finish": "nonfoil", "qty": 2}
+      ],
+      "owned": {},
+      "ops": [{"card_id": "b", "finish": "nonfoil", "delta": 4}],
+      "copies": 4
+    },
+    {
+      "name": "the same printing in main and sideboard is one need",
+      "kind": "deck", "mode": "missing",
+      "entries": [
+        {"card_id": "a", "board": "main", "finish": "nonfoil", "qty": 3},
+        {"card_id": "a", "board": "side", "finish": "nonfoil", "qty": 1}
+      ],
+      "owned": {"a|nonfoil": 2},
+      "ops": [{"card_id": "a", "finish": "nonfoil", "delta": 2}],
+      "copies": 2
+    },
+    {
+      "name": "finishes are apart: owning the foil doesn't cover the non-foil",
+      "kind": "cube", "mode": "missing",
+      "entries": [
+        {"card_id": "a", "board": "main", "finish": "nonfoil", "qty": 1},
+        {"card_id": "a", "board": "main", "finish": "foil", "qty": 1}
+      ],
+      "owned": {"a|foil": 1},
+      "ops": [{"card_id": "a", "finish": "nonfoil", "delta": 1}],
+      "copies": 1
+    },
+    {
+      "name": "cube: considering is left out",
+      "kind": "cube", "mode": "all",
+      "entries": [
+        {"card_id": "a", "board": "main", "finish": "nonfoil", "qty": 1},
+        {"card_id": "z", "board": "maybe", "finish": "nonfoil", "qty": 1}
+      ],
+      "owned": {"a|nonfoil": 1},
+      "ops": [{"card_id": "a", "finish": "nonfoil", "delta": 1}],
+      "copies": 1
+    },
+    {
+      "name": "owning more than listed adds nothing",
+      "kind": "deck", "mode": "missing",
+      "entries": [{"card_id": "a", "board": "main", "finish": "etched", "qty": 2}],
+      "owned": {"a|etched": 5},
+      "ops": [],
+      "copies": 0
+    },
+    {
+      "name": "card detail: only this card's printings",
+      "kind": "deck", "mode": "missing", "only": ["a", "a2"],
+      "entries": [
+        {"card_id": "a", "board": "main", "finish": "nonfoil", "qty": 2},
+        {"card_id": "a2", "board": "side", "finish": "foil", "qty": 1},
+        {"card_id": "b", "board": "main", "finish": "nonfoil", "qty": 4}
+      ],
+      "owned": {"a|nonfoil": 1},
+      "ops": [{"card_id": "a", "finish": "nonfoil", "delta": 1}, {"card_id": "a2", "finish": "foil", "delta": 1}],
+      "copies": 2
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { Bar, Field, GhostAction, Menu, Notice, Row, SCREEN_WIDTH, Screen, Section, Segmented, TopNav, type ScreenWidth } from "../components/kit";
+import { Bar, Field, GhostAction, Menu, Notice, Row, SCREEN_WIDTH, Screen, Section, Segmented, TopNav, type MenuItem, type ScreenWidth } from "../components/kit";
+import { copiesOf, listAddOps, toCollectionOps, type AddOp } from "../lib/listToCollection";
 import { capture } from "../lib/telemetry";
 import { LAYOUTS, parseLayout, runStacks, type CardLayout } from "../lib/cardLayout";
 import { GROUPING_KEY, GROUPING_TITLE, groupLabel, groupSections, groupingOptions, keysOf, useStoredGrouping, type Grouping } from "../lib/cardGrouping";
@@ -34,6 +35,27 @@ import { hidePeek, movePeek, showPeek } from "../components/CardPeek";
 import { PEEK_W, useDesktop, useHoverPreview } from "../lib/desktop";
 
 export const CONDITIONS: Condition[] = ["NM", "LP", "MP", "HP", "DMG"];
+
+/** Condition new copies go in as (remembered; card page, Add to collection). */
+export function useAddCondition(): [Condition, (c: Condition) => void] {
+  const [c, setC] = useState<Condition>(() => {
+    try {
+      const v = localStorage.getItem("table1.library.addCondition") as Condition | null;
+      return v && CONDITIONS.includes(v) ? v : "NM";
+    } catch {
+      return "NM";
+    }
+  });
+  const set = (next: Condition) => {
+    setC(next);
+    try {
+      localStorage.setItem("table1.library.addCondition", next);
+    } catch {
+      /* storage blocked */
+    }
+  };
+  return [c, set];
+}
 export const CONDITION_NAME: Record<Condition, string> = {
   NM: "Near mint", LP: "Lightly played", MP: "Moderately played", HP: "Heavily played", DMG: "Damaged",
 };
@@ -894,23 +916,9 @@ export function CardDetail({ oracleId, onBack, context }: { oracleId: string; on
   /** A printing tapped in the list, shown large in place of the owned one. */
   const [preview, setPreview] = useState<number | null>(null);
   const desktop = useDesktop();
-  /** Condition new copies go in as (remembered). */
-  const [addCondition, setAddConditionState] = useState<Condition>(() => {
-    try {
-      const v = localStorage.getItem("table1.library.addCondition") as Condition | null;
-      return v && CONDITIONS.includes(v) ? v : "NM";
-    } catch {
-      return "NM";
-    }
-  });
-  const setAddCondition = (c: Condition) => {
-    setAddConditionState(c);
-    try {
-      localStorage.setItem("table1.library.addCondition", c);
-    } catch {
-      /* storage blocked */
-    }
-  };
+  const [addCondition, setAddCondition] = useAddCondition();
+  /** The Add to collection menu, opened from a deck or cube. */
+  const [listAdd, setListAdd] = useState<MenuItem[] | null>(null);
   /** Language new English-printing copies go in as (shared with binder adds and trades). */
   const [addLang, setAddLangState] = useState(storedAddLang);
   const setAddLang = (code: string) => { setAddLangState(code); storeAddLang(code); };
@@ -1078,6 +1086,36 @@ export function CardDetail({ oracleId, onBack, context }: { oracleId: string; on
                          onClick={() => setChanging({ target: { kind: "list", listId: ctxList.id, cardId: e.cardId, board: e.board, finish: finishOf(e) }, screen: "list_printing" })} />
               </div>
             ))}
+            {ctxList && ctxLines.length > 0 && !ctxList.eventId && (() => {
+              // Add to collection: what this card lacks here, every copy listed, or one of a listed printing.
+              const only = new Set(ctxLines.map((l) => l.e.cardId));
+              const ownedBy = new Map<string, number>();
+              for (const it of col.items.values()) if (only.has(it.cardId)) ownedBy.set(`${it.cardId}|${it.finish}`, (ownedBy.get(`${it.cardId}|${it.finish}`) ?? 0) + it.qty);
+              const entries = entriesOf(ctxList);
+              const missing = listAddOps(entries, ctxList.kind, ownedBy, "missing", true, only);
+              const all = listAddOps(entries, ctxList.kind, ownedBy, "all", true, only);
+              const m = copiesOf(missing), a = copiesOf(all);
+              const name = catalog.oName[oi];
+              const add = (ops: AddOp[], mode: string) => {
+                const n = copiesOf(ops);
+                void change("listadd", `Added ${n} ${name} to your collection`,
+                            toCollectionOps(ops, (id) => { const p = catalog.printingIndex.get(id); return p == null ? undefined : catalog.pLang[p]; }, addCondition, addLang));
+                capture("list_added_to_collection", { kind: ctxList.kind, mode, sideboard: true, copies: n, lines: ops.length, from: "card" });
+              };
+              const items: MenuItem[] = [
+                ...(m > 0 ? [{ title: `Add the ${m} missing`, detail: `As listed here · ${addCondition}`, onClick: () => add(missing, "missing") }] : []),
+                ...(a > 0 && a !== m ? [{ title: `Add all ${a}`, detail: `Every copy listed here · ${addCondition}`, onClick: () => add(all, "all") }] : []),
+                ...ctxLines.slice(0, 4).map(({ e, p }) => ({
+                  title: `Add 1 ${setLabel(p)}${finishOf(e) === "nonfoil" ? "" : ` · ${FINISH_LABEL[finishOf(e)]}`}`, detail: boardTitle(ctxList.kind, e.board),
+                  onClick: () => add([{ card_id: e.cardId, finish: finishOf(e), delta: 1 }], "one"),
+                })),
+              ];
+              return <>
+                <Row title="Add to collection" detail={m > 0 ? `Missing ${m} · the printing listed here` : "You own every copy listed here"}
+                     value={busy === "listadd" ? "Adding…" : "Add"} onClick={() => { if (busy !== "listadd") setListAdd(items); }} />
+                {listAdd && <Menu title={`Add ${name} to your collection`} items={listAdd} onClose={() => setListAdd(null)} />}
+              </>;
+            })()}
           </>
         )}
         {context?.binder && (

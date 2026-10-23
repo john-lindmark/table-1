@@ -776,6 +776,7 @@ struct CardDetailView: View {
                         }
                     }.buttonStyle(.plain)
                 }
+                if !lines.isEmpty && list.eventId == nil { listAddRow(list, lines) }
             }
         case .binder(let id):
             let copies = contextCopies(owned, binderId: id)
@@ -795,6 +796,43 @@ struct CardDetailView: View {
         case nil:
             EmptyView()
         }
+    }
+
+    /// Add to collection from a deck or cube: the copies of this card it lacks, every copy it lists, or one of a
+    /// listed printing, in the condition and language picked under Add a printing.
+    private func listAddRow(_ list: CardList, _ lines: [(entry: CardList.Entry, printing: CatalogPrinting)]) -> some View {
+        let only = Set(lines.map(\.entry.cardId))
+        let ownedNow = ownedByPrinting()
+        let missing = ListToCollection.ops(list.entries, kind: list.kind, owned: ownedNow, mode: .missing, only: only)
+        let all = ListToCollection.ops(list.entries, kind: list.kind, owned: ownedNow, mode: .all, only: only)
+        let m = ListToCollection.copies(missing), a = ListToCollection.copies(all)
+        let printings = Dictionary(lines.map { ($0.printing.cardId, $0.printing) }, uniquingKeysWith: { a, _ in a })
+        let name = oracle?.name ?? "card"
+        func add(_ ops: [ListToCollection.Op], mode: String) {
+            let n = ListToCollection.copies(ops)
+            change("listadd", "Added \(n) \(name) to your collection",
+                   ListToCollection.collectionOps(ops, printings: printings, condition: addCondition, lang: addLang))
+            Telemetry.capture("list_added_to_collection", ["kind": list.kind.rawValue, "mode": mode, "sideboard": true,
+                                                          "copies": n, "lines": ops.count, "from": "card"])
+        }
+        return Button {
+            var items: [T1MenuItem] = []
+            if m > 0 { items.append(T1MenuItem(title: "Add the \(m) missing", detail: "As listed here · \(addCondition)") { add(missing, mode: "missing") }) }
+            if a > 0 && a != m { items.append(T1MenuItem(title: "Add all \(a)", detail: "Every copy listed here · \(addCondition)") { add(all, mode: "all") }) }
+            for l in lines.prefix(4) {
+                let label = "\(l.printing.setLabel)\(l.entry.finish == "nonfoil" ? "" : " · \(Finish(rawValue: l.entry.finish)?.label ?? l.entry.finish)")"
+                items.append(T1MenuItem(title: "Add 1 \(label)", detail: list.boardTitle(l.entry.board)) {
+                    add([ListToCollection.Op(cardId: l.entry.cardId, finish: l.entry.finish, delta: 1)], mode: "one")
+                })
+            }
+            T1Overlays.shared.showMenu("Add \(name) to your collection", items)
+        } label: {
+            ListRow(title: "Add to collection", detail: m > 0 ? "Missing \(m) · the printing listed here" : "You own every copy listed here") {
+                LabelText(busy == "listadd" ? "Adding…" : "Add", color: T1.text)
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(busy == "listadd")
     }
 
     /// The count, with "Change" so the row says what a tap does.
