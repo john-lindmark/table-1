@@ -77,6 +77,8 @@
     { "url": "https://table-1.site/e/", "to": "web" },
     { "url": "https://table-1.site/library#access_token=t&refresh_token=r", "to": "web", "browser": true },
     { "url": "https://table-1.site/#error=access_denied&error_description=x", "to": "web", "browser": true },
+    { "url": "https://table-1.site/auth/google#id_token=t&state=s", "to": "web", "browser": true },
+    { "url": "https://table-1.site/auth/google", "to": "web", "browser": true },
     { "url": "https://table-1.site/library?code=abc", "to": "web", "browser": true },
 
     { "url": "http://table-1.site/library", "to": null },

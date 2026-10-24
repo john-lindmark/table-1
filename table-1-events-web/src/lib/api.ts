@@ -3,6 +3,15 @@ import { getLocalParticipant } from "./session";
 import type { User } from "@supabase/supabase-js";
 import { capture, signInStarted } from "./telemetry";
 import { joinHeader, type JoinHeader } from "./joinPreview";
+import {
+  GOOGLE_REQUEST_KEY,
+  GOOGLE_WEB_CLIENT_ID,
+  googleAuthUrl,
+  randomString,
+  readGoogleReturn,
+  sha256Hex,
+  type GoogleRequest,
+} from "./googleSignIn";
 import type {
   AccountOverview,
   DraftableSet,
@@ -394,6 +403,7 @@ export type OAuthProvider = "apple" | "google";
 /** Apple or Google, then straight back to the page that asked. */
 export async function signInWith(provider: OAuthProvider, returnTo = window.location.href) {
   signInStarted(provider);
+  if (provider === "google" && GOOGLE_WEB_CLIENT_ID) return startGoogle(returnTo);
   const { error } = await supabase.auth.signInWithOAuth({
     provider,
     options: { redirectTo: returnTo },
@@ -402,6 +412,46 @@ export async function signInWith(provider: OAuthProvider, returnTo = window.loca
     capture("sign_in_failed", { method: provider, reason: "error" });
     throw error;
   }
+}
+
+/** Straight to Google, so its screen names table-1.site (or Table 1 once the brand is verified), not supabase.co. */
+async function startGoogle(returnTo: string) {
+  const back = new URL(returnTo, window.location.origin);
+  const request: GoogleRequest = {
+    nonce: randomString(),
+    state: randomString(16),
+    returnTo: back.origin === window.location.origin ? back.pathname + back.search : "/",
+  };
+  // sessionStorage: the same tab comes back, and nothing lingers after it closes.
+  sessionStorage.setItem(GOOGLE_REQUEST_KEY, JSON.stringify(request));
+  const hashedNonce = await sha256Hex(request.nonce);
+  window.location.assign(
+    googleAuthUrl({ clientId: GOOGLE_WEB_CLIENT_ID, origin: window.location.origin, state: request.state, hashedNonce }),
+  );
+}
+
+/** Google's return to /auth/google: the ID token goes to Supabase. Returns where to go next. */
+export async function finishGoogle(hash: string): Promise<{ next: string; cancelled: boolean }> {
+  let request: GoogleRequest | null = null;
+  try {
+    request = JSON.parse(sessionStorage.getItem(GOOGLE_REQUEST_KEY) ?? "null");
+    sessionStorage.removeItem(GOOGLE_REQUEST_KEY);
+  } catch {
+    /* ignore */
+  }
+  const r = readGoogleReturn(hash, request);
+  if (r.kind === "cancelled") return { next: r.returnTo, cancelled: true };
+  if (r.kind === "error") {
+    capture("sign_in_failed", { method: "google", reason: "error" });
+    throw new Error(r.message);
+  }
+  const { error } = await supabase.auth.signInWithIdToken({ provider: "google", token: r.idToken, nonce: r.nonce });
+  if (error) {
+    console.warn(errorMessage(error));
+    capture("sign_in_failed", { method: "google", reason: "error" });
+    throw new Error("Google didn't sign you in. Try again.");
+  }
+  return { next: r.returnTo, cancelled: false };
 }
 
 /** Ends the session here. Telemetry resets on the SIGNED_OUT that follows. */

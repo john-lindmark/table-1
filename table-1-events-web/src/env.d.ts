@@ -11,6 +11,8 @@ interface ImportMetaEnv {
   readonly VITE_SENTRY_DSN?: string;
   /** "1" lets a dev server send telemetry (tagged environment "dev"). */
   readonly VITE_TELEMETRY?: string;
+  /** Google's web OAuth client ID; empty means Google sign-in goes through Supabase's OAuth hop. */
+  readonly VITE_GOOGLE_WEB_CLIENT_ID?: string;
 }
 
 /** package.json version, set by vite.config.ts. */

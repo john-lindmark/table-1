@@ -21,6 +21,7 @@ import { QrJoin } from "./screens/QrJoin";
 import { AddPlayers } from "./screens/AddPlayers";
 import { LifeTracker } from "./screens/LifeTracker";
 import { AuthConfirm } from "./screens/AuthConfirm";
+import { GoogleReturn } from "./screens/GoogleReturn";
 import { DeleteAccountPage, PrivacyPolicy } from "./screens/Legal";
 import { SignInPage } from "./screens/Landing";
 import { NameGate } from "./components/NameGate";
@@ -464,6 +465,7 @@ export default function App() {
         <Route path="/join/:code" element={<JoinRoute />} />
         <Route path="/j/:code" element={<QrJoinRoute />} />
         <Route path="/auth/confirm" element={<AuthConfirm />} />
+        <Route path="/auth/google" element={<GoogleReturn />} />
         <Route path="/me" element={<ProfileRoute />} />
         <Route path="/sign-in" element={<SignInPage />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
