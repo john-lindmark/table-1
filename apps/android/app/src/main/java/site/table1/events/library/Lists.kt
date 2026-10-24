@@ -264,14 +264,14 @@ object ListsStore {
         })
     }
 
-    private suspend fun edit(listId: String, op: JsonObject) =
-        call("list_edit", buildJsonObject { put("p_list_id", listId); put("p_ops", buildJsonArray { add(op) }) })
-
     /** Several ops as one edit (card detail's changes and their Undo): one request, one step in the history. */
     suspend fun editMany(listId: String, ops: List<JsonObject>) {
         if (ops.isEmpty()) return
         call("list_edit", buildJsonObject { put("p_list_id", listId); put("p_ops", buildJsonArray { ops.forEach { add(it) } }) })
     }
+
+    private suspend fun edit(listId: String, op: JsonObject) =
+        call("list_edit", buildJsonObject { put("p_list_id", listId); put("p_ops", buildJsonArray { add(op) }) })
 
     suspend fun restore(listId: String, version: Int) =
         call("list_restore", buildJsonObject { put("p_list_id", listId); put("p_version", version) })
