@@ -48,7 +48,7 @@ class ConditionPriceTest {
         assertTrue(Conditions.better("NM", "LP"))
         assertFalse(Conditions.better("DMG", "HP"))
         assertEquals(PriceBook.text(10.0), PriceBook.conditionText(10.0, "NM"))
-        assertEquals("${PriceBook.text(8.5)} · LP (NM ${PriceBook.text(10.0)})", PriceBook.conditionText(10.0, "LP"))
+        assertEquals("${PriceBook.text(9.0)} · LP (NM ${PriceBook.text(10.0)})", PriceBook.conditionText(10.0, "LP"))
         assertNull(PriceBook.conditionText(null, "LP"))
     }
 }

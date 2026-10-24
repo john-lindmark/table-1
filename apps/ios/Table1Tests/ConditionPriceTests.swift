@@ -30,7 +30,7 @@ final class ConditionPriceTests: XCTestCase {
         XCTAssertTrue(Conditions.better("NM", "LP"))
         XCTAssertFalse(Conditions.better("DMG", "HP"))
         XCTAssertEqual(PriceBook.conditionText(10, "NM"), PriceBook.text(10))
-        XCTAssertEqual(PriceBook.conditionText(10, "LP"), "\(PriceBook.text(8.5)!) · LP (NM \(PriceBook.text(10)!))")
+        XCTAssertEqual(PriceBook.conditionText(10, "LP"), "\(PriceBook.text(9)!) · LP (NM \(PriceBook.text(10)!))")
         XCTAssertNil(PriceBook.conditionText(nil, "LP"))
     }
 }

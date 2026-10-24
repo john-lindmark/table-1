@@ -63,7 +63,7 @@ final class PriceBook {
         usd.map { $0.formatted(.currency(code: "USD").precision(.fractionLength(2))) }
     }
 
-    /// A copy's price in its condition, saying what near mint would be when it isn't: "$8.50 · LP (NM $10.00)".
+    /// A copy's price in its condition, saying what near mint would be when it isn't: "$9.00 · LP (NM $10.00)".
     static func conditionText(_ nearMint: Double?, _ condition: String) -> String? {
         guard let price = text(Conditions.price(nearMint, condition)) else { return nil }
         guard Conditions.percent(condition) != 100, let nm = text(nearMint) else { return price }
@@ -75,10 +75,10 @@ extension Conditions {
     /// The share of the near-mint price a copy in this condition is worth (contract/condition-prices-2026-10-24.md).
     static func percent(_ condition: String) -> Int {
         switch condition.uppercased() {
-        case "LP": 85
-        case "MP": 70
-        case "HP": 50
-        case "DMG": 35
+        case "LP": 90
+        case "MP": 75
+        case "HP": 60
+        case "DMG": 40
         default: 100
         }
     }

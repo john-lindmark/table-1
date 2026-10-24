@@ -1,6 +1,6 @@
 -- Condition prices (2026-10-24; contract/condition-prices-2026-10-24.md, cases testdata/condition-prices/cases.json).
--- Market prices are near mint. A copy in another condition is worth a fixed share of that: LP 85%, MP 70%, HP 50%,
--- DMG 35%. Applied to the collection value (collection_apply_as, the nightly library_revalue) and to trade matches'
+-- Market prices are near mint. A copy in another condition is worth a fixed share of that: LP 90%, MP 75%, HP 60%,
+-- DMG 40%. Applied to the collection value (collection_apply_as, the nightly library_revalue) and to trade matches'
 -- per-copy prices (which also decide "over your max"). The three functions below are copies of their latest
 -- definitions (20261017140000_binders_wants.sql, 20261015120000_collection_core.sql,
 -- 20261018150000_friends_sharing.sql) with only the price wrapped in condition_price.
@@ -8,7 +8,7 @@
 -- ==================================================================== a_helpers
 create or replace function t1_private.condition_percent(p_condition text)
 returns integer language sql immutable set search_path = '' as $$
-  select case upper(coalesce(p_condition, '')) when 'LP' then 85 when 'MP' then 70 when 'HP' then 50 when 'DMG' then 35
+  select case upper(coalesce(p_condition, '')) when 'LP' then 90 when 'MP' then 75 when 'HP' then 60 when 'DMG' then 40
               else 100 end;
 $$;
 

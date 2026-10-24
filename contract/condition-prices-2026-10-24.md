@@ -11,17 +11,17 @@ prices. A copy in another condition is worth a fixed share of that:
 | Condition | Share |
 |---|---|
 | NM | 100% |
-| LP | 85% |
-| MP | 70% |
-| HP | 50% |
-| DMG | 35% |
+| LP | 90% |
+| MP | 75% |
+| HP | 60% |
+| DMG | 40% |
 
 One copy's price = near-mint price in whole cents × share, rounded half up to whole cents, never below 1 cent
 when the near-mint price is above 0. No price stays no price. An unknown or empty condition counts as NM. The
 same rule applies to USD and EUR. Totals sum the rounded per-copy prices.
 
 Scryfall has no per-condition prices, and TCGplayer's API has been closed to new developers for some years (not
-re-checked for this change), so the shares are the usual market discounts. They live in one place per platform (`t1_private.condition_percent` on the server,
+re-checked for this change), so the shares are fixed discounts (John's pick on 2026-10-24, the gentler of three sets offered). They live in one place per platform (`t1_private.condition_percent` on the server,
 `Conditions.percent` / `conditionPercent` in each client), so a real per-condition source could replace them
 later without touching screens.
 
@@ -36,7 +36,7 @@ Anywhere a price belongs to copies that have a condition:
   shows its best copy's price.
 - **Card detail**: the price in the bar and the details panel are the version in view, in its condition (a new
   version: the condition picked for adds). The details panel says what near mint would be when it isn't NM:
-  "$8.50 · LP (NM $10.00)".
+  "$9.00 · LP (NM $10.00)".
 - **Binders**: binder value and rows.
 - **Trades**: each give/get line, the side totals and the difference, and "Want · over your max" on a get.
 - **Trade matches** (server): each copy's price, whether it's over your max, and the have/want values.

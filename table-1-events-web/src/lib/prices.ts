@@ -49,7 +49,7 @@ export function usdPrice(cardId: string, finish: Finish, condition = "NM"): numb
 export const usdText = (n: number | null | undefined) =>
   n == null ? null : new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(n);
 
-/** A copy's price in its condition, saying what near mint would be when it isn't: "$8.50 · LP (NM $10.00)". */
+/** A copy's price in its condition, saying what near mint would be when it isn't: "$9.00 · LP (NM $10.00)". */
 export function conditionPriceText(nearMint: number | null | undefined, condition: string): string | null {
   const price = usdText(conditionPrice(nearMint, condition));
   if (price == null || conditionPercent(condition) === 100) return price;

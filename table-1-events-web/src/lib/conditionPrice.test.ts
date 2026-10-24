@@ -38,7 +38,7 @@ describe("condition prices", () => {
   });
   it("details label says what near mint would be", () => {
     expect(conditionPriceText(10, "NM")).toBe(usdText(10));
-    expect(conditionPriceText(10, "LP")).toBe(`${usdText(8.5)} · LP (NM ${usdText(10)})`);
+    expect(conditionPriceText(10, "LP")).toBe(`${usdText(9)} · LP (NM ${usdText(10)})`);
     expect(conditionPriceText(null, "LP")).toBeNull();
   });
 });

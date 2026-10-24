@@ -1,29 +1,30 @@
 {
   "about": "A copy's price follows its condition (contract/condition-prices-2026-10-24.md). unit = round(near-mint price in cents * percent / 100), half up, at least 1 cent when the near-mint price is above 0; null stays null; an unknown or empty condition is near mint. 'total' sums qty * unit over 'copies', skipping unpriced ones. Postgres (t1_private.condition_price), iOS ConditionPriceTests, web conditionPrice.test.ts and Android ConditionPriceTest read this.",
-  "percent": {"NM": 100, "LP": 85, "MP": 70, "HP": 50, "DMG": 35},
+  "percent": {"NM": 100, "LP": 90, "MP": 75, "HP": 60, "DMG": 40},
   "unit": [
-    {"nm": 10.00, "condition": "NM", "price": 10.00},
-    {"nm": 10.00, "condition": "LP", "price": 8.50},
-    {"nm": 10.00, "condition": "MP", "price": 7.00},
-    {"nm": 10.00, "condition": "HP", "price": 5.00},
-    {"nm": 10.00, "condition": "DMG", "price": 3.50},
-    {"nm": 1.10, "condition": "LP", "price": 0.94},
-    {"nm": 0.29, "condition": "MP", "price": 0.20},
+    {"nm": 10.0, "condition": "NM", "price": 10.0},
+    {"nm": 10.0, "condition": "LP", "price": 9.0},
+    {"nm": 10.0, "condition": "MP", "price": 7.5},
+    {"nm": 10.0, "condition": "HP", "price": 6.0},
+    {"nm": 10.0, "condition": "DMG", "price": 4.0},
+    {"nm": 1.1, "condition": "LP", "price": 0.99},
+    {"nm": 0.1, "condition": "MP", "price": 0.08},
+    {"nm": 0.29, "condition": "MP", "price": 0.22},
     {"nm": 0.03, "condition": "HP", "price": 0.02},
     {"nm": 0.01, "condition": "DMG", "price": 0.01},
-    {"nm": 0.00, "condition": "DMG", "price": 0.00},
-    {"nm": 1234.57, "condition": "HP", "price": 617.29},
-    {"nm": 59.99, "condition": "DMG", "price": 21.00},
-    {"nm": 2.50, "condition": "lp", "price": 2.13},
-    {"nm": 2.50, "condition": "", "price": 2.50},
-    {"nm": 2.50, "condition": "SP", "price": 2.50},
+    {"nm": 0.0, "condition": "DMG", "price": 0.0},
+    {"nm": 1234.57, "condition": "HP", "price": 740.74},
+    {"nm": 59.99, "condition": "DMG", "price": 24.0},
+    {"nm": 2.5, "condition": "lp", "price": 2.25},
+    {"nm": 2.5, "condition": "", "price": 2.5},
+    {"nm": 2.5, "condition": "SP", "price": 2.5},
     {"nm": null, "condition": "LP", "price": null}
   ],
   "copies": [
-    {"nm": 10.00, "condition": "NM", "qty": 2},
-    {"nm": 10.00, "condition": "HP", "qty": 3},
-    {"nm": 1.10, "condition": "LP", "qty": 4},
+    {"nm": 10.0, "condition": "NM", "qty": 2},
+    {"nm": 10.0, "condition": "HP", "qty": 3},
+    {"nm": 1.1, "condition": "LP", "qty": 4},
     {"nm": null, "condition": "MP", "qty": 7}
   ],
-  "total": 38.76
+  "total": 41.96
 }

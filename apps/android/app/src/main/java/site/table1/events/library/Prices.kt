@@ -58,7 +58,7 @@ object PriceBook {
         NumberFormat.getCurrencyInstance().apply { currency = Currency.getInstance("USD"); maximumFractionDigits = 2 }.format(it)
     }
 
-    /** A copy's price in its condition, saying what near mint would be when it isn't: "$8.50 · LP (NM $10.00)". */
+    /** A copy's price in its condition, saying what near mint would be when it isn't: "$9.00 · LP (NM $10.00)". */
     fun conditionText(nearMint: Double?, condition: String): String? {
         val price = text(Conditions.price(nearMint, condition)) ?: return null
         if (Conditions.percent(condition) == 100) return price
@@ -76,7 +76,7 @@ object Conditions {
 
     /** The share of the near-mint price a copy in this condition is worth (contract/condition-prices-2026-10-24.md). */
     fun percent(condition: String): Int = when (condition.uppercase()) {
-        "LP" -> 85; "MP" -> 70; "HP" -> 50; "DMG" -> 35
+        "LP" -> 90; "MP" -> 75; "HP" -> 60; "DMG" -> 40
         else -> 100
     }
 

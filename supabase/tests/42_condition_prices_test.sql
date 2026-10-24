@@ -27,26 +27,26 @@ insert into public.card_prices (card_id, usd, usd_foil, eur, eur_foil) values
 
 set role authenticated;
 select pg_temp.as_user(:ANA);
--- 2 NM ($20) + 3 HP ($15) + 1 LP foil ($34); EUR 16 + 12 + 25.50.
+-- 2 NM ($20) + 3 HP ($18) + 1 LP foil ($36); EUR 16 + 14.40 + 27.
 select public.collection_apply(jsonb_build_array(
   jsonb_build_object('card_id', :BOLT, 'delta', 2),
   jsonb_build_object('card_id', :BOLT, 'condition', 'HP', 'delta', 3),
   jsonb_build_object('card_id', :BOLT, 'finish', 'foil', 'condition', 'LP', 'delta', 1)),
   'manual', null, 'e0000000-0000-0000-0000-000000000001') as r \gset
 select pg_temp.eq('value follows condition', pg_temp.j(:'r'::jsonb, '{summary,value_usd}') || '/' || pg_temp.j(:'r'::jsonb, '{summary,value_eur}'),
-  '69.00/53.50');
+  '74.00/57.40');
 
--- Moving a copy from NM to DMG takes $6.50 off.
+-- Moving a copy from NM to DMG takes $6 off.
 select public.collection_apply(jsonb_build_array(
   jsonb_build_object('card_id', :BOLT, 'delta', -1),
   jsonb_build_object('card_id', :BOLT, 'condition', 'DMG', 'delta', 1)),
   'manual', null, 'e0000000-0000-0000-0000-000000000002') as r \gset
-select pg_temp.eq('changing condition changes the value', pg_temp.j(:'r'::jsonb, '{summary,value_usd}'), '62.50');
+select pg_temp.eq('changing condition changes the value', pg_temp.j(:'r'::jsonb, '{summary,value_usd}'), '68.00');
 select public.collection_undo(((:'r'::jsonb)->>'batch_id')::uuid) as u \gset
-select pg_temp.eq('undo puts it back', pg_temp.j(:'u'::jsonb, '{summary,value_usd}'), '69.00');
+select pg_temp.eq('undo puts it back', pg_temp.j(:'u'::jsonb, '{summary,value_usd}'), '74.00');
 
 reset role;
 update public.library_summary set value_usd = 0, value_eur = 0 where user_id = :ANA;
 select t1_private.library_revalue();
 select pg_temp.eq('nightly revalue agrees',
-  (select value_usd || '/' || value_eur from public.library_summary where user_id = :ANA), '69.00/53.50');
+  (select value_usd || '/' || value_eur from public.library_summary where user_id = :ANA), '74.00/57.40');

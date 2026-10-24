@@ -7,10 +7,10 @@ const ORDER = ["NM", "LP", "MP", "HP", "DMG"];
 /** The share of the near-mint price a copy in this condition is worth. */
 export function conditionPercent(condition: string | null | undefined): number {
   switch ((condition ?? "").toUpperCase()) {
-    case "LP": return 85;
-    case "MP": return 70;
-    case "HP": return 50;
-    case "DMG": return 35;
+    case "LP": return 90;
+    case "MP": return 75;
+    case "HP": return 60;
+    case "DMG": return 40;
     default: return 100;
   }
 }
