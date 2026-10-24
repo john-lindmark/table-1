@@ -66,6 +66,11 @@ object ListToCollection {
 
     fun copies(ops: List<Op>) = ops.sumOf { it.delta }
 
+    /** Card detail's Add to collection row for one card in a list: a basic land is never missing, so it doesn't claim
+     *  you own every copy either (contract/basics-2026-10-24.md). */
+    fun cardDetail(missing: Int, basic: Boolean) =
+        if (missing > 0) "Missing $missing · the printing listed here" else if (basic) "Basic land · add the copies listed here" else "You own every copy listed here"
+
     /** Collection ops in the picked condition; an English printing goes in as the picked language, any other in its own. */
     fun collectionOps(ops: List<Op>, printingLang: (String) -> String?, condition: String, lang: String): List<CollectionOp> =
         ops.map { CollectionOp(it.cardId, it.finish, condition, Languages.forNew(printingLang(it.cardId) ?: "en", lang), delta = it.delta) }

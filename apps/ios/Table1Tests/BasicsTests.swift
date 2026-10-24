@@ -13,6 +13,7 @@ private struct Cases: Decodable {
     struct Line: Decodable { let card_id, finish: String; let short: Int; let lists: [String] }
     struct Op: Decodable { let card_id, finish: String; let delta: Int }
     struct Add: Decodable { let list, mode: String; let ops: [Op] }
+    struct Card: Decodable { let list: String; let only: [String]; let missing, all: Int; let detail: String }
     let basics: [String]
     let lists: [List]
     let owned: [String: Int]
@@ -20,6 +21,7 @@ private struct Cases: Decodable {
     let missingWithoutBasics: [String: Int]
     let lines: [Line]
     let add: [Add]
+    let card: [Card]
 }
 
 final class BasicsTests: XCTestCase {
@@ -43,6 +45,16 @@ final class BasicsTests: XCTestCase {
             let ops = ListToCollection.ops(l.entries, kind: l.kind, owned: c.owned, mode: try XCTUnwrap(ListToCollection.Mode(rawValue: a.mode)),
                                            basics: basics)
             XCTAssertEqual(ops, a.ops.map { ListToCollection.Op(cardId: $0.card_id, finish: $0.finish, delta: $0.delta) }, "\(a.list) \(a.mode)")
+        }
+        // Card detail's Add to collection row, as CardDetailPanels builds it.
+        for k in c.card {
+            let l = try XCTUnwrap(lists.first { $0.name == k.list })
+            let only = Set(k.only)
+            let m = ListToCollection.copies(ListToCollection.ops(l.entries, kind: l.kind, owned: c.owned, mode: .missing, only: only, basics: basics))
+            let a = ListToCollection.copies(ListToCollection.ops(l.entries, kind: l.kind, owned: c.owned, mode: .all, only: only, basics: basics))
+            XCTAssertEqual(m, k.missing, "\(k.list) \(k.only)")
+            XCTAssertEqual(a, k.all, "\(k.list) \(k.only)")
+            XCTAssertEqual(ListToCollection.cardDetail(missing: m, basic: !only.isDisjoint(with: basics)), k.detail, "\(k.list) \(k.only)")
         }
     }
 

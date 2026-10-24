@@ -52,4 +52,18 @@ class BasicsTest {
             assertEquals("${l.name} $mode", want, ListToCollection.ops(l.entries, l.kind, owned, mode, basics = basics))
         }
     }
+
+    /** Card detail's Add to collection row, as CardDetailScreen builds it. */
+    @Test fun notMissingOnACardsAddRow() {
+        for (k in c["card"]!!.jsonArray.map { it.jsonObject }) {
+            val l = lists.first { it.name == k["list"]!!.jsonPrimitive.content }
+            val only = k["only"]!!.jsonArray.map { it.jsonPrimitive.content }.toSet()
+            val m = ListToCollection.copies(ListToCollection.ops(l.entries, l.kind, owned, ListToCollection.Mode.Missing, only = only, basics = basics))
+            val a = ListToCollection.copies(ListToCollection.ops(l.entries, l.kind, owned, ListToCollection.Mode.All, only = only, basics = basics))
+            val name = "${l.name} $only"
+            assertEquals(name, k["missing"]!!.jsonPrimitive.int, m)
+            assertEquals(name, k["all"]!!.jsonPrimitive.int, a)
+            assertEquals(name, k["detail"]!!.jsonPrimitive.content, ListToCollection.cardDetail(m, only.any { it in basics }))
+        }
+    }
 }

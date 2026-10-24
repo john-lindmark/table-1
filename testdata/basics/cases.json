@@ -35,5 +35,11 @@
       {"card_id": "snow-forest", "finish": "foil", "delta": 2}
     ]},
     {"list": "Cube", "mode": "missing", "ops": [{"card_id": "strix", "finish": "nonfoil", "delta": 1}]}
+  ],
+  "card": [
+    {"list": "Burn", "only": ["island"], "missing": 0, "all": 8, "detail": "Basic land · add the copies listed here"},
+    {"list": "Burn", "only": ["snow-forest"], "missing": 0, "all": 2, "detail": "Basic land · add the copies listed here"},
+    {"list": "Burn", "only": ["bolt"], "missing": 2, "all": 4, "detail": "Missing 2 · the printing listed here"},
+    {"list": "Cube", "only": ["bolt"], "missing": 0, "all": 1, "detail": "You own every copy listed here"}
   ]
 }

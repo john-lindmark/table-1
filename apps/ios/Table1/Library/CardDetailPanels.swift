@@ -358,7 +358,8 @@ struct CardInfoView: View {
         let lines = list.entries.filter { byId[$0.cardId] != nil }
         let only = Set(lines.map(\.cardId))
         let ownedNow = ownedByPrinting()
-        let missing = ListToCollection.ops(list.entries, kind: list.kind, owned: ownedNow, mode: .missing, only: only)
+        let basics = CatalogStore.shared.basics
+        let missing = ListToCollection.ops(list.entries, kind: list.kind, owned: ownedNow, mode: .missing, only: only, basics: basics)
         let all = ListToCollection.ops(list.entries, kind: list.kind, owned: ownedNow, mode: .all, only: only)
         let m = ListToCollection.copies(missing), a = ListToCollection.copies(all)
         func add(_ ops: [ListToCollection.Op], mode: String) {
@@ -388,7 +389,7 @@ struct CardInfoView: View {
             }
             T1Overlays.shared.showMenu("Add \(oracle.name) to your collection", items)
         } label: {
-            ListRow(title: "Add to collection", detail: m > 0 ? "Missing \(m) · the printing listed here" : "You own every copy listed here") {
+            ListRow(title: "Add to collection", detail: ListToCollection.cardDetail(missing: m, basic: !only.isDisjoint(with: basics))) {
                 LabelText(busy ? "Adding…" : "Add", color: T1.text)
             }
         }

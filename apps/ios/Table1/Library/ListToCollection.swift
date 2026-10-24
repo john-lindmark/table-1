@@ -30,6 +30,12 @@ enum ListToCollection {
 
     static func copies(_ ops: [Op]) -> Int { ops.reduce(0) { $0 + $1.delta } }
 
+    /// Card detail's Add to collection row for one card in a list: a basic land is never missing, so it doesn't claim
+    /// you own every copy either (contract/basics-2026-10-24.md).
+    static func cardDetail(missing: Int, basic: Bool) -> String {
+        missing > 0 ? "Missing \(missing) · the printing listed here" : basic ? "Basic land · add the copies listed here" : "You own every copy listed here"
+    }
+
     /// Collection ops in the picked condition; an English printing goes in as the picked language, any other in its own.
     @MainActor
     static func collectionOps(_ ops: [Op], printings: [String: CatalogPrinting], condition: String, lang: String) -> [CollectionOp] {

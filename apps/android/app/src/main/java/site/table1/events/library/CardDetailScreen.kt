@@ -750,7 +750,8 @@ private fun CardInfo(o: CatalogOracle, p: CatalogPrinting?, version: CardVersion
             if (lines.isNotEmpty()) {
                 val only = lines.map { it.cardId }.toSet()
                 val ownedBy = col.items.values.filter { it.cardId in only }.groupBy { ownKey(it.cardId, it.finish) }.mapValues { (_, v) -> v.sumOf { it.qty } }
-                val missing = ListToCollection.ops(list.entries, list.kind, ownedBy, ListToCollection.Mode.Missing, only = only)
+                val basics = CatalogStore.basics
+                val missing = ListToCollection.ops(list.entries, list.kind, ownedBy, ListToCollection.Mode.Missing, only = only, basics = basics)
                 val all = ListToCollection.ops(list.entries, list.kind, ownedBy, ListToCollection.Mode.All, only = only)
                 val m = ListToCollection.copies(missing)
                 val a = ListToCollection.copies(all)
@@ -768,7 +769,7 @@ private fun CardInfo(o: CatalogOracle, p: CatalogPrinting?, version: CardVersion
                         busy = false
                     }
                 }
-                ListRow("Add to collection", if (m > 0) "Missing $m · the printing listed here" else "You own every copy listed here", onClick = {
+                ListRow("Add to collection", ListToCollection.cardDetail(m, only.any { it in basics }), onClick = {
                     if (!busy) menu = "Add ${o.name} to your collection" to (listOfNotNull(
                         if (m > 0) T1MenuItem("Add the $m missing · $addCondition") { add(missing, "missing") } else null,
                         if (a > 0 && a != m) T1MenuItem("Add all $a · $addCondition") { add(all, "all") } else null,

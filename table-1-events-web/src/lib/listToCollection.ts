@@ -34,6 +34,11 @@ export function listAddOps(entries: Entry[], kind: ListKind, owned: Map<string, 
 
 export const copiesOf = (ops: AddOp[]) => ops.reduce((n, o) => n + o.delta, 0);
 
+/** Card detail's Add to collection row for one card in a list: a basic land is never missing, so it doesn't claim you
+    own every copy either (contract/basics-2026-10-24.md). */
+export const cardAddDetail = (missing: number, basic: boolean) =>
+  missing > 0 ? `Missing ${missing} · the printing listed here` : basic ? "Basic land · add the copies listed here" : "You own every copy listed here";
+
 /** Collection ops in the picked condition; an English printing goes in as the picked language, any other in its own. */
 export function toCollectionOps(ops: AddOp[], printingLang: (cardId: string) => string | undefined, condition: Condition, lang: string): CollectionOp[] {
   return ops.map((o) => ({ card_id: o.card_id, finish: o.finish, condition, lang: langForNew(printingLang(o.card_id) ?? "en", lang), delta: o.delta }));

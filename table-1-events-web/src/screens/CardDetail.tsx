@@ -3,7 +3,7 @@ import { BackArrow, Dialog, Menu, Notice, Row, Section, type MenuItem } from "..
 import { ZoomImage } from "../components/ZoomImage";
 import { capture } from "../lib/telemetry";
 import { errorMessage } from "../lib/api";
-import { RARITY_NAME, cardImageUrl, formatName, oracleIndexById, type Catalog } from "../lib/catalog";
+import { RARITY_NAME, basicCardIds, cardImageUrl, formatName, oracleIndexById, type Catalog } from "../lib/catalog";
 import { applyOps, fetchHistory, undoBatch, useCollection, DEMO_USER, type CollectionOp, type Condition, type Finish, type HistoryEntry } from "../lib/collection";
 import { usdPrice, usdText, usePrices } from "../lib/prices";
 import { applyWants, binderById, forTrade, placementText, useBinders } from "../lib/binders";
@@ -11,7 +11,7 @@ import { printingPlaces } from "../lib/changePrinting";
 import { BOARD_ORDER, boardTitle, entriesOf, finishOf, sectionsFor, editList, useLists, type Board, type CardList, type ListOp } from "../lib/lists";
 import { saveTrade, useTrades, type TradeLine } from "../lib/trades";
 import { LANGUAGES, languageName, storedAddLang } from "../lib/languages";
-import { copiesOf, listAddOps, toCollectionOps, type AddOp } from "../lib/listToCollection";
+import { cardAddDetail, copiesOf, listAddOps, toCollectionOps, type AddOp } from "../lib/listToCollection";
 import { isHero, scopeOf, toggleHero, HERO_LIMIT } from "../lib/heroes";
 import { loadDemoLists } from "../lib/libraryDemo";
 import {
@@ -743,7 +743,8 @@ function CardInfo({ catalog, oi, version, p, printings, list, context, lists, re
     const ownedBy = new Map<string, number>();
     for (const it of col.items.values()) if (only.has(it.cardId)) ownedBy.set(`${it.cardId}|${it.finish}`, (ownedBy.get(`${it.cardId}|${it.finish}`) ?? 0) + it.qty);
     const entries = entriesOf(list);
-    const missing = listAddOps(entries, list.kind, ownedBy, "missing", true, only);
+    const basics = basicCardIds(catalog);
+    const missing = listAddOps(entries, list.kind, ownedBy, "missing", true, only, basics);
     const all = listAddOps(entries, list.kind, ownedBy, "all", true, only);
     const m = copiesOf(missing), a = copiesOf(all);
     const add = async (ops: AddOp[], mode: string) => {
@@ -765,7 +766,7 @@ function CardInfo({ catalog, oi, version, p, printings, list, context, lists, re
         onClick: () => void add([{ card_id: e.cardId, finish: finishOf(e), delta: 1 }], "one"),
       })),
     ];
-    return <Row title="Add to collection" detail={m > 0 ? `Missing ${m} · the printing listed here` : "You own every copy listed here"}
+    return <Row title="Add to collection" detail={cardAddDetail(m, [...only].some((id) => basics.has(id)))}
                 value={busy ? "Adding…" : "Add"} onClick={() => { if (!busy) setMenu({ title: `Add ${catalog.oName[oi]} to your collection`, items }); }} />;
   })();
 

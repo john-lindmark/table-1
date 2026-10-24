@@ -5,7 +5,7 @@ vi.mock("./supabaseClient", () => ({ supabase: {} }));
 const { basicCardIds, parsePack } = await import("./catalog");
 const { missingLines } = await import("./binders");
 const { missingIn } = await import("./lists");
-const { listAddOps } = await import("./listToCollection");
+const { cardAddDetail, copiesOf, listAddOps } = await import("./listToCollection");
 type CardList = import("./lists").CardList;
 type Entry = import("./lists").Entry;
 type AddMode = import("./listToCollection").AddMode;
@@ -21,6 +21,7 @@ interface Cases {
   missingWithoutBasics: Record<string, number>;
   lines: { card_id: string; finish: string; short: number; lists: string[] }[];
   add: { list: string; mode: AddMode; ops: { card_id: string; finish: string; delta: number }[] }[];
+  card: { list: string; only: string[]; missing: number; all: number; detail: string }[];
 }
 const c: Cases = JSON.parse(readFileSync(new URL("../../../testdata/basics/cases.json", import.meta.url), "utf8"));
 
@@ -47,6 +48,16 @@ describe("basics", () => {
     for (const a of c.add) {
       const l = lists.find((x) => x.name === a.list)!;
       expect(listAddOps(l.versions[0].entries, l.kind, owned, a.mode, true, undefined, basics)).toEqual(a.ops);
+    }
+  });
+
+  it("aren't missing on a card's Add to collection row", () => {
+    for (const k of c.card) {
+      const l = lists.find((x) => x.name === k.list)!;
+      const only = new Set(k.only);
+      const m = copiesOf(listAddOps(l.versions[0].entries, l.kind, owned, "missing", true, only, basics));
+      const a = copiesOf(listAddOps(l.versions[0].entries, l.kind, owned, "all", true, only, basics));
+      expect([m, a, cardAddDetail(m, k.only.some((id) => basics.has(id)))]).toEqual([k.missing, k.all, k.detail]);
     }
   });
 
