@@ -34,20 +34,9 @@ enum LanguageChange {
     /// id or `BinderRoute.unsorted`), else Unsorted first, then binders in the order given. Nil when nothing would change.
     static func ops(_ item: CollectionItem, places: [(place: String, qty: Int)], to lang: String, qty: Int,
                     from: String? = nil) -> [CollectionOp]? {
-        guard lang != item.lang, qty > 0, qty <= item.qty else { return nil }
-        let order = from.map { f in places.filter { $0.place == f } }
-            ?? (places.filter { $0.place == BinderRoute.unsorted } + places.filter { $0.place != BinderRoute.unsorted })
-        var left = qty
-        var ops: [CollectionOp] = []
-        for p in order where left > 0 {
-            let n = min(left, p.qty)
-            guard n > 0 else { continue }
-            let binderId = p.place == BinderRoute.unsorted ? nil : p.place
-            ops.append(CollectionOp(cardId: item.cardId, finish: item.finish, condition: item.condition, lang: item.lang, delta: -n, binderId: binderId))
-            ops.append(CollectionOp(cardId: item.cardId, finish: item.finish, condition: item.condition, lang: lang, delta: n, binderId: binderId))
-            left -= n
-        }
-        return left == 0 ? ops : nil
+        var to = CardVersion(item)
+        to.lang = lang
+        return CardDetailRules.ops(item, places: places, to: to, qty: qty, from: from)
     }
 
     /// Changes owned copies' language in place, asking "one copy or all" when there are several, and reports the

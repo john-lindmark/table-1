@@ -186,11 +186,11 @@ object CardImageLoader {
 /** A card image at a fixed width with the printing's real corner radius; flat placeholder until loaded. `finish`
  *  nonfoil | foil | etched: foil copies get a light sheen, etched a dimmer one. */
 @Composable
-fun CardArt(printing: CatalogPrinting?, width: Dp, modifier: Modifier = Modifier, finish: String = "nonfoil") {
+fun CardArt(printing: CatalogPrinting?, width: Dp, modifier: Modifier = Modifier, finish: String = "nonfoil", back: Boolean = false) {
     val density = LocalDensity.current
     val height = width / CARD_ASPECT
     val maxPx = with(density) { height.roundToPx() }
-    val url = printing?.imageUrl(CardImageLoader.size(with(density) { width.roundToPx() }))
+    val url = printing?.imageUrl(CardImageLoader.size(with(density) { width.roundToPx() }), back)
     val shape = RoundedCornerShape(width * CardCorners.ratio(printing?.set ?: ""))
     var image by remember(url) { mutableStateOf(url?.let { CardImageLoader.cached(it, maxPx) }) }
     LaunchedEffect(url) { if (url != null && image == null) image = CardImageLoader.load(url, maxPx) }

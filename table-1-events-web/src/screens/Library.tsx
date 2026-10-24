@@ -1,38 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { Bar, Field, GhostAction, Menu, Notice, Row, SCREEN_WIDTH, Screen, Section, Segmented, TopNav, type MenuItem, type ScreenWidth } from "../components/kit";
-import { copiesOf, listAddOps, toCollectionOps, type AddOp } from "../lib/listToCollection";
+import { Bar, Field, Menu, Notice, Row, SCREEN_WIDTH, Screen, Segmented, TopNav, type ScreenWidth } from "../components/kit";
 import { capture } from "../lib/telemetry";
 import { LAYOUTS, parseLayout, runStacks, type CardLayout } from "../lib/cardLayout";
 import { GROUPING_KEY, GROUPING_TITLE, groupLabel, groupSections, groupingOptions, keysOf, useStoredGrouping, type Grouping } from "../lib/cardGrouping";
 import { SignInButtons } from "../components/SignInButtons";
 import { errorMessage } from "../lib/api";
 import {
-  FINISH_LETTER, RARITY_NAME, cardImageUrl, cornerRatio, coverPrinting, loadCatalog, normName, oracleIndexById, type Catalog,
+  cardImageUrl, cornerRatio, coverPrinting, loadCatalog, normName, type Catalog,
 } from "../lib/catalog";
 import {
-  applyOps, fetchHistory, undoBatch, useCollection, type Finish, type HistoryEntry, type Item,
+  useCollection, type Finish, type Item,
 } from "../lib/collection";
-import { supabase } from "../lib/supabaseClient";
 import { useSession } from "../lib/useSession";
 import { isLibraryDemo, loadDemoLists } from "../lib/libraryDemo";
 import { DEMO_USER, type Condition } from "../lib/collection";
 import { usdPrice, usdText, usePrices } from "../lib/prices";
 import { useTrades } from "../lib/trades";
-import { binderById, binderTotals, forTrade, liveWants, missingLines, placementText, useBinders } from "../lib/binders";
-import { MoveCopies, UNSORTED, WantCardRow } from "./Binders";
-import { ChangePrintingScreen, type PrintingTarget } from "./ChangePrinting";
-import { printingPlaces } from "../lib/changePrinting";
-import { BOARD_ORDER, boardTitle, entriesOf, finishOf, useLists, type Entry } from "../lib/lists";
+import { binderTotals, liveWants, missingLines, useBinders } from "../lib/binders";
+import { entriesOf, useLists } from "../lib/lists";
 import { TradeMatchesRow } from "./Friends";
 import type { SectionKind } from "../lib/friends";
-import { COLLAPSED, addPart, isOpen, oldestFirst, priceRank, setAll, sortParts, toggleOne, type Disclosure, type Part } from "../lib/printings";
-import { COLLECTION_SCOPE, heroPrintings, heroesOf, isHero, scopeOf, startDemoHeroes, toggleHero, useHeroes, HERO_LIMIT } from "../lib/heroes";
+import { COLLAPSED, addPart, isOpen, priceRank, setAll, sortParts, toggleOne, type Disclosure, type Part } from "../lib/printings";
+import { COLLECTION_SCOPE, heroPrintings, heroesOf, isHero, startDemoHeroes, useHeroes } from "../lib/heroes";
 import { CardSearchBar, CardSearchStatus, useCardSearch } from "./CardSearch";
 import { hasSyntax } from "../lib/cardQuery";
-import { langForNew, storeAddLang, storedAddLang } from "../lib/languages";
-import { NewCopiesLanguageRow, OwnedLanguageRow } from "./Languages";
 import { hidePeek, movePeek, showPeek } from "../components/CardPeek";
-import { PEEK_W, useDesktop, useHoverPreview } from "../lib/desktop";
+import { PEEK_W, useHoverPreview } from "../lib/desktop";
 import { ShareButton } from "./Share";
 
 export const CONDITIONS: Condition[] = ["NM", "LP", "MP", "HP", "DMG"];
@@ -89,7 +82,7 @@ export const money = (n: number | null | undefined, cur: "USD" | "EUR") =>
   n == null ? "—" : new Intl.NumberFormat(undefined, { style: "currency", currency: cur, maximumFractionDigits: 0 }).format(n);
 const FINISH_LABEL: Record<Finish, string> = { nonfoil: "Non-foil", foil: "Foil", etched: "Etched" };
 
-function SignedOut({ title }: { title: string }) {
+export function SignedOut({ title }: { title: string }) {
   return (
     <Screen>
       <Bar title={title} />
@@ -203,7 +196,9 @@ function FoilSheen({ etched, radius }: { etched: boolean; radius: number }) {
   );
 }
 
-export function CardArt({ c, p, width, alt = "", finish = "nonfoil" }: { c: Catalog; p: number | null; width: number; alt?: string; finish?: CardFinish }) {
+export function CardArt({ c, p, width, alt = "", finish = "nonfoil", back = false }: {
+  c: Catalog; p: number | null; width: number; alt?: string; finish?: CardFinish; /** A double-faced card's back. */ back?: boolean;
+}) {
   const height = Math.round(width / ASPECT);
   const radius = p == null ? width * 0.0432 : width * cornerRatio(c.pSet[p]);
   if (p == null || c.pFaces[p] === 0) {
@@ -212,7 +207,7 @@ export function CardArt({ c, p, width, alt = "", finish = "nonfoil" }: { c: Cata
   const px = width * (typeof window === "undefined" ? 1 : window.devicePixelRatio || 1);
   const size = px <= 146 ? "small" : px <= 488 ? "normal" : "large";
   const img = (
-    <img src={cardImageUrl(c, p, size)} alt={alt} width={width} height={height} loading="lazy" decoding="async"
+    <img src={cardImageUrl(c, p, size, back && c.pFaces[p] > 1)} alt={alt} width={width} height={height} loading="lazy" decoding="async"
          draggable={false} className="bg-t1-bg shrink-0 object-cover block" style={{ width, height, borderRadius: radius }} />
   );
   if (finish === "nonfoil") return img;
@@ -887,385 +882,4 @@ export function AddCards({ onBack, onOpen }: { onBack: () => void; onOpen: (orac
   );
 }
 
-/* ── card detail ──────────────────────────────────────────────────────── */
-
-interface PrintingPrice { id: string; set_name: string | null; usd: number | null; usd_foil: number | null; eur: number | null; eur_foil: number | null }
-
-function priceFor(pr: PrintingPrice | undefined, f: Finish) {
-  if (!pr) return null;
-  const usd = f === "nonfoil" ? pr.usd : pr.usd_foil;
-  const eur = f === "nonfoil" ? pr.eur : pr.eur_foil;
-  if (usd == null && eur == null) return null;
-  return [usd != null ? `$${usd}` : null, eur != null ? `€${eur}` : null].filter(Boolean).join(" · ");
-}
-
-/** Where card detail was opened from: that deck/cube's lines or that binder's copies (or Unsorted's) come first, each
- *  with Change printing (contract/change-printing-2026-10-18.md). */
-export interface CardContext { list?: string; binder?: string }
-
-export function CardDetail({ oracleId, onBack, context }: { oracleId: string; onBack: () => void; context?: CardContext }) {
-  const { session, ready, userId } = useLibrarySession();
-  const col = useCollection(userId);
-  const lists = useLists(userId, userId === DEMO_USER ? loadDemoLists : undefined);
-  /** The Change printing screen, over this one. */
-  const [changing, setChanging] = useState<{ target: PrintingTarget; screen: string } | null>(null);
-  const { catalog, error: catError } = useCatalog();
-  const [prices, setPrices] = useState<Map<string, PrintingPrice>>(new Map());
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [last, setLast] = useState<{ batch: string; label: string } | null>(null);
-  const [showAll, setShowAll] = useState(false);
-  const [open, setOpen] = useState<string | null>(null);
-  const [history, setHistory] = useState<HistoryEntry[] | null>(null);
-  /** A printing tapped in the list, shown large in place of the owned one. */
-  const [preview, setPreview] = useState<number | null>(null);
-  const desktop = useDesktop();
-  const [addCondition, setAddCondition] = useAddCondition();
-  /** The Add to collection menu, opened from a deck or cube. */
-  const [listAdd, setListAdd] = useState<MenuItem[] | null>(null);
-  /** Language new English-printing copies go in as (shared with binder adds and trades). */
-  const [addLang, setAddLangState] = useState(storedAddLang);
-  const setAddLang = (code: string) => { setAddLangState(code); storeAddLang(code); };
-  /** Moving copies of one owned item to another condition, when there's more than one copy. */
-  const [moving, setMoving] = useState<{ k: string; to: Condition } | null>(null);
-  /** Moving copies of one owned item between binders. */
-  const [sorting, setSorting] = useState<Item | null>(null);
-  const [note, setNote] = useState<string | null>(null);
-  const binders = useBinders(userId);
-  const heroes = useLibraryHeroes();
-
-  const oi = catalog ? oracleIndexById(catalog, oracleId) : -1;
-  useEffect(() => {
-    supabase.rpc("card_printings", { p_oracle_id: oracleId }).then(({ data }) => {
-      if (data) setPrices(new Map((data as PrintingPrice[]).map((p) => [p.id, p])));
-    });
-  }, [oracleId]);
-
-  const owned = useMemo(() => {
-    if (!catalog || oi < 0) return [];
-    const ids = new Set<string>();
-    for (let p = catalog.pFirst[oi]; p < catalog.pFirst[oi] + catalog.pCount[oi]; p++) ids.add(catalog.pId[p]);
-    return [...col.items.values()].filter((it) => ids.has(it.cardId))
-      .sort((a, b) => (a.cardId !== b.cardId ? oldestFirst(catalog, catalog.printingIndex.get(a.cardId)!, catalog.printingIndex.get(b.cardId)!) : 0) || a.k.localeCompare(b.k));
-  }, [catalog, oi, col.version]);
-
-  useEffect(() => {
-    if (!open) return setHistory(null);
-    setHistory(null);
-    fetchHistory(open).then(setHistory, (e) => setError(errorMessage(e)));
-  }, [open, col.version]);
-
-  const change = async (key: string, label: string, op: Parameters<typeof applyOps>[0][number] | Parameters<typeof applyOps>[0]) => {
-    setBusy(key);
-    setError(null);
-    setMoving(null);
-    try {
-      const res = await applyOps(Array.isArray(op) ? op : [op]);
-      setLast({ batch: res.batch_id, label });
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(null);
-    }
-  };
-  const undo = async () => {
-    if (!last) return;
-    setBusy("undo");
-    try {
-      await undoBatch(last.batch);
-      setLast(null);
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const moveCondition = (it: Item, p: number, to: Condition, n: number) => {
-    const label = catalog ? `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}` : "card";
-    void change(it.k, `Moved ${n} ${label} to ${to}`, [
-      { card_id: it.cardId, finish: it.finish, condition: it.condition, lang: it.lang, delta: -n },
-      { card_id: it.cardId, finish: it.finish, condition: to, lang: it.lang, delta: n },
-    ]);
-  };
-
-  if (!ready) return <Screen><div className="flex-1" /></Screen>;
-  if (!session) return <SignedOut title="Card" />;
-  if (!catalog) {
-    return (
-      <Screen>
-        <Bar title="Card" onBack={onBack} />
-        {catError ? <Notice tone="error">{catError}</Notice> : <div className="bg-t1-surface px-4 py-4 t1-label">Loading card data…</div>}
-      </Screen>
-    );
-  }
-  if (oi < 0) {
-    return (
-      <Screen>
-        <Bar title="Card" onBack={onBack} />
-        <Notice tone="error">That card isn't in the card data.</Notice>
-      </Screen>
-    );
-  }
-
-  if (changing) {
-    return <ChangePrintingScreen target={changing.target} screenName={changing.screen} onClose={() => setChanging(null)}
-                                 onChanged={(batch, label) => { setLast({ batch, label }); setNote(null); setError(null); }} />;
-  }
-
-  const first = catalog.pFirst[oi];
-  const count = catalog.pCount[oi];
-  // Opened from a deck/cube: this card's lines there; from a binder (or Unsorted): this card's copies there.
-  const ctxList = context?.list ? lists.lists.find((l) => l.id === context.list) : undefined;
-  const ctxLines: { e: Entry; p: number }[] = ctxList
-    ? entriesOf(ctxList).flatMap((e) => {
-      const p = catalog.printingIndex.get(e.cardId);
-      return p != null && catalog.pOracle[p] === oi ? [{ e, p }] : [];
-    }).sort((a, b) => BOARD_ORDER.indexOf(a.e.board) - BOARD_ORDER.indexOf(b.e.board))
-    : [];
-  void binders.version;
-  const ctxCopies = context?.binder
-    ? owned.flatMap((it) => {
-      const here = printingPlaces(it).find((pl) => pl.place === context.binder)?.qty ?? 0;
-      return here > 0 ? [{ it, p: catalog.printingIndex.get(it.cardId)!, qty: here }] : [];
-    })
-    : [];
-  const ctxPrinting = ctxLines[0]?.p ?? ctxCopies[0]?.p;
-  const changeOwned = (it: Item, place: string | null) => setChanging({ target: { kind: "owned", item: it, place }, screen: "item_printing" });
-  const heroP = preview ?? ctxPrinting ?? (owned.length ? catalog.printingIndex.get(owned[0].cardId)! : coverPrinting(catalog, oi));
-  const total = owned.reduce((n, it) => n + it.qty, 0);
-  const setLabel = (p: number) => `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}`;
-  // Earliest first, most recent last (contract/library-polish-2026-10-19.md).
-  const printings = Array.from({ length: count }, (_, i) => first + i).sort((a, b) => oldestFirst(catalog, a, b));
-
-  return (
-    <LibScreen>
-      <Bar title={catalog.oName[oi]} subtitle={`${total} in collection`} onBack={onBack} />
-      {(error || col.error) && <Notice tone="error">{error ?? col.error}</Notice>}
-      {note && !last && <Notice tone="info">{note}</Notice>}
-      {sorting && (
-        <MoveCopies item={sorting} label={setLabel(catalog.printingIndex.get(sorting.cardId)!)} onClose={() => setSorting(null)}
-                    onMoved={(t) => { setSorting(null); setNote(t); setLast(null); }} />
-      )}
-      {last && (
-        <div className="bg-t1-surface px-4 py-3 flex items-center justify-between gap-3">
-          <span className="t1-label truncate">{last.label}</span>
-          <button type="button" onClick={undo} disabled={busy === "undo"} className="t1-label hover:text-t1-text disabled:opacity-40">
-            Undo
-          </button>
-        </div>
-      )}
-      {/* Desktop: the card large in its own column; the copies, lists and printings scroll beside it. */}
-      <div className="flex-1 min-h-0 flex gap-px">
-      {desktop && (
-        <div className="w-[332px] shrink-0 bg-t1-surface p-4 flex flex-col gap-3 overflow-y-auto">
-          <CardArt key={heroP} c={catalog} p={heroP} width={300} alt={catalog.oName[oi]} />
-          <div className="flex flex-col gap-1">
-            <p className="text-[13px]">{catalog.oType[oi]}</p>
-            {catalog.oCost[oi] && <p className="t1-label">{catalog.oCost[oi]}</p>}
-            <p className="t1-label">{count} printings · pick one to see it here</p>
-          </div>
-        </div>
-      )}
-      <div className="flex-1 min-w-0 min-h-0 overflow-y-auto flex flex-col gap-px">
-        {!desktop && (
-          <div className="bg-t1-surface px-4 py-4 flex gap-4 items-start">
-            <CardArt key={heroP} c={catalog} p={heroP} width={146} alt={catalog.oName[oi]} />
-            <div className="min-w-0 flex flex-col gap-1">
-              <p className="text-[13px]">{catalog.oType[oi]}</p>
-              {catalog.oCost[oi] && <p className="t1-label">{catalog.oCost[oi]}</p>}
-              <p className="t1-label">{count} printings</p>
-            </div>
-          </div>
-        )}
-
-        {context?.list && (
-          <>
-            <Section title={`In ${ctxList?.name ?? "this list"}`} count={ctxLines.reduce((n, l) => n + l.e.qty, 0)} />
-            {!ctxLines.length && <div className="bg-t1-surface px-4 py-4 t1-label">Not in this {ctxList?.kind === "cube" ? "cube" : "deck"} any more.</div>}
-            {ctxList && ctxLines.map(({ e, p }) => (
-              <div key={`${e.board}|${e.cardId}|${finishOf(e)}`} className="h-[60px] shrink-0">
-                <CardRow c={catalog} p={p} title={`${setLabel(p)} · ${FINISH_LABEL[finishOf(e)]}`} detail={boardTitle(ctxList.kind, e.board)} finish={finishOf(e)}
-                         value={<ChangeValue qty={e.qty} />}
-                         onClick={() => setChanging({ target: { kind: "list", listId: ctxList.id, cardId: e.cardId, board: e.board, finish: finishOf(e) }, screen: "list_printing" })} />
-              </div>
-            ))}
-            {ctxList && ctxLines.length > 0 && !ctxList.eventId && (() => {
-              // Add to collection: what this card lacks here, every copy listed, or one of a listed printing.
-              const only = new Set(ctxLines.map((l) => l.e.cardId));
-              const ownedBy = new Map<string, number>();
-              for (const it of col.items.values()) if (only.has(it.cardId)) ownedBy.set(`${it.cardId}|${it.finish}`, (ownedBy.get(`${it.cardId}|${it.finish}`) ?? 0) + it.qty);
-              const entries = entriesOf(ctxList);
-              const missing = listAddOps(entries, ctxList.kind, ownedBy, "missing", true, only);
-              const all = listAddOps(entries, ctxList.kind, ownedBy, "all", true, only);
-              const m = copiesOf(missing), a = copiesOf(all);
-              const name = catalog.oName[oi];
-              const add = (ops: AddOp[], mode: string) => {
-                const n = copiesOf(ops);
-                void change("listadd", `Added ${n} ${name} to your collection`,
-                            toCollectionOps(ops, (id) => { const p = catalog.printingIndex.get(id); return p == null ? undefined : catalog.pLang[p]; }, addCondition, addLang));
-                capture("list_added_to_collection", { kind: ctxList.kind, mode, sideboard: true, copies: n, lines: ops.length, from: "card" });
-              };
-              const items: MenuItem[] = [
-                ...(m > 0 ? [{ title: `Add the ${m} missing`, detail: `As listed here · ${addCondition}`, onClick: () => add(missing, "missing") }] : []),
-                ...(a > 0 && a !== m ? [{ title: `Add all ${a}`, detail: `Every copy listed here · ${addCondition}`, onClick: () => add(all, "all") }] : []),
-                ...ctxLines.slice(0, 4).map(({ e, p }) => ({
-                  title: `Add 1 ${setLabel(p)}${finishOf(e) === "nonfoil" ? "" : ` · ${FINISH_LABEL[finishOf(e)]}`}`, detail: boardTitle(ctxList.kind, e.board),
-                  onClick: () => add([{ card_id: e.cardId, finish: finishOf(e), delta: 1 }], "one"),
-                })),
-              ];
-              return <>
-                <Row title="Add to collection" detail={m > 0 ? `Missing ${m} · the printing listed here` : "You own every copy listed here"}
-                     value={busy === "listadd" ? "Adding…" : "Add"} onClick={() => { if (busy !== "listadd") setListAdd(items); }} />
-                {listAdd && <Menu title={`Add ${name} to your collection`} items={listAdd} onClose={() => setListAdd(null)} />}
-              </>;
-            })()}
-          </>
-        )}
-        {context?.binder && (
-          <>
-            <Section title={`In ${context.binder === UNSORTED ? "Unsorted" : binderById(context.binder)?.name ?? "Binder"}`}
-                     count={ctxCopies.reduce((n, c) => n + c.qty, 0)} />
-            {!ctxCopies.length && <div className="bg-t1-surface px-4 py-4 t1-label">None here any more.</div>}
-            {ctxCopies.map(({ it, p, qty }) => (
-              <div key={`in|${it.k}`} className="h-[60px] shrink-0">
-                <CardRow c={catalog} p={p} title={`${setLabel(p)} · ${FINISH_LABEL[it.finish]}`} finish={it.finish}
-                         detail={[it.condition, it.lang === "en" ? null : it.lang.toUpperCase()].filter(Boolean).join(" · ")}
-                         value={<ChangeValue qty={qty} />} onClick={() => changeOwned(it, context.binder!)} />
-              </div>
-            ))}
-          </>
-        )}
-        <Section title="In collection" count={owned.length} />
-        {owned.length === 0 && <div className="bg-t1-surface px-4 py-4 t1-label">None yet. Pick a printing below.</div>}
-        {owned.map((it) => {
-          const p = catalog.printingIndex.get(it.cardId)!;
-          const price = priceFor(prices.get(it.cardId), it.finish);
-          return (
-            <div key={it.k} className="flex flex-col gap-px">
-              <div className="bg-t1-surface flex items-stretch">
-                <button type="button" onClick={() => { setOpen(open === it.cardId ? null : it.cardId); setPreview(p); }}
-                        className="flex-1 min-w-0 px-4 py-[5px] flex items-center gap-3 text-left hover:bg-t1-surface-hover">
-                  <CardArt c={catalog} p={p} width={36} finish={it.finish} />
-                  <span className="min-w-0 flex flex-col gap-0.5">
-                    <span className="text-[13px] truncate">{setLabel(p)} · {FINISH_LABEL[it.finish]}</span>
-                    <span className="t1-label truncate">
-                      {[prices.get(it.cardId)?.set_name, it.condition, it.lang.toUpperCase(), price].filter(Boolean).join(" · ")}
-                    </span>
-                    {binders.version >= 0 && placementText(it) && (
-                      <span className={`t1-label truncate ${forTrade(it.k).qty > 0 ? "!text-t1-accent" : ""}`}>{placementText(it)}</span>
-                    )}
-                  </span>
-                </button>
-                <span className="px-3 flex items-center text-[17px] tabular-nums">{it.qty}</span>
-                <button type="button" aria-label="Remove one" disabled={busy === it.k}
-                        onClick={() => change(it.k, `Removed 1 ${setLabel(p)}`, { card_id: it.cardId, finish: it.finish, condition: it.condition, lang: it.lang, delta: -1 })}
-                        className="w-14 bg-t1-bg hover:bg-t1-surface-hover text-[20px] disabled:opacity-30">−</button>
-                <button type="button" aria-label="Add one" disabled={busy === it.k}
-                        onClick={() => change(it.k, `Added 1 ${setLabel(p)}`, { card_id: it.cardId, finish: it.finish, condition: it.condition, lang: it.lang, delta: 1 })}
-                        className="w-14 ml-px bg-t1-bg hover:bg-t1-surface-hover text-[20px] disabled:opacity-30">+</button>
-              </div>
-              {open === it.cardId && (
-                <div className="flex flex-col gap-px">
-                  <Segmented options={CONDITIONS.map((c) => ({ value: c, label: c }))} value={it.condition}
-                             onChange={(c) => {
-                               if (c === it.condition) return;
-                               if (it.qty === 1) moveCondition(it, p, c, 1);
-                               else setMoving({ k: it.k, to: c });
-                             }} />
-                  <OwnedLanguageRow item={it} label={setLabel(p)} onError={setError}
-                                    onDone={(batch, text) => { setLast({ batch, label: text }); setNote(null); setError(null); }} />
-                  <Row title="Change printing" detail="Or finish · keeps condition and binder" value={setLabel(p)} onClick={() => changeOwned(it, null)} />
-                  <Row title="Move" detail={placementText(it) ?? `Unsorted ${it.qty}`} onClick={() => setSorting(it)} />
-                  {moving?.k === it.k && (
-                    <div className="flex gap-px">
-                      <GhostAction label={`Move 1 copy to ${moving.to}`} onClick={() => moveCondition(it, p, moving.to, 1)} />
-                      <GhostAction label={`Move all ${it.qty}`} onClick={() => moveCondition(it, p, moving.to, it.qty)} />
-                    </div>
-                  )}
-                </div>
-              )}
-              {open === it.cardId && (
-                <div className="bg-t1-surface px-4 py-3 flex flex-col gap-1">
-                  <span className="t1-label">History · {setLabel(p)}</span>
-                  {history === null && <span className="t1-label">Loading…</span>}
-                  {history?.map((h, i) => (
-                    <span key={i} className={`text-[12px] tabular-nums ${h.undone ? "opacity-50 line-through" : ""}`}>
-                      {new Date(h.at).toLocaleDateString()} · {h.delta > 0 ? `+${h.delta}` : h.delta} {FINISH_LABEL[h.finish]} · {h.source} → {h.qty_after}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        <WantCardRow catalog={catalog} oi={oi} shown={preview ?? (owned.length ? catalog.printingIndex.get(owned[0].cardId)! : null)}
-                     onAdded={(t) => { setNote(t); setLast(null); }} />
-        <HeroToggleRow oracleId={catalog.oId[oi]} context={context} heroes={heroes} lists={lists.lists} onFull={setError} />
-        <Section title="Add a printing" count={count} right={<span title={CONDITION_NAME[addCondition]}>Adds as {addCondition}</span>} />
-        <Segmented options={CONDITIONS.map((c) => ({ value: c, label: c }))} value={addCondition} onChange={setAddCondition} />
-        <NewCopiesLanguageRow lang={addLang} onChange={setAddLang} />
-        {(showAll ? printings : printings.slice(0, 12)).map((p) => {
-          const finishes = (["n", "f", "e"] as const).filter((l) => catalog.pFinishes[p].includes(l)).map((l) => FINISH_LETTER[l]) as Finish[];
-          const pr = prices.get(catalog.pId[p]);
-          return (
-            <div key={p} className="bg-t1-surface flex items-stretch gap-px">
-              {/* Tapping the art or name shows this printing large at the top. */}
-              <button type="button" onClick={() => setPreview(p)}
-                      className="flex-1 min-w-0 px-4 py-[5px] flex items-center gap-3 text-left hover:bg-t1-surface-hover">
-                <CardArt c={catalog} p={p} width={36} />
-                <span className="min-w-0 flex flex-col gap-0.5">
-                  <span className="text-[13px] truncate">{setLabel(p)}{catalog.pLang[p] !== "en" ? ` · ${catalog.pLang[p].toUpperCase()}` : ""}</span>
-                  <span className="t1-label truncate">
-                    {[pr?.set_name, RARITY_NAME[catalog.pRarity[p]], catalog.pReleased[p]?.slice(0, 4)].filter(Boolean).join(" · ")}
-                  </span>
-                </span>
-              </button>
-              {finishes.map((f) => {
-                const k = `${catalog.pId[p]}|${f}`;
-                const lang = langForNew(catalog.pLang[p], addLang);
-                return (
-                  <button key={f} type="button" disabled={busy === k} title={priceFor(pr, f) ?? undefined}
-                          onClick={() => change(k, `Added 1 ${setLabel(p)} ${FINISH_LABEL[f]} · ${addCondition}${lang === "en" ? "" : ` · ${lang.toUpperCase()}`}`,
-                                                { card_id: catalog.pId[p], finish: f, condition: addCondition, lang, delta: 1 })}
-                          className="px-3 bg-t1-bg hover:bg-t1-surface-hover text-[11px] uppercase tracking-[1px] disabled:opacity-30">
-                    + {f === "nonfoil" ? "Card" : FINISH_LABEL[f]}
-                  </button>
-                );
-              })}
-            </div>
-          );
-        })}
-        {!showAll && count > 12 && <Row title={`Show all ${count} printings`} onClick={() => setShowAll(true)} />}
-      </div>
-      </div>
-    </LibScreen>
-  );
-}
-
-/** Makes the card a hero of where it was opened from: the deck or cube, the binder, or (from anywhere else) the
- *  collection. Unsorted has no heroes. */
-function HeroToggleRow({ oracleId, context, heroes, lists, onFull }: {
-  oracleId: string; context?: CardContext; heroes: Record<string, string[]>; lists: { id: string; name: string }[]; onFull: (e: string) => void;
-}) {
-  const scope = scopeOf(context, UNSORTED);
-  if (!scope) return null;
-  const on = isHero(oracleId, scope, heroes);
-  const place = scope.kind === "collection" ? "your collection"
-    : scope.kind === "list" ? lists.find((l) => l.id === scope.id)?.name ?? "this list"
-    : binderById(scope.id)?.name ?? "this binder";
-  return (
-    <Row title={on ? `Hero of ${place}` : "Make it a hero"}
-         detail={on ? "Tap to stop highlighting it" : `Highlighted in ${place} and where it's listed`}
-         value={on ? <span className="t1-label !text-t1-text">Hero</span> : undefined}
-         onClick={() => {
-           if (!toggleHero(oracleId, scope)) onFull(`${place.charAt(0).toUpperCase()}${place.slice(1)} has ${HERO_LIMIT} hero cards already.`);
-         }} />
-  );
-}
-
-/** A context row's count, with "Change" so the row says what a tap does. */
-function ChangeValue({ qty }: { qty: number }) {
-  return <span className="flex items-center gap-3"><span className="t1-label !text-t1-text">Change</span><span>{qty}</span></span>;
-}
+/* Card detail lives in CardDetail.tsx (contract/card-detail-2026-10-23.md). */

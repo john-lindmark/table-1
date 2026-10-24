@@ -711,7 +711,7 @@ struct ProfileCardsView: View {
                 } else {
                     ForEach(sec.cards) { g in
                         CardGroupRows(group: g, detail: g.type, open: printings.open(g.id), toggle: { printings.toggle(g.id) },
-                                      tap: { _ in if g.known { path.append(.card(g.id)) } })
+                                      tap: { _ in if g.known { path.append(.cardIn(g.id, .search)) } })
                     }
                 }
             }
@@ -720,7 +720,7 @@ struct ProfileCardsView: View {
 
     private func groupTiles(_ shown: [CardGroup]) -> [StackCard] {
         shown.flatMap { g -> [StackCard] in
-            let open = { if g.known { path.append(.card(g.id)) } }
+            let open = { if g.known { path.append(.cardIn(g.id, .search)) } }
             guard printings.all, g.parts.count > 1 else {
                 return [StackCard(id: g.id, printing: g.cover, name: g.name, qty: g.qty, finish: g.coverFinish, open: open)]
             }
@@ -738,7 +738,7 @@ struct ProfileCardsView: View {
     }
 
     private func openCard(_ oracleId: String?) {
-        if let oracleId { path.append(.card(oracleId)) }
+        if let oracleId { path.append(.cardIn(oracleId, .search)) }
     }
 
     // MARK: export and copy
@@ -1071,7 +1071,7 @@ struct TradeMatchView: View {
         if lines.isEmpty { Notice(have ? "Nothing of theirs that you want." : "Nothing of yours that they want.") }
         ForEach(lines) { l in
             let n = names[l.cardId]
-            Button { if let o = n?.oracleId { path.append(.card(o)) } } label: {
+            Button { if let o = n?.oracleId { path.append(.cardIn(o, .search)) } } label: {
                 CardRow(printing: n?.printing, title: n?.name ?? "…", detail: detail(l, n?.printing, have: have)) {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("\(l.qty)").font(T1.mono(17)).monospacedDigit()

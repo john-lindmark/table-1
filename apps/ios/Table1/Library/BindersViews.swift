@@ -592,7 +592,7 @@ struct WantsView: View {
                 else if shownMissing.isEmpty && catalog.phase == .ready { Notice("Your decks and cubes have every card they need.") }
                 ForEach(Array((showAllMissing ? shownMissing : Array(shownMissing.prefix(60))).enumerated()), id: \.element.line.id) { _, m in
                     HStack(spacing: 1) {
-                        Button { if let o = m.oracleId { path.append(.card(o)) } } label: {
+                        Button { if let o = m.oracleId { path.append(.cardIn(o, .search)) } } label: {
                             CardRow(printing: m.printing, title: m.name,
                                     detail: [m.line.finish == "nonfoil" ? nil : m.line.finish.capitalized, m.line.lists.joined(separator: ", ")]
                                         .compactMap { $0 }.joined(separator: " · ")) {
@@ -682,7 +682,7 @@ struct WantsView: View {
         items.append(T1MenuItem(title: "Change printing", detail: w.cardId == nil ? "Any printing" : r.printing?.setLabel) {
             T1Overlays.shared.present(full: true) { WantPrintingPanel(oracleId: w.oracleId, replacing: w).screen("want_printing") }
         })
-        items.append(T1MenuItem(title: "Open card") { path.append(.card(w.oracleId)) })
+        items.append(T1MenuItem(title: "Open card") { path.append(.cardIn(w.oracleId, .search)) })
         items.append(T1MenuItem(title: "Remove", destructive: true) { var o = base; o.qty = 0; set(o, "want_removed") })
         T1Overlays.shared.showMenu(r.name, items)
     }

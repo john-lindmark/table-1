@@ -1258,7 +1258,7 @@ struct ListVersionView: View {
 
     private func changeRow(_ c: CardList.Change) -> some View {
         let card = cards[c.cardId]
-        return Button { if let o = card?.oracleId { path.append(.card(o)) } } label: {
+        return Button { if let o = card?.oracleId { path.append(.cardIn(o, .list(listId))) } } label: {
             CardRow(printing: card?.printing, title: card?.name ?? "…",
                     detail: [c.delta > 0 ? "Added" : "Removed", c.finish == "nonfoil" ? nil : c.finish.capitalized].compactMap { $0 }.joined(separator: " · ")) {
                 Text(c.delta > 0 ? "+\(c.delta)" : "−\(-c.delta)").font(T1.mono(17)).monospacedDigit()

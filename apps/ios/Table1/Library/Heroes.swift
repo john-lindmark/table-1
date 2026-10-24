@@ -33,6 +33,7 @@ enum HeroScope: Hashable {
         case .list(let id): self = .list(id)
         case .binder(let id): if id == BinderRoute.unsorted { return nil } else { self = .binder(id) }
         case nil: self = .collection
+        case .search: return nil
         }
     }
 }

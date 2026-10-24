@@ -263,13 +263,13 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 composable("profile/{id}/{section}/{item}") { e ->
                     ProfileCardsScreen(e.arguments?.getString("id") ?: "", e.arguments?.getString("section") ?: "",
                         e.arguments?.getString("item")?.takeIf { it != "-" }, onBack = { nav.popBackStack() },
-                        onCard = { nav.navigate("collection/card/$it") }, onList = { nav.navigate("collection/list/$it") },
+                        onCard = { nav.navigate("collection/card/$it?search=1") }, onList = { nav.navigate("collection/list/$it") },
                         onRankings = { nav.navigate("collection/list/$it/rankings") })
                 }
                 // A share link (contract/share-links-2026-10-23.md).
                 composable("collection/shared/{token}") { e ->
                     SharedLinkScreen(e.arguments?.getString("token") ?: "", onBack = { nav.popBackStack() },
-                        onCard = { nav.navigate("collection/card/$it") }, onList = { nav.navigate("collection/list/$it") })
+                        onCard = { nav.navigate("collection/card/$it?search=1") }, onList = { nav.navigate("collection/list/$it") })
                 }
                 composable("collection/matches") {
                     TradeMatchesScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/match/$it") },
@@ -278,7 +278,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 composable("collection/match/{id}") { e ->
                     val id = e.arguments?.getString("id") ?: ""
                     TradeMatchScreen(id, onBack = { nav.popBackStack() }, onProfile = { nav.navigate("profile/$id") },
-                        onCard = { nav.navigate("collection/card/$it") }, onTrade = { nav.navigate("collection/trade/$it") })
+                        onCard = { nav.navigate("collection/card/$it?search=1") }, onTrade = { nav.navigate("collection/trade/$it") })
                 }
                 composable("collection") {
                     LibraryHomeScreen(
@@ -303,7 +303,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                     BinderScreen(id, onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it?binder=$id") })
                 }
                 composable("collection/wants") {
-                    WantsScreen(onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it") })
+                    WantsScreen(onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it?search=1") })
                 }
                 composable("collection/decks") {
                     ListsScreen(ListKind.Deck, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/list/$it") },
@@ -397,7 +397,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 }
                 composable("collection/list/{id}/v/{n}") { e ->
                     ListVersionScreen(e.arguments?.getString("id") ?: "", e.arguments?.getString("n")?.toIntOrNull() ?: 0,
-                        onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it") })
+                        onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it?list=${e.arguments?.getString("id") ?: ""}") })
                 }
                 composable("collection/trades") {
                     TradesScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/trade/${it ?: "new"}") })
@@ -420,12 +420,16 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                     AddCardsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/card/$it") })
                 }
                 // Opened from a deck/cube (?list=) or a binder (?binder=): that list's lines or binder's copies come first.
-                composable("collection/card/{id}?list={list}&binder={binder}",
-                    arguments = listOf(navArgument("list") { nullable = true }, navArgument("binder") { nullable = true })) { e ->
+                // ?search=1: wants, Missing, a friend's or shared card (contract/card-detail-2026-10-23.md § Scope).
+                composable("collection/card/{id}?list={list}&binder={binder}&search={search}",
+                    arguments = listOf(navArgument("list") { nullable = true }, navArgument("binder") { nullable = true },
+                        navArgument("search") { nullable = true })) { e ->
                     val list = e.arguments?.getString("list")
                     val binder = e.arguments?.getString("binder")
+                    val search = e.arguments?.getString("search") != null
                     CardDetailScreen(oracleId = e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() },
-                        context = list?.let { CardContext.InList(it) } ?: binder?.let { CardContext.InBinder(it) })
+                        context = list?.let { CardContext.InList(it) } ?: binder?.let { CardContext.InBinder(it) } ?: if (search) CardContext.Search else null,
+                        onList = { nav.navigate("collection/list/$it") })
                 }
                 composable("create") {
                     CreateEventScreen(

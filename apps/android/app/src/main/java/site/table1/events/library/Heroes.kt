@@ -68,6 +68,7 @@ sealed interface HeroScope {
         fun of(context: CardContext?): HeroScope? = when (context) {
             is CardContext.InList -> InList(context.listId)
             is CardContext.InBinder -> if (context.binderId == UNSORTED) null else InBinder(context.binderId)
+            CardContext.Search -> null
             null -> Collection
         }
     }

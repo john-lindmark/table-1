@@ -63,7 +63,9 @@ data class CatalogPrinting(
     val setLabel get() = "${set.uppercase()} #$cn"
     /** Finishes this printing comes in: non-foil, foil, etched (in that order). */
     val finishList: List<Finish> get() = finishes.mapNotNull { l -> CatalogPack.FINISH_NAME[l]?.let { Finish.of(it) } }.sortedBy { it.ordinal }
-    fun imageUrl(size: String = "normal") = if (imageFaces == 0) null else CatalogPack.imageUrl(cardId, imageTs, size)
+    /** `back`: a double-faced card's back (imageFaces == 2). */
+    fun imageUrl(size: String = "normal", back: Boolean = false) =
+        if (imageFaces == 0) null else CatalogPack.imageUrl(cardId, imageTs, size, back && imageFaces > 1)
 
     companion object {
         /** Card detail lists printings by release, earliest first (the pack's order is newest first, so on the same day

@@ -1,0 +1,63 @@
+{
+  "_about": "Card detail rules (contract/card-detail-2026-10-23.md). Printings: finishes are pack letters (n non-foil, f foil, e etched). Places: binder id or 'unsorted'.",
+  "printings": [
+    {"card_id": "lea", "set": "lea", "lang": "en", "finishes": "n", "released_at": "1993-08-05", "original": true},
+    {"card_id": "m10", "set": "m10", "lang": "en", "finishes": "nf", "released_at": "2009-07-17", "original": false},
+    {"card_id": "sta", "set": "sta", "lang": "en", "finishes": "fe", "released_at": "2021-04-23", "original": false},
+    {"card_id": "jp", "set": "sta", "lang": "ja", "finishes": "f", "released_at": "2021-04-23", "original": false}
+  ],
+  "repoint": [
+    {"name": "set keeps the finish when the printing has it", "from": {"card_id": "lea", "finish": "nonfoil", "condition": "LP", "lang": "de"},
+     "attribute": "set", "value": "m10", "to": {"card_id": "m10", "finish": "nonfoil", "condition": "LP", "lang": "de"}},
+    {"name": "set falls back to the printing's first finish", "from": {"card_id": "m10", "finish": "nonfoil", "condition": "NM", "lang": "en"},
+     "attribute": "set", "value": "sta", "to": {"card_id": "sta", "finish": "foil", "condition": "NM", "lang": "en"}},
+    {"name": "a non-English printing brings its language", "from": {"card_id": "sta", "finish": "etched", "condition": "NM", "lang": "en"},
+     "attribute": "set", "value": "jp", "to": {"card_id": "jp", "finish": "foil", "condition": "NM", "lang": "ja"}},
+    {"name": "condition only", "from": {"card_id": "lea", "finish": "nonfoil", "condition": "NM", "lang": "en"},
+     "attribute": "condition", "value": "HP", "to": {"card_id": "lea", "finish": "nonfoil", "condition": "HP", "lang": "en"}},
+    {"name": "section only", "from": {"card_id": "m10", "finish": "foil", "board": "main"},
+     "attribute": "section", "value": "side", "to": {"card_id": "m10", "finish": "foil", "board": "side"}}
+  ],
+  "ops": [
+    {"name": "all copies keep their places", "item": {"card_id": "m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 3},
+     "places": [{"place": "b1", "qty": 2}, {"place": "unsorted", "qty": 1}], "to": {"card_id": "m10", "finish": "foil", "condition": "NM", "lang": "en"},
+     "qty": 3, "ops": [
+       {"card_id": "m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "delta": -1, "binder_id": null},
+       {"card_id": "m10", "finish": "foil", "condition": "NM", "lang": "en", "delta": 1, "binder_id": null},
+       {"card_id": "m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "delta": -2, "binder_id": "b1"},
+       {"card_id": "m10", "finish": "foil", "condition": "NM", "lang": "en", "delta": 2, "binder_id": "b1"}]},
+    {"name": "one copy comes from Unsorted first", "item": {"card_id": "lea", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 3},
+     "places": [{"place": "b1", "qty": 2}, {"place": "unsorted", "qty": 1}], "to": {"card_id": "lea", "finish": "nonfoil", "condition": "LP", "lang": "en"},
+     "qty": 1, "ops": [
+       {"card_id": "lea", "finish": "nonfoil", "condition": "NM", "lang": "en", "delta": -1, "binder_id": null},
+       {"card_id": "lea", "finish": "nonfoil", "condition": "LP", "lang": "en", "delta": 1, "binder_id": null}]},
+    {"name": "binder scope moves only that binder's copies", "item": {"card_id": "lea", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 3},
+     "places": [{"place": "b1", "qty": 2}, {"place": "unsorted", "qty": 1}], "from": "b1", "to": {"card_id": "lea", "finish": "nonfoil", "condition": "NM", "lang": "fr"},
+     "qty": 2, "ops": [
+       {"card_id": "lea", "finish": "nonfoil", "condition": "NM", "lang": "en", "delta": -2, "binder_id": "b1"},
+       {"card_id": "lea", "finish": "nonfoil", "condition": "NM", "lang": "fr", "delta": 2, "binder_id": "b1"}]},
+    {"name": "more than the binder holds changes nothing", "item": {"card_id": "lea", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 3},
+     "places": [{"place": "b1", "qty": 2}, {"place": "unsorted", "qty": 1}], "from": "b1", "to": {"card_id": "lea", "finish": "nonfoil", "condition": "LP", "lang": "en"},
+     "qty": 3, "ops": null},
+    {"name": "the same version changes nothing", "item": {"card_id": "lea", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 1},
+     "places": [{"place": "unsorted", "qty": 1}], "to": {"card_id": "lea", "finish": "nonfoil", "condition": "NM", "lang": "en"},
+     "qty": 1, "ops": null}
+  ],
+  "views": [
+    {"name": "one version", "versions": [{"card_id": "lea", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 2}],
+     "shared": {"set": "lea", "language": "en", "condition": "NM", "finish": "nonfoil"}, "main": "lea|nonfoil|NM|en", "shows_finish": false,
+     "order": ["lea|nonfoil|NM|en"]},
+    {"name": "mixed printings, most held is main, earliest first", "versions": [
+       {"card_id": "sta", "finish": "foil", "condition": "NM", "lang": "en", "qty": 1},
+       {"card_id": "m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 3},
+       {"card_id": "lea", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 1}],
+     "shared": {"set": null, "language": "en", "condition": "NM", "finish": null}, "main": "m10|nonfoil|NM|en", "shows_finish": true,
+     "order": ["lea|nonfoil|NM|en", "m10|nonfoil|NM|en", "sta|foil|NM|en"]},
+    {"name": "a tie goes to the first in grid order", "versions": [
+       {"card_id": "m10", "finish": "foil", "condition": "LP", "lang": "en", "qty": 2},
+       {"card_id": "m10", "finish": "foil", "condition": "NM", "lang": "en", "qty": 2}],
+     "shared": {"set": "m10", "language": "en", "condition": null, "finish": "foil"}, "main": "m10|foil|NM|en", "shows_finish": true,
+     "order": ["m10|foil|NM|en", "m10|foil|LP|en"]}
+  ],
+  "fresh": {"condition": "LP", "lang": "de", "version": {"card_id": "lea", "finish": "nonfoil", "condition": "LP", "lang": "de"}}
+}

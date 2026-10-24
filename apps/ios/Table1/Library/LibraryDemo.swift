@@ -445,8 +445,21 @@ struct LibraryDemoRoot: View {
             // `card`: a card with copies in the trade binder. `tradewants`: a draft giving a trade-binder copy and
             // getting a wanted card (the want is marked). Both need the card data, so they open once it's in.
             guard let db = CatalogStore.shared.db, path.isEmpty, let arg = Self.arg,
-                  ["card", "tradewants", "deckcard", "deckprinting", "bindercard", "binderprinting"].contains(arg) else { return }
+                  ["card", "tradewants", "deckcard", "deckprinting", "bindercard", "binderprinting", "multicard", "searchcard"].contains(arg) else { return }
             let store = BindersStore.shared
+            // Card detail (contract/card-detail-2026-10-23.md): `multicard` the card owned in the most versions (the
+            // grid), `searchcard` the same card opened from search (Add to).
+            if arg == "multicard" || arg == "searchcard" {
+                let items = Array(CollectionStore.shared.items.values)
+                let printings = db.printings(ids: items.map(\.cardId))
+                let byOracle = Dictionary(grouping: items.compactMap { printings[$0.cardId]?.oracleIdx }, by: { $0 })
+                let oracles = db.oracles(idxs: Array(byOracle.keys))
+                guard let idx = byOracle.filter({ !(oracles[$0.key]?.typeLine.contains("Basic") ?? true) })
+                    .max(by: { $0.value.count < $1.value.count })?.key,
+                      let o = db.oracles(idxs: [idx])[idx] else { return }
+                path = [arg == "multicard" ? .card(o.oracleId) : .cardIn(o.oracleId, .search)]
+                return
+            }
             // Change printing (contract/change-printing-2026-10-18.md): card detail opened from the deck's first main
             // line, or from the trade binder; `…printing` also opens Change printing on it.
             if arg.hasPrefix("deck"), let l = ListsStore.shared.lists.first(where: { $0.kind == .deck }),

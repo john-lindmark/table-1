@@ -142,6 +142,8 @@ struct CardArt: View {
     let width: CGFloat
     /// nonfoil | foil | etched: foil copies get a light sheen, etched a dimmer one.
     var finish = "nonfoil"
+    /// A double-faced card's back (faces == 2).
+    var back = false
     @Environment(\.displayScale) private var scale
     @State private var image: UIImage?
 
@@ -150,7 +152,7 @@ struct CardArt: View {
     private var maxPixel: Int { Int((width / Self.aspect * scale).rounded(.up)) }
     private var url: URL? {
         faces == 0 ? nil : CatalogPack.imageURL(cardId: cardId, imageTs: imageTs,
-                                                size: CardImageSize.covering(pixels: width * scale).rawValue)
+                                                size: CardImageSize.covering(pixels: width * scale).rawValue, back: back && faces > 1)
     }
 
     var body: some View {
@@ -171,8 +173,8 @@ struct CardArt: View {
 }
 
 extension CatalogPrinting {
-    func art(width: CGFloat, finish: String = "nonfoil") -> CardArt {
-        CardArt(cardId: cardId, imageTs: imageTs, faces: imageFaces, set: set, width: width, finish: finish)
+    func art(width: CGFloat, finish: String = "nonfoil", back: Bool = false) -> CardArt {
+        CardArt(cardId: cardId, imageTs: imageTs, faces: imageFaces, set: set, width: width, finish: finish, back: back)
     }
 }
 

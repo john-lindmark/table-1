@@ -28,7 +28,7 @@ import { NameGate } from "./components/NameGate";
 import { DesktopShell } from "./components/DesktopShell";
 import type { Board, ListFinish } from "./lib/lists";
 import type { RankJob } from "./lib/cubeRanking";
-import type { CardContext } from "./screens/Library";
+import type { CardContext } from "./screens/CardDetail";
 
 /**
  * The Library (catalog, collection, decks and cubes) loads on first visit, so players who only use events never
@@ -43,7 +43,7 @@ const lists = () => import("./screens/Lists");
 const LibraryHome = lazyNamed(library, "LibraryHome");
 const AllCards = lazyNamed(library, "AllCards");
 const AddCards = lazyNamed(library, "AddCards");
-const CardDetail = lazyNamed(library, "CardDetail");
+const CardDetail = lazyNamed(() => import("./screens/CardDetail"), "CardDetail");
 const ListsScreen = lazyNamed(lists, "ListsScreen");
 const ListScreen = lazyNamed(lists, "ListScreen");
 const ListAddScreen = lazyNamed(lists, "ListAddScreen");
@@ -218,7 +218,7 @@ function ProfileCardsRoute() {
   const kind = kinds.find((k) => k === section);
   if (!userId || !kind) return <Navigate to="/friends" replace />;
   return <ProfileCardsScreen userId={userId} section={kind} item={itemId ?? null} onBack={back}
-                             onCard={(o) => navigate(`/library/card/${o}`)} onList={(id) => navigate(`/library/list/${id}`)}
+                             onCard={(o) => navigate(`/library/card/${o}`, { state: { search: true } })} onList={(id) => navigate(`/library/list/${id}`)}
                              onRankings={(id) => navigate(`/library/list/${id}/rankings`)} />;
 }
 function SharingRoute() {
@@ -236,7 +236,7 @@ function TradeMatchRoute() {
   const back = useBack("/library/matches");
   if (!userId) return <Navigate to="/library/matches" replace />;
   return <TradeMatchScreen userId={userId} onBack={back} onProfile={() => navigate(`/u/${userId}`)}
-                           onCard={(o) => navigate(`/library/card/${o}`)} onTrade={(id) => navigate(`/library/trade/${id}`)} />;
+                           onCard={(o) => navigate(`/library/card/${o}`, { state: { search: true } })} onTrade={(id) => navigate(`/library/trade/${id}`)} />;
 }
 function BindersRoute() {
   const navigate = useNavigate();
@@ -255,7 +255,7 @@ function BinderRoute() {
 function WantsRoute() {
   const navigate = useNavigate();
   const back = useBack("/library");
-  return <WantsScreen onBack={back} onCard={(o) => navigate(`/library/card/${o}`)} />;
+  return <WantsScreen onBack={back} onCard={(o) => navigate(`/library/card/${o}`, { state: { search: true } })} />;
 }
 
 function CollectionImportRoute() {
@@ -284,7 +284,9 @@ function CardDetailRoute() {
   // Opened from a deck/cube or a binder: in the history state, so no row id lands in the URL.
   const state = useLocation().state as CardContext | null;
   if (!oracleId) return <Navigate to="/library" replace />;
-  return <CardDetail key={oracleId} oracleId={oracleId} onBack={back} context={state?.list || state?.binder ? state : undefined} />;
+  const navigate = useNavigate();
+  return <CardDetail key={oracleId} oracleId={oracleId} onBack={back} context={state?.list || state?.binder || state?.search ? state : undefined}
+                     onList={(id) => navigate(`/library/list/${id}`)} />;
 }
 
 function ListsRoute({ kind }: { kind: "deck" | "cube" }) {
@@ -402,7 +404,7 @@ function VersionRoute() {
   const navigate = useNavigate();
   const back = useBack(`/library/list/${listId}/versions`);
   if (!listId || !n) return <Navigate to="/library" replace />;
-  return <VersionScreen id={listId} number={Number(n)} onBack={back} onCard={(o) => navigate(`/library/card/${o}`)} />;
+  return <VersionScreen id={listId} number={Number(n)} onBack={back} onCard={(o) => navigate(`/library/card/${o}`, { state: { list: listId } })} />;
 }
 
 function TradesRoute() {
@@ -426,7 +428,7 @@ function SharedLinkRoute() {
   const navigate = useNavigate();
   const back = useBack("/");
   if (!token) return <Navigate to="/" replace />;
-  return <SharedLinkScreen token={token} onBack={back} onCard={(o) => navigate(`/library/card/${o}`)}
+  return <SharedLinkScreen token={token} onBack={back} onCard={(o) => navigate(`/library/card/${o}`, { state: { search: true } })}
                            onList={(id) => navigate(`/library/list/${id}`)} onSignIn={() => navigate("/sign-in")} />;
 }
 
