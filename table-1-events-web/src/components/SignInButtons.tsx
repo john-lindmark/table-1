@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { signInWith, sendEmailCode, verifyEmailCode, type OAuthProvider, errorMessage } from "../lib/api";
 import { BigAction, GhostAction, Notice } from "./kit";
+import { capture } from "../lib/telemetry";
+import { clearPending, loadPending, pendingAfterSend, savePending, sendOutcomeOf, type Pending } from "../lib/emailSignIn";
 
 type Step = "providers" | "email" | "code";
 
@@ -9,14 +11,18 @@ type Step = "providers" | "email" | "code";
  * (address, then the code), and the email's link signs in here or opens the app.
  */
 export function SignInButtons({ returnTo }: { returnTo?: string }) {
+  // Back on the page within the code's hour: the code step for the address a code just went to.
+  const [restored] = useState(() => loadPending());
   const [busy, setBusy] = useState<OAuthProvider | "email" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<Step>("providers");
-  const [email, setEmail] = useState("");
+  const [step, setStep] = useState<Step>(restored ? "code" : "providers");
+  const [email, setEmail] = useState(restored?.email ?? "");
   const [code, setCode] = useState("");
   // Supabase sends at most one email a minute per address.
-  const [resendAt, setResendAt] = useState(0);
+  const [resendAt, setResendAt] = useState(restored?.resendAt ?? 0);
   const [now, setNow] = useState(Date.now());
+  // Send, Resend and the Enter key all land in send(); one at a time, even before `busy` re-renders.
+  const sending = useRef(false);
 
   useEffect(() => {
     if (step !== "code") return;
@@ -44,24 +50,44 @@ export function SignInButtons({ returnTo }: { returnTo?: string }) {
     setStep(next);
   }
 
+  function codeSent(p: Pending) {
+    savePending(p);
+    setResendAt(p.resendAt);
+    setNow(Date.now());
+    setError(null);
+    setStep("code");
+  }
+
   async function send() {
-    if (!emailValid) return;
+    if (!emailValid || sending.current) return;
+    sending.current = true;
     setBusy("email");
     setError(null);
     try {
       const back = returnTo ? new URL(returnTo, window.location.origin) : window.location;
       await sendEmailCode(address, back.pathname + back.search);
-      setResendAt(Date.now() + 60_000);
-      setNow(Date.now());
-      setStep("code");
-    } catch {
-      setError("Couldn't send the email. Check the address and try again in a minute.");
+      codeSent(pendingAfterSend(address, Date.now()));
+    } catch (e) {
+      const outcome = sendOutcomeOf(e);
+      if (outcome.kind === "already_sent") {
+        // The minute per address: a code went out moments ago, so that's the step to be on.
+        capture("sign_in_failed", { method: "email_send", reason: "already_sent" });
+        codeSent(pendingAfterSend(address, Date.now(), outcome.wait));
+      } else if (outcome.kind === "too_many") {
+        capture("sign_in_failed", { method: "email_send", reason: "too_many" });
+        setError("Too many sign-in emails right now. Wait a few minutes, or continue with Apple or Google.");
+      } else {
+        capture("sign_in_failed", { method: "email_send", reason: "error" });
+        setError("Couldn't send the email. Check the address and try again.");
+      }
     } finally {
+      sending.current = false;
       setBusy(null);
     }
   }
 
   async function verify() {
+    if (sending.current) return;
     setBusy("email");
     setError(null);
     try {
@@ -116,7 +142,7 @@ export function SignInButtons({ returnTo }: { returnTo?: string }) {
       >
         {error && <Notice tone="error">{error}</Notice>}
         <Notice tone="info">
-          We sent a link and a code to {address}. Open the link, or enter the code here.
+          We sent a link and a code to {address}. Open the link, or enter the code here. Not there? Check spam.
         </Notice>
         <label className="bg-t1-surface px-4 py-3 flex flex-col gap-1">
           <span className="t1-label">Code</span>
@@ -135,6 +161,7 @@ export function SignInButtons({ returnTo }: { returnTo?: string }) {
             label="Change email"
             onClick={() => {
               setCode("");
+              clearPending();
               to("email");
             }}
           />

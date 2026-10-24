@@ -35,6 +35,13 @@ struct SignInView: View {
         }
         .background(T1.bg.ignoresSafeArea())
         .foregroundStyle(T1.text)
+        // Back from Mail (or relaunched by iOS meanwhile): the code step for the address a code just went to.
+        .onAppear {
+            guard step == .providers, let pending = EmailSignIn.load() else { return }
+            email = pending.email
+            resendAt = pending.resendAt
+            step = .code
+        }
     }
 
     // MARK: steps
@@ -81,7 +88,7 @@ struct SignInView: View {
     }
 
     @ViewBuilder private var codeStep: some View {
-        Notice("We sent a link and a code to \(email.trimmingCharacters(in: .whitespaces)). Tap the link on this phone, or enter the code.")
+        Notice("We sent a link and a code to \(email.trimmingCharacters(in: .whitespaces)). Tap the link on this phone, or enter the code. Not there? Check spam.")
         input(label: "Code", text: $code, prompt: "000000")
             .keyboardType(.numberPad)
             .textContentType(.oneTimeCode)
@@ -92,7 +99,7 @@ struct SignInView: View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let wait = max(0, Int(resendAt.timeIntervalSince(context.date).rounded(.up)))
             HStack(spacing: 1) {
-                Ghost(text: "Change email") { code = ""; go(.email) }
+                Ghost(text: "Change email") { code = ""; EmailSignIn.clear(); go(.email) }
                 Ghost(text: wait > 0 ? "Resend in \(wait)s" : "Resend") { if wait == 0 { send() } }
                     .disabled(wait > 0 || busy)
             }
@@ -121,24 +128,42 @@ struct SignInView: View {
         if failure == .failed { Telemetry.error(error, "sign_in") }
     }
 
+    /// Send, Resend and the keyboard's Send key all land here; one send at a time.
     private func send() {
+        guard !busy else { return }
         let address = email.trimmingCharacters(in: .whitespaces).lowercased()
         busy = true
         Task {
             defer { busy = false }
             do {
                 try await SignIn.sendEmailCode(to: address)
-                resendAt = Date().addingTimeInterval(60)
-                if step != .code { go(.code) } else { error = nil }
+                codeSent(EmailSignIn.pending(email: address, now: .now))
             } catch {
-                Telemetry.capture("sign_in_failed", ["method": "email_send", "reason": "error"])
-                Telemetry.error(error, "sign_in")
-                self.error = "Couldn't send the email. Check the address and try again in a minute."
+                switch EmailSignIn.outcome(error) {
+                case .alreadySent(let wait):
+                    // The minute per address: a code went out moments ago, so that's the step to be on.
+                    Telemetry.capture("sign_in_failed", ["method": "email_send", "reason": "already_sent"])
+                    codeSent(EmailSignIn.pending(email: address, now: .now, wait: wait))
+                case .tooMany:
+                    Telemetry.capture("sign_in_failed", ["method": "email_send", "reason": "too_many"])
+                    self.error = "Too many sign-in emails right now. Wait a few minutes, or continue with Apple or Google."
+                case .failed:
+                    Telemetry.capture("sign_in_failed", ["method": "email_send", "reason": "error"])
+                    Telemetry.error(error, "sign_in")
+                    self.error = "Couldn't send the email. Check the address and try again."
+                }
             }
         }
     }
 
+    private func codeSent(_ pending: EmailSignIn.Pending) {
+        EmailSignIn.save(pending)
+        resendAt = pending.resendAt
+        if step != .code { go(.code) } else { error = nil }
+    }
+
     private func verify() {
+        guard !busy else { return }
         busy = true
         Task {
             defer { busy = false }

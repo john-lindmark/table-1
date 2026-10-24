@@ -58,7 +58,7 @@ properties. Every client sends the same names, so one PostHog insight covers all
 | event | properties |
 |---|---|
 | `signed_in` | `method`: apple / google / email |
-| `sign_in_failed` | `method`, `reason`: cancelled / error |
+| `sign_in_failed` | `method`, `reason`: cancelled / error (email sends also already_sent / too_many, contract/email-sign-in-2026-10-15.md § Already sent) |
 | `join_prompt_viewed` | `event`: bool. Signed out on a scanned join QR, the Joining header showed (whether it could name the event); contract/qr-sign-up-2026-10-23.md |
 | `app_handoff_shown` / `app_handoff_tapped` | `platform`: ios / android. Web player screen, Get the app after joining on a phone (contract/qr-sign-up-2026-10-23.md) |
 | `signed_out` | `reason`: user / apple_revoked |

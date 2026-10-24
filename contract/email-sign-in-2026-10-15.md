@@ -21,6 +21,24 @@ Email joins Apple and Google on the sign-in screen, all three clients. Passwordl
    local part) stands, but nothing in the app can be reached.
 5. Resend is allowed once a minute (Supabase's per-address limit); the button counts down.
 
+## Already sent (2026-10-24)
+A returning player on iOS asked for a code about 18 times over three days and never got into the app: each extra
+tap was refused (HTTP 429, "you can only request this after N seconds"), the app called that "Couldn't send the
+email. Check the address", stayed on the address step, and the Return key could send twice. Now, on all clients
+(rules and cases: `testdata/email-sign-in/cases.json`):
+- **A refused send is read, not reported.** `over_email_send_rate_limit` (or a bare 429) whose message says
+  "after N second(s)" means a code went out moments ago: go to the code step, no error, Resend counts down N
+  (capped at 60). Any other 429 (`over_request_rate_limit`, the project's hourly email cap) is **too many**:
+  stay, say "Too many sign-in emails right now. Wait a few minutes, or continue with Apple or Google." Neither goes
+  to Sentry; `sign_in_failed` `reason` is `already_sent` / `too_many`. Everything else is `error` as before.
+- **One send at a time.** Send, Resend and the keyboard's Return/Go all go through one guard while a send is in
+  flight.
+- **The code step survives leaving the app.** After a send (or an already-sent), the address, the send time and the
+  resend time are kept on the device (iOS UserDefaults, Android SharedPreferences, web localStorage
+  `t1.signin.pending`). Opening sign-in within 3600 s of the send (the code's life) comes back on the code step for
+  that address; Resend is never earlier than send + 60 s. Change email, an expired code and any sign-in clear it.
+- The code step adds "Not there? Check spam." under the address.
+
 `type: email` covers both first sign-in (Confirm signup template) and returning users (Magic Link template).
 Accounts with the same verified email as an Apple/Google identity are linked by Supabase.
 

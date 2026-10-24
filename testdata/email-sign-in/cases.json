@@ -1,0 +1,26 @@
+{
+  "about": "Email sign-in when Supabase refuses to send (contract/email-sign-in-2026-10-15.md § Already sent). 'send' maps a failed signInWithOtp (HTTP status, error code, message) to an outcome: already_sent (the per-address minute: a code went out moments ago, so go to the code step and count down 'wait' seconds), too_many (the project's hourly email cap, or too many requests from this network: no code is on its way), or failed. 'restore' is whether a code step saved at 'sent_at' (seconds) comes back at 'now': within 3600 s (the code's life) it does, with resend_at = sent_at + 60 unless a later resend_at was saved. iOS EmailSignInTests, web emailSignIn.test.ts and Android EmailSignInTest read this.",
+  "send": [
+    {"name": "per-address minute", "status": 429, "code": "over_email_send_rate_limit", "message": "For security purposes, you can only request this after 19 seconds.", "outcome": "already_sent", "wait": 19},
+    {"name": "one second left", "status": 429, "code": "over_email_send_rate_limit", "message": "For security purposes, you can only request this after 1 seconds.", "outcome": "already_sent", "wait": 1},
+    {"name": "singular second", "status": 429, "code": "over_email_send_rate_limit", "message": "For security purposes, you can only request this after 1 second.", "outcome": "already_sent", "wait": 1},
+    {"name": "wait capped at a minute", "status": 429, "code": "over_email_send_rate_limit", "message": "For security purposes, you can only request this after 300 seconds.", "outcome": "already_sent", "wait": 60},
+    {"name": "code missing, 429 with seconds", "status": 429, "code": "", "message": "For security purposes, you can only request this after 42 seconds.", "outcome": "already_sent", "wait": 42},
+    {"name": "hourly cap", "status": 429, "code": "over_email_send_rate_limit", "message": "email rate limit exceeded", "outcome": "too_many", "wait": 0},
+    {"name": "network rate limit", "status": 429, "code": "over_request_rate_limit", "message": "Request rate limit reached", "outcome": "too_many", "wait": 0},
+    {"name": "bare 429", "status": 429, "code": "", "message": "", "outcome": "too_many", "wait": 0},
+    {"name": "bad address", "status": 400, "code": "validation_failed", "message": "Unable to validate email address: invalid format", "outcome": "failed", "wait": 0},
+    {"name": "server error", "status": 500, "code": "unexpected_failure", "message": "Error sending magic link email", "outcome": "failed", "wait": 0},
+    {"name": "offline", "status": 0, "code": "", "message": "The Internet connection appears to be offline.", "outcome": "failed", "wait": 0}
+  ],
+  "restore": [
+    {"name": "just sent", "email": "a@b.co", "sent_at": 1000, "resend_at": 1060, "now": 1010, "restored": true, "resend_at_out": 1060},
+    {"name": "came back after the minute", "email": "a@b.co", "sent_at": 1000, "resend_at": 1060, "now": 1500, "restored": true, "resend_at_out": 1060},
+    {"name": "resend never before the minute", "email": "a@b.co", "sent_at": 1000, "resend_at": 1045, "now": 1010, "restored": true, "resend_at_out": 1060},
+    {"name": "later resend kept", "email": "a@b.co", "sent_at": 1000, "resend_at": 1090, "now": 1010, "restored": true, "resend_at_out": 1090},
+    {"name": "last second of the code's life", "email": "a@b.co", "sent_at": 1000, "resend_at": 1060, "now": 4599, "restored": true, "resend_at_out": 1060},
+    {"name": "code expired", "email": "a@b.co", "sent_at": 1000, "resend_at": 1060, "now": 4600, "restored": false, "resend_at_out": 0},
+    {"name": "clock went back", "email": "a@b.co", "sent_at": 1000, "resend_at": 1060, "now": 900, "restored": false, "resend_at_out": 0},
+    {"name": "no address", "email": "", "sent_at": 1000, "resend_at": 1060, "now": 1010, "restored": false, "resend_at_out": 0}
+  ]
+}

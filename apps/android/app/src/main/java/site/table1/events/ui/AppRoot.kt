@@ -98,6 +98,7 @@ import site.table1.events.ui.screens.DeckPhotosScreen
 import site.table1.events.ui.screens.EventScreen
 import site.table1.events.ui.screens.EventsHomeScreen
 import site.table1.events.ui.screens.NearbyScreen
+import site.table1.events.auth.EmailSignIn
 import site.table1.events.auth.SignIn
 import site.table1.events.ui.screens.NameScreen
 import site.table1.events.ui.screens.SignInScreen
@@ -110,6 +111,9 @@ import site.table1.events.ui.tracker.LifeTrackerScreen
 @Composable
 fun AppRoot(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pendingLink: WebLink?, onLinkConsumed: () -> Unit) {
     val status by T1App.supabase.auth.sessionStatus.collectAsState()
+    // Signed in any way: the email code step kept for a return is done with.
+    val signedIn = status is SessionStatus.Authenticated
+    LaunchedEffect(signedIn) { if (signedIn) EmailSignIn.clear() }
     when (status) {
         is SessionStatus.Authenticated ->
             if (SignIn.needsName((status as SessionStatus.Authenticated).session.user)) NameScreen(pendingJoin)

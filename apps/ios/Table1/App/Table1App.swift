@@ -202,6 +202,7 @@ final class SessionModel {
     func watchAuth() async {
         for await (event, session) in supabase.auth.authStateChanges {
             state = session == nil ? .signedOut : .signedIn
+            if state == .signedIn { EmailSignIn.clear() }
             if state == .signedOut, case .standings(let id)? = pendingLink {
                 pendingLink = nil
                 webPage = WebPage(url: WebLink.standingsURL(id))

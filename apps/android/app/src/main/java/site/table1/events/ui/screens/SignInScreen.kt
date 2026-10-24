@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import site.table1.events.auth.EmailSignIn
 import site.table1.events.auth.SignIn
 import site.table1.events.data.JoinLink
 import site.table1.events.data.JoinPreview
@@ -57,13 +58,15 @@ private val EMAIL = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
 fun SignInScreen(join: JoinLink? = null) {
     val context: Context = LocalContext.current
     val scope = rememberCoroutineScope()
+    // Back from the mail app (or restarted meanwhile): the code step for the address a code just went to.
+    val restored = remember { EmailSignIn.load() }
     var busy by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    var step by remember { mutableStateOf(Step.Providers) }
-    var email by remember { mutableStateOf("") }
+    var step by remember { mutableStateOf(if (restored != null) Step.Code else Step.Providers) }
+    var email by remember { mutableStateOf(restored?.email ?: "") }
     var code by remember { mutableStateOf("") }
     // Supabase sends at most one email a minute per address.
-    var resendAt by remember { mutableLongStateOf(0L) }
+    var resendAt by remember { mutableLongStateOf(restored?.resendAt ?: 0L) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val address = email.trim().lowercase()
 
@@ -97,11 +100,44 @@ fun SignInScreen(join: JoinLink? = null) {
         step = next
     }
 
-    fun send() = run("email", "Couldn't send the email. Check the address and try again in a minute.") {
-        SignIn.sendEmailCode(address)
-        resendAt = System.currentTimeMillis() + 60_000
+    fun codeSent(p: EmailSignIn.Pending) {
+        EmailSignIn.save(p)
+        resendAt = p.resendAt
         now = System.currentTimeMillis()
+        error = null
         step = Step.Code
+    }
+
+    /** Send and Resend both land here; one send at a time. */
+    fun send() {
+        if (busy != null) return
+        busy = "email"
+        error = null
+        scope.launch {
+            try {
+                SignIn.sendEmailCode(address)
+                codeSent(EmailSignIn.pending(address, System.currentTimeMillis()))
+            } catch (e: Exception) {
+                when (val outcome = EmailSignIn.outcome(e)) {
+                    is EmailSignIn.SendOutcome.AlreadySent -> {
+                        // The minute per address: a code went out moments ago, so that's the step to be on.
+                        Telemetry.capture("sign_in_failed", mapOf("method" to "email_send", "reason" to "already_sent"))
+                        codeSent(EmailSignIn.pending(address, System.currentTimeMillis(), outcome.wait))
+                    }
+                    EmailSignIn.SendOutcome.TooMany -> {
+                        Telemetry.capture("sign_in_failed", mapOf("method" to "email_send", "reason" to "too_many"))
+                        error = "Too many sign-in emails right now. Wait a few minutes, or continue with Apple or Google."
+                    }
+                    EmailSignIn.SendOutcome.Failed -> {
+                        Telemetry.capture("sign_in_failed", mapOf("method" to "email_send", "reason" to "error"))
+                        Telemetry.error(e, "sign_in")
+                        error = "Couldn't send the email. Check the address and try again."
+                    }
+                }
+            } finally {
+                busy = null
+            }
+        }
     }
 
     Column(Modifier.fillMaxSize().background(T1.bg).imePadding(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -139,13 +175,13 @@ fun SignInScreen(join: JoinLink? = null) {
             }
             Step.Code -> {
                 val wait = ((resendAt - now + 999) / 1000).coerceAtLeast(0)
-                Notice("We sent a link and a code to $address. Tap the link on this phone, or enter the code.")
+                Notice("We sent a link and a code to $address. Tap the link on this phone, or enter the code. Not there? Check spam.")
                 Box(Modifier.background(T1.surface).padding(16.dp)) {
                     T1TextField(code, { code = it.filter(Char::isDigit).take(10) }, label = "Code", placeholder = "000000",
                         keyboardType = KeyboardType.NumberPassword)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-                    Ghost("Change email") { code = ""; go(Step.Email) }
+                    Ghost("Change email") { code = ""; EmailSignIn.clear(); go(Step.Email) }
                     Ghost(if (wait > 0) "Resend in ${wait}s" else "Resend", enabled = wait == 0L && busy == null) { send() }
                 }
                 Box(Modifier.navigationBarsPadding()) {
