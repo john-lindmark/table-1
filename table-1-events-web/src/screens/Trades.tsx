@@ -98,7 +98,7 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
     if (!catalog || p == null) return null;
     const w = wantFor(catalog.oId[catalog.pOracle[p]], l.card_id, l.finish, liveWants());
     if (w) {
-      const price = usdPrice(l.card_id, l.finish);
+      const price = usdPrice(l.card_id, l.finish, l.condition);
       return w.maxUsd != null && price != null && price > w.maxUsd ? { text: `Want · over your max $${w.maxUsd}`, over: true } : { text: "Want", over: false };
     }
     const m = missing.get(`${l.card_id}|${l.finish}`);
@@ -125,8 +125,8 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
 
   /** Market value of a side; null when none of its cards has a market price. */
   const sum = (lines: TradeLine[]) => {
-    const priced = lines.filter((l) => usdPrice(l.card_id, l.finish) != null);
-    return priced.length ? priced.reduce((n, l) => n + l.qty * usdPrice(l.card_id, l.finish)!, 0) : null;
+    const priced = lines.filter((l) => usdPrice(l.card_id, l.finish, l.condition) != null);
+    return priced.length ? priced.reduce((n, l) => n + l.qty * usdPrice(l.card_id, l.finish, l.condition)!, 0) : null;
   };
 
   const add = (side: "give" | "get", line: TradeLine) => {
@@ -252,7 +252,7 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
     const p = catalog.printingIndex.get(l.card_id) ?? null;
     const name = p == null ? "Card" : catalog.oName[catalog.pOracle[p]];
     const printing = [p == null ? null : `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}`, FINISH_LABEL[l.finish]].filter(Boolean).join(" · ");
-    const state = [l.condition, l.lang === "en" ? null : l.lang.toUpperCase(), usdText(usdPrice(l.card_id, l.finish))].filter(Boolean).join(" · ");
+    const state = [l.condition, l.lang === "en" ? null : l.lang.toUpperCase(), usdText(usdPrice(l.card_id, l.finish, l.condition))].filter(Boolean).join(" · ");
     const k = lineKey(l);
     const open = editing?.side === side && editing.k === k;
     const note = side === "get" ? wantNote(l) : null;

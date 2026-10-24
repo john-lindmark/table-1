@@ -62,7 +62,7 @@ class Demo implements FriendsDemo {
     const trade = [...b.allocs.values()].filter((a) => a.qty > 0 && binderById(a.binderId)?.for_trade);
     await loadPrices([...trade.map((a) => a.cardId), ...wants.flatMap((w) => (w.cardId ? [w.cardId] : []))]);
     const copy = (cardId: string, oracle: string, qty: number, condition: CopyIn["condition"] = "NM"): CopyIn =>
-      ({ oracle_id: oracle, card_id: cardId, finish: "nonfoil", condition, lang: "en", qty, usd: usdPrice(cardId, "nonfoil") });
+      ({ oracle_id: oracle, card_id: cardId, finish: "nonfoil", condition, lang: "en", qty, usd: usdPrice(cardId, "nonfoil", condition) });
     const mara: CopyIn[] = [], theo: CopyIn[] = [];
     const coverIds: string[] = [];
     wants.forEach((w, i) => {
@@ -73,7 +73,7 @@ class Demo implements FriendsDemo {
       (i % 2 === 0 ? mara : theo).push(copy(cardId, w.oracleId, i % 2 === 0 ? w.qty + 1 : 1, i % 2 === 0 ? "NM" : "LP"));
     });
     await loadPrices(coverIds);
-    for (const x of [...mara, ...theo]) x.usd = usdPrice(x.card_id, "nonfoil");
+    for (const x of [...mara, ...theo]) x.usd = usdPrice(x.card_id, "nonfoil", x.condition);
     const oracleOf = (a: Alloc) => {
       const pi = c.printingIndex.get(a.cardId);
       return pi == null ? null : c.oId[c.pOracle[pi]];
@@ -226,7 +226,7 @@ class Demo implements FriendsDemo {
       const o = cardOracle.get(a.cardId);
       if (!o) continue;
       myCopies.push({ oracle_id: o, card_id: a.cardId, finish: a.finish, condition: a.condition, lang: a.lang, binder_id: a.binderId,
-                      qty: allocs.reduce((n, x) => n + x.qty, 0), usd: usdPrice(a.cardId, a.finish) });
+                      qty: allocs.reduce((n, x) => n + x.qty, 0), usd: usdPrice(a.cardId, a.finish, a.condition) });
     }
     const out: TradeMatch[] = [];
     for (const s of this.people.values()) {

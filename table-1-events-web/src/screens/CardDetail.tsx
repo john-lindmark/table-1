@@ -5,7 +5,7 @@ import { capture } from "../lib/telemetry";
 import { errorMessage } from "../lib/api";
 import { RARITY_NAME, basicCardIds, cardImageUrl, formatName, oracleIndexById, type Catalog } from "../lib/catalog";
 import { applyOps, fetchHistory, undoBatch, useCollection, DEMO_USER, type CollectionOp, type Condition, type Finish, type HistoryEntry } from "../lib/collection";
-import { usdPrice, usdText, usePrices } from "../lib/prices";
+import { conditionPriceText, usdPrice, usdText, usePrices } from "../lib/prices";
 import { applyWants, binderById, forTrade, placementText, useBinders } from "../lib/binders";
 import { printingPlaces } from "../lib/changePrinting";
 import { BOARD_ORDER, boardTitle, entriesOf, finishOf, sectionsFor, editList, useLists, type Board, type CardList, type ListOp } from "../lib/lists";
@@ -261,7 +261,7 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
     }
   };
 
-  const price = usdText(usdPrice(current.cardId, current.finish));
+  const price = usdText(usdPrice(current.cardId, current.finish, current.condition));
   const status = last ? (
     <div className="shrink-0 bg-t1-surface px-4 py-3 flex items-center justify-between gap-3">
       <span className="t1-label truncate">{last.label}</span>
@@ -778,7 +778,7 @@ function CardInfo({ catalog, oi, version, p, printings, list, context, lists, re
         {details ? <p className="text-[16px] tracking-[0.5px] leading-[1.45] whitespace-pre-line">{details.text || "No rules text."}</p>
           : <p className="text-[12px] text-t1-muted">{failed ? "Rules text needs a connection." : "Loading rules text…"}</p>}
       </div>
-      {row("Price", usdText(usdPrice(version.cardId, version.finish)) ?? "—")}
+      {row("Price", conditionPriceText(usdPrice(version.cardId, version.finish), version.condition) ?? "—")}
       {row("Card type", details?.type ?? catalog.oType[oi])}
       {catalog.oCost[oi] && row("Mana cost", catalog.oCost[oi])}
       {row("Rarity", details?.rarity ?? (p != null ? RARITY_NAME[catalog.pRarity[p]]?.toLowerCase() : null) ?? "—")}

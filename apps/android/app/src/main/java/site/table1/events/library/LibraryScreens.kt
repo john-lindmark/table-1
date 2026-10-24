@@ -198,20 +198,19 @@ data class CardGroup(
     val qty: Int, val printings: Int, val lastSeq: Long,
     /** The printing shown as the card's picture: the one owned most. */
     val cover: CatalogPrinting? = null,
-    /** Owned (printing id, finish) pairs, for prices. */
-    val owned: List<Pair<String, String>> = emptyList(),
     /** The finish of the copies shown as the picture. */
     val coverFinish: String = "nonfoil",
     /** Copies per printing and finish (over conditions and languages), oldest printing first: the rows a card opens into. */
     val parts: List<Part> = emptyList(),
 ) {
-    data class Part(val cardId: String, val finish: String, val qty: Int, val printing: CatalogPrinting?) {
+    /** `condition`: the best among these copies, which prices the row. */
+    data class Part(val cardId: String, val finish: String, val qty: Int, val printing: CatalogPrinting?, val condition: String = "NM") {
         val id get() = "$cardId|$finish"
         val finishLabel get() = Finish.of(finish)?.label ?: finish
     }
 
-    /** The most a single owned copy is worth (market, USD). */
-    fun price(): Double? = owned.mapNotNull { (id, f) -> PriceBook.usd(id, f) }.maxOrNull()
+    /** The most a single owned copy is worth (market in its condition, USD). */
+    fun price(): Double? = parts.mapNotNull { PriceBook.usd(it.cardId, it.finish, it.condition) }.maxOrNull()
 
     companion object {
         fun build(items: Collection<CollectionItem>, db: CatalogDb): List<CardGroup> {
@@ -221,7 +220,10 @@ data class CardGroup(
                 .map { (key, group) ->
                     val o = printings[group[0].cardId]?.let { oracles[it.oracleIdx] }
                     val coverItem = group.filter { printings[it.cardId] != null }.maxByOrNull { it.qty }
-                    val parts = group.groupBy { it.cardId to it.finish }.map { (k, its) -> Part(k.first, k.second, its.sumOf { it.qty }, printings[k.first]) }
+                    val parts = group.groupBy { it.cardId to it.finish }.map { (k, its) ->
+                        Part(k.first, k.second, its.sumOf { it.qty }, printings[k.first],
+                            its.map { it.condition }.reduce { a, b -> if (Conditions.better(b, a)) b else a })
+                    }
                         .sortedWith { a, b ->
                             val pa = a.printing; val pb = b.printing
                             when {
@@ -232,7 +234,7 @@ data class CardGroup(
                         }
                     CardGroup(key, o != null, o?.name ?: "Card not in local data yet", o?.norm ?: "", o?.typeLine ?: group[0].cardId,
                         group.sumOf { it.qty }, group.map { it.cardId }.toSet().size, group.maxOf { it.seq },
-                        coverItem?.let { printings[it.cardId] }, group.map { it.cardId to it.finish }, coverItem?.finish ?: "nonfoil", parts)
+                        coverItem?.let { printings[it.cardId] }, coverItem?.finish ?: "nonfoil", parts)
                 }
         }
     }
@@ -249,7 +251,7 @@ fun LazyListScope.cardGroupRows(g: CardGroup, detail: String, hero: Boolean, ope
     }
     if (open && g.parts.size > 1) items(g.parts, key = { "${g.id}|${it.id}" }) { part ->
         CardRow(part.printing, listOfNotNull(part.printing?.setLabel, if (part.finish == "nonfoil") null else part.finishLabel).joinToString(" · "),
-            PriceBook.text(PriceBook.usd(part.cardId, part.finish)), onClick = tap, finish = part.finish, indent = true) {
+            PriceBook.text(PriceBook.usd(part.cardId, part.finish, part.condition)), onClick = tap, finish = part.finish, indent = true) {
             Text("${part.qty}", color = T1.muted, fontFamily = T1.mono, fontSize = 15.sp)
         }
     }

@@ -53,6 +53,7 @@
 		4303E1375FC42EE4288E5DAB /* ListExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C461CEB0826AC133A60E7A86 /* ListExportTests.swift */; };
 		43382E3E930D9571C1B5BAFA /* Table1App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66BF17B948514FF1CAA8D71C /* Table1App.swift */; };
 		44B9AF72482AD190F5CC7921 /* OrganizerModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED753FFB443A9E07ADDF24C9 /* OrganizerModels.swift */; };
+		45D683FF0990C8D196131FA0 /* ConditionPriceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21680AF95D56C9846E669A64 /* ConditionPriceTests.swift */; };
 		4654E4C93F85DA813DFBCB43 /* CubeRankingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68C7222340E448B1ED82C7B0 /* CubeRankingTests.swift */; };
 		480DC1EEDE67DB2C303D9F65 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4F692F7B590689C4B898FCA4 /* WidgetKit.framework */; };
 		4A95D8729CE57796B6B8ED89 /* Repo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1343547B4A4B4A62385BDA43 /* Repo.swift */; };
@@ -220,6 +221,7 @@
 		1C4FD05A2370970B0956A621 /* ListExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListExport.swift; sourceTree = "<group>"; };
 		1E58FE801DEE1F485996A5C8 /* Catalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Catalog.swift; sourceTree = "<group>"; };
 		2075E9FF3F5F167D9C6B9D93 /* RankingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankingsViews.swift; sourceTree = "<group>"; };
+		21680AF95D56C9846E669A64 /* ConditionPriceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConditionPriceTests.swift; sourceTree = "<group>"; };
 		21C628817BE4FD8CB84DD520 /* SignInFailureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInFailureTests.swift; sourceTree = "<group>"; };
 		239D07747A4039EE164CFB4B /* ScanReports.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanReports.swift; sourceTree = "<group>"; };
 		24F623BE06487D1AB2A0F05D /* ModerationViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModerationViews.swift; sourceTree = "<group>"; };
@@ -420,6 +422,7 @@
 				52CEDCCE665492AD0AB4B0FF /* CatalogPackTests.swift */,
 				BE2E6A0A7DB915829889FB54 /* ChangePrintingTests.swift */,
 				3013FC3AC8C4757DF4B44684 /* CollectionCSVTests.swift */,
+				21680AF95D56C9846E669A64 /* ConditionPriceTests.swift */,
 				7CF2A00D5FD0FCF89937DEA6 /* CubeFieldsTests.swift */,
 				68C7222340E448B1ED82C7B0 /* CubeRankingTests.swift */,
 				2C3C427BABDE0420BBFA2F31 /* DeckImageTests.swift */,
@@ -823,6 +826,7 @@
 				C2CA6EA5AD21CC9187D9241A /* CatalogPackTests.swift in Sources */,
 				1AA9CDFCE1AEB879B35ADA40 /* ChangePrintingTests.swift in Sources */,
 				41BE4E1D043A7DB82D3CCE45 /* CollectionCSVTests.swift in Sources */,
+				45D683FF0990C8D196131FA0 /* ConditionPriceTests.swift in Sources */,
 				1C9E91CE73E8640C92729A23 /* CubeFieldsTests.swift in Sources */,
 				4654E4C93F85DA813DFBCB43 /* CubeRankingTests.swift in Sources */,
 				AE286DDDDEFF5E6EF42FD46A /* DeckImageTests.swift in Sources */,

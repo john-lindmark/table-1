@@ -734,7 +734,7 @@ fun TradeMatchScreen(userId: String, onBack: () -> Unit, onProfile: () -> Unit, 
                     }
                     val detail = listOfNotNull(p?.let { "${it.set.uppercase()} ${it.cn}" }, l.finish.takeIf { it != "nonfoil" },
                         l.condition.takeIf { it != "NM" }, l.lang.takeIf { it != "en" }?.uppercase(), want).joinToString(" · ")
-                    val price = remember(pricesVersion, l) { l.usd ?: PriceBook.usd(l.cardId, l.finish) }
+                    val price = remember(pricesVersion, l) { l.usd ?: PriceBook.usd(l.cardId, l.finish, l.condition) }
                     CardRow(p, o?.name ?: "…", detail, onClick = { o?.let { onCard(it.oracleId) } }) {
                         Column(horizontalAlignment = Alignment.End) {
                             Text("${l.qty}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)

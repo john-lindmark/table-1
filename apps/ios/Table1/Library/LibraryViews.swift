@@ -251,8 +251,6 @@ struct CardGroup: Identifiable, Hashable, Sendable {
     /// The printing shown as this card's picture: the one owned most.
     var cover: CatalogPrinting?
     var coverQty = 0
-    /// Printing id → finishes owned, for prices.
-    var owned: [String: Set<String>] = [:]
     /// The finish of the copies shown as the picture.
     var coverFinish = "nonfoil"
     /// Copies per printing and finish (over conditions and languages), oldest printing first: the rows a card
@@ -264,6 +262,8 @@ struct CardGroup: Identifiable, Hashable, Sendable {
         let finish: String
         var qty: Int
         let printing: CatalogPrinting?
+        /// The best condition among these copies, which prices the row.
+        var condition = "NM"
         var id: String { "\(cardId)|\(finish)" }
         var finishLabel: String { Finish(rawValue: finish)?.label ?? finish }
     }
@@ -281,10 +281,13 @@ struct CardGroup: Identifiable, Hashable, Sendable {
             g.qty += it.qty
             g.lastSeq = max(g.lastSeq, it.seq)
             if seen[key, default: []].insert(it.cardId).inserted { g.printings += 1 }
-            g.owned[it.cardId, default: []].insert(it.finish)
             if let p = printings[it.cardId], it.qty > g.coverQty { g.cover = p; g.coverQty = it.qty; g.coverFinish = it.finish }
-            if let i = g.parts.firstIndex(where: { $0.cardId == it.cardId && $0.finish == it.finish }) { g.parts[i].qty += it.qty }
-            else { g.parts.append(Part(cardId: it.cardId, finish: it.finish, qty: it.qty, printing: printings[it.cardId])) }
+            if let i = g.parts.firstIndex(where: { $0.cardId == it.cardId && $0.finish == it.finish }) {
+                g.parts[i].qty += it.qty
+                if Conditions.better(it.condition, g.parts[i].condition) { g.parts[i].condition = it.condition }
+            } else {
+                g.parts.append(Part(cardId: it.cardId, finish: it.finish, qty: it.qty, printing: printings[it.cardId], condition: it.condition))
+            }
             by[key] = g
         }
         return by.values.map { g in
@@ -354,9 +357,9 @@ struct AllCardsView: View {
     private var grouping: CardGrouping { CardGrouping(rawValue: groupingRaw) ?? .none }
     private var heroes: HeroesStore { HeroesStore.shared }
 
-    /// The most a single owned copy is worth (market price, USD).
+    /// The most a single owned copy is worth (market price in its condition, USD).
     private func price(_ g: CardGroup) -> Double? {
-        g.owned.flatMap { id, finishes in finishes.compactMap { prices.usd(id, $0) } }.max()
+        g.parts.compactMap { prices.usd($0.cardId, $0.finish, $0.condition) }.max()
     }
 
     private var shown: [CardGroup] {
@@ -462,7 +465,7 @@ struct AllCardsView: View {
                             if grouping != .none { Section1("\(grouping.label(s.key)) · \(s.cards.reduce(0) { $0 + $1.qty })").id("h|\(s.key)") }
                             ForEach(s.cards) { g in
                                 CardGroupRows(group: g, detail: detail(g), hero: heroes.isHero(g.id, .collection), open: printings.open(g.id),
-                                              partDetail: { PriceBook.text(prices.usd($0.cardId, $0.finish)) },
+                                              partDetail: { PriceBook.text(prices.usd($0.cardId, $0.finish, $0.condition)) },
                                               toggle: { printings.toggle(g.id) },
                                               tap: { _ in if g.known { path.append(.card(g.id)) } })
                             }

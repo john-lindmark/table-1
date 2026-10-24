@@ -2,6 +2,7 @@
    (or finishes) is one row that opens into one row per printing and finish. Same rules as iOS `PrintingsDisclosure`,
    `CatalogPrinting.oldestFirst` and `LineGroup`. */
 import type { Catalog } from "./catalog";
+import { betterCondition } from "./conditionPrice";
 
 /** Card detail lists printings by release, earliest first (the pack's order is newest first, so on the same day the
  *  later pack position is the older printing). */
@@ -44,16 +45,20 @@ export function lineGroups<T extends { board: string; oracleId: string | null; c
   });
 }
 
-/** Copies of one printing in one finish (over conditions and languages): a row a collapsed card opens into. */
-export interface Part { cardId: string; finish: "nonfoil" | "foil" | "etched"; qty: number; p: number | null }
+/** Copies of one printing in one finish (over conditions and languages): a row a collapsed card opens into.
+ *  `condition` is the best among them, which prices the row. */
+export interface Part { cardId: string; finish: "nonfoil" | "foil" | "etched"; qty: number; p: number | null; condition?: string }
 
 const FINISH_ORDER = ["nonfoil", "foil", "etched"];
 
 /** Adds copies to a card's parts. */
-export function addPart(parts: Part[], cardId: string, finish: Part["finish"], qty: number, p: number | null) {
+export function addPart(parts: Part[], cardId: string, finish: Part["finish"], qty: number, p: number | null, condition = "NM") {
   const had = parts.find((x) => x.cardId === cardId && x.finish === finish);
-  if (had) had.qty += qty;
-  else parts.push({ cardId, finish, qty, p });
+  if (!had) parts.push({ cardId, finish, qty, p, condition });
+  else {
+    had.qty += qty;
+    if (betterCondition(condition, had.condition ?? "NM")) had.condition = condition;
+  }
 }
 
 /** Oldest printing first, then non-foil, foil, etched; printings newer than the card data last. */

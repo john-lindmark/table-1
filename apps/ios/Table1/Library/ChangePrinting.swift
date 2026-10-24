@@ -30,6 +30,15 @@ enum PrintingTarget {
         }
     }
 
+    /// The copies' condition, which prices each printing (a deck or cube line has none: near mint).
+    var condition: String {
+        switch self {
+        case .listLine: "NM"
+        case .owned(let it, _): it.condition
+        case .tradeGet(let l, _): l.condition
+        }
+    }
+
     /// `printing_changed` telemetry: where the change was made.
     var telemetryWhere: String {
         switch self {
@@ -206,7 +215,7 @@ struct ChangePrintingView: View {
     }
 
     private func row(_ p: CatalogPrinting, n: Int) -> some View {
-        let price = PriceBook.text(PriceBook.shared.usd(p.cardId, p.finishList.first?.rawValue ?? "nonfoil"))
+        let price = PriceBook.text(PriceBook.shared.usd(p.cardId, p.finishList.first?.rawValue ?? "nonfoil", target.condition))
         let detail = [CatalogPack.rarityName[p.rarity], p.releasedAt.isEmpty ? nil : String(p.releasedAt.prefix(4)),
                       p.original ? "Original" : nil, p.lang == "en" ? nil : p.lang.uppercased(), price].compactMap { $0 }.joined(separator: " · ")
         return HStack(spacing: 1) {

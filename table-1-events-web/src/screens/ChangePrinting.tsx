@@ -62,6 +62,8 @@ export function ChangePrintingScreen({ target, onClose, onChanged, screenName }:
 
   const cardId = targetCard(target);
   const finish = targetFinish(target);
+  /** The copies' condition prices each printing (a deck or cube line has none: near mint). */
+  const condition = target.kind === "owned" ? target.item.condition : target.kind === "list" ? "NM" : target.line.condition;
   const p0 = catalog?.printingIndex.get(cardId);
   const oi = catalog && p0 != null ? catalog.pOracle[p0] : -1;
   const printings = useMemo(() => {
@@ -180,7 +182,7 @@ export function ChangePrintingScreen({ target, onClose, onChanged, screenName }:
             {q && !shown.length && <Row title="No printings match" />}
             {shown.map((p) => {
               const finishes = FINISHES.filter((f) => catalog.pFinishes[p].includes(f[0]));
-              const price = usdPrice(catalog.pId[p], finishes[0] ?? "nonfoil");
+              const price = usdPrice(catalog.pId[p], finishes[0] ?? "nonfoil", condition);
               const detail = [RARITY_NAME[catalog.pRarity[p]], catalog.pReleased[p]?.slice(0, 4), p === catalog.oOriginal[oi] ? "Original" : null,
                               catalog.pLang[p] !== "en" ? catalog.pLang[p].toUpperCase() : null, price != null ? usdText(price) : null].filter(Boolean).join(" · ");
               return (

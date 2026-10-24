@@ -317,7 +317,7 @@ struct TradeView: View {
     private func wantNote(_ l: TradeLine) -> (text: String, over: Bool)? {
         guard let p = meta[l.cardId], let oracleId = oracleIds[p.oracleIdx] else { return nil }
         if let w = BinderRules.wantFor(oracleId: oracleId, cardId: l.cardId, finish: l.finish, in: BindersStore.shared.liveWants) {
-            if let max = w.maxUsd, let price = prices.usd(l.cardId, l.finish), price > max { return ("Want · over your max $\(max.formatted())", true) }
+            if let max = w.maxUsd, let price = prices.usd(l.cardId, l.finish, l.condition), price > max { return ("Want · over your max $\(max.formatted())", true) }
             return ("Want", false)
         }
         if let m = missingLines["\(l.cardId)|\(l.finish)"] { return ("Missing · \(m.lists.prefix(2).joined(separator: ", "))", false) }
@@ -330,7 +330,7 @@ struct TradeView: View {
         let l = line.wrappedValue
         let p = meta[l.cardId]
         let name = p.flatMap { names[$0.oracleIdx] } ?? "Card"
-        let price = PriceBook.text(prices.usd(l.cardId, l.finish))
+        let price = PriceBook.text(prices.usd(l.cardId, l.finish, l.condition))
         let note = give ? nil : wantNote(l)
         let from = give ? l.binderId.flatMap { BindersStore.shared.binder($0)?.name } : nil
         return Button { if !confirmed { edit(line, give: give, repoint: repoint, remove: remove) } } label: {
@@ -467,7 +467,7 @@ struct TradeView: View {
 
     /// Market value of a side; nil when none of its cards has a market price.
     private func sum(_ lines: [TradeLine]) -> Double? {
-        let priced = lines.compactMap { l in prices.usd(l.cardId, l.finish).map { Double(l.qty) * $0 } }
+        let priced = lines.compactMap { l in prices.usd(l.cardId, l.finish, l.condition).map { Double(l.qty) * $0 } }
         return priced.isEmpty ? nil : priced.reduce(0, +)
     }
 

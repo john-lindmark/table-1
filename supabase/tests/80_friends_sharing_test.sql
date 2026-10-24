@@ -401,6 +401,20 @@ select pg_temp.eq('they want: Opt ×4 from Ana''s trade binder',
   'c1000000-0000-0000-0000-000000000002:4:b3000000-0000-0000-0000-000000000001');
 select pg_temp.eq('Ben''s max price never shows', (((:'m'::jsonb)->'people'->0->'they_want'->0->'want') ? 'max_usd')::text, 'false');
 
+-- A copy's price follows its condition (contract/condition-prices-2026-10-24.md): Ben's trade Goyf as HP is $15,
+-- under Ana's $20 max, so it counts towards the value.
+select pg_temp.as_user(:BEN);
+select public.collection_apply(jsonb_build_array(
+  jsonb_build_object('card_id', :GOYF, 'delta', -1, 'binder_id', 'b1000000-0000-0000-0000-000000000001'),
+  jsonb_build_object('card_id', :GOYF, 'condition', 'HP', 'delta', 1, 'binder_id', 'b1000000-0000-0000-0000-000000000001')),
+  'manual', null, 'e2000000-0000-0000-0000-0000000000c1');
+select pg_temp.as_user(:ANA);
+select public.trade_matches() as m \gset
+select pg_temp.eq('an HP Goyf is priced at half',
+  (select (l->>'condition') || ':' || (l->>'usd') || ':' || (l->>'over_max') from jsonb_array_elements((:'m'::jsonb)->'people'->0->'they_have') l
+    where l->>'card_id' = 'c1000000-0000-0000-0000-000000000004'), 'HP:15.00:false');
+select pg_temp.eq('and counts in the have value', pg_temp.j(:'m'::jsonb, '{people,0,have_usd}'), '32.00');
+
 -- Cal (played with, not a friend) matches only once his For trade is public.
 select pg_temp.as_user(:CAL);
 select public.sharing_set('{"profile": "public", "for_trade": "public"}');

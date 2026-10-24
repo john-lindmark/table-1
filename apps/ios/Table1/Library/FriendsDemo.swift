@@ -58,7 +58,7 @@ final class FriendsDemoBackend {
         let covers = db.covers(oracleIdxs: wantOracles.map(\.idx))
         func copy(_ cardId: String, _ oracleId: String, _ qty: Int, _ condition: String = "NM") -> TradeMatcher.CopyIn {
             TradeMatcher.CopyIn(oracleId: oracleId, cardId: cardId, finish: "nonfoil", condition: condition, lang: "en", qty: qty,
-                                usd: PriceBook.shared.usd(cardId, "nonfoil"))
+                                usd: PriceBook.shared.usd(cardId, "nonfoil", condition))
         }
         var maraCopies: [TradeMatcher.CopyIn] = [], theoCopies: [TradeMatcher.CopyIn] = []
         for (i, w) in wants.enumerated() {
@@ -286,7 +286,7 @@ final class FriendsDemoBackend {
             let a = allocs.max { $0.qty < $1.qty }!
             guard let oracle = p[a.cardId].flatMap({ o[$0.oracleIdx] }) else { return nil }
             return TradeMatcher.CopyIn(oracleId: oracle.oracleId, cardId: a.cardId, finish: a.finish, condition: a.condition, lang: a.lang,
-                                       binderId: a.binderId, qty: allocs.reduce(0) { $0 + $1.qty }, usd: PriceBook.shared.usd(a.cardId, a.finish))
+                                       binderId: a.binderId, qty: allocs.reduce(0) { $0 + $1.qty }, usd: PriceBook.shared.usd(a.cardId, a.finish, a.condition))
         }
         .sorted { $0.cardId < $1.cardId }
     }

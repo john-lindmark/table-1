@@ -279,7 +279,7 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
     fun wantNote(l: TradeLine): Pair<String, Boolean>? {
         val oracle = meta[l.cardId]?.let { oracleIds[it.oracleIdx] } ?: return null
         BinderRules.wantFor(oracle, l.cardId, l.finish, binders.liveWants)?.let { w ->
-            val price = PriceBook.usd(l.cardId, l.finish)
+            val price = PriceBook.usd(l.cardId, l.finish, l.condition)
             return if (w.maxUsd != null && price != null && price > w.maxUsd) "Want · over your max $${w.maxUsd}" to true else "Want" to false
         }
         return missing[ownKey(l.cardId, l.finish)]?.let { "Missing · ${it.lists.take(2).joinToString(", ")}" to false }
@@ -296,7 +296,7 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
 
     /** Market value of a side; null when none of its cards has a market price. */
     fun sum(lines: List<TradeLine>): Double? =
-        lines.mapNotNull { l -> PriceBook.usd(l.cardId, l.finish)?.let { it * l.qty } }.takeIf { it.isNotEmpty() }?.sum()
+        lines.mapNotNull { l -> PriceBook.usd(l.cardId, l.finish, l.condition)?.let { it * l.qty } }.takeIf { it.isNotEmpty() }?.sum()
 
     fun add(give: Boolean, line: TradeLine) {
         if (give) {
@@ -387,7 +387,7 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
                             val p = meta[l.cardId]
                             val note = if (give) null else wantNote(l)
                             TradeCell(p, p?.let { names[it.oracleIdx] } ?: "Card",
-                                listOfNotNull(p?.setLabel, Finish.of(l.finish)?.label, l.condition, if (l.lang == "en") null else l.lang.uppercase(), PriceBook.text(PriceBook.usd(l.cardId, l.finish).also { pricesVersion }),
+                                listOfNotNull(p?.setLabel, Finish.of(l.finish)?.label, l.condition, if (l.lang == "en") null else l.lang.uppercase(), PriceBook.text(PriceBook.usd(l.cardId, l.finish, l.condition).also { pricesVersion }),
                                     if (give) binders.binder(l.binderId)?.name else null),
                                 l.qty, note = note, finish = l.finish) { if (!confirmed) editing = give to l.key }
                         }

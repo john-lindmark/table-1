@@ -12,7 +12,7 @@ private func money(_ n: Double?) -> String? {
 /// Market value (USD) of the given copies.
 @MainActor
 private func value(_ rows: [(item: CollectionItem, qty: Int)]) -> Double? {
-    let priced = rows.compactMap { r in PriceBook.shared.usd(r.item.cardId, r.item.finish).map { $0 * Double(r.qty) } }
+    let priced = rows.compactMap { r in PriceBook.shared.usd(r.item.cardId, r.item.finish, r.item.condition).map { $0 * Double(r.qty) } }
     return priced.isEmpty ? nil : priced.reduce(0, +)
 }
 
@@ -259,7 +259,7 @@ struct BinderView: View {
                                     ForEach(sec.cards) { g in
                                         CardGroupRows(group: g, detail: "\(g.printings) printing\(g.printings == 1 ? "" : "s") · \(g.type)",
                                                       hero: isHero(g), open: printings.open(g.id),
-                                                      partDetail: { PriceBook.text(PriceBook.shared.usd($0.cardId, $0.finish)) },
+                                                      partDetail: { PriceBook.text(PriceBook.shared.usd($0.cardId, $0.finish, $0.condition)) },
                                                       toggle: { printings.toggle(g.id) },
                                                       tap: { _ in open(g) })
                                     }

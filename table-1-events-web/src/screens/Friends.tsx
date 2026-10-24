@@ -777,7 +777,7 @@ function TradeMatchBody({ userId, onBack, onProfile, onCard, onTrade }: {
           : tier === "printing" ? (have ? "You want this printing" : "Wants this printing") : (have ? "You want any printing" : "Wants any printing");
         const detail = [p != null ? `${catalog.pSet[p].toUpperCase()} ${catalog.pCn[p]}` : null, l.finish === "nonfoil" ? null : l.finish,
                         l.condition === "NM" ? null : l.condition, l.lang === "en" ? null : l.lang.toUpperCase(), want].filter(Boolean).join(" · ");
-        const price = l.usd ?? usdPrice(l.card_id, l.finish);
+        const price = l.usd ?? usdPrice(l.card_id, l.finish, l.condition);
         return (
           <div key={`${l.card_id}|${l.finish}|${l.condition}|${l.lang}`} style={{ height: 60 }}>
             <CardRow c={catalog} p={p} title={oi >= 0 ? catalog.oName[oi] : "Card not in local data yet"} detail={detail}

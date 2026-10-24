@@ -78,7 +78,7 @@ const val UNSORTED = "unsorted"
 
 /** Market value (USD) of the given copies; null when none has a price. */
 private fun value(items: List<CollectionItem>): Double? =
-    items.mapNotNull { it -> PriceBook.usd(it.cardId, it.finish)?.let { p -> p * it.qty } }.takeIf { it.isNotEmpty() }?.sum()
+    items.mapNotNull { it -> PriceBook.usd(it.cardId, it.finish, it.condition)?.let { p -> p * it.qty } }.takeIf { it.isNotEmpty() }?.sum()
 
 @Composable
 fun BindersScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onCard: (String) -> Unit = {}) {

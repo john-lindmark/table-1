@@ -34,7 +34,7 @@ export const UNSORTED = "unsorted";
 const value = (items: Item[]) => {
   let any = false, sum = 0;
   for (const it of items) {
-    const p = usdPrice(it.cardId, it.finish);
+    const p = usdPrice(it.cardId, it.finish, it.condition);
     if (p != null) { any = true; sum += p * it.qty; }
   }
   return any ? sum : null;
@@ -188,7 +188,7 @@ function group(items: Item[], c: Catalog): CardGroup[] {
     g.qty += it.qty;
     if (!g.seen.has(it.cardId)) { g.seen.add(it.cardId); g.printings++; }
     if (p != null && it.qty > g.coverQty) { g.cover = p; g.coverQty = it.qty; g.coverFinish = it.finish; }
-    addPart(g.parts, it.cardId, it.finish, it.qty, p ?? null);
+    addPart(g.parts, it.cardId, it.finish, it.qty, p ?? null, it.condition);
     by.set(key, g);
   }
   for (const g of by.values()) sortParts(c, g.parts);
@@ -304,7 +304,7 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
                     <div key={`${pt.cardId}|${pt.finish}`} className="h-[60px] shrink-0">
                       <CardRow c={catalog} p={pt.p} indent finish={pt.finish} value={pt.qty}
                                title={[pt.p == null ? null : `${catalog.pSet[pt.p].toUpperCase()} #${catalog.pCn[pt.p]}`, pt.finish === "nonfoil" ? null : FINISH_LABEL[pt.finish]].filter(Boolean).join(" · ")}
-                               detail={usdText(usdPrice(pt.cardId, pt.finish)) || undefined}
+                               detail={usdText(usdPrice(pt.cardId, pt.finish, pt.condition)) || undefined}
                                onClick={() => g.oracle >= 0 && onCard(g.key)} />
                     </div>
                   ))}

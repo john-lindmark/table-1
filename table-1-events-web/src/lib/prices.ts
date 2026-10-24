@@ -1,8 +1,10 @@
 // Current market prices for printings (card_prices_get), fetched on demand and kept for the page's life.
-// USD is TCGplayer's market price as Scryfall publishes it; EUR is Cardmarket's. Prices are near mint.
+// USD is TCGplayer's market price as Scryfall publishes it; EUR is Cardmarket's. Prices are near mint; usdPrice
+// prices a copy in its condition (conditionPrice).
 import { useEffect, useSyncExternalStore } from "react";
 import { supabase } from "./supabaseClient";
 import { demoBackend, type Finish } from "./collection";
+import { conditionPercent, conditionPrice } from "./conditionPrice";
 
 /** [usd, usd_foil, usd_etched, eur, eur_foil] */
 const rows = new Map<string, (number | null)[]>();
@@ -37,14 +39,22 @@ export async function loadPrices(ids: Iterable<string>) {
   }
 }
 
-export function usdPrice(cardId: string, finish: Finish): number | null {
+/** One copy's USD price in a finish and condition (near mint when none is given); null when there's no market price. */
+export function usdPrice(cardId: string, finish: Finish, condition = "NM"): number | null {
   const r = rows.get(cardId);
   if (!r) return null;
-  return r[finish === "foil" ? 1 : finish === "etched" ? 2 : 0] ?? null;
+  return conditionPrice(r[finish === "foil" ? 1 : finish === "etched" ? 2 : 0], condition);
 }
 
 export const usdText = (n: number | null | undefined) =>
   n == null ? null : new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(n);
+
+/** A copy's price in its condition, saying what near mint would be when it isn't: "$8.50 · LP (NM $10.00)". */
+export function conditionPriceText(nearMint: number | null | undefined, condition: string): string | null {
+  const price = usdText(conditionPrice(nearMint, condition));
+  if (price == null || conditionPercent(condition) === 100) return price;
+  return `${price} · ${condition.toUpperCase()} (NM ${usdText(nearMint)})`;
+}
 
 /** Re-renders when prices arrive; loads the given printings. */
 export function usePrices(ids: string[] | null): number {

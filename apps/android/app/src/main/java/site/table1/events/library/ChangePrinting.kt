@@ -47,6 +47,12 @@ import site.table1.events.util.Telemetry
 sealed interface PrintingTarget {
     val cardId: String
     val finish: String
+    /** The copies' condition, which prices each printing (a deck or cube line has none: near mint). */
+    val condition: String get() = when (this) {
+        is ListLine -> "NM"
+        is Owned -> item.condition
+        is TradeGet -> line.condition
+    }
 
     /** A deck or cube line (one list_edit swap op, so the version history shows it). */
     data class ListLine(val listId: String, override val cardId: String, val board: String, override val finish: String) : PrintingTarget
@@ -261,7 +267,7 @@ fun ChangePrintingScreen(target: PrintingTarget, onClose: () -> Unit, onChanged:
             item { Section(if (query.isEmpty()) "Change to · ${printings.size}" else "Change to · ${shown.size} of ${printings.size}") }
             if (shown.isEmpty() && query.isNotEmpty()) item { ListRow("No printings match") }
             items(shown, key = { it.cardId }) { p ->
-                val price = remember(pricesVersion, p.cardId) { PriceBook.usd(p.cardId, p.finishList.firstOrNull()?.wire ?: "nonfoil") }
+                val price = remember(pricesVersion, p.cardId) { PriceBook.usd(p.cardId, p.finishList.firstOrNull()?.wire ?: "nonfoil", target.condition) }
                 val detail = listOfNotNull(CatalogPack.RARITY_NAME[p.rarity], p.releasedAt.take(4).ifEmpty { null }, if (p.original) "Original" else null,
                     if (p.lang == "en") null else p.lang.uppercase(), PriceBook.text(price)).joinToString(" · ")
                 Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).background(T1.surface), horizontalArrangement = Arrangement.spacedBy(1.dp)) {

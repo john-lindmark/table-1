@@ -293,7 +293,7 @@ class CollectionImportModel : ViewModel() {
         PriceBook.load(shown.map { it.cardId })
         var usd = 0.0
         var priced = 0
-        for (it in shown) PriceBook.usd(it.cardId, it.finish)?.let { p -> usd += p * it.qty; priced++ }
+        for (it in shown) PriceBook.usd(it.cardId, it.finish, it.condition)?.let { p -> usd += p * it.qty; priced++ }
         value = usd to priced
     }
 

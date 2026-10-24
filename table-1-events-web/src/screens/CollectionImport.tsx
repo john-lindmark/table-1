@@ -139,7 +139,7 @@ export function CollectionImportScreen({ onBack, onAllCards }: { onBack: () => v
   usePrices(priceIds);
   let value = 0, priced = 0;
   for (const it of items) {
-    const p = usdPrice(it.cardId, it.finish);
+    const p = usdPrice(it.cardId, it.finish, it.condition);
     if (p != null) {
       value += p * it.qty;
       priced++;

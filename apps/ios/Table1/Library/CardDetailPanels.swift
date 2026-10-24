@@ -246,7 +246,7 @@ struct CardInfoView: View {
                         .frame(maxWidth: .infinity).padding(.vertical, 16).background(T1.bg)
                 }
                 rules
-                row("Price", PriceBook.text(PriceBook.shared.usd(version.cardId, version.finish)) ?? "—")
+                row("Price", PriceBook.conditionText(PriceBook.shared.usd(version.cardId, version.finish), version.condition) ?? "—")
                 row("Card type", details?.type ?? oracle.typeLine)
                 if !oracle.manaCost.isEmpty { row("Mana cost", oracle.manaCost) }
                 row("Rarity", details?.rarity ?? printing.flatMap { CatalogPack.rarityName[$0.rarity] }?.lowercased() ?? "—")

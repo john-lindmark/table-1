@@ -225,7 +225,7 @@ final class CollectionImportModel {
         await prices.load(items.map(\.cardId))
         var usd = 0.0, priced = 0
         for it in items {
-            if let p = prices.usd(it.cardId, it.finish) { usd += p * Double(it.qty); priced += 1 }
+            if let p = prices.usd(it.cardId, it.finish, it.condition) { usd += p * Double(it.qty); priced += 1 }
         }
         value = (usd, priced)
     }

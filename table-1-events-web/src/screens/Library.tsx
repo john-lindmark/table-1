@@ -582,8 +582,6 @@ interface Group {
   /** The printing shown as the card's picture: the one owned most. */
   cover: number | null;
   coverQty: number;
-  /** Owned printing id|finish pairs, for prices. */
-  owned: [string, Finish][];
   /** The finish of the copies shown as the picture. */
   coverFinish: Finish;
   /** Copies per printing and finish, oldest printing first: the rows a card opens into. */
@@ -604,15 +602,14 @@ function groupItems(items: Map<string, Item>, c: Catalog): Group[] {
         name: oi >= 0 ? c.oName[oi] : "Card not in local data yet",
         norm: oi >= 0 ? c.oNorm[oi] : "",
         type: oi >= 0 ? c.oType[oi] : it.cardId,
-        qty: 0, printings: 0, lastSeq: 0, cover: null, coverQty: 0, owned: [], coverFinish: "nonfoil", parts: [],
+        qty: 0, printings: 0, lastSeq: 0, cover: null, coverQty: 0, coverFinish: "nonfoil", parts: [],
       };
       by.set(key, g);
       seenPrinting.set(key, new Set());
     }
     g.qty += it.qty;
     g.lastSeq = Math.max(g.lastSeq, it.seq);
-    g.owned.push([it.cardId, it.finish]);
-    addPart(g.parts, it.cardId, it.finish, it.qty, p ?? null);
+    addPart(g.parts, it.cardId, it.finish, it.qty, p ?? null, it.condition);
     if (p != null && it.qty > g.coverQty) {
       g.cover = p;
       g.coverQty = it.qty;
@@ -707,11 +704,11 @@ export function AllCards({ onBack, onOpen, onAdd }: { onBack: () => void; onOpen
   const keys = useMemo(() => new Map(catalog ? groups.map((g) => [g.key, keysOf(catalog, g.oracle)]) : []), [groups, catalog]);
   const ids = useMemo(() => [...new Set([...col.items.values()].map((it) => it.cardId))], [col.version]);
   const pricesV = usePrices(ids);
-  /** The most a single owned copy is worth (market, USD). */
+  /** The most a single owned copy is worth (market in its condition, USD). */
   const priceOf = (g: Group) => {
     let best: number | null = null;
-    for (const [id, f] of g.owned) {
-      const p = usdPrice(id, f);
+    for (const pt of g.parts) {
+      const p = usdPrice(pt.cardId, pt.finish, pt.condition);
       if (p != null && (best == null || p > best)) best = p;
     }
     return best;
@@ -789,7 +786,7 @@ export function AllCards({ onBack, onOpen, onAdd }: { onBack: () => void; onOpen
       return (
         <CardRow c={catalog} p={part.p} indent finish={part.finish}
                  title={[part.p == null ? null : `${catalog.pSet[part.p].toUpperCase()} #${catalog.pCn[part.p]}`, part.finish === "nonfoil" ? null : FINISH_LABEL[part.finish]].filter(Boolean).join(" · ")}
-                 detail={usdText(usdPrice(part.cardId, part.finish)) || undefined}
+                 detail={usdText(usdPrice(part.cardId, part.finish, part.condition)) || undefined}
                  value={part.qty} onClick={() => g.oracle >= 0 && onOpen(g.key)} />
       );
     }

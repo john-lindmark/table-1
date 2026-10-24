@@ -19,7 +19,8 @@ import java.util.Currency
 
 /**
  * Current market prices for printings (card_prices_get), fetched on demand and kept for the session.
- * USD is TCGplayer's market price as Scryfall publishes it; EUR is Cardmarket's. Prices are near mint.
+ * USD is TCGplayer's market price as Scryfall publishes it; EUR is Cardmarket's. Prices are near mint; [usd] prices a
+ * copy in its condition ([Conditions.price]).
  */
 object PriceBook {
     /** card id → [usd, usd_foil, usd_etched, eur, eur_foil] */
@@ -47,14 +48,21 @@ object PriceBook {
         }
     }
 
-    /** One copy's USD price in a finish, null when there's no market price. */
-    fun usd(cardId: String, finish: String): Double? {
+    /** One copy's USD price in a finish and condition, null when there's no market price. */
+    fun usd(cardId: String, finish: String, condition: String = "NM"): Double? {
         val r = synchronized(this) { rows[cardId] } ?: return null
-        return r.getOrNull(when (finish) { "foil" -> 1; "etched" -> 2; else -> 0 })
+        return Conditions.price(r.getOrNull(when (finish) { "foil" -> 1; "etched" -> 2; else -> 0 }), condition)
     }
 
     fun text(usd: Double?): String? = usd?.let {
         NumberFormat.getCurrencyInstance().apply { currency = Currency.getInstance("USD"); maximumFractionDigits = 2 }.format(it)
+    }
+
+    /** A copy's price in its condition, saying what near mint would be when it isn't: "$8.50 · LP (NM $10.00)". */
+    fun conditionText(nearMint: Double?, condition: String): String? {
+        val price = text(Conditions.price(nearMint, condition)) ?: return null
+        if (Conditions.percent(condition) == 100) return price
+        return "$price · ${condition.uppercase()} (NM ${text(nearMint)})"
     }
 }
 
@@ -65,4 +73,22 @@ object Conditions {
         "NM" -> "Near mint"; "LP" -> "Lightly played"; "MP" -> "Moderately played"; "HP" -> "Heavily played"; "DMG" -> "Damaged"
         else -> c
     }
+
+    /** The share of the near-mint price a copy in this condition is worth (contract/condition-prices-2026-10-24.md). */
+    fun percent(condition: String): Int = when (condition.uppercase()) {
+        "LP" -> 85; "MP" -> 70; "HP" -> 50; "DMG" -> 35
+        else -> 100
+    }
+
+    /** One copy's price in its condition from the near-mint price: whole cents, half up, never below a cent. */
+    fun price(nearMint: Double?, condition: String): Double? {
+        if (nearMint == null) return null
+        val cents = Math.round(nearMint * 100)
+        if (cents <= 0) return nearMint
+        return maxOf(1L, (cents * percent(condition) + 50) / 100) / 100.0
+    }
+
+    /** True when a is a better condition than b (NM before LP … DMG). */
+    fun better(a: String, b: String): Boolean =
+        all.indexOf(a).let { if (it < 0) all.size else it } < all.indexOf(b).let { if (it < 0) all.size else it }
 }

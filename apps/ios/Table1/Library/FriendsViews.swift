@@ -1076,7 +1076,7 @@ struct TradeMatchView: View {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("\(l.qty)").font(T1.mono(17)).monospacedDigit()
                         if l.overMax == true { LabelText("Over your max", color: T1.danger) }
-                        else if let u = PriceBook.text(l.usd ?? PriceBook.shared.usd(l.cardId, l.finish)) { LabelText(u) }
+                        else if let u = PriceBook.text(l.usd ?? PriceBook.shared.usd(l.cardId, l.finish, l.condition)) { LabelText(u) }
                     }
                 }
             }.buttonStyle(.plain)
