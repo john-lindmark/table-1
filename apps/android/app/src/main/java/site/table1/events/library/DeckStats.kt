@@ -217,7 +217,7 @@ object DeckStats {
         var total = 0.0
         var unpriced = 0
         for (c in cards) {
-            if (c.board == "maybe") continue
+            if (c.board == "maybe" || isBasic(c)) continue // basics never count (contract/basics-2026-10-24.md)
             val usd = c.usd
             if (usd == null) unpriced += c.qty else total += usd * c.qty
         }

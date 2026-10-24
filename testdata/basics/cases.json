@@ -1,0 +1,39 @@
+{
+  "about": "Basic lands never count as missing (contract/basics-2026-10-24.md). 'basics' are the card ids the catalog says are basic. 'missing' is each list's count of copies still needed; 'lines' is Wants -> Missing from decks and cubes (largest need across lists, sorted by short desc, then card_id|finish); 'add' is Add to collection's ops (Every card still adds basics). owned is keyed 'card_id|finish'. iOS BasicsTests, web basics.test.ts and Android BasicsTest read this.",
+  "basics": ["island", "snow-forest"],
+  "lists": [
+    {
+      "name": "Burn", "kind": "deck",
+      "entries": [
+        {"card_id": "bolt", "board": "main", "finish": "nonfoil", "qty": 4},
+        {"card_id": "island", "board": "main", "finish": "nonfoil", "qty": 8},
+        {"card_id": "snow-forest", "board": "side", "finish": "foil", "qty": 2},
+        {"card_id": "guide", "board": "maybe", "finish": "nonfoil", "qty": 1}
+      ]
+    },
+    {
+      "name": "Cube", "kind": "cube",
+      "entries": [
+        {"card_id": "bolt", "board": "main", "finish": "nonfoil", "qty": 1},
+        {"card_id": "island", "board": "main", "finish": "nonfoil", "qty": 20},
+        {"card_id": "strix", "board": "main", "finish": "nonfoil", "qty": 1}
+      ]
+    }
+  ],
+  "owned": {"bolt|nonfoil": 2, "island|nonfoil": 3},
+  "missing": {"Burn": 2, "Cube": 1},
+  "missingWithoutBasics": {"Burn": 9, "Cube": 18},
+  "lines": [
+    {"card_id": "bolt", "finish": "nonfoil", "short": 2, "lists": ["Burn"]},
+    {"card_id": "strix", "finish": "nonfoil", "short": 1, "lists": ["Cube"]}
+  ],
+  "add": [
+    {"list": "Burn", "mode": "missing", "ops": [{"card_id": "bolt", "finish": "nonfoil", "delta": 2}]},
+    {"list": "Burn", "mode": "all", "ops": [
+      {"card_id": "bolt", "finish": "nonfoil", "delta": 4},
+      {"card_id": "island", "finish": "nonfoil", "delta": 8},
+      {"card_id": "snow-forest", "finish": "foil", "delta": 2}
+    ]},
+    {"list": "Cube", "mode": "missing", "ops": [{"card_id": "strix", "finish": "nonfoil", "delta": 1}]}
+  ]
+}

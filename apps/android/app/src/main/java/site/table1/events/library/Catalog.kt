@@ -87,6 +87,19 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog, ImportC
     @Synchronized fun allOracles(): List<CatalogOracle> =
         oracleCache ?: query("SELECT $ORACLE_COLS FROM oracles", emptyArray(), ::oracle).also { oracleCache = it }
 
+    @Volatile private var basicCache: Set<String>? = null
+
+    /**
+     * Every printing of a basic land (the Basic supertype), read once while the pack is open: basics never count as
+     * missing from a deck or cube (contract/basics-2026-10-24.md).
+     */
+    @Synchronized fun basicCardIds(): Set<String> =
+        basicCache ?: query(
+            "SELECT card_id FROM printings WHERE oracle_idx IN " +
+                "(SELECT idx FROM oracles WHERE type_line LIKE 'Basic %' OR type_line LIKE '% Basic %')",
+            emptyArray(),
+        ) { it.getString(0) }.toSet().also { basicCache = it }
+
     /** In pack order (newest first within a card). */
     @Synchronized fun allPrintings(): List<CatalogPrinting> =
         printingCache ?: query("SELECT $PRINTING_COLS FROM printings ORDER BY ord", emptyArray(), ::printing).also { printingCache = it }
@@ -295,6 +308,8 @@ object CatalogStore {
     val state: StateFlow<CatalogState> = _state.asStateFlow()
     @Volatile var db: CatalogDb? = null
         private set
+    /** Basic land printings in the open pack; empty until one is open. */
+    val basics: Set<String> get() = db?.basicCardIds() ?: emptySet()
     private var running: Job? = null
     /** With a pack installed, a failed update (offline, metered) waits an hour before the next try. */
     private var lastAttempt = 0L

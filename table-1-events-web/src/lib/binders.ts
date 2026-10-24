@@ -84,15 +84,16 @@ export interface MissingLine { cardId: string; finish: Finish; short: number; li
 
 /**
  * Every list line (not Considering, not roto event decks) short of copies, per printing × finish, with the largest
- * need across lists: lists don't reserve copies, so one set of copies covers them all.
+ * need across lists: lists don't reserve copies, so one set of copies covers them all. Basic lands (`basics`) are never
+ * missing (contract/basics-2026-10-24.md).
  */
-export function missingLines(lists: CardList[], owned: Map<string, number>): MissingLine[] {
+export function missingLines(lists: CardList[], owned: Map<string, number>, basics: Set<string>): MissingLine[] {
   const need = new Map<string, { max: number; lists: string[] }>();
   for (const l of lists) {
     if (l.eventId) continue;
     const mine = new Map<string, number>();
     for (const e of entriesOf(l)) {
-      if (e.board === "maybe") continue;
+      if (e.board === "maybe" || basics.has(e.cardId)) continue;
       const k = `${e.cardId}|${finishOf(e)}`;
       mine.set(k, (mine.get(k) ?? 0) + e.qty);
     }

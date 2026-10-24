@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Bar, GhostAction, Notice, Row, Section, Segmented, SwitchRow, useEscape } from "../components/kit";
 import { errorMessage } from "../lib/api";
-import type { Catalog } from "../lib/catalog";
+import { basicCardIds, type Catalog } from "../lib/catalog";
 import { applyOps, undoBatch } from "../lib/collection";
 import { storeAddLang, storedAddLang } from "../lib/languages";
 import { copiesOf, listAddOps, toCollectionOps, type AddMode } from "../lib/listToCollection";
@@ -27,7 +27,8 @@ export function ListToCollectionScreen({ list, catalog, owned, onClose }: {
   useEscape(onClose);
 
   const entries = entriesOf(list);
-  const missing = useMemo(() => listAddOps(entries, list.kind, owned, "missing", sideboard), [entries, list.kind, owned, sideboard]);
+  const missing = useMemo(() => listAddOps(entries, list.kind, owned, "missing", sideboard, undefined, basicCardIds(catalog)),
+                          [entries, list.kind, owned, sideboard, catalog]);
   const all = useMemo(() => listAddOps(entries, list.kind, owned, "all", sideboard), [entries, list.kind, sideboard]);
   const ops = mode === "missing" ? missing : all;
   const copies = copiesOf(ops);

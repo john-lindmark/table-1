@@ -327,6 +327,23 @@ export function tokenIndexes(c: Catalog, oi: number): number[] {
   return t ? t.split(",").map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n < c.oracles) : [];
 }
 
+const basicsCache = new WeakMap<Catalog, Set<string>>();
+
+/** Every printing of a basic land (the Basic supertype), worked out once per pack: basics never count as missing from a
+ *  deck or cube (contract/basics-2026-10-24.md). */
+export function basicCardIds(c: Catalog | null | undefined): Set<string> {
+  if (!c) return new Set();
+  let out = basicsCache.get(c);
+  if (out) return out;
+  out = new Set();
+  for (let oi = 0; oi < c.oracles; oi++) {
+    if (!/(^| )Basic /.test(c.oType[oi])) continue;
+    for (let p = c.pFirst[oi]; p < c.pFirst[oi] + c.pCount[oi]; p++) out.add(c.pId[p]);
+  }
+  basicsCache.set(c, out);
+  return out;
+}
+
 export function oracleIndexById(c: Catalog, oracleId: string): number {
   return c.oId.indexOf(oracleId);
 }

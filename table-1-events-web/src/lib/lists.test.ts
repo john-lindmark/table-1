@@ -38,14 +38,14 @@ describe("diff and missing", () => {
     ]);
   });
   it("never counts Considering as missing", () => {
-    expect(missingIn(l, new Map([[`${BOLT}|nonfoil`, 1]]))).toBe(2);
-    expect(missingIn(l, new Map([[`${BOLT}|nonfoil`, 3]]))).toBe(0);
+    expect(missingIn(l, new Map([[`${BOLT}|nonfoil`, 1]]), new Set())).toBe(2);
+    expect(missingIn(l, new Map([[`${BOLT}|nonfoil`, 3]]), new Set())).toBe(0);
   });
   it("splits finishes into their own lines and counts foil lines against foil copies", () => {
     const split = fromWire({ id: "x", kind: "deck", name: "x", format: "modern",
       versions: [{ version: 1, note: "Created", at: 0, entries: [[BOLT, "main", 2], [BOLT, "main", 2, "foil"]] }] })!;
     expect(split.versions[0].entries).toEqual([{ cardId: BOLT, board: "main", qty: 2 }, { cardId: BOLT, board: "main", qty: 2, finish: "foil" }]);
-    expect(missingIn(split, new Map([[`${BOLT}|nonfoil`, 4]]))).toBe(2);
-    expect(missingIn(split, new Map([[`${BOLT}|nonfoil`, 2], [`${BOLT}|foil`, 2]]))).toBe(0);
+    expect(missingIn(split, new Map([[`${BOLT}|nonfoil`, 4]]), new Set())).toBe(2);
+    expect(missingIn(split, new Map([[`${BOLT}|nonfoil`, 2], [`${BOLT}|foil`, 2]]), new Set())).toBe(0);
   });
 });

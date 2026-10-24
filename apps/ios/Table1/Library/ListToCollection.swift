@@ -9,12 +9,14 @@ enum ListToCollection {
     struct Op: Hashable { let cardId: String; let finish: String; let delta: Int }
 
     /// Main (and Commander) always counts, a deck's sideboard unless `sideboard` is off, Considering never. `owned` is keyed
-    /// "card_id|finish" over every condition and language; `only` limits it to some printings (card detail).
+    /// "card_id|finish" over every condition and language; `only` limits it to some printings (card detail). Basic lands
+    /// (`basics`) are never missing, so only Every card adds them (contract/basics-2026-10-24.md).
     static func ops(_ entries: [CardList.Entry], kind: CardList.Kind, owned: [String: Int], mode: Mode,
-                    sideboard: Bool = true, only: Set<String>? = nil) -> [Op] {
+                    sideboard: Bool = true, only: Set<String>? = nil, basics: Set<String> = []) -> [Op] {
         var need: [String: Int] = [:]
         for e in entries where e.board == "main" || e.board == "commander" || (e.board == "side" && kind == .deck && sideboard) {
             if let only, !only.contains(e.cardId) { continue }
+            if mode == .missing && basics.contains(e.cardId) { continue }
             need["\(e.cardId)|\(e.finish)", default: 0] += e.qty
         }
         return need.compactMap { key, n -> Op? in
@@ -56,7 +58,7 @@ struct ListToCollectionPanel: View {
         let owned = ownedByPrinting()
         let entries = list?.entries ?? []
         let kind = list?.kind ?? .deck
-        let missing = ListToCollection.ops(entries, kind: kind, owned: owned, mode: .missing, sideboard: sideboard)
+        let missing = ListToCollection.ops(entries, kind: kind, owned: owned, mode: .missing, sideboard: sideboard, basics: catalog.basics)
         let all = ListToCollection.ops(entries, kind: kind, owned: owned, mode: .all, sideboard: sideboard)
         let ops = mode == .missing ? missing : all
         let copies = ListToCollection.copies(ops)

@@ -66,12 +66,12 @@ final class BinderRulesTests: XCTestCase {
                        .init(cardId: "bolt", board: "main", qty: 2, finish: "foil")]),
             list("3", [.init(cardId: "shock", board: "main", qty: 4)], event: "roto"),
         ]
-        let lines = MissingView.lines(lists, owned: ["bolt|nonfoil": 1])
+        let lines = MissingView.lines(lists, owned: ["bolt|nonfoil": 1], basics: [])
         XCTAssertEqual(lines.map(\.id), ["bolt|nonfoil", "bolt|foil"])
         XCTAssertEqual(lines[0].short, 3)
         XCTAssertEqual(lines[0].lists, ["Deck 1", "Deck 2"])
         XCTAssertEqual(lines[1].short, 2)
-        XCTAssertTrue(MissingView.lines(lists, owned: ["bolt|nonfoil": 4, "bolt|foil": 2]).isEmpty)
+        XCTAssertTrue(MissingView.lines(lists, owned: ["bolt|nonfoil": 4, "bolt|foil": 2], basics: []).isEmpty)
     }
 }
 

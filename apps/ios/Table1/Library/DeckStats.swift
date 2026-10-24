@@ -220,10 +220,11 @@ enum DeckStats {
             .map { TokenUse(token: $0.token, makers: $0.makers.sorted { byName($0.key, $1.key) }.map { ($0.key, $0.value) }) }
     }
 
-    /// Main deck, sideboard and commander at market price; copies without a price are counted.
+    /// Main deck, sideboard and commander at market price; copies without a price are counted. Basics never count
+    /// (contract/basics-2026-10-24.md).
     static func price(_ cards: [StatCard]) -> (total: Double, unpriced: Int) {
         var total = 0.0, unpriced = 0
-        for c in cards where c.board != "maybe" {
+        for c in cards where c.board != "maybe" && !isBasic(c) {
             if let usd = c.usd { total += usd * Double(c.qty) } else { unpriced += c.qty }
         }
         return ((total * 100).rounded() / 100, unpriced)

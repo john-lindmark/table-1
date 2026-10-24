@@ -6,7 +6,7 @@ import { GROUPING_KEY, GROUPING_TITLE, groupLabel, groupSections, groupingOption
 import { SignInButtons } from "../components/SignInButtons";
 import { errorMessage } from "../lib/api";
 import {
-  cardImageUrl, cornerRatio, coverPrinting, loadCatalog, normName, type Catalog,
+  basicCardIds, cardImageUrl, cornerRatio, coverPrinting, loadCatalog, normName, type Catalog,
 } from "../lib/catalog";
 import {
   useCollection, type Finish, type Item,
@@ -518,13 +518,13 @@ export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes, onTrades, onI
   const totals = useMemo(() => binderTotals(col.items), [col.version, binders.version]);
   const forTradeCopies = binders.binders.filter((b) => b.for_trade).reduce((n, b) => n + (totals.byBinder.get(b.id) ?? 0), 0);
   const wanted = useMemo(() => liveWants().reduce((n, w) => n + w.qty, 0), [binders.version]);
+  const { catalog } = useCatalog();
   const missing = useMemo(() => {
     const owned = new Map<string, number>();
     for (const it of col.items.values()) owned.set(`${it.cardId}|${it.finish}`, (owned.get(`${it.cardId}|${it.finish}`) ?? 0) + it.qty);
-    return missingLines(lists.lists, owned).reduce((n, m) => n + m.short, 0);
-  }, [lists.lists, col.version]);
+    return missingLines(lists.lists, owned, basicCardIds(catalog)).reduce((n, m) => n + m.short, 0);
+  }, [lists.lists, col.version, catalog]);
   const heroes = useLibraryHeroes();
-  const { catalog } = useCatalog();
   const heroArt = useMemo(() => {
     if (!catalog) return [];
     const held = [...col.items.values()].sort((a, b) => b.qty - a.qty).map((it) => it.cardId);

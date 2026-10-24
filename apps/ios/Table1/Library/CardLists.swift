@@ -535,13 +535,12 @@ func ownedByPrinting() -> [String: Int] {
     return out
 }
 
-/// Copies a list still needs. A line counts as covered only by the printing and finish it names; Considering is
-/// excluded.
-@MainActor
-func missing(in list: CardList, owned: [String: Int]) -> Int {
+/// Copies a list still needs. A line counts as covered only by the printing and finish it names; Considering and
+/// basic lands (`basics`, contract/basics-2026-10-24.md) are excluded.
+func missing(in list: CardList, owned: [String: Int], basics: Set<String>) -> Int {
     guard list.eventId == nil else { return 0 }
     var need: [String: Int] = [:]
-    for e in list.entries where e.board != "maybe" { need["\(e.cardId)|\(e.finish)", default: 0] += e.qty }
+    for e in list.entries where e.board != "maybe" && !basics.contains(e.cardId) { need["\(e.cardId)|\(e.finish)", default: 0] += e.qty }
     return need.reduce(0) { $0 + max(0, $1.value - (owned[$1.key] ?? 0)) }
 }
 
@@ -593,7 +592,7 @@ struct ListsView: View {
                     }.buttonStyle(.plain)
                 }
                 ForEach(lists) { l in
-                    let miss = missing(in: l, owned: owned)
+                    let miss = missing(in: l, owned: owned, basics: CatalogStore.shared.basics)
                     Button { path.append(.list(l.id)) } label: {
                         HeroListRow(heroes: heroArt[l.id] ?? [], title: l.name, detail: detail(l, missing: miss)) {
                             Text(l.count("main").formatted()).font(T1.mono(17)).monospacedDigit()
@@ -972,7 +971,7 @@ struct ListDetailView: View {
             }
             // A roto deck's cards are the cube's, not yours to add.
             if list.eventId == nil {
-                let short = missing(in: list, owned: owned)
+                let short = missing(in: list, owned: owned, basics: CatalogStore.shared.basics)
                 Button {
                     T1Overlays.shared.present(full: true) { ListToCollectionPanel(listId: list.id).screen("list_to_collection") }
                 } label: {
@@ -1013,9 +1012,11 @@ struct ListDetailView: View {
             let hero = HeroesStore.shared.isHero(cg.lead.oracleId, heroScope)
             let considering = cg.lead.board == "maybe"
             let eventDeck = ListsStore.shared.list(id: listId)?.eventId != nil
-            let short = cg.lines.reduce(0) { $0 + max(0, $1.qty - (owned[$1.ownKey] ?? 0)) }
+            // Basics are never missing (contract/basics-2026-10-24.md).
+            let short = cg.lead.basic ? 0 : cg.lines.reduce(0) { $0 + max(0, $1.qty - (owned[$1.ownKey] ?? 0)) }
             let have = cg.lines.reduce(0) { $0 + (owned[$1.ownKey] ?? 0) }
-            let haveText: String? = eventDeck ? nil : considering ? (have > 0 ? "Owned \(have)" : "Not owned") : short > 0 ? "Missing \(short)" : "All owned"
+            let haveText: String? = eventDeck ? nil : considering ? (have > 0 ? "Owned \(have)" : "Not owned")
+                : cg.lead.basic ? (have > 0 ? "Owned \(have)" : nil) : short > 0 ? "Missing \(short)" : "All owned"
             HStack(spacing: 1) {
                 Button { if let o = cg.lead.oracleId { path.append(.cardIn(o, .list(listId))) } } label: {
                     CardRow(printing: cg.lead.printing, title: cg.lead.name,
@@ -1041,10 +1042,10 @@ struct ListDetailView: View {
 
     private func lineRow(_ line: ListLine, owned: Int, issue: String?, sub: Bool = false) -> some View {
         let considering = line.board == "maybe"
-        let short = !considering && owned < line.qty
+        let short = !considering && !line.basic && owned < line.qty
         let eventDeck = ListsStore.shared.list(id: listId)?.eventId != nil
         let have: String? = eventDeck ? nil : considering ? (owned > 0 ? "Owned \(owned)" : "Not owned")
-            : short ? "Owned \(owned) · missing \(line.qty - owned)" : "Owned \(owned)"
+            : line.basic && owned == 0 ? nil : short ? "Owned \(owned) · missing \(line.qty - owned)" : "Owned \(owned)"
         let pts = line.points > 0 && ListsStore.shared.list(id: listId)?.format == "canlander" ? "\(line.points) pt\(line.points == 1 ? "" : "s")" : nil
         let detail = [sub ? nil : issue, pts, line.finishLabel, have].compactMap { $0 }.joined(separator: " · ")
         return Button {

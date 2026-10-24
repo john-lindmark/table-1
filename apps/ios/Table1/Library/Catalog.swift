@@ -104,6 +104,22 @@ final class CatalogDB: @unchecked Sendable {
         return rows
     }
 
+    private var basicCache: Set<String>?
+
+    /// Every printing of a basic land (the Basic supertype), read once while the pack is open: basics never count as
+    /// missing from a deck or cube (contract/basics-2026-10-24.md).
+    func basicCardIds() -> Set<String> {
+        cacheLock.lock(); defer { cacheLock.unlock() }
+        if let basicCache { return basicCache }
+        let ids = (try? db.query("""
+            SELECT card_id FROM printings WHERE oracle_idx IN
+              (SELECT idx FROM oracles WHERE type_line LIKE 'Basic %' OR type_line LIKE '% Basic %')
+            """, [], { $0.text(0) })) ?? []
+        let out = Set(ids)
+        basicCache = out
+        return out
+    }
+
     private static let oracleCols = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount, legal, points, cmc, colors, produced, tokens"
     private static func oracle(_ r: SQLiteDB.Row) -> CatalogOracle {
         CatalogOracle(idx: r.int(0), oracleId: r.text(1), name: r.text(2), norm: r.text(3), typeLine: r.text(4),
@@ -322,6 +338,9 @@ final class CatalogStore {
     /// Bumped whenever a pack is opened or replaced; views re-query on it.
     private(set) var generation = 0
     @ObservationIgnored private(set) var db: CatalogDB?
+    /// Basic land printings in the open pack; empty until one is open. Reads `generation` so views redraw when a
+    /// pack opens.
+    var basics: Set<String> { _ = generation; return db?.basicCardIds() ?? [] }
     @ObservationIgnored private var running: Task<Void, Never>?
     /// With a pack installed, a failed update (offline, cellular) waits an hour before the next try.
     @ObservationIgnored private var lastAttempt: Date?

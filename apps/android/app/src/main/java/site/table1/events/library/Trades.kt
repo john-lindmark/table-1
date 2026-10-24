@@ -270,8 +270,8 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
         }
     }
 
-    val missing = remember(lists.lists, col.version) {
-        MissingView.lines(lists.lists, col.items.values.groupBy { ownKey(it.cardId, it.finish) }.mapValues { (_, v) -> v.sumOf { it.qty } })
+    val missing = remember(lists.lists, col.version, cat.generation) {
+        MissingView.lines(lists.lists, col.items.values.groupBy { ownKey(it.cardId, it.finish) }.mapValues { (_, v) -> v.sumOf { it.qty } }, CatalogStore.basics)
             .associateBy { it.key }
     }
 

@@ -35,8 +35,8 @@ class ListsTest {
 
     @Test fun consideringNeverCountsAsMissing() {
         val l = json.decodeFromString<ListWire>(wire).toList()!!
-        assertEquals(2, l.missing(mapOf(ownKey(bolt, "nonfoil") to 1)))
-        assertEquals(0, l.missing(mapOf(ownKey(bolt, "nonfoil") to 3)))
+        assertEquals(2, l.missing(mapOf(ownKey(bolt, "nonfoil") to 1), emptySet()))
+        assertEquals(0, l.missing(mapOf(ownKey(bolt, "nonfoil") to 3), emptySet()))
     }
 
     @Test fun cacheRoundTrips() {
@@ -47,8 +47,8 @@ class ListsTest {
     @Test fun splitsFinishesIntoTheirOwnLines() {
         val l = CardList("x", ListKind.Deck, "x", "modern", listOf(ListVersion(1, 0.0, "Created",
             listOf(ListEntry(bolt, "main", 2), ListEntry(bolt, "main", 2, "foil")))))
-        assertEquals(2, l.missing(mapOf(ownKey(bolt, "nonfoil") to 4)))
-        assertEquals(0, l.missing(mapOf(ownKey(bolt, "nonfoil") to 2, ownKey(bolt, "foil") to 2)))
+        assertEquals(2, l.missing(mapOf(ownKey(bolt, "nonfoil") to 4), emptySet()))
+        assertEquals(0, l.missing(mapOf(ownKey(bolt, "nonfoil") to 2, ownKey(bolt, "foil") to 2), emptySet()))
         val wire = ListWire.of(l).versions[0].entries.map { it.size }
         assertEquals(listOf(3, 4), wire)
         assertEquals(l, ListWire.of(l).toList())

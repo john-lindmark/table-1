@@ -459,7 +459,7 @@ struct TradeView: View {
         meta = found.0
         names = found.1
         oracleIds = found.2
-        missingLines = Dictionary(MissingView.lines(ListsStore.shared.lists, owned: ownedByPrinting()).map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        missingLines = Dictionary(MissingView.lines(ListsStore.shared.lists, owned: ownedByPrinting(), basics: CatalogStore.shared.basics).map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         await prices.load(ids)
     }
 

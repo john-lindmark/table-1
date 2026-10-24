@@ -211,7 +211,7 @@ fun ListsScreen(kind: ListKind, onBack: () -> Unit, onOpen: (String) -> Unit, on
             item { ListRow(if (kind == ListKind.Deck) "New deck" else "New cube", "Name it, then add cards", onClick = { creating = true }) }
             if (kind == ListKind.Cube && onRankings != null) item { ListRow("Rankings", "Yours, and friends' cubes you can rank", onClick = onRankings) }
             items(mine, key = { it.id }) { l ->
-                val miss = l.missing(owned)
+                val miss = l.missing(owned, CatalogStore.basics)
                 val side = l.count("side"); val maybe = l.count("maybe")
                 val detail = listOfNotNull(l.format, if (side > 0) "$side sideboard" else null, if (maybe > 0) "$maybe considering" else null,
                     if (miss == 0) "All owned" else "$miss missing", "v${l.current.number}").joinToString(" · ")
@@ -318,7 +318,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                 ListRow("Export", if (list.kind == ListKind.Deck) "Text, Arena, MTGO, download or copy" else "Text, Cube Cobra, download or copy",
                     onClick = { exporting = true })
                 if (list.kind == ListKind.Deck) ListRow("Deck image", "The cards as a picture, to save or share", onClick = { imaging = true })
-                val short = list.missing(owned)
+                val short = list.missing(owned, CatalogStore.basics)
                 ListRow("Add to collection", if (short > 0) "Missing $short · or every card" else "You own every card · add more copies", onClick = { adding = true })
             }
             if (list.entries.isEmpty()) ListRow("No cards yet", "Add cards to start this list")
@@ -328,9 +328,10 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     val lineRow: @Composable (ListLine, Boolean) -> Unit = { x, sub ->
         val have = owned[x.ownKey] ?: 0
         val considering = x.board == "maybe"
-        val short = !considering && have < x.qty
+        val short = !considering && !x.basic && have < x.qty // basics are never missing
         val issue = issues[x.oracleId ?: x.cardId]
-        val owns = if (considering) (if (have > 0) "Owned $have" else "Not owned") else if (short) "Owned $have · missing ${x.qty - have}" else "Owned $have"
+        val owns = if (considering) (if (have > 0) "Owned $have" else "Not owned") else if (short) "Owned $have · missing ${x.qty - have}"
+            else if (x.basic && have == 0) null else "Owned $have"
         val pts = if (x.points > 0 && list.format == "canlander") "${x.points} pt${if (x.points == 1) "" else "s"}" else null
         CardRow(x.printing, if (sub) x.printing?.setLabel ?: x.name else x.name, listOfNotNull(if (sub) null else issue, pts, x.finishLabel, owns).joinToString(" · "),
             onClick = { x.oracleId?.let(onCard) }, finish = x.finish, hero = !sub && heroes.isHero(x.oracleId, heroScope), indent = sub) {
@@ -343,9 +344,11 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
         val hero = heroes.isHero(lead.oracleId, heroScope)
         val considering = lead.board == "maybe"
         val issue = issues[cg.key]
-        val short = cg.lines.sumOf { (it.qty - (owned[it.ownKey] ?: 0)).coerceAtLeast(0) }
+        // Basics are never missing (contract/basics-2026-10-24.md).
+        val short = if (lead.basic) 0 else cg.lines.sumOf { (it.qty - (owned[it.ownKey] ?: 0)).coerceAtLeast(0) }
         val have = cg.lines.sumOf { owned[it.ownKey] ?: 0 }
-        val haveText = if (considering) (if (have > 0) "Owned $have" else "Not owned") else if (short > 0) "Missing $short" else "All owned"
+        val haveText = if (considering) (if (have > 0) "Owned $have" else "Not owned")
+            else if (lead.basic) (if (have > 0) "Owned $have" else null) else if (short > 0) "Missing $short" else "All owned"
         WithChevron(cg.lines.size, open, hero, {
             printings.value = printings.value.toggle(cg.id)
             Telemetry.capture("printings_toggled", mapOf("expanded" to !open, "all" to false, "screen" to "list"))

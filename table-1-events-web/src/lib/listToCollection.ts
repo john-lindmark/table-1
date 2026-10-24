@@ -10,13 +10,15 @@ export type AddMode = "missing" | "all";
 export interface AddOp { card_id: string; finish: ListFinish; delta: number }
 
 /** Main and Commander always count, a deck's sideboard unless `sideboard` is false, Considering never. `owned` is
-    keyed "card_id|finish" over every condition and language; `only` limits it to some printings (card detail). */
+    keyed "card_id|finish" over every condition and language; `only` limits it to some printings (card detail). Basic
+    lands (`basics`) are never missing, so only "all" adds them (contract/basics-2026-10-24.md). */
 export function listAddOps(entries: Entry[], kind: ListKind, owned: Map<string, number>, mode: AddMode,
-                           sideboard = true, only?: Set<string>): AddOp[] {
+                           sideboard = true, only?: Set<string>, basics?: Set<string>): AddOp[] {
   const need = new Map<string, number>();
   for (const e of entries) {
     if (!(e.board === "main" || e.board === "commander" || (e.board === "side" && kind === "deck" && sideboard))) continue;
     if (only && !only.has(e.cardId)) continue;
+    if (mode === "missing" && basics?.has(e.cardId)) continue;
     const k = ownKey(e.cardId, finishOf(e));
     need.set(k, (need.get(k) ?? 0) + e.qty);
   }

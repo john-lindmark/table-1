@@ -184,12 +184,13 @@ struct MissingLine: Hashable, Identifiable, Sendable {
 
 enum MissingView {
     /// Every list line (not Considering, not roto event decks) short of copies, per printing × finish, with the
-    /// largest need across lists: lists don't reserve copies, so one set of copies covers them all.
-    static func lines(_ lists: [CardList], owned: [String: Int]) -> [MissingLine] {
+    /// largest need across lists: lists don't reserve copies, so one set of copies covers them all. Basic lands
+    /// (`basics`) are never missing (contract/basics-2026-10-24.md).
+    static func lines(_ lists: [CardList], owned: [String: Int], basics: Set<String>) -> [MissingLine] {
         var need: [String: (max: Int, lists: [String])] = [:]
         for l in lists where l.eventId == nil {
             var mine: [String: Int] = [:]
-            for e in l.entries where e.board != "maybe" { mine["\(e.cardId)|\(e.finish)", default: 0] += e.qty }
+            for e in l.entries where e.board != "maybe" && !basics.contains(e.cardId) { mine["\(e.cardId)|\(e.finish)", default: 0] += e.qty }
             for (k, n) in mine where n > (owned[k] ?? 0) {
                 var v = need[k] ?? (0, [])
                 v.max = max(v.max, n)

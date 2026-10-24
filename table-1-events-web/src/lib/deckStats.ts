@@ -224,11 +224,12 @@ export function tokens(cards: StatCard[]): TokenUse[] {
     }));
 }
 
-/** Main deck, sideboard and commander at market price; copies without a price are counted. */
+/** Main deck, sideboard and commander at market price; copies without a price are counted. Basics never count
+ *  (contract/basics-2026-10-24.md). */
 export function price(cards: StatCard[]): { total: number; unpriced: number } {
   let total = 0, unpriced = 0;
   for (const c of cards) {
-    if (c.board === "maybe") continue;
+    if (c.board === "maybe" || isBasic(c)) continue;
     if (c.usd == null) unpriced += c.qty;
     else total += c.usd * c.qty;
   }

@@ -129,12 +129,13 @@ data class MissingLine(val cardId: String, val finish: String, val short: Int, v
 object MissingView {
     /**
      * Every list line (not Considering) short of copies, per printing × finish, with the largest need across lists:
-     * lists don't reserve copies, so one set of copies covers them all.
+     * lists don't reserve copies, so one set of copies covers them all. Basic lands ([basics]) are never missing
+     * (contract/basics-2026-10-24.md).
      */
-    fun lines(lists: List<CardList>, owned: Map<String, Int>): List<MissingLine> {
+    fun lines(lists: List<CardList>, owned: Map<String, Int>, basics: Set<String>): List<MissingLine> {
         val need = LinkedHashMap<String, Pair<Int, MutableList<String>>>()
         for (l in lists) {
-            val mine = l.entries.filter { it.board != "maybe" }.groupBy { ownKey(it.cardId, it.finish) }.mapValues { (_, v) -> v.sumOf { it.qty } }
+            val mine = l.entries.filter { it.board != "maybe" && it.cardId !in basics }.groupBy { ownKey(it.cardId, it.finish) }.mapValues { (_, v) -> v.sumOf { it.qty } }
             for ((k, n) in mine) {
                 if (n <= (owned[k] ?: 0)) continue
                 val v = need[k] ?: (0 to mutableListOf())

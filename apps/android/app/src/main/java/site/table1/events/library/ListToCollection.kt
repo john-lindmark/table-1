@@ -47,12 +47,15 @@ object ListToCollection {
     data class Op(val cardId: String, val finish: String, val delta: Int)
 
     /** Main and Commander always count, a deck's sideboard unless `sideboard` is false, Considering never. `owned` is
-     *  keyed "card_id|finish" over every condition and language; `only` limits it to some printings (card detail). */
-    fun ops(entries: List<ListEntry>, kind: ListKind, owned: Map<String, Int>, mode: Mode, sideboard: Boolean = true, only: Set<String>? = null): List<Op> {
+     *  keyed "card_id|finish" over every condition and language; `only` limits it to some printings (card detail). Basic
+     *  lands ([basics]) are never missing, so only All adds them (contract/basics-2026-10-24.md). */
+    fun ops(entries: List<ListEntry>, kind: ListKind, owned: Map<String, Int>, mode: Mode, sideboard: Boolean = true, only: Set<String>? = null,
+            basics: Set<String> = emptySet()): List<Op> {
         val need = LinkedHashMap<String, Int>()
         for (e in entries) {
             if (!(e.board == "main" || e.board == "commander" || (e.board == "side" && kind == ListKind.Deck && sideboard))) continue
             if (only != null && e.cardId !in only) continue
+            if (mode == Mode.Missing && e.cardId in basics) continue
             need.merge(ownKey(e.cardId, e.finish), e.qty, Int::plus)
         }
         return need.mapNotNull { (k, n) ->
@@ -97,7 +100,7 @@ fun ListToCollectionScreen(list: CardList, owned: Map<String, Int>, onClose: () 
         names = ns
     }
 
-    val missing = ListToCollection.ops(list.entries, list.kind, owned, ListToCollection.Mode.Missing, sideboard)
+    val missing = ListToCollection.ops(list.entries, list.kind, owned, ListToCollection.Mode.Missing, sideboard, basics = CatalogStore.basics)
     val all = ListToCollection.ops(list.entries, list.kind, owned, ListToCollection.Mode.All, sideboard)
     val ops = if (mode == ListToCollection.Mode.Missing) missing else all
     val copies = ListToCollection.copies(ops)

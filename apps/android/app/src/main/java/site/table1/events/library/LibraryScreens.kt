@@ -159,8 +159,8 @@ fun LibraryHomeScreen(foregrounds: Int, onAllCards: () -> Unit, onAdd: () -> Uni
             }
             item {
                 val wanted = binders.liveWants.sumOf { it.qty }
-                val missing = remember(col.version, lists.lists) {
-                    MissingView.lines(lists.lists, col.items.values.groupBy { ownKey(it.cardId, it.finish) }.mapValues { (_, v) -> v.sumOf { it.qty } }).sumOf { it.short }
+                val missing = remember(col.version, lists.lists, cat.generation) {
+                    MissingView.lines(lists.lists, col.items.values.groupBy { ownKey(it.cardId, it.finish) }.mapValues { (_, v) -> v.sumOf { it.qty } }, CatalogStore.basics).sumOf { it.short }
                 }
                 ListRow("Wants", "${count(wanted)} wanted · ${count(missing)} missing", onClick = onWants) {
                     Text(count(wanted), color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)

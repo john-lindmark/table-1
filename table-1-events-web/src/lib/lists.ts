@@ -81,11 +81,12 @@ export function diff(older: Version | null, newer: Version): Change[] {
 /** Key into the owned map: "card_id|finish". */
 export const ownKey = (cardId: string, finish: ListFinish = "nonfoil") => `${cardId}|${finish}`;
 
-/** Copies a list still needs: covered only by the printing and finish it names; Considering never counts. */
-export function missingIn(l: CardList, owned: Map<string, number>): number {
+/** Copies a list still needs: covered only by the printing and finish it names; Considering and basic lands (`basics`,
+ *  contract/basics-2026-10-24.md) never count. */
+export function missingIn(l: CardList, owned: Map<string, number>, basics: Set<string>): number {
   if (l.eventId) return 0; // a roto deck's cards come from the cube, never from your collection
   const need = new Map<string, number>();
-  for (const e of entriesOf(l)) if (e.board !== "maybe") need.set(ownKey(e.cardId, finishOf(e)), (need.get(ownKey(e.cardId, finishOf(e))) ?? 0) + e.qty);
+  for (const e of entriesOf(l)) if (e.board !== "maybe" && !basics.has(e.cardId)) need.set(ownKey(e.cardId, finishOf(e)), (need.get(ownKey(e.cardId, finishOf(e))) ?? 0) + e.qty);
   let n = 0;
   for (const [id, q] of need) n += Math.max(0, q - (owned.get(id) ?? 0));
   return n;

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BigAction, Field, GhostAction, Modal, Notice, Row, Screen, Section, Segmented } from "../components/kit";
-import { CANLANDER_POINT_LIMIT, coverPrinting, formatName, legalityOf, type Catalog } from "../lib/catalog";
+import { CANLANDER_POINT_LIMIT, basicCardIds, coverPrinting, formatName, legalityOf, type Catalog } from "../lib/catalog";
 import { DEMO_USER, useCollection } from "../lib/collection";
 import { loadDemoLists } from "../lib/libraryDemo";
 import {
@@ -196,7 +196,7 @@ export function ListsScreen({ kind, onBack, onOpen, onFind, onImport, onRankings
         <Row title={kind === "deck" ? "New deck" : "New cube"} detail="Name it, then add cards" onClick={() => setCreating(true)} />
         {kind === "cube" && onRankings && <Row title="Rankings" detail="Yours, and friends' cubes you can rank" onClick={onRankings} />}
         {mine.map((l) => {
-          const miss = missingIn(l, owned);
+          const miss = missingIn(l, owned, basicCardIds(catalog));
           const side = countOf(l, "side"), maybe = countOf(l, "maybe");
           const detail = [formatName(l.format), side ? `${side} sideboard` : null, maybe ? `${maybe} considering` : null,
                           l.eventId ? `From ${l.eventName ?? "an event"}` : miss ? `${miss} missing` : "All owned", `v${current(l).number}`].filter(Boolean).join(" · ");
@@ -374,7 +374,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
     const fin = x.finish === "nonfoil" ? null : FINISH_NAME[x.finish];
     const pts = x.points > 0 && list.format === "canlander" ? `${x.points} pt${x.points === 1 ? "" : "s"}` : null;
     const considering = x.board === "maybe";
-    const short = !considering && !list.eventId && have < x.qty;
+    const short = !considering && !list.eventId && !x.basic && have < x.qty; // basics are never missing
     const issue = issues.get(x.oracleId ?? x.cardId);
     if (editing) {
       return (
@@ -395,7 +395,9 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         <CardRow c={catalog!} p={x.p} value={x.qty} warn={short || !!issue} finish={x.finish} indent={sub}
                  title={sub && x.p != null ? `${catalog!.pSet[x.p].toUpperCase()} #${catalog!.pCn[x.p]}` : x.name}
                  hero={!sub && isHero(x.oracleId, heroScope, heroes)}
-                 detail={(issue && !sub ? `${issue} · ` : "") + (pts ? `${pts} · ` : "") + (fin ? `${fin} · ` : "") + (considering ? (have ? `Owned ${have}` : "Not owned") : short ? `Owned ${have} · missing ${x.qty - have}` : `Owned ${have}`)}
+                 detail={[issue && !sub ? issue : null, pts, fin,
+                          considering ? (have ? `Owned ${have}` : "Not owned") : short ? `Owned ${have} · missing ${x.qty - have}` : x.basic && !have ? null : `Owned ${have}`]
+                         .filter(Boolean).join(" · ")}
                  onClick={() => x.oracleId && onCard(x.oracleId)} />
       </div>
     );
@@ -410,9 +412,11 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
     const hero = isHero(lead.oracleId, heroScope, heroes);
     const considering = lead.board === "maybe";
     const issue = issues.get(lead.oracleId ?? lead.cardId);
-    const short = cg.lines.reduce((n, l) => n + Math.max(0, l.qty - (owned.get(ownKey(l.cardId, l.finish)) ?? 0)), 0);
+    // Basics are never missing (contract/basics-2026-10-24.md).
+    const short = lead.basic ? 0 : cg.lines.reduce((n, l) => n + Math.max(0, l.qty - (owned.get(ownKey(l.cardId, l.finish)) ?? 0)), 0);
     const have = cg.lines.reduce((n, l) => n + (owned.get(ownKey(l.cardId, l.finish)) ?? 0), 0);
-    const haveText = list.eventId ? null : considering ? (have ? `Owned ${have}` : "Not owned") : short ? `Missing ${short}` : "All owned";
+    const haveText = list.eventId ? null : considering ? (have ? `Owned ${have}` : "Not owned")
+      : lead.basic ? (have ? `Owned ${have}` : null) : short ? `Missing ${short}` : "All owned";
     return (
       <div key={cg.id} className="flex flex-col gap-px">
         <div className="h-[60px] shrink-0">
@@ -495,7 +499,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
           <Row title="Deck image" detail="The cards as a picture, to save or share" onClick={() => setImaging(true)} />}
         {/* A roto deck's cards are the cube's, not yours to add. */}
         {entriesOf(list).length > 0 && !editing && catalog && !list.eventId && (() => {
-          const miss = missingIn(list, owned);
+          const miss = missingIn(list, owned, basicCardIds(catalog));
           return <Row title="Add to collection" detail={miss ? `Missing ${miss} · or every card` : "You own every card · add more copies"} onClick={() => setAdding(true)} />;
         })()}
         {entriesOf(list).length === 0 && <Row title="No cards yet" detail="Add cards to start this list" />}

@@ -54,9 +54,12 @@ data class CardList(val id: String, val kind: ListKind, val name: String, val fo
         else -> board
     }
 
-    /** Copies still needed: covered only by the printing and finish a line names; Considering never counts. */
-    fun missing(owned: Map<String, Int>): Int =
-        entries.filter { it.board != "maybe" }.groupBy { ownKey(it.cardId, it.finish) }
+    /**
+     * Copies still needed: covered only by the printing and finish a line names; Considering and basic lands ([basics],
+     * contract/basics-2026-10-24.md) never count.
+     */
+    fun missing(owned: Map<String, Int>, basics: Set<String>): Int =
+        entries.filter { it.board != "maybe" && it.cardId !in basics }.groupBy { ownKey(it.cardId, it.finish) }
             .entries.sumOf { (id, es) -> maxOf(0, es.sumOf { it.qty } - (owned[id] ?: 0)) }
 
     companion object {

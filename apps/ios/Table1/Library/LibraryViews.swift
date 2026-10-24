@@ -216,7 +216,7 @@ struct LibraryHomeView: View {
 
     private var wantsRow: some View {
         let wanted = BindersStore.shared.liveWants.reduce(0) { $0 + $1.qty }
-        let missing = MissingView.lines(ListsStore.shared.lists, owned: ownedByPrinting()).reduce(0) { $0 + $1.short }
+        let missing = MissingView.lines(ListsStore.shared.lists, owned: ownedByPrinting(), basics: CatalogStore.shared.basics).reduce(0) { $0 + $1.short }
         return Button { path.append(.wants) } label: {
             ListRow(title: "Wants", detail: "\(wanted.formatted()) wanted · \(missing.formatted()) missing") {
                 Text(wanted.formatted()).font(T1.mono(17)).monospacedDigit()

@@ -70,9 +70,9 @@ describe("wants", () => {
                  { cardId: "bolt", board: "main", qty: 2, finish: "foil" }]),
       list("3", [{ cardId: "shock", board: "main", qty: 4 }], "roto"),
     ];
-    const lines = missingLines(lists, new Map([["bolt|nonfoil", 1]]));
+    const lines = missingLines(lists, new Map([["bolt|nonfoil", 1]]), new Set());
     expect(lines.map((m) => `${m.cardId}|${m.finish} ${m.short} ${m.lists.join("+")}`)).toEqual(["bolt|nonfoil 3 Deck 1+Deck 2", "bolt|foil 2 Deck 2"]);
-    expect(missingLines(lists, new Map([["bolt|nonfoil", 4], ["bolt|foil", 2]]))).toEqual([]);
+    expect(missingLines(lists, new Map([["bolt|nonfoil", 4], ["bolt|foil", 2]]), new Set())).toEqual([]);
   });
 });
 

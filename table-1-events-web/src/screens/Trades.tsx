@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BigAction, Field, GhostAction, Modal, Notice, Row, Screen, Section, Segmented } from "../components/kit";
 import { errorMessage } from "../lib/api";
-import { coverPrinting, normName, searchCatalog, type Catalog } from "../lib/catalog";
+import { basicCardIds, coverPrinting, normName, searchCatalog, type Catalog } from "../lib/catalog";
 import { useCollection, type Condition, type Finish, type Item } from "../lib/collection";
 import { editList, entriesOf, useLists, type CardList, type ListOp } from "../lib/lists";
 import { loadDemoLists } from "../lib/libraryDemo";
@@ -91,8 +91,8 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
   const missing = useMemo(() => {
     const owned = new Map<string, number>();
     for (const it of col.items.values()) owned.set(`${it.cardId}|${it.finish}`, (owned.get(`${it.cardId}|${it.finish}`) ?? 0) + it.qty);
-    return new Map(missingLines(lists.lists, owned).map((m) => [`${m.cardId}|${m.finish}`, m]));
-  }, [lists.lists, col.version]);
+    return new Map(missingLines(lists.lists, owned, basicCardIds(catalog)).map((m) => [`${m.cardId}|${m.finish}`, m]));
+  }, [lists.lists, col.version, catalog]);
   const wantNote = (l: TradeLine): { text: string; over: boolean } | null => {
     const p = catalog?.printingIndex.get(l.card_id);
     if (!catalog || p == null) return null;

@@ -227,6 +227,6 @@ final class RotoTests: XCTestCase {
         let dto = try wireDecoder.decode(ListDTO.self, from: Data(list.utf8))
         let l = try XCTUnwrap(dto.list)
         XCTAssertEqual(l.eventName, "Roto · Test Cube · Fri 16 Oct")
-        XCTAssertEqual(MainActor.assumeIsolated { missing(in: l, owned: [:]) }, 0)
+        XCTAssertEqual(MainActor.assumeIsolated { missing(in: l, owned: [:], basics: []) }, 0)
     }
 }

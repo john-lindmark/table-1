@@ -213,10 +213,11 @@ def tokens(cards):
 
 
 def price(cards):
+    # Basics never count toward a deck's or cube's value (contract/basics-2026-10-24.md).
     total = 0.0
     unpriced = 0
     for c in cards:
-        if c["board"] == "maybe":
+        if c["board"] == "maybe" or is_basic(c):
             continue
         if c.get("usd") is None:
             unpriced += c["qty"]

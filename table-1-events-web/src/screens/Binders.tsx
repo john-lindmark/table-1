@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Bar, Dialog, Field, Menu, Modal, Notice, Row, Screen, Section, SwitchRow, type MenuItem } from "../components/kit";
 import { errorMessage } from "../lib/api";
-import { RARITY_NAME, coverPrinting, normName, oracleIndexById, type Catalog } from "../lib/catalog";
+import { RARITY_NAME, basicCardIds, coverPrinting, normName, oracleIndexById, type Catalog } from "../lib/catalog";
 import { DEMO_USER, applyOps, undoBatch, useCollection, type Finish, type Item } from "../lib/collection";
 import { cardMatches, moveInSource, printingMatches, repointWant, type Place } from "../lib/librarySearch";
 import { capture } from "../lib/telemetry";
@@ -495,8 +495,8 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
   const missing = useMemo(() => {
     const owned = new Map<string, number>();
     for (const it of col.items.values()) owned.set(`${it.cardId}|${it.finish}`, (owned.get(`${it.cardId}|${it.finish}`) ?? 0) + it.qty);
-    return missingLines(lists.lists, owned);
-  }, [lists.lists, col.version]);
+    return missingLines(lists.lists, owned, basicCardIds(catalog));
+  }, [lists.lists, col.version, catalog]);
   usePrices(useMemo(() => wants.flatMap((w) => (w.cardId ? [w.cardId] : [])), [wants]));
   if (!ready) return <Screen><div className="flex-1" /></Screen>;
   if (!session) return <SignedOut title="Wants" onBack={onBack} />;

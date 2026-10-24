@@ -639,7 +639,7 @@ struct WantsView: View {
                 let p = w.cardId.flatMap { printings[$0] } ?? o.flatMap { db.covers(oracleIdxs: [$0.idx])[$0.idx] }
                 shown.append(WantDisplay(want: w, name: o?.name ?? "Card not in local data yet", printing: p, type: o?.typeLine ?? ""))
             }
-            let lines = MissingView.lines(lists, owned: owned)
+            let lines = MissingView.lines(lists, owned: owned, basics: db.basicCardIds())
             let mp = db.printings(ids: lines.map(\.cardId))
             let mo = db.oracles(idxs: Array(Set(mp.values.map(\.oracleIdx))))
             let miss = lines.map { l -> (MissingLine, CatalogPrinting?, String, String?, String) in
