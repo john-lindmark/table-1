@@ -5,7 +5,7 @@ import type { Participant, RoundWithMatches } from "../lib/types";
 
 const wld = (w: number, l: number, d: number) => (d > 0 ? `${w}-${l}-${d}` : `${w}-${l}`);
 
-/** Team table: rank · name · points · W-L-D · match wins, members under each team. Same rules as the server. */
+/** Team table: rank · name · points · W-L-D · match wins, members under each team best first. Same rules as the server. */
 export function TeamStandingsTable({
   teams,
   participants,
@@ -52,9 +52,7 @@ export function TeamStandingsTable({
               >
                 <span className="w-4">{slotLetter(m.slot)}</span>
                 <span className={`flex-1 truncate ${m.status === "dropped" ? "line-through opacity-60" : ""}`}>{m.displayName}</span>
-                <span>
-                  {m.matchWins} win{m.matchWins === 1 ? "" : "s"}
-                </span>
+                <span>{wld(m.matchWins, m.matchLosses, m.matchDraws)}</span>
               </div>
             ))}
           </div>
@@ -62,7 +60,8 @@ export function TeamStandingsTable({
       })}
       <div className="bg-t1-surface px-4 py-3 text-[10px] leading-[15px] text-t1-muted">
         Team match: the team whose players win more of their matches takes it (win 3, draw 1). Ordered by team points,
-        then members' total match wins, then game-win %.
+        then members' total match wins, then game-win %. Players are listed best first: record, then game-win %, then
+        opponents' match-win %.
       </div>
     </div>
   );

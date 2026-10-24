@@ -217,6 +217,23 @@ struct StandingsResponse: Decodable {
     var standings: [Standing] = []
     var teams: [TeamStanding]?
     var seating: [SeatingPod]?
+    /// Team events: the team the other can no longer catch, so the organizer may finish early (events-engine).
+    var clinched: TeamClinch?
+}
+
+/// Two teams head to head: one's match wins beat the other's plus every match still to play.
+struct TeamClinch: Decodable, Hashable {
+    let teamId: String
+    let name: String
+    let matchWins: Int
+    let opponentMatchWins: Int
+    let remaining: Int
+
+    /// "Team Alpha has clinched it: 5–2 in match wins with 2 matches left to play."
+    var text: String {
+        let team = name.lowercased().hasPrefix("team") ? name : "Team \(name)"
+        return "\(team) has clinched it: \(matchWins)–\(opponentMatchWins) in match wins with \(remaining) \(remaining == 1 ? "match" : "matches") left to play."
+    }
 }
 struct PairRoundResponse: Decodable { let roundNumber: Int?; let error: String? }
 
@@ -234,7 +251,11 @@ struct TeamStanding: Decodable, Identifiable, Hashable {
         let displayName: String
         let slot: Int?
         var matchWins: Int?
+        var matchLosses: Int?
+        var matchDraws: Int?
         var status: String?
+        /// "3-0" (older servers sent only wins).
+        var record: String { recordText(matchWins ?? 0, matchLosses ?? 0, matchDraws ?? 0) }
     }
     var id: String { teamId }
     let rank: Int

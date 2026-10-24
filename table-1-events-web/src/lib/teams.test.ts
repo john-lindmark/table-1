@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { acrossTheTable, podSizes, seatDraft, seatTeamDraft, passDirection } from "./seating";
 import { mulberry32, pairRound } from "./pairings";
-import { computeTeamStandings, pairTeamDraftRound, pairTeamSwissRound, teamProblems, type Team } from "./teams";
+import { computeTeamStandings, pairTeamDraftRound, pairTeamSwissRound, teamClinch, teamProblems, type Team } from "./teams";
 import type { Match, Participant, RoundWithMatches } from "./types";
 
 let seq = 0;
@@ -169,5 +169,70 @@ describe("team sealed (Swiss between teams)", () => {
     expect(teamProblems(teams, [...people, p("Z1")], 3, "team_sealed")).toMatch(/isn't on a team/);
     expect(teamProblems(teams.slice(0, 3), people.filter((x) => "ABC".includes(x.teamId!)), 3, "team_draft")).toMatch(/exactly two/);
     expect(teamProblems(teams, people, 3, "team_sealed")).toBeNull();
+  });
+});
+
+describe("team members ranked by their own record", () => {
+  const teams: Team[] = [{ id: "A", name: "Alpha", order: 1 }, { id: "B", name: "Bravo", order: 2 }];
+  const A = ["A1", "A2", "A3"].map((n, i) => p(n, { teamId: "A", teamSlot: i + 1 }));
+  const B = ["B1", "B2", "B3"].map((n, i) => p(n, { teamId: "B", teamSlot: i + 1 }));
+
+  it("3-0 with 2-0 2-1 2-1 ranks above 3-0 with 2-1 2-1 2-1, and a 1-2 below both", () => {
+    // A1 and A3 both go 3-0 against the same three opponents (equal OMW); A3 gave up one game fewer.
+    const rounds = [
+      round(1, [match("A1", 2, "B1", 1), match("A2", 0, "B2", 2), match("A3", 2, "B3", 0)]),
+      round(2, [match("A1", 2, "B2", 1), match("A2", 2, "B3", 0), match("A3", 2, "B1", 1)]),
+      round(3, [match("A1", 2, "B3", 1), match("A2", 0, "B1", 2), match("A3", 2, "B2", 1)]),
+    ];
+    const alpha = computeTeamStandings(teams, [...A, ...B], rounds).find((t) => t.teamId === "A")!;
+    expect(alpha.members.map((m) => m.participantId)).toEqual(["A3", "A1", "A2"]);
+    expect(alpha.members.map((m) => `${m.matchWins}-${m.matchLosses}`)).toEqual(["3-0", "3-0", "1-2"]);
+  });
+
+  it("equal records and game wins: higher OMW first, then seat letter", () => {
+    const rounds = [round(1, [match("A1", 2, "B1", 0), match("A2", 2, "B2", 0), match("A3", 0, "B3", 0, "pending")]),
+                    round(2, [match("B1", 2, "B3", 0)])];
+    const alpha = computeTeamStandings(teams, [...A, ...B], rounds).find((t) => t.teamId === "A")!;
+    // A1 beat B1 (1-1 after round 2), A2 beat B2 (0-1): A1's opponents did better.
+    expect(alpha.members.map((m) => m.participantId)).toEqual(["A1", "A2", "A3"]);
+  });
+});
+
+describe("team clinch", () => {
+  const teams: Team[] = [{ id: "A", name: "Alpha", order: 1 }, { id: "B", name: "Bravo", order: 2 }];
+  const A = ["A1", "A2", "A3"].map((n, i) => p(n, { teamId: "A", teamSlot: i + 1 }));
+  const B = ["B1", "B2", "B3"].map((n, i) => p(n, { teamId: "B", teamSlot: i + 1 }));
+  const people = [...A, ...B];
+  const r1 = round(1, [match("A1", 2, "B2", 0), match("A2", 2, "B3", 1), match("A3", 2, "B1", 1)]);
+
+  it("3v3 over three rounds: 5 match wins clinches with matches still open", () => {
+    const r2 = round(2, [match("A1", 2, "B3", 0), match("A2", 2, "B1", 0), match("A3", 0, "B2", 0, "pending")]);
+    expect(teamClinch(teams, people, [r1, r2], 3)).toEqual({
+      teamId: "A", name: "Alpha", matchWins: 5, opponentMatchWins: 0, remaining: 4,
+    });
+  });
+
+  it("4 of 9 isn't enough", () => {
+    const r2 = round(2, [match("A1", 2, "B3", 0), match("A2", 0, "B1", 0, "pending"), match("A3", 0, "B2", 0, "pending")]);
+    expect(teamClinch(teams, people, [r1, r2], 3)).toBeNull();
+  });
+
+  it("4v4 over three rounds needs 7 of 12", () => {
+    const A4 = [...A, p("A4", { teamId: "A", teamSlot: 4 })];
+    const B4 = [...B, p("B4", { teamId: "B", teamSlot: 4 })];
+    const four = [...A4, ...B4];
+    const w1 = round(1, [match("A1", 2, "B1", 0), match("A2", 2, "B2", 0), match("A3", 2, "B3", 0), match("A4", 2, "B4", 0)]);
+    const six = round(2, [match("A1", 2, "B2", 0), match("A2", 2, "B3", 0), match("A3", 0, "B4", 0, "pending"), match("A4", 0, "B1", 0, "pending")]);
+    expect(teamClinch(teams, four, [w1, six], 3)).toBeNull();
+    const seven = round(2, [match("A1", 2, "B2", 0), match("A2", 2, "B3", 0), match("A3", 2, "B4", 0), match("A4", 0, "B1", 0, "pending")]);
+    expect(teamClinch(teams, four, [w1, seven], 3)?.matchWins).toBe(7);
+  });
+
+  it("nothing left to play, or more than two teams: no clinch", () => {
+    const r2 = round(2, [match("A1", 2, "B3", 0), match("A2", 2, "B1", 0), match("A3", 2, "B2", 0)]);
+    const r3 = round(3, [match("A1", 2, "B1", 0), match("A2", 2, "B2", 0), match("A3", 2, "B3", 0)]);
+    expect(teamClinch(teams, people, [r1, r2, r3], 3)).toBeNull();
+    const C = ["C1", "C2", "C3"].map((n, i) => p(n, { teamId: "C", teamSlot: i + 1 }));
+    expect(teamClinch([...teams, { id: "C", name: "Charlie", order: 3 }], [...people, ...C], [r1, r2], 3)).toBeNull();
   });
 });

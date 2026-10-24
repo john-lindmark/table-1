@@ -46,6 +46,8 @@ import site.table1.events.data.RoundRow
 import site.table1.events.data.SeatingPod
 import site.table1.events.data.Standing
 import site.table1.events.data.StandingsResponse
+import site.table1.events.data.TeamClinch
+import site.table1.events.util.Telemetry
 import site.table1.events.data.TeamStanding
 import site.table1.events.data.slotLetter
 import site.table1.events.ui.components.Avatar
@@ -203,6 +205,8 @@ internal fun OrganizerScreen(
     onChanged: suspend () -> Unit,
     /** Shows a fresh seating straight from seat_event, before the reload lands. */
     onSeated: (List<SeatingPod>) -> Unit,
+    /** Everyone's deck photos; the organizer can add one for any player. */
+    onOpenPhotos: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val event = b.event
@@ -286,7 +290,7 @@ internal fun OrganizerScreen(
 
     T1Screen {
         Bar(event.name, subtitle, onBack = onBack) {
-            if (phase != OrganizerPhase.Results) BarAction("More") { moreMenu = true }
+            if (!event.isCancelled) BarAction("More") { moreMenu = true }
         }
         T1Segmented(tabs.map { it.second }, tabs.indexOfFirst { it.first == selected }) { tab = tabs[it].first }
         error?.let { Notice(it, error = true) }
@@ -301,7 +305,7 @@ internal fun OrganizerScreen(
                 }
                 OrganizerPhase.Live -> when (selected) {
                     "round" -> LiveRound(
-                        b, active, secondsLeft, paused, busy,
+                        b, active, secondsLeft, paused, busy, standings.clinched,
                         onClock = { action -> active?.let { r -> act { Repo.setRoundClock(r.id, action, 300) } } },
                         onEdit = { editing = it },
                     )
@@ -339,7 +343,16 @@ internal fun OrganizerScreen(
             OrganizerPhase.Live -> {
                 val nextNumber = roundsPlayed + 1
                 val outstanding = active?.matches?.count { !it.isBye && (it.status == "pending" || (it.disputed && it.status != "confirmed")) } ?: 0 // disputes block pairing too
+                val disputed = active?.matches?.any { it.disputed && it.status != "confirmed" } == true
+                val clinch = standings.clinched?.takeIf { !disputed }
                 when {
+                    // A team can't be caught: finish now (open matches don't count), or play on when the round is in.
+                    clinch != null -> Column {
+                        if (outstanding == 0 && nextNumber <= event.numberOfRounds) Row {
+                            Ghost("Play on · pair round $nextNumber", enabled = !busy) { pair() }
+                        }
+                        BigAction("Finish event", accent = true, busy = busy) { confirmFinish = true }
+                    }
                     active == null && nextNumber <= event.numberOfRounds ->
                         BigAction("Pair round $nextNumber", accent = true, busy = busy, enabled = activePlayers >= 2) { pair() }
                     active != null && outstanding > 0 ->
@@ -363,7 +376,8 @@ internal fun OrganizerScreen(
                     add(T1MenuItem("Add players", onClick = onAddPlayers))
                     add(T1MenuItem("Show join QR") { showQr = true })
                 }
-                add(T1MenuItem("Cancel event", danger = true) { cancelling = "" })
+                add(T1MenuItem("Deck photos", onClick = onOpenPhotos))
+                if (phase != OrganizerPhase.Results) add(T1MenuItem("Cancel event", danger = true) { cancelling = "" })
             },
             onDismiss = { moreMenu = false },
         )
@@ -402,13 +416,21 @@ internal fun OrganizerScreen(
             title = "Finish ${event.name}?",
             onDismiss = { confirmFinish = false },
             body = {
-                DialogText("Final standings go to every player and the event moves to Past. You can still correct a result afterwards.")
+                DialogText(
+                    standings.clinched?.let { "${it.text} Open matches won't count. Final standings go to every player and the event moves to Past." }
+                        ?: "Final standings go to every player and the event moves to Past. You can still correct a result afterwards.",
+                )
             },
             confirm = {
                 BarAction("Finish") {
                     confirmFinish = false
-                    val round = b.activeRound
-                    if (round != null) act { Repo.recordRound(event.id, round.id, finalRound = true) }
+                    // Between rounds (finishing a clinched event early) the last round is the one to record.
+                    val round = b.activeRound ?: b.rounds.maxByOrNull { it.number }
+                    val clinch = standings.clinched
+                    if (round != null) act {
+                        Repo.recordRound(event.id, round.id, finalRound = true)
+                        clinch?.let { Telemetry.capture("event_finished_clinched", mapOf("remaining" to it.remaining)) }
+                    }
                 }
             },
             dismiss = { BarAction("Not yet") { confirmFinish = false } },
@@ -855,11 +877,13 @@ private fun LiveRound(
     secondsLeft: Int?,
     paused: Boolean,
     busy: Boolean,
+    clinch: TeamClinch?,
     onClock: (String) -> Unit,
     onEdit: (MatchRow) -> Unit,
 ) {
     val event = b.event
     LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        clinch?.let { item(key = "clinch") { Notice("${it.text} You can finish now; open matches won't count.") } }
         if (active == null) {
             val next = (b.rounds.maxOfOrNull { it.number } ?: 0) + 1
             item {

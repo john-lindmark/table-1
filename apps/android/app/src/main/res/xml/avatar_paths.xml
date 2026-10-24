@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="avatar" path="avatar/" />
+    <!-- Deck photos: the camera's full-size shot before it's scaled to 2048 px. -->
+    <cache-path name="deck" path="deck/" />
     <!-- Collection CSV exports, shared through the same provider. -->
     <cache-path name="export" path="export/" />
 </paths>

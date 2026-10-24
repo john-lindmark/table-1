@@ -3,6 +3,7 @@
 
 import type { EventDetailsInput } from "./api";
 import { isDraftFormat, isTeamFormat, typeOfFormat } from "./formats";
+import type { TeamClinch } from "./teams";
 import type { DraftableSet, EventStatus, FormatName, Match, Participant, RoundWithMatches, Table1Event } from "./types";
 
 /* ── phase ──────────────────────────────────────────────────────────────── */
@@ -281,21 +282,32 @@ export function startDialog(event: Table1Event): { title: string; message: strin
 export type LiveAction =
   | { kind: "waiting"; open: number; label: string }
   | { kind: "pair"; round: number; label: string }
-  | { kind: "finish"; label: string };
+  | { kind: "finish"; label: string; clinch?: TeamClinch; pairRound?: number };
 
 /**
  * Live big action: "Waiting on N results" (disabled) while the open round has open matches,
  * then "Pair round R+1", or "Finish event" on the last round.
  */
-export function liveAction(event: Table1Event, rounds: RoundWithMatches[]): LiveAction {
+export function liveAction(event: Table1Event, rounds: RoundWithMatches[], clinch: TeamClinch | null = null): LiveAction {
   const active = activeRoundOf(rounds);
-  if (active) {
-    const open = openMatchCount(active);
-    if (open > 0) return { kind: "waiting", open, label: `Waiting on ${plural(open, "result")}` };
-  }
+  const open = openMatchCount(active);
   const current = active?.number ?? lastRoundNumber(rounds);
+  // A team that can't be caught: finish now (open matches don't count), unless a dispute is still open (the server
+  // refuses to finish over one). Pairing on stays possible when the round is in.
+  if (clinch && !active?.matches.some((m) => matchGroupOf(m) === "disputed")) {
+    return open === 0 && current < event.numberOfRounds
+      ? { kind: "finish", label: "Finish event", clinch, pairRound: current + 1 }
+      : { kind: "finish", label: "Finish event", clinch };
+  }
+  if (open > 0) return { kind: "waiting", open, label: `Waiting on ${plural(open, "result")}` };
   if (current >= event.numberOfRounds) return { kind: "finish", label: "Finish event" };
   return { kind: "pair", round: current + 1, label: `Pair round ${current + 1}` };
+}
+
+/** "Alpha has clinched it: 5–2 in match wins with 2 left to play." */
+export function clinchText(c: TeamClinch): string {
+  const team = /^team\b/i.test(c.name) ? c.name : `Team ${c.name}`;
+  return `${team} has clinched it: ${c.matchWins}–${c.opponentMatchWins} in match wins with ${plural(c.remaining, "match", "matches")} left to play.`;
 }
 
 /* ── records ────────────────────────────────────────────────────────────── */

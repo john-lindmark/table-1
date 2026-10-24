@@ -9,6 +9,13 @@
 //   team points   win 3 · draw 1 · loss 0 · team bye 3
 //   order         team points, then members' total match wins, then the
 //                 team's game-win %, then name
+//   members       listed best first by their own record: match points, then
+//                 game-win % (2-0 2-1 2-1 above 2-1 2-1 2-1), then OMW%, then
+//                 OGW%, then seat letter
+//   clinched      two teams head to head: one has clinched once the other
+//                 can't catch its match wins with every match still to play
+//                 (5 of 9 in a 3v3 over three rounds, 7 of 12 in a 4v4); the
+//                 organizer may then finish without the rest (teamClinch)
 //
 // A member whose opponent dropped gets a bye, which counts as a match win for
 // their team. A team match only counts once every one of its matches is in.
@@ -18,7 +25,7 @@
 // in alternating seats puts round 1 across the table.
 // Team sealed: Swiss between teams; seat A plays seat A, B plays B, and so on.
 
-import { buildRecords, isMatchScored } from "./standings.ts";
+import { buildRecords, computeStandings, isMatchScored } from "./standings.ts";
 import type { ProposedMatch } from "./pairings.ts";
 import type { Participant, RoundWithMatches } from "./types.ts";
 
@@ -43,7 +50,11 @@ export interface TeamStanding {
   matchWins: number;
   gameWinPct: number;
   opponentTeamIds: string[];
-  members: { participantId: string; displayName: string; slot: number | null; matchWins: number; status: Participant["status"] }[];
+  /** Best first by their own record (see the header). */
+  members: {
+    participantId: string; displayName: string; slot: number | null; matchWins: number; matchLosses: number;
+    matchDraws: number; status: Participant["status"];
+  }[];
 }
 
 const MIN_PCT = 1 / 3;
@@ -123,8 +134,17 @@ export function computeTeamStandings(
 ): TeamStanding[] {
   const records = buildRecords(participants, rounds);
   const perRound = teamRoundResults(teams, participants, rounds);
+  const individual = new Map(computeStandings(participants, rounds).map((s) => [s.participantId, s]));
+  const byRecord = (a: Participant, b: Participant) => {
+    const x = individual.get(a.id);
+    const y = individual.get(b.id);
+    if (!x || !y) return (x ? 0 : 1) - (y ? 0 : 1);
+    return y.matchPoints - x.matchPoints || y.gameWinPct - x.gameWinPct ||
+      y.opponentMatchWinPct - x.opponentMatchWinPct || y.opponentGameWinPct - x.opponentGameWinPct ||
+      (a.teamSlot ?? 99) - (b.teamSlot ?? 99);
+  };
   const rows: TeamStanding[] = teams.map((team) => {
-    const members = membersOf(team.id, participants, false);
+    const members = membersOf(team.id, participants, false).sort(byRecord);
     let points = 0, wins = 0, losses = 0, draws = 0, byes = 0;
     const opponents: string[] = [];
     for (const results of perRound.values()) {
@@ -153,7 +173,8 @@ export function computeTeamStandings(
       opponentTeamIds: opponents,
       members: members.map((m) => ({
         participantId: m.id, displayName: m.displayName, slot: m.teamSlot ?? null,
-        matchWins: records.get(m.id)?.matchWins ?? 0, status: m.status,
+        matchWins: records.get(m.id)?.matchWins ?? 0, matchLosses: records.get(m.id)?.matchLosses ?? 0,
+        matchDraws: records.get(m.id)?.matchDraws ?? 0, status: m.status,
       })),
     };
   });
@@ -162,6 +183,41 @@ export function computeTeamStandings(
     x.name.localeCompare(y.name));
   rows.forEach((r, i) => (r.rank = i + 1));
   return rows;
+}
+
+export interface TeamClinch {
+  teamId: string;
+  name: string;
+  /** The clinching team's members' match wins (byes included), and the other team's. */
+  matchWins: number;
+  opponentMatchWins: number;
+  /** Matches still to play: open ones in paired rounds, plus a full round of seats for each round not yet paired. */
+  remaining: number;
+}
+
+/**
+ * Two teams head to head (team draft, or team sealed with two teams): the team that has clinched, or null. Clinched:
+ * its match wins exceed the other team's plus every match still to play, and it already tops the team standings, so
+ * finishing now names it the winner. With no draws that is a majority of the event's matches. Null once nothing is
+ * left to play (the event finishes the usual way) and for three or more teams.
+ */
+export function teamClinch(
+  teams: Team[],
+  participants: Participant[],
+  rounds: RoundWithMatches[],
+  numberOfRounds: number,
+): TeamClinch | null {
+  const live = teams.filter((t) => membersOf(t.id, participants, false).length > 0);
+  if (live.length !== 2) return null;
+  let remaining = 0;
+  for (const r of rounds) for (const m of r.matches) if (!m.isBye && !isMatchScored(m)) remaining += 1;
+  const paired = rounds.reduce((n, r) => Math.max(n, r.number), 0);
+  const seats = Math.max(...live.map((t) => membersOf(t.id, participants).length));
+  remaining += Math.max(0, numberOfRounds - paired) * seats;
+  if (remaining === 0) return null;
+  const [top, other] = computeTeamStandings(live, participants, rounds);
+  if (top.matchWins <= other.matchWins + remaining) return null;
+  return { teamId: top.teamId, name: top.name, matchWins: top.matchWins, opponentMatchWins: other.matchWins, remaining };
 }
 
 /** Team draft round: A_i meets B_((i + round) mod size). Unmatched members get byes. */

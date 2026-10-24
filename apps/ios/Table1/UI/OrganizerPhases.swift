@@ -731,6 +731,7 @@ private struct OrganizerLiveView: View {
     @ViewBuilder
     private func roundTab(_ g: MatchGroups) -> some View {
         HairlineList {
+            if let clinch = ctx.engine.clinched { Notice("\(clinch.text) You can finish now; open matches won't count.") }
             if let round {
                 if event.showClock {
                     RoundClockHero(round: round, caption: caption(round, g))
@@ -745,22 +746,27 @@ private struct OrganizerLiveView: View {
                     Notice(caption(round, g))
                 }
                 if let mine = myMatch(round) { yourMatch(mine) }
+                // Each section's rows get their own identity: in the lazy stack a match keyed only by its id kept its
+                // "Set" row after moving to Results in (2026-10-23).
                 if !g.disputed.isEmpty {
                     Section1("Disputed · \(g.disputed.count)")
                     ForEach(g.disputed) { m in
                         matchButton(m, detail: "Reported differently · tap to set", value: "Set", tone: T1.danger)
+                            .id("disputed-\(m.id)-\(m.version)")
                     }
                 }
                 if !g.waiting.isEmpty {
                     Section1("Waiting · \(g.waiting.count)")
                     ForEach(g.waiting) { m in
                         matchButton(m, detail: "No result yet", value: "Set", tone: T1.text)
+                            .id("waiting-\(m.id)-\(m.version)")
                     }
                 }
                 if !g.resultsIn.isEmpty || !g.byes.isEmpty {
                     Section1("Results in · \(g.resultsIn.count + g.byes.count)")
                     ForEach(g.resultsIn) { m in
                         matchButton(m, detail: resultDetail(m, b), value: scoreText(m), tone: T1.accent)
+                            .id("in-\(m.id)-\(m.version)")
                     }
                     ForEach(g.byes) { m in
                         ListRow(title: "\(b.name(m.side(0)?.participantId)) · Bye")
@@ -889,21 +895,33 @@ private struct OrganizerLiveView: View {
         let nextNumber = (b.rounds.map(\.number).max() ?? 0) + 1
         let outstanding = round?.matches.filter { !$0.isBye && ($0.status == "pending" || ($0.disputed && $0.status != "confirmed")) }.count ?? 0   // disputes block pairing too
         let activePlayers = b.participants.filter { $0.status == "active" }.count
-        if round == nil && nextNumber <= event.numberOfRounds {
+        let disputed = round?.matches.contains { $0.disputed && $0.status != "confirmed" } ?? false
+        if let clinch = ctx.engine.clinched, !disputed {
+            // A team can't be caught: finish now (open matches don't count), or play on when the round is in.
+            if outstanding == 0 && nextNumber <= event.numberOfRounds {
+                HStack(spacing: 1) { Ghost(text: "Play on · pair round \(nextNumber)") { pair() } }
+            }
+            finishButton(clinch)
+        } else if round == nil && nextNumber <= event.numberOfRounds {
             BigAction(text: "Pair round \(nextNumber)", enabled: activePlayers >= 2, busy: ctx.busy, accent: true) { pair() }
         } else if round != nil && outstanding > 0 {
             BigAction(text: "Waiting on \(outstanding) result\(outstanding == 1 ? "" : "s")", enabled: false) {}
         } else if let round, round.number < event.numberOfRounds {
             BigAction(text: "Pair round \(round.number + 1)", busy: ctx.busy, accent: true) { pair() }
         } else if !b.rounds.isEmpty {
-            BigAction(text: "Finish event", busy: ctx.busy, accent: true) { confirmFinish = true }
-                .alert("Finish \(event.name)?", isPresented: $confirmFinish) {
-                    Button("Not yet", role: .cancel) {}
-                    Button("Finish") { finish() }
-                } message: {
-                    Text("Final standings go to every player and the event moves to Past. You can still correct a result afterwards.")
-                }
+            finishButton(nil)
         }
+    }
+
+    private func finishButton(_ clinch: TeamClinch?) -> some View {
+        BigAction(text: "Finish event", busy: ctx.busy, accent: true) { confirmFinish = true }
+            .alert("Finish \(event.name)?", isPresented: $confirmFinish) {
+                Button("Not yet", role: .cancel) {}
+                Button("Finish") { finish() }
+            } message: {
+                Text(clinch.map { "\($0.text) Open matches won't count. Final standings go to every player and the event moves to Past." }
+                     ?? "Final standings go to every player and the event moves to Past. You can still correct a result afterwards.")
+            }
     }
 
     @MainActor
@@ -918,7 +936,11 @@ private struct OrganizerLiveView: View {
     private func finish() {
         guard let roundId = round?.id ?? b.rounds.max(by: { $0.number < $1.number })?.id else { return }
         let eventId = event.id
-        ctx.act { try await Repo.recordRound(eventId: eventId, roundId: roundId, finalRound: true) }
+        let clinch = ctx.engine.clinched
+        ctx.act {
+            try await Repo.recordRound(eventId: eventId, roundId: roundId, finalRound: true)
+            if let clinch { Telemetry.capture("event_finished_clinched", ["remaining": clinch.remaining]) }
+        }
     }
 
     @MainActor
@@ -1101,6 +1123,7 @@ private struct OrganizerResultsView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .id("\(m.id)-\(m.version)")
                 }
                 ForEach(r.matches.filter { $0.isBye }) { m in
                     ListRow(title: "\(b.name(m.side(0)?.participantId)) · Bye")

@@ -9166,6 +9166,39 @@
                   "ogw"
                 ]
               }
+            },
+            "clinched": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "description": "Team events with two teams: the team whose members' match wins (byes included) exceed the other team's plus every match still to play, and which tops the team standings; null otherwise, once nothing is left to play, or when the event isn't running. The organizer may finish without the rest (record_round p_final). contract/team-events-2026-10-23.md.",
+              "properties": {
+                "team_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "match_wins": {
+                  "type": "integer"
+                },
+                "opponent_match_wins": {
+                  "type": "integer"
+                },
+                "remaining": {
+                  "type": "integer",
+                  "description": "Open matches in paired rounds plus a full round of seats per round not yet paired."
+                }
+              },
+              "required": [
+                "team_id",
+                "name",
+                "match_wins",
+                "opponent_match_wins",
+                "remaining"
+              ]
             }
           },
           "required": [

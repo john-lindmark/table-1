@@ -68,7 +68,7 @@ import java.time.Instant
 
 /** One event: the organizer's control room, or a player's match card — chosen by role. */
 @Composable
-fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, onOpenTracker: (String) -> Unit) {
+fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, onOpenTracker: (String) -> Unit, onOpenPhotos: () -> Unit) {
     var bundle by remember { mutableStateOf<EventBundle?>(null) }
     var standings by remember { mutableStateOf(StandingsResponse()) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -101,9 +101,9 @@ fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, o
     }
     if (b.isOrganizer) OrganizerScreen(
         b, standings, onBack, onAddPlayers, onOpenTracker, onChanged = { refresh() },
-        onSeated = { standings = standings.copy(seating = it) },
+        onSeated = { standings = standings.copy(seating = it) }, onOpenPhotos = onOpenPhotos,
     )
-    else PlayerView(b, standings, onBack, onOpenTracker, onChanged = { refresh() })
+    else PlayerView(b, standings, onBack, onOpenTracker, onOpenPhotos, onChanged = { refresh() })
 }
 
 /** participant id → team name, for the team tag in the individual table and seating. */
@@ -367,7 +367,10 @@ private fun TrackerModeSwitch(onError: (String?) -> Unit) {
 private val outcomes = listOf("Won 2–0" to (2 to 0), "Won 2–1" to (2 to 1), "Draw 1–1" to (1 to 1), "Lost 1–2" to (1 to 2), "Lost 0–2" to (0 to 2))
 
 @Composable
-private fun PlayerView(b: EventBundle, standings: StandingsResponse, onBack: () -> Unit, onOpenTracker: (String) -> Unit, onChanged: suspend () -> Unit) {
+private fun PlayerView(
+    b: EventBundle, standings: StandingsResponse, onBack: () -> Unit, onOpenTracker: (String) -> Unit, onOpenPhotos: () -> Unit,
+    onChanged: suspend () -> Unit,
+) {
     val scope = rememberCoroutineScope()
     val me = b.participants.firstOrNull { it.userId != null && it.userId == Repo.userId }
     val tags = teamTags(b, standings)
@@ -462,6 +465,10 @@ private fun PlayerView(b: EventBundle, standings: StandingsResponse, onBack: () 
             if (me != null) item {
                 TrackerModeSwitch(onError = { error = it })
             }
+            // Your deck during the event; everyone's once it's over (contract/event-night-2026-10-16.md § 7).
+            if (me != null && !b.event.isCancelled) item {
+                Row { Ghost(if (b.event.isFinished) "Deck photos" else "Deck photo") { onOpenPhotos() } }
+            }
             if (b.event.isDraft && seating.isNotEmpty() && b.rounds.size <= 1) {
                 item { Section("Seating") }
                 seatingItems(seating, highlight = me?.id, teamDraft = b.event.formatName == "team_draft")
@@ -508,7 +515,7 @@ internal fun StandingsList(
     }
 }
 
-/** Team table: rank · name · points · W-L-D · match wins, members (slot letter + match wins) underneath. */
+/** Team table: rank · name · points · W-L-D · match wins, members (slot letter + record) underneath, best first. */
 internal fun LazyListScope.teamStandingItems(teams: List<TeamStanding>, highlightMember: String?) {
     item { Section("Teams") }
     teams.forEach { t ->
@@ -526,7 +533,8 @@ internal fun LazyListScope.teamStandingItems(teams: List<TeamStanding>, highligh
                 Label("${t.matchWins} match wins")
             }
         }
-        items(t.members.sortedBy { it.slot ?: 99 }, key = { "team-${t.teamId}-${it.participantId}" }) { m ->
+        // Best first by record, then game-win %, then OMW (the engine's order).
+        items(t.members, key = { "team-${t.teamId}-${it.participantId}" }) { m ->
             Row(
                 Modifier.fillMaxWidth().background(T1.bg).padding(start = 40.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -535,7 +543,7 @@ internal fun LazyListScope.teamStandingItems(teams: List<TeamStanding>, highligh
                 Label(slotLetter(m.slot), color = T1.text)
                 Text(m.displayName, Modifier.weight(1f), color = if (m.status == "dropped") T1.muted else T1.text,
                     fontFamily = T1.mono, fontSize = 13.sp, maxLines = 1)
-                Label("${m.matchWins} match win${if (m.matchWins == 1) "" else "s"}")
+                Label(record(m.matchWins, m.matchLosses, m.matchDraws))
             }
         }
     }

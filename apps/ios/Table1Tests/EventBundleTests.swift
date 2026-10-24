@@ -7,7 +7,26 @@ import XCTest
 private let bundleURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
     .appending(path: "../../../testdata/event-bundle/bundle.json").standardized
 
+private let teamStandingsURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+    .appending(path: "../../../testdata/event-standings/team-clinched.json").standardized
+
 final class EventBundleTests: XCTestCase {
+    /// events-engine `standings` for a team draft: members best first with their records, and the clinched team.
+    func testDecodesTeamStandingsWithAClinch() throws {
+        let r = try wireDecoder.decode(StandingsResponse.self, from: Data(contentsOf: teamStandingsURL))
+        let alpha = try XCTUnwrap(r.teams?.first)
+        XCTAssertEqual(alpha.members.map(\.displayName), ["Cam", "Ari", "Bo"])
+        XCTAssertEqual(alpha.members.map(\.record), ["2-0", "2-0", "1-1"])
+        let clinch = try XCTUnwrap(r.clinched)
+        XCTAssertEqual(clinch.teamId, "t-alpha")
+        XCTAssertEqual(clinch.text, "Team Alpha has clinched it: 5–1 in match wins with 3 matches left to play.")
+    }
+
+    func testNoClinchFromAnOlderServer() throws {
+        let r = try wireDecoder.decode(StandingsResponse.self, from: Data(#"{"standings":[],"teams":[]}"#.utf8))
+        XCTAssertNil(r.clinched)
+    }
+
     func testDecodesTheServersEventBundle() throws {
         let w = try wireDecoder.decode(Repo.BundleWire.self, from: Data(contentsOf: bundleURL))
         let b = Repo.bundle(w)

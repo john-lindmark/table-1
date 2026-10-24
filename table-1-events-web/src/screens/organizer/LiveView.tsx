@@ -5,6 +5,7 @@ import { slotLetter } from "../../lib/formats";
 import {
   activeRoundOf,
   applyClock,
+  clinchText,
   formatMmSs,
   groupMatches,
   lastRoundNumber,
@@ -21,6 +22,9 @@ import type { Match, Participant, RoundWithMatches } from "../../lib/types";
 import { BigAction, BigNumber, Columns, Dialog, GhostAction, Notice, Row, Section, useNow } from "../../components/kit";
 import { useDesktop } from "../../lib/desktop";
 import { TeamsPanel } from "../../components/TeamsPanel";
+import { teamClinch } from "../../lib/teams";
+import { capture } from "../../lib/telemetry";
+import { toTeams } from "../../lib/useEventExtras";
 import { StandingsBlock, type PhaseViewProps } from "./shared";
 import { RotoSchedule } from "../roto/lazy";
 import { useSession } from "../../lib/useSession";
@@ -38,7 +42,9 @@ export function LiveView(
   const { event, rounds, participants } = bundle;
   const active = activeRoundOf(rounds);
   const currentRound = active?.number ?? lastRoundNumber(rounds);
-  const action = liveAction(event, rounds);
+  // Team events: once one team can't be caught, the organizer may finish without the rest of the matches.
+  const clinch = isTeam && teams ? teamClinch(toTeams(teams), participants, rounds, event.numberOfRounds) : null;
+  const action = liveAction(event, rounds, clinch);
   const nameOf = nameLookup(participants);
   const { userId } = useSession();
   const desktop = useDesktop();
@@ -81,6 +87,7 @@ export function LiveView(
     setFinishError(null);
     try {
       await finishEvent(eventId, active?.id ?? null);
+      if (action.kind === "finish" && action.clinch) capture("event_finished_clinched", { remaining: action.clinch.remaining });
       setConfirmFinish(false);
       await refetch();
     } catch (e) {
@@ -122,6 +129,9 @@ export function LiveView(
               <StandingsBlock bundle={bundle} isTeam={isTeam} teams={teams} teamNames={props.teamNames} />
             </>
           ) : undefined}>
+            {action.kind === "finish" && action.clinch && (
+              <Notice tone="info">{clinchText(action.clinch)} You can finish now; open matches won't count.</Notice>
+            )}
             {active ? (
               <>
                 {event.showClock ? (
@@ -200,6 +210,11 @@ export function LiveView(
         )}
       </div>
 
+      {action.kind === "finish" && action.pairRound && (
+        <div className="flex gap-px">
+          <GhostAction label={`Play on · pair round ${action.pairRound}`} disabled={busy} onClick={() => void pairNext()} />
+        </div>
+      )}
       <BigAction
         label={action.label}
         busy={busy}
@@ -216,7 +231,9 @@ export function LiveView(
       {confirmFinish && (
         <Dialog
           title={`Finish ${event.name}?`}
-          message="Final standings go to every player and the event moves to Past. You can still correct a result afterwards."
+          message={action.kind === "finish" && action.clinch
+            ? `${clinchText(action.clinch)} Open matches won't count. Final standings go to every player and the event moves to Past.`
+            : "Final standings go to every player and the event moves to Past. You can still correct a result afterwards."}
           cancelLabel="Not yet"
           confirmLabel="Finish"
           busyLabel="Finishing…"

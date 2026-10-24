@@ -1,5 +1,5 @@
 // events-engine: the one place Table 1's tournament rules run.
-//   POST { action: "standings", event_id, token? } -> computed standings, plus team standings for team events, for
+//   POST { action: "standings", event_id, token? } -> computed standings, plus team standings (and `clinched`) for team events, for
 //                                                  anyone public.event_public lets in (link holders of non-private
 //                                                  events, members, guests with their claim token)
 //   POST { action: "seat_players", event_id }  -> random draft seats via rpc seat_event (organizers only; older builds)
@@ -9,7 +9,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { computeStandings } from "./standings.ts";
 import { pairRound, type ProposedMatch } from "./pairings.ts";
 import { pairRoundRobin, roundRobinRoster, roundRobinRounds } from "./roundrobin.ts";
-import { computeTeamStandings, membersOf, pairTeamDraftRound, pairTeamSwissRound, teamProblems, type Team } from "./teams.ts";
+import {
+  computeTeamStandings, membersOf, pairTeamDraftRound, pairTeamSwissRound, teamClinch, teamProblems, type Team,
+} from "./teams.ts";
 import type { Match, MatchSide, Participant, RoundWithMatches } from "./types.ts";
 
 const cors = {
@@ -161,11 +163,18 @@ async function standings(eventId: string, authHeader: string, token: string | nu
         rank: t.rank, team_id: t.teamId, name: t.name, points: t.points, wins: t.wins, losses: t.losses,
         draws: t.draws, byes: t.byes, match_wins: t.matchWins, gw: t.gameWinPct,
         members: t.members.map((m) => ({ participant_id: m.participantId, display_name: m.displayName,
-                                         slot: m.slot, match_wins: m.matchWins, status: m.status })),
+                                         slot: m.slot, match_wins: m.matchWins, match_losses: m.matchLosses,
+                                         match_draws: m.matchDraws, status: m.status })),
       }))
+    : null;
+  const clinch = isTeamEvent(event) && ["seated", "in_progress"].includes(event.status)
+    ? teamClinch(teams, participants, rounds, event.number_of_rounds)
     : null;
   return json({
     event_id: eventId, current_round: event.current_round, standings: rows, teams: teamRows,
+    // Team events: the team that can no longer be caught, so the organizer may finish early.
+    clinched: clinch && { team_id: clinch.teamId, name: clinch.name, match_wins: clinch.matchWins,
+                          opponent_match_wins: clinch.opponentMatchWins, remaining: clinch.remaining },
     seating: isDraft(event) ? seatingView(participants, pods, teams) : null,
   });
 }

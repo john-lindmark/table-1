@@ -34,12 +34,15 @@ export function Organizer({
   onExit,
   onAddPlayers,
   onOpenLife,
+  onOpenPhotos,
 }: {
   eventId: string;
   onExit: () => void;
   onAddPlayers: () => void;
   /** Watch a match's shared life tracker (read-only for organizers). */
   onOpenLife?: (matchId: string) => void;
+  /** Everyone's deck photos; the organizer can add one for any player. */
+  onOpenPhotos?: () => void;
 }) {
   const { bundle, error, sync, mutate, refetch } = useEvent(eventId);
   const [selected, setSelected] = useState<{ phase: Phase; tab: OrganizerTab } | null>(null);
@@ -130,6 +133,11 @@ export function Organizer({
             {isRoto && rounds.length > 0 && (
               <button type="button" onClick={() => setDraftOpen(true)} className="t1-label hover:text-t1-text">
                 Draft
+              </button>
+            )}
+            {onOpenPhotos && event.status !== "cancelled" && (
+              <button type="button" onClick={onOpenPhotos} className="t1-label hover:text-t1-text">
+                Deck photos
               </button>
             )}
             {phase !== "results" && (

@@ -2,6 +2,7 @@ package site.table1.events.data
 
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -33,5 +34,18 @@ class EventBundleTest {
         val wire = json.decodeFromString<EventBundleWire>(fixture("bundle.json"))
             .copy(teams = listOf(BundleTeam("t2", "Second", 2), BundleTeam("t1", "First", 1)))
         assertEquals(listOf("First" to 1, "Second" to 2), Repo.bundle(wire).teams.map { it.name to it.displayOrder })
+    }
+
+    /** events-engine `standings` for a team draft: members best first with their records, and the clinched team. */
+    @Test fun decodesTeamStandingsWithAClinch() {
+        val dir = File(generateSequence(File("").absoluteFile) { it.parentFile }.map { File(it, "testdata/event-standings") }.first { it.isDirectory }, "team-clinched.json")
+        val r = json.decodeFromString<StandingsResponse>(dir.readText())
+        val alpha = r.teams!!.first()
+        assertEquals(listOf("Cam", "Ari", "Bo"), alpha.members.map { it.displayName })
+        assertEquals(listOf("2-0", "2-0", "1-1"), alpha.members.map { "${it.matchWins}-${it.matchLosses}" })
+        val clinch = r.clinched
+        assertNotNull(clinch)
+        assertEquals("Team Alpha has clinched it: 5–1 in match wins with 3 matches left to play.", clinch!!.text)
+        assertNull(json.decodeFromString<StandingsResponse>("""{"standings":[],"teams":[]}""").clinched)
     }
 }

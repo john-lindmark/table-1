@@ -1,0 +1,28 @@
+{
+  "event_id": "e0000000-0000-0000-0000-000000000001",
+  "current_round": 2,
+  "standings": [],
+  "teams": [
+    {
+      "rank": 1, "team_id": "t-alpha", "name": "Alpha", "points": 6, "wins": 2, "losses": 0, "draws": 0, "byes": 0,
+      "match_wins": 5, "gw": 0.8,
+      "members": [
+        { "participant_id": "a3", "display_name": "Cam", "slot": 3, "match_wins": 2, "match_losses": 0, "match_draws": 0, "status": "active" },
+        { "participant_id": "a1", "display_name": "Ari", "slot": 1, "match_wins": 2, "match_losses": 0, "match_draws": 0, "status": "active" },
+        { "participant_id": "a2", "display_name": "Bo", "slot": 2, "match_wins": 1, "match_losses": 1, "match_draws": 0, "status": "active" }
+      ]
+    },
+    {
+      "rank": 2, "team_id": "t-bravo", "name": "Team Bravo", "points": 0, "wins": 0, "losses": 2, "draws": 0, "byes": 0,
+      "match_wins": 1, "gw": 0.3,
+      "members": [
+        { "participant_id": "b1", "display_name": "Dee", "slot": 1, "match_wins": 1, "match_losses": 1, "match_draws": 0, "status": "active" },
+        { "participant_id": "b2", "display_name": "Eli", "slot": 2, "match_wins": 0, "match_losses": 2, "match_draws": 0, "status": "active" },
+        { "participant_id": "b3", "display_name": "Fay", "slot": 3, "match_wins": 0, "match_losses": 2, "match_draws": 0, "status": "dropped" }
+      ]
+    }
+  ],
+  "seating": null,
+  "clinched": { "team_id": "t-alpha", "name": "Alpha", "match_wins": 5, "opponent_match_wins": 1, "remaining": 3 },
+  "_note": "events-engine `standings` for a 3v3 team draft after round 2 of 3: Alpha has 5 of 9 match wins, so it has clinched. Members come best first by record, then game-win %, then OMW. Decoded by iOS EventBundleTests and Android EventBundleTest."
+}

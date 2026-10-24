@@ -179,7 +179,26 @@ data class StandingsResponse(
     val teams: List<TeamStanding>? = null,
     /** Draft events only. */
     val seating: List<SeatingPod>? = null,
+    /** Team events: the team the other can no longer catch, so the organizer may finish early. */
+    val clinched: TeamClinch? = null,
 )
+
+/** Two teams head to head: one's match wins beat the other's plus every match still to play (events-engine). */
+@Serializable
+data class TeamClinch(
+    @SerialName("team_id") val teamId: String,
+    val name: String,
+    @SerialName("match_wins") val matchWins: Int,
+    @SerialName("opponent_match_wins") val opponentMatchWins: Int,
+    val remaining: Int,
+) {
+    /** "Team Alpha has clinched it: 5–2 in match wins with 2 matches left to play." */
+    val text: String
+        get() {
+            val team = if (name.startsWith("team", ignoreCase = true)) name else "Team $name"
+            return "$team has clinched it: $matchWins–$opponentMatchWins in match wins with $remaining ${if (remaining == 1) "match" else "matches"} left to play."
+        }
+}
 
 @Serializable
 data class TeamStanding(
@@ -202,6 +221,8 @@ data class TeamStandingMember(
     @SerialName("display_name") val displayName: String,
     val slot: Int? = null,
     @SerialName("match_wins") val matchWins: Int = 0,
+    @SerialName("match_losses") val matchLosses: Int = 0,
+    @SerialName("match_draws") val matchDraws: Int = 0,
     val status: String = "active",
 )
 

@@ -56,3 +56,9 @@ still to do. Wire names are in `rpc.schema.json`.
   (`deck_photos.shared`). The player or whoever took it can edit the note or remove the photo.
 - Telemetry: `deck_photo_added` {source, own, has_note, event_over}, `deck_photo_note_saved` {has_note},
   `deck_photo_removed`. Screen `deck_photos`.
+- Web and Android (2026-10-23): until now only iOS had this screen, so players on the web (most of the 23 Oct team
+  draft) had no way to add a photo; the server always allowed it (`supabase/tests/63_deck_photos_test.sql`). Web:
+  `/e/<id>/photos` (organizer bar → Deck photos) and `/p/<id>/photos` (player screen **Deck photo** / after the event
+  **Deck photos**, signed-in players only); camera or library through the file picker, scaled in a canvas. Android:
+  organizer **More → Deck photos** (Results phase too), player screen button; camera through the FileProvider or the
+  photo picker. Both scale to 2048 px JPEG 0.8 (`deckPhotoSize`, tested on both).

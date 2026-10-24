@@ -395,13 +395,14 @@ struct TeamStandingLine: View {
             }
             .padding(.horizontal, 16).padding(.vertical, 12)
             .background(T1.surface)
-            ForEach(t.members.sorted { ($0.slot ?? 0) < ($1.slot ?? 0) }) { m in
+            // Best first by record, then game-win %, then OMW (the engine's order).
+            ForEach(t.members) { m in
                 HStack(spacing: 12) {
                     LabelText(slotLetter(m.slot))
                     Text(m.displayName).font(T1.mono(13)).lineLimit(1)
                         .foregroundStyle(m.status == "dropped" ? T1.muted : T1.text)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    LabelText("\(m.matchWins ?? 0) won")
+                    LabelText(m.record)
                 }
                 .padding(.leading, 40).padding(.trailing, 16).padding(.vertical, 8)
                 .background(m.participantId == highlight ? T1.surfaceHover : T1.bg)

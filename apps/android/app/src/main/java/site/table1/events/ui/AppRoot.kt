@@ -94,6 +94,7 @@ import site.table1.events.ui.components.T1TabBar
 import site.table1.events.ui.screens.AccountScreen
 import site.table1.events.ui.screens.AddPlayersScreen
 import site.table1.events.ui.screens.CreateEventScreen
+import site.table1.events.ui.screens.DeckPhotosScreen
 import site.table1.events.ui.screens.EventScreen
 import site.table1.events.ui.screens.EventsHomeScreen
 import site.table1.events.ui.screens.NearbyScreen
@@ -441,7 +442,11 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                     EventScreen(
                         eventId = id, onBack = { nav.popBackStack() }, onAddPlayers = { nav.navigate("add/$id") },
                         onOpenTracker = { matchId -> nav.navigate("tracker/$matchId") },
+                        onOpenPhotos = { nav.navigate("photos/$id") },
                     )
+                }
+                composable("photos/{id}") { e ->
+                    DeckPhotosScreen(eventId = e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() })
                 }
                 composable("add/{id}") { e ->
                     AddPlayersScreen(eventId = e.arguments?.getString("id") ?: "", onDone = { nav.popBackStack() })

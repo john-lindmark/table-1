@@ -8,6 +8,7 @@ import {
   gameRecord,
   groupMatches,
   liveAction,
+  clinchText,
   liveSubtitle,
   matchDetail,
   matchGroupOf,
@@ -256,6 +257,17 @@ describe("big actions", () => {
     expect(liveAction(e, [{ ...done1, status: "recorded" }, done2])).toEqual({ kind: "finish", label: "Finish event" });
     // Between rounds (round recorded, next not paired yet).
     expect(liveAction(e, [{ ...done1, status: "recorded" }]).label).toBe("Pair round 2");
+  });
+  it("live: a clinched team lets the organizer finish early, but not over a dispute", () => {
+    const e = event({ status: "in_progress", numberOfRounds: 3 });
+    const clinch = { teamId: "A", name: "Alpha", matchWins: 5, opponentMatchWins: 1, remaining: 3 };
+    const open = round(2, [match(1, "Alex", 2, "Brit", 0, { status: "confirmed" }), match(2, "Casey", 0, "Dee", 0)]);
+    expect(liveAction(e, [open], clinch)).toEqual({ kind: "finish", label: "Finish event", clinch });
+    const done = round(2, [match(1, "Alex", 2, "Brit", 0, { status: "confirmed" })]);
+    expect(liveAction(e, [done], clinch)).toEqual({ kind: "finish", label: "Finish event", clinch, pairRound: 3 });
+    const disputed = round(2, [match(1, "Alex", 2, "Brit", 0, { status: "reported", disputed: true }), match(2, "Casey", 0, "Dee", 0)]);
+    expect(liveAction(e, [disputed], clinch).kind).toBe("waiting");
+    expect(clinchText(clinch)).toBe("Team Alpha has clinched it: 5–1 in match wins with 3 matches left to play.");
   });
 });
 

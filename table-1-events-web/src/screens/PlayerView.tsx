@@ -39,11 +39,17 @@ export function PlayerView({
   code,
   eventIdProp,
   onOpenLife,
+  onOpenPhotos,
+  onBack,
 }: {
   code?: string;
   eventIdProp?: string;
   /** Opens the shared life tracker for a match. */
   onOpenLife?: (matchId: string) => void;
+  /** Deck photos for the event (signed-in players). */
+  onOpenPhotos?: (eventId: string) => void;
+  /** Back to where the player came from (Events home when they arrived by link). */
+  onBack?: () => void;
 }) {
   const [eventId, setEventId] = useState<string | null>(eventIdProp ?? null);
   const [resolving, setResolving] = useState(!eventIdProp && !!code);
@@ -154,7 +160,7 @@ export function PlayerView({
       : null;
     return (
       <Screen>
-        <Bar title={preview?.name ?? bundle?.event.name ?? "Join event"} subtitle={code ? code.toUpperCase() : undefined} />
+        <Bar title={preview?.name ?? bundle?.event.name ?? "Join event"} subtitle={code ? code.toUpperCase() : undefined} onBack={onBack} />
         {facts && <Notice tone="info">{facts}</Notice>}
         <Notice tone="info">Enter the name your opponents will see at the table.</Notice>
         <Field label="Your name" value={name} onChange={setName} autoFocus placeholder="e.g. John L" />
@@ -257,6 +263,7 @@ export function PlayerView({
   ];
 
   const isRoto = formatName === "roto";
+  const finished = event.status === "completed" || event.status === "archived";
   // Seating and standings: below your match on a phone, the right column on a desktop.
   const tables = (
     <>
@@ -299,6 +306,7 @@ export function PlayerView({
       <Bar
         title={event.name}
         subtitle={`${viewer.displayName} · ${where} · ${event.formatLabel} · Round ${activeRound?.number ?? event.currentRound} of ${event.numberOfRounds}`}
+        onBack={onBack}
       />
       {/* Desktop: your match on the left, seating and standings on the right; a phone stacks them. */}
       <Columns at="xl" asideWidth={480} aside={tables}>
@@ -408,6 +416,13 @@ export function PlayerView({
           <div className="flex gap-px">
             <GhostAction label="Draft picks" onClick={() => setRotoPanel("draft")} />
             {event.pairing === "round_robin" && <GhostAction label="Schedule" onClick={() => setRotoPanel("schedule")} />}
+          </div>
+        )}
+
+        {/* Deck photos need an account (the photo is tied to your seat); during the event your own, after it everyone's. */}
+        {signedInPlayer && onOpenPhotos && event.status !== "cancelled" && (
+          <div className="flex gap-px">
+            <GhostAction label={finished ? "Deck photos" : "Deck photo"} onClick={() => onOpenPhotos(event.id)} />
           </div>
         )}
 

@@ -80,6 +80,7 @@ const RankingCompare = lazyNamed(rankings, "RankingCompareScreen");
 const RankingPack = lazyNamed(rankings, "RankingPackScreen");
 const RankingChanges = lazyNamed(rankings, "RankingChangesScreen");
 const DeckFinderScreen = lazyNamed(() => import("./screens/DeckFinder"), "DeckFinderScreen");
+const DeckPhotosScreen = lazyNamed(() => import("./screens/DeckPhotos"), "DeckPhotosScreen");
 const ListImportScreen = lazyNamed(() => import("./screens/ListImport"), "ListImportScreen");
 const CollectionImportScreen = lazyNamed(() => import("./screens/CollectionImport"), "CollectionImportScreen");
 const EventsDemo = lazyNamed(() => import("./screens/EventsDemo"), "EventsDemo");
@@ -122,8 +123,17 @@ function OrganizerRoute() {
       onExit={() => navigate("/")}
       onAddPlayers={() => navigate(`/e/${eventId}/add`)}
       onOpenLife={(matchId) => navigate(`/life/${matchId}`)}
+      onOpenPhotos={() => navigate(`/e/${eventId}/photos`)}
     />
   );
+}
+
+/** /e/:eventId/photos from the organizer screen, /p/:eventId/photos from a player's. */
+function DeckPhotosRoute({ organizer }: { organizer: boolean }) {
+  const { eventId } = useParams();
+  const back = useBack(organizer ? `/e/${eventId}` : `/p/${eventId}`);
+  if (!eventId) return <Navigate to="/" replace />;
+  return <DeckPhotosScreen eventId={eventId} organizer={organizer} onBack={back} />;
 }
 
 function AddPlayersRoute() {
@@ -136,7 +146,9 @@ function AddPlayersRoute() {
 function JoinRoute() {
   const { code } = useParams();
   const navigate = useNavigate();
-  return <PlayerView code={code} onOpenLife={(matchId) => navigate(`/life/${matchId}`)} />;
+  const back = useBack("/");
+  return <PlayerView code={code} onBack={back} onOpenLife={(matchId) => navigate(`/life/${matchId}`)}
+                     onOpenPhotos={(id) => navigate(`/p/${id}/photos`)} />;
 }
 
 function QrJoinRoute() {
@@ -156,7 +168,9 @@ function ProfileRoute() {
 function PlayerRoute() {
   const { eventId } = useParams();
   const navigate = useNavigate();
-  return <PlayerView eventIdProp={eventId} onOpenLife={(matchId) => navigate(`/life/${matchId}`)} />;
+  const back = useBack("/");
+  return <PlayerView eventIdProp={eventId} onBack={back} onOpenLife={(matchId) => navigate(`/life/${matchId}`)}
+                     onOpenPhotos={(id) => navigate(`/p/${id}/photos`)} />;
 }
 
 /** /life is the local tracker (no event); /life/:matchId is the shared tracker for a match. */
@@ -446,6 +460,7 @@ export default function App() {
         <Route path="/" element={<HomeRoute />} />
         <Route path="/e/:eventId" element={<OrganizerRoute />} />
         <Route path="/e/:eventId/add" element={<AddPlayersRoute />} />
+        <Route path="/e/:eventId/photos" element={<DeckPhotosRoute organizer />} />
         <Route path="/join/:code" element={<JoinRoute />} />
         <Route path="/j/:code" element={<QrJoinRoute />} />
         <Route path="/auth/confirm" element={<AuthConfirm />} />
@@ -454,6 +469,7 @@ export default function App() {
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/delete-account" element={<DeleteAccountPage />} />
         <Route path="/p/:eventId" element={<PlayerRoute />} />
+        <Route path="/p/:eventId/photos" element={<DeckPhotosRoute organizer={false} />} />
         <Route path="/s/:eventId" element={<StandingsRoute />} />
         <Route path="/l/:token" element={<SharedLinkRoute />} />
         {import.meta.env.DEV && <Route path="/dev/events" element={<EventsDemo />} />}
