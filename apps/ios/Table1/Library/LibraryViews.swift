@@ -448,7 +448,7 @@ struct AllCardsView: View {
                 if shown.isEmpty && !groups.isEmpty { ListRow(title: "No matches", detail: "Nothing in your collection by that name or type") }
                 if layout == CardLayout.stacks.rawValue {
                     GeometryReader { geo in
-                        ScrollView { StackRows(stacks: stacks(shown), width: ((geo.size.width - 1) / 2).rounded(.down)) }
+                        ScrollView { LazyVStack(spacing: 1) { StackRows(stacks: stacks(shown), width: ((geo.size.width - 1) / 2).rounded(.down)) } }
                     }
                 } else if layout == CardLayout.grid.rawValue {
                     SectionedCardGrid(sections: CardGroup.sections(shown, by: grouping, keys: keys).map { s in

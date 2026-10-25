@@ -1167,7 +1167,7 @@ extension ListDetailView {
                             return (id: "s|\(board)|\(g)|\(printings.all)", title: Optional("\(grouping.label(g)) · \(inGroup.reduce(0) { $0 + $1.qty })"),
                                     cards: tiles(inGroup, owned: owned, issues: issues))
                         }
-                        StackRows(stacks: stacks, width: width).id("st|\(board)")
+                        StackRows(stacks: stacks, width: width)
                     }
                 }
             }

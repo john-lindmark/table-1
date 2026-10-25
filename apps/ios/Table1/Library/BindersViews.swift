@@ -241,7 +241,7 @@ struct BinderView: View {
                                 return stride(from: 0, to: cards.count, by: 10).map { i in
                                     ("st|\(printings.all)|\(i)", nil, Array(cards[i..<min(i + 10, cards.count)]))
                                 }
-                            }, width: ((geo.size.width - 1) / 2).rounded(.down)).id("st|\(grouping.rawValue)")
+                            }, width: ((geo.size.width - 1) / 2).rounded(.down))
                         } else {
                             ForEach(sections, id: \.key) { sec in
                                 if grouping != .none { Section1("\(grouping.label(sec.key)) · \(sec.cards.reduce(0) { $0 + $1.qty })").id("h|\(sec.key)") }

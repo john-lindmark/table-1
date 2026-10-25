@@ -412,15 +412,25 @@ struct CardStack: View {
     }
 }
 
-/// Stacks two to a row, filling the width; rows are built lazily as they scroll.
+/// Stacks two to a row, filling the width. Each row is its own view, so the LazyVStack around it builds rows as
+/// they scroll: a LazyVGrid nested in the screen's LazyVStack stuck scrolling up past a tall stack (a binder's
+/// 63-card Black stack never let the screen back to its top).
 struct StackRows: View {
     let stacks: [(id: String, title: String?, cards: [StackCard])]
     let width: CGFloat
 
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.fixed(width), spacing: 1, alignment: .top), count: 2), alignment: .leading, spacing: 16) {
-            ForEach(stacks, id: \.id) { s in CardStack(title: s.title, cards: s.cards, width: width) }
+        let rows = stride(from: 0, to: stacks.count, by: 2).map { Array(stacks[$0..<min($0 + 2, stacks.count)]) }
+        ForEach(rows, id: \.rowId) { row in
+            HStack(alignment: .top, spacing: 1) {
+                ForEach(row, id: \.id) { s in CardStack(title: s.title, cards: s.cards, width: width) }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, 15)
         }
-        .padding(.bottom, 16)
     }
+}
+
+private extension Array where Element == (id: String, title: String?, cards: [StackCard]) {
+    var rowId: String { map(\.id).joined(separator: "+") }
 }

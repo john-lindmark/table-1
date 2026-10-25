@@ -637,7 +637,7 @@ struct ProfileCardsView: View {
                 StackRows(stacks: types.map { g in
                     let inGroup = inBoard.filter { $0.group == g }
                     return (id: "s|\(board)|\(g)|\(printings.all)", title: Optional("\(grouping.label(g)) · \(inGroup.reduce(0) { $0 + $1.qty })"), cards: tiles(inGroup))
-                }, width: ((width - 1) / 2).rounded(.down)).id("st|\(board)")
+                }, width: ((width - 1) / 2).rounded(.down))
             } else {
                 ForEach(types, id: \.self) { g in
                     let inGroup = inBoard.filter { $0.group == g }
@@ -702,7 +702,7 @@ struct ProfileCardsView: View {
                 }
                 return stride(from: 0, to: cards.count, by: 10).map { i in ("st|\(printings.all)|\(i)", nil, Array(cards[i..<min(i + 10, cards.count)])) }
             }
-            StackRows(stacks: stacks, width: ((width - 1) / 2).rounded(.down)).id("st|\(grouping.rawValue)")
+            StackRows(stacks: stacks, width: ((width - 1) / 2).rounded(.down))
         } else {
             ForEach(sections, id: \.key) { sec in
                 if grouping != .none { Section1("\(grouping.label(sec.key)) · \(sec.cards.reduce(0) { $0 + $1.qty })").id("h|\(sec.key)") }
