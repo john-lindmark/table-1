@@ -170,6 +170,12 @@ select pg_temp.eq('index: nothing published yet', public.insights_index()::text,
 select pg_temp.throws('workers only: ingest', $$select public.meta_ingest('{}')$$, '42501');
 select pg_temp.throws('workers only: pack facts', $$select public.meta_pack_window('modern', 'all', 7)$$, '42501');
 select pg_temp.throws('workers only: the TopDeck key', $$select public.meta_topdeck_key()$$, '42501');
+-- The live API runs pg_safeupdate: an UPDATE or DELETE without a WHERE fails there (meta_state_put did, 2026-10-25),
+-- though it passes here.
+select pg_temp.eq('every update and delete in an Insights function has a WHERE',
+  (select coalesce(string_agg(distinct p.proname, ', '), '') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     cross join lateral regexp_matches(p.prosrc, '(\m(?:update\s+[a-z0-9_.]+(?:\s+(?:as\s+)?[a-z]+)?\s+set|delete\s+from\s+[a-z0-9_.]+)[^;]*)', 'gi') m
+    where n.nspname in ('public', 't1_private') and p.proname ~ '^(meta_|insight|limited_)' and m[1] !~* '\mwhere\M'), '');
 select pg_temp.throws('workers only: limited runs', $$select public.limited_run_open('X', 'PremierDraft', 'game', 'u', now(), 1)$$, '42501');
 select pg_temp.throws('no direct reads', $$select * from t1_private.meta_decks$$, '42501');
 select pg_temp.as_user(null);
