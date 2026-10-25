@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -287,6 +288,12 @@ private fun CameraText(onLines: (List<String>) -> Boolean) {
     val language = remember { ScanLanguage(readers = cjk.size) }
     // ScanLanguage.mode, for the executor; fed on the main thread.
     val reading = remember { AtomicInteger(ScanLanguage.LATIN) }
+    // Keep the screen on while the camera is reading.
+    val screen = LocalView.current
+    DisposableEffect(screen) {
+        screen.keepScreenOn = true
+        onDispose { screen.keepScreenOn = false }
+    }
     DisposableEffect(Unit) {
         onDispose {
             latin.close()

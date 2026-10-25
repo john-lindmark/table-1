@@ -302,6 +302,9 @@ struct CardScanView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .overlay { ScanGuide(reading: reading) }
                     .clipped()
+                    // Keep the screen on while the camera is reading; picking a printing or language turns it off.
+                    .onAppear { UIApplication.shared.isIdleTimerDisabled = true }
+                    .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
             }
             if owned == nil {
                 T1Segmented(options: Conditions.all.map { ($0, $0) }, selection: $condition)
