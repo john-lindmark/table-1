@@ -18,9 +18,10 @@ const json = (body: unknown, status = 200) =>
 const BASE = "https://17lands-public.s3.amazonaws.com/analysis_data";
 const EVENTS = ["PremierDraft", "TradDraft", "PickTwoDraft", "Sealed", "TradSealed"];
 /** Compressed bytes per slice (game rows are mostly zeros, ~37× on inflate; draft rows ~10× with more text) and
- *  inflated bytes per slice: ~0.4 s of CPU on a laptop, inside the edge's 2 s. */
-const SLICE_BYTES = { game: 5_000_000, draft: 2_500_000 };
-const OUT_BYTES = 240 * 1024 * 1024;
+ *  inflated bytes per slice. The edge is several times slower than a laptop: a 5 MB game slice (~185 MB of CSV)
+ *  went past its 2 s of CPU on 2026-10-25, so a slice reads at most 40 MB of CSV. */
+const SLICE_BYTES = { game: 1_000_000, draft: 2_000_000 };
+const OUT_BYTES = 40 * 1024 * 1024;
 const RESERVE = 256 * 1024;
 const EMBARGO_DAYS = 12;
 
