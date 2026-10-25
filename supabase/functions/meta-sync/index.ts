@@ -2,11 +2,12 @@
 // shared x-t1-secret header:
 //   {step:"tick"}             every 5 min: read this month's MTGO index hourly (and one older month per tick while
 //                             the 12-month backfill runs), then read queued event pages, ~1 a second, for ~100 s
-//   {step:"build", format}    every 6 h per format: TopDeck's last 3 days (when TOPDECK_API_KEY is set), then the
+//   {step:"build", format}    every 6 h per format: TopDeck's last 3 days (when a TopDeck key is set), then the
 //                             pack: facts from the database, briefs, uploaded to catalog/insights/constructed/
 //   {step:"cluster"}          nightly: group the decks no rule names, ask Claude to name new groups, store them as
 //                             proposals for Review
-// Secrets: ANTHROPIC_API_KEY (briefs, names), TOPDECK_API_KEY (optional).
+// Secrets: ANTHROPIC_API_KEY (briefs, names); the TopDeck.gg key from the TOPDECK.GG_KEY function secret (or
+// TOPDECK_API_KEY, or t1_private.settings topdeck_api_key via meta_topdeck_key); without one, TopDeck is skipped.
 import Anthropic from "npm:@anthropic-ai/sdk@0.110.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { briefFor } from "../insight-brief/brief.ts";
@@ -105,8 +106,8 @@ async function tick() {
 }
 
 async function topdeck(format: { format: string; topdeck: string }) {
-  const key = Deno.env.get("TOPDECK_API_KEY");
-  if (!key) return { skipped: "no TOPDECK_API_KEY" };
+  const key = Deno.env.get("TOPDECK.GG_KEY") ?? Deno.env.get("TOPDECK_API_KEY") ?? await rpc<string | null>("meta_topdeck_key");
+  if (!key) return { skipped: "no TopDeck key" };
   // The four formats build at once and TopDeck rate-limits bursts (429): back off and try again.
   let res: Response | null = null;
   for (const wait of [0, 5_000, 15_000, 30_000]) {

@@ -849,6 +849,12 @@ returns void language sql security definer set search_path = '' as $$
     bytes = excluded.bytes, sha256 = excluded.sha256, through = excluded.through, built_at = now();
 $$;
 
+-- The TopDeck.gg API key, kept in t1_private.settings (name topdeck_api_key) like the push secret; null when unset.
+create or replace function public.meta_topdeck_key()
+returns text language sql stable security definer set search_path = '' as $$
+  select value from t1_private.settings where name = 'topdeck_api_key';
+$$;
+
 create or replace function public.insight_pack_current(p_kind text, p_key text)
 returns text language sql stable security definer set search_path = '' as $$
   select version from t1_private.insight_packs where kind = p_kind and key = p_key;
@@ -1322,7 +1328,7 @@ begin
     'meta_pack_new_set(text, text, date)', 'meta_pack_bans(text, date)', 'meta_pack_matchups(text, date)', 'meta_pack_base(text, date)',
     'meta_cluster_input(text, integer)', 'meta_archetype_propose(text, text, text, text, jsonb, text[], integer)',
     'insight_brief_get(text)', 'insight_brief_put(text, text, text, text)',
-    'insight_pack_publish(text, text, text, integer, text, text, integer, text, date)', 'insight_pack_current(text, text)',
+    'insight_pack_publish(text, text, text, integer, text, text, integer, text, date)', 'insight_pack_current(text, text)', 'meta_topdeck_key()',
     'limited_candidates()', 'limited_run_open(text, text, text, text, timestamptz, bigint)', 'limited_run_state(bigint)',
     'limited_step_commit(bigint, integer, bigint, text, text, jsonb, integer, jsonb, boolean)', 'limited_run_fail(bigint, text)',
     'limited_pack_facts(text)', 'limited_kick()'] loop

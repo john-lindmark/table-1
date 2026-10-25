@@ -169,6 +169,7 @@ select pg_temp.eq('card page: 26 weeks, the archetypes playing it',
 select pg_temp.eq('index: nothing published yet', public.insights_index()::text, '[]');
 select pg_temp.throws('workers only: ingest', $$select public.meta_ingest('{}')$$, '42501');
 select pg_temp.throws('workers only: pack facts', $$select public.meta_pack_window('modern', 'all', 7)$$, '42501');
+select pg_temp.throws('workers only: the TopDeck key', $$select public.meta_topdeck_key()$$, '42501');
 select pg_temp.throws('workers only: limited runs', $$select public.limited_run_open('X', 'PremierDraft', 'game', 'u', now(), 1)$$, '42501');
 select pg_temp.throws('no direct reads', $$select * from t1_private.meta_decks$$, '42501');
 select pg_temp.as_user(null);
