@@ -110,6 +110,8 @@ export function screenName(pathname: string, listKind?: (id: string) => "deck" |
   if (/^\/library\/binder\/[^/]+$/.test(p)) return "binder";
   if (/^\/library\/match\/[^/]+$/.test(p)) return "trade_match";
   if (/^\/l\/[^/]+$/.test(p)) return "shared_link";
+  const insight = insightsScreen(p);
+  if (insight) return insight;
   if (/^\/u\/[^/]+$/.test(p)) return "profile";
   if (/^\/u\/[^/]+\/[^/]+(\/[^/]+)?$/.test(p)) return "profile_cards";
   const ranking = p.match(/^\/library\/ranking\/[^/]+(\/[^/]+)?/);
@@ -133,5 +135,20 @@ export function screenName(pathname: string, listKind?: (id: string) => "deck" |
     if (rest === "/stats/pack") return "sample_pack";
     if (rest === "/rankings") return "rankings";
   }
+  return undefined;
+}
+
+/** Insights screens (contract/insights-2026-10-24.md § Telemetry). */
+function insightsScreen(p: string): string | undefined {
+  if (p === "/insights") return "insights_constructed";
+  if (p === "/insights/limited") return "insights_limited";
+  if (p === "/insights/review") return "insights_review";
+  if (/^\/insights\/limited\/[^/]+\/[^/]+\/[^/]+\/pair\/[^/]+$/.test(p)) return "insights_pair";
+  if (/^\/insights\/limited\/[^/]+\/[^/]+\/[^/]+\/card\/[^/]+$/.test(p)) return "insights_limited_card";
+  if (/^\/insights\/[^/]+\/archetype\/[^/]+\/finish\/[^/]+$/.test(p)) return "insights_finish";
+  if (/^\/insights\/[^/]+\/archetype\/[^/]+$/.test(p)) return "insights_archetype";
+  if (/^\/insights\/[^/]+\/card\/[^/]+$/.test(p)) return "insights_card";
+  if (/^\/insights\/[^/]+\/ban\/[^/]+$/.test(p)) return "insights_ban";
+  if (/^\/insights\/[^/]+\/matchups$/.test(p)) return "insights_matchups";
   return undefined;
 }

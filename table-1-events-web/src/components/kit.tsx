@@ -316,6 +316,9 @@ export function TopNav() {
       <NavLink to="/library" className={tab}>
         Collection
       </NavLink>
+      <NavLink to="/insights" className={tab}>
+        Insights
+      </NavLink>
       <NavLink to="/me" className={tab}>
         Account
       </NavLink>

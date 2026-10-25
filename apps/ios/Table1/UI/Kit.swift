@@ -426,6 +426,8 @@ struct T1TileGlyph: Shape {
     static let events: [(Int, Int)] = [(0, 0), (1, 0), (2, 0), (0, 1), (1, 1), (2, 1)]
     static let collection: [(Int, Int)] = [(0, 0), (2, 0), (0, 1), (1, 1), (2, 1)]
     static let account: [(Int, Int)] = [(1, 0), (0, 1), (1, 1), (2, 1)]
+    /// Bars rising to the right.
+    static let insights: [(Int, Int)] = [(0, 1), (1, 1), (2, 0), (2, 1)]
 }
 
 struct T1TabItem<ID: Hashable>: Identifiable {

@@ -1,0 +1,518 @@
+import SwiftUI
+
+/// Screens pushed from the Insights tab.
+enum InsightsRoute: Hashable {
+    case archetype(String, Int)            // format, archetype id (0 = Other)
+    case card(String, String, String)      // format, oracle id, name
+    case ban(String, Int)                  // format, change id
+    case matchups(String)                  // format
+    case finish(String, Int, Int)          // format, archetype id, finish index on its page
+    case pair(String, String, String, String) // set, event, group, pair
+    case limitedCard(String, String, String, String) // set, event, group, card name
+    case review
+}
+
+struct InsightsDestination: View {
+    let route: InsightsRoute
+    @Binding var path: [InsightsRoute]
+    var body: some View {
+        switch route {
+        case .archetype(let f, let id): ArchetypeInsightView(format: f, id: id, path: $path).screen("insights_archetype")
+        case .card(let f, let id, let n): CardInsightView(format: f, oracleId: id, name: n, path: $path).screen("insights_card")
+        case .ban(let f, let id): BanStudyView(format: f, changeId: id, path: $path).screen("insights_ban")
+        case .matchups(let f): MatchupsView(format: f, path: $path).screen("insights_matchups")
+        case .finish(let f, let a, let i): FinishView(format: f, archetypeId: a, index: i, path: $path).screen("insights_finish")
+        case .pair(let s, let e, let g, let p): PairInsightView(set: s, event: e, group: g, pair: p, path: $path).screen("insights_pair")
+        case .limitedCard(let s, let e, let g, let n): LimitedCardView(set: s, event: e, group: g, name: n, path: $path).screen("insights_limited_card")
+        case .review: InsightsReviewView(path: $path).screen("insights_review")
+        }
+    }
+}
+
+/// The tab's root: Constructed | Limited.
+struct InsightsHomeView: View {
+    @Binding var path: [InsightsRoute]
+    var isFront = true
+    @Bindable private var store = InsightsStore.shared
+
+    var body: some View {
+        T1Screen {
+            Bar(title: "Insights", subtitle: store.section == "limited" ? "Arena draft" : "Constructed metagame")
+            T1Segmented(options: [("constructed", "Constructed"), ("limited", "Limited")], selection: $store.section)
+            ScrollView {
+                VStack(spacing: 1) {
+                    if store.section == "limited" { LimitedHomeSection(path: $path) } else { ConstructedHomeSection(path: $path) }
+                    if ModerationStore.shared.me?.moderator == true {
+                        Button { path.append(.review) } label: {
+                            ListRow(title: "Review", detail: "Proposed archetypes and bans")
+                        }.buttonStyle(.plain)
+                    }
+                }
+            }
+            .refreshable { await store.load(force: true) }
+        }
+        .task(id: isFront) { if isFront { await store.load() } }
+        .task(id: store.format) { await store.ensure(format: store.format) }
+    }
+}
+
+// MARK: shared blocks
+
+/// The brief (2–3 sentences), what it covers, and the source credit.
+struct BriefBlock: View {
+    let brief: String?
+    let scope: String
+    var thin = false
+    var credit: (String, URL)?
+    @Environment(SessionModel.self) private var session
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            LabelText("In brief · \(scope)")
+            if let brief {
+                Text(brief).font(T1.mono(14)).lineSpacing(5).fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text(thin ? "Too few results in this window to say much yet." : "The summary is on its way.")
+                    .font(T1.mono(13)).foregroundStyle(T1.muted)
+            }
+            if let credit {
+                Button { session.webPage = WebPage(url: credit.1); Telemetry.capture("insights_source_opened", ["source": credit.0]) } label: {
+                    LabelText(credit.0, color: T1.muted).underline()
+                }.buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(T1.surface)
+    }
+}
+
+struct ThinNote: View {
+    var body: some View { Notice("Few results in this window: these numbers can swing.") }
+}
+
+// MARK: constructed
+
+struct ConstructedHomeSection: View {
+    @Binding var path: [InsightsRoute]
+    @Bindable private var store = InsightsStore.shared
+    @State private var board = "main"
+    @State private var highlighted: Int?
+    @Environment(SessionModel.self) private var session
+
+    var body: some View {
+        T1Segmented(options: Insights.formats.map { ($0.key, $0.label) }, selection: $store.format)
+        if let pack = store.pack {
+            let tier = store.tier(for: pack)
+            let tierBinding = Binding<Insights.Tier>(get: { tier }, set: { store.tierPicked = $0 })
+            T1Segmented(options: [(.big, "Big events"), (.all, "All events")], selection: tierBinding)
+            T1Segmented(options: Insights.windows.map { ($0, "\($0)D") }, selection: $store.days)
+            if let view = pack.view(tier), let w = view.windows[String(store.days)] {
+                content(pack, view, w, tier)
+            }
+        } else if let e = store.error {
+            Notice(e, error: true)
+        } else if store.loading || store.index.isEmpty && store.loadedAt == nil {
+            Notice("Loading the metagame…")
+        } else {
+            Notice("No \(Insights.formats.first { $0.key == store.format }?.label ?? store.format) results yet.")
+        }
+    }
+
+    @ViewBuilder
+    private func content(_ pack: Insights.ConstructedPack, _ view: Insights.View, _ w: Insights.Window, _ tier: Insights.Tier) -> some View {
+        let scope = "\(tier == .big ? "Big events" : "All events"), last \(store.days) days"
+        let credit = pack.sources.contains("topdeck")
+            ? ("Results from Magic Online and TopDeck.gg", URL(string: "https://topdeck.gg")!)
+            : ("Results from Magic Online", URL(string: "https://www.mtgo.com/decklists")!)
+        BriefBlock(brief: w.brief, scope: scope, thin: w.thin, credit: credit)
+        if w.thin { ThinNote() }
+        Stats3(items: [("Decks", "\(w.decks)"), ("Events", "\(w.events)"), ("Through", InsightCharts.shortDay(pack.through))])
+
+        Section1("Meta now · share of top finishes")
+        let maxShare = w.share.map(\.share).max() ?? 0.1
+        let lead = w.share.first { $0.a != 0 }?.a
+        ForEach(w.share.prefix(12), id: \.a) { s in
+            Button { path.append(.archetype(pack.format, s.a)) } label: {
+                InsightBar(label: pack.name(s.a), value: s.share, maxValue: maxShare,
+                           detail: [s.top8 > 0 ? "\(s.top8) in top 8" : nil, s.conv.map { "converts \(String(format: "%.2f", $0))×" }].compactMap { $0 }.joined(separator: " · ").nilIfEmpty,
+                           change: s.prev.map { s.share - $0 }, highlighted: s.a == lead)
+            }.buttonStyle(.plain)
+        }
+
+        Section1("Meta over time · 7-day share")
+        let lines = view.series.lines
+        let hl = highlighted ?? lines.first?.a
+        InsightLineChart(series: lines.map { .init(id: $0.a, label: short(pack.name($0.a)), values: $0.v, highlighted: $0.a == hl) },
+                         markers: markers(pack, from: view.series.from, days: view.series.days),
+                         xLabels: InsightCharts.months(from: view.series.from, days: view.series.days),
+                         count: view.series.days)
+            .padding(.vertical, 12).padding(.leading, 8).padding(.trailing, 4).background(T1.surface)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 1) {
+                ForEach(lines, id: \.a) { l in
+                    Button { highlighted = l.a } label: {
+                        LabelText(pack.name(l.a), color: l.a == hl ? T1.ink : T1.text)
+                            .padding(.horizontal, 12).padding(.vertical, 10).background(l.a == hl ? T1.text : T1.surface)
+                    }.buttonStyle(.plain)
+                }
+            }
+        }
+
+        Section1("Cards · rising and falling")
+        T1Segmented(options: [("main", "Main deck"), ("side", "Sideboard")], selection: $board)
+        if let m = w.cards[board] {
+            ForEach(m.up.prefix(8), id: \.c) { c in cardRow(pack, c, up: true) }
+            ForEach(m.down.prefix(5), id: \.c) { c in cardRow(pack, c, up: false) }
+            if m.up.isEmpty && m.down.isEmpty { Notice("No card moved much in this window.") }
+        }
+
+        if let ns = view.new_set, !ns.cards.isEmpty {
+            Section1("New set · \(ns.name)")
+            ForEach(ns.cards.prefix(8), id: \.c) { c in
+                Button { path.append(.card(pack.format, c.c, c.n)) } label: {
+                    ListRow(title: c.n, detail: "in \(InsightCharts.pct(c.rate)) of decks" + (c.in?.first.map { " · most in \(pack.name($0))" } ?? "")) {
+                        Text(InsightCharts.pct(c.rate)).font(T1.mono(13))
+                    }
+                }.buttonStyle(.plain)
+            }
+        }
+
+        let bans = pack.bans
+        if !bans.isEmpty {
+            Section1("Bans and unbans")
+            ForEach(bans, id: \.change) { b in
+                if let ch = pack.change(b.change) {
+                    Button { path.append(.ban(pack.format, b.change)) } label: {
+                        ListRow(title: ch.words, detail: InsightCharts.shortDay(ch.on) + (b.settled_days.map { " · settled after \($0) days" } ?? ""))
+                    }.buttonStyle(.plain)
+                }
+            }
+        }
+
+        if !pack.matchups.cells.isEmpty {
+            Section1("Matchups")
+            Button { path.append(.matchups(pack.format)) } label: {
+                ListRow(title: "Matchup grid", detail: "Last 90 days · top 8 brackets and paper rounds")
+            }.buttonStyle(.plain)
+        }
+
+        let events = pack.events.filter { tier == .all || ["major", "large"].contains($0.tier) }
+        if !events.isEmpty {
+            Section1(tier == .big ? "Big events" : "Events")
+            ForEach(events.prefix(12), id: \.self) { e in
+                Button {
+                    if let u = e.url.flatMap(URL.init) { session.webPage = WebPage(url: u); Telemetry.capture("insights_source_opened", ["source": e.source]) }
+                } label: {
+                    ListRow(title: e.name, detail: [InsightCharts.shortDay(e.on), e.players.map { "\($0) players" }, e.winner.map { "won by \(pack.name($0))" }]
+                        .compactMap { $0 }.joined(separator: " · ")) {
+                        LabelText(e.tier)
+                    }
+                }.buttonStyle(.plain)
+            }
+        }
+        Color.clear.frame(height: 24)
+    }
+
+    private func cardRow(_ pack: Insights.ConstructedPack, _ c: Insights.CardRow, up: Bool) -> some View {
+        Button { path.append(.card(pack.format, c.c, c.n)) } label: {
+            ListRow(title: c.n, detail: "in \(InsightCharts.pct(c.rate)) of decks · was \(InsightCharts.pct(c.prev ?? 0))" + (c.copies.map { String(format: " · %.1f copies", $0) } ?? "")) {
+                Text("\(up ? "▲" : "▼") \(InsightCharts.delta(c.rate - (c.prev ?? 0)).dropFirst())")
+                    .font(T1.mono(12)).foregroundStyle(up ? T1.accent : T1.muted)
+            }
+        }.buttonStyle(.plain)
+    }
+
+    private func short(_ s: String) -> String { s.count > 14 ? String(s.prefix(13)) + "…" : s }
+
+    private func markers(_ pack: Insights.ConstructedPack, from: String, days: Int) -> [InsightLineChart.Marker] {
+        guard let d0 = InsightCharts.day(from) else { return [] }
+        // one marker per day: a ban and an unban on May 18 read BAN/UNBAN
+        var out: [InsightLineChart.Marker] = []
+        for c in pack.changes {
+            guard let d = InsightCharts.day(c.on) else { continue }
+            let i = Int((d.timeIntervalSince(d0) / 86400).rounded())
+            guard (0..<days).contains(i) else { continue }
+            let label = c.isBan ? c.kind.uppercased() : (c.set_code ?? "").uppercased()
+            if let k = out.firstIndex(where: { $0.index == i }) {
+                out[k] = .init(index: i, label: out[k].label + "/" + label, ban: out[k].ban || c.isBan)
+            } else { out.append(.init(index: i, label: label, ban: c.isBan)) }
+        }
+        return out
+    }
+}
+
+/// Three stats in a row.
+struct Stats3: View {
+    let items: [(String, String)]
+    var body: some View {
+        HStack(spacing: 1) {
+            ForEach(items.indices, id: \.self) { i in
+                Stat(label: items[i].0, value: items[i].1).padding(.horizontal, 16).padding(.vertical, 12).background(T1.surface)
+            }
+        }
+    }
+}
+
+extension String { var nilIfEmpty: String? { isEmpty ? nil : self } }
+
+// MARK: archetype
+
+struct ArchetypeInsightView: View {
+    let format: String
+    let id: Int
+    @Binding var path: [InsightsRoute]
+    @State private var page: Insights.ArchetypePage?
+    @State private var error: String?
+    private var store: InsightsStore { InsightsStore.shared }
+
+    var body: some View {
+        let pack = store.constructed[format]
+        T1Screen {
+            Bar(title: pack?.name(id) ?? "Archetype", subtitle: "\(pack?.name ?? format) · all events, last \(store.days) days") { path.removeLast() }
+            ScrollView {
+                VStack(spacing: 1) {
+                    if let page, let pack { content(page, pack) }
+                    else if let error { Notice(error, error: true) }
+                    else { Notice("Loading…") }
+                }
+            }
+        }
+        .task {
+            do { page = try await store.archetype(format: format, id: id, tier: .all, days: store.days) }
+            catch { if !error.isCancellation { self.error = "This archetype couldn't load: \(error.localizedDescription)" } }
+        }
+    }
+
+    @ViewBuilder
+    private func content(_ p: Insights.ArchetypePage, _ pack: Insights.ConstructedPack) -> some View {
+        let share = pack.view(.all)?.windows[String(store.days)]?.share.first { $0.a == id }
+        BriefBlock(brief: p.brief, scope: "last 30 days, all events", thin: p.decks < 20)
+        Stats3(items: [
+            ("Share", InsightCharts.pct(share?.share)),
+            ("Decks", "\(p.decks)"),
+            ("Record", p.record.map { "\($0.wins)-\($0.losses)" } ?? "–"),
+        ])
+        if let r = p.record {
+            Notice(r.basis == "topdeck" ? "Record from paper events' rounds." : "Record of players who reached a Challenge's top 32, so it runs high.")
+        }
+        Section1("Share by week")
+        InsightLineChart(series: [.init(id: id, label: "", values: p.series.v, highlighted: true)], count: p.series.weeks, height: 140, labelWidth: 40)
+            .padding(.vertical, 12).padding(.leading, 8).background(T1.surface)
+        cards("Core · in 80%+ of lists", p.core, pack)
+        cards("Flex slots", p.flex, pack)
+        cards("Sideboard", p.side, pack)
+        if !p.matchups.isEmpty {
+            Section1("Matchups · last 90 days")
+            ForEach(p.matchups.prefix(8), id: \.self) { m in
+                let n = m.wins + m.losses
+                let ci = InsightCharts.wilson(wins: m.wins, n: n)
+                ListRow(title: "vs \(pack.name(m.vs))", detail: n >= 30 ? "\(InsightCharts.pct(ci.lo))–\(InsightCharts.pct(ci.hi)) likely" : "Too few matches to say") {
+                    Text("\(m.wins)-\(m.losses)").font(T1.mono(13))
+                }
+            }
+        }
+        if !p.finishes.isEmpty {
+            Section1("Best finishes")
+            ForEach(Array(p.finishes.enumerated()), id: \.offset) { i, f in
+                Button { path.append(.finish(format, id, i)) } label: {
+                    ListRow(title: f.event, detail: [f.rank.map { "#\($0)" }, InsightCharts.shortDay(f.on), f.players.map { "\($0) players" }].compactMap { $0 }.joined(separator: " · "))
+                }.buttonStyle(.plain)
+            }
+        }
+        Color.clear.frame(height: 24)
+    }
+
+    @ViewBuilder
+    private func cards(_ title: String, _ rows: [Insights.CardRow], _ pack: Insights.ConstructedPack) -> some View {
+        if !rows.isEmpty {
+            Section1(title)
+            ForEach(rows.prefix(16), id: \.c) { c in
+                Button { path.append(.card(format, c.c, c.n)) } label: {
+                    ListRow(title: c.n, detail: c.copies.map { String(format: "%.1f copies", $0) }) {
+                        Text(InsightCharts.pct(c.rate)).font(T1.mono(13))
+                    }
+                }.buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+/// One finish's list, with Copy to my Library and what the viewer is missing.
+struct FinishView: View {
+    let format: String
+    let archetypeId: Int
+    let index: Int
+    @Binding var path: [InsightsRoute]
+    @State private var page: Insights.ArchetypePage?
+    @State private var copied: String?
+    private var store: InsightsStore { InsightsStore.shared }
+
+    var body: some View {
+        let f = page?.finishes[safe: index]
+        T1Screen {
+            Bar(title: page?.archetype.name ?? "Deck", subtitle: f.map { "\($0.event) · \(InsightCharts.shortDay($0.on))" }) { path.removeLast() }
+            ScrollView {
+                VStack(spacing: 1) {
+                    if let f, let page {
+                        Button { copy(f, page) } label: {
+                            ListRow(title: "Copy to my Library", detail: copied ?? "A new private deck with these cards")
+                        }.buttonStyle(.plain)
+                        Section1("Main deck · \(f.main.reduce(0) { $0 + $1.qty })")
+                        ForEach(f.main, id: \.self) { l in ListRow(title: l.name) { Text("\(l.qty)").font(T1.mono(13)) } }
+                        if !f.side.isEmpty {
+                            Section1("Sideboard · \(f.side.reduce(0) { $0 + $1.qty })")
+                            ForEach(f.side, id: \.self) { l in ListRow(title: l.name) { Text("\(l.qty)").font(T1.mono(13)) } }
+                        }
+                    } else { Notice("Loading…") }
+                }
+            }
+        }
+        .task { page = try? await store.archetype(format: format, id: archetypeId, tier: .all, days: store.days) }
+    }
+
+    private func copy(_ f: Insights.ArchetypePage.Finish, _ page: Insights.ArchetypePage) {
+        guard let db = CatalogStore.shared.db else { copied = "The card catalog is still loading"; return }
+        let resolved = db.printings(names: (f.main + f.side).map(\.name))
+        var entries: [CardList.Entry] = []
+        for (board, lines) in [("main", f.main), ("side", f.side)] {
+            for l in lines { if let p = resolved[l.name] { entries.append(.init(cardId: p.cardId, board: board, qty: l.qty)) } }
+        }
+        let l = ListsStore.shared.create(kind: .deck, name: String(page.archetype.name.prefix(60)), format: format, entries: entries,
+                                         note: String("From \(f.event), \(f.on)".prefix(120)), from: "insights")
+        Telemetry.capture("insights_copy_to_library", ["format": format, "archetype": page.archetype.name])
+        copied = "Saved as \(l.name) in Decks"
+    }
+}
+
+extension Array { subscript(safe i: Int) -> Element? { indices.contains(i) ? self[i] : nil } }
+
+// MARK: card
+
+struct CardInsightView: View {
+    let format: String
+    let oracleId: String
+    let name: String
+    @Binding var path: [InsightsRoute]
+    @State private var page: Insights.CardPage?
+    @State private var error: String?
+    private var store: InsightsStore { InsightsStore.shared }
+
+    var body: some View {
+        let pack = store.constructed[format]
+        T1Screen {
+            Bar(title: name, subtitle: "\(pack?.name ?? format) · all events") { path.removeLast() }
+            ScrollView {
+                VStack(spacing: 1) {
+                    if let page, let pack {
+                        Stats3(items: [("Main decks", InsightCharts.pct(page.series.main.last ?? nil)),
+                                       ("Copies", page.copies.map { String(format: "%.1f", $0) } ?? "–"),
+                                       ("First seen", page.first_seen.map(InsightCharts.shortDay) ?? "–")])
+                        Section1("Share of decks by week")
+                        InsightLineChart(series: [.init(id: 0, label: "Main", values: page.series.main, highlighted: true),
+                                                  .init(id: 1, label: "Side", values: page.series.side, highlighted: false)],
+                                         count: page.series.weeks, height: 150, labelWidth: 70)
+                            .padding(.vertical, 12).padding(.leading, 8).background(T1.surface)
+                        if !page.by_archetype.isEmpty {
+                            Section1("Played in · last 30 days")
+                            let m = page.by_archetype.map(\.rate).max() ?? 1
+                            ForEach(page.by_archetype, id: \.self) { a in
+                                Button { path.append(.archetype(format, a.a)) } label: {
+                                    InsightBar(label: pack.name(a.a), value: a.rate, maxValue: max(m, 0.01),
+                                               detail: a.copies.map { String(format: "%.1f copies in its lists", $0) })
+                                }.buttonStyle(.plain)
+                            }
+                        }
+                    } else if let error { Notice(error, error: true) } else { Notice("Loading…") }
+                }
+            }
+        }
+        .task {
+            do { page = try await store.card(format: format, oracleId: oracleId, tier: .all) }
+            catch { if !error.isCancellation { self.error = "This card couldn't load: \(error.localizedDescription)" } }
+        }
+    }
+}
+
+// MARK: ban study
+
+struct BanStudyView: View {
+    let format: String
+    let changeId: Int
+    @Binding var path: [InsightsRoute]
+    private var store: InsightsStore { InsightsStore.shared }
+
+    var body: some View {
+        let pack = store.constructed[format]
+        let b = pack?.bans.first { $0.change == changeId }
+        let ch = pack?.change(changeId)
+        T1Screen {
+            Bar(title: ch?.words ?? "Format change", subtitle: ch.map { "\(pack?.name ?? "") · \(InsightCharts.shortDay($0.on))" }) { path.removeLast() }
+            ScrollView {
+                VStack(spacing: 1) {
+                    if let b, let pack {
+                        BriefBlock(brief: b.brief, scope: "what changed after", thin: b.before.isEmpty || b.afterWindow == nil)
+                        if let aw = b.afterWindow {
+                            Section1("Share before → \(aw.days) days after")
+                            let ids = Array(Set(b.before.prefix(6).map(\.a) + aw.shares.prefix(6).map(\.a))).prefix(8)
+                            let loser = Set(b.losers.map(\.a))
+                            InsightSlopeChart(rows: ids.map { a in
+                                .init(id: a, label: pack.name(a), before: b.before.first { $0.a == a }?.share ?? 0,
+                                      after: aw.shares.first { $0.a == a }?.share ?? 0, highlighted: loser.contains(a) || b.gainers.first?.a == a)
+                            }, leftTitle: "Before", rightTitle: "After")
+                            .padding(12).background(T1.surface)
+                        } else {
+                            Notice("No window after the change has ended yet.")
+                        }
+                        Stats3(items: [("Settled", b.settled_days.map { "\($0) days" } ?? "Not yet"),
+                                       ("Lost most", b.losers.first.map { pack.name($0.a) } ?? "–"),
+                                       ("Gained most", b.gainers.first.map { pack.name($0.a) } ?? "–")])
+                        if !b.replacements.isEmpty {
+                            Section1(ch?.kind == "unban" || ch?.kind == "unrestrict" ? "Where it's played" : "What replaced it")
+                            ForEach(b.replacements, id: \.self) { r in
+                                Button { path.append(.card(format, r.c, r.n)) } label: {
+                                    ListRow(title: r.n, detail: "in \(pack.name(r.in)) · \(InsightCharts.pct(r.before)) → \(InsightCharts.pct(r.after)) of lists")
+                                }.buttonStyle(.plain)
+                            }
+                        }
+                    } else { Notice("This change isn't in the pack.") }
+                }
+            }
+        }
+    }
+}
+
+// MARK: matchups
+
+struct MatchupsView: View {
+    let format: String
+    @Binding var path: [InsightsRoute]
+    @State private var picked: (Int, Int)?
+    private var store: InsightsStore { InsightsStore.shared }
+
+    var body: some View {
+        let pack = store.constructed[format]
+        T1Screen {
+            Bar(title: "Matchups", subtitle: "\(pack?.name ?? format) · last 90 days") { path.removeLast() }
+            ScrollView {
+                VStack(spacing: 1) {
+                    if let pack {
+                        let ids = pack.matchups.archetypes
+                        Notice("Row's match win rate against each column. Empty: fewer than 30 matches. From MTGO top 8 brackets and paper events' rounds.")
+                        InsightHeatmap(labels: ids.map { pack.name($0) }, cell: { r, c in
+                            pack.matchups.cell(ids[r], ids[c]).map { ($0.wins, $0.losses) }
+                        }, onTap: { r, c in picked = (r, c) })
+                        if let (r, c) = picked, let m = pack.matchups.cell(ids[r], ids[c]) {
+                            let n = m.wins + m.losses
+                            let ci = InsightCharts.wilson(wins: m.wins, n: n)
+                            ListRow(title: "\(pack.name(ids[r])) vs \(pack.name(ids[c]))",
+                                    detail: n >= 30 ? "\(InsightCharts.pct1(Double(m.wins) / Double(n))) · likely \(InsightCharts.pct(ci.lo))–\(InsightCharts.pct(ci.hi))" : "Only \(n) matches: too few to say") {
+                                Text("\(m.wins)-\(m.losses)\(m.draws > 0 ? "-\(m.draws)" : "")").font(T1.mono(13))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

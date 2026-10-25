@@ -93,9 +93,9 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1"
       configs:
-        # The Library demo (-T1LibraryDemo, Debug only) and its data never ship.
+        # The Library and Insights demos (-T1LibraryDemo, -T1InsightsDemo; Debug only) and their data never ship.
         Release:
-          EXCLUDED_SOURCE_FILE_NAMES: "library-demo.json"
+          EXCLUDED_SOURCE_FILE_NAMES: "library-demo.json insights-demo-*.json"
 
   # Widgets, the player and organizer Live Activities (Lock Screen, Dynamic Island, StandBy, Smart Stack) and the
   # iOS 18 controls (contract/widgets-2026-10-22.md).

@@ -1,0 +1,259 @@
+// meta-sync: Insights' constructed side (contract/insights-2026-10-24.md). Driven by pg_cron through pg_net with the
+// shared x-t1-secret header:
+//   {step:"tick"}             every 5 min: read this month's MTGO index hourly (and one older month per tick while
+//                             the 12-month backfill runs), then read queued event pages, ~1 a second, for ~100 s
+//   {step:"build", format}    every 6 h per format: TopDeck's last 3 days (when TOPDECK_API_KEY is set), then the
+//                             pack: facts from the database, briefs, uploaded to catalog/insights/constructed/
+//   {step:"cluster"}          nightly: group the decks no rule names, ask Claude to name new groups, store them as
+//                             proposals for Review
+// Secrets: ANTHROPIC_API_KEY (briefs, names), TOPDECK_API_KEY (optional).
+import Anthropic from "npm:@anthropic-ai/sdk@0.110.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { briefFor } from "../insight-brief/brief.ts";
+import { clusters, known, NAME_SCHEMA, NAME_SYSTEM, namePrompt, proposal, type ClusterDeck } from "./cluster.ts";
+import { indexSlugs, pageData, parseEvent, slugInfo } from "./mtgo.ts";
+import { archetypeFacts, assemble, banFacts, windowFacts } from "./pack.ts";
+import { parseTournament, tournamentsQuery, type TdTournament } from "./topdeck.ts";
+import { type Base, type BanStudy, type Matchups, type NewSet, type Series, type Tier, type View, type Window, WINDOWS } from "./types.ts";
+
+const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
+  auth: { persistSession: false },
+});
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+const UA = "Table1Insights/1.0 (table-1.site; metagame stats)";
+const BACKFILL_MONTHS = 12;
+const TICK_MS = 100_000;
+const BUCKET = "catalog";
+
+async function rpc<T = unknown>(fn: string, args: Record<string, unknown> = {}): Promise<T> {
+  const { data, error } = await admin.rpc(fn, args);
+  if (error) throw new Error(`${fn}: ${error.message}`);
+  return data as T;
+}
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function get(url: string, timeoutMs = 60_000): Promise<string> {
+  const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(timeoutMs) });
+  if (!res.ok) throw new Error(`${url} ${res.status}`);
+  return await res.text();
+}
+
+const month = (d: Date) => `${d.getUTCFullYear()}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+const monthBefore = (m: string) => {
+  const [y, mo] = m.split("/").map(Number);
+  return mo === 1 ? `${y - 1}/12` : `${y}/${String(mo - 1).padStart(2, "0")}`;
+};
+
+/** Queues a month index's event pages (formats the server reads; Leagues included). */
+async function readIndex(m: string): Promise<number> {
+  const html = await get(`https://www.mtgo.com/decklists/${m}`, 90_000);
+  const items = indexSlugs(html).filter((s) => slugInfo(s)).map((s) => ({
+    source: "mtgo", format: slugInfo(s)!.format, slug: s, url: `https://www.mtgo.com/decklist/${s}`,
+  }));
+  return await rpc<number>("meta_queue_add", { p_items: items });
+}
+
+async function tick() {
+  const t0 = Date.now();
+  const state = await rpc<Record<string, string>>("meta_state");
+  if (state.tick_until && Date.parse(state.tick_until) > t0) return { skipped: "another tick is running" };
+  await rpc("meta_state_put", { p_patch: { tick_until: new Date(t0 + TICK_MS + 30_000).toISOString() } });
+  const out = { queued: 0, read: 0, decks: 0, failed: 0, backfill: null as string | null };
+  try {
+    const now = new Date();
+    if (!state.index_at || t0 - Date.parse(state.index_at) > 3_600_000) {
+      out.queued += await readIndex(month(now));
+      if (now.getUTCDate() <= 3) out.queued += await readIndex(monthBefore(month(now)));
+      await rpc("meta_state_put", { p_patch: { index_at: now.toISOString() } });
+    }
+    // Backfill: one older month per tick, back BACKFILL_MONTHS from the first tick.
+    const until = state.backfill_until ?? (() => {
+      let m = month(now);
+      for (let i = 0; i < BACKFILL_MONTHS; i++) m = monthBefore(m);
+      return m;
+    })();
+    const next = state.backfill_next ?? monthBefore(month(now));
+    if (next >= until) {
+      out.queued += await readIndex(next);
+      out.backfill = next;
+      await rpc("meta_state_put", { p_patch: { backfill_until: until, backfill_next: monthBefore(next) } });
+    }
+    while (Date.now() - t0 < TICK_MS) {
+      const batch = await rpc<{ id: number; source: string; slug: string; url: string }[]>("meta_queue_claim", { p_n: 5 });
+      if (!batch.length) break;
+      for (const q of batch) {
+        try {
+          const data = pageData(await get(q.url));
+          const ev = data && parseEvent(q.slug, data);
+          if (!ev) { await rpc("meta_queue_done", { p_id: q.id, p_status: "skipped", p_error: "no decklists on the page" }); continue; }
+          const r = await rpc<{ decks: number }>("meta_ingest", { p_event: ev });
+          out.read++; out.decks += r.decks;
+          await rpc("meta_queue_done", { p_id: q.id, p_status: "done" });
+        } catch (e) {
+          out.failed++;
+          await rpc("meta_queue_done", { p_id: q.id, p_status: "failed", p_error: String(e) }).catch(() => {});
+        }
+        await sleep(1000);
+        if (Date.now() - t0 >= TICK_MS) break;
+      }
+    }
+  } finally {
+    await rpc("meta_state_put", { p_patch: { tick_until: new Date(0).toISOString() } }).catch(() => {});
+  }
+  return out;
+}
+
+async function topdeck(format: { format: string; topdeck: string }) {
+  const key = Deno.env.get("TOPDECK_API_KEY");
+  if (!key) return { skipped: "no TOPDECK_API_KEY" };
+  // The four formats build at once and TopDeck rate-limits bursts (429): back off and try again.
+  let res: Response | null = null;
+  for (const wait of [0, 5_000, 15_000, 30_000]) {
+    if (wait) await sleep(wait + Math.random() * 2_000);
+    res = await fetch("https://topdeck.gg/api/v2/tournaments", {
+      method: "POST", headers: { Authorization: key, "Content-Type": "application/json", "User-Agent": UA },
+      body: JSON.stringify(tournamentsQuery(format.topdeck, 3)), signal: AbortSignal.timeout(60_000),
+    });
+    if (res.status !== 429) break;
+    await res.body?.cancel();
+  }
+  if (!res?.ok) throw new Error(`TopDeck ${res?.status}`);
+  const list = await res.json() as TdTournament[];
+  let events = 0, decks = 0;
+  for (const t of list) {
+    const ev = parseTournament(t, format.format);
+    if (!ev) continue;
+    const r = await rpc<{ decks: number }>("meta_ingest", { p_event: ev });
+    events++; decks += r.decks;
+  }
+  return { events, decks };
+}
+
+/** Runs fns with at most n in flight. */
+async function pool<T>(fns: (() => Promise<T>)[], n = 6): Promise<T[]> {
+  const out: T[] = new Array(fns.length);
+  let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, fns.length) }, async () => {
+    while (i < fns.length) { const k = i++; out[k] = await fns[k](); }
+  }));
+  return out;
+}
+
+async function sha256(bytes: Uint8Array<ArrayBuffer>) {
+  const d = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  return [...d].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+const FORMAT_ORD: Record<string, number> = { standard: 1, pioneer: 2, modern: 3, pauper: 4, legacy: 5, vintage: 6, premodern: 7 };
+const TOPDECK_NAMES: Record<string, string> = { standard: "Standard", pioneer: "Pioneer", modern: "Modern", pauper: "Pauper", legacy: "Legacy", vintage: "Vintage", premodern: "Premodern" };
+
+async function build(format: string) {
+  const td = await topdeck({ format, topdeck: TOPDECK_NAMES[format] ?? format }).catch((e) => ({ error: String(e) }));
+  await rpc("meta_relabel", { p_format: format, p_other_only: true });
+  const through = new Date().toISOString().slice(0, 10);
+  const base = await rpc<Base>("meta_pack_base", { p_format: format, p_through: through });
+  if (!base) throw new Error(`unknown format ${format}`);
+  const tiers = {} as Record<Tier, View>;
+  for (const tier of ["big", "all"] as Tier[]) {
+    const windows: Record<string, Window> = {};
+    for (const days of WINDOWS) {
+      windows[days] = await rpc<Window>("meta_pack_window", { p_format: format, p_tier: tier, p_days: days, p_through: through });
+    }
+    tiers[tier] = {
+      windows,
+      series: await rpc<Series>("meta_pack_series", { p_format: format, p_tier: tier, p_days: 180, p_through: through }),
+      new_set: await rpc<NewSet | null>("meta_pack_new_set", { p_format: format, p_tier: tier, p_through: through }),
+    };
+  }
+  const bans = await rpc<BanStudy[]>("meta_pack_bans", { p_format: format, p_through: through });
+  const matchups = await rpc<Matchups>("meta_pack_matchups", { p_format: format, p_through: through });
+  const pack = assemble(base, tiers, bans, matchups, new Date().toISOString());
+
+  // Briefs: every tier × window, every ban study, the top 8 archetypes (All events, 30 days).
+  const jobs: (() => Promise<void>)[] = [];
+  for (const tier of ["big", "all"] as Tier[]) {
+    for (const days of WINDOWS) {
+      const w = pack.tiers[tier].windows[days];
+      jobs.push(async () => { w.brief = w.decks ? await briefFor(windowFacts(pack, tier, days, w), rpc) : null; });
+    }
+  }
+  for (const b of pack.bans) {
+    jobs.push(async () => { const f = banFacts(pack, b); b.brief = f ? await briefFor(f, rpc) : null; });
+  }
+  const shares = pack.tiers.all.windows["30"].share;
+  for (const s of shares.filter((s) => s.a !== 0).slice(0, 8)) {
+    jobs.push(async () => {
+      const a = await rpc<Parameters<typeof archetypeFacts>[1]>("meta_archetype", { p_format: format, p_archetype: s.a, p_tier: "all", p_days: 30 });
+      await briefFor(archetypeFacts(pack, a, s), rpc);
+    });
+  }
+  await pool(jobs, 6);
+
+  const { built_at: _b, ...stable } = pack;
+  const version = "c-" + (await sha256(new TextEncoder().encode(JSON.stringify(stable)))).slice(0, 12);
+  const current = await rpc<string | null>("insight_pack_current", { p_kind: "constructed", p_key: format });
+  if (current === version) return { format, version, unchanged: true, topdeck: td };
+  const body = new TextEncoder().encode(JSON.stringify(pack));
+  const path = `insights/constructed/${format}.json`;
+  const { error } = await admin.storage.from(BUCKET).upload(path, body, { contentType: "application/json", upsert: true, cacheControl: "300" });
+  if (error) throw new Error(`upload ${path}: ${error.message}`);
+  await rpc("insight_pack_publish", {
+    p_kind: "constructed", p_key: format, p_name: base.name, p_ord: FORMAT_ORD[format] ?? 9, p_version: version, p_path: path,
+    p_bytes: body.length, p_sha256: await sha256(body), p_through: through,
+  });
+  return { format, version, bytes: body.length, topdeck: td };
+}
+
+async function nameCluster(text: string): Promise<unknown> {
+  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set");
+  const client = new Anthropic({ apiKey, maxRetries: 2, timeout: 60_000 });
+  const msg = await client.beta.messages.create({
+    model: "claude-haiku-5-5", max_tokens: 1000, system: NAME_SYSTEM,
+    output_config: { effort: "low", format: { type: "json_schema", schema: NAME_SCHEMA } },
+    messages: [{ role: "user", content: text }],
+  } as unknown as Anthropic.Beta.MessageCreateParamsNonStreaming);
+  const out = msg.content.filter((c) => c.type === "text").map((c) => (c as Anthropic.Beta.BetaTextBlock).text).join("");
+  try { return JSON.parse(out); } catch { return null; }
+}
+
+async function cluster() {
+  const formats = Object.keys(FORMAT_ORD).slice(0, 4);
+  const out: Record<string, number> = {};
+  for (const format of formats) {
+    const input = await rpc<{ total: number; decks: { id: number; colors: string; cards: string[] }[]; names: Record<string, string>;
+                              known: { name: string; status: string; signature: string[] }[] }>("meta_cluster_input", { p_format: format, p_days: 45 });
+    const decks: ClusterDeck[] = input.decks.map((d) => ({ id: d.id, colors: d.colors, cards: d.cards.map((c) => input.names[c] ?? c) }));
+    const fresh = clusters(decks, input.total).filter((c) => c.share >= 0.01 && !known(c, input.known.map((k) => k.signature)));
+    let added = 0;
+    for (const c of fresh.slice(0, 5)) {
+      const p = proposal(c, await nameCluster(namePrompt(format, c)).catch(() => null));
+      if (!p) continue;
+      const id = await rpc<number | null>("meta_archetype_propose", {
+        p_format: format, p_name: p.name, p_family: p.family, p_colors: c.colors, p_rule: p.rule, p_signature: c.signature, p_decks: c.size,
+      });
+      if (id) added++;
+    }
+    out[format] = added;
+  }
+  return out;
+}
+
+Deno.serve(async (req) => {
+  if (req.method !== "POST") return json({ error: "POST only" }, 405);
+  const { data: ok } = await admin.rpc("live_push_secret_ok", { p_secret: req.headers.get("x-t1-secret") ?? "" });
+  if (!ok) return json({ error: "Forbidden" }, 403);
+  const body = await req.json().catch(() => ({})) as { step?: string; format?: string };
+  try {
+    switch (body.step) {
+      case "tick": return json(await tick());
+      case "build": return json(await build(String(body.format ?? "")));
+      case "cluster": return json(await cluster());
+      default: return json({ error: "Unknown step" }, 400);
+    }
+  } catch (e) {
+    console.error("meta-sync", body.step, String(e));
+    return json({ error: String(e) }, 500);
+  }
+});

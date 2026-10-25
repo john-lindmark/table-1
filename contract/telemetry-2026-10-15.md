@@ -50,7 +50,9 @@ properties. Every client sends the same names, so one PostHog insight covers all
 `profile_cards`, `sharing`, `trade_matches`, `trade_match` (2026-10-18, friends and sharing), `want_printing`, `binder_add`
 (2026-10-18, `library-search-2026-10-18.md`), `item_printing`, `trade_printing` (2026-10-18, `change-printing-2026-10-18.md`), `rankings`, `ranking`, `ranking_screen`,
 `ranking_lists`, `ranking_card`, `ranking_compare`, `ranking_pack`, `ranking_changes`, `ranking_image` (2026-10-21,
-`cube-rankings-2026-10-21.md`).
+`cube-rankings-2026-10-21.md`), `insights_constructed`, `insights_limited`, `insights_archetype`, `insights_finish`,
+`insights_card`, `insights_ban`, `insights_matchups`, `insights_pair`, `insights_limited_card`, `insights_review`
+(2026-10-25, `insights-2026-10-24.md`).
 
 ## Events
 
@@ -168,6 +170,20 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `profile_section_opened` | `section`: all_cards / for_trade / wants / binder / deck / cube |
 | `trade_matches_viewed` | `people`: int, `have`: int, `want`: int (copies) |
 | `trade_started_from_match` | `gives`: int, `gets`: int (copies) |
+
+### Insights (2026-10-25; contract `insights-2026-10-24.md`)
+
+| Event | Properties |
+| --- | --- |
+| `insights_section_changed` | `section`: constructed / limited |
+| `insights_format_changed` | `format`: standard / pioneer / modern / pauper |
+| `insights_tier_changed` | `tier`: big / all |
+| `insights_window_changed` | `days`: 7 / 14 / 30 / 90 |
+| `insights_set_changed` | `set`, `event` (a Limited set or event picked) |
+| `insights_sort_changed` | `sort`: gih / oh / iwd / ata |
+| `insights_copy_to_library` | `format`, `archetype` (a finish copied as a deck) |
+| `insights_source_opened` | `source`: the credit or event source opened (MTGO, TopDeck.gg, 17Lands) |
+| `insights_review_action` | `what`, `action` (moderators: approve / reject / confirm) |
 
 ### Push, Live Activities, widgets (iOS; Android/web where they have the surface)
 | event | properties |

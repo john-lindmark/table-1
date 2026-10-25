@@ -1,0 +1,23 @@
+{
+ "constructed:modern:big:30": "Eldrazi Bloodchief Combo leads Modern's big events at 17%, up 1.8 pts. Rakdos Moonshadow arrived from nowhere to 6.1%, while Esper Blink fell 5.4 pts. Lightning Bolt is back in 28% of decks, and Obsidian Charmaw now sits in 29% of sideboards.",
+ "constructed:modern:all:30": "Eldrazi Bloodchief Combo holds 16% of top finishes across all events. Rakdos Moonshadow is the big newcomer at 7.8%, and Azorius Control climbed to 5.4%. Solitude dropped from 25% to 16% of decks as Esper Blink faded.",
+ "constructed:standard:big:30": "Only 1 big event ran in the last 30 days, so these shares rest on few decks. Dimir Midrange led it at 18%, and Azorius Artifacts jumped to 10%. Erode is now in 30% of decks.",
+ "constructed:standard:all:30": "Dimir Midrange leads Standard at 13%, up 2.9 pts. Orzhov Lifegain gained the most, rising to 8.2%, while Izzet Elementals dropped 7.2 pts. Erode moved into 26% of decks and Duress into 44% of sideboards.",
+ "constructed:pioneer:all:30": "Izzet Prowess still leads Pioneer at 14%, with Golgari Midrange close behind at 12%. Storm the Festival gained 5.1 pts while Izzet Lessons fell 7.1 pts. Gran-Gran has all but vanished, down to 0.9% of decks.",
+ "constructed:pauper:big:30": "Madness Burn still leads Pauper's big events at 13%, but it dropped 6.8 pts. Mono-Green Elves gained most, up 5.8 pts to 6.8%, while Mono-Blue Terror fell 8.4 pts. Baleful Strix jumped into 16% of decks.",
+ "constructed:pauper:all:30": "Madness Burn leads Pauper at 14%, down 4.3 pts, ahead of Affinity at 10%. Dimir Control gained most, driving Baleful Strix into 18% of decks, while Mono-Blue Terror fell 5.7 pts. Vandalblast is now in 16% of sideboards.",
+ "ban:modern:6": "Boros Energy fell from 17% to 12% of top finishes after the Phlage ban. Eldrazi Bloodchief Combo gained most, rising from 1.3% to 6.5%. Amulet Titan rebuilt around The Mycosynth Gardens, now in 95% of its lists.",
+ "ban:modern:7": "Violent Outburst came straight back into Living End, now in 75% of its lists. Eldrazi Bloodchief Combo gained most after May 18, rising to 6.5%. The shares settled after 75 days.",
+ "ban:standard:12": "After the Aug 10 bans, Dimir Midrange rose from 0.6% to 11%, the biggest gain. Mono-Green Landfall grew to 18% of top finishes despite losing Badgermole Cub. Izzet Prowess turned to Burst Lightning, now in 55% of its lists.",
+ "ban:pioneer:5": "Pioneer opened up after Cori-Steel Cutter's ban: Mono-Red Aggro climbed to 11% and Dimir Midrange reached 7.5%. Izzet Phoenix grew from 1.2% to 7.5%, now built around Proft's Eidetic Memory. The shares haven't settled yet.",
+ "ban:pauper:11": "Ponza gained most after Seeker of Skybreak's ban, rising from 2.3% to 5.6%. Mono-Blue Terror also grew, from 13% to 16%. The shares haven't settled yet.",
+ "ban:pauper:9": "Bonder's Ornament found homes fast: it's in 93% of Ponza lists and 90% of Tron lists since May 18. Ephemerate Flicker gained most, rising from 1.7% to 5.4%. The shares haven't settled yet.",
+ "limited:FRA:PremierDraft:all": "White-blue is the best pair in Reality Fracture Premier Draft at 57.4%, rising to 59.0% by the latest week. Blue-black splashing G does even better at 58.1%. Craftwork Crusher is the standout uncommon at 62.1% in hand.",
+ "limited:FRA:PremierDraft:top": "Among top players, white-blue leads at 66.3%, with blue-red at 65.7%. Kiora of Fire and Ashes is the best uncommon at 69.7% in hand. Unsummon wins 67.2% yet goes at pick 6.9 on average.",
+ "limited:FRA:TradDraft:all": "Red-green leads Traditional Draft at 64.7%, ahead of white-blue at 64.2%. Craftwork Crusher tops the uncommons at 69.5% in hand. Being on the play matters less here: 63.0% against 62.3% on the draw.",
+ "limited:FRA:TradDraft:top": "Top players do best in red-green at 70.7%, and its latest week reached 74.2%. Craftwork Crusher again leads the uncommons at 74.0% in hand. Blue-green is the weakest pair at 63.9%.",
+ "arch:standard:36": "Dimir Midrange holds 13% of top finishes, up from 10%. Its top-32 finishers went 420-281, a 60% match record. Every list runs Duress and Strategic Betrayal after sideboarding.",
+ "arch:standard:34": "Mono-Green Landfall dropped to 10% of top finishes, from 16%. Torpor Orb is in 95% of its sideboards. Izzet Elementals is a tough matchup, going 16-21 against it.",
+ "arch:pauper:73": "Madness Burn holds 14% of top finishes, down from 18%. Across whole paper fields it went 249-260, a 49% match record, and 46-51 against Affinity. Pyroblast is in 87% of its sideboards.",
+ "arch:pioneer:50": "Izzet Prowess holds 14% of top finishes, from 16%. Its top-32 finishers went 215-173, or 55%. Every list keeps Boomerang Basics and Firebending Lesson in the sideboard for Academic Dispute."
+}

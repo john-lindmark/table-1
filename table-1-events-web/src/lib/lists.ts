@@ -269,10 +269,11 @@ function localEdit(id: string, change: (entries: Entry[]) => Entry[], note = "Ed
 
 /**
  * A new list, optionally starting with cards (a duplicate, an import or a found decklist).
- * `from` is for telemetry only: new / duplicate / import / finder / profile (a copy of a shared deck or cube).
+ * `from` is for telemetry only: new / duplicate / import / finder / profile (a copy of a shared deck or cube) / insights
+ * (a finish from the metagame).
  */
 export async function createList(kind: ListKind, name: string, format: string, entries: Entry[] = [], note = "Created",
-                                 from: "new" | "duplicate" | "import" | "finder" | "profile" = "new"): Promise<string> {
+                                 from: "new" | "duplicate" | "import" | "finder" | "profile" | "insights" = "new"): Promise<string> {
   const id = crypto.randomUUID();
   if (demo) {
     set({ lists: sorted([...state.lists, { id, kind, name, format, versions: [{ number: 1, at: Date.now() / 1000, note, entries: entries.map((e) => ({ ...e })) }] }]) });

@@ -20,8 +20,8 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(pkg.version),
     __APP_BUILD__: JSON.stringify(gitBuild()),
   },
-  // The dev-only Library demo (?demo) reads the iOS Debug fixture from the repo.
-  server: { port: 5173, fs: { allow: [".", "../apps/ios/Table1/DebugResources"] } },
+  // The dev-only demos (?demo) read the iOS Debug fixture and the Insights packs from the repo.
+  server: { port: 5173, fs: { allow: [".", "../apps/ios/Table1/DebugResources", "../testdata/insights"] } },
   // Libraries change far less often than the app, so they get their own long-cached chunks.
   build: {
     rollupOptions: {

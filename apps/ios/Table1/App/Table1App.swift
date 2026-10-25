@@ -36,6 +36,10 @@ struct Table1App: App {
                 .overlay {
                     if ProcessInfo.processInfo.arguments.contains("-T1WidgetsDemo") { WidgetsDemoRoot() }
                 }
+                // `-T1InsightsDemo [constructed|archetype|ban|matchups|limited|pair|scatter]`: Insights on the demo packs.
+                .overlay {
+                    if ProcessInfo.processInfo.arguments.contains("-T1InsightsDemo") { InsightsDemoRoot() }
+                }
                 // `-T1RotoDemo [grid|cube|picks|list|schedule]`: a roto draft (8 players, the demo Vintage cube).
                 .overlay {
                     if ProcessInfo.processInfo.arguments.contains("-T1RotoDemo") { RotoDemoRoot() }
@@ -285,16 +289,17 @@ enum Route: Hashable {
     case deckPhotos(String)
 }
 
-enum Tab: Hashable { case events, collection, account }
+enum Tab: Hashable { case events, collection, insights, account }
 
-/// Three tabs in the app's own bar: Events (what's happening, and getting into it), Collection (the
-/// Library) and Account. Each tab keeps its own NavigationStack alive (switched by opacity),
-/// so going back to a tab finds it where it was.
+/// Four tabs in the app's own bar: Events (what's happening, and getting into it), Collection (the
+/// Library), Insights (the metagame and Arena draft, contract/insights-2026-10-24.md) and Account. Each tab keeps
+/// its own NavigationStack alive (switched by opacity), so going back to a tab finds it where it was.
 struct SignedInView: View {
     @Environment(SessionModel.self) private var session
     @State private var tab: Tab = .events
     @State private var path: [Route] = []
     @State private var libraryPath: [LibraryRoute] = []
+    @State private var insightsPath: [InsightsRoute] = []
     /// Account → Friends, profiles, Sharing (the Library's routes, so a profile's cards and trades open in place).
     @State private var accountPath: [LibraryRoute] = []
     @State private var joinError: String?
@@ -303,6 +308,7 @@ struct SignedInView: View {
     private let tabs: [T1TabItem<Tab>] = [
         T1TabItem(id: .events, label: "Events", tiles: T1TileGlyph.events),
         T1TabItem(id: .collection, label: "Collection", tiles: T1TileGlyph.collection),
+        T1TabItem(id: .insights, label: "Insights", tiles: T1TileGlyph.insights),
         T1TabItem(id: .account, label: "Account", tiles: T1TileGlyph.account),
     ]
 
@@ -336,6 +342,15 @@ struct SignedInView: View {
                 .opacity(tab == .collection ? 1 : 0)
                 .allowsHitTesting(tab == .collection)
                 .accessibilityHidden(tab != .collection)
+
+                NavigationStack(path: $insightsPath) {
+                    InsightsHomeView(path: $insightsPath, isFront: tab == .insights)
+                        .screen(InsightsStore.shared.section == "limited" ? "insights_limited" : "insights_constructed", when: tab == .insights)
+                        .navigationDestination(for: InsightsRoute.self) { InsightsDestination(route: $0, path: $insightsPath) }
+                }
+                .opacity(tab == .insights ? 1 : 0)
+                .allowsHitTesting(tab == .insights)
+                .accessibilityHidden(tab != .insights)
 
                 NavigationStack(path: $accountPath) {
                     AccountView(path: $accountPath)
@@ -459,6 +474,7 @@ struct SignedInView: View {
         switch tab {
         case .events: path.isEmpty
         case .collection: libraryPath.isEmpty
+        case .insights: insightsPath.isEmpty
         case .account: accountPath.isEmpty
         }
     }
@@ -474,6 +490,7 @@ struct SignedInView: View {
             switch next {
             case .events: if path.isEmpty { Telemetry.screen("events_home") }
             case .collection: if libraryPath.isEmpty { Telemetry.screen("library_home") }
+            case .insights: if insightsPath.isEmpty { Telemetry.screen(InsightsStore.shared.section == "limited" ? "insights_limited" : "insights_constructed") }
             case .account: if accountPath.isEmpty { Telemetry.screen("account") }
             }
         }

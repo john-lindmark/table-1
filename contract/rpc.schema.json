@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Table 1 Events V1 client contract",
   "description": "Every call the iOS, Android and web clients make. Field names are exact wire names (snake_case). Generate Swift/Kotlin models from this file; the hand-written models in apps/ must stay in step with it.",
-  "version": "2026-10-18",
+  "version": "2026-10-25",
   "rpc": {
     "create_event": {
       "params": {
@@ -9073,6 +9073,577 @@
           "more"
         ]
       }
+    },
+    "insights_index": {
+      "note": "Published Insights packs: constructed formats in order, then Limited sets newest first. A client refetches a pack only when version changes. contract/insights-2026-10-24.md § Packs. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {}
+      },
+      "result": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "constructed",
+                "limited"
+              ]
+            },
+            "key": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            },
+            "bytes": {
+              "type": "integer"
+            },
+            "built_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "through": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            }
+          }
+        }
+      }
+    },
+    "meta_archetype": {
+      "note": "An archetype's page: weekly share (26 weeks), record (basis topdeck or mtgo_top32), conversion, core (main cards in ≥80% of lists), flex (20–80%), sideboard (≥20%), matchups (90 days), the 10 best finishes with lists, and its brief. p_archetype 0 = Other. Unknown format/archetype or a bad tier: 22023; signed out: 28000. contract/insights-2026-10-24.md § RPCs. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_format": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "pioneer",
+              "modern",
+              "pauper"
+            ]
+          },
+          "p_archetype": {
+            "type": "integer"
+          },
+          "p_tier": {
+            "type": "string",
+            "enum": [
+              "big",
+              "all"
+            ],
+            "default": "all"
+          },
+          "p_days": {
+            "type": "integer",
+            "enum": [
+              7,
+              14,
+              30,
+              90
+            ],
+            "default": 30
+          }
+        },
+        "required": [
+          "p_format",
+          "p_archetype"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "archetype": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "family": {
+                "type": "string",
+                "enum": [
+                  "aggro",
+                  "midrange",
+                  "control",
+                  "combo",
+                  "ramp"
+                ]
+              },
+              "colors": {
+                "type": "string"
+              }
+            }
+          },
+          "decks": {
+            "type": "integer"
+          },
+          "series": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "format": "date"
+              },
+              "weeks": {
+                "type": "integer"
+              },
+              "v": {
+                "type": "array",
+                "items": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "record": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "wins": {
+                "type": "integer"
+              },
+              "losses": {
+                "type": "integer"
+              },
+              "draws": {
+                "type": "integer"
+              },
+              "basis": {
+                "type": "string",
+                "enum": [
+                  "topdeck",
+                  "mtgo_top32"
+                ]
+              }
+            }
+          },
+          "conv": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "core": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "c": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "n": {
+                  "type": "string"
+                },
+                "rate": {
+                  "type": "number"
+                },
+                "prev": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "copies": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "flex": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "c": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "n": {
+                  "type": "string"
+                },
+                "rate": {
+                  "type": "number"
+                },
+                "prev": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "copies": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "side": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "c": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "n": {
+                  "type": "string"
+                },
+                "rate": {
+                  "type": "number"
+                },
+                "prev": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "copies": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "matchups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "vs": {
+                  "type": "integer"
+                },
+                "wins": {
+                  "type": "integer"
+                },
+                "losses": {
+                  "type": "integer"
+                },
+                "draws": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "finishes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "event": {
+                  "type": "string"
+                },
+                "on": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "players": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "tier": {
+                  "type": "string"
+                },
+                "rank": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "main": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  }
+                },
+                "side": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "brief": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "meta_card": {
+      "note": "A card's play in a format: weekly share of decks playing it main and side (26 weeks), average copies (30 days), the archetypes playing it, first seen. contract/insights-2026-10-24.md § RPCs. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_format": {
+            "type": "string"
+          },
+          "p_oracle_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_tier": {
+            "type": "string",
+            "enum": [
+              "big",
+              "all"
+            ],
+            "default": "all"
+          }
+        },
+        "required": [
+          "p_format",
+          "p_oracle_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "c": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "n": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "series": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "weeks": {
+                "type": "integer"
+              },
+              "main": {
+                "type": "array",
+                "items": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "side": {
+                "type": "array",
+                "items": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "copies": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "by_archetype": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "a": {
+                  "type": "integer"
+                },
+                "rate": {
+                  "type": "number"
+                },
+                "copies": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "first_seen": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          }
+        }
+      }
+    },
+    "insights_review": {
+      "note": "Moderators only (else 42501): proposed archetypes (rule, signature, decks, missing names, blocked), proposed format changes, the 50 most-seen unknown card names. contract/insights-2026-10-24.md § RPCs. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {}
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "archetypes": {
+            "type": "array"
+          },
+          "changes": {
+            "type": "array"
+          },
+          "unmatched": {
+            "type": "array"
+          }
+        }
+      }
+    },
+    "insights_review_archetype": {
+      "note": "Moderators only. approve (relabels the format) / reject / rename, optionally with a new name (taken: 23505) or family. Audited. contract/insights-2026-10-24.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_id": {
+            "type": "integer"
+          },
+          "p_action": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "reject",
+              "rename"
+            ]
+          },
+          "p_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_family": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "aggro",
+              "midrange",
+              "control",
+              "combo",
+              "ramp",
+              null
+            ]
+          }
+        },
+        "required": [
+          "p_id",
+          "p_action"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "insights_review_change": {
+      "note": "Moderators only. confirm / reject a proposed ban, unban, restriction or rotation. Audited. contract/insights-2026-10-24.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_id": {
+            "type": "integer"
+          },
+          "p_action": {
+            "type": "string",
+            "enum": [
+              "confirm",
+              "reject"
+            ]
+          }
+        },
+        "required": [
+          "p_id",
+          "p_action"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      }
     }
   },
   "functions": {
@@ -9359,6 +9930,15 @@
           }
         }
       }
+    },
+    "meta-sync": {
+      "note": "Internal (pg_cron + x-t1-secret): MTGO and TopDeck.gg reads, constructed packs, archetype proposals. Clients never call it. contract/insights-2026-10-24.md."
+    },
+    "limited-sync": {
+      "note": "Internal (pg_cron + x-t1-secret): 17Lands public datasets in resumable slices, Limited packs. Clients never call it. contract/insights-2026-10-24.md."
+    },
+    "insight-brief": {
+      "note": "Internal eval of the brief prompt (x-t1-secret). contract/insights-2026-10-24.md § Briefs."
     }
   },
   "realtime": {

@@ -83,6 +83,15 @@ const RankingChanges = lazyNamed(rankings, "RankingChangesScreen");
 const DeckFinderScreen = lazyNamed(() => import("./screens/DeckFinder"), "DeckFinderScreen");
 const DeckPhotosScreen = lazyNamed(() => import("./screens/DeckPhotos"), "DeckPhotosScreen");
 const ListImportScreen = lazyNamed(() => import("./screens/ListImport"), "ListImportScreen");
+const insights = () => import("./screens/Insights");
+const InsightsHome = lazyNamed(insights, "InsightsHome");
+const InsightsArchetype = lazyNamed(insights, "InsightsArchetype");
+const InsightsCard = lazyNamed(insights, "InsightsCard");
+const InsightsBan = lazyNamed(insights, "InsightsBan");
+const InsightsMatchups = lazyNamed(insights, "InsightsMatchups");
+const InsightsPair = lazyNamed(insights, "InsightsPair");
+const InsightsLimitedCard = lazyNamed(insights, "InsightsLimitedCard");
+const InsightsReview = lazyNamed(insights, "InsightsReview");
 const CollectionImportScreen = lazyNamed(() => import("./screens/CollectionImport"), "CollectionImportScreen");
 const EventsDemo = lazyNamed(() => import("./screens/EventsDemo"), "EventsDemo");
 // Dev only: production builds drop the demo and its fixture.
@@ -518,6 +527,16 @@ export default function App() {
         <Route path="/u/:userId/:section" element={<ProfileCardsRoute />} />
         <Route path="/u/:userId/:section/:itemId" element={<ProfileCardsRoute />} />
         <Route path="/library/trade/:tradeId" element={<TradeRoute />} />
+        <Route path="/insights" element={<InsightsHome section="constructed" />} />
+        <Route path="/insights/limited" element={<InsightsHome section="limited" />} />
+        <Route path="/insights/review" element={<InsightsReview />} />
+        <Route path="/insights/limited/:set/:event/:group/pair/:pair" element={<InsightsPair />} />
+        <Route path="/insights/limited/:set/:event/:group/card/:name" element={<InsightsLimitedCard />} />
+        <Route path="/insights/:format/archetype/:id" element={<InsightsArchetype />} />
+        <Route path="/insights/:format/archetype/:id/finish/:i" element={<InsightsArchetype />} />
+        <Route path="/insights/:format/card/:oracleId" element={<InsightsCard />} />
+        <Route path="/insights/:format/ban/:id" element={<InsightsBan />} />
+        <Route path="/insights/:format/matchups" element={<InsightsMatchups />} />
         <Route path="/life" element={<LifeRoute />} />
         <Route path="/life/:matchId" element={<LifeRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />

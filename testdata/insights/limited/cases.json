@@ -1,0 +1,1776 @@
+{
+"released": "2026-10-02",
+"game_rows": 300,
+"draft_rows": 300,
+"cards": 295,
+"expect": {
+"D|a": [
+147,
+86
+],
+"D|t": [
+131,
+77
+],
+"P|a": [
+153,
+106
+],
+"P|t": [
+134,
+95
+],
+"T|a": [
+300,
+192
+],
+"T|t": [
+265,
+172
+],
+"a|Afterthought Sentry|a": [
+1,
+13
+],
+"a|Arcane Amphisbaena|a": [
+5,
+29
+],
+"a|Archive Arbiter|a": [
+1,
+9
+],
+"a|Arni, Humble Scribe|a": [
+1,
+12
+],
+"a|Arni, Renowned Champion|a": [
+1,
+11
+],
+"a|Artifist Acumen|a": [
+2,
+27
+],
+"a|Awaken the Inferno|a": [
+4,
+31
+],
+"a|Bestial Incursion|a": [
+3,
+15
+],
+"a|Blazing Crescendo|a": [
+3,
+35
+],
+"a|Blessed Ghoul|a": [
+2,
+17
+],
+"a|Blossom-Blessed Angel|a": [
+1,
+4
+],
+"a|Budding Insurgent|a": [
+3,
+23
+],
+"a|Campus Crier|a": [
+1,
+7
+],
+"a|Cast Away Doubt|a": [
+1,
+13
+],
+"a|Chandra's Emberling|a": [
+1,
+14
+],
+"a|Chandra, Chill of Compliance|a": [
+1,
+1
+],
+"a|Charge the Sanctum|a": [
+3,
+37
+],
+"a|Clash of Elements|a": [
+3,
+22
+],
+"a|Countersculpt|a": [
+4,
+16
+],
+"a|Craftwork Crusher|a": [
+2,
+6
+],
+"a|Cryotheory Adept|a": [
+2,
+23
+],
+"a|Danitha, Sword of Hope|a": [
+1,
+9
+],
+"a|Desperate Futurescribe|a": [
+1,
+3
+],
+"a|Divining Duelist|a": [
+4,
+45
+],
+"a|Eardrum Rattler|a": [
+4,
+51
+],
+"a|Emergency Phytomedic|a": [
+1,
+5
+],
+"a|Entrust the Spark|a": [
+1,
+13
+],
+"a|Extended Absence|a": [
+3,
+17
+],
+"a|Extrapolate the Impossible|a": [
+1,
+11
+],
+"a|Eye of Jace|a": [
+2,
+17
+],
+"a|Face Yourself|a": [
+1,
+8
+],
+"a|Fatehold Annex|a": [
+2,
+9
+],
+"a|Fatehold Charm|a": [
+1,
+5
+],
+"a|Fatehold Chronologist|a": [
+3,
+24
+],
+"a|Fateshaper Aspirant|a": [
+1,
+14
+],
+"a|Fblthp, Impossibly Lost|a": [
+3,
+16
+],
+"a|Fblthp, Knows the Way|a": [
+1,
+6
+],
+"a|Formidable Commons|a": [
+1,
+11
+],
+"a|Frostbite Pyromental|a": [
+1,
+11
+],
+"a|Fulminous Forte|a": [
+3,
+9
+],
+"a|Gallia, the Merrymaker|a": [
+1,
+11
+],
+"a|Gardenize|a": [
+1,
+2
+],
+"a|Geist of Saint Thalia|a": [
+1,
+5
+],
+"a|Ghalta the Immovable|a": [
+1,
+5
+],
+"a|Ghalta the Unstoppable|a": [
+1,
+11
+],
+"a|Gideon's Memorial|a": [
+1,
+2
+],
+"a|Greenhouse Propagator|a": [
+2,
+13
+],
+"a|Hallway Heckler|a": [
+3,
+38
+],
+"a|Hapatra, the Desert Fang|a": [
+1,
+6
+],
+"a|Hapatra, the Desert Frost|a": [
+1,
+10
+],
+"a|Haunted Ridge|a": [
+1,
+8
+],
+"a|Heartstring Puller|a": [
+4,
+31
+],
+"a|Heartwood Crafter|a": [
+3,
+13
+],
+"a|Hexhaven Battalion|a": [
+1,
+6
+],
+"a|Hexhaven Dueling Arena|a": [
+1,
+14
+],
+"a|Hungering Puppetbeast|a": [
+1,
+1
+],
+"a|Hunter's Axe|a": [
+1,
+10
+],
+"a|Icy Reception|a": [
+4,
+29
+],
+"a|Infinite Coursework|a": [
+1,
+3
+],
+"a|Innovative Commons|a": [
+2,
+16
+],
+"a|Inspired Tethermage|a": [
+4,
+27
+],
+"a|Island|a": [
+1,
+14
+],
+"a|Jace's Machinations|a": [
+2,
+7
+],
+"a|Jiang Yanggu, Alone|a": [
+5,
+42
+],
+"a|Jiang Yanggu, Never Alone|a": [
+3,
+14
+],
+"a|Keeper of the Quiet Hour|a": [
+2,
+21
+],
+"a|Kiora of Fire and Ashes|a": [
+4,
+17
+],
+"a|Kiora of Salt and Sand|a": [
+1,
+14
+],
+"a|Konstrari Annex|a": [
+3,
+25
+],
+"a|Konstrari Charm|a": [
+2,
+8
+],
+"a|Konstrari Improviser|a": [
+1,
+8
+],
+"a|Koth, the Geomancer|a": [
+2,
+14
+],
+"a|Last Gasp|a": [
+3,
+9
+],
+"a|Living Library|a": [
+3,
+36
+],
+"a|Loot, the Nexus|a": [
+1,
+6
+],
+"a|Lyra, Tolarian Archangel|a": [
+1,
+5
+],
+"a|Marwyn, the Clearcutter|a": [
+1,
+6
+],
+"a|Marwyn, the Preserver|a": [
+3,
+13
+],
+"a|Medic's Kitesail|a": [
+3,
+34
+],
+"a|Memory Trap|a": [
+1,
+4
+],
+"a|Mind Meanderer|a": [
+5,
+26
+],
+"a|Mindseeker Oculus|a": [
+3,
+20
+],
+"a|Mountain|a": [
+2,
+28
+],
+"a|Multiply by Zero|a": [
+1,
+2
+],
+"a|No Admittance|a": [
+3,
+4
+],
+"a|Null Summoner|a": [
+2,
+6
+],
+"a|Paradox Shaper|a": [
+1,
+8
+],
+"a|Pia, Determined Rebuilder|a": [
+3,
+5
+],
+"a|Plains|a": [
+3,
+42
+],
+"a|Plan for All Outcomes|a": [
+3,
+10
+],
+"a|Precise Redaction|a": [
+1,
+14
+],
+"a|Predictive Preparations|a": [
+2,
+19
+],
+"a|Primal Witchstalker|a": [
+1,
+4
+],
+"a|Proft, Consulting Detective|a": [
+2,
+16
+],
+"a|Protege's Awakening|a": [
+4,
+37
+],
+"a|Recursive Recruitment|a": [
+2,
+11
+],
+"a|Rescue Girl, First Responder|a": [
+1,
+3
+],
+"a|Restore with Empathy|a": [
+1,
+5
+],
+"a|Return to the Light Realms|a": [
+1,
+10
+],
+"a|Room of Refuge|a": [
+1,
+10
+],
+"a|Ruric Thar, Biomagus|a": [
+1,
+8
+],
+"a|Saheeli, Consul of Oversight|a": [
+1,
+5
+],
+"a|Sanctum Lurker|a": [
+1,
+1
+],
+"a|Screeching Soulbreaker|a": [
+1,
+9
+],
+"a|Semester Foreseer|a": [
+1,
+10
+],
+"a|Shatterwing Pegasus|a": [
+2,
+13
+],
+"a|Shipwreck Marsh|a": [
+1,
+1
+],
+"a|Skilled Battlecarver|a": [
+1,
+10
+],
+"a|Solve for Disappointment|a": [
+1,
+14
+],
+"a|Something Worth Saving|a": [
+5,
+54
+],
+"a|Sphinx's Approach|a": [
+2,
+23
+],
+"a|Stingerquill Annex|a": [
+2,
+24
+],
+"a|Stingerquill Charm|a": [
+1,
+8
+],
+"a|Sureshot Sower|a": [
+5,
+34
+],
+"a|Surgical Precision|a": [
+3,
+16
+],
+"a|Surveillance Phantasm|a": [
+1,
+8
+],
+"a|Swamp|a": [
+3,
+42
+],
+"a|Tam's Resistance|a": [
+2,
+21
+],
+"a|Tether Technician|a": [
+4,
+41
+],
+"a|Tethermage's Advantage|a": [
+1,
+12
+],
+"a|Tetsuko Umezawa, Fugitive|a": [
+3,
+23
+],
+"a|Tetsuko Umezawa, Pursuer|a": [
+1,
+5
+],
+"a|Teyo, Diamondblade Mage|a": [
+1,
+10
+],
+"a|The Theorist, Jace Beleren|a": [
+1,
+1
+],
+"a|Theorist's Proxy|a": [
+1,
+3
+],
+"a|Theorix Charm|a": [
+3,
+12
+],
+"a|Theorix Metamage|a": [
+1,
+6
+],
+"a|Tinybones, Pocket Nuisance|a": [
+1,
+9
+],
+"a|Tomik, Orzhov Lawmage|a": [
+1,
+12
+],
+"a|Transformative Commons|a": [
+1,
+4
+],
+"a|Traxos, Academy Guardian|a": [
+1,
+3
+],
+"a|Traxos, Scourge Eternal|a": [
+1,
+12
+],
+"a|Twinned Vision|a": [
+3,
+36
+],
+"a|Undulating Witness|a": [
+1,
+10
+],
+"a|Unsummon|a": [
+5,
+46
+],
+"a|Vigorbloom Charm|a": [
+1,
+9
+],
+"a|Vigorbloom Vanguard|a": [
+2,
+6
+],
+"a|Vindictive Triumph|a": [
+1,
+2
+],
+"a|Vinelasher Adept|a": [
+3,
+21
+],
+"a|Violent Echoes|a": [
+4,
+9
+],
+"a|Void Extrapolator|a": [
+2,
+15
+],
+"a|Vraska, Soul of Stone|a": [
+1,
+3
+],
+"a|Warrior's Blades|a": [
+1,
+3
+],
+"a|Way of the Healer|a": [
+1,
+3
+],
+"a|Way of the Mind Sculptor|a": [
+1,
+5
+],
+"a|Way of the Pyromancer|a": [
+4,
+12
+],
+"a|Way of the Warlord|a": [
+2,
+15
+],
+"a|Way of the Wildspeaker|a": [
+2,
+5
+],
+"a|Whiplash Wordsmith|a": [
+3,
+38
+],
+"a|Woodwork Prodigy|a": [
+1,
+2
+],
+"a|Wrath of the Bloodmane|a": [
+5,
+34
+],
+"a|Wrecking Gecko|a": [
+1,
+4
+],
+"a|Yuriko, Hope from the Shadows|a": [
+1,
+7
+],
+"cd|Academic Ascent|a": [
+3,
+2
+],
+"cd|Academic Ascent|t": [
+3,
+2
+],
+"cd|Aerid Konstrari|a": [
+6,
+5
+],
+"cd|Aerid Konstrari|t": [
+6,
+5
+],
+"cd|Ajani Unrelenting|a": [
+23,
+18
+],
+"cd|Ajani Unrelenting|t": [
+23,
+18
+],
+"cd|Ajani's Anguish|a": [
+8,
+5
+],
+"cd|Ajani's Anguish|t": [
+8,
+5
+],
+"cd|Apex Witchstalker|a": [
+48,
+32
+],
+"cd|Apex Witchstalker|t": [
+43,
+28
+],
+"cd|Arcane Amphisbaena|a": [
+80,
+50
+],
+"cd|Arcane Amphisbaena|t": [
+76,
+49
+],
+"cd|Archive Arbiter|a": [
+78,
+50
+],
+"cd|Archive Arbiter|t": [
+78,
+50
+],
+"cd|Arni, Humble Scribe|a": [
+44,
+28
+],
+"cd|Arni, Humble Scribe|t": [
+44,
+28
+],
+"cd|Artifist Acumen|a": [
+1,
+0
+],
+"cd|Awaken the Inferno|a": [
+116,
+75
+],
+"cd|Awaken the Inferno|t": [
+95,
+62
+],
+"cd|Bestial Incursion|a": [
+76,
+43
+],
+"cd|Bestial Incursion|t": [
+71,
+42
+],
+"cd|Blessed Ghoul|a": [
+2,
+0
+],
+"cd|Blessed Ghoul|t": [
+2,
+0
+],
+"cd|Bloodline Recollector|a": [
+7,
+4
+],
+"cd|Bloodline Recollector|t": [
+7,
+4
+],
+"cd|Bloombrute|a": [
+16,
+8
+],
+"cd|Bloombrute|t": [
+16,
+8
+],
+"cd|Blossom-Blessed Angel|a": [
+24,
+15
+],
+"cd|Blossom-Blessed Angel|t": [
+24,
+15
+],
+"cd|Break Under Pressure|a": [
+56,
+41
+],
+"cd|Break Under Pressure|t": [
+51,
+37
+],
+"cd|Budding Insurgent|a": [
+20,
+9
+],
+"cd|Budding Insurgent|t": [
+10,
+5
+],
+"cd|Campus Crier|a": [
+36,
+21
+],
+"cd|Campus Crier|t": [
+25,
+16
+],
+"cd|Carnivorous Cultivator|a": [
+6,
+3
+],
+"cd|Carnivorous Cultivator|t": [
+6,
+3
+],
+"cd|Cast Away Doubt|a": [
+28,
+23
+],
+"cd|Cast Away Doubt|t": [
+23,
+19
+],
+"cd|Chandra's Emberling|a": [
+22,
+16
+],
+"cd|Chandra's Emberling|t": [
+8,
+5
+],
+"cd|Chandra, Chill of Compliance|a": [
+7,
+4
+],
+"cd|Chandra, Chill of Compliance|t": [
+7,
+4
+],
+"cd|Chandra, Torch of Defiance|a": [
+8,
+7
+],
+"cd|Chandra, Torch of Defiance|t": [
+8,
+7
+],
+"cd|Charge the Sanctum|a": [
+8,
+5
+],
+"cd|Charge the Sanctum|t": [
+8,
+5
+],
+"cd|Clash of Elements|a": [
+35,
+18
+],
+"cd|Clash of Elements|t": [
+35,
+18
+],
+"cd|Command the Stage|a": [
+6,
+6
+],
+"cd|Command the Stage|t": [
+6,
+6
+],
+"cd|Compel Brutality|a": [
+68,
+45
+],
+"cd|Compel Brutality|t": [
+61,
+42
+],
+"cd|Countersculpt|a": [
+43,
+28
+],
+"cd|Countersculpt|t": [
+43,
+28
+],
+"cd|Craftwork Crusher|a": [
+59,
+41
+],
+"cd|Craftwork Crusher|t": [
+55,
+40
+],
+"ch|Academic Ascent|a": [
+1,
+1
+],
+"ch|Academic Ascent|t": [
+1,
+1
+],
+"ch|Aerid Konstrari|a": [
+1,
+1
+],
+"ch|Aerid Konstrari|t": [
+1,
+1
+],
+"ch|Ajani Unrelenting|a": [
+14,
+12
+],
+"ch|Ajani Unrelenting|t": [
+14,
+12
+],
+"ch|Ajani's Anguish|a": [
+4,
+2
+],
+"ch|Ajani's Anguish|t": [
+4,
+2
+],
+"ch|Apex Witchstalker|a": [
+22,
+14
+],
+"ch|Apex Witchstalker|t": [
+20,
+12
+],
+"ch|Arcane Amphisbaena|a": [
+41,
+24
+],
+"ch|Arcane Amphisbaena|t": [
+40,
+23
+],
+"ch|Archive Arbiter|a": [
+35,
+26
+],
+"ch|Archive Arbiter|t": [
+35,
+26
+],
+"ch|Arni, Humble Scribe|a": [
+25,
+16
+],
+"ch|Arni, Humble Scribe|t": [
+25,
+16
+],
+"ch|Awaken the Inferno|a": [
+60,
+42
+],
+"ch|Awaken the Inferno|t": [
+53,
+37
+],
+"ch|Bestial Incursion|a": [
+48,
+30
+],
+"ch|Bestial Incursion|t": [
+43,
+29
+],
+"ch|Blessed Ghoul|a": [
+1,
+0
+],
+"ch|Blessed Ghoul|t": [
+1,
+0
+],
+"ch|Bloodline Recollector|a": [
+3,
+3
+],
+"ch|Bloodline Recollector|t": [
+3,
+3
+],
+"ch|Bloombrute|a": [
+5,
+3
+],
+"ch|Bloombrute|t": [
+5,
+3
+],
+"ch|Blossom-Blessed Angel|a": [
+12,
+6
+],
+"ch|Blossom-Blessed Angel|t": [
+12,
+6
+],
+"ch|Break Under Pressure|a": [
+28,
+22
+],
+"ch|Break Under Pressure|t": [
+24,
+19
+],
+"ch|Budding Insurgent|a": [
+6,
+2
+],
+"ch|Budding Insurgent|t": [
+3,
+1
+],
+"ch|Campus Crier|a": [
+18,
+11
+],
+"ch|Campus Crier|t": [
+16,
+11
+],
+"ch|Carnivorous Cultivator|a": [
+2,
+1
+],
+"ch|Carnivorous Cultivator|t": [
+2,
+1
+],
+"ch|Cast Away Doubt|a": [
+14,
+13
+],
+"ch|Cast Away Doubt|t": [
+13,
+12
+],
+"ch|Chandra's Emberling|a": [
+9,
+7
+],
+"ch|Chandra's Emberling|t": [
+6,
+4
+],
+"ch|Chandra, Chill of Compliance|a": [
+2,
+1
+],
+"ch|Chandra, Chill of Compliance|t": [
+2,
+1
+],
+"ch|Chandra, Torch of Defiance|a": [
+4,
+4
+],
+"ch|Chandra, Torch of Defiance|t": [
+4,
+4
+],
+"ch|Charge the Sanctum|a": [
+3,
+1
+],
+"ch|Charge the Sanctum|t": [
+3,
+1
+],
+"ch|Clash of Elements|a": [
+22,
+10
+],
+"ch|Clash of Elements|t": [
+22,
+10
+],
+"ch|Command the Stage|a": [
+4,
+4
+],
+"ch|Command the Stage|t": [
+4,
+4
+],
+"ch|Compel Brutality|a": [
+41,
+28
+],
+"ch|Compel Brutality|t": [
+35,
+25
+],
+"ch|Countersculpt|a": [
+24,
+17
+],
+"ch|Countersculpt|t": [
+24,
+17
+],
+"ch|Craftwork Crusher|a": [
+38,
+30
+],
+"ch|Craftwork Crusher|t": [
+36,
+29
+],
+"cn|Academic Ascent|a": [
+2,
+1
+],
+"cn|Academic Ascent|t": [
+2,
+1
+],
+"cn|Aerid Konstrari|a": [
+5,
+4
+],
+"cn|Aerid Konstrari|t": [
+5,
+4
+],
+"cn|Ajani Unrelenting|a": [
+9,
+6
+],
+"cn|Ajani Unrelenting|t": [
+9,
+6
+],
+"cn|Ajani's Anguish|a": [
+4,
+3
+],
+"cn|Ajani's Anguish|t": [
+4,
+3
+],
+"cn|Apex Witchstalker|a": [
+26,
+18
+],
+"cn|Apex Witchstalker|t": [
+23,
+16
+],
+"cn|Arcane Amphisbaena|a": [
+39,
+26
+],
+"cn|Arcane Amphisbaena|t": [
+36,
+26
+],
+"cn|Archive Arbiter|a": [
+43,
+24
+],
+"cn|Archive Arbiter|t": [
+43,
+24
+],
+"cn|Arni, Humble Scribe|a": [
+19,
+12
+],
+"cn|Arni, Humble Scribe|t": [
+19,
+12
+],
+"cn|Artifist Acumen|a": [
+1,
+0
+],
+"cn|Awaken the Inferno|a": [
+56,
+33
+],
+"cn|Awaken the Inferno|t": [
+42,
+25
+],
+"cn|Bestial Incursion|a": [
+28,
+13
+],
+"cn|Bestial Incursion|t": [
+28,
+13
+],
+"cn|Blessed Ghoul|a": [
+1,
+0
+],
+"cn|Blessed Ghoul|t": [
+1,
+0
+],
+"cn|Bloodline Recollector|a": [
+4,
+1
+],
+"cn|Bloodline Recollector|t": [
+4,
+1
+],
+"cn|Bloombrute|a": [
+11,
+5
+],
+"cn|Bloombrute|t": [
+11,
+5
+],
+"cn|Blossom-Blessed Angel|a": [
+12,
+9
+],
+"cn|Blossom-Blessed Angel|t": [
+12,
+9
+],
+"cn|Break Under Pressure|a": [
+28,
+19
+],
+"cn|Break Under Pressure|t": [
+27,
+18
+],
+"cn|Budding Insurgent|a": [
+14,
+7
+],
+"cn|Budding Insurgent|t": [
+7,
+4
+],
+"cn|Campus Crier|a": [
+18,
+10
+],
+"cn|Campus Crier|t": [
+9,
+5
+],
+"cn|Carnivorous Cultivator|a": [
+4,
+2
+],
+"cn|Carnivorous Cultivator|t": [
+4,
+2
+],
+"cn|Cast Away Doubt|a": [
+14,
+10
+],
+"cn|Cast Away Doubt|t": [
+10,
+7
+],
+"cn|Chandra's Emberling|a": [
+13,
+9
+],
+"cn|Chandra's Emberling|t": [
+2,
+1
+],
+"cn|Chandra, Chill of Compliance|a": [
+5,
+3
+],
+"cn|Chandra, Chill of Compliance|t": [
+5,
+3
+],
+"cn|Chandra, Torch of Defiance|a": [
+4,
+3
+],
+"cn|Chandra, Torch of Defiance|t": [
+4,
+3
+],
+"cn|Charge the Sanctum|a": [
+4,
+3
+],
+"cn|Charge the Sanctum|t": [
+4,
+3
+],
+"cn|Clash of Elements|a": [
+13,
+8
+],
+"cn|Clash of Elements|t": [
+13,
+8
+],
+"cn|Command the Stage|a": [
+2,
+2
+],
+"cn|Command the Stage|t": [
+2,
+2
+],
+"cn|Compel Brutality|a": [
+27,
+17
+],
+"cn|Compel Brutality|t": [
+26,
+17
+],
+"cn|Countersculpt|a": [
+19,
+11
+],
+"cn|Countersculpt|t": [
+19,
+11
+],
+"cn|Craftwork Crusher|a": [
+21,
+11
+],
+"cn|Craftwork Crusher|t": [
+19,
+11
+],
+"dc|BG|R|a": [
+8,
+5
+],
+"dc|BG|R|t": [
+8,
+5
+],
+"dc|BRG||a": [
+13,
+5
+],
+"dc|BRG||t": [
+9,
+4
+],
+"dc|BR|U|a": [
+9,
+7
+],
+"dc|BR||a": [
+11,
+10
+],
+"dc|BR||t": [
+6,
+6
+],
+"dc|RG|W|a": [
+7,
+4
+],
+"dc|RG|W|t": [
+7,
+4
+],
+"dc|RG||a": [
+16,
+13
+],
+"dc|RG||t": [
+16,
+13
+],
+"dc|UBG||a": [
+8,
+7
+],
+"dc|UBG||t": [
+8,
+7
+],
+"dc|UBRG||a": [
+6,
+3
+],
+"dc|UBRG||t": [
+6,
+3
+],
+"dc|UB|G|a": [
+23,
+15
+],
+"dc|UB|G|t": [
+23,
+15
+],
+"dc|UB|R|a": [
+7,
+4
+],
+"dc|UB|R|t": [
+7,
+4
+],
+"dc|UB|W|a": [
+8,
+5
+],
+"dc|UB|W|t": [
+8,
+5
+],
+"dc|UB||a": [
+8,
+7
+],
+"dc|UB||t": [
+8,
+7
+],
+"dc|UG|R|a": [
+6,
+3
+],
+"dc|UG|W|a": [
+6,
+3
+],
+"dc|UG|W|t": [
+6,
+3
+],
+"dc|URG|B|a": [
+6,
+3
+],
+"dc|URG|B|t": [
+6,
+3
+],
+"dc|URG||a": [
+13,
+9
+],
+"dc|URG||t": [
+13,
+9
+],
+"dc|UR|BG|a": [
+4,
+1
+],
+"dc|UR|BG|t": [
+4,
+1
+],
+"dc|WBRG||a": [
+8,
+7
+],
+"dc|WBRG||t": [
+8,
+7
+],
+"dc|WG|B|a": [
+7,
+5
+],
+"dc|WG|B|t": [
+7,
+5
+],
+"dc|WG|R|a": [
+5,
+4
+],
+"dc|WG|R|t": [
+5,
+4
+],
+"dc|WG|UB|a": [
+8,
+6
+],
+"dc|WG|UB|t": [
+8,
+6
+],
+"dc|WG||a": [
+12,
+5
+],
+"dc|WG||t": [
+11,
+5
+],
+"dc|WRG||a": [
+16,
+13
+],
+"dc|WRG||t": [
+16,
+13
+],
+"dc|WR|B|a": [
+8,
+5
+],
+"dc|WR|U|a": [
+17,
+12
+],
+"dc|WR|U|t": [
+17,
+12
+],
+"dc|WR||a": [
+2,
+0
+],
+"dc|WUB|RG|a": [
+3,
+0
+],
+"dc|WUB|RG|t": [
+3,
+0
+],
+"dc|WUB|R|a": [
+9,
+7
+],
+"dc|WUB|R|t": [
+9,
+7
+],
+"dc|WUB||a": [
+12,
+6
+],
+"dc|WUB||t": [
+12,
+6
+],
+"dc|WUG||a": [
+8,
+2
+],
+"dc|WUG||t": [
+8,
+2
+],
+"dc|WUR|BG|a": [
+7,
+4
+],
+"dc|WUR|BG|t": [
+7,
+4
+],
+"dc|WU|B|a": [
+15,
+10
+],
+"dc|WU|B|t": [
+15,
+10
+],
+"dc|WU||a": [
+4,
+2
+],
+"dc|WU||t": [
+4,
+2
+],
+"pw|3C|1|a": [
+70,
+46
+],
+"pw|3C|1|t": [
+66,
+45
+],
+"pw|3C|2|a": [
+37,
+20
+],
+"pw|3C|2|t": [
+37,
+20
+],
+"pw|3C|3|a": [
+2,
+0
+],
+"pw|3C|3|t": [
+2,
+0
+],
+"pw|BG|1|a": [
+8,
+5
+],
+"pw|BG|1|t": [
+8,
+5
+],
+"pw|BR|1|a": [
+15,
+13
+],
+"pw|BR|1|t": [
+6,
+6
+],
+"pw|BR|2|a": [
+5,
+4
+],
+"pw|RG|1|a": [
+23,
+17
+],
+"pw|RG|1|t": [
+23,
+17
+],
+"pw|UB|1|a": [
+46,
+31
+],
+"pw|UB|1|t": [
+46,
+31
+],
+"pw|UG|1|a": [
+12,
+6
+],
+"pw|UG|1|t": [
+6,
+3
+],
+"pw|UR|1|a": [
+4,
+1
+],
+"pw|UR|1|t": [
+4,
+1
+],
+"pw|WG|1|a": [
+27,
+18
+],
+"pw|WG|1|t": [
+26,
+18
+],
+"pw|WG|2|a": [
+2,
+2
+],
+"pw|WG|2|t": [
+2,
+2
+],
+"pw|WG|3|a": [
+3,
+0
+],
+"pw|WG|3|t": [
+3,
+0
+],
+"pw|WR|1|a": [
+27,
+17
+],
+"pw|WR|1|t": [
+17,
+12
+],
+"pw|WU|1|a": [
+14,
+10
+],
+"pw|WU|1|t": [
+14,
+10
+],
+"pw|WU|2|a": [
+5,
+2
+],
+"pw|WU|2|t": [
+5,
+2
+],
+"p|3C|a": [
+109,
+66
+],
+"p|3C|t": [
+105,
+65
+],
+"p|BG|a": [
+8,
+5
+],
+"p|BG|t": [
+8,
+5
+],
+"p|BR|a": [
+20,
+17
+],
+"p|BR|t": [
+6,
+6
+],
+"p|RG|a": [
+23,
+17
+],
+"p|RG|t": [
+23,
+17
+],
+"p|UB|a": [
+46,
+31
+],
+"p|UB|t": [
+46,
+31
+],
+"p|UG|a": [
+12,
+6
+],
+"p|UG|t": [
+6,
+3
+],
+"p|UR|a": [
+4,
+1
+],
+"p|UR|t": [
+4,
+1
+],
+"p|WG|a": [
+32,
+20
+],
+"p|WG|t": [
+31,
+20
+],
+"p|WR|a": [
+27,
+17
+],
+"p|WR|t": [
+17,
+12
+],
+"p|WU|a": [
+19,
+12
+],
+"p|WU|t": [
+19,
+12
+]
+}
+}

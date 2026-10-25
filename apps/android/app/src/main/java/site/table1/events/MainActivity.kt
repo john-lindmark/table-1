@@ -39,6 +39,10 @@ class MainActivity : ComponentActivity() {
             Telemetry.capture("link_opened", mapOf("to" to link.kind, "via" to "install_referrer"))
             runOnUiThread { if (pendingLink == null && pendingJoin == null) pendingLink = link }
         }
+        // Debug builds: `--ez insightsDemo true` opens Insights on the demo packs (src/debug/assets/insights-demo).
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0 && intent?.getBooleanExtra("insightsDemo", false) == true) {
+            site.table1.events.insights.InsightsStore.loadDemo(this)
+        }
         setContent {
             Table1Theme {
                 AppRoot(

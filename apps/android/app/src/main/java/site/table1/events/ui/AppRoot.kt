@@ -103,13 +103,23 @@ import site.table1.events.auth.SignIn
 import site.table1.events.ui.screens.NameScreen
 import site.table1.events.ui.screens.SignInScreen
 import site.table1.events.ui.tracker.LifeTrackerScreen
+import site.table1.events.insights.InsightsDemoRoot
+import site.table1.events.insights.InsightsStore
+import site.table1.events.insights.insightsGraph
+import io.github.jan.supabase.postgrest.postgrest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Signed out → sign-in. Signed in → tabs Events | Collection (the Library) | Account. A QR join link that arrived before
+ * Signed out → sign-in. Signed in → tabs Events | Collection (the Library) | Insights | Account. A QR join link that arrived before
  * sign-in (camera scan, notification) is held and completed right after.
  */
 @Composable
 fun AppRoot(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pendingLink: WebLink?, onLinkConsumed: () -> Unit) {
+    // Debug: `adb shell am start -n site.table1.events/.MainActivity --ez insightsDemo true` opens Insights on the demo packs.
+    if (InsightsStore.demo) { InsightsDemoRoot(); return }
     val status by T1App.supabase.auth.sessionStatus.collectAsState()
     // Signed in any way: the email code step kept for a return is done with.
     val signedIn = status is SessionStatus.Authenticated
@@ -220,7 +230,14 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
         if (foregrounds > 0) HeroesStore.refresh()
     }
 
-    val topLevel = route == "events" || route == "account" || route == "collection"
+    val topLevel = route == "events" || route == "account" || route == "collection" || route == "insights"
+    // Review (proposed archetypes and bans) shows for moderators; the server refuses anyone else.
+    var moderator by remember { mutableStateOf(false) }
+    LaunchedEffect(userId) {
+        moderator = runCatching {
+            Json.parseToJsonElement(T1App.supabase.postgrest.rpc("moderation_me").data).jsonObject["moderator"]?.jsonPrimitive?.booleanOrNull == true
+        }.getOrDefault(false)
+    }
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f).let { if (topLevel) it.consumeWindowInsets(WindowInsets.navigationBars) else it }) {
             NavHost(navController = nav, startDestination = "events") {
@@ -248,6 +265,8 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                         )
                     }
                 }
+                // Insights (contract/insights-2026-10-24.md): the metagame and Arena draft.
+                insightsGraph(nav, moderator)
                 composable("account") {
                     AccountScreen(foregrounds = foregrounds, onFriends = { nav.navigate("friends") }, onSharing = { nav.navigate("sharing") },
                         onProfile = { nav.navigate("profile/$it") })
@@ -477,6 +496,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 tabs = listOf(
                     T1Tab("events", "Events", listOf(0 to 0, 1 to 0, 0 to 1, 1 to 1)),
                     T1Tab("collection", "Collection", listOf(0 to 0, 0 to 1, 1 to 1)),
+                    T1Tab("insights", "Insights", listOf(0 to 1, 1 to 0, 1 to 1)),
                     T1Tab("account", "Account", listOf(0 to 0, 1 to 0, 1 to 1)),
                 ),
                 selected = route,

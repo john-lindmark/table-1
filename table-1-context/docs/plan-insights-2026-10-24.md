@@ -1,7 +1,13 @@
 # Plan: Insights — constructed metagame and Arena draft (2026-10-24)
 
-**Status 2026-10-24: agreed (John's answers in § 11). Nothing built.** I0 needs John: a TopDeck.gg API key and the
-MTGOFormatData permission request. Order follows the project
+**Status 2026-10-25: built on every platform, not live.** Server (migration `20261025120000_insights.sql`, edge
+functions `meta-sync`, `limited-sync`, `insight-brief`) built and tested locally; not applied or deployed (needs
+John's OK). iOS, web and Android clients built and unit-tested; web checked in the browser on demo packs made from
+real MTGO and 17Lands data. Still needs John: a TopDeck.gg API key (the TopDeck path is inert without it) and the
+MTGOFormatData permission request (our own seeded rules are in use meanwhile). Differences from this plan as built:
+archetype rules were seeded by hand from clustered real decks (75 across the four formats) rather than only proposed
+nightly; MTGO matchups come only from top 8 brackets until TopDeck is on; Limited uses ATA (average pick taken) where
+the plan said ALSA; `/insights` links aren't claimed by the apps yet. Order follows the project
 rules: server first, then iOS (Debug simulator, demo flag), web, Android in one batch, Figma after the build.
 
 Insights becomes a dashboard per format. **Constructed** shows how the meta is moving: archetypes, cards played more

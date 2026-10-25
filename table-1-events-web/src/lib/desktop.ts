@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 
 /**
  * Desktop web (contract/web-desktop-2026-10-22.md). From DESKTOP_MIN_WIDTH up, a sidebar replaces the
- * Events | Collection | Account tabs, screens sit in a centered column, and the busiest screens split into two
+ * Events | Collection | Insights | Account tabs, screens sit in a centered column, and the busiest screens split into two
  * columns. Phones and tablets keep the mobile layout unchanged.
  */
 export const DESKTOP_MIN_WIDTH = 1024;
@@ -71,6 +71,7 @@ export function peekPosition(x: number, y: number, w: number, h: number) {
 export type NavKey =
   | "events" | "life"
   | "library" | "cards" | "add" | "binders" | "wants" | "decks" | "cubes" | "rankings" | "trades" | "matches" | "import"
+  | "constructed" | "limited"
   | "account" | "friends" | "sharing";
 
 export interface NavItem {
@@ -79,7 +80,7 @@ export interface NavItem {
   to: string;
 }
 
-/** The sidebar, top to bottom: Play, then the Collection tab's screens, then Account. */
+/** The sidebar, top to bottom: Play, then the Collection tab's screens, Insights, then Account. */
 export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: "Play",
@@ -105,6 +106,13 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     ],
   },
   {
+    title: "Insights",
+    items: [
+      { key: "constructed", title: "Constructed", to: "/insights" },
+      { key: "limited", title: "Arena draft", to: "/insights/limited" },
+    ],
+  },
+  {
     title: "Account",
     items: [
       { key: "account", title: "Account", to: "/me" },
@@ -125,6 +133,8 @@ export function navKeyFor(pathname: string, listKind?: (id: string) => "deck" | 
   if (p === "/me") return "account";
   if (p === "/sharing") return "sharing";
   if (p === "/friends" || p.startsWith("/friends/") || p.startsWith("/u/")) return "friends";
+  if (p === "/insights/limited" || p.startsWith("/insights/limited/")) return "limited";
+  if (p === "/insights" || p.startsWith("/insights/")) return "constructed";
   if (p === "/library") return "library";
   if (p === "/library/cards" || p.startsWith("/library/card/")) return "cards";
   if (p === "/library/add") return "add";
