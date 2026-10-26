@@ -86,6 +86,20 @@ def months(start, days):
         if d.day == 1: out.append([i, d.strftime("%b").upper()])
     return out
 
+def window(start, days, keep):
+    """The last `keep` days of a daily series of `days` from `start` (the chart follows the picked 7/14/30/90-day window):
+    where to cut, the new first day, its length and axis labels: months past 45 days, else a day label every
+    (n + 2) // 4 days counted back from the last day, so the newest day is always labelled."""
+    off = max(0, days - keep); n = days - off
+    d0 = date.fromisoformat(start) + timedelta(days=off)
+    if n > 45:
+        labels = months(d0.isoformat(), n)
+    else:
+        step = max(1, (n + 2) // 4)
+        day = lambda i: d0 + timedelta(days=i)
+        labels = [[i, f"{day(i).strftime('%b').upper()} {day(i).day}"] for i in range(n - 1, -1, -step)][::-1]
+    return {"offset": off, "from": d0.isoformat(), "days": n, "labels": labels}
+
 def round_half_even_safe(x): return x
 
 def heat(wins, losses, minimum=30):
@@ -117,6 +131,9 @@ cases = {
     "pct1": [{"in": x, "out": pct1(x)} for x in [0.5714, 0.6, 0.12345, None]],
     "delta": [{"in": d, "out": delta(d)} for d in [0.021, -0.12, 0, -0.004, 0.1, None]],
     "months": [{"in": [s, n], "out": months(s, n)} for s, n in [("2026-04-28", 180), ("2026-10-01", 3), ("2026-02-15", 20)]],
+    "window": [{"in": [s, n, k], "out": window(s, n, k)} for s, n, k in [
+        ("2026-04-28", 180, 7), ("2026-04-28", 180, 14), ("2026-04-28", 180, 30), ("2026-04-28", 180, 90),
+        ("2026-04-28", 180, 180), ("2026-10-24", 3, 7), ("2026-02-20", 20, 14)]],
     "heat": [{"in": [w, l], "out": heat(w, l)} for w, l in [(20, 12), (12, 20), (16, 15), (3, 1), (1, 3), (0, 0), (2, 2), (45, 15), (60, 40), (5, 0)]],
 }
 json.dump(cases, open(os.path.join(os.path.dirname(__file__), "cases.json"), "w"), indent=1)

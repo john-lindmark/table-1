@@ -48,6 +48,11 @@ private struct Cases: Decodable {
         let `in`: [Int]; let out: Out
     }
     let heat: [HeatCase]
+    struct WindowCase: Decodable {
+        struct Out: Decodable { let offset: Int; let from: String; let days: Int; let labels: [[Months.Mixed]] }
+        let `in`: [Months.Mixed]; let out: Out
+    }
+    let window: [WindowCase]
 }
 
 final class InsightChartsTests: XCTestCase {
@@ -108,6 +113,17 @@ final class InsightChartsTests: XCTestCase {
         for c in cases.pct { XCTAssertEqual(InsightCharts.pct(c.in), c.out, "\(String(describing: c.in))") }
         for c in cases.pct1 { XCTAssertEqual(InsightCharts.pct1(c.in), c.out) }
         for c in cases.delta { XCTAssertEqual(InsightCharts.delta(c.in), c.out, "\(String(describing: c.in))") }
+    }
+
+    func testWindow() {
+        for c in cases.window {
+            let got = InsightCharts.window(from: c.in[0].s, days: c.in[1].i, keep: c.in[2].i)
+            XCTAssertEqual(got.offset, c.out.offset)
+            XCTAssertEqual(got.from, c.out.from)
+            XCTAssertEqual(got.days, c.out.days)
+            XCTAssertEqual(got.labels.map(\.0), c.out.labels.map { $0[0].i })
+            XCTAssertEqual(got.labels.map(\.1), c.out.labels.map { $0[1].s })
+        }
     }
 
     func testMonths() {

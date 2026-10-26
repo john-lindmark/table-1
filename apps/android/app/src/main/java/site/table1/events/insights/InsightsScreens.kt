@@ -183,14 +183,16 @@ private fun ConstructedHome(navigate: (String) -> Unit) {
             onClick = { navigate(InsightsRoutes.archetype(f, r.a)) })
     }
     Section("Meta over time · 7-day share")
-    val lines = view.series.lines
-    val h = hl ?: lines.firstOrNull()?.a
+    // The chart covers the picked window; lines with no decks in it are left out.
+    val span = InsightCharts.window(view.series.from, view.series.days, s.days)
+    val lines = view.series.lines.map { Line(it.a, it.v.drop(span.offset)) }.filter { l -> l.v.any { it != null } }
+    val h = hl?.takeIf { x -> lines.any { it.a == x } } ?: lines.firstOrNull()?.a
     // one marker per day: a ban and an unban on May 18 read BAN/UNBAN
     val markers = pack.changes.mapNotNull { c ->
-        InsightCharts.daysBetween(view.series.from, c.on)?.let { ChartMarker(it, if (c.isBan) c.kind.uppercase() else (c.set_code ?: "").uppercase(), c.isBan) }
+        InsightCharts.daysBetween(span.from, c.on)?.let { ChartMarker(it, if (c.isBan) c.kind.uppercase() else (c.set_code ?: "").uppercase(), c.isBan) }
     }.groupBy { it.index }.map { (i, ms) -> ChartMarker(i, ms.joinToString("/") { it.label }, ms.any { it.ban }) }
     InsightLineChart(lines.map { LineSeries(it.a.toString(), pack.name(it.a).let { n -> if (n.length > 14) n.take(13) + "…" else n }, it.v, it.a == h) },
-        view.series.days, markers, InsightCharts.months(view.series.from, view.series.days), height = 300.dp)
+        span.days, markers, span.labels, height = 300.dp)
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
         lines.forEach { l ->
             Label(pack.name(l.a), Modifier.background(if (l.a == h) T1.text else T1.surface).clickable { hl = l.a }.padding(horizontal = 12.dp, vertical = 10.dp),

@@ -30,6 +30,46 @@ export function indexSlugs(html: string): string[] {
   return [...seen];
 }
 
+/** "2026/10" → "2026/09". */
+export const monthBefore = (m: string) => {
+  const [y, mo] = m.split("/").map(Number);
+  return mo === 1 ? `${y - 1}/12` : `${y}/${String(mo - 1).padStart(2, "0")}`;
+};
+
+/** The 12-month backfill of month indexes: `next` counts down to `until`; `retry` lists months whose index came back
+ *  with no event pages at all ("2026/07:2,2026/01:1", month:tries). MTGO sometimes renders a month's index with an
+ *  empty list (cold cache, as with event pages below), and passing over it lost July and January 2026 for good. */
+export interface Backfill { next: string; until: string; retry: string }
+export const INDEX_TRIES = 72;   // tried on the hourly index read: three days
+
+const retries = (r: string) => r.split(",").filter(Boolean).map((x) => { const [m, n] = x.split(":"); return [m, Number(n) || 0] as const; });
+
+/** The month index to read this tick: the backfill's next month while it runs (every tick), then the first month
+ *  waiting for a retry (only on ticks that read the current month's index, hourly: MTGO's empty lists last a while). */
+export function backfillMonth(b: Backfill, hourly: boolean): string | null {
+  if (b.next >= b.until) return b.next;
+  return hourly ? retries(b.retry)[0]?.[0] ?? null : null;
+}
+
+/** The backfill after reading month `m`'s index and finding `slugs` event pages on it. An empty index goes to the end
+ *  of the retry list, until it has been tried INDEX_TRIES times. */
+export function backfillAfter(b: Backfill, m: string, slugs: number): Backfill {
+  const list = retries(b.retry);
+  const tries = (list.find(([x]) => x === m)?.[1] ?? 0) + 1;
+  const rest = list.filter(([x]) => x !== m);
+  if (slugs === 0 && tries < INDEX_TRIES) rest.push([m, tries]);
+  return { next: m === b.next ? monthBefore(m) : b.next, until: b.until, retry: rest.map(([x, n]) => `${x}:${n}`).join(",") };
+}
+
+/** Whether a page fetch ended somewhere other than the page. MTGO answers a page it hasn't served for a while with a
+ *  302 to /decklists (the month index) and serves the page itself a moment later, so this is "try again", never "no
+ *  decklists": read as the index, Sept–Oct 2026 Challenges and Leagues were skipped for good. */
+export function bounced(requested: string, res: { redirected: boolean; url: string }): boolean {
+  if (res.redirected) return true;
+  if (!res.url) return false;
+  try { return new URL(res.url).pathname.replace(/\/$/, "") !== new URL(requested).pathname.replace(/\/$/, ""); } catch { return false; }
+}
+
 /** The page's data object, or null when the page has none (not published yet, or a changed layout). */
 export function pageData(html: string): Record<string, unknown> | null {
   const m = /window\.MTGO\.decklists\.data\s*=\s*(\{[\s\S]*?\});\s*\n/.exec(html);

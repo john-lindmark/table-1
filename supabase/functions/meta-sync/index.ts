@@ -1,7 +1,7 @@
 // meta-sync: Insights' constructed side (contract/insights-2026-10-24.md). Driven by pg_cron through pg_net with the
 // shared x-t1-secret header:
 //   {step:"tick"}             every 5 min: read this month's MTGO index hourly (and one older month per tick while
-//                             the 12-month backfill runs), then read queued event pages, ~1 a second, for ~100 s
+//                             the 12-month backfill runs, then months whose index came back empty), then read queued event pages, ~1 a second, for ~100 s
 //                             and, while TopDeck's year of history isn't read yet, up to 40 s of it in 30-day
 //                             windows (Canadian Highlander, which has no MTGO results, first)
 //   {step:"build", format}    every 6 h per format: TopDeck's last 3 days (when a TopDeck key is set), then the
@@ -15,7 +15,7 @@ import Anthropic from "npm:@anthropic-ai/sdk@0.110.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { briefFor } from "../insight-brief/brief.ts";
 import { clusters, known, NAME_SCHEMA, NAME_SYSTEM, namePrompt, proposal, type ClusterDeck } from "./cluster.ts";
-import { indexSlugs, MTGO_FORMATS, pageData, parseEvent, slugInfo } from "./mtgo.ts";
+import { backfillAfter, backfillMonth, bounced, indexSlugs, monthBefore, MTGO_FORMATS, pageData, parseEvent, slugInfo } from "./mtgo.ts";
 import { archetypeFacts, assemble, banFacts, windowFacts } from "./pack.ts";
 import { callTimeout, fetchRetrying } from "./deadline.ts";
 import { nextTopdeckWindow, parseTournament, tournamentsQuery, type TdTournament } from "./topdeck.ts";
@@ -43,6 +43,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function get(url: string, timeoutMs = 60_000, deadline = Infinity): Promise<string> {
   const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(callTimeout(deadline, timeoutMs)) });
   if (!res.ok) throw new Error(`${url} ${res.status}`);
+  if (bounced(url, res)) { await res.body?.cancel(); throw new Error(`${url} sent to ${res.url}`); }   // failed: read again
   return await res.text();
 }
 
@@ -51,18 +52,16 @@ let formatsCache: Format[] | null = null;
 const formats = async () => formatsCache ??= await rpc<Format[]>("meta_formats_enabled");
 
 const month = (d: Date) => `${d.getUTCFullYear()}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-const monthBefore = (m: string) => {
-  const [y, mo] = m.split("/").map(Number);
-  return mo === 1 ? `${y - 1}/12` : `${y}/${String(mo - 1).padStart(2, "0")}`;
-};
 
-/** Queues a month index's event pages (formats the server reads; Leagues included). */
-async function readIndex(m: string, deadline = Infinity): Promise<number> {
+/** Queues a month index's event pages (formats the server reads; Leagues included). `slugs` counts every event page
+ *  on the index, read or not: 0 means MTGO sent the page without its list. */
+async function readIndex(m: string, deadline = Infinity): Promise<{ slugs: number; queued: number }> {
   const html = await get(`https://www.mtgo.com/decklists/${m}`, 90_000, deadline);
-  const items = indexSlugs(html).filter((s) => slugInfo(s)).map((s) => ({
+  const slugs = indexSlugs(html);
+  const items = slugs.filter((s) => slugInfo(s)).map((s) => ({
     source: "mtgo", format: slugInfo(s)!.format, slug: s, url: `https://www.mtgo.com/decklist/${s}`,
   }));
-  return await rpc<number>("meta_queue_add", { p_items: items });
+  return { slugs: slugs.length, queued: items.length ? await rpc<number>("meta_queue_add", { p_items: items }) : 0 };
 }
 
 async function tick() {
@@ -74,22 +73,28 @@ async function tick() {
   const out = { queued: 0, read: 0, decks: 0, failed: 0, backfill: null as string | null, topdeck: null as unknown };
   try {
     const now = new Date();
-    if (!state.index_at || t0 - Date.parse(state.index_at) > 3_600_000) {
-      out.queued += await readIndex(month(now), hard);
-      if (now.getUTCDate() <= 3) out.queued += await readIndex(monthBefore(month(now)), hard);
-      await rpc("meta_state_put", { p_patch: { index_at: now.toISOString() } });
+    const hourly = !state.index_at || t0 - Date.parse(state.index_at) > 3_600_000;
+    if (hourly) {
+      const cur = await readIndex(month(now), hard);
+      out.queued += cur.queued;
+      if (now.getUTCDate() <= 3) out.queued += (await readIndex(monthBefore(month(now)), hard)).queued;
+      // An empty list is read again next tick (the first days of a month may truly have none: then hourly as before).
+      if (cur.slugs > 0 || now.getUTCDate() <= 2) await rpc("meta_state_put", { p_patch: { index_at: now.toISOString() } });
     }
-    // Backfill: one older month per tick, back BACKFILL_MONTHS from the first tick.
+    // Backfill: one older month per tick, back BACKFILL_MONTHS from the first tick, then months that came back empty.
     const until = state.backfill_until ?? (() => {
       let m = month(now);
       for (let i = 0; i < BACKFILL_MONTHS; i++) m = monthBefore(m);
       return m;
     })();
-    const next = state.backfill_next ?? monthBefore(month(now));
-    if (next >= until) {
-      out.queued += await readIndex(next, hard);
-      out.backfill = next;
-      await rpc("meta_state_put", { p_patch: { backfill_until: until, backfill_next: monthBefore(next) } });
+    const b = { next: state.backfill_next ?? monthBefore(month(now)), until, retry: state.backfill_retry ?? "" };
+    const m = backfillMonth(b, hourly);
+    if (m) {
+      const r = await readIndex(m, hard);
+      out.queued += r.queued;
+      out.backfill = `${m}: ${r.slugs} pages`;
+      const after = backfillAfter(b, m, r.slugs);
+      await rpc("meta_state_put", { p_patch: { backfill_until: after.until, backfill_next: after.next, backfill_retry: after.retry } });
     }
     out.topdeck = await topdeckBackfill(t0 + 40_000, state, hard);
     while (Date.now() - t0 < TICK_MS) {

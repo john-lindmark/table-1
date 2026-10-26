@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Bar as ShareBar, Heatmap, LineChart, Scatter, SlopeChart, type Marker } from "../components/InsightCharts";
 import { Bar, Notice, Row, Screen, Section, Segmented, Stat, SwitchRow, TopNav } from "../components/kit";
 import { printingsByName } from "../lib/catalog";
-import { delta, months, pct, pct1, shortDay, wilson } from "../lib/insightCharts";
+import { delta, pct, pct1, seriesWindow, shortDay, wilson } from "../lib/insightCharts";
 import {
   EVENT_LABELS, EVENT_ORDER, FORMATS, PAIR_NAMES, WINDOWS, bansTitle, canHide, exampleFinish, place, setHidden, sourcesCredit, visibleKeys, type Finish, afterWindow, archetypeName, archetypePage, cardPage, changeWords, colorsName, isBan,
   loadInsights, loadInsightsDemo, matchup, pick, useInsights, type ArchetypePage, type CardPage, type CardRow, type ConstructedPack,
@@ -120,11 +120,13 @@ function ConstructedBody({ pack, tier, view, w, days, board, setBoard, hl, setHl
   const credit = sourcesCredit(pack.sources);
   const maxShare = Math.max(0.1, ...w.share.map((s) => s.share));
   const lead = w.share.find((s) => s.a !== 0)?.a;
-  const lines = view.series.lines;
-  const highlighted = hl ?? lines[0]?.a;
+  // The chart covers the picked window; lines with no decks in it are left out.
+  const span = seriesWindow(view.series.from, view.series.days, days);
+  const lines = view.series.lines.map((l) => ({ a: l.a, v: l.v.slice(span.offset) })).filter((l) => l.v.some((v) => v != null));
+  const highlighted = hl != null && lines.some((l) => l.a === hl) ? hl : lines[0]?.a;
   const markers: Marker[] = [];
   for (const c of pack.changes) {   // one marker per day: a ban and an unban on May 18 read BAN/UNBAN
-    const index = Math.round((Date.parse(c.on) - Date.parse(view.series.from)) / 86400000);
+    const index = Math.round((Date.parse(c.on) - Date.parse(span.from)) / 86400000);
     const label = isBan(c) ? c.kind.toUpperCase() : (c.set_code ?? "").toUpperCase();
     const same = markers.find((m) => m.index === index);
     if (same) { same.label = `${same.label}/${label}`; same.ban ||= isBan(c); } else markers.push({ index, label, ban: isBan(c) });
@@ -149,7 +151,7 @@ function ConstructedBody({ pack, tier, view, w, days, board, setBoard, hl, setHl
       ))}
       <Section title="Meta over time · 7-day share" />
       <Chart>
-        <LineChart count={view.series.days} xLabels={months(view.series.from, view.series.days)} markers={markers} height={320}
+        <LineChart count={span.days} xLabels={span.labels} markers={markers} height={320}
                    series={lines.map((l) => ({ id: l.a, label: archetypeName(pack, l.a), values: l.v, highlighted: l.a === highlighted }))} />
       </Chart>
       <div className="flex gap-px overflow-x-auto">

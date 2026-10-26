@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { indexSlugs, pageData, parseEvent, slugInfo } from "./mtgo.ts";
+import { backfillAfter, backfillMonth, bounced, INDEX_TRIES, indexSlugs, monthBefore, pageData, parseEvent, slugInfo } from "./mtgo.ts";
 
 const T = "../../testdata/insights/mtgo";
 const json = async (f: string) => JSON.parse(await Deno.readTextFile(`${T}/${f}`));
@@ -72,4 +72,38 @@ Deno.test("copies of a card split across lines are added up", () => {
   })!;
   assertEquals(ev.decks[0].main, [["Island", 5]]);
   assertEquals(parseEvent("pauper-challenge-16-2026-10-1012856164", { decklists: [] }), null);
+});
+
+Deno.test("a page MTGO bounces to the index is read again, not skipped (Sept–Oct 2026 Challenges were lost this way)", () => {
+  const url = "https://www.mtgo.com/decklist/modern-challenge-64-2026-10-0112855459";
+  assert(bounced(url, { redirected: true, url: "https://www.mtgo.com/decklists" }));
+  assert(bounced(url, { redirected: false, url: "https://www.mtgo.com/decklists" }));
+  assert(!bounced(url, { redirected: false, url }));
+  assert(!bounced(url, { redirected: false, url: url + "/" }));
+  assert(!bounced(url, { redirected: false, url: "" }), "a Response built in a test has no url");
+});
+
+Deno.test("month index: an empty list (MTGO's cold answer) has no slugs", () => {
+  assertEquals(indexSlugs('<div class="decklists-page"><ul class="decklists-list">\n            </ul></div>'), []);
+});
+
+Deno.test("backfill: an empty month index is retried later instead of passed over (July and January 2026 were)", () => {
+  assertEquals(monthBefore("2026/01"), "2025/12");
+  let b = { next: "2026/07", until: "2025/10", retry: "" };
+  assertEquals(backfillMonth(b, false), "2026/07", "the backfill reads a month every tick");
+  b = backfillAfter(b, "2026/07", 0);
+  assertEquals(b, { next: "2026/06", until: "2025/10", retry: "2026/07:1" }, "moves on, July waits");
+  b = backfillAfter(b, "2026/06", 412);
+  assertEquals(b.retry, "2026/07:1");
+  b = { ...b, next: "2025/09" };   // the backfill reached its end
+  assertEquals(backfillMonth(b, false), null, "waiting months only on the hourly read");
+  assertEquals(backfillMonth(b, true), "2026/07", "then the waiting months");
+  b = backfillAfter(b, "2026/07", 0);
+  assertEquals(b, { next: "2025/09", until: "2025/10", retry: "2026/07:2" });
+  b = backfillAfter({ ...b, retry: "2026/07:2,2026/01:5" }, "2026/07", 380);
+  assertEquals(b.retry, "2026/01:5", "read at last: off the list");
+  assertEquals(backfillMonth(b, true), "2026/01");
+  b = backfillAfter({ ...b, retry: `2026/01:${INDEX_TRIES - 1}` }, "2026/01", 0);
+  assertEquals(b.retry, "", "given up after INDEX_TRIES");
+  assertEquals(backfillMonth(b, true), null, "nothing left to read");
 });

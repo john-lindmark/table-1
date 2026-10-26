@@ -197,12 +197,14 @@ struct ConstructedHomeSection: View {
         }
 
         Section1("Meta over time · 7-day share")
-        let lines = view.series.lines
-        let hl = highlighted ?? lines.first?.a
+        // The chart covers the picked window; lines with no decks in it are left out.
+        let span = InsightCharts.window(from: view.series.from, days: view.series.days, keep: store.days)
+        let lines = view.series.lines.map { (a: $0.a, v: Array($0.v.dropFirst(span.offset))) }.filter { $0.v.contains { $0 != nil } }
+        let hl = highlighted.flatMap { h in lines.contains { $0.a == h } ? h : nil } ?? lines.first?.a
         InsightLineChart(series: lines.map { .init(id: $0.a, label: short(pack.name($0.a)), values: $0.v, highlighted: $0.a == hl) },
-                         markers: markers(pack, from: view.series.from, days: view.series.days),
-                         xLabels: InsightCharts.months(from: view.series.from, days: view.series.days),
-                         count: view.series.days, height: 300)
+                         markers: markers(pack, from: span.from, days: span.days),
+                         xLabels: span.labels,
+                         count: span.days, height: 300)
             .padding(.vertical, 12).padding(.leading, 8).padding(.trailing, 4).background(T1.surface)
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 1) {

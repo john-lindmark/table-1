@@ -77,6 +77,14 @@ class InsightChartsTest {
         list("delta").forEach { c -> assertEquals(c["out"]!!.jsonPrimitive.content, InsightCharts.delta(c["in"]!!.jsonPrimitive.doubleOrNull)) }
     }
 
+    @Test fun window() = list("window").forEach { c ->
+        val i = c["in"]!!.jsonArray
+        val o = c["out"]!!.jsonObject
+        val want = InsightCharts.SeriesWindow(o["offset"]!!.jsonPrimitive.int, o["from"]!!.jsonPrimitive.content, o["days"]!!.jsonPrimitive.int,
+            o["labels"]!!.jsonArray.map { it.jsonArray[0].jsonPrimitive.int to it.jsonArray[1].jsonPrimitive.content })
+        assertEquals(want, InsightCharts.window(i[0].jsonPrimitive.content, i[1].jsonPrimitive.int, i[2].jsonPrimitive.int))
+    }
+
     @Test fun months() = list("months").forEach { c ->
         val i = c["in"]!!.jsonArray
         val want = c["out"]!!.jsonArray.map { it.jsonArray[0].jsonPrimitive.int to it.jsonArray[1].jsonPrimitive.content }

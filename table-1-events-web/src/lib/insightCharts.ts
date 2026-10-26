@@ -121,6 +121,26 @@ export function months(start: string, days: number): [number, string][] {
   return out;
 }
 
+export interface SeriesWindow { offset: number; from: string; days: number; labels: [number, string][] }
+
+/** The last `keep` days of a daily series of `days` from `start` (the chart follows the picked 7/14/30/90-day window):
+ *  where to cut, the new first day, its length and axis labels: months past 45 days, else a day label every
+ *  (n + 2) / 4 days counted back from the last day, so the newest day is always labelled. */
+export function seriesWindow(start: string, days: number, keep: number): SeriesWindow {
+  const offset = Math.max(0, days - keep), n = days - offset;
+  const d0 = Date.parse(`${start.slice(0, 10)}T00:00:00Z`) + offset * 86400000;
+  if (Number.isNaN(d0)) return { offset, from: start, days: n, labels: [] };
+  const from = new Date(d0).toISOString().slice(0, 10);
+  if (n > 45) return { offset, from, days: n, labels: months(from, n) };
+  const step = Math.max(1, Math.floor((n + 2) / 4));
+  const labels: [number, string][] = [];
+  for (let i = n - 1; i >= 0; i -= step) {
+    const d = new Date(d0 + i * 86400000);
+    labels.unshift([i, `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`]);
+  }
+  return { offset, from, days: n, labels };
+}
+
 /** "MAY 18" for a yyyy-mm-dd. */
 export function shortDay(iso: string): string {
   const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);

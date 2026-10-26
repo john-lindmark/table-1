@@ -129,6 +129,25 @@ object InsightCharts {
         return (0 until max(0, days)).mapNotNull { i -> d0.plusDays(i.toLong()).let { if (it.dayOfMonth == 1) i to MONTHS[it.monthValue - 1] else null } }
     }
 
+    data class SeriesWindow(val offset: Int, val from: String, val days: Int, val labels: List<Pair<Int, String>>)
+
+    /**
+     * The last [keep] days of a daily series of [days] from [start] (the chart follows the picked 7/14/30/90-day window):
+     * where to cut, the new first day, its length and axis labels: months past 45 days, else a day label every
+     * (n + 2) / 4 days counted back from the last day, so the newest day is always labelled.
+     */
+    fun window(start: String, days: Int, keep: Int): SeriesWindow {
+        val offset = max(0, days - keep)
+        val n = days - offset
+        val d0 = runCatching { LocalDate.parse(start.take(10)) }.getOrNull()?.plusDays(offset.toLong())
+            ?: return SeriesWindow(offset, start, n, emptyList())
+        val from = d0.toString()
+        if (n > 45) return SeriesWindow(offset, from, n, months(from, n))
+        val step = max(1, (n + 2) / 4)
+        val labels = (n - 1 downTo 0 step step).map { i -> i to shortDay(d0.plusDays(i.toLong()).toString()) }.reversed()
+        return SeriesWindow(offset, from, n, labels)
+    }
+
     /** "MAY 18" for a yyyy-mm-dd. */
     fun shortDay(iso: String): String = runCatching { LocalDate.parse(iso.take(10)) }.getOrNull()
         ?.let { "${MONTHS[it.monthValue - 1]} ${it.dayOfMonth}" } ?: iso

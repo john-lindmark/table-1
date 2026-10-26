@@ -121,6 +121,27 @@ enum InsightCharts {
         }
     }
 
+    struct SeriesWindow { let offset: Int; let from: String; let days: Int; let labels: [(Int, String)] }
+
+    /// The last `keep` days of a daily series of `days` from `start` (the chart follows the picked 7/14/30/90-day
+    /// window): where to cut, the new first day, its length and axis labels: months past 45 days, else a day label
+    /// every (n + 2) / 4 days counted back from the last day, so the newest day is always labelled.
+    static func window(from start: String, days: Int, keep: Int) -> SeriesWindow {
+        let offset = max(0, days - keep), n = days - offset
+        guard let d0 = day(start)?.addingTimeInterval(Double(offset) * 86400) else { return .init(offset: offset, from: start, days: n, labels: []) }
+        let iso = DateFormatter()
+        iso.locale = Locale(identifier: "en_US_POSIX")
+        iso.timeZone = TimeZone(identifier: "UTC")
+        iso.dateFormat = "yyyy-MM-dd"
+        let from = iso.string(from: d0)
+        if n > 45 { return .init(offset: offset, from: from, days: n, labels: months(from: from, days: n)) }
+        let step = max(1, (n + 2) / 4)
+        let labels = stride(from: n - 1, through: 0, by: -step).reversed().map { i in
+            (i, shortDay(iso.string(from: d0.addingTimeInterval(Double(i) * 86400))))
+        }
+        return .init(offset: offset, from: from, days: n, labels: labels)
+    }
+
     /// yyyy-mm-dd at midnight UTC.
     static func day(_ s: String) -> Date? {
         let f = DateFormatter()
