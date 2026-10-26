@@ -14,7 +14,19 @@ import kotlinx.serialization.json.jsonPrimitive
 /** Insights packs and read RPCs (contract/insights-2026-10-24.md § Packs, § RPCs). Wire names as published. */
 object Insights {
     val windows = listOf(7, 14, 30, 90)
-    val formats = listOf("standard" to "Standard", "pioneer" to "Pioneer", "modern" to "Modern", "pauper" to "Pauper")
+    val formats = listOf("standard" to "Standard", "pioneer" to "Pioneer", "modern" to "Modern", "pauper" to "Pauper", "canlander" to "Canlander")
+
+    /** The credit under a constructed brief, from the pack's sources: TopDeck.gg asks for a visible credit and link
+     *  whenever its data is shown; Canadian Highlander comes from TopDeck alone. */
+    fun sourcesCredit(sources: List<String>): Pair<String, String> {
+        val mtgo = "mtgo" in sources
+        val td = "topdeck" in sources
+        return when {
+            td && !mtgo -> "Results from TopDeck.gg" to "https://topdeck.gg"
+            td -> "Results from Magic Online and TopDeck.gg" to "https://topdeck.gg"
+            else -> "Results from Magic Online" to "https://www.mtgo.com/decklists"
+        }
+    }
     val eventOrder = listOf("PremierDraft", "TradDraft", "PickTwoDraft", "Sealed", "TradSealed")
     val eventLabels = mapOf("PremierDraft" to "Premier", "TradDraft" to "Traditional", "PickTwoDraft" to "Pick Two", "Sealed" to "Sealed", "TradSealed" to "Trad Sealed")
     val pairNames = mapOf("WU" to "Azorius", "WB" to "Orzhov", "WR" to "Boros", "WG" to "Selesnya", "UB" to "Dimir", "UR" to "Izzet", "UG" to "Simic",

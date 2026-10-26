@@ -45,6 +45,14 @@ final class InsightsPackTests: XCTestCase {
         XCTAssertNil(none.afterWindow)
     }
 
+    func testSourcesCredit() {
+        XCTAssertEqual(Insights.sourcesCredit(["mtgo"]).label, "Results from Magic Online")
+        XCTAssertEqual(Insights.sourcesCredit(["mtgo", "topdeck"]).label, "Results from Magic Online and TopDeck.gg")
+        XCTAssertEqual(Insights.sourcesCredit(["topdeck"]).label, "Results from TopDeck.gg")
+        XCTAssertEqual(Insights.sourcesCredit(["topdeck"]).url.host, "topdeck.gg")
+        XCTAssertEqual(Insights.formats.map(\.key), ["standard", "pioneer", "modern", "pauper", "canlander"])
+    }
+
     func testChangeWords() {
         let c = Insights.Change(id: 1, on: "2026-05-18", kind: "unban", cards: ["A", "B", "C", "D"], set_code: nil, note: nil, url: nil)
         XCTAssertEqual(c.words, "Unbanned: A, B, C and others")

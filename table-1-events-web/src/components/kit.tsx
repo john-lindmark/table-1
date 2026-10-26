@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import type { RoundWithMatches } from "../lib/types";
 
@@ -383,6 +383,7 @@ export function Segmented<T extends string | number>({
   value,
   onChange,
   columns,
+  scroll,
 }: {
   label?: string;
   options: { value: T; label: string; disabled?: boolean }[];
@@ -390,14 +391,20 @@ export function Segmented<T extends string | number>({
   onChange: (v: T) => void;
   /** Wrap into a grid with this many columns instead of one row. */
   columns?: number;
+  /** One row of whole words that scrolls sideways when it doesn't fit (the picked option scrolled into view). */
+  scroll?: boolean;
 }) {
+  const picked = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (scroll) picked.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [scroll, value]);
   return (
     <div className="bg-t1-surface flex flex-col">
       {label && <span className="t1-label px-4 pt-3 pb-2">{label}</span>}
       <div
         role="radiogroup"
         aria-label={label}
-        className={columns ? "grid gap-px bg-t1-bg pt-px" : "flex gap-px bg-t1-bg pt-px"}
+        className={columns ? "grid gap-px bg-t1-bg pt-px" : `flex gap-px bg-t1-bg pt-px${scroll ? " overflow-x-auto [scrollbar-width:none]" : ""}`}
         style={columns ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` } : undefined}
       >
         {options.map((o) => {
@@ -408,9 +415,10 @@ export function Segmented<T extends string | number>({
               type="button"
               role="radio"
               aria-checked={on}
+              ref={on ? picked : undefined}
               disabled={o.disabled}
               onClick={() => onChange(o.value)}
-              className={`flex-1 min-w-0 px-2 py-3 text-[11px] leading-[14px] uppercase tracking-[1px] break-words disabled:opacity-40 ${
+              className={`${scroll ? "flex-[1_0_auto] whitespace-nowrap px-4" : "flex-1 min-w-0 px-2 break-words"} py-3 text-[11px] leading-[14px] uppercase tracking-[1px] disabled:opacity-40 ${
                 on ? "bg-t1-text text-t1-bg" : "bg-t1-surface hover:bg-t1-surface-hover text-t1-text"
               }`}
             >

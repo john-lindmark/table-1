@@ -95,6 +95,7 @@
 		76C2DC2DA532D1CB04F1D6A9 /* TeamsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 286EEFA6E522FEAA50AF06B4 /* TeamsView.swift */; };
 		7753266A69DC78BB84DC1DB7 /* ResultIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524852D7ADCC9B3C35EC6E7E /* ResultIntents.swift */; };
 		776960C21849FF94E6FD930D /* OrganizerModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED753FFB443A9E07ADDF24C9 /* OrganizerModels.swift */; };
+		779EFC4C4365CB53DBC3B17B /* insights-demo-constructed-canlander.json in Resources */ = {isa = PBXBuildFile; fileRef = 9AB3BF9AD13818385672463B /* insights-demo-constructed-canlander.json */; };
 		793B3C5654CDC544D3CC0B21 /* CardMatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1438B6E1895ED25046190659 /* CardMatcherTests.swift */; };
 		7A276B832320332DCFBC2DE2 /* CardDetail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FC453246052E90FA8A5F479 /* CardDetail.swift */; };
 		7C88522BEF2B937ACB01640E /* CardScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3DAC241E9475632B6E8159C /* CardScanner.swift */; };
@@ -328,6 +329,7 @@
 		94616A41B662A13D6879A7CD /* LimitedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LimitedViews.swift; sourceTree = "<group>"; };
 		96A1C315DCA290C51C41FF04 /* CardDetailPanels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardDetailPanels.swift; sourceTree = "<group>"; };
 		987E3333D17E6488824405D5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		9AB3BF9AD13818385672463B /* insights-demo-constructed-canlander.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "insights-demo-constructed-canlander.json"; sourceTree = "<group>"; };
 		9D227762F8AF50AA156FCB43 /* HomeWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeWidgets.swift; sourceTree = "<group>"; };
 		9D7FD5FE52443203BAA9649F /* CardDetailViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardDetailViews.swift; sourceTree = "<group>"; };
 		A00C95CF97E3DDF3302A0F73 /* T1Shared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = T1Shared.swift; sourceTree = "<group>"; };
@@ -430,6 +432,7 @@
 		03481FFACE230401D4835102 /* DebugResources */ = {
 			isa = PBXGroup;
 			children = (
+				9AB3BF9AD13818385672463B /* insights-demo-constructed-canlander.json */,
 				33EF1D253D3C68A7E1E89270 /* insights-demo-constructed-modern.json */,
 				39E1DEBEAB1AF3D3EB3A2B0C /* insights-demo-constructed-pauper.json */,
 				0FF068229FA2B22935543DD5 /* insights-demo-constructed-pioneer.json */,
@@ -867,6 +870,7 @@
 			files = (
 				2EA248C65A34333F07407183 /* Assets.xcassets in Resources */,
 				271F749F426616B562345937 /* PrivacyInfo.xcprivacy in Resources */,
+				779EFC4C4365CB53DBC3B17B /* insights-demo-constructed-canlander.json in Resources */,
 				5F84B14A303BA00C2ABE5D71 /* insights-demo-constructed-modern.json in Resources */,
 				FD8C089C15750DBB67527B74 /* insights-demo-constructed-pauper.json in Resources */,
 				36D3526E92B505378842191D /* insights-demo-constructed-pioneer.json in Resources */,

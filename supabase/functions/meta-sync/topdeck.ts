@@ -6,12 +6,39 @@ import type { DeckIn, EventIn, MatchIn } from "./types.ts";
 
 export const TOPDECK_GAME = "Magic: The Gathering";
 
-export function tournamentsQuery(format: string, lastDays: number, participantMin = 32) {
+/** The request body: the last N days, or a window of start/end in Unix seconds (the backfill). */
+export interface TdQuery {
+  game: string; format: string; last?: number; start?: number; end?: number; participantMin: number;
+  columns: string[]; rounds: boolean; tables: string[]; players: string[];
+}
+export function tournamentsQuery(format: string, range: number | { start: number; end: number }, participantMin = 32): TdQuery {
   return {
-    game: TOPDECK_GAME, format, last: lastDays, participantMin,
+    game: TOPDECK_GAME, format, ...(typeof range === "number" ? { last: range } : range), participantMin,
     columns: ["id", "decklist", "wins", "losses", "draws"],
     rounds: true, tables: ["table", "players", "winner", "status"], players: ["id"],
   };
+}
+
+const DAY = 86_400_000;
+
+/**
+ * The TopDeck backfill's next window. Each format's cursor (`td_back_<format>` in meta_state, an ISO date) is where
+ * its history read has reached; without one it starts 3 days back, where the builds' "last 3 days" take over. Of the
+ * formats still short of `days` of history, TopDeck-only formats (no MTGO results) go first, then the one with the
+ * least history read. Null when every format is read back far enough.
+ */
+export function nextTopdeckWindow(formats: { format: string; topdeckOnly: boolean }[], state: Record<string, string>, now: number,
+                                  days = 365, windowDays = 30): { format: string; start: number; end: number } | null {
+  const floor = now - days * DAY;
+  const open = formats.map((f, i) => {
+    const cursor = state[`td_back_${f.format}`];
+    const end = cursor ? Date.parse(cursor) : now - 3 * DAY;
+    return { ...f, i, end };
+  }).filter((f) => f.end > floor);
+  open.sort((a, b) => Number(b.topdeckOnly) - Number(a.topdeckOnly) || b.end - a.end || a.i - b.i);
+  const f = open[0];
+  if (!f) return null;
+  return { format: f.format, start: Math.floor(Math.max(floor, f.end - windowDays * DAY) / 1000), end: Math.floor(f.end / 1000) };
 }
 
 interface TdStanding { id?: string; decklist?: string | null; deckObj?: Record<string, unknown> | null; wins?: number; losses?: number; draws?: number }

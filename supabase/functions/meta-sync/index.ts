@@ -2,19 +2,22 @@
 // shared x-t1-secret header:
 //   {step:"tick"}             every 5 min: read this month's MTGO index hourly (and one older month per tick while
 //                             the 12-month backfill runs), then read queued event pages, ~1 a second, for ~100 s
+//                             and, while TopDeck's year of history isn't read yet, up to 40 s of it in 30-day
+//                             windows (Canadian Highlander, which has no MTGO results, first)
 //   {step:"build", format}    every 6 h per format: TopDeck's last 3 days (when a TopDeck key is set), then the
 //                             pack: facts from the database, briefs, uploaded to catalog/insights/constructed/
 //   {step:"cluster"}          nightly: group the decks no rule names, ask Claude to name new groups, store them as
-//                             proposals for Review
+//                             proposals for Review ({format, days} to run one format over a longer span)
+// The formats, their names, TopDeck names and minimum sizes come from t1_private.meta_formats (meta_formats_enabled).
 // Secrets: ANTHROPIC_API_KEY (briefs, names); the TopDeck.gg key from the TOPDECK.GG_KEY function secret (or
 // TOPDECK_API_KEY, or t1_private.settings topdeck_api_key via meta_topdeck_key); without one, TopDeck is skipped.
 import Anthropic from "npm:@anthropic-ai/sdk@0.110.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { briefFor } from "../insight-brief/brief.ts";
 import { clusters, known, NAME_SCHEMA, NAME_SYSTEM, namePrompt, proposal, type ClusterDeck } from "./cluster.ts";
-import { indexSlugs, pageData, parseEvent, slugInfo } from "./mtgo.ts";
+import { indexSlugs, MTGO_FORMATS, pageData, parseEvent, slugInfo } from "./mtgo.ts";
 import { archetypeFacts, assemble, banFacts, windowFacts } from "./pack.ts";
-import { parseTournament, tournamentsQuery, type TdTournament } from "./topdeck.ts";
+import { nextTopdeckWindow, parseTournament, tournamentsQuery, type TdTournament } from "./topdeck.ts";
 import { type Base, type BanStudy, type Matchups, type NewSet, type Series, type Tier, type View, type Window, WINDOWS } from "./types.ts";
 
 const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
@@ -40,6 +43,10 @@ async function get(url: string, timeoutMs = 60_000): Promise<string> {
   return await res.text();
 }
 
+interface Format { format: string; name: string; ord: number; topdeck: string; topdeck_min: number }
+let formatsCache: Format[] | null = null;
+const formats = async () => formatsCache ??= await rpc<Format[]>("meta_formats_enabled");
+
 const month = (d: Date) => `${d.getUTCFullYear()}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 const monthBefore = (m: string) => {
   const [y, mo] = m.split("/").map(Number);
@@ -60,7 +67,7 @@ async function tick() {
   const state = await rpc<Record<string, string>>("meta_state");
   if (state.tick_until && Date.parse(state.tick_until) > t0) return { skipped: "another tick is running" };
   await rpc("meta_state_put", { p_patch: { tick_until: new Date(t0 + TICK_MS + 30_000).toISOString() } });
-  const out = { queued: 0, read: 0, decks: 0, failed: 0, backfill: null as string | null };
+  const out = { queued: 0, read: 0, decks: 0, failed: 0, backfill: null as string | null, topdeck: null as unknown };
   try {
     const now = new Date();
     if (!state.index_at || t0 - Date.parse(state.index_at) > 3_600_000) {
@@ -80,6 +87,7 @@ async function tick() {
       out.backfill = next;
       await rpc("meta_state_put", { p_patch: { backfill_until: until, backfill_next: monthBefore(next) } });
     }
+    out.topdeck = await topdeckBackfill(t0 + 40_000, state);
     while (Date.now() - t0 < TICK_MS) {
       const batch = await rpc<{ id: number; source: string; slug: string; url: string }[]>("meta_queue_claim", { p_n: 5 });
       if (!batch.length) break;
@@ -105,30 +113,66 @@ async function tick() {
   return out;
 }
 
-async function topdeck(format: { format: string; topdeck: string }) {
-  const key = Deno.env.get("TOPDECK.GG_KEY") ?? Deno.env.get("TOPDECK_API_KEY") ?? await rpc<string | null>("meta_topdeck_key");
-  if (!key) return { skipped: "no TopDeck key" };
-  // The four formats build at once and TopDeck rate-limits bursts (429): back off and try again.
+const topdeckKey = async () => Deno.env.get("TOPDECK.GG_KEY") ?? Deno.env.get("TOPDECK_API_KEY") ?? await rpc<string | null>("meta_topdeck_key");
+
+/** One tournaments query. TopDeck rate-limits bursts (429; the four builds start at once): back off and try again. */
+async function topdeckFetch(key: string, body: unknown): Promise<TdTournament[]> {
   let res: Response | null = null;
   for (const wait of [0, 5_000, 15_000, 30_000]) {
     if (wait) await sleep(wait + Math.random() * 2_000);
     res = await fetch("https://topdeck.gg/api/v2/tournaments", {
       method: "POST", headers: { Authorization: key, "Content-Type": "application/json", "User-Agent": UA },
-      body: JSON.stringify(tournamentsQuery(format.topdeck, 3)), signal: AbortSignal.timeout(60_000),
+      body: JSON.stringify(body), signal: AbortSignal.timeout(60_000),
     });
     if (res.status !== 429) break;
     await res.body?.cancel();
   }
   if (!res?.ok) throw new Error(`TopDeck ${res?.status}`);
-  const list = await res.json() as TdTournament[];
+  return await res.json() as TdTournament[];
+}
+
+async function ingestTopdeck(list: TdTournament[], format: string) {
   let events = 0, decks = 0;
   for (const t of list) {
-    const ev = parseTournament(t, format.format);
+    const ev = parseTournament(t, format);
     if (!ev) continue;
     const r = await rpc<{ decks: number }>("meta_ingest", { p_event: ev });
     events++; decks += r.decks;
   }
   return { events, decks };
+}
+
+/** The builds' TopDeck read: the last 3 days of a format's events. */
+async function topdeck(f: Format) {
+  const key = await topdeckKey();
+  if (!key) return { skipped: "no TopDeck key" };
+  return await ingestTopdeck(await topdeckFetch(key, tournamentsQuery(f.topdeck, 3, f.topdeck_min)), f.format);
+}
+
+/** Reads TopDeck's history a window at a time until `until` (or it's all read), moving each format's cursor. */
+async function topdeckBackfill(until: number, state: Record<string, string>) {
+  const key = await topdeckKey();
+  if (!key) return null;
+  const fs = await formats();
+  const cursors = { ...state };
+  const done: { format: string; from: string; events: number; decks: number }[] = [];
+  while (Date.now() < until) {
+    const w = nextTopdeckWindow(fs.map((f) => ({ format: f.format, topdeckOnly: !MTGO_FORMATS.includes(f.format) })), cursors, Date.now(),
+                                BACKFILL_MONTHS * 365 / 12);
+    if (!w) break;
+    const f = fs.find((x) => x.format === w.format)!;
+    try {
+      const r = await ingestTopdeck(await topdeckFetch(key, tournamentsQuery(f.topdeck, { start: w.start, end: w.end }, f.topdeck_min)), f.format);
+      const from = new Date(w.start * 1000).toISOString();
+      cursors[`td_back_${f.format}`] = from;
+      await rpc("meta_state_put", { p_patch: { [`td_back_${f.format}`]: from } });
+      done.push({ format: f.format, from: from.slice(0, 10), ...r });
+    } catch (e) {
+      console.error("meta-sync topdeck backfill", f.format, String(e));
+      return { done, error: String(e) };
+    }
+  }
+  return { done };
 }
 
 /** Runs fns with at most n in flight. */
@@ -146,11 +190,10 @@ async function sha256(bytes: Uint8Array<ArrayBuffer>) {
   return [...d].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-const FORMAT_ORD: Record<string, number> = { standard: 1, pioneer: 2, modern: 3, pauper: 4, legacy: 5, vintage: 6, premodern: 7 };
-const TOPDECK_NAMES: Record<string, string> = { standard: "Standard", pioneer: "Pioneer", modern: "Modern", pauper: "Pauper", legacy: "Legacy", vintage: "Vintage", premodern: "Premodern" };
-
 async function build(format: string) {
-  const td = await topdeck({ format, topdeck: TOPDECK_NAMES[format] ?? format }).catch((e) => ({ error: String(e) }));
+  const f = (await formats()).find((x) => x.format === format);
+  if (!f) throw new Error(`unknown format ${format}`);
+  const td = await topdeck(f).catch((e) => ({ error: String(e) }));
   await rpc("meta_relabel", { p_format: format, p_other_only: true });
   const through = new Date().toISOString().slice(0, 10);
   const base = await rpc<Base>("meta_pack_base", { p_format: format, p_through: through });
@@ -200,7 +243,7 @@ async function build(format: string) {
   const { error } = await admin.storage.from(BUCKET).upload(path, body, { contentType: "application/json", upsert: true, cacheControl: "300" });
   if (error) throw new Error(`upload ${path}: ${error.message}`);
   await rpc("insight_pack_publish", {
-    p_kind: "constructed", p_key: format, p_name: base.name, p_ord: FORMAT_ORD[format] ?? 9, p_version: version, p_path: path,
+    p_kind: "constructed", p_key: format, p_name: base.name, p_ord: f.ord, p_version: version, p_path: path,
     p_bytes: body.length, p_sha256: await sha256(body), p_through: through,
   });
   return { format, version, bytes: body.length, topdeck: td };
@@ -219,17 +262,16 @@ async function nameCluster(text: string): Promise<unknown> {
   try { return JSON.parse(out); } catch { return null; }
 }
 
-async function cluster() {
-  const formats = Object.keys(FORMAT_ORD).slice(0, 4);
+async function cluster(only?: string, days = 45) {
   const out: Record<string, number> = {};
-  for (const format of formats) {
+  for (const { format, name } of (await formats()).filter((f) => !only || f.format === only)) {
     const input = await rpc<{ total: number; decks: { id: number; colors: string; cards: string[] }[]; names: Record<string, string>;
-                              known: { name: string; status: string; signature: string[] }[] }>("meta_cluster_input", { p_format: format, p_days: 45 });
+                              known: { name: string; status: string; signature: string[] }[] }>("meta_cluster_input", { p_format: format, p_days: days });
     const decks: ClusterDeck[] = input.decks.map((d) => ({ id: d.id, colors: d.colors, cards: d.cards.map((c) => input.names[c] ?? c) }));
     const fresh = clusters(decks, input.total).filter((c) => c.share >= 0.01 && !known(c, input.known.map((k) => k.signature)));
     let added = 0;
     for (const c of fresh.slice(0, 5)) {
-      const p = proposal(c, await nameCluster(namePrompt(format, c)).catch(() => null));
+      const p = proposal(c, await nameCluster(namePrompt(name, c)).catch(() => null));
       if (!p) continue;
       const id = await rpc<number | null>("meta_archetype_propose", {
         p_format: format, p_name: p.name, p_family: p.family, p_colors: c.colors, p_rule: p.rule, p_signature: c.signature, p_decks: c.size,
@@ -245,12 +287,12 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
   const { data: ok } = await admin.rpc("live_push_secret_ok", { p_secret: req.headers.get("x-t1-secret") ?? "" });
   if (!ok) return json({ error: "Forbidden" }, 403);
-  const body = await req.json().catch(() => ({})) as { step?: string; format?: string };
+  const body = await req.json().catch(() => ({})) as { step?: string; format?: string; days?: number };
   try {
     switch (body.step) {
       case "tick": return json(await tick());
       case "build": return json(await build(String(body.format ?? "")));
-      case "cluster": return json(await cluster());
+      case "cluster": return json(await cluster(body.format, Math.min(Math.max(Number(body.days) || 45, 7), 365)));
       default: return json({ error: "Unknown step" }, 400);
     }
   } catch (e) {

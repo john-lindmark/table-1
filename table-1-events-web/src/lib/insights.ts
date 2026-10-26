@@ -12,7 +12,17 @@ export const WINDOWS = [7, 14, 30, 90] as const;
 export const FORMATS = [
   { key: "standard", label: "Standard" }, { key: "pioneer", label: "Pioneer" },
   { key: "modern", label: "Modern" }, { key: "pauper", label: "Pauper" },
+  { key: "canlander", label: "Canlander" },
 ] as const;
+
+/** The credit under a constructed brief, from the pack's sources: TopDeck.gg asks for a visible credit and link
+ *  whenever its data is shown; Canadian Highlander comes from TopDeck alone. */
+export function sourcesCredit(sources: string[]): { label: string; url: string } {
+  const mtgo = sources.includes("mtgo"), td = sources.includes("topdeck");
+  if (td && !mtgo) return { label: "Results from TopDeck.gg", url: "https://topdeck.gg" };
+  if (td) return { label: "Results from Magic Online and TopDeck.gg", url: "https://topdeck.gg" };
+  return { label: "Results from Magic Online", url: "https://www.mtgo.com/decklists" };
+}
 
 export interface IndexEntry { kind: "constructed" | "limited"; key: string; name: string; version: string; url: string; bytes: number; through: string | null }
 export interface Archetype { id: number; name: string; family: string; colors: string }
