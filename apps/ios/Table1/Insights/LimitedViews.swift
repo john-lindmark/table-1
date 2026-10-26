@@ -96,7 +96,10 @@ struct LimitedHomeSection: View {
         T1Segmented(options: [("gih", "GIH WR"), ("oh", "OH WR"), ("iwd", "IWD"), ("ata", "ATA")], selection: Binding(get: { sort }, set: {
             sort = $0; Telemetry.capture("insights_sort_changed", ["sort": $0])
         }))
-        T1Segmented(options: [("all", "All"), ("common", "C"), ("uncommon", "U"), ("rare", "R"), ("mythic", "M")], selection: $rarity)
+        // A cube's cards have no rarity: no rarity filter then.
+        if v.cards.contains(where: { $0.r != nil }) {
+            T1Segmented(options: [("all", "All"), ("common", "C"), ("uncommon", "U"), ("rare", "R"), ("mythic", "M")], selection: $rarity)
+        }
         T1Segmented(options: [("all", "All"), ("W", "W"), ("U", "U"), ("B", "B"), ("R", "R"), ("G", "G"), ("M", "Multi")], selection: $color)
         let rows = sorted(v.cards).prefix(40)
         ForEach(Array(rows)) { c in
@@ -113,8 +116,9 @@ struct LimitedHomeSection: View {
     }
 
     private func sorted(_ cards: [Insights.LCard]) -> [Insights.LCard] {
+        let rated = cards.contains { $0.r != nil }
         let f = cards.filter { c in
-            (rarity == "all" || c.r == rarity) &&
+            (!rated || rarity == "all" || c.r == rarity) &&
             (color == "all" || (color == "M" ? (c.col?.count ?? 0) > 1 : c.col == color))
         }
         let key: (Insights.LCard) -> Double? = { c in

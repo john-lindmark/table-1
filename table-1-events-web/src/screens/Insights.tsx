@@ -513,11 +513,13 @@ function LimitedHome() {
   const [colour, setColour] = useState("all");
   const [editing, setEditing] = useState(false);
   const { sets, set, pack, events, event, group, view } = limitedPick(limited, picks.set, picks.event, picks.group, picks.hiddenSets);
+  // A cube's cards have no rarity: no rarity filter then.
+  const rated = !!view?.cards.some((c) => c.r);
   const cards = useMemo(() => {
     if (!view) return [];
     const key = (c: LCard) => (sort === "oh" ? c.oh : sort === "iwd" ? c.iwd : sort === "ata" ? (c.ata == null ? null : -c.ata) : c.gih);
     return view.cards
-      .filter((c) => (rarity === "all" || c.r === rarity) && (colour === "all" || (colour === "M" ? (c.col?.length ?? 0) > 1 : c.col === colour)))
+      .filter((c) => (!rated || rarity === "all" || c.r === rarity) && (colour === "all" || (colour === "M" ? (c.col?.length ?? 0) > 1 : c.col === colour)))
       .sort((a, b) => {
         const x = key(a), y = key(b);
         if (x != null && y != null) return y - x;
@@ -525,7 +527,7 @@ function LimitedHome() {
         if (y != null) return 1;
         return b.gih_n - a.gih_n;
       });
-  }, [view, sort, rarity, colour]);
+  }, [view, sort, rarity, colour, rated]);
   if (!sets.length) {
     return error ? <Notice tone="error">{error}</Notice>
       : <Notice tone="info">{index ? "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena." : "Loading draft data…"}</Notice>;
@@ -582,7 +584,7 @@ function LimitedHome() {
       <Section title="Cards" />
       <Segmented options={[{ value: "gih" as const, label: "GIH WR" }, { value: "oh" as const, label: "OH WR" }, { value: "iwd" as const, label: "IWD" }, { value: "ata" as const, label: "ATA" }]}
                  value={sort} onChange={(v) => { setSort(v); capture("insights_sort_changed", { sort: v }); }} />
-      <Segmented options={RARITIES} value={rarity} onChange={setRarity} />
+      {rated && <Segmented options={RARITIES} value={rarity} onChange={setRarity} />}
       <Segmented options={COLOURS} value={colour} onChange={setColour} />
       {cards.slice(0, 40).map((c) => (
         <Row key={c.n} title={c.n} value={value(c)} dim={c.gih == null} onClick={() => nav(`${base}/card/${encodeURIComponent(c.n)}`)}

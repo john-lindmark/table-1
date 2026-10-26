@@ -35,14 +35,15 @@ const unb64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 const fileUri = (set: string, event: string, kind: "game" | "draft") => `${BASE}/${kind}_data/${kind}_data_public.${set}.${event}.csv.gz`;
 
 async function check() {
-  const sets = await rpc<{ set_code: string; released: string }[]>("limited_candidates");
+  // Sets, plus cube datasets (`file` is 17Lands' name for them: CUBE is Cube_-_Powered).
+  const sets = await rpc<{ set_code: string; file?: string; released: string }[]>("limited_candidates");
   const opened: string[] = [];
   for (const s of sets) {
     if (Date.now() - Date.parse(s.released) < EMBARGO_DAYS * 86400000) continue;
     for (const event of EVENTS) {
       for (const kind of ["game", "draft"] as const) {
         if (kind === "draft" && event.includes("Sealed")) continue;
-        const uri = fileUri(s.set_code, event, kind);
+        const uri = fileUri(s.file ?? s.set_code, event, kind);
         const res = await fetch(uri, { method: "HEAD" });
         if (!res.ok) continue;
         const lm = res.headers.get("last-modified"), len = Number(res.headers.get("content-length"));

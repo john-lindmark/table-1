@@ -273,6 +273,19 @@ select pg_temp.eq('pack: deck colours with their splashes, rare ones left out',
 select pg_temp.eq('no pack without a finished run', (public.limited_pack_facts('NOPE'))::text, null);
 select pg_temp.eq('a newer dump opens a new run', (public.limited_run_open('TST', 'PremierDraft', 'game', 'https://x/game.csv.gz', '2026-10-24 12:00:00+00', 1200) is not null)::text, 'true');
 select pg_temp.eq('the finished run keeps serving until the new one is done', (public.limited_pack_facts('TST')->'events'->'PremierDraft'->>'updated'), '2026-10-17');
+-- Arena's cube is no Scryfall set: offered from limited_cubes with 17Lands' file name, at any age.
+select pg_temp.eq('candidates: recent sets and the Arena cube',
+  (select string_agg((c->>'set_code') || ' ' || coalesce(c->>'file', '-'), ', ' order by c->>'set_code')
+     from jsonb_array_elements(public.limited_candidates()) c where c->>'set_code' in ('TST', 'CUBE')),
+  'CUBE Cube_-_Powered, TST -');
+select pg_temp.eq('a cube run counts weeks from the cube''s run on Arena',
+  (select public.limited_run_state(public.limited_run_open('CUBE', 'PremierDraft', 'game', 'https://x/cube.csv.gz', :LM, 1000))->>'released'), '2025-10-30');
+\set CRUN '(select id from t1_private.limited_runs where set_code = ''CUBE'' and kind = ''game'')'
+select public.limited_step_commit(:CRUN, 0, 800, 'w', '', '{"cols": ["a"]}', 10,
+  '{"T|a": [1000, 560], "cd|Lightning Bolt|a": [600, 350], "ch|Lightning Bolt|a": [600, 380]}', true);
+select pg_temp.eq('cube pack: named from limited_cubes, cards without a rarity',
+  (select (p->>'name') || ' ' || (p->>'released') || ' ' || coalesce(p->'events'->'PremierDraft'->'groups'->'all'->'cards'->0->>'r', 'none')
+     from (select public.limited_pack_facts('cube') p) x), 'Arena Powered Cube 2025-10-30 none');
 
 -- Rules by colours (singleton formats) -------------------------------------------------------------------------------
 \set CL '{"source": "topdeck", "source_id": "CL1", "format": "canlander", "name": "Canlander Open", "kind": "paper", "on": "2026-10-20", "players": 20, "complete": true, "decks": [{"player": "a", "rank": 1, "top8": false, "main": [["Lightning Bolt", 1], ["Lava Spike", 1], ["Boltwave", 1], ["Blood Moon", 1], ["Mountain", 30]], "side": []}, {"player": "b", "rank": 2, "top8": false, "main": [["Lightning Bolt", 1], ["Lava Spike", 1], ["Boltwave", 1], ["Counterspell", 1], ["Island", 30]], "side": []}, {"player": "c", "rank": 3, "top8": false, "main": [["Lightning Bolt", 1], ["Lava Spike", 1], ["Boltwave", 1], ["Blood Moon", 1], ["Ocelot Pride", 1], ["Mountain", 30]], "side": []}], "matches": []}'

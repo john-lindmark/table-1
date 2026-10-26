@@ -511,11 +511,13 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     val sorts = listOf("gih", "oh", "iwd", "ata")
     T1Segmented(listOf("GIH WR", "OH WR", "IWD", "ATA"), sorts.indexOf(sort)) { sort = sorts[it]; Telemetry.capture("insights_sort_changed", mapOf("sort" to sort)) }
     val rarities = listOf("all", "common", "uncommon", "rare", "mythic")
-    T1Segmented(listOf("All", "C", "U", "R", "M"), rarities.indexOf(rarity)) { rarity = rarities[it] }
+    // A cube's cards have no rarity: no rarity filter then.
+    val rated = v.cards.any { it.r != null }
+    if (rated) T1Segmented(listOf("All", "C", "U", "R", "M"), rarities.indexOf(rarity)) { rarity = rarities[it] }
     val colours = listOf("all", "W", "U", "B", "R", "G", "M")
     T1Segmented(listOf("All", "W", "U", "B", "R", "G", "Multi"), colours.indexOf(colour)) { colour = colours[it] }
     fun key(c: LCard): Double? = when (sort) { "oh" -> c.oh; "iwd" -> c.iwd; "ata" -> c.ata?.let { -it }; else -> c.gih }
-    val cards = v.cards.filter { c -> (rarity == "all" || c.r == rarity) && (colour == "all" || if (colour == "M") (c.col?.length ?: 0) > 1 else c.col == colour) }
+    val cards = v.cards.filter { c -> (!rated || rarity == "all" || c.r == rarity) && (colour == "all" || if (colour == "M") (c.col?.length ?: 0) > 1 else c.col == colour) }
         .sortedWith(compareBy<LCard> { key(it) == null }.thenByDescending { key(it) ?: 0.0 }.thenByDescending { it.gih_n })
     cards.take(40).forEach { c ->
         ListRow(c.n, listOfNotNull(c.r?.replaceFirstChar { it.uppercase() }, c.col, "%,d in hand".format(c.gih_n), c.ata?.let { "taken %.1f".format(it) }).joinToString(" · "),
