@@ -178,7 +178,7 @@ struct PairInsightView: View {
         let p = v?.pairs.first { $0.p == pair }
         T1Screen {
             Bar(title: "\(Insights.pairNames[pair] ?? pair) \(pair)", subtitle: "\(set) \(Insights.eventLabels[event] ?? event)") { path.removeLast() }
-            ScrollView {
+            InsightsPage {
                 VStack(spacing: 1) {
                     if let p, let v, let pack {
                         CreditRow(url: pack.credit.url)
@@ -230,7 +230,7 @@ struct LimitedCardView: View {
         let c = v?.cards.first { $0.n == name }
         T1Screen {
             Bar(title: name, subtitle: "\(set) \(Insights.eventLabels[event] ?? event)") { path.removeLast() }
-            ScrollView {
+            InsightsPage {
                 VStack(spacing: 1) {
                     if let c, let v, let pack {
                         CreditRow(url: pack.credit.url)

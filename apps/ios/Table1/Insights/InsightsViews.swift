@@ -39,7 +39,7 @@ struct InsightsHomeView: View {
         T1Screen {
             Bar(title: "Insights", subtitle: store.section == "limited" ? "Arena draft" : "Constructed metagame")
             T1Segmented(options: [("constructed", "Constructed"), ("limited", "Limited")], selection: $store.section)
-            ScrollView {
+            InsightsPage {
                 VStack(spacing: 1) {
                     if store.section == "limited" { LimitedHomeSection(path: $path) } else { ConstructedHomeSection(path: $path) }
                     if ModerationStore.shared.me?.moderator == true {
@@ -57,6 +57,17 @@ struct InsightsHomeView: View {
 }
 
 // MARK: shared blocks
+
+/// The vertical page every Insights screen scrolls in: held to the screen's width, with no sideways bounce, so the
+/// page can't be pulled left and right (an iPhone on build 26 let Limited's rows slide sideways, cutting off the
+/// win rates).
+struct InsightsPage<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        ScrollView { content.containerRelativeFrame(.horizontal) }
+            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+    }
+}
 
 /// The brief (2–3 sentences), what it covers, and the source credit.
 /// A picker row with Edit at its end (which formats or sets the row shows).
@@ -317,7 +328,7 @@ struct ArchetypeInsightView: View {
         let pack = store.constructed[format]
         T1Screen {
             Bar(title: pack?.name(id) ?? "Archetype", subtitle: "\(pack?.name ?? format) · all events, last \(store.days) days") { path.removeLast() }
-            ScrollView {
+            InsightsPage {
                 VStack(spacing: 1) {
                     if let page, let pack { content(page, pack) }
                     else if let error { Notice(error, error: true) }
@@ -466,7 +477,7 @@ struct FinishView: View {
         let title = group.map { Insights.colorsName($0.colors.isEmpty ? "C" : $0.colors, "") } ?? page?.archetype.name ?? "Deck"
         T1Screen {
             Bar(title: title, subtitle: f.map { "\($0.event) · \(InsightCharts.shortDay($0.on))" }) { path.removeLast() }
-            ScrollView {
+            InsightsPage {
                 VStack(spacing: 1) {
                     if let f {
                         AddToDecksRow(added: added, add: { added = AddedDeck.add(f, name: title, format: format, from: "finish") },
@@ -503,7 +514,7 @@ struct CardInsightView: View {
         let pack = store.constructed[format]
         T1Screen {
             Bar(title: name, subtitle: "\(pack?.name ?? format) · all events") { path.removeLast() }
-            ScrollView {
+            InsightsPage {
                 VStack(spacing: 1) {
                     if let page, let pack {
                         Stats3(items: [("Main decks", InsightCharts.pct(page.series.main.last ?? nil)),
@@ -549,7 +560,7 @@ struct BanStudyView: View {
         let ch = pack?.change(changeId)
         T1Screen {
             Bar(title: ch?.words ?? "Format change", subtitle: ch.map { "\(pack?.name ?? "") · \(InsightCharts.shortDay($0.on))" }) { path.removeLast() }
-            ScrollView {
+            InsightsPage {
                 VStack(spacing: 1) {
                     if let b, let pack {
                         BriefBlock(brief: b.brief, scope: "what changed after", thin: b.before.isEmpty || b.afterWindow == nil)
@@ -595,7 +606,7 @@ struct MatchupsView: View {
         let pack = store.constructed[format]
         T1Screen {
             Bar(title: "Matchups", subtitle: "\(pack?.name ?? format) · last 90 days") { path.removeLast() }
-            ScrollView {
+            InsightsPage {
                 VStack(spacing: 1) {
                     if let pack {
                         let ids = pack.matchups.archetypes
