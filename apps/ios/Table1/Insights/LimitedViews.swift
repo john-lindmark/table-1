@@ -85,7 +85,7 @@ struct LimitedHomeSection: View {
             let top = shown.filter { $0.p.count == 2 && $0.p != "3C" }.prefix(5)
             InsightLineChart(series: top.map { .init(id: $0.p.hashValue, label: $0.p, values: $0.week_wr, highlighted: $0.id == top.first?.id) },
                              xLabels: (0..<v.weeks).map { ($0, "W\($0 + 1)") }, count: v.weeks, height: 160,
-                             format: InsightCharts.pct1, labelWidth: 70)
+                             format: InsightCharts.pct1, labelWidth: 70, fit: true, reference: ("AVG", v.wr))
                 .padding(.vertical, 12).padding(.leading, 8).background(T1.surface)
         }
     }

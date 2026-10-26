@@ -56,16 +56,20 @@ private fun DrawScope.label(tm: TextMeasurer, text: String, x: Float, y: Float, 
 /** Share lines over time with change markers and labels at the line ends. */
 @Composable
 fun InsightLineChart(series: List<LineSeries>, count: Int, markers: List<ChartMarker> = emptyList(), xLabels: List<Pair<Int, String>> = emptyList(),
-                     height: Dp = 190.dp, format: (Double) -> String = InsightCharts::pct, labelWidth: Dp = 96.dp) {
+                     height: Dp = 190.dp, format: (Double) -> String = InsightCharts::pct, labelWidth: Dp = 96.dp,
+                     // fit: scale the y axis to the values (and the reference) instead of starting at 0, e.g. win rates around 50%.
+                     // reference: a dashed line across the chart with its own end label, e.g. the average win rate in scope.
+                     fit: Boolean = false, reference: Pair<String, Double>? = null) {
     val tm = rememberTextMeasurer()
     Canvas(Modifier.fillMaxWidth().height(height).background(T1.surface).padding(vertical = 12.dp, horizontal = 8.dp)) {
         val left = 34.dp.toPx(); val right = labelWidth.toPx(); val top = 14.dp.toPx(); val bottom = 18.dp.toPx()
         val w = max(1f, size.width - left - right); val h = max(1f, size.height - top - bottom)
-        val all = series.flatMap { s -> s.values.filterNotNull() }
-        val yt = InsightCharts.ticks(0.0, max(all.maxOrNull() ?: 0.1, 0.05), 3)
-        val yMax = yt.lastOrNull() ?: 1.0
+        val all = series.flatMap { s -> s.values.filterNotNull() } + listOfNotNull(reference?.second)
+        val yt = if (fit) InsightCharts.ticks(all.minOrNull() ?: 0.0, all.maxOrNull() ?: 1.0, 3)
+                 else InsightCharts.ticks(0.0, max(all.maxOrNull() ?: 0.1, 0.05), 3)
+        val yMin = yt.firstOrNull() ?: 0.0; val yMax = yt.lastOrNull() ?: 1.0
         fun x(i: Int) = left + w * i / max(1, count - 1)
-        fun y(v: Double) = (top + h * (1 - v / yMax)).toFloat()
+        fun y(v: Double) = (top + h * (1 - (v - yMin) / max(1e-9, yMax - yMin))).toFloat()
         yt.forEach { t ->
             drawLine(T1.surfaceHover, Offset(left, y(t)), Offset(left + w, y(t)), 1f)
             label(tm, format(t), left - 4, y(t), T1.muted, anchor = "end-mid")
@@ -75,6 +79,9 @@ fun InsightLineChart(series: List<LineSeries>, count: Int, markers: List<ChartMa
             val c = if (m.ban) T1.warning else T1.disabled
             drawLine(c, Offset(x(m.index), top), Offset(x(m.index), top + h), 1f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f)))
             label(tm, m.label, x(m.index) + 3, 0f, if (m.ban) T1.warning else T1.muted, 8, "start-top")
+        }
+        reference?.let { (_, v) ->
+            drawLine(T1.text, Offset(left, y(v)), Offset(left + w, y(v)), 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 6f)))
         }
         series.sortedBy { it.highlighted }.forEach { s ->
             val color = if (s.highlighted) T1.accent else T1.muted.copy(alpha = 0.55f)
@@ -87,9 +94,10 @@ fun InsightLineChart(series: List<LineSeries>, count: Int, markers: List<ChartMa
                 }
             }
         }
-        val ends = series.mapNotNull { s -> s.values.lastOrNull { it != null }?.let { s to it } }
+        val ends = series.mapNotNull { s -> s.values.lastOrNull { it != null }?.let { Triple(s.label, it, if (s.highlighted) T1.accent else T1.muted) } } +
+            listOfNotNull(reference?.let { Triple(it.first, it.second, T1.text) })
         val ys = InsightCharts.spread(ends.map { y(it.second).toDouble() }, 11.dp.toPx().toDouble(), top.toDouble(), (top + h).toDouble())
-        ends.forEachIndexed { k, (s, v) -> label(tm, "${s.label} ${format(v)}".take(22), left + w + 6, ys[k].toFloat(), if (s.highlighted) T1.accent else T1.muted) }
+        ends.forEachIndexed { k, (l, v, c) -> label(tm, "$l ${format(v)}".take(22), left + w + 6, ys[k].toFloat(), c) }
     }
 }
 

@@ -505,7 +505,7 @@ private fun LimitedHome(navigate: (String) -> Unit) {
         Section("Pairs by week · win rate")
         val top = shown.filter { it.p.length == 2 && it.p != "3C" }.take(5)
         InsightLineChart(top.mapIndexed { i, p -> LineSeries(p.p, p.p, p.week_wr, i == 0) }, v.weeks, xLabels = (0 until v.weeks).map { it to "W${it + 1}" },
-            height = 160.dp, format = InsightCharts::pct1, labelWidth = 70.dp)
+            height = 160.dp, format = InsightCharts::pct1, labelWidth = 70.dp, fit = true, reference = "AVG" to v.wr)
     }
     Section("Cards")
     val sorts = listOf("gih", "oh", "iwd", "ata")

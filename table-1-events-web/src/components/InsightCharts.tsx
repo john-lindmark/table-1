@@ -12,23 +12,30 @@ export interface LineSeries { id: string | number; label: string; values: (numbe
 export interface Marker { index: number; label: string; ban: boolean }
 
 /** Share lines over time with change markers and labels at the line ends. */
-export function LineChart({ series, count, markers = [], xLabels = [], height = 200, format = pct, labelWidth = 120 }: {
+export function LineChart({ series, count, markers = [], xLabels = [], height = 200, format = pct, labelWidth = 120, fitY = false, reference }: {
   series: LineSeries[]; count: number; markers?: Marker[]; xLabels?: [number, string][]; height?: number;
   format?: (x: number) => string; labelWidth?: number;
+  /** Scale the y axis to the values (and the reference) instead of starting at 0, e.g. win rates around 50%. */
+  fitY?: boolean;
+  /** A dashed line across the chart with its own end label, e.g. the average win rate in scope. */
+  reference?: { label: string; value: number };
 }) {
   const left = 40, right = labelWidth, top = 16, bottom = 18;
   const w = W - left - right, h = height - top - bottom;
-  const all = series.flatMap((s) => s.values.filter((v): v is number => v != null));
-  const yt = ticks(0, Math.max(Math.max(0, ...all), 0.05), 3);
-  const yMax = yt[yt.length - 1] || 1;
+  const all = [...series.flatMap((s) => s.values.filter((v): v is number => v != null)), ...(reference ? [reference.value] : [])];
+  const yt = fitY && all.length ? ticks(Math.min(...all), Math.max(...all), 3) : ticks(0, Math.max(Math.max(0, ...all), 0.05), 3);
+  const yMin = yt[0] ?? 0, yMax = yt[yt.length - 1] || 1;
   const x = (i: number) => left + (w * i) / Math.max(1, count - 1);
-  const y = (v: number) => top + h * (1 - v / yMax);
-  const ends = series.map((s) => ({ s, v: [...s.values].reverse().find((v) => v != null) ?? null })).filter((e) => e.v != null);
+  const y = (v: number) => top + h * (1 - (v - yMin) / Math.max(1e-9, yMax - yMin));
+  const ends = [
+    ...series.map((s) => ({ id: s.id, label: s.label, v: [...s.values].reverse().find((v) => v != null) ?? null, fill: s.highlighted ? C.accent : C.muted })),
+    ...(reference ? [{ id: "reference", label: reference.label, v: reference.value as number | null, fill: C.text }] : []),
+  ].filter((e) => e.v != null);
   const endY = spread(ends.map((e) => y(e.v!)), 12, top, top + h);
   const ordered = [...series].sort((a, b) => Number(!!a.highlighted) - Number(!!b.highlighted));
   return (
     <svg viewBox={`0 0 ${W} ${height}`} className="w-full h-auto block" role="img"
-         aria-label={ends.map((e) => `${e.s.label} ${format(e.v!)}`).join(", ")}>
+         aria-label={ends.map((e) => `${e.label} ${format(e.v!)}`).join(", ")}>
       {yt.map((t) => (
         <g key={t}>
           <line x1={left} x2={left + w} y1={y(t)} y2={y(t)} stroke={C.hover} strokeWidth={1} />
@@ -42,13 +49,14 @@ export function LineChart({ series, count, markers = [], xLabels = [], height = 
           <text x={x(m.index) + 3} y={10} fill={m.ban ? C.warning : C.muted} fontSize={9}>{m.label}</text>
         </g>
       ))}
+      {reference && <line x1={left} x2={left + w} y1={y(reference.value)} y2={y(reference.value)} stroke={C.text} strokeDasharray="4 3" />}
       {ordered.map((s) => segments(s.values).map((seg, k) => seg.length === 1
         ? <circle key={`${s.id}-${k}`} cx={x(seg[0][0])} cy={y(seg[0][1])} r={1.8} fill={s.highlighted ? C.accent : C.muted} />
         : <polyline key={`${s.id}-${k}`} fill="none" points={seg.map(([i, v]) => `${x(i)},${y(v)}`).join(" ")}
                     stroke={s.highlighted ? C.accent : C.muted} strokeOpacity={s.highlighted ? 1 : 0.55} strokeWidth={s.highlighted ? 2 : 1} />))}
       {ends.map((e, k) => (
-        <text key={e.s.id} x={left + w + 6} y={endY[k]} fill={e.s.highlighted ? C.accent : C.muted} fontSize={10} dominantBaseline="middle">
-          {`${e.s.label} ${format(e.v!)}`.slice(0, 22)}
+        <text key={e.id} x={left + w + 6} y={endY[k]} fill={e.fill} fontSize={10} dominantBaseline="middle">
+          {`${e.label} ${format(e.v!)}`.slice(0, 22)}
         </text>
       ))}
     </svg>

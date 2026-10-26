@@ -576,7 +576,7 @@ function LimitedHome() {
         <>
           <Section title="Pairs by week · win rate" />
           <Chart>
-            <LineChart count={view.weeks} height={170} labelWidth={90} format={pct1} xLabels={Array.from({ length: view.weeks }, (_, i) => [i, `W${i + 1}`] as [number, string])}
+            <LineChart count={view.weeks} height={170} labelWidth={90} format={pct1} fitY reference={{ label: "AVG", value: view.wr }} xLabels={Array.from({ length: view.weeks }, (_, i) => [i, `W${i + 1}`] as [number, string])}
                        series={two.map((p, k) => ({ id: p.p, label: p.p, values: p.week_wr, highlighted: k === 0 }))} />
           </Chart>
         </>

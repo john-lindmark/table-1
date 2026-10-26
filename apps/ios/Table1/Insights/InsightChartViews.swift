@@ -14,16 +14,21 @@ struct InsightLineChart: View {
     var height: CGFloat = 190
     var format: (Double) -> String = InsightCharts.pct
     var labelWidth: CGFloat = 96
+    /// Scale the y axis to the values (and the reference) instead of starting at 0, e.g. win rates around 50%.
+    var fit = false
+    /// A dashed line across the chart with its own end label, e.g. the average win rate in scope.
+    var reference: (label: String, value: Double)?
 
     var body: some View {
         Canvas { ctx, size in
             let left: CGFloat = 34, right = labelWidth, top: CGFloat = 14, bottom: CGFloat = 18
             let w = max(1, size.width - left - right), h = max(1, size.height - top - bottom)
-            let all = series.flatMap { $0.values.compactMap { $0 } }
-            let ticks = InsightCharts.ticks(0, max(all.max() ?? 0.1, 0.05), count: 3)
-            let yMax = ticks.last ?? 1
+            let all = series.flatMap { $0.values.compactMap { $0 } } + (reference.map { [$0.value] } ?? [])
+            let ticks = fit ? InsightCharts.ticks(all.min() ?? 0, all.max() ?? 1, count: 3)
+                            : InsightCharts.ticks(0, max(all.max() ?? 0.1, 0.05), count: 3)
+            let yMin = ticks.first ?? 0, yMax = ticks.last ?? 1
             let x = { (i: Int) in left + w * CGFloat(i) / CGFloat(max(1, count - 1)) }
-            let y = { (v: Double) in top + h * (1 - CGFloat(v / yMax)) }
+            let y = { (v: Double) in top + h * (1 - CGFloat((v - yMin) / max(1e-9, yMax - yMin))) }
             for t in ticks {
                 var p = Path()
                 p.move(to: .init(x: left, y: y(t))); p.addLine(to: .init(x: left + w, y: y(t)))
@@ -39,6 +44,11 @@ struct InsightLineChart: View {
                 ctx.stroke(p, with: .color(m.ban ? T1.warning : T1.disabled), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
                 ctx.draw(Text(m.label).font(T1.mono(8)).foregroundStyle(m.ban ? T1.warning : T1.muted), at: .init(x: x(m.index) + 2, y: 0), anchor: .topLeading)
             }
+            if let r = reference {
+                var p = Path()
+                p.move(to: .init(x: left, y: y(r.value))); p.addLine(to: .init(x: left + w, y: y(r.value)))
+                ctx.stroke(p, with: .color(T1.text), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            }
             for s in series.sorted(by: { !$0.highlighted && $1.highlighted }) {
                 for seg in InsightCharts.segments(s.values) {
                     var p = Path()
@@ -51,10 +61,13 @@ struct InsightLineChart: View {
                 }
             }
             // end labels, kept apart
-            let ends = series.compactMap { s -> (Series, Double)? in s.values.last(where: { $0 != nil }).flatMap { $0 }.map { (s, $0) } }
+            var ends = series.compactMap { s -> (String, Double, Color)? in
+                s.values.last(where: { $0 != nil }).flatMap { $0 }.map { (s.label, $0, s.highlighted ? T1.accent : T1.muted) }
+            }
+            if let r = reference { ends.append((r.label, r.value, T1.text)) }
             let ys = InsightCharts.spread(ends.map { Double(y($0.1)) }, gap: 11, lo: Double(top), hi: Double(top + h))
             for (k, e) in ends.enumerated() {
-                ctx.draw(Text("\(e.0.label) \(format(e.1))").font(T1.mono(9)).foregroundStyle(e.0.highlighted ? T1.accent : T1.muted),
+                ctx.draw(Text("\(e.0) \(format(e.1))").font(T1.mono(9)).foregroundStyle(e.2),
                          at: .init(x: left + w + 6, y: ys[k]), anchor: .leading)
             }
         }
