@@ -256,6 +256,7 @@ struct CardScanView: View {
         if let id = fixing, let card = cards.first(where: { $0.id == id }) {
             ScanPrintingView(card: card, owned: owned, onPick: { p in
                 ScanReports.printingChanged(card, to: p.cardId, ownedOnly: owned != nil)
+                matcher?.picked(p)
                 if let i = cards.firstIndex(where: { $0.id == id }) {
                     cards[i].printing = p
                     cards[i].fixed = true
@@ -345,9 +346,9 @@ struct CardScanView: View {
     /// is Opt (its French name) and a decklist on a screen is a card.
     private func see(_ lines: [String], onCard: Bool) -> Bool {
         guard let matcher else { return false }
-        frames.add(lines)
         var m = matcher.match(lines)
         if !onCard, m?.exact != true, !CardMatcher.hasTypeLine(lines) { m = nil }
+        frames.add(lines, named: m != nil)
         reading = m.map { $0.oracle.name }
         guard let taken = steady.feed(m), let m else { return m != nil }
         var card = ScannedCard(oracle: m.oracle, printing: taken.0, finish: matcher.defaultFinish(taken.0),
@@ -356,6 +357,7 @@ struct CardScanView: View {
         card.lang = owned == nil ? Languages.forScan(taken.0, read: m.langs, picked: addLang) : Languages.forNew(taken.0, picked: addLang)
         card.frames = frames.frames
         card.matched = .init(cardId: taken.0.cardId, exact: taken.1)
+        frames.took()
         self.taken += 1
         cards.insert(card, at: 0)
         UINotificationFeedbackGenerator().notificationOccurred(.success)

@@ -1,0 +1,86 @@
+{
+  "cn": "289",
+  "id": "14cf3f81-0ff1-40c7-bf11-a89868a74d99",
+  "set": "3ed",
+  "kind": "wrong_printing",
+  "name": "Tundra",
+  "frames": [
+    [
+      "Tund ra",
+      "r: Add cither • or • to your mana pool.",
+      "Counts as both islands and plains and is affected",
+      "by spells that affect either. If a spell destroys one",
+      "of these land types, this card is destroyed; if a spell",
+      "alters one of these land types, the other land type",
+      "is unaffected",
+      "Illus, © Jesper Myrtors"
+    ],
+    [
+      "Tundra",
+      "7: Add either • or • to your mana pool.",
+      "Counts as both islands and plains and is affected",
+      "by spells that affect either. If a spell destroys one",
+      "of these land types, this card is destroyed; if a spell",
+      "alters one of these land types, the other land type",
+      "is unaffected",
+      "Illus. © jesper Myrtors"
+    ],
+    [
+      "Fundra",
+      "KInd",
+      "7: Add either • or • to your mana pool.",
+      "Counts as both islands and plains and is affected",
+      "by spells that affect either. If a spell destroys one",
+      "of these land types, this card is destroyed; if a spell",
+      "alters one of these land types, the other land type",
+      "is unaffected",
+      "Illus, © Jesper Myrforg"
+    ],
+    [
+      "Tundra",
+      "and",
+      "r: Add either • or • to your mana pool.",
+      "Counts as both islands and plains and is affected",
+      "by spells that affect either. If a spell destroys one",
+      "of these land types, this card is destroyed; if a spell",
+      "alters one of these land types, the other land type",
+      "is unaffected.",
+      "Illus. © Jesper Myrtors"
+    ],
+    [
+      "Fundra",
+      "and",
+      "›: Add either • or • to your mana pool.",
+      "Counts as both islands and plains and is affected",
+      "by spells that affect either. If a spell destroys one",
+      "of these land types, this card is destroyed; if a spell",
+      "alters one of these land types, the other land type",
+      "is unaffected.",
+      "Illus. © Jesper Myriors"
+    ],
+    [
+      "rundra",
+      "Land",
+      "›: Add either • or • to your mana pool.",
+      "Counts as both islands and plains and is affected",
+      "by spells that affect either. If a spell destroys one",
+      "of these land types, this card is destroyed; if a spell",
+      "alters one of these land types, the other land type",
+      "is unaffected.",
+      "Illus. © Jesper Myrtors"
+    ]
+  ],
+  "source": "report",
+  "matched": {
+    "cn": "284",
+    "set": "lea",
+    "name": "Tundra",
+    "exact": false,
+    "card_id": "a03e8c5b-f4ed-4fd7-ba05-db813ccc05eb"
+  },
+  "platform": "ios",
+  "owned_only": false,
+  "app_version": "0.1.0 (28)",
+  "reported_at": "2026-10-26T04:22:48.453925+00:00",
+  "pack_version": "v1-649ab7054259"
+}

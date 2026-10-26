@@ -1,0 +1,76 @@
+{
+  "cn": "282",
+  "id": "f04fb4f6-e7e1-47bd-887c-e233e371f2b7",
+  "set": "2ed",
+  "kind": "wrong_printing",
+  "name": "Scrubland",
+  "frames": [
+    [
+      "Scrubland",
+      "Counts as both plains and swamp",
+      "and is affected by spells that artec",
+      "cither. Tap to add either • ore te",
+      "your mana pool",
+      "Ils. © Rapes Alyrior:"
+    ],
+    [
+      "Serubland",
+      "Counts as both plains and swamp",
+      "and is affected by spells that affec",
+      "either. Tap to add either • or • to",
+      "your mana pool.",
+      "Illus. O fespes Myrfors"
+    ],
+    [
+      "Berubland",
+      "Counts as both plains and swamp",
+      "and is affected by spells that affect",
+      "either. Tap to add either • or",
+      "• to",
+      "your mana pool",
+      "Ius.",
+      "© Jesper tyrfors"
+    ],
+    [
+      "Scrubland",
+      "Counts as both plains and swamp",
+      "and is affected by spells that affect",
+      "either.",
+      "Tap to add either • or # to",
+      "your mana pool.",
+      "Illus. © Jeaper Myrtors"
+    ],
+    [
+      "Scrubland",
+      "Counts as both plains and swamp",
+      "and is affected by spells that affec",
+      "either.",
+      "Tap to add either • or",
+      "• to",
+      "your mana pool.",
+      "Illus. © Jesper Myrford"
+    ],
+    [
+      "Scrubland",
+      "Counts as both plains and swamp",
+      "and is affected by spells that affect",
+      "either.",
+      "Tap to add either • or * to",
+      "your mana pool",
+      "Illus. © Jesper Myrfors"
+    ]
+  ],
+  "source": "report",
+  "matched": {
+    "cn": "281",
+    "set": "lea",
+    "name": "Scrubland",
+    "exact": false,
+    "card_id": "bebe39d4-21fb-46a4-a1ec-b97102e46c15"
+  },
+  "platform": "ios",
+  "owned_only": false,
+  "app_version": "0.1.0 (28)",
+  "reported_at": "2026-10-26T04:21:55.362618+00:00",
+  "pack_version": "v1-649ab7054259"
+}

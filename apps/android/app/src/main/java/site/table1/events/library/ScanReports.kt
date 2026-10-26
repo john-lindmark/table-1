@@ -53,20 +53,36 @@ class ScanFrames {
     val frames = ArrayDeque<List<String>>()
     /** The last frames that had any text (what a miss is reported with). */
     val withText = ArrayDeque<List<String>>()
+    /** Since the last take: frames with text that named no card, the last few of them kept. */
+    var unnamed = 0
+        private set
+    val unnamedFrames = ArrayDeque<List<String>>()
 
-    fun add(lines: List<String>) {
+    fun add(lines: List<String>, named: Boolean = false) {
         val f = lines.take(80)
         frames.addLast(f)
         while (frames.size > KEEP) frames.removeFirst()
         if (f.isNotEmpty()) {
             withText.addLast(f)
             while (withText.size > KEEP) withText.removeFirst()
+            if (!named) {
+                unnamed++
+                unnamedFrames.addLast(f)
+                while (unnamedFrames.size > KEEP) unnamedFrames.removeFirst()
+            }
         }
     }
 
-    fun clear() { frames.clear(); withText.clear() }
+    /** A card was taken: what came before it was read. */
+    fun took() { unnamed = 0; unnamedFrames.clear() }
 
-    companion object { const val KEEP = 6 }
+    fun clear() { frames.clear(); withText.clear(); took() }
+
+    companion object {
+        const val KEEP = 6
+        /** About 2 s of card text naming nothing: a card the scanner couldn't read. */
+        const val MISSED = 10
+    }
 }
 
 object ScanReports {
@@ -100,10 +116,16 @@ object ScanReports {
         hold(Pending(Kind.Removed, card.frames, m, ownedOnly, System.currentTimeMillis()))
     }
 
-    /** The scanner closed. Nothing taken but text seen: the next card added by hand is probably the one it missed. */
+    /** The scanner closed. Nothing taken but text seen, or card text naming nothing for a while since the last take
+     *  (an old card it couldn't read, between ones it could): the next card added by hand is probably the one it missed. */
     fun scannerClosed(taken: Int, frames: ScanFrames, ownedOnly: Boolean) {
-        if (!enabled || taken > 0 || frames.withText.isEmpty()) return
-        hold(Pending(Kind.Missed, frames.withText.toList(), null, ownedOnly, System.currentTimeMillis()))
+        if (!enabled) return
+        val missed = when {
+            taken == 0 && frames.withText.isNotEmpty() -> frames.withText
+            frames.unnamed >= ScanFrames.MISSED -> frames.unnamedFrames
+            else -> return
+        }
+        hold(Pending(Kind.Missed, missed.toList(), null, ownedOnly, System.currentTimeMillis()))
     }
 
     /** A card was added by hand (collection +1, a trade line picked by search). Answers the oldest open deletion or miss. */

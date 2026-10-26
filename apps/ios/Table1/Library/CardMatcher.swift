@@ -293,6 +293,10 @@ final class CardMatcher: @unchecked Sendable {
     private var oracles: [Int: CatalogOracle] = [:]
     private var printingsByOracle: [Int: [CatalogPrinting]] = [:]
     private var bySetCn: [String: [CatalogPrinting]] = [:]
+    /// The last printing picked by hand this session. When nothing read tells a card's printings apart, the next
+    /// card goes in as that set, nearest that collector number: after one fix, a stack of Beta cards or a run of
+    /// MH2's retro fetchlands (436–440, not the regular 248–254) follows.
+    private(set) var lastPick: CatalogPrinting?
 
     init(db: CatalogDB, owned: [String: Set<String>]?, preferred: [String: Set<String>] = [:], names: ScanNames? = nil) {
         self.db = db
@@ -308,7 +312,7 @@ final class CardMatcher: @unchecked Sendable {
 
     func match(_ lines: [String]) -> Match? {
         let bottom = Collector(lines, sets: names.sets)
-        if let hit = name(lines), let o = oracle(hit.idx), let (p, exact) = pick(o, lines, bottom) {
+        if let hit = name(lines), let o = oracle(hit.idx), let (p, exact) = pick(o, lines, bottom, langs: hit.langs) {
             return (o, p, exact, bottom.lang.map { [$0] } ?? hit.langs)
         }
         // Not an English name (or none legible): the set code and collector number, when they agree on one card.
@@ -321,6 +325,9 @@ final class CardMatcher: @unchecked Sendable {
         guard hits.count == 1, let (idx, p) = hits.first, let o = oracle(idx) else { return nil }
         return (o, p, true, bottom.lang.map { [$0] } ?? [])
     }
+
+    /// A printing picked by hand (the scanned row's Change printing): the guess for the next card that reads alike.
+    func picked(_ p: CatalogPrinting) { lastPick = p }
 
     /// The finish a scanned copy starts as: what you own of it in owned-only mode, else non-foil when printed.
     func defaultFinish(_ p: CatalogPrinting) -> String {
@@ -432,24 +439,36 @@ final class CardMatcher: @unchecked Sendable {
 
     // MARK: printing
 
-    /// The printing: set code read (4), collector number read (2), copyright year (1); ties go to English, a
-    /// regular collector number, then the default printing. Exact when the set code and number agree, the set has
-    /// only one printing of the card, or the number and year single one out. A prerelease date stamp picks the
-    /// set's prerelease promo.
-    private func pick(_ o: CatalogOracle, _ lines: [String], _ bottom: Collector) -> (CatalogPrinting, Bool)? {
+    /// The printing: set code read (4), collector number read (2), copyright year (1), or for an old frame (an
+    /// "Illus." line and no year: 4th Edition on prints "© 1995") a 1993–94 printing (1); ties go to a for-trade copy,
+    /// the set last picked by hand (nearest its number), the name's language on an old frame (French Sol Ring → Foreign Black Border),
+    /// English, a regular collector number, the most printed of Revised, Unlimited, Beta, Alpha (nothing printed on
+    /// them tells them apart, and Alpha was the rarest), then the default printing. Exact when the set code and
+    /// number agree, the set has only one printing of the card, or the number and year single one out. A prerelease
+    /// date stamp picks the set's prerelease promo.
+    private func pick(_ o: CatalogOracle, _ lines: [String], _ bottom: Collector, langs: [String] = []) -> (CatalogPrinting, Bool)? {
         let ps = printings(o.idx)
         guard !ps.isEmpty else { return nil }
         let years = Self.years(lines)
+        let old = years.isEmpty && bottom.sets.isEmpty && bottom.numbers.isEmpty && Self.illustrated(lines)
         func number(_ p: CatalogPrinting) -> String { Self.stripZeros(p.cn.lowercased()) }
         func year(_ p: CatalogPrinting) -> Int? { Int(p.releasedAt.prefix(4)) }
         func score(_ p: CatalogPrinting) -> Int {
             (bottom.sets.contains(p.set) ? 4 : 0) + (bottom.numbers.contains(number(p)) ? 2 : 0)
-                + (year(p).map(years.contains) == true ? 1 : 0)
+                + (year(p).map(years.contains) == true || (old && Self.early(p)) ? 1 : 0)
         }
-        func key(_ p: CatalogPrinting) -> (Int, Int, Int, Int, Int, Int) {
-            (score(p), preferred[p.cardId] != nil ? 1 : 0, p.lang == "en" ? 1 : 0, p.cn.hasSuffix("★") ? 0 : 1, p.original ? 1 : 0, -p.ord)
+        let last = lastPick.map { ($0.set, Self.digits($0.cn)) }
+        func near(_ p: CatalogPrinting) -> Int {
+            guard let last, p.set == last.0 else { return Int.min }
+            return -abs(Self.digits(p.cn) - last.1)
         }
-        var best = ps.max { key($0) < key($1) }!
+        func key(_ p: CatalogPrinting) -> [Int] {
+            let s = score(p), trade = preferred[p.cardId] != nil ? 1 : 0, picked = near(p)
+            let lang = old && langs.contains(p.lang) ? 1 : 0, en = p.lang == "en" ? 1 : 0
+            let regular = p.cn.hasSuffix("★") ? 0 : 1, run = Self.printRun[p.set] ?? 0
+            return [s, trade, picked, lang, en, regular, run, p.original ? 1 : 0, -p.ord]
+        }
+        var best = ps.max { key($0).lexicographicallyPrecedes(key($1)) }!
         let exact = (bottom.sets.contains(best.set) && (bottom.numbers.contains(number(best)) || ps.filter { $0.set == best.set }.count == 1))
             || (bottom.numbers.contains(number(best)) && year(best).map(years.contains) == true
                 && ps.filter { number($0) == number(best) }.count == 1)
@@ -460,6 +479,22 @@ final class CardMatcher: @unchecked Sendable {
         }
         return (best, exact)
     }
+
+    /// The 1993–94 core sets, most printed first: one printed card reads the same in all four.
+    private static let printRun = ["3ed": 4, "2ed": 3, "leb": 2, "lea": 1]
+
+    /// Printed before cards carried a copyright year (4th Edition, April 1995).
+    private static func early(_ p: CatalogPrinting) -> Bool { (Int(p.releasedAt.prefix(4)) ?? 9999) <= 1994 }
+
+    /// An artist credit as old frames print it ("Illus. Mark Poole"; also read as "Ius." or "lllus,").
+    private static func illustrated(_ lines: [String]) -> Bool {
+        lines.contains { $0.trimmingCharacters(in: .whitespaces).firstMatch(of: illus) != nil }
+    }
+
+    nonisolated(unsafe) private static let illus = #/^(?i)[il1|]{0,3}us[.,]\s/#
+
+    /// A collector number's digits as a number ("437" → 437, "M20-125" → 20125), for nearness.
+    private static func digits(_ cn: String) -> Int { Int(cn.filter { ("0"..."9").contains($0) }.prefix(6)) ?? 0 }
 
     private static func stripZeros(_ s: String) -> String {
         let t = s.drop { $0 == "0" }
@@ -593,11 +628,15 @@ struct Collector {
 /// Timings from the movement clips in testdata/scan (motion.json): a hand settling a card or holding it with a
 /// little shake is taken within about a second; a card swept past the camera isn't taken at all.
 struct ScanSteadiness {
-    /// Taken this long after it's first seen once its printing is read; without the printing, a little longer.
+    /// Taken this long after it's first seen once its printing is read; without the printing, a little longer and
+    /// named in at least `reads` frames (1993–2003 frames print no set code, and their names misread in a third of
+    /// frames or more: Crusade, named 6 times in 2.4 s with gaps of 0.6 s, was never taken while any gap over 0.5 s
+    /// started it over).
     static let quick: TimeInterval = 0.4
     static let slow: TimeInterval = 0.8
+    static let reads = 3
     /// A blurred or unreadable frame doesn't drop the card in view unless the gap lasts this long.
-    static let gap: TimeInterval = 0.5
+    static let gap: TimeInterval = 1.0
     /// After a take, the same card has to be out of view this long before it counts again.
     static let away: TimeInterval = 1.0
 
@@ -606,6 +645,8 @@ struct ScanSteadiness {
         let since: Date
         var seen: Date
         var latest: CatalogPrinting
+        /// Frames that named it.
+        var named = 0
         /// Exact reads per printing; the most read one wins.
         var votes: [String: (CatalogPrinting, Int)] = [:]
     }
@@ -629,11 +670,12 @@ struct ScanSteadiness {
         guard var c = candidate else { return nil }
         c.seen = now
         c.latest = m.printing
+        c.named += 1
         if m.exact { c.votes[m.printing.cardId, default: (m.printing, 0)].1 += 1 }
         candidate = c
         let voted = c.votes.values.max { $0.1 < $1.1 }?.0
         let held = ms(now, c.since)
-        guard (voted != nil && held >= ms(Self.quick)) || held >= ms(Self.slow) else { return nil }
+        guard (voted != nil && held >= ms(Self.quick)) || (held >= ms(Self.slow) && c.named >= Self.reads) else { return nil }
         candidate = nil
         lastAccepted = (m.oracle.idx, now)
         return voted.map { ($0, true) } ?? (c.latest, false)

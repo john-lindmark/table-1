@@ -5,7 +5,8 @@ import Supabase
    - Changed the printing of a scanned card → wrong_printing, at once.
    - Deleted a scanned card → removed; if a card is then added by hand within 3 minutes, that card is the answer
      and it goes as wrong_card instead (the same card added back is a duplicate deleted, and nothing is sent).
-   - Closed the scanner with nothing taken, then added a card by hand within 3 minutes → missed.
+   - Closed the scanner with nothing taken, or after 2 s of card text naming nothing since the last take (an old card
+     it couldn't read, between ones it could), then added a card by hand within 3 minutes → missed.
    Each carries the OCR lines of the frames the matcher saw (scan_report), and becomes a matcher test case in
    testdata/scan/reports/. Text only, never images. On by default; Account → Improve scanning turns it off.
    Changing the finish isn't reported: the camera can't tell foil. Contract: contract/trades-2026-10-16.md. */
@@ -16,15 +17,31 @@ struct ScanFrames {
     private(set) var frames: [[String]] = []
     /// The last frames that had any text (what a miss is reported with).
     private(set) var withText: [[String]] = []
+    /// Since the last take: frames with text that named no card, the last few of them kept.
+    private(set) var unnamed = 0
+    private(set) var unnamedFrames: [[String]] = []
+    /// About 2 s of card text naming nothing: a card the scanner couldn't read.
+    static let missed = 10
 
-    mutating func add(_ lines: [String]) {
+    mutating func add(_ lines: [String], named: Bool = false) {
         let f = Array(lines.prefix(80))
         frames.append(f)
         if frames.count > Self.keep { frames.removeFirst(frames.count - Self.keep) }
         if !f.isEmpty {
             withText.append(f)
             if withText.count > Self.keep { withText.removeFirst(withText.count - Self.keep) }
+            if !named {
+                unnamed += 1
+                unnamedFrames.append(f)
+                if unnamedFrames.count > Self.keep { unnamedFrames.removeFirst(unnamedFrames.count - Self.keep) }
+            }
         }
+    }
+
+    /// A card was taken: what came before it was read.
+    mutating func took() {
+        unnamed = 0
+        unnamedFrames = []
     }
 }
 
@@ -58,10 +75,15 @@ enum ScanReports {
         hold(Pending(kind: .removed, frames: card.frames, matched: m, ownedOnly: ownedOnly, at: .now))
     }
 
-    /// The scanner closed. Nothing taken but text seen: the next card added by hand is probably the one it missed.
+    /// The scanner closed. Nothing taken but text seen, or card text naming nothing for a while since the last take:
+    /// the next card added by hand is probably the one it missed.
     static func scannerClosed(taken: Int, frames: ScanFrames, ownedOnly: Bool) {
-        guard enabled, taken == 0, !frames.withText.isEmpty else { return }
-        hold(Pending(kind: .missed, frames: frames.withText, matched: nil, ownedOnly: ownedOnly, at: .now))
+        guard enabled else { return }
+        if taken == 0, !frames.withText.isEmpty {
+            hold(Pending(kind: .missed, frames: frames.withText, matched: nil, ownedOnly: ownedOnly, at: .now))
+        } else if frames.unnamed >= ScanFrames.missed {
+            hold(Pending(kind: .missed, frames: frames.unnamedFrames, matched: nil, ownedOnly: ownedOnly, at: .now))
+        }
     }
 
     /// A card was added by hand (collection +1, a trade line picked by search). Answers the oldest open deletion or miss.

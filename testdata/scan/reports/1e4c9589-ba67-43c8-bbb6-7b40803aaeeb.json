@@ -1,0 +1,75 @@
+{
+  "cn": "274",
+  "id": "1e4c9589-ba67-43c8-bbb6-7b40803aaeeb",
+  "set": "fbb",
+  "kind": "wrong_printing",
+  "name": "Sol Ring",
+  "frames": [
+    [
+      "Anncau solaire",
+      "Artefact",
+      "• : Ajoutez 2 manas",
+      "incolores à votre réserve de",
+      "mana. Cet effet est joué",
+      "comme une interruption.",
+      "Illus. Mark Tedin"
+    ],
+    [
+      "Anncau solaire",
+      "Artefher",
+      "• : Ajoutez 2 manas",
+      "incolores à votre réserve de",
+      "mana. Cet effet est joué",
+      "comme une interruption."
+    ],
+    [
+      "Anncau solaire",
+      "Artefact",
+      "• : Ajoutez 2 manas",
+      "incolores à votre réserve de",
+      "mana. Cet effet est joué",
+      "comme une interruption.",
+      "Illus. Mark Tedin"
+    ],
+    [
+      "Anncau solaire",
+      "Artefact",
+      "• : Ajoutez 2 manas",
+      "incolores à votre réserve de",
+      "mana. Cet effet est joué",
+      "comme une interruption.",
+      "Illus. Mark Tedin"
+    ],
+    [
+      "Anncau solaire",
+      "Artefact",
+      "• : Ajoutez 2 manas",
+      "incolores à votre réserve de",
+      "mana. Cet effet est joué",
+      "comme une interruption.",
+      "Illus. Mark Tedin"
+    ],
+    [
+      "Anncau solaire",
+      "Artefact",
+      "• : Ajoutez 2 manas",
+      "incolores à votre réserve de",
+      "mana. Cet effet est joué",
+      "comme une interruption.",
+      "Illus, Mark Tedin"
+    ]
+  ],
+  "source": "report",
+  "matched": {
+    "cn": "269",
+    "set": "lea",
+    "name": "Sol Ring",
+    "exact": false,
+    "card_id": "c4300d24-1cae-4dd5-be7e-38cc677cf5bd"
+  },
+  "platform": "ios",
+  "owned_only": false,
+  "app_version": "0.1.0 (14)",
+  "reported_at": "2026-10-20T23:42:32.248706+00:00",
+  "pack_version": "v1-8a44d8e227f7"
+}

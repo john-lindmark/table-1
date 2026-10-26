@@ -198,10 +198,21 @@ What changed:
   pt and ru pick the prerelease promo ("27-28 giugno 2020").
 - Steadiness: taken 0.4 s after first seen once the printing is read, else 0.8 s (was 1.2 s); a blurred frame no
   longer resets the card unless the gap passes 0.5 s; the printing is the one read most often.
+- Old frames (2026-10-26): with no printing to read they wait for the slow take, and their names misread in a third
+  of frames or more ("Fundra", "Cuunterspell", "Uhamme" in phone reports), so a gap over 0.5 s kept starting them
+  over (Crusade, named 6 times in 2.4 s, never taken). The gap is now 1 s and the slow take needs 3 frames that name
+  the card. Movement clips: shake 42/51 → 46/51, settle median 1.6 → 1.2 s, sweeps 0/48 taken, no wrong cards;
+  1993–2003 frames 19/26 → 20/26 (the rest are names the camera doesn't read at all: "D vamp", nothing for
+  Cyclopean Tomb). Printing: an "Illus." line and no year means 1993–94; ties go to Revised, Unlimited, Beta, then
+  Alpha (was Alpha); a foreign name on an old frame picks that language's printing (Foreign Black Border); the
+  printing picked by hand on a scanned row is the next guess (same set, nearest number). Phone reports in
+  `reports/` (the 7 old-card ones): 5/7 printings right, was 0/7; the 2 left are Unlimited Scrublands read as
+  Revised, which no text tells apart (the border colour would: black Alpha/Beta, white Unlimited/Revised).
 
 Known gaps:
 - Old cards (1993–1997 frames) print no set code or collector number, so the printing is a guess (flagged "Check
-  printing"); 10 of 19 such cards get the wrong printing, almost all Revised/Unlimited/4th Edition read as Alpha.
+  printing"). Since 2026-10-26 the guess is Revised, not Alpha; Beta and Unlimited need one fix by hand, then
+  follow. The border colour isn't read. Old-frame names misread far more than modern ones on a phone.
 - Japanese, Korean and Chinese: see the 25 misses above. Language detection has not been tried on a phone yet.
 - A printed name matches the card, not the foreign printing: most foreign printings aren't in the catalog
   (Scryfall `default_cards`), so the printing is the English one with the same set and number when it's read.

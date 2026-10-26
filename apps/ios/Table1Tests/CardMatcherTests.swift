@@ -186,6 +186,65 @@ final class CardMatcherTests: XCTestCase {
         XCTAssertNil(Collector(["WAR • JP", "WAR • EN"], sets: ["war"]).lang, "two codes")
     }
 
+    /// 1993–94 cards print no set, number or year, so nothing read tells Alpha, Beta, Unlimited and Revised apart.
+    /// They went in as Alpha, the rarest (scan reports 2026-10-26: Channel, Tundra, Counterspell were Revised,
+    /// Scrubland Unlimited, a French Sol Ring Foreign Black Border). Now: the most printed, the name's language on an
+    /// old frame, and after a fix by hand the set picked (nearest its number: MH2's retro fetchlands, not the regular ones).
+    func testOldPrintings() throws {
+        let m = matcher()
+        func got(_ lines: [String]) -> String {
+            guard let r = m.match(lines) else { return "nothing" }
+            return "\(r.printing.set) \(r.printing.cn)\(r.exact ? " exact" : "")"
+        }
+        XCTAssertEqual(got(["Channel", "Sorcery", "Until end of turn, you may add", "Illus. © Richard Thomas"]), "3ed 188")
+        XCTAssertEqual(got(["Counterspell", "Counters target spell", "as it is being cast."]), "3ed 54", "no bottom read")
+        XCTAssertEqual(got(["Black Lotus", "Mono Artifact", "Illus. Christopher Rush"]), "2ed 233", "not in Revised")
+        XCTAssertEqual(got(["Anneau solaire", "Artefact", "Illus, Mark Tedin"]), "fbb 274", "French, old frame")
+        XCTAssertEqual(got(["Channel", "Sorcery", "Illus. Richard Thomas", "© 1995 Wizards of the Coast, Inc."]), "4ed 236",
+                       "4th Edition prints a year")
+
+        let printings = { (name: String) in Self.db.printings(oracleIdx: Self.expectedIdx[CardName.norm(name)]!) }
+        m.picked(printings("Tundra").first { $0.set == "leb" }!)
+        XCTAssertEqual(got(["Scrubland", "Counts as both plains and swamp", "Illus. © Jesper Myrfors"]), "leb 282", "Beta, as picked")
+        XCTAssertEqual(got(["Channel", "Sorcery", "Illus. Richard Thomas", "© 1995 Wizards of the Coast, Inc."]), "4ed 236",
+                       "what's read still wins")
+
+        XCTAssertEqual(got(["Marsh Flats", "Land", "Pay 1 life, Sacrifice Marsh Flats"]), "zen 219", "the original, before a fix")
+        m.picked(printings("Marsh Flats").first { $0.set == "mh2" && $0.cn == "437" }!)
+        XCTAssertEqual(got(["Scalding Tarn", "Land", "Pay 1 life, Sacrifice Scalding Tarn"]), "mh2 439", "retro, as picked")
+        XCTAssertEqual(got(["Arid Mesa", "Land"]), "mh2 436")
+    }
+
+    /// An old card whose name reads in every other frame or so (no printing to read, so the slow take): named 6 times
+    /// in 2.4 s with gaps of 0.6 s, Crusade was never taken while a gap over 0.5 s started it over.
+    func testOldFrameTaken() throws {
+        let clips = try JSONDecoder().decode([String: [[String]]].self, from: Data(contentsOf: root.appending(path: "motion.json")))
+        XCTAssertEqual(take(clips["016-crusade.jpg"]!)?.0.name, "Crusade")
+        // Named twice, a second apart: not enough to take.
+        let m = matcher()
+        var steady = ScanSteadiness()
+        let lines = ["Crusade", "Enchantment", "All white creatures get +1/+1."]
+        XCTAssertNil(steady.feed(m.match(lines), at: Date(timeIntervalSince1970: 0)))
+        XCTAssertNil(steady.feed(nil, at: Date(timeIntervalSince1970: 0.4)))
+        XCTAssertNil(steady.feed(m.match(lines), at: Date(timeIntervalSince1970: 0.9)))
+        XCTAssertNotNil(steady.feed(m.match(lines), at: Date(timeIntervalSince1970: 1.1)), "a third read takes it")
+    }
+
+    /// A card the scanner couldn't read between ones it could is a miss too (2026-10-26: old cards typed in by hand
+    /// after scanning others sent nothing, since only a scan with no take was reported).
+    func testMissAfterTake() {
+        var f = ScanFrames()
+        for _ in 0..<3 { f.add(["Scrubland", "Land"], named: true) }
+        f.took()
+        f.add([])
+        for k in 0..<ScanFrames.missed { f.add(["D vamp \(k)", "Tap to add 4 to"]) }
+        XCTAssertEqual(f.unnamed, ScanFrames.missed, "blank frames don't count")
+        XCTAssertEqual(f.unnamedFrames.count, ScanFrames.keep)
+        XCTAssertEqual(f.unnamedFrames.last?.first, "D vamp \(ScanFrames.missed - 1)")
+        f.took()
+        XCTAssertEqual(f.unnamed, 0)
+    }
+
     /// Cards printed in other languages, read two ways: `accurate` is OCR in the phone's language (Cyrillic comes
     /// through, Chinese, Japanese and Korean don't), `multi` is OCR that detects the language, as the scanner reads
     /// since 2026-10-16. Names in other languages come from the catalog pack's N lines.
@@ -307,7 +366,8 @@ final class CardMatcherTests: XCTestCase {
         print(report.joined(separator: "\n"))
         for (kind, t) in byKind { XCTAssertEqual(t.wrong, 0, "a wrong card taken while moving (\(kind))") }
         XCTAssertGreaterThanOrEqual(Double(byKind["settle"]!.name) / Double(byKind["settle"]!.n), 0.9)
-        XCTAssertGreaterThanOrEqual(Double(byKind["shake"]!.name) / Double(byKind["shake"]!.n), 0.8)
+        XCTAssertGreaterThanOrEqual(Double(byKind["shake"]!.name) / Double(byKind["shake"]!.n), 0.88)
+        XCTAssertEqual(byKind["sweep"]!.name, 0, "a card swept past is never taken")
     }
 
     /// Scan corrections people reported (testdata/scan/tools/export_reports.py): each is a clip of the frames

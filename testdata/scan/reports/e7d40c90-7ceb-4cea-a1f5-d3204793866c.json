@@ -1,0 +1,102 @@
+{
+  "cn": "188",
+  "id": "e7d40c90-7ceb-4cea-a1f5-d3204793866c",
+  "set": "3ed",
+  "kind": "wrong_printing",
+  "name": "Channel",
+  "frames": [
+    [
+      "Uhamme",
+      "of turn, you may add",
+      "Latil end",
+      "to your mana pool",
+      "per point of",
+      "2t a cst of 1",
+      "These additions are played",
+      "mana",
+      "with the speed of an interrupt-",
+      "Effects that prevent on redirect",
+      "damage may not be used to",
+      "goranter this loss of life.",
+      "hard Thom"
+    ],
+    [
+      "Channe!",
+      "Sorcery",
+      "Until end of turn, you may add",
+      "colorless mana to your mana pool",
+      "at a cost of 1 life per point of",
+      "mana. These additions are played",
+      "with the speed of an interrupt.",
+      "Effects that prevent or redirect",
+      "damage may not be used to",
+      "counter this loss of life.",
+      "Illus. © Richard Thomas"
+    ],
+    [
+      "Channel",
+      "Sorcery",
+      "Until end of turn, you may add",
+      "colorless mana to your mana pool",
+      "at a cost of 1 life per point of",
+      "mana. These additions are played",
+      "with the speed of an interrupt.",
+      "Effects that prevent or redirect",
+      "damage may not be used to",
+      "çounter this loss of life.",
+      "Illus. © Richard Thomas"
+    ],
+    [
+      "Channel",
+      "Sorcery",
+      "Until end of turn, you may add",
+      "olorless mana to your mana pool",
+      "at a cost of 1 life per point of",
+      "mana. These additions are played",
+      "with the speed of an interrupt.",
+      "Effects that prevent or redirect",
+      "damage may not be used to",
+      "counter this loss of life.",
+      "Illus. © Richard Thomas"
+    ],
+    [
+      "Channel",
+      "Sorcery",
+      "Until end of turn, you may add",
+      "colorless mana to your mana pool",
+      "at a cost of 1 life per point of",
+      "mana. These additions are played",
+      "with the speed of an interrupt.",
+      "Effects that prevent or redirect",
+      "damage may not be used to",
+      "çounter this loss of life.",
+      "Illus. © Richard Thomas"
+    ],
+    [
+      "Channel",
+      "Sorcery",
+      "Until end of turn, you may add",
+      "colorless mana to your mana pool",
+      "at a cost of 1 life per point of",
+      "mana. These additions are played",
+      "with the speed of an interrupt.",
+      "Effects that prevent or redirect",
+      "damage may not be used to",
+      "counter this loss of life.",
+      "Illus. © Richard Thomas"
+    ]
+  ],
+  "source": "report",
+  "matched": {
+    "cn": "188",
+    "set": "lea",
+    "name": "Channel",
+    "exact": false,
+    "card_id": "c1862c47-71cc-45a3-8805-a5ddc62e55ea"
+  },
+  "platform": "ios",
+  "owned_only": false,
+  "app_version": "0.1.0 (27)",
+  "reported_at": "2026-10-26T03:05:16.413788+00:00",
+  "pack_version": "v1-649ab7054259"
+}

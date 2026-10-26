@@ -1,5 +1,7 @@
 package site.table1.events.library
 
+import kotlin.math.abs
+
 /* Scanner matching: OCR lines in, a card and printing out. Tuned against the photo test set in testdata/scan
    (README there; accuracy test in CardMatcherTest.kt). Same rules as iOS (CardMatcher.swift). */
 
@@ -227,11 +229,16 @@ class CardMatcher(
     private val oracles = HashMap<Int, CatalogOracle?>()
     private val printingsByOracle = HashMap<Int, List<CatalogPrinting>>()
     private val bySetCn = HashMap<String, List<CatalogPrinting>>()
+    /** The last printing picked by hand this session. When nothing read tells a card's printings apart, the next
+     *  card goes in as that set, nearest that collector number: after one fix, a stack of Beta cards or a run of
+     *  MH2's retro fetchlands (436–440, not the regular 248–254) follows. */
+    var lastPick: CatalogPrinting? = null
+        private set
 
     fun match(lines: List<String>): ScanMatch? {
         val bottom = Collector(lines, names.sets)
         val read = { name: List<String> -> bottom.lang?.let { listOf(it) } ?: name }
-        name(lines)?.let { hit -> oracle(hit.idx)?.let { o -> return pick(o, lines, bottom)?.copy(langs = read(hit.langs)) } }
+        name(lines)?.let { hit -> oracle(hit.idx)?.let { o -> return pick(o, lines, bottom, hit.langs)?.copy(langs = read(hit.langs)) } }
         // Not an English name (or none legible): the set code and collector number, when they agree on one card.
         val hits = LinkedHashMap<Int, CatalogPrinting>()
         for (s in bottom.sets) for (n in bottom.collectorNumbers) for (p in printings(s, n)) hits.putIfAbsent(p.oracleIdx, p)
@@ -239,6 +246,9 @@ class CardMatcher(
         val (idx, p) = hits.entries.first()
         return oracle(idx)?.let { ScanMatch(it, p, true, read(emptyList())) }
     }
+
+    /** A printing picked by hand (the scanned row's Change printing): the guess for the next card that reads alike. */
+    fun picked(p: CatalogPrinting) { lastPick = p }
 
     /** The finish a scanned copy starts as: what you own of it in owned-only mode, else non-foil when printed. */
     fun defaultFinish(p: CatalogPrinting): String {
@@ -311,22 +321,29 @@ class CardMatcher(
     }
 
     /**
-     * The printing: set code read (4), collector number read (2), copyright year (1); ties go to English, a
-     * regular collector number, then the default printing. Exact when the set code and number agree, the set has
-     * only one printing of the card, or the number and year single one out. A prerelease date stamp picks the
-     * set's prerelease promo.
+     * The printing: set code read (4), collector number read (2), copyright year (1), or for an old frame (an
+     * "Illus." line and no year: 4th Edition on prints "© 1995") a 1993–94 printing (1); ties go to a for-trade copy,
+     * the set last picked by hand (nearest its number), the name's language on an old frame (French Sol Ring →
+     * Foreign Black Border), English, a regular collector number, the most printed of Revised, Unlimited, Beta, Alpha
+     * (nothing printed on them tells them apart, and Alpha was the rarest), then the default printing. Exact when the
+     * set code and number agree, the set has only one printing of the card, or the number and year single one out.
+     * A prerelease date stamp picks the set's prerelease promo.
      */
-    private fun pick(o: CatalogOracle, lines: List<String>, bottom: Collector): ScanMatch? {
+    private fun pick(o: CatalogOracle, lines: List<String>, bottom: Collector, langs: List<String> = emptyList()): ScanMatch? {
         val ps = printings(o.idx)
         if (ps.isEmpty()) return null
         val years = years(lines)
+        val old = years.isEmpty() && bottom.sets.isEmpty() && bottom.numbers.isEmpty() && illustrated(lines)
         fun number(p: CatalogPrinting) = stripZeros(p.cn.lowercase())
         fun year(p: CatalogPrinting) = p.releasedAt.take(4).toIntOrNull()
         fun score(p: CatalogPrinting) = (if (p.set in bottom.sets) 4 else 0) + (if (number(p) in bottom.numbers) 2 else 0) +
-            (if (year(p) in years) 1 else 0)
+            (if (year(p) in years || (old && early(p))) 1 else 0)
+        val last = lastPick
+        fun near(p: CatalogPrinting) = if (last == null || p.set != last.set) Int.MIN_VALUE else -abs(digits(p.cn) - digits(last.cn))
         var best = ps.sortedWith(
-            compareByDescending<CatalogPrinting> { score(it) }.thenByDescending { it.cardId in preferred }.thenByDescending { it.lang == "en" }
-                .thenBy { it.cn.endsWith("★") }.thenByDescending { it.original }.thenBy { it.ord },
+            compareByDescending<CatalogPrinting> { score(it) }.thenByDescending { it.cardId in preferred }.thenByDescending { near(it) }
+                .thenByDescending { old && it.lang in langs }.thenByDescending { it.lang == "en" }
+                .thenBy { it.cn.endsWith("★") }.thenByDescending { PRINT_RUN[it.set] ?: 0 }.thenByDescending { it.original }.thenBy { it.ord },
         ).first()
         val exact = (best.set in bottom.sets && (number(best) in bottom.numbers || ps.count { it.set == best.set } == 1)) ||
             (number(best) in bottom.numbers && year(best) in years && ps.count { number(it) == number(best) } == 1)
@@ -390,6 +407,19 @@ class CardMatcher(
         val YEAR = Regex("19[89]\\d|20[0-4]\\d")
 
         fun stripZeros(s: String) = s.trimStart('0').ifEmpty { if (s.isEmpty()) "" else "0" }
+
+        /** The 1993–94 core sets, most printed first: one printed card reads the same in all four. */
+        val PRINT_RUN = mapOf("3ed" to 4, "2ed" to 3, "leb" to 2, "lea" to 1)
+
+        /** Printed before cards carried a copyright year (4th Edition, April 1995). */
+        fun early(p: CatalogPrinting) = (p.releasedAt.take(4).toIntOrNull() ?: 9999) <= 1994
+
+        /** An artist credit as old frames print it ("Illus. Mark Poole"; also read as "Ius." or "lllus,"). */
+        private val ILLUS = Regex("^[il1|]{0,3}us[.,]\\s", RegexOption.IGNORE_CASE)
+        fun illustrated(lines: List<String>) = lines.any { ILLUS.containsMatchIn(it.trim()) }
+
+        /** A collector number's digits as a number ("437" → 437, "M20-125" → 20125), for nearness. */
+        fun digits(cn: String) = cn.filter { it in '0'..'9' }.take(6).toIntOrNull() ?: 0
 
         /** Copyright years ("© 2019 Wizards", "1993-2003"): the last year of each. */
         fun years(lines: List<String>): Set<Int> {
@@ -478,6 +508,8 @@ class ScanSteadiness {
     private class Candidate(val idx: Int, val since: Long, var seen: Long, var latest: CatalogPrinting) {
         /** Exact reads per printing; the most read one wins. */
         val votes = LinkedHashMap<String, Pair<CatalogPrinting, Int>>()
+        /** Frames that named it. */
+        var named = 0
     }
     private var candidate: Candidate? = null
     private var lastIdx: Int? = null
@@ -494,10 +526,11 @@ class ScanSteadiness {
             ?: Candidate(m.oracle.idx, now, now, m.printing).also { candidate = it }
         c.seen = now
         c.latest = m.printing
+        c.named++
         if (m.exact) c.votes[m.printing.cardId] = m.printing to ((c.votes[m.printing.cardId]?.second ?: 0) + 1)
         val voted = c.votes.values.maxByOrNull { it.second }?.first
         val held = now - c.since
-        if (!((voted != null && held >= QUICK_MS) || held >= SLOW_MS)) return null
+        if (!((voted != null && held >= QUICK_MS) || (held >= SLOW_MS && c.named >= READS))) return null
         candidate = null
         lastIdx = m.oracle.idx
         lastSeen = now
@@ -505,11 +538,15 @@ class ScanSteadiness {
     }
 
     companion object {
-        /** Taken this long after it's first seen once its printing is read; without the printing, a little longer. */
+        /** Taken this long after it's first seen once its printing is read; without the printing, a little longer and
+         *  named in at least READS frames (1993–2003 frames print no set code, and their names misread in a third of
+         *  frames or more: Crusade, named 6 times in 2.4 s with gaps of 0.6 s, was never taken while any gap over
+         *  0.5 s started it over). */
         const val QUICK_MS = 400L
         const val SLOW_MS = 800L
+        const val READS = 3
         /** A blurred or unreadable frame doesn't drop the card in view unless the gap lasts this long. */
-        const val GAP_MS = 500L
+        const val GAP_MS = 1000L
         /** After a take, the same card has to be out of view this long before it counts again. */
         const val AWAY_MS = 1000L
     }

@@ -147,11 +147,12 @@ fun CardScanOverlay(
     /** One frame's lines; true when they name a card. */
     fun see(lines: List<String>): Boolean {
         val m = matcher ?: return false
-        frames.add(lines)
         val hit = m.match(lines)
+        frames.add(lines, named = hit != null)
         reading = hit?.oracle?.name
         val take = steady.feed(hit) ?: return hit != null
         val o = hit?.oracle ?: return false
+        frames.took()
         taken++
         cards.add(0, ScannedCard(oracle = o, printing = take.first, finish = m.defaultFinish(take.first),
             condition = if (owned == null) condition else "NM", exact = take.second,
@@ -176,6 +177,7 @@ fun CardScanOverlay(
             val close = { fixing = null; steady = ScanSteadiness(); frames.clear() }
             ScanPrintingScreen(fix, owned, onPick = { p ->
                 ScanReports.printingChanged(fix, p.cardId, owned != null)
+                matcher?.picked(p)
                 val at = cards.indexOfFirst { it.id == fix.id }
                 if (at >= 0) cards[at] = fix.copy(printing = p, fixed = true, lang = if (p.lang != "en") p.lang else fix.lang,
                     finish = if (p.finishList.any { it.wire == fix.finish }) fix.finish else matcher?.defaultFinish(p) ?: fix.finish)

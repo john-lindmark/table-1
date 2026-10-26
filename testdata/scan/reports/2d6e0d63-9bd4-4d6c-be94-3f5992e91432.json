@@ -1,0 +1,59 @@
+{
+  "cn": "54",
+  "id": "2d6e0d63-9bd4-4d6c-be94-3f5992e91432",
+  "set": "3ed",
+  "kind": "wrong_printing",
+  "name": "Counterspell",
+  "frames": [
+    [
+      "Cipunterspell",
+      "Counters target spell",
+      "as it is being cast."
+    ],
+    [
+      "Counterspell\"",
+      "terrupt",
+      "Counters target spell",
+      "as it is being cast.",
+      "Illus"
+    ],
+    [
+      "Counterspell",
+      "Counters target spell",
+      "as it is being cast.",
+      "© M",
+      "Mus."
+    ],
+    [
+      "Councerspell",
+      "Counters target spell",
+      "as it is being cast.",
+      "Hlus"
+    ],
+    [
+      "Counterspel!",
+      "Counters target spell",
+      "as it is being cast.",
+      "Sles.",
+      "@ Mart"
+    ],
+    [
+      "Cuunterspell",
+      "Counters target spell",
+      "as it is being cast."
+    ]
+  ],
+  "source": "report",
+  "matched": {
+    "cn": "54",
+    "set": "lea",
+    "name": "Counterspell",
+    "exact": false,
+    "card_id": "0df55e3f-14de-46ef-b6b1-616618724d9e"
+  },
+  "platform": "ios",
+  "owned_only": false,
+  "app_version": "0.1.0 (28)",
+  "reported_at": "2026-10-26T04:23:57.402668+00:00",
+  "pack_version": "v1-649ab7054259"
+}

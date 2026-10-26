@@ -7,6 +7,8 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.BeforeClass
 import org.junit.Test
@@ -272,7 +274,65 @@ class CardMatcherTest {
         }.joinToString("\n"))
         for ((kind, t) in byKind) assertEquals("a wrong card taken while moving ($kind)", 0, t.wrong)
         assertTrue(byKind.getValue("settle").let { it.name.toDouble() / it.n } >= 0.9)
-        assertTrue(byKind.getValue("shake").let { it.name.toDouble() / it.n } >= 0.8)
+        assertTrue(byKind.getValue("shake").let { it.name.toDouble() / it.n } >= 0.88)
+        assertEquals("a card swept past is never taken", 0, byKind.getValue("sweep").name)
+    }
+
+    /**
+     * 1993–94 cards print no set, number or year, so nothing read tells Alpha, Beta, Unlimited and Revised apart.
+     * They went in as Alpha, the rarest (scan reports 2026-10-26). Now: the most printed, the name's language on an
+     * old frame, and after a fix by hand the set picked (nearest its number: MH2's retro fetchlands). Same as iOS.
+     */
+    @Test
+    fun oldPrintings() {
+        val m = matcher()
+        fun got(lines: List<String>) = m.match(lines)?.let { "${it.printing.set} ${it.printing.cn}${if (it.exact) " exact" else ""}" } ?: "nothing"
+        assertEquals("3ed 188", got(listOf("Channel", "Sorcery", "Until end of turn, you may add", "Illus. © Richard Thomas")))
+        assertEquals("no bottom read", "3ed 54", got(listOf("Counterspell", "Counters target spell", "as it is being cast.")))
+        assertEquals("not in Revised", "2ed 233", got(listOf("Black Lotus", "Mono Artifact", "Illus. Christopher Rush")))
+        assertEquals("French, old frame", "fbb 274", got(listOf("Anneau solaire", "Artefact", "Illus, Mark Tedin")))
+        val fourth = listOf("Channel", "Sorcery", "Illus. Richard Thomas", "© 1995 Wizards of the Coast, Inc.")
+        assertEquals("4th Edition prints a year", "4ed 236", got(fourth))
+
+        fun printings(name: String) = catalog.printings(catalog.expected.getValue(CardName.norm(name)))
+        m.picked(printings("Tundra").first { it.set == "leb" })
+        assertEquals("Beta, as picked", "leb 282", got(listOf("Scrubland", "Counts as both plains and swamp", "Illus. © Jesper Myrfors")))
+        assertEquals("what's read still wins", "4ed 236", got(fourth))
+
+        assertEquals("the original, before a fix", "zen 219", got(listOf("Marsh Flats", "Land", "Pay 1 life, Sacrifice Marsh Flats")))
+        m.picked(printings("Marsh Flats").first { it.set == "mh2" && it.cn == "437" })
+        assertEquals("retro, as picked", "mh2 439", got(listOf("Scalding Tarn", "Land", "Pay 1 life, Sacrifice Scalding Tarn")))
+        assertEquals("mh2 436", got(listOf("Arid Mesa", "Land")))
+    }
+
+    /** An old card whose name reads in every other frame or so: Crusade, named 6 times in 2.4 s with gaps of 0.6 s. */
+    @Test
+    fun oldFrameTaken() {
+        val clips = Json.parseToJsonElement(File(root, "motion.json").readText()).jsonObject
+        val crusade = clips.getValue("016-crusade.jpg").jsonArray.map { f -> f.jsonArray.map { it.jsonPrimitive.content } }
+        assertEquals("Crusade", take(crusade)?.first?.oracle?.name)
+        val m = matcher()
+        val steady = ScanSteadiness()
+        val lines = listOf("Crusade", "Enchantment", "All white creatures get +1/+1.")
+        assertNull(steady.feed(m.match(lines), 0))
+        assertNull(steady.feed(null, 400))
+        assertNull("named twice: not enough", steady.feed(m.match(lines), 900))
+        assertNotNull("a third read takes it", steady.feed(m.match(lines), 1100))
+    }
+
+    /** A card the scanner couldn't read between ones it could is a miss too (only a scan with no take was reported). */
+    @Test
+    fun missAfterTake() {
+        val f = ScanFrames()
+        repeat(3) { f.add(listOf("Scrubland", "Land"), named = true) }
+        f.took()
+        f.add(emptyList())
+        repeat(ScanFrames.MISSED) { k -> f.add(listOf("D vamp $k", "Tap to add 4 to")) }
+        assertEquals("blank frames don't count", ScanFrames.MISSED, f.unnamed)
+        assertEquals(ScanFrames.KEEP, f.unnamedFrames.size)
+        assertEquals("D vamp ${ScanFrames.MISSED - 1}", f.unnamedFrames.last().first())
+        f.took()
+        assertEquals(0, f.unnamed)
     }
 
     /**
