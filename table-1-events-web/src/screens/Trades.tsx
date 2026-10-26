@@ -216,7 +216,7 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
           const p = catalog.printingIndex.get(e.cardId);
           if (p == null || catalog.pOracle[p] !== c.oracle) continue;
           const n = Math.min(left, e.qty);
-          ops.push({ card_id: e.cardId, board: e.board, finish: e.finish, delta: -n });
+          ops.push({ card_id: e.cardId, board: e.board, finish: e.finish, lang: e.lang, delta: -n });
           left -= n;
         }
         if (ops.length) await editList(c.list.id, ops);

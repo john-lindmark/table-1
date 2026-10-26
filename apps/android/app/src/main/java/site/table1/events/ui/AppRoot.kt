@@ -394,7 +394,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                     ListDetailScreen(id, onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it?list=$id") },
                         onAdd = { nav.navigate("collection/list/$id/add") }, onVersions = { nav.navigate("collection/list/$id/versions") },
                         onOpen = { nav.navigate("collection/list/$it") },
-                        onPrinting = { card, board, finish -> nav.navigate("collection/list/$id/printing/$card/$board/$finish") },
+                        onPrinting = { card, board, finish, lang -> nav.navigate("collection/list/$id/printing/$card/$board/$finish/$lang") },
                         onStats = { nav.navigate("collection/list/$id/stats") }, onRankings = { nav.navigate("collection/list/$id/rankings") })
                 }
                 composable("collection/list/{id}/stats") { e ->
@@ -405,10 +405,10 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 composable("collection/list/{id}/stats/hand") { e -> SampleHandScreen(e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() }) }
                 composable("collection/list/{id}/stats/odds") { e -> DrawOddsScreen(e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() }) }
                 composable("collection/list/{id}/stats/pack") { e -> SamplePackScreen(e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() }) }
-                composable("collection/list/{id}/printing/{card}/{board}/{finish}") { e ->
+                composable("collection/list/{id}/printing/{card}/{board}/{finish}/{lang}") { e ->
                     val a = e.arguments
                     ChangePrintingScreen(PrintingTarget.ListLine(a?.getString("id") ?: "", a?.getString("card") ?: "", a?.getString("board") ?: "main",
-                        a?.getString("finish") ?: "nonfoil"), onClose = { nav.popBackStack() })
+                        a?.getString("finish") ?: "nonfoil", a?.getString("lang") ?: "en"), onClose = { nav.popBackStack() })
                 }
                 composable("collection/list/{id}/add") { e ->
                     val id = e.arguments?.getString("id") ?: ""

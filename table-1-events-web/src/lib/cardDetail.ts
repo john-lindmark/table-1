@@ -30,7 +30,7 @@ const CONDITION_ORDER: Condition[] = ["NM", "LP", "MP", "HP", "DMG"];
 const UNSORTED = "unsorted";
 
 export const versionKey = (v: Pick<CardVersion, "cardId" | "finish" | "condition" | "lang">) => itemKey(v.cardId, v.finish, v.condition, v.lang);
-export const versionId = (v: CardVersion) => (v.board ? `${v.cardId}|${v.board}|${v.finish}` : versionKey(v));
+export const versionId = (v: CardVersion) => (v.board ? `${v.cardId}|${v.board}|${v.finish}|${v.lang}` : versionKey(v));
 
 export const finishesOf = (p: Pick<PrintingFacts, "finishes">): Finish[] =>
   FINISH_ORDER.filter((f) => [...p.finishes].some((l) => FINISH_LETTER[l] === f));

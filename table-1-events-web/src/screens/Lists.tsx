@@ -9,7 +9,7 @@ import {
 import { GROUPING_KEY, groupLabel, keyFor, keysOf, sortGroups, useStoredGrouping, type GroupKeys, type Grouping } from "../lib/cardGrouping";
 import { SORT_KEY, applySort, sortKeyOf, useStoredSort, type CardSort } from "../lib/cardSort";
 import {
-  boardTitle, boardsOf, countOf, createList, finishOf, ownKey, type ListFinish, current, deleteList, diff, duplicateList, editList, entriesOf, missingIn, restoreList,
+  boardTitle, boardsOf, countOf, createList, finishOf, langOf, ownKey, type ListFinish, current, deleteList, diff, duplicateList, editList, entriesOf, missingIn, restoreList,
   sectionsFor, useLists, type Board, type CardList, type Entry, type ListKind,
 } from "../lib/lists";
 import { cardMatches, matchingLines } from "../lib/librarySearch";
@@ -41,7 +41,13 @@ export function useListsData() {
     for (const it of col.items.values()) m.set(ownKey(it.cardId, it.finish), (m.get(ownKey(it.cardId, it.finish)) ?? 0) + it.qty);
     return m;
   }, [col.version]);
-  return { session, ready, lists, owned };
+  // Per printing, finish and language ("card_id|finish|lang"), for Add to collection.
+  const ownedByLang = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const it of col.items.values()) { const k = `${it.cardId}|${it.finish}|${it.lang}`; m.set(k, (m.get(k) ?? 0) + it.qty); }
+    return m;
+  }, [col.version]);
+  return { session, ready, lists, owned, ownedByLang };
 }
 
 const fmtDate = (epoch: number) => new Date(epoch * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -61,13 +67,19 @@ export interface Line {
   qty: number;
   oi: number;
   finish: ListFinish;
+  lang: string;
   points: number;
   basic: boolean;
   type: string;
 }
 
 const FINISH_NAME: Record<ListFinish, string> = { nonfoil: "Non-foil", foil: "Foil", etched: "Etched" };
-const lineKey = (x: Line) => `${x.board}|${x.cardId}|${x.finish}`;
+const lineKey = (x: Line) => `${x.board}|${x.cardId}|${x.finish}|${x.lang}`;
+/** A collapsed card's lines: "2 printings", or "2 versions" when some share a printing (finishes, languages). */
+const versionsText = (lines: Line[]) =>
+  `${lines.length} ${new Set(lines.map((l) => l.cardId)).size === lines.length ? "printings" : "versions"}`;
+/** "JA" for a non-English line. */
+const langTag = (lang: string) => (lang === "en" ? null : lang.toUpperCase());
 
 function linesOf(l: CardList, c: Catalog): Line[] {
   return resolveLines(entriesOf(l), l.kind, c);
@@ -81,7 +93,7 @@ export function resolveLines(entries: Entry[], kind: ListKind, c: Catalog): Line
     const type = oi >= 0 ? c.oType[oi].split(" // ")[0] : "";
     const keys = keysOf(c, oi);
     return { cardId: e.cardId, p, oracleId: oi >= 0 ? c.oId[oi] : null, name: oi >= 0 ? c.oName[oi] : "Unknown card", group: keys[kind === "deck" ? "type" : "color"], keys,
-             board: e.board, qty: e.qty, oi, finish: finishOf(e),
+             board: e.board, qty: e.qty, oi, finish: finishOf(e), lang: langOf(e),
              points: oi >= 0 ? c.oPoints[oi] : 0, basic: type.includes("Basic"), type: oi >= 0 ? c.oType[oi] : "" };
   }).sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -332,11 +344,11 @@ export function ExportScreen({ name, kind, entries, catalog, from, onClose }: {
 
 export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPrinting, onStats, onRankings }: {
   id: string; onBack: () => void; onCard: (oracleId: string) => void; onAdd: () => void; onVersions: () => void;
-  onOpen: (listId: string) => void; onPrinting: (cardId: string, board: Board, finish: ListFinish) => void; onStats: () => void;
+  onOpen: (listId: string) => void; onPrinting: (cardId: string, board: Board, finish: ListFinish, lang: string) => void; onStats: () => void;
   /** Cubes: the Rankings row. */
   onRankings?: () => void;
 }) {
-  const { session, ready, lists, owned } = useListsData();
+  const { session, ready, lists, owned, ownedByLang } = useListsData();
   const { catalog, error } = useCatalog();
   const [layout, setLayout] = useStoredLayout("table1.library.list.layout", "table1.library.list.grid");
   const [editing, setEditing] = useState(false);
@@ -393,13 +405,13 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
       return (
         <div key={lineKey(x)} className="flex items-stretch gap-px h-[60px]">
           <div className="flex-1 min-w-0">
-            <CardRow c={catalog!} p={x.p} title={x.name} detail={[fin, "Tap to move, change or remove"].filter(Boolean).join(" · ")}
+            <CardRow c={catalog!} p={x.p} title={x.name} detail={[fin, langTag(x.lang), "Tap to move, change or remove"].filter(Boolean).join(" · ")}
                      finish={x.finish} hero={isHero(x.oracleId, heroScope, heroes)} value={x.qty} onClick={() => setMoving(x)} />
           </div>
           <button type="button" aria-label="Remove one" className="w-14 bg-t1-surface-hover text-[20px]"
-                  onClick={() => editList(list.id, [{ card_id: x.cardId, board: x.board, finish: x.finish, delta: -1 }])}>−</button>
+                  onClick={() => editList(list.id, [{ card_id: x.cardId, board: x.board, finish: x.finish, lang: x.lang, delta: -1 }])}>−</button>
           <button type="button" aria-label="Add one" className="w-14 bg-t1-surface-hover text-[20px]"
-                  onClick={() => editList(list.id, [{ card_id: x.cardId, board: x.board, finish: x.finish, delta: 1 }])}>+</button>
+                  onClick={() => editList(list.id, [{ card_id: x.cardId, board: x.board, finish: x.finish, lang: x.lang, delta: 1 }])}>+</button>
         </div>
       );
     }
@@ -408,7 +420,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         <CardRow c={catalog!} p={x.p} value={x.qty} warn={short || !!issue} finish={x.finish} indent={sub}
                  title={sub && x.p != null ? `${catalog!.pSet[x.p].toUpperCase()} #${catalog!.pCn[x.p]}` : x.name}
                  hero={!sub && isHero(x.oracleId, heroScope, heroes)}
-                 detail={[issue && !sub ? issue : null, pts, fin,
+                 detail={[issue && !sub ? issue : null, pts, fin, langTag(x.lang),
                           considering ? (have ? `Owned ${have}` : "Not owned") : short ? `Owned ${have} · missing ${x.qty - have}` : x.basic && !have ? null : `Owned ${have}`]
                          .filter(Boolean).join(" · ")}
                  onClick={() => x.oracleId && onCard(x.oracleId)} />
@@ -437,7 +449,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
                         onToggle={() => { setPrintings(toggleOne(printings, cg.id)); capture("printings_toggled", { expanded: !open, all: false, screen: "list" }); }}>
             <CardRow c={catalog!} p={lead.p} title={lead.name} value={cg.qty} warn={(!considering && short > 0 && !list.eventId) || !!issue}
                      finish={lead.finish} hero={hero}
-                     detail={[issue, `${cg.lines.length} printings`, haveText].filter(Boolean).join(" · ")}
+                     detail={[issue, versionsText(cg.lines), haveText].filter(Boolean).join(" · ")}
                      onClick={() => lead.oracleId && onCard(lead.oracleId)} />
           </CardGroupRow>
         </div>
@@ -565,10 +577,10 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
           <div className="flex flex-col gap-px">
             {sectionsFor(list.kind).filter((b) => b !== moving.board).map((b) => (
               <Row key={b} title={`Move to ${boardTitle(list.kind, b)}`}
-                   onClick={() => { void editList(list.id, [{ card_id: moving.cardId, finish: moving.finish, from: moving.board, to: b }]); setMoving(null); }} />
+                   onClick={() => { void editList(list.id, [{ card_id: moving.cardId, finish: moving.finish, lang: moving.lang, from: moving.board, to: b }]); setMoving(null); }} />
             ))}
             <Row title="Change printing or finish" detail="Or split copies between finishes"
-                 onClick={() => { const m = moving; setMoving(null); onPrinting(m.cardId, m.board, m.finish); }} />
+                 onClick={() => { const m = moving; setMoving(null); onPrinting(m.cardId, m.board, m.finish, m.lang); }} />
             {moving.oracleId && (() => {
               const on = isHero(moving.oracleId, heroScope, heroes);
               return (
@@ -581,12 +593,12 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
               );
             })()}
             <Row title={`Remove from ${boardTitle(list.kind, moving.board)}`}
-                 onClick={() => { void editList(list.id, [{ card_id: moving.cardId, board: moving.board, finish: moving.finish, qty: 0 }]); setMoving(null); }} />
+                 onClick={() => { void editList(list.id, [{ card_id: moving.cardId, board: moving.board, finish: moving.finish, lang: moving.lang, qty: 0 }]); setMoving(null); }} />
           </div>
         </Modal>
       )}
       {exporting && catalog && <ExportScreen name={list.name} kind={list.kind} entries={entriesOf(list)} catalog={catalog} from="own" onClose={() => setExporting(false)} />}
-      {adding && catalog && <ListToCollectionScreen list={list} catalog={catalog} owned={owned} onClose={() => setAdding(false)} />}
+      {adding && catalog && <ListToCollectionScreen list={list} catalog={catalog} owned={ownedByLang} onClose={() => setAdding(false)} />}
       {imaging && catalog && <DeckImageScreen name={list.name} format={list.format} entries={entriesOf(list)} catalog={catalog} owner={null} from="own" onClose={() => setImaging(false)} />}
       {confirmDelete && (
         <Modal title={`Delete ${list.name}?`} onClose={() => setConfirmDelete(false)}>
@@ -648,7 +660,7 @@ export function ListAddScreen({ id, onDone }: { id: string; onDone: () => void; 
   };
   const add = () => {
     if (!addPick || !catalog) return;
-    void editList(list.id, [{ card_id: catalog.pId[addPick.p], board, finish: finishFor(addPick.p), delta: 1 }]);
+    void editList(list.id, [{ card_id: catalog.pId[addPick.p], board, finish: finishFor(addPick.p), lang: catalog.pLang[addPick.p], delta: 1 }]);
     capture("list_card_added", { kind: list.kind, from: "edit" });
     setNote(`Added 1 ${catalog.oName[addPick.oi]} to ${title(board)}`);
     reset();
@@ -657,12 +669,12 @@ export function ListAddScreen({ id, onDone }: { id: string; onDone: () => void; 
     if (!removePick || !catalog) return;
     const r = removePick;
     if (addPick) {
-      void editList(list.id, [{ card_id: r.cardId, board: r.board, finish: r.finish, to_card_id: catalog.pId[addPick.p],
-                                to_finish: finishFor(addPick.p), qty: 1, swap: true }]);
+      void editList(list.id, [{ card_id: r.cardId, board: r.board, finish: r.finish, lang: r.lang, to_card_id: catalog.pId[addPick.p],
+                                to_finish: finishFor(addPick.p), to_lang: catalog.pLang[addPick.p], qty: 1, swap: true }]);
       capture("list_card_replaced", { kind: list.kind });
       setNote(`Replaced ${r.name} with ${catalog.oName[addPick.oi]} in ${title(r.board)}`);
     } else {
-      void editList(list.id, [{ card_id: r.cardId, board: r.board, finish: r.finish, delta: -1 }]);
+      void editList(list.id, [{ card_id: r.cardId, board: r.board, finish: r.finish, lang: r.lang, delta: -1 }]);
       capture("list_card_removed", { kind: list.kind });
       setNote(`Removed 1 ${r.name} from ${title(r.board)}`);
     }
@@ -721,7 +733,7 @@ export function ListAddScreen({ id, onDone }: { id: string; onDone: () => void; 
           {removeHits.map((x) => (
             <div key={lineKey(x)} className="h-[60px] shrink-0">
               <CardRow c={catalog} p={x.p} title={x.name} finish={x.finish} onClick={() => pickRemove(x)}
-                       detail={[title(x.board), x.finish === "nonfoil" ? null : FINISH_NAME[x.finish], x.qty > 1 ? `${x.qty} copies` : null].filter(Boolean).join(" · ")} />
+                       detail={[title(x.board), x.finish === "nonfoil" ? null : FINISH_NAME[x.finish], langTag(x.lang), x.qty > 1 ? `${x.qty} copies` : null].filter(Boolean).join(" · ")} />
             </div>
           ))}
         </>)}
@@ -741,7 +753,7 @@ export function ListAddScreen({ id, onDone }: { id: string; onDone: () => void; 
                 </div>
                 <button type="button" aria-label={`Add ${catalog.oName[oi]}`} className="w-[52px] bg-t1-surface-hover text-[22px] hover:text-t1-accent"
                         onClick={() => {
-                          void editList(list.id, [{ card_id: catalog.pId[p], board, finish: finishFor(p), delta: 1 }]);
+                          void editList(list.id, [{ card_id: catalog.pId[p], board, finish: finishFor(p), lang: catalog.pLang[p], delta: 1 }]);
                           capture("list_card_added", { kind: list.kind, from: "quick" });
                           setNote(`Added 1 ${catalog.oName[oi]} to ${title(board)}`);
                         }}>+</button>
@@ -808,9 +820,9 @@ export function VersionScreen({ id, number, onBack, onCard }: { id: string; numb
               const p = catalog.printingIndex.get(c.cardId) ?? null;
               const oi = p == null ? -1 : catalog.pOracle[p];
               return (
-                <div key={`${c.board}|${c.cardId}|${c.finish}`} className="h-[60px]">
+                <div key={`${c.board}|${c.cardId}|${c.finish}|${c.lang}`} className="h-[60px]">
                   <CardRow c={catalog} p={p} title={oi >= 0 ? catalog.oName[oi] : "Unknown card"}
-                           detail={[c.delta > 0 ? "Added" : "Removed", c.finish === "nonfoil" ? null : FINISH_NAME[c.finish]].filter(Boolean).join(" · ")}
+                           detail={[c.delta > 0 ? "Added" : "Removed", c.finish === "nonfoil" ? null : FINISH_NAME[c.finish], langTag(c.lang)].filter(Boolean).join(" · ")}
                            value={c.delta > 0 ? `+${c.delta}` : `−${-c.delta}`} warn={c.delta < 0}
                            onClick={() => oi >= 0 && onCard(catalog.oId[oi])} />
                 </div>

@@ -13,11 +13,11 @@ data class CardVersion(
     val qty: Int = 0,
 ) {
     val itemKey get() = itemKey(cardId, finish, condition, lang)
-    val id get() = board?.let { "$cardId|$it|$finish" } ?: itemKey
+    val id get() = board?.let { "$cardId|$it|$finish|$lang" } ?: itemKey
 
     companion object {
         fun of(item: CollectionItem, qty: Int = item.qty) = CardVersion(item.cardId, item.finish, item.condition, item.lang, qty = qty)
-        fun of(e: ListEntry) = CardVersion(e.cardId, e.finish, board = e.board, qty = e.qty)
+        fun of(e: ListEntry) = CardVersion(e.cardId, e.finish, lang = e.lang, board = e.board, qty = e.qty)
     }
 }
 

@@ -24,8 +24,8 @@ Codes: en de fr it es pt ja ko ru zhs zht he la grc ar sa ph qya. One full-scree
   language). Owned-only scans (giving in a trade) keep the owned copy's language.
 - **Trades**: a get line's menu has Language. A give line is the copy you own; change that copy's language in the
   collection first.
-- Not here: deck and cube lines and wants have no language of their own; a line's language is its printing's, and
-  Change printing lists every language's printings.
+- Deck and cube lines name a language since 2026-10-25 (contract/lists-2026-10-15.md § Languages): card detail
+  opened from a deck or cube has a Language cell. Wants still have no language of their own.
 
 ## Rules (shared by every platform)
 - `LanguageChange.ops(item, places, to, qty, from?)`: nil when the language is the same, qty is 0 or more than owned,

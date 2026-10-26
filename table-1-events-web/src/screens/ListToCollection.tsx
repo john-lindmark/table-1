@@ -4,6 +4,7 @@ import { errorMessage } from "../lib/api";
 import { basicCardIds, type Catalog } from "../lib/catalog";
 import { applyOps, undoBatch } from "../lib/collection";
 import { copiesOf, listAddOps, toCollectionOps, type AddMode } from "../lib/listToCollection";
+import { languageName } from "../lib/languages";
 import { entriesOf, type CardList } from "../lib/lists";
 import { capture } from "../lib/telemetry";
 import { CONDITIONS, CardRow, useAddCondition } from "./Library";
@@ -82,9 +83,9 @@ export function ListToCollectionScreen({ list, catalog, owned, onClose }: {
           const oi = p == null ? -1 : catalog.pOracle[p];
           const set = p == null ? null : `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}`;
           return (
-            <div key={`${o.card_id}|${o.finish}`} className="h-[60px] shrink-0">
+            <div key={`${o.card_id}|${o.finish}|${o.lang ?? "en"}`} className="h-[60px] shrink-0">
               <CardRow c={catalog} p={p} title={oi >= 0 ? catalog.oName[oi] : "Unknown card"} finish={o.finish}
-                       detail={[set, o.finish === "nonfoil" ? null : o.finish === "foil" ? "Foil" : "Etched"].filter(Boolean).join(" · ")}
+                       detail={[set, o.finish === "nonfoil" ? null : o.finish === "foil" ? "Foil" : "Etched", o.lang ? languageName(o.lang) : null].filter(Boolean).join(" · ")}
                        value={`+${o.delta}`} />
             </div>
           );

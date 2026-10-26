@@ -129,3 +129,84 @@ select pg_temp.as_user(:ANA);
 select public.list_edit(:CUBE, jsonb_build_array(jsonb_build_object('card_id', :SLD, 'board', 'maybe', 'delta', 1))) is not null as edited \gset
 reset role;
 select pg_temp.eq('an edit adding it without a finish adds it as foil', pg_temp.line(:CUBE, :SLD, 'maybe'), '1 foil');
+
+-- Lists: lines name a language (2026-10-25) --------------------------------------------------------------------
+-- A Japanese-only printing of Opt (cards.lang 'ja') is always Japanese, whatever the entry says.
+insert into public.cards (id, oracle_id, set_code, collector_number, lang, rarity, finishes, layout, content_hash) values
+  ('c1000000-0000-0000-0000-000000000004', 'c0000000-0000-0000-0000-000000000002', 'war', '65', 'ja', 'common', '{nonfoil}', 'normal', 'h');
+\set OPTJA '''c1000000-0000-0000-0000-000000000004'''
+\set DECK '''d0000000-0000-0000-0000-0000000000d1'''
+create or replace function pg_temp.langs(l uuid, c uuid, b text) returns text language sql as
+$$ select coalesce((select string_agg(qty || ' ' || finish || ' ' || lang, ', ' order by finish, lang) from public.card_list_entries
+                     where list_id = l and card_id = c and board = b), 'none') $$;
+set role authenticated;
+select pg_temp.as_user(:ANA);
+select public.list_create(:DECK, 'deck', 'Burn', 'modern', jsonb_build_array(
+  jsonb_build_array(:BOLT, 'main', 2), jsonb_build_array(:BOLT, 'main', 2, 'nonfoil', 'ja'),
+  jsonb_build_array(:BOLT, 'main', 1, 'nonfoil', 'JA'), jsonb_build_array(:BOLT, 'side', 1, 'foil', 'de'),
+  jsonb_build_array(:OPTJA, 'main', 1), jsonb_build_array(:OPTJA, 'main', 1, 'nonfoil', 'fr'))) is not null as created \gset
+reset role;
+select pg_temp.eq('English and Japanese copies of one printing are two lines', pg_temp.langs(:DECK, :BOLT, 'main'), '2 nonfoil en, 3 nonfoil ja');
+select pg_temp.eq('a foil German line keeps finish and language', pg_temp.langs(:DECK, :BOLT, 'side'), '1 foil de');
+select pg_temp.eq('a Japanese printing is Japanese, merged into one line', pg_temp.langs(:DECK, :OPTJA, 'main'), '2 nonfoil ja');
+select pg_temp.eq('the version writes the language only when it isn''t English',
+  (select entries::text from public.card_list_versions where list_id = :DECK and version = 1),
+  format('[["%s", "main", 2], ["%s", "main", 3, "nonfoil", "ja"], ["%s", "main", 2, "nonfoil", "ja"], ["%s", "side", 1, "foil", "de"]]',
+         :BOLT, :BOLT, :OPTJA, :BOLT));
+
+set role authenticated;
+select pg_temp.as_user(:ANA);
+-- Change a count by language; an op without lang is English; move a section keeps the language.
+select public.list_edit(:DECK, jsonb_build_array(
+  jsonb_build_object('card_id', :BOLT, 'board', 'main', 'lang', 'ja', 'delta', -1),
+  jsonb_build_object('card_id', :BOLT, 'board', 'main', 'delta', 1),
+  jsonb_build_object('card_id', :BOLT, 'finish', 'foil', 'lang', 'de', 'from', 'side', 'to', 'maybe'))) is not null as e1 \gset
+reset role;
+select pg_temp.eq('delta by language', pg_temp.langs(:DECK, :BOLT, 'main'), '3 nonfoil en, 2 nonfoil ja');
+select pg_temp.eq('moving a section keeps the language', pg_temp.langs(:DECK, :BOLT, 'maybe'), '1 foil de');
+
+set role authenticated;
+select pg_temp.as_user(:ANA);
+-- Change the language of 2 English copies: the line splits and merges into the Japanese one.
+select public.list_edit(:DECK, jsonb_build_array(
+  jsonb_build_object('card_id', :BOLT, 'board', 'main', 'to_lang', 'ja', 'qty', 2))) is not null as e2 \gset
+reset role;
+select pg_temp.eq('to_lang moves copies to another language', pg_temp.langs(:DECK, :BOLT, 'main'), '1 nonfoil en, 4 nonfoil ja');
+
+set role authenticated;
+select pg_temp.as_user(:ANA);
+-- Another printing keeps the line's language unless to_lang says otherwise.
+select public.list_edit(:DECK, jsonb_build_array(
+  jsonb_build_object('card_id', :BOLT, 'board', 'main', 'lang', 'ja', 'to_card_id', :SLD, 'qty', 1))) is not null as e3 \gset
+reset role;
+select pg_temp.eq('another printing keeps the language', pg_temp.langs(:DECK, :SLD, 'main'), '1 foil ja');
+
+set role authenticated;
+select pg_temp.as_user(:ANA);
+select pg_temp.throws('a language that isn''t one is refused',
+  format($$select public.list_edit('%s', '[{"card_id":"%s","board":"main","lang":"j|a","delta":1}]')$$, :DECK, :BOLT), '22023');
+select pg_temp.throws('another account can''t edit the list',
+  format($$select public.list_edit('%s', '[{"card_id":"%s","board":"main","lang":"ja","delta":1}]')$$, :CUBE, :BOLT))
+  from (select pg_temp.as_user(:BEN)) x;
+-- Retrying the same qty op is idempotent.
+select pg_temp.as_user(:ANA);
+select public.list_edit(:DECK, '[{"card_id":"c1000000-0000-0000-0000-000000000001","board":"main","lang":"ja","qty":4}]') is not null as e4 \gset
+select public.list_edit(:DECK, '[{"card_id":"c1000000-0000-0000-0000-000000000001","board":"main","lang":"ja","qty":4}]') is not null as e5 \gset
+reset role;
+select pg_temp.eq('a repeated qty op changes nothing more', pg_temp.langs(:DECK, :BOLT, 'main'), '1 nonfoil en, 4 nonfoil ja');
+-- The migration's backfill: a line saved before languages that lists a Japanese printing becomes Japanese.
+insert into public.card_list_entries (list_id, card_id, board, qty, finish, lang) values (:DECK, :OPTJA, 'side', 1, 'nonfoil', 'en');
+update public.card_list_versions set entries = entries || jsonb_build_array(jsonb_build_array(:OPTJA, 'side', 1))
+ where list_id = :DECK and version = (select current_version from public.card_lists where id = :DECK);
+select (select seq from public.card_lists where id = :DECK) as seq_before \gset
+do $$
+declare l public.card_lists;
+begin
+  for l in select * from public.card_lists where deleted_at is null and id in (
+             select e.list_id from public.card_list_entries e join public.cards c on c.id = e.card_id where c.lang <> 'en') loop
+    perform t1_private.list_write(l, (select v.entries from public.card_list_versions v
+                                       where v.list_id = l.id and v.version = l.current_version), 'Edited', true);
+  end loop;
+end $$;
+select pg_temp.eq('backfill: a Japanese printing''s old line is Japanese', pg_temp.langs(:DECK, :OPTJA, 'side'), '1 nonfoil ja');
+select pg_temp.eq('backfill moved the list''s seq', ((select seq from public.card_lists where id = :DECK) > :seq_before)::text, 'true');

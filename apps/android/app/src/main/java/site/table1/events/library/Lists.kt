@@ -31,10 +31,16 @@ import java.util.UUID
 
 enum class ListKind(val wire: String) { Deck("deck"), Cube("cube") }
 
-/** A line is printing × section × finish, so 2 foil and 2 non-foil copies of a card are two lines. */
-data class ListEntry(val cardId: String, val board: String, val qty: Int, val finish: String = "nonfoil")
+/**
+ * A line is printing × section × finish × language, so 2 foil and 2 non-foil copies of a card are two lines. A
+ * non-English printing is always its own language (contract/lists-2026-10-15.md, "Languages").
+ */
+data class ListEntry(val cardId: String, val board: String, val qty: Int, val finish: String = "nonfoil", val lang: String = "en") {
+    fun isLine(cardId: String, board: String, finish: String, lang: String) =
+        this.cardId == cardId && this.board == board && this.finish == finish && this.lang == lang
+}
 data class ListVersion(val number: Int, val at: Double, val note: String, val entries: List<ListEntry>)
-data class ListChange(val cardId: String, val board: String, val delta: Int, val finish: String = "nonfoil")
+data class ListChange(val cardId: String, val board: String, val delta: Int, val finish: String = "nonfoil", val lang: String = "en")
 
 /** Key into the owned map: "card_id|finish". */
 fun ownKey(cardId: String, finish: String) = "$cardId|$finish"
@@ -68,9 +74,9 @@ data class CardList(val id: String, val kind: ListKind, val name: String, val fo
         /** What changed from `older` (null = nothing) to `newer`, per card and section; removals first. */
         fun diff(older: ListVersion?, newer: ListVersion): List<ListChange> {
             val q = HashMap<String, Int>()
-            older?.entries?.forEach { q.merge("${it.board}|${it.cardId}|${it.finish}", -it.qty, Int::plus) }
-            newer.entries.forEach { q.merge("${it.board}|${it.cardId}|${it.finish}", it.qty, Int::plus) }
-            return q.filterValues { it != 0 }.map { (k, d) -> k.split("|", limit = 3).let { ListChange(it[1], it[0], d, it[2]) } }
+            older?.entries?.forEach { q.merge("${it.board}|${it.cardId}|${it.finish}|${it.lang}", -it.qty, Int::plus) }
+            newer.entries.forEach { q.merge("${it.board}|${it.cardId}|${it.finish}|${it.lang}", it.qty, Int::plus) }
+            return q.filterValues { it != 0 }.map { (k, d) -> k.split("|", limit = 4).let { ListChange(it[1], it[0], d, it[2], it[3]) } }
                 .sortedWith(compareBy<ListChange>({ BOARD_ORDER.indexOf(it.board) }, { it.delta }))
         }
     }
@@ -94,16 +100,18 @@ data class ListWire(
         return CardList(id, if (kind == "cube") ListKind.Cube else ListKind.Deck, name, format ?: "", versions.map { v ->
             ListVersion(v.version, v.at, v.note, v.entries.map {
                 ListEntry(it[0].jsonPrimitive.content, it[1].jsonPrimitive.content, it[2].jsonPrimitive.int,
-                    if (it.size > 3) it[3].jsonPrimitive.content else "nonfoil")
+                    if (it.size > 3) it[3].jsonPrimitive.content else "nonfoil", if (it.size > 4) it[4].jsonPrimitive.content else "en")
             })
         })
     }
 
     companion object {
-        /** [card_id, board, qty] for non-foil; foil and etched add the finish. */
+        /** [card_id, board, qty] for non-foil English; foil and etched add the finish; another language adds the finish
+         *  and the language. */
         fun entryWire(e: ListEntry) = buildJsonArray {
             add(JsonPrimitive(e.cardId)); add(JsonPrimitive(e.board)); add(JsonPrimitive(e.qty))
-            if (e.finish != "nonfoil") add(JsonPrimitive(e.finish))
+            if (e.finish != "nonfoil" || e.lang != "en") add(JsonPrimitive(e.finish))
+            if (e.lang != "en") add(JsonPrimitive(e.lang))
         }
 
         fun of(l: CardList) = ListWire(l.id, false, l.kind.wire, l.name, l.format, l.versions.map { v ->
@@ -231,34 +239,35 @@ object ListsStore {
         return create(l.kind, "${l.name} (copy)".take(60), l.format, l.entries, "Duplicated from ${l.name} v${l.current.number}", "duplicate")
     }
 
-    suspend fun add(listId: String, cardId: String, board: String, delta: Int, finish: String = "nonfoil") =
-        edit(listId, buildJsonObject { put("card_id", cardId); put("board", board); put("finish", finish); put("delta", delta) })
+    suspend fun add(listId: String, cardId: String, board: String, delta: Int, finish: String = "nonfoil", lang: String = "en") =
+        edit(listId, buildJsonObject { put("card_id", cardId); put("board", board); put("finish", finish); put("lang", lang); put("delta", delta) })
 
-    suspend fun move(listId: String, cardId: String, from: String, to: String, finish: String = "nonfoil") =
-        edit(listId, buildJsonObject { put("card_id", cardId); put("finish", finish); put("from", from); put("to", to) })
+    suspend fun move(listId: String, cardId: String, from: String, to: String, finish: String = "nonfoil", lang: String = "en") =
+        edit(listId, buildJsonObject { put("card_id", cardId); put("finish", finish); put("lang", lang); put("from", from); put("to", to) })
 
-    suspend fun remove(listId: String, cardId: String, board: String, finish: String = "nonfoil") =
-        edit(listId, buildJsonObject { put("card_id", cardId); put("board", board); put("finish", finish); put("qty", 0) })
+    suspend fun remove(listId: String, cardId: String, board: String, finish: String = "nonfoil", lang: String = "en") =
+        edit(listId, buildJsonObject { put("card_id", cardId); put("board", board); put("finish", finish); put("lang", lang); put("qty", 0) })
 
     /**
-     * Moves [qty] copies (null = all) of a line to another printing and/or finish in the same section: change a
-     * printing, or split 4 non-foil into 2 non-foil and 2 foil.
+     * Moves [qty] copies (null = all) of a line to another printing, finish and/or language in the same section: change
+     * a printing, split 4 non-foil into 2 non-foil and 2 foil, or call 2 of them Japanese. [toLang] null keeps the line's.
      */
-    suspend fun swap(listId: String, cardId: String, board: String, finish: String, toCardId: String, toFinish: String, qty: Int?) =
+    suspend fun swap(listId: String, cardId: String, board: String, finish: String, toCardId: String, toFinish: String, qty: Int?,
+                     lang: String = "en", toLang: String? = null) =
         edit(listId, buildJsonObject {
-            put("card_id", cardId); put("board", board); put("finish", finish)
-            put("to_card_id", toCardId); put("to_finish", toFinish)
+            put("card_id", cardId); put("board", board); put("finish", finish); put("lang", lang)
+            put("to_card_id", toCardId); put("to_finish", toFinish); put("to_lang", toLang ?: lang)
             if (qty != null) put("qty", qty)
         })
 
     /** Several cards into one section as one edit (a scan session): one request, one step in the history. */
-    suspend fun addMany(listId: String, board: String, cards: List<Pair<String, String>>) {
+    suspend fun addMany(listId: String, board: String, cards: List<Triple<String, String, String>>) {
         if (cards.isEmpty()) return
         call("list_edit", buildJsonObject {
             put("p_list_id", listId)
             put("p_ops", buildJsonArray {
-                cards.forEach { (cardId, finish) ->
-                    add(buildJsonObject { put("card_id", cardId); put("board", board); put("finish", finish); put("delta", 1) })
+                cards.forEach { (cardId, finish, lang) ->
+                    add(buildJsonObject { put("card_id", cardId); put("board", board); put("finish", finish); put("lang", lang); put("delta", 1) })
                 }
             })
         })

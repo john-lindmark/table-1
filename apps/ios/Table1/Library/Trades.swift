@@ -555,7 +555,7 @@ struct TradeView: View {
             for e in entries.sorted(by: { $0.board == "side" && $1.board != "side" }) where left > 0 {
                 guard printing[e.cardId]?.oracleIdx == c.oracleIdx else { continue }
                 let n = min(left, e.qty)
-                ListsStore.shared.add(listId: c.list.id, cardId: e.cardId, board: e.board, finish: e.finish, delta: -n)
+                ListsStore.shared.add(listId: c.list.id, cardId: e.cardId, board: e.board, finish: e.finish, lang: e.lang, delta: -n)
                 left -= n
             }
         }

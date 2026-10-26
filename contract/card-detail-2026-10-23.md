@@ -18,7 +18,7 @@ The screen is opened **in a scope**; the scope decides which copies it shows and
 | Opened from | Scope | Copies shown | Attributes | Bottom bar |
 |---|---|---|---|---|
 | All cards, Add cards (collection), Binders search, web link `/library/card/<id>` | Collection | every owned copy of the card | Set · Language · Condition · Finish | − count + (owned copies) |
-| A deck or cube (list, grid, stacks, version history) | That list | the card's lines in that list | Set · Finish · Section | − count + (copies in the list) |
+| A deck or cube (list, grid, stacks, version history) | That list | the card's lines in that list | Set · Language · Finish · Section | − count + (copies in the list) |
 | A binder or Unsorted | That binder | its copies in that binder | Set · Language · Condition · Finish | − count + (copies in the binder) |
 | Wants, Missing, a friend's profile, a shared deck or link, trade matches | Search | nothing (a version to add) | Set · Language · Condition · Finish | **Add to** |
 
@@ -35,7 +35,7 @@ printing × section × finish.
   Two or more versions: a **grid**, two per row, one tile per version with its count when more than one; scrolls
   past four. Tap a tile to select it (accent outline); tap it again to deselect.
 - **Attributes**: equal cells in one row. Each shows the value the copies in view share, or **MIX** when they
-  differ. Language is hidden in list scope; Condition too. Finish is hidden when every printing in view has one
+  differ. Condition is hidden in list scope (Language shows since 2026-10-25). Finish is hidden when every printing in view has one
   finish. A non-English printing's language is its own and its cell doesn't open.
 - **Bottom bar**: owned scopes: − | count | + (count = copies in view, or the selected version's). While a version
   is selected the stepper is off (flat disabled colour, as drawn). Search scope: **Add to**.

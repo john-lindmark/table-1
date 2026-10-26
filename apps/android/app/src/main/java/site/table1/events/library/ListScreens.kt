@@ -65,11 +65,13 @@ data class ListLine(val cardId: String, val printing: CatalogPrinting?, val orac
                     val group: String, val board: String, val qty: Int, val legal: String = "", val finish: String = "nonfoil",
                     val points: Int = 0, val basic: Boolean = false, val type: String = "",
                     /** Its group under each grouping (Group by in the View menu). */
-                    val keys: GroupKeys = GroupKeys()) {
+                    val keys: GroupKeys = GroupKeys(), val lang: String = "en") {
     val ownKey get() = ownKey(cardId, finish)
-    val key get() = "$board|$cardId|$finish"
+    val key get() = "$board|$cardId|$finish|$lang"
     /** "Foil" / "Etched"; null for non-foil. */
     val finishLabel get() = if (finish == "nonfoil") null else finish.replaceFirstChar { it.uppercase() }
+    /** "JA" for a non-English line; null for English. */
+    val langLabel get() = if (lang == "en") null else lang.uppercase()
 }
 
 private data class CardMeta(val printing: CatalogPrinting?, val oracleId: String?, val name: String, val type: String,
@@ -91,7 +93,7 @@ private fun lines(l: CardList, meta: Map<String, CardMeta>, by: CardGrouping): L
 private fun lines(entries: List<ListEntry>, meta: Map<String, CardMeta>, by: CardGrouping): List<ListLine> = entries.mapNotNull { e ->
     val m = meta[e.cardId] ?: return@mapNotNull null
     val type = m.type.substringBefore(" // ")
-    ListLine(e.cardId, m.printing, m.oracleId, m.name, m.keys[by], e.board, e.qty, m.legal, e.finish, m.points, "Basic" in type, m.type, m.keys)
+    ListLine(e.cardId, m.printing, m.oracleId, m.name, m.keys[by], e.board, e.qty, m.legal, e.finish, m.points, "Basic" in type, m.type, m.keys, e.lang)
 }.sortedBy { it.name }
 
 /** A shared deck's or cube's entries as lines (ProfileCardsScreen), resolved off the main thread. */
@@ -150,6 +152,13 @@ private fun ownedByPrinting(): Map<String, Int> {
     val col by CollectionStore.state.collectAsState()
     // Per printing and finish ("card_id|finish"): a foil line is covered only by foil copies of that printing.
     return remember(col.items) { col.items.values.groupBy { ownKey(it.cardId, it.finish) }.mapValues { (_, v) -> v.sumOf { it.qty } } }
+}
+
+/** Copies owned of each printing in each finish and language ("card_id|finish|lang"), for Add to collection. */
+@Composable
+private fun ownedByLanguage(): Map<String, Int> {
+    val col by CollectionStore.state.collectAsState()
+    return remember(col.items) { col.items.values.groupBy { "${it.cardId}|${it.finish}|${it.lang}" }.mapValues { (_, v) -> v.sumOf { it.qty } } }
 }
 
 private fun fmtDate(epoch: Double): String = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date((epoch * 1000).toLong()))
@@ -246,7 +255,7 @@ fun ListsScreen(kind: ListKind, onBack: () -> Unit, onOpen: (String) -> Unit, on
 
 @Composable
 fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Unit, onAdd: () -> Unit, onVersions: () -> Unit,
-                     onOpen: (String) -> Unit, onPrinting: (cardId: String, board: String, finish: String) -> Unit = { _, _, _ -> },
+                     onOpen: (String) -> Unit, onPrinting: (cardId: String, board: String, finish: String, lang: String) -> Unit = { _, _, _, _ -> },
                      onStats: () -> Unit = {}, onRankings: (() -> Unit)? = null) {
     val s by ListsStore.state.collectAsState()
     val list = s.lists.firstOrNull { it.id == listId }
@@ -334,7 +343,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
         val owns = if (considering) (if (have > 0) "Owned $have" else "Not owned") else if (short) "Owned $have · missing ${x.qty - have}"
             else if (x.basic && have == 0) null else "Owned $have"
         val pts = if (x.points > 0 && list.format == "canlander") "${x.points} pt${if (x.points == 1) "" else "s"}" else null
-        CardRow(x.printing, if (sub) x.printing?.setLabel ?: x.name else x.name, listOfNotNull(if (sub) null else issue, pts, x.finishLabel, owns).joinToString(" · "),
+        CardRow(x.printing, if (sub) x.printing?.setLabel ?: x.name else x.name, listOfNotNull(if (sub) null else issue, pts, x.finishLabel, x.langLabel, owns).joinToString(" · "),
             onClick = { x.oracleId?.let(onCard) }, finish = x.finish, hero = !sub && heroes.isHero(x.oracleId, heroScope), indent = sub) {
             Text("${x.qty}", color = if (short || issue != null) T1.error else T1.text, fontFamily = T1.mono, fontSize = 17.sp)
         }
@@ -354,7 +363,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
             printings.value = printings.value.toggle(cg.id)
             Telemetry.capture("printings_toggled", mapOf("expanded" to !open, "all" to false, "screen" to "list"))
         }) {
-            CardRow(lead.printing, lead.name, listOfNotNull(issue, "${cg.lines.size} printings", haveText).joinToString(" · "),
+            CardRow(lead.printing, lead.name, listOfNotNull(issue, "${cg.lines.size} ${if (cg.lines.map { it.cardId }.toSet().size == cg.lines.size) "printings" else "versions"}", haveText).joinToString(" · "),
                 onClick = { lead.oracleId?.let(onCard) }, finish = lead.finish, hero = hero) {
                 Text("${cg.qty}", color = if ((!considering && short > 0) || issue != null) T1.error else T1.text, fontFamily = T1.mono, fontSize = 17.sp)
             }
@@ -432,13 +441,13 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                             if (editing) {
                                 Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                                     Box(Modifier.weight(1f)) {
-                                        CardRow(x.printing, x.name, listOfNotNull(x.finishLabel, "Tap to move, change or remove").joinToString(" · "), onClick = { moving = x },
+                                        CardRow(x.printing, x.name, listOfNotNull(x.finishLabel, x.langLabel, "Tap to move, change or remove").joinToString(" · "), onClick = { moving = x },
                                             finish = x.finish, hero = heroes.isHero(x.oracleId, heroScope)) {
                                             Text("${x.qty}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                                         }
                                     }
-                                    Step("−") { scope.launch { runCatching { ListsStore.add(list.id, x.cardId, x.board, -1, x.finish) } } }
-                                    Step("+") { scope.launch { runCatching { ListsStore.add(list.id, x.cardId, x.board, 1, x.finish) } } }
+                                    Step("−") { scope.launch { runCatching { ListsStore.add(list.id, x.cardId, x.board, -1, x.finish, x.lang) } } }
+                                    Step("+") { scope.launch { runCatching { ListsStore.add(list.id, x.cardId, x.board, 1, x.finish, x.lang) } } }
                                 }
                             }
                         }
@@ -449,8 +458,8 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     }
     moving?.let { x ->
         T1Menu(x.name, list.sections.filter { it != x.board }.map { b ->
-            T1MenuItem("Move to ${list.boardTitle(b)}") { scope.launch { runCatching { ListsStore.move(list.id, x.cardId, x.board, b, x.finish) } } }
-        } + T1MenuItem("Change printing or finish") { onPrinting(x.cardId, x.board, x.finish) } +
+            T1MenuItem("Move to ${list.boardTitle(b)}") { scope.launch { runCatching { ListsStore.move(list.id, x.cardId, x.board, b, x.finish, x.lang) } } }
+        } + T1MenuItem("Change printing or finish") { onPrinting(x.cardId, x.board, x.finish, x.lang) } +
             listOfNotNull(x.oracleId?.let { o ->
                 val on = heroes.isHero(o, heroScope)
                 T1MenuItem(if (on) "Not a hero card" else "Make it a hero card") {
@@ -458,7 +467,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                 }
             }) +
             T1MenuItem("Remove from ${list.boardTitle(x.board)}", danger = true) {
-            scope.launch { runCatching { ListsStore.remove(list.id, x.cardId, x.board, x.finish) } }
+            scope.launch { runCatching { ListsStore.remove(list.id, x.cardId, x.board, x.finish, x.lang) } }
         }, onDismiss = { moving = null })
     }
     if (confirmDelete) {
@@ -470,7 +479,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     }
     if (exporting) ListExportScreen(list.name, list.kind, list.entries, "own") { exporting = false }
     if (imaging) DeckImageScreen(list.name, list.format, list.entries, owner = null, from = "own") { imaging = false }
-    if (adding) ListToCollectionScreen(list, owned) { adding = false }
+    if (adding) ListToCollectionScreen(list, ownedByLanguage()) { adding = false }
     if (viewMenu) CardLayoutMenu(layout, if (list.kind == ListKind.Cube) "cube" else "deck", printings, grouping, list = true, sort = sort) { viewMenu = false }
 }
 
@@ -517,7 +526,7 @@ fun ListAddScreen(listId: String, onDone: () -> Unit, @Suppress("UNUSED_PARAMETE
     fun pickRemove(x: ListLine) { removePick = x; removeQuery = x.name; removeFocus = false }
     fun add() {
         val (o, p) = addPick ?: return
-        scope.launch { runCatching { ListsStore.add(list.id, p.cardId, b, 1, finishOf(p)) } }
+        scope.launch { runCatching { ListsStore.add(list.id, p.cardId, b, 1, finishOf(p), p.lang) } }
         Telemetry.capture("list_card_added", mapOf("kind" to list.kind.wire, "from" to "edit"))
         note = "Added 1 ${o.name} to ${list.boardTitle(b)}"
         reset()
@@ -526,11 +535,11 @@ fun ListAddScreen(listId: String, onDone: () -> Unit, @Suppress("UNUSED_PARAMETE
         val r = removePick ?: return
         val a = addPick
         if (a != null) {
-            scope.launch { runCatching { ListsStore.swap(list.id, r.cardId, r.board, r.finish, a.second.cardId, finishOf(a.second), 1) } }
+            scope.launch { runCatching { ListsStore.swap(list.id, r.cardId, r.board, r.finish, a.second.cardId, finishOf(a.second), 1, r.lang, a.second.lang) } }
             Telemetry.capture("list_card_replaced", mapOf("kind" to list.kind.wire))
             note = "Replaced ${r.name} with ${a.first.name} in ${list.boardTitle(r.board)}"
         } else {
-            scope.launch { runCatching { ListsStore.add(list.id, r.cardId, r.board, -1, r.finish) } }
+            scope.launch { runCatching { ListsStore.add(list.id, r.cardId, r.board, -1, r.finish, r.lang) } }
             Telemetry.capture("list_card_removed", mapOf("kind" to list.kind.wire))
             note = "Removed 1 ${r.name} from ${list.boardTitle(r.board)}"
         }
@@ -579,7 +588,7 @@ fun ListAddScreen(listId: String, onDone: () -> Unit, @Suppress("UNUSED_PARAMETE
                     Notice("Search the cards in ${list.name}. Remove takes one copy out; with a card picked to add, Replace swaps it in the same section.")
                 } else if (removeHits.isEmpty()) item { ListRow("No card in ${list.name} matches") }
                 items(removeHits, key = { "l-${it.key}" }) { x ->
-                    CardRow(x.printing, x.name, listOfNotNull(list.boardTitle(x.board), x.finishLabel, if (x.qty > 1) "${x.qty} copies" else null).joinToString(" · "),
+                    CardRow(x.printing, x.name, listOfNotNull(list.boardTitle(x.board), x.finishLabel, x.langLabel, if (x.qty > 1) "${x.qty} copies" else null).joinToString(" · "),
                         onClick = { pickRemove(x) }, finish = x.finish)
                 }
             } else if (addPick == null) {
@@ -596,7 +605,7 @@ fun ListAddScreen(listId: String, onDone: () -> Unit, @Suppress("UNUSED_PARAMETE
                         }
                         Box(Modifier.width(52.dp).fillMaxHeight().background(T1.surfaceHover).clickable(enabled = p != null) {
                             val pc = p ?: return@clickable
-                            scope.launch { runCatching { ListsStore.add(list.id, pc.cardId, b, 1, finishOf(pc)) } }
+                            scope.launch { runCatching { ListsStore.add(list.id, pc.cardId, b, 1, finishOf(pc), pc.lang) } }
                             Telemetry.capture("list_card_added", mapOf("kind" to list.kind.wire, "from" to "quick"))
                             note = "Added 1 ${o.name} to ${list.boardTitle(b)}"
                         }.semantics { contentDescription = "Add ${o.name}" }, contentAlignment = Alignment.Center) {
@@ -614,7 +623,7 @@ fun ListAddScreen(listId: String, onDone: () -> Unit, @Suppress("UNUSED_PARAMETE
             scanning = false
             Telemetry.capture("scan_session_ended", mapOf("context" to list.kind.wire, "cards" to cards.size, "exact" to cards.count { it.exact }, "cancelled" to false))
             if (cards.isNotEmpty()) {
-                scope.launch { runCatching { ListsStore.addMany(list.id, target, cards.map { it.printing.cardId to it.finish }) } }
+                scope.launch { runCatching { ListsStore.addMany(list.id, target, cards.map { Triple(it.printing.cardId, it.finish, it.lang) }) } }
                 note = "Added ${cards.size} scanned card${if (cards.size == 1) "" else "s"} to ${list.boardTitle(target)}"
             }
         }, onCancel = {

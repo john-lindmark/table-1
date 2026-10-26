@@ -53,4 +53,16 @@ class ListsTest {
         assertEquals(listOf(3, 4), wire)
         assertEquals(l, ListWire.of(l).toList())
     }
+
+    @Test fun languagesAreTheirOwnLines() {
+        val l = CardList("x", ListKind.Cube, "x", "vintage", listOf(
+            ListVersion(1, 0.0, "Created", listOf(ListEntry(bolt, "main", 2))),
+            ListVersion(2, 1.0, "Edited", listOf(ListEntry(bolt, "main", 1), ListEntry(bolt, "main", 1, "nonfoil", "ja"), ListEntry(bolt, "main", 1, "foil", "de")))))
+        assertEquals(listOf(3, 5, 5), ListWire.of(l).versions[1].entries.map { it.size })
+        assertEquals(l, ListWire.of(l).toList())
+        assertEquals(listOf(ListChange(bolt, "main", -1, "nonfoil", "en"), ListChange(bolt, "main", 1, "foil", "de"), ListChange(bolt, "main", 1, "nonfoil", "ja")),
+            CardList.diff(l.versions[0], l.versions[1]).sortedBy { it.delta * 10 + if (it.lang == "de") 0 else 1 })
+        // Missing counts every language.
+        assertEquals(1, l.missing(mapOf(ownKey(bolt, "nonfoil") to 2), emptySet()))
+    }
 }

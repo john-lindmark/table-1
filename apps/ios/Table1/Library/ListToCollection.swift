@@ -6,27 +6,55 @@ import SwiftUI
 enum ListToCollection {
     enum Mode: String, CaseIterable { case missing, all }
 
-    struct Op: Hashable { let cardId: String; let finish: String; let delta: Int }
+    struct Op: Hashable {
+        let cardId: String
+        let finish: String
+        let delta: Int
+        var lang = "en"
+    }
 
-    /// Main (and Commander) always counts, a deck's sideboard unless `sideboard` is off, Considering never. `owned` is keyed
-    /// "card_id|finish" over every condition and language; `only` limits it to some printings (card detail). Basic lands
-    /// (`basics`) are never missing, so only Every card adds them (contract/basics-2026-10-24.md).
+    /// Main (and Commander) always counts, a deck's sideboard unless `sideboard` is off, Considering never. Each line
+    /// keeps its language. `owned` is keyed "card_id|finish" (English copies) or "card_id|finish|lang"; Missing goes by
+    /// printing + finish over every condition and language: owned copies cover lines in their own language first, then
+    /// the rest, English lines first, then by language code. `only` limits it to some printings (card detail). Basic
+    /// lands (`basics`) are never missing, so only Every card adds them (contract/basics-2026-10-24.md).
     static func ops(_ entries: [CardList.Entry], kind: CardList.Kind, owned: [String: Int], mode: Mode,
                     sideboard: Bool = true, only: Set<String>? = nil, basics: Set<String> = []) -> [Op] {
-        var need: [String: Int] = [:]
+        var need: [String: [String: Int]] = [:] // "card|finish" → lang → copies
         for e in entries where e.board == "main" || e.board == "commander" || (e.board == "side" && kind == .deck && sideboard) {
             if let only, !only.contains(e.cardId) { continue }
             if mode == .missing && basics.contains(e.cardId) { continue }
-            need["\(e.cardId)|\(e.finish)", default: 0] += e.qty
+            need["\(e.cardId)|\(e.finish)", default: [:]][e.lang, default: 0] += e.qty
         }
-        return need.compactMap { key, n -> Op? in
-            let delta = mode == .all ? n : n - (owned[key] ?? 0)
-            guard delta > 0 else { return nil }
+        var have: [String: [String: Int]] = [:]
+        if mode == .missing {
+            for (k, n) in owned {
+                let parts = k.split(separator: "|", maxSplits: 2).map(String.init)
+                guard parts.count >= 2 else { continue }
+                have["\(parts[0])|\(parts[1])", default: [:]][parts.count > 2 ? parts[2] : "en", default: 0] += n
+            }
+        }
+        var out: [Op] = []
+        for (key, langs) in need {
             let parts = key.split(separator: "|", maxSplits: 1).map(String.init)
-            return Op(cardId: parts[0], finish: parts[1], delta: delta)
+            var left = langs
+            if mode == .missing {
+                let mine = have[key] ?? [:]
+                var spare = mine.values.reduce(0, +)
+                for (l, n) in left { let c = min(n, mine[l] ?? 0); left[l] = n - c; spare -= c }
+                for l in left.keys.sorted(by: langOrder) where spare > 0 {
+                    let c = min(left[l]!, spare)
+                    left[l]! -= c
+                    spare -= c
+                }
+            }
+            for (l, n) in left where n > 0 { out.append(Op(cardId: parts[0], finish: parts[1], delta: n, lang: l)) }
         }
-        .sorted { $0.cardId != $1.cardId ? $0.cardId < $1.cardId : $0.finish < $1.finish }
+        return out.sorted { ($0.cardId, $0.finish, $0.lang) < ($1.cardId, $1.finish, $1.lang) }
     }
+
+    /// English first, then by language code.
+    private static func langOrder(_ a: String, _ b: String) -> Bool { a == "en" ? b != "en" : b == "en" ? false : a < b }
 
     static func copies(_ ops: [Op]) -> Int { ops.reduce(0) { $0 + $1.delta } }
 
@@ -36,10 +64,13 @@ enum ListToCollection {
         missing > 0 ? "Missing \(missing) · the printing listed here" : basic ? "Basic land · add the copies listed here" : "You own every copy listed here"
     }
 
-    /// Collection ops in the picked condition, each copy in the language of the printing the list names (a list line's
-    /// language is its printing's; the language picked for other adds never applies here).
+    /// Collection ops in the picked condition, each copy in the language its line names (a non-English printing is
+    /// always its own); the language picked for other adds never applies here.
     static func collectionOps(_ ops: [Op], printingLang: (String) -> String?, condition: String) -> [CollectionOp] {
-        ops.map { CollectionOp(cardId: $0.cardId, finish: $0.finish, condition: condition, lang: printingLang($0.cardId) ?? "en", delta: $0.delta) }
+        ops.map { o in
+            let p = printingLang(o.cardId) ?? "en"
+            return CollectionOp(cardId: o.cardId, finish: o.finish, condition: condition, lang: p != "en" ? p : o.lang, delta: o.delta)
+        }
     }
 }
 
@@ -57,7 +88,7 @@ struct ListToCollectionPanel: View {
 
     var body: some View {
         let list = ListsStore.shared.list(id: listId)
-        let owned = ownedByPrinting()
+        let owned = ownedByLanguage()
         let entries = list?.entries ?? []
         let kind = list?.kind ?? .deck
         let missing = ListToCollection.ops(entries, kind: kind, owned: owned, mode: .missing, sideboard: sideboard, basics: catalog.basics)
@@ -88,7 +119,8 @@ struct ListToCollectionPanel: View {
                 ForEach(ops, id: \.self) { o in
                     let line = meta[o.cardId]
                     CardRow(printing: line?.printing, title: line?.name ?? "…",
-                            detail: [line?.printing?.setLabel, o.finish == "nonfoil" ? nil : Finish(rawValue: o.finish)?.label ?? o.finish]
+                            detail: [line?.printing?.setLabel, o.finish == "nonfoil" ? nil : Finish(rawValue: o.finish)?.label ?? o.finish,
+                                     o.lang == "en" ? nil : Languages.name(o.lang)]
                                 .compactMap { $0 }.joined(separator: " · "),
                             finish: o.finish) {
                         Text("+\(o.delta)").font(T1.mono(17)).monospacedDigit()

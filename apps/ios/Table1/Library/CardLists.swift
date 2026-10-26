@@ -14,9 +14,15 @@ struct CardList: Identifiable, Hashable, Sendable {
         let cardId: String
         let board: String // main | side | maybe | commander
         let qty: Int
-        /// nonfoil | foil | etched. A line is printing × section × finish, so 2 foil and 2 non-foil copies of a
-        /// card are two lines.
+        /// nonfoil | foil | etched. A line is printing × section × finish × language, so 2 foil and 2 non-foil
+        /// copies of a card are two lines.
         var finish: String = "nonfoil"
+        /// The copies' language (contract/lists-2026-10-15.md, "Languages"); a non-English printing is always its own.
+        var lang: String = "en"
+
+        func isLine(_ cardId: String, _ board: String, _ finish: String, _ lang: String) -> Bool {
+            self.cardId == cardId && self.board == board && self.finish == finish && self.lang == lang
+        }
     }
     struct Version: Identifiable, Hashable, Sendable {
         let number: Int
@@ -31,6 +37,7 @@ struct CardList: Identifiable, Hashable, Sendable {
         let board: String
         let delta: Int
         var finish: String = "nonfoil"
+        var lang: String = "en"
     }
     enum Kind: String, Sendable { case deck, cube }
 
@@ -70,12 +77,12 @@ struct CardList: Identifiable, Hashable, Sendable {
     /// removals before additions.
     static func diff(_ older: Version?, _ newer: Version) -> [Change] {
         var qty: [String: Int] = [:]
-        for e in older?.entries ?? [] { qty["\(e.board)|\(e.cardId)|\(e.finish)", default: 0] -= e.qty }
-        for e in newer.entries { qty["\(e.board)|\(e.cardId)|\(e.finish)", default: 0] += e.qty }
+        for e in older?.entries ?? [] { qty["\(e.board)|\(e.cardId)|\(e.finish)|\(e.lang)", default: 0] -= e.qty }
+        for e in newer.entries { qty["\(e.board)|\(e.cardId)|\(e.finish)|\(e.lang)", default: 0] += e.qty }
         return qty.compactMap { k, d -> Change? in
             guard d != 0 else { return nil }
-            let parts = k.split(separator: "|", maxSplits: 2).map(String.init)
-            return Change(cardId: parts[1], board: parts[0], delta: d, finish: parts[2])
+            let parts = k.split(separator: "|", maxSplits: 3).map(String.init)
+            return Change(cardId: parts[1], board: parts[0], delta: d, finish: parts[2], lang: parts[3])
         }
         .sorted { a, b in
             let ia = boardOrder.firstIndex(of: a.board) ?? 9, ib = boardOrder.firstIndex(of: b.board) ?? 9
@@ -230,7 +237,8 @@ final class ListsStore {
     }
 
     nonisolated static func wire(_ e: CardList.Entry) -> AnyJSON {
-        .array([.string(e.cardId), .string(e.board), .integer(e.qty)] + (e.finish == "nonfoil" ? [] : [.string(e.finish)]))
+        .array([.string(e.cardId), .string(e.board), .integer(e.qty)]
+               + (e.lang != "en" ? [.string(e.finish), .string(e.lang)] : e.finish == "nonfoil" ? [] : [.string(e.finish)]))
     }
 
     private func persist() {
@@ -326,74 +334,82 @@ final class ListsStore {
         send("list_delete", ["p_list_id": .string(listId)])
     }
 
-    func add(listId: String, cardId: String, board: String, finish: String = "nonfoil", delta: Int) {
-        edit(listId, op: ["card_id": .string(cardId), "board": .string(board), "finish": .string(finish), "delta": .integer(delta)]) { entries in
-            if let i = entries.firstIndex(where: { $0.cardId == cardId && $0.board == board && $0.finish == finish }) {
+    func add(listId: String, cardId: String, board: String, finish: String = "nonfoil", lang: String = "en", delta: Int) {
+        edit(listId, op: ["card_id": .string(cardId), "board": .string(board), "finish": .string(finish), "lang": .string(lang),
+                          "delta": .integer(delta)]) { entries in
+            if let i = entries.firstIndex(where: { $0.isLine(cardId, board, finish, lang) }) {
                 let q = entries[i].qty + delta
-                if q > 0 { entries[i] = .init(cardId: cardId, board: board, qty: q, finish: finish) } else { entries.remove(at: i) }
+                if q > 0 { entries[i] = .init(cardId: cardId, board: board, qty: q, finish: finish, lang: lang) } else { entries.remove(at: i) }
             } else if delta > 0 {
-                entries.append(.init(cardId: cardId, board: board, qty: delta, finish: finish))
+                entries.append(.init(cardId: cardId, board: board, qty: delta, finish: finish, lang: lang))
             }
         }
     }
 
     /// Moves every copy of a line to another section (merging with copies already there).
-    func move(listId: String, cardId: String, finish: String = "nonfoil", from: String, to: String) {
+    func move(listId: String, cardId: String, finish: String = "nonfoil", lang: String = "en", from: String, to: String) {
         guard from != to else { return }
-        edit(listId, op: ["card_id": .string(cardId), "finish": .string(finish), "from": .string(from), "to": .string(to)]) { entries in
-            Self.shift(&entries, cardId: cardId, board: from, finish: finish, toCardId: cardId, toBoard: to, toFinish: finish, qty: nil)
+        edit(listId, op: ["card_id": .string(cardId), "finish": .string(finish), "lang": .string(lang), "from": .string(from), "to": .string(to)]) { entries in
+            Self.shift(&entries, cardId: cardId, board: from, finish: finish, lang: lang, toCardId: cardId, toBoard: to, toFinish: finish,
+                       toLang: lang, qty: nil)
         }
     }
 
-    /// Moves `qty` copies (nil = all) of a line to another printing and/or finish in the same section: change a
-    /// printing, or split 4 non-foil into 2 non-foil and 2 foil.
-    func swap(listId: String, cardId: String, board: String, finish: String, toCardId: String, toFinish: String, qty: Int?) {
-        guard cardId != toCardId || finish != toFinish else { return }
-        var op: [String: AnyJSON] = ["card_id": .string(cardId), "board": .string(board), "finish": .string(finish),
-                                     "to_card_id": .string(toCardId), "to_finish": .string(toFinish)]
+    /// Moves `qty` copies (nil = all) of a line to another printing, finish and/or language in the same section:
+    /// change a printing, split 4 non-foil into 2 non-foil and 2 foil, or call 2 of them Japanese. `toLang` nil keeps
+    /// the line's language.
+    func swap(listId: String, cardId: String, board: String, finish: String, lang: String = "en", toCardId: String, toFinish: String,
+              toLang: String? = nil, qty: Int?) {
+        let toLang = toLang ?? lang
+        guard cardId != toCardId || finish != toFinish || lang != toLang else { return }
+        var op: [String: AnyJSON] = ["card_id": .string(cardId), "board": .string(board), "finish": .string(finish), "lang": .string(lang),
+                                     "to_card_id": .string(toCardId), "to_finish": .string(toFinish), "to_lang": .string(toLang)]
         if let qty { op["qty"] = .integer(qty) }
         edit(listId, op: op) { entries in
-            Self.shift(&entries, cardId: cardId, board: board, finish: finish, toCardId: toCardId, toBoard: board, toFinish: toFinish, qty: qty)
+            Self.shift(&entries, cardId: cardId, board: board, finish: finish, lang: lang, toCardId: toCardId, toBoard: board,
+                       toFinish: toFinish, toLang: toLang, qty: qty)
         }
     }
 
-    nonisolated static func shift(_ entries: inout [CardList.Entry], cardId: String, board: String, finish: String,
-                              toCardId: String, toBoard: String, toFinish: String, qty: Int?) {
-        guard let i = entries.firstIndex(where: { $0.cardId == cardId && $0.board == board && $0.finish == finish }) else { return }
+    nonisolated static func shift(_ entries: inout [CardList.Entry], cardId: String, board: String, finish: String, lang: String = "en",
+                              toCardId: String, toBoard: String, toFinish: String, toLang: String = "en", qty: Int?) {
+        guard let i = entries.firstIndex(where: { $0.isLine(cardId, board, finish, lang) }) else { return }
         let have = entries[i].qty
         let n = min(have, qty ?? have)
         guard n > 0 else { return }
-        if have - n > 0 { entries[i] = .init(cardId: cardId, board: board, qty: have - n, finish: finish) } else { entries.remove(at: i) }
-        if let j = entries.firstIndex(where: { $0.cardId == toCardId && $0.board == toBoard && $0.finish == toFinish }) {
-            entries[j] = .init(cardId: toCardId, board: toBoard, qty: entries[j].qty + n, finish: toFinish)
+        if have - n > 0 { entries[i] = .init(cardId: cardId, board: board, qty: have - n, finish: finish, lang: lang) } else { entries.remove(at: i) }
+        if let j = entries.firstIndex(where: { $0.isLine(toCardId, toBoard, toFinish, toLang) }) {
+            entries[j] = .init(cardId: toCardId, board: toBoard, qty: entries[j].qty + n, finish: toFinish, lang: toLang)
         } else {
-            entries.append(.init(cardId: toCardId, board: toBoard, qty: n, finish: toFinish))
+            entries.append(.init(cardId: toCardId, board: toBoard, qty: n, finish: toFinish, lang: toLang))
         }
     }
 
     /// Replaces one copy of a line with another card (Cube Cobra's Remove/Replace), in the same section: one edit,
     /// so the version history shows the swap.
-    func replaceCard(listId: String, cardId: String, board: String, finish: String, with toCardId: String, toFinish: String) {
-        swap(listId: listId, cardId: cardId, board: board, finish: finish, toCardId: toCardId, toFinish: toFinish, qty: 1)
+    func replaceCard(listId: String, cardId: String, board: String, finish: String, lang: String = "en", with toCardId: String, toFinish: String,
+                     toLang: String = "en") {
+        swap(listId: listId, cardId: cardId, board: board, finish: finish, lang: lang, toCardId: toCardId, toFinish: toFinish, toLang: toLang, qty: 1)
         Telemetry.capture("list_card_replaced", ["kind": list(id: listId)?.kind.rawValue ?? "cube"])
     }
 
-    func remove(listId: String, cardId: String, board: String, finish: String = "nonfoil") {
-        edit(listId, op: ["card_id": .string(cardId), "board": .string(board), "finish": .string(finish), "qty": .integer(0)]) {
-            $0.removeAll { $0.cardId == cardId && $0.board == board && $0.finish == finish }
+    func remove(listId: String, cardId: String, board: String, finish: String = "nonfoil", lang: String = "en") {
+        edit(listId, op: ["card_id": .string(cardId), "board": .string(board), "finish": .string(finish), "lang": .string(lang), "qty": .integer(0)]) {
+            $0.removeAll { $0.isLine(cardId, board, finish, lang) }
         }
     }
 
     /// Several cards into one section as one edit (a scan session): one request, one step in the history.
-    func addMany(listId: String, board: String, cards: [(cardId: String, finish: String)]) {
+    func addMany(listId: String, board: String, cards: [(cardId: String, finish: String, lang: String)]) {
         guard !cards.isEmpty else { return }
-        let ops: [[String: AnyJSON]] = cards.map { ["card_id": .string($0.cardId), "board": .string(board), "finish": .string($0.finish), "delta": .integer(1)] }
+        let ops: [[String: AnyJSON]] = cards.map { ["card_id": .string($0.cardId), "board": .string(board), "finish": .string($0.finish),
+                                                    "lang": .string($0.lang), "delta": .integer(1)] }
         edit(listId, ops: ops) { entries in
             for c in cards {
-                if let i = entries.firstIndex(where: { $0.cardId == c.cardId && $0.board == board && $0.finish == c.finish }) {
-                    entries[i] = .init(cardId: c.cardId, board: board, qty: entries[i].qty + 1, finish: c.finish)
+                if let i = entries.firstIndex(where: { $0.isLine(c.cardId, board, c.finish, c.lang) }) {
+                    entries[i] = .init(cardId: c.cardId, board: board, qty: entries[i].qty + 1, finish: c.finish, lang: c.lang)
                 } else {
-                    entries.append(.init(cardId: c.cardId, board: board, qty: 1, finish: c.finish))
+                    entries.append(.init(cardId: c.cardId, board: board, qty: 1, finish: c.finish, lang: c.lang))
                 }
             }
         }
@@ -502,7 +518,8 @@ struct ListDTO: Codable {
                         versions: versions.map { v in
                             CardList.Version(number: v.version, at: Date(timeIntervalSince1970: v.at), note: v.note,
                                              entries: v.entries.map { CardList.Entry(cardId: $0[0].text, board: $0[1].text, qty: $0[2].int,
-                                                                                    finish: $0.count > 3 ? $0[3].text : "nonfoil") })
+                                                                                    finish: $0.count > 3 ? $0[3].text : "nonfoil",
+                                                                                    lang: $0.count > 4 ? $0[4].text : "en") })
                         }, eventId: eventId, eventName: eventName)
     }
 
@@ -516,7 +533,8 @@ struct ListDTO: Codable {
         eventName = l.eventName
         versions = l.versions.map { v in
             VersionDTO(version: v.number, note: v.note, at: v.at.timeIntervalSince1970,
-                       entries: v.entries.map { [.text($0.cardId), .text($0.board), .int($0.qty)] + ($0.finish == "nonfoil" ? [] : [.text($0.finish)]) })
+                       entries: v.entries.map { [.text($0.cardId), .text($0.board), .int($0.qty)]
+                           + ($0.lang != "en" ? [.text($0.finish), .text($0.lang)] : $0.finish == "nonfoil" ? [] : [.text($0.finish)]) })
         }
     }
 }
@@ -532,6 +550,14 @@ private struct ListsPage: Decodable {
 func ownedByPrinting() -> [String: Int] {
     var out: [String: Int] = [:]
     for it in CollectionStore.shared.items.values { out["\(it.cardId)|\(it.finish)", default: 0] += it.qty }
+    return out
+}
+
+/// Copies owned of each printing in each finish and language ("card_id|finish|lang"), over every condition.
+@MainActor
+func ownedByLanguage() -> [String: Int] {
+    var out: [String: Int] = [:]
+    for it in CollectionStore.shared.items.values { out["\(it.cardId)|\(it.finish)|\(it.lang)", default: 0] += it.qty }
     return out
 }
 
@@ -639,6 +665,7 @@ struct ListLine: Identifiable, Hashable {
     /// The card's legality code (`CatalogPack.legalityFormats`).
     var legal: String = ""
     var finish: String = "nonfoil"
+    var lang: String = "en"
     /// Canadian Highlander points for one copy (0 = none).
     var points: Int = 0
     /// Basic lands are exempt from singleton rules.
@@ -648,6 +675,8 @@ struct ListLine: Identifiable, Hashable {
     var ownKey: String { "\(cardId)|\(finish)" }
     /// "Foil" / "Etched" for those lines; nil for non-foil.
     var finishLabel: String? { finish == "nonfoil" ? nil : finish.capitalized }
+    /// "JA" for a non-English line; nil for English.
+    var langLabel: String? { lang == "en" ? nil : lang.uppercased() }
 
     static let typeOrder = ["Creatures", "Planeswalkers", "Instants", "Sorceries", "Artifacts", "Enchantments", "Battles", "Lands", "Other"]
     static let colorOrder = ["White", "Blue", "Black", "Red", "Green", "Multicolor", "Colorless", "Lands"]
@@ -662,7 +691,7 @@ struct ListLine: Identifiable, Hashable {
             let keys = GroupKeys(o)
             return ListLine(id: "\(e.board)-\(i)", cardId: e.cardId, printing: printings[e.cardId], oracleId: o?.oracleId,
                             name: o?.name ?? "Unknown card", group: keys[kind == .deck ? .type : .color], board: e.board, qty: e.qty,
-                            keys: keys, legal: o?.legal ?? "", finish: e.finish,
+                            keys: keys, legal: o?.legal ?? "", finish: e.finish, lang: e.lang,
                             points: o?.points ?? 0, basic: type.contains("Basic"), type: o?.typeLine ?? "")
         }
         .sorted { $0.name < $1.name }
@@ -1028,7 +1057,7 @@ struct ListDetailView: View {
             HStack(spacing: 1) {
                 Button { if let o = cg.lead.oracleId { path.append(.cardIn(o, .list(listId))) } } label: {
                     CardRow(printing: cg.lead.printing, title: cg.lead.name,
-                            detail: [issue, "\(cg.lines.count) printings", haveText].compactMap { $0 }.joined(separator: " · "),
+                            detail: [issue, "\(cg.lines.count) \(Set(cg.lines.map(\.cardId)).count == cg.lines.count ? "printings" : "versions")", haveText].compactMap { $0 }.joined(separator: " · "),
                             finish: cg.lead.finish, hero: hero) {
                         Text("\(cg.qty)").font(T1.mono(17)).monospacedDigit()
                             .foregroundStyle((!considering && short > 0) || issue != nil ? T1.error : T1.text)
@@ -1055,7 +1084,7 @@ struct ListDetailView: View {
         let have: String? = eventDeck ? nil : considering ? (owned > 0 ? "Owned \(owned)" : "Not owned")
             : line.basic && owned == 0 ? nil : short ? "Owned \(owned) · missing \(line.qty - owned)" : "Owned \(owned)"
         let pts = line.points > 0 && ListsStore.shared.list(id: listId)?.format == "canlander" ? "\(line.points) pt\(line.points == 1 ? "" : "s")" : nil
-        let detail = [sub ? nil : issue, pts, line.finishLabel, have].compactMap { $0 }.joined(separator: " · ")
+        let detail = [sub ? nil : issue, pts, line.finishLabel, line.langLabel, have].compactMap { $0 }.joined(separator: " · ")
         return Button {
             if let o = line.oracleId { path.append(.cardIn(o, .list(listId))) }
         } label: {
@@ -1074,10 +1103,10 @@ struct ListDetailView: View {
                 let others = list.kind == .deck ? ["main", "side", "maybe"] : ["main", "maybe"]
                 T1Overlays.shared.showMenu(line.name, others.filter { $0 != line.board }.map { b in
                     T1MenuItem(title: "Move to \(list.boardTitle(b))") {
-                        store.move(listId: list.id, cardId: line.cardId, finish: line.finish, from: line.board, to: b)
+                        store.move(listId: list.id, cardId: line.cardId, finish: line.finish, lang: line.lang, from: line.board, to: b)
                     }
                 } + [T1MenuItem(title: "Change printing or finish", detail: "Or split copies between finishes") {
-                    path.append(.linePrinting(list.id, line.cardId, line.board, line.finish))
+                    path.append(.linePrinting(list.id, line.cardId, line.board, line.finish, line.lang))
                 }] + (line.oracleId.map { o in
                     let on = HeroesStore.shared.isHero(o, .list(list.id))
                     return [T1MenuItem(title: on ? "Not a hero card" : "Make it a hero card",
@@ -1087,17 +1116,17 @@ struct ListDetailView: View {
                         }
                     }]
                 } ?? []) + [T1MenuItem(title: "Remove from \(list.boardTitle(line.board))", destructive: true) {
-                    store.remove(listId: list.id, cardId: line.cardId, board: line.board, finish: line.finish)
+                    store.remove(listId: list.id, cardId: line.cardId, board: line.board, finish: line.finish, lang: line.lang)
                 }])
             } label: {
                 CardRow(printing: line.printing, title: line.name,
-                        detail: [line.finishLabel, "Tap to move, change or remove"].compactMap { $0 }.joined(separator: " · "),
+                        detail: [line.finishLabel, line.langLabel, "Tap to move, change or remove"].compactMap { $0 }.joined(separator: " · "),
                         finish: line.finish, hero: HeroesStore.shared.isHero(line.oracleId, .list(list.id))) {
                     Text("\(line.qty)").font(T1.mono(17)).monospacedDigit()
                 }
             }.buttonStyle(.plain)
-            stepper("−") { store.add(listId: list.id, cardId: line.cardId, board: line.board, finish: line.finish, delta: -1) }
-            stepper("+") { store.add(listId: list.id, cardId: line.cardId, board: line.board, finish: line.finish, delta: 1) }
+            stepper("−") { store.add(listId: list.id, cardId: line.cardId, board: line.board, finish: line.finish, lang: line.lang, delta: -1) }
+            stepper("+") { store.add(listId: list.id, cardId: line.cardId, board: line.board, finish: line.finish, lang: line.lang, delta: 1) }
         }
         .fixedSize(horizontal: false, vertical: true)
     }
@@ -1258,7 +1287,7 @@ struct ListVersionView: View {
         .task(id: "\(catalog.generation)-\(listId)-\(number)") {
             catalog.load(userInitiated: true)
             guard let db = catalog.db, let list = ListsStore.shared.list(id: listId) else { return }
-            let entries = changes.map { CardList.Entry(cardId: $0.cardId, board: $0.board, qty: abs($0.delta), finish: $0.finish) }
+            let entries = changes.map { CardList.Entry(cardId: $0.cardId, board: $0.board, qty: abs($0.delta), finish: $0.finish, lang: $0.lang) }
             let kind = list.kind
             let lines = await Task.detached(priority: .userInitiated) { ListLine.resolve(entries, kind: kind, db) }.value
             cards = Dictionary(lines.map { ($0.cardId, $0) }, uniquingKeysWith: { a, _ in a })
@@ -1269,7 +1298,8 @@ struct ListVersionView: View {
         let card = cards[c.cardId]
         return Button { if let o = card?.oracleId { path.append(.cardIn(o, .list(listId))) } } label: {
             CardRow(printing: card?.printing, title: card?.name ?? "…",
-                    detail: [c.delta > 0 ? "Added" : "Removed", c.finish == "nonfoil" ? nil : c.finish.capitalized].compactMap { $0 }.joined(separator: " · ")) {
+                    detail: [c.delta > 0 ? "Added" : "Removed", c.finish == "nonfoil" ? nil : c.finish.capitalized,
+                             c.lang == "en" ? nil : c.lang.uppercased()].compactMap { $0 }.joined(separator: " · ")) {
                 Text(c.delta > 0 ? "+\(c.delta)" : "−\(-c.delta)").font(T1.mono(17)).monospacedDigit()
                     .foregroundStyle(c.delta > 0 ? T1.text : T1.error)
             }
@@ -1467,7 +1497,7 @@ struct ListAddCardsView: View {
 
     private func add(_ list: CardList) {
         guard let a = addPick else { return }
-        ListsStore.shared.add(listId: listId, cardId: a.printing.cardId, board: board, finish: finish(a.printing), delta: 1)
+        ListsStore.shared.add(listId: listId, cardId: a.printing.cardId, board: board, finish: finish(a.printing), lang: a.printing.lang, delta: 1)
         Telemetry.capture("list_card_added", ["kind": list.kind.rawValue, "from": "edit"])
         note = "Added 1 \(a.oracle.name) to \(list.boardTitle(board))"
         reset()
@@ -1476,11 +1506,11 @@ struct ListAddCardsView: View {
     private func removeOrReplace(_ list: CardList) {
         guard let r = removePick else { return }
         if let a = addPick {
-            ListsStore.shared.replaceCard(listId: listId, cardId: r.cardId, board: r.board, finish: r.finish,
-                                          with: a.printing.cardId, toFinish: finish(a.printing))
+            ListsStore.shared.replaceCard(listId: listId, cardId: r.cardId, board: r.board, finish: r.finish, lang: r.lang,
+                                          with: a.printing.cardId, toFinish: finish(a.printing), toLang: a.printing.lang)
             note = "Replaced \(r.name) with \(a.oracle.name) in \(list.boardTitle(r.board))"
         } else {
-            ListsStore.shared.add(listId: listId, cardId: r.cardId, board: r.board, finish: r.finish, delta: -1)
+            ListsStore.shared.add(listId: listId, cardId: r.cardId, board: r.board, finish: r.finish, lang: r.lang, delta: -1)
             Telemetry.capture("list_card_removed", ["kind": list.kind.rawValue])
             note = "Removed 1 \(r.name) from \(list.boardTitle(r.board))"
         }
@@ -1506,7 +1536,7 @@ struct ListAddCardsView: View {
                                                          "exact": cards.filter(\.exact).count, "cancelled": false])
                 T1Overlays.shared.dismissPanel()
                 guard !cards.isEmpty else { return }
-                ListsStore.shared.addMany(listId: list.id, board: target, cards: cards.map { ($0.printing.cardId, $0.finish) })
+                ListsStore.shared.addMany(listId: list.id, board: target, cards: cards.map { ($0.printing.cardId, $0.finish, $0.lang) })
                 note = "Added \(cards.count) scanned card\(cards.count == 1 ? "" : "s") to \(list.boardTitle(target))"
             }, onCancel: {
                 Telemetry.capture("scan_session_ended", ["context": list.kind.rawValue, "cards": 0, "exact": 0, "cancelled": true])
@@ -1533,7 +1563,7 @@ struct ListAddCardsView: View {
                     }.buttonStyle(.plain)
                     Button {
                         guard let p else { return }
-                        ListsStore.shared.add(listId: listId, cardId: p.cardId, board: target, finish: finish(p), delta: 1)
+                        ListsStore.shared.add(listId: listId, cardId: p.cardId, board: target, finish: finish(p), lang: p.lang, delta: 1)
                         Telemetry.capture("list_card_added", ["kind": list.kind.rawValue, "from": "quick"])
                         note = "Added 1 \(o.name) to \(list.boardTitle(target))"
                     } label: {

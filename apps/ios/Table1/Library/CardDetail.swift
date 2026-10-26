@@ -5,7 +5,7 @@ import Foundation
    copies in view. Kept apart from the views so the tests (and testdata/card-detail/cases.json) can reach it. */
 
 /// One thing the scope counts: owned copies are printing × finish × condition × language; a deck or cube line is
-/// printing × section × finish (its condition and language are unused).
+/// printing × section × finish × language (its condition is unused).
 struct CardVersion: Hashable, Identifiable, Sendable {
     var cardId: String
     var finish: String
@@ -15,7 +15,7 @@ struct CardVersion: Hashable, Identifiable, Sendable {
     var board: String?
     var qty = 0
 
-    var id: String { board.map { "\(cardId)|\($0)|\(finish)" } ?? itemKey }
+    var id: String { board.map { "\(cardId)|\($0)|\(finish)|\(lang)" } ?? itemKey }
     var itemKey: String { CollectionStore.key(cardId, finish, condition, lang) }
 
     init(cardId: String, finish: String, condition: String = "NM", lang: String = "en", board: String? = nil, qty: Int = 0) {
@@ -32,7 +32,7 @@ struct CardVersion: Hashable, Identifiable, Sendable {
     }
 
     init(_ entry: CardList.Entry) {
-        self.init(cardId: entry.cardId, finish: entry.finish, board: entry.board, qty: entry.qty)
+        self.init(cardId: entry.cardId, finish: entry.finish, lang: entry.lang, board: entry.board, qty: entry.qty)
     }
 }
 

@@ -356,7 +356,7 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
                         if (left <= 0) break
                         if (printing[e.cardId]?.oracleIdx != c.oracleIdx) continue
                         val n = minOf(left, e.qty)
-                        ListsStore.add(c.list.id, e.cardId, e.board, -n, e.finish)
+                        ListsStore.add(c.list.id, e.cardId, e.board, -n, e.finish, e.lang)
                         left -= n
                     }
                 }

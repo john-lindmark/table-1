@@ -332,7 +332,8 @@ enum LibraryDemo {
         BindersStore.shared.startDemo(binders: Array(backend.binders.values), allocs: Array(backend.allocs.values), wants: [])
         HeroesStore.shared.startDemo()
         func entries(_ rows: [[LibraryDemoFixture.Entry]]) -> [CardList.Entry] {
-            rows.map { CardList.Entry(cardId: $0[0].text, board: $0[1].text, qty: $0[2].int, finish: $0.count > 3 ? $0[3].text : "nonfoil") }
+            rows.map { CardList.Entry(cardId: $0[0].text, board: $0[1].text, qty: $0[2].int, finish: $0.count > 3 ? $0[3].text : "nonfoil",
+                                       lang: $0.count > 4 ? $0[4].text : "en") }
         }
         ListsStore.shared.replace(f.lists.map { l in
             let versions = (l.versions ?? []).map {
@@ -468,7 +469,7 @@ struct LibraryDemoRoot: View {
                 path = [.lists(.deck), .list(l.id), .cardIn(o.oracleId, .list(l.id))]
                 if arg == "deckprinting" {
                     T1Overlays.shared.present(full: true) {
-                        ChangePrintingView(target: .listLine(listId: l.id, cardId: e.cardId, board: e.board, finish: e.finish),
+                        ChangePrintingView(target: .listLine(listId: l.id, cardId: e.cardId, board: e.board, finish: e.finish, lang: e.lang),
                                            close: { T1Overlays.shared.dismissPanel() })
                     }
                 }

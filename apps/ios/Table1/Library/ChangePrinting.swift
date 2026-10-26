@@ -7,7 +7,7 @@ import SwiftUI
 /// Where a printing change applies.
 enum PrintingTarget {
     /// A deck or cube line (one `list_edit` swap op, so the version history shows it).
-    case listLine(listId: String, cardId: String, board: String, finish: String)
+    case listLine(listId: String, cardId: String, board: String, finish: String, lang: String = "en")
     /// Owned copies. `place` is the binder id (or `BinderRoute.unsorted`) to take them from first; nil picks the
     /// place holding the most.
     case owned(CollectionItem, place: String?)
@@ -16,7 +16,7 @@ enum PrintingTarget {
 
     var cardId: String {
         switch self {
-        case .listLine(_, let c, _, _): c
+        case .listLine(_, let c, _, _, _): c
         case .owned(let it, _): it.cardId
         case .tradeGet(let l, _): l.cardId
         }
@@ -24,7 +24,7 @@ enum PrintingTarget {
 
     var finish: String {
         switch self {
-        case .listLine(_, _, _, let f): f
+        case .listLine(_, _, _, let f, _): f
         case .owned(let it, _): it.finish
         case .tradeGet(let l, _): l.finish
         }
@@ -193,8 +193,8 @@ struct ChangePrintingView: View {
     /// Copies the change can move: the line's count, or the copies in the chosen place.
     private var have: Int {
         switch target {
-        case .listLine(let l, let c, let b, let f):
-            return ListsStore.shared.list(id: l)?.entries.first { $0.cardId == c && $0.board == b && $0.finish == f }?.qty ?? 0
+        case .listLine(let l, let c, let b, let f, let lang):
+            return ListsStore.shared.list(id: l)?.entries.first { $0.isLine(c, b, f, lang) }?.qty ?? 0
         case .owned(let it, _):
             let live = CollectionStore.shared.items[it.key] ?? it
             let _ = BindersStore.shared.version
@@ -207,7 +207,7 @@ struct ChangePrintingView: View {
     private func currentDetail(_ p: CatalogPrinting?) -> String {
         var parts = [p?.setLabel, Finish(rawValue: target.finish)?.label ?? target.finish]
         switch target {
-        case .listLine(let l, _, let b, _): parts.append(ListsStore.shared.list(id: l)?.boardTitle(b))
+        case .listLine(let l, _, let b, _, let lang): parts += [lang == "en" ? nil : lang.uppercased(), ListsStore.shared.list(id: l)?.boardTitle(b)]
         case .owned(let it, _): parts += [it.condition, it.lang == "en" ? nil : it.lang.uppercased()]
         case .tradeGet(let l, _): parts.append(l.condition)
         }
@@ -247,8 +247,10 @@ struct ChangePrintingView: View {
     private func pick(_ p: CatalogPrinting, _ toFinish: String, n: Int) {
         let props: [String: Any] = ["where": target.telemetryWhere, "copies": n, "finish_only": p.cardId == target.cardId]
         switch target {
-        case .listLine(let l, let c, let b, let f):
-            ListsStore.shared.swap(listId: l, cardId: c, board: b, finish: f, toCardId: p.cardId, toFinish: toFinish, qty: n)
+        case .listLine(let l, let c, let b, let f, let lang):
+            // A non-English printing is its own language; another English printing keeps the line's.
+            ListsStore.shared.swap(listId: l, cardId: c, board: b, finish: f, lang: lang, toCardId: p.cardId, toFinish: toFinish,
+                                   toLang: Languages.forNew(p, picked: lang), qty: n)
             Telemetry.capture("printing_changed", props)
             finish()
         case .tradeGet(_, let apply):

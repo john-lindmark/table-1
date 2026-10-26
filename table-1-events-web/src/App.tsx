@@ -315,7 +315,7 @@ function ListRoute() {
     <ListScreen id={listId} onBack={back} onCard={(o) => navigate(`/library/card/${o}`, { state: { list: listId } })}
                 onAdd={() => navigate(`/library/list/${listId}/add`)} onVersions={() => navigate(`/library/list/${listId}/versions`)}
                 onOpen={(id) => navigate(`/library/list/${id}`)}
-                onPrinting={(card, board, finish) => navigate(`/library/list/${listId}/printing?card=${card}&board=${board}&finish=${finish}`)}
+                onPrinting={(card, board, finish, lang) => navigate(`/library/list/${listId}/printing?card=${card}&board=${board}&finish=${finish}&lang=${lang}`)}
                 onStats={() => navigate(`/library/list/${listId}/stats`)} onRankings={() => navigate(`/library/list/${listId}/rankings`)} />
   );
 }
@@ -375,7 +375,7 @@ function LinePrintingRoute() {
   const back = useBack(`/library/list/${listId}`);
   if (!listId) return <Navigate to="/library" replace />;
   return <ChangePrintingScreen target={{ kind: "list", listId, cardId: q.get("card") ?? "", board: (q.get("board") ?? "main") as Board,
-                                        finish: (q.get("finish") ?? "nonfoil") as ListFinish }} onClose={back} />;
+                                        finish: (q.get("finish") ?? "nonfoil") as ListFinish, lang: q.get("lang") ?? "en" }} onClose={back} />;
 }
 
 function ListImportRoute() {

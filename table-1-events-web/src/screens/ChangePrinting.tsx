@@ -6,7 +6,7 @@ import { applyOps, DEMO_USER, useCollection, type Finish, type Item } from "../l
 import { useBinders } from "../lib/binders";
 import { pickPlace, printingChangeOps, printingPlaces } from "../lib/changePrinting";
 import { loadDemoLists } from "../lib/libraryDemo";
-import { boardTitle, editList, entriesOf, finishOf, useLists, type Board } from "../lib/lists";
+import { boardTitle, editList, entriesOf, finishOf, langOf, useLists, type Board } from "../lib/lists";
 import { printingMatches } from "../lib/librarySearch";
 import { usdPrice, usdText, usePrices } from "../lib/prices";
 import { capture, screen } from "../lib/telemetry";
@@ -14,7 +14,7 @@ import type { TradeLine } from "../lib/trades";
 import { useSearchUsed } from "./Binders";
 import { CardArt, CardRow, LibScreen, useCatalog, useLibrarySession } from "./Library";
 import { LanguagePicker, LanguageRow } from "./Languages";
-import { languageChangeOps, languageName } from "../lib/languages";
+import { langForNew, languageChangeOps, languageName } from "../lib/languages";
 
 /* Change printing (contract/change-printing-2026-10-18.md): every card line that names a printing can point some or
    all of its copies at another printing or finish, from this one screen: a deck or cube line, owned copies (from the
@@ -24,7 +24,7 @@ import { languageChangeOps, languageName } from "../lib/languages";
 /** Where a printing change applies. */
 export type PrintingTarget =
   /** A deck or cube line (one list_edit swap op, so the version history shows it). */
-  | { kind: "list"; listId: string; cardId: string; board: Board; finish: Finish }
+  | { kind: "list"; listId: string; cardId: string; board: Board; finish: Finish; lang: string }
   /** Owned copies. `place`: the binder id (or Unsorted) card detail was opened from; null = the collection. */
   | { kind: "owned"; item: Item; place: string | null }
   /** A get in a trade draft: the whole line moves; `apply` gets the new card id and finish. */
@@ -80,7 +80,7 @@ export function ChangePrintingScreen({ target, onClose, onChanged, screenName }:
   const selected = target.kind === "owned" ? pickPlace(places, place, target.place) : null;
   const list = target.kind === "list" ? lists.lists.find((l) => l.id === target.listId) : undefined;
   const have = target.kind === "list"
-    ? (list ? entriesOf(list).find((e) => e.cardId === cardId && e.board === target.board && finishOf(e) === finish)?.qty ?? 0 : 0)
+    ? (list ? entriesOf(list).find((e) => e.cardId === cardId && e.board === target.board && finishOf(e) === finish && langOf(e) === target.lang)?.qty ?? 0 : 0)
     : target.kind === "owned" ? places.find((p) => p.place === selected)?.qty ?? 0
     : target.line.qty;
   const n = Math.min(Math.max(count || have, 1), Math.max(have, 1));
@@ -98,7 +98,7 @@ export function ChangePrintingScreen({ target, onClose, onChanged, screenName }:
   const label = (p: number) => `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}`;
   const shown = q ? printings.filter((p) => printingMatches(q, catalog.pSet[p], catalog.pCn[p], catalog.pReleased[p] ?? "")) : printings;
   const currentDetail = [p0 != null ? label(p0) : null, FINISH_LABEL[finish],
-    ...(target.kind === "list" ? [list ? boardTitle(list.kind, target.board) : null]
+    ...(target.kind === "list" ? [target.lang === "en" ? null : target.lang.toUpperCase(), list ? boardTitle(list.kind, target.board) : null]
       : target.kind === "owned" ? [target.item.condition, target.item.lang === "en" ? null : target.item.lang.toUpperCase()]
       : [target.line.condition])].filter(Boolean).join(" · ");
 
@@ -106,7 +106,9 @@ export function ChangePrintingScreen({ target, onClose, onChanged, screenName }:
     const props = { where: target.kind === "list" ? "list" : target.kind === "trade" ? "trade" : target.place == null ? "collection" : "binder",
                     copies: n, finish_only: catalog.pId[p] === cardId };
     if (target.kind === "list") {
-      void editList(target.listId, [{ card_id: cardId, board: target.board, finish, to_card_id: catalog.pId[p], to_finish: toFinish, qty: n, swap: true }]);
+      // A non-English printing is its own language; another English printing keeps the line's.
+      void editList(target.listId, [{ card_id: cardId, board: target.board, finish, lang: target.lang, to_card_id: catalog.pId[p], to_finish: toFinish,
+                                      to_lang: langForNew(catalog.pLang[p], target.lang), qty: n, swap: true }]);
       capture("printing_changed", props);
       return onClose();
     }

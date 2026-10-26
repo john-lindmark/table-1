@@ -44,24 +44,46 @@ import site.table1.events.util.Telemetry
 object ListToCollection {
     enum class Mode(val wire: String) { Missing("missing"), All("all") }
 
-    data class Op(val cardId: String, val finish: String, val delta: Int)
+    data class Op(val cardId: String, val finish: String, val delta: Int, val lang: String = "en")
 
-    /** Main and Commander always count, a deck's sideboard unless `sideboard` is false, Considering never. `owned` is
-     *  keyed "card_id|finish" over every condition and language; `only` limits it to some printings (card detail). Basic
+    /** Main and Commander always count, a deck's sideboard unless `sideboard` is false, Considering never. Each line
+     *  keeps its language. `owned` is keyed "card_id|finish" (English copies) or "card_id|finish|lang"; Missing goes by
+     *  printing + finish over every condition and language: owned copies cover lines in their own language first, then
+     *  the rest, English lines first, then by language code. `only` limits it to some printings (card detail). Basic
      *  lands ([basics]) are never missing, so only All adds them (contract/basics-2026-10-24.md). */
     fun ops(entries: List<ListEntry>, kind: ListKind, owned: Map<String, Int>, mode: Mode, sideboard: Boolean = true, only: Set<String>? = null,
             basics: Set<String> = emptySet()): List<Op> {
-        val need = LinkedHashMap<String, Int>()
+        val need = LinkedHashMap<String, MutableMap<String, Int>>() // "card|finish" → lang → copies
         for (e in entries) {
             if (!(e.board == "main" || e.board == "commander" || (e.board == "side" && kind == ListKind.Deck && sideboard))) continue
             if (only != null && e.cardId !in only) continue
             if (mode == Mode.Missing && e.cardId in basics) continue
-            need.merge(ownKey(e.cardId, e.finish), e.qty, Int::plus)
+            need.getOrPut(ownKey(e.cardId, e.finish)) { HashMap() }.merge(e.lang, e.qty, Int::plus)
         }
-        return need.mapNotNull { (k, n) ->
-            val delta = if (mode == Mode.All) n else n - (owned[k] ?: 0)
-            if (delta <= 0) null else k.split("|", limit = 2).let { Op(it[0], it[1], delta) }
-        }.sortedWith(compareBy({ it.cardId }, { it.finish }))
+        val have = HashMap<String, MutableMap<String, Int>>()
+        if (mode == Mode.Missing) for ((k, n) in owned) {
+            val parts = k.split("|", limit = 3)
+            if (parts.size < 2) continue
+            have.getOrPut("${parts[0]}|${parts[1]}") { HashMap() }.merge(parts.getOrElse(2) { "en" }, n, Int::plus)
+        }
+        val out = mutableListOf<Op>()
+        for ((key, langs) in need) {
+            val (card, finish) = key.split("|", limit = 2)
+            val left = HashMap(langs)
+            if (mode == Mode.Missing) {
+                val mine = have[key] ?: emptyMap()
+                var spare = mine.values.sum()
+                for ((l, n) in langs) { val c = minOf(n, mine[l] ?: 0); left[l] = n - c; spare -= c }
+                for (l in left.keys.sortedWith(compareBy({ it != "en" }, { it }))) {
+                    if (spare <= 0) break
+                    val c = minOf(left[l]!!, spare)
+                    left[l] = left[l]!! - c
+                    spare -= c
+                }
+            }
+            for ((l, n) in left) if (n > 0) out += Op(card, finish, n, l)
+        }
+        return out.sortedWith(compareBy({ it.cardId }, { it.finish }, { it.lang }))
     }
 
     fun copies(ops: List<Op>) = ops.sumOf { it.delta }
@@ -71,10 +93,10 @@ object ListToCollection {
     fun cardDetail(missing: Int, basic: Boolean) =
         if (missing > 0) "Missing $missing · the printing listed here" else if (basic) "Basic land · add the copies listed here" else "You own every copy listed here"
 
-    /** Collection ops in the picked condition, each copy in the language of the printing the list names (a list line's
-     *  language is its printing's; the language picked for other adds never applies here). */
+    /** Collection ops in the picked condition, each copy in the language its line names (a non-English printing is
+     *  always its own); the language picked for other adds never applies here. */
     fun collectionOps(ops: List<Op>, printingLang: (String) -> String?, condition: String): List<CollectionOp> =
-        ops.map { CollectionOp(it.cardId, it.finish, condition, printingLang(it.cardId) ?: "en", delta = it.delta) }
+        ops.map { CollectionOp(it.cardId, it.finish, condition, Languages.forNew(printingLang(it.cardId) ?: "en", it.lang), delta = it.delta) }
 }
 
 /** Add to collection from a deck or cube: what's missing or every card, sideboard or not, in one undoable batch. */
@@ -148,9 +170,10 @@ fun ListToCollectionScreen(list: CardList, owned: Map<String, Int>, onClose: () 
                         ListRow(if (mode == ListToCollection.Mode.Missing) "You own every card here" else "No cards to add",
                             if (mode == ListToCollection.Mode.Missing) "Pick Every card to add another copy of each" else null)
                     }
-                    items(ops, key = { "${it.cardId}|${it.finish}" }) { o ->
+                    items(ops, key = { "${it.cardId}|${it.finish}|${it.lang}" }) { o ->
                         val p = printings[o.cardId]
-                        CardRow(p, names[o.cardId] ?: "…", listOfNotNull(p?.setLabel, if (o.finish == "nonfoil") null else Finish.of(o.finish)?.label ?: o.finish)
+                        CardRow(p, names[o.cardId] ?: "…", listOfNotNull(p?.setLabel, if (o.finish == "nonfoil") null else Finish.of(o.finish)?.label ?: o.finish,
+                            if (o.lang == "en") null else Languages.name(o.lang))
                             .joinToString(" · "), finish = o.finish) {
                             Text("+${o.delta}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                         }

@@ -144,9 +144,11 @@ struct AddToPanel: View {
         guard let l = lists.list(id: id), let printing else { return }
         // A finish the printing lacks is saved in one it has (contract/lists-2026-10-15.md).
         let f = printing.finishList.map(\.rawValue).contains(version.finish) ? version.finish : printing.finishList.first?.rawValue ?? "nonfoil"
-        lists.add(listId: id, cardId: printing.cardId, board: board, finish: f, delta: 1)
+        // The copy keeps the language on screen (a Japanese copy you own goes in as Japanese).
+        let lang = Languages.forNew(printing, picked: version.lang)
+        lists.add(listId: id, cardId: printing.cardId, board: board, finish: f, lang: lang, delta: 1)
         let label = "Added 1 \(name) to \(l.name) · \(l.boardTitle(board))"
-        finish(l.kind.rawValue, label, CardUndo(label: label) { lists.add(listId: id, cardId: printing.cardId, board: board, finish: f, delta: -1) })
+        finish(l.kind.rawValue, label, CardUndo(label: label) { lists.add(listId: id, cardId: printing.cardId, board: board, finish: f, lang: lang, delta: -1) })
     }
 
     private func want(_ how: String) {
@@ -356,7 +358,7 @@ struct CardInfoView: View {
         let byId = Dictionary(printings.map { ($0.cardId, $0) }, uniquingKeysWith: { a, _ in a })
         let lines = list.entries.filter { byId[$0.cardId] != nil }
         let only = Set(lines.map(\.cardId))
-        let ownedNow = ownedByPrinting()
+        let ownedNow = ownedByLanguage()
         let basics = CatalogStore.shared.basics
         let missing = ListToCollection.ops(list.entries, kind: list.kind, owned: ownedNow, mode: .missing, only: only, basics: basics)
         let all = ListToCollection.ops(list.entries, kind: list.kind, owned: ownedNow, mode: .all, only: only)
@@ -381,9 +383,9 @@ struct CardInfoView: View {
             if a > 0 && a != m { items.append(T1MenuItem(title: "Add all \(a)", detail: "Every copy listed here · \(addCondition)") { add(all, mode: "all") }) }
             for l in lines.prefix(4) {
                 let p = byId[l.cardId]
-                let label = "\(p?.setLabel ?? "?")\(l.finish == "nonfoil" ? "" : " · \(Finish(rawValue: l.finish)?.label ?? l.finish)")"
+                let label = "\(p?.setLabel ?? "?")\(l.finish == "nonfoil" ? "" : " · \(Finish(rawValue: l.finish)?.label ?? l.finish)")\(l.lang == "en" ? "" : " · \(l.lang.uppercased())")"
                 items.append(T1MenuItem(title: "Add 1 \(label)", detail: list.boardTitle(l.board)) {
-                    add([ListToCollection.Op(cardId: l.cardId, finish: l.finish, delta: 1)], mode: "one")
+                    add([ListToCollection.Op(cardId: l.cardId, finish: l.finish, delta: 1, lang: l.lang)], mode: "one")
                 })
             }
             T1Overlays.shared.showMenu("Add \(oracle.name) to your collection", items)

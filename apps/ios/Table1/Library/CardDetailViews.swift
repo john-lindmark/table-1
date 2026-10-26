@@ -241,12 +241,9 @@ struct CardDetailView: View {
         let set = shared(\.cardId)
         let printing = set.flatMap { byId[$0] }
         var cells: [(CardAttribute, String, Bool)] = [(.set, printing?.set.uppercased() ?? "Mix", true)]
-        if list == nil {
-            let lang = shared(\.lang)
-            // A non-English printing's language is its own.
-            cells.append((.language, lang?.uppercased() ?? "Mix", printing.map { $0.lang == "en" } ?? true))
-            cells.append((.condition, shared(\.condition) ?? "Mix", true))
-        }
+        // A non-English printing's language is its own. Deck and cube lines name a language too, but no condition.
+        cells.append((.language, shared(\.lang)?.uppercased() ?? "Mix", printing.map { $0.lang == "en" } ?? true))
+        if list == nil { cells.append((.condition, shared(\.condition) ?? "Mix", true)) }
         if CardDetailRules.showsFinish(shown, printings: byId) {
             let f = shared(\.finish)
             cells.append((.finish, f.map(Self.finishCode) ?? "Mix", printing.map { $0.finishList.count > 1 } ?? true))
@@ -363,15 +360,17 @@ struct CardDetailView: View {
                 let board = v.board ?? "main", n = one ? 1 : v.qty
                 if a == .section {
                     let toBoard = to.board ?? "main"
-                    lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, delta: -n)
-                    lists.add(listId: listId, cardId: v.cardId, board: toBoard, finish: v.finish, delta: n)
+                    lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, delta: -n)
+                    lists.add(listId: listId, cardId: v.cardId, board: toBoard, finish: v.finish, lang: v.lang, delta: n)
                     undo.append {
-                        lists.add(listId: listId, cardId: v.cardId, board: toBoard, finish: v.finish, delta: -n)
-                        lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, delta: n)
+                        lists.add(listId: listId, cardId: v.cardId, board: toBoard, finish: v.finish, lang: v.lang, delta: -n)
+                        lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, delta: n)
                     }
                 } else {
-                    lists.swap(listId: listId, cardId: v.cardId, board: board, finish: v.finish, toCardId: to.cardId, toFinish: to.finish, qty: n)
-                    undo.append { lists.swap(listId: listId, cardId: to.cardId, board: board, finish: to.finish, toCardId: v.cardId, toFinish: v.finish, qty: n) }
+                    lists.swap(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, toCardId: to.cardId,
+                               toFinish: to.finish, toLang: to.lang, qty: n)
+                    undo.append { lists.swap(listId: listId, cardId: to.cardId, board: board, finish: to.finish, lang: to.lang, toCardId: v.cardId,
+                                             toFinish: v.finish, toLang: v.lang, qty: n) }
                 }
                 if selectedVersion != nil, !one || v.qty == 1 { selected = to.id }
             }
@@ -424,9 +423,9 @@ struct CardDetailView: View {
         if delta < 0 && v.qty <= 1 { draft = CardVersion(cardId: v.cardId, finish: v.finish, condition: v.condition, lang: v.lang, board: v.board) }
         if let listId {
             let board = v.board ?? "main"
-            lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, delta: delta)
+            lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, delta: delta)
             Telemetry.capture("card_stepped", props)
-            report(text, CardUndo(label: text) { lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, delta: -delta) })
+            report(text, CardUndo(label: text) { lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, delta: -delta) })
             return
         }
         write([CardDetailRules.step(v, delta: delta, binderId: binderId)], label: text) {

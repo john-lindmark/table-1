@@ -1,5 +1,5 @@
 {
-  "about": "Add a deck or cube to the collection (contract/list-to-collection-2026-10-22.md). Each line goes in as the printing and finish the list names. Main and Commander always count; a deck's sideboard counts unless sideboard is false; Considering never does. 'missing' adds only what the collection lacks of each printing + finish (owned is keyed 'card_id|finish', every condition and language); 'all' adds every copy listed. 'only' limits it to some printings (card detail). Ops come out sorted by card_id, then finish, and only with delta > 0. iOS ListToCollectionTests, web listToCollection.test.ts and Android ListToCollectionTest read this.",
+  "about": "Add a deck or cube to the collection (contract/list-to-collection-2026-10-22.md). Each line goes in as the printing, finish and language the list names (an entry's or op's lang defaults to en). Main and Commander always count; a deck's sideboard counts unless sideboard is false; Considering never does. 'missing' adds only what the collection lacks of each printing + finish over every condition and language (owned is keyed 'card_id|finish' for English copies or 'card_id|finish|lang'); owned copies cover lines in their own language first, then the others, English lines first, then by language code; 'all' adds every copy listed. 'only' limits it to some printings (card detail). Ops come out sorted by card_id, then finish, then lang, and only with delta > 0. iOS ListToCollectionTests, web listToCollection.test.ts and Android ListToCollectionTest read this.",
   "cases": [
     {
       "name": "deck, every copy: main and sideboard, not considering",
@@ -99,6 +99,41 @@
       "owned": {"a|nonfoil": 1},
       "ops": [{"card_id": "a", "finish": "nonfoil", "delta": 1}, {"card_id": "a2", "finish": "foil", "delta": 1}],
       "copies": 2
+    },
+    {
+      "name": "languages are separate lines",
+      "kind": "cube", "mode": "all",
+      "entries": [
+        {"card_id": "a", "board": "main", "finish": "nonfoil", "qty": 2},
+        {"card_id": "a", "board": "main", "finish": "nonfoil", "qty": 1, "lang": "ja"},
+        {"card_id": "a", "board": "maybe", "finish": "nonfoil", "qty": 1, "lang": "de"}
+      ],
+      "owned": {"a|nonfoil": 5},
+      "ops": [{"card_id": "a", "finish": "nonfoil", "delta": 2}, {"card_id": "a", "finish": "nonfoil", "delta": 1, "lang": "ja"}],
+      "copies": 3
+    },
+    {
+      "name": "missing: owned copies cover their own language first, spare ones the rest",
+      "kind": "deck", "mode": "missing",
+      "entries": [
+        {"card_id": "a", "board": "main", "finish": "nonfoil", "qty": 2},
+        {"card_id": "a", "board": "side", "finish": "nonfoil", "qty": 2, "lang": "ja"}
+      ],
+      "owned": {"a|nonfoil|ja": 3},
+      "ops": [{"card_id": "a", "finish": "nonfoil", "delta": 1}],
+      "copies": 1
+    },
+    {
+      "name": "missing: copies in other languages cover English lines first, then by language code",
+      "kind": "deck", "mode": "missing",
+      "entries": [
+        {"card_id": "a", "board": "main", "finish": "nonfoil", "qty": 1, "lang": "ja"},
+        {"card_id": "a", "board": "main", "finish": "nonfoil", "qty": 1, "lang": "de"},
+        {"card_id": "a", "board": "main", "finish": "nonfoil", "qty": 1}
+      ],
+      "owned": {"a|nonfoil|fr": 2},
+      "ops": [{"card_id": "a", "finish": "nonfoil", "delta": 1, "lang": "ja"}],
+      "copies": 1
     }
   ]
 }

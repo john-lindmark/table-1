@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./supabaseClient", () => ({ supabase: {} }));
-const { boardsOf, countOf, current, diff, fromWire, missingIn } = await import("./lists");
+const { boardsOf, countOf, current, diff, entryWire, fromWire, missingIn } = await import("./lists");
 
 const BOLT = "f29ba16f-c8fb-42fe-aabf-87089cb214a7";
 const DELVER = "11bf83bb-c95b-4b4f-9a56-ce7a1816307a";
@@ -33,8 +33,8 @@ describe("diff and missing", () => {
   const l = fromWire(wire)!;
   it("lists removals before additions, per section", () => {
     expect(diff(l.versions[0], l.versions[1])).toEqual([
-      { cardId: BOLT, board: "main", delta: -1, finish: "nonfoil" },
-      { cardId: DELVER, board: "maybe", delta: 2, finish: "nonfoil" },
+      { cardId: BOLT, board: "main", delta: -1, finish: "nonfoil", lang: "en" },
+      { cardId: DELVER, board: "maybe", delta: 2, finish: "nonfoil", lang: "en" },
     ]);
   });
   it("never counts Considering as missing", () => {
@@ -47,5 +47,28 @@ describe("diff and missing", () => {
     expect(split.versions[0].entries).toEqual([{ cardId: BOLT, board: "main", qty: 2 }, { cardId: BOLT, board: "main", qty: 2, finish: "foil" }]);
     expect(missingIn(split, new Map([[`${BOLT}|nonfoil`, 4]]), new Set())).toBe(2);
     expect(missingIn(split, new Map([[`${BOLT}|nonfoil`, 2], [`${BOLT}|foil`, 2]]), new Set())).toBe(0);
+  });
+});
+
+describe("languages (contract/lists-2026-10-15.md, Languages)", () => {
+  const l = fromWire({ id: "x", kind: "cube", name: "x", format: "vintage", versions: [
+    { version: 1, note: "Created", at: 0, entries: [[BOLT, "main", 2]] },
+    { version: 2, note: "Edited", at: 1, entries: [[BOLT, "main", 1], [BOLT, "main", 1, "nonfoil", "ja"], [DELVER, "main", 1, "foil", "de"]] },
+  ] })!;
+  it("reads the fifth element as the line's language", () => {
+    expect(current(l).entries).toEqual([{ cardId: BOLT, board: "main", qty: 1 }, { cardId: BOLT, board: "main", qty: 1, lang: "ja" },
+                                        { cardId: DELVER, board: "main", qty: 1, finish: "foil", lang: "de" }]);
+  });
+  it("writes the language only when it isn't English, with the finish before it", () => {
+    expect(current(l).entries.map(entryWire)).toEqual([[BOLT, "main", 1], [BOLT, "main", 1, "nonfoil", "ja"], [DELVER, "main", 1, "foil", "de"]]);
+  });
+  it("sees a language change in the history", () => {
+    expect(diff(l.versions[0], l.versions[1]).filter((c) => c.cardId === BOLT)).toEqual([
+      { cardId: BOLT, board: "main", delta: -1, finish: "nonfoil", lang: "en" },
+      { cardId: BOLT, board: "main", delta: 1, finish: "nonfoil", lang: "ja" },
+    ]);
+  });
+  it("counts Missing over every language", () => {
+    expect(missingIn(l, new Map([[`${BOLT}|nonfoil`, 2]]), new Set())).toBe(1);
   });
 });

@@ -13,17 +13,19 @@ opens a full screen:
   printing + finish; Every card adds every copy listed.
 - **Sideboard** switch on decks with a sideboard (on by default).
 - Condition (NM…DMG): the same remembered choice as card detail's Add a printing.
-- No language picker: each copy goes in as the language the list gives it (a line's language is its printing's),
-  never the language picked for other adds (John, 2026-10-25; it used to turn English printings into the picked
-  language).
+- No language picker: each copy goes in as the language its line names (lists § Languages; a non-English printing
+  is always its own), never the language picked for other adds (John, 2026-10-25; it used to turn English printings
+  into the picked language).
 - A note: each card goes in as the printing, finish and language the list names; Considering isn't added.
 - **To add · N**: one row per printing + finish with `+n`.
 - **Add N cards** (accent). After it: "Added N cards to your collection.", an **Undo** row, and the button becomes
   **Done**.
 
 Rule (`ListToCollection.ops` / `listAddOps`): Main and Commander always count; a deck's sideboard unless switched
-off; Considering never. Needs are summed per `card_id|finish` across sections, then Missing subtracts what's owned of
-that printing + finish over every condition and language. Ops are sorted by card_id, then finish; only delta > 0.
+off; Considering never. Needs are summed per `card_id|finish|lang` across sections, then Missing subtracts what's owned of
+that printing + finish over every condition and language: owned copies cover lines in their own language first, then
+the rest, English lines first, then by language code. Each op carries its line's language. Ops are sorted by card_id,
+then finish, then language; only delta > 0.
 More than 5,000 printings at once is refused with a message (the batch limit). Shared cases:
 `testdata/list-to-collection/cases.json` (iOS `ListToCollectionTests`, web `listToCollection.test.ts`, Android
 `ListToCollectionTest`).

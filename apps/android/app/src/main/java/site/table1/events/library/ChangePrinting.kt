@@ -55,7 +55,7 @@ sealed interface PrintingTarget {
     }
 
     /** A deck or cube line (one list_edit swap op, so the version history shows it). */
-    data class ListLine(val listId: String, override val cardId: String, val board: String, override val finish: String) : PrintingTarget
+    data class ListLine(val listId: String, override val cardId: String, val board: String, override val finish: String, val lang: String = "en") : PrintingTarget
 
     /** Owned copies. `place`: the binder id (or [UNSORTED]) card detail was opened from; null = the collection. */
     data class Owned(val item: CollectionItem, val place: String?) : PrintingTarget {
@@ -170,7 +170,7 @@ fun ChangePrintingScreen(target: PrintingTarget, onClose: () -> Unit, onChanged:
     val selected = (target as? PrintingTarget.Owned)?.let { PrintingChange.pick(places, chosen, it.place) }
     val list = (target as? PrintingTarget.ListLine)?.let { t -> ls.lists.firstOrNull { it.id == t.listId } }
     val have = when (target) {
-        is PrintingTarget.ListLine -> list?.entries?.firstOrNull { it.cardId == target.cardId && it.board == target.board && it.finish == target.finish }?.qty ?: 0
+        is PrintingTarget.ListLine -> list?.entries?.firstOrNull { it.isLine(target.cardId, target.board, target.finish, target.lang) }?.qty ?: 0
         is PrintingTarget.Owned -> places.firstOrNull { it.place == selected }?.qty ?: 0
         is PrintingTarget.TradeGet -> target.line.qty
     }
@@ -202,7 +202,9 @@ fun ChangePrintingScreen(target: PrintingTarget, onClose: () -> Unit, onChanged:
         val props = mapOf("where" to target.telemetryWhere, "copies" to n, "finish_only" to (p.cardId == target.cardId))
         when (target) {
             is PrintingTarget.ListLine -> {
-                scope.launch { runCatching { ListsStore.swap(target.listId, target.cardId, target.board, target.finish, p.cardId, toFinish, n) } }
+                // A non-English printing is its own language; another English printing keeps the line's.
+                scope.launch { runCatching { ListsStore.swap(target.listId, target.cardId, target.board, target.finish, p.cardId, toFinish, n,
+                    target.lang, Languages.forNew(p.lang, target.lang)) } }
                 Telemetry.capture("printing_changed", props)
                 onClose()
             }
@@ -239,7 +241,7 @@ fun ChangePrintingScreen(target: PrintingTarget, onClose: () -> Unit, onChanged:
         Hairlines(Modifier.weight(1f)) {
             item {
                 val detail = listOfNotNull(current?.setLabel, finishLabel(target.finish)) + when (target) {
-                    is PrintingTarget.ListLine -> listOfNotNull(list?.boardTitle(target.board))
+                    is PrintingTarget.ListLine -> listOfNotNull(target.lang.takeIf { it != "en" }?.uppercase(), list?.boardTitle(target.board))
                     is PrintingTarget.Owned -> listOfNotNull(target.item.condition, if (target.item.lang == "en") null else target.item.lang.uppercase())
                     is PrintingTarget.TradeGet -> listOf(target.line.condition)
                 }

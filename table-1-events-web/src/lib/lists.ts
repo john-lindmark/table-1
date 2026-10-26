@@ -11,15 +11,27 @@ export type ListKind = "deck" | "cube";
 
 export type ListFinish = "nonfoil" | "foil" | "etched";
 
-/** A line is printing × section × finish, so 2 foil and 2 non-foil copies of a card are two lines. */
+/** A line is printing × section × finish × language, so 2 foil and 2 non-foil copies of a card are two lines
+ *  (contract/lists-2026-10-15.md, "Languages"). */
 export interface Entry {
   cardId: string;
   board: Board;
   qty: number;
   finish?: ListFinish; // absent = nonfoil
+  lang?: string; // absent = en; a non-English printing is always its own
 }
 
 export const finishOf = (e: { finish?: ListFinish }): ListFinish => e.finish ?? "nonfoil";
+export const langOf = (e: { lang?: string }): string => e.lang ?? "en";
+/** An entry with only the fields that aren't their defaults. */
+export function entry(cardId: string, board: Board, qty: number, finish: ListFinish = "nonfoil", lang = "en"): Entry {
+  return { cardId, board, qty, ...(finish !== "nonfoil" ? { finish } : {}), ...(lang !== "en" ? { lang } : {}) };
+}
+/** An entry as list_create takes it: the finish and language only when they aren't non-foil / English. */
+export function entryWire(e: Entry): (string | number)[] {
+  const f = finishOf(e), l = langOf(e);
+  return l !== "en" ? [e.cardId, e.board, e.qty, f, l] : f !== "nonfoil" ? [e.cardId, e.board, e.qty, f] : [e.cardId, e.board, e.qty];
+}
 
 export interface Version {
   number: number;
@@ -44,6 +56,7 @@ export interface Change {
   board: Board;
   delta: number;
   finish: ListFinish;
+  lang: string;
 }
 
 export const BOARD_ORDER: Board[] = ["commander", "main", "side", "maybe"];
@@ -66,14 +79,14 @@ export function boardTitle(kind: ListKind, board: Board): string {
 /** What changed from `older` (null = nothing) to `newer`, per card and section; removals first. */
 export function diff(older: Version | null, newer: Version): Change[] {
   const q = new Map<string, number>();
-  const key = (e: Entry) => `${e.board}|${e.cardId}|${finishOf(e)}`;
+  const key = (e: Entry) => `${e.board}|${e.cardId}|${finishOf(e)}|${langOf(e)}`;
   for (const e of older?.entries ?? []) q.set(key(e), (q.get(key(e)) ?? 0) - e.qty);
   for (const e of newer.entries) q.set(key(e), (q.get(key(e)) ?? 0) + e.qty);
   const out: Change[] = [];
   for (const [k, d] of q) {
     if (d === 0) continue;
-    const [board, cardId, finish] = k.split("|") as [Board, string, ListFinish];
-    out.push({ cardId, board, delta: d, finish });
+    const [board, cardId, finish, lang] = k.split("|") as [Board, string, ListFinish, string];
+    out.push({ cardId, board, delta: d, finish, lang });
   }
   return out.sort((a, b) => BOARD_ORDER.indexOf(a.board) - BOARD_ORDER.indexOf(b.board) || a.delta - b.delta);
 }
@@ -102,7 +115,7 @@ interface ListWire {
   format?: string;
   event_id?: string | null;
   event_name?: string | null;
-  versions?: { version: number; note: string; at: number; entries: ([string, Board, number] | [string, Board, number, ListFinish])[] }[];
+  versions?: { version: number; note: string; at: number; entries: ([string, Board, number] | [string, Board, number, ListFinish] | [string, Board, number, ListFinish, string])[] }[];
 }
 
 export function fromWire(w: ListWire): CardList | null {
@@ -112,7 +125,7 @@ export function fromWire(w: ListWire): CardList | null {
     ...(w.event_id ? { eventId: w.event_id, eventName: w.event_name ?? null } : {}),
     versions: w.versions.map((v) => ({
       number: v.version, at: v.at, note: v.note,
-      entries: v.entries.map(([cardId, board, qty, finish]) => (finish && finish !== "nonfoil" ? { cardId, board, qty, finish } : { cardId, board, qty })),
+      entries: v.entries.map(([cardId, board, qty, finish, lang]) => entry(cardId, board, qty, finish ?? "nonfoil", lang ?? "en")),
     })),
   };
 }
@@ -280,7 +293,7 @@ export async function createList(kind: ListKind, name: string, format: string, e
     return id;
   }
   await call("list_create", {
-    p_id: id, p_kind: kind, p_name: name, p_format: format, p_entries: entries.map((e) => (finishOf(e) === "nonfoil" ? [e.cardId, e.board, e.qty] : [e.cardId, e.board, e.qty, finishOf(e)])), p_note: note,
+    p_id: id, p_kind: kind, p_name: name, p_format: format, p_entries: entries.map(entryWire), p_note: note,
   });
   capture("list_created", { kind, format, from });
   return id;
@@ -292,42 +305,43 @@ export function duplicateList(l: CardList): Promise<string> {
   return createList(l.kind, `${l.name} (copy)`.slice(0, 60), l.format, v.entries, `Duplicated from ${l.name} v${v.number}`, "duplicate");
 }
 
+/** `lang` defaults to en everywhere; `to_lang` to the line's own. */
 export type ListOp =
-  | { card_id: string; board: Board; finish?: ListFinish; delta: number }
-  | { card_id: string; board: Board; finish?: ListFinish; qty: number }
-  | { card_id: string; finish?: ListFinish; from: Board; to: Board }
-  /** Move qty copies (default all) to another printing and/or finish in the same section. */
-  | { card_id: string; board: Board; finish?: ListFinish; to_card_id?: string; to_finish?: ListFinish; qty?: number; swap: true };
+  | { card_id: string; board: Board; finish?: ListFinish; lang?: string; delta: number }
+  | { card_id: string; board: Board; finish?: ListFinish; lang?: string; qty: number }
+  | { card_id: string; finish?: ListFinish; lang?: string; from: Board; to: Board }
+  /** Move qty copies (default all) to another printing, finish and/or language in the same section. */
+  | { card_id: string; board: Board; finish?: ListFinish; lang?: string; to_card_id?: string; to_finish?: ListFinish; to_lang?: string; qty?: number; swap: true };
 
 export async function editList(id: string, ops: ListOp[]): Promise<void> {
   if (demo) {
     return localEdit(id, (entries) => {
-      const find = (cardId: string, board: Board, finish: ListFinish) =>
-        entries.findIndex((e) => e.cardId === cardId && e.board === board && finishOf(e) === finish);
-      const put = (cardId: string, board: Board, finish: ListFinish, q: number) => {
-        const j = find(cardId, board, finish);
+      const find = (cardId: string, board: Board, finish: ListFinish, lang: string) =>
+        entries.findIndex((e) => e.cardId === cardId && e.board === board && finishOf(e) === finish && langOf(e) === lang);
+      const put = (cardId: string, board: Board, finish: ListFinish, lang: string, q: number) => {
+        const j = find(cardId, board, finish, lang);
         if (j >= 0) entries[j].qty += q;
-        else entries.push(finish === "nonfoil" ? { cardId, board, qty: q } : { cardId, board, qty: q, finish });
+        else entries.push(entry(cardId, board, q, finish, lang));
       };
       for (const op of ops) {
-        const fin = op.finish ?? "nonfoil";
+        const fin = op.finish ?? "nonfoil", lang = op.lang ?? "en";
         if ("from" in op) {
-          const i = find(op.card_id, op.from, fin);
+          const i = find(op.card_id, op.from, fin, lang);
           if (i < 0) continue;
-          put(op.card_id, op.to, fin, entries.splice(i, 1)[0].qty);
+          put(op.card_id, op.to, fin, lang, entries.splice(i, 1)[0].qty);
         } else if ("swap" in op) {
-          const i = find(op.card_id, op.board, fin);
+          const i = find(op.card_id, op.board, fin, lang);
           if (i < 0) continue;
           const n = Math.min(entries[i].qty, op.qty ?? entries[i].qty);
           entries[i].qty -= n;
           if (entries[i].qty <= 0) entries.splice(i, 1);
-          put(op.to_card_id ?? op.card_id, op.board, op.to_finish ?? fin, n);
+          put(op.to_card_id ?? op.card_id, op.board, op.to_finish ?? fin, op.to_lang ?? lang, n);
         } else {
-          const i = find(op.card_id, op.board, fin);
+          const i = find(op.card_id, op.board, fin, lang);
           const q = "qty" in op ? op.qty : (i >= 0 ? entries[i].qty : 0) + op.delta;
           if (i >= 0 && q > 0) entries[i].qty = q;
           else if (i >= 0) entries.splice(i, 1);
-          else if (q > 0) put(op.card_id, op.board, fin, q);
+          else if (q > 0) put(op.card_id, op.board, fin, lang, q);
         }
       }
       return entries;
