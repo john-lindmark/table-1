@@ -36,13 +36,10 @@ enum ListToCollection {
         missing > 0 ? "Missing \(missing) · the printing listed here" : basic ? "Basic land · add the copies listed here" : "You own every copy listed here"
     }
 
-    /// Collection ops in the picked condition; an English printing goes in as the picked language, any other in its own.
-    @MainActor
-    static func collectionOps(_ ops: [Op], printings: [String: CatalogPrinting], condition: String, lang: String) -> [CollectionOp] {
-        ops.map { o in
-            CollectionOp(cardId: o.cardId, finish: o.finish, condition: condition,
-                         lang: printings[o.cardId].map { Languages.forNew($0, picked: lang) } ?? lang, delta: o.delta)
-        }
+    /// Collection ops in the picked condition, each copy in the language of the printing the list names (a list line's
+    /// language is its printing's; the language picked for other adds never applies here).
+    static func collectionOps(_ ops: [Op], printingLang: (String) -> String?, condition: String) -> [CollectionOp] {
+        ops.map { CollectionOp(cardId: $0.cardId, finish: $0.finish, condition: condition, lang: printingLang($0.cardId) ?? "en", delta: $0.delta) }
     }
 }
 
@@ -51,7 +48,6 @@ struct ListToCollectionPanel: View {
     let listId: String
     private var catalog: CatalogStore { CatalogStore.shared }
     @AppStorage("library.addCondition") private var addCondition = "NM"
-    @AppStorage("library.addLang") private var addLang = "en"
     @State private var mode = ListToCollection.Mode.missing
     @State private var sideboard = true
     @State private var meta: [String: ListLine] = [:]
@@ -83,10 +79,7 @@ struct ListToCollectionPanel: View {
                                       (ListToCollection.Mode.all, "Every card \(ListToCollection.copies(all))")], selection: $mode)
                 if kind == .deck && side > 0 { T1Switch(title: "Sideboard", detail: "\(side) \(side == 1 ? "card" : "cards")", isOn: $sideboard) }
                 T1Segmented(options: Conditions.all.map { ($0, $0) }, selection: $addCondition)
-                LanguageRow(lang: addLang, title: "New copies in") {
-                    LanguagePicker.present(current: addLang, subtitle: "For new copies") { addLang = $0 }
-                }
-                Notice("Each card goes in as the printing and finish this \(kind == .deck ? "deck" : "cube") lists. Considering isn't added.")
+                Notice("Each card goes in as the printing, finish and language this \(kind == .deck ? "deck" : "cube") lists. Considering isn't added.")
                 Section1("To add · \(copies)")
                 if ops.isEmpty {
                     ListRow(title: mode == .missing ? "You own every card here" : "No cards to add",
@@ -132,7 +125,7 @@ struct ListToCollectionPanel: View {
         let printings = meta.compactMapValues(\.printing)
         do {
             let res = try await CollectionStore.shared.apply(
-                ListToCollection.collectionOps(ops, printings: printings, condition: addCondition, lang: addLang), source: "import")
+                ListToCollection.collectionOps(ops, printingLang: { printings[$0]?.lang }, condition: addCondition), source: "import")
             done = (res.batchId, ListToCollection.copies(ops))
             Telemetry.capture("list_added_to_collection", ["kind": list.kind.rawValue, "mode": mode.rawValue, "sideboard": sideboard,
                                                           "copies": ListToCollection.copies(ops), "lines": ops.count, "from": "list"])

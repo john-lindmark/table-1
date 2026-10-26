@@ -12,9 +12,11 @@ opens a full screen:
 - **Missing N | Every card M** (segmented, Missing first). Missing adds only what the collection lacks of each
   printing + finish; Every card adds every copy listed.
 - **Sideboard** switch on decks with a sideboard (on by default).
-- Condition (NM…DMG) and **New copies in** language: the same remembered choices as card detail's Add a printing.
-  An English printing goes in as the picked language; any other printing in its own.
-- A note: each card goes in as the printing and finish the list names; Considering isn't added.
+- Condition (NM…DMG): the same remembered choice as card detail's Add a printing.
+- No language picker: each copy goes in as the language the list gives it (a line's language is its printing's),
+  never the language picked for other adds (John, 2026-10-25; it used to turn English printings into the picked
+  language).
+- A note: each card goes in as the printing, finish and language the list names; Considering isn't added.
 - **To add · N**: one row per printing + finish with `+n`.
 - **Add N cards** (accent). After it: "Added N cards to your collection.", an **Undo** row, and the button becomes
   **Done**.
@@ -35,7 +37,7 @@ printing listed here" or "You own every copy listed here"; trailing Add). It ope
 - **Add all M** (when different from the missing count): every copy of this card the list lists.
 - **Add 1 <set #cn> [· finish]** for each of up to four listed lines (Considering lines included here: you picked it).
 
-All use the condition and language under Add a printing, land as one batch, and show the usual Undo bar.
+All use the condition under Add a printing and the listed language, land as one batch, and show the usual Undo bar.
 
 ## 3. Zoom on the deck image and the top 100 / top 50 image
 

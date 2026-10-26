@@ -71,9 +71,10 @@ object ListToCollection {
     fun cardDetail(missing: Int, basic: Boolean) =
         if (missing > 0) "Missing $missing · the printing listed here" else if (basic) "Basic land · add the copies listed here" else "You own every copy listed here"
 
-    /** Collection ops in the picked condition; an English printing goes in as the picked language, any other in its own. */
-    fun collectionOps(ops: List<Op>, printingLang: (String) -> String?, condition: String, lang: String): List<CollectionOp> =
-        ops.map { CollectionOp(it.cardId, it.finish, condition, Languages.forNew(printingLang(it.cardId) ?: "en", lang), delta = it.delta) }
+    /** Collection ops in the picked condition, each copy in the language of the printing the list names (a list line's
+     *  language is its printing's; the language picked for other adds never applies here). */
+    fun collectionOps(ops: List<Op>, printingLang: (String) -> String?, condition: String): List<CollectionOp> =
+        ops.map { CollectionOp(it.cardId, it.finish, condition, printingLang(it.cardId) ?: "en", delta = it.delta) }
 }
 
 /** Add to collection from a deck or cube: what's missing or every card, sideboard or not, in one undoable batch. */
@@ -83,7 +84,6 @@ fun ListToCollectionScreen(list: CardList, owned: Map<String, Int>, onClose: () 
     val cat by CatalogStore.state.collectAsState()
     val prefs = remember { T1App.instance.getSharedPreferences("library", android.content.Context.MODE_PRIVATE) }
     var condition by remember { mutableStateOf(prefs.getString("addCondition", "NM") ?: "NM") }
-    var lang by remember { mutableStateOf(Languages.addLang) }
     var mode by remember { mutableStateOf(ListToCollection.Mode.Missing) }
     var sideboard by remember { mutableStateOf(true) }
     var printings by remember { mutableStateOf<Map<String, CatalogPrinting>>(emptyMap()) }
@@ -142,8 +142,7 @@ fun ListToCollectionScreen(list: CardList, owned: Map<String, Int>, onClose: () 
                             prefs.edit().putString("addCondition", condition).apply()
                         }
                     }
-                    item { NewCopiesLanguageRow { lang = it } }
-                    item { Notice("Each card goes in as the printing and finish this ${if (list.kind == ListKind.Deck) "deck" else "cube"} lists. Considering isn't added.") }
+                    item { Notice("Each card goes in as the printing, finish and language this ${if (list.kind == ListKind.Deck) "deck" else "cube"} lists. Considering isn't added.") }
                     item { Section("To add · $copies") }
                     if (ops.isEmpty()) item {
                         ListRow(if (mode == ListToCollection.Mode.Missing) "You own every card here" else "No cards to add",
@@ -170,7 +169,7 @@ fun ListToCollectionScreen(list: CardList, owned: Map<String, Int>, onClose: () 
                             val sent = ops
                             scope.launch {
                                 runCatching {
-                                    CollectionStore.apply(ListToCollection.collectionOps(sent, { printings[it]?.lang }, condition, lang), source = "import")
+                                    CollectionStore.apply(ListToCollection.collectionOps(sent, { printings[it]?.lang }, condition), source = "import")
                                 }.onSuccess {
                                     done = it.batchId to n
                                     Telemetry.capture("list_added_to_collection", mapOf("kind" to list.kind.wire, "mode" to mode.wire,

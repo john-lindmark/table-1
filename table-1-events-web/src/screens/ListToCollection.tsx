@@ -3,24 +3,21 @@ import { Bar, GhostAction, Notice, Row, Section, Segmented, SwitchRow, useEscape
 import { errorMessage } from "../lib/api";
 import { basicCardIds, type Catalog } from "../lib/catalog";
 import { applyOps, undoBatch } from "../lib/collection";
-import { storeAddLang, storedAddLang } from "../lib/languages";
 import { copiesOf, listAddOps, toCollectionOps, type AddMode } from "../lib/listToCollection";
 import { entriesOf, type CardList } from "../lib/lists";
 import { capture } from "../lib/telemetry";
-import { NewCopiesLanguageRow } from "./Languages";
 import { CONDITIONS, CardRow, useAddCondition } from "./Library";
 
 const plural = (n: number) => `${n} ${n === 1 ? "card" : "cards"}`;
 
 /** Add to collection from a deck or cube (contract/list-to-collection-2026-10-22.md): what's missing or every card,
-    sideboard or not, in the picked condition and language, as one undoable batch. */
+    sideboard or not, in the picked condition and the listed printing's language, as one undoable batch. */
 export function ListToCollectionScreen({ list, catalog, owned, onClose }: {
   list: CardList; catalog: Catalog; owned: Map<string, number>; onClose: () => void;
 }) {
   const [mode, setMode] = useState<AddMode>("missing");
   const [sideboard, setSideboard] = useState(true);
   const [condition, setCondition] = useAddCondition();
-  const [lang, setLangState] = useState(storedAddLang);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ batch: string; copies: number } | null>(null);
@@ -41,7 +38,7 @@ export function ListToCollectionScreen({ list, catalog, owned, onClose }: {
     setError(null);
     try {
       const pLang = (id: string) => { const p = catalog.printingIndex.get(id); return p == null ? undefined : catalog.pLang[p]; };
-      const res = await applyOps(toCollectionOps(ops, pLang, condition, lang), "import");
+      const res = await applyOps(toCollectionOps(ops, pLang, condition), "import");
       setDone({ batch: res.batch_id, copies });
       capture("list_added_to_collection", { kind: list.kind, mode, sideboard, copies, lines: ops.length, from: "list" });
     } catch (e) {
@@ -76,8 +73,7 @@ export function ListToCollectionScreen({ list, catalog, owned, onClose }: {
                    value={mode} onChange={(m) => setMode(m as AddMode)} />
         {list.kind === "deck" && side > 0 && <SwitchRow label="Sideboard" detail={plural(side)} on={sideboard} onChange={setSideboard} />}
         <Segmented options={CONDITIONS.map((c) => ({ value: c, label: c }))} value={condition} onChange={setCondition} />
-        <NewCopiesLanguageRow lang={lang} onChange={(c) => { setLangState(c); storeAddLang(c); }} />
-        <Notice tone="info">Each card goes in as the printing and finish this {list.kind} lists. Considering isn't added.</Notice>
+        <Notice tone="info">Each card goes in as the printing, finish and language this {list.kind} lists. Considering isn't added.</Notice>
         <Section title="To add" count={copies} />
         {!ops.length && <Row title={mode === "missing" ? "You own every card here" : "No cards to add"}
                              detail={mode === "missing" ? "Pick Every card to add another copy of each" : undefined} />}

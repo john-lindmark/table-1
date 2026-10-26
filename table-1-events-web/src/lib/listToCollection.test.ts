@@ -26,12 +26,13 @@ describe("listAddOps", () => {
 });
 
 describe("toCollectionOps", () => {
-  it("uses the picked condition, and a foreign printing's own language", () => {
-    const ops = toCollectionOps([{ card_id: "a", finish: "foil", delta: 2 }, { card_id: "j", finish: "nonfoil", delta: 1 }],
-                                (id) => (id === "j" ? "ja" : "en"), "LP", "de");
+  it("uses the picked condition and the listed printing's language, never the one picked for adds", () => {
+    const ops = toCollectionOps([{ card_id: "a", finish: "foil", delta: 2 }, { card_id: "j", finish: "nonfoil", delta: 1 }, { card_id: "u", finish: "nonfoil", delta: 1 }],
+                                (id) => ({ a: "en", j: "ja" } as Record<string, string>)[id], "LP");
     expect(ops).toEqual([
-      { card_id: "a", finish: "foil", condition: "LP", lang: "de", delta: 2 },
+      { card_id: "a", finish: "foil", condition: "LP", lang: "en", delta: 2 },
       { card_id: "j", finish: "nonfoil", condition: "LP", lang: "ja", delta: 1 },
+      { card_id: "u", finish: "nonfoil", condition: "LP", lang: "en", delta: 1 },
     ]);
   });
 });

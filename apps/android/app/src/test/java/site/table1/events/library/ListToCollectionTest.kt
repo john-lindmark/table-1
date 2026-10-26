@@ -38,10 +38,11 @@ class ListToCollectionTest {
         }
     }
 
-    @Test fun collectionOpsUseConditionAndForeignLanguage() {
-        val ops = ListToCollection.collectionOps(listOf(ListToCollection.Op("a", "foil", 2), ListToCollection.Op("j", "nonfoil", 1)),
-            { if (it == "j") "ja" else "en" }, "LP", "de")
-        assertEquals(listOf(CollectionOp("a", "foil", "LP", "de", delta = 2), CollectionOp("j", "nonfoil", "LP", "ja", delta = 1)), ops)
+    @Test fun collectionOpsKeepTheListedLanguage() {
+        val ops = ListToCollection.collectionOps(listOf(ListToCollection.Op("a", "foil", 2), ListToCollection.Op("j", "nonfoil", 1), ListToCollection.Op("u", "nonfoil", 1)),
+            { mapOf("a" to "en", "j" to "ja")[it] }, "LP")
+        assertEquals(listOf(CollectionOp("a", "foil", "LP", "en", delta = 2), CollectionOp("j", "nonfoil", "LP", "ja", delta = 1),
+            CollectionOp("u", "nonfoil", "LP", "en", delta = 1)), ops)
     }
 
     private val box = Zoom.Size(400f, 800f)

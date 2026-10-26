@@ -759,7 +759,7 @@ private fun CardInfo(o: CatalogOracle, p: CatalogPrinting?, version: CardVersion
                     val n = ListToCollection.copies(ops)
                     busy = true
                     co.launch {
-                        runCatching { CollectionStore.apply(ListToCollection.collectionOps(ops, { byId[it]?.lang }, addCondition, Languages.addLang)) }
+                        runCatching { CollectionStore.apply(ListToCollection.collectionOps(ops, { byId[it]?.lang }, addCondition)) }
                             .onSuccess { res ->
                                 val label = "Added $n ${o.name} to your collection"
                                 report(label, CardUndo(label) { CollectionStore.undo(res.batchId) })

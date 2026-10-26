@@ -1,5 +1,4 @@
 import type { CollectionOp, Condition } from "./collection";
-import { langForNew } from "./languages";
 import { finishOf, ownKey, type Entry, type ListFinish, type ListKind } from "./lists";
 
 /* Adding a deck or cube to the collection (contract/list-to-collection-2026-10-22.md): each line goes in as the
@@ -39,7 +38,8 @@ export const copiesOf = (ops: AddOp[]) => ops.reduce((n, o) => n + o.delta, 0);
 export const cardAddDetail = (missing: number, basic: boolean) =>
   missing > 0 ? `Missing ${missing} · the printing listed here` : basic ? "Basic land · add the copies listed here" : "You own every copy listed here";
 
-/** Collection ops in the picked condition; an English printing goes in as the picked language, any other in its own. */
-export function toCollectionOps(ops: AddOp[], printingLang: (cardId: string) => string | undefined, condition: Condition, lang: string): CollectionOp[] {
-  return ops.map((o) => ({ card_id: o.card_id, finish: o.finish, condition, lang: langForNew(printingLang(o.card_id) ?? "en", lang), delta: o.delta }));
+/** Collection ops in the picked condition, each copy in the language of the printing the list names (a list line's
+ *  language is its printing's; the language picked for other adds never applies here). */
+export function toCollectionOps(ops: AddOp[], printingLang: (cardId: string) => string | undefined, condition: Condition): CollectionOp[] {
+  return ops.map((o) => ({ card_id: o.card_id, finish: o.finish, condition, lang: printingLang(o.card_id) ?? "en", delta: o.delta }));
 }

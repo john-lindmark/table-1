@@ -34,4 +34,14 @@ final class ListToCollectionTests: XCTestCase {
             XCTAssertEqual(ListToCollection.copies(ops), c.copies, c.name)
         }
     }
+
+    /// Each copy goes in as the language of the printing the list names, never the language picked for other adds.
+    func testCollectionOpsKeepTheListedLanguage() {
+        let ops = ListToCollection.collectionOps([.init(cardId: "a", finish: "foil", delta: 2), .init(cardId: "j", finish: "nonfoil", delta: 1),
+                                                  .init(cardId: "u", finish: "nonfoil", delta: 1)],
+                                                 printingLang: { ["a": "en", "j": "ja"][$0] }, condition: "LP")
+        XCTAssertEqual(ops.map(\.lang), ["en", "ja", "en"])
+        XCTAssertEqual(ops.map(\.condition), ["LP", "LP", "LP"])
+        XCTAssertEqual(ops.map(\.delta), [2, 1, 1])
+    }
 }

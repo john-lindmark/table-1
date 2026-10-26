@@ -235,7 +235,6 @@ struct CardInfoView: View {
     @State private var history: [HistoryEntry]?
     @State private var busy = false
     @AppStorage("library.addCondition") private var addCondition = "NM"
-    @AppStorage("library.addLang") private var addLang = "en"
     private var col: CollectionStore { CollectionStore.shared }
 
     var body: some View {
@@ -352,7 +351,7 @@ struct CardInfoView: View {
     }
 
     /// Add to collection from a deck or cube: the copies of this card it lacks, every copy it lists, or one of a
-    /// listed printing, in the condition and language picked for adds.
+    /// listed printing, in the condition picked for adds and the language of the printing listed.
     private func listAddRow(_ list: CardList) -> some View {
         let byId = Dictionary(printings.map { ($0.cardId, $0) }, uniquingKeysWith: { a, _ in a })
         let lines = list.entries.filter { byId[$0.cardId] != nil }
@@ -368,7 +367,7 @@ struct CardInfoView: View {
             Task {
                 defer { busy = false }
                 do {
-                    let res = try await col.apply(ListToCollection.collectionOps(ops, printings: byId, condition: addCondition, lang: addLang))
+                    let res = try await col.apply(ListToCollection.collectionOps(ops, printingLang: { byId[$0]?.lang }, condition: addCondition))
                     let label = "Added \(n) \(oracle.name) to your collection"
                     report(label, CardUndo(label: label) { _ = try await CollectionStore.shared.undo(batchId: res.batchId) })
                     Telemetry.capture("list_added_to_collection", ["kind": list.kind.rawValue, "mode": mode, "sideboard": true,

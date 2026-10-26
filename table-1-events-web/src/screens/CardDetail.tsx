@@ -752,7 +752,7 @@ function CardInfo({ catalog, oi, version, p, printings, list, context, lists, re
       setBusy(true);
       try {
         const res = await applyOps(toCollectionOps(ops, (id) => { const x = catalog.printingIndex.get(id); return x == null ? undefined : catalog.pLang[x]; },
-                                                   addCondition, storedAddLang()));
+                                                   addCondition));
         const text = `Added ${n} ${catalog.oName[oi]} to your collection`;
         report(text, { label: text, run: () => undoBatch(res.batch_id) });
         capture("list_added_to_collection", { kind: list.kind, mode, sideboard: true, copies: n, lines: ops.length, from: "card" });
