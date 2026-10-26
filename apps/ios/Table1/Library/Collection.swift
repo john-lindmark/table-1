@@ -333,9 +333,10 @@ final class CollectionStore {
         }
     }
 
-    /// One user action = one batch with a fresh idempotency key (reused on the one automatic retry). Shows the
-    /// result at once, then confirms with a delta sync. `key`: a caller that retries a batch itself (an import's
-    /// chunks) passes the same key each time, so a batch that already landed replays as a duplicate.
+    /// One user action = one batch with a fresh idempotency key (reused on the one automatic retry). Added copies
+    /// show before the server answers (`showAdds`), the answer replaces them, then a delta sync confirms. `key`: a
+    /// caller that retries a batch itself (an import's chunks) passes the same key each time, so a batch that
+    /// already landed replays as a duplicate.
     @discardableResult
     func apply(_ ops: [CollectionOp], source: String = "manual", key: String? = nil) async throws -> ApplyResult {
         #if DEBUG
@@ -350,7 +351,15 @@ final class CollectionStore {
             "p_ops": .array(ops.map(\.json)), "p_source": .string(source), "p_source_id": .null,
             "p_idempotency_key": .string(key),
         ]
-        let res: ApplyResult = try await retryOnce { try await supabase.rpc("collection_apply", params: params).execute().value }
+        showAdds(ops)
+        let res: ApplyResult
+        do {
+            res = try await retryOnce { try await supabase.rpc("collection_apply", params: params).execute().value }
+        } catch {
+            takeBackAdds(ops)
+            Task { await sync() }
+            throw error
+        }
         Telemetry.capture("collection_changed", ["source": source, "ops": ops.count, "copies": ops.reduce(0) { $0 + ($1.delta ?? 0) }])
         // A card added by hand right after a scan was deleted or missed tells which card it was (ScanReports).
         if source == "manual", let added = ops.first(where: { ($0.delta ?? 0) > 0 })?.cardId {
@@ -390,6 +399,42 @@ final class CollectionStore {
     /// Network failures only: the same idempotency key makes the retry safe.
     private func retryOnce<T>(_ call: () async throws -> T) async throws -> T {
         do { return try await call() } catch is URLError { return try await call() }
+    }
+
+    /// A batch's added copies (and the binders they go into), shown while the server works, so a scan session's
+    /// cards are on screen the moment it ends instead of a round trip later. Removals wait for the server, which
+    /// owns the binder rules. Memory only: the answer (`reflect`) or a sync replaces these rows.
+    func showAdds(_ ops: [CollectionOp]) {
+        shiftAdds(ops, by: 1)
+    }
+
+    /// The call failed: takes back what `showAdds` put on screen.
+    func takeBackAdds(_ ops: [CollectionOp]) {
+        shiftAdds(ops, by: -1)
+    }
+
+    private func shiftAdds(_ ops: [CollectionOp], by sign: Int) {
+        guard ops.contains(where: { ($0.delta ?? 0) > 0 }) else { return }
+        BindersStore.shared.shift(allocs: Self.shiftAdds(&items, ops, by: sign))
+        version += 1
+    }
+
+    /// Adds (sign 1) or takes back (-1) each op's added copies in `items`, keeping the held seq so a sync row is
+    /// never skipped for it; returns the binder copies to shift with them. Cases: testdata/show-adds/cases.json.
+    nonisolated static func shiftAdds(_ items: inout [String: CollectionItem], _ ops: [CollectionOp], by sign: Int) -> [BinderAlloc] {
+        var allocs: [BinderAlloc] = []
+        for op in ops {
+            guard let d = op.delta, d > 0 else { continue }
+            let held = items[op.itemKey]
+            let qty = (held?.qty ?? 0) + sign * d
+            items[op.itemKey] = qty > 0 ? CollectionItem(cardId: op.cardId, finish: op.finish, condition: op.condition, lang: op.lang,
+                                                         qty: qty, seq: held?.seq ?? 0) : nil
+            if let b = op.binderId {
+                allocs.append(BinderAlloc(binderId: b, cardId: op.cardId, finish: op.finish, condition: op.condition, lang: op.lang,
+                                          qty: sign * d, seq: 0))
+            }
+        }
+        return allocs
     }
 
     /// Writes a batch result into memory (not the file or the cursor: the following sync owns those).

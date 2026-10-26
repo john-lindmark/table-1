@@ -1,0 +1,48 @@
+{
+  "about": "Added copies show before the server answers (contract/collection-2026-10-15.md § Shown at once). Each case: the items and binder copies held (key -> qty), a batch's ops, and what is shown while the call runs. Taking the adds back (a failed call) must give the starting state again. Item keys are card|finish|condition|lang; binder keys binder|card|finish|condition|lang. Ops leave finish nonfoil, condition NM, lang en when unset.",
+  "cases": [
+    {
+      "name": "a scan session adds to a held item and makes new ones",
+      "items": { "a|nonfoil|NM|en": 2 },
+      "allocs": {},
+      "ops": [
+        { "card_id": "a", "delta": 1 },
+        { "card_id": "b", "finish": "foil", "delta": 1 },
+        { "card_id": "b", "finish": "foil", "delta": 1 },
+        { "card_id": "c", "condition": "LP", "lang": "ja", "delta": 1 }
+      ],
+      "shown": {
+        "items": { "a|nonfoil|NM|en": 3, "b|foil|NM|en": 2, "c|nonfoil|LP|ja": 1 },
+        "allocs": {}
+      }
+    },
+    {
+      "name": "a scan into a binder shows the copies in the binder",
+      "items": { "a|nonfoil|NM|en": 1 },
+      "allocs": { "x|a|nonfoil|NM|en": 1 },
+      "ops": [
+        { "card_id": "a", "delta": 1, "binder_id": "x" },
+        { "card_id": "d", "delta": 2, "binder_id": "x" }
+      ],
+      "shown": {
+        "items": { "a|nonfoil|NM|en": 2, "d|nonfoil|NM|en": 2 },
+        "allocs": { "x|a|nonfoil|NM|en": 2, "x|d|nonfoil|NM|en": 2 }
+      }
+    },
+    {
+      "name": "removals and set quantities wait for the server",
+      "items": { "a|nonfoil|NM|en": 2, "b|nonfoil|NM|en": 4 },
+      "allocs": { "x|b|nonfoil|NM|en": 4 },
+      "ops": [
+        { "card_id": "a", "delta": -1 },
+        { "card_id": "a", "qty": 5 },
+        { "card_id": "b", "delta": -2, "binder_id": "x" },
+        { "card_id": "e", "delta": 1 }
+      ],
+      "shown": {
+        "items": { "a|nonfoil|NM|en": 2, "b|nonfoil|NM|en": 4, "e|nonfoil|NM|en": 1 },
+        "allocs": { "x|b|nonfoil|NM|en": 4 }
+      }
+    }
+  ]
+}

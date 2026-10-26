@@ -424,6 +424,22 @@ final class BindersStore {
         reindex()
     }
 
+    /// Adds (or, negative, takes back) copies shown in binders before the server answers (`CollectionStore.showAdds`).
+    func shift(allocs rows: [BinderAlloc]) {
+        guard !rows.isEmpty else { return }
+        Self.shift(&allocs, rows)
+        reindex()
+    }
+
+    nonisolated static func shift(_ allocs: inout [String: BinderAlloc], _ rows: [BinderAlloc]) {
+        for a in rows {
+            var row = allocs[a.key] ?? BinderAlloc(binderId: a.binderId, cardId: a.cardId, finish: a.finish, condition: a.condition,
+                                                   lang: a.lang, qty: 0, seq: 0)
+            row.qty += a.qty
+            allocs[a.key] = row.qty > 0 ? row : nil
+        }
+    }
+
     func reflect(wants rows: [Want]) {
         guard !rows.isEmpty else { return }
         apply(wants: rows)

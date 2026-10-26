@@ -263,6 +263,22 @@ export function reflectBinders(res: { binder_items?: AllocRow[]; wants?: WantRow
   set({ allocs: merged(a.map(toAlloc)), wants: mergedWants(w.map(toWant)) });
 }
 
+/** Adds (or, negative, takes back) copies shown in binders before the server answers (collection `showAdds`). */
+export function shiftBinders(rows: Alloc[]) {
+  if (rows.length) set({ allocs: shiftAllocs(state.allocs, rows) });
+}
+
+export function shiftAllocs(held: Map<string, Alloc>, rows: Alloc[]): Map<string, Alloc> {
+  const allocs = new Map(held);
+  for (const a of rows) {
+    const k = allocKey(a), it = allocs.get(k);
+    const qty = (it?.qty ?? 0) + a.qty;
+    if (qty > 0) allocs.set(k, { ...(it ?? a), qty });
+    else allocs.delete(k);
+  }
+  return allocs;
+}
+
 /* ── reading ──────────────────────────────────────────────────────────── */
 
 export const bindersNow = () => state;

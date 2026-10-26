@@ -349,6 +349,12 @@ object BindersStore {
         set { it.copy(allocs = merged(it.allocs, allocs.map(BinderAlloc::of)), wants = mergedWants(it.wants, wants.map(Want::of))) }
     }
 
+    /** Adds (or, negative, takes back) copies shown in binders before the server answers (collection showAdds). */
+    fun shift(rows: List<BinderAlloc>) {
+        if (rows.isEmpty()) return
+        set { it.copy(allocs = shiftAllocs(it.allocs, rows)) }
+    }
+
     private suspend fun persist() {
         val s = _state.value
         val user = s.userId ?: return
@@ -432,4 +438,13 @@ object BindersStore {
         event?.let { Telemetry.capture(it, props) }
         if (r.duplicate) syncInBackground()
     }
+}
+
+fun shiftAllocs(held: Map<String, BinderAlloc>, rows: List<BinderAlloc>): Map<String, BinderAlloc> {
+    val out = held.toMutableMap()
+    for (a in rows) {
+        val qty = (out[a.key]?.qty ?: 0) + a.qty
+        if (qty > 0) out[a.key] = (out[a.key] ?: a).copy(qty = qty) else out.remove(a.key)
+    }
+    return out
 }

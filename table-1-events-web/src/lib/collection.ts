@@ -6,7 +6,7 @@ import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { supabase } from "./supabaseClient";
 import { capture } from "./telemetry";
 import { isLibraryDemo, loadDemo, type DemoBackend } from "./libraryDemo";
-import { reflectBinders, startBinders, syncBinders, type AllocRow, type WantRow } from "./binders";
+import { reflectBinders, shiftBinders, startBinders, syncBinders, type Alloc, type AllocRow, type WantRow } from "./binders";
 
 export type Finish = "nonfoil" | "foil" | "etched";
 export type Condition = "NM" | "LP" | "MP" | "HP" | "DMG";
@@ -252,7 +252,8 @@ export function sync(): Promise<void> {
 }
 
 /**
- * One user action = one batch. Shows the result at once, then confirms with a delta sync. `key`: a caller that retries
+ * One user action = one batch. Added copies show before the server answers (`showAdds`), the answer replaces them,
+ * then a delta sync confirms. `key`: a caller that retries
  * a batch itself (an import's chunks) passes the same key each time, so a batch that already landed replays as a duplicate.
  */
 export async function applyOps(ops: CollectionOp[], source: "manual" | "scan" | "import" | "adjust" | "trade" = "manual",
@@ -262,11 +263,19 @@ export async function applyOps(ops: CollectionOp[], source: "manual" | "scan" | 
     reflect(res);
     return res;
   }
-  const { data, error } = await supabase.rpc("collection_apply", {
-    p_ops: ops, p_source: source, p_source_id: null, p_idempotency_key: key,
-  });
-  if (error) throw error;
-  const res = data as ApplyResult;
+  showAdds(ops, 1);
+  let res: ApplyResult;
+  try {
+    const { data, error } = await supabase.rpc("collection_apply", {
+      p_ops: ops, p_source: source, p_source_id: null, p_idempotency_key: key,
+    });
+    if (error) throw error;
+    res = data as ApplyResult;
+  } catch (e) {
+    showAdds(ops, -1);
+    void sync();
+    throw e;
+  }
   capture("collection_changed", { source, ops: ops.length, copies: ops.reduce((n, op) => n + (op.delta ?? 0), 0) });
   reflect(res);
   void sync();
@@ -288,6 +297,38 @@ export async function undoBatch(batchId: string): Promise<ApplyResult> {
   reflect(res);
   void sync();
   return res;
+}
+
+/**
+ * A batch's added copies (and the binders they go into), shown while the server works (sign 1), or taken back when
+ * the call fails (-1). Removals wait for the server, which owns the binder rules. Memory only: the answer or a sync
+ * replaces these rows.
+ */
+function showAdds(ops: CollectionOp[], sign: 1 | -1) {
+  if (!ops.some((op) => (op.delta ?? 0) > 0)) return;
+  const { items, allocs } = shiftAdds(state.items, ops, sign);
+  set({ items });
+  shiftBinders(allocs);
+}
+
+/**
+ * The items with each op's added copies shifted by `sign`, keeping a held item's seq so the sync row that follows is
+ * never skipped as older, and the binder copies to shift with them. Cases: testdata/show-adds/cases.json.
+ */
+export function shiftAdds(held: Map<string, Item>, ops: CollectionOp[], sign: 1 | -1): { items: Map<string, Item>; allocs: Alloc[] } {
+  const items = new Map(held);
+  const allocs: Alloc[] = [];
+  for (const op of ops) {
+    const d = op.delta ?? 0;
+    if (d <= 0) continue;
+    const finish = op.finish ?? "nonfoil", condition = op.condition ?? "NM", lang = op.lang ?? "en";
+    const k = itemKey(op.card_id, finish, condition, lang), it = items.get(k);
+    const qty = (it?.qty ?? 0) + sign * d;
+    if (qty > 0) items.set(k, { k, cardId: op.card_id, finish, condition, lang, qty, seq: it?.seq ?? 0 });
+    else items.delete(k);
+    if (op.binder_id) allocs.push({ binderId: op.binder_id, cardId: op.card_id, finish, condition, lang, qty: sign * d, seq: 0 });
+  }
+  return { items, allocs };
 }
 
 /** Writes a batch result into memory (not IndexedDB or the cursor: the following sync owns those). */

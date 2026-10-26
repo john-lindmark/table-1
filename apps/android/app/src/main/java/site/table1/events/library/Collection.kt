@@ -274,8 +274,8 @@ object CollectionStore {
     }
 
     /**
-     * One user action = one batch with a fresh idempotency key (reused on the one automatic retry). Shows the
-     * result at once, then confirms with a delta sync. [key]: a caller that retries a batch itself (an import's
+     * One user action = one batch with a fresh idempotency key (reused on the one automatic retry). Added copies
+     * show before the server answers ([showAdds]), the answer replaces them, then a delta sync confirms. [key]: a caller that retries a batch itself (an import's
      * chunks) passes the same key each time, so a batch that already landed replays as a duplicate.
      */
     suspend fun apply(ops: List<CollectionOp>, source: String = "manual", key: String? = null): ApplyResult {
@@ -292,7 +292,14 @@ object CollectionStore {
             put("p_source_id", JsonNull)
             put("p_idempotency_key", key ?: UUID.randomUUID().toString())
         }
-        val res = retryOnce { T1App.supabase.postgrest.rpc("collection_apply", params).decodeAs<ApplyResult>() }
+        showAdds(ops, 1)
+        val res = try {
+            retryOnce { T1App.supabase.postgrest.rpc("collection_apply", params).decodeAs<ApplyResult>() }
+        } catch (e: Exception) {
+            showAdds(ops, -1)
+            syncInBackground()
+            throw e
+        }
         // A card added by hand right after a scan was deleted or missed tells which card it was (ScanReports).
         if (source == "manual") ops.firstOrNull { (it.delta ?: 0) > 0 }?.let { ScanReports.addedByHand(it.cardId) }
         reflect(res)
@@ -321,6 +328,18 @@ object CollectionStore {
     private suspend fun <T> retryOnce(call: suspend () -> T): T =
         try { call() } catch (e: HttpRequestException) { call() }
 
+    /**
+     * A batch's added copies (and the binders they go into), shown while the server works (sign 1) so a scan session's
+     * cards are on screen the moment it ends, or taken back when the call fails (-1). Removals wait for the server,
+     * which owns the binder rules. Memory only: the answer or a sync replaces these rows.
+     */
+    private fun showAdds(ops: List<CollectionOp>, sign: Int) {
+        if (ops.none { (it.delta ?: 0) > 0 }) return
+        var allocs = emptyList<BinderAlloc>()
+        set { s -> shiftAdds(s.items, ops, sign).let { (items, a) -> allocs = a; s.copy(items = items) } }
+        BindersStore.shift(allocs)
+    }
+
     /** Writes a batch result into memory (not the file or the cursor: the following sync owns those). */
     private fun reflect(res: ApplyResult) {
         if (res.duplicate) return
@@ -336,3 +355,21 @@ object CollectionStore {
     }
 }
 
+/**
+ * The items with each op's added copies shifted by [sign], keeping a held item's seq so the sync row that follows is
+ * never skipped as older, and the binder copies to shift with them. Cases: testdata/show-adds/cases.json.
+ */
+fun shiftAdds(held: Map<String, CollectionItem>, ops: List<CollectionOp>, sign: Int): Pair<Map<String, CollectionItem>, List<BinderAlloc>> {
+    val items = held.toMutableMap()
+    val allocs = mutableListOf<BinderAlloc>()
+    for (op in ops) {
+        val d = op.delta ?: 0
+        if (d <= 0) continue
+        val it = items[op.key]
+        val qty = (it?.qty ?: 0) + sign * d
+        if (qty > 0) items[op.key] = CollectionItem(op.cardId, op.finish, op.condition, op.lang, qty, it?.seq ?: 0)
+        else items.remove(op.key)
+        op.binderId?.let { allocs.add(BinderAlloc(it, op.cardId, op.finish, op.condition, op.lang, sign * d, 0)) }
+    }
+    return items to allocs
+}
