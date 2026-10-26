@@ -74,6 +74,26 @@ class CardDetailTest {
         assertEquals(version(f["version"]!!.jsonObject), CardDetailRules.fresh(printings, f.str("condition")!!, f.str("lang")!!))
     }
 
+    @Test fun newEdition() {
+        val n = c["new_edition"]!!.jsonObject
+        assertEquals(version(n["edition"]!!.jsonObject), CardDetailRules.newEdition(version(n["from"]!!.jsonObject)))
+        for (e in c["editions"]!!.jsonArray.map { it.jsonObject }) {
+            val a = CardAttribute.entries.first { it.wire == e.str("attribute") }
+            val to = CardDetailRules.repoint(version(e["edition"]!!.jsonObject), a, e.str("value")!!, byId[e.str("value")])
+            assertEquals(e.str("name"), version(e["to"]!!.jsonObject), to)
+            assertEquals(e.str("name"), e["is_new"]!!.jsonPrimitive.boolean,
+                CardDetailRules.isNew(to, e["versions"]!!.jsonArray.map { version(it.jsonObject) }))
+        }
+    }
+
+    @Test fun addLines() {
+        for (a in c["add_lines"]!!.jsonArray.map { it.jsonObject }) {
+            val got = CardDetailRules.addLines(a["in_view"]!!.jsonArray.map { version(it.jsonObject) }, version(a["current"]!!.jsonObject),
+                a["all"]!!.jsonPrimitive.boolean)
+            assertEquals(a.str("name"), a["lines"]!!.jsonArray.map { version(it.jsonObject) }, got)
+        }
+    }
+
     @Test fun stepIntoUnsortedHasNoBinder() {
         val v = CardVersion("lea", "nonfoil")
         assertNull(CardDetailRules.step(v, 1, UNSORTED).binderId)

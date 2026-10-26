@@ -37,11 +37,17 @@ private struct Cases: Decodable {
         let order: [String]
     }
     struct Fresh: Decodable { let condition, lang: String; let version: Version }
+    struct NewEdition: Decodable { let from, edition: Version }
+    struct Edition: Decodable { let name, attribute, value: String; let versions: [Version]; let edition, to: Version; let is_new: Bool }
+    struct AddLines: Decodable { let name: String; let in_view: [Version]; let current: Version; let all: Bool; let lines: [Version] }
     let printings: [Printing]
     let repoint: [Repoint]
     let ops: [Ops]
     let views: [View]
     let fresh: Fresh
+    let new_edition: NewEdition
+    let editions: [Edition]
+    let add_lines: [AddLines]
 }
 
 final class CardDetailTests: XCTestCase {
@@ -93,6 +99,25 @@ final class CardDetailTests: XCTestCase {
     func testFresh() throws {
         let (c, printings) = try load()
         XCTAssertEqual(CardDetailRules.fresh(printings, condition: c.fresh.condition, lang: c.fresh.lang), c.fresh.version.version)
+    }
+
+    func testNewEdition() throws {
+        let (c, printings) = try load()
+        XCTAssertEqual(CardDetailRules.newEdition(from: c.new_edition.from.version), c.new_edition.edition.version)
+        for e in c.editions {
+            let attribute = try XCTUnwrap(CardAttribute(rawValue: e.attribute))
+            let to = CardDetailRules.repoint(e.edition.version, attribute, to: e.value, printing: printings.first { $0.cardId == e.value })
+            XCTAssertEqual(to, e.to.version, e.name)
+            XCTAssertEqual(CardDetailRules.isNew(to, among: e.versions.map(\.version)), e.is_new, e.name)
+        }
+    }
+
+    func testAddLines() throws {
+        let (c, _) = try load()
+        for a in c.add_lines {
+            let got = CardDetailRules.addLines(a.in_view.map(\.version), current: a.current.version, all: a.all)
+            XCTAssertEqual(got, a.lines.map(\.version), a.name)
+        }
     }
 
     func testStepIntoUnsortedHasNoBinder() {

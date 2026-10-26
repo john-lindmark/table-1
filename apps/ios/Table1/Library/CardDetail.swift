@@ -119,6 +119,29 @@ enum CardDetailRules {
                      binderId: binderId == BinderRoute.unsorted ? nil : binderId)
     }
 
+    /// A new edition (long press on +): a copy of the version it was made from, one copy, not yet written. It stays
+    /// dimmed until a pick makes it a version the scope doesn't hold.
+    static func newEdition(from v: CardVersion) -> CardVersion {
+        var out = v
+        out.qty = 1
+        return out
+    }
+
+    /// Whether a new edition is different from every version in view, so it can be written.
+    static func isNew(_ edition: CardVersion, among versions: [CardVersion]) -> Bool {
+        !versions.contains { $0.qty > 0 && $0.id == edition.id }
+    }
+
+    /// What Add to (the bar's +) adds: one copy of the version on screen, or every copy in view (just the selected
+    /// version's when one is selected), each version with its count.
+    static func addLines(_ inView: [CardVersion], current: CardVersion, all: Bool) -> [CardVersion] {
+        let held = inView.filter { $0.qty > 0 }
+        if all && !held.isEmpty { return held }
+        var one = current
+        one.qty = 1
+        return [one]
+    }
+
     /// Whether the Finish cell shows: some printing in view comes in more than one finish, or the versions differ.
     static func showsFinish(_ versions: [CardVersion], printings: [String: CatalogPrinting]) -> Bool {
         if shared(versions, \.finish) == nil { return true }

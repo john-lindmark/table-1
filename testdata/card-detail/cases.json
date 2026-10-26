@@ -59,5 +59,45 @@
      "shared": {"set": "m10", "language": "en", "condition": null, "finish": "foil"}, "main": "m10|foil|NM|en", "shows_finish": true,
      "order": ["m10|foil|NM|en", "m10|foil|LP|en"]}
   ],
-  "fresh": {"condition": "LP", "lang": "de", "version": {"card_id": "lea", "finish": "nonfoil", "condition": "LP", "lang": "de"}}
+  "fresh": {"condition": "LP", "lang": "de", "version": {"card_id": "lea", "finish": "nonfoil", "condition": "LP", "lang": "de"}},
+  "new_edition": {"from": {"card_id": "m10", "finish": "nonfoil", "condition": "LP", "lang": "de", "qty": 3},
+    "edition": {"card_id": "m10", "finish": "nonfoil", "condition": "LP", "lang": "de", "qty": 1}},
+  "editions": [
+    {"name": "the same version stays dimmed", "versions": [{"card_id": "m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 2}],
+     "edition": {"card_id": "m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 1}, "attribute": "condition", "value": "NM",
+     "to": {"card_id": "m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 1}, "is_new": false},
+    {"name": "a finish the scope doesn't hold is written", "versions": [{"card_id": "m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 2}],
+     "edition": {"card_id": "m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 1}, "attribute": "finish", "value": "foil",
+     "to": {"card_id": "m10", "finish": "foil", "condition": "NM", "lang": "en", "qty": 1}, "is_new": true},
+    {"name": "matching another held version stays dimmed", "versions": [
+       {"card_id": "m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 2},
+       {"card_id": "m10", "finish": "foil", "condition": "NM", "lang": "en", "qty": 1}],
+     "edition": {"card_id": "m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 1}, "attribute": "finish", "value": "foil",
+     "to": {"card_id": "m10", "finish": "foil", "condition": "NM", "lang": "en", "qty": 1}, "is_new": false},
+    {"name": "the count given before the pick is kept", "versions": [{"card_id": "lea", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 4}],
+     "edition": {"card_id": "lea", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 2}, "attribute": "condition", "value": "LP",
+     "to": {"card_id": "lea", "finish": "nonfoil", "condition": "LP", "lang": "en", "qty": 2}, "is_new": true},
+    {"name": "list scope: another section is a new version", "versions": [{"card_id": "m10", "finish": "foil", "board": "main", "qty": 2}],
+     "edition": {"card_id": "m10", "finish": "foil", "board": "main", "qty": 1}, "attribute": "section", "value": "side",
+     "to": {"card_id": "m10", "finish": "foil", "board": "side", "qty": 1}, "is_new": true}
+  ],
+  "add_lines": [
+    {"name": "one copy of the version on screen", "in_view": [
+       {"card_id": "lea", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 1},
+       {"card_id": "m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 3}],
+     "current": {"card_id": "m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 3}, "all": false,
+     "lines": [{"card_id": "m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 1}]},
+    {"name": "all: every copy in view, each version with its count", "in_view": [
+       {"card_id": "lea", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 1},
+       {"card_id": "m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 3}],
+     "current": {"card_id": "m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 3}, "all": true,
+     "lines": [{"card_id": "lea", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 1},
+               {"card_id": "m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 3}]},
+    {"name": "all of the selected version", "in_view": [{"card_id": "sta", "finish": "foil", "condition": "LP", "lang": "en", "qty": 2}],
+     "current": {"card_id": "sta", "finish": "foil", "condition": "LP", "lang": "en", "qty": 2}, "all": true,
+     "lines": [{"card_id": "sta", "finish": "foil", "condition": "LP", "lang": "en", "qty": 2}]},
+    {"name": "nothing held: one of the version on screen", "in_view": [],
+     "current": {"card_id": "lea", "finish": "nonfoil", "condition": "LP", "lang": "de", "qty": 0}, "all": true,
+     "lines": [{"card_id": "lea", "finish": "nonfoil", "condition": "LP", "lang": "de", "qty": 1}]}
+  ]
 }

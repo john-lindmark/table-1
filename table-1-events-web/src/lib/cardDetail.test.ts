@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
-  editOps, freshVersion, mainVersion, orderedVersions, repoint, shared, showsFinish, stepOp, versionId,
+  addLines, editOps, freshVersion, isNewEdition, mainVersion, newEdition, orderedVersions, repoint, shared, showsFinish, stepOp, versionId,
   type CardAttribute, type CardVersion, type PrintingFacts,
 } from "./cardDetail";
 import type { Condition, Finish } from "./collection";
@@ -17,6 +17,9 @@ interface Cases {
          ops: { card_id: string; finish: string; condition: string; lang: string; delta: number; binder_id: string | null }[] | null }[];
   views: { name: string; versions: V[]; shared: Record<string, string | null>; main: string; shows_finish: boolean; order: string[] }[];
   fresh: { condition: Condition; lang: string; version: V };
+  new_edition: { from: V; edition: V };
+  editions: { name: string; versions: V[]; edition: V; attribute: CardAttribute; value: string; to: V; is_new: boolean }[];
+  add_lines: { name: string; in_view: V[]; current: V; all: boolean; lines: V[] }[];
 }
 const c: Cases = JSON.parse(readFileSync(new URL("../../../testdata/card-detail/cases.json", import.meta.url), "utf8"));
 
@@ -55,6 +58,21 @@ describe("card detail rules", () => {
   it("fresh: the original printing in the add condition and language", () => {
     expect(freshVersion(printings, c.fresh.condition, c.fresh.lang)).toEqual(version(c.fresh.version));
   });
+  it("new edition: one copy of the version it came from", () => {
+    expect(newEdition(version(c.new_edition.from))).toEqual(version(c.new_edition.edition));
+  });
+  for (const e of c.editions) {
+    it(`edition: ${e.name}`, () => {
+      const to = repoint(version(e.edition), e.attribute, e.value, byId.get(e.value));
+      expect(to).toEqual(version(e.to));
+      expect(isNewEdition(to, e.versions.map(version))).toBe(e.is_new);
+    });
+  }
+  for (const a of c.add_lines) {
+    it(`add to: ${a.name}`, () => {
+      expect(addLines(a.in_view.map(version), version(a.current), a.all)).toEqual(a.lines.map(version));
+    });
+  }
   it("step into Unsorted names no binder", () => {
     const v = version({ card_id: "lea", finish: "nonfoil" });
     expect(stepOp(v, 1, "unsorted").binder_id).toBeUndefined();

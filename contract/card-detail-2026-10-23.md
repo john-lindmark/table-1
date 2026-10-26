@@ -27,7 +27,7 @@ printing × section × finish.
 
 ## Layout (Figma frames)
 
-- **Bar**: back arrow, card name, price, then **+** (owned scopes only: opens Add to for the version on screen) and
+- **Bar**: back arrow, card name, price, then **+** (owned scopes only: opens Add to, see § Add to) and
   the **list** icon, which flips to the info view (the icon becomes **tune**, which flips back). The price is the
   version on screen in its finish (USD market); with several versions and none selected, the one you hold most of.
 - **Card**: one version (or none): the card image, as large as fits, in its finish (foil sheen). Tap → full-screen
@@ -37,8 +37,8 @@ printing × section × finish.
 - **Attributes**: equal cells in one row. Each shows the value the copies in view share, or **MIX** when they
   differ. Condition is hidden in list scope (Language shows since 2026-10-26). Finish is hidden when every printing in view has one
   finish. A non-English printing's language is its own and its cell doesn't open.
-- **Bottom bar**: owned scopes: − | count | + (count = copies in view, or the selected version's). While a version
-  is selected the stepper is off (flat disabled colour, as drawn). Search scope: **Add to**.
+- **Bottom bar**: owned scopes: − | count | + (count = copies in view, or the selected version's). With a version
+  selected the stepper steps that version (Figma 318:10715; it was off before 2026-10-26). Search scope: **Add to**.
 - **Undo**: after any change a strip above the attributes says what changed, with Undo (collection batches; list
   edits undo by a reverse edit).
 
@@ -68,11 +68,34 @@ Owned scopes: **a pick changes the copies in view** (all of them, or the selecte
 - **+** adds one of the version on screen (in binder scope into that binder; in list scope to that line's section).
 - **−** removes one from it (binder scope: from that binder; collection: Unsorted first, as `collection_apply`
   does).
-- Several versions, none selected: both act on the version you hold most of.
+- A version selected: both act on it. Several versions, none selected: both act on the version you hold most of.
 - At 0 the screen keeps the last version's attributes, so + puts it back. New versions start as the card's
   original printing, first finish, the condition and language picked for adds (shared with the scanner).
 
+## New edition (long press on +, 2026-10-26)
+
+Figma 360:8704 → 360:8609. Holding the stepper's **+** (owned scopes, at least one version held) makes a **new
+edition**: a copy of the selected version (else the one held most of) with count 1, added to the grid as its own tile,
+**selected** and **dimmed** (the image under a 60% background-colour veil). Nothing is written yet; a strip says
+"Change its set, language, condition or finish to add it." (list scope: set, language, finish or section).
+- Picks in the attribute row change only the edition. While it matches a version the scope already holds it stays
+  dimmed; the first pick that makes it a version the scope doesn't hold **writes it**: one `collection_apply` op of
+  `+count` (into the binder in binder scope, Unsorted otherwise) or one `list_edit` delta op in its section, with Undo,
+  and the tile becomes that version, still selected. Undo strip: "Added N MB2 #218 · Foil · LP".
+- Before it's written, − and + change its count (− at 1 drops it); leaving the screen drops it.
+- One edition at a time; the long press does nothing while one is open or nothing is held. Web: hold 450 ms, or
+  right-click. A held press never also counts as a tap.
+- Rules: `newEdition(from)` and `isNew(edition, versions)` (cases `new_edition`, `editions`).
+
 ## Add to
+
+From the bar's **+**, when more than one copy is in view, a menu asks first: **One copy** / **All N copies** (with
+a version selected, N is that version's copies and the menu says "this version only"). One copy adds 1 of the version
+on screen; All adds every version in view with its count (rule `addLines`, cases `add_lines`). Search scope's bottom
+**Add to** always adds one. The counts carry through every destination: collection and binder ops are `+count`,
+deck/cube lines add `count` of each printing (finish fallback per printing), wants are one per printing (and finish)
+with the summed count ("Each printing" / "Each printing and finish" when the lines span printings), trade lines carry
+their counts.
 
 Bottom panel: **Collection**, **Deck**, **Cube**, **Binder**, **Want**, **Trade**. Drilldowns swap in place with a
 back arrow and the step's name:
@@ -98,7 +121,8 @@ says so), then Price, Card type, Rarity, Artist rows. Under them, the rest of th
 ## Telemetry
 
 `card_attribute_changed {attribute, scope, copies, mix, selected}`, `card_stepped {scope, delta}`,
-`card_added_to {destination, scope}`, `card_info_opened {scope}`, `card_version_selected {versions}`,
+`card_added_to {destination, scope, copies}`, `card_edition_started {scope, versions}`,
+`card_edition_added {scope, attribute, copies}`, `card_info_opened {scope}`, `card_version_selected {versions}`,
 `card_flipped`, `image_zoomed {screen: card_detail}`.
 
 ## Status and demo
@@ -107,3 +131,9 @@ iOS built, unit-tested (`CardDetailTests` on the shared cases; `LanguageTests`, 
 place-keeping rule) and checked in the Simulator demo: `-T1LibraryDemo multicard` (grid, select, condition change,
 Undo, info view, Add to → deck → section), `searchcard` (Add to, printing picker, add to collection), `deckcard`
 (list scope). Web and Android to do. Not yet tried signed in.
+
+New edition, stepper on the selected version, and one-or-all Add to (2026-10-26): all three clients. iOS built,
+unit-tested and checked in the Simulator (`-T1LibraryDemo onecard`: a card held in one version; long press +, pick
+LP, + on the selected version, bar + → All → Binder). Web built, tested and checked in `/library/cards?demo` at
+phone width (right-click and a 600 ms hold, pick LP, − drops an edition, bar + → All 3 → Deck → Sideboard). Android
+built and unit-tested, not run on a device.

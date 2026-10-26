@@ -6,8 +6,9 @@ import SwiftUI
 /// Drilldown). Adds one of the version on screen; condition and language go with collection, binder and trade adds.
 struct AddToPanel: View {
     let oracle: CatalogOracle
-    let printing: CatalogPrinting?
-    let version: CardVersion
+    let printings: [String: CatalogPrinting]
+    /// What to add, each version with its count (one copy, or every copy in view).
+    let lines: [CardVersion]
     let scope: String
     var path: Binding<[LibraryRoute]>?
     let done: (String, CardUndo?) -> Void
@@ -17,7 +18,11 @@ struct AddToPanel: View {
     enum Step: Equatable { case root, decks, deckSection(String), cubes, binders, want, trades, tradeSide(String?) }
 
     private var lists: ListsStore { ListsStore.shared }
+    private var version: CardVersion { lines[0] }
+    /// The printing when every line shares one.
+    private var printing: CatalogPrinting? { Set(lines.map(\.cardId)).count == 1 ? printings[version.cardId] : nil }
     private var name: String { printing?.setLabel ?? oracle.name }
+    private var count: Int { lines.reduce(0) { $0 + $1.qty } }
 
     var body: some View {
         VStack(spacing: 1) {
@@ -48,7 +53,7 @@ struct AddToPanel: View {
         }
     }
 
-    private var owned: Bool { (CollectionStore.shared.items[version.itemKey]?.qty ?? 0) > 0 }
+    private var owned: Bool { lines.allSatisfy { (CollectionStore.shared.items[$0.itemKey]?.qty ?? 0) > 0 } }
 
     private var options: [SelectorOption] {
         switch step {
@@ -72,7 +77,10 @@ struct AddToPanel: View {
                 : all.map { SelectorOption(value: $0.id, label: $0.name, detail: $0.forTrade ? "For trade" : nil) }
         case .want:
             var out = [SelectorOption(value: "any", label: "Any printing")]
-            if printing != nil {
+            if printing == nil && lines.count > 1 {
+                out.append(SelectorOption(value: "printing", label: "Each printing", detail: "\(Set(lines.map(\.cardId)).count) printings"))
+                out.append(SelectorOption(value: "finish", label: "Each printing and finish"))
+            } else if printing != nil {
                 out.append(SelectorOption(value: "printing", label: "This printing", detail: name))
                 if (printing?.finishList.count ?? 1) > 1 {
                     out.append(SelectorOption(value: "finish", label: "This printing and finish",
@@ -121,18 +129,18 @@ struct AddToPanel: View {
     }
 
     private func finish(_ destination: String, _ label: String, _ undo: CardUndo?) {
-        Telemetry.capture("card_added_to", ["destination": destination, "scope": scope])
+        Telemetry.capture("card_added_to", ["destination": destination, "scope": scope, "copies": count])
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         T1Overlays.shared.dismissPanel()
         done(label, undo)
     }
 
     private func addToCollection(binderId: String?, place: String) {
-        let op = CardDetailRules.step(version, delta: 1, binderId: binderId)
+        let ops = lines.map { CardDetailRules.step($0, delta: $0.qty, binderId: binderId) }
         Task {
             do {
-                let res = try await CollectionStore.shared.apply([op])
-                let label = "Added 1 \(name) to \(place)"
+                let res = try await CollectionStore.shared.apply(ops)
+                let label = "Added \(count) \(name) to \(place)"
                 finish(binderId == nil ? "collection" : "binder", label, CardUndo(label: label) {
                     _ = try await CollectionStore.shared.undo(batchId: res.batchId)
                 })
@@ -141,23 +149,40 @@ struct AddToPanel: View {
     }
 
     private func addToList(_ id: String, board: String) {
-        guard let l = lists.list(id: id), let printing else { return }
-        // A finish the printing lacks is saved in one it has (contract/lists-2026-10-15.md).
-        let f = printing.finishList.map(\.rawValue).contains(version.finish) ? version.finish : printing.finishList.first?.rawValue ?? "nonfoil"
-        // The copy keeps the language on screen (a Japanese copy you own goes in as Japanese).
-        let lang = Languages.forNew(printing, picked: version.lang)
-        lists.add(listId: id, cardId: printing.cardId, board: board, finish: f, lang: lang, delta: 1)
-        let label = "Added 1 \(name) to \(l.name) · \(l.boardTitle(board))"
-        finish(l.kind.rawValue, label, CardUndo(label: label) { lists.add(listId: id, cardId: printing.cardId, board: board, finish: f, lang: lang, delta: -1) })
+        guard let l = lists.list(id: id) else { return }
+        var added: [(cardId: String, finish: String, lang: String, qty: Int)] = []
+        for line in lines {
+            guard let p = printings[line.cardId] else { continue }
+            // A finish the printing lacks is saved in one it has (contract/lists-2026-10-15.md).
+            let f = p.finishList.map(\.rawValue).contains(line.finish) ? line.finish : p.finishList.first?.rawValue ?? "nonfoil"
+            // The copy keeps the language on screen (a Japanese copy you own goes in as Japanese).
+            let lang = Languages.forNew(p, picked: line.lang)
+            lists.add(listId: id, cardId: p.cardId, board: board, finish: f, lang: lang, delta: line.qty)
+            added.append((p.cardId, f, lang, line.qty))
+        }
+        guard !added.isEmpty else { return }
+        let label = "Added \(count) \(name) to \(l.name) · \(l.boardTitle(board))"
+        finish(l.kind.rawValue, label, CardUndo(label: label) {
+            for a in added { lists.add(listId: id, cardId: a.cardId, board: board, finish: a.finish, lang: a.lang, delta: -a.qty) }
+        })
     }
 
     private func want(_ how: String) {
-        let op = WantOp(oracleId: oracle.oracleId, cardId: how == "any" ? nil : printing?.cardId, finish: how == "finish" ? version.finish : nil, delta: 1)
+        // One want per printing (and finish), counting the copies of each.
+        var counts: [String: (cardId: String?, finish: String?, qty: Int)] = [:]
+        var order: [String] = []
+        for line in lines {
+            let cardId = how == "any" ? nil : line.cardId, finish = how == "finish" ? line.finish : nil
+            let key = "\(cardId ?? "")|\(finish ?? "")"
+            if counts[key] == nil { order.append(key) }
+            counts[key, default: (cardId, finish, 0)].qty += line.qty
+        }
+        let ops = order.compactMap { counts[$0] }.map { WantOp(oracleId: oracle.oracleId, cardId: $0.cardId, finish: $0.finish, delta: $0.qty) }
         Task {
             do {
-                try await BindersStore.shared.applyWants([op], event: "want_added",
+                try await BindersStore.shared.applyWants(ops, event: "want_added",
                                                          props: ["any_printing": how == "any", "finish": how == "finish", "has_max": false, "from": "card"])
-                finish("want", "Wanted 1 \(how == "any" ? oracle.name : name)", nil)
+                finish("want", "Wanted \(count) \(how == "any" ? oracle.name : name)", nil)
             } catch { self.error = error.localizedDescription }
         }
     }
@@ -165,17 +190,19 @@ struct AddToPanel: View {
     private func addToTrade(_ id: String?, give: Bool) {
         let store = TradesStore.shared
         let t = id.flatMap { store.trade($0) }
-        var line = TradeLine(cardId: version.cardId, finish: version.finish, condition: version.condition, lang: version.lang, qty: 1)
-        if give { line.binderId = BindersStore.shared.forTrade(version.itemKey).binderId }
         var gives = t?.gives ?? [], gets = t?.gets ?? []
-        func put(_ lines: inout [TradeLine]) {
-            if let i = lines.firstIndex(where: { $0.id == line.id }) { lines[i].qty += 1 } else { lines.append(line) }
+        for v in lines {
+            var line = TradeLine(cardId: v.cardId, finish: v.finish, condition: v.condition, lang: v.lang, qty: v.qty)
+            if give { line.binderId = BindersStore.shared.forTrade(v.itemKey).binderId }
+            func put(_ side: inout [TradeLine]) {
+                if let i = side.firstIndex(where: { $0.id == line.id }) { side[i].qty += v.qty } else { side.append(line) }
+            }
+            if give { put(&gives) } else { put(&gets) }
         }
-        if give { put(&gives) } else { put(&gets) }
         Task {
             do {
                 let saved = try await store.save(t, partner: t?.partner, gives: gives, gets: gets)
-                finish("trade", "\(give ? "Giving" : "Getting") 1 \(name) in the trade\(saved.partner.map { " with \($0)" } ?? "")", nil)
+                finish("trade", "\(give ? "Giving" : "Getting") \(count) \(name) in the trade\(saved.partner.map { " with \($0)" } ?? "")", nil)
             } catch { self.error = error.localizedDescription }
         }
     }

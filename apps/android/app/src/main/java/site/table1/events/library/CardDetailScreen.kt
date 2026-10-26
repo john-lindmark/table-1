@@ -2,9 +2,11 @@ package site.table1.events.library
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -86,6 +88,9 @@ import java.net.URL
 /** An Undo for the strip: a collection batch, or the reverse list edits. */
 private class CardUndo(val label: String, val run: suspend () -> Unit)
 
+/** `selected` when the new edition (long press on +) is the picked tile. */
+private const val EDITION = "new-edition"
+
 private fun finishCode(f: String) = when (f) { "foil" -> "F"; "etched" -> "E"; else -> "NF" }
 private fun sectionCode(b: String) = when (b) { "side" -> "Side"; "maybe" -> "Maybe"; "commander" -> "Cmdr"; else -> "Main" }
 
@@ -102,6 +107,8 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
     var looked by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<String?>(null) }
     var draft by remember { mutableStateOf<CardVersion?>(null) }
+    /** A new edition from a long press on +: shown dimmed and selected, written once a pick makes it different. */
+    var edition by remember { mutableStateOf<CardVersion?>(null) }
     var info by remember { mutableStateOf(false) }
     var back by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -111,7 +118,7 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
     var picker by remember { mutableStateOf<CardAttribute?>(null) }
     var menu by remember { mutableStateOf<Pair<String, List<T1MenuItem>>?>(null) }
     var confirm by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
-    var addTo by remember { mutableStateOf<CardVersion?>(null) }
+    var addTo by remember { mutableStateOf<List<CardVersion>?>(null) }
     var zoom by remember { mutableStateOf<Pair<Bitmap, String>?>(null) }
     val prefs = remember { site.table1.events.T1App.instance.getSharedPreferences("library", android.content.Context.MODE_PRIVATE) }
     val addCondition = prefs.getString("addCondition", "NM") ?: "NM"
@@ -147,11 +154,11 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
         }
         CardDetailRules.ordered(raw, printings)
     }
-    LaunchedEffect(versions) { if (selected != null && versions.none { it.id == selected }) selected = null }
+    LaunchedEffect(versions) { if (selected != null && selected != EDITION && versions.none { it.id == selected }) selected = null }
 
     val o = oracle
     val fresh = CardDetailRules.fresh(printings, addCondition, addLang, if (listId != null) "main" else null)
-    val chosen = versions.firstOrNull { it.id == selected }
+    val chosen = if (selected == EDITION) edition else versions.firstOrNull { it.id == selected }
     val inView = chosen?.let { listOf(it) } ?: versions
     val current = chosen ?: CardDetailRules.main(versions) ?: draft ?: fresh
     val shown = inView.ifEmpty { listOfNotNull(current) }
@@ -229,11 +236,61 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
         if (ops.isNotEmpty()) write(ops, label) { Telemetry.capture("card_attribute_changed", props) }
     }
 
+    /** "MB2 #218 · Foil · LP": what sets a version apart, for the Undo strip. */
+    fun versionName(v: CardVersion) = listOfNotNull(setLabel(v.cardId), if (v.finish != "nonfoil") Finish.of(v.finish)?.label ?: v.finish else null,
+        if (list != null) v.board?.takeIf { it != "main" }?.let { list.boardTitle(it) } else v.condition.takeIf { it != "NM" },
+        if (v.lang != "en" && byId[v.cardId]?.lang == "en") Languages.name(v.lang) else null).joinToString(" · ")
+
+    /** The edition now differs from every version in view: add its copies (into the binder or the line's section in
+     *  those scopes) and select the version it became. */
+    fun addEdition(v: CardVersion, a: CardAttribute) {
+        edition = null
+        selected = v.id
+        notice = null
+        val label = "Added ${v.qty} ${versionName(v)}"
+        val props = mapOf("scope" to scopeName, "attribute" to a.wire, "copies" to v.qty)
+        if (listId != null) {
+            val board = v.board ?: "main"
+            fun op(d: Int) = buildJsonObject { put("card_id", v.cardId); put("board", board); put("finish", v.finish); put("lang", v.lang); put("delta", d) }
+            listEdit(listOf(op(v.qty)), listOf(op(-v.qty)), label) { Telemetry.capture("card_edition_added", props) }
+            return
+        }
+        write(listOf(CardDetailRules.step(v, v.qty, binderId)), label) { Telemetry.capture("card_edition_added", props) }
+    }
+
+    /** Long press on +: a copy of the version in view to change into another, selected and dimmed until it differs. */
+    fun startEdition() {
+        if (versions.isEmpty() || edition != null || busy) return
+        edition = CardDetailRules.newEdition(chosen ?: CardDetailRules.main(versions) ?: return)
+        selected = EDITION
+        last = null
+        notice = if (listId != null) "Change its set, language, finish or section to add it." else "Change its set, language, condition or finish to add it."
+        Telemetry.capture("card_edition_started", mapOf("scope" to scopeName, "versions" to versions.size))
+    }
+
+    /** The bar's +: asks one copy or all of them first when more than one is in view (the selected version's copies when
+     *  one is selected). */
+    fun openAddTo(cur: CardVersion) {
+        val total = inView.sumOf { it.qty }
+        if (total <= 1) { addTo = CardDetailRules.addLines(inView, cur, false); return }
+        menu = (if (chosen != null) "Add to · this version only" else "Add to") to listOf(
+            T1MenuItem("One copy") { addTo = CardDetailRules.addLines(inView, cur, false) },
+            T1MenuItem("All $total copies") { addTo = CardDetailRules.addLines(inView, cur, true) },
+        )
+    }
+
     /** A pick: changes the copies in view (asking first when more than one would change), or with nothing in view, the
      *  version on screen. */
     fun pick(a: CardAttribute, value: String) {
         picker = null
         val printing = if (a == CardAttribute.Set) byId[value] else null
+        // The new edition: written as soon as it is a version the scope doesn't hold, until then just redrawn.
+        val e = edition
+        if (selected == EDITION && e != null) {
+            val to = CardDetailRules.repoint(e, a, value, printing)
+            if (CardDetailRules.isNew(to, versions)) addEdition(to, a) else edition = to
+            return
+        }
         val base = current ?: return
         if (versions.isEmpty()) { draft = CardDetailRules.repoint(base, a, value, printing); return }
         val targets = (chosen?.let { listOf(it) } ?: versions).filter { CardDetailRules.repoint(it, a, value, printing) != it }
@@ -250,8 +307,17 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
         }
     }
 
+    /** − / + on the selected version (the new edition's count before it's written), else the one held most of. */
     fun step(delta: Int) {
-        val v = (if (versions.isEmpty()) current else CardDetailRules.main(versions)) ?: return
+        val e = edition
+        if (selected == EDITION && e != null) {
+            if (e.qty + delta > 0) { edition = e.copy(qty = e.qty + delta); return }
+            edition = null
+            selected = null
+            notice = null
+            return
+        }
+        val v = chosen ?: (if (versions.isEmpty()) current else CardDetailRules.main(versions)) ?: return
         val label = "${if (delta > 0) "Added" else "Removed"} 1 ${setLabel(v.cardId)}"
         val props = mapOf("scope" to scopeName, "delta" to delta)
         // At 0 the screen keeps this version, so + puts it back.
@@ -274,7 +340,7 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
     T1Screen {
         val price = pricesVersion.let { current?.let { PriceBook.text(PriceBook.usd(it.cardId, it.finish, it.condition)) } }
         CardBar(o?.name ?: "Card", price, onBack, info,
-            onAdd = if (!isSearch && o != null && current != null) ({ addTo = current }) else null,
+            onAdd = if (!isSearch && o != null && current != null) ({ openAddTo(current) }) else null,
             onInfo = if (o != null) ({ info = !info; if (info) Telemetry.capture("card_info_opened", mapOf("scope" to scopeName)) }) else null)
         (error ?: col.error)?.let { Notice(it, error = true) }
         CatalogStatus(cat)
@@ -302,26 +368,30 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
         }
         // The card: one image as large as fits, or a two-column grid of versions.
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().background(T1.bg)) {
-            if (versions.size > 1) {
+            val tiles = versions.map { Triple(it, it.id, false) } + listOfNotNull(edition?.let { Triple(it, EDITION, true) })
+            if (tiles.size > 1) {
                 val tile = ((minOf(maxWidth - 64.dp, maxWidth * (376f / 440f)) - 1.dp) / 2)
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(vertical = 16.dp),
                     verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                    versions.chunked(2).forEach { rowVs ->
+                    tiles.chunked(2).forEach { rowVs ->
                         Row(horizontalArrangement = Arrangement.spacedBy(1.dp), modifier = Modifier.padding(bottom = 1.dp)) {
-                            rowVs.forEach { v ->
-                                val on = v.id == selected
+                            rowVs.forEach { (v, id, dim) ->
+                                val on = id == selected
                                 Box(Modifier.width(tile)
                                     .let { if (on) it.border(1.dp, T1.accent) else it }
                                     .clickable {
-                                        selected = if (on) null else v.id
+                                        selected = if (on) null else id
                                         if (!on) Telemetry.capture("card_version_selected", mapOf("versions" to versions.size))
                                     }
                                     .semantics {
                                         this.selected = on
                                         contentDescription = listOfNotNull(setLabel(v.cardId), Finish.of(v.finish)?.label,
-                                            v.board?.let { list?.boardTitle(it) }, if (list == null) v.condition else null, "${v.qty}").joinToString(", ")
+                                            v.board?.let { list?.boardTitle(it) }, if (list == null) v.condition else null, "${v.qty}",
+                                            if (dim) "new, not added yet" else null).joinToString(", ")
                                     }, contentAlignment = Alignment.BottomEnd) {
                                     CardArt(byId[v.cardId], tile, finish = v.finish)
+                                    // The new edition is dimmed: it isn't written until it differs.
+                                    if (dim) Box(Modifier.matchParentSize().background(T1.bg.copy(alpha = 0.6f)))
                                     if (v.qty > 1) Text("${v.qty}", Modifier.padding(tile * 0.05f).background(T1.bg).padding(horizontal = 6.dp, vertical = 2.dp),
                                         color = T1.text, fontFamily = T1.mono, fontSize = 13.sp)
                                 }
@@ -366,21 +436,21 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
             }
         }
         if (isSearch) {
-            BottomCell(Modifier.fillMaxWidth(), onClick = { addTo = current }, label = "Add to") {
+            BottomCell(Modifier.fillMaxWidth(), onClick = { addTo = listOf(current) }, label = "Add to") {
                 Text("ADD TO", color = T1.text, fontFamily = T1.mono, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 4.sp)
             }
         } else {
             val count = inView.sumOf { it.qty }
-            val locked = chosen != null
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-                BottomCell(Modifier.weight(1f), enabled = !locked && !busy && count > 0, onClick = { step(-1) }, label = "Remove one") {
-                    Glyph(Icon.Minus, if (!locked && count > 0) T1.text else T1.disabled)
+                BottomCell(Modifier.weight(1f), enabled = !busy && count > 0, onClick = { step(-1) }, label = "Remove one") {
+                    Glyph(Icon.Minus, if (count > 0) T1.text else T1.disabled)
                 }
                 BottomCell(Modifier.weight(1f), label = "$count copies") {
-                    Text("$count", color = if (locked) T1.disabled else T1.text, fontFamily = T1.mono, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 4.sp)
+                    Text("$count", color = T1.text, fontFamily = T1.mono, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 4.sp)
                 }
-                BottomCell(Modifier.weight(1f), enabled = !locked && !busy, onClick = { step(1) }, label = "Add one") {
-                    Glyph(Icon.Plus, if (locked) T1.disabled else T1.text)
+                BottomCell(Modifier.weight(1f), enabled = !busy, onClick = { step(1) }, label = "Add one",
+                    onLongClick = if (versions.isNotEmpty() && edition == null) ({ startEdition() }) else null, longClickLabel = "Add a different version") {
+                    Glyph(Icon.Plus, T1.text)
                 }
             }
         }
@@ -435,8 +505,8 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
             dismiss = { T1TextAction("Cancel") { confirm = null } },
             body = { Text("Every copy in view changes. Undo puts them back.", fontFamily = T1.mono, fontSize = 13.sp) })
     }
-    addTo?.let { v ->
-        if (o != null) AddToSheet(o, v, byId[v.cardId], lists.lists, scopeName, onClose = { addTo = null }) { l, u -> addTo = null; report(l, u) }
+    addTo?.let { lines ->
+        if (o != null) AddToSheet(o, lines, byId, lists.lists, scopeName, onClose = { addTo = null }) { l, u -> addTo = null; report(l, u) }
     }
     zoom?.let { (bmp, sub) -> ZoomImageScreen(bmp, o?.name ?: "Card", sub) { zoom = null } }
 }
@@ -466,9 +536,17 @@ private fun IconButton(icon: Icon, label: String, onClick: () -> Unit) {
 
 /** One cell of the bottom bar: 54 dp above the navigation bar, the glyph 24 dp from the top, the surface running under
  *  the navigation bar. Disabled is the flat disabled colour, never dimmed. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun BottomCell(modifier: Modifier, enabled: Boolean = true, onClick: (() -> Unit)? = null, label: String, content: @Composable () -> Unit) {
-    Column(modifier.background(T1.surface).let { m -> if (onClick != null) m.clickable(enabled = enabled, onClick = onClick) else m }
+private fun BottomCell(modifier: Modifier, enabled: Boolean = true, onClick: (() -> Unit)? = null, label: String,
+                       onLongClick: (() -> Unit)? = null, longClickLabel: String? = null, content: @Composable () -> Unit) {
+    Column(modifier.background(T1.surface).let { m ->
+        when {
+            onClick != null && onLongClick != null -> m.combinedClickable(enabled = enabled, onLongClickLabel = longClickLabel, onLongClick = onLongClick, onClick = onClick)
+            onClick != null -> m.clickable(enabled = enabled, onClick = onClick)
+            else -> m
+        }
+    }
         .semantics { contentDescription = label }) {
         Box(Modifier.fillMaxWidth().height(54.dp).padding(top = 24.dp), contentAlignment = Alignment.TopCenter) { content() }
     }
@@ -563,10 +641,11 @@ private sealed interface AddStep {
 }
 
 /** Collection / Deck / Cube / Binder / Want / Trade, each drilling down in place (Figma Add To Selection and Add to
- *  Drilldown). Adds one of the version on screen; condition and language go with collection, binder and trade adds. */
+ *  Drilldown). Adds `lines` (one copy, or every copy in view, each version with its count); condition and language go
+ *  with collection, binder and trade adds. */
 @Composable
-private fun AddToSheet(o: CatalogOracle, version: CardVersion, p: CatalogPrinting?, lists: List<CardList>, scope: String, onClose: () -> Unit,
-                       onDone: (String, CardUndo?) -> Unit) {
+private fun AddToSheet(o: CatalogOracle, lines: List<CardVersion>, printings: Map<String, CatalogPrinting>, lists: List<CardList>, scope: String,
+                       onClose: () -> Unit, onDone: (String, CardUndo?) -> Unit) {
     val co = rememberCoroutineScope()
     val trades by TradesStore.state.collectAsState()
     val binders by BindersStore.state.collectAsState()
@@ -574,44 +653,56 @@ private fun AddToSheet(o: CatalogOracle, version: CardVersion, p: CatalogPrintin
     var step by remember { mutableStateOf<AddStep>(AddStep.Root) }
     var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { if (!trades.loaded) TradesStore.load() }
+    val version = lines.first()
+    val printingIds = lines.map { it.cardId }.distinct()
+    // The printing when every line shares one.
+    val p = if (printingIds.size == 1) printings[version.cardId] else null
     val name = p?.setLabel ?: o.name
-    val owned = (col.items[version.itemKey]?.qty ?: 0) > 0
+    val count = lines.sumOf { it.qty }
+    val owned = lines.all { (col.items[it.itemKey]?.qty ?: 0) > 0 }
 
     fun finish(destination: String, label: String, undo: CardUndo?) {
-        Telemetry.capture("card_added_to", mapOf("destination" to destination, "scope" to scope))
+        Telemetry.capture("card_added_to", mapOf("destination" to destination, "scope" to scope, "copies" to count))
         onDone(label, undo)
     }
     fun launch(block: suspend () -> Unit) { co.launch { runCatching { block() }.onFailure { error = it.message } } }
     fun toCollection(binderId: String?, place: String) = launch {
-        val res = CollectionStore.apply(listOf(CardDetailRules.step(version, 1, binderId)))
-        val label = "Added 1 $name to $place"
+        val res = CollectionStore.apply(lines.map { CardDetailRules.step(it, it.qty, binderId) })
+        val label = "Added $count $name to $place"
         finish(if (binderId == null) "collection" else "binder", label, CardUndo(label) { CollectionStore.undo(res.batchId) })
     }
     fun toList(id: String, board: String) = launch {
         val l = lists.firstOrNull { it.id == id } ?: return@launch
-        val pr = p ?: return@launch
-        // A finish the printing lacks is saved in one it has (contract/lists-2026-10-15.md).
-        val f = pr.finishList.map { it.wire }.let { fs -> if (version.finish in fs) version.finish else fs.firstOrNull() ?: "nonfoil" }
-        // The copy keeps the language on screen (a Japanese copy you own goes in as Japanese).
-        val lang = Languages.forNew(pr.lang, version.lang)
-        ListsStore.add(id, pr.cardId, board, 1, f, lang)
-        val label = "Added 1 $name to ${l.name} · ${l.boardTitle(board)}"
-        finish(l.kind.wire, label, CardUndo(label) { ListsStore.add(id, pr.cardId, board, -1, f, lang) })
+        val added = lines.mapNotNull { line ->
+            val pr = printings[line.cardId] ?: return@mapNotNull null
+            // A finish the printing lacks is saved in one it has (contract/lists-2026-10-15.md).
+            val f = pr.finishList.map { it.wire }.let { fs -> if (line.finish in fs) line.finish else fs.firstOrNull() ?: "nonfoil" }
+            // The copy keeps the language on screen (a Japanese copy you own goes in as Japanese).
+            val lang = Languages.forNew(pr.lang, line.lang)
+            ListsStore.add(id, pr.cardId, board, line.qty, f, lang)
+            listOf(pr.cardId, f, lang) to line.qty
+        }
+        if (added.isEmpty()) return@launch
+        val label = "Added $count $name to ${l.name} · ${l.boardTitle(board)}"
+        finish(l.kind.wire, label, CardUndo(label) { added.forEach { (k, n) -> ListsStore.add(id, k[0], board, -n, k[1], k[2]) } })
     }
     fun want(how: String) = launch {
-        BindersStore.applyWants(listOf(WantOp(o.oracleId, cardId = if (how == "any") null else version.cardId,
-            finish = if (how == "finish") version.finish else null, delta = 1)), "want_added",
+        // One want per printing (and finish), counting the copies of each.
+        val ops = lines.groupBy { (if (how == "any") null else it.cardId) to (if (how == "finish") it.finish else null) }
+            .map { (k, vs) -> WantOp(o.oracleId, cardId = k.first, finish = k.second, delta = vs.sumOf { it.qty }) }
+        BindersStore.applyWants(ops, "want_added",
             mapOf("any_printing" to (how == "any"), "finish" to (how == "finish"), "has_max" to false, "from" to "card"))
-        finish("want", "Wanted 1 ${if (how == "any") o.name else name}", null)
+        finish("want", "Wanted $count ${if (how == "any") o.name else name}", null)
     }
     fun toTrade(id: String?, give: Boolean) = launch {
         val t = id?.let { TradesStore.trade(it) }
-        val line = TradeLine(version.cardId, version.finish, version.condition, version.lang, 1,
-            if (give) binders.forTrade(version.itemKey).second else null)
-        fun put(lines: List<TradeLine>) = if (lines.any { it.key == line.key }) lines.map { if (it.key == line.key) it.copy(qty = it.qty + 1) else it } else lines + line
+        fun put(side: List<TradeLine>) = lines.fold(side) { out, v ->
+            val line = TradeLine(v.cardId, v.finish, v.condition, v.lang, v.qty, if (give) binders.forTrade(v.itemKey).second else null)
+            if (out.any { it.key == line.key }) out.map { if (it.key == line.key) it.copy(qty = it.qty + v.qty) else it } else out + line
+        }
         val saved = TradesStore.save(t, t?.partner, if (give) put(t?.gives ?: emptyList()) else t?.gives ?: emptyList(),
             if (give) t?.gets ?: emptyList() else put(t?.gets ?: emptyList()))
-        finish("trade", "${if (give) "Giving" else "Getting"} 1 $name in the trade${saved.partner?.let { " with $it" } ?: ""}", null)
+        finish("trade", "${if (give) "Giving" else "Getting"} $count $name in the trade${saved.partner?.let { " with $it" } ?: ""}", null)
     }
 
     val s = step
@@ -627,6 +718,8 @@ private fun AddToSheet(o: CatalogOracle, version: CardVersion, p: CatalogPrintin
         AddStep.Binders -> "Binder" to binders.binders.sortedBy { it.name.lowercase() }.map { Triple(it.id, it.name, if (it.forTrade) "For trade" else null) }
             .ifEmpty { listOf(Triple("", "No binders yet", null)) }
         AddStep.Want -> "Want" to listOfNotNull(Triple("any", "Any printing", null as String?),
+            if (p == null && printingIds.size > 1) Triple("printing", "Each printing", "${printingIds.size} printings") else null,
+            if (p == null && printingIds.size > 1) Triple("finish", "Each printing and finish", null) else null,
             p?.let { Triple("printing", "This printing", name) },
             p?.takeIf { it.finishList.size > 1 }?.let { Triple("finish", "This printing and finish", "$name · ${Finish.of(version.finish)?.label ?: version.finish}") })
         AddStep.Trades -> "Trade" to listOf(Triple("new", "New trade", null as String?)) + trades.trades.filter { it.status != "confirmed" }.map { t ->

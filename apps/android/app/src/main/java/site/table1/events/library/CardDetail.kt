@@ -93,6 +93,20 @@ object CardDetailRules {
     fun step(v: CardVersion, delta: Int, binderId: String?) =
         CollectionOp(v.cardId, v.finish, v.condition, v.lang, delta = delta, binderId = binderId?.takeIf { it != UNSORTED })
 
+    /** A new edition (long press on +): a copy of the version it was made from, one copy, not yet written. It stays
+     *  dimmed until a pick makes it a version the scope doesn't hold. */
+    fun newEdition(from: CardVersion) = from.copy(qty = 1)
+
+    /** Whether a new edition is different from every version in view, so it can be written. */
+    fun isNew(edition: CardVersion, among: List<CardVersion>) = among.none { it.qty > 0 && it.id == edition.id }
+
+    /** What Add to (the bar's +) adds: one copy of the version on screen, or every copy in view (just the selected
+     *  version's when one is selected), each version with its count. */
+    fun addLines(inView: List<CardVersion>, current: CardVersion, all: Boolean): List<CardVersion> {
+        val held = inView.filter { it.qty > 0 }
+        return if (all && held.isNotEmpty()) held else listOf(current.copy(qty = 1))
+    }
+
     /** Whether the Finish cell shows: some printing in view comes in more than one finish, or the versions differ. */
     fun showsFinish(versions: List<CardVersion>, printings: Map<String, CatalogPrinting>): Boolean =
         shared(versions) { it.finish } == null || versions.any { (printings[it.cardId]?.finishList?.size ?: 1) > 1 }

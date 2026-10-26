@@ -121,6 +121,21 @@ export function stepOp(v: CardVersion, delta: number, binderId?: string | null):
   return { card_id: v.cardId, finish: v.finish, condition: v.condition, lang: v.lang, delta, ...where };
 }
 
+/** A new edition (long press on +): a copy of the version it was made from, one copy, not yet written. It stays dimmed
+ *  until a pick makes it a version the scope doesn't hold. */
+export const newEdition = (v: CardVersion): CardVersion => ({ ...v, qty: 1 });
+
+/** Whether a new edition is different from every version in view, so it can be written. */
+export const isNewEdition = (edition: CardVersion, versions: CardVersion[]) =>
+  !versions.some((v) => v.qty > 0 && versionId(v) === versionId(edition));
+
+/** What Add to (the bar's +) adds: one copy of the version on screen, or every copy in view (just the selected version's
+ *  when one is selected), each version with its count. */
+export function addLines(inView: CardVersion[], current: CardVersion, all: boolean): CardVersion[] {
+  const held = inView.filter((v) => v.qty > 0);
+  return all && held.length ? held : [{ ...current, qty: 1 }];
+}
+
 /** Whether the Finish cell shows: some printing in view comes in more than one finish, or the versions differ. */
 export function showsFinish(versions: CardVersion[], printings: Map<string, PrintingFacts>): boolean {
   if (shared(versions, (v) => v.finish) == null) return true;

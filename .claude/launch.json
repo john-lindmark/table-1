@@ -240,6 +240,21 @@
         "--strictPort"
       ],
       "port": 5247
+    },
+    {
+      "name": "web-edition",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "table-1-events-web",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5253",
+        "--strictPort"
+      ],
+      "port": 5253
     }
   ]
 }

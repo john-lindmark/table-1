@@ -22,6 +22,8 @@ struct CardDetailView: View {
     @State private var selected: String?
     /// The version on screen when the scope holds none (search, or every copy removed).
     @State private var draft: CardVersion?
+    /// A new edition from a long press on +: shown dimmed and selected, written once a pick makes it different.
+    @State private var edition: CardVersion?
     @State private var info = false
     @State private var back = false
     @State private var busy = false
@@ -33,6 +35,9 @@ struct CardDetailView: View {
     @AppStorage("library.addLang") private var addLang = "en"
 
     private var byId: [String: CatalogPrinting] { Dictionary(printings.map { ($0.cardId, $0) }, uniquingKeysWith: { a, _ in a }) }
+
+    /// `selected` when the new edition is the picked tile.
+    private static let editionId = "new-edition"
 
     private var listId: String? { if case .list(let id) = context { id } else { nil } }
     private var binderId: String? { if case .binder(let id) = context { id } else { nil } }
@@ -69,11 +74,11 @@ struct CardDetailView: View {
 
     var body: some View {
         let versions = versions
-        let chosen = versions.first { $0.id == selected }
+        let chosen = selected == Self.editionId ? edition : versions.first { $0.id == selected }
         let inView = chosen.map { [$0] } ?? versions
         let current = chosen ?? CardDetailRules.main(versions) ?? draft ?? fresh
         T1Screen {
-            bar(current)
+            bar(current, inView: inView)
             if let message = error ?? col.error { Notice(message, error: true) }
             CatalogStatusRow(catalog: catalog)
             if looked && oracle == nil && catalog.phase == .ready { Notice("That card isn't in the card data.", error: true) }
@@ -88,9 +93,9 @@ struct CardDetailView: View {
                     status
                     attributes(inView.isEmpty ? [current] : inView, owned: !versions.isEmpty)
                     if isSearch {
-                        BigBarButton(text: "Add to") { addTo(current) }
+                        BigBarButton(text: "Add to") { openAddTo([current]) }
                     } else {
-                        stepper(versions, inView: inView, current: current, locked: chosen != nil)
+                        stepper(versions, chosen: chosen, inView: inView, current: current)
                     }
                 }
             } else {
@@ -111,7 +116,7 @@ struct CardDetailView: View {
             await PriceBook.shared.load(found.1.map(\.cardId))
         }
         .onChange(of: versions.map(\.id)) { _, ids in
-            if let s = selected, !ids.contains(s) { selected = nil }
+            if let s = selected, s != Self.editionId, !ids.contains(s) { selected = nil }
         }
     }
 
@@ -122,7 +127,7 @@ struct CardDetailView: View {
 
     // MARK: bar
 
-    private func bar(_ current: CardVersion?) -> some View {
+    private func bar(_ current: CardVersion?, inView: [CardVersion]) -> some View {
         let price = current.flatMap { PriceBook.text(PriceBook.shared.usd($0.cardId, $0.finish, $0.condition)) }
         return HStack(spacing: 0) {
             CardBarButton(label: "Back", action: { dismiss() }) { BackArrow().fill(T1.text) }
@@ -133,7 +138,7 @@ struct CardDetailView: View {
             }
             .padding(.horizontal, 4)
             if !isSearch, oracle != nil, let current {
-                CardBarButton(label: "Add to") { addTo(current) } icon: { PlusIcon().fill(T1.text) }
+                CardBarButton(label: "Add to") { addTo(inView, current: current) } icon: { PlusIcon().fill(T1.text) }
             }
             CardBarButton(label: info ? "Card" : "Details") {
                 info.toggle()
@@ -150,11 +155,12 @@ struct CardDetailView: View {
 
     @ViewBuilder private func cardArea(_ versions: [CardVersion], current: CardVersion) -> some View {
         GeometryReader { geo in
-            if versions.count > 1 {
+            if versions.count + (edition == nil ? 0 : 1) > 1 {
                 let tile = ((min(geo.size.width - 64, 376 * geo.size.width / 440) - 1) / 2).rounded(.down)
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.fixed(tile), spacing: 1), GridItem(.fixed(tile), spacing: 1)], spacing: 1) {
                         ForEach(versions) { v in versionTile(v, width: tile) }
+                        if let edition { versionTile(edition, width: tile, key: Self.editionId) }
                     }
                     .padding(.vertical, 16)
                     .frame(maxWidth: .infinity, minHeight: geo.size.height)
@@ -186,15 +192,19 @@ struct CardDetailView: View {
         .background(T1.bg)
     }
 
-    private func versionTile(_ v: CardVersion, width: CGFloat) -> some View {
-        let on = v.id == selected
+    /// One grid tile. The new edition (`key` editionId) is dimmed: it isn't written until it differs.
+    private func versionTile(_ v: CardVersion, width: CGFloat, key: String? = nil) -> some View {
+        let id = key ?? v.id
+        let on = id == selected
+        let dim = key == Self.editionId
         let p = byId[v.cardId]
         return Button {
-            selected = on ? nil : v.id
+            selected = on ? nil : id
             if !on { Telemetry.capture("card_version_selected", ["versions": versions.count]) }
         } label: {
             ZStack(alignment: .bottomTrailing) {
                 if let p { p.art(width: width, finish: v.finish) } else { Rectangle().fill(T1.surface).frame(width: width, height: width / CardArt.aspect) }
+                if dim { T1.bg.opacity(0.6) }
                 if v.qty > 1 {
                     Text("\(v.qty)").font(T1.mono(13)).monospacedDigit()
                         .padding(.horizontal, 6).padding(.vertical, 2).background(T1.bg)
@@ -205,7 +215,7 @@ struct CardDetailView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel([p?.setLabel, Finish(rawValue: v.finish)?.label, v.board.flatMap { lists.list(id: listId ?? "")?.boardTitle($0) },
-                             listId == nil ? v.condition : nil, "\(v.qty)"].compactMap { $0 }.joined(separator: ", "))
+                             listId == nil ? v.condition : nil, "\(v.qty)", dim ? "new, not added yet" : nil].compactMap { $0 }.joined(separator: ", "))
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 
@@ -312,9 +322,15 @@ struct CardDetailView: View {
     /// the version on screen.
     private func pick(_ a: CardAttribute, _ value: String) {
         let versions = versions
+        let printing = a == .set ? byId[value] : nil
+        // The new edition: written as soon as it is a version the scope doesn't hold, until then just redrawn.
+        if selected == Self.editionId, let e = edition {
+            let to = CardDetailRules.repoint(e, a, to: value, printing: printing)
+            if CardDetailRules.isNew(to, among: versions) { addEdition(to, attribute: a) } else { edition = to }
+            return
+        }
         let chosen = versions.first { $0.id == selected }
         let targets = chosen.map { [$0] } ?? versions
-        let printing = a == .set ? byId[value] : nil
         guard !targets.isEmpty else {
             if let base = draft ?? fresh { draft = CardDetailRules.repoint(base, a, to: value, printing: printing) }
             return
@@ -396,23 +412,85 @@ struct CardDetailView: View {
 
     // MARK: stepper
 
-    private func stepper(_ versions: [CardVersion], inView: [CardVersion], current: CardVersion, locked: Bool) -> some View {
+    /// − count + for the copies in view: the selected version's when one is (the new edition's before it's written),
+    /// else the one held most of. A long press on + starts a new edition of that version.
+    private func stepper(_ versions: [CardVersion], chosen: CardVersion?, inView: [CardVersion], current: CardVersion) -> some View {
         let count = inView.reduce(0) { $0 + $1.qty }
-        let target = versions.isEmpty ? current : CardDetailRules.main(versions) ?? current
+        let onEdition = selected == Self.editionId && edition != nil
+        let target = chosen ?? CardDetailRules.main(versions) ?? current
+        let canStart = !versions.isEmpty && edition == nil && !busy
         return HStack(spacing: 1) {
-            StepCell(label: "Remove one", enabled: !locked && !busy && count > 0) { step(target, -1) } content: {
-                MinusIcon().fill(!locked && count > 0 ? T1.text : T1.disabled).frame(width: 18, height: 18)
+            StepCell(label: "Remove one", enabled: !busy && count > 0) { onEdition ? stepEdition(-1) : step(target, -1) } content: {
+                MinusIcon().fill(count > 0 ? T1.text : T1.disabled).frame(width: 18, height: 18)
             }
             Text("\(count)").font(T1.mono(15, .semibold)).tracking(4).monospacedDigit()
-                .foregroundStyle(locked ? T1.disabled : T1.text)
+                .foregroundStyle(T1.text)
                 .frame(height: 18).padding(.top, 24)
                 .frame(maxWidth: .infinity).frame(height: 54, alignment: .top)
                 .background(T1.surface.ignoresSafeArea(edges: .bottom))
                 .accessibilityLabel("\(count) copies")
-            StepCell(label: "Add one", enabled: !locked && !busy) { step(target, 1) } content: {
-                PlusIcon().fill(locked ? T1.disabled : T1.text).frame(width: 18, height: 18)
+            StepCell(label: "Add one", enabled: !busy, longPress: canStart ? { startEdition(target) } : nil,
+                     longPressLabel: "Add a different version") { onEdition ? stepEdition(1) : step(target, 1) } content: {
+                PlusIcon().fill(T1.text).frame(width: 18, height: 18)
             }
         }
+    }
+
+    // MARK: new edition
+
+    /// Long press on +: a copy of `v` to change into another version, selected and dimmed until it differs.
+    private func startEdition(_ v: CardVersion) {
+        edition = CardDetailRules.newEdition(from: v)
+        selected = Self.editionId
+        last = nil
+        notice = listId == nil ? "Change its set, language, condition or finish to add it." : "Change its set, language, finish or section to add it."
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        Telemetry.capture("card_edition_started", ["scope": scopeName, "versions": versions.count])
+    }
+
+    /// The stepper on an unwritten edition only changes how many it will add; at 0 it's gone.
+    private func stepEdition(_ delta: Int) {
+        guard var e = edition else { return }
+        e.qty += delta
+        if e.qty > 0 { edition = e; return }
+        edition = nil
+        selected = nil
+        notice = nil
+    }
+
+    /// The edition now differs from every version in view: add its copies (into the binder or the line's section in
+    /// those scopes) and select the version it became.
+    private func addEdition(_ v: CardVersion, attribute: CardAttribute) {
+        edition = nil
+        selected = v.id
+        notice = nil
+        let text = "Added \(v.qty) \(versionName(v))"
+        let props: [String: Any] = ["scope": scopeName, "attribute": attribute.rawValue, "copies": v.qty]
+        if let listId {
+            let board = v.board ?? "main"
+            lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, delta: v.qty)
+            Telemetry.capture("card_edition_added", props)
+            report(text, CardUndo(label: text) { lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, delta: -v.qty) })
+            return
+        }
+        write([CardDetailRules.step(v, delta: v.qty, binderId: binderId)], label: text) {
+            Telemetry.capture("card_edition_added", props)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
+    }
+
+    /// "MH2 · Foil · LP": what sets a version apart, for the Undo strip.
+    private func versionName(_ v: CardVersion) -> String {
+        let list = listId.flatMap { lists.list(id: $0) }
+        var parts = [byId[v.cardId]?.setLabel ?? oracle?.name ?? "card"]
+        if v.finish != Finish.nonfoil.rawValue { parts.append(Finish(rawValue: v.finish)?.label ?? v.finish) }
+        if let list {
+            if let b = v.board, b != "main" { parts.append(list.boardTitle(b)) }
+        } else if v.condition != "NM" {
+            parts.append(v.condition)
+        }
+        if v.lang != "en", byId[v.cardId]?.lang == "en" { parts.append(Languages.name(v.lang)) }
+        return parts.joined(separator: " · ")
     }
 
     private func step(_ v: CardVersion, _ delta: Int) {
@@ -473,10 +551,21 @@ struct CardDetailView: View {
 
     // MARK: add to
 
-    private func addTo(_ v: CardVersion) {
-        guard let oracle else { return }
+    /// The bar's +: asks one copy or all of them first when more than one is in view (the selected version's copies when
+    /// one is selected).
+    private func addTo(_ inView: [CardVersion], current: CardVersion) {
+        let total = inView.reduce(0) { $0 + $1.qty }
+        guard total > 1 else { openAddTo(CardDetailRules.addLines(inView, current: current, all: false)); return }
+        T1Overlays.shared.showMenu("Add to", message: selected == nil ? nil : "This version only", [
+            T1MenuItem(title: "One copy") { openAddTo(CardDetailRules.addLines(inView, current: current, all: false)) },
+            T1MenuItem(title: "All \(total) copies") { openAddTo(CardDetailRules.addLines(inView, current: current, all: true)) },
+        ])
+    }
+
+    private func openAddTo(_ lines: [CardVersion]) {
+        guard let oracle, !lines.isEmpty else { return }
         T1Overlays.shared.present {
-            AddToPanel(oracle: oracle, printing: byId[v.cardId], version: v, scope: scopeName, path: path) { label, undo in
+            AddToPanel(oracle: oracle, printings: byId, lines: lines, scope: scopeName, path: path) { label, undo in
                 report(label, undo)
             }
             .screen("card_add_to")
@@ -510,19 +599,27 @@ private struct CardBarButton<Icon: View>: View {
 private struct StepCell<Content: View>: View {
     let label: String
     let enabled: Bool
+    /// A long press's action (+ starts a new edition); nil: taps only.
+    var longPress: (() -> Void)?
+    var longPressLabel = ""
     let action: () -> Void
     @ViewBuilder let content: Content
     var body: some View {
         // Not .disabled: that dims the label, and disabled is drawn as the flat disabled colour (design rule).
-        Button { if enabled { action() } } label: {
-            content.frame(height: 18).padding(.top, 24)
-                .frame(maxWidth: .infinity).frame(height: 54, alignment: .top)
-                .background(T1.surface.ignoresSafeArea(edges: .bottom))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .accessibilityAddTraits(enabled ? [] : .isStaticText)
+        // Gestures rather than a Button, so a held press doesn't also count as a tap.
+        content.frame(height: 18).padding(.top, 24)
+            .frame(maxWidth: .infinity).frame(height: 54, alignment: .top)
+            .background(T1.surface.ignoresSafeArea(edges: .bottom))
+            .contentShape(Rectangle())
+            .onTapGesture { if enabled { action() } }
+            .onLongPressGesture(minimumDuration: 0.45) { if enabled { (longPress ?? action)() } }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(label)
+            .accessibilityAddTraits(enabled ? .isButton : .isStaticText)
+            .accessibilityAction { if enabled { action() } }
+            .accessibilityActions {
+                if let longPress, enabled { Button(longPressLabel, action: longPress) }
+            }
     }
 }
 

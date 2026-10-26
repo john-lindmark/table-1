@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BackArrow, Dialog, Menu, Notice, Row, Section, type MenuItem } from "../components/kit";
 import { ZoomImage } from "../components/ZoomImage";
 import { capture } from "../lib/telemetry";
@@ -15,7 +15,8 @@ import { cardAddDetail, copiesOf, listAddOps, toCollectionOps, type AddOp } from
 import { isHero, scopeOf, toggleHero, HERO_LIMIT } from "../lib/heroes";
 import { loadDemoLists } from "../lib/libraryDemo";
 import {
-  editOps, factsOf, finishesOf, freshVersion, mainVersion, orderedVersions, repoint, shared, showsFinish, stepOp, versionId, versionKey,
+  addLines, editOps, factsOf, finishesOf, freshVersion, isNewEdition, mainVersion, newEdition, orderedVersions, repoint, shared, showsFinish,
+  stepOp, versionId, versionKey,
   type CardAttribute, type CardVersion, type PrintingFacts,
 } from "../lib/cardDetail";
 import { CONDITIONS, CardArt, LibScreen, SignedOut, useAddCondition, useCatalog, useLibraryHeroes, useLibrarySession } from "./Library";
@@ -35,6 +36,8 @@ const FINISH_LABEL: Record<Finish, string> = { nonfoil: "Non-foil", foil: "Foil"
 const finishCode = (f: Finish) => (f === "foil" ? "F" : f === "etched" ? "E" : "NF");
 const sectionCode = (b: Board) => (b === "side" ? "Side" : b === "maybe" ? "Maybe" : b === "commander" ? "Cmdr" : "Main");
 const ASPECT = 488 / 680;
+/** `selected` when the new edition (long press on +) is the picked tile. */
+const EDITION = "new-edition";
 
 /** The size of an element, kept up to date. A callback ref, so it starts measuring whenever the element mounts. */
 function useSize<T extends HTMLElement>(): [(el: T | null) => void, { w: number; h: number }] {
@@ -62,6 +65,8 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
   const addLang = storedAddLang();
   const [selected, setSelected] = useState<string | null>(null);
   const [draft, setDraft] = useState<CardVersion | null>(null);
+  /** A new edition from a long press on +: shown dimmed and selected, written once a pick makes it different. */
+  const [edition, setEdition] = useState<CardVersion | null>(null);
   const [info, setInfo] = useState(false);
   const [back, setBack] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -71,7 +76,7 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
   const [picker, setPicker] = useState<CardAttribute | null>(null);
   const [menu, setMenu] = useState<{ title: string; items: MenuItem[] } | null>(null);
   const [confirm, setConfirm] = useState<{ title: string; run: () => void } | null>(null);
-  const [addTo, setAddTo] = useState<CardVersion | null>(null);
+  const [addTo, setAddTo] = useState<CardVersion[] | null>(null);
   const [zoom, setZoom] = useState<number | null>(null);
   const [areaRef, area] = useSize<HTMLDivElement>();
 
@@ -116,7 +121,7 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
   }, [facts, col.version, binders.version, list, listId, binderId, isSearch]);
 
   useEffect(() => {
-    if (selected && !versions.some((v) => versionId(v) === selected)) setSelected(null);
+    if (selected && selected !== EDITION && !versions.some((v) => versionId(v) === selected)) setSelected(null);
   }, [versions, selected]);
 
   if (!ready) return <LibScreen><div className="flex-1" /></LibScreen>;
@@ -133,7 +138,7 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
   }
 
   const fresh = freshVersion(facts, addCondition, addLang, listId ? "main" : undefined);
-  const chosen = versions.find((v) => versionId(v) === selected) ?? null;
+  const chosen = (selected === EDITION ? edition : versions.find((v) => versionId(v) === selected)) ?? null;
   const inView = chosen ? [chosen] : versions;
   const current = chosen ?? mainVersion(versions) ?? draft ?? fresh;
   if (!current) return <LibScreen><CardBar name={catalog.oName[oi]} onBack={onBack} /></LibScreen>;
@@ -181,6 +186,12 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
   const pick = (a: CardAttribute, value: string) => {
     setPicker(null);
     const printing = a === "set" ? factsById.get(value) : undefined;
+    // The new edition: written as soon as it is a version the scope doesn't hold, until then just redrawn.
+    if (selected === EDITION && edition) {
+      const to = repoint(edition, a, value, printing);
+      if (isNewEdition(to, versions)) addEdition(to, a); else setEdition(to);
+      return;
+    }
     if (!versions.length) {
       setDraft(repoint(current, a, value, printing));
       return;
@@ -233,8 +244,17 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
     if (ops.length) void write(ops, label, () => capture("card_attribute_changed", props));
   };
 
+  /** − / + on the selected version (the new edition's count before it's written), else the one held most of. */
   const step = (delta: number) => {
-    const v = versions.length ? mainVersion(versions)! : current;
+    if (selected === EDITION && edition) {
+      const qty = edition.qty + delta;
+      if (qty > 0) { setEdition({ ...edition, qty }); return; }
+      setEdition(null);
+      setSelected(null);
+      setNotice(null);
+      return;
+    }
+    const v = chosen ?? (versions.length ? mainVersion(versions)! : current);
     const label = `${delta > 0 ? "Added" : "Removed"} 1 ${setLabel(v.cardId)}`;
     const props = { scope: scopeName, delta };
     // At 0 the screen keeps this version, so + puts it back.
@@ -246,6 +266,49 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
       return;
     }
     void write([stepOp(v, delta, binderId)], label, () => capture("card_stepped", props));
+  };
+
+  /** Long press on +: a copy of the version in view to change into another, selected and dimmed until it differs. */
+  const startEdition = () => {
+    if (!versions.length || edition || busy) return;
+    setEdition(newEdition(chosen ?? mainVersion(versions)!));
+    setSelected(EDITION);
+    setLast(null);
+    setNotice(listId ? "Change its set, language, finish or section to add it." : "Change its set, language, condition or finish to add it.");
+    capture("card_edition_started", { scope: scopeName, versions: versions.length });
+  };
+
+  /** "MB2 #218 · Foil · LP": what sets a version apart, for the Undo strip. */
+  const versionName = (v: CardVersion) => [setLabel(v.cardId), v.finish !== "nonfoil" ? FINISH_LABEL[v.finish] : null,
+    list ? (v.board && v.board !== "main" ? boardTitle(list.kind, v.board) : null) : v.condition !== "NM" ? v.condition : null,
+    v.lang !== "en" && factsById.get(v.cardId)?.lang === "en" ? languageName(v.lang) : null].filter(Boolean).join(" · ");
+
+  /** The edition now differs from every version in view: add its copies (into the binder or the line's section in those
+   *  scopes) and select the version it became. */
+  const addEdition = (v: CardVersion, a: CardAttribute) => {
+    setEdition(null);
+    setSelected(versionId(v));
+    setNotice(null);
+    const label = `Added ${v.qty} ${versionName(v)}`;
+    const props = { scope: scopeName, attribute: a, copies: v.qty };
+    if (listId) {
+      const board = v.board ?? "main";
+      void listEdit([{ card_id: v.cardId, board, finish: v.finish, lang: v.lang, delta: v.qty }], [{ card_id: v.cardId, board, finish: v.finish, lang: v.lang, delta: -v.qty }],
+                    label, () => capture("card_edition_added", props));
+      return;
+    }
+    void write([stepOp(v, v.qty, binderId)], label, () => capture("card_edition_added", props));
+  };
+
+  /** The bar's +: asks one copy or all of them first when more than one is in view (the selected version's copies when one
+   *  is selected). */
+  const openAddTo = () => {
+    const total = inView.reduce((n, v) => n + v.qty, 0);
+    if (total <= 1) { setAddTo(addLines(inView, current, false)); return; }
+    setMenu({ title: chosen ? "Add to · this version only" : "Add to", items: [
+      { title: "One copy", onClick: () => setAddTo(addLines(inView, current, false)) },
+      { title: `All ${total} copies`, onClick: () => setAddTo(addLines(inView, current, true)) },
+    ] });
   };
 
   const undo = async () => {
@@ -286,7 +349,9 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
   if (list) cells.push({ a: "section", value: (() => { const b = shared(shown, (v) => v.board ?? "main"); return b ? sectionCode(b) : "Mix"; })(), opens: true });
 
   const count = inView.reduce((n, v) => n + v.qty, 0);
-  const locked = !!chosen;
+  const tiles: { v: CardVersion; id: string; dim: boolean }[] = [
+    ...versions.map((v) => ({ v, id: versionId(v), dim: false })), ...(edition ? [{ v: edition, id: EDITION, dim: true }] : []),
+  ];
   const p = indexById.get(current.cardId);
   const flips = p != null && catalog.pFaces[p] > 1;
 
@@ -297,7 +362,7 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
   return (
     <LibScreen>
       <CardBar name={name} price={price} onBack={onBack} info={info}
-               onAdd={isSearch ? undefined : () => setAddTo(current)}
+               onAdd={isSearch ? undefined : openAddTo}
                onInfo={() => { setInfo(!info); if (!info) capture("card_info_opened", { scope: scopeName }); }} />
       {(error || col.error) && <Notice tone="error">{error ?? col.error}</Notice>}
       {info ? (
@@ -309,19 +374,21 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
       ) : (
         <>
           <div ref={areaRef} className="flex-1 min-h-0 bg-t1-bg overflow-y-auto">
-            {area.w > 0 && (versions.length > 1 ? (
+            {area.w > 0 && (tiles.length > 1 ? (
               <div className="min-h-full flex items-center justify-center py-4">
                 <div className="grid gap-px" style={{ gridTemplateColumns: `${tileW}px ${tileW}px` }}>
-                  {versions.map((v) => {
-                    const on = versionId(v) === selected;
+                  {tiles.map(({ v, id, dim }) => {
+                    const on = id === selected;
                     const vp = indexById.get(v.cardId) ?? null;
                     return (
-                      <button key={versionId(v)} type="button" aria-pressed={on}
+                      <button key={id} type="button" aria-pressed={on}
                               aria-label={[setLabel(v.cardId), FINISH_LABEL[v.finish], v.board && list ? boardTitle(list.kind, v.board) : null,
-                                           list ? null : v.condition, String(v.qty)].filter(Boolean).join(", ")}
-                              onClick={() => { setSelected(on ? null : versionId(v)); if (!on) capture("card_version_selected", { versions: versions.length }); }}
+                                           list ? null : v.condition, String(v.qty), dim ? "new, not added yet" : null].filter(Boolean).join(", ")}
+                              onClick={() => { setSelected(on ? null : id); if (!on) capture("card_version_selected", { versions: versions.length }); }}
                               className={`relative block ${on ? "outline outline-1 outline-t1-accent" : ""}`}>
                         <CardArt c={catalog} p={vp} width={tileW} finish={v.finish} />
+                        {/* The new edition is dimmed: it isn't written until it differs. */}
+                        {dim && <span className="absolute inset-0 bg-t1-bg/60" />}
                         {v.qty > 1 && (
                           <span className="absolute bg-t1-bg px-1.5 py-0.5 text-[13px] tabular-nums" style={{ right: tileW * 0.05, bottom: tileW * 0.05 }}>{v.qty}</span>
                         )}
@@ -354,18 +421,19 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
             ))}
           </div>
           {isSearch ? (
-            <button type="button" onClick={() => setAddTo(current)}
+            <button type="button" onClick={() => setAddTo([current])}
                     className="shrink-0 h-[88px] lg:h-[64px] bg-t1-surface hover:bg-t1-surface-hover pt-6 lg:pt-0 flex lg:items-center justify-center text-[15px] font-semibold uppercase tracking-[4px] pb-[env(safe-area-inset-bottom)]">
               Add to
             </button>
           ) : (
             <div className="shrink-0 flex gap-px">
-              <StepCell label="Remove one" enabled={!locked && !busy && count > 0} onClick={() => step(-1)}>
+              <StepCell label="Remove one" enabled={!busy && count > 0} onClick={() => step(-1)}>
                 <MinusIcon />
               </StepCell>
-              <div className={`flex-1 h-[88px] lg:h-[64px] bg-t1-surface pt-6 lg:pt-0 flex lg:items-center justify-center text-[15px] font-semibold tracking-[4px] tabular-nums ${locked ? "text-t1-disabled" : ""}`}
+              <div className="flex-1 h-[88px] lg:h-[64px] bg-t1-surface pt-6 lg:pt-0 flex lg:items-center justify-center text-[15px] font-semibold tracking-[4px] tabular-nums"
                    aria-label={`${count} copies`}>{count}</div>
-              <StepCell label="Add one" enabled={!locked && !busy} onClick={() => step(1)}>
+              <StepCell label="Add one" enabled={!busy} onClick={() => step(1)}
+                        onLongPress={versions.length && !edition ? startEdition : undefined} longPressLabel="Add a different version">
                 <PlusIcon />
               </StepCell>
             </div>
@@ -409,7 +477,7 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
                 onCancel={() => setConfirm(null)} onConfirm={() => { const r = confirm.run; setConfirm(null); r(); }} />
       )}
       {addTo && (
-        <AddToSheet catalog={catalog} oi={oi} version={addTo} p={indexById.get(addTo.cardId) ?? null} lists={lists.lists} scope={scopeName}
+        <AddToSheet catalog={catalog} oi={oi} lines={addTo} indexById={indexById} lists={lists.lists} scope={scopeName}
                     onClose={() => setAddTo(null)} onDone={(label, u) => { setAddTo(null); report(label, u); }} />
       )}
       {zoom != null && (
@@ -442,9 +510,24 @@ function CardBar({ name, price, onBack, onAdd, onInfo, info }: {
 
 /** One third of the stepper: 88 px on a phone (the home indicator under it), the glyph 24 px from the top. Disabled is
  *  the flat disabled colour, never dimmed. */
-function StepCell({ label, enabled, onClick, children }: { label: string; enabled: boolean; onClick: () => void; children: ReactNode }) {
+function StepCell({ label, enabled, onClick, onLongPress, longPressLabel, children }: {
+  label: string; enabled: boolean; onClick: () => void; onLongPress?: () => void; longPressLabel?: string; children: ReactNode;
+}) {
+  // A held press (or right-click on a desktop) runs onLongPress instead of the tap.
+  const timer = useRef<number | null>(null);
+  const held = useRef(false);
+  const cancel = () => { if (timer.current != null) { window.clearTimeout(timer.current); timer.current = null; } };
+  useEffect(() => cancel, []);
   return (
-    <button type="button" aria-label={label} aria-disabled={!enabled} onClick={() => { if (enabled) onClick(); }}
+    <button type="button" aria-label={label} aria-disabled={!enabled} title={onLongPress ? `Hold: ${longPressLabel}` : undefined}
+            onPointerDown={() => {
+              held.current = false;
+              if (!onLongPress || !enabled) return;
+              timer.current = window.setTimeout(() => { held.current = true; timer.current = null; onLongPress(); }, 450);
+            }}
+            onPointerUp={cancel} onPointerLeave={cancel} onPointerCancel={cancel}
+            onContextMenu={(e) => { if (!onLongPress) return; e.preventDefault(); cancel(); if (!held.current && enabled) onLongPress(); held.current = true; }}
+            onClick={() => { if (held.current) { held.current = false; return; } if (enabled) onClick(); }}
             className={`flex-1 h-[88px] lg:h-[64px] bg-t1-surface pt-6 lg:pt-0 flex lg:items-center justify-center ${enabled ? "hover:bg-t1-surface-hover" : "text-t1-disabled cursor-default"}`}>
       {children}
     </button>
@@ -533,9 +616,10 @@ function TuneIcon() {
 type Step = { k: "root" } | { k: "decks" } | { k: "section"; id: string } | { k: "cubes" } | { k: "binders" } | { k: "want" } | { k: "trades" } | { k: "side"; id: string | null };
 
 /** Collection / Deck / Cube / Binder / Want / Trade, each drilling down in place (Figma Add To Selection and Add to
- *  Drilldown). Adds one of the version on screen; condition and language go with collection, binder and trade adds. */
-function AddToSheet({ catalog, oi, version, p, lists, scope, onClose, onDone }: {
-  catalog: Catalog; oi: number; version: CardVersion; p: number | null; lists: CardList[]; scope: string;
+ *  Drilldown). Adds `lines` (one copy, or every copy in view, each version with its count); condition and language go
+ *  with collection, binder and trade adds. */
+function AddToSheet({ catalog, oi, lines, indexById, lists, scope, onClose, onDone }: {
+  catalog: Catalog; oi: number; lines: CardVersion[]; indexById: Map<string, number>; lists: CardList[]; scope: string;
   onClose: () => void; onDone: (label: string, undo: Undo | null) => void;
 }) {
   const [step, setStep] = useState<Step>({ k: "root" });
@@ -544,54 +628,74 @@ function AddToSheet({ catalog, oi, version, p, lists, scope, onClose, onDone }: 
   const { userId } = useLibrarySession();
   const col = useCollection(userId);
   const b = useBinders(userId);
+  const version = lines[0];
+  const pIndex = (cardId: string) => indexById.get(cardId) ?? null;
+  const printingIds = [...new Set(lines.map((l) => l.cardId))];
+  // The printing when every line shares one.
+  const p = printingIds.length === 1 ? pIndex(version.cardId) : null;
   const name = p == null ? catalog.oName[oi] : `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}`;
-  const owned = (col.items.get(versionKey(version))?.qty ?? 0) > 0;
+  const count = lines.reduce((n, l) => n + l.qty, 0);
+  const owned = lines.every((l) => (col.items.get(versionKey(l))?.qty ?? 0) > 0);
   const finishes = p == null ? [] : finishesOf(factsOf(catalog, p));
 
   const finish = (destination: string, label: string, undo: Undo | null) => {
-    capture("card_added_to", { destination, scope });
+    capture("card_added_to", { destination, scope, copies: count });
     onDone(label, undo);
   };
   const fail = (e: unknown) => setError(errorMessage(e));
 
   const toCollection = async (binderId: string | null, place: string) => {
     try {
-      const res = await applyOps([stepOp(version, 1, binderId)]);
-      const label = `Added 1 ${name} to ${place}`;
+      const res = await applyOps(lines.map((l) => stepOp(l, l.qty, binderId)));
+      const label = `Added ${count} ${name} to ${place}`;
       finish(binderId ? "binder" : "collection", label, { label, run: () => undoBatch(res.batch_id) });
     } catch (e) { fail(e); }
   };
   const toList = async (id: string, board: Board) => {
     const l = lists.find((x) => x.id === id);
-    if (!l || p == null) return;
-    // A finish the printing lacks is saved in one it has (contract/lists-2026-10-15.md).
-    const f = finishes.includes(version.finish) ? version.finish : finishes[0] ?? "nonfoil";
-    try {
+    if (!l) return;
+    const ops: { card_id: string; board: Board; finish: Finish; lang: string; delta: number }[] = lines.flatMap((line) => {
+      const lp = pIndex(line.cardId);
+      if (lp == null) return [];
+      // A finish the printing lacks is saved in one it has (contract/lists-2026-10-15.md).
+      const fs = finishesOf(factsOf(catalog, lp));
       // The copy keeps the language on screen (a Japanese copy you own goes in as Japanese).
-      const lang = langForNew(catalog.pLang[p], version.lang);
-      await editList(id, [{ card_id: version.cardId, board, finish: f, lang, delta: 1 }]);
-      const label = `Added 1 ${name} to ${l.name} · ${boardTitle(l.kind, board)}`;
-      finish(l.kind, label, { label, run: () => editList(id, [{ card_id: version.cardId, board, finish: f, lang, delta: -1 }]) });
+      return [{ card_id: line.cardId, board, finish: fs.includes(line.finish) ? line.finish : fs[0] ?? "nonfoil",
+                lang: langForNew(catalog.pLang[lp], line.lang), delta: line.qty }];
+    });
+    if (!ops.length) return;
+    try {
+      await editList(id, ops);
+      const label = `Added ${count} ${name} to ${l.name} · ${boardTitle(l.kind, board)}`;
+      finish(l.kind, label, { label, run: () => editList(id, ops.map((o) => ({ ...o, delta: -o.delta }))) });
     } catch (e) { fail(e); }
   };
   const want = async (how: string) => {
     try {
-      await applyWants([{ oracle_id: catalog.oId[oi], card_id: how === "any" ? null : version.cardId, finish: how === "finish" ? version.finish : null, delta: 1 }],
+      // One want per printing (and finish), counting the copies of each.
+      const wants = new Map<string, { card_id: string | null; finish: Finish | null; delta: number }>();
+      for (const l of lines) {
+        const card_id = how === "any" ? null : l.cardId, f = how === "finish" ? l.finish : null;
+        const key = `${card_id ?? ""}|${f ?? ""}`;
+        const w = wants.get(key);
+        if (w) w.delta += l.qty; else wants.set(key, { card_id, finish: f, delta: l.qty });
+      }
+      await applyWants([...wants.values()].map((w) => ({ oracle_id: catalog.oId[oi], ...w })),
                        "want_added", { any_printing: how === "any", finish: how === "finish", has_max: false, from: "card" });
-      finish("want", `Wanted 1 ${how === "any" ? catalog.oName[oi] : name}`, null);
+      finish("want", `Wanted ${count} ${how === "any" ? catalog.oName[oi] : name}`, null);
     } catch (e) { fail(e); }
   };
   const toTrade = async (id: string | null, give: boolean) => {
     const t = id ? trades.trades.find((x) => x.id === id) ?? null : null;
-    const line: TradeLine = { card_id: version.cardId, finish: version.finish, condition: version.condition, lang: version.lang, qty: 1,
-                              ...(give && forTrade(versionKey(version)).binderId ? { binder_id: forTrade(versionKey(version)).binderId } : {}) };
-    const put = (lines: TradeLine[]) => {
-      const i = lines.findIndex((l) => l.card_id === line.card_id && l.finish === line.finish && l.condition === line.condition && l.lang === line.lang);
-      return i >= 0 ? lines.map((l, j) => (j === i ? { ...l, qty: l.qty + 1 } : l)) : [...lines, line];
-    };
+    const put = (side: TradeLine[]) => lines.reduce((out, v) => {
+      const binderId = give ? forTrade(versionKey(v)).binderId : null;
+      const line: TradeLine = { card_id: v.cardId, finish: v.finish, condition: v.condition, lang: v.lang, qty: v.qty, ...(binderId ? { binder_id: binderId } : {}) };
+      const i = out.findIndex((l) => l.card_id === line.card_id && l.finish === line.finish && l.condition === line.condition && l.lang === line.lang);
+      return i >= 0 ? out.map((l, j) => (j === i ? { ...l, qty: l.qty + v.qty } : l)) : [...out, line];
+    }, side);
     try {
       const saved = await saveTrade(t, t?.partner ?? null, give ? put(t?.gives ?? []) : t?.gives ?? [], give ? t?.gets ?? [] : put(t?.gets ?? []));
-      finish("trade", `${give ? "Giving" : "Getting"} 1 ${name} in the trade${saved.partner ? ` with ${saved.partner}` : ""}`, null);
+      finish("trade", `${give ? "Giving" : "Getting"} ${count} ${name} in the trade${saved.partner ? ` with ${saved.partner}` : ""}`, null);
     } catch (e) { fail(e); }
   };
 
@@ -640,6 +744,8 @@ function AddToSheet({ catalog, oi, version, p, lists, scope, onClose, onDone }: 
     case "want":
       title = "Want";
       options = [{ value: "any", label: "Any printing" },
+                 ...(p == null && printingIds.length > 1 ? [{ value: "printing", label: "Each printing", detail: `${printingIds.length} printings` },
+                                                            { value: "finish", label: "Each printing and finish" }] : []),
                  ...(p != null ? [{ value: "printing", label: "This printing", detail: name }] : []),
                  ...(p != null && finishes.length > 1 ? [{ value: "finish", label: "This printing and finish", detail: `${name} · ${FINISH_LABEL[version.finish]}` }] : [])];
       onPick = (v) => void want(v);
