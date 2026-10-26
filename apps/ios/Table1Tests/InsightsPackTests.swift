@@ -45,6 +45,19 @@ final class InsightsPackTests: XCTestCase {
         XCTAssertNil(none.afterWindow)
     }
 
+    func testExampleFinish() {
+        let main60 = #"[["Lightning Bolt", 4], ["Mountain", 56]]"#, short = #"[["Lightning Bolt", 4]]"#
+        func f(_ tier: String, _ rank: Int?, _ on: String, _ main: String = main60) throws -> Insights.ArchetypePage.Finish {
+            let json = #"{"event": "E", "on": "\#(on)", "players": 64, "tier": "\#(tier)", "rank": \#(rank.map(String.init) ?? "null"), "url": null, "main": \#(main), "side": []}"#
+            return try JSONDecoder().decode(Insights.ArchetypePage.Finish.self, from: Data(json.utf8))
+        }
+        XCTAssertEqual(Insights.exampleFinish([try f("regular", 1, "2026-10-20"), try f("large", 5, "2026-10-01"), try f("large", 2, "2026-09-20")]), 2)
+        XCTAssertEqual(Insights.exampleFinish([try f("major", 3, "2026-10-01"), try f("major", 3, "2026-10-10")]), 1)
+        XCTAssertEqual(Insights.exampleFinish([try f("major", 1, "2026-10-01", short), try f("small", nil, "2026-10-02")]), 1)
+        XCTAssertNil(Insights.exampleFinish([]))
+        XCTAssertEqual([1, 2, 3, 4, 11, 12, 13, 21, 22, 101].map(Insights.place), ["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "101st"])
+    }
+
     func testHiddenPickers() {
         let all = ["standard", "pioneer", "modern", "pauper", "canlander"]
         XCTAssertEqual(Insights.visibleKeys(all, ["pioneer", "canlander"]), ["standard", "modern", "pauper"])

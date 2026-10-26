@@ -163,6 +163,20 @@ select pg_temp.eq('archetype record: top-32 finishers, leagues left out',
   '{"wins": 6, "basis": "mtgo_top32", "draws": 0, "losses": 1}');
 select pg_temp.eq('archetype matchups', (select (a->'matchups'->0->>'wins') || '-' || (a->'matchups'->0->>'losses') from (select public.meta_archetype('modern', :BURN) a) x), '1-0');
 select pg_temp.eq('Other has a page', (public.meta_archetype('modern', 0))->'archetype'->>'name', 'Other');
+reset role;
+select public.meta_ingest(jsonb_build_object('source', 'mtgo', 'source_id', 'E9', 'format', 'modern', 'name', 'Modern Challenge 32', 'kind', 'challenge',
+  'on', (current_date - 2)::text, 'players', 40, 'decks', jsonb_build_array(jsonb_build_object('player', '109', 'rank', 4, 'top8', true,
+    'main', '[["Ocelot Pride", 4], ["Fire // Ice", 4], ["Plains", 10], ["Island", 10]]'::jsonb, 'side', '[]'::jsonb))));
+set role authenticated;
+select pg_temp.as_user(:ANA);
+select pg_temp.eq('Other breaks down by colours, each with its cards and an example list',
+  (select string_agg((g->>'colors') || ' ' || (g->>'decks') || ' ' || (g->'cards')::text || ' ' || (a->'finishes'->((g->>'example')::int)->>'rank'), '; ')
+     from (select public.meta_archetype('modern', 0) a) x cross join lateral jsonb_array_elements(a->'groups') g),
+  'WUR 1 ["Fire // Ice", "Ocelot Pride"] 4');
+select pg_temp.eq('a named archetype has no groups', jsonb_array_length((public.meta_archetype('modern', :BURN))->'groups')::text, '0');
+select pg_temp.eq('lists read spells first, lands last',
+  (select string_agg(l->>0, ', ') from jsonb_array_elements((public.meta_archetype('modern', :BURN))->'finishes'->0->'main') l),
+  'Blood Moon, Boltwave, Lava Spike, Lightning Bolt, Mountain');
 select pg_temp.throws('unknown archetype', $$select public.meta_archetype('modern', -5)$$, '22023');
 select pg_temp.throws('another format''s archetype', format('select public.meta_archetype(%L, %s)', 'pauper', :BURN), '22023');
 select pg_temp.throws('a format that isn''t on', $$select public.meta_archetype('legacy', 0)$$, '22023');

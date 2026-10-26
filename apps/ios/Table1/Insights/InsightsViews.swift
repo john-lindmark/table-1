@@ -191,7 +191,7 @@ struct ConstructedHomeSection: View {
         InsightLineChart(series: lines.map { .init(id: $0.a, label: short(pack.name($0.a)), values: $0.v, highlighted: $0.a == hl) },
                          markers: markers(pack, from: view.series.from, days: view.series.days),
                          xLabels: InsightCharts.months(from: view.series.from, days: view.series.days),
-                         count: view.series.days)
+                         count: view.series.days, height: 300)
             .padding(.vertical, 12).padding(.leading, 8).padding(.trailing, 4).background(T1.surface)
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 1) {
@@ -309,6 +309,8 @@ struct ArchetypeInsightView: View {
     @Binding var path: [InsightsRoute]
     @State private var page: Insights.ArchetypePage?
     @State private var error: String?
+    @State private var added: AddedDeck?
+    @Environment(SessionModel.self) private var session
     private var store: InsightsStore { InsightsStore.shared }
 
     var body: some View {
@@ -341,12 +343,38 @@ struct ArchetypeInsightView: View {
         if let r = p.record {
             Notice(r.basis == "topdeck" ? "Record from paper events' rounds." : "Record of players who reached a Challenge's top 32, so it runs high.")
         }
+        if id == 0, let groups = p.groups, !groups.isEmpty {
+            Section1("Inside Other · by colours")
+            Notice("Decks no archetype names yet, grouped by their colours. Open one for an example list.")
+            ForEach(groups, id: \.self) { g in
+                Button { if let ex = g.example { path.append(.finish(format, id, ex)) } } label: {
+                    ListRow(title: Insights.colorsName(g.colors.isEmpty ? "C" : g.colors, ""),
+                            detail: (["\(g.decks) deck\(g.decks == 1 ? "" : "s")"] + [g.cards.joined(separator: ", ")].filter { !$0.isEmpty }).joined(separator: " · ")) {
+                        Text(InsightCharts.pct(g.share)).font(T1.mono(13))
+                    }
+                }.buttonStyle(.plain)
+            }
+        } else if id != 0, let ex = Insights.exampleFinish(p.finishes) {
+            let f = p.finishes[ex]
+            Section1("Example list · " + (f.rank.map { "\(Insights.place($0)) at " } ?? "") + f.event)
+            ListRow(title: [InsightCharts.shortDay(f.on), f.players.map { "\($0) players" }, f.tier == "major" || f.tier == "large" ? "big event" : nil]
+                        .compactMap { $0 }.joined(separator: " · "),
+                    detail: "\(f.main.reduce(0) { $0 + $1.qty }) cards · sideboard \(f.side.reduce(0) { $0 + $1.qty })")
+            AddToDecksRow(added: added, add: { added = AddedDeck.add(f, name: p.archetype.name, format: format, from: "example") },
+                          open: { session.openWebLink(URL(string: "https://table-1.site/library/list/\($0)")!) })
+            ForEach(f.main.prefix(12), id: \.self) { l in ListRow(title: l.name) { Text("\(l.qty)").font(T1.mono(13)) } }
+            Button { path.append(.finish(format, id, ex)) } label: {
+                ListRow(title: "See the whole list", detail: f.main.count > 12 ? "\(f.main.count - 12) more cards and the sideboard" : "With the sideboard")
+            }.buttonStyle(.plain)
+        }
         Section1("Share by week")
         InsightLineChart(series: [.init(id: id, label: "", values: p.series.v, highlighted: true)], count: p.series.weeks, height: 140, labelWidth: 40)
             .padding(.vertical, 12).padding(.leading, 8).background(T1.surface)
-        cards("Core · in 80%+ of lists", p.core, pack)
-        cards("Flex slots", p.flex, pack)
-        cards("Sideboard", p.side, pack)
+        if id != 0 {
+            cards("Core · in 80%+ of lists", p.core, pack)
+            cards("Flex slots", p.flex, pack)
+            cards("Sideboard", p.side, pack)
+        }
         if !p.matchups.isEmpty {
             Section1("Matchups · last 90 days")
             ForEach(p.matchups.prefix(8), id: \.self) { m in
@@ -383,26 +411,66 @@ struct ArchetypeInsightView: View {
     }
 }
 
-/// One finish's list, with Copy to my Library and what the viewer is missing.
+/// A finish's list as a new private deck in the viewer's Library (original printings); what happened, and the deck.
+struct AddedDeck: Equatable {
+    let text: String
+    var listId: String?
+    @MainActor static func add(_ f: Insights.ArchetypePage.Finish, name: String, format: String, from: String) -> AddedDeck {
+        guard let db = CatalogStore.shared.db else { return AddedDeck(text: "The card catalog is still loading") }
+        let resolved = db.printings(names: (f.main + f.side).map(\.name))
+        var entries: [CardList.Entry] = []
+        var missing = 0
+        for (board, lines) in [("main", f.main), ("side", f.side)] {
+            for l in lines { if let p = resolved[l.name] { entries.append(.init(cardId: p.cardId, board: board, qty: l.qty)) } else { missing += l.qty } }
+        }
+        let l = ListsStore.shared.create(kind: .deck, name: String(name.prefix(60)), format: format, entries: entries,
+                                         note: String("From \(f.event), \(f.on)".prefix(120)), from: "insights")
+        Telemetry.capture("insights_copy_to_library", ["format": format, "archetype": name, "from": from])
+        return AddedDeck(text: "Added to your decks as \(l.name)" + (missing > 0 ? " (\(missing) card\(missing == 1 ? "" : "s") not found)" : ""), listId: l.id)
+    }
+}
+
+/// Add to my decks, then what happened with Open (the new deck) once it's there.
+struct AddToDecksRow: View {
+    let added: AddedDeck?
+    let add: () -> Void
+    let open: (String) -> Void
+    var body: some View {
+        if let added, let id = added.listId {
+            Button { open(id) } label: {
+                ListRow(title: added.text, detail: "A new private deck") { LabelText("Open", color: T1.accent) }
+            }.buttonStyle(.plain)
+        } else {
+            Button(action: add) {
+                ListRow(title: "Add to my decks", detail: added?.text ?? "A new private deck with these cards") { LabelText("Add", color: T1.accent) }
+            }.buttonStyle(.plain)
+        }
+    }
+}
+
+/// One finish's list, with Add to my decks.
 struct FinishView: View {
     let format: String
     let archetypeId: Int
     let index: Int
     @Binding var path: [InsightsRoute]
     @State private var page: Insights.ArchetypePage?
-    @State private var copied: String?
+    @State private var added: AddedDeck?
+    @Environment(SessionModel.self) private var session
     private var store: InsightsStore { InsightsStore.shared }
 
     var body: some View {
         let f = page?.finishes[safe: index]
+        // an Other group's example is named for its colours
+        let group = archetypeId == 0 ? page?.groups?.first { $0.example == index } : nil
+        let title = group.map { Insights.colorsName($0.colors.isEmpty ? "C" : $0.colors, "") } ?? page?.archetype.name ?? "Deck"
         T1Screen {
-            Bar(title: page?.archetype.name ?? "Deck", subtitle: f.map { "\($0.event) · \(InsightCharts.shortDay($0.on))" }) { path.removeLast() }
+            Bar(title: title, subtitle: f.map { "\($0.event) · \(InsightCharts.shortDay($0.on))" }) { path.removeLast() }
             ScrollView {
                 VStack(spacing: 1) {
-                    if let f, let page {
-                        Button { copy(f, page) } label: {
-                            ListRow(title: "Copy to my Library", detail: copied ?? "A new private deck with these cards")
-                        }.buttonStyle(.plain)
+                    if let f {
+                        AddToDecksRow(added: added, add: { added = AddedDeck.add(f, name: title, format: format, from: "finish") },
+                                      open: { session.openWebLink(URL(string: "https://table-1.site/library/list/\($0)")!) })
                         Section1("Main deck · \(f.main.reduce(0) { $0 + $1.qty })")
                         ForEach(f.main, id: \.self) { l in ListRow(title: l.name) { Text("\(l.qty)").font(T1.mono(13)) } }
                         if !f.side.isEmpty {
@@ -416,18 +484,6 @@ struct FinishView: View {
         .task { page = try? await store.archetype(format: format, id: archetypeId, tier: .all, days: store.days) }
     }
 
-    private func copy(_ f: Insights.ArchetypePage.Finish, _ page: Insights.ArchetypePage) {
-        guard let db = CatalogStore.shared.db else { copied = "The card catalog is still loading"; return }
-        let resolved = db.printings(names: (f.main + f.side).map(\.name))
-        var entries: [CardList.Entry] = []
-        for (board, lines) in [("main", f.main), ("side", f.side)] {
-            for l in lines { if let p = resolved[l.name] { entries.append(.init(cardId: p.cardId, board: board, qty: l.qty)) } }
-        }
-        let l = ListsStore.shared.create(kind: .deck, name: String(page.archetype.name.prefix(60)), format: format, entries: entries,
-                                         note: String("From \(f.event), \(f.on)".prefix(120)), from: "insights")
-        Telemetry.capture("insights_copy_to_library", ["format": format, "archetype": page.archetype.name])
-        copied = "Saved as \(l.name) in Decks"
-    }
 }
 
 extension Array { subscript(safe i: Int) -> Element? { indices.contains(i) ? self[i] : nil } }
@@ -543,7 +599,7 @@ struct MatchupsView: View {
                 VStack(spacing: 1) {
                     if let pack {
                         let ids = pack.matchups.archetypes
-                        Notice("Row's match win rate against each column. Empty: fewer than 30 matches. From MTGO top 8 brackets and paper events' rounds.")
+                        Notice("Row's match win rate against each column. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.")
                         InsightHeatmap(labels: ids.map { pack.name($0) }, cell: { r, c in
                             pack.matchups.cell(ids[r], ids[c]).map { ($0.wins, $0.losses) }
                         }, onTap: { r, c in picked = (r, c) })

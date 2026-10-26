@@ -184,7 +184,7 @@ fun InsightScatter(points: List<ScatterPoint>, height: Dp = 240.dp, onTap: (Scat
     }
 }
 
-/** Matchup grid: the row archetype's match win rate against each column; empty under [minMatches]. */
+/** Matchup grid: the row archetype's match win rate against each column; under [minMatches] a cell still shows, dimmed. */
 @Composable
 fun InsightHeatmap(labels: List<String>, cell: (Int, Int) -> Pair<Int, Int>?, minMatches: Int = 30, onTap: (Int, Int) -> Unit = { _, _ -> }) {
     Box(Modifier.horizontalScroll(rememberScrollState())) {
@@ -195,15 +195,14 @@ fun InsightHeatmap(labels: List<String>, cell: (Int, Int) -> Pair<Int, Int>?, mi
                         color = T1.text, fontFamily = T1.mono, fontSize = 10.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     labels.indices.forEach { c ->
                         val v = if (r == c) null else cell(r, c)
-                        val n = (v?.first ?: 0) + (v?.second ?: 0)
-                        val wr = if (n > 0) v!!.first.toDouble() / n else null
-                        val bg = when {
-                            wr == null || n < minMatches -> T1.surface
-                            abs(wr - 0.5) < 0.03 -> T1.surfaceHover
-                            else -> (if (wr > 0.5) T1.accent else T1.error).copy(alpha = min(1.0, 0.25 + abs(wr - 0.5) * 4).toFloat())
+                        val h = InsightCharts.heat(v?.first ?: 0, v?.second ?: 0, minMatches)
+                        val bg = when (h.tone) {
+                            "none" -> T1.surface
+                            "even" -> T1.surfaceHover
+                            else -> (if (h.tone == "up") T1.accent else T1.error).copy(alpha = h.strength.toFloat())
                         }
                         Box(Modifier.width(40.dp).height(34.dp).background(bg).clickable(enabled = r != c) { onTap(r, c) }, contentAlignment = Alignment.Center) {
-                            if (wr != null && n >= minMatches) Text("${Math.round(wr * 100)}", color = if (abs(wr - 0.5) >= 0.08) T1.ink else T1.text, fontFamily = T1.mono, fontSize = 10.sp)
+                            if (h.label.isNotEmpty()) Text(h.label, color = if (h.ink) T1.ink else if (h.dim) T1.muted else T1.text, fontFamily = T1.mono, fontSize = 10.sp)
                         }
                     }
                 }

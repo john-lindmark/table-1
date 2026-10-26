@@ -34,6 +34,19 @@ export function segments(values: (number | null)[]): [number, number][][] {
 }
 
 /** 90% Wilson interval for a win rate; [0, 1] with no games. */
+export interface Heat { label: string; tone: "up" | "down" | "even" | "none"; strength: number; dim: boolean; ink: boolean }
+/** A matchup grid cell: its number, tone and fill strength. Under `minimum` matches it still shows, dimmed: half the
+ *  fill and muted text (testdata/insight-charts make_cases.py `heat`). */
+export function heat(wins: number, losses: number, minimum = 30): Heat {
+  const n = wins + losses;
+  if (n === 0) return { label: "", tone: "none", strength: 0, dim: false, ink: false };
+  const wr = wins / n, d = wr - 0.5;
+  const tone = Math.abs(d) < 0.03 ? "even" : d > 0 ? "up" : "down";
+  const dim = n < minimum;
+  const strength = (tone === "even" ? 0 : Math.min(1, 0.25 + Math.abs(d) * 4)) * (dim ? 0.5 : 1);
+  return { label: String(Math.floor(wr * 100 + 0.5)), tone, strength: Math.round(strength * 10000) / 10000, dim, ink: Math.abs(d) >= 0.08 && !dim };
+}
+
 export function wilson(wins: number, n: number, z = 1.6449): [number, number] {
   if (n <= 0) return [0, 1];
   const p = wins / n, d = 1 + (z * z) / n;

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { fit, pct, pct1, segments, spread, ticks } from "../lib/insightCharts";
+import { fit, heat, pct, pct1, segments, spread, ticks, type Heat } from "../lib/insightCharts";
 
 /* Insights charts in the Table 1 look: hairline axes on the surface, mono labels, no fills or shadows, grey for context
    and teal only for the series the brief is about. Positions come from lib/insightCharts (shared with the apps). */
@@ -150,16 +150,12 @@ export function Scatter({ points, height = 300, onPick }: {
   );
 }
 
-/** Matchup grid: the row archetype's match win rate against each column; empty under `minMatches`. */
+/** Matchup grid: the row archetype's match win rate against each column; under `minMatches` a cell still shows, dimmed. */
 export function Heatmap({ labels, cell, minMatches = 30, onPick }: {
   labels: string[]; cell: (r: number, c: number) => { wins: number; losses: number } | null; minMatches?: number; onPick?: (r: number, c: number) => void;
 }) {
-  const color = (wr: number | null, n: number) => {
-    if (wr == null || n < minMatches) return C.surface;
-    const d = wr - 0.5;
-    if (Math.abs(d) < 0.03) return C.hover;
-    return `color-mix(in srgb, ${d > 0 ? C.accent : C.error} ${Math.round(Math.min(1, 0.25 + Math.abs(d) * 4) * 100)}%, ${C.surface})`;
-  };
+  const color = (h: Heat) => h.tone === "none" ? C.surface : h.tone === "even" ? C.hover
+    : `color-mix(in srgb, ${h.tone === "up" ? C.accent : C.error} ${Math.round(h.strength * 100)}%, ${C.surface})`;
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-separate" style={{ borderSpacing: 1 }}>
@@ -175,13 +171,13 @@ export function Heatmap({ labels, cell, minMatches = 30, onPick }: {
               <th className="bg-t1-surface text-[11px] font-normal text-left px-2 py-2 whitespace-nowrap">{row}</th>
               {labels.map((col, c) => {
                 const v = r === c ? null : cell(r, c);
-                const n = (v?.wins ?? 0) + (v?.losses ?? 0);
-                const wr = n ? v!.wins / n : null;
+                const h = heat(v?.wins ?? 0, v?.losses ?? 0, minMatches);
                 return (
-                  <td key={col} onClick={() => r !== c && onPick?.(r, c)} title={v ? `${row} vs ${col}: ${v.wins}-${v.losses}` : undefined}
+                  <td key={col} onClick={() => r !== c && onPick?.(r, c)}
+                      title={v ? `${row} vs ${col}: ${v.wins}-${v.losses}${h.dim ? " (few matches)" : ""}` : undefined}
                       className={`text-center text-[11px] tabular-nums h-9 min-w-9 ${r !== c && onPick ? "cursor-pointer" : ""}`}
-                      style={{ background: color(wr, n), color: wr != null && n >= minMatches && Math.abs(wr - 0.5) >= 0.08 ? "var(--color-t1-ink)" : undefined }}>
-                    {wr != null && n >= minMatches ? Math.round(wr * 100) : ""}
+                      style={{ background: color(h), color: h.ink ? "var(--color-t1-ink)" : h.dim ? "var(--color-t1-muted)" : undefined }}>
+                    {h.label}
                   </td>
                 );
               })}

@@ -33,6 +33,20 @@ enum InsightCharts {
     }
 
     /// 90% Wilson interval for a win rate; 0…1 with no games.
+    /// A matchup grid cell: its number, tone and fill strength. Under `minimum` matches it still shows, dimmed: half
+    /// the fill and muted text (testdata/insight-charts make_cases.py `heat`).
+    struct Heat: Equatable { let label: String; let tone: String; let strength: Double; let dim: Bool; let ink: Bool }
+    static func heat(wins: Int, losses: Int, minimum: Int = 30) -> Heat {
+        let n = wins + losses
+        guard n > 0 else { return Heat(label: "", tone: "none", strength: 0, dim: false, ink: false) }
+        let wr = Double(wins) / Double(n), d = wr - 0.5
+        let tone = abs(d) < 0.03 ? "even" : d > 0 ? "up" : "down"
+        let dim = n < minimum
+        let strength = (tone == "even" ? 0 : min(1, 0.25 + abs(d) * 4)) * (dim ? 0.5 : 1)
+        return Heat(label: String(Int(floor(wr * 100 + 0.5))), tone: tone, strength: (strength * 10000).rounded() / 10000, dim: dim,
+                    ink: abs(d) >= 0.08 && !dim)
+    }
+
     static func wilson(wins: Int, n: Int, z: Double = 1.6449) -> (lo: Double, hi: Double) {
         guard n > 0 else { return (0, 1) }
         let nn = Double(n), p = Double(wins) / nn, d = 1 + z * z / nn

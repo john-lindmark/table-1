@@ -574,5 +574,137 @@
     ]
    ]
   }
+ ],
+ "heat": [
+  {
+   "in": [
+    20,
+    12
+   ],
+   "out": {
+    "label": "63",
+    "tone": "up",
+    "strength": 0.75,
+    "dim": false,
+    "ink": true
+   }
+  },
+  {
+   "in": [
+    12,
+    20
+   ],
+   "out": {
+    "label": "38",
+    "tone": "down",
+    "strength": 0.75,
+    "dim": false,
+    "ink": true
+   }
+  },
+  {
+   "in": [
+    16,
+    15
+   ],
+   "out": {
+    "label": "52",
+    "tone": "even",
+    "strength": 0,
+    "dim": false,
+    "ink": false
+   }
+  },
+  {
+   "in": [
+    3,
+    1
+   ],
+   "out": {
+    "label": "75",
+    "tone": "up",
+    "strength": 0.5,
+    "dim": true,
+    "ink": false
+   }
+  },
+  {
+   "in": [
+    1,
+    3
+   ],
+   "out": {
+    "label": "25",
+    "tone": "down",
+    "strength": 0.5,
+    "dim": true,
+    "ink": false
+   }
+  },
+  {
+   "in": [
+    0,
+    0
+   ],
+   "out": {
+    "label": "",
+    "tone": "none",
+    "strength": 0,
+    "dim": false,
+    "ink": false
+   }
+  },
+  {
+   "in": [
+    2,
+    2
+   ],
+   "out": {
+    "label": "50",
+    "tone": "even",
+    "strength": 0.0,
+    "dim": true,
+    "ink": false
+   }
+  },
+  {
+   "in": [
+    45,
+    15
+   ],
+   "out": {
+    "label": "75",
+    "tone": "up",
+    "strength": 1,
+    "dim": false,
+    "ink": true
+   }
+  },
+  {
+   "in": [
+    60,
+    40
+   ],
+   "out": {
+    "label": "60",
+    "tone": "up",
+    "strength": 0.65,
+    "dim": false,
+    "ink": true
+   }
+  },
+  {
+   "in": [
+    5,
+    0
+   ],
+   "out": {
+    "label": "100",
+    "tone": "up",
+    "strength": 0.5,
+    "dim": true,
+    "ink": false
+   }
+  }
  ]
 }

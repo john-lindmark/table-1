@@ -21,6 +21,26 @@ object Insights {
     /** Whether an option may be hidden: at least one other has to stay shown. */
     fun canHide(all: List<String>, hidden: List<String>, key: String): Boolean = all.any { it != key && it !in hidden }
 
+    /** The deck page's example list: from the biggest event (major, large, regular, small), the best finish there,
+     *  then the newest; only whole lists (40+ main deck cards). Null when there's none. */
+    fun exampleFinish(finishes: List<ArchetypePage.Finish>): Int? {
+        val order = listOf("major", "large", "regular", "small")
+        fun tier(f: ArchetypePage.Finish) = order.indexOf(f.tier).let { if (it < 0) order.size else it }
+        fun rank(f: ArchetypePage.Finish) = f.rank ?: Int.MAX_VALUE
+        var best: Int? = null
+        finishes.forEachIndexed { i, f ->
+            if (f.main.sumOf { it.qty } < 40) return@forEachIndexed
+            val b = best?.let { finishes[it] }
+            if (b == null || tier(f) < tier(b) || (tier(f) == tier(b) && (rank(f) < rank(b) || (rank(f) == rank(b) && f.on > b.on)))) best = i
+        }
+        return best
+    }
+    /** "1st", "2nd", "3rd", "4th"…: a finish's place. */
+    fun place(rank: Int): String {
+        val t = rank % 100; val u = rank % 10
+        return "$rank" + if (t in 11..13) "th" else when (u) { 1 -> "st"; 2 -> "nd"; 3 -> "rd"; else -> "th" }
+    }
+
     /** The studies' heading: a points format's changes are points changes, not bans. */
     fun bansTitle(kinds: List<String>): String = if (kinds.isNotEmpty() && kinds.all { it == "points" }) "Points changes" else "Bans and unbans"
 
@@ -116,7 +136,10 @@ object DeckLineSerializer : KSerializer<DeckLine> {
 @Serializable data class ArchetypePage(
     val archetype: Archetype, val decks: Int, val series: Weekly, val record: Record? = null, val conv: Double? = null,
     val core: List<CardRow>, val flex: List<CardRow>, val side: List<CardRow>, val matchups: List<Matchup>, val finishes: List<Finish>, val brief: String? = null,
+    /** Other (archetype 0) only: its decks by colours, each with its most-played cards and its example in [finishes]. */
+    val groups: List<Group>? = null,
 ) {
+    @Serializable data class Group(val colors: String, val decks: Int, val share: Double, val cards: List<String>, val example: Int? = null)
     @Serializable data class Weekly(val from: String, val weeks: Int, val v: List<Double?>)
     @Serializable data class Record(val wins: Int, val losses: Int, val draws: Int, val basis: String)
     @Serializable data class Matchup(val vs: Int, val wins: Int, val losses: Int, val draws: Int)

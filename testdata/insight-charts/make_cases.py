@@ -88,6 +88,22 @@ def months(start, days):
 
 def round_half_even_safe(x): return x
 
+def heat(wins, losses, minimum=30):
+    """A matchup grid cell: its number, tone and fill strength. Under `minimum` matches it still shows, dimmed: half
+    the fill, muted text."""
+    n = wins + losses
+    if n == 0:
+        return {"label": "", "tone": "none", "strength": 0, "dim": False, "ink": False}
+    wr = wins / n
+    d = wr - 0.5
+    tone = "even" if abs(d) < 0.03 else ("up" if d > 0 else "down")
+    strength = 0 if tone == "even" else min(1, 0.25 + abs(d) * 4)
+    dim = n < minimum
+    if dim:
+        strength *= 0.5
+    return {"label": str(math.floor(wr * 100 + 0.5)), "tone": tone, "strength": round(strength, 4), "dim": dim,
+            "ink": abs(d) >= 0.08 and not dim}
+
 cases = {
     "ticks": [{"in": [lo, hi, c], "out": ticks(lo, hi, c)} for lo, hi, c in [
         (0, 0.27, 4), (0, 0.4286, 4), (0.48, 0.62, 4), (0, 1, 5), (0, 0.05, 4), (0, 0, 4), (0.5, 0.5, 4), (3, 97, 5), (1.2, 13.9, 4), (0.531, 0.577, 3)]],
@@ -101,6 +117,7 @@ cases = {
     "pct1": [{"in": x, "out": pct1(x)} for x in [0.5714, 0.6, 0.12345, None]],
     "delta": [{"in": d, "out": delta(d)} for d in [0.021, -0.12, 0, -0.004, 0.1, None]],
     "months": [{"in": [s, n], "out": months(s, n)} for s, n in [("2026-04-28", 180), ("2026-10-01", 3), ("2026-02-15", 20)]],
+    "heat": [{"in": [w, l], "out": heat(w, l)} for w, l in [(20, 12), (12, 20), (16, 15), (3, 1), (1, 3), (0, 0), (2, 2), (45, 15), (60, 40), (5, 0)]],
 }
 json.dump(cases, open(os.path.join(os.path.dirname(__file__), "cases.json"), "w"), indent=1)
 print({k: len(v) for k, v in cases.items()})

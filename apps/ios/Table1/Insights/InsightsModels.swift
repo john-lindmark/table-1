@@ -141,7 +141,28 @@ enum Insights {
         let core: [CardRow]; let flex: [CardRow]; let side: [CardRow]
         let matchups: [Matchup]
         let finishes: [Finish]
+        /// Other (archetype 0) only: its decks by colours, each with its most-played cards and its example in `finishes`.
+        struct Group: Decodable, Hashable { let colors: String; let decks: Int; let share: Double; let cards: [String]; let example: Int? }
+        let groups: [Group]?
         let brief: String?
+    }
+    /// The deck page's example list: from the biggest event (major, large, regular, small), the best finish there,
+    /// then the newest; only whole lists (40+ main deck cards). Nil when there's none.
+    static func exampleFinish(_ finishes: [ArchetypePage.Finish]) -> Int? {
+        let order = ["major", "large", "regular", "small"]
+        func tier(_ f: ArchetypePage.Finish) -> Int { order.firstIndex(of: f.tier) ?? order.count }
+        func rank(_ f: ArchetypePage.Finish) -> Int { f.rank ?? .max }
+        var best: Int?
+        for (i, f) in finishes.enumerated() where f.main.reduce(0, { $0 + $1.qty }) >= 40 {
+            guard let b = best.map({ finishes[$0] }) else { best = i; continue }
+            if tier(f) < tier(b) || (tier(f) == tier(b) && (rank(f) < rank(b) || (rank(f) == rank(b) && f.on > b.on))) { best = i }
+        }
+        return best
+    }
+    /// "1st", "2nd", "3rd", "4th"…: a finish's place.
+    static func place(_ rank: Int) -> String {
+        let t = rank % 100, u = rank % 10
+        return "\(rank)" + ((11...13).contains(t) ? "th" : u == 1 ? "st" : u == 2 ? "nd" : u == 3 ? "rd" : "th")
     }
     struct CardPage: Decodable {
         struct Weekly: Decodable { let from: String; let weeks: Int; let main: [Double?]; let side: [Double?] }

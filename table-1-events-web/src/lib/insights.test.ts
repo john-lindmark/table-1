@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { screenName } from "./analytics";
 import { navKeyFor } from "./desktop";
-import { afterWindow, archetypeName, bansTitle, canHide, changeWords, colorsName, FORMATS, isBan, matchup, sourcesCredit, visibleKeys, type BanStudy, type ConstructedPack, type LimitedPack } from "./insights";
+import { afterWindow, archetypeName, bansTitle, canHide, changeWords, colorsName, exampleFinish, FORMATS, isBan, matchup, place, sourcesCredit, visibleKeys, type BanStudy, type ConstructedPack, type LimitedPack } from "./insights";
 
 /* Insights packs (contract/insights-2026-10-24.md § Packs) as the server builds them: testdata/insights holds
    constructed packs built from real MTGO pages and a Limited pack from 17Lands data (tools/insights/). */
@@ -47,6 +47,15 @@ describe("insights helpers", () => {
     expect(isBan(pts)).toBe(true);
     expect(bansTitle(["points", "points"])).toBe("Points changes");
     expect(bansTitle(["ban", "unban"])).toBe("Bans and unbans");
+  });
+  it("picks the example list: biggest event, best finish, newest, whole lists only", () => {
+    const main60: [string, number][] = [["Lightning Bolt", 4], ["Mountain", 56]];
+    const f = (tier: string, rank: number | null, on: string, main = main60) => ({ event: "E", on, players: 64, tier, rank, url: null, main, side: [] as [string, number][] });
+    expect(exampleFinish([f("regular", 1, "2026-10-20"), f("large", 5, "2026-10-01"), f("large", 2, "2026-09-20")])).toBe(2);
+    expect(exampleFinish([f("major", 3, "2026-10-01"), f("major", 3, "2026-10-10")])).toBe(1);
+    expect(exampleFinish([f("major", 1, "2026-10-01", [["Lightning Bolt", 4]]), f("small", null, "2026-10-02")])).toBe(1);
+    expect(exampleFinish([])).toBe(-1);
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 101].map(place)).toEqual(["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "101st"]);
   });
   it("hides formats and sets from the pickers, never the last one", () => {
     const all = ["standard", "pioneer", "modern", "pauper", "canlander"];

@@ -48,6 +48,16 @@ class InsightsPackTest {
         assertNull(BanStudy(1, "2026-05-18", s, emptyMap(), emptyList(), emptyList(), emptyList()).afterWindow)
     }
 
+    @Test fun exampleFinish() {
+        val main60 = listOf(DeckLine("Lightning Bolt", 4), DeckLine("Mountain", 56))
+        fun f(tier: String, rank: Int?, on: String, main: List<DeckLine> = main60) = ArchetypePage.Finish("E", on, 64, tier, rank, null, main, emptyList())
+        assertEquals(2, Insights.exampleFinish(listOf(f("regular", 1, "2026-10-20"), f("large", 5, "2026-10-01"), f("large", 2, "2026-09-20"))))
+        assertEquals(1, Insights.exampleFinish(listOf(f("major", 3, "2026-10-01"), f("major", 3, "2026-10-10"))))
+        assertEquals(1, Insights.exampleFinish(listOf(f("major", 1, "2026-10-01", listOf(DeckLine("Lightning Bolt", 4))), f("small", null, "2026-10-02"))))
+        assertNull(Insights.exampleFinish(emptyList()))
+        assertEquals(listOf("1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "101st"), listOf(1, 2, 3, 4, 11, 12, 13, 21, 22, 101).map(Insights::place))
+    }
+
     @Test fun hiddenPickers() {
         val all = listOf("standard", "pioneer", "modern", "pauper", "canlander")
         assertEquals(listOf("standard", "modern", "pauper"), Insights.visibleKeys(all, listOf("pioneer", "canlander")))

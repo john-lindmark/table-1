@@ -62,8 +62,31 @@ export interface ArchetypePage {
   core: CardRow[]; flex: CardRow[]; side: CardRow[];
   matchups: { vs: number; wins: number; losses: number; draws: number }[];
   finishes: { event: string; on: string; players: number | null; tier: string; rank: number | null; url: string | null; main: [string, number][]; side: [string, number][] }[];
+  /** Other (archetype 0) only: its decks by colours, each with its most-played cards and its example list in `finishes`. */
+  groups?: { colors: string; decks: number; share: number; cards: string[]; example: number | null }[];
   brief: string | null;
 }
+export type Finish = ArchetypePage["finishes"][number];
+const TIER_ORDER = ["major", "large", "regular", "small"];
+/** The deck page's example list: from the biggest event (major, large, regular, small), the best finish there, then
+ *  the newest; only whole lists (40+ main deck cards). -1 when there's none. */
+export function exampleFinish(finishes: Finish[]): number {
+  let best = -1;
+  const tier = (f: Finish) => { const i = TIER_ORDER.indexOf(f.tier); return i < 0 ? TIER_ORDER.length : i; };
+  const rank = (f: Finish) => f.rank ?? Number.MAX_SAFE_INTEGER;
+  finishes.forEach((f, i) => {
+    if (f.main.reduce((n, [, q]) => n + q, 0) < 40) return;
+    const b = finishes[best];
+    if (!b || tier(f) < tier(b) || (tier(f) === tier(b) && (rank(f) < rank(b) || (rank(f) === rank(b) && f.on > b.on)))) best = i;
+  });
+  return best;
+}
+/** "1st", "2nd", "3rd", "4th"…: a finish's place. */
+export const place = (rank: number) => {
+  const t = rank % 100, u = rank % 10;
+  return `${rank}${t >= 11 && t <= 13 ? "th" : u === 1 ? "st" : u === 2 ? "nd" : u === 3 ? "rd" : "th"}`;
+};
+
 export interface CardPage {
   c: string; n: string | null;
   series: { from: string; weeks: number; main: (number | null)[]; side: (number | null)[] };

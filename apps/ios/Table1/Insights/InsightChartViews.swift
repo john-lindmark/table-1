@@ -208,7 +208,7 @@ struct InsightScatter: View {
     }
 }
 
-/// Matchup grid: row archetype's match win rate against each column; empty below 30 matches.
+/// Matchup grid: row archetype's match win rate against each column; below 30 matches a cell still shows, dimmed.
 struct InsightHeatmap: View {
     let labels: [String]
     /// cell(row, col) → (wins, losses)
@@ -225,13 +225,10 @@ struct InsightHeatmap: View {
                         .frame(width: 92, height: 34, alignment: .leading).padding(.horizontal, 6).background(T1.surface)
                     ForEach(0..<n, id: \.self) { c in
                         let v = r == c ? nil : cell(r, c)
-                        let games = (v?.wins ?? 0) + (v?.losses ?? 0)
-                        let wr = games > 0 ? Double(v!.wins) / Double(games) : nil
+                        let h = InsightCharts.heat(wins: v?.wins ?? 0, losses: v?.losses ?? 0, minimum: minMatches)
                         ZStack {
-                            Rectangle().fill(color(wr, games))
-                            if let wr, games >= minMatches {
-                                Text("\(Int((wr * 100).rounded()))").font(T1.mono(10)).foregroundStyle(abs(wr - 0.5) >= 0.08 ? T1.ink : T1.text)
-                            }
+                            Rectangle().fill(color(h))
+                            Text(h.label).font(T1.mono(10)).foregroundStyle(h.ink ? T1.ink : h.dim ? T1.muted : T1.text)
                         }
                         .frame(maxWidth: .infinity).frame(height: 34)
                         .contentShape(Rectangle())
@@ -242,10 +239,11 @@ struct InsightHeatmap: View {
         }
     }
 
-    private func color(_ wr: Double?, _ games: Int) -> Color {
-        guard let wr, games >= minMatches else { return T1.surface }
-        let d = wr - 0.5
-        if abs(d) < 0.03 { return T1.surfaceHover }
-        return (d > 0 ? T1.accent : T1.error).opacity(min(1, 0.25 + abs(d) * 4))
+    private func color(_ h: InsightCharts.Heat) -> Color {
+        switch h.tone {
+        case "none": return T1.surface
+        case "even": return T1.surfaceHover
+        default: return (h.tone == "up" ? T1.accent : T1.error).opacity(h.strength)
+        }
     }
 }

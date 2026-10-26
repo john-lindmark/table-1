@@ -50,6 +50,21 @@ object InsightCharts {
     }
 
     /** 90% Wilson interval for a win rate; 0…1 with no games. */
+    /** A matchup grid cell: its number, tone and fill strength. Under [minimum] matches it still shows, dimmed: half
+     *  the fill and muted text (testdata/insight-charts make_cases.py `heat`). */
+    data class Heat(val label: String, val tone: String, val strength: Double, val dim: Boolean, val ink: Boolean)
+    fun heat(wins: Int, losses: Int, minimum: Int = 30): Heat {
+        val n = wins + losses
+        if (n == 0) return Heat("", "none", 0.0, dim = false, ink = false)
+        val wr = wins.toDouble() / n
+        val d = wr - 0.5
+        val tone = if (kotlin.math.abs(d) < 0.03) "even" else if (d > 0) "up" else "down"
+        val dim = n < minimum
+        val strength = (if (tone == "even") 0.0 else min(1.0, 0.25 + kotlin.math.abs(d) * 4)) * (if (dim) 0.5 else 1.0)
+        return Heat(kotlin.math.floor(wr * 100 + 0.5).toInt().toString(), tone, Math.round(strength * 10000) / 10000.0, dim,
+            ink = kotlin.math.abs(d) >= 0.08 && !dim)
+    }
+
     fun wilson(wins: Int, n: Int, z: Double = 1.6449): Pair<Double, Double> {
         if (n <= 0) return 0.0 to 1.0
         val nn = n.toDouble(); val p = wins / nn; val d = 1 + z * z / nn

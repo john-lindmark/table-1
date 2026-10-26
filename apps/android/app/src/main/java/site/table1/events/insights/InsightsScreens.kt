@@ -190,7 +190,7 @@ private fun ConstructedHome(navigate: (String) -> Unit) {
         InsightCharts.daysBetween(view.series.from, c.on)?.let { ChartMarker(it, if (c.isBan) c.kind.uppercase() else (c.set_code ?: "").uppercase(), c.isBan) }
     }.groupBy { it.index }.map { (i, ms) -> ChartMarker(i, ms.joinToString("/") { it.label }, ms.any { it.ban }) }
     InsightLineChart(lines.map { LineSeries(it.a.toString(), pack.name(it.a).let { n -> if (n.length > 14) n.take(13) + "…" else n }, it.v, it.a == h) },
-        view.series.days, markers, InsightCharts.months(view.series.from, view.series.days))
+        view.series.days, markers, InsightCharts.months(view.series.from, view.series.days), height = 300.dp)
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
         lines.forEach { l ->
             Label(pack.name(l.a), Modifier.background(if (l.a == h) T1.text else T1.surface).clickable { hl = l.a }.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -243,8 +243,10 @@ fun ArchetypeInsightScreen(format: String, id: Int, finish: Int?, navigate: (Str
     val pack = s.constructed[format]
     var page by remember { mutableStateOf<ArchetypePage?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    var copied by remember { mutableStateOf<String?>(null) }
+    var added by remember { mutableStateOf<AddedDeck?>(null) }
     val scope = rememberCoroutineScope()
+    fun add(fin: ArchetypePage.Finish, deckName: String, from: String) = scope.launch { added = addToDecks(fin, deckName, format, from) }
+    val openDeck = { listId: String -> navigate("collection/list/$listId") }
     LaunchedEffect(format, id) {
         Telemetry.screen(if (finish != null) "insights_finish" else "insights_archetype")
         runCatching { s.archetype(format, id, "all", s.days) }.onSuccess { page = it }.onFailure { error = "This archetype couldn't load: ${it.message}" }
@@ -254,25 +256,13 @@ fun ArchetypeInsightScreen(format: String, id: Int, finish: Int?, navigate: (Str
         val p = page
         if (finish != null) {
             val fin = p?.finishes?.getOrNull(finish)
-            Bar(name, fin?.let { "${it.event} · ${InsightCharts.shortDay(it.on)}" }, onBack = onBack)
+            // an Other group's example is named for its colours
+            val group = if (id == 0) p?.groups?.firstOrNull { it.example == finish } else null
+            val title = group?.let { Insights.colorsName(it.colors.ifEmpty { "C" }, "") } ?: name
+            Bar(title, fin?.let { "${it.event} · ${InsightCharts.shortDay(it.on)}" }, onBack = onBack)
             if (fin == null) { Notice(error ?: "Loading…", error = error != null); return@T1Screen }
             Scroll {
-                ListRow("Copy to my Library", copied ?: "A new private deck with these cards", onClick = {
-                    val db = CatalogStore.db
-                    if (db == null) { copied = "The card catalog is still loading"; return@ListRow }
-                    val found = db.printingsByName((fin.main + fin.side).map { it.name })
-                    val entries = listOf("main" to fin.main, "side" to fin.side).flatMap { (board, lines) ->
-                        lines.mapNotNull { l -> found[l.name]?.let { ListEntry(it.cardId, board, l.qty) } }
-                    }
-                    scope.launch {
-                        runCatching { ListsStore.create(ListKind.Deck, name.take(60), format, entries, "From ${fin.event}, ${fin.on}".take(120), "insights") }
-                            .onSuccess {
-                                Telemetry.capture("insights_copy_to_library", mapOf("format" to format, "archetype" to name))
-                                copied = "Saved as ${name.take(60)} in Decks"
-                            }
-                            .onFailure { copied = it.message ?: "Couldn't save the deck" }
-                    }
-                })
+                AddToDecksRow(added, { add(fin, title, "finish") }, openDeck)
                 Section("Main deck · ${fin.main.sumOf { it.qty }}")
                 fin.main.forEach { ListRow(it.name) { Text("${it.qty}", color = T1.text, fontFamily = T1.mono, fontSize = 13.sp) } }
                 if (fin.side.isNotEmpty()) {
@@ -289,9 +279,31 @@ fun ArchetypeInsightScreen(format: String, id: Int, finish: Int?, navigate: (Str
             Brief(p.brief, "last 30 days, all events", p.decks < 20)
             Stats("Share" to InsightCharts.pct(share?.share), "Decks" to "${p.decks}", "Record" to (p.record?.let { "${it.wins}-${it.losses}" } ?: "–"))
             p.record?.let { Notice(if (it.basis == "topdeck") "Record from paper events' rounds." else "Record of players who reached a Challenge's top 32, so it runs high.") }
+            val groups = p.groups.orEmpty()
+            val ex = Insights.exampleFinish(p.finishes)
+            if (id == 0 && groups.isNotEmpty()) {
+                Section("Inside Other · by colours")
+                Notice("Decks no archetype names yet, grouped by their colours. Open one for an example list.")
+                groups.forEach { g ->
+                    ListRow(Insights.colorsName(g.colors.ifEmpty { "C" }, ""),
+                        (listOf("${g.decks} deck${if (g.decks == 1) "" else "s"}") + listOf(g.cards.joinToString(", ")).filter { it.isNotEmpty() }).joinToString(" · "),
+                        onClick = g.example?.let { e -> { navigate(InsightsRoutes.finish(format, id, e)) } }) {
+                        Text(InsightCharts.pct(g.share), color = T1.text, fontFamily = T1.mono, fontSize = 13.sp)
+                    }
+                }
+            } else if (id != 0 && ex != null) {
+                val f = p.finishes[ex]
+                Section("Example list · " + (f.rank?.let { "${Insights.place(it)} at " } ?: "") + f.event)
+                ListRow(listOfNotNull(InsightCharts.shortDay(f.on), f.players?.let { "$it players" }, if (f.tier == "major" || f.tier == "large") "big event" else null).joinToString(" · "),
+                    "${f.main.sumOf { it.qty }} cards · sideboard ${f.side.sumOf { it.qty }}")
+                AddToDecksRow(added, { add(f, name, "example") }, openDeck)
+                f.main.take(12).forEach { ListRow(it.name) { Text("${it.qty}", color = T1.text, fontFamily = T1.mono, fontSize = 13.sp) } }
+                ListRow("See the whole list", if (f.main.size > 12) "${f.main.size - 12} more cards and the sideboard" else "With the sideboard",
+                    onClick = { navigate(InsightsRoutes.finish(format, id, ex)) })
+            }
             Section("Share by week")
             InsightLineChart(listOf(LineSeries("a", "", p.series.v, true)), p.series.weeks, height = 140.dp, labelWidth = 40.dp)
-            listOf("Core · in 80%+ of lists" to p.core, "Flex slots" to p.flex, "Sideboard" to p.side).forEach { (title, rows) ->
+            if (id != 0) listOf("Core · in 80%+ of lists" to p.core, "Flex slots" to p.flex, "Sideboard" to p.side).forEach { (title, rows) ->
                 if (rows.isNotEmpty()) {
                     Section(title)
                     rows.take(16).forEach { c ->
@@ -320,6 +332,33 @@ fun ArchetypeInsightScreen(format: String, id: Int, finish: Int?, navigate: (Str
             }
         }
     }
+}
+
+/** What adding a list to the viewer's decks did, and the new deck. */
+data class AddedDeck(val text: String, val listId: String? = null)
+
+/** A finish's list as a new private deck in the viewer's Library (original printings). */
+suspend fun addToDecks(fin: ArchetypePage.Finish, name: String, format: String, from: String): AddedDeck {
+    val db = CatalogStore.db ?: return AddedDeck("The card catalog is still loading")
+    val found = db.printingsByName((fin.main + fin.side).map { it.name })
+    var missing = 0
+    val entries = listOf("main" to fin.main, "side" to fin.side).flatMap { (board, lines) ->
+        lines.mapNotNull { l -> found[l.name]?.let { ListEntry(it.cardId, board, l.qty) } ?: run { missing += l.qty; null } }
+    }
+    return runCatching { ListsStore.create(ListKind.Deck, name.take(60), format, entries, "From ${fin.event}, ${fin.on}".take(120), "insights") }
+        .map { id ->
+            Telemetry.capture("insights_copy_to_library", mapOf("format" to format, "archetype" to name, "from" to from))
+            AddedDeck("Added to your decks as ${name.take(60)}" + if (missing > 0) " ($missing card${if (missing == 1) "" else "s"} not found)" else "", id)
+        }
+        .getOrElse { AddedDeck("Couldn't add it: ${it.message}") }
+}
+
+/** Add to my decks, then what happened with Open (the new deck) once it's there. */
+@Composable
+fun AddToDecksRow(added: AddedDeck?, onAdd: () -> Unit, onOpen: (String) -> Unit) {
+    val id = added?.listId
+    if (id != null) ListRow(added.text, "A new private deck", onClick = { onOpen(id) }) { Label("Open", color = T1.accent) }
+    else ListRow("Add to my decks", added?.text ?: "A new private deck with these cards", onClick = onAdd) { Label("Add", color = T1.accent) }
 }
 
 @Composable
@@ -393,7 +432,7 @@ fun MatchupsScreen(format: String, onBack: () -> Unit) {
         if (pack == null) return@T1Screen
         Scroll {
             val ids = pack.matchups.archetypes
-            Notice("Row's match win rate against each column. Empty: fewer than 30 matches. From MTGO top 8 brackets and paper events' rounds.")
+            Notice("Row's match win rate against each column. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.")
             InsightHeatmap(ids.map { pack.name(it) }, { r, c -> pack.matchups.cell(ids[r], ids[c])?.let { it.first to it.second } }) { r, c -> picked = r to c }
             picked?.let { (r, c) ->
                 pack.matchups.cell(ids[r], ids[c])?.let { (w, l, d) ->

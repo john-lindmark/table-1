@@ -5,7 +5,7 @@ import { Bar, Notice, Row, Screen, Section, Segmented, Stat, SwitchRow, TopNav }
 import { printingsByName } from "../lib/catalog";
 import { delta, months, pct, pct1, shortDay, wilson } from "../lib/insightCharts";
 import {
-  EVENT_LABELS, EVENT_ORDER, FORMATS, PAIR_NAMES, WINDOWS, bansTitle, canHide, setHidden, sourcesCredit, visibleKeys, afterWindow, archetypeName, archetypePage, cardPage, changeWords, colorsName, isBan,
+  EVENT_LABELS, EVENT_ORDER, FORMATS, PAIR_NAMES, WINDOWS, bansTitle, canHide, exampleFinish, place, setHidden, sourcesCredit, visibleKeys, type Finish, afterWindow, archetypeName, archetypePage, cardPage, changeWords, colorsName, isBan,
   loadInsights, loadInsightsDemo, matchup, pick, useInsights, type ArchetypePage, type CardPage, type CardRow, type ConstructedPack,
   type LCard, type LimitedPack, type LView, type Tier,
 } from "../lib/insights";
@@ -149,7 +149,7 @@ function ConstructedBody({ pack, tier, view, w, days, board, setBoard, hl, setHl
       ))}
       <Section title="Meta over time · 7-day share" />
       <Chart>
-        <LineChart count={view.series.days} xLabels={months(view.series.from, view.series.days)} markers={markers}
+        <LineChart count={view.series.days} xLabels={months(view.series.from, view.series.days)} markers={markers} height={320}
                    series={lines.map((l) => ({ id: l.a, label: archetypeName(pack, l.a), values: l.v, highlighted: l.a === highlighted }))} />
       </Chart>
       <div className="flex gap-px overflow-x-auto">
@@ -212,7 +212,7 @@ export function InsightsArchetype() {
   const { constructed, picks, session, demo, ready } = useInsightsData();
   const [page, setPage] = useState<ArchetypePage | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
+  const [copied, setCopied] = useState<{ text: string; listId?: string } | null>(null);
   const { catalog } = useCatalog();
   const pack = constructed[format];
   useEffect(() => {
@@ -223,25 +223,36 @@ export function InsightsArchetype() {
   const name = page?.archetype.name ?? archetypeName(pack, Number(id));
   if (!session && !demo) return <Screen><Bar title={name} onBack={back} />{ready && <SignInFirst />}</Screen>;
 
+  /** A finish's list as a new private deck in the viewer's Library (original printings), then a link to it. */
+  const addToDecks = async (fin: Finish, where: "example" | "finish", deckName = name) => {
+    if (!catalog) { setCopied({ text: "The card catalog is still loading" }); return; }
+    const byName = printingsByName(catalog, [...fin.main, ...fin.side].map(([n]) => n));
+    const entries: Entry[] = [];
+    let missing = 0;
+    for (const [board, lines] of [["main", fin.main], ["side", fin.side]] as const) {
+      for (const [n, q] of lines) { const p = byName.get(n); if (p !== undefined) entries.push({ cardId: catalog.pId[p], board, qty: q }); else missing += q; }
+    }
+    let listId: string;
+    try {
+      listId = await createList("deck", deckName.slice(0, 60), format, entries, `From ${fin.event}, ${fin.on}`.slice(0, 120), "insights");
+    } catch (e) {
+      setCopied({ text: `Couldn't add it: ${(e as { message?: string })?.message ?? String(e)}` });
+      return;
+    }
+    capture("insights_copy_to_library", { format, archetype: name, from: where });
+    setCopied({ text: `Added to your decks as ${deckName}${missing ? ` (${missing} card${missing === 1 ? "" : "s"} not found)` : ""}`, listId });
+  };
   if (i != null) {
     const fin = page?.finishes[Number(i)];
-    const copy = async () => {
-      if (!fin || !catalog) { setCopied("The card catalog is still loading"); return; }
-      const byName = printingsByName(catalog, [...fin.main, ...fin.side].map(([n]) => n));
-      const entries: Entry[] = [];
-      for (const [board, lines] of [["main", fin.main], ["side", fin.side]] as const) {
-        for (const [n, q] of lines) { const p = byName.get(n); if (p !== undefined) entries.push({ cardId: catalog.pId[p], board, qty: q }); }
-      }
-      await createList("deck", name.slice(0, 60), format, entries, `From ${fin.event}, ${fin.on}`.slice(0, 120), "insights");
-      capture("insights_copy_to_library", { format, archetype: name });
-      setCopied(`Saved as ${name} in Decks`);
-    };
+    // an Other group's example is named for its colours
+    const group = Number(id) === 0 ? page?.groups?.find((g) => g.example === Number(i)) : undefined;
+    const title = group ? colorsName(group.colors || "C", "") : name;
     return (
       <Screen>
-        <Bar title={name} subtitle={fin ? `${fin.event} · ${shortDay(fin.on)}` : undefined} onBack={back} />
+        <Bar title={title} subtitle={fin ? `${fin.event} · ${shortDay(fin.on)}` : undefined} onBack={back} />
         {fin ? (
           <Scroll>
-            <Row title="Copy to my Library" detail={copied ?? "A new private deck with these cards"} onClick={() => void copy()} />
+            <AddRow copied={copied} onAdd={() => fin && void addToDecks(fin, "finish", title)} onOpen={(listId) => nav(`/library/list/${listId}`)} />
             <Section title="Main deck" count={fin.main.reduce((n, [, q]) => n + q, 0)} />
             {fin.main.map(([n, q]) => <Row key={n} title={n} value={q} />)}
             {fin.side.length > 0 && <Section title="Sideboard" count={fin.side.reduce((n, [, q]) => n + q, 0)} />}
@@ -253,6 +264,7 @@ export function InsightsArchetype() {
   }
 
   const share = pack?.tiers.all.windows[String(picks.days)]?.share.find((s) => s.a === Number(id));
+  const example = page ? exampleFinish(page.finishes) : -1;
   const cards = (title: string, rows: CardRow[]) => rows.length > 0 && (
     <>
       <Section title={title} />
@@ -270,11 +282,37 @@ export function InsightsArchetype() {
           <Brief text={page.brief} scope="last 30 days, all events" thin={page.decks < 20} />
           <Stats items={[["Share", pct(share?.share)], ["Decks", String(page.decks)], ["Record", page.record ? `${page.record.wins}-${page.record.losses}` : "–"]]} />
           {page.record && <Notice tone="info">{page.record.basis === "topdeck" ? "Record from paper events' rounds." : "Record of players who reached a Challenge's top 32, so it runs high."}</Notice>}
+          {Number(id) === 0 && (page.groups?.length ?? 0) > 0 && (
+            <>
+              <Section title="Inside Other · by colours" />
+              <Notice tone="info">Decks no archetype names yet, grouped by their colours. Open one for an example list.</Notice>
+              {page.groups!.map((g) => (
+                <Row key={g.colors} title={colorsName(g.colors || "C", "")} value={pct(g.share)}
+                     detail={[`${g.decks} deck${g.decks === 1 ? "" : "s"}`, g.cards.join(", ")].filter(Boolean).join(" · ")}
+                     onClick={g.example != null ? () => nav(`/insights/${format}/archetype/${id}/finish/${g.example}`) : undefined} />
+              ))}
+            </>
+          )}
+          {Number(id) !== 0 && example >= 0 && (() => {
+            const fin = page.finishes[example];
+            const count = (l: [string, number][]) => l.reduce((n, [, q]) => n + q, 0);
+            return (
+              <>
+                <Section title={`Example list · ${fin.rank != null ? `${place(fin.rank)} at ` : ""}${fin.event}`} />
+                <Row title={[shortDay(fin.on), fin.players ? `${fin.players} players` : null, fin.tier === "major" || fin.tier === "large" ? "big event" : null].filter(Boolean).join(" · ")}
+                     detail={`${count(fin.main)} cards · sideboard ${count(fin.side)}`} />
+                <AddRow copied={copied} onAdd={() => void addToDecks(fin, "example")} onOpen={(listId) => nav(`/library/list/${listId}`)} />
+                {fin.main.slice(0, 12).map(([n, q]) => <Row key={n} title={n} value={q} />)}
+                <Row title="See the whole list" detail={fin.main.length > 12 ? `${fin.main.length - 12} more cards and the sideboard` : "With the sideboard"}
+                     onClick={() => nav(`/insights/${format}/archetype/${id}/finish/${example}`)} />
+              </>
+            );
+          })()}
           <Section title="Share by week" />
           <Chart><LineChart count={page.series.weeks} height={150} labelWidth={50} series={[{ id: "a", label: "", values: page.series.v, highlighted: true }]} /></Chart>
-          {cards("Core · in 80%+ of lists", page.core)}
-          {cards("Flex slots", page.flex)}
-          {cards("Sideboard", page.side)}
+          {Number(id) !== 0 && cards("Core · in 80%+ of lists", page.core)}
+          {Number(id) !== 0 && cards("Flex slots", page.flex)}
+          {Number(id) !== 0 && cards("Sideboard", page.side)}
           {page.matchups.length > 0 && (
             <>
               <Section title="Matchups · last 90 days" />
@@ -401,7 +439,7 @@ export function InsightsMatchups() {
       <Bar title="Matchups" subtitle={`${pack?.name ?? format} · last 90 days`} onBack={() => nav(-1)} />
       {pack && (
         <Scroll>
-          <Notice tone="info">Row's match win rate against each column. Empty: fewer than 30 matches. From MTGO top 8 brackets and paper events' rounds.</Notice>
+          <Notice tone="info">Row's match win rate against each column. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.</Notice>
           <Heatmap labels={ids.map((a) => archetypeName(pack, a))} onPick={(r, c) => setPicked([r, c])}
                    cell={(r, c) => matchup(pack.matchups, ids[r], ids[c])} />
           {m && picked && (
@@ -418,6 +456,12 @@ export function InsightsMatchups() {
 
 const RARITIES = [{ value: "all", label: "All" }, { value: "common", label: "C" }, { value: "uncommon", label: "U" }, { value: "rare", label: "R" }, { value: "mythic", label: "M" }];
 const COLOURS = [{ value: "all", label: "All" }, ...["W", "U", "B", "R", "G"].map((c) => ({ value: c, label: c })), { value: "M", label: "Multi" }];
+
+/** Add to my decks, then what happened with Open (the new deck) once it's there. */
+function AddRow({ copied, onAdd, onOpen }: { copied: { text: string; listId?: string } | null; onAdd: () => void; onOpen: (listId: string) => void }) {
+  if (copied?.listId) return <Row title={copied.text} detail="A new private deck" action={{ label: "Open", onClick: () => onOpen(copied.listId!) }} />;
+  return <Row title="Add to my decks" detail={copied?.text ?? "A new private deck with these cards"} action={{ label: "Add", onClick: onAdd }} />;
+}
 
 /** A picker row with Edit at its end (which formats or sets the row shows). */
 function PickerRow({ children, onEdit, editing }: { children: ReactNode; onEdit: () => void; editing: boolean }) {

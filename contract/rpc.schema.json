@@ -9123,7 +9123,7 @@
       }
     },
     "meta_archetype": {
-      "note": "An archetype's page: weekly share (26 weeks), record (basis topdeck or mtgo_top32), conversion, core (main cards in ≥80% of lists), flex (20–80%), sideboard (≥20%), matchups (90 days), the 10 best finishes with lists, and its brief. p_archetype 0 = Other. Unknown format/archetype or a bad tier: 22023; signed out: 28000. contract/insights-2026-10-24.md § RPCs. authenticated.",
+      "note": "An archetype's page: weekly share (26 weeks), record (basis topdeck or mtgo_top32), conversion, core (main cards in ≥80% of lists), flex (20–80%), sideboard (≥20%), matchups (90 days), the 10 best finishes with lists (spells first, lands last), and its brief. p_archetype 0 = Other, which also has groups: its decks by colours (up to 8), each with decks, share of Other, its 4 most-played nonland cards and example (an index into finishes, its best list). Unknown format/archetype or a bad tier: 22023; signed out: 28000. contract/insights-2026-10-24.md § RPCs. authenticated.",
       "params": {
         "type": "object",
         "properties": {
@@ -9423,6 +9423,42 @@
               "string",
               "null"
             ]
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "colors": {
+                  "type": "string"
+                },
+                "decks": {
+                  "type": "integer"
+                },
+                "share": {
+                  "type": "number"
+                },
+                "cards": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "example": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "colors",
+                "decks",
+                "share",
+                "cards",
+                "example"
+              ]
+            }
           }
         }
       }

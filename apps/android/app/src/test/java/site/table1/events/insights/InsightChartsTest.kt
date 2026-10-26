@@ -40,6 +40,14 @@ class InsightChartsTest {
         assertEquals(want, InsightCharts.segments(input))
     }
 
+    @Test fun heat() = list("heat").forEach { c ->
+        val i = c["in"]!!.jsonArray.map { it.jsonPrimitive.int }
+        val o = c["out"]!!.jsonObject
+        val want = InsightCharts.Heat(o["label"]!!.jsonPrimitive.content, o["tone"]!!.jsonPrimitive.content, o["strength"]!!.jsonPrimitive.double,
+            o["dim"]!!.jsonPrimitive.content == "true", o["ink"]!!.jsonPrimitive.content == "true")
+        assertEquals("$i", want, InsightCharts.heat(i[0], i[1]))
+    }
+
     @Test fun wilson() = list("wilson").forEach { c ->
         val i = c["in"]!!.jsonArray.map { it.jsonPrimitive.int }
         val want = doubles(c["out"]!!)

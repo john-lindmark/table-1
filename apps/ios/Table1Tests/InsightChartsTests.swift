@@ -43,6 +43,11 @@ private struct Cases: Decodable {
     }
     let ticks: [Ticks]; let segments: [Segments]; let wilson: [Wilson]; let fit: [Fit]; let spread: [Spread]
     let pct: [Label]; let pct1: [Label]; let delta: [Label]; let months: [Months]
+    struct HeatCase: Decodable {
+        struct Out: Decodable { let label: String; let tone: String; let strength: Double; let dim: Bool; let ink: Bool }
+        let `in`: [Int]; let out: Out
+    }
+    let heat: [HeatCase]
 }
 
 final class InsightChartsTests: XCTestCase {
@@ -63,6 +68,13 @@ final class InsightChartsTests: XCTestCase {
     func testSegments() {
         for c in cases.segments {
             XCTAssertEqual(InsightCharts.segments(c.in).map { $0.map { [Double($0.0), $0.1] } }, c.out, "\(c.in)")
+        }
+    }
+
+    func testHeat() {
+        for c in cases.heat {
+            let h = InsightCharts.heat(wins: c.in[0], losses: c.in[1])
+            XCTAssertEqual(h, .init(label: c.out.label, tone: c.out.tone, strength: c.out.strength, dim: c.out.dim, ink: c.out.ink), "\(c.in)")
         }
     }
 
