@@ -1,4 +1,4 @@
--- Deck and cube lines name a language (contract/lists-2026-10-15.md, "Languages"; John, 2026-10-25), so a cube can
+-- Deck and cube lines name a language (contract/lists-2026-10-15.md, "Languages"; John, 2026-10-26), so a cube can
 -- list a Japanese copy of an English printing, and Add to collection / card detail add copies in that language.
 --  - A line is printing × section × finish × language. An entry is [card_id, board, qty] (non-foil, English),
 --    [card_id, board, qty, finish] (English) or [card_id, board, qty, finish, lang] (any other language; the
@@ -148,7 +148,7 @@ begin
   return t1_private.list_json(p_list_id);
 end $$;
 
--- Lines already listing a non-English printing (6 lines in 4 lists on 2026-10-25) take that printing's language:
+-- Lines already listing a non-English printing (6 lines in 4 lists on 2026-10-26) take that printing's language:
 -- the current version is rewritten in place (no new version; history keeps what it said) and the list's seq moves,
 -- so clients pull it.
 do $$

@@ -14,7 +14,7 @@ opens a full screen:
 - **Sideboard** switch on decks with a sideboard (on by default).
 - Condition (NM…DMG): the same remembered choice as card detail's Add a printing.
 - No language picker: each copy goes in as the language its line names (lists § Languages; a non-English printing
-  is always its own), never the language picked for other adds (John, 2026-10-25; it used to turn English printings
+  is always its own), never the language picked for other adds (John, 2026-10-26; it used to turn English printings
   into the picked language).
 - A note: each card goes in as the printing, finish and language the list names; Considering isn't added.
 - **To add · N**: one row per printing + finish with `+n`.

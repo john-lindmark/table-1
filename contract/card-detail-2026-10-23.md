@@ -35,7 +35,7 @@ printing × section × finish.
   Two or more versions: a **grid**, two per row, one tile per version with its count when more than one; scrolls
   past four. Tap a tile to select it (accent outline); tap it again to deselect.
 - **Attributes**: equal cells in one row. Each shows the value the copies in view share, or **MIX** when they
-  differ. Condition is hidden in list scope (Language shows since 2026-10-25). Finish is hidden when every printing in view has one
+  differ. Condition is hidden in list scope (Language shows since 2026-10-26). Finish is hidden when every printing in view has one
   finish. A non-English printing's language is its own and its cell doesn't open.
 - **Bottom bar**: owned scopes: − | count | + (count = copies in view, or the selected version's). While a version
   is selected the stepper is off (flat disabled colour, as drawn). Search scope: **Add to**.
