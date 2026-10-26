@@ -272,10 +272,9 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
     var groups by remember { mutableStateOf<List<CardGroup>?>(null) }
     var keys by remember { mutableStateOf<Map<String, GroupKeys>>(emptyMap()) }
     var query by remember { mutableStateOf("") }
-    val prefs = remember { T1App.instance.getSharedPreferences("library", android.content.Context.MODE_PRIVATE) }
     val grouping = rememberCardGrouping(GroupingKey.ALL_CARDS, CardGrouping.None, list = false)
-    // 0 recent, 1 price, 2 set
-    var sort by remember { mutableStateOf(prefs.getInt("allCards.sort", 0)) }
+    val sortState = rememberCardSort(SortPref.ALL_CARDS, CardSort.Screen.AllCards)
+    val sort = sortState.value
     val pricesVersion by PriceBook.version.collectAsState()
     val layout = rememberCardLayout("allCards.layout", "allCards.grid")
     var viewMenu by remember { mutableStateOf(false) }
@@ -291,18 +290,17 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
         keys = k
         PriceBook.load(items.map { it.cardId })
     }
-    val shown = remember(groups, query, sort, pricesVersion) {
+    val shown = remember(groups, keys, query, sort, pricesVersion) {
         val n = CardName.norm(query)
         val list = (groups ?: emptyList()).let { g -> if (n.isEmpty()) g else g.filter { it.norm.contains(n) || CardName.norm(it.type).contains(n) } }
         when (sort) {
-            1 -> {
+            CardSort.Price -> {
                 // No price yet reads as the most valuable: those are the cards worth checking first.
                 val p = list.associate { it.id to priceRank(it.price()) }
                 list.sortedWith(compareByDescending<CardGroup> { p[it.id] }.thenBy { it.norm })
             }
-            // Newest set first; within a set, collector number order.
-            2 -> list.sortedWith(compareByDescending<CardGroup> { it.cover?.releasedAt ?: "" }.thenBy { it.cover?.set ?: "" }
-                .thenBy { it.cover?.cn?.trim { c -> c.isLetter() }?.toIntOrNull() ?: Int.MAX_VALUE }.thenBy { it.norm })
+            // Newest set first, then collector number; spells by mana value, then lands; or by name.
+            CardSort.Name, CardSort.ManaValue, CardSort.Set -> sort.apply(list) { SortKey.of(it.name, keys[it.id], it.cover) }
             else -> list.sortedWith(compareByDescending<CardGroup> { it.lastSeq }.thenBy { it.norm })
         }
     }
@@ -311,7 +309,7 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
     fun title(key: String, cards: List<CardGroup>) = "${grouping.value.label(key)} · ${cards.sumOf { it.qty }}"
     fun detail(g: CardGroup): String {
         val price = PriceBook.text(g.price())
-        if (sort == 2 && g.cover != null) return listOfNotNull(g.cover.setLabel, price).joinToString(" · ")
+        if (sort == CardSort.Set && g.cover != null) return listOfNotNull(g.cover.setLabel, price).joinToString(" · ")
         return listOfNotNull(price, "${g.printings} printing${if (g.printings == 1) "" else "s"}", g.type).joinToString(" · ")
     }
     T1Screen {
@@ -328,7 +326,8 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
         Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp)) {
             T1TextField(query, { query = it }, placeholder = "Name or type")
         }
-        T1Segmented(listOf("Recent", "Price", "Set"), sort) { sort = it; prefs.edit().putInt("allCards.sort", it).apply() }
+        val bar = listOf(CardSort.Recent, CardSort.Price, CardSort.Name, CardSort.ManaValue, CardSort.Set)
+        T1Segmented(listOf("Recent", "Price", "Name", "MV", "Set"), bar.indexOf(sort), scroll = true) { sortState.value = bar[it] }
         val g = groups
         if (cat.phase == "ready" && g != null) {
             if (g.isEmpty() && col.ready) ListRow("No cards yet", "Add your first card", onClick = onAdd)
@@ -340,8 +339,8 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
                     fun tiles(cards: List<CardGroup>) =
                         groupTiles(cards, printings.value.all, { heroes.isHero(it.id, HeroScope.Collection) }) { if (it.known) onOpen(it.id) }
                     if (grouping.value != CardGrouping.None) sections.map { (key, cards) ->
-                        CardStackSpec("${grouping.value.wire}|$key|$sort|${printings.value.all}", title(key, cards), tiles(cards))
-                    } else runStacks(tiles(shown), sort == 2, { it.printing?.set ?: "" }, "$sort|${printings.value.all}|").map { (key, title, run) ->
+                        CardStackSpec("${grouping.value.wire}|$key|${sort.wire}|${printings.value.all}", title(key, cards), tiles(cards))
+                    } else runStacks(tiles(shown), sort == CardSort.Set, { it.printing?.set ?: "" }, "${sort.wire}|${printings.value.all}|").map { (key, title, run) ->
                         CardStackSpec(key, title, run)
                     }
                 }
@@ -378,7 +377,7 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
             Filler()
         }
     }
-    if (viewMenu) CardLayoutMenu(layout, "all_cards", printings, grouping) { viewMenu = false }
+    if (viewMenu) CardLayoutMenu(layout, "all_cards", printings, grouping, sort = sortState, sorts = CardSort.Screen.AllCards) { viewMenu = false }
 }
 
 /* ── add (search) ─────────────────────────────────────────────────────── */

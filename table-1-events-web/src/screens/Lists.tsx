@@ -7,6 +7,7 @@ import {
   EXPORT_DETAIL, EXPORT_FILE, exportFileName, exportFormats, exportLines, renderList, type ExportFormat,
 } from "../lib/listExport";
 import { GROUPING_KEY, groupLabel, keyFor, keysOf, sortGroups, useStoredGrouping, type GroupKeys, type Grouping } from "../lib/cardGrouping";
+import { SORT_KEY, applySort, sortKeyOf, useStoredSort, type CardSort } from "../lib/cardSort";
 import {
   boardTitle, boardsOf, countOf, createList, finishOf, ownKey, type ListFinish, current, deleteList, diff, duplicateList, editList, entriesOf, missingIn, restoreList,
   sectionsFor, useLists, type Board, type CardList, type Entry, type ListKind,
@@ -125,6 +126,17 @@ export function useListGrouping(kind: ListKind | null | undefined): [Grouping, (
   const cube = useStoredGrouping(GROUPING_KEY.cube, "color", true);
   return kind === "cube" ? cube : deck;
 }
+
+/** Sort for decks or cubes, shared between your own and the ones shared with you (both start on Name). */
+export function useListSort(kind: ListKind | null | undefined): [CardSort, (s: CardSort) => void] {
+  const deck = useStoredSort(SORT_KEY.deck, "list");
+  const cube = useStoredSort(SORT_KEY.cube, "list");
+  return kind === "cube" ? cube : deck;
+}
+
+/** Lines in a sort (they're resolved by name). */
+export const sortLines = <T extends { name: string; oi: number; p: number | null }>(lines: T[], by: CardSort, c: Catalog): T[] =>
+  applySort(lines, by, (x) => sortKeyOf(c, x.name, x.oi, x.p));
 
 export function BoardHeader({ title, count }: { title: string; count: number }) {
   return (
@@ -339,9 +351,10 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   const heroes = useLibraryHeroes();
   const list = lists.lists.find((l) => l.id === id) ?? null;
   const [grouping, setGrouping] = useListGrouping(list?.kind);
+  const [sort, setSort] = useListSort(list?.kind);
   const heroScope: HeroScope = { kind: "list", id };
   useSearchUsed(q, list?.kind === "deck" ? "deck" : "cube");
-  const lines = useMemo(() => (list && catalog ? regrouped(linesOf(list, catalog), grouping) : []), [list, catalog, grouping]);
+  const lines = useMemo(() => (list && catalog ? sortLines(regrouped(linesOf(list, catalog), grouping), sort, catalog) : []), [list, catalog, grouping, sort]);
   const issues = useMemo(() => (list && catalog ? issuesOf(lines, list, catalog) : new Map<string, string>()), [lines, list, catalog]);
   const boxRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(390);
@@ -451,7 +464,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
            right={<span className="flex gap-4">
              <button type="button" className="t1-label hover:text-t1-text px-2 py-1 -my-1" onClick={() => setEditing(!editing)}>{editing ? "Done" : "Edit"}</button>
              {!editing && <ViewButton layout={layout} onChange={setLayout} screen={list.kind === "cube" ? "cube" : "deck"} printings={printings} onPrintings={setPrintings}
-                                      grouping={grouping} onGrouping={setGrouping} list />}
+                                      grouping={grouping} onGrouping={setGrouping} list sort={sort} onSort={setSort} sorts="list" />}
            </span>} />
       {(lists.error || error || heroFull) && <Notice tone="error">{lists.error ?? error ?? heroFull}</Notice>}
       {entriesOf(list).length > 0 && <Field label={list.kind === "cube" ? "Search this cube" : "Search this deck"} value={q} onChange={setQ} placeholder="Name or type" />}

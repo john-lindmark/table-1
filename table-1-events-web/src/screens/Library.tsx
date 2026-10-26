@@ -3,6 +3,7 @@ import { Bar, Field, Menu, Notice, Row, SCREEN_WIDTH, Screen, Segmented, TopNav,
 import { capture } from "../lib/telemetry";
 import { LAYOUTS, parseLayout, runStacks, type CardLayout } from "../lib/cardLayout";
 import { GROUPING_KEY, GROUPING_TITLE, groupLabel, groupSections, groupingOptions, keysOf, useStoredGrouping, type Grouping } from "../lib/cardGrouping";
+import { SORT_KEY, SORT_TITLE, applySort, sortKeyOf, sortOptions, useStoredSort, type CardSort, type SortScreen } from "../lib/cardSort";
 import { SignInButtons } from "../components/SignInButtons";
 import { errorMessage } from "../lib/api";
 import {
@@ -123,13 +124,15 @@ export function useStoredLayout(key: string, legacyGridKey: string): [CardLayout
 }
 
 /** The bar's "View" button: a menu of the three layouts, the current one marked, then expanding or collapsing every
- *  card's printings when the screen has them, then Group by (contract/shared-lists-grouping-2026-10-20.md §4). */
-export function ViewButton({ layout, onChange, screen, printings, onPrintings, grouping, onGrouping, list = false }: {
+ *  card's printings when the screen has them, then Group by (contract/shared-lists-grouping-2026-10-20.md §4), then
+ *  Sort (contract/card-sort-2026-10-25.md). */
+export function ViewButton({ layout, onChange, screen, printings, onPrintings, grouping, onGrouping, list = false, sort, onSort, sorts }: {
   layout: CardLayout; onChange: (v: CardLayout) => void; screen: "all_cards" | "deck" | "cube" | "binder" | `profile_${SectionKind}`;
   printings?: Disclosure; onPrintings?: (d: Disclosure) => void;
   grouping?: Grouping; onGrouping?: (g: Grouping) => void;
   /** A deck or cube: Group by has no None. */
   list?: boolean;
+  sort?: CardSort; onSort?: (s: CardSort) => void; sorts?: SortScreen;
 }) {
   const [open, setOpen] = useState(false);
   const all = !!printings?.all;
@@ -159,6 +162,14 @@ export function ViewButton({ layout, onChange, screen, printings, onPrintings, g
             if (g === grouping) return;
             onGrouping(g);
             capture("card_grouping_changed", { grouping: g, screen });
+          },
+        })) : []), ...(sort && onSort && sorts ? sortOptions(sorts).map((o) => ({
+          title: SORT_TITLE[o],
+          checked: o === sort,
+          onClick: () => {
+            if (o === sort) return;
+            onSort(o);
+            capture("card_sort_changed", { sort: o, screen });
           },
         })) : [])]} />
       )}
@@ -677,22 +688,7 @@ export function AllCards({ onBack, onOpen, onAdd }: { onBack: () => void; onOpen
   const col = useCollection(userId);
   const { catalog, error } = useCatalog();
   const [q, setQ] = useState("");
-  const [sort, setSortState] = useState<"recent" | "price" | "set">(() => {
-    try {
-      const v = localStorage.getItem("table1.library.allCards.sort");
-      return v === "price" || v === "set" ? v : "recent";
-    } catch {
-      return "recent";
-    }
-  });
-  const setSort = (v: "recent" | "price" | "set") => {
-    setSortState(v);
-    try {
-      localStorage.setItem("table1.library.allCards.sort", v);
-    } catch {
-      /* storage blocked */
-    }
-  };
+  const [sort, setSort] = useStoredSort(SORT_KEY.allCards, "allCards");
   const [layout, setLayout] = useStoredLayout("table1.library.allCards.layout", "table1.library.allCards.grid");
   const [grouping, setGrouping] = useStoredGrouping(GROUPING_KEY.allCards, "none", false);
   const [stackBox, stackWidth] = useBoxWidth();
@@ -721,12 +717,9 @@ export function AllCards({ onBack, onOpen, onAdd }: { onBack: () => void; onOpen
       // No price yet reads as the most valuable: those are the cards worth checking first.
       const p = new Map(list.map((g) => [g.key, priceRank(priceOf(g))]));
       list.sort((a, b) => (p.get(b.key)! === p.get(a.key)! ? 0 : p.get(b.key)! > p.get(a.key)! ? 1 : -1) || byName(a, b));
-    } else if (sort === "set" && catalog) {
-      // Newest set first; within a set, collector number order.
-      const rel = (g: Group) => (g.cover == null ? "" : catalog.pReleased[g.cover] ?? "");
-      const set = (g: Group) => (g.cover == null ? "" : catalog.pSet[g.cover]);
-      const cn = (g: Group) => (g.cover == null ? Infinity : parseInt(catalog.pCn[g.cover], 10) || Infinity);
-      list.sort((a, b) => (rel(a) !== rel(b) ? (rel(a) < rel(b) ? 1 : -1) : set(a) !== set(b) ? (set(a) < set(b) ? -1 : 1) : cn(a) - cn(b) || byName(a, b)));
+    } else if (sort === "name" || sort === "manaValue" || sort === "set") {
+      // Newest set first, then collector number; spells by mana value, then lands; or by name.
+      if (catalog) return applySort(list, sort, (g) => sortKeyOf(catalog, g.name, g.oracle, g.cover));
     } else list.sort((a, b) => b.lastSeq - a.lastSeq || byName(a, b));
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -807,12 +800,13 @@ export function AllCards({ onBack, onOpen, onAdd }: { onBack: () => void; onOpen
            onBack={onBack} right={<span className="flex gap-4">
              <ShareButton target={{ part: "all_cards", id: null, name: null }} from="all_cards" />
              <ViewButton layout={layout} onChange={setLayout} screen="all_cards" printings={printings} onPrintings={setPrintings}
-                         grouping={grouping} onGrouping={setGrouping} />
+                         grouping={grouping} onGrouping={setGrouping} sort={sort} onSort={setSort} sorts="allCards" />
            </span>} />
       {(error || col.error) && <Notice tone="error">{error ?? col.error}</Notice>}
       <Field label="Search your cards" value={q} onChange={setQ} placeholder="Name or type" />
-      <Segmented options={[{ value: "recent", label: "Recent" }, { value: "price", label: "Price" }, { value: "set", label: "Set" }]}
-                 value={sort} onChange={setSort} />
+      <Segmented options={[{ value: "recent", label: "Recent" }, { value: "price", label: "Price" }, { value: "name", label: "Name" },
+                           { value: "manaValue", label: "MV" }, { value: "set", label: "Set" }]}
+                 value={sort} onChange={(v) => setSort(v as CardSort)} />
       {!catalog && !error && <div className="bg-t1-surface px-4 py-4 t1-label">Loading card data…</div>}
       {catalog && col.ready && groups.length === 0 && (
         <Row title="No cards yet" detail="Add your first card" onClick={onAdd} />

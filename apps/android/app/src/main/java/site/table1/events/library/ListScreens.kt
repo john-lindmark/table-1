@@ -262,6 +262,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     var imaging by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
     val grouping = rememberListGrouping(list?.kind)
+    val sort = rememberListSort(list?.kind)
     var query by remember { mutableStateOf("") }
     val printings = remember { mutableStateOf(PrintingsDisclosure()) }
     val heroes by HeroesStore.state.collectAsState()
@@ -276,7 +277,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
         T1Screen { Bar("List", onBack = onBack); Notice(if (s.ready) "That list isn't here anymore." else "Loading…") }
         return
     }
-    val rows = lines(list, meta, grouping.value)
+    val rows = sort.value.apply(lines(list, meta, grouping.value)) { SortKey.of(it.name, it.keys, it.printing) }
     val issues = legalityIssues(rows, list)
     val searching = CardName.norm(query).isNotEmpty()
     val shown = if (searching) rows.filter { CardSearch.matches(query, it.name, it.type) } else rows
@@ -470,7 +471,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     if (exporting) ListExportScreen(list.name, list.kind, list.entries, "own") { exporting = false }
     if (imaging) DeckImageScreen(list.name, list.format, list.entries, owner = null, from = "own") { imaging = false }
     if (adding) ListToCollectionScreen(list, owned) { adding = false }
-    if (viewMenu) CardLayoutMenu(layout, if (list.kind == ListKind.Cube) "cube" else "deck", printings, grouping, list = true) { viewMenu = false }
+    if (viewMenu) CardLayoutMenu(layout, if (list.kind == ListKind.Cube) "cube" else "deck", printings, grouping, list = true, sort = sort) { viewMenu = false }
 }
 
 @Composable

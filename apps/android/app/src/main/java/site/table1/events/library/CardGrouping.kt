@@ -66,7 +66,9 @@ enum class CardGrouping(val wire: String, val title: String) {
 }
 
 /** One card's group under each grouping, worked out once from its Oracle card. */
-data class GroupKeys(val type: String = "Other", val color: String = "Colorless", val manaValue: String = "0") {
+data class GroupKeys(val type: String = "Other", val color: String = "Colorless", val manaValue: String = "0",
+                     /** The mana value itself, for Sort by mana value. */
+                     val cmc: Double = 0.0) {
     operator fun get(g: CardGrouping): String = when (g) {
         CardGrouping.None -> ""
         CardGrouping.Type -> type
@@ -78,9 +80,9 @@ data class GroupKeys(val type: String = "Other", val color: String = "Colorless"
         fun of(typeLine: String, manaCost: String, colors: String, cmc: Double): GroupKeys {
             val front = typeLine.substringBefore(" // ")
             val type = CardGrouping.typeGroup(front)
-            if ("Land" in front && "Creature" !in front) return GroupKeys(type, "Lands", "Lands")
+            if ("Land" in front && "Creature" !in front) return GroupKeys(type, "Lands", "Lands", cmc)
             val mv = kotlin.math.floor(cmc).toInt()
-            return GroupKeys(type, CardGrouping.colorGroup(colors.ifEmpty { manaCost }), if (mv >= 7) "7+" else "${maxOf(0, mv)}")
+            return GroupKeys(type, CardGrouping.colorGroup(colors.ifEmpty { manaCost }), if (mv >= 7) "7+" else "${maxOf(0, mv)}", cmc)
         }
 
         fun of(o: CatalogOracle?): GroupKeys = o?.let { of(it.typeLine, it.manaCost, it.colors, it.cmc) } ?: GroupKeys()

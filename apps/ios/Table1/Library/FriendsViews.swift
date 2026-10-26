@@ -567,8 +567,17 @@ struct ProfileCardsView: View {
     @AppStorage("library.deck.grouping") private var deckGrouping = CardGrouping.type.rawValue
     @AppStorage("library.cube.grouping") private var cubeGrouping = CardGrouping.color.rawValue
     @AppStorage("library.shared.grouping") private var cardsGrouping = CardGrouping.none.rawValue
+    /// Sort the same way: decks and cubes with your own, everything else its own (all start on Name).
+    @AppStorage("library.deck.sort") private var deckSort = CardSort.name.rawValue
+    @AppStorage("library.cube.sort") private var cubeSort = CardSort.name.rawValue
+    @AppStorage("library.shared.sort") private var cardsSort = CardSort.name.rawValue
 
     private var kind: CardList.Kind? { SharedList.kind(section.kind) }
+
+    private var sortBinding: Binding<String> {
+        switch kind { case .deck: $deckSort; case .cube: $cubeSort; case nil: $cardsSort }
+    }
+    private var sort: CardSort { CardSort.of(sortBinding.wrappedValue, kind == nil ? .shared : .list) }
 
     private var groupingBinding: Binding<String> {
         switch kind { case .deck: $deckGrouping; case .cube: $cubeGrouping; case nil: $cardsGrouping }
@@ -583,7 +592,8 @@ struct ProfileCardsView: View {
         T1Screen {
             Bar(title: title, subtitle: rows == nil ? nil : plural(copies, "card"), back: { dismiss() }) {
                 BarButton("View") {
-                    CardLayout.menu($layout, screen: "profile_\(section.kind)", printings: $printings, grouping: groupingBinding, list: kind != nil)
+                    CardLayout.menu($layout, screen: "profile_\(section.kind)", printings: $printings, grouping: groupingBinding, list: kind != nil,
+                                    sort: sortBinding, sorts: kind == nil ? .shared : .list)
                 }
             }
             CatalogStatusRow(catalog: catalog)
@@ -626,7 +636,7 @@ struct ProfileCardsView: View {
     // MARK: decks and cubes
 
     @ViewBuilder private func listBody(_ kind: CardList.Kind, width: CGFloat) -> some View {
-        let all = ListLine.regrouped(lines, by: grouping)
+        let all = sort.apply(ListLine.regrouped(lines, by: grouping)) { SortKey(name: $0.name, keys: $0.keys, printing: $0.printing) }
         let shown = query.isEmpty ? all : all.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
         if shown.isEmpty && !lines.isEmpty { ListRow(title: "No cards match") }
         ForEach(CardList.boardOrder.filter { b in shown.contains { $0.board == b } }, id: \.self) { board in
@@ -690,7 +700,9 @@ struct ProfileCardsView: View {
     // MARK: binders, all cards, for trade, wants
 
     @ViewBuilder private func cardsBody(width: CGFloat) -> some View {
-        let shown = query.isEmpty ? groups : groups.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
+        let shown = sort.apply(query.isEmpty ? groups : groups.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }) {
+            SortKey(name: $0.name, keys: keys[$0.id], printing: $0.cover)
+        }
         if shown.isEmpty && !groups.isEmpty { ListRow(title: "No cards match") }
         let sections = CardGroup.sections(shown, by: grouping, keys: keys)
         if layout == CardLayout.stacks.rawValue {

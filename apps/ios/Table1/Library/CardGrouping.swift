@@ -55,12 +55,15 @@ struct GroupKeys: Hashable, Sendable {
     var type = "Other"
     var color = "Colorless"
     var manaValue = "0"
+    /// The mana value itself, for Sort by mana value.
+    var cmc: Double = 0
 
     init() {}
 
     init(typeLine: String, manaCost: String, colors: String, cmc: Double) {
         let front = typeLine.components(separatedBy: " // ").first ?? typeLine
         type = ListLine.typeGroup(front)
+        self.cmc = cmc
         let land = front.contains("Land") && !front.contains("Creature")
         if land {
             color = "Lands"
@@ -106,16 +109,17 @@ extension CardGroup {
 }
 
 extension CardLayout {
-    /// The View menu with Group by: the layouts, Expand all printings, then the groupings, the current one checked.
+    /// The View menu with Group by and Sort: the layouts, Expand all printings, the groupings, then the sorts, the
+    /// current ones checked.
     @MainActor static func menu(_ current: Binding<String>, screen: String, printings: Binding<PrintingsDisclosure>? = nil,
-                                grouping: Binding<String>, list: Bool) {
+                                grouping: Binding<String>, list: Bool, sort: Binding<String>, sorts: CardSort.Screen) {
         menu(current, screen: screen, printings: printings, extra: CardGrouping.options(list: list).map { g in
             T1MenuItem(title: g.title, checked: grouping.wrappedValue == g.rawValue) {
                 guard grouping.wrappedValue != g.rawValue else { return }
                 grouping.wrappedValue = g.rawValue
                 Telemetry.capture("card_grouping_changed", ["grouping": g.rawValue, "screen": screen])
             }
-        })
+        } + CardSort.menuItems(sort, sorts, screen: screen))
     }
 }
 

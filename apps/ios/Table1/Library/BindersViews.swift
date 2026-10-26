@@ -192,6 +192,7 @@ struct BinderView: View {
     @AppStorage("library.binder.grouping") private var groupingRaw = CardGrouping.none.rawValue
     @State private var keys: [String: GroupKeys] = [:]
     private var grouping: CardGrouping { CardGrouping(rawValue: groupingRaw) ?? .none }
+    @AppStorage("library.binder.sort") private var sortRaw = CardSort.count.rawValue
 
     private var binder: Binder? { store.binder(binderId) }
     private var unsorted: Bool { binderId == BinderRoute.unsorted }
@@ -205,7 +206,9 @@ struct BinderView: View {
                 back: { dismiss() }) {
                 HStack(spacing: 20) {
                     if let binder { BarButton("Edit") { menu(binder) } }
-                    BarButton("View") { CardLayout.menu($layout, screen: "binder", printings: $printings, grouping: $groupingRaw, list: false) }
+                    BarButton("View") {
+                        CardLayout.menu($layout, screen: "binder", printings: $printings, grouping: $groupingRaw, list: false, sort: $sortRaw, sorts: .binder)
+                    }
                 }
             }
             if !unsorted && binder == nil { Notice("This binder was deleted.") }
@@ -225,7 +228,10 @@ struct BinderView: View {
                                 ListRow(title: "Add cards", detail: unsorted ? "New copies, or copies out of a binder" : "Move in copies you own, or add new ones")
                             }.buttonStyle(.plain)
                         }
-                        let shown = query.isEmpty ? groups : groups.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
+                        // Built most copies first; Sort can reorder.
+                        let shown = CardSort.of(sortRaw, .binder).apply(query.isEmpty ? groups : groups.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }) {
+                            SortKey(name: $0.name, keys: keys[$0.id], printing: $0.cover)
+                        }
                         if shown.isEmpty && !groups.isEmpty { ListRow(title: "No cards match") }
                         if groups.isEmpty && catalog.phase == .ready {
                             Notice(unsorted ? "Every copy is in a binder." : "No cards here yet. Add cards moves in copies you own or adds new ones; trades and imports can fill it too.")

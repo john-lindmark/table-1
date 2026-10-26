@@ -21,9 +21,10 @@ import {
   CardGroupRow, CardRow, CardTile, LibScreen, StackRows, ViewButton, useBoxWidth, useCatalog, useLibrarySession, useStoredLayout, type StackCardItem,
 } from "./Library";
 import { DeckImageScreen } from "./DeckImage";
-import { BoardHeader, ExportScreen, groupsOf, regrouped, resolveLines, useListGrouping, useListsData, type Line } from "./Lists";
+import { BoardHeader, ExportScreen, groupsOf, regrouped, resolveLines, sortLines, useListGrouping, useListSort, useListsData, type Line } from "./Lists";
 import { useSearchUsed } from "./Binders";
 import { GROUPING_KEY, groupLabel, groupSections, keysOf, useStoredGrouping } from "../lib/cardGrouping";
+import { SORT_KEY, applySort, sortKeyOf, useStoredSort } from "../lib/cardSort";
 import { BOARD_ORDER, boardTitle, createList, type ListKind } from "../lib/lists";
 import { cardMatches } from "../lib/librarySearch";
 import { COLLAPSED, addPart, isOpen, lineGroups, sortParts, toggleOne, type Disclosure, type LineGroup, type Part } from "../lib/printings";
@@ -424,6 +425,10 @@ export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList
   const [listGrouping, setListGrouping] = useListGrouping(kind);
   const [cardsGrouping, setCardsGrouping] = useStoredGrouping(GROUPING_KEY.shared, "none", false);
   const [grouping, setGrouping] = kind ? [listGrouping, setListGrouping] : [cardsGrouping, setCardsGrouping];
+  /** Sort the same way: decks and cubes with your own, everything else its own (all start on Name). */
+  const [listSort, setListSort] = useListSort(kind);
+  const [cardsSort, setCardsSort] = useStoredSort(SORT_KEY.shared, "shared");
+  const [sort, setSort] = kind ? [listSort, setListSort] : [cardsSort, setCardsSort];
   const [printings, setPrintings] = useState<Disclosure>(COLLAPSED);
   const [exporting, setExporting] = useState(false);
   const [imaging, setImaging] = useState(false);
@@ -449,8 +454,10 @@ export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList
   const owner = link ? (link.data.mine ? null : link.data.owner.display_name) : profile && profile.relation !== "self" ? profile.display_name : null;
   const canCopy = !!owner && (!link || link.signedIn);
   const entries = useMemo(() => (rows ? sharedEntries(rows) : []), [rows]);
-  const lines = useMemo(() => (kind && catalog ? regrouped(resolveLines(entries, kind, catalog), grouping) : []), [kind, catalog, entries, grouping]);
-  const groups = useMemo(() => (!kind && catalog && rows ? groupProfileCards(rows, catalog) : []), [kind, catalog, rows]);
+  const lines = useMemo(() => (kind && catalog ? sortLines(regrouped(resolveLines(entries, kind, catalog), grouping), sort, catalog) : []),
+                        [kind, catalog, entries, grouping, sort]);
+  const groups = useMemo(() => (!kind && catalog && rows
+    ? applySort(groupProfileCards(rows, catalog), sort, (g) => sortKeyOf(catalog, g.name, g.oracle, g.cover)) : []), [kind, catalog, rows, sort]);
   const searching = q.trim().length > 0;
   const cols = Math.max(3, Math.floor(width / 180));
   const tile = Math.floor((width - (cols - 1)) / cols);
@@ -585,7 +592,8 @@ export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList
     <LibScreen width={layout === "list" ? "column" : "wide"}>
       <Bar title={link ? name : profile ? `${profile.display_name} · ${name}` : "Cards"} subtitle={rows ? plural(sharedCardCount(rows, kind), "card") : undefined} onBack={onBack}
            right={<ViewButton layout={layout} onChange={setLayout} screen={`profile_${section}`} printings={printings} onPrintings={setPrintings}
-                              grouping={grouping} onGrouping={setGrouping} list={!!kind} />} />
+                              grouping={grouping} onGrouping={setGrouping} list={!!kind}
+                              sort={sort} onSort={setSort} sorts={kind ? "list" : "shared"} />} />
       {(error || catError) && <Notice tone="error">{error ?? catError}</Notice>}
       <Field label="Search these cards" value={q} onChange={setQ} placeholder="Name or type" />
       <div ref={boxRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">

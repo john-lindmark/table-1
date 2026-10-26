@@ -216,6 +216,7 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
     var groups by remember { mutableStateOf<List<CardGroup>>(emptyList()) }
     var keys by remember { mutableStateOf<Map<String, GroupKeys>>(emptyMap()) }
     val grouping = rememberCardGrouping(GroupingKey.BINDER, CardGrouping.None, list = false)
+    val sort = rememberCardSort(SortPref.BINDER, CardSort.Screen.Binder)
     var query by remember { mutableStateOf("") }
     var menu by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
@@ -257,7 +258,10 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
         Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp)) {
             T1TextField(query, { query = it }, placeholder = "Name or type")
         }
-        val shown = if (CardName.norm(query).isEmpty()) groups else groups.filter { CardSearch.matches(query, it.name, it.type) }
+        // Built most copies first; Sort can reorder.
+        val shown = sort.value.apply(if (CardName.norm(query).isEmpty()) groups else groups.filter { CardSearch.matches(query, it.name, it.type) }) {
+            SortKey.of(it.name, keys[it.id], it.cover)
+        }
         // Add cards and the empty notes stay at the top in every view.
         val top: @Composable () -> Unit = {
             Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -311,7 +315,7 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
             }
         }
     }
-    if (viewMenu) CardLayoutMenu(layout, "binder", printingsState, grouping) { viewMenu = false }
+    if (viewMenu) CardLayoutMenu(layout, "binder", printingsState, grouping, sort = sort, sorts = CardSort.Screen.Binder) { viewMenu = false }
     if (menu && binder != null) {
         T1Menu(binder.name, listOf(
             T1MenuItem("Rename") { editing = true },

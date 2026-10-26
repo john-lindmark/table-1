@@ -1,0 +1,27 @@
+{
+  "about": "Sort (View menu) for every card list: name, mana value, set. iOS CardSortTests, web cardSort.test.ts and Android CardSortTest read this. `land` is a land that isn't a creature (Group by's Lands). A card newer than the local card data has no set and sorts last by set. `cards` is in a shuffled order; each `order` is what the sort gives.",
+  "cards": [
+    {"name": "Lightning Bolt", "cmc": 1, "land": false, "released": "2020-08-07", "set": "2xm", "cn": "141"},
+    {"name": "Mountain", "cmc": 0, "land": true, "released": "2024-11-15", "set": "fdn", "cn": "279"},
+    {"name": "Card not in local data yet", "cmc": 0, "land": false, "released": "", "set": "", "cn": ""},
+    {"name": "Emrakul, the Aeons Torn", "cmc": 15, "land": false, "released": "2010-04-23", "set": "roe", "cn": "4"},
+    {"name": "Dryad Arbor", "cmc": 0, "land": false, "released": "2007-05-04", "set": "fut", "cn": "174"},
+    {"name": "Sol Ring", "cmc": 1, "land": false, "released": "2024-11-15", "set": "fdc", "cn": "1"},
+    {"name": "Counterspell", "cmc": 2, "land": false, "released": "2020-08-07", "set": "2xm", "cn": "51"},
+    {"name": "Forest", "cmc": 0, "land": true, "released": "2024-11-15", "set": "fdn", "cn": "280"},
+    {"name": "Ancestral Vision", "cmc": 0, "land": false, "released": "2006-10-06", "set": "tsp", "cn": "45"}
+  ],
+  "order": {
+    "name": ["Ancestral Vision", "Card not in local data yet", "Counterspell", "Dryad Arbor", "Emrakul, the Aeons Torn", "Forest", "Lightning Bolt", "Mountain", "Sol Ring"],
+    "manaValue": ["Ancestral Vision", "Card not in local data yet", "Dryad Arbor", "Lightning Bolt", "Sol Ring", "Counterspell", "Emrakul, the Aeons Torn", "Forest", "Mountain"],
+    "set": ["Sol Ring", "Mountain", "Forest", "Counterspell", "Lightning Bolt", "Emrakul, the Aeons Torn", "Dryad Arbor", "Ancestral Vision", "Card not in local data yet"]
+  },
+  "options": {
+    "deck": ["name", "manaValue", "set"],
+    "cube": ["name", "manaValue", "set"],
+    "shared": ["name", "manaValue", "set"],
+    "binder": ["count", "name", "manaValue", "set"],
+    "allCards": ["recent", "price", "name", "manaValue", "set"]
+  },
+  "defaults": {"deck": "name", "cube": "name", "shared": "name", "binder": "count", "allCards": "recent"}
+}

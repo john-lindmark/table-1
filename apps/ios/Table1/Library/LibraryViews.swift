@@ -370,15 +370,9 @@ struct AllCardsView: View {
             // No price yet reads as the most valuable: those are the cards worth checking first.
             let p = Dictionary(list.map { ($0.id, price($0) ?? .infinity) }, uniquingKeysWith: { a, _ in a })
             list.sort { p[$0.id]! != p[$1.id]! ? p[$0.id]! > p[$1.id]! : $0.norm < $1.norm }
-        case "set":
-            // Newest set first; within a set, collector number order.
-            func cn(_ g: CardGroup) -> Int { Int(g.cover?.cn.trimmingCharacters(in: .letters) ?? "") ?? Int.max }
-            list.sort { a, b in
-                let ra = a.cover?.releasedAt ?? "", rb = b.cover?.releasedAt ?? ""
-                if ra != rb { return ra > rb }
-                if a.cover?.set != b.cover?.set { return (a.cover?.set ?? "") < (b.cover?.set ?? "") }
-                return cn(a) != cn(b) ? cn(a) < cn(b) : a.norm < b.norm
-            }
+        case "name", "manaValue", "set":
+            // Newest set first, then collector number; spells by mana value, then lands; or by name.
+            list = CardSort.of(sort, .allCards).apply(list) { SortKey(name: $0.name, keys: keys[$0.id], printing: $0.cover) }
         default: list.sort { $0.lastSeq != $1.lastSeq ? $0.lastSeq > $1.lastSeq : $0.norm < $1.norm }
         }
         return list
@@ -433,13 +427,15 @@ struct AllCardsView: View {
                         Telemetry.capture("share_opened", ["part": "all_cards", "from": "all_cards"])
                         path.append(.social(.share(.allCards)))
                     }
-                    BarButton("View") { CardLayout.menu($layout, screen: "all_cards", printings: $printings, grouping: $groupingRaw, list: false) }
+                    BarButton("View") {
+                        CardLayout.menu($layout, screen: "all_cards", printings: $printings, grouping: $groupingRaw, list: false, sort: $sort, sorts: .allCards)
+                    }
                 }
             }
             if let error = col.error { Notice(error, error: true) }
             CatalogStatus(catalog: catalog)
             T1SearchField(text: $query, prompt: "Name or type")
-            T1Segmented(options: [("recent", "Recent"), ("price", "Price"), ("set", "Set")], selection: $sort)
+            T1Segmented(options: [("recent", "Recent"), ("price", "Price"), ("name", "Name"), ("manaValue", "MV"), ("set", "Set")], selection: $sort, scroll: true)
             if catalog.phase == .ready && built {
                 if groups.isEmpty && col.ready {
                     Button { path.append(.add) } label: { ListRow(title: "No cards yet", detail: "Add your first card") }.buttonStyle(.plain)

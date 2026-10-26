@@ -426,6 +426,8 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
     val layout = rememberCardLayout("shared.layout", "shared.grid")
     // Decks and cubes share Group by with your own; everything else has its own (None to start).
     val grouping = if (kind != null) rememberListGrouping(kind) else rememberCardGrouping(GroupingKey.SHARED, CardGrouping.None, list = false)
+    // Sort the same way (all start on Name).
+    val sort = if (kind != null) rememberListSort(kind) else rememberCardSort(SortPref.SHARED, CardSort.Screen.Shared)
     SearchUsed(query, "profile_cards")
     LaunchedEffect(userId, section, item) {
         Telemetry.screen("profile_cards")
@@ -463,10 +465,14 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
         if (!printings.value.all || cg.lines.size < 2) listOf(StackCard(cg.id, cg.lead.printing, cg.lead.name, cg.qty, finish = cg.lead.finish, onClick = open))
         else cg.lines.map { l -> StackCard(l.key, l.printing, l.name, l.qty, finish = l.finish, onClick = open) }
     }
-    val shownLines = if (searching) lines.filter { CardSearch.matches(query, it.name, it.type) } else lines
+    val shownLines = sort.value.apply(if (searching) lines.filter { CardSearch.matches(query, it.name, it.type) } else lines) {
+        SortKey.of(it.name, it.keys, it.printing)
+    }
     val boards = CardList.BOARD_ORDER.filter { b -> shownLines.any { it.board == b } }
     /* binders, all cards, for trade, wants */
-    val shownGroups = if (searching) groups.filter { CardSearch.matches(query, it.name, it.type) } else groups
+    val shownGroups = sort.value.apply(if (searching) groups.filter { CardSearch.matches(query, it.name, it.type) } else groups) {
+        SortKey.of(it.name, keys[it.id], it.cover)
+    }
     val sections = groupSections(shownGroups, g) { keys[it.id] }
     fun groupTiles(cards: List<CardGroup>) = groupTiles(cards, printings.value.all, { false }) { if (it.known) onCard(it.id) }
 
@@ -585,7 +591,8 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
             }
         }
     }
-    if (viewMenu) CardLayoutMenu(layout, "profile_$section", printings, grouping, list = kind != null) { viewMenu = false }
+    if (viewMenu) CardLayoutMenu(layout, "profile_$section", printings, grouping, list = kind != null, sort = sort,
+                                sorts = if (kind != null) CardSort.Screen.List else CardSort.Screen.Shared) { viewMenu = false }
     if (exporting && kind != null) ListExportScreen(name, kind, entries, "profile") { exporting = false }
     if (imaging && kind == ListKind.Deck) DeckImageScreen(name, listFormat ?: "", entries, owner = owner, from = "profile") { imaging = false }
 }

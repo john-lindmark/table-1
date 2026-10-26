@@ -790,8 +790,15 @@ struct ListDetailView: View {
     @AppStorage("library.list.layout") private var layout = CardLayout.list.rawValue
     @AppStorage("library.deck.grouping") private var deckGrouping = CardGrouping.type.rawValue
     @AppStorage("library.cube.grouping") private var cubeGrouping = CardGrouping.color.rawValue
+    @AppStorage("library.deck.sort") private var deckSort = CardSort.name.rawValue
+    @AppStorage("library.cube.sort") private var cubeSort = CardSort.name.rawValue
     @State private var printings = PrintingsDisclosure()
     private var heroScope: HeroScope { .list(listId) }
+
+    /// Sort, kept apart for decks and cubes (both start on Name).
+    private var sort: CardSort {
+        CardSort.of(ListsStore.shared.list(id: listId)?.kind == .cube ? cubeSort : deckSort, .list)
+    }
 
     /// Group by, kept apart for decks (Type) and cubes (Color).
     private var grouping: CardGrouping {
@@ -813,7 +820,8 @@ struct ListDetailView: View {
                     if !editing {
                         BarButton("View") {
                             CardLayout.menu($layout, screen: list?.kind == .cube ? "cube" : "deck", printings: $printings,
-                                            grouping: list?.kind == .cube ? $cubeGrouping : $deckGrouping, list: true)
+                                            grouping: list?.kind == .cube ? $cubeGrouping : $deckGrouping, list: true,
+                                            sort: list?.kind == .cube ? $cubeSort : $deckSort, sorts: .list)
                         }
                     }
                 }
@@ -898,13 +906,13 @@ struct ListDetailView: View {
 
     /// The list's current lines: live quantities and sections, with card details from `meta`.
     private func lines(for list: CardList) -> [ListLine] {
-        list.entries.compactMap { e in
+        let lines = list.entries.compactMap { e -> ListLine? in
             guard let m = meta[e.cardId] else { return nil }
             return ListLine(id: "\(e.board)|\(e.cardId)|\(e.finish)", cardId: e.cardId, printing: m.printing, oracleId: m.oracleId,
                             name: m.name, group: m.keys[grouping], board: e.board, qty: e.qty, keys: m.keys, legal: m.legal, finish: e.finish,
                             points: m.points, basic: m.basic, type: m.type)
         }
-        .sorted { $0.name < $1.name }
+        return sort.apply(lines) { SortKey(name: $0.name, keys: $0.keys, printing: $0.printing) }
     }
 
     /// Summary, Add cards and Version history: the same in every layout.

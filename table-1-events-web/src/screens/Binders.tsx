@@ -6,6 +6,7 @@ import { DEMO_USER, applyOps, undoBatch, useCollection, type Finish, type Item }
 import { cardMatches, moveInSource, printingMatches, repointWant, type Place } from "../lib/librarySearch";
 import { capture } from "../lib/telemetry";
 import { GROUPING_KEY, groupLabel, groupSections, keysOf, useStoredGrouping } from "../lib/cardGrouping";
+import { SORT_KEY, applySort, sortKeyOf, useStoredSort } from "../lib/cardSort";
 import { loadDemoLists } from "../lib/libraryDemo";
 import { useLists } from "../lib/lists";
 import { usdPrice, usdText, usePrices } from "../lib/prices";
@@ -211,6 +212,7 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
   const [printings, setPrintings] = useState<Disclosure>(COLLAPSED);
   const [layout, setLayout] = useStoredLayout("table1.library.binder.layout", "table1.library.binder.grid");
   const [grouping, setGrouping] = useStoredGrouping(GROUPING_KEY.binder, "none", false);
+  const [sort, setSort] = useStoredSort(SORT_KEY.binder, "binder");
   const [boxRef, boxWidth] = useBoxWidth();
   const heroes = useLibraryHeroes();
   useSearchUsed(q, "binder");
@@ -219,9 +221,13 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
   const items = useMemo(() => itemsIn(unsorted ? null : id, col.items), [id, col.version, b.version]);
   usePrices(useMemo(() => items.map((it) => it.cardId), [items]));
   const groups = useMemo(() => (catalog ? group(items, catalog) : []), [catalog, items]);
-  const shown = normName(q) ? groups.filter((g) => cardMatches(q, g.name, g.type)) : groups;
+  // Built most copies first; Sort can reorder.
+  const shown = useMemo(() => {
+    const found = normName(q) ? groups.filter((g) => cardMatches(q, g.name, g.type)) : groups;
+    return catalog ? applySort(found, sort, (g) => sortKeyOf(catalog, g.name, g.oracle, g.cover)) : found;
+  }, [groups, q, sort, catalog]);
   const copies = items.reduce((s, it) => s + it.qty, 0);
-  /** Group by: most copies first inside each group. */
+  /** Group by: the sort kept inside each group. */
   const sections = catalog ? groupSections(shown, grouping, (g) => keysOf(catalog, g.oracle)) : [];
   const sectionTitle = (sec: { key: string; items: CardGroup[] }) => `${groupLabel(grouping, sec.key)} · ${sec.items.reduce((n, g) => n + g.qty, 0)}`;
   /** Grid and stacks: one card per Oracle card, or with every printing expanded, one per printing and finish. */
@@ -246,7 +252,7 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
            subtitle={[`${copies.toLocaleString()} cards`, binder?.for_trade ? "For trade" : null, usdText(value(items))].filter(Boolean).join(" · ")}
            right={<span className="flex gap-4">
              <ViewButton layout={layout} onChange={setLayout} screen="binder" printings={printings} onPrintings={setPrintings}
-                         grouping={grouping} onGrouping={setGrouping} />
+                         grouping={grouping} onGrouping={setGrouping} sort={sort} onSort={setSort} sorts="binder" />
              {binder && <button type="button" onClick={() => setMenu(true)} className="t1-label hover:text-t1-text px-2 py-1 -my-1">Edit</button>}
            </span>} />
       {!unsorted && !binder && <Notice tone="info">This binder was deleted.</Notice>}
