@@ -7,6 +7,7 @@
 // skipped and counted. Messages older than 30 minutes are dropped rather than sent late.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { apnsConfigured, sendAll, type Alert } from "./apns.ts";
+import { followCopy, tradeWantsCopy } from "./follow.ts";
 
 const url = Deno.env.get("SUPABASE_URL")!;
 const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
@@ -71,6 +72,12 @@ function copy(m: Message, eventName: string, mine?: { table: number | null; oppo
     // contract/cube-rankings-2026-10-21.md: someone else started a ranking of your cube; the app opens it.
     case "ranking.started":
       return { title: d.cube_name ? String(d.cube_name) : "Your cube", body: `${d.from_name ?? "Someone"} is ranking your cube. Tap to watch.`, priority: 5 };
+    // contract/follows-2026-10-25.md: a round of changes to a binder, deck or cube you follow; the app opens its Changes.
+    case "follow.updated":
+      return { ...followCopy(d), priority: 5 };
+    // contract/follows-2026-10-25.md § Trade wants: a friend put cards you want up for trade; the app opens your match.
+    case "trade.wants":
+      return { ...tradeWantsCopy(d), priority: 5 };
     // contract/moderation-2026-10-18.md: what changed, never why in the alert (the Notices screen says why).
     case "moderation.notice": {
       if (d.restricted_days) return { title: "Table 1", body: `You can't send friend requests for ${d.restricted_days} days. Tap for details.`, priority: 5 };
@@ -171,11 +178,14 @@ async function run() {
       if (!c) continue;
       alerts.push({
         token: d.push_token, env: d.env === "development" ? "development" : "production", priority: c.priority ?? 10,
-        collapseId: `${m.kind}:${m.event_id ?? m.data?.ranking_id ?? m.data?.user_id ?? m.data?.bug_id ?? ""}`.slice(0, 64),
+        collapseId: `${m.kind}:${m.event_id ?? m.data?.ranking_id ?? m.data?.item_id ?? m.data?.user_id ?? m.data?.bug_id ?? ""}`.slice(0, 64),
         payload: {
           aps: { alert: { title: c.title, body: c.body }, sound: "default",
-                 "thread-id": m.event_id ?? (m.kind.startsWith("ops.") ? "ops" : m.kind.startsWith("ranking.") ? "rankings" : "friends") },
+                 "thread-id": m.event_id ?? (m.kind.startsWith("ops.") ? "ops" : m.kind.startsWith("ranking.") ? "rankings"
+                                        : m.kind.startsWith("follow.") ? "following" : m.kind.startsWith("trade.") ? "trades" : "friends") },
           kind: m.kind, event_id: m.event_id, match_id: m.data?.match_id ?? null, ranking_id: m.data?.ranking_id ?? null, bug_id: m.data?.bug_id ?? null,
+          ...(m.kind === "follow.updated" ? { follow_kind: m.data?.kind ?? null, item_id: m.data?.item_id ?? null } : {}),
+          ...(m.kind === "trade.wants" ? { user_id: m.data?.user_id ?? null } : {}),
         },
       });
     }

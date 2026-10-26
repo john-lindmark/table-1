@@ -394,6 +394,7 @@ struct SignedInView: View {
             BindersStore.shared.stop()
             HeroesStore.shared.stop()
             FriendsStore.shared.stop()
+            FollowsStore.shared.stop()
             ModerationStore.shared.stop()
             BugsStore.shared.stop()
         }

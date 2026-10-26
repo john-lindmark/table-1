@@ -1,0 +1,343 @@
+{
+ "now": "2026-10-25T18:00:00Z",
+ "ago": [
+  {
+   "seconds": 0,
+   "text": "just now"
+  },
+  {
+   "seconds": 59,
+   "text": "just now"
+  },
+  {
+   "seconds": 60,
+   "text": "1 min ago"
+  },
+  {
+   "seconds": 3599,
+   "text": "59 min ago"
+  },
+  {
+   "seconds": 3600,
+   "text": "1 h ago"
+  },
+  {
+   "seconds": 86399,
+   "text": "23 h ago"
+  },
+  {
+   "seconds": 86400,
+   "text": "1 d ago"
+  },
+  {
+   "seconds": 2505600,
+   "text": "29 d ago"
+  },
+  {
+   "seconds": 2592000,
+   "text": "1 mo ago"
+  },
+  {
+   "seconds": 34560000,
+   "text": "13 mo ago"
+  },
+  {
+   "seconds": -5,
+   "text": "just now"
+  }
+ ],
+ "change": [
+  {
+   "added": 0,
+   "removed": 0,
+   "text": ""
+  },
+  {
+   "added": 3,
+   "removed": 0,
+   "text": "+3"
+  },
+  {
+   "added": 0,
+   "removed": 2,
+   "text": "−2"
+  },
+  {
+   "added": 12,
+   "removed": 8,
+   "text": "+12 −8"
+  }
+ ],
+ "detail": [
+  {
+   "follow": {
+    "kind": "deck",
+    "id": "d1",
+    "available": true,
+    "push": true,
+    "followed_at": "2026-10-01T00:00:00Z",
+    "unseen": 0
+   },
+   "text": "No changes yet"
+  },
+  {
+   "follow": {
+    "kind": "deck",
+    "id": "d1",
+    "available": true,
+    "push": false,
+    "followed_at": "2026-10-01T00:00:00Z",
+    "unseen": 0
+   },
+   "text": "No changes yet · pushes off"
+  },
+  {
+   "follow": {
+    "kind": "deck",
+    "id": "d1",
+    "available": true,
+    "push": true,
+    "followed_at": "2026-10-01T00:00:00Z",
+    "unseen": 0,
+    "last_update": {
+     "at": "2026-10-25T16:00:00Z",
+     "added": 12,
+     "removed": 8
+    }
+   },
+   "text": "+12 −8 · 2 h ago"
+  },
+  {
+   "follow": {
+    "kind": "deck",
+    "id": "d1",
+    "available": true,
+    "push": true,
+    "followed_at": "2026-10-01T00:00:00Z",
+    "unseen": 0,
+    "last_update": {
+     "at": "2026-10-25T17:59:30Z",
+     "added": 3,
+     "removed": 0
+    }
+   },
+   "text": "+3 · just now"
+  },
+  {
+   "follow": {
+    "kind": "deck",
+    "id": "d1",
+    "available": true,
+    "push": false,
+    "followed_at": "2026-10-01T00:00:00Z",
+    "unseen": 0,
+    "last_update": {
+     "at": "2026-10-20T18:00:00Z",
+     "added": 0,
+     "removed": 2
+    }
+   },
+   "text": "−2 · 5 d ago · pushes off"
+  },
+  {
+   "follow": {
+    "kind": "deck",
+    "id": "d1",
+    "available": false,
+    "push": true,
+    "followed_at": "2026-10-01T00:00:00Z",
+    "unseen": 0
+   },
+   "text": "This isn't available"
+  }
+ ],
+ "home": [
+  {
+   "items": [],
+   "text": "0 followed"
+  },
+  {
+   "items": [
+    {
+     "kind": "deck",
+     "id": "d1",
+     "available": true,
+     "push": true,
+     "followed_at": "2026-10-01T00:00:00Z",
+     "unseen": 0
+    }
+   ],
+   "text": "1 followed"
+  },
+  {
+   "items": [
+    {
+     "kind": "deck",
+     "id": "d1",
+     "available": true,
+     "push": true,
+     "followed_at": "2026-10-01T00:00:00Z",
+     "unseen": 2
+    },
+    {
+     "kind": "deck",
+     "id": "d1",
+     "available": true,
+     "push": true,
+     "followed_at": "2026-10-01T00:00:00Z",
+     "unseen": 0
+    },
+    {
+     "kind": "deck",
+     "id": "d1",
+     "available": false,
+     "push": true,
+     "followed_at": "2026-10-01T00:00:00Z",
+     "unseen": 0
+    }
+   ],
+   "text": "3 followed · 1 updated"
+  },
+  {
+   "items": [
+    {
+     "kind": "deck",
+     "id": "d1",
+     "available": true,
+     "push": true,
+     "followed_at": "2026-10-01T00:00:00Z",
+     "unseen": 1
+    },
+    {
+     "kind": "deck",
+     "id": "d1",
+     "available": true,
+     "push": true,
+     "followed_at": "2026-10-01T00:00:00Z",
+     "unseen": 3
+    }
+   ],
+   "text": "2 followed · 2 updated"
+  }
+ ],
+ "sections": [
+  {
+   "cards": [],
+   "added": [],
+   "removed": []
+  },
+  {
+   "cards": [
+    [
+     "c1000000-0000-0000-0000-000000000001",
+     "main",
+     2
+    ],
+    [
+     "c1000000-0000-0000-0000-000000000002",
+     "side",
+     1
+    ],
+    [
+     "c1000000-0000-0000-0000-000000000003",
+     "main",
+     -1
+    ]
+   ],
+   "added": [
+    {
+     "card_id": "c1000000-0000-0000-0000-000000000001",
+     "board": "main",
+     "qty": 2
+    },
+    {
+     "card_id": "c1000000-0000-0000-0000-000000000002",
+     "board": "side",
+     "qty": 1
+    }
+   ],
+   "removed": [
+    {
+     "card_id": "c1000000-0000-0000-0000-000000000003",
+     "board": "main",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "cards": [
+    [
+     "c1000000-0000-0000-0000-000000000003",
+     null,
+     -3
+    ],
+    [
+     "c1000000-0000-0000-0000-000000000001",
+     null,
+     1
+    ],
+    [
+     "c1000000-0000-0000-0000-000000000002",
+     null,
+     -3
+    ]
+   ],
+   "added": [
+    {
+     "card_id": "c1000000-0000-0000-0000-000000000001",
+     "board": null,
+     "qty": 1
+    }
+   ],
+   "removed": [
+    {
+     "card_id": "c1000000-0000-0000-0000-000000000002",
+     "board": null,
+     "qty": 3
+    },
+    {
+     "card_id": "c1000000-0000-0000-0000-000000000003",
+     "board": null,
+     "qty": 3
+    }
+   ]
+  },
+  {
+   "cards": [
+    [
+     "c1000000-0000-0000-0000-000000000002",
+     "main",
+     1
+    ],
+    [
+     "c1000000-0000-0000-0000-000000000001",
+     "main",
+     1
+    ],
+    [
+     "c1000000-0000-0000-0000-000000000001",
+     "side",
+     1
+    ]
+   ],
+   "added": [
+    {
+     "card_id": "c1000000-0000-0000-0000-000000000001",
+     "board": "main",
+     "qty": 1
+    },
+    {
+     "card_id": "c1000000-0000-0000-0000-000000000001",
+     "board": "side",
+     "qty": 1
+    },
+    {
+     "card_id": "c1000000-0000-0000-0000-000000000002",
+     "board": "main",
+     "qty": 1
+    }
+   ],
+   "removed": []
+  }
+ ]
+}

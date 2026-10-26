@@ -326,6 +326,7 @@ enum FriendsDemo {
         if FriendsStore.shared.demo == nil { FriendsStore.shared.demo = FriendsDemoBackend() }
         if ModerationStore.shared.demo == nil { ModerationStore.shared.demo = ModerationDemo() }
         if BugsStore.shared.demo == nil { BugsStore.shared.demo = BugsDemo() }
+        if FollowsStore.shared.demo == nil { FollowsStore.shared.demo = FollowsDemo() }
     }
 
     @MainActor
@@ -338,9 +339,12 @@ enum FriendsDemo {
         await FriendsStore.shared.loadMatches()
         await FriendsStore.shared.load()
         await FriendsStore.shared.loadSharing()
+        // Following's demo updates are made from the demo deck, which is in by now.
+        FollowsStore.shared.demo = FollowsDemo()
+        await FollowsStore.shared.load()
     }
 
-    /// `-T1LibraryDemo friends|profile|profiledeck|sharing|share|shareall|shareon|sharedlink|badlink|matches|match|me|myprofile|notices|review|bugs|bug`.
+    /// `-T1LibraryDemo friends|profile|profiledeck|sharing|share|shareall|shareon|sharedlink|badlink|matches|match|me|myprofile|notices|review|bugs|bug|following|followchanges|followdeck`.
     @MainActor
     static func route(_ arg: String) -> [LibraryRoute]? {
         if arg == "shareon" {
@@ -370,6 +374,11 @@ enum FriendsDemo {
         case "review": [.social(.review)]
         case "bugs": [.social(.bugs)]
         case "bug": PushRoutes.path(.bug(10))
+        case "following": [.social(.following)]
+        case "followchanges": [.social(.following), .social(.followChanges("deck", FollowsDemo.deck))]
+        case "followdeck": [.social(.profile(FriendsDemoBackend.mara)),
+                            .social(.profileCards(FriendsDemoBackend.mara, "deck", FollowsDemo.deck, "Mono-red prowess",
+                                                  SharedList(format: "modern", owner: "Mara Quinn")))]
         default: nil
         }
     }

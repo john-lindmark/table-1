@@ -108,7 +108,8 @@ private fun ColumnScope.Filler() = Box(Modifier.weight(1f))
 
 @Composable
 fun LibraryHomeScreen(foregrounds: Int, onAllCards: () -> Unit, onAdd: () -> Unit, onImportExport: () -> Unit, onDecks: () -> Unit,
-                      onCubes: () -> Unit, onTrades: () -> Unit, onBinders: () -> Unit, onWants: () -> Unit, onMatches: () -> Unit) {
+                      onCubes: () -> Unit, onTrades: () -> Unit, onBinders: () -> Unit, onWants: () -> Unit, onMatches: () -> Unit,
+                      onFollowing: () -> Unit = {}) {
     val lists by ListsStore.state.collectAsState()
     val col by CollectionStore.state.collectAsState()
     val binders by BindersStore.state.collectAsState()
@@ -179,6 +180,7 @@ fun LibraryHomeScreen(foregrounds: Int, onAllCards: () -> Unit, onAdd: () -> Uni
                 }
             }
             item { TradeMatchesRow(onMatches) }
+            item { FollowingRow(onFollowing) }
             item {
                 val open = trades.trades.count { !it.confirmed }
                 ListRow("Trades", if (open > 0) "$open open" else "Give and get, then confirm", onClick = onTrades) {

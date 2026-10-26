@@ -18,6 +18,8 @@ enum SocialRoute: Hashable {
     case review
     case bugs
     case bug(Int)
+    case following
+    case followChanges(String, String) // binder / deck / cube, its id
 
     /// contract/telemetry-2026-10-15.md; never carries ids.
     var screenName: String {
@@ -34,6 +36,8 @@ enum SocialRoute: Hashable {
         case .review: "moderation_review"
         case .bugs: "bugs"
         case .bug: "bug"
+        case .following: "following"
+        case .followChanges: "follow_changes"
         }
     }
 }
@@ -58,6 +62,8 @@ struct SocialDestination: View {
         case .review: ReviewView()
         case .bugs: BugsView(path: $path)
         case .bug(let id): BugView(id: id)
+        case .following: FollowingView(path: $path)
+        case .followChanges(let kind, let id): FollowChangesView(kind: kind, id: id, path: $path)
         }
     }
 }
@@ -550,6 +556,8 @@ struct ProfileCardsView: View {
     var token: String?
     /// "Shared by Ana Lind" on a link.
     var byline: String?
+    /// A link you made: no Follow row.
+    var mine = false
     @Binding var path: [LibraryRoute]
     @Environment(\.dismiss) private var dismiss
     private var catalog: CatalogStore { CatalogStore.shared }
@@ -573,6 +581,12 @@ struct ProfileCardsView: View {
     @AppStorage("library.shared.sort") private var cardsSort = CardSort.name.rawValue
 
     private var kind: CardList.Kind? { SharedList.kind(section.kind) }
+
+    /// Someone else's binder, deck or cube (contract/follows-2026-10-25.md).
+    private var followable: Bool {
+        guard ["binder", "deck", "cube"].contains(section.kind), !mine, Repo.userId != nil || FollowsStore.shared.isDemo else { return false }
+        return token != nil || (userId != Repo.userId && !FollowsStore.shared.isMe(userId))
+    }
 
     private var sortBinding: Binding<String> {
         switch kind { case .deck: $deckSort; case .cube: $cubeSort; case nil: $cardsSort }
@@ -604,6 +618,9 @@ struct ProfileCardsView: View {
                         if let error { Notice(error, error: true) }
                         if let byline, query.isEmpty { Notice(byline) }
                         if rows?.isEmpty == true { Notice("Nothing here.") }
+                        if followable, query.isEmpty, let id = section.id {
+                            FollowRows(kind: section.kind, id: id, title: title, owner: list?.owner, token: token, path: $path)
+                        }
                         if let list, let kind, let rows, !rows.isEmpty, query.isEmpty { listActions(list, kind, rows) }
                         if let kind { listBody(kind, width: geo.size.width) } else { cardsBody(width: geo.size.width) }
                     }
@@ -1488,7 +1505,7 @@ struct SharedLinkView: View {
         if let data {
             ProfileCardsView(userId: "", section: ProfileSection(kind: data.part, id: data.id), title: data.title,
                              list: data.format.map { SharedList(format: $0, owner: data.mine ? nil : data.owner.displayName) },
-                             token: token, byline: data.byline,
+                             token: token, byline: data.byline, mine: data.mine,
                              path: $path)
         } else {
             T1Screen {

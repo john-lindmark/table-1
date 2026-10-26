@@ -193,7 +193,15 @@ enum BugWords {
 /// Where a tapped push with no event goes.
 enum PushRoutes {
     /// The Collection stack a tapped push opens: someone started ranking your cube (contract/cube-rankings-2026-10-21.md).
+    /// Or a round of changes to something you follow (contract/follows-2026-10-25.md): its Changes.
     static func library(_ info: [AnyHashable: Any]) -> [LibraryRoute]? {
+        // A friend put cards you want up for trade: your match with them.
+        if info["kind"] as? String == "trade.wants", let user = info["user_id"] as? String, !user.isEmpty {
+            return [.social(.matches), .social(.match(user))]
+        }
+        if info["kind"] as? String == "follow.updated", let kind = info["follow_kind"] as? String, let id = info["item_id"] as? String, !id.isEmpty {
+            return [.social(.following), .social(.followChanges(kind, id))]
+        }
         guard info["kind"] as? String == "ranking.started", let id = info["ranking_id"] as? String, !id.isEmpty else { return nil }
         return [.ranking(id)]
     }

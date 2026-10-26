@@ -183,6 +183,7 @@ struct LibraryHomeView: View {
                 listsRow(.deck, "Decks")
                 listsRow(.cube, "Cubes")
                 TradeMatchesRow(path: $path)
+                FollowingRow(path: $path)
                 Button { path.append(.trades) } label: {
                     let open = TradesStore.shared.trades.filter { !$0.confirmed }.count
                     ListRow(title: "Trades", detail: open > 0 ? "\(open) open" : "Give and get, then confirm") {
@@ -191,7 +192,7 @@ struct LibraryHomeView: View {
                 }.buttonStyle(.plain)
             }
         }
-        .refreshable { await col.sync() }
+        .refreshable { await col.sync(); await FollowsStore.shared.load() }
         .task { await TradesStore.shared.load() }
         .task(id: "\(HeroesStore.shared.heroes(.collection))-\(CatalogStore.shared.generation)-\(col.version)") {
             guard let db = CatalogStore.shared.db else { heroArt = []; return }

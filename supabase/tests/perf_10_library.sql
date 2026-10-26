@@ -180,4 +180,30 @@ select pg_temp.ms('cube_ranking_push, redo of the first of 6000 (p_drop)', $$sel
   (public.cube_rankings('e7000000-0000-0000-0000-0000000000f1')->'rankings'->0->>'rev')::int, 6000, '[]', p_count := 6000, p_removed := 1,
   p_drop := jsonb_build_array(public.cube_ranking_get('f7000000-0000-0000-0000-0000000000f1')->'log'->0))$$, 400, 1);
 select pg_temp.ms('cube_rankings of a cube', $$select public.cube_rankings('e7000000-0000-0000-0000-0000000000f1')$$, 25);
+-- Follows (contract/follows-2026-10-25.md): the big account follows its 200 friends' trade binders (500 printings
+-- each, the big trader's 5,000), then all 200 change at once and one digest run sends them.
+reset role;
+update public.share_settings set binders = 'friends' where user_id in (select md5('friend' || i)::uuid from generate_series(1, 200) i);
+set role authenticated;
+select pg_temp.as_user(:BIG);
+select count(public.follow_set('binder', md5('fbinder' || i)::uuid, true)) from generate_series(1, 100) i;
+reset role;
+delete from public.account_audit where action = 'follow.set';   -- 100 follows an hour
+set role authenticated;
+select count(public.follow_set('binder', md5('fbinder' || i)::uuid, true)) from generate_series(101, 200) i;
+select pg_temp.ms('follow_set, pushes off', $$select public.follow_set('binder', md5('fbinder1')::uuid, true, false)$$, 25);
+reset role;
+update public.binder_items set qty = qty + 1
+ where binder_id in (select md5('fbinder' || i)::uuid from generate_series(1, 200) i) and card_id in (select md5('c' || g || '-0')::uuid from generate_series(1, 35000, 7) g);
+update t1_private.follow_items set dirty_last = dirty_last - interval '31 minutes' where dirty_last is not null;
+select pg_temp.ms('follow_digest, one run of 200 changed binders', $$select t1_private.follow_digest()$$, 1500, 1);
+select pg_temp.eq('every binder got its update', (select count(*)::text from t1_private.follow_updates), '200');
+-- The same writes went into for-trade binders: 200 friends' new copies against the big account's 500 wants.
+update t1_private.trade_adds set last_at = last_at - interval '31 minutes';
+select pg_temp.ms('trade_want_digest, 200 friends'' new trade copies', $$select t1_private.trade_want_digest()$$, 2500, 1);
+select pg_temp.eq('the big account hears about its friends'' new copies', ((select count(*) from pgmq.messages where msg->>'kind' = 'trade.wants') > 20)::text, 'true');
+set role authenticated;
+select pg_temp.as_user(:BIG);
+select pg_temp.ms('follows_list, 200 follows', $$select public.follows_list()$$, 350);
+select pg_temp.ms('follow_changes of the big binder', $$select public.follow_changes('binder', md5('fbinder1')::uuid)$$, 25);
 reset role;

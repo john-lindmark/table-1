@@ -20,6 +20,7 @@ import { useTrades } from "../lib/trades";
 import { binderTotals, liveWants, missingLines, useBinders } from "../lib/binders";
 import { entriesOf, useLists } from "../lib/lists";
 import { TradeMatchesRow } from "./Friends";
+import { FollowingRow } from "./Follows";
 import type { SectionKind } from "../lib/friends";
 import { COLLAPSED, addPart, isOpen, priceRank, setAll, sortParts, toggleOne, type Disclosure, type Part } from "../lib/printings";
 import { COLLECTION_SCOPE, heroPrintings, heroesOf, isHero, startDemoHeroes, useHeroes } from "../lib/heroes";
@@ -514,9 +515,9 @@ export function useLibraryHeroes(): Record<string, string[]> {
 
 /* ── home ─────────────────────────────────────────────────────────────── */
 
-export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes, onTrades, onImport, onBinders, onWants, onMatches }: {
+export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes, onTrades, onImport, onBinders, onWants, onMatches, onFollowing }: {
   onAllCards: () => void; onAdd: () => void; onDecks: () => void; onCubes: () => void; onTrades: () => void; onImport: () => void;
-  onBinders: () => void; onWants: () => void; onMatches: () => void;
+  onBinders: () => void; onWants: () => void; onMatches: () => void; onFollowing: () => void;
 }) {
   const { session, ready, userId } = useLibrarySession();
   const col = useCollection(userId);
@@ -572,6 +573,7 @@ export function LibraryHome({ onAllCards, onAdd, onDecks, onCubes, onTrades, onI
         <Row title="Cubes" detail={cubes.length ? cubes.map((l) => l.name).join(" · ") : "Build and track cubes"}
              value={cubes.length} onClick={onCubes} />
         <TradeMatchesRow onClick={onMatches} />
+        <FollowingRow onClick={onFollowing} />
         <Row title="Trades" detail={openTrades ? `${openTrades} open` : "Give and get, then confirm"}
              value={trades.loaded ? trades.trades.length : undefined} onClick={onTrades} />
       </div>

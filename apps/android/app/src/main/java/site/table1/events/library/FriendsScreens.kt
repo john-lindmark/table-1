@@ -405,7 +405,9 @@ private fun boardTitle(board: String, kind: ListKind) = when (board) {
 fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: () -> Unit, onCard: (String) -> Unit, onList: (String) -> Unit,
                        onRankings: ((String) -> Unit)? = null,
                        /** A share link's token and what it shows (contract/share-links-2026-10-23.md): the cards come through it. */
-                       link: Pair<String, SharedLinkData>? = null) {
+                       link: Pair<String, SharedLinkData>? = null,
+                       /** Someone else's binder, deck or cube: its Changes (contract/follows-2026-10-25.md). */
+                       onFollowChanges: ((String, String) -> Unit)? = null) {
     val cat by CatalogStore.state.collectAsState()
     val scope = rememberCoroutineScope()
     val kind = SharedList.kind(section)
@@ -481,6 +483,11 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             if (link != null && !searching) ListRow(link.second.byline, avatar = { Avatar(link.second.owner.displayName, null) })
             if (rows?.isEmpty() == true && error == null) Notice("Nothing here.")
+            val followable = section in setOf("binder", "deck", "cube") && item != null && onFollowChanges != null &&
+                (if (link != null) !link.second.mine else profile != null && profile?.relation != "self")
+            if (followable && !searching && item != null && onFollowChanges != null) {
+                FollowRows(section, item, name, owner, link?.first) { onFollowChanges(section, item) }
+            }
             if (kind != null && !rows.isNullOrEmpty() && !searching && CatalogStore.db != null) {
                 ListRow("Export", if (kind == ListKind.Deck) "Text, Arena, MTGO, download or copy" else "Text, Cube Cobra, download or copy",
                     onClick = { exporting = true })

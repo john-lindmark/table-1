@@ -9680,6 +9680,368 @@
           }
         }
       }
+    },
+    "follow_set": {
+      "note": "Follow or unfollow a binder, deck or cube someone else shares with you; p_push null keeps it; p_token = the share link you're looking through. Not visible: 42501; your own or bad kind: 22023; 100 an hour / 500 follows: 53400. contract/follows-2026-10-25.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_kind": {
+            "type": "string",
+            "enum": [
+              "binder",
+              "deck",
+              "cube"
+            ]
+          },
+          "p_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_follow": {
+            "type": "boolean"
+          },
+          "p_push": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "p_token": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "p_kind",
+          "p_id",
+          "p_follow"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "following": {
+            "type": "boolean"
+          },
+          "push": {
+            "type": "boolean"
+          },
+          "unseen": {
+            "type": "integer"
+          },
+          "last_update": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "added": {
+                "type": "integer"
+              },
+              "removed": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "at",
+              "added",
+              "removed"
+            ]
+          }
+        },
+        "required": [
+          "following",
+          "push",
+          "unseen",
+          "last_update"
+        ]
+      }
+    },
+    "follow_get": {
+      "note": "Whether you follow it and its latest update since you followed. Never says whether something exists. contract/follows-2026-10-25.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_kind": {
+            "type": "string",
+            "enum": [
+              "binder",
+              "deck",
+              "cube"
+            ]
+          },
+          "p_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_kind",
+          "p_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "following": {
+            "type": "boolean"
+          },
+          "push": {
+            "type": "boolean"
+          },
+          "unseen": {
+            "type": "integer"
+          },
+          "last_update": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "added": {
+                "type": "integer"
+              },
+              "removed": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "at",
+              "added",
+              "removed"
+            ]
+          }
+        },
+        "required": [
+          "following",
+          "push",
+          "unseen",
+          "last_update"
+        ]
+      }
+    },
+    "follows_list": {
+      "note": "Everything you follow, unseen and newest updates first. available false: nothing about it but kind/id/push. user_id only when it reaches you on the owner's profile, token only when through the link you followed with. contract/follows-2026-10-25.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {}
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "binder",
+                    "deck",
+                    "cube"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "available": {
+                  "type": "boolean"
+                },
+                "push": {
+                  "type": "boolean"
+                },
+                "followed_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "unseen": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "format": {
+                  "type": "string"
+                },
+                "for_trade": {
+                  "type": "boolean"
+                },
+                "cards": {
+                  "type": "integer"
+                },
+                "owner": {
+                  "type": "object",
+                  "properties": {
+                    "display_name": {
+                      "type": "string"
+                    },
+                    "avatar_url": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "display_name"
+                  ]
+                },
+                "user_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "token": {
+                  "type": "string"
+                },
+                "last_update": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "added": {
+                      "type": "integer"
+                    },
+                    "removed": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "at",
+                    "added",
+                    "removed"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "id",
+                "available",
+                "push",
+                "followed_at",
+                "unseen"
+              ]
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      }
+    },
+    "follow_changes": {
+      "note": "Updates since you followed, newest first; marks them seen. cards: [card_id, board (main/side/commander; main for cubes; null for binders), delta]. Not following or not visible: 42501. contract/follows-2026-10-25.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_kind": {
+            "type": "string",
+            "enum": [
+              "binder",
+              "deck",
+              "cube"
+            ]
+          },
+          "p_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "p_kind",
+          "p_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "binder",
+              "deck",
+              "cube"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "updates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "added": {
+                  "type": "integer"
+                },
+                "removed": {
+                  "type": "integer"
+                },
+                "cards": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "at",
+                "added",
+                "removed",
+                "cards"
+              ]
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "name",
+          "updates"
+        ]
+      }
     }
   },
   "functions": {

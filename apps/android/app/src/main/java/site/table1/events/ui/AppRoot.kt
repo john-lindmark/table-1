@@ -38,6 +38,9 @@ import site.table1.events.openInBrowser
 import site.table1.events.data.Repo
 import site.table1.events.library.RankingsScreen
 import site.table1.events.library.SharedLinkScreen
+import site.table1.events.library.FollowsStore
+import site.table1.events.library.FollowingScreen
+import site.table1.events.library.FollowChangesScreen
 import site.table1.events.library.RankingScreen
 import site.table1.events.library.RankingPickScreen
 import site.table1.events.library.RankingListsScreen
@@ -224,7 +227,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
         }
         CatalogStore.load(userInitiated = false)
     }
-    DisposableEffect(Unit) { onDispose { CollectionStore.stop(); ListsStore.stop(); TradesStore.stop(); BindersStore.stop(); HeroesStore.stop(); FriendsStore.stop() } }
+    DisposableEffect(Unit) { onDispose { CollectionStore.stop(); ListsStore.stop(); TradesStore.stop(); BindersStore.stop(); HeroesStore.stop(); FriendsStore.stop(); FollowsStore.stop() } }
     LaunchedEffect(foregrounds) {
         CatalogStore.load(userInitiated = route?.startsWith("collection") == true)
         if (foregrounds > 0) HeroesStore.refresh()
@@ -287,12 +290,22 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                     ProfileCardsScreen(e.arguments?.getString("id") ?: "", e.arguments?.getString("section") ?: "",
                         e.arguments?.getString("item")?.takeIf { it != "-" }, onBack = { nav.popBackStack() },
                         onCard = { nav.navigate("collection/card/$it?search=1") }, onList = { nav.navigate("collection/list/$it") },
-                        onRankings = { nav.navigate("collection/list/$it/rankings") })
+                        onRankings = { nav.navigate("collection/list/$it/rankings") },
+                        onFollowChanges = { k, id -> nav.navigate("collection/following/$k/$id") })
+                }
+                // Following (contract/follows-2026-10-25.md).
+                composable("collection/following") {
+                    FollowingScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate(it) })
+                }
+                composable("collection/following/{kind}/{id}") { e ->
+                    FollowChangesScreen(e.arguments?.getString("kind") ?: "", e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() },
+                        onCard = { nav.navigate("collection/card/$it?search=1") })
                 }
                 // A share link (contract/share-links-2026-10-23.md).
                 composable("collection/shared/{token}") { e ->
                     SharedLinkScreen(e.arguments?.getString("token") ?: "", onBack = { nav.popBackStack() },
-                        onCard = { nav.navigate("collection/card/$it?search=1") }, onList = { nav.navigate("collection/list/$it") })
+                        onCard = { nav.navigate("collection/card/$it?search=1") }, onList = { nav.navigate("collection/list/$it") },
+                        onFollowChanges = { k, id -> nav.navigate("collection/following/$k/$id") })
                 }
                 composable("collection/matches") {
                     TradeMatchesScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/match/$it") },
@@ -315,6 +328,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                         onBinders = { nav.navigate("collection/binders") },
                         onWants = { nav.navigate("collection/wants") },
                         onMatches = { nav.navigate("collection/matches") },
+                        onFollowing = { nav.navigate("collection/following") },
                     )
                 }
                 composable("collection/binders") {

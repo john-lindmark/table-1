@@ -16,6 +16,7 @@ import {
 } from "../lib/friends";
 import { startFriendsDemo } from "../lib/friendsDemo";
 import { RankingsRow } from "./Rankings";
+import { FollowRows } from "./Follows";
 import { capture } from "../lib/telemetry";
 import {
   CardGroupRow, CardRow, CardTile, LibScreen, StackRows, ViewButton, useBoxWidth, useCatalog, useLibrarySession, useStoredLayout, type StackCardItem,
@@ -402,7 +403,7 @@ const partTitle = (c: Catalog, pt: Part) =>
  *  Copy to my Library (contract/shared-lists-grouping-2026-10-20.md). */
 export function ProfileCardsScreen(props: {
   userId: string; section: SectionKind; item: string | null; onBack: () => void; onCard: (oracleId: string) => void; onList: (listId: string) => void;
-  onRankings?: (listId: string) => void;
+  onRankings?: (listId: string) => void; onFollowChanges?: (kind: "binder" | "deck" | "cube", id: string) => void;
 }) {
   return <Gate title="Cards" onBack={props.onBack}>{() => <ProfileCardsBody {...props} />}</Gate>;
 }
@@ -410,9 +411,9 @@ export function ProfileCardsScreen(props: {
 /** A share link's part (contract/share-links-2026-10-23.md): the same screen, its cards through the link. */
 export interface LinkSource { token: string; data: SharedLinkData; signedIn: boolean; onSignIn: () => void }
 
-export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList, onRankings, link }: {
+export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList, onRankings, onFollowChanges, link }: {
   userId: string; section: SectionKind; item: string | null; onBack: () => void; onCard: (oracleId: string) => void; onList: (listId: string) => void;
-  onRankings?: (listId: string) => void; link?: LinkSource;
+  onRankings?: (listId: string) => void; onFollowChanges?: (kind: "binder" | "deck" | "cube", id: string) => void; link?: LinkSource;
 }) {
   const { catalog, error: catError } = useCatalog();
   useListsData(); // your lists, so a copy lands in them (the dev demo's too)
@@ -453,6 +454,9 @@ export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList
   /** Whose it is; null on your own profile (no Copy there: your deck screen has Duplicate). */
   const owner = link ? (link.data.mine ? null : link.data.owner.display_name) : profile && profile.relation !== "self" ? profile.display_name : null;
   const canCopy = !!owner && (!link || link.signedIn);
+  /** Someone else's binder, deck or cube (contract/follows-2026-10-25.md); on a profile, once it says whose. */
+  const followKind = section === "binder" || section === "deck" || section === "cube" ? section : null;
+  const followable = !!followKind && !!item && !!onFollowChanges && (link ? !link.data.mine : !!profile && profile.relation !== "self");
   const entries = useMemo(() => (rows ? sharedEntries(rows) : []), [rows]);
   const lines = useMemo(() => (kind && catalog ? sortLines(regrouped(resolveLines(entries, kind, catalog), grouping), sort, catalog) : []),
                         [kind, catalog, entries, grouping, sort]);
@@ -602,6 +606,10 @@ export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList
         )}
         {(!catalog || !rows) && !error && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
         {rows?.length === 0 && !error && <Notice tone="info">Nothing here.</Notice>}
+        {followable && followKind && item && !searching && (
+          <FollowRows kind={followKind} id={item} title={name} owner={owner} token={link?.token} signedIn={!link || link.signedIn}
+                      onSignIn={link?.onSignIn} onChanges={() => onFollowChanges!(followKind, item)} />
+        )}
         {kind && catalog && !!rows?.length && !searching && (<>
           <Row title="Export" detail={kind === "deck" ? "Text, Arena, MTGO, download or copy" : "Text, Cube Cobra, download or copy"}
                onClick={() => setExporting(true)} />

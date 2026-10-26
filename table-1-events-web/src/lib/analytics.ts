@@ -12,12 +12,14 @@
  *   /life/8f3c…           →  /life/:id
  *   /library/list/8f3c…   →  /library/list/:id   (also card/…, trade/…, match/…; /library/trade/new stays)
  *   /u/8f3c…/deck/2b1d…   →  /u/:id/deck/:id     (profiles and their binders, decks and cubes)
+ *   /library/following/deck/2b1d…  →  /library/following/deck/:id
  */
 export function redactPath(pathname: string): string {
   return pathname
     .replace(/^\/(join|j|e|p|s|l|life|u)\/[^/]+/, "/$1/:id")
     .replace(/^(\/u\/:id\/(?:binder|deck|cube))\/[^/]+/, "$1/:id")
-    .replace(/^\/library\/(card|list|trade|match)\/(?!new(?:\/|$))[^/]+/, "/library/$1/:id");
+    .replace(/^\/library\/(card|list|trade|match)\/(?!new(?:\/|$))[^/]+/, "/library/$1/:id")
+    .replace(/^(\/library\/following\/(?:binder|deck|cube))\/[^/]+/, "$1/:id");
 }
 
 /** Query parameters that are credentials: the QR join secret and OAuth return values. */
@@ -98,6 +100,7 @@ export function screenName(pathname: string, listKind?: (id: string) => "deck" |
     "/library/binders": "binders",
     "/library/wants": "wants",
     "/library/matches": "trade_matches",
+    "/library/following": "following",
     "/friends": "friends",
     "/friends/add": "friend_add",
     "/sharing": "sharing",
@@ -109,6 +112,7 @@ export function screenName(pathname: string, listKind?: (id: string) => "deck" |
   if (/^\/library\/trade\/[^/]+$/.test(p)) return "trade";
   if (/^\/library\/binder\/[^/]+$/.test(p)) return "binder";
   if (/^\/library\/match\/[^/]+$/.test(p)) return "trade_match";
+  if (/^\/library\/following\/[^/]+\/[^/]+$/.test(p)) return "follow_changes";
   if (/^\/l\/[^/]+$/.test(p)) return "shared_link";
   const insight = insightsScreen(p);
   if (insight) return insight;
