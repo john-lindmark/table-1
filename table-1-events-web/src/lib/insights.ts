@@ -110,10 +110,14 @@ export const changeWords = (c: Change) => {
     case "restrict": return `Restricted: ${cards}`;
     case "unrestrict": return `Unrestricted: ${cards}`;
     case "rotation": return "Rotation";
+    case "points": return `Points: ${c.note ?? cards}`;
     default: return `Released: ${c.note ?? c.set_code?.toUpperCase() ?? "a new set"}`;
   }
 };
-export const isBan = (c: Change) => ["ban", "unban", "restrict", "unrestrict"].includes(c.kind);
+/** Changes with a before/after study: bans and their kin, and Canadian Highlander's points changes. */
+export const isBan = (c: Change) => ["ban", "unban", "restrict", "unrestrict", "points"].includes(c.kind);
+/** The studies' heading: a points format's changes are points changes, not bans. */
+export const bansTitle = (kinds: string[]) => (kinds.length > 0 && kinds.every((k) => k === "points") ? "Points changes" : "Bans and unbans");
 /** The longest "after" window of a ban study that has ended (60 → 30 → 14 days). */
 export const afterWindow = (b: BanStudy) => {
   for (const d of [60, 30, 14]) if (b.after[String(d)]) return { days: d, shares: b.after[String(d)] };
@@ -129,10 +133,14 @@ export function matchup(m: Matchups, a: number, b: number): { wins: number; loss
 
 /* ── picks, kept in this browser ──────────────────────────────────────── */
 
-export interface Picks { format: string; tier: Tier | null; days: number; set: string | null; event: string; group: "all" | "top" }
+export interface Picks {
+  format: string; tier: Tier | null; days: number; set: string | null; event: string; group: "all" | "top";
+  /** Formats and sets kept out of the pickers on this device (Edit). */
+  hiddenFormats: string[]; hiddenSets: string[];
+}
 const PICKS_KEY = "t1.insights.picks";
 function readPicks(): Picks {
-  const d: Picks = { format: "modern", tier: null, days: 30, set: null, event: "PremierDraft", group: "all" };
+  const d: Picks = { format: "modern", tier: null, days: 30, set: null, event: "PremierDraft", group: "all", hiddenFormats: [], hiddenSets: [] };
   try { return { ...d, ...JSON.parse(localStorage.getItem(PICKS_KEY) ?? "{}") }; } catch { return d; }
 }
 
@@ -153,6 +161,20 @@ const subscribe = (f: () => void) => { listeners.add(f); return () => listeners.
 
 export function useInsights(): State {
   return useSyncExternalStore(subscribe, () => state, () => state);
+}
+
+/** The options a picker shows: every one not hidden, in order (all of them if every one is hidden). */
+export function visibleKeys(all: string[], hidden: string[]): string[] {
+  const shown = all.filter((k) => !hidden.includes(k));
+  return shown.length ? shown : all;
+}
+/** Whether an option may be hidden: at least one other has to stay shown. */
+export const canHide = (all: string[], hidden: string[], key: string) => all.some((k) => k !== key && !hidden.includes(k));
+/** Shows or hides one option of a picker (Insights → Edit). */
+export function setHidden(which: "hiddenFormats" | "hiddenSets", key: string, hide: boolean) {
+  const now = state.picks[which].filter((k) => k !== key).concat(hide ? [key] : []);
+  pick({ [which]: now } as Partial<Picks>);
+  capture("insights_picker_edited", { picker: which === "hiddenFormats" ? "formats" : "sets", hidden: now.length });
 }
 
 export function pick(patch: Partial<Picks>) {

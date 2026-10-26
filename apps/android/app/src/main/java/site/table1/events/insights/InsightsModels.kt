@@ -16,6 +16,14 @@ object Insights {
     val windows = listOf(7, 14, 30, 90)
     val formats = listOf("standard" to "Standard", "pioneer" to "Pioneer", "modern" to "Modern", "pauper" to "Pauper", "canlander" to "Canlander")
 
+    /** The options a picker shows: every one not hidden, in order (all of them if every one is hidden). */
+    fun visibleKeys(all: List<String>, hidden: List<String>): List<String> = all.filter { it !in hidden }.ifEmpty { all }
+    /** Whether an option may be hidden: at least one other has to stay shown. */
+    fun canHide(all: List<String>, hidden: List<String>, key: String): Boolean = all.any { it != key && it !in hidden }
+
+    /** The studies' heading: a points format's changes are points changes, not bans. */
+    fun bansTitle(kinds: List<String>): String = if (kinds.isNotEmpty() && kinds.all { it == "points" }) "Points changes" else "Bans and unbans"
+
     /** The credit under a constructed brief, from the pack's sources: TopDeck.gg asks for a visible credit and link
      *  whenever its data is shown; Canadian Highlander comes from TopDeck alone. */
     fun sourcesCredit(sources: List<String>): Pair<String, String> {
@@ -51,10 +59,12 @@ object Insights {
         return when (kind) {
             "ban" -> "Banned: $c"; "unban" -> "Unbanned: $c"; "restrict" -> "Restricted: $c"; "unrestrict" -> "Unrestricted: $c"
             "rotation" -> "Rotation"
+            "points" -> "Points: ${note ?: c}"
             else -> "Released: ${note ?: set_code?.uppercase() ?: "a new set"}"
         }
     }
-    val isBan: Boolean get() = kind in setOf("ban", "unban", "restrict", "unrestrict")
+    /** Changes with a before/after study: bans and their kin, and Canadian Highlander's points changes. */
+    val isBan: Boolean get() = kind in setOf("ban", "unban", "restrict", "unrestrict", "points")
 }
 @Serializable data class ShareRow(val a: Int, val share: Double, val prev: Double? = null, val decks: Int, val top8: Int, val conv: Double? = null)
 @Serializable data class CardRow(val c: String, val n: String, val rate: Double, val prev: Double? = null, val copies: Double? = null)

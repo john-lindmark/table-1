@@ -48,6 +48,23 @@ class InsightsPackTest {
         assertNull(BanStudy(1, "2026-05-18", s, emptyMap(), emptyList(), emptyList(), emptyList()).afterWindow)
     }
 
+    @Test fun hiddenPickers() {
+        val all = listOf("standard", "pioneer", "modern", "pauper", "canlander")
+        assertEquals(listOf("standard", "modern", "pauper"), Insights.visibleKeys(all, listOf("pioneer", "canlander")))
+        assertEquals(all, Insights.visibleKeys(all, all))
+        assertTrue(Insights.canHide(all, listOf("pioneer"), "modern"))
+        assertEquals(false, Insights.canHide(listOf("modern", "pauper"), listOf("pauper"), "modern"))
+        assertEquals(false, Insights.canHide(listOf("modern"), emptyList(), "modern"))
+    }
+
+    @Test fun pointsChanges() {
+        val c = Change(9, "2026-10-26", "points", listOf("Mana Crypt"), note = "Mana Crypt 3 → 4, Gush 0 → 1")
+        assertEquals("Points: Mana Crypt 3 → 4, Gush 0 → 1", c.words)
+        assertTrue(c.isBan)
+        assertEquals("Points changes", Insights.bansTitle(listOf("points", "points")))
+        assertEquals("Bans and unbans", Insights.bansTitle(listOf("ban", "unban")))
+    }
+
     @Test fun sourcesCredit() {
         assertEquals("Results from Magic Online", Insights.sourcesCredit(listOf("mtgo")).first)
         assertEquals("Results from Magic Online and TopDeck.gg" to "https://topdeck.gg", Insights.sourcesCredit(listOf("mtgo", "topdeck")))

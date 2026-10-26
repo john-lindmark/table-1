@@ -45,6 +45,23 @@ final class InsightsPackTests: XCTestCase {
         XCTAssertNil(none.afterWindow)
     }
 
+    func testHiddenPickers() {
+        let all = ["standard", "pioneer", "modern", "pauper", "canlander"]
+        XCTAssertEqual(Insights.visibleKeys(all, ["pioneer", "canlander"]), ["standard", "modern", "pauper"])
+        XCTAssertEqual(Insights.visibleKeys(all, all), all)
+        XCTAssertTrue(Insights.canHide(all, ["pioneer"], "modern"))
+        XCTAssertFalse(Insights.canHide(["modern", "pauper"], ["pauper"], "modern"))
+        XCTAssertFalse(Insights.canHide(["modern"], [], "modern"))
+    }
+
+    func testPointsChanges() {
+        let c = Insights.Change(id: 9, on: "2026-10-26", kind: "points", cards: ["Mana Crypt"], set_code: nil, note: "Mana Crypt 3 → 4, Gush 0 → 1", url: nil)
+        XCTAssertEqual(c.words, "Points: Mana Crypt 3 → 4, Gush 0 → 1")
+        XCTAssertTrue(c.isBan)
+        XCTAssertEqual(Insights.bansTitle(["points", "points"]), "Points changes")
+        XCTAssertEqual(Insights.bansTitle(["ban", "unban"]), "Bans and unbans")
+    }
+
     func testSourcesCredit() {
         XCTAssertEqual(Insights.sourcesCredit(["mtgo"]).label, "Results from Magic Online")
         XCTAssertEqual(Insights.sourcesCredit(["mtgo", "topdeck"]).label, "Results from Magic Online and TopDeck.gg")

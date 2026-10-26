@@ -57,6 +57,7 @@ Deno.test("window facts: top decks with their change, movers, cards, thin flag",
 Deno.test("change words", () => {
   assertEquals(changeWords({ id: 1, on: "2026-05-18", kind: "ban", cards: ["A", "B"], set_code: null, note: null, url: null }), "Banned: A and B");
   assertEquals(changeWords({ id: 1, on: "2026-05-18", kind: "unban", cards: ["A", "B", "C", "D"], set_code: null, note: null, url: null }), "Unbanned: A, B, C and others");
+  assertEquals(changeWords({ id: 1, on: "2026-10-26", kind: "points", cards: ["Mana Crypt"], set_code: null, note: "Mana Crypt 3 → 4", url: null }), "Points: Mana Crypt 3 → 4");
   assertEquals(changeWords({ id: 1, on: "2026-10-02", kind: "set_release", cards: [], set_code: "fra", note: "Reality Fracture", url: null }), "Released: Reality Fracture");
 });
 

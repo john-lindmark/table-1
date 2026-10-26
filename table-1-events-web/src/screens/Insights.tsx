@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Bar as ShareBar, Heatmap, LineChart, Scatter, SlopeChart, type Marker } from "../components/InsightCharts";
-import { Bar, Notice, Row, Screen, Section, Segmented, Stat, TopNav } from "../components/kit";
+import { Bar, Notice, Row, Screen, Section, Segmented, Stat, SwitchRow, TopNav } from "../components/kit";
 import { printingsByName } from "../lib/catalog";
 import { delta, months, pct, pct1, shortDay, wilson } from "../lib/insightCharts";
 import {
-  EVENT_LABELS, EVENT_ORDER, FORMATS, PAIR_NAMES, WINDOWS, sourcesCredit, afterWindow, archetypeName, archetypePage, cardPage, changeWords, colorsName, isBan,
+  EVENT_LABELS, EVENT_ORDER, FORMATS, PAIR_NAMES, WINDOWS, bansTitle, canHide, setHidden, sourcesCredit, visibleKeys, afterWindow, archetypeName, archetypePage, cardPage, changeWords, colorsName, isBan,
   loadInsights, loadInsightsDemo, matchup, pick, useInsights, type ArchetypePage, type CardPage, type CardRow, type ConstructedPack,
   type LCard, type LimitedPack, type LView, type Tier,
 } from "../lib/insights";
@@ -84,13 +84,21 @@ function ConstructedHome() {
   const { constructed, picks, error, index } = useInsights();
   const [board, setBoard] = useState<"main" | "side">("main");
   const [hl, setHl] = useState<number | null>(null);
-  const pack = constructed[picks.format];
+  const [editing, setEditing] = useState(false);
+  const shown = visibleKeys(FORMATS.map((f) => f.key as string), picks.hiddenFormats);
+  const format = shown.includes(picks.format) ? picks.format : shown[0];
+  const pack = constructed[format];
   const tier: Tier = picks.tier ?? pack?.default_tier ?? "big";
   const view = pack?.tiers[tier];
   const w = view?.windows[String(picks.days)];
   return (
     <Scroll>
-      <Segmented scroll options={FORMATS.map((f) => ({ value: f.key as string, label: f.label }))} value={picks.format} onChange={(v) => pick({ format: v })} />
+      <PickerRow onEdit={() => setEditing(!editing)} editing={editing}>
+        <Segmented scroll options={FORMATS.filter((f) => shown.includes(f.key)).map((f) => ({ value: f.key as string, label: f.label }))} value={format}
+                   onChange={(v) => pick({ format: v })} />
+      </PickerRow>
+      {editing && <ShownEditor title="Shown formats" items={FORMATS.map((f) => ({ key: f.key as string, label: f.label }))} hidden={picks.hiddenFormats}
+                               which="hiddenFormats" onDone={() => setEditing(false)} />}
       {pack && (
         <>
           <Segmented options={[{ value: "big" as Tier, label: "Big events" }, { value: "all" as Tier, label: "All events" }]} value={tier} onChange={(v) => pick({ tier: v })} />
@@ -168,7 +176,7 @@ function ConstructedBody({ pack, tier, view, w, days, board, setBoard, hl, setHl
       )}
       {pack.bans.length > 0 && (
         <>
-          <Section title="Bans and unbans" />
+          <Section title={bansTitle(pack.bans.map((b) => pack.changes.find((c) => c.id === b.change)?.kind ?? ""))} />
           {pack.bans.map((b) => {
             const ch = pack.changes.find((c) => c.id === b.change);
             return ch && <Row key={b.change} title={changeWords(ch)} onClick={() => go(`/insights/${f}/ban/${b.change}`)}
@@ -411,8 +419,39 @@ export function InsightsMatchups() {
 const RARITIES = [{ value: "all", label: "All" }, { value: "common", label: "C" }, { value: "uncommon", label: "U" }, { value: "rare", label: "R" }, { value: "mythic", label: "M" }];
 const COLOURS = [{ value: "all", label: "All" }, ...["W", "U", "B", "R", "G"].map((c) => ({ value: c, label: c })), { value: "M", label: "Multi" }];
 
-function limitedPick(packs: Record<string, LimitedPack>, setPicked: string | null, eventPicked: string, groupPicked: "all" | "top") {
-  const sets = Object.keys(packs);
+/** A picker row with Edit at its end (which formats or sets the row shows). */
+function PickerRow({ children, onEdit, editing }: { children: ReactNode; onEdit: () => void; editing: boolean }) {
+  return (
+    <div className="flex gap-px bg-t1-bg">
+      <div className="flex-1 min-w-0">{children}</div>
+      <button type="button" onClick={onEdit} aria-expanded={editing}
+              className={`mt-px px-4 text-[11px] uppercase tracking-[1px] ${editing ? "bg-t1-text text-t1-bg" : "bg-t1-surface hover:bg-t1-surface-hover text-t1-muted"}`}>
+        Edit
+      </button>
+    </div>
+  );
+}
+
+/** Insights → Edit: a switch per format or set; the last one shown can't be hidden. Kept in this browser. */
+function ShownEditor({ title, items, hidden, which, onDone }: {
+  title: string; items: { key: string; label: string; detail?: string }[]; hidden: string[]; which: "hiddenFormats" | "hiddenSets"; onDone: () => void;
+}) {
+  const all = items.map((i) => i.key);
+  return (
+    <>
+      <Section title={title} />
+      {items.map((i) => {
+        const on = !hidden.includes(i.key);
+        return <SwitchRow key={i.key} label={i.label} detail={i.detail} on={on} disabled={on && !canHide(all, hidden, i.key)}
+                          onChange={(next) => setHidden(which, i.key, !next)} />;
+      })}
+      <Row title="Done" onClick={onDone} />
+    </>
+  );
+}
+
+function limitedPick(packs: Record<string, LimitedPack>, setPicked: string | null, eventPicked: string, groupPicked: "all" | "top", hidden: string[] = []) {
+  const sets = visibleKeys(Object.keys(packs), hidden);
   const set = setPicked && packs[setPicked] ? setPicked : sets[0];
   const pack = set ? packs[set] : undefined;
   const events = pack ? EVENT_ORDER.filter((e) => pack.events[e]) : [];
@@ -428,7 +467,8 @@ function LimitedHome() {
   const [sort, setSort] = useState<"gih" | "oh" | "iwd" | "ata">("gih");
   const [rarity, setRarity] = useState("all");
   const [colour, setColour] = useState("all");
-  const { sets, set, pack, events, event, group, view } = limitedPick(limited, picks.set, picks.event, picks.group);
+  const [editing, setEditing] = useState(false);
+  const { sets, set, pack, events, event, group, view } = limitedPick(limited, picks.set, picks.event, picks.group, picks.hiddenSets);
   const cards = useMemo(() => {
     if (!view) return [];
     const key = (c: LCard) => (sort === "oh" ? c.oh : sort === "iwd" ? c.iwd : sort === "ata" ? (c.ata == null ? null : -c.ata) : c.gih);
@@ -455,7 +495,11 @@ function LimitedHome() {
   const value = (c: LCard) => (sort === "oh" ? pct1(c.oh) : sort === "iwd" ? (c.iwd == null ? "–" : delta(c.iwd)) : sort === "ata" ? (c.ata?.toFixed(1) ?? "–") : pct1(c.gih));
   return (
     <Scroll>
-      {sets.length > 1 && <Segmented options={sets.slice(0, 4).map((s) => ({ value: s, label: s }))} value={set} onChange={(v) => pick({ set: v })} />}
+      <PickerRow onEdit={() => setEditing(!editing)} editing={editing}>
+        <Segmented scroll options={sets.map((s) => ({ value: s, label: s }))} value={set} onChange={(v) => pick({ set: v })} />
+      </PickerRow>
+      {editing && <ShownEditor title="Shown sets" which="hiddenSets" hidden={picks.hiddenSets} onDone={() => setEditing(false)}
+                               items={Object.values(limited).map((p) => ({ key: p.set_code, label: p.set_code, detail: p.name ?? undefined }))} />}
       {events.length > 1 && <Segmented options={events.map((e) => ({ value: e, label: EVENT_LABELS[e] ?? e }))} value={event} onChange={(v) => pick({ event: v })} />}
       {pack.events[event].groups.top && (
         <Segmented options={[{ value: "all" as const, label: "All players" }, { value: "top" as const, label: "Top players" }]} value={group} onChange={(v) => pick({ group: v })} />

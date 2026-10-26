@@ -86,6 +86,7 @@ export function changeWords(c: Change): string {
     case "restrict": return `Restricted: ${cards}`;
     case "unrestrict": return `Unrestricted: ${cards}`;
     case "rotation": return "Rotation";
+    case "points": return `Points: ${c.note ?? cards}`;
     default: return `Released: ${c.note ?? c.set_code ?? "a new set"}`;
   }
 }
@@ -99,7 +100,7 @@ export function banFacts(pack: Pick<ConstructedPack, "format" | "name" | "archet
   for (const l of b.losers.slice(0, 3)) lines.push(`${name(l.a)} went from ${pct(l.before)} to ${pct(l.after)} of top finishes`);
   for (const g of b.gainers.slice(0, 3)) lines.push(`${name(g.a)} went from ${pct(g.before)} to ${pct(g.after)} (${pts(g.after - g.before)})`);
   for (const r of b.replacements.slice(0, 3)) {
-    lines.push(ch.kind === "unban" || ch.kind === "unrestrict"
+    lines.push(ch.kind === "unban" || ch.kind === "unrestrict" || (ch.kind === "points" && r.before === 0)
       ? `${r.n} is in ${pct(r.after)} of ${name(r.in)} lists since`
       : `In ${name(r.in)}, ${r.n} went from ${pct(r.before)} to ${pct(r.after)} of lists`);
   }

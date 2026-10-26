@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { screenName } from "./analytics";
 import { navKeyFor } from "./desktop";
-import { afterWindow, archetypeName, changeWords, colorsName, FORMATS, matchup, sourcesCredit, type BanStudy, type ConstructedPack, type LimitedPack } from "./insights";
+import { afterWindow, archetypeName, bansTitle, canHide, changeWords, colorsName, FORMATS, isBan, matchup, sourcesCredit, visibleKeys, type BanStudy, type ConstructedPack, type LimitedPack } from "./insights";
 
 /* Insights packs (contract/insights-2026-10-24.md § Packs) as the server builds them: testdata/insights holds
    constructed packs built from real MTGO pages and a Limited pack from 17Lands data (tools/insights/). */
@@ -41,6 +41,21 @@ describe("insights packs", () => {
 });
 
 describe("insights helpers", () => {
+  it("words points changes and heads a points format's studies Points changes", () => {
+    const pts = { id: 9, on: "2026-10-26", kind: "points", cards: ["Mana Crypt"], set_code: null, note: "Mana Crypt 3 → 4, Gush 0 → 1", url: null };
+    expect(changeWords(pts)).toBe("Points: Mana Crypt 3 → 4, Gush 0 → 1");
+    expect(isBan(pts)).toBe(true);
+    expect(bansTitle(["points", "points"])).toBe("Points changes");
+    expect(bansTitle(["ban", "unban"])).toBe("Bans and unbans");
+  });
+  it("hides formats and sets from the pickers, never the last one", () => {
+    const all = ["standard", "pioneer", "modern", "pauper", "canlander"];
+    expect(visibleKeys(all, ["pioneer", "canlander"])).toEqual(["standard", "modern", "pauper"]);
+    expect(visibleKeys(all, all)).toEqual(all);
+    expect(canHide(all, ["pioneer"], "modern")).toBe(true);
+    expect(canHide(["modern", "pauper"], ["pauper"], "modern")).toBe(false);
+    expect(canHide(["modern"], [], "modern")).toBe(false);
+  });
   it("credits each pack's own sources, TopDeck.gg alone for Canadian Highlander", () => {
     expect(sourcesCredit(["mtgo"]).label).toBe("Results from Magic Online");
     expect(sourcesCredit(["mtgo", "topdeck"])).toEqual({ label: "Results from Magic Online and TopDeck.gg", url: "https://topdeck.gg" });

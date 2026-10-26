@@ -8,17 +8,22 @@ struct LimitedHomeSection: View {
     @State private var sort = "gih"
     @State private var rarity = "all"
     @State private var color = "all"
+    @State private var editing = false
 
     var body: some View {
-        let sets = store.limitedSets
+        let sets = store.shownSets
         if sets.isEmpty {
             if let e = store.error { Notice(e, error: true) }
             else { Notice(store.loading ? "Loading draft data…" : "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena.") }
         } else {
             let setBinding = Binding<String>(get: { store.setCode.flatMap { s in sets.contains { $0.key == s } ? s : nil } ?? sets[0].key },
                                              set: { store.setCode = $0 })
-            if sets.count > 1 {
-                T1Segmented(options: sets.prefix(4).map { ($0.key, $0.key) }, selection: setBinding)
+            PickerRow(editing: $editing) {
+                T1Segmented(options: sets.map { ($0.key, $0.key) }, selection: setBinding, scroll: true)
+            }
+            if editing {
+                ShownEditor(title: "Shown sets", items: store.limitedSets.map { ($0.key, $0.key, $0.name == $0.key ? nil : $0.name) },
+                            hidden: store.hiddenSets, set: { store.setHidden(format: false, $0, $1) }, done: { editing = false })
             }
             if let pack = store.limited[setBinding.wrappedValue] {
                 content(pack)

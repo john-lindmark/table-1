@@ -276,3 +276,25 @@ select pg_temp.eq('colours and cards together: the earlier rule wins only where 
   (select string_agg(coalesce(a.name, 'Other'), ', ' order by d.rank) from t1_private.meta_decks d
      left join t1_private.meta_archetypes a on a.id = d.archetype_id where d.format = 'canlander'),
   'Red Deck Wins, Other, Red Moon');
+
+-- Points changes (Canadian Highlander) ------------------------------------------------------------------------------------
+select public.format_points_replace('canlander', '[{"name": "Lightning Bolt", "points": 1}, {"name": "Counterspell", "points": 2}]');
+select pg_temp.eq('a format''s first points list is a baseline, not a change', (select count(*)::text from t1_private.meta_points_log), '0');
+select public.format_points_replace('canlander', '[{"name": "Lightning Bolt", "points": 3}, {"name": "Blood Moon", "points": 1}]');
+select pg_temp.eq('every move is logged: raised, added, taken off',
+  (select string_agg(name || ' ' || coalesce(before::text, '-') || '>' || coalesce(after::text, '-'), ', ' order by name) from t1_private.meta_points_log),
+  'Blood Moon ->1, Counterspell 2>-, Lightning Bolt 1>3');
+select public.format_points_replace('canlander', '[{"name": "Lightning Bolt", "points": 3}, {"name": "Blood Moon", "points": 1}]');
+select pg_temp.eq('the same list again logs nothing more', (select count(*)::text from t1_private.meta_points_log), '3');
+select t1_private.meta_legality_propose();
+select pg_temp.eq('the day''s moves are one confirmed points change, in words',
+  (select status || ': ' || note from t1_private.meta_format_changes where format = 'canlander' and kind = 'points'),
+  'confirmed: Lightning Bolt 1 → 3, Blood Moon 0 → 1, Counterspell 2 → 0');
+select pg_temp.eq('...with each card''s before and after',
+  (select (detail->0)::text from t1_private.meta_format_changes where format = 'canlander' and kind = 'points'),
+  '{"n": "Lightning Bolt", "after": 3, "before": 1}');
+select pg_temp.eq('a points change is studied like a ban: decks that held a card that gained points lose',
+  (select string_agg(a.name, ', ' order by a.name) from jsonb_array_elements(public.meta_pack_bans('canlander')) b
+     cross join lateral jsonb_array_elements(b->'losers') l join t1_private.meta_archetypes a on a.id = (l->>'a')::int
+    where (b->>'change')::int = (select id from t1_private.meta_format_changes where format = 'canlander' and kind = 'points')),
+  'Red Deck Wins, Red Moon');

@@ -41,6 +41,9 @@ object InsightsStore {
     var tierPicked by mutableStateOf(runCatching { prefs.getString("tier", null) }.getOrNull()); private set
     var days by mutableStateOf(runCatching { prefs.getInt("days", 30) }.getOrNull()?.takeIf { it in Insights.windows } ?: 30); private set
     var setCode by mutableStateOf(runCatching { prefs.getString("set", null) }.getOrNull()); private set
+    /** Formats and sets kept out of the pickers on this device (Insights → Edit). */
+    var hiddenFormats by mutableStateOf(runCatching { prefs.getStringSet("hiddenFormats", emptySet())?.toList() }.getOrNull() ?: emptyList()); private set
+    var hiddenSets by mutableStateOf(runCatching { prefs.getStringSet("hiddenSets", emptySet())?.toList() }.getOrNull() ?: emptyList()); private set
     var event by mutableStateOf(runCatching { prefs.getString("event", "PremierDraft") }.getOrNull() ?: "PremierDraft"); private set
     var group by mutableStateOf(runCatching { prefs.getString("group", "all") }.getOrNull() ?: "all"); private set
 
@@ -51,6 +54,23 @@ object InsightsStore {
     fun pickFormat(v: String) { format = v; save("format", v); Telemetry.capture("insights_format_changed", mapOf("format" to v)) }
     fun pickTier(v: String) { tierPicked = v; save("tier", v); Telemetry.capture("insights_tier_changed", mapOf("tier" to v)) }
     fun pickDays(v: Int) { days = v; save("days", v); Telemetry.capture("insights_window_changed", mapOf("days" to v)) }
+    val shownFormats: List<String> get() = Insights.visibleKeys(Insights.formats.map { it.first }, hiddenFormats)
+    val shownSets: List<String> get() = Insights.visibleKeys(limitedSets.map { it.key }, hiddenSets)
+
+    /** Shows or hides a format (or a set); a picked one that's hidden gives way to the first one still shown. */
+    fun setHidden(format: Boolean, key: String, hide: Boolean) {
+        if (format) {
+            hiddenFormats = hiddenFormats.filter { it != key } + (if (hide) listOf(key) else emptyList())
+            runCatching { prefs.edit().putStringSet("hiddenFormats", hiddenFormats.toSet()).apply() }
+            if (this.format !in shownFormats) pickFormat(shownFormats.first())
+        } else {
+            hiddenSets = hiddenSets.filter { it != key } + (if (hide) listOf(key) else emptyList())
+            runCatching { prefs.edit().putStringSet("hiddenSets", hiddenSets.toSet()).apply() }
+            setCode?.let { if (it !in shownSets) shownSets.firstOrNull()?.let(::pickSet) }
+        }
+        Telemetry.capture("insights_picker_edited", mapOf("picker" to if (format) "formats" else "sets", "hidden" to (if (format) hiddenFormats else hiddenSets).size))
+    }
+
     fun pickSet(v: String) { setCode = v; save("set", v); Telemetry.capture("insights_set_changed", mapOf("set" to v, "event" to event)) }
     fun pickEvent(v: String) { event = v; save("event", v); Telemetry.capture("insights_set_changed", mapOf("set" to (setCode ?: ""), "event" to v)) }
     fun pickGroup(v: String) { group = v; save("group", v) }

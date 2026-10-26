@@ -19,6 +19,21 @@ enum Insights {
 
     /// The credit under a constructed brief, from the pack's sources: TopDeck.gg asks for a visible credit and link
     /// whenever its data is shown; Canadian Highlander comes from TopDeck alone.
+    /// The options a picker shows: every one not hidden, in order (all of them if every one is hidden).
+    static func visibleKeys(_ all: [String], _ hidden: [String]) -> [String] {
+        let shown = all.filter { !hidden.contains($0) }
+        return shown.isEmpty ? all : shown
+    }
+    /// Whether an option may be hidden: at least one other has to stay shown.
+    static func canHide(_ all: [String], _ hidden: [String], _ key: String) -> Bool {
+        all.contains { $0 != key && !hidden.contains($0) }
+    }
+
+    /// The studies' heading: a points format's changes are points changes, not bans.
+    static func bansTitle(_ kinds: [String]) -> String {
+        !kinds.isEmpty && kinds.allSatisfy { $0 == "points" } ? "Points changes" : "Bans and unbans"
+    }
+
     static func sourcesCredit(_ sources: [String]) -> (label: String, url: URL) {
         let mtgo = sources.contains("mtgo"), td = sources.contains("topdeck")
         if td && !mtgo { return ("Results from TopDeck.gg", URL(string: "https://topdeck.gg")!) }
@@ -40,10 +55,12 @@ enum Insights {
             case "restrict": return "Restricted: \(c)"
             case "unrestrict": return "Unrestricted: \(c)"
             case "rotation": return "Rotation"
+            case "points": return "Points: \(note ?? c)"
             default: return "Released: \(note ?? set_code?.uppercased() ?? "a new set")"
             }
         }
-        var isBan: Bool { ["ban", "unban", "restrict", "unrestrict"].contains(kind) }
+        /// Changes with a before/after study: bans and their kin, and Canadian Highlander's points changes.
+        var isBan: Bool { ["ban", "unban", "restrict", "unrestrict", "points"].contains(kind) }
     }
     struct ShareRow: Codable, Hashable { let a: Int; let share: Double; let prev: Double?; let decks: Int; let top8: Int; let conv: Double? }
     struct CardRow: Codable, Hashable { let c: String; let n: String; let rate: Double; let prev: Double?; let copies: Double? }

@@ -2,9 +2,11 @@ package site.table1.events.insights
 
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -23,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextDecoration
@@ -54,6 +57,7 @@ import site.table1.events.ui.components.Section
 import site.table1.events.ui.components.Stat
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Segmented
+import site.table1.events.ui.components.T1Switch
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
 
@@ -117,14 +121,44 @@ fun InsightsHomeScreen(navigate: (String) -> Unit, moderator: Boolean) {
     }
 }
 
+/** A picker row with Edit at its end (which formats or sets the row shows). Edit's padding matches a segment's, so the
+ *  two line up without intrinsic sizes (the scrolling row can't report them). */
+@Composable
+private fun PickerRow(editing: Boolean, onEdit: () -> Unit, content: @Composable () -> Unit) {
+    Row(Modifier.fillMaxWidth().background(T1.bg), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+        Box(Modifier.weight(1f)) { content() }
+        Box(
+            Modifier.background(if (editing) T1.text else T1.surface).border(1.dp, if (editing) T1.text else T1.disabled)
+                .clickable(onClick = onEdit).padding(vertical = 12.dp, horizontal = 16.dp),
+            contentAlignment = Alignment.Center,
+        ) { Label("Edit", color = if (editing) T1.bg else T1.muted) }
+    }
+}
+
+/** Insights → Edit: a switch per format or set; the last one shown can't be hidden. Kept on this device. */
+@Composable
+private fun ShownEditor(title: String, items: List<Triple<String, String, String?>>, hidden: List<String>, set: (String, Boolean) -> Unit, done: () -> Unit) {
+    Section(title)
+    val all = items.map { it.first }
+    items.forEach { (key, label, detail) ->
+        val on = key !in hidden
+        ListRow(label, detail) { T1Switch(on, enabled = !on || Insights.canHide(all, hidden, key)) { set(key, !it) } }
+    }
+    ListRow("Done", onClick = done)
+}
+
 @Composable
 private fun ConstructedHome(navigate: (String) -> Unit) {
     val s = InsightsStore
     val context = LocalContext.current
     var board by remember { mutableStateOf("main") }
     var hl by remember { mutableStateOf<Int?>(null) }
-    val keys = Insights.formats.map { it.first }
-    T1Segmented(Insights.formats.map { it.second }, keys.indexOf(s.format).coerceAtLeast(0), scroll = true) { s.pickFormat(keys[it]) }
+    val keys = s.shownFormats
+    var editing by remember { mutableStateOf(false) }
+    PickerRow(editing, { editing = !editing }) {
+        T1Segmented(keys.map { k -> Insights.formats.first { it.first == k }.second }, keys.indexOf(s.format).coerceAtLeast(0), scroll = true) { s.pickFormat(keys[it]) }
+    }
+    if (editing) ShownEditor("Shown formats", Insights.formats.map { Triple(it.first, it.second, null) }, s.hiddenFormats, { k, hide -> s.setHidden(true, k, hide) }) { editing = false }
     val pack = s.pack
     if (pack == null) {
         Notice(s.error ?: if (s.loading || s.index.isEmpty()) "Loading the metagame…" else "No results for this format yet.", error = s.error != null)
@@ -182,7 +216,7 @@ private fun ConstructedHome(navigate: (String) -> Unit) {
         }
     }
     if (pack.bans.isNotEmpty()) {
-        Section("Bans and unbans")
+        Section(Insights.bansTitle(pack.bans.map { pack.change(it.change)?.kind ?: "" }))
         pack.bans.forEach { b ->
             pack.change(b.change)?.let { ch ->
                 ListRow(ch.words, InsightCharts.shortDay(ch.on) + (b.settled_days?.let { " · settled after $it days" } ?: ""), onClick = { navigate(InsightsRoutes.ban(f, b.change)) })
@@ -390,13 +424,16 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     var sort by remember { mutableStateOf("gih") }
     var rarity by remember { mutableStateOf("all") }
     var colour by remember { mutableStateOf("all") }
-    val sets = s.limitedSets.map { it.key }
+    val sets = s.shownSets
+    var editing by remember { mutableStateOf(false) }
     if (sets.isEmpty()) {
         Notice(s.error ?: if (s.loading) "Loading draft data…" else "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena.", error = s.error != null)
         return
     }
     val set = s.setCode?.takeIf { it in sets } ?: sets.first()
-    if (sets.size > 1) T1Segmented(sets.take(4), sets.indexOf(set)) { s.pickSet(sets[it]) }
+    PickerRow(editing, { editing = !editing }) { T1Segmented(sets, sets.indexOf(set), scroll = true) { s.pickSet(sets[it]) } }
+    if (editing) ShownEditor("Shown sets", s.limitedSets.map { Triple(it.key, it.key, it.name.takeIf { n -> n != it.key }) }, s.hiddenSets,
+        { k, hide -> s.setHidden(false, k, hide) }) { editing = false }
     val pack = s.limited[set] ?: run { Notice("Loading $set…"); return }
     val events = s.events(pack)
     val ev = s.currentEvent(pack) ?: return

@@ -39,6 +39,32 @@ final class InsightsStore {
     var days: Int = { let d = UserDefaults.standard.integer(forKey: "insights.days"); return Insights.windows.contains(d) ? d : 30 }() {
         didSet { UserDefaults.standard.set(days, forKey: "insights.days"); Telemetry.capture("insights_window_changed", ["days": days]) }
     }
+    /// Formats and sets kept out of the pickers on this device (Insights → Edit).
+    var hiddenFormats: [String] = UserDefaults.standard.stringArray(forKey: "insights.hiddenFormats") ?? [] {
+        didSet { UserDefaults.standard.set(hiddenFormats, forKey: "insights.hiddenFormats") }
+    }
+    var hiddenSets: [String] = UserDefaults.standard.stringArray(forKey: "insights.hiddenSets") ?? [] {
+        didSet { UserDefaults.standard.set(hiddenSets, forKey: "insights.hiddenSets") }
+    }
+    var shownFormats: [(key: String, label: String)] {
+        let keys = Insights.visibleKeys(Insights.formats.map(\.key), hiddenFormats)
+        return Insights.formats.filter { keys.contains($0.key) }
+    }
+    var shownSets: [Insights.IndexEntry] {
+        let keys = Insights.visibleKeys(limitedSets.map(\.key), hiddenSets)
+        return limitedSets.filter { keys.contains($0.key) }
+    }
+    /// Shows or hides a format (or a set); a picked one that's hidden gives way to the first one still shown.
+    func setHidden(format: Bool, _ key: String, _ hide: Bool) {
+        if format {
+            hiddenFormats = hiddenFormats.filter { $0 != key } + (hide ? [key] : [])
+            if !shownFormats.contains(where: { $0.key == self.format }), let first = shownFormats.first { self.format = first.key }
+        } else {
+            hiddenSets = hiddenSets.filter { $0 != key } + (hide ? [key] : [])
+            if let s = setCode, !shownSets.contains(where: { $0.key == s }) { setCode = shownSets.first?.key }
+        }
+        Telemetry.capture("insights_picker_edited", ["picker": format ? "formats" : "sets", "hidden": format ? hiddenFormats.count : hiddenSets.count])
+    }
     var setCode: String? = UserDefaults.standard.string(forKey: "insights.set") {
         didSet { UserDefaults.standard.set(setCode, forKey: "insights.set"); captureSet() }
     }

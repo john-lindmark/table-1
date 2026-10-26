@@ -59,6 +59,45 @@ struct InsightsHomeView: View {
 // MARK: shared blocks
 
 /// The brief (2–3 sentences), what it covers, and the source credit.
+/// A picker row with Edit at its end (which formats or sets the row shows).
+struct PickerRow<Content: View>: View {
+    @Binding var editing: Bool
+    @ViewBuilder var content: Content
+    var body: some View {
+        HStack(spacing: 1) {
+            content
+            Button { editing.toggle() } label: {
+                LabelText("Edit", color: editing ? T1.ink : T1.muted)
+                    .padding(.horizontal, 16).frame(maxHeight: .infinity)
+                    .background(editing ? T1.text : T1.surface)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .background(T1.bg)
+    }
+}
+
+/// Insights → Edit: On / Off per format or set; the last one shown can't be hidden. Kept on this device.
+struct ShownEditor: View {
+    let title: String
+    let items: [(key: String, label: String, detail: String?)]
+    let hidden: [String]
+    let set: (String, Bool) -> Void
+    let done: () -> Void
+    var body: some View {
+        Section1(title)
+        let all = items.map(\.key)
+        ForEach(items, id: \.key) { item in
+            let on = !hidden.contains(item.key)
+            T1Switch(title: item.label, detail: item.detail, isOn: Binding(get: { on }, set: { set(item.key, !$0) }))
+                .disabled(on && !Insights.canHide(all, hidden, item.key))
+        }
+        Button(action: done) { ListRow(title: "Done") { EmptyView() } }.buttonStyle(.plain)
+    }
+}
+
 struct BriefBlock: View {
     let brief: String?
     let scope: String
@@ -100,8 +139,16 @@ struct ConstructedHomeSection: View {
     @State private var highlighted: Int?
     @Environment(SessionModel.self) private var session
 
+    @State private var editing = false
+
     var body: some View {
-        T1Segmented(options: Insights.formats.map { ($0.key, $0.label) }, selection: $store.format, scroll: true)
+        PickerRow(editing: $editing) {
+            T1Segmented(options: store.shownFormats.map { ($0.key, $0.label) }, selection: $store.format, scroll: true)
+        }
+        if editing {
+            ShownEditor(title: "Shown formats", items: Insights.formats.map { ($0.key, $0.label, nil) }, hidden: store.hiddenFormats,
+                        set: { store.setHidden(format: true, $0, $1) }, done: { editing = false })
+        }
         if let pack = store.pack {
             let tier = store.tier(for: pack)
             let tierBinding = Binding<Insights.Tier>(get: { tier }, set: { store.tierPicked = $0 })
@@ -178,7 +225,7 @@ struct ConstructedHomeSection: View {
 
         let bans = pack.bans
         if !bans.isEmpty {
-            Section1("Bans and unbans")
+            Section1(Insights.bansTitle(bans.map { pack.change($0.change)?.kind ?? "" }))
             ForEach(bans, id: \.change) { b in
                 if let ch = pack.change(b.change) {
                     Button { path.append(.ban(pack.format, b.change)) } label: {
