@@ -317,22 +317,45 @@ struct Stat: View {
 struct T1Segmented<Value: Hashable>: View {
     let options: [(value: Value, label: String)]
     @Binding var selection: Value
+    /// When the labels don't fit at equal widths, one row of whole words that scrolls sideways (the picked option
+    /// scrolled into view) instead of truncating.
+    var scroll = false
 
     var body: some View {
+        Group {
+            if scroll {
+                ViewThatFits(in: .horizontal) {
+                    row(fixed: true)
+                    ScrollViewReader { proxy in
+                        ScrollView(.horizontal, showsIndicators: false) { row(fixed: true, padded: true) }
+                            .onAppear { proxy.scrollTo(selection, anchor: .center) }
+                            .onChange(of: selection) { _, v in withAnimation { proxy.scrollTo(v, anchor: .center) } }
+                    }
+                }
+            } else {
+                row(fixed: false)
+            }
+        }
+        .sensoryFeedback(.selection, trigger: selection)
+    }
+
+    private func row(fixed: Bool, padded: Bool = false) -> some View {
         HStack(spacing: 1) {
             ForEach(options.indices, id: \.self) { i in
                 let option = options[i]
                 let on = option.value == selection
                 Button { selection = option.value } label: {
                     LabelText(option.label, color: on ? T1.ink : T1.text)
-                        .frame(maxWidth: .infinity).padding(.vertical, 14)
+                        .fixedSize(horizontal: fixed, vertical: false)
+                        .padding(.horizontal, padded ? 16 : 0)
+                        .frame(maxWidth: padded ? nil : .infinity).padding(.vertical, 14)
                         .background(on ? T1.text : T1.surface)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .id(option.value)
             }
         }
-        .sensoryFeedback(.selection, trigger: selection)
     }
 }
 

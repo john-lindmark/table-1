@@ -1,7 +1,7 @@
 // TopDeck answers in the documented shape (https://topdeck.gg/docs/tournaments-v2); not yet checked against a
 // live answer (no key yet).
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { deckLines, parseTournament, tournamentsQuery, type TdTournament } from "./topdeck.ts";
+import { deckLines, nextTopdeckWindow, parseTournament, tournamentsQuery, type TdTournament } from "./topdeck.ts";
 
 const main60 = Object.fromEntries(Array.from({ length: 15 }, (_, i) => [`Card ${i}`, { count: 4 }]));
 
@@ -13,6 +13,25 @@ Deno.test("query: format, days, size and rounds", () => {
   assertEquals(q.participantMin, 32);
   assertEquals(q.rounds, true);
   assert(q.columns.includes("decklist"));
+  const w = tournamentsQuery("Canadian Highlander", { start: 100, end: 200 }, 16);
+  assertEquals([w.start, w.end, w.participantMin, "last" in w], [100, 200, 16, false]);
+});
+
+Deno.test("backfill windows: TopDeck-only formats first, then the least read, back a year, then done", () => {
+  const now = Date.UTC(2026, 9, 25);
+  const day = 86_400;
+  const formats = [{ format: "modern", topdeckOnly: false }, { format: "canlander", topdeckOnly: true }];
+  // nothing read yet: Canadian Highlander first, from 3 days back (the builds cover those) to 30 days before that
+  assertEquals(nextTopdeckWindow(formats, {}, now), { format: "canlander", start: now / 1000 - 33 * day, end: now / 1000 - 3 * day });
+  // Canadian Highlander read back a year (the last window stops at the year): Modern next
+  const yearAgo = new Date(now - 365 * day * 1000).toISOString();
+  assertEquals(nextTopdeckWindow(formats, { td_back_canlander: yearAgo }, now)?.format, "modern");
+  const almost = new Date(now - 350 * day * 1000).toISOString();
+  assertEquals(nextTopdeckWindow(formats, { td_back_canlander: almost }, now), { format: "canlander", start: now / 1000 - 365 * day, end: now / 1000 - 350 * day });
+  // among formats with MTGO results, the one with the least history read
+  const two = [{ format: "modern", topdeckOnly: false }, { format: "pauper", topdeckOnly: false }];
+  assertEquals(nextTopdeckWindow(two, { td_back_modern: new Date(now - 60 * day * 1000).toISOString() }, now)?.format, "pauper");
+  assertEquals(nextTopdeckWindow(two, { td_back_modern: yearAgo, td_back_pauper: yearAgo }, now), null);
 });
 
 Deno.test("deck lines from deckObj, from text, and none from a link", () => {

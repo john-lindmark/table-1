@@ -48,6 +48,13 @@ class InsightsPackTest {
         assertNull(BanStudy(1, "2026-05-18", s, emptyMap(), emptyList(), emptyList(), emptyList()).afterWindow)
     }
 
+    @Test fun sourcesCredit() {
+        assertEquals("Results from Magic Online", Insights.sourcesCredit(listOf("mtgo")).first)
+        assertEquals("Results from Magic Online and TopDeck.gg" to "https://topdeck.gg", Insights.sourcesCredit(listOf("mtgo", "topdeck")))
+        assertEquals("Results from TopDeck.gg" to "https://topdeck.gg", Insights.sourcesCredit(listOf("topdeck")))
+        assertEquals(listOf("standard", "pioneer", "modern", "pauper", "canlander"), Insights.formats.map { it.first })
+    }
+
     @Test fun changeWords() {
         assertEquals("Unbanned: A, B, C and others", Change(1, "2026-05-18", "unban", listOf("A", "B", "C", "D")).words)
         assertEquals("Released: Reality Fracture", Change(2, "2026-10-02", "set_release", emptyList(), "fra", "Reality Fracture").words)

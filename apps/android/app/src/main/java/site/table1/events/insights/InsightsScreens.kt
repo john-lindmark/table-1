@@ -124,7 +124,7 @@ private fun ConstructedHome(navigate: (String) -> Unit) {
     var board by remember { mutableStateOf("main") }
     var hl by remember { mutableStateOf<Int?>(null) }
     val keys = Insights.formats.map { it.first }
-    T1Segmented(Insights.formats.map { it.second }, keys.indexOf(s.format).coerceAtLeast(0)) { s.pickFormat(keys[it]) }
+    T1Segmented(Insights.formats.map { it.second }, keys.indexOf(s.format).coerceAtLeast(0), scroll = true) { s.pickFormat(keys[it]) }
     val pack = s.pack
     if (pack == null) {
         Notice(s.error ?: if (s.loading || s.index.isEmpty()) "Loading the metagame…" else "No results for this format yet.", error = s.error != null)
@@ -137,7 +137,7 @@ private fun ConstructedHome(navigate: (String) -> Unit) {
     val w = view.windows[s.days.toString()] ?: return
     val f = pack.format
     Brief(w.brief, "${if (tier == "big") "Big events" else "All events"}, last ${s.days} days", w.thin,
-        if ("topdeck" in pack.sources) "Results from Magic Online and TopDeck.gg" to "https://topdeck.gg" else "Results from Magic Online" to "https://www.mtgo.com/decklists")
+        Insights.sourcesCredit(pack.sources))
     if (w.thin) Notice("Few results in this window: these numbers can swing.")
     Stats("Decks" to "${w.decks}", "Events" to "${w.events}", "Through" to InsightCharts.shortDay(pack.through))
     Section("Meta now · share of top finishes")

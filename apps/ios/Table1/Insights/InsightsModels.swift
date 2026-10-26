@@ -14,7 +14,17 @@ enum Insights {
 
     enum Tier: String, Codable, CaseIterable { case big, all }
     static let windows = [7, 14, 30, 90]
-    static let formats: [(key: String, label: String)] = [("standard", "Standard"), ("pioneer", "Pioneer"), ("modern", "Modern"), ("pauper", "Pauper")]
+    static let formats: [(key: String, label: String)] = [("standard", "Standard"), ("pioneer", "Pioneer"), ("modern", "Modern"), ("pauper", "Pauper"),
+                                                          ("canlander", "Canlander")]
+
+    /// The credit under a constructed brief, from the pack's sources: TopDeck.gg asks for a visible credit and link
+    /// whenever its data is shown; Canadian Highlander comes from TopDeck alone.
+    static func sourcesCredit(_ sources: [String]) -> (label: String, url: URL) {
+        let mtgo = sources.contains("mtgo"), td = sources.contains("topdeck")
+        if td && !mtgo { return ("Results from TopDeck.gg", URL(string: "https://topdeck.gg")!) }
+        if td { return ("Results from Magic Online and TopDeck.gg", URL(string: "https://topdeck.gg")!) }
+        return ("Results from Magic Online", URL(string: "https://www.mtgo.com/decklists")!)
+    }
 
     // MARK: constructed
 

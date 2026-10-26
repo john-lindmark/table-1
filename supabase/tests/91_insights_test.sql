@@ -26,6 +26,10 @@ select distinct on (v.nm, o.oracle_id) v.nm, o.oracle_id, v.f from public.card_o
  order by v.nm, o.oracle_id, v.f on conflict do nothing;
 
 -- Helpers ----------------------------------------------------------------------------
+select pg_temp.eq('the enabled formats, in order, with TopDeck''s names and minimum sizes',
+  (select string_agg((f->>'format') || ':' || (f->>'topdeck') || ':' || (f->>'topdeck_min'), ' ' order by (f->>'ord')::int)
+     from jsonb_array_elements(public.meta_formats_enabled()) f),
+  'standard:Standard:32 pioneer:Pioneer:32 modern:Modern:32 pauper:Pauper:32 canlander:Canadian Highlander:16');
 select pg_temp.eq('league is small', t1_private.meta_tier('league', null), 'small');
 select pg_temp.eq('68 players is large', t1_private.meta_tier('challenge', 68), 'large');
 select pg_temp.eq('40 players is regular', t1_private.meta_tier('challenge', 40), 'regular');
@@ -170,6 +174,7 @@ select pg_temp.eq('index: nothing published yet', public.insights_index()::text,
 select pg_temp.throws('workers only: ingest', $$select public.meta_ingest('{}')$$, '42501');
 select pg_temp.throws('workers only: pack facts', $$select public.meta_pack_window('modern', 'all', 7)$$, '42501');
 select pg_temp.throws('workers only: the TopDeck key', $$select public.meta_topdeck_key()$$, '42501');
+select pg_temp.throws('workers only: the format list', $$select public.meta_formats_enabled()$$, '42501');
 -- The live API runs pg_safeupdate: an UPDATE or DELETE without a WHERE fails there (meta_state_put did, 2026-10-25),
 -- though it passes here.
 select pg_temp.eq('every update and delete in an Insights function has a WHERE',
@@ -212,6 +217,12 @@ insert into public.cards (id, oracle_id, set_code, collector_number, lang, rarit
 values (md5('tst1')::uuid, md5('Lightning Bolt')::uuid, 'tst', '1', 'en', 'common', '{nonfoil}', 'normal', current_date - 20, 'h');
 select t1_private.meta_legality_propose();
 select pg_temp.eq('a set release with legal cards is a confirmed change', (select status from t1_private.meta_format_changes where kind = 'set_release' and set_code = 'tst' and format = 'modern'), 'confirmed');
+-- Canadian Highlander has no Scryfall legality: a set reaches it when its cards are legal in Vintage.
+select pg_temp.eq('no Vintage legality, no Canadian Highlander release', (select count(*)::text from t1_private.meta_format_changes where set_code = 'tst' and format = 'canlander'), '0');
+update public.card_oracles set legalities = legalities || '{"vintage": "legal"}' where name = 'Lightning Bolt';
+select t1_private.meta_legality_propose();
+select pg_temp.eq('a set legal in Vintage is a Canadian Highlander release', (select status from t1_private.meta_format_changes where kind = 'set_release' and set_code = 'tst' and format = 'canlander'), 'confirmed');
+select pg_temp.eq('...but not a Vintage ban study or anything else for it', (select count(*)::text from t1_private.meta_format_changes where format = 'canlander' and kind <> 'set_release'), '0');
 
 -- 17Lands runs -----------------------------------------------------------------------------
 \set LM '''2026-10-17 12:00:00+00'''
@@ -248,3 +259,20 @@ select pg_temp.eq('pack: deck colours with their splashes, rare ones left out',
 select pg_temp.eq('no pack without a finished run', (public.limited_pack_facts('NOPE'))::text, null);
 select pg_temp.eq('a newer dump opens a new run', (public.limited_run_open('TST', 'PremierDraft', 'game', 'https://x/game.csv.gz', '2026-10-24 12:00:00+00', 1200) is not null)::text, 'true');
 select pg_temp.eq('the finished run keeps serving until the new one is done', (public.limited_pack_facts('TST')->'events'->'PremierDraft'->>'updated'), '2026-10-17');
+
+-- Rules by colours (singleton formats) -------------------------------------------------------------------------------
+\set CL '{"source": "topdeck", "source_id": "CL1", "format": "canlander", "name": "Canlander Open", "kind": "paper", "on": "2026-10-20", "players": 20, "complete": true, "decks": [{"player": "a", "rank": 1, "top8": false, "main": [["Lightning Bolt", 1], ["Lava Spike", 1], ["Boltwave", 1], ["Blood Moon", 1], ["Mountain", 30]], "side": []}, {"player": "b", "rank": 2, "top8": false, "main": [["Lightning Bolt", 1], ["Lava Spike", 1], ["Boltwave", 1], ["Counterspell", 1], ["Island", 30]], "side": []}, {"player": "c", "rank": 3, "top8": false, "main": [["Lightning Bolt", 1], ["Lava Spike", 1], ["Boltwave", 1], ["Blood Moon", 1], ["Ocelot Pride", 1], ["Mountain", 30]], "side": []}], "matches": []}'
+select public.meta_ingest(:'CL'::jsonb);
+select pg_temp.eq('seeded Canadian Highlander rules are by colours only',
+  (select count(*)::text from t1_private.meta_archetypes where format = 'canlander' and r_colors is not null and cardinality(r_main) = 0), '28');
+select pg_temp.eq('a colour rule names decks of exactly those colours (4 red cards: R; a fifth card adds no colour below 4)',
+  (select string_agg(coalesce(a.name, 'Other') || ' ' || d.colors, ', ' order by d.rank) from t1_private.meta_decks d
+     left join t1_private.meta_archetypes a on a.id = d.archetype_id where d.format = 'canlander'),
+  'Red Deck Wins R, Other , Red Deck Wins R');
+insert into t1_private.meta_archetypes (format, name, family, colors, status, rule, priority)
+values ('canlander', 'Red Moon', 'aggro', 'R', 'approved', '{"colors": "R", "main": ["Blood Moon", "Ocelot Pride"]}', 10);
+select public.meta_relabel('canlander');
+select pg_temp.eq('colours and cards together: the earlier rule wins only where both hold',
+  (select string_agg(coalesce(a.name, 'Other'), ', ' order by d.rank) from t1_private.meta_decks d
+     left join t1_private.meta_archetypes a on a.id = d.archetype_id where d.format = 'canlander'),
+  'Red Deck Wins, Other, Red Moon');

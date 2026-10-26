@@ -101,7 +101,7 @@ struct ConstructedHomeSection: View {
     @Environment(SessionModel.self) private var session
 
     var body: some View {
-        T1Segmented(options: Insights.formats.map { ($0.key, $0.label) }, selection: $store.format)
+        T1Segmented(options: Insights.formats.map { ($0.key, $0.label) }, selection: $store.format, scroll: true)
         if let pack = store.pack {
             let tier = store.tier(for: pack)
             let tierBinding = Binding<Insights.Tier>(get: { tier }, set: { store.tierPicked = $0 })
@@ -122,9 +122,7 @@ struct ConstructedHomeSection: View {
     @ViewBuilder
     private func content(_ pack: Insights.ConstructedPack, _ view: Insights.View, _ w: Insights.Window, _ tier: Insights.Tier) -> some View {
         let scope = "\(tier == .big ? "Big events" : "All events"), last \(store.days) days"
-        let credit = pack.sources.contains("topdeck")
-            ? ("Results from Magic Online and TopDeck.gg", URL(string: "https://topdeck.gg")!)
-            : ("Results from Magic Online", URL(string: "https://www.mtgo.com/decklists")!)
+        let credit = Insights.sourcesCredit(pack.sources)
         BriefBlock(brief: w.brief, scope: scope, thin: w.thin, credit: credit)
         if w.thin { ThinNote() }
         Stats3(items: [("Decks", "\(w.decks)"), ("Events", "\(w.events)"), ("Through", InsightCharts.shortDay(pack.through))])

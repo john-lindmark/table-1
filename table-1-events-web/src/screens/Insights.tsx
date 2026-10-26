@@ -5,7 +5,7 @@ import { Bar, Notice, Row, Screen, Section, Segmented, Stat, TopNav } from "../c
 import { printingsByName } from "../lib/catalog";
 import { delta, months, pct, pct1, shortDay, wilson } from "../lib/insightCharts";
 import {
-  EVENT_LABELS, EVENT_ORDER, FORMATS, PAIR_NAMES, WINDOWS, afterWindow, archetypeName, archetypePage, cardPage, changeWords, colorsName, isBan,
+  EVENT_LABELS, EVENT_ORDER, FORMATS, PAIR_NAMES, WINDOWS, sourcesCredit, afterWindow, archetypeName, archetypePage, cardPage, changeWords, colorsName, isBan,
   loadInsights, loadInsightsDemo, matchup, pick, useInsights, type ArchetypePage, type CardPage, type CardRow, type ConstructedPack,
   type LCard, type LimitedPack, type LView, type Tier,
 } from "../lib/insights";
@@ -90,7 +90,7 @@ function ConstructedHome() {
   const w = view?.windows[String(picks.days)];
   return (
     <Scroll>
-      <Segmented options={FORMATS.map((f) => ({ value: f.key as string, label: f.label }))} value={picks.format} onChange={(v) => pick({ format: v })} />
+      <Segmented scroll options={FORMATS.map((f) => ({ value: f.key as string, label: f.label }))} value={picks.format} onChange={(v) => pick({ format: v })} />
       {pack && (
         <>
           <Segmented options={[{ value: "big" as Tier, label: "Big events" }, { value: "all" as Tier, label: "All events" }]} value={tier} onChange={(v) => pick({ tier: v })} />
@@ -109,9 +109,7 @@ function ConstructedBody({ pack, tier, view, w, days, board, setBoard, hl, setHl
   board: "main" | "side"; setBoard: (b: "main" | "side") => void; hl: number | null; setHl: (a: number) => void; go: (p: string) => void;
 }) {
   const f = pack.format;
-  const credit = pack.sources.includes("topdeck")
-    ? { label: "Results from Magic Online and TopDeck.gg", url: "https://topdeck.gg" }
-    : { label: "Results from Magic Online", url: "https://www.mtgo.com/decklists" };
+  const credit = sourcesCredit(pack.sources);
   const maxShare = Math.max(0.1, ...w.share.map((s) => s.share));
   const lead = w.share.find((s) => s.a !== 0)?.a;
   const lines = view.series.lines;

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { screenName } from "./analytics";
 import { navKeyFor } from "./desktop";
-import { afterWindow, archetypeName, changeWords, colorsName, matchup, type BanStudy, type ConstructedPack, type LimitedPack } from "./insights";
+import { afterWindow, archetypeName, changeWords, colorsName, FORMATS, matchup, sourcesCredit, type BanStudy, type ConstructedPack, type LimitedPack } from "./insights";
 
 /* Insights packs (contract/insights-2026-10-24.md § Packs) as the server builds them: testdata/insights holds
    constructed packs built from real MTGO pages and a Limited pack from 17Lands data (tools/insights/). */
@@ -41,6 +41,12 @@ describe("insights packs", () => {
 });
 
 describe("insights helpers", () => {
+  it("credits each pack's own sources, TopDeck.gg alone for Canadian Highlander", () => {
+    expect(sourcesCredit(["mtgo"]).label).toBe("Results from Magic Online");
+    expect(sourcesCredit(["mtgo", "topdeck"])).toEqual({ label: "Results from Magic Online and TopDeck.gg", url: "https://topdeck.gg" });
+    expect(sourcesCredit(["topdeck"])).toEqual({ label: "Results from TopDeck.gg", url: "https://topdeck.gg" });
+    expect(FORMATS.map((f) => f.key)).toEqual(["standard", "pioneer", "modern", "pauper", "canlander"]);
+  });
   it("matchup cells read from either side", () => {
     const m = { archetypes: [1, 2], cells: [[1, 2, 31, 22, 1]] as [number, number, number, number, number][] };
     expect(matchup(m, 1, 2)).toEqual({ wins: 31, losses: 22, draws: 1 });
