@@ -105,3 +105,30 @@ object WantPricesStore {
             .onFailure { e -> _state.update { it.copy(alerts = was, error = e.message) } }
     }
 }
+
+/* Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): wants or Missing as TCGplayer Mass Entry links. The
+   server writes the links (names, printings, parts, affiliate wrapper); the app opens them. */
+@Serializable
+data class TCGplayerCartAnswer(val enabled: Boolean, val lines: Int = 0, val unknown: Int = 0, val urls: List<String> = emptyList())
+
+object TCGplayerCart {
+    /** One card: a printing ([cardId]) or any printing ([oracleId] alone). */
+    data class Item(val oracleId: String? = null, val cardId: String? = null, val qty: Int)
+
+    /** Parts as menu labels: "Part 1 of 3". */
+    fun partTitle(i: Int, n: Int) = "Part ${i + 1} of $n"
+
+    suspend fun links(items: List<Item>): TCGplayerCartAnswer =
+        T1App.supabase.postgrest.rpc("tcgplayer_cart", buildJsonObject {
+            put("p_items", kotlinx.serialization.json.buildJsonArray {
+                for (i in items) add(buildJsonObject {
+                    if (i.oracleId != null) put("oracle_id", i.oracleId)
+                    if (i.cardId != null) put("card_id", i.cardId)
+                    put("qty", i.qty)
+                })
+            })
+        }).decodeAs()
+
+    /** Whether the Buy on TCGplayer rows show: the server's switch (an empty cart answers it). */
+    suspend fun enabled(): Boolean = runCatching { links(emptyList()).enabled }.getOrDefault(false)
+}

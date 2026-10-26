@@ -54,3 +54,18 @@ class WantPricesTest {
         assertEquals("▼ 22% this week", WantPrices.trend(p.now, p.then, p.thenDays)?.text)
     }
 }
+
+/** Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): the server's answer and the parts menu. */
+class TCGplayerCartTest {
+    @Test fun decodesTheAnswer() {
+        val a = Json { ignoreUnknownKeys = true }.decodeFromString(TCGplayerCartAnswer.serializer(),
+            """{"urls": ["https://www.tcgplayer.com/massentry?productline=Magic&c=1%20Opt"], "lines": 1, "enabled": true, "unknown": 0}""")
+        assertEquals(true, a.enabled)
+        assertEquals(1, a.urls.size)
+    }
+
+    @Test fun partTitles() {
+        assertEquals("Part 1 of 3", TCGplayerCart.partTitle(0, 3))
+        assertEquals("Part 3 of 3", TCGplayerCart.partTitle(2, 3))
+    }
+}

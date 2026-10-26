@@ -132,3 +132,29 @@ export function useWantPrices(): { version: number; alerts: boolean | null; erro
   }, () => version);
   return { version: v, alerts, error };
 }
+
+/* ── Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md) ─────────── */
+
+export interface CartItem { oracle_id?: string | null; card_id?: string | null; qty: number }
+export interface CartAnswer { enabled: boolean; lines: number; unknown: number; urls: string[] }
+
+/** Parts as menu labels: "Part 1 of 3". */
+export const partTitle = (i: number, n: number) => `Part ${i + 1} of ${n}`;
+
+/** The server writes the links (names, printings, parts, affiliate wrapper). The demo has no account. */
+export async function tcgplayerCart(items: CartItem[]): Promise<CartAnswer> {
+  if (isLibraryDemo()) throw new Error("Sign in to build a TCGplayer cart");
+  const { data, error: e } = await supabase.rpc("tcgplayer_cart", { p_items: items });
+  if (e) throw new Error(e.message);
+  return data as CartAnswer;
+}
+
+/** Whether the Buy on TCGplayer rows show: the server's switch (an empty cart answers it). */
+export async function tcgplayerEnabled(): Promise<boolean> {
+  if (isLibraryDemo()) return true;
+  try {
+    return (await tcgplayerCart([])).enabled;
+  } catch {
+    return false;
+  }
+}

@@ -558,6 +558,8 @@ struct WantsView: View {
     private var store: BindersStore { BindersStore.shared }
     private var catalog: CatalogStore { CatalogStore.shared }
     private var prices: WantPricesStore { WantPricesStore.shared }
+    @Environment(\.openURL) private var openURL
+    @State private var tcgplayer = false
     @State private var rows: [WantDisplay] = []
     @State private var missing: [(line: MissingLine, printing: CatalogPrinting?, name: String, oracleId: String?, type: String)] = []
     @State private var showAllMissing = false
@@ -587,6 +589,11 @@ struct WantsView: View {
                     T1Switch(title: "Price alerts", detail: "A push when a want gets 15% cheaper or reaches your max",
                              isOn: Binding(get: { on }, set: { v in Task { await prices.setAlerts(v) } }))
                 }
+                if tcgplayer && !rows.isEmpty && query.isEmpty {
+                    Button { buy(rows.map { TCGplayerCart.Item(oracleId: $0.want.oracleId, cardId: $0.want.cardId, qty: $0.want.qty) }, from: "wants") } label: {
+                        ListRow(title: "Buy on TCGplayer", detail: "\(wanted) cards into a cart, then Optimize")
+                    }.buttonStyle(.plain)
+                }
                 if !rows.isEmpty && query.isEmpty { ShareRow(target: .wants, from: "wants", path: $path) }
                 Section1("Wanted · \(shownWants.count)")
                 if shownWants.isEmpty && !query.isEmpty { ListRow(title: "No wants match") }
@@ -601,6 +608,11 @@ struct WantsView: View {
                     }.buttonStyle(.plain)
                 }
                 Section1(query.isEmpty ? "Missing from decks and cubes · \(short)" : "Missing from decks and cubes · \(shownMissing.count) match")
+                if tcgplayer && !missing.isEmpty && query.isEmpty {
+                    Button { buy(missing.map { TCGplayerCart.Item(cardId: $0.line.cardId, qty: $0.line.short) }, from: "missing") } label: {
+                        ListRow(title: "Buy missing on TCGplayer", detail: "\(short) cards into a cart, then Optimize")
+                    }.buttonStyle(.plain)
+                }
                 if shownMissing.isEmpty && !query.isEmpty { ListRow(title: "Nothing missing matches") }
                 else if shownMissing.isEmpty && catalog.phase == .ready { Notice("Your decks and cubes have every card they need.") }
                 ForEach(Array((showAllMissing ? shownMissing : Array(shownMissing.prefix(60))).enumerated()), id: \.element.line.id) { _, m in
@@ -628,6 +640,25 @@ struct WantsView: View {
         }
         .task(id: "\(store.version)-\(CollectionStore.shared.version)-\(catalog.generation)-\(ListsStore.shared.lists.count)") { await rebuild() }
         .searchUsed(query, screen: "wants")
+        .task { tcgplayer = await TCGplayerCart.enabled() }
+    }
+
+    /// Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): one part opens in the browser, several are a menu.
+    private func buy(_ items: [TCGplayerCart.Item], from: String) {
+        Task {
+            do {
+                let a = try await TCGplayerCart.links(items)
+                let urls = a.urls.compactMap(URL.init(string:))
+                Telemetry.capture("tcgplayer_cart_opened", ["from": from, "lines": a.lines, "parts": urls.count])
+                if urls.isEmpty { store.error = "Nothing to buy"; return }
+                if urls.count == 1 { openURL(urls[0]); return }
+                T1Overlays.shared.showMenu("Buy on TCGplayer", urls.enumerated().map { i, u in
+                    T1MenuItem(title: TCGplayerCart.partTitle(i, of: urls.count), detail: "Adds to the same cart") { openURL(u) }
+                })
+            } catch {
+                store.error = error.localizedDescription
+            }
+        }
     }
 
     /// Which printing · Max · Now (From for any printing) (contract/want-prices-2026-10-26.md).

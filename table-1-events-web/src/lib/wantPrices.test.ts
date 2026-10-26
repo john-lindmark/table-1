@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { money, trend, wantDetail } from "./wantPrices";
+import { money, partTitle, trend, wantDetail } from "./wantPrices";
 
 /* Want prices (contract/want-prices-2026-10-26.md) against testdata/want-prices/cases.json, which iOS and Android read too. */
 
@@ -17,5 +17,12 @@ describe("want prices", () => {
 
   it("writes a Wanted row's detail", () => {
     for (const c of cases.detail) expect(wantDetail(c.which, c.max, c.now, c.any)).toBe(c.want);
+  });
+});
+
+describe("buy on TCGplayer", () => {
+  it("labels the parts", () => {
+    expect(partTitle(0, 3)).toBe("Part 1 of 3");
+    expect(partTitle(2, 3)).toBe("Part 3 of 3");
   });
 });

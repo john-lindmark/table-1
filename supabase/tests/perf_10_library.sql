@@ -225,3 +225,8 @@ select pg_temp.ms('wants_prices, 500 wants with 30 days', $$select public.wants_
 reset role;
 select pg_temp.ms('want_price_digest, 52k wants', $$select t1_private.want_price_digest()$$, 15000, 1);
 select pg_temp.eq('drops pushed', ((select count(*) from pgmq.messages where msg->>'kind' = 'want.price') > 20)::text, 'true');
+-- Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): the most a cart takes, 2000 printings.
+set role authenticated;
+select pg_temp.as_user(:BIG);
+select pg_temp.ms('tcgplayer_cart, 2000 printings', $$select public.tcgplayer_cart((select jsonb_agg(jsonb_build_object('card_id', md5('c' || g || '-1')::uuid, 'qty', 1 + g % 4)) from generate_series(1, 2000) g))$$, 300);
+reset role;

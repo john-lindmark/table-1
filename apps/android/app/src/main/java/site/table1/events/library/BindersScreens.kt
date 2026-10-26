@@ -518,6 +518,29 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
     var query by remember { mutableStateOf("") }
     var repointing by remember { mutableStateOf<Want?>(null) }
     SearchUsed(query, "wants")
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var tcgplayer by remember { mutableStateOf(false) }
+    var parts by remember { mutableStateOf<List<String>?>(null) }
+    LaunchedEffect(Unit) { tcgplayer = TCGplayerCart.enabled() }
+    fun open(url: String) {
+        runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+            .onFailure { error = it.message }
+    }
+    // Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): one part opens in the browser, several are a menu.
+    fun buy(items: List<TCGplayerCart.Item>, from: String) {
+        scope.launch {
+            runCatching { TCGplayerCart.links(items) }
+                .onSuccess { a ->
+                    Telemetry.capture("tcgplayer_cart_opened", mapOf("from" to from, "lines" to a.lines, "parts" to a.urls.size))
+                    when (a.urls.size) {
+                        0 -> error = "Nothing to buy"
+                        1 -> open(a.urls[0])
+                        else -> parts = a.urls
+                    }
+                }
+                .onFailure { error = it.message }
+        }
+    }
     LaunchedEffect(Unit) {
         Telemetry.screen("wants")
         CatalogStore.load(userInitiated = true)
@@ -565,6 +588,11 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
                     }
                 }
             }
+            if (tcgplayer && rows.isNotEmpty() && !searching) item(key = "tcgplayer") {
+                ListRow("Buy on TCGplayer", "${rows.sumOf { it.want.qty }} cards into a cart, then Optimize", onClick = {
+                    buy(rows.map { TCGplayerCart.Item(it.want.oracleId, it.want.cardId, it.want.qty) }, "wants")
+                })
+            }
             if (rows.isNotEmpty() && !searching) item(key = "share") { ShareRow(ShareTarget.Wants, "wants") }
             item { Section("Wanted · ${shownWants.size}") }
             if (shownWants.isEmpty() && searching) item { ListRow("No wants match") }
@@ -581,6 +609,11 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
                 }
             }
             item { Section(if (searching) "Missing from decks and cubes · ${shownMissing.size} match" else "Missing from decks and cubes · $short") }
+            if (tcgplayer && missing.isNotEmpty() && !searching) item(key = "tcgplayer-missing") {
+                ListRow("Buy missing on TCGplayer", "${missing.sumOf { it.line.short }} cards into a cart, then Optimize", onClick = {
+                    buy(missing.map { TCGplayerCart.Item(cardId = it.line.cardId, qty = it.line.short) }, "missing")
+                })
+            }
             if (shownMissing.isEmpty() && searching) item { ListRow("Nothing missing matches") }
             else if (missing.isEmpty() && cat.phase == "ready") item { Notice("Your decks and cubes have every card they need.") }
             items(if (showAll) shownMissing else shownMissing.take(60), key = { "m-" + it.line.key }) { m ->
@@ -634,6 +667,9 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
         run(cards.map { WantOp(it.oracle.oracleId, delta = 1) }, "want_added", mapOf("any_printing" to true, "finish" to false, "has_max" to false, "from" to "scan"))
     }) { o ->
         run(listOf(WantOp(o.oracleId, delta = 1)), "want_added", mapOf("any_printing" to true, "finish" to false, "has_max" to false, "from" to "search"))
+    }
+    parts?.let { urls ->
+        T1Menu("Buy on TCGplayer · each adds to the same cart", urls.mapIndexed { i, u -> T1MenuItem(TCGplayerCart.partTitle(i, urls.size)) { open(u) } }) { parts = null }
     }
     repointing?.let { w -> WantPrintingOverlay(w.oracleId, replacing = w, onClose = { repointing = null }) { error = it } }
 }

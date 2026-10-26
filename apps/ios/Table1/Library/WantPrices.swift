@@ -130,3 +130,45 @@ final class WantPricesStore {
     static var demoCover: [String: String] = [:]
     #endif
 }
+
+/* Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): wants or Missing as TCGplayer Mass Entry links. The
+   server writes the links (names, printings, parts, affiliate wrapper); the app opens them. */
+enum TCGplayerCart {
+    struct Item: Sendable {
+        var oracleId: String?
+        var cardId: String?
+        var qty: Int
+    }
+    struct Answer: Decodable, Sendable {
+        let enabled: Bool
+        let lines: Int
+        let unknown: Int
+        let urls: [String]
+    }
+
+    /// Parts as Table 1 menu labels: "Part 1 of 3".
+    static func partTitle(_ i: Int, of n: Int) -> String { "Part \(i + 1) of \(n)" }
+
+    @MainActor
+    static func links(_ items: [Item]) async throws -> Answer {
+        #if DEBUG
+        if CollectionStore.shared.demo != nil { throw DemoOnly() }
+        #endif
+        let p: [AnyJSON] = items.map { i in
+            .object(["oracle_id": i.oracleId.map { .string($0) } ?? .null, "card_id": i.cardId.map { .string($0) } ?? .null,
+                     "qty": .integer(i.qty)])
+        }
+        return try await supabase.rpc("tcgplayer_cart", params: ["p_items": AnyJSON.array(p)]).execute().value
+    }
+
+    /// Whether the rows show: the server's switch (an empty cart answers it).
+    @MainActor
+    static func enabled() async -> Bool {
+        #if DEBUG
+        if CollectionStore.shared.demo != nil { return true }
+        #endif
+        return (try? await links([]))?.enabled ?? false
+    }
+
+    struct DemoOnly: LocalizedError { var errorDescription: String? { "Sign in to build a TCGplayer cart" } }
+}

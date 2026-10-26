@@ -52,3 +52,18 @@ final class WantPricesTests: XCTestCase {
         XCTAssertEqual(PushRoutes.library(["kind": "want.price"]), [.wants])
     }
 }
+
+/* Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): the server's answer and the parts menu. */
+final class TCGplayerCartTests: XCTestCase {
+    func testDecodesTheAnswer() throws {
+        let json = #"{"urls": ["https://www.tcgplayer.com/massentry?productline=Magic&c=1%20Opt"], "lines": 1, "enabled": true, "unknown": 0}"#
+        let a = try JSONDecoder().decode(TCGplayerCart.Answer.self, from: Data(json.utf8))
+        XCTAssertTrue(a.enabled)
+        XCTAssertEqual(a.urls.compactMap(URL.init(string:)).count, 1)
+    }
+
+    func testPartTitles() {
+        XCTAssertEqual(TCGplayerCart.partTitle(0, of: 3), "Part 1 of 3")
+        XCTAssertEqual(TCGplayerCart.partTitle(2, of: 3), "Part 3 of 3")
+    }
+}

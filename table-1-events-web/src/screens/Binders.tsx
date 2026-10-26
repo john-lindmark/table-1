@@ -10,7 +10,7 @@ import { SORT_KEY, applySort, sortKeyOf, useStoredSort } from "../lib/cardSort";
 import { loadDemoLists } from "../lib/libraryDemo";
 import { useLists } from "../lib/lists";
 import { usdPrice, usdText, usePrices } from "../lib/prices";
-import { loadWantPrices, setWantAlerts, useWantPrices, wantDetail, wantPrice, wantTrend } from "../lib/wantPrices";
+import { loadWantPrices, partTitle, setWantAlerts, tcgplayerCart, tcgplayerEnabled, useWantPrices, wantDetail, wantPrice, wantTrend, type CartItem } from "../lib/wantPrices";
 import {
   applyWants, binderById, binderTotals, deleteBinder, itemsIn, liveWants, missingLines, moveCopies, placement, saveBinder, useBinders,
   type Binder, type Want,
@@ -515,6 +515,20 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
     return p ? [p] : [];
   }), [wants, catalog]));
   const wp = useWantPrices();
+  const [tcgplayer, setTcgplayer] = useState(false);
+  const [parts, setParts] = useState<string[] | null>(null);
+  useEffect(() => {
+    if (session) void tcgplayerEnabled().then(setTcgplayer);
+  }, [session]);
+  // Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): one part opens in a new tab, several are a menu.
+  const buy = (items: CartItem[], from: "wants" | "missing") => {
+    tcgplayerCart(items).then((a) => {
+      capture("tcgplayer_cart_opened", { from, lines: a.lines, parts: a.urls.length });
+      if (!a.urls.length) setFail("Nothing to buy");
+      else if (a.urls.length === 1) window.open(a.urls[0], "_blank", "noopener");
+      else setParts(a.urls);
+    }, (e) => setFail(errorMessage(e)));
+  };
   // contract/want-prices-2026-10-26.md: now, a week back and the price alerts switch. The demo prices from the session.
   useEffect(() => {
     if (session) void loadWantPrices(wants, (w) => {
@@ -575,6 +589,10 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
           <SwitchRow label="Price alerts" detail="A push when a want gets 15% cheaper or reaches your max" on={wp.alerts}
                      onChange={(on) => void setWantAlerts(on)} />
         )}
+        {tcgplayer && wants.length > 0 && !q && (
+          <Row title="Buy on TCGplayer" detail={`${wanted} cards into a cart, then Optimize`}
+               onClick={() => buy(wants.map((w) => ({ oracle_id: w.oracleId, card_id: w.cardId, qty: w.qty })), "wants")} />
+        )}
         {wants.length > 0 && !q && <ShareRow target={{ part: "wants", id: null, name: null }} from="wants" />}
         <Section title="Wanted" count={shownWants.length} />
         {!shownWants.length && !!q && <Row title="No wants match" />}
@@ -591,6 +609,10 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
           );
         })}
         <Section title="Missing from decks and cubes" count={normName(q) ? shownMissing.length : short} />
+        {tcgplayer && missing.length > 0 && !q && (
+          <Row title="Buy missing on TCGplayer" detail={`${short} cards into a cart, then Optimize`}
+               onClick={() => buy(missing.map((m) => ({ card_id: m.cardId, qty: m.short })), "missing")} />
+        )}
         {catalog && !shownMissing.length && !!normName(q) && <Row title="Nothing missing matches" />}
         {catalog && !missing.length && <Notice tone="info">Your decks and cubes have every card they need.</Notice>}
         {catalog && (all ? shownMissing : shownMissing.slice(0, 60)).map((m) => {
@@ -619,6 +641,10 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
         <Menu title={catalog.oName[oracleIndexById(catalog, editing.oracleId)] ?? "Want"} items={editItems(editing)} onClose={() => setEditing(null)} />
       )}
       {pricing && <WantPrice want={pricing} onClose={() => setPricing(null)} onFail={setFail} />}
+      {parts && (
+        <Menu title="Buy on TCGplayer" onClose={() => setParts(null)}
+              items={parts.map((u, i) => ({ title: partTitle(i, parts.length), detail: "Adds to the same cart", onClick: () => { window.open(u, "_blank", "noopener"); } }))} />
+      )}
       {repointing && catalog && (
         <WantPrinting catalog={catalog} oi={oracleIndexById(catalog, repointing.oracleId)} replacing={repointing}
                       onClose={() => setRepointing(null)} onFail={setFail} />
