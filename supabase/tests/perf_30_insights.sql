@@ -54,3 +54,28 @@ select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
 select pg_temp.ms('archetype page (a viewer''s tap)', $$select public.meta_archetype('modern', (select 1 + 0), 'all', 30)$$, 100);
 select pg_temp.ms('card page (a viewer''s tap)', $$select public.meta_card('modern', md5('c40')::uuid, 'all')$$, 200);
 reset role;
+
+-- A Limited set at 17Lands' size (bug #15: FRA's pack took 10 s on live, past the 8 s statement timeout): five event
+-- types, each a game run of ~7,000 sums (300 cards, 16 pairs, 12 weeks, both groups) and a draft run for ATA.
+insert into t1_private.limited_runs (set_code, event_type, kind, uri, last_modified, total_bytes, status)
+select 'PRF', e, k, 'https://x/' || e || k, now(), 1, 'done'
+  from unnest(array['PremierDraft', 'TradDraft', 'PickTwoDraft', 'Sealed', 'TradSealed']) e cross join unnest(array['game', 'draft']) k;
+insert into t1_private.limited_acc (run_id, k, g, w)
+select r.id, x.k, x.g, x.g / 2
+  from t1_private.limited_runs r cross join lateral (
+    select 'T|' || grp k, 100000 g from unnest(array['a', 't']) grp
+    union all select t || '|' || grp, 50000 from unnest(array['P', 'D', 'M', 'K', 'N', 'MP']) t, unnest(array['a', 't']) grp
+    union all select t || '|' || p || '|' || grp, 5000 from unnest(array['p', 'pp', 'ps']) t, unnest(array['WU', 'WB', 'WR', 'WG', 'UB', 'UR', 'UG', 'BR', 'BG', 'RG', 'WUB', 'UBR', 'BRG', 'RGW', 'GWU', 'WUBRG']) p, unnest(array['a', 't']) grp
+    union all select 'pw|' || p || '|' || wk || '|' || grp, 500 from unnest(array['WU', 'WB', 'WR', 'WG', 'UB', 'UR', 'UG', 'BR', 'BG', 'RG', 'WUB', 'UBR', 'BRG', 'RGW', 'GWU', 'WUBRG']) p, generate_series(1, 12) wk, unnest(array['a', 't']) grp
+    union all select 'dc|' || p || '||' || grp, 3000 from unnest(array['WU', 'WB', 'WR', 'WG', 'UB', 'UR', 'UG', 'BR', 'BG', 'RG']) p, unnest(array['a', 't']) grp
+    union all select t || '|Card ' || c || '|' || grp, 1000 + c from unnest(array['cd', 'ch', 'co', 'cg', 'cn']) t, generate_series(1, 300) c, unnest(array['a', 't']) grp
+    union all select 'cw|Card ' || c || '|' || wk, 300 from generate_series(1, 300) c, generate_series(1, 12) wk
+    union all select 'cp|Card ' || c || '|' || p, 300 from generate_series(1, 300) c, unnest(array['WU', 'WB', 'WR', 'WG', 'UB', 'UR', 'UG', 'BR', 'BG', 'RG']) p
+  ) x where r.set_code = 'PRF' and r.kind = 'game'
+union all
+select r.id, 'a|Card ' || c || '|' || grp, 1000, 5000 from t1_private.limited_runs r, generate_series(1, 300) c, unnest(array['a', 't']) grp
+ where r.set_code = 'PRF' and r.kind = 'draft';
+analyze t1_private.limited_acc;
+select pg_temp.eq('a Limited pack: five events, 300 cards each, both groups',
+  (select count(*)::text from jsonb_each(public.limited_pack_facts('PRF')->'events') e, jsonb_array_elements(e.value->'groups'->'all'->'cards')), '1500');
+select pg_temp.ms('Limited pack facts (one set, five events)', $$select public.limited_pack_facts('PRF')$$, 1500, 1);
