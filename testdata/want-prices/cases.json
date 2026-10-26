@@ -1,0 +1,204 @@
+{
+ "money": [
+  {
+   "v": 1.4,
+   "want": "$1.40"
+  },
+  {
+   "v": 0,
+   "want": "$0.00"
+  },
+  {
+   "v": 12,
+   "want": "$12.00"
+  },
+  {
+   "v": 0.07,
+   "want": "$0.07"
+  },
+  {
+   "v": 1234.5,
+   "want": "$1234.50"
+  }
+ ],
+ "trend": [
+  {
+   "now": 12.4,
+   "then": 13.5,
+   "days": 7,
+   "want": {
+    "dir": "down",
+    "text": "▼ 8% this week"
+   }
+  },
+  {
+   "now": 13.5,
+   "then": 12.4,
+   "days": 7,
+   "want": {
+    "dir": "up",
+    "text": "▲ 9% this week"
+   }
+  },
+  {
+   "now": 1.4,
+   "then": 1.8,
+   "days": 7,
+   "want": {
+    "dir": "down",
+    "text": "▼ 22% this week"
+   }
+  },
+  {
+   "now": 0.22,
+   "then": 0.2,
+   "days": 7,
+   "want": {
+    "dir": "flat",
+    "text": "Flat this week"
+   }
+  },
+  {
+   "now": 8.0,
+   "then": 8.02,
+   "days": 7,
+   "want": {
+    "dir": "flat",
+    "text": "Flat this week"
+   }
+  },
+  {
+   "now": 10.0,
+   "then": 10.04,
+   "days": 3,
+   "want": {
+    "dir": "flat",
+    "text": "Flat in 3 days"
+   }
+  },
+  {
+   "now": 2.1,
+   "then": 2.0,
+   "days": 1,
+   "want": {
+    "dir": "up",
+    "text": "▲ 5% since yesterday"
+   }
+  },
+  {
+   "now": 2.0,
+   "then": 2.1,
+   "days": 2,
+   "want": {
+    "dir": "down",
+    "text": "▼ 5% in 2 days"
+   }
+  },
+  {
+   "now": 100.0,
+   "then": 100.4,
+   "days": 7,
+   "want": {
+    "dir": "flat",
+    "text": "Flat this week"
+   }
+  },
+  {
+   "now": 0.5,
+   "then": 0.4,
+   "days": 5,
+   "want": {
+    "dir": "up",
+    "text": "▲ 25% in 5 days"
+   }
+  },
+  {
+   "now": 7.5,
+   "then": 10.0,
+   "days": 7,
+   "want": {
+    "dir": "down",
+    "text": "▼ 25% this week"
+   }
+  },
+  {
+   "now": 2.05,
+   "then": 2.0,
+   "days": 7,
+   "want": {
+    "dir": "up",
+    "text": "▲ 3% this week"
+   }
+  },
+  {
+   "now": 2.0,
+   "then": 2.05,
+   "days": 7,
+   "want": {
+    "dir": "down",
+    "text": "▼ 2% this week"
+   }
+  },
+  {
+   "now": null,
+   "then": 2.0,
+   "days": 7,
+   "want": null
+  },
+  {
+   "now": 2.0,
+   "then": null,
+   "days": null,
+   "want": null
+  },
+  {
+   "now": 2.0,
+   "then": 0,
+   "days": 7,
+   "want": null
+  },
+  {
+   "now": 3.0,
+   "then": 2.0,
+   "days": 0,
+   "want": null
+  }
+ ],
+ "detail": [
+  {
+   "which": "Any printing",
+   "max": null,
+   "now": 1.4,
+   "any": true,
+   "want": "Any printing · From $1.40"
+  },
+  {
+   "which": "M10 · Foil",
+   "max": 10,
+   "now": 12.4,
+   "any": false,
+   "want": "M10 · Foil · Max $10.00 · Now $12.40"
+  },
+  {
+   "which": "XLN",
+   "max": null,
+   "now": null,
+   "any": false,
+   "want": "XLN"
+  },
+  {
+   "which": "Any printing",
+   "max": 1.5,
+   "now": 1.4,
+   "any": true,
+   "want": "Any printing · Max $1.50 · From $1.40"
+  },
+  {
+   "which": "MH2",
+   "max": null,
+   "now": 8,
+   "any": false,
+   "want": "MH2 · Now $8.00"
+  }
+ ]
+}

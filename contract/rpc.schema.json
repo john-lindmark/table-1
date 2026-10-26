@@ -10042,6 +10042,135 @@
           "updates"
         ]
       }
+    },
+    "wants_prices": {
+      "note": "Your wants' prices now, 7 days back and their 30-day average (near mint; cheapest printing/finish the want takes). contract/want-prices-2026-10-26.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {}
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "alerts": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "oracle_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "card_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "finish": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "nonfoil",
+                    "foil",
+                    "etched",
+                    null
+                  ]
+                },
+                "now": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "now_card_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "now_finish": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "nonfoil",
+                    "foil",
+                    "etched",
+                    null
+                  ]
+                },
+                "then": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "then_days": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "avg30": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "oracle_id",
+                "card_id",
+                "finish",
+                "now",
+                "now_card_id",
+                "now_finish",
+                "then",
+                "then_days",
+                "avg30"
+              ]
+            }
+          }
+        },
+        "required": [
+          "alerts",
+          "items"
+        ]
+      }
+    },
+    "want_alerts_set": {
+      "note": "Price alerts (the want.price push) on or off for your account; a change is audited. contract/want-prices-2026-10-26.md. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_on": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "p_on"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "alerts": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "alerts"
+        ]
+      }
     }
   },
   "functions": {

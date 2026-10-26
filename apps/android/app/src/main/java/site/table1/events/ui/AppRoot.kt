@@ -39,6 +39,7 @@ import site.table1.events.data.Repo
 import site.table1.events.library.RankingsScreen
 import site.table1.events.library.SharedLinkScreen
 import site.table1.events.library.FollowsStore
+import site.table1.events.library.WantPricesStore
 import site.table1.events.library.FollowingScreen
 import site.table1.events.library.FollowChangesScreen
 import site.table1.events.library.RankingScreen
@@ -227,7 +228,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
         }
         CatalogStore.load(userInitiated = false)
     }
-    DisposableEffect(Unit) { onDispose { CollectionStore.stop(); ListsStore.stop(); TradesStore.stop(); BindersStore.stop(); HeroesStore.stop(); FriendsStore.stop(); FollowsStore.stop() } }
+    DisposableEffect(Unit) { onDispose { CollectionStore.stop(); ListsStore.stop(); TradesStore.stop(); BindersStore.stop(); HeroesStore.stop(); FriendsStore.stop(); FollowsStore.stop(); WantPricesStore.stop() } }
     LaunchedEffect(foregrounds) {
         CatalogStore.load(userInitiated = route?.startsWith("collection") == true)
         if (foregrounds > 0) HeroesStore.refresh()

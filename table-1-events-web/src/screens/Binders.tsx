@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, Dialog, Field, Menu, Modal, Notice, Row, Screen, Section, SwitchRow, type MenuItem } from "../components/kit";
 import { errorMessage } from "../lib/api";
 import { RARITY_NAME, basicCardIds, coverPrinting, normName, oracleIndexById, type Catalog } from "../lib/catalog";
@@ -10,6 +10,7 @@ import { SORT_KEY, applySort, sortKeyOf, useStoredSort } from "../lib/cardSort";
 import { loadDemoLists } from "../lib/libraryDemo";
 import { useLists } from "../lib/lists";
 import { usdPrice, usdText, usePrices } from "../lib/prices";
+import { loadWantPrices, setWantAlerts, useWantPrices, wantDetail, wantPrice, wantTrend } from "../lib/wantPrices";
 import {
   applyWants, binderById, binderTotals, deleteBinder, itemsIn, liveWants, missingLines, moveCopies, placement, saveBinder, useBinders,
   type Binder, type Want,
@@ -483,6 +484,12 @@ export function MoveCopies({ item, label, onClose, onMoved }: {
 
 /* ── wants ────────────────────────────────────────────────────────────── */
 
+/** The card id of the printing a want's row shows for any printing (its cover). */
+function coverOf(c: Catalog, oracleId: string): string | null {
+  const oi = oracleIndexById(c, oracleId);
+  return oi < 0 ? null : c.pId[coverPrinting(c, oi)];
+}
+
 export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (oracleId: string) => void }) {
   const { session, ready, userId } = useLibrarySession();
   const col = useCollection(userId);
@@ -503,7 +510,19 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
     for (const it of col.items.values()) owned.set(`${it.cardId}|${it.finish}`, (owned.get(`${it.cardId}|${it.finish}`) ?? 0) + it.qty);
     return missingLines(lists.lists, owned, basicCardIds(catalog));
   }, [lists.lists, col.version, catalog]);
-  usePrices(useMemo(() => wants.flatMap((w) => (w.cardId ? [w.cardId] : [])), [wants]));
+  const priceVersion = usePrices(useMemo(() => wants.flatMap((w) => {
+    const p = w.cardId ?? (catalog ? coverOf(catalog, w.oracleId) : null);
+    return p ? [p] : [];
+  }), [wants, catalog]));
+  const wp = useWantPrices();
+  // contract/want-prices-2026-10-26.md: now, a week back and the price alerts switch. The demo prices from the session.
+  useEffect(() => {
+    if (session) void loadWantPrices(wants, (w) => {
+      const p = w.cardId ?? (catalog ? coverOf(catalog, w.oracleId) : null);
+      return p ? usdPrice(p, w.finish ?? "nonfoil") : null;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, b.version, priceVersion]);
   if (!ready) return <Screen><div className="flex-1" /></Screen>;
   if (!session) return <SignedOut title="Wants" onBack={onBack} />;
   const wanted = wants.reduce((n, w) => n + w.qty, 0);
@@ -529,8 +548,8 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
   const detail = (w: Want, p: number | null) => {
     const which = w.cardId == null ? "Any printing"
       : [p != null && catalog ? `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}` : null, w.finish ? w.finish[0].toUpperCase() + w.finish.slice(1) : null].filter(Boolean).join(" · ");
-    const now = w.cardId ? usdPrice(w.cardId, w.finish ?? "nonfoil") : null;
-    return [which, w.maxUsd != null ? `Max $${w.maxUsd}` : null, now != null ? `Now $${now}` : null].filter(Boolean).join(" · ");
+    const now = wantPrice(w)?.now ?? (w.cardId ? usdPrice(w.cardId, w.finish ?? "nonfoil") : null);
+    return wantDetail(which, w.maxUsd, now, w.cardId == null);
   };
   const editItems = (w: Want): MenuItem[] => {
     const base = { oracle_id: w.oracleId, card_id: w.cardId, finish: w.finish };
@@ -552,6 +571,10 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
       {(wants.length > 0 || missing.length > 0) && <Field label="Search wants" value={q} onChange={setQ} placeholder="Name or type" />}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         <Row title="Add a want" detail="Any printing, or one in particular" onClick={() => setAdding(true)} />
+        {wp.alerts != null && (
+          <SwitchRow label="Price alerts" detail="A push when a want gets 15% cheaper or reaches your max" on={wp.alerts}
+                     onChange={(on) => void setWantAlerts(on)} />
+        )}
         {wants.length > 0 && !q && <ShareRow target={{ part: "wants", id: null, name: null }} from="wants" />}
         <Section title="Wanted" count={shownWants.length} />
         {!shownWants.length && !!q && <Row title="No wants match" />}
@@ -559,10 +582,11 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
         {catalog && shownWants.map((w) => {
           const p = printingOf(w);
           const oi = oracleIndexById(catalog, w.oracleId);
+          const t = wantTrend(w);
           return (
             <div key={`${w.oracleId}|${w.cardId}|${w.finish}`} style={{ height: 60 }}>
               <CardRow c={catalog} p={p} title={oi >= 0 ? catalog.oName[oi] : "Card not in local data yet"} detail={detail(w, p)}
-                       value={w.qty} onClick={() => setEditing(w)} />
+                       note={t?.text} noteAccent={t?.dir === "down"} value={w.qty} onClick={() => setEditing(w)} />
             </div>
           );
         })}

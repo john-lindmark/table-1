@@ -1,0 +1,134 @@
+// Want prices (contract/want-prices-2026-10-26.md): each want's price now, a week back and its 30-day average
+// (wants_prices), the trend shown on Wanted rows, and the account's price alerts switch (want_alerts_set). Rules
+// shared with iOS and Android in testdata/want-prices/cases.json.
+import { useSyncExternalStore } from "react";
+import { supabase } from "./supabaseClient";
+import { capture } from "./telemetry";
+import { isLibraryDemo } from "./libraryDemo";
+import { wantKey, type Want } from "./binders";
+
+export interface WantPrice {
+  oracle_id: string;
+  card_id: string | null;
+  finish: string | null;
+  now: number | null;
+  now_card_id: string | null;
+  now_finish: string | null;
+  then: number | null;
+  then_days: number | null;
+  avg30: number | null;
+}
+
+export interface Trend { dir: "up" | "down" | "flat"; text: string }
+
+/* ── rules ───────────────────────────────────────────────────────────── */
+
+// Whole cents throughout, so a half percent rounds the same on every platform.
+const cents = (v: number) => Math.round(v * 100);
+
+export function money(v: number): string {
+  const c = cents(v);
+  return `$${Math.floor(c / 100)}.${String(c % 100).padStart(2, "0")}`;
+}
+
+const period = (days: number) => (days >= 7 ? "this week" : days === 1 ? "since yesterday" : `in ${days} days`);
+
+/** Now against the oldest price of the last 7 days, `days` ago. Null without both prices. */
+export function trend(now: number | null | undefined, then: number | null | undefined, days: number | null | undefined): Trend | null {
+  if (now == null || then == null || days == null || days < 1) return null;
+  const n = cents(now), t = cents(then);
+  if (t <= 0) return null;
+  const diff = n - t;
+  const pct = Math.floor((Math.abs(diff) * 200 + t) / (2 * t));
+  if (Math.abs(diff) < 5 || pct === 0) return { dir: "flat", text: `Flat ${period(days)}` };
+  return diff > 0 ? { dir: "up", text: `▲ ${pct}% ${period(days)}` } : { dir: "down", text: `▼ ${pct}% ${period(days)}` };
+}
+
+/** A Wanted row's detail: which printing · Max $X · Now $Y (From for any printing). The trend has its own line. */
+export function wantDetail(which: string, max: number | null, now: number | null, any: boolean): string {
+  return [which || null, max != null ? `Max ${money(max)}` : null, now != null ? `${any ? "From" : "Now"} ${money(now)}` : null]
+    .filter(Boolean).join(" · ");
+}
+
+/* ── store ───────────────────────────────────────────────────────────── */
+
+let items = new Map<string, WantPrice>();
+let alerts: boolean | null = null;
+let error: string | null = null;
+let version = 0;
+let demoAlerts = true;
+const subs = new Set<() => void>();
+const bump = () => {
+  version++;
+  for (const s of subs) s();
+};
+
+export const wantPrice = (w: Want) => items.get(wantKey(w.oracleId, w.cardId, w.finish));
+export const wantTrend = (w: Want) => {
+  const p = wantPrice(w);
+  return p ? trend(p.now, p.then, p.then_days) : null;
+};
+
+/** Loads your wants' prices. Demo: `demoPrice` (the session's price, or none) and a made-up week back. */
+export async function loadWantPrices(wants: Want[], demoPrice?: (w: Want) => number | null) {
+  if (isLibraryDemo()) {
+    const next = new Map<string, WantPrice>();
+    for (const w of wants) {
+      const seed = [...(w.cardId ?? w.oracleId)].reduce((n, ch) => n + ch.charCodeAt(0), 0);
+      const now = demoPrice?.(w) ?? (25 + (seed * 37) % 4000) / 100;
+      const h = (seed % 41) - 20;
+      next.set(wantKey(w.oracleId, w.cardId, w.finish), {
+        oracle_id: w.oracleId, card_id: w.cardId, finish: w.finish, now, now_card_id: w.cardId, now_finish: w.finish ?? "nonfoil",
+        then: Math.round((now * 100) / (100 + h) * 100) / 100, then_days: 7, avg30: now,
+      });
+    }
+    items = next;
+    alerts = demoAlerts;
+    bump();
+    return;
+  }
+  const { data, error: e } = await supabase.rpc("wants_prices");
+  if (e) {
+    error = e.message;
+    bump();
+    return;
+  }
+  const a = data as { alerts: boolean; items: WantPrice[] };
+  items = new Map(a.items.map((p) => [wantKey(p.oracle_id, p.card_id, p.finish), p]));
+  alerts = a.alerts;
+  error = null;
+  const trends = a.items.map((p) => trend(p.now, p.then, p.then_days)).filter((t): t is Trend => t != null);
+  capture("want_prices_loaded", { wants: a.items.length, with_trend: trends.length,
+                                  down: trends.filter((t) => t.dir === "down").length, up: trends.filter((t) => t.dir === "up").length });
+  bump();
+}
+
+/** Price alerts on or off for the account. */
+export async function setWantAlerts(on: boolean) {
+  const was = alerts;
+  alerts = on;
+  bump();
+  if (isLibraryDemo()) {
+    demoAlerts = on;
+    capture("want_alerts_changed", { on });
+    return;
+  }
+  const { data, error: e } = await supabase.rpc("want_alerts_set", { p_on: on });
+  if (e) {
+    alerts = was;
+    error = e.message;
+  } else {
+    alerts = (data as { alerts: boolean }).alerts;
+    capture("want_alerts_changed", { on: alerts });
+  }
+  bump();
+}
+
+/** Re-renders when prices or the switch change. */
+export function useWantPrices(): { version: number; alerts: boolean | null; error: string | null } {
+  const v = useSyncExternalStore((cb) => {
+    subs.add(cb);
+    return () => subs.delete(cb);
+  }, () => version);
+  return { version: v, alerts, error };
+}

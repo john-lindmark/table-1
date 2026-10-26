@@ -251,9 +251,11 @@ function HeroEdge() {
 
 /** A list row led by a card thumbnail; same type and spacing as Row. A hero card's row is a shade lighter with a
  *  white left edge. */
-export function CardRow({ c, p, title, detail, value, warn, onClick, finish, hero, indent }: {
+export function CardRow({ c, p, title, detail, note, noteAccent, value, warn, onClick, finish, hero, indent }: {
   c: Catalog; p: number | null; title: ReactNode; detail?: ReactNode; value?: ReactNode; warn?: boolean; onClick?: () => void;
   finish?: CardFinish; hero?: boolean;
+  /** A second detail line (a want's price trend), in the accent when `noteAccent`. */
+  note?: ReactNode; noteAccent?: boolean;
   /** A printing row under its card. */
   indent?: boolean;
 }) {
@@ -266,6 +268,7 @@ export function CardRow({ c, p, title, detail, value, warn, onClick, finish, her
       <span className="flex-1 min-w-0 flex flex-col gap-0.5">
         <span className="text-[13px] truncate">{title}</span>
         {detail && <span className="t1-label truncate">{detail}</span>}
+        {note && <span className={`t1-label truncate ${noteAccent ? "!text-t1-accent" : ""}`}>{note}</span>}
       </span>
       {value != null && <span className={`shrink-0 text-[13px] tabular-nums ${warn ? "text-t1-error" : indent ? "text-t1-muted" : ""}`}>{value}</span>}
     </button>

@@ -557,6 +557,7 @@ struct WantsView: View {
     @Environment(\.dismiss) private var dismiss
     private var store: BindersStore { BindersStore.shared }
     private var catalog: CatalogStore { CatalogStore.shared }
+    private var prices: WantPricesStore { WantPricesStore.shared }
     @State private var rows: [WantDisplay] = []
     @State private var missing: [(line: MissingLine, printing: CatalogPrinting?, name: String, oracleId: String?, type: String)] = []
     @State private var showAllMissing = false
@@ -582,13 +583,19 @@ struct WantsView: View {
             if !rows.isEmpty || !missing.isEmpty { T1SearchField(text: $query, prompt: "Name or type") }
             HairlineList {
                 Button { addWant() } label: { ListRow(title: "Add a want", detail: "Any printing, or one in particular") }.buttonStyle(.plain)
+                if let on = prices.alerts {
+                    T1Switch(title: "Price alerts", detail: "A push when a want gets 15% cheaper or reaches your max",
+                             isOn: Binding(get: { on }, set: { v in Task { await prices.setAlerts(v) } }))
+                }
                 if !rows.isEmpty && query.isEmpty { ShareRow(target: .wants, from: "wants", path: $path) }
                 Section1("Wanted · \(shownWants.count)")
                 if shownWants.isEmpty && !query.isEmpty { ListRow(title: "No wants match") }
                 else if rows.isEmpty { Notice("Cards you're after. Gets in a trade that match are marked, and confirming takes them off.") }
                 ForEach(shownWants) { r in
                     Button { edit(r) } label: {
-                        CardRow(printing: r.printing, title: r.name, detail: detail(r.want, r.printing)) {
+                        let trend = prices.trend(r.want)
+                        CardRow(printing: r.printing, title: r.name, detail: detail(r.want, r.printing),
+                                note: trend?.text, noteAccent: trend?.dir == "down") {
                             Text("\(r.want.qty)").font(T1.mono(17)).monospacedDigit()
                         }
                     }.buttonStyle(.plain)
@@ -623,10 +630,11 @@ struct WantsView: View {
         .searchUsed(query, screen: "wants")
     }
 
+    /// Which printing · Max · Now (From for any printing) (contract/want-prices-2026-10-26.md).
     private func detail(_ w: Want, _ p: CatalogPrinting?) -> String {
         let which = w.cardId == nil ? "Any printing" : [p?.setLabel, w.finish.flatMap { Finish(rawValue: $0)?.label }].compactMap { $0 }.joined(separator: " · ")
-        let price = w.cardId.flatMap { PriceBook.shared.usd($0, w.finish ?? "nonfoil") }
-        return [which, w.maxUsd.map { "Max $\($0.formatted())" }, price.map { "Now $\($0.formatted())" }].compactMap { $0 }.joined(separator: " · ")
+        let now = prices.items[w.id]?.now ?? w.cardId.flatMap { PriceBook.shared.usd($0, w.finish ?? "nonfoil") }
+        return WantPrices.detail(which: which, max: w.maxUsd, now: now, any: w.cardId == nil)
     }
 
     private func rebuild() async {
@@ -656,7 +664,13 @@ struct WantsView: View {
         }.value
         rows = out.0
         missing = out.1.map { ($0.0, $0.1, $0.2, $0.3, $0.4) }
+        #if DEBUG
+        for r in out.0 where r.want.cardId == nil { WantPricesStore.demoCover[r.want.oracleId] = r.printing?.cardId }
+        await PriceBook.shared.load(out.0.compactMap { $0.want.cardId ?? $0.printing?.cardId })
+        #else
         await PriceBook.shared.load(wants.compactMap(\.cardId))
+        #endif
+        await prices.load(wants)
     }
 
     private func want(_ m: MissingLine, oracleId: String) {

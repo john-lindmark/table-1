@@ -248,6 +248,7 @@ fun WithChevron(parts: Int, open: Boolean, hero: Boolean = false, onToggle: () -
 @Composable
 fun CardRow(printing: CatalogPrinting?, title: String, detail: String? = null, onClick: (() -> Unit)? = null,
             finish: String = "nonfoil", hero: Boolean = false, indent: Boolean = false,
+            note: String? = null, noteAccent: Boolean = false,
             trailing: @Composable () -> Unit = {}) {
     Row(
         Modifier.fillMaxWidth().background(if (hero) T1.surfaceHover else T1.surface)
@@ -260,6 +261,8 @@ fun CardRow(printing: CatalogPrinting?, title: String, detail: String? = null, o
         Column(Modifier.weight(1f)) {
             Text(title, color = T1.text, fontFamily = T1.mono, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             detail?.let { Label(it) }
+            // A second detail line (a want's price trend), in the accent when noteAccent.
+            note?.let { Label(it, color = if (noteAccent) T1.accent else T1.muted) }
         }
         trailing()
     }

@@ -212,6 +212,9 @@ struct CardRow<Trailing: View>: View {
     var finish = "nonfoil"
     /// A hero card of the list, binder or collection on screen: a lighter row with a white edge.
     var hero = false
+    /// A second detail line (a want's price trend), in the accent when `noteAccent`.
+    var note: String?
+    var noteAccent = false
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
@@ -224,6 +227,7 @@ struct CardRow<Trailing: View>: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(T1.mono(14)).lineLimit(1)
                 if let detail { LabelText(detail) }
+                if let note { LabelText(note, color: noteAccent ? T1.accent : T1.muted) }
             }
             Spacer(minLength: 0)
             trailing

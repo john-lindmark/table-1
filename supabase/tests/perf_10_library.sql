@@ -207,3 +207,21 @@ select pg_temp.as_user(:BIG);
 select pg_temp.ms('follows_list, 200 follows', $$select public.follows_list()$$, 350);
 select pg_temp.ms('follow_changes of the big binder', $$select public.follow_changes('binder', md5('fbinder1')::uuid)$$, 25);
 reset role;
+-- Want prices (contract/want-prices-2026-10-26.md): the big account's 500 wants (any printing, 3 printings each)
+-- and 200 friends' 50 wants each on top of the ~42k already seeded (52k wants), with 30 days of history; then a
+-- third off a tenth of the prices and one digest run. Live has 8 wants (2026-10-26).
+reset role;
+insert into public.wants (user_id, oracle_id, qty, seq)
+select md5('friend' || i)::uuid, md5('o' || (1 + (i * 50 + k) % 35000))::uuid, 1, 1
+  from generate_series(1, 200) i, generate_series(1, 50) k
+on conflict do nothing;
+do $$ begin for i in reverse 30..2 loop perform t1_private.price_days_take(current_date - i); end loop; end $$;
+analyze;
+select pg_temp.ms('price_days_take, 52k wants', $$select t1_private.price_days_take(current_date - 1)$$, 1500, 1);
+update public.card_prices set usd = round(usd * 0.66, 2) where card_id in (select id from public.cards where set_code < 's2');
+set role authenticated;
+select pg_temp.as_user(:BIG);
+select pg_temp.ms('wants_prices, 500 wants with 30 days', $$select public.wants_prices()$$, 100);
+reset role;
+select pg_temp.ms('want_price_digest, 52k wants', $$select t1_private.want_price_digest()$$, 15000, 1);
+select pg_temp.eq('drops pushed', ((select count(*) from pgmq.messages where msg->>'kind' = 'want.price') > 20)::text, 'true');

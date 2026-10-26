@@ -506,6 +506,7 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
     val b by BindersStore.state.collectAsState()
     val lists by ListsStore.state.collectAsState()
     val cat by CatalogStore.state.collectAsState()
+    val prices by WantPricesStore.state.collectAsState()
     val scope = rememberCoroutineScope()
     var rows by remember { mutableStateOf<List<WantRowView>>(emptyList()) }
     var missing by remember { mutableStateOf<List<MissingRowView>>(emptyList()) }
@@ -540,6 +541,7 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
         rows = out.first
         missing = out.second
         PriceBook.load(wants.mapNotNull { it.cardId }.toSet())
+        WantPricesStore.load()
     }
     fun run(ops: List<WantOp>, event: String? = null, props: Map<String, Any> = emptyMap()) {
         scope.launch { runCatching { BindersStore.applyWants(ops, event, props) }.onFailure { error = it.message } }
@@ -556,6 +558,13 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
         if (rows.isNotEmpty() || missing.isNotEmpty()) SearchBand(query, "Name or type") { query = it }
         Hairlines(Modifier.weight(1f)) {
             item { ListRow("Add a want", "Any printing, or one in particular", onClick = { adding = true }) }
+            prices.alerts?.let { on ->
+                item(key = "alerts") {
+                    ListRow("Price alerts", "A push when a want gets 15% cheaper or reaches your max") {
+                        T1Switch(on) { scope.launch { WantPricesStore.setAlerts(it) } }
+                    }
+                }
+            }
             if (rows.isNotEmpty() && !searching) item(key = "share") { ShareRow(ShareTarget.Wants, "wants") }
             item { Section("Wanted · ${shownWants.size}") }
             if (shownWants.isEmpty() && searching) item { ListRow("No wants match") }
@@ -563,9 +572,11 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
             items(shownWants, key = { "w-" + it.want.key }) { r ->
                 val w = r.want
                 val which = if (w.cardId == null) "Any printing" else listOfNotNull(r.printing?.setLabel, w.finish?.let { Finish.of(it)?.label }).joinToString(" · ")
-                val now = w.cardId?.let { PriceBook.usd(it, w.finish ?: "nonfoil") }
-                CardRow(r.printing, r.name, listOfNotNull(which, w.maxUsd?.let { "Max $$it" }, now?.let { "Now $$it" }).joinToString(" · "),
-                    onClick = { editing = r }) {
+                // contract/want-prices-2026-10-26.md: Now (From for any printing) and the week's trend on its own line.
+                val now = prices.items[w.key]?.now ?: w.cardId?.let { PriceBook.usd(it, w.finish ?: "nonfoil") }
+                val trend = prices.trend(w)
+                CardRow(r.printing, r.name, WantPrices.detail(which, w.maxUsd, now, w.cardId == null),
+                    note = trend?.text, noteAccent = trend?.dir == "down", onClick = { editing = r }) {
                     Text("${w.qty}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                 }
             }

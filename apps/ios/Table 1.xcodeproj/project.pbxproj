@@ -91,6 +91,7 @@
 		70B4BE14B1DCD8D72628B8EB /* FriendsDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = D14AB06BD876B8A78DC502CD /* FriendsDemo.swift */; };
 		718A338B9038D7DFD7E9F125 /* ListExportViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3A9C60903D2BA0BC7797E06 /* ListExportViews.swift */; };
 		722CF6EDB4B50328913BF374 /* CardSortTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75113DBF7EDD6C6A6C4D6B88 /* CardSortTests.swift */; };
+		72D25F18D04A432DF1F08706 /* WantPricesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C762952B6C07F999AFBE53F2 /* WantPricesTests.swift */; };
 		731BC80120E9E1F40E604459 /* NextEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55ED7E829009B01939CAD51A /* NextEvent.swift */; };
 		746A77656FBD47D4545F9244 /* ListStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = D32E44C4EB38C9E8A620A495 /* ListStats.swift */; };
 		754A2FF43AE93BF1D9C806EB /* LiveSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 806A035192A635C79AA2F3A6 /* LiveSync.swift */; };
@@ -170,6 +171,7 @@
 		D30430CD7CA0515FBDFB5C9E /* WidgetPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E89EF701721EB9939EC65A6 /* WidgetPalette.swift */; };
 		D3F6205096B6E98B6F7E6869 /* ScanReports.swift in Sources */ = {isa = PBXBuildFile; fileRef = 239D07747A4039EE164CFB4B /* ScanReports.swift */; };
 		D4915A4044585E2089916731 /* SQLite.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8D5D41DD05383A49BC215B5 /* SQLite.swift */; };
+		D8803F2C8675C070EFDB9344 /* WantPrices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DB9F671A37B079BBD5D5379 /* WantPrices.swift */; };
 		DB1EAC45753FE9C33065079C /* T1Shared.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00C95CF97E3DDF3302A0F73 /* T1Shared.swift */; };
 		DE457CB9913BD0E1B4BC5FD2 /* FollowsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71B8C7CC4BA32B9ADFA2DA44 /* FollowsViews.swift */; };
 		DF246074B284841D5C11B4B8 /* DeckStatsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C23AB8F5588863F9D0B84282 /* DeckStatsTests.swift */; };
@@ -327,6 +329,7 @@
 		7ACA793840C49117582CAD00 /* InsightChartsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightChartsTests.swift; sourceTree = "<group>"; };
 		7C6C10E91EC9AF7F6D714335 /* NearbyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyView.swift; sourceTree = "<group>"; };
 		7CF2A00D5FD0FCF89937DEA6 /* CubeFieldsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CubeFieldsTests.swift; sourceTree = "<group>"; };
+		7DB9F671A37B079BBD5D5379 /* WantPrices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WantPrices.swift; sourceTree = "<group>"; };
 		806A035192A635C79AA2F3A6 /* LiveSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSync.swift; sourceTree = "<group>"; };
 		8089945EACF6F5367A92B638 /* Follows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Follows.swift; sourceTree = "<group>"; };
 		8099FC0F2F66ADD7B29CD544 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -374,6 +377,7 @@
 		C43C53CE7466CCA393B65C8C /* TradesStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TradesStoreTests.swift; sourceTree = "<group>"; };
 		C461CEB0826AC133A60E7A86 /* ListExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListExportTests.swift; sourceTree = "<group>"; };
 		C4FE9422EDE1F08769E0D8C9 /* insights-demo-limited-FRA.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "insights-demo-limited-FRA.json"; sourceTree = "<group>"; };
+		C762952B6C07F999AFBE53F2 /* WantPricesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WantPricesTests.swift; sourceTree = "<group>"; };
 		CAC6D1FF89F34055819401D7 /* CardQueryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardQueryTests.swift; sourceTree = "<group>"; };
 		CC94CC26F2066C36E4DE2192 /* QR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QR.swift; sourceTree = "<group>"; };
 		CDA4C1289215B2E1BF32D184 /* RankSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankSync.swift; sourceTree = "<group>"; };
@@ -509,6 +513,7 @@
 				B315C86A391E28E160556A28 /* TelemetryTests.swift */,
 				27D70D37E0D41352AEB48679 /* TrackerToolsTests.swift */,
 				C43C53CE7466CCA393B65C8C /* TradesStoreTests.swift */,
+				C762952B6C07F999AFBE53F2 /* WantPricesTests.swift */,
 				4CD8F959394AF7474B16BE48 /* WebLinkTests.swift */,
 				615983FE56560F6B33D264D8 /* WidgetLogicTests.swift */,
 			);
@@ -718,6 +723,7 @@
 				239D07747A4039EE164CFB4B /* ScanReports.swift */,
 				A8D5D41DD05383A49BC215B5 /* SQLite.swift */,
 				BB923D0FC11DA7387A5E5624 /* Trades.swift */,
+				7DB9F671A37B079BBD5D5379 /* WantPrices.swift */,
 				5E2F2C178BED2306099EB335 /* ZoomImage.swift */,
 			);
 			path = Library;
@@ -946,6 +952,7 @@
 				2CFD4D7040430A9A75487FD5 /* TelemetryTests.swift in Sources */,
 				AA18C4873606A59EE0F5D0CA /* TrackerToolsTests.swift in Sources */,
 				976660A2A840C1DEF55C74D9 /* TradesStoreTests.swift in Sources */,
+				72D25F18D04A432DF1F08706 /* WantPricesTests.swift in Sources */,
 				523EE3A4F5D6D71E907E1C87 /* WebLinkTests.swift in Sources */,
 				56C8F4A61AC70D27A75BBF29 /* WidgetLogicTests.swift in Sources */,
 			);
@@ -1056,6 +1063,7 @@
 				D2B58DA19C86628F117BBCF4 /* TrackerTools.swift in Sources */,
 				8F76AC20A2EAB907F47E8028 /* Trades.swift in Sources */,
 				2A4E42EC5BBCE37EE4BC7CE5 /* ValueHistory.swift in Sources */,
+				D8803F2C8675C070EFDB9344 /* WantPrices.swift in Sources */,
 				BCDA28146E9471860ED53B0B /* WebLink.swift in Sources */,
 				CD5DDAC39DD167852A30B80A /* WidgetPalette.swift in Sources */,
 				1933C7F37538C0DA3BE6CB51 /* WidgetViews.swift in Sources */,
@@ -1191,7 +1199,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 28;
+				CURRENT_PROJECT_VERSION = 29;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 94889YTX94;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1274,7 +1282,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 28;
+				CURRENT_PROJECT_VERSION = 29;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 94889YTX94;
 				ENABLE_NS_ASSERTIONS = NO;
