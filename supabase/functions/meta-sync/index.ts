@@ -17,6 +17,7 @@ import { briefFor } from "../insight-brief/brief.ts";
 import { clusters, known, NAME_SCHEMA, NAME_SYSTEM, namePrompt, proposal, type ClusterDeck } from "./cluster.ts";
 import { indexSlugs, MTGO_FORMATS, pageData, parseEvent, slugInfo } from "./mtgo.ts";
 import { archetypeFacts, assemble, banFacts, windowFacts } from "./pack.ts";
+import { callTimeout, fetchRetrying } from "./deadline.ts";
 import { nextTopdeckWindow, parseTournament, tournamentsQuery, type TdTournament } from "./topdeck.ts";
 import { type Base, type BanStudy, type Matchups, type NewSet, type Series, type Tier, type View, type Window, WINDOWS } from "./types.ts";
 
@@ -28,6 +29,8 @@ const json = (body: unknown, status = 200) =>
 const UA = "Table1Insights/1.0 (table-1.site; metagame stats)";
 const BACKFILL_MONTHS = 12;
 const TICK_MS = 100_000;
+// No call in a tick runs past this, so the edge's 150 s wall clock never cuts one off and the closing write runs (bug #16).
+const TICK_HARD_MS = 130_000;
 const BUCKET = "catalog";
 
 async function rpc<T = unknown>(fn: string, args: Record<string, unknown> = {}): Promise<T> {
@@ -37,8 +40,8 @@ async function rpc<T = unknown>(fn: string, args: Record<string, unknown> = {}):
 }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function get(url: string, timeoutMs = 60_000): Promise<string> {
-  const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(timeoutMs) });
+async function get(url: string, timeoutMs = 60_000, deadline = Infinity): Promise<string> {
+  const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(callTimeout(deadline, timeoutMs)) });
   if (!res.ok) throw new Error(`${url} ${res.status}`);
   return await res.text();
 }
@@ -54,8 +57,8 @@ const monthBefore = (m: string) => {
 };
 
 /** Queues a month index's event pages (formats the server reads; Leagues included). */
-async function readIndex(m: string): Promise<number> {
-  const html = await get(`https://www.mtgo.com/decklists/${m}`, 90_000);
+async function readIndex(m: string, deadline = Infinity): Promise<number> {
+  const html = await get(`https://www.mtgo.com/decklists/${m}`, 90_000, deadline);
   const items = indexSlugs(html).filter((s) => slugInfo(s)).map((s) => ({
     source: "mtgo", format: slugInfo(s)!.format, slug: s, url: `https://www.mtgo.com/decklist/${s}`,
   }));
@@ -64,6 +67,7 @@ async function readIndex(m: string): Promise<number> {
 
 async function tick() {
   const t0 = Date.now();
+  const hard = t0 + TICK_HARD_MS;
   const state = await rpc<Record<string, string>>("meta_state");
   if (state.tick_until && Date.parse(state.tick_until) > t0) return { skipped: "another tick is running" };
   await rpc("meta_state_put", { p_patch: { tick_until: new Date(t0 + TICK_MS + 30_000).toISOString() } });
@@ -71,8 +75,8 @@ async function tick() {
   try {
     const now = new Date();
     if (!state.index_at || t0 - Date.parse(state.index_at) > 3_600_000) {
-      out.queued += await readIndex(month(now));
-      if (now.getUTCDate() <= 3) out.queued += await readIndex(monthBefore(month(now)));
+      out.queued += await readIndex(month(now), hard);
+      if (now.getUTCDate() <= 3) out.queued += await readIndex(monthBefore(month(now)), hard);
       await rpc("meta_state_put", { p_patch: { index_at: now.toISOString() } });
     }
     // Backfill: one older month per tick, back BACKFILL_MONTHS from the first tick.
@@ -83,17 +87,17 @@ async function tick() {
     })();
     const next = state.backfill_next ?? monthBefore(month(now));
     if (next >= until) {
-      out.queued += await readIndex(next);
+      out.queued += await readIndex(next, hard);
       out.backfill = next;
       await rpc("meta_state_put", { p_patch: { backfill_until: until, backfill_next: monthBefore(next) } });
     }
-    out.topdeck = await topdeckBackfill(t0 + 40_000, state);
+    out.topdeck = await topdeckBackfill(t0 + 40_000, state, hard);
     while (Date.now() - t0 < TICK_MS) {
       const batch = await rpc<{ id: number; source: string; slug: string; url: string }[]>("meta_queue_claim", { p_n: 5 });
       if (!batch.length) break;
       for (const q of batch) {
         try {
-          const data = pageData(await get(q.url));
+          const data = pageData(await get(q.url, 60_000, hard));
           const ev = data && parseEvent(q.slug, data);
           if (!ev) { await rpc("meta_queue_done", { p_id: q.id, p_status: "skipped", p_error: "no decklists on the page" }); continue; }
           const r = await rpc<{ decks: number }>("meta_ingest", { p_event: ev });
@@ -115,19 +119,14 @@ async function tick() {
 
 const topdeckKey = async () => Deno.env.get("TOPDECK.GG_KEY") ?? Deno.env.get("TOPDECK_API_KEY") ?? await rpc<string | null>("meta_topdeck_key");
 
-/** One tournaments query. TopDeck rate-limits bursts (429; the four builds start at once): back off and try again. */
-async function topdeckFetch(key: string, body: unknown): Promise<TdTournament[]> {
-  let res: Response | null = null;
-  for (const wait of [0, 5_000, 15_000, 30_000]) {
-    if (wait) await sleep(wait + Math.random() * 2_000);
-    res = await fetch("https://topdeck.gg/api/v2/tournaments", {
-      method: "POST", headers: { Authorization: key, "Content-Type": "application/json", "User-Agent": UA },
-      body: JSON.stringify(body), signal: AbortSignal.timeout(60_000),
-    });
-    if (res.status !== 429) break;
-    await res.body?.cancel();
-  }
-  if (!res?.ok) throw new Error(`TopDeck ${res?.status}`);
+/** One tournaments query. TopDeck rate-limits bursts (429; the four builds start at once): back off and try again,
+ *  as long as the wait and the call still end before `deadline`. */
+async function topdeckFetch(key: string, body: unknown, deadline = Infinity): Promise<TdTournament[]> {
+  const res = await fetchRetrying("https://topdeck.gg/api/v2/tournaments", {
+    method: "POST", headers: { Authorization: key, "Content-Type": "application/json", "User-Agent": UA },
+    body: JSON.stringify(body),
+  }, { deadline, cap: 60_000, waits: [0, 5_000, 15_000, 30_000] });
+  if (!res.ok) throw new Error(`TopDeck ${res.status}`);
   return await res.json() as TdTournament[];
 }
 
@@ -150,7 +149,7 @@ async function topdeck(f: Format) {
 }
 
 /** Reads TopDeck's history a window at a time until `until` (or it's all read), moving each format's cursor. */
-async function topdeckBackfill(until: number, state: Record<string, string>) {
+async function topdeckBackfill(until: number, state: Record<string, string>, deadline = Infinity) {
   const key = await topdeckKey();
   if (!key) return null;
   const fs = await formats();
@@ -162,7 +161,7 @@ async function topdeckBackfill(until: number, state: Record<string, string>) {
     if (!w) break;
     const f = fs.find((x) => x.format === w.format)!;
     try {
-      const r = await ingestTopdeck(await topdeckFetch(key, tournamentsQuery(f.topdeck, { start: w.start, end: w.end }, f.topdeck_min)), f.format);
+      const r = await ingestTopdeck(await topdeckFetch(key, tournamentsQuery(f.topdeck, { start: w.start, end: w.end }, f.topdeck_min), deadline), f.format);
       const from = new Date(w.start * 1000).toISOString();
       cursors[`td_back_${f.format}`] = from;
       await rpc("meta_state_put", { p_patch: { [`td_back_${f.format}`]: from } });
