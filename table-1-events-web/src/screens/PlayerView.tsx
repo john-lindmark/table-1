@@ -8,6 +8,7 @@ import {
   reportResultAsPlayer,
   respondToResult,
   errorMessage,
+  leaveEvent,
 } from "../lib/api";
 import { useSession } from "../lib/useSession";
 import { getLocalParticipant, saveLocalParticipant } from "../lib/session";
@@ -15,14 +16,18 @@ import { StandingsTable } from "../components/StandingsTable";
 import { TeamStandingsTable } from "../components/TeamStandingsTable";
 import { SeatingPanel } from "../components/SeatingPanel";
 import { GetTheApp } from "../components/GetTheApp";
+import { Bracket, DecklistPanel, decklistOf } from "../components/EventExtras";
+import { countsText, roundName, when } from "../lib/scheduledEvents";
 import {
   Bar,
   BigAction,
   ClockFace,
   Columns,
+  Dialog,
   Field,
   GhostAction,
   Notice,
+  Row,
   Screen,
   SwitchRow,
   TimerProgress,
@@ -57,6 +62,9 @@ export function PlayerView({
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [me, setMe] = useState(() => (eventIdProp ? getLocalParticipant(eventIdProp) : null));
+  const [listOpen, setListOpen] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
   /** What a visitor sees before joining (no player list): event_preview by the code, or by id for a link. */
   const [preview, setPreview] = useState<EventPreview | null>(null);
 
@@ -254,13 +262,17 @@ export function PlayerView({
     signedInPlayer && !!onOpenLife && !!myMatch && !myMatch.isBye && !!theirSide?.participantId && event.status === "in_progress";
   const trackerFirst = canTrack && mode === "tracker" && myMatch?.status !== "confirmed";
 
-  const options: [string, number, number][] = [
+  // Quarterfinals, semifinals and the final can't end in a draw.
+  const playoff = (activeRound?.stage ?? "swiss") !== "swiss";
+  const options: [string, number, number][] = ([
     ["Won 2–0", 2, 0],
     ["Won 2–1", 2, 1],
     ["Draw 1–1", 1, 1],
     ["Lost 1–2", 1, 2],
     ["Lost 0–2", 0, 2],
-  ];
+  ] as [string, number, number][]).filter(([, a, b]) => !(playoff && a === b));
+  const beforeRound1 = (event.status === "setup" || event.status === "seated") && rounds.length === 0;
+  const myList = decklistOf(bundle, viewer.participantId);
 
   const isRoto = formatName === "roto";
   const finished = event.status === "completed" || event.status === "archived";
@@ -291,7 +303,8 @@ export function PlayerView({
           />
         </>
       )}
-      <div className="bg-t1-surface px-4 py-2 t1-label">Standings</div>
+      {!isTeam && <Bracket participants={bundle.participants} rounds={rounds} />}
+      {!rounds.some((r) => (r.stage ?? "swiss") !== "swiss") && <div className="bg-t1-surface px-4 py-2 t1-label">Standings</div>}
       <StandingsTable
         participants={bundle.participants}
         rounds={rounds}
@@ -305,7 +318,9 @@ export function PlayerView({
     <Screen width="wide">
       <Bar
         title={event.name}
-        subtitle={`${viewer.displayName} · ${where} · ${event.formatLabel} · Round ${activeRound?.number ?? event.currentRound} of ${event.numberOfRounds}`}
+        subtitle={`${viewer.displayName} · ${where} · ${event.formatLabel} · ${
+          activeRound ? roundName(activeRound.stage, activeRound.number, event.numberOfRounds)
+            : beforeRound1 ? when(event.startsAt) ?? "Before round 1" : `Round ${event.currentRound} of ${event.numberOfRounds}`}`}
         onBack={onBack}
       />
       {/* Desktop: your match on the left, seating and standings on the right; a phone stacks them. */}
@@ -410,6 +425,25 @@ export function PlayerView({
         {notice && <Notice tone="info">{notice}</Notice>}
         {joinError && <Notice tone="error">{joinError}</Notice>}
 
+        {signedInPlayer && event.decklists !== "off" && (
+          <Row
+            title="Decklist"
+            detail={myList ? countsText(myList.mainCount, myList.sideCount) + (myList.listName ? ` · from ${myList.listName}` : "")
+              : event.decklists === "required" ? "Required · add it before round 1" : "Add your decklist"}
+            value={myList ? "Change" : "Add"}
+            accentValue
+            onClick={() => setListOpen(true)}
+          />
+        )}
+        {beforeRound1 && when(event.startsAt) && (
+          <Row title="Starts" detail={[when(event.startsAt), event.venueName].filter(Boolean).join(" · ")} />
+        )}
+        {signedInPlayer && beforeRound1 && (
+          <div className="flex gap-px">
+            <GhostAction label="Leave event" onClick={() => { setLeaveError(null); setConfirmLeave(true); }} />
+          </div>
+        )}
+
         {signedInPlayer && ["setup", "seated", "in_progress"].includes(event.status) && <GetTheApp eventId={event.id} />}
 
         {isRoto && rounds.length > 0 && (
@@ -435,6 +469,22 @@ export function PlayerView({
           />
         )}
       </Columns>
+      {listOpen && (
+        <DecklistPanel event={event} participantId={viewer.participantId} playerName={viewer.displayName} byOrganizer={false}
+                       onClose={(changed) => { setListOpen(false); if (changed) void refetch(); }} />
+      )}
+      {confirmLeave && (
+        <Dialog
+          title={`Leave ${event.name}?`}
+          message="Your seat goes to the next person on the waitlist, if there is one."
+          cancelLabel="Stay"
+          confirmLabel="Leave"
+          tone="danger"
+          error={leaveError}
+          onCancel={() => setConfirmLeave(false)}
+          onConfirm={() => void leaveEvent(event.id, false).then(() => { setConfirmLeave(false); onBack?.(); }, (e) => setLeaveError(errorMessage(e)))}
+        />
+      )}
       {rotoPanel === "draft" && (
         <RotoDraftOverlay eventId={event.id} title={event.name} isOrganizer={false} pairing={event.pairing} onClose={() => setRotoPanel(null)} />
       )}

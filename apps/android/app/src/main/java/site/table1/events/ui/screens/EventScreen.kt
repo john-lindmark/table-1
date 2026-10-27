@@ -34,6 +34,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import site.table1.events.data.EventBundle
+import site.table1.events.data.EventRules
 import site.table1.events.data.EventTeam
 import site.table1.events.data.JoinQr
 import site.table1.events.data.MatchRow
@@ -125,7 +126,9 @@ internal fun EditResultDialog(
     var s0 by remember { mutableIntStateOf(m.side(0)?.gameWins ?: 0) }
     var s1 by remember { mutableIntStateOf(m.side(1)?.gameWins ?: 0) }
     var draws by remember { mutableIntStateOf(m.gameDraws) }
-    val valid = s0 in 0..2 && s1 in 0..2 && s0 + s1 + draws <= 3
+    // Quarterfinals, semifinals and the final can't end in a draw.
+    val playoff = b.rounds.firstOrNull { it.id == m.roundId }?.isPlayoff == true
+    val valid = s0 in 0..2 && s1 in 0..2 && s0 + s1 + draws <= 3 && !(playoff && s0 == s1)
     T1AlertDialog(
         title = "Table ${m.tableNumber ?: ""}",
         onDismiss = onDismiss,
@@ -134,7 +137,8 @@ internal fun EditResultDialog(
                 T1Stepper(b.name(m.side(0)?.participantId), s0, 0..2, Modifier.fillMaxWidth()) { s0 = it }
                 T1Stepper(b.name(m.side(1)?.participantId), s1, 0..2, Modifier.fillMaxWidth()) { s1 = it }
                 T1Stepper("Drawn games", draws, 0..3, Modifier.fillMaxWidth()) { draws = it }
-                if (!valid) Notice("At most 3 games in a match.", error = true)
+                if (s0 + s1 + draws > 3) Notice("At most 3 games in a match.", error = true)
+                if (playoff && s0 == s1) Notice("Playoff matches need a winner.", error = true)
                 if (onWatch != null) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                         Ghost("Watch life tracker", onClick = onWatch)
@@ -387,6 +391,9 @@ private fun PlayerView(
     var optimistic by remember(match?.id, match?.version) { mutableStateOf<Pair<Int, Int>?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var listOpen by remember { mutableStateOf(false) }
+    var confirmLeave by remember { mutableStateOf(false) }
+    val playoff = active?.isPlayoff == true
 
     val opponentReported = match != null && match.status == "reported" && match.reportedByUser != null && match.reportedByUser != Repo.userId
 
@@ -410,7 +417,9 @@ private fun PlayerView(
 
     T1Screen {
         Bar(b.event.name, listOfNotNull(me?.displayName ?: "Spectating", myTeam, b.event.label,
-            "Round ${active?.number ?: b.event.currentRound} of ${b.event.numberOfRounds}").joinToString(" · "), onBack = onBack)
+            (active ?: b.rounds.maxByOrNull { it.number })?.name(b.event.numberOfRounds)
+                ?: if (b.event.beforeRoundOne) EventRules.whenText(b.event.startsAt) ?: "Before round 1" else "Round ${b.event.currentRound} of ${b.event.numberOfRounds}",
+        ).joinToString(" · "), onBack = onBack)
         if (b.event.isCancelled) CancelledBanner(b.event.cancelReason)
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             if (active != null && b.event.showClock) item { RoundClock(active.timerEndsAt) }
@@ -445,7 +454,7 @@ private fun PlayerView(
                     } else if (match.status == "confirmed") {
                         item { Notice("Result confirmed: ${mine?.gameWins}–${theirs?.gameWins}. The organizer can still correct it.") }
                     } else if (b.event.allowPlayerReporting) {
-                        items(outcomes, key = { it.first }) { (label, score) ->
+                        items(outcomes.filter { !(playoff && it.second.first == it.second.second) }, key = { it.first }) { (label, score) ->
                             val selected = optimistic == score ||
                                 (optimistic == null && match.status == "reported" && mine?.gameWins == score.first && theirs?.gameWins == score.second)
                             Box(
@@ -462,6 +471,18 @@ private fun PlayerView(
             }
             notice?.let { item { Notice(it) } }
             error?.let { item { Notice(it, error = true) } }
+            if (me != null && b.event.takesDecklists) item {
+                val list = b.decklist(me.id)
+                ListRow("Decklist", list?.let { EventRules.countsText(it.mainCount, it.sideCount) + (it.listName?.let { n -> " · from $n" } ?: "") }
+                    ?: if (b.event.decklists == "required") "Required · add it before round 1" else "Add your decklist",
+                    onClick = { listOpen = true }) { Label(if (list == null) "Add" else "Change", color = T1.accent) }
+            }
+            if (me != null && b.event.beforeRoundOne) {
+                EventRules.whenText(b.event.startsAt)?.let { w ->
+                    item { ListRow("Starts", listOfNotNull(w, b.event.venueName).joinToString(" · ")) }
+                }
+                item { Row { Ghost("Leave event") { confirmLeave = true } } }
+            }
             if (me != null) item {
                 TrackerModeSwitch(onError = { error = it })
             }
@@ -476,9 +497,37 @@ private fun PlayerView(
             standings.teams?.takeIf { it.isNotEmpty() }?.let { teams ->
                 teamStandingItems(teams, highlightMember = me?.id)
             }
-            item { Section(if (standings.teams.isNullOrEmpty()) "Standings" else "Players") }
+            bracketItems(standings.bracket)
+            if (standings.bracket.isEmpty()) item { Section(if (standings.teams.isNullOrEmpty()) "Standings" else "Players") }
             items(standings.standings, key = { it.participantId }) { s -> StandingLine(s, highlight = s.participantId == me?.id, team = tags[s.participantId], userId = b.userIds[s.participantId]) }
         }
+    }
+    if (listOpen && me != null) {
+        DecklistPanel(b.event, me.id, me.displayName, byOrganizer = false) { changed ->
+            listOpen = false
+            if (changed) scope.launch { onChanged() }
+        }
+    }
+    if (confirmLeave) {
+        T1AlertDialog(
+            title = "Leave ${b.event.name}?",
+            onDismiss = { confirmLeave = false },
+            body = { Text("Your seat goes to the next person on the waitlist, if there is one.", color = T1.text, fontFamily = T1.mono, fontSize = 13.sp) },
+            confirm = {
+                BarAction("Leave") {
+                    confirmLeave = false
+                    scope.launch {
+                        try {
+                            Repo.leaveEvent(b.event.id, waitlist = false)
+                            onBack()
+                        } catch (e: Exception) {
+                            error = userMessage(e)
+                        }
+                    }
+                }
+            },
+            dismiss = { BarAction("Stay") { confirmLeave = false } },
+        )
     }
 }
 
@@ -500,9 +549,12 @@ internal fun StandingsList(
     userIds: Map<String, String> = emptyMap(),
     header: LazyListScope.() -> Unit = {},
     footer: LazyListScope.() -> Unit = {},
+    /** Top 8 (events-engine `bracket`): drawn above the standings once the cut is made. */
+    bracket: List<site.table1.events.data.BracketStage> = emptyList(),
 ) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
         header()
+        bracketItems(bracket)
         if (standings.isEmpty()) item { Notice("Standings appear after the first results.") }
         if (!teams.isNullOrEmpty()) {
             teamStandingItems(teams, highlightMember = highlight)

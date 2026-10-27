@@ -38,7 +38,19 @@ data class EventRow(
     @SerialName("show_clock") val showClock: Boolean = true,
     /** Named from its settings ("Draft · Duskmourn · Fri 17 Oct"); older events keep their typed names. */
     @SerialName("auto_name") val autoName: Boolean = false,
+    /** swiss | round_robin. */
+    val pairing: String = "swiss",
+    /** 0 or 8 (contract/scheduled-events-2026-10-27.md). */
+    @SerialName("top_cut") val topCut: Int = 0,
+    /** Rounds follow the players until round 1 is paired. */
+    @SerialName("auto_rounds") val autoRounds: Boolean = false,
+    /** Self sign-ups past it join the waitlist. */
+    val capacity: Int? = null,
+    /** off | optional | required (constructed events). */
+    val decklists: String = "off",
 ) {
+    val isConstructed: Boolean get() = formatName in EventRules.constructedFormats
+    val takesDecklists: Boolean get() = decklists != "off"
     val isCancelled: Boolean get() = status == "cancelled"
     val isFinished: Boolean get() = status in setOf("completed", "archived", "cancelled")
     /** "Modern", "Draft · Duskmourn", "Team draft · Vintage Cube" (older rows: the coarse format). */
@@ -71,6 +83,8 @@ data class EventBundleWire(
     val rounds: List<RoundRow> = emptyList(),
     val teams: List<BundleTeam> = emptyList(),
     @SerialName("is_organizer") val isOrganizer: Boolean = false,
+    val waitlist: List<WaitlistEntry> = emptyList(),
+    val decklists: List<DecklistInfo> = emptyList(),
 )
 
 /** A team as event_bundle sends it (get_event_teams' shape; members are read from participants). */
@@ -127,7 +141,12 @@ data class RoundRow(
     @SerialName("timer_last_started_at") val timerLastStartedAt: String? = null,
     @SerialName("recorded_at") val recordedAt: String? = null,
     val matches: List<MatchRow> = emptyList(),
-)
+    /** swiss | quarterfinal | semifinal | final. */
+    val stage: String = "swiss",
+) {
+    val isPlayoff: Boolean get() = stage != "swiss"
+    fun name(of: Int): String = EventRules.roundName(stage, number, of)
+}
 
 /** update_event_details result: the event's details after the save. */
 @Serializable
@@ -170,6 +189,9 @@ data class Standing(
     val omw: Double = 0.0,
     val gw: Double = 0.0,
     val ogw: Double = 0.0,
+    /** Top 8: the Swiss place and the furthest stage reached. */
+    @SerialName("swiss_rank") val swissRank: Int? = null,
+    val playoff: String? = null,
 )
 
 @Serializable
@@ -181,6 +203,9 @@ data class StandingsResponse(
     val seating: List<SeatingPod>? = null,
     /** Team events: the team the other can no longer catch, so the organizer may finish early. */
     val clinched: TeamClinch? = null,
+    @SerialName("top_cut") val topCut: Int = 0,
+    /** The playoff rounds paired so far (top 8). */
+    val bracket: List<BracketStage> = emptyList(),
 )
 
 /** Two teams head to head: one's match wins beat the other's plus every match still to play (events-engine). */
@@ -374,12 +399,18 @@ data class PairRoundResponse(
     @SerialName("round_number") val roundNumber: Int = 0,
     @SerialName("timer_ends_at") val timerEndsAt: String? = null,
     val error: String? = null,
+    val stage: String? = null,
 )
 
 /* ── Events tab (events_home) ──────────────────────────────────────────────── */
 
 @Serializable
-data class HomeData(val events: List<HomeEvent> = emptyList(), val invites: List<HomeInvite> = emptyList())
+data class HomeData(
+    val events: List<HomeEvent> = emptyList(),
+    val invites: List<HomeInvite> = emptyList(),
+    /** Events you're waiting for (2026-10-27). */
+    val waitlist: List<HomeWaitlist> = emptyList(),
+)
 
 @Serializable
 data class HomeEvent(
@@ -407,7 +438,13 @@ data class HomeEvent(
     @SerialName("team_size") val teamSize: Int? = null,
     /** False when the organizer hid clocks; the round's ends_at / remaining_seconds are then null. */
     @SerialName("show_clock") val showClock: Boolean = true,
+    val capacity: Int? = null,
+    @SerialName("top_cut") val topCut: Int = 0,
+    val decklists: String = "off",
+    @SerialName("my_decklist") val myDecklist: Boolean = false,
 ) {
+    /** A player who still owes a list for a constructed event before round 1. */
+    val owesDecklist: Boolean get() = playing && decklists != "off" && !myDecklist && bucket == "upcoming"
     val label: String get() = formatLabel ?: format.replaceFirstChar { it.uppercase() }
     val isCancelled: Boolean get() = status == "cancelled"
     /** A seat in a round that is running right now. */
@@ -424,6 +461,7 @@ data class HomeRound(
     @SerialName("results_in") val resultsIn: Int = 0,
     val matches: Int = 0,
     val disputed: Int = 0,
+    val stage: String = "swiss",
 )
 
 @Serializable
@@ -599,8 +637,20 @@ data class EventBundle(
     val rounds: List<RoundRow>,
     val isOrganizer: Boolean,
     val teams: List<EventTeamRow> = emptyList(),
+    val waitlist: List<WaitlistEntry> = emptyList(),
+    val decklists: List<DecklistInfo> = emptyList(),
 ) {
     val activeRound: RoundRow? get() = rounds.lastOrNull { it.status == "active" }
+    fun decklist(participantId: String): DecklistInfo? = decklists.firstOrNull { it.participantId == participantId }
+    val decklistsMissing: Int get() = participants.count { it.status == "active" && decklist(it.id) == null }
+
+    /** What the organizer does next (contract §6). */
+    val nextStep: String
+        get() {
+            val waiting = activeRound?.matches?.any { !it.isBye && (it.status == "pending" || (it.disputed && it.status != "confirmed")) } ?: false
+            return EventRules.nextStep(rounds.map { it.stage }, waiting, event.numberOfRounds, event.topCut,
+                participants.count { it.status == "active" })
+        }
     fun name(participantId: String?): String =
         participants.firstOrNull { it.id == participantId }?.displayName ?: "—"
     fun teamName(teamId: String?): String? = teams.firstOrNull { it.id == teamId }?.name

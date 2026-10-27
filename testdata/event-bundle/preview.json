@@ -1,15 +1,23 @@
 {
   "access": "link",
-  "capacity": null,
+  "auto_rounds": false,
+  "capacity": 8,
   "cube_name": null,
+  "decklists": "optional",
   "event_id": "e0000000-0000-0000-0000-000000000001",
   "format_label": "Draft \u00b7 Murders at Karlov Manor",
+  "me": null,
   "name": "Fixture draft",
+  "number_of_rounds": 3,
   "organizer_name": "Ana Organizer",
   "players": 3,
+  "position": null,
   "set_name": "Murders at Karlov Manor",
   "short_code": "FIXT",
-  "starts_at": null,
+  "sign_up": "closed",
+  "starts_at": "2026-11-08T11:30:00-07:00",
   "status": "in_progress",
-  "venue_name": "Denver Card Shop"
+  "top_cut": 8,
+  "venue_name": "Denver Card Shop",
+  "waitlist": 1
 }

@@ -3,16 +3,19 @@
 //                                                  anyone public.event_public lets in (link holders of non-private
 //                                                  events, members, guests with their claim token)
 //   POST { action: "seat_players", event_id }  -> random draft seats via rpc seat_event (organizers only; older builds)
-//   POST { action: "pair_round", event_id }    -> pairs and opens the next round (organizers only)
+//   POST { action: "pair_round", event_id }    -> pairs and opens the next round (organizers only): Swiss, then the
+//                                                  top 8 quarterfinals, semifinals and final when events.top_cut = 8
 // Rules are the same files the web app ships (standings, pairings, seating, teams), so web and server agree.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { computeStandings } from "./standings.ts";
 import { pairRound, type ProposedMatch } from "./pairings.ts";
 import { pairRoundRobin, roundRobinRoster, roundRobinRounds } from "./roundrobin.ts";
 import {
+  bracket, nextStage, pairPlayoff, playoffStandings, stageOf, swissRounds, type Stage, type StagedRound,
+} from "./playoffs.ts";
+import {
   computeTeamStandings, membersOf, pairTeamDraftRound, pairTeamSwissRound, teamClinch, teamProblems, type Team,
 } from "./teams.ts";
-import type { Match, MatchSide, Participant, RoundWithMatches } from "./types.ts";
+import type { Match, MatchSide, Participant } from "./types.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -44,8 +47,8 @@ const toMatch = (r: any): Match => ({
   sides: (r.match_sides ?? []).map(toSide).sort((a: MatchSide, b: MatchSide) => a.side - b.side),
 });
 // deno-lint-ignore no-explicit-any
-const toRound = (r: any): RoundWithMatches => ({
-  id: r.id, eventId: r.event_id, number: r.number, status: r.status,
+const toRound = (r: any): StagedRound => ({
+  id: r.id, eventId: r.event_id, number: r.number, status: r.status, stage: r.stage ?? "swiss",
   timerDurationSeconds: r.timer_duration_seconds, timerRemainingAtChange: r.timer_remaining_at_change,
   timerStatus: r.timer_status, timerLastStartedAt: r.timer_last_started_at,
   matches: (r.matches ?? []).map(toMatch),
@@ -144,8 +147,11 @@ async function standings(eventId: string, authHeader: string, token: string | nu
   if (refused) return refused;
   const { event, participants, rounds, teams, pods } = await loadEvent(eventId);
   if (!event) return json({ error: "That event isn't available" }, 404);
-  const rows = computeStandings(participants, rounds).map((s) => ({
+  // Tiebreakers are Swiss only; once the top 8 is cut, rank is the final order (playoffs.ts).
+  const rows = playoffStandings(participants, rounds).map((s) => ({
     rank: s.rank,
+    swiss_rank: s.swissRank,
+    playoff: s.playoff,
     participant_id: s.participantId,
     display_name: s.displayName,
     status: s.status,
@@ -172,6 +178,7 @@ async function standings(eventId: string, authHeader: string, token: string | nu
     : null;
   return json({
     event_id: eventId, current_round: event.current_round, standings: rows, teams: teamRows,
+    top_cut: event.top_cut ?? 0, bracket: bracket(participants, rounds),
     // Team events: the team that can no longer be caught, so the organizer may finish early.
     clinched: clinch && { team_id: clinch.teamId, name: clinch.name, match_wins: clinch.matchWins,
                           opponent_match_wins: clinch.opponentMatchWins, remaining: clinch.remaining },
@@ -200,12 +207,33 @@ async function pairNextRound(eventId: string, authHeader: string) {
     if (!draft?.finished_at) return json({ error: "Finish the draft before pairing round 1" }, 409);
   }
   const roundRobin = event.pairing === "round_robin";
-  const totalRounds = roundRobin ? roundRobinRounds(roundRobinRoster(participants).length) : event.number_of_rounds;
-  if (roundNumber > totalRounds) return json({ error: "All rounds have been played" }, 409);
+  const active = participants.filter((p) => p.status === "active").length;
+  // Auto rounds: round 1 fixes the Swiss count from the players there (the database keeps it in step until then).
+  const swissTotal = event.auto_rounds && roundNumber === 1 ? swissRounds(active) : event.number_of_rounds;
+  const totalRounds = roundRobin ? roundRobinRounds(roundRobinRoster(participants).length) : swissTotal;
+  // Swiss events of players go on to the top 8 when there is one; team events and round robin stop at their count.
+  let stage: Stage = "swiss";
+  if (!roundRobin && !isTeamEvent(event)) {
+    const next = nextStage(rounds, swissTotal, event.top_cut ?? 0, active);
+    if (!next) return json({ error: "All rounds have been played" }, 409);
+    stage = next;
+  } else if (roundNumber > totalRounds) {
+    return json({ error: "All rounds have been played" }, 409);
+  }
 
   if (isTeamEvent(event)) {
     const problem = teamProblems(teams, participants, event.team_size ?? 3, event.format_name);
     if (problem) return json({ error: problem }, 409);
+  }
+  // Required decklists: every active player's list is in before round 1 (contract/scheduled-events-2026-10-27.md §9).
+  if (roundNumber === 1 && event.decklists === "required") {
+    const { data: lists, error } = await admin.from("event_decklists").select("participant_id").eq("event_id", eventId);
+    if (error) throw error;
+    const sent = new Set((lists ?? []).map((l) => l.participant_id));
+    const missing = participants.filter((p) => p.status === "active" && !sent.has(p.id)).length;
+    if (missing > 0) {
+      return json({ error: `${missing} ${missing === 1 ? "player hasn't" : "players haven't"} sent a decklist` }, 409);
+    }
   }
   // Drafts pair round 1 across the table, so seat everyone first if the organizer hasn't.
   if (roundNumber === 1 && isDraft(event) && participants.some((p) => p.status === "active" && p.seat == null)) {
@@ -214,7 +242,13 @@ async function pairNextRound(eventId: string, authHeader: string) {
   }
 
   let proposed: ProposedMatch[];
-  if (roundRobin) {
+  if (stage !== "swiss") {
+    try {
+      proposed = pairPlayoff(stage, participants, rounds);
+    } catch (e) {
+      return json({ error: e instanceof Error ? e.message : String(e) }, 409);
+    }
+  } else if (roundRobin) {
     proposed = pairRoundRobin(participants, roundNumber);
   } else if (event.format_name === "team_draft") {
     proposed = pairTeamDraftRound(membersOf(teams[0].id, participants), membersOf(teams[1].id, participants), roundNumber);
@@ -222,7 +256,7 @@ async function pairNextRound(eventId: string, authHeader: string) {
     proposed = pairTeamSwissRound(teams, participants, rounds, roundNumber);
   } else {
     proposed = pairRound({
-      participants, rounds, roundNumber,
+      participants, rounds: rounds.filter((r) => stageOf(r) === "swiss"), roundNumber,
       draftSeating: event.format_name === "draft",
       podOrder: pods.map((p) => p.id),
     });
@@ -238,7 +272,7 @@ async function pairNextRound(eventId: string, authHeader: string) {
   const now = new Date();
   const endsAt = new Date(now.getTime() + event.round_length_seconds * 1000);
   const { data: round, error: roundError } = await admin.from("rounds").insert({
-    event_id: eventId, number: roundNumber, status: "active",
+    event_id: eventId, number: roundNumber, status: "active", stage,
     timer_duration_seconds: event.round_length_seconds, timer_remaining_at_change: event.round_length_seconds,
     timer_status: "running", timer_last_started_at: now.toISOString(), started_at: now.toISOString(),
     pairings_published_at: now.toISOString(), timer_ends_at: endsAt.toISOString(),
@@ -266,7 +300,7 @@ async function pairNextRound(eventId: string, authHeader: string) {
   const { error: eventError } = await admin.from("events")
     .update({
       current_round: roundNumber, status: "in_progress", updated_at: now.toISOString(),
-      ...(roundRobin ? { number_of_rounds: totalRounds } : {}),
+      ...(roundRobin || (event.auto_rounds && roundNumber === 1) ? { number_of_rounds: totalRounds } : {}),
     }).eq("id", eventId);
   if (eventError) throw eventError;
 
@@ -277,16 +311,16 @@ async function pairNextRound(eventId: string, authHeader: string) {
   if (userIds.length) {
     await admin.rpc("enqueue_notification", {
       p_kind: "round.paired", p_event_id: eventId, p_user_ids: userIds,
-      p_data: { round: roundNumber, ends_at: endsAt.toISOString() },
+      p_data: { round: roundNumber, stage, ends_at: endsAt.toISOString() },
     });
   }
 
   await admin.from("audit_log").insert({
     event_id: eventId, action: "round.paired", target_type: "round", target_id: round.id,
-    after: { round: roundNumber, tables: proposed.length },
+    after: { round: roundNumber, stage, tables: proposed.length },
   });
 
-  return json({ round_id: round.id, round_number: roundNumber, timer_ends_at: endsAt.toISOString(), matches: proposed });
+  return json({ round_id: round.id, round_number: roundNumber, stage, timer_ends_at: endsAt.toISOString(), matches: proposed });
 }
 
 Deno.serve(async (req) => {

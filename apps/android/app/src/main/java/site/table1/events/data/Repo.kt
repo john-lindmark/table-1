@@ -85,6 +85,14 @@ object Repo {
         formatOther: String?,
         includeMe: Boolean,
         guests: List<String>,
+        name: String? = null,
+        startsAt: String? = null,
+        venueName: String? = null,
+        capacity: Int? = null,
+        topCut: Int = 0,
+        autoRounds: Boolean = false,
+        decklists: String = "off",
+        localDate: String = EventNaming.localDate(),
     ): CreateEventResult =
         supabase.postgrest.rpc("create_event_v2", buildJsonObject {
             put("p_format_name", formatName)
@@ -98,8 +106,78 @@ object Repo {
             put("p_player_names", JsonArray(guests.map { JsonPrimitive(it) }))
             put("p_include_me", includeMe)
             put("p_show_clock", showClock)
-            put("p_local_date", EventNaming.localDate())
-        }).decodeAs()
+            put("p_local_date", localDate)
+            put("p_name", name?.trim()?.ifEmpty { null })
+            put("p_starts_at", startsAt)
+            put("p_venue_name", venueName?.trim()?.ifEmpty { null })
+            put("p_capacity", capacity)
+            put("p_top_cut", topCut)
+            put("p_auto_rounds", autoRounds)
+            put("p_decklists", decklists)
+        }).decodeAs<CreateEventResult>().also {
+            Telemetry.capture("event_created", mapOf("format" to formatName, "organizer_plays" to includeMe, "guests" to guests.size, "scheduled" to (startsAt != null), "capped" to (capacity != null),
+                "top_cut" to topCut, "auto_rounds" to autoRounds, "named" to !name.isNullOrBlank(), "decklists" to decklists))
+        }
+
+    /* ── scheduled events, sign-up link, waitlist, decklists (2026-10-27) ──────── */
+
+    /** When, where and the cap, before round 1 (full state; opening places moves the waitlist up). */
+    suspend fun setEventSchedule(eventId: String, startsAt: String?, venueName: String?, capacity: Int?, localDate: String) {
+        supabase.postgrest.rpc("set_event_schedule", buildJsonObject {
+            put("p_event_id", eventId)
+            put("p_starts_at", startsAt)
+            put("p_venue_name", venueName?.trim()?.ifEmpty { null })
+            put("p_capacity", capacity)
+            put("p_local_date", localDate)
+        })
+    }
+
+    /** The event page: what anyone with the link sees (works signed out). */
+    suspend fun eventPage(eventId: String): EventPage =
+        supabase.postgrest.rpc("event_public", buildJsonObject { put("p_event_id", eventId) }).decodeAs()
+
+    /** Sign up from the link: a seat, or the waitlist when it's full. */
+    suspend fun signUp(eventId: String, signedInNow: Boolean): SignUpResult {
+        val r = supabase.postgrest.rpc("event_sign_up", buildJsonObject { put("p_event_id", eventId) }).decodeAs<SignUpResult>()
+        if (r.status == "joined" || r.status == "waitlisted") {
+            Telemetry.capture("event_signed_up", mapOf("status" to r.status, "signed_in_now" to signedInNow))
+        }
+        return r
+    }
+
+    suspend fun leaveEvent(eventId: String, waitlist: Boolean) {
+        supabase.postgrest.rpc("event_leave", buildJsonObject { put("p_event_id", eventId) })
+        Telemetry.capture("event_left", mapOf("waitlist" to waitlist))
+    }
+
+    suspend fun waitlistAdmit(eventId: String, userId: String) {
+        supabase.postgrest.rpc("waitlist_admit", buildJsonObject { put("p_event_id", eventId); put("p_user_id", userId) })
+        Telemetry.capture("waitlist_admitted")
+    }
+
+    suspend fun waitlistRemove(eventId: String, userId: String) {
+        supabase.postgrest.rpc("waitlist_remove", buildJsonObject { put("p_event_id", eventId); put("p_user_id", userId) })
+    }
+
+    suspend fun decklist(participantId: String): Decklist? {
+        val text = supabase.postgrest.rpc("decklist_get", buildJsonObject { put("p_participant_id", participantId) }).data
+        return if (text.isBlank() || text.trim() == "null") null else json.decodeFromString<Decklist>(text)
+    }
+
+    suspend fun submitDecklist(participantId: String, body: String, listId: String?, byOrganizer: Boolean) {
+        supabase.postgrest.rpc("decklist_submit", buildJsonObject {
+            put("p_participant_id", participantId)
+            put("p_body", body)
+            put("p_list_id", listId)
+        })
+        Telemetry.capture("decklist_sent", mapOf("source" to (if (listId == null) "text" else "deck"),
+            "by" to (if (byOrganizer) "organizer" else "player")))
+    }
+
+    suspend fun removeDecklist(participantId: String) {
+        supabase.postgrest.rpc("decklist_remove", buildJsonObject { put("p_participant_id", participantId) })
+        Telemetry.capture("decklist_removed")
+    }
 
     /* ── players before round 1 (organizer) ─────────────────────────────────── */
 
@@ -182,6 +260,10 @@ object Repo {
         cubeUrl: String?,
         teamSize: Int?,
         formatOther: String?,
+        autoName: Boolean? = null,
+        topCut: Int? = null,
+        autoRounds: Boolean? = null,
+        decklists: String? = null,
     ): EventDetails =
         supabase.postgrest.rpc("update_event_details", buildJsonObject {
             put("p_event_id", eventId)
@@ -196,6 +278,10 @@ object Repo {
             put("p_cube_url", cubeUrl)
             put("p_team_size", teamSize)
             put("p_format_other", formatOther)
+            put("p_auto_name", autoName)
+            put("p_top_cut", topCut)
+            put("p_auto_rounds", autoRounds)
+            put("p_decklists", decklists)
         }).decodeAs()
 
     /**
@@ -212,6 +298,8 @@ object Repo {
         rounds = w.rounds.map { r -> r.copy(matches = r.matches.sortedBy { it.tableNumber ?: 0 }) },
         isOrganizer = w.isOrganizer,
         teams = w.teams.sortedBy { it.order }.map { EventTeamRow(id = it.id, name = it.name, displayOrder = it.order) },
+        waitlist = w.waitlist,
+        decklists = w.decklists,
     )
 
     /**
@@ -266,7 +354,10 @@ object Repo {
             put("p_code", code)
             put("p_display_name", myDisplayName() ?: "Player")
         }).decodeAs<JoinCodeWire>()
-        // A code that leads nowhere joinable comes back as {error, message} (so the server's miss count sticks).
+        // A code that leads nowhere joinable comes back as {error, message} (so the server's miss count sticks); a full
+        // event puts a signed-in caller on its waitlist and says so in the message.
+        if (w.waitlisted) Telemetry.capture("event_signed_up", mapOf("status" to "waitlisted", "signed_in_now" to false))
+        if (w.waitlisted) throw IllegalStateException(w.message ?: "This event is full")
         val eventId = w.eventId ?: throw IllegalStateException(w.message ?: "No event found with that code")
         if (!w.alreadyJoined) Telemetry.capture("event_joined", mapOf("via" to "link"))
         return SeatResult(eventId = eventId, participantId = w.participantId, alreadyJoined = w.alreadyJoined)
@@ -628,6 +719,7 @@ private data class JoinCodeWire(
     @SerialName("participant_id") val participantId: String? = null,
     @SerialName("already_joined") val alreadyJoined: Boolean = false,
     val message: String? = null,
+    val waitlisted: Boolean = false,
 )
 
 @Serializable

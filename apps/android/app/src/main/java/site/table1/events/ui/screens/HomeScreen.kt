@@ -1,5 +1,7 @@
 package site.table1.events.ui.screens
 
+import site.table1.events.data.EventRules
+
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -64,6 +66,8 @@ fun EventsHomeScreen(
     onAutoOpened: () -> Unit,
     onOpenEvent: (String) -> Unit,
     onCreate: () -> Unit,
+    /** An event you're on the waitlist for: its sign-up page. */
+    onOpenPage: (String) -> Unit = {},
     onNearby: () -> Unit,
     onJoinLink: (JoinLink) -> Unit,
     onLife: () -> Unit,
@@ -141,7 +145,7 @@ fun EventsHomeScreen(
             Notice("Loading…")
             return@T1Screen
         }
-        if (d.events.isEmpty() && invites.isEmpty()) {
+        if (d.events.isEmpty() && invites.isEmpty() && d.waitlist.isEmpty()) {
             EmptyEvents(onScan = { scan() }, onNearby = onNearby, onCreate = onCreate)
             return@T1Screen
         }
@@ -178,6 +182,13 @@ fun EventsHomeScreen(
             if (upcoming.isNotEmpty()) {
                 item { Section("Upcoming") }
                 items(upcoming, key = { it.id }) { e -> EventLine(e) { onOpenEvent(e.id) } }
+            }
+            if (d.waitlist.isNotEmpty()) {
+                item { Section("Waitlist") }
+                items(d.waitlist, key = { "w-${it.eventId}" }) { w ->
+                    ListRow(w.name, listOfNotNull("Number ${w.position ?: 1} on the waitlist", EventRules.whenText(w.startsAt), w.venueName).joinToString(" · "),
+                        onClick = { onOpenPage(w.eventId) })
+                }
             }
             if (past.isNotEmpty()) {
                 item {
@@ -295,7 +306,11 @@ private fun EventLine(e: HomeEvent, onClick: () -> Unit) {
         add(if (e.organizing) "Organizing" else "Playing")
         add(e.label)
         when {
-            e.bucket == "upcoming" -> { shortWhen(e.startsAt)?.let { add(it) }; add("${e.players} signed up") }
+            e.bucket == "upcoming" -> {
+                EventRules.whenText(e.startsAt)?.let { add(it) }
+                add(e.capacity?.let { "${e.players}/$it signed up" } ?: "${e.players} signed up")
+                if (e.owesDecklist) add("Add your decklist")
+            }
             e.isCancelled -> e.cancelReason?.let { add(it) }
             else -> add("${e.numberOfRounds} rounds · ${e.players} players")
         }

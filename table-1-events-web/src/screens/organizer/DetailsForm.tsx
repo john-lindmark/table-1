@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { errorMessage, updateEventDetails } from "../../lib/api";
+import { errorMessage, setEventSchedule, updateEventDetails } from "../../lib/api";
+import { CutAndRoundsFields, DecklistsFields, ScheduleFields, type ScheduleValue } from "../../components/EventExtras";
 import { isTeamFormat, typeOfFormat } from "../../lib/formats";
 import { detailsFromEvent, detailsToInput, type DetailsState } from "../../lib/organizer";
 import type { Table1Event } from "../../lib/types";
-import { Field, Notice, Row, Segmented, Stepper } from "../../components/kit";
+import { Field, Notice, Segmented } from "../../components/kit";
 import { FormatPicker, ProductPicker, RoundTimerSwitch, cubeUrlProblem } from "../../components/EventFormFields";
 import { RotoPairingFields, RotoSetupFields } from "../roto/lazy";
 
@@ -11,7 +12,6 @@ const DEBOUNCE_MS = 600;
 
 /** What we refuse to send at all (the server's 22023 messages cover the rest). */
 function localProblem(s: DetailsState): string | null {
-  if (!s.autoName && !s.name.trim()) return "Name the event (up to 80 characters)";
   if (s.formatName === "roto" && !s.cubeName.trim()) return "Name the cube, or choose one of your Library cubes";
   if (typeOfFormat(s.formatName) === "limited" && (s.product === "cube" || s.formatName === "roto")) return cubeUrlProblem(s.cubeUrl);
   return null;
@@ -24,6 +24,25 @@ function localProblem(s: DetailsState): string | null {
 export function DetailsForm({ event, onSaved, players = 0 }: { event: Table1Event; onSaved: () => void; players?: number }) {
   const [state, setState] = useState<DetailsState>(() => detailsFromEvent(event));
   const [error, setError] = useState<string | null>(null);
+  const [schedule, setSchedule] = useState<ScheduleValue>(() => ({
+    startsAt: event.startsAt, venueName: event.venueName ?? "", capacity: event.capacity,
+  }));
+  const scheduleTimer = useRef<number | null>(null);
+  const scheduleLatest = useRef(schedule);
+
+  /** When / where / cap save through set_event_schedule: the venue after a pause, the rest at once. */
+  function commitSchedule(next: ScheduleValue, immediate: boolean) {
+    scheduleLatest.current = next;
+    setSchedule(next);
+    if (scheduleTimer.current != null) window.clearTimeout(scheduleTimer.current);
+    scheduleTimer.current = window.setTimeout(() => {
+      scheduleTimer.current = null;
+      setEventSchedule(eventId, scheduleLatest.current).then(
+        () => { setError(null); onSavedRef.current(); },
+        (e) => setError(errorMessage(e)),
+      );
+    }, immediate ? 0 : DEBOUNCE_MS);
+  }
 
   const latest = useRef(state);
   const timer = useRef<number | null>(null);
@@ -99,11 +118,8 @@ export function DetailsForm({ event, onSaved, players = 0 }: { event: Table1Even
 
   return (
     <>
-      {state.autoName ? (
-        <Row title={event.name} detail="Named from the format and date" />
-      ) : (
-        <Field label="Event name" value={state.name} onChange={(v) => commit({ name: v.slice(0, 80) }, false)} onBlur={flush} />
-      )}
+      <Field label="Event name" value={state.name} onChange={(v) => commit({ name: v.slice(0, 80) }, false)} onBlur={flush}
+             placeholder={event.autoName ? event.name : "Named from the format and date"} />
       <FormatPicker
         format={state.formatName}
         onFormat={(f) => commit({ formatName: f }, true)}
@@ -142,10 +158,17 @@ export function DetailsForm({ event, onSaved, players = 0 }: { event: Table1Even
         />
       )}
       {roto && <RotoPairingFields pairing={state.pairing} onPairing={(p) => commit({ pairing: p }, true)} players={players} />}
+      <ScheduleFields value={schedule} onChange={(v) => commitSchedule(v, v.venueName === schedule.venueName)} />
       {!(roto && state.pairing === "round_robin") && (
-        <Stepper label="Rounds" value={state.rounds} onChange={(n) => commit({ rounds: n }, true)} min={1} max={15} />
+        <CutAndRoundsFields
+          autoRounds={state.autoRounds} onAutoRounds={(v) => commit({ autoRounds: v }, true)}
+          rounds={state.rounds} onRounds={(n) => commit({ rounds: n }, true)}
+          topCut={state.topCut} onTopCut={(v) => commit({ topCut: v }, true)}
+          players={players} swiss={!team && !(roto && state.pairing === "round_robin")}
+        />
       )}
       <RoundTimerSwitch on={state.showClock} onChange={(on) => commit({ showClock: on }, true)} />
+      {!limited && <DecklistsFields mode={state.decklists} onMode={(m) => commit({ decklists: m }, true)} />}
       {error && <Notice tone="error">{error}</Notice>}
       <Notice tone="info">Details lock when round 1 is paired. Changes save as you make them.</Notice>
     </>

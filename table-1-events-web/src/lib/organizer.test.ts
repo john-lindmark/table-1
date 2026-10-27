@@ -51,7 +51,8 @@ function event(extra: Partial<Table1Event> = {}): Table1Event {
     id: "e1", shortCode: "K7Q2", name: "Friday draft", format: "draft", status: "setup", numberOfRounds: 3, currentRound: 0,
     roundLengthSeconds: 3000, allowPlayerReporting: true, createdBy: "u1", cancelReason: null, formatName: "draft",
     formatLabel: "Draft", eventType: "limited", teamSize: null, setName: null, cubeName: null, cubeUrl: null, setCode: null,
-    formatOther: null, cancelledAt: null, updatedAt: "2026-10-12T20:00:00Z", showClock: true, autoName: false, pairing: "swiss", ...extra,
+    formatOther: null, cancelledAt: null, updatedAt: "2026-10-12T20:00:00Z", showClock: true, autoName: false, pairing: "swiss", topCut: 0, autoRounds: false,
+    capacity: null, startsAt: null, venueName: null, decklists: "off", ...extra,
   };
 }
 
@@ -269,6 +270,18 @@ describe("big actions", () => {
     expect(liveAction(e, [disputed], clinch).kind).toBe("waiting");
     expect(clinchText(clinch)).toBe("Team Alpha has clinched it: 5–1 in match wins with 3 matches left to play.");
   });
+
+  it("live action: Swiss then the top 8", () => {
+    const e = event({ formatName: "modern", numberOfRounds: 2, topCut: 8 });
+    const done = (n: number, stage: RoundWithMatches["stage"] = "swiss") =>
+      round(n, [match(1, "Alex", 2, "Brit", 0)], { status: "recorded", stage });
+    expect(liveAction(e, [done(1)], null, 12).label).toBe("Pair round 2");
+    expect(liveAction(e, [done(1), done(2)], null, 12)).toEqual({ kind: "cut", label: "Cut to top 8" });
+    expect(liveAction(e, [done(1), done(2)], null, 8)).toEqual({ kind: "finish", label: "Finish event" });
+    expect(liveAction(e, [done(1), done(2), done(3, "quarterfinal")], null, 12).label).toBe("Pair semifinals");
+    expect(liveAction(e, [done(1), done(2), done(3, "quarterfinal"), done(4, "semifinal")], null, 12).label).toBe("Pair the final");
+    expect(liveAction(e, [done(1), done(2), done(3, "quarterfinal"), done(4, "semifinal"), done(5, "final")], null, 12).kind).toBe("finish");
+  });
 });
 
 describe("records and details", () => {
@@ -283,8 +296,8 @@ describe("records and details", () => {
   it("details: full state, only what applies to the format", () => {
     const s = detailsFromEvent(event({ setCode: "dsk", setName: "Duskmourn", roundLengthSeconds: 3000 }));
     expect(detailsToInput(s)).toEqual({
-      name: "Friday draft", formatName: "draft", rounds: 3, showClock: true, setCode: "dsk", setName: "Duskmourn",
-      cubeName: null, cubeUrl: null, teamSize: null, formatOther: null,
+      name: "Friday draft", autoName: false, formatName: "draft", rounds: 3, showClock: true, setCode: "dsk", setName: "Duskmourn",
+      cubeName: null, cubeUrl: null, teamSize: null, formatOther: null, topCut: 0, autoRounds: false, decklists: "off",
     });
     expect(detailsToInput({ ...s, formatName: "team_draft", teamSize: 4 }).teamSize).toBe(4);
     expect(detailsToInput({ ...s, product: "cube", cubeName: " Vintage Cube ", cubeUrl: "https://cubecobra.com/x" })).toMatchObject({
@@ -296,5 +309,13 @@ describe("records and details", () => {
     expect(detailsToInput({ ...s, showClock: false }).showClock).toBe(false);
     // Auto-named events never send a name; the server names them.
     expect(detailsToInput(detailsFromEvent(event({ autoName: true }))).name).toBeNull();
+    expect(detailsToInput(detailsFromEvent(event({ autoName: true }))).autoName).toBe(true);
+    // Any event can be named (2026-10-27); emptying the field goes back to the automatic name.
+    expect(detailsToInput({ ...detailsFromEvent(event({ autoName: true })), name: " Store  Champs " })).toMatchObject({ name: "Store Champs", autoName: false });
+    expect(detailsToInput({ ...s, name: "  " })).toMatchObject({ name: null, autoName: true });
+    // Top 8, auto rounds and decklists only where they apply.
+    const modern = detailsFromEvent(event({ formatName: "modern", topCut: 8, autoRounds: true, decklists: "required" }));
+    expect(detailsToInput(modern)).toMatchObject({ topCut: 8, autoRounds: true, decklists: "required" });
+    expect(detailsToInput({ ...modern, formatName: "team_sealed" })).toMatchObject({ topCut: 0, autoRounds: false, decklists: "off" });
   });
 });

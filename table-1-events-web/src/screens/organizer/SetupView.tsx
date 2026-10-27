@@ -12,6 +12,8 @@ import { SeatingPanel } from "../../components/SeatingPanel";
 import { SharePanel } from "../../components/SharePanel";
 import { TeamsPanel } from "../../components/TeamsPanel";
 import { DetailsForm } from "./DetailsForm";
+import { DecklistPanel, WaitlistRows, copyEventLink, decklistDetail, decklistOf, decklistsMissing } from "../../components/EventExtras";
+import { decklistsLine, when } from "../../lib/scheduledEvents";
 import { RotoPickOrder, RotoStartAction } from "../roto/lazy";
 import type { PhaseViewProps } from "./shared";
 import { Avatar } from "../../components/Avatar";
@@ -46,6 +48,8 @@ export function SetupView({
   const [guestName, setGuestName] = useState("");
   const [playersBusy, setPlayersBusy] = useState(false);
   const [removing, setRemoving] = useState<(typeof participants)[number] | null>(null);
+  const [listFor, setListFor] = useState<(typeof participants)[number] | null>(null);
+  const [copied, setCopied] = useState(false);
   const guest = tidyName(guestName);
   const guestDup = !!guest && participants.some((p) => p.displayName.toLowerCase() === guest.toLowerCase());
 
@@ -86,7 +90,9 @@ export function SetupView({
   const anySeated = active.some((p) => p.seat != null);
   const teamIssue =
     isTeam && teams ? teamProblems(toTeams(teams), participants, event.teamSize ?? 3, event.formatName) : null;
-  const blocker = startBlocker(active.length, teamIssue);
+  const missing = decklistsMissing(bundle);
+  const blocker = startBlocker(active.length, teamIssue)
+    ?? (event.decklists === "required" && missing > 0 ? `Waiting on ${missing} decklist${missing === 1 ? "" : "s"}` : null);
   const dialog = startDialog(event);
 
   async function seat() {
@@ -120,8 +126,9 @@ export function SetupView({
   const playerDetail = (p: (typeof participants)[number]) => {
     const who = p.status === "dropped" ? "Dropped" : p.userId ? "Joined" : "Guest";
     const team = isTeam ? (p.teamId ? `${teamNames.get(p.teamId) ?? "Team"} · ${slotLetter(p.teamSlot)}` : "No team") : null;
-    return [who, team].filter(Boolean).join(" · ");
+    return [who, team, decklistDetail(bundle, p)].filter(Boolean).join(" · ");
   };
+  const takesLists = event.decklists !== "off";
 
   return (
     <>
@@ -137,9 +144,21 @@ export function SetupView({
                 Add players
               </button>
               <GhostAction label="Show join QR" onClick={() => setShowQr(true)} />
+              <GhostAction
+                label={copied ? "Link copied" : "Copy sign-up link"}
+                onClick={() => void copyEventLink(event).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 2000); })}
+              />
             </div>
-            <Row title="Join code" value={<span className="tracking-[4px]">{event.shortCode}</span>} />
-            <Section title="Players" count={participants.length} />
+            <Row title="Join code" detail={[when(event.startsAt), event.venueName].filter(Boolean).join(" · ") || undefined}
+                 value={<span className="tracking-[4px]">{event.shortCode}</span>} />
+            <Section title={event.capacity ? `Players · ${active.length}/${event.capacity}` : "Players"}
+                     count={event.capacity ? undefined : participants.length} />
+            {takesLists && (
+              <Notice tone="info">
+                {decklistsLine(active.length - missing, active.length)}
+                {event.decklists === "required" ? " · required before round 1" : ""}
+              </Notice>
+            )}
             {userId && !me && (
               <Row
                 title="You're not playing"
@@ -150,7 +169,21 @@ export function SetupView({
             {participants.length === 0 && (
               <Notice tone="info">Nobody yet. Add players, or show the join QR so they can scan in.</Notice>
             )}
-            {participants.map((p) => (
+            {participants.map((p) => takesLists ? (
+              <div key={p.id} className="bg-t1-surface px-4 py-3 flex items-center gap-3">
+                <Avatar name={p.displayName} userId={p.userId} />
+                <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+                  <span className="text-[13px] truncate">{p.id === me?.id ? `You · ${p.displayName}` : p.displayName}</span>
+                  <span className="t1-label truncate">{playerDetail(p)}</span>
+                </span>
+                <button type="button" className="t1-label text-t1-accent" onClick={() => setListFor(p)}>
+                  {decklistOf(bundle, p.id) ? "List" : "Enter list"}
+                </button>
+                <button type="button" className="t1-label text-t1-danger disabled:opacity-40" disabled={playersBusy} onClick={() => setRemoving(p)}>
+                  Remove
+                </button>
+              </div>
+            ) : (
               <Row
                 key={p.id}
                 title={p.id === me?.id ? `You · ${p.displayName}` : p.displayName}
@@ -171,6 +204,7 @@ export function SetupView({
               }}
             />
             {guestDup && <Notice tone="error">{guest} is already in this event.</Notice>}
+            <WaitlistRows bundle={bundle} onChanged={() => void refetch()} onError={setActionError} />
           </>
         )}
 
@@ -233,6 +267,11 @@ export function SetupView({
           <SharePanel shortCode={event.shortCode} eventId={event.id} />
           <GhostAction label="Done" onClick={() => setShowQr(false)} />
         </Modal>
+      )}
+
+      {listFor && (
+        <DecklistPanel event={event} participantId={listFor.id} playerName={listFor.displayName} byOrganizer
+                       onClose={(changed) => { setListFor(null); if (changed) void refetch(); }} />
       )}
 
       {removing && (

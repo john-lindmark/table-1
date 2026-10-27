@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Event type → format → product (set or cube) → teams → rounds → players, on one scrolling form.
-/// The server names the event from these choices ("Draft · Duskmourn · Fri 17 Oct"); rounds are always 50 minutes.
+/// Name → event type → format → product (set or cube) → teams → when / where / cap → rounds and top cut → decklists →
+/// players, on one scrolling form. Left unnamed, the server names the event from these choices
+/// ("Draft · Duskmourn · Fri 17 Oct"); rounds are always 50 minutes.
 struct CreateEventView: View {
     @Binding var path: [Route]
     @Environment(\.dismiss) private var dismiss
@@ -20,13 +21,17 @@ struct CreateEventView: View {
     @State private var teamSize = 3
     @State private var rounds = 3
     @State private var showClock = true
+    @State private var name = ""
+    @State private var schedule = EventSchedule()
+    @State private var autoRounds = true
+    @State private var topCut = 0
+    @State private var decklists = "off"
     /// Roto only: prefilled from the player count (round robin for 2–8, Swiss for 9+) until changed by hand.
     @State private var pairing = "round_robin"
     @State private var pairingTouched = false
     @State private var includeMe = true
     @State private var myName: String?
     @State private var guests: [String] = []
-    @State private var venue = ""
     @State private var nearby = true
     @State private var busy = false
     @State private var error: String?
@@ -39,6 +44,11 @@ struct CreateEventView: View {
     private var playerCount: Int { guests.count + (includeMe ? 1 : 0) }
     private var trimmedCubeUrl: String { cubeUrl.trimmingCharacters(in: .whitespaces) }
     private var cubeUrlValid: Bool { EventProduct.cubeUrlValid(cubeUrl) }
+    /// Swiss events of players: automatic rounds and the top cut apply.
+    private var swiss: Bool { !format.isTeam && !(isRoto && pairing == "round_robin") }
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+    }
 
     /// What the server will call it.
     private var previewName: String {
@@ -46,7 +56,7 @@ struct CreateEventView: View {
             format: format.rawValue, formatOther: formatOther,
             setName: isLimited && product == .set && !isRoto ? (chosenSet?.name ?? typedSetName) : nil,
             cubeName: usesCube ? cubeName : nil)
-        return "\(label) · \(EventNaming.day())"
+        return "\(label) · \(EventNaming.day(schedule.startsAt ?? Date()))"
     }
 
     private var valid: Bool {
@@ -59,9 +69,14 @@ struct CreateEventView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "New event", subtitle: previewName) { BarButton("Cancel") { dismiss() } }
+            Bar(title: "New event", subtitle: trimmedName.isEmpty ? previewName : trimmedName) { BarButton("Cancel") { dismiss() } }
             ScrollView {
                 VStack(spacing: 1) {
+                    Section1("Name")
+                    Field(label: "Event name (optional)", text: $name)
+                        .onChange(of: name) { _, v in if v.count > 80 { name = String(v.prefix(80)) } }
+                    if trimmedName.isEmpty { Notice("Left empty, it's called \(previewName).") }
+
                     FormatFields(kind: $kind, constructedFormat: $constructedFormat, limitedFormat: $limitedFormat,
                                  formatOther: $formatOther)
 
@@ -80,9 +95,11 @@ struct CreateEventView: View {
                         TeamSizeFields(format: format, teamSize: $teamSize)
                     }
 
+                    ScheduleFields(schedule: $schedule)
+
                     Section1("Rounds")
                     if !(isRoto && pairing == "round_robin") {
-                        T1Stepper(label: "Rounds", value: $rounds, range: 1...15)
+                        CutAndRoundsFields(autoRounds: $autoRounds, rounds: $rounds, topCut: $topCut, players: playerCount, swiss: swiss)
                     }
                     RoundTimerSwitch(isOn: $showClock)
                     if isRoto {
@@ -90,10 +107,11 @@ struct CreateEventView: View {
                                           players: playerCount)
                     }
 
+                    if !isLimited { DecklistsFields(mode: $decklists) }
+
                     PlayersFields(includeMe: $includeMe, myName: myName, guests: $guests)
 
                     Section1("Who can find it")
-                    Field(label: "Venue (optional)", text: $venue)
                     T1Segmented(options: [(value: true, label: "Nearby + QR"), (value: false, label: "QR only")], selection: $nearby)
                     Notice(nearby
                         ? "Players within 150 m can find and join it, and players nearby who turned on alerts get a Join / Decline notification."
@@ -120,7 +138,7 @@ struct CreateEventView: View {
         let limitedSet = isLimited && product == .set && !isRoto
         let cube = usesCube
         let draft = NewEventDraft(
-            name: nil,
+            name: trimmedName.isEmpty ? nil : trimmedName,
             formatName: format.rawValue,
             rounds: rounds,
             showClock: showClock,
@@ -130,17 +148,23 @@ struct CreateEventView: View {
             cubeUrl: cube ? trimmedCubeUrl : nil,
             teamSize: format.isTeam ? teamSize : nil,
             formatOther: format == .otherConstructed ? formatOther : nil,
-            pairing: isRoto ? pairing : nil
+            pairing: isRoto ? pairing : nil,
+            topCut: swiss ? topCut : 0,
+            autoRounds: swiss && autoRounds,
+            decklists: isLimited ? "off" : decklists
         )
+        let schedule = schedule
+        let venue = schedule.venue.trimmingCharacters(in: .whitespaces)
         let roto = isRoto
         let guests = guests
         let includeMe = includeMe
         Task {
             defer { busy = false }
             do {
-                let created = try await Repo.createEventV2(draft, includeMe: includeMe, guests: guests)
+                let created = try await Repo.createEventV2(draft, includeMe: includeMe, guests: guests, schedule: schedule)
                 // Pin it where the organizer stands; for nearby events this also alerts opted-in players around.
-                if let fix = await LocationFix.shared.current() {
+                // A scheduled event is usually made away from the venue: no pin then (Details can set it there).
+                if schedule.startsAt == nil, let fix = await LocationFix.shared.current() {
                     try? await Repo.setEventLocation(
                         eventId: created.eventId, lat: fix.lat, lng: fix.lng,
                         venue: venue.isEmpty ? nil : venue, nearby: nearby

@@ -46,6 +46,13 @@ export interface Table1Event {
   autoName: boolean;
   /** swiss | round_robin (roto only). */
   pairing: "swiss" | "round_robin";
+  /** contract/scheduled-events-2026-10-27.md */
+  topCut: 0 | 8;
+  autoRounds: boolean;
+  capacity: number | null;
+  startsAt: string | null;
+  venueName: string | null;
+  decklists: "off" | "optional" | "required";
 }
 
 export interface Participant {
@@ -74,6 +81,8 @@ export interface Round {
   timerLastStartedAt: string | null;
   /** Set while running; the server keeps it equal to last_started_at + remaining_at_change. */
   timerEndsAt?: string | null;
+  /** swiss | quarterfinal | semifinal | final (top 8). */
+  stage?: "swiss" | "quarterfinal" | "semifinal" | "final";
 }
 
 export interface MatchSide {
@@ -118,6 +127,7 @@ export interface HomeRound {
   results_in: number;
   matches: number;
   disputed: number;
+  stage?: string | null;
 }
 
 export interface HomeEvent {
@@ -144,6 +154,11 @@ export interface HomeEvent {
   players: number;
   my_status: ParticipantStatus | null;
   round: HomeRound | null;
+  capacity?: number | null;
+  top_cut?: number | null;
+  waitlist?: number | null;
+  decklists?: "off" | "optional" | "required" | null;
+  my_decklist?: boolean | null;
 }
 
 export interface HomeInvite {
@@ -158,9 +173,22 @@ export interface HomeInvite {
   players: number;
 }
 
+export interface HomeWaitlist {
+  event_id: string;
+  name: string;
+  format_label: string | null;
+  starts_at: string | null;
+  venue_name: string | null;
+  position: number | null;
+  players: number;
+  capacity: number | null;
+}
+
 export interface HomeData {
   events: HomeEvent[];
   invites: HomeInvite[];
+  /** Events you're waiting for (2026-10-27). */
+  waitlist?: HomeWaitlist[];
 }
 
 /** One live seat from the live-activity function (the same state as the iOS Live Activity). */

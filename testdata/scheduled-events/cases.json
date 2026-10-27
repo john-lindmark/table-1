@@ -1,0 +1,590 @@
+{
+ "rounds": [
+  {
+   "players": 0,
+   "want": 1
+  },
+  {
+   "players": 1,
+   "want": 1
+  },
+  {
+   "players": 2,
+   "want": 1
+  },
+  {
+   "players": 3,
+   "want": 2
+  },
+  {
+   "players": 4,
+   "want": 2
+  },
+  {
+   "players": 5,
+   "want": 3
+  },
+  {
+   "players": 8,
+   "want": 3
+  },
+  {
+   "players": 9,
+   "want": 4
+  },
+  {
+   "players": 12,
+   "want": 4
+  },
+  {
+   "players": 16,
+   "want": 4
+  },
+  {
+   "players": 17,
+   "want": 5
+  },
+  {
+   "players": 32,
+   "want": 5
+  },
+  {
+   "players": 33,
+   "want": 6
+  },
+  {
+   "players": 64,
+   "want": 6
+  },
+  {
+   "players": 65,
+   "want": 7
+  },
+  {
+   "players": 128,
+   "want": 7
+  },
+  {
+   "players": 129,
+   "want": 8
+  },
+  {
+   "players": 226,
+   "want": 8
+  },
+  {
+   "players": 227,
+   "want": 9
+  },
+  {
+   "players": 409,
+   "want": 9
+  },
+  {
+   "players": 410,
+   "want": 10
+  },
+  {
+   "players": 2000,
+   "want": 10
+  }
+ ],
+ "next": [
+  {
+   "stages": [],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 0,
+   "active_players": 8,
+   "want": "start"
+  },
+  {
+   "stages": [],
+   "waiting": false,
+   "number_of_rounds": 4,
+   "top_cut": 8,
+   "active_players": 12,
+   "want": "start"
+  },
+  {
+   "stages": [
+    "swiss"
+   ],
+   "waiting": true,
+   "number_of_rounds": 3,
+   "top_cut": 0,
+   "active_players": 8,
+   "want": "waiting"
+  },
+  {
+   "stages": [
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 0,
+   "active_players": 8,
+   "want": "pair"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 0,
+   "active_players": 8,
+   "want": "finish"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 3,
+   "top_cut": 8,
+   "active_players": 8,
+   "want": "finish"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": false,
+   "number_of_rounds": 4,
+   "top_cut": 8,
+   "active_players": 12,
+   "want": "cut"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss",
+    "swiss"
+   ],
+   "waiting": true,
+   "number_of_rounds": 4,
+   "top_cut": 8,
+   "active_players": 12,
+   "want": "waiting"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss",
+    "swiss",
+    "quarterfinal"
+   ],
+   "waiting": false,
+   "number_of_rounds": 4,
+   "top_cut": 8,
+   "active_players": 12,
+   "want": "semifinals"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss",
+    "swiss",
+    "quarterfinal"
+   ],
+   "waiting": true,
+   "number_of_rounds": 4,
+   "top_cut": 8,
+   "active_players": 12,
+   "want": "waiting"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss",
+    "swiss",
+    "quarterfinal",
+    "semifinal"
+   ],
+   "waiting": false,
+   "number_of_rounds": 4,
+   "top_cut": 8,
+   "active_players": 12,
+   "want": "final"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss",
+    "swiss",
+    "quarterfinal",
+    "semifinal",
+    "final"
+   ],
+   "waiting": false,
+   "number_of_rounds": 4,
+   "top_cut": 8,
+   "active_players": 12,
+   "want": "finish"
+  },
+  {
+   "stages": [
+    "swiss",
+    "swiss",
+    "swiss",
+    "swiss",
+    "quarterfinal"
+   ],
+   "waiting": false,
+   "number_of_rounds": 4,
+   "top_cut": 8,
+   "active_players": 7,
+   "want": "semifinals"
+  }
+ ],
+ "round_name": [
+  {
+   "stage": "swiss",
+   "number": 1,
+   "of": 4,
+   "want": "Round 1 of 4"
+  },
+  {
+   "stage": "swiss",
+   "number": 5,
+   "of": 5,
+   "want": "Round 5 of 5"
+  },
+  {
+   "stage": "quarterfinal",
+   "number": 6,
+   "of": 5,
+   "want": "Quarterfinals"
+  },
+  {
+   "stage": "semifinal",
+   "number": 7,
+   "of": 5,
+   "want": "Semifinals"
+  },
+  {
+   "stage": "final",
+   "number": 8,
+   "of": 5,
+   "want": "Final"
+  }
+ ],
+ "sign_up": [
+  {
+   "players": 0,
+   "capacity": null,
+   "waitlist": 0,
+   "want": "0 players signed up"
+  },
+  {
+   "players": 1,
+   "capacity": null,
+   "waitlist": 0,
+   "want": "1 player signed up"
+  },
+  {
+   "players": 12,
+   "capacity": null,
+   "waitlist": 0,
+   "want": "12 players signed up"
+  },
+  {
+   "players": 1,
+   "capacity": 8,
+   "waitlist": 0,
+   "want": "1/8 players"
+  },
+  {
+   "players": 12,
+   "capacity": 16,
+   "waitlist": 0,
+   "want": "12/16 players"
+  },
+  {
+   "players": 16,
+   "capacity": 16,
+   "waitlist": 0,
+   "want": "16/16 players"
+  },
+  {
+   "players": 16,
+   "capacity": 16,
+   "waitlist": 3,
+   "want": "16/16 players · 3 on the waitlist"
+  },
+  {
+   "players": 17,
+   "capacity": 16,
+   "waitlist": 1,
+   "want": "17/16 players · 1 on the waitlist"
+  }
+ ],
+ "auto_label": [
+  {
+   "players": 0,
+   "want": "Auto · set when round 1 is paired"
+  },
+  {
+   "players": 1,
+   "want": "Auto · set when round 1 is paired"
+  },
+  {
+   "players": 2,
+   "want": "Auto · 1 round for 2 players"
+  },
+  {
+   "players": 3,
+   "want": "Auto · 2 rounds for 3 players"
+  },
+  {
+   "players": 8,
+   "want": "Auto · 3 rounds for 8 players"
+  },
+  {
+   "players": 12,
+   "want": "Auto · 4 rounds for 12 players"
+  },
+  {
+   "players": 40,
+   "want": "Auto · 6 rounds for 40 players"
+  }
+ ],
+ "rounds_line": [
+  {
+   "auto": false,
+   "rounds": 3,
+   "top_cut": 0,
+   "open": true,
+   "want": "3 rounds"
+  },
+  {
+   "auto": false,
+   "rounds": 1,
+   "top_cut": 0,
+   "open": true,
+   "want": "1 round"
+  },
+  {
+   "auto": true,
+   "rounds": 4,
+   "top_cut": 8,
+   "open": true,
+   "want": "Auto rounds · Top 8"
+  },
+  {
+   "auto": true,
+   "rounds": 4,
+   "top_cut": 0,
+   "open": true,
+   "want": "Auto rounds"
+  },
+  {
+   "auto": true,
+   "rounds": 5,
+   "top_cut": 8,
+   "open": false,
+   "want": "5 rounds · Top 8"
+  },
+  {
+   "auto": false,
+   "rounds": 6,
+   "top_cut": 8,
+   "open": false,
+   "want": "6 rounds · Top 8"
+  }
+ ],
+ "button": [
+  {
+   "signed_in": false,
+   "sign_up": "open",
+   "me": null,
+   "want": "sign_in"
+  },
+  {
+   "signed_in": false,
+   "sign_up": "full",
+   "me": null,
+   "want": "sign_in"
+  },
+  {
+   "signed_in": false,
+   "sign_up": "closed",
+   "me": null,
+   "want": "closed"
+  },
+  {
+   "signed_in": true,
+   "sign_up": "open",
+   "me": null,
+   "want": "sign_up"
+  },
+  {
+   "signed_in": true,
+   "sign_up": "full",
+   "me": null,
+   "want": "waitlist"
+  },
+  {
+   "signed_in": true,
+   "sign_up": "closed",
+   "me": null,
+   "want": "closed"
+  },
+  {
+   "signed_in": true,
+   "sign_up": "open",
+   "me": "player",
+   "want": "in"
+  },
+  {
+   "signed_in": true,
+   "sign_up": "full",
+   "me": "waitlisted",
+   "want": "waitlisted"
+  },
+  {
+   "signed_in": true,
+   "sign_up": "closed",
+   "me": "player",
+   "want": "in"
+  },
+  {
+   "signed_in": true,
+   "sign_up": "open",
+   "me": "organizer",
+   "want": "organizer"
+  },
+  {
+   "signed_in": true,
+   "sign_up": "closed",
+   "me": "organizer",
+   "want": "organizer"
+  }
+ ],
+ "decklist": [
+  {
+   "body": "4 Lightning Bolt\n4 Monastery Swiftspear\n52 Mountain\n\n3 Smash to Smithereens\n12 Pyroblast",
+   "want": {
+    "main": 60,
+    "side": 15
+   }
+  },
+  {
+   "body": "Deck\n4 Ragavan, Nimble Pilferer\n56 Mountain\n\nSideboard\n15 Pyroblast",
+   "want": {
+    "main": 60,
+    "side": 15
+   }
+  },
+  {
+   "body": "Deck (60)\n60 Island\nSideboard (15):\n15 Hydroblast\nConsidering\n4 Opt",
+   "want": {
+    "main": 60,
+    "side": 15
+   }
+  },
+  {
+   "body": "4x Lightning Bolt\r\n56 Mountain\r\nSB: 4 Pyroblast\r\nSB: 11 Smash to Smithereens",
+   "want": {
+    "main": 60,
+    "side": 15
+   }
+  },
+  {
+   "body": "Commander\n1 Kenrith, the Returned King\n\nDeck\n99 Island",
+   "want": {
+    "main": 100,
+    "side": 0
+   }
+  },
+  {
+   "body": "Lightning Bolt\nMountain",
+   "want": {
+    "main": 0,
+    "side": 0
+   }
+  },
+  {
+   "body": "",
+   "want": {
+    "main": 0,
+    "side": 0
+   }
+  },
+  {
+   "body": "  4 Fire // Ice  \n\n\n56 Island\n",
+   "want": {
+    "main": 4,
+    "side": 56
+   }
+  }
+ ],
+ "deck_format": [
+  {
+   "event": "standard",
+   "want": "standard"
+  },
+  {
+   "event": "pioneer",
+   "want": "pioneer"
+  },
+  {
+   "event": "modern",
+   "want": "modern"
+  },
+  {
+   "event": "legacy",
+   "want": "legacy"
+  },
+  {
+   "event": "vintage",
+   "want": "vintage"
+  },
+  {
+   "event": "pauper",
+   "want": "pauper"
+  },
+  {
+   "event": "premodern",
+   "want": "premodern"
+  },
+  {
+   "event": "canadian_highlander",
+   "want": "canlander"
+  },
+  {
+   "event": "other_constructed",
+   "want": null
+  }
+ ],
+ "decklists_line": [
+  {
+   "sent": 0,
+   "players": 8,
+   "want": "0/8 decklists in"
+  },
+  {
+   "sent": 7,
+   "players": 8,
+   "want": "7/8 decklists in"
+  },
+  {
+   "sent": 8,
+   "players": 8,
+   "want": "8/8 decklists in"
+  }
+ ]
+}

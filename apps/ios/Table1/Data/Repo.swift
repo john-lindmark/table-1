@@ -37,7 +37,8 @@ enum Repo {
     /// Typed formats: constructed formats, or limited with a set or a cube; team formats carry a team size.
     /// The server names the event and always runs 50-minute rounds. `includeMe` seats the organizer first;
     /// `guests` are players by name only (no account), each with a claim link.
-    static func createEventV2(_ draft: NewEventDraft, includeMe: Bool, guests: [String]) async throws -> CreateEventResult {
+    static func createEventV2(_ draft: NewEventDraft, includeMe: Bool, guests: [String],
+                              schedule: EventSchedule = EventSchedule()) async throws -> CreateEventResult {
         func text(_ s: String?) -> AnyJSON {
             guard let t = s?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty else { return .null }
             return .string(t)
@@ -47,6 +48,9 @@ enum Repo {
             "kind": draft.cubeName != nil ? "cube" : draft.setCode != nil ? "limited" : "constructed",
             "team_size": draft.teamSize ?? 0, "organizer_plays": includeMe, "guests": guests.count,
             "pairing": draft.pairing ?? "swiss",
+            "scheduled": schedule.startsAt != nil, "capped": schedule.capacity != nil, "top_cut": draft.topCut,
+            "auto_rounds": draft.autoRounds, "named": !(draft.name ?? "").trimmingCharacters(in: .whitespaces).isEmpty,
+            "decklists": draft.decklists,
         ]
         return try await Telemetry.after("event_created", props) { try await supabase.rpc("create_event_v2", params: [
             "p_format_name": AnyJSON.string(draft.formatName),
@@ -60,9 +64,80 @@ enum Repo {
             "p_player_names": .array(guests.map { .string($0) }),
             "p_include_me": .bool(includeMe),
             "p_show_clock": .bool(draft.showClock),
-            "p_local_date": .string(EventNaming.localDate()),
+            "p_local_date": .string(EventNaming.localDate(schedule.startsAt ?? Date())),
             "p_pairing": draft.pairing.map { AnyJSON.string($0) } ?? .null,
+            "p_name": text(draft.name),
+            "p_starts_at": schedule.startsAt.map { AnyJSON.string(iso($0)) } ?? .null,
+            "p_venue_name": text(schedule.venue),
+            "p_capacity": schedule.capacity.map { AnyJSON.integer($0) } ?? .null,
+            "p_top_cut": .integer(draft.topCut),
+            "p_auto_rounds": .bool(draft.autoRounds),
+            "p_decklists": .string(draft.decklists),
         ]).execute().value }
+    }
+
+    static func iso(_ d: Date) -> String { ISO8601DateFormatter().string(from: d) }
+
+    /// When, where and the cap, before round 1 (full state; opening places moves the waitlist up).
+    static func setEventSchedule(eventId: String, _ s: EventSchedule) async throws {
+        let venue = s.venue.trimmingCharacters(in: .whitespaces)
+        try await supabase.rpc("set_event_schedule", params: [
+            "p_event_id": AnyJSON.string(eventId),
+            "p_starts_at": s.startsAt.map { AnyJSON.string(iso($0)) } ?? .null,
+            "p_venue_name": venue.isEmpty ? .null : .string(venue),
+            "p_capacity": s.capacity.map { AnyJSON.integer($0) } ?? .null,
+            "p_local_date": .string(EventNaming.localDate(s.startsAt ?? Date())),
+        ]).execute()
+    }
+
+    /// The event page: what anyone with the link sees (works signed out).
+    static func eventPage(_ eventId: String) async throws -> EventPage {
+        try await supabase.rpc("event_public", params: ["p_event_id": AnyJSON.string(eventId)]).execute().value
+    }
+
+    /// Sign up from the link: a seat, or the waitlist when it's full.
+    static func signUp(_ eventId: String, signedInNow: Bool) async throws -> SignUpResult {
+        let r: SignUpResult = try await supabase.rpc("event_sign_up", params: ["p_event_id": AnyJSON.string(eventId)]).execute().value
+        if r.status == "joined" || r.status == "waitlisted" {
+            Telemetry.capture("event_signed_up", ["status": r.status, "signed_in_now": signedInNow])
+        }
+        return r
+    }
+
+    /// Before round 1: leave your seat or your waitlist place.
+    static func leaveEvent(_ eventId: String, waitlist: Bool) async throws {
+        try await supabase.rpc("event_leave", params: ["p_event_id": AnyJSON.string(eventId)]).execute()
+        Telemetry.capture("event_left", ["waitlist": waitlist])
+    }
+
+    static func waitlistAdmit(_ eventId: String, userId: String) async throws {
+        try await supabase.rpc("waitlist_admit", params: ["p_event_id": AnyJSON.string(eventId), "p_user_id": .string(userId)]).execute()
+        Telemetry.capture("waitlist_admitted")
+    }
+
+    static func waitlistRemove(_ eventId: String, userId: String) async throws {
+        try await supabase.rpc("waitlist_remove", params: ["p_event_id": AnyJSON.string(eventId), "p_user_id": .string(userId)]).execute()
+    }
+
+    // MARK: decklists
+
+    static func decklist(_ participantId: String) async throws -> Decklist? {
+        let data = try await supabase.rpc("decklist_get", params: ["p_participant_id": AnyJSON.string(participantId)]).execute().data
+        if String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) == "null" { return nil }
+        return try wireDecoder.decode(Decklist.self, from: data)
+    }
+
+    static func submitDecklist(participantId: String, body: String, listId: String?, byOrganizer: Bool) async throws {
+        try await supabase.rpc("decklist_submit", params: [
+            "p_participant_id": AnyJSON.string(participantId), "p_body": .string(body),
+            "p_list_id": listId.map { AnyJSON.string($0) } ?? .null,
+        ]).execute()
+        Telemetry.capture("decklist_sent", ["source": listId == nil ? "text" : "deck", "by": byOrganizer ? "organizer" : "player"])
+    }
+
+    static func removeDecklist(_ participantId: String) async throws {
+        try await supabase.rpc("decklist_remove", params: ["p_participant_id": AnyJSON.string(participantId)]).execute()
+        Telemetry.capture("decklist_removed")
     }
 
     /// Scryfall sets for limited events, newest first (optionally filtered by name or code).
@@ -112,6 +187,10 @@ enum Repo {
             "p_team_size": draft.teamSize.map { AnyJSON.integer($0) } ?? .null,
             "p_format_other": text(draft.formatOther),
             "p_pairing": draft.pairing.map { AnyJSON.string($0) } ?? .null,
+            "p_auto_name": .bool(draft.autoName),
+            "p_top_cut": .integer(draft.topCut),
+            "p_auto_rounds": .bool(draft.autoRounds),
+            "p_decklists": .string(draft.decklists),
         ]).execute().data
         return try wireDecoder.decode(EventDetails.self, from: data)
     }
@@ -129,6 +208,8 @@ enum Repo {
         let participants: [ParticipantRow]
         let rounds: [RoundRow]
         let isOrganizer: Bool
+        var waitlist: [WaitlistEntry]?
+        var decklists: [DecklistInfo]?
     }
 
     /// The whole event in one call (contract/privacy-lockdown-2026-10-18.md): event_bundle checks who's asking
@@ -144,7 +225,8 @@ enum Repo {
             r.matches.sort { ($0.tableNumber ?? 0) < ($1.tableNumber ?? 0) }
             return r
         }
-        return EventBundle(event: w.event, participants: w.participants, rounds: rounds, isOrganizer: w.isOrganizer)
+        return EventBundle(event: w.event, participants: w.participants, rounds: rounds, isOrganizer: w.isOrganizer,
+                           waitlist: w.waitlist ?? [], decklists: w.decklists ?? [])
     }
 
     /// Yields whenever anything in the event changes, so the screen can refetch. The server pings the public topic
@@ -203,12 +285,20 @@ enum Repo {
 
     /// A shared /join/<code> link (open events only, rate-limited). An account already in the event lands on it.
     static func joinByCode(_ code: String) async throws -> SeatResult {
-        struct Wire: Decodable { let eventId: String?; let participantId: String?; let alreadyJoined: Bool?; let message: String? }
+        struct Wire: Decodable {
+            let eventId: String?; let participantId: String?; let alreadyJoined: Bool?; let message: String?
+            var waitlisted: Bool?
+        }
         let name = await myDisplayName() ?? "Player"
         let w: Wire = try await supabase.rpc("join_event", params: [
             "p_code": AnyJSON.string(code), "p_display_name": .string(name),
         ]).execute().value
         // A code that leads nowhere joinable comes back as {error, message} (so the server's miss count sticks).
+        // Full: signed in, you're on the waitlist now, and the server's message says your place.
+        if w.waitlisted == true {
+            Telemetry.capture("event_signed_up", ["status": "waitlisted", "signed_in_now": false])
+            throw NSError(domain: "Table1", code: 1, userInfo: [NSLocalizedDescriptionKey: w.message ?? "This event is full"])
+        }
         guard let eventId = w.eventId else {
             throw NSError(domain: "Table1", code: 1, userInfo: [NSLocalizedDescriptionKey: w.message ?? "No event found with that code"])
         }
@@ -327,7 +417,7 @@ enum Repo {
 
     static func pairNextRound(_ eventId: String, pairing: String = "swiss") async throws -> PairRoundResponse {
         let r: PairRoundResponse = try await engine("pair_round", eventId)
-        if r.error == nil { Telemetry.capture("round_paired", ["round": r.roundNumber ?? 0, "pairing": pairing]) }
+        if r.error == nil { Telemetry.capture("round_paired", ["round": r.roundNumber ?? 0, "pairing": pairing, "stage": r.stage ?? "swiss"]) }
         return r
     }
 

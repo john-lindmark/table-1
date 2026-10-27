@@ -1,11 +1,14 @@
 {
   "access": "link",
-  "capacity": null,
+  "auto_rounds": false,
+  "capacity": 8,
   "cube_name": null,
   "current_round": 2,
+  "decklists": "optional",
   "event_id": "e0000000-0000-0000-0000-000000000001",
   "format_label": "Draft \u00b7 Murders at Karlov Manor",
   "format_name": "draft",
+  "me": null,
   "name": "Fixture draft",
   "number_of_rounds": 3,
   "organizer_name": "Ana Organizer",
@@ -50,9 +53,11 @@
     }
   ],
   "players": 3,
+  "position": null,
   "round": {
     "id": "a0000000-0000-0000-0000-000000000002",
     "number": 2,
+    "stage": "swiss",
     "status": "active",
     "timer_duration_seconds": 3000,
     "timer_ends_at": null,
@@ -60,11 +65,90 @@
     "timer_remaining_at_change": 3000,
     "timer_status": "paused"
   },
+  "rounds": [
+    {
+      "matches": [
+        {
+          "game_draws": 0,
+          "intentional_draw": false,
+          "is_bye": false,
+          "match_id": "b0000000-0000-0000-0000-000000000002",
+          "sides": [
+            {
+              "display_name": "Ana Organizer",
+              "game_wins": 0,
+              "participant_id": "f0000000-0000-0000-0000-000000000001",
+              "side": 0
+            },
+            {
+              "display_name": "Ben Player",
+              "game_wins": 0,
+              "participant_id": "f0000000-0000-0000-0000-000000000002",
+              "side": 1
+            }
+          ],
+          "status": "pending",
+          "table_number": 1
+        },
+        {
+          "game_draws": 0,
+          "intentional_draw": false,
+          "is_bye": true,
+          "match_id": "b0000000-0000-0000-0000-000000000003",
+          "sides": [
+            {
+              "display_name": "Guest Cara",
+              "game_wins": 2,
+              "participant_id": "f0000000-0000-0000-0000-000000000003",
+              "side": 0
+            }
+          ],
+          "status": "confirmed",
+          "table_number": null
+        }
+      ],
+      "number": 2,
+      "stage": "swiss",
+      "status": "active"
+    },
+    {
+      "matches": [
+        {
+          "game_draws": 1,
+          "intentional_draw": false,
+          "is_bye": false,
+          "match_id": "b0000000-0000-0000-0000-000000000001",
+          "sides": [
+            {
+              "display_name": "Ana Organizer",
+              "game_wins": 2,
+              "participant_id": "f0000000-0000-0000-0000-000000000001",
+              "side": 0
+            },
+            {
+              "display_name": "Guest Cara",
+              "game_wins": 1,
+              "participant_id": "f0000000-0000-0000-0000-000000000003",
+              "side": 1
+            }
+          ],
+          "status": "confirmed",
+          "table_number": 1
+        }
+      ],
+      "number": 1,
+      "stage": "swiss",
+      "status": "recorded"
+    }
+  ],
   "set_name": "Murders at Karlov Manor",
   "short_code": "FIXT",
   "show_clock": true,
-  "starts_at": null,
+  "sign_up": "closed",
+  "starts_at": "2026-11-08T11:30:00-07:00",
   "status": "in_progress",
   "team_size": null,
-  "venue_name": "Denver Card Shop"
+  "top_cut": 8,
+  "venue_name": "Denver Card Shop",
+  "waitlist": 1
 }

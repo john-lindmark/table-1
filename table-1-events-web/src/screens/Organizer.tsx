@@ -192,6 +192,7 @@ export function Organizer({
           onClose={() => setOpenMatchId(null)}
           onSaved={() => void refetch()}
           onOpenLife={onOpenLife}
+          playoff={(bundle?.rounds.find((r) => r.id === openMatch.roundId)?.stage ?? "swiss") !== "swiss"}
         />
       )}
 

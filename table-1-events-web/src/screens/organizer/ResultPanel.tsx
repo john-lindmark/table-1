@@ -16,8 +16,11 @@ export function ResultPanel({
   onClose,
   onSaved,
   onOpenLife,
+  playoff = false,
 }: {
   match: Match;
+  /** Quarterfinals, semifinals and the final can't end in a draw. */
+  playoff?: boolean;
   participants: Participant[];
   /** Results phase: the change is a correction. */
   correcting: boolean;
@@ -32,7 +35,7 @@ export function ResultPanel({
 
   const { state } = matchState(draft);
   const wins = (side: 0 | 1) => draft.sides.find((s) => s.side === side)?.gameWins ?? 0;
-  const canSave = state === "decisive" || state === "draw";
+  const canSave = state === "decisive" || (state === "draw" && !playoff);
 
   function cycle(side: 0 | 1) {
     setDraft((m) => ({
@@ -64,6 +67,7 @@ export function ResultPanel({
     <Modal title={matchTitle(match, nameLookup(participants))} onClose={() => !busy && onClose()}>
       <p className="text-[12px] leading-[18px] text-t1-muted">Tap a player to change their game wins.</p>
       <MatchRow match={draft} participants={byId} canEdit onCycle={cycle} />
+      {playoff && state === "draw" && <Notice tone="error">Playoff matches need a winner.</Notice>}
       {error && <Notice tone="error">{error}</Notice>}
       {onOpenLife && (
         <GhostAction label="Watch life tracker" onClick={() => onOpenLife(match.id)} />

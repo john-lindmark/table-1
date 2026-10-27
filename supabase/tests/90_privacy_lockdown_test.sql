@@ -132,7 +132,8 @@ select pg_temp.throws('teams: stranger refused', $$select public.get_event_teams
 select pg_temp.eq('preview by code: link', public.event_preview('lnk1')->>'access', 'link');
 select pg_temp.eq('preview: header only',
   (select string_agg(k, ',' order by k) from jsonb_object_keys(public.event_preview('LNK1')) k),
-  'access,capacity,cube_name,event_id,format_label,name,organizer_name,players,set_name,short_code,starts_at,status,venue_name');
+  -- 2026-10-27 (scheduled events): sign-up counts and the caller's own place, still no player list or account ids.
+  'access,auto_rounds,capacity,cube_name,decklists,event_id,format_label,me,name,number_of_rounds,organizer_name,players,position,set_name,short_code,sign_up,starts_at,status,top_cut,venue_name,waitlist');
 select pg_temp.eq('preview: counts and organizer',
   (select format('%s/%s/%s', p->>'players', p->>'organizer_name', p->>'venue_name') from public.event_preview('LNK1') p),
   '3/Ola Org/Card Shop');

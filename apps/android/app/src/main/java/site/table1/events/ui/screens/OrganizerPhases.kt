@@ -39,6 +39,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import site.table1.events.data.EventBundle
 import site.table1.events.data.EventRow
+import site.table1.events.data.EventRules
 import site.table1.events.data.MatchRow
 import site.table1.events.data.ParticipantRow
 import site.table1.events.data.Repo
@@ -224,7 +225,10 @@ internal fun OrganizerScreen(
     var showQr by remember { mutableStateOf(false) }
     var confirmStart by remember { mutableStateOf(false) }
     var confirmFinish by remember { mutableStateOf(false) }
+    var confirmCut by remember { mutableStateOf(false) }
     var dropping by remember { mutableStateOf<ParticipantRow?>(null) }
+    var listFor by remember { mutableStateOf<ParticipantRow?>(null) }
+    val context = LocalContext.current
 
     val active = b.activeRound
     val secondsLeft = rememberSecondsLeft(active)
@@ -270,7 +274,7 @@ internal fun OrganizerScreen(
     val subtitle = when (phase) {
         OrganizerPhase.Setup -> "${event.shortCode} · Setup · ${plural(b.participants.size, "player")} · ${event.label}"
         OrganizerPhase.Live -> listOfNotNull(
-            "Round ${active?.number ?: event.currentRound} of ${event.numberOfRounds}",
+            (active ?: b.rounds.maxByOrNull { it.number })?.name(event.numberOfRounds) ?: "Round ${event.currentRound} of ${event.numberOfRounds}",
             when {
                 active == null || secondsLeft == null || !event.showClock -> null
                 paused -> "paused"
@@ -311,12 +315,12 @@ internal fun OrganizerScreen(
                     )
                     "standings" -> {
                         val open = active?.matches?.count { !it.isBye && (it.status == "pending" || it.isDisputedOpen) } ?: 0
-                        StandingsList(standings.standings, standings.teams, tags, highlight = null, userIds = b.userIds, header = {
+                        StandingsList(standings.standings, standings.teams, tags, highlight = null, userIds = b.userIds, bracket = standings.bracket, header = {
                             if (open > 0) item { Notice("Live: updates as results come in. ${plural(open, "match", "matches")} still open.") }
                         })
                     }
                     "players" -> LivePlayers(
-                        b, standings.standings, busy,
+                        b, standings.standings, busy, onList = { listFor = it },
                         onDrop = { dropping = it },
                         onReinstate = { p -> act { Repo.setParticipantStatus(p.id, "active", null) } },
                     )
@@ -334,6 +338,8 @@ internal fun OrganizerScreen(
             OrganizerPhase.Setup -> {
                 val problem = when {
                     activePlayers < 2 -> "Add at least 2 players"
+                    b.event.decklists == "required" && b.decklistsMissing > 0 ->
+                        "Waiting on ${plural(b.decklistsMissing, "decklist")}"
                     else -> teamProblem(b)
                 }
                 BigAction(problem ?: "Start event · pair round 1", enabled = problem == null, busy = busy, accent = true) {
@@ -345,7 +351,14 @@ internal fun OrganizerScreen(
                 val outstanding = active?.matches?.count { !it.isBye && (it.status == "pending" || (it.disputed && it.status != "confirmed")) } ?: 0 // disputes block pairing too
                 val disputed = active?.matches?.any { it.disputed && it.status != "confirmed" } == true
                 val clinch = standings.clinched?.takeIf { !disputed }
+                val step = if (event.isTeamEvent || event.pairing == "round_robin") "" else b.nextStep
                 when {
+                    // Swiss, then the top 8 (contract/scheduled-events-2026-10-27.md §6).
+                    step == "cut" -> BigAction("Cut to top 8", accent = true, busy = busy) { confirmCut = true }
+                    step == "semifinals" -> BigAction("Pair semifinals", accent = true, busy = busy) { pair() }
+                    step == "final" -> BigAction("Pair the final", accent = true, busy = busy) { pair() }
+                    step == "finish" && active?.isPlayoff != false && b.rounds.lastOrNull()?.isPlayoff == true ->
+                        BigAction("Finish event", accent = true, busy = busy) { confirmFinish = true }
                     // A team can't be caught: finish now (open matches don't count), or play on when the round is in.
                     clinch != null -> Column {
                         if (outstanding == 0 && nextNumber <= event.numberOfRounds) Row {
@@ -376,6 +389,7 @@ internal fun OrganizerScreen(
                     add(T1MenuItem("Add players", onClick = onAddPlayers))
                     add(T1MenuItem("Show join QR") { showQr = true })
                 }
+                add(T1MenuItem("Share link") { shareEventLink(context, event) })
                 add(T1MenuItem("Deck photos", onClick = onOpenPhotos))
                 if (phase != OrganizerPhase.Results) add(T1MenuItem("Cancel event", danger = true) { cancelling = "" })
             },
@@ -386,6 +400,23 @@ internal fun OrganizerScreen(
     if (showQr) {
         T1Panel(title = "Join QR", onDismiss = { showQr = false }) {
             ShareQr(event.id)
+        }
+    }
+
+    if (confirmCut) {
+        T1AlertDialog(
+            title = "Cut to top 8?",
+            onDismiss = { confirmCut = false },
+            body = { DialogText("Pairs the quarterfinals from the Swiss standings. Swiss is over: no more Swiss rounds.") },
+            confirm = { BarAction("Cut") { confirmCut = false; pair() } },
+            dismiss = { BarAction("Not yet") { confirmCut = false } },
+        )
+    }
+
+    listFor?.let { p ->
+        DecklistPanel(event, p.id, p.displayName, byOrganizer = true) { changed ->
+            listFor = null
+            if (changed) scope.launch { onChanged() }
         }
     }
 
@@ -513,6 +544,8 @@ private fun SetupPlayers(
     val me = participants.firstOrNull { it.userId != null && it.userId == myId }
     var guestName by remember { mutableStateOf("") }
     var removing by remember { mutableStateOf<ParticipantRow?>(null) }
+    var listFor by remember { mutableStateOf<ParticipantRow?>(null) }
+    val context = LocalContext.current
     val guest = tidyName(guestName)
     val dup = guest.isNotEmpty() && participants.any { it.displayName.equals(guest, ignoreCase = true) }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -520,14 +553,19 @@ private fun SetupPlayers(
             Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                 Ghost("Add players", accent = true, onClick = onAddPlayers)
                 Ghost("Show join QR", onClick = onShowQr)
+                Ghost("Share link") { shareEventLink(context, b.event) }
             }
         }
         item {
-            ListRow("Join code") {
+            ListRow("Join code", listOfNotNull(EventRules.whenText(b.event.startsAt), b.event.venueName).joinToString(" · ").ifEmpty { null }) {
                 Text(b.event.shortCode, color = T1.accent, fontFamily = T1.mono, fontSize = 18.sp, letterSpacing = 4.sp)
             }
         }
-        item { Section("Players · ${participants.size}") }
+        val active = participants.count { it.status == "active" }
+        item { Section(b.event.capacity?.let { "Players · $active/$it" } ?: "Players · ${participants.size}") }
+        if (b.event.takesDecklists) item {
+            Notice(EventRules.decklistsLine(active - b.decklistsMissing, active) + if (b.event.decklists == "required") " · required before round 1" else "")
+        }
         removeError?.let { item { Notice(it, error = true) } }
         if (myId != null && me == null) item {
             ListRow("You're not playing", "Organizing only", onClick = if (busy) null else ({ act { Repo.addSelf(b.event.id) } })) {
@@ -541,9 +579,14 @@ private fun SetupPlayers(
                 if (p.userId == null) "Guest" else "Joined",
                 p.seat?.let { "Seat $it" },
                 team,
+                b.decklistDetail(p),
             ).joinToString(" · ")
             ListRow(if (p.id == me?.id) "You · ${p.displayName}" else p.displayName, detail,
                 avatar = { Avatar(p.displayName, p.userId) }) {
+                if (b.event.takesDecklists) {
+                    Label(if (b.decklist(p.id) == null) "Enter list" else "List",
+                        Modifier.padding(end = 16.dp).clickable { listFor = p }, color = T1.accent)
+                }
                 if (b.event.beforeRoundOne) {
                     Label("Remove", Modifier.clickable(enabled = !busy) { removing = p }, color = T1.danger)
                 }
@@ -557,6 +600,13 @@ private fun SetupPlayers(
             }
         }
         if (dup) item { Notice("$guest is already in this event.", error = true) }
+        waitlistItems(b, busy, act)
+    }
+    listFor?.let { p ->
+        DecklistPanel(b.event, p.id, p.displayName, byOrganizer = true) { changed ->
+            listFor = null
+            if (changed) scope.launch { onChanged() }
+        }
     }
     removing?.let { p ->
         T1AlertDialog(
@@ -620,9 +670,13 @@ private data class DetailsDraft(
     val teamSize: Int,
     val rounds: Int,
     val showClock: Boolean,
-    /** Older events keep a typed name; new ones are named by the server. */
+    /** Named by the server while [name] is empty. */
     val autoName: Boolean,
+    val topCut: Int = 0,
+    val autoRounds: Boolean = false,
+    val decklists: String = "off",
 ) {
+    val swiss: Boolean get() = !team
     val limited: Boolean get() = limitedFormats.any { it.first == formatName }
     val team: Boolean get() = formatName == "team_draft" || formatName == "team_sealed"
     val other: Boolean get() = formatName == "other_constructed"
@@ -661,7 +715,10 @@ private data class DetailsDraft(
             rounds = e.numberOfRounds.coerceIn(1, 15),
             showClock = e.showClock,
             autoName = e.autoName,
-        )
+            topCut = e.topCut,
+            autoRounds = e.autoRounds,
+            decklists = e.decklists,
+        ).let { if (e.autoName) it.copy(name = "") else it }
     }
 }
 
@@ -684,6 +741,28 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
     var setsUnavailable by remember { mutableStateOf(false) }
     var pendingVisibility by remember { mutableStateOf<String?>(null) }
     val saveLock = remember { Mutex() }
+    var schedule by remember(event.id) { mutableStateOf(ScheduleDraft.from(event)) }
+    var scheduleEdits by remember { mutableIntStateOf(0) }
+
+    /** When / where / cap through set_event_schedule: the venue after a pause, the rest at once. */
+    fun saveSchedule() {
+        val s = schedule
+        scope.launch {
+            try {
+                Repo.setEventSchedule(event.id, s.iso, s.venue, s.capacity, s.localDate)
+                error = null
+                onChanged()
+            } catch (e: Exception) {
+                error = userMessage(e)
+            }
+        }
+    }
+    LaunchedEffect(scheduleEdits) {
+        if (scheduleEdits > 0) {
+            delay(600)
+            saveSchedule()
+        }
+    }
 
     // If the set list is empty (not synced yet), fall back to typing the set name (same as Create).
     LaunchedEffect(Unit) {
@@ -703,9 +782,14 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
                 if (!d.cubeUrlOk) return@withLock
                 val limited = d.limited
                 try {
+                    val typed = tidyName(d.name)
                     Repo.updateEventDetails(
                         eventId = event.id,
-                        name = if (d.autoName) null else d.name.trim(),
+                        name = typed.ifEmpty { null },
+                        autoName = typed.isEmpty(),
+                        topCut = if (d.swiss) d.topCut else 0,
+                        autoRounds = d.swiss && d.autoRounds,
+                        decklists = if (limited) "off" else d.decklists,
                         formatName = d.formatName,
                         rounds = d.rounds,
                         showClock = d.showClock,
@@ -774,12 +858,9 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
     val visibility = pendingVisibility ?: event.visibility
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-        if (d.autoName) {
-            ListRow(event.name, "Named from the format and date")
-        } else {
-            FormBlock("Event name") {
-                T1TextField(d.name, { editText(draft.copy(name = it.take(80))) })
-            }
+        FormBlock("Event name") {
+            T1TextField(d.name, { editText(draft.copy(name = it.take(80))) },
+                placeholder = if (event.autoName) event.name else "Named from the format and date")
         }
 
         FormBlock("Format") {
@@ -827,11 +908,18 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
             }
         }
 
-        FormBlock("Rounds") {
-            T1Stepper(null, d.rounds, 1..15, Modifier.fillMaxWidth()) { editNow(draft.copy(rounds = it)) }
+        ScheduleBlock(schedule) { next ->
+            val typing = next.startsAt == schedule.startsAt && next.capacity == schedule.capacity
+            schedule = next
+            scheduleEdits++
+            if (!typing) saveSchedule()
         }
 
+        CutRoundsBlock(d.autoRounds, { editNow(draft.copy(autoRounds = it)) }, d.rounds, { editNow(draft.copy(rounds = it)) },
+            d.topCut, { editNow(draft.copy(topCut = it)) }, b.participants.count { it.status == "active" }, d.swiss)
+
         RoundTimerRow(d.showClock) { editNow(draft.copy(showClock = it)) }
+        if (!d.limited) DecklistsBlock(d.decklists) { editNow(draft.copy(decklists = it)) }
 
         FormBlock("Who can find it") {
             T1Segmented(
@@ -888,8 +976,12 @@ private fun LiveRound(
             val next = (b.rounds.maxOfOrNull { it.number } ?: 0) + 1
             item {
                 Notice(
-                    if (next <= event.numberOfRounds) "No round running. Pair round $next when everyone is ready."
-                    else "Every round has been played.",
+                    when (if (event.isTeamEvent) "" else b.nextStep) {
+                        "cut" -> "Swiss is done. Cut to the top 8 to pair the quarterfinals."
+                        "semifinals", "final" -> "No round running. Pair the next playoff round when everyone is ready."
+                        "finish" -> "Every round has been played."
+                        else -> if (next <= event.numberOfRounds) "No round running. Pair round $next when everyone is ready." else "Every round has been played."
+                    },
                 )
             }
             return@LazyColumn
@@ -901,7 +993,7 @@ private fun LiveRound(
         val resultsIn = matches.filter { !it.isBye && !it.isDisputedOpen && it.status != "pending" } + matches.filter { it.isBye }
         val games = matches.count { !it.isBye }
         val inCount = resultsIn.count { !it.isBye }
-        val roundLine = "Round ${active.number} of ${event.numberOfRounds}"
+        val roundLine = active.name(event.numberOfRounds)
         val caption = if (paused) "Paused · $roundLine"
         else listOfNotNull(roundLine, "$inCount of $games results in", disputed.size.takeIf { it > 0 }?.let { "$it disputed" })
             .joinToString(" · ")
@@ -962,6 +1054,7 @@ private fun LivePlayers(
     b: EventBundle,
     standings: List<Standing>,
     busy: Boolean,
+    onList: (ParticipantRow) -> Unit,
     onDrop: (ParticipantRow) -> Unit,
     onReinstate: (ParticipantRow) -> Unit,
 ) {
@@ -972,8 +1065,10 @@ private fun LivePlayers(
         item(key = "h-playing") { Section("Playing · ${playing.size}") }
         items(playing, key = { it.id }) { p ->
             val s = byId[p.id]
-            ListRow(p.displayName, s?.let { "${record(it.matchWins, it.matchLosses, it.matchDraws)} · ${it.matchPoints} pts" },
+            ListRow(p.displayName, listOfNotNull(s?.let { "${record(it.matchWins, it.matchLosses, it.matchDraws)} · ${it.matchPoints} pts" },
+                    b.decklistDetail(p)).joinToString(" · ").ifEmpty { null },
                 avatar = { Avatar(p.displayName, p.userId) }) {
+                if (b.event.takesDecklists) T1TextAction("List", enabled = !busy, color = T1.accent) { onList(p) }
                 T1TextAction("Drop", enabled = !busy, color = T1.danger) { onDrop(p) }
             }
         }
@@ -1010,7 +1105,7 @@ private fun ResultsStandings(b: EventBundle, standings: StandingsResponse, tags:
     val event = b.event
     val teams: List<TeamStanding>? = standings.teams
     StandingsList(
-        standings.standings, teams, tags, highlight = null, userIds = b.userIds,
+        standings.standings, teams, tags, highlight = null, userIds = b.userIds, bracket = standings.bracket,
         header = {
             if (event.isCancelled) {
                 item(key = "cancelled") {
@@ -1054,7 +1149,7 @@ private fun ResultsRounds(b: EventBundle, onEdit: (MatchRow) -> Unit) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
         if (b.rounds.isEmpty()) item { Notice("No rounds were played.") }
         b.rounds.sortedByDescending { it.number }.forEach { r ->
-            item(key = "round-${r.id}") { Section("Round ${r.number}") }
+            item(key = "round-${r.id}") { Section(if (r.isPlayoff) r.name(b.event.numberOfRounds) else "Round ${r.number}") }
             items(r.matches.sortedWith(compareBy({ it.isBye }, { it.tableNumber ?: 0 })), key = { it.id }) { m ->
                 if (m.isBye) {
                     MatchResultRow(matchTitle(m, b), null, "Bye", accent = false, onClick = null)

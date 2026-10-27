@@ -8,7 +8,7 @@ enum WebLink: Equatable {
     case signIn // the sign-in email's button; SignIn.handleEmailLink reads the url itself
     case joinQr(JoinLink)
     case joinCode(String)
-    /// The event if you organize or play in it, else the public standings page on the web.
+    /// The event if you organize or play in it; before round 1 its sign-up page; else the public standings on the web.
     case standings(String)
     /// A share link's token: the shared part for someone signed in, else the web page (no account needed).
     case shared(String)

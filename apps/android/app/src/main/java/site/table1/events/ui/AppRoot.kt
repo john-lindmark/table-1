@@ -100,6 +100,7 @@ import site.table1.events.ui.screens.AddPlayersScreen
 import site.table1.events.ui.screens.CreateEventScreen
 import site.table1.events.ui.screens.DeckPhotosScreen
 import site.table1.events.ui.screens.EventScreen
+import site.table1.events.ui.screens.EventPageScreen
 import site.table1.events.ui.screens.EventsHomeScreen
 import site.table1.events.ui.screens.NearbyScreen
 import site.table1.events.auth.EmailSignIn
@@ -137,6 +138,15 @@ fun AppRoot(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pendingLink: Web
             // Standings tapped while the app was still starting: read them on the web rather than signing in first.
             val context = LocalContext.current
             LaunchedEffect(pendingLink) {
+                // A sign-up link before round 1 (contract/scheduled-events-2026-10-27.md §4): sign in first with the
+                // event over it; the link stays pending and the signed-in app signs up.
+                (pendingLink as? WebLink.Standings)?.let { link ->
+                    val page = runCatching { Repo.eventPage(link.eventId) }.getOrNull()
+                    if (page != null && page.available && page.signUp != "closed" && page.me == null) {
+                        PendingSignUp.page = page
+                        return@LaunchedEffect
+                    }
+                }
                 val url = when (val link = pendingLink) {
                     is WebLink.Standings -> WebLink.standingsUrl(link.eventId)
                     is WebLink.Shared -> WebLink.sharedUrl(link.token)
@@ -202,10 +212,19 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
             is WebLink.JoinCode -> runCatching { Repo.joinByCode(link.code) }
                 .onSuccess { show("events", listOf("event/${it.eventId}")) }
                 .onFailure { joinError = it.message; show("events", emptyList()) }
-            // The event screen has the standings for its organizer and players; anyone else gets the public page.
-            is WebLink.Standings ->
-                if (Repo.eventAccess(link.eventId) in setOf("organizer", "player")) show("events", listOf("event/${link.eventId}"))
-                else openInBrowser(context, Uri.parse(WebLink.standingsUrl(link.eventId)))
+            // Organizers and players get the event; before round 1 anyone else the sign-up page (signing up at once when
+            // they came through sign-in from it); after that the public standings page.
+            is WebLink.Standings -> {
+                val signUp = PendingSignUp.page?.eventId == link.eventId
+                PendingSignUp.page = null
+                val page = runCatching { Repo.eventPage(link.eventId) }.getOrNull()
+                when {
+                    page?.access in setOf("organizer", "player") -> show("events", listOf("event/${link.eventId}"))
+                    page != null && page.available && (page.signUp != "closed" || page.me == "waitlisted") ->
+                        show("events", listOf("eventpage/${link.eventId}?signup=$signUp"))
+                    else -> openInBrowser(context, Uri.parse(WebLink.standingsUrl(link.eventId)))
+                }
+            }
             is WebLink.Shared -> show("collection", listOf("collection/shared/${link.token}"))
             WebLink.SignIn, is WebLink.JoinQr, WebLink.Web -> {}
         }
@@ -262,6 +281,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                             onAutoOpened = { autoOpenArmed = false },
                             onOpenEvent = { nav.navigate("event/$it") },
                             onCreate = { nav.navigate("create") },
+                            onOpenPage = { nav.navigate("eventpage/$it?signup=false") },
                             onNearby = { nav.navigate("nearby") },
                             onJoinLink = { scanned = it },
                             onLife = { nav.navigate("tracker") },
@@ -487,6 +507,11 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                         onOpenPhotos = { nav.navigate("photos/$id") },
                     )
                 }
+                composable("eventpage/{id}?signup={signup}") { e ->
+                    val id = e.arguments?.getString("id") ?: ""
+                    EventPageScreen(id, signUpNow = e.arguments?.getString("signup") == "true", onBack = { nav.popBackStack() },
+                        onOpenEvent = { nav.navigate("event/$it") })
+                }
                 composable("photos/{id}") { e ->
                     DeckPhotosScreen(eventId = e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() })
                 }
@@ -523,4 +548,9 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
             )
         }
     }
+}
+
+/** A sign-up link opened signed out: its event, shown over sign-in; signing in signs you up. */
+object PendingSignUp {
+    var page by androidx.compose.runtime.mutableStateOf<site.table1.events.data.EventPage?>(null)
 }

@@ -40,6 +40,14 @@ struct EventRow: Decodable, Identifiable, Hashable {
     var seatEnds = false
     /// swiss | round_robin (round robin is roto only for now).
     var pairing = "swiss"
+    /// 0 or 8 (contract/scheduled-events-2026-10-27.md).
+    var topCut = 0
+    /// Rounds follow the players until round 1 is paired.
+    var autoRounds = false
+    /// Self sign-ups past it join the waitlist.
+    var capacity: Int?
+    /// off | optional | required (constructed events).
+    var decklists = "off"
 
     var isCancelled: Bool { status == "cancelled" }
     var isFinished: Bool { ["completed", "archived", "cancelled"].contains(status) }
@@ -49,12 +57,15 @@ struct EventRow: Decodable, Identifiable, Hashable {
     var isTeamEvent: Bool { teamSize != nil || ["team_draft", "team_sealed"].contains(formatName ?? "") }
     /// Seats and teams can change until round 1 is paired.
     var isBeforeRound1: Bool { ["setup", "seated"].contains(status) && currentRound == 0 }
+    var isConstructed: Bool { EventRules.constructedFormats.contains(formatName ?? "") }
+    var takesDecklists: Bool { decklists != "off" }
 
     enum CodingKeys: String, CodingKey {
         case id, shortCode, name, format, status, numberOfRounds, currentRound, roundLengthSeconds,
              allowPlayerReporting, venueName, createdAt, cancelReason, isDemo,
              formatName, formatLabel, eventType, teamSize, setCode, setName, cubeName, cubeUrl,
-             formatOther, visibility, startsAt, cancelledAt, updatedAt, showClock, autoName, seatEnds, pairing
+             formatOther, visibility, startsAt, cancelledAt, updatedAt, showClock, autoName, seatEnds, pairing,
+             topCut, autoRounds, capacity, decklists
     }
 
     init(from decoder: Decoder) throws {
@@ -89,6 +100,10 @@ struct EventRow: Decodable, Identifiable, Hashable {
         autoName = try c.decodeIfPresent(Bool.self, forKey: .autoName) ?? false
         seatEnds = try c.decodeIfPresent(Bool.self, forKey: .seatEnds) ?? false
         pairing = try c.decodeIfPresent(String.self, forKey: .pairing) ?? "swiss"
+        topCut = try c.decodeIfPresent(Int.self, forKey: .topCut) ?? 0
+        autoRounds = try c.decodeIfPresent(Bool.self, forKey: .autoRounds) ?? false
+        capacity = try c.decodeIfPresent(Int.self, forKey: .capacity)
+        decklists = try c.decodeIfPresent(String.self, forKey: .decklists) ?? "off"
     }
 }
 
@@ -151,6 +166,11 @@ struct RoundRow: Decodable, Identifiable, Hashable {
     var timerDurationSeconds: Int?
     var timerRemainingAtChange: Int?
     var timerLastStartedAt: String?
+    /// swiss | quarterfinal | semifinal | final (nil from older servers = swiss).
+    var stage: String?
+
+    var isPlayoff: Bool { (stage ?? "swiss") != "swiss" }
+    func name(of rounds: Int) -> String { EventRules.roundName(stage: stage, number: number, of: rounds) }
 
     var clockPaused: Bool { timerStatus == "paused" }
 
@@ -185,6 +205,9 @@ struct EventDetails: Decodable, Hashable {
     let teamSize: Int?
     let formatOther: String?
     var pairing: String?
+    var topCut: Int?
+    var autoRounds: Bool?
+    var autoName: Bool?
 }
 
 /// set_round_clock: the round's clock after the change.
@@ -210,6 +233,9 @@ struct Standing: Decodable, Identifiable, Hashable {
     let omw: Double
     let gw: Double
     let ogw: Double
+    /// Top 8: the Swiss place and the furthest stage reached (winner | final | semifinal | quarterfinal).
+    var swissRank: Int?
+    var playoff: String?
 }
 
 /// events-engine `standings`: individual rows, plus team rows (team events) and seating (draft events).
@@ -219,6 +245,9 @@ struct StandingsResponse: Decodable {
     var seating: [SeatingPod]?
     /// Team events: the team the other can no longer catch, so the organizer may finish early (events-engine).
     var clinched: TeamClinch?
+    var topCut: Int?
+    /// The playoff rounds paired so far (top 8).
+    var bracket: [BracketStage]?
 }
 
 /// Two teams head to head: one's match wins beat the other's plus every match still to play.
@@ -235,7 +264,7 @@ struct TeamClinch: Decodable, Hashable {
         return "\(team) has clinched it: \(matchWins)–\(opponentMatchWins) in match wins with \(remaining) \(remaining == 1 ? "match" : "matches") left to play."
     }
 }
-struct PairRoundResponse: Decodable { let roundNumber: Int?; let error: String? }
+struct PairRoundResponse: Decodable { let roundNumber: Int?; let error: String?; var stage: String? }
 
 extension StandingsResponse {
     func teamOf(_ participantId: String?) -> TeamStanding? {
@@ -336,6 +365,16 @@ struct DraftableSet: Decodable, Identifiable, Hashable {
 struct HomeData: Decodable {
     var events: [HomeEvent] = []
     var invites: [HomeInvite] = []
+    var waitlist: [HomeWaitlist] = []
+
+    enum CodingKeys: String, CodingKey { case events, invites, waitlist }
+    init() {}
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        events = try c.decodeIfPresent([HomeEvent].self, forKey: .events) ?? []
+        invites = try c.decodeIfPresent([HomeInvite].self, forKey: .invites) ?? []
+        waitlist = try c.decodeIfPresent([HomeWaitlist].self, forKey: .waitlist) ?? []
+    }
 }
 
 struct HomeEvent: Decodable, Identifiable, Hashable {
@@ -362,8 +401,14 @@ struct HomeEvent: Decodable, Identifiable, Hashable {
     let eventType: String?
     let teamSize: Int?
     var showClock: Bool?
+    var capacity: Int?
+    var topCut: Int?
+    var decklists: String?
+    var myDecklist: Bool?
 
     var isCancelled: Bool { status == "cancelled" }
+    /// A player who still owes a list for a constructed event before round 1.
+    var owesDecklist: Bool { playing && (decklists ?? "off") != "off" && myDecklist != true && bucket == "upcoming" }
     var clockShown: Bool { showClock ?? true }
     var label: String { formatLabel ?? format.capitalized }
     /// A seat in a round that is running right now.
@@ -379,6 +424,7 @@ struct HomeRound: Decodable, Hashable {
     let resultsIn: Int
     let matches: Int
     let disputed: Int
+    var stage: String?
 
     var endDate: Date? { endsAt.flatMap(T1Date.parse) }
 }
@@ -510,7 +556,7 @@ enum EventNaming {
 /// What the create form sends to create_event_v2 (and Setup → Details to update_event_details).
 /// Rounds always run 50 minutes; `showClock` only decides whether clocks are shown.
 struct NewEventDraft: Equatable {
-    /// Only for older events with typed names; new events are named by the server.
+    /// Typed name (nil or empty = named by the server from the format and date).
     var name: String?
     var formatName: String
     var rounds: Int
@@ -523,6 +569,19 @@ struct NewEventDraft: Equatable {
     var formatOther: String?
     /// Roto only: swiss | round_robin (nil lets the server keep or default it).
     var pairing: String? = nil
+    var topCut = 0
+    var autoRounds = false
+    /// off | optional | required (constructed only).
+    var decklists = "off"
+    /// Details: true = automatic name, false = `name` (sent as p_auto_name).
+    var autoName = true
+}
+
+/// When, where and how many (create_event_v2's schedule fields, set_event_schedule).
+struct EventSchedule: Equatable {
+    var startsAt: Date?
+    var venue: String = ""
+    var capacity: Int?
 }
 
 /// Everything one event screen needs.
@@ -531,10 +590,22 @@ struct EventBundle {
     let participants: [ParticipantRow]
     let rounds: [RoundRow]
     let isOrganizer: Bool
+    var waitlist: [WaitlistEntry] = []
+    var decklists: [DecklistInfo] = []
 
     var activeRound: RoundRow? { rounds.last { $0.status == "active" } }
     func name(_ participantId: String?) -> String {
         participants.first { $0.id == participantId }?.displayName ?? "—"
+    }
+    func decklist(_ participantId: String) -> DecklistInfo? { decklists.first { $0.participantId == participantId } }
+
+    /// What the organizer does next (contract §6).
+    var nextStep: EventRules.NextStep {
+        let open = activeRound
+        let waiting = open?.matches.contains { !$0.isBye && ($0.status == "pending" || ($0.disputed && $0.status != "confirmed")) } ?? false
+        return EventRules.nextStep(stages: rounds.map { $0.stage ?? "swiss" }, waiting: waiting,
+                                   numberOfRounds: event.numberOfRounds, topCut: event.topCut,
+                                   activePlayers: participants.filter { $0.status == "active" }.count)
     }
 }
 

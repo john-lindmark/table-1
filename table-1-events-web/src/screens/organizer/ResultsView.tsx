@@ -1,5 +1,7 @@
 import { gameRecord, lastRoundNumber, matchTitle, nameLookup, scoreText } from "../../lib/organizer";
-import { computeStandings, recordLabel } from "../../lib/standings";
+import { recordLabel } from "../../lib/standings";
+import { playoffStandings } from "../../lib/playoffs";
+import { roundName } from "../../lib/scheduledEvents";
 import { computeTeamStandings, membersOf } from "../../lib/teams";
 import { toTeams } from "../../lib/useEventExtras";
 import type { Match } from "../../lib/types";
@@ -15,7 +17,7 @@ export function ResultsView(props: PhaseViewProps) {
   const { event, rounds, participants } = bundle;
   const cancelled = event.status === "cancelled";
   const nameOf = nameLookup(participants);
-  const standings = computeStandings(participants, rounds);
+  const standings = playoffStandings(participants, rounds);
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
@@ -44,7 +46,7 @@ export function ResultsView(props: PhaseViewProps) {
             .sort((a, b) => b.number - a.number)
             .map((r) => (
               <div key={r.id} className="flex flex-col gap-px">
-                <Section title={`Round ${r.number}`} />
+                <Section title={r.stage && r.stage !== "swiss" ? roundName(r.stage, r.number, event.numberOfRounds) : `Round ${r.number}`} />
                 {[...r.matches]
                   .sort((a, b) => Number(a.isBye) - Number(b.isBye) || (a.tableNumber ?? 0) - (b.tableNumber ?? 0))
                   .map((m) => (
@@ -108,7 +110,7 @@ function Winner({ bundle, isTeam, teams }: PhaseViewProps) {
       />
     );
   }
-  const top = computeStandings(participants, rounds)[0];
+  const top = playoffStandings(participants, rounds)[0];
   if (!top) return null;
   const games = gameRecord(top.participantId, rounds);
   return (

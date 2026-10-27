@@ -26,6 +26,7 @@ struct SignInView: View {
         VStack(spacing: 1) {
             SignInMark()
             if let join = session.pendingJoin { JoinHeader(link: join) }
+            else if let page = session.pendingSignUp { SignUpHeader(page: page) }
             if let message = error ?? session.emailLinkError { Notice(message, error: true) }
             switch step {
             case .providers: providers
@@ -252,6 +253,7 @@ struct NameView: View {
         VStack(spacing: 1) {
             SignInMark()
             if let join = session.pendingJoin { JoinHeader(link: join, naming: true) }
+            else if let page = session.pendingSignUp { SignUpHeader(page: page, naming: true) }
             if let error { Notice(error, error: true) }
             Notice("Add your name. Opponents and organizers see it on pairings and standings.")
             SignInField(label: "First name", text: $first, prompt: "First name")

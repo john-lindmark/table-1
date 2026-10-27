@@ -47,8 +47,11 @@ function copy(m: Message, eventName: string, mine?: { table: number | null; oppo
       return { title: "You're invited", body: `${name}${d.venue_name ? ` · ${d.venue_name}` : ""}` };
     case "event.cancelled":
       return { title: `${name} is cancelled`, body: d.reason ? String(d.reason) : "The organizer called it off." };
+    case "event.waitlist_in":
+      return { title: "You're in", body: `A place opened in ${name}${d.venue_name ? ` · ${d.venue_name}` : ""}.` };
     case "round.paired": {
-      const round = d.round ? `Round ${d.round}` : "Next round";
+      const stage = ({ quarterfinal: "Quarterfinals", semifinal: "Semifinals", final: "The final" } as Record<string, string>)[String(d.stage)];
+      const round = stage ?? (d.round ? `Round ${d.round}` : "Next round");
       if (mine && mine.opponent) {
         return { title: `${round} is up`, body: `Table ${mine.table ?? "–"} vs ${mine.opponent}` };
       }

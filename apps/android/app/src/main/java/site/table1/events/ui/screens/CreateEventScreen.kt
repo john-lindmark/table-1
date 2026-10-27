@@ -79,8 +79,12 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
     var includeMe by remember { mutableStateOf(true) }
     var myName by remember { mutableStateOf<String?>(null) }
     var guests by remember { mutableStateOf<List<String>>(emptyList()) }
-    var venue by remember { mutableStateOf("") }
     var nearby by remember { mutableStateOf(true) }
+    var name by remember { mutableStateOf("") }
+    var schedule by remember { mutableStateOf(ScheduleDraft()) }
+    var autoRounds by remember { mutableStateOf(true) }
+    var topCut by remember { mutableIntStateOf(0) }
+    var decklists by remember { mutableStateOf("off") }
     var formatMenu by remember { mutableStateOf(false) }
     var pickingSet by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -101,7 +105,12 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
     val preview = EventNaming.preview(
         if (isOther) formatOther.trim().ifEmpty { "Constructed" } else formatLabel,
         if (!limited) null else if (useCube) cubeName else setLabel,
+        schedule.startsAt?.toLocalDate() ?: java.time.LocalDate.now(),
     )
+    val typedName = tidyName(name)
+    // Swiss events of players: automatic rounds and the top cut apply.
+    val swiss = !isTeam
+    val playerCount = guests.size + if (includeMe) 1 else 0
 
     val cubeUrlOk = cubeUrl.isBlank() || cubeUrl.trim().startsWith("https://")
     val valid = (!isOther || formatOther.isNotBlank()) &&
@@ -124,11 +133,20 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
                     formatOther = if (isOther) formatOther.trim() else null,
                     includeMe = includeMe,
                     guests = guests,
+                    name = typedName.ifEmpty { null },
+                    startsAt = schedule.iso,
+                    venueName = schedule.venue,
+                    capacity = schedule.capacity,
+                    topCut = if (swiss) topCut else 0,
+                    autoRounds = swiss && autoRounds,
+                    decklists = if (limited) "off" else decklists,
+                    localDate = schedule.localDate,
                 )
                 // Pin it where the organizer stands. For nearby events this also alerts opted-in players around.
-                val fix = currentFix(context)
+                // A scheduled event is usually made away from the venue: no pin then (Details can set it there).
+                val fix = if (schedule.startsAt == null) currentFix(context) else null
                 if (fix != null) {
-                    runCatching { Repo.setEventLocation(created.eventId, fix.lat, fix.lng, venue.trim().ifEmpty { null }, nearby) }
+                    runCatching { Repo.setEventLocation(created.eventId, fix.lat, fix.lng, schedule.venue.trim().ifEmpty { null }, nearby) }
                 }
                 onCreated(created.eventId)
             } catch (e: Exception) {
@@ -149,11 +167,14 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
     }
 
     T1Screen {
-        Bar("New event", preview) { BarAction("Cancel", onCancel) }
+        Bar("New event", typedName.ifEmpty { preview }) { BarAction("Cancel", onCancel) }
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(1.dp),
         ) {
+            FormBlock("Name") {
+                T1TextField(name, { name = it.take(80) }, placeholder = preview)
+            }
             FormBlock("Type") {
                 T1Segmented(listOf("Constructed", "Limited"), if (limited) 1 else 0) { i ->
                     val toLimited = i == 1
@@ -201,16 +222,14 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
                 }
             }
 
-            FormBlock("Rounds") {
-                T1Stepper(null, rounds, 1..15, Modifier.fillMaxWidth()) { rounds = it }
-            }
+            ScheduleBlock(schedule) { schedule = it }
+            CutRoundsBlock(autoRounds, { autoRounds = it }, rounds, { rounds = it }, topCut, { topCut = it }, playerCount, swiss)
             RoundTimerRow(showClock) { showClock = it }
+            if (!limited) DecklistsBlock(decklists) { decklists = it }
 
             PlayersBlock(includeMe, { includeMe = it }, myName, guests) { guests = it }
 
-            FormBlock("Location") {
-                T1TextField(venue, { venue = it.take(80) }, label = "Venue (optional)")
-                Label("Who can find it")
+            FormBlock("Who can find it") {
                 T1Segmented(listOf("Nearby + QR", "QR only"), if (nearby) 0 else 1) { nearby = it == 0 }
             }
             Notice(

@@ -1,31 +1,43 @@
-import { useCallback, useEffect, useState } from "react";
-import { Bar, ClockFace, Notice, Screen } from "../components/kit";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { Bar, BigAction, ClockFace, Dialog, GhostAction, Notice, Screen, TabBar } from "../components/kit";
+import { SignInButtons } from "../components/SignInButtons";
 import {
   errorMessage,
   fetchPublicEvent,
-  fetchPublicStandings,
+  fetchPublicStandingsAndBracket,
+  leaveEvent,
+  signUpForEvent,
   subscribeToEvent,
+  type PublicBracketStage,
   type PublicEvent,
   type PublicPairing,
   type PublicStandingRow,
 } from "../lib/api";
 import { formatPct } from "../lib/standings";
+import { pageButton, roundName, roundsLine, signUpLine, when } from "../lib/scheduledEvents";
+import { capture } from "../lib/telemetry";
+import { useSession } from "../lib/useSession";
 
 /**
- * Read-only, no sign-in. This is the link people share (contract/privacy-lockdown-2026-10-18.md): event_public
+ * One link for the event's whole life (contract/scheduled-events-2026-10-27.md §4): before round 1 the sign-up page,
+ * then the standings. Read-only, no sign-in. This is the link people share (contract/privacy-lockdown-2026-10-18.md): event_public
  * gives the event, the clock and current pairings by name, and events-engine the ranked standings. No player list
  * or account ids reach this page; a private event reads "That event isn't available".
  */
 export function PublicStandings({ eventId }: { eventId: string }) {
   const [event, setEvent] = useState<PublicEvent | null>(null);
   const [rows, setRows] = useState<PublicStandingRow[] | null>(null);
+  const [bracket, setBracket] = useState<PublicBracketStage[]>([]);
+  const [tab, setTab] = useState<"standings" | "matchups">("standings");
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [e, s] = await Promise.all([fetchPublicEvent(eventId), fetchPublicStandings(eventId)]);
+      const [e, s] = await Promise.all([fetchPublicEvent(eventId), fetchPublicStandingsAndBracket(eventId)]);
       setEvent(e);
-      setRows(s);
+      setRows(s.rows);
+      setBracket(s.bracket);
       setError(null);
     } catch (e) {
       setError(errorMessage(e));
@@ -58,6 +70,11 @@ export function PublicStandings({ eventId }: { eventId: string }) {
     );
   }
 
+  // Before round 1 (and for someone still on the waitlist then): the sign-up page.
+  if (event.signUp !== "closed" || (event.me === "waitlisted" && event.currentRound === 0)) {
+    return <SignUpPage event={event} reload={load} />;
+  }
+
   const round = event.round;
   return (
     <Screen>
@@ -66,23 +83,39 @@ export function PublicStandings({ eventId }: { eventId: string }) {
         subtitle={
           event.status === "completed"
             ? "Final standings"
-            : `Round ${round?.number ?? event.currentRound} of ${event.numberOfRounds}`
+            : round ? roundName(round.stage, round.number, event.numberOfRounds) : `Round ${event.currentRound} of ${event.numberOfRounds}`
         }
       />
+      {event.me === "waitlisted" && <Notice tone="info">Sign-ups are closed: you didn't get in this time.</Notice>}
       {round && event.showClock && (
         <div className="bg-t1-bg py-4">
           <ClockFace round={round} size="small" />
         </div>
       )}
-      <PublicStandingsTable rows={rows} />
-      {event.pairings.length > 0 && (
-        <>
-          <div className="bg-t1-surface px-4 py-2 t1-label">Current pairings</div>
-          {event.pairings.map((m) => (
-            <PairingRow key={m.matchId} match={m} />
-          ))}
-        </>
-      )}
+      <TabBar tabs={["standings", "matchups"]} value={tab} onChange={setTab} labels={{ standings: "Standings", matchups: "Matchups" }} />
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
+        {tab === "standings" ? (
+          <>
+            {bracket.length > 0 && <PublicBracket stages={bracket} />}
+            <PublicStandingsTable rows={rows} />
+          </>
+        ) : (
+          // Every round, newest first; the round being played leads.
+          (event.rounds.length ? event.rounds : round ? [{ number: round.number, stage: round.stage ?? "swiss", status: "active", matches: event.pairings }] : [])
+            .map((r) => (
+              <div key={r.number} className="flex flex-col gap-px">
+                <div className="bg-t1-surface px-4 py-2 t1-label">
+                  {r.stage !== "swiss" ? roundName(r.stage, r.number, event.numberOfRounds) : `Round ${r.number}`}
+                  {r.status === "active" ? " · now" : ""}
+                </div>
+                {r.matches.map((m) => <PairingRow key={m.matchId} match={m} />)}
+              </div>
+            ))
+        )}
+        {tab === "matchups" && event.rounds.length === 0 && !round && (
+          <div className="bg-t1-surface px-4 py-6 t1-label">No rounds yet</div>
+        )}
+      </div>
     </Screen>
   );
 }
@@ -136,6 +169,165 @@ function PairingRow({ match }: { match: PublicPairing }) {
           <span className="flex-1 min-w-0 truncate text-right">{b?.displayName ?? "—"}</span>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * The sign-up page: when, where, the format, how many are in, and Sign up / Join the waitlist. Signed out, Sign up
+ * signs in first (any option makes an account) and comes back here with ?signup=1, which signs up once.
+ */
+function SignUpPage({ event, reload }: { event: PublicEvent; reload: () => Promise<void> }) {
+  const { session, ready } = useSession();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [signingIn, setSigningIn] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const auto = useRef(new URLSearchParams(window.location.search).has("signup"));
+  const state = pageButton(!!session, event.signUp, event.me);
+
+  useEffect(() => {
+    if (ready) capture("event_page_viewed", { state: session ? state : "signed_out" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+
+  const signUp = useCallback(async (signedInNow: boolean) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await signUpForEvent(event.eventId, signedInNow);
+      setMessage(r.status === "waitlisted" || r.status === "already_waitlisted"
+        ? `It's full, so you're on the waitlist (number ${r.position ?? 1}).` : "You're signed up.");
+      await reload();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [event.eventId, reload]);
+
+  // Back from sign-in with ?signup=1: sign up once, then drop the flag from the address.
+  useEffect(() => {
+    if (!ready || !session || !auto.current) return;
+    auto.current = false;
+    window.history.replaceState(null, "", window.location.pathname);
+    if (state === "sign_up" || state === "waitlist") void signUp(true);
+  }, [ready, session, state, signUp]);
+
+  async function leave() {
+    setBusy(true);
+    try {
+      await leaveEvent(event.eventId, state === "waitlisted");
+      setMessage(state === "waitlisted" ? "You left the waitlist." : "You left the event.");
+      setConfirmLeave(false);
+      await reload();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const facts = [when(event.startsAt), event.venueName, event.formatLabel, event.organizerName && `Run by ${event.organizerName}`]
+    .filter(Boolean).join(" · ");
+  return (
+    <Screen>
+      <Bar title={event.name} subtitle={event.shortCode ? `Event ${event.shortCode}` : undefined} />
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
+        <div className="bg-t1-surface px-5 py-5 flex flex-col gap-2">
+          <p className="text-[22px] leading-7">{event.name}</p>
+          {facts && <p className="text-[12px] text-t1-muted">{facts}</p>}
+          <p className="t1-label">{roundsLine(event.autoRounds, event.numberOfRounds, event.topCut, event.signUp !== "closed")}</p>
+          {event.decklists !== "off" && <p className="t1-label">{event.decklists === "required" ? "Decklist required" : "Decklists welcome"}</p>}
+        </div>
+        <div className="bg-t1-surface px-4 py-3 text-[13px]">{signUpLine(event.players, event.capacity, event.waitlist)}</div>
+        {message && <Notice tone="info">{message}</Notice>}
+        {error && <Notice tone="error">{error}</Notice>}
+        {state === "in" && <Notice tone="info">You're in. Your event is on the Events page.</Notice>}
+        {state === "waitlisted" && <Notice tone="info">You're number {event.position ?? 1} on the waitlist. We'll tell you if a place opens.</Notice>}
+        {state === "organizer" && <Notice tone="info">You're running this event.</Notice>}
+        {state === "closed" && <Notice tone="info">Sign-ups are closed.</Notice>}
+        {state === "sign_in" && signingIn && (
+          <>
+            <div className="bg-t1-surface px-4 py-4 flex flex-col gap-1.5">
+              <span className="t1-label">Signing up for</span>
+              <p className="text-[15px] font-bold">{event.name}</p>
+              <p className="text-[12px] text-t1-muted leading-relaxed">
+                New to Table 1? Any option below makes your account, then you're signed up.
+              </p>
+            </div>
+            <SignInButtons returnTo={`/s/${event.eventId}?signup=1`} />
+          </>
+        )}
+      </div>
+      {(state === "in" || state === "organizer") && (
+        <div className="flex gap-px">
+          {state === "in" && <GhostAction label="Leave" onClick={() => setConfirmLeave(true)} />}
+          <Link to={state === "organizer" ? `/e/${event.eventId}` : `/p/${event.eventId}`}
+                className="flex-1 bg-t1-accent text-t1-ink px-4 py-3 text-[11px] uppercase tracking-[1px] text-center">
+            Open event
+          </Link>
+        </div>
+      )}
+      {state === "waitlisted" && <BigAction label="Leave the waitlist" busy={busy} onClick={() => setConfirmLeave(true)} />}
+      {(state === "sign_up" || state === "waitlist" || (state === "sign_in" && !signingIn)) && (
+        <BigAction
+          label={state === "waitlist" || (state === "sign_in" && event.signUp === "full") ? "Join the waitlist" : "Sign up"}
+          tone="accent"
+          busy={busy}
+          onClick={() => {
+            if (state !== "sign_in") return void signUp(false);
+            // An email code signs in on this page: sign up as soon as the session arrives, as after a redirect.
+            auto.current = true;
+            setSigningIn(true);
+          }}
+        />
+      )}
+      {confirmLeave && (
+        <Dialog
+          title={`Leave ${event.name}?`}
+          message={state === "waitlisted" ? "You'll lose your place on the waitlist."
+            : event.waitlist > 0 ? "Your place goes to the next person on the waitlist." : "You can sign up again while there's room."}
+          cancelLabel="Stay"
+          confirmLabel="Leave"
+          tone="danger"
+          busy={busy}
+          onCancel={() => setConfirmLeave(false)}
+          onConfirm={() => void leave()}
+        />
+      )}
+    </Screen>
+  );
+}
+
+/** The top 8 on the public page: "(1) Ana 2–0 (8) Bo" per match, the winner in the accent. */
+function PublicBracket({ stages }: { stages: PublicBracketStage[] }) {
+  return (
+    <div className="flex flex-col gap-px">
+      <div className="bg-t1-surface px-4 py-2 t1-label">Top 8</div>
+      {stages.map((st) => (
+        <div key={st.stage} className="flex flex-col gap-px">
+          <p className="t1-label px-4 py-2">{roundName(st.stage, 0, 0)}</p>
+          {st.matches.map((m) => (
+            <div key={m.match_id} className="bg-t1-surface px-4 py-3 flex items-center gap-2 text-[12px]">
+              {[0, 1].map((n) => {
+                const sd = m.sides[n];
+                const won = !!sd?.participant_id && sd.participant_id === m.winner;
+                return (
+                  <span key={n} className={`flex-1 min-w-0 truncate ${n === 1 ? "text-right order-3" : ""} ${won ? "text-t1-accent font-bold" : ""}`}>
+                    ({sd?.seed ?? "–"}) {sd?.display_name ?? "—"}
+                  </span>
+                );
+              })}
+              <span className="order-2 text-t1-muted tabular-nums">
+                {m.status === "pending" ? "vs" : `${m.sides[0]?.game_wins ?? 0}–${m.sides[1]?.game_wins ?? 0}`}
+              </span>
+            </div>
+          ))}
+        </div>
+      ))}
+      <div className="bg-t1-surface px-4 py-2 t1-label">Standings</div>
     </div>
   );
 }

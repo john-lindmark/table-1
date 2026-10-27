@@ -94,8 +94,11 @@ struct EditResultSheet: View {
     @State private var s1 = 0
     @State private var draws = 0
 
+    /// Quarterfinals, semifinals and the final can't end in a draw.
+    private var playoff: Bool { b.rounds.first { $0.id == m.roundId }?.isPlayoff ?? false }
+
     var body: some View {
-        let valid = s0 + s1 + draws <= 3
+        let valid = s0 + s1 + draws <= 3 && !(playoff && s0 == s1)
         VStack(spacing: 1) {
             Bar(title: "Table \(m.tableNumber.map(String.init) ?? "")", subtitle: "Set the result") {
                 BarButton("Cancel") { T1Overlays.shared.dismissPanel() }
@@ -103,7 +106,8 @@ struct EditResultSheet: View {
             T1Stepper(label: b.name(m.side(0)?.participantId), value: $s0, range: 0...2)
             T1Stepper(label: b.name(m.side(1)?.participantId), value: $s1, range: 0...2)
             T1Stepper(label: "Drawn games", value: $draws, range: 0...3)
-            if !valid { Notice("At most 3 games in a match.", error: true) }
+            if s0 + s1 + draws > 3 { Notice("At most 3 games in a match.", error: true) }
+            if playoff && s0 == s1 { Notice("Playoff matches need a winner.", error: true) }
             if let onWatch, !m.isBye { Ghost(text: "Life tracker") { onWatch() } }
             BigAction(text: "Save result", enabled: valid, accent: true) { onSave(s0, s1, draws) }
         }
@@ -161,6 +165,7 @@ private struct PlayerView: View {
     @State private var optimistic: (Int, Int)?
     @State private var notice: String?
     @State private var error: String?
+    @State private var confirmLeave = false
 
     var body: some View {
         let me = b.participants.first { $0.userId != nil && $0.userId == Repo.userId }
@@ -204,9 +209,27 @@ private struct PlayerView: View {
                 } else if !b.event.isFinished {
                     Notice(active == nil ? "Waiting for the next round to be paired." : "You're not paired this round.")
                 }
+                if let me, b.event.takesDecklists {
+                    let list = b.decklist(me.id)
+                    Button {
+                        presentDecklist(event: b.event, participantId: me.id, playerName: me.displayName, byOrganizer: false, refresh: refresh)
+                    } label: {
+                        ListRow(title: "Decklist", detail: list.map { EventRules.countsText(main: $0.mainCount, side: $0.sideCount) + ($0.listName.map { " · from \($0)" } ?? "") }
+                                    ?? (b.event.decklists == "required" ? "Required · add it before round 1" : "Add your decklist")) {
+                            LabelText(list == nil ? "Add" : "Change", color: T1.accent)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
                 if me != nil && !b.event.isFinished {
                     trackerToggle
                     Ghost(text: "Deck photo") { open(.deckPhotos(b.event.id)) }
+                }
+                if me != nil && b.event.isBeforeRound1 {
+                    if let when = EventRules.when(b.event.startsAt) {
+                        ListRow(title: "Starts", detail: [when, b.event.venueName].compactMap { $0 }.joined(separator: " · "))
+                    }
+                    Ghost(text: "Leave event") { confirmLeave = true }
                 }
                 if me != nil && b.event.isRoto && !b.rounds.isEmpty {
                     HStack(spacing: 1) {
@@ -225,11 +248,30 @@ private struct PlayerView: View {
                     SeatingTable(pods: seating, teamDraft: b.event.formatName == "team_draft", highlight: me?.id,
                                  seatEnds: b.event.seatEnds)
                 }
-                Section1("Standings")
+                if (engine.bracket ?? []).isEmpty { Section1("Standings") }
+                BracketRows(bracket: engine.bracket ?? [])
                 StandingsRows(engine: engine, highlight: me?.id, players: b.participants)
             }
         }
         .onChange(of: match?.version) { optimistic = nil }
+        .alert("Leave \(b.event.name)?", isPresented: $confirmLeave) {
+            Button("Stay", role: .cancel) {}
+            Button("Leave", role: .destructive) { leave() }
+        } message: {
+            Text("Your seat goes to the next person on the waitlist, if there is one.")
+        }
+    }
+
+    private func leave() {
+        let id = b.event.id
+        Task { @MainActor in
+            do {
+                try await Repo.leaveEvent(id, waitlist: false)
+                dismiss()
+            } catch {
+                self.error = error.localizedDescription
+            }
+        }
     }
 
     @MainActor
@@ -245,7 +287,8 @@ private struct PlayerView: View {
 
     /// "Team Lotus · seat B · Round 2 of 3" for team events; otherwise name · format · round.
     private func subtitle(me: ParticipantRow?, active: RoundRow?) -> String {
-        let round = "Round \(active?.number ?? b.event.currentRound) of \(b.event.numberOfRounds)"
+        let round = (active ?? b.rounds.max(by: { $0.number < $1.number }))?.name(of: b.event.numberOfRounds)
+            ?? (b.event.isBeforeRound1 ? EventRules.when(b.event.startsAt) ?? "Before round 1" : "Round \(b.event.currentRound) of \(b.event.numberOfRounds)")
         guard let me else { return "Spectating · \(b.event.label) · \(round)" }
         if b.event.isTeamEvent, let team = engine.teamOf(me.id) {
             let slot: Int? = me.teamSlot ?? team.members.first(where: { $0.participantId == me.id })?.slot
@@ -287,7 +330,7 @@ private struct PlayerView: View {
         } else if match.status == "confirmed" {
             Notice("Result confirmed: \(mine?.gameWins ?? 0)–\(theirs?.gameWins ?? 0). The organizer can still correct it.")
         } else if b.event.allowPlayerReporting {
-            ForEach(outcomes) { o in
+            ForEach(outcomes.filter { o in !(o.my == o.their && (b.rounds.first { $0.id == match.roundId }?.isPlayoff ?? false)) }) { o in
                 let selected = optimistic.map { $0.0 == o.my && $0.1 == o.their }
                     ?? (match.status == "reported" && mine?.gameWins == o.my && theirs?.gameWins == o.their)
                 Button { report(match, mine: mine, my: o.my, their: o.their) } label: {

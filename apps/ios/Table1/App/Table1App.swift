@@ -130,6 +130,8 @@ final class SessionModel {
     /// A new email account: the name step comes before the app (SignIn.needsName).
     var needsName = false
     var pendingJoin: JoinLink?
+    /// A sign-up link opened signed out: its event, shown over sign-in; signing in signs you up.
+    var pendingSignUp: EventPage?
     /// A tapped table-1.site link waiting for the signed-in app (WebLink).
     var pendingLink: WebLink?
     /// A table-1.site page with no screen in the app, shown in the browser over everything.
@@ -195,8 +197,17 @@ final class SessionModel {
             }
         case .joinQr(let join): pendingJoin = join
         case .web: webPage = WebPage(url: url)
-        // Standings need no account: someone signed out reads them on the web instead of a sign-in screen.
-        case .standings where state == .signedOut: webPage = WebPage(url: url)
+        // Signed out: a sign-up link (before round 1) signs in first with the event over it; standings need no
+        // account, so they open on the web.
+        case .standings(let id) where state != .signedIn:
+            Task {
+                if let page = try? await Repo.eventPage(id), page.available, page.signUp != "closed", page.me == nil {
+                    pendingSignUp = page
+                    pendingLink = link
+                } else {
+                    webPage = WebPage(url: url)
+                }
+            }
         // So do share links (contract/share-links-2026-10-23.md).
         case .shared where state == .signedOut: webPage = WebPage(url: url)
         default: pendingLink = link
@@ -207,7 +218,7 @@ final class SessionModel {
         for await (event, session) in supabase.auth.authStateChanges {
             state = session == nil ? .signedOut : .signedIn
             if state == .signedIn { EmailSignIn.clear() }
-            if state == .signedOut, case .standings(let id)? = pendingLink {
+            if state == .signedOut, pendingSignUp == nil, case .standings(let id)? = pendingLink {
                 pendingLink = nil
                 webPage = WebPage(url: WebLink.standingsURL(id))
             }
@@ -281,6 +292,8 @@ struct RootView: View {
 
 enum Route: Hashable {
     case event(String)
+    /// The sign-up page behind /s/<id> (contract/scheduled-events-2026-10-27.md §4); `signUp` after signing in from it.
+    case eventPage(String, signUp: Bool)
     case create
     case nearby
     case scan
@@ -321,6 +334,7 @@ struct SignedInView: View {
                         .navigationDestination(for: Route.self) { route in
                             switch route {
                             case .event(let id): EventView(eventId: id, path: $path).screen("event")
+                            case .eventPage(let id, let signUp): EventPageView(eventId: id, signUpNow: signUp, path: $path).screen("event_page")
                             case .create: CreateEventView(path: $path).screen("create_event")
                             case .nearby: NearbyView(path: $path).screen("nearby")
                             case .scan: ScanView { link in join(link, via: "qr") }.screen("scan_qr")
@@ -524,11 +538,19 @@ struct SignedInView: View {
     }
 
     /// The event screen has the standings for its organizer and players; anyone else gets the public page.
+    /// Before round 1 anyone else gets the sign-up page (signing up at once when they came through sign-in from it).
     private func openStandings(_ id: String) {
+        let signUp = session.pendingSignUp?.eventId == id
+        session.pendingSignUp = nil
         Task {
-            if let access = await Repo.eventAccess(id), access == "organizer" || access == "player" {
+            let page = try? await Repo.eventPage(id)
+            let access = page?.access
+            if access == "organizer" || access == "player" {
                 select(.events)
                 path = [.event(id)]
+            } else if let page, page.available, page.signUp != "closed" || page.me == "waitlisted" {
+                select(.events)
+                path = [.eventPage(id, signUp: signUp)]
             } else {
                 session.webPage = WebPage(url: WebLink.standingsURL(id))
             }

@@ -21,7 +21,7 @@ struct EventsHomeView: View {
     private var liveMatchId: String? {
         live.lazy.compactMap { e in snapshots[e.id]?.state }.first { $0.isPlaying && $0.matchId != nil }?.matchId
     }
-    private var isEmpty: Bool { data != nil && data!.events.isEmpty && invites.isEmpty }
+    private var isEmpty: Bool { data != nil && data!.events.isEmpty && invites.isEmpty && data!.waitlist.isEmpty }
 
     var body: some View {
         T1Screen {
@@ -63,6 +63,16 @@ struct EventsHomeView: View {
                     if !upcoming.isEmpty {
                         Section1("Upcoming")
                         ForEach(upcoming) { e in EventLine(e: e) { path.append(.event(e.id)) } }
+                    }
+                    if let waiting = data?.waitlist, !waiting.isEmpty {
+                        Section1("Waitlist")
+                        ForEach(waiting) { w in
+                            Button { path.append(.eventPage(w.eventId, signUp: false)) } label: {
+                                ListRow(title: w.name, detail: ["Number \(w.position ?? 1) on the waitlist", EventRules.when(w.startsAt), w.venueName]
+                                    .compactMap { $0 }.joined(separator: " · "))
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                     if !past.isEmpty {
                         Button { withAnimation(.snappy) { showPast.toggle() } } label: {
@@ -306,8 +316,9 @@ private struct EventLine: View {
     private var detail: String {
         var parts = [e.organizing ? "Organizing" : "Playing", e.label]
         if e.bucket == "upcoming" {
-            if let when = T1Date.short(e.startsAt) { parts.append(when) }
-            parts.append("\(e.players) signed up")
+            if let when = EventRules.when(e.startsAt) { parts.append(when) }
+            parts.append(e.capacity.map { "\(e.players)/\($0) signed up" } ?? "\(e.players) signed up")
+            if e.owesDecklist { parts.append("Add your decklist") }
         } else if e.isCancelled {
             if let reason = e.cancelReason { parts.append(reason) }
         } else {

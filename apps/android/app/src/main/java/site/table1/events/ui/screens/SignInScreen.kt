@@ -145,7 +145,7 @@ fun SignInScreen(join: JoinLink? = null) {
             Modifier.weight(1f).fillMaxWidth().background(T1.surface).statusBarsPadding().padding(top = 40.dp),
             contentAlignment = Alignment.Center,
         ) { T1Logo(Modifier.fillMaxWidth()) }
-        join?.let { JoinHeader(it) }
+        join?.let { JoinHeader(it) } ?: site.table1.events.ui.PendingSignUp.page?.let { SignUpHeader(it) }
         (error ?: SignIn.emailLinkError)?.let { Notice(it, error = true) }
         when (step) {
             Step.Providers -> {
@@ -209,7 +209,7 @@ fun NameScreen(join: JoinLink? = null) {
             Modifier.weight(1f).fillMaxWidth().background(T1.surface).statusBarsPadding().padding(top = 40.dp),
             contentAlignment = Alignment.Center,
         ) { T1Logo(Modifier.fillMaxWidth()) }
-        join?.let { JoinHeader(it, naming = true) }
+        join?.let { JoinHeader(it, naming = true) } ?: site.table1.events.ui.PendingSignUp.page?.let { SignUpHeader(it, naming = true) }
         error?.let { Notice(it, error = true) }
         Notice("Add your name. Opponents and organizers see it on pairings and standings.")
         Column(Modifier.background(T1.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

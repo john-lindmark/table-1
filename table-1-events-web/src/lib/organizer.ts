@@ -3,6 +3,7 @@
 
 import type { EventDetailsInput } from "./api";
 import { isDraftFormat, isTeamFormat, typeOfFormat } from "./formats";
+import { nextStep } from "./playoffs";
 import type { TeamClinch } from "./teams";
 import type { DraftableSet, EventStatus, FormatName, Match, Participant, RoundWithMatches, Table1Event } from "./types";
 
@@ -282,13 +283,16 @@ export function startDialog(event: Table1Event): { title: string; message: strin
 export type LiveAction =
   | { kind: "waiting"; open: number; label: string }
   | { kind: "pair"; round: number; label: string }
-  | { kind: "finish"; label: string; clinch?: TeamClinch; pairRound?: number };
+  | { kind: "finish"; label: string; clinch?: TeamClinch; pairRound?: number }
+  | { kind: "cut"; label: string }
+  | { kind: "playoff"; stage: "semifinal" | "final"; label: string };
 
 /**
  * Live big action: "Waiting on N results" (disabled) while the open round has open matches,
  * then "Pair round R+1", or "Finish event" on the last round.
  */
-export function liveAction(event: Table1Event, rounds: RoundWithMatches[], clinch: TeamClinch | null = null): LiveAction {
+export function liveAction(event: Table1Event, rounds: RoundWithMatches[], clinch: TeamClinch | null = null,
+                           activePlayers = 0): LiveAction {
   const active = activeRoundOf(rounds);
   const open = openMatchCount(active);
   const current = active?.number ?? lastRoundNumber(rounds);
@@ -300,6 +304,15 @@ export function liveAction(event: Table1Event, rounds: RoundWithMatches[], clinc
       : { kind: "finish", label: "Finish event", clinch };
   }
   if (open > 0) return { kind: "waiting", open, label: `Waiting on ${plural(open, "result")}` };
+  // Swiss, then the top 8 (contract/scheduled-events-2026-10-27.md §6): the shared next step decides.
+  const stages = rounds.map((r) => r.stage ?? "swiss");
+  if (stages.some((st) => st !== "swiss") || (event.topCut === 8 && event.pairing === "swiss" && !isTeamFormat(event.formatName))) {
+    const step = nextStep({ stages, waiting: false, numberOfRounds: event.numberOfRounds, topCut: event.topCut, activePlayers });
+    if (step === "cut") return { kind: "cut", label: "Cut to top 8" };
+    if (step === "semifinals") return { kind: "playoff", stage: "semifinal", label: "Pair semifinals" };
+    if (step === "final") return { kind: "playoff", stage: "final", label: "Pair the final" };
+    if (step === "finish") return { kind: "finish", label: "Finish event" };
+  }
   if (current >= event.numberOfRounds) return { kind: "finish", label: "Finish event" };
   return { kind: "pair", round: current + 1, label: `Pair round ${current + 1}` };
 }
@@ -343,15 +356,18 @@ export interface DetailsState {
   teamSize: 3 | 4;
   rounds: number;
   showClock: boolean;
-  /** Older events keep a typed name; new ones are named by the server. */
+  /** Named by the server while `name` is empty (contract/scheduled-events-2026-10-27.md §1). */
   autoName: boolean;
   /** Roto only. */
   pairing: "swiss" | "round_robin";
+  topCut: 0 | 8;
+  autoRounds: boolean;
+  decklists: "off" | "optional" | "required";
 }
 
 export function detailsFromEvent(e: Table1Event): DetailsState {
   return {
-    name: e.name,
+    name: e.autoName ? "" : e.name,
     formatName: e.formatName,
     formatOther: e.formatOther ?? "",
     product: e.cubeName ? "cube" : "set",
@@ -366,6 +382,9 @@ export function detailsFromEvent(e: Table1Event): DetailsState {
     showClock: e.showClock,
     autoName: e.autoName,
     pairing: e.formatName === "roto" ? e.pairing : "round_robin",
+    topCut: e.topCut,
+    autoRounds: e.autoRounds,
+    decklists: e.decklists,
   };
 }
 
@@ -375,8 +394,14 @@ export function detailsToInput(s: DetailsState): EventDetailsInput {
   const roto = s.formatName === "roto";
   const cube = limited && (s.product === "cube" || roto) ? s.cubeName.trim().slice(0, 80) || null : null;
   const set = limited && s.product === "set" && !roto;
+  const swiss = !isTeamFormat(s.formatName) && !(roto && s.pairing === "round_robin");
+  const name = s.name.trim().replace(/\s+/g, " ").slice(0, 80);
   return {
-    name: s.autoName ? null : s.name.trim().slice(0, 80),
+    name: name || null,
+    autoName: !name,
+    topCut: swiss ? s.topCut : 0,
+    autoRounds: swiss && s.autoRounds,
+    decklists: limited ? "off" : s.decklists,
     formatName: s.formatName,
     rounds: s.rounds,
     showClock: s.showClock,

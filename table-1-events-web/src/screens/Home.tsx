@@ -16,6 +16,8 @@ import type { DraftableSet, FormatName, HomeData, HomeEvent, HomeInvite, LiveSna
 import { JoinByCode } from "../components/JoinByCode";
 import { Landing } from "./Landing";
 import { FormatPicker, PlayersEditor, ProductPicker, RoundTimerSwitch, cubeUrlProblem } from "../components/EventFormFields";
+import { when } from "../lib/scheduledEvents";
+import { CutAndRoundsFields, DecklistsFields, ScheduleFields, type DecklistMode, type ScheduleValue } from "../components/EventExtras";
 import { defaultPairing } from "../lib/rotoMath";
 import { RotoPairingFields, linkRotoCube } from "./roto/lazy";
 import { claimAutoOpen, useTrackerMode } from "../lib/settings";
@@ -26,12 +28,13 @@ import {
   BigAction,
   Columns,
   Countdown,
+  Field,
   GhostAction,
   Notice,
   Screen,
+  Section,
   Segmented,
   Stat,
-  Stepper,
   TopNav,
   shortWhen,
 } from "../components/kit";
@@ -134,7 +137,7 @@ export function Home({
   }
 
   const open = (e: HomeEvent) => (e.organizing ? onOpenEvent(e.id) : onOpenPlayer(e.id));
-  const empty = data !== null && data.events.length === 0 && invites.length === 0;
+  const empty = data !== null && data.events.length === 0 && invites.length === 0 && !(data.waitlist ?? []).length;
   // Live, invitations, (Join,) upcoming and past: the whole page on a phone, the left column on a desktop.
   const lists = (
     <>
@@ -167,6 +170,19 @@ export function Home({
           <div className="bg-t1-surface px-4 py-2 t1-label">Upcoming</div>
           {upcoming.map((e) => (
             <EventLine key={e.id} e={e} onOpen={() => open(e)} />
+          ))}
+        </>
+      )}
+      {(data?.waitlist ?? []).length > 0 && (
+        <>
+          <div className="bg-t1-surface px-4 py-2 t1-label">Waitlist</div>
+          {(data?.waitlist ?? []).map((w) => (
+            <a key={w.event_id} href={`/s/${w.event_id}`} className="bg-t1-surface hover:bg-t1-surface-hover px-4 py-4 flex flex-col gap-1">
+              <span className="text-[14px] truncate">{w.name}</span>
+              <span className="t1-label truncate">
+                {[`Number ${w.position ?? 1} on the waitlist`, when(w.starts_at), w.venue_name].filter(Boolean).join(" · ")}
+              </span>
+            </a>
           ))}
         </>
       )}
@@ -370,9 +386,10 @@ function OrganizerHero({ e, onOpen }: { e: HomeEvent; onOpen: () => void }) {
 function EventLine({ e, onOpen }: { e: HomeEvent; onOpen: () => void }) {
   const parts = [e.organizing ? "Organizing" : "Playing", formatLabelOf(e)];
   if (e.bucket === "upcoming") {
-    const when = shortWhen(e.starts_at);
-    if (when) parts.push(when);
-    parts.push(`${e.players} signed up`);
+    const at = when(e.starts_at);
+    if (at) parts.push(at);
+    parts.push(e.capacity ? `${e.players}/${e.capacity} signed up` : `${e.players} signed up`);
+    if (e.playing && e.decklists && e.decklists !== "off" && !e.my_decklist) parts.push("Add your decklist");
   } else if (e.status === "cancelled") {
     if (e.cancel_reason) parts.push(e.cancel_reason);
   } else {
@@ -478,6 +495,11 @@ export function NewEvent({
   const [busy, setBusy] = useState(false);
   // Roto only: prefilled from the player count (round robin for 2–8, Swiss for 9+) until changed by hand.
   const [pairing, setPairing] = useState<"swiss" | "round_robin" | null>(null);
+  const [name, setName] = useState("");
+  const [schedule, setSchedule] = useState<ScheduleValue>({ startsAt: null, venueName: "", capacity: null });
+  const [autoRounds, setAutoRounds] = useState(true);
+  const [topCut, setTopCut] = useState<0 | 8>(0);
+  const [decklists, setDecklists] = useState<DecklistMode>("off");
   const roto = format === "roto";
   const playerCount = guests.length + (includeMe ? 1 : 0);
   const shownPairing = pairing ?? defaultPairing(playerCount);
@@ -494,7 +516,11 @@ export function NewEvent({
   const team = isTeamFormat(format);
   const cubeProduct = product === "cube" || roto;
   const productName = !limited ? null : cubeProduct ? cubeName.trim() || null : set?.name ?? (setNameText.trim() || null);
-  const preview = eventNamePreview(format, { other: formatOther, product: productName });
+  const preview = eventNamePreview(format, { other: formatOther, product: productName },
+                                   schedule.startsAt ? new Date(schedule.startsAt) : new Date());
+  const typedName = name.trim().replace(/\s+/g, " ");
+  // Swiss events of players: automatic rounds and the top cut apply.
+  const swiss = !team && !(roto && shownPairing === "round_robin");
 
   const cubeUrlBad = limited && cubeProduct && !!cubeUrlProblem(cubeUrl);
   const problem =
@@ -524,6 +550,13 @@ export function NewEvent({
         playerNames: guests,
         includeMe,
         pairing: roto ? shownPairing : null,
+        name: typedName || null,
+        startsAt: schedule.startsAt,
+        venueName: schedule.venueName,
+        capacity: schedule.capacity,
+        topCut: swiss ? topCut : 0,
+        autoRounds: swiss && autoRounds,
+        decklists: limited ? "off" : decklists,
       });
       // Roto: the pool comes from a Library cube. Use the one with this name, or import the Cube Cobra link.
       if (roto) void linkRotoCube(eventId, cubeName, cubeUrl);
@@ -539,7 +572,7 @@ export function NewEvent({
     <Screen>
       <Bar
         title="New event"
-        subtitle={preview}
+        subtitle={typedName || preview}
         right={
           <button onClick={onCancel} className="t1-label shrink-0">
             Cancel
@@ -547,6 +580,7 @@ export function NewEvent({
         }
       />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
+        <Field label="Event name (optional)" value={name} onChange={(v) => setName(v.slice(0, 80))} placeholder={preview} />
         <FormatPicker format={format} onFormat={setFormat} formatOther={formatOther} onFormatOther={setFormatOther} />
         {limited && (
           <ProductPicker
@@ -582,11 +616,15 @@ export function NewEvent({
           />
         )}
 
+        <ScheduleFields value={schedule} onChange={setSchedule} />
+        <Section title="Rounds" />
         {!(roto && shownPairing === "round_robin") && (
-          <Stepper label="Rounds" value={rounds} onChange={setRounds} min={1} max={15} />
+          <CutAndRoundsFields autoRounds={autoRounds} onAutoRounds={setAutoRounds} rounds={rounds} onRounds={setRounds}
+                              topCut={topCut} onTopCut={setTopCut} players={playerCount} swiss={swiss} />
         )}
         {roto && <RotoPairingFields pairing={shownPairing} onPairing={setPairing} players={playerCount} />}
         <RoundTimerSwitch on={showClock} onChange={setShowClock} />
+        {!limited && <DecklistsFields mode={decklists} onMode={setDecklists} />}
         <PlayersEditor includeMe={includeMe} onIncludeMe={setIncludeMe} myName={myName} guests={guests} onGuests={setGuests} />
         {error && <Notice tone="error">{error}</Notice>}
       </div>

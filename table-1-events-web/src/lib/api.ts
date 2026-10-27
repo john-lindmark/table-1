@@ -36,7 +36,15 @@ export interface EventBundle {
   event: Table1Event;
   participants: Participant[];
   rounds: RoundWithMatches[];
+  /** Organizers only ([] otherwise). */
+  waitlist: WaitlistEntry[];
+  /** Who has sent a decklist: all for organizers, your own for players and guests. */
+  decklists: DecklistInfo[];
 }
+
+export interface WaitlistEntry { userId: string; displayName: string; position: number }
+export interface DecklistInfo { participantId: string; mainCount: number; sideCount: number; listName: string | null; source: "text" | "deck" }
+export interface Decklist extends DecklistInfo { displayName: string; body: string; listId: string | null }
 
 /** Readable text for any thrown value (PostgrestError is a plain object with `message`). */
 export function errorMessage(e: unknown): string {
@@ -94,6 +102,12 @@ const toEvent = (r: any): Table1Event => ({
   showClock: r.show_clock ?? true,
   autoName: r.auto_name ?? false,
   pairing: r.pairing === "round_robin" ? "round_robin" : "swiss",
+  topCut: r.top_cut === 8 ? 8 : 0,
+  autoRounds: r.auto_rounds ?? false,
+  capacity: r.capacity ?? null,
+  startsAt: r.starts_at ?? null,
+  venueName: r.venue_name ?? null,
+  decklists: r.decklists === "optional" || r.decklists === "required" ? r.decklists : "off",
 });
 
 const toParticipant = (r: any): Participant => ({
@@ -144,6 +158,7 @@ const toRound = (r: any): RoundWithMatches => ({
   timerStatus: r.timer_status,
   timerLastStartedAt: r.timer_last_started_at,
   timerEndsAt: r.timer_ends_at ?? null,
+  stage: r.stage ?? "swiss",
   matches: (r.matches ?? []).map(toMatch).sort(
     (a: Match, b: Match) => (a.tableNumber ?? 0) - (b.tableNumber ?? 0),
   ),
@@ -207,8 +222,15 @@ export function toBundle(r: any): EventBundle {
     event: toEvent(r.event),
     participants: (r.participants ?? []).map(toParticipant),
     rounds: (r.rounds ?? []).map(toRound),
+    waitlist: (r.waitlist ?? []).map((w: any) => ({ userId: w.user_id, displayName: w.display_name, position: w.position })),
+    decklists: (r.decklists ?? []).map(toDecklistInfo),
   };
 }
+
+const toDecklistInfo = (d: any): DecklistInfo => ({
+  participantId: d.participant_id, mainCount: d.main_count, sideCount: d.side_count, listName: d.list_name ?? null,
+  source: d.source === "deck" || d.list_id ? "deck" : "text",
+});
 
 /** The /s page: the event, the clock and current pairings by name (no account ids), for anyone with the link. */
 export interface PublicPairing {
@@ -228,6 +250,24 @@ export interface PublicEvent {
   showClock: boolean;
   round: RoundWithMatches | null;
   pairings: PublicPairing[];
+  /** The sign-up page (contract/scheduled-events-2026-10-27.md §4). */
+  access: string;
+  shortCode: string | null;
+  formatLabel: string | null;
+  startsAt: string | null;
+  venueName: string | null;
+  organizerName: string | null;
+  capacity: number | null;
+  players: number;
+  waitlist: number;
+  topCut: number;
+  autoRounds: boolean;
+  signUp: "open" | "full" | "closed";
+  me: "organizer" | "player" | "waitlisted" | null;
+  position: number | null;
+  decklists: "off" | "optional" | "required";
+  /** Every round's matchups by name, newest first (2026-10-27). */
+  rounds: { number: number; stage: string; status: string; matches: PublicPairing[] }[];
 }
 
 export async function fetchPublicEvent(eventId: string): Promise<PublicEvent> {
@@ -245,8 +285,31 @@ export function toPublicEvent(r: any): PublicEvent {
     currentRound: r.current_round ?? 0,
     numberOfRounds: r.number_of_rounds ?? 0,
     showClock: r.show_clock ?? true,
+    access: r.access ?? "link",
+    shortCode: r.short_code ?? null,
+    formatLabel: r.format_label ?? null,
+    startsAt: r.starts_at ?? null,
+    venueName: r.venue_name ?? null,
+    organizerName: r.organizer_name ?? null,
+    capacity: r.capacity ?? null,
+    players: r.players ?? 0,
+    waitlist: r.waitlist ?? 0,
+    topCut: r.top_cut ?? 0,
+    autoRounds: r.auto_rounds ?? false,
+    signUp: r.sign_up ?? (r.status === "setup" || r.status === "seated" ? "open" : "closed"),
+    me: r.me ?? null,
+    position: r.position ?? null,
+    decklists: r.decklists ?? "off",
     round: r.round ? toRound({ ...r.round, event_id: r.event_id, matches: [] }) : null,
-    pairings: (r.pairings ?? []).map((m: any) => ({
+    rounds: (r.rounds ?? []).map((rd: any) => ({
+      number: rd.number, stage: rd.stage ?? "swiss", status: rd.status, matches: (rd.matches ?? []).map(toPublicPairing),
+    })),
+    pairings: (r.pairings ?? []).map(toPublicPairing),
+  };
+}
+
+function toPublicPairing(m: any): PublicPairing {
+  return {
       matchId: m.match_id,
       tableNumber: m.table_number ?? null,
       isBye: m.is_bye,
@@ -255,7 +318,6 @@ export function toPublicEvent(r: any): PublicEvent {
       sides: (m.sides ?? [])
         .map((s: any) => ({ side: s.side, participantId: s.participant_id ?? null, displayName: s.display_name, gameWins: s.game_wins ?? 0 }))
         .sort((a: { side: number }, b: { side: number }) => a.side - b.side),
-    })),
   };
 }
 
@@ -274,10 +336,21 @@ export interface PublicStandingRow {
   gw: number;
 }
 
+/** The top 8 as events-engine draws it (playoffs.ts `bracket`). */
+export interface PublicBracketStage {
+  stage: "quarterfinal" | "semifinal" | "final";
+  matches: { match_id: string; table_number: number | null; status: string; winner: string | null;
+             sides: { seed: number | null; participant_id: string | null; display_name: string | null; game_wins: number }[] }[];
+}
+
 export async function fetchPublicStandings(eventId: string): Promise<PublicStandingRow[]> {
+  return (await fetchPublicStandingsAndBracket(eventId)).rows;
+}
+
+export async function fetchPublicStandingsAndBracket(eventId: string): Promise<{ rows: PublicStandingRow[]; bracket: PublicBracketStage[] }> {
   const token = getLocalParticipant(eventId)?.token ?? null;
-  const data = await invokeEngine<{ standings?: any[] }>({ action: "standings", event_id: eventId, token });
-  return (data.standings ?? []).map((s) => ({
+  const data = await invokeEngine<{ standings?: any[]; bracket?: PublicBracketStage[] }>({ action: "standings", event_id: eventId, token });
+  return { bracket: data.bracket ?? [], rows: (data.standings ?? []).map((s) => ({
     rank: s.rank,
     participantId: s.participant_id,
     displayName: s.display_name,
@@ -289,7 +362,7 @@ export async function fetchPublicStandings(eventId: string): Promise<PublicStand
     byes: s.byes,
     omw: s.omw,
     gw: s.gw,
-  }));
+  })) };
 }
 
 /**
@@ -345,7 +418,9 @@ export async function joinEvent(code: string, displayName: string) {
     p_display_name: displayName,
   });
   if (error) throw error;
-  // A code that leads nowhere joinable comes back as {error, message} (so the server's miss count sticks).
+  // A code that leads nowhere joinable comes back as {error, message} (so the server's miss count sticks); a full
+  // event puts a signed-in caller on its waitlist and says so in the message.
+  if (data?.waitlisted) capture("event_signed_up", { status: "waitlisted", signed_in_now: false });
   if (data?.error) throw new Error(data.message ?? "No event found with that code");
   capture("event_joined", { via: "link" });
   return data as {
@@ -751,6 +826,11 @@ export interface EventDetailsInput {
   formatOther: string | null;
   /** Roto only (null keeps). */
   pairing?: "swiss" | "round_robin" | null;
+  topCut?: 0 | 8;
+  autoRounds?: boolean;
+  decklists?: "off" | "optional" | "required";
+  /** true = the automatic name (name ignored), false = name. */
+  autoName?: boolean;
 }
 
 export interface EventDetailsResult {
@@ -787,9 +867,71 @@ export async function updateEventDetails(eventId: string, input: EventDetailsInp
     p_team_size: input.teamSize,
     p_format_other: input.formatOther,
     p_pairing: input.pairing ?? null,
+    p_top_cut: input.topCut ?? null,
+    p_auto_rounds: input.autoRounds ?? null,
+    p_decklists: input.decklists ?? null,
+    p_auto_name: input.autoName ?? null,
   });
   if (error) throw error;
   return data as EventDetailsResult;
+}
+
+/* ── 2026-10-27: schedule, cap, sign-up link, waitlist, decklists ─────────── */
+
+export interface EventScheduleInput { startsAt: string | null; venueName: string | null; capacity: number | null }
+
+/** When, where and the cap, before round 1 (full state; opening places moves the waitlist up). */
+export async function setEventSchedule(eventId: string, s: EventScheduleInput) {
+  const { error } = await supabase.rpc("set_event_schedule", {
+    p_event_id: eventId, p_starts_at: s.startsAt, p_venue_name: s.venueName?.trim() || null, p_capacity: s.capacity,
+    p_local_date: localDate(s.startsAt ? new Date(s.startsAt) : new Date()),
+  });
+  if (error) throw error;
+}
+
+/** The share link's Sign up: a seat, or the waitlist when it's full. */
+export async function signUpForEvent(eventId: string, signedInNow: boolean) {
+  const { data, error } = await supabase.rpc("event_sign_up", { p_event_id: eventId });
+  if (error) throw error;
+  const r = data as { status: "joined" | "waitlisted" | "already_joined" | "already_waitlisted"; position?: number | null };
+  if (r.status === "joined" || r.status === "waitlisted") capture("event_signed_up", { status: r.status, signed_in_now: signedInNow });
+  return r;
+}
+
+export async function leaveEvent(eventId: string, waitlist: boolean) {
+  const { error } = await supabase.rpc("event_leave", { p_event_id: eventId });
+  if (error) throw error;
+  capture("event_left", { waitlist });
+}
+
+export async function waitlistAdmit(eventId: string, userId: string) {
+  const { error } = await supabase.rpc("waitlist_admit", { p_event_id: eventId, p_user_id: userId });
+  if (error) throw error;
+  capture("waitlist_admitted");
+}
+
+export async function waitlistRemove(eventId: string, userId: string) {
+  const { error } = await supabase.rpc("waitlist_remove", { p_event_id: eventId, p_user_id: userId });
+  if (error) throw error;
+}
+
+export async function fetchDecklist(participantId: string): Promise<Decklist | null> {
+  const { data, error } = await supabase.rpc("decklist_get", { p_participant_id: participantId });
+  if (error) throw error;
+  if (!data) return null;
+  return { ...toDecklistInfo(data), displayName: data.display_name, body: data.body, listId: data.list_id ?? null };
+}
+
+export async function submitDecklist(participantId: string, body: string, listId: string | null, byOrganizer: boolean) {
+  const { error } = await supabase.rpc("decklist_submit", { p_participant_id: participantId, p_body: body, p_list_id: listId });
+  if (error) throw error;
+  capture("decklist_sent", { source: listId ? "deck" : "text", by: byOrganizer ? "organizer" : "player" });
+}
+
+export async function removeDecklist(participantId: string) {
+  const { error } = await supabase.rpc("decklist_remove", { p_participant_id: participantId });
+  if (error) throw error;
+  capture("decklist_removed");
 }
 
 /** Drop (with the round they dropped after) or reinstate. Organizer only, audited on the server. */
@@ -826,6 +968,14 @@ export interface CreateEventV2Input {
   includeMe: boolean;
   /** Roto only: swiss | round_robin. */
   pairing?: "swiss" | "round_robin" | null;
+  /** Typed name (empty = named by the server). */
+  name?: string | null;
+  startsAt?: string | null;
+  venueName?: string | null;
+  capacity?: number | null;
+  topCut?: 0 | 8;
+  autoRounds?: boolean;
+  decklists?: "off" | "optional" | "required";
 }
 
 /** The server names the event ("Draft · Duskmourn · Fri 17 Oct") using the device's date. */
@@ -842,11 +992,20 @@ export async function createEventV2(input: CreateEventV2Input): Promise<{ eventI
     p_player_names: input.playerNames,
     p_include_me: input.includeMe,
     p_show_clock: input.showClock,
-    p_local_date: localDate(),
+    p_local_date: localDate(input.startsAt ? new Date(input.startsAt) : new Date()),
     p_pairing: input.pairing ?? null,
+    p_name: input.name?.trim() || null,
+    p_starts_at: input.startsAt ?? null,
+    p_venue_name: input.venueName?.trim() || null,
+    p_capacity: input.capacity ?? null,
+    p_top_cut: input.topCut ?? 0,
+    p_auto_rounds: input.autoRounds ?? false,
+    p_decklists: input.decklists ?? "off",
   });
   if (error) throw error;
   capture("event_created", {
+    scheduled: !!input.startsAt, capped: input.capacity != null, top_cut: input.topCut ?? 0,
+    auto_rounds: input.autoRounds ?? false, named: !!input.name?.trim(), decklists: input.decklists ?? "off",
     format: input.formatName,
     kind: input.cubeName ? "cube" : input.setCode ? "limited" : "constructed",
     rounds: input.rounds,
@@ -973,11 +1132,11 @@ async function invokeEngine<T>(body: Record<string, unknown>): Promise<T> {
 
 /** Pairs (and opens) the next round on the server: Swiss, draft across-the-table, or team pairings. */
 export async function pairNextRound(eventId: string, pairing: "swiss" | "round_robin" = "swiss") {
-  const r = await invokeEngine<{ round_id: string; round_number: number; timer_ends_at: string }>({
+  const r = await invokeEngine<{ round_id: string; round_number: number; timer_ends_at: string; stage?: string }>({
     action: "pair_round",
     event_id: eventId,
   });
-  capture("round_paired", { round: r?.round_number ?? 0, pairing });
+  capture("round_paired", { round: r?.round_number ?? 0, pairing, stage: r?.stage ?? "swiss" });
   return r;
 }
 

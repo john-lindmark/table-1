@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Table 1 Events V1 client contract",
   "description": "Every call the iOS, Android and web clients make. Field names are exact wire names (snake_case). Generate Swift/Kotlin models from this file; the hand-written models in apps/ must stay in step with it.",
-  "version": "2026-10-25",
+  "version": "2026-10-27",
   "rpc": {
     "create_event": {
       "params": {
@@ -619,7 +619,7 @@
       }
     },
     "events_home": {
-      "note": "Everything the Events tab shows. p_include_demo is true only in TestFlight/Xcode iOS builds.",
+      "note": "Everything the Events tab shows. p_include_demo is true only in TestFlight/Xcode iOS builds. 2026-10-27: rows gain capacity, top_cut, waitlist (count); round gains stage; top-level waitlist [{event_id, name, format_label, starts_at, venue_name, position, players, capacity}]. Rows also gain decklists (off|optional|required) and my_decklist (bool).",
       "params": {
         "type": "object",
         "properties": {
@@ -1142,7 +1142,7 @@
       }
     },
     "create_event_v2": {
-      "note": "Typed formats. Limited events may name a set (from draftable_sets) or a cube; team formats need p_team_size 3|4. 2026-10-14: name is automatic (p_name ignored), rounds always 3000 s (p_round_seconds ignored); p_include_me seats the organizer first; p_show_clock hides clocks; p_local_date names the day. 2026-10-16: format roto (cube required, set refused); p_pairing swiss|round_robin (round_robin roto only; roto defaults to round_robin).",
+      "note": "Typed formats. Limited events may name a set (from draftable_sets) or a cube; team formats need p_team_size 3|4. 2026-10-14: name is automatic (p_name ignored), rounds always 3000 s (p_round_seconds ignored); p_include_me seats the organizer first; p_show_clock hides clocks; p_local_date names the day. 2026-10-16: format roto (cube required, set refused); p_pairing swiss|round_robin (round_robin roto only; roto defaults to round_robin). 2026-10-27 (contract/scheduled-events-2026-10-27.md): p_name is used again (non-empty → named, auto_name false); p_starts_at, p_venue_name, p_capacity (2–10000), p_top_cut 0|8 and p_auto_rounds (Swiss events only, 22023 otherwise).",
       "params": {
         "type": "object",
         "properties": {
@@ -1236,6 +1236,41 @@
               null
             ],
             "description": "Roto only may be round_robin (default for roto when null). Other formats are always swiss."
+          },
+          "p_starts_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "p_venue_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_capacity": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "p_top_cut": {
+            "enum": [
+              0,
+              8
+            ]
+          },
+          "p_auto_rounds": {
+            "type": "boolean"
+          },
+          "p_decklists": {
+            "enum": [
+              "off",
+              "optional",
+              "required"
+            ]
           }
         },
         "required": [
@@ -1978,7 +2013,7 @@
       }
     },
     "update_event_details": {
-      "note": "Organizer only, setup/seated with no rounds (else 55000 'Details lock once round 1 is paired'). Send the full current state every call. Non-team format releases everyone from teams. 2026-10-14: p_show_clock (null keeps); p_round_seconds ignored; p_name ignored for auto-named events. 2026-10-16: roto + p_pairing (null keeps); format and cube lock once the roto draft starts (55000). Result carries pairing.",
+      "note": "Organizer only, setup/seated with no rounds (else 55000 'Details lock once round 1 is paired'). Send the full current state every call. Non-team format releases everyone from teams. 2026-10-14: p_show_clock (null keeps); p_round_seconds ignored; p_name ignored for auto-named events. 2026-10-16: roto + p_pairing (null keeps); format and cube lock once the roto draft starts (55000). Result carries pairing. 2026-10-27: p_top_cut / p_auto_rounds (null keeps); p_auto_name true = automatic name, false = p_name (null = the old rule). Result carries top_cut, auto_rounds, auto_name.",
       "params": {
         "type": "object",
         "properties": {
@@ -2029,6 +2064,33 @@
               null
             ],
             "description": "Roto only may be round_robin (default for roto when null). Other formats are always swiss."
+          },
+          "p_top_cut": {
+            "enum": [
+              0,
+              8,
+              null
+            ]
+          },
+          "p_auto_rounds": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "p_auto_name": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "p_decklists": {
+            "enum": [
+              "off",
+              "optional",
+              "required",
+              null
+            ]
           }
         },
         "required": [
@@ -2053,7 +2115,10 @@
           "cube_name": {},
           "cube_url": {},
           "team_size": {},
-          "format_other": {}
+          "format_other": {},
+          "top_cut": {},
+          "auto_rounds": {},
+          "auto_name": {}
         }
       }
     },
@@ -6986,7 +7051,7 @@
       }
     },
     "event_bundle": {
-      "description": "Everything a member sees (privacy-lockdown-2026-10-18.md). Organizer, player, or guest with p_token; anon may call. Replaces the reads from events, participants and rounds(matches(match_sides)).",
+      "description": "Everything a member sees (privacy-lockdown-2026-10-18.md). Organizer, player, or guest with p_token; anon may call. Replaces the reads from events, participants and rounds(matches(match_sides)). 2026-10-27: waitlist [{user_id, display_name, position, created_at}] for organizers ([] otherwise); event rows carry top_cut, auto_rounds; rounds carry stage.",
       "params": {
         "type": "object",
         "properties": {
@@ -7101,6 +7166,62 @@
               "player",
               "guest"
             ]
+          },
+          "waitlist": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "user_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "display_name": {
+                  "type": "string"
+                },
+                "position": {
+                  "type": "integer"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          "decklists": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "participant_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "main_count": {
+                  "type": "integer"
+                },
+                "side_count": {
+                  "type": "integer"
+                },
+                "list_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "source": {
+                  "enum": [
+                    "text",
+                    "deck"
+                  ]
+                },
+                "submitted_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
           }
         },
         "required": [
@@ -7117,7 +7238,7 @@
       }
     },
     "event_preview": {
-      "description": "What someone sees before joining: by code (open events only; rate-limited) or by id. Anon may call. Not available = {event_id: null, access: 'none'} (a result, not an error).",
+      "description": "What someone sees before joining: by code (open events only; rate-limited) or by id. Anon may call. Not available = {event_id: null, access: 'none'} (a result, not an error). 2026-10-27: sign-up fields (contract/scheduled-events-2026-10-27.md §4).",
       "params": {
         "type": "object",
         "properties": {
@@ -7213,6 +7334,49 @@
               "string",
               "null"
             ]
+          },
+          "top_cut": {
+            "enum": [
+              0,
+              8
+            ]
+          },
+          "auto_rounds": {
+            "type": "boolean"
+          },
+          "number_of_rounds": {
+            "type": "integer"
+          },
+          "waitlist": {
+            "type": "integer"
+          },
+          "sign_up": {
+            "enum": [
+              "open",
+              "full",
+              "closed"
+            ]
+          },
+          "me": {
+            "enum": [
+              "organizer",
+              "player",
+              "waitlisted",
+              null
+            ]
+          },
+          "position": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "decklists": {
+            "enum": [
+              "off",
+              "optional",
+              "required"
+            ]
           }
         },
         "required": [
@@ -7225,7 +7389,7 @@
       }
     },
     "event_public": {
-      "description": "The shared standings page (/s/:eventId) for link and above: preview fields, the active round's clock and its pairings by name. No account ids. Standings rows come from events-engine 'standings'.",
+      "description": "The shared standings page (/s/:eventId) for link and above: preview fields, the active round's clock and its pairings by name. No account ids. Standings rows come from events-engine 'standings'. 2026-10-27: sign-up fields (contract/scheduled-events-2026-10-27.md §4). rounds: every round's matchups by name, newest first.",
       "params": {
         "type": "object",
         "properties": {
@@ -7438,6 +7602,72 @@
                 }
               }
             }
+          },
+          "top_cut": {
+            "enum": [
+              0,
+              8
+            ]
+          },
+          "auto_rounds": {
+            "type": "boolean"
+          },
+          "waitlist": {
+            "type": "integer"
+          },
+          "sign_up": {
+            "enum": [
+              "open",
+              "full",
+              "closed"
+            ]
+          },
+          "me": {
+            "enum": [
+              "organizer",
+              "player",
+              "waitlisted",
+              null
+            ]
+          },
+          "position": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "decklists": {
+            "enum": [
+              "off",
+              "optional",
+              "required"
+            ]
+          },
+          "rounds": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "number": {
+                  "type": "integer"
+                },
+                "stage": {
+                  "enum": [
+                    "swiss",
+                    "quarterfinal",
+                    "semifinal",
+                    "final"
+                  ]
+                },
+                "status": {
+                  "type": "string"
+                },
+                "matches": {
+                  "type": "array",
+                  "description": "same shape as pairings"
+                }
+              }
+            }
           }
         },
         "required": [
@@ -7507,7 +7737,7 @@
       }
     },
     "join_event": {
-      "description": "Join by the 4-character code (web). Open events only; private events need an invite; rate-limited; an account already in the event gets its seat back.",
+      "description": "Join by the 4-character code (web). Open events only; private events need an invite; rate-limited; an account already in the event gets its seat back. 2026-10-27: a full event returns {error: full, message} (signed out) or {error: full, waitlisted: true, position, event_id, message} (signed in, now on the waitlist).",
       "params": {
         "type": "object",
         "properties": {
@@ -10239,6 +10469,413 @@
           "urls"
         ]
       }
+    },
+    "event_sign_up": {
+      "description": "The share link's Sign up (contract/scheduled-events-2026-10-27.md §3–4). Signed in. Seats you, or puts you on the waitlist when full. Name from the profile.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_event_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "enum": [
+              "joined",
+              "waitlisted",
+              "already_joined",
+              "already_waitlisted"
+            ]
+          },
+          "participant_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "position": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        }
+      },
+      "errors": {
+        "28000": "Sign in to sign up",
+        "42501": "That event isn't available",
+        "55000": "Sign-ups are closed",
+        "22023": "That event was cancelled / has already finished",
+        "53400": "Too many tries, wait a few minutes"
+      }
+    },
+    "event_leave": {
+      "description": "Before round 1: leave your seat or your waitlist place; the next person moves up.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_event_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "enum": [
+              "left",
+              "left_waitlist",
+              "not_in"
+            ]
+          }
+        }
+      },
+      "errors": {
+        "28000": "Sign in first",
+        "55000": "The event has started: ask the organizer to drop you"
+      }
+    },
+    "waitlist_admit": {
+      "description": "Organizer, before round 1: seat someone from the waitlist now, past the cap. Audited.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_user_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_event_id",
+          "p_user_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "participant_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "errors": {
+        "42501": "Only organizers can change the players",
+        "55000": "Players can only be added or removed before round 1",
+        "P0002": "They aren't on the waitlist"
+      }
+    },
+    "waitlist_remove": {
+      "description": "Organizer, before round 1: take someone off the waitlist. Audited.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_user_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_event_id",
+          "p_user_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "removed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "errors": {
+        "42501": "Only organizers can change the players",
+        "55000": "Players can only be added or removed before round 1"
+      }
+    },
+    "set_event_schedule": {
+      "description": "Organizer, before round 1: when, where, cap. Full state every call (null = unscheduled / no venue / no cap). Opening places moves people up from the waitlist. Audited.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_starts_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "p_venue_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_capacity": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "p_local_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          }
+        },
+        "required": [
+          "p_event_id",
+          "p_starts_at",
+          "p_venue_name",
+          "p_capacity"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "starts_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "venue_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "capacity": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "players": {
+            "type": "integer"
+          },
+          "waitlist": {
+            "type": "integer"
+          }
+        }
+      },
+      "errors": {
+        "42501": "Only organizers can change the event",
+        "55000": "Details lock once round 1 is paired",
+        "22023": "Pick a time within a year / Caps are 2 to 10000 players / Venue names are up to 80 characters"
+      }
+    },
+    "decklist_submit": {
+      "description": "Save or replace a decklist (contract/scheduled-events-2026-10-27.md §9). The participant's own account before round 1, or an organizer until the event ends. p_list_id: the caller's own deck it came from.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_participant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_body": {
+            "type": "string"
+          },
+          "p_list_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_participant_id",
+          "p_body"
+        ]
+      },
+      "result": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "participant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "main_count": {
+            "type": "integer"
+          },
+          "side_count": {
+            "type": "integer"
+          },
+          "list_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "submitted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "errors": {
+        "22023": "That list has no cards / This event doesn't take decklists / That list is too long",
+        "42501": "That isn't your list to change / That deck isn't yours",
+        "55000": "Decklists lock when round 1 is paired: ask the organizer / That event is over"
+      }
+    },
+    "decklist_remove": {
+      "description": "Remove a decklist (same rights as decklist_submit).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_participant_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_participant_id"
+        ]
+      },
+      "result": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "participant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "removed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "errors": {
+        "42501": "That isn't your list to change",
+        "55000": "Decklists lock when round 1 is paired: ask the organizer"
+      }
+    },
+    "decklist_get": {
+      "description": "A decklist for its player or the event's organizers; null when none was sent.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_participant_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_participant_id"
+        ]
+      },
+      "result": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "participant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "main_count": {
+            "type": "integer"
+          },
+          "side_count": {
+            "type": "integer"
+          },
+          "list_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "submitted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "list_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "errors": {
+        "42501": "That list isn't available"
+      }
     }
   },
   "functions": {
@@ -10417,7 +11054,7 @@
           ]
         }
       },
-      "note": " New: action seat_players (organizer, draft events before round 1) -> {pods:[{pod_id,name,seats:[{seat,participant_id,display_name,team}]}]}. standings now also returns teams (team events) and seating (draft events). pair_round handles draft round 1 across the table, team draft and team sealed. 2026-10-16 (v7): pair_round pairs round robin when events.pairing = round_robin (circle method on seat order; rounds = n−1 even / n odd, set on round 1; a later drop gives each opponent a bye) and refuses round 1 of a roto until the draft is finished (409)."
+      "note": " New: action seat_players (organizer, draft events before round 1) -> {pods:[{pod_id,name,seats:[{seat,participant_id,display_name,team}]}]}. standings now also returns teams (team events) and seating (draft events). pair_round handles draft round 1 across the table, team draft and team sealed. 2026-10-16 (v7): pair_round pairs round robin when events.pairing = round_robin (circle method on seat order; rounds = n−1 even / n odd, set on round 1; a later drop gives each opponent a bye) and refuses round 1 of a roto until the draft is finished (409). 2026-10-27 (v10, contract/scheduled-events-2026-10-27.md §5–6): pair_round goes on to quarterfinal / semifinal / final when events.top_cut = 8 (more than 8 active players), answers stage, and fixes number_of_rounds at round 1 for auto_rounds events. standings rows gain swiss_rank and playoff (winner|final|semifinal|quarterfinal|null), rank is the final order; top level gains top_cut and bracket [{stage, matches: [{match_id, table_number, status, winner, sides: [{seed, participant_id, display_name, game_wins}]}]}]. pair_round refuses round 1 (409 'N players haven't sent a decklist') when events.decklists = required."
     },
     "live-activity": {
       "note": "POST {action:'state', include_demo?} with the user's JWT → {snapshots:[{eventId,eventName,participantId,state}]} (camelCase, Unix seconds). Dispatch is database-only."
@@ -10547,8 +11184,11 @@
     "user_settings": "own row: user_id, tracker_mode ('elsewhere'|'tracker'). Upsert on user_id.",
     "event_teams": "public read: id, event_id, display_order, name, active",
     "participants": "new: team_id, team_slot",
-    "events": "new: format_name, format_label, event_type, team_size, set_code, set_name, cube_name, cube_url, format_other; seat_ends (boolean, draft seating drawing); pairing (swiss|round_robin; round_robin only for format_name roto)",
+    "events": "new: format_name, format_label, event_type, team_size, set_code, set_name, cube_name, cube_url, format_other; seat_ends (boolean, draft seating drawing); pairing (swiss|round_robin; round_robin only for format_name roto); 2026-10-27: top_cut (0|8), auto_rounds (boolean); starts_at, venue_name, capacity now set by create_event_v2 / set_event_schedule; decklists (off|optional|required)",
     "profiles": "public read: id, display_name, handle, avatar_url (avatars bucket path or null; set only via avatar_set/avatar_clear)",
-    "card_lists": "event_id (uuid, nullable): set on a roto's linked deck; lists_changes/list_* answers carry event_id and event_name. Event decks never count Missing."
+    "card_lists": "event_id (uuid, nullable): set on a roto's linked deck; lists_changes/list_* answers carry event_id and event_name. Event decks never count Missing.",
+    "rounds": "stage: swiss | quarterfinal | semifinal | final (2026-10-27)",
+    "event_waitlist": "RPC-only (RLS on, no policy, no grants): event_id, user_id, display_name, created_at (2026-10-27)",
+    "event_decklists": "RPC-only (RLS on, no policy, no grants): participant_id (pk), event_id, body, main_count, side_count, list_id, list_name, submitted_by, submitted_at, updated_at (2026-10-27)"
   }
 }

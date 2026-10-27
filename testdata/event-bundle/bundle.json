@@ -1,17 +1,29 @@
 {
   "access": "organizer",
+  "decklists": [
+    {
+      "list_name": null,
+      "main_count": 60,
+      "participant_id": "f0000000-0000-0000-0000-000000000001",
+      "side_count": 15,
+      "source": "text",
+      "submitted_at": "2026-10-27T06:00:00-06:00"
+    }
+  ],
   "event": {
     "allow_player_reporting": true,
     "auto_name": false,
+    "auto_rounds": false,
     "cancel_reason": null,
     "cancelled_at": null,
     "cancelled_by": null,
-    "capacity": null,
-    "created_at": "2026-10-19T13:21:38.05012-06:00",
+    "capacity": 8,
+    "created_at": "2026-10-27T08:18:27.782759-06:00",
     "created_by": "00000000-0000-0000-0000-0000000000a1",
     "cube_name": null,
     "cube_url": null,
     "current_round": 2,
+    "decklists": "optional",
     "demo_owner": null,
     "discoverable_until": null,
     "event_type": "limited",
@@ -34,17 +46,18 @@
     "set_name": "Murders at Karlov Manor",
     "short_code": "FIXT",
     "show_clock": true,
-    "starts_at": null,
+    "starts_at": "2026-11-08T11:30:00-07:00",
     "status": "in_progress",
     "team_size": null,
-    "updated_at": "2026-10-19T13:21:38.05012-06:00",
+    "top_cut": 8,
+    "updated_at": "2026-10-27T08:18:27.782759-06:00",
     "venue_name": "Denver Card Shop",
     "visibility": "link_only"
   },
   "is_organizer": true,
   "participants": [
     {
-      "created_at": "2026-10-19T13:21:38.053452-06:00",
+      "created_at": "2026-10-27T08:18:27.785719-06:00",
       "display_name": "Ana Organizer",
       "dropped_in_round": null,
       "event_id": "e0000000-0000-0000-0000-000000000001",
@@ -57,7 +70,7 @@
       "user_id": "00000000-0000-0000-0000-0000000000a1"
     },
     {
-      "created_at": "2026-10-19T13:21:38.053452-06:00",
+      "created_at": "2026-10-27T08:18:27.785719-06:00",
       "display_name": "Ben Player",
       "dropped_in_round": null,
       "event_id": "e0000000-0000-0000-0000-000000000001",
@@ -70,7 +83,7 @@
       "user_id": "00000000-0000-0000-0000-0000000000b1"
     },
     {
-      "created_at": "2026-10-19T13:21:38.053452-06:00",
+      "created_at": "2026-10-27T08:18:27.785719-06:00",
       "display_name": "Guest Cara",
       "dropped_in_round": null,
       "event_id": "e0000000-0000-0000-0000-000000000001",
@@ -89,7 +102,7 @@
       "id": "a0000000-0000-0000-0000-000000000001",
       "matches": [
         {
-          "created_at": "2026-10-19T13:21:38.055939-06:00",
+          "created_at": "2026-10-27T08:18:27.787992-06:00",
           "disputed": false,
           "event_id": "e0000000-0000-0000-0000-000000000001",
           "game_draws": 1,
@@ -100,7 +113,7 @@
             {
               "event_id": "e0000000-0000-0000-0000-000000000001",
               "game_wins": 2,
-              "id": "fd6e1be9-2286-4a1f-9740-3c757c945d33",
+              "id": "171a21d3-d6c2-4f8a-9b81-3ca9f1bc6861",
               "match_id": "b0000000-0000-0000-0000-000000000001",
               "participant_id": "f0000000-0000-0000-0000-000000000001",
               "side": 0,
@@ -109,7 +122,7 @@
             {
               "event_id": "e0000000-0000-0000-0000-000000000001",
               "game_wins": 1,
-              "id": "712a0525-434b-4d75-a9bf-a00d5c730d79",
+              "id": "1d7326af-680a-4388-9a5e-711dc4f67ad6",
               "match_id": "b0000000-0000-0000-0000-000000000001",
               "participant_id": "f0000000-0000-0000-0000-000000000003",
               "side": 1,
@@ -125,13 +138,14 @@
           "round_id": "a0000000-0000-0000-0000-000000000001",
           "status": "confirmed",
           "table_number": 1,
-          "updated_at": "2026-10-19T13:21:38.055939-06:00",
+          "updated_at": "2026-10-27T08:18:27.787992-06:00",
           "version": 0
         }
       ],
       "number": 1,
       "pairings_published_at": null,
       "recorded_at": null,
+      "stage": "swiss",
       "started_at": null,
       "status": "recorded",
       "timer_duration_seconds": 3000,
@@ -145,7 +159,7 @@
       "id": "a0000000-0000-0000-0000-000000000002",
       "matches": [
         {
-          "created_at": "2026-10-19T13:21:38.055939-06:00",
+          "created_at": "2026-10-27T08:18:27.787992-06:00",
           "disputed": false,
           "event_id": "e0000000-0000-0000-0000-000000000001",
           "game_draws": 0,
@@ -156,7 +170,7 @@
             {
               "event_id": "e0000000-0000-0000-0000-000000000001",
               "game_wins": 0,
-              "id": "e177b579-393b-49dc-b9df-39fe6c6e3b96",
+              "id": "fddd1886-c097-425e-b466-b6cf9fa9526f",
               "match_id": "b0000000-0000-0000-0000-000000000002",
               "participant_id": "f0000000-0000-0000-0000-000000000001",
               "side": 0,
@@ -165,7 +179,7 @@
             {
               "event_id": "e0000000-0000-0000-0000-000000000001",
               "game_wins": 0,
-              "id": "5f3c45e8-0c00-42aa-b023-39bae8d5cc43",
+              "id": "aabc50d6-80e8-4978-92cf-b7d3f95a1420",
               "match_id": "b0000000-0000-0000-0000-000000000002",
               "participant_id": "f0000000-0000-0000-0000-000000000002",
               "side": 1,
@@ -181,11 +195,11 @@
           "round_id": "a0000000-0000-0000-0000-000000000002",
           "status": "pending",
           "table_number": 1,
-          "updated_at": "2026-10-19T13:21:38.055939-06:00",
+          "updated_at": "2026-10-27T08:18:27.787992-06:00",
           "version": 0
         },
         {
-          "created_at": "2026-10-19T13:21:38.057142-06:00",
+          "created_at": "2026-10-27T08:18:27.789099-06:00",
           "disputed": false,
           "event_id": "e0000000-0000-0000-0000-000000000001",
           "game_draws": 0,
@@ -196,7 +210,7 @@
             {
               "event_id": "e0000000-0000-0000-0000-000000000001",
               "game_wins": 2,
-              "id": "00701744-e760-42f6-8034-b3b22567139f",
+              "id": "eb6a8da1-2119-483e-80d4-b0ff8e3da894",
               "match_id": "b0000000-0000-0000-0000-000000000003",
               "participant_id": "f0000000-0000-0000-0000-000000000003",
               "side": 0,
@@ -212,13 +226,14 @@
           "round_id": "a0000000-0000-0000-0000-000000000002",
           "status": "confirmed",
           "table_number": null,
-          "updated_at": "2026-10-19T13:21:38.057142-06:00",
+          "updated_at": "2026-10-27T08:18:27.789099-06:00",
           "version": 0
         }
       ],
       "number": 2,
       "pairings_published_at": null,
       "recorded_at": null,
+      "stage": "swiss",
       "started_at": null,
       "status": "active",
       "timer_duration_seconds": 3000,
@@ -228,5 +243,13 @@
       "timer_status": "paused"
     }
   ],
-  "teams": []
+  "teams": [],
+  "waitlist": [
+    {
+      "created_at": "2026-10-27T06:00:00-06:00",
+      "display_name": "Dot Waiting",
+      "position": 1,
+      "user_id": "00000000-0000-0000-0000-0000000000c1"
+    }
+  ]
 }

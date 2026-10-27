@@ -14,10 +14,14 @@ trap '$P -d postgres -c "drop database if exists $DB" >/dev/null' EXIT
 $P -d "$DB" >/dev/null <<'SQL'
 insert into auth.users (id, email, raw_user_meta_data) values
   ('00000000-0000-0000-0000-0000000000a1', 'org@example.com', '{"full_name": "Ana Organizer"}'),
-  ('00000000-0000-0000-0000-0000000000b1', 'ben@example.com', '{"full_name": "Ben Player"}');
-insert into public.events (id, short_code, name, created_by, status, current_round, number_of_rounds, format_name, set_name, venue_name)
+  ('00000000-0000-0000-0000-0000000000b1', 'ben@example.com', '{"full_name": "Ben Player"}'),
+  ('00000000-0000-0000-0000-0000000000c1', 'dot@example.com', '{"full_name": "Dot Waiting"}');
+insert into public.events (id, short_code, name, created_by, status, current_round, number_of_rounds, format_name, set_name, venue_name,
+                           starts_at, capacity, top_cut, decklists)
 values ('e0000000-0000-0000-0000-000000000001', 'FIXT', 'Fixture draft', '00000000-0000-0000-0000-0000000000a1',
-        'in_progress', 2, 3, 'draft', 'Murders at Karlov Manor', 'Denver Card Shop');
+        'in_progress', 2, 3, 'draft', 'Murders at Karlov Manor', 'Denver Card Shop', '2026-11-08 18:30:00+00', 8, 8, 'optional');
+insert into public.event_waitlist (event_id, user_id, display_name, created_at)
+values ('e0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000c1', 'Dot Waiting', '2026-10-27 12:00:00+00');
 insert into public.event_members (event_id, user_id, role) values ('e0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a1', 'owner');
 insert into public.pods (id, event_id) values ('d0000000-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000001');
 insert into public.participants (id, event_id, pod_id, user_id, display_name, seat) values
@@ -38,6 +42,8 @@ insert into public.match_sides (match_id, participant_id, side, game_wins) value
   ('b0000000-0000-0000-0000-000000000002', 'f0000000-0000-0000-0000-000000000001', 0, 0),
   ('b0000000-0000-0000-0000-000000000002', 'f0000000-0000-0000-0000-000000000002', 1, 0),
   ('b0000000-0000-0000-0000-000000000003', 'f0000000-0000-0000-0000-000000000003', 0, 2);
+insert into public.event_decklists (participant_id, event_id, body, main_count, side_count, submitted_at)
+values ('f0000000-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000001', E'60 Island\n\n15 Hydroblast', 60, 15, '2026-10-27 12:00:00+00');
 SQL
 dump() {  # $1 file, $2 role, $3 user, $4 sql
   $P -d "$DB" -tA -c "set role $2; select set_config('request.jwt.claim.sub', '$3', false), set_config('request.jwt.claim.role', '$2', false);" \
