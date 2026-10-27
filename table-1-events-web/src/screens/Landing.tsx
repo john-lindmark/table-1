@@ -3,6 +3,7 @@ import { useSession } from "../lib/useSession";
 import { SignInButtons } from "../components/SignInButtons";
 import { JoinByCode } from "../components/JoinByCode";
 import { BackArrow, BigAction, Screen, T1Logo } from "../components/kit";
+import { FAN_CONTENT } from "../lib/legal";
 
 const FEATURES: { title: string; body: string }[] = [
   {
@@ -64,6 +65,7 @@ export function Landing() {
         <Link to="/privacy" className="hover:text-t1-text">Privacy</Link>
         <Link to="/delete-account" className="hover:text-t1-text">Delete account</Link>
         <span>© {new Date().getFullYear()} Table 1</span>
+        <p className="basis-full normal-case tracking-normal">{FAN_CONTENT}</p>
       </footer>
     </Screen>
   );

@@ -37,6 +37,16 @@ enum EmailSignIn {
         return Int(match.1)
     }
 
+    // MARK: the store review account
+
+    /// App Store and Play reviewers can't read a code from our email, so this one address signs in with a fixed
+    /// code (its password, in John's Keychain) and no email is sent (contract § Review account).
+    static let reviewAddress = "appreview@table-1.site"
+
+    static func isReview(_ email: String) -> Bool {
+        email.trimmingCharacters(in: .whitespaces).lowercased() == reviewAddress
+    }
+
     // MARK: the code step, kept on the device
 
     struct Pending: Codable, Equatable {

@@ -26,6 +26,16 @@ export function sendOutcomeOf(e: unknown): SendOutcome {
   return sendOutcome(err?.status, err?.code, err?.message ?? "");
 }
 
+/**
+ * App Store and Play reviewers can't read a code from our email, so this one address signs in with a fixed
+ * code (its password, in John's Keychain) and no email is sent (contract § Review account).
+ */
+export const REVIEW_ADDRESS = "appreview@table-1.site";
+
+export function isReview(email: string): boolean {
+  return email.trim().toLowerCase() === REVIEW_ADDRESS;
+}
+
 export interface Pending {
   email: string;
   sentAt: number;

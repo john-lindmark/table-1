@@ -25,7 +25,7 @@ android {
         targetSdk = 36
         // Play needs a higher versionCode on every upload; tools/bundle-release.sh passes one.
         versionCode = prop("T1_VERSION_CODE").toIntOrNull() ?: 1
-        versionName = "0.1.0"
+        versionName = "1.0.0"
         buildConfigField("String", "SUPABASE_URL", "\"${prop("T1_SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${prop("T1_SUPABASE_ANON_KEY")}\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${prop("T1_GOOGLE_WEB_CLIENT_ID")}\"")

@@ -1,7 +1,7 @@
 import XCTest
 @testable import Table1
 
-/* A refused email send and the kept code step (contract/email-sign-in-2026-10-15.md § Already sent) against
+/* A refused email send and the kept code step (contract/email-sign-in-2026-10-15.md § Already sent) and the review account against
    testdata/email-sign-in/cases.json. */
 
 private let casesURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
@@ -14,8 +14,10 @@ private struct Cases: Decodable {
         let sent_at, resend_at, now, resend_at_out: Double
         let restored: Bool
     }
+    struct Review: Decodable { let name, email: String; let review: Bool }
     let send: [Send]
     let restore: [Restore]
+    let review: [Review]
 }
 
 final class EmailSignInTests: XCTestCase {
@@ -48,6 +50,10 @@ final class EmailSignInTests: XCTestCase {
         let p = EmailSignIn.pending(email: "a@b.co", now: now, wait: 19)
         XCTAssertEqual(p.resendAt, now.addingTimeInterval(19))
         XCTAssertEqual(EmailSignIn.restore(p, now: now.addingTimeInterval(5))?.resendAt, p.resendAt)
+    }
+
+    func testReviewAddress() {
+        for c in cases.review { XCTAssertEqual(EmailSignIn.isReview(c.email), c.review, c.name) }
     }
 
     func testSaveLoadClear() {

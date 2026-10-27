@@ -1,13 +1,14 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { pendingAfterSend, restorePending, sendOutcome, sendOutcomeOf } from "./emailSignIn";
+import { isReview, pendingAfterSend, restorePending, sendOutcome, sendOutcomeOf } from "./emailSignIn";
 
-/* A refused email send and the kept code step (contract/email-sign-in-2026-10-15.md § Already sent) against
+/* A refused email send and the kept code step (contract/email-sign-in-2026-10-15.md § Already sent) and the review account against
    testdata/email-sign-in/cases.json (also iOS EmailSignInTests and Android EmailSignInTest). */
 
 interface Cases {
   send: { name: string; status: number; code: string; message: string; outcome: string; wait: number }[];
   restore: { name: string; email: string; sent_at: number; resend_at: number; now: number; restored: boolean; resend_at_out: number }[];
+  review: { name: string; email: string; review: boolean }[];
 }
 
 const cases: Cases = JSON.parse(readFileSync(new URL("../../../testdata/email-sign-in/cases.json", import.meta.url), "utf8"));
@@ -23,6 +24,10 @@ describe("email sign-in", () => {
     const out = restorePending({ email: c.email, sentAt: c.sent_at * 1000, resendAt: c.resend_at * 1000 }, c.now * 1000);
     expect(out !== null).toBe(c.restored);
     if (out) expect(out.resendAt).toBe(c.resend_at_out * 1000);
+  });
+
+  it.each(cases.review)("review: $name", (c) => {
+    expect(isReview(c.email)).toBe(c.review);
   });
 
   it("reads supabase-js's AuthApiError", () => {

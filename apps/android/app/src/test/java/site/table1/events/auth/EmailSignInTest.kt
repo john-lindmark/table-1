@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
-/* A refused email send and the kept code step (contract/email-sign-in-2026-10-15.md § Already sent) against
+/* A refused email send and the kept code step (contract/email-sign-in-2026-10-15.md § Already sent) and the review account against
    testdata/email-sign-in/cases.json (also iOS EmailSignInTests and web emailSignIn.test.ts). */
 class EmailSignInTest {
     @Serializable private data class Send(val name: String, val status: Int, val code: String, val message: String, val outcome: String, val wait: Int)
@@ -16,7 +16,8 @@ class EmailSignInTest {
         val name: String, val email: String, val sent_at: Long, val resend_at: Long, val now: Long,
         val restored: Boolean, val resend_at_out: Long,
     )
-    @Serializable private data class Cases(val send: List<Send>, val restore: List<Restore>)
+    @Serializable private data class Review(val name: String, val email: String, val review: Boolean)
+    @Serializable private data class Cases(val send: List<Send>, val restore: List<Restore>, val review: List<Review>)
 
     private val cases = Json { ignoreUnknownKeys = true }.decodeFromString<Cases>(
         File(generateSequence(File("").absoluteFile) { it.parentFile }.map { File(it, "testdata/email-sign-in") }
@@ -41,6 +42,10 @@ class EmailSignInTest {
             assertEquals(c.name, c.restored, out != null)
             if (out != null) assertEquals(c.name, c.resend_at_out * 1000, out.resendAt)
         }
+    }
+
+    @Test fun reviewAddress() {
+        for (c in cases.review) assertEquals(c.name, c.review, EmailSignIn.isReview(c.email))
     }
 
     @Test fun readsAuthRestException() {

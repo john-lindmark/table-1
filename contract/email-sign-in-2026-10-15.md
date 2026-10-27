@@ -42,8 +42,26 @@ email. Check the address", stayed on the address step, and the Return key could 
 `type: email` covers both first sign-in (Confirm signup template) and returning users (Magic Link template).
 Accounts with the same verified email as an Apple/Google identity are linked by Supabase.
 
+## Review account (2026-10-26)
+App Store and Play reviewers can't read a code from our email, so one address, `appreview@table-1.site`, signs in
+with a fixed code. On all three clients (`EmailSignIn.isReview` / `isReview`; cases `review` in
+`testdata/email-sign-in/cases.json`): an address that is that one after trimming and lowercasing goes to the code
+step **without sending an email** (no Supabase call, no `sign_in_email_sent`), and its code is sent as the
+account's **password** (`signInWithPassword`; iOS `signed_in` method `review`). Any other address is unchanged. The
+code is 10 digits (the code fields take up to 10) and lives only in John's Keychain: service `Table 1 App Review`,
+account `appreview@table-1.site` (`security find-generic-password -s "Table 1 App Review" -w`). Only this account
+has a password; nobody else can set one from the apps.
+
+The account (made 2026-10-26, id `cb992b93-2672-423e-8949-d405203bc756`, name Robin Ash; "App Review" was flagged as possible impersonation, so it has a plain player name) is in
+`t1_private.demo_testers`, so it sees the demo events (seeded with `demo_seed`: 11 events, a live round, rotos)
+and a Library seeded from the iOS demo fixture: 400 printings / 790 copies, Boros Energy and Izzet Murktide, the
+Vintage Cube. `tools/review/seed.sh` signs in with the Keychain code and reseeds (demo events reset, Library
+idempotent). If a reviewer deletes the account, recreate it as in `APP-REVIEW.md` and run the script.
+Review notes and the store privacy answers: `APP-REVIEW.md`.
+
 ## Server config (Supabase dashboard, project aaozhfcbvqrgkkrihkrd)
-- Auth → Providers → **Email: on**, Confirm email on. Passwords aren't used by the clients.
+- Auth → Providers → **Email: on**, Confirm email on. Passwords aren't used by the clients, except by the review
+  account below.
 - Auth → Email Templates → **Magic Link** and **Confirm signup**: body = `supabase/templates/sign-in.html`,
   subject `Your Table 1 code: {{ .Token }}`.
 - Auth → SMTP: a custom sender (e.g. Resend, `signin@table-1.site`). The built-in sender only mails project

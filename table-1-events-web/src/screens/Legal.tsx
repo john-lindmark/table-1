@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabaseClient";
 import { useSession } from "../lib/useSession";
 import { SignInButtons } from "../components/SignInButtons";
 import { Notice, Screen, T1Logo } from "../components/kit";
+import { FAN_CONTENT } from "../lib/legal";
 
 /*
  * Public pages linked from Google's OAuth consent screen and Play Console's App content:
@@ -43,6 +44,7 @@ function LegalScreen({ title, children }: { title: string; children: ReactNode }
       <div className="flex-1 flex flex-col gap-px">{children}</div>
       <div className="bg-t1-surface px-4 py-4 t1-label">
         Questions: <a className="text-t1-text underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+        <p className="mt-2 normal-case tracking-normal">{FAN_CONTENT}</p>
       </div>
     </Screen>
   );

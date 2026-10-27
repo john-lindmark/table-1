@@ -74,13 +74,20 @@ enum SignIn {
     // MARK: Email
 
     /// Sends the sign-in email (a link and the same code). New addresses get an account.
+    /// The review account gets no email: its code is fixed.
     static func sendEmailCode(to email: String) async throws {
+        guard !EmailSignIn.isReview(email) else { return }
         try await supabase.auth.signInWithOTP(email: email, shouldCreateUser: true)
         Telemetry.capture("sign_in_email_sent")
     }
 
-    /// The code typed from the email.
+    /// The code typed from the email (for the review account, its password).
     static func verifyEmailCode(email: String, code: String) async throws {
+        if EmailSignIn.isReview(email) {
+            try await supabase.auth.signIn(email: EmailSignIn.reviewAddress, password: code)
+            Telemetry.capture("signed_in", ["method": "review"])
+            return
+        }
         try await supabase.auth.verifyOTP(email: email, token: code, type: .email)
         Telemetry.capture("signed_in", ["method": "email_code"])
     }

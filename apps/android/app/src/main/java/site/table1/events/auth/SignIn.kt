@@ -15,6 +15,7 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Apple
 import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.IDToken
+import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.providers.builtin.OTP
 import io.github.jan.supabase.auth.user.UserInfo
 import kotlinx.serialization.json.JsonPrimitive
@@ -62,14 +63,22 @@ object SignIn {
 
     /** Email: one message with a link and the same one-time code. New addresses get an account. */
     suspend fun sendEmailCode(email: String) {
+        if (EmailSignIn.isReview(email)) return // the review account's code is fixed: no email
         T1App.supabase.auth.signInWith(OTP) {
             this.email = email
             createUser = true
         }
     }
 
-    /** The code typed from the email. */
+    /** The code typed from the email (for the review account, its password). */
     suspend fun verifyEmailCode(email: String, code: String) {
+        if (EmailSignIn.isReview(email)) {
+            T1App.supabase.auth.signInWith(Email) {
+                this.email = EmailSignIn.REVIEW_ADDRESS
+                password = code
+            }
+            return
+        }
         T1App.supabase.auth.verifyEmailOtp(type = OtpType.Email.EMAIL, email = email, token = code)
     }
 

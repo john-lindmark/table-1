@@ -1,5 +1,5 @@
 {
-  "about": "Email sign-in when Supabase refuses to send (contract/email-sign-in-2026-10-15.md § Already sent). 'send' maps a failed signInWithOtp (HTTP status, error code, message) to an outcome: already_sent (the per-address minute: a code went out moments ago, so go to the code step and count down 'wait' seconds), too_many (the project's hourly email cap, or too many requests from this network: no code is on its way), or failed. 'restore' is whether a code step saved at 'sent_at' (seconds) comes back at 'now': within 3600 s (the code's life) it does, with resend_at = sent_at + 60 unless a later resend_at was saved. iOS EmailSignInTests, web emailSignIn.test.ts and Android EmailSignInTest read this.",
+  "about": "Email sign-in when Supabase refuses to send (contract/email-sign-in-2026-10-15.md § Already sent). 'send' maps a failed signInWithOtp (HTTP status, error code, message) to an outcome: already_sent (the per-address minute: a code went out moments ago, so go to the code step and count down 'wait' seconds), too_many (the project's hourly email cap, or too many requests from this network: no code is on its way), or failed. 'restore' is whether a code step saved at 'sent_at' (seconds) comes back at 'now': within 3600 s (the code's life) it does, with resend_at = sent_at + 60 unless a later resend_at was saved. iOS EmailSignInTests, web emailSignIn.test.ts and Android EmailSignInTest read this. 'review' is whether an address is the store review account (contract § Review account): trimmed and lowercased, only appreview@table-1.site itself; its code is a password, so no email is sent.",
   "send": [
     {"name": "per-address minute", "status": 429, "code": "over_email_send_rate_limit", "message": "For security purposes, you can only request this after 19 seconds.", "outcome": "already_sent", "wait": 19},
     {"name": "one second left", "status": 429, "code": "over_email_send_rate_limit", "message": "For security purposes, you can only request this after 1 seconds.", "outcome": "already_sent", "wait": 1},
@@ -22,5 +22,13 @@
     {"name": "code expired", "email": "a@b.co", "sent_at": 1000, "resend_at": 1060, "now": 4600, "restored": false, "resend_at_out": 0},
     {"name": "clock went back", "email": "a@b.co", "sent_at": 1000, "resend_at": 1060, "now": 900, "restored": false, "resend_at_out": 0},
     {"name": "no address", "email": "", "sent_at": 1000, "resend_at": 1060, "now": 1010, "restored": false, "resend_at_out": 0}
+  ],
+  "review": [
+    {"name": "the review address", "email": "appreview@table-1.site", "review": true},
+    {"name": "case and spaces", "email": "  AppReview@Table-1.Site ", "review": true},
+    {"name": "another table-1 address", "email": "review@table-1.site", "review": false},
+    {"name": "look-alike domain", "email": "appreview@table-1.site.example.com", "review": false},
+    {"name": "plus address", "email": "appreview+1@table-1.site", "review": false},
+    {"name": "a player", "email": "player@example.com", "review": false}
   ]
 }

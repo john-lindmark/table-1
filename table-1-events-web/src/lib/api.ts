@@ -2,6 +2,7 @@ import { supabase } from "./supabaseClient";
 import { getLocalParticipant } from "./session";
 import type { User } from "@supabase/supabase-js";
 import { capture, signInStarted } from "./telemetry";
+import { isReview, REVIEW_ADDRESS } from "./emailSignIn";
 import { joinHeader, type JoinHeader } from "./joinPreview";
 import {
   GOOGLE_REQUEST_KEY,
@@ -483,6 +484,7 @@ const EMAIL_RETURN_KEY = "t1.signin.returnTo";
 /** Sends the sign-in email: a link (opens the app when installed) and the same one-time code. */
 export async function sendEmailCode(email: string, returnTo = window.location.pathname + window.location.search) {
   signInStarted("email");
+  if (isReview(email)) return; // the review account's code is fixed: no email
   const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
   if (error) throw error;
   try {
@@ -492,9 +494,11 @@ export async function sendEmailCode(email: string, returnTo = window.location.pa
   }
 }
 
-/** The code typed from the email. */
+/** The code typed from the email (for the review account, its password). */
 export async function verifyEmailCode(email: string, code: string) {
-  const { error } = await supabase.auth.verifyOtp({ email, token: code, type: "email" });
+  const { error } = isReview(email)
+    ? await supabase.auth.signInWithPassword({ email: REVIEW_ADDRESS, password: code })
+    : await supabase.auth.verifyOtp({ email, token: code, type: "email" });
   if (error) throw error;
 }
 

@@ -15,6 +15,7 @@ import type { AccountOverview } from "../lib/types";
 import { useSession } from "../lib/useSession";
 import { Bar, Menu, Notice, Screen, Segmented, TopNav, type MenuItem } from "../components/kit";
 import { useTrackerMode } from "../lib/settings";
+import { FAN_CONTENT } from "../lib/legal";
 
 /** "Share usage and crash data": PostHog and Sentry on this browser (contract/telemetry-2026-10-15.md). */
 function SharingToggle() {
@@ -325,6 +326,12 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile }: {
             </>
           )}
         </div>
+        <div className="bg-t1-surface px-4 py-2 t1-label">About</div>
+        <Notice tone="info">{FAN_CONTENT}</Notice>
+        <a href="/privacy" className="bg-t1-surface px-4 py-3.5 flex justify-between t1-label hover:bg-t1-surface-hover">
+          <span className="text-t1-text!">Privacy policy</span>
+          <span>Open</span>
+        </a>
       </div>
       {avatarMenu && <Menu title="Profile photo" items={avatarItems} onClose={() => setAvatarMenu(false)} />}
     </Screen>

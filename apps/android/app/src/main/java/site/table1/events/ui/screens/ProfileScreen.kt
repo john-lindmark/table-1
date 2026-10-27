@@ -38,6 +38,8 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import site.table1.events.BuildConfig
+import site.table1.events.util.Legal
 import site.table1.events.auth.SignIn
 import site.table1.events.data.AccountOverview
 import site.table1.events.data.Repo
@@ -241,6 +243,15 @@ fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit
                     Ghost(if (deleting) "Deleting…" else "Delete account", enabled = !deleting) { confirmDelete = true }
                 }
             }
+
+            item { Section("About") }
+            item { Notice(Legal.FAN_CONTENT) }
+            item {
+                ListRow("Privacy policy", "table-1.site/privacy", onClick = {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Legal.PRIVACY_URL)))
+                }) { Label("Open", color = T1.text) }
+            }
+            item { Notice("Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})") }
         }
     }
 

@@ -37,6 +37,14 @@ object EmailSignIn {
         return outcome(rest.statusCode, code, listOfNotNull(rest.description, rest.message).joinToString(" "))
     }
 
+    /**
+     * App Store and Play reviewers can't read a code from our email, so this one address signs in with a fixed
+     * code (its password, in John's Keychain) and no email is sent (contract § Review account).
+     */
+    const val REVIEW_ADDRESS = "appreview@table-1.site"
+
+    fun isReview(email: String): Boolean = email.trim().lowercase() == REVIEW_ADDRESS
+
     data class Pending(val email: String, val sentAt: Long, val resendAt: Long)
 
     /** The saved code step if its code can still be used at [now], with Resend never before send + 60 s. */

@@ -96,6 +96,14 @@ struct AccountView: View {
                 Section1("Account")
                 Ghost(text: "Sign out") { Task { await SignIn.signOut() } }
                 Ghost(text: deleting ? "Deleting…" : "Delete account") { if !deleting { confirmDelete = true } }
+
+                Section1("About")
+                Notice(Legal.fanContent)
+                Link(destination: Legal.privacyURL) {
+                    ListRow(title: "Privacy policy", detail: "table-1.site/privacy") { LabelText("Open", color: T1.text) }
+                }
+                .buttonStyle(.plain)
+                Notice("Version \(Legal.version)")
             }
         }
         .refreshable { await load() }
