@@ -57,12 +57,14 @@ private fun DrawScope.label(tm: TextMeasurer, text: String, x: Float, y: Float, 
 @Composable
 fun InsightLineChart(series: List<LineSeries>, count: Int, markers: List<ChartMarker> = emptyList(), xLabels: List<Pair<Int, String>> = emptyList(),
                      height: Dp = 190.dp, format: (Double) -> String = InsightCharts::pct, labelWidth: Dp = 96.dp,
+                     // endLabels: labels at the line ends; off where a picker under the chart names the lines, so the plot runs to the right edge.
+                     endLabels: Boolean = true,
                      // fit: scale the y axis to the values (and the reference) instead of starting at 0, e.g. win rates around 50%.
                      // reference: a dashed line across the chart with its own end label, e.g. the average win rate in scope.
                      fit: Boolean = false, reference: Pair<String, Double>? = null) {
     val tm = rememberTextMeasurer()
     Canvas(Modifier.fillMaxWidth().height(height).background(T1.surface).padding(vertical = 12.dp, horizontal = 8.dp)) {
-        val left = 34.dp.toPx(); val right = labelWidth.toPx(); val top = 14.dp.toPx(); val bottom = 18.dp.toPx()
+        val left = 34.dp.toPx(); val right = if (endLabels) labelWidth.toPx() else 2.dp.toPx(); val top = 14.dp.toPx(); val bottom = 18.dp.toPx()
         val w = max(1f, size.width - left - right); val h = max(1f, size.height - top - bottom)
         val all = series.flatMap { s -> s.values.filterNotNull() } + listOfNotNull(reference?.second)
         val yt = if (fit) InsightCharts.ticks(all.minOrNull() ?: 0.0, all.maxOrNull() ?: 1.0, 3)
@@ -74,7 +76,11 @@ fun InsightLineChart(series: List<LineSeries>, count: Int, markers: List<ChartMa
             drawLine(T1.surfaceHover, Offset(left, y(t)), Offset(left + w, y(t)), 1f)
             label(tm, format(t), left - 4, y(t), T1.muted, anchor = "end-mid")
         }
-        xLabels.forEach { (i, l) -> label(tm, l, x(i), size.height, T1.muted, anchor = "center-bottom") }
+        // kept inside the right edge, which has no end labels to make room when they're off
+        xLabels.forEach { (i, l) ->
+            val half = tm.measure(l, TextStyle(fontFamily = T1.mono, fontSize = 9.sp)).size.width / 2f
+            label(tm, l, min(x(i), size.width - half), size.height, T1.muted, anchor = "center-bottom")
+        }
         markers.filter { it.index in 0 until count }.forEach { m ->
             val c = if (m.ban) T1.warning else T1.disabled
             drawLine(c, Offset(x(m.index), top), Offset(x(m.index), top + h), 1f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f)))
@@ -94,6 +100,7 @@ fun InsightLineChart(series: List<LineSeries>, count: Int, markers: List<ChartMa
                 }
             }
         }
+        if (!endLabels) return@Canvas
         val ends = series.mapNotNull { s -> s.values.lastOrNull { it != null }?.let { Triple(s.label, it, if (s.highlighted) T1.accent else T1.muted) } } +
             listOfNotNull(reference?.let { Triple(it.first, it.second, T1.text) })
         val ys = InsightCharts.spread(ends.map { y(it.second).toDouble() }, 11.dp.toPx().toDouble(), top.toDouble(), (top + h).toDouble())

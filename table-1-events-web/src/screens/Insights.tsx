@@ -151,14 +151,15 @@ function ConstructedBody({ pack, tier, view, w, days, board, setBoard, hl, setHl
       ))}
       <Section title="Meta over time · 7-day share" />
       <Chart>
-        <LineChart count={span.days} xLabels={span.labels} markers={markers} height={320}
+        <LineChart count={span.days} xLabels={span.labels} markers={markers} height={320} endLabels={false}
                    series={lines.map((l) => ({ id: l.a, label: archetypeName(pack, l.a), values: l.v, highlighted: l.a === highlighted }))} />
       </Chart>
       <div className="flex gap-px overflow-x-auto">
         {lines.map((l) => (
           <button key={l.a} type="button" onClick={() => setHl(l.a)}
                   className={`shrink-0 px-3 py-2.5 text-[11px] uppercase tracking-[1.5px] ${l.a === highlighted ? "bg-t1-text text-t1-bg" : "bg-t1-surface hover:bg-t1-surface-hover"}`}>
-            {archetypeName(pack, l.a)}
+            {/* the picked line's latest share, since the chart has no end labels */}
+            {l.a === highlighted ? [archetypeName(pack, l.a), ...l.v.filter((v) => v != null).slice(-1).map(pct)].join(" · ") : archetypeName(pack, l.a)}
           </button>
         ))}
       </div>

@@ -12,15 +12,17 @@ export interface LineSeries { id: string | number; label: string; values: (numbe
 export interface Marker { index: number; label: string; ban: boolean }
 
 /** Share lines over time with change markers and labels at the line ends. */
-export function LineChart({ series, count, markers = [], xLabels = [], height = 200, format = pct, labelWidth = 120, fitY = false, reference }: {
+export function LineChart({ series, count, markers = [], xLabels = [], height = 200, format = pct, labelWidth = 120, endLabels = true, fitY = false, reference }: {
   series: LineSeries[]; count: number; markers?: Marker[]; xLabels?: [number, string][]; height?: number;
   format?: (x: number) => string; labelWidth?: number;
+  /** Labels at the line ends. Off where a picker under the chart names the lines, so the plot runs to the right edge. */
+  endLabels?: boolean;
   /** Scale the y axis to the values (and the reference) instead of starting at 0, e.g. win rates around 50%. */
   fitY?: boolean;
   /** A dashed line across the chart with its own end label, e.g. the average win rate in scope. */
   reference?: { label: string; value: number };
 }) {
-  const left = 40, right = labelWidth, top = 16, bottom = 18;
+  const left = 40, right = endLabels ? labelWidth : 4, top = 16, bottom = 18;
   const w = W - left - right, h = height - top - bottom;
   const all = [...series.flatMap((s) => s.values.filter((v): v is number => v != null)), ...(reference ? [reference.value] : [])];
   const yt = fitY && all.length ? ticks(Math.min(...all), Math.max(...all), 3) : ticks(0, Math.max(Math.max(0, ...all), 0.05), 3);
@@ -42,7 +44,8 @@ export function LineChart({ series, count, markers = [], xLabels = [], height = 
           <text x={left - 6} y={y(t)} fill={C.muted} fontSize={10} textAnchor="end" dominantBaseline="middle">{format(t)}</text>
         </g>
       ))}
-      {xLabels.map(([i, l]) => <text key={i} x={x(i)} y={height - 2} fill={C.muted} fontSize={10} textAnchor="middle">{l}</text>)}
+      {/* kept inside the right edge, which has no end labels to make room when they're off */}
+      {xLabels.map(([i, l]) => <text key={i} x={Math.min(x(i), W - l.length * 3.2)} y={height - 2} fill={C.muted} fontSize={10} textAnchor="middle">{l}</text>)}
       {markers.filter((m) => m.index >= 0 && m.index < count).map((m) => (
         <g key={`${m.index}${m.label}`}>
           <line x1={x(m.index)} x2={x(m.index)} y1={top} y2={top + h} stroke={m.ban ? C.warning : C.disabled} strokeDasharray="3 3" />
@@ -54,7 +57,7 @@ export function LineChart({ series, count, markers = [], xLabels = [], height = 
         ? <circle key={`${s.id}-${k}`} cx={x(seg[0][0])} cy={y(seg[0][1])} r={1.8} fill={s.highlighted ? C.accent : C.muted} />
         : <polyline key={`${s.id}-${k}`} fill="none" points={seg.map(([i, v]) => `${x(i)},${y(v)}`).join(" ")}
                     stroke={s.highlighted ? C.accent : C.muted} strokeOpacity={s.highlighted ? 1 : 0.55} strokeWidth={s.highlighted ? 2 : 1} />))}
-      {ends.map((e, k) => (
+      {endLabels && ends.map((e, k) => (
         <text key={e.id} x={left + w + 6} y={endY[k]} fill={e.fill} fontSize={10} dominantBaseline="middle">
           {`${e.label} ${format(e.v!)}`.slice(0, 22)}
         </text>

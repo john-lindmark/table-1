@@ -204,13 +204,15 @@ struct ConstructedHomeSection: View {
         InsightLineChart(series: lines.map { .init(id: $0.a, label: short(pack.name($0.a)), values: $0.v, highlighted: $0.a == hl) },
                          markers: markers(pack, from: span.from, days: span.days),
                          xLabels: span.labels,
-                         count: span.days, height: 300)
-            .padding(.vertical, 12).padding(.leading, 8).padding(.trailing, 4).background(T1.surface)
+                         count: span.days, height: 300, endLabels: false)
+            .padding(.vertical, 12).padding(.leading, 8).padding(.trailing, 8).background(T1.surface)
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 1) {
                 ForEach(lines, id: \.a) { l in
                     Button { highlighted = l.a } label: {
-                        LabelText(pack.name(l.a), color: l.a == hl ? T1.ink : T1.text)
+                        // the picked line's latest share, since the chart has no end labels
+                        LabelText(l.a == hl ? [pack.name(l.a), l.v.last(where: { $0 != nil }).flatMap { $0 }.map(InsightCharts.pct)].compactMap { $0 }.joined(separator: " · ") : pack.name(l.a),
+                                  color: l.a == hl ? T1.ink : T1.text)
                             .padding(.horizontal, 12).padding(.vertical, 10).background(l.a == hl ? T1.text : T1.surface)
                     }.buttonStyle(.plain)
                 }

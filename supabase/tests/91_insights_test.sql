@@ -231,6 +231,12 @@ insert into public.cards (id, oracle_id, set_code, collector_number, lang, rarit
 values (md5('tst1')::uuid, md5('Lightning Bolt')::uuid, 'tst', '1', 'en', 'common', '{nonfoil}', 'normal', current_date - 20, 'h');
 select t1_private.meta_legality_propose();
 select pg_temp.eq('a set release with legal cards is a confirmed change', (select status from t1_private.meta_format_changes where kind = 'set_release' and set_code = 'tst' and format = 'modern'), 'confirmed');
+-- A set of reprints brings the format nothing new (Mystery Booster Commander on Modern's chart).
+insert into public.mtg_sets (code, name, set_type, released_at) values ('rpt', 'Reprint Set', 'draft_innovation', current_date - 5);
+insert into public.cards (id, oracle_id, set_code, collector_number, lang, rarity, finishes, layout, released_at, content_hash)
+values (md5('rpt1')::uuid, md5('Lightning Bolt')::uuid, 'rpt', '1', 'en', 'common', '{nonfoil}', 'normal', current_date - 5, 'h');
+select t1_private.meta_legality_propose();
+select pg_temp.eq('a set of reprints is no release', (select count(*)::text from t1_private.meta_format_changes where set_code = 'rpt'), '0');
 -- Canadian Highlander has no Scryfall legality: a set reaches it when its cards are legal in Vintage.
 select pg_temp.eq('no Vintage legality, no Canadian Highlander release', (select count(*)::text from t1_private.meta_format_changes where set_code = 'tst' and format = 'canlander'), '0');
 update public.card_oracles set legalities = legalities || '{"vintage": "legal"}' where name = 'Lightning Bolt';

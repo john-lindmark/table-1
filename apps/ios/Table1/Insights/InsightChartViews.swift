@@ -14,6 +14,8 @@ struct InsightLineChart: View {
     var height: CGFloat = 190
     var format: (Double) -> String = InsightCharts.pct
     var labelWidth: CGFloat = 96
+    /// Labels at the line ends. Off where a picker under the chart names the lines, so the plot runs to the right edge.
+    var endLabels = true
     /// Scale the y axis to the values (and the reference) instead of starting at 0, e.g. win rates around 50%.
     var fit = false
     /// A dashed line across the chart with its own end label, e.g. the average win rate in scope.
@@ -21,7 +23,7 @@ struct InsightLineChart: View {
 
     var body: some View {
         Canvas { ctx, size in
-            let left: CGFloat = 34, right = labelWidth, top: CGFloat = 14, bottom: CGFloat = 18
+            let left: CGFloat = 34, right = endLabels ? labelWidth : 2, top: CGFloat = 14, bottom: CGFloat = 18
             let w = max(1, size.width - left - right), h = max(1, size.height - top - bottom)
             let all = series.flatMap { $0.values.compactMap { $0 } } + (reference.map { [$0.value] } ?? [])
             let ticks = fit ? InsightCharts.ticks(all.min() ?? 0, all.max() ?? 1, count: 3)
@@ -36,7 +38,9 @@ struct InsightLineChart: View {
                 ctx.draw(Text(format(t)).font(T1.mono(9)).foregroundStyle(T1.muted), at: .init(x: left - 4, y: y(t)), anchor: .trailing)
             }
             for (i, l) in xLabels {
-                ctx.draw(Text(l).font(T1.mono(9)).foregroundStyle(T1.muted), at: .init(x: x(i), y: size.height - 2), anchor: .bottom)
+                // kept inside the right edge, which has no end labels to make room when they're off
+                let t = ctx.resolve(Text(l).font(T1.mono(9)).foregroundStyle(T1.muted))
+                ctx.draw(t, at: .init(x: min(x(i), size.width - t.measure(in: size).width / 2), y: size.height - 2), anchor: .bottom)
             }
             for m in markers where m.index >= 0 && m.index < count {
                 var p = Path()
@@ -61,6 +65,7 @@ struct InsightLineChart: View {
                 }
             }
             // end labels, kept apart
+            guard endLabels else { return }
             var ends = series.compactMap { s -> (String, Double, Color)? in
                 s.values.last(where: { $0 != nil }).flatMap { $0 }.map { (s.label, $0, s.highlighted ? T1.accent : T1.muted) }
             }

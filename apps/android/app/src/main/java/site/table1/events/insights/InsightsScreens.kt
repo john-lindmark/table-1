@@ -192,10 +192,12 @@ private fun ConstructedHome(navigate: (String) -> Unit) {
         InsightCharts.daysBetween(span.from, c.on)?.let { ChartMarker(it, if (c.isBan) c.kind.uppercase() else (c.set_code ?: "").uppercase(), c.isBan) }
     }.groupBy { it.index }.map { (i, ms) -> ChartMarker(i, ms.joinToString("/") { it.label }, ms.any { it.ban }) }
     InsightLineChart(lines.map { LineSeries(it.a.toString(), pack.name(it.a).let { n -> if (n.length > 14) n.take(13) + "…" else n }, it.v, it.a == h) },
-        span.days, markers, span.labels, height = 300.dp)
+        span.days, markers, span.labels, height = 300.dp, endLabels = false)
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
         lines.forEach { l ->
-            Label(pack.name(l.a), Modifier.background(if (l.a == h) T1.text else T1.surface).clickable { hl = l.a }.padding(horizontal = 12.dp, vertical = 10.dp),
+            // the picked line's latest share, since the chart has no end labels
+            val name = if (l.a == h) listOfNotNull(pack.name(l.a), l.v.lastOrNull { it != null }?.let(InsightCharts::pct)).joinToString(" · ") else pack.name(l.a)
+            Label(name, Modifier.background(if (l.a == h) T1.text else T1.surface).clickable { hl = l.a }.padding(horizontal = 12.dp, vertical = 10.dp),
                 color = if (l.a == h) T1.ink else T1.text)
         }
     }
