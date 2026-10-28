@@ -338,19 +338,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                         onCard = { nav.navigate("collection/card/$it?search=1") }, onTrade = { nav.navigate("collection/trade/$it") })
                 }
                 composable("collection") {
-                    LibraryHomeScreen(
-                        foregrounds = foregrounds,
-                        onAllCards = { nav.navigate("collection/all") },
-                        onAdd = { nav.navigate("collection/add") },
-                        onImportExport = { nav.navigate("collection/csv") },
-                        onDecks = { nav.navigate("collection/decks") },
-                        onCubes = { nav.navigate("collection/cubes") },
-                        onTrades = { nav.navigate("collection/trades") },
-                        onBinders = { nav.navigate("collection/binders") },
-                        onWants = { nav.navigate("collection/wants") },
-                        onMatches = { nav.navigate("collection/matches") },
-                        onFollowing = { nav.navigate("collection/following") },
-                    )
+                    LibraryHomeScreen(foregrounds = foregrounds, go = { nav.navigate(it) })
                 }
                 composable("collection/binders") {
                     BindersScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/binder/$it") },
@@ -458,7 +446,8 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                         onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it?list=${e.arguments?.getString("id") ?: ""}") })
                 }
                 composable("collection/trades") {
-                    TradesScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/trade/${it ?: "new"}") })
+                    TradesScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/trade/${it ?: "new"}") },
+                        onMatch = { nav.navigate("collection/match/$it") }, onMatches = { nav.navigate("collection/matches") })
                 }
                 composable("collection/trade/{id}") { e ->
                     val id = e.arguments?.getString("id")?.takeIf { it != "new" }
@@ -476,6 +465,9 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 }
                 composable("collection/add") {
                     AddCardsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/card/$it") })
+                }
+                composable("collection/search") {
+                    AddCardsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/card/$it") }, search = true)
                 }
                 // Opened from a deck/cube (?list=) or a binder (?binder=): that list's lines or binder's copies come first.
                 // ?search=1: wants, Missing, a friend's or shared card (contract/card-detail-2026-10-23.md § Scope).

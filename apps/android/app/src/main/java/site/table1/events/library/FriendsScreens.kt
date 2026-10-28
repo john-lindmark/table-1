@@ -78,18 +78,12 @@ fun LazyListScope.friendsAccountRows(state: FriendsState, onFriends: () -> Unit,
     item { ListRow("Your profile", "Name, photo and what you share", onClick = onProfile) }
 }
 
-/** Library home: who has what you want, who wants what you have. */
+/** One person in Trade matches (and in Trades): who, what each side has, and the value. */
 @Composable
-fun TradeMatchesRow(onClick: () -> Unit) {
-    val s by FriendsStore.state.collectAsState()
-    LaunchedEffect(Unit) { FriendsStore.loadMatches() }
-    val m = s.matches.orEmpty()
-    ListRow("Trade matches", when {
-        s.matches == null -> "Friends' trades against your wants"
-        m.isEmpty() -> "None yet · friends' trades against your wants"
-        else -> "${plural(m.size, "person", "people")} · have ${m.sumOf { it.haveCopies }} · want ${m.sumOf { it.wantCopies }}"
-    }, onClick = onClick) {
-        if (m.isNotEmpty()) Text("${m.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
+fun TradeMatchRow(x: TradeMatch, onClick: () -> Unit) {
+    ListRow(x.displayName, x.short + if (x.friend) "" else " · played with you", onClick = onClick,
+        avatar = { Avatar(x.displayName, x.userId) }) {
+        if (x.haveUsd + x.wantUsd > 0) PriceBook.text(x.haveUsd + x.wantUsd)?.let { Text(it, color = T1.text, fontFamily = T1.mono, fontSize = 15.sp) }
     }
 }
 
@@ -691,12 +685,7 @@ fun TradeMatchesScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onFriends: 
                     item { ListRow("Friends", "Add friends to trade with", onClick = onFriends) }
                     item { ListRow("Sharing", "Share your For trade and Wants", onClick = onSharing) }
                 }
-                else -> items(m, key = { it.userId }) { x ->
-                    ListRow(x.displayName, x.short + if (x.friend) "" else " · played with you", onClick = { onOpen(x.userId) },
-                        avatar = { Avatar(x.displayName, x.userId) }) {
-                        if (x.haveUsd + x.wantUsd > 0) PriceBook.text(x.haveUsd + x.wantUsd)?.let { Text(it, color = T1.text, fontFamily = T1.mono, fontSize = 15.sp) }
-                    }
-                }
+                else -> items(m, key = { it.userId }) { x -> TradeMatchRow(x) { onOpen(x.userId) } }
             }
         }
     }

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef, type ComponentType } from "react";
+import { Suspense, lazy, useEffect, useRef, useState, type ComponentType } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -45,6 +45,7 @@ const AllCards = lazyNamed(library, "AllCards");
 const AddCards = lazyNamed(library, "AddCards");
 const CardDetail = lazyNamed(() => import("./screens/CardDetail"), "CardDetail");
 const ListsScreen = lazyNamed(lists, "ListsScreen");
+const NewListModal = lazyNamed(lists, "NewListModal");
 const ListScreen = lazyNamed(lists, "ListScreen");
 const ListAddScreen = lazyNamed(lists, "ListAddScreen");
 const VersionsScreen = lazyNamed(lists, "VersionsScreen");
@@ -62,6 +63,7 @@ const binders = () => import("./screens/Binders");
 const SharedLinkScreen = lazyNamed(() => import("./screens/Share"), "SharedLinkScreen");
 const BindersScreen = lazyNamed(binders, "BindersScreen");
 const BinderScreen = lazyNamed(binders, "BinderScreen");
+const BinderEditor = lazyNamed(binders, "BinderEditor");
 const WantsScreen = lazyNamed(binders, "WantsScreen");
 const friends = () => import("./screens/Friends");
 const FriendsScreen = lazyNamed(friends, "FriendsScreen");
@@ -195,12 +197,16 @@ function LifeRoute() {
 
 function LibraryHomeRoute() {
   const navigate = useNavigate();
+  const [creating, setCreating] = useState<"deck" | "cube" | "binder" | null>(null);
   return (
-    <LibraryHome onAllCards={() => navigate("/library/cards")} onAdd={() => navigate("/library/add")}
-                 onDecks={() => navigate("/library/decks")} onCubes={() => navigate("/library/cubes")}
-                 onTrades={() => navigate("/library/trades")} onImport={() => navigate("/library/import")}
-                 onBinders={() => navigate("/library/binders")} onWants={() => navigate("/library/wants")}
-                 onMatches={() => navigate("/library/matches")} onFollowing={() => navigate("/library/following")} />
+    <>
+      <LibraryHome go={(href) => navigate(href)} onNew={setCreating} />
+      {(creating === "deck" || creating === "cube") && (
+        <NewListModal kind={creating} onClose={() => setCreating(null)} onCreated={(id) => navigate(`/library/list/${id}`)}
+                      onFind={() => navigate("/library/find")} onImport={() => navigate(`/library/import/${creating}`)} />
+      )}
+      {creating === "binder" && <BinderEditor binder={null} onClose={() => setCreating(null)} onSaved={(b) => navigate(`/library/binder/${b.id}`)} />}
+    </>
   );
 }
 
@@ -301,6 +307,12 @@ function AddCardsRoute() {
   const navigate = useNavigate();
   const back = useBack("/library");
   return <AddCards onBack={back} onOpen={(id) => navigate(`/library/card/${id}`)} />;
+}
+
+function CardSearchRoute() {
+  const navigate = useNavigate();
+  const back = useBack("/library");
+  return <AddCards search onBack={back} onOpen={(id) => navigate(`/library/card/${id}`)} />;
 }
 
 function CardDetailRoute() {
@@ -435,7 +447,8 @@ function VersionRoute() {
 function TradesRoute() {
   const navigate = useNavigate();
   const back = useBack("/library");
-  return <TradesScreen onBack={back} onOpen={(id) => navigate(`/library/trade/${id}`)} onNew={() => navigate("/library/trade/new")} />;
+  return <TradesScreen onBack={back} onOpen={(id) => navigate(`/library/trade/${id}`)} onNew={() => navigate("/library/trade/new")}
+                       onMatch={(id) => navigate(`/library/match/${id}`)} onMatches={() => navigate("/library/matches")} />;
 }
 
 function TradeRoute() {
@@ -507,6 +520,7 @@ export default function App() {
         <Route path="/library" element={<LibraryHomeRoute />} />
         <Route path="/library/cards" element={<AllCardsRoute />} />
         <Route path="/library/add" element={<AddCardsRoute />} />
+        <Route path="/library/search" element={<CardSearchRoute />} />
         <Route path="/library/card/:oracleId" element={<CardDetailRoute />} />
         <Route path="/library/decks" element={<ListsRoute kind="deck" />} />
         <Route path="/library/find" element={<DeckFinderRoute />} />

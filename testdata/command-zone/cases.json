@@ -1,0 +1,43 @@
+{
+  "_doc": "Command zone rules (contract/command-zone-2026-10-27.md). fits: which slot roles a type line can fill. slots: the slots a deck shows from its command-zone lines (role, card or null). filling: lines after a slot is filled. role: what a command-zone line is called.",
+  "fits": [
+    {"type": "Legendary Creature — Elf Druid", "roles": ["commander", "partner"]},
+    {"type": "Legendary Planeswalker — Ral", "roles": ["commander", "partner", "oathbreaker"]},
+    {"type": "Planeswalker — Ral", "roles": ["oathbreaker"]},
+    {"type": "Legendary Enchantment — Background", "roles": ["commander", "partner"]},
+    {"type": "Creature — Goblin", "roles": []},
+    {"type": "Legendary Artifact", "roles": []},
+    {"type": "Instant", "roles": ["signature"]},
+    {"type": "Sorcery — Lesson", "roles": ["signature"]},
+    {"type": "Instant // Sorcery", "roles": ["signature"]},
+    {"type": "Legendary Creature — Human Wizard // Legendary Planeswalker — Jace", "roles": ["commander", "partner"]}
+  ],
+  "slots": [
+    {"name": "commander, none", "format": "commander", "lines": [], "slots": [["commander", null]]},
+    {"name": "commander, one", "format": "commander", "lines": [["a", "Legendary Creature — Elf"]],
+     "slots": [["commander", "a"], ["partner", null]]},
+    {"name": "commander, partners", "format": "commander", "lines": [["a", "Legendary Creature — Elf"], ["b", "Legendary Creature — Human"]],
+     "slots": [["commander", "a"], ["partner", "b"]]},
+    {"name": "commander, three lines", "format": "commander",
+     "lines": [["a", "Legendary Creature — Elf"], ["b", "Legendary Creature — Human"], ["c", "Legendary Creature — Orc"]],
+     "slots": [["commander", "a"], ["partner", "b"]]},
+    {"name": "oathbreaker, none", "format": "oathbreaker", "lines": [], "slots": [["oathbreaker", null], ["signature", null]]},
+    {"name": "oathbreaker, spell first", "format": "oathbreaker", "lines": [["s", "Instant"], ["w", "Legendary Planeswalker — Ral"]],
+     "slots": [["oathbreaker", "w"], ["signature", "s"]]},
+    {"name": "oathbreaker, walker only", "format": "oathbreaker", "lines": [["w", "Legendary Planeswalker — Ral"]],
+     "slots": [["oathbreaker", "w"], ["signature", null]]},
+    {"name": "modern", "format": "modern", "lines": [["a", "Legendary Creature — Elf"]], "slots": []}
+  ],
+  "filling": [
+    {"name": "add to empty", "lines": [], "slot": null, "card": "a", "result": ["a"]},
+    {"name": "add partner", "lines": ["a"], "slot": null, "card": "b", "result": ["a", "b"]},
+    {"name": "replace in place", "lines": ["a", "b"], "slot": "a", "card": "c", "result": ["c", "b"]},
+    {"name": "same card again", "lines": ["a", "b"], "slot": "a", "card": "a", "result": ["a", "b"]},
+    {"name": "picked the other one", "lines": ["a", "b"], "slot": "a", "card": "b", "result": ["b"]}
+  ],
+  "role": [
+    {"format": "commander", "type": "Legendary Creature — Elf", "role": "Commander"},
+    {"format": "oathbreaker", "type": "Legendary Planeswalker — Ral", "role": "Oathbreaker"},
+    {"format": "oathbreaker", "type": "Instant", "role": "Signature spell"}
+  ]
+}

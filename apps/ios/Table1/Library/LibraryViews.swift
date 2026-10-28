@@ -9,6 +9,7 @@ enum LibraryRoute: Hashable {
     case allCards
     case add
     case addScan // Add cards with the scanner already up (the Scan cards control)
+    case search // every card, from the Collection home's magnifier
     case card(String) // oracle id
     case cardIn(String, CardContext) // oracle id, opened from a deck/cube or a binder
     case lists(CardList.Kind)
@@ -53,6 +54,7 @@ struct LibraryDestination: View {
         switch route {
         case .allCards: "all_cards"
         case .add, .addScan: "add_cards"
+        case .search: "card_search"
         case .card, .cardIn: "card_detail"
         case .lists(let kind): kind == .deck ? "decks" : "cubes"
         case .list(let id): ListsStore.shared.list(id: id)?.kind == .cube ? "cube" : "deck"
@@ -88,6 +90,7 @@ struct LibraryDestination: View {
         case .allCards: AllCardsView(path: $path)
         case .add: AddCardsView(path: $path)
         case .addScan: AddCardsView(path: $path, scanOnOpen: true)
+        case .search: AddCardsView(path: $path, search: true)
         case .card(let id): CardDetailView(oracleId: id, path: $path)
         case .cardIn(let id, let context): CardDetailView(oracleId: id, path: $path, context: context)
         case .lists(let kind): ListsView(kind: kind, path: $path)
@@ -149,91 +152,254 @@ private struct CatalogStatus: View {
 
 // MARK: home
 
+/// The Collection tab (Figma 325:10820): the collection as a shelf of its hero art, then a shelf each of decks,
+/// binders and cubes (yours, then the ones you follow), with Trade · Wants · Import along the bottom. + adds cards
+/// or makes a deck, binder or cube; the magnifier searches every card.
 struct LibraryHomeView: View {
     @Binding var path: [LibraryRoute]
     private var col: CollectionStore { CollectionStore.shared }
-    /// The collection's hero cards, shown on the All cards row.
-    @State private var heroArt: [CatalogPrinting] = []
+    private var lists: ListsStore { ListsStore.shared }
+    private var binders: BindersStore { BindersStore.shared }
+    /// Shelf art by scope key (`HeroScope.key`): heroes first, else the card the place holds most.
+    @State private var art: [String: [CatalogPrinting]] = [:]
 
     var body: some View {
-        let s = col.summary
         T1Screen {
-            Bar(title: "Collection", subtitle: col.isDemo ? "Demo data" : col.syncing ? "Syncing…" : nil)
+            HStack(spacing: 1) {
+                Text("COLLECTION").font(T1.mono(12)).tracking(2).lineLimit(1)
+                    .padding(.leading, 16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                T1IconButton(icon: .plus, label: "Add") { add() }
+                T1IconButton(icon: .search, label: "Search cards") { tap("search"); path.append(.search) }
+            }
+            .background(T1.bg)
             if let error = col.error { Notice(error, error: true) }
-            HairlineList {
-                VStack(spacing: 4) {
-                    LabelText("Cards")
-                    Text(s.map { $0.totalQty.formatted() } ?? (col.ready ? "0" : "…"))
-                        .font(T1.mono(48)).tracking(4).monospacedDigit()
-                    LabelText(s.map { "\($0.uniqueCards.formatted()) distinct · \(money($0.valueUsd, "USD"))" } ?? " ")
+            ScrollView {
+                VStack(spacing: 0) {
+                    collectionShelf
+                    shelf(icon: .decks, title: "Decks", open: .lists(.deck)) {
+                        ForEach(lists.lists(.deck)) { l in
+                            ShelfTile(art: art[HeroScope.list(l.id).key]?.first, title: l.name,
+                                      subtitle: l.eventName ?? formatName(l.format)) { path.append(.list(l.id)) }
+                        }
+                        followed("deck")
+                        if lists.lists(.deck).isEmpty { ShelfTile(art: nil, title: "New deck", subtitle: "Build or import") { newList(.deck) } }
+                    }
+                    shelf(icon: .binders, title: "Binders", open: .binders) {
+                        ForEach(binders.binders) { b in
+                            ShelfTile(art: art[HeroScope.binder(b.id).key]?.first, title: b.name, subtitle: nil) { path.append(.binder(b.id)) }
+                        }
+                        followed("binder")
+                        if binders.binders.isEmpty { ShelfTile(art: nil, title: "New binder", subtitle: "Where your copies are") { newBinder() } }
+                    }
+                    shelf(icon: .cubes, title: "Cubes", open: .lists(.cube)) {
+                        ForEach(lists.lists(.cube)) { l in
+                            ShelfTile(art: art[HeroScope.list(l.id).key]?.first, title: l.name, subtitle: nil) { path.append(.list(l.id)) }
+                        }
+                        followed("cube")
+                        if lists.lists(.cube).isEmpty { ShelfTile(art: nil, title: "New cube", subtitle: "Build or import") { newList(.cube) } }
+                    }
                 }
-                .frame(maxWidth: .infinity).padding(.vertical, 24).background(T1.surface)
-
-                Button { path.append(.allCards) } label: {
-                    HeroListRow(heroes: heroArt, title: "All cards", detail: s.map { "\($0.uniquePrintings.formatted()) printings" }) {
-                        if let s { Text(s.uniqueCards.formatted()).font(T1.mono(17)).monospacedDigit() }
-                    }
-                }.buttonStyle(.plain)
-                Button { path.append(.add) } label: { ListRow(title: "Add cards", detail: "Search, Scryfall syntax or scan") }.buttonStyle(.plain)
-                Button { path.append(.collectionImport) } label: {
-                    ListRow(title: "Import and export", detail: "CSV from ManaBox, Moxfield and others")
-                }.buttonStyle(.plain)
-                bindersRow
-                wantsRow
-                listsRow(.deck, "Decks")
-                listsRow(.cube, "Cubes")
-                TradeMatchesRow(path: $path)
-                FollowingRow(path: $path)
-                Button { path.append(.trades) } label: {
-                    let open = TradesStore.shared.trades.filter { !$0.confirmed }.count
-                    ListRow(title: "Trades", detail: open > 0 ? "\(open) open" : "Give and get, then confirm") {
-                        if TradesStore.shared.loaded { Text(TradesStore.shared.trades.count.formatted()).font(T1.mono(17)).monospacedDigit() }
-                    }
-                }.buttonStyle(.plain)
+                .padding(.bottom, 64)
+            }
+            .refreshable { await col.sync(); await FollowsStore.shared.load() }
+            HStack(spacing: 1) {
+                action("Trade") { path.append(.trades) }
+                action("Wants") { path.append(.wants) }
+                action("Import") { path.append(.collectionImport) }
             }
         }
-        .refreshable { await col.sync(); await FollowsStore.shared.load() }
-        .task { await TradesStore.shared.load() }
-        .task(id: "\(HeroesStore.shared.heroes(.collection))-\(CatalogStore.shared.generation)-\(col.version)") {
-            guard let db = CatalogStore.shared.db else { heroArt = []; return }
-            let heroes = HeroesStore.shared.heroes(.collection)
-            let held = col.items.values.sorted { $0.qty > $1.qty }.map(\.cardId)
-            heroArt = await Task.detached(priority: .userInitiated) { HeroArt.printings(heroes, held: held, db) }.value
+        .task { if FollowsStore.shared.items == nil { await FollowsStore.shared.load() } }
+        .task(id: col.version) { await PriceBook.shared.load(col.items.values.map(\.cardId)) }
+        .task(id: artKey) { await loadArt() }
+    }
+
+    // MARK: pieces
+
+    /// The whole collection: up to two hero arts side by side, cards and value along the bottom. Opens All cards.
+    private var collectionShelf: some View {
+        let s = col.summary
+        let heroes = Array((art[HeroScope.collection.key] ?? []).prefix(2))
+        return Button { path.append(.allCards) } label: {
+            ZStack(alignment: .bottom) {
+                HStack(spacing: 0) {
+                    if heroes.isEmpty { T1.surface } else { ForEach(heroes, id: \.cardId) { CardArtCrop(printing: $0) } }
+                }
+                T1.bg.opacity(0.6)
+                HStack(spacing: 0) {
+                    ShelfText(s.map { $0.totalQty.formatted() } ?? (col.ready ? "0" : "…"), size: 9, color: T1.muted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if let s { ShelfText(money(s.valueUsd, "USD"), size: 9, color: T1.muted) }
+                }
+                .padding(16)
+            }
+            .frame(height: 179)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("All cards, \(s?.totalQty ?? 0) cards")
+    }
+
+    private func shelf<Tiles: View>(icon: T1Icon, title: String, open: LibraryRoute, @ViewBuilder tiles: () -> Tiles) -> some View {
+        VStack(spacing: 0) {
+            Button { path.append(open) } label: {
+                HStack(spacing: 8) {
+                    icon.fill(T1.text).frame(width: 18, height: 18)
+                    Text(title.uppercased()).font(T1.mono(12)).tracking(2).lineLimit(1)
+                    Spacer(minLength: 0)
+                    T1.arrowRightGlyph
+                }
+                .padding(.leading, 16)
+                .frame(height: 50)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 1) { tiles() }
+            }
+            .frame(height: ShelfTile.height)
+        }
+        .padding(.top, 32)
+    }
+
+    /// Items of this kind you follow, after your own: the owner's name under the title.
+    @ViewBuilder private func followed(_ kind: String) -> some View {
+        ForEach((FollowsStore.shared.items ?? []).filter { $0.kind == kind && $0.available }) { f in
+            ShelfTile(art: nil, title: f.title, subtitle: f.owner?.displayName, note: f.unseen > 0 ? "\(f.unseen) new" : nil) {
+                if let r = FollowsStore.route(f) { path.append(.social(r)) }
+            }
         }
     }
 
-    private var bindersRow: some View {
-        let b = BindersStore.shared
-        let trade = b.binders.filter(\.forTrade).map(\.id)
-        let totals = b.totals(col.items)
-        let forTrade = trade.reduce(0) { $0 + (totals.byBinder[$1] ?? 0) }
-        return Button { path.append(.binders) } label: {
-            ListRow(title: "Binders", detail: b.binders.isEmpty ? "Where your copies are, and what's for trade"
-                                                                : "\(forTrade.formatted()) cards for trade · \(totals.unsorted.formatted()) unsorted") {
-                Text(b.binders.count.formatted()).font(T1.mono(17)).monospacedDigit()
-            }
-        }.buttonStyle(.plain)
+    private func action(_ title: String, _ go: @escaping () -> Void) -> some View {
+        Button { tap(title.lowercased()); go() } label: {
+            ShelfText(title, size: 11, color: T1.text)
+                .frame(maxWidth: .infinity).frame(height: 50)
+                .background(T1.bg)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
-    private var wantsRow: some View {
-        let wanted = BindersStore.shared.liveWants.reduce(0) { $0 + $1.qty }
-        let missing = MissingView.lines(ListsStore.shared.lists, owned: ownedByPrinting(), basics: CatalogStore.shared.basics).reduce(0) { $0 + $1.short }
-        return Button { path.append(.wants) } label: {
-            ListRow(title: "Wants", detail: "\(wanted.formatted()) wanted · \(missing.formatted()) missing") {
-                Text(wanted.formatted()).font(T1.mono(17)).monospacedDigit()
-            }
-        }.buttonStyle(.plain)
+    // MARK: actions
+
+    private func add() {
+        tap("add")
+        T1Overlays.shared.showMenu(nil, [
+            T1MenuItem(title: "Add cards", detail: "Search, Scryfall syntax or scan") { path.append(.add) },
+            T1MenuItem(title: "New deck") { newList(.deck) },
+            T1MenuItem(title: "New binder") { newBinder() },
+            T1MenuItem(title: "New cube") { newList(.cube) },
+        ])
     }
 
-    /// Decks and cubes always open (an empty one shows 0; new ones are created inside).
-    private func listsRow(_ kind: CardList.Kind, _ title: String) -> some View {
-        let lists = ListsStore.shared.lists(kind)
-        return Button { path.append(.lists(kind)) } label: {
-            ListRow(title: title, detail: lists.isEmpty ? (kind == .deck ? "Build or import a deck" : "Build or import a cube")
-                                                        : lists.prefix(3).map(\.name).joined(separator: " · ")) {
-                Text(lists.count.formatted()).font(T1.mono(17)).monospacedDigit()
+    private func newList(_ kind: CardList.Kind) {
+        T1Overlays.shared.present {
+            NewListPanel(kind: kind, created: { id in path.append(.list(id)) }, find: { path.append(.findDeck) },
+                         importList: { path.append(.importList(kind)) })
+        }
+    }
+
+    private func newBinder() {
+        T1Overlays.shared.present { BinderEditPanel(binder: nil) { id in path.append(.binder(id)) } }
+    }
+
+    private func tap(_ target: String) { Telemetry.capture("collection_home_tap", ["target": target]) }
+
+    // MARK: art
+
+    private var artKey: String {
+        "\(HeroesStore.shared.heroes)-\(CatalogStore.shared.generation)-\(col.version)-\(binders.version)-\(PriceBook.shared.version)-"
+            + lists.lists.map { "\($0.id)\($0.current?.number ?? 0)" }.joined(separator: ",")
+    }
+
+    private func loadArt() async {
+        guard let db = CatalogStore.shared.db else { art = [:]; return }
+        let basics = CatalogStore.shared.basics
+        var places: [(key: String, heroes: [String], held: [String])] = []
+        // The collection falls back to its most valuable cards.
+        let prices = PriceBook.shared
+        let items = col.items.values.filter { $0.qty > 0 && !basics.contains($0.cardId) }
+        let byValue = items.sorted { (prices.usd($0.cardId, $0.finish) ?? 0) > (prices.usd($1.cardId, $1.finish) ?? 0) }.map(\.cardId)
+        places.append((HeroScope.collection.key, HeroesStore.shared.heroes(.collection), byValue))
+        for l in lists.lists {
+            places.append((HeroScope.list(l.id).key, HeroesStore.shared.heroes(.list(l.id)),
+                           l.entries.filter { $0.board != "side" && $0.board != "maybe" }.sorted { $0.qty > $1.qty }.map(\.cardId)))
+        }
+        for b in binders.binders {
+            places.append((HeroScope.binder(b.id).key, HeroesStore.shared.heroes(.binder(b.id)),
+                           binders.items(in: b.id, col.items).sorted { $0.qty > $1.qty }.map(\.item.cardId)))
+        }
+        art = await Task.detached(priority: .userInitiated) {
+            Dictionary(places.map { p in (p.key, ShelfArt.printings(heroes: p.heroes, held: p.held, basics: basics, count: 2, db)) },
+                       uniquingKeysWith: { a, _ in a })
+        }.value
+    }
+}
+
+enum ShelfArt {
+    /// A shelf tile's art: the place's heroes (in the printing it holds), topped up with the first cards it holds
+    /// that aren't basic lands, up to `count`, one per card.
+    nonisolated static func printings(heroes: [String], held: [String], basics: Set<String>, count: Int, _ db: CatalogDB) -> [CatalogPrinting] {
+        var out = HeroArt.printings(heroes, held: held, db)
+        guard out.count < count else { return Array(out.prefix(count)) }
+        var seen = Set(out.map(\.oracleIdx))
+        let candidates = Array(held.filter { !basics.contains($0) }.prefix(60))
+        let found = db.printings(ids: candidates)
+        for id in candidates where out.count < count {
+            if let p = found[id], seen.insert(p.oracleIdx).inserted { out.append(p) }
+        }
+        return out
+    }
+}
+
+/// Uppercase mono with the shelves' tracking.
+private struct ShelfText: View {
+    let text: String
+    let size: CGFloat
+    let color: Color
+    init(_ text: String, size: CGFloat, color: Color) { self.text = text; self.size = size; self.color = color }
+    var body: some View {
+        Text(text.uppercased()).font(T1.mono(size)).tracking(1.5).foregroundStyle(color).lineLimit(1)
+    }
+}
+
+/// One deck, binder or cube on a shelf: its art under a scrim, name and a detail line at the bottom.
+struct ShelfTile: View {
+    static let width: CGFloat = 258
+    static let height: CGFloat = 135
+    let art: CatalogPrinting?
+    let title: String
+    let subtitle: String?
+    var note: String?
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack(alignment: .bottomLeading) {
+                CardArtCrop(printing: art)
+                T1.bg.opacity(0.6)
+                HStack(alignment: .bottom, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ShelfText(title, size: 11, color: T1.text)
+                        if let subtitle, !subtitle.isEmpty { ShelfText(subtitle, size: 9, color: T1.muted) }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    if let note { ShelfText(note, size: 9, color: T1.accent) }
+                }
+                .padding(16)
             }
-        }.buttonStyle(.plain)
+            .frame(width: Self.width, height: Self.height)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+extension T1 {
+    /// The shelf header's arrow in its 50 × 50 tap area.
+    static var arrowRightGlyph: some View {
+        T1Icon.arrowRight.fill(T1.text).frame(width: 18, height: 18).frame(width: 50, height: 50)
     }
 }
 
@@ -492,10 +658,14 @@ struct AllCardsView: View {
 struct AddCardsView: View {
     @Binding var path: [LibraryRoute]
     var scanOnOpen = false
+    /// Search (the Collection home's magnifier): no scanner, and each card says how many you own.
+    var search = false
     @Environment(\.dismiss) private var dismiss
     private var catalog: CatalogStore { CatalogStore.shared }
     @State private var query = ""
     @State private var hits: [CatalogOracle] = []
+    /// Copies owned per oracle idx (search only).
+    @State private var owned: [Int: Int] = [:]
     @State private var covers: [Int: CatalogPrinting] = [:]
     @State private var result: CardSearchEngine.Result?
     @State private var scanned: (batchId: String, label: String)?
@@ -506,7 +676,7 @@ struct AddCardsView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Add cards", back: { dismiss() })
+            Bar(title: search ? "Search" : "Add cards", back: { dismiss() })
             CatalogStatus(catalog: catalog)
             if let error { Notice(error, error: true) }
             if let scanned {
@@ -517,7 +687,7 @@ struct AddCardsView: View {
                 }
                 .padding(.horizontal, 16).padding(.vertical, 12).background(T1.surface)
             }
-            CardSearchBar(query: $query, prompt: "Lightning Bolt, or t:dragon c:r", scan: { scan() }, focused: $focused)
+            CardSearchBar(query: $query, prompt: "Lightning Bolt, or t:dragon c:r", scan: search ? nil : { scan() }, focused: $focused)
             CardSearchStatus(query: query, result: result)
             HairlineList {
                 if catalog.phase == .ready && CardName.norm(query).count >= 2 && hits.isEmpty && !CardQuery.hasSyntax(query) {
@@ -526,7 +696,11 @@ struct AddCardsView: View {
                 ForEach(hits, id: \.idx) { o in
                     Button { path.append(.card(o.oracleId)) } label: {
                         CardRow(printing: covers[o.idx], title: o.name, detail: o.manaCost.isEmpty ? o.typeLine : "\(o.typeLine) · \(o.manaCost)") {
-                            Text("\(o.printings)").font(T1.mono(15)).monospacedDigit().foregroundStyle(T1.muted)
+                            if !search {
+                                Text("\(o.printings)").font(T1.mono(15)).monospacedDigit().foregroundStyle(T1.muted)
+                            } else if let n = owned[o.idx], n > 0 {
+                                Text("\(n)").font(T1.mono(17)).monospacedDigit()
+                            }
                         }
                     }.buttonStyle(.plain)
                 }
@@ -548,6 +722,16 @@ struct AddCardsView: View {
             if Task.isCancelled { return }
             let found = await Task.detached(priority: .userInitiated) { await CardSearchEngine.run(q, db) }.value
             if !Task.isCancelled { hits = found.hits; covers = found.covers; result = found }
+        }
+        .task(id: "\(search)-\(CollectionStore.shared.version)-\(catalog.generation)") {
+            guard search, let db = catalog.db else { return }
+            let items = CollectionStore.shared.items.values.map { ($0.cardId, $0.qty) }
+            owned = await Task.detached(priority: .userInitiated) {
+                let printings = db.printings(ids: Array(Set(items.map(\.0))))
+                var out: [Int: Int] = [:]
+                for (id, qty) in items { if let p = printings[id] { out[p.oracleIdx, default: 0] += qty } }
+                return out
+            }.value
         }
     }
 

@@ -9,7 +9,7 @@ import {
 import { GROUPING_KEY, groupLabel, keyFor, keysOf, sortGroups, useStoredGrouping, type GroupKeys, type Grouping } from "../lib/cardGrouping";
 import { SORT_KEY, applySort, sortKeyOf, useStoredSort, type CardSort } from "../lib/cardSort";
 import {
-  boardTitle, boardsOf, countOf, createList, finishOf, langOf, ownKey, type ListFinish, current, deleteList, diff, duplicateList, editList, entriesOf, missingIn, restoreList,
+  boardTitle, boardsOf, countOf, createList, entry, finishOf, langOf, ownKey, type ListFinish, current, deleteList, diff, duplicateList, editList, entriesOf, missingIn, restoreList,
   sectionsFor, useLists, type Board, type CardList, type Entry, type ListKind,
 } from "../lib/lists";
 import { cardMatches, matchingLines } from "../lib/librarySearch";
@@ -27,6 +27,8 @@ import { RankingsRow } from "./Rankings";
 import { DeckImageScreen } from "./DeckImage";
 import { ListToCollectionScreen } from "./ListToCollection";
 import { ShareRow } from "./Share";
+import { CommandZonePicker, CommandZoneRows } from "./CommandZone";
+import { ZONE_BOARD, ZONE_FORMATS, zoneFilling, zoneSlots, type ZoneLine, type ZoneSlot } from "../lib/commandZone";
 
 /* Decks and cubes on the web (contract/lists-2026-10-15.md): the same lists, sections, groups and version
    history as iOS, read from and written to the database, so a deck built on one device is here too. */
@@ -170,8 +172,64 @@ function Stat({ label, value }: { label: string; value: number }) {
 
 /* ── lists of one kind ────────────────────────────────────────────────── */
 
-const DECK_FORMATS = ["modern", "pioneer", "standard", "legacy", "vintage", "pauper", "commander", "canlander", "other"];
+const DECK_FORMATS = ["modern", "pioneer", "standard", "legacy", "vintage", "pauper", "canlander", "other", "commander", "oathbreaker"];
 const CUBE_FORMATS = ["vintage", "legacy", "pauper", "peasant", "other"];
+
+/** New deck or cube: a name and a format; Commander and Oathbreaker decks also pick their command zone
+ *  (contract/command-zone-2026-10-27.md). Opened from Decks/Cubes and from the Collection home's +. */
+export function NewListModal({ kind, onClose, onCreated, onFind, onImport }: {
+  kind: ListKind; onClose: () => void; onCreated: (id: string) => void; onFind: () => void; onImport: () => void;
+}) {
+  const { catalog } = useCatalog();
+  const [name, setName] = useState("");
+  const [format, setFormat] = useState(kind === "deck" ? "modern" : "vintage");
+  const [zone, setZone] = useState<ZoneLine[]>([]);
+  const [choosing, setChoosing] = useState<ZoneSlot | null>(null);
+  const [busy, setBusy] = useState(false);
+  const zoned = kind === "deck" && ZONE_FORMATS.has(format);
+  const slots = zoned ? zoneSlots(format, zone) : [];
+  const create = async () => {
+    setBusy(true);
+    try {
+      const entries = slots.flatMap((sl) => (sl.cardId ? [entry(sl.cardId, ZONE_BOARD, 1)] : []));
+      const id = await createList(kind, name.trim().slice(0, 60), format, entries);
+      if (entries.length) capture("command_zone_set", { format, cards: entries.length, from: "new" });
+      onClose();
+      onCreated(id);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <Modal title={kind === "deck" ? "New deck" : "New cube"} onClose={onClose}>
+        <Field label="Name" value={name} onChange={setName} autoFocus />
+        {/* Decks: six formats three across, then the longer names two across so none wraps. */}
+        <div className="flex flex-col gap-px">
+          {(kind === "deck" ? [DECK_FORMATS.slice(0, 6), DECK_FORMATS.slice(6)] : [CUBE_FORMATS]).map((row, i) => (
+            <Segmented key={i} options={row.map((f) => ({ value: f, label: f }))} value={format} onChange={setFormat}
+                       columns={kind === "deck" ? (i === 0 ? 3 : 2) : 4} />
+          ))}
+        </div>
+        {zoned && (
+          <div className="flex flex-col gap-px">
+            <CommandZoneRows catalog={catalog} slots={slots} onChoose={setChoosing}
+                             onRemove={(sl) => setZone(zone.filter((l) => l.cardId !== sl.cardId))} />
+          </div>
+        )}
+        <BigAction label={kind === "deck" ? "Create deck" : "Create cube"} onClick={create} disabled={!name.trim()} busy={busy} />
+        <Row title="Import from a link or list" detail={kind === "deck" ? "Moxfield, ManaBox, Archidekt, MTGGoldfish" : "Cube Cobra, or a pasted list"}
+             onClick={() => { onClose(); onImport(); }} />
+        {kind === "deck" && <Row title="Find a deck online" detail="Describe it; we load a recent tournament list"
+                                 onClick={() => { onClose(); onFind(); }} />}
+      </Modal>
+      {choosing && catalog && (
+        <CommandZonePicker catalog={catalog} role={choosing.role} onClose={() => setChoosing(null)}
+                           onPick={(cardId, oi) => setZone(zoneFilling(zone, choosing.cardId, { cardId, typeLine: catalog.oType[oi] }))} />
+      )}
+    </>
+  );
+}
 
 export function ListsScreen({ kind, onBack, onOpen, onFind, onImport, onRankings }: {
   kind: ListKind; onBack: () => void; onOpen: (id: string) => void; onFind: () => void; onImport: () => void;
@@ -180,9 +238,6 @@ export function ListsScreen({ kind, onBack, onOpen, onFind, onImport, onRankings
 }) {
   const { session, ready, lists, owned } = useListsData();
   const [creating, setCreating] = useState(false);
-  const [name, setName] = useState("");
-  const [format, setFormat] = useState(kind === "deck" ? "modern" : "vintage");
-  const [busy, setBusy] = useState(false);
   const mine = lists.lists.filter((l) => l.kind === kind);
   const heroes = useLibraryHeroes();
   const { catalog } = useCatalog();
@@ -200,18 +255,6 @@ export function ListsScreen({ kind, onBack, onOpen, onFind, onImport, onRankings
   if (!ready) return <Screen><div className="flex-1" /></Screen>;
   if (!session) return <Screen><Bar title={kind === "deck" ? "Decks" : "Cubes"} /><Notice tone="info">Sign in to keep decks and cubes.</Notice></Screen>;
 
-  const create = async () => {
-    setBusy(true);
-    try {
-      const id = await createList(kind, name.trim().slice(0, 60), format);
-      setCreating(false);
-      setName("");
-      onOpen(id);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <LibScreen>
       <Bar title={kind === "deck" ? "Decks" : "Cubes"} subtitle={`${mine.length}`} onBack={onBack} />
@@ -227,18 +270,7 @@ export function ListsScreen({ kind, onBack, onOpen, onFind, onImport, onRankings
           return <HeroListRow key={l.id} c={catalog} heroes={heroArt.get(l.id) ?? []} title={l.name} detail={detail} value={countOf(l, "main")} onClick={() => onOpen(l.id)} />;
         })}
       </div>
-      {creating && (
-        <Modal title={kind === "deck" ? "New deck" : "New cube"} onClose={() => setCreating(false)}>
-          <Field label="Name" value={name} onChange={setName} autoFocus />
-          <Segmented options={(kind === "deck" ? DECK_FORMATS : CUBE_FORMATS).map((f) => ({ value: f, label: f }))}
-                     value={format} onChange={setFormat} columns={4} />
-          <BigAction label={kind === "deck" ? "Create deck" : "Create cube"} onClick={create} disabled={!name.trim()} busy={busy} />
-          <Row title="Import from a link or list" detail={kind === "deck" ? "Moxfield, ManaBox, Archidekt, MTGGoldfish" : "Cube Cobra, or a pasted list"}
-               onClick={() => { setCreating(false); onImport(); }} />
-          {kind === "deck" && <Row title="Find a deck online" detail="Describe it; we load a recent tournament list"
-                                   onClick={() => { setCreating(false); onFind(); }} />}
-        </Modal>
-      )}
+      {creating && <NewListModal kind={kind} onClose={() => setCreating(false)} onCreated={onOpen} onFind={onFind} onImport={onImport} />}
     </LibScreen>
   );
 }
@@ -360,6 +392,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   const [q, setQ] = useState("");
   const [printings, setPrintings] = useState<Disclosure>(COLLAPSED);
   const [heroFull, setHeroFull] = useState<string | null>(null);
+  const [choosing, setChoosing] = useState<ZoneSlot | null>(null);
   const heroes = useLibraryHeroes();
   const list = lists.lists.find((l) => l.id === id) ?? null;
   const [grouping, setGrouping] = useListGrouping(list?.kind);
@@ -393,6 +426,16 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   const cols = Math.max(3, Math.floor(width / 180));
   const tile = Math.floor((width - (cols - 1)) / cols);
   const v = current(list);
+  // Commander and Oathbreaker decks show their command zone at the top (rows layout, not while searching).
+  const showsZone = list.kind === "deck" && !list.eventId && ZONE_FORMATS.has(list.format) && !searching && layout === "list";
+  const zone = lines.filter((x) => x.board === ZONE_BOARD);
+  const slots = showsZone ? zoneSlots(list.format, zone.map((x) => ({ cardId: x.cardId, typeLine: x.type, finish: x.finish, lang: x.lang }))) : [];
+  const chooseZone = (slot: ZoneSlot, cardId: string) => {
+    void editList(list.id, [slot.cardId
+      ? { card_id: slot.cardId, board: ZONE_BOARD, finish: slot.finish as ListFinish, lang: slot.lang, to_card_id: cardId, to_finish: "nonfoil", to_lang: "en", swap: true }
+      : { card_id: cardId, board: ZONE_BOARD, delta: 1 }]);
+    capture("command_zone_set", { format: list.format, role: slot.role, from: slot.cardId ? "change" : "add" });
+  };
 
   const lineRow = (x: Line, sub = false) => {
     const have = owned.get(ownKey(x.cardId, x.finish)) ?? 0;
@@ -503,6 +546,11 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
             </>
           );
         })()}
+        {showsZone && (
+          <CommandZoneRows catalog={catalog} slots={slots} onChoose={setChoosing}
+                           onRemove={(sl) => sl.cardId && void editList(list.id, [{ card_id: sl.cardId, board: ZONE_BOARD, finish: sl.finish as ListFinish, lang: sl.lang, qty: 0 }])}
+                           onOpen={(sl) => { const o = zone.find((x) => x.cardId === sl.cardId)?.oracleId; if (o) onCard(o); }} />
+        )}
         {/* Desktop: the screen's actions three across. */}
         <div className="flex flex-col gap-px lg:grid lg:grid-cols-3">
         {editing && <Row title={list.kind === "deck" ? "Duplicate deck" : "Duplicate cube"} detail="A new list with these cards"
@@ -532,11 +580,11 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         </>}
         {searching && catalog && !shown.length && <Row title="No cards match" />}
         {!catalog && <div className="bg-t1-surface px-4 py-4 t1-label">Loading card data…</div>}
-        {catalog && boardsOf(list).filter((bd) => !searching || shown.some((x) => x.board === bd)).map((board) => {
+        {catalog && boardsOf(list).filter((bd) => (!searching || shown.some((x) => x.board === bd)) && !(bd === ZONE_BOARD && showsZone)).map((board) => {
           const inBoard = shown.filter((x) => x.board === board);
           return (
             <div key={board} className="flex flex-col gap-px">
-              <BoardHeader title={boardTitle(list.kind, board)} count={inBoard.reduce((n, x) => n + x.qty, 0)} />
+              <BoardHeader title={boardTitle(list.kind, board, list.format)} count={inBoard.reduce((n, x) => n + x.qty, 0)} />
               {/* Stacks keep the list's organization: a stack per type (decks) or color (cubes). */}
               {layout === "stacks" && !editing ? (
                 <StackRows c={catalog} boxWidth={width} stacks={groupsOf(inBoard, grouping).map((g): StackItem => {
@@ -598,6 +646,9 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         </Modal>
       )}
       {exporting && catalog && <ExportScreen name={list.name} kind={list.kind} entries={entriesOf(list)} catalog={catalog} from="own" onClose={() => setExporting(false)} />}
+      {choosing && catalog && (
+        <CommandZonePicker catalog={catalog} role={choosing.role} onClose={() => setChoosing(null)} onPick={(cardId) => chooseZone(choosing, cardId)} />
+      )}
       {adding && catalog && <ListToCollectionScreen list={list} catalog={catalog} owned={ownedByLang} onClose={() => setAdding(false)} />}
       {imaging && catalog && <DeckImageScreen name={list.name} format={list.format} entries={entriesOf(list)} catalog={catalog} owner={null} from="own" onClose={() => setImaging(false)} />}
       {confirmDelete && (

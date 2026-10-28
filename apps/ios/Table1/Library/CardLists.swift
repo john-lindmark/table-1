@@ -63,7 +63,7 @@ struct CardList: Identifiable, Hashable, Sendable {
 
     func boardTitle(_ board: String) -> String {
         switch board {
-        case "commander": "Commander"
+        case "commander": format == "oathbreaker" ? "Command zone" : "Commander"
         case "main": kind == .deck ? "Main deck" : "Main"
         case "side": "Sideboard"
         case "maybe": "Considering"
@@ -869,7 +869,8 @@ struct ListDetailView: View {
                         // While searching, matches come first: the summary rows would push them under the keyboard.
                         if query.isEmpty { top(list, owned: owned, rows: rows, issues: issues) }
                         if shown.isEmpty && !query.isEmpty { ListRow(title: "No cards match") }
-                        ForEach(list.boards.filter { b in query.isEmpty || shown.contains { $0.board == b } }, id: \.self) { board in
+                        ForEach(list.boards.filter { b in (query.isEmpty || shown.contains { $0.board == b }) && !(b == CommandZone.board && showsZone(list)) },
+                                id: \.self) { board in
                             let lines = shown.filter { $0.board == board }
                             BoardHeader(title: list.boardTitle(board), count: lines.reduce(0) { $0 + $1.qty })
                             ForEach(ListLine.groups(lines, by: grouping), id: \.self) { g in
@@ -933,12 +934,46 @@ struct ListDetailView: View {
         }
     }
 
+    /// Commander and Oathbreaker decks show their command zone at the top (list layout, not while searching).
+    private func showsZone(_ list: CardList) -> Bool {
+        list.kind == .deck && list.eventId == nil && CommandZone.formats.contains(list.format) && query.isEmpty
+            && layout != CardLayout.grid.rawValue && layout != CardLayout.stacks.rawValue
+    }
+
+    @ViewBuilder private func commandZone(_ list: CardList, rows: [ListLine]) -> some View {
+        let zone = rows.filter { $0.board == CommandZone.board }
+        Section1("Command zone")
+        ForEach(CommandZone.slots(format: list.format, lines: zone.map { .init(cardId: $0.cardId, typeLine: $0.type, finish: $0.finish, lang: $0.lang) }),
+                id: \.self) { slot in
+            let line = zone.first { $0.cardId == slot.cardId && $0.finish == slot.finish && $0.lang == slot.lang }
+            CommandZoneRow(slot: slot, printing: line?.printing, name: line?.name, choose: { chooseZone(list, slot) },
+                           remove: slot.cardId.map { id in { ListsStore.shared.remove(listId: list.id, cardId: id, board: CommandZone.board, finish: slot.finish, lang: slot.lang) } },
+                           open: line?.oracleId.map { o in { path.append(.cardIn(o, .list(list.id))) } })
+        }
+    }
+
+    private func chooseZone(_ list: CardList, _ slot: CommandZone.Slot) {
+        let listId = list.id, format = list.format
+        T1Overlays.shared.present(full: true) {
+            CommandZonePicker(role: slot.role) { _, p in
+                let store = ListsStore.shared
+                if let id = slot.cardId {
+                    store.swap(listId: listId, cardId: id, board: CommandZone.board, finish: slot.finish, lang: slot.lang,
+                               toCardId: p.cardId, toFinish: "nonfoil", toLang: "en", qty: nil)
+                } else {
+                    store.add(listId: listId, cardId: p.cardId, board: CommandZone.board, delta: 1)
+                }
+                Telemetry.capture("command_zone_set", ["format": format, "role": slot.role.rawValue, "from": slot.cardId == nil ? "add" : "change"])
+            }.screen("command_zone_picker")
+        }
+    }
+
     /// The list's current lines: live quantities and sections, with card details from `meta`.
     private func lines(for list: CardList) -> [ListLine] {
         let lines = list.entries.compactMap { e -> ListLine? in
             guard let m = meta[e.cardId] else { return nil }
-            return ListLine(id: "\(e.board)|\(e.cardId)|\(e.finish)", cardId: e.cardId, printing: m.printing, oracleId: m.oracleId,
-                            name: m.name, group: m.keys[grouping], board: e.board, qty: e.qty, keys: m.keys, legal: m.legal, finish: e.finish,
+            return ListLine(id: "\(e.board)|\(e.cardId)|\(e.finish)|\(e.lang)", cardId: e.cardId, printing: m.printing, oracleId: m.oracleId,
+                            name: m.name, group: m.keys[grouping], board: e.board, qty: e.qty, keys: m.keys, legal: m.legal, finish: e.finish, lang: e.lang,
                             points: m.points, basic: m.basic, type: m.type)
         }
         return sort.apply(lines) { SortKey(name: $0.name, keys: $0.keys, printing: $0.printing) }
@@ -971,6 +1006,7 @@ struct ListDetailView: View {
             let main = list.count("main")
             if main < 100 { Notice("Canadian Highlander decks need at least 100 cards: \(main) so far.") }
         }
+        if showsZone(list) { commandZone(list, rows: rows) }
         if editing {
             Button {
                 if let copy = ListsStore.shared.duplicate(listId: list.id) {
@@ -1331,13 +1367,19 @@ struct NewListPanel: View {
     var find: (() -> Void)? = nil
     /// Opens the import screen (a link or a pasted list).
     var importList: (() -> Void)? = nil
+    /// The format picked when the panel opens (default Modern for decks, Vintage for cubes).
+    var startFormat: String? = nil
     @State private var name = ""
     @State private var format = "modern"
+    /// The command zone picked so far (Commander and Oathbreaker decks), with names and art for the rows.
+    @State private var zone: [CommandZone.Line] = []
+    @State private var zoneCards: [String: (name: String, printing: CatalogPrinting)] = [:]
 
     private var formats: [(String, String)] {
         kind == .deck
             ? [("modern", "Modern"), ("pioneer", "Pioneer"), ("standard", "Standard"), ("legacy", "Legacy"),
-               ("vintage", "Vintage"), ("pauper", "Pauper"), ("commander", "Commander"), ("canlander", "Canlander"), ("other", "Other")]
+               ("vintage", "Vintage"), ("pauper", "Pauper"), ("canlander", "Canlander"), ("other", "Other"),
+               ("commander", "Commander"), ("oathbreaker", "Oathbreaker")]
             : [("vintage", "Vintage"), ("legacy", "Legacy"), ("pauper", "Pauper"), ("peasant", "Peasant"), ("other", "Other")]
     }
 
@@ -1345,11 +1387,25 @@ struct NewListPanel: View {
         VStack(spacing: 1) {
             Bar(title: kind == .deck ? "New deck" : "New cube") { BarButton("Cancel") { T1Overlays.shared.dismissPanel() } }
             Field(label: "Name", text: $name)
-            T1Segmented(options: Array(formats.prefix(4)), selection: $format)
-            if formats.count > 4 { T1Segmented(options: Array(formats.dropFirst(4)), selection: $format) }
+            ForEach(Array(stride(from: 0, to: formats.count, by: kind == .deck ? 4 : 5)), id: \.self) { i in
+                T1Segmented(options: Array(formats[i..<min(i + (kind == .deck ? 4 : 5), formats.count)]), selection: $format)
+            }
+            if kind == .deck && CommandZone.formats.contains(format) {
+                Section1("Command zone")
+                ForEach(CommandZone.slots(format: format, lines: zone), id: \.self) { slot in
+                    CommandZoneRow(slot: slot, printing: slot.cardId.flatMap { zoneCards[$0]?.printing },
+                                   name: slot.cardId.flatMap { zoneCards[$0]?.name }, choose: { choose(slot) },
+                                   remove: { zone.removeAll { $0.cardId == slot.cardId } })
+                }
+            }
             BigAction(text: kind == .deck ? "Create deck" : "Create cube",
                       enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty) {
-                let l = ListsStore.shared.create(kind: kind, name: String(name.trimmingCharacters(in: .whitespaces).prefix(60)), format: format)
+                let entries = kind == .deck && CommandZone.formats.contains(format)
+                    ? CommandZone.slots(format: format, lines: zone).compactMap { s in s.cardId.map { CardList.Entry(cardId: $0, board: CommandZone.board, qty: 1) } }
+                    : []
+                let l = ListsStore.shared.create(kind: kind, name: String(name.trimmingCharacters(in: .whitespaces).prefix(60)), format: format,
+                                                 entries: entries)
+                if !entries.isEmpty { Telemetry.capture("command_zone_set", ["format": format, "cards": entries.count, "from": "new"]) }
                 T1Overlays.shared.dismissPanel()
                 created(l.id)
             }
@@ -1371,7 +1427,16 @@ struct NewListPanel: View {
                 }.buttonStyle(.plain)
             }
         }
-        .onAppear { if kind == .cube { format = "vintage" } }
+        .onAppear { format = startFormat ?? (kind == .cube ? "vintage" : "modern") }
+    }
+
+    private func choose(_ slot: CommandZone.Slot) {
+        T1Overlays.shared.present(full: true) {
+            CommandZonePicker(role: slot.role) { o, p in
+                zoneCards[p.cardId] = (o.name, p)
+                zone = CommandZone.filling(zone, slot: slot, with: .init(cardId: p.cardId, typeLine: o.typeLine))
+            }.screen("command_zone_picker")
+        }
     }
 }
 

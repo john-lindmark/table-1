@@ -178,9 +178,11 @@ fun ownedFinishes(): Map<String, Set<String>> =
 // ── list ──────────────────────────────────────────────────────────────────
 
 @Composable
-fun TradesScreen(onBack: () -> Unit, onOpen: (String?) -> Unit) {
+fun TradesScreen(onBack: () -> Unit, onOpen: (String?) -> Unit, onMatch: (String) -> Unit = {}, onMatches: () -> Unit = {}) {
     val s by TradesStore.state.collectAsState()
+    val friends by FriendsStore.state.collectAsState()
     LaunchedEffect(Unit) { TradesStore.load() }
+    LaunchedEffect(Unit) { FriendsStore.loadMatches() }
     val drafts = s.trades.filter { !it.confirmed }
     val done = s.trades.filter { it.confirmed }
     T1Screen {
@@ -188,6 +190,12 @@ fun TradesScreen(onBack: () -> Unit, onOpen: (String?) -> Unit) {
         s.error?.let { Notice(it, error = true) }
         Hairlines(Modifier.weight(1f)) {
             item { ListRow("New trade", "What you give, what you get", onClick = { onOpen(null) }) }
+            // Trade matches: friends (and public played-with people) whose for-trade cards meet your wants, or yours theirs.
+            friends.matches?.let { m ->
+                item { Section(if (m.isEmpty()) "Matches" else "Matches · ${m.size}") }
+                if (m.isEmpty()) item { ListRow("No matches yet", "Friends' for-trade cards against your wants", onClick = onMatches) }
+                items(m, key = { "m" + it.userId }) { TradeMatchRow(it) { onMatch(it.userId) } }
+            }
             if (drafts.isNotEmpty()) item { Section("Open · ${drafts.size}") }
             items(drafts, key = { it.id }) { TradeRow(it) { onOpen(it.id) } }
             if (done.isNotEmpty()) item { Section("Confirmed · ${done.size}") }

@@ -86,16 +86,6 @@ fun FollowRows(kind: String, id: String, title: String, owner: String?, token: S
 
 /** Library home, once you follow anything. */
 @Composable
-fun FollowingRow(onClick: () -> Unit) {
-    val s by FollowsStore.state.collectAsState()
-    LaunchedEffect(Unit) { if (s.items == null) FollowsStore.load() }
-    val items = s.items.orEmpty()
-    if (items.isEmpty()) return
-    val updated = items.count { it.available && it.unseen > 0 }
-    ListRow("Following", Follows.home(items), onClick = onClick) { if (updated > 0) Label("$updated new", color = T1.accent) }
-}
-
-@Composable
 fun FollowingScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
     val s by FollowsStore.state.collectAsState()
     val scope = rememberCoroutineScope()

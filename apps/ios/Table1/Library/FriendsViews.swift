@@ -115,26 +115,6 @@ struct AccountSocialRows: View {
     }
 }
 
-/// Library home: who has what you want, who wants what you have.
-struct TradeMatchesRow: View {
-    @Binding var path: [LibraryRoute]
-    private var store: FriendsStore { FriendsStore.shared }
-
-    var body: some View {
-        let m = store.matches ?? []
-        let have = m.reduce(0) { $0 + $1.haveCopies }, want = m.reduce(0) { $0 + $1.wantCopies }
-        Button { path.append(.social(.matches)) } label: {
-            ListRow(title: "Trade matches", detail: store.matches == nil ? "Friends' trades against your wants"
-                    : m.isEmpty ? "None yet · friends' trades against your wants"
-                    : "\(plural(m.count, "person", "people")) · have \(have) · want \(want)") {
-                if !m.isEmpty { Text(m.count.formatted()).font(T1.mono(17)).monospacedDigit() }
-            }
-        }
-        .buttonStyle(.plain)
-        .task { if store.matches == nil { await store.loadMatches() } }
-    }
-}
-
 // MARK: friends
 
 struct FriendsView: View {
@@ -1006,16 +986,7 @@ struct TradeMatchesView: View {
                         Button { path.append(.social(.friends)) } label: { ListRow(title: "Friends", detail: "Add friends to trade with") }.buttonStyle(.plain)
                         Button { path.append(.social(.sharing)) } label: { ListRow(title: "Sharing", detail: "Share your For trade and Wants") }.buttonStyle(.plain)
                     }
-                    ForEach(m) { x in
-                        Button { if T1Overlays.shared.menu == nil { path.append(.social(.match(x.userId))) } } label: {
-                            ListRow(title: x.displayName, detail: x.short + (x.friend ? "" : " · played with you"),
-                                    avatar: AvatarView(name: x.displayName, userId: x.userId)) {
-                                if x.haveUsd + x.wantUsd > 0, let v = PriceBook.text(x.haveUsd + x.wantUsd) { Text(v).font(T1.mono(15)).monospacedDigit() }
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .personMenu { PersonActions.menu(x.person, x.friend ? .friend : .none, from: "trade_match") }
-                    }
+                    ForEach(m) { TradeMatchRow(match: $0, path: $path) }
                 } else {
                     Notice("Looking…")
                 }
@@ -1031,6 +1002,24 @@ struct TradeMatchesView: View {
             }
         }
         .refreshable { await store.loadMatches() }
+    }
+}
+
+/// One person in Trade matches (and in Trades): who, what each side has, and the value.
+struct TradeMatchRow: View {
+    let match: TradeMatch
+    @Binding var path: [LibraryRoute]
+
+    var body: some View {
+        let x = match
+        Button { if T1Overlays.shared.menu == nil { path.append(.social(.match(x.userId))) } } label: {
+            ListRow(title: x.displayName, detail: x.short + (x.friend ? "" : " · played with you"),
+                    avatar: AvatarView(name: x.displayName, userId: x.userId)) {
+                if x.haveUsd + x.wantUsd > 0, let v = PriceBook.text(x.haveUsd + x.wantUsd) { Text(v).font(T1.mono(15)).monospacedDigit() }
+            }
+        }
+        .buttonStyle(.plain)
+        .personMenu { PersonActions.menu(x.person, x.friend ? .friend : .none, from: "trade_match") }
     }
 }
 

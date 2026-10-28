@@ -1,5 +1,13 @@
 package site.table1.events.library
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.vector.PathParser
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -106,88 +114,195 @@ private fun ColumnScope.Filler() = Box(Modifier.weight(1f))
 
 /* ── home ─────────────────────────────────────────────────────────────── */
 
+/** Figma 325:10820's icons (Material, weight 300), drawn from their SVG paths in an 18 dp box. */
+enum class T1Icon(d: String) {
+    Plus("M8.4375 9.5625H4.125V8.4375H8.4375V4.125H9.5625V8.4375H13.875V9.5625H9.5625V13.875H8.4375V9.5625Z"),
+    Search("M14.6567 15.4328L9.94613 10.722C9.57113 11.0316 9.13987 11.2739 8.65237 11.4489C8.16487 11.6239 7.66056 11.7114 7.13944 11.7114C5.85869 11.7114 4.77406 11.2673 3.88556 10.3789C2.99719 9.49038 2.553 8.40575 2.553 7.125C2.553 5.84425 2.99719 4.75963 3.88556 3.87113C4.77406 2.98275 5.85869 2.53856 7.13944 2.53856C8.42019 2.53856 9.50481 2.98275 10.3933 3.87113C11.2817 4.75963 11.7259 5.84425 11.7259 7.125C11.7259 7.66063 11.636 8.17219 11.4562 8.65969C11.2764 9.14719 11.0364 9.57119 10.7364 9.93169L15.447 14.6422L14.6567 15.4328ZM7.13944 10.5866C8.10581 10.5866 8.92431 10.2513 9.59494 9.5805C10.2657 8.90987 10.6011 8.09138 10.6011 7.125C10.6011 6.15862 10.2657 5.34012 9.59494 4.6695C8.92431 3.99875 8.10581 3.66337 7.13944 3.66337C6.17306 3.66337 5.35456 3.99875 4.68394 4.6695C4.01319 5.34012 3.67781 6.15862 3.67781 7.125C3.67781 8.09138 4.01319 8.90987 4.68394 9.5805C5.35456 10.2513 6.17306 10.5866 7.13944 10.5866Z"),
+    Arrow("M10.3847 13.2403L9.59419 12.4269L12.4586 9.5625H3.375V8.4375H12.4586L9.59419 5.57306L10.3847 4.75969L14.625 9L10.3847 13.2403Z"),
+    Decks("M8.22295 9.81524L1.95395 6.56561L9.82163 2.36842L16.0979 5.61824L8.22295 9.81524ZM8.22295 12.7431L2.3852 9.73005L3.56345 9.08373L8.22295 11.4624L14.4883 8.13637L15.6667 8.78268L8.22295 12.7431ZM8.22295 15.6711L2.3852 12.6579L3.56345 12.0117L8.22295 14.3902L14.4883 11.0644L15.6667 11.7105L8.22295 15.6711ZM8.22295 8.53462L13.7527 5.61824L9.82163 3.64923L4.29901 6.56561L8.22295 8.53462Z"),
+    Binders("M5.14912 16.125C4.6635 16.125 4.24644 15.962 3.89794 15.636C3.54931 15.3101 3.375 14.9068 3.375 14.4259V4.18706C3.375 3.75531 3.51469 3.37237 3.79406 3.03825C4.07331 2.70412 4.42881 2.49188 4.86056 2.4015L11.8558 0.975V12.4558L4.98037 13.8879C4.84862 13.9178 4.73562 13.982 4.64137 14.0805C4.54712 14.1791 4.5 14.2943 4.5 14.4259C4.5 14.5923 4.56469 14.7296 4.69406 14.8378C4.82331 14.9459 4.975 15 5.14912 15H13.5V3.375H14.625V16.125H5.14912ZM6.51919 12.4343L10.7308 11.5586V2.35819L6.51919 3.21919V12.4343ZM5.39419 12.6621V3.44719L5.09138 3.51056C4.92025 3.54519 4.77887 3.62381 4.66725 3.74644C4.55575 3.86906 4.5 4.01594 4.5 4.18706V12.9218C4.57688 12.8823 4.65575 12.8483 4.73662 12.8199C4.81737 12.7916 4.89863 12.7687 4.98037 12.7515L5.39419 12.6621Z"),
+    Cubes("M8.4375 14.6769V9.32306L3.75 6.60863V11.9625L8.4375 14.6769ZM9.5625 14.6769L14.25 11.9625V6.60863L9.5625 9.32306V14.6769ZM9 8.35387L13.6313 5.67694L9 3L4.36875 5.67694L9 8.35387ZM2.625 12.6274V5.37262L9 1.70775L15.375 5.37262V12.6274L9 16.2923L2.625 12.6274Z");
+
+    val path = PathParser().parsePathString(d).toPath()
+}
+
 @Composable
-fun LibraryHomeScreen(foregrounds: Int, onAllCards: () -> Unit, onAdd: () -> Unit, onImportExport: () -> Unit, onDecks: () -> Unit,
-                      onCubes: () -> Unit, onTrades: () -> Unit, onBinders: () -> Unit, onWants: () -> Unit, onMatches: () -> Unit,
-                      onFollowing: () -> Unit = {}) {
+fun IconGlyph(icon: T1Icon, modifier: Modifier = Modifier) {
+    Canvas(modifier.size(18.dp)) { scale(size.width / 18f, pivot = Offset.Zero) { drawPath(icon.path, T1.text) } }
+}
+
+/** A printing's art alone (Scryfall's art crop), filling its box. */
+@Composable
+fun CardArtCrop(printing: CatalogPrinting?, modifier: Modifier = Modifier) {
+    BoxWithConstraints(modifier.background(T1.surface)) {
+        val density = LocalDensity.current
+        val maxPx = with(density) { maxOf(maxWidth, maxHeight).roundToPx() }
+        val url = printing?.imageUrl("art_crop")
+        var image by remember(url) { mutableStateOf(url?.let { CardImageLoader.cached(it, maxPx) }) }
+        LaunchedEffect(url) { if (url != null && image == null) image = CardImageLoader.load(url, maxPx) }
+        image?.let { Image(it, contentDescription = null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+    }
+}
+
+object ShelfArt {
+    /** A shelf tile's art: the place's heroes (in the printing it holds), topped up with the first cards it holds that
+     *  aren't basic lands, up to `count`, one per card. */
+    fun printings(heroes: List<String>, held: List<String>, basics: Set<String>, count: Int, db: CatalogDb): List<CatalogPrinting> {
+        val out = HeroArt.printings(heroes, held, db).take(count).toMutableList()
+        if (out.size >= count) return out
+        val seen = out.map { it.oracleIdx }.toMutableSet()
+        val candidates = held.filter { it !in basics }.take(60)
+        val found = db.printings(candidates.toSet())
+        for (id in candidates) {
+            if (out.size >= count) break
+            val p = found[id] ?: continue
+            if (seen.add(p.oracleIdx)) out += p
+        }
+        return out
+    }
+}
+
+private fun shelfText(size: Int) = androidx.compose.ui.text.TextStyle(fontFamily = T1.mono, fontSize = size.sp, letterSpacing = 1.5.sp)
+
+/** One deck, binder or cube on a shelf: its art under a scrim, name and a detail line at the bottom. */
+@Composable
+private fun ShelfTile(art: CatalogPrinting?, title: String, subtitle: String? = null, note: String? = null, onClick: () -> Unit) {
+    Box(Modifier.size(258.dp, 135.dp).clickable(onClick = onClick)) {
+        CardArtCrop(art, Modifier.fillMaxSize())
+        Box(Modifier.fillMaxSize().background(T1.bg.copy(alpha = 0.6f)))
+        Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Bottom) {
+            Column(Modifier.weight(1f)) {
+                Text(title.uppercase(), color = T1.text, style = shelfText(11), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (!subtitle.isNullOrEmpty()) Text(subtitle.uppercase(), color = T1.muted, style = shelfText(9), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            note?.let { Text(it.uppercase(), color = T1.accent, style = shelfText(9)) }
+        }
+    }
+}
+
+@Composable
+private fun Shelf(icon: T1Icon, title: String, onOpen: () -> Unit, tiles: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(top = 32.dp)) {
+        Row(Modifier.fillMaxWidth().height(50.dp).clickable(onClick = onOpen).padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconGlyph(icon)
+            Text(title.uppercase(), Modifier.weight(1f).padding(start = 8.dp), color = T1.text, fontFamily = T1.mono, fontSize = 12.sp, letterSpacing = 2.sp, maxLines = 1)
+            Box(Modifier.size(50.dp), contentAlignment = Alignment.Center) { IconGlyph(T1Icon.Arrow) }
+        }
+        LazyRow(Modifier.fillMaxWidth().height(135.dp), horizontalArrangement = Arrangement.spacedBy(1.dp), content = tiles)
+    }
+}
+
+/** The Collection tab (Figma 325:10820): the collection as a shelf of its hero art, then a shelf each of decks,
+ *  binders and cubes (yours, then the ones you follow), with Trade · Wants · Import along the bottom. + adds cards or
+ *  makes a deck, binder or cube; the magnifier searches every card. `go` opens a route. */
+@Composable
+fun LibraryHomeScreen(foregrounds: Int, go: (String) -> Unit) {
     val lists by ListsStore.state.collectAsState()
     val col by CollectionStore.state.collectAsState()
     val binders by BindersStore.state.collectAsState()
-    val trades by TradesStore.state.collectAsState()
     val heroes by HeroesStore.state.collectAsState()
     val cat by CatalogStore.state.collectAsState()
+    val follows by FollowsStore.state.collectAsState()
+    val pricesVersion by PriceBook.version.collectAsState()
+    var menu by remember { mutableStateOf(false) }
+    var creating by remember { mutableStateOf<String?>(null) } // deck | cube | binder
     // Syncs on open and on every return to the Library or to the app.
     LaunchedEffect(foregrounds) {
         CollectionStore.sync()
         ListsStore.sync()
-        TradesStore.load()
     }
-    /** The collection's hero cards, shown on the All cards row. */
-    var heroArt by remember { mutableStateOf<List<CatalogPrinting>>(emptyList()) }
-    LaunchedEffect(heroes.heroes(HeroScope.Collection), cat.generation, col.version) {
-        val db = CatalogStore.db ?: run { heroArt = emptyList(); return@LaunchedEffect }
-        val ids = heroes.heroes(HeroScope.Collection)
-        val held = col.items.values.sortedByDescending { it.qty }.map { it.cardId }
-        heroArt = withContext(Dispatchers.Default) { HeroArt.printings(ids, held, db) }
+    LaunchedEffect(Unit) { if (follows.items == null) FollowsStore.load() }
+    LaunchedEffect(col.version) { PriceBook.load(col.items.values.map { it.cardId }) }
+    /** Shelf art by place: "collection", "list:<id>", "binder:<id>". */
+    var art by remember { mutableStateOf<Map<String, List<CatalogPrinting>>>(emptyMap()) }
+    LaunchedEffect(heroes, cat.generation, col.version, binders.version, pricesVersion, lists.lists.map { "${it.id}${it.current.number}" }) {
+        val db = CatalogStore.db ?: run { art = emptyMap(); return@LaunchedEffect }
+        val basics = CatalogStore.basics
+        val items = col.items.values.filter { it.qty > 0 }
+        val places = mutableListOf<Triple<String, List<String>, List<String>>>()
+        places += Triple("collection", heroes.heroes(HeroScope.Collection),
+            items.sortedByDescending { PriceBook.usd(it.cardId, it.finish) ?: 0.0 }.map { it.cardId })
+        for (l in lists.lists) places += Triple("list:${l.id}", heroes.heroes(HeroScope.InList(l.id)),
+            l.entries.filter { it.board != "side" && it.board != "maybe" }.sortedByDescending { it.qty }.map { it.cardId })
+        for (b in binders.binders) places += Triple("binder:${b.id}", heroes.heroes(HeroScope.InBinder(b.id)),
+            binders.itemsIn(b.id, col.items).sortedByDescending { it.qty }.map { it.cardId })
+        art = withContext(Dispatchers.Default) {
+            places.associate { (k, h, held) -> k to ShelfArt.printings(h, held, basics, if (k == "collection") 2 else 1, db) }
+        }
     }
+    fun tap(target: String) = Telemetry.capture("collection_home_tap", mapOf("target" to target))
     val s = col.summary
+    val decks = lists.lists.filter { it.kind == ListKind.Deck }
+    val cubes = lists.lists.filter { it.kind == ListKind.Cube }
+    val followed = { kind: String -> follows.items.orEmpty().filter { it.kind == kind && it.available } }
     T1Screen {
-        Bar("Collection", subtitle = if (col.syncing) "Syncing…" else null)
+        Row(Modifier.fillMaxWidth().background(T1.bg), verticalAlignment = Alignment.CenterVertically) {
+            Text("COLLECTION", Modifier.weight(1f).padding(start = 16.dp), color = T1.text, fontFamily = T1.mono, fontSize = 12.sp, letterSpacing = 2.sp, maxLines = 1)
+            Box(Modifier.size(50.dp).clickable { tap("add"); menu = true }.semantics { contentDescription = "Add" }, contentAlignment = Alignment.Center) { IconGlyph(T1Icon.Plus) }
+            Box(Modifier.size(50.dp).clickable { tap("search"); go("collection/search") }.semantics { contentDescription = "Search cards" },
+                contentAlignment = Alignment.Center) { IconGlyph(T1Icon.Search) }
+        }
         col.error?.let { Notice(it, error = true) }
-        Hairlines(Modifier.weight(1f)) {
+        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 64.dp)) {
             item {
-                Column(Modifier.fillMaxWidth().background(T1.surface).padding(vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Label("Cards")
-                    Text(s?.let { count(it.totalQty) } ?: if (col.ready) "0" else "…", color = T1.text, fontFamily = T1.mono,
-                        fontSize = 48.sp, letterSpacing = 4.sp)
-                    Label(s?.let { "${count(it.uniqueCards)} distinct · ${money(it.valueUsd, "USD")}" } ?: " ")
+                Box(Modifier.fillMaxWidth().height(179.dp).clickable { go("collection/all") }) {
+                    val heroArt = art["collection"].orEmpty()
+                    Row(Modifier.fillMaxSize()) {
+                        if (heroArt.isEmpty()) Box(Modifier.fillMaxSize().background(T1.surface))
+                        heroArt.forEach { CardArtCrop(it, Modifier.weight(1f).fillMaxHeight()) }
+                    }
+                    Box(Modifier.fillMaxSize().background(T1.bg.copy(alpha = 0.6f)))
+                    Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(16.dp)) {
+                        Text(s?.let { count(it.totalQty) } ?: if (col.ready) "0" else "…", Modifier.weight(1f), color = T1.muted, style = shelfText(9))
+                        s?.let { Text(money(it.valueUsd, "USD"), color = T1.muted, style = shelfText(9)) }
+                    }
                 }
             }
             item {
-                HeroListRow(heroArt, "All cards", s?.let { "${count(it.uniquePrintings)} printings" }, onClick = onAllCards) {
-                    if (s != null) Text(count(s.uniqueCards), color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
-                }
-            }
-            item { ListRow("Add cards", "Search, Scryfall syntax or scan", onClick = onAdd) }
-            item { ListRow("Import and export", "CSV from ManaBox, Moxfield and others", onClick = onImportExport) }
-            item {
-                val (by, unsorted) = remember(col.version, binders.version) { binders.totals(col.items) }
-                val forTrade = binders.binders.filter { it.forTrade }.sumOf { by[it.id] ?: 0 }
-                ListRow("Binders", if (binders.binders.isEmpty()) "Where your copies are, and what's for trade"
-                    else "${count(forTrade)} cards for trade · ${count(unsorted)} unsorted", onClick = onBinders) {
-                    Text("${binders.binders.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
+                Shelf(T1Icon.Decks, "Decks", { go("collection/decks") }) {
+                    items(decks, key = { it.id }) { l ->
+                        ShelfTile(art["list:${l.id}"]?.firstOrNull(), l.name, CatalogPack.formatName(l.format)) { go("collection/list/${l.id}") }
+                    }
+                    items(followed("deck"), key = { "f" + it.id }) { f -> ShelfTile(null, f.title, f.owner?.displayName, if (f.unseen > 0) "${f.unseen} new" else null) { f.route?.let(go) } }
+                    if (decks.isEmpty()) item { ShelfTile(null, "New deck", "Build or import") { creating = "deck" } }
                 }
             }
             item {
-                val wanted = binders.liveWants.sumOf { it.qty }
-                val missing = remember(col.version, lists.lists, cat.generation) {
-                    MissingView.lines(lists.lists, col.items.values.groupBy { ownKey(it.cardId, it.finish) }.mapValues { (_, v) -> v.sumOf { it.qty } }, CatalogStore.basics).sumOf { it.short }
-                }
-                ListRow("Wants", "${count(wanted)} wanted · ${count(missing)} missing", onClick = onWants) {
-                    Text(count(wanted), color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
+                Shelf(T1Icon.Binders, "Binders", { go("collection/binders") }) {
+                    items(binders.binders, key = { it.id }) { b -> ShelfTile(art["binder:${b.id}"]?.firstOrNull(), b.name) { go("collection/binder/${b.id}") } }
+                    items(followed("binder"), key = { "f" + it.id }) { f -> ShelfTile(null, f.title, f.owner?.displayName, if (f.unseen > 0) "${f.unseen} new" else null) { f.route?.let(go) } }
+                    if (binders.binders.isEmpty()) item { ShelfTile(null, "New binder", "Where your copies are") { creating = "binder" } }
                 }
             }
             item {
-                val decks = lists.lists.filter { it.kind == ListKind.Deck }
-                ListRow("Decks", if (decks.isEmpty()) "Build and track decks" else decks.take(3).joinToString(" · ") { it.name }, onClick = onDecks) {
-                    Text("${decks.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
-                }
-            }
-            item {
-                val cubes = lists.lists.filter { it.kind == ListKind.Cube }
-                ListRow("Cubes", if (cubes.isEmpty()) "Build and track cubes" else cubes.joinToString(" · ") { it.name }, onClick = onCubes) {
-                    Text("${cubes.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
-                }
-            }
-            item { TradeMatchesRow(onMatches) }
-            item { FollowingRow(onFollowing) }
-            item {
-                val open = trades.trades.count { !it.confirmed }
-                ListRow("Trades", if (open > 0) "$open open" else "Give and get, then confirm", onClick = onTrades) {
-                    if (trades.loaded) Text("${trades.trades.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
+                Shelf(T1Icon.Cubes, "Cubes", { go("collection/cubes") }) {
+                    items(cubes, key = { it.id }) { l -> ShelfTile(art["list:${l.id}"]?.firstOrNull(), l.name) { go("collection/list/${l.id}") } }
+                    items(followed("cube"), key = { "f" + it.id }) { f -> ShelfTile(null, f.title, f.owner?.displayName, if (f.unseen > 0) "${f.unseen} new" else null) { f.route?.let(go) } }
+                    if (cubes.isEmpty()) item { ShelfTile(null, "New cube", "Build or import") { creating = "cube" } }
                 }
             }
         }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+            listOf("Trade" to "collection/trades", "Wants" to "collection/wants", "Import" to "collection/csv").forEach { (title, route) ->
+                Box(Modifier.weight(1f).height(50.dp).background(T1.bg).clickable { tap(title.lowercase()); go(route) }, contentAlignment = Alignment.Center) {
+                    Text(title.uppercase(), color = T1.text, style = shelfText(11))
+                }
+            }
+        }
+    }
+    if (menu) T1Menu(null, listOf(
+        T1MenuItem("Add cards") { go("collection/add") },
+        T1MenuItem("New deck") { creating = "deck" },
+        T1MenuItem("New binder") { creating = "binder" },
+        T1MenuItem("New cube") { creating = "cube" },
+    ), onDismiss = { menu = false })
+    when (creating) {
+        "deck", "cube" -> {
+            val kind = if (creating == "deck") ListKind.Deck else ListKind.Cube
+            NewListPanel(kind, onDismiss = { creating = null }, onCreated = { go("collection/list/$it") },
+                onFind = { go("collection/find") }, onImport = { go("collection/import/${kind.wire}") })
+        }
+        "binder" -> BinderEditDialog(null, onClose = { creating = null }) { go("collection/binder/${it.id}") }
     }
 }
 
@@ -385,8 +500,20 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
 /* ── add (search) ─────────────────────────────────────────────────────── */
 
 @Composable
-fun AddCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
+fun AddCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, search: Boolean = false) {
     val cat by CatalogStore.state.collectAsState()
+    val col by CollectionStore.state.collectAsState()
+    /** Search (the Collection home's magnifier): copies owned per oracle idx. */
+    var owned by remember { mutableStateOf<Map<Int, Int>>(emptyMap()) }
+    LaunchedEffect(search, col.version, cat.generation) {
+        val db = CatalogStore.db ?: return@LaunchedEffect
+        if (!search) return@LaunchedEffect
+        val items = col.items.values.map { it.cardId to it.qty }
+        owned = withContext(Dispatchers.Default) {
+            val printings = db.printings(items.map { it.first }.toSet())
+            items.mapNotNull { (id, q) -> printings[id]?.let { it.oracleIdx to q } }.groupBy({ it.first }, { it.second }).mapValues { it.value.sum() }
+        }
+    }
     val scope = rememberCoroutineScope()
     var scanning by remember { mutableStateOf(false) }
     var scanned by remember { mutableStateOf<Pair<String, String>?>(null) } // batch id, label
@@ -402,7 +529,7 @@ fun AddCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
         runCatching { focus.requestFocus() }
     }
     T1Screen {
-        Bar("Add cards", onBack = onBack)
+        Bar(if (search) "Search" else "Add cards", onBack = onBack)
         CatalogStatus(cat)
         error?.let { Notice(it, error = true) }
         scanned?.let { (batchId, label) ->
@@ -419,7 +546,7 @@ fun AddCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
             }
         }
         Box(Modifier.focusRequester(focus)) {
-            CardSearchBar(query, { query = it }, placeholder = "Lightning Bolt, or t:dragon c:r", label = "Card", onScan = { scanning = true },
+            CardSearchBar(query, { query = it }, placeholder = "Lightning Bolt, or t:dragon c:r", label = "Card", onScan = if (search) null else ({ scanning = true }),
                 onSubmit = { hits.firstOrNull()?.let { onOpen(it.oracleId) } })
         }
         CardSearchStatus(query, result)
@@ -427,7 +554,8 @@ fun AddCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
             if (cat.phase == "ready" && result != null && CardName.norm(query).length >= 2 && hits.isEmpty() && !CardQuery.hasSyntax(query)) item { QuietRow("No card by that name") }
             items(hits, key = { it.idx }) { o ->
                 CardRow(covers[o.idx], o.name, if (o.manaCost.isEmpty()) o.typeLine else "${o.typeLine} · ${o.manaCost}", onClick = { onOpen(o.oracleId) }) {
-                    Text("${o.printings}", color = T1.muted, fontFamily = T1.mono, fontSize = 15.sp)
+                    if (!search) Text("${o.printings}", color = T1.muted, fontFamily = T1.mono, fontSize = 15.sp)
+                    else owned[o.idx]?.takeIf { it > 0 }?.let { Text("$it", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp) }
                 }
             }
         }

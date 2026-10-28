@@ -67,9 +67,9 @@ export const countOf = (l: CardList, board: Board) => entriesOf(l).filter((e) =>
 export const boardsOf = (l: CardList) => BOARD_ORDER.filter((b) => entriesOf(l).some((e) => e.board === b));
 export const sectionsFor = (kind: ListKind): Board[] => (kind === "deck" ? ["main", "side", "maybe"] : ["main", "maybe"]);
 
-export function boardTitle(kind: ListKind, board: Board): string {
+export function boardTitle(kind: ListKind, board: Board, format?: string): string {
   switch (board) {
-    case "commander": return "Commander";
+    case "commander": return format === "oathbreaker" ? "Command zone" : "Commander";
     case "main": return kind === "deck" ? "Main deck" : "Main";
     case "side": return "Sideboard";
     case "maybe": return "Considering";

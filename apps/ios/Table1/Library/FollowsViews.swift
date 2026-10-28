@@ -74,25 +74,6 @@ struct FollowRows: View {
     }
 }
 
-/// Library home, once you follow anything.
-struct FollowingRow: View {
-    @Binding var path: [LibraryRoute]
-
-    var body: some View {
-        VStack(spacing: 1) {
-            if let items = store.items, !items.isEmpty {
-                let updated = items.filter { $0.available && $0.unseen > 0 }.count
-                Button { path.append(.social(.following)) } label: {
-                    ListRow(title: "Following", detail: Follows.home(items)) {
-                        if updated > 0 { LabelText("\(updated) new", color: T1.accent) }
-                    }
-                }.buttonStyle(.plain)
-            }
-        }
-        .task { if store.items == nil { await store.load() } }
-    }
-}
-
 struct FollowingView: View {
     @Binding var path: [LibraryRoute]
     @Environment(\.dismiss) private var dismiss

@@ -14,6 +14,7 @@ import { repointTradeLine } from "../lib/changePrinting";
 import { ChangePrintingScreen } from "./ChangePrinting";
 import { CONDITIONS, CardArt, CardRow, LibScreen, useCatalog, useLibrarySession } from "./Library";
 import { LanguagePicker } from "./Languages";
+import { TradeMatchRows } from "./Friends";
 import { langForNew, languageName, storedAddLang } from "../lib/languages";
 
 /* Trades (contract/trades-2026-10-16.md): what you give (copies you own) and what you get (any printing). Drafts
@@ -24,7 +25,11 @@ const FINISHES: Finish[] = ["nonfoil", "foil", "etched"];
 const LETTER: Record<Finish, string> = { nonfoil: "n", foil: "f", etched: "e" };
 const finishesOf = (c: Catalog, p: number) => FINISHES.filter((f) => c.pFinishes[p].includes(LETTER[f]));
 
-export function TradesScreen({ onBack, onOpen, onNew }: { onBack: () => void; onOpen: (id: string) => void; onNew: () => void }) {
+export function TradesScreen({ onBack, onOpen, onNew, onMatch, onMatches }: {
+  onBack: () => void; onOpen: (id: string) => void; onNew: () => void;
+  /** A trade match (one person), and Trade matches (how matches start, when there are none). */
+  onMatch: (userId: string) => void; onMatches: () => void;
+}) {
   const { session } = useLibrarySession();
   const { trades, loaded, error } = useTrades();
   const drafts = trades.filter((t) => t.status === "draft");
@@ -40,6 +45,7 @@ export function TradesScreen({ onBack, onOpen, onNew }: { onBack: () => void; on
       <Bar title="Trades" subtitle={loaded ? `${drafts.length} open` : undefined} onBack={onBack} />
       {error && <Notice tone="error">{error}</Notice>}
       <Row title="New trade" detail="What you give, what you get" onClick={onNew} />
+      <TradeMatchRows onOpen={onMatch} onNone={onMatches} />
       {drafts.length > 0 && <Section title="Open" count={drafts.length} />}
       {drafts.map(row)}
       {done.length > 0 && <Section title="Confirmed" count={done.length} />}

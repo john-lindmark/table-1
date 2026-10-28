@@ -53,7 +53,7 @@ data class CardList(val id: String, val kind: ListKind, val name: String, val fo
     val sections get() = if (kind == ListKind.Deck) listOf("main", "side", "maybe") else listOf("main", "maybe")
 
     fun boardTitle(board: String) = when (board) {
-        "commander" -> "Commander"
+        "commander" -> if (format == "oathbreaker") "Command zone" else "Commander"
         "main" -> if (kind == ListKind.Deck) "Main deck" else "Main"
         "side" -> "Sideboard"
         "maybe" -> "Considering"

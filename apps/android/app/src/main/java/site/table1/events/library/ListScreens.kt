@@ -1,5 +1,7 @@
 package site.table1.events.library
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -185,7 +187,7 @@ private fun StatRow(stats: List<Pair<String, Int>>) {
 
 /* ── lists of one kind ────────────────────────────────────────────────── */
 
-private val DECK_FORMATS = listOf("modern", "pioneer", "standard", "legacy", "vintage", "pauper", "commander", "canlander", "other")
+private val DECK_FORMATS = listOf("modern", "pioneer", "standard", "legacy", "vintage", "pauper", "canlander", "other", "commander", "oathbreaker")
 private val CUBE_FORMATS = listOf("vintage", "legacy", "pauper", "peasant", "other")
 
 @Composable
@@ -195,10 +197,6 @@ fun ListsScreen(kind: ListKind, onBack: () -> Unit, onOpen: (String) -> Unit, on
     val owned = ownedByPrinting()
     val scope = rememberCoroutineScope()
     var creating by remember { mutableStateOf(false) }
-    var name by remember { mutableStateOf("") }
-    val formats = if (kind == ListKind.Deck) DECK_FORMATS else CUBE_FORMATS
-    var format by remember { mutableStateOf(0) }
-    var busy by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { ListsStore.sync() }
     val mine = s.lists.filter { it.kind == kind }
     val heroes by HeroesStore.state.collectAsState()
@@ -230,23 +228,60 @@ fun ListsScreen(kind: ListKind, onBack: () -> Unit, onOpen: (String) -> Unit, on
             }
         }
     }
-    if (creating) {
-        T1Panel(if (kind == ListKind.Deck) "New deck" else "New cube", onDismiss = { creating = false }) {
+    if (creating) NewListPanel(kind, onDismiss = { creating = false }, onCreated = onOpen, onFind = onFind, onImport = onImport)
+}
+
+/** New deck or cube: a name and a format; Commander and Oathbreaker decks also pick their command zone
+ *  (contract/command-zone-2026-10-27.md). Opened from Decks/Cubes and from the Collection home's +. */
+@Composable
+fun NewListPanel(kind: ListKind, onDismiss: () -> Unit, onCreated: (String) -> Unit, onFind: () -> Unit = {}, onImport: () -> Unit = {}) {
+    val scope = rememberCoroutineScope()
+    var name by remember { mutableStateOf("") }
+    val formats = if (kind == ListKind.Deck) DECK_FORMATS else CUBE_FORMATS
+    var format by remember { mutableStateOf(0) }
+    var busy by remember { mutableStateOf(false) }
+    var zone by remember { mutableStateOf<List<CommandZone.Line>>(emptyList()) }
+    var zoneCards by remember { mutableStateOf<Map<String, Pair<String, CatalogPrinting>>>(emptyMap()) }
+    var choosing by remember { mutableStateOf<CommandZone.Slot?>(null) }
+    val zoned = kind == ListKind.Deck && formats[format] in CommandZone.FORMATS
+    val slots = if (zoned) CommandZone.slots(formats[format], zone) else emptyList()
+    T1Panel(if (kind == ListKind.Deck) "New deck" else "New cube", onDismiss = onDismiss) {
+        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Box(Modifier.fillMaxWidth().background(T1.surface).padding(16.dp)) { T1TextField(name, { name = it }, label = "Name") }
-            T1Segmented(formats.take(4), if (format < 4) format else -1) { format = it }
-            if (formats.size > 4) T1Segmented(formats.drop(4), if (format >= 4) format - 4 else -1) { format = it + 4 }
+            // Decks: four across, the command-zone formats on their own row.
+            formats.chunked(if (kind == ListKind.Deck) 4 else 5).forEachIndexed { r, row ->
+                val base = r * (if (kind == ListKind.Deck) 4 else 5)
+                T1Segmented(row, if (format - base in row.indices) format - base else -1) { format = base + it }
+            }
+            if (zoned) {
+                Section("Command zone")
+                slots.forEach { slot ->
+                    CommandZoneRow(slot, slot.cardId?.let { zoneCards[it]?.second }, slot.cardId?.let { zoneCards[it]?.first },
+                        onChoose = { choosing = slot }, onRemove = { zone = zone.filter { it.cardId != slot.cardId } })
+                }
+            }
             BigAction(if (kind == ListKind.Deck) "Create deck" else "Create cube", enabled = name.isNotBlank(), busy = busy) {
                 busy = true
+                val entries = slots.mapNotNull { sl -> sl.cardId?.let { ListEntry(it, CommandZone.BOARD, 1) } }
                 scope.launch {
-                    runCatching { ListsStore.create(kind, name.trim().take(60), formats[format]) }
-                        .onSuccess { id -> creating = false; name = ""; onOpen(id) }
+                    runCatching { ListsStore.create(kind, name.trim().take(60), formats[format], entries) }
+                        .onSuccess { id ->
+                            if (entries.isNotEmpty()) Telemetry.capture("command_zone_set", mapOf("format" to formats[format], "cards" to entries.size, "from" to "new"))
+                            onDismiss(); onCreated(id)
+                        }
                     busy = false
                 }
             }
             ListRow("Import from a link or list", if (kind == ListKind.Deck) "Moxfield, ManaBox, Archidekt, MTGGoldfish" else "Cube Cobra, or a pasted list",
-                onClick = { creating = false; onImport() })
+                onClick = { onDismiss(); onImport() })
             if (kind == ListKind.Deck) ListRow("Find a deck online", "Describe it; we load a recent tournament list",
-                onClick = { creating = false; onFind() })
+                onClick = { onDismiss(); onFind() })
+        }
+    }
+    choosing?.let { slot ->
+        CommandZonePicker(slot.role, onDismiss = { choosing = null }) { o, p ->
+            zoneCards = zoneCards + (p.cardId to (o.name to p))
+            zone = CommandZone.filling(zone, slot.cardId, CommandZone.Line(p.cardId, o.typeLine))
         }
     }
 }
@@ -270,6 +305,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     var exporting by remember { mutableStateOf(false) }
     var imaging by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
+    var choosingZone by remember { mutableStateOf<CommandZone.Slot?>(null) }
     val grouping = rememberListGrouping(list?.kind)
     val sort = rememberListSort(list?.kind)
     var query by remember { mutableStateOf("") }
@@ -290,8 +326,12 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     val issues = legalityIssues(rows, list)
     val searching = CardName.norm(query).isNotEmpty()
     val shown = if (searching) rows.filter { CardSearch.matches(query, it.name, it.type) } else rows
+    // Commander and Oathbreaker decks show their command zone at the top (rows layout, not while searching).
+    val showsZone = list.kind == ListKind.Deck && list.format in CommandZone.FORMATS && !searching &&
+        layout.value != CardLayout.Grid && layout.value != CardLayout.Stacks
+    val zone = rows.filter { it.board == CommandZone.BOARD }
     // While searching, matches come first: the summary rows would push them under the keyboard.
-    val boards = list.boards.filter { b -> !searching || shown.any { it.board == b } }
+    val boards = list.boards.filter { b -> (!searching || shown.any { it.board == b }) && !(b == CommandZone.BOARD && showsZone) }
 
     // Summary, Add cards, Version history: the same block above both the list and the grid.
     val top: @Composable () -> Unit = {
@@ -310,6 +350,15 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                 else if (total > 0) Notice("Points: $total of $limit. $detail")
                 val main = list.count("main")
                 if (main < 100) Notice("Canadian Highlander decks need at least 100 cards: $main so far.")
+            }
+            if (showsZone) {
+                Section("Command zone")
+                CommandZone.slots(list.format, zone.map { CommandZone.Line(it.cardId, it.type, it.finish, it.lang) }).forEach { slot ->
+                    val line = zone.firstOrNull { it.cardId == slot.cardId && it.finish == slot.finish && it.lang == slot.lang }
+                    CommandZoneRow(slot, line?.printing, line?.name, onChoose = { choosingZone = slot },
+                        onRemove = { slot.cardId?.let { id -> scope.launch { ListsStore.remove(list.id, id, CommandZone.BOARD, slot.finish, slot.lang) } } },
+                        onOpen = line?.oracleId?.let { o -> { onCard(o) } })
+                }
             }
             if (editing) ListRow(if (list.kind == ListKind.Deck) "Duplicate deck" else "Duplicate cube", "A new list with these cards", onClick = {
                 scope.launch { runCatching { ListsStore.duplicate(list.id) }.getOrNull()?.let { editing = false; onOpen(it) } }
@@ -476,6 +525,16 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                 scope.launch { runCatching { ListsStore.delete(list.id) }.onSuccess { onBack() } }
             },
         ), onDismiss = { confirmDelete = false })
+    }
+    choosingZone?.let { slot ->
+        CommandZonePicker(slot.role, onDismiss = { choosingZone = null }) { _, p ->
+            scope.launch {
+                val id = slot.cardId
+                if (id != null) ListsStore.swap(list.id, id, CommandZone.BOARD, slot.finish, p.cardId, "nonfoil", null, slot.lang, "en")
+                else ListsStore.add(list.id, p.cardId, CommandZone.BOARD, 1)
+            }
+            Telemetry.capture("command_zone_set", mapOf("format" to list.format, "role" to slot.role.wire, "from" to if (slot.cardId == null) "add" else "change"))
+        }
     }
     if (exporting) ListExportScreen(list.name, list.kind, list.entries, "own") { exporting = false }
     if (imaging) DeckImageScreen(list.name, list.format, list.entries, owner = null, from = "own") { imaging = false }

@@ -172,6 +172,7 @@ struct TradesView: View {
                     Button { path.append(.trade(nil)) } label: {
                         ListRow(title: "New trade", detail: "What you give, what you get")
                     }.buttonStyle(.plain)
+                    matches
                     if !drafts.isEmpty {
                         Section1("Open · \(drafts.count)")
                         ForEach(drafts) { row($0) }
@@ -185,6 +186,24 @@ struct TradesView: View {
             }
         }
         .task { await store.load() }
+        .task { await friends.loadMatches() }
+        .refreshable { await store.load(); await friends.loadMatches() }
+    }
+
+    private var friends: FriendsStore { FriendsStore.shared }
+
+    /// Trade matches: friends (and public played-with people) whose for-trade cards meet your wants, or yours theirs.
+    /// With none, one row opens Trade matches, which says how matches start.
+    @ViewBuilder private var matches: some View {
+        if let m = friends.matches {
+            Section1(m.isEmpty ? "Matches" : "Matches · \(m.count)")
+            if m.isEmpty {
+                Button { path.append(.social(.matches)) } label: {
+                    ListRow(title: "No matches yet", detail: "Friends' for-trade cards against your wants")
+                }.buttonStyle(.plain)
+            }
+            ForEach(m) { TradeMatchRow(match: $0, path: $path) }
+        }
     }
 
     private func row(_ t: Trade) -> some View {

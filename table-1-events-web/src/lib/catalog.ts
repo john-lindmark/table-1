@@ -111,7 +111,7 @@ export function cornerRatio(set: string): number {
   return 0.0432;
 }
 
-export function cardImageUrl(c: Catalog, p: number, size: "small" | "normal" | "large" = "normal", back = false) {
+export function cardImageUrl(c: Catalog, p: number, size: "small" | "normal" | "large" | "art_crop" = "normal", back = false) {
   const id = c.pId[p];
   const ts = c.pImageTs[p];
   return `https://cards.scryfall.io/${size}/${back ? "back" : "front"}/${id[0]}/${id[1]}/${id}.jpg${ts ? `?${ts}` : ""}`;

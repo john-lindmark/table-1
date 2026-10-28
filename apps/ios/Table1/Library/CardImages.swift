@@ -172,6 +172,31 @@ struct CardArt: View {
     }
 }
 
+/// A printing's art alone (Scryfall's art crop), filling whatever frame it's given: the Collection shelves.
+struct CardArtCrop: View {
+    let printing: CatalogPrinting?
+    @Environment(\.displayScale) private var scale
+    @State private var image: UIImage?
+
+    var body: some View {
+        GeometryReader { geo in
+            let maxPixel = Int((max(geo.size.width, geo.size.height) * scale).rounded(.up))
+            let url = printing.flatMap { $0.imageFaces == 0 ? nil : CatalogPack.imageURL(cardId: $0.cardId, imageTs: $0.imageTs, size: "art_crop") }
+            Rectangle().fill(T1.surface)
+                .overlay { if let image { Image(uiImage: image).resizable().interpolation(.medium).scaledToFill() } }
+                .frame(width: geo.size.width, height: geo.size.height)
+                .clipped()
+                .task(id: url) {
+                    guard let url, maxPixel > 0 else { image = nil; return }
+                    if let hit = CardImageLoader.shared.cached(url, maxPixel: maxPixel) { image = hit; return }
+                    image = nil
+                    image = await CardImageLoader.shared.image(url, maxPixel: maxPixel)
+                }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
 extension CatalogPrinting {
     func art(width: CGFloat, finish: String = "nonfoil", back: Bool = false) -> CardArt {
         CardArt(cardId: cardId, imageTs: imageTs, faces: imageFaces, set: set, width: width, finish: finish, back: back)

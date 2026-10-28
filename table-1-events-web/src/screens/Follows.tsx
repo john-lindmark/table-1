@@ -6,7 +6,7 @@ import {
   setFollow, since, useFollows, type Follow, type FollowChanges, type FollowKind, type FollowRow,
 } from "../lib/follows";
 import { capture } from "../lib/telemetry";
-import { CardRow, LibScreen, useCatalog, useLibrarySession } from "./Library";
+import { CardRow, LibScreen, useCatalog } from "./Library";
 import { BoardHeader } from "./Lists";
 
 /* Following screens (contract/follows-2026-10-25.md): the Follow rows on someone else's binder, deck or cube, the
@@ -62,18 +62,6 @@ export function FollowRows({ kind, id, title, owner, token, signedIn = true, onS
 }
 
 /** Library home, once you follow anything. */
-export function FollowingRow({ onClick }: { onClick: () => void }) {
-  const { session, demo } = useLibrarySession();
-  const s = useFollows();
-  useEffect(() => {
-    if ((session || demo) && !s.items) void loadFollows();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, demo]);
-  if (!s.items?.length) return null;
-  const updated = s.items.filter((f) => f.available && f.unseen > 0).length;
-  return <Row title="Following" detail={followHome(s.items)} value={updated ? `${updated} new` : undefined} accentValue onClick={onClick} />;
-}
-
 export function FollowingScreen({ onBack, onOpen }: { onBack: () => void; onOpen: (href: string) => void }) {
   const s = useFollows();
   const [menu, setMenu] = useState<{ title: string; items: MenuItem[] } | null>(null);

@@ -78,18 +78,29 @@ export function FriendsAccountRows({ onFriends, onSharing, onProfile }: { onFrie
 }
 
 /** Library home: who has what you want, who wants what you have. */
-export function TradeMatchesRow({ onClick }: { onClick: () => void }) {
+/** Trades: who has what you want, who wants what you have; with none, one row opens Trade matches. */
+export function TradeMatchRows({ onOpen, onNone }: { onOpen: (userId: string) => void; onNone: () => void }) {
   const { ready, session } = useFriendsReady();
   const s = useFriends();
   useEffect(() => {
     if (ready && session) void loadMatches();
   }, [ready, session]);
-  const m = s.matches ?? [];
-  const have = m.reduce((n, x) => n + x.have_copies, 0), want = m.reduce((n, x) => n + x.want_copies, 0);
+  const m = s.matches;
+  if (!m) return null;
   return (
-    <Row title="Trade matches" value={m.length || undefined} onClick={onClick}
-         detail={!s.matches ? "Friends' trades against your wants" : !m.length ? "None yet · friends' trades against your wants"
-                 : `${plural(m.length, "person", "people")} · have ${have} · want ${want}`} />
+    <>
+      <Section title="Matches" count={m.length || undefined} />
+      {!m.length && <Row title="No matches yet" detail="Friends' for-trade cards against your wants" onClick={onNone} />}
+      {m.map((x) => <MatchRow key={x.user_id} x={x} onOpen={onOpen} />)}
+    </>
+  );
+}
+
+function MatchRow({ x, onOpen }: { x: TradeMatch; onOpen: (userId: string) => void }) {
+  return (
+    <Row title={x.display_name} detail={matchShort(x) + (x.friend ? "" : " · played with you")}
+         avatar={<Avatar name={x.display_name} userId={x.user_id} />}
+         value={x.have_usd + x.want_usd > 0 ? usdText(x.have_usd + x.want_usd) : undefined} onClick={() => onOpen(x.user_id)} />
   );
 }
 
@@ -743,11 +754,7 @@ function TradeMatchesBody({ onBack, onOpen, onFriends, onSharing }: { onBack: ()
             <Row title="Sharing" detail="Share your For trade and Wants" onClick={onSharing} />
           </>
         )}
-        {m?.map((x) => (
-          <Row key={x.user_id} title={x.display_name} detail={matchShort(x) + (x.friend ? "" : " · played with you")}
-               avatar={<Avatar name={x.display_name} userId={x.user_id} />}
-               value={x.have_usd + x.want_usd > 0 ? usdText(x.have_usd + x.want_usd) : undefined} onClick={() => onOpen(x.user_id)} />
-        ))}
+        {m?.map((x) => <MatchRow key={x.user_id} x={x} onOpen={onOpen} />)}
       </div>
     </Screen>
   );
