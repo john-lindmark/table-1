@@ -299,6 +299,15 @@ export async function createList(kind: ListKind, name: string, format: string, e
   return id;
 }
 
+/** Changes the list's format; the cards stay as they are. */
+export async function setListFormat(id: string, format: string): Promise<void> {
+  const l = state.lists.find((x) => x.id === id);
+  if (!l || l.format === format) return;
+  if (demo) return set({ lists: sorted([...state.lists.filter((x) => x.id !== id), { ...l, format }]) });
+  await call("list_update", { p_list_id: id, p_format: format });
+  capture("list_format_changed", { kind: l.kind, from: l.format, to: format });
+}
+
 /** A new list with the current version's cards; its history starts fresh and names where it came from. */
 export function duplicateList(l: CardList): Promise<string> {
   const v = current(l);

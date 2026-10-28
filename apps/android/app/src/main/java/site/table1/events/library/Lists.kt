@@ -233,6 +233,14 @@ object ListsStore {
         return id
     }
 
+    /** Changes the list's format; the cards stay as they are. */
+    suspend fun setFormat(listId: String, format: String) {
+        val l = list(listId) ?: return
+        if (l.format == format) return
+        call("list_update", buildJsonObject { put("p_list_id", listId); put("p_format", format) })
+        site.table1.events.util.Telemetry.capture("list_format_changed", mapOf("kind" to l.kind.wire, "from" to l.format, "to" to format))
+    }
+
     /** A new list with the current version's cards; its history starts fresh and names where it came from. */
     suspend fun duplicate(listId: String): String? {
         val l = list(listId) ?: return null

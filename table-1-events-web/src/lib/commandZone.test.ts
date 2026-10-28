@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { roleFits, zoneFilling, zoneRoleName, zoneSlots, type ZoneRole } from "./commandZone";
+import { roleFits, zoneFilling, zoneInDeck, zoneMovingIn, zoneRoleName, zoneSlots, type ZoneRole } from "./commandZone";
 
 /* Command zone rules (contract/command-zone-2026-10-27.md) against testdata/command-zone/cases.json. */
 
@@ -9,6 +9,8 @@ const cases = JSON.parse(readFileSync(new URL("../../../testdata/command-zone/ca
   slots: { name: string; format: string; lines: [string, string][]; slots: [ZoneRole, string | null][] }[];
   filling: { name: string; lines: string[]; slot: string | null; card: string; result: string[] }[];
   role: { format: string; type: string; role: string }[];
+  in_deck: { name: string; role: ZoneRole; lines: [string, string, string][]; result: string[] }[];
+  move_in: { name: string; slot: string | null; card: [string, string, number]; ops: (string | number)[][] }[];
 };
 const ALL: ZoneRole[] = ["commander", "partner", "oathbreaker", "signature"];
 
@@ -25,5 +27,13 @@ describe("command zone", () => {
   });
   it.each(cases.role)("role $format $type", (r) => {
     expect(zoneRoleName(r.format, r.type)).toBe(r.role);
+  });
+  it.each(cases.in_deck)("in deck: $name", (d) => {
+    expect(zoneInDeck(d.role, d.lines.map(([cardId, board, typeLine]) => ({ cardId, board, typeLine }))).map((l) => l.cardId)).toEqual(d.result);
+  });
+  it.each(cases.move_in)("move in: $name", (m) => {
+    const [cardId, board, qty] = m.card;
+    const ops = zoneMovingIn({ cardId, board, typeLine: "", qty }, { role: "commander", cardId: m.slot, finish: "nonfoil", lang: "en" });
+    expect(ops.map((o) => (o.kind === "move" ? ["move", o.cardId, o.from, o.to] : ["delta", o.cardId, o.board, o.by]))).toEqual(m.ops);
   });
 });

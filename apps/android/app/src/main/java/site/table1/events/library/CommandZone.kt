@@ -1,10 +1,23 @@
 package site.table1.events.library
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
@@ -22,6 +35,7 @@ import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.ListRow
 import site.table1.events.ui.components.T1Menu
 import site.table1.events.ui.components.T1MenuItem
+import site.table1.events.ui.components.Section
 import site.table1.events.ui.components.T1Overlay
 import site.table1.events.ui.theme.T1
 
@@ -34,9 +48,10 @@ object CommandZone {
     const val BOARD = "commander"
     val FORMATS = setOf("commander", "oathbreaker")
 
-    enum class Role(val wire: String, val title: String, val choose: String, val hint: String) {
+    /** `label` sits above the slot's card, short enough for half a phone's width. */
+    enum class Role(val wire: String, val title: String, val choose: String, val hint: String, val label: String = title) {
         Commander("commander", "Commander", "Choose a commander", "A legendary creature"),
-        Partner("partner", "Partner or background", "Add a partner or background", "Optional: a second commander"),
+        Partner("partner", "Partner or background", "Add a partner or background", "Optional: a second commander", "Partner"),
         Oathbreaker("oathbreaker", "Oathbreaker", "Choose an oathbreaker", "A planeswalker"),
         Signature("signature", "Signature spell", "Choose a signature spell", "An instant or sorcery");
 
@@ -76,18 +91,53 @@ object CommandZone {
         return out
     }
 
+    /** A deck line outside the command zone that could be moved in. */
+    data class DeckLine(val cardId: String, val board: String, val typeLine: String, val finish: String = "nonfoil",
+                        val lang: String = "en", val qty: Int = 1)
+
+    /** The deck's own cards a slot's picker offers first: main deck, then sideboard, those that fit. A deck made before
+     *  the command zone has its commander in the main deck. */
+    fun inDeck(role: Role, lines: List<DeckLine>): List<DeckLine> =
+        listOf("main", "side").flatMap { b -> lines.filter { it.board == b && role.fits(it.typeLine) } }
+
+    /** A list_edit change that moves a deck card into a slot. */
+    sealed interface Op {
+        /** Every copy of a line to another section. */
+        data class Move(val cardId: String, val finish: String, val lang: String, val from: String, val to: String) : Op
+        data class Delta(val cardId: String, val finish: String, val lang: String, val board: String, val by: Int) : Op
+    }
+
+    /** The changes that put one copy of [line] in [slot]: the slot's card (if any) goes to the main deck; a single copy
+     *  moves, one of several moves by deltas. */
+    fun movingIn(line: DeckLine, slot: Slot): List<Op> = buildList {
+        slot.cardId?.let { add(Op.Move(it, slot.finish, slot.lang, BOARD, "main")) }
+        if (line.qty <= 1) add(Op.Move(line.cardId, line.finish, line.lang, line.board, BOARD))
+        else {
+            add(Op.Delta(line.cardId, line.finish, line.lang, line.board, -1))
+            add(Op.Delta(line.cardId, line.finish, line.lang, BOARD, 1))
+        }
+    }
+
     /** What a command-zone line is called on the deck screen. */
     fun roleName(format: String, typeLine: String) =
         if (format == "oathbreaker") (if (Role.Oathbreaker.fits(typeLine)) "Oathbreaker" else "Signature spell") else "Commander"
 }
 
+/** A card already in the deck, outside the command zone, with its name and art. */
+data class ZoneDeckCard(val line: CommandZone.DeckLine, val name: String, val printing: CatalogPrinting?)
+
 /** Full screen: the catalog by name (or Scryfall syntax), filtered to cards that can fill the slot. A tap picks the card
- *  in its original paper printing. */
+ *  in its original paper printing. On a deck screen the deck's own cards that fit come first, and a tap moves that copy
+ *  in (a deck made before the command zone has its commander in the main deck). */
 @Composable
-fun CommandZonePicker(role: CommandZone.Role, onDismiss: () -> Unit, onPick: (CatalogOracle, CatalogPrinting) -> Unit) {
+fun CommandZonePicker(role: CommandZone.Role, onDismiss: () -> Unit, deck: List<ZoneDeckCard> = emptyList(),
+                      onPickDeck: ((ZoneDeckCard) -> Unit)? = null, onPick: (CatalogOracle, CatalogPrinting) -> Unit) {
     val cat by CatalogStore.state.collectAsState()
     var query by remember { mutableStateOf("") }
     val result = rememberCardSearch(query)
+    val fit = CommandZone.inDeck(role, deck.map { it.line }).toSet()
+    val fromDeck = if (onPickDeck == null) emptyList()
+        else deck.filter { it.line in fit && (query.isBlank() || CardSearch.matches(query, it.name, it.line.typeLine)) }
     val hits = if (query.isBlank()) emptyList() else result?.hits.orEmpty().filter { role.fits(it.typeLine) }
     val covers = result?.covers ?: emptyMap()
     LaunchedEffect(Unit) { CatalogStore.load(userInitiated = true) }
@@ -102,6 +152,13 @@ fun CommandZonePicker(role: CommandZone.Role, onDismiss: () -> Unit, onPick: (Ca
             CatalogStatus(cat)
             CardSearchBar(query, { query = it }, placeholder = role.hint, label = "Card", onSubmit = { hits.firstOrNull()?.let(::pick) })
             LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                if (fromDeck.isNotEmpty()) {
+                    item { Section("In this deck") }
+                    items(fromDeck, key = { "deck|${it.line}" }) { d ->
+                        CardRow(d.printing, d.name, d.line.typeLine, onClick = { onDismiss(); onPickDeck?.invoke(d) }) { Label("Move in", color = T1.text) }
+                    }
+                    if (hits.isNotEmpty()) item { Section("All cards") }
+                }
                 if (cat.phase == "ready" && result != null && CardName.norm(query).length >= 2 && hits.isEmpty()) {
                     item { QuietRow("No ${role.title.lowercase()} by that name") }
                 }
@@ -113,21 +170,40 @@ fun CommandZonePicker(role: CommandZone.Role, onDismiss: () -> Unit, onPick: (Ca
     }
 }
 
-/** One slot as a row: the card (tap for Change / Remove) or the empty slot (tap to choose). */
+/** "Command zone" and its cards side by side: commander | partner or background, oathbreaker | signature spell. A filled
+ *  card offers Open card / Change / Remove; an empty one opens the picker. `card` gives a slot's name and printing. */
 @Composable
-fun CommandZoneRow(slot: CommandZone.Slot, printing: CatalogPrinting?, name: String?, onChoose: () -> Unit, onRemove: () -> Unit,
-                   onOpen: (() -> Unit)? = null) {
-    var menu by remember { mutableStateOf(false) }
-    if (slot.cardId == null) {
-        ListRow(slot.role.choose, slot.role.hint, onClick = onChoose) { Label("Choose", color = T1.text) }
-        return
+fun CommandZoneCards(slots: List<CommandZone.Slot>, card: (CommandZone.Slot) -> Pair<String, CatalogPrinting?>?, onChoose: (CommandZone.Slot) -> Unit,
+                     onRemove: (CommandZone.Slot) -> Unit, onOpen: ((CommandZone.Slot) -> Unit)? = null) {
+    var menu by remember { mutableStateOf<CommandZone.Slot?>(null) }
+    Section("Command zone")
+    BoxWithConstraints(Modifier.fillMaxWidth().background(T1.bg).padding(16.dp)) {
+        val w = ((maxWidth - 16.dp) / 2).coerceAtMost(220.dp)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Top) {
+            slots.forEach { slot ->
+                val c = card(slot)
+                Column(Modifier.width(w).clickable { if (slot.cardId == null) onChoose(slot) else menu = slot },
+                       verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Label(slot.role.label)
+                    if (slot.cardId != null && c?.second != null) {
+                        CardArt(c.second, w, finish = slot.finish)
+                    } else {
+                        Column(Modifier.size(w, w / CARD_ASPECT).clip(RoundedCornerShape(w * 0.0432f)).background(T1.surface).padding(12.dp),
+                               verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally) {
+                            if (slot.cardId == null) Text("+", color = T1.text, fontFamily = T1.mono, fontSize = 28.sp)
+                            Text(if (slot.cardId == null) slot.role.choose else c?.first ?: "…", color = T1.text, fontFamily = T1.mono, fontSize = 13.sp, textAlign = TextAlign.Center)
+                            if (slot.cardId == null) Text(slot.role.hint, color = T1.muted, fontFamily = T1.mono, fontSize = 11.sp, textAlign = TextAlign.Center)
+                        }
+                    }
+                }
+            }
+        }
     }
-    CardRow(printing, name ?: "…", slot.role.title, onClick = { menu = true }) { Label("Change", color = T1.text) }
-    if (menu) {
-        T1Menu(name, listOfNotNull(
-            onOpen?.let { T1MenuItem("Open card", onClick = it) },
-            T1MenuItem("Change ${slot.role.title.lowercase()}", onClick = onChoose),
-            T1MenuItem("Remove", danger = true, onClick = onRemove),
-        ), onDismiss = { menu = false })
+    menu?.let { slot ->
+        T1Menu(card(slot)?.first, listOfNotNull(
+            onOpen?.let { T1MenuItem("Open card") { it(slot) } },
+            T1MenuItem("Change ${slot.role.title.lowercase()}") { onChoose(slot) },
+            T1MenuItem("Remove", danger = true) { onRemove(slot) },
+        ), onDismiss = { menu = null })
     }
 }

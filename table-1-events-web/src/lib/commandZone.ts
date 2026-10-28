@@ -11,6 +11,10 @@ export type ZoneRole = "commander" | "partner" | "oathbreaker" | "signature";
 export const ROLE_TITLE: Record<ZoneRole, string> = {
   commander: "Commander", partner: "Partner or background", oathbreaker: "Oathbreaker", signature: "Signature spell",
 };
+/** The slot's label above its card, short enough for half a phone's width. */
+export const ROLE_LABEL: Record<ZoneRole, string> = {
+  commander: "Commander", partner: "Partner", oathbreaker: "Oathbreaker", signature: "Signature spell",
+};
 export const ROLE_CHOOSE: Record<ZoneRole, string> = {
   commander: "Choose a commander", partner: "Add a partner or background", oathbreaker: "Choose an oathbreaker", signature: "Choose a signature spell",
 };
@@ -53,6 +57,32 @@ export function zoneFilling(lines: ZoneLine[], slotCard: string | null, next: Zo
   const i = slotCard == null ? -1 : out.findIndex((l) => l.cardId === slotCard);
   if (i >= 0) out[i] = next; else out.push(next);
   return out;
+}
+
+/** A deck line outside the command zone that could be moved in. */
+export interface ZoneDeckLine { cardId: string; board: string; typeLine: string; finish?: string; lang?: string; qty?: number }
+
+/** The deck's own cards a slot's picker offers first: main deck, then sideboard, those that fit. A deck made before the
+ *  command zone has its commander in the main deck. */
+export function zoneInDeck<T extends ZoneDeckLine>(role: ZoneRole, lines: T[]): T[] {
+  return ["main", "side"].flatMap((b) => lines.filter((l) => l.board === b && roleFits(role, l.typeLine)));
+}
+
+/** A list_edit change that moves a deck card into a slot: every copy of a line to another section, or a count change. */
+export type ZoneOp =
+  | { kind: "move"; cardId: string; finish: string; lang: string; from: string; to: string }
+  | { kind: "delta"; cardId: string; finish: string; lang: string; board: string; by: number };
+
+/** The changes that put one copy of `line` in `slot`: the slot's card (if any) goes to the main deck; a single copy moves,
+ *  one of several moves by deltas. */
+export function zoneMovingIn(line: ZoneDeckLine, slot: ZoneSlot): ZoneOp[] {
+  const finish = line.finish ?? "nonfoil", lang = line.lang ?? "en";
+  const ops: ZoneOp[] = [];
+  if (slot.cardId) ops.push({ kind: "move", cardId: slot.cardId, finish: slot.finish, lang: slot.lang, from: ZONE_BOARD, to: "main" });
+  if ((line.qty ?? 1) <= 1) ops.push({ kind: "move", cardId: line.cardId, finish, lang, from: line.board, to: ZONE_BOARD });
+  else ops.push({ kind: "delta", cardId: line.cardId, finish, lang, board: line.board, by: -1 },
+                { kind: "delta", cardId: line.cardId, finish, lang, board: ZONE_BOARD, by: 1 });
+  return ops;
 }
 
 /** What a command-zone line is called on the deck screen. */

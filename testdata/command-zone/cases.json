@@ -1,5 +1,5 @@
 {
-  "_doc": "Command zone rules (contract/command-zone-2026-10-27.md). fits: which slot roles a type line can fill. slots: the slots a deck shows from its command-zone lines (role, card or null). filling: lines after a slot is filled. role: what a command-zone line is called.",
+  "_doc": "Command zone rules (contract/command-zone-2026-10-27.md). fits: which slot roles a type line can fill. slots: the slots a deck shows from its command-zone lines (role, card or null). filling: lines after a slot is filled. role: what a command-zone line is called. in_deck: the deck's own lines (card, section, type line) a slot's picker offers first, main deck then sideboard. move_in: the list_edit ops that put one of those cards (card, section, copies) in a slot: a filled slot's card goes to the main deck; one copy of several moves by deltas.",
   "fits": [
     {"type": "Legendary Creature — Elf Druid", "roles": ["commander", "partner"]},
     {"type": "Legendary Planeswalker — Ral", "roles": ["commander", "partner", "oathbreaker"]},
@@ -39,5 +39,18 @@
     {"format": "commander", "type": "Legendary Creature — Elf", "role": "Commander"},
     {"format": "oathbreaker", "type": "Legendary Planeswalker — Ral", "role": "Oathbreaker"},
     {"format": "oathbreaker", "type": "Instant", "role": "Signature spell"}
+  ],
+  "in_deck": [
+    {"name": "commander from main and side", "role": "commander", "lines": [["a", "main", "Creature — Goblin"], ["b", "side", "Legendary Creature — Elf Druid"], ["c", "main", "Legendary Creature — Elf Druid"], ["d", "maybe", "Legendary Creature — Elf Druid"], ["e", "commander", "Legendary Creature — Elf Druid"]], "result": ["c", "b"]},
+    {"name": "partner takes a background", "role": "partner", "lines": [["a", "main", "Legendary Enchantment — Background"], ["b", "main", "Legendary Creature — Elf Druid"]], "result": ["a", "b"]},
+    {"name": "oathbreaker", "role": "oathbreaker", "lines": [["a", "main", "Instant"], ["b", "main", "Legendary Planeswalker — Ral"]], "result": ["b"]},
+    {"name": "signature spell", "role": "signature", "lines": [["a", "main", "Sorcery"], ["b", "main", "Legendary Planeswalker — Ral"], ["c", "side", "Instant"]], "result": ["a", "c"]},
+    {"name": "nothing fits", "role": "commander", "lines": [["a", "main", "Creature — Goblin"]], "result": []}
+  ],
+  "move_in": [
+    {"name": "one copy into an empty slot", "slot": null, "card": ["c", "main", 1], "ops": [["move", "c", "main", "commander"]]},
+    {"name": "one of four", "slot": null, "card": ["c", "main", 4], "ops": [["delta", "c", "main", -1], ["delta", "c", "commander", 1]]},
+    {"name": "from the sideboard", "slot": null, "card": ["b", "side", 1], "ops": [["move", "b", "side", "commander"]]},
+    {"name": "replacing a commander", "slot": "x", "card": ["c", "main", 1], "ops": [["move", "x", "commander", "main"], ["move", "c", "main", "commander"]]}
   ]
 }

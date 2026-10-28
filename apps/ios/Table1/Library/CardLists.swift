@@ -73,6 +73,15 @@ struct CardList: Identifiable, Hashable, Sendable {
 
     func version(_ number: Int) -> Version? { versions.first { $0.number == number } }
 
+    /// The formats a deck or cube can be, in the order the pickers show them.
+    static func formats(_ kind: Kind) -> [(String, String)] {
+        kind == .deck
+            ? [("modern", "Modern"), ("pioneer", "Pioneer"), ("standard", "Standard"), ("legacy", "Legacy"),
+               ("vintage", "Vintage"), ("pauper", "Pauper"), ("canlander", "Canlander"), ("other", "Other"),
+               ("commander", "Commander"), ("oathbreaker", "Oathbreaker")]
+            : [("vintage", "Vintage"), ("legacy", "Legacy"), ("pauper", "Pauper"), ("peasant", "Peasant"), ("other", "Other")]
+    }
+
     /// What changed from `older` (nil = nothing) to `newer`, per card and section; sorted by section, then
     /// removals before additions.
     static func diff(_ older: Version?, _ newer: Version) -> [Change] {
@@ -317,6 +326,16 @@ final class ListsStore {
         Telemetry.capture("list_created", ["kind": kind.rawValue, "format": format, "from": from])
         FriendsStore.shared.noteCreated(kind: kind == .cube ? "cube" : "deck", id: l.id, name: name)
         return l
+    }
+
+    /// Changes the list's format (list_update); the cards stay as they are.
+    func setFormat(listId: String, format: String) {
+        guard let i = lists.firstIndex(where: { $0.id == listId }), lists[i].format != format else { return }
+        let l = lists[i]
+        lists[i] = CardList(id: l.id, kind: l.kind, name: l.name, format: format, versions: l.versions, eventId: l.eventId, eventName: l.eventName)
+        persist()
+        send("list_update", ["p_list_id": .string(listId), "p_format": .string(format)])
+        Telemetry.capture("list_format_changed", ["kind": l.kind.rawValue, "from": l.format, "to": format])
     }
 
     /// A new list with the current version's cards; its history starts fresh and names where it came from.
@@ -934,28 +953,54 @@ struct ListDetailView: View {
         }
     }
 
-    /// Commander and Oathbreaker decks show their command zone at the top (list layout, not while searching).
+    /// Commander and Oathbreaker decks show their command zone at the top, in every layout (not while searching).
     private func showsZone(_ list: CardList) -> Bool {
         list.kind == .deck && list.eventId == nil && CommandZone.formats.contains(list.format) && query.isEmpty
-            && layout != CardLayout.grid.rawValue && layout != CardLayout.stacks.rawValue
     }
 
     @ViewBuilder private func commandZone(_ list: CardList, rows: [ListLine]) -> some View {
         let zone = rows.filter { $0.board == CommandZone.board }
         Section1("Command zone")
-        ForEach(CommandZone.slots(format: list.format, lines: zone.map { .init(cardId: $0.cardId, typeLine: $0.type, finish: $0.finish, lang: $0.lang) }),
-                id: \.self) { slot in
-            let line = zone.first { $0.cardId == slot.cardId && $0.finish == slot.finish && $0.lang == slot.lang }
-            CommandZoneRow(slot: slot, printing: line?.printing, name: line?.name, choose: { chooseZone(list, slot) },
-                           remove: slot.cardId.map { id in { ListsStore.shared.remove(listId: list.id, cardId: id, board: CommandZone.board, finish: slot.finish, lang: slot.lang) } },
-                           open: line?.oracleId.map { o in { path.append(.cardIn(o, .list(list.id))) } })
+        CommandZoneCards { width in
+            ForEach(CommandZone.slots(format: list.format, lines: zone.map { .init(cardId: $0.cardId, typeLine: $0.type, finish: $0.finish, lang: $0.lang) }),
+                    id: \.self) { slot in
+                let line = zone.first { $0.cardId == slot.cardId && $0.finish == slot.finish && $0.lang == slot.lang }
+                CommandZoneCard(slot: slot, printing: line?.printing, name: line?.name, width: width, choose: { chooseZone(list, slot) },
+                                remove: slot.cardId.map { id in { ListsStore.shared.remove(listId: list.id, cardId: id, board: CommandZone.board, finish: slot.finish, lang: slot.lang) } },
+                                open: line?.oracleId.map { o in { path.append(.cardIn(o, .list(list.id))) } })
+            }
         }
+    }
+
+    /// Change the format: Commander and Oathbreaker show the command zone to fill.
+    private func chooseFormat(_ list: CardList) {
+        T1Overlays.shared.showMenu("Format", CardList.formats(list.kind).map { f in
+            T1MenuItem(title: f.1, detail: list.kind == .deck && CommandZone.formats.contains(f.0) ? "Shows the command zone" : nil,
+                       checked: f.0 == list.format) {
+                ListsStore.shared.setFormat(listId: list.id, format: f.0)
+            }
+        })
     }
 
     private func chooseZone(_ list: CardList, _ slot: CommandZone.Slot) {
         let listId = list.id, format = list.format
+        let deck = lines(for: list).filter { $0.board != CommandZone.board }.map {
+            CommandZonePicker.DeckCard(line: .init(cardId: $0.cardId, board: $0.board, typeLine: $0.type, finish: $0.finish, lang: $0.lang, qty: $0.qty),
+                                       name: $0.name, printing: $0.printing)
+        }
         T1Overlays.shared.present(full: true) {
-            CommandZonePicker(role: slot.role) { _, p in
+            CommandZonePicker(role: slot.role, deck: deck, pickedInDeck: { c in
+                let store = ListsStore.shared
+                for op in CommandZone.movingIn(c.line, slot: slot) {
+                    switch op {
+                    case let .move(id, finish, lang, from, to):
+                        store.move(listId: listId, cardId: id, finish: finish, lang: lang, from: from, to: to)
+                    case let .delta(id, finish, lang, board, by):
+                        store.add(listId: listId, cardId: id, board: board, finish: finish, lang: lang, delta: by)
+                    }
+                }
+                Telemetry.capture("command_zone_set", ["format": format, "role": slot.role.rawValue, "from": "deck"])
+            }) { _, p in
                 let store = ListsStore.shared
                 if let id = slot.cardId {
                     store.swap(listId: listId, cardId: id, board: CommandZone.board, finish: slot.finish, lang: slot.lang,
@@ -1007,6 +1052,11 @@ struct ListDetailView: View {
             if main < 100 { Notice("Canadian Highlander decks need at least 100 cards: \(main) so far.") }
         }
         if showsZone(list) { commandZone(list, rows: rows) }
+        if editing && list.eventId == nil {
+            Button { chooseFormat(list) } label: {
+                ListRow(title: "Format", detail: formatName(list.format)) { LabelText("Change", color: T1.text) }
+            }.buttonStyle(.plain)
+        }
         if editing {
             Button {
                 if let copy = ListsStore.shared.duplicate(listId: list.id) {
@@ -1136,7 +1186,8 @@ struct ListDetailView: View {
         let store = ListsStore.shared
         return HStack(spacing: 1) {
             Button {
-                let others = list.kind == .deck ? ["main", "side", "maybe"] : ["main", "maybe"]
+                let others = (list.kind == .deck && CommandZone.formats.contains(list.format) ? [CommandZone.board] : [])
+                    + (list.kind == .deck ? ["main", "side", "maybe"] : ["main", "maybe"])
                 T1Overlays.shared.showMenu(line.name, others.filter { $0 != line.board }.map { b in
                     T1MenuItem(title: "Move to \(list.boardTitle(b))") {
                         store.move(listId: list.id, cardId: line.cardId, finish: line.finish, lang: line.lang, from: line.board, to: b)
@@ -1181,7 +1232,8 @@ struct ListDetailView: View {
             ScrollView {
                 LazyVStack(spacing: 1) {
                     if query.isEmpty { top(list, owned: owned, rows: rows, issues: issues) }
-                    ForEach(list.boards.filter { b in query.isEmpty || shown.contains { $0.board == b } }, id: \.self) { board in
+                    ForEach(list.boards.filter { b in (query.isEmpty || shown.contains { $0.board == b }) && !(b == CommandZone.board && showsZone(list)) },
+                            id: \.self) { board in
                         let lines = shown.filter { $0.board == board }
                         BoardHeader(title: list.boardTitle(board), count: lines.reduce(0) { $0 + $1.qty })
                         // Ids carry the section: the lazy stack flattens these, and a bare group name ("Creature")
@@ -1232,7 +1284,8 @@ extension ListDetailView {
             ScrollView {
                 LazyVStack(spacing: 1) {
                     if query.isEmpty { top(list, owned: owned, rows: rows, issues: issues) }
-                    ForEach(list.boards.filter { b in query.isEmpty || shown.contains { $0.board == b } }, id: \.self) { board in
+                    ForEach(list.boards.filter { b in (query.isEmpty || shown.contains { $0.board == b }) && !(b == CommandZone.board && showsZone(list)) },
+                            id: \.self) { board in
                         let lines = shown.filter { $0.board == board }
                         BoardHeader(title: list.boardTitle(board), count: lines.reduce(0) { $0 + $1.qty })
                         let stacks = ListLine.groups(lines, by: grouping).map { g in
@@ -1375,13 +1428,7 @@ struct NewListPanel: View {
     @State private var zone: [CommandZone.Line] = []
     @State private var zoneCards: [String: (name: String, printing: CatalogPrinting)] = [:]
 
-    private var formats: [(String, String)] {
-        kind == .deck
-            ? [("modern", "Modern"), ("pioneer", "Pioneer"), ("standard", "Standard"), ("legacy", "Legacy"),
-               ("vintage", "Vintage"), ("pauper", "Pauper"), ("canlander", "Canlander"), ("other", "Other"),
-               ("commander", "Commander"), ("oathbreaker", "Oathbreaker")]
-            : [("vintage", "Vintage"), ("legacy", "Legacy"), ("pauper", "Pauper"), ("peasant", "Peasant"), ("other", "Other")]
-    }
+    private var formats: [(String, String)] { CardList.formats(kind) }
 
     var body: some View {
         VStack(spacing: 1) {
@@ -1392,10 +1439,12 @@ struct NewListPanel: View {
             }
             if kind == .deck && CommandZone.formats.contains(format) {
                 Section1("Command zone")
-                ForEach(CommandZone.slots(format: format, lines: zone), id: \.self) { slot in
-                    CommandZoneRow(slot: slot, printing: slot.cardId.flatMap { zoneCards[$0]?.printing },
-                                   name: slot.cardId.flatMap { zoneCards[$0]?.name }, choose: { choose(slot) },
-                                   remove: { zone.removeAll { $0.cardId == slot.cardId } })
+                CommandZoneCards { width in
+                    ForEach(CommandZone.slots(format: format, lines: zone), id: \.self) { slot in
+                        CommandZoneCard(slot: slot, printing: slot.cardId.flatMap { zoneCards[$0]?.printing },
+                                        name: slot.cardId.flatMap { zoneCards[$0]?.name }, width: width, choose: { choose(slot) },
+                                        remove: { zone.removeAll { $0.cardId == slot.cardId } })
+                    }
                 }
             }
             BigAction(text: kind == .deck ? "Create deck" : "Create cube",

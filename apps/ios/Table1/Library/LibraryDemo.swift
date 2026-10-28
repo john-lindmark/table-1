@@ -507,7 +507,7 @@ struct LibraryDemoRoot: View {
         }
     }
 
-    /// Design QA: `-T1LibraryDemo allcards|add|search|zone|zonepick|newdeck|import|trades|trade|tradewants|binders|binder|wants|card|deckcard|deckprinting|bindercard|binderprinting|onecard|deck|cube|
+    /// Design QA: `-T1LibraryDemo allcards|add|search|zone|zonepick|oldcommander|newdeck|import|trades|trade|tradewants|binders|binder|wants|card|deckcard|deckprinting|bindercard|binderprinting|onecard|deck|cube|
     /// deckstats|cubestats|hand|odds|pack|friends|profile|sharing|matches|match|me` opens that screen (deck and cube: the fixture's first of each; stats, sample
     /// hand, draw odds and sample pack on it; `-T1ListExport arena|moxfield|mtgo|text|cubecobra` then exports it).
     /// `import` with `-T1ImportFile <path>` reads that file as if it had been picked.
@@ -532,6 +532,12 @@ struct LibraryDemoRoot: View {
             if args[i + 1] == "zonepick" {
                 T1Overlays.shared.present(full: true) { CommandZonePicker(role: .oathbreaker, start: "ral") { _, _ in } }
             }
+            return [.lists(.deck), .list(l.id)]
+        case "oldcommander":
+            // A Commander deck made before the command zone: its cards (a legendary creature among them) all in the main
+            // deck. The command zone's picker offers that creature under In this deck.
+            guard let d = ListsStore.shared.lists.first(where: { $0.kind == .deck }) else { return [] }
+            let l = ListsStore.shared.create(kind: .deck, name: "Commander demo", format: "commander", entries: d.entries)
             return [.lists(.deck), .list(l.id)]
         case "newdeck":
             T1Overlays.shared.present { NewListPanel(kind: .deck, created: { _ in }, startFormat: "oathbreaker") }

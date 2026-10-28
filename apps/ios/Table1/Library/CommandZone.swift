@@ -21,7 +21,15 @@ enum CommandZone {
             }
         }
 
-        /// The empty slot's row.
+        /// The slot's label above its card, short enough for half a phone's width.
+        var label: String {
+            switch self {
+            case .partner: "Partner"
+            default: title
+            }
+        }
+
+        /// The empty slot's card.
         var choose: String {
             switch self {
             case .commander: "Choose a commander"
@@ -96,6 +104,43 @@ enum CommandZone {
         return out
     }
 
+    /// A deck line outside the command zone that could be moved in.
+    struct DeckLine: Hashable, Sendable {
+        let cardId: String
+        let board: String
+        let typeLine: String
+        var finish = "nonfoil"
+        var lang = "en"
+        var qty = 1
+    }
+
+    /// The deck's own cards a slot's picker offers first: main deck, then sideboard, those that fit. A deck made before
+    /// the command zone has its commander in the main deck.
+    static func inDeck(_ role: Role, _ lines: [DeckLine]) -> [DeckLine] {
+        ["main", "side"].flatMap { b in lines.filter { $0.board == b && role.fits($0.typeLine) } }
+    }
+
+    /// A list_edit change that moves a deck card into a slot.
+    enum Op: Equatable, Sendable {
+        /// Every copy of a line to another section.
+        case move(cardId: String, finish: String, lang: String, from: String, to: String)
+        case delta(cardId: String, finish: String, lang: String, board: String, by: Int)
+    }
+
+    /// The changes that put one copy of `line` in `slot`: the slot's card (if any) goes to the main deck; a single copy
+    /// moves, one of several moves by deltas.
+    static func movingIn(_ line: DeckLine, slot: Slot) -> [Op] {
+        var ops: [Op] = []
+        if let id = slot.cardId { ops.append(.move(cardId: id, finish: slot.finish, lang: slot.lang, from: board, to: "main")) }
+        if line.qty <= 1 {
+            ops.append(.move(cardId: line.cardId, finish: line.finish, lang: line.lang, from: line.board, to: board))
+        } else {
+            ops.append(.delta(cardId: line.cardId, finish: line.finish, lang: line.lang, board: line.board, by: -1))
+            ops.append(.delta(cardId: line.cardId, finish: line.finish, lang: line.lang, board: board, by: 1))
+        }
+        return ops
+    }
+
     /// What a command-zone line is called on the deck screen.
     static func role(format: String, typeLine: String) -> String {
         format == "oathbreaker" ? (Role.oathbreaker.fits(typeLine) ? "Oathbreaker" : "Signature spell") : "Commander"
@@ -103,17 +148,35 @@ enum CommandZone {
 }
 
 /// Search for a card that fits one command-zone slot: the catalog by name (or Scryfall syntax), filtered to cards that
-/// can fill it. A tap picks the card in its original paper printing.
+/// can fill it. A tap picks the card in its original paper printing. On a deck screen, the deck's own cards that fit come
+/// first (a deck made before the command zone has its commander in the main deck): a tap moves that copy in.
 struct CommandZonePicker: View {
+    /// A card already in the deck, outside the command zone, with its name and art.
+    struct DeckCard: Hashable {
+        let line: CommandZone.DeckLine
+        let name: String
+        let printing: CatalogPrinting?
+    }
+
     let role: CommandZone.Role
+    var deck: [DeckCard] = []
+    var pickedInDeck: ((DeckCard) -> Void)? = nil
     let picked: (CatalogOracle, CatalogPrinting) -> Void
     private var catalog: CatalogStore { CatalogStore.shared }
     @State private var query: String
 
-    init(role: CommandZone.Role, start: String = "", picked: @escaping (CatalogOracle, CatalogPrinting) -> Void) {
+    init(role: CommandZone.Role, start: String = "", deck: [DeckCard] = [], pickedInDeck: ((DeckCard) -> Void)? = nil,
+         picked: @escaping (CatalogOracle, CatalogPrinting) -> Void) {
         self.role = role
+        self.deck = deck
+        self.pickedInDeck = pickedInDeck
         self.picked = picked
         _query = State(initialValue: start)
+    }
+
+    private var fromDeck: [DeckCard] {
+        let fit = Set(CommandZone.inDeck(role, deck.map(\.line)))
+        return deck.filter { fit.contains($0.line) && (query.isEmpty || CardSearch.matches(query, name: $0.name, type: $0.line.typeLine)) }
     }
     @State private var hits: [CatalogOracle] = []
     @State private var covers: [Int: CatalogPrinting] = [:]
@@ -126,6 +189,18 @@ struct CommandZonePicker: View {
             CardSearchBar(query: $query, prompt: role == .signature ? "An instant or sorcery" : role == .oathbreaker ? "A planeswalker" : "A legendary creature",
                           focused: $focused) { if let o = hits.first, let p = covers[o.idx] { pick(o, p) } }
             HairlineList {
+                if let pickedInDeck, !fromDeck.isEmpty {
+                    Section1("In this deck")
+                    ForEach(fromDeck, id: \.self) { c in
+                        Button {
+                            T1Overlays.shared.dismissPanel()
+                            pickedInDeck(c)
+                        } label: {
+                            CardRow(printing: c.printing, title: c.name, detail: c.line.typeLine) { LabelText("Move in", color: T1.text) }
+                        }.buttonStyle(.plain)
+                    }
+                    if !hits.isEmpty { Section1("All cards") }
+                }
                 if catalog.phase == .ready && CardName.norm(query).count >= 2 && hits.isEmpty {
                     ListRow(title: "No \(role.title.lowercased()) by that name")
                 }
@@ -156,29 +231,59 @@ struct CommandZonePicker: View {
     }
 }
 
-/// One slot as a row: the card (tap for Change / Remove) or the empty slot (tap to choose).
-struct CommandZoneRow: View {
+/// The command zone as cards side by side: commander | partner or background, oathbreaker | signature spell. The
+/// content gets each card's width.
+struct CommandZoneCards<Content: View>: View {
+    @ViewBuilder let content: (CGFloat) -> Content
+    @State private var width: CGFloat = 0
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) { content(min(220, max(0, (width - 48) / 2))) }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(T1.bg)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+    }
+}
+
+/// One slot as a card: tap a filled one for Open card / Change / Remove, an empty one to choose.
+struct CommandZoneCard: View {
     let slot: CommandZone.Slot
     let printing: CatalogPrinting?
     let name: String?
+    let width: CGFloat
     let choose: () -> Void
     var remove: (() -> Void)?
     var open: (() -> Void)?
 
     var body: some View {
-        if slot.cardId != nil {
-            Button {
-                var items = [T1MenuItem(title: "Change \(slot.role.title.lowercased())", action: choose)]
-                if let open { items.insert(T1MenuItem(title: "Open card", action: open), at: 0) }
-                if let remove { items.append(T1MenuItem(title: "Remove", destructive: true, action: remove)) }
-                T1Overlays.shared.showMenu(name, items)
-            } label: {
-                CardRow(printing: printing, title: name ?? "…", detail: slot.role.title) { LabelText("Change", color: T1.text) }
-            }.buttonStyle(.plain)
-        } else {
-            Button(action: choose) {
-                ListRow(title: slot.role.choose, detail: slot.role.hint) { LabelText("Choose", color: T1.text) }
-            }.buttonStyle(.plain)
+        Button {
+            guard slot.cardId != nil else { return choose() }
+            var items = [T1MenuItem(title: "Change \(slot.role.title.lowercased())", action: choose)]
+            if let open { items.insert(T1MenuItem(title: "Open card", action: open), at: 0) }
+            if let remove { items.append(T1MenuItem(title: "Remove", destructive: true, action: remove)) }
+            T1Overlays.shared.showMenu(name, items)
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                LabelText(slot.role.label)
+                if slot.cardId != nil, let printing {
+                    printing.art(width: width, finish: slot.finish)
+                } else {
+                    RoundedRectangle(cornerRadius: width * 0.0432).fill(T1.surface).frame(width: width, height: width / CardArt.aspect)
+                        .overlay {
+                            VStack(spacing: 8) {
+                                if slot.cardId == nil { Text("+").font(T1.mono(28)).foregroundStyle(T1.text) }
+                                Text(slot.cardId == nil ? slot.role.choose : name ?? "…").font(T1.mono(13)).foregroundStyle(T1.text)
+                                if slot.cardId == nil { Text(slot.role.hint).font(T1.mono(11)).foregroundStyle(T1.muted) }
+                            }
+                            .multilineTextAlignment(.center).padding(12)
+                        }
+                }
+            }
+            .frame(width: width, alignment: .leading)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(slot.cardId == nil ? slot.role.choose : "\(slot.role.title): \(name ?? "")")
     }
 }

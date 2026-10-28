@@ -44,6 +44,8 @@ import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.BarAction
 import site.table1.events.ui.components.BigAction
 import site.table1.events.ui.components.Label
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import site.table1.events.ui.components.ListRow
 import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.Section
@@ -254,11 +256,8 @@ fun NewListPanel(kind: ListKind, onDismiss: () -> Unit, onCreated: (String) -> U
                 T1Segmented(row, if (format - base in row.indices) format - base else -1) { format = base + it }
             }
             if (zoned) {
-                Section("Command zone")
-                slots.forEach { slot ->
-                    CommandZoneRow(slot, slot.cardId?.let { zoneCards[it]?.second }, slot.cardId?.let { zoneCards[it]?.first },
-                        onChoose = { choosing = slot }, onRemove = { zone = zone.filter { it.cardId != slot.cardId } })
-                }
+                CommandZoneCards(slots, card = { sl -> sl.cardId?.let { zoneCards[it] }?.let { it.first to it.second } },
+                    onChoose = { choosing = it }, onRemove = { sl -> zone = zone.filter { it.cardId != sl.cardId } })
             }
             BigAction(if (kind == ListKind.Deck) "Create deck" else "Create cube", enabled = name.isNotBlank(), busy = busy) {
                 busy = true
@@ -306,6 +305,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     var imaging by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
     var choosingZone by remember { mutableStateOf<CommandZone.Slot?>(null) }
+    var choosingFormat by remember { mutableStateOf(false) }
     val grouping = rememberListGrouping(list?.kind)
     val sort = rememberListSort(list?.kind)
     var query by remember { mutableStateOf("") }
@@ -326,9 +326,8 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     val issues = legalityIssues(rows, list)
     val searching = CardName.norm(query).isNotEmpty()
     val shown = if (searching) rows.filter { CardSearch.matches(query, it.name, it.type) } else rows
-    // Commander and Oathbreaker decks show their command zone at the top (rows layout, not while searching).
-    val showsZone = list.kind == ListKind.Deck && list.format in CommandZone.FORMATS && !searching &&
-        layout.value != CardLayout.Grid && layout.value != CardLayout.Stacks
+    // Commander and Oathbreaker decks show their command zone at the top, in every layout (not while searching).
+    val showsZone = list.kind == ListKind.Deck && list.format in CommandZone.FORMATS && !searching
     val zone = rows.filter { it.board == CommandZone.BOARD }
     // While searching, matches come first: the summary rows would push them under the keyboard.
     val boards = list.boards.filter { b -> (!searching || shown.any { it.board == b }) && !(b == CommandZone.BOARD && showsZone) }
@@ -352,14 +351,13 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                 if (main < 100) Notice("Canadian Highlander decks need at least 100 cards: $main so far.")
             }
             if (showsZone) {
-                Section("Command zone")
-                CommandZone.slots(list.format, zone.map { CommandZone.Line(it.cardId, it.type, it.finish, it.lang) }).forEach { slot ->
-                    val line = zone.firstOrNull { it.cardId == slot.cardId && it.finish == slot.finish && it.lang == slot.lang }
-                    CommandZoneRow(slot, line?.printing, line?.name, onChoose = { choosingZone = slot },
-                        onRemove = { slot.cardId?.let { id -> scope.launch { ListsStore.remove(list.id, id, CommandZone.BOARD, slot.finish, slot.lang) } } },
-                        onOpen = line?.oracleId?.let { o -> { onCard(o) } })
-                }
+                val lineOf = { slot: CommandZone.Slot -> zone.firstOrNull { it.cardId == slot.cardId && it.finish == slot.finish && it.lang == slot.lang } }
+                CommandZoneCards(CommandZone.slots(list.format, zone.map { CommandZone.Line(it.cardId, it.type, it.finish, it.lang) }),
+                    card = { sl -> lineOf(sl)?.let { it.name to it.printing } }, onChoose = { choosingZone = it },
+                    onRemove = { sl -> sl.cardId?.let { id -> scope.launch { ListsStore.remove(list.id, id, CommandZone.BOARD, sl.finish, sl.lang) } } },
+                    onOpen = { sl -> lineOf(sl)?.oracleId?.let(onCard) })
             }
+            if (editing) ListRow("Format", CatalogPack.formatName(list.format), onClick = { choosingFormat = true }) { Label("Change", color = T1.text) }
             if (editing) ListRow(if (list.kind == ListKind.Deck) "Duplicate deck" else "Duplicate cube", "A new list with these cards", onClick = {
                 scope.launch { runCatching { ListsStore.duplicate(list.id) }.getOrNull()?.let { editing = false; onOpen(it) } }
             })
@@ -506,7 +504,8 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
         }
     }
     moving?.let { x ->
-        T1Menu(x.name, list.sections.filter { it != x.board }.map { b ->
+        val zoneSection = if (list.kind == ListKind.Deck && list.format in CommandZone.FORMATS && x.board != CommandZone.BOARD) listOf(CommandZone.BOARD) else emptyList()
+        T1Menu(x.name, (zoneSection + list.sections).filter { it != x.board }.map { b ->
             T1MenuItem("Move to ${list.boardTitle(b)}") { scope.launch { runCatching { ListsStore.move(list.id, x.cardId, x.board, b, x.finish, x.lang) } } }
         } + T1MenuItem("Change printing or finish") { onPrinting(x.cardId, x.board, x.finish, x.lang) } +
             listOfNotNull(x.oracleId?.let { o ->
@@ -527,7 +526,26 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
         ), onDismiss = { confirmDelete = false })
     }
     choosingZone?.let { slot ->
-        CommandZonePicker(slot.role, onDismiss = { choosingZone = null }) { _, p ->
+        val deck = rows.filter { it.board != CommandZone.BOARD }.map {
+            ZoneDeckCard(CommandZone.DeckLine(it.cardId, it.board, it.type, it.finish, it.lang, it.qty), it.name, it.printing)
+        }
+        CommandZonePicker(slot.role, onDismiss = { choosingZone = null }, deck = deck, onPickDeck = { d ->
+            scope.launch {
+                runCatching {
+                    ListsStore.editMany(list.id, CommandZone.movingIn(d.line, slot).map { op ->
+                        when (op) {
+                            is CommandZone.Op.Move -> buildJsonObject {
+                                put("card_id", op.cardId); put("finish", op.finish); put("lang", op.lang); put("from", op.from); put("to", op.to)
+                            }
+                            is CommandZone.Op.Delta -> buildJsonObject {
+                                put("card_id", op.cardId); put("board", op.board); put("finish", op.finish); put("lang", op.lang); put("delta", op.by)
+                            }
+                        }
+                    })
+                }
+            }
+            Telemetry.capture("command_zone_set", mapOf("format" to list.format, "role" to slot.role.wire, "from" to "deck"))
+        }) { _, p ->
             scope.launch {
                 val id = slot.cardId
                 if (id != null) ListsStore.swap(list.id, id, CommandZone.BOARD, slot.finish, p.cardId, "nonfoil", null, slot.lang, "en")
@@ -535,6 +553,11 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
             }
             Telemetry.capture("command_zone_set", mapOf("format" to list.format, "role" to slot.role.wire, "from" to if (slot.cardId == null) "add" else "change"))
         }
+    }
+    if (choosingFormat) {
+        T1Menu("Format", (if (list.kind == ListKind.Deck) DECK_FORMATS else CUBE_FORMATS).map { f ->
+            T1MenuItem(CatalogPack.formatName(f), selected = f == list.format) { scope.launch { runCatching { ListsStore.setFormat(list.id, f) } } }
+        }, onDismiss = { choosingFormat = false })
     }
     if (exporting) ListExportScreen(list.name, list.kind, list.entries, "own") { exporting = false }
     if (imaging) DeckImageScreen(list.name, list.format, list.entries, owner = null, from = "own") { imaging = false }

@@ -484,7 +484,7 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
                 CardAttribute.Condition -> Conditions.all.map { Triple(it, it, null) }
                 CardAttribute.Finish -> Finish.entries.filter { f -> shown.any { v -> byId[v.cardId]?.finishList?.contains(f) == true } }
                     .map { Triple(it.wire, it.label, null) }
-                CardAttribute.Section -> ((if (list?.boards?.contains("commander") == true) listOf("commander") else emptyList()) + (list?.sections ?: listOf("main")))
+                CardAttribute.Section -> ((if (list?.boards?.contains("commander") == true || (list?.kind == ListKind.Deck && list.format in CommandZone.FORMATS)) listOf("commander") else emptyList()) + (list?.sections ?: listOf("main")))
                     .map { Triple(it, list?.boardTitle(it) ?: it, null) }
                 CardAttribute.Set -> emptyList()
             }

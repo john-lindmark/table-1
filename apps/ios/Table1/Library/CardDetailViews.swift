@@ -304,7 +304,8 @@ struct CardDetailView: View {
         case .section:
             guard let list else { return }
             let boards = list.kind == .deck ? ["main", "side", "maybe"] : ["main", "maybe"]
-            options = ((list.boards.contains("commander") ? ["commander"] : []) + boards).map { SelectorOption(value: $0, label: list.boardTitle($0)) }
+            let zone = list.boards.contains(CommandZone.board) || (list.kind == .deck && CommandZone.formats.contains(list.format))
+            options = ((zone ? [CommandZone.board] : []) + boards).map { SelectorOption(value: $0, label: list.boardTitle($0)) }
         }
         let value: String? = switch a {
         case .language: current(\.lang)

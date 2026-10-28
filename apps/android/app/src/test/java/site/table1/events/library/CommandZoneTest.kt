@@ -46,4 +46,30 @@ class CommandZoneTest {
             assertEquals(r["role"]!!.jsonPrimitive.content, CommandZone.roleName(r["format"]!!.jsonPrimitive.content, r["type"]!!.jsonPrimitive.content))
         }
     }
+
+    @Test fun inDeck() {
+        for (d in c["in_deck"]!!.jsonArray.map { it.jsonObject }) {
+            val role = CommandZone.Role.entries.first { it.wire == d["role"]!!.jsonPrimitive.content }
+            val lines = d["lines"]!!.jsonArray.map { it.jsonArray }.map {
+                CommandZone.DeckLine(it[0].jsonPrimitive.content, it[1].jsonPrimitive.content, it[2].jsonPrimitive.content)
+            }
+            assertEquals(d["name"]!!.jsonPrimitive.content, d["result"]!!.jsonArray.map { it.jsonPrimitive.content },
+                CommandZone.inDeck(role, lines).map { it.cardId })
+        }
+    }
+
+    @Test fun movingIn() {
+        for (m in c["move_in"]!!.jsonArray.map { it.jsonObject }) {
+            val card = m["card"]!!.jsonArray
+            val line = CommandZone.DeckLine(card[0].jsonPrimitive.content, card[1].jsonPrimitive.content, "", qty = card[2].jsonPrimitive.content.toInt())
+            val got = CommandZone.movingIn(line, CommandZone.Slot(CommandZone.Role.Commander, str(m["slot"]!!))).map { op ->
+                when (op) {
+                    is CommandZone.Op.Move -> listOf("move", op.cardId, op.from, op.to)
+                    is CommandZone.Op.Delta -> listOf("delta", op.cardId, op.board, op.by.toString())
+                }
+            }
+            val want = m["ops"]!!.jsonArray.map { o -> o.jsonArray.map { it.jsonPrimitive.content } }
+            assertEquals(m["name"]!!.jsonPrimitive.content, want, got)
+        }
+    }
 }

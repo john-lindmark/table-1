@@ -8,6 +8,7 @@ import { applyOps, fetchHistory, undoBatch, useCollection, DEMO_USER, type Colle
 import { conditionPriceText, usdPrice, usdText, usePrices } from "../lib/prices";
 import { applyWants, binderById, forTrade, placementText, useBinders } from "../lib/binders";
 import { printingPlaces } from "../lib/changePrinting";
+import { ZONE_FORMATS } from "../lib/commandZone";
 import { BOARD_ORDER, boardTitle, entriesOf, finishOf, langOf, sectionsFor, editList, useLists, type Board, type CardList, type ListOp } from "../lib/lists";
 import { saveTrade, useTrades, type TradeLine } from "../lib/trades";
 import { LANGUAGES, langForNew, languageName, storedAddLang } from "../lib/languages";
@@ -466,7 +467,7 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
                           : picker === "finish" ? (["nonfoil", "foil", "etched"] as Finish[])
                             .filter((f) => shown.some((v) => { const pf = factsById.get(v.cardId); return pf && finishesOf(pf).includes(f); }))
                             .map((f) => ({ value: f, label: FINISH_LABEL[f] }))
-                          : [...(list && entriesOf(list).some((e) => e.board === "commander") ? ["commander" as Board] : []), ...sectionsFor(list?.kind ?? "deck")]
+                          : [...(list && (entriesOf(list).some((e) => e.board === "commander") || (list.kind === "deck" && ZONE_FORMATS.has(list.format))) ? ["commander" as Board] : []), ...sectionsFor(list?.kind ?? "deck")]
                             .map((b) => ({ value: b, label: list ? boardTitle(list.kind, b) : b }))}
                         onPick={(v) => pick(picker, v)} />
         </Sheet>
