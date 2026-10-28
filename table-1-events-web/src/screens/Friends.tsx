@@ -428,8 +428,8 @@ export interface PresetSource { rows: ProfileCard[]; name: string; format: strin
 export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList, onRankings, onFollowChanges, link, preset }: {
   userId: string; section: SectionKind; item: string | null; onBack: () => void; onCard: (oracleId: string) => void; onList: (listId: string) => void;
   onRankings?: (listId: string) => void; onFollowChanges?: (kind: "binder" | "deck" | "cube", id: string) => void; link?: LinkSource;
-}) {
   preset?: PresetSource;
+}) {
   const { catalog, error: catError } = useCatalog();
   useListsData(); // your lists, so a copy lands in them (the dev demo's too)
   const [rows, setRows] = useState<ProfileCard[] | null>(null);
@@ -452,8 +452,8 @@ export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList
   const [boxRef, width] = useBoxWidth();
   useSearchUsed(q, "profile_cards");
   useEffect(() => {
-    if (link) {
     if (preset) { setRows(preset.rows); return; }
+    if (link) {
       fetchSharedCards(link.token, section).then(setRows, (e) => { setError(errorMessage(e)); setRows([]); });
       return;
     }
@@ -620,15 +620,15 @@ export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList
         {link && !searching && (
           <Row title={sharedByline(link.data)} avatar={<Avatar name={link.data.owner.display_name} size={24} />} />
         )}
-        {(!catalog || !rows) && !error && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
         {preset?.byline && !searching && <Notice tone="info">{preset.byline}</Notice>}
+        {(!catalog || !rows) && !error && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
         {rows?.length === 0 && !error && <Notice tone="info">Nothing here.</Notice>}
         {followable && followKind && item && !searching && (
           <FollowRows kind={followKind} id={item} title={name} owner={owner} token={link?.token} signedIn={!link || link.signedIn}
                       onSignIn={link?.onSignIn} onChanges={() => onFollowChanges!(followKind, item)} />
         )}
-        {kind && catalog && !!rows?.length && !searching && (<>
         {preset?.actions && !searching && preset.actions}
+        {kind && catalog && !!rows?.length && !searching && (<>
           <Row title="Export" detail={kind === "deck" ? "Text, Arena, MTGO, download or copy" : "Text, Cube Cobra, download or copy"}
                onClick={() => setExporting(true)} />
           {kind === "deck" && <Row title="Deck image" detail="The cards as a picture, to save or share" onClick={() => setImaging(true)} />}
