@@ -101,6 +101,16 @@ enum InsightCharts {
         return String(format: "%.1f%%", x * 100)
     }
 
+    /// A Meta now row's win rate, conversion rate (lists that made top 8) and event win rate (first place, of the
+    /// window's events with a winner); a part the pack has no number for is left out (make_cases.py `rates`).
+    static func rates(wr: Double?, t8r: Double?, won: Int?, wonOf: Int?) -> String {
+        var parts: [String] = []
+        if let wr { parts.append("Win \(pct1(wr))") }
+        if let t8r { parts.append("Conv \(pct(t8r))") }
+        if let wonOf, wonOf > 0 { parts.append("1st \(pct(Double(won ?? 0) / Double(wonOf)))") }
+        return parts.joined(separator: " · ")
+    }
+
     /// +2.1 / -12: a change in percentage points; under 10 keeps one decimal.
     static func delta(_ d: Double?) -> String {
         guard let d else { return "" }

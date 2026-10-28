@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { delta, fit, heat, months, pct, pct1, segments, seriesWindow, spread, ticks, wilson } from "./insightCharts";
+import { delta, fit, heat, months, pct, pct1, rates, segments, seriesWindow, spread, ticks, wilson } from "./insightCharts";
 
 /* Every answer comes from testdata/insight-charts/cases.json (the Python reference); iOS and Android read it too. */
 const cases = JSON.parse(readFileSync(new URL("../../../testdata/insight-charts/cases.json", import.meta.url), "utf8"));
@@ -43,6 +43,7 @@ describe("insight charts", () => {
     for (const c of cases.pct1) expect(pct1(c.in)).toBe(c.out);
     for (const c of cases.delta) expect(delta(c.in)).toBe(c.out);
   });
+  it("rates", () => { for (const c of cases.rates) expect(rates(c.in[0], c.in[1], c.in[2], c.in[3])).toBe(c.out); });
   it("months", () => { for (const c of cases.months) expect(months(c.in[0], c.in[1])).toEqual(c.out); });
   it("window", () => { for (const c of cases.window) expect(seriesWindow(c.in[0], c.in[1], c.in[2])).toEqual(c.out); });
 });

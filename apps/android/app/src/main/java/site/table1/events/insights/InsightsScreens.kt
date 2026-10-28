@@ -179,7 +179,7 @@ private fun ConstructedHome(navigate: (String) -> Unit) {
     val lead = w.share.firstOrNull { it.a != 0 }?.a
     w.share.take(12).forEach { r ->
         InsightBar(pack.name(r.a), r.share, maxShare, change = r.prev?.let { r.share - it }, highlighted = r.a == lead,
-            detail = listOfNotNull(if (r.top8 > 0) "${r.top8} in top 8" else null, r.conv?.let { "converts %.2f×".format(it) }).joinToString(" · ").ifEmpty { null },
+            detail = InsightCharts.rates(r.wr, r.t8r, r.won, w.won_of).ifEmpty { null },
             onClick = { navigate(InsightsRoutes.archetype(f, r.a)) })
     }
     Section("Meta over time · 7-day share")
@@ -198,6 +198,10 @@ private fun ConstructedHome(navigate: (String) -> Unit) {
             Label(pack.name(l.a), Modifier.background(if (l.a == h) T1.text else T1.surface).clickable { hl = l.a }.padding(horizontal = 12.dp, vertical = 10.dp),
                 color = if (l.a == h) T1.ink else T1.text)
         }
+    }
+    if (pack.matchups.cells.isNotEmpty()) {
+        Section("Matchups · last 90 days")
+        MatchupGrid(pack)
     }
     Section("Cards · rising and falling")
     T1Segmented(listOf("Main deck", "Sideboard"), if (board == "main") 0 else 1) { board = if (it == 0) "main" else "side" }
@@ -224,10 +228,6 @@ private fun ConstructedHome(navigate: (String) -> Unit) {
                 ListRow(ch.words, InsightCharts.shortDay(ch.on) + (b.settled_days?.let { " · settled after $it days" } ?: ""), onClick = { navigate(InsightsRoutes.ban(f, b.change)) })
             }
         }
-    }
-    if (pack.matchups.cells.isNotEmpty()) {
-        Section("Matchups")
-        ListRow("Matchup grid", "Last 90 days · top 8 brackets and paper rounds", onClick = { navigate(InsightsRoutes.matchups(f)) })
     }
     val events = pack.events.filter { tier == "all" || it.tier == "major" || it.tier == "large" }
     if (events.isNotEmpty()) {
@@ -428,23 +428,31 @@ fun BanStudyScreen(format: String, changeId: Int, navigate: (String) -> Unit, on
 fun MatchupsScreen(format: String, onBack: () -> Unit) {
     LaunchedEffect(Unit) { Telemetry.screen("insights_matchups") }
     val pack = InsightsStore.constructed[format]
-    var picked by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     T1Screen {
         Bar("Matchups", "${pack?.name ?: format} · last 90 days", onBack = onBack)
         if (pack == null) return@T1Screen
-        Scroll {
-            val ids = pack.matchups.archetypes
-            Notice("Row's match win rate against each column. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.")
-            InsightHeatmap(ids.map { pack.name(it) }, { r, c -> pack.matchups.cell(ids[r], ids[c])?.let { it.first to it.second } }) { r, c -> picked = r to c }
-            picked?.let { (r, c) ->
-                pack.matchups.cell(ids[r], ids[c])?.let { (w, l, d) ->
-                    val n = w + l
-                    val (lo, hi) = InsightCharts.wilson(w, n)
-                    ListRow("${pack.name(ids[r])} vs ${pack.name(ids[c])}",
-                        if (n >= 30) "${InsightCharts.pct1(w.toDouble() / n)} · likely ${InsightCharts.pct(lo)}–${InsightCharts.pct(hi)}" else "Only $n matches: too few to say") {
-                        Text(if (d > 0) "$w-$l-$d" else "$w-$l", color = T1.text, fontFamily = T1.mono, fontSize = 13.sp)
-                    }
-                }
+        Scroll { MatchupGrid(pack) }
+    }
+}
+
+/** The matchup grid (rows against labelled columns) and the record of the square last tapped; on the format page
+ *  under Meta over time, and on its own screen for older links. */
+@Composable
+private fun MatchupGrid(pack: ConstructedPack) {
+    var picked by remember(pack.format) { mutableStateOf<Pair<Int, Int>?>(null) }
+    val ids = pack.matchups.archetypes
+    Notice("Row's match win rate against each column. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.")
+    InsightHeatmap(ids.map { pack.name(it) }, { r, c -> pack.matchups.cell(ids[r], ids[c])?.let { it.first to it.second } }) { r, c ->
+        picked = r to c
+        Telemetry.capture("insights_matchup_opened", mapOf("format" to pack.format))
+    }
+    picked?.let { (r, c) ->
+        pack.matchups.cell(ids[r], ids[c])?.let { (w, l, d) ->
+            val n = w + l
+            val (lo, hi) = InsightCharts.wilson(w, n)
+            ListRow("${pack.name(ids[r])} vs ${pack.name(ids[c])}",
+                if (n >= 30) "${InsightCharts.pct1(w.toDouble() / n)} · likely ${InsightCharts.pct(lo)}–${InsightCharts.pct(hi)}" else "Only $n matches: too few to say") {
+                Text(if (d > 0) "$w-$l-$d" else "$w-$l", color = T1.text, fontFamily = T1.mono, fontSize = 13.sp)
             }
         }
     }

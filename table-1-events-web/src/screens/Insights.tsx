@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Bar as ShareBar, Heatmap, LineChart, Scatter, SlopeChart, type Marker } from "../components/InsightCharts";
 import { Bar, Notice, Row, Screen, Section, Segmented, Stat, SwitchRow, TabNav } from "../components/kit";
 import { printingsByName } from "../lib/catalog";
-import { delta, pct, pct1, seriesWindow, shortDay, wilson } from "../lib/insightCharts";
+import { delta, pct, pct1, rates, seriesWindow, shortDay, wilson } from "../lib/insightCharts";
 import {
   EVENT_LABELS, EVENT_ORDER, FORMATS, PAIR_NAMES, WINDOWS, bansTitle, canHide, exampleFinish, place, setHidden, sourcesCredit, visibleKeys, type Finish, afterWindow, archetypeName, archetypePage, cardPage, changeWords, colorsName, isBan,
   loadInsights, loadInsightsDemo, matchup, pick, useInsights, type ArchetypePage, type CardPage, type CardRow, type ConstructedPack,
@@ -147,7 +147,7 @@ function ConstructedBody({ pack, tier, view, w, days, board, setBoard, hl, setHl
       {w.share.slice(0, 12).map((s) => (
         <ShareBar key={s.a} label={archetypeName(pack, s.a)} value={s.share} max={maxShare} change={s.prev == null ? null : s.share - s.prev}
                   highlighted={s.a === lead} onClick={() => go(`/insights/${f}/archetype/${s.a}`)}
-                  detail={[s.top8 ? `${s.top8} in top 8` : null, s.conv != null ? `converts ${s.conv.toFixed(2)}×` : null].filter(Boolean).join(" · ") || null} />
+                  detail={rates(s.wr, s.t8r, s.won, w.won_of) || null} />
       ))}
       <Section title="Meta over time · 7-day share" />
       <Chart>
@@ -162,6 +162,12 @@ function ConstructedBody({ pack, tier, view, w, days, board, setBoard, hl, setHl
           </button>
         ))}
       </div>
+      {pack.matchups.cells.length > 0 && (
+        <>
+          <Section title="Matchups · last 90 days" />
+          <MatchupGrid pack={pack} />
+        </>
+      )}
       <Section title="Cards · rising and falling" />
       <Segmented options={[{ value: "main" as const, label: "Main deck" }, { value: "side" as const, label: "Sideboard" }]} value={board} onChange={setBoard} />
       {movers.up.slice(0, 8).map((c) => cardRow(c, true))}
@@ -184,12 +190,6 @@ function ConstructedBody({ pack, tier, view, w, days, board, setBoard, hl, setHl
             return ch && <Row key={b.change} title={changeWords(ch)} onClick={() => go(`/insights/${f}/ban/${b.change}`)}
                               detail={`${shortDay(ch.on)}${b.settled_days != null ? ` · settled after ${b.settled_days} days` : ""}`} />;
           })}
-        </>
-      )}
-      {pack.matchups.cells.length > 0 && (
-        <>
-          <Section title="Matchups" />
-          <Row title="Matchup grid" detail="Last 90 days · top 8 brackets and paper rounds" onClick={() => go(`/insights/${f}/matchups`)} />
         </>
       )}
       {events.length > 0 && (
@@ -429,28 +429,34 @@ export function InsightsMatchups() {
   const { format = "" } = useParams();
   const nav = useNavigate();
   const { constructed, session, demo, ready } = useInsightsData();
-  const [picked, setPicked] = useState<[number, number] | null>(null);
   const pack = constructed[format];
   if (!session && !demo) return <Screen><Bar title="Matchups" onBack={() => nav(-1)} />{ready && <SignInFirst />}</Screen>;
-  const ids = pack?.matchups.archetypes ?? [];
-  const m = pack && picked ? matchup(pack.matchups, ids[picked[0]], ids[picked[1]]) : null;
-  const n = m ? m.wins + m.losses : 0;
-  const [lo, hi] = m ? wilson(m.wins, n) : [0, 1];
   return (
     <Screen>
       <Bar title="Matchups" subtitle={`${pack?.name ?? format} · last 90 days`} onBack={() => nav(-1)} />
-      {pack && (
-        <Scroll>
-          <Notice tone="info">Row's match win rate against each column. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.</Notice>
-          <Heatmap labels={ids.map((a) => archetypeName(pack, a))} onPick={(r, c) => setPicked([r, c])}
-                   cell={(r, c) => matchup(pack.matchups, ids[r], ids[c])} />
-          {m && picked && (
-            <Row title={`${archetypeName(pack, ids[picked[0]])} vs ${archetypeName(pack, ids[picked[1]])}`} value={`${m.wins}-${m.losses}${m.draws ? `-${m.draws}` : ""}`}
-                 detail={n >= 30 ? `${pct1(m.wins / n)} · likely ${pct(lo)}–${pct(hi)}` : `Only ${n} matches: too few to say`} />
-          )}
-        </Scroll>
-      )}
+      {pack && <Scroll><MatchupGrid pack={pack} /></Scroll>}
     </Screen>
+  );
+}
+
+/** The matchup grid (rows against labelled columns) and the record of the square last tapped; on the format page
+ *  under Meta over time, and on its own screen for older links. */
+function MatchupGrid({ pack }: { pack: ConstructedPack }) {
+  const [picked, setPicked] = useState<[number, number] | null>(null);
+  const ids = pack.matchups.archetypes;
+  const m = picked ? matchup(pack.matchups, ids[picked[0]], ids[picked[1]]) : null;
+  const n = m ? m.wins + m.losses : 0;
+  const [lo, hi] = m ? wilson(m.wins, n) : [0, 1];
+  return (
+    <>
+      <Notice tone="info">Row's match win rate against each column. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.</Notice>
+      <Heatmap labels={ids.map((a) => archetypeName(pack, a))} onPick={(r, c) => { setPicked([r, c]); capture("insights_matchup_opened", { format: pack.format }); }}
+               cell={(r, c) => matchup(pack.matchups, ids[r], ids[c])} />
+      {m && picked && (
+        <Row title={`${archetypeName(pack, ids[picked[0]])} vs ${archetypeName(pack, ids[picked[1]])}`} value={`${m.wins}-${m.losses}${m.draws ? `-${m.draws}` : ""}`}
+             detail={n >= 30 ? `${pct1(m.wins / n)} · likely ${pct(lo)}–${pct(hi)}` : `Only ${n} matches: too few to say`} />
+      )}
+    </>
   );
 }
 

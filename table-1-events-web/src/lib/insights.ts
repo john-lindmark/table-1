@@ -27,10 +27,11 @@ export function sourcesCredit(sources: string[]): { label: string; url: string }
 export interface IndexEntry { kind: "constructed" | "limited"; key: string; name: string; version: string; url: string; bytes: number; through: string | null }
 export interface Archetype { id: number; name: string; family: string; colors: string }
 export interface Change { id: number; on: string; kind: string; cards: string[]; set_code: string | null; note: string | null; url: string | null }
-export interface ShareRow { a: number; share: number; prev: number | null; decks: number; top8: number; conv: number | null }
+/** `wr`, `t8r`, `won` and the window's `won_of` are missing from packs built before 2026-10-28. */
+export interface ShareRow { a: number; share: number; prev: number | null; decks: number; top8: number; conv: number | null; wr?: number | null; t8r?: number | null; won?: number }
 export interface CardRow { c: string; n: string; rate: number; prev: number | null; copies: number | null }
 export interface Window {
-  decks: number; weighted: number; events: number; thin: boolean; brief: string | null;
+  decks: number; weighted: number; events: number; thin: boolean; brief: string | null; won_of?: number;
   share: ShareRow[];
   cards: Record<"main" | "side", { up: CardRow[]; down: CardRow[] }>;
 }

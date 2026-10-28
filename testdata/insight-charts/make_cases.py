@@ -118,6 +118,15 @@ def heat(wins, losses, minimum=30):
     return {"label": str(math.floor(wr * 100 + 0.5)), "tone": tone, "strength": round(strength, 4), "dim": dim,
             "ink": abs(d) >= 0.08 and not dim}
 
+def rates(wr, t8r, won, won_of):
+    """A Meta now row's win rate, conversion rate (lists that made top 8) and event win rate (first place, of the
+    window's events with a winner); a part the pack has no number for is left out."""
+    parts = []
+    if wr is not None: parts.append(f"Win {pct1(wr)}")
+    if t8r is not None: parts.append(f"Conv {pct(t8r)}")
+    if won_of: parts.append(f"1st {pct((won or 0) / won_of)}")
+    return " · ".join(parts)
+
 cases = {
     "ticks": [{"in": [lo, hi, c], "out": ticks(lo, hi, c)} for lo, hi, c in [
         (0, 0.27, 4), (0, 0.4286, 4), (0.48, 0.62, 4), (0, 1, 5), (0, 0.05, 4), (0, 0, 4), (0.5, 0.5, 4), (3, 97, 5), (1.2, 13.9, 4), (0.531, 0.577, 3)]],
@@ -135,6 +144,8 @@ cases = {
         ("2026-04-28", 180, 7), ("2026-04-28", 180, 14), ("2026-04-28", 180, 30), ("2026-04-28", 180, 90),
         ("2026-04-28", 180, 180), ("2026-10-24", 3, 7), ("2026-02-20", 20, 14)]],
     "heat": [{"in": [w, l], "out": heat(w, l)} for w, l in [(20, 12), (12, 20), (16, 15), (3, 1), (1, 3), (0, 0), (2, 2), (45, 15), (60, 40), (5, 0)]],
+    "rates": [{"in": [wr, t8r, won, of], "out": rates(wr, t8r, won, of)} for wr, t8r, won, of in [
+        (0.5417, 0.4, 1, 1), (None, None, 0, 1), (0.5, 0.0612, 3, 41), (None, 0.25, 0, 0), (0.6, None, None, None), (None, None, None, None)]],
 }
 json.dump(cases, open(os.path.join(os.path.dirname(__file__), "cases.json"), "w"), indent=1)
 print({k: len(v) for k, v in cases.items()})

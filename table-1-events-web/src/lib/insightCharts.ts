@@ -100,6 +100,16 @@ export function pct1(x: number | null | undefined): string {
   return x == null ? "–" : `${(x * 100).toFixed(1)}%`;
 }
 
+/** A Meta now row's win rate, conversion rate (lists that made top 8) and event win rate (first place, of the window's
+ *  events with a winner); a part the pack has no number for is left out (make_cases.py `rates`). */
+export function rates(wr: number | null | undefined, t8r: number | null | undefined, won: number | null | undefined, wonOf: number | null | undefined): string {
+  const parts: string[] = [];
+  if (wr != null) parts.push(`Win ${pct1(wr)}`);
+  if (t8r != null) parts.push(`Conv ${pct(t8r)}`);
+  if (wonOf) parts.push(`1st ${pct((won ?? 0) / wonOf)}`);
+  return parts.join(" · ");
+}
+
 /** +2.1 / -12: a change in percentage points; under 10 keeps one decimal. */
 export function delta(d: number | null | undefined): string {
   if (d == null) return "";

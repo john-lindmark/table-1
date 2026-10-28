@@ -114,6 +114,14 @@ object InsightCharts {
     /** 57.1%: win rates keep one decimal. */
     fun pct1(x: Double?): String = if (x == null) "–" else String.format(java.util.Locale.US, "%.1f%%", x * 100)
 
+    /** A Meta now row's win rate, conversion rate (lists that made top 8) and event win rate (first place, of the
+     *  window's events with a winner); a part the pack has no number for is left out (make_cases.py `rates`). */
+    fun rates(wr: Double?, t8r: Double?, won: Int?, wonOf: Int?): String = listOfNotNull(
+        wr?.let { "Win ${pct1(it)}" },
+        t8r?.let { "Conv ${pct(it)}" },
+        wonOf?.takeIf { it > 0 }?.let { "1st ${pct((won ?: 0).toDouble() / it)}" },
+    ).joinToString(" · ")
+
     /** +2.1 / -12: a change in percentage points; under 10 keeps one decimal. */
     fun delta(d: Double?): String {
         if (d == null) return ""

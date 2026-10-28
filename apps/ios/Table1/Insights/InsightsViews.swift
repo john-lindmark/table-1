@@ -191,7 +191,7 @@ struct ConstructedHomeSection: View {
         ForEach(w.share.prefix(12), id: \.a) { s in
             Button { path.append(.archetype(pack.format, s.a)) } label: {
                 InsightBar(label: pack.name(s.a), value: s.share, maxValue: maxShare,
-                           detail: [s.top8 > 0 ? "\(s.top8) in top 8" : nil, s.conv.map { "converts \(String(format: "%.2f", $0))×" }].compactMap { $0 }.joined(separator: " · ").nilIfEmpty,
+                           detail: InsightCharts.rates(wr: s.wr, t8r: s.t8r, won: s.won, wonOf: w.won_of).nilIfEmpty,
                            change: s.prev.map { s.share - $0 }, highlighted: s.a == lead)
             }.buttonStyle(.plain)
         }
@@ -215,6 +215,11 @@ struct ConstructedHomeSection: View {
                     }.buttonStyle(.plain)
                 }
             }
+        }
+
+        if !pack.matchups.cells.isEmpty {
+            Section1("Matchups · last 90 days")
+            MatchupGrid(pack: pack)
         }
 
         Section1("Cards · rising and falling")
@@ -246,13 +251,6 @@ struct ConstructedHomeSection: View {
                     }.buttonStyle(.plain)
                 }
             }
-        }
-
-        if !pack.matchups.cells.isEmpty {
-            Section1("Matchups")
-            Button { path.append(.matchups(pack.format)) } label: {
-                ListRow(title: "Matchup grid", detail: "Last 90 days · top 8 brackets and paper rounds")
-            }.buttonStyle(.plain)
         }
 
         let events = pack.events.filter { tier == .all || ["major", "large"].contains($0.tier) }
@@ -601,7 +599,6 @@ struct BanStudyView: View {
 struct MatchupsView: View {
     let format: String
     @Binding var path: [InsightsRoute]
-    @State private var picked: (Int, Int)?
     private var store: InsightsStore { InsightsStore.shared }
 
     var body: some View {
@@ -610,22 +607,34 @@ struct MatchupsView: View {
             Bar(title: "Matchups", subtitle: "\(pack?.name ?? format) · last 90 days") { path.removeLast() }
             InsightsPage {
                 VStack(spacing: 1) {
-                    if let pack {
-                        let ids = pack.matchups.archetypes
-                        Notice("Row's match win rate against each column. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.")
-                        InsightHeatmap(labels: ids.map { pack.name($0) }, cell: { r, c in
-                            pack.matchups.cell(ids[r], ids[c]).map { ($0.wins, $0.losses) }
-                        }, onTap: { r, c in picked = (r, c) })
-                        if let (r, c) = picked, let m = pack.matchups.cell(ids[r], ids[c]) {
-                            let n = m.wins + m.losses
-                            let ci = InsightCharts.wilson(wins: m.wins, n: n)
-                            ListRow(title: "\(pack.name(ids[r])) vs \(pack.name(ids[c]))",
-                                    detail: n >= 30 ? "\(InsightCharts.pct1(Double(m.wins) / Double(n))) · likely \(InsightCharts.pct(ci.lo))–\(InsightCharts.pct(ci.hi))" : "Only \(n) matches: too few to say") {
-                                Text("\(m.wins)-\(m.losses)\(m.draws > 0 ? "-\(m.draws)" : "")").font(T1.mono(13))
-                            }
-                        }
-                    }
+                    if let pack { MatchupGrid(pack: pack) }
                 }
+            }
+        }
+    }
+}
+
+/// The matchup grid (rows against labelled columns) and the record of the square last tapped; on the format page
+/// under Meta over time, and on its own screen for push taps and older links.
+struct MatchupGrid: View {
+    let pack: Insights.ConstructedPack
+    @State private var picked: (Int, Int)?
+
+    var body: some View {
+        let ids = pack.matchups.archetypes
+        Notice("Row's match win rate against each column. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.")
+        InsightHeatmap(labels: ids.map { pack.name($0) }, cell: { r, c in
+            pack.matchups.cell(ids[r], ids[c]).map { ($0.wins, $0.losses) }
+        }, onTap: { r, c in
+            picked = (r, c)
+            Telemetry.capture("insights_matchup_opened", ["format": pack.format])
+        })
+        if let (r, c) = picked, let m = pack.matchups.cell(ids[r], ids[c]) {
+            let n = m.wins + m.losses
+            let ci = InsightCharts.wilson(wins: m.wins, n: n)
+            ListRow(title: "\(pack.name(ids[r])) vs \(pack.name(ids[c]))",
+                    detail: n >= 30 ? "\(InsightCharts.pct1(Double(m.wins) / Double(n))) · likely \(InsightCharts.pct(ci.lo))–\(InsightCharts.pct(ci.hi))" : "Only \(n) matches: too few to say") {
+                Text("\(m.wins)-\(m.losses)\(m.draws > 0 ? "-\(m.draws)" : "")").font(T1.mono(13))
             }
         }
     }
