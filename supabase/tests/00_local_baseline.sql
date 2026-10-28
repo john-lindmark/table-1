@@ -71,6 +71,9 @@ create table net.requests (id bigserial primary key, url text, body jsonb, heade
 create function net.http_post(url text, body jsonb default '{}'::jsonb, params jsonb default '{}'::jsonb,
   headers jsonb default '{"Content-Type": "application/json"}'::jsonb, timeout_milliseconds integer default 5000)
 returns bigint language sql as $$ insert into net.requests(url, body, headers) values (url, body, headers) returning id $$;
+create function net.http_get(url text, params jsonb default '{}'::jsonb, headers jsonb default '{}'::jsonb,
+  timeout_milliseconds integer default 5000)
+returns bigint language sql as $$ insert into net.requests(url, headers) values (url, headers) returning id $$;
 create table net._http_response (id bigint primary key, status_code integer, content_type text, headers jsonb,
   content text, timed_out boolean, error_msg text, created timestamptz not null default now());
 

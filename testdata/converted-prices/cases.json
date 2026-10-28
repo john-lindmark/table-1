@@ -1,0 +1,33 @@
+{
+  "about": "Converted prices (contract/converted-prices-2026-10-28.md). When TCGplayer has no price for a finish, the Cardmarket EUR price converted at the ECB rate stands in: usd from eur, usd_foil from eur_foil, never etched; round(eur * rate, 2); left out when under 10% of the cheapest TCGplayer price (any finish) of any printing of the same card. 'printings' go into card_prices; 'want' is [usd, usd_foil, usd_etched, converted] as card_prices_get returns them after the refresh (converted: bit 1 nonfoil, bit 2 foil). 'rows' are card_prices_get rows a client reads: the price of a finish and whether it is converted. 'ecb' is the ECB answer fx_tick parses. Postgres 67_converted_prices_test.sql, iOS ConvertedPriceTests, web convertedPrice.test.ts and Android ConvertedPriceTest read this.",
+  "rate": 1.1133,
+  "printings": [
+    {"id": "c1000000-0000-0000-0000-000000000001", "card": "Mox Sapphire", "set": "lea", "eur": 20089.89, "want": [22366.07, null, null, 1]},
+    {"id": "c1000000-0000-0000-0000-000000000002", "card": "Mox Sapphire", "set": "leb", "eur": 7179.15, "want": [7992.55, null, null, 1]},
+    {"id": "c1000000-0000-0000-0000-000000000003", "card": "Mox Sapphire", "set": "ced", "usd": 647.32, "eur": 749.57, "want": [647.32, null, null, 0]},
+    {"id": "c1000000-0000-0000-0000-000000000004", "card": "Badlands", "set": "sum", "eur": 0.02, "want": [null, null, null, 0]},
+    {"id": "c1000000-0000-0000-0000-000000000005", "card": "Badlands", "set": "3ed", "usd": 245.86, "want": [245.86, null, null, 0]},
+    {"id": "c1000000-0000-0000-0000-000000000006", "card": "Sign in Blood", "set": "sld", "usd": 1.00, "eur_foil": 5.00, "want": [1.00, 5.57, null, 2]},
+    {"id": "c1000000-0000-0000-0000-000000000007", "card": "Lone Card", "set": "pxx", "eur": 3.00, "eur_foil": 9.00, "want": [3.34, 10.02, null, 3]},
+    {"id": "c1000000-0000-0000-0000-000000000008", "card": "Etched Card", "set": "cmr", "usd": 2.00, "want": [2.00, null, null, 0]},
+    {"id": "c1000000-0000-0000-0000-000000000009", "card": "Free Card", "set": "pxx", "eur": 0, "want": [null, null, null, 0]},
+    {"id": "c1000000-0000-0000-0000-00000000000a", "card": "Guard Card", "set": "aaa", "usd": 100.00, "want": [100.00, null, null, 0]},
+    {"id": "c1000000-0000-0000-0000-00000000000b", "card": "Guard Card", "set": "bbb", "eur": 8.99, "want": [10.01, null, null, 1]},
+    {"id": "c1000000-0000-0000-0000-00000000000c", "card": "Guard Card", "set": "ccc", "eur": 8.97, "want": [null, null, null, 0]}
+  ],
+  "rows": [
+    {"row": [22366.07, null, null, 20089.89, null, 1], "finish": "nonfoil", "usd": 22366.07, "converted": true},
+    {"row": [647.32, null, null, 749.57, null, 0], "finish": "nonfoil", "usd": 647.32, "converted": false},
+    {"row": [1.00, 5.57, null, null, 5.00, 2], "finish": "nonfoil", "usd": 1.00, "converted": false},
+    {"row": [1.00, 5.57, null, null, 5.00, 2], "finish": "foil", "usd": 5.57, "converted": true},
+    {"row": [3.34, 10.02, null, 3.00, 9.00, 3], "finish": "foil", "usd": 10.02, "converted": true},
+    {"row": [3.34, 10.02, null, 3.00, 9.00, 3], "finish": "etched", "usd": null, "converted": false},
+    {"row": [12.00, null, null, 10.00, null], "finish": "nonfoil", "usd": 12.00, "converted": false},
+    {"row": [], "finish": "nonfoil", "usd": null, "converted": false}
+  ],
+  "ecb": {
+    "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<gesmes:Envelope xmlns:gesmes=\"http://www.gesmes.org/xml/2002-08-01\" xmlns=\"http://www.ecb.int/vocabulary/2002-08-01/eurofxref\">\n\t<gesmes:subject>Reference rates</gesmes:subject>\n\t<Cube>\n\t\t<Cube time='2026-10-28'>\n\t\t\t<Cube currency='USD' rate='1.1133'/>\n\t\t\t<Cube currency='JPY' rate='171.42'/>\n\t\t</Cube>\n\t</Cube>\n</gesmes:Envelope>",
+    "day": "2026-10-28",
+    "rate": 1.1133
+  }
+}

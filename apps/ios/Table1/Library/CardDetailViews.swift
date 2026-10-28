@@ -128,7 +128,10 @@ struct CardDetailView: View {
     // MARK: bar
 
     private func bar(_ current: CardVersion?, inView: [CardVersion]) -> some View {
-        let price = current.flatMap { PriceBook.text(PriceBook.shared.usd($0.cardId, $0.finish, $0.condition)) }
+        let price = current.flatMap {
+            PriceBook.marked(PriceBook.text(PriceBook.shared.usd($0.cardId, $0.finish, $0.condition)),
+                             converted: PriceBook.shared.converted($0.cardId, $0.finish))
+        }
         return HStack(spacing: 0) {
             CardBarButton(label: "Back", action: { dismiss() }) { BackArrow().fill(T1.text) }
             HStack(spacing: 2) {

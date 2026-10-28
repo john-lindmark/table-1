@@ -338,7 +338,7 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
     }
 
     T1Screen {
-        val price = pricesVersion.let { current?.let { PriceBook.text(PriceBook.usd(it.cardId, it.finish, it.condition)) } }
+        val price = pricesVersion.let { current?.let { PriceBook.marked(PriceBook.text(PriceBook.usd(it.cardId, it.finish, it.condition)), PriceBook.converted(it.cardId, it.finish)) } }
         CardBar(o?.name ?: "Card", price, onBack, info,
             onAdd = if (!isSearch && o != null && current != null) ({ openAddTo(current) }) else null,
             onInfo = if (o != null) ({ info = !info; if (info) Telemetry.capture("card_info_opened", mapOf("scope" to scopeName)) }) else null)
@@ -832,7 +832,8 @@ private fun CardInfo(o: CatalogOracle, p: CatalogPrinting?, version: CardVersion
             if (d != null) Text(d.text.ifEmpty { "No rules text." }, color = T1.text, fontFamily = T1.mono, fontSize = 16.sp, letterSpacing = 0.5.sp, lineHeight = 23.sp)
             else Text(if (failed) "Rules text needs a connection." else "Loading rules text…", color = T1.muted, fontFamily = T1.mono, fontSize = 12.sp)
         }
-        Detail("Price", PriceBook.conditionText(PriceBook.usd(version.cardId, version.finish), version.condition) ?: "—")
+        Detail("Price", PriceBook.marked(PriceBook.conditionText(PriceBook.usd(version.cardId, version.finish), version.condition),
+                                         PriceBook.converted(version.cardId, version.finish), source = true) ?: "—")
         Detail("Card type", details?.type ?: o.typeLine)
         if (o.manaCost.isNotEmpty()) Detail("Mana cost", o.manaCost)
         Detail("Rarity", details?.rarity ?: p?.let { CatalogPack.RARITY_NAME[it.rarity]?.lowercase() } ?: "—")

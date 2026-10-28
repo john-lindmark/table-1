@@ -23,7 +23,7 @@ import java.util.Currency
  * copy in its condition ([Conditions.price]).
  */
 object PriceBook {
-    /** card id → [usd, usd_foil, usd_etched, eur, eur_foil] */
+    /** card id → [usd, usd_foil, usd_etched, eur, eur_foil, converted] */
     private val rows = HashMap<String, List<Double?>>()
     private val asked = HashSet<String>()
     private val _version = MutableStateFlow(0)
@@ -53,6 +53,21 @@ object PriceBook {
         val r = synchronized(this) { rows[cardId] } ?: return null
         return Conditions.price(r.getOrNull(when (finish) { "foil" -> 1; "etched" -> 2; else -> 0 }), condition)
     }
+
+    /** Whether the USD price of this finish is Cardmarket's converted (contract/converted-prices-2026-10-28.md). */
+    fun converted(cardId: String, finish: String): Boolean = converted(synchronized(this) { rows[cardId] } ?: emptyList(), finish)
+
+    /** A card_prices_get row without its id: the seventh element is a bitmask of converted finishes (1 nonfoil,
+     *  2 foil); rows from older servers have six. */
+    fun converted(row: List<Double?>, finish: String): Boolean {
+        val bit = when (finish) { "foil" -> 2; "etched" -> 0; else -> 1 }
+        val mask = row.getOrNull(5)?.toInt() ?: 0
+        return bit > 0 && mask and bit != 0
+    }
+
+    /** "≈ $7,992.55", plus " · from Cardmarket" where there's room to say so. */
+    fun marked(text: String?, converted: Boolean, source: Boolean = false): String? =
+        if (text == null || !converted) text else "≈ $text" + if (source) " · from Cardmarket" else ""
 
     fun text(usd: Double?): String? = usd?.let {
         NumberFormat.getCurrencyInstance().apply { currency = Currency.getInstance("USD"); maximumFractionDigits = 2 }.format(it)

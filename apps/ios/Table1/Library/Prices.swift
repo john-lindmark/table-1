@@ -33,7 +33,7 @@ final class PriceBook {
         asked.formUnion(missing)
         #if DEBUG
         if let demo = CollectionStore.shared.demo {
-            for id in missing { rows[id] = demo.prices[id] ?? [] }
+            for id in missing { rows[id] = Self.demoConverted(demo.prices[id] ?? []) }
             version += 1
             return
         }
@@ -57,6 +57,35 @@ final class PriceBook {
         guard let r = rows[cardId] else { return nil }
         let i = finish == "foil" ? 1 : finish == "etched" ? 2 : 0
         return Conditions.price(i < r.count ? r[i] : nil, condition)
+    }
+
+    /// Whether the USD price of this finish is Cardmarket's converted (contract/converted-prices-2026-10-28.md).
+    func converted(_ cardId: String, _ finish: String) -> Bool {
+        Self.converted(rows[cardId] ?? [], finish)
+    }
+
+    /// A card_prices_get row without its id: the seventh element is a bitmask of converted finishes (1 nonfoil,
+    /// 2 foil); rows from older servers have six.
+    nonisolated static func converted(_ row: [Double?], _ finish: String) -> Bool {
+        let bit = finish == "foil" ? 2 : finish == "etched" ? 0 : 1
+        guard bit > 0, row.count > 5, let mask = row[5] else { return false }
+        return Int(mask) & bit != 0
+    }
+
+    /// The demo's prices converted as the server does (rate of 2026-10-28, no guard), so the mark shows in the demo.
+    nonisolated static func demoConverted(_ row: [Double?]) -> [Double?] {
+        var r = (0..<5).map { $0 < row.count ? row[$0] : nil }
+        var mask = 0
+        for (u, e, bit) in [(0, 3, 1), (1, 4, 2)] where r[u] == nil {
+            if let eur = r[e], eur > 0 { r[u] = (eur * 1.1133 * 100).rounded() / 100; mask |= bit }
+        }
+        return r + [Double(mask)]
+    }
+
+    /// "≈ $7,992.55", plus " · from Cardmarket" where there's room to say so.
+    nonisolated static func marked(_ text: String?, converted: Bool, source: Bool = false) -> String? {
+        guard let text, converted else { return text }
+        return "≈ \(text)" + (source ? " · from Cardmarket" : "")
     }
 
     static func text(_ usd: Double?) -> String? {
