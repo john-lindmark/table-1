@@ -34,6 +34,8 @@ struct CatalogOracle: Hashable, Sendable {
     var tokens: [Int] = []
     /// Who it shares the command zone with (`CommandZone.Mate`), nil when the pack doesn't say.
     var pair: String? = nil
+    /// Color identity (WUBRG letters, empty = colorless), nil when the pack doesn't say.
+    var identity: String? = nil
 
     /// Legality in a deck format: "legal", "restricted", "banned", "not_legal", or nil when the format isn't checked.
     func legality(_ format: String) -> String? { CatalogPack.legality(legal, format) }
@@ -122,12 +124,12 @@ final class CatalogDB: @unchecked Sendable {
         return out
     }
 
-    private static let oracleCols = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount, legal, points, cmc, colors, produced, tokens, pair"
+    private static let oracleCols = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount, legal, points, cmc, colors, produced, tokens, pair, identity"
     private static func oracle(_ r: SQLiteDB.Row) -> CatalogOracle {
         CatalogOracle(idx: r.int(0), oracleId: r.text(1), name: r.text(2), norm: r.text(3), typeLine: r.text(4),
                       manaCost: r.text(5), printings: r.int(6), legal: r.text(7), points: r.int(8), cmc: r.double(9), colors: r.text(10),
                       produced: r.isNull(11) ? nil : r.text(11), tokens: r.text(12).split(separator: ",").compactMap { Int($0) },
-                      pair: r.isNull(13) ? nil : r.text(13))
+                      pair: r.isNull(13) ? nil : r.text(13), identity: r.isNull(14) ? nil : r.text(14))
     }
 
     private static let printingCols =
@@ -290,21 +292,22 @@ final class CatalogDB: @unchecked Sendable {
             CREATE TABLE oracles (idx INTEGER PRIMARY KEY, oracle_id TEXT NOT NULL, name TEXT NOT NULL,
               name_norm TEXT NOT NULL, type_line TEXT, mana_cost TEXT, cmc REAL, colors TEXT, face_names TEXT,
               pcount INTEGER NOT NULL DEFAULT 0, legal TEXT NOT NULL DEFAULT '', points INTEGER NOT NULL DEFAULT 0,
-              produced TEXT, tokens TEXT NOT NULL DEFAULT '', pair TEXT);
+              produced TEXT, tokens TEXT NOT NULL DEFAULT '', pair TEXT, identity TEXT);
             CREATE TABLE printings (card_id TEXT PRIMARY KEY, oracle_idx INTEGER NOT NULL, ord INTEGER NOT NULL,
               set_code TEXT, cn TEXT, lang TEXT, rarity TEXT, finishes TEXT, released_at TEXT, image_ts TEXT,
               image_faces INTEGER, printed_name TEXT, original INTEGER NOT NULL DEFAULT 0);
             CREATE TABLE names (oracle_idx INTEGER NOT NULL, lang TEXT NOT NULL, name TEXT NOT NULL, name_norm TEXT NOT NULL);
             """)
         let header: PackHeader = try db.transaction {
-            let insO = try db.prepare("INSERT INTO oracles (idx, oracle_id, name, name_norm, type_line, mana_cost, cmc, colors, face_names, legal, points, produced, tokens, pair) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+            let insO = try db.prepare("INSERT INTO oracles (idx, oracle_id, name, name_norm, type_line, mana_cost, cmc, colors, face_names, legal, points, produced, tokens, pair, identity) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
             let insP = try db.prepare("INSERT OR REPLACE INTO printings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
             let insN = try db.prepare("INSERT INTO names VALUES (?,?,?,?)")
             var ord = 0
             let h = try CatalogPack.parse(pack, oracle: { o in
                 try insO.run([.int(o.idx), .text(o.oracleId), .text(o.name), .text(o.nameNorm), .text(o.typeLine),
                               .text(o.manaCost), .double(o.cmc), .text(o.colors), .text(o.faceNames), .text(o.legal), .int(o.points),
-                              o.produced.map { .text($0) } ?? .null, .text(o.tokens), o.pair.map { .text($0) } ?? .null])
+                              o.produced.map { .text($0) } ?? .null, .text(o.tokens), o.pair.map { .text($0) } ?? .null,
+                              o.identity.map { .text($0) } ?? .null])
             }, printing: { p in
                 try insP.run([.text(p.cardId), .int(p.oracleIdx), .int(ord), .text(p.set), .text(p.cn), .text(p.lang),
                               .text(p.rarity), .text(p.finishes), .text(p.releasedAt), .text(p.imageTs), .int(p.imageFaces),
@@ -350,7 +353,7 @@ final class CatalogStore {
 
     private let fileKey = "catalog.file"
     /// Bumped when the local SQLite schema changes; a file built by an older schema is rebuilt from a fresh pack.
-    private static let schema = "s7"   // s6: oracles.produced and oracles.tokens; s7: oracles.pair
+    private static let schema = "s8"   // s6: oracles.produced and oracles.tokens; s7: oracles.pair; s8: oracles.identity
     private let checkedKey = "catalog.checkedAt"
     private let dir: URL = {
         let d = URL.applicationSupportDirectory.appending(path: "Catalog", directoryHint: .isDirectory)

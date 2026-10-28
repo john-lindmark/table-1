@@ -25,16 +25,18 @@ class CardGroupingTest {
         for (c in cards) {
             val o = c.jsonObject
             fun s(k: String) = o[k]!!.jsonPrimitive.content
-            val k = GroupKeys.of(s("typeLine"), s("manaCost"), s("colors"), o["cmc"]!!.jsonPrimitive.double)
+            val identity = o["identity"]!!.jsonPrimitive.let { if (it is kotlinx.serialization.json.JsonNull) null else it.content }
+            val k = GroupKeys.of(s("typeLine"), s("manaCost"), s("colors"), o["cmc"]!!.jsonPrimitive.double, identity)
             assertEquals(s("name"), s("type"), k[CardGrouping.Type])
             assertEquals(s("name"), s("color"), k[CardGrouping.Color])
+            assertEquals(s("name"), s("colorIdentity"), k[CardGrouping.Identity])
             assertEquals(s("name"), s("manaValue"), k[CardGrouping.ManaValue])
         }
     }
 
     @Test fun order() {
         val order = cases["order"]!!.jsonObject
-        for (g in listOf(CardGrouping.Type, CardGrouping.Color, CardGrouping.ManaValue)) {
+        for (g in listOf(CardGrouping.Type, CardGrouping.Color, CardGrouping.Identity, CardGrouping.ManaValue)) {
             val want = order[g.wire]!!.jsonArray.map { it.jsonPrimitive.content }
             assertEquals(g.wire, want, g.order)
             assertEquals(g.wire, want, g.sorted(want.reversed()))
@@ -46,7 +48,8 @@ class CardGroupingTest {
         assertEquals("Mana value 3", CardGrouping.ManaValue.label("3"))
         assertEquals("Lands", CardGrouping.ManaValue.label("Lands"))
         assertEquals("Creatures", CardGrouping.Type.label("Creatures"))
-        assertEquals(listOf(CardGrouping.Type, CardGrouping.Color, CardGrouping.ManaValue), CardGrouping.options(list = true))
+        for ((key, label) in cases["identityLabels"]!!.jsonObject) assertEquals(label.jsonPrimitive.content, CardGrouping.Identity.label(key))
+        assertEquals(listOf(CardGrouping.Type, CardGrouping.Color, CardGrouping.Identity, CardGrouping.ManaValue), CardGrouping.options(list = true))
         assertEquals(CardGrouping.entries.toList(), CardGrouping.options(list = false))
     }
 

@@ -181,4 +181,19 @@ class CatalogPackFieldsTest {
         CatalogPack.parse(pack, { o += it }, {})
         assertEquals(listOf("", "P:Toothy, Imaginary Friend", null), o.map { it.pair })
     }
+
+    /** Color identity (O field 15): "" is colorless, a missing field unknown (null); the keys group by it. */
+    @Test fun readsColorIdentity() {
+        val pack = listOf(
+            "#t1catalog\t1\tv1-test\t3\t0",
+            "O\t0\t11111111-1111-1111-1111-111111111111\tBreeding Pool\tbreeding pool\tLand — Forest Island\t\t0\t\t\tLLLLL-L-\t\tGU\t\t\tUG",
+            "O\t1\t22222222-2222-2222-2222-222222222222\tCommand Tower\tcommand tower\tLand\t\t0\t\t\t------L-\t\tWUBRG\t\t\t",
+            "O\t2\t33333333-3333-3333-3333-333333333333\tThrasios\tthrasios\tLegendary Creature — Merfolk Wizard\t{G}{U}\t2\tGU\t\t------L-\t\t\t\tP",
+        ).joinToString("\n")
+        val o = mutableListOf<PackOracle>()
+        CatalogPack.parse(pack, { o += it }, {})
+        assertEquals(listOf("UG", "", null), o.map { it.identity })
+        assertEquals(listOf("Simic", "Colorless", "Simic"),
+            o.map { GroupKeys.of(it.typeLine, it.manaCost, it.colors, it.cmc, it.identity).identity })
+    }
 }

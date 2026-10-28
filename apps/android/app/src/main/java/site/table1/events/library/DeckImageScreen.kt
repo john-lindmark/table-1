@@ -130,8 +130,8 @@ fun DeckImageScreen(name: String, format: String, entries: List<ListEntry>, owne
                         layout = if (it == 0) DeckImage.Layout.Grid else DeckImage.Layout.Stacks
                         prefs.edit().putString("deckImage.layout", layout.wire).apply()
                     }
-                    val groupings = listOf(CardGrouping.Type, CardGrouping.ManaValue, CardGrouping.Color)
-                    T1Segmented(listOf("Type", "Mana value", "Color"), groupings.indexOf(grouping)) {
+                    val groupings = listOf(CardGrouping.Type, CardGrouping.ManaValue, CardGrouping.Color, CardGrouping.Identity)
+                    T1Segmented(listOf("Type", "Mana value", "Color", "Identity"), groupings.indexOf(grouping)) {
                         grouping = groupings[it]
                         prefs.edit().putString("deckImage.grouping", grouping.wire).apply()
                     }

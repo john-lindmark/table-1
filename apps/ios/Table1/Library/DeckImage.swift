@@ -318,7 +318,8 @@ struct DeckImagePanel: View {
             HairlineList {
                 T1Segmented(options: [(DeckImage.Layout.grid.rawValue, "Cards"), (DeckImage.Layout.stacks.rawValue, "Stacks")], selection: $layoutRaw)
                 T1Segmented(options: [(CardGrouping.type.rawValue, "Type"), (CardGrouping.manaValue.rawValue, "Mana value"),
-                                      (CardGrouping.color.rawValue, "Color")], selection: $groupingRaw)
+                                      (CardGrouping.color.rawValue, "Color"), (CardGrouping.identity.rawValue, "Identity")],
+                                      selection: $groupingRaw)
                 if lines?.contains(where: { $0.board == "side" }) == true { T1Switch(title: "Sideboard", isOn: $showSide) }
                 if owner == nil { T1Switch(title: "Your name", detail: myName ?? "Not set", isOn: $showName) }
                 if let error { Notice(error, error: true) }

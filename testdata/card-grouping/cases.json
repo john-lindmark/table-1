@@ -1,20 +1,29 @@
 {
-  "about": "Group by (View menu) for every card list: type, color and mana value per card. iOS CardGroupingTests reads this; web and Android should too. Lands get their own color and mana-value group; a land creature is a creature with its colors and mana value.",
+  "about": "Group by (View menu) for every card list: type, color, color identity and mana value per card. iOS CardGroupingTests, web cardGrouping.test.ts and Android CardGroupingTest read this. Lands get their own color and mana-value group; a land creature is a creature with its colors and mana value. Color identity is the pack's identity field (WUBRG letters, any order; null = an older pack without it, which falls back to the card's colors and mana cost); lands group by their identity like any card, and each exact combination is its own group.",
   "cards": [
-    {"name": "Lightning Bolt", "typeLine": "Instant", "manaCost": "{R}", "colors": "R", "cmc": 1, "type": "Instants", "color": "Red", "manaValue": "1"},
-    {"name": "Mountain", "typeLine": "Basic Land — Mountain", "manaCost": "", "colors": "", "cmc": 0, "type": "Lands", "color": "Lands", "manaValue": "Lands"},
-    {"name": "Dryad Arbor", "typeLine": "Land Creature — Forest Dryad", "manaCost": "", "colors": "G", "cmc": 0, "type": "Creatures", "color": "Green", "manaValue": "0"},
-    {"name": "Ajani, Nacatl Pariah", "typeLine": "Legendary Creature — Cat Warrior // Legendary Planeswalker — Ajani", "manaCost": "{1}{W}", "colors": "W", "cmc": 2, "type": "Creatures", "color": "White", "manaValue": "2"},
-    {"name": "Ancestral Vision", "typeLine": "Sorcery", "manaCost": "", "colors": "U", "cmc": 0, "type": "Sorceries", "color": "Blue", "manaValue": "0"},
-    {"name": "Lightning Helix", "typeLine": "Instant", "manaCost": "{R}{W}", "colors": "RW", "cmc": 2, "type": "Instants", "color": "Multicolor", "manaValue": "2"},
-    {"name": "Emrakul, the Aeons Torn", "typeLine": "Legendary Creature — Eldrazi", "manaCost": "{15}", "colors": "", "cmc": 15, "type": "Creatures", "color": "Colorless", "manaValue": "7+"},
-    {"name": "Old pack (no colors)", "typeLine": "Sorcery", "manaCost": "{2}{B}{B}", "colors": "", "cmc": 4, "type": "Sorceries", "color": "Black", "manaValue": "4"},
-    {"name": "Fable of the Mirror-Breaker", "typeLine": "Enchantment — Saga // Enchantment Creature — Goblin Shaman", "manaCost": "{2}{R}", "colors": "R", "cmc": 3, "type": "Enchantments", "color": "Red", "manaValue": "3"},
-    {"name": "Invasion of Zendikar", "typeLine": "Battle — Siege // Creature — Elemental", "manaCost": "{3}{G}", "colors": "G", "cmc": 4, "type": "Battles", "color": "Green", "manaValue": "4"}
+    {"name": "Lightning Bolt", "typeLine": "Instant", "manaCost": "{R}", "colors": "R", "cmc": 1, "type": "Instants", "color": "Red", "manaValue": "1", "identity": "R", "colorIdentity": "Red"},
+    {"name": "Mountain", "typeLine": "Basic Land — Mountain", "manaCost": "", "colors": "", "cmc": 0, "type": "Lands", "color": "Lands", "manaValue": "Lands", "identity": "R", "colorIdentity": "Red"},
+    {"name": "Dryad Arbor", "typeLine": "Land Creature — Forest Dryad", "manaCost": "", "colors": "G", "cmc": 0, "type": "Creatures", "color": "Green", "manaValue": "0", "identity": "G", "colorIdentity": "Green"},
+    {"name": "Ajani, Nacatl Pariah", "typeLine": "Legendary Creature — Cat Warrior // Legendary Planeswalker — Ajani", "manaCost": "{1}{W}", "colors": "W", "cmc": 2, "type": "Creatures", "color": "White", "manaValue": "2", "identity": "RW", "colorIdentity": "Boros"},
+    {"name": "Ancestral Vision", "typeLine": "Sorcery", "manaCost": "", "colors": "U", "cmc": 0, "type": "Sorceries", "color": "Blue", "manaValue": "0", "identity": "U", "colorIdentity": "Blue"},
+    {"name": "Lightning Helix", "typeLine": "Instant", "manaCost": "{R}{W}", "colors": "RW", "cmc": 2, "type": "Instants", "color": "Multicolor", "manaValue": "2", "identity": "RW", "colorIdentity": "Boros"},
+    {"name": "Emrakul, the Aeons Torn", "typeLine": "Legendary Creature — Eldrazi", "manaCost": "{15}", "colors": "", "cmc": 15, "type": "Creatures", "color": "Colorless", "manaValue": "7+", "identity": "", "colorIdentity": "Colorless"},
+    {"name": "Old pack (no colors)", "typeLine": "Sorcery", "manaCost": "{2}{B}{B}", "colors": "", "cmc": 4, "type": "Sorceries", "color": "Black", "manaValue": "4", "identity": null, "colorIdentity": "Black"},
+    {"name": "Fable of the Mirror-Breaker", "typeLine": "Enchantment — Saga // Enchantment Creature — Goblin Shaman", "manaCost": "{2}{R}", "colors": "R", "cmc": 3, "type": "Enchantments", "color": "Red", "manaValue": "3", "identity": "R", "colorIdentity": "Red"},
+    {"name": "Invasion of Zendikar", "typeLine": "Battle — Siege // Creature — Elemental", "manaCost": "{3}{G}", "colors": "G", "cmc": 4, "type": "Battles", "color": "Green", "manaValue": "4", "identity": "G", "colorIdentity": "Green"},
+    {"name": "Breeding Pool", "typeLine": "Land — Forest Island", "manaCost": "", "colors": "", "cmc": 0, "type": "Lands", "color": "Lands", "manaValue": "Lands", "identity": "GU", "colorIdentity": "Simic"},
+    {"name": "Command Tower", "typeLine": "Land", "manaCost": "", "colors": "", "cmc": 0, "type": "Lands", "color": "Lands", "manaValue": "Lands", "identity": "", "colorIdentity": "Colorless"},
+    {"name": "Golos, Tireless Pilgrim", "typeLine": "Legendary Artifact Creature — Scout", "manaCost": "{5}", "colors": "", "cmc": 5, "type": "Creatures", "color": "Colorless", "manaValue": "5", "identity": "BGRUW", "colorIdentity": "Five-color"},
+    {"name": "Atraxa, Praetors' Voice", "typeLine": "Legendary Creature — Phyrexian Angel Horror", "manaCost": "{G}{W}{U}{B}", "colors": "BGUW", "cmc": 4, "type": "Creatures", "color": "Multicolor", "manaValue": "4", "identity": "BGUW", "colorIdentity": "Not red"},
+    {"name": "Alesha, Who Smiles at Death", "typeLine": "Legendary Creature — Human Warrior", "manaCost": "{2}{R}", "colors": "R", "cmc": 3, "type": "Creatures", "color": "Red", "manaValue": "3", "identity": "BRW", "colorIdentity": "Mardu"},
+    {"name": "Sphinx of the Steel Wind", "typeLine": "Artifact Creature — Sphinx", "manaCost": "{5}{W}{U}{B}", "colors": "BUW", "cmc": 8, "type": "Creatures", "color": "Multicolor", "manaValue": "7+", "identity": "BUW", "colorIdentity": "Esper"},
+    {"name": "Old pack land (no identity)", "typeLine": "Land", "manaCost": "", "colors": "", "cmc": 0, "type": "Lands", "color": "Lands", "manaValue": "Lands", "identity": null, "colorIdentity": "Colorless"}
   ],
   "order": {
     "type": ["Creatures", "Planeswalkers", "Instants", "Sorceries", "Artifacts", "Enchantments", "Battles", "Lands", "Other"],
     "color": ["White", "Blue", "Black", "Red", "Green", "Multicolor", "Colorless", "Lands"],
-    "manaValue": ["0", "1", "2", "3", "4", "5", "6", "7+", "Lands"]
-  }
+    "manaValue": ["0", "1", "2", "3", "4", "5", "6", "7+", "Lands"],
+    "identity": ["White", "Blue", "Black", "Red", "Green", "Azorius", "Dimir", "Rakdos", "Gruul", "Selesnya", "Orzhov", "Izzet", "Golgari", "Boros", "Simic", "Esper", "Grixis", "Jund", "Naya", "Bant", "Abzan", "Jeskai", "Sultai", "Mardu", "Temur", "Not white", "Not blue", "Not black", "Not red", "Not green", "Five-color", "Colorless"]
+  },
+  "identityLabels": {"White": "White", "Azorius": "Azorius · WU", "Simic": "Simic · UG", "Mardu": "Mardu · WBR", "Not red": "Not red · WUBG", "Five-color": "Five-color · WUBRG", "Colorless": "Colorless"}
 }

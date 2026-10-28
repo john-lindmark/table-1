@@ -89,6 +89,8 @@ struct PackOracle: Equatable {
     var tokens: String = ""
     /// Who it shares the command zone with (`CommandZone.Mate`); nil when the pack doesn't say.
     var pair: String? = nil
+    /// Color identity, WUBRG letters (empty = colorless); nil when the pack doesn't say.
+    var identity: String? = nil
 }
 
 /// A printed name in another language (N line): what the card is called on its de/es/fr/it/pt/ru printings.
@@ -182,7 +184,7 @@ enum CatalogPack {
                                 idx: Int(at(1)) ?? o, oracleId: at(2), name: at(3), nameNorm: at(4), typeLine: at(5),
                                 manaCost: at(6), cmc: Double(at(7)) ?? 0, colors: at(8), faceNames: at(9), legal: at(10),
                                 points: Int(at(11)) ?? 0, produced: fields.count > 12 ? fields[12] : nil, tokens: at(13),
-                                pair: fields.count > 14 ? fields[14] : nil))
+                                pair: fields.count > 14 ? fields[14] : nil, identity: fields.count > 15 ? fields[15] : nil))
                             o += 1
                         } else if fields[0] == "P", p < h.printings {
                             try printing(PackPrinting(

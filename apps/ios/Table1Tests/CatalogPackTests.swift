@@ -202,4 +202,26 @@ final class CatalogPackFieldsTests: XCTestCase {
         XCTAssertEqual(o[1]?.pair, "P:Toothy, Imaginary Friend")
         XCTAssertNil(o[2]?.pair)
     }
+
+    /// Color identity (O field 15) survives the SQLite build: "" is colorless, a missing field unknown (nil).
+    func testColorIdentityRoundTrip() throws {
+        let pack = [
+            "#t1catalog\t1\tv1-test\t3\t0",
+            "O\t0\t11111111-1111-1111-1111-111111111111\tBreeding Pool\tbreeding pool\tLand — Forest Island\t\t0\t\t\tLLLLL-L-\t\tGU\t\t\tUG",
+            "O\t1\t22222222-2222-2222-2222-222222222222\tCommand Tower\tcommand tower\tLand\t\t0\t\t\t------L-\t\tWUBRG\t\t\t",
+            "O\t2\t33333333-3333-3333-3333-333333333333\tThrasios\tthrasios\tLegendary Creature — Merfolk Wizard\t{G}{U}\t2\tGU\t\t------L-\t\t\t\tP",
+        ].joined(separator: "\n")
+        let path = FileManager.default.temporaryDirectory.appending(path: "identity-\(UUID().uuidString).sqlite").path
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        _ = try CatalogDB.build(pack: Data(pack.utf8), at: path)
+        let db = try CatalogDB(path: path, version: "v1-test")
+        defer { db.close() }
+        let o = db.oracles(idxs: [0, 1, 2])
+        XCTAssertEqual(o[0]?.identity, "UG")
+        XCTAssertEqual(o[1]?.identity, "")
+        XCTAssertNil(o[2]?.identity)
+        XCTAssertEqual(GroupKeys(o[0]).identity, "Simic")
+        XCTAssertEqual(GroupKeys(o[1]).identity, "Colorless")
+        XCTAssertEqual(GroupKeys(o[2]).identity, "Simic", "no identity field: colors and mana cost")
+    }
 }

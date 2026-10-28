@@ -60,7 +60,7 @@ export function DeckImageScreen({ name, format, entries, catalog, owner, from, o
   const [groupingRaw, setGrouping] = useStore<string>("table1.deckImage.grouping", "type");
   const [showSide, setShowSide] = useStore<boolean>("table1.deckImage.sideboard", true);
   const [showName, setShowName] = useStore<boolean>("table1.deckImage.name", true);
-  const grouping: Grouping = (["type", "color", "manaValue"] as const).find((g) => g === groupingRaw) ?? "type";
+  const grouping: Grouping = (["type", "color", "identity", "manaValue"] as const).find((g) => g === groupingRaw) ?? "type";
   const [me, setMe] = useState<string | null>(null);
   const [art, setArt] = useState<Map<number, HTMLImageElement> | null>(null);
   const [progress, setProgress] = useState<[number, number]>([0, 0]);
@@ -164,7 +164,8 @@ export function DeckImageScreen({ name, format, entries, catalog, owner, from, o
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         <Segmented options={[{ value: "grid", label: "Cards" }, { value: "stacks", label: "Stacks" }]} value={layout}
                    onChange={(v) => setLayout(v as DeckImageLayout)} />
-        <Segmented options={[{ value: "type", label: "Type" }, { value: "manaValue", label: "Mana value" }, { value: "color", label: "Color" }]}
+        <Segmented options={[{ value: "type", label: "Type" }, { value: "manaValue", label: "Mana value" }, { value: "color", label: "Color" },
+                                { value: "identity", label: "Identity" }]}
                    value={grouping} onChange={(v) => setGrouping(v)} />
         {hasSide && <SwitchRow label="Sideboard" on={showSide} onChange={setShowSide} />}
         {!owner && <SwitchRow label="Your name" detail={me ?? "Not set"} on={showName} onChange={setShowName} />}

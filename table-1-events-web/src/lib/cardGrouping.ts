@@ -5,27 +5,57 @@
      face's type line; a land creature is a creature).
    - Color: White, Blue, Black, Red, Green, Multicolor, Colorless, then Lands (from the card's colors; packs without
      colors fall back to the mana cost's symbols).
+   - Color identity: each exact combination, mono first (White … Green), then the ten pairs, the ten three-color
+     combinations, the five four-color ones, Five-color, then Colorless. From the pack's identity field; lands group by
+     their identity like any card. Packs without it fall back to the card's colors and mana cost.
    - Mana value: 0 … 6, 7+, then Lands (lands have mana value 0 but read as their own pile).
    Decks start on Type, cubes on Color, collections and binders on None. */
 import { useState } from "react";
 import type { Catalog } from "./catalog";
 
-export type Grouping = "none" | "type" | "color" | "manaValue";
-export const GROUPINGS: Grouping[] = ["none", "type", "color", "manaValue"];
+export type Grouping = "none" | "type" | "color" | "identity" | "manaValue";
+export const GROUPINGS: Grouping[] = ["none", "type", "color", "identity", "manaValue"];
 
 export const GROUPING_TITLE: Record<Grouping, string> = {
-  none: "No groups", type: "Group by type", color: "Group by color", manaValue: "Group by mana value",
+  none: "No groups", type: "Group by type", color: "Group by color", identity: "Group by color identity",
+  manaValue: "Group by mana value",
 };
 
 export const TYPE_ORDER = ["Creatures", "Planeswalkers", "Instants", "Sorceries", "Artifacts", "Enchantments", "Battles", "Lands", "Other"];
 export const COLOR_ORDER = ["White", "Blue", "Black", "Red", "Green", "Multicolor", "Colorless", "Lands"];
 export const MV_ORDER = ["0", "1", "2", "3", "4", "5", "6", "7+", "Lands"];
 
-export const groupingOrder = (g: Grouping): string[] =>
-  g === "type" ? TYPE_ORDER : g === "color" ? COLOR_ORDER : g === "manaValue" ? MV_ORDER : [];
+/** Every color identity in order, with its letters in WUBRG order. */
+export const IDENTITIES: [key: string, letters: string][] = [
+  ["White", "W"], ["Blue", "U"], ["Black", "B"], ["Red", "R"], ["Green", "G"],
+  ["Azorius", "WU"], ["Dimir", "UB"], ["Rakdos", "BR"], ["Gruul", "RG"], ["Selesnya", "WG"],
+  ["Orzhov", "WB"], ["Izzet", "UR"], ["Golgari", "BG"], ["Boros", "WR"], ["Simic", "UG"],
+  ["Esper", "WUB"], ["Grixis", "UBR"], ["Jund", "BRG"], ["Naya", "WRG"], ["Bant", "WUG"],
+  ["Abzan", "WBG"], ["Jeskai", "WUR"], ["Sultai", "UBG"], ["Mardu", "WBR"], ["Temur", "URG"],
+  ["Not white", "UBRG"], ["Not blue", "WBRG"], ["Not black", "WURG"], ["Not red", "WUBG"], ["Not green", "WUBR"],
+  ["Five-color", "WUBRG"], ["Colorless", ""],
+];
+export const IDENTITY_ORDER = IDENTITIES.map(([k]) => k);
 
-/** The group's heading: mana values read "Mana value 3". */
-export const groupLabel = (g: Grouping, key: string) => (g === "manaValue" && key !== "Lands" ? `Mana value ${key}` : key);
+/** The identity group of a set of WUBRG letters (any order, other characters ignored). */
+export function identityGroup(letters: string): string {
+  const s = [..."WUBRG"].filter((c) => letters.includes(c)).join("");
+  return IDENTITIES.find(([, l]) => l === s)?.[0] ?? "Colorless";
+}
+
+export const groupingOrder = (g: Grouping): string[] =>
+  g === "type" ? TYPE_ORDER : g === "color" ? COLOR_ORDER : g === "identity" ? IDENTITY_ORDER : g === "manaValue" ? MV_ORDER : [];
+
+/** The group's heading: mana values read "Mana value 3", identities of two colors or more carry their letters
+ *  ("Azorius · WU"). */
+export function groupLabel(g: Grouping, key: string): string {
+  if (g === "manaValue" && key !== "Lands") return `Mana value ${key}`;
+  if (g === "identity") {
+    const letters = IDENTITIES.find(([k]) => k === key)?.[1] ?? "";
+    if (letters.length > 1) return `${key} · ${letters}`;
+  }
+  return key;
+}
 
 /** Keys in this grouping's order (unknown ones last, by name). */
 export function sortGroups(g: Grouping, keys: Iterable<string>): string[] {
@@ -35,7 +65,7 @@ export function sortGroups(g: Grouping, keys: Iterable<string>): string[] {
 }
 
 /** A deck's or cube's choices (they always group); collections and binders add None. */
-export const groupingOptions = (list: boolean): Grouping[] => (list ? ["type", "color", "manaValue"] : GROUPINGS);
+export const groupingOptions = (list: boolean): Grouping[] => (list ? ["type", "color", "identity", "manaValue"] : GROUPINGS);
 
 export function typeGroup(t: string): string {
   if (t.includes("Creature")) return "Creatures";
@@ -56,21 +86,23 @@ export function colorGroup(letters: string): string {
 }
 
 /** One card's group under each grouping. */
-export interface GroupKeys { type: string; color: string; manaValue: string }
+export interface GroupKeys { type: string; color: string; identity: string; manaValue: string }
 
-export const NO_KEYS: GroupKeys = { type: "Other", color: "Colorless", manaValue: "0" };
+export const NO_KEYS: GroupKeys = { type: "Other", color: "Colorless", identity: "Colorless", manaValue: "0" };
 
-export function groupKeys(typeLine: string, manaCost: string, colors: string, cmc: number): GroupKeys {
+/** `identity`: the pack's color identity letters; null (older packs) falls back to the colors and mana cost. */
+export function groupKeys(typeLine: string, manaCost: string, colors: string, cmc: number, identity: string | null = null): GroupKeys {
   const front = typeLine.split(" // ")[0];
   const type = typeGroup(front);
-  if (front.includes("Land") && !front.includes("Creature")) return { type, color: "Lands", manaValue: "Lands" };
+  const id = identityGroup(identity ?? colors + manaCost);
+  if (front.includes("Land") && !front.includes("Creature")) return { type, color: "Lands", identity: id, manaValue: "Lands" };
   const mv = Math.floor(cmc);
-  return { type, color: colorGroup(colors || manaCost), manaValue: mv >= 7 ? "7+" : String(Math.max(0, mv)) };
+  return { type, color: colorGroup(colors || manaCost), identity: id, manaValue: mv >= 7 ? "7+" : String(Math.max(0, mv)) };
 }
 
 /** An Oracle card's keys from the catalog (index -1: not in the card data yet). */
 export const keysOf = (c: Catalog, oi: number): GroupKeys =>
-  oi < 0 ? NO_KEYS : groupKeys(c.oType[oi], c.oCost[oi], c.oColors[oi] ?? "", c.oCmc[oi]);
+  oi < 0 ? NO_KEYS : groupKeys(c.oType[oi], c.oCost[oi], c.oColors[oi] ?? "", c.oCmc[oi], c.oIdentity[oi] ?? null);
 
 export const keyFor = (k: GroupKeys, g: Grouping): string => (g === "none" ? "" : k[g]);
 

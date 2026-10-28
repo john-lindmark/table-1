@@ -6,8 +6,12 @@ import { groupKeys, groupLabel, groupSections, groupingOptions, groupingOrder, s
    testdata/card-grouping/cases.json, the same file iOS CardGroupingTests and Android CardGroupingTest read. */
 
 interface Cases {
-  cards: { name: string; typeLine: string; manaCost: string; colors: string; cmc: number; type: string; color: string; manaValue: string }[];
+  cards: {
+    name: string; typeLine: string; manaCost: string; colors: string; cmc: number; type: string; color: string; manaValue: string;
+    identity: string | null; colorIdentity: string;
+  }[];
   order: Record<string, string[]>;
+  identityLabels: Record<string, string>;
 }
 const cases: Cases = JSON.parse(readFileSync(new URL("../../../testdata/card-grouping/cases.json", import.meta.url), "utf8"));
 
@@ -15,13 +19,14 @@ describe("groupKeys", () => {
   it("has the shared cases", () => expect(cases.cards.length).toBeGreaterThanOrEqual(10));
   for (const c of cases.cards) {
     it(c.name, () => {
-      expect(groupKeys(c.typeLine, c.manaCost, c.colors, c.cmc)).toEqual({ type: c.type, color: c.color, manaValue: c.manaValue });
+      expect(groupKeys(c.typeLine, c.manaCost, c.colors, c.cmc, c.identity))
+        .toEqual({ type: c.type, color: c.color, identity: c.colorIdentity, manaValue: c.manaValue });
     });
   }
 });
 
 describe("order", () => {
-  for (const g of ["type", "color", "manaValue"] as Grouping[]) {
+  for (const g of ["type", "color", "identity", "manaValue"] as Grouping[]) {
     it(g, () => {
       const order = cases.order[g];
       expect(groupingOrder(g)).toEqual(order);
@@ -37,9 +42,12 @@ describe("labels and options", () => {
     expect(groupLabel("manaValue", "Lands")).toBe("Lands");
     expect(groupLabel("type", "Creatures")).toBe("Creatures");
   });
+  it("names identities with their letters", () => {
+    for (const [key, label] of Object.entries(cases.identityLabels)) expect(groupLabel("identity", key)).toBe(label);
+  });
   it("offers None only off lists", () => {
-    expect(groupingOptions(true)).toEqual(["type", "color", "manaValue"]);
-    expect(groupingOptions(false)).toEqual(["none", "type", "color", "manaValue"]);
+    expect(groupingOptions(true)).toEqual(["type", "color", "identity", "manaValue"]);
+    expect(groupingOptions(false)).toEqual(["none", "type", "color", "identity", "manaValue"]);
   });
 });
 

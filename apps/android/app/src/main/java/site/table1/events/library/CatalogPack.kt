@@ -74,6 +74,8 @@ data class PackOracle(
     val tokens: String = "",
     /** Who it shares the command zone with ([CommandZone.Mate]); null when the pack doesn't say. */
     val pair: String? = null,
+    /** Color identity, WUBRG letters (empty = colorless); null when the pack doesn't say. */
+    val identity: String? = null,
 )
 
 data class PackPrinting(
@@ -132,7 +134,8 @@ object CatalogPack {
                     header = PackHeader(at(2), at(3).toIntOrNull() ?: 0, at(4).toIntOrNull() ?: 0)
                 } else if (f[0] == "O" && o < h.oracles) {
                     oracle(PackOracle(at(1).toIntOrNull() ?: o, at(2), at(3), at(4), at(5), at(6), at(7).toDoubleOrNull() ?: 0.0, at(8), at(9), at(10),
-                        at(11).toIntOrNull() ?: 0, if (f.size > 12) f[12] else null, at(13), if (f.size > 14) f[14] else null))
+                        at(11).toIntOrNull() ?: 0, if (f.size > 12) f[12] else null, at(13), if (f.size > 14) f[14] else null,
+                        if (f.size > 15) f[15] else null))
                     o++
                 } else if (f[0] == "P" && p < h.printings) {
                     printing(PackPrinting(at(1), at(2).toIntOrNull() ?: -1, at(3), at(4), at(5), at(6), at(7), at(8), at(9),

@@ -15,22 +15,32 @@ import site.table1.events.util.Telemetry
      face's type line; a land creature is a creature).
    - Color: White, Blue, Black, Red, Green, Multicolor, Colorless, then Lands (from the card's colors; packs without
      colors fall back to the mana cost's symbols).
+   - Color identity: each exact combination, mono first (White … Green), then the ten pairs, the ten three-color
+     combinations, the five four-color ones, Five-color, then Colorless. From the pack's identity field; lands group by
+     their identity like any card. Packs without it fall back to the card's colors and mana cost.
    - Mana value: 0 … 6, 7+, then Lands (lands have mana value 0 but read as their own pile).
    Decks start on Type, cubes on Color, collections and binders on None. */
 
 enum class CardGrouping(val wire: String, val title: String) {
-    None("none", "No groups"), Type("type", "Group by type"), Color("color", "Group by color"), ManaValue("manaValue", "Group by mana value");
+    None("none", "No groups"), Type("type", "Group by type"), Color("color", "Group by color"),
+    Identity("identity", "Group by color identity"), ManaValue("manaValue", "Group by mana value");
 
     val order: List<String>
         get() = when (this) {
             None -> emptyList()
             Type -> TYPE_ORDER
             Color -> COLOR_ORDER
+            Identity -> IDENTITY_ORDER
             ManaValue -> MV_ORDER
         }
 
-    /** The group's heading: mana values read "Mana value 3". */
-    fun label(key: String) = if (this == ManaValue && key != "Lands") "Mana value $key" else key
+    /** The group's heading: mana values read "Mana value 3", identities of two colors or more carry their letters
+     *  ("Azorius · WU"). */
+    fun label(key: String): String = when {
+        this == ManaValue && key != "Lands" -> "Mana value $key"
+        this == Identity -> IDENTITIES.firstOrNull { it.first == key }?.second?.takeIf { it.length > 1 }?.let { "$key · $it" } ?: key
+        else -> key
+    }
 
     /** Keys in this grouping's order (unknown ones last, by name). */
     fun sorted(keys: Iterable<String>): List<String> =
@@ -41,8 +51,26 @@ enum class CardGrouping(val wire: String, val title: String) {
         val COLOR_ORDER = listOf("White", "Blue", "Black", "Red", "Green", "Multicolor", "Colorless", "Lands")
         val MV_ORDER = listOf("0", "1", "2", "3", "4", "5", "6", "7+", "Lands")
 
+        /** Every color identity in order, with its letters in WUBRG order. */
+        val IDENTITIES = listOf(
+            "White" to "W", "Blue" to "U", "Black" to "B", "Red" to "R", "Green" to "G",
+            "Azorius" to "WU", "Dimir" to "UB", "Rakdos" to "BR", "Gruul" to "RG", "Selesnya" to "WG",
+            "Orzhov" to "WB", "Izzet" to "UR", "Golgari" to "BG", "Boros" to "WR", "Simic" to "UG",
+            "Esper" to "WUB", "Grixis" to "UBR", "Jund" to "BRG", "Naya" to "WRG", "Bant" to "WUG",
+            "Abzan" to "WBG", "Jeskai" to "WUR", "Sultai" to "UBG", "Mardu" to "WBR", "Temur" to "URG",
+            "Not white" to "UBRG", "Not blue" to "WBRG", "Not black" to "WURG", "Not red" to "WUBG", "Not green" to "WUBR",
+            "Five-color" to "WUBRG", "Colorless" to "",
+        )
+        val IDENTITY_ORDER = IDENTITIES.map { it.first }
+
+        /** The identity group of a set of WUBRG letters (any order, other characters ignored). */
+        fun identityGroup(letters: String): String {
+            val s = "WUBRG".filter { it in letters }
+            return IDENTITIES.firstOrNull { it.second == s }?.first ?: "Colorless"
+        }
+
         /** A deck's or cube's choices (they always group); collections and binders add None. */
-        fun options(list: Boolean): List<CardGrouping> = if (list) listOf(Type, Color, ManaValue) else entries
+        fun options(list: Boolean): List<CardGrouping> = if (list) listOf(Type, Color, Identity, ManaValue) else entries
 
         fun parse(wire: String?): CardGrouping? = entries.firstOrNull { it.wire == wire }
 
@@ -68,24 +96,27 @@ enum class CardGrouping(val wire: String, val title: String) {
 /** One card's group under each grouping, worked out once from its Oracle card. */
 data class GroupKeys(val type: String = "Other", val color: String = "Colorless", val manaValue: String = "0",
                      /** The mana value itself, for Sort by mana value. */
-                     val cmc: Double = 0.0) {
+                     val cmc: Double = 0.0, val identity: String = "Colorless") {
     operator fun get(g: CardGrouping): String = when (g) {
         CardGrouping.None -> ""
         CardGrouping.Type -> type
         CardGrouping.Color -> color
+        CardGrouping.Identity -> identity
         CardGrouping.ManaValue -> manaValue
     }
 
     companion object {
-        fun of(typeLine: String, manaCost: String, colors: String, cmc: Double): GroupKeys {
+        /** [identity]: the pack's color identity letters; null (older packs) falls back to the colors and mana cost. */
+        fun of(typeLine: String, manaCost: String, colors: String, cmc: Double, identity: String? = null): GroupKeys {
             val front = typeLine.substringBefore(" // ")
             val type = CardGrouping.typeGroup(front)
-            if ("Land" in front && "Creature" !in front) return GroupKeys(type, "Lands", "Lands", cmc)
+            val id = CardGrouping.identityGroup(identity ?: (colors + manaCost))
+            if ("Land" in front && "Creature" !in front) return GroupKeys(type, "Lands", "Lands", cmc, id)
             val mv = kotlin.math.floor(cmc).toInt()
-            return GroupKeys(type, CardGrouping.colorGroup(colors.ifEmpty { manaCost }), if (mv >= 7) "7+" else "${maxOf(0, mv)}", cmc)
+            return GroupKeys(type, CardGrouping.colorGroup(colors.ifEmpty { manaCost }), if (mv >= 7) "7+" else "${maxOf(0, mv)}", cmc, id)
         }
 
-        fun of(o: CatalogOracle?): GroupKeys = o?.let { of(it.typeLine, it.manaCost, it.colors, it.cmc) } ?: GroupKeys()
+        fun of(o: CatalogOracle?): GroupKeys = o?.let { of(it.typeLine, it.manaCost, it.colors, it.cmc, it.identity) } ?: GroupKeys()
 
         /** Each card group's keys, by card group id, from the cards' cover printings. */
         fun forGroups(groups: List<CardGroup>, db: CatalogDb): Map<String, GroupKeys> {

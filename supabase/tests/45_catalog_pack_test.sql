@@ -1,4 +1,4 @@
--- Catalog ingest and pack: produced mana, token links and pair codes on O lines (contract/catalog-2026-10-14.md).
+-- Catalog ingest and pack: produced mana, token links, pair codes and color identity on O lines (contract/catalog-2026-10-14.md).
 \ir _helpers.sql
 
 insert into t1_private.catalog_runs (bulk_updated_at, source_uri) values (now(), 'test') returning id as run \gset
@@ -87,9 +87,39 @@ select split_part(l, E'\t', 4) name, l, array_length(string_to_array(l, E'\t'), 
 select pg_temp.eq('pair is the field after tokens', pg_temp.field('Pir, Imaginative Rascal', 15), 'P:Toothy, Imaginary Friend');
 select pg_temp.eq('no pair ability is an empty field; not read yet ends at tokens',
   (select string_agg(name || ':' || n, ' ' order by name) from o),
-  'Elemental:14 Island:14 Pir, Imaginative Rascal:15 Polluted Delta:14 Young Pyromancer:15');
+  'Elemental:14 Island:14 Pir, Imaginative Rascal:16 Polluted Delta:14 Young Pyromancer:16');
 select pg_temp.eq('parts joined still equal the body',
   (select concat_ws(E'\n', public.catalog_pack_part(0, 0, 3), public.catalog_pack_part(0, 3, 100),
                     public.catalog_pack_part(1, 0, 100), public.catalog_pack_part(2, 0, 100))),
   public.catalog_pack_body());
 
+
+-- Color identity (20261028190000_pack_color_identity.sql): Golos is colorless with a five-color identity, Breeding Pool
+-- arrives in Scryfall's letter order, Pir has none; rows not read since pair codes have neither field.
+select public.catalog_ingest(:run, jsonb_build_array(
+  jsonb_build_object('id', 'a1000000-0000-0000-0000-000000000007', 'oracle_id', 'a0000000-0000-0000-0000-000000000007',
+    'name', 'Golos, Tireless Pilgrim', 'layout', 'normal', 'type_line', 'Legendary Artifact Creature — Scout',
+    'mana_cost', '{5}', 'cmc', 5, 'colors', '[]'::jsonb, 'color_identity', '["B","G","R","U","W"]'::jsonb,
+    'set_code', 'm20', 'collector_number', '226', 'lang', 'en', 'rarity', 'rare', 'finishes', '["nonfoil"]'::jsonb,
+    'image_faces', 1, 'produced_mana', '', 'token_card_ids', '[]'::jsonb, 'pair_code', ''),
+  jsonb_build_object('id', 'a1000000-0000-0000-0000-000000000008', 'oracle_id', 'a0000000-0000-0000-0000-000000000008',
+    'name', 'Breeding Pool', 'layout', 'normal', 'type_line', 'Land — Forest Island', 'cmc', 0, 'colors', '[]'::jsonb,
+    'color_identity', '["G","U"]'::jsonb, 'set_code', 'dis', 'collector_number', '172', 'lang', 'en',
+    'rarity', 'rare', 'finishes', '["nonfoil"]'::jsonb, 'image_faces', 1, 'produced_mana', 'GU',
+    'token_card_ids', '[]'::jsonb, 'pair_code', ''))) as idents \gset
+select pg_temp.eq('identity cards ingested', (:'idents'::jsonb)->>'oracles', '2');
+drop table o;
+create temp table o as
+select split_part(l, E'\t', 4) name, l, array_length(string_to_array(l, E'\t'), 1) n
+  from unnest(string_to_array(public.catalog_pack_part(0, 0, 100), E'\n')) l;
+select pg_temp.eq('identity is the field after pair, in WUBRG order',
+  pg_temp.field('Golos, Tireless Pilgrim', 16) || '|' || pg_temp.field('Breeding Pool', 16), 'WUBRG|UG');
+select pg_temp.eq('a colorless identity is an empty field',
+  (select n || ':' || pg_temp.field(name, 16) from o where name = 'Pir, Imaginative Rascal'), '16:');
+select pg_temp.eq('rows without a pair code still end where they did',
+  (select string_agg(name || ':' || n, ' ' order by name) from o where name in ('Elemental', 'Island', 'Polluted Delta')),
+  'Elemental:14 Island:14 Polluted Delta:14');
+select pg_temp.eq('parts joined equal the body with identities',
+  (select concat_ws(E'\n', public.catalog_pack_part(0, 0, 3), public.catalog_pack_part(0, 3, 100),
+                    public.catalog_pack_part(1, 0, 100), public.catalog_pack_part(2, 0, 100))),
+  public.catalog_pack_body());
