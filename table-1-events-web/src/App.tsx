@@ -385,7 +385,8 @@ function ListStatsRoute() {
   const back = useBack(`/library/list/${listId}`);
   if (!listId) return <Navigate to="/library" replace />;
   const to = (page: string) => () => navigate(`/library/list/${listId}/stats/${page}`);
-  return <ListStatsScreen id={listId} onBack={back} onHand={to("hand")} onOdds={to("odds")} onPack={to("pack")} />;
+  return <ListStatsScreen id={listId} onBack={back} onHand={to("hand")} onOdds={to("odds")} onPack={to("pack")}
+                          onCard={(o) => navigate(`/library/card/${o}`)} />;
 }
 
 function StatsToolRoute({ tool }: { tool: "hand" | "odds" | "pack" }) {

@@ -57,6 +57,17 @@ private func statsKey(_ listId: String) -> String {
     return "\(CatalogStore.shared.generation)|\(l?.current?.number ?? 0)|\(l?.entries.reduce(0) { $0 &* 31 &+ $1.qty &+ $1.cardId.hashValue } ?? 0)"
 }
 
+/// Asks for the list's spice once its cards are read (again whenever they change).
+@MainActor
+func loadSpice(_ listId: String, _ lines: [StatLine]?) async {
+    guard let list = ListsStore.shared.list(id: listId), let lines else { return }
+    let demo = lines.compactMap { l in
+        l.oracleId.map { SpiceDemoCard(oracleId: $0, name: l.card.name, qty: l.card.qty, board: l.card.board,
+                                       basic: l.card.type.hasPrefix("Basic")) }
+    }
+    await SpiceStore.shared.load(listId: listId, key: statsKey(listId), kind: list.kind, format: list.format, demo: demo, name: list.name)
+}
+
 // MARK: the summary row on the list screen
 
 struct ListStatsRow: View {
@@ -68,10 +79,16 @@ struct ListStatsRow: View {
         let list = ListsStore.shared.list(id: listId)
         if let list, !list.entries.isEmpty {
             Button { path.append(.listStats(listId)) } label: {
-                ListRow(title: "Stats", detail: lines.map { summary($0.map(\.card), kind: list.kind) } ?? "Reading cards…")
+                ListRow(title: "Stats", detail: lines.map { line in
+                    ([summary(line.map(\.card), kind: list.kind)] + [SpiceStore.shared.results[listId].flatMap(Spice.summary)].compactMap { $0 })
+                        .filter { !$0.isEmpty }.joined(separator: " · ")
+                } ?? "Reading cards…")
             }
             .buttonStyle(.plain)
-            .task(id: statsKey(listId)) { lines = await StatLine.load(listId: listId) }
+            .task(id: statsKey(listId)) {
+                lines = await StatLine.load(listId: listId)
+                await loadSpice(listId, lines)
+            }
         }
     }
 
@@ -237,13 +254,19 @@ struct ListStatsView: View {
             CatalogStatusRow(catalog: CatalogStore.shared)
             if let list, let lines {
                 HairlineList {
-                    if list.kind == .deck { deck(list, lines.map(\.card)) } else { cube(lines.map(\.card).filter { $0.board == "main" }) }
+                    if list.kind == .deck { deck(list, lines.map(\.card)) } else {
+                        SpiceSection(listId: listId, kind: .cube, format: list.format) { path.append(.card($0)) }
+                        cube(lines.map(\.card).filter { $0.board == "main" })
+                    }
                 }
             } else if list == nil {
                 Notice("That list isn't here anymore.", error: true)
             }
         }
-        .task(id: statsKey(listId)) { lines = await StatLine.load(listId: listId) }
+        .task(id: statsKey(listId)) {
+            lines = await StatLine.load(listId: listId)
+            await loadSpice(listId, lines)
+        }
     }
 
     // MARK: deck
@@ -256,6 +279,8 @@ struct ListStatsView: View {
         let price = DeckStats.price(cards)
         CellRow(cells: [("Cards", "\(size)"), ("Lands", "\(lands)"), ("Spells", "\(size - lands)"),
                         ("Avg MV", dec(DeckStats.averageMV(cards, withLands: false)))])
+
+        SpiceSection(listId: list.id, kind: .deck, format: list.format) { path.append(.card($0)) }
 
         Section1("Mana curve · spells by mana value")
         CurveBars(creatures: curve.creatures, other: curve.other)

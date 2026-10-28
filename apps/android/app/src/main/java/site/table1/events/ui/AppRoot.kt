@@ -424,7 +424,8 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 composable("collection/list/{id}/stats") { e ->
                     val id = e.arguments?.getString("id") ?: ""
                     ListStatsScreen(id, onBack = { nav.popBackStack() }, onHand = { nav.navigate("collection/list/$id/stats/hand") },
-                        onOdds = { nav.navigate("collection/list/$id/stats/odds") }, onPack = { nav.navigate("collection/list/$id/stats/pack") })
+                        onOdds = { nav.navigate("collection/list/$id/stats/odds") }, onPack = { nav.navigate("collection/list/$id/stats/pack") },
+                        onCard = { nav.navigate("collection/card/$it") })
                 }
                 composable("collection/list/{id}/stats/hand") { e -> SampleHandScreen(e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() }) }
                 composable("collection/list/{id}/stats/odds") { e -> DrawOddsScreen(e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() }) }

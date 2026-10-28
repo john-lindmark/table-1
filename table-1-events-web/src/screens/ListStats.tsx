@@ -11,6 +11,8 @@ import { usdPrice, usePrices } from "../lib/prices";
 import { capture } from "../lib/telemetry";
 import { CardArt, LibScreen, useCatalog } from "./Library";
 import { useListsData } from "./Lists";
+import { loadSpice, spiceOf, spiceSummary, useSpice, type SpiceDemoCard } from "../lib/spice";
+import { SpiceSection } from "./Spice";
 
 /* Deck and cube stats, one tap below the list (contract/lists-2026-10-15.md, "Stats"). The list screen shows a
    one-line summary (ListStatsRow); the Stats screen has the detail, and the sample hand, draw odds and sample pack
@@ -53,6 +55,22 @@ function useStatLines(id: string) {
   return { session, ready, listsReady: lists.ready, list, catalog, error: error ?? lists.error, lines };
 }
 
+/** Asks for the list's spice once its cards are read, and again whenever they change. */
+function useLoadSpice(list: CardList | null, c: Catalog | null) {
+  const key = useMemo(() => (list ? entriesOf(list).map((e) => `${e.board}|${e.cardId}|${e.qty}`).join(",") : ""), [list]);
+  useEffect(() => {
+    if (!list || !c) return;
+    const demo: SpiceDemoCard[] = [];
+    for (const e of entriesOf(list)) {
+      const p = c.printingIndex.get(e.cardId);
+      if (p == null) continue;
+      const oi = c.pOracle[p];
+      demo.push({ oracleId: c.oId[oi], name: c.oName[oi], qty: e.qty, board: e.board, basic: c.oType[oi].startsWith("Basic") });
+    }
+    void loadSpice(list.id, key, { kind: list.kind, format: list.format, demo, name: list.name });
+  }, [list?.id, key, !!c]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 const dec = (x: number) => x.toFixed(2);
 const usd = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -83,6 +101,8 @@ export function ListStatsRow({ list, catalog, onOpen }: { list: CardList; catalo
   const ids = useMemo(() => entriesOf(list).map((e) => e.cardId), [list]);
   const v = usePrices(ids);
   const cards = useMemo(() => statLines(list, catalog).map((l) => l.card), [list, catalog, v]);
+  useSpice();
+  useLoadSpice(list, catalog);
   if (!cards.length) return null;
   let detail: string;
   if (list.kind === "cube") {
@@ -93,7 +113,9 @@ export function ListStatsRow({ list, catalog, onOpen }: { list: CardList; catalo
     const p = price(cards);
     detail = [`${lands} lands`, `avg MV ${dec(averageMV(cards, false))}`, p.total > 0 ? usd(p.total) : null].filter(Boolean).join(" · ");
   }
-  return <Row title="Stats" detail={detail} onClick={onOpen} />;
+  const spice = spiceOf(list.id);
+  const tail = spice && spiceSummary(spice);
+  return <Row title="Stats" detail={[detail, tail].filter(Boolean).join(" · ")} onClick={onOpen} />;
 }
 
 /* ── shared pieces ───────────────────────────────────────────────────── */
@@ -198,24 +220,30 @@ function CardGrid({ c, items, onClick }: { c: Catalog; items: { key: string; p: 
 
 const CHECKED = [...LEGALITY_FORMATS, "canlander"];
 
-export function ListStatsScreen({ id, onBack, onHand, onOdds, onPack }: {
-  id: string; onBack: () => void; onHand: () => void; onOdds: () => void; onPack: () => void;
+export function ListStatsScreen({ id, onBack, onHand, onOdds, onPack, onCard }: {
+  id: string; onBack: () => void; onHand: () => void; onOdds: () => void; onPack: () => void; onCard?: (oracleId: string) => void;
 }) {
   const state = useStatLines(id);
+  useLoadSpice(state.list, state.catalog);
   return (
     <StatsFrame title="Stats" onBack={onBack} state={state}>
       {(lines, list) => (
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
           {list.kind === "deck"
-            ? <DeckStats list={list} cards={lines.map((l) => l.card)} onHand={onHand} onOdds={onOdds} />
-            : <CubeStats cards={lines.map((l) => l.card).filter((c) => c.board === "main")} onPack={onPack} />}
+            ? <DeckStats list={list} cards={lines.map((l) => l.card)} onHand={onHand} onOdds={onOdds} onCard={onCard} />
+            : (<>
+              <SpiceSection listId={list.id} kind="cube" format={list.format} onCard={onCard} />
+              <CubeStats cards={lines.map((l) => l.card).filter((c) => c.board === "main")} onPack={onPack} />
+            </>)}
         </div>
       )}
     </StatsFrame>
   );
 }
 
-function DeckStats({ list, cards, onHand, onOdds }: { list: CardList; cards: StatCard[]; onHand: () => void; onOdds: () => void }) {
+function DeckStats({ list, cards, onHand, onOdds, onCard }: {
+  list: CardList; cards: StatCard[]; onHand: () => void; onOdds: () => void; onCard?: (oracleId: string) => void;
+}) {
   const deck = deckOf(cards);
   const size = qtyOf(deck);
   const lands = qtyOf(deck.filter(isLand));
@@ -234,6 +262,8 @@ function DeckStats({ list, cards, onHand, onOdds }: { list: CardList; cards: Sta
   return (
     <>
       <Cells cells={[["Cards", String(size)], ["Lands", String(lands)], ["Spells", String(size - lands)], ["Avg MV", dec(averageMV(cards, false))]]} />
+
+      <SpiceSection listId={list.id} kind="deck" format={list.format} onCard={onCard} />
 
       <Section title="Mana curve · spells by mana value" />
       <CurveBars creatures={cv.creatures} other={cv.other} />

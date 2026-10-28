@@ -55,6 +55,16 @@ select pg_temp.ms('archetype page (a viewer''s tap)', $$select public.meta_arche
 select pg_temp.ms('card page (a viewer''s tap)', $$select public.meta_card('modern', md5('c40')::uuid, 'all')$$, 200);
 reset role;
 
+-- Spice (contract/spice-2026-10-28.md): a 60-card deck against that year of Modern. The archetype path is what most
+-- decks take; Other tries every archetype first (the closest), the slowest path. list_spice caches per seq and day.
+select pg_temp.ms('spice: daily counts for a year of Modern', $$select t1_private.spice_refresh()$$, 3000, 1);
+select array(select md5('c' || (26 + k * 11))::uuid from generate_series(1, 15) k) || md5('c7')::uuid spice_main \gset
+select archetype_id spice_arch from t1_private.meta_decks where on_date > current_date - 90 group by 1 order by count(*) desc limit 1 \gset
+select pg_temp.ms('spice: deck in its archetype', format($$select t1_private.spice_deck('modern', %s, %L::uuid[],
+  array_fill(4, array[16]), '{}', '{}')$$, :spice_arch, :'spice_main'), 15);
+select pg_temp.ms('spice: Other, the closest archetype', format($$select t1_private.spice_deck('modern', 0, %L::uuid[],
+  array_fill(4, array[16]), '{}', '{}')$$, :'spice_main'), 25);
+
 -- A Limited set at 17Lands' size (bug #15: FRA's pack took 10 s on live, past the 8 s statement timeout): five event
 -- types, each a game run of ~7,000 sums (300 cards, 16 pairs, 12 weeks, both groups) and a draft run for ATA.
 insert into t1_private.limited_runs (set_code, event_type, kind, uri, last_modified, total_bytes, status)

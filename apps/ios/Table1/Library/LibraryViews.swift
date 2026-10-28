@@ -27,6 +27,7 @@ enum LibraryRoute: Hashable {
     case sampleHand(String) // list id
     case drawOdds(String) // list id
     case samplePack(String) // list id
+    case spice(String, String?, CardList.Kind, String, String) // a shared deck or cube's Spice: list id, link token, kind, format, title
     case binders
     case binder(String) // binder id, or BinderRoute.unsorted
     case wants
@@ -70,6 +71,7 @@ struct LibraryDestination: View {
         case .sampleHand: "sample_hand"
         case .drawOdds: "draw_odds"
         case .samplePack: "sample_pack"
+        case .spice(_, _, let kind, _, _): kind == .cube ? "cube_spice" : "deck_spice"
         case .binders: "binders"
         case .binder: "binder"
         case .wants: "wants"
@@ -108,6 +110,8 @@ struct LibraryDestination: View {
         case .sampleHand(let id): SampleHandView(listId: id)
         case .drawOdds(let id): DrawOddsView(listId: id)
         case .samplePack(let id): SamplePackView(listId: id)
+        case .spice(let id, let token, let kind, let format, let title):
+            SpiceView(listId: id, token: token, kind: kind, format: format, title: title, path: $path)
         case .binders: BindersView(path: $path)
         case .binder(let id): BinderView(binderId: id, path: $path)
         case .wants: WantsView(path: $path)

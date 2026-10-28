@@ -79,6 +79,7 @@
 		56C8F4A61AC70D27A75BBF29 /* WidgetLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 615983FE56560F6B33D264D8 /* WidgetLogicTests.swift */; };
 		5A534021CD0AAFBEBBAEF5A5 /* InsightsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B164EA7A1E31FA5D5FFC8DB /* InsightsModels.swift */; };
 		5DC0D4A8361D45780A65169B /* Rankings.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8B652BBD0758CE6F2D6B13D /* Rankings.swift */; };
+		5DC6CD2BCD394A8F944C6E7E /* ConvertedPriceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C3C5D0E2386EE2583739560 /* ConvertedPriceTests.swift */; };
 		5DDD56F02FE0A2A2EF4E3194 /* LiveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B262491F1533D678F74DD238 /* LiveStore.swift */; };
 		5E4918CB77109DBBF00739D0 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 772AD52A8F7AAA91FA28D759 /* GoogleSignIn */; };
 		5F84B14A303BA00C2ABE5D71 /* insights-demo-constructed-modern.json in Resources */ = {isa = PBXBuildFile; fileRef = 33EF1D253D3C68A7E1E89270 /* insights-demo-constructed-modern.json */; };
@@ -92,6 +93,7 @@
 		6FFBC533401E8181E8339258 /* EventBundleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6D6321319755E4BE5D209E3 /* EventBundleTests.swift */; };
 		70B4BE14B1DCD8D72628B8EB /* FriendsDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = D14AB06BD876B8A78DC502CD /* FriendsDemo.swift */; };
 		718A338B9038D7DFD7E9F125 /* ListExportViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3A9C60903D2BA0BC7797E06 /* ListExportViews.swift */; };
+		721D871B01D6D27B9D713E76 /* SpiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68BD680ADA8784C842E698AE /* SpiceTests.swift */; };
 		722CF6EDB4B50328913BF374 /* CardSortTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75113DBF7EDD6C6A6C4D6B88 /* CardSortTests.swift */; };
 		72D25F18D04A432DF1F08706 /* WantPricesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C762952B6C07F999AFBE53F2 /* WantPricesTests.swift */; };
 		731BC80120E9E1F40E604459 /* NextEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55ED7E829009B01939CAD51A /* NextEvent.swift */; };
@@ -180,6 +182,7 @@
 		DE457CB9913BD0E1B4BC5FD2 /* FollowsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71B8C7CC4BA32B9ADFA2DA44 /* FollowsViews.swift */; };
 		DF246074B284841D5C11B4B8 /* DeckStatsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C23AB8F5588863F9D0B84282 /* DeckStatsTests.swift */; };
 		DF49C8BAC7EBDFA4F2DEEDA6 /* HomeWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D227762F8AF50AA156FCB43 /* HomeWidgets.swift */; };
+		DF82D20A267969CA1644E36F /* Spice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13429778E3C347B931092FC8 /* Spice.swift */; };
 		E0A4337BD8959473005866A9 /* RankingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2075E9FF3F5F167D9C6B9D93 /* RankingsViews.swift */; };
 		E12CD7CCE8D32771F7D4CFFD /* ValueHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42359744169FA39CF4685A15 /* ValueHistory.swift */; };
 		E1653E41E6B091A494CAE849 /* CollectionCSV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EAF46D535765875C2F293C5 /* CollectionCSV.swift */; };
@@ -246,6 +249,7 @@
 		0E03D5BF830783A2A7CE2C80 /* Telemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Telemetry.swift; sourceTree = "<group>"; };
 		0F04DEBE4B56F89397A9AC63 /* DeckStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckStats.swift; sourceTree = "<group>"; };
 		0FF068229FA2B22935543DD5 /* insights-demo-constructed-pioneer.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "insights-demo-constructed-pioneer.json"; sourceTree = "<group>"; };
+		13429778E3C347B931092FC8 /* Spice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Spice.swift; sourceTree = "<group>"; };
 		1343547B4A4B4A62385BDA43 /* Repo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Repo.swift; sourceTree = "<group>"; };
 		13C0AE970C6BB94032DAA56D /* AddPlayersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddPlayersView.swift; sourceTree = "<group>"; };
 		1438B6E1895ED25046190659 /* CardMatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardMatcherTests.swift; sourceTree = "<group>"; };
@@ -301,6 +305,7 @@
 		49E2DC6EEA4DFED451981849 /* Location.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Location.swift; sourceTree = "<group>"; };
 		4A4CE128D71E12EDA0482FDD /* Table1.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Table1.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4B2C58F0B55AC74EB54D4469 /* Languages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Languages.swift; sourceTree = "<group>"; };
+		4C3C5D0E2386EE2583739560 /* ConvertedPriceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConvertedPriceTests.swift; sourceTree = "<group>"; };
 		4CD8F959394AF7474B16BE48 /* WebLinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebLinkTests.swift; sourceTree = "<group>"; };
 		4D4D06C464C0814A55799DF9 /* SetIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetIcon.swift; sourceTree = "<group>"; };
 		4EAF46D535765875C2F293C5 /* CollectionCSV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionCSV.swift; sourceTree = "<group>"; };
@@ -326,6 +331,7 @@
 		6773EAB78C0C783B5ECD9530 /* CardMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardMatcher.swift; sourceTree = "<group>"; };
 		67E76A43B3D3DCD33442A2B6 /* EventView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventView.swift; sourceTree = "<group>"; };
 		67FBDB96ABBDA166C306F1A1 /* InsightsReviewViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsReviewViews.swift; sourceTree = "<group>"; };
+		68BD680ADA8784C842E698AE /* SpiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpiceTests.swift; sourceTree = "<group>"; };
 		68BF61D7BD51BF63A272E61C /* TrackerOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerOptions.swift; sourceTree = "<group>"; };
 		68C7222340E448B1ED82C7B0 /* CubeRankingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CubeRankingTests.swift; sourceTree = "<group>"; };
 		6E89EF701721EB9939EC65A6 /* WidgetPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPalette.swift; sourceTree = "<group>"; };
@@ -501,6 +507,7 @@
 				3013FC3AC8C4757DF4B44684 /* CollectionCSVTests.swift */,
 				D9CE98EF83E5F02B0AA75DC0 /* CommandZoneTests.swift */,
 				21680AF95D56C9846E669A64 /* ConditionPriceTests.swift */,
+				4C3C5D0E2386EE2583739560 /* ConvertedPriceTests.swift */,
 				7CF2A00D5FD0FCF89937DEA6 /* CubeFieldsTests.swift */,
 				68C7222340E448B1ED82C7B0 /* CubeRankingTests.swift */,
 				2C3C427BABDE0420BBFA2F31 /* DeckImageTests.swift */,
@@ -527,6 +534,7 @@
 				31BC20E1870030E390265551 /* ShowAddsTests.swift */,
 				21C628817BE4FD8CB84DD520 /* SignInFailureTests.swift */,
 				EAAC1EDE299B7FF60E3BC994 /* SignInNonceTests.swift */,
+				68BD680ADA8784C842E698AE /* SpiceTests.swift */,
 				B315C86A391E28E160556A28 /* TelemetryTests.swift */,
 				27D70D37E0D41352AEB48679 /* TrackerToolsTests.swift */,
 				C43C53CE7466CCA393B65C8C /* TradesStoreTests.swift */,
@@ -740,6 +748,7 @@
 				2075E9FF3F5F167D9C6B9D93 /* RankingsViews.swift */,
 				CDA4C1289215B2E1BF32D184 /* RankSync.swift */,
 				239D07747A4039EE164CFB4B /* ScanReports.swift */,
+				13429778E3C347B931092FC8 /* Spice.swift */,
 				A8D5D41DD05383A49BC215B5 /* SQLite.swift */,
 				BB923D0FC11DA7387A5E5624 /* Trades.swift */,
 				7DB9F671A37B079BBD5D5379 /* WantPrices.swift */,
@@ -946,6 +955,7 @@
 				41BE4E1D043A7DB82D3CCE45 /* CollectionCSVTests.swift in Sources */,
 				F1E199FDE199D57EA18B1F11 /* CommandZoneTests.swift in Sources */,
 				45D683FF0990C8D196131FA0 /* ConditionPriceTests.swift in Sources */,
+				5DC6CD2BCD394A8F944C6E7E /* ConvertedPriceTests.swift in Sources */,
 				1C9E91CE73E8640C92729A23 /* CubeFieldsTests.swift in Sources */,
 				4654E4C93F85DA813DFBCB43 /* CubeRankingTests.swift in Sources */,
 				AE286DDDDEFF5E6EF42FD46A /* DeckImageTests.swift in Sources */,
@@ -972,6 +982,7 @@
 				F15C03497EC1E7A6D79B8C15 /* ShowAddsTests.swift in Sources */,
 				B6A6C7D12C940E5BD1E747B9 /* SignInFailureTests.swift in Sources */,
 				C59CD1F22D9F8EE6BE81F688 /* SignInNonceTests.swift in Sources */,
+				721D871B01D6D27B9D713E76 /* SpiceTests.swift in Sources */,
 				2CFD4D7040430A9A75487FD5 /* TelemetryTests.swift in Sources */,
 				AA18C4873606A59EE0F5D0CA /* TrackerToolsTests.swift in Sources */,
 				976660A2A840C1DEF55C74D9 /* TradesStoreTests.swift in Sources */,
@@ -1082,6 +1093,7 @@
 				0F58630FAD25EDCCC90EC4A8 /* Shortcuts.swift in Sources */,
 				86272ABAC2C1C73362AD3010 /* SignIn.swift in Sources */,
 				38AC1D672F2DC442D679BF2C /* SignInView.swift in Sources */,
+				DF82D20A267969CA1644E36F /* Spice.swift in Sources */,
 				4DF81CE6AE64132B3F5AD949 /* T1Shared.swift in Sources */,
 				43382E3E930D9571C1B5BAFA /* Table1App.swift in Sources */,
 				76C2DC2DA532D1CB04F1D6A9 /* TeamsView.swift in Sources */,

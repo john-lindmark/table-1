@@ -17,6 +17,7 @@ import {
 import { startFriendsDemo } from "../lib/friendsDemo";
 import { RankingsRow } from "./Rankings";
 import { FollowRows } from "./Follows";
+import { SpiceRow } from "./Spice";
 import { capture } from "../lib/telemetry";
 import {
   CardGroupRow, CardRow, CardTile, LibScreen, StackRows, ViewButton, useBoxWidth, useCatalog, useLibrarySession, useStoredLayout, type StackCardItem,
@@ -632,6 +633,15 @@ export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList
           <Row title="Export" detail={kind === "deck" ? "Text, Arena, MTGO, download or copy" : "Text, Cube Cobra, download or copy"}
                onClick={() => setExporting(true)} />
           {kind === "deck" && <Row title="Deck image" detail="The cards as a picture, to save or share" onClick={() => setImaging(true)} />}
+          {item && listFormat && (
+            <SpiceRow listId={item} token={link?.token} kind={kind} format={listFormat} name={name} onCard={onCard}
+                      demo={entries.flatMap((e) => {
+                        const p = catalog.printingIndex.get(e.cardId);
+                        if (p == null) return [];
+                        const oi = catalog.pOracle[p];
+                        return [{ oracleId: catalog.oId[oi], name: catalog.oName[oi], qty: e.qty, board: e.board, basic: catalog.oType[oi].startsWith("Basic") }];
+                      })} />
+          )}
           {kind === "cube" && item && onRankings && !link && <RankingsRow listId={item} onOpen={() => onRankings(item)} />}
           {canCopy && listFormat && (
             <Row title={copying ? "Copying…" : "Copy to my Library"} detail={kind === "deck" ? "A new private deck with these cards" : "A new cube with these cards"}

@@ -10876,6 +10876,235 @@
       "errors": {
         "42501": "That list isn't available"
       }
+    },
+    "list_spice": {
+      "note": "Spice of a deck or cube: how much of it peer lists (Insights' tournament lists) or peer cubes rarely or never play. Owner, anyone it's shared with, or a link's holder (p_token). Cached per list seq and day. contract/spice-2026-10-28.md. anon + authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_list_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_token": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "p_list_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "enum": [
+              "deck",
+              "cube"
+            ]
+          },
+          "score": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "word": {
+            "enum": [
+              "stock",
+              "tuned",
+              "spicy",
+              "brew",
+              null
+            ]
+          },
+          "reason": {
+            "enum": [
+              "empty",
+              "no_data",
+              "no_cubes",
+              null
+            ]
+          },
+          "basis": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "archetype",
+                  "closest",
+                  "format",
+                  "colors",
+                  "cubes"
+                ]
+              },
+              "format": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "archetype": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "lists": {
+                "type": "integer"
+              },
+              "days": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "sources": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "mtgo",
+                    "topdeck",
+                    "cubecobra"
+                  ]
+                }
+              },
+              "close": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "cubes": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "overlap": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "overlap"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "kind",
+              "format",
+              "archetype",
+              "name",
+              "lists",
+              "days",
+              "sources",
+              "close",
+              "cubes"
+            ]
+          },
+          "cards": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "c": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "n": {
+                  "type": "string"
+                },
+                "section": {
+                  "enum": [
+                    "main",
+                    "side"
+                  ]
+                },
+                "copies": {
+                  "type": "integer"
+                },
+                "rate": {
+                  "type": "number"
+                },
+                "seen": {
+                  "type": "integer"
+                },
+                "of": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "c",
+                "n",
+                "section",
+                "copies",
+                "rate",
+                "seen",
+                "of"
+              ]
+            }
+          },
+          "stock_missing": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "c": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "n": {
+                  "type": "string"
+                },
+                "rate": {
+                  "type": "number"
+                },
+                "seen": {
+                  "type": "integer"
+                },
+                "of": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "c",
+                "n",
+                "rate",
+                "seen",
+                "of"
+              ]
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "score",
+          "word",
+          "reason",
+          "basis",
+          "cards",
+          "stock_missing"
+        ]
+      }
     }
   },
   "functions": {

@@ -777,6 +777,13 @@ struct ProfileCardsView: View {
                 ListRow(title: "Deck image", detail: "The cards as a picture, to save or share")
             }.buttonStyle(.plain)
         }
+        if let id = section.id, preset == nil {
+            SpiceRow(listId: id, token: token, kind: kind, format: list.format, title: title,
+                     demo: lines.compactMap { l in
+                         l.oracleId.map { SpiceDemoCard(oracleId: $0, name: l.name, qty: l.qty, board: l.board,
+                                                        basic: SpiceDemoCard.basics.contains(l.name)) }
+                     }, path: $path)
+        }
         if kind == .cube, token == nil, let id = section.id { RankingsRow(listId: id, path: $path) }
         if list.owner != nil {
             Button {

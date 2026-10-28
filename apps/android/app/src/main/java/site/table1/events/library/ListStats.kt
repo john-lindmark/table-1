@@ -112,11 +112,22 @@ private fun StatsFrame(title: String, subtitle: String?, onBack: () -> Unit, lis
     }
 }
 
+/** Asks for the list's spice, again whenever its cards change. */
+@Composable
+private fun LoadSpice(list: CardList?) {
+    LaunchedEffect(list?.id, list?.entries) {
+        val l = list ?: return@LaunchedEffect
+        SpiceStore.load(l.id, l.entries.joinToString(",") { "${it.board}|${it.cardId}|${it.qty}" })
+    }
+}
+
 // ── the summary row on the list screen
 
 @Composable
 fun ListStatsRow(listId: String, onOpen: () -> Unit) {
     val (list, lines) = rememberStatLines(listId)
+    LoadSpice(list)
+    val spice by SpiceStore.state.collectAsState()
     if (list == null || list.entries.isEmpty()) return
     val cards = lines?.map { it.card }
     val detail = when {
@@ -131,7 +142,8 @@ fun ListStatsRow(listId: String, onOpen: () -> Unit) {
             listOfNotNull("$lands lands", "avg MV ${dec(DeckStats.averageMV(cards, false))}", if (total > 0) usd(total) else null).joinToString(" · ")
         }
     }
-    ListRow("Stats", detail, onClick = onOpen)
+    val tail = if (cards == null) null else spice.results[listId]?.let(Spice::summary)
+    ListRow("Stats", listOfNotNull(detail, tail).joinToString(" · "), onClick = onOpen)
 }
 
 // ── shared pieces
@@ -222,18 +234,24 @@ private const val PACK_KEY = "cube.packSize"
 private fun packPrefs(c: Context) = c.getSharedPreferences("library", Context.MODE_PRIVATE)
 
 @Composable
-fun ListStatsScreen(listId: String, onBack: () -> Unit, onHand: () -> Unit, onOdds: () -> Unit, onPack: () -> Unit) {
+fun ListStatsScreen(listId: String, onBack: () -> Unit, onHand: () -> Unit, onOdds: () -> Unit, onPack: () -> Unit,
+                    onCard: (String) -> Unit = {}) {
     val (list, lines) = rememberStatLines(listId)
+    LoadSpice(list)
     LaunchedEffect(list?.kind) { list?.let { Telemetry.screen(if (it.kind == ListKind.Cube) "cube_stats" else "deck_stats") } }
     StatsFrame("Stats", null, onBack, list, lines) { l, ls ->
         val cards = ls.map { it.card }
         LazyColumn(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            if (l.kind == ListKind.Deck) deckStats(l, cards, onHand, onOdds) else cubeStats(cards.filter { it.board == "main" }, onPack)
+            if (l.kind == ListKind.Deck) deckStats(l, cards, onHand, onOdds, onCard)
+            else {
+                item("spice") { SpiceSection(l.id, ListKind.Cube, l.format, onCard = onCard) }
+                cubeStats(cards.filter { it.board == "main" }, onPack)
+            }
         }
     }
 }
 
-private fun LazyListScope.deckStats(list: CardList, cards: List<StatCard>, onHand: () -> Unit, onOdds: () -> Unit) {
+private fun LazyListScope.deckStats(list: CardList, cards: List<StatCard>, onHand: () -> Unit, onOdds: () -> Unit, onCard: (String) -> Unit) {
     val deck = DeckStats.deck(cards)
     val size = deck.qty()
     val lands = deck.filter(DeckStats::isLand).qty()
@@ -249,6 +267,7 @@ private fun LazyListScope.deckStats(list: CardList, cards: List<StatCard>, onHan
     val shown = (0 until 5).filter { if (pips.sum() > 0) pips[it] > 0 else src.colors[it] > 0 }
     val (total, unpriced) = DeckStats.price(cards)
     item("cells") { Cells(listOf("Cards" to "$size", "Lands" to "$lands", "Spells" to "${size - lands}", "Avg MV" to dec(DeckStats.averageMV(cards, false)))) }
+    item("spice") { SpiceSection(list.id, ListKind.Deck, list.format, onCard = onCard) }
     item("curve-h") { Section("Mana curve · spells by mana value") }
     item("curve") { CurveBars(creatures, other) }
     item("types-h") { Section("Types") }

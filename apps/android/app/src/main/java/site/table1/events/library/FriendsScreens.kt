@@ -495,6 +495,7 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
                 ListRow("Export", if (kind == ListKind.Deck) "Text, Arena, MTGO, download or copy" else "Text, Cube Cobra, download or copy",
                     onClick = { exporting = true })
                 if (kind == ListKind.Deck) ListRow("Deck image", "The cards as a picture, to save or share", onClick = { imaging = true })
+                if (item != null && listFormat != null && preset == null) SpiceRow(item, link?.first, kind, listFormat, onCard)
                 if (kind == ListKind.Cube && item != null && onRankings != null && link == null) RankingsRow(item) { onRankings(item) }
                 if (owner != null && listFormat != null) {
                     ListRow(if (copying) "Copying…" else "Copy to my Library",

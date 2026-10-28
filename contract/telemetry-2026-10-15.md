@@ -52,7 +52,8 @@ properties. Every client sends the same names, so one PostHog insight covers all
 `ranking_lists`, `ranking_card`, `ranking_compare`, `ranking_pack`, `ranking_changes`, `ranking_image` (2026-10-21,
 `cube-rankings-2026-10-21.md`), `insights_constructed`, `insights_limited`, `insights_archetype`, `insights_finish`,
 `insights_card`, `insights_ban`, `insights_matchups`, `insights_pair`, `insights_limited_card`, `insights_review`
-(2026-10-25, `insights-2026-10-24.md`).
+(2026-10-25, `insights-2026-10-24.md`), `deck_spice`, `cube_spice` (2026-10-28, `spice-2026-10-28.md`: the Stats
+screen's Spice section once drawn, or a shared list's Spice screen on iOS).
 
 ## Events
 
@@ -134,6 +135,8 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `draw_odds_used` | `group`: land / creature / instant / … / card, `turn`: int, `on_play`: bool, `at_least`: int. Once when leaving, if anything was changed |
 | `sample_pack_used` | `packs`: int, `size`: int. Once when leaving the sample pack |
 | `cube_asfan_changed` | `by`: color / type / mv, `pack`: int |
+| `spice_viewed` | `kind`: deck / cube, `format`, `basis`: archetype / closest / format / colors / cubes, or the reason (empty / no_data / no_cubes), `word`: stock / tuned / spicy / brew / none. Once per list per screen open (2026-10-28, `spice-2026-10-28.md`) |
+| `spice_card_opened` | `kind`: deck / cube, `section`: main / side / missing |
 | `binder_created` | `for_trade`: bool (2026-10-17, `binders-wants-2026-10-17.md`) |
 | `binder_updated` | `renamed`: bool, `for_trade`: bool |
 | `binder_deleted` | `copies`: int |
