@@ -282,10 +282,15 @@ select pg_temp.eq('a cube run counts weeks from the cube''s run on Arena',
   (select public.limited_run_state(public.limited_run_open('CUBE', 'PremierDraft', 'game', 'https://x/cube.csv.gz', :LM, 1000))->>'released'), '2025-10-30');
 \set CRUN '(select id from t1_private.limited_runs where set_code = ''CUBE'' and kind = ''game'')'
 select public.limited_step_commit(:CRUN, 0, 800, 'w', '', '{"cols": ["a"]}', 10,
-  '{"T|a": [1000, 560], "cd|Lightning Bolt|a": [600, 350], "ch|Lightning Bolt|a": [600, 380]}', true);
+  '{"T|a": [1000, 560], "cd|Lightning Bolt|a": [600, 350], "ch|Lightning Bolt|a": [600, 380],
+    "cd|Mountain|a": [900, 500], "ch|Mountain|a": [900, 500], "cd|Sacred Foundry|a": [300, 170], "ch|Sacred Foundry|a": [300, 170]}', true);
 select pg_temp.eq('cube pack: named from limited_cubes, cards without a rarity',
   (select (p->>'name') || ' ' || (p->>'released') || ' ' || coalesce(p->'events'->'PremierDraft'->'groups'->'all'->'cards'->0->>'r', 'none')
      from (select public.limited_pack_facts('cube') p) x), 'Arena Powered Cube 2025-10-30 none');
+select pg_temp.eq('a Limited pack rates no basic lands (other lands stay)',
+  (select string_agg(c->>'n', ', ' order by c->>'n')
+     from jsonb_array_elements(public.limited_pack_facts('cube')->'events'->'PremierDraft'->'groups'->'all'->'cards') c),
+  'Lightning Bolt, Sacred Foundry');
 
 -- Rules by colours (singleton formats) -------------------------------------------------------------------------------
 \set CL '{"source": "topdeck", "source_id": "CL1", "format": "canlander", "name": "Canlander Open", "kind": "paper", "on": "2026-10-20", "players": 20, "complete": true, "decks": [{"player": "a", "rank": 1, "top8": false, "main": [["Lightning Bolt", 1], ["Lava Spike", 1], ["Boltwave", 1], ["Blood Moon", 1], ["Mountain", 30]], "side": []}, {"player": "b", "rank": 2, "top8": false, "main": [["Lightning Bolt", 1], ["Lava Spike", 1], ["Boltwave", 1], ["Counterspell", 1], ["Island", 30]], "side": []}, {"player": "c", "rank": 3, "top8": false, "main": [["Lightning Bolt", 1], ["Lava Spike", 1], ["Boltwave", 1], ["Blood Moon", 1], ["Ocelot Pride", 1], ["Mountain", 30]], "side": []}], "matches": []}'
