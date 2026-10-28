@@ -1,7 +1,7 @@
 # Plan: Spice, how far a deck or cube is from its peers (2026-10-28)
 
-**Status 2026-10-28: agreed as proposed (John), built, not live.** Contract `contract/spice-2026-10-28.md`, migration
-`20261028160000_spice.sql` (not applied: waits for John's OK), clients on iOS, web and Android. Differences from this
+**Status 2026-10-28: agreed as proposed (John), built; server live.** Contract `contract/spice-2026-10-28.md`, migration
+`20261028160000_spice.sql` (applied to live 2026-10-28 with John's OK), clients on iOS, web and Android (not yet shipped). Differences from this
 plan as built: a deck reads daily per-archetype card counts (`spice_counts`, pg_cron) instead of the lists themselves
 (a deck took 120 ms locally; now 2.5 ms); one identical list is left out (the year's newest), not every identical
 one; "Stock cards you don't play" is left out when the comparison is the whole format; shared decks and cubes get a
