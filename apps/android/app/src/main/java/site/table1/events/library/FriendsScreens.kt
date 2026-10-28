@@ -395,13 +395,19 @@ private fun boardTitle(board: String, kind: ListKind) = when (board) {
  * the card (your own copies of it). Decks and cubes group by section, then by Group by, and add Export and Copy to my
  * Library (contract/shared-lists-grouping-2026-10-20.md).
  */
+/** An Insights example list for [ProfileCardsScreen]: its cards, title, format, where it finished and Add to my decks. */
+class PresetCards(val rows: List<ProfileCard>, val name: String, val format: String, val byline: String? = null,
+                  val actions: (@Composable () -> Unit)? = null)
+
 @Composable
 fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: () -> Unit, onCard: (String) -> Unit, onList: (String) -> Unit,
                        onRankings: ((String) -> Unit)? = null,
                        /** A share link's token and what it shows (contract/share-links-2026-10-23.md): the cards come through it. */
                        link: Pair<String, SharedLinkData>? = null,
                        /** Someone else's binder, deck or cube: its Changes (contract/follows-2026-10-25.md). */
-                       onFollowChanges: ((String, String) -> Unit)? = null) {
+                       onFollowChanges: ((String, String) -> Unit)? = null,
+                       /** Cards already in hand (an Insights example list): nothing to fetch, no owner, rows of its own above Export. */
+                       preset: PresetCards? = null) {
     val cat by CatalogStore.state.collectAsState()
     val scope = rememberCoroutineScope()
     val kind = SharedList.kind(section)
@@ -426,8 +432,9 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
     val sort = if (kind != null) rememberListSort(kind) else rememberCardSort(SortPref.SHARED, CardSort.Screen.Shared)
     SearchUsed(query, "profile_cards")
     LaunchedEffect(userId, section, item) {
-        Telemetry.screen("profile_cards")
+        if (preset == null) Telemetry.screen("profile_cards") // Insights counts its own
         CatalogStore.load(userInitiated = true)
+        if (preset != null) { rows = preset.rows; return@LaunchedEffect }
         if (link != null) {
             runCatching { FriendsStore.sharedCards(link.first, section) }.onSuccess { rows = it }.onFailure { error = it.message; rows = emptyList() }
             return@LaunchedEffect
@@ -445,11 +452,11 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
     }
     val s = profile?.sections
     val shared = (s?.decks.orEmpty() + s?.cubes.orEmpty()).firstOrNull { it.id == item }
-    val name = link?.second?.title ?: shared?.name ?: s?.binders?.firstOrNull { it.id == item }?.name
+    val name = preset?.name ?: link?.second?.title ?: shared?.name ?: s?.binders?.firstOrNull { it.id == item }?.name
         ?: mapOf("all_cards" to "All cards", "for_trade" to "For trade", "wants" to "Wants")[section] ?: "Cards"
     /** Whose it is; null on your own profile (no Copy there: your deck screen has Duplicate). */
-    val owner = if (link != null) link.second.owner.displayName.takeIf { !link.second.mine } else profile?.takeIf { it.relation != "self" }?.displayName
-    val listFormat = if (link != null) link.second.format else shared?.format
+    val owner = if (preset != null) null else if (link != null) link.second.owner.displayName.takeIf { !link.second.mine } else profile?.takeIf { it.relation != "self" }?.displayName
+    val listFormat = preset?.format ?: if (link != null) link.second.format else shared?.format
     val searching = CardName.norm(query).isNotEmpty()
     val g = grouping.value
     fun title(key: String, qty: Int) = "${g.label(key)} · $qty"
@@ -476,7 +483,9 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
     val top: @Composable () -> Unit = {
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             if (link != null && !searching) ListRow(link.second.byline, avatar = { Avatar(link.second.owner.displayName, null) })
+            if (preset?.byline != null && !searching) Notice(preset.byline)
             if (rows?.isEmpty() == true && error == null) Notice("Nothing here.")
+            if (preset?.actions != null && !searching) preset.actions.invoke()
             val followable = section in setOf("binder", "deck", "cube") && item != null && onFollowChanges != null &&
                 (if (link != null) !link.second.mine else profile != null && profile?.relation != "self")
             if (followable && !searching && item != null && onFollowChanges != null) {
@@ -508,7 +517,7 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
     }
 
     T1Screen {
-        Bar(if (link != null) name else profile?.let { "${it.displayName} · $name" } ?: "Cards", rows?.let { plural(SharedList.count(it, kind), "card") }, onBack = onBack) {
+        Bar(if (link != null || preset != null) name else profile?.let { "${it.displayName} · $name" } ?: "Cards", rows?.let { plural(SharedList.count(it, kind), "card") }, onBack = onBack) {
             BarAction("View") { viewMenu = true }
         }
         error?.let { Notice(it, error = true) }

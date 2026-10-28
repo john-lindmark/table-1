@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -43,7 +44,12 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import site.table1.events.T1App
+import site.table1.events.library.CatalogDb
+import site.table1.events.library.CatalogStatus
 import site.table1.events.library.CatalogStore
+import site.table1.events.library.PresetCards
+import site.table1.events.library.ProfileCard
+import site.table1.events.library.ProfileCardsScreen
 import site.table1.events.library.ListEntry
 import site.table1.events.library.ListKind
 import site.table1.events.library.ListsStore
@@ -256,26 +262,33 @@ fun ArchetypeInsightScreen(format: String, id: Int, finish: Int?, navigate: (Str
         runCatching { s.archetype(format, id, "all", s.days) }.onSuccess { page = it }.onFailure { error = "This archetype couldn't load: ${it.message}" }
     }
     val name = page?.archetype?.name ?: pack?.name(id) ?: "Archetype"
+    if (finish != null) {
+        val p = page
+        val fin = p?.finishes?.getOrNull(finish)
+        // an Other group's example is named for its colours
+        val group = if (id == 0) p?.groups?.firstOrNull { it.example == finish } else null
+        val title = group?.let { Insights.colorsName(it.colors.ifEmpty { "C" }, "") } ?: name
+        val cat by CatalogStore.state.collectAsState()
+        val db = CatalogStore.db
+        LaunchedEffect(Unit) { CatalogStore.load(userInitiated = true) }
+        val resolved = remember(fin, db, cat.generation) { if (fin != null && db != null) finishRows(fin, db) else null }
+        if (fin == null || resolved == null) {
+            T1Screen {
+                Bar(title, fin?.let { "${it.event} · ${InsightCharts.shortDay(it.on)}" }, onBack = onBack)
+                CatalogStatus(cat)
+                Notice(error ?: "Loading…", error = error != null)
+            }
+            return
+        }
+        // drawn like a deck shared with you (View, Group by, Sort, card art, Export, Deck image)
+        val byline = (listOfNotNull((fin.rank?.let { "${Insights.place(it)} at " } ?: "") + fin.event, InsightCharts.shortDay(fin.on), fin.players?.let { "$it players" }) +
+            listOfNotNull(resolved.second.takeIf { it > 0 }?.let { "$it card${if (it == 1) "" else "s"} not found" })).joinToString(" · ")
+        ProfileCardsScreen("", "deck", null, onBack = onBack, onCard = { navigate("collection/card/$it?search=1") }, onList = openDeck,
+            preset = PresetCards(resolved.first, title, format, byline) { AddToDecksRow(added, { add(fin, title, "finish") }, openDeck) })
+        return
+    }
     T1Screen {
         val p = page
-        if (finish != null) {
-            val fin = p?.finishes?.getOrNull(finish)
-            // an Other group's example is named for its colours
-            val group = if (id == 0) p?.groups?.firstOrNull { it.example == finish } else null
-            val title = group?.let { Insights.colorsName(it.colors.ifEmpty { "C" }, "") } ?: name
-            Bar(title, fin?.let { "${it.event} · ${InsightCharts.shortDay(it.on)}" }, onBack = onBack)
-            if (fin == null) { Notice(error ?: "Loading…", error = error != null); return@T1Screen }
-            Scroll {
-                AddToDecksRow(added, { add(fin, title, "finish") }, openDeck)
-                Section("Main deck · ${fin.main.sumOf { it.qty }}")
-                fin.main.forEach { ListRow(it.name) { Text("${it.qty}", color = T1.text, fontFamily = T1.mono, fontSize = 13.sp) } }
-                if (fin.side.isNotEmpty()) {
-                    Section("Sideboard · ${fin.side.sumOf { it.qty }}")
-                    fin.side.forEach { ListRow(it.name) { Text("${it.qty}", color = T1.text, fontFamily = T1.mono, fontSize = 13.sp) } }
-                }
-            }
-            return@T1Screen
-        }
         Bar(name, "${pack?.name ?: format} · all events, last ${s.days} days", onBack = onBack)
         if (p == null || pack == null) { Notice(error ?: "Loading…", error = error != null); return@T1Screen }
         Scroll {
@@ -340,6 +353,16 @@ fun ArchetypeInsightScreen(format: String, id: Int, finish: Int?, navigate: (Str
 
 /** What adding a list to the viewer's decks did, and the new deck. */
 data class AddedDeck(val text: String, val listId: String? = null)
+
+/** A finish's names in their original printings, non-foil, like Add to my decks; and how many cards it couldn't name. */
+fun finishRows(fin: ArchetypePage.Finish, db: CatalogDb): Pair<List<ProfileCard>, Int> {
+    val found = db.printingsByName((fin.main + fin.side).map { it.name })
+    var missing = 0
+    val rows = listOf("main" to fin.main, "side" to fin.side).flatMap { (board, lines) ->
+        lines.mapNotNull { l -> found[l.name]?.let { ProfileCard(cardId = it.cardId, board = board, qty = l.qty) } ?: run { missing += l.qty; null } }
+    }
+    return rows to missing
+}
 
 /** A finish's list as a new private deck in the viewer's Library (original printings). */
 suspend fun addToDecks(fin: ArchetypePage.Finish, name: String, format: String, from: String): AddedDeck {

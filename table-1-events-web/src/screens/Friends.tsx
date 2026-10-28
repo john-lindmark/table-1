@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Avatar } from "../components/Avatar";
 import { BigAction, Bar, Dialog, Field, Menu, Notice, Row, Screen, Section, Segmented, type MenuItem } from "../components/kit";
 import { errorMessage } from "../lib/api";
@@ -422,10 +422,14 @@ export function ProfileCardsScreen(props: {
 /** A share link's part (contract/share-links-2026-10-23.md): the same screen, its cards through the link. */
 export interface LinkSource { token: string; data: SharedLinkData; signedIn: boolean; onSignIn: () => void }
 
-export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList, onRankings, onFollowChanges, link }: {
+/** Cards already in hand (an Insights example list): nothing to fetch, no owner, rows of its own above Export. */
+export interface PresetSource { rows: ProfileCard[]; name: string; format: string; byline?: string; actions?: ReactNode }
+
+export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList, onRankings, onFollowChanges, link, preset }: {
   userId: string; section: SectionKind; item: string | null; onBack: () => void; onCard: (oracleId: string) => void; onList: (listId: string) => void;
   onRankings?: (listId: string) => void; onFollowChanges?: (kind: "binder" | "deck" | "cube", id: string) => void; link?: LinkSource;
 }) {
+  preset?: PresetSource;
   const { catalog, error: catError } = useCatalog();
   useListsData(); // your lists, so a copy lands in them (the dev demo's too)
   const [rows, setRows] = useState<ProfileCard[] | null>(null);
@@ -449,6 +453,7 @@ export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList
   useSearchUsed(q, "profile_cards");
   useEffect(() => {
     if (link) {
+    if (preset) { setRows(preset.rows); return; }
       fetchSharedCards(link.token, section).then(setRows, (e) => { setError(errorMessage(e)); setRows([]); });
       return;
     }
@@ -456,14 +461,14 @@ export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList
     // The address carries ids only; the title, a list's format and its owner come from the profile.
     fetchProfile(userId).then(setProfile, () => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, section, item, link?.token]);
+  }, [userId, section, item, link?.token, preset?.rows]);
   const s = profile?.sections;
   const shared = [...(s?.binders ?? []), ...(s?.decks ?? []), ...(s?.cubes ?? [])].find((x) => x.id === item);
-  const listFormat = link ? (kind ? link.data.format ?? null : null) : kind && shared && "format" in shared ? shared.format : null;
-  const name = link ? sharedTitle(link.data)
+  const listFormat = preset ? preset.format : link ? (kind ? link.data.format ?? null : null) : kind && shared && "format" in shared ? shared.format : null;
+  const name = preset ? preset.name : link ? sharedTitle(link.data)
     : shared?.name ?? ({ all_cards: "All cards", for_trade: "For trade", wants: "Wants" } as Record<string, string>)[section] ?? "Cards";
   /** Whose it is; null on your own profile (no Copy there: your deck screen has Duplicate). */
-  const owner = link ? (link.data.mine ? null : link.data.owner.display_name) : profile && profile.relation !== "self" ? profile.display_name : null;
+  const owner = preset ? null : link ? (link.data.mine ? null : link.data.owner.display_name) : profile && profile.relation !== "self" ? profile.display_name : null;
   const canCopy = !!owner && (!link || link.signedIn);
   /** Someone else's binder, deck or cube (contract/follows-2026-10-25.md); on a profile, once it says whose. */
   const followKind = section === "binder" || section === "deck" || section === "cube" ? section : null;
@@ -605,7 +610,7 @@ export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList
 
   return (
     <LibScreen width={layout === "list" ? "column" : "wide"}>
-      <Bar title={link ? name : profile ? `${profile.display_name} · ${name}` : "Cards"} subtitle={rows ? plural(sharedCardCount(rows, kind), "card") : undefined} onBack={onBack}
+      <Bar title={link || preset ? name : profile ? `${profile.display_name} · ${name}` : "Cards"} subtitle={rows ? plural(sharedCardCount(rows, kind), "card") : undefined} onBack={onBack}
            right={<ViewButton layout={layout} onChange={setLayout} screen={`profile_${section}`} printings={printings} onPrintings={setPrintings}
                               grouping={grouping} onGrouping={setGrouping} list={!!kind}
                               sort={sort} onSort={setSort} sorts={kind ? "list" : "shared"} />} />
@@ -616,12 +621,14 @@ export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList
           <Row title={sharedByline(link.data)} avatar={<Avatar name={link.data.owner.display_name} size={24} />} />
         )}
         {(!catalog || !rows) && !error && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
+        {preset?.byline && !searching && <Notice tone="info">{preset.byline}</Notice>}
         {rows?.length === 0 && !error && <Notice tone="info">Nothing here.</Notice>}
         {followable && followKind && item && !searching && (
           <FollowRows kind={followKind} id={item} title={name} owner={owner} token={link?.token} signedIn={!link || link.signedIn}
                       onSignIn={link?.onSignIn} onChanges={() => onFollowChanges!(followKind, item)} />
         )}
         {kind && catalog && !!rows?.length && !searching && (<>
+        {preset?.actions && !searching && preset.actions}
           <Row title="Export" detail={kind === "deck" ? "Text, Arena, MTGO, download or copy" : "Text, Cube Cobra, download or copy"}
                onClick={() => setExporting(true)} />
           {kind === "deck" && <Row title="Deck image" detail="The cards as a picture, to save or share" onClick={() => setImaging(true)} />}

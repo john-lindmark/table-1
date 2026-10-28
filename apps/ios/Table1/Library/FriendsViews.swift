@@ -538,6 +538,10 @@ struct ProfileCardsView: View {
     var byline: String?
     /// A link you made: no Follow row.
     var mine = false
+    /// Cards already in hand (an Insights example list): nothing to fetch.
+    var preset: [ProfileCard]?
+    /// Rows above Export, for whoever opened it (Insights' Add to my decks).
+    var actions: AnyView?
     @Binding var path: [LibraryRoute]
     @Environment(\.dismiss) private var dismiss
     private var catalog: CatalogStore { CatalogStore.shared }
@@ -601,6 +605,7 @@ struct ProfileCardsView: View {
                         if followable, query.isEmpty, let id = section.id {
                             FollowRows(kind: section.kind, id: id, title: title, owner: list?.owner, token: token, path: $path)
                         }
+                        if let actions, query.isEmpty { actions }
                         if let list, let kind, let rows, !rows.isEmpty, query.isEmpty { listActions(list, kind, rows) }
                         if let kind { listBody(kind, width: geo.size.width) } else { cardsBody(width: geo.size.width) }
                     }
@@ -611,7 +616,8 @@ struct ProfileCardsView: View {
         .searchUsed(query, screen: "profile_cards")
         .task {
             do {
-                if let token { rows = try await FriendsStore.shared.sharedCards(token, part: section.kind) }
+                if let preset { rows = preset }
+                else if let token { rows = try await FriendsStore.shared.sharedCards(token, part: section.kind) }
                 else { rows = try await FriendsStore.shared.cards(userId, section) }
             } catch { if !error.isCancellation { self.error = FriendsStore.message(error); rows = [] } }
         }

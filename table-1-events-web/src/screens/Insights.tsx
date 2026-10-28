@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Bar as ShareBar, Heatmap, LineChart, Scatter, SlopeChart, type Marker } from "../components/InsightCharts";
 import { Bar, Notice, Row, Screen, Section, Segmented, Stat, SwitchRow, TabNav } from "../components/kit";
-import { printingsByName } from "../lib/catalog";
+import { printingsByName, type Catalog } from "../lib/catalog";
 import { delta, pct, pct1, seriesWindow, shortDay, wilson } from "../lib/insightCharts";
 import {
   EVENT_LABELS, EVENT_ORDER, FORMATS, PAIR_NAMES, WINDOWS, bansTitle, canHide, exampleFinish, place, setHidden, sourcesCredit, visibleKeys, type Finish, afterWindow, archetypeName, archetypePage, cardPage, changeWords, colorsName, isBan,
@@ -12,6 +12,10 @@ import {
 import { isLibraryDemo } from "../lib/libraryDemo";
 import { useCatalog } from "./Library";
 import { createList, type Entry } from "../lib/lists";
+import type { ProfileCard } from "../lib/friends";
+
+/** An example list draws like a deck shared with you (View, Group by, Sort, card art, Export, Deck image). */
+const ProfileCardsBody = lazy(() => import("./Friends").then((m) => ({ default: m.ProfileCardsBody })));
 import { supabase } from "../lib/supabaseClient";
 import { capture } from "../lib/telemetry";
 import { useSession } from "../lib/useSession";
@@ -209,6 +213,22 @@ function ConstructedBody({ pack, tier, view, w, days, board, setBoard, hl, setHl
 
 /* ── archetype ────────────────────────────────────────────────────────── */
 
+/** A finish's names in their original printings, non-foil, like Add to my decks; and how many cards it couldn't name. */
+const finishRowsMemo = new WeakMap<Finish, { rows: ProfileCard[]; missing: number }>();
+function finishRows(fin: Finish, catalog: Catalog): { rows: ProfileCard[]; missing: number } {
+  const had = finishRowsMemo.get(fin);
+  if (had) return had;
+  const byName = printingsByName(catalog, [...fin.main, ...fin.side].map(([n]) => n));
+  const rows: ProfileCard[] = [];
+  let missing = 0;
+  for (const [board, lines] of [["main", fin.main], ["side", fin.side]] as const) {
+    for (const [n, q] of lines) { const p = byName.get(n); if (p !== undefined) rows.push({ cardId: catalog.pId[p], board, qty: q }); else missing += q; }
+  }
+  const out = { rows, missing };
+  finishRowsMemo.set(fin, out);
+  return out;
+}
+
 export function InsightsArchetype() {
   const { format = "", id = "0", i } = useParams();
   const nav = useNavigate();
@@ -250,19 +270,23 @@ export function InsightsArchetype() {
     // an Other group's example is named for its colours
     const group = Number(id) === 0 ? page?.groups?.find((g) => g.example === Number(i)) : undefined;
     const title = group ? colorsName(group.colors || "C", "") : name;
-    return (
+    const loading = (
       <Screen>
         <Bar title={title} subtitle={fin ? `${fin.event} · ${shortDay(fin.on)}` : undefined} onBack={back} />
-        {fin ? (
-          <Scroll>
-            <AddRow copied={copied} onAdd={() => fin && void addToDecks(fin, "finish", title)} onOpen={(listId) => nav(`/library/list/${listId}`)} />
-            <Section title="Main deck" count={fin.main.reduce((n, [, q]) => n + q, 0)} />
-            {fin.main.map(([n, q]) => <Row key={n} title={n} value={q} />)}
-            {fin.side.length > 0 && <Section title="Sideboard" count={fin.side.reduce((n, [, q]) => n + q, 0)} />}
-            {fin.side.map(([n, q]) => <Row key={n} title={n} value={q} />)}
-          </Scroll>
-        ) : <Notice tone="info">Loading…</Notice>}
+        <Notice tone="info">Loading…</Notice>
       </Screen>
+    );
+    if (!fin || !catalog) return loading;
+    const { rows, missing } = finishRows(fin, catalog);
+    const byline = [`${fin.rank != null ? `${place(fin.rank)} at ` : ""}${fin.event}`, shortDay(fin.on), fin.players != null ? `${fin.players} players` : null,
+                    missing ? `${missing} card${missing === 1 ? "" : "s"} not found` : null].filter(Boolean).join(" · ");
+    return (
+      <Suspense fallback={loading}>
+        <ProfileCardsBody userId="" section="deck" item={null} onBack={back} onList={(listId) => nav(`/library/list/${listId}`)}
+                          onCard={(o) => nav(`/library/card/${o}`, { state: { search: true } })}
+                          preset={{ rows, name: title, format, byline,
+                                    actions: <AddRow copied={copied} onAdd={() => void addToDecks(fin, "finish", title)} onOpen={(listId) => nav(`/library/list/${listId}`)} /> }} />
+      </Suspense>
     );
   }
 

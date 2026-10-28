@@ -10,6 +10,17 @@ enum InsightsRoute: Hashable {
     case pair(String, String, String, String) // set, event, group, pair
     case limitedCard(String, String, String, String) // set, event, group, card name
     case review
+    case library(LibraryRoute)             // a Library screen pushed from Insights (an example list's cards)
+
+    /// The Library routes on top of an Insights path, so Library screens push and pop in the Insights tab.
+    static func library(_ path: Binding<[InsightsRoute]>) -> Binding<[LibraryRoute]> {
+        Binding(
+            get: { path.wrappedValue.compactMap { if case .library(let r) = $0 { r } else { nil } } },
+            set: { routes in
+                let base = path.wrappedValue.prefix { if case .library = $0 { false } else { true } }
+                path.wrappedValue = Array(base) + routes.map { .library($0) }
+            })
+    }
 }
 
 struct InsightsDestination: View {
@@ -25,6 +36,7 @@ struct InsightsDestination: View {
         case .pair(let s, let e, let g, let p): PairInsightView(set: s, event: e, group: g, pair: p, path: $path).screen("insights_pair")
         case .limitedCard(let s, let e, let g, let n): LimitedCardView(set: s, event: e, group: g, name: n, path: $path).screen("insights_limited_card")
         case .review: InsightsReviewView(path: $path).screen("insights_review")
+        case .library(let r): LibraryDestination(route: r, path: InsightsRoute.library($path))
         }
     }
 }
@@ -463,7 +475,8 @@ struct AddToDecksRow: View {
     }
 }
 
-/// One finish's list, with Add to my decks.
+/// One finish's list drawn like a deck shared with you (View, Group by, Sort, card art, Export, Deck image),
+/// with Add to my decks on top.
 struct FinishView: View {
     let format: String
     let archetypeId: Int
@@ -471,34 +484,59 @@ struct FinishView: View {
     @Binding var path: [InsightsRoute]
     @State private var page: Insights.ArchetypePage?
     @State private var added: AddedDeck?
+    /// The list in its original printings, once the catalog is in; and how many cards it couldn't name.
+    @State private var resolved: (rows: [ProfileCard], missing: Int)?
     @Environment(SessionModel.self) private var session
     private var store: InsightsStore { InsightsStore.shared }
+    private var catalog: CatalogStore { CatalogStore.shared }
 
     var body: some View {
         let f = page?.finishes[safe: index]
         // an Other group's example is named for its colours
         let group = archetypeId == 0 ? page?.groups?.first { $0.example == index } : nil
         let title = group.map { Insights.colorsName($0.colors.isEmpty ? "C" : $0.colors, "") } ?? page?.archetype.name ?? "Deck"
-        T1Screen {
-            Bar(title: title, subtitle: f.map { "\($0.event) · \(InsightCharts.shortDay($0.on))" }) { path.removeLast() }
-            InsightsPage {
-                VStack(spacing: 1) {
-                    if let f {
-                        AddToDecksRow(added: added, add: { added = AddedDeck.add(f, name: title, format: format, from: "finish") },
-                                      open: { session.openWebLink(URL(string: "https://table-1.site/library/list/\($0)")!) })
-                        Section1("Main deck · \(f.main.reduce(0) { $0 + $1.qty })")
-                        ForEach(f.main, id: \.self) { l in ListRow(title: l.name) { Text("\(l.qty)").font(T1.mono(13)) } }
-                        if !f.side.isEmpty {
-                            Section1("Sideboard · \(f.side.reduce(0) { $0 + $1.qty })")
-                            ForEach(f.side, id: \.self) { l in ListRow(title: l.name) { Text("\(l.qty)").font(T1.mono(13)) } }
-                        }
-                    } else { Notice("Loading…") }
+        Group {
+            if let f, let resolved {
+                ProfileCardsView(userId: "", section: ProfileSection(kind: "deck"), title: title, list: SharedList(format: format),
+                                 byline: Self.byline(f, missing: resolved.missing), mine: true, preset: resolved.rows,
+                                 actions: AnyView(AddToDecksRow(added: added, add: { added = AddedDeck.add(f, name: title, format: format, from: "finish") },
+                                                                open: { session.openWebLink(URL(string: "https://table-1.site/library/list/\($0)")!) })),
+                                 path: InsightsRoute.library($path))
+            } else {
+                T1Screen {
+                    Bar(title: title, subtitle: f.map { "\($0.event) · \(InsightCharts.shortDay($0.on))" }) { path.removeLast() }
+                    CatalogStatusRow(catalog: catalog)
+                    InsightsPage { Notice("Loading…") }
                 }
             }
         }
         .task { page = try? await store.archetype(format: format, id: archetypeId, tier: .all, days: store.days) }
+        .task(id: "\(page == nil)-\(catalog.generation)") {
+            catalog.load(userInitiated: true)
+            guard let f, let db = catalog.db else { return }
+            let lines = [("main", f.main.map { ($0.name, $0.qty) }), ("side", f.side.map { ($0.name, $0.qty) })]
+            resolved = await Task.detached(priority: .userInitiated) { Self.rows(lines, db) }.value
+        }
     }
 
+    /// Each name in its original printing, non-foil, like Add to my decks.
+    nonisolated static func rows(_ boards: [(String, [(name: String, qty: Int)])], _ db: CatalogDB) -> (rows: [ProfileCard], missing: Int) {
+        let printings = db.printings(names: boards.flatMap { $0.1.map(\.name) })
+        var rows: [ProfileCard] = [], missing = 0
+        for (board, lines) in boards {
+            for l in lines {
+                if let p = printings[l.name] { rows.append(ProfileCard(cardId: p.cardId, board: board, qty: l.qty)) }
+                else { missing += l.qty }
+            }
+        }
+        return (rows, missing)
+    }
+
+    /// "2nd at Modern Challenge 64 · 26 Oct · 64 players"
+    static func byline(_ f: Insights.ArchetypePage.Finish, missing: Int) -> String {
+        ([(f.rank.map { "\(Insights.place($0)) at " } ?? "") + f.event, InsightCharts.shortDay(f.on), f.players.map { "\($0) players" }]
+            .compactMap { $0 } + (missing > 0 ? ["\(missing) card\(missing == 1 ? "" : "s") not found"] : [])).joined(separator: " · ")
+    }
 }
 
 extension Array { subscript(safe i: Int) -> Element? { indices.contains(i) ? self[i] : nil } }

@@ -1,7 +1,7 @@
 #if DEBUG
 import SwiftUI
 
-/// Debug only: `-T1InsightsDemo [constructed|archetype|ban|matchups|limited|pair|scatter]` opens Insights on the packs
+/// Debug only: `-T1InsightsDemo [constructed|archetype|finish|ban|matchups|limited|pair|scatter]` opens Insights on the packs
 /// in DebugResources (insights-demo-*.json, from real MTGO pages and a 17Lands slice by tools/insights/demo_packs.sh),
 /// without signing in.
 struct InsightsDemoRoot: View {
@@ -24,6 +24,7 @@ struct InsightsDemoRoot: View {
             let pack = store.constructed[store.format]
             switch mode {
             case "archetype": if let a = pack?.tiers["all"]?.windows["30"]?.share.first(where: { $0.a != 0 })?.a { path = [.archetype(store.format, a)] }
+            case "finish": if let a = pack?.tiers["all"]?.windows["30"]?.share.first(where: { $0.a != 0 })?.a { path = [.archetype(store.format, a), .finish(store.format, a, 0)] }
             case "ban": if let b = pack?.bans.first { path = [.ban(store.format, b.change)] }
             case "matchups": path = [.matchups(store.format)]
             case "pair":
