@@ -74,11 +74,11 @@ enum ListToCollection {
     }
 }
 
-/// Add to collection from a deck or cube: what's missing or every card, sideboard or not, in one undoable batch.
+/// Add to collection from a deck or cube: what's missing or every card, sideboard or not, in one undoable batch. A list
+/// names no condition, so copies go in near mint (no picker; John, 2026-10-27).
 struct ListToCollectionPanel: View {
     let listId: String
     private var catalog: CatalogStore { CatalogStore.shared }
-    @AppStorage("library.addCondition") private var addCondition = "NM"
     @State private var mode = ListToCollection.Mode.missing
     @State private var sideboard = true
     @State private var meta: [String: ListLine] = [:]
@@ -109,8 +109,7 @@ struct ListToCollectionPanel: View {
                 T1Segmented(options: [(ListToCollection.Mode.missing, "Missing \(ListToCollection.copies(missing))"),
                                       (ListToCollection.Mode.all, "Every card \(ListToCollection.copies(all))")], selection: $mode)
                 if kind == .deck && side > 0 { T1Switch(title: "Sideboard", detail: "\(side) \(side == 1 ? "card" : "cards")", isOn: $sideboard) }
-                T1Segmented(options: Conditions.all.map { ($0, $0) }, selection: $addCondition)
-                Notice("Each card goes in as the printing, finish and language this \(kind == .deck ? "deck" : "cube") lists. Considering isn't added.")
+                Notice("Each card goes in near mint, as the printing, finish and language this \(kind == .deck ? "deck" : "cube") lists. Considering isn't added.")
                 Section1("To add · \(copies)")
                 if ops.isEmpty {
                     ListRow(title: mode == .missing ? "You own every card here" : "No cards to add",
@@ -157,7 +156,7 @@ struct ListToCollectionPanel: View {
         let printings = meta.compactMapValues(\.printing)
         do {
             let res = try await CollectionStore.shared.apply(
-                ListToCollection.collectionOps(ops, printingLang: { printings[$0]?.lang }, condition: addCondition), source: "import")
+                ListToCollection.collectionOps(ops, printingLang: { printings[$0]?.lang }, condition: "NM"), source: "import")
             done = (res.batchId, ListToCollection.copies(ops))
             Telemetry.capture("list_added_to_collection", ["kind": list.kind.rawValue, "mode": mode.rawValue, "sideboard": sideboard,
                                                           "copies": ListToCollection.copies(ops), "lines": ops.count, "from": "list"])

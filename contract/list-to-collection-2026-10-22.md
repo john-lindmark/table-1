@@ -12,11 +12,12 @@ opens a full screen:
 - **Missing N | Every card M** (segmented, Missing first). Missing adds only what the collection lacks of each
   printing + finish; Every card adds every copy listed.
 - **Sideboard** switch on decks with a sideboard (on by default).
-- Condition (NM…DMG): the same remembered choice as card detail's Add a printing.
+- No condition picker: a list names no condition, so every copy goes in near mint (John, 2026-10-27; it used to
+  take the remembered condition from card detail's Add a printing).
 - No language picker: each copy goes in as the language its line names (lists § Languages; a non-English printing
   is always its own), never the language picked for other adds (John, 2026-10-26; it used to turn English printings
   into the picked language).
-- A note: each card goes in as the printing, finish and language the list names; Considering isn't added.
+- A note: each card goes in near mint, as the printing, finish and language the list names; Considering isn't added.
 - **To add · N**: one row per printing + finish with `+n`.
 - **Add N cards** (accent). After it: "Added N cards to your collection.", an **Undo** row, and the button becomes
   **Done**.

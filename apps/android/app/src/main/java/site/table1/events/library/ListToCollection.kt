@@ -26,7 +26,6 @@ import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import site.table1.events.T1App
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.Ghost
 import site.table1.events.ui.components.ListRow
@@ -99,13 +98,12 @@ object ListToCollection {
         ops.map { CollectionOp(it.cardId, it.finish, condition, Languages.forNew(printingLang(it.cardId) ?: "en", it.lang), delta = it.delta) }
 }
 
-/** Add to collection from a deck or cube: what's missing or every card, sideboard or not, in one undoable batch. */
+/** Add to collection from a deck or cube: what's missing or every card, sideboard or not, in one undoable batch. A list
+ *  names no condition, so copies go in near mint (no picker; John, 2026-10-27). */
 @Composable
 fun ListToCollectionScreen(list: CardList, owned: Map<String, Int>, onClose: () -> Unit) {
     val scope = rememberCoroutineScope()
     val cat by CatalogStore.state.collectAsState()
-    val prefs = remember { T1App.instance.getSharedPreferences("library", android.content.Context.MODE_PRIVATE) }
-    var condition by remember { mutableStateOf(prefs.getString("addCondition", "NM") ?: "NM") }
     var mode by remember { mutableStateOf(ListToCollection.Mode.Missing) }
     var sideboard by remember { mutableStateOf(true) }
     var printings by remember { mutableStateOf<Map<String, CatalogPrinting>>(emptyMap()) }
@@ -158,13 +156,7 @@ fun ListToCollectionScreen(list: CardList, owned: Map<String, Int>, onClose: () 
                             if (mode == ListToCollection.Mode.Missing) 0 else 1) { mode = if (it == 0) ListToCollection.Mode.Missing else ListToCollection.Mode.All }
                     }
                     if (list.kind == ListKind.Deck && side > 0) item { ListRow("Sideboard", plural(side)) { T1Switch(sideboard) { sideboard = it } } }
-                    item {
-                        T1Segmented(Conditions.all, Conditions.all.indexOf(condition).coerceAtLeast(0)) { i ->
-                            condition = Conditions.all[i]
-                            prefs.edit().putString("addCondition", condition).apply()
-                        }
-                    }
-                    item { Notice("Each card goes in as the printing, finish and language this ${if (list.kind == ListKind.Deck) "deck" else "cube"} lists. Considering isn't added.") }
+                    item { Notice("Each card goes in near mint, as the printing, finish and language this ${if (list.kind == ListKind.Deck) "deck" else "cube"} lists. Considering isn't added.") }
                     item { Section("To add · $copies") }
                     if (ops.isEmpty()) item {
                         ListRow(if (mode == ListToCollection.Mode.Missing) "You own every card here" else "No cards to add",
@@ -192,7 +184,7 @@ fun ListToCollectionScreen(list: CardList, owned: Map<String, Int>, onClose: () 
                             val sent = ops
                             scope.launch {
                                 runCatching {
-                                    CollectionStore.apply(ListToCollection.collectionOps(sent, { printings[it]?.lang }, condition), source = "import")
+                                    CollectionStore.apply(ListToCollection.collectionOps(sent, { printings[it]?.lang }, "NM"), source = "import")
                                 }.onSuccess {
                                     done = it.batchId to n
                                     Telemetry.capture("list_added_to_collection", mapOf("kind" to list.kind.wire, "mode" to mode.wire,
