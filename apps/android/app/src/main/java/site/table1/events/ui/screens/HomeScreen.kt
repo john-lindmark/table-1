@@ -2,9 +2,6 @@ package site.table1.events.ui.screens
 
 import site.table1.events.data.EventRules
 
-import android.Manifest
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -52,6 +49,7 @@ import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.parseInstant
 import site.table1.events.ui.components.shortWhen
 import site.table1.events.ui.theme.T1
+import site.table1.events.util.PermissionsStep
 import site.table1.events.util.currentFix
 import site.table1.events.util.scanQr
 
@@ -114,12 +112,10 @@ fun EventsHomeScreen(
         }
     }
 
-    // Keep this account's area cell fresh for nearby alerts while the app is open (opt-in on the Nearby screen).
-    val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-        if (granted.values.any { it }) scope.launch { currentFix(context)?.let { runCatching { Repo.updatePresence(it.lat, it.lng) } } }
-    }
+    // Keep this account's area cell fresh for nearby alerts while the app is open (opt-in on the Nearby screen). Never
+    // asks: the permissions step after sign-in does, or Nearby / Create when they need a fix.
     LaunchedEffect(Unit) {
-        locationPermission.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
+        if (PermissionsStep.locationAllowed(context)) currentFix(context)?.let { runCatching { Repo.updatePresence(it.lat, it.lng) } }
     }
 
     fun scan() = scope.launch {

@@ -3,7 +3,7 @@ import UIKit
 import UserNotifications
 
 /// Alert pushes (invitations, new events from organizers you play with, pairings, results). Asks for
-/// permission once signed in, registers this phone's APNs token with `register_device`, and hands a tapped
+/// permission on the permissions step after sign-in (PermissionsView), registers this phone's APNs token with `register_device`, and hands a tapped
 /// alert's event to the app. The server side is the notify-worker edge function.
 @MainActor
 final class PushController {
@@ -35,14 +35,21 @@ final class PushController {
         }
     }
 
-    /// Signed in: ask once (iOS shows the prompt only the first time), then register.
+    /// Signed in: register when allowed. Never prompts; skipping the permissions step means no prompt later either.
     func didSignIn() async {
         registeredFor = nil
+        if await PermissionsStep.notifications() == .on { UIApplication.shared.registerForRemoteNotifications() }
+        await register()
+    }
+
+    /// The system prompt (permissions step; iOS shows it only the first time), then register.
+    func ask() async -> Bool {
         let granted = (try? await UNUserNotificationCenter.current()
             .requestAuthorization(options: [.alert, .sound, .badge])) ?? false
         Telemetry.capture("push_permission", ["granted": granted])
         if granted { UIApplication.shared.registerForRemoteNotifications() }
         await register()
+        return granted
     }
 
     func didSignOut() async {

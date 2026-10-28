@@ -43,6 +43,10 @@ class MainActivity : ComponentActivity() {
         if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0 && intent?.getBooleanExtra("insightsDemo", false) == true) {
             site.table1.events.insights.InsightsStore.loadDemo(this)
         }
+        // Debug builds: `--ez permissionsDemo true` shows the permissions step after sign-in whatever was answered before.
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0 && intent?.getBooleanExtra("permissionsDemo", false) == true) {
+            site.table1.events.util.PermissionsStep.demo = true
+        }
         setContent {
             Table1Theme {
                 AppRoot(

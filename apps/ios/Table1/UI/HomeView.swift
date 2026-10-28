@@ -97,8 +97,9 @@ struct EventsHomeView: View {
             }
         }
         .task {
-            // Keep this account's area cell fresh for nearby alerts (opt-in on the Nearby screen).
-            if let fix = await LocationFix.shared.current() { try? await Repo.updatePresence(lat: fix.lat, lng: fix.lng) }
+            // Keep this account's area cell fresh for nearby alerts (opt-in on the Nearby screen). Never prompts: the
+            // permissions step after sign-in asks, or Nearby / Create when they need a fix.
+            if let fix = await LocationFix.shared.currentIfAllowed() { try? await Repo.updatePresence(lat: fix.lat, lng: fix.lng) }
         }
     }
 

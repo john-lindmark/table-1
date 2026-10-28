@@ -1,6 +1,8 @@
 package site.table1.events.ui.screens
 
 import android.content.Context
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +46,8 @@ import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.T1Logo
 import site.table1.events.ui.components.T1TextField
 import site.table1.events.ui.theme.T1
+import site.table1.events.util.PermissionState
+import site.table1.events.util.PermissionsStep
 import site.table1.events.util.Telemetry
 
 private enum class Step { Providers, Email, Code }
@@ -259,5 +263,80 @@ private fun JoinHeader(link: JoinLink, naming: Boolean = false) {
             color = T1.muted, fontFamily = T1.mono, fontSize = 12.sp, lineHeight = 18.sp,
             modifier = Modifier.padding(top = 4.dp),
         )
+    }
+}
+
+/**
+ * After sign-in (and the name step), once per device: why notifications and location help, before Android asks.
+ * Turn on shows the system dialogs for whichever isn't allowed yet; Skip for now goes straight in and nothing asks
+ * again on its own (contract/permissions-onboarding-2026-10-28.md).
+ */
+@Composable
+fun PermissionsScreen(onDone: () -> Unit) {
+    val context = LocalContext.current
+    var notifications by remember { mutableStateOf(PermissionsStep.notifications(context)) }
+    var location by remember { mutableStateOf(PermissionsStep.location(context)) }
+    var busy by remember { mutableStateOf(false) }
+
+    fun finish(choice: String) {
+        Telemetry.capture("onboarding_permissions", mapOf(
+            "choice" to choice, "notifications" to notifications.name.lowercase(), "location" to location.name.lowercase(),
+        ))
+        PermissionsStep.seen = true
+        onDone()
+    }
+
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+        fun answer(permissions: Array<String>, before: PermissionState) =
+            if (permissions.none { it in granted }) before
+            else if (permissions.any { granted[it] == true }) PermissionState.On else PermissionState.Off
+        notifications = answer(PermissionsStep.notificationPermissions, notifications)
+        location = answer(PermissionsStep.locationPermissions, location)
+        if (notifications == PermissionState.On) Telemetry.capture("push_permission", mapOf("granted" to true))
+        finish("turn_on")
+    }
+
+    Column(Modifier.fillMaxSize().background(T1.bg), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Box(
+            Modifier.weight(1f).fillMaxWidth().background(T1.surface).statusBarsPadding().padding(top = 40.dp),
+            contentAlignment = Alignment.Center,
+        ) { T1Logo(Modifier.fillMaxWidth()) }
+        PermissionRow(
+            "Notifications", notifications,
+            "Know the moment your round is paired, when your opponent reports a result and when you're invited to an event. Friends' trades and price drops on your wants too.",
+        )
+        PermissionRow(
+            "Location", location,
+            "See events starting near you and join without a code, and pin your own event to the venue. Only while the app is open, and only a rough area is kept, never your exact spot.",
+        )
+        Notice("Change either any time in Android settings.")
+        Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) { Ghost("Skip for now", enabled = !busy) { finish("skip") } }
+        Box(Modifier.navigationBarsPadding()) {
+            BigAction("Turn on", busy = busy, accent = true) {
+                val wanted = buildList {
+                    if (notifications == PermissionState.Unasked) addAll(PermissionsStep.notificationPermissions)
+                    if (location == PermissionState.Unasked) addAll(PermissionsStep.locationPermissions)
+                }
+                if (wanted.isEmpty()) finish("turn_on") else { busy = true; ask.launch(wanted.toTypedArray()) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PermissionRow(title: String, state: PermissionState, text: String) {
+    Column(
+        Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title.uppercase(), color = T1.text, fontFamily = T1.mono, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp, modifier = Modifier.weight(1f))
+            when (state) {
+                PermissionState.On -> Label("On", color = T1.accent)
+                PermissionState.Off -> Label("Off")
+                PermissionState.Unasked -> {}
+            }
+        }
+        Text(text, color = T1.muted, fontFamily = T1.mono, fontSize = 12.sp, lineHeight = 18.sp)
     }
 }

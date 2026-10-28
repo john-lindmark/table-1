@@ -107,6 +107,8 @@ import site.table1.events.ui.screens.NearbyScreen
 import site.table1.events.auth.EmailSignIn
 import site.table1.events.auth.SignIn
 import site.table1.events.ui.screens.NameScreen
+import site.table1.events.ui.screens.PermissionsScreen
+import site.table1.events.util.PermissionsStep
 import site.table1.events.ui.screens.SignInScreen
 import site.table1.events.ui.tracker.LifeTrackerScreen
 import site.table1.events.insights.InsightsDemoRoot
@@ -130,9 +132,13 @@ fun AppRoot(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pendingLink: Web
     // Signed in any way: the email code step kept for a return is done with.
     val signedIn = status is SessionStatus.Authenticated
     LaunchedEffect(signedIn) { if (signedIn) EmailSignIn.clear() }
+    // Why notifications and location help, once per device after sign-in (and the name step), skippable.
+    val rootContext = LocalContext.current
+    var needsPermissions by remember { mutableStateOf(PermissionsStep.needed(rootContext)) }
     when (status) {
         is SessionStatus.Authenticated ->
             if (SignIn.needsName((status as SessionStatus.Authenticated).session.user)) NameScreen(pendingJoin)
+            else if (needsPermissions) PermissionsScreen { needsPermissions = false }
             else SignedInApp(pendingJoin, onJoinConsumed, pendingLink, onLinkConsumed)
         is SessionStatus.Initializing -> T1Screen { Bar("Table 1") }
         else -> {
