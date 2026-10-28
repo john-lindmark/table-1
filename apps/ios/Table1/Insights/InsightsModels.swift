@@ -62,11 +62,16 @@ enum Insights {
         /// Changes with a before/after study: bans and their kin, and Canadian Highlander's points changes.
         var isBan: Bool { ["ban", "unban", "restrict", "unrestrict", "points"].contains(kind) }
     }
-    struct ShareRow: Codable, Hashable { let a: Int; let share: Double; let prev: Double?; let decks: Int; let top8: Int; let conv: Double? }
+    /// `wr`, `t8r`, `won` and the window's `won_of` are missing from packs built before 2026-10-28.
+    struct ShareRow: Codable, Hashable {
+        let a: Int; let share: Double; let prev: Double?; let decks: Int; let top8: Int; let conv: Double?
+        var wr: Double? = nil; var t8r: Double? = nil; var won: Int? = nil
+    }
     struct CardRow: Codable, Hashable { let c: String; let n: String; let rate: Double; let prev: Double?; let copies: Double? }
     struct Movers: Codable, Hashable { let up: [CardRow]; let down: [CardRow] }
     struct Window: Codable, Hashable {
         let decks: Int; let weighted: Double; let events: Int; let thin: Bool; let brief: String?
+        var won_of: Int? = nil
         let share: [ShareRow]
         let cards: [String: Movers] // main, side
     }

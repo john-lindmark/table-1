@@ -86,11 +86,13 @@ object Insights {
     /** Changes with a before/after study: bans and their kin, and Canadian Highlander's points changes. */
     val isBan: Boolean get() = kind in setOf("ban", "unban", "restrict", "unrestrict", "points")
 }
-@Serializable data class ShareRow(val a: Int, val share: Double, val prev: Double? = null, val decks: Int, val top8: Int, val conv: Double? = null)
+/** `wr`, `t8r`, `won` and the window's `won_of` are missing from packs built before 2026-10-28. */
+@Serializable data class ShareRow(val a: Int, val share: Double, val prev: Double? = null, val decks: Int, val top8: Int, val conv: Double? = null,
+                                  val wr: Double? = null, val t8r: Double? = null, val won: Int? = null)
 @Serializable data class CardRow(val c: String, val n: String, val rate: Double, val prev: Double? = null, val copies: Double? = null)
 @Serializable data class Movers(val up: List<CardRow>, val down: List<CardRow>)
 @Serializable data class Window(val decks: Int, val weighted: Double, val events: Int, val thin: Boolean, val brief: String? = null,
-                                val share: List<ShareRow>, val cards: Map<String, Movers>)
+                                val share: List<ShareRow>, val cards: Map<String, Movers>, val won_of: Int? = null)
 @Serializable data class Line(val a: Int, val v: List<Double?>)
 @Serializable data class Series(val from: String, val days: Int, val lines: List<Line>, val other: List<Double?>)
 @Serializable data class NewSetCard(val c: String, val n: String, val rate: Double, val copies: Double? = null, val `in`: List<Int>? = null)

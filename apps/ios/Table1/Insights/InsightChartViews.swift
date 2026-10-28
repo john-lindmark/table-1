@@ -226,7 +226,8 @@ struct InsightScatter: View {
     }
 }
 
-/// Matchup grid: row archetype's match win rate against each column; below 30 matches a cell still shows, dimmed.
+/// Matchup grid: row archetype's match win rate against each column (named on top, read upwards); below 30 matches a
+/// cell still shows, dimmed.
 struct InsightHeatmap: View {
     let labels: [String]
     /// cell(row, col) → (wins, losses)
@@ -237,6 +238,20 @@ struct InsightHeatmap: View {
     var body: some View {
         let n = labels.count
         VStack(spacing: 1) {
+            HStack(spacing: 1) {
+                T1.surface.frame(width: 104, height: 128)
+                ForEach(0..<n, id: \.self) { c in
+                    T1.surface.frame(maxWidth: .infinity).frame(height: 128)
+                        .overlay {
+                            // laid out across, then turned to read upwards from the bottom of the header
+                            Text(labels[c].uppercased()).font(T1.mono(9)).tracking(0.5).lineLimit(1).truncationMode(.tail)
+                                .frame(width: 120, alignment: .leading)
+                                .rotationEffect(.degrees(-90))
+                        }
+                        .clipped()
+                        .accessibilityLabel(labels[c])
+                }
+            }
             ForEach(0..<n, id: \.self) { r in
                 HStack(spacing: 1) {
                     Text(labels[r]).font(T1.mono(10)).lineLimit(2).minimumScaleFactor(0.8)

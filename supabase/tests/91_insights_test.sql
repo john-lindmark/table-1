@@ -94,6 +94,29 @@ select pg_temp.eq('big events leave out the league',
   '3 10.0 1 true');
 select pg_temp.eq('an archetype missing from the window before reads 0, not null',
   (select (s->>'prev') from jsonb_array_elements((public.meta_pack_window('modern', 'all', 7))->'share') s where (s->>'a')::int = :BURN), null);
+select pg_temp.eq('meta now: one event won, by Burn; too few matches and lists for win and conversion rates',
+  (select (w->>'won_of') || ' ' || string_agg(coalesce(a.name, 'Other') || ' ' || (s->>'won') || ' ' || coalesce(s->>'wr', '-') || ' ' || coalesce(s->>'t8r', '-'), ', ' order by a.name nulls last)
+     from (select public.meta_pack_window('modern', 'all', 7) w) x cross join jsonb_array_elements(w->'share') s
+     left join t1_private.meta_archetypes a on a.id = (s->>'a')::int group by w->>'won_of'),
+  '1 Boros Energy 0 - -, Burn 1 - -, Other 0 - -');
+-- 20 Burn lists (ranks 1–20, the whole top 8) and 20 Boros Energy; 24 matches between them, Burn winning 13, and
+-- one Burn mirror, which win rates leave out. Alone in the week before the 15th day back.
+select public.meta_ingest(jsonb_build_object('source', 'mtgo', 'source_id', 'E20', 'format', 'modern', 'name', 'Modern Challenge 64',
+  'kind', 'challenge', 'on', (current_date - 17)::text, 'players', 64, 'complete', false,
+  'decks', (select jsonb_agg(jsonb_build_object('player', 'p' || i, 'rank', i, 'top8', i <= 8,
+              'main', case when i <= 20 then '[["Lava Spike", 4], ["Boltwave", 4], ["Lightning Bolt", 4], ["Mountain", 18]]'::jsonb
+                           else '[["Ocelot Pride", 4], ["Guide of Souls", 4], ["Lightning Bolt", 4], ["Sacred Foundry", 4], ["Plains", 8]]'::jsonb end,
+              'side', '[]'::jsonb)) from generate_series(1, 40) i),
+  'matches', (select jsonb_agg(m) from (
+      select jsonb_build_object('round', 'R' || k, 'a', 'p' || k, 'b', 'p' || (20 + k), 'result', case when k <= 13 then 'a' else 'b' end) m from generate_series(1, 20) k
+      union all select jsonb_build_object('round', 'S' || k, 'a', 'p' || k, 'b', 'p' || (20 + k), 'result', 'b') from generate_series(1, 4) k
+      union all select jsonb_build_object('round', 'M', 'a', 'p1', 'b', 'p2', 'result', 'a')) x)));
+select pg_temp.eq('meta now: win rate without mirrors, conversion to top 8, event wins',
+  (select (w->>'won_of') || ' ' || string_agg(coalesce(a.name, 'Other') || ' ' || (s->>'won') || ' ' || coalesce(s->>'wr', '-') || ' ' || coalesce(s->>'t8r', '-'), ', ' order by a.name nulls last)
+     from (select public.meta_pack_window('modern', 'all', 7, current_date - 15) w) x cross join jsonb_array_elements(w->'share') s
+     left join t1_private.meta_archetypes a on a.id = (s->>'a')::int group by w->>'won_of'),
+  '1 Boros Energy 0 0.4583 0.0000, Burn 1 0.5417 0.4000');
+delete from t1_private.meta_events where source_id = 'E20';
 select pg_temp.eq('rising cards: no lands, no basics; Bolt in 8 of 10.5',
   (select string_agg((c->>'n') || ' ' || (c->>'rate'), ', ' order by (c->>'rate')::numeric desc, c->>'n')
      from jsonb_array_elements((public.meta_pack_window('modern', 'all', 7))->'cards'->'main'->'up') c),

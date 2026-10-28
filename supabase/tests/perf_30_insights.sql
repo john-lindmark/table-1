@@ -32,6 +32,11 @@ select e.id, 'modern', e.on_date, e.tier, t.weight * case when r <= 8 then 2 els
   cross join generate_series(1, 32) r;
 update t1_private.meta_decks set main_qty = array_fill(4::smallint, array[cardinality(main)]), side_qty = array_fill(2::smallint, array[cardinality(side)]);
 insert into t1_private.meta_format_changes (format, on_date, kind, cards, status) values ('modern', current_date - 100, 'ban', '{Card 3}', 'confirmed');
+-- a top 8 bracket per event (1v8 2v7 3v6 4v5, 1v4 2v3, 1v2): what Meta now's win rates and the matchup grid read
+insert into t1_private.meta_matches (event_id, round, a, b, result)
+select d.event_id, m.round, d.id, o.id, case when (d.event_id + m.ra) % 3 = 0 then 'b' else 'a' end
+  from (values ('QF1', 1, 8), ('QF2', 2, 7), ('QF3', 3, 6), ('QF4', 4, 5), ('SF1', 1, 4), ('SF2', 2, 3), ('F', 1, 2)) m(round, ra, rb)
+  join t1_private.meta_decks d on d.rank = m.ra join t1_private.meta_decks o on o.event_id = d.event_id and o.rank = m.rb;
 analyze;
 
 select pg_temp.eq('36,000 decks', (select count(*)::text from t1_private.meta_decks), '36000');

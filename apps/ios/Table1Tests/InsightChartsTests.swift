@@ -53,6 +53,8 @@ private struct Cases: Decodable {
         let `in`: [Months.Mixed]; let out: Out
     }
     let window: [WindowCase]
+    struct RatesCase: Decodable { let `in`: [Double?]; let out: String }
+    let rates: [RatesCase]
 }
 
 final class InsightChartsTests: XCTestCase {
@@ -112,6 +114,9 @@ final class InsightChartsTests: XCTestCase {
     func testLabels() {
         for c in cases.pct { XCTAssertEqual(InsightCharts.pct(c.in), c.out, "\(String(describing: c.in))") }
         for c in cases.pct1 { XCTAssertEqual(InsightCharts.pct1(c.in), c.out) }
+        for c in cases.rates {
+            XCTAssertEqual(InsightCharts.rates(wr: c.in[0], t8r: c.in[1], won: c.in[2].map { Int($0) }, wonOf: c.in[3].map { Int($0) }), c.out)
+        }
         for c in cases.delta { XCTAssertEqual(InsightCharts.delta(c.in), c.out, "\(String(describing: c.in))") }
     }
 

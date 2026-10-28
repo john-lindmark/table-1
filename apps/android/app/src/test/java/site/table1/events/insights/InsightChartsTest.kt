@@ -77,6 +77,11 @@ class InsightChartsTest {
         list("delta").forEach { c -> assertEquals(c["out"]!!.jsonPrimitive.content, InsightCharts.delta(c["in"]!!.jsonPrimitive.doubleOrNull)) }
     }
 
+    @Test fun rates() = list("rates").forEach { c ->
+        val i = c["in"]!!.jsonArray.map { it.jsonPrimitive.doubleOrNull }
+        assertEquals(c["out"]!!.jsonPrimitive.content, InsightCharts.rates(i[0], i[1], i[2]?.toInt(), i[3]?.toInt()))
+    }
+
     @Test fun window() = list("window").forEach { c ->
         val i = c["in"]!!.jsonArray
         val o = c["out"]!!.jsonObject

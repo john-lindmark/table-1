@@ -187,6 +187,7 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `insights_copy_to_library` | `format`, `archetype` (a finish copied as a deck) |
 | `insights_source_opened` | `source`: the credit or event source opened (MTGO, TopDeck.gg, 17Lands) |
 | `insights_review_action` | `what`, `action` (moderators: approve / reject / confirm) |
+| `insights_matchup_opened` | `format` (a square of the matchup grid tapped for its record) |
 
 ### Push, Live Activities, widgets (iOS; Android/web where they have the surface)
 | event | properties |

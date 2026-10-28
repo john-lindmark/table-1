@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -17,6 +18,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -199,11 +202,22 @@ fun InsightScatter(points: List<ScatterPoint>, height: Dp = 240.dp, onTap: (Scat
     }
 }
 
-/** Matchup grid: the row archetype's match win rate against each column; under [minMatches] a cell still shows, dimmed. */
+/** Matchup grid: the row archetype's match win rate against each column (named on top, read upwards); under
+ *  [minMatches] a cell still shows, dimmed. */
 @Composable
 fun InsightHeatmap(labels: List<String>, cell: (Int, Int) -> Pair<Int, Int>?, minMatches: Int = 30, onTap: (Int, Int) -> Unit = { _, _ -> }) {
     Box(Modifier.horizontalScroll(rememberScrollState())) {
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                Box(Modifier.width(100.dp).height(128.dp).background(T1.surface))
+                labels.forEach { col ->
+                    // laid out across, then turned to read upwards from the bottom of the header
+                    Box(Modifier.width(40.dp).height(128.dp).background(T1.surface).clipToBounds(), contentAlignment = Alignment.Center) {
+                        Text(col.uppercase(), Modifier.requiredWidth(120.dp).rotate(-90f), color = T1.text, fontFamily = T1.mono, fontSize = 9.sp,
+                            letterSpacing = 0.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
             labels.forEachIndexed { r, row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                     Text(row, Modifier.width(100.dp).height(34.dp).background(T1.surface).padding(horizontal = 6.dp, vertical = 4.dp),
