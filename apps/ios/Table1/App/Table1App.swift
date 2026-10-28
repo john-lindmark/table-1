@@ -44,6 +44,10 @@ struct Table1App: App {
                 .overlay {
                     if ProcessInfo.processInfo.arguments.contains("-T1RotoDemo") { RotoDemoRoot() }
                 }
+                // `-T1Permissions`: the permissions step after sign-in, signed in or not, whatever was answered before.
+                .overlay {
+                    if PermissionsStep.demo, session.needsPermissions { PermissionsView() }
+                }
                 // `-T1OpenURL <table-1.site address>`: as if the link were tapped (the simulator can't open universal
                 // links from an unsigned build), e.g. a join QR while signed out.
                 .task {
@@ -129,6 +133,8 @@ final class SessionModel {
     var state: State = .loading
     /// A new email account: the name step comes before the app (SignIn.needsName).
     var needsName = false
+    /// Why notifications and location help, once per device after sign-in (and the name step), skippable.
+    var needsPermissions = PermissionsStep.demo
     var pendingJoin: JoinLink?
     /// A sign-up link opened signed out: its event, shown over sign-in; signing in signs you up.
     var pendingSignUp: EventPage?
@@ -216,6 +222,8 @@ final class SessionModel {
 
     func watchAuth() async {
         for await (event, session) in supabase.auth.authStateChanges {
+            // Decided before the state flips, so the tabs never flash ahead of the step.
+            if session != nil, event == .initialSession || event == .signedIn { needsPermissions = await PermissionsStep.needed() }
             state = session == nil ? .signedOut : .signedIn
             if state == .signedIn { EmailSignIn.clear() }
             if state == .signedOut, pendingSignUp == nil, case .standings(let id)? = pendingLink {
@@ -285,7 +293,9 @@ struct RootView: View {
         case .loading: T1Screen { Bar(title: "Table 1") }
         case .signedOut: SignInView().screen("sign_in")
         case .signedIn:
-            if session.needsName { NameView().screen("sign_in_name") } else { SignedInView() }
+            if session.needsName { NameView().screen("sign_in_name") }
+            else if session.needsPermissions { PermissionsView().screen("onboarding_permissions") }
+            else { SignedInView() }
         }
     }
 }

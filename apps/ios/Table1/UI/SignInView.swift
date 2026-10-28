@@ -287,3 +287,77 @@ struct NameView: View {
         }
     }
 }
+
+/// After sign-in (and the name step), once per device: why notifications and location help, before iOS asks.
+/// Turn on shows the system prompts for whichever is still unasked; Skip for now goes straight in and nothing asks
+/// again on its own (contract/permissions-onboarding-2026-10-28.md).
+struct PermissionsView: View {
+    @Environment(SessionModel.self) private var session
+    @State private var notifications: PermissionState = .unasked
+    @State private var location: PermissionState = .unasked
+    @State private var busy = false
+
+    var body: some View {
+        VStack(spacing: 1) {
+            SignInMark()
+            PermissionRow(
+                title: "Notifications", state: notifications,
+                text: "Know the moment your round is paired, when your opponent reports a result and when you're invited to an event. Friends' trades and price drops on your wants too."
+            )
+            PermissionRow(
+                title: "Location", state: location,
+                text: "See events starting near you and join without a code, and pin your own event to the venue. Only while the app is open, and only a rough area is kept, never your exact spot."
+            )
+            Notice("Change either any time in iOS Settings.")
+            HStack(spacing: 1) { Ghost(text: "Skip for now") { finish("skip") } }
+            BigAction(text: "Turn on", busy: busy, accent: true) { turnOn() }
+        }
+        .background(T1.bg.ignoresSafeArea())
+        .foregroundStyle(T1.text)
+        .task { if let state = await PermissionsStep.notifications() { notifications = state } }
+        .task { location = await PermissionsStep.location() }
+    }
+
+    private func turnOn() {
+        busy = true
+        Task {
+            if notifications == .unasked { notifications = await PushController.shared.ask() ? .on : .off }
+            if location == .unasked { location = await LocationFix.shared.ask() ? .on : .off }
+            finish("turn_on")
+        }
+    }
+
+    private func finish(_ choice: String) {
+        Telemetry.capture("onboarding_permissions", [
+            "choice": choice, "notifications": "\(notifications)", "location": "\(location)",
+        ])
+        PermissionsStep.seen = true
+        session.needsPermissions = false
+    }
+}
+
+private struct PermissionRow: View {
+    let title: String
+    let state: PermissionState
+    let text: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(title.uppercased()).font(T1.mono(13, .bold)).tracking(3)
+                Spacer()
+                switch state {
+                case .on: LabelText("On", color: T1.accent)
+                case .off: LabelText("Off")
+                case .unasked: EmptyView()
+                }
+            }
+            Text(text).font(T1.mono(12)).lineSpacing(4).foregroundStyle(T1.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16).padding(.vertical, 14)
+        .background(T1.surface)
+        .accessibilityElement(children: .combine)
+    }
+}
