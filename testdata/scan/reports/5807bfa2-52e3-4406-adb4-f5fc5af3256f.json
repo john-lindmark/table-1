@@ -1,0 +1,79 @@
+{
+  "id": "5807bfa2-52e3-4406-adb4-f5fc5af3256f",
+  "source": "report",
+  "frames": [
+    [],
+    [],
+    [
+      "iFy Creature",
+      "HH",
+      "Vigilance",
+      "Whenever you cast a creature spell,",
+      "draw a cued, then you may put a",
+      "ne anta the",
+      "rel front your b",
+      "1/4",
+      "IL ION ADAME M"
+    ],
+    [
+      "Chulane, Teller of Tales •",
+      "23*",
+      "Legendary Creature - Human Druid",
+      "Vigilance",
+      "Whenever you cast a creature spell,",
+      "draw a card, then you may put a",
+      "land card from your hand onto the",
+      "battlefield.",
+      "3, r: Return target creature you",
+      "control to its owner's hand.",
+      "2/4",
+      "326",
+      "ELD • EN A VICTOR ADAME MINGUEZ",
+      "In & C 2019 Winds of the Coe"
+    ],
+    [
+      "Chulane, Teller of Tales »",
+      "Legendary Creature - Human Druid",
+      "Vigilance",
+      "Whenever you cast a creature spell,",
+      "draw a card, then you may put a",
+      "land card from your hand onto the",
+      "battlefield",
+      "3, e: Return target creature you",
+      "control to its owner's hand.",
+      "2/4",
+      "EB • EN I VICTOR ARAME MINGUE",
+      "ISE MISE"
+    ],
+    [
+      "Chulane, Teller of Tales +",
+      "Legendary Creature - Human Druid",
+      "Vigilance",
+      "Whenever you cast a creature spell,",
+      "draw a card, then you may put a",
+      "land card from your hand onto the",
+      "battlefield.",
+      "3, c: Return target creature you",
+      "control to its owner's hand.",
+      "2/4",
+      "VILD - EN * VICTOR ADANT MINGUTA",
+      "In & © 2019 Wand of the Cas"
+    ]
+  ],
+  "name": "Chulane, Teller of Tales",
+  "set": "plst",
+  "cn": "ELD-326",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "326",
+    "set": "eld",
+    "name": "Chulane, Teller of Tales",
+    "exact": true,
+    "card_id": "83f43730-1c1f-4150-8771-d901c54bedc4"
+  },
+  "reported_at": "2026-10-26T03:14:30.834849+00:00"
+}

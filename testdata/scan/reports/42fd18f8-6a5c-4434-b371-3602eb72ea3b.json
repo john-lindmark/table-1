@@ -1,0 +1,88 @@
+{
+  "id": "42fd18f8-6a5c-4434-b371-3602eb72ea3b",
+  "source": "report",
+  "frames": [
+    [
+      "Mindbreak Trap",
+      "Instant - Trap",
+      "If an opponent cast three or more spells",
+      "this turn, you may pay 0 rather than pay",
+      "this spell's mana cost",
+      "Exile any number of target spells.",
+      "\"Life is a maze. This is one of iss dead ends.\"",
+      "- Noyun Dar, Tazeem Lullmage",
+      "- Christopher Moeller"
+    ],
+    [
+      "Mindbreak Trap",
+      "Instant - Trap",
+      "If an opponent cast three or more spells",
+      "this rurn, you may pay 0 rather than pay",
+      "this spell's mana cost.",
+      "Exile any number of target spells.",
+      "\"Life is a maze. This is one of its dead ends.\"",
+      "Noyan Dar, Taseem Lullmage",
+      "• Christopher Moeller"
+    ],
+    [
+      "Mindbreak Trap",
+      "Instant - Trap",
+      "If an opponent cast three or more spells",
+      "this turn, you may pay 0 rather than pay",
+      "this spell's mana cost.",
+      "Exile any number of target spells.",
+      "\"Life is a maze. This is one of its dead ends.\"",
+      "Noyan Dar, Tazeem lullmage",
+      "• Christopher Moeller"
+    ],
+    [
+      "Mindbreak Trap",
+      "Instant - Trap",
+      "If an opponent cast three or more spells",
+      "this turn, you may pay 0 rather than pay",
+      "this spell's mana cost.",
+      "Exile any number of target spells.",
+      "\"Life is a maze. This is one of its dead ends.\"",
+      "Noyan Dar, Tazeem Lullmage",
+      "• Christopher Moeller"
+    ],
+    [
+      "Mindbreak Trap",
+      "Instant - Trap",
+      "If an opponent cast three or more spells",
+      "this turn, you may pay 0 rather than pay",
+      "this spell's mana cost.",
+      "Exile any number of target spells.",
+      "\"Life is a maze. This is one of its dead ends.\"",
+      "-Noyan Dar, Tazeem lullmage",
+      "→ Christopher Moeller"
+    ],
+    [
+      "Mindbreak Trap",
+      "Instant - Trap",
+      "If an opponent cast three or more spells",
+      "this turn, you may pay 0 rather than pay",
+      "this spell's mana cost.",
+      "Exile any number of target spells.",
+      "\"Life is a maze. This is one of its dead ends.\"",
+      "-Noyan Dar, Tazeem lullmage",
+      "- Christopher Moeller"
+    ]
+  ],
+  "name": "Mindbreak Trap",
+  "set": "mb2",
+  "cn": "168",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (23)",
+  "pack_version": "v1-d695515817e0",
+  "owned_only": false,
+  "matched": {
+    "cn": "57",
+    "set": "zen",
+    "name": "Mindbreak Trap",
+    "exact": false,
+    "card_id": "4f51140b-6254-431a-8810-94307bfdfbbe"
+  },
+  "reported_at": "2026-10-24T05:32:56.49153+00:00"
+}

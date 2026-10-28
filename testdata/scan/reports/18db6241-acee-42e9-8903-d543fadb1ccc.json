@@ -1,0 +1,87 @@
+{
+  "id": "18db6241-acee-42e9-8903-d543fadb1ccc",
+  "source": "report",
+  "frames": [
+    [
+      "When Eternal",
+      "I the",
+      "tanger card",
+      "hom your graveya",
+      "ото во зношт питис",
+      "She rememben every surd spoken, from",
+      "she hero's nuth se the haly is ary.",
+      "2/1"
+    ],
+    [
+      "Eternal Witness",
+      "Creature - Human Shaman",
+      "When Eternal Witness enters the",
+      "battlefield, you may return target card",
+      "from your graveyard to your hand.",
+      "She remembers every word spoken, from",
+      "the hero's oath to the baby's cry.",
+      "2/1",
+      "→ Tere"
+    ],
+    [
+      "Eternal Witness",
+      "Creature - Human Shaman",
+      "When Eternal Witness enters the",
+      "battlefield, you may return target card",
+      "from your graveyard to your hand.",
+      "She remembers every word spoken, from",
+      "the hero's oath to the baby's cry.",
+      "2/1"
+    ],
+    [
+      "Eternal Witness",
+      "100",
+      "Creature - Human Shaman",
+      "When Eternal Witness enters the",
+      "battlefield, you may return target card",
+      "from your graveyard to your hand.",
+      "She remembers every word spoken, from",
+      "the hero's oath to the baby's cry.",
+      "- Terese Nielsen",
+      "2/1"
+    ],
+    [
+      "Eternal Witness",
+      "Creature - Human Shaman",
+      "When Eternal Witness enters the",
+      "battlefield, you may return target card",
+      "from your graveyard to your hand.",
+      "She remembers every word spoken, from",
+      "the hero's oath to the baby's cry.",
+      "Nielsen",
+      "2/1"
+    ],
+    [
+      "Eternal Witness",
+      "Creature - Human Shaman",
+      "When Eternal Witness enters the",
+      "battlefield, you may return target card",
+      "from your graveyard to your hand.",
+      "She remembers every word spoken, from",
+      "the hero's oath to the baby's cry.",
+      "• Terese Nielsen",
+      "2/1"
+    ]
+  ],
+  "name": "Eternal Witness",
+  "set": "mma",
+  "cn": "144",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "86",
+    "set": "5dn",
+    "name": "Eternal Witness",
+    "exact": false,
+    "card_id": "c7e10ca7-1e5d-4224-82cf-798a4d436d72"
+  },
+  "reported_at": "2026-10-28T00:32:09.214205+00:00"
+}

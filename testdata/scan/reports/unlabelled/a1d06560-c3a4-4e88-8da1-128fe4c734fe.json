@@ -1,0 +1,78 @@
+{
+  "id": "a1d06560-c3a4-4e88-8da1-128fe4c734fe",
+  "source": "report",
+  "frames": [
+    [],
+    [],
+    [
+      "amy cute",
+      "Sou may cast crea",
+      "pour library",
+      "e, Tap two unita",
+      "Reveal a card from yo",
+      "of your library. If you",
+      "way put it cano the ba",
+      "burng your tur"
+    ],
+    [
+      "You may look at the top ca",
+      "any time.",
+      "You may cast creature spell",
+      "your library.",
+      "*, r, Tap two untapped cre",
+      "Reveal a card from your han",
+      "of your library. If you reveal",
+      "way, put it onto the battlefiel",
+      "during your turn.",
+      "M 0149",
+      "MH3 • EN IS ZOLTAN BOROS"
+    ],
+    [
+      "You may look at the top card",
+      "any time.",
+      "You may cast creature spells f",
+      "your library.",
+      "*, r, Tap two untapped creat",
+      "Reveal a card from your hand c",
+      "of your library. If you reveal a c",
+      "way, put it onto the battlefield.",
+      "during your turn.",
+      "M 0149",
+      "MH3 • EN I ZOLTAN BOROS"
+    ],
+    [
+      "You may look at the top card",
+      "any time.",
+      "You may cast creature spells fr",
+      "your library.",
+      ", r, Tap two untapped creatur",
+      "Reveal a card from your hand or",
+      "of your library. If you reveal a cr",
+      "way, put it onto the battlefield. A",
+      "during your turn.",
+      "M 0149",
+      "MH3 • EN I ZOLTAN BOROS"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Eladamri, Korvecdal",
+    "set": "mh3",
+    "cn": "149"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "149",
+    "set": "mh3",
+    "name": "Eladamri, Korvecdal",
+    "exact": true,
+    "card_id": "dfdabdda-bd46-4ea2-8b37-5d7f6cec6aff"
+  },
+  "reported_at": "2026-10-26T03:06:33.843991+00:00"
+}

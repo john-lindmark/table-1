@@ -1,0 +1,96 @@
+{
+  "id": "abbde968-234a-419c-899f-59a209d496c3",
+  "source": "report",
+  "frames": [
+    [
+      "Consterared Sphims",
+      "00",
+      "Creature - Sphinx",
+      "Flying",
+      "Whenever an opponent draws a",
+      "card, you may draw two cards.",
+      "A curse is just another name for an",
+      "unwanted blessing.",
+      "Illus. Mark Zug",
+      "2026 Wizands of the C",
+      "4/6"
+    ],
+    [
+      "Consecrated Sphins",
+      "Creature - Sphinx",
+      "Flying",
+      "Whenever an opponent draws a",
+      "card, you may draw two cards.",
+      "A curse is just another name for an",
+      "unwanted blessing.",
+      "Ius. Mark Zug",
+      "ands of the Coast 1",
+      "4/6"
+    ],
+    [
+      "Consecrared Sphins",
+      "Creature - Sphinx",
+      "Flying",
+      "Whenever an opponent draws a",
+      "card, you may draw two cards.",
+      "A curse is just another name for an",
+      "unwanted blessing.",
+      "Illus. Mark Zug",
+      "ands of the Coast 1",
+      "4/6"
+    ],
+    [
+      "Consecraced Sphin:",
+      "Creature - Sphinx",
+      "Flying",
+      "Whenever an opponent draws a",
+      "card, you may draw two cards.",
+      "A curse is just another name for an",
+      "unwanted blessing.",
+      "Illus. Mark Zug",
+      "2026 Wizards of the Coa",
+      "4/6"
+    ],
+    [
+      "Consecrared Sphins",
+      "Creature — Sphinx",
+      "Flying",
+      "Whenever an opponent draws a",
+      "card, you may draw two cards.",
+      "A curse is just another name for an",
+      "unwanted blessing.",
+      "Illus. Mark Zug",
+      "2026 Wizards of the Coast 1 Prom",
+      "4/6"
+    ],
+    [
+      "Consecrared Sphins",
+      "Creature - Sphinx",
+      "Flying",
+      "Whenever an opponent draws a",
+      "card, you may draw two cards.",
+      "A curse is just another name for an",
+      "unwanted blessing.",
+      "Illus. Mark Zug",
+      "2026 WD",
+      "ards of the Coast 1 Promi",
+      "4/6"
+    ]
+  ],
+  "name": "Consecrated Sphinx",
+  "set": "pf26",
+  "cn": "4",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (23)",
+  "pack_version": "v1-d695515817e0",
+  "owned_only": false,
+  "matched": {
+    "cn": "21",
+    "set": "mbs",
+    "name": "Consecrated Sphinx",
+    "exact": false,
+    "card_id": "b7f6b20c-9871-433c-8557-44493447e914"
+  },
+  "reported_at": "2026-10-24T05:23:17.647667+00:00"
+}

@@ -1,0 +1,80 @@
+{
+  "id": "11d04516-30c1-4589-a5ae-b42c508c95a5",
+  "source": "report",
+  "frames": [
+    [
+      "ticketey",
+      "Cresture - faerie Wizard",
+      "oi mey sart de spelt smy fins put",
+      "soA A ai tatont /"
+    ],
+    [
+      "High Fae Trickster",
+      "Creature - faerie Wizard",
+      "Flash (You may cast this spell any time you",
+      "could cast an instant.)",
+      "Flying",
+      "You may cast spells as though they had flash"
+    ],
+    [
+      "High Fae Trickster",
+      "Creature - Faerie Wizard",
+      "Flash (You may cast this spell any time you",
+      "could cast an instamt.)",
+      "Flying",
+      "You may cast spells as though they had flash",
+      "To the High Fae, spells that take a human years"
+    ],
+    [
+      "High Fae Trickster",
+      "3 4",
+      "Creature - Faerie Wizard",
+      "Flash (You may cast this spell any tome you",
+      "could cast an instant.)",
+      "Flying",
+      "You may cast spells as though they had flash",
+      "To the High Fac, spells that take a human years",
+      "to master come as casily as breathing."
+    ],
+    [
+      "High Fae Trickster",
+      "30",
+      "Creature - Faerie Wizard",
+      "Flash (You may cast this spell any time you",
+      "could cast an instant.)",
+      "Flying",
+      "You may cast spells as though they had flash.",
+      "To the High Fae, spells that take a human years",
+      "to master come as easily as breathing.",
+      "4/2"
+    ],
+    [
+      "High Fae Trickster",
+      "3",
+      "Creature - Faerie Wizard",
+      "Flash (You may cast this spell any time you",
+      "could cast an instant.)",
+      "Flying",
+      "You may cast spells as though they had flash.",
+      "To the High Fae, spells that take a human years",
+      "to master come as easily as breathing.",
+      "4/2"
+    ]
+  ],
+  "name": "High Fae Trickster",
+  "set": "fdn",
+  "cn": "453",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (23)",
+  "pack_version": "v1-d695515817e0",
+  "owned_only": false,
+  "matched": {
+    "cn": "40",
+    "set": "fdn",
+    "name": "High Fae Trickster",
+    "exact": false,
+    "card_id": "7f1b93ea-1ec1-4010-9343-765742f5088b"
+  },
+  "reported_at": "2026-10-24T05:25:03.377989+00:00"
+}

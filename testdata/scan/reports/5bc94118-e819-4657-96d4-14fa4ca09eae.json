@@ -1,0 +1,103 @@
+{
+  "id": "5bc94118-e819-4657-96d4-14fa4ca09eae",
+  "source": "report",
+  "frames": [
+    [
+      "ague Engineer enters the hatlefield,",
+      "а стеатите пуре",
+      "of the chosets type your opp",
+      "mariably fanal!",
+      "2/2"
+    ],
+    [
+      "Plague Engineer",
+      "Creature - Carrier",
+      "Deathtouch",
+      "As Plague Engineer enters the battlefield,",
+      "choose a creature type.",
+      "Creatures of the chosen type your opponents",
+      "control get -1/-1.",
+      "\"The lasting effects are invariably fatal.\"",
+      "-Phyrexian progress notes",
+      "100/254 R",
+      "*MHT-EN A NICHOLAS GREGORY",
+      "2/2",
+      "& € 2019 Wuards of the Coal"
+    ],
+    [
+      "Plague Engineer",
+      "Creature - Carrier",
+      "Deathtouch",
+      "As Plague Engineer enters the battlefield,",
+      "choose a creature type.",
+      "Creatures of the chosen type your opponents",
+      "control get -1/-1.",
+      "\"The lasting effects are invariably fatal.\"",
+      "-Phyrexian progress notes",
+      "100/254 R",
+      "*MHT-EN A NICHOLAS GREGORY",
+      "2/2",
+      "* & 2019 Wands of the Coast"
+    ],
+    [
+      "Plague Engineer",
+      "Creature - Carrier",
+      "Deathtouch",
+      "As Plague Engineer enters the battlefield,",
+      "choose a creature type.",
+      "Creatures of the chosen type your opponents",
+      "control get -1/-1.",
+      "\"The lasting effects are invariably fatal.\"",
+      "-Phyrexian progress notes",
+      "100/254 R",
+      "*MHI •EN O NICHOLAS GREGORY",
+      "2/2",
+      "*s 4 3089 Winands of the Coas"
+    ],
+    [
+      "Plague Engineer",
+      "Creature - Carrier",
+      "Deathtouch",
+      "As Plague Engineer enters the battlefield,",
+      "choose a creature type.",
+      "Creatures of the chosen type your opponents",
+      "control get -1/-1.",
+      "\"The lasting effects are invariably fatal.\"",
+      "-Phyrexian progress notes",
+      "+MH/264 E NICHOLAS GAECORN",
+      "2/2",
+      "* & 2010 %trirds of the Coast"
+    ],
+    [
+      "Plague Engineer",
+      "Creature - Carrier",
+      "Deathtouch",
+      "As Plague Engineer enters the battlefield,",
+      "choose a creature type.",
+      "Creatures of the chosen type your opponents",
+      "control get -1/-1.",
+      "\"The lasting effects are invariably fatal.\"",
+      "-Phyrexian progress notes",
+      "100/254 R",
+      "MHT-EN A NICHOLAS GREGORY",
+      "2/2",
+      "* 2019W oards of che Coast"
+    ]
+  ],
+  "name": "Plague Engineer",
+  "set": "plst",
+  "cn": "MH1-100",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "100",
+    "set": "mh1",
+    "name": "Plague Engineer",
+    "exact": false,
+    "card_id": "8f32b0e9-5eb2-4b26-8c06-5d4561f0295d"
+  },
+  "reported_at": "2026-10-25T04:43:13.539908+00:00"
+}

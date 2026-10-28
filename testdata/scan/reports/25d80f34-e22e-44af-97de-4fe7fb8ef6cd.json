@@ -1,0 +1,101 @@
+{
+  "id": "25d80f34-e22e-44af-97de-4fe7fb8ef6cd",
+  "source": "report",
+  "frames": [
+    [
+      "S Labyrinth",
+      "a Ugin's Labyrinth",
+      "Tell",
+      "1, you may exile",
+      "with mana value 7 or",
+      "i hand.",
+      "and is exiled with Ugin's",
+      "mutead",
+      "lod cand to its owner's"
+    ],
+    [
+      "Land",
+      "When Ugin's Labyrinth",
+      "fers the bardefield, you may exile",
+      "• coloriess card with mana value 7 or",
+      "treater fram vour hand",
+      "Add •. If a card is exiled with Ugin's",
+      "Lorranch, add 4 6 instead",
+      "Keturn the exiled card to its owner's"
+    ],
+    [
+      "Ugin's Labyrinth",
+      "Land",
+      "Imprint",
+      "When Ugin's Labyrinth",
+      "enters the battlefield, you may exile",
+      "a colorless card with mana value 7 or",
+      "greater from your hand.",
+      "r: Add • . If a card is exiled with Ugin's",
+      "Labyrinth, add + • instead.",
+      "r: Return the exiled card to its owner's",
+      "hand",
+      "MHS • EN A MARK POOLE",
+      "2024 Wizards of the Coas"
+    ],
+    [
+      "Ugin's Labyrinth",
+      "Land",
+      "Imprint — When Ugin's Labyrinth",
+      "enters the battlefield, you may exile",
+      "a colorless card with mana value 7 or",
+      "greater from your hand.",
+      "r: Add •. If a card is exiled with Ugin's",
+      "Labyrinth, add • • instead.",
+      "~: Return the exiled card to its owner's",
+      "hand",
+      "M 0233",
+      "MH3 • EN A MARK POOLE",
+      "* & D 2024 Wizards of the Coast"
+    ],
+    [
+      "Ugin's Labyrinth",
+      "Land",
+      "Imprint — When Ugin's Labyrinth",
+      "eaters the battlefield, you may exile",
+      "a colorless card with mana value 7 or",
+      "greater from your hand.",
+      "e: Add o. If a card is exiled with Ugin's",
+      "Labyrinth, add • • instead.",
+      "•: Return the exiled card to its owner's",
+      "hand",
+      "* POOLE"
+    ],
+    [
+      "Ugin's Labyrinth",
+      "Land",
+      "Imprint — When Ugin's Labyrinth",
+      "enters the battlefield, you may exile",
+      "a colorless card with mana value 7 or",
+      "greater from your hand.",
+      "s: Add 4. If a card is exiled with Ugin's",
+      "Labyrinth, add • • instead",
+      "r: Return the exiled card to its owner's",
+      "hand",
+      "M 0233",
+      "MH3 • EN A MARK POOLE",
+      "1N & c 2021 Wizards of the Coast"
+    ]
+  ],
+  "name": "Ugin's Labyrinth",
+  "set": "pmh3",
+  "cn": "233p",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (32)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "233",
+    "set": "mh3",
+    "name": "Ugin's Labyrinth",
+    "exact": true,
+    "card_id": "020e1348-1a35-4cc8-bad6-9fbddfa79277"
+  },
+  "reported_at": "2026-10-28T02:54:58.936959+00:00"
+}

@@ -1,0 +1,83 @@
+{
+  "id": "45a5e4a8-979b-4549-9741-1ef2caeee603",
+  "source": "report",
+  "frames": [
+    [
+      "Soul Partition",
+      "Instant",
+      "Exile target nonland permanent. For",
+      "as long as that card remains exiled,",
+      "its owner may play it. A spell cast by",
+      "an opponent this way costs 2 more",
+      "to cast."
+    ],
+    [
+      "SLC",
+      "Soul Partition",
+      "Instant",
+      "Exile target nonland permanent. For",
+      "as long as that card remains exiled,",
+      "its owner may play it. A spell cast by",
+      "an opponent this way costs 2 more",
+      "to cast.",
+      "BROKEN A KERAI KOTARI"
+    ],
+    [
+      "Soul Partition",
+      "Instant",
+      "Exile target nonland permanent. For",
+      "as long as that card remains exiled,",
+      "its owner may play it. A spell cast by",
+      "an opponent this way costs 2 more",
+      "to cast.",
+      "BRO •EN & NEKAY KOTAKI"
+    ],
+    [
+      "Soul Partition",
+      "Instant",
+      "Exile target nonland permanent. For",
+      "as long as that card remains exiled,",
+      "its owner may play it. A spell cast by",
+      "an opponent this way costs 2 more",
+      "to cast.",
+      "BROKEN & RELAI KOTAKA"
+    ],
+    [
+      "Soul Partition",
+      "Instant",
+      "Exile target nonland permanent. For",
+      "as long as that card remains exiled,",
+      "its owner may play it. A spell cast by",
+      "an opponent this way costs 2 more",
+      "to cast.",
+      "BRO *EN & KERA KOTARA"
+    ],
+    [
+      "1995",
+      "SLC",
+      "Soul Partition",
+      "Instant",
+      "Exile target nonland permanent. For",
+      "as long as that card remains exiled,",
+      "its owner may play it. A spell cast by",
+      "an opponent this way costs 2 more",
+      "to cast."
+    ]
+  ],
+  "name": "Soul Partition",
+  "set": "bro",
+  "cn": "307",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "26",
+    "set": "bro",
+    "name": "Soul Partition",
+    "exact": false,
+    "card_id": "28bb8ec0-9729-4aa1-8ce4-a3a5598b0d70"
+  },
+  "reported_at": "2026-10-28T00:22:33.819212+00:00"
+}

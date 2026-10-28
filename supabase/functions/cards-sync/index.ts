@@ -15,6 +15,7 @@ import {
   type SlimCard,
 } from "./catalog.ts";
 import { type InflateCheckpoint, gzipHeaderBytes } from "./inflate.ts";
+import { type ArtRow, artRow } from "./art.ts";
 
 const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
   auth: { persistSession: false },
@@ -67,18 +68,23 @@ async function chunk(run: number, n: number) {
     if (error || !data) throw new Error(`staging download ${n}: ${error?.message ?? "missing"}`);
     const piece = new Uint8Array(await data.arrayBuffer());
     let batch: SlimCard[] = [];
+    let art: ArtRow[] = [];
     let rows = 0;
-    const totals = { oracles: 0, cards: 0, prices: 0 };
+    const totals = { oracles: 0, cards: 0, prices: 0, art: 0 };
     const send = async () => {
       if (!batch.length) return;
       const r = await rpc<typeof totals>("catalog_ingest", { p_run: run, p_rows: batch });
       totals.oracles += r.oracles; totals.cards += r.cards; totals.prices += r.prices;
+      // The same printings' illustrator and frame, once the cards are in (the pack's P lines carry them).
+      totals.art += await rpc<number>("catalog_art_ingest", { p_run: run, p_rows: art });
       rows += batch.length;
       batch = [];
+      art = [];
     };
     for (const line of pieceLines(piece)) {
-      const slim = slimCard(JSON.parse(line));
-      if (slim) batch.push(slim);
+      const card = JSON.parse(line);
+      const slim = slimCard(card);
+      if (slim) { batch.push(slim); art.push(artRow(card)); }
       if (batch.length >= INGEST_BATCH) await send();
     }
     await send();

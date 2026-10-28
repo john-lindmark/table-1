@@ -1,0 +1,102 @@
+{
+  "id": "c625d8d5-1ee2-483b-8f86-8dfec8a63d5e",
+  "source": "report",
+  "frames": [
+    [
+      "Tyrexian Obl",
+      "S/S"
+    ],
+    [
+      "Phyrexian",
+      "Ob",
+      "terator",
+      "Trampic",
+      "Whenever a",
+      "Phynexian Of",
+      "damage 10",
+      "controller sacril",
+      "source's",
+      "permancats",
+      "*Behold Mas",
+      "Shanlared",
+      "# On",
+      "5/5"
+    ],
+    [
+      "Phyrexian Obliterator",
+      "Creature - Horror",
+      "Trample",
+      "Whenever a source deals damage to",
+      "Phyrexian Obliterator, that source's",
+      "controller sacrifices that many",
+      "permanents.",
+      "\"Behold blessed perfection.\"",
+      "—Sheoldred, Whispering One",
+      "101/249 R",
+      "5/5",
+      "A25 • EN IO TODD LOCKWOOi",
+      "Tu & O 2018 Wizards of the Coast"
+    ],
+    [
+      "Phyrexian Obliterator",
+      "Creature - Horror",
+      "Trample",
+      "Whenever a source deals damage to",
+      "Phyrexian Obliterator, that source's",
+      "controller sacrifices that many",
+      "permanents.",
+      "\"Behold blessed perfection.\"",
+      "-Sheoldred, Whispering One",
+      "101/249 M",
+      "+A25 • EN TOOD LOCKWOOD",
+      "5/5",
+      "2018 Wizards of the Coas"
+    ],
+    [
+      "Phyrexian Obliterator",
+      "Creature - Horror",
+      "Trample",
+      "Whenever a source deals damage to",
+      "Phyrexian Obliterator, that source's",
+      "controller sacrifices that many",
+      "permanents.",
+      "\"Behold blessed perfection.\"",
+      "Sheoldred, Whispering One",
+      "101/249 м",
+      "5/5",
+      "+A25 - EN ~ TODD LOCKVOOD",
+      "& t 2018 Wards of the C"
+    ],
+    [
+      "Phyrexian Obliterator",
+      "Creature - Horror",
+      "Trample",
+      "Whenever a source deals damage to",
+      "Phyrexian Obliterator, that source's",
+      "controller sacrifices that many",
+      "permanents.",
+      "\"Behold blessed perfection.\"",
+      "-Sheoldred, Whispering One",
+      "5/5",
+      "101/249 M",
+      "A25 • EN * TODD LOCKWOOD",
+      "IM & € 2018 Wizards of the Coast"
+    ]
+  ],
+  "name": "Phyrexian Obliterator",
+  "set": "plst",
+  "cn": "A25-101",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "101",
+    "set": "a25",
+    "name": "Phyrexian Obliterator",
+    "exact": true,
+    "card_id": "acf5cbe2-84fa-46f4-a4f2-97b48ddf2d39"
+  },
+  "reported_at": "2026-10-25T04:42:20.049447+00:00"
+}

@@ -1,0 +1,98 @@
+{
+  "id": "fe095fe1-4d6e-453d-8832-71aebc3f0df9",
+  "source": "report",
+  "frames": [
+    [
+      "Breeding Pool",
+      "Land - Forest Island",
+      "(e: Add \" or & to your mana pool.)",
+      "As Breeding Pool enters the battlefield,",
+      "you may pay 2 life. If you don't,",
+      "Breeding Pool enters the battlefield",
+      "tapped.",
+      "Uncharted depths. Unbounded hopes.",
+      "Unfathomable mysteries.",
+      "- Mike Bierek"
+    ],
+    [
+      "Breeding Pool",
+      "V",
+      "Land - Forest Island",
+      "(r: Add \" or • to your mana pool.)",
+      "As Breeding Pool enters the battlefield,",
+      "you may pay 2 life. If you don't,",
+      "Breeding Pool enters the battlefield",
+      "tapped.",
+      "Uncharted depths. Unbounded hopes.",
+      "Unfathomable mysteries.",
+      "- Mike Bierek"
+    ],
+    [
+      "Breeding Pool",
+      "Land - Forest Island",
+      "(r: Add \" or • to your mana pool.)",
+      "As Breeding Pool enters the battlefield,",
+      "you may pay 2 life. If you don't,",
+      "Breeding Pool enters the battlefield",
+      "tapped.",
+      "Uncharted depths. Unbounded hopes.",
+      "Unfathomable mysteries.",
+      "- Mike Bierek",
+      "* & : 20131"
+    ],
+    [
+      "Breeding Pool",
+      "CV.",
+      "Land - Forest Island",
+      "(r: Add a",
+      "or & to your mana pool.)",
+      "As Breeding Pool enters the battlefield,",
+      "you may pay 2 life. If you don't,",
+      "Breeding Pool enters the battlefield",
+      "tapped.",
+      "Uncharted depths. Unbounded hopes.",
+      "Unfathomable mysteries.",
+      "-• Mike Bierek"
+    ],
+    [
+      "Breeding Pool",
+      "Land - Forest Island",
+      "(s: Add \" or & to your mana pool.)",
+      "As Breeding Pool enters the battlefield,",
+      "you may pay 2 life. If you don't.",
+      "Breeding Pool enters the battlefield",
+      "tapped.",
+      "Uncharted depths. Unbounded hopes.",
+      "Unfathomable mysteries.",
+      "• Mike Bierek"
+    ],
+    [
+      "Breeding Pool",
+      "Land - Forest Island",
+      "(r: Add \" or • to your mana pool.)",
+      "As Breeding Pool enters the battlefield,",
+      "you may pay 2 life. If you don't,",
+      "Breeding Pool enters the battlefield",
+      "tapped.",
+      "Uncharted depths. Unbounded hopes.",
+      "Unfathomable mysteries.",
+      "-o Mike Bierek"
+    ]
+  ],
+  "name": "Breeding Pool",
+  "set": "gtc",
+  "cn": "240",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "172",
+    "set": "dis",
+    "name": "Breeding Pool",
+    "exact": false,
+    "card_id": "b98b2a35-ec2b-47fe-903d-dd292e469a3c"
+  },
+  "reported_at": "2026-10-25T04:26:09.994675+00:00"
+}

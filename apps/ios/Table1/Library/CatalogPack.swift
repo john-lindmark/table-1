@@ -114,6 +114,10 @@ struct PackPrinting: Equatable {
     let printedName: String
     /// The card's original paper printing, the one adds use by default.
     var original: Bool = false
+    /// The illustrator and the card frame ("1993", "1997", "2003", "2015", "future"), for the scanner; empty when
+    /// the pack doesn't say (contract/catalog-2026-10-14.md).
+    var artist: String = ""
+    var frame: String = ""
 }
 
 enum CatalogPack {
@@ -190,7 +194,8 @@ enum CatalogPack {
                             try printing(PackPrinting(
                                 cardId: at(1), oracleIdx: Int(at(2)) ?? -1, set: at(3), cn: at(4), lang: at(5),
                                 rarity: at(6), finishes: at(7), releasedAt: at(8), imageTs: at(9),
-                                imageFaces: Int(at(10)) ?? 0, printedName: at(11), original: at(12) == "1"))
+                                imageFaces: Int(at(10)) ?? 0, printedName: at(11), original: at(12) == "1",
+                                artist: at(13), frame: at(14)))
                             p += 1
                         } else if fields[0] == "N", let i = Int(at(1)), i >= 0, i < h.oracles, !at(3).isEmpty {
                             try name(PackName(oracleIdx: i, lang: at(2), name: at(3)))

@@ -1,0 +1,89 @@
+{
+  "id": "03cc5fa4-c242-4840-8598-070a6f444fad",
+  "source": "report",
+  "frames": [
+    [
+      "Ignoble hierarch",
+      "Creature - Goblin Shaman",
+      "Exalted",
+      "r: Add $, a, or t",
+      "He protects the fetid bog from light,",
+      "life, and the hideous sound of laughter.",
+      "0/1",
+      "Wus. Mark Zug",
+      "2508 9 0l",
+      "A LA"
+    ],
+    [
+      "Ignoble hierarch",
+      "Creature - Goblin Shaman",
+      "Exalted",
+      "r: Add 9, a, or",
+      "He protects the fetid bog from light,",
+      "life, and the hideous sound of laughter.",
+      "0/1",
+      "Illus. Mark Zug",
+      "2031 Wuards of the Cous H4"
+    ],
+    [
+      "Ignoble hierarch",
+      "Creature - Goblin Shaman",
+      "Exalted",
+      "r: Add $, a, or r.",
+      "He protects the fetid bog from light.",
+      "life, and the hideous sound of laughter.",
+      "Illus. Mark Zug",
+      "0/1",
+      "be Cour 111"
+    ],
+    [
+      "Ignoble hierarch",
+      "Creature - Goblin Shaman",
+      "Exalted",
+      "r: Add $,",
+      "He protects the fetid bog from light,",
+      "life, and the hideous sound of laughter.",
+      "Illus. Mark Zug",
+      "0/1",
+      "& 2021 Wrands of the Cost 414"
+    ],
+    [
+      "Ignoble hierarch",
+      "Creature - Goblin Shaman",
+      "Exalted",
+      "r: Add $, a, or",
+      "He protects the ferd bog from light,",
+      "life, and the hideous sound of laughter.",
+      "0/1",
+      "Ius, Mark Zug",
+      "2021 Wants of the Coast 414"
+    ],
+    [
+      "Ignoble hierarch",
+      "Creature - Goblin Shaman",
+      "Exalted",
+      "r: Add 9, a, or 9",
+      "He protects the fetid bog from light,",
+      "life, and the hideous sound of laughter.",
+      "Illus. Mark Zug",
+      "0/1",
+      "2021 Wannas of the C"
+    ]
+  ],
+  "name": "Ignoble Hierarch",
+  "set": "mh2",
+  "cn": "414",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "166",
+    "set": "mh2",
+    "name": "Ignoble Hierarch",
+    "exact": false,
+    "card_id": "aba51852-af8f-49d8-8fb6-22d52a1742b8"
+  },
+  "reported_at": "2026-10-28T00:35:48.475923+00:00"
+}

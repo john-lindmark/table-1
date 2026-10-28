@@ -1,0 +1,83 @@
+{
+  "id": "cff19efa-4a68-4784-95d7-279c3e4b888f",
+  "source": "report",
+  "frames": [
+    [
+      "Mana Leak",
+      "Instant",
+      "Counter target spell unless its",
+      "controller pays 3.",
+      "The fatal flaw in every plan is the",
+      "assumption that you know more than",
+      "your enemy."
+    ],
+    [
+      "Mana Leak",
+      "Instant",
+      "Counter target spell unless its",
+      "controller pays 3.",
+      "The fatal flaw in every plan is the",
+      "assumption that you know more than",
+      "your enemy.",
+      "•Christopher Rush"
+    ],
+    [
+      "Mana Leak",
+      "Instant",
+      "Counter target spell unless its",
+      "controller pays 3.",
+      "The fatal flaw in every plan is the",
+      "assumption that you know more than",
+      "your enemy.",
+      "- Christopher Rush"
+    ],
+    [
+      "Mana Leak",
+      "Instant",
+      "Counter target spell unless its",
+      "controller pays 3.",
+      "The fatal flaw in every plan is the",
+      "assumption that you know more than",
+      "your enemy.",
+      "-Christopher Rush"
+    ],
+    [
+      "Mana Leak",
+      "10",
+      "Instant",
+      "Counter target spell unless its",
+      "controller pays 3.",
+      "The fatal flaw in every plan is the",
+      "assumption that you know more than",
+      "your enemy.",
+      "- Christopher Rush"
+    ],
+    [
+      "Mana Leak",
+      "10",
+      "Instant",
+      "Counter target spell unless its",
+      "controller pays 3.",
+      "The fatal flaw in every plan is the",
+      "assumption that you know more than",
+      "your enemy.",
+      "Christopher"
+    ]
+  ],
+  "name": "Mana Leak",
+  "set": "8ed",
+  "cn": "89",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (28)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "36",
+    "set": "sth",
+    "name": "Mana Leak",
+    "exact": false,
+    "card_id": "abcaf16d-aa02-43e2-aa38-bb1835d47a05"
+  },
+  "reported_at": "2026-10-26T04:19:50.358123+00:00"
+}

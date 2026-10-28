@@ -1,0 +1,77 @@
+{
+  "id": "2cbb4ebf-ed6c-48cb-a7b0-99e44b507389",
+  "source": "report",
+  "frames": [
+    [],
+    [],
+    [
+      "Pros",
+      "Aa the beginning of your upikzen, sacmfcr Th",
+      "Giang Monster uness you sacrifiee a land.",
+      "Yow mas play un additional land on ench ed",
+      "never one of monre land cards ure pur inna",
+      "rameand toee",
+      "whee, drak a cat"
+    ],
+    [
+      "The Gitrog Monster",
+      "3",
+      "Legendary Creature - Frog Horror",
+      "Deathtouch",
+      "At the beginning of your upkeep, sacrifice The",
+      "Gitrog Monster unless you sacrifice a land",
+      "You may play an additional land on each of",
+      "your turns.",
+      "Whenever one or more land cards are put into",
+      "your graveyard from anywhere, draw a card"
+    ],
+    [
+      "The Gitrog Monster",
+      "Legendary Creature - Frog Horror",
+      "Deathtouch",
+      "At the beginning of your upkeep, sacrifice The",
+      "Gitrog Monster unless you sacrifice a land.",
+      "You may play an additional land on each of",
+      "your turns.",
+      "Whenever one or more land cards are put into",
+      "your graveyard from anywhere, draw a card.",
+      "6/6",
+      "245/297 M",
+      "YSO1• •EN I LASON KANG",
+      "Witherbloom, the",
+      "IN & © 2016 Wizards of the Coas"
+    ],
+    [
+      "The Gitrog Monster",
+      "Legendary Creature - Frog Horror",
+      "Deathtouch",
+      "At the beginning of your upkeep, sacrifice The",
+      "Gitrog Monster unless you sacrifice a land.",
+      "You may play an additional land on each of",
+      "your turns.",
+      "Whenever one or more land cards are put into",
+      "your graveyard from anywhere, draw a card",
+      "6/6",
+      "245/297 N",
+      "Witherbloom, the",
+      "#SOLEN JASON KANC",
+      "™M & © 2016 Wizards of the Coast"
+    ]
+  ],
+  "name": "The Gitrog Monster",
+  "set": "plst",
+  "cn": "SOI-245",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "245",
+    "set": "soi",
+    "name": "The Gitrog Monster",
+    "exact": true,
+    "card_id": "5790dd89-2be5-4a77-9450-2d3c1422bfc9"
+  },
+  "reported_at": "2026-10-26T03:11:40.829722+00:00"
+}

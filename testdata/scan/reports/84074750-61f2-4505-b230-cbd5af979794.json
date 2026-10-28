@@ -1,0 +1,61 @@
+{
+  "id": "84074750-61f2-4505-b230-cbd5af979794",
+  "source": "report",
+  "frames": [
+    [
+      "Mox Tancalite",
+      "Artifact",
+      "Suspend 3-0",
+      "r: Add one mana of any color."
+    ],
+    [
+      "Muk Tantalite",
+      "B. Ada",
+      "if any Fi"
+    ],
+    [
+      "Mox Tantalite",
+      "Artifact",
+      "Suspend 30",
+      "r: Add one mana of any color.",
+      "Illus. Din Frazier"
+    ],
+    [
+      "Mox Tantalite",
+      "Artifact",
+      "Suspend 3-0",
+      "r: Add one mana of any color.",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "Mox Tantalite",
+      "Artifact",
+      "Suspend 3-0",
+      "r: Add one mana of any color.",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "Mox Tantalite",
+      "Artifact",
+      "Suspend 3-0",
+      "r: Add one mana of any color.",
+      "Illus. Dan Frazier"
+    ]
+  ],
+  "name": "Mox Tantalite",
+  "set": "sld",
+  "cn": "1073",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "226",
+    "set": "mh1",
+    "name": "Mox Tantalite",
+    "exact": false,
+    "card_id": "dcd05b01-dc73-4dd2-970a-32ec6e153c86"
+  },
+  "reported_at": "2026-10-26T03:20:08.518566+00:00"
+}

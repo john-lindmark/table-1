@@ -1,0 +1,103 @@
+{
+  "id": "32129edd-29fe-414f-b8ec-b15af8b68264",
+  "source": "report",
+  "frames": [
+    [
+      "Sorcery",
+      "Cleave 4 * * (You may cast this spell",
+      "for its cleave cost. If you do, remove the",
+      "words in square brackets.)",
+      "Destroy all creatures [with mana value",
+      "2 or less].",
+      "To Olivia's guests, a welcome. To everyone",
+      "else, a warning.",
+      "OW •EN"
+    ],
+    [
+      "Sorcery",
+      "Cleave 4*$ (You may cast this spell",
+      "for its cleave cost. If you do, remove the",
+      "words in square brackets.)",
+      "Destroy all creatures [with mana value",
+      "2 or less].",
+      "To Olivia's guests, a welcome. To everyone",
+      "else, a warning.",
+      "124/277 R",
+      "ru & © 2021 Wizards of the Coas",
+      "VOW • EN KASIA KARIS' ZIELINSKA"
+    ],
+    [
+      "Sorcery",
+      "Cleave 4*$ (You may cast this spell",
+      "for its cleave cost. If you do, remove the",
+      "words in square brackets.)",
+      "Destroy all creatures [with mana value",
+      "2 or less].",
+      "To Olivia's guests, a welcome. To everyone",
+      "else, a warning.",
+      "124/277 R",
+      "™ & © 2021 Wizards of the Coas",
+      "VOW • EN I• KASIA KARIS' ZIELIŃSKA"
+    ],
+    [
+      "Sorcery",
+      "Cleave 4 * $ (You may cast this spell",
+      "for its cleave cost. If you do, remove the",
+      "words in square brackets.)",
+      "Destroy all creatures [with mana value",
+      "2 or less].",
+      "To Olivia's guests, a welcome. To everyone",
+      "else, a warning.",
+      "124/277 R",
+      "™M & © 2021 Wizards of the Coast",
+      "VOW • EN • KASIA 'KAFIS' ZIELINSKA"
+    ],
+    [
+      "Sorcery",
+      "Cleave 4*$ (You may cast this spell",
+      "for its cleave cost. If you do, remove the",
+      "words in square brackets.)",
+      "Destroy all creatures [with mana value",
+      "2 or less].",
+      "To Olivia's guests, a welcome. To everyone",
+      "else, a warning.",
+      "24/ 277 F",
+      "™M & © 2021 Wizards of the Coast",
+      "OW • EN I• KASIA KAFIS\" ZIELIŃSK"
+    ],
+    [
+      "Sorcery",
+      "Cleave 4*$ (You may cast this spell",
+      "for its cleave cost. If you do, remove the",
+      "words in square brackets.)",
+      "Destroy all creatures [with mana value",
+      "2 or less].",
+      "To Olivia's guests, a welcome. To everyone",
+      "else, a warning.",
+      "124/277 R",
+      "™M & © 2021 Wizards of the Cons",
+      "VOW • EN I• KASIA KAFIS' ZIELINSKA"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Path of Peril",
+    "set": "vow",
+    "cn": "124"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "124",
+    "set": "vow",
+    "name": "Path of Peril",
+    "exact": true,
+    "card_id": "f0c5449a-d63b-4b22-9432-8f0365c3c4d9"
+  },
+  "reported_at": "2026-10-26T03:13:05.680827+00:00"
+}

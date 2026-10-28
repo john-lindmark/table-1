@@ -1,0 +1,71 @@
+{
+  "id": "20c70116-e444-4ee9-8f86-f3ef71517485",
+  "source": "report",
+  "frames": [
+    [
+      "Sol King",
+      "r: Add 2 colorles mana to",
+      "your mana pool. This ability",
+      "is played as an interrupt.",
+      "Illus. © Mark Tedin"
+    ],
+    [
+      "Sol Ring",
+      "7: Add 2 colorles mana to",
+      "your mana pool. This ability",
+      "is played as an interrupt.",
+      "Illus, © Mark Tedin"
+    ],
+    [
+      "Sol Ring",
+      "Acti",
+      "2: Add 2 colorles: mana to",
+      "your mana pool. This ability",
+      "is played as an interrupt.",
+      "Illus. © Mark Tedin"
+    ],
+    [
+      "Sol Ring",
+      "?: Add 2 colorles",
+      "mana to",
+      "your mana pool. This ability",
+      "is played as an interrupt.",
+      "Illus. © Mark Tedin"
+    ],
+    [
+      "Bol King",
+      "r: Add 2 colorless mana to",
+      "your mana pool. This ability",
+      "is played as an interrupt.",
+      "Illus. @ Mark Tedin"
+    ],
+    [
+      "Sol Ring",
+      "7: Add 2 colorles mana to",
+      "your mana pool. This ability",
+      "is played as an interrupt.",
+      "Illus. © Mark Tedin"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Sol Ring",
+    "set": "3ed",
+    "cn": "274"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "274",
+    "set": "3ed",
+    "name": "Sol Ring",
+    "exact": false,
+    "card_id": "803fd65f-4ca6-4fe4-abc2-72aa32ebb3a5"
+  },
+  "reported_at": "2026-10-28T00:24:53.66584+00:00"
+}

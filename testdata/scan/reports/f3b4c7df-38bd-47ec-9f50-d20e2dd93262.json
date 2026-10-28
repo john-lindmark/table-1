@@ -1,0 +1,86 @@
+{
+  "id": "f3b4c7df-38bd-47ec-9f50-d20e2dd93262",
+  "source": "report",
+  "frames": [
+    [
+      "Illus. DiTerlizzi",
+      "1/1"
+    ],
+    [
+      "Goblin Matron",
+      "Summon Goblin",
+      "When Goblin Matron comes into",
+      "play, you may search your library for",
+      "a Goblin card. If you do, reveal that",
+      "card, put it into your hand, and shuffle",
+      "your library afterward.",
+      "There's always room for one more.",
+      "Illus. Dilerlizzi",
+      "1/1"
+    ],
+    [
+      "Goblin Matron",
+      "Summon Goblin",
+      "When Goblin Matron comes into",
+      "play, you may search your library for",
+      "a Goblin card. If you do, reveal that",
+      "card, put it into your hand, and shufile",
+      "your library afterward",
+      "There's always room for one more.",
+      "Illus. DiTerlizzi",
+      "1/1"
+    ],
+    [
+      "Goblin Matron",
+      "Summon Goblin",
+      "When Goblin Matron comes into",
+      "play, you may search your library for",
+      "a Goblin card. If you do, reveal that",
+      "card, put it into your hand, and shuffle",
+      "your library afterward",
+      "There's always room for one more.",
+      "Illus. Dilerizzi",
+      "1/1"
+    ],
+    [
+      "Goblin Matron",
+      "Summon Goblin",
+      "When Goblin Matron comes into",
+      "play, you may search your library for",
+      "a Goblin card. If you do, reveal that",
+      "card, put it into your hand, and shuffle",
+      "your library afterward.",
+      "There's always room for one more.",
+      "Illus. Dilerliza",
+      "1/1"
+    ],
+    [
+      "Goblin Matron",
+      "Summon Goblin",
+      "When Goblin Matron comes into",
+      "play, you may search your library for",
+      "a Goblin card. If you do, reveal that",
+      "card, put it into your hand, and shuffle",
+      "your library afterward.",
+      "There's always room for one more.",
+      "Illus. Dilerlizzi",
+      "1/1"
+    ]
+  ],
+  "name": "Goblin Matron",
+  "set": "plst",
+  "cn": "USG-191",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "100",
+    "set": "p02",
+    "name": "Goblin Matron",
+    "exact": false,
+    "card_id": "f99dc21c-8600-49bf-b0a3-c981f7ec7ac3"
+  },
+  "reported_at": "2026-10-28T02:34:22.545254+00:00"
+}

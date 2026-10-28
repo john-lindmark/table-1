@@ -1,0 +1,72 @@
+{
+  "id": "e0f5dbd3-61e4-4cfc-8e4e-468bc04ad43a",
+  "source": "report",
+  "frames": [
+    [],
+    [],
+    [
+      "Enchantment",
+      "Whenever a player taps a land for",
+      "mana during another player's toth,",
+      "destroy that land,",
+      "\"free streneth lies",
+      "in achen Let the",
+      "thenk react to me",
+      "Kamahi, pit fighter"
+    ],
+    [
+      "Price of Glory",
+      "Enchantment",
+      "Whenever a player taps a land for",
+      "mana during another player's turn,",
+      "destroy that land.",
+      "\"True strength lies in action. Let the",
+      "weak react to me.",
+      "—Kamahl, pit fighter",
+      "Illus. Darrell Riche",
+      "1993-2001 Wirds of the Cr",
+      "ist, Inc. 214/350"
+    ],
+    [
+      "Price of Glory",
+      "Enchantment",
+      "Whenever a player taps a land for",
+      "mana during another player's turn,",
+      "destroy that land.",
+      "\"True strength lies in action. Let the",
+      "weak react to me.",
+      "-Kamahl, pit fighter",
+      "Illus. Darrell Riche",
+      "In 216/150"
+    ],
+    [
+      "Price of Glory",
+      "Enchantment",
+      "Whenever a player taps a land for",
+      "mana during another player's turn,",
+      "destroy that land",
+      "\"True strength lies in action. Let the",
+      "weak react to me.",
+      "—Kamahl, pit fighter",
+      "Illus. Darrell Riche",
+      "1993-2001 W",
+      "is of the Coast, Inc. 214350"
+    ]
+  ],
+  "name": "Price of Glory",
+  "set": "plst",
+  "cn": "ODY-214",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "214",
+    "set": "ody",
+    "name": "Price of Glory",
+    "exact": true,
+    "card_id": "785ccfe1-04f1-4d2e-9e30-2ae3efe7213a"
+  },
+  "reported_at": "2026-10-26T03:01:07.180084+00:00"
+}

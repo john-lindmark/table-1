@@ -1,0 +1,100 @@
+{
+  "id": "e86092b8-6a74-4f4c-8fc3-b9ce4dae806d",
+  "source": "report",
+  "frames": [
+    [
+      "Kodama of the West Tree",
+      "Legendary Creature - Spirit",
+      "Reach",
+      "Modified creatures you control have",
+      "trample.",
+      "Whenever a modified creature you control",
+      "deals combat damage to a player, search",
+      "you the battered tapped, then suri.",
+      "3/3",
+      "392",
+      "NEO NEN & TAPURZAMOCA"
+    ],
+    [
+      "Kodama of the West Tree",
+      "Legendary Creature - Spirit",
+      "Reach",
+      "Modified creatures you control have",
+      "trample.",
+      "Whenever a modified creature you control",
+      "deals combat damage to a player, search",
+      "your library for a basic land card, put it",
+      "onto the battlefield tapped, then shuffle",
+      "3/3"
+    ],
+    [
+      "Kodama of the West Tree",
+      "Legendary Creature - Spirit",
+      "Reach",
+      "Modified creatures you control have",
+      "trample.",
+      "Whenever a modified creature you control",
+      "deals combat damage to a player, search",
+      "your library for a basic land card, put it",
+      "onto the battlefield tapped, then shuffle.",
+      "3/3",
+      "Is of the Coast"
+    ],
+    [
+      "Kodama of the West Tree",
+      "Legendary Creature - Spirit",
+      "Reach",
+      "Modified creatures you control have",
+      "trample.",
+      "Whenever a modified creature you control",
+      "deals combat damage to a player, search",
+      "your library for a basic land card, put it",
+      "onto the battlefield tapped, then shuffle.",
+      "3/3",
+      "392",
+      "di of che C",
+      "• TAPIN ТАРЮСА"
+    ],
+    [
+      "Kodama of the West Tree",
+      "Legendary Creature - Spirit",
+      "Reach",
+      "Modified creatures you control have",
+      "trample.",
+      "Whenever a modified creature you control",
+      "deals combat damage to a player, search",
+      "your library for a basic land card, put it",
+      "onto the battlefield tapped, then shuffle.",
+      "3/3"
+    ],
+    [
+      "Kodama of the West Tree",
+      "Legendary Creature - Spirit",
+      "Reach",
+      "Modified creatures you control have",
+      "trample.",
+      "Whenever a modified creature you control",
+      "deals combat damage to a player, search",
+      "your library for a basic land card, put it",
+      "onto the battlefield tapped, then shuffle.",
+      "3/3",
+      "390 • EN A TAPIRITAPIOCA"
+    ]
+  ],
+  "name": "Kodama of the West Tree",
+  "set": "neo",
+  "cn": "392",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "199",
+    "set": "neo",
+    "name": "Kodama of the West Tree",
+    "exact": false,
+    "card_id": "ef1e1dff-b559-441d-8df3-b6a418066aca"
+  },
+  "reported_at": "2026-10-26T03:05:27.673011+00:00"
+}

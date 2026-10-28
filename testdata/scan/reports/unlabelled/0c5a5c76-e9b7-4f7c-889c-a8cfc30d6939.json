@@ -1,0 +1,86 @@
+{
+  "id": "0c5a5c76-e9b7-4f7c-889c-a8cfc30d6939",
+  "source": "report",
+  "frames": [
+    [],
+    [
+      "неріне V",
+      "Hire the Hath ind"
+    ],
+    [
+      "Inspiring Vantage",
+      "Land",
+      "Inspiring Vantage enters the battlefield",
+      "tapped unless you control two or",
+      "fewer other lands.",
+      "r: Add & or *",
+      "to your mana pool.",
+      "Ghirapur is a beacon of inspiration,",
+      "attracting the most brilliant minds on",
+      "Kaladesh.",
+      "246/264 ₽",
+      "KLD • EN RO IONAS DE RO"
+    ],
+    [
+      "Inspiring Vantage",
+      "Land",
+      "Inspiring Vantage enters the battlefield",
+      "tapped unless you control two or",
+      "fewer other lands.",
+      "r: Add a or",
+      "* to your mana pool.",
+      "Ghirapur is a beacon of inspiration,",
+      "attracting the most brilliant minds on",
+      "Kaladesh.",
+      "246/264 R",
+      "KLD • EN DO TONAS DE RO"
+    ],
+    [
+      "Inspiring Vantage",
+      "Land",
+      "Inspiring Vantage enters the battlefield",
+      "tappéd unless you control two or",
+      "fewer other lands.",
+      "r: Add 2 or * to your mana pool.",
+      "Ghirapur is a beacon of inspiration,",
+      "attracting the most brilliant minds on",
+      "Kaladesh.",
+      "246/264 R",
+      "KLD • EN • IONAS DE RO",
+      "2016 Wizards of the Coast",
+      "™M &"
+    ],
+    [
+      "Inspiring Vantage",
+      "Land",
+      "Inspiring Vantage enters the battlefield",
+      "tapped unless you control two or",
+      "fewer other lands.",
+      "r: Add 2 or * to your mana pool.",
+      "Ghirapur is a beacon of inspiration,",
+      "attracting the most brilliant minds on",
+      "Kaladesh."
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Inspiring Vantage",
+    "set": "kld",
+    "cn": "246"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "246",
+    "set": "kld",
+    "name": "Inspiring Vantage",
+    "exact": true,
+    "card_id": "160ac412-005f-48ca-a204-10207307c6c2"
+  },
+  "reported_at": "2026-10-26T03:38:08.11591+00:00"
+}

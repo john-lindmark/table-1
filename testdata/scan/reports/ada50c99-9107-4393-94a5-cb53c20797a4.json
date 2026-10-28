@@ -1,0 +1,75 @@
+{
+  "id": "ada50c99-9107-4393-94a5-cb53c20797a4",
+  "source": "report",
+  "frames": [
+    [],
+    [
+      "Bloodstained Mire",
+      "Land"
+    ],
+    [
+      "Bloodstained Mire",
+      "Land",
+      "c, Pay 1 life, Sacrifice Bloodstained",
+      "Mire: Search your library for a",
+      "Swamp or Mountain card and put",
+      "it onto the battlefield. Then shuffle",
+      "your library.",
+      "Where dragons once triumphed, their",
+      "bones nots molder",
+      "710/20 Em"
+    ],
+    [
+      "Bloodstained Mire",
+      "Land",
+      "r, Pay 1 life, Sacrifice Bloodstained",
+      "Mire: Search your library for a",
+      "Swamp or Mountain card and put",
+      "it onto the battlefield. Then shuffle",
+      "your library.",
+      "Where dragons once triumphed, their",
+      "bones now molder."
+    ],
+    [
+      "Bloodstained Mire",
+      "Land",
+      "r, Pay 1 life, Sacrifice Bloodstained",
+      "Mire: Search your library for a",
+      "Swamp or Mountain card and put",
+      "it onto the battlefield. Then shuffle",
+      "your library.",
+      "Where dragons once triumphed, their",
+      "bones now molder.",
+      "230/269 R",
+      "TK • EN I DAARKEN"
+    ],
+    [
+      "Bloodstained Mire",
+      "Land",
+      "r. Pay 1 life, Sacrifice Bloodstained",
+      "Mire: Search your library for a",
+      "Swamp or Mountain card and put",
+      "it onto the batdefield. Then shuffle",
+      "your library.",
+      "Where dragons once triumphed, their",
+      "bones now molder.",
+      "80/2691"
+    ]
+  ],
+  "name": "Bloodstained Mire",
+  "set": "ktk",
+  "cn": "230",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "313",
+    "set": "ons",
+    "name": "Bloodstained Mire",
+    "exact": false,
+    "card_id": "68c72226-6f52-4322-8b14-18737293dfa0"
+  },
+  "reported_at": "2026-10-26T03:26:20.681303+00:00"
+}

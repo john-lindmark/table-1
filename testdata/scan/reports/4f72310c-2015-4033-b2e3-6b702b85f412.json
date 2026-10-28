@@ -1,0 +1,68 @@
+{
+  "id": "4f72310c-2015-4033-b2e3-6b702b85f412",
+  "source": "report",
+  "frames": [
+    [
+      "Jin-Gitaxias, Core Augur",
+      "Legendary Creature - Phyrexian Praetor",
+      "Flash"
+    ],
+    [
+      "Jin-Gitaxias, Core Augur",
+      "8",
+      "00",
+      "Legendary Creature - Phyrexian Praetor",
+      "Flash",
+      "At the beginning of your end step, draw seven",
+      "cards."
+    ],
+    [
+      "Jin-Gitaxias, Core Augur",
+      "8",
+      "00",
+      "Legendary Creature - Phyrexian Praetor",
+      "Flash",
+      "At the beginning of your end step, draw seven",
+      "cards."
+    ],
+    [
+      "Jin-Gitaxias, Core Augur",
+      "8",
+      "Legendary Creature - Phyrexian Praetor Q",
+      "Flash",
+      "At the beginning of your end step, draw seven",
+      "cards."
+    ],
+    [
+      "Jin-Gitaxias, Core Augur",
+      "00",
+      "Legendary Creature - Phyrexian Praetor",
+      "Flash",
+      "At the beginning of your end step, draw seven",
+      "cards."
+    ],
+    [
+      "Jin-Gitaxias, Core Augur",
+      "Legendary Creature - Phyrexian Praetor",
+      "Flash",
+      "At the beginning of your end step, draw seven",
+      "cards."
+    ]
+  ],
+  "name": "Jin-Gitaxias, Core Augur",
+  "set": "mul",
+  "cn": "11",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (23)",
+  "pack_version": "v1-d695515817e0",
+  "owned_only": false,
+  "matched": {
+    "cn": "37",
+    "set": "nph",
+    "name": "Jin-Gitaxias, Core Augur",
+    "exact": false,
+    "card_id": "bd46fc9f-5b92-44d7-8940-2f39b0962b8f"
+  },
+  "reported_at": "2026-10-24T05:31:40.86713+00:00"
+}

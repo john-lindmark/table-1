@@ -1,0 +1,88 @@
+{
+  "id": "8b186472-b69f-44dd-a4bd-a82459e261ab",
+  "source": "report",
+  "frames": [
+    [
+      "Ponder",
+      "Sorcery",
+      "Look at the top three cards of",
+      "your library, then put them back",
+      "in any order. You may Shuffle your",
+      "library.",
+      "•Duk",
+      "Illus Dan Scot"
+    ],
+    [
+      "Ponder",
+      "Sorcery",
+      "Look at the top three cards of",
+      "your library, then put them back",
+      "in any order. You may",
+      "huffle your",
+      "library.",
+      "Illus. Dan Scott",
+      "inde of the Crai"
+    ],
+    [
+      "Ponder",
+      "Sorcery",
+      "Look at the top three cards of",
+      "your library, then put them back",
+      "in any order. You may huffle your",
+      "library.",
+      "Illus, Dan Scott",
+      "0 2020 g"
+    ],
+    [
+      "Ponder",
+      "Sorcery",
+      "Look at the top three cards of",
+      "your library, then put them back",
+      "in any order. You may",
+      "huffle your",
+      "library.",
+      "Illus. Dan Scott",
+      "2020 w",
+      "of the Coon 3"
+    ],
+    [
+      "Ponder",
+      "Sorcery",
+      "Look at the top three cards of",
+      "your library, then put them back",
+      "in any order. You may huffle your",
+      "library.",
+      "Mus. Dan Scot",
+      "050 Wind of de Cour"
+    ],
+    [
+      "Ponder",
+      "Sorcery",
+      "Look at the top three cards of",
+      "your library, then put them back",
+      "in any order. You may",
+      "huffle your",
+      "library.",
+      "Роле",
+      "Draw",
+      "Mus. Dan Scott",
+      "2026 Wuande of the Cras"
+    ]
+  ],
+  "name": "Ponder",
+  "set": "tsr",
+  "cn": "315",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (28)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "79",
+    "set": "lrw",
+    "name": "Ponder",
+    "exact": false,
+    "card_id": "ba6b6fc5-5077-4812-b8e9-906783dbaf67"
+  },
+  "reported_at": "2026-10-26T04:24:48.096685+00:00"
+}

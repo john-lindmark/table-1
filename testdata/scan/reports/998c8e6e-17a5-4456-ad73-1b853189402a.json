@@ -1,0 +1,91 @@
+{
+  "id": "998c8e6e-17a5-4456-ad73-1b853189402a",
+  "source": "report",
+  "frames": [
+    [
+      "Feldon's Canc",
+      "Artifact",
+      "P: Reshuffle your graveyard",
+      "into your library. Remove",
+      "Feldon's Cane from the game.",
+      "Feldon found the first of these",
+      "canes frozen in the Ronom",
+      "Glacier.",
+      "Illus. Mark Tedin"
+    ],
+    [
+      "Feldon's Cane",
+      "Artifact",
+      ": Reshuffle your graveyard",
+      "into your library. Remove",
+      "Feldon's Cane from the game.",
+      "Feldon found the first of these",
+      "canes frozen in the Ronom",
+      "Glacier.",
+      "Illus. Mark Tedin",
+      "He SE"
+    ],
+    [
+      "Feldon's Cane",
+      "Artifact",
+      "©: Reshuffle your graveyard",
+      "into your library. Remove",
+      "Feldon's Cane from the game.",
+      "Feldon found the first of these",
+      "canes frozen in the Ronom",
+      "Glacier.",
+      "Illus. Mark Tedin"
+    ],
+    [
+      "Feldon's Cane",
+      "Artifact",
+      "®: Reshuffle your graveyard",
+      "into your library. Remove",
+      "Feldon's Cane from the game.",
+      "Feldon found the first of these",
+      "canes frozen in the Ronom",
+      "Glacier.",
+      "Illus. Mark Tedin"
+    ],
+    [
+      "Feldon's Cane",
+      "Artifact",
+      "*: Reshuffle your graveyard",
+      "into your library. Remove",
+      "Feldon's Cane from the game.",
+      "Feldon found the first of these",
+      "canes frozen in the Ronom",
+      "Glacier.",
+      "Illus. Mark Tedin",
+      "1906 Wil"
+    ],
+    [
+      "Feldon's Cane",
+      "Artifact",
+      "®: Reshuffle your graveyard",
+      "into your library. Remove",
+      "Feldon's Cane from the game.",
+      "Feldon found the first of these",
+      "canes frozen in the Ronom",
+      "Glacier.",
+      "Illus. Mark Tedin",
+      "100s wil"
+    ]
+  ],
+  "name": "Feldon's Cane",
+  "set": "chr",
+  "cn": "97",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (33)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "50",
+    "set": "atq",
+    "name": "Feldon's Cane",
+    "exact": false,
+    "card_id": "bb6af436-bcfd-4d47-a1aa-e84b587a725a"
+  },
+  "reported_at": "2026-10-28T03:03:15.735403+00:00"
+}

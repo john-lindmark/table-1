@@ -1,0 +1,76 @@
+{
+  "id": "9eb558d9-1d4f-4e68-8570-e753dec9f433",
+  "source": "report",
+  "frames": [
+    [
+      "Shattered Sanctum",
+      "Land",
+      "Shattered Sanctum enters the",
+      "battlefield tapped unless you control",
+      "two or more other lands.",
+      "G: Add O or G.",
+      "VOWNEN I DONATO GIANCOLA"
+    ],
+    [
+      "Shattered Sanctum",
+      "Land",
+      "Shattered Sanctum enters the",
+      "battlefield tapped unless you control",
+      "two or more other lands.",
+      "@: Add O or G.",
+      "INEN • DONATO GIANCOLA"
+    ],
+    [
+      "Shattered Sanctum",
+      "Land",
+      "Shattered Sanctum enters the",
+      "battlefield tapped unless you control",
+      "two or more other lands.",
+      "@: Add © or 9.",
+      "/OW *EN A DONATO GIANCOLA"
+    ],
+    [
+      "Shattered Sanctum",
+      "Land",
+      "Shattered Sanctum enters the",
+      "battlefield tapped unless you control",
+      "two or more other lands.",
+      "G: Add © or ©.",
+      "VOW+EN A DONATO GIANCOLA"
+    ],
+    [
+      "Shattered Sanctum",
+      "Land",
+      "Shattered Sanctum enters the",
+      "battlefield tapped unless you control",
+      "two or more other lands.",
+      "©: Add © or 9.",
+      "N*EN A DONATO GLANCOLA"
+    ],
+    [
+      "Shattered Sanctum",
+      "Land",
+      "Shattered Sanctum enters the",
+      "battlefield tapped unless you control",
+      "two or more other lands.",
+      "g: Add © or 9.",
+      "VOW *EN NO DONATO GIANCOLA"
+    ]
+  ],
+  "name": "Shattered Sanctum",
+  "set": "vow",
+  "cn": "283",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "264",
+    "set": "vow",
+    "name": "Shattered Sanctum",
+    "exact": false,
+    "card_id": "ad44c9aa-eb8f-4200-8dfe-2af728d80083"
+  },
+  "reported_at": "2026-10-28T00:19:21.019908+00:00"
+}

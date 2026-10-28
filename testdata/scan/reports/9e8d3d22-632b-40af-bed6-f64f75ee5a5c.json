@@ -1,0 +1,93 @@
+{
+  "id": "9e8d3d22-632b-40af-bed6-f64f75ee5a5c",
+  "source": "report",
+  "frames": [
+    [
+      "Hallowed",
+      "Fountala",
+      "Land - Plains Island",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped",
+      "\"I like a bask and match its boauty a",
+      "reminder thar we can't conrol the",
+      "currents, but com knot hot to stoim",
+      "across them."
+    ],
+    [
+      "Hallowed Fountain",
+      "Land - Plains Island",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "\"I like to bask and watch its beauty a",
+      "reminder that we can't control the",
+      "currents, but can know how to swim",
+      "across them.",
+      "Sygg",
+      "• LUsTiN GERARD"
+    ],
+    [
+      "Hallowed Fountain",
+      "Land - Plains Island",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "\"I like to bask and watch its beauty a",
+      "reminder that we can't control the",
+      "currents, but can know how to swim",
+      "across them.\"",
+      "Sygg",
+      "• TESTIN GERARd"
+    ],
+    [
+      "Hallowed Fountain",
+      "Land - Plains Island",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped",
+      "\"I like to bask and watch its beauty—a",
+      "reminder that we can't control the",
+      "currents, but can know how to stim",
+      "across them.\"",
+      "-Sygg",
+      "USTIN GERARD"
+    ],
+    [
+      "Hallowed Fountain",
+      "Land - Plains Island",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "\"I like to bask and watch its beauty a",
+      "reminder that we can't control the",
+      "currents, but can know horo to szim",
+      "across them.\"",
+      "Sygg",
+      "ECL WEN & LUSTIN GERAR"
+    ],
+    [
+      "Hallowed Fountain",
+      "Land - Plains Island",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "\"I like to bask and watch its beautya",
+      "reminder that we can't control the",
+      "currents, but can know how to swim",
+      "across them.\"",
+      "Sygg",
+      "No lUstiN GERARD"
+    ]
+  ],
+  "name": "Hallowed Fountain",
+  "set": "ecl",
+  "cn": "347",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (28)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "174",
+    "set": "dis",
+    "name": "Hallowed Fountain",
+    "exact": false,
+    "card_id": "c28aea19-2a39-4934-afda-909e234fa3ba"
+  },
+  "reported_at": "2026-10-26T04:25:06.617033+00:00"
+}

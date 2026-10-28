@@ -1,0 +1,76 @@
+{
+  "id": "fb70c443-ff48-4f17-9a11-8429cc6b4fc2",
+  "source": "report",
+  "frames": [
+    [],
+    [],
+    [
+      "Stomping Ground",
+      "F-il",
+      "Land - Mountain Forest",
+      "As Stomping Ground enters the battlefield",
+      "(e: Add a",
+      "battee pay 2 lue, l you don , it enters the",
+      "\"What we begin, the tout Kase will frish. Then",
+      "& rubbi",
+      "to will dance in Rare",
+      "Nikva of the Old Was",
+      "L WE PAIN"
+    ],
+    [
+      "Stomping Ground",
+      "Land - Mountain Forest",
+      "(r: Add a or q.)",
+      "As Stomping Ground enters the battlefield,",
+      "you may pay 2 life. If you don't, it enters the",
+      "battlefield tapped.",
+      "\"What we begin, the End-Raze will finish. Then",
+      "we will dance in Ravnica's rubble.\"",
+      "—Nikya of the Old Ways",
+      "2N/200 & TAMES PARCE",
+      "259/259"
+    ],
+    [
+      "Stomping Ground",
+      "Land - Mountain Forest",
+      "(r: Add a or",
+      "As Stomping Ground enters the battlefield,",
+      "you may pay 2 life. If you don't, it enters the",
+      "battlefield tapped",
+      "\"What we begin, the End-Raze will finish. Then",
+      "we will dance in Ravnica's rubble.\"",
+      "—Nikya of the Old Ways",
+      "259/259 R",
+      "RNA*EN I LAMES PAICH"
+    ],
+    [
+      "Stomping Ground",
+      "Land - Mountain Forest",
+      "(r: Add a or q.)",
+      "As Stomping Ground enters the battlefield,",
+      "you may pay 2 life. If you don't, it enters the",
+      "battlefield tapped.",
+      "\"What we begin, the End-Raze will finish. Then",
+      "we will dance in Ravnica's rubble.\"",
+      "-Nikya of the Old Ways",
+      "259/259 R",
+      "RNA* EN LAMES PAICK"
+    ]
+  ],
+  "name": "Stomping Ground",
+  "set": "prna",
+  "cn": "259p",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "259",
+    "set": "rna",
+    "name": "Stomping Ground",
+    "exact": true,
+    "card_id": "dcaa1ff6-304e-4660-9df3-36de8e89592e"
+  },
+  "reported_at": "2026-10-25T04:13:03.637532+00:00"
+}

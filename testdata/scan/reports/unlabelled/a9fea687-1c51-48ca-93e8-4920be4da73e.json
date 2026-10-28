@@ -1,0 +1,106 @@
+{
+  "id": "a9fea687-1c51-48ca-93e8-4920be4da73e",
+  "source": "report",
+  "frames": [
+    [
+      "MINDSPRING",
+      "MERFOLK O2O",
+      "Creature - Merfolk Wizard",
+      "Exhaust - 900, C: Draw X",
+      "cards. Put a +1/+1 counter on each",
+      "Merfolk creature you control.",
+      "\"Suck my seaweed!\"",
+      "R 0335",
+      "DFT • EN A CATDIRTY",
+      "1/1",
+      "IM & O 2025 Wizards of the Coast"
+    ],
+    [
+      "MIND SPRING",
+      "MERFOLK OO",
+      "Creature - Merfolk Wizard",
+      "Exhaust —",
+      "800, g: Draw X",
+      "cards. Put a +1/+1 counter on each",
+      "Merfolk creature you control.",
+      "\"Suck my seaweed!\"",
+      "R 0335",
+      "DET • EN A CATDIRTY",
+      "1/1",
+      "1N & 4 2025 Wizards of the Coast"
+    ],
+    [
+      "MIND SPRING",
+      "MERFOLK OO",
+      "Creature - Merfolk Wizard",
+      "Exhaust - 8OO, C: Draw X",
+      "cards. Put a +1/+1 counter on each",
+      "Merfolk creature you control.",
+      "\"Suck my seaweed!»",
+      "R 0335",
+      "DFT • EN A CATDIRTY",
+      "1/1",
+      "IN & 2025 Wizards of the Coast"
+    ],
+    [
+      "MIND SPRING",
+      "MERFOLK OLO",
+      "Creature - Merfolk Wizard",
+      "Exhaust - 000, C: Draw X",
+      "cards. Put a +1/+1 counter on each",
+      "Merfolk creature you control.",
+      "\"Suck my seaweed!\"",
+      "R 0335",
+      "DET • EN NO CATDIRTY",
+      "1/1",
+      "IM & o 2025 Wizards of the Coast"
+    ],
+    [
+      "MIND SPRING",
+      "MERFOLK OO5",
+      "Creature - Merfolk Wizard",
+      "Exhaust - 000, G: Draw X",
+      "cards. Put a +1/+1 counter on each",
+      "Merfolk creature you control.",
+      "\"Suck my seaweed!\"",
+      "R 0335",
+      "DFT • EN A CATDIRTY",
+      "1/1",
+      "™M & o 2025 Wizards of the Coast"
+    ],
+    [
+      "MIND SPRING",
+      "MERFOLK 03O5",
+      "Creature - Merfolk Wizard",
+      "Exhaust - 000, C: Draw X",
+      "cards. Put a +1/+1 counter on each",
+      "Merfolk creature you control.",
+      "\"Suck my seaweed!»",
+      "R 0335",
+      "DFT • EN & CATDIRTY",
+      "1/1",
+      "IN & o 2025 Wizards of the Coast"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Mind Spring",
+    "set": "mor",
+    "cn": "41"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (23)",
+  "pack_version": "v1-d695515817e0",
+  "owned_only": false,
+  "matched": {
+    "cn": "41",
+    "set": "mor",
+    "name": "Mind Spring",
+    "exact": false,
+    "card_id": "7b7cd9b6-1ea8-423d-8aa0-8699fffbcf50"
+  },
+  "reported_at": "2026-10-24T05:44:57.173949+00:00"
+}

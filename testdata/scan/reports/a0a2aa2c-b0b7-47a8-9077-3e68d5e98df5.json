@@ -1,0 +1,95 @@
+{
+  "id": "a0a2aa2c-b0b7-47a8-9077-3e68d5e98df5",
+  "source": "report",
+  "frames": [
+    [
+      "Overgrown Tomb",
+      "Land - Swamp Forest",
+      "(r: Add $ or * to your mana pool.)",
+      "As Overgrown Tomb enters the",
+      "battlefield, you may pay 2 life. If you",
+      "don't, Overgrown Tomb enters the",
+      "battlefield tapped",
+      "The best funeral shroud is the fabric of",
+      "new life.",
+      "Steven Belledin"
+    ],
+    [
+      "Overgrown Tomb",
+      "Land - Swamp Forest",
+      "(r: Add $ or * to your mana pool.)",
+      "As Overgrown Tomb enters the",
+      "battlefield, you may pay 2 life. If you",
+      "don't, Overgrown Tomb enters the",
+      "battlefield tapped",
+      "The best funeral shroud is the fabric of",
+      "neto life.",
+      "Steven Belledin"
+    ],
+    [
+      "Overgrown Tomb",
+      "Land - Swamp Forest",
+      "(r: Add $ or * to your mana pool.)",
+      "As Overgrown Tomb enters the",
+      "battlefield, you may pay 2 life. If you",
+      "don't, Overgrown Tomb enters the",
+      "battlefield tapped.",
+      "The best funeral shroud is the fabric of",
+      "neto life.",
+      "Steven Belledin"
+    ],
+    [
+      "Overgrown Tomb",
+      "Land - Swamp Forest",
+      "r: Add $ or q to your mana pool.)",
+      "As Overgrown Tomb enters the",
+      "battlefield, you may pay 2 life. If you",
+      "don't, Overgrown Tomb enters the",
+      "battlefield tapped",
+      "The best funeral shroud is the fabric of",
+      "nero life.",
+      "- Steven Belledin",
+      "2012W"
+    ],
+    [
+      "Overgrown Tomb",
+      "Land - Swamp Forest",
+      "(r: Add \" or a to your mana pool.)",
+      "As Overgrown Tomb enters the",
+      "battlefield, you may pay 2 life. If you",
+      "don't, Overgrown Tomb enters the",
+      "battlefield tapped.",
+      "The best funeral shroud is the fabric of",
+      "new life.",
+      "- Steven Belledin"
+    ],
+    [
+      "Overgrown Tomb",
+      "Land - Swamp Forest",
+      "(s: Add $ or \" to your mana pool.)",
+      "As Overgrown Tomb enters the",
+      "battlefield, you may pay 2 life. If you",
+      "don't, Overgrown Tomb enters the",
+      "battlefield tapped",
+      "The best funeral shroud is the fabric of",
+      "new life.",
+      "-Steven Belledin"
+    ]
+  ],
+  "name": "Overgrown Tomb",
+  "set": "rtr",
+  "cn": "243",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (33)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "279",
+    "set": "rav",
+    "name": "Overgrown Tomb",
+    "exact": false,
+    "card_id": "fce07335-cc78-4683-b2f0-9c98a06ea1d8"
+  },
+  "reported_at": "2026-10-28T03:12:28.88863+00:00"
+}

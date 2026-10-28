@@ -1,0 +1,75 @@
+{
+  "id": "b778ea32-e221-4f25-a23b-5527c4e32c75",
+  "source": "report",
+  "frames": [
+    [
+      "So Candiens Shrine me"
+    ],
+    [
+      "Godless Shrine",
+      "Land - Plains Swamp",
+      "(e: Add * or $ to your mana pool.)",
+      "As Godless Shrine enters the battlefield,",
+      "you may pay 2 life. If you don't, Godless",
+      "Shrine enters the battlefield tapped.",
+      "Judgment without hope.",
+      "Cliff Childs"
+    ],
+    [
+      "Godless Shrine",
+      "Land - Plains Swamp",
+      "(e: Add * or ® to your mana pool.)",
+      "As Godless Shrine enters the battlefield,",
+      "you may pay 2 life. If you don't, Godless",
+      "Shrine enters the battlefield tapped.",
+      "Judgment without hope.",
+      "- Cliff Childs"
+    ],
+    [
+      "Godless Shrine",
+      "Land - Plains Swamp",
+      "(e: Add * or $ to your mana pool.)",
+      "As Godless Shrine enters the battlefield,",
+      "you may pay 2 life. If you don't, Godless",
+      "Shrine enters the battlefield tapped.",
+      "Judgment without hope.",
+      "→ Cliff Childs"
+    ],
+    [
+      "Godless Shrine",
+      "Land - Plains Swamp",
+      "(e: Add * or & to your mana pool.)",
+      "As Godless Shrine enters the battlefield,",
+      "you may pay 2 life. If you don't, Godless",
+      "Shrine enters the battlefield tapped.",
+      "Judgment withour hope.",
+      "• Cliff Childs"
+    ],
+    [
+      "Godless Shrine",
+      "Land - Plains Swamp",
+      "(e: Add * or $ to your mana pool.)",
+      "As Godless Shrine enters the battlefield,",
+      "you may pay 2 life. If you don't, Godless",
+      "Shrine enters the battlefield tapped.",
+      "Judgment without hope.",
+      "• Cliff Childs"
+    ]
+  ],
+  "name": "Godless Shrine",
+  "set": "gtc",
+  "cn": "242",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "157",
+    "set": "gpt",
+    "name": "Godless Shrine",
+    "exact": false,
+    "card_id": "be010c2f-06db-47e3-80bd-df3f2a21ca34"
+  },
+  "reported_at": "2026-10-28T00:14:53.485593+00:00"
+}

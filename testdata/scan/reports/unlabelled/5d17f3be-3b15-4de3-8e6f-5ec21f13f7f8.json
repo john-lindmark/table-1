@@ -1,0 +1,91 @@
+{
+  "id": "5d17f3be-3b15-4de3-8e6f-5ec21f13f7f8",
+  "source": "report",
+  "frames": [
+    [],
+    [],
+    [
+      "Eldritch Evolution",
+      "Sorcery",
+      "As an additional cost to cast Eldritch",
+      "Evolution, sacrifice a creature.",
+      "Search your library for a creature card",
+      "with converted mana cost X or less,",
+      "where X is 2 plus the sacrificed creature's",
+      "converted mana cost. Put that card onto",
+      "the battlefield, then shuffle your library.",
+      "Exile Eldritch Evolution.",
+      "155/205 R",
+      "EMN • EN LO IASON RAINVILLE",
+      "in & € 2016 Wizands of the Coal"
+    ],
+    [
+      "Eldritch Evolution",
+      "T",
+      "Sorcery",
+      "As an additional cost to cast Eldritch",
+      "Evolution, sacrifice a creature.",
+      "Search your library for a creature card",
+      "with converted mana cost X or less,",
+      "where X is 2 plus the sacrificed creature's",
+      "converted mana cost. Put that card onto",
+      "the battlefield, then shuffle your library.",
+      "Exile Eldritch Evolution.",
+      "155/205 R",
+      "EMN • EN NO IASON RAINVILLE",
+      "* & © 2016 Wizards of the Coast"
+    ],
+    [
+      "Eldritch Evolution",
+      "100",
+      "Sorcery",
+      "As an additional cost to cast Eldritch",
+      "Evolution, sacrifice a creature.",
+      "Search your library for a creature card",
+      "with converted mana cost X or less,",
+      "where X is 2 plus the sacrificed creature's",
+      "converted mana cost. Put that card onto",
+      "the battlefield, then shuffle your library.",
+      "Exile Eldritch Evolution.",
+      "15S/205 R",
+      "EMN • EN A LASON RAINVILLE",
+      "• 2016 Wizards of the Coast"
+    ],
+    [
+      "Eldritch Evolution",
+      "Sorcery",
+      "As an additional cost to cast Eldritch",
+      "Evolution, sacrifice a creature.",
+      "Search your library for a creature card",
+      "with converted mana cost X or less,",
+      "where X is 2 plus the sacrificed creature's",
+      "converted mana cost. Put that card onto",
+      "the battlefield, then shuffle your library.",
+      "Exile Eldritch Evolution.",
+      "155/205 R",
+      "EMN • EN A JASON RAINVILLE",
+      "ds of the Const"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Eldritch Evolution",
+    "set": "emn",
+    "cn": "155"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "155",
+    "set": "emn",
+    "name": "Eldritch Evolution",
+    "exact": true,
+    "card_id": "efcb00e5-2caa-45c8-ad19-05d45c683d16"
+  },
+  "reported_at": "2026-10-28T00:36:49.710546+00:00"
+}

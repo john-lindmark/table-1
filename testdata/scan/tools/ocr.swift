@@ -10,6 +10,11 @@
 //             card-shaped rectangle is found it is `multi` as is.
 //   inCard    the lines of `accurate` inside the card the scanner finds (the largest upright card-shaped rectangle,
 //             grown 10%), as CardTextScanner reads since 2026-10-16; no key when no card is found. inCardMulti: `multi`.
+//   bottom    `accurate`, then the card's bottom strip read on its own (2026-10-28): the card rectangle deskewed, its
+//             bottom 11% cropped, upscaled 2x and read; where the set code, collector number, copyright year and
+//             "Illus." credit sit, too small for the full-frame read on a phone. `accurate` as is without a rectangle.
+//
+// With `bottom`, it only adds the `bottom` key to an existing ocr.json (the other reads are slow).
 // The unit tests on iOS and Android run the matcher over these lines, so OCR runs once here, not in the tests.
 //
 // With `motion`, it writes testdata/scan/motion.json instead: for each photo, a 2.4 s clip of 12 frames (one every
@@ -85,6 +90,18 @@ func titleBar(_ card: CIImage) -> CGImage? {
     let crop = card.cropped(to: rect).transformed(by: CGAffineTransform(translationX: -rect.minX, y: -rect.minY))
         .transformed(by: CGAffineTransform(scaleX: 2, y: 2))
     return ci.createCGImage(crop, from: crop.extent)
+}
+
+/// The bottom strip of a deskewed card: the bottom 11%, upscaled 2x (CardTextScanner reads the same strip on a phone).
+func bottomStrip(_ card: CIImage) -> CGImage? {
+    let rect = CGRect(x: 0, y: 0, width: 630, height: 880 * 0.11)
+    let crop = card.cropped(to: rect).transformed(by: CGAffineTransform(scaleX: 2, y: 2))
+    return ci.createCGImage(crop, from: crop.extent)
+}
+
+func readBottom(_ image: CGImage) throws -> [String] {
+    guard let c = try card(image), let strip = bottomStrip(c) else { return [] }
+    return try read(strip, level: .accurate)
 }
 
 func readTitle(_ image: CGImage) throws -> [String] {
@@ -235,6 +252,25 @@ if CommandLine.arguments.dropFirst().first == "motion" {
     enc.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
     try enc.encode(clips).write(to: root.appending(path: "motion.json"))
     print("\(clips.count) clips")
+    exit(0)
+}
+
+if CommandLine.arguments.dropFirst().first == "bottom" {
+    var out = try JSONDecoder().decode([String: [String: [String]]].self, from: Data(contentsOf: root.appending(path: "ocr.json")))
+    var found = 0
+    for row in rows {
+        let file = row[0]
+        guard let ns = NSImage(contentsOf: root.appending(path: "photos/\(file)")),
+              let image = ns.cgImage(forProposedRect: nil, context: nil, hints: nil), let accurate = out[file]?["accurate"] else { continue }
+        let strip = try readBottom(image)
+        if !strip.isEmpty { found += 1 }
+        out[file]?["bottom"] = accurate + strip
+        FileHandle.standardError.write("\(file): \(strip.joined(separator: " | "))\n".data(using: .utf8)!)
+    }
+    let enc = JSONEncoder()
+    enc.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+    try enc.encode(out).write(to: root.appending(path: "ocr.json"))
+    print("\(out.count) photos, a bottom strip read in \(found)")
     exit(0)
 }
 

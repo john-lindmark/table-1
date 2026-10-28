@@ -1,0 +1,86 @@
+{
+  "id": "84df91a8-aa42-444d-bcfe-643ba9bc89ab",
+  "source": "report",
+  "frames": [
+    [
+      "Worldgorger Dragon",
+      "3",
+      "Creature — Nightmare Dragon",
+      "Flying, trample",
+      "When Worldgorger Dragon enters the",
+      "battlefield, exile all other permanents",
+      "When Worldgorger Dragon leaves the",
+      "battlefield, return the exiled cards to"
+    ],
+    [
+      "Worldgorger Dragon",
+      "3",
+      "Creature — Nightmare Dragon",
+      "Flying, trample",
+      "When Worldgorger Dragon enters the",
+      "battlefield, exile all other permanents",
+      "When Worldgorger Dragon leaves the"
+    ],
+    [
+      "Worldgorger Dragon",
+      "3",
+      "Creature — Nightmare Dragon",
+      "Flying, trample",
+      "When Worldgorger Dragon enters the",
+      "battlefield, exile all other permanents",
+      "When Worldgorger Dragon leaves the",
+      "battlefield, return the exiled cards to"
+    ],
+    [
+      "Worldgorger Dragon",
+      "3",
+      "Creature — Nightmare Dragon",
+      "Flying, trample",
+      "When Worldgorger Dragon enters the",
+      "battlefield, exile all other permanents",
+      "When Worldgorger Dragon leaves the",
+      "battlefield, return the exiled cards to"
+    ],
+    [
+      "Worldgorger Dragon",
+      "Creature — Nightmare Dragon",
+      "Flying, trample",
+      "When Worldgorger Dragon enters the",
+      "battlefield, exile all other permanents",
+      "When Worldgorger Dragon leaves the",
+      "battlefield, return the exiled cards to",
+      "the battlefield under their owners'"
+    ],
+    [
+      "Worldgorger Dragon",
+      "Creature — Nightmare Dragon",
+      "Flying, trample",
+      "When Worldgorger Dragon enters the",
+      "battlefield, exile all other permanents",
+      "When Worldgorger Dragon leaves the",
+      "battlefield, return the exiled cards to",
+      "the battlefield under their owners'"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Worldgorger Dragon",
+    "set": "jud",
+    "cn": "103"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "103",
+    "set": "jud",
+    "name": "Worldgorger Dragon",
+    "exact": false,
+    "card_id": "99783a2b-a95a-457b-82d6-001933aee5ec"
+  },
+  "reported_at": "2026-10-26T03:06:01.494671+00:00"
+}

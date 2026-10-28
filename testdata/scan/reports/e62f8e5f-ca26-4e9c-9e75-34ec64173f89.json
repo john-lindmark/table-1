@@ -1,0 +1,99 @@
+{
+  "id": "e62f8e5f-ca26-4e9c-9e75-34ec64173f89",
+  "source": "report",
+  "frames": [
+    [
+      "Smokestack",
+      "Artifact",
+      "At the beginning of your upkeep.",
+      "you may put a soot counter on",
+      "Smokestack",
+      "At the beginning of each player's",
+      "upkeep, that player sacrifices a",
+      "permanent for each soot counter on",
+      "Smokestack",
+      "— Scort Kirschner"
+    ],
+    [
+      "Smokestack",
+      "Artifact",
+      "At the beginning of your upkeep,",
+      "you may put a soot counter on",
+      "Smokestack.",
+      "At the beginning of each player's",
+      "upkeep, that player sacrifices a",
+      "permanent for each soot counter on",
+      "Smokestack",
+      "— Scott Kirschner",
+      "Tobinch of the Cons 232"
+    ],
+    [
+      "Smokestack",
+      "Artifact",
+      "At the beginning of your upkeep,",
+      "you may put a soot counter on",
+      "Smokestack.",
+      "At the beginning of each player's",
+      "upkeep, that player sacrifices a",
+      "permanent for each soot counter on",
+      "Smokestack.",
+      "- Scott Kirschner",
+      "т & € 2024 Wizards of the Chast 232"
+    ],
+    [
+      "Smokestack",
+      "Artifact",
+      "At the beginning of your upkeep,",
+      "you may put a soot counter on",
+      "Smokestack.",
+      "At the beginning of each player's",
+      "upkeep, that player sacrifices a",
+      "permanent for each soot counter on",
+      "Smokestack.",
+      "- Scott Kirschner",
+      "™ & C 2024 Wizards of the Coast 232"
+    ],
+    [
+      "Smokestack",
+      "4",
+      "Artifact",
+      "At the beginning of your upkeep,",
+      "you may put a soot counter on",
+      "Smokestack.",
+      "At the beginning of each player's",
+      "upkeep, that player sacrifices a",
+      "permanent for each soot counter on",
+      "Smokestack.",
+      "- Scott Kirschner",
+      "™M & © 2024 Wizards of the Coast 232"
+    ],
+    [
+      "Smokestack",
+      "Artifact",
+      "At the beginning of your upkeep,",
+      "you may put a soot counter on",
+      "Smokestack.",
+      "At the beginning of each player's",
+      "upkeep, that player sacrifices a",
+      "permanent for each soot counter on",
+      "Smokestack.",
+      "→ Scott Kirschner"
+    ]
+  ],
+  "name": "Smokestack",
+  "set": "mb2",
+  "cn": "232",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "309",
+    "set": "usg",
+    "name": "Smokestack",
+    "exact": false,
+    "card_id": "6a37ab2d-094f-431e-878f-93aef0360413"
+  },
+  "reported_at": "2026-10-26T03:20:49.918865+00:00"
+}

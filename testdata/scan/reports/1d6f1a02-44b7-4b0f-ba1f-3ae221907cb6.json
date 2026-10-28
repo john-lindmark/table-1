@@ -1,0 +1,93 @@
+{
+  "id": "1d6f1a02-44b7-4b0f-ba1f-3ae221907cb6",
+  "source": "report",
+  "frames": [
+    [
+      "Cloudshift",
+      "Instant",
+      "Exile target creature you control,",
+      "then return that card to the",
+      "battlefield under your control.",
+      "\"Even storm clouds bow to worship",
+      "Avacyn.\"",
+      "-Elder Rimheit",
+      "→ Howard Lyon",
+      "of the Coat LIC 12/244"
+    ],
+    [
+      "Cloudshift",
+      "迷",
+      "Instant",
+      "Exile target creature you control,",
+      "then return that card to the",
+      "battlefield under your control.",
+      "\"Even storm clouds bow to worship",
+      "Avacyn.\"",
+      "-Elder Rimheit",
+      "• Howard Lyon"
+    ],
+    [
+      "Cloudshift",
+      "Instant",
+      "Exile target creature you control,",
+      "then return that card to the",
+      "battlefield under your control.",
+      "\"Even storm clouds bow to worship",
+      "Avacyn.\"",
+      "—Elder Rimheit",
+      "• Howard Lyon",
+      "of the Coat LI C. 12/44"
+    ],
+    [
+      "Cloudshift",
+      "Instant",
+      "Exile target creature you control,",
+      "then return that card to the",
+      "battlefield under your control.",
+      "\"Even storm clouds bow to worship",
+      "Avacyn.\"",
+      "—Elder Rimheit",
+      "Howard Lyon",
+      "*& C 1993",
+      "s of the Chan LLC 12044"
+    ],
+    [
+      "Cloudshift",
+      "Instant",
+      "Exile target creature you control,",
+      "then return that card to the",
+      "battlefield under your control.",
+      "\"Even storm clouds bow to worship",
+      "Avacyn.\"",
+      "—Elder Rimheit",
+      "- Howard Lyon"
+    ],
+    [
+      "Cloudshift",
+      "Instant",
+      "Exile target creature you control,",
+      "then return that card to the",
+      "battlefield under your control.",
+      "\"Even storm clouds bow to worship",
+      "Avacyn.\"",
+      "—Elder Rimheit",
+      "- Howard Lyon"
+    ]
+  ],
+  "name": "Cloudshift",
+  "set": "a25",
+  "cn": "7",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "A25-7",
+    "set": "plst",
+    "name": "Cloudshift",
+    "exact": false,
+    "card_id": "c2ebce86-2342-482c-a882-8f3c02c56486"
+  },
+  "reported_at": "2026-10-28T00:17:58.628084+00:00"
+}

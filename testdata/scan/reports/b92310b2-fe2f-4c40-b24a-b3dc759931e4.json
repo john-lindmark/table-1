@@ -1,0 +1,83 @@
+{
+  "id": "b92310b2-fe2f-4c40-b24a-b3dc759931e4",
+  "source": "report",
+  "frames": [
+    [
+      "te an ability of a Shaman or another",
+      "Wizard you control trigsers, that",
+      "ability triggers an additional time.",
+      "Focus: The misician-wizand"
+    ],
+    [
+      "Harmonic Prodigy",
+      "Creature - Human Wizard",
+      "Prowess",
+      "If an ability of a Shaman or another",
+      "Wizard you control triggers, that",
+      "ability triggers an additional time.",
+      "Focus: The musician-wizard.",
+      "1/3",
+      "1A E 201W",
+      "h if the C"
+    ],
+    [
+      "Harmonic Prodigy",
+      "Creature - Human Wizard",
+      "Prowess",
+      "If an ability of a Shaman or another",
+      "Wizard you control triggers, that",
+      "ability triggers an additional time.",
+      "Focus: The musician-wizard.",
+      "1/3",
+      "OTT CANA"
+    ],
+    [
+      "Harmonic Prodigy",
+      "Creature - Human Wizard",
+      "Prowess",
+      "If an ability of a Shaman or another",
+      "Wizard you control triggers, that",
+      "ability triggers an additional time.",
+      "Focus: The musician-wizard.",
+      "1/3"
+    ],
+    [
+      "Harmonic Prodigy",
+      "Creature - Human Wizard",
+      "Prowess",
+      "If an ability of a Shaman or another",
+      "Wizard you control triggers, that",
+      "ability triggers an additional time.",
+      "Focus: The musician-wizard.",
+      "1/3",
+      "A PAME SCORT CANARAN"
+    ],
+    [
+      "Harmonic Prodigy",
+      "Creature - Human Wizard",
+      "Prowess",
+      "If an ability of a Shaman or another",
+      "Wizard you control triggers, that",
+      "ability triggers an additional time.",
+      "Focus: The musician-wizard.",
+      "1/3",
+      "MH2 WEN N PAIL SCOTT CANARAT"
+    ]
+  ],
+  "name": "Harmonic Prodigy",
+  "set": "mh2",
+  "cn": "352",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "132",
+    "set": "mh2",
+    "name": "Harmonic Prodigy",
+    "exact": false,
+    "card_id": "22579ac0-ad3f-4000-a65a-46a17a7f1aa5"
+  },
+  "reported_at": "2026-10-26T03:00:24.861416+00:00"
+}

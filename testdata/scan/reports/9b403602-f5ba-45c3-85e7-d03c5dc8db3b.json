@@ -1,0 +1,86 @@
+{
+  "id": "9b403602-f5ba-45c3-85e7-d03c5dc8db3b",
+  "source": "report",
+  "frames": [
+    [
+      "GUARD",
+      "BENEATE",
+      "arch your library for a card, put",
+      "scard a card at random. Shuffle",
+      "Then you're got nothing, you might",
+      "s tell trade it for something else.",
+      "Ius. Andrew Goldhank",
+      "Only that they change."
+    ],
+    [
+      "Search your library for a card, put",
+      "that card into your hand, then",
+      "discard a card at random. Shuffle",
+      "When you've got nothing, you might",
+      "as tell made it for something else.",
+      "Illus. Andrew Goldhawk",
+      "Oñy that they change.",
+      "Kairos Fateweater"
+    ],
+    [
+      "Gambl",
+      "Sumcen)",
+      "Search your library for a card, put",
+      "that card into your hand, then",
+      "discard a card at random. Shuffle",
+      "your library afterward.",
+      "Then you've got nothing, you mug",
+      "i cal trade & for something els",
+      "Andrea Gollust"
+    ],
+    [
+      "Gamble",
+      "Sorcery",
+      "Search your library for a card, put",
+      "that card into your hand, then",
+      "discard a card at random. Shuffle",
+      "your library afterward.",
+      "When vou've got nothing, you might",
+      "as mell trade it for something else.",
+      "Illus. Andrew Goldhawk"
+    ],
+    [
+      "Gamble",
+      "Sorcery",
+      "Search your library for a card, put",
+      "that card into your hand, then",
+      "discard a card at random. Shuffle",
+      "your library afterward.",
+      "When you've got nothing, you might",
+      "as well trade it for something else.",
+      "Illus. Andrew Goldhawk"
+    ],
+    [
+      "Gamble",
+      "Sorcery",
+      "Search your library for a card, put",
+      "that card into your hand, then",
+      "discard a card at random. Shuffle",
+      "your library afterward.",
+      "When you've got nothing, you might",
+      "as well trade it for something else.",
+      "Illus. Andrew Goldhawk"
+    ]
+  ],
+  "name": "Gamble",
+  "set": "usg",
+  "cn": "188",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "UMA-132",
+    "set": "plst",
+    "name": "Gamble",
+    "exact": false,
+    "card_id": "924db286-fb3e-40dd-b5e2-f8128701685d"
+  },
+  "reported_at": "2026-10-28T02:35:40.185438+00:00"
+}

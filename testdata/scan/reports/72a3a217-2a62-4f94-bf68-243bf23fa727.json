@@ -1,0 +1,81 @@
+{
+  "id": "72a3a217-2a62-4f94-bf68-243bf23fa727",
+  "source": "report",
+  "frames": [
+    [
+      "Arid Mesa",
+      "Land",
+      "r, Pay 1 life, Sacrifice Arid",
+      "Mesa: Search your library for a",
+      "Mountain or Plains card, put it",
+      "onto the battlefield, then shuffle.",
+      "Illus. Raymond Swanland"
+    ],
+    [
+      "Arid Mesa",
+      "Land",
+      "r, Pay 1 life, Sacrifice Arid",
+      "Mesa: Search your library for a",
+      "Mountain or Plains card, put it",
+      "onto the battlefield, then shuffle.",
+      "Illus. Raymond Swanland"
+    ],
+    [
+      "Arid Mesa",
+      "Land",
+      "r, Pay 1 life, Sacrifice Arid",
+      "Mesa: Search your librarv for a",
+      "Mountain or Plains card, put it",
+      "onto the battlefield, then shuffle.",
+      "Illus. Raymond Swanland",
+      "ai Winds of the Coast 130"
+    ],
+    [
+      "Arid Mesa",
+      "Land",
+      "\", Pay 1 life, Sacrifice Arid",
+      "Mesa: Search your library for a",
+      "Mountain or Plains card, put it",
+      "onto the battlefield, then shuffle.",
+      "Illus. Raymond Swanland",
+      "02i Wizands of the Coass 434"
+    ],
+    [
+      "Arid Mesa",
+      "Land",
+      "r, Pay 1 life, Sacrifice Arid",
+      "Mesa: Search your library for a",
+      "Mountain or Plains card, put it",
+      "onto the battlefield, then shuffle.",
+      "Illus. Raymond Swanland",
+      "2021 Wizatds of the",
+      "Соми 037"
+    ],
+    [
+      "Arid Mesa",
+      "Land",
+      "r, Pay 1 life, Sacrifice Arid",
+      "Mesa: Search your library for a",
+      "Mountain or Plains card, put it",
+      "onto the battlefield, then shuffle.",
+      "Illus. Raymond Swanland",
+      "n2i Winds of tie Coast 43d"
+    ]
+  ],
+  "name": "Arid Mesa",
+  "set": "mh2",
+  "cn": "436",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "211",
+    "set": "zen",
+    "name": "Arid Mesa",
+    "exact": false,
+    "card_id": "16c8d2fa-54a7-46e8-980c-905258497c90"
+  },
+  "reported_at": "2026-10-28T00:15:11.245361+00:00"
+}

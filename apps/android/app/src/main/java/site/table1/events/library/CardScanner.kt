@@ -153,6 +153,7 @@ fun CardScanOverlay(
         val take = steady.feed(hit) ?: return hit != null
         val o = hit?.oracle ?: return false
         frames.took()
+        m.took()
         taken++
         cards.add(0, ScannedCard(oracle = o, printing = take.first, finish = m.defaultFinish(take.first),
             condition = if (owned == null) condition else "NM", exact = take.second,

@@ -1,0 +1,78 @@
+{
+  "id": "edbba844-a15e-42ce-99e9-c3d7846e5682",
+  "source": "report",
+  "frames": [
+    [],
+    [],
+    [
+      "Sea and Sk",
+      "- Merfolk God",
+      "of Sou and Sky has indestructible",
+      "mel at least two other",
+      "s, draw a card.",
+      "ol have ward"
+    ],
+    [
+      "00",
+      "Svyelun of Sea and Sky",
+      "Legendary Creature - Merfolk God",
+      "Svyelun of Sea and Sky has indestructible",
+      "as long as you control at least two other",
+      "Merfolk.",
+      "Whenever Svyelun attacks, draw a card.",
+      "Other Merfolk you control have ward O.",
+      "3/4",
+      "I% & E 2021 Want of the Cas",
+      "MHE • EN"
+    ],
+    [
+      "Svyelun of Sea and Sky",
+      "Legendary Creature - Merfolk God",
+      "Svyelun of Sea and Sky has indestructible",
+      "as long as you control at least two other",
+      "Merfolk.",
+      "Whenever Svyelun attacks, draw a card.",
+      "Other Merfolk you control have ward 0",
+      "3/4",
+      "re & © 2021 Wizards of the Coa",
+      "M",
+      "310",
+      "MH2 • EN A HOWARD LYON"
+    ],
+    [
+      "100",
+      "Svyelun of Sea and Sky",
+      "Legendary Creature - Merfolk God",
+      "Svyelun of Sea and Sky has indestructible",
+      "as long as you control at least two other",
+      "Merfolk.",
+      "Whenever Svyelun attacks, draw a card.",
+      "Other Merfolk you control have ward O.",
+      "3/4",
+      "is & C 2021 Wizands of the Coast",
+      "310",
+      "MH2 • EN A HOWARD LYON"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Svyelun of Sea and Sky",
+    "set": "mh2",
+    "cn": "310"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "310",
+    "set": "mh2",
+    "name": "Svyelun of Sea and Sky",
+    "exact": true,
+    "card_id": "96fc69e6-5973-4e8e-a8d2-33657924d86a"
+  },
+  "reported_at": "2026-10-25T04:39:24.337953+00:00"
+}

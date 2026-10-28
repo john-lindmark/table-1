@@ -1,0 +1,96 @@
+{
+  "id": "ba6afc3a-d348-4c6c-9baa-820eecdf4eec",
+  "source": "report",
+  "frames": [
+    [
+      "Mine des morts-terrains",
+      "Terrain",
+      "P: Ajoutez 1 mana incolore à votre réserve de",
+      "mana.",
+      "P: Sacrifiez la Mine des morts-terrains pour",
+      "détruire un terrain ciblé.",
+      "Au contraire des précédents conflits, la guerre entre",
+      "Urza et Mishra fit que la terre de Dominia elle-même",
+      "fut meurtrie dans sa chair.",
+      "Illus. Daniel Gelon"
+    ],
+    [
+      "Mine des morts-terrains",
+      "Terrain",
+      "•: Ajoutez 1 mana incolore à votre réserve de",
+      "mana,",
+      "•: Sacrifiez la Mine des morts-terrains pour",
+      "détruire un terrain ciblé.",
+      "Au contraire des précédents conflits, la guerre entre",
+      "Urza et Mishra fit que la terre de Domina elle-même",
+      "fut meurtrie dans sa chair.",
+      "Illus. Daniel Gelon"
+    ],
+    [
+      "Mine des morts-terrains",
+      "Terrain",
+      "P: Ajoutez 1 mana incolore à votre réserve de",
+      "mana.",
+      "p: Sacrifiez la Mine des morts-terrains pour",
+      "détruire un terrain ciblé",
+      "Au contraire des précédents conflits, la guerre entre",
+      "Urza et Mishra fit que la terre de Dominia elle-même",
+      "fut meurtrie dans sa chair.",
+      "Illas. Daniel Gelon"
+    ],
+    [
+      "Mine des morts-terrains",
+      "Terrai",
+      "P: Ajoutez 1 mana incolore à votre réserve de",
+      "mana.",
+      "P: Sacrifiez la Mine des morts-terrains pour",
+      "détruire un terrain ciblé",
+      "Au contraire des précédents conflits, la guerre entre",
+      "Urza et Mishra fit que la terre de Dominia elle-même",
+      "fut meurtrie dans sa chair.",
+      "Illus. Daniel Gelon"
+    ],
+    [
+      "Mine des morts-terrains",
+      "Terrain",
+      "9: Ajoutez 1 mana incolore à votre réserve de",
+      "mana.",
+      "P: Sacrifiez la Mine des morts-terrains pour",
+      "détruire un terrain ciblé.",
+      "Au contraire des précédents conflits, la guerre entre",
+      "Urza et Mishra fit que la terre de Dominia elle-même",
+      "fut meurtrie dans sa chair.",
+      "Illus. Daniel Gelon",
+      "1091 80122"
+    ],
+    [
+      "Mine des morts-terrains",
+      "Terrain",
+      "P: Ajoutez 1 mana incolore à votre réserve de",
+      "mana.",
+      "•: Sacrifiez la Mine des morts-terrains pour",
+      "détruire un terrain ciblé.",
+      "Au contraire des précédents conflits, la guerre entre",
+      "Urza et Mishra fit que la terre de Dominia elle-même",
+      "fut meurtrie dans sa chair.",
+      "Illus. Daniel Gelon",
+      "ourt, Ine Tous debits réservel"
+    ]
+  ],
+  "name": "Strip Mine",
+  "set": "ren",
+  "cn": "189",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "82a",
+    "set": "atq",
+    "name": "Strip Mine",
+    "exact": false,
+    "card_id": "e7880157-7f27-4f1b-9cdc-ab36a6252376"
+  },
+  "reported_at": "2026-10-28T00:15:04.439099+00:00"
+}

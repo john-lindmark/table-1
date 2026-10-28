@@ -1,0 +1,87 @@
+{
+  "id": "a4073f8f-4857-48a6-9fe4-cde6597c7885",
+  "source": "report",
+  "frames": [
+    [
+      "Frantic Search",
+      "Draw two cards, then discard two",
+      "cards. Untap up to three lands.",
+      "It took the banning of temporal",
+      "manipulation at Tolaria West to teach",
+      "its students the value of time.",
+      "Bus: Mitchell Malloy"
+    ],
+    [
+      "Frantic Search",
+      "2",
+      "Instant",
+      "Draw two cards, then discard two",
+      "cards. Untap up to three lands.",
+      "It took the banning of temporal",
+      "manipulation at Tolaria West to teach",
+      "its students the value of time.",
+      "ell Malloy"
+    ],
+    [
+      "Frantic Search",
+      "2",
+      "Instant",
+      "Draw two cards, then discard two",
+      "cards. Untap up to three lands.",
+      "In and the ba a to af tenor to reach",
+      "its students the value of time.",
+      "Illus. Mitchell Malloy"
+    ],
+    [
+      "Frantic Search",
+      "2",
+      "Instant",
+      "Draw two cards, then discard two",
+      "cards. Untap up to three lands.",
+      "It took the banning of temporal",
+      "manipulation at Tolaria West to teach",
+      "its students the value of time.",
+      "Bus. Mitchell Malloy",
+      "25 Wizent of the Coad"
+    ],
+    [
+      "Frantic Search",
+      "Instant",
+      "Draw two cards, then discard two",
+      "cards. Untap up to three lands.",
+      "It took the banning of temporal",
+      "manipulation at Tolaria West to teach",
+      "its students the value of time.",
+      "Illus: Mitchell Malloy",
+      "nt the Cha"
+    ],
+    [
+      "Frantic Search",
+      "2",
+      "Instant",
+      "Draw two cards, then discard two",
+      "cards. Untap up to three lands.",
+      "It took the banning of temporal",
+      "manipulation at Tolaria West to teach",
+      "its students the value of time.",
+      "Mitchell Malloy",
+      "of the Coat"
+    ]
+  ],
+  "name": "Frantic Search",
+  "set": "dmr",
+  "cn": "285",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (33)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "32",
+    "set": "ulg",
+    "name": "Frantic Search",
+    "exact": false,
+    "card_id": "1904db14-6df7-424f-afa5-e3dfab31300a"
+  },
+  "reported_at": "2026-10-28T03:03:50.913553+00:00"
+}

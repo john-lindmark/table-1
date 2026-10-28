@@ -1,0 +1,90 @@
+{
+  "id": "191ce704-5f23-4949-9dcc-25ab6e323c7b",
+  "source": "report",
+  "frames": [
+    [],
+    [
+      "be hinched by avarus"
+    ],
+    [
+      "Questing Beast",
+      "Legendary Creature - Beast",
+      "Vigilance, deathtouch, haste",
+      "Questing Beast can't be blocked by creatures",
+      "with power 2 or less.",
+      "Combat damage that would be dealt by",
+      "creatures you control can't be prevented.",
+      "Whenever Questing Beast deals combat damage",
+      "to an opponent, it deals that much damage to",
+      "target planeswalker that player controls.",
+      "4/4",
+      "171/269",
+      "ELD • EN I IGOR KIERYLUK",
+      "IN & C 2019 Wizards of the Coas"
+    ],
+    [
+      "Questing Beast",
+      "Legendary Creature - Beast",
+      "Vigilance, deathtouch, haste",
+      "Questing Beast can't be blocked by creatures",
+      "with power 2 or less.",
+      "Combat damage that would be dealt by",
+      "creatures you control can't be prevented",
+      "Whenever Questing Beast deals combat damage",
+      "to an opponent, it deals that much damage to",
+      "target planeswalker that player controls.",
+      "171/269 M",
+      "4/4",
+      "ELD • EN - IGOR KIERYLUK",
+      "TH & C 2019 Wizards of the Coas"
+    ],
+    [
+      "Questing Beast",
+      "Legendary Creature - Beast",
+      "Vigilance, deathtouch, haste",
+      "Questing Beast can't be blocked by creatures",
+      "with power 2 or less.",
+      "Combat damage that would be dealt by",
+      "creatures you control can't be prevented.",
+      "Whenever Questing Beast deals combat damage",
+      "to an opponent, it deals that much damage to",
+      "target planeswalker that player controls.",
+      "4/4",
+      "171/269 M",
+      "ELD • EN • IGOR KIERYLUK",
+      "IM & C 2019 Wizards of the Coast"
+    ],
+    [
+      "Questing Beast",
+      "Legendary Creature - Beast",
+      "Vigilance, deathtouch, haste",
+      "Questing Beast can't be blocked by creatures",
+      "with power 2 or less.",
+      "Combat damage that would be dealt by",
+      "creatures you control can't be prevented.",
+      "Whenever Questing Beast deals combat damage",
+      "to an opponent, it deals that much damage to",
+      "target planeswalker that player controls.",
+      "4/4",
+      "171/269 M",
+      "ELD • EN NO IGOR KIERYLUK",
+      "IN & C 2019 Wizards of the Coas"
+    ]
+  ],
+  "name": "Questing Beast",
+  "set": "peld",
+  "cn": "171p",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "171",
+    "set": "eld",
+    "name": "Questing Beast",
+    "exact": true,
+    "card_id": "e41cf82d-3213-47ce-a015-6e51a8b07e4f"
+  },
+  "reported_at": "2026-10-28T00:32:40.94504+00:00"
+}

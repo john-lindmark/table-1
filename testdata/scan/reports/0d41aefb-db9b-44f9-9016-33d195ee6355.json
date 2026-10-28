@@ -1,0 +1,64 @@
+{
+  "id": "0d41aefb-db9b-44f9-9016-33d195ee6355",
+  "source": "report",
+  "frames": [
+    [
+      "Arcane Bignet",
+      "Artilact",
+      "•: Add one mana of any color in",
+      "your commander's color identity.",
+      "Mus. Dan Frazie"
+    ],
+    [
+      "Arcane Signet",
+      "Artifact",
+      "e: Add one mana of any color in",
+      "your commander's color identity.",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "Arcane Signet",
+      "Artifact",
+      "r: Add one mana of any color in",
+      "your commander's color identity.",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "Arcane Signet",
+      "Artifact",
+      "r: Add one mana of any color in",
+      "your commander's color identity.",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "Arcane Signet",
+      "Artifact",
+      "r: Add one mana of any color in",
+      "your commander's color identity.",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "Arcane Signet",
+      "Artifact",
+      "r: Add one mana of any color in",
+      "your commander's color identity.",
+      "Illus. Dan Frazier"
+    ]
+  ],
+  "name": "Arcane Signet",
+  "set": "sld",
+  "cn": "589",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "331",
+    "set": "eld",
+    "name": "Arcane Signet",
+    "exact": false,
+    "card_id": "84128e98-87d6-4c2f-909b-9435a7833e63"
+  },
+  "reported_at": "2026-10-28T00:19:48.448254+00:00"
+}

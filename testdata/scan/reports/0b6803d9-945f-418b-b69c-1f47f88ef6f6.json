@@ -1,0 +1,66 @@
+{
+  "id": "0b6803d9-945f-418b-b69c-1f47f88ef6f6",
+  "source": "report",
+  "frames": [
+    [
+      "Arid Mesa",
+      "r, Pay 1 life, Sacrifice Arid",
+      "Mesa: Search your library for a",
+      "Mountain or Plains card, put it",
+      "onto the battlefield, then shuffle"
+    ],
+    [
+      "Arid Mesa",
+      "5. Pay 1 life, Sacrifice Arid",
+      "Mesa: Search your library for a",
+      "Mountain or Plains card, put it",
+      "onto the battlefield, then shuffle."
+    ],
+    [
+      "Arid Mesa",
+      "r, Pay 1 life, Sacrifice Arid",
+      "Mesa: Search your library for a",
+      "Mountain or Plains card, put it",
+      "onto the battlefield, then shuffle."
+    ],
+    [
+      "Arid Mesa",
+      "5, Pay 1 life, Sacrifice Arid",
+      "Mesa: Search your library for a",
+      "Mountain or Plains card, put it",
+      "onto the battlefield, then shuffle."
+    ],
+    [
+      "Arid Mesa",
+      "Land",
+      "r, Pay 1 life, Sacrifice Arid",
+      "Mesa: Search your library for a",
+      "Mountain or Plains card, put it",
+      "onto the battlefield, then shuffle."
+    ],
+    [
+      "Arid Mesa",
+      "and",
+      "r, Pay 1 life, Sacrifice Arid",
+      "Mesa: Search your library for a",
+      "Mountain or Plains card, put it",
+      "onto the battlefield, then shuffle."
+    ]
+  ],
+  "name": "Arid Mesa",
+  "set": "mh2",
+  "cn": "436",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "211",
+    "set": "zen",
+    "name": "Arid Mesa",
+    "exact": false,
+    "card_id": "16c8d2fa-54a7-46e8-980c-905258497c90"
+  },
+  "reported_at": "2026-10-26T03:28:43.9692+00:00"
+}

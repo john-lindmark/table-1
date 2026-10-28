@@ -1,0 +1,62 @@
+{
+  "id": "5e439c54-cd5b-49e5-bed1-a4cf5323dc6a",
+  "source": "report",
+  "frames": [
+    [
+      "Lightning Bolt",
+      "Inster",
+      "Lightning Bolt does 3",
+      "damage to one target.",
+      "Ibs. © Christopher Rush"
+    ],
+    [
+      "Lightning Bolt",
+      "13080)",
+      "Lightning Bolt does 3",
+      "damage to one target.",
+      "Illus, ( Chrsropher Kush"
+    ],
+    [
+      "Lightning Bolt",
+      "ESCALLE",
+      "Lightning Bolt does 3",
+      "damage to one target.",
+      "Mus. © Christopher Rush"
+    ],
+    [
+      "Lightning Bolt",
+      "Lightning Bolt does 3",
+      "damage to one target.",
+      "Has © Christopher Rush"
+    ],
+    [
+      "Lighming Bolt",
+      "USEALE",
+      "Lightning Bolt does 3",
+      "damage to one target.",
+      "Illus. © Christopher Rush"
+    ],
+    [
+      "Lighting Bolt",
+      "Lightning Bolt does 3",
+      "damage to one target.",
+      "Illus. © Christopher Rush"
+    ]
+  ],
+  "name": "Lightning Bolt",
+  "set": "2ed",
+  "cn": "162",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "162",
+    "set": "3ed",
+    "name": "Lightning Bolt",
+    "exact": false,
+    "card_id": "cb9b9a9d-ae4c-4e04-bf9d-cae48f01292c"
+  },
+  "reported_at": "2026-10-28T02:34:04.934746+00:00"
+}

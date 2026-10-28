@@ -1,0 +1,78 @@
+{
+  "id": "a294d931-538b-4113-a82d-8ef695841464",
+  "source": "report",
+  "frames": [
+    [],
+    [],
+    [
+      "Hallowed Fountain",
+      "and - Plains Island",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "\"I like to bask and match its beauty-a",
+      "reminder that me can't control the",
+      "currents, but can knot hot to swim",
+      "across them.\"",
+      "ECL - EN NASTIN GERARI"
+    ],
+    [
+      "Hallowed Fountain",
+      "(Land - Plains Island",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "\"I like to bask and watch its beautya",
+      "reminder that we can't control the",
+      "currents, but can know how to swim",
+      "across them.",
+      "-Sygg",
+      "0347",
+      "ECL • EN A JUSTIN GERARD"
+    ],
+    [
+      "Hallowed Fountain",
+      "Land - Plains Island",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "\"I like to bask and watch its beautya",
+      "reminder that we can't control the",
+      "currents, but can know how to swim",
+      "across them.\"",
+      "-Sygg",
+      "ECL • EN TUSTIN GERARO"
+    ],
+    [
+      "Hallowed Fountain",
+      "Land - Plains Island",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "\"I like to bask and watch its beautya",
+      "reminder that we can't control the",
+      "currents, but can know how to swim",
+      "across them.\"",
+      "-Sygg",
+      "R 0347",
+      "ECL • EN A LUSTIN GERARD"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Hallowed Fountain",
+    "set": "ecl",
+    "cn": "347"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "347",
+    "set": "ecl",
+    "name": "Hallowed Fountain",
+    "exact": true,
+    "card_id": "19cba6be-7291-4788-9241-87dad3b68363"
+  },
+  "reported_at": "2026-10-25T04:07:51.613772+00:00"
+}

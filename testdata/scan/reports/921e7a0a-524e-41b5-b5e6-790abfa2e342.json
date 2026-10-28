@@ -1,0 +1,94 @@
+{
+  "id": "921e7a0a-524e-41b5-b5e6-790abfa2e342",
+  "source": "report",
+  "frames": [
+    [
+      "Mind Stone",
+      "Artifact",
+      "P: Add • .",
+      "1, r, Sacrifice Mind Stone:",
+      "Draw a card.",
+      "\"What is mana but possibility, an",
+      "idea not yet given form?\"",
+      "-Thoira, master artificer",
+      "Illus. Adam Rex",
+      "as of the Case ses"
+    ],
+    [
+      "Mind Stone",
+      "Artifact",
+      "r: Add • .",
+      "1, r, Sacrifice Mind Stone:",
+      "Draw a card.",
+      "\"What is mana but possibility, an",
+      "idea not yet given form?\"",
+      "—Thoira, master artificer",
+      "Illus. Adam Rex",
+      "2023 Writands of the Coser 385"
+    ],
+    [
+      "Mind Stone",
+      "Artifact",
+      "r: Add •.",
+      "1, r, Sacrifice Mind Stone:",
+      "Draw a card.",
+      "\"What is mana but possibility, an",
+      "idea not yet given form?\"",
+      "-Thoira, master artificer",
+      "Illus. Adam Rex",
+      "023 Wurande of the Coat 385"
+    ],
+    [
+      "Mind Stone",
+      "Artifact",
+      "r: Add •.",
+      "1, r, Sacrifice Mind Stone:",
+      "Draw a card.",
+      "\"What is mana but possibility, an",
+      "idea not yet given form?\"",
+      "-Thoira, master artificer",
+      "Illus. Adam Rex",
+      "* & C 2023 Wizards of the Coast 385"
+    ],
+    [
+      "Mind Stone",
+      "Artifact",
+      "r: Add • .",
+      "1, r, Sacrifice Mind Stone:",
+      "Draw a card.",
+      "\"What is mana but possibility, an",
+      "idea not yet given form?\"",
+      "-Thoira, master artificer",
+      "Illus. Adam Rex",
+      "1021 Wizande of the Coast 195"
+    ],
+    [
+      "Mind Stone",
+      "Artifact",
+      "r: Add • .",
+      "1, r, Sacrifice Mind Stone:",
+      "Draw a card.",
+      "\"What is mana but possibility, an",
+      "idea not yet given form?\"",
+      "-Thoira, master artificer",
+      "Illus. Adam Rex",
+      "™ & C 2023 Wizards of the Coasr 395"
+    ]
+  ],
+  "name": "Mind Stone",
+  "set": "dmr",
+  "cn": "385",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (33)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "309",
+    "set": "lcc",
+    "name": "Mind Stone",
+    "exact": false,
+    "card_id": "8615e46e-56c3-49f6-b4ad-44ec25be5f05"
+  },
+  "reported_at": "2026-10-28T03:02:51.469928+00:00"
+}

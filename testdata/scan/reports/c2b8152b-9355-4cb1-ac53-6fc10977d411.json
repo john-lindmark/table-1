@@ -1,0 +1,96 @@
+{
+  "id": "c2b8152b-9355-4cb1-ac53-6fc10977d411",
+  "source": "report",
+  "frames": [
+    [
+      "Enchantmen",
+      "Whenever you cast your first",
+      "instant or sorcery spell each turn,",
+      "exile an instant or sorcery card at",
+      "random from your graveyard. The",
+      "oopy each card exiled with Arcan",
+      "Bombardment. You may cast any",
+      "number of the copies without pay",
+      "their mana costs"
+    ],
+    [
+      "Enchantment",
+      "Whenever you cast your first",
+      "instant or sorcery spell each turn,",
+      "exile an instant or sorcery card at",
+      "random from your graveyard. Then",
+      "copy each card exiled with Arcane",
+      "Bombardment. You may cast any",
+      "number of the copies without paying",
+      "their mana costs.",
+      "AME - EN E MARTA NAST"
+    ],
+    [
+      "Arcane Bombardment",
+      "Enchantment",
+      "Whenever you cast your first",
+      "instant or sorcery spell each turn,",
+      "exile an instant or sorcery card at",
+      "random from your graveyard. Then",
+      "copy each card exiled with Arcane",
+      "Bombardment. You may cast any",
+      "number of the copies without paying",
+      "their mana costs"
+    ],
+    [
+      "Arcane Bombardment",
+      "Enchantment",
+      "Whenever you cast your first",
+      "instant or sorcery spell each turn,",
+      "exile an instant or sorcery card at",
+      "random from your graveyard. Then",
+      "copy each card exiled with Arcane",
+      "Bombardment. You may cast any",
+      "number of the copies without paying",
+      "their mana costs.",
+      "SNE - EN A MARTA NATE"
+    ],
+    [
+      "Arcane Bombardment",
+      "Enchantment",
+      "Whenever you cast your first",
+      "instant or sorcery spell each turn,",
+      "exile an instant or sorcery card at",
+      "random from your graveyard. Then",
+      "copy each card exiled with Arcane",
+      "Bombardment. You may cast any",
+      "number of the copies without paying",
+      "their mana costs.",
+      "ENC - EN \" MARTA NACL"
+    ],
+    [
+      "Arcane Bombardment",
+      "Enchantment",
+      "Whenever you cast your first",
+      "instant or sorcery spell each turn,",
+      "exile an instant or sorcery card at",
+      "random from your graveyard. Then",
+      "copy each card exiled with Arcane",
+      "Bombardment. You may cast any",
+      "number of the copies without paying",
+      "their mana costs.",
+      "GRE . EN N MARIA NARL"
+    ]
+  ],
+  "name": "Arcane Bombardment",
+  "set": "snc",
+  "cn": "422",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "101",
+    "set": "snc",
+    "name": "Arcane Bombardment",
+    "exact": false,
+    "card_id": "31f1b2bd-fe06-45ec-99dc-ff357a7a31d2"
+  },
+  "reported_at": "2026-10-26T02:59:03.676614+00:00"
+}

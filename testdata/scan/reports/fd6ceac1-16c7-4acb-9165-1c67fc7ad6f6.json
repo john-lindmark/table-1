@@ -1,0 +1,71 @@
+{
+  "id": "fd6ceac1-16c7-4acb-9165-1c67fc7ad6f6",
+  "source": "report",
+  "frames": [
+    [
+      "Path to Exile",
+      "Instant",
+      "Exile target creature. Its controller. may",
+      "search their library for a basic land card,",
+      "put that card onto the battleheld tapped,",
+      "then shuffle.",
+      "M 000!"
+    ],
+    [
+      "Path to Exile",
+      "Instant",
+      "Exile target creature. Its controller may",
+      "search their library for a basic land card.",
+      "put that card onto the battlefield tapped,",
+      "then shuttle."
+    ],
+    [
+      "Path to Exile",
+      "Instant",
+      "Exile target creature. Its controller may",
+      "search their library for a basic land card,",
+      "put that card onto the battlefield tapped",
+      "then shuffle"
+    ],
+    [
+      "Path to Exile",
+      "Instant",
+      "Exile target creature. Its controller may",
+      "search their library for a basic land card,",
+      "put that card onto the battléfield tapped.",
+      "then shuffle"
+    ],
+    [
+      "Path to Exile",
+      "Instant",
+      "Exile target creature. Its controller may",
+      "search their library for a basic land card,",
+      "put that card onto the battlefield tapped",
+      "then shuffle"
+    ],
+    [
+      "Path to Exile",
+      "Instant",
+      "Exile target creature. Its controller may",
+      "search their library for a basic land card,",
+      "put that card onto the battlefield tapped",
+      "then shuffle"
+    ]
+  ],
+  "name": "Path to Exile",
+  "set": "pza",
+  "cn": "1",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (28)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "15",
+    "set": "con",
+    "name": "Path to Exile",
+    "exact": false,
+    "card_id": "29b7a8b1-b98e-483a-87a4-73bd831c03d4"
+  },
+  "reported_at": "2026-10-26T04:24:19.288586+00:00"
+}

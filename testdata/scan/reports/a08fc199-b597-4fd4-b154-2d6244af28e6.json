@@ -1,0 +1,87 @@
+{
+  "id": "a08fc199-b597-4fd4-b154-2d6244af28e6",
+  "source": "report",
+  "frames": [
+    [
+      "An Offer You Can't Refuse",
+      "Instant",
+      "Counter target noncreature spell.",
+      "Its controller creates two Treasure",
+      "tokens",
+      "*I sincerely regret thar your place of",
+      "besines burned usef down after you",
+      "lecimed our protection.\""
+    ],
+    [
+      "An Offer You Can't Refuse",
+      "Instant",
+      "Counter target noncreature spell.",
+      "Its controller creates two Treasure",
+      "tokens.",
+      "\"I sincerely regret that your place of",
+      "business burned itself down after you",
+      "declined our protection."
+    ],
+    [
+      "An Offer You Can't Refuse",
+      "Instant",
+      "Counter target noncreature spell.",
+      "Its controller creates two Treasure",
+      "tokens.",
+      "\"I sincerely regret that your place of",
+      "business burned itself dosen after you",
+      "dechned our protection.™"
+    ],
+    [
+      "An Offer You Can't Refuse",
+      "Instant",
+      "Counter target noncreature spell.",
+      "Its controller creates two Treasure",
+      "tokens.",
+      "\"I sincerely regret that your place of",
+      "business burned itself down after you",
+      "declined our protection.\"",
+      "U 0311",
+      "PON EN NO AARON I RILEY"
+    ],
+    [
+      "An Offer You Can't Refuse",
+      "Instant",
+      "Counter target noncreature spell.",
+      "Its controller creates two Treasure",
+      "tokens.",
+      "\"I sincerely regret that your place of",
+      "business burned itself down after you",
+      "declined our protection.\"",
+      "U 0311"
+    ],
+    [
+      "An Offer You Can't Refuse",
+      "Instant",
+      "Counter target noncreature spell.",
+      "Its controller creates two Treasure",
+      "tokens.",
+      "\"I sincerely regret that your place of",
+      "business burned itself down after you",
+      "declined our protection.\"",
+      "u 031",
+      "FON *EN & AARON 1. AILEY"
+    ]
+  ],
+  "name": "An Offer You Can't Refuse",
+  "set": "fdn",
+  "cn": "311",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (33)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "51",
+    "set": "snc",
+    "name": "An Offer You Can't Refuse",
+    "exact": false,
+    "card_id": "b9d349f3-5be2-4b1f-a4c3-ba94822cf0cf"
+  },
+  "reported_at": "2026-10-28T03:04:32.020804+00:00"
+}

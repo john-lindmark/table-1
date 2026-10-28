@@ -1,0 +1,95 @@
+{
+  "id": "7bfbe7e6-9435-4454-99d4-adb22dee8923",
+  "source": "report",
+  "frames": [
+    [
+      "The Underworld Cookbook",
+      "Artifact",
+      ", Discard a card: Create a Food",
+      "e",
+      "token.",
+      "4, e, Sacrifice The Underworld",
+      "Cookbook: Return target creature",
+      "card from your graveyard to your",
+      "hand",
+      "Illus, Joe Slucher",
+      "Car Gor Br"
+    ],
+    [
+      "The Underworld Cookbook",
+      "Artifact",
+      "e, Discard a card: Create a Food",
+      "token.",
+      "4, r, Sacrifice The Underworld",
+      "Cookbook: Return target creature",
+      "card from your graveyard to your",
+      "hand.",
+      "Illus. Joe Slucher",
+      "2023 Fuch if the Cret 8T9"
+    ],
+    [
+      "The Underworld Cookbook",
+      "Artifact",
+      "r, Discard a card: Create a Food",
+      "token.",
+      "4, r, Sacrifice The Underworld",
+      "Cookbook: Return target creature",
+      "card from your graveyard to your",
+      "hand.",
+      "Illus. Joe Slucher",
+      "IN & D 2021 Wizands of the Coast 134"
+    ],
+    [
+      "The Underworld Cookbook",
+      "Artifact",
+      "r, Discard a card: Create a Food",
+      "token.",
+      "4, r, Sacrifice The Underworld",
+      "Cookbook: Return target creature",
+      "card from your graveyard to your",
+      "hand.",
+      "Illus. Joe Slucher",
+      "© 2021 Wizande of the Cras 134"
+    ],
+    [
+      "The Underworld Cookbook",
+      "Artifact",
+      "e, Discard a card: Create a Food",
+      "token.",
+      "4, e, Sacrifice The Underworld",
+      "Cookbook: Return target creature",
+      "card from your graveyard to your",
+      "hand.",
+      "Illus. Joe Slucher",
+      "2021 Wizards of the Coast 434"
+    ],
+    [
+      "The Underworld Cookbook",
+      "Artifact",
+      "r, Discard a card: Create a Food",
+      "token.",
+      "4, r, Sacrifice The Underworld",
+      "Cookbook: Return target creature",
+      "card from your graveyard to your",
+      "hand.",
+      "Illus. Joe Slucher",
+      "2031 Wizends of the Coast 434"
+    ]
+  ],
+  "name": "The Underworld Cookbook",
+  "set": "mh2",
+  "cn": "434",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "240",
+    "set": "mh2",
+    "name": "The Underworld Cookbook",
+    "exact": false,
+    "card_id": "039d62b0-3309-4424-a2ea-5a0d88d4bd72"
+  },
+  "reported_at": "2026-10-28T02:28:52.563706+00:00"
+}

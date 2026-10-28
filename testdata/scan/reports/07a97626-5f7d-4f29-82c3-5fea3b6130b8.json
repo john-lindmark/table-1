@@ -1,0 +1,51 @@
+{
+  "id": "07a97626-5f7d-4f29-82c3-5fea3b6130b8",
+  "source": "report",
+  "frames": [
+    [
+      "Mountain",
+      "Basic Land - Mountain"
+    ],
+    [
+      "Mountain",
+      "Basic Land - Mountain",
+      "4OK *EN • DIEGO GISBERI"
+    ],
+    [
+      "Mountain",
+      "Basic Land - Mountain"
+    ],
+    [
+      "Mountain",
+      "Basic Land - Mountain",
+      "4OK*EN A DILGO GEDERT"
+    ],
+    [
+      "Mountain",
+      "Basic Land - Mountain",
+      "4OK *EN A DIEGO GASDERC"
+    ],
+    [
+      "Mountain",
+      "Basic Land - Mountain",
+      "315",
+      "AOK *EN N DILGO GISBERS"
+    ]
+  ],
+  "name": "Mountain",
+  "set": "3ed",
+  "cn": "302",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "315",
+    "set": "trk",
+    "name": "Mountain",
+    "exact": false,
+    "card_id": "81564344-1c9b-4fac-8a7d-682f57331d61"
+  },
+  "reported_at": "2026-10-28T02:28:18.94192+00:00"
+}

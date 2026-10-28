@@ -1,0 +1,83 @@
+{
+  "id": "6a808e51-740b-4345-a310-e42fa113e3db",
+  "source": "report",
+  "frames": [
+    [
+      "Godless Shrine",
+      "Land - Plains Swamp",
+      "(e: Add * or $ to your mana pool.)",
+      "As Godless Shrine enters the battlefield,",
+      "you may pay 2 life. If you don't, Godless",
+      "Shrine enters the battlefield tapped",
+      "Judgment without hope.",
+      "- Chiff Childs"
+    ],
+    [
+      "Godless Shrine",
+      "Land",
+      "- Plains Swamp",
+      "(e: Add * or $ to your mana pool.)",
+      "As Godless Shrine enters the battlefield,",
+      "you may pay 2 life. If you don't, Godless",
+      "Shrine enters the battlefield tapped.",
+      "Judgment without hope.",
+      "Chiff Childs"
+    ],
+    [
+      "Godless Shrine",
+      "Land - Plains Swamp",
+      "(e: Add * or ® to your mana pool.)",
+      "As Godless Shrine enters the battlefield,",
+      "you may pay 2 life. If you don't, Godless",
+      "Shrine enters the battlefield tapped.",
+      "Judgment without hope.",
+      "Chiff Childs"
+    ],
+    [
+      "Godless Shrine",
+      "Land - Plains Swamp",
+      "(r: Add * or & to your mana pool.)",
+      "As Godless Shrine enters the battlefield,",
+      "you may pay 2 life. If you don't, Godless",
+      "Shrine enters the battlefield tapped.",
+      "Judgment without hope.",
+      "- Cliff Childs"
+    ],
+    [
+      "Godless Shrine",
+      "Land - Plains Swamp",
+      "(c: Add * or & to your mana pool.)",
+      "As Godless Shrine enters the battlefield,",
+      "you may pay 2 life. If you don't, Godless",
+      "Shrine enters the battlefield tapped.",
+      "Judgment without hope.",
+      "- Cliff Childs"
+    ],
+    [
+      "Godless Shrine",
+      "Land - Plains Swamp",
+      "(r: Add * or $ to your mana pool.)",
+      "As Godless Shrine enters the battlefield,",
+      "you may pay 2 life. If you don't, Godless",
+      "Shrine enters the battlefield tapped.",
+      "Judgment without hope.",
+      "→ Cliff Childs"
+    ]
+  ],
+  "name": "Godless Shrine",
+  "set": "gtc",
+  "cn": "242",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (28)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "157",
+    "set": "gpt",
+    "name": "Godless Shrine",
+    "exact": false,
+    "card_id": "be010c2f-06db-47e3-80bd-df3f2a21ca34"
+  },
+  "reported_at": "2026-10-26T04:34:33.676324+00:00"
+}

@@ -1,0 +1,83 @@
+{
+  "id": "ac617508-bb51-404a-9576-3321d3805f30",
+  "source": "report",
+  "frames": [
+    [],
+    [
+      "50",
+      "Galvanic Blast deals 2 damage to ac",
+      "tanger",
+      "Minalouț — Galvanic Blast deals 4",
+      "lamage to that permanent or player",
+      "stead if you control three or more",
+      "аста"
+    ],
+    [
+      "Galvanic Blast",
+      "Instant",
+      "Galvanic Blast deals 2 damage to any",
+      "target.",
+      "Metalcraft - Galvanic Blast deals 4",
+      "damage to that permanent or player",
+      "instead if you control three or more",
+      "artifacts.",
+      "045/076 C",
+      "DOU • EN N MARC SIMONETTI",
+      "& 2018 Wizards of the Cod"
+    ],
+    [
+      "Galvanic Blast",
+      "Instant",
+      "Galvanic Blast deals 2 damage to any",
+      "target.",
+      "Metalcraft - Galvanic Blast deals 4",
+      "damage to that permanent or player",
+      "instead if you control three or more",
+      "artifacts.",
+      "045/076 C",
+      "*ODU •EN & MARC SIMONETTI"
+    ],
+    [
+      "Galvanic Blast",
+      "Instant",
+      "Galvanic Blast deals 2 damage to any",
+      "target.",
+      "Metalcraft - Galvanic Blast deals 4",
+      "damage to that permanent or player",
+      "instead if you control three or more",
+      "artifacts.",
+      "045/076 C",
+      "DDU • EN A MARC SIMONETTI",
+      "& 2018 Wards of the Coas"
+    ],
+    [
+      "Galvanic Blast",
+      "Instant",
+      "Galvanic Blast deals 2 damage to any",
+      "target.",
+      "Metalcraft — Galvanic Blast deals 4",
+      "damage to that permanent or player",
+      "instead if you control three or more",
+      "artifacts.",
+      "045/076 C",
+      "DOU • EN A MARC SIMONETTI",
+      "2016 Wards of the Coas"
+    ]
+  ],
+  "name": "Galvanic Blast",
+  "set": "plst",
+  "cn": "DDU-45",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "45",
+    "set": "ddu",
+    "name": "Galvanic Blast",
+    "exact": true,
+    "card_id": "e3ba390c-26d4-4086-ab7e-db5e61bd9db9"
+  },
+  "reported_at": "2026-10-28T02:35:28.425134+00:00"
+}

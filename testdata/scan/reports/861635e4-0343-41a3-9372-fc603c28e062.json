@@ -1,0 +1,80 @@
+{
+  "id": "861635e4-0343-41a3-9372-fc603c28e062",
+  "source": "report",
+  "frames": [
+    [
+      "Arid Mesa",
+      "r. Pay 1 life, Sacrifice Arid",
+      "Mesa: Search your library for a",
+      "Mountain or Plains card, put it",
+      "onto the battlefield, then shuffle."
+    ],
+    [
+      "Arid Mesa",
+      "Land",
+      "*, Pay 1 life, Sacrifice Arid",
+      "Mesa: Search your library for a",
+      "Mountain or Plains card, put it",
+      "onto the battlefield, then shuffle.",
+      "Illus. Raymond Swanland",
+      "a2i Warands of the Goast 436"
+    ],
+    [
+      "Arid Mesa",
+      "Land",
+      "r, Pay 1 life, Sacrifice Arid",
+      "Mesa: Search your library for a",
+      "Mountain or Plains card, put it",
+      "onto the battlefield, then shuffle.",
+      "Illus. Raymond Swanland",
+      "021 Wizands of the C"
+    ],
+    [
+      "Arid Mesa",
+      "Land",
+      "r, Pay 1 life, Sacrifice Arid",
+      "Mesa: Search your library for a",
+      "Mountain or Plains card, put it",
+      "onto the battlefield, then shuffle.",
+      "Illus. Raymond Swanland",
+      "2021 Wizards of the Cod",
+      "NT 436"
+    ],
+    [
+      "Arid Mesa",
+      "Land",
+      "r, Pay 1 life, Sacrifice Arid",
+      "Mesa: Search your library for a",
+      "Mountain or Plains card, put it",
+      "onto the battlefield, then shuffle.",
+      "Ius. Raymond Swanland",
+      "2021 Wiseds of the Coat 434"
+    ],
+    [
+      "Arid Mesa",
+      "Land",
+      "r, Pay 1 life, Sacrifice Arid",
+      "Mesa: Search your library for a",
+      "Mountain or Plains card, put it",
+      "onto the battlefield, then shuffle.",
+      "Illus. Raymond Swanland",
+      "2021 Wizards of the Coast 436"
+    ]
+  ],
+  "name": "Arid Mesa",
+  "set": "mh2",
+  "cn": "436",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "244",
+    "set": "mh2",
+    "name": "Arid Mesa",
+    "exact": false,
+    "card_id": "25ac5405-df7b-4097-914a-022cb18e20d4"
+  },
+  "reported_at": "2026-10-28T00:10:24.232654+00:00"
+}

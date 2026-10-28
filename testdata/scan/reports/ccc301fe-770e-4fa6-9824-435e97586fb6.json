@@ -1,0 +1,78 @@
+{
+  "id": "ccc301fe-770e-4fa6-9824-435e97586fb6",
+  "source": "report",
+  "frames": [
+    [
+      "Forbidden Orchard",
+      "Land",
+      ": Add one mana of any color.",
+      "Whenever you tap Forbidden",
+      "Orchard for mana, target opponent",
+      "creates a 1/1 colorless Spirit creature",
+      "token."
+    ],
+    [
+      "Forbidden Orchard",
+      "Land",
+      ": Add one mana of any color.",
+      "Whenever you tap Forbidden",
+      "Orchard for mana, target opponent",
+      "creates a 1/1 colorless Spirit creature",
+      "token."
+    ],
+    [
+      "Forbidden Orchard",
+      "Land",
+      "Add one mana of any color",
+      "Whenever you tap Forbidden",
+      "Orchard for mana, target opponent",
+      "creates a 1/1 colorless Spirit creature",
+      "token."
+    ],
+    [
+      "Forbidden Orchard",
+      "Land",
+      "e: Add one mana of any color.",
+      "Whenever you tap Forbidden",
+      "Orchard for mana, target opponent",
+      "creates a 1/1 colorless Spirit creature",
+      "token."
+    ],
+    [
+      "Forbidden Orchard",
+      "Land",
+      "e: Add one mana of any color.",
+      "Whenever you tap Forbidden",
+      "Orchard for mana, target opponent",
+      "creates a 1/1 colorless Spirit creature",
+      "token."
+    ],
+    [
+      "Forbidden Orchand",
+      "Land",
+      "e: Add one mana of any color",
+      "Whenever you tap Forbidden",
+      "Orchard for mana",
+      ", target opponent",
+      "creates a 1/1",
+      "colorless Spirit creature",
+      "token."
+    ]
+  ],
+  "name": "Forbidden Orchard",
+  "set": "2x2",
+  "cn": "323",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "276",
+    "set": "chk",
+    "name": "Forbidden Orchard",
+    "exact": false,
+    "card_id": "88d78261-c8c9-4e0e-b157-f70ed46c3a25"
+  },
+  "reported_at": "2026-10-26T03:21:51.703072+00:00"
+}

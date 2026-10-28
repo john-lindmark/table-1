@@ -1,0 +1,84 @@
+{
+  "id": "62b10c13-b332-497c-96e0-b49578ca8fe7",
+  "source": "report",
+  "frames": [
+    [
+      "Wooded Foothills",
+      "9, Pay 1 life, Sacrifice Wooded",
+      "Fooch",
+      "• Search your library for a",
+      "or forest card shed put it",
+      "mo",
+      "Aexano"
+    ],
+    [
+      "Wooded Foothills",
+      "Land",
+      "P, Pay 1 life, Sacrifice Wooded",
+      "Foothills: Search your library for a",
+      "mount in or forest card and put it",
+      "Loran",
+      "shule you library.",
+      "Illus. Rob Alexander",
+      "902 w",
+      "ide of the Coast, Inc"
+    ],
+    [
+      "Wooded Foothills",
+      "Land",
+      "Ф. Pay 1 life, Sacrifice Wooded",
+      "Foothills: Search your library for a",
+      "mount in or forest card and put it",
+      "Illus. Rob Alexander",
+      "or Would of de Cue h"
+    ],
+    [
+      "Wooded Foothills",
+      "Land",
+      "@, Pay 1 life, Sacrifice Wooded",
+      "Foothills: Search your library for a",
+      "mount in or forest card and put it",
+      "Illus. Rob Alexander",
+      "2002 Wands of the Coas, Inc. 330"
+    ],
+    [
+      "Wooded Foothills",
+      "Land",
+      "•, Pay 1 life, Sacrifice Wooded",
+      "Foothills: Search your library for a",
+      "mountain or forest card and put it",
+      "Illus. Rob Alexander"
+    ],
+    [
+      "Wooded Foothitls",
+      "Land",
+      "LAI",
+      "9, Pay 1 life, Sacrifice Wooded",
+      "Foothills: Search your library for a",
+      "mount in or forest card and put it",
+      "Illus. Rob Alexander",
+      "inds of the Coast, Inc, 330."
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Wooded Foothills",
+    "set": "ons",
+    "cn": "330"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "330",
+    "set": "ons",
+    "name": "Wooded Foothills",
+    "exact": false,
+    "card_id": "cdad38f7-9dfa-4f1b-9fac-41ab2b253f53"
+  },
+  "reported_at": "2026-10-28T00:43:43.428248+00:00"
+}

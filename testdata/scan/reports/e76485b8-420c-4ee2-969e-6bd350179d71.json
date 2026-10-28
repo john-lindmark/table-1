@@ -1,0 +1,57 @@
+{
+  "id": "e76485b8-420c-4ee2-969e-6bd350179d71",
+  "source": "report",
+  "frames": [
+    [
+      "Mox Tantalite",
+      "Artifact",
+      "PiAf",
+      "Illus, Dan Frazier"
+    ],
+    [
+      "Mox Tantalite",
+      "Artifact",
+      "DAAL",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "Mox Tantalite",
+      "Artifact",
+      "PAAA",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "Mox Tantalite",
+      "Artifact",
+      "Ditaf",
+      "color.",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "Mox Tantalite",
+      "Artifact",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "Mox Tantalite",
+      "Artifact",
+      "Illus. Dan Frazier"
+    ]
+  ],
+  "name": "Mox Tantalite",
+  "set": "sld",
+  "cn": "1073",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "226",
+    "set": "mh1",
+    "name": "Mox Tantalite",
+    "exact": false,
+    "card_id": "dcd05b01-dc73-4dd2-970a-32ec6e153c86"
+  },
+  "reported_at": "2026-10-28T02:33:25.917546+00:00"
+}

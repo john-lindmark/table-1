@@ -10,6 +10,8 @@ private enum Floor {
     static let englishName = 0.95, englishPrinting = 0.85, foreignName = 0.93, cjkName = 0.6
     /// Of the cards in other languages named right, how many go in as their own language (2026-10-20).
     static let language = 0.93
+    /// Reported corrections (phone clips) whose printing comes out right (2026-10-28).
+    static let reportPrinting = 0.44
 }
 
 private let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
@@ -99,7 +101,7 @@ final class CardMatcherTests: XCTestCase {
         var results: [String: Tally] = [:], englishResults: [String: Tally] = [:]
         // English cards a scan would put in another language (a misread English name close to a printed one).
         var notEnglish: [String: Int] = [:]
-        for mode in ["accurate", "fast", "small", "multi", "title"] {
+        for mode in ["accurate", "fast", "small", "multi", "title", "bottom"] {
             var all = Tally(), english = Tally(), foreign = Tally()
             var byTag: [String: Tally] = [:]
             for c in cases {
@@ -178,6 +180,81 @@ final class CardMatcherTests: XCTestCase {
     }
 
     /// The language code printed by the set code, only by a set the catalog has.
+    /// What the bottom text says (2026-10-28, from 232 phone reports): the number at the end of a 1997-style copyright
+    /// line, years on copyright lines the camera garbles, more spellings of the set code line, an "Illus." line, lone
+    /// numbers that could be a misread power/toughness kept apart, and the illustrator's name read with a few errors.
+    func testBottomLineParsing() {
+        let sets: Set<String> = ["mh2", "mh1", "rvr", "40k", "ecl", "neo", "a25", "gtc"]
+        var c = Collector(["Illus. Rob Alexander", "™ & C 2024 Wizande of the Coart 407"], sets: sets)
+        XCTAssertEqual(c.numbers, ["407"]); XCTAssertEqual(c.years, [2024]); XCTAssertTrue(c.illustrated)
+        XCTAssertTrue(c.collectorNumbers.isEmpty, "a number on the copyright line isn't enough to name a card by")
+        XCTAssertEqual(c.names(artist: "Rob Alexander"), .illustrated); XCTAssertNil(c.names(artist: "Svetlin Velinov"))
+        c = Collector(["ds of the Coast 248 27."], sets: sets)
+        XCTAssertEqual(c.numbers, ["248"], "the total cut off")
+        c = Collector(["& C 2013W", "2012 Wi", "* & 6 2013 W", "1995"], sets: sets)
+        XCTAssertEqual(c.years, [2013, 2012])
+        c = Collector(["1993-2001 Wizards of the Coast, Inc. 214/350"], sets: sets)
+        XCTAssertEqual(c.years, [2001]); XCTAssertEqual(c.numbers, ["214"])
+        for line in ["MH2 - EN A ZEZHOU CHEN", "MH2 WEN N PAUL", "MH2VEN & PM", "YMH2 • EN - GREG STAPLES", "4OK•EN SHI", "MHT-EN A NICHOLAS", "NEO・JP ©えすていお", "A25. EN * TODD"] {
+            let got = Collector([line], sets: sets).sets
+            XCTAssertEqual(got.count, 1, line); XCTAssertTrue(["mh2", "40k", "mh1", "neo", "a25"].contains(got.first ?? ""), line)
+        }
+        XCTAssertEqual(Collector(["NEO・JP ©えすていお/ESUTHIO"], sets: sets).lang, "ja")
+        XCTAssertTrue(Collector(["one IT - ES ate", "THE END"], sets: sets).sets.isEmpty)
+        c = Collector(["Tourach, Dread Cantor", "312", "2/1"], sets: sets)
+        XCTAssertEqual(c.loneNumbers, ["312"], "could be a 3/2"); XCTAssertTrue(c.numbers.isEmpty)
+        c = Collector(["392", "3/3"], sets: sets)
+        XCTAssertEqual(c.numbers, ["392"]); XCTAssertEqual(c.collectorNumbers, ["392"])
+        c = Collector(["MH2 • EN A- ZEZHOU CHEN", "TOOD LOCKVOOD", "Shells Wan", "CUNT LANGLEY", "PAUL SCOTT CANARAT"], sets: sets)
+        XCTAssertEqual(c.names(artist: "Zezhou Chen"), .plain); XCTAssertEqual(c.names(artist: "Todd Lockwood"), .plain)
+        XCTAssertEqual(c.names(artist: "Shelly Wan"), .plain); XCTAssertEqual(c.names(artist: "Paul Scott Canavan"), .plain)
+        XCTAssertNil(c.names(artist: "Clint Langley"), "two errors in a five-letter word is another word")
+        XCTAssertNil(c.names(artist: "Greg Staples")); XCTAssertNil(c.names(artist: "Won"), "a short name must read exactly")
+        var m = Collector(["MH2 • EN"], sets: sets); m.merge(Collector(["312"], sets: sets))
+        XCTAssertEqual(m.sets, ["mh2"]); XCTAssertEqual(m.loneNumbers, ["312"])
+    }
+
+    /// The printing from frame and artist evidence (2026-10-28): a retro-frame MH2 fetchland reads "Illus." and goes
+    /// in as MH2's retro printing, not Zendikar's; the illustrator tells a set's variants apart; evidence read over
+    /// several frames of one card adds up; an old card still goes in as Revised.
+    func testPrintingEvidence() {
+        func pick(_ frames: [[String]]) -> (set: String, cn: String, exact: Bool)? {
+            let m = matcher()
+            var last: CardMatcher.Match?
+            for f in frames { last = m.match(f) ?? last }
+            return last.map { ($0.printing.set, $0.printing.cn, $0.exact) }
+        }
+        let misty = ["Misty Rainforest", "Land", "r, Pay 1 life, Sacrifice Misty", "Illus. Shelly Wan"]
+        var got = pick([misty])
+        XCTAssertEqual(got?.set, "mh2"); XCTAssertEqual(got?.cn, "438"); XCTAssertEqual(got?.exact, false)
+        got = pick([misty + ["ants of the Coast 438"]])
+        XCTAssertEqual(got?.set, "mh2"); XCTAssertEqual(got?.cn, "438"); XCTAssertEqual(got?.exact, true, "frame and number single it out")
+        got = pick([["Misty Rainforest", "Land", "r, Pay 1 life, Sacrifice Misty", "Shelly Wan"]])
+        XCTAssertEqual(got?.set, "zen", "a 2003 frame prints the artist without Illus.")
+        got = pick([["Overgrown Tomb", "Land - Swamp Forest", "Illus. Rob Alexander", "™ & C 2024 Wizards of the Coast 407"]])
+        XCTAssertEqual(got?.set, "rvr"); XCTAssertEqual(got?.cn, "407"); XCTAssertEqual(got?.exact, true)
+        got = pick([["Tourach, Dread Cantor", "Legendary Creature - Human Cleric", "MH2 • EN A- ZEZHOU CHEN"]])
+        XCTAssertEqual(got?.cn, "312", "the artist tells the borderless printing from the regular one"); XCTAssertEqual(got?.exact, true)
+        got = pick([["Tourach, Dread Cantor", "Legendary Creature - Human Cleric", "312", "2/1"]])
+        XCTAssertEqual(got?.cn, "102", "312 alone could be a creature's 3/2")
+        got = pick([["Zagoth Triome", "Land - Swamp Forest Island", "313"]])
+        XCTAssertEqual(got?.cn, "313", "a land has no power/toughness, so 313 is its number")
+        got = pick([["Zagoth Triome", "Land - Swamp Forest Island", "IKO • EN"],
+                    ["Zagoth Triome", "Land - Swamp Forest Island"],
+                    ["Zagoth Triome", "Land - Swamp Forest Island", "313"]])
+        XCTAssertEqual(got?.cn, "313", "the set code from one frame and the number from another"); XCTAssertEqual(got?.exact, true)
+        got = pick([["Temporal Manipulation", "Sorcery", "Take an extra turn after this one.", "- Franz Vohwinkel"]])
+        XCTAssertEqual(got?.set, "mb2", "an artist after a brush, not Illus., is a 2003 or newer frame")
+        got = pick([["Lightning Bolt", "Instant", "Lightning Bolt does 3", "Illus. © Christopher Rush"]])
+        XCTAssertEqual(got?.set, "3ed", "old frames still go in as the most printed")
+        // Another card between clears what was read: the artist alone names 312 but can't be sure of it.
+        let m = matcher()
+        _ = m.match(["Tourach, Dread Cantor", "Legendary Creature - Human Cleric", "MH2 • EN"])
+        _ = m.match(["Lightning Bolt", "Instant"])
+        let after = m.match(["Tourach, Dread Cantor", "Legendary Creature - Human Cleric", "A- ZEZHOU CHEN"])
+        XCTAssertEqual(after?.printing.cn, "312"); XCTAssertEqual(after?.exact, false)
+    }
+
     func testCollectorLanguage() {
         XCTAssertEqual(Collector(["154/264 M", "WAR • JP Artist"], sets: ["war"]).lang, "ja")
         XCTAssertEqual(Collector(["RIX • RU"], sets: ["rix"]).lang, "ru")
@@ -387,11 +464,14 @@ final class CardMatcherTests: XCTestCase {
             grade(c, got?.0, got?.1, exact: got?.2 ?? false, into: &t)
             let right = t.name > before.name && (c.set == "*" || t.printingOK > before.printingOK)
             if !right {
-                failures.append("\(r.id): wanted \(name) \(c.set) \(c.cn), got \(got.map { "\($0.0.name) \($0.1.setLabel)" } ?? "nothing")")
+                failures.append("\(r.id): wanted \(name) \(c.set) \(c.cn), got \(got.map { "\($0.0.name) \($0.1.setLabel)\($0.2 ? " (sure)" : "")" } ?? "nothing")")
             }
         }
         print("Reported corrections (\(t.n)): \(t.line)" + failures.map { "\n  still wrong: \($0)" }.joined())
-        // Reports are the cases that went wrong before; they're tracked, not required to pass, until tuned.
-        XCTAssertGreaterThanOrEqual(t.n, 0)
+        // Reports are the cases that went wrong before. Since the frame and artist evidence of 2026-10-28, the
+        // printing is right in most of them; the rest are what no text tells (The List, prerelease stamps the camera
+        // can't read, Unlimited vs Revised), so the floor sits under what the set reached then.
+        XCTAssertEqual(t.wrong, 0, "a reported clip named the wrong card")
+        XCTAssertGreaterThanOrEqual(Double(t.printingOK) / Double(max(t.printingChecked, 1)), Floor.reportPrinting)
     }
 }

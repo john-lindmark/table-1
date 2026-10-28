@@ -1,0 +1,96 @@
+{
+  "id": "9ec3310f-4bf6-47ed-8bd6-b432c8aec811",
+  "source": "report",
+  "frames": [
+    [
+      "Polluted Delta",
+      "r, Pay 1 life, Sacrifice Polluted",
+      "Delta: Search your library for an",
+      "Island or Swamp card, put it onto",
+      "the battlefield, then shuffle.",
+      "A warped gatemay that seeps team",
+      "and malevolence into the masers",
+      "around Toenashi.",
+      "Illus, Chris Oktoank"
+    ],
+    [
+      "Pollured Delta",
+      "Pay 1 life, Sacrifice Polluted",
+      "Search your library for an",
+      "Island or Swamp card, put if onto",
+      "the battieheld, then shuffle.",
+      "A warped gateway that seeps toxins",
+      "and malevolence into the water",
+      "around Timanshi",
+      "Iles, Chris Ostrowski"
+    ],
+    [
+      "Polluted Delta",
+      "Land",
+      "r, Pay 1 life, Sacrifice Polluted",
+      "Delta: Search your library for an",
+      "Island or Swamp card, put it onto",
+      "the battlefield, then shuffle.",
+      "A warped gateway that seeps toxins",
+      "and malevolence into the waters",
+      "around Towashi.",
+      "Illus. Chris Ostrowski",
+      "2104 Mizands of the Coast 434"
+    ],
+    [
+      "Polluted Delta",
+      "Land",
+      "r, Pay 1 life, Sacrifice Polluted",
+      "Delta: Search your library for an",
+      "Island or Swamp card, put it onto",
+      "the battlefield, then shuffle.",
+      "A warped gateway that seeps toxins",
+      "and malevolence into the waters",
+      "around Towashi.",
+      "Illus, Chris Ostrowski",
+      "2104 Winds of the Coast 436"
+    ],
+    [
+      "Polluted Delta",
+      "Land",
+      "r, Pay 1 life, Sacrifice Polluted",
+      "Delta: Search your library for an",
+      "Island or Swamp card, put it onto",
+      "the battlefield, then shuffle.",
+      "A warped gateway that seeps toxms",
+      "and malevolence into the waters",
+      "around Towashi.",
+      "Illus. Chris Ostrowski",
+      "* S- 2004 Winands of the Coast 43"
+    ],
+    [
+      "Polluted Delta",
+      "Land",
+      "s, Pay 1 life, Sacrifice Polluted",
+      "Delta: Search your library for an",
+      "Island or Swamp card, put it onto",
+      "the battlefield, then shuffle.",
+      "A warped gateway that seeps toxins",
+      "and malevolence into the waters",
+      "around Towashi.",
+      "Illus, Chris Ostrowski",
+      "438"
+    ]
+  ],
+  "name": "Polluted Delta",
+  "set": "mh3",
+  "cn": "438",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "321",
+    "set": "ons",
+    "name": "Polluted Delta",
+    "exact": false,
+    "card_id": "0f7585c8-9e21-4eef-afc1-2852de23db2f"
+  },
+  "reported_at": "2026-10-28T00:10:48.086097+00:00"
+}

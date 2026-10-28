@@ -1,0 +1,88 @@
+{
+  "id": "c7051ba4-30a0-474d-8073-f1c59ed3755c",
+  "source": "report",
+  "frames": [
+    [
+      "Overgrown Tomb",
+      "- Swamp Forest",
+      "As Overgrown Tomb enters the",
+      "battlefield, you may pay 2 life. If",
+      "you donk",
+      ", it enters the battlefield",
+      "• Дежата",
+      "Max Rob Alexander",
+      "te Case br"
+    ],
+    [
+      "Overgrown Tomb",
+      "Land",
+      "- Swamp Forest",
+      "As Overgrown Tomb enters the",
+      "battlefield, you may pay 2 life. If",
+      "you dont, it enters the battlefield",
+      "(Alexand",
+      "Illus. Rob Alexander",
+      "IN & L 2024 Wizards of the Coast 407"
+    ],
+    [
+      "Overgrown Tomb",
+      "Land - Swamp Forest",
+      "As Overgrown Tomb enters the",
+      "battlefield, you may pay 2 life. If",
+      "you done, it enters the battlefield",
+      "Illus. Rob Alexander",
+      "- &/ 2004 Womas of die Coan 409"
+    ],
+    [
+      "Overgrown Tomb",
+      "Land - Swamp Forest",
+      "As Overgrown Tomb enters the",
+      "battlefield, you may pay 2 life. If",
+      "you dons, it enters the bartlefield",
+      "-Alexana",
+      "Illus. Rob Alexander",
+      "• & C 202/ Wizands of the Cour 407"
+    ],
+    [
+      "Overgrown Tomb",
+      "Land",
+      "- Swamp Forest",
+      "As Overgrown Tomb enters the",
+      "battlefield, you may pay 2 life. If",
+      "you done, it enters the bartlefield",
+      "Illus. Rob Alexander",
+      "° & C 2024 Wizands of the Coust 407"
+    ],
+    [
+      "Overgrown Tomb",
+      "Land",
+      "- Swamp Forest",
+      "As Overgrown Tomb enters the",
+      "battlefield, you may pay 2 life. If",
+      "you dont, it enters the battlefield",
+      "Illus. Rob Alexander",
+      "° & C 2024 Wizards of the Coast 407"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Overgrown Tomb",
+    "set": "clu",
+    "cn": "278"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "278",
+    "set": "clu",
+    "name": "Overgrown Tomb",
+    "exact": false,
+    "card_id": "2c92e23a-329e-41f9-b5ca-577050be0b7e"
+  },
+  "reported_at": "2026-10-25T04:24:34.672398+00:00"
+}

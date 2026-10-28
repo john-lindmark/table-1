@@ -34,7 +34,7 @@ internal class PackCatalog(text: String) : ScanCatalog, ImportCatalog, ListCatal
     private val nameList = LinkedHashSet<ForeignName>()
     override val version: String = CatalogPack.parse(text, { oracleList.add(it) }, { p ->
         printingList.add(CatalogPrinting(p.cardId, p.oracleIdx, printingList.size, p.set, p.cn, p.lang, p.rarity, p.finishes,
-            p.releasedAt, p.imageTs, p.imageFaces, p.printedName, p.original))
+            p.releasedAt, p.imageTs, p.imageFaces, p.printedName, p.original, p.artist, p.frame))
     }, { n -> CardName.norm(n.name).takeIf { it.isNotEmpty() }?.let { nameList.add(ForeignName(n.oracleIdx, n.lang, it)) } }).version
     private val byOracle = printingList.groupBy { it.oracleIdx }
         .mapValues { (_, ps) -> ps.sortedWith(compareByDescending<CatalogPrinting> { it.original }.thenBy { it.ord }) }
@@ -95,6 +95,8 @@ private object Floor {
     const val CJK_NAME = 0.6
     /** Of the cards in other languages named right, how many go in as their own language (2026-10-20). */
     const val LANGUAGE = 0.93
+    /** Reported corrections (phone clips) whose printing comes out right (2026-10-28). */
+    const val REPORT_PRINTING = 0.44
 }
 
 private class Tally {
@@ -149,7 +151,7 @@ class CardMatcherTest {
         val englishResults = HashMap<String, Tally>()
         // English cards a scan would put in another language (a misread English name close to a printed one).
         val notEnglish = HashMap<String, Int>()
-        for (mode in listOf("accurate", "fast", "small", "multi", "title")) {
+        for (mode in listOf("accurate", "fast", "small", "multi", "title", "bottom")) {
             val all = Tally(); val english = Tally(); val foreign = Tally()
             val byTag = sortedMapOf<String, Tally>()
             for (c in cases) {
@@ -180,6 +182,81 @@ class CardMatcherTest {
         assertTrue(results.getValue("fast").wrong + results.getValue("small").wrong <= 1)
         assertEquals("a wrong card from a steady photo read as the scanner reads", 0, results.getValue("multi").wrong)
         assertEquals("an English card put in another language", 0, (notEnglish["accurate"] ?: 0) + (notEnglish["multi"] ?: 0))
+    }
+
+    /**
+     * What the bottom text says (2026-10-28, from 232 phone reports): the number at the end of a 1997-style copyright
+     * line, years on copyright lines the camera garbles, more spellings of the set code line, an "Illus." line, lone
+     * numbers that could be a misread power/toughness kept apart, and the illustrator's name read with a few errors.
+     */
+    @Test
+    fun bottomLineParsing() {
+        val sets = setOf("mh2", "mh1", "rvr", "40k", "ecl", "neo", "a25", "gtc")
+        var c = Collector(listOf("Illus. Rob Alexander", "™ & C 2024 Wizande of the Coart 407"), sets)
+        assertEquals(setOf("407"), c.numbers); assertEquals(setOf(2024), c.years); assertTrue(c.illustrated)
+        assertTrue("a number on the copyright line isn't enough to name a card by", c.collectorNumbers.isEmpty())
+        assertEquals(Collector.ArtistLine.ILLUSTRATED, c.names("Rob Alexander")); assertNull(c.names("Svetlin Velinov"))
+        assertEquals("the total cut off", setOf("248"), Collector(listOf("ds of the Coast 248 27."), sets).numbers)
+        c = Collector(listOf("& C 2013W", "2012 Wi", "* & 6 2013 W", "1995"), sets)
+        assertEquals(setOf(2013, 2012), c.years)
+        c = Collector(listOf("1993-2001 Wizards of the Coast, Inc. 214/350"), sets)
+        assertEquals(setOf(2001), c.years); assertEquals(setOf("214"), c.numbers)
+        for (line in listOf("MH2 - EN A ZEZHOU CHEN", "MH2 WEN N PAUL", "MH2VEN & PM", "YMH2 • EN - GREG STAPLES", "4OK•EN SHI", "MHT-EN A NICHOLAS", "NEO・JP ©えすていお", "A25. EN * TODD")) {
+            val got = Collector(listOf(line), sets).sets
+            assertEquals(line, 1, got.size); assertTrue(line, got.first() in setOf("mh2", "40k", "mh1", "neo", "a25"))
+        }
+        assertEquals("ja", Collector(listOf("NEO・JP ©えすていお/ESUTHIO"), sets).lang)
+        assertTrue(Collector(listOf("one IT - ES ate", "THE END"), sets).sets.isEmpty())
+        c = Collector(listOf("Tourach, Dread Cantor", "312", "2/1"), sets)
+        assertEquals("could be a 3/2", setOf("312"), c.loneNumbers); assertTrue(c.numbers.isEmpty())
+        c = Collector(listOf("392", "3/3"), sets)
+        assertEquals(setOf("392"), c.numbers); assertEquals(setOf("392"), c.collectorNumbers)
+        c = Collector(listOf("MH2 • EN A- ZEZHOU CHEN", "TOOD LOCKVOOD", "Shells Wan", "CUNT LANGLEY", "PAUL SCOTT CANARAT"), sets)
+        assertEquals(Collector.ArtistLine.PLAIN, c.names("Zezhou Chen")); assertEquals(Collector.ArtistLine.PLAIN, c.names("Todd Lockwood"))
+        assertEquals(Collector.ArtistLine.PLAIN, c.names("Shelly Wan")); assertEquals(Collector.ArtistLine.PLAIN, c.names("Paul Scott Canavan"))
+        assertNull("two errors in a five-letter word is another word", c.names("Clint Langley"))
+        assertNull(c.names("Greg Staples")); assertNull("a short name must read exactly", c.names("Won"))
+        val m = Collector(listOf("MH2 • EN"), sets); m.merge(Collector(listOf("312"), sets))
+        assertEquals(setOf("mh2"), m.sets); assertEquals(setOf("312"), m.loneNumbers)
+    }
+
+    /**
+     * The printing from frame and artist evidence (2026-10-28): a retro-frame MH2 fetchland reads "Illus." and goes
+     * in as MH2's retro printing, not Zendikar's; the illustrator tells a set's variants apart; evidence read over
+     * several frames of one card adds up; an old card still goes in as Revised.
+     */
+    @Test
+    fun printingEvidence() {
+        fun pick(frames: List<List<String>>): Triple<String, String, Boolean>? {
+            val m = matcher()
+            var last: ScanMatch? = null
+            for (f in frames) last = m.match(f) ?: last
+            return last?.let { Triple(it.printing.set, it.printing.cn, it.exact) }
+        }
+        val misty = listOf("Misty Rainforest", "Land", "r, Pay 1 life, Sacrifice Misty", "Illus. Shelly Wan")
+        assertEquals(Triple("mh2", "438", false), pick(listOf(misty)))
+        assertEquals("frame and number single it out", Triple("mh2", "438", true), pick(listOf(misty + "ants of the Coast 438")))
+        assertEquals("a 2003 frame prints the artist without Illus.", "zen",
+            pick(listOf(listOf("Misty Rainforest", "Land", "r, Pay 1 life, Sacrifice Misty", "Shelly Wan")))?.first)
+        assertEquals(Triple("rvr", "407", true),
+            pick(listOf(listOf("Overgrown Tomb", "Land - Swamp Forest", "Illus. Rob Alexander", "™ & C 2024 Wizards of the Coast 407"))))
+        val tourach = listOf("Tourach, Dread Cantor", "Legendary Creature - Human Cleric")
+        assertEquals("the artist tells the borderless printing from the regular one", Triple("mh2", "312", true),
+            pick(listOf(tourach + "MH2 • EN A- ZEZHOU CHEN")))
+        assertEquals("312 alone could be a creature's 3/2", "102", pick(listOf(tourach + "312" + "2/1"))?.second)
+        val triome = listOf("Zagoth Triome", "Land - Swamp Forest Island")
+        assertEquals("a land has no power/toughness, so 313 is its number", "313", pick(listOf(triome + "313"))?.second)
+        assertEquals("the set code from one frame and the number from another", Triple("iko", "313", true),
+            pick(listOf(triome + "IKO • EN", triome, triome + "313")))
+        assertEquals("an artist after a brush, not Illus., is a 2003 or newer frame", "mb2",
+            pick(listOf(listOf("Temporal Manipulation", "Sorcery", "Take an extra turn after this one.", "- Franz Vohwinkel")))?.first)
+        assertEquals("old frames still go in as the most printed", "3ed",
+            pick(listOf(listOf("Lightning Bolt", "Instant", "Lightning Bolt does 3", "Illus. © Christopher Rush")))?.first)
+        // Another card between clears what was read: the artist alone names 312 but can't be sure of it.
+        val m = matcher()
+        m.match(tourach + "MH2 • EN"); m.match(listOf("Lightning Bolt", "Instant"))
+        val after = m.match(tourach + "A- ZEZHOU CHEN")
+        assertEquals("312", after?.printing?.cn); assertEquals(false, after?.exact)
     }
 
     /** The language code printed by the set code, only by a set the catalog has. */
@@ -397,9 +474,14 @@ class CardMatcherTest {
             val got = take(frames)
             grade(c, got?.first?.oracle, got?.first?.printing, got?.first?.exact ?: false, t)
             val right = t.name > before.first && (c.set == "*" || t.printingOk > before.second)
-            if (!right) failures += "${c.id}: wanted $name ${c.set} ${c.cn}, got ${got?.first?.let { "${it.oracle.name} ${it.printing.setLabel}" } ?: "nothing"}"
+            if (!right) failures += "${c.id}: wanted $name ${c.set} ${c.cn}, got ${got?.first?.let { "${it.oracle.name} ${it.printing.setLabel}${if (it.exact) " (sure)" else ""}" } ?: "nothing"}"
         }
         println("Reported corrections (${t.n}): ${t.line()}" + failures.joinToString("") { "\n  still wrong: $it" })
+        // Reports are the cases that went wrong before. Since the frame and artist evidence of 2026-10-28, the
+        // printing is right in most of them; the rest are what no text tells (The List, prerelease stamps the camera
+        // can't read, Unlimited vs Revised), so the floor sits under what the set reached then.
+        assertEquals("a reported clip named the wrong card", 0, t.wrong)
+        assertTrue(t.printingOk.toDouble() / maxOf(t.printingChecked, 1) >= Floor.REPORT_PRINTING)
     }
 
     private fun JsonObject.str(key: String, default: String = "") =

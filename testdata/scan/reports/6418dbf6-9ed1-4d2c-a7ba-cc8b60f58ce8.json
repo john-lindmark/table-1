@@ -1,0 +1,95 @@
+{
+  "id": "6418dbf6-9ed1-4d2c-a7ba-cc8b60f58ce8",
+  "source": "report",
+  "frames": [
+    [
+      "er a Dragon you control",
+      "create a 06 red Dragon",
+      "- token with fling.",
+      "Md and as",
+      "death",
+      "itself.",
+      "Lark Zug"
+    ],
+    [
+      "Urvara hellkite",
+      "Creature",
+      "Dragon",
+      "Fling",
+      "Whenever a Dragon you control",
+      "attacks, create a 6/6 red Dragon",
+      "creature token sath tiving",
+      "The fear vl",
+      "nel as",
+      "ter foar",
+      "Macif",
+      "6/6"
+    ],
+    [
+      "Utvara hellkite",
+      "Creature - Dragon",
+      "Flying",
+      "Whenever a Dragon you control",
+      "attacks, create a 6/6 red Dragon",
+      "creature token with flying.",
+      "The fear of dragons is as old and as",
+      "powerful as the fear of death itself.",
+      "Illus, Mark 7ug",
+      "6/6"
+    ],
+    [
+      "Utvara hellkite",
+      "Creature - Dragon",
+      "Flying",
+      "Whenever a Dragon you control",
+      "attacks, create a 6/6 red Dragon",
+      "creature token with flying.",
+      "The fear of dragons is as old and as",
+      "powerful as the fear of death itself.",
+      "Blus. Mark Zug",
+      "6/6"
+    ],
+    [
+      "Utvara hellkite",
+      "Creature — Dragon",
+      "Flying",
+      "Whenever a Dragon you control",
+      "attacks, create a 6/6 red Dragon",
+      "creature token with flying.",
+      "The fear of dragons is as old and as",
+      "powerful as the fear of death itself.",
+      "Illus, Mark Zug",
+      "а 4 2027g",
+      "6/6"
+    ],
+    [
+      "Utvara hellkite",
+      "Creature - Dragon",
+      "Flying",
+      "Whenever a Dragon you control",
+      "attacks, create a 6/6 red Dragon",
+      "creature token with flying.",
+      "The fear of dragons is as old and as",
+      "powerful as the fear of death itself.",
+      "Illus, Mark Zug",
+      "24 Wards of the C",
+      "6/6"
+    ]
+  ],
+  "name": "Utvara Hellkite",
+  "set": "rvr",
+  "cn": "342",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "110",
+    "set": "rtr",
+    "name": "Utvara Hellkite",
+    "exact": false,
+    "card_id": "f17c6478-dd80-4854-9560-bfc5ef597872"
+  },
+  "reported_at": "2026-10-26T03:03:15.126184+00:00"
+}

@@ -1,0 +1,73 @@
+{
+  "id": "d0145cec-b613-45b8-939a-1c171a5b26f3",
+  "source": "report",
+  "frames": [
+    [],
+    [],
+    [
+      "Tinybones, the Pickpocket",
+      "ure - Skeleton Rogue",
+      "Legendary Crea",
+      "Whenever Tinybones, the Pickpocket",
+      "deals combat damage to a player, you",
+      "may cast target nonland permanent",
+      "card from that player's graveyard,",
+      "and mana of any type can be spent",
+      "to cast that spell",
+      "1/1"
+    ],
+    [
+      "Tinybones, the Pickpocket",
+      "Legendary Creature - Skeleton Rogue",
+      "Deathtouch",
+      "Whenever Tinybones, the Pickpocket",
+      "deals combat damage to a player, you",
+      "may cast target nonland permanent",
+      "card from that player's graveyard,",
+      "and mana of any type can be spent"
+    ],
+    [
+      "Tinybones, the Pickpocket",
+      "Legendary Creature - Skeleton Rogue",
+      "Deathtouch",
+      "Whenever Tinybones, the Pickpocket",
+      "deals combat damage to a player, you",
+      "may cast target nonland permanent",
+      "card from that player's graveyard,",
+      "and mana of any type can be spent",
+      "to cast that spell.",
+      "M 0109"
+    ],
+    [
+      "Tinybones, the Pickpocket",
+      "Legendary Creature - Skeleton Rogue",
+      "Deathtouch",
+      "Whenever Tinybones, the Pickpocket",
+      "deals combat damage to a player, you",
+      "may cast target nonland permanent",
+      "card from that player's graveyard,",
+      "and mana of any type can be spent",
+      "to cast that spell.",
+      "M 0109",
+      "OTJ • EN EKATERINA BURMAK",
+      "1/1",
+      "2024 Wizands of the Coast"
+    ]
+  ],
+  "name": "Tinybones, the Pickpocket",
+  "set": "potj",
+  "cn": "109p",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "109",
+    "set": "otj",
+    "name": "Tinybones, the Pickpocket",
+    "exact": true,
+    "card_id": "3d3025a2-4a17-4137-ba0b-bd676c6f5f88"
+  },
+  "reported_at": "2026-10-25T04:44:03.517393+00:00"
+}

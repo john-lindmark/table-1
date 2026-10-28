@@ -1,0 +1,77 @@
+{
+  "id": "3ffb4388-5f54-45dc-bab7-f7e15cba28c7",
+  "source": "report",
+  "frames": [
+    [
+      "Radiant Lotus",
+      "Artifact",
+      "Sacrifice one or more artifacts",
+      "Choose a coler. Target player adds",
+      "three mana of the chosen color for",
+      "each artifact sacrificed this way",
+      "The Chain Veil"
+    ],
+    [
+      "(Radiant Lotus",
+      "Artifact",
+      "r, Sacrifice one or more artifacts:",
+      "Choose a color. Target player adds",
+      "three mana of the chosen color for",
+      "each artifact sacrificed this way.",
+      "GETTEN NA"
+    ],
+    [
+      "Radiant Lotus",
+      "Artifact",
+      "r, Sacrifice one or more artifacts:",
+      "Choose a color. Target player adds",
+      "three mana of the chosen color for",
+      "each artifact sacrificed this way.",
+      "DET *EN A BRUCE BRENNEISE"
+    ],
+    [
+      "Radiant Lotus",
+      "Artifact",
+      "r, Sacrifice one or more artifacts:",
+      "Choose a color. Target player adds",
+      "three mana of the chosen color for",
+      "each artifact sacrificed this way.",
+      "M 0395"
+    ],
+    [
+      "Radiant Lotus",
+      "Artifact",
+      "r, Sacrifice one or more artifacts:",
+      "Choose a color. Target player adds",
+      "three mana of the chosen color for",
+      "each artifact sacrificed this way.",
+      "DET * EN & BRUCE BRENNEISE"
+    ],
+    [
+      "Radiant Lotus",
+      "Artifact",
+      "r, Sacrifice one or more artifacts:",
+      "Choose a color. Target player adds",
+      "three mana of the chosen color for",
+      "each artifact sacrificed this way.",
+      "M 0295",
+      "DET *EN & BROCT BRENNES"
+    ]
+  ],
+  "name": "Radiant Lotus",
+  "set": "dft",
+  "cn": "395",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "240",
+    "set": "dft",
+    "name": "Radiant Lotus",
+    "exact": false,
+    "card_id": "be6dac83-39c2-40dc-a322-76a3ea4e7aee"
+  },
+  "reported_at": "2026-10-26T03:20:23.511482+00:00"
+}

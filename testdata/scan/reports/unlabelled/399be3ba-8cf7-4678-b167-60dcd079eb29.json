@@ -1,0 +1,91 @@
+{
+  "id": "399be3ba-8cf7-4678-b167-60dcd079eb29",
+  "source": "report",
+  "frames": [
+    [
+      "Lotus Petal",
+      "Artilact",
+      "@, Sacrifice Lotus Petal: Add one",
+      "mana of any color to your mana pool.",
+      "Play this ability as a mana source.",
+      "\"Hard to imagine,\" mused Hanna,",
+      "stroking the petal, \"such a lovely flower",
+      "inspiring such greed.\""
+    ],
+    [
+      "Lotus Petal",
+      "Artifact",
+      "•, Sacrifice Lotus Petal: Add one",
+      "mana of any color to your mana pool.",
+      "Play this ability as a mana source.",
+      "\"Hand to imagine,\" mused Hanna,",
+      "serking the petal, \"such a lovely flower",
+      "inspiring such greed.\""
+    ],
+    [
+      "Lotus Petal",
+      "Artifact",
+      "Ф, Sacrifice Lotus Petal: Add one",
+      "mana of any color to your mana pool.",
+      "Play this ability as a mana source.",
+      "\"Hand to imagine,\" mused Hanna,",
+      "stroking the petal, \"such a lovely flower",
+      "inspiring such greed.\"",
+      "Illus. A"
+    ],
+    [
+      "Lotus Petal",
+      "Artifact",
+      "@, Sacrifice Lotus Petal: Add one",
+      "mana of any color to your mana pool.",
+      "Play this ability as a mana source.",
+      "\"Hard to imagine,\" mused Hanna,",
+      ". \"such a lovely flower",
+      "stroking the petal,",
+      "inspiring such greed.\"",
+      "Illus/ April Lee"
+    ],
+    [
+      "Lotus Petal",
+      "®, Sacrifice Lotus Petal: Add one",
+      "mana of any color to your mana pool.",
+      "Play this ability as a mana source.",
+      "\"Hard to imagine,\" mused Hanna,",
+      "stroking the petal, \"such a lovely flower",
+      "inspiring such greed.\"",
+      "Illus: April Lee"
+    ],
+    [
+      "Lotus Petal",
+      "Artifact",
+      "®, Sacrifice Lotus Petal: Add one",
+      "mana of any color to your mana pool.",
+      "Play this ability as a mana source.",
+      "\"Hard to imagine,\" mused Hanna,",
+      "stroking the petal, \"such a lovely flower",
+      "inspiring such greed.\"",
+      "Illus: April Lee"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Lotus Petal",
+    "set": "tmp",
+    "cn": "294"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "294",
+    "set": "tmp",
+    "name": "Lotus Petal",
+    "exact": false,
+    "card_id": "6c877da3-68fa-41d0-8a24-8c79fcd8ecc1"
+  },
+  "reported_at": "2026-10-28T02:31:21.7968+00:00"
+}

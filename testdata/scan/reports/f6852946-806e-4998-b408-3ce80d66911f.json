@@ -1,0 +1,88 @@
+{
+  "id": "f6852946-806e-4998-b408-3ce80d66911f",
+  "source": "report",
+  "frames": [
+    [
+      "Cavern of Souls",
+      "Land",
+      "As Cavern of Souls enters the",
+      "battlefield, choose a creature type.",
+      "e: Add o.",
+      "*: Add one mana of any color. Spend",
+      "this mana only to cast a creature spell",
+      "of the chosen type, and that spell can't",
+      "be countered."
+    ],
+    [
+      "Cavern of Souls",
+      "Land",
+      "As Cavern of Souls enters the",
+      "battlefield, choose a creature type.",
+      "•: Add o.",
+      "c: Add one mana of any color. Spend",
+      "this mana only to cast a creature spell",
+      "of the chosen type, and that spell can't",
+      "be countered"
+    ],
+    [
+      "Cavern of Souls",
+      "Land",
+      "As Cavern of Souls enters the",
+      "battlefield, choose a creature type.",
+      "c: Add • .",
+      "e: Add one mana of any color. Spend",
+      "this mana only to cast a creature spell",
+      "of the chosen type, and that spell can't",
+      "be countered."
+    ],
+    [
+      "Cavern of Souls",
+      "Land",
+      "As Cavern of Souls enters the",
+      "battlefield, choose a creature type.",
+      "e: Add •.",
+      "e: Add one mana of any color. Spend",
+      "this mana only to cast a creature spell",
+      "of the chosen type, and that spell can't",
+      "be countered"
+    ],
+    [
+      "Cavern of Souls",
+      "Land",
+      "As Cavern of Souls enters the",
+      "battlefield, choose a creature type.",
+      "e: Add •",
+      "e: Add one mana of any color. Spend",
+      "this mana only to cast a creature spell",
+      "of the chosen type, and that spell can't",
+      "be countered"
+    ],
+    [
+      "Cavern of Souls",
+      "Land",
+      "As Cavern of Souls enters the",
+      "battlefield, choose a creature type.",
+      "e: Add •",
+      "e: Add one mana of any color. Spend",
+      "this mana only to cast a creature spell",
+      "of the chosen type, and that spell can't",
+      "be countered"
+    ]
+  ],
+  "name": "Cavern of Souls",
+  "set": "lci",
+  "cn": "269",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "226",
+    "set": "avr",
+    "name": "Cavern of Souls",
+    "exact": false,
+    "card_id": "1381c8f1-a292-4bdf-b20c-a5c2a169ee84"
+  },
+  "reported_at": "2026-10-26T03:39:36.845736+00:00"
+}

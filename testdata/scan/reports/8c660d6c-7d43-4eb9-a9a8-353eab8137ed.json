@@ -1,0 +1,83 @@
+{
+  "id": "8c660d6c-7d43-4eb9-a9a8-353eab8137ed",
+  "source": "report",
+  "frames": [
+    [
+      "g Ground",
+      "and",
+      "As Stumping Ground enters the",
+      "bardefeld, you may pay 2 life. If",
+      "you don't, it enters the bartlefield",
+      "tapped",
+      "Man Rog"
+    ],
+    [
+      "Stomping Ground",
+      "Land - Mountain Forest",
+      "As Stomping Ground enters the",
+      "battlefield, you may pay 2 life. If",
+      "you don't, it enters the battlefield",
+      "tapped",
+      "Illus. Rob Alexander",
+      "IN S0 2024 Winds of the Coast 413"
+    ],
+    [
+      "Stomping Ground",
+      "Land - Mountain Forest",
+      "As Stomping Ground enters the",
+      "battlefield, you may pay 2 life. If",
+      "you don't, it enters the battlefield",
+      "tapped.",
+      "Illus. Rob Alexander",
+      "& 0 2021 W",
+      "nds of the Coast 413"
+    ],
+    [
+      "Stomping Ground",
+      "Land - Mountain Forest",
+      "As Stomping Ground enters the",
+      "battlefield, you may pay 2 life. If",
+      "vou don't, it enters the battlefield",
+      "tapped.",
+      "Ius. Rob Alexander",
+      "2024 Wizands of the Coast 413"
+    ],
+    [
+      "Stomping Ground",
+      "Land",
+      "- Mountain Forest",
+      "As Stomping Ground enters the",
+      "battlefield, you may pay 2 life. If",
+      "vou don't. it enters the battlefield",
+      "tapped.",
+      "Illus. Rob Alexander",
+      "* & 2024 Wizards of the Coast 413"
+    ],
+    [
+      "Stomping Ground",
+      "Land - Mountain Forest",
+      "As Stomping Ground enters the",
+      "battlefield, you may pay 2 life. If",
+      "you don't, it enters the battlefield",
+      "tapped.",
+      "Illus. Rob Alexander",
+      "2024 Wizards of the Coas 413"
+    ]
+  ],
+  "name": "Stomping Ground",
+  "set": "rvr",
+  "cn": "413",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "281",
+    "set": "clu",
+    "name": "Stomping Ground",
+    "exact": false,
+    "card_id": "3c54b71a-f4cb-4418-b886-5253151ad36a"
+  },
+  "reported_at": "2026-10-28T00:36:30.937387+00:00"
+}

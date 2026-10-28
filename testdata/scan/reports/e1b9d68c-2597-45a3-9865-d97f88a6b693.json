@@ -1,0 +1,94 @@
+{
+  "id": "e1b9d68c-2597-45a3-9865-d97f88a6b693",
+  "source": "report",
+  "frames": [
+    [
+      "Cavern of Souls",
+      "Land",
+      "As Cavern of Souls enters the",
+      "battlefield, choose a creature type.",
+      "r: Add •",
+      "e: Add one mana of any color. Spend",
+      "this mana only to cast a creature spell",
+      "of the chosen type, and that spell can't",
+      "be countered.",
+      "10269",
+      "LOI •EN NO ALATRA DAT"
+    ],
+    [
+      "Cavern of Souls",
+      "Land",
+      "As Cavern of Souls enters the",
+      "battlefield, choose a creature type.",
+      "r: Add",
+      "e: Add one mana of any color. Spend",
+      "this mana only to cast a creature spell",
+      "of the chosen type, and that spell can't",
+      "be countered",
+      "M 0268",
+      "LOTEN & ALARMA"
+    ],
+    [
+      "Cavern of Souls",
+      "Land",
+      "As Cavern of Souls enters the",
+      "battlefield, choose a creature type.",
+      "e: Add • .",
+      "e: Add one mana of any color. Spend",
+      "this mana only to cast a creature spell",
+      "of the chosen type, and that spell can't",
+      "be countered."
+    ],
+    [
+      "Cavern of Souls",
+      "Land",
+      "As Cavern of Souls enters the",
+      "battlefield, choose a creature type.",
+      "•: Add *",
+      "e: Add one mana of any color. Spend",
+      "this mana only to cast a creature spell",
+      "of the chosen type, and that spell can't",
+      "be countered.",
+      "M 0269",
+      "LCIVEN & ALATNA DI"
+    ],
+    [
+      "Cavern of Souls",
+      "Land",
+      "As Cavern of Souls enters the",
+      "battlefield, choose a creature type.",
+      "c: Add a.",
+      "e: Add one mana of any color. Spend",
+      "this mana only to cast a creature spell",
+      "of the chosen type, and that spell can't",
+      "be countered."
+    ],
+    [
+      "Cavern of Souls",
+      "Land",
+      "As Cavern of Souls enters the",
+      "battlefield, choose a creature type.",
+      "e: Add •",
+      "e: Add one mana of any color. Spend",
+      "this mana only to cast a creature spell",
+      "of the chosen type, and that spell can't",
+      "be countered."
+    ]
+  ],
+  "name": "Cavern of Souls",
+  "set": "lci",
+  "cn": "269",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "226",
+    "set": "avr",
+    "name": "Cavern of Souls",
+    "exact": false,
+    "card_id": "1381c8f1-a292-4bdf-b20c-a5c2a169ee84"
+  },
+  "reported_at": "2026-10-26T03:39:31.440358+00:00"
+}

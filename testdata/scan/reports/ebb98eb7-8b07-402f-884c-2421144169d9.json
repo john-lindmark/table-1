@@ -1,0 +1,51 @@
+{
+  "id": "ebb98eb7-8b07-402f-884c-2421144169d9",
+  "source": "report",
+  "frames": [
+    [],
+    [],
+    [
+      "Add ee 7 topour manu poil."
+    ],
+    [
+      "Dark Ritual",
+      "Instant",
+      "Add $$$ to your mana pool.",
+      "IN & C 2018 Wizards of the Coas",
+      "082/249 C",
+      "A25 • EN & CUNT LANGLEY"
+    ],
+    [
+      "Dark Ritual",
+      "Instant",
+      "Add $$$ to your mana pool.",
+      "082/249 C",
+      "& C 2018 Wizards of the Coast",
+      "+A25 • EN KO CUNT LANGLEY"
+    ],
+    [
+      "Dark Ritual",
+      "Instant",
+      "Add $$$ to your mana pool.",
+      "082/249 C",
+      "™M & C 2018 Wizards of the Coast",
+      "*A2S • EN I CLINT LANGLEY"
+    ]
+  ],
+  "name": "Dark Ritual",
+  "set": "plst",
+  "cn": "A25-82",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "82",
+    "set": "a25",
+    "name": "Dark Ritual",
+    "exact": true,
+    "card_id": "95f27eeb-6f14-4db3-adb9-9be5ed76b34b"
+  },
+  "reported_at": "2026-10-28T00:21:44.451873+00:00"
+}

@@ -63,6 +63,9 @@ data class CatalogPrinting(
     val imageTs: String, val imageFaces: Int, val printedName: String,
     /** The card's original paper printing, the one adds use by default. */
     val original: Boolean = false,
+    /** The illustrator and the frame ("1993", "1997", "2003", "2015", "future"), empty when the pack doesn't say. */
+    val artist: String = "",
+    val frame: String = "",
 ) {
     val setLabel get() = "${set.uppercase()} #$cn"
     /** Finishes this printing comes in: non-foil, foil, etched (in that order). */
@@ -212,7 +215,7 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog, ImportC
     companion object {
         private const val ORACLE_COLS = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount, legal, points, cmc, colors, produced, tokens, pair, identity"
         private const val PRINTING_COLS =
-            "card_id, oracle_idx, ord, set_code, cn, lang, rarity, finishes, released_at, image_ts, image_faces, printed_name, original"
+            "card_id, oracle_idx, ord, set_code, cn, lang, rarity, finishes, released_at, image_ts, image_faces, printed_name, original, artist, frame"
 
         private fun oracle(c: Cursor) = CatalogOracle(c.getInt(0), c.getString(1), c.getString(2), c.getString(3),
             c.getString(4) ?: "", c.getString(5) ?: "", c.getInt(6), c.getString(7) ?: "", c.getInt(8), c.getDouble(9), c.getString(10) ?: "",
@@ -221,7 +224,7 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog, ImportC
 
         private fun printing(c: Cursor) = CatalogPrinting(c.getString(0), c.getInt(1), c.getInt(2), c.getString(3) ?: "",
             c.getString(4) ?: "", c.getString(5) ?: "", c.getString(6) ?: "", c.getString(7) ?: "", c.getString(8) ?: "",
-            c.getString(9) ?: "", c.getInt(10), c.getString(11) ?: "", c.getInt(12) != 0)
+            c.getString(9) ?: "", c.getInt(10), c.getString(11) ?: "", c.getInt(12) != 0, c.getString(13) ?: "", c.getString(14) ?: "")
 
         /** Builds a SQLite file from a gunzipped pack in one transaction; indexes are created after the inserts. */
         fun build(pack: String, file: File): PackHeader {
@@ -237,13 +240,14 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog, ImportC
                     produced TEXT, tokens TEXT NOT NULL DEFAULT '', pair TEXT, identity TEXT)""")
                 db.execSQL("""CREATE TABLE printings (card_id TEXT PRIMARY KEY, oracle_idx INTEGER NOT NULL, ord INTEGER NOT NULL,
                     set_code TEXT, cn TEXT, lang TEXT, rarity TEXT, finishes TEXT, released_at TEXT, image_ts TEXT,
-                    image_faces INTEGER, printed_name TEXT, original INTEGER NOT NULL DEFAULT 0)""")
+                    image_faces INTEGER, printed_name TEXT, original INTEGER NOT NULL DEFAULT 0,
+                    artist TEXT NOT NULL DEFAULT '', frame TEXT NOT NULL DEFAULT '')""")
                 db.execSQL("CREATE TABLE names (oracle_idx INTEGER NOT NULL, lang TEXT NOT NULL, name TEXT NOT NULL, name_norm TEXT NOT NULL)")
                 db.beginTransaction()
                 try {
                     val insO = db.compileStatement(
                         "INSERT INTO oracles (idx, oracle_id, name, name_norm, type_line, mana_cost, cmc, colors, face_names, legal, points, produced, tokens, pair, identity) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-                    val insP = db.compileStatement("INSERT OR REPLACE INTO printings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                    val insP = db.compileStatement("INSERT OR REPLACE INTO printings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
                     val insN = db.compileStatement("INSERT INTO names VALUES (?,?,?,?)")
                     var ord = 0L
                     val header = CatalogPack.parse(pack, oracle = { o ->
@@ -265,6 +269,7 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog, ImportC
                         insP.bindString(8, p.finishes); insP.bindString(9, p.releasedAt); insP.bindString(10, p.imageTs)
                         insP.bindLong(11, p.imageFaces.toLong()); insP.bindString(12, p.printedName)
                         insP.bindLong(13, if (p.original) 1 else 0)
+                        insP.bindString(14, p.artist); insP.bindString(15, p.frame)
                         insP.executeInsert()
                     }, name = { n ->
                         // Normalized here, once per pack, so the scanner's name index loads without normalizing 160k names.
@@ -308,7 +313,7 @@ data class CatalogState(
  */
 object CatalogStore {
     /** Bumped when the local SQLite schema changes; a file built by an older schema is rebuilt from a fresh pack. */
-    private const val SCHEMA = "s8"   // s6: oracles.produced and oracles.tokens; s7: oracles.pair; s8: oracles.identity
+    private const val SCHEMA = "s9"   // s6: oracles.produced and oracles.tokens; s7: oracles.pair; s8: oracles.identity; s9: printings.artist and frame
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(CatalogState())

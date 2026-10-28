@@ -1,0 +1,68 @@
+{
+  "id": "1150aaa3-0b18-4549-95b6-2ef91384ba5b",
+  "source": "report",
+  "frames": [
+    [
+      "Verdant",
+      "Catacomb",
+      "© Pay 1 life, Sacrifice Verdant",
+      "Catacombs: Search your library",
+      "for a Swamp or Forest card, put it",
+      "onto the battlefield, then shuffle."
+    ],
+    [
+      "Verdant Catacombs",
+      "c, Pay 1 life, Sacrifice Verdant",
+      "Caracombs: Search your library",
+      "for a Swamp or Forest card, put it",
+      "onto the battlefield, then shuffle."
+    ],
+    [
+      "Verdant Catacombs",
+      "Land",
+      "•. Pay 1 life, Sacrifice Verdant",
+      "Catacombs: Search your library",
+      "fot a Swamp or Forest card, put it",
+      "onto the battlefield, then shuffle."
+    ],
+    [
+      "Verdant Catacombs",
+      "5, Pay 1 life, Sacrifice Verdant",
+      "Catacombs: Search your library",
+      "for a Swamp or Forest card, put it",
+      "onto the battlefield, then shuffle."
+    ],
+    [
+      "Verdant Catacombs",
+      "anal",
+      "•, Pay 1 life, Sacrifice Verdant",
+      "Catacombs: Search your library",
+      "for a Swamp or Forest card, put it",
+      "onto the battlefield, then shuffle."
+    ],
+    [
+      "Verdant Caracombs",
+      "and",
+      "s, Pay 1 life, Sacrifice Verdant",
+      "Catacombs: Search your library",
+      "for a Swamp or Forest card, put it",
+      "onto the battlefield, then shuffle."
+    ]
+  ],
+  "name": "Verdant Catacombs",
+  "set": "mh2",
+  "cn": "440",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (28)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "229",
+    "set": "zen",
+    "name": "Verdant Catacombs",
+    "exact": false,
+    "card_id": "7abd2723-2851-4f1a-b2d0-dfcb526472c3"
+  },
+  "reported_at": "2026-10-26T04:08:16.228301+00:00"
+}

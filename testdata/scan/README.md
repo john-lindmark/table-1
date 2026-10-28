@@ -8,12 +8,13 @@ run the matcher over OCR text read from these photos, so OCR runs once here, on 
 | --- | --- |
 | `photos/` | 291 photos from eBay listings (sellers' own phone photos): table tops, playmats, hands, sleeves, toploaders, stands, graded slabs, glare and dim light; 148 English cards and 143 in other languages (de 24, it 18, ja 27, ko 18, zht 14, es 11, fr 11, ru 12, pt 4, zhs 4). Photos 000–181 were added first, 200–312 for the foreign test. JPEG, 1280 px. |
 | `photos.tsv` | One row per photo: expected card `name`, `set` and `cn` (`*` = any; `set` `*` = name only, used for old foreign cards that aren't in the catalog), printed language, tags, source listing. |
-| `ocr.json` | Apple Vision's read of each photo, lines top of the frame first (the order the scanner hands the matcher): `accurate`, `fast`, `small` (accurate at half size, the card further away) `multi` (accurate with automatic language detection, so Japanese, Chinese and Korean come through; the scanners switch to reading like this when text names no card, see "Language detection") and `title` (the card's title bar read on its own, in front of `multi`; measured, not read by the scanners, see "Title bar pass"). |
+| `ocr.json` | Apple Vision's read of each photo, lines top of the frame first (the order the scanner hands the matcher): `accurate`, `fast`, `small` (accurate at half size, the card further away) `multi` (accurate with automatic language detection, so Japanese, Chinese and Korean come through; the scanners switch to reading like this when text names no card, see "Language detection"), `title` (the card's title bar read on its own, in front of `multi`; measured, not read by the scanners, see "Title bar pass") and `bottom` (`accurate`, then the card's bottom strip read on its own, as the iOS scanner reads since 2026-10-28; `… ocr.swift bottom` adds it to an existing file). |
 | `motion.json` | A 2.4 s clip per photo, 12 frames 200 ms apart, of a hand moving the card on all three axes (pan, toward/away, roll and tilt, with motion blur), each frame read like `accurate`. Photo *n* (in `photos.tsv` order) is a *settle* clip when *n* % 3 = 0 (moves in, then holds), *shake* when 1 (tremor and slow drift), *sweep* when 2 (large continuous movement). |
 | `catalog.tsv.gz` | The catalog pack the tests match against: every card, printing and printed name (N lines, de es fr it pt ru ja zhs zht ko) of pack `v1-4f3fd420d850`, ids shortened. |
-| `reports/` | Scan corrections people made in the app, exported by `tools/export_reports.py`; the tests run each one as a clip. |
+| `reports/` | Scan corrections people made in the app, exported by `tools/export_reports.py`; the tests run each one as a clip. 201 labelled on 2026-10-28 (232 reports from Oct 24–28, 199 of them wrong printings; the 32 with no answer sit in `reports/unlabelled/`, which the tests skip). |
 | `tools/ocr.swift` | Makes `ocr.json` (`swift testdata/scan/tools/ocr.swift`) and `motion.json` (`… ocr.swift motion`; compile it with `swiftc -O` first, it's slow interpreted). |
-| `tools/trim_pack.py` | Makes `catalog.tsv.gz` from a downloaded pack. |
+| `tools/trim_pack.py` | Makes `catalog.tsv.gz` from a downloaded pack (keeps the illustrator and frame fields since 2026-10-28). |
+| `tools/art_fields.py` | Adds the illustrator and frame to an older `catalog.tsv.gz` from Scryfall's `default_cards` bulk file (by set, number and language; the test pack's ids are counters). |
 | `tools/export_reports.py` | Exports scan corrections (service key) into `reports/`. |
 | `tools/art_refs.py`, `art_fetch.swift`, `art_match.swift` | The art matching spike (see "Art matching spike"). |
 
@@ -212,13 +213,45 @@ What changed:
 Known gaps:
 - Old cards (1993–1997 frames) print no set code or collector number, so the printing is a guess (flagged "Check
   printing"). Since 2026-10-26 the guess is Revised, not Alpha; Beta and Unlimited need one fix by hand, then
-  follow. The border colour isn't read. Old-frame names misread far more than modern ones on a phone.
+  follow. The border colour isn't read. Old-frame names misread far more than modern ones on a phone. Since
+  2026-10-28 an "Illus." line prefers 1993/1997 frames, so a retro-frame reprint of a card with no old printing
+  (MH2 438) is found from the credit alone; a card with both (Lightning Bolt) still goes in as Revised.
 - Japanese, Korean and Chinese: see the 25 misses above. Language detection has not been tried on a phone yet.
 - A printed name matches the card, not the foreign printing: most foreign printings aren't in the catalog
   (Scryfall `default_cards`), so the printing is the English one with the same set and number when it's read.
 - Prerelease promos whose date stamp doesn't read come out as the regular printing (2 here).
 - The movement clips are synthetic (a real photo moved by a model of a hand), and Vision on a Mac is not
   VisionKit's live-text pipeline on a phone. Real-device reports (`reports/`) are the check on both.
+
+### Printings from the frame, the artist and the last frames (2026-10-28; `testPrintingEvidence`, `testBottomLineParsing`)
+
+232 phone reports from Oct 24–28 (John's own collection, iOS builds 23–33), 199 of them wrong printings: MH2's
+retro-frame fetchlands went in as Zendikar's, Ravnica Remastered's retro shocklands as the originals, borderless and
+showcase cards as the regular printing, The List as the set it reprints. What the frames had read: a retro frame
+shows its "Illus. <artist>" line and sometimes the end of its copyright line ("™ & © 2021 Wizards of the Coast 438")
+and almost never the tiny set code; a borderless card's set code came in one frame ("MH2 • EN A- ZEZHOU CHEN") and
+its number four frames later ("312"); set codes read with the bullet as a letter ("MH2 WEN", "ECL MEN") or a dash;
+copyright years garbled ("& C 2013W"). Scryfall's artist and frame per printing were the missing data: MH2 438 and
+ZEN 220 Misty Rainforest share Shelly Wan's art, but one is a 1997 frame and the other 2003.
+
+The catalog pack's P lines now carry both (contract/catalog-2026-10-14.md; `art_fields.py` added them to the test
+pack), and the matcher (rules in contract/trades-2026-10-16.md § Scanning) scores a printing by set code (4),
+number (2), year (1), an "Illus." line for 1993/1997 frames (2), an artist after a brush for 2003+ frames (1) and
+the artist's name read (2, fuzzy by a letter or two per word); a lone three-digit number counts for a card with no
+power/toughness; the number at the end of a copyright line counts; what the last five frames of the same card read
+is merged. Still photos (iOS): names 236/291, printing 186/208 (89%, was 183/208), English printing 119/134 (89%, was
+115/135), 0 wrong cards, 2 sure-but-wrong as before. With the bottom strip read (`bottom`): names 240/291, printing
+188/212. Movement clips: shake median 0.6 → 0.2 s (two frames that read the same printing exactly take the card),
+settle 1.2 s as before, sweep 0/48 taken, 0 wrong.
+
+Reported corrections (201 clips): name 196/201, **printing 90/195 (46%), was 5/195** (every report was a wrong
+printing). Of the 105 left: 21 The List (the bottom text is the reprinted set's; only a tiny symbol differs), 11
+prerelease and promo-pack stamps the camera doesn't read, 8 Unlimited/Beta read as Revised (nothing printed tells
+them apart; the border colour would), 3 where the frames read a number that contradicts the correction, and about
+60 whose frames read no bottom line at all (11 retro fetchlands with only the name and rules text, Harmonic Prodigy,
+Mindbreak Trap, shocklands of 2012–13): those are what the iOS scanner's bottom strip read is for, which the clips
+(whole-frame reads) can't show; real phone reports after the next build are the check. The test floor on reports
+is 44%.
 
 ## Art matching spike (2026-10-16; measured, not in the scanners)
 

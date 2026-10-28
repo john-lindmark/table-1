@@ -1,0 +1,64 @@
+{
+  "id": "5c937559-18b5-45fe-8350-5a7bbf7a076b",
+  "source": "report",
+  "frames": [
+    [
+      "Blood Crypt",
+      "LIE 10",
+      "прі ст"
+    ],
+    [
+      "Blood Crypt"
+    ],
+    [
+      "Blood Crypt",
+      "As Blood",
+      "you mas"
+    ],
+    [
+      "Blood Crypt",
+      "Land",
+      "As Bland Cr",
+      "Banisfeld",
+      "Blood",
+      "NA (0N",
+      "Crypt onte",
+      "Apped"
+    ],
+    [
+      "Blood Crypt",
+      "Land",
+      "P Aad 1",
+      "pook)",
+      "As Bland C",
+      "stelsfetd.",
+      "CELL NO",
+      "Bloei",
+      "Сурі опіс",
+      "Il hoe aa",
+      "decor"
+    ],
+    [
+      "Blood Crypt",
+      "Battlefield",
+      "Blood",
+      "ана"
+    ]
+  ],
+  "name": "Blood Crypt",
+  "set": "rtr",
+  "cn": "238",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "171",
+    "set": "dis",
+    "name": "Blood Crypt",
+    "exact": false,
+    "card_id": "f281e16f-0fe1-4095-bd63-0a4479f75c11"
+  },
+  "reported_at": "2026-10-28T02:42:59.171035+00:00"
+}

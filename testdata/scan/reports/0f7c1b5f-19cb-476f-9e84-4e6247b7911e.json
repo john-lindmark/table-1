@@ -1,0 +1,75 @@
+{
+  "id": "0f7c1b5f-19cb-476f-9e84-4e6247b7911e",
+  "source": "report",
+  "frames": [
+    [
+      "Land Tas",
+      "Enchantruent",
+      "During your upkeep, if an",
+      "opponent controls more land than",
+      "you, you may search your library",
+      "and remove up to three basic land",
+      "cards and put them into your",
+      "hand. Reshuffle your library",
+      "afterwards",
+      "Mus, © 1994 Briad SHoddy"
+    ],
+    [],
+    [],
+    [
+      "2洛米",
+      "Leyline of Sanctity",
+      "Enchantment",
+      "M20",
+      "If Leyline of Sanctity is in your opening",
+      "hand, you may begin the game with it",
+      "on the battlefield.",
+      "You have hexproof. (You can't be the",
+      "target of spells or abilities your opponents",
+      "control.)"
+    ],
+    [
+      "Leyline of Sanctity",
+      "Enchantment",
+      "M20",
+      "If Leyline of Sanctity is in your opening",
+      "hand, you may begin the game with it",
+      "on the battlefield.",
+      "You have hexproof. (You can't be the",
+      "target of spells or abilities your opponents",
+      "control.)",
+      "M20 + 19",
+      "NOAH BRADLEY"
+    ],
+    [
+      "Leyline of Sanctity",
+      "澎迷",
+      "Enchantment",
+      "(M20)",
+      "If Leyline of Sanctity is in your opening",
+      "hand, you may begin the game with it",
+      "on the battlefield.",
+      "You have hexproof. (You can't be the",
+      "target of spells or abilities your opponents",
+      "control.)",
+      "026/280 R",
+      "M20 • EN I NOAH BRADLEY"
+    ]
+  ],
+  "name": "Leyline of Sanctity",
+  "set": "wot",
+  "cn": "10",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (23)",
+  "pack_version": "v1-d695515817e0",
+  "owned_only": false,
+  "matched": {
+    "cn": "26",
+    "set": "m20",
+    "name": "Leyline of Sanctity",
+    "exact": true,
+    "card_id": "be8b1acf-dd87-42ca-ad19-c27d21066030"
+  },
+  "reported_at": "2026-10-24T05:20:07.830872+00:00"
+}

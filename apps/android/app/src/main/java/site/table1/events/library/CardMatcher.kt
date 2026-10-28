@@ -236,19 +236,26 @@ class CardMatcher(
         private set
 
     fun match(lines: List<String>): ScanMatch? {
-        val bottom = Collector(lines, names.sets)
-        val read = { name: List<String> -> bottom.lang?.let { listOf(it) } ?: name }
-        name(lines)?.let { hit -> oracle(hit.idx)?.let { o -> return pick(o, lines, bottom, hit.langs)?.copy(langs = read(hit.langs)) } }
+        val frame = Collector(lines, names.sets)
+        name(lines)?.let { hit ->
+            oracle(hit.idx)?.let { o ->
+                val bottom = remembered(o.idx, frame)
+                val m = pick(o, bottom, hit.langs) ?: run { missed(); return null }
+                return m.copy(langs = bottom.lang?.let { listOf(it) } ?: hit.langs)
+            }
+        }
         // Not an English name (or none legible): the set code and collector number, when they agree on one card.
         val hits = LinkedHashMap<Int, CatalogPrinting>()
-        for (s in bottom.sets) for (n in bottom.collectorNumbers) for (p in printings(s, n)) hits.putIfAbsent(p.oracleIdx, p)
-        if (hits.size != 1) return null
+        for (s in frame.sets) for (n in frame.collectorNumbers) for (p in printings(s, n)) hits.putIfAbsent(p.oracleIdx, p)
+        if (hits.size != 1) { missed(); return null }
         val (idx, p) = hits.entries.first()
-        return oracle(idx)?.let { ScanMatch(it, p, true, read(emptyList())) }
+        val o = oracle(idx) ?: run { missed(); return null }
+        remembered(idx, frame)
+        return ScanMatch(o, p, true, frame.lang?.let { listOf(it) } ?: emptyList())
     }
 
     /** A printing picked by hand (the scanned row's Change printing): the guess for the next card that reads alike. */
-    fun picked(p: CatalogPrinting) { lastPick = p }
+    fun picked(p: CatalogPrinting) { lastPick = p; recent = null }
 
     /** The finish a scanned copy starts as: what you own of it in owned-only mode, else non-foil when printed. */
     fun defaultFinish(p: CatalogPrinting): String {
@@ -321,23 +328,35 @@ class CardMatcher(
     }
 
     /**
-     * The printing: set code read (4), collector number read (2), copyright year (1), or for an old frame (an
-     * "Illus." line and no year: 4th Edition on prints "© 1995") a 1993–94 printing (1); ties go to a for-trade copy,
-     * the set last picked by hand (nearest its number), the name's language on an old frame (French Sol Ring →
-     * Foreign Black Border), English, a regular collector number, the most printed of Revised, Unlimited, Beta, Alpha
-     * (nothing printed on them tells them apart, and Alpha was the rarest), then the default printing. Exact when the
-     * set code and number agree, the set has only one printing of the card, or the number and year single one out.
-     * A prerelease date stamp picks the set's prerelease promo.
+     * The printing, scored by what the card's bottom text says (`Collector`, merged over the last frames of the same
+     * card): set code read (4), collector number read (2; for a card with no power/toughness also a lone three-digit
+     * number that could have been a misread "2/2"), copyright year (1), an "Illus." line for a 1993 or 1997 frame
+     * (2: old cards and retro-frame reprints print one; a 2003+ frame prints the artist after a brush), the
+     * illustrator's name read (2, when the card's printings don't all share one), or for an old frame with no year
+     * (4th Edition on prints "© 1995") a 1993–94 printing (1); ties go to a for-trade copy, the set last picked by
+     * hand (nearest its number), the name's language on an old frame (French Sol Ring → Foreign Black Border),
+     * English, a regular collector number, the most printed of Revised, Unlimited, Beta, Alpha (nothing printed on
+     * them tells them apart, and Alpha was the rarest), then the default printing. Exact when one printing leads
+     * with the set code and number (or the set's only printing), or with the number and one more thing (the year,
+     * the frame), or with the set code and the artist. A prerelease date stamp picks the set's prerelease promo.
      */
-    private fun pick(o: CatalogOracle, lines: List<String>, bottom: Collector, langs: List<String> = emptyList()): ScanMatch? {
+    private fun pick(o: CatalogOracle, bottom: Collector, langs: List<String> = emptyList()): ScanMatch? {
         val ps = printings(o.idx)
         if (ps.isEmpty()) return null
-        val years = years(lines)
-        val old = years.isEmpty() && bottom.sets.isEmpty() && bottom.numbers.isEmpty() && illustrated(lines)
+        val old = bottom.years.isEmpty() && bottom.sets.isEmpty() && bottom.numbers.isEmpty() && bottom.illustrated
+        // Vehicles have power/toughness; a battle's defense is one number.
+        val noPT = !(o.typeLine.contains("Creature") || o.typeLine.contains("Vehicle"))
+        val artistTells = ps.map { it.artist }.filter { it.isNotEmpty() }.toSet().size > 1
         fun number(p: CatalogPrinting) = stripZeros(p.cn.lowercase())
         fun year(p: CatalogPrinting) = p.releasedAt.take(4).toIntOrNull()
-        fun score(p: CatalogPrinting) = (if (p.set in bottom.sets) 4 else 0) + (if (number(p) in bottom.numbers) 2 else 0) +
-            (if (year(p) in years || (old && early(p))) 1 else 0)
+        fun numbered(p: CatalogPrinting) = number(p) in bottom.numbers || (noPT && number(p) in bottom.loneNumbers)
+        fun retro(p: CatalogPrinting) = bottom.illustrated && (p.frame == "1993" || p.frame == "1997")
+        fun drawn(p: CatalogPrinting) = if (artistTells && p.artist.isNotEmpty()) bottom.names(p.artist) else null
+        // The artist read after a brush, not "Illus.": a 2003 or newer frame.
+        fun modern(p: CatalogPrinting) = drawn(p) == Collector.ArtistLine.PLAIN && (p.frame == "2003" || p.frame == "2015" || p.frame == "future")
+        fun score(p: CatalogPrinting) = (if (p.set in bottom.sets) 4 else 0) + (if (numbered(p)) 2 else 0) +
+            (if (year(p) in bottom.years || (old && early(p))) 1 else 0) + (if (retro(p)) 2 else 0) +
+            (if (drawn(p) != null) 2 else 0) + (if (modern(p)) 1 else 0)
         val last = lastPick
         fun near(p: CatalogPrinting) = if (last == null || p.set != last.set) Int.MIN_VALUE else -abs(digits(p.cn) - digits(last.cn))
         var best = ps.sortedWith(
@@ -345,13 +364,41 @@ class CardMatcher(
                 .thenByDescending { old && it.lang in langs }.thenByDescending { it.lang == "en" }
                 .thenBy { it.cn.endsWith("★") }.thenByDescending { PRINT_RUN[it.set] ?: 0 }.thenByDescending { it.original }.thenBy { it.ord },
         ).first()
-        val exact = (best.set in bottom.sets && (number(best) in bottom.numbers || ps.count { it.set == best.set } == 1)) ||
-            (number(best) in bottom.numbers && year(best) in years && ps.count { number(it) == number(best) } == 1)
-        if (dated(lines)) {
+        val top = score(best)
+        val alone = ps.count { score(it) == top } == 1
+        val exact = alone && (top >= 6 || (numbered(best) && top >= 3) || (best.set in bottom.sets && ps.count { it.set == best.set } == 1))
+        if (bottom.dated) {
             ps.firstOrNull { it.set == "p" + best.set && it.cn.lowercase().trimEnd('s', '★') == best.cn.lowercase() }?.let { best = it }
         }
         return ScanMatch(o, best, exact)
     }
+
+    // Evidence over frames ---------------------------------------------------------------------------------------
+
+    /**
+     * Evidence about the card in view, kept over its last frames: the set code read in one frame and the number in
+     * the next pick the printing together (a borderless Tourach read "MH2 • EN" in one frame and "312" four frames
+     * later, and went in as the regular 102). Cleared after MISSES frames that named nothing, when another card is
+     * named, after a hand-picked printing, and when the card is taken (`took`).
+     */
+    private class Recent(val idx: Int, val bottom: Collector, var misses: Int = 0)
+    private var recent: Recent? = null
+
+    /** The evidence for this card: this frame's, merged with what the last frames of the same card read. */
+    private fun remembered(idx: Int, bottom: Collector): Collector {
+        val r = recent
+        if (r != null && r.idx == idx) bottom.merge(r.bottom)
+        recent = Recent(idx, bottom)
+        return bottom
+    }
+
+    private fun missed() {
+        val r = recent ?: return
+        if (++r.misses >= MISSES) recent = null
+    }
+
+    /** The card in view was taken: what its frames read mustn't pick the next copy's printing. */
+    fun took() { recent = null }
 
     private fun oracle(idx: Int): CatalogOracle? = oracles.getOrPut(idx) { catalog.oracles(listOf(idx))[idx] }
 
@@ -366,6 +413,8 @@ class CardMatcher(
     private fun allowed(idx: Int) = owned == null || printings(idx).isNotEmpty()
 
     private companion object {
+        const val MISSES = 5
+
         val TYPE_WORDS = setOf("creature", "instant", "sorcery", "artifact", "enchantment", "land", "planeswalker", "battle",
             "summon", "interrupt", "kindred", "tribal", "legendary",
             // The same on foreign printings (normalized: no accents).
@@ -391,7 +440,154 @@ class CardMatcher(
         fun typeLine(words: List<String>) = words.any { it in TYPE_WORDS } || words.any { w -> CJK_TYPE_WORDS.any { it in w } }
 
         /** Furigana: a short line of hiragana only, the reading printed over a Japanese name. */
-        fun furigana(words: List<String>) = words.size == 1 && words[0].length <= 12 && words[0].all { it in '\u3041'..'\u309F' }
+        fun furigana(words: List<String>) = words.size == 1 && words[0].length <= 12 && words[0].all { it in 'ぁ'..'ゟ' }
+
+        fun stripZeros(s: String) = s.trimStart('0').ifEmpty { if (s.isEmpty()) "" else "0" }
+
+        /** The 1993–94 core sets, most printed first: one printed card reads the same in all four. */
+        val PRINT_RUN = mapOf("3ed" to 4, "2ed" to 3, "leb" to 2, "lea" to 1)
+
+        /** Printed before cards carried a copyright year (4th Edition, April 1995). */
+        fun early(p: CatalogPrinting) = (p.releasedAt.take(4).toIntOrNull() ?: 9999) <= 1994
+
+        /** A collector number's digits as a number ("437" → 437, "M20-125" → 20125), for nearness. */
+        fun digits(cn: String) = cn.filter { it in '0'..'9' }.take(6).toIntOrNull() ?: 0
+    }
+}
+
+/**
+ * What a card's bottom text says about its printing: "154/196 M", "RIX • RU", "M 0244", "FRA • EN", the year and
+ * number on a copyright line ("™ & © 2024 Wizards of the Coast 407"), an "Illus." line, the illustrator's name, a
+ * prerelease date stamp. Built per frame; `merge` keeps what earlier frames of the same card read. Same rules as
+ * iOS (CardMatcher.swift).
+ */
+class Collector(lines: List<String>, known: Set<String>) {
+    val sets = HashSet<String>()
+    val numbers = HashSet<String>()
+    /** The numbers written as collector numbers ("154/196", "0244", "R 1695", "297"), not a lone "212" that may be a misread 2/2. */
+    val collectorNumbers = HashSet<String>()
+    /** Lone three-digit numbers that could be power/toughness read with the slash as 1 or 7 ("2/2" → "212"): a
+     *  collector number only for a card that prints no power/toughness. */
+    val loneNumbers = HashSet<String>()
+    /** The language printed by a known set code ("WAR • JP" → ja), when only one is. */
+    var lang: String? = null
+        private set
+    /** Copyright years ("© 2019 Wizards", "1993-2003", "& C 2013 W"): the last year of each line. */
+    val years = HashSet<Int>()
+    /** An artist credit as 1993 and 1997 frames print it ("Illus. Mark Poole"; also read as "Ius." or "lllus,"). */
+    var illustrated = false
+        private set
+    /** A prerelease date stamp ("30-31 January 2021", "27-28 giugno 2020"): a month and a year on a line that isn't the copyright. */
+    var dated = false
+        private set
+    /** Every line's words, normalized, for the illustrator's name, and whether the line is an "Illus." credit. */
+    private val words = ArrayList<List<String>>()
+    private val credits = ArrayList<Boolean>()
+
+    /** How the illustrator's name was printed: after "Illus." (a 1993 or 1997 frame) or plainly, after a brush. */
+    enum class ArtistLine { ILLUSTRATED, PLAIN }
+
+    init {
+        var langLine = false
+        val printed = HashSet<String>()
+        for (line in lines) {
+            var codes = SET_LANG.findAll(line).map { it.groupValues[1] to it.groupValues[2] }.toList()
+            if (codes.isEmpty()) codes = SET_LANG_LOOSE.findAll(line).map { it.groupValues[1] to it.groupValues[2] }.toList()
+            for ((raw, l) in codes) {
+                val lang = LANGS[l] ?: continue
+                langLine = true
+                known(raw, known)?.let { sets.add(it); printed.add(lang) }
+            }
+            for (m in OF_TOTAL.findAll(line)) {
+                if ((m.groupValues[3].toIntOrNull() ?: 0) >= 30) {
+                    val n = strip(m.groupValues[1]) + m.groupValues[2].lowercase()
+                    numbers.add(n)
+                    collectorNumbers.add(n)
+                }
+            }
+            val range = YEAR_RANGE.find(line)
+            if (range != null) years.add(range.groupValues[2].toInt())
+            else if (COPYRIGHT.containsMatchIn(line)) YEAR.findAll(line).lastOrNull()?.let { years.add(it.value.toInt()) }
+            val credit = ILLUS.containsMatchIn(line.trim())
+            if (credit) illustrated = true
+            val norm = CardName.norm(line)
+            if (YEAR.containsMatchIn(norm) && "wizards" !in norm && norm.split(Regex("[^a-zа-я]+")).any { it in MONTHS }) dated = true
+            words.add(norm.split(' ').filter { it.isNotEmpty() })
+            credits.add(credit)
+        }
+        lang = printed.singleOrNull()
+        for (line in lines) {
+            val m = ALONE.matchEntire(line)
+            if (m != null) {
+                val n = m.groupValues[1].replace(" ", "")
+                if (n.length > 4) continue
+                // "0244", "R 1695", or three digits that can't be power/toughness read with the slash as 1 or 7 ("2/2" → "212").
+                val toughness = n.length == 3 && n[1] in "17"
+                if (toughness && !langLine) { loneNumbers.add(strip(n)); continue }
+                if (!(langLine || n.length >= 3)) continue
+                numbers.add(strip(n))
+                if ((n.length == 4 && n[0] == '0') || line.any { it.isLetter() } || (n.length == 3 && !toughness)) collectorNumbers.add(strip(n))
+            } else if (COPYRIGHT.containsMatchIn(line) && !OF_TOTAL.containsMatchIn(line)) {
+                // The number at the end of a copyright line, never the year itself.
+                val t = TRAILING.find(line) ?: continue
+                val n = t.groupValues[1]
+                if (n.length == 4 && (n.toIntOrNull() ?: 0) >= 1990) continue
+                numbers.add(strip(n) + t.groupValues[2].lowercase())
+            }
+        }
+    }
+
+    /**
+     * Whether the lines name this illustrator, and how: every word of the name, in order, in one line; a word of
+     * four or five letters may be one edit off and a longer one two ("TOOD LOCKVOOD", "Shells Wan", "CANARAT" for
+     * Canavan), shorter ones exact.
+     */
+    fun names(artist: String): ArtistLine? {
+        val want = CardName.norm(artist).split(' ').filter { it.isNotEmpty() && it != "and" && it != "&" }
+        if (want.isEmpty()) return null
+        for ((i, line) in words.withIndex()) {
+            if (line.size < want.size) continue
+            for (start in 0..(line.size - want.size)) {
+                if (want.indices.all { k -> alike(line[start + k], want[k]) }) return if (credits[i]) ArtistLine.ILLUSTRATED else ArtistLine.PLAIN
+            }
+        }
+        return null
+    }
+
+    /** What earlier frames of the same card read, added to this frame's. */
+    fun merge(o: Collector) {
+        sets.addAll(o.sets); numbers.addAll(o.numbers); collectorNumbers.addAll(o.collectorNumbers)
+        loneNumbers.addAll(o.loneNumbers); years.addAll(o.years)
+        illustrated = illustrated || o.illustrated
+        dated = dated || o.dated
+        words.addAll(o.words)
+        credits.addAll(o.credits)
+        if (lang == null) lang = o.lang
+    }
+
+    companion object {
+        /** The codes printed by the set code, as Scryfall's language codes. */
+        val LANGS = mapOf(
+            "EN" to "en", "DE" to "de", "FR" to "fr", "IT" to "it", "ES" to "es", "PT" to "pt", "JP" to "ja", "JA" to "ja", "RU" to "ru",
+            "KR" to "ko", "KO" to "ko", "CS" to "zhs", "CT" to "zht", "PH" to "ph", "ZHS" to "zhs", "ZHT" to "zht",
+        )
+        /** An uppercase code, a bullet, star, dash or Japanese middle dot, a language code ("one it ate." in rules
+         *  text is not a set and a language); the bullet is often read as a letter ("MH2 WEN", "ECL MEN", "MH2VEN")
+         *  or lost, so a code of three or more may also be followed by one stray letter or nothing. */
+        val SET_LANG = Regex("\\b([A-Z0-9]{2,5})\\s*[•*·★+.\\-–・]\\s*([A-Z]{2,3})\\b")
+        val SET_LANG_LOOSE = Regex("\\b([A-Z0-9]{3,5})\\s?[A-Z]?\\s?(EN|DE|FR|IT|ES|PT|JP|JA|RU|KR|KO|CS|CT|PH|ZHS|ZHT)\\b")
+        /** "154/196": the number after the slash is the set's size, which tells it from power/toughness ("6/6"). */
+        val OF_TOTAL = Regex("(?:^|[^\\d/])(\\d{1,4})([a-zA-Z]?)\\s*/\\s*(\\d{2,4})\\b")
+        /** A line that is only a collector number, maybe with its rarity: "667", "R 0244", "0014", "07 29". */
+        val ALONE = Regex("\\s*(?:[CURMLSTP]\\s+)?(\\d[\\d ]{0,4}\\d|\\d)(?:\\s+[CURMLSTP])?\\s*")
+        /** A copyright line, as the camera reads it: "™ & © 2024 Wizards of the Coast 407", "& C 2013W", "2012 Wi",
+         *  "ds of the Coast 248 27.", "1993-2001 Wizards of the Coast, Inc. 214/350". */
+        val COPYRIGHT = Regex("©|wizards|wi[sz]a|of the co|\\bcoast|&\\s*\\S{0,2}\\s*(?:19|20)\\d\\d|(?:19|20)\\d\\d\\s*W", RegexOption.IGNORE_CASE)
+        /** The number a 1997-style copyright line ends with ("… of the Coast 407", "… Coast 248 27." with the total cut off). */
+        val TRAILING = Regex("(?:^|\\D)(\\d{1,4})([a-z]?)(?:\\s+\\d{2,3}\\.?)?\\s*$")
+        val YEAR_RANGE = Regex("(19[89]\\d)\\s*[-–]?\\s*(20[0-4]\\d)")
+        val YEAR = Regex("(?<!\\d)(?:19[89]\\d|20[0-4]\\d)(?!\\d)")
+        val ILLUS = Regex("^[il1|]{0,3}us[.,:/]\\s", RegexOption.IGNORE_CASE)
         /** Month names as a date stamp prints them, normalized: English, then de, fr, it, es, pt, ru. */
         val MONTHS = setOf(
             "jan", "january", "feb", "february", "mar", "march", "apr", "april", "may", "jun", "june", "jul", "july",
@@ -403,99 +599,43 @@ class CardMatcher(
             "maio", "junho", "julho", "setembro", "outubro", "novembro", "dezembro", "января", "февраля", "марта",
             "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря",
         )
-        val YEAR_RANGE = Regex("(19[89]\\d)\\s*[-–]?\\s*(20[0-4]\\d)")
-        val YEAR = Regex("19[89]\\d|20[0-4]\\d")
-
-        fun stripZeros(s: String) = s.trimStart('0').ifEmpty { if (s.isEmpty()) "" else "0" }
-
-        /** The 1993–94 core sets, most printed first: one printed card reads the same in all four. */
-        val PRINT_RUN = mapOf("3ed" to 4, "2ed" to 3, "leb" to 2, "lea" to 1)
-
-        /** Printed before cards carried a copyright year (4th Edition, April 1995). */
-        fun early(p: CatalogPrinting) = (p.releasedAt.take(4).toIntOrNull() ?: 9999) <= 1994
-
-        /** An artist credit as old frames print it ("Illus. Mark Poole"; also read as "Ius." or "lllus,"). */
-        private val ILLUS = Regex("^[il1|]{0,3}us[.,]\\s", RegexOption.IGNORE_CASE)
-        fun illustrated(lines: List<String>) = lines.any { ILLUS.containsMatchIn(it.trim()) }
-
-        /** A collector number's digits as a number ("437" → 437, "M20-125" → 20125), for nearness. */
-        fun digits(cn: String) = cn.filter { it in '0'..'9' }.take(6).toIntOrNull() ?: 0
-
-        /** Copyright years ("© 2019 Wizards", "1993-2003"): the last year of each. */
-        fun years(lines: List<String>): Set<Int> {
-            val out = HashSet<Int>()
-            for (line in lines) {
-                val range = YEAR_RANGE.find(line)
-                if (range != null) out.add(range.groupValues[2].toInt())
-                else if (line.contains("wizards", ignoreCase = true) || line.contains('©')) {
-                    YEAR.findAll(line).lastOrNull()?.let { out.add(it.value.toInt()) }
-                }
-            }
-            return out
-        }
-
-        /** A prerelease date stamp ("30-31 January 2021", "27-28 giugno 2020"): a month and a year on a line that isn't the copyright. */
-        fun dated(lines: List<String>) = lines.any { line ->
-            val l = CardName.norm(line)
-            YEAR.containsMatchIn(l) && "wizards" !in l && l.split(Regex("[^a-zа-я]+")).any { it in MONTHS }
-        }
-    }
-}
-
-/** What a card's bottom text says about its printing: "154/196 M", "RIX • RU", "M 0244", "FRA • EN". */
-class Collector(lines: List<String>, known: Set<String>) {
-    val sets = HashSet<String>()
-    val numbers = HashSet<String>()
-    /** The numbers written as collector numbers ("154/196", "0244", "R 1695", "297"), not a lone "212" that may be a misread 2/2. */
-    val collectorNumbers = HashSet<String>()
-    /** The language printed by a known set code ("WAR • JP" → ja), when only one is. */
-    val lang: String?
-
-    init {
-        var langLine = false
-        val printed = HashSet<String>()
-        for (line in lines) {
-            for (m in SET_LANG.findAll(line)) {
-                val lang = LANGS[m.groupValues[2]] ?: continue
-                langLine = true
-                val code = m.groupValues[1].lowercase()
-                if (code in known) { sets.add(code); printed.add(lang) }
-            }
-            for (m in OF_TOTAL.findAll(line)) {
-                if ((m.groupValues[3].toIntOrNull() ?: 0) >= 30) {
-                    val n = strip(m.groupValues[1]) + m.groupValues[2].lowercase()
-                    numbers.add(n)
-                    collectorNumbers.add(n)
-                }
-            }
-        }
-        lang = printed.singleOrNull()
-        for (line in lines) {
-            val m = ALONE.matchEntire(line) ?: continue
-            val n = m.groupValues[1].replace(" ", "")
-            if (n.length <= 4 && (langLine || n.length == 4)) {
-                numbers.add(strip(n))
-                // "0244", "R 1695", or three digits that can't be power/toughness read with the slash as 1 or 7 ("2/2" → "212").
-                val toughness = n.length == 3 && n[1] in "17"
-                if ((n.length == 4 && n[0] == '0') || line.any { it.isLetter() } || (n.length == 3 && !toughness)) collectorNumbers.add(strip(n))
-            }
-        }
-    }
-
-    private companion object {
-        /** The codes printed by the set code, as Scryfall's language codes. */
-        val LANGS = mapOf(
-            "EN" to "en", "DE" to "de", "FR" to "fr", "IT" to "it", "ES" to "es", "PT" to "pt", "JP" to "ja", "JA" to "ja", "RU" to "ru",
-            "KR" to "ko", "KO" to "ko", "CS" to "zhs", "CT" to "zht", "PH" to "ph", "ZHS" to "zhs", "ZHT" to "zht",
-        )
-        /** An uppercase code, a bullet or star, a language code ("one it ate." in rules text is not a set and a language). */
-        val SET_LANG = Regex("\\b([A-Z0-9]{2,5})\\s*[•*·★+.]\\s*([A-Z]{2,3})\\b")
-        /** "154/196": the number after the slash is the set's size, which tells it from power/toughness ("6/6"). */
-        val OF_TOTAL = Regex("(?:^|[^\\d/])(\\d{1,4})([a-zA-Z]?)\\s*/\\s*(\\d{2,4})\\b")
-        /** A line that is only a collector number, maybe with its rarity: "667", "R 0244", "0014", "07 29". */
-        val ALONE = Regex("\\s*(?:[CURMLSTP]\\s+)?(\\d[\\d ]{0,4}\\d|\\d)(?:\\s+[CURMLSTP])?\\s*")
 
         fun strip(s: String) = s.trimStart('0').ifEmpty { "0" }
+
+        private fun alike(a: String, b: String): Boolean {
+            if (a == b) return true
+            val n = b.length
+            if (n < 4 || abs(a.length - n) > 2) return false
+            return edits(a, b, if (n >= 6) 2 else 1)
+        }
+
+        /** Whether a and b are within [k] single-character edits (insert, delete, replace) of each other. */
+        fun edits(a: String, b: String, k: Int): Boolean {
+            if (abs(a.length - b.length) > k) return false
+            var prev = IntArray(b.length + 1) { it }
+            for (i in 1..a.length) {
+                val cur = IntArray(b.length + 1); cur[0] = i
+                var rowMin = i
+                for (j in 1..b.length) {
+                    cur[j] = minOf(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + if (a[i - 1] == b[j - 1]) 0 else 1)
+                    rowMin = minOf(rowMin, cur[j])
+                }
+                if (rowMin > k) return false
+                prev = cur
+            }
+            return prev[b.length] <= k
+        }
+
+        /** A read set code as the catalog knows it: as read, else with the letters the camera swaps for digits put
+         *  back ("4OK" → 40k, "MHT" → mh1, "A2S" → a25), else without a stray first or last character ("YMH2", "4A25", "MH2V"). */
+        private fun known(raw: String, known: Set<String>): String? {
+            val code = raw.lowercase()
+            if (code in known) return code
+            val swapped = code.map { mapOf('o' to '0', 'i' to '1', 'l' to '1', 't' to '1', 's' to '5')[it] ?: it }.joinToString("")
+            if (swapped != code && swapped in known) return swapped
+            if (code.length >= 4) for (cut in listOf(code.drop(1), code.dropLast(1))) if (cut in known) return cut
+            return null
+        }
     }
 }
 
@@ -528,9 +668,10 @@ class ScanSteadiness {
         c.latest = m.printing
         c.named++
         if (m.exact) c.votes[m.printing.cardId] = m.printing to ((c.votes[m.printing.cardId]?.second ?: 0) + 1)
-        val voted = c.votes.values.maxByOrNull { it.second }?.first
+        val top = c.votes.values.maxByOrNull { it.second }
+        val voted = top?.first
         val held = now - c.since
-        if (!((voted != null && held >= QUICK_MS) || (held >= SLOW_MS && c.named >= READS))) return null
+        if (!((voted != null && held >= QUICK_MS) || ((top?.second ?: 0) >= AGREE && held >= QUICKER_MS) || (held >= SLOW_MS && c.named >= READS))) return null
         candidate = null
         lastIdx = m.oracle.idx
         lastSeen = now
@@ -543,6 +684,10 @@ class ScanSteadiness {
          *  frames or more: Crusade, named 6 times in 2.4 s with gaps of 0.6 s, was never taken while any gap over
          *  0.5 s started it over). */
         const val QUICK_MS = 400L
+        /** Sooner still when two frames read the same printing exactly (set code and number agree): a second frame
+         *  that says the same is as sure as a third that says nothing (2026-10-28). */
+        const val QUICKER_MS = 200L
+        const val AGREE = 2
         const val SLOW_MS = 800L
         const val READS = 3
         /** A blurred or unreadable frame doesn't drop the card in view unless the gap lasts this long. */

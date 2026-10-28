@@ -1,0 +1,76 @@
+{
+  "id": "c250127b-8dbc-490f-8be5-146f47d7964d",
+  "source": "report",
+  "frames": [
+    [
+      "Sol Ring",
+      "Add 2 coleness",
+      "mana to your mana",
+      "pool. Tapping this",
+      "artifact can be played",
+      "as an interrupt.",
+      "Ulus. @ Mark Tedm"
+    ],
+    [
+      "mana to your mana",
+      "pool. Tapping this",
+      "artifact can be played",
+      "as an interrupt.",
+      "Illus. @ Mark Tedm"
+    ],
+    [
+      "Sol Ring",
+      "ANK GOI",
+      "Add 2 coleness",
+      "mana to your mana",
+      "pool. Tapping this",
+      "artifact can be played",
+      "as an interrupt.",
+      "Illus. © Mark Tedin"
+    ],
+    [
+      "Bol King",
+      "Add 2 colness",
+      "mana to your mana",
+      "pool. Tapping this",
+      "artifact can be played",
+      "as an interrupt.",
+      "Illus. @ Mark Tedi"
+    ],
+    [
+      "Sol king",
+      "GOI",
+      "Ade 2 coloness",
+      "mana to your mana",
+      "pool. Tapping this",
+      "artifact can be played",
+      "as an interrupt.",
+      "Illus. © Mark Tedm"
+    ],
+    [
+      "Sol Ring",
+      "Ada 2 coloress",
+      "mana to your mana",
+      "pool. Tapping this",
+      "artifact can be played",
+      "as an interrupt.",
+      "lius. © Mark Tedin"
+    ]
+  ],
+  "name": "Sol Ring",
+  "set": "2ed",
+  "cn": "270",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "274",
+    "set": "3ed",
+    "name": "Sol Ring",
+    "exact": false,
+    "card_id": "803fd65f-4ca6-4fe4-abc2-72aa32ebb3a5"
+  },
+  "reported_at": "2026-10-28T00:33:00.79343+00:00"
+}

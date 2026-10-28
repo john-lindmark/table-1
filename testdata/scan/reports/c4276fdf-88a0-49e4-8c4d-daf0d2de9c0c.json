@@ -1,0 +1,80 @@
+{
+  "id": "c4276fdf-88a0-49e4-8c4d-daf0d2de9c0c",
+  "source": "report",
+  "frames": [
+    [
+      "Doubling Cube",
+      "e: Double the ampont of cach",
+      "type of mana in your mana pool.",
+      "The cube's surface is",
+      "pockmarked with",
+      "Mand runes th"
+    ],
+    [
+      "Doubling Cube",
+      "Artifa",
+      "3, r: Double the amy ant of each",
+      "type of mana in your mana pool.",
+      "The cube's surface is pockmarked with",
+      "jagged runes that seem to shift when",
+      "unobserved.",
+      "k Tedin"
+    ],
+    [
+      "Doubling Cube",
+      "Artifas",
+      "3, r: Double the am ant of each",
+      "type of mana in your mana pool.",
+      "The cube's surface is pockmarked with",
+      "jagged runes that seem to shift when",
+      "unobserved.",
+      "Tedin"
+    ],
+    [
+      "Doubling Cube",
+      "Artifar",
+      "3, r: Double the amy unt of each",
+      "type of mana in your mana pool.",
+      "The cube's surface is pockmarked with",
+      "jagged runes that seem to shift when",
+      "unobserved.",
+      "- Mark Tedin"
+    ],
+    [
+      "Doubling Cube",
+      "Artifas",
+      "3, r: Double the amant of each",
+      "type of mana in your mana pool.",
+      "The cube's surface is pockmarked with",
+      "jagged runes that seem to shift when",
+      "unobserved.",
+      "Mark Tedin"
+    ],
+    [
+      "Doubling Cube",
+      "Artifar",
+      "3, r: Double the amount of each",
+      "type of mana in your mana pool.",
+      "The cube's surface is pockmarked with",
+      "jagged runes that seem to shift when",
+      "unobserved.",
+      "- Mark Tedin"
+    ]
+  ],
+  "name": "Doubling Cube",
+  "set": "plst",
+  "cn": "10E-321",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "116",
+    "set": "5dn",
+    "name": "Doubling Cube",
+    "exact": false,
+    "card_id": "220d3a38-10f8-4d4a-84b8-f17b10a2cd6c"
+  },
+  "reported_at": "2026-10-26T03:19:11.486352+00:00"
+}

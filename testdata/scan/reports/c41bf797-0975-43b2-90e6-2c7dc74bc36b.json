@@ -1,0 +1,90 @@
+{
+  "id": "c41bf797-0975-43b2-90e6-2c7dc74bc36b",
+  "source": "report",
+  "frames": [
+    [
+      "Skullclamp",
+      "Artifact - Equipment",
+      "Equipped creature gets +1/-l.",
+      "Whenever equipped creature dies, draw",
+      "two cards,",
+      "Equip 1",
+      "Ily the most pious and devoted Impen",
+      "ervants are granted the posthumous hom",
+      "becoming serco-skills."
+    ],
+    [
+      "Skullelamp",
+      "Artifact - Equipment",
+      "Equipped creature gets +1/-1.",
+      "Whenever equipped creature dies, draw",
+      "two cards.",
+      "Equip 1",
+      "Only the most pious and devoted Imperial",
+      "servants are granted the posthumous honor of",
+      "becoming servo-skulls."
+    ],
+    [
+      "Skullelamp",
+      "Artifact - Equipment",
+      "Equipped creature gets +1/-1.",
+      "Whenever equipped creature dies, draw",
+      "two cards.",
+      "Equip 1",
+      "Only the most pious and devoted Imperial",
+      "servants are granted the posthumous honor of",
+      "becoming servo-skulls."
+    ],
+    [
+      "Skullelamp",
+      "Artifact - Equipment",
+      "Equipped creature gets +1/-1.",
+      "Whenever equipped creature dies, draw",
+      "two cards.",
+      "Equip 1",
+      "Only the most pious and devoted Imperial",
+      "servants are granted the posthumous honor of",
+      "becoming servo-skulls.",
+      "AOK*EN CI"
+    ],
+    [
+      "Skullclamp",
+      "Artifact - Equipment",
+      "Equipped creature gets +1/-1.",
+      "Whenever equipped creature dies, draw",
+      "two cards.",
+      "Equip 1",
+      "Only the most pious and devoted Imperial",
+      "servants are granted the posthumous honor of",
+      "becoming servo-skulls.",
+      "4OK•EN SHI"
+    ],
+    [
+      "Skullclamp",
+      "Artifact - Equipment",
+      "Equipped creature gets +1/-1.",
+      "Whenever equipped creature dies, draw",
+      "two cards.",
+      "Equip 1",
+      "Only the most pious and devoted Imperial",
+      "servants are granted the posthumous honor of",
+      "becoming servo-skulls."
+    ]
+  ],
+  "name": "Skullclamp",
+  "set": "40k",
+  "cn": "248★",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "140",
+    "set": "dst",
+    "name": "Skullclamp",
+    "exact": false,
+    "card_id": "55318397-de3c-47ea-a088-72a24df5c8fa"
+  },
+  "reported_at": "2026-10-28T02:37:38.788626+00:00"
+}

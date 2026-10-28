@@ -1,0 +1,101 @@
+{
+  "id": "ece40de7-6da5-40df-a7a6-d3bdb007db23",
+  "source": "report",
+  "frames": [
+    [
+      "Elas il-Kor, Sadistic Pilgrim",
+      "Ф",
+      "eric",
+      "Deathtouch",
+      "Whenever another creature enters the",
+      "battlefield under your control, you gain",
+      "1 life.",
+      "Whenever another creature you control",
+      "dies, cach opponent loses 1 life."
+    ],
+    [
+      "Elas il-Kor, Sadistic Pilgrim",
+      "Wrexian Kor Cleric",
+      "endary Creature",
+      "Deathtouch",
+      "Whenever another creature enters the",
+      "battlefield under your control, you gain",
+      "1 life.",
+      "Whenever another creature you control",
+      "dies, each opponent loses 1 life.",
+      "2/2"
+    ],
+    [
+      "Elas il-Kor, Sadistic Pilgrim",
+      "Ф",
+      "ayrexian Kor Cleric",
+      "dary Creature",
+      "Deathtouch",
+      "Whenever another creature enters the",
+      "battlefield under your control, you gain",
+      "1 life.",
+      "Whenever another creature you control",
+      "dies, each opponent loses 1 life.",
+      "2/2",
+      "OMUNEN I TOE ESPOSITO"
+    ],
+    [
+      "Elas il-Kor, Sadistic Pilgrim",
+      "Phyrexian Kor Cleric",
+      "endary Creature",
+      "Deathtouch",
+      "Whenever another creature enters the",
+      "battlefield under your control, you gain",
+      "1 life.",
+      "Whenever another creature you control",
+      "dies, each opponent loses 1 life",
+      "2/2",
+      "297",
+      "OML*EN - JOE ESPOSITO"
+    ],
+    [
+      "Elas il-Kor, Sadistic Pilgrim",
+      "Ф",
+      "tyrexian Kor Cleric",
+      "Deathtouch",
+      "Whenever another creature enters the",
+      "battlefield under your control, you gain",
+      "1 life",
+      "Whenever another creature you control",
+      "dies, each opponent loses 1 life.",
+      "2/2",
+      "UNEN NO TOE ESPOSITO"
+    ],
+    [
+      "Elas il-Kor, Sadistic Pilgrim",
+      "Ф",
+      "Pyrexian Kor Cleric",
+      "endary Creature",
+      "Deathtouch",
+      "Whenever another creature enters the",
+      "battlefield under your control, you gain",
+      "1 life.",
+      "Whenever another creature you control",
+      "dies, each opponent loses 1 life.",
+      "2/2",
+      "297",
+      "DMUNEN AlOE ESPOSITO"
+    ]
+  ],
+  "name": "Elas il-Kor, Sadistic Pilgrim",
+  "set": "dmu",
+  "cn": "297",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "198",
+    "set": "dmu",
+    "name": "Elas il-Kor, Sadistic Pilgrim",
+    "exact": false,
+    "card_id": "1c3f0ffe-cf51-4c30-8cd5-9e3c7e92c019"
+  },
+  "reported_at": "2026-10-28T00:18:35.928078+00:00"
+}

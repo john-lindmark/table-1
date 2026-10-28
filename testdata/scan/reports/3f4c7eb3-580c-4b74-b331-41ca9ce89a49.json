@@ -1,0 +1,75 @@
+{
+  "id": "3f4c7eb3-580c-4b74-b331-41ca9ce89a49",
+  "source": "report",
+  "frames": [
+    [
+      "Basoth Triome",
+      "land - Swamp Forest Island",
+      "(G: Add G, O, er O.)",
+      "Zagoth Triome enters the battlefield tapped.",
+      "Cycling o"
+    ],
+    [
+      "Zagoth Triome",
+      "Land - Swamp Forest Island",
+      "(©: Add @, O, or O.)",
+      "Zagoth Triome enters the battlefield tapped.",
+      "Cycling ®",
+      "İKO • EN & ROSAN TREVINO",
+      "313",
+      "2020 Wirands of the Coas"
+    ],
+    [
+      "Zagoth Triome",
+      "Land - Swamp Forest Island",
+      "(O: Add 2, @, or O.)",
+      "Zagoth Triome enters the battlefield tapped",
+      "Cycling e"
+    ],
+    [
+      "Zagoth Triome",
+      "Land - Swamp Forest Island",
+      "(C: Add @, O, or O.)",
+      "Zagoth Triome enters the battlefield tapped.",
+      "Cycling B",
+      "SKO • EN RO ROBBIE TREVINO",
+      "2020 Wizards of the Coast"
+    ],
+    [
+      "Zagoth nome",
+      "Land - Swamp Forest Island",
+      "(C: Add @, ©, or O.)",
+      "Zagoth Triome enters the battlefield tapped.",
+      "Cycling o",
+      "313",
+      "IKO • EN NO ROBBIE TREVINO",
+      "IM & C 2020 Wizards of the Coast"
+    ],
+    [
+      "Zagoth Triome",
+      "Land - Swamp Forest Island",
+      "(©: Add ®,",
+      "©, or O.)",
+      "Zagoth Triome enters the battlefield tapped.",
+      "Cycling B",
+      "IKO • EN iS ROBBIE TREVINO",
+      "* & © 2020 Wizards of the Coat"
+    ]
+  ],
+  "name": "Zagoth Triome",
+  "set": "iko",
+  "cn": "313",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "259",
+    "set": "iko",
+    "name": "Zagoth Triome",
+    "exact": false,
+    "card_id": "cc520518-2063-4b57-a0d4-10cf62a7175e"
+  },
+  "reported_at": "2026-10-26T03:46:57.647938+00:00"
+}

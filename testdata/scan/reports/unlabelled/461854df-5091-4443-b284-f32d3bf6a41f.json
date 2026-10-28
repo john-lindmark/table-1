@@ -1,0 +1,104 @@
+{
+  "id": "461854df-5091-4443-b284-f32d3bf6a41f",
+  "source": "report",
+  "frames": [
+    [
+      "Temple Garden",
+      "Land - Forest Plains",
+      "(e: Add \" or * to your mana pool.)",
+      "As Temple Garden enters the",
+      "battlefield, you may pay 2 life. If you",
+      "don't, Temple Garden enters the",
+      "battlefield tapped.",
+      "In the gardens of the Conclave, order and",
+      "beauty are the roots of power.",
+      "• Volkan B"
+    ],
+    [
+      "Temple Garden",
+      "Land - Forest Plains",
+      "(s: Add * or * to your mana pool.)",
+      "As Temple Garden enters the",
+      "battlefield, you may pay 2 life. If you",
+      "don't, Temple Garden enters the",
+      "battlefield tapped.",
+      "In the gardens of the Conclave, order and",
+      "beauty are the roots of power.",
+      "- Volkan Baga",
+      "*& C 2012W"
+    ],
+    [
+      "Temple Garden",
+      "Land - Forest Plains",
+      "(r: Add * or * to your mana pool.)",
+      "As Temple Garden enters the",
+      "battlefield, you may pay 2 life. If you",
+      "don't, Temple Garden enters the",
+      "battlefield tapped.",
+      "In the gardens of the Conclave, order and",
+      "beauty are the roots of power.",
+      "→ Volkan Baga",
+      "* & C 2012 Wizards of"
+    ],
+    [
+      "Temple Garden",
+      "Land - Forest Plains",
+      "(e: Add or * to your mana pool.)",
+      "As Temple Garden enters the",
+      "battlefield, you may pay 2 life. If you",
+      "don't, Temple Garden enters the",
+      "battlefield tapped.",
+      "In the gardens of the Conclave, order and",
+      "beauty are the roots of power.",
+      "- Volkan Baga",
+      "* & C 2012 Wards o"
+    ],
+    [
+      "Temple Garden",
+      "Land - Forest Plains",
+      "(e: Add * or * to your mana pool.)",
+      "As Temple Garden enters the",
+      "battlefield, you may pay 2 life. If you",
+      "don't, Temple Garden enters the",
+      "battlefield tapped.",
+      "In the gardens of the Conclave, order and",
+      "beauty are the roots of power.",
+      "- Volkan Baga",
+      "& © 2012 Win"
+    ],
+    [
+      "Temple Garden",
+      "Land - Forest Plains",
+      "(e: Add * or * to your mana pool.)",
+      "As Temple Garden enters the",
+      "battlefield, you may pay 2 life. If you",
+      "don't, Temple Garden enters the",
+      "battlefield tapped.",
+      "In the gardens of the Conclave, order and",
+      "beauty are the roots of power.",
+      "- Volkan. Baga",
+      "™ & C 2012 Wicards of"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Temple Garden",
+    "set": "rav",
+    "cn": "284"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "284",
+    "set": "rav",
+    "name": "Temple Garden",
+    "exact": false,
+    "card_id": "794a2b79-8c55-4423-8843-7e6e96f84071"
+  },
+  "reported_at": "2026-10-25T04:18:27.27361+00:00"
+}

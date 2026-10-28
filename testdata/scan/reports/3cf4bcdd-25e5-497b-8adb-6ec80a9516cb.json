@@ -1,0 +1,88 @@
+{
+  "id": "3cf4bcdd-25e5-497b-8adb-6ec80a9516cb",
+  "source": "report",
+  "frames": [
+    [
+      "Mindslaver",
+      "Legendary Artifact",
+      "4, r, Sacrifice Mindslaver: You",
+      "control target player's next turn.",
+      "(You see all cards that player could see",
+      "and make all decisions for the player.",
+      "He or she doesn't lose life because of",
+      "mana burn.)"
+    ],
+    [
+      "Mindslaver",
+      "Legendary Artifact",
+      "4, r, Sacrifice Mindslaver: You",
+      "control target player's next turn.",
+      "(You see all cards that player could see",
+      "and make all decisions for the player.",
+      "He or she doesn't lose life because of",
+      "mana burn.)",
+      "→ Glen Aagus"
+    ],
+    [
+      "Mindslaver",
+      "Legendary Artifact",
+      "4, r, Sacrifice Mindslaver: You",
+      "control target player's next turn.",
+      "(You see all cards that player could see",
+      "and make all decisions for the player.",
+      "He or she doesn't lose life because of",
+      "mana burn.)",
+      "-Glen Angus"
+    ],
+    [
+      "Mindslaver",
+      "Legendary Artifact",
+      "4, r, Sacrifice Mindslaver: You",
+      "control target player's next turn.",
+      "(You see all cards that player could see",
+      "and make all decisions for the player.",
+      "He or she doesn't lose life because of",
+      "mana burn.)",
+      "-Glen Angus"
+    ],
+    [
+      "(Mindslaver",
+      "Legendary Artifact",
+      "4, r, Sacrifice Mindslaver: You",
+      "control target player's next turn.",
+      "(You see all cards that player could see",
+      "and make all decisions for the player.",
+      "He or she doesn't lose life because of",
+      "mana burn.)",
+      "• Glen Angus",
+      "DiX 01993-2003 W1"
+    ],
+    [
+      "Mindslaver",
+      "Legendary Artifact",
+      "4, r, Sacrifice Mindslaver: You",
+      "control target player's next turn.",
+      "You see all cards that player could see",
+      "and make all decisions for the player.",
+      "He or she doesn't lose life because of",
+      "mana burn.)",
+      "• Glen Angus"
+    ]
+  ],
+  "name": "Mindslaver",
+  "set": "mrd",
+  "cn": "206",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "MRD-206",
+    "set": "plst",
+    "name": "Mindslaver",
+    "exact": false,
+    "card_id": "c7c69630-eb56-4d62-ad14-556555ac14fe"
+  },
+  "reported_at": "2026-10-28T02:34:56.858435+00:00"
+}

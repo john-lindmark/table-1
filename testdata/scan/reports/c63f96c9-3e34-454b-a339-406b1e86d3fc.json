@@ -1,0 +1,88 @@
+{
+  "id": "c63f96c9-3e34-454b-a339-406b1e86d3fc",
+  "source": "report",
+  "frames": [
+    [
+      "* Sara Eminary even do hum",
+      "common to the dhosen cund mpe"
+    ],
+    [
+      "Serra's Emissary",
+      "Creature - Angel",
+      "Flying",
+      "As Serra's Emissary enters the battlefield,",
+      "choose a card type.",
+      "You and creatures you control have",
+      "protection from the chosen card type.",
+      "Where swords fail, faith transcends.",
+      "7/7",
+      "030/303",
+      "MH2 EN &NIS HAMM"
+    ],
+    [
+      "Serra's Emissary",
+      "**",
+      "Creature - Angel",
+      "Flying",
+      "As Serra's Emissary enters the battlefield,",
+      "choose a card type.",
+      "You and creatures you control have",
+      "protection from the chosen card type.",
+      "Where swords fail, faith transcends.",
+      "7/7"
+    ],
+    [
+      "Serra's Emissary",
+      "***",
+      "Creature - Angel",
+      "Flying",
+      "As Serra's Emissary enters the battlefield,",
+      "choose a card type.",
+      "You and creatures you control have",
+      "protection from the chosen card type.",
+      "Where swords fail, faith transcends.",
+      "7/7",
+      "030/303"
+    ],
+    [
+      "Serra's Emissary",
+      "4***",
+      "Creature - Angel",
+      "Flying",
+      "As Serra's Emissary enters the battlefield,",
+      "choose a card type.",
+      "You and creatures you control have",
+      "protection from the chosen card type.",
+      "Where swords fail, faith transcends.",
+      "7/7"
+    ],
+    [
+      "Serra's Emissary",
+      "***",
+      "Creature - Angel",
+      "Flying",
+      "As Serra's Emissary enters the battlefield,",
+      "choose a card type.",
+      "You and creatures you control have",
+      "protection from the chosen card type.",
+      "Where swords fail, faith transcends.",
+      "7/7"
+    ]
+  ],
+  "name": "Serra's Emissary",
+  "set": "mh2",
+  "cn": "333",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (23)",
+  "pack_version": "v1-d695515817e0",
+  "owned_only": false,
+  "matched": {
+    "cn": "30",
+    "set": "mh2",
+    "name": "Serra's Emissary",
+    "exact": false,
+    "card_id": "b6534049-3045-4546-b1e8-e5b1b0df5f56"
+  },
+  "reported_at": "2026-10-24T05:22:13.303497+00:00"
+}

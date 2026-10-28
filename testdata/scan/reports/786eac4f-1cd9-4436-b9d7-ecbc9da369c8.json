@@ -1,0 +1,91 @@
+{
+  "id": "786eac4f-1cd9-4436-b9d7-ecbc9da369c8",
+  "source": "report",
+  "frames": [
+    [
+      "Destrog target creature if it has",
+      "convered mana cost 2 or less.",
+      "Revel — Destroy that creature if it",
+      "has comerted mana cost 4 or less",
+      "instead f a permanent you controlled",
+      "attlefield this turn"
+    ],
+    [
+      "Fatal Push",
+      "Instant",
+      "Destroy target creature if it has",
+      "converted mana cost 2 or less.",
+      "Revolt — Destroy that creature if it",
+      "has converted mana cost 4 or less",
+      "instead if a permanent you controlled",
+      "left the battlefield this turn.",
+      "008/012 P",
+      "ENM WEN NO ALEX KONSTAD"
+    ],
+    [
+      "Fatal Push",
+      "Instant",
+      "Destroy target creature if it has",
+      "converted mana cost 2 or less.",
+      "Revolt — Destroy that creature if it",
+      "has converted mana cost 4 or less",
+      "instead if a permanent you controlled",
+      "left the battlefield this turn.",
+      "0087012 g",
+      "ENIM",
+      "ENMEN NO ALEX KONSTAD"
+    ],
+    [
+      "Fatal Push",
+      "Instant",
+      "Destroy target creature if it has",
+      "converted mana cost 2 or less.",
+      "Revolt — Destroy that creature if it",
+      "has converted mana cost 4 or less",
+      "instead if a permanent you controlled",
+      "left the battlefield this turn.",
+      "0087012 B",
+      "N ALEX KONSTAD"
+    ],
+    [
+      "Fatal Push",
+      "Instant",
+      "Destroy target creature if it has",
+      "converted mana cost 2 or less.",
+      "Revolt — Destroy that creature if it",
+      "has converted mana cost 4 or less",
+      "instead if a permanent you controlled",
+      "left the battlefield this turn.",
+      "0087012 ₽ FNM",
+      "N ALEX KONSTAD"
+    ],
+    [
+      "Fatal Push",
+      "Instant",
+      "Destroy target creature if it has",
+      "converted mana cost 2 or less.",
+      "Revolt - Destroy that creature if it",
+      "has converted mana cost 4 or less",
+      "instead if a permanent you controlled",
+      "left the battlefield this turn.",
+      "0087012 p",
+      "ENMEN NO ALEX KONSTAD"
+    ]
+  ],
+  "name": "Fatal Push",
+  "set": "f17",
+  "cn": "8",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (28)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "57",
+    "set": "aer",
+    "name": "Fatal Push",
+    "exact": false,
+    "card_id": "b5e81649-9954-424c-89d1-f87d73b66047"
+  },
+  "reported_at": "2026-10-26T04:19:28.044897+00:00"
+}

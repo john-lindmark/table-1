@@ -1,0 +1,65 @@
+{
+  "id": "eec4f8b0-0053-4332-8818-311d346ca4a8",
+  "source": "report",
+  "frames": [
+    [],
+    [],
+    [],
+    [
+      "Razorkin Needlehead",
+      "Creature - Human Assassin",
+      "Razorkin Needlehead has first strike",
+      "during your turn.",
+      "Whenever an opponent draws a card,",
+      "Razorkin Needlehead deals 1 damage",
+      "to them.",
+      "\"Stitch your eyes, stitch your skin, stitch",
+      "your mouth into a grin.",
+      "9 0153",
+      "DSK WEN •RICE",
+      "2/2"
+    ],
+    [
+      "Razorkin Needlehead",
+      "Creature - Human Assassin",
+      "Razorkin Needlehead has first strike",
+      "during your turn.",
+      "Whenever an opponent draws a card",
+      "Razorkin Needlehead deals 1 damage",
+      "to them.",
+      "* Saitch your eyes, sisch your skin, stick",
+      "our mouth into a",
+      "2/2"
+    ],
+    [
+      "Razorkin Needlehead",
+      "Creature - Human Assassin",
+      "Razorkin Needlehead has first strike",
+      "during your turn.",
+      "Whenever an opponent draws a card,",
+      "Razorkin Needlehead deals 1 damage",
+      "to them.",
+      "\"Stitch your eyes, stitch your skin, stitch",
+      "your mouth into a grin.",
+      "R 0153",
+      "2/2",
+      "DSK *EN IS RICCARDO FEDERICI"
+    ]
+  ],
+  "name": "Razorkin Needlehead",
+  "set": "pdsk",
+  "cn": "153p",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "153",
+    "set": "dsk",
+    "name": "Razorkin Needlehead",
+    "exact": true,
+    "card_id": "bc73b963-23c0-46d2-853a-34a8b463994e"
+  },
+  "reported_at": "2026-10-26T03:02:10.608634+00:00"
+}

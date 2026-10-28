@@ -1,0 +1,91 @@
+{
+  "id": "da201d5f-9ad2-453d-8ce3-6ce1fa818a6e",
+  "source": "report",
+  "frames": [
+    [
+      "Polluted Delta",
+      "*. Pay 1 life, Sacrifice Polluted",
+      "Delta: Search your library for an",
+      "Island or Swamp card, put it onto",
+      "the battlefield, then shuffle.",
+      "1 maped gang, hat open"
+    ],
+    [
+      "Polluted Delta",
+      "Land",
+      "5, Pay 1 life, Sacrifice Polluted",
+      "Delta: Search your library for an",
+      "Island or Swamp card, put it onto",
+      "the battlefield, then shuttle.",
+      "A warped gateway that seeps toxms",
+      "and malevolence into the waters",
+      "around Towashi.",
+      "Hus, Chris Ostrowski",
+      "434"
+    ],
+    [
+      "Polluted Delta",
+      "Land",
+      "r, Pay 1 life, Sacrifice Polluted",
+      "Delta: Search your library for an",
+      "Island or Swamp card, put it onto",
+      "the battlefield, then shuffle.",
+      "A warped gateway that seeps toxins",
+      "and malevolence into the waters",
+      "around Towashi.",
+      "Illus. Chris Ostrowski"
+    ],
+    [
+      "Polluted Delta",
+      "Land",
+      "r, Pay 1 life, Sacrifice Polluted",
+      "Delta: Search your library for an",
+      "Island or Swamp card, put it onto",
+      "the battlefield, then shuffle.",
+      "A warped gateway that seeps toxins",
+      "and malevolence into the waters",
+      "around Towashi.",
+      "Illus. Chris Ostrowski"
+    ],
+    [
+      "Polluted Delta",
+      "Land",
+      "r, Pay 1 life, Sacrifice Polluted",
+      "Delta: Search your library for an",
+      "Island or Swamp card, put it onto",
+      "the battlefield, then shuffle.",
+      "A warped gateway that seeps toxins",
+      "and malevolence into the waters",
+      "around Towashi.",
+      "Illus, Chris Ostrowski"
+    ],
+    [
+      "Polluted Delta",
+      "Land",
+      "r, Pay 1 life, Sacrifice Polluted",
+      "Delta: Search your library for an",
+      "Island or Swamp card, put it onto",
+      "the battlefield, then shuffle.",
+      "A warped gateway that seeps toxis",
+      "and malevolence into the waters",
+      "around Towashi.",
+      "Illus. Chris Ostrowski"
+    ]
+  ],
+  "name": "Polluted Delta",
+  "set": "mh3",
+  "cn": "438",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "321",
+    "set": "ons",
+    "name": "Polluted Delta",
+    "exact": false,
+    "card_id": "0f7585c8-9e21-4eef-afc1-2852de23db2f"
+  },
+  "reported_at": "2026-10-28T00:14:58.369267+00:00"
+}

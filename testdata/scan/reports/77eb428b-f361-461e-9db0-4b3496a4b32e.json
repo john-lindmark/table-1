@@ -1,0 +1,54 @@
+{
+  "id": "77eb428b-f361-461e-9db0-4b3496a4b32e",
+  "source": "report",
+  "frames": [
+    [],
+    [],
+    [],
+    [
+      "Mycosynth Lattice",
+      "Artifact",
+      "ALl permanents are artifacts in",
+      "addition to their other types.",
+      "All cards that aren't on the battlefield,",
+      "spells, and permanents are colorless.",
+      "Players may spend mana as though it",
+      "went mana of any color."
+    ],
+    [
+      "Mycosynth Latice",
+      "Artlact",
+      "wa t0",
+      "Parers voer",
+      "Were aAs"
+    ],
+    [
+      "Mycosynth Lattice",
+      "Artifact",
+      "All permanents are artifacts in",
+      "addition to their other types.",
+      "All cards that aren't on the battlefield,",
+      "spells, and permanents are colorless.",
+      "Players may spend mana as though it",
+      "were mana of any color.",
+      "241/254 M",
+      "BBD • EN ANTHONY S. WATERS"
+    ]
+  ],
+  "name": "Mycosynth Lattice",
+  "set": "plst",
+  "cn": "BBD-241",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "241",
+    "set": "bbd",
+    "name": "Mycosynth Lattice",
+    "exact": true,
+    "card_id": "94f89714-3b26-46a2-b9a8-3e664f391cd9"
+  },
+  "reported_at": "2026-10-26T03:19:58.211986+00:00"
+}

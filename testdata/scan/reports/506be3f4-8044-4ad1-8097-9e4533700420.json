@@ -1,0 +1,91 @@
+{
+  "id": "506be3f4-8044-4ad1-8097-9e4533700420",
+  "source": "report",
+  "frames": [
+    [
+      "Jaheira, Friend of the Forest",
+      "Legendary Creature - Human Elf Drail",
+      "Tokens you control have \"G: Add Q.\"",
+      "Choose a Background",
+      "\"The Harpers\" movemone grows, but ie",
+      "needs sunlight to blossom. it can be that",
+      "light.\""
+    ],
+    [
+      "Jaheira, Friend of the Forest",
+      "(2)",
+      "Legendary Creature - Human Elf Druid",
+      "Tokens you control have \"C: Add Q.\"",
+      "Choose a Background",
+      "\"The Harpers' movement grows, but it",
+      "needs sunlight to blossom. We can be that",
+      "light.\""
+    ],
+    [
+      "aheira, Friend of the Forest",
+      "Legendary Creature - Human Elf Druid M",
+      "Tokens you control have \"®: Add Q.\"",
+      "Choose a Background",
+      "\"The Harpers' movement grozus, but it",
+      "needs sunlight to blossom. We can be that",
+      "light.\"",
+      "BLE RON L MILA POSE",
+      "2/3",
+      "2032 Wuande of she E"
+    ],
+    [
+      "aheira, Friend of the Forest",
+      "Legendary Creature - Human Elf Druid",
+      "Tokens you control have \"©: Add Q.\"",
+      "Choose a Background",
+      "\"The Harpers' movement grows, but it",
+      "needs sunlight to blossom. We can be that",
+      "light.\"",
+      "2/3",
+      "SUB*EN I MILA PESIC",
+      "2022 Wizands of the Coal"
+    ],
+    [
+      "Jaheira, Friend of the Forest",
+      "Legendary Creature - Human Elf Druid",
+      "Tokens you control have \"©: Add O.\"",
+      "Choose a Background",
+      "\"The Harpers' movement grows, but it",
+      "needs sunlight to blossom. We can be that",
+      "light.\"",
+      "2/3",
+      "518",
+      "SLB *EN RMILA PESIC",
+      "s of the C"
+    ],
+    [
+      "Jaheira, Friend of the Forest",
+      "2",
+      "Legendary Creature - Human Elf Druid 9",
+      "Tokens you control have \"©: Add ©.\"",
+      "Choose a Background",
+      "\"The Harpers' movement grows, but it",
+      "needs sunlight to blossom. We can be that",
+      "light.\"",
+      "2/3",
+      "ELB *EN I MILA PESIC",
+      "rds of the Coast"
+    ]
+  ],
+  "name": "Jaheira, Friend of the Forest",
+  "set": "clb",
+  "cn": "518",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "237",
+    "set": "clb",
+    "name": "Jaheira, Friend of the Forest",
+    "exact": false,
+    "card_id": "feb7ad1b-4466-48f7-b46d-cc83d4e22b51"
+  },
+  "reported_at": "2026-10-26T03:04:16.973725+00:00"
+}

@@ -1,0 +1,74 @@
+{
+  "id": "0cdf8b7f-c7ac-4a5b-b8b3-4d31aac39c3f",
+  "source": "report",
+  "frames": [
+    [
+      "MOM•EN & ANDREAS ZATIRATOS",
+      "Kinscaer Sentry",
+      "Creature - Kithkin Soldier",
+      "First strike, lifelink",
+      "Whenever this creature attacks, you",
+      "may put a creature card with mana"
+    ],
+    [
+      "Kinscaer Sentry",
+      "Creature - Kithkin Soldier",
+      "First strike, lifelink",
+      "Whenever this creature attacks, you",
+      "may put a creature card with mana",
+      "value X or less from your hand onto"
+    ],
+    [
+      "1*",
+      "Kinscaer Sentry",
+      "Creature - Kithkin Soldier",
+      "First strike, lifelink",
+      "Whenever this creature attacks, you",
+      "may put a creature card with mana",
+      "value X or less from your hand onto"
+    ],
+    [
+      "Kinscaer Sentry",
+      "Creature - Kithkin Soldier",
+      "First strike, lifelink",
+      "Whenever this creature attacks, you",
+      "may put a creature card with mana",
+      "value X or less from your hand onto"
+    ],
+    [
+      "Kinscaer Sentry",
+      "1",
+      "Creature - Kithkin Soldier",
+      "First strike, lifelink",
+      "Whenever this creature attacks, you",
+      "may put a creature card with mana",
+      "value X or less from your hand onto",
+      "the battlefield tapped and attacking,"
+    ],
+    [
+      "Kinscaer Sentry",
+      "Creature - Kithkin Soldier",
+      "First strike, lifelink",
+      "Whenever this creature attacks, you",
+      "may put a creature card with mana",
+      "value & or less from your hand onto",
+      "the battlefield tapped and attacking,"
+    ]
+  ],
+  "name": "Kinscaer Sentry",
+  "set": "ecl",
+  "cn": "300",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (23)",
+  "pack_version": "v1-d695515817e0",
+  "owned_only": false,
+  "matched": {
+    "cn": "22",
+    "set": "ecl",
+    "name": "Kinscaer Sentry",
+    "exact": false,
+    "card_id": "333bf101-14e8-4753-99bc-9174f42c4122"
+  },
+  "reported_at": "2026-10-24T05:19:34.383717+00:00"
+}

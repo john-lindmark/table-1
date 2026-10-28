@@ -57,6 +57,9 @@ struct CatalogPrinting: Hashable, Sendable {
     let printedName: String
     /// The card's original paper printing, the one adds use by default.
     var original: Bool = false
+    /// The illustrator and the frame ("1993", "1997", "2003", "2015", "future"), empty when the pack doesn't say.
+    var artist: String = ""
+    var frame: String = ""
 
     var setLabel: String { "\(set.uppercased()) #\(cn)" }
     /// Finishes this printing comes in: non-foil, foil, etched (in that order).
@@ -133,11 +136,12 @@ final class CatalogDB: @unchecked Sendable {
     }
 
     private static let printingCols =
-        "card_id, oracle_idx, ord, set_code, cn, lang, rarity, finishes, released_at, image_ts, image_faces, printed_name, original"
+        "card_id, oracle_idx, ord, set_code, cn, lang, rarity, finishes, released_at, image_ts, image_faces, printed_name, original, artist, frame"
     private static func printing(_ r: SQLiteDB.Row) -> CatalogPrinting {
         CatalogPrinting(cardId: r.text(0), oracleIdx: r.int(1), ord: r.int(2), set: r.text(3), cn: r.text(4), lang: r.text(5),
                         rarity: r.text(6), finishes: r.text(7), releasedAt: r.text(8), imageTs: r.text(9),
-                        imageFaces: r.int(10), printedName: r.text(11), original: r.int(12) != 0)
+                        imageFaces: r.int(10), printedName: r.text(11), original: r.int(12) != 0,
+                        artist: r.text(13), frame: r.text(14))
     }
 
     /// Card name search, ranked like the web client.
@@ -295,12 +299,13 @@ final class CatalogDB: @unchecked Sendable {
               produced TEXT, tokens TEXT NOT NULL DEFAULT '', pair TEXT, identity TEXT);
             CREATE TABLE printings (card_id TEXT PRIMARY KEY, oracle_idx INTEGER NOT NULL, ord INTEGER NOT NULL,
               set_code TEXT, cn TEXT, lang TEXT, rarity TEXT, finishes TEXT, released_at TEXT, image_ts TEXT,
-              image_faces INTEGER, printed_name TEXT, original INTEGER NOT NULL DEFAULT 0);
+              image_faces INTEGER, printed_name TEXT, original INTEGER NOT NULL DEFAULT 0,
+              artist TEXT NOT NULL DEFAULT '', frame TEXT NOT NULL DEFAULT '');
             CREATE TABLE names (oracle_idx INTEGER NOT NULL, lang TEXT NOT NULL, name TEXT NOT NULL, name_norm TEXT NOT NULL);
             """)
         let header: PackHeader = try db.transaction {
             let insO = try db.prepare("INSERT INTO oracles (idx, oracle_id, name, name_norm, type_line, mana_cost, cmc, colors, face_names, legal, points, produced, tokens, pair, identity) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-            let insP = try db.prepare("INSERT OR REPLACE INTO printings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
+            let insP = try db.prepare("INSERT OR REPLACE INTO printings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
             let insN = try db.prepare("INSERT INTO names VALUES (?,?,?,?)")
             var ord = 0
             let h = try CatalogPack.parse(pack, oracle: { o in
@@ -311,7 +316,7 @@ final class CatalogDB: @unchecked Sendable {
             }, printing: { p in
                 try insP.run([.text(p.cardId), .int(p.oracleIdx), .int(ord), .text(p.set), .text(p.cn), .text(p.lang),
                               .text(p.rarity), .text(p.finishes), .text(p.releasedAt), .text(p.imageTs), .int(p.imageFaces),
-                              .text(p.printedName), .int(p.original ? 1 : 0)])
+                              .text(p.printedName), .int(p.original ? 1 : 0), .text(p.artist), .text(p.frame)])
                 ord += 1
             }, name: { n in
                 // Normalized here, once per pack, so the scanner's name index loads without normalizing 160k names.
@@ -353,7 +358,7 @@ final class CatalogStore {
 
     private let fileKey = "catalog.file"
     /// Bumped when the local SQLite schema changes; a file built by an older schema is rebuilt from a fresh pack.
-    private static let schema = "s8"   // s6: oracles.produced and oracles.tokens; s7: oracles.pair; s8: oracles.identity
+    private static let schema = "s9"   // s6: oracles.produced and oracles.tokens; s7: oracles.pair; s8: oracles.identity; s9: printings.artist and frame
     private let checkedKey = "catalog.checkedAt"
     private let dir: URL = {
         let d = URL.applicationSupportDirectory.appending(path: "Catalog", directoryHint: .isDirectory)

@@ -1,0 +1,90 @@
+{
+  "id": "8e7b7327-f5f0-431b-9ea7-5ffafc69049d",
+  "source": "report",
+  "frames": [
+    [
+      "Chaos Warp",
+      "Instant",
+      "The owner of target permanent shuffles",
+      "it into their library, then reveals the top",
+      "card of their library. If it's a permanent",
+      "card, they put it onto the battlefield.",
+      "«Treentch cares not what they were or",
+      "what they become. Only that they change.\"",
+      "—Kairos Fateweaver",
+      "203"
+    ],
+    [
+      "Chaos Warp",
+      "Instant",
+      "The owner of target permanent shuffles",
+      "it into their library, then reveals the top",
+      "card of their library. If it's a permanent",
+      "card, they put it onto the battlefield.",
+      "\"Tzeentch cares not what they were or",
+      "what they become. Only that they change.",
+      "-Kairos Fateweaver"
+    ],
+    [
+      "Chaos Warp",
+      "Instant",
+      "The owner of target permanent shuffles",
+      "it into their library, then reveals the top",
+      "card of their library. If it's a permanent",
+      "card, they put it onto the battlefield.",
+      "\"Tzeentch cares not what they were or",
+      "what they become. Only that they change.",
+      "Kairos Fateweaver",
+      "OK*EN I HEONIVY CINC"
+    ],
+    [
+      "Chaos Warp",
+      "Instant",
+      "The owner of target permanent shuffles",
+      "it into their library, then reveals the top",
+      "card of their library. If it's a permanent",
+      "card, they put it onto the battlefield.",
+      "\"Teentch cares not what they were or",
+      "what they become. Only that they change.",
+      "- Kairos Fateweaver"
+    ],
+    [
+      "Chaos Warp",
+      "Instant",
+      "The owner of target permanent shuffles",
+      "it into their library, then reveals the top",
+      "card of their library. If it's a permanent",
+      "card, they put it onto the battlefield.",
+      "\"Tzeentch cares not what they were or",
+      "what they become. Only that they change.",
+      "— Kairos Fateweaver"
+    ],
+    [
+      "Chaos Warp",
+      "Instant",
+      "The owner of target permanent shuffles",
+      "it into their library, then reveals the top",
+      "card of their library. If it's a permanent",
+      "card, they put it onto the battlefield.",
+      "\"Tzeentch cares not what they were or",
+      "what they become. Only that they change.",
+      "-Kairos Fateweaver"
+    ]
+  ],
+  "name": "Chaos Warp",
+  "set": "40k",
+  "cn": "205★",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "114",
+    "set": "cmd",
+    "name": "Chaos Warp",
+    "exact": false,
+    "card_id": "042431bc-0b21-4920-802f-6dd02e4c8721"
+  },
+  "reported_at": "2026-10-28T02:36:04.420825+00:00"
+}

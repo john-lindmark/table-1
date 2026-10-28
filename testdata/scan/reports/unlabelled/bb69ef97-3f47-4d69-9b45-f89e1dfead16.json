@@ -1,0 +1,90 @@
+{
+  "id": "bb69ef97-3f47-4d69-9b45-f89e1dfead16",
+  "source": "report",
+  "frames": [
+    [
+      "equipped dreamure is pur into a"
+    ],
+    [
+      "Skullclamp",
+      "Artifact - Equipment",
+      "Equipped creature gets +1/-1.",
+      "When equipped creature is put into a",
+      "graveyard, draw two cards.",
+      "Equip 1 (0: Arach to target creature you",
+      "control. Equip only as a sorcery. This card",
+      "comes into play unattached and stays in",
+      "play if the creature leaves play.)"
+    ],
+    [
+      "Skullclamp",
+      "Artifact - Equipment",
+      "Equipped creature gets +1/-1.",
+      "When equipped creature is put into a",
+      "graveyard, draw two cards.",
+      "Equip 1 (1 : Attach to target creature you",
+      "control. Equip only as a sorcery. This card",
+      "comes into play unattached and stays in",
+      "play if the creature leaves play.)",
+      "-• Luca Zontini",
+      "/ 1993-2004 Wizard."
+    ],
+    [
+      "Skullclamp",
+      "Artifact - Equipment",
+      "Equipped creature gets +1/-1.",
+      "When equipped creature is put into a",
+      "graveyard, draw two cards.",
+      "Equip 1 (1: Attach to target creature you",
+      "control. Equip only as a sorcery. This card",
+      "comes into play unattached and stays in",
+      "play if the creature leaves play.)",
+      "• Luca Zontini"
+    ],
+    [
+      "Skullclamp",
+      "Artifact - Equipment",
+      "Equipped creature gets +1/-1.",
+      "When equipped creature is put into a",
+      "graveyard, draw two cards.",
+      "Equip 1 (1: Attach to target creature you",
+      "control. Equip only as a sorcery. This card",
+      "comes into play unattached and stays in",
+      "play if the creature leaves play.)",
+      "•Luca Zontini"
+    ],
+    [
+      "Skullclamp",
+      "Artifact - Equipment",
+      "Equipped creature gets +1/-1.",
+      "When equipped creature is put into a",
+      "graveyard, draw two cards.",
+      "Equip 1 (1: Attach to target creature you",
+      "control. Equip only as a sorcery. This card",
+      "comes into play unattached and stays in",
+      "play if the creature leaves play.)",
+      "Luca Zontini"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Skullclamp",
+    "set": "dst",
+    "cn": "140"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (28)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "140",
+    "set": "dst",
+    "name": "Skullclamp",
+    "exact": false,
+    "card_id": "55318397-de3c-47ea-a088-72a24df5c8fa"
+  },
+  "reported_at": "2026-10-26T04:21:40.668925+00:00"
+}

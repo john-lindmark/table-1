@@ -1,0 +1,68 @@
+{
+  "id": "5b257887-453c-4f4f-95a4-dce514822c73",
+  "source": "report",
+  "frames": [
+    [
+      "3/4",
+      "Thoughtcast",
+      "Sorcery"
+    ],
+    [
+      "Temporal Mastery",
+      "Sorcery",
+      "Take an extra turn after this one.",
+      "mile Temporal Mastery.",
+      "iracle 1 • (You may cast this card"
+    ],
+    [
+      "Temporal Mastery",
+      "5€",
+      "Sorcery",
+      "Take an extra turn after this one.",
+      "Exile Temporal Mastery.",
+      "Miracle 1 • (You may cast this card"
+    ],
+    [
+      "Temporal Mastery",
+      "5",
+      "Sorcery",
+      "Take an extra turn after this one.",
+      "Exile Temporal Mastery.",
+      "Miracle 1 • (You may cast this card",
+      "for its miracle cost when you draw it if"
+    ],
+    [
+      "Temporal Mastery",
+      "Sorcery",
+      "Take an extra turn after this one.",
+      "Exile Temporal Mastery.",
+      "Miracle 1 • (You may cast this card",
+      "for its miracle cost when you draw it if"
+    ],
+    [
+      "Temporal Mastery",
+      "Sorcery",
+      "Take an extra turn after this one.",
+      "Exile Temporal Mastery.",
+      "Miracle 1 • (You may cast this card",
+      "for its miracle cost when you draw it if",
+      "it's the first card you drew this turn.)"
+    ]
+  ],
+  "name": "Temporal Mastery",
+  "set": "plst",
+  "cn": "MM3-54",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "81",
+    "set": "avr",
+    "name": "Temporal Mastery",
+    "exact": false,
+    "card_id": "266e5267-2288-4bb0-8c54-0c556521cec3"
+  },
+  "reported_at": "2026-10-25T04:37:03.55724+00:00"
+}

@@ -1,0 +1,99 @@
+{
+  "id": "86a14745-e485-4537-979a-62daab451da6",
+  "source": "report",
+  "frames": [
+    [
+      "Gut, True Soul Zealot",
+      "Legendary Creature - Goblin Shaman",
+      "Whenever you attack, you may",
+      "sacrifice another creature or an",
+      "artifact. If you do, create a 4/1 black",
+      "Skeleton creature token with menace",
+      "that's tapped and attacking.",
+      "Choose a Background",
+      "2/2"
+    ],
+    [
+      "Gut, True Soul Zealot",
+      "Legendary Creature - Goblin Shaman",
+      "Whenever you attack, you may",
+      "sacrifice another creature or an",
+      "artifact. If you do, create a 4/1 black",
+      "Skeleton creature token with menace",
+      "that's tapped and attacking.",
+      "Choose a Background",
+      "CLB * EN A WAYNE REYNOLOS",
+      "2/2",
+      "1020 Wizard of the Cal"
+    ],
+    [
+      "Gut, True Soul Zealot",
+      "Legendary Creature - Goblin Shaman",
+      "Whenever you attack, you may",
+      "sacrifice another creature or an",
+      "artifact. If you do, create a 4/1 black",
+      "Skeleton creature token with menace",
+      "that's tapped and attacking.",
+      "Choose a Background",
+      "506",
+      "CLE * EN I WAINE REYNOLOS",
+      "2/2"
+    ],
+    [
+      "Gut, True Soul Zealot",
+      "Legendary Creature - Goblin Shaman",
+      "Whenever you attack, you may",
+      "sacrifice another creature or an",
+      "artifact. If you do, create a 4/1 black",
+      "Skeleton creature token with menace",
+      "that's tapped and attacking.",
+      "Choose a Background",
+      "SLE *EN L WAYNE REYNOLOS",
+      "2/2"
+    ],
+    [
+      "Gut, True Soul Zealot",
+      "Legendary Creature - Goblin Shaman",
+      "Whenever you attack, you may",
+      "sacrifice another creature or an",
+      "artifact. If you do, create a 4/1 black",
+      "Skeleton creature token with menace",
+      "that's tapped and attacking.",
+      "Choose a Background",
+      "506",
+      "2/2",
+      "2022 Wardi d ba C"
+    ],
+    [
+      "Gut, True Soul Zealot",
+      "2",
+      "Legendary Creature - Goblin Shaman",
+      "Whenever you attack, you may",
+      "sacrifice another creature or an",
+      "artifact. If you do, create a 4/1 black",
+      "Skeleton creature token with menace",
+      "that's tapped and attacking.",
+      "Choose a Background",
+      "50g",
+      "CLB * EN A WAYNE REYNOLDS",
+      "2/2",
+      "2922 m"
+    ]
+  ],
+  "name": "Gut, True Soul Zealot",
+  "set": "clb",
+  "cn": "506",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "180",
+    "set": "clb",
+    "name": "Gut, True Soul Zealot",
+    "exact": false,
+    "card_id": "3d8ca18d-9099-4f1e-95c1-f04da58a26bd"
+  },
+  "reported_at": "2026-10-28T00:37:03.445275+00:00"
+}

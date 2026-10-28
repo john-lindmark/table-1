@@ -1,0 +1,85 @@
+{
+  "id": "bd727914-020f-4f97-b49e-4ddcc6094f96",
+  "source": "report",
+  "frames": [
+    [
+      "Hushwood Verge",
+      "C: Add G.",
+      "@: Add O. Activate only if you",
+      "control a Forest or a Plains.",
+      "Here, the Haunroods churn like a",
+      "cuper's nest, as monstrous creature",
+      "protol hungrily toward the ghostly light."
+    ],
+    [
+      "Hushwood Verge",
+      "Land",
+      "©: Add o.",
+      "©: Add O. Activate only if you",
+      "control a Forest or a Plains.",
+      "Here, the Hauntzoods churn like a",
+      "viper's nest, as monstrous creatures",
+      "procl hungrily toward the ghostly light."
+    ],
+    [
+      "Hushwood Verge",
+      "Land",
+      "@: Add O.",
+      "G: Add ©. Activate only if you",
+      "control a Forest or a Plains.",
+      "Here, the Hauntwoods churn like a",
+      "viper's nest, as monstrous creatures",
+      "prowl hungrily toward the ghostly light.",
+      "SKOEN NO HENRY PETERS"
+    ],
+    [
+      "Hushwood Verge",
+      "Land",
+      "G: Add G.",
+      "G: Add ©. Activate only if you",
+      "control a Forest or a Plains.",
+      "Here, the Haunwoods churn like a",
+      "viper's nest, as monstrous creatures",
+      "prowl hungrily toward the ghostly light.",
+      "OSK WEN I HENRY PETTIN"
+    ],
+    [
+      "Hushwood Verge",
+      "Land",
+      "©: Add C.",
+      "G: Add ©. Activate only if you",
+      "control a Forest or a Plains.",
+      "Here, the Hauntwoods churn like a",
+      "viper's nest, as monstrous creatures",
+      "prowl hungrily toward the ghostly light.",
+      "OSK WEN & HENRY PETERS"
+    ],
+    [
+      "Hushwood Verge",
+      "Land",
+      "G: Add G.",
+      "@: Add ©. Activate only if you",
+      "control a Forest or a Plains.",
+      "Here, the Hauntwoods churn like a",
+      "viper's nest, as monstrous creatures",
+      "prowl hungrily toward the ghostly light.",
+      "VEN & HENRY PETERS"
+    ]
+  ],
+  "name": "Hushwood Verge",
+  "set": "dsk",
+  "cn": "332",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "261",
+    "set": "dsk",
+    "name": "Hushwood Verge",
+    "exact": false,
+    "card_id": "ec288d76-c1f5-471b-8a53-504f88469c1b"
+  },
+  "reported_at": "2026-10-26T03:37:52.858979+00:00"
+}

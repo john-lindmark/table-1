@@ -1,0 +1,92 @@
+{
+  "id": "2981efa3-7015-470a-a230-c058a4678946",
+  "source": "report",
+  "frames": [
+    [
+      "atherlight Duelit",
+      "y Creature - Car Warrior",
+      "im, Weatherlighe Dudist",
+      "ponent can 1 block with",
+      "e this combat.",
+      "Creature",
+      "1/2"
+    ],
+    [
+      "Mirri, Weatherlight Duelist",
+      "0",
+      "egendary Creature - Car Warrior",
+      "unit strike",
+      "Whenever Miri, Weatherlight Duelist",
+      "acks, cach opponent can t block with",
+      "more than one creature this combat",
+      "As long as Miri, Weatherlight Duelist",
+      "is tar",
+      "ine than one creature",
+      "3/2"
+    ],
+    [
+      "Mirri, Weatherlight Duelist",
+      "Legendary Creature - Cat Warrior",
+      "First strike",
+      "Whenever Mirri, Weatherlight Duelist",
+      "attacks, each opponent can't block with",
+      "more than one creature this combat.",
+      "As long as Mirri, Weatherlight Duelist",
+      "is tapped, no more than one creature",
+      "can attack you each combat.",
+      "3/2"
+    ],
+    [
+      "Mirri, Weatherlight Duelist",
+      "Legendary Creature - Cat Warrior",
+      "First strike",
+      "Whenever Mirri, Weatherlight Duelist",
+      "attacks, each opponent can't block with",
+      "more than one creature this combat.",
+      "As long as Mirri, Weatherlight Duelist",
+      "is tapped, no more than one creature",
+      "can attack you each combat.",
+      "3/2"
+    ],
+    [
+      "Mirri, Weatherlight Duelist",
+      "Legendary Creature - Car Warrior",
+      "First strike",
+      "Whenever Mirri, Weatherlight Duelist",
+      "attacks, each opponent can't block with",
+      "more than one creature this combat.",
+      "As long as Mirri, Weatherlight Duelist",
+      "is tapped, no more than one creature",
+      "can attack you each combat.",
+      "3/2"
+    ],
+    [
+      "Mirri, Weatherlight Duelist",
+      "Legendary Creature - Cat Warrior",
+      "First strike",
+      "Whenever Mirri, Weatherlight Duelist",
+      "attacks, each opponent can't block with",
+      "more than one creature this combat.",
+      "As long as Mirri, Weatherlight Duelist",
+      "is tapped, no more than one creature",
+      "can attack you each combat.",
+      "3/2"
+    ]
+  ],
+  "name": "Mirri, Weatherlight Duelist",
+  "set": "spg",
+  "cn": "15",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "43",
+    "set": "c17",
+    "name": "Mirri, Weatherlight Duelist",
+    "exact": false,
+    "card_id": "7f7b6d78-4c18-4f96-9f0c-53a5c81aa6f9"
+  },
+  "reported_at": "2026-10-26T03:09:29.05669+00:00"
+}

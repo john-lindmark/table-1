@@ -1,0 +1,69 @@
+{
+  "id": "23f31f76-be26-4363-99ca-e12191eb6117",
+  "source": "report",
+  "frames": [
+    [
+      "1 lite, S",
+      "animes",
+      "atletiel"
+    ],
+    [
+      "Misty Rainforest",
+      "and",
+      "r, Pay 1 life, Sacrifice Misty",
+      "Rainforest: Search your library",
+      "for a Forest or Island card, put it",
+      "onto the battlefield, then shuffle.",
+      "Wan"
+    ],
+    [
+      "Misty Rainforest",
+      "and",
+      "\", Pay 1 life, Sacrifice Misty",
+      "Rainforest: Search your library",
+      "for a Forest or Island card, put it",
+      "onto the battlefield, then shuffle."
+    ],
+    [
+      "Misty Rainforest",
+      "and",
+      "r, Pay 1 life, Sacrifice Misty",
+      "Rainforest: Search your library",
+      "for a Forest or Island card, put it",
+      "onto the battlefield, then shuffle.",
+      "Wus Shells Wan"
+    ],
+    [
+      "Misty Rainforest",
+      "r, Pay 1 life, Sacrifice Misty",
+      "Rainforest: Search your library",
+      "for a Forest or Island card, put it",
+      "onto the battlefield, then shuffle.",
+      "Shelly Wan"
+    ],
+    [
+      "Misty Rainforest",
+      "r, Pay 1 life, Sacrifice Misty",
+      "Rainforest: Search your library",
+      "for a Forest or Island card, put it",
+      "onto the battlefield, then shuffle.",
+      "Ulusi Shelly Wan"
+    ]
+  ],
+  "name": "Misty Rainforest",
+  "set": "mh2",
+  "cn": "438",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "220",
+    "set": "zen",
+    "name": "Misty Rainforest",
+    "exact": false,
+    "card_id": "24a5cc2c-0fbf-4a5f-b175-6e0ffd0d0787"
+  },
+  "reported_at": "2026-10-28T00:31:23.848553+00:00"
+}

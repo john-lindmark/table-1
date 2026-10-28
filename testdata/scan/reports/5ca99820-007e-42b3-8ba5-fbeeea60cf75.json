@@ -1,0 +1,84 @@
+{
+  "id": "5ca99820-007e-42b3-8ba5-fbeeea60cf75",
+  "source": "report",
+  "frames": [
+    [
+      "Pithi",
+      "Needle",
+      "As Pithing Needle enters the barlefield,",
+      "arte a cand.",
+      "rated abilities of sources with 1",
+      "en same can't be activated unle",
+      "(te mana abilities.",
+      "Is disables with pinpoint accuracy."
+    ],
+    [
+      "Pithing Needle",
+      "Artifact",
+      "As Pithing Needle enters the battlefield,",
+      "name a card.",
+      "Activated abilities of sources with the",
+      "chosen name can't be activated unless",
+      "they're mana abilities.",
+      "It disables with pinpoint accuracy."
+    ],
+    [
+      "Pithing Needle",
+      "Artifact",
+      "As Pithing Needle enters the battlefield,",
+      "name a card.",
+      "Activated abilities of sources with the",
+      "chosen name can't be activated unless",
+      "they're mana abilities.",
+      "It disables with pinpoint accuracy."
+    ],
+    [
+      "Pithing Needle",
+      "Artifact",
+      "As Pithing Needle enters the battlefield,",
+      "0110",
+      "name a card.",
+      "Activated abilities of sources with the",
+      "chosen name can't be activated unless",
+      "they're mana abilities.",
+      "It disables with pinpoint accuracy."
+    ],
+    [
+      "Pithing Needle",
+      "Artifact",
+      "As Pithing Needle enters the battlefield,",
+      "A10",
+      "name a card.",
+      "Activated abilities of sources with the",
+      "chosen name can't be activated unless",
+      "they're mana abilities.",
+      "It disables with pinpoint accuracy."
+    ],
+    [
+      "Pithing Needle",
+      "Artifact",
+      "As Pithing Needle enters the battlefield,",
+      "name a card.",
+      "Activated abilities of sources with the",
+      "chosen name can't be activated unless",
+      "they're mana abilities.",
+      "It disables with pinpoint accuracy."
+    ]
+  ],
+  "name": "Pithing Needle",
+  "set": "m10",
+  "cn": "217",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (33)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "158",
+    "set": "sok",
+    "name": "Pithing Needle",
+    "exact": false,
+    "card_id": "78eb9e1d-113e-45ff-8435-32ee42fa5631"
+  },
+  "reported_at": "2026-10-28T03:04:51.760741+00:00"
+}

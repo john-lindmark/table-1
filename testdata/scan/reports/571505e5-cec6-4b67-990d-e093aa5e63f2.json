@@ -1,0 +1,102 @@
+{
+  "id": "571505e5-cec6-4b67-990d-e093aa5e63f2",
+  "source": "report",
+  "frames": [
+    [
+      "Scavenging Ooze",
+      "Creature - Ooze",
+      "4: Exile target card from a graveyard.",
+      "If it was a creature card, put a +1/+1",
+      "counter on Scavenging Ooze and you",
+      "gain 1 life.",
+      "In nature, not a single bone or scrap of",
+      "flesh goes to taste.",
+      "Mus. Austin Hsu",
+      "2/2"
+    ],
+    [
+      "Scavenging Ooze",
+      "Creature - Ooze",
+      "*: Exile target card from a graveyard:",
+      "If it was a creature card, put a +1/+1",
+      "counter on Scavenging Ooze and you",
+      "gain 1 life,",
+      "In nature, not a single bone or scrap of",
+      "flesh goes to waste.",
+      "Illus. Austin Hsu",
+      "2/2"
+    ],
+    [
+      "Scavenging Ooze",
+      "1",
+      "Creature - Ooze",
+      "4: Exile target card from a graveyard:",
+      "If it was a creature card, put a +1/+1",
+      "counter on Scavenging Ooze and you",
+      "gain 1 life.",
+      "In nature, not a single bone or scrap of",
+      "flesh goes to waste.",
+      "Illus. Austin Hsu",
+      "212",
+      "2021 Wizaads of the Coast Ses Prom"
+    ],
+    [
+      "Scavenging Ooze",
+      "Creature - Ooze",
+      "i: Exile target card from a graveyard.",
+      "If it was a creature card, put a +1/+1",
+      "counter on Scavenging Ooze and you",
+      "gain 1 life.",
+      "In nature, not a single bone or scrap of",
+      "flesh goes to waste.",
+      "Illus. Austin Hsu",
+      "2/2",
+      "2021 Winds of the Cl",
+      "ast 35 Poom!"
+    ],
+    [
+      "Scavenging Ooze",
+      "Creature - Ooze",
+      "Exile target card from a graveyard",
+      "If it was a creature card, put a +1/+1",
+      "counter on Scavenging Ooze and you",
+      "gain 1 life.",
+      "In nature, not a single bone or scrap of",
+      "flesh goes to waste.",
+      "Illus. Austin Hsu",
+      "2/2",
+      "2021 Kirands of the Cond"
+    ],
+    [
+      "Scavenging Ooze",
+      "1",
+      "Creature - Ooze",
+      "*: Exile target card from a graveyard.",
+      "If it was a creature card, put a +1/+1",
+      "counter on Scavenging Ooze and you",
+      "gain 1 life.",
+      "In nature, not a single bone or scrap of",
+      "flesh goes to waste.",
+      "Ilius. Austin Hsu",
+      "212",
+      "2001 12",
+      "Si Prony"
+    ]
+  ],
+  "name": "Scavenging Ooze",
+  "set": "plg21",
+  "cn": "5",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "170",
+    "set": "cmd",
+    "name": "Scavenging Ooze",
+    "exact": false,
+    "card_id": "371ceb58-f498-4616-a7f0-eb118fe2e4ff"
+  },
+  "reported_at": "2026-10-28T00:33:18.91632+00:00"
+}

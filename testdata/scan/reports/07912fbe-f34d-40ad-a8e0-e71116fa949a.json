@@ -1,0 +1,78 @@
+{
+  "id": "07912fbe-f34d-40ad-a8e0-e71116fa949a",
+  "source": "report",
+  "frames": [
+    [
+      "Liliana's Caress",
+      "Enchantment",
+      "Whenever an opponent discards a",
+      "card, that player loses 2 life.",
+      "\"This might hurt less if you don't fight",
+      "so hard. But I doubt it.",
+      "Sieve Argyte"
+    ],
+    [
+      "Liliana's Caress",
+      "Enchantment",
+      "Whenever an opponent discards a",
+      "card, that player loses 2 life.",
+      "\"This might hurt less if you don't fight",
+      "so hard. But I doubt it.\"",
+      "Steve Argyle"
+    ],
+    [
+      "Liliana's Caress",
+      "Enchantment",
+      "Whenever an opponent discards a",
+      "card, that player loses 2 life.",
+      "\"This might hurt less if you don't fight",
+      "so hard. But I doubt it.",
+      "-Steve Argyle"
+    ],
+    [
+      "Liliana's Caress",
+      "1",
+      "(MU",
+      "Enchantment",
+      "Whenever an opponent discards a",
+      "card, that player loses 2 life.",
+      "\"This might hurt less if you don't fight",
+      "so hard. But I doubt it.",
+      "→ Steve Argyle"
+    ],
+    [
+      "Liliana's Caress",
+      "Enchantment",
+      "Whenever an opponent discards a",
+      "card, that player loses 2 life.",
+      "\"This might hurt less i, you don't fight",
+      "so hard. But I doubt it.",
+      "→ Steve Argyle"
+    ],
+    [
+      "Liliana's Caress",
+      "Enchantment",
+      "Whenever an opponent discards a",
+      "card, that player loses 2 life.",
+      "\"This might hurt less if you don't fight",
+      "so hard. But I doubt it.\"",
+      "→ Steve Argyle"
+    ]
+  ],
+  "name": "Liliana's Caress",
+  "set": "plst",
+  "cn": "M11-103",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "103",
+    "set": "m11",
+    "name": "Liliana's Caress",
+    "exact": false,
+    "card_id": "0d995382-57a6-40a4-9050-31f57cb8dae3"
+  },
+  "reported_at": "2026-10-25T04:41:31.781284+00:00"
+}

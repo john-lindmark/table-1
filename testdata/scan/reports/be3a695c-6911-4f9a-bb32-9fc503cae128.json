@@ -1,0 +1,68 @@
+{
+  "id": "be3a695c-6911-4f9a-bb32-9fc503cae128",
+  "source": "report",
+  "frames": [
+    [
+      "Scalding Tarn",
+      "r, Pay 1 life, Sacrifice Scalding",
+      "Tarn: Search your library for an",
+      "Island or Mountain card, put it",
+      "onto the battlefield, then shuffle."
+    ],
+    [
+      "Scalding Tarn",
+      "and",
+      "r, Pay 1 life, Sacrifice Scalding",
+      "Tarn: Search your library for an",
+      "Island or Mountain card, put n",
+      "onto the battlefield, then shuttle."
+    ],
+    [
+      "Scalding Tarn",
+      "and",
+      "r, Pay 1 life, Sacrifice Scalding",
+      "Tarn: Search your library for an",
+      "Island or Mountain card, put it",
+      "onto the battlefield, then shuffle."
+    ],
+    [
+      "Scalding Tarn",
+      "and",
+      "r, Pay 1 life, Sacrifice Scalding",
+      "Tarn: Search your library for an",
+      "Island or Mountain card, put it",
+      "onto the battlefield, then shuffle."
+    ],
+    [
+      "Scalding Tarn",
+      "r, Pay 1 life, Sacrifice Scalding",
+      "Tarn: Search vour library for ar",
+      "Island or Mountain card, put it",
+      "onto the battlefield, then shuffle."
+    ],
+    [
+      "Scalding Tarn",
+      "amel",
+      "r, Pay 1 life, Sacrifice Scalding",
+      "Tarn: Search your library for an",
+      "Island or Mountain card, put it",
+      "onto the battlefield, then shuffle."
+    ]
+  ],
+  "name": "Scalding Tarn",
+  "set": "mh2",
+  "cn": "439",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "223",
+    "set": "zen",
+    "name": "Scalding Tarn",
+    "exact": false,
+    "card_id": "327cf118-cc92-4073-85d0-94d2a0a6989a"
+  },
+  "reported_at": "2026-10-26T03:28:15.818533+00:00"
+}

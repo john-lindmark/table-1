@@ -83,6 +83,10 @@ data class PackPrinting(
     val finishes: String, val releasedAt: String, val imageTs: String, val imageFaces: Int, val printedName: String,
     /** The card's original paper printing, the one adds use by default. */
     val original: Boolean = false,
+    /** The illustrator and the card frame ("1993", "1997", "2003", "2015", "future"), for the scanner; empty when
+     *  the pack doesn't say (contract/catalog-2026-10-14.md). */
+    val artist: String = "",
+    val frame: String = "",
 )
 
 /** A printed name in another language (N line): what the card is called on its de/es/fr/it/pt/ru printings. */
@@ -139,7 +143,7 @@ object CatalogPack {
                     o++
                 } else if (f[0] == "P" && p < h.printings) {
                     printing(PackPrinting(at(1), at(2).toIntOrNull() ?: -1, at(3), at(4), at(5), at(6), at(7), at(8), at(9),
-                        at(10).toIntOrNull() ?: 0, at(11), at(12) == "1"))
+                        at(10).toIntOrNull() ?: 0, at(11), at(12) == "1", at(13), at(14)))
                     p++
                 } else if (f[0] == "N") {
                     val i = at(1).toIntOrNull()

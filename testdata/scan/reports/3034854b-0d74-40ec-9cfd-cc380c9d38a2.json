@@ -1,0 +1,97 @@
+{
+  "id": "3034854b-0d74-40ec-9cfd-cc380c9d38a2",
+  "source": "report",
+  "frames": [
+    [
+      "Force of Vigor",
+      "Instant",
+      "If it's not your turn, you may exile",
+      "a green card from your hand rather",
+      "than pay this spell's mana cost.",
+      "Destroy up to two target artifacts",
+      "and/or enchantments.",
+      "The vines overgrew the construct,",
+      "snapping gears and soaking up aether.",
+      "Illus. Randy Vargas"
+    ],
+    [
+      "Force of Vigor",
+      "Instant",
+      "If it's not your turn, you may exile",
+      "a green card from your hand rather",
+      "than pay this spell's mana cost.",
+      "Destroy up to two target artifacts",
+      "and or enchantments.",
+      "The vines overgres the construct,",
+      "snapping gears and soaking up asther.",
+      "Illus. Randy Vargas"
+    ],
+    [
+      "Force of Vigor",
+      "Instant",
+      "If it's not your turn, you may exile",
+      "a green card from your hand rather",
+      "than pay this spell's mana cost.",
+      "Destroy up to two target artifacts",
+      "and/or enchantments.",
+      "The vines overgrew the construct,",
+      "snapping gears and soaking up aether.",
+      "Illus. Randy Vangas"
+    ],
+    [
+      "Force of Vigor",
+      "20",
+      "Instant",
+      "If it's not your turn, you may exile",
+      "a green card from your hand rather",
+      "than pay this spell's mana cost.",
+      "Destroy up to two target artifacts",
+      "and/or enchantments.",
+      "The vines overgrew the construct,",
+      "snapping gears and soaking up aether.",
+      "Illus. Randy Vargas"
+    ],
+    [
+      "Force of Vigor",
+      "2",
+      "Instant",
+      "If it's not your turn, you may exile",
+      "a green card from vour hand rather",
+      "than pay this spell's mana cost.",
+      "Destroy up to two target artifacts",
+      "and/or enchantments.",
+      "The vines overgrew the construct,",
+      "snapping gears and soaking up acther.",
+      "Illus. Randy Vargas"
+    ],
+    [
+      "Force of Vigor",
+      "000",
+      "Instant",
+      "If it's not your turn, you may exile",
+      "a green card from your hand rather",
+      "than pay this spell's mana cost.",
+      "Destroy up to two target artifacts",
+      "and/or enchantments.",
+      "The vines overgrew the construct,",
+      "snapping gears and soaking up aether.",
+      "Illus. Randy Vargas"
+    ]
+  ],
+  "name": "Force of Vigor",
+  "set": "h1r",
+  "cn": "21",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "164",
+    "set": "mh1",
+    "name": "Force of Vigor",
+    "exact": false,
+    "card_id": "017c415b-d635-43c6-92b8-8c95d1c4ff8d"
+  },
+  "reported_at": "2026-10-28T00:38:31.366451+00:00"
+}

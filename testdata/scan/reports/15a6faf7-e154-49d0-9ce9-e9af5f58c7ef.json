@@ -1,0 +1,92 @@
+{
+  "id": "15a6faf7-e154-49d0-9ce9-e9af5f58c7ef",
+  "source": "report",
+  "frames": [
+    [
+      "Sacred Foundry",
+      "Land - Mountain Plains",
+      "(r: Add 2 or * to your mana pool.)",
+      "As Sacred Foundry enters the battlefield,",
+      "vou may pav 2 life. If vou don't. Sacred",
+      "Foundry enters the battlefield tapped.",
+      "Burning fervor and fearsome skill create a",
+      "lethal beauty terrible to behold.",
+      "→ Sam Burley",
+      "M & C 2013 W"
+    ],
+    [
+      "Sacred Foundry",
+      "Land - Mountain Plains",
+      "(r: Add a or * to your mana pool.)",
+      "As Sacred Foundry enters the battlefield,",
+      "vou may pay 2 life. If vou don't, Sacred",
+      "Foundry enters the battlefield tapped.",
+      "Burning fervor and fearsome skill create a",
+      "lethal beauty terrible to behold.",
+      "→ Sam Burley"
+    ],
+    [
+      "Sacred Foundry",
+      "Land - Mountain Plains",
+      "(r: Add a or * to your mana pool.)",
+      "As Sacred Foundry enters the battlefield,",
+      "you may pay 2 life. If you don't, Sacred",
+      "Foundry enters the battlefield tapped",
+      "Burning fervor and fearsome skill create a",
+      "lethal beauty terrible to behold.",
+      "- Sam Burley",
+      "& © 2013 W"
+    ],
+    [
+      "Sacred Foundry",
+      "Land - Mountain Plains",
+      "(r: Add a or",
+      "* to your mana pool.)",
+      "As Sacred Foundry enters the battlefield,",
+      "you may pay 2 life. If you don't, Sacrec",
+      "Foundry enters the battlefield tapped",
+      "Burning fervor and fearsome skill create a",
+      "lethal beauty terrible to behold.",
+      "- Sam Burley"
+    ],
+    [
+      "Sacred Foundry",
+      "Land - Mountain Plains",
+      "(r: Add a or * to your mana pool.)",
+      "As Sacred Foundry enters the battlefield,",
+      "you may pay 2 life. If you don't, Sacred",
+      "Foundry enters the battlefield tapped.",
+      "Burning fervor and fearsome skill create a",
+      "lethal beauty terrible to behold.",
+      "- Sam Burley"
+    ],
+    [
+      "Sacred Foundry",
+      "Land - Mountain Plains",
+      "(r: Add 2 or * to your mana pool.)",
+      "As Sacred Foundry enters the battlefield,",
+      "you may pay 2 life. If you don't, Sacred",
+      "Foundry enters the battlefield tapped",
+      "Burning fervor and fearsome skill create a",
+      "lethal beauty terrible to behold.",
+      "o Sam Burley",
+      "2013 Wi"
+    ]
+  ],
+  "name": "Sacred Foundry",
+  "set": "gtc",
+  "cn": "245",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "280",
+    "set": "rav",
+    "name": "Sacred Foundry",
+    "exact": false,
+    "card_id": "168ef687-5797-4b45-b75b-393d8117cebd"
+  },
+  "reported_at": "2026-10-25T04:24:22.376551+00:00"
+}

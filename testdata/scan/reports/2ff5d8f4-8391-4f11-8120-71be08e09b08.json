@@ -1,0 +1,82 @@
+{
+  "id": "2ff5d8f4-8391-4f11-8120-71be08e09b08",
+  "source": "report",
+  "frames": [
+    [
+      "Swords to Plowshares",
+      "Instant",
+      "Exile target creature. Its controller",
+      "gains life equal to its power.",
+      "The smallest seed of regret can bloom",
+      "into redemption.",
+      "- Sam Wolfe Connelly"
+    ],
+    [
+      "Swords to Plowshares",
+      "Instant",
+      "Exile target creature. Its controller",
+      "gains life equal to its power.",
+      "The smallest seed of regret can bloom",
+      "into redemption.",
+      "— Sam Wolfe Connelly",
+      "™M & © 2024 Wizards of the Coast 153"
+    ],
+    [
+      "Swords to Plowshares",
+      "Instant",
+      "Exile target creature. Its controller",
+      "gains life equal to its power.",
+      "The smallest seed of regret can bloom",
+      "into redemption.",
+      "- Sam Wolfe Connelly",
+      "TM & © 2024 Wizards of the Coast 153"
+    ],
+    [
+      "4",
+      "Swords to Plowshares",
+      "Instant",
+      "Exile target creature. Its controller",
+      "gains life equal to its power.",
+      "The smallest seed of regret can bloom",
+      "into redemption.",
+      "- Sam Wolfe Connelly",
+      "™M & © 2024 Wizards of the Coast 153"
+    ],
+    [
+      "Swords to Plowshares",
+      "Instant",
+      "Exile target creature. Its controller",
+      "gains life equal to its power.",
+      "The smallest seed of regret can bloom",
+      "into redemption.",
+      "→ Sam Wolfe Connelly",
+      "™M & © 2024 Wizards of the Coast 153"
+    ],
+    [
+      "Swords to Plowshares",
+      "Instant",
+      "Exile target creature. Its controller",
+      "gains life equal to its power.",
+      "The smallest seed of regret can bloom",
+      "into redemption.",
+      "- Sam Wolfe Connelly",
+      "™ & © 2024 Wizards of the Coast 153"
+    ]
+  ],
+  "name": "Swords to Plowshares",
+  "set": "mb2",
+  "cn": "153",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (28)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "106",
+    "set": "dsc",
+    "name": "Swords to Plowshares",
+    "exact": false,
+    "card_id": "b16321b6-3e28-424b-ac72-038cc4ed6458"
+  },
+  "reported_at": "2026-10-26T04:23:21.657914+00:00"
+}

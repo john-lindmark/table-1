@@ -1,0 +1,91 @@
+{
+  "id": "346c0ead-3859-4ccd-b96d-8ff91f48cffd",
+  "source": "report",
+  "frames": [
+    [],
+    [
+      "Yuna, Stand Summoner L+*",
+      "Ingenary Creature - Human Clerie",
+      "@i Aid one mana of",
+      "ure enters with two",
+      "1 00 I",
+      "anent you control",
+      "battlefield."
+    ],
+    [
+      "in their mana costs",
+      "1/3",
+      "-8A 20I0",
+      "Yuna. Grand Summoner",
+      "Legendary Creature - Human Cleric",
+      "mon — O: Add one mana of",
+      "o. When you next cast a creature",
+      "this tors, that creature enters with two",
+      "inal +1/+1 counters on it.",
+      "wher permanent you control",
+      "a graveyard from the battlefield,",
+      "or more counters on it, you"
+    ],
+    [
+      "Yuna, Grand Summoner",
+      "Legendary Creature - Human Cleric",
+      "Grand Summon",
+      "©: Add one mana of",
+      "any color. When you next cast a creature",
+      "spell this turn, that creature enters with two",
+      "additional +1/+1 counters on it.",
+      "Whenever another permanent you control",
+      "is put into a graveyard from the battlefield,",
+      "if it had one or more counters on it, you",
+      "may put that number of +1/+1 counters on",
+      "target creature.",
+      "1/5"
+    ],
+    [
+      "Yuna, Grand Summoner",
+      "Legendary Creature - Human Cleric",
+      "Grand Summon -",
+      "©: Add one mana of",
+      "any color. When you next cast a creature",
+      "spell this turn, that creature enters with two",
+      "additional + 1/+1 counters on it.",
+      "Whenever another permanent you control",
+      "is put into a graveyard from the battlefield,",
+      "if it had one or more counters on it, you",
+      "may put that number of +1/+1 counters on",
+      "target creature.",
+      "1/5"
+    ],
+    [
+      "Yuna, Grand Summoner",
+      "Legendary Creature - Human Cleric",
+      "Grand Summon -",
+      "©: Add one mana of",
+      "any color. When you next cast a creature",
+      "spell this turn, that creature enters with two",
+      "additional +1/+1 counters on it.",
+      "Whenever another permanent you control",
+      "is put into a graveyard from the battlefield,",
+      "if it had one or more counters on it, you",
+      "may put that number of +1/+1 counters on",
+      "target creature.",
+      "1/5"
+    ]
+  ],
+  "name": "Yuna, Grand Summoner",
+  "set": "pw25",
+  "cn": "16",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "8",
+    "set": "fic",
+    "name": "Yuna, Grand Summoner",
+    "exact": false,
+    "card_id": "930da933-4263-40ff-96af-4bd9e797249e"
+  },
+  "reported_at": "2026-10-26T03:14:21.440394+00:00"
+}

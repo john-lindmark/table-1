@@ -1,0 +1,104 @@
+{
+  "id": "69aeaf14-a906-47c7-8a61-c2edf77999b5",
+  "source": "report",
+  "frames": [
+    [
+      "Steam Vents",
+      "Land - Island Mountain",
+      "to your mana pool.)",
+      "(r: Add • or a",
+      "As Steam Vents enters the battlefield,",
+      "you may pay 2 life. If you don't, Steam",
+      "Vents enters the battlefield tapped",
+      "Crafted with genius, energized with",
+      "madness.",
+      "- Yeong-Hao Han",
+      "đn uf the Coast 217/274",
+      "W&: 2012W0"
+    ],
+    [
+      "Steam Vents",
+      "Land - Island Mountain",
+      "to your mana pool.)",
+      "(r: Add • or a",
+      "As Steam Vents enters the battlefield,",
+      "you may pay 2 life. If you don't, Steam",
+      "Vents enters the battlefield tapped.",
+      "Crafted with genius, energised with",
+      "madness.",
+      "Yeong-Hao Han",
+      "kofth"
+    ],
+    [
+      "Steam Vents",
+      "Land - Island Mountain",
+      "(r: Add • or & to your mana pool.)",
+      "As Steam Vents enters the battlefield,",
+      "you may pay 2 life. If you don't, Steam",
+      "Vents enters the battlefield tapped.",
+      "Crafted with genius, energized with",
+      "madness.",
+      "- Yeong-Hao Han",
+      "de of the Coast 217/274",
+      "2012 WIz"
+    ],
+    [
+      "Steam Vents",
+      "Land - Island Mountain",
+      "(r: Add • or 2 to your mana pool.)",
+      "As Steam Vents enters the battlefield,",
+      "you may pay 2 life. If you don't, Steam",
+      "Vents enters the battlefield tapped.",
+      "Crafted with genius, energized with",
+      "madness.",
+      "-Yeong-Hao Han",
+      "2012 Wizards of the Coast 241"
+    ],
+    [
+      "Steam Vents",
+      "Land - Island Mountain",
+      "(r: Add 4 or 2 to your mana pool.)",
+      "As Steam Vents enters the battlefield,",
+      "you may pay 2 life. If you don't, Steam",
+      "Vents enters the battlefield tapped.",
+      "Crafted with genius, energized with",
+      "madness.",
+      "- Yeong-Hao Han",
+      "See 2012 Wards of the Coast 247 27"
+    ],
+    [
+      "Steam Vents",
+      "Land - Island Mountain",
+      "(r: Add • or @ to your mana pool.)",
+      "As Steam Vents enters the battlefield,",
+      "you may pay 2 life. If you don't, Steam",
+      "Vents enters the battlefield tapped.",
+      "Crafted with genius, energized with",
+      "madness.",
+      "-Yeong-Hao Han",
+      "inds of the Coast 247/27",
+      "8C 2012 W"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Steam Vents",
+    "set": "gpt",
+    "cn": "164"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "164",
+    "set": "gpt",
+    "name": "Steam Vents",
+    "exact": false,
+    "card_id": "054f2276-2dd5-43da-bb26-c57c560861fe"
+  },
+  "reported_at": "2026-10-25T04:21:44.898605+00:00"
+}

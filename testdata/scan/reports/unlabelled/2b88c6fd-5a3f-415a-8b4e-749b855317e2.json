@@ -1,0 +1,91 @@
+{
+  "id": "2b88c6fd-5a3f-415a-8b4e-749b855317e2",
+  "source": "report",
+  "frames": [
+    [
+      "Polluted Delta",
+      "Land",
+      "r, Pay 1 life, Sacrifice Polluted Delta:",
+      "Search your library for an Island",
+      "or Swamp card and put it onto the",
+      "battlefield. Then shuffle vour library",
+      "Where dragons once prevailed, their bones",
+      "noto sink"
+    ],
+    [
+      "Polluted Delta",
+      "Land",
+      "r, Pay 1 life, Sacrifice Polluted Delta:",
+      "Search your library for an Island",
+      "or Swamp card and put it onto the",
+      "battlefield. Then shuffle your library.",
+      "Where dragons once prevailed, their bones",
+      "noro sink.",
+      "239/260"
+    ],
+    [
+      "Polluted Delta",
+      "Land",
+      "r, Pay 1 life, Sacrifice Polluted Delta:",
+      "Search your library for an Island",
+      "or Swamp card and pur it onto the",
+      "battlefield. Then shuffle your library.",
+      "Where dragons once prevailed, their bones",
+      "now sink."
+    ],
+    [
+      "Polluted Delta",
+      "Land",
+      "r, Pay 1 life, Sacrifice Polluted Delta:",
+      "Search your library for an Island",
+      "or Swamp card and put it onto the",
+      "battlefield. Then shuffle your library.",
+      "Where dragons once prevailed, their bones",
+      "now sink",
+      "239/2691",
+      "1R/-EN 2 VINCENT PROX"
+    ],
+    [
+      "Polluted Delta",
+      "Land",
+      "r, Pay 1 life, Sacrifice Polluted Delta:",
+      "Search your library for an Island",
+      "or Swamp card and put it onto the",
+      "battlefield. Then shuffle your library.",
+      "Where dragons once prevailed, their bones",
+      "now sink."
+    ],
+    [
+      "Polluted Delta",
+      "Land",
+      "\", Pay 1 life, Sacrifice Polluted Delta:",
+      "Search vour library for an Island",
+      "or Swamp card and put it onto the",
+      "battlefield. Then shuffle your library.",
+      "Where dragons once prevailed, their bones",
+      "now sink.",
+      "118/260 E VICINI PROKe"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Polluted Delta",
+    "set": "ons",
+    "cn": "321"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "321",
+    "set": "ons",
+    "name": "Polluted Delta",
+    "exact": false,
+    "card_id": "0f7585c8-9e21-4eef-afc1-2852de23db2f"
+  },
+  "reported_at": "2026-10-26T03:28:33.25783+00:00"
+}

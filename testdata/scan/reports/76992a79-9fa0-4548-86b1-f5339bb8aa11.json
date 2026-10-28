@@ -1,0 +1,91 @@
+{
+  "id": "76992a79-9fa0-4548-86b1-f5339bb8aa11",
+  "source": "report",
+  "frames": [
+    [],
+    [
+      "Ugin's Labyrinth",
+      "nd",
+      "Caprint",
+      "When Ugin's Labyrinth",
+      "iters the battlefield, you may exile",
+      "coloress card with mana value 7 or",
+      "creater from your band",
+      "Add a. If a card is exiled with Ugin's",
+      "ahyriuch, add • • instead.",
+      "Return the exiled card to its owner's"
+    ],
+    [
+      "Ugin's Labyrinth",
+      "Land",
+      "Imprint",
+      "When Ugin's Labyrinth",
+      "enters the battlefield, you may exile",
+      "a colorless card with mana value 7 or",
+      "greater from your hand.",
+      "Add o. If a card is exiled with Ugin's",
+      "abyrinth, add • • instead",
+      "p: Return the exiled card to its owner's",
+      "hand."
+    ],
+    [
+      "Ugin's Labyrinth",
+      "Land",
+      "Imprint — When Ugin's Labyrinth",
+      "enters the battlefield, you may exile",
+      "a colorless card with mana value 7 or",
+      "greater from your hand.",
+      "r: Add •. If a card is exiled with Ugin's",
+      "Labvrinth, add • • instead",
+      "r: Return the exiled card to its owner's",
+      "hand",
+      "M 0233",
+      "MAS YEN A MARK POOLE"
+    ],
+    [
+      "Ugin's Labyrinth",
+      "Land",
+      "Imprint — When Ugin's Labyrinth",
+      "enters the battlefield, you may exile",
+      "a colorless card with mana value 7 or",
+      "greater from your hand.",
+      "*: Add • . If a card is exiled with Ugin's",
+      "Labyrinth, add + + instead.",
+      "r: Return the exiled card to its owner's",
+      "hand.",
+      "M D233",
+      "MH3 - EN A MARK POOLE"
+    ],
+    [
+      "Ugin's Labyrinth",
+      "Land",
+      "Imprint — When Ugin's Labyrinth",
+      "enters the battlefield, you may exile",
+      "a colorless card with mana value 7 or",
+      "greater from your hand.",
+      "s: Add •. If a card is exiled with Ugin's",
+      "Labyrinth, add • • instead.",
+      "r: Return the exiled card to its owner's",
+      "hand",
+      "M 0233",
+      "MH3 • EN A MARK POOLE",
+      "© 2024 Wizards of the Coast"
+    ]
+  ],
+  "name": "Ugin's Labyrinth",
+  "set": "pmh3",
+  "cn": "233p",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (32)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "233",
+    "set": "mh3",
+    "name": "Ugin's Labyrinth",
+    "exact": true,
+    "card_id": "020e1348-1a35-4cc8-bad6-9fbddfa79277"
+  },
+  "reported_at": "2026-10-28T02:54:48.012121+00:00"
+}

@@ -1,0 +1,86 @@
+{
+  "id": "7b8d7658-0846-4ce7-9c3e-a12ad12cbc61",
+  "source": "report",
+  "frames": [
+    [
+      "Hallowed Fountain",
+      "Land",
+      "Island",
+      "enters, you may pay 2",
+      "Jon't, it enters tapped.",
+      "se and watch its beauty a",
+      "har we can't control the",
+      "can know how to swim"
+    ],
+    [
+      "Hallowed Fountain",
+      "Land - Plains Island",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "\"I like to bask and watch its beauty 4",
+      "reminder that we can't control the",
+      "currents, but can know how to swim",
+      "across them.",
+      "Syge"
+    ],
+    [
+      "Hallowed Fountain",
+      "Land - Plains Island",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "\"I like to bask and watch its beauty a",
+      "reminder that we can't conrol the",
+      "currents, but can know how to stim",
+      "across them.",
+      "Syge"
+    ],
+    [
+      "Hallowed Fountain",
+      "Land - Plains Island",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "*I like to bask and watch its beauty a",
+      "reminder that we can't control the",
+      "currents, but can knor how to swim",
+      "across them.\"",
+      "Sige"
+    ],
+    [
+      "Hallowed Fountain",
+      "Land - Plains Island",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "\"I like to bask and watch its beauty-a",
+      "reminder that we can't control the",
+      "currents, but can know how to swim",
+      "across them.",
+      "Syge"
+    ],
+    [
+      "Hallowed Fountain",
+      "Land - Plains Island",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "\"I like to bask and watch its beauty a",
+      "reminder that we can't control the",
+      "currents, but can know how to stim",
+      "across them.\""
+    ]
+  ],
+  "name": "Hallowed Fountain",
+  "set": "ecl",
+  "cn": "347",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (28)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "174",
+    "set": "dis",
+    "name": "Hallowed Fountain",
+    "exact": false,
+    "card_id": "c28aea19-2a39-4934-afda-909e234fa3ba"
+  },
+  "reported_at": "2026-10-26T04:32:55.134015+00:00"
+}

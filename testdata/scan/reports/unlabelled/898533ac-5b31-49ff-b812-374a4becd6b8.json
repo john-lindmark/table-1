@@ -1,0 +1,55 @@
+{
+  "id": "898533ac-5b31-49ff-b812-374a4becd6b8",
+  "source": "report",
+  "frames": [
+    [],
+    [],
+    [],
+    [
+      "Super Shredder",
+      "egendary Creature -",
+      "Menace"
+    ],
+    [
+      "Whenever another permanent l",
+      "the bundlefield, pur a +1 + 1 cou",
+      "Menace",
+      "on Super Shredder.",
+      "\"I hate molded myself inno ps",
+      "Hamaro. Look upon me, arul"
+    ],
+    [
+      "Super Shredder",
+      "Legendary Creature - Mutant Ninja Human",
+      "Whenever another permanent lea",
+      "the battlefield, put a +1/+1 coun",
+      "Menace",
+      "on Super Shredder.",
+      "\"I have molded myself into perfect",
+      "Hamato. Look upon me, and kn",
+      "TMT • EN RO NÉSTOR OSSANDÓN LEAL",
+      "M 0083"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Super Shredder",
+    "set": "tmt",
+    "cn": "83"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (23)",
+  "pack_version": "v1-d695515817e0",
+  "owned_only": false,
+  "matched": {
+    "cn": "83",
+    "set": "tmt",
+    "name": "Super Shredder",
+    "exact": true,
+    "card_id": "37a497b8-e908-4ddc-996e-a8470df72afb"
+  },
+  "reported_at": "2026-10-24T05:23:19.774029+00:00"
+}

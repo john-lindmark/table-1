@@ -1,0 +1,79 @@
+{
+  "id": "c096cf14-c4fd-43c7-babe-7b05e5fe6e1c",
+  "source": "report",
+  "frames": [
+    [
+      "Xander's Lounge",
+      "Land - Island Swamp Mountain",
+      "Add",
+      "Xander's Lounge enters the battlefield",
+      ",or a.)",
+      "tapped.",
+      "Cycling 9"
+    ],
+    [
+      "Xander's Lounge",
+      "and - Island Swa",
+      "• Mo",
+      "(e: Add 4, $, or a.)",
+      "Xander's Lounge enters the batticheld",
+      "capped",
+      "Cycling S"
+    ],
+    [
+      "Xander's Lounge",
+      "Land - Island Swamp Mountain",
+      "(e: Add",
+      "Xander's Lounge enters the batlefield",
+      ", or a.)",
+      "tapped.",
+      "Cycling 3"
+    ],
+    [
+      "Xander's Lounge",
+      "Land - Island Swamp Mountain",
+      "(r: Add",
+      "Xander's Lounge enters the battlefield",
+      "s or a.)",
+      "tapped",
+      "Cycling",
+      "3"
+    ],
+    [
+      "Xander's Lounge",
+      "Land - Island Swamp Mountain",
+      "(s: Add",
+      "Xander's Lounge enters the battlefield",
+      "\" or a.)",
+      "tapped.",
+      "Cycling 3",
+      "SNC • EN R VERONIOVE MEIGNAUD",
+      "in & C 2022 Wizards of the Coast"
+    ],
+    [
+      "Xander's Lounge",
+      "Land - Island Swamp Mountain",
+      "(r: Add •",
+      "8, or a.)",
+      "Xander's Lounge enters the battlefield",
+      "Tapped",
+      "Cycling 3"
+    ]
+  ],
+  "name": "Xander's Lounge",
+  "set": "snc",
+  "cn": "358",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "260",
+    "set": "snc",
+    "name": "Xander's Lounge",
+    "exact": false,
+    "card_id": "54f449ff-4025-465e-9ec5-a5cf42c4c9d3"
+  },
+  "reported_at": "2026-10-26T03:45:55.042033+00:00"
+}

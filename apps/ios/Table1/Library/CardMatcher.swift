@@ -311,23 +311,26 @@ final class CardMatcher: @unchecked Sendable {
     typealias Match = (oracle: CatalogOracle, printing: CatalogPrinting, exact: Bool, langs: [String])
 
     func match(_ lines: [String]) -> Match? {
-        let bottom = Collector(lines, sets: names.sets)
-        if let hit = name(lines), let o = oracle(hit.idx), let (p, exact) = pick(o, lines, bottom, langs: hit.langs) {
+        let frame = Collector(lines, sets: names.sets)
+        if let hit = name(lines), let o = oracle(hit.idx) {
+            let bottom = remembered(o.idx, frame)
+            guard let (p, exact) = pick(o, bottom, langs: hit.langs) else { missed(); return nil }
             return (o, p, exact, bottom.lang.map { [$0] } ?? hit.langs)
         }
         // Not an English name (or none legible): the set code and collector number, when they agree on one card.
         var hits: [Int: CatalogPrinting] = [:]
-        for s in bottom.sets {
-            for n in bottom.collectorNumbers {
+        for s in frame.sets {
+            for n in frame.collectorNumbers {
                 for p in printings(set: s, cn: n) where hits[p.oracleIdx] == nil { hits[p.oracleIdx] = p }
             }
         }
-        guard hits.count == 1, let (idx, p) = hits.first, let o = oracle(idx) else { return nil }
-        return (o, p, true, bottom.lang.map { [$0] } ?? [])
+        guard hits.count == 1, let (idx, p) = hits.first, let o = oracle(idx) else { missed(); return nil }
+        _ = remembered(idx, frame)
+        return (o, p, true, frame.lang.map { [$0] } ?? [])
     }
 
     /// A printing picked by hand (the scanned row's Change printing): the guess for the next card that reads alike.
-    func picked(_ p: CatalogPrinting) { lastPick = p }
+    func picked(_ p: CatalogPrinting) { lastPick = p; recent = nil }
 
     /// The finish a scanned copy starts as: what you own of it in owned-only mode, else non-foil when printed.
     func defaultFinish(_ p: CatalogPrinting) -> String {
@@ -439,23 +442,38 @@ final class CardMatcher: @unchecked Sendable {
 
     // MARK: printing
 
-    /// The printing: set code read (4), collector number read (2), copyright year (1), or for an old frame (an
-    /// "Illus." line and no year: 4th Edition on prints "© 1995") a 1993–94 printing (1); ties go to a for-trade copy,
-    /// the set last picked by hand (nearest its number), the name's language on an old frame (French Sol Ring → Foreign Black Border),
+    /// The printing, scored by what the card's bottom text says (`Collector`, merged over the last frames of the same
+    /// card): set code read (4), collector number read (2; for a card with no power/toughness also a lone three-digit
+    /// number that could have been a misread "2/2"), copyright year (1), an "Illus." line for a 1993 or 1997 frame
+    /// (2: old cards and retro-frame reprints print one; a 2003+ frame prints the artist after a brush), the
+    /// illustrator's name read (2, when the card's printings don't all share one), or for an old frame with no year
+    /// (4th Edition on prints "© 1995") a 1993–94 printing (1); ties go to a for-trade copy, the set last picked by
+    /// hand (nearest its number), the name's language on an old frame (French Sol Ring → Foreign Black Border),
     /// English, a regular collector number, the most printed of Revised, Unlimited, Beta, Alpha (nothing printed on
-    /// them tells them apart, and Alpha was the rarest), then the default printing. Exact when the set code and
-    /// number agree, the set has only one printing of the card, or the number and year single one out. A prerelease
-    /// date stamp picks the set's prerelease promo.
-    private func pick(_ o: CatalogOracle, _ lines: [String], _ bottom: Collector, langs: [String] = []) -> (CatalogPrinting, Bool)? {
+    /// them tells them apart, and Alpha was the rarest), then the default printing. Exact when one printing leads
+    /// with the set code and number (or the set's only printing), or with the number and one more thing (the year,
+    /// the frame), or with the set code and the artist. A prerelease date stamp picks the set's prerelease promo.
+    private func pick(_ o: CatalogOracle, _ bottom: Collector, langs: [String] = []) -> (CatalogPrinting, Bool)? {
         let ps = printings(o.idx)
         guard !ps.isEmpty else { return nil }
-        let years = Self.years(lines)
-        let old = years.isEmpty && bottom.sets.isEmpty && bottom.numbers.isEmpty && Self.illustrated(lines)
+        let old = bottom.years.isEmpty && bottom.sets.isEmpty && bottom.numbers.isEmpty && bottom.illustrated
+        // Vehicles have power/toughness; a battle's defense is one number.
+        let noPT = !(o.typeLine.contains("Creature") || o.typeLine.contains("Vehicle"))
+        let artists = Set(ps.map(\.artist).filter { !$0.isEmpty })
+        let artistTells = artists.count > 1
         func number(_ p: CatalogPrinting) -> String { Self.stripZeros(p.cn.lowercased()) }
         func year(_ p: CatalogPrinting) -> Int? { Int(p.releasedAt.prefix(4)) }
+        func numbered(_ p: CatalogPrinting) -> Bool {
+            bottom.numbers.contains(number(p)) || (noPT && bottom.loneNumbers.contains(number(p)))
+        }
+        func retro(_ p: CatalogPrinting) -> Bool { bottom.illustrated && (p.frame == "1993" || p.frame == "1997") }
+        func drawn(_ p: CatalogPrinting) -> Collector.ArtistLine? { artistTells && !p.artist.isEmpty ? bottom.names(artist: p.artist) : nil }
+        // The artist read after a brush, not "Illus.": a 2003 or newer frame.
+        func modern(_ p: CatalogPrinting) -> Bool { drawn(p) == .plain && (p.frame == "2003" || p.frame == "2015" || p.frame == "future") }
         func score(_ p: CatalogPrinting) -> Int {
-            (bottom.sets.contains(p.set) ? 4 : 0) + (bottom.numbers.contains(number(p)) ? 2 : 0)
-                + (year(p).map(years.contains) == true || (old && Self.early(p)) ? 1 : 0)
+            (bottom.sets.contains(p.set) ? 4 : 0) + (numbered(p) ? 2 : 0)
+                + (year(p).map(bottom.years.contains) == true || (old && Self.early(p)) ? 1 : 0)
+                + (retro(p) ? 2 : 0) + (drawn(p) != nil ? 2 : 0) + (modern(p) ? 1 : 0)
         }
         let last = lastPick.map { ($0.set, Self.digits($0.cn)) }
         func near(_ p: CatalogPrinting) -> Int {
@@ -469,10 +487,11 @@ final class CardMatcher: @unchecked Sendable {
             return [s, trade, picked, lang, en, regular, run, p.original ? 1 : 0, -p.ord]
         }
         var best = ps.max { key($0).lexicographicallyPrecedes(key($1)) }!
-        let exact = (bottom.sets.contains(best.set) && (bottom.numbers.contains(number(best)) || ps.filter { $0.set == best.set }.count == 1))
-            || (bottom.numbers.contains(number(best)) && year(best).map(years.contains) == true
-                && ps.filter { number($0) == number(best) }.count == 1)
-        if Self.dated(lines), let promo = ps.first(where: {
+        let top = score(best)
+        let alone = ps.filter { score($0) == top }.count == 1
+        let inSet = bottom.sets.contains(best.set)
+        let exact = alone && (top >= 6 || (numbered(best) && top >= 3) || (inSet && ps.filter { $0.set == best.set }.count == 1))
+        if bottom.dated, let promo = ps.first(where: {
             $0.set == "p" + best.set && String($0.cn.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "s★"))) == best.cn.lowercased()
         }) {
             best = promo
@@ -486,13 +505,6 @@ final class CardMatcher: @unchecked Sendable {
     /// Printed before cards carried a copyright year (4th Edition, April 1995).
     private static func early(_ p: CatalogPrinting) -> Bool { (Int(p.releasedAt.prefix(4)) ?? 9999) <= 1994 }
 
-    /// An artist credit as old frames print it ("Illus. Mark Poole"; also read as "Ius." or "lllus,").
-    private static func illustrated(_ lines: [String]) -> Bool {
-        lines.contains { $0.trimmingCharacters(in: .whitespaces).firstMatch(of: illus) != nil }
-    }
-
-    nonisolated(unsafe) private static let illus = #/^(?i)[il1|]{0,3}us[.,]\s/#
-
     /// A collector number's digits as a number ("437" → 437, "M20-125" → 20125), for nearness.
     private static func digits(_ cn: String) -> Int { Int(cn.filter { ("0"..."9").contains($0) }.prefix(6)) ?? 0 }
 
@@ -501,42 +513,31 @@ final class CardMatcher: @unchecked Sendable {
         return t.isEmpty ? (s.isEmpty ? "" : "0") : String(t)
     }
 
-    /// Copyright years ("© 2019 Wizards", "1993-2003"): the last year of each.
-    private static func years(_ lines: [String]) -> Set<Int> {
-        var out = Set<Int>()
-        for line in lines {
-            if let m = line.firstMatch(of: yearRange) {
-                if let y = Int(m.output.2) { out.insert(y) }
-            } else if line.range(of: "wizards", options: .caseInsensitive) != nil || line.contains("©"),
-                      let y = line.matches(of: year).last.flatMap({ Int($0.output) }) {
-                out.insert(y)
-            }
-        }
-        return out
+    // MARK: evidence over frames
+
+    /// Evidence about the card in view, kept over its last frames: the set code read in one frame and the number in
+    /// the next pick the printing together (a borderless Tourach read "MH2 • EN" in one frame and "312" four frames
+    /// later, and went in as the regular 102). Cleared after `misses` frames that named nothing, when another card
+    /// is named, after a hand-picked printing, and when the card is taken (`took`).
+    private var recent: (idx: Int, bottom: Collector, misses: Int)?
+    private static let misses = 5
+
+    /// The evidence for this card: this frame's, merged with what the last frames of the same card read.
+    private func remembered(_ idx: Int, _ bottom: Collector) -> Collector {
+        var merged = bottom
+        if let r = recent, r.idx == idx { merged.merge(r.bottom) }
+        recent = (idx, merged, 0)
+        return merged
     }
 
-    nonisolated(unsafe) private static let yearRange = #/(19[89]\d)\s*[-–]?\s*(20[0-4]\d)/#
-    nonisolated(unsafe) private static let year = #/19[89]\d|20[0-4]\d/#
-    /// Month names as a date stamp prints them, normalized: English, then de, fr, it, es, pt, ru.
-    private static let months: Set<String> = [
-        "jan", "january", "feb", "february", "mar", "march", "apr", "april", "may", "jun", "june", "jul", "july", "aug",
-        "august", "sep", "sept", "september", "oct", "october", "nov", "november", "dec", "december", "januar", "februar",
-        "marz", "mai", "juni", "juli", "oktober", "dezember", "janvier", "fevrier", "mars", "avril", "juin", "juillet",
-        "aout", "septembre", "octobre", "novembre", "decembre", "gennaio", "febbraio", "marzo", "aprile", "maggio",
-        "giugno", "luglio", "agosto", "settembre", "ottobre", "dicembre", "enero", "febrero", "abril", "mayo", "junio",
-        "julio", "septiembre", "octubre", "noviembre", "diciembre", "janeiro", "fevereiro", "marco", "maio", "junho",
-        "julho", "setembro", "outubro", "novembro", "dezembro", "января", "февраля", "марта", "апреля", "мая", "июня",
-        "июля", "августа", "сентября", "октября", "ноября", "декабря",
-    ]
-
-    /// A prerelease date stamp ("30-31 January 2021", "27-28 giugno 2020"): a month and a year on a line that isn't the copyright.
-    private static func dated(_ lines: [String]) -> Bool {
-        lines.contains { line in
-            let l = CardName.norm(line)
-            return l.firstMatch(of: year) != nil && !l.contains("wizards")
-                && l.split(whereSeparator: { !$0.isLetter }).contains { months.contains(String($0)) }
-        }
+    private func missed() {
+        guard var r = recent else { return }
+        r.misses += 1
+        recent = r.misses >= Self.misses ? nil : r
     }
+
+    /// The card in view was taken: what its frames read mustn't pick the next copy's printing.
+    func took() { recent = nil }
 
     // MARK: lookups
 
@@ -567,55 +568,185 @@ final class CardMatcher: @unchecked Sendable {
     private func allowed(_ idx: Int) -> Bool { owned == nil || !printings(idx).isEmpty }
 }
 
-/// What a card's bottom text says about its printing: "154/196 M", "RIX • RU", "M 0244", "FRA • EN".
+/// What a card's bottom text says about its printing: "154/196 M", "RIX • RU", "M 0244", "FRA • EN", the year and
+/// number on a copyright line ("™ & © 2024 Wizards of the Coast 407"), an "Illus." line, the illustrator's name, a
+/// prerelease date stamp. Built per frame; `merge` keeps what earlier frames of the same card read.
 struct Collector {
     var sets = Set<String>()
     var numbers = Set<String>()
     /// The numbers written as collector numbers ("154/196", "0244", "R 1695", "297"), not a lone "212" that may be a misread 2/2.
     var collectorNumbers = Set<String>()
+    /// Lone three-digit numbers that could be power/toughness read with the slash as 1 or 7 ("2/2" → "212"): a
+    /// collector number only for a card that prints no power/toughness.
+    var loneNumbers = Set<String>()
     /// The language printed by a known set code ("WAR • JP" → ja), when only one is.
     var lang: String?
+    /// Copyright years ("© 2019 Wizards", "1993-2003", "& C 2013 W"): the last year of each line.
+    var years = Set<Int>()
+    /// An artist credit as 1993 and 1997 frames print it ("Illus. Mark Poole"; also read as "Ius." or "lllus,").
+    var illustrated = false
+    /// A prerelease date stamp ("30-31 January 2021", "27-28 giugno 2020"): a month and a year on a line that isn't the copyright.
+    var dated = false
+    /// Every line's words, normalized, for the illustrator's name, and whether the line is an "Illus." credit.
+    var words: [[Substring]] = []
+    var credits: [Bool] = []
+
+    /// How the illustrator's name was printed: after "Illus." (a 1993 or 1997 frame) or plainly, after a brush.
+    enum ArtistLine { case illustrated, plain }
 
     /// The codes printed by the set code, as Scryfall's language codes.
     private static let langs: [String: String] = [
         "EN": "en", "DE": "de", "FR": "fr", "IT": "it", "ES": "es", "PT": "pt", "JP": "ja", "JA": "ja", "RU": "ru",
         "KR": "ko", "KO": "ko", "CS": "zhs", "CT": "zht", "PH": "ph", "ZHS": "zhs", "ZHT": "zht",
     ]
-    /// An uppercase code, a bullet or star, a language code ("one it ate." in rules text is not a set and a language).
-    nonisolated(unsafe) private static let setLang = #/\b([A-Z0-9]{2,5})\s*[•*·★+.]\s*([A-Z]{2,3})\b/#
+    /// An uppercase code, a bullet, star, dash or Japanese middle dot, a language code ("one it ate." in rules text is
+    /// not a set and a language); the bullet is often read as a letter ("MH2 WEN", "ECL MEN", "MH2VEN") or lost, so a
+    /// code of three or more may also be followed by one stray letter or nothing.
+    nonisolated(unsafe) private static let setLang = #/\b([A-Z0-9]{2,5})\s*[•*·★+.\-–・]\s*([A-Z]{2,3})\b/#
+    nonisolated(unsafe) private static let setLangLoose = #/\b([A-Z0-9]{3,5})\s?[A-Z]?\s?(EN|DE|FR|IT|ES|PT|JP|JA|RU|KR|KO|CS|CT|PH|ZHS|ZHT)\b/#
     /// "154/196": the number after the slash is the set's size, which tells it from power/toughness ("6/6").
     nonisolated(unsafe) private static let ofTotal = #/(?:^|[^\d\/])(\d{1,4})([a-zA-Z]?)\s*\/\s*(\d{2,4})\b/#
     /// A line that is only a collector number, maybe with its rarity: "667", "R 0244", "0014", "07 29".
     nonisolated(unsafe) private static let alone = #/\s*(?:[CURMLSTP]\s+)?(\d[\d ]{0,4}\d|\d)(?:\s+[CURMLSTP])?\s*/#
+    /// A copyright line, as the camera reads it: "™ & © 2024 Wizards of the Coast 407", "& C 2013W", "2012 Wi",
+    /// "ds of the Coast 248 27.", "1993-2001 Wizards of the Coast, Inc. 214/350".
+    nonisolated(unsafe) private static let copyright = #/(?i)©|wizards|wi[sz]a|of the co|\bcoast|&\s*\S{0,2}\s*(?:19|20)\d\d|(?:19|20)\d\d\s*W/#
+    /// The number a 1997-style copyright line ends with ("… of the Coast 407", "… Coast 248 27." with the total cut off).
+    nonisolated(unsafe) private static let trailing = #/(?:^|\D)(\d{1,4})([a-z]?)(?:\s+\d{2,3}\.?)?\s*$/#
+    nonisolated(unsafe) private static let yearRange = #/(19[89]\d)\s*[-–]?\s*(20[0-4]\d)/#
+    nonisolated(unsafe) private static let year = #/(?:^|\D)(19[89]\d|20[0-4]\d)(?!\d)/#
+    nonisolated(unsafe) private static let illus = #/^(?i)[il1|]{0,3}us[.,:\/]\s/#
+    /// Month names as a date stamp prints them, normalized: English, then de, fr, it, es, pt, ru.
+    private static let months: Set<String> = [
+        "jan", "january", "feb", "february", "mar", "march", "apr", "april", "may", "jun", "june", "jul", "july", "aug",
+        "august", "sep", "sept", "september", "oct", "october", "nov", "november", "dec", "december", "januar", "februar",
+        "marz", "mai", "juni", "juli", "oktober", "dezember", "janvier", "fevrier", "mars", "avril", "juin", "juillet",
+        "aout", "septembre", "octobre", "novembre", "decembre", "gennaio", "febbraio", "marzo", "aprile", "maggio",
+        "giugno", "luglio", "agosto", "settembre", "ottobre", "dicembre", "enero", "febrero", "abril", "mayo", "junio",
+        "julio", "septiembre", "octubre", "noviembre", "diciembre", "janeiro", "fevereiro", "marco", "maio", "junho",
+        "julho", "setembro", "outubro", "novembro", "dezembro", "января", "февраля", "марта", "апреля", "мая", "июня",
+        "июля", "августа", "сентября", "октября", "ноября", "декабря",
+    ]
 
     init(_ lines: [String], sets known: Set<String>) {
         var langLine = false
         var printed = Set<String>()
         for line in lines {
-            for m in line.matches(of: Self.setLang) {
-                guard let lang = Self.langs[String(m.output.2)] else { continue }
+            var codes: [(String, String)] = line.matches(of: Self.setLang).map { (String($0.output.1), String($0.output.2)) }
+            if codes.isEmpty { codes = line.matches(of: Self.setLangLoose).map { (String($0.output.1), String($0.output.2)) } }
+            for (raw, l) in codes {
+                guard let lang = Self.langs[l] else { continue }
                 langLine = true
-                let code = m.output.1.lowercased()
-                if known.contains(code) { sets.insert(code); printed.insert(lang) }
+                if let code = Self.known(raw, known) { sets.insert(code); printed.insert(lang) }
             }
             for m in line.matches(of: Self.ofTotal) where (Int(m.output.3) ?? 0) >= 30 {
                 let n = Self.strip(String(m.output.1)) + m.output.2.lowercased()
                 numbers.insert(n)
                 collectorNumbers.insert(n)
             }
+            if let m = line.firstMatch(of: Self.yearRange) {
+                if let y = Int(m.output.2) { years.insert(y) }
+            } else if line.firstMatch(of: Self.copyright) != nil, let y = line.matches(of: Self.year).last.flatMap({ Int($0.output.1) }) {
+                years.insert(y)
+            }
+            let credit = line.trimmingCharacters(in: .whitespaces).firstMatch(of: Self.illus) != nil
+            if credit { illustrated = true }
+            let norm = CardName.norm(line)
+            if norm.firstMatch(of: Self.year) != nil, !norm.contains("wizards"),
+               norm.split(whereSeparator: { !$0.isLetter }).contains(where: { Self.months.contains(String($0)) }) {
+                dated = true
+            }
+            words.append(norm.split(separator: " "))
+            credits.append(credit)
         }
         if printed.count == 1 { lang = printed.first }
         for line in lines {
-            guard let m = line.wholeMatch(of: Self.alone) else { continue }
-            let n = m.output.1.replacingOccurrences(of: " ", with: "")
-            guard n.count <= 4, langLine || n.count == 4 else { continue }
-            numbers.insert(Self.strip(n))
-            // "0244", "R 1695", or three digits that can't be power/toughness read with the slash as 1 or 7 ("2/2" → "212").
-            let toughness = n.count == 3 && "17".contains(Array(n)[1])
-            if (n.count == 4 && n.first == "0") || line.contains(where: \.isLetter) || (n.count == 3 && !toughness) {
-                collectorNumbers.insert(Self.strip(n))
+            if let m = line.wholeMatch(of: Self.alone) {
+                let n = m.output.1.replacingOccurrences(of: " ", with: "")
+                guard n.count <= 4 else { continue }
+                // "0244", "R 1695", or three digits that can't be power/toughness read with the slash as 1 or 7 ("2/2" → "212").
+                let toughness = n.count == 3 && "17".contains(Array(n)[1])
+                if toughness && !langLine { loneNumbers.insert(Self.strip(n)); continue }
+                guard langLine || n.count >= 3 else { continue }
+                numbers.insert(Self.strip(n))
+                if (n.count == 4 && n.first == "0") || line.contains(where: \.isLetter) || (n.count == 3 && !toughness) {
+                    collectorNumbers.insert(Self.strip(n))
+                }
+            } else if line.firstMatch(of: Self.copyright) != nil, line.firstMatch(of: Self.ofTotal) == nil,
+                      let m = line.firstMatch(of: Self.trailing) {
+                // The number at the end of a copyright line, never the year itself.
+                let n = String(m.output.1)
+                guard !(n.count == 4 && (Int(n) ?? 0) >= 1990) else { continue }
+                numbers.insert(Self.strip(n) + m.output.2.lowercased())
             }
         }
+    }
+
+    /// Whether the lines name this illustrator, and how: every word of the name, in order, in one line; a word of
+    /// four or five letters may be one edit off and a longer one two ("TOOD LOCKVOOD", "Shells Wan", "CANARAT" for
+    /// Canavan), shorter ones exact.
+    func names(artist: String) -> ArtistLine? {
+        let want = CardName.norm(artist).split(separator: " ").filter { $0 != "and" && $0 != "&" }
+        guard !want.isEmpty else { return nil }
+        for (i, line) in words.enumerated() where line.count >= want.count {
+            for start in 0...(line.count - want.count) {
+                var ok = true
+                for (k, w) in want.enumerated() where !Self.alike(line[start + k], w) { ok = false; break }
+                if ok { return credits[i] ? .illustrated : .plain }
+            }
+        }
+        return nil
+    }
+
+    private static func alike(_ a: Substring, _ b: Substring) -> Bool {
+        if a == b { return true }
+        let n = b.count
+        guard n >= 4, abs(a.count - n) <= 2 else { return false }
+        return edits(Array(a), Array(b), atMost: n >= 6 ? 2 : 1)
+    }
+
+    /// Whether a and b are within `atMost` single-character edits (insert, delete, replace) of each other.
+    static func edits(_ a: [Character], _ b: [Character], atMost k: Int) -> Bool {
+        if abs(a.count - b.count) > k { return false }
+        var prev = Array(0...b.count)
+        for i in 1...max(a.count, 1) where i <= a.count {
+            var cur = [i] + [Int](repeating: 0, count: b.count)
+            var rowMin = i
+            for j in 1...max(b.count, 1) where j <= b.count {
+                cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1))
+                rowMin = min(rowMin, cur[j])
+            }
+            if rowMin > k { return false }
+            prev = cur
+        }
+        return prev[b.count] <= k
+    }
+
+    /// What earlier frames of the same card read, added to this frame's.
+    mutating func merge(_ o: Collector) {
+        sets.formUnion(o.sets)
+        numbers.formUnion(o.numbers)
+        collectorNumbers.formUnion(o.collectorNumbers)
+        loneNumbers.formUnion(o.loneNumbers)
+        years.formUnion(o.years)
+        illustrated = illustrated || o.illustrated
+        dated = dated || o.dated
+        words += o.words
+        credits += o.credits
+        if lang == nil { lang = o.lang }
+    }
+
+    /// A read set code as the catalog knows it: as read, else with the letters the camera swaps for digits put back
+    /// ("4OK" → 40k, "MHT" → mh1, "A2S" → a25), else without a stray first or last character ("YMH2", "4A25", "MH2V").
+    private static func known(_ raw: String, _ known: Set<String>) -> String? {
+        let code = raw.lowercased()
+        if known.contains(code) { return code }
+        let swapped = String(code.map { ["o": "0", "i": "1", "l": "1", "t": "1", "s": "5"][$0] ?? $0 })
+        if swapped != code, known.contains(swapped) { return swapped }
+        if code.count >= 4 {
+            for cut in [String(code.dropFirst()), String(code.dropLast())] where known.contains(cut) { return cut }
+        }
+        return nil
     }
 
     private static func strip(_ s: String) -> String {
@@ -633,6 +764,10 @@ struct ScanSteadiness {
     /// frames or more: Crusade, named 6 times in 2.4 s with gaps of 0.6 s, was never taken while any gap over 0.5 s
     /// started it over).
     static let quick: TimeInterval = 0.4
+    /// Sooner still when two frames read the same printing exactly (set code and number agree): a second frame
+    /// that says the same is as sure as a third that says nothing (2026-10-28).
+    static let quicker: TimeInterval = 0.2
+    static let agree = 2
     static let slow: TimeInterval = 0.8
     static let reads = 3
     /// A blurred or unreadable frame doesn't drop the card in view unless the gap lasts this long.
@@ -673,9 +808,11 @@ struct ScanSteadiness {
         c.named += 1
         if m.exact { c.votes[m.printing.cardId, default: (m.printing, 0)].1 += 1 }
         candidate = c
-        let voted = c.votes.values.max { $0.1 < $1.1 }?.0
+        let top = c.votes.values.max { $0.1 < $1.1 }
+        let voted = top?.0
         let held = ms(now, c.since)
-        guard (voted != nil && held >= ms(Self.quick)) || (held >= ms(Self.slow) && c.named >= Self.reads) else { return nil }
+        guard (voted != nil && held >= ms(Self.quick)) || ((top?.1 ?? 0) >= Self.agree && held >= ms(Self.quicker))
+                || (held >= ms(Self.slow) && c.named >= Self.reads) else { return nil }
         candidate = nil
         lastAccepted = (m.oracle.idx, now)
         return voted.map { ($0, true) } ?? (c.latest, false)

@@ -1,0 +1,87 @@
+{
+  "id": "6276b070-f467-478c-bd34-e5f4bfbd770b",
+  "source": "report",
+  "frames": [
+    [
+      "8",
+      "catures can't attack you unless their",
+      "troller pays 2 for each creature he",
+      "she controls that's attacking you.",
+      "u've failed Germand. You've failed the",
+      "racy You've failed yourself. I can do no"
+    ],
+    [
+      "Propaganda",
+      "Enchantment",
+      "Creatures can't attack you unless their",
+      "controller pays 2 for each creature he",
+      "or she controls that's attacking you.",
+      "\"You've failed Gerrard. You've failed the",
+      "Legacy. You've failed yourself. I can do no",
+      "— Volrath, to Karn"
+    ],
+    [
+      "Propaganda",
+      "Enchantment",
+      "Creatures can't attack you unless their",
+      "controller pays 2 for each creature he",
+      "or she controls that's attacking you.",
+      "\"You've failed Gerrard. You've failed the",
+      "Legacy. You've failed yourself. I can do no",
+      "—Volrath, to Karn",
+      "-Jeff Miracola"
+    ],
+    [
+      "Propaganda",
+      "Enchantment",
+      "Creatures can't attack you unless their",
+      "controller pays 2 for each creature he",
+      "or she controls that's attacking you.",
+      "\"You've failed Gerrard. You've failed the",
+      "Legacy. You've failed yourself. I can do no",
+      "—Volrath, to Karn",
+      "→ jeff Miracola"
+    ],
+    [
+      "Propaganda",
+      "Enchantment",
+      "Creatures can't attack you unless their",
+      "controller pays 2 for each creature he",
+      "or she controls that's attacking you.",
+      "\"You've failed Gerrard. You've failed the",
+      "Legacy. You've failed yourself. I can do no",
+      "more.",
+      "— Volrath, to Karn",
+      "- jeff Miracola"
+    ],
+    [
+      "Propaganda",
+      "•",
+      "2",
+      "Enchantment",
+      "Creatures can't attack you unless their",
+      "controller pays 2 for each creature he",
+      "or she controls that's attacking you.",
+      "\"You've failed Gerrard. You've failed the",
+      "Legacy. You've failed yourself. I can do no",
+      "- Volrath, to Karn",
+      "→ Jeff Miracola"
+    ]
+  ],
+  "name": "Propaganda",
+  "set": "cmd",
+  "cn": "55",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (33)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "80",
+    "set": "tmp",
+    "name": "Propaganda",
+    "exact": false,
+    "card_id": "f67dde4d-3df1-480d-a8b8-ab22c768bb12"
+  },
+  "reported_at": "2026-10-28T03:04:18.27242+00:00"
+}

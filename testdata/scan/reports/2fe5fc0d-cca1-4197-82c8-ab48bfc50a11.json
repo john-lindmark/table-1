@@ -1,0 +1,70 @@
+{
+  "id": "2fe5fc0d-cca1-4197-82c8-ab48bfc50a11",
+  "source": "report",
+  "frames": [
+    [
+      "Pyroblast",
+      "Instant",
+      "Choose one",
+      "• Counter target spell if it's blue.",
+      "• Destroy target permanent if it's",
+      "blue."
+    ],
+    [
+      "Pyroblast",
+      "Instant",
+      "Choose one -",
+      "• Counter target spell if it's blue.",
+      "• Destroy target permanent if it's",
+      "blue."
+    ],
+    [
+      "Pyroblast",
+      "Instant",
+      "Choose one -",
+      "• Counter target spell if it's blue.",
+      "• Destroy target permanent if it's",
+      "blue."
+    ],
+    [
+      "Pyroblast",
+      "Instant",
+      "Choose one",
+      "• Counter target spell if it's blue.",
+      "• Destroy target permanent if it's",
+      "blue."
+    ],
+    [
+      "Pyroblast",
+      "Instant",
+      "Choose one -",
+      "• Counter target spell if it's blue.",
+      "• Destroy target permanent if it's",
+      "blue."
+    ],
+    [
+      "Pyroblast",
+      "Instant",
+      "Choose one",
+      "• Counter target spell if it's blue.",
+      "• Destroy target permanent if it's",
+      "blue."
+    ]
+  ],
+  "name": "Pyroblast",
+  "set": "mb2",
+  "cn": "198",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "213",
+    "set": "ice",
+    "name": "Pyroblast",
+    "exact": false,
+    "card_id": "c342cac5-08ae-4428-9c2c-f6c5904e54d2"
+  },
+  "reported_at": "2026-10-28T02:37:43.572362+00:00"
+}

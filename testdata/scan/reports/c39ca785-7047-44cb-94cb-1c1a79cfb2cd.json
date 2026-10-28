@@ -1,0 +1,85 @@
+{
+  "id": "c39ca785-7047-44cb-94cb-1c1a79cfb2cd",
+  "source": "report",
+  "frames": [
+    [
+      "71000000",
+      "If an abiliny of a Shaman or another",
+      "Wizard you control triggers, mat",
+      "abiling wiggers an addictiona",
+      "Poow The m"
+    ],
+    [
+      "Harmonic Prodigy",
+      "Creature - Human Wizard",
+      "Prowess",
+      "If an ability of a Shaman or another",
+      "Wizard you control triggers, that",
+      "ability triggers an additional time.",
+      "Focus: The musician-wizard.",
+      "1/3"
+    ],
+    [
+      "Harmonic Prodigy",
+      "Creature - Human Wizard",
+      "Prowess",
+      "If an ability of a Shaman or another",
+      "Wizard you control triggers, that",
+      "ability triggers an additional time.",
+      "Focus: The musician-wizard.",
+      "1/3",
+      "MH2VEN & PM SCORE CANARAT"
+    ],
+    [
+      "Harmonic Prodigy",
+      "Creature - Human Wizard",
+      "Prowess",
+      "If an ability of a Shaman or another",
+      "Wizard you control triggers, that",
+      "ability triggers an additional time.",
+      "Focus: The musician-wizard.",
+      "1/3",
+      "MH2*EN & PAUL SCOTT CANAY",
+      "2021 Wizands of the Coas"
+    ],
+    [
+      "Harmonic Prodigy",
+      "Creature - Human Wizard",
+      "Prowess",
+      "If an ability of a Shaman or another",
+      "Wizard you control triggers, that",
+      "ability triggers an additional time.",
+      "Focus: The musician-wizard.",
+      "1/3",
+      "MH2 * EN"
+    ],
+    [
+      "Harmonic Prodigy",
+      "Creature - Human Wizard",
+      "Prowess",
+      "If an ability of a Shaman or another",
+      "Wizard you control triggers, that",
+      "ability triggers an additional time.",
+      "Focus: The musician-wizard.",
+      "1/3",
+      "SHE*EN PALL SCOTT CONNIN",
+      "of the Col"
+    ]
+  ],
+  "name": "Harmonic Prodigy",
+  "set": "mh2",
+  "cn": "352",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "132",
+    "set": "mh2",
+    "name": "Harmonic Prodigy",
+    "exact": false,
+    "card_id": "22579ac0-ad3f-4000-a65a-46a17a7f1aa5"
+  },
+  "reported_at": "2026-10-26T03:00:36.477734+00:00"
+}

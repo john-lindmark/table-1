@@ -1,0 +1,56 @@
+{
+  "id": "00bd3cd4-0009-4843-af78-9fd200c4e780",
+  "source": "report",
+  "frames": [
+    [],
+    [],
+    [],
+    [
+      "Kavaron, Memorial World",
+      "Land - Planet",
+      "This land enters tapped.",
+      "©: Add •",
+      "Station",
+      "06, O, Sacrifice a land: Create a 2/2 colorless",
+      "Robot artifact creature token, then creatures you",
+      "control get +1/+0 and gain haste until end of turn.",
+      "M 0281",
+      "EOE • EN A PIOTR DURA",
+      "™ & C 2025 Wizards of the Coast"
+    ],
+    [],
+    [
+      "Land - Planet",
+      "This land enters tapped.",
+      "©: Add ®.",
+      "7/7",
+      "Station",
+      "00, O, Sacrifice a land: Creat",
+      "Robot artifact creature token, t)",
+      "control get +1/+0 and gain hast",
+      "M 0281",
+      "EOE • EN A PIOTR DURA"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Kavaron, Memorial World",
+    "set": "eoe",
+    "cn": "281"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "281",
+    "set": "eoe",
+    "name": "Kavaron, Memorial World",
+    "exact": true,
+    "card_id": "0f03d025-3ec8-4ae4-93e3-0fb96e105b7f"
+  },
+  "reported_at": "2026-10-26T03:23:58.627711+00:00"
+}

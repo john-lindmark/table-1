@@ -1,0 +1,73 @@
+{
+  "id": "ff357afd-70a5-4c81-8765-6e20eb7c1364",
+  "source": "report",
+  "frames": [
+    [],
+    [],
+    [
+      "Steam Vents",
+      "Land - Island Mountain",
+      "(r: Add • or",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "The flamekin was drawn toward warm",
+      "laughter when the skies darkened, then",
+      "she turned back to the lonely peak.",
+      "R 0267",
+      "ECL * EN NO ADAM PROVETTE",
+      "& • 202 Weards of the"
+    ],
+    [
+      "Steam Vents",
+      "Land - Island Mountain",
+      "(r: Add • or a.)",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "The flamekin toas drawn toward warm",
+      "laughter when the skies darkened, then",
+      "she turned back to the lonely peak.",
+      "R 0267",
+      "ECL *EN 1D ADI POETT"
+    ],
+    [
+      "Steam Vents",
+      "Land - Island Mountain",
+      "(r: Add • or",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "The flamekin was drawn toward warm",
+      "laughter when the skies darkened, then",
+      "she turned back to the lonely peak.",
+      "R 0267",
+      "ECL * EN NO ADAM PRODETTE"
+    ],
+    [
+      "Steam Vents",
+      "Land - Island Mountain",
+      "(r: Add e or",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped",
+      "The flamekin was drawn toward warm",
+      "laughter when the skies darkened, then",
+      "she turned back to the lonely peak.",
+      "R 0267",
+      "ECL * EN A ADAM PAQUETTE"
+    ]
+  ],
+  "name": "Steam Vents",
+  "set": "pecl",
+  "cn": "267p",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "267",
+    "set": "ecl",
+    "name": "Steam Vents",
+    "exact": true,
+    "card_id": "b66daa94-d367-4812-9f18-f35378c1febb"
+  },
+  "reported_at": "2026-10-25T04:18:37.651801+00:00"
+}

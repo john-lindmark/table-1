@@ -1,0 +1,93 @@
+{
+  "id": "fa5478ab-130e-499f-996b-0d41e3939826",
+  "source": "report",
+  "frames": [
+    [
+      "Skullclamp",
+      "Artifact - Equipment",
+      "Equipped creature gets +1/-1.",
+      "When equipped creature is pur into a",
+      "graveyard, draw two cards.",
+      "Equip 1 (D: Anach to target creature you",
+      "control. Equip only as a sorcery. This card",
+      "comes into play unattached and stays in",
+      "play if the creature leaves play.)"
+    ],
+    [
+      "Skullclamp",
+      "Artifact - Equipment",
+      "Equipped creature gets +1/-1.",
+      "When equipped creature is put into a",
+      "graveyard, draw two cards.",
+      "Equip 1 (1: Attach to target creature you",
+      "control. Equip only as a sorcery. This card",
+      "comes into play unattached and stavs in",
+      "play if the creature leaves play.)",
+      "• Luca Zontini"
+    ],
+    [
+      "Skullclamp",
+      "Artifact - Equipment",
+      "Equipped creature gets +1/-1.",
+      "When equipped creature is put into a",
+      "graveyard, draw two cards.",
+      "Equip 1 (1: Attach to target creature you",
+      "control. Equip only as a sorcery. This card",
+      "comes into play unattached and stays in",
+      "play if the creature leaves play.)",
+      "- Luca Zontini"
+    ],
+    [
+      "Skullclamp",
+      "Artifact - Equipment",
+      "Equipped creature gets +1/-1.",
+      "When equipped creature is put into a",
+      "graveyard, draw two cards.",
+      "Equip 1 (1: Attach to target creature you",
+      "control. Equip only as a sorcery. This card",
+      "comes into play unattached and stays in",
+      "play if the creature leaves play.)",
+      "- Luca Zontini"
+    ],
+    [
+      "Skullclamp",
+      "Artifact - Equipment",
+      "Equipped creature gets +1/-1.",
+      "When equipped creature is put into a",
+      "graveyard, draw two cards.",
+      "Equip 1 (1 : Attach to target creature you",
+      "control. Equip only as a sorcery. This card",
+      "comes into play unattached and stays in",
+      "play if the creature leaves play.)",
+      "- Luca Zontini"
+    ],
+    [
+      "Skullclamp",
+      "Artifact - Equipment",
+      "Equipped creature gets +1/-1.",
+      "When equipped creature is put into a",
+      "graveyard, draw two cards.",
+      "Equip 1 (1: Attach to target creature you",
+      "control. Equip only as a sorcery. This card",
+      "comes into play unattached and stays in",
+      "play if the creature leaves play.)",
+      "- Luca Zontini"
+    ]
+  ],
+  "name": "Skullclamp",
+  "set": "dst",
+  "cn": "140",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "870",
+    "set": "clb",
+    "name": "Skullclamp",
+    "exact": false,
+    "card_id": "d1877be5-fb98-4bd2-a754-dda1132ef8a0"
+  },
+  "reported_at": "2026-10-28T00:37:46.137511+00:00"
+}

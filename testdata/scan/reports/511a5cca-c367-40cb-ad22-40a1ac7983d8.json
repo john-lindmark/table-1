@@ -1,0 +1,102 @@
+{
+  "id": "511a5cca-c367-40cb-ad22-40a1ac7983d8",
+  "source": "report",
+  "frames": [
+    [
+      "Leyline of the Void",
+      "Enchantment",
+      "If Leyline of the Void is in your opening",
+      "hand, you may begin the game with it",
+      "on the battlefield.",
+      "If a card would be put into an",
+      "opponent's graveyard from anywhere,",
+      "exile it instead.",
+      "Where treachery and oblivion comerge.",
+      "Illus. Adam Res"
+    ],
+    [
+      "Leyline of the Void",
+      "Enchantment",
+      "If Leyline of the Void is in your opening",
+      "hand, you may begin the game with it",
+      "on the battlefield.",
+      "If a card would be put into an",
+      "opponent's graveyard from anywhere,",
+      "exile it instead.",
+      "Where treachery and oblivion converge.",
+      "Illus. Adam Rex",
+      "i the CHil"
+    ],
+    [
+      "Leyline of the Void",
+      "Enchantment",
+      "If Leyline of the Void is in your opening",
+      "hand, you may begin the game with it",
+      "on the battlefield.",
+      "If a card would be put into an",
+      "opponent's graveyard from anywhere,",
+      "exile it instead.",
+      "Where treachery and oblivion comerge.",
+      "Illus. Adam Res"
+    ],
+    [
+      "Leyline of the Void",
+      "Enchantment",
+      "If Leyline of the Void is in your opening",
+      "hand, you may begin the game with it",
+      "on the battlefield.",
+      "If a card would be put into an",
+      "opponent's graveyard from anywhere,",
+      "exile it instead.",
+      "Where treachery and oblivion converge.",
+      "Illus. Adam Rex",
+      "220 Wo",
+      "ni of the Cou"
+    ],
+    [
+      "Leyline of the Void",
+      "Enchantment",
+      "If Leyline of the Void is in your opening",
+      "hand, you may begin the game with it",
+      "on the battlefield.",
+      "If a card would be put into an",
+      "opponent's graveyard from anywhere,",
+      "exile it instead.",
+      "Where treachery and oblivion converge.",
+      "Illus. Adam Rex",
+      "2020 Wizards of the C",
+      "326"
+    ],
+    [
+      "Leyline of the Void",
+      "Enchantment",
+      "If Leyline of the Void is in your opening",
+      "hand, you may begin the game with it",
+      "on the battlefield.",
+      "If a card would be put into an",
+      "opponent's graveyard from anywhere,",
+      "exile it instead.",
+      "Where treachery and oblivion converge.",
+      "Illus. Adam Rex",
+      "2020 Wizards of alic Coast",
+      "326",
+      "Nazgúl"
+    ]
+  ],
+  "name": "Leyline of the Void",
+  "set": "tsr",
+  "cn": "326",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "52",
+    "set": "gpt",
+    "name": "Leyline of the Void",
+    "exact": false,
+    "card_id": "37dfe8b8-b39e-4e70-9e5b-be42c93b4f70"
+  },
+  "reported_at": "2026-10-25T04:41:13.651718+00:00"
+}

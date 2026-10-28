@@ -1,0 +1,89 @@
+{
+  "id": "581ad6c2-89ba-429f-a7b6-2b508b663fce",
+  "source": "report",
+  "frames": [
+    [],
+    [
+      "a source deals damage to",
+      "Obinerone, that source's",
+      "Ome"
+    ],
+    [
+      "Phyrexian Obliterator",
+      "Creature - Horror",
+      "Trample",
+      "Whenever a source deals damage to",
+      "Phyrexian Obliterator, that source's",
+      "controller sacrifices that many",
+      "permanents.",
+      "\"Behold blessed perfection.\"",
+      "—Sheoldred, Whispering One",
+      "1/248 м",
+      "425 - EN & Toss LocEvo",
+      "5/5",
+      "- & 2016 Wands of the Coad"
+    ],
+    [
+      "Phyrexian Obliterator",
+      "Creature - Horror",
+      "Trample",
+      "Whenever a source deals damage to",
+      "Phyrexian Obliterator, that source's",
+      "controller sacrifices that many",
+      "permanents.",
+      "\"Behold blessed perfection.\"",
+      "-Sheoldred, Whispering One",
+      "101/249 M",
+      "4A25. EN * TODD LOCKWOOD",
+      "5/5",
+      "* & € 2018 Wands of the Coast"
+    ],
+    [
+      "Phyrexian Obliterator",
+      "Creature - Horror",
+      "Trample",
+      "Whenever a source deals damage to",
+      "Phyrexian Obliterator, that source's",
+      "controller sacrifices that many",
+      "permanents.",
+      "\"Behold blessed perfection.\"",
+      "-Sheoldred, Whispering One",
+      "101/249",
+      "A25 • EN - TODD LOCKWOOD",
+      "5/5",
+      "™M & C 2018 Wizards of the Coast"
+    ],
+    [
+      "Phyrexian Obliterator",
+      "Creature - Horror",
+      "Trample",
+      "Whenever a source deals damage to",
+      "Phyrexian Obliterator, that source's",
+      "controller sacrifices that many",
+      "permanents.",
+      "\"Behold blessed perfection.\"",
+      "-Sheoldred, Whispering One",
+      "101/248",
+      "M",
+      "5/5",
+      "CA25 • EN TODD LOCKWOOD",
+      "IM & € 2018 Wizards of the Coast"
+    ]
+  ],
+  "name": "Phyrexian Obliterator",
+  "set": "plst",
+  "cn": "A25-101",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "101",
+    "set": "a25",
+    "name": "Phyrexian Obliterator",
+    "exact": true,
+    "card_id": "acf5cbe2-84fa-46f4-a4f2-97b48ddf2d39"
+  },
+  "reported_at": "2026-10-25T04:42:13.784249+00:00"
+}

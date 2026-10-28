@@ -1,0 +1,69 @@
+{
+  "id": "554ab7d8-47c3-4db8-817e-6f4cd95de145",
+  "source": "report",
+  "frames": [
+    [],
+    [
+      "Cecil. Dark Knight",
+      "egendary Creature - Human Knight"
+    ],
+    [
+      "Cecil, Dark Knishe",
+      "Legendary Creature - Human Knight",
+      "Deathrouch"
+    ],
+    [
+      "Cecil, Dark Knight",
+      "Legendary Creature - Human Knight ED",
+      "- Whenever Cecil deals damage,",
+      "you lose that much life. Then if your life total",
+      "is less than or equal to half your starting life",
+      "Deathtouch",
+      "total, untap Cecil and transform it.",
+      "Darkness",
+      "\"I suppose this is my fate as a dark knight. Soon,",
+      "4/A",
+      "i soon't even feel remorse for my actions.\"",
+      "213",
+      "2125 Wizards of the Coas",
+      "EN DEN 510 BASAR"
+    ],
+    [],
+    [
+      "Cecil, Dark Knight",
+      "Legendary Creature - Human Knight",
+      "Darkness — Whenever Cecil deals damage,",
+      "you lose that much life. Then if your life total",
+      "is less than or equal to half your starting life",
+      "Deathtouch",
+      "total, untap Cecil and transform it.",
+      "\"I suppose this is my fate as a dark knight. Soon,",
+      "4/4",
+      "I won't even feel remorse for my actions.\"",
+      "213",
+      "3 Wanted tor Com",
+      "0091"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Cecil, Dark Knight // Cecil, Redeemed Paladin",
+    "set": "fin",
+    "cn": "91"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "91",
+    "set": "fin",
+    "name": "Cecil, Dark Knight // Cecil, Redeemed Paladin",
+    "exact": false,
+    "card_id": "026e7167-d665-43d0-a51e-8df2d68cdb5e"
+  },
+  "reported_at": "2026-10-25T04:25:32.620367+00:00"
+}

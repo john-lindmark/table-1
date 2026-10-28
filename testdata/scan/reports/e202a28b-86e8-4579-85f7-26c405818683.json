@@ -1,0 +1,94 @@
+{
+  "id": "e202a28b-86e8-4579-85f7-26c405818683",
+  "source": "report",
+  "frames": [
+    [
+      "Doomsday",
+      "Sorcery",
+      "Pay half your life, rounded up: Put",
+      "your graveyard on top of your",
+      "library, then remove all but five",
+      "cards of your library from the game.",
+      "Pur the rest on top of your library",
+      "in any order.",
+      "Illas. Adrian Smith"
+    ],
+    [
+      "Doomsday",
+      "Sorcery",
+      "Pay half your life, rounded up: Put",
+      "your graveyard on top of your",
+      "library, then remove all but five",
+      "cards of your library from the game.",
+      "Put the rest on top of your library",
+      "in any order.",
+      "Illus. Adrian Smith",
+      "© 1997 Wizard of the Coast, Iac. All rights teserve"
+    ],
+    [
+      "Doomsday",
+      "Sorcery",
+      "Pay half your life, rounded up: Put",
+      "your graveyard on top of your",
+      "library, then remove all but five",
+      "cards of your library from the game.",
+      "Put the rest on top of your library",
+      "in any order.",
+      "Illus. Adrian Smith",
+      "C1997 Wuards of the Coast, fac. All rights reserved"
+    ],
+    [
+      "Doomsday",
+      "Sorcery",
+      "Pay half your life, rounded up: Put",
+      "your graveyard on top of your",
+      "library, then remove all but five",
+      "cards of your library from the game.",
+      "Put the rest on top of your library",
+      "in any order.",
+      "Illus. Adrian Smith",
+      "C1997 Wizards of the Coast, Inc. All rights seserved"
+    ],
+    [
+      "Doomsday",
+      "Sorcery",
+      "Pay half your life, rounded up: Put",
+      "your graveyard on top of your",
+      "library, then remove all but five",
+      "cards of your library from the game.",
+      "Put the rest on top of",
+      "in any order.",
+      ")f your librar",
+      "Illus. Adrian Smith",
+      "© 1097 Wizand of the Coast, jac. All rights reserved."
+    ],
+    [
+      "Doomsday",
+      "Sorcery",
+      "Pay half your life, rounded up: Put",
+      "your graveyard on top of your",
+      "library, then remove all but five",
+      "cards of your library from the game.",
+      "Put the rest on top of your library",
+      "in any order.",
+      "Illus. Adrian Smith",
+      "© 1997 Weards of the Coast, Inc. All rights teserved."
+    ]
+  ],
+  "name": "Doomsday",
+  "set": "plst",
+  "cn": "WTH-66",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "66",
+    "set": "wth",
+    "name": "Doomsday",
+    "exact": false,
+    "card_id": "5b3c6d87-9383-450b-bba5-33435b6b0d08"
+  },
+  "reported_at": "2026-10-25T04:39:02.758857+00:00"
+}

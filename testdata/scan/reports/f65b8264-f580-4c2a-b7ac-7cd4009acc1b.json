@@ -1,0 +1,77 @@
+{
+  "id": "f65b8264-f580-4c2a-b7ac-7cd4009acc1b",
+  "source": "report",
+  "frames": [
+    [
+      "Ball",
+      "132c5C8RL",
+      "·ФФ",
+      "+1",
+      "DS",
+      "2207264 R",
+      "in & e 2010 Wizands of the Com",
+      "WAR • JP",
+      "• 1854C / FUZICHOCO"
+    ],
+    [
+      "$5.",
+      "KOSHERT.",
+      "WAR. JP",
+      "IN & © 2019 Wizand of the Coast"
+    ],
+    [
+      "ERZETCE",
+      "20B022051",
+      "ЕДФ",
+      "ZORANEM OD-NEHA CHNA",
+      "DENEDZ MUEOARORECA",
+      ":Sazomins-rinescu",
+      "-3",
+      "ROFCE9",
+      "WAR • JP",
+      "IM & C 2019 Wizards of the Coll"
+    ],
+    [
+      "3a. 07",
+      "20031051",
+      "ZДФ",
+      "En",
+      "COTER",
+      "220/264 R",
+      "WAR • JP",
+      "•8513/ FUZICHOCO",
+      "™ & 0 2019 Wizards of the Coas"
+    ],
+    [
+      "ORDEROSY",
+      "-3",
+      "220/264 R",
+      "• 85L3 / FuzicHoco",
+      "WAR • JP",
+      "+M & © 2019 Wizards of the Cl"
+    ],
+    [
+      "DS",
+      "NOTARDT",
+      "220/264 R",
+      "1651C / FUZICHOCO",
+      "WAR • JP"
+    ]
+  ],
+  "name": "Tamiyo, Collector of Tales",
+  "set": "war",
+  "cn": "220★",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "220",
+    "set": "war",
+    "name": "Tamiyo, Collector of Tales",
+    "exact": true,
+    "card_id": "76776b24-a2e1-4590-88e7-8a421baf2fc4"
+  },
+  "reported_at": "2026-10-26T03:13:33.263457+00:00"
+}

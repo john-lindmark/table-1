@@ -1,0 +1,70 @@
+{
+  "id": "4f27e5e5-4a57-4a96-a40c-09f458540c79",
+  "source": "report",
+  "frames": [
+    [
+      "fellwar Stone",
+      "Artifact",
+      "•: Add one mana of any color",
+      "that a land an opponent controls",
+      "could produce.",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "Fellwar Stone",
+      "Artifact",
+      "e: Add one mana of any color",
+      "that a land an opponent controls",
+      "could produce.",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "fellwar Stone",
+      "Artifact",
+      "r: Add one mana of any color",
+      "that a land an opponent controls",
+      "could produce.",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "fellwar Stone",
+      "Artifact",
+      "r: Add one mana of any color",
+      "that a land an opponent controls",
+      "could produce.",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "Fellwar Stone",
+      "Artifact",
+      "r: Add one mana of any color",
+      "that a land an opponent controls",
+      "could produce.",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "Fellwar Stone",
+      "Artifact",
+      "r: Add one mana of any color",
+      "that a land an opponent controls",
+      "could produce.",
+      "Illus. Dan Frazier"
+    ]
+  ],
+  "name": "Fellwar Stone",
+  "set": "sld",
+  "cn": "708",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "102",
+    "set": "drk",
+    "name": "Fellwar Stone",
+    "exact": false,
+    "card_id": "dc47e322-f8b8-4685-b035-fda0cc433e6b"
+  },
+  "reported_at": "2026-10-28T00:21:06.281254+00:00"
+}

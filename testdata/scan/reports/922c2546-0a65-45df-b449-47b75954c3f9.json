@@ -1,0 +1,83 @@
+{
+  "id": "922c2546-0a65-45df-b449-47b75954c3f9",
+  "source": "report",
+  "frames": [
+    [],
+    [
+      "helm of Awakening",
+      "Artifact",
+      "Spells cost 1 less to cast.",
+      "\"This little prize will cover your",
+      "head, your spells, your bets, and your",
+      "behind!\"",
+      "- Pashad ibn Asim, Sug'Ata trader",
+      "Illus, Adam Rex",
+      "2011g",
+      "329"
+    ],
+    [
+      "helm of Awakening",
+      "2",
+      "Artifact",
+      "Spells cost 1 less to cast.",
+      "\"This little prize will cover your",
+      "head, your spells, your bets, and your",
+      "behind!\"",
+      "—Pashad ibn Asim, Suq'Ata trader",
+      "Illus. Adam Rex",
+      "2023 Wizards of the Coast 379"
+    ],
+    [
+      "helm of Awakening",
+      "Artifact",
+      "Spells cost 1 less to cast.",
+      "\"This little prize will cover your",
+      "head, your spells, your bets, and your",
+      "behind!\"",
+      "—Pashad ibn Asim, Suq'Ata trader",
+      "Illus. Adam Rex",
+      "2023 Wards of the Col"
+    ],
+    [
+      "helm of Awakening",
+      "Artifact",
+      "Spells cost 1 less to cast.",
+      "\"This little prize will cover your",
+      "head, your spells, your bets, and your",
+      "behind!\"",
+      "—Pashad ibn Asim, Suq'Ata trader",
+      "Illus. Adam Rex",
+      "2023 Wizards of the Coast 379"
+    ],
+    [
+      "helm of Awakening",
+      "Artifact",
+      "Spells cost 1 less to cast.",
+      "\"This little prize will cover your",
+      "head, your spells, your bets, and your",
+      "behind!\"",
+      "—Pashad in Asim, Sug'Ata trader",
+      "Illus. Adam Rex",
+      "™ &",
+      "2023 Wirards of the Cons",
+      "224/261",
+      "DMR • EN"
+    ]
+  ],
+  "name": "Helm of Awakening",
+  "set": "dmr",
+  "cn": "379",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "224",
+    "set": "dmr",
+    "name": "Helm of Awakening",
+    "exact": true,
+    "card_id": "e9e4ff9c-6244-43e1-b569-32a270c4e014"
+  },
+  "reported_at": "2026-10-26T03:19:37.181241+00:00"
+}

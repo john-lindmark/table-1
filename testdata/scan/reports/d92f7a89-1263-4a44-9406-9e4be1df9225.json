@@ -1,0 +1,83 @@
+{
+  "id": "d92f7a89-1263-4a44-9406-9e4be1df9225",
+  "source": "report",
+  "frames": [
+    [
+      "Thoughtsee",
+      "C",
+      "Target player reveals their hand. You",
+      "choose & nonland card from it. That",
+      "plaver discards that card. You lose 2 life.",
+      "Him dream is a rebust harvest. Snil, 1",
+      "er the timetiern dreams, heary with",
+      "impon, thas has the obsessive mind.\""
+    ],
+    [
+      "Thoughtseize",
+      "Sorcery",
+      "Target player reveals their hand. You",
+      "choose a nonland card from it. That",
+      "player discards that card. You lose 2 life.",
+      "\"Any dream is a robust harvest. Still, 1",
+      "prefer the timeworn dreams, heavy with",
+      "import, that haunt the obsessive mind\""
+    ],
+    [
+      "Thoughtseize",
+      "Sorcery",
+      "Target player reveals their hand. You",
+      "choose a nonland card from it. That",
+      "player discards that card. You lose 2 life.",
+      "\"Any dream is a robust harvest. Still, I",
+      "prefer the timeworn dreams, heavy with",
+      "import, that haunt the obsessive mind\""
+    ],
+    [
+      "Thoughtseize",
+      "Sorcery",
+      "Target player reveals their hand. You",
+      "choose a nonland card from it. That",
+      "player discards that card. You lose 2 life.",
+      "\"Any dream is a robust harvest. Still, 1",
+      "prefer the timeworn dreams, heavy with",
+      "import, that haunt the obsessive mind.\""
+    ],
+    [
+      "Thoughtseize",
+      "Sorcery",
+      "Target player reveals their hand. You",
+      "choose a nonland card from it. That",
+      "player discards that card. You lose 2 life.",
+      "\"Any dream is a robust harvest. Still, 1",
+      "prefer the timeworn dreams, heavy with",
+      "import, that haunt the obsessive mind.\""
+    ],
+    [
+      "Thoughtseize",
+      "Sorcery",
+      "Target player reveals their hand. You",
+      "choose a nonland card from it. That",
+      "player discards that card. You lose 2 life.",
+      "\"Any dream is a robust harvest. Still, I",
+      "prefer the timeworn dreams, heavy with",
+      "import, that haunt the obsessive mind.\"",
+      "REN & ACES BRICLOT"
+    ]
+  ],
+  "name": "Thoughtseize",
+  "set": "2xm",
+  "cn": "109",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (28)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "145",
+    "set": "lrw",
+    "name": "Thoughtseize",
+    "exact": false,
+    "card_id": "3df8c148-e87d-4043-9d8b-ec72bf8b6d5d"
+  },
+  "reported_at": "2026-10-26T04:25:53.230514+00:00"
+}

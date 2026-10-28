@@ -1,0 +1,72 @@
+{
+  "id": "626abc2e-0a29-481d-b6b2-0adb69e7008d",
+  "source": "report",
+  "frames": [
+    [],
+    [],
+    [
+      "Hallowed Fountain",
+      "Land - Plains Island",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "*I like to bask and watch its beauty a",
+      "eminder that we can't control the",
+      "urvents, but can know how to soim"
+    ],
+    [
+      "Hallowed Fountain",
+      "Land - Plains Island",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "\"I like to bask and watch its beauty a",
+      "reminder that we can't control the",
+      "currents, but can know how to swim",
+      "across them.\"",
+      "-Syge",
+      "ECL •EN A TUSTIN GERARD"
+    ],
+    [
+      "Hallowed Fountain",
+      "na cuter, you say pet 2",
+      "Me. If you don't, i enters tempes",
+      "*I like to bask and sutch is begwy",
+      "reminder that use can't connel the",
+      "currents, but cam know hou to nuim",
+      "a tham:"
+    ],
+    [
+      "Hallowed Fountain",
+      "Land - Plains Island",
+      "As this land enters, you may pay 2",
+      "life. If you don't, it enters tapped.",
+      "\"I like to bask and watch its beautya",
+      "reminder that we can't control the",
+      "currents, but can know how to swim",
+      "across them.\"",
+      "Sygg",
+      "ECL • EN NO TUSTIN GERARO",
+      "R 0347"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Hallowed Fountain",
+    "set": "ecl",
+    "cn": "347"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "347",
+    "set": "ecl",
+    "name": "Hallowed Fountain",
+    "exact": true,
+    "card_id": "19cba6be-7291-4788-9241-87dad3b68363"
+  },
+  "reported_at": "2026-10-25T04:07:48.795551+00:00"
+}

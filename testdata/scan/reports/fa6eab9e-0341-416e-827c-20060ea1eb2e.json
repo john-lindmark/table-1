@@ -1,0 +1,71 @@
+{
+  "id": "fa6eab9e-0341-416e-827c-20060ea1eb2e",
+  "source": "report",
+  "frames": [
+    [],
+    [],
+    [
+      "sund",
+      "- Mountan",
+      "Fones",
+      "drug",
+      "Pay 2 06",
+      "255 2 30j"
+    ],
+    [
+      "Stomping Ground",
+      "Land - Mountain Forest",
+      "(r: Add a or",
+      "As this land enters, you may pay 2 life. If",
+      "you don't, it enters tapped.",
+      "\"Log 2.5.325: A newborn moon, Aqgat still",
+      "churns with the fires of creation. I'm eager to",
+      "see what it will become!\"",
+      "-Maisie's Edge Chronicles",
+      "R 025R",
+      "EOE * EN & BRUCE BRENNEISE"
+    ],
+    [
+      "Stomping Ground",
+      "Land - Mountain Forest",
+      "r: Add a or",
+      "As this land enters, you may pay 2 life. If",
+      "you don't, it enters tapped.",
+      "\"Log 2.5.325: A newborn moon, Aggat still",
+      "churns with the fires of creation. I'm eager to",
+      "see what it will become!\"",
+      "-Maisie's Edge Chronicles",
+      "R 0258",
+      "EOE *EN & BRUCE BRENNEISE"
+    ],
+    [
+      "Stomping Ground",
+      "Land - Mountain Forest",
+      "r: Add 2 or q.)",
+      "As this land enters, you may pay 2 life. If",
+      "you don't, it enters tapped.",
+      "\"Log 2.5.325: A newborn moon, Aqgat still",
+      "churns with the fires of creation. I'm eager to",
+      "see what it will become!\"",
+      "-Maisie's Edge Chronicles",
+      "R 0258",
+      "EOE *EN & BRUCE BRENNESE"
+    ]
+  ],
+  "name": "Stomping Ground",
+  "set": "peoe",
+  "cn": "258p",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "258",
+    "set": "eoe",
+    "name": "Stomping Ground",
+    "exact": true,
+    "card_id": "69be21b4-c613-47c6-ba57-f4785861af3e"
+  },
+  "reported_at": "2026-10-25T04:12:32.004683+00:00"
+}

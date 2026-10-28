@@ -1,0 +1,100 @@
+{
+  "id": "c946fd22-f5bf-4dbf-ba42-56f0ee22b734",
+  "source": "report",
+  "frames": [
+    [
+      "Graven Cairns",
+      "Land",
+      "• Add 1 to your mana pool.",
+      "%, r: Add 8°,",
+      "Pa, or a a to your",
+      "mana pool.",
+      "\"Here di",
+      "the Extinguisher steal",
+      "the light",
+      "ld. Here will we sa",
+      "from ti",
+      "rifice her to",
+      "Roh Alexander"
+    ],
+    [
+      "Graven Cairns",
+      "Land",
+      "r: Add 1 to your mana pool",
+      "®, r: Add $ R, $2, or 22 to your",
+      "mana pool.",
+      "\"Here did the Extinguisher ste&l the light",
+      "from th",
+      "orld. Here will we sacrifice her to",
+      "ir people.",
+      "Rob Alexander"
+    ],
+    [
+      "Graven Cairns",
+      "Land",
+      "r: Add 1 to your mana pool.",
+      "2, r: Add $$, $ 2, or 2 2 to your",
+      "mana pool.",
+      "\"Here did the Extinguisher stell the light",
+      "from th",
+      "orld. Here will we sar",
+      "rifice her to",
+      "er people.\"",
+      "→ Rob Alexander"
+    ],
+    [
+      "Graven Cairns",
+      "Land",
+      "r: Add 1 to your mana pool.",
+      "*2, r: Add $$, $ 2, or 2 a to your",
+      "mana pool.",
+      "\"Here did",
+      "the Extinguisher steel the light",
+      "from th",
+      "orld. Here will we sal",
+      "rifice her to",
+      "er people.\"",
+      "- Rob Alexander"
+    ],
+    [
+      "Graven Cairns",
+      "Land",
+      "r: Add 1 to your mana pool",
+      "•, r: Add $$",
+      "2, or 2a to your",
+      "mana pool.",
+      "\"Here did the Extinguisher stell the light",
+      "from th",
+      "rld. Here will we sal",
+      "rifice her to",
+      "- Rob Alexander"
+    ],
+    [
+      "Graven Cairns",
+      "Land",
+      "r: Add 1 to your mana pool.",
+      "2, r: Add $$, $ 2, or 22 to your",
+      "mana pool.",
+      "\"Here did the Extinguisher stee the light",
+      "from th",
+      "orld. Here will we sal",
+      "- Rob Alexander"
+    ]
+  ],
+  "name": "Graven Cairns",
+  "set": "shm",
+  "cn": "272",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "175",
+    "set": "fut",
+    "name": "Graven Cairns",
+    "exact": false,
+    "card_id": "81e7d329-ef6a-45f3-82b6-37a3606c00bc"
+  },
+  "reported_at": "2026-10-28T02:43:19.61744+00:00"
+}

@@ -1,0 +1,99 @@
+{
+  "id": "5ee8715b-b970-415c-a6b9-539b03295010",
+  "source": "report",
+  "frames": [
+    [],
+    [
+      "dand perm",
+      "rani mn the harpleted"
+    ],
+    [
+      "Return all nonland permanent cards",
+      "im your graveyard to the battlefield.",
+      "cut so bu",
+      "he F"
+    ],
+    [
+      "Return to the Light Realms",
+      "Samu",
+      "Sorcery",
+      "Return all nonland permanen",
+      "from your graveyard to the ba",
+      "Legend",
+      "\"For every living person there a",
+      "Instan",
+      "have s",
+      "generations of souls reaching ou",
+      "with s",
+      "remembered.",
+      "can't d",
+      "—Liliana the Faultless",
+      "aren't",
+      "M 0020",
+      "Every",
+      "ERA *EN → ANNA STEINBALER",
+      "FRA •EN A GArIGORE RETO"
+    ],
+    [
+      "Return to the Light Realn",
+      "Samu",
+      "Sorcery",
+      "Return all nonland",
+      "Legend",
+      "Instan",
+      "have s",
+      "with s",
+      "remembered",
+      "can't",
+      "—Liliana the Faultless",
+      "aren't",
+      "Every",
+      "COACEN ANNA STEEML",
+      "2 0220",
+      "FRA • EN GaN"
+    ],
+    [
+      "Return to the Light Realm",
+      "Samu",
+      "Sorcery",
+      "Return all nonland permar",
+      "Legend",
+      "from your graveyard to the",
+      "Instan",
+      "\"For every living person ther",
+      "have s",
+      "generations of souls reaching",
+      "with s",
+      "remembered.",
+      "can't",
+      "--Liliana the Faultless",
+      "aren't",
+      "M 0020",
+      "Everyi",
+      "ERA *EN N- ANNA STEINBAUER",
+      "R 0220",
+      "FRA • EN AL GRZEGORZ RUTKOWSKT"
+    ]
+  ],
+  "name": null,
+  "set": "*",
+  "cn": "*",
+  "not": {
+    "name": "Return to the Light Realms",
+    "set": "fra",
+    "cn": "20"
+  },
+  "kind": "removed",
+  "platform": "ios",
+  "app_version": "0.1.0 (23)",
+  "pack_version": "v1-d695515817e0",
+  "owned_only": false,
+  "matched": {
+    "cn": "20",
+    "set": "fra",
+    "name": "Return to the Light Realms",
+    "exact": true,
+    "card_id": "9e72f397-2384-40f1-882b-f627664d97df"
+  },
+  "reported_at": "2026-10-24T03:51:54.535802+00:00"
+}

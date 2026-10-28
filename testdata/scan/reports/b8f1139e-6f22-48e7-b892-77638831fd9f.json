@@ -1,0 +1,73 @@
+{
+  "id": "b8f1139e-6f22-48e7-b892-77638831fd9f",
+  "source": "report",
+  "frames": [
+    [
+      "Final Fortune"
+    ],
+    [
+      "Final Fortune",
+      "Instant",
+      "Take an extra turn after this one,",
+      "At the beginning of that turn's end",
+      "step, you lose the game.",
+      "A reward is worthless if you aren't",
+      "around to enjoy it."
+    ],
+    [
+      "Final Fortune",
+      "Instant",
+      "Take an extra turn after this one",
+      "At the beginning of that turn's end",
+      "step, you lose the game",
+      "A reward is zoorthless if you aren't",
+      "around to enjoy it."
+    ],
+    [
+      "Final Fortune",
+      "Instant",
+      "Take an extra turn after this one.",
+      "At the beginning of that turn's end",
+      "step, you lose the game.",
+      "A reward is worthless if you aren't",
+      "around to enjoy it.",
+      "Tim Hildebrandt"
+    ],
+    [
+      "Final Fortune",
+      "Instant",
+      "Take an extra turn after this one.",
+      "At the beginning of that turn's end",
+      "step, you lose the game.",
+      "A reward is worthless if you aren't",
+      "around to enjoy it.",
+      "Tim Hildebrandt"
+    ],
+    [
+      "Final Fortune",
+      "Instant",
+      "Take an extra turn after this one.",
+      "At the beginning of that turn's end",
+      "step, you lose the game.",
+      "A reward is worthless if you aren't",
+      "around to enjoy it.",
+      "Tim Hildebrandt"
+    ]
+  ],
+  "name": "Final Fortune",
+  "set": "mb2",
+  "cn": "190",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "173",
+    "set": "mir",
+    "name": "Final Fortune",
+    "exact": false,
+    "card_id": "83589c25-58a2-4172-8f60-6033a61f34c6"
+  },
+  "reported_at": "2026-10-26T02:59:34.054657+00:00"
+}

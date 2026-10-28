@@ -1,0 +1,76 @@
+{
+  "id": "fd81826f-5f5a-4273-822e-a1a44a622494",
+  "source": "report",
+  "frames": [
+    [
+      "RAGING RAVINE",
+      "Land",
+      "This bond corers tapped",
+      "AME OF G",
+      "this laid becomes",
+      "mal creature with"
+    ],
+    [
+      "RAGING RAVINE",
+      "Land",
+      "This hand enters tapped",
+      "G: Add & or C.",
+      "BEC: Unul end of turn, this land becomes",
+      "• 33 red and green Elemental creature with",
+      "Whenever this creature attacks, put a +1/+1",
+      "counter on it* i",
+      "land"
+    ],
+    [
+      "RAGING RAVINE",
+      "and spire tary"
+    ],
+    [
+      "RAGING RAVINE",
+      "Land",
+      "This land enters tapped",
+      "G: Add E or C",
+      "BEC: Until end of turn, this land becomes",
+      "a 3/3 red and green Elemental creature with",
+      "\"Whenever this creature attacks, put a +1/+1",
+      "counter on it\" It's still",
+      "a land"
+    ],
+    [
+      "RAGING RAVINE",
+      "Land",
+      "This land enters tapped",
+      "G: Add E or C..",
+      "OCC: Until end of turn, this land becomes",
+      "a 3/3 red and green Elemental creature with",
+      "*Whenever this creature attacks, put a +1/+I",
+      "counter on it.\" It's still a land"
+    ],
+    [
+      "RAGING RAVINE",
+      "Land",
+      "This land enters tapped",
+      "G: Add € or C.",
+      "06G: Until end of turn, this land becomes",
+      "a 3/3 red and green Elemental creature with",
+      "\"Whenever this creature attacks, put a +1/+1",
+      "counter on it.\" Ir's still a land"
+    ]
+  ],
+  "name": "Raging Ravine",
+  "set": "eos",
+  "cn": "125",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (27)",
+  "pack_version": "v1-649ab7054259",
+  "owned_only": false,
+  "matched": {
+    "cn": "141",
+    "set": "wwk",
+    "name": "Raging Ravine",
+    "exact": false,
+    "card_id": "cb7b6fb5-4d38-4734-b46f-923322cff24e"
+  },
+  "reported_at": "2026-10-26T03:22:27.80392+00:00"
+}

@@ -1,0 +1,94 @@
+{
+  "id": "25c714d9-3144-4196-aa81-f120028031d5",
+  "source": "report",
+  "frames": [
+    [
+      "Wasteland",
+      "Land",
+      "@: Add one colorless mana to your",
+      "mana pool.",
+      "P, Sacrifice Wasteland: Destroy target",
+      "nonbasic land.",
+      "\"The land promises nothing and keeps",
+      "its promise.",
+      "Oracle en-Vec",
+      "Illus. Una Fricker"
+    ],
+    [
+      "Wasteland",
+      "Land",
+      "®: Add one colorless mana to your",
+      "mana pool.",
+      "9, Sacrifice Wasteland: Destroy target",
+      "nonbasic land.",
+      "\"The land promises nothing and keeps",
+      "its promise.",
+      "Oracle en-Vec",
+      "Illus. Una Fricker"
+    ],
+    [
+      "Wasteland",
+      "Land",
+      "P: Add one colorless mana to your",
+      "mana pool.",
+      "®, Sacrifice Wasteland: Destroy target",
+      "nonbasic land.",
+      "\"The land promises nothing and keeps",
+      "its promise.",
+      "-Oracle en-Vec",
+      "Illus. Una Fricker"
+    ],
+    [
+      "Wasteland",
+      "Land",
+      "@: Add one colorless mana to your",
+      "mana pool.",
+      "9, Sacrifice Wasteland: Destroy target",
+      "nonbasic land",
+      "\"The land promises nothing and keeps",
+      "its promise.",
+      "-Oracle en-Vec",
+      "Illus. Una Fricker"
+    ],
+    [
+      "Wasteland",
+      "Land",
+      "P: Add one colorless mana to your",
+      "mana pool.",
+      "®, Sacrifice Wasteland: Destroy target",
+      "nonbasic land.",
+      "\"The land promises nothing and keeps",
+      "its promise.",
+      "Oracle en-Vec",
+      "Illus. Una Fricker"
+    ],
+    [
+      "Wasteland",
+      "Land",
+      "®: Add one colorless mana to your",
+      "mana pool.",
+      "9, Sacrifice Wasteland: Destroy target",
+      "nonbasic land.",
+      "\"The land promises nothing and keeps",
+      "its promise.",
+      "-Oracle en-Vec",
+      "Illus. Una Fricker"
+    ]
+  ],
+  "name": "Wasteland",
+  "set": "wc98",
+  "cn": "rb330sb",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "330",
+    "set": "tmp",
+    "name": "Wasteland",
+    "exact": false,
+    "card_id": "99ff731b-8399-40c8-b539-ba6ba5783771"
+  },
+  "reported_at": "2026-10-28T00:11:25.909528+00:00"
+}

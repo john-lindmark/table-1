@@ -1,0 +1,72 @@
+{
+  "id": "604e12e9-9c9d-46b2-900f-6300e1b18343",
+  "source": "report",
+  "frames": [
+    [
+      "Choose one —",
+      "• Counter target spell i or's blue",
+      "• Destroy target permanent if it's",
+      "blue"
+    ],
+    [
+      "Pyroblast",
+      "Instant",
+      "Choose one -",
+      "• Counter target spell if it's blue.",
+      "• Destroy target permanent if it's",
+      "blue."
+    ],
+    [
+      "Pyroblast",
+      "Instant",
+      "Choose one",
+      "• Counter target spell if it's blue.",
+      "• Destroy target permanent if it's",
+      "blue.",
+      "ph Meehan"
+    ],
+    [
+      "Pyroblast",
+      "Instant",
+      "Choose one",
+      "• Counter target spell if it's blue.",
+      "• Destroy target permanent if it's",
+      "blue.",
+      "eehan"
+    ],
+    [
+      "Pyroblast",
+      "Instant",
+      "Choose one -",
+      "• Counter target spell if it's blue.",
+      "• Destroy target permanent if it's",
+      "blue.",
+      "• Joseph Meehan"
+    ],
+    [
+      "Pyroblast",
+      "Instant",
+      "Choose one —",
+      "• Counter target spell if it's blue.",
+      "• Destroy target permanent if it's",
+      "blue.",
+      "leehan"
+    ]
+  ],
+  "name": "Pyroblast",
+  "set": "mb2",
+  "cn": "198",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "213",
+    "set": "ice",
+    "name": "Pyroblast",
+    "exact": false,
+    "card_id": "c342cac5-08ae-4428-9c2c-f6c5904e54d2"
+  },
+  "reported_at": "2026-10-28T00:35:30.709528+00:00"
+}

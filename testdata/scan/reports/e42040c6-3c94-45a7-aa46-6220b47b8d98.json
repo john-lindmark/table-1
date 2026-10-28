@@ -1,0 +1,97 @@
+{
+  "id": "e42040c6-3c94-45a7-aa46-6220b47b8d98",
+  "source": "report",
+  "frames": [
+    [
+      "Tourach, Dread Cantor",
+      "1e",
+      "_reature - Human Cleric",
+      "ards a card, put",
+      "Dread Cantor.",
+      "lefield, if it was",
+      "ards two cards",
+      "2/1"
+    ],
+    [
+      "Tourach. Dread Cantor",
+      "Legendary Creature - Human Cleric",
+      "Protection from white",
+      "ever an opponent discards a card, put",
+      "a +1/41 counter on Tourach, Dread Cantor.",
+      "Tourach enters the batricfield, if it was",
+      "target opponent discards two cards",
+      "2/1"
+    ],
+    [
+      "Tourach, Dread Cantor",
+      "Legendary Creature - Human Cleric",
+      "Kicker GO",
+      "Protection from white",
+      "Whenever an opponent discards a card, put",
+      "a +1/+1 counter on Tourach, Dread Cantor.",
+      "When Tourach enters the battlefield, if it was",
+      "kicked, target opponent discards two cards",
+      "at random.",
+      "MH2 • EN &- ZEZNON CHEN",
+      "* *e 2021 Wind of the Coal",
+      "2/1"
+    ],
+    [
+      "Tourach, Dread Cantor",
+      "0g",
+      "Legendary Creature - Human Cleric",
+      "Kicker ©G",
+      "Protection from white",
+      "Whenever an opponent discards a card, put",
+      "a +1/+1 counter on Tourach, Dread Cantor.",
+      "When Tourach enters the battlefield, if it was",
+      "kicked, target opponent discards two cards",
+      "at random."
+    ],
+    [
+      "Tourach, Dread Cantor",
+      "Legendary Creature - Human Cleric",
+      "Kicker GO",
+      "Protection from white",
+      "Whenever an opponent discards a card, put",
+      "a +1/+1 counter on Tourach, Dread Cantor.",
+      "When Tourach enters the battlefield, if it was",
+      "kicked, target opponent discards two cards",
+      "at random.",
+      "MH2 • EN A- ZEZHOU CHEN",
+      "t & C 2021 Woards of the Coast",
+      "2/1"
+    ],
+    [
+      "Tourach, Dread Cantor",
+      "Legendary Creature - Human Cleric",
+      "Kicker ©©",
+      "Protection from white",
+      "Whenever an opponent discards a card, put",
+      "a +1/+1 counter on Tourach, Dread Cantor.",
+      "When Tourach enters the battlefield, if it was",
+      "kicked, target opponent discards two cards",
+      "at random.",
+      "312",
+      "MH2 - EN A ZEZHOU CHEN",
+      "™M & C 2021 Wizards of the Coast",
+      "2/1"
+    ]
+  ],
+  "name": "Tourach, Dread Cantor",
+  "set": "mh2",
+  "cn": "312",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (24)",
+  "pack_version": "v1-6a453a6c15a8",
+  "owned_only": false,
+  "matched": {
+    "cn": "102",
+    "set": "mh2",
+    "name": "Tourach, Dread Cantor",
+    "exact": false,
+    "card_id": "f3526751-0101-4d91-a496-c53cd92326e0"
+  },
+  "reported_at": "2026-10-25T04:44:34.843537+00:00"
+}

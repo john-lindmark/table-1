@@ -1,0 +1,70 @@
+{
+  "id": "8054c99e-dea2-4168-b69f-adc02fb374e1",
+  "source": "report",
+  "frames": [
+    [
+      "Mox Opal",
+      "Legendary Artifact",
+      "Metalcraft — r: Add one mana",
+      "of anv color. Activate only if you",
+      "control three or more artifacts.",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "Mox Opal",
+      "Legendary Artifact",
+      "Metalcraft — r: Add one mana",
+      "of any color. Activate only if you",
+      "control three or more artifacts.",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "Mox Opal",
+      "Legendary Artifact",
+      "Metalcraft — r: Add one mana",
+      "of any color. Activate only if you",
+      "control three or more artifacts.",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "Mox Opal",
+      "Legendary Artifact",
+      "Metalcraft — c: Add one mana",
+      "of any color. Activate only if you",
+      "control three or more artifacts.",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "Mox Opal",
+      "Legendary Artifact",
+      "Metalcraft — r: Add one mana",
+      "of any color. Activate only if you",
+      "control three or more artifacts.",
+      "Illus. Dan Frazier"
+    ],
+    [
+      "Mox Opal",
+      "Legendary Artifact",
+      "Metalcraft — r: Add one mana",
+      "of any color. Activate only if you",
+      "control three or more artifacts.",
+      "Illus. Dan Frazier"
+    ]
+  ],
+  "name": "Mox Opal",
+  "set": "sld",
+  "cn": "1072",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (30)",
+  "pack_version": "v1-718701532dc2",
+  "owned_only": false,
+  "matched": {
+    "cn": "179",
+    "set": "som",
+    "name": "Mox Opal",
+    "exact": false,
+    "card_id": "6be9b1d5-9ab8-4adb-ba54-2c0117e842fa"
+  },
+  "reported_at": "2026-10-28T02:32:47.267814+00:00"
+}
