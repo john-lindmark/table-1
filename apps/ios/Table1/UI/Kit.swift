@@ -432,70 +432,49 @@ struct T1SearchField: View {
 
 // MARK: tab bar
 
-/// Tiles on a 3 × 2 grid, the logo's construction at glyph size.
-struct T1TileGlyph: Shape {
-    let tiles: [(Int, Int)]
-
-    func path(in rect: CGRect) -> Path {
-        let gap: CGFloat = 2
-        let w = (rect.width - gap * 2) / 3, h = (rect.height - gap) / 2
-        var p = Path()
-        for (c, r) in tiles {
-            p.addRect(CGRect(x: rect.minX + CGFloat(c) * (w + gap), y: rect.minY + CGFloat(r) * (h + gap), width: w, height: h))
-        }
-        return p
-    }
-
-    static let events: [(Int, Int)] = [(0, 0), (1, 0), (2, 0), (0, 1), (1, 1), (2, 1)]
-    static let collection: [(Int, Int)] = [(0, 0), (2, 0), (0, 1), (1, 1), (2, 1)]
-    static let account: [(Int, Int)] = [(1, 0), (0, 1), (1, 1), (2, 1)]
-    /// Bars rising to the right.
-    static let insights: [(Int, Int)] = [(0, 1), (1, 1), (2, 0), (2, 1)]
-}
-
 struct T1TabItem<ID: Hashable>: Identifiable {
     let id: ID
     let label: String
-    let tiles: [(Int, Int)]
+    let icon: T1Icon
     var enabled = true
     /// Small note next to the label ("Soon").
     var note: String?
 }
 
-/// The app's bottom bar: tile glyph + label. Selected = text color with an accent glyph; others muted;
-/// disabled items grey. Taps on a disabled item still reach `onSelect` (to explain why).
+/// The app's bottom bar (Figma 407:9333): icon + label on the background. Selected = text color with a 1 pt accent
+/// line along its top; others a muted icon over a grey label; disabled items grey. Taps on a disabled item still
+/// reach `onSelect` (to explain why).
 struct T1TabBar<ID: Hashable>: View {
     let items: [T1TabItem<ID>]
     let selection: ID
     let onSelect: (ID) -> Void
 
     var body: some View {
-        HStack(spacing: 1) {
+        HStack(spacing: 0) {
             ForEach(items) { item in
                 let on = item.id == selection && item.enabled
                 Button { onSelect(item.id) } label: {
-                    VStack(spacing: 6) {
-                        T1TileGlyph(tiles: item.tiles)
-                            .fill(on ? T1.accent : item.enabled ? T1.muted : T1.disabled)
-                            .frame(width: 24, height: 15)
+                    VStack(spacing: 4) {
+                        item.icon
+                            .fill(on ? T1.text : item.enabled ? T1.muted : T1.disabled)
+                            .frame(width: 18, height: 18)
                         HStack(spacing: 4) {
-                            LabelText(item.label, color: on ? T1.text : item.enabled ? T1.muted : T1.disabled)
+                            Text(item.label.uppercased()).font(T1.mono(9)).tracking(1.5)
+                                .foregroundStyle(on ? T1.text : T1.disabled).lineLimit(1)
                             if let note = item.note {
                                 Text(note.uppercased()).font(T1.mono(8)).tracking(1).foregroundStyle(T1.disabled).lineLimit(1)
                             }
                         }
                     }
                     .frame(maxWidth: .infinity).padding(.top, 10).padding(.bottom, 8)
-                    .background(T1.surface)
+                    .overlay(alignment: .top) { if on { T1.accent.frame(height: 1) } }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(on ? .isSelected : [])
             }
         }
-        .padding(.top, 1)
-        .background(T1.bg)
-        .background(T1.surface.ignoresSafeArea(edges: .bottom))
+        .background(T1.bg.ignoresSafeArea(edges: .bottom))
         .sensoryFeedback(.selection, trigger: selection)
     }
 }

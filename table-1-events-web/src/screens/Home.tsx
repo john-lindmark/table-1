@@ -35,7 +35,7 @@ import {
   Section,
   Segmented,
   Stat,
-  TopNav,
+  TabNav,
   shortWhen,
 } from "../components/kit";
 
@@ -199,7 +199,7 @@ export function Home({
 
   return (
     <Screen>
-      <TopNav />
+      <TabNav />
       <Bar
         title="Events"
         subtitle={live.length ? `${live.length} live` : undefined}

@@ -13,7 +13,7 @@ import { avatarJpeg, clearAvatar, setAvatar, useAvatarPath } from "../lib/avatar
 import { Avatar } from "../components/Avatar";
 import type { AccountOverview } from "../lib/types";
 import { useSession } from "../lib/useSession";
-import { Bar, Menu, Notice, Screen, Segmented, TopNav, type MenuItem } from "../components/kit";
+import { Bar, Menu, Notice, Screen, Segmented, TabNav, type MenuItem } from "../components/kit";
 import { useTrackerMode } from "../lib/settings";
 import { FAN_CONTENT } from "../lib/legal";
 
@@ -171,7 +171,7 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile }: {
 
   return (
     <Screen>
-      <TopNav />
+      <TabNav />
       <Bar title={label} subtitle="Account" />
       {error && <Notice tone="error">{error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">

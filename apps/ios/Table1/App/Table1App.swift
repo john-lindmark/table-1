@@ -319,10 +319,10 @@ struct SignedInView: View {
     @State private var keyboardUp = false
 
     private let tabs: [T1TabItem<Tab>] = [
-        T1TabItem(id: .events, label: "Events", tiles: T1TileGlyph.events),
-        T1TabItem(id: .collection, label: "Collection", tiles: T1TileGlyph.collection),
-        T1TabItem(id: .insights, label: "Insights", tiles: T1TileGlyph.insights),
-        T1TabItem(id: .account, label: "Account", tiles: T1TileGlyph.account),
+        T1TabItem(id: .events, label: "Events", icon: .tabEvents),
+        T1TabItem(id: .collection, label: "Collection", icon: .tabCollection),
+        T1TabItem(id: .insights, label: "Insights", icon: .tabInsights),
+        T1TabItem(id: .account, label: "Account", icon: .tabAccount),
     ]
 
     var body: some View {

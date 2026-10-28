@@ -39,6 +39,7 @@ import site.table1.events.data.Repo
 import site.table1.events.library.RankingsScreen
 import site.table1.events.library.SharedLinkScreen
 import site.table1.events.library.FollowsStore
+import site.table1.events.library.T1Icon
 import site.table1.events.library.WantPricesStore
 import site.table1.events.library.FollowingScreen
 import site.table1.events.library.FollowChangesScreen
@@ -526,10 +527,10 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
         if (topLevel) {
             T1TabBar(
                 tabs = listOf(
-                    T1Tab("events", "Events", listOf(0 to 0, 1 to 0, 0 to 1, 1 to 1)),
-                    T1Tab("collection", "Collection", listOf(0 to 0, 0 to 1, 1 to 1)),
-                    T1Tab("insights", "Insights", listOf(0 to 1, 1 to 0, 1 to 1)),
-                    T1Tab("account", "Account", listOf(0 to 0, 1 to 0, 1 to 1)),
+                    T1Tab("events", "Events", T1Icon.TabEvents),
+                    T1Tab("collection", "Collection", T1Icon.TabCollection),
+                    T1Tab("insights", "Insights", T1Icon.TabInsights),
+                    T1Tab("account", "Account", T1Icon.TabAccount),
                 ),
                 selected = route,
                 onSelect = {

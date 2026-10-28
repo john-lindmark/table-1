@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { Bar, Field, Menu, Notice, Row, SCREEN_WIDTH, Screen, Segmented, TopNav, type ScreenWidth } from "../components/kit";
+import { Bar, Field, Menu, Notice, Row, SCREEN_WIDTH, Screen, Segmented, TabNav, type ScreenWidth } from "../components/kit";
 import { capture } from "../lib/telemetry";
 import { LAYOUTS, parseLayout, runStacks, type CardLayout } from "../lib/cardLayout";
 import { GROUPING_KEY, GROUPING_TITLE, groupLabel, groupSections, groupingOptions, keysOf, useStoredGrouping, type Grouping } from "../lib/cardGrouping";
@@ -640,7 +640,7 @@ export function LibraryHome({ go, onNew }: {
   );
   return (
     <LibScreen width="wide">
-      <TopNav />
+      <TabNav />
       <div className="shrink-0 bg-t1-bg flex items-center gap-px">
         <h1 className="flex-1 pl-4 text-[12px] uppercase tracking-[2px] truncate">Collection</h1>
         <button type="button" aria-label="Add" onClick={() => { tap("add"); setMenu(true); }}

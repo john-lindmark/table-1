@@ -41,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -64,6 +65,8 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import kotlinx.coroutines.delay
+import site.table1.events.library.IconGlyph
+import site.table1.events.library.T1Icon
 import site.table1.events.ui.theme.T1
 
 /** Full-bleed column; blocks are separated by 1px of background (the hairline grid). */
@@ -306,52 +309,40 @@ fun shortWhen(s: String?): String? = parseInstant(s)?.let {
 
 /* ── T1 controls (no Material components; AlertDialog is the one native element we keep) ── */
 
-/** Tab bar glyphs drawn from the same square tiles as the logo. */
-@Composable
-fun TileGlyph(tiles: List<Pair<Int, Int>>, color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier.size(20.dp)) {
-        val cell = size.width / 2f
-        val gap = 2.dp.toPx()
-        tiles.forEach { (c, r) ->
-            drawRect(color, topLeft = Offset(c * cell, r * cell), size = Size(cell - gap, cell - gap))
-        }
-    }
-}
-
 data class T1Tab(
     val id: String,
     val label: String,
-    val tiles: List<Pair<Int, Int>>,
+    val icon: T1Icon,
     val enabled: Boolean = true,
     /** Small note under a disabled tab, e.g. "Soon". */
     val note: String? = null,
 )
 
-/** Bottom tabs: selected = text-colored label with an accent glyph; unselected muted; disabled greyed. */
+/** Bottom tabs (Figma 407:9333): icon + label on the background. Selected = text color with a 1 dp accent line along
+ *  its top; others a muted icon over a grey label; disabled greyed. */
 @Composable
 fun T1TabBar(tabs: List<T1Tab>, selected: String?, onSelect: (String) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().background(T1.bg).padding(top = 1.dp).navigationBarsPadding(),
-        horizontalArrangement = Arrangement.spacedBy(1.dp),
-    ) {
+    Row(Modifier.fillMaxWidth().background(T1.bg).navigationBarsPadding()) {
         tabs.forEach { tab ->
             val on = tab.id == selected
-            val color = when {
+            val iconColor = when {
                 !tab.enabled -> T1.disabled
                 on -> T1.text
                 else -> T1.muted
             }
             Column(
-                Modifier.weight(1f).background(T1.surface)
+                Modifier.weight(1f)
                     .let { if (tab.enabled) it.clickable { onSelect(tab.id) } else it }
                     .semantics { contentDescription = tab.label + (tab.note?.let { " ($it)" } ?: "") }
-                    .padding(vertical = 10.dp),
+                    .drawBehind { if (on) drawRect(T1.accent, size = Size(size.width, 1.dp.toPx())) }
+                    .padding(top = 10.dp, bottom = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                TileGlyph(tab.tiles, if (on) T1.accent else color)
+                IconGlyph(tab.icon, color = iconColor)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Label(tab.label, color = color)
+                    Text(tab.label.uppercase(), color = if (on) T1.text else T1.disabled, fontFamily = T1.mono, fontSize = 9.sp,
+                        letterSpacing = 1.5.sp, maxLines = 1)
                     tab.note?.let {
                         Text(it.uppercase(), Modifier.background(T1.bg).padding(horizontal = 3.dp), color = T1.disabled,
                             fontFamily = T1.mono, fontSize = 8.sp, letterSpacing = 1.sp, maxLines = 1)

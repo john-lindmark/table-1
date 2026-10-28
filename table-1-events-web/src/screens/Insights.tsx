@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Bar as ShareBar, Heatmap, LineChart, Scatter, SlopeChart, type Marker } from "../components/InsightCharts";
-import { Bar, Notice, Row, Screen, Section, Segmented, Stat, SwitchRow, TopNav } from "../components/kit";
+import { Bar, Notice, Row, Screen, Section, Segmented, Stat, SwitchRow, TabNav } from "../components/kit";
 import { printingsByName } from "../lib/catalog";
 import { delta, pct, pct1, seriesWindow, shortDay, wilson } from "../lib/insightCharts";
 import {
@@ -68,7 +68,7 @@ export function InsightsHome({ section }: { section: "constructed" | "limited" }
   }, [data.session]);
   return (
     <Screen>
-      <TopNav />
+      <TabNav />
       <Bar title="Insights" subtitle={section === "limited" ? "Arena draft" : "Constructed metagame"} />
       <Segmented options={[{ value: "constructed", label: "Constructed" }, { value: "limited", label: "Limited" }]} value={section}
                  onChange={(v) => { capture("insights_section_changed", { section: v }); nav(v === "limited" ? "/insights/limited" : "/insights"); }} />

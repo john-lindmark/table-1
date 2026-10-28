@@ -386,9 +386,20 @@ struct LibraryDemoRoot: View {
     @State private var loaded = true
 
     var body: some View {
-        NavigationStack(path: $path) {
-            LibraryHomeView(path: $path)
-                .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $path) }
+        // Stacked over the app's tab bar on the Collection home, as in the app, for design QA (taps do nothing here).
+        VStack(spacing: 0) {
+            NavigationStack(path: $path) {
+                LibraryHomeView(path: $path)
+                    .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $path) }
+            }
+            if path.isEmpty {
+                T1TabBar(items: [
+                    T1TabItem(id: 0, label: "Events", icon: .tabEvents),
+                    T1TabItem(id: 1, label: "Collection", icon: .tabCollection),
+                    T1TabItem(id: 2, label: "Insights", icon: .tabInsights),
+                    T1TabItem(id: 3, label: "Account", icon: .tabAccount),
+                ], selection: 1) { _ in }
+            }
         }
         .overlay(alignment: .top) {
             if !loaded { Notice("Demo data is missing from this build.", error: true) }
