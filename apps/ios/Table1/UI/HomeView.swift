@@ -120,6 +120,9 @@ struct EventsHomeView: View {
             if NextEventStore.save(events: home.events.map(NextEventItem.init), invites: home.invites.count) {
                 WidgetCenter.shared.reloadTimelines(ofKind: "site.table1.next")
             }
+        } catch where error.isCancellation {
+            // At launch the app turning active restarts this task; the newer load shows the result.
+            return
         } catch {
             if data == nil { self.error = error.localizedDescription; data = HomeData() }
         }

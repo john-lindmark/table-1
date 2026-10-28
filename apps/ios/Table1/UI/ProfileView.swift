@@ -215,6 +215,8 @@ struct AccountView: View {
         do {
             overview = try await Repo.accountOverview()
             error = nil
+        } catch where error.isCancellation {
+            return   // restarted by the app turning active; the newer load takes over
         } catch {
             self.error = error.localizedDescription
         }
