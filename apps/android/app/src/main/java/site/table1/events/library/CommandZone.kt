@@ -58,23 +58,68 @@ object CommandZone {
         /** Whether a card of this type line can fill the slot. Lenient: the deck's legality check has the last word. */
         fun fits(typeLine: String): Boolean {
             val front = typeLine.split(" // ").first()
+            val legend = front.contains("Legendary") && (front.contains("Creature") || front.contains("Planeswalker"))
             return when (this) {
-                Commander, Partner -> front.contains("Background") ||
-                    (front.contains("Legendary") && (front.contains("Creature") || front.contains("Planeswalker")))
+                Commander -> legend
+                // A Background only partners a commander that chooses one ([pairs]).
+                Partner -> legend || front.contains("Background")
                 Oathbreaker -> front.contains("Planeswalker")
                 Signature -> front.contains("Instant") || front.contains("Sorcery")
             }
         }
     }
 
-    data class Line(val cardId: String, val typeLine: String, val finish: String = "nonfoil", val lang: String = "en")
+    /** `pair`: who the card shares the command zone with ([Mate]), null when the catalog doesn't say. */
+    data class Line(val cardId: String, val typeLine: String, val finish: String = "nonfoil", val lang: String = "en", val pair: String? = null)
+
+    /** A card as a partner sees it (contract § Partners). `pair`: P partner, P:<name> partner with, G:<group>
+     *  partner—group, F friends forever, B choose a Background, D doctor's companion, "" none, null unknown (an older
+     *  catalog pack: lenient). */
+    data class Mate(val typeLine: String, val pair: String?, val name: String) {
+        val doctor get() = "Time Lord Doctor" in typeLine.split(" // ").first()
+    }
+
+    /** Whether a commander takes a second card in the command zone. */
+    fun canPair(typeLine: String, pair: String?): Boolean = pair == null || pair.isNotEmpty() || Mate(typeLine, pair, "").doctor
+
+    /** Whether [b] can be [a]'s partner: both partner, the named partner, the same group, both friends forever, a
+     *  Background for a commander that chooses one, the Doctor and a companion. Unknown on either side is allowed. */
+    fun pairs(a: Mate, b: Mate): Boolean {
+        val pa = a.pair ?: return Role.Partner.fits(b.typeLine)
+        val pb = b.pair ?: return Role.Partner.fits(b.typeLine)
+        if (a.doctor && pb == "D") return true
+        return when {
+            pa == "P" || pa == "F" -> pb == pa
+            pa == "B" -> "Background" in b.typeLine
+            pa == "D" -> b.doctor
+            pa.startsWith("P:") -> b.name == pa.removePrefix("P:")
+            pa.startsWith("G:") -> pb == pa
+            else -> false
+        }
+    }
+
+    /** What the empty partner slot asks for, from the commander. */
+    fun partnerHint(a: Mate): String {
+        val pair = a.pair ?: return Role.Partner.hint
+        if (pair.isEmpty() && a.doctor) return "A doctor's companion"
+        return when {
+            pair == "P" -> "Another commander with partner"
+            pair == "F" -> "Another commander with friends forever"
+            pair == "B" -> "A Background"
+            pair == "D" -> "The Doctor"
+            pair.startsWith("P:") -> pair.removePrefix("P:")
+            pair.startsWith("G:") -> "Another with partner—${pair.removePrefix("G:")}"
+            else -> Role.Partner.hint
+        }
+    }
     data class Slot(val role: Role, val cardId: String? = null, val finish: String = "nonfoil", val lang: String = "en")
 
     /** The slots a deck of this format shows, filled from its command-zone lines in order (see the contract). */
     fun slots(format: String, lines: List<Line>): List<Slot> = when (format) {
         "commander" -> {
             val out = lines.take(2).mapIndexed { i, l -> Slot(if (i == 0) Role.Commander else Role.Partner, l.cardId, l.finish, l.lang) }.toMutableList()
-            if (out.size < 2) out += Slot(if (out.isEmpty()) Role.Commander else Role.Partner)
+            if (out.isEmpty()) out += Slot(Role.Commander)
+            else if (out.size == 1 && canPair(lines[0].typeLine, lines[0].pair)) out += Slot(Role.Partner)
             out
         }
         "oathbreaker" -> listOf(Role.Oathbreaker, Role.Signature).map { role ->
@@ -93,7 +138,7 @@ object CommandZone {
 
     /** A deck line outside the command zone that could be moved in. */
     data class DeckLine(val cardId: String, val board: String, val typeLine: String, val finish: String = "nonfoil",
-                        val lang: String = "en", val qty: Int = 1)
+                        val lang: String = "en", val qty: Int = 1, val pair: String? = null)
 
     /** The deck's own cards a slot's picker offers first: main deck, then sideboard, those that fit. A deck made before
      *  the command zone has its commander in the main deck. */
@@ -131,14 +176,19 @@ data class ZoneDeckCard(val line: CommandZone.DeckLine, val name: String, val pr
  *  in (a deck made before the command zone has its commander in the main deck). */
 @Composable
 fun CommandZonePicker(role: CommandZone.Role, onDismiss: () -> Unit, deck: List<ZoneDeckCard> = emptyList(),
-                      onPickDeck: ((ZoneDeckCard) -> Unit)? = null, onPick: (CatalogOracle, CatalogPrinting) -> Unit) {
+                      onPickDeck: ((ZoneDeckCard) -> Unit)? = null, partnerOf: CommandZone.Mate? = null,
+                      onPick: (CatalogOracle, CatalogPrinting) -> Unit) {
     val cat by CatalogStore.state.collectAsState()
-    var query by remember { mutableStateOf("") }
+    // Partner with names its partner: search for it straight away.
+    var query by remember { mutableStateOf(partnerOf?.pair?.takeIf { it.startsWith("P:") }?.removePrefix("P:") ?: "") }
     val result = rememberCardSearch(query)
+    fun mates(typeLine: String, pair: String?, name: String) =
+        role != CommandZone.Role.Partner || partnerOf == null || CommandZone.pairs(partnerOf, CommandZone.Mate(typeLine, pair, name))
+    val hint = partnerOf?.let(CommandZone::partnerHint) ?: role.hint
     val fit = CommandZone.inDeck(role, deck.map { it.line }).toSet()
     val fromDeck = if (onPickDeck == null) emptyList()
-        else deck.filter { it.line in fit && (query.isBlank() || CardSearch.matches(query, it.name, it.line.typeLine)) }
-    val hits = if (query.isBlank()) emptyList() else result?.hits.orEmpty().filter { role.fits(it.typeLine) }
+        else deck.filter { it.line in fit && mates(it.line.typeLine, it.line.pair, it.name) && (query.isBlank() || CardSearch.matches(query, it.name, it.line.typeLine)) }
+    val hits = if (query.isBlank()) emptyList() else result?.hits.orEmpty().filter { role.fits(it.typeLine) && mates(it.typeLine, it.pair, it.name) }
     val covers = result?.covers ?: emptyMap()
     LaunchedEffect(Unit) { CatalogStore.load(userInitiated = true) }
     fun pick(o: CatalogOracle) {
@@ -148,7 +198,7 @@ fun CommandZonePicker(role: CommandZone.Role, onDismiss: () -> Unit, deck: List<
     }
     T1Overlay(onDismiss) {
         Column(Modifier.fillMaxSize().background(T1.bg).statusBarsPadding(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Bar(role.title, subtitle = role.hint) { BarAction("Cancel", onDismiss) }
+            Bar(role.title, subtitle = hint) { BarAction("Cancel", onDismiss) }
             CatalogStatus(cat)
             CardSearchBar(query, { query = it }, placeholder = role.hint, label = "Card", onSubmit = { hits.firstOrNull()?.let(::pick) })
             LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -174,7 +224,9 @@ fun CommandZonePicker(role: CommandZone.Role, onDismiss: () -> Unit, deck: List<
  *  card offers Open card / Change / Remove; an empty one opens the picker. `card` gives a slot's name and printing. */
 @Composable
 fun CommandZoneCards(slots: List<CommandZone.Slot>, card: (CommandZone.Slot) -> Pair<String, CatalogPrinting?>?, onChoose: (CommandZone.Slot) -> Unit,
-                     onRemove: (CommandZone.Slot) -> Unit, onOpen: ((CommandZone.Slot) -> Unit)? = null) {
+                     onRemove: (CommandZone.Slot) -> Unit, onOpen: ((CommandZone.Slot) -> Unit)? = null,
+                     /** The commander, so an empty partner slot names what it pairs with. */
+                     commander: CommandZone.Mate? = null) {
     var menu by remember { mutableStateOf<CommandZone.Slot?>(null) }
     Section("Command zone")
     BoxWithConstraints(Modifier.fillMaxWidth().background(T1.bg).padding(16.dp)) {
@@ -192,7 +244,7 @@ fun CommandZoneCards(slots: List<CommandZone.Slot>, card: (CommandZone.Slot) -> 
                                verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally) {
                             if (slot.cardId == null) Text("+", color = T1.text, fontFamily = T1.mono, fontSize = 28.sp)
                             Text(if (slot.cardId == null) slot.role.choose else c?.first ?: "…", color = T1.text, fontFamily = T1.mono, fontSize = 13.sp, textAlign = TextAlign.Center)
-                            if (slot.cardId == null) Text(slot.role.hint, color = T1.muted, fontFamily = T1.mono, fontSize = 11.sp, textAlign = TextAlign.Center)
+                            if (slot.cardId == null) Text(if (slot.role == CommandZone.Role.Partner && commander != null) CommandZone.partnerHint(commander) else slot.role.hint, color = T1.muted, fontFamily = T1.mono, fontSize = 11.sp, textAlign = TextAlign.Center)
                         }
                     }
                 }

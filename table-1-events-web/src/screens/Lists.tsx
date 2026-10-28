@@ -28,7 +28,7 @@ import { DeckImageScreen } from "./DeckImage";
 import { ListToCollectionScreen } from "./ListToCollection";
 import { ShareRow } from "./Share";
 import { CommandZoneCards, CommandZonePicker } from "./CommandZone";
-import { ZONE_BOARD, ZONE_FORMATS, zoneFilling, zoneMovingIn, zoneSlots, type ZoneLine, type ZoneSlot } from "../lib/commandZone";
+import { ZONE_BOARD, ZONE_FORMATS, zoneFilling, zoneMovingIn, zoneSlots, type ZoneLine, type ZoneMate, type ZoneSlot } from "../lib/commandZone";
 
 /* Decks and cubes on the web (contract/lists-2026-10-15.md): the same lists, sections, groups and version
    history as iOS, read from and written to the database, so a deck built on one device is here too. */
@@ -188,6 +188,9 @@ export function NewListModal({ kind, onClose, onCreated, onFind, onImport }: {
   const [busy, setBusy] = useState(false);
   const zoned = kind === "deck" && ZONE_FORMATS.has(format);
   const slots = zoned ? zoneSlots(format, zone) : [];
+  const commander: ZoneMate | null = zone[0] && catalog
+    ? { typeLine: zone[0].typeLine, pair: zone[0].pair ?? null, name: catalog.oName[catalog.pOracle[catalog.printingIndex.get(zone[0].cardId) ?? -1]] ?? "" }
+    : null;
   const create = async () => {
     setBusy(true);
     try {
@@ -213,7 +216,7 @@ export function NewListModal({ kind, onClose, onCreated, onFind, onImport }: {
         </div>
         {zoned && (
           <div className="flex flex-col gap-px">
-            <CommandZoneCards catalog={catalog} slots={slots} onChoose={setChoosing}
+            <CommandZoneCards catalog={catalog} slots={slots} onChoose={setChoosing} commander={commander}
                               onRemove={(sl) => setZone(zone.filter((l) => l.cardId !== sl.cardId))} />
           </div>
         )}
@@ -224,8 +227,8 @@ export function NewListModal({ kind, onClose, onCreated, onFind, onImport }: {
                                  onClick={() => { onClose(); onFind(); }} />}
       </Modal>
       {choosing && catalog && (
-        <CommandZonePicker catalog={catalog} role={choosing.role} onClose={() => setChoosing(null)}
-                           onPick={(cardId, oi) => setZone(zoneFilling(zone, choosing.cardId, { cardId, typeLine: catalog.oType[oi] }))} />
+        <CommandZonePicker catalog={catalog} role={choosing.role} onClose={() => setChoosing(null)} partnerOf={choosing.role === "partner" ? commander : null}
+                           onPick={(cardId, oi) => setZone(zoneFilling(zone, choosing.cardId, { cardId, typeLine: catalog.oType[oi], pair: catalog.oPair[oi] }))} />
       )}
     </>
   );
@@ -430,7 +433,9 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   // Commander and Oathbreaker decks show their command zone at the top, in every layout (not while searching).
   const showsZone = list.kind === "deck" && !list.eventId && ZONE_FORMATS.has(list.format) && !searching;
   const zone = lines.filter((x) => x.board === ZONE_BOARD);
-  const slots = showsZone ? zoneSlots(list.format, zone.map((x) => ({ cardId: x.cardId, typeLine: x.type, finish: x.finish, lang: x.lang }))) : [];
+  const pairOf = (x: Line) => (catalog && x.oi >= 0 ? catalog.oPair[x.oi] : null);
+  const slots = showsZone ? zoneSlots(list.format, zone.map((x) => ({ cardId: x.cardId, typeLine: x.type, finish: x.finish, lang: x.lang, pair: pairOf(x) }))) : [];
+  const commander: ZoneMate | null = zone[0] ? { typeLine: zone[0].type, pair: pairOf(zone[0]), name: zone[0].name } : null;
   const chooseZone = (slot: ZoneSlot, cardId: string) => {
     void editList(list.id, [slot.cardId
       ? { card_id: slot.cardId, board: ZONE_BOARD, finish: slot.finish as ListFinish, lang: slot.lang, to_card_id: cardId, to_finish: "nonfoil", to_lang: "en", swap: true }
@@ -556,7 +561,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
           );
         })()}
         {showsZone && (
-          <CommandZoneCards catalog={catalog} slots={slots} onChoose={setChoosing}
+          <CommandZoneCards catalog={catalog} slots={slots} onChoose={setChoosing} commander={commander}
                            onRemove={(sl) => sl.cardId && void editList(list.id, [{ card_id: sl.cardId, board: ZONE_BOARD, finish: sl.finish as ListFinish, lang: sl.lang, qty: 0 }])}
                            onOpen={(sl) => { const o = zone.find((x) => x.cardId === sl.cardId)?.oracleId; if (o) onCard(o); }} />
         )}
@@ -658,8 +663,8 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
       {exporting && catalog && <ExportScreen name={list.name} kind={list.kind} entries={entriesOf(list)} catalog={catalog} from="own" onClose={() => setExporting(false)} />}
       {choosing && catalog && (
         <CommandZonePicker catalog={catalog} role={choosing.role} onClose={() => setChoosing(null)} onPick={(cardId) => chooseZone(choosing, cardId)}
-                           deck={lines.filter((x) => x.board !== ZONE_BOARD).map((x) => ({ cardId: x.cardId, board: x.board, typeLine: x.type, finish: x.finish, lang: x.lang, qty: x.qty, name: x.name, p: x.p }))}
-                           onPickDeck={(d) => moveInZone(choosing, d)} />
+                           deck={lines.filter((x) => x.board !== ZONE_BOARD).map((x) => ({ cardId: x.cardId, board: x.board, typeLine: x.type, finish: x.finish, lang: x.lang, qty: x.qty, pair: pairOf(x), name: x.name, p: x.p }))}
+                           onPickDeck={(d) => moveInZone(choosing, d)} partnerOf={choosing.role === "partner" ? commander : null} />
       )}
       {choosingFormat && (
         <Menu title="Format" onClose={() => setChoosingFormat(false)}

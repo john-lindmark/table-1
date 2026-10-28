@@ -51,9 +51,11 @@ enum CommandZone {
         /// Whether a card of this type line can fill the slot. Lenient: the deck's legality check has the last word.
         func fits(_ typeLine: String) -> Bool {
             let front = typeLine.components(separatedBy: " // ").first ?? typeLine
+            let legend = front.contains("Legendary") && (front.contains("Creature") || front.contains("Planeswalker"))
             switch self {
-            case .commander, .partner:
-                return front.contains("Background") || (front.contains("Legendary") && (front.contains("Creature") || front.contains("Planeswalker")))
+            case .commander: return legend
+            // A Background only partners a commander that chooses one (`pairs`).
+            case .partner: return legend || front.contains("Background")
             case .oathbreaker: return front.contains("Planeswalker")
             case .signature: return front.contains("Instant") || front.contains("Sorcery")
             }
@@ -68,16 +70,65 @@ enum CommandZone {
         var lang = "en"
     }
 
-    /// A command-zone line: its card and type line.
+    /// A command-zone line: its card and type line, and its pair code (nil when the catalog doesn't say).
     struct Line: Hashable, Sendable {
         let cardId: String
         let typeLine: String
         var finish = "nonfoil"
         var lang = "en"
+        var pair: String? = nil
+    }
+
+    /// A card as a partner sees it (contract § Partners). `pair`: P partner, P:<name> partner with, G:<group>
+    /// partner—group, F friends forever, B choose a Background, D doctor's companion, "" none, nil unknown (an older
+    /// catalog pack: lenient).
+    struct Mate: Hashable, Sendable {
+        let typeLine: String
+        let pair: String?
+        let name: String
+        var doctor: Bool { typeLine.components(separatedBy: " // ").first?.contains("Time Lord Doctor") ?? false }
+    }
+
+    /// Whether a commander takes a second card in the command zone.
+    static func canPair(typeLine: String, pair: String?) -> Bool {
+        guard let pair else { return true }
+        return !pair.isEmpty || Mate(typeLine: typeLine, pair: pair, name: "").doctor
+    }
+
+    /// Whether `b` can be `a`'s partner: both partner, the named partner, the same group, both friends forever, a
+    /// Background for a commander that chooses one, the Doctor and a companion. Unknown on either side is allowed.
+    static func pairs(_ a: Mate, _ b: Mate) -> Bool {
+        guard let pa = a.pair, let pb = b.pair else { return Role.partner.fits(b.typeLine) }
+        if a.doctor && pb == "D" { return true }
+        switch pa {
+        case "P", "F": return pb == pa
+        case "B": return b.typeLine.contains("Background")
+        case "D": return b.doctor
+        default:
+            if pa.hasPrefix("P:") { return b.name == String(pa.dropFirst(2)) }
+            if pa.hasPrefix("G:") { return pb == pa }
+            return false
+        }
+    }
+
+    /// What the empty partner slot asks for, from the commander.
+    static func partnerHint(_ a: Mate) -> String {
+        guard let pair = a.pair else { return Role.partner.hint }
+        if a.doctor && pair.isEmpty { return "A doctor's companion" }
+        switch pair {
+        case "P": return "Another commander with partner"
+        case "F": return "Another commander with friends forever"
+        case "B": return "A Background"
+        case "D": return "The Doctor"
+        default:
+            if pair.hasPrefix("P:") { return String(pair.dropFirst(2)) }
+            if pair.hasPrefix("G:") { return "Another with partner—\(pair.dropFirst(2))" }
+            return Role.partner.hint
+        }
     }
 
     /// The slots a deck of this format shows, filled from its command-zone lines in order. Commander: one slot per
-    /// commander line (at most two), then an empty one while there are fewer than two. Oathbreaker: the first
+    /// commander line (at most two), then an empty one while there are none, or one that can pair. Oathbreaker: the first
     /// planeswalker is the oathbreaker, the first instant or sorcery the signature spell. Other formats: none.
     static func slots(format: String, lines: [Line]) -> [Slot] {
         switch format {
@@ -85,7 +136,8 @@ enum CommandZone {
             var out = lines.prefix(2).enumerated().map { i, l in
                 Slot(role: i == 0 ? .commander : .partner, cardId: l.cardId, finish: l.finish, lang: l.lang)
             }
-            if out.count < 2 { out.append(Slot(role: out.isEmpty ? .commander : .partner)) }
+            if out.isEmpty { out.append(Slot(role: .commander)) }
+            else if out.count == 1, canPair(typeLine: lines[0].typeLine, pair: lines[0].pair) { out.append(Slot(role: .partner)) }
             return out
         case "oathbreaker":
             return [Role.oathbreaker, .signature].map { role in
@@ -112,6 +164,7 @@ enum CommandZone {
         var finish = "nonfoil"
         var lang = "en"
         var qty = 1
+        var pair: String? = nil
     }
 
     /// The deck's own cards a slot's picker offers first: main deck, then sideboard, those that fit. A deck made before
@@ -161,22 +214,35 @@ struct CommandZonePicker: View {
     let role: CommandZone.Role
     var deck: [DeckCard] = []
     var pickedInDeck: ((DeckCard) -> Void)? = nil
+    /// The partner slot: the commander it partners, so only cards that can pair are offered.
+    var partnerOf: CommandZone.Mate? = nil
     let picked: (CatalogOracle, CatalogPrinting) -> Void
     private var catalog: CatalogStore { CatalogStore.shared }
     @State private var query: String
 
     init(role: CommandZone.Role, start: String = "", deck: [DeckCard] = [], pickedInDeck: ((DeckCard) -> Void)? = nil,
-         picked: @escaping (CatalogOracle, CatalogPrinting) -> Void) {
+         partnerOf: CommandZone.Mate? = nil, picked: @escaping (CatalogOracle, CatalogPrinting) -> Void) {
         self.role = role
         self.deck = deck
         self.pickedInDeck = pickedInDeck
+        self.partnerOf = partnerOf
         self.picked = picked
-        _query = State(initialValue: start)
+        // Partner with names its partner: search for it straight away.
+        let named = partnerOf?.pair.flatMap { $0.hasPrefix("P:") ? String($0.dropFirst(2)) : nil }
+        _query = State(initialValue: start.isEmpty ? named ?? "" : start)
+    }
+
+    private var hint: String { partnerOf.map(CommandZone.partnerHint) ?? role.hint }
+
+    private func mates(_ typeLine: String, _ pair: String?, _ name: String) -> Bool {
+        guard role == .partner, let partnerOf else { return true }
+        return CommandZone.pairs(partnerOf, .init(typeLine: typeLine, pair: pair, name: name))
     }
 
     private var fromDeck: [DeckCard] {
         let fit = Set(CommandZone.inDeck(role, deck.map(\.line)))
-        return deck.filter { fit.contains($0.line) && (query.isEmpty || CardSearch.matches(query, name: $0.name, type: $0.line.typeLine)) }
+        return deck.filter { fit.contains($0.line) && mates($0.line.typeLine, $0.line.pair, $0.name)
+            && (query.isEmpty || CardSearch.matches(query, name: $0.name, type: $0.line.typeLine)) }
     }
     @State private var hits: [CatalogOracle] = []
     @State private var covers: [Int: CatalogPrinting] = [:]
@@ -184,7 +250,7 @@ struct CommandZonePicker: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: role.title, subtitle: role.hint) { BarButton("Cancel") { T1Overlays.shared.dismissPanel() } }
+            Bar(title: role.title, subtitle: hint) { BarButton("Cancel") { T1Overlays.shared.dismissPanel() } }
             CatalogStatusRow(catalog: catalog)
             CardSearchBar(query: $query, prompt: role == .signature ? "An instant or sorcery" : role == .oathbreaker ? "A planeswalker" : "A legendary creature",
                           focused: $focused) { if let o = hits.first, let p = covers[o.idx] { pick(o, p) } }
@@ -219,7 +285,7 @@ struct CommandZonePicker: View {
             if Task.isCancelled { return }
             let found = await Task.detached(priority: .userInitiated) { await CardSearchEngine.run(q, db) }.value
             if !Task.isCancelled {
-                hits = found.hits.filter { role.fits($0.typeLine) }
+                hits = found.hits.filter { role.fits($0.typeLine) && mates($0.typeLine, $0.pair, $0.name) }
                 covers = found.covers
             }
         }
@@ -252,6 +318,8 @@ struct CommandZoneCard: View {
     let printing: CatalogPrinting?
     let name: String?
     let width: CGFloat
+    /// The empty slot's hint (a partner slot names what the commander pairs with).
+    var hint: String? = nil
     let choose: () -> Void
     var remove: (() -> Void)?
     var open: (() -> Void)?
@@ -274,7 +342,7 @@ struct CommandZoneCard: View {
                             VStack(spacing: 8) {
                                 if slot.cardId == nil { Text("+").font(T1.mono(28)).foregroundStyle(T1.text) }
                                 Text(slot.cardId == nil ? slot.role.choose : name ?? "…").font(T1.mono(13)).foregroundStyle(T1.text)
-                                if slot.cardId == nil { Text(slot.role.hint).font(T1.mono(11)).foregroundStyle(T1.muted) }
+                                if slot.cardId == nil { Text(hint ?? slot.role.hint).font(T1.mono(11)).foregroundStyle(T1.muted) }
                             }
                             .multilineTextAlignment(.center).padding(12)
                         }

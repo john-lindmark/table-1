@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Bar, Menu, Row, Section, type MenuItem } from "../components/kit";
 import { cardMatches } from "../lib/librarySearch";
 import { coverPrinting, normName, type Catalog } from "../lib/catalog";
-import { ROLE_CHOOSE, ROLE_HINT, ROLE_LABEL, ROLE_TITLE, roleFits, zoneInDeck, type ZoneDeckLine, type ZoneRole, type ZoneSlot } from "../lib/commandZone";
+import { ROLE_CHOOSE, ROLE_HINT, ROLE_LABEL, ROLE_TITLE, roleFits, zoneInDeck, zonePairs, zonePartnerHint, type ZoneDeckLine, type ZoneMate, type ZoneRole, type ZoneSlot } from "../lib/commandZone";
 import { CardSearchBar, useCardSearch } from "./CardSearch";
 import { CardArt, CardRow, type CardFinish } from "./Library";
 
@@ -17,16 +17,26 @@ const PROMPT: Record<ZoneRole, string> = {
 
 /** Full screen over the page: the catalog by name (or Scryfall syntax), filtered to cards that can fill the slot. A
  *  click picks the card in its original paper printing. */
-export function CommandZonePicker({ catalog, role, onPick, onClose, deck = [], onPickDeck }: {
+export function CommandZonePicker({ catalog, role, onPick, onClose, deck = [], onPickDeck, partnerOf }: {
   catalog: Catalog; role: ZoneRole; onPick: (cardId: string, oracle: number) => void; onClose: () => void;
   /** The deck's own cards: those that fit come first, and a click moves that copy in (a deck made before the command zone
    *  has its commander in the main deck). */
   deck?: ZoneDeckCard[]; onPickDeck?: (card: ZoneDeckCard) => void;
+  /** The partner slot: the commander it partners, so only cards that can pair are offered. */
+  partnerOf?: ZoneMate | null;
 }) {
-  const [q, setQ] = useState("");
+  // Partner with names its partner: search for it straight away.
+  const [q, setQ] = useState(partnerOf?.pair?.startsWith("P:") ? partnerOf.pair.slice(2) : "");
   const found = useCardSearch(catalog, q);
-  const fromDeck = onPickDeck ? zoneInDeck(role, deck).filter((d) => !q.trim() || cardMatches(q, d.name, d.typeLine)) : [];
-  const hits = q.trim() ? (found?.result.hits ?? []).filter((i) => roleFits(role, catalog.oType[i])) : [];
+  const mates = (typeLine: string, pair: string | null, name: string) =>
+    role !== "partner" || !partnerOf || zonePairs(partnerOf, { typeLine, pair, name });
+  const fromDeck = onPickDeck
+    ? zoneInDeck(role, deck).filter((d) => mates(d.typeLine, d.pair ?? null, d.name) && (!q.trim() || cardMatches(q, d.name, d.typeLine)))
+    : [];
+  const hits = q.trim()
+    ? (found?.result.hits ?? []).filter((i) => roleFits(role, catalog.oType[i]) && mates(catalog.oType[i], catalog.oPair[i], catalog.oName[i]))
+    : [];
+  const hint = partnerOf ? zonePartnerHint(partnerOf) : ROLE_HINT[role];
   const pick = (i: number) => {
     const p = found?.result.covers.get(i) ?? coverPrinting(catalog, i);
     onClose();
@@ -34,7 +44,7 @@ export function CommandZonePicker({ catalog, role, onPick, onClose, deck = [], o
   };
   return (
     <div className="fixed inset-0 z-50 bg-t1-bg flex flex-col gap-px" role="dialog" aria-modal="true" aria-label={ROLE_TITLE[role]}>
-      <Bar title={ROLE_TITLE[role]} subtitle={ROLE_HINT[role]}
+      <Bar title={ROLE_TITLE[role]} subtitle={hint}
            right={<button type="button" className="t1-label hover:text-t1-text" onClick={onClose}>Cancel</button>} />
       <CardSearchBar label="Card" value={q} onChange={setQ} placeholder={PROMPT[role]} autoFocus onSubmit={() => { if (hits[0] != null) pick(hits[0]); }} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px w-full max-w-[720px] mx-auto">
@@ -59,9 +69,11 @@ export function CommandZonePicker({ catalog, role, onPick, onClose, deck = [], o
 
 /** "Command zone" and its cards side by side: commander | partner or background, oathbreaker | signature spell. A filled
  *  card offers Open card / Change / Remove; an empty one opens the picker. */
-export function CommandZoneCards({ catalog, slots, onChoose, onRemove, onOpen }: {
+export function CommandZoneCards({ catalog, slots, onChoose, onRemove, onOpen, commander }: {
   catalog: Catalog | null; slots: ZoneSlot[]; onChoose: (slot: ZoneSlot) => void; onRemove: (slot: ZoneSlot) => void;
   onOpen?: (slot: ZoneSlot) => void;
+  /** The commander, so an empty partner slot names what it pairs with. */
+  commander?: ZoneMate | null;
 }) {
   const [menu, setMenu] = useState<{ title: string; items: MenuItem[] } | null>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -100,7 +112,7 @@ export function CommandZoneCards({ catalog, slots, onChoose, onRemove, onOpen }:
                       style={{ width: w, height: Math.round(w * 680 / 488), borderRadius: w * 0.0432 }}>
                   {s.cardId == null && <span className="text-[28px] leading-none">+</span>}
                   <span className="text-[13px]">{s.cardId == null ? ROLE_CHOOSE[s.role] : name ?? "Card not in local data yet"}</span>
-                  {s.cardId == null && <span className="text-[11px] text-t1-muted">{ROLE_HINT[s.role]}</span>}
+                  {s.cardId == null && <span className="text-[11px] text-t1-muted">{s.role === "partner" && commander ? zonePartnerHint(commander) : ROLE_HINT[s.role]}</span>}
                 </span>
               )}
             </button>

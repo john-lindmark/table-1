@@ -22,19 +22,64 @@ export const ROLE_HINT: Record<ZoneRole, string> = {
   commander: "A legendary creature", partner: "Optional: a second commander", oathbreaker: "A planeswalker", signature: "An instant or sorcery",
 };
 
+const legend = (front: string) => front.includes("Legendary") && (front.includes("Creature") || front.includes("Planeswalker"));
+
 /** Whether a card of this type line can fill the slot. Lenient: the deck's legality check has the last word. */
 export function roleFits(role: ZoneRole, typeLine: string): boolean {
   const front = typeLine.split(" // ")[0];
   switch (role) {
-    case "commander":
-    case "partner":
-      return front.includes("Background") || (front.includes("Legendary") && (front.includes("Creature") || front.includes("Planeswalker")));
+    case "commander": return legend(front);
+    // A Background only partners a commander that chooses one (zonePairs).
+    case "partner": return legend(front) || front.includes("Background");
     case "oathbreaker": return front.includes("Planeswalker");
     case "signature": return front.includes("Instant") || front.includes("Sorcery");
   }
 }
 
-export interface ZoneLine { cardId: string; typeLine: string; finish?: string; lang?: string }
+/** `pair`: who it shares the command zone with (ZoneMate); null or absent when the catalog doesn't say. */
+export interface ZoneLine { cardId: string; typeLine: string; finish?: string; lang?: string; pair?: string | null }
+
+/** A card as a partner sees it (contract § Partners). `pair`: P partner, P:<name> partner with, G:<group> partner—group,
+ *  F friends forever, B choose a Background, D doctor's companion, "" none, null unknown (an older pack: lenient). */
+export interface ZoneMate { typeLine: string; pair: string | null; name: string }
+
+const isDoctor = (typeLine: string) => typeLine.split(" // ")[0].includes("Time Lord Doctor");
+
+/** Whether a commander takes a second card in the command zone. */
+export function zoneCanPair(typeLine: string, pair: string | null | undefined): boolean {
+  return pair == null || pair !== "" || isDoctor(typeLine);
+}
+
+/** Whether `b` can be `a`'s partner: both partner, the named partner, the same group, both friends forever, a Background
+ *  for a commander that chooses one, the Doctor and a companion. Unknown on either side is allowed. */
+export function zonePairs(a: ZoneMate, b: ZoneMate): boolean {
+  if (a.pair == null || b.pair == null) return roleFits("partner", b.typeLine);
+  if (isDoctor(a.typeLine) && b.pair === "D") return true;
+  switch (a.pair) {
+    case "P": case "F": return b.pair === a.pair;
+    case "B": return b.typeLine.includes("Background");
+    case "D": return isDoctor(b.typeLine);
+  }
+  if (a.pair.startsWith("P:")) return b.name === a.pair.slice(2);
+  if (a.pair.startsWith("G:")) return b.pair === a.pair;
+  return false;
+}
+
+/** What the empty partner slot asks for, from the commander. */
+export function zonePartnerHint(a: ZoneMate): string {
+  const pair = a.pair;
+  if (pair == null) return ROLE_HINT.partner;
+  if (pair === "" && isDoctor(a.typeLine)) return "A doctor's companion";
+  switch (pair) {
+    case "P": return "Another commander with partner";
+    case "F": return "Another commander with friends forever";
+    case "B": return "A Background";
+    case "D": return "The Doctor";
+  }
+  if (pair.startsWith("P:")) return pair.slice(2);
+  if (pair.startsWith("G:")) return `Another with partner—${pair.slice(2)}`;
+  return ROLE_HINT.partner;
+}
 export interface ZoneSlot { role: ZoneRole; cardId: string | null; finish: string; lang: string }
 
 /** The slots a deck of this format shows, filled from its command-zone lines in order (see the contract). */
@@ -42,7 +87,8 @@ export function zoneSlots(format: string, lines: ZoneLine[]): ZoneSlot[] {
   const slot = (role: ZoneRole, l?: ZoneLine): ZoneSlot => ({ role, cardId: l?.cardId ?? null, finish: l?.finish ?? "nonfoil", lang: l?.lang ?? "en" });
   if (format === "commander") {
     const out = lines.slice(0, 2).map((l, i) => slot(i === 0 ? "commander" : "partner", l));
-    if (out.length < 2) out.push(slot(out.length ? "partner" : "commander"));
+    if (!out.length) out.push(slot("commander"));
+    else if (out.length === 1 && zoneCanPair(lines[0].typeLine, lines[0].pair)) out.push(slot("partner"));
     return out;
   }
   if (format === "oathbreaker") {
@@ -60,7 +106,7 @@ export function zoneFilling(lines: ZoneLine[], slotCard: string | null, next: Zo
 }
 
 /** A deck line outside the command zone that could be moved in. */
-export interface ZoneDeckLine { cardId: string; board: string; typeLine: string; finish?: string; lang?: string; qty?: number }
+export interface ZoneDeckLine { cardId: string; board: string; typeLine: string; finish?: string; lang?: string; qty?: number; pair?: string | null }
 
 /** The deck's own cards a slot's picker offers first: main deck, then sideboard, those that fit. A deck made before the
  *  command zone has its commander in the main deck. */

@@ -67,6 +67,18 @@ describe("produced mana and tokens", () => {
   });
 });
 
+describe("pair codes", () => {
+  const c = parsePack("v1-test", [
+    "#t1catalog\t1\tv1-test\t3\t0",
+    "O\t0\t11111111-1111-1111-1111-111111111111\tKrenko\tkrenko\tLegendary Creature — Goblin\t{1}{R}{R}\t3\tR\t\t-----LL-\t\t\t\t",
+    "O\t1\t22222222-2222-2222-2222-222222222222\tPir, Imaginative Rascal\tpir imaginative rascal\tLegendary Creature — Human\t{2}{G}\t3\tG\t\t------L-\t\t\t\tP:Toothy, Imaginary Friend",
+    "O\t2\t33333333-3333-3333-3333-333333333333\tThrasios\tthrasios\tLegendary Creature — Merfolk Wizard\t{G}{U}\t2\tGU\t\t------L-\t\t\t",
+  ].join("\n"));
+  it("reads the field after tokens: empty is none, missing unknown", () => {
+    expect(c.oPair).toEqual(["", "P:Toothy, Imaginary Friend", null]);
+  });
+});
+
 describe("legality and original printing", () => {
   const pack = [
     "#t1catalog\t1\tv1-test\t2\t3",

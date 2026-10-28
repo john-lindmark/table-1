@@ -26,7 +26,9 @@ class CommandZoneTest {
 
     @Test fun slots() {
         for (s in c["slots"]!!.jsonArray.map { it.jsonObject }) {
-            val lines = s["lines"]!!.jsonArray.map { it.jsonArray }.map { CommandZone.Line(it[0].jsonPrimitive.content, it[1].jsonPrimitive.content) }
+            val lines = s["lines"]!!.jsonArray.map { it.jsonArray }.map {
+                CommandZone.Line(it[0].jsonPrimitive.content, it[1].jsonPrimitive.content, pair = if (it.size > 2) str(it[2]) else null)
+            }
             val want = s["slots"]!!.jsonArray.map { it.jsonArray }.map { listOf(it[0].jsonPrimitive.content, str(it[1])) }
             val got = CommandZone.slots(s["format"]!!.jsonPrimitive.content, lines).map { listOf(it.role.wire, it.cardId) }
             assertEquals(s["name"]!!.jsonPrimitive.content, want, got)
@@ -70,6 +72,20 @@ class CommandZoneTest {
             }
             val want = m["ops"]!!.jsonArray.map { o -> o.jsonArray.map { it.jsonPrimitive.content } }
             assertEquals(m["name"]!!.jsonPrimitive.content, want, got)
+        }
+    }
+
+    @Test fun partners() {
+        for (p in c["can_pair"]!!.jsonArray.map { it.jsonObject }) {
+            assertEquals(p.toString(), p["ok"]!!.jsonPrimitive.content.toBoolean(), CommandZone.canPair(p["type"]!!.jsonPrimitive.content, str(p["pair"]!!)))
+        }
+        fun mate(a: kotlinx.serialization.json.JsonArray) = CommandZone.Mate(a[0].jsonPrimitive.content, str(a[1]), a[2].jsonPrimitive.content)
+        for (p in c["pairs"]!!.jsonArray.map { it.jsonObject }) {
+            assertEquals(p["name"]!!.jsonPrimitive.content, p["ok"]!!.jsonPrimitive.content.toBoolean(),
+                CommandZone.pairs(mate(p["commander"]!!.jsonArray), mate(p["candidate"]!!.jsonArray)))
+        }
+        for (h in c["partner_hint"]!!.jsonArray.map { it.jsonObject }) {
+            assertEquals(h["hint"]!!.jsonPrimitive.content, CommandZone.partnerHint(CommandZone.Mate(h["type"]!!.jsonPrimitive.content, str(h["pair"]!!), "")))
         }
     }
 }

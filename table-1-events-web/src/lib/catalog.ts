@@ -34,6 +34,8 @@ export interface Catalog {
   oProduced: (string | null)[];
   /** Token cards it makes: O-line indexes, comma-separated ("" = none). */
   oTokens: string[];
+  /** Who the card shares the command zone with (lib/commandZone ZoneMate); null when the pack doesn't say. */
+  oPair: (string | null)[];
   /** Printings of card i are pFirst[i] .. pFirst[i] + pCount[i] - 1, newest first. */
   pFirst: Int32Array;
   pCount: Int32Array;
@@ -172,7 +174,7 @@ export function parsePack(version: string, text: string): Catalog {
     oId: new Array(nO), oName: new Array(nO), oNorm: new Array(nO), oType: new Array(nO), oCost: new Array(nO),
     oCmc: new Float64Array(nO), oColors: new Array(nO), oFaces: new Array(nO),
     oLegal: new Array(nO), oOriginal: new Int32Array(nO).fill(-1), oPoints: new Uint8Array(nO),
-    oProduced: new Array(nO).fill(null), oTokens: new Array(nO).fill(""),
+    oProduced: new Array(nO).fill(null), oTokens: new Array(nO).fill(""), oPair: new Array(nO).fill(null),
     pFirst: new Int32Array(nO).fill(-1), pCount: new Int32Array(nO),
     pId: new Array(nP), pOracle: new Int32Array(nP), pSet: new Array(nP), pCn: new Array(nP), pLang: new Array(nP),
     pRarity: new Array(nP), pFinishes: new Array(nP), pReleased: new Array(nP), pImageTs: new Array(nP),
@@ -191,6 +193,7 @@ export function parsePack(version: string, text: string): Catalog {
       c.oLegal[i] = f[10] ?? "";
       c.oPoints[i] = Number(f[11]) || 0;
       if (f.length > 12) { c.oProduced[i] = f[12]; c.oTokens[i] = f[13] ?? ""; }
+      if (f.length > 14) c.oPair[i] = f[14];
       o++;
     } else if (f[0] === "P" && p < nP) {
       const oi = Number(f[2]);

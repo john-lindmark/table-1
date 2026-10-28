@@ -1,7 +1,7 @@
 // cards-sync card mapping checks. Runs under Deno (`deno test`) and Node 23+ (`node --test catalog.test.ts`).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { producedMana, slimCard, tokenCardIds } from "./catalog.ts";
+import { pairCode, producedMana, slimCard, tokenCardIds } from "./catalog.ts";
 
 const card = (over: Record<string, unknown>) => ({
   id: "c1", oracle_id: "o1", name: "Test", set: "tst", collector_number: "1", games: ["paper"], ...over,
@@ -43,4 +43,23 @@ test("slimCard carries both", () => {
   const s = slimCard(card({ type_line: "Land", produced_mana: ["G"], all_parts: [{ component: "token", id: "t1" }] }));
   assert.equal(s?.produced_mana, "G");
   assert.deepEqual(s?.token_card_ids, ["t1"]);
+});
+
+test("pair codes name who a card shares the command zone with", () => {
+  const code = (oracle_text: string, keywords: string[] = []) => pairCode(card({ type_line: "Legendary Creature — Human", oracle_text, keywords }));
+  assert.equal(code("Partner (You can have two commanders if both have partner.)", ["Partner"]), "P");
+  assert.equal(code("Flying\nPartner"), "P");
+  assert.equal(code("Lifelink, partner", ["Lifelink", "Partner"]), "P");
+  assert.equal(code("Partner with Toothy, Imaginary Friend (When this creature enters, target player may put Toothy into their hand.)",
+                    ["Partner with"]), "P:Toothy, Imaginary Friend");
+  assert.equal(code("Partner—Father & son (You can have two commanders if both have this ability.)"), "G:Father & son");
+  assert.equal(code("Friends forever (You can have two commanders if both have friends forever.)", ["Friends forever"]), "F");
+  assert.equal(code("Choose a Background (You can have a Background as a second commander.)", ["Choose a Background"]), "B");
+  assert.equal(code("Doctor’s companion (You can have two commanders if the other is the Doctor.)"), "D");
+  assert.equal(code("Doctor's companion (You can have two commanders if the other is the Doctor.)"), "D");
+  assert.equal(code("Whenever you attack, create a 1/1 partner token."), "");
+  assert.equal(code("Haste"), "");
+  assert.equal(pairCode(card({ type_line: "Legendary Creature // Legendary Creature", card_faces: [
+    { oracle_text: "Vigilance" }, { oracle_text: "Partner" }] })), "P");
+  assert.equal(slimCard(card({ oracle_text: "Partner", keywords: ["Partner"] }))?.pair_code, "P");
 });

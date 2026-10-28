@@ -690,6 +690,8 @@ struct ListLine: Identifiable, Hashable {
     /// Basic lands are exempt from singleton rules.
     var basic: Bool = false
     var type: String = ""
+    /// Who it shares the command zone with (`CommandZone.Mate`), nil when the catalog doesn't say.
+    var pair: String? = nil
     /// Key into `ownedByPrinting()`.
     var ownKey: String { "\(cardId)|\(finish)" }
     /// "Foil" / "Etched" for those lines; nil for non-foil.
@@ -711,7 +713,7 @@ struct ListLine: Identifiable, Hashable {
             return ListLine(id: "\(e.board)-\(i)", cardId: e.cardId, printing: printings[e.cardId], oracleId: o?.oracleId,
                             name: o?.name ?? "Unknown card", group: keys[kind == .deck ? .type : .color], board: e.board, qty: e.qty,
                             keys: keys, legal: o?.legal ?? "", finish: e.finish, lang: e.lang,
-                            points: o?.points ?? 0, basic: type.contains("Basic"), type: o?.typeLine ?? "")
+                            points: o?.points ?? 0, basic: type.contains("Basic"), type: o?.typeLine ?? "", pair: o?.pair)
         }
         .sorted { $0.name < $1.name }
     }
@@ -958,14 +960,21 @@ struct ListDetailView: View {
         list.kind == .deck && list.eventId == nil && CommandZone.formats.contains(list.format) && query.isEmpty
     }
 
-    @ViewBuilder private func commandZone(_ list: CardList, rows: [ListLine]) -> some View {
+    /// The command zone's lines, and the commander as its partner sees it (nil while there's none).
+    private func zoneOf(_ rows: [ListLine]) -> (lines: [ListLine], commander: CommandZone.Mate?) {
         let zone = rows.filter { $0.board == CommandZone.board }
+        return (zone, zone.first.map { CommandZone.Mate(typeLine: $0.type, pair: $0.pair, name: $0.name) })
+    }
+
+    @ViewBuilder private func commandZone(_ list: CardList, rows: [ListLine]) -> some View {
+        let (zone, commander) = zoneOf(rows)
         Section1("Command zone")
         CommandZoneCards { width in
-            ForEach(CommandZone.slots(format: list.format, lines: zone.map { .init(cardId: $0.cardId, typeLine: $0.type, finish: $0.finish, lang: $0.lang) }),
+            ForEach(CommandZone.slots(format: list.format, lines: zone.map { .init(cardId: $0.cardId, typeLine: $0.type, finish: $0.finish, lang: $0.lang, pair: $0.pair) }),
                     id: \.self) { slot in
                 let line = zone.first { $0.cardId == slot.cardId && $0.finish == slot.finish && $0.lang == slot.lang }
-                CommandZoneCard(slot: slot, printing: line?.printing, name: line?.name, width: width, choose: { chooseZone(list, slot) },
+                CommandZoneCard(slot: slot, printing: line?.printing, name: line?.name, width: width,
+                                hint: slot.role == .partner ? commander.map(CommandZone.partnerHint) : nil, choose: { chooseZone(list, slot) },
                                 remove: slot.cardId.map { id in { ListsStore.shared.remove(listId: list.id, cardId: id, board: CommandZone.board, finish: slot.finish, lang: slot.lang) } },
                                 open: line?.oracleId.map { o in { path.append(.cardIn(o, .list(list.id))) } })
             }
@@ -984,10 +993,13 @@ struct ListDetailView: View {
 
     private func chooseZone(_ list: CardList, _ slot: CommandZone.Slot) {
         let listId = list.id, format = list.format
-        let deck = lines(for: list).filter { $0.board != CommandZone.board }.map {
-            CommandZonePicker.DeckCard(line: .init(cardId: $0.cardId, board: $0.board, typeLine: $0.type, finish: $0.finish, lang: $0.lang, qty: $0.qty),
+        let rows = lines(for: list)
+        let deck = rows.filter { $0.board != CommandZone.board }.map {
+            CommandZonePicker.DeckCard(line: .init(cardId: $0.cardId, board: $0.board, typeLine: $0.type, finish: $0.finish, lang: $0.lang,
+                                                   qty: $0.qty, pair: $0.pair),
                                        name: $0.name, printing: $0.printing)
         }
+        let partnerOf = slot.role == .partner ? zoneOf(rows).commander : nil
         T1Overlays.shared.present(full: true) {
             CommandZonePicker(role: slot.role, deck: deck, pickedInDeck: { c in
                 let store = ListsStore.shared
@@ -1000,7 +1012,7 @@ struct ListDetailView: View {
                     }
                 }
                 Telemetry.capture("command_zone_set", ["format": format, "role": slot.role.rawValue, "from": "deck"])
-            }) { _, p in
+            }, partnerOf: partnerOf) { _, p in
                 let store = ListsStore.shared
                 if let id = slot.cardId {
                     store.swap(listId: listId, cardId: id, board: CommandZone.board, finish: slot.finish, lang: slot.lang,
@@ -1019,7 +1031,7 @@ struct ListDetailView: View {
             guard let m = meta[e.cardId] else { return nil }
             return ListLine(id: "\(e.board)|\(e.cardId)|\(e.finish)|\(e.lang)", cardId: e.cardId, printing: m.printing, oracleId: m.oracleId,
                             name: m.name, group: m.keys[grouping], board: e.board, qty: e.qty, keys: m.keys, legal: m.legal, finish: e.finish, lang: e.lang,
-                            points: m.points, basic: m.basic, type: m.type)
+                            points: m.points, basic: m.basic, type: m.type, pair: m.pair)
         }
         return sort.apply(lines) { SortKey(name: $0.name, keys: $0.keys, printing: $0.printing) }
     }
@@ -1442,7 +1454,8 @@ struct NewListPanel: View {
                 CommandZoneCards { width in
                     ForEach(CommandZone.slots(format: format, lines: zone), id: \.self) { slot in
                         CommandZoneCard(slot: slot, printing: slot.cardId.flatMap { zoneCards[$0]?.printing },
-                                        name: slot.cardId.flatMap { zoneCards[$0]?.name }, width: width, choose: { choose(slot) },
+                                        name: slot.cardId.flatMap { zoneCards[$0]?.name }, width: width,
+                                        hint: slot.role == .partner ? commander.map(CommandZone.partnerHint) : nil, choose: { choose(slot) },
                                         remove: { zone.removeAll { $0.cardId == slot.cardId } })
                     }
                 }
@@ -1479,11 +1492,17 @@ struct NewListPanel: View {
         .onAppear { format = startFormat ?? (kind == .cube ? "vintage" : "modern") }
     }
 
+    /// The first command-zone card as its partner sees it.
+    private var commander: CommandZone.Mate? {
+        zone.first.map { CommandZone.Mate(typeLine: $0.typeLine, pair: $0.pair, name: zoneCards[$0.cardId]?.name ?? "") }
+    }
+
     private func choose(_ slot: CommandZone.Slot) {
+        let partnerOf = slot.role == .partner ? commander : nil
         T1Overlays.shared.present(full: true) {
-            CommandZonePicker(role: slot.role) { o, p in
+            CommandZonePicker(role: slot.role, partnerOf: partnerOf) { o, p in
                 zoneCards[p.cardId] = (o.name, p)
-                zone = CommandZone.filling(zone, slot: slot, with: .init(cardId: p.cardId, typeLine: o.typeLine))
+                zone = CommandZone.filling(zone, slot: slot, with: .init(cardId: p.cardId, typeLine: o.typeLine, pair: o.pair))
             }.screen("command_zone_picker")
         }
     }

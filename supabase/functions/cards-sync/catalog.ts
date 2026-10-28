@@ -43,6 +43,8 @@ export interface SlimCard {
   produced_mana: string;
   /** Scryfall ids of the token printings the card makes (all_parts, component "token"), sorted. */
   token_card_ids: string[];
+  /** Who it can share the command zone with; see pairCode. */
+  pair_code: string;
 }
 
 const KEEP_LEGALITY = new Set(["legal", "restricted", "banned"]);
@@ -94,7 +96,29 @@ export function slimCard(c: Json): SlimCard | null {
     eur_foil: p.eur_foil ?? null,
     produced_mana: producedMana(c),
     token_card_ids: tokenCardIds(c),
+    pair_code: pairCode(c),
   };
+}
+
+/**
+ * Who a card can share the command zone with (contract/command-zone-2026-10-27.md § Partners): P partner, P:<name>
+ * partner with that card, G:<group> partner—group (the same group only), F friends forever, B choose a Background,
+ * D doctor's companion, "" none. Read from the rules text, one ability per line; Scryfall's keywords back up a plain
+ * Partner that shares its line with other keywords.
+ */
+export function pairCode(c: Json): string {
+  const faces: Json[] = Array.isArray(c.card_faces) ? c.card_faces : [];
+  const text = [c.oracle_text, ...faces.map((f) => f.oracle_text)].filter((t) => typeof t === "string").join("\n");
+  let m = /^Partner with ([^(\n]+?)\s*(?:\(|$)/m.exec(text);
+  if (m) return `P:${m[1]}`;
+  m = /^Partner\s*[—-]\s*([^(\n]+?)\s*(?:\(|$)/m.exec(text);
+  if (m) return `G:${m[1]}`;
+  if (/^Partner\s*(?:\(|$)/m.test(text)) return "P";
+  if (/^Friends forever\b/m.test(text)) return "F";
+  if (/^Choose a Background\b/m.test(text)) return "B";
+  if (/^Doctor[’']s companion\b/m.test(text)) return "D";
+  const kw: string[] = Array.isArray(c.keywords) ? c.keywords : [];
+  return kw.includes("Partner") ? "P" : "";
 }
 
 const MANA_ORDER = "WUBRGCF";

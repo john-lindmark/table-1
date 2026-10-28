@@ -69,7 +69,9 @@ data class ListLine(val cardId: String, val printing: CatalogPrinting?, val orac
                     val group: String, val board: String, val qty: Int, val legal: String = "", val finish: String = "nonfoil",
                     val points: Int = 0, val basic: Boolean = false, val type: String = "",
                     /** Its group under each grouping (Group by in the View menu). */
-                    val keys: GroupKeys = GroupKeys(), val lang: String = "en") {
+                    val keys: GroupKeys = GroupKeys(), val lang: String = "en",
+                    /** Who it shares the command zone with ([CommandZone.Mate]), null when the catalog doesn't say. */
+                    val pair: String? = null) {
     val ownKey get() = ownKey(cardId, finish)
     val key get() = "$board|$cardId|$finish|$lang"
     /** "Foil" / "Etched"; null for non-foil. */
@@ -79,7 +81,7 @@ data class ListLine(val cardId: String, val printing: CatalogPrinting?, val orac
 }
 
 private data class CardMeta(val printing: CatalogPrinting?, val oracleId: String?, val name: String, val type: String,
-                            val legal: String, val points: Int = 0, val keys: GroupKeys = GroupKeys())
+                            val legal: String, val points: Int = 0, val keys: GroupKeys = GroupKeys(), val pair: String? = null)
 
 private fun resolve(ids: Set<String>, db: CatalogDb): Map<String, CardMeta> {
     val ps = db.printings(ids)
@@ -87,7 +89,7 @@ private fun resolve(ids: Set<String>, db: CatalogDb): Map<String, CardMeta> {
     return ids.associateWith { id ->
         val p = ps[id]
         val o = p?.let { os[it.oracleIdx] }
-        CardMeta(p, o?.oracleId, o?.name ?: "Unknown card", o?.typeLine ?: "", o?.legal ?: "", o?.points ?: 0, GroupKeys.of(o))
+        CardMeta(p, o?.oracleId, o?.name ?: "Unknown card", o?.typeLine ?: "", o?.legal ?: "", o?.points ?: 0, GroupKeys.of(o), o?.pair)
     }
 }
 
@@ -97,7 +99,7 @@ private fun lines(l: CardList, meta: Map<String, CardMeta>, by: CardGrouping): L
 private fun lines(entries: List<ListEntry>, meta: Map<String, CardMeta>, by: CardGrouping): List<ListLine> = entries.mapNotNull { e ->
     val m = meta[e.cardId] ?: return@mapNotNull null
     val type = m.type.substringBefore(" // ")
-    ListLine(e.cardId, m.printing, m.oracleId, m.name, m.keys[by], e.board, e.qty, m.legal, e.finish, m.points, "Basic" in type, m.type, m.keys, e.lang)
+    ListLine(e.cardId, m.printing, m.oracleId, m.name, m.keys[by], e.board, e.qty, m.legal, e.finish, m.points, "Basic" in type, m.type, m.keys, e.lang, m.pair)
 }.sortedBy { it.name }
 
 /** A shared deck's or cube's entries as lines (ProfileCardsScreen), resolved off the main thread. */
@@ -247,6 +249,7 @@ fun NewListPanel(kind: ListKind, onDismiss: () -> Unit, onCreated: (String) -> U
     var choosing by remember { mutableStateOf<CommandZone.Slot?>(null) }
     val zoned = kind == ListKind.Deck && formats[format] in CommandZone.FORMATS
     val slots = if (zoned) CommandZone.slots(formats[format], zone) else emptyList()
+    val commander = zone.firstOrNull()?.let { CommandZone.Mate(it.typeLine, it.pair, zoneCards[it.cardId]?.first ?: "") }
     T1Panel(if (kind == ListKind.Deck) "New deck" else "New cube", onDismiss = onDismiss) {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Box(Modifier.fillMaxWidth().background(T1.surface).padding(16.dp)) { T1TextField(name, { name = it }, label = "Name") }
@@ -256,7 +259,7 @@ fun NewListPanel(kind: ListKind, onDismiss: () -> Unit, onCreated: (String) -> U
                 T1Segmented(row, if (format - base in row.indices) format - base else -1) { format = base + it }
             }
             if (zoned) {
-                CommandZoneCards(slots, card = { sl -> sl.cardId?.let { zoneCards[it] }?.let { it.first to it.second } },
+                CommandZoneCards(slots, commander = commander, card = { sl -> sl.cardId?.let { zoneCards[it] }?.let { it.first to it.second } },
                     onChoose = { choosing = it }, onRemove = { sl -> zone = zone.filter { it.cardId != sl.cardId } })
             }
             BigAction(if (kind == ListKind.Deck) "Create deck" else "Create cube", enabled = name.isNotBlank(), busy = busy) {
@@ -278,9 +281,9 @@ fun NewListPanel(kind: ListKind, onDismiss: () -> Unit, onCreated: (String) -> U
         }
     }
     choosing?.let { slot ->
-        CommandZonePicker(slot.role, onDismiss = { choosing = null }) { o, p ->
+        CommandZonePicker(slot.role, onDismiss = { choosing = null }, partnerOf = if (slot.role == CommandZone.Role.Partner) commander else null) { o, p ->
             zoneCards = zoneCards + (p.cardId to (o.name to p))
-            zone = CommandZone.filling(zone, slot.cardId, CommandZone.Line(p.cardId, o.typeLine))
+            zone = CommandZone.filling(zone, slot.cardId, CommandZone.Line(p.cardId, o.typeLine, pair = o.pair))
         }
     }
 }
@@ -329,6 +332,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     // Commander and Oathbreaker decks show their command zone at the top, in every layout (not while searching).
     val showsZone = list.kind == ListKind.Deck && list.format in CommandZone.FORMATS && !searching
     val zone = rows.filter { it.board == CommandZone.BOARD }
+    val zoneCommander = zone.firstOrNull()?.let { CommandZone.Mate(it.type, it.pair, it.name) }
     // While searching, matches come first: the summary rows would push them under the keyboard.
     val boards = list.boards.filter { b -> (!searching || shown.any { it.board == b }) && !(b == CommandZone.BOARD && showsZone) }
 
@@ -352,7 +356,8 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
             }
             if (showsZone) {
                 val lineOf = { slot: CommandZone.Slot -> zone.firstOrNull { it.cardId == slot.cardId && it.finish == slot.finish && it.lang == slot.lang } }
-                CommandZoneCards(CommandZone.slots(list.format, zone.map { CommandZone.Line(it.cardId, it.type, it.finish, it.lang) }),
+                CommandZoneCards(CommandZone.slots(list.format, zone.map { CommandZone.Line(it.cardId, it.type, it.finish, it.lang, it.pair) }),
+                    commander = zoneCommander,
                     card = { sl -> lineOf(sl)?.let { it.name to it.printing } }, onChoose = { choosingZone = it },
                     onRemove = { sl -> sl.cardId?.let { id -> scope.launch { ListsStore.remove(list.id, id, CommandZone.BOARD, sl.finish, sl.lang) } } },
                     onOpen = { sl -> lineOf(sl)?.oracleId?.let(onCard) })
@@ -527,9 +532,10 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     }
     choosingZone?.let { slot ->
         val deck = rows.filter { it.board != CommandZone.BOARD }.map {
-            ZoneDeckCard(CommandZone.DeckLine(it.cardId, it.board, it.type, it.finish, it.lang, it.qty), it.name, it.printing)
+            ZoneDeckCard(CommandZone.DeckLine(it.cardId, it.board, it.type, it.finish, it.lang, it.qty, it.pair), it.name, it.printing)
         }
-        CommandZonePicker(slot.role, onDismiss = { choosingZone = null }, deck = deck, onPickDeck = { d ->
+        CommandZonePicker(slot.role, onDismiss = { choosingZone = null }, deck = deck,
+            partnerOf = if (slot.role == CommandZone.Role.Partner) zoneCommander else null, onPickDeck = { d ->
             scope.launch {
                 runCatching {
                     ListsStore.editMany(list.id, CommandZone.movingIn(d.line, slot).map { op ->

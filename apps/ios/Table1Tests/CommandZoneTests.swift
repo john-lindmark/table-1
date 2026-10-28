@@ -8,7 +8,10 @@ private let casesURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent
 
 private struct Cases: Decodable {
     struct Fit: Decodable { let type: String; let roles: [String] }
-    struct Slots: Decodable { let name, format: String; let lines: [[String]]; let slots: [[String?]] }
+    struct Slots: Decodable { let name, format: String; let lines: [[String?]]; let slots: [[String?]] }
+    struct CanPair: Decodable { let type: String; let pair: String?; let ok: Bool }
+    struct Pairs: Decodable { let name: String; let commander, candidate: [String?]; let ok: Bool }
+    struct Hint: Decodable { let type: String; let pair: String?; let hint: String }
     struct Filling: Decodable { let name: String; let lines: [String]; let slot: String?; let card: String; let result: [String] }
     struct Role: Decodable { let format, type, role: String }
     struct InDeck: Decodable { let name, role: String; let lines: [[String]]; let result: [String] }
@@ -29,6 +32,9 @@ private struct Cases: Decodable {
     let role: [Role]
     let in_deck: [InDeck]
     let move_in: [MoveIn]
+    let can_pair: [CanPair]
+    let pairs: [Pairs]
+    let partner_hint: [Hint]
 }
 
 final class CommandZoneTests: XCTestCase {
@@ -39,7 +45,9 @@ final class CommandZoneTests: XCTestCase {
             XCTAssertEqual(all.filter { $0.fits(f.type) }.map(\.rawValue), f.roles, f.type)
         }
         for s in c.slots {
-            let got = CommandZone.slots(format: s.format, lines: s.lines.map { .init(cardId: $0[0], typeLine: $0[1]) })
+            let got = CommandZone.slots(format: s.format, lines: s.lines.map {
+                .init(cardId: $0[0] ?? "", typeLine: $0[1] ?? "", pair: $0.count > 2 ? $0[2] : nil)
+            })
             XCTAssertEqual(got.map { [$0.role.rawValue, $0.cardId] }, s.slots, s.name)
         }
         for f in c.filling {
@@ -54,6 +62,16 @@ final class CommandZoneTests: XCTestCase {
             let role = try XCTUnwrap(CommandZone.Role(rawValue: d.role))
             let got = CommandZone.inDeck(role, d.lines.map { .init(cardId: $0[0], board: $0[1], typeLine: $0[2]) })
             XCTAssertEqual(got.map(\.cardId), d.result, d.name)
+        }
+        for p in c.can_pair {
+            XCTAssertEqual(CommandZone.canPair(typeLine: p.type, pair: p.pair), p.ok, "\(p.type) \(p.pair ?? "nil")")
+        }
+        func mate(_ a: [String?]) -> CommandZone.Mate { .init(typeLine: a[0] ?? "", pair: a[1], name: a[2] ?? "") }
+        for p in c.pairs {
+            XCTAssertEqual(CommandZone.pairs(mate(p.commander), mate(p.candidate)), p.ok, p.name)
+        }
+        for h in c.partner_hint {
+            XCTAssertEqual(CommandZone.partnerHint(.init(typeLine: h.type, pair: h.pair, name: "")), h.hint)
         }
         for m in c.move_in {
             let line = CommandZone.DeckLine(cardId: m.card[0].str, board: m.card[1].str, typeLine: "", qty: m.card[2].int)

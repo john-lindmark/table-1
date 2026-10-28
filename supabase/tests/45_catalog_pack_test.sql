@@ -1,4 +1,4 @@
--- Catalog ingest and pack: produced mana and token links on O lines (contract/catalog-2026-10-14.md).
+-- Catalog ingest and pack: produced mana, token links and pair codes on O lines (contract/catalog-2026-10-14.md).
 \ir _helpers.sql
 
 insert into t1_private.catalog_runs (bulk_updated_at, source_uri) values (now(), 'test') returning id as run \gset
@@ -69,3 +69,27 @@ select pg_temp.eq('parts joined equal the body',
   (select concat_ws(E'\n', public.catalog_pack_part(0, 0, 2), public.catalog_pack_part(0, 2, 100),
                     public.catalog_pack_part(1, 0, 100), public.catalog_pack_part(2, 0, 100))),
   public.catalog_pack_body());
+
+-- Pair codes (20261028120000_pack_pair_codes.sql): a partner commander, and Young Pyromancer read again with none.
+select public.catalog_ingest(:run, jsonb_build_array(
+  jsonb_build_object('id', 'a1000000-0000-0000-0000-000000000006', 'oracle_id', 'a0000000-0000-0000-0000-000000000006',
+    'name', 'Pir, Imaginative Rascal', 'layout', 'normal', 'type_line', 'Legendary Creature — Human', 'cmc', 3,
+    'colors', '["G"]'::jsonb, 'set_code', 'bbd', 'collector_number', '11', 'lang', 'en', 'rarity', 'rare',
+    'finishes', '["nonfoil"]'::jsonb, 'image_faces', 1, 'produced_mana', '', 'token_card_ids', '[]'::jsonb,
+    'pair_code', 'P:Toothy, Imaginary Friend'),
+  (select r->1 from rows) || '{"pair_code":""}'::jsonb)) as pairs \gset
+select pg_temp.eq('pair codes stored, and a new pair code rewrites the row', (:'pairs'::jsonb)->>'oracles', '2');
+-- Name order now: Elemental 0, Island 1, Pir 2, Polluted Delta 3, Young Pyromancer 4.
+drop table o;
+create temp table o as
+select split_part(l, E'\t', 4) name, l, array_length(string_to_array(l, E'\t'), 1) n
+  from unnest(string_to_array(public.catalog_pack_part(0, 0, 100), E'\n')) l;
+select pg_temp.eq('pair is the field after tokens', pg_temp.field('Pir, Imaginative Rascal', 15), 'P:Toothy, Imaginary Friend');
+select pg_temp.eq('no pair ability is an empty field; not read yet ends at tokens',
+  (select string_agg(name || ':' || n, ' ' order by name) from o),
+  'Elemental:14 Island:14 Pir, Imaginative Rascal:15 Polluted Delta:14 Young Pyromancer:15');
+select pg_temp.eq('parts joined still equal the body',
+  (select concat_ws(E'\n', public.catalog_pack_part(0, 0, 3), public.catalog_pack_part(0, 3, 100),
+                    public.catalog_pack_part(1, 0, 100), public.catalog_pack_part(2, 0, 100))),
+  public.catalog_pack_body());
+

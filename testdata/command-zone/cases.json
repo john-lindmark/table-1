@@ -1,10 +1,10 @@
 {
-  "_doc": "Command zone rules (contract/command-zone-2026-10-27.md). fits: which slot roles a type line can fill. slots: the slots a deck shows from its command-zone lines (role, card or null). filling: lines after a slot is filled. role: what a command-zone line is called. in_deck: the deck's own lines (card, section, type line) a slot's picker offers first, main deck then sideboard. move_in: the list_edit ops that put one of those cards (card, section, copies) in a slot: a filled slot's card goes to the main deck; one copy of several moves by deltas.",
+  "_doc": "Command zone rules (contract/command-zone-2026-10-27.md). fits: which slot roles a type line can fill (a Background only partners a commander that chooses one). slots: the slots a deck shows from its command-zone lines [card, type line, pair code (absent = unknown)] (role, card or null); one commander gets an empty partner slot only when it can pair. filling: lines after a slot is filled. role: what a command-zone line is called. in_deck: the deck's own lines (card, section, type line) a slot's picker offers first, main deck then sideboard. can_pair: whether a commander (type line, pair code; null = unknown, lenient) takes a partner. partner_hint: what the empty partner slot asks for, from the commander (type line, pair code). pairs: whether a candidate [type line, pair code, name] can be a commander's partner (pair codes: P partner, P:<name> partner with, G:<group> partner—group, F friends forever, B choose a Background, D doctor's companion, empty = none). move_in: the list_edit ops that put one of those cards (card, section, copies) in a slot: a filled slot's card goes to the main deck; one copy of several moves by deltas.",
   "fits": [
     {"type": "Legendary Creature — Elf Druid", "roles": ["commander", "partner"]},
     {"type": "Legendary Planeswalker — Ral", "roles": ["commander", "partner", "oathbreaker"]},
     {"type": "Planeswalker — Ral", "roles": ["oathbreaker"]},
-    {"type": "Legendary Enchantment — Background", "roles": ["commander", "partner"]},
+    {"type": "Legendary Enchantment — Background", "roles": ["partner"]},
     {"type": "Creature — Goblin", "roles": []},
     {"type": "Legendary Artifact", "roles": []},
     {"type": "Instant", "roles": ["signature"]},
@@ -26,6 +26,11 @@
      "slots": [["oathbreaker", "w"], ["signature", "s"]]},
     {"name": "oathbreaker, walker only", "format": "oathbreaker", "lines": [["w", "Legendary Planeswalker — Ral"]],
      "slots": [["oathbreaker", "w"], ["signature", null]]},
+    {"name": "commander that can't pair", "format": "commander", "lines": [["a", "Legendary Creature — Elf", ""]], "slots": [["commander", "a"]]},
+    {"name": "commander with partner", "format": "commander", "lines": [["a", "Legendary Creature — Elf", "P"]], "slots": [["commander", "a"], ["partner", null]]},
+    {"name": "commander choosing a background", "format": "commander", "lines": [["a", "Legendary Creature — Elf", "B"]], "slots": [["commander", "a"], ["partner", null]]},
+    {"name": "a doctor", "format": "commander", "lines": [["a", "Legendary Creature — Time Lord Doctor", ""]], "slots": [["commander", "a"], ["partner", null]]},
+    {"name": "two lines shown even without partner", "format": "commander", "lines": [["a", "Legendary Creature — Elf", ""], ["b", "Legendary Creature — Elf", ""]], "slots": [["commander", "a"], ["partner", "b"]]},
     {"name": "modern", "format": "modern", "lines": [["a", "Legendary Creature — Elf"]], "slots": []}
   ],
   "filling": [
@@ -52,5 +57,44 @@
     {"name": "one of four", "slot": null, "card": ["c", "main", 4], "ops": [["delta", "c", "main", -1], ["delta", "c", "commander", 1]]},
     {"name": "from the sideboard", "slot": null, "card": ["b", "side", 1], "ops": [["move", "b", "side", "commander"]]},
     {"name": "replacing a commander", "slot": "x", "card": ["c", "main", 1], "ops": [["move", "x", "commander", "main"], ["move", "c", "main", "commander"]]}
+  ],
+  "can_pair": [
+    {"type": "Legendary Creature — Elf", "pair": null, "ok": true},
+    {"type": "Legendary Creature — Elf", "pair": "", "ok": false},
+    {"type": "Legendary Creature — Elf", "pair": "P", "ok": true},
+    {"type": "Legendary Creature — Elf", "pair": "P:Toothy, Imaginary Friend", "ok": true},
+    {"type": "Legendary Creature — Elf", "pair": "F", "ok": true},
+    {"type": "Legendary Creature — Elf", "pair": "B", "ok": true},
+    {"type": "Legendary Creature — Elf", "pair": "D", "ok": true},
+    {"type": "Legendary Creature — Elf", "pair": "G:Father & son", "ok": true},
+    {"type": "Legendary Creature — Time Lord Doctor", "pair": "", "ok": true}
+  ],
+  "pairs": [
+    {"name": "partner and partner", "commander": ["Legendary Creature — Elf", "P", "Thrasios"], "candidate": ["Legendary Creature — Human", "P", "Tymna"], "ok": true},
+    {"name": "partner and a plain legend", "commander": ["Legendary Creature — Elf", "P", "Thrasios"], "candidate": ["Legendary Creature — Human", "", "Krenko"], "ok": false},
+    {"name": "partner and friends forever", "commander": ["Legendary Creature — Elf", "P", "Thrasios"], "candidate": ["Legendary Creature — Human", "F", "Will"], "ok": false},
+    {"name": "partner with its pair", "commander": ["Legendary Creature — Elf", "P:Toothy, Imaginary Friend", "Pir, Imaginative Rascal"], "candidate": ["Legendary Creature — Human", "P:Pir, Imaginative Rascal", "Toothy, Imaginary Friend"], "ok": true},
+    {"name": "partner with another", "commander": ["Legendary Creature — Elf", "P:Toothy, Imaginary Friend", "Pir, Imaginative Rascal"], "candidate": ["Legendary Creature — Human", "P", "Tymna"], "ok": false},
+    {"name": "same partner group", "commander": ["Legendary Creature — Elf", "G:Father & son", "Atreus"], "candidate": ["Legendary Creature — Human", "G:Father & son", "Kratos"], "ok": true},
+    {"name": "other partner group", "commander": ["Legendary Creature — Elf", "G:Father & son", "Atreus"], "candidate": ["Legendary Creature — Human", "G:Survivors", "Ellie"], "ok": false},
+    {"name": "friends forever", "commander": ["Legendary Creature — Elf", "F", "Will"], "candidate": ["Legendary Creature — Human", "F", "Mike"], "ok": true},
+    {"name": "background", "commander": ["Legendary Creature — Elf", "B", "Wilson"], "candidate": ["Legendary Enchantment — Background", "", "Raised by Giants"], "ok": true},
+    {"name": "background wants a background", "commander": ["Legendary Creature — Elf", "B", "Wilson"], "candidate": ["Legendary Creature — Human", "B", "Karlach"], "ok": false},
+    {"name": "companion and doctor", "commander": ["Legendary Creature — Elf", "D", "Rose Tyler"], "candidate": ["Legendary Creature — Time Lord Doctor", "", "The Tenth Doctor"], "ok": true},
+    {"name": "doctor and companion", "commander": ["Legendary Creature — Time Lord Doctor", "", "The Tenth Doctor"], "candidate": ["Legendary Creature — Elf", "D", "Rose Tyler"], "ok": true},
+    {"name": "doctor and a plain legend", "commander": ["Legendary Creature — Time Lord Doctor", "", "The Tenth Doctor"], "candidate": ["Legendary Creature — Human", "", "Krenko"], "ok": false},
+    {"name": "no partner ability", "commander": ["Legendary Creature — Elf", "", "Krenko"], "candidate": ["Legendary Creature — Human", "P", "Tymna"], "ok": false},
+    {"name": "unknown commander is lenient", "commander": ["Legendary Creature — Elf", null, "Thrasios"], "candidate": ["Legendary Creature — Human", "", "Krenko"], "ok": true},
+    {"name": "unknown candidate is lenient", "commander": ["Legendary Creature — Elf", "P", "Thrasios"], "candidate": ["Legendary Creature — Human", null, "Tymna"], "ok": true}
+  ],
+  "partner_hint": [
+    {"type": "Legendary Creature — Elf", "pair": null, "hint": "Optional: a second commander"},
+    {"type": "Legendary Creature — Elf", "pair": "P", "hint": "Another commander with partner"},
+    {"type": "Legendary Creature — Elf", "pair": "P:Toothy, Imaginary Friend", "hint": "Toothy, Imaginary Friend"},
+    {"type": "Legendary Creature — Elf", "pair": "G:Father & son", "hint": "Another with partner—Father & son"},
+    {"type": "Legendary Creature — Elf", "pair": "F", "hint": "Another commander with friends forever"},
+    {"type": "Legendary Creature — Elf", "pair": "B", "hint": "A Background"},
+    {"type": "Legendary Creature — Elf", "pair": "D", "hint": "The Doctor"},
+    {"type": "Legendary Creature — Time Lord Doctor", "pair": "", "hint": "A doctor's companion"}
   ]
 }
