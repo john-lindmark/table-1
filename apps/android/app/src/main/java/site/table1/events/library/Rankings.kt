@@ -40,13 +40,27 @@ data class RankingCube(val id: String, val name: String, val mine: Boolean = fal
                        /** cube_ranking_get only: Oracle id → the printing the cube holds, so cards show as they are in the cube. */
                        val printings: Map<String, String>? = null)
 
+/** A ranking is titled by who ranked it (contract/cube-rankings-2026-10-21.md § Names, testdata/ranking-names). Blank and
+ *  "My ranking", what every ranking was called before 2026-10-28 and what the server still stores for no name, aren't names. */
+object RankingName {
+    const val UNNAMED = "My ranking"
+
+    fun label(name: String): String? = name.trim().takeUnless { it.isEmpty() || it.equals(UNNAMED, ignoreCase = true) }
+
+    fun title(name: String, by: String?, mine: Boolean): String =
+        listOfNotNull(by?.trim()?.ifEmpty { null } ?: if (mine) "You" else "Someone", label(name)).joinToString(" · ")
+}
+
 @Serializable
 data class RankingRow(
     val id: String, @SerialName("list_id") val listId: String, val name: String, val depth: String, val top: Int, val sharing: String,
     val screens: Int, val rev: Int, val sorted: Int, val categories: Int, val ranked: Int,
     @SerialName("updated_at") val updatedAt: String? = null, val mine: Boolean, val by: Person? = null, val cube: RankingCube? = null,
 ) {
-    val whose get() = if (mine) "Your ranking" else "${by?.displayName ?: "Someone"}'s ranking"
+    /** Who ranked it, then the name they gave it if any: "Mara", "Mara · Power only". */
+    val title get() = RankingName.title(name, by?.displayName, mine)
+    /** The name its maker gave it; null for the default. */
+    val label get() = RankingName.label(name)
     val progress get() = "$sorted/$categories sorted · $ranked/$top ranked"
 }
 

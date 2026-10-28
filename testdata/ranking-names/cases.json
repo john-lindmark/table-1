@@ -1,0 +1,13 @@
+{
+  "about": "A cube ranking is titled by who ranked it; a name they gave it follows as a label. Blank and \"My ranking\" (every ranking's name before 2026-10-28, and still the server's stored default) are not labels. contract/cube-rankings-2026-10-21.md § Names.",
+  "cases": [
+    { "name": "My ranking", "by": "Mara", "mine": false, "label": null, "title": "Mara" },
+    { "name": " my RANKING ", "by": "Mara", "mine": false, "label": null, "title": "Mara" },
+    { "name": "", "by": "John", "mine": true, "label": null, "title": "John" },
+    { "name": "Power only", "by": "Mara", "mine": false, "label": "Power only", "title": "Mara · Power only" },
+    { "name": "  Top 50 test ", "by": "John", "mine": true, "label": "Top 50 test", "title": "John · Top 50 test" },
+    { "name": "My ranking", "by": null, "mine": true, "label": null, "title": "You" },
+    { "name": "My ranking", "by": null, "mine": false, "label": null, "title": "Someone" },
+    { "name": "Grixis", "by": "  ", "mine": false, "label": "Grixis", "title": "Someone · Grixis" }
+  ]
+}

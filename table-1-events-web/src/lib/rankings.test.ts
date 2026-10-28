@@ -1,8 +1,21 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./supabaseClient", () => ({ supabase: {} }));
 const { parsePack, coverPrinting } = await import("./catalog");
-const { resolveCards, rankingsGate } = await import("./rankings");
+const { resolveCards, rankingsGate, rankingLabel, rankingTitle } = await import("./rankings");
+
+/* Rankings are titled by who ranked them (contract/cube-rankings-2026-10-21.md § Names); also iOS RankingNameTests,
+   Android RankingNameTest. */
+describe("ranking names (testdata/ranking-names)", () => {
+  const { cases } = JSON.parse(readFileSync(new URL("../../../testdata/ranking-names/cases.json", import.meta.url), "utf8")) as {
+    cases: { name: string; by: string | null; mine: boolean; label: string | null; title: string }[];
+  };
+  it.each(cases)("$name by $by", (k) => {
+    expect(rankingLabel(k.name)).toBe(k.label);
+    expect(rankingTitle({ name: k.name, mine: k.mine, by: k.by == null ? null : { user_id: "u", display_name: k.by } })).toBe(k.title);
+  });
+});
 
 describe("rankings pages before their content", () => {
   it("signed out says to sign in instead of the refused RPC's error", () => {

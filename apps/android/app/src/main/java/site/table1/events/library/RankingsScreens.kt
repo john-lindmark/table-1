@@ -121,7 +121,6 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
     var rankable by remember { mutableStateOf<List<RankableCube>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var creating by remember { mutableStateOf(false) }
-    var name by remember { mutableStateOf("My ranking") }
     var top by remember { mutableStateOf(100) }
     // Follows the top until the person picks a depth: a quarter of each color for a top 50, a third for a top 100.
     var pickedDepth by remember { mutableStateOf<String?>(null) }
@@ -144,7 +143,6 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
                 "Everyone who can see this cube can watch and compare the rankings shared with it.")
             if (d.canRank && cube != null) {
                 if (creating) {
-                    Field("Name", name, { name = it })
                     T1Segmented(listOf("Top 100", "Top 50"), if (top == 100) 0 else 1) { top = if (it == 0) 100 else 50 }
                     T1Segmented(DEPTH_LABELS, RankDepth.all.indexOf(depth).coerceAtLeast(0)) { pickedDepth = RankDepth.all[it] }
                     Notice(depthNote(depth, top))
@@ -157,7 +155,7 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
                             if (busy) return@Ghost
                             busy = true
                             scope.launch {
-                                runCatching { RankingsStore.create(cube.id, name.trim(), depth, top, sharing, cube.mine) }
+                                runCatching { RankingsStore.create(cube.id, "", depth, top, sharing, cube.mine) }
                                     .onSuccess { creating = false; onOpen(it.id) }.onFailure { error = it.message }
                                 busy = false
                             }
@@ -168,7 +166,7 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
             }
             val mine = d.rankings.filter { it.mine }; val others = d.rankings.filter { !it.mine }
             @Composable fun row(r: RankingRow) {
-                ListRow(r.name, listOfNotNull(if (listId == null) r.cube?.name else if (r.mine) "You" else r.by?.displayName, r.progress).joinToString(" · "),
+                ListRow(r.title, listOfNotNull(if (listId == null) r.cube?.name else null, r.progress).joinToString(" · "),
                     onClick = { onOpen(r.id) }, avatar = if (r.mine) null else ({ Avatar(r.by?.displayName ?: "?", r.by?.userId, 28) })) {
                     parseInstant(r.updatedAt)?.let { Label(Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).format(shortFmt)) }
                 }
@@ -218,7 +216,7 @@ private fun rememberOthers(m: RankingModel): List<RankingRow> {
 @Composable
 private fun Frame(title: String, m: RankingModel, onBack: () -> Unit, subtitle: String? = null, content: @Composable ColumnScope.(RankingState) -> Unit) {
     T1Screen {
-        Bar(title, subtitle ?: m.row?.name, onBack = onBack)
+        Bar(title, subtitle ?: m.row?.title, onBack = onBack)
         m.error?.let { Notice(it, error = true) }
         m.notice?.let { Notice(it) }
         val st = m.state
@@ -301,7 +299,7 @@ fun RankingScreen(id: String, onBack: () -> Unit, go: (String) -> Unit) {
     var newName by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val row = m.row
-    Frame(row?.name ?: "Ranking", m, onBack, listOfNotNull(row?.whose, m.cube?.name).joinToString(" · ")) { st ->
+    Frame(row?.title ?: "Ranking", m, onBack, m.cube?.name) { st ->
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             if (m.cubeGone) Notice("This cube isn't shared with you any more, so only its lists show.")
             if (row != null) CubeChanged(m, row, go)
@@ -337,14 +335,18 @@ fun RankingScreen(id: String, onBack: () -> Unit, go: (String) -> Unit) {
             }
             ListRow("Changes", if (m.changes.isEmpty()) "Every move of every card, as it happens" else "${plural(m.changes.size, "change")} so far", onClick = { go("changes") })
             ListRow("Compare with another ranking…", if (others.isEmpty()) "No other rankings of this cube yet" else plural(others.size, "other ranking"), onClick = {
-                if (others.isNotEmpty()) menu = others.map { o -> T1MenuItem("${o.by?.displayName ?: "Someone"} · ${o.name}") { go("compare/${o.id}/F") } }
+                if (others.isNotEmpty()) menu = others.map { o -> T1MenuItem(o.title) { go("compare/${o.id}/F") } }
             })
             ListRow("Top ${row?.top ?: 100} image", "The final as a picture, to save or share", onClick = { imaging = true })
             if (row?.mine == true) {
                 Section("Settings")
-                Field("Name", newName ?: row.name, { newName = it })
-                val n = newName
-                if (n != null && n.isNotBlank() && n != row.name) Row { Ghost("Rename", accent = true) { m.update(name = n.trim()); newName = null } }
+                Field("Label (optional)", newName ?: row.label ?: "", { newName = it })
+                val n = newName?.trim()
+                // The server takes no blank name; its default is what reads as no label.
+                if (n != null && n != (row.label ?: "")) Row {
+                    Ghost(if (n.isEmpty()) "Remove label" else "Save label", accent = true) { m.update(name = n.ifEmpty { RankingName.UNNAMED }); newName = null }
+                }
+                Notice("Rankings are titled by who ranked them. A label tells your rankings of this cube apart.")
                 T1Segmented(DEPTH_LABELS, RankDepth.all.indexOf(row.depth).coerceAtLeast(0)) { m.update(depth = RankDepth.all[it]) }
                 Notice(depthNote(row.depth, row.top))
                 T1Segmented(listOf("Top 100", "Top 50"), if (row.top == 100) 0 else 1) { m.update(top = if (it == 0) 100 else 50) }
@@ -354,7 +356,7 @@ fun RankingScreen(id: String, onBack: () -> Unit, go: (String) -> Unit) {
         }
     }
     menu?.let { T1Menu("Compare with", it) { menu = null } }
-    if (confirmDelete && row != null) T1AlertDialog("Delete ${row.name}?", onDismiss = { confirmDelete = false },
+    if (confirmDelete && row != null) T1AlertDialog("Delete this ranking?", onDismiss = { confirmDelete = false },
         confirm = { TextButton({ confirmDelete = false; scope.launch { runCatching { RankingsStore.delete(id) }.onSuccess { onBack() }.onFailure { m.error = it.message } } }) {
             Text("Yes, delete it", color = T1.danger, fontFamily = T1.mono) } },
         dismiss = { TextButton({ confirmDelete = false }) { Text("Cancel", color = T1.text, fontFamily = T1.mono) } },
@@ -516,7 +518,7 @@ fun RankingListsScreen(id: String, job: RankJob, onBack: () -> Unit, go: (String
                     Telemetry.capture("ranking_list_copied", mapOf("list" to tab.key))
                 }
                 Ghost("Compare…") {
-                    if (others.isNotEmpty()) menu = others.map { o -> T1MenuItem("${o.by?.displayName ?: "Someone"} · ${o.name}") { go("compare/${o.id}/${tab.key}") } }
+                    if (others.isNotEmpty()) menu = others.map { o -> T1MenuItem(o.title) { go("compare/${o.id}/${tab.key}") } }
                 }
             }
         }
@@ -653,6 +655,7 @@ fun RankingCompareScreen(id: String, otherId: String, job: RankJob, onBack: () -
         runCatching { RankingsStore.brief(a, b, tab) }.onSuccess { brief = it }.onFailure { briefError = it.message }
     }
     fun label(r: RankingRow?) = if (r?.mine == true) "You" else r?.by?.displayName ?: "Someone"
+    fun named(r: RankingRow?) = listOfNotNull(label(r), r?.label).joinToString(" · ")
     T1Screen {
         Bar("Compare", listTitle(tab, ma.row?.top ?: 100), onBack = onBack)
         (ma.error ?: mb.error)?.let { Notice(it, error = true) }
@@ -662,9 +665,9 @@ fun RankingCompareScreen(id: String, otherId: String, job: RankJob, onBack: () -
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                 @Composable fun picker(title: String, r: RankingRow?, set: (String) -> Unit) {
-                    Column(Modifier.weight(1f).background(T1.surface).clickable { menu = title to all.map { o -> T1MenuItem("${label(o)} · ${o.name}") { set(o.id) } } }.padding(12.dp)) {
+                    Column(Modifier.weight(1f).background(T1.surface).clickable { menu = title to all.map { o -> T1MenuItem(named(o)) { set(o.id) } } }.padding(12.dp)) {
                         Label(title)
-                        Text("${label(r)} · ${r?.name ?: ""}", color = T1.text, fontFamily = T1.mono, fontSize = 13.sp, maxLines = 2)
+                        Text(named(r), color = T1.text, fontFamily = T1.mono, fontSize = 13.sp, maxLines = 2)
                     }
                 }
                 picker("Ranking", ma.row) { a = it }
@@ -881,7 +884,7 @@ private fun RankingImageScreen(m: RankingModel, onClose: () -> Unit) {
     var note by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val cards = remember(m.version.value) { m.state?.session(RankJob.Final)?.top?.mapNotNull(m::cardAt) ?: emptyList() }
-    val name = m.row?.name ?: "Top 100"
+    val name = m.row?.title ?: "Top 100"
     LaunchedEffect(cards) {
         if (cards.isEmpty()) return@LaunchedEffect
         val printings = cards.mapNotNull { it.printing }.associateBy { it.cardId }
@@ -899,7 +902,7 @@ private fun RankingImageScreen(m: RankingModel, onClose: () -> Unit) {
         if (loaded.size < printings.size) note = "${printings.size - loaded.size} card images couldn't be loaded; their names show instead."
         val row = m.row
         val partial = if (m.state?.session(RankJob.Final)?.done == true) null else "${cards.size} of ${row?.top ?: 100} ranked so far"
-        val byline = listOfNotNull(row?.let { "${if (it.mine) "Your ranking" else "${it.by?.displayName ?: "Someone"}'s ranking"} of ${m.cube?.name ?: "a cube"}" },
+        val byline = listOfNotNull(row?.let { "Ranking of ${m.cube?.name ?: "a cube"}" },
             partial, "Ranked on Table 1", java.time.LocalDate.now().format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US))).joinToString(" · ")
         image = withContext(Dispatchers.Default) { RankingImageDrawing.draw(name, byline, cards, loaded) }
     }

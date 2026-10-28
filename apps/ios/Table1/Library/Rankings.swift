@@ -35,12 +35,32 @@ struct RankingRow: Decodable, Hashable, Identifiable, Sendable {
     var by: Person?
     var cube: RankingCube?
 
-    var whose: String { mine ? "Your ranking" : "\(by?.displayName ?? "Someone")'s ranking" }
+    /// Who ranked it, then the name they gave it if any: "Mara", "Mara · Power only".
+    var title: String { RankingName.title(name: name, by: by?.displayName, mine: mine) }
+    /// The name its maker gave it; nil for the default.
+    var label: String? { RankingName.label(name) }
     var progress: String { "\(sorted)/\(categories) sorted · \(ranked)/\(top) ranked" }
     /// "Oct 21": when it last changed.
     var updatedShort: String? {
         guard let updatedAt, let d = ISO8601DateFormatter.flexible(updatedAt) else { return nil }
         return d.formatted(.dateTime.month(.abbreviated).day())
+    }
+}
+
+/// A ranking is titled by who ranked it (contract/cube-rankings-2026-10-21.md § Names, testdata/ranking-names). Blank and
+/// "My ranking", what every ranking was called before 2026-10-28 and what the server still stores for no name, aren't names.
+enum RankingName {
+    static let unnamed = "My ranking"
+
+    static func label(_ name: String) -> String? {
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return n.isEmpty || n.lowercased() == unnamed.lowercased() ? nil : n
+    }
+
+    static func title(name: String, by: String?, mine: Bool) -> String {
+        let who = by?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let person = who.flatMap { $0.isEmpty ? nil : $0 } ?? (mine ? "You" : "Someone")
+        return [person, label(name)].compactMap { $0 }.joined(separator: " · ")
     }
 }
 
@@ -833,7 +853,7 @@ final class RankingsDemoBackend: @unchecked Sendable {
             return Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
         }
         run("d0000000-0000-0000-0000-0000000aa002", mara, "Aggro all the way", "half", 100, mine: false, finalScreens: nil, taste: mixed("mara"))
-        run("d0000000-0000-0000-0000-0000000aa003", theo, "Theo's picks", "half", 50, mine: false, finalScreens: nil, taste: mixed("theo"))
+        run("d0000000-0000-0000-0000-0000000aa003", theo, RankingName.unnamed, "half", 50, mine: false, finalScreens: nil, taste: mixed("theo"))
         run(Self.mine, me, "My ranking", "half", 100, mine: true, finalScreens: 0, taste: mixed("me"), stopAfter: .b)
         run("d0000000-0000-0000-0000-0000000aa004", mara, "Mara's own order", "half", 100, mine: false, finalScreens: 0,
             taste: mixed("mara2"), cube: Self.maraCube, stopAfter: .u)
@@ -884,7 +904,7 @@ final class RankingsDemoBackend: @unchecked Sendable {
     }
 
     func create(id: String, listId: String, name: String, depth: String, top: Int, sharing: String) -> RankingRow {
-        let r = RankingRow(id: id, listId: listId, name: name.isEmpty ? "My ranking" : name, depth: depth, top: top, sharing: sharing,
+        let r = RankingRow(id: id, listId: listId, name: name.isEmpty ? RankingName.unnamed : name, depth: depth, top: top, sharing: sharing,
                            screens: 0, rev: 0, sorted: 0, categories: 0, ranked: 0, updatedAt: ISO8601DateFormatter().string(from: .now),
                            mine: true, by: Person(userId: FriendsDemoBackend.me, displayName: "You"))
         rows[id] = r

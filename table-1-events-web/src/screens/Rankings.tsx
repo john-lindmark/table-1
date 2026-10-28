@@ -6,7 +6,7 @@ import { cardImageUrl, cornerRatio, type Catalog } from "../lib/catalog";
 import { JOB_TITLE, compare, depthPhrase, suggestedDepth, why, type Link, type RankChange, type RankDepth, type RankJob, type RankSession, type RankingState } from "../lib/cubeRanking";
 import { fileName } from "../lib/deckImage";
 import {
-  createRanking, deleteRanking, fetchBrief, fetchRankable, fetchRankings, progressText, rankingModel, shortDate, useRanking, whose,
+  createRanking, deleteRanking, fetchBrief, fetchRankable, fetchRankings, progressText, rankingLabel, rankingModel, rankingTitle, shortDate, UNNAMED, useRanking,
   type CubeRankings, type RankCard, type RankableCube, type RankingBrief, type RankingModel, type RankingRow,
 } from "../lib/rankings";
 
@@ -64,7 +64,6 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube }: {
   const [others2, setOthers2] = useState<RankableCube[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [name, setName] = useState("My ranking");
   const [top, setTop] = useState(100);
   /** Follows the top until the person picks a depth: a quarter of each color for a top 50, a third for a top 100. */
   const [picked, setPicked] = useState<RankDepth | null>(null);
@@ -80,7 +79,7 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube }: {
     if (!cube || busy) return;
     setBusy(true);
     try {
-      const r = await createRanking({ listId: cube.id, name: name.trim(), depth, top, sharing, ownCube: cube.mine });
+      const r = await createRanking({ listId: cube.id, name: "", depth, top, sharing, ownCube: cube.mine });
       setCreating(false);
       onOpen(r.id);
     } catch (e) {
@@ -90,8 +89,8 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube }: {
     }
   };
   const row = (r: RankingRow) => (
-    <Row key={r.id} title={r.name} onClick={() => onOpen(r.id)} value={shortDate(r.updated_at) ?? undefined}
-         detail={[listId == null ? r.cube?.name : r.mine ? "You" : r.by?.display_name, progressText(r)].filter(Boolean).join(" · ")}
+    <Row key={r.id} title={rankingTitle(r)} onClick={() => onOpen(r.id)} value={shortDate(r.updated_at) ?? undefined}
+         detail={[listId == null ? r.cube?.name : null, progressText(r)].filter(Boolean).join(" · ")}
          avatar={r.mine ? undefined : <Avatar name={r.by?.display_name ?? "?"} userId={r.by?.user_id} size={28} />} />
   );
   return (
@@ -106,7 +105,6 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube }: {
             Everyone who can see this cube can watch and compare the rankings shared with it.</Notice>
         )}
         {data?.can_rank && cube && (creating ? (<>
-          <Field label="Name" value={name} onChange={setName} />
           <Segmented options={[{ value: 100, label: "Top 100" }, { value: 50, label: "Top 50" }]} value={top} onChange={setTop} />
           <Segmented options={DEPTH_OPTIONS} value={depth} onChange={setPicked} />
           <Notice tone="info">{depthNote(depth, top)}</Notice>
@@ -161,7 +159,7 @@ function Frame({ title, subtitle, onBack, m, catalog, children }: {
 }) {
   return (
     <LibScreen>
-      <Bar title={title} subtitle={subtitle ?? m.row?.name} onBack={onBack} />
+      <Bar title={title} subtitle={subtitle ?? (m.row ? rankingTitle(m.row) : undefined)} onBack={onBack} />
       {m.error && <Notice tone="error">{m.error}</Notice>}
       {m.notice && <Notice tone="info">{m.notice}</Notice>}
       {m.state && catalog ? children(m.state, catalog) : !m.error && <Notice tone="info">{catalog ? "Loading the ranking…" : "Loading card data…"}</Notice>}
@@ -224,7 +222,7 @@ export function RankingScreen({ id, onBack, go }: { id: string; onBack: () => vo
   const [newName, setNewName] = useState<string | null>(null);
   const row = m.row;
   return (
-    <Frame title={row?.name ?? "Ranking"} subtitle={[row && whose(row), m.cube?.name].filter(Boolean).join(" · ")} onBack={onBack} m={m} catalog={catalog}>
+    <Frame title={row ? rankingTitle(row) : "Ranking"} subtitle={m.cube?.name} onBack={onBack} m={m} catalog={catalog}>
       {(st, c) => (
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
           {m.cubeGone && <Notice tone="info">This cube isn't shared with you any more, so only its lists show.</Notice>}
@@ -271,14 +269,16 @@ export function RankingScreen({ id, onBack, go }: { id: string; onBack: () => vo
           })()}
           <Row title="Changes" detail={m.changes.length ? `${plural(m.changes.length, "change")} so far` : "Every move of every card, as it happens"} onClick={() => go("changes")} />
           <Row title="Compare with another ranking…" detail={others.length ? plural(others.length, "other ranking") : "No other rankings of this cube yet"}
-               onClick={() => others.length && setMenu({ title: "Compare with", items: others.map((o) => ({ title: `${o.by?.display_name ?? "Someone"} · ${o.name}`, onClick: () => go(`compare/${o.id}/F`) })) })} />
+               onClick={() => others.length && setMenu({ title: "Compare with", items: others.map((o) => ({ title: rankingTitle(o), onClick: () => go(`compare/${o.id}/F`) })) })} />
           <Row title={`Top ${row?.top ?? 100} image`} detail="The final as a picture, to download or share" onClick={() => setImaging(true)} />
           {row?.mine && (<>
             <Section title="Settings" />
-            <Field label="Name" value={newName ?? row.name} onChange={setNewName} />
-            {newName != null && newName.trim() && newName !== row.name && (
-              <Btn label="Rename" accent onClick={() => { void m.update({ name: newName.trim() }); setNewName(null); }} />
+            <Field label="Label (optional)" value={newName ?? rankingLabel(row.name) ?? ""} onChange={setNewName} />
+            {newName != null && newName.trim() !== (rankingLabel(row.name) ?? "") && (
+              // The server takes no blank name; its default is what reads as no label.
+              <Btn label={newName.trim() ? "Save label" : "Remove label"} accent onClick={() => { void m.update({ name: newName.trim() || UNNAMED }); setNewName(null); }} />
             )}
+            <Notice tone="info">Rankings are titled by who ranked them. A label tells your rankings of this cube apart.</Notice>
             <Segmented options={DEPTH_OPTIONS} value={row.depth} onChange={(d) => void m.update({ depth: d })} />
             <Notice tone="info">{depthNote(row.depth, row.top)}</Notice>
             <Segmented options={[{ value: 100, label: "Top 100" }, { value: 50, label: "Top 50" }]} value={row.top} onChange={(t) => void m.update({ top: t })} />
@@ -288,7 +288,7 @@ export function RankingScreen({ id, onBack, go }: { id: string; onBack: () => vo
           </>)}
           {menu && <Menu title={menu.title} items={menu.items} onClose={() => setMenu(null)} />}
           {confirmDelete && row && (
-            <Dialog title={`Delete ${row.name}?`} message="This removes every pick in it, on every device. It can't be undone." cancelLabel="Cancel"
+            <Dialog title="Delete this ranking?" message="This removes every pick in it, on every device. It can't be undone." cancelLabel="Cancel"
                     confirmLabel="Yes, delete it" tone="danger" onCancel={() => setConfirmDelete(false)}
                     onConfirm={() => void deleteRanking(id).then(onBack).catch((e) => { m.error = (e as Error).message; setConfirmDelete(false); })} />
           )}
@@ -500,7 +500,7 @@ export function RankingListsScreen({ id, job, onBack, go }: { id: string; job: R
             {l.rest.map((card) => <CardRow key={card.oracleId} c={c} p={card.p} title={card.name} onClick={() => go(`card/${card.oracleId}/${tab}`)} />)}
             <div className="flex gap-px">
               <Btn label={copied ? "Copied" : "Copy list"} onClick={() => { void navigator.clipboard.writeText(m.listText(tab)); setCopied(true); capture("ranking_list_copied", { list: tab }); }} />
-              <Btn label="Compare…" onClick={() => others.length && setMenu(others.map((o) => ({ title: `${o.by?.display_name ?? "Someone"} · ${o.name}`, onClick: () => go(`compare/${o.id}/${tab}`) })))} />
+              <Btn label="Compare…" onClick={() => others.length && setMenu(others.map((o) => ({ title: rankingTitle(o), onClick: () => go(`compare/${o.id}/${tab}`) })))} />
             </div>
           </div>
           {menu && <Menu title="Compare this list with" items={menu} onClose={() => setMenu(null)} />}
@@ -628,11 +628,12 @@ export function RankingCompareScreen({ id, otherId, job, onBack, go }: { id: str
     return () => { live = false; };
   }, [a, b, tab, briefTry, ready0]);
   const label = (r: RankingRow | null) => (r?.mine ? "You" : r?.by?.display_name ?? "Someone");
+  const named = (r: RankingRow | null) => [label(r), r && rankingLabel(r.name)].filter(Boolean).join(" · ");
   const picker = (title: string, r: RankingRow | null, set: (id: string) => void) => (
     <button type="button" className="flex-1 bg-t1-surface hover:bg-t1-surface-hover p-3 text-left flex flex-col gap-0.5"
-            onClick={() => setMenu({ title, items: all.map((o) => ({ title: `${label(o)} · ${o.name}`, onClick: () => set(o.id) })) })}>
+            onClick={() => setMenu({ title, items: all.map((o) => ({ title: named(o), onClick: () => set(o.id) })) })}>
       <span className="t1-label">{title}</span>
-      <span className="text-[13px]">{label(r)} · {r?.name}</span>
+      <span className="text-[13px]">{named(r)}</span>
     </button>
   );
   const ready = ma.state && mb.state && catalog;
@@ -861,7 +862,7 @@ function RankingImage({ m, c, onClose }: { m: RankingModel; c: Catalog; onClose:
   const [note, setNote] = useState<string | null>(null);
   const blob = useRef<Blob | null>(null);
   const cards = useMemo(() => (m.state ? m.state.session("F").top.map((x) => m.cardAt(x)).filter((x): x is RankCard => !!x) : []), [m.version]);
-  const name = m.row?.name ?? "Top 100";
+  const name = m.row ? rankingTitle(m.row) : "Top 100";
   useEffect(() => {
     if (!cards.length) return;
     let live = true;
@@ -876,7 +877,7 @@ function RankingImage({ m, c, onClose }: { m: RankingModel; c: Catalog; onClose:
         if (art.size < ps.length) setNote(`${ps.length - art.size} card images couldn't be loaded; their names show instead.`);
         const row = m.row;
         const partial = m.state?.session("F").done ? null : `${cards.length} of ${row?.top ?? 100} ranked so far`;
-        const byline = [row ? `${row.mine ? "Your ranking" : `${row.by?.display_name ?? "Someone"}'s ranking`} of ${m.cube?.name ?? "a cube"}` : null, partial,
+        const byline = [row ? `Ranking of ${m.cube?.name ?? "a cube"}` : null, partial,
                         "Ranked on Table 1", new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })].filter(Boolean).join(" · ");
         const cv = drawTop(cards, c, art, name, byline, getComputedStyle(document.body).fontFamily || "ui-monospace, monospace");
         cv.toBlob((b) => { if (!live || !b) return; blob.current = b; setUrl(URL.createObjectURL(b)); }, "image/jpeg", 0.9);

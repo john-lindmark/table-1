@@ -295,3 +295,22 @@ final class RankingModelTests: XCTestCase {
         XCTAssertEqual(shown["goyf"]?.printing?.cardId, "fut-goyf", "no printing from the cube: the usual art")
     }
 }
+
+/// Rankings are titled by who ranked them (contract/cube-rankings-2026-10-21.md § Names), against testdata/ranking-names.
+final class RankingNameTests: XCTestCase {
+    private struct Cases: Decodable {
+        struct Case: Decodable { let name: String; let by: String?; let mine: Bool; let label: String?; let title: String }
+        let cases: [Case]
+    }
+
+    func testSharedCases() throws {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appending(path: "../../../testdata/ranking-names/cases.json").standardized
+        let c = try JSONDecoder().decode(Cases.self, from: Data(contentsOf: url))
+        XCTAssertFalse(c.cases.isEmpty)
+        for k in c.cases {
+            XCTAssertEqual(RankingName.label(k.name), k.label, k.name)
+            XCTAssertEqual(RankingName.title(name: k.name, by: k.by, mine: k.mine), k.title, k.name)
+        }
+    }
+}

@@ -30,7 +30,17 @@ export interface RankableCube { id: string; name: string; owner: Person | null; 
 /** `baseline`: the cube's cards the ranking last caught up with; cards added since wait outside its lists. */
 export interface RankingDetail extends RankingRow { log: RankScreen[]; changes: RankChange[]; cube: RankingCube | null; baseline?: string[] }
 
-export const whose = (r: RankingRow) => (r.mine ? "Your ranking" : `${r.by?.display_name ?? "Someone"}'s ranking`);
+/** A ranking is titled by who ranked it (contract/cube-rankings-2026-10-21.md § Names, testdata/ranking-names). Blank and
+ *  "My ranking", what every ranking was called before 2026-10-28 and what the server still stores for no name, aren't names. */
+export const UNNAMED = "My ranking";
+/** The name its maker gave it; null for the default. */
+export const rankingLabel = (name: string): string | null => {
+  const n = name.trim();
+  return !n || n.toLowerCase() === UNNAMED.toLowerCase() ? null : n;
+};
+/** Who ranked it, then the name they gave it if any: "Mara", "Mara · Power only". */
+export const rankingTitle = (r: Pick<RankingRow, "name" | "by" | "mine">) =>
+  [r.by?.display_name?.trim() || (r.mine ? "You" : "Someone"), rankingLabel(r.name)].filter(Boolean).join(" · ");
 export const progressText = (r: RankingRow) => `${r.sorted}/${r.categories} sorted · ${r.ranked}/${r.top} ranked`;
 export const shortDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null);
 
@@ -571,7 +581,7 @@ export class DemoRankings {
       this.baselines.set(id, mine ? [...before.keys()].sort() : this.now.slice().sort());
     };
     run(DemoRankings.mara, { user_id: "d0000000-0000-0000-0000-0000000f0001", display_name: "Mara Quinn" }, "Aggro all the way", "half", 100, false, null, mixed("mara"));
-    run(DemoRankings.theo, { user_id: "d0000000-0000-0000-0000-0000000f0002", display_name: "Theo Vance" }, "Theo's picks", "half", 50, false, null, mixed("theo"));
+    run(DemoRankings.theo, { user_id: "d0000000-0000-0000-0000-0000000f0002", display_name: "Theo Vance" }, "My ranking", "half", 50, false, null, mixed("theo"));
     run(DemoRankings.mine, { user_id: "d0000000-0000-0000-0000-0000000f0000", display_name: "You" }, "My ranking", "half", 100, true, 0, mixed("me"));
     run("d0000000-0000-0000-0000-0000000aa004", DemoRankings.maraPerson, "Mara's own order", "half", 100, false, 0, mixed("mara2"), DemoRankings.maraCube, "U");
   }
@@ -619,7 +629,7 @@ export class DemoRankings {
   }
 
   create(id: string, listId: string, name: string, depth: RankDepth, top: number, sharing: "cube" | "private"): RankingRow {
-    const r: RankingRow = { id, list_id: listId, name: name || "My ranking", depth, top, sharing, screens: 0, rev: 0, sorted: 0, categories: 0, ranked: 0,
+    const r: RankingRow = { id, list_id: listId, name: name || UNNAMED, depth, top, sharing, screens: 0, rev: 0, sorted: 0, categories: 0, ranked: 0,
                             updated_at: new Date().toISOString(), mine: true, by: { user_id: "d0000000-0000-0000-0000-0000000f0000", display_name: "You" } };
     this.rows.set(id, r);
     this.logs.set(id, []);

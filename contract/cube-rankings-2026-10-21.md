@@ -174,7 +174,7 @@ maker's client last reported, for list rows; everything else is worked out from 
 
 | Call | Does |
 |---|---|
-| `cube_ranking_create(p_id, p_list_id, p_name?, p_depth='half', p_top=100, p_sharing='cube')` | Starts a ranking; a retry with the same id returns it. Name: trimmed, ≤ 60, blank → "My ranking". At most 200 per account. |
+| `cube_ranking_create(p_id, p_list_id, p_name?, p_depth='half', p_top=100, p_sharing='cube')` | Starts a ranking; a retry with the same id returns it. Name: trimmed, ≤ 60, blank → "My ranking" (reads as no label, § Names). At most 200 per account. |
 | `cube_ranking_update(p_id, p_name?, p_depth?, p_top?, p_sharing?)` | Yours only. |
 | `cube_ranking_push(p_id, p_rev, p_keep, p_add, p_sorted?, p_categories?, p_ranked?, p_op_id?, p_changes?, p_count?, p_removed?, p_drop?)` | Saves the log (see **Saving**). Apps send `p_keep` = `p_count` = the log as they last read it, `p_drop` = the screens they took out (matched by session, cards and time, wherever they sit), `p_add` = what they locked in (2–4 distinct known Oracle ids each, or 2–15 for a pick `P`; `s` one of `W U B R G M C L F P`, optional `t` epoch ms; ≤ 1000 per push, ≤ 6000 in all), `p_removed` = how many screens it takes out, and `p_changes` for the change log (≤ 2000 per push; the newest 5000 kept). `p_rev` and `p_count` must match and the push must remove exactly `p_removed` screens, else PT409 (HTTP 409 "This ranking changed on another device": reload and plan again; never 40001, which PostgREST retries in a loop: see migration `20261022120000_ranking_conflict_409.sql`). Apps built before 2026-10-23 send neither `p_count` nor `p_removed` and may remove at most 25 screens. Every removed screen is kept in `t1_private.cube_ranking_removed` (where it sat, which push), and `t1_private.cube_ranking_restore_removed(entry)` puts one push's removals back (support only). A retry with the same `p_op_id` returns the stored result. Migration `20261022180000_ranking_push_guard.sql`. |
 | `cube_ranking_delete(p_id)` | Yours only; `{deleted}`. |
@@ -200,6 +200,19 @@ ordered until its top quarter is in order; the rest sit below it. The final top 
 more cards in it than that, the final asks about them itself." The shared cases have a quarter run and a third run
 (`testdata/cube-ranking/cases.json`, runs D and E). Server: migration `20261022190000_ranking_depths.sql`. Apps built
 before this treat an unknown depth as every card (more screens, nothing wrong).
+
+## Names (John, 2026-10-28)
+
+Every ranking was called "My ranking", which said nothing. A ranking is now titled by **who ranked it** ("Mara Quinn");
+a name its maker gave it follows as a **label** ("Mara Quinn · Aggro all the way"). Blank and "My ranking" (any case,
+trimmed) are not labels, so every existing ranking reads as its person's name without a migration, and old builds keep
+working. New ranking has no name field (clients send "", stored as "My ranking"); Settings has **Label (optional)** with
+Save label / Remove label (the server refuses a blank name on update, so Remove label sends "My ranking"). The ranking
+screen's bar is the title over the cube's name; rows drop the person from their detail; Compare pickers read "You" /
+the person, then the label; the Top 100 image's header is the title and its byline "Ranking of <cube> · …"; Delete asks
+"Delete this ranking?". Rule: `RankingName` (iOS `Rankings.swift`, Android `Rankings.kt`), `rankingTitle` /
+`rankingLabel` (web `rankings.ts`), cases `testdata/ranking-names/cases.json` (iOS `RankingNameTests` in
+`RankingModelTests.swift`, web `rankings.test.ts`, Android `RankingNameTest`). Client-only.
 
 ## Saving (2026-10-23)
 
@@ -246,12 +259,12 @@ shared cases `testdata/ranking-save/cases.json`):
 - **Cubes** list: a **Rankings** row ("Yours, and friends' cubes you can rank") → your rankings across every cube, then
   **Cubes you can rank** (owner, card count, rankings, how many are yours); tapping one opens that cube's Rankings, where
   **Rank <owner>'s cube** starts your own ranking of it.
-- **Rankings** (per cube): **New ranking** (name, Top half / Every card, Top 100 / Top 50, Shared with the cube / Only
-  me), **Yours**, **Everyone else's** (name, "<person>'s ranking · updated Oct 21", "5/8 sorted · 40/100 ranked").
+- **Rankings** (per cube): **New ranking** (Top half / Every card, Top 100 / Top 50, Shared with the cube / Only
+  me), **Yours**, **Everyone else's** (title per § Names, "5/8 sorted · 40/100 ranked", updated Oct 21).
 - **Ranking**: one tile per color: state (NOT STARTED / IN PROGRESS / SORTED), a thin bar, "Top 31 of 61 sorted in 59
   screens" or "58 cards · about 95 screens"; **Start** / **Continue** (yours) or **Watch**, and **List**. Then **Final
   · Top 100** ("0 of 100 ranked · about 116 screens left once every color is sorted", plus a note when colors aren't
-  sorted). Then **Compare with another ranking…**, **Top 100 image**, and (yours) **Settings**: name, depth, top,
+  sorted). Then **Compare with another ranking…**, **Top 100 image**, and (yours) **Settings**: label, depth, top,
   sharing, Delete. Someone else's ranking re-reads every 10 s while open (every 60 s when nothing changed; yours every
   60 s, for picks made on another device).
 - **Screen**: "#24" big, "MULTICOLOR · DECIDING #24 OF THE TOP 36", "23 of the top 36 (71 cards) placed", "Screen 442 ·
@@ -278,7 +291,7 @@ shared cases `testdata/ranking-save/cases.json`):
 - **Changes** row on the ranking: the change log, newest first, by day; filter by list. Card history shows the card's own
   changes.
 - **Top 100 image**: piles of ten in rank order, each card over the one above so only its name bar shows (the last in a
-  pile whole), header with the ranking's name, "<person>'s ranking of <cube> · Ranked on Table 1 · <date>". Same
+  pile whole), header with the ranking's title, "Ranking of <cube> · Ranked on Table 1 · <date>". Same
   canvas and save/share paths as the deck image (contract/deck-image-2026-10-20.md).
 
 ## Telemetry

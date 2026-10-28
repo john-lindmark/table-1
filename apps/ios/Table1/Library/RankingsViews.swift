@@ -53,7 +53,6 @@ struct RankingsView: View {
     @State private var others: [RankableCube] = []
     @State private var error: String?
     @State private var creating = false
-    @State private var name = "My ranking"
     @State private var top = 100
     /// Follows the top until the person picks a depth: a quarter of each color for a top 50, a third for a top 100.
     @State private var pickedDepth: String?
@@ -127,7 +126,6 @@ struct RankingsView: View {
 
     @ViewBuilder private func newRanking(_ cube: RankingCube) -> some View {
         if creating {
-            Field(label: "Name", text: $name)
             T1Segmented(options: [(100, "Top 100"), (50, "Top 50")], selection: $top)
             T1Segmented(options: depthOptions, selection: Binding(get: { depth }, set: { pickedDepth = $0 }))
             Notice(depthNote(depth, top: top))
@@ -151,7 +149,7 @@ struct RankingsView: View {
         busy = true
         defer { busy = false }
         do {
-            let r = try await RankingsStore.shared.create(listId: cube.id, name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            let r = try await RankingsStore.shared.create(listId: cube.id, name: "",
                                                           depth: depth, top: top, sharing: sharing, ownCube: cube.mine)
             creating = false
             await load()
@@ -163,7 +161,7 @@ struct RankingsView: View {
 
     private func row(_ r: RankingRow) -> some View {
         Button { path.append(.ranking(r.id)) } label: {
-            ListRow(title: r.name, detail: [listId == nil ? r.cube?.name : r.mine ? "You" : r.by?.displayName, r.progress]
+            ListRow(title: r.title, detail: [listId == nil ? r.cube?.name : nil, r.progress]
                         .compactMap { $0 }.joined(separator: " · "),
                     avatar: r.mine ? nil : AvatarView(name: r.by?.displayName ?? "?", userId: r.by?.userId, size: 28)) {
                 if let d = r.updatedShort { LabelText(d) }
@@ -180,12 +178,13 @@ struct RankingView: View {
     @Environment(\.dismiss) private var dismiss
     private var model: RankingModel { RankingsStore.shared.model(rankingId) }
     @State private var others: [RankingRow] = []
-    @State private var newName = ""
+    /// The label being typed; nil until the field is touched.
+    @State private var newName: String?
 
     var body: some View {
         let m = model
         T1Screen {
-            Bar(title: m.row?.name ?? "Ranking", subtitle: [m.row?.whose, m.cube?.name].compactMap { $0 }.joined(separator: " · "), back: { dismiss() })
+            Bar(title: m.row?.title ?? "Ranking", subtitle: m.cube?.name, back: { dismiss() })
             HairlineList {
                 if let e = m.error { Notice(e, error: true) }
                 if let n = m.notice { Notice(n) }
@@ -343,7 +342,7 @@ struct RankingView: View {
         Button {
             if others.isEmpty { return }
             T1Overlays.shared.showMenu("Compare with", others.map { o in
-                T1MenuItem(title: "\(o.by?.displayName ?? "Someone") · \(o.name)") { path.append(.rankingCompare(rankingId, o.id, "F")) }
+                T1MenuItem(title: o.title) { path.append(.rankingCompare(rankingId, o.id, "F")) }
             })
         } label: {
             ListRow(title: "Compare with another ranking…", detail: others.isEmpty ? "No other rankings of this cube yet" : plural(others.count, "other ranking"))
@@ -352,13 +351,14 @@ struct RankingView: View {
 
     @ViewBuilder private func settings(_ row: RankingRow) -> some View {
         Section1("Settings")
-        Field(label: "Name", text: Binding(get: { newName.isEmpty ? row.name : newName }, set: { newName = $0 }))
-        if !newName.isEmpty && newName != row.name {
-            Ghost(text: "Rename", accent: true) {
-                let n = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-                Task { await model.update(name: n.isEmpty ? nil : n); newName = "" }
+        Field(label: "Label (optional)", text: Binding(get: { newName ?? row.label ?? "" }, set: { newName = $0 }))
+        if let n = newName?.trimmingCharacters(in: .whitespacesAndNewlines), n != (row.label ?? "") {
+            // The server takes no blank name; its default is what reads as no label.
+            Ghost(text: n.isEmpty ? "Remove label" : "Save label", accent: true) {
+                Task { await model.update(name: n.isEmpty ? RankingName.unnamed : n); newName = nil }
             }
         }
+        Notice("Rankings are titled by who ranked them. A label tells your rankings of this cube apart.")
         T1Segmented(options: depthOptions,
                     selection: Binding(get: { row.depth }, set: { d in Task { await model.update(depth: d) } }))
         Notice(depthNote(row.depth, top: row.top))
@@ -367,7 +367,7 @@ struct RankingView: View {
         T1Segmented(options: [("cube", "Shared with the cube"), ("private", "Only me")],
                     selection: Binding(get: { row.sharing }, set: { s in Task { await model.update(sharing: s) } }))
         Button {
-            T1Overlays.shared.ask("Delete \(row.name)?", message: "This removes every pick in it, on every device. It can't be undone.",
+            T1Overlays.shared.ask("Delete this ranking?", message: "This removes every pick in it, on every device. It can't be undone.",
                                   action: "Yes, delete it", destructive: true) {
                 Task {
                     do { try await RankingsStore.shared.delete(rankingId); dismiss() } catch { model.error = error.localizedDescription }
@@ -399,7 +399,7 @@ struct RankingPickView: View {
     var body: some View {
         let m = model
         T1Screen {
-            Bar(title: job == .final ? "Final" : job.title, subtitle: m.row?.name, back: { dismiss() })
+            Bar(title: job == .final ? "Final" : job.title, subtitle: m.row?.title, back: { dismiss() })
             if let st = m.state, let row = m.row, let q = m.question(job) {
                 if let n = m.notice { Notice(n) }
                 if let e = m.error { Notice(e, error: true) }
@@ -622,7 +622,7 @@ struct RankingListsView: View {
         let m = model
         let shown = tab ?? job
         T1Screen {
-            Bar(title: shown == .final ? "Top \(m.row?.top ?? 100)" : shown.title, subtitle: m.row?.name, back: { dismiss() })
+            Bar(title: shown == .final ? "Top \(m.row?.top ?? 100)" : shown.title, subtitle: m.row?.title, back: { dismiss() })
             if let st = m.state {
                 rankingTabs(st, shown) { tab = $0 ?? .final }
                 HairlineList {
@@ -658,7 +658,7 @@ struct RankingListsView: View {
                             Ghost(text: "Compare…") {
                                 if others.isEmpty { return }
                                 T1Overlays.shared.showMenu("Compare this list with", others.map { o in
-                                    T1MenuItem(title: "\(o.by?.displayName ?? "Someone") · \(o.name)") {
+                                    T1MenuItem(title: o.title) {
                                         path.append(.rankingCompare(rankingId, o.id, shown.rawValue))
                                     }
                                 })
@@ -730,7 +730,7 @@ struct RankingCardView: View {
         let m = model
         let c = m.card(oracleId)
         T1Screen {
-            Bar(title: c?.name ?? "Card", subtitle: m.row?.name, back: { dismiss() })
+            Bar(title: c?.name ?? "Card", subtitle: m.row?.title, back: { dismiss() })
             if let st = m.state, let x = st.knowledge.index[oracleId.lowercased()] {
                 let s = st.session(job)
                 HairlineList {
@@ -929,6 +929,7 @@ struct RankingCompareView: View {
     }
 
     private func label(_ r: RankingRow) -> String { r.mine ? "You" : r.by?.displayName ?? "Someone" }
+    private func named(_ r: RankingRow) -> String { [label(r), r.label].compactMap { $0 }.joined(separator: " · ") }
 
     @ViewBuilder private func pickers(_ ra: RankingRow, _ rb: RankingRow) -> some View {
         HStack(spacing: 1) {
@@ -944,12 +945,12 @@ struct RankingCompareView: View {
     private func picker(_ title: String, _ r: RankingRow, _ set: @escaping (String) -> Void) -> some View {
         Button {
             T1Overlays.shared.showMenu(title, all.map { o in
-                T1MenuItem(title: "\(label(o)) · \(o.name)") { set(o.id) }
+                T1MenuItem(title: named(o)) { set(o.id) }
             })
         } label: {
             VStack(alignment: .leading, spacing: 2) {
                 LabelText(title)
-                Text("\(label(r)) · \(r.name)").font(T1.mono(13)).lineLimit(2)
+                Text(named(r)).font(T1.mono(13)).lineLimit(2)
             }
             .frame(maxWidth: .infinity, alignment: .leading).padding(12).background(T1.surface)
         }.buttonStyle(.plain)
@@ -1093,14 +1094,14 @@ struct RankingImagePanel: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Top \(model.row?.top ?? 100) image", subtitle: model.row?.name, back: { T1Overlays.shared.dismissPanel() })
+            Bar(title: "Top \(model.row?.top ?? 100) image", subtitle: model.row?.title, back: { T1Overlays.shared.dismissPanel() })
             HairlineList {
                 if let error { Notice(error, error: true) }
                 if let note { Notice(note) }
                 if cards.isEmpty {
                     Notice("Nothing ranked in the final yet.")
                 } else if let image {
-                    ZoomablePreview(title: "Top \(cards.count) image", subtitle: model.row?.name, image: image, screen: "ranking_image")
+                    ZoomablePreview(title: "Top \(cards.count) image", subtitle: model.row?.title, image: image, screen: "ranking_image")
                 } else if let progress {
                     Notice("Getting card images… \(progress.done) of \(progress.of)")
                 } else {
@@ -1125,7 +1126,7 @@ struct RankingImagePanel: View {
         let row = model.row
         let date = Date.now.formatted(.dateTime.month(.abbreviated).day().year())
         let partial = (model.state?.session(.final).done ?? false) ? nil : "\(cards.count) of \(row?.top ?? 100) ranked so far"
-        return [row.map { "\($0.mine ? "Your ranking" : "\($0.by?.displayName ?? "Someone")'s ranking") of \(model.cube?.name ?? "a cube")" },
+        return [row.map { _ in "Ranking of \(model.cube?.name ?? "a cube")" },
                 partial, "Ranked on Table 1", date].compactMap { $0 }.joined(separator: " · ")
     }
 
@@ -1150,7 +1151,7 @@ struct RankingImagePanel: View {
         if loaded.count < printings.count { note = "\(printings.count - loaded.count) card images couldn't be loaded; their names show instead." }
         art = loaded
         progress = nil
-        let r = ImageRenderer(content: RankingImageCanvas(title: model.row?.name ?? "Top 100", byline: byline, cards: cards, art: art))
+        let r = ImageRenderer(content: RankingImageCanvas(title: model.row?.title ?? "Top 100", byline: byline, cards: cards, art: art))
         r.scale = 2
         r.isOpaque = true
         image = r.uiImage
@@ -1176,7 +1177,7 @@ struct RankingImagePanel: View {
     private func shareImage() {
         guard let data = image?.jpegData(compressionQuality: 0.9) else { return }
         let url = FileManager.default.temporaryDirectory.appending(path: "ranking-image")
-            .appending(path: DeckImage.fileName(model.row?.name ?? "ranking"))
+            .appending(path: DeckImage.fileName(model.row?.title ?? "ranking"))
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try data.write(to: url, options: .atomic)
@@ -1210,7 +1211,7 @@ struct RankingPackView: View {
     var body: some View {
         let m = model
         T1Screen {
-            Bar(title: m.mine ? "P1P1" : "Pick history", subtitle: m.row?.name, back: { dismiss() })
+            Bar(title: m.mine ? "P1P1" : "Pick history", subtitle: m.row?.title, back: { dismiss() })
             if m.state != nil, let row = m.row, !row.mine {
                 HairlineList {
                     if m.picks.isEmpty { Notice("No P1P1 picks yet.") }
@@ -1363,7 +1364,7 @@ struct RankingChangesView: View {
     var body: some View {
         let m = model
         T1Screen {
-            Bar(title: "Changes", subtitle: m.row?.name, back: { dismiss() })
+            Bar(title: "Changes", subtitle: m.row?.title, back: { dismiss() })
             if let st = m.state {
                 rankingTabs(st, filter ?? .final, all: filter == nil) { filter = $0 }
                 HairlineList {
