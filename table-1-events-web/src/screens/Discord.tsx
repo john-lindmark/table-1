@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { errorMessage } from "../lib/api";
 import {
-  clearPendingToken, confirmDiscordLink, DISCORD_HELP, type DiscordLinkStatus, fetchDiscordLinkStatus, installUrl,
-  linkTokenFromHash, loadPendingToken, savePendingToken, unlinkDiscord,
+  clearPendingToken, COMMUNITY_GUILD_ID, communityRow, type CommunityMembership, confirmDiscordLink, DISCORD_HELP,
+  type DiscordLinkStatus, fetchCommunityMembership, fetchDiscordLinkStatus, installUrl, inviteUrl, linkTokenFromHash,
+  loadPendingToken, savePendingToken, unlinkDiscord,
 } from "../lib/discord";
 import { capture, screen } from "../lib/telemetry";
 import { useSession } from "../lib/useSession";
@@ -16,10 +17,12 @@ import { Bar, BigAction, GhostAction, Notice, Row, Screen } from "../components/
  *                  in, whether this account is linked, with Unlink.
  *   /discord/link  the page behind the bot's /link: #t=<token>. Signed out, the token waits in this tab while you sign
  *                  in (any method); signed in, it's confirmed and you go back to Discord.
- * Both stay in the browser (not claimed by the apps).
+ * Both stay in the browser (not claimed by the apps). /discord and Account also offer the Table 1 server's invite
+ * until you're in it (CommunityJoin).
  */
 
 const CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID ?? "";
+const INVITE = inviteUrl(import.meta.env.VITE_DISCORD_INVITE_URL);
 
 function when(iso: string | null): string {
   if (!iso) return "";
@@ -88,6 +91,82 @@ function LinkStatus({ onBack }: { onBack?: () => void }) {
   );
 }
 
+/**
+ * Join the Table 1 server, unless you're already in it. Signed in with a linked Discord account, the
+ * discord-community function asks Discord; otherwise there's no way to know, so the invite shows. Coming back to the
+ * tab (from Discord's invite page) asks again. `hideMember` drops the "You're in" row (Account); `heading` goes above
+ * the row only when there is one.
+ */
+export function CommunityJoin({ from, hideMember, heading }: {
+  from: "discord" | "account";
+  hideMember?: boolean;
+  heading?: string;
+}) {
+  const { session, ready } = useSession();
+  const userId = session?.user.id ?? null;
+  const [membership, setMembership] = useState<CommunityMembership | "loading" | "error" | null>(null);
+  const known = useRef(false);
+
+  useEffect(() => {
+    known.current = false;
+    if (!userId) {
+      setMembership(null);
+      return;
+    }
+    let live = true;
+    const load = () => fetchCommunityMembership().then(
+      (m) => {
+        if (!live) return;
+        known.current = m.member === true;
+        setMembership(m);
+      },
+      () => live && setMembership((was) => (was === "loading" ? "error" : was)),
+    );
+    setMembership("loading");
+    load();
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && !known.current) load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      live = false;
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [userId]);
+
+  if (!ready) return null;
+  const row = communityRow(INVITE, !!userId, membership);
+  if (row === "hidden" || row === "loading" || (row === "member" && hideMember)) return null;
+  const head = heading ? <div className="bg-t1-surface px-4 py-2 t1-label">{heading}</div> : null;
+  if (row === "member") {
+    return (
+      <>
+        {head}
+        <Row title="You're in the Table 1 server" detail="Open it in Discord"
+             onClick={() => {
+               capture("discord_server_opened", { from });
+               window.open(`https://discord.com/channels/${COMMUNITY_GUILD_ID}`, "_blank", "noreferrer");
+             }} />
+      </>
+    );
+  }
+  const linked = typeof membership === "object" && membership !== null && membership.linked;
+  return (
+    <>
+      {head}
+      <a href={INVITE!} target="_blank" rel="noreferrer"
+         onClick={() => capture("discord_server_join_tapped", { from, signed_in: !!userId, linked })}
+         className="bg-t1-surface hover:bg-t1-surface-hover px-4 py-3 flex items-center gap-3 text-left w-full">
+        <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <span className="text-[13px] truncate">Join the Table 1 server</span>
+          <span className="t1-label truncate">Players and the Table 1 team</span>
+        </span>
+        <span className="shrink-0 t1-label text-t1-accent!">Join</span>
+      </a>
+    </>
+  );
+}
+
 export function DiscordPage({ onBack }: { onBack: () => void }) {
   useEffect(() => screen("discord"), []);
   const install = installUrl(CLIENT_ID);
@@ -109,6 +188,7 @@ export function DiscordPage({ onBack }: { onBack: () => void }) {
         Permissions asked: Send Messages and Embed Links. The bot never reads messages and keeps nothing about your
         server but the posted cards' ids and its time zone.
       </div>
+      <CommunityJoin from="discord" heading="The Table 1 server" />
 
       <div className="bg-t1-surface px-4 py-2 t1-label">Commands</div>
       {DISCORD_HELP.map((h) => (

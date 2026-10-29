@@ -88,3 +88,43 @@ export async function unlinkDiscord(): Promise<{ unlinked: boolean; via: "link" 
   if (error) throw error;
   return data as { unlinked: boolean; via: "link" | "sign_in" | null };
 }
+
+// ---------------------------------------------------------------- the Table 1 server (contract §7 "The Table 1 server")
+
+/** The Table 1 server, for "Open" once you're in it. */
+export const COMMUNITY_GUILD_ID = "1565392011295465522";
+
+/** The invite from VITE_DISCORD_INVITE_URL, only a discord.gg or discord.com/invite link. Null hides the join row. */
+export function inviteUrl(raw: string | undefined): string | null {
+  const m = /^https:\/\/(?:discord\.gg|(?:www\.)?discord\.com\/invite)\/([A-Za-z0-9-]{2,32})\/?$/.exec((raw ?? "").trim());
+  return m ? `https://discord.gg/${m[1]}` : null;
+}
+
+export interface CommunityMembership {
+  /** The account has a Discord id (/link or Discord sign-in). */
+  linked: boolean;
+  /** In the server; null when Discord couldn't say. */
+  member: boolean | null;
+}
+
+/** Whether the signed-in account is in the Table 1 server (the discord-community edge function asks Discord). */
+export async function fetchCommunityMembership(): Promise<CommunityMembership> {
+  const { data, error } = await supabase.functions.invoke("discord-community", { body: {} });
+  if (error) throw error;
+  const r = data as { linked?: boolean; member?: boolean | null };
+  return { linked: r.linked === true, member: typeof r.member === "boolean" ? r.member : null };
+}
+
+/**
+ * What the join row shows. Signed out, or signed in without a linked Discord account, we can't know, so it's the invite.
+ * Signed in, nothing until Discord has answered (a member never sees "Join" flash). Known members see "You're in";
+ * an unknown answer or a failed call falls back to the invite.
+ */
+export type CommunityRow = "join" | "member" | "loading" | "hidden";
+
+export function communityRow(invite: string | null, signedIn: boolean,
+  membership: CommunityMembership | "loading" | "error" | null): CommunityRow {
+  if (signedIn && membership === "loading") return "loading";
+  if (signedIn && membership && typeof membership === "object" && membership.member === true) return "member";
+  return invite ? "join" : "hidden";
+}

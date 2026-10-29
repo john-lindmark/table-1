@@ -1,5 +1,6 @@
 -- Table 1 for Discord (20261029130000_discord, contract/discord-2026-10-29.md): links, acting as the account,
--- events posted in a server, sign-ups and drops through the bot, results, settings, decks, cards, grants.
+-- events posted in a server, sign-ups and drops through the bot, results, settings, decks, cards, grants; your own
+-- Discord id for the server invite (20261029210000_discord_community).
 \ir _helpers.sql
 
 insert into auth.users (id, email) values
@@ -52,6 +53,7 @@ select public.discord_link_confirm(((:'s2'::jsonb)->>'token')) as c1 \gset
 select pg_temp.eq('confirming links the signed-in account', ((:'c1'::jsonb)->>'linked'), 'true');
 select pg_temp.throws('a token is single-use', format($$select public.discord_link_confirm(%L)$$, ((:'s2'::jsonb)->>'token')), '22023');
 select pg_temp.eq('status says linked via /link', public.discord_link_status()->>'via', 'link');
+select pg_temp.eq('your own Discord id, from /link', public.discord_my_id(), '100001');
 reset role;
 select pg_temp.eq('the bot now knows the account', public.discord_me('100001')->>'user_id', :A);
 select pg_temp.eq('and how', public.discord_me('100001')->>'via', 'link');
@@ -84,6 +86,7 @@ select pg_temp.eq('a sign-in identity is not unlinkable', (public.discord_unlink
 set role authenticated;
 select pg_temp.as_user(:B);
 select pg_temp.eq('status for a Discord sign-in', public.discord_link_status()->>'via', 'sign_in');
+select pg_temp.eq('your own Discord id, from the sign-in identity', public.discord_my_id(), '100002');
 reset role;
 
 -- Events through the bot -----------------------------------------------------------------------------------
@@ -289,6 +292,7 @@ set role authenticated;
 select pg_temp.as_user(:A);
 select pg_temp.eq('unlink from the web', public.discord_unlink_me()->>'unlinked', 'true');
 select pg_temp.eq('status after', public.discord_link_status()->>'linked', 'false');
+select pg_temp.eq('no Discord id once unlinked', coalesce(public.discord_my_id(), 'none'), 'none');
 reset role;
 select pg_temp.eq('the bot no longer knows the account', public.discord_me('100001')->>'linked', 'false');
 select pg_temp.eq('unlinking nobody', public.discord_unlink('100001')->>'unlinked', 'false');
@@ -311,5 +315,6 @@ set role anon;
 select pg_temp.as_user(null);
 select pg_temp.throws('anon can''t confirm links', $$select public.discord_link_confirm('x')$$);
 select pg_temp.throws('anon can''t read link status', $$select public.discord_link_status()$$);
+select pg_temp.throws('anon has no Discord id', $$select public.discord_my_id()$$);
 reset role;
 select pg_temp.eq('the acting claims don''t leak past the call', coalesce(current_setting('request.jwt.claim.sub', true), ''), '');

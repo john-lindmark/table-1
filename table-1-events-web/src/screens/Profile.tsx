@@ -45,6 +45,7 @@ const record = (w: number, l: number, d: number) => (d > 0 ? `${w}-${l}-${d}` : 
 /** The Account tab: lifetime record, head-to-head, settings, and the account itself. */
 /** Friends and Sharing rows; their store loads with the Friends chunk, not the entry bundle. */
 const FriendsAccountRows = lazy(() => import("./Friends").then((m) => ({ default: m.FriendsAccountRows })));
+const CommunityJoin = lazy(() => import("./Discord").then((m) => ({ default: m.CommunityJoin })));
 
 export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscord }: {
   onSignedOut: () => void; onFriends: () => void; onSharing: () => void; onProfile: (userId: string) => void;
@@ -229,6 +230,9 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
           <>
             <div className="bg-t1-surface px-4 py-2 t1-label">Discord</div>
             <Row title="Table 1 for Discord" detail="Events, sign-ups and results in your server · link your account" onClick={onDiscord} />
+            <Suspense fallback={null}>
+              <CommunityJoin from="account" hideMember />
+            </Suspense>
           </>
         )}
 
