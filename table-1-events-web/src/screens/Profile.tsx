@@ -13,7 +13,7 @@ import { avatarJpeg, clearAvatar, setAvatar, useAvatarPath } from "../lib/avatar
 import { Avatar } from "../components/Avatar";
 import type { AccountOverview } from "../lib/types";
 import { useSession } from "../lib/useSession";
-import { Bar, Menu, Notice, Screen, Segmented, TabNav, type MenuItem } from "../components/kit";
+import { Bar, Menu, Notice, Row, Screen, Segmented, TabNav, type MenuItem } from "../components/kit";
 import { useTrackerMode } from "../lib/settings";
 import { FAN_CONTENT } from "../lib/legal";
 
@@ -46,8 +46,9 @@ const record = (w: number, l: number, d: number) => (d > 0 ? `${w}-${l}-${d}` : 
 /** Friends and Sharing rows; their store loads with the Friends chunk, not the entry bundle. */
 const FriendsAccountRows = lazy(() => import("./Friends").then((m) => ({ default: m.FriendsAccountRows })));
 
-export function Profile({ onSignedOut, onFriends, onSharing, onProfile }: {
+export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscord }: {
   onSignedOut: () => void; onFriends: () => void; onSharing: () => void; onProfile: (userId: string) => void;
+  onDiscord?: () => void;
 }) {
   const { session, ready, userId } = useSession();
   const [overview, setOverview] = useState<AccountOverview | null>(null);
@@ -222,6 +223,13 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile }: {
           <Suspense fallback={null}>
             <FriendsAccountRows onFriends={onFriends} onSharing={onSharing} onProfile={() => onProfile(userId)} />
           </Suspense>
+        )}
+
+        {onDiscord && (
+          <>
+            <div className="bg-t1-surface px-4 py-2 t1-label">Discord</div>
+            <Row title="Table 1 for Discord" detail="Events, sign-ups and results in your server · link your account" onClick={onDiscord} />
+          </>
         )}
 
         <div className="bg-t1-surface px-4 py-2 t1-label">Head-to-head</div>

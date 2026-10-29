@@ -113,6 +113,9 @@ Budgets catch regressions (a lost index, a quadratic loop), not noise. Raise one
 - Other sessions share this working tree. If a failure is in files another session is editing, say so; don't fix
   their work in progress. `git commit --no-verify` only with the reason in the message.
 
+## Discord bot (2026-10-29)
+`deno test discord-bot/` runs in the engine tier: Ed25519 verification against a generated key pair (good, altered, replayed), the event card / results / deck / card embeds, button ids, pasted links, `when` parsing across DST, `/help` ↔ `commands.json`, and telemetry hygiene (an id-like property fails the test). `94_discord_test.sql` covers the database side; `perf_40_discord.sql` the budgets (card ≤ 20 ms at 63 players).
+
 ## Not covered yet
 
 UI flows (XCUITest / Playwright on the demo modes), edge functions other than the engine and `list-import`'s parser (`cards-sync`,

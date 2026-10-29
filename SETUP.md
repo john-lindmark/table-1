@@ -190,3 +190,41 @@ Full spec: `contract/organizer-phases-2026-10-14.md`. Backend is live (migration
 - The web now changes the round clock through the server, so phones, Live Activities and the web always agree.
 
 One-time steps: iOS `cd apps/ios && xcodegen` (adds `UI/OrganizerPhases.swift`), bump `CURRENT_PROJECT_VERSION` to 4, archive. Android: build. Web: `npm run build` and deploy `dist/`. Swift and Kotlin are syntax-checked only.
+
+## 11. Table 1 for Discord (2026-10-29)
+
+**Status 2026-10-29:** steps 1–5 and 7 done (migration applied, `discord-bot` v1 deployed, secrets set, URL saved,
+commands registered globally and on John's server). Step 6, the web deploy, is pending: until then the `/link` page
+isn't on table-1.site. `tools/discord/bundle.sh` lays out the deploy copy (engine files under `events-engine/`).
+
+Contract `contract/discord-2026-10-29.md`, plan `table-1-context/docs/plan-discord-2026-10-29.md`. The bot is the edge
+function `discord-bot` (Discord's *interactions endpoint*: no gateway process, every request Ed25519-signed), its
+`discord_*` RPCs (migration `20261029130000_discord.sql`), and the web pages `/discord` and `/discord/link`.
+
+1. **Discord application** (discord.com/developers → Applications → the Table 1 app, client id `1565382252706140300`,
+   the same one Sign in with Discord uses). General Information: note the **Public Key**. Bot: add a bot, **Reset
+   Token** and keep it in the Keychain: `security add-generic-password -s 'Table 1 Discord' -a <application id> -w <bot token>`.
+   Leave every Privileged Gateway Intent off (the bot reads no messages). Installation: Guild Install only, scopes
+   `bot` + `applications.commands`, permissions Send Messages + Embed Links.
+2. **Function secrets** (Supabase → Edge Functions → Secrets): `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY` (the
+   app's key `cd5249585e23c7a5ac9af4c457d4bba723806dce107724b5143a2c49fc623878` is built into `index.ts` as the default,
+   so this one is optional),
+   `DISCORD_BOT_TOKEN`; telemetry `POSTHOG_KEY` (the project key from `.env`), `POSTHOG_HOST`
+   (`https://us.i.posthog.com`), `DISCORD_TELEMETRY_SALT` (any random string; hashes Discord ids for PostHog),
+   `T1_ENVIRONMENT` (`production`).
+3. **Apply the migration**, then **deploy** `discord-bot` with `verify_jwt` **off** (Discord sends no Supabase JWT; the
+   signature is the credential). MCP deploys need `../events-engine/{playoffs,standings,pairings,types}.ts` copied in
+   beside `index.ts` with the imports repointed, as `insight-brief` does.
+4. **Interactions Endpoint URL** (General Information): `https://aaozhfcbvqrgkkrihkrd.supabase.co/functions/v1/discord-bot`.
+   Discord sends a PING to save it; it only saves when the function answers correctly, so do step 3 first.
+5. **Register the commands**: `tools/discord/register.sh` (global, up to an hour to appear) or
+   `tools/discord/register.sh --guild <server id>` (one server, at once). `--dry-run` prints them. Re-run after
+   changing `supabase/functions/discord-bot/commands.json` (and copy it to `table-1-events-web/src/lib/discordCommands.json`;
+   `discord.test.ts` fails when they differ).
+6. **Web**: `VITE_DISCORD_CLIENT_ID=1565382252706140300` in `.env` (already in `.env.example`) shows **Add to your
+   server** on `/discord`; deploy the web as usual.
+7. **Add it to a server** from `/discord` (or `https://discord.com/oauth2/authorize?client_id=1565382252706140300&scope=bot+applications.commands&permissions=18432`),
+   run `/settings timezone Europe/Stockholm`, `/link`, `/event create format:Modern when:"2026-11-07 18:30"`.
+
+Smoke test without Discord: `deno test discord-bot/` (signatures, cards, results, telemetry hygiene) and
+`supabase/tests/run.sh 94_discord` (links, acting as the account, sign-ups, results, grants).

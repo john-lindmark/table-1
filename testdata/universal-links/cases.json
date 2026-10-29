@@ -80,6 +80,8 @@
     { "url": "https://table-1.site/auth/google#id_token=t&state=s", "to": "web", "browser": true },
     { "url": "https://table-1.site/auth/google", "to": "web", "browser": true },
     { "url": "https://table-1.site/library?code=abc", "to": "web", "browser": true },
+    { "url": "https://table-1.site/discord", "to": "web", "browser": true },
+    { "url": "https://table-1.site/discord/link#t=abcDEFghiJKL012345_-xyzABCDEF12", "to": "web", "browser": true },
 
     { "url": "http://table-1.site/library", "to": null },
     { "url": "https://example.com/library", "to": null },

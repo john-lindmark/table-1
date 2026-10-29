@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Table 1 Events V1 client contract",
   "description": "Every call the iOS, Android and web clients make. Field names are exact wire names (snake_case). Generate Swift/Kotlin models from this file; the hand-written models in apps/ must stay in step with it.",
-  "version": "2026-10-27",
+  "version": "2026-10-29",
   "rpc": {
     "create_event": {
       "params": {
@@ -11105,6 +11105,89 @@
           "stock_missing"
         ]
       }
+    },
+    "discord_link_confirm": {
+      "description": "Table 1 for Discord (contract/discord-2026-10-29.md §4). Signed in. Links the caller to the Discord user behind the bot's one-time /link token (the #t= part of the link).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "p_token"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "linked": {
+            "const": true
+          },
+          "linked_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "errors": {
+        "28000": "Sign in first",
+        "22023": "That link has expired. Run /link again in Discord",
+        "23505": "That Discord account is already linked to another Table 1 account",
+        "53400": "Too many tries, wait a few minutes"
+      }
+    },
+    "discord_link_status": {
+      "description": "Table 1 for Discord. Signed in. Whether this account is linked to a Discord user, and how (via link = /link; sign_in = a Discord sign-in identity).",
+      "params": {
+        "type": "object",
+        "properties": {}
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "linked": {
+            "type": "boolean"
+          },
+          "via": {
+            "enum": [
+              "link",
+              "sign_in",
+              null
+            ]
+          },
+          "linked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "discord_unlink_me": {
+      "description": "Table 1 for Discord. Signed in. Removes the /link link; a Discord sign-in identity stays (unlinked false, via sign_in).",
+      "params": {
+        "type": "object",
+        "properties": {}
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "unlinked": {
+            "type": "boolean"
+          },
+          "via": {
+            "enum": [
+              "link",
+              "sign_in",
+              null
+            ]
+          }
+        }
+      }
     }
   },
   "functions": {
@@ -11400,6 +11483,46 @@
     },
     "insight-brief": {
       "note": "Internal eval of the brief prompt (x-t1-secret). contract/insights-2026-10-24.md § Briefs."
+    },
+    "discord-bot": {
+      "note": "Discord's interactions endpoint (contract/discord-2026-10-29.md §6). Called by Discord only: Ed25519-signed (X-Signature-Ed25519 / X-Signature-Timestamp), verify_jwt off. Not called by the clients. Its database functions (discord_*) are service-role only.",
+      "interaction": {
+        "request": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "enum": [
+                1,
+                2,
+                3,
+                4
+              ]
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        "response": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "enum": [
+                1,
+                4,
+                7,
+                8
+              ]
+            },
+            "data": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      }
     }
   },
   "realtime": {

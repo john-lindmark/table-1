@@ -13,6 +13,8 @@ interface ImportMetaEnv {
   readonly VITE_TELEMETRY?: string;
   /** Google's web OAuth client ID; empty means Google sign-in goes through Supabase's OAuth hop. */
   readonly VITE_GOOGLE_WEB_CLIENT_ID?: string;
+  /** The Discord application's client id (contract/discord-2026-10-29.md); empty hides "Add to your server". */
+  readonly VITE_DISCORD_CLIENT_ID?: string;
 }
 
 /** package.json version, set by vite.config.ts. */

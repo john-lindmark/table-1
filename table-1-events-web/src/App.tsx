@@ -39,6 +39,9 @@ function lazyNamed<M, K extends keyof M>(load: () => Promise<M>, name: K): M[K] 
   return lazy(() => load().then((m) => ({ default: m[name] as unknown as ComponentType<any> }))) as unknown as M[K];
 }
 const library = () => import("./screens/Library");
+const discord = () => import("./screens/Discord");
+const DiscordPage = lazyNamed(discord, "DiscordPage");
+const DiscordLinkPage = lazyNamed(discord, "DiscordLinkPage");
 const lists = () => import("./screens/Lists");
 const LibraryHome = lazyNamed(library, "LibraryHome");
 const AllCards = lazyNamed(library, "AllCards");
@@ -178,7 +181,12 @@ function QrJoinRoute() {
 function ProfileRoute() {
   const navigate = useNavigate();
   return <Profile onSignedOut={() => navigate("/")} onFriends={() => navigate("/friends")} onSharing={() => navigate("/sharing")}
-                  onProfile={(id) => navigate(`/u/${id}`)} />;
+                  onProfile={(id) => navigate(`/u/${id}`)} onDiscord={() => navigate("/discord")} />;
+}
+
+function DiscordRoute() {
+  const back = useBack("/me");
+  return <DiscordPage onBack={back} />;
 }
 
 function PlayerRoute() {
@@ -509,6 +517,8 @@ export default function App() {
         <Route path="/j/:code" element={<QrJoinRoute />} />
         <Route path="/auth/confirm" element={<AuthConfirm />} />
         <Route path="/auth/google" element={<GoogleReturn />} />
+        <Route path="/discord" element={<DiscordRoute />} />
+        <Route path="/discord/link" element={<DiscordLinkPage />} />
         <Route path="/me" element={<ProfileRoute />} />
         <Route path="/sign-in" element={<SignInPage />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />

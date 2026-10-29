@@ -1,0 +1,72 @@
+{
+  "_note": "Table 1 for Discord: the slash commands the bot registers (tools/discord/register.ts) and the one-line help each shows in /help and on table-1.site/discord. Keep this file the source: the web copy at table-1-events-web/src/lib/discordCommands.json must be identical (discord.test.ts).",
+  "help": [
+    { "command": "/help", "text": "What the bot can do, in one message only you see." },
+    { "command": "/link", "text": "Link your Discord account to your Table 1 account (a one-time link, 10 minutes). Signed in to Table 1 with Discord? You're already linked." },
+    { "command": "/unlink", "text": "Remove the link between this Discord account and your Table 1 account." },
+    { "command": "/event create", "text": "Make a Table 1 event and post its card here: format, name, when and where, player cap, top 8, rounds (automatic when left out), set or cube. You're seated as the organizer." },
+    { "command": "/event post", "text": "Post the card of an event you made in the Table 1 app (paste its link). Organizers only." },
+    { "command": "/event list", "text": "The open events posted in this server." },
+    { "command": "/event show", "text": "An event's card again, with Sign up and Drop, only you can see." },
+    { "command": "/event signup", "text": "Sign up for an event (the same as the Sign up button). Full event? You join the waitlist." },
+    { "command": "/event drop", "text": "Leave an event before round 1, or leave its waitlist. The next person in line moves up." },
+    { "command": "/event results", "text": "Post the final standings with a link to the event on Table 1. Organizers can post standings so far during the event." },
+    { "command": "/deck", "text": "Post one of your decks: name, format, card counts, Spice and a link anyone can open. The bot asks before it makes that link." },
+    { "command": "/card", "text": "Look up a card: cost, type, cheapest TCGplayer price, image." },
+    { "command": "/settings timezone", "text": "The time zone this server's event times are read in (people with Manage Server). Posted times show in each viewer's own zone." }
+  ],
+  "commands": [
+    { "name": "help", "type": 1, "description": "What Table 1 can do here", "contexts": [0], "integration_types": [0] },
+    { "name": "link", "type": 1, "description": "Link your Discord account to your Table 1 account", "contexts": [0], "integration_types": [0] },
+    { "name": "unlink", "type": 1, "description": "Unlink your Table 1 account from Discord", "contexts": [0], "integration_types": [0] },
+    {
+      "name": "event", "type": 1, "description": "Table 1 events in this server", "contexts": [0], "integration_types": [0],
+      "options": [
+        {
+          "name": "create", "type": 1, "description": "Make a Table 1 event and post it here",
+          "options": [
+            { "name": "format", "type": 3, "description": "Format", "required": true, "choices": [
+              { "name": "Standard", "value": "standard" }, { "name": "Pioneer", "value": "pioneer" },
+              { "name": "Modern", "value": "modern" }, { "name": "Legacy", "value": "legacy" },
+              { "name": "Vintage", "value": "vintage" }, { "name": "Pauper", "value": "pauper" },
+              { "name": "Premodern", "value": "premodern" }, { "name": "Canadian Highlander", "value": "canadian_highlander" },
+              { "name": "Other constructed", "value": "other_constructed" },
+              { "name": "Draft", "value": "draft" }, { "name": "Sealed", "value": "sealed" } ] },
+            { "name": "name", "type": 3, "description": "Event name (left out: automatic, like \"Modern · Fri 7 Nov\")", "max_length": 80 },
+            { "name": "when", "type": 3, "description": "Start, as YYYY-MM-DD HH:MM in the server's time zone (left out: now)", "max_length": 20 },
+            { "name": "timezone", "type": 3, "description": "Time zone for \"when\" (left out: the server's setting)", "autocomplete": true },
+            { "name": "venue", "type": 3, "description": "Where", "max_length": 80 },
+            { "name": "cap", "type": 4, "description": "Player cap (sign-ups past it join a waitlist)", "min_value": 2, "max_value": 10000 },
+            { "name": "top8", "type": 5, "description": "Cut to a top 8 after the Swiss rounds" },
+            { "name": "rounds", "type": 4, "description": "Swiss rounds (left out: follows the number of players)", "min_value": 1, "max_value": 15 },
+            { "name": "set", "type": 3, "description": "Draft/Sealed: the set code, like FDN", "max_length": 8 },
+            { "name": "cube", "type": 3, "description": "Draft: the cube's name", "max_length": 80 }
+          ]
+        },
+        { "name": "post", "type": 1, "description": "Post an event you made in the Table 1 app",
+          "options": [ { "name": "link", "type": 3, "description": "The event's table-1.site link (or its id)", "required": true, "max_length": 200 } ] },
+        { "name": "list", "type": 1, "description": "Open events posted in this server" },
+        { "name": "show", "type": 1, "description": "An event's card, just for you",
+          "options": [ { "name": "event", "type": 3, "description": "Which event", "required": true, "autocomplete": true } ] },
+        { "name": "signup", "type": 1, "description": "Sign up for an event",
+          "options": [ { "name": "event", "type": 3, "description": "Which event", "required": true, "autocomplete": true } ] },
+        { "name": "drop", "type": 1, "description": "Leave an event before it starts",
+          "options": [ { "name": "event", "type": 3, "description": "Which event", "required": true, "autocomplete": true } ] },
+        { "name": "results", "type": 1, "description": "Post an event's standings with its Table 1 link",
+          "options": [ { "name": "event", "type": 3, "description": "Which event", "required": true, "autocomplete": true } ] }
+      ]
+    },
+    {
+      "name": "settings", "type": 1, "description": "Table 1 settings for this server", "contexts": [0], "integration_types": [0],
+      "default_member_permissions": "32",
+      "options": [
+        { "name": "timezone", "type": 1, "description": "The time zone event times are read in",
+          "options": [ { "name": "zone", "type": 3, "description": "Like Europe/Stockholm or America/New_York", "required": true, "autocomplete": true } ] }
+      ]
+    },
+    { "name": "deck", "type": 1, "description": "Post one of your Table 1 decks", "contexts": [0], "integration_types": [0],
+      "options": [ { "name": "deck", "type": 3, "description": "Which deck", "required": true, "autocomplete": true } ] },
+    { "name": "card", "type": 1, "description": "Look up a Magic card", "contexts": [0], "integration_types": [0],
+      "options": [ { "name": "name", "type": 3, "description": "The card's name", "required": true, "min_length": 2, "max_length": 100 } ] }
+  ]
+}

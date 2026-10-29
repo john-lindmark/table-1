@@ -1,0 +1,376 @@
+// What the bot shows: the event card, the results post, deck and card posts, /help. Pure functions over the JSON the
+// database returns (contract/discord-2026-10-29.md §5), so they are tested without Discord or a database. Also the
+// option reading, the button ids and the "when" parsing the commands need.
+import commands from "./commands.json" with { type: "json" };
+
+export const ACCENT = 0x00ffd9;
+export const SITE = "https://table-1.site";
+export const EPHEMERAL = 64;
+
+// ---------------------------------------------------------------- interaction shapes (the parts we read)
+
+export interface Option {
+  name: string;
+  type: number;
+  value?: string | number | boolean;
+  options?: Option[];
+  focused?: boolean;
+}
+
+export interface Interaction {
+  type: number;
+  id: string;
+  token: string;
+  application_id: string;
+  guild_id?: string;
+  channel_id?: string;
+  member?: { user: { id: string }; permissions?: string };
+  user?: { id: string };
+  data?: { name?: string; options?: Option[]; custom_id?: string; component_type?: number };
+  message?: { id: string; flags?: number };
+}
+
+export const InteractionType = { PING: 1, COMMAND: 2, COMPONENT: 3, AUTOCOMPLETE: 4 } as const;
+export const ResponseType = { PONG: 1, MESSAGE: 4, UPDATE_MESSAGE: 7, AUTOCOMPLETE: 8 } as const;
+
+/** "event create" for a subcommand, "help" for a plain command. */
+export function commandPath(ix: Interaction): { path: string; options: Option[] } {
+  const name = ix.data?.name ?? "";
+  const first = ix.data?.options?.[0];
+  if (first && first.type === 1) return { path: `${name} ${first.name}`, options: first.options ?? [] };
+  return { path: name, options: ix.data?.options ?? [] };
+}
+
+export function opt<T = string>(options: Option[], name: string): T | undefined {
+  const o = options.find((x) => x.name === name);
+  return o?.value as T | undefined;
+}
+
+export function focused(options: Option[]): Option | undefined {
+  return options.find((o) => o.focused);
+}
+
+export const userId = (ix: Interaction) => ix.member?.user.id ?? ix.user?.id ?? "";
+export const isSnowflake = (s: string | undefined | null): s is string => typeof s === "string" && /^[0-9]{5,25}$/.test(s);
+
+/** Discord permission bits on the member: Manage Server (1 << 5) or Administrator (1 << 3). */
+export function canManageServer(ix: Interaction): boolean {
+  const p = ix.member?.permissions;
+  if (!p || !/^\d+$/.test(p)) return false;
+  const bits = BigInt(p);
+  return (bits & 32n) !== 0n || (bits & 8n) !== 0n;
+}
+
+// ---------------------------------------------------------------- button ids
+
+export type ButtonAction = "up" | "down" | "link" | "deck";
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+export const buttonId = (action: ButtonAction, id?: string) => id ? `t1:${action}:${id}` : `t1:${action}`;
+
+export function parseButtonId(customId: string | undefined): { action: ButtonAction; id: string | null } | null {
+  if (!customId) return null;
+  const m = /^t1:(up|down|link|deck)(?::([0-9a-f-]{36}))?$/.exec(customId);
+  if (!m) return null;
+  if (m[2] && !UUID.test(m[2])) return null;
+  return { action: m[1] as ButtonAction, id: m[2] ?? null };
+}
+
+/** An event id out of a pasted table-1.site link, or a bare id. */
+export function eventIdFrom(text: string): string | null {
+  const t = text.trim();
+  if (UUID.test(t)) return t;
+  const m = /table-1\.site\/(?:s|e|p)\/([0-9a-f-]{36})/i.exec(t);
+  return m && UUID.test(m[1].toLowerCase()) ? m[1].toLowerCase() : null;
+}
+
+// ---------------------------------------------------------------- when
+
+export interface When {
+  iso: string;
+  localDate: string;
+}
+
+function offsetMinutes(utcMs: number, tz: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(new Date(utcMs));
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  const asUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+  return (asUtc - utcMs) / 60000;
+}
+
+export function validZone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return /^[A-Za-z_]+(\/[A-Za-z0-9_+-]+)+$|^UTC$/.test(tz);
+  } catch {
+    return false;
+  }
+}
+
+/** "2026-11-07 18:30" (or with T, or "18.30") read as wall-clock time in `tz`, to an instant. Null = not a time. */
+export function parseWhen(text: string, tz: string, nowMs = Date.now()): When | null | "past" | "far" {
+  const m = /^\s*(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2})[:.](\d{2})\s*$/.exec(text);
+  if (!m || !validZone(tz)) return null;
+  const [y, mo, d, h, mi] = m.slice(1).map(Number);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59) return null;
+  const wall = Date.UTC(y, mo - 1, d, h, mi);
+  let utc = wall - offsetMinutes(wall, tz) * 60000;
+  utc = wall - offsetMinutes(utc, tz) * 60000; // once more for a DST edge
+  if (Number.isNaN(utc)) return null;
+  if (utc < nowMs - 60 * 60000) return "past";
+  if (utc > nowMs + 366 * 86400000) return "far";
+  return { iso: new Date(utc).toISOString(), localDate: `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}` };
+}
+
+export const COMMON_ZONES = [
+  "UTC", "Europe/London", "Europe/Dublin", "Europe/Lisbon", "Europe/Paris", "Europe/Berlin", "Europe/Madrid", "Europe/Rome",
+  "Europe/Amsterdam", "Europe/Brussels", "Europe/Zurich", "Europe/Vienna", "Europe/Prague", "Europe/Warsaw", "Europe/Stockholm",
+  "Europe/Oslo", "Europe/Copenhagen", "Europe/Helsinki", "Europe/Athens", "Europe/Istanbul", "Europe/Kyiv", "Europe/Moscow",
+  "America/New_York", "America/Chicago", "America/Denver", "America/Phoenix", "America/Los_Angeles", "America/Anchorage",
+  "Pacific/Honolulu", "America/Toronto", "America/Vancouver", "America/Mexico_City", "America/Bogota", "America/Lima",
+  "America/Santiago", "America/Sao_Paulo", "America/Argentina/Buenos_Aires", "Asia/Tokyo", "Asia/Seoul", "Asia/Shanghai",
+  "Asia/Hong_Kong", "Asia/Taipei", "Asia/Singapore", "Asia/Manila", "Asia/Bangkok", "Asia/Jakarta", "Asia/Kolkata",
+  "Asia/Dubai", "Asia/Jerusalem", "Africa/Johannesburg", "Africa/Cairo", "Africa/Lagos", "Africa/Nairobi",
+  "Australia/Sydney", "Australia/Melbourne", "Australia/Brisbane", "Australia/Perth", "Pacific/Auckland",
+];
+
+export function zoneChoices(query: string): { name: string; value: string }[] {
+  const q = query.trim().toLowerCase().replace(/ /g, "_");
+  const hits = COMMON_ZONES.filter((z) => !q || z.toLowerCase().includes(q)).slice(0, 24);
+  if (q && validZone(query.trim()) && !hits.some((z) => z.toLowerCase() === q)) hits.unshift(query.trim());
+  return hits.slice(0, 25).map((z) => ({ name: z.replace(/_/g, " "), value: z }));
+}
+
+// ---------------------------------------------------------------- the card
+
+export interface Card {
+  event_id: string;
+  name: string;
+  format_label: string | null;
+  format_name?: string | null;
+  set_name: string | null;
+  cube_name: string | null;
+  status: string;
+  starts_at: string | null;
+  venue_name: string | null;
+  capacity: number | null;
+  top_cut: number;
+  auto_rounds: boolean;
+  number_of_rounds: number;
+  current_round: number;
+  short_code: string | null;
+  organizer_name: string | null;
+  sign_up: "open" | "full" | "closed";
+  players: number;
+  player_names: string[];
+  waitlist: number;
+  waitlist_names: string[];
+  link: string;
+  guild_id?: string | null;
+  channel_id?: string | null;
+  message_id?: string | null;
+  results_message_id?: string | null;
+}
+
+const clean = (s: string) => s.replace(/[*_`~|>\\]/g, (c) => `\\${c}`).replace(/@/g, "@​").replace(/\s+/g, " ").trim();
+
+function names(list: string[], max = 25): string {
+  if (!list.length) return "—";
+  const shown = list.slice(0, max).map(clean);
+  const more = list.length - shown.length;
+  return shown.join(", ") + (more > 0 ? ` and ${more} more` : "");
+}
+
+const unix = (iso: string) => Math.floor(new Date(iso).getTime() / 1000);
+
+export function statusLine(c: Card): string {
+  if (c.status === "cancelled") return "Cancelled";
+  if (c.status === "completed" || c.status === "archived") return "Finished";
+  if (c.status === "in_progress") return `Round ${c.current_round} of ${c.number_of_rounds}`;
+  if (c.sign_up === "full") return "Full · waitlist open";
+  if (c.sign_up === "closed") return "Sign-ups closed";
+  return "Sign-ups open";
+}
+
+export function eventEmbed(c: Card) {
+  const product = c.set_name ?? c.cube_name;
+  const lines: string[] = [];
+  lines.push(clean(product ? `${c.format_label ?? ""} · ${product}` : (c.format_label ?? "")));
+  if (c.starts_at) lines.push(`<t:${unix(c.starts_at)}:F> · <t:${unix(c.starts_at)}:R>`);
+  if (c.venue_name) lines.push(clean(c.venue_name));
+  if (c.organizer_name) lines.push(`Organizer: ${clean(c.organizer_name)}`);
+  const fields = [
+    { name: c.capacity ? `Players · ${c.players}/${c.capacity}` : `Players · ${c.players}`, value: names(c.player_names), inline: false },
+  ];
+  if (c.waitlist > 0) fields.push({ name: `Waitlist · ${c.waitlist}`, value: names(c.waitlist_names), inline: false });
+  fields.push({ name: "Rounds", value: c.auto_rounds && c.status === "setup" ? `${c.number_of_rounds} (follows the players)` : String(c.number_of_rounds), inline: true });
+  fields.push({ name: "Top cut", value: c.top_cut === 8 ? "Top 8" : "None", inline: true });
+  if (c.short_code && c.sign_up !== "closed") fields.push({ name: "Join code", value: `\`${c.short_code}\``, inline: true });
+  return {
+    title: clean(c.name).slice(0, 256),
+    url: c.link,
+    description: lines.filter(Boolean).join("\n").slice(0, 4000),
+    color: ACCENT,
+    fields,
+    footer: { text: `Table 1 · ${statusLine(c)}` },
+  };
+}
+
+export function eventComponents(c: Card) {
+  const closed = c.sign_up === "closed";
+  return [{
+    type: 1,
+    components: [
+      { type: 2, style: 1, label: "Sign up", custom_id: buttonId("up", c.event_id), disabled: closed },
+      { type: 2, style: 2, label: "Drop", custom_id: buttonId("down", c.event_id), disabled: closed },
+      { type: 2, style: 5, label: "Open in Table 1", url: c.link },
+    ],
+  }];
+}
+
+export const eventMessage = (c: Card) => ({ embeds: [eventEmbed(c)], components: eventComponents(c) });
+
+/** The one-line note the clicker gets after a sign-up or drop. */
+export function outcomeText(result: string, c: Card, position?: number | null): string {
+  const n = clean(c.name);
+  switch (result) {
+    case "joined": return `You're in · ${n}`;
+    case "waitlisted": return `${n} is full. You're number ${position ?? "?"} on the waitlist.`;
+    case "already_joined": return `You're already in · ${n}`;
+    case "already_waitlisted": return `You're already on the waitlist · ${n}${position ? ` (number ${position})` : ""}`;
+    case "left": return `You left · ${n}`;
+    case "left_waitlist": return `You left the waitlist · ${n}`;
+    case "not_in": return `You weren't in · ${n}`;
+  }
+  return n;
+}
+
+// ---------------------------------------------------------------- results
+
+import type { ResultRow } from "./standings.ts";
+
+export function resultsEmbed(c: Card, rows: ResultRow[], final: boolean) {
+  const shown = rows.slice(0, final ? 8 : 16);
+  const lines = shown.map((r) =>
+    `${r.rank === 1 && final ? "🏆" : `${r.rank}.`} ${clean(r.name)}${r.dropped ? " (dropped)" : ""} · ${r.wins}-${r.losses}${r.draws ? `-${r.draws}` : ""} · ${r.points} pts`
+  );
+  if (rows.length > shown.length) lines.push(`…and ${rows.length - shown.length} more`);
+  if (!rows.length) lines.push("No results yet.");
+  return {
+    title: `${final ? "Results" : "Standings so far"} · ${clean(c.name)}`.slice(0, 256),
+    url: c.link,
+    description: lines.join("\n").slice(0, 4000),
+    color: ACCENT,
+    footer: { text: final ? `Table 1 · Final standings · ${rows.length} players` : `Table 1 · After round ${c.current_round} of ${c.number_of_rounds}` },
+  };
+}
+
+export const resultsComponents = (c: Card) => [{
+  type: 1,
+  components: [{ type: 2, style: 5, label: final_label(c), url: c.link }],
+}];
+const final_label = (c: Card) => c.status === "completed" || c.status === "archived" ? "Standings on Table 1" : "Open in Table 1";
+
+// ---------------------------------------------------------------- decks and cards
+
+export interface DeckPost {
+  name: string;
+  format: string;
+  main: number;
+  side: number;
+  spice: { score: number; word: string } | null;
+  url: string;
+  hero: { card_id: string; image_ts: number | null; name?: string } | null;
+}
+
+export function imageUrl(cardId: string, imageTs: number | null, size: "normal" | "art_crop" | "small" = "normal"): string {
+  return `https://cards.scryfall.io/${size}/front/${cardId[0]}/${cardId[1]}/${cardId}.jpg${imageTs ? `?${imageTs}` : ""}`;
+}
+
+export function formatName(f: string): string {
+  const map: Record<string, string> = {
+    standard: "Standard", pioneer: "Pioneer", modern: "Modern", legacy: "Legacy", vintage: "Vintage", pauper: "Pauper",
+    premodern: "Premodern", canadian_highlander: "Canadian Highlander", commander: "Commander", oathbreaker: "Oathbreaker",
+    cube: "Cube", other: "Other",
+  };
+  return map[f] ?? f.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+}
+
+export function deckEmbed(d: DeckPost, byName: string | null) {
+  const parts = [`${formatName(d.format)} · ${d.main} main${d.side ? ` · ${d.side} side` : ""}`];
+  if (d.spice) parts.push(`Spice ${d.spice.score} · ${d.spice.word}`);
+  return {
+    title: clean(d.name).slice(0, 256),
+    url: d.url,
+    description: parts.join("\n"),
+    color: ACCENT,
+    thumbnail: d.hero ? { url: imageUrl(d.hero.card_id, d.hero.image_ts) } : undefined,
+    footer: { text: byName ? `Table 1 · ${clean(byName)}'s deck` : "Table 1" },
+  };
+}
+
+export const deckComponents = (d: DeckPost) => [{ type: 1, components: [{ type: 2, style: 5, label: "Open on Table 1", url: d.url }] }];
+
+export interface CardHit {
+  oracle_id: string;
+  name: string;
+  mana_cost: string | null;
+  type_line: string | null;
+  card_id: string | null;
+  image_ts: number | null;
+  set_code: string | null;
+  collector_number: string | null;
+  usd: string | number | null;
+  usd_foil: string | number | null;
+  printings: number;
+}
+
+const money = (v: string | number | null) => v == null ? null : `$${Number(v).toFixed(2)}`;
+
+export function cardEmbed(h: CardHit) {
+  const lines: string[] = [];
+  if (h.type_line) lines.push(clean(h.type_line));
+  const price = [money(h.usd) && `${money(h.usd)}`, money(h.usd_foil) && `foil ${money(h.usd_foil)}`].filter(Boolean).join(" · ");
+  lines.push(price ? `From ${price} (TCGplayer market, near mint)` : "No TCGplayer price");
+  lines.push(`${h.printings} ${h.printings === 1 ? "printing" : "printings"}`);
+  const scryfall = `https://scryfall.com/search?q=${encodeURIComponent(`oracleid:${h.oracle_id}`)}`;
+  return {
+    title: `${clean(h.name)}${h.mana_cost ? `  ${h.mana_cost}` : ""}`.slice(0, 256),
+    url: scryfall,
+    description: lines.join("\n"),
+    color: ACCENT,
+    image: h.card_id && h.image_ts ? { url: imageUrl(h.card_id, h.image_ts) } : undefined,
+    footer: { text: h.set_code ? `Table 1 · ${h.set_code.toUpperCase()} ${h.collector_number ?? ""}`.trim() : "Table 1" },
+  };
+}
+
+// ---------------------------------------------------------------- help
+
+export function helpEmbed() {
+  const lines = (commands.help as { command: string; text: string }[]).map((h) => `**${h.command}** · ${h.text}`);
+  return {
+    title: "Table 1 for Discord",
+    url: `${SITE}/discord`,
+    description: `${lines.join("\n")}\n\nEverything about you is answered so only you see it. Event cards, results and deck posts are public, because you asked for them. More at ${SITE}/discord`.slice(0, 4000),
+    color: ACCENT,
+    footer: { text: "Table 1" },
+  };
+}
+
+export const linkMessage = (token: string, expiresAt: string) => ({
+  content: `Link your Table 1 account: ${SITE}/discord/link#t=${token}\nThe link works once, until <t:${unix(expiresAt)}:t>. Sign in with Apple, Google, email or Discord on that page; it's the account the bot will act as.`,
+  flags: EPHEMERAL,
+});
+
+export const needLinkMessage = (what = "do that") => ({
+  content: `Link your Table 1 account first to ${what}.`,
+  components: [{ type: 1, components: [{ type: 2, style: 1, label: "Link my account", custom_id: buttonId("link") }] }],
+  flags: EPHEMERAL,
+});
+
+/** The command definitions, for the register tool and the tests. */
+export const COMMANDS = commands.commands as unknown[];
+export const HELP = commands.help as { command: string; text: string }[];

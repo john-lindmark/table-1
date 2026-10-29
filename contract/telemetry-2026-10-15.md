@@ -52,7 +52,7 @@ properties. Every client sends the same names, so one PostHog insight covers all
 `ranking_lists`, `ranking_card`, `ranking_compare`, `ranking_pack`, `ranking_changes`, `ranking_image` (2026-10-21,
 `cube-rankings-2026-10-21.md`), `insights_constructed`, `insights_limited`, `insights_archetype`, `insights_finish`,
 `insights_card`, `insights_ban`, `insights_matchups`, `insights_pair`, `insights_limited_card`, `insights_review`
-(2026-10-25, `insights-2026-10-24.md`), `deck_spice`, `cube_spice` (2026-10-28, `spice-2026-10-28.md`: the Stats
+(2026-10-25, `insights-2026-10-24.md`), `deck_spice`, `discord`, `discord_link` (2026-10-29, `discord-2026-10-29.md`), `cube_spice` (2026-10-28, `spice-2026-10-28.md`: the Stats
 screen's Spice section once drawn, or a shared list's Spice screen on iOS).
 
 ## Events
@@ -189,6 +189,23 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `insights_review_action` | `what`, `action` (moderators: approve / reject / confirm) |
 | `insights_matchup_opened` | `format` (a square of the matchup grid tapped for its record) |
 | `insights_part_opened` | `format`, `part`: meta / cards / new_set / changes / events (a format page row opened, 2026-10-28) |
+
+### Discord bot (server-side, from the `discord-bot` function; contract/discord-2026-10-29.md §8)
+`platform` is `discord`; `distinct_id` is the Table 1 user id once linked, else `discord:<salted hash>`. Never Discord,
+guild, channel, message or event ids, never names (`telemetry.ts` refuses such keys).
+| event | properties |
+|---|---|
+| `discord_interaction` | `kind`: command / button / autocomplete, `command` (e.g. `event create`, `button up`), `linked`, `outcome`: ok / refused / error, `duration_ms` |
+| `discord_link_started`, `discord_unlinked` | `via`: link |
+| `discord_event_created` | `format`, `scheduled`, `capped`, `top_cut`, `auto_rounds`, `named` |
+| `discord_event_attached` | |
+| `discord_event_signed_up` | `status`: joined / waitlisted, `via`: button / command |
+| `discord_event_left` | `waitlist`, `via` |
+| `discord_results_posted` | `final`, `players` |
+| `discord_deck_shared` | `format`, `new_link` |
+| `discord_card_looked_up` | `found` |
+| `discord_help_viewed` | |
+Web: screens `discord`, `discord_link`; `discord_link_completed {via: link}`, `discord_unlinked {via: link}`.
 
 ### Push, Live Activities, widgets (iOS; Android/web where they have the surface)
 | event | properties |

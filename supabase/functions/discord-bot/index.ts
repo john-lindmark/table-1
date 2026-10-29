@@ -1,0 +1,368 @@
+// discord-bot: Table 1's Discord interactions endpoint (contract/discord-2026-10-29.md). Discord POSTs every slash
+// command, button click and autocomplete here, signed with the application's Ed25519 key; nothing else may call it
+// (deployed with verify_jwt off: the signature is the credential). Each interaction is one database round trip,
+// made as the linked Table 1 account by the discord_* RPCs, answered inside Discord's 3 seconds; editing the card,
+// storing message ids and telemetry run afterwards in EdgeRuntime.waitUntil.
+//   secrets: DISCORD_PUBLIC_KEY, DISCORD_APPLICATION_ID, DISCORD_BOT_TOKEN,
+//            POSTHOG_KEY, POSTHOG_HOST (telemetry; off when empty), DISCORD_TELEMETRY_SALT, T1_ENVIRONMENT
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { DiscordRest } from "./discord.ts";
+import {
+  type Card, type CardHit, canManageServer, cardEmbed, commandPath, deckComponents, deckEmbed, type DeckPost, EPHEMERAL,
+  eventIdFrom, eventMessage, focused, helpEmbed, type Interaction, InteractionType, isSnowflake, linkMessage,
+  needLinkMessage, opt, outcomeText, parseButtonId, parseWhen, ResponseType, resultsComponents, resultsEmbed, userId,
+  zoneChoices,
+} from "./embeds.ts";
+import { loadStandings } from "./standings.ts";
+import { hashId, Telemetry } from "./telemetry.ts";
+import { verifyInteraction } from "./verify.ts";
+
+const env = (k: string, d = "") => Deno.env.get(k) ?? d;
+// The application's Ed25519 public key (John, 2026-10-29). Not a secret: it only lets us check Discord's signatures.
+// The DISCORD_PUBLIC_KEY secret, when set, wins (a new application or a reset key).
+const PUBLIC_KEY = env("DISCORD_PUBLIC_KEY") || "cd5249585e23c7a5ac9af4c457d4bba723806dce107724b5143a2c49fc623878";
+const APP_ID = env("DISCORD_APPLICATION_ID");
+const BOT_TOKEN = env("DISCORD_BOT_TOKEN");
+const ENVIRONMENT = env("T1_ENVIRONMENT", "production");
+const SALT = env("DISCORD_TELEMETRY_SALT") || APP_ID;
+
+const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
+const rest = new DiscordRest(APP_ID, BOT_TOKEN);
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+const reply = (data: Record<string, unknown>) => json({ type: ResponseType.MESSAGE, data });
+const ephemeral = (content: string, extra: Record<string, unknown> = {}) => reply({ content, flags: EPHEMERAL, ...extra });
+const update = (data: Record<string, unknown>) => json({ type: ResponseType.UPDATE_MESSAGE, data });
+const choices = (list: { name: string; value: string }[]) =>
+  json({ type: ResponseType.AUTOCOMPLETE, data: { choices: list.slice(0, 25).map((c) => ({ name: c.name.slice(0, 100), value: c.value.slice(0, 100) })) } });
+
+/** A refused RPC: PostgREST passes the raise's message, which is already a sentence for the person. */
+class Refused extends Error {
+  constructor(public code: string, message: string) {
+    super(message);
+  }
+}
+
+async function rpc<T = unknown>(fn: string, args: Record<string, unknown>): Promise<T> {
+  const { data, error } = await admin.rpc(fn, args);
+  if (error) throw new Refused(error.code ?? "", error.message ?? "Table 1 didn't answer");
+  return data as T;
+}
+
+/** Side work after the answer: never blocks the response, failures are logged without personal data. */
+function later(ctx: Ctx, work: () => Promise<unknown>) {
+  ctx.side.push(work);
+}
+
+interface Ctx {
+  ix: Interaction;
+  discordId: string;
+  guildId: string;
+  channelId: string;
+  side: (() => Promise<unknown>)[];
+  tel: Telemetry;
+  distinct: string;
+  linked: boolean;
+  telemetry: Record<string, unknown>[];
+}
+
+// ---------------------------------------------------------------- commands
+
+async function linkFlow(ctx: Ctx): Promise<Response> {
+  const r = await rpc<{ linked: boolean; token?: string; expires_at?: string; display_name?: string }>("discord_link_start", { p_discord_id: ctx.discordId });
+  if (r.linked) return ephemeral(`This Discord account is already linked to ${r.display_name ?? "your Table 1 account"}. Use /unlink to change that.`);
+  ctx.telemetry.push({ event: "discord_link_started", via: "link" });
+  return reply(linkMessage(r.token!, r.expires_at!));
+}
+
+async function cardFor(ctx: Ctx, eventId: string): Promise<Card> {
+  return await rpc<Card>("discord_event_card", { p_guild_id: ctx.guildId, p_event_id: eventId });
+}
+
+/** Keeps the public card (by its stored ids) in step after a change made from somewhere else. */
+function refreshCard(ctx: Ctx, card: Card, exceptMessageId?: string) {
+  if (!card.channel_id || !card.message_id || card.message_id === exceptMessageId) return;
+  const channel = card.channel_id, message = card.message_id;
+  later(ctx, () => rest.editMessage(channel, message, eventMessage(card)));
+}
+
+/** After the first response made a public card: remember which message it is. */
+function rememberPost(ctx: Ctx, eventId: string, kind: "event" | "results") {
+  later(ctx, async () => {
+    const id = await rest.originalMessageId(ctx.ix.token);
+    if (id) await rpc("discord_event_posted", { p_event_id: eventId, p_kind: kind, p_message_id: id });
+  });
+}
+
+async function eventCreate(ctx: Ctx, options: Parameters<typeof opt>[0]): Promise<Response> {
+  const format = opt(options, "format") ?? "";
+  const whenText = opt(options, "when");
+  let tz = opt(options, "timezone");
+  let startsAt: string | null = null;
+  let localDate: string | null = null;
+  if (whenText) {
+    if (!tz) tz = (await rpc<{ timezone: string }>("discord_guild_timezone", { p_guild_id: ctx.guildId })).timezone;
+    const w = parseWhen(whenText, tz);
+    if (w === null) return ephemeral(`I couldn't read "${whenText}". Write the start as YYYY-MM-DD HH:MM, for example 2026-11-07 18:30, in ${tz} (change the zone with the timezone option or /settings timezone).`);
+    if (w === "past") return ephemeral("That start is in the past.");
+    if (w === "far") return ephemeral("Pick a start within a year.");
+    startsAt = w.iso;
+    localDate = w.localDate;
+  }
+  const card = await rpc<Card>("discord_event_create", {
+    p_discord_id: ctx.discordId, p_guild_id: ctx.guildId, p_channel_id: ctx.channelId, p_format_name: format,
+    p_name: opt(options, "name") ?? null, p_starts_at: startsAt, p_venue_name: opt(options, "venue") ?? null,
+    p_capacity: opt<number>(options, "cap") ?? null, p_top_cut: opt<boolean>(options, "top8") ? 8 : 0,
+    p_rounds: opt<number>(options, "rounds") ?? null, p_set_code: opt(options, "set") ?? null,
+    p_cube_name: opt(options, "cube") ?? null, p_local_date: localDate,
+  });
+  ctx.telemetry.push({
+    event: "discord_event_created", format, scheduled: Boolean(startsAt), capped: card.capacity != null,
+    top_cut: card.top_cut, auto_rounds: card.auto_rounds, named: Boolean(opt(options, "name")),
+  });
+  rememberPost(ctx, card.event_id, "event");
+  return reply(eventMessage(card));
+}
+
+async function eventAttach(ctx: Ctx, link: string): Promise<Response> {
+  const id = eventIdFrom(link);
+  if (!id) return ephemeral("Paste the event's table-1.site link (the one from Share link) or its id.");
+  const card = await rpc<Card>("discord_event_attach", { p_discord_id: ctx.discordId, p_guild_id: ctx.guildId, p_channel_id: ctx.channelId, p_event_id: id });
+  ctx.telemetry.push({ event: "discord_event_attached" });
+  rememberPost(ctx, card.event_id, "event");
+  return reply(eventMessage(card));
+}
+
+async function eventList(ctx: Ctx): Promise<Response> {
+  const rows = await rpc<{ event_id: string; name: string; format_label: string; starts_at: string | null; players: number; capacity: number | null }[]>(
+    "discord_events_list", { p_guild_id: ctx.guildId, p_state: "open", p_query: null, p_limit: 25 });
+  if (!rows.length) return ephemeral("No open events here yet. Make one with /event create.");
+  const lines = rows.map((r) =>
+    `• **${r.name.replace(/[*_`~|>\\]/g, "")}** · ${r.format_label} · ${r.players}${r.capacity ? `/${r.capacity}` : ""} players${r.starts_at ? ` · <t:${Math.floor(new Date(r.starts_at).getTime() / 1000)}:f>` : ""} · [open](https://table-1.site/s/${r.event_id})`
+  );
+  return ephemeral(lines.join("\n").slice(0, 1900));
+}
+
+async function signUpOrDrop(ctx: Ctx, action: "up" | "down", eventId: string, via: "button" | "command", messageId?: string): Promise<Response> {
+  const fn = action === "up" ? "discord_event_sign_up" : "discord_event_drop";
+  const r = await rpc<Card & { result: string; position?: number | null }>(fn, { p_discord_id: ctx.discordId, p_guild_id: ctx.guildId, p_event_id: eventId });
+  const note = outcomeText(r.result, r, r.position);
+  if (action === "up" && (r.result === "joined" || r.result === "waitlisted")) {
+    ctx.telemetry.push({ event: "discord_event_signed_up", status: r.result, via });
+  }
+  if (action === "down" && (r.result === "left" || r.result === "left_waitlist")) {
+    ctx.telemetry.push({ event: "discord_event_left", waitlist: r.result === "left_waitlist", via });
+  }
+  if (via === "button") {
+    // The clicked message becomes the fresh card; the clicker gets a private note; the public card (if this was an
+    // ephemeral copy) is edited to match.
+    later(ctx, () => rest.followUp(ctx.ix.token, { content: note, flags: EPHEMERAL }));
+    refreshCard(ctx, r, messageId);
+    return update(eventMessage(r));
+  }
+  refreshCard(ctx, r);
+  return ephemeral(note, eventMessage(r));
+}
+
+async function results(ctx: Ctx, eventId: string): Promise<Response> {
+  const r = await rpc<Card & { final: boolean; organizer: boolean }>("discord_event_results", { p_discord_id: ctx.discordId, p_guild_id: ctx.guildId, p_event_id: eventId });
+  const rows = await loadStandings(admin, eventId);
+  ctx.telemetry.push({ event: "discord_results_posted", final: r.final, players: rows.length });
+  rememberPost(ctx, eventId, "results");
+  if (r.final) refreshCard(ctx, r);
+  return reply({ embeds: [resultsEmbed(r, rows, r.final)], components: resultsComponents(r) });
+}
+
+async function deck(ctx: Ctx, listId: string, confirm: boolean): Promise<Response> {
+  const d = await rpc<DeckPost & { needs_confirm: boolean; list_id: string; new_link?: boolean }>("discord_deck_share", { p_discord_id: ctx.discordId, p_list_id: listId, p_confirm: confirm });
+  if (d.needs_confirm) {
+    return ephemeral(`Posting **${d.name.replace(/[*_`~|>\\]/g, "")}** here makes a link anyone can open (you can stop sharing it any time under Sharing in Table 1). Post it?`, {
+      components: [{ type: 1, components: [{ type: 2, style: 1, label: "Post the deck", custom_id: `t1:deck:${d.list_id}` }] }],
+    });
+  }
+  const me = await rpc<{ display_name?: string }>("discord_me", { p_discord_id: ctx.discordId });
+  ctx.telemetry.push({ event: "discord_deck_shared", format: d.format, new_link: Boolean(d.new_link) });
+  return reply({ embeds: [deckEmbed(d, me.display_name ?? null)], components: deckComponents(d) });
+}
+
+async function card(ctx: Ctx, query: string): Promise<Response> {
+  const h = await rpc<CardHit | null>("discord_card", { p_query: query });
+  ctx.telemetry.push({ event: "discord_card_looked_up", found: Boolean(h) });
+  if (!h) return ephemeral(`No card matches "${query.slice(0, 60)}".`);
+  return reply({ embeds: [cardEmbed(h)] });
+}
+
+async function settingsTimezone(ctx: Ctx, zone: string): Promise<Response> {
+  if (!canManageServer(ctx.ix)) return ephemeral("Only people with Manage Server can change this.");
+  const r = await rpc<{ timezone: string }>("discord_guild_timezone", { p_guild_id: ctx.guildId, p_timezone: zone.trim() });
+  return ephemeral(`Event times in this server are read in ${r.timezone}. Posted times show in each person's own zone.`);
+}
+
+// ---------------------------------------------------------------- autocomplete
+
+async function autocomplete(ctx: Ctx, path: string, options: Parameters<typeof opt>[0]): Promise<Response> {
+  const f = focused(options);
+  const q = String(f?.value ?? "");
+  if (f?.name === "timezone" || f?.name === "zone") return choices(zoneChoices(q));
+  if (f?.name === "event") {
+    const states = path === "event results" ? ["done", "open"] : ["open"];
+    const out: { name: string; value: string }[] = [];
+    for (const state of states) {
+      const rows = await rpc<{ event_id: string; name: string; format_label: string; players: number; status: string }[]>(
+        "discord_events_list", { p_guild_id: ctx.guildId, p_state: state, p_query: q || null, p_limit: 25 });
+      for (const r of rows) out.push({ name: `${r.name} · ${r.format_label} · ${r.players} players${state === "done" ? " · finished" : ""}`, value: r.event_id });
+    }
+    return choices(out);
+  }
+  if (f?.name === "deck") {
+    try {
+      const rows = await rpc<{ list_id: string; name: string; format: string; cards: number }[]>("discord_my_decks", { p_discord_id: ctx.discordId, p_query: q || null, p_limit: 25 });
+      return choices(rows.map((r) => ({ name: `${r.name} · ${r.format} · ${r.cards} cards`, value: r.list_id })));
+    } catch (e) {
+      if (e instanceof Refused && e.code === "28000") return choices([{ name: "Link your Table 1 account first: /link", value: "unlinked" }]);
+      throw e;
+    }
+  }
+  return choices([]);
+}
+
+// ---------------------------------------------------------------- routing
+
+async function route(ctx: Ctx): Promise<Response> {
+  const ix = ctx.ix;
+  if (ix.type === InteractionType.COMPONENT) {
+    const b = parseButtonId(ix.data?.custom_id);
+    if (!b) return ephemeral("That button is from an older card. Run /event show for a fresh one.");
+    if (b.action === "link") return await linkFlow(ctx);
+    if (b.action === "deck" && b.id) return await deck(ctx, b.id, true);
+    if ((b.action === "up" || b.action === "down") && b.id) return await signUpOrDrop(ctx, b.action, b.id, "button", ix.message?.id);
+    return ephemeral("That button is from an older card.");
+  }
+  const { path, options } = commandPath(ix);
+  if (ix.type === InteractionType.AUTOCOMPLETE) return await autocomplete(ctx, path, options);
+  switch (path) {
+    case "help":
+      ctx.telemetry.push({ event: "discord_help_viewed" });
+      return reply({ embeds: [helpEmbed()], flags: EPHEMERAL });
+    case "link":
+      return await linkFlow(ctx);
+    case "unlink": {
+      const r = await rpc<{ unlinked: boolean; via: string | null }>("discord_unlink", { p_discord_id: ctx.discordId });
+      if (r.unlinked) ctx.telemetry.push({ event: "discord_unlinked", via: "link" });
+      if (r.via === "sign_in") return ephemeral("You sign in to Table 1 with this Discord account, so there's nothing to unlink. Manage sign-in methods in Table 1 → Account.");
+      return ephemeral(r.unlinked ? "Unlinked. The bot no longer acts for your Table 1 account." : "This Discord account wasn't linked.");
+    }
+    case "event create":
+      return await eventCreate(ctx, options);
+    case "event post":
+      return await eventAttach(ctx, opt(options, "link") ?? "");
+    case "event list":
+      return await eventList(ctx);
+    case "event show": {
+      const id = opt(options, "event") ?? "";
+      if (!eventIdFrom(id)) return ephemeral("Pick an event from the list.");
+      const c = await cardFor(ctx, id);
+      return reply({ ...eventMessage(c), flags: EPHEMERAL });
+    }
+    case "event signup":
+    case "event drop": {
+      const id = opt(options, "event") ?? "";
+      if (!eventIdFrom(id)) return ephemeral("Pick an event from the list.");
+      return await signUpOrDrop(ctx, path === "event signup" ? "up" : "down", id, "command");
+    }
+    case "event results": {
+      const id = opt(options, "event") ?? "";
+      if (!eventIdFrom(id)) return ephemeral("Pick an event from the list.");
+      return await results(ctx, id);
+    }
+    case "settings timezone":
+      return await settingsTimezone(ctx, opt(options, "zone") ?? "");
+    case "deck": {
+      const id = opt(options, "deck") ?? "";
+      if (id === "unlinked") return reply(needLinkMessage("post a deck"));
+      if (!eventIdFrom(id)) return ephemeral("Pick a deck from the list.");
+      return await deck(ctx, id, false);
+    }
+    case "card":
+      return await card(ctx, opt(options, "name") ?? "");
+  }
+  return ephemeral("I don't know that command. Try /help.");
+}
+
+function refusal(e: Refused, path: string): Response {
+  if (e.code === "28000") return reply(needLinkMessage(path.startsWith("event") ? "join or run events" : "do that"));
+  return ephemeral(e.message);
+}
+
+// ---------------------------------------------------------------- the endpoint
+
+Deno.serve(async (req) => {
+  if (req.method !== "POST") return new Response("Table 1 for Discord", { status: 405 });
+  const body = await req.text();
+  const ok = await verifyInteraction(PUBLIC_KEY, req.headers.get("x-signature-ed25519"), req.headers.get("x-signature-timestamp"), body);
+  if (!ok) return new Response("invalid request signature", { status: 401 });
+  let ix: Interaction;
+  try {
+    ix = JSON.parse(body);
+  } catch {
+    return new Response("bad request", { status: 400 });
+  }
+  if (ix.type === InteractionType.PING) return json({ type: ResponseType.PONG });
+
+  const t0 = performance.now();
+  const discordId = userId(ix);
+  const guildId = ix.guild_id ?? "";
+  const channelId = ix.channel_id ?? "";
+  const tel = new Telemetry(env("POSTHOG_KEY"), env("POSTHOG_HOST", "https://us.i.posthog.com"), { platform: "discord", environment: ENVIRONMENT });
+  const ctx: Ctx = { ix, discordId, guildId, channelId, side: [], tel, distinct: "", linked: false, telemetry: [] };
+  const { path } = commandPath(ix);
+  const kind = ix.type === InteractionType.COMPONENT ? "button" : ix.type === InteractionType.AUTOCOMPLETE ? "autocomplete" : "command";
+  const command = ix.type === InteractionType.COMPONENT ? `button ${parseButtonId(ix.data?.custom_id)?.action ?? "?"}` : path;
+
+  let res: Response;
+  let outcome: "ok" | "refused" | "error" = "ok";
+  if (!isSnowflake(discordId) || !isSnowflake(guildId) || !isSnowflake(channelId)) {
+    res = ephemeral("Table 1 works inside a server channel.");
+    outcome = "refused";
+  } else {
+    try {
+      res = await route(ctx);
+    } catch (e) {
+      if (e instanceof Refused && e.code && e.code !== "P0001" && !/^5|^XX|^08|^57/.test(e.code)) {
+        res = refusal(e, path);
+        outcome = "refused";
+      } else {
+        console.error("discord-bot:", command, e instanceof Error ? `${(e as Refused).code ?? ""} ${e.message}` : e);
+        res = ephemeral("Table 1 didn't answer. Try again in a moment.");
+        outcome = "error";
+      }
+    }
+  }
+
+  // Telemetry rides after the answer: distinct id is the Table 1 account when linked, else a salted hash.
+  if (tel.enabled && ix.type !== InteractionType.AUTOCOMPLETE) {
+    later(ctx, async () => {
+      let distinct = await hashId(discordId || "0", SALT);
+      let linked = false;
+      try {
+        const me = await rpc<{ linked: boolean; user_id?: string }>("discord_me", { p_discord_id: discordId });
+        if (me.linked && me.user_id) {
+          distinct = me.user_id;
+          linked = true;
+        }
+      } catch { /* telemetry never fails the interaction */ }
+      tel.capture(distinct, "discord_interaction", { kind, command, linked, outcome, duration_ms: Math.round(performance.now() - t0) });
+      for (const t of ctx.telemetry) {
+        const { event, ...props } = t;
+        tel.capture(distinct, String(event), props);
+      }
+      await tel.flush();
+    });
+  }
+  const side = Promise.allSettled(ctx.side.map((f) => f().catch((e) => console.error("discord-bot: side work failed", e instanceof Error ? e.message : e))));
+  // deno-lint-ignore no-explicit-any
+  const runtime = (globalThis as any).EdgeRuntime;
+  if (runtime?.waitUntil) runtime.waitUntil(side);
+  return res;
+});
