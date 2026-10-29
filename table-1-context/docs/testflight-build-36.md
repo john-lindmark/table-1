@@ -17,4 +17,4 @@ TAB BAR
 Send anything odd through TestFlight feedback (screenshot + shake).
 
 ---
-Build notes (not for testers): archived 2026-10-29 at 1b1078f from a clean worktree into Organizer as "Table 1 build 36"; version 0.1.0. Includes 63e71eb (format page parts, tab bar labels Neutral_4, basics never short on tiles) on top of build 35 (9839f0e). The server fix (bug #18, meta builds one at a time, migration `20261029120000_meta_build_queue.sql`) needs no app change.
+Build notes (not for testers): archived 2026-10-29 at 1b1078f from a clean worktree into Organizer as "Table 1 build 36"; version 0.1.0. Uploaded 2026-10-29 from the command line by Claude, then build 37 (Sign in with Discord) right after. Includes 63e71eb (format page parts, tab bar labels Neutral_4, basics never short on tiles) on top of build 35 (9839f0e). The server fix (bug #18, meta builds one at a time, migration `20261029120000_meta_build_queue.sql`) needs no app change.
