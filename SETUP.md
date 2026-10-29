@@ -226,7 +226,7 @@ function `discord-bot` (Discord's *interactions endpoint*: no gateway process, e
 7. **Add it to a server** from `/discord` (or `https://discord.com/oauth2/authorize?client_id=1565382252706140300&scope=bot+applications.commands&permissions=18432`),
    run `/settings timezone Europe/Stockholm`, `/link`, `/event create format:Modern when:"2026-11-07 18:30"`.
 
-**The deck picture** (2026-10-29): deploy the `deck-image` function too (`verify_jwt` off; no cross-folder imports),
+**The deck picture** (2026-10-29, live the same day: both migrations applied, `deck-image` v1 and `discord-bot` v2 deployed, commands re-registered): deploy the `deck-image` function too (`verify_jwt` off; no cross-folder imports),
 and re-run `tools/discord/register.sh` whenever `commands.json` changes (`/wants`, `/trades` and the `/event post`
 picker were added 2026-10-29).
 
