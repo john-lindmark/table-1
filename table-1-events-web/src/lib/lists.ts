@@ -105,6 +105,12 @@ export function missingIn(l: CardList, owned: Map<string, number>, basics: Set<s
   return n;
 }
 
+/** One line (or grid/stack card) reads short when you own fewer copies than it lists: never for Considering, never for
+ *  a basic land (contract/basics-2026-10-24.md). */
+export function isShort(board: string, qty: number, owned: number, basic: boolean): boolean {
+  return board !== "maybe" && !basic && owned < qty;
+}
+
 /* ── wire format ──────────────────────────────────────────────────────── */
 
 interface ListWire {

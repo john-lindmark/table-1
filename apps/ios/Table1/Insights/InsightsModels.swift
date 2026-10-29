@@ -119,6 +119,42 @@ enum Insights {
         func change(_ id: Int) -> Change? { changes.first { $0.id == id } }
     }
 
+    /// The format page's parts behind a row each (contract/insights-2026-10-24.md § Format page): key, title and a
+    /// one-line summary for the picked tier and window; parts with nothing to show are left out. Shared cases in
+    /// testdata/insights/parts.json.
+    struct Part: Hashable { let key: String; let title: String; let detail: String }
+    static func formatParts(_ p: ConstructedPack, tier: Tier, days: Int) -> [Part] {
+        let view = p.view(tier)
+        let w = view?.windows[String(days)]
+        var out: [Part] = []
+        if let w, !w.share.isEmpty {
+            let named = w.share.filter { $0.a != 0 }
+            out.append(Part(key: "meta", title: "Meta now", detail: [named.first.map { "\(p.name($0.a)) \(InsightCharts.pct($0.share))" },
+                                                                    "\(named.count) archetypes"].compactMap { $0 }.joined(separator: " · ")))
+        }
+        if let w {
+            let up = w.cards["main"]?.up.first
+            out.append(Part(key: "cards", title: "Cards rising and falling",
+                            detail: up.map { "Rising most: \($0.n) ▲ \(InsightCharts.delta($0.rate - ($0.prev ?? 0)).dropFirst())" } ?? "No card moved much in this window"))
+        }
+        if let ns = view?.new_set, let top = ns.cards.first {
+            out.append(Part(key: "new_set", title: "New set · \(ns.name)", detail: "\(ns.cards.count) cards played · \(top.n) in \(InsightCharts.pct(top.rate))"))
+        }
+        let studied = p.bans.compactMap { p.change($0.change) }
+        if let first = studied.first {
+            let latest = studied.reduce(first) { $1.on > $0.on ? $1 : $0 }
+            out.append(Part(key: "changes", title: bansTitle(studied.map(\.kind)),
+                            detail: "\(latest.words) · \(InsightCharts.shortDay(latest.on))" + (studied.count > 1 ? " · \(studied.count - 1) more" : "")))
+        }
+        let events = p.events.filter { tier == .all || ["major", "large"].contains($0.tier) }
+        if let first = events.first {
+            let latest = events.reduce(first) { $1.on > $0.on ? $1 : $0 }
+            out.append(Part(key: "events", title: tier == .big ? "Big events" : "Events",
+                            detail: "\(events.count) \(events.count == 1 ? "event" : "events") · latest \(latest.name)"))
+        }
+        return out
+    }
+
     // MARK: read RPCs
 
     struct ArchetypePage: Decodable {

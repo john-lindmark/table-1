@@ -44,6 +44,43 @@ object Insights {
     /** The studies' heading: a points format's changes are points changes, not bans. */
     fun bansTitle(kinds: List<String>): String = if (kinds.isNotEmpty() && kinds.all { it == "points" }) "Points changes" else "Bans and unbans"
 
+    /** One row of the format page: a part that opens on its own screen. */
+    data class Part(val key: String, val title: String, val detail: String)
+
+    /** The format page's parts behind a row each (contract/insights-2026-10-24.md § Format page): key, title and a
+     *  one-line summary for the picked tier and window; parts with nothing to show are left out. Shared cases in
+     *  testdata/insights/parts.json. */
+    fun formatParts(p: ConstructedPack, tier: String, days: Int): List<Part> {
+        val view = p.tiers[tier]
+        val w = view?.windows?.get(days.toString())
+        val out = mutableListOf<Part>()
+        if (w != null && w.share.isNotEmpty()) {
+            val named = w.share.filter { it.a != 0 }
+            out += Part("meta", "Meta now", listOfNotNull(named.firstOrNull()?.let { "${p.name(it.a)} ${InsightCharts.pct(it.share)}" },
+                "${named.size} archetypes").joinToString(" · "))
+        }
+        if (w != null) {
+            val up = w.cards["main"]?.up?.firstOrNull()
+            out += Part("cards", "Cards rising and falling",
+                up?.let { "Rising most: ${it.n} ▲ ${InsightCharts.delta(it.rate - (it.prev ?: 0.0)).drop(1)}" } ?: "No card moved much in this window")
+        }
+        view?.new_set?.let { ns ->
+            ns.cards.firstOrNull()?.let { top -> out += Part("new_set", "New set · ${ns.name}", "${ns.cards.size} cards played · ${top.n} in ${InsightCharts.pct(top.rate)}") }
+        }
+        val studied = p.bans.mapNotNull { p.change(it.change) }
+        if (studied.isNotEmpty()) {
+            val latest = studied.reduce { a, c -> if (c.on > a.on) c else a }
+            out += Part("changes", bansTitle(studied.map { it.kind }),
+                "${latest.words} · ${InsightCharts.shortDay(latest.on)}" + if (studied.size > 1) " · ${studied.size - 1} more" else "")
+        }
+        val events = p.events.filter { tier == "all" || it.tier == "major" || it.tier == "large" }
+        if (events.isNotEmpty()) {
+            val latest = events.reduce { a, e -> if (e.on > a.on) e else a }
+            out += Part("events", if (tier == "big") "Big events" else "Events", "${events.size} ${if (events.size == 1) "event" else "events"} · latest ${latest.name}")
+        }
+        return out
+    }
+
     /** The credit under a constructed brief, from the pack's sources: TopDeck.gg asks for a visible credit and link
      *  whenever its data is shown; Canadian Highlander comes from TopDeck alone. */
     fun sourcesCredit(sources: List<String>): Pair<String, String> {

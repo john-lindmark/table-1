@@ -109,4 +109,19 @@ final class InsightsPackTests: XCTestCase {
         XCTAssertEqual(Insights.colorsName("WRG", "U"), "Naya WRG + u")
         XCTAssertEqual(Insights.colorsName("WUBR", ""), "Four-colour WUBR")
     }
+
+    /// The format page's rows (testdata/insights/parts.json, also web insights.test.ts and Android InsightsPackTest).
+    func testFormatParts() throws {
+        struct Cases: Decodable {
+            struct Part: Decodable { let key, title, detail: String }
+            struct Case: Decodable { let format: String; let tier: Insights.Tier; let days: Int; let parts: [Part] }
+            let cases: [Case]
+        }
+        let c = try JSONDecoder().decode(Cases.self, from: Data(contentsOf: dir.appending(path: "parts.json")))
+        for k in c.cases {
+            let p = try JSONDecoder().decode(Insights.ConstructedPack.self, from: Data(contentsOf: dir.appending(path: "constructed-\(k.format).json")))
+            XCTAssertEqual(Insights.formatParts(p, tier: k.tier, days: k.days),
+                           k.parts.map { Insights.Part(key: $0.key, title: $0.title, detail: $0.detail) }, "\(k.format) \(k.tier) \(k.days)")
+        }
+    }
 }

@@ -94,6 +94,7 @@ const InsightsArchetype = lazyNamed(insights, "InsightsArchetype");
 const InsightsCard = lazyNamed(insights, "InsightsCard");
 const InsightsBan = lazyNamed(insights, "InsightsBan");
 const InsightsMatchups = lazyNamed(insights, "InsightsMatchups");
+const InsightsPart = lazyNamed(insights, "InsightsPart");
 const InsightsPair = lazyNamed(insights, "InsightsPair");
 const InsightsLimitedCard = lazyNamed(insights, "InsightsLimitedCard");
 const InsightsReview = lazyNamed(insights, "InsightsReview");
@@ -571,6 +572,7 @@ export default function App() {
         <Route path="/insights/:format/card/:oracleId" element={<InsightsCard />} />
         <Route path="/insights/:format/ban/:id" element={<InsightsBan />} />
         <Route path="/insights/:format/matchups" element={<InsightsMatchups />} />
+        <Route path="/insights/:format/part/:part" element={<InsightsPart />} />
         <Route path="/life" element={<LifeRoute />} />
         <Route path="/life/:matchId" element={<LifeRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />

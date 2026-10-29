@@ -1,0 +1,140 @@
+{
+ "about": "The Insights format page's parts behind a row each (contract/insights-2026-10-24.md § Format page) for the demo packs in this folder: key, title and one-line summary per tier and window. Web insights.test.ts, iOS InsightsPackTests and Android InsightsPackTest read this.",
+ "cases": [
+  {
+   "format": "modern",
+   "tier": "big",
+   "days": 30,
+   "parts": [
+    {
+     "key": "meta",
+     "title": "Meta now",
+     "detail": "Eldrazi Bloodchief Combo 17% · 25 archetypes"
+    },
+    {
+     "key": "cards",
+     "title": "Cards rising and falling",
+     "detail": "Rising most: Lightning Bolt ▲ 11"
+    },
+    {
+     "key": "new_set",
+     "title": "New set · Reality Fracture",
+     "detail": "12 cards played · Dark Matter Manipulator in 11%"
+    },
+    {
+     "key": "changes",
+     "title": "Bans and unbans",
+     "detail": "Unbanned: Violent Outburst and Umezawa's Jitte · MAY 18 · 1 more"
+    },
+    {
+     "key": "events",
+     "title": "Big events",
+     "detail": "24 events · latest Modern Challenge 64"
+    }
+   ]
+  },
+  {
+   "format": "modern",
+   "tier": "all",
+   "days": 7,
+   "parts": [
+    {
+     "key": "meta",
+     "title": "Meta now",
+     "detail": "Rakdos Moonshadow 18% · 25 archetypes"
+    },
+    {
+     "key": "cards",
+     "title": "Cards rising and falling",
+     "detail": "Rising most: Stitcher's Supplier ▲ 6.7"
+    },
+    {
+     "key": "new_set",
+     "title": "New set · Reality Fracture",
+     "detail": "12 cards played · Dark Matter Manipulator in 12%"
+    },
+    {
+     "key": "changes",
+     "title": "Bans and unbans",
+     "detail": "Unbanned: Violent Outburst and Umezawa's Jitte · MAY 18 · 1 more"
+    },
+    {
+     "key": "events",
+     "title": "Events",
+     "detail": "40 events · latest Modern Challenge 32"
+    }
+   ]
+  },
+  {
+   "format": "pauper",
+   "tier": "all",
+   "days": 90,
+   "parts": [
+    {
+     "key": "meta",
+     "title": "Meta now",
+     "detail": "Madness Burn 15% · 19 archetypes"
+    },
+    {
+     "key": "cards",
+     "title": "Cards rising and falling",
+     "detail": "Rising most: Giant's Boulder ▲ 11"
+    },
+    {
+     "key": "new_set",
+     "title": "New set · Reality Fracture",
+     "detail": "9 cards played · Twinned Vision in 2.5%"
+    },
+    {
+     "key": "changes",
+     "title": "Bans and unbans",
+     "detail": "Banned: Seeker of Skybreak · JUN 29 · 1 more"
+    },
+    {
+     "key": "events",
+     "title": "Events",
+     "detail": "34 events · latest Pauper Challenge 16"
+    }
+   ]
+  },
+  {
+   "format": "canlander",
+   "tier": "big",
+   "days": 30,
+   "parts": [
+    {
+     "key": "cards",
+     "title": "Cards rising and falling",
+     "detail": "No card moved much in this window"
+    }
+   ]
+  },
+  {
+   "format": "standard",
+   "tier": "big",
+   "days": 14,
+   "parts": [
+    {
+     "key": "cards",
+     "title": "Cards rising and falling",
+     "detail": "No card moved much in this window"
+    },
+    {
+     "key": "new_set",
+     "title": "New set · Reality Fracture",
+     "detail": "12 cards played · Theorix Charm in 23%"
+    },
+    {
+     "key": "changes",
+     "title": "Bans and unbans",
+     "detail": "Banned: Badgermole Cub and Stormchaser's Talent and Gran-Gran · AUG 10"
+    },
+    {
+     "key": "events",
+     "title": "Big events",
+     "detail": "1 event · latest Standard Championship Week Finals"
+    }
+   ]
+  }
+ ]
+}

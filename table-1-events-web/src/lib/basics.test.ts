@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("./supabaseClient", () => ({ supabase: {} }));
 const { basicCardIds, parsePack } = await import("./catalog");
 const { missingLines } = await import("./binders");
-const { missingIn } = await import("./lists");
+const { isShort, missingIn } = await import("./lists");
 const { cardAddDetail, copiesOf, listAddOps } = await import("./listToCollection");
 type CardList = import("./lists").CardList;
 type Entry = import("./lists").Entry;
@@ -19,6 +19,8 @@ interface Cases {
   owned: Record<string, number>;
   missing: Record<string, number>;
   missingWithoutBasics: Record<string, number>;
+  short: Record<string, string[]>;
+  shortWithoutBasics: Record<string, string[]>;
   lines: { card_id: string; finish: string; short: number; lists: string[] }[];
   add: { list: string; mode: AddMode; ops: { card_id: string; finish: string; delta: number }[] }[];
   card: { list: string; only: string[]; missing: number; all: number; detail: string }[];
@@ -37,6 +39,15 @@ describe("basics", () => {
     for (const l of lists) {
       expect(missingIn(l, owned, basics)).toBe(c.missing[l.name]);
       expect(missingIn(l, owned, new Set())).toBe(c.missingWithoutBasics[l.name]);
+    }
+  });
+
+  it("never read short on a line or a grid/stack card", () => {
+    for (const l of lists) {
+      const short = (b: Set<string>) => l.versions[0].entries
+        .filter((e) => isShort(e.board, e.qty, owned.get(`${e.cardId}|${e.finish}`) ?? 0, b.has(e.cardId))).map((e) => e.cardId);
+      expect(short(basics)).toEqual(c.short[l.name]);
+      expect(short(new Set())).toEqual(c.shortWithoutBasics[l.name]);
     }
   });
 

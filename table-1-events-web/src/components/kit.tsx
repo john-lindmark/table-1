@@ -314,7 +314,7 @@ const TABS = [
 ];
 
 /** Events | Collection | Insights | Account along the bottom (Figma 407:9333), as in the apps: icon + label, the
- *  selected tab in text color under a 1 px accent line. Shown on the top-level screens once signed in, last in the
+ *  selected tab in text color under a 1 px accent line, the others icon and label both Neutral_4 (muted). Shown on the top-level screens once signed in, last in the
  *  screen's column wherever it's placed and pinned to the bottom of the window; a desktop window has the sidebar
  *  instead. */
 export function TabNav() {
@@ -323,16 +323,11 @@ export function TabNav() {
       {TABS.map((t) => (
         <NavLink key={t.to} to={t.to} end={t.end}
                  className={({ isActive }) =>
-                   `group flex-1 min-w-0 flex flex-col items-center gap-1 pt-[10px] pb-2 border-t ${
+                   `flex-1 min-w-0 flex flex-col items-center gap-1 pt-[10px] pb-2 border-t ${
                      isActive ? "border-t1-accent text-t1-text" : "border-transparent text-t1-muted hover:text-t1-text"
                    }`}>
-          {({ isActive }) => (
-            <>
-              <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" fill="currentColor"><path d={t.icon} /></svg>
-              <span className={`text-[9px] uppercase tracking-[1.5px] leading-[11px] truncate ${
-                isActive ? "" : "text-t1-disabled group-hover:text-t1-text"}`}>{t.title}</span>
-            </>
-          )}
+          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" fill="currentColor"><path d={t.icon} /></svg>
+          <span className="text-[9px] uppercase tracking-[1.5px] leading-[11px] truncate">{t.title}</span>
         </NavLink>
       ))}
     </nav>

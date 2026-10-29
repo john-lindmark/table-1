@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { screenName } from "./analytics";
 import { navKeyFor } from "./desktop";
-import { afterWindow, archetypeName, bansTitle, canHide, changeWords, colorsName, exampleFinish, FORMATS, isBan, matchup, place, sourcesCredit, visibleKeys, type BanStudy, type ConstructedPack, type LimitedPack } from "./insights";
+import { afterWindow, archetypeName, bansTitle, canHide, changeWords, colorsName, exampleFinish, formatParts, FORMATS, isBan, matchup, place, sourcesCredit, visibleKeys, type BanStudy, type ConstructedPack, type LimitedPack } from "./insights";
 
 /* Insights packs (contract/insights-2026-10-24.md § Packs) as the server builds them: testdata/insights holds
    constructed packs built from real MTGO pages and a Limited pack from 17Lands data (tools/insights/). */
@@ -109,6 +109,7 @@ describe("insights helpers", () => {
       ["/insights/modern/card/abc", "insights_card", "constructed"],
       ["/insights/modern/ban/3", "insights_ban", "constructed"],
       ["/insights/modern/matchups", "insights_matchups", "constructed"],
+      ["/insights/modern/part/cards", "insights_part", "constructed"],
       ["/insights/limited/FRA/PremierDraft/all/pair/UB", "insights_pair", "limited"],
       ["/insights/limited/FRA/PremierDraft/top/card/Lightning%20Bolt", "insights_limited_card", "limited"],
     ];
@@ -116,5 +117,10 @@ describe("insights helpers", () => {
       expect(screenName(p)).toBe(name);
       expect(navKeyFor(p)).toBe(nav);
     }
+  });
+
+  it("sums up the format page's parts, one row each (testdata/insights/parts.json)", () => {
+    const { cases } = read("parts.json") as { cases: { format: string; tier: "big" | "all"; days: number; parts: unknown[] }[] };
+    for (const k of cases) expect(formatParts(read(`constructed-${k.format}.json`) as ConstructedPack, k.tier, k.days)).toEqual(k.parts);
   });
 });

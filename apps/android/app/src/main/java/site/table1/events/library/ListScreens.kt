@@ -425,7 +425,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     fun tiles(inGroup: List<ListLine>): List<StackCard> = LineGroup.of(inGroup).flatMap { cg ->
         val hero = heroes.isHero(cg.lead.oracleId, heroScope)
         val open = { cg.lead.oracleId?.let(onCard); Unit }
-        fun warn(ls: List<ListLine>) = (cg.lead.board != "maybe" && ls.any { (owned[it.ownKey] ?: 0) < it.qty }) || issues.containsKey(cg.key)
+        fun warn(ls: List<ListLine>) = ls.any { isShort(it.board, it.qty, owned[it.ownKey] ?: 0, it.basic) } || issues.containsKey(cg.key)
         if (!printings.value.all || cg.lines.size < 2) listOf(StackCard(cg.id, cg.lead.printing, cg.lead.name, cg.qty, warn(cg.lines), cg.lead.finish, hero, open))
         else cg.lines.map { l -> StackCard(l.key, l.printing, l.name, l.qty, warn(listOf(l)), l.finish, hero, open) }
     }

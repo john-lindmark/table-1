@@ -442,7 +442,7 @@ struct T1TabItem<ID: Hashable>: Identifiable {
 }
 
 /// The app's bottom bar (Figma 407:9333): icon + label on the background. Selected = text color with a 1 pt accent
-/// line along its top; others a muted icon over a grey label; disabled items grey. Taps on a disabled item still
+/// line along its top; others icon and label both muted (Figma Neutral_4); disabled items grey. Taps on a disabled item still
 /// reach `onSelect` (to explain why).
 struct T1TabBar<ID: Hashable>: View {
     let items: [T1TabItem<ID>]
@@ -460,7 +460,7 @@ struct T1TabBar<ID: Hashable>: View {
                             .frame(width: 18, height: 18)
                         HStack(spacing: 4) {
                             Text(item.label.uppercased()).font(T1.mono(9)).tracking(1.5)
-                                .foregroundStyle(on ? T1.text : T1.disabled).lineLimit(1)
+                                .foregroundStyle(on ? T1.text : item.enabled ? T1.muted : T1.disabled).lineLimit(1)
                             if let note = item.note {
                                 Text(note.uppercased()).font(T1.mono(8)).tracking(1).foregroundStyle(T1.disabled).lineLimit(1)
                             }

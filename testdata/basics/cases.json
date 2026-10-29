@@ -1,5 +1,5 @@
 {
-  "about": "Basic lands never count as missing (contract/basics-2026-10-24.md). 'basics' are the card ids the catalog says are basic. 'missing' is each list's count of copies still needed; 'lines' is Wants -> Missing from decks and cubes (largest need across lists, sorted by short desc, then card_id|finish); 'add' is Add to collection's ops (Every card still adds basics). owned is keyed 'card_id|finish'. iOS BasicsTests, web basics.test.ts and Android BasicsTest read this.",
+  "about": "Basic lands never count as missing (contract/basics-2026-10-24.md). 'basics' are the card ids the catalog says are basic. 'missing' is each list's count of copies still needed; 'short' is the lines (and grid/stack cards) that read short, in list order; 'lines' is Wants -> Missing from decks and cubes (largest need across lists, sorted by short desc, then card_id|finish); 'add' is Add to collection's ops (Every card still adds basics). owned is keyed 'card_id|finish'. iOS BasicsTests, web basics.test.ts and Android BasicsTest read this.",
   "basics": ["island", "snow-forest"],
   "lists": [
     {
@@ -23,6 +23,8 @@
   "owned": {"bolt|nonfoil": 2, "island|nonfoil": 3},
   "missing": {"Burn": 2, "Cube": 1},
   "missingWithoutBasics": {"Burn": 9, "Cube": 18},
+  "short": {"Burn": ["bolt"], "Cube": ["strix"]},
+  "shortWithoutBasics": {"Burn": ["bolt", "island", "snow-forest"], "Cube": ["island", "strix"]},
   "lines": [
     {"card_id": "bolt", "finish": "nonfoil", "short": 2, "lists": ["Burn"]},
     {"card_id": "strix", "finish": "nonfoil", "short": 1, "lists": ["Cube"]}

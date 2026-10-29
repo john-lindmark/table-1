@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { supabase } from "./supabaseClient";
 import { capture } from "./telemetry";
+import { delta, pct, shortDay } from "./insightCharts";
 
 /**
  * Insights (contract/insights-2026-10-24.md): the published pack index, the packs (fetched once per version) and
@@ -142,6 +143,40 @@ export const changeWords = (c: Change) => {
 export const isBan = (c: Change) => ["ban", "unban", "restrict", "unrestrict", "points"].includes(c.kind);
 /** The studies' heading: a points format's changes are points changes, not bans. */
 export const bansTitle = (kinds: string[]) => (kinds.length > 0 && kinds.every((k) => k === "points") ? "Points changes" : "Bans and unbans");
+/** The format page's parts behind a row each (contract/insights-2026-10-24.md § Format page): key, title and a one-line
+ *  summary for the picked tier and window; parts with nothing to show are left out. Shared cases in
+ *  testdata/insights/parts.json. */
+export type PartKey = "meta" | "cards" | "new_set" | "changes" | "events";
+export interface Part { key: PartKey; title: string; detail: string }
+export function formatParts(p: ConstructedPack, tier: Tier, days: number): Part[] {
+  const view = p.tiers[tier];
+  const w = view?.windows[String(days)];
+  const out: Part[] = [];
+  if (w && w.share.length) {
+    const named = w.share.filter((s) => s.a !== 0);
+    const lead = named[0];
+    out.push({ key: "meta", title: "Meta now", detail: [lead ? `${archetypeName(p, lead.a)} ${pct(lead.share)}` : null, `${named.length} archetypes`].filter(Boolean).join(" · ") });
+  }
+  if (w) {
+    const up = w.cards.main.up[0];
+    out.push({ key: "cards", title: "Cards rising and falling",
+               detail: up ? `Rising most: ${up.n} ▲ ${delta(up.rate - (up.prev ?? 0)).slice(1)}` : "No card moved much in this window" });
+  }
+  const ns = view?.new_set;
+  if (ns && ns.cards.length) out.push({ key: "new_set", title: `New set · ${ns.name}`, detail: `${ns.cards.length} cards played · ${ns.cards[0].n} in ${pct(ns.cards[0].rate)}` });
+  const studied = p.bans.map((b) => p.changes.find((c) => c.id === b.change)).filter((c): c is Change => !!c);
+  if (studied.length) {
+    const latest = studied.reduce((a, c) => (c.on > a.on ? c : a));
+    out.push({ key: "changes", title: bansTitle(studied.map((c) => c.kind)),
+               detail: `${changeWords(latest)} · ${shortDay(latest.on)}${studied.length > 1 ? ` · ${studied.length - 1} more` : ""}` });
+  }
+  const events = p.events.filter((e) => tier === "all" || e.tier === "major" || e.tier === "large");
+  if (events.length) {
+    const latest = events.reduce((a, e) => (e.on > a.on ? e : a));
+    out.push({ key: "events", title: tier === "big" ? "Big events" : "Events", detail: `${events.length} ${events.length === 1 ? "event" : "events"} · latest ${latest.name}` });
+  }
+  return out;
+}
 /** The longest "after" window of a ban study that has ended (60 → 30 → 14 days). */
 export const afterWindow = (b: BanStudy) => {
   for (const d of [60, 30, 14]) if (b.after[String(d)]) return { days: d, shares: b.after[String(d)] };

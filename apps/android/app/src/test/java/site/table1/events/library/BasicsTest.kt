@@ -34,6 +34,18 @@ class BasicsTest {
         }
     }
 
+    /** Lines and grid/stack cards (ListDetailScreen rows and tiles). */
+    @Test fun neverShortOnALineOrTile() {
+        fun want(key: String) = c[key]!!.jsonObject.mapValues { (_, v) -> v.jsonArray.map { it.jsonPrimitive.content } }
+        val short = want("short")
+        val without = want("shortWithoutBasics")
+        for (l in lists) {
+            fun shortIn(b: Set<String>) = l.entries.filter { isShort(it.board, it.qty, owned[ownKey(it.cardId, it.finish)] ?: 0, it.cardId in b) }.map { it.cardId }
+            assertEquals(l.name, short[l.name], shortIn(basics))
+            assertEquals(l.name, without[l.name], shortIn(emptySet()))
+        }
+    }
+
     @Test fun stayOutOfWantsMissing() {
         val want = c["lines"]!!.jsonArray.map { it.jsonObject }.map { m ->
             MissingLine(m["card_id"]!!.jsonPrimitive.content, m["finish"]!!.jsonPrimitive.content, m["short"]!!.jsonPrimitive.int,

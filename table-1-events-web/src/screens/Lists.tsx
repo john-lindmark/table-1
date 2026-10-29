@@ -9,7 +9,7 @@ import {
 import { GROUPING_KEY, groupLabel, keyFor, keysOf, sortGroups, useStoredGrouping, type GroupKeys, type Grouping } from "../lib/cardGrouping";
 import { SORT_KEY, applySort, sortKeyOf, useStoredSort, type CardSort } from "../lib/cardSort";
 import {
-  boardTitle, boardsOf, countOf, createList, entry, finishOf, langOf, ownKey, type ListFinish, current, deleteList, diff, duplicateList, editList, entriesOf, missingIn, restoreList,
+  boardTitle, boardsOf, countOf, createList, entry, finishOf, langOf, ownKey, type ListFinish, current, deleteList, diff, duplicateList, editList, entriesOf, isShort, missingIn, restoreList,
   sectionsFor, setListFormat, useLists, type Board, type CardList, type Entry, type ListKind, type ListOp,
 } from "../lib/lists";
 import { cardMatches, matchingLines } from "../lib/librarySearch";
@@ -520,7 +520,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
     const lead = cg.lines[0];
     const hero = isHero(lead.oracleId, heroScope, heroes);
     const onClick = () => lead.oracleId && onCard(lead.oracleId);
-    const warn = (ls: Line[]) => (lead.board !== "maybe" && ls.some((l) => (owned.get(ownKey(l.cardId, l.finish)) ?? 0) < l.qty)) || issues.has(lead.oracleId ?? lead.cardId);
+    const warn = (ls: Line[]) => ls.some((l) => isShort(l.board, l.qty, owned.get(ownKey(l.cardId, l.finish)) ?? 0, l.basic)) || issues.has(lead.oracleId ?? lead.cardId);
     if (!printings.all || cg.lines.length < 2) {
       return [{ key: cg.id, p: lead.p, name: lead.name, qty: cg.qty, warn: warn(cg.lines), finish: lead.finish, hero, onClick }];
     }

@@ -154,5 +154,6 @@ function insightsScreen(p: string): string | undefined {
   if (/^\/insights\/[^/]+\/card\/[^/]+$/.test(p)) return "insights_card";
   if (/^\/insights\/[^/]+\/ban\/[^/]+$/.test(p)) return "insights_ban";
   if (/^\/insights\/[^/]+\/matchups$/.test(p)) return "insights_matchups";
+  if (/^\/insights\/[^/]+\/part\/[^/]+$/.test(p)) return "insights_part";
   return undefined;
 }

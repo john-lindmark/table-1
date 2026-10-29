@@ -6,6 +6,7 @@ enum InsightsRoute: Hashable {
     case card(String, String, String)      // format, oracle id, name
     case ban(String, Int)                  // format, change id
     case matchups(String)                  // format
+    case part(String, String)              // format, part key (Insights.formatParts)
     case finish(String, Int, Int)          // format, archetype id, finish index on its page
     case pair(String, String, String, String) // set, event, group, pair
     case limitedCard(String, String, String, String) // set, event, group, card name
@@ -32,6 +33,7 @@ struct InsightsDestination: View {
         case .card(let f, let id, let n): CardInsightView(format: f, oracleId: id, name: n, path: $path).screen("insights_card")
         case .ban(let f, let id): BanStudyView(format: f, changeId: id, path: $path).screen("insights_ban")
         case .matchups(let f): MatchupsView(format: f, path: $path).screen("insights_matchups")
+        case .part(let f, let k): ConstructedPartView(format: f, part: k, path: $path).screen("insights_part")
         case .finish(let f, let a, let i): FinishView(format: f, archetypeId: a, index: i, path: $path).screen("insights_finish")
         case .pair(let s, let e, let g, let p): PairInsightView(set: s, event: e, group: g, pair: p, path: $path).screen("insights_pair")
         case .limitedCard(let s, let e, let g, let n): LimitedCardView(set: s, event: e, group: g, name: n, path: $path).screen("insights_limited_card")
@@ -158,9 +160,7 @@ struct ThinNote: View {
 struct ConstructedHomeSection: View {
     @Binding var path: [InsightsRoute]
     @Bindable private var store = InsightsStore.shared
-    @State private var board = "main"
     @State private var highlighted: Int?
-    @Environment(SessionModel.self) private var session
 
     @State private var editing = false
 
@@ -175,8 +175,7 @@ struct ConstructedHomeSection: View {
         if let pack = store.pack {
             let tier = store.tier(for: pack)
             let tierBinding = Binding<Insights.Tier>(get: { tier }, set: { store.tierPicked = $0 })
-            T1Segmented(options: [(.big, "Big events"), (.all, "All events")], selection: tierBinding)
-            T1Segmented(options: Insights.windows.map { ($0, "\($0)D") }, selection: $store.days)
+            WindowPickers(tier: tierBinding)
             if let view = pack.view(tier), let w = view.windows[String(store.days)] {
                 content(pack, view, w, tier)
             }
@@ -189,24 +188,13 @@ struct ConstructedHomeSection: View {
         }
     }
 
+    /// Meta over time and the matchup grid first, then the brief, and a row for each part, which opens on its own
+    /// screen (ConstructedPartView).
     @ViewBuilder
     private func content(_ pack: Insights.ConstructedPack, _ view: Insights.View, _ w: Insights.Window, _ tier: Insights.Tier) -> some View {
         let scope = "\(tier == .big ? "Big events" : "All events"), last \(store.days) days"
         let credit = Insights.sourcesCredit(pack.sources)
-        BriefBlock(brief: w.brief, scope: scope, thin: w.thin, credit: credit)
         if w.thin { ThinNote() }
-        Stats3(items: [("Decks", "\(w.decks)"), ("Events", "\(w.events)"), ("Through", InsightCharts.shortDay(pack.through))])
-
-        Section1("Meta now · share of top finishes")
-        let maxShare = w.share.map(\.share).max() ?? 0.1
-        let lead = w.share.first { $0.a != 0 }?.a
-        ForEach(w.share.prefix(12), id: \.a) { s in
-            Button { path.append(.archetype(pack.format, s.a)) } label: {
-                InsightBar(label: pack.name(s.a), value: s.share, maxValue: maxShare,
-                           detail: InsightCharts.rates(wr: s.wr, t8r: s.t8r, won: s.won, wonOf: w.won_of).nilIfEmpty,
-                           change: s.prev.map { s.share - $0 }, highlighted: s.a == lead)
-            }.buttonStyle(.plain)
-        }
 
         Section1("Meta over time · 7-day share")
         // The chart covers the picked window; lines with no decks in it are left out.
@@ -236,61 +224,15 @@ struct ConstructedHomeSection: View {
             MatchupGrid(pack: pack)
         }
 
-        Section1("Cards · rising and falling")
-        T1Segmented(options: [("main", "Main deck"), ("side", "Sideboard")], selection: $board)
-        if let m = w.cards[board] {
-            ForEach(m.up.prefix(8), id: \.c) { c in cardRow(pack, c, up: true) }
-            ForEach(m.down.prefix(5), id: \.c) { c in cardRow(pack, c, up: false) }
-            if m.up.isEmpty && m.down.isEmpty { Notice("No card moved much in this window.") }
-        }
-
-        if let ns = view.new_set, !ns.cards.isEmpty {
-            Section1("New set · \(ns.name)")
-            ForEach(ns.cards.prefix(8), id: \.c) { c in
-                Button { path.append(.card(pack.format, c.c, c.n)) } label: {
-                    ListRow(title: c.n, detail: "in \(InsightCharts.pct(c.rate)) of decks" + (c.in?.first.map { " · most in \(pack.name($0))" } ?? "")) {
-                        Text(InsightCharts.pct(c.rate)).font(T1.mono(13))
-                    }
-                }.buttonStyle(.plain)
-            }
-        }
-
-        let bans = pack.bans
-        if !bans.isEmpty {
-            Section1(Insights.bansTitle(bans.map { pack.change($0.change)?.kind ?? "" }))
-            ForEach(bans, id: \.change) { b in
-                if let ch = pack.change(b.change) {
-                    Button { path.append(.ban(pack.format, b.change)) } label: {
-                        ListRow(title: ch.words, detail: InsightCharts.shortDay(ch.on) + (b.settled_days.map { " · settled after \($0) days" } ?? ""))
-                    }.buttonStyle(.plain)
-                }
-            }
-        }
-
-        let events = pack.events.filter { tier == .all || ["major", "large"].contains($0.tier) }
-        if !events.isEmpty {
-            Section1(tier == .big ? "Big events" : "Events")
-            ForEach(events.prefix(12), id: \.self) { e in
-                Button {
-                    if let u = e.url.flatMap(URL.init) { session.webPage = WebPage(url: u); Telemetry.capture("insights_source_opened", ["source": e.source]) }
-                } label: {
-                    ListRow(title: e.name, detail: [InsightCharts.shortDay(e.on), e.players.map { "\($0) players" }, e.winner.map { "won by \(pack.name($0))" }]
-                        .compactMap { $0 }.joined(separator: " · ")) {
-                        LabelText(e.tier)
-                    }
-                }.buttonStyle(.plain)
-            }
+        BriefBlock(brief: w.brief, scope: scope, thin: w.thin, credit: credit)
+        Stats3(items: [("Decks", "\(w.decks)"), ("Events", "\(w.events)"), ("Through", InsightCharts.shortDay(pack.through))])
+        ForEach(Insights.formatParts(pack, tier: tier, days: store.days), id: \.key) { part in
+            Button {
+                Telemetry.capture("insights_part_opened", ["format": pack.format, "part": part.key])
+                path.append(.part(pack.format, part.key))
+            } label: { ListRow(title: part.title, detail: part.detail) }.buttonStyle(.plain)
         }
         Color.clear.frame(height: 24)
-    }
-
-    private func cardRow(_ pack: Insights.ConstructedPack, _ c: Insights.CardRow, up: Bool) -> some View {
-        Button { path.append(.card(pack.format, c.c, c.n)) } label: {
-            ListRow(title: c.n, detail: "in \(InsightCharts.pct(c.rate)) of decks · was \(InsightCharts.pct(c.prev ?? 0))" + (c.copies.map { String(format: " · %.1f copies", $0) } ?? "")) {
-                Text("\(up ? "▲" : "▼") \(InsightCharts.delta(c.rate - (c.prev ?? 0)).dropFirst())")
-                    .font(T1.mono(12)).foregroundStyle(up ? T1.accent : T1.muted)
-            }
-        }.buttonStyle(.plain)
     }
 
     private func short(_ s: String) -> String { s.count > 14 ? String(s.prefix(13)) + "…" : s }
@@ -309,6 +251,126 @@ struct ConstructedHomeSection: View {
             } else { out.append(.init(index: i, label: label, ban: c.isBan)) }
         }
         return out
+    }
+}
+
+/// Big events | All events, then the window (7–90 days) unless the part doesn't depend on it; the picks are the
+/// format page's.
+struct WindowPickers: View {
+    let tier: Binding<Insights.Tier>
+    var days = true
+    @Bindable private var store = InsightsStore.shared
+    var body: some View {
+        T1Segmented(options: [(.big, "Big events"), (.all, "All events")], selection: tier)
+        if days { T1Segmented(options: Insights.windows.map { ($0, "\($0)D") }, selection: $store.days) }
+    }
+}
+
+/// One part of the format page on its own screen: Meta now, Cards rising and falling, New set, bans and their kin, or
+/// events, for the tier and window picked on the format page (changeable here too).
+struct ConstructedPartView: View {
+    let format: String
+    let part: String
+    @Binding var path: [InsightsRoute]
+    @Bindable private var store = InsightsStore.shared
+    @State private var board = "main"
+    @Environment(SessionModel.self) private var session
+
+    var body: some View {
+        let pack = store.constructed[format]
+        let tier = pack.map { store.tier(for: $0) } ?? .big
+        let title = pack.flatMap { p in Insights.formatParts(p, tier: tier, days: store.days).first { $0.key == part }?.title }
+            ?? ["meta": "Meta now", "cards": "Cards rising and falling", "new_set": "New set", "changes": "Bans and unbans",
+                "events": tier == .big ? "Big events" : "Events"][part] ?? "Insights"
+        let scope = "\(tier == .big ? "Big events" : "All events"), last \(store.days) days"
+        T1Screen {
+            Bar(title: title, subtitle: (pack?.name ?? format) + (part == "meta" || part == "cards" ? " · \(scope)" : "")) { path.removeLast() }
+            InsightsPage {
+                VStack(spacing: 1) {
+                    if let pack { content(pack, tier) } else { Notice("Loading the metagame…") }
+                    Color.clear.frame(height: 24)
+                }
+            }
+        }
+        .task { await store.ensure(format: format) }
+    }
+
+    @ViewBuilder
+    private func content(_ pack: Insights.ConstructedPack, _ tier: Insights.Tier) -> some View {
+        let tierBinding = Binding<Insights.Tier>(get: { tier }, set: { store.tierPicked = $0 })
+        let view = pack.view(tier)
+        let w = view?.windows[String(store.days)]
+        switch part {
+        case "meta":
+            WindowPickers(tier: tierBinding)
+            if let w {
+                Section1("Share of top finishes")
+                let maxShare = w.share.map(\.share).max() ?? 0.1
+                let lead = w.share.first { $0.a != 0 }?.a
+                ForEach(w.share, id: \.a) { s in
+                    Button { path.append(.archetype(pack.format, s.a)) } label: {
+                        InsightBar(label: pack.name(s.a), value: s.share, maxValue: maxShare,
+                                   detail: InsightCharts.rates(wr: s.wr, t8r: s.t8r, won: s.won, wonOf: w.won_of).nilIfEmpty,
+                                   change: s.prev.map { s.share - $0 }, highlighted: s.a == lead)
+                    }.buttonStyle(.plain)
+                }
+                if w.share.isEmpty { Notice("No decks in this window.") }
+            }
+        case "cards":
+            WindowPickers(tier: tierBinding)
+            T1Segmented(options: [("main", "Main deck"), ("side", "Sideboard")], selection: $board)
+            if let m = w?.cards[board] {
+                if !m.up.isEmpty { Section1("Rising") }
+                ForEach(m.up, id: \.c) { c in cardRow(pack, c, up: true) }
+                if !m.down.isEmpty { Section1("Falling") }
+                ForEach(m.down, id: \.c) { c in cardRow(pack, c, up: false) }
+                if m.up.isEmpty && m.down.isEmpty { Notice("No card moved much in this window.") }
+            }
+        case "new_set":
+            WindowPickers(tier: tierBinding, days: false)
+            if let ns = view?.new_set, !ns.cards.isEmpty {
+                ForEach(ns.cards, id: \.c) { c in
+                    Button { path.append(.card(pack.format, c.c, c.n)) } label: {
+                        ListRow(title: c.n, detail: "in \(InsightCharts.pct(c.rate)) of decks" + (c.in?.first.map { " · most in \(pack.name($0))" } ?? "")) {
+                            Text(InsightCharts.pct(c.rate)).font(T1.mono(13))
+                        }
+                    }.buttonStyle(.plain)
+                }
+            } else { Notice("No new set cards played yet.") }
+        case "changes":
+            ForEach(pack.bans, id: \.change) { b in
+                if let ch = pack.change(b.change) {
+                    Button { path.append(.ban(pack.format, b.change)) } label: {
+                        ListRow(title: ch.words, detail: InsightCharts.shortDay(ch.on) + (b.settled_days.map { " · settled after \($0) days" } ?? ""))
+                    }.buttonStyle(.plain)
+                }
+            }
+        case "events":
+            WindowPickers(tier: tierBinding, days: false)
+            let events = pack.events.filter { tier == .all || ["major", "large"].contains($0.tier) }
+            ForEach(events, id: \.self) { e in
+                Button {
+                    if let u = e.url.flatMap(URL.init) { session.webPage = WebPage(url: u); Telemetry.capture("insights_source_opened", ["source": e.source]) }
+                } label: {
+                    ListRow(title: e.name, detail: [InsightCharts.shortDay(e.on), e.players.map { "\($0) players" }, e.winner.map { "won by \(pack.name($0))" }]
+                        .compactMap { $0 }.joined(separator: " · ")) {
+                        LabelText(e.tier)
+                    }
+                }.buttonStyle(.plain)
+            }
+            if events.isEmpty { Notice("No events in the pack yet.") }
+        default:
+            Notice("This part isn't in the pack.")
+        }
+    }
+
+    private func cardRow(_ pack: Insights.ConstructedPack, _ c: Insights.CardRow, up: Bool) -> some View {
+        Button { path.append(.card(pack.format, c.c, c.n)) } label: {
+            ListRow(title: c.n, detail: "in \(InsightCharts.pct(c.rate)) of decks · was \(InsightCharts.pct(c.prev ?? 0))" + (c.copies.map { String(format: " · %.1f copies", $0) } ?? "")) {
+                Text("\(up ? "▲" : "▼") \(InsightCharts.delta(c.rate - (c.prev ?? 0)).dropFirst())")
+                    .font(T1.mono(12)).foregroundStyle(up ? T1.accent : T1.muted)
+            }
+        }.buttonStyle(.plain)
     }
 }
 

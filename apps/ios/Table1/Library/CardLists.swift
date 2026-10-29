@@ -589,6 +589,10 @@ func missing(in list: CardList, owned: [String: Int], basics: Set<String>) -> In
     return need.reduce(0) { $0 + max(0, $1.value - (owned[$1.key] ?? 0)) }
 }
 
+/// One line (or grid/stack card) reads short when you own fewer copies than it lists: never for Considering, never for a
+/// basic land (contract/basics-2026-10-24.md).
+func isShort(board: String, qty: Int, owned: Int, basic: Bool) -> Bool { board != "maybe" && !basic && owned < qty }
+
 private let shortDate: Date.FormatStyle = .dateTime.month(.abbreviated).day().year()
 
 private func statCell(_ label: String, _ value: Int, warn: Bool = false) -> some View {
@@ -1276,7 +1280,7 @@ extension ListDetailView {
             let hero = HeroesStore.shared.isHero(cg.lead.oracleId, .list(listId))
             let open = { if let o = cg.lead.oracleId { path.append(.cardIn(o, .list(listId))) } }
             func warn(_ ls: [ListLine]) -> Bool {
-                (cg.lead.board != "maybe" && ls.contains { (owned[$0.ownKey] ?? 0) < $0.qty }) || issues[cg.key] != nil
+                ls.contains { isShort(board: $0.board, qty: $0.qty, owned: owned[$0.ownKey] ?? 0, basic: $0.basic) } || issues[cg.key] != nil
             }
             guard printings.all, cg.lines.count > 1 else {
                 return [StackCard(id: cg.id, printing: cg.lead.printing, name: cg.lead.name, qty: cg.qty, warn: warn(cg.lines),

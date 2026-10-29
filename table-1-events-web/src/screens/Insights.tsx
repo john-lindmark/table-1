@@ -5,7 +5,7 @@ import { Bar, Notice, Row, Screen, Section, Segmented, Stat, SwitchRow, TabNav }
 import { printingsByName, type Catalog } from "../lib/catalog";
 import { delta, pct, pct1, rates, seriesWindow, shortDay, wilson } from "../lib/insightCharts";
 import {
-  EVENT_LABELS, EVENT_ORDER, FORMATS, PAIR_NAMES, WINDOWS, bansTitle, canHide, exampleFinish, place, setHidden, sourcesCredit, visibleKeys, type Finish, afterWindow, archetypeName, archetypePage, cardPage, changeWords, colorsName, isBan,
+  EVENT_LABELS, EVENT_ORDER, FORMATS, PAIR_NAMES, WINDOWS, canHide, exampleFinish, formatParts, place, setHidden, sourcesCredit, visibleKeys, type Finish, type PartKey, afterWindow, archetypeName, archetypePage, cardPage, changeWords, colorsName, isBan,
   loadInsights, loadInsightsDemo, matchup, pick, useInsights, type ArchetypePage, type CardPage, type CardRow, type ConstructedPack,
   type LCard, type LimitedPack, type LView, type Tier,
 } from "../lib/insights";
@@ -86,7 +86,6 @@ export function InsightsHome({ section }: { section: "constructed" | "limited" }
 function ConstructedHome() {
   const nav = useNavigate();
   const { constructed, picks, error, index } = useInsights();
-  const [board, setBoard] = useState<"main" | "side">("main");
   const [hl, setHl] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
   const shown = visibleKeys(FORMATS.map((f) => f.key as string), picks.hiddenFormats);
@@ -103,27 +102,31 @@ function ConstructedHome() {
       </PickerRow>
       {editing && <ShownEditor title="Shown formats" items={FORMATS.map((f) => ({ key: f.key as string, label: f.label }))} hidden={picks.hiddenFormats}
                                which="hiddenFormats" onDone={() => setEditing(false)} />}
-      {pack && (
-        <>
-          <Segmented options={[{ value: "big" as Tier, label: "Big events" }, { value: "all" as Tier, label: "All events" }]} value={tier} onChange={(v) => pick({ tier: v })} />
-          <Segmented options={WINDOWS.map((d) => ({ value: d as number, label: `${d}D` }))} value={picks.days} onChange={(v) => pick({ days: v })} />
-        </>
-      )}
+      {pack && <WindowPickers tier={tier} days={picks.days} />}
       {!pack && (error ? <Notice tone="error">{error}</Notice> : <Notice tone="info">{index ? "No results for this format yet." : "Loading the metagame…"}</Notice>)}
-      {pack && view && w && <ConstructedBody pack={pack} tier={tier} view={view} w={w} days={picks.days} board={board} setBoard={setBoard} hl={hl} setHl={setHl}
-                                             go={(p) => nav(p)} />}
+      {pack && view && w && <ConstructedBody pack={pack} tier={tier} view={view} w={w} days={picks.days} hl={hl} setHl={setHl} go={(p) => nav(p)} />}
     </Scroll>
   );
 }
 
-function ConstructedBody({ pack, tier, view, w, days, board, setBoard, hl, setHl, go }: {
+/** Big events | All events, then the window (7–90 days); `days` off where the part doesn't depend on it. */
+function WindowPickers({ tier, days, showDays = true }: { tier: Tier; days: number; showDays?: boolean }) {
+  return (
+    <>
+      <Segmented options={[{ value: "big" as Tier, label: "Big events" }, { value: "all" as Tier, label: "All events" }]} value={tier} onChange={(v) => pick({ tier: v })} />
+      {showDays && <Segmented options={WINDOWS.map((d) => ({ value: d as number, label: `${d}D` }))} value={days} onChange={(v) => pick({ days: v })} />}
+    </>
+  );
+}
+
+/** The format page: Meta over time and the matchup grid first, then the brief, and a row for each part, which opens
+ *  on its own screen (InsightsPart). */
+function ConstructedBody({ pack, tier, view, w, days, hl, setHl, go }: {
   pack: ConstructedPack; tier: Tier; view: ConstructedPack["tiers"]["big"]; w: ConstructedPack["tiers"]["big"]["windows"][string]; days: number;
-  board: "main" | "side"; setBoard: (b: "main" | "side") => void; hl: number | null; setHl: (a: number) => void; go: (p: string) => void;
+  hl: number | null; setHl: (a: number) => void; go: (p: string) => void;
 }) {
   const f = pack.format;
   const credit = sourcesCredit(pack.sources);
-  const maxShare = Math.max(0.1, ...w.share.map((s) => s.share));
-  const lead = w.share.find((s) => s.a !== 0)?.a;
   // The chart covers the picked window; lines with no decks in it are left out.
   const span = seriesWindow(view.series.from, view.series.days, days);
   const lines = view.series.lines.map((l) => ({ a: l.a, v: l.v.slice(span.offset) })).filter((l) => l.v.some((v) => v != null));
@@ -135,24 +138,9 @@ function ConstructedBody({ pack, tier, view, w, days, board, setBoard, hl, setHl
     const same = markers.find((m) => m.index === index);
     if (same) { same.label = `${same.label}/${label}`; same.ban ||= isBan(c); } else markers.push({ index, label, ban: isBan(c) });
   }
-  const events = pack.events.filter((e) => tier === "all" || e.tier === "major" || e.tier === "large");
-  const movers = w.cards[board];
-  const cardRow = (c: CardRow, up: boolean) => (
-    <Row key={c.c} title={c.n} onClick={() => go(`/insights/${f}/card/${c.c}?n=${encodeURIComponent(c.n)}`)}
-         detail={`in ${pct(c.rate)} of decks · was ${pct(c.prev ?? 0)}${c.copies != null ? ` · ${c.copies.toFixed(1)} copies` : ""}`}
-         value={`${up ? "▲" : "▼"} ${delta(c.rate - (c.prev ?? 0)).slice(1)}`} accentValue={up} />
-  );
   return (
     <>
-      <Brief text={w.brief} scope={`${tier === "big" ? "Big events" : "All events"}, last ${days} days`} thin={w.thin} credit={credit} />
       {w.thin && <Notice tone="info">Few results in this window: these numbers can swing.</Notice>}
-      <Stats items={[["Decks", String(w.decks)], ["Events", String(w.events)], ["Through", shortDay(pack.through)]]} />
-      <Section title="Meta now · share of top finishes" />
-      {w.share.slice(0, 12).map((s) => (
-        <ShareBar key={s.a} label={archetypeName(pack, s.a)} value={s.share} max={maxShare} change={s.prev == null ? null : s.share - s.prev}
-                  highlighted={s.a === lead} onClick={() => go(`/insights/${f}/archetype/${s.a}`)}
-                  detail={rates(s.wr, s.t8r, s.won, w.won_of) || null} />
-      ))}
       <Section title="Meta over time · 7-day share" />
       <Chart>
         <LineChart count={span.days} xLabels={span.labels} markers={markers} height={320} endLabels={false}
@@ -173,41 +161,120 @@ function ConstructedBody({ pack, tier, view, w, days, board, setBoard, hl, setHl
           <MatchupGrid pack={pack} />
         </>
       )}
-      <Section title="Cards · rising and falling" />
-      <Segmented options={[{ value: "main" as const, label: "Main deck" }, { value: "side" as const, label: "Sideboard" }]} value={board} onChange={setBoard} />
-      {movers.up.slice(0, 8).map((c) => cardRow(c, true))}
-      {movers.down.slice(0, 5).map((c) => cardRow(c, false))}
-      {!movers.up.length && !movers.down.length && <Notice tone="info">No card moved much in this window.</Notice>}
-      {view.new_set && view.new_set.cards.length > 0 && (
-        <>
-          <Section title={`New set · ${view.new_set.name}`} />
-          {view.new_set.cards.slice(0, 8).map((c) => (
-            <Row key={c.c} title={c.n} value={pct(c.rate)} onClick={() => go(`/insights/${f}/card/${c.c}?n=${encodeURIComponent(c.n)}`)}
-                 detail={`in ${pct(c.rate)} of decks${c.in?.[0] != null ? ` · most in ${archetypeName(pack, c.in[0])}` : ""}`} />
-          ))}
-        </>
-      )}
-      {pack.bans.length > 0 && (
-        <>
-          <Section title={bansTitle(pack.bans.map((b) => pack.changes.find((c) => c.id === b.change)?.kind ?? ""))} />
-          {pack.bans.map((b) => {
-            const ch = pack.changes.find((c) => c.id === b.change);
-            return ch && <Row key={b.change} title={changeWords(ch)} onClick={() => go(`/insights/${f}/ban/${b.change}`)}
-                              detail={`${shortDay(ch.on)}${b.settled_days != null ? ` · settled after ${b.settled_days} days` : ""}`} />;
-          })}
-        </>
-      )}
-      {events.length > 0 && (
-        <>
-          <Section title={tier === "big" ? "Big events" : "Events"} />
-          {events.slice(0, 12).map((e, i) => (
-            <Row key={i} title={e.name} value={e.tier.toUpperCase()}
-                 detail={[shortDay(e.on), e.players ? `${e.players} players` : null, e.winner != null ? `won by ${archetypeName(pack, e.winner)}` : null].filter(Boolean).join(" · ")}
-                 onClick={e.url ? () => { capture("insights_source_opened", { source: e.source }); window.open(e.url!, "_blank", "noopener"); } : undefined} />
-          ))}
-        </>
-      )}
+      <Brief text={w.brief} scope={`${tier === "big" ? "Big events" : "All events"}, last ${days} days`} thin={w.thin} credit={credit} />
+      <Stats items={[["Decks", String(w.decks)], ["Events", String(w.events)], ["Through", shortDay(pack.through)]]} />
+      {formatParts(pack, tier, days).map((p) => (
+        <Row key={p.key} title={p.title} detail={p.detail}
+             onClick={() => { capture("insights_part_opened", { format: f, part: p.key }); go(`/insights/${f}/part/${p.key}`); }} />
+      ))}
     </>
+  );
+}
+
+/* ── format page parts ────────────────────────────────────────────────── */
+
+/** One part of the format page on its own screen: Meta now, Cards rising and falling, New set, bans and their kin,
+ *  or events, for the tier and window picked on the format page (changeable here too). */
+export function InsightsPart() {
+  const { format = "", part = "" } = useParams();
+  const nav = useNavigate();
+  const { constructed, picks, session, demo, ready } = useInsightsData();
+  const [board, setBoard] = useState<"main" | "side">("main");
+  useEffect(() => { window.scrollTo(0, 0); }, [format, part]);   // its row sits at the bottom of the format page
+  const pack = constructed[format];
+  const tier: Tier = picks.tier ?? pack?.default_tier ?? "big";
+  const view = pack?.tiers[tier];
+  const w = view?.windows[String(picks.days)];
+  const days = picks.days;
+  const key = part as PartKey;
+  const title = (pack && formatParts(pack, tier, days).find((p) => p.key === key)?.title)
+    ?? { meta: "Meta now", cards: "Cards rising and falling", new_set: "New set", changes: "Bans and unbans", events: tier === "big" ? "Big events" : "Events" }[key] ?? "Insights";
+  const scope = `${tier === "big" ? "Big events" : "All events"}, last ${days} days`;
+  if (!session && !demo) return <Screen><Bar title={title} onBack={() => nav(-1)} />{ready && <SignInFirst />}</Screen>;
+  const go = (p: string) => nav(p);
+  const f = pack?.format ?? format;
+  const cardRow = (c: CardRow, up: boolean) => (
+    <Row key={c.c} title={c.n} onClick={() => go(`/insights/${f}/card/${c.c}?n=${encodeURIComponent(c.n)}`)}
+         detail={`in ${pct(c.rate)} of decks · was ${pct(c.prev ?? 0)}${c.copies != null ? ` · ${c.copies.toFixed(1)} copies` : ""}`}
+         value={`${up ? "▲" : "▼"} ${delta(c.rate - (c.prev ?? 0)).slice(1)}`} accentValue={up} />
+  );
+  const body = (): ReactNode => {
+    if (!pack) return <Notice tone="info">Loading the metagame…</Notice>;
+    switch (key) {
+      case "meta": {
+        if (!w) return null;
+        const maxShare = Math.max(0.1, ...w.share.map((s) => s.share));
+        const lead = w.share.find((s) => s.a !== 0)?.a;
+        return (
+          <>
+            <WindowPickers tier={tier} days={days} />
+            <Section title="Share of top finishes" />
+            {w.share.map((s) => (
+              <ShareBar key={s.a} label={archetypeName(pack, s.a)} value={s.share} max={maxShare} change={s.prev == null ? null : s.share - s.prev}
+                        highlighted={s.a === lead} onClick={() => go(`/insights/${f}/archetype/${s.a}`)}
+                        detail={rates(s.wr, s.t8r, s.won, w.won_of) || null} />
+            ))}
+            {!w.share.length && <Notice tone="info">No decks in this window.</Notice>}
+          </>
+        );
+      }
+      case "cards": {
+        if (!w) return null;
+        const movers = w.cards[board];
+        return (
+          <>
+            <WindowPickers tier={tier} days={days} />
+            <Segmented options={[{ value: "main" as const, label: "Main deck" }, { value: "side" as const, label: "Sideboard" }]} value={board} onChange={setBoard} />
+            {movers.up.length > 0 && <Section title="Rising" />}
+            {movers.up.map((c) => cardRow(c, true))}
+            {movers.down.length > 0 && <Section title="Falling" />}
+            {movers.down.map((c) => cardRow(c, false))}
+            {!movers.up.length && !movers.down.length && <Notice tone="info">No card moved much in this window.</Notice>}
+          </>
+        );
+      }
+      case "new_set": {
+        const ns = view?.new_set;
+        return (
+          <>
+            <WindowPickers tier={tier} days={days} showDays={false} />
+            {ns?.cards.map((c) => (
+              <Row key={c.c} title={c.n} value={pct(c.rate)} onClick={() => go(`/insights/${f}/card/${c.c}?n=${encodeURIComponent(c.n)}`)}
+                   detail={`in ${pct(c.rate)} of decks${c.in?.[0] != null ? ` · most in ${archetypeName(pack, c.in[0])}` : ""}`} />
+            ))}
+            {!ns?.cards.length && <Notice tone="info">No new set cards played yet.</Notice>}
+          </>
+        );
+      }
+      case "changes":
+        return pack.bans.map((b) => {
+          const ch = pack.changes.find((c) => c.id === b.change);
+          return ch && <Row key={b.change} title={changeWords(ch)} onClick={() => go(`/insights/${f}/ban/${b.change}`)}
+                            detail={`${shortDay(ch.on)}${b.settled_days != null ? ` · settled after ${b.settled_days} days` : ""}`} />;
+        });
+      case "events": {
+        const events = pack.events.filter((e) => tier === "all" || e.tier === "major" || e.tier === "large");
+        return (
+          <>
+            <WindowPickers tier={tier} days={days} showDays={false} />
+            {events.map((e, i) => (
+              <Row key={i} title={e.name} value={e.tier.toUpperCase()}
+                   detail={[shortDay(e.on), e.players ? `${e.players} players` : null, e.winner != null ? `won by ${archetypeName(pack, e.winner)}` : null].filter(Boolean).join(" · ")}
+                   onClick={e.url ? () => { capture("insights_source_opened", { source: e.source }); window.open(e.url!, "_blank", "noopener"); } : undefined} />
+            ))}
+            {!events.length && <Notice tone="info">No events in the pack yet.</Notice>}
+          </>
+        );
+      }
+      default:
+        return <Notice tone="info">This part isn't in the pack.</Notice>;
+    }
+  };
+  return (
+    <Screen>
+      <Bar title={title} subtitle={`${pack?.name ?? format}${key === "meta" || key === "cards" ? ` · ${scope}` : ""}`} onBack={() => nav(-1)} />
+      <Scroll>{body()}</Scroll>
+    </Screen>
   );
 }
 

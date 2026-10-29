@@ -45,6 +45,10 @@ data class ListChange(val cardId: String, val board: String, val delta: Int, val
 /** Key into the owned map: "card_id|finish". */
 fun ownKey(cardId: String, finish: String) = "$cardId|$finish"
 
+/** One line (or grid/stack card) reads short when you own fewer copies than it lists: never for Considering, never for a
+ *  basic land (contract/basics-2026-10-24.md). */
+fun isShort(board: String, qty: Int, owned: Int, basic: Boolean) = board != "maybe" && !basic && owned < qty
+
 data class CardList(val id: String, val kind: ListKind, val name: String, val format: String, val versions: List<ListVersion>) {
     val current get() = versions.last()
     val entries get() = current.entries

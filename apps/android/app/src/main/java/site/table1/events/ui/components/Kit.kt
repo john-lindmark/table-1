@@ -319,7 +319,7 @@ data class T1Tab(
 )
 
 /** Bottom tabs (Figma 407:9333): icon + label on the background. Selected = text color with a 1 dp accent line along
- *  its top; others a muted icon over a grey label; disabled greyed. */
+ *  its top; others icon and label both muted (Figma Neutral_4); disabled greyed. */
 @Composable
 fun T1TabBar(tabs: List<T1Tab>, selected: String?, onSelect: (String) -> Unit) {
     Row(Modifier.fillMaxWidth().background(T1.bg).navigationBarsPadding()) {
@@ -341,7 +341,7 @@ fun T1TabBar(tabs: List<T1Tab>, selected: String?, onSelect: (String) -> Unit) {
             ) {
                 IconGlyph(tab.icon, color = iconColor)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(tab.label.uppercase(), color = if (on) T1.text else T1.disabled, fontFamily = T1.mono, fontSize = 9.sp,
+                    Text(tab.label.uppercase(), color = iconColor, fontFamily = T1.mono, fontSize = 9.sp,
                         letterSpacing = 1.5.sp, maxLines = 1)
                     tab.note?.let {
                         Text(it.uppercase(), Modifier.background(T1.bg).padding(horizontal = 3.dp), color = T1.disabled,

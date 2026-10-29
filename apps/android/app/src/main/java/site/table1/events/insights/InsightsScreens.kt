@@ -74,6 +74,7 @@ object InsightsRoutes {
     fun card(f: String, id: String, n: String) = "insights/card/$f/$id?n=${Uri.encode(n)}"
     fun ban(f: String, id: Int) = "insights/ban/$f/$id"
     fun matchups(f: String) = "insights/matchups/$f"
+    fun part(f: String, key: String) = "insights/part/$f/$key"
     fun pair(s: String, e: String, g: String, p: String) = "insights/pair/$s/$e/$g/$p"
     fun limitedCard(s: String, e: String, g: String, n: String) = "insights/lcard/$s/$e/$g/${Uri.encode(n)}"
     const val REVIEW = "insights/review"
@@ -153,11 +154,20 @@ private fun ShownEditor(title: String, items: List<Triple<String, String, String
     ListRow("Done", onClick = done)
 }
 
+/** Big events | All events, then the window (7–90 days) unless the part doesn't depend on it; the picks are the
+ *  format page's. */
+@Composable
+private fun WindowPickers(tier: String, days: Boolean = true) {
+    val s = InsightsStore
+    T1Segmented(listOf("Big events", "All events"), if (tier == "big") 0 else 1) { s.pickTier(if (it == 0) "big" else "all") }
+    if (days) T1Segmented(Insights.windows.map { "${it}D" }, Insights.windows.indexOf(s.days)) { s.pickDays(Insights.windows[it]) }
+}
+
+/** The format page: Meta over time and the matchup grid first, then the brief, and a row for each part, which opens
+ *  on its own screen (ConstructedPartScreen). */
 @Composable
 private fun ConstructedHome(navigate: (String) -> Unit) {
     val s = InsightsStore
-    val context = LocalContext.current
-    var board by remember { mutableStateOf("main") }
     var hl by remember { mutableStateOf<Int?>(null) }
     val keys = s.shownFormats
     var editing by remember { mutableStateOf(false) }
@@ -171,23 +181,11 @@ private fun ConstructedHome(navigate: (String) -> Unit) {
         return
     }
     val tier = s.tier(pack)
-    T1Segmented(listOf("Big events", "All events"), if (tier == "big") 0 else 1) { s.pickTier(if (it == 0) "big" else "all") }
-    T1Segmented(Insights.windows.map { "${it}D" }, Insights.windows.indexOf(s.days)) { s.pickDays(Insights.windows[it]) }
+    WindowPickers(tier)
     val view = pack.tiers[tier] ?: return
     val w = view.windows[s.days.toString()] ?: return
     val f = pack.format
-    Brief(w.brief, "${if (tier == "big") "Big events" else "All events"}, last ${s.days} days", w.thin,
-        Insights.sourcesCredit(pack.sources))
     if (w.thin) Notice("Few results in this window: these numbers can swing.")
-    Stats("Decks" to "${w.decks}", "Events" to "${w.events}", "Through" to InsightCharts.shortDay(pack.through))
-    Section("Meta now · share of top finishes")
-    val maxShare = w.share.maxOfOrNull { it.share } ?: 0.1
-    val lead = w.share.firstOrNull { it.a != 0 }?.a
-    w.share.take(12).forEach { r ->
-        InsightBar(pack.name(r.a), r.share, maxShare, change = r.prev?.let { r.share - it }, highlighted = r.a == lead,
-            detail = InsightCharts.rates(r.wr, r.t8r, r.won, w.won_of).ifEmpty { null },
-            onClick = { navigate(InsightsRoutes.archetype(f, r.a)) })
-    }
     Section("Meta over time · 7-day share")
     // The chart covers the picked window; lines with no decks in it are left out.
     val span = InsightCharts.window(view.series.from, view.series.days, s.days)
@@ -211,39 +209,98 @@ private fun ConstructedHome(navigate: (String) -> Unit) {
         Section("Matchups · last 90 days")
         MatchupGrid(pack)
     }
-    Section("Cards · rising and falling")
-    T1Segmented(listOf("Main deck", "Sideboard"), if (board == "main") 0 else 1) { board = if (it == 0) "main" else "side" }
-    w.cards[board]?.let { m ->
-        (m.up.take(8).map { it to true } + m.down.take(5).map { it to false }).forEach { (c, up) ->
-            ListRow(c.n, "in ${InsightCharts.pct(c.rate)} of decks · was ${InsightCharts.pct(c.prev ?: 0.0)}" + (c.copies?.let { " · %.1f copies".format(it) } ?: ""),
-                onClick = { navigate(InsightsRoutes.card(f, c.c, c.n)) }) {
-                Text("${if (up) "▲" else "▼"} ${InsightCharts.delta(c.rate - (c.prev ?: 0.0)).drop(1)}", color = if (up) T1.accent else T1.muted, fontFamily = T1.mono, fontSize = 12.sp)
+    Brief(w.brief, "${if (tier == "big") "Big events" else "All events"}, last ${s.days} days", w.thin,
+        Insights.sourcesCredit(pack.sources))
+    Stats("Decks" to "${w.decks}", "Events" to "${w.events}", "Through" to InsightCharts.shortDay(pack.through))
+    Insights.formatParts(pack, tier, s.days).forEach { part ->
+        ListRow(part.title, part.detail, onClick = {
+            Telemetry.capture("insights_part_opened", mapOf("format" to f, "part" to part.key))
+            navigate(InsightsRoutes.part(f, part.key))
+        })
+    }
+}
+
+/** One part of the format page on its own screen: Meta now, Cards rising and falling, New set, bans and their kin, or
+ *  events, for the tier and window picked on the format page (changeable here too). */
+@Composable
+fun ConstructedPartScreen(format: String, part: String, navigate: (String) -> Unit, onBack: () -> Unit) {
+    LaunchedEffect(Unit) { Telemetry.screen("insights_part") }
+    val s = InsightsStore
+    val context = LocalContext.current
+    var board by remember { mutableStateOf("main") }
+    val pack = s.constructed[format]
+    val tier = pack?.let { s.tier(it) } ?: "big"
+    val title = pack?.let { p -> Insights.formatParts(p, tier, s.days).firstOrNull { it.key == part }?.title }
+        ?: mapOf("meta" to "Meta now", "cards" to "Cards rising and falling", "new_set" to "New set", "changes" to "Bans and unbans",
+            "events" to if (tier == "big") "Big events" else "Events")[part] ?: "Insights"
+    val scope = "${if (tier == "big") "Big events" else "All events"}, last ${s.days} days"
+    T1Screen {
+        Bar(title, (pack?.name ?: format) + if (part == "meta" || part == "cards") " · $scope" else "", onBack = onBack)
+        if (pack == null) { Notice("Loading the metagame…"); return@T1Screen }
+        val view = pack.tiers[tier]
+        val w = view?.windows?.get(s.days.toString())
+        val f = pack.format
+        Scroll {
+            when (part) {
+                "meta" -> {
+                    WindowPickers(tier)
+                    if (w != null) {
+                        Section("Share of top finishes")
+                        val maxShare = w.share.maxOfOrNull { it.share } ?: 0.1
+                        val lead = w.share.firstOrNull { it.a != 0 }?.a
+                        w.share.forEach { r ->
+                            InsightBar(pack.name(r.a), r.share, maxShare, change = r.prev?.let { r.share - it }, highlighted = r.a == lead,
+                                detail = InsightCharts.rates(r.wr, r.t8r, r.won, w.won_of).ifEmpty { null },
+                                onClick = { navigate(InsightsRoutes.archetype(f, r.a)) })
+                        }
+                        if (w.share.isEmpty()) Notice("No decks in this window.")
+                    }
+                }
+                "cards" -> {
+                    WindowPickers(tier)
+                    T1Segmented(listOf("Main deck", "Sideboard"), if (board == "main") 0 else 1) { board = if (it == 0) "main" else "side" }
+                    w?.cards?.get(board)?.let { m ->
+                        if (m.up.isNotEmpty()) Section("Rising")
+                        m.up.forEach { CardMoveRow(f, it, true, navigate) }
+                        if (m.down.isNotEmpty()) Section("Falling")
+                        m.down.forEach { CardMoveRow(f, it, false, navigate) }
+                        if (m.up.isEmpty() && m.down.isEmpty()) Notice("No card moved much in this window.")
+                    }
+                }
+                "new_set" -> {
+                    WindowPickers(tier, days = false)
+                    val ns = view?.new_set
+                    ns?.cards?.forEach { c ->
+                        ListRow(c.n, "in ${InsightCharts.pct(c.rate)} of decks" + (c.`in`?.firstOrNull()?.let { " · most in ${pack.name(it)}" } ?: ""),
+                            onClick = { navigate(InsightsRoutes.card(f, c.c, c.n)) }) { Text(InsightCharts.pct(c.rate), color = T1.text, fontFamily = T1.mono, fontSize = 13.sp) }
+                    }
+                    if (ns?.cards.isNullOrEmpty()) Notice("No new set cards played yet.")
+                }
+                "changes" -> pack.bans.forEach { b ->
+                    pack.change(b.change)?.let { ch ->
+                        ListRow(ch.words, InsightCharts.shortDay(ch.on) + (b.settled_days?.let { " · settled after $it days" } ?: ""), onClick = { navigate(InsightsRoutes.ban(f, b.change)) })
+                    }
+                }
+                "events" -> {
+                    WindowPickers(tier, days = false)
+                    val events = pack.events.filter { tier == "all" || it.tier == "major" || it.tier == "large" }
+                    events.forEach { e ->
+                        ListRow(e.name, listOfNotNull(InsightCharts.shortDay(e.on), e.players?.let { "$it players" }, e.winner?.let { "won by ${pack.name(it)}" }).joinToString(" · "),
+                            onClick = { e.url?.let { Telemetry.capture("insights_source_opened", mapOf("source" to e.source)); openUrl(context, it) } }) { Label(e.tier) }
+                    }
+                    if (events.isEmpty()) Notice("No events in the pack yet.")
+                }
+                else -> Notice("This part isn't in the pack.")
             }
         }
-        if (m.up.isEmpty() && m.down.isEmpty()) Notice("No card moved much in this window.")
     }
-    view.new_set?.takeIf { it.cards.isNotEmpty() }?.let { ns ->
-        Section("New set · ${ns.name}")
-        ns.cards.take(8).forEach { c ->
-            ListRow(c.n, "in ${InsightCharts.pct(c.rate)} of decks" + (c.`in`?.firstOrNull()?.let { " · most in ${pack.name(it)}" } ?: ""),
-                onClick = { navigate(InsightsRoutes.card(f, c.c, c.n)) }) { Text(InsightCharts.pct(c.rate), color = T1.text, fontFamily = T1.mono, fontSize = 13.sp) }
-        }
-    }
-    if (pack.bans.isNotEmpty()) {
-        Section(Insights.bansTitle(pack.bans.map { pack.change(it.change)?.kind ?: "" }))
-        pack.bans.forEach { b ->
-            pack.change(b.change)?.let { ch ->
-                ListRow(ch.words, InsightCharts.shortDay(ch.on) + (b.settled_days?.let { " · settled after $it days" } ?: ""), onClick = { navigate(InsightsRoutes.ban(f, b.change)) })
-            }
-        }
-    }
-    val events = pack.events.filter { tier == "all" || it.tier == "major" || it.tier == "large" }
-    if (events.isNotEmpty()) {
-        Section(if (tier == "big") "Big events" else "Events")
-        events.take(12).forEach { e ->
-            ListRow(e.name, listOfNotNull(InsightCharts.shortDay(e.on), e.players?.let { "$it players" }, e.winner?.let { "won by ${pack.name(it)}" }).joinToString(" · "),
-                onClick = { e.url?.let { Telemetry.capture("insights_source_opened", mapOf("source" to e.source)); openUrl(context, it) } }) { Label(e.tier) }
-        }
+}
+
+@Composable
+private fun CardMoveRow(f: String, c: CardRow, up: Boolean, navigate: (String) -> Unit) {
+    ListRow(c.n, "in ${InsightCharts.pct(c.rate)} of decks · was ${InsightCharts.pct(c.prev ?: 0.0)}" + (c.copies?.let { " · %.1f copies".format(it) } ?: ""),
+        onClick = { navigate(InsightsRoutes.card(f, c.c, c.n)) }) {
+        Text("${if (up) "▲" else "▼"} ${InsightCharts.delta(c.rate - (c.prev ?: 0.0)).drop(1)}", color = if (up) T1.accent else T1.muted, fontFamily = T1.mono, fontSize = 12.sp)
     }
 }
 
@@ -711,6 +768,7 @@ fun NavGraphBuilder.insightsGraph(nav: NavHostController, moderator: Boolean) {
         BanStudyScreen(e.arguments?.getString("format") ?: "", e.arguments?.getString("id")?.toIntOrNull() ?: 0, go, back)
     }
     composable("insights/matchups/{format}") { e -> MatchupsScreen(e.arguments?.getString("format") ?: "", back) }
+    composable("insights/part/{format}/{part}") { e -> ConstructedPartScreen(e.arguments?.getString("format") ?: "", e.arguments?.getString("part") ?: "", go, back) }
     composable("insights/pair/{set}/{event}/{group}/{pair}") { e ->
         val a = e.arguments
         PairInsightScreen(a?.getString("set") ?: "", a?.getString("event") ?: "", a?.getString("group") ?: "all", a?.getString("pair") ?: "", go, back)

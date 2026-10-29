@@ -1,6 +1,10 @@
 package site.table1.events.insights
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -104,5 +108,20 @@ class InsightsPackTest {
         assertEquals("Esper WUB", Insights.colorsName("WUB", ""))
         assertEquals("Naya WRG + u", Insights.colorsName("WRG", "U"))
         assertEquals("Four-colour WUBR", Insights.colorsName("WUBR", ""))
+    }
+
+    /** The format page's rows (testdata/insights/parts.json, also web insights.test.ts and iOS InsightsPackTests). */
+    @Test fun formatParts() {
+        val cases = Json.parseToJsonElement(File(dir, "parts.json").readText()).jsonObject["cases"]!!.jsonArray.map { it.jsonObject }
+        for (k in cases) {
+            val f = k["format"]!!.jsonPrimitive.content
+            val tier = k["tier"]!!.jsonPrimitive.content
+            val days = k["days"]!!.jsonPrimitive.int
+            val p = json.decodeFromString<ConstructedPack>(File(dir, "constructed-$f.json").readText())
+            val want = k["parts"]!!.jsonArray.map { it.jsonObject }.map {
+                Insights.Part(it["key"]!!.jsonPrimitive.content, it["title"]!!.jsonPrimitive.content, it["detail"]!!.jsonPrimitive.content)
+            }
+            assertEquals("$f $tier $days", want, Insights.formatParts(p, tier, days))
+        }
     }
 }
