@@ -16,6 +16,7 @@ import {
 } from "./catalog.ts";
 import { type InflateCheckpoint, gzipHeaderBytes } from "./inflate.ts";
 import { type ArtRow, artRow } from "./art.ts";
+import { packBody } from "./pack.ts";
 
 const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
   auth: { persistSession: false },
@@ -121,30 +122,12 @@ async function refreshPoints() {
   }
 }
 
-/** Cards per catalog_pack_part window: each part runs well inside the 8s statement timeout (~0.5s on 2026-10-16). */
-const PACK_WINDOW = 10_000;
-
-/**
- * The pack body, built in parts (O, P and N lines per window of cards) so it keeps fitting as the catalog grows;
- * the same text catalog_pack_body() returns.
- */
-async function packBody() {
-  const parts: string[] = [];
-  let windows = 0;
-  for (let kind = 0; kind < 3; kind++) {
-    for (let w = 0; kind === 0 || w < windows; w++) {
-      const part = await rpc<string | null>("catalog_pack_part", { p_kind: kind, p_from: w * PACK_WINDOW, p_to: (w + 1) * PACK_WINDOW });
-      if (kind === 0 && part == null) { windows = w; break; }
-      if (part) parts.push(part);
-    }
-  }
-  return parts.join("\n");
-}
-
 async function pack(run: number) {
   try {
     await refreshPoints();
-    const body = await packBody();
+    const body = await packBody((kind, from, to) =>
+      rpc<string | null>("catalog_pack_part", { p_kind: kind, p_from: from, p_to: to })
+    );
     let oracles = 0, printings = 0;
     for (let i = 0; i < body.length;) {
       const c = body.charCodeAt(i);
