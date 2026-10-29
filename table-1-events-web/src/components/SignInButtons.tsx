@@ -151,7 +151,7 @@ export function SignInButtons({ returnTo }: { returnTo?: string }) {
             autoComplete="one-time-code"
             autoFocus
             value={code}
-            placeholder="000000"
+            placeholder="From the email"
             onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 10))}
             className={`${input} tracking-[4px]`}
           />

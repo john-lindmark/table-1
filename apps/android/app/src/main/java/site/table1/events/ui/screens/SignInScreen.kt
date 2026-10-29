@@ -31,7 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import site.table1.events.auth.EmailSignIn
@@ -87,8 +87,12 @@ fun SignInScreen(join: JoinLink? = null) {
         scope.launch {
             try {
                 block()
-            } catch (e: GetCredentialCancellationException) {
-                // Closed the Google account sheet: no error.
+            } catch (e: GetCredentialException) {
+                // Google's sheet: a cancel says nothing; the rest say why, since none of it reaches Supabase.
+                val failure = SignIn.GoogleFailure.of(e)
+                Telemetry.capture("sign_in_failed", mapOf("method" to which, "reason" to failure.reason) + SignIn.GoogleFailure.detail(e))
+                error = failure.message
+                if (failure == SignIn.GoogleFailure.Failed) Telemetry.error(e, "sign_in")
             } catch (e: Exception) {
                 error = message
                 Telemetry.error(e, "sign_in")
@@ -191,7 +195,7 @@ fun SignInScreen(join: JoinLink? = null) {
                 val wait = ((resendAt - now + 999) / 1000).coerceAtLeast(0)
                 Notice("We sent a link and a code to $address. Tap the link on this phone, or enter the code. Not there? Check spam.")
                 Box(Modifier.background(T1.surface).padding(16.dp)) {
-                    T1TextField(code, { code = it.filter(Char::isDigit).take(10) }, label = "Code", placeholder = "000000",
+                    T1TextField(code, { code = it.filter(Char::isDigit).take(10) }, label = "Code", placeholder = "From the email",
                         keyboardType = KeyboardType.NumberPassword)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {

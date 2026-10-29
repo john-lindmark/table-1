@@ -100,7 +100,7 @@ struct SignInView: View {
 
     @ViewBuilder private var codeStep: some View {
         Notice("We sent a link and a code to \(email.trimmingCharacters(in: .whitespaces)). Tap the link on this phone, or enter the code. Not there? Check spam.")
-        input(label: "Code", text: $code, prompt: "000000")
+        input(label: "Code", text: $code, prompt: "From the email")
             .keyboardType(.numberPad)
             .textContentType(.oneTimeCode)
             .onChange(of: code) { _, new in

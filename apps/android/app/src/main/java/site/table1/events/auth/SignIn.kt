@@ -3,7 +3,11 @@ package site.table1.events.auth
 import android.content.Context
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.GetCredentialProviderConfigurationException
+import androidx.credentials.exceptions.NoCredentialException
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import android.net.Uri
 import androidx.compose.runtime.getValue
@@ -35,16 +39,15 @@ object SignIn {
         get() = BuildConfig.GOOGLE_WEB_CLIENT_ID.endsWith(".apps.googleusercontent.com") &&
             !BuildConfig.GOOGLE_WEB_CLIENT_ID.startsWith("REPLACE_")
 
-    /** Google: the system account sheet (Credential Manager), no browser hop. */
+    /** Google: the system Sign in with Google sheet (Credential Manager), no browser hop. The button flow,
+     *  not the account picker: it also offers to add an account when the phone has none. */
     suspend fun google(context: Context) {
         val rawNonce = UUID.randomUUID().toString()
         val hashedNonce = MessageDigest.getInstance("SHA-256")
             .digest(rawNonce.toByteArray())
             .joinToString("") { "%02x".format(it) }
 
-        val option = GetGoogleIdOption.Builder()
-            .setServerClientId(BuildConfig.GOOGLE_WEB_CLIENT_ID)
-            .setFilterByAuthorizedAccounts(false)
+        val option = GetSignInWithGoogleOption.Builder(BuildConfig.GOOGLE_WEB_CLIENT_ID)
             .setNonce(hashedNonce)
             .build()
         val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
@@ -55,6 +58,37 @@ object SignIn {
             idToken = credential.idToken
             provider = Google
             nonce = rawNonce
+        }
+    }
+
+    /** Why Google's sheet gave no token. Every one of these happens before Supabase is called, so the reason
+     *  (in sign_in_failed) is the only trace: Sentry has no Android DSN yet. */
+    enum class GoogleFailure(val reason: String, val message: String?) {
+        Cancelled("cancelled", null),
+        /** Google can't match this build's package + signing SHA-1 to an Android OAuth client (Play Services
+         *  "[10]" / "[28444] Developer console is not set up correctly"); SETUP.md § 1 step 3. */
+        NotSetUp("not_set_up", "Google sign-in isn't set up for this version of the app yet. Continue with email, Apple or Discord."),
+        NoAccount("no_account", "No Google account to sign in with. Add one in Settings, or continue with email, Apple or Discord."),
+        NoProvider("no_provider", "Google sign-in needs Google Play services. Update it, or continue with email, Apple or Discord."),
+        Failed("error", "Sign-in failed. Try again.");
+
+        companion object {
+            fun of(e: Throwable): GoogleFailure {
+                val text = e.message.orEmpty()
+                return when {
+                    e is GetCredentialCancellationException -> Cancelled
+                    "28444" in text || "[10]" in text || text.contains("developer console", ignoreCase = true) -> NotSetUp
+                    e is GetCredentialProviderConfigurationException -> NoProvider
+                    e is NoCredentialException -> NoAccount
+                    else -> Failed
+                }
+            }
+
+            /** Telemetry detail with no personal data: the Credential Manager type and any Play Services status code. */
+            fun detail(e: Throwable): Map<String, Any> = buildMap {
+                if (e is GetCredentialException) put("type", e.type.substringAfterLast('.'))
+                Regex("""\[(\d+)]""").find(e.message.orEmpty())?.let { put("code", it.groupValues[1]) }
+            }
         }
     }
 
