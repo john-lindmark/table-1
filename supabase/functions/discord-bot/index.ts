@@ -10,7 +10,7 @@ import { DiscordRest } from "./discord.ts";
 import {
   type Card, type CardHit, canManageServer, cardEmbed, commandPath, deckComponents, deckEmbed, deckImageUrl, type DeckPost, EPHEMERAL,
   eventIdFrom, eventMessage, focused, helpEmbed, type Interaction, InteractionType, isSnowflake, linkMessage,
-  needLinkMessage, opt, outcomeText, parseButtonId, parseWhen, type Part, partComponents, partConfirmMessage, partEmbed,
+  eventComponents, needLinkMessage, opt, outcomeText, parseButtonId, parseWhen, type Part, partComponents, partConfirmMessage, partEmbed,
   type PartPost, ResponseType, resultsComponents, resultsEmbed, userId, zoneChoices,
 } from "./embeds.ts";
 import { loadStandings } from "./standings.ts";
@@ -78,8 +78,9 @@ async function linkFlow(ctx: Ctx): Promise<Response> {
   return reply(linkMessage(r.token!, r.expires_at!));
 }
 
+/** The card drawn for this viewer (`me` says whether they're in). */
 async function cardFor(ctx: Ctx, eventId: string): Promise<Card> {
-  return await rpc<Card>("discord_event_card", { p_guild_id: ctx.guildId, p_event_id: eventId });
+  return await rpc<Card>("discord_event_card", { p_guild_id: ctx.guildId, p_event_id: eventId, p_discord_id: ctx.discordId });
 }
 
 /** Keeps the public card (by its stored ids) in step after a change made from somewhere else. */
@@ -157,14 +158,15 @@ async function signUpOrDrop(ctx: Ctx, action: "up" | "down", eventId: string, vi
     ctx.telemetry.push({ event: "discord_event_left", waitlist: r.result === "left_waitlist", via });
   }
   if (via === "button") {
-    // The clicked message becomes the fresh card; the clicker gets a private note; the public card (if this was an
-    // ephemeral copy) is edited to match.
-    later(ctx, () => rest.followUp(ctx.ix.token, { content: note, flags: EPHEMERAL }));
+    // The clicked message becomes the fresh card (its own kind: the public one keeps Sign up, a personal one shows
+    // what now applies); the clicker gets a private note with their own button; the public card is edited to match.
+    const personal = ((ctx.ix.message?.flags ?? 0) & EPHEMERAL) !== 0;
+    later(ctx, () => rest.followUp(ctx.ix.token, { content: note, components: eventComponents(r, true), flags: EPHEMERAL }));
     refreshCard(ctx, r, messageId);
-    return update(eventMessage(r));
+    return update(eventMessage(r, personal));
   }
   refreshCard(ctx, r);
-  return ephemeral(note, eventMessage(r));
+  return ephemeral(note, eventMessage(r, true));
 }
 
 async function results(ctx: Ctx, eventId: string): Promise<Response> {
@@ -325,7 +327,7 @@ async function route(ctx: Ctx): Promise<Response> {
       const id = opt(options, "event") ?? "";
       if (!eventIdFrom(id)) return ephemeral("Pick an event from the list.");
       const c = await cardFor(ctx, id);
-      return reply({ ...eventMessage(c), flags: EPHEMERAL });
+      return reply({ ...eventMessage(c, true), flags: EPHEMERAL });
     }
     case "event signup":
     case "event drop": {

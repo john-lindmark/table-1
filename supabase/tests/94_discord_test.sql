@@ -112,6 +112,11 @@ select pg_temp.throws('the card is only for the event''s server', format($$selec
 -- Sign up and drop.
 select public.discord_event_sign_up('100002', '20001', :'ev1_id') as su1 \gset
 select pg_temp.eq('Bea signs up', ((:'su1'::jsonb)->>'result') || '|' || ((:'su1'::jsonb)->>'players') || '|' || ((:'su1'::jsonb)->'player_names')::text, 'joined|2|["Ana", "Bea"]');
+select pg_temp.eq('the card she gets says she''s in', ((:'su1'::jsonb)->>'me') || '|' || ((:'su1'::jsonb)->>'organizer'), 'player|false');
+select pg_temp.eq('the organizer''s own card says player and organizer', (public.discord_event_card('20001', :'ev1_id', '100001')->>'me') || '|' || (public.discord_event_card('20001', :'ev1_id', '100001')->>'organizer'), 'player|true');
+select pg_temp.eq('someone not in: me is null', coalesce(public.discord_event_card('20001', :'ev1_id', '100004')->>'me', 'null'), 'null');
+select pg_temp.eq('an unlinked viewer gets the card, me null', coalesce(public.discord_event_card('20001', :'ev1_id', '100003')->>'me', 'null') || '|' || (public.discord_event_card('20001', :'ev1_id', '100003')->>'players'), 'null|2');
+select pg_temp.eq('the card without a viewer', coalesce(public.discord_event_card('20001', :'ev1_id')->>'me', 'null'), 'null');
 select pg_temp.eq('signing up again is idempotent', public.discord_event_sign_up('100002', '20001', :'ev1_id')->>'result', 'already_joined');
 select pg_temp.throws('not linked, no sign-up', format($$select public.discord_event_sign_up('100003', '20001', %L)$$, :'ev1_id'), '28000');
 select pg_temp.throws('another server can''t sign people up', format($$select public.discord_event_sign_up('100004', '20002', %L)$$, :'ev1_id'), '42501');
@@ -121,10 +126,12 @@ select public.discord_event_sign_up('100005', '20001', :'ev1_id') as su4 \gset
 select pg_temp.eq('the cap is reached', ((:'su4'::jsonb)->>'players') || '|' || ((:'su4'::jsonb)->>'sign_up'), '4|full');
 select public.discord_event_sign_up('100006', '20001', :'ev1_id') as su5 \gset
 select pg_temp.eq('the fifth goes on the waitlist', ((:'su5'::jsonb)->>'result') || '|' || ((:'su5'::jsonb)->>'position') || '|' || ((:'su5'::jsonb)->'waitlist_names')::text, 'waitlisted|1|["Fay"]');
+select pg_temp.eq('her card says waitlisted', (:'su5'::jsonb)->>'me', 'waitlisted');
 select public.discord_event_drop('100004', '20001', :'ev1_id') as dr1 \gset
 select pg_temp.eq('a drop frees the place and moves Fay up', ((:'dr1'::jsonb)->>'result') || '|' || ((:'dr1'::jsonb)->>'players') || '|' || ((:'dr1'::jsonb)->>'waitlist') || '|' || ((:'dr1'::jsonb)->'player_names')::text,
   'left|4|0|["Ana", "Bea", "Eli", "Fay"]');
 select pg_temp.eq('dropping when not in', public.discord_event_drop('100004', '20001', :'ev1_id')->>'result', 'not_in');
+select pg_temp.eq('after the drop Dee''s card says not in', coalesce((:'dr1'::jsonb)->>'me', 'null'), 'null');
 select pg_temp.eq('sign-ups and drops are audited as the account', (select string_agg(action, ',' order by at) from public.audit_log where event_id = :'ev1_id' and actor_user = :D and (action = 'participant.left' or after->>'via' = 'link')), 'participant.joined,participant.left');
 
 select pg_temp.eq('the posted message id is stored', public.discord_event_posted(:'ev1_id', 'event', '40001')->>'ok', 'true');

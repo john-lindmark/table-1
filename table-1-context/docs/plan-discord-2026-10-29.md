@@ -44,8 +44,10 @@ the event is over, `/event results` posts the final standings with the link to t
 | `/wants [card]` / `/trades [card]` | linked | Posts your wants / your cards for trade, the whole list or one card, with prices and a link anyone can open (asked first when there's no link). |
 | `/card <name>` | anyone | A card: cost, type, cheapest TCGplayer price, image, Scryfall link. |
 
-Buttons on the event card: **Sign up**, **Drop**, **Open in Table 1** (link). On an unlinked click the bot answers
-with how to `/link`.
+Buttons on the public event card: **Sign up** and **Open in Table 1** (a Discord message shows the same buttons to everyone, so
+Drop lives on the personal answers: `/event show` and the sign-up and drop replies show the one that applies, Drop or
+Leave the waitlist when you're in or waiting, Sign up otherwise). On an unlinked click the bot answers with how to
+`/link`.
 
 ## 3. Collection content, thought through
 

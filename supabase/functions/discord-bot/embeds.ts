@@ -169,6 +169,9 @@ export interface Card {
   waitlist: number;
   waitlist_names: string[];
   link: string;
+  /** Where the viewer the card was drawn for stands: in the event, on the waitlist, or not in (null; also unlinked). */
+  me?: "player" | "waitlisted" | null;
+  organizer?: boolean;
   guild_id?: string | null;
   channel_id?: string | null;
   message_id?: string | null;
@@ -219,19 +222,22 @@ export function eventEmbed(c: Card) {
   };
 }
 
-export function eventComponents(c: Card) {
-  const closed = c.sign_up === "closed";
-  return [{
-    type: 1,
-    components: [
-      { type: 2, style: 1, label: "Sign up", custom_id: buttonId("up", c.event_id), disabled: closed },
-      { type: 2, style: 2, label: "Drop", custom_id: buttonId("down", c.event_id), disabled: closed },
-      { type: 2, style: 5, label: "Open in Table 1", url: c.link },
-    ],
-  }];
+/** The card's buttons. A Discord message shows the same buttons to everyone, so the public card offers Sign up only
+ *  (a tap by someone already in answers privately with Drop); a personal card (an ephemeral one, drawn for its viewer)
+ *  offers the one that applies: Drop when they're in or waiting, else Sign up. Closed sign-ups leave only the link. */
+export function eventComponents(c: Card, personal = false) {
+  const buttons: Record<string, unknown>[] = [];
+  if (c.sign_up !== "closed") {
+    const inIt = personal && (c.me === "player" || c.me === "waitlisted");
+    buttons.push(inIt
+      ? { type: 2, style: 2, label: c.me === "waitlisted" ? "Leave the waitlist" : "Drop", custom_id: buttonId("down", c.event_id) }
+      : { type: 2, style: 1, label: "Sign up", custom_id: buttonId("up", c.event_id) });
+  }
+  buttons.push({ type: 2, style: 5, label: "Open in Table 1", url: c.link });
+  return [{ type: 1, components: buttons }];
 }
 
-export const eventMessage = (c: Card) => ({ embeds: [eventEmbed(c)], components: eventComponents(c) });
+export const eventMessage = (c: Card, personal = false) => ({ embeds: [eventEmbed(c)], components: eventComponents(c, personal) });
 
 /** The one-line note the clicker gets after a sign-up or drop. */
 export function outcomeText(result: string, c: Card, position?: number | null): string {

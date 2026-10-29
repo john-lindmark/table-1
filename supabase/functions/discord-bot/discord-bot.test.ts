@@ -122,10 +122,9 @@ Deno.test("the event card: parameters, who's in, escaped names, viewer-local tim
   assertEquals(e.fields.find((f) => f.name === "Join code")?.value, "`AB12`");
   assertEquals(e.footer.text, "Table 1 · Sign-ups open");
   const buttons = eventComponents(card)[0].components;
-  assertEquals(buttons.map((b) => b.label), ["Sign up", "Drop", "Open in Table 1"]);
+  assertEquals(buttons.map((b) => b.label), ["Sign up", "Open in Table 1"], "the public card offers Sign up only");
   assertEquals(buttons[0].custom_id, `t1:up:${card.event_id}`);
-  assertEquals(buttons[2].url, card.link);
-  assert(!buttons[0].disabled);
+  assertEquals(buttons[1].url, card.link);
   assert(!JSON.stringify(e).includes("guild"), "no Discord ids in the embed");
 });
 
@@ -137,9 +136,20 @@ Deno.test("the card at 30 players, full, closed and finished", () => {
   assertEquals(statusLine(many), "Full · waitlist open");
   const closed = { ...card, sign_up: "closed" as const, status: "in_progress", current_round: 2 };
   assertEquals(statusLine(closed), "Round 2 of 3");
-  assert(eventComponents(closed)[0].components[0].disabled && eventComponents(closed)[0].components[1].disabled);
+  assertEquals(eventComponents(closed)[0].components.map((b) => b.label), ["Open in Table 1"], "closed: the link only");
+  assertEquals(eventComponents({ ...closed, me: "player" }, true)[0].components.map((b) => b.label), ["Open in Table 1"]);
   assertEquals(eventEmbed(closed).fields.some((f) => f.name === "Join code"), false);
   assertEquals(statusLine({ ...card, status: "completed", sign_up: "closed" }), "Finished");
+});
+
+Deno.test("a personal card shows the one button that applies to its viewer", () => {
+  const labels = (c: Card) => eventComponents(c, true)[0].components.map((b) => b.label);
+  assertEquals(labels({ ...card, me: null }), ["Sign up", "Open in Table 1"]);
+  assertEquals(labels({ ...card }), ["Sign up", "Open in Table 1"], "unlinked or unknown: Sign up");
+  assertEquals(labels({ ...card, me: "player" }), ["Drop", "Open in Table 1"]);
+  assertEquals(labels({ ...card, me: "waitlisted" }), ["Leave the waitlist", "Open in Table 1"]);
+  assertEquals(eventComponents({ ...card, me: "player" }, true)[0].components[0].custom_id, `t1:down:${card.event_id}`);
+  assertEquals(eventComponents({ ...card, me: "player" })[0].components[0].label, "Sign up", "the public card doesn't change with the viewer");
 });
 
 Deno.test("what the clicker is told", () => {
