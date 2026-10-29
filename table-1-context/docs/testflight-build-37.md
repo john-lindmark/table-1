@@ -1,14 +1,25 @@
 Table 1 0.1.0 (37) — What to Test
 
-New since build 36:
+New since build 35 (build 36 went up at the same time; this build has everything in it):
 
 SIGN IN WITH DISCORD
-- The sign-in screen has Continue with Discord, after Google. It opens Discord's own sign-in in a sheet and comes back to the app.
-- If your Discord email matches an account you already have, you land in that account. A new account asks for your name first, like email sign-in.
-- Closing the sheet or pressing Cancel on Discord's screen takes you back to sign-in with no error.
-- Please check: sign in with Discord (new account and existing account if you can), cancel once, and tell us if you end up anywhere unexpected.
+- The sign-in screen has Continue with Discord, after Google. It opens Discord's own page in a sheet, where you approve Table 1, and brings you back signed in.
+- If your Discord email matches an account you already have, you land in that account. A new account adds its first and last name before anything else, like email sign-in.
+- Closing the sheet or pressing Cancel on Discord's page takes you back to sign-in with no error.
+- Signing in with Discord also links you to the Table 1 bot in Discord servers (table-1.site/discord).
+- Please check: sign in with Discord (a new account and an existing one if you can), cancel once, and tell us if you end up anywhere unexpected.
 
-Build 36 (format page parts in Insights, lighter tab bar labels, basics never marked short) went up at the same time; everything in it is in this build too.
+INSIGHTS: THE FORMAT PAGE
+- A format opens on Meta over time and the matchup grid, then the summary and the headline numbers.
+- Below them, one row per part: Meta now, Cards rising and falling, New set, Bans and unbans (Points changes for Canadian Highlander), and Big events / Events. Each row sums up its part in a line and opens it on its own screen, with only the pickers that part uses.
+- Every format's numbers now refresh on schedule (a server fix, live 29 Oct); before, a format could be up to a day behind.
+- Please check: open each format and each part, change the window and Big events / All events on a part, and tell us if any row's summary doesn't match its screen.
+
+DECKS AND CUBES
+- Basic lands no longer get the red "short" mark in Grid and Stacks when you own fewer than the deck lists.
+
+TAB BAR
+- Tabs you're not on have lighter labels that match their icons.
 
 Send anything odd through TestFlight feedback (screenshot + shake).
 
