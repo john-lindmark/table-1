@@ -11188,6 +11188,101 @@
           }
         }
       }
+    },
+    "deck_image_data": {
+      "description": "The deck picture's data by a deck's share link (contract/discord-2026-10-29.md § The deck picture). Anyone with the link, signed out too. Considering left out.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "p_token"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "owner": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "card_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "oracle_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "board": {
+                  "enum": [
+                    "main",
+                    "side",
+                    "commander"
+                  ]
+                },
+                "qty": {
+                  "type": "integer"
+                },
+                "finish": {
+                  "type": "string"
+                },
+                "type_line": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "cmc": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "set": {
+                  "type": "string"
+                },
+                "image_ts": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "errors": {
+        "42501": "This isn't available",
+        "22023": "That link isn't a deck"
+      }
     }
   },
   "functions": {
@@ -11523,6 +11618,9 @@
           ]
         }
       }
+    },
+    "deck-image": {
+      "note": "GET /functions/v1/deck-image/<share token>.png?v=<deck version> → image/png, the deck's picture (contract/discord-2026-10-29.md § The deck picture). verify_jwt off; the token is the credential. Not called by the clients today."
     }
   },
   "realtime": {

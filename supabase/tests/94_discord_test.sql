@@ -180,6 +180,23 @@ select pg_temp.eq('confirmed: a share link is made', ((:'dk'::jsonb)->>'new_link
 select pg_temp.eq('the link is the live share link', (select 'https://table-1.site/l/' || token from public.share_links where item_id = :DECK and revoked_at is null), ((:'dk'::jsonb)->>'url'));
 select pg_temp.eq('the hero is a card of the deck with art', ((:'dk'::jsonb)->'hero'->>'name'), 'Lightning Bolt');
 select pg_temp.eq('sharing again reuses the link', (public.discord_deck_share('100001', :DECK)->>'new_link') || '|' || (public.discord_deck_share('100001', :DECK)->>'needs_confirm'), 'false|false');
+select pg_temp.eq('the post carries the link token and the deck version', ((:'dk'::jsonb)->>'token' = split_part((:'dk'::jsonb)->>'url', '/l/', 2))::text || '|' || ((:'dk'::jsonb)->>'version'), 'true|1');
+
+-- The deck picture's data, by the share link (signed out too).
+set role anon;
+select pg_temp.as_user(null);
+select public.deck_image_data((:'dk'::jsonb)->>'token') as dd \gset
+select pg_temp.eq('deck_image_data: the deck, its owner and version', ((:'dd'::jsonb)->>'name') || '|' || ((:'dd'::jsonb)->>'format') || '|' || ((:'dd'::jsonb)->>'owner') || '|' || ((:'dd'::jsonb)->>'version'), 'Burn|modern|Ana|1');
+select pg_temp.eq('deck_image_data: every line with name, type, mana value, set and image',
+  (select string_agg((x->>'name') || ':' || (x->>'board') || ':' || (x->>'qty') || ':' || (x->>'set') || ':' || coalesce(x->>'cmc', '-') || ':' || coalesce(x->>'image_ts', '-'), ',' order by x->>'board', x->>'name') from jsonb_array_elements((:'dd'::jsonb)->'lines') x),
+  'Lightning Bolt:main:4:m10:-:1700000000,Opt:main:2:xln:-:-,Opt:side:3:xln:-:-');
+select pg_temp.throws('deck_image_data: a bad link', $$select public.deck_image_data('nope-nope-nope-nope-nope')$$, '42501');
+reset role;
+set role authenticated;
+select pg_temp.as_user(:A);
+select public.share_link_create('wants') as wl \gset
+reset role;
+select pg_temp.throws('deck_image_data: a wants link is not a deck', format($$select public.deck_image_data(%L)$$, (:'wl'::jsonb)->>'token'), '22023');
 select pg_temp.eq('my decks now show shared', (select x->>'shared' from jsonb_array_elements(public.discord_my_decks('100001')) x), 'true');
 select pg_temp.throws('someone else''s deck is refused', format($$select public.discord_deck_share('100002', %L, true)$$, :DECK), '42501');
 
@@ -187,6 +204,58 @@ select public.discord_card('lightning') as cd \gset
 select pg_temp.eq('/card finds the card with its cheapest prices', ((:'cd'::jsonb)->>'name') || '|' || ((:'cd'::jsonb)->>'usd') || '|' || ((:'cd'::jsonb)->>'usd_foil') || '|' || ((:'cd'::jsonb)->>'printings'), 'Lightning Bolt|1.50|9.00|2');
 select pg_temp.eq('/card with no match', coalesce(public.discord_card('zzzzzz')::text, 'null'), 'null');
 select pg_temp.eq('/card needs two characters', coalesce(public.discord_card('l')::text, 'null'), 'null');
+
+-- Wants and for trade (/wants, /trades) -------------------------------------------------------------------
+\set TRADEB '''b0000000-0000-0000-0000-000000000001'''
+set role authenticated;
+select pg_temp.as_user(:A);
+select public.wants_apply(jsonb_build_array(
+  jsonb_build_object('oracle_id', 'c0000000-0000-0000-0000-000000000002', 'qty', 3, 'max_usd', 0.5),
+  jsonb_build_object('card_id', :BOLT, 'finish', 'foil', 'qty', 1)), 'e0000000-0000-0000-0000-00000000d001');
+select public.binder_save(:TRADEB, 'Trade binder', true);
+select public.share_link_revoke('wants');   -- the deck picture test made one above
+select public.collection_apply(jsonb_build_array(jsonb_build_object('card_id', :BOLT, 'delta', 4, 'binder_id', :TRADEB)),
+  'manual', null, 'e0000000-0000-0000-0000-00000000d002');
+reset role;
+select pg_temp.eq('wants names for autocomplete', public.discord_part_names('100001', 'wants')::text, '["Lightning Bolt", "Opt"]');
+select pg_temp.eq('for-trade names for autocomplete', public.discord_part_names('100001', 'for_trade', 'light')::text, '["Lightning Bolt"]');
+select pg_temp.eq('no link yet: /wants asks first', public.discord_part('100001', 'wants')->>'needs_confirm', 'true');
+select public.discord_part('100001', 'wants', null, true) as pw \gset
+select pg_temp.eq('the wants post: rows, cards, link', ((:'pw'::jsonb)->>'rows_total') || '|' || ((:'pw'::jsonb)->>'cards') || '|' || (((:'pw'::jsonb)->>'url') like 'https://table-1.site/l/%')::text || '|' || ((:'pw'::jsonb)->>'new_link') || '|' || ((:'pw'::jsonb)->>'owner'), '2|4|true|true|Ana');
+select pg_temp.eq('a want for any printing has no set and the cheapest price; a foil want its own',
+  (select string_agg((x->>'name') || ':' || coalesce(x->>'set', 'any') || ':' || coalesce(x->>'finish', 'any') || ':' || coalesce(x->>'usd', '-') || ':' || (x->>'qty'), ',' order by x->>'name') from jsonb_array_elements((:'pw'::jsonb)->'rows') x),
+  'Lightning Bolt:m10:foil:9.00:1,Opt:any:any:-:3');
+select pg_temp.eq('max prices never leave', (((:'pw'::jsonb)::text) like '%max%')::text, 'false');
+select pg_temp.eq('one card of the wants', (select (x->>'name') || '|' || (x->>'qty') from jsonb_array_elements(public.discord_part('100001', 'wants', 'opt')->'rows') x), 'Opt|3');
+select pg_temp.eq('the link is reused', public.discord_part('100001', 'wants')->>'new_link', 'false');
+select pg_temp.eq('no link yet: /trades asks first', public.discord_part('100001', 'for_trade')->>'needs_confirm', 'true');
+select public.discord_part('100001', 'for_trade', null, true) as pt \gset
+select pg_temp.eq('the for-trade post: the binder''s copies priced at their condition, with the total',
+  (select string_agg((x->>'name') || ':' || (x->>'set') || ':' || (x->>'finish') || ':' || (x->>'condition') || ':' || (x->>'usd') || ':' || (x->>'qty'), ',') from jsonb_array_elements((:'pt'::jsonb)->'rows') x) || '|' || ((:'pt'::jsonb)->>'value') || '|' || ((:'pt'::jsonb)->>'cards'),
+  'Lightning Bolt:m10:nonfoil:NM:1.50:4|6.00|4');
+select pg_temp.eq('a for-trade link of its own', (((:'pt'::jsonb)->>'url') <> ((:'pw'::jsonb)->>'url'))::text, 'true');
+select pg_temp.eq('nothing for trade for someone without a trade binder', public.discord_part('100002', 'for_trade', null, true)->>'rows_total', '0');
+select pg_temp.throws('not linked, no wants', $$select public.discord_part('100003', 'wants')$$, '28000');
+select pg_temp.throws('a part is wants or for trade', $$select public.discord_part('100001', 'decks')$$, '22023');
+
+-- /event post from your own events ------------------------------------------------------------------------
+set role authenticated;
+select pg_temp.as_user(:A);
+select (public.create_event_v2(p_name => 'Club night', p_format_name => 'modern', p_rounds => 3, p_local_date => '2026-11-14')->>'event_id') as club \gset
+select (public.create_event_v2(p_name => 'Secret draft', p_format_name => 'draft', p_rounds => 3, p_local_date => '2026-11-15')->>'event_id') as secret \gset
+reset role;
+update public.events set visibility = 'private' where id = :'secret';
+select pg_temp.eq('my events: the ones I run, open first', (select string_agg((x->>'name') || ':' || (x->>'role'), ',' order by x->>'name') from jsonb_array_elements(public.discord_my_events('100001')) x where x->>'name' in ('Club night', 'Secret draft', 'Friday Modern')), 'Club night:organizer,Friday Modern:organizer,Secret draft:organizer');
+select pg_temp.eq('my events: the ones I play in', (select string_agg((x->>'name') || ':' || (x->>'role'), ',') from jsonb_array_elements(public.discord_my_events('100002', 'friday')) x), 'Friday Modern:player');
+select pg_temp.eq('my events: a search that misses', public.discord_my_events('100001', 'zzz')::text, '[]');
+set role authenticated;
+select pg_temp.as_user(:B);
+select public.event_sign_up(:'club');
+reset role;
+select pg_temp.eq('a player can post an event they''re in', public.discord_event_attach('100002', '20001', '30009', :'club')->>'channel_id', '30009');
+select pg_temp.throws('but not a private one', format($$select public.discord_event_attach('100002', '20001', '30009', %L)$$, :'secret'), '42501');
+select pg_temp.eq('its organizer can', public.discord_event_attach('100001', '20001', '30009', :'secret')->>'name', 'Secret draft');
+select pg_temp.throws('someone outside the event can''t', format($$select public.discord_event_attach('100005', '20001', '30009', %L)$$, :'club'), '42501');
 
 -- Unlinking and deletion ---------------------------------------------------------------------------------
 set role authenticated;

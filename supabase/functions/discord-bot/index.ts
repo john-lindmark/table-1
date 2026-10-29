@@ -8,10 +8,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { DiscordRest } from "./discord.ts";
 import {
-  type Card, type CardHit, canManageServer, cardEmbed, commandPath, deckComponents, deckEmbed, type DeckPost, EPHEMERAL,
+  type Card, type CardHit, canManageServer, cardEmbed, commandPath, deckComponents, deckEmbed, deckImageUrl, type DeckPost, EPHEMERAL,
   eventIdFrom, eventMessage, focused, helpEmbed, type Interaction, InteractionType, isSnowflake, linkMessage,
-  needLinkMessage, opt, outcomeText, parseButtonId, parseWhen, ResponseType, resultsComponents, resultsEmbed, userId,
-  zoneChoices,
+  needLinkMessage, opt, outcomeText, parseButtonId, parseWhen, type Part, partComponents, partConfirmMessage, partEmbed,
+  type PartPost, ResponseType, resultsComponents, resultsEmbed, userId, zoneChoices,
 } from "./embeds.ts";
 import { loadStandings } from "./standings.ts";
 import { hashId, Telemetry } from "./telemetry.ts";
@@ -25,6 +25,8 @@ const APP_ID = env("DISCORD_APPLICATION_ID");
 const BOT_TOKEN = env("DISCORD_BOT_TOKEN");
 const ENVIRONMENT = env("T1_ENVIRONMENT", "production");
 const SALT = env("DISCORD_TELEMETRY_SALT") || APP_ID;
+// Where a deck's picture is drawn (the deck-image function; contract § The deck picture).
+const DECK_IMAGE = env("DECK_IMAGE_URL") || `${env("SUPABASE_URL")}/functions/v1/deck-image`;
 
 const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
 const rest = new DiscordRest(APP_ID, BOT_TOKEN);
@@ -127,7 +129,7 @@ async function eventCreate(ctx: Ctx, options: Parameters<typeof opt>[0]): Promis
 
 async function eventAttach(ctx: Ctx, link: string): Promise<Response> {
   const id = eventIdFrom(link);
-  if (!id) return ephemeral("Paste the event's table-1.site link (the one from Share link) or its id.");
+  if (!id) return ephemeral("Pick one of your events from the list, or paste the event's table-1.site link.");
   const card = await rpc<Card>("discord_event_attach", { p_discord_id: ctx.discordId, p_guild_id: ctx.guildId, p_channel_id: ctx.channelId, p_event_id: id });
   ctx.telemetry.push({ event: "discord_event_attached" });
   rememberPost(ctx, card.event_id, "event");
@@ -183,7 +185,16 @@ async function deck(ctx: Ctx, listId: string, confirm: boolean): Promise<Respons
   }
   const me = await rpc<{ display_name?: string }>("discord_me", { p_discord_id: ctx.discordId });
   ctx.telemetry.push({ event: "discord_deck_shared", format: d.format, new_link: Boolean(d.new_link) });
-  return reply({ embeds: [deckEmbed(d, me.display_name ?? null)], components: deckComponents(d) });
+  return reply({ embeds: [deckEmbed(d, me.display_name ?? null, deckImageUrl(DECK_IMAGE, d))], components: deckComponents(d) });
+}
+
+/** /wants and /trades: the whole list or one card, behind the part's share link. With no live link the bot asks
+ *  first; the confirm button then posts the whole list (the link it makes serves every later one-card post). */
+async function part(ctx: Ctx, which: Part, query: string | null, confirm: boolean): Promise<Response> {
+  const p = await rpc<PartPost & { needs_confirm: boolean; new_link?: boolean }>("discord_part", { p_discord_id: ctx.discordId, p_part: which, p_query: query, p_confirm: confirm });
+  if (p.needs_confirm) return reply(partConfirmMessage(which));
+  ctx.telemetry.push({ event: "discord_part_posted", part: which, single: Boolean(query), new_link: Boolean(p.new_link), rows: p.rows_total });
+  return reply({ embeds: [partEmbed(p)], components: partComponents(p) });
 }
 
 async function card(ctx: Ctx, query: string): Promise<Response> {
@@ -215,6 +226,27 @@ async function autocomplete(ctx: Ctx, path: string, options: Parameters<typeof o
     }
     return choices(out);
   }
+  if (f?.name === "link" && path === "event post") {
+    try {
+      const rows = await rpc<{ event_id: string; name: string; format_label: string; status: string; role: string; players: number }[]>(
+        "discord_my_events", { p_discord_id: ctx.discordId, p_query: q || null, p_limit: 25 });
+      const out = rows.map((r) => ({ name: `${r.name} · ${r.format_label} · ${r.players} players · ${r.role === "organizer" ? "you run it" : "you play"}${r.status === "completed" ? " · finished" : ""}`, value: r.event_id }));
+      if (q && eventIdFrom(q)) out.unshift({ name: `Use this link`, value: eventIdFrom(q)! });
+      return choices(out);
+    } catch (e) {
+      if (e instanceof Refused && e.code === "28000") return choices([{ name: "Link your Table 1 account first: /link", value: "unlinked" }]);
+      throw e;
+    }
+  }
+  if (f?.name === "card" && (path === "wants" || path === "trades")) {
+    try {
+      const names = await rpc<string[]>("discord_part_names", { p_discord_id: ctx.discordId, p_part: path === "wants" ? "wants" : "for_trade", p_query: q || null, p_limit: 25 });
+      return choices(names.map((n) => ({ name: n, value: n })));
+    } catch (e) {
+      if (e instanceof Refused && e.code === "28000") return choices([{ name: "Link your Table 1 account first: /link", value: "unlinked" }]);
+      throw e;
+    }
+  }
   if (f?.name === "deck") {
     try {
       const rows = await rpc<{ list_id: string; name: string; format: string; cards: number }[]>("discord_my_decks", { p_discord_id: ctx.discordId, p_query: q || null, p_limit: 25 });
@@ -236,6 +268,7 @@ async function route(ctx: Ctx): Promise<Response> {
     if (!b) return ephemeral("That button is from an older card. Run /event show for a fresh one.");
     if (b.action === "link") return await linkFlow(ctx);
     if (b.action === "deck" && b.id) return await deck(ctx, b.id, true);
+    if (b.action === "wants" || b.action === "trades") return await part(ctx, b.action === "wants" ? "wants" : "for_trade", null, true);
     if ((b.action === "up" || b.action === "down") && b.id) return await signUpOrDrop(ctx, b.action, b.id, "button", ix.message?.id);
     return ephemeral("That button is from an older card.");
   }
@@ -255,8 +288,17 @@ async function route(ctx: Ctx): Promise<Response> {
     }
     case "event create":
       return await eventCreate(ctx, options);
-    case "event post":
-      return await eventAttach(ctx, opt(options, "link") ?? "");
+    case "event post": {
+      const v = opt(options, "link") ?? "";
+      if (v === "unlinked") return reply(needLinkMessage("post an event"));
+      return await eventAttach(ctx, v);
+    }
+    case "wants":
+    case "trades": {
+      const q = opt(options, "card") ?? null;
+      if (q === "unlinked") return reply(needLinkMessage(path === "wants" ? "post your wants" : "post your cards for trade"));
+      return await part(ctx, path === "wants" ? "wants" : "for_trade", q, false);
+    }
     case "event list":
       return await eventList(ctx);
     case "event show": {

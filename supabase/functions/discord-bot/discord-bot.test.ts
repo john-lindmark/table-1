@@ -1,7 +1,7 @@
 import { assert, assertEquals, assertThrows } from "jsr:@std/assert@1";
 import {
-  type Card, canManageServer, cardEmbed, commandPath, deckEmbed, eventComponents, eventEmbed, eventIdFrom, helpEmbed, HELP,
-  COMMANDS, outcomeText, parseButtonId, parseWhen, resultsEmbed, statusLine, validZone, zoneChoices,
+  type Card, canManageServer, cardEmbed, commandPath, deckEmbed, deckImageUrl, eventComponents, eventEmbed, eventIdFrom, helpEmbed, HELP,
+  COMMANDS, outcomeText, parseButtonId, parseWhen, partConfirmMessage, partEmbed, resultsEmbed, statusLine, validZone, zoneChoices,
 } from "./embeds.ts";
 import { toRows } from "./standings.ts";
 import { cleanProperties, hashId, Telemetry } from "./telemetry.ts";
@@ -54,6 +54,8 @@ Deno.test("button ids round-trip and refuse anything else", () => {
   assertEquals(parseButtonId("t1:link"), { action: "link", id: null });
   assertEquals(parseButtonId(`t1:deck:${id}`), { action: "deck", id });
   assertEquals(parseButtonId("t1:up:not-an-id"), null);
+  assertEquals(parseButtonId("t1:wants"), { action: "wants", id: null });
+  assertEquals(parseButtonId("t1:trades"), { action: "trades", id: null });
   assertEquals(parseButtonId("t1:nuke:" + id), null);
   assertEquals(parseButtonId(undefined), null);
   assertEquals(parseButtonId("t1:up:" + id + ";drop table"), null);
@@ -172,6 +174,14 @@ Deno.test("deck and card posts", () => {
   assertEquals(d.description, "Modern · 60 main · 15 side\nSpice 12 · Tuned");
   assertEquals(d.thumbnail?.url, "https://cards.scryfall.io/normal/front/c/1/c1000000-0000-0000-0000-000000000001.jpg?1700000000");
   assertEquals(d.footer.text, "Table 1 · Ana's deck");
+  const post = { name: "Burn", format: "modern", main: 60, side: 15, spice: null, url: "https://table-1.site/l/Ab3_-x9QzLm2pR7tKw4vYc", token: "Ab3_-x9QzLm2pR7tKw4vYc", version: 7, hero: { card_id: "c1000000-0000-0000-0000-000000000001", image_ts: 1 } };
+  const pictureUrl = deckImageUrl("https://x.supabase.co/functions/v1/deck-image/", post);
+  assertEquals(pictureUrl, "https://x.supabase.co/functions/v1/deck-image/Ab3_-x9QzLm2pR7tKw4vYc.png?v=7");
+  const withPicture = deckEmbed(post, "Ana", pictureUrl);
+  assertEquals(withPicture.image?.url, pictureUrl, "the whole deck is the embed's picture");
+  assertEquals(withPicture.thumbnail, undefined, "no hero thumbnail beside the picture");
+  assertEquals(deckImageUrl("https://x", { ...post, token: "short" }), null);
+  assertEquals(deckImageUrl("https://x", { ...post, token: undefined }), null);
   const c = cardEmbed({ oracle_id: "o1", name: "Lightning Bolt", mana_cost: "{R}", type_line: "Instant", card_id: "c1000000-0000-0000-0000-000000000001", image_ts: 1700000000, set_code: "m10", collector_number: "146", usd: "1.50", usd_foil: 9, printings: 2 });
   assertEquals(c.title, "Lightning Bolt  {R}");
   assertEquals(c.description, "Instant\nFrom $1.50 · foil $9.00 (TCGplayer market, near mint)\n2 printings");
@@ -213,4 +223,38 @@ Deno.test("telemetry never carries ids or names", async () => {
   assert(h1 !== await hashId("123456789012345678", "other-salt"));
   const off = new Telemetry("", "", {});
   assert(!off.enabled);
+});
+
+Deno.test("wants and for-trade posts: the list, one card, prices, the link, no max prices", () => {
+  const wants = partEmbed({
+    part: "wants", query: null, rows_total: 2, cards: 4, value: null, url: "https://table-1.site/l/Ab3_-x9QzLm2pR7tKw4vYc", owner: "Ana",
+    rows: [
+      { name: "Lightning Bolt", qty: 1, set: "m10", number: "146", finish: "foil", usd: "9.00", card_id: "c1000000-0000-0000-0000-000000000001", image_ts: 1 },
+      { name: "Opt", qty: 3, set: null, number: null, finish: null, usd: "0.10", card_id: null, image_ts: null },
+    ],
+  });
+  assertEquals(wants.title, "Ana's wants");
+  assertEquals(wants.description, "1 Lightning Bolt · M10 146 · foil · $9.00\n3 Opt · any printing · from $0.10");
+  assertEquals(wants.footer.text, "Table 1 · 4 cards wanted");
+  assertEquals(wants.url, "https://table-1.site/l/Ab3_-x9QzLm2pR7tKw4vYc");
+  assertEquals(wants.thumbnail, undefined, "a list has no single card to picture");
+  assert(!JSON.stringify(wants).includes("max"));
+  const one = partEmbed({
+    part: "for_trade", query: "bolt", rows_total: 1, cards: 4, value: "6.00", url: "https://table-1.site/l/T", owner: "Ana",
+    rows: [{ name: "Lightning Bolt", qty: 4, set: "m10", number: "146", finish: "nonfoil", condition: "LP", lang: "en", usd: 1.35, card_id: "c1000000-0000-0000-0000-000000000001", image_ts: 1700000000 }],
+  });
+  assertEquals(one.title, "Ana's for trade: Lightning Bolt");
+  assertEquals(one.description, "4 Lightning Bolt · M10 146 · LP · $1.35");
+  assertEquals(one.footer.text, "Table 1 · 4 cards for trade · $6.00 at market");
+  assertEquals(one.thumbnail?.url, "https://cards.scryfall.io/normal/front/c/1/c1000000-0000-0000-0000-000000000001.jpg?1700000000");
+  const many = partEmbed({ part: "for_trade", query: null, rows_total: 40, cards: 90, value: 0, url: "u", owner: null,
+    rows: Array.from({ length: 40 }, (_, i) => ({ name: `Card ${i}`, qty: 2, set: "m10", number: String(i), finish: "nonfoil", condition: "NM", lang: "en", usd: null, card_id: null, image_ts: null })) });
+  assertEquals(many.title, "My cards for trade");
+  assert(many.description.endsWith("…and 15 more"));
+  assertEquals(many.description.split("\n").length, 26);
+  const none = partEmbed({ part: "wants", query: "zzz", rows_total: 0, cards: 0, value: null, url: "u", owner: "Ana", rows: [] });
+  assertEquals(none.description, 'Nothing matching "zzz".');
+  const ask = partConfirmMessage("for_trade");
+  assertEquals(ask.components[0].components[0].custom_id, "t1:trades");
+  assert(ask.content.includes("cards for trade"));
 });

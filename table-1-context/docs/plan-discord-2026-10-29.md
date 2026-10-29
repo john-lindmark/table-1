@@ -34,13 +34,14 @@ the event is over, `/event results` posts the final standings with the link to t
 | `/link` | anyone | Links your Discord account to your Table 1 account: an ephemeral one-time link to table-1.site (10 min). Signed in with Discord on Table 1? Already linked. |
 | `/unlink` | linked | Removes the link (a Discord sign-in identity can't be unlinked; that's your sign-in). |
 | `/event create` | linked | Format (constructed formats, Draft, Sealed), optional name, when (`YYYY-MM-DD HH:MM` + timezone), venue, cap, top 8, rounds (auto when omitted), set code or cube name. Posts the event card in the channel. |
-| `/event post <link>` | the organizer | Posts the card for an event made in the app (a `/s/<id>` or `/e/<id>` link or the id). |
+| `/event post <event>` | organizers and players | Posts the card for an event made in the app: pick it from your events (run or played in, open first) or paste its link. A player may post an event they're in unless it's private. |
 | `/event list` | anyone | Open events of this server (ephemeral). |
 | `/event show <event>` | anyone | The card again (ephemeral) with the buttons; autocomplete over the server's open events. |
 | `/event signup <event>` / `/event drop <event>` | linked | Same as the buttons. |
 | `/event results <event>` | linked | Final standings as a public post with Open in Table 1. Before the event ends, organizers only ("Standings so far"). |
 | `/settings timezone <zone>` | server members with Manage Server | The zone `/event create` reads times in. |
-| `/deck <deck>` | linked | Posts one of your decks (autocomplete over your decks): name, format, counts, Spice, hero art, and a link anyone can open. Asks first if that link doesn't exist yet. |
+| `/deck <deck>` | linked | Posts one of your decks (autocomplete over your decks): name, format, counts, Spice, the whole deck as a picture, and a link anyone can open. Asks first if that link doesn't exist yet. |
+| `/wants [card]` / `/trades [card]` | linked | Posts your wants / your cards for trade, the whole list or one card, with prices and a link anyone can open (asked first when there's no link). |
 | `/card <name>` | anyone | A card: cost, type, cheapest TCGplayer price, image, Scryfall link. |
 
 Buttons on the event card: **Sign up**, **Drop**, **Open in Table 1** (link). On an unlinked click the bot answers
@@ -56,6 +57,10 @@ Library has to be something the owner chose to share, by the same rules:
    the apps make, revocable from Sharing. No live link → the bot asks before making one. The post carries name,
    format, card counts, Spice and the hero card. Nothing else about the Library leaves.
 2. **Built now: `/card`.** Catalog lookup with the price: no personal data at all.
+   **Built the same day (John): the deck post carries the whole deck as a picture**, drawn on the server by the
+   `deck-image` function from the share link, and **`/wants` and `/trades`** post your wants or your cards for trade,
+   the whole list or one card, behind the part's share link, with a link to Table 1. `/event post` picks from the
+   events you run or play in as well as taking a link.
 3. **Next: decklists for events.** An event that takes decklists (`decklists` optional/required) gets
    `/event decklist <event> <deck>`: the bot exports your deck as text and calls `decklist_submit`, so a required
    decklist can be met from Discord. Needs a server-side export of a deck to text (today the clients export).

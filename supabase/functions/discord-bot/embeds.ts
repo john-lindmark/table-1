@@ -63,14 +63,14 @@ export function canManageServer(ix: Interaction): boolean {
 
 // ---------------------------------------------------------------- button ids
 
-export type ButtonAction = "up" | "down" | "link" | "deck";
+export type ButtonAction = "up" | "down" | "link" | "deck" | "wants" | "trades";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export const buttonId = (action: ButtonAction, id?: string) => id ? `t1:${action}:${id}` : `t1:${action}`;
 
 export function parseButtonId(customId: string | undefined): { action: ButtonAction; id: string | null } | null {
   if (!customId) return null;
-  const m = /^t1:(up|down|link|deck)(?::([0-9a-f-]{36}))?$/.exec(customId);
+  const m = /^t1:(up|down|link|deck|wants|trades)(?::([0-9a-f-]{36}))?$/.exec(customId);
   if (!m) return null;
   if (m[2] && !UUID.test(m[2])) return null;
   return { action: m[1] as ButtonAction, id: m[2] ?? null };
@@ -283,7 +283,16 @@ export interface DeckPost {
   side: number;
   spice: { score: number; word: string } | null;
   url: string;
+  token?: string;
+  version?: number;
   hero: { card_id: string; image_ts: number | null; name?: string } | null;
+}
+
+/** The deck's picture, drawn by the deck-image function from its share link (a version in the address, so a changed
+ *  deck gets a fresh one past Discord's cache). */
+export function deckImageUrl(base: string, d: DeckPost): string | null {
+  if (!d.token || !/^[A-Za-z0-9_-]{16,40}$/.test(d.token)) return null;
+  return `${base.replace(/\/$/, "")}/${d.token}.png?v=${d.version ?? 0}`;
 }
 
 export function imageUrl(cardId: string, imageTs: number | null, size: "normal" | "art_crop" | "small" = "normal"): string {
@@ -299,7 +308,7 @@ export function formatName(f: string): string {
   return map[f] ?? f.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 }
 
-export function deckEmbed(d: DeckPost, byName: string | null) {
+export function deckEmbed(d: DeckPost, byName: string | null, pictureUrl: string | null = null) {
   const parts = [`${formatName(d.format)} · ${d.main} main${d.side ? ` · ${d.side} side` : ""}`];
   if (d.spice) parts.push(`Spice ${d.spice.score} · ${d.spice.word}`);
   return {
@@ -307,7 +316,9 @@ export function deckEmbed(d: DeckPost, byName: string | null) {
     url: d.url,
     description: parts.join("\n"),
     color: ACCENT,
-    thumbnail: d.hero ? { url: imageUrl(d.hero.card_id, d.hero.image_ts) } : undefined,
+    // The whole deck as one picture; the hero card stands in only when the picture can't be addressed.
+    image: pictureUrl ? { url: pictureUrl } : undefined,
+    thumbnail: !pictureUrl && d.hero ? { url: imageUrl(d.hero.card_id, d.hero.image_ts) } : undefined,
     footer: { text: byName ? `Table 1 · ${clean(byName)}'s deck` : "Table 1" },
   };
 }
@@ -346,6 +357,83 @@ export function cardEmbed(h: CardHit) {
     footer: { text: h.set_code ? `Table 1 · ${h.set_code.toUpperCase()} ${h.collector_number ?? ""}`.trim() : "Table 1" },
   };
 }
+
+// ---------------------------------------------------------------- wants and for trade
+
+export type Part = "wants" | "for_trade";
+
+export interface PartRow {
+  name: string;
+  qty: number;
+  set: string | null;
+  number: string | null;
+  finish: string | null;
+  condition?: string | null;
+  lang?: string | null;
+  usd: string | number | null;
+  card_id: string | null;
+  image_ts: number | null;
+}
+
+export interface PartPost {
+  part: Part;
+  query: string | null;
+  rows: PartRow[];
+  rows_total: number;
+  cards: number;
+  value: string | number | null;
+  url: string;
+  token?: string;
+  owner: string | null;
+}
+
+export const partTitle = (part: Part) => (part === "wants" ? "wants" : "cards for trade");
+
+function partLine(part: Part, r: PartRow): string {
+  const bits = [`${r.qty} ${clean(r.name)}`];
+  if (part === "wants") {
+    bits.push(r.set ? `${r.set.toUpperCase()} ${r.number ?? ""}`.trim() : "any printing");
+    if (r.finish) bits.push(r.finish);
+    bits.push(r.usd != null ? `${r.set ? "" : "from "}${money(r.usd)}` : "no price");
+  } else {
+    bits.push(`${(r.set ?? "").toUpperCase()} ${r.number ?? ""}`.trim());
+    if (r.finish && r.finish !== "nonfoil") bits.push(r.finish);
+    if (r.condition) bits.push(r.condition);
+    if (r.lang && r.lang !== "en") bits.push(r.lang.toUpperCase());
+    bits.push(r.usd != null ? money(r.usd)! : "no price");
+  }
+  return bits.join(" · ");
+}
+
+/** The list or the one card, with the link; the card's picture when it's one card. */
+export function partEmbed(p: PartPost, max = 25) {
+  const what = partTitle(p.part);
+  const who = p.owner ? `${clean(p.owner)}'s` : "My";
+  const one = p.query && p.rows.length > 0 && new Set(p.rows.map((r) => r.name)).size === 1;
+  const title = one ? `${who} ${p.part === "wants" ? "want" : "for trade"}: ${clean(p.rows[0].name)}` : `${who} ${what}`;
+  const shown = p.rows.slice(0, max);
+  const lines = shown.map((r) => partLine(p.part, r));
+  if (p.rows_total > shown.length) lines.push(`…and ${p.rows_total - shown.length} more`);
+  if (!p.rows.length) lines.push(p.query ? `Nothing matching "${clean(p.query)}".` : p.part === "wants" ? "No wants yet." : "Nothing for trade yet.");
+  const total = p.part === "for_trade" && p.value != null && Number(p.value) > 0 ? ` · ${money(p.value)} at market` : "";
+  const first = one ? p.rows[0] : null;
+  return {
+    title: title.slice(0, 256),
+    url: p.url,
+    description: lines.join("\n").slice(0, 4000),
+    color: ACCENT,
+    thumbnail: first?.card_id && first.image_ts ? { url: imageUrl(first.card_id, first.image_ts) } : undefined,
+    footer: { text: `Table 1 · ${p.cards} ${p.cards === 1 ? "card" : "cards"} ${p.part === "wants" ? "wanted" : "for trade"}${total}` },
+  };
+}
+
+export const partComponents = (p: PartPost) => [{ type: 1, components: [{ type: 2, style: 5, label: "Open on Table 1", url: p.url }] }];
+
+export const partConfirmMessage = (part: Part) => ({
+  content: `Posting your ${partTitle(part)} here makes a link anyone can open (you can stop sharing it any time under Sharing in Table 1). Post it?`,
+  components: [{ type: 1, components: [{ type: 2, style: 1, label: `Post my ${partTitle(part)}`, custom_id: buttonId(part === "wants" ? "wants" : "trades") }] }],
+  flags: EPHEMERAL,
+});
 
 // ---------------------------------------------------------------- help
 
