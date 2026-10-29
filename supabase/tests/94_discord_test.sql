@@ -140,6 +140,45 @@ select pg_temp.eq('sign-ups and drops are audited as the account', (select strin
 select pg_temp.eq('the posted message id is stored', public.discord_event_posted(:'ev1_id', 'event', '40001')->>'ok', 'true');
 select pg_temp.eq('and the card carries it', public.discord_event_card('20001', :'ev1_id')->>'message_id', '40001');
 
+-- The card stays current (20261029230000_discord_card_refresh): any change asks the bot to redraw it, once per
+-- event per transaction, only for events with a posted card.
+delete from net.requests;
+set role authenticated;
+select pg_temp.as_user(:C);
+select public.event_sign_up(:'ev1_id') as app_su \gset
+reset role;
+select pg_temp.eq('the event is full, so Cal waits', (:'app_su'::jsonb)->>'status', 'waitlisted');
+select pg_temp.eq('a sign-up from the app asks the bot to redraw the card',
+  (select count(*)::text || '|' || min(url) || '|' || min(body->>'refresh') || '|' || bool_and(headers ? 'x-t1-secret')::text
+     from net.requests where url like '%/discord-bot'),
+  '1|https://aaozhfcbvqrgkkrihkrd.supabase.co/functions/v1/discord-bot|' || :'ev1_id' || '|true');
+delete from net.requests;
+update public.participants set seat = seat where event_id = :'ev1_id';
+select pg_temp.eq('many rows in one statement ask once', (select count(*)::text from net.requests where url like '%/discord-bot'), '1');
+delete from net.requests;
+delete from public.event_waitlist where event_id = :'ev1_id' and user_id = :C;
+update public.events set venue_name = 'The Back Room' where id = :'ev1_id';
+select pg_temp.eq('waitlist and event details ask too', (select count(*)::text from net.requests where url like '%/discord-bot'), '2');
+delete from net.requests;
+update public.events set venue_name = 'The Back Room' where id = :'ev1_id';
+update public.events set name = 'Draft night' where id = (:'ev2'::jsonb->>'event_id')::uuid;
+select pg_temp.eq('no ask when nothing on the card changed, or for an event with no posted card',
+  (select count(*)::text from net.requests where url like '%/discord-bot'), '0');
+select pg_temp.eq('the bot reads the posted card', (public.discord_card_current(:'ev1_id')->>'message_id') || '|' || (public.discord_card_current(:'ev1_id')->>'venue_name'), '40001|The Back Room');
+select pg_temp.eq('an event with no posted card reads null', coalesce(public.discord_card_current((:'ev2'::jsonb->>'event_id')::uuid)::text, 'null'), 'null');
+select pg_temp.eq('a lost message that was since reposted is kept', public.discord_card_lost(:'ev1_id', '49999')->>'ok', 'false');
+select pg_temp.eq('a lost card is forgotten', public.discord_card_lost(:'ev1_id', '40001')->>'ok', 'true');
+select pg_temp.eq('so the bot has nothing to edit', coalesce(public.discord_card_current(:'ev1_id')::text, 'null'), 'null');
+delete from net.requests;
+update public.events set venue_name = 'The Shop' where id = :'ev1_id';
+select pg_temp.eq('and no longer asked for', (select count(*)::text from net.requests where url like '%/discord-bot'), '0');
+select public.discord_event_posted(:'ev1_id', 'event', '40001');
+set role authenticated;
+select pg_temp.as_user(:B);
+select pg_temp.throws('clients can''t read cards as the bot', format($$select public.discord_card_current(%L)$$, :'ev1_id'));
+select pg_temp.throws('clients can''t forget cards', format($$select public.discord_card_lost(%L, '40001')$$, :'ev1_id'));
+reset role;
+
 -- Results.
 select pg_temp.throws('nothing to post before round 1', format($$select public.discord_event_results('100002', '20001', %L)$$, :'ev1_id'), '55000');
 insert into public.rounds (event_id, number, status) values (:'ev1_id', 1, 'active');

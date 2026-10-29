@@ -1,8 +1,9 @@
 // discord-bot: Table 1's Discord interactions endpoint (contract/discord-2026-10-29.md). Discord POSTs every slash
 // command, button click and autocomplete here, signed with the application's Ed25519 key; nothing else may call it
 // (deployed with verify_jwt off: the signature is the credential). Each interaction is one database round trip,
-// made as the linked Table 1 account by the discord_* RPCs, answered inside Discord's 3 seconds; editing the card,
-// storing message ids and telemetry run afterwards in EdgeRuntime.waitUntil.
+// made as the linked Table 1 account by the discord_* RPCs, answered inside Discord's 3 seconds; storing message ids,
+// follow-ups and telemetry run afterwards in EdgeRuntime.waitUntil. The database also POSTs here (x-t1-secret,
+// {refresh: event id}) whenever an event with a posted card changes, and the card is redrawn.
 //   secrets: DISCORD_PUBLIC_KEY, DISCORD_APPLICATION_ID, DISCORD_BOT_TOKEN,
 //            POSTHOG_KEY, POSTHOG_HOST (telemetry; off when empty), DISCORD_TELEMETRY_SALT, T1_ENVIRONMENT
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -83,13 +84,6 @@ async function cardFor(ctx: Ctx, eventId: string): Promise<Card> {
   return await rpc<Card>("discord_event_card", { p_guild_id: ctx.guildId, p_event_id: eventId, p_discord_id: ctx.discordId });
 }
 
-/** Keeps the public card (by its stored ids) in step after a change made from somewhere else. */
-function refreshCard(ctx: Ctx, card: Card, exceptMessageId?: string) {
-  if (!card.channel_id || !card.message_id || card.message_id === exceptMessageId) return;
-  const channel = card.channel_id, message = card.message_id;
-  later(ctx, () => rest.editMessage(channel, message, eventMessage(card)));
-}
-
 /** After the first response made a public card: remember which message it is. */
 function rememberPost(ctx: Ctx, eventId: string, kind: "event" | "results") {
   later(ctx, async () => {
@@ -147,7 +141,7 @@ async function eventList(ctx: Ctx): Promise<Response> {
   return ephemeral(lines.join("\n").slice(0, 1900));
 }
 
-async function signUpOrDrop(ctx: Ctx, action: "up" | "down", eventId: string, via: "button" | "command", messageId?: string): Promise<Response> {
+async function signUpOrDrop(ctx: Ctx, action: "up" | "down", eventId: string, via: "button" | "command"): Promise<Response> {
   const fn = action === "up" ? "discord_event_sign_up" : "discord_event_drop";
   const r = await rpc<Card & { result: string; position?: number | null }>(fn, { p_discord_id: ctx.discordId, p_guild_id: ctx.guildId, p_event_id: eventId });
   const note = outcomeText(r.result, r, r.position);
@@ -159,13 +153,12 @@ async function signUpOrDrop(ctx: Ctx, action: "up" | "down", eventId: string, vi
   }
   if (via === "button") {
     // The clicked message becomes the fresh card (its own kind: the public one keeps Sign up, a personal one shows
-    // what now applies); the clicker gets a private note with their own button; the public card is edited to match.
+    // what now applies); the clicker gets a private note with their own button. The public card is redrawn when
+    // Table 1 asks (refreshCard), as for a sign-up from the app.
     const personal = ((ctx.ix.message?.flags ?? 0) & EPHEMERAL) !== 0;
     later(ctx, () => rest.followUp(ctx.ix.token, { content: note, components: eventComponents(r, true), flags: EPHEMERAL }));
-    refreshCard(ctx, r, messageId);
     return update(eventMessage(r, personal));
   }
-  refreshCard(ctx, r);
   return ephemeral(note, eventMessage(r, true));
 }
 
@@ -174,7 +167,6 @@ async function results(ctx: Ctx, eventId: string): Promise<Response> {
   const rows = await loadStandings(admin, eventId);
   ctx.telemetry.push({ event: "discord_results_posted", final: r.final, players: rows.length });
   rememberPost(ctx, eventId, "results");
-  if (r.final) refreshCard(ctx, r);
   return reply({ embeds: [resultsEmbed(r, rows, r.final)], components: resultsComponents(r) });
 }
 
@@ -291,7 +283,7 @@ async function route(ctx: Ctx): Promise<Response> {
     if (b.action === "link") return await linkFlow(ctx);
     if (b.action === "deck" && b.id) return await deck(ctx, b.id, true);
     if (b.action === "wants" || b.action === "trades") return await part(ctx, b.action === "wants" ? "wants" : "for_trade", null, true);
-    if ((b.action === "up" || b.action === "down") && b.id) return await signUpOrDrop(ctx, b.action, b.id, "button", ix.message?.id);
+    if ((b.action === "up" || b.action === "down") && b.id) return await signUpOrDrop(ctx, b.action, b.id, "button");
     return ephemeral("That button is from an older card.");
   }
   const { path, options } = commandPath(ix);
@@ -359,10 +351,28 @@ function refusal(e: Refused, path: string): Response {
   return ephemeral(e.message);
 }
 
+// ---------------------------------------------------------------- the card stays current
+
+/** Table 1 asks (a trigger through pg_net, after commit) when an event with a posted card changed, from anywhere:
+ *  the bot, the app, the web, the sign-up link. The card is read now, so it shows the latest state. */
+async function refreshCard(req: Request): Promise<Response> {
+  const { data: ok } = await admin.rpc("live_push_secret_ok", { p_secret: req.headers.get("x-t1-secret") ?? "" });
+  if (!ok) return json({ error: "Forbidden" }, 403);
+  const { refresh } = await req.json().catch(() => ({})) as { refresh?: string };
+  if (!refresh || !/^[0-9a-f-]{36}$/i.test(refresh)) return json({ error: "refresh: an event id" }, 400);
+  const card = await rpc<Card | null>("discord_card_current", { p_event_id: refresh });
+  if (!card?.channel_id || !card.message_id) return json({ edited: false });
+  const r = await rest.editMessage(card.channel_id, card.message_id, eventMessage(card));
+  // Unknown Message / Channel: the card was deleted, so stop asking for it (a fresh /event post makes a new one).
+  if (r.status === 404) await rpc("discord_card_lost", { p_event_id: refresh, p_message_id: card.message_id });
+  return json({ edited: r.ok, status: r.status });
+}
+
 // ---------------------------------------------------------------- the endpoint
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Table 1 for Discord", { status: 405 });
+  if (req.headers.has("x-t1-secret")) return await refreshCard(req);
   const body = await req.text();
   const ok = await verifyInteraction(PUBLIC_KEY, req.headers.get("x-signature-ed25519"), req.headers.get("x-signature-timestamp"), body);
   if (!ok) return new Response("invalid request signature", { status: 401 });

@@ -3,6 +3,7 @@ import {
   type Card, canManageServer, cardEmbed, commandPath, deckEmbed, deckImageUrl, eventComponents, eventEmbed, eventIdFrom, helpEmbed, HELP,
   COMMANDS, outcomeText, parseButtonId, parseWhen, partConfirmMessage, partEmbed, resultsEmbed, statusLine, validZone, zoneChoices,
 } from "./embeds.ts";
+import { DiscordRest } from "./discord.ts";
 import { toRows } from "./standings.ts";
 import { cleanProperties, hashId, Telemetry } from "./telemetry.ts";
 import { hexToBytes, verifyInteraction } from "./verify.ts";
@@ -267,4 +268,68 @@ Deno.test("wants and for-trade posts: the list, one card, prices, the link, no m
   const ask = partConfirmMessage("for_trade");
   assertEquals(ask.components[0].components[0].custom_id, "t1:trades");
   assert(ask.content.includes("cards for trade"));
+});
+
+/** Answers fetches from a script of [status, body] and records what was asked. */
+function fakeDiscord(script: [number, unknown][]) {
+  const calls: { method: string; url: string }[] = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = ((url: string, init?: RequestInit) => {
+    calls.push({ method: init?.method ?? "GET", url: String(url) });
+    const [status, body] = script.shift() ?? [500, {}];
+    return Promise.resolve(new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }));
+  }) as typeof fetch;
+  return { calls, restore: () => (globalThis.fetch = real) };
+}
+
+Deno.test("the posted card's id is read once Discord has the answer (it refuses until then)", async () => {
+  const d = fakeDiscord([[400, { code: 10062 }], [404, { code: 10008 }], [200, { id: "123456789012345678" }]]);
+  const errors = console.error;
+  console.error = () => {};
+  try {
+    const rest = new DiscordRest("1", "t", [1, 1, 1, 1]);
+    assertEquals(await rest.originalMessageId("tok"), "123456789012345678");
+    assertEquals(d.calls.length, 3);
+    assert(d.calls.every((c) => c.method === "GET" && c.url.endsWith("/webhooks/1/tok/messages/@original")));
+  } finally {
+    d.restore();
+    console.error = errors;
+  }
+});
+
+Deno.test("retries stop on success, on other failures and after the last wait", async () => {
+  const errors = console.error;
+  const logged: string[] = [];
+  console.error = (m: string) => logged.push(m);
+  try {
+    let d = fakeDiscord([[200, { id: "1" }]]);
+    await new DiscordRest("1", "t", [1, 1]).followUp("tok", { content: "hi" });
+    assertEquals(d.calls.length, 1);
+    d.restore();
+    d = fakeDiscord([[401, { code: 50027 }]]);
+    assertEquals(await new DiscordRest("1", "t", [1, 1]).originalMessageId("tok"), null);
+    assertEquals(d.calls.length, 1);
+    d.restore();
+    d = fakeDiscord([[400, {}], [400, {}], [400, { code: 50035 }]]);
+    const token = "aW50ZXJhY3Rpb246MTIzNDU2Nzg5MDEyMzQ1Njc4OnNlY3JldA";
+    assertEquals(await new DiscordRest("1", "t", [1, 1]).originalMessageId(token), null);
+    assertEquals(d.calls.length, 3);
+    d.restore();
+    assertEquals(logged.length, 2, "only the final failure of each call is logged");
+    assert(logged[1].includes("400 (50035)") && !logged[1].includes(token), logged[1]);
+  } finally {
+    console.error = errors;
+  }
+});
+
+Deno.test("a card edit waits once when Discord says slow down", async () => {
+  const d = fakeDiscord([[429, { retry_after: 0.001 }], [200, { id: "1" }]]);
+  try {
+    const r = await new DiscordRest("1", "t").editMessage("111111", "222222", { content: "x" });
+    assertEquals(r.status, 200);
+    assertEquals(d.calls.map((c) => c.method), ["PATCH", "PATCH"]);
+    assert(d.calls[0].url.endsWith("/channels/111111/messages/222222"));
+  } finally {
+    d.restore();
+  }
 });
