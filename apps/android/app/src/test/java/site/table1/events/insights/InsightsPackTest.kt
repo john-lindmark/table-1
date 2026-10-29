@@ -83,6 +83,10 @@ class InsightsPackTest {
         assertEquals("Results from Magic Online", Insights.sourcesCredit(listOf("mtgo")).first)
         assertEquals("Results from Magic Online and TopDeck.gg" to "https://topdeck.gg", Insights.sourcesCredit(listOf("mtgo", "topdeck")))
         assertEquals("Results from TopDeck.gg" to "https://topdeck.gg", Insights.sourcesCredit(listOf("topdeck")))
+        assertEquals("Results from Magic Online, TopDeck.gg and Melee" to "https://topdeck.gg", Insights.sourcesCredit(listOf("melee", "topdeck", "mtgo")))
+        assertEquals("Results from Magic Online and Melee" to "https://www.mtgo.com/decklists", Insights.sourcesCredit(listOf("mtgo", "melee")))
+        assertEquals("Results from Melee" to "https://melee.gg", Insights.sourcesCredit(listOf("melee")))
+        assertEquals("Results from Magic Online", Insights.sourcesCredit(emptyList()).first)
         assertEquals(listOf("standard", "pioneer", "modern", "pauper", "canlander"), Insights.formats.map { it.first })
     }
 

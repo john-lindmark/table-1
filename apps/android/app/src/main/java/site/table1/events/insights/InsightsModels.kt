@@ -81,16 +81,21 @@ object Insights {
         return out
     }
 
-    /** The credit under a constructed brief, from the pack's sources: TopDeck.gg asks for a visible credit and link
-     *  whenever its data is shown; Canadian Highlander comes from TopDeck alone. */
+    /** "A", "A and B", "A, B and C". */
+    fun andList(xs: List<String>): String =
+        if (xs.size < 2) xs.joinToString("") else xs.dropLast(1).joinToString(", ") + " and " + xs.last()
+
+    private val sourceNames = listOf(Triple("mtgo", "Magic Online", "https://www.mtgo.com/decklists"),
+        Triple("topdeck", "TopDeck.gg", "https://topdeck.gg"), Triple("melee", "Melee", "https://melee.gg"))
+
+    /** The credit under a constructed brief, from the pack's sources in a fixed order: TopDeck.gg asks for a visible
+     *  credit and link whenever its data is shown, so the link is TopDeck's when it's a source; Canadian Highlander
+     *  comes from TopDeck alone. Melee results come through the MTG_decklistcache. */
     fun sourcesCredit(sources: List<String>): Pair<String, String> {
-        val mtgo = "mtgo" in sources
-        val td = "topdeck" in sources
-        return when {
-            td && !mtgo -> "Results from TopDeck.gg" to "https://topdeck.gg"
-            td -> "Results from Magic Online and TopDeck.gg" to "https://topdeck.gg"
-            else -> "Results from Magic Online" to "https://www.mtgo.com/decklists"
-        }
+        val named = sourceNames.filter { it.first in sources }
+        if (named.isEmpty()) return "Results from Magic Online" to sourceNames[0].third
+        val link = named.firstOrNull { it.first == "topdeck" } ?: named[0]
+        return "Results from ${andList(named.map { it.second })}" to link.third
     }
     val eventOrder = listOf("PremierDraft", "TradDraft", "PickTwoDraft", "Sealed", "TradSealed")
     val eventLabels = mapOf("PremierDraft" to "Premier", "TradDraft" to "Traditional", "PickTwoDraft" to "Pick Two", "Sealed" to "Sealed", "TradSealed" to "Trad Sealed")

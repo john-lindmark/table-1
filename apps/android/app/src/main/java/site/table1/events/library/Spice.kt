@@ -27,6 +27,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import site.table1.events.T1App
+import site.table1.events.insights.Insights
 import site.table1.events.ui.components.ListRow
 import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.Section
@@ -79,7 +80,7 @@ object Spice {
     val WORDS = mapOf("stock" to "Stock", "tuned" to "Tuned", "spicy" to "Spicy", "brew" to "Brew")
     private val FORMATS = mapOf("standard" to "Standard", "pioneer" to "Pioneer", "modern" to "Modern", "pauper" to "Pauper",
         "canlander" to "Canadian Highlander", "legacy" to "Legacy")
-    private val SOURCES = mapOf("mtgo" to "MTGO", "topdeck" to "TopDeck.gg", "cubecobra" to "Cube Cobra")
+    private val SOURCES = mapOf("mtgo" to "MTGO", "topdeck" to "TopDeck.gg", "melee" to "Melee", "cubecobra" to "Cube Cobra")
     private val REASONS = mapOf("empty" to "Add cards to see how spicy this is",
         "no_data" to "No tournament lists for this format yet",
         "no_cubes" to "No cubes to compare with yet")
@@ -103,7 +104,7 @@ object Spice {
         val b = r.basis ?: return null
         if (r.score == null) return null
         val whenText = b.days?.let { if (it == 365) "last year" else "last $it days" } ?: ""
-        val src = b.sources.joinToString(" and ") { SOURCES[it] ?: it }
+        val src = Insights.andList(b.sources.map { SOURCES[it] ?: it })
         val fmt = b.format?.let { FORMATS[it] ?: it } ?: ""
         val name = b.name ?: ""
         return when (b.kind) {

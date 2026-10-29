@@ -21,7 +21,7 @@ export interface MatchIn {
 }
 
 export interface EventIn {
-  source: "mtgo" | "topdeck";
+  source: "mtgo" | "topdeck" | "melee";
   source_id: string;
   format: string;
   name: string;

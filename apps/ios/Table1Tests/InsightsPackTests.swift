@@ -80,6 +80,11 @@ final class InsightsPackTests: XCTestCase {
         XCTAssertEqual(Insights.sourcesCredit(["mtgo", "topdeck"]).label, "Results from Magic Online and TopDeck.gg")
         XCTAssertEqual(Insights.sourcesCredit(["topdeck"]).label, "Results from TopDeck.gg")
         XCTAssertEqual(Insights.sourcesCredit(["topdeck"]).url.host, "topdeck.gg")
+        XCTAssertEqual(Insights.sourcesCredit(["melee", "topdeck", "mtgo"]).label, "Results from Magic Online, TopDeck.gg and Melee")
+        XCTAssertEqual(Insights.sourcesCredit(["melee", "topdeck", "mtgo"]).url.host, "topdeck.gg")
+        XCTAssertEqual(Insights.sourcesCredit(["mtgo", "melee"]).label, "Results from Magic Online and Melee")
+        XCTAssertEqual(Insights.sourcesCredit(["melee"]).url.host, "melee.gg")
+        XCTAssertEqual(Insights.sourcesCredit([]).label, "Results from Magic Online")
         XCTAssertEqual(Insights.formats.map(\.key), ["standard", "pioneer", "modern", "pauper", "canlander"])
     }
 

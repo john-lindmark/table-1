@@ -25,7 +25,7 @@ CUBE_PEERS = 20
 CUBE_MIN = 5
 CUBE_CLOSE = Fraction(15, 100)
 SINGLETON = {"canlander"}
-SOURCES = {"mtgo": "MTGO", "topdeck": "TopDeck.gg"}
+SOURCES = {"mtgo": "MTGO", "topdeck": "TopDeck.gg", "melee": "Melee"}
 
 
 def cid(n):
@@ -391,7 +391,8 @@ def display(r):
                 "reason": REASONS[r["reason"]]}
     b = r["basis"]
     when = "last year" if b["days"] == 365 else f"last {b['days']} days" if b["days"] else None
-    src = " and ".join(SOURCES.get(s, "Cube Cobra") for s in b["sources"])
+    names = [SOURCES.get(s, "Cube Cobra") for s in b["sources"]]
+    src = names[0] if len(names) < 2 else ", ".join(names[:-1]) + " and " + names[-1]
     fmt = FORMAT_NAMES.get(b["format"], b["format"])
     if b["kind"] == "archetype":
         line = f"{plural(b['lists'], b['name'] + ' list', b['name'] + ' lists')} · {when} · {src}"

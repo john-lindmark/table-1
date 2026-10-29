@@ -69,6 +69,10 @@ describe("insights helpers", () => {
     expect(sourcesCredit(["mtgo"]).label).toBe("Results from Magic Online");
     expect(sourcesCredit(["mtgo", "topdeck"])).toEqual({ label: "Results from Magic Online and TopDeck.gg", url: "https://topdeck.gg" });
     expect(sourcesCredit(["topdeck"])).toEqual({ label: "Results from TopDeck.gg", url: "https://topdeck.gg" });
+    expect(sourcesCredit(["melee", "topdeck", "mtgo"])).toEqual({ label: "Results from Magic Online, TopDeck.gg and Melee", url: "https://topdeck.gg" });
+    expect(sourcesCredit(["mtgo", "melee"])).toEqual({ label: "Results from Magic Online and Melee", url: "https://www.mtgo.com/decklists" });
+    expect(sourcesCredit(["melee"])).toEqual({ label: "Results from Melee", url: "https://melee.gg" });
+    expect(sourcesCredit([]).label).toBe("Results from Magic Online");
     expect(FORMATS.map((f) => f.key)).toEqual(["standard", "pioneer", "modern", "pauper", "canlander"]);
   });
   it("matchup cells read from either side", () => {

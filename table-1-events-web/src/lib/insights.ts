@@ -16,13 +16,21 @@ export const FORMATS = [
   { key: "canlander", label: "Canlander" },
 ] as const;
 
-/** The credit under a constructed brief, from the pack's sources: TopDeck.gg asks for a visible credit and link
- *  whenever its data is shown; Canadian Highlander comes from TopDeck alone. */
+/** "A", "A and B", "A, B and C". */
+export const andList = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
+
+const SOURCE_NAMES: [string, string, string][] = [
+  ["mtgo", "Magic Online", "https://www.mtgo.com/decklists"], ["topdeck", "TopDeck.gg", "https://topdeck.gg"], ["melee", "Melee", "https://melee.gg"],
+];
+
+/** The credit under a constructed brief, from the pack's sources in a fixed order: TopDeck.gg asks for a visible
+ *  credit and link whenever its data is shown, so the link is TopDeck's when it's a source; Canadian Highlander comes
+ *  from TopDeck alone. Melee results come through the MTG_decklistcache. */
 export function sourcesCredit(sources: string[]): { label: string; url: string } {
-  const mtgo = sources.includes("mtgo"), td = sources.includes("topdeck");
-  if (td && !mtgo) return { label: "Results from TopDeck.gg", url: "https://topdeck.gg" };
-  if (td) return { label: "Results from Magic Online and TopDeck.gg", url: "https://topdeck.gg" };
-  return { label: "Results from Magic Online", url: "https://www.mtgo.com/decklists" };
+  const named = SOURCE_NAMES.filter(([k]) => sources.includes(k));
+  if (!named.length) return { label: "Results from Magic Online", url: SOURCE_NAMES[0][2] };
+  const link = named.find(([k]) => k === "topdeck") ?? named[0];
+  return { label: `Results from ${andList(named.map(([, n]) => n))}`, url: link[2] };
 }
 
 export interface IndexEntry { kind: "constructed" | "limited"; key: string; name: string; version: string; url: string; bytes: number; through: string | null }

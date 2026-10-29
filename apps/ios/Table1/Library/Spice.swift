@@ -53,7 +53,7 @@ enum Spice {
     static let words = ["stock": "Stock", "tuned": "Tuned", "spicy": "Spicy", "brew": "Brew"]
     static let formats = ["standard": "Standard", "pioneer": "Pioneer", "modern": "Modern", "pauper": "Pauper",
                           "canlander": "Canadian Highlander", "legacy": "Legacy"]
-    private static let sources = ["mtgo": "MTGO", "topdeck": "TopDeck.gg", "cubecobra": "Cube Cobra"]
+    private static let sources = ["mtgo": "MTGO", "topdeck": "TopDeck.gg", "melee": "Melee", "cubecobra": "Cube Cobra"]
     private static let reasons = ["empty": "Add cards to see how spicy this is",
                                   "no_data": "No tournament lists for this format yet",
                                   "no_cubes": "No cubes to compare with yet"]
@@ -77,7 +77,7 @@ enum Spice {
     static func basis(_ r: SpiceResult) -> String? {
         guard r.score != nil, let b = r.basis else { return nil }
         let when = b.days.map { $0 == 365 ? "last year" : "last \($0) days" } ?? ""
-        let src = b.sources.map { sources[$0] ?? $0 }.joined(separator: " and ")
+        let src = Insights.andList(b.sources.map { sources[$0] ?? $0 })
         let fmt = b.format.map { formats[$0] ?? $0 } ?? ""
         let name = b.name ?? ""
         switch b.kind {

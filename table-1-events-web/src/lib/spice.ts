@@ -5,6 +5,7 @@ import { useSyncExternalStore } from "react";
 import { supabase } from "./supabaseClient";
 import { capture } from "./telemetry";
 import { isLibraryDemo } from "./libraryDemo";
+import { andList } from "./insights";
 
 export interface SpiceBasis {
   kind: "archetype" | "closest" | "format" | "colors" | "cubes";
@@ -33,7 +34,7 @@ export const SPICE_WORDS: Record<string, string> = { stock: "Stock", tuned: "Tun
 const FORMATS: Record<string, string> = {
   standard: "Standard", pioneer: "Pioneer", modern: "Modern", pauper: "Pauper", canlander: "Canadian Highlander", legacy: "Legacy",
 };
-const SOURCES: Record<string, string> = { mtgo: "MTGO", topdeck: "TopDeck.gg", cubecobra: "Cube Cobra" };
+const SOURCES: Record<string, string> = { mtgo: "MTGO", topdeck: "TopDeck.gg", melee: "Melee", cubecobra: "Cube Cobra" };
 const REASONS: Record<string, string> = {
   empty: "Add cards to see how spicy this is",
   no_data: "No tournament lists for this format yet",
@@ -55,7 +56,7 @@ export function spiceBasis(r: SpiceResult): string | null {
   const b = r.basis;
   if (r.score == null || !b) return null;
   const when = b.days == null ? "" : b.days === 365 ? "last year" : `last ${b.days} days`;
-  const src = b.sources.map((s) => SOURCES[s] ?? s).join(" and ");
+  const src = andList(b.sources.map((s) => SOURCES[s] ?? s));
   const fmt = b.format ? FORMATS[b.format] ?? b.format : "";
   const name = b.name ?? "";
   switch (b.kind) {

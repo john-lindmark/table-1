@@ -34,11 +34,22 @@ enum Insights {
         !kinds.isEmpty && kinds.allSatisfy { $0 == "points" } ? "Points changes" : "Bans and unbans"
     }
 
+    /// "A", "A and B", "A, B and C".
+    static func andList(_ xs: [String]) -> String {
+        xs.count < 2 ? xs.joined() : xs.dropLast().joined(separator: ", ") + " and " + xs.last!
+    }
+
+    private static let sourceNames = [("mtgo", "Magic Online", "https://www.mtgo.com/decklists"), ("topdeck", "TopDeck.gg", "https://topdeck.gg"),
+                                      ("melee", "Melee", "https://melee.gg")]
+
+    /// The credit under a constructed brief, from the pack's sources in a fixed order: TopDeck.gg asks for a visible
+    /// credit and link whenever its data is shown, so the link is TopDeck's when it's a source; Canadian Highlander
+    /// comes from TopDeck alone. Melee results come through the MTG_decklistcache.
     static func sourcesCredit(_ sources: [String]) -> (label: String, url: URL) {
-        let mtgo = sources.contains("mtgo"), td = sources.contains("topdeck")
-        if td && !mtgo { return ("Results from TopDeck.gg", URL(string: "https://topdeck.gg")!) }
-        if td { return ("Results from Magic Online and TopDeck.gg", URL(string: "https://topdeck.gg")!) }
-        return ("Results from Magic Online", URL(string: "https://www.mtgo.com/decklists")!)
+        let named = sourceNames.filter { sources.contains($0.0) }
+        guard let first = named.first else { return ("Results from Magic Online", URL(string: sourceNames[0].2)!) }
+        let link = named.first { $0.0 == "topdeck" } ?? first
+        return ("Results from \(andList(named.map(\.1)))", URL(string: link.2)!)
     }
 
     // MARK: constructed
