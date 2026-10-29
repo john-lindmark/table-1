@@ -168,7 +168,7 @@ async function signUpOrDrop(ctx: Ctx, action: "up" | "down", eventId: string, vi
 }
 
 async function results(ctx: Ctx, eventId: string): Promise<Response> {
-  const r = await rpc<Card & { final: boolean; organizer: boolean }>("discord_event_results", { p_discord_id: ctx.discordId, p_guild_id: ctx.guildId, p_event_id: eventId });
+  const r = await rpc<Card & { final: boolean; organizer: boolean }>("discord_event_results", { p_discord_id: ctx.discordId, p_guild_id: ctx.guildId, p_event_id: eventId, p_channel_id: ctx.channelId });
   const rows = await loadStandings(admin, eventId);
   ctx.telemetry.push({ event: "discord_results_posted", final: r.final, players: rows.length });
   rememberPost(ctx, eventId, "results");
@@ -219,10 +219,30 @@ async function autocomplete(ctx: Ctx, path: string, options: Parameters<typeof o
   if (f?.name === "event") {
     const states = path === "event results" ? ["done", "open"] : ["open"];
     const out: { name: string; value: string }[] = [];
+    const seen = new Set<string>();
     for (const state of states) {
       const rows = await rpc<{ event_id: string; name: string; format_label: string; players: number; status: string }[]>(
         "discord_events_list", { p_guild_id: ctx.guildId, p_state: state, p_query: q || null, p_limit: 25 });
-      for (const r of rows) out.push({ name: `${r.name} · ${r.format_label} · ${r.players} players${state === "done" ? " · finished" : ""}`, value: r.event_id });
+      for (const r of rows) {
+        seen.add(r.event_id);
+        out.push({ name: `${r.name} · ${r.format_label} · ${r.players} players${state === "done" ? " · finished" : ""}`, value: r.event_id });
+      }
+    }
+    // Results: your own events too (run or played in), finished ones first, even when the bot never posted them.
+    if (path === "event results") {
+      try {
+        for (const state of ["done", "open"]) {
+          const mine = await rpc<{ event_id: string; name: string; format_label: string; players: number; status: string; role: string }[]>(
+            "discord_my_events", { p_discord_id: ctx.discordId, p_query: q || null, p_limit: 25, p_state: state });
+          for (const r of mine) {
+            if (seen.has(r.event_id)) continue;
+            seen.add(r.event_id);
+            out.push({ name: `${r.name} · ${r.format_label} · ${r.players} players · ${r.role === "organizer" ? "you ran it" : "you played"}${state === "done" ? " · finished" : ""}`, value: r.event_id });
+          }
+        }
+      } catch (e) {
+        if (!(e instanceof Refused && e.code === "28000")) throw e;
+      }
     }
     return choices(out);
   }

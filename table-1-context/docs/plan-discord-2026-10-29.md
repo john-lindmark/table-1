@@ -38,7 +38,7 @@ the event is over, `/event results` posts the final standings with the link to t
 | `/event list` | anyone | Open events of this server (ephemeral). |
 | `/event show <event>` | anyone | The card again (ephemeral) with the buttons; autocomplete over the server's open events. |
 | `/event signup <event>` / `/event drop <event>` | linked | Same as the buttons. |
-| `/event results <event>` | linked | Final standings as a public post with Open in Table 1. Before the event ends, organizers only ("Standings so far"). |
+| `/event results <event>` | linked | Final standings as a public post with Open in Table 1. The picker offers the server's events and your own (run or played in), finished first; an event the bot never posted joins the server as it's posted. Before the event ends, organizers only ("Standings so far"). |
 | `/settings timezone <zone>` | server members with Manage Server | The zone `/event create` reads times in. |
 | `/deck <deck>` | linked | Posts one of your decks (autocomplete over your decks): name, format, counts, Spice, the whole deck as a picture, and a link anyone can open. Asks first if that link doesn't exist yet. |
 | `/wants [card]` / `/trades [card]` | linked | Posts your wants / your cards for trade, the whole list or one card, with prices and a link anyone can open (asked first when there's no link). |

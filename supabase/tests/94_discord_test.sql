@@ -258,6 +258,25 @@ select pg_temp.throws('but not a private one', format($$select public.discord_ev
 select pg_temp.eq('its organizer can', public.discord_event_attach('100001', '20001', '30009', :'secret')->>'name', 'Secret draft');
 select pg_temp.throws('someone outside the event can''t', format($$select public.discord_event_attach('100005', '20001', '30009', %L)$$, :'club'), '42501');
 
+-- /event results for an event the bot never posted (a team draft run from the app, say) --------------------------
+set role authenticated;
+select pg_temp.as_user(:A);
+select (public.create_event_v2(p_name => 'Team draft', p_format_name => 'team_draft', p_team_size => 3, p_rounds => 3, p_local_date => '2026-10-23')->>'event_id') as td \gset
+select pg_temp.as_user(:B);
+select public.event_sign_up(:'td');
+reset role;
+insert into public.rounds (event_id, number, status) values (:'td', 1, 'recorded');
+update public.events set status = 'completed' where id = :'td';
+select pg_temp.eq('my finished events, newest first', (select string_agg((x->>'name') || ':' || (x->>'role') || ':' || (x->>'status'), ',') from jsonb_array_elements(public.discord_my_events('100001', 'team', 25, 'done')) x), 'Team draft:organizer:completed');
+select pg_temp.eq('a player sees it among their finished events too', (select string_agg((x->>'name') || ':' || (x->>'role'), ',') from jsonb_array_elements(public.discord_my_events('100002', null, 25, 'done')) x where x->>'name' = 'Team draft'), 'Team draft:player');
+select pg_temp.eq('the open list leaves it out', (select count(*)::text from jsonb_array_elements(public.discord_my_events('100001', 'team')) x), '0');
+select pg_temp.throws('results for an event not in the server need a channel to post into', format($$select public.discord_event_results('100001', '20001', %L)$$, :'td'), '42501');
+select pg_temp.throws('and someone outside the event can''t post them', format($$select public.discord_event_results('100005', '20001', %L, '30011')$$, :'td'), '42501');
+select public.discord_event_results('100002', '20001', :'td', '30011') as tr \gset
+select pg_temp.eq('a player posts the final results, and the event joins the server', ((:'tr'::jsonb)->>'final') || '|' || ((:'tr'::jsonb)->>'guild_id') || '|' || ((:'tr'::jsonb)->>'channel_id'), 'true|20001|30011');
+select pg_temp.eq('the event is now one of the server''s finished events', (select string_agg(x->>'name', ',') from jsonb_array_elements(public.discord_events_list('20001', 'done', 'team')) x), 'Team draft');
+select pg_temp.eq('posting is audited as via results', (select count(*)::text from public.audit_log where event_id = :'td' and action = 'discord.posted' and after->>'via' = 'results'), '1');
+
 -- Unlinking and deletion ---------------------------------------------------------------------------------
 set role authenticated;
 select pg_temp.as_user(:A);
