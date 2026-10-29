@@ -34,7 +34,7 @@ the event is over, `/event results` posts the final standings with the link to t
 | `/link` | anyone | Links your Discord account to your Table 1 account: an ephemeral one-time link to table-1.site (10 min). Signed in with Discord on Table 1? Already linked. |
 | `/unlink` | linked | Removes the link (a Discord sign-in identity can't be unlinked; that's your sign-in). |
 | `/event create` | linked | Format (constructed formats, Draft, Sealed), optional name, when (`YYYY-MM-DD HH:MM` + timezone), venue, cap, top 8, rounds (auto when omitted), set code or cube name. Posts the event card in the channel. |
-| `/event post <event>` | organizers and players | Posts the card for an event made in the app: pick it from your events (run or played in, open first) or paste its link. A player may post an event they're in unless it's private. |
+| `/event post <event>` | organizers and players | Posts the card for an event made in the app: pick it from your open events (run or played in; no past events) or paste its link. A player may post an event they're in unless it's private. |
 | `/event list` | anyone | Open events of this server (ephemeral). |
 | `/event show <event>` | anyone | The card again (ephemeral) with the buttons; autocomplete over the server's open events. |
 | `/event signup <event>` / `/event drop <event>` | linked | Same as the buttons. |

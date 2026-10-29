@@ -245,13 +245,14 @@ select (public.create_event_v2(p_name => 'Club night', p_format_name => 'modern'
 select (public.create_event_v2(p_name => 'Secret draft', p_format_name => 'draft', p_rounds => 3, p_local_date => '2026-11-15')->>'event_id') as secret \gset
 reset role;
 update public.events set visibility = 'private' where id = :'secret';
-select pg_temp.eq('my events: the ones I run, open first', (select string_agg((x->>'name') || ':' || (x->>'role'), ',' order by x->>'name') from jsonb_array_elements(public.discord_my_events('100001')) x where x->>'name' in ('Club night', 'Secret draft', 'Friday Modern')), 'Club night:organizer,Friday Modern:organizer,Secret draft:organizer');
-select pg_temp.eq('my events: the ones I play in', (select string_agg((x->>'name') || ':' || (x->>'role'), ',') from jsonb_array_elements(public.discord_my_events('100002', 'friday')) x), 'Friday Modern:player');
+select pg_temp.eq('my events: the ones I run, open ones only (Friday Modern is finished)', (select string_agg((x->>'name') || ':' || (x->>'role'), ',' order by x->>'name') from jsonb_array_elements(public.discord_my_events('100001')) x where x->>'name' in ('Club night', 'Secret draft', 'Friday Modern')), 'Club night:organizer,Secret draft:organizer');
+select pg_temp.eq('my events: a finished event I played in is not offered', public.discord_my_events('100002', 'friday')::text, '[]');
 select pg_temp.eq('my events: a search that misses', public.discord_my_events('100001', 'zzz')::text, '[]');
 set role authenticated;
 select pg_temp.as_user(:B);
 select public.event_sign_up(:'club');
 reset role;
+select pg_temp.eq('my events: the ones I play in', (select string_agg((x->>'name') || ':' || (x->>'role'), ',') from jsonb_array_elements(public.discord_my_events('100002', 'club')) x), 'Club night:player');
 select pg_temp.eq('a player can post an event they''re in', public.discord_event_attach('100002', '20001', '30009', :'club')->>'channel_id', '30009');
 select pg_temp.throws('but not a private one', format($$select public.discord_event_attach('100002', '20001', '30009', %L)$$, :'secret'), '42501');
 select pg_temp.eq('its organizer can', public.discord_event_attach('100001', '20001', '30009', :'secret')->>'name', 'Secret draft');

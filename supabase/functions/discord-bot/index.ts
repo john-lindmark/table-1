@@ -230,7 +230,7 @@ async function autocomplete(ctx: Ctx, path: string, options: Parameters<typeof o
     try {
       const rows = await rpc<{ event_id: string; name: string; format_label: string; status: string; role: string; players: number }[]>(
         "discord_my_events", { p_discord_id: ctx.discordId, p_query: q || null, p_limit: 25 });
-      const out = rows.map((r) => ({ name: `${r.name} · ${r.format_label} · ${r.players} players · ${r.role === "organizer" ? "you run it" : "you play"}${r.status === "completed" ? " · finished" : ""}`, value: r.event_id }));
+      const out = rows.map((r) => ({ name: `${r.name} · ${r.format_label} · ${r.players} players · ${r.role === "organizer" ? "you run it" : "you play"}`, value: r.event_id }));
       if (q && eventIdFrom(q)) out.unshift({ name: `Use this link`, value: eventIdFrom(q)! });
       return choices(out);
     } catch (e) {
