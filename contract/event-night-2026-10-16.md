@@ -33,7 +33,16 @@ still to do. Wire names are in `rpc.schema.json`.
   last 90 days) a minute after an event is created, unless it's private or demo. Mute per kind with
   `notification_prefs.muted_kinds`.
 - Tapping an alert opens its `event_id`. Telemetry: `push_permission` {granted}, `push_opened` {kind}.
-- Android: FCM isn't set up (needs a Firebase project and `FCM_SERVICE_ACCOUNT`); the worker skips Android tokens.
+- Android (2026-10-29): FCM through Firebase project `table-1-53243` (`apps/android/app/google-services.json`; the worker's
+  service account key is the `FCM_SERVICE_ACCOUNT` secret). The app registers with `p_platform` android whenever someone is
+  signed in (and on FCM's token rotation), and unregisters before sign-out; it never asks for permission outside the
+  permissions step. The worker sends **data-only** v1 messages (`fcm.ts`; HIGH for priority 10, NORMAL for 5, TTL 1 h):
+  `title`, `body`, `tag` (the APNs collapse id: a newer alert replaces the older one), `group` (the APNs thread-id) and
+  the same routing keys as the APNs payload (nulls left out, values as strings). The app draws each one in a channel
+  (Events, high importance: event./round./result.; Collection: follow./trade./want./ranking.; Friends; From Table 1:
+  the rest) and a tap opens the same screen as on iOS (`PushRoutes.kt`; no Notices/Review/Bugs screens on Android, so
+  moderation and ops pushes open Account). Tokens FCM answers UNREGISTERED (404) or SENDER_ID_MISMATCH are deleted;
+  other failures are logged, never deleted. A platform without credentials is skipped and counted (`skipped`).
 
 ## 5. Game and match times
 - `matches.result_at` (first result, never moves), `tracker_games.started_at` (previous game's end, or the round

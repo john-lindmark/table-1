@@ -11,6 +11,7 @@ import io.github.jan.supabase.serializer.KotlinXSerializer
 import io.github.jan.supabase.storage.Storage
 import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.serialization.json.Json
+import site.table1.events.util.Push
 import site.table1.events.util.Telemetry
 
 /** One Supabase client for the whole app; the session persists across launches. */
@@ -19,6 +20,7 @@ class T1App : Application() {
         super.onCreate()
         instance = this
         Telemetry.start(this)
+        Push.start(this)
     }
 
     companion object {

@@ -5,6 +5,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    // Reads app/google-services.json (the Firebase project for push).
+    alias(libs.plugins.google.services)
 }
 
 fun prop(name: String): String = (project.findProperty(name) as String?) ?: ""
@@ -94,6 +96,8 @@ dependencies {
     implementation(libs.play.location)
     implementation(libs.zxing.core)
     implementation(libs.installreferrer)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
     implementation(libs.coil.compose)
     implementation(libs.coil.svg)
     implementation(libs.coil.network.okhttp)

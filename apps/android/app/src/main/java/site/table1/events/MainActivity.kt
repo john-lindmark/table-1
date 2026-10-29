@@ -22,6 +22,7 @@ import site.table1.events.data.JoinLink
 import site.table1.events.data.WebLink
 import site.table1.events.ui.AppRoot
 import site.table1.events.ui.theme.Table1Theme
+import site.table1.events.util.Push
 import site.table1.events.util.Telemetry
 
 class MainActivity : ComponentActivity() {
@@ -64,6 +65,8 @@ class MainActivity : ComponentActivity() {
 
     private fun handle(intent: Intent?) {
         intent ?: return
+        // A tapped notification: its screen, once signed in.
+        Push.tapped(intent)?.let { pendingLink = it; return }
         // Sign in with Apple or Discord comes back as table1://auth-callback#...; supabase-kt finishes the session.
         T1App.supabase.handleDeeplinks(intent) { SignIn.oauthReturned() }
         // table-1.site links (contract/universal-links-2026-10-22.md): the screen the web address shows, once signed in.

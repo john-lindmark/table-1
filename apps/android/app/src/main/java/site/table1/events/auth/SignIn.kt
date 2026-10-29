@@ -146,6 +146,7 @@ object SignIn {
     }
 
     suspend fun signOut() {
+        site.table1.events.util.Push.signOut()
         T1App.supabase.auth.signOut()
     }
 

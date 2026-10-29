@@ -82,6 +82,21 @@
                 <data android:scheme="table1" android:host="auth-callback" />
             </intent-filter>
         </activity>
+        <!-- Alert pushes (FCM, data only): Push.kt draws them and registers the token. -->
+        <service
+            android:name=".util.T1MessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_t1" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="events" />
+
         <!-- Account photo: the camera writes a full-size shot here before it's cropped to 512 px. -->
         <provider
             android:name="androidx.core.content.FileProvider"

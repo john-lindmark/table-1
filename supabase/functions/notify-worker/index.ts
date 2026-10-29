@@ -2,11 +2,12 @@
 //   POST {}   x-t1-secret: <db secret>   kicked by the database right after a message is queued, and by the
 //             t1-notify-sweep cron job every minute as a fallback.
 // Each message is one audience (kind, event_id, user_ids, data); this expands it to devices, writes the alert
-// text per kind (per recipient where it differs, e.g. their table and opponent), and sends through APNs.
-// iOS only for now: Android needs FCM credentials (FCM_SERVICE_ACCOUNT), not set up yet; Android devices are
-// skipped and counted. Messages older than 30 minutes are dropped rather than sent late.
+// text per kind (per recipient where it differs, e.g. their table and opponent), and sends through APNs (iOS)
+// and FCM (Android, FCM_SERVICE_ACCOUNT). A platform whose credentials aren't set is skipped and counted.
+// Messages older than 30 minutes are dropped rather than sent late.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { apnsConfigured, sendAll, type Alert } from "./apns.ts";
+import * as fcm from "./fcm.ts";
 import { followCopy, tradeWantsCopy } from "./follow.ts";
 import { wantPriceCopy } from "./want-price.ts";
 import { signUpCopy, type SignUpCount } from "./sign-up.ts";
@@ -164,14 +165,15 @@ async function signUpCount(m: Message): Promise<SignUpCount | null> {
 }
 
 async function run() {
-  if (!apnsConfigured()) return json({ ok: false, reason: "APNs not configured" });
+  const apns = apnsConfigured(), android = fcm.fcmConfigured();
+  if (!apns && !android) return json({ ok: false, reason: "Neither APNs nor FCM is configured" });
   const { data: claimed, error } = await admin.rpc("notify_claim", { p_n: 100 });
   if (error) throw error;
   const rows = (claimed ?? []) as Array<{ msg_id: number; enqueued_at: string; message: Message }>;
   if (!rows.length) return json({ ok: true, messages: 0 });
 
   const done: number[] = [];
-  let sent = 0, failed = 0, skippedAndroid = 0, stale = 0;
+  let sent = 0, failed = 0, skipped = 0, stale = 0;
   const dead: string[] = [];
   for (const row of rows) {
     done.push(row.msg_id);
@@ -196,27 +198,35 @@ async function run() {
     const muted = new Set((prefs ?? []).filter((p) => (p.muted_kinds ?? []).includes(m.kind)).map((p) => p.user_id));
     const mine = await matchesFor(m);
     const count = await signUpCount(m);
+    // The same for every recipient: what a tap opens (the apps route by these keys), the collapse key and the group.
+    const collapseId = `${m.kind}:${m.event_id ?? m.data?.ranking_id ?? m.data?.item_id ?? m.data?.user_id ?? m.data?.bug_id ?? ""}`.slice(0, 64);
+    const thread = m.event_id ?? (m.kind.startsWith("ops.") ? "ops" : m.kind.startsWith("ranking.") ? "rankings"
+      : m.kind.startsWith("follow.") ? "following" : m.kind.startsWith("trade.") ? "trades"
+      : m.kind.startsWith("want.") ? "wants" : "friends");
+    const info = {
+      kind: m.kind, event_id: m.event_id, match_id: m.data?.match_id ?? null, ranking_id: m.data?.ranking_id ?? null, bug_id: m.data?.bug_id ?? null,
+      ...(m.kind === "follow.updated" ? { follow_kind: m.data?.kind ?? null, item_id: m.data?.item_id ?? null } : {}),
+      ...(m.kind === "trade.wants" ? { user_id: m.data?.user_id ?? null } : {}),
+    };
     const alerts: Alert[] = [];
+    const androidAlerts: fcm.AndroidAlert[] = [];
     for (const d of devices) {
       if (muted.has(d.user_id)) continue;
-      if (d.platform !== "ios") { skippedAndroid++; continue; }
+      const ios = d.platform === "ios";
+      if (!(ios ? apns : d.platform === "android" && android)) { skipped++; continue; }
       const c = copy(m, event?.name ?? "", mine.get(d.user_id), count);
       if (!c) continue;
+      if (!ios) {
+        androidAlerts.push({ token: d.push_token, title: c.title, body: c.body, priority: c.priority ?? 10, tag: collapseId, group: thread, info });
+        continue;
+      }
       alerts.push({
         token: d.push_token, env: d.env === "development" ? "development" : "production", priority: c.priority ?? 10,
-        collapseId: `${m.kind}:${m.event_id ?? m.data?.ranking_id ?? m.data?.item_id ?? m.data?.user_id ?? m.data?.bug_id ?? ""}`.slice(0, 64),
-        payload: {
-          aps: { alert: { title: c.title, body: c.body }, sound: "default",
-                 "thread-id": m.event_id ?? (m.kind.startsWith("ops.") ? "ops" : m.kind.startsWith("ranking.") ? "rankings"
-                                        : m.kind.startsWith("follow.") ? "following" : m.kind.startsWith("trade.") ? "trades"
-                                        : m.kind.startsWith("want.") ? "wants" : "friends") },
-          kind: m.kind, event_id: m.event_id, match_id: m.data?.match_id ?? null, ranking_id: m.data?.ranking_id ?? null, bug_id: m.data?.bug_id ?? null,
-          ...(m.kind === "follow.updated" ? { follow_kind: m.data?.kind ?? null, item_id: m.data?.item_id ?? null } : {}),
-          ...(m.kind === "trade.wants" ? { user_id: m.data?.user_id ?? null } : {}),
-        },
+        collapseId,
+        payload: { aps: { alert: { title: c.title, body: c.body }, sound: "default", "thread-id": thread }, ...info },
       });
     }
-    const results = await sendAll(alerts);
+    const [results, androidResults] = await Promise.all([sendAll(alerts), fcm.sendAll(androidAlerts)]);
     for (const r of results) {
       if (r.status === 200) sent++;
       else {
@@ -224,13 +234,21 @@ async function run() {
         if (r.status === 410 || r.reason === "BadDeviceToken" || r.reason === "Unregistered") dead.push(r.token);
       }
     }
+    for (const r of androidResults) {
+      if (r.status === 200) sent++;
+      else {
+        failed++;
+        if (fcm.deadToken(r)) dead.push(r.token);
+        else console.error("fcm", r.status, r.reason);
+      }
+    }
   }
   await admin.rpc("notify_done", { p_ids: done });
   if (dead.length) await admin.from("devices").delete().in("push_token", dead);
-  console.log(JSON.stringify({ messages: rows.length, sent, failed, dead: dead.length, stale, skippedAndroid }));
+  console.log(JSON.stringify({ messages: rows.length, sent, failed, dead: dead.length, stale, skipped }));
   // More waiting: go again (the next kick or the minute sweep would also pick it up).
   if (rows.length === 100) queueMicrotask(() => run().catch(console.error));
-  return json({ ok: true, messages: rows.length, sent, failed, stale, skipped_android: skippedAndroid });
+  return json({ ok: true, messages: rows.length, sent, failed, stale, skipped });
 }
 
 let secretOk: string | null = null;
