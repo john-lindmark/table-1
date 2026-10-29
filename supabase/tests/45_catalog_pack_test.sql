@@ -123,3 +123,18 @@ select pg_temp.eq('parts joined equal the body with identities',
   (select concat_ws(E'\n', public.catalog_pack_part(0, 0, 3), public.catalog_pack_part(0, 3, 100),
                     public.catalog_pack_part(1, 0, 100), public.catalog_pack_part(2, 0, 100))),
   public.catalog_pack_body());
+
+-- TCGplayer products (20261028200000_tcgplayer_products.sql): stored per printing; a row from an older cards-sync,
+-- with no ids, leaves them; the pack doesn't change.
+select public.catalog_pack_body() as body_before \gset
+select public.catalog_ingest(:run, jsonb_build_array(
+  (select r->4 from rows) || '{"produced_mana":"U","token_card_ids":[],"tcgplayer_id":1171}'::jsonb,
+  (select r->0 from rows) || '{"tcgplayer_id":2001,"tcgplayer_etched_id":2002}'::jsonb)) as tcg \gset
+select pg_temp.eq('product ids stored',
+  (select string_agg(card_id || '=' || coalesce(product_id::text, '-') || '/' || coalesce(etched_product_id::text, '-'), ' ' order by card_id)
+     from t1_private.card_tcgplayer),
+  'a1000000-0000-0000-0000-000000000001=2001/2002 a1000000-0000-0000-0000-000000000005=1171/-');
+select public.catalog_ingest(:run, jsonb_build_array((select r->4 from rows) || '{"produced_mana":"U","token_card_ids":[]}'::jsonb)) as tcg2 \gset
+select pg_temp.eq('a row without ids keeps them',
+  (select product_id::text from t1_private.card_tcgplayer where card_id = 'a1000000-0000-0000-0000-000000000005'), '1171');
+select pg_temp.eq('product ids leave the pack as it was', public.catalog_pack_body(), :'body_before');

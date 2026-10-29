@@ -10,7 +10,7 @@ import { SORT_KEY, applySort, sortKeyOf, useStoredSort } from "../lib/cardSort";
 import { loadDemoLists } from "../lib/libraryDemo";
 import { useLists } from "../lib/lists";
 import { usdPrice, usdText, usePrices } from "../lib/prices";
-import { loadWantPrices, partTitle, setWantAlerts, tcgplayerCart, tcgplayerEnabled, useWantPrices, wantDetail, wantPrice, wantTrend, type CartItem } from "../lib/wantPrices";
+import { cartDirect, cartMenu, loadWantPrices, setWantAlerts, tcgplayerCart, tcgplayerEnabled, useWantPrices, wantDetail, wantPrice, wantTrend, type CartEntry, type CartItem } from "../lib/wantPrices";
 import {
   applyWants, binderById, binderTotals, deleteBinder, itemsIn, liveWants, missingLines, moveCopies, placement, saveBinder, useBinders,
   type Binder, type Want,
@@ -516,17 +516,19 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
   }), [wants, catalog]));
   const wp = useWantPrices();
   const [tcgplayer, setTcgplayer] = useState(false);
-  const [parts, setParts] = useState<string[] | null>(null);
+  const [parts, setParts] = useState<CartEntry[] | null>(null);
   useEffect(() => {
     if (session) void tcgplayerEnabled().then(setTcgplayer);
   }, [session]);
-  // Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): one part opens in a new tab, several are a menu.
+  // Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): one link opens in a new tab, several are a menu.
   const buy = (items: CartItem[], from: "wants" | "missing") => {
     tcgplayerCart(items).then((a) => {
-      capture("tcgplayer_cart_opened", { from, lines: a.lines, parts: a.urls.length });
-      if (!a.urls.length) setFail("Nothing to buy");
-      else if (a.urls.length === 1) window.open(a.urls[0], "_blank", "noopener");
-      else setParts(a.urls);
+      capture("tcgplayer_cart_opened", { from, lines: a.lines, parts: a.urls.length, products: a.products?.length ?? 0 });
+      const direct = cartDirect(a);
+      const menu = cartMenu(a);
+      if (direct) window.open(direct, "_blank", "noopener");
+      else if (!menu.length) setFail("Nothing to buy");
+      else setParts(menu);
     }, (e) => setFail(errorMessage(e)));
   };
   // contract/want-prices-2026-10-26.md: now, a week back and the price alerts switch. The demo prices from the session.
@@ -643,7 +645,7 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
       {pricing && <WantPrice want={pricing} onClose={() => setPricing(null)} onFail={setFail} />}
       {parts && (
         <Menu title="Buy on TCGplayer" onClose={() => setParts(null)}
-              items={parts.map((u, i) => ({ title: partTitle(i, parts.length), detail: "Adds to the same cart", onClick: () => { window.open(u, "_blank", "noopener"); } }))} />
+              items={parts.map((e) => ({ title: e.title, detail: e.detail, onClick: () => { window.open(e.url, "_blank", "noopener"); } }))} />
       )}
       {repointing && catalog && (
         <WantPrinting catalog={catalog} oi={oracleIndexById(catalog, repointing.oracleId)} replacing={repointing}

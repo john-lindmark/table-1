@@ -475,7 +475,7 @@ function MatchupGrid({ pack }: { pack: ConstructedPack }) {
   return (
     <>
       <Notice tone="info">Row's match win rate against each column. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.</Notice>
-      <Heatmap labels={ids.map((a) => archetypeName(pack, a))} onPick={(r, c) => { setPicked([r, c]); capture("insights_matchup_opened", { format: pack.format }); }}
+      <Heatmap labels={ids.map((a) => archetypeName(pack, a))} picked={picked} onPick={(r, c) => { setPicked([r, c]); capture("insights_matchup_opened", { format: pack.format }); }}
                cell={(r, c) => matchup(pack.matchups, ids[r], ids[c])} />
       {m && picked && (
         <Row title={`${archetypeName(pack, ids[picked[0]])} vs ${archetypeName(pack, ids[picked[1]])}`} value={`${m.wins}-${m.losses}${m.draws ? `-${m.draws}` : ""}`}

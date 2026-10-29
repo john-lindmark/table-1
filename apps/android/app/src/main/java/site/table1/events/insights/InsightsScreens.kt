@@ -467,7 +467,7 @@ private fun MatchupGrid(pack: ConstructedPack) {
     var picked by remember(pack.format) { mutableStateOf<Pair<Int, Int>?>(null) }
     val ids = pack.matchups.archetypes
     Notice("Row's match win rate against each column. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.")
-    InsightHeatmap(ids.map { pack.name(it) }, { r, c -> pack.matchups.cell(ids[r], ids[c])?.let { it.first to it.second } }) { r, c ->
+    InsightHeatmap(ids.map { pack.name(it) }, { r, c -> pack.matchups.cell(ids[r], ids[c])?.let { it.first to it.second } }, picked = picked) { r, c ->
         picked = r to c
         Telemetry.capture("insights_matchup_opened", mapOf("format" to pack.format))
     }

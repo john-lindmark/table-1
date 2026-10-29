@@ -66,4 +66,27 @@ final class TCGplayerCartTests: XCTestCase {
         XCTAssertEqual(TCGplayerCart.partTitle(0, of: 3), "Part 1 of 3")
         XCTAssertEqual(TCGplayerCart.partTitle(2, of: 3), "Part 3 of 3")
     }
+
+    /// testdata/tcgplayer-cart/cases.json: what a tap opens, or the menu.
+    func testMenuCases() throws {
+        struct Case: Decodable {
+            struct Row: Decodable { let title: String; let detail: String; let url: String }
+            let name: String; let urls: [String]; let products: [TCGplayerCart.Product]; let open: String?; let menu: [Row]
+        }
+        struct File: Decodable { let cases: [Case] }
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appending(path: "../../../testdata/tcgplayer-cart/cases.json").standardized
+        for c in try JSONDecoder().decode(File.self, from: Data(contentsOf: url)).cases {
+            let json = #"{"enabled": true, "lines": 0, "unknown": 0, "urls": \#(String(data: try JSONEncoder().encode(c.urls), encoding: .utf8)!), "products": []}"#
+            var a = try JSONDecoder().decode(TCGplayerCart.Answer.self, from: Data(json.utf8))
+            a.products = c.products
+            XCTAssertEqual(TCGplayerCart.direct(a), c.open, c.name)
+            XCTAssertEqual(TCGplayerCart.menu(a), c.menu.map { TCGplayerCart.Entry(title: $0.title, detail: $0.detail, url: $0.url) }, c.name)
+        }
+    }
+
+    func testOldAnswerHasNoProducts() throws {
+        let json = #"{"urls": [], "lines": 0, "enabled": true, "unknown": 0}"#
+        XCTAssertEqual(try JSONDecoder().decode(TCGplayerCart.Answer.self, from: Data(json.utf8)).products.count, 0)
+    }
 }

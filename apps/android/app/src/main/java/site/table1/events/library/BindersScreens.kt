@@ -520,22 +520,24 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
     SearchUsed(query, "wants")
     val context = androidx.compose.ui.platform.LocalContext.current
     var tcgplayer by remember { mutableStateOf(false) }
-    var parts by remember { mutableStateOf<List<String>?>(null) }
+    var parts by remember { mutableStateOf<List<TCGplayerCart.Entry>?>(null) }
     LaunchedEffect(Unit) { tcgplayer = TCGplayerCart.enabled() }
     fun open(url: String) {
         runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
             .onFailure { error = it.message }
     }
-    // Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): one part opens in the browser, several are a menu.
+    // Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): one link opens in the browser, several are a menu.
     fun buy(items: List<TCGplayerCart.Item>, from: String) {
         scope.launch {
             runCatching { TCGplayerCart.links(items) }
                 .onSuccess { a ->
-                    Telemetry.capture("tcgplayer_cart_opened", mapOf("from" to from, "lines" to a.lines, "parts" to a.urls.size))
-                    when (a.urls.size) {
-                        0 -> error = "Nothing to buy"
-                        1 -> open(a.urls[0])
-                        else -> parts = a.urls
+                    Telemetry.capture("tcgplayer_cart_opened", mapOf("from" to from, "lines" to a.lines, "parts" to a.urls.size, "products" to a.products.size))
+                    val direct = TCGplayerCart.direct(a)
+                    val menu = TCGplayerCart.menu(a)
+                    when {
+                        direct != null -> open(direct)
+                        menu.isEmpty() -> error = "Nothing to buy"
+                        else -> parts = menu
                     }
                 }
                 .onFailure { error = it.message }
@@ -668,8 +670,8 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
     }) { o ->
         run(listOf(WantOp(o.oracleId, delta = 1)), "want_added", mapOf("any_printing" to true, "finish" to false, "has_max" to false, "from" to "search"))
     }
-    parts?.let { urls ->
-        T1Menu("Buy on TCGplayer · each adds to the same cart", urls.mapIndexed { i, u -> T1MenuItem(TCGplayerCart.partTitle(i, urls.size)) { open(u) } }) { parts = null }
+    parts?.let { menu ->
+        T1Menu("Buy on TCGplayer", menu.map { e -> T1MenuItem("${e.title} · ${e.detail}") { open(e.url) } }) { parts = null }
     }
     repointing?.let { w -> WantPrintingOverlay(w.oracleId, replacing = w, onClose = { repointing = null }) { error = it } }
 }

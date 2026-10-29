@@ -2,6 +2,7 @@ package site.table1.events.insights
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -203,16 +204,17 @@ fun InsightScatter(points: List<ScatterPoint>, height: Dp = 240.dp, onTap: (Scat
 }
 
 /** Matchup grid: the row archetype's match win rate against each column (named on top, read upwards); under
- *  [minMatches] a cell still shows, dimmed. */
+ *  [minMatches] a cell still shows, dimmed. The [picked] cell is outlined and its row and column names sit on the lighter surface. */
 @Composable
-fun InsightHeatmap(labels: List<String>, cell: (Int, Int) -> Pair<Int, Int>?, minMatches: Int = 30, onTap: (Int, Int) -> Unit = { _, _ -> }) {
+fun InsightHeatmap(labels: List<String>, cell: (Int, Int) -> Pair<Int, Int>?, minMatches: Int = 30, picked: Pair<Int, Int>? = null,
+                   onTap: (Int, Int) -> Unit = { _, _ -> }) {
     Box(Modifier.horizontalScroll(rememberScrollState())) {
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                 Box(Modifier.width(100.dp).height(128.dp).background(T1.surface))
-                labels.forEach { col ->
+                labels.forEachIndexed { c, col ->
                     // laid out across, then turned to read upwards from the bottom of the header
-                    Box(Modifier.width(40.dp).height(128.dp).background(T1.surface).clipToBounds(), contentAlignment = Alignment.Center) {
+                    Box(Modifier.width(40.dp).height(128.dp).background(if (picked?.second == c) T1.surfaceHover else T1.surface).clipToBounds(), contentAlignment = Alignment.Center) {
                         Text(col.uppercase(), Modifier.requiredWidth(120.dp).rotate(-90f), color = T1.text, fontFamily = T1.mono, fontSize = 9.sp,
                             letterSpacing = 0.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
@@ -220,7 +222,7 @@ fun InsightHeatmap(labels: List<String>, cell: (Int, Int) -> Pair<Int, Int>?, mi
             }
             labels.forEachIndexed { r, row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-                    Text(row, Modifier.width(100.dp).height(34.dp).background(T1.surface).padding(horizontal = 6.dp, vertical = 4.dp),
+                    Text(row, Modifier.width(100.dp).height(34.dp).background(if (picked?.first == r) T1.surfaceHover else T1.surface).padding(horizontal = 6.dp, vertical = 4.dp),
                         color = T1.text, fontFamily = T1.mono, fontSize = 10.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     labels.indices.forEach { c ->
                         val v = if (r == c) null else cell(r, c)
@@ -230,7 +232,8 @@ fun InsightHeatmap(labels: List<String>, cell: (Int, Int) -> Pair<Int, Int>?, mi
                             "even" -> T1.surfaceHover
                             else -> (if (h.tone == "up") T1.accent else T1.error).copy(alpha = h.strength.toFloat())
                         }
-                        Box(Modifier.width(40.dp).height(34.dp).background(bg).clickable(enabled = r != c) { onTap(r, c) }, contentAlignment = Alignment.Center) {
+                        val on = picked?.first == r && picked.second == c
+                        Box(Modifier.width(40.dp).height(34.dp).background(bg).then(if (on) Modifier.border(1.dp, T1.text) else Modifier).clickable(enabled = r != c) { onTap(r, c) }, contentAlignment = Alignment.Center) {
                             if (h.label.isNotEmpty()) Text(h.label, color = if (h.ink) T1.ink else if (h.dim) T1.muted else T1.text, fontFamily = T1.mono, fontSize = 10.sp)
                         }
                     }

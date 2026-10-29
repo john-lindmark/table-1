@@ -1,0 +1,61 @@
+{
+  "_about": "Buy on TCGplayer menu (contract/tcgplayer-cart-2026-10-26.md § Printings). Each case is the server's answer (urls, products) and what a tap does: open one link straight away (open), or show the Buy on TCGplayer menu (menu: title, detail, url per row), or neither (nothing to buy).",
+  "cases": [
+    {
+      "name": "nothing to buy",
+      "urls": [],
+      "products": [],
+      "open": null,
+      "menu": []
+    },
+    {
+      "name": "one Mass Entry link opens straight away",
+      "urls": ["https://www.tcgplayer.com/massentry?productline=Magic&c=1%20Opt"],
+      "products": [],
+      "open": "https://www.tcgplayer.com/massentry?productline=Magic&c=1%20Opt",
+      "menu": []
+    },
+    {
+      "name": "parts, as before",
+      "urls": ["https://e/1", "https://e/2"],
+      "products": [],
+      "open": null,
+      "menu": [
+        {"title": "Part 1 of 2", "detail": "Adds to the same cart", "url": "https://e/1"},
+        {"title": "Part 2 of 2", "detail": "Adds to the same cart", "url": "https://e/2"}
+      ]
+    },
+    {
+      "name": "one product page opens straight away",
+      "urls": [],
+      "products": [{"card_id": "c1", "name": "Mox Ruby", "set": "LEB", "number": "265", "qty": 1, "url": "https://www.tcgplayer.com/product/1171"}],
+      "open": "https://www.tcgplayer.com/product/1171",
+      "menu": []
+    },
+    {
+      "name": "Mass Entry and product pages",
+      "urls": ["https://e/1"],
+      "products": [
+        {"card_id": "c1", "name": "Mox Ruby", "set": "LEB", "number": "265", "qty": 1, "url": "https://p/1171"},
+        {"card_id": "c2", "name": "Sire of Seven Deaths", "set": "FDN", "number": "292", "qty": 2, "url": "https://p/9"}
+      ],
+      "open": null,
+      "menu": [
+        {"title": "Any printing", "detail": "Into one cart, then Optimize", "url": "https://e/1"},
+        {"title": "Mox Ruby", "detail": "LEB 265 · 1 copy · its own page", "url": "https://p/1171"},
+        {"title": "Sire of Seven Deaths", "detail": "FDN 292 · 2 copies · its own page", "url": "https://p/9"}
+      ]
+    },
+    {
+      "name": "Mass Entry parts and a product page",
+      "urls": ["https://e/1", "https://e/2"],
+      "products": [{"card_id": "c1", "name": "Thoughtseize", "set": "SLD", "number": "2705", "qty": 4, "url": "https://p/5"}],
+      "open": null,
+      "menu": [
+        {"title": "Any printing · part 1 of 2", "detail": "Adds to the same cart", "url": "https://e/1"},
+        {"title": "Any printing · part 2 of 2", "detail": "Adds to the same cart", "url": "https://e/2"},
+        {"title": "Thoughtseize", "detail": "SLD 2705 · 4 copies · its own page", "url": "https://p/5"}
+      ]
+    }
+  ]
+}

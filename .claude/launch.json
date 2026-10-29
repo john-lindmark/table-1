@@ -285,6 +285,21 @@
         "--strictPort"
       ],
       "port": 5267
+    },
+    {
+      "name": "web-identity",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "table-1-events-web",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5289",
+        "--strictPort"
+      ],
+      "port": 5289
     }
   ]
 }

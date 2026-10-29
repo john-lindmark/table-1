@@ -106,17 +106,46 @@ object WantPricesStore {
     }
 }
 
-/* Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): wants or Missing as TCGplayer Mass Entry links. The
-   server writes the links (names, printings, parts, affiliate wrapper); the app opens them. */
+/* Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): wants or Missing as TCGplayer Mass Entry links, and a
+   want for a printing as a link to its product page (§ Printings). The server writes the links (names, parts,
+   affiliate wrapper); the app opens them. */
 @Serializable
-data class TCGplayerCartAnswer(val enabled: Boolean, val lines: Int = 0, val unknown: Int = 0, val urls: List<String> = emptyList())
+data class TCGplayerCartProduct(val name: String, val set: String, val number: String, val qty: Int, val url: String)
+
+@Serializable
+data class TCGplayerCartAnswer(
+    val enabled: Boolean, val lines: Int = 0, val unknown: Int = 0, val urls: List<String> = emptyList(),
+    val products: List<TCGplayerCartProduct> = emptyList(),
+)
 
 object TCGplayerCart {
     /** One card: a printing ([cardId]) or any printing ([oracleId] alone). */
     data class Item(val oracleId: String? = null, val cardId: String? = null, val qty: Int)
 
+    data class Entry(val title: String, val detail: String, val url: String)
+
     /** Parts as menu labels: "Part 1 of 3". */
     fun partTitle(i: Int, n: Int) = "Part ${i + 1} of $n"
+
+    /** What a tap opens straight away: the only link there is (testdata/tcgplayer-cart/cases.json). */
+    fun direct(a: TCGplayerCartAnswer): String? =
+        if (a.urls.size + a.products.size == 1) a.urls.firstOrNull() ?: a.products.first().url else null
+
+    /** The Buy on TCGplayer menu when there's more than one link: Mass Entry first, then each product page. */
+    fun menu(a: TCGplayerCartAnswer): List<Entry> {
+        if (direct(a) != null) return emptyList()
+        val n = a.urls.size
+        val parts = a.urls.mapIndexed { i, u ->
+            when {
+                a.products.isEmpty() -> Entry(partTitle(i, n), "Adds to the same cart", u)
+                n == 1 -> Entry("Any printing", "Into one cart, then Optimize", u)
+                else -> Entry("Any printing · part ${i + 1} of $n", "Adds to the same cart", u)
+            }
+        }
+        return parts + a.products.map {
+            Entry(it.name, "${it.set} ${it.number} · ${it.qty} ${if (it.qty == 1) "copy" else "copies"} · its own page", it.url)
+        }
+    }
 
     suspend fun links(items: List<Item>): TCGplayerCartAnswer =
         T1App.supabase.postgrest.rpc("tcgplayer_cart", buildJsonObject {
@@ -127,6 +156,7 @@ object TCGplayerCart {
                     put("qty", i.qty)
                 })
             })
+            put("p_products", true)
         }).decodeAs()
 
     /** Whether the Buy on TCGplayer rows show: the server's switch (an empty cart answers it). */

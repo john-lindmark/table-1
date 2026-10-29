@@ -665,7 +665,7 @@ struct MatchupGrid: View {
         Notice("Row's match win rate against each column. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.")
         InsightHeatmap(labels: ids.map { pack.name($0) }, cell: { r, c in
             pack.matchups.cell(ids[r], ids[c]).map { ($0.wins, $0.losses) }
-        }, onTap: { r, c in
+        }, picked: picked.map { (row: $0.0, col: $0.1) }, onTap: { r, c in
             picked = (r, c)
             Telemetry.capture("insights_matchup_opened", ["format": pack.format])
         })

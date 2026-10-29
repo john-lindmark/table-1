@@ -68,4 +68,19 @@ class TCGplayerCartTest {
         assertEquals("Part 1 of 3", TCGplayerCart.partTitle(0, 3))
         assertEquals("Part 3 of 3", TCGplayerCart.partTitle(2, 3))
     }
+
+    /** testdata/tcgplayer-cart/cases.json (iOS TCGplayerCartTests, web wantPrices.test.ts): what a tap opens, or the menu. */
+    @Test fun menuCases() {
+        val json = Json { ignoreUnknownKeys = true }
+        val cases = Json.parseToJsonElement(
+            File(generateSequence(File("").absoluteFile) { it.parentFile }.map { File(it, "testdata/tcgplayer-cart") }.first { it.isDirectory }, "cases.json").readText(),
+        ).jsonObject["cases"]!!.jsonArray
+        for (c in cases) {
+            val o = c.jsonObject
+            val name = o["name"]!!.jsonPrimitive.content
+            val a = json.decodeFromJsonElement(TCGplayerCartAnswer.serializer(), JsonObject(o + ("enabled" to JsonPrimitive(true))))
+            assertEquals(name, o["open"]?.jsonPrimitive?.contentOrNull, TCGplayerCart.direct(a))
+            assertEquals(name, o["menu"]!!.jsonArray.map { m -> m.jsonObject.let { TCGplayerCart.Entry(it["title"]!!.jsonPrimitive.content, it["detail"]!!.jsonPrimitive.content, it["url"]!!.jsonPrimitive.content) } }, TCGplayerCart.menu(a))
+        }
+    }
 }

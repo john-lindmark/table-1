@@ -643,17 +643,17 @@ struct WantsView: View {
         .task { tcgplayer = await TCGplayerCart.enabled() }
     }
 
-    /// Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): one part opens in the browser, several are a menu.
+    /// Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): one link opens in the browser, several are a menu.
     private func buy(_ items: [TCGplayerCart.Item], from: String) {
         Task {
             do {
                 let a = try await TCGplayerCart.links(items)
-                let urls = a.urls.compactMap(URL.init(string:))
-                Telemetry.capture("tcgplayer_cart_opened", ["from": from, "lines": a.lines, "parts": urls.count])
-                if urls.isEmpty { store.error = "Nothing to buy"; return }
-                if urls.count == 1 { openURL(urls[0]); return }
-                T1Overlays.shared.showMenu("Buy on TCGplayer", urls.enumerated().map { i, u in
-                    T1MenuItem(title: TCGplayerCart.partTitle(i, of: urls.count), detail: "Adds to the same cart") { openURL(u) }
+                Telemetry.capture("tcgplayer_cart_opened", ["from": from, "lines": a.lines, "parts": a.urls.count, "products": a.products.count])
+                if let u = TCGplayerCart.direct(a).flatMap(URL.init(string:)) { openURL(u); return }
+                let menu = TCGplayerCart.menu(a)
+                if menu.isEmpty { store.error = "Nothing to buy"; return }
+                T1Overlays.shared.showMenu("Buy on TCGplayer", menu.compactMap { e in
+                    URL(string: e.url).map { u in T1MenuItem(title: e.title, detail: e.detail) { openURL(u) } }
                 })
             } catch {
                 store.error = error.localizedDescription

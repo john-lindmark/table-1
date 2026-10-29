@@ -131,23 +131,66 @@ final class WantPricesStore {
     #endif
 }
 
-/* Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): wants or Missing as TCGplayer Mass Entry links. The
-   server writes the links (names, printings, parts, affiliate wrapper); the app opens them. */
+/* Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): wants or Missing as TCGplayer Mass Entry links, and a
+   want for a printing as a link to its product page (§ Printings). The server writes the links (names, parts,
+   affiliate wrapper); the app opens them. */
 enum TCGplayerCart {
     struct Item: Sendable {
         var oracleId: String?
         var cardId: String?
         var qty: Int
     }
+    struct Product: Decodable, Sendable {
+        let name: String
+        let set: String
+        let number: String
+        let qty: Int
+        let url: String
+    }
     struct Answer: Decodable, Sendable {
         let enabled: Bool
         let lines: Int
         let unknown: Int
         let urls: [String]
+        var products: [Product] = []
+
+        enum CodingKeys: String, CodingKey { case enabled, lines, unknown, urls, products }
+        init(from d: Decoder) throws {
+            let c = try d.container(keyedBy: CodingKeys.self)
+            enabled = try c.decode(Bool.self, forKey: .enabled)
+            lines = try c.decode(Int.self, forKey: .lines)
+            unknown = try c.decode(Int.self, forKey: .unknown)
+            urls = try c.decode([String].self, forKey: .urls)
+            products = try c.decodeIfPresent([Product].self, forKey: .products) ?? []
+        }
+    }
+    struct Entry: Equatable {
+        let title: String
+        let detail: String
+        let url: String
     }
 
     /// Parts as Table 1 menu labels: "Part 1 of 3".
     static func partTitle(_ i: Int, of n: Int) -> String { "Part \(i + 1) of \(n)" }
+
+    /// What a tap opens straight away: the only link there is (testdata/tcgplayer-cart/cases.json).
+    static func direct(_ a: Answer) -> String? {
+        a.urls.count + a.products.count == 1 ? (a.urls.first ?? a.products.first?.url) : nil
+    }
+
+    /// The Buy on TCGplayer menu when there's more than one link: Mass Entry first, then each product page.
+    static func menu(_ a: Answer) -> [Entry] {
+        if direct(a) != nil { return [] }
+        let n = a.urls.count
+        let parts = a.urls.enumerated().map { i, u in
+            a.products.isEmpty ? Entry(title: partTitle(i, of: n), detail: "Adds to the same cart", url: u)
+                : n == 1 ? Entry(title: "Any printing", detail: "Into one cart, then Optimize", url: u)
+                : Entry(title: "Any printing · part \(i + 1) of \(n)", detail: "Adds to the same cart", url: u)
+        }
+        return parts + a.products.map {
+            Entry(title: $0.name, detail: "\($0.set) \($0.number) · \($0.qty) \($0.qty == 1 ? "copy" : "copies") · its own page", url: $0.url)
+        }
+    }
 
     @MainActor
     static func links(_ items: [Item]) async throws -> Answer {
@@ -158,7 +201,7 @@ enum TCGplayerCart {
             .object(["oracle_id": i.oracleId.map { .string($0) } ?? .null, "card_id": i.cardId.map { .string($0) } ?? .null,
                      "qty": .integer(i.qty)])
         }
-        return try await supabase.rpc("tcgplayer_cart", params: ["p_items": AnyJSON.array(p)]).execute().value
+        return try await supabase.rpc("tcgplayer_cart", params: ["p_items": AnyJSON.array(p), "p_products": .bool(true)]).execute().value
     }
 
     /// Whether the rows show: the server's switch (an empty cart answers it).

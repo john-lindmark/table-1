@@ -45,6 +45,9 @@ export interface SlimCard {
   token_card_ids: string[];
   /** Who it can share the command zone with; see pairCode. */
   pair_code: string;
+  /** TCGplayer product ids (contract/tcgplayer-cart-2026-10-26.md § Printings); etched when TCGplayer lists it apart. */
+  tcgplayer_id: number | null;
+  tcgplayer_etched_id: number | null;
 }
 
 const KEEP_LEGALITY = new Set(["legal", "restricted", "banned"]);
@@ -97,6 +100,8 @@ export function slimCard(c: Json): SlimCard | null {
     produced_mana: producedMana(c),
     token_card_ids: tokenCardIds(c),
     pair_code: pairCode(c),
+    tcgplayer_id: typeof c.tcgplayer_id === "number" ? c.tcgplayer_id : null,
+    tcgplayer_etched_id: typeof c.tcgplayer_etched_id === "number" ? c.tcgplayer_etched_id : null,
   };
 }
 

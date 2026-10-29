@@ -63,3 +63,10 @@ test("pair codes name who a card shares the command zone with", () => {
     { oracle_text: "Vigilance" }, { oracle_text: "Partner" }] })), "P");
   assert.equal(slimCard(card({ oracle_text: "Partner", keywords: ["Partner"] }))?.pair_code, "P");
 });
+
+test("slimCard keeps TCGplayer product ids", () => {
+  const s = slimCard(card({ tcgplayer_id: 557093, tcgplayer_etched_id: 557094 }));
+  assert.equal(s?.tcgplayer_id, 557093);
+  assert.equal(s?.tcgplayer_etched_id, 557094);
+  assert.equal(slimCard(card({}))?.tcgplayer_id, null);
+});

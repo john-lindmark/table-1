@@ -23,24 +23,43 @@ Cart Optimizer there. Server: migration `20261026070000_tcgplayer_cart.sql`; tes
   `{url}` is the Mass Entry address as is, `{url_encoded}` encoded for a redirect's parameter (the exact shape comes
   with the affiliate program's link; check one in a browser before setting it).
 - **Off switch:** `tcgplayer.enabled` = `false` hides the rows everywhere at the next load (the RPC answers
-  `enabled: false`). Also `tcgplayer.massentry` (the address) and `tcgplayer.max_url` (6000).
+  `enabled: false`). Also `tcgplayer.massentry` (the address), `tcgplayer.product` (the product page address the id follows, default `https://www.tcgplayer.com/product/`) and `tcgplayer.max_url` (6000).
 
 ## The Mass Entry address (checked in a browser 2026-10-26)
 
 `https://www.tcgplayer.com/massentry?productline=Magic&c=<line>||<line>||…`, each line URL-encoded
 (encodeURIComponent; `||` between lines stays as is). It opens Mass Entry with Magic picked and the list filled
-in; checked with commas, apostrophes, `//`, `[SET] number` and `Æ`. Lines: `<qty> <name>` (any printing) or
-`<qty> <name> [<SET>] <number>` (a printing). Names follow TCGplayer's product names, checked in its search:
+in; checked with commas, apostrophes, `//`, `[SET] number` and `Æ`. Lines: `<qty> <name>` (§ Printings says where a
+printing goes). Names follow TCGplayer's product names, checked in its search:
 split cards whole ("Fire // Ice"), every other card with two names by its first ("Delver of Secrets",
 "Bonecrusher Giant"). Printing (Normal/Foil) and condition are options for the whole list on TCGplayer, not per
-line, so foil wants come in as whatever's picked there. Not checked: that every line matches a product once Add
-to Cart is pressed (set codes are Scryfall's, upper case, which are TCGplayer's for most sets).
+line, so foil wants come in as whatever's picked there.
+
+## Printings (2026-10-28)
+
+Add to Cart failed for John's wants with "Something went wrong": Mass Entry adds nothing when any one line fails
+(`mpgateway…/cart/massentry/addtocartandretrieve` answers `success: false`), and `<name> [SET] <number>` lines failed
+often. Checked one line at a time against that call on 2026-10-28:
+
+- TCGplayer names many printings with a suffix: "Sire of Seven Deaths (Borderless) [FDN] 292" adds that printing,
+  "Sire of Seven Deaths [FDN] 292" matches nothing. Our catalog has no TCGplayer product names.
+- Presales have no listings at all (Thoughtseize SLD 2705), so no line for them can succeed.
+- Copies listed with seller photos can't be added by Mass Entry: every NM Beta Mox Ruby that day was one, so
+  "Mox Ruby [LEB]" found only a Damaged copy, and nothing at all in NM–MP.
+- Plain names always matched, but then TCGplayer picks the printing (a Beta Mox want came in as 30th Anniversary).
+
+So (John's pick): **Mass Entry gets card names only, and a want for a printing becomes a link to that printing's
+TCGplayer product page**, where every listing shows, photo ones too. Product ids are Scryfall's `tcgplayer_id`
+(`tcgplayer_etched_id` when that's all there is), kept per printing in `t1_private.card_tcgplayer` by `cards-sync`
+v11 (migration `20261028200000_tcgplayer_products.sql`). A printing with no TCGplayer product (yet) goes into Mass
+Entry by name. Apps from before (no `p_products`) get Mass Entry by name for everything, so their carts fill too.
+A name TCGplayer doesn't list would still fail the whole Mass Entry cart.
 
 ## RPC (authenticated; anon is refused)
 
 | Call | Does |
 |---|---|
-| `tcgplayer_cart(p_items)` | `p_items`: `[{oracle_id?, card_id?, qty}]`, up to 2000, qty 1–999 (22023 otherwise). A `card_id` is that printing; an `oracle_id` alone is any printing. Returns `{enabled, lines, unknown, urls}`: the same line twice is summed, lines go A–Z, cards the catalog doesn't know are counted in `unknown` and left out, and a long list is split into parts no longer than `max_url` (each part adds to the same TCGplayer cart). `enabled: false` → no urls. Signed out: 28000. |
+| `tcgplayer_cart(p_items, p_products default false)` | `p_items`: `[{oracle_id?, card_id?, qty}]`, up to 2000, qty 1–999 (22023 otherwise). A `card_id` is that printing; an `oracle_id` alone is any printing. Returns `{enabled, lines, unknown, urls, products}`. `urls`: Mass Entry, `<qty> <name>` lines, the same card twice summed. With `p_products` (apps from 2026-10-28) a printing with a TCGplayer product is left out of Mass Entry and comes in `products` instead: `[{card_id, name, set, number, qty, url}]` by name, then set and number, `url` its product page (`tcgplayer.product` + id, wrapped by `tcgplayer.link` like the urls), the same printing twice summed; without it `products` is empty and every printing goes into Mass Entry by name (§ Printings). `lines` counts Mass Entry lines; lines go A–Z, cards the catalog doesn't know are counted in `unknown` and left out, and a long list is split into parts no longer than `max_url` (each part adds to the same TCGplayer cart). `enabled: false` → no urls. Signed out: 28000. |
 
 ## Clients
 
@@ -48,8 +67,14 @@ to Cart is pressed (set codes are Scryfall's, upper case, which are TCGplayer's 
   "N cards into a cart, then Optimize" (N = wanted copies). Sends every want (qty; its printing when it has one).
 - **Missing from decks and cubes:** a **Buy missing on TCGplayer** row at the top of the section, when anything is
   missing, detail "N cards into a cart, then Optimize": sends each Missing line's printing and copies short (basic lands are never missing).
-- **Tap:** one part opens straight away in the browser (iOS and Android: the system browser, so the TCGplayer
-  sign-in and cart are the user's own; web: a new tab). Several parts open a Table 1 menu "Part 1 of 3", "Part 2 of 3" … with detail "Adds to the same cart" (the menu closes after a pick; tap Buy again for the next part), all into the same cart. Cards the server doesn't know (`unknown`, only cards newer than
+- **Tap:** when the answer holds one link (one Mass Entry part, or one product page) it opens straight away in the
+  browser (iOS and Android: the system browser, so the TCGplayer sign-in and cart are the user's own; web: a new
+  tab). More links open a Table 1 menu "Buy on TCGplayer" (the menu closes after a pick; tap Buy again for the next):
+  Mass Entry parts first, "Part 1 of 3" … "Adds to the same cart" when there are no product pages, else "Any
+  printing" "Into one cart, then Optimize" (or "Any printing · part 1 of 2" "Adds to the same cart"), then one row
+  per product page: the card's name, "LEB 265 · 1 copy · its own page". Android's menu rows have no detail line, so
+  they read "title · detail". Cases `testdata/tcgplayer-cart/cases.json` (`TCGplayerCartTests`, `wantPrices.test.ts`,
+  `TCGplayerCartTest`). Cards the server doesn't know (`unknown`, only cards newer than
   the server's catalog) are left out. No urls: "Nothing to buy". Errors show as the screen's error.
-- **Telemetry:** `tcgplayer_cart_opened` (`from`: wants / missing, `lines`, `parts`). No card names.
+- **Telemetry:** `tcgplayer_cart_opened` (`from`: wants / missing, `lines`, `parts`, `products`). No card names.
 - **Demo:** the rows show; a tap says "Sign in to build a TCGplayer cart" (the demo has no account).

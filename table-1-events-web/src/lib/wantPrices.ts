@@ -136,15 +136,38 @@ export function useWantPrices(): { version: number; alerts: boolean | null; erro
 /* ── Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md) ─────────── */
 
 export interface CartItem { oracle_id?: string | null; card_id?: string | null; qty: number }
-export interface CartAnswer { enabled: boolean; lines: number; unknown: number; urls: string[] }
+/** A want for a printing, as a link to its TCGplayer product page (§ Printings). */
+export interface CartProduct { card_id?: string; name: string; set: string; number: string; qty: number; url: string }
+export interface CartAnswer { enabled: boolean; lines: number; unknown: number; urls: string[]; products?: CartProduct[] }
+export interface CartEntry { title: string; detail: string; url: string }
 
 /** Parts as menu labels: "Part 1 of 3". */
 export const partTitle = (i: number, n: number) => `Part ${i + 1} of ${n}`;
 
-/** The server writes the links (names, printings, parts, affiliate wrapper). The demo has no account. */
+/** What a tap opens straight away: the only link there is (testdata/tcgplayer-cart/cases.json). */
+export function cartDirect(a: Pick<CartAnswer, "urls" | "products">): string | null {
+  const products = a.products ?? [];
+  return a.urls.length + products.length === 1 ? (a.urls[0] ?? products[0].url) : null;
+}
+
+/** The Buy on TCGplayer menu when there's more than one link: Mass Entry first, then each product page. */
+export function cartMenu(a: Pick<CartAnswer, "urls" | "products">): CartEntry[] {
+  if (cartDirect(a)) return [];
+  const products = a.products ?? [];
+  const n = a.urls.length;
+  const parts = a.urls.map((url, i) =>
+    !products.length ? { title: partTitle(i, n), detail: "Adds to the same cart", url }
+      : n === 1 ? { title: "Any printing", detail: "Into one cart, then Optimize", url }
+      : { title: `Any printing · part ${i + 1} of ${n}`, detail: "Adds to the same cart", url });
+  return [...parts, ...products.map((p) => ({
+    title: p.name, detail: `${p.set} ${p.number} · ${p.qty} ${p.qty === 1 ? "copy" : "copies"} · its own page`, url: p.url,
+  }))];
+}
+
+/** The server writes the links (names, parts, product pages, affiliate wrapper). The demo has no account. */
 export async function tcgplayerCart(items: CartItem[]): Promise<CartAnswer> {
   if (isLibraryDemo()) throw new Error("Sign in to build a TCGplayer cart");
-  const { data, error: e } = await supabase.rpc("tcgplayer_cart", { p_items: items });
+  const { data, error: e } = await supabase.rpc("tcgplayer_cart", { p_items: items, p_products: true });
   if (e) throw new Error(e.message);
   return data as CartAnswer;
 }
