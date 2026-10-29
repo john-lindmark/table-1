@@ -7,7 +7,7 @@ import { clearPending, loadPending, pendingAfterSend, savePending, sendOutcomeOf
 type Step = "providers" | "email" | "code";
 
 /**
- * Apple, Google or email. OAuth comes straight back to the page that asked; email is two steps
+ * Apple, Google, Discord or email. OAuth comes straight back to the page that asked; email is two steps
  * (address, then the code), and the email's link signs in here or opens the app.
  */
 export function SignInButtons({ returnTo }: { returnTo?: string }) {
@@ -189,6 +189,14 @@ export function SignInButtons({ returnTo }: { returnTo?: string }) {
         className="w-full bg-t1-accent text-t1-ink px-4 py-5 text-[13px] uppercase tracking-[3px] font-bold disabled:bg-t1-disabled disabled:text-t1-ink"
       >
         {busy === "google" ? "Opening Google…" : "Continue with Google"}
+      </button>
+      <button
+        type="button"
+        onClick={() => go("discord")}
+        disabled={busy !== null}
+        className="w-full bg-t1-surface hover:bg-t1-surface-hover text-t1-text px-4 py-5 text-[13px] uppercase tracking-[3px] font-bold disabled:bg-t1-disabled disabled:text-t1-ink"
+      >
+        {busy === "discord" ? "Opening Discord…" : "Continue with Discord"}
       </button>
       <button
         type="button"

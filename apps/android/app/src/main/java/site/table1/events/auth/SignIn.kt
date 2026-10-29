@@ -13,6 +13,7 @@ import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.SignOutScope
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Apple
+import io.github.jan.supabase.auth.providers.Discord
 import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.IDToken
 import io.github.jan.supabase.auth.providers.builtin.Email
@@ -24,6 +25,7 @@ import kotlinx.serialization.json.put
 import site.table1.events.BuildConfig
 import site.table1.events.T1App
 import site.table1.events.data.Repo
+import site.table1.events.util.Telemetry
 import java.security.MessageDigest
 import java.util.UUID
 
@@ -58,7 +60,23 @@ object SignIn {
 
     /** Apple on Android: Supabase OAuth in a Custom Tab, back via table1://auth-callback. */
     suspend fun apple() {
+        pendingOAuth = "apple"
         T1App.supabase.auth.signInWith(Apple)
+    }
+
+    /** Discord: no ID-token sign-in, so Supabase OAuth in a Custom Tab like Apple (contract/discord-sign-in-2026-10-29.md). */
+    suspend fun discord() {
+        pendingOAuth = "discord"
+        T1App.supabase.auth.signInWith(Discord)
+    }
+
+    /** The provider a Custom Tab sign-in left for, counted as signed_in when table1://auth-callback brings a session. */
+    private var pendingOAuth: String? = null
+
+    fun oauthReturned() {
+        val method = pendingOAuth ?: return
+        pendingOAuth = null
+        Telemetry.capture("signed_in", mapOf("method" to method))
     }
 
     /** Email: one message with a link and the same one-time code. New addresses get an account. */
@@ -99,12 +117,17 @@ object SignIn {
         }
     }
 
-    /** Email accounts start without a name; one is required before the app opens. Apple and Google bring theirs. */
+    /** Email and Discord accounts start without a real name (Discord brings a username); one is required before the
+     *  app opens. Apple and Google bring theirs. */
     fun needsName(user: UserInfo?): Boolean {
-        val ids = user?.identities.orEmpty()
-        if (user == null || ids.isEmpty() || !ids.all { it.provider == "email" }) return false
+        user ?: return false
         val first = (user.userMetadata?.get("first_name") as? JsonPrimitive)?.contentOrNull
-        return first.isNullOrBlank()
+        return needsName(user.identities.orEmpty().map { it.provider }, first)
+    }
+
+    fun needsName(providers: List<String>, firstName: String?): Boolean {
+        if (providers.isEmpty() || !providers.all { it == "email" || it == "discord" }) return false
+        return firstName.isNullOrBlank()
     }
 
     /** First and last name: kept on the account and shown in events as "First Last". */

@@ -218,7 +218,7 @@ function reset() {
 }
 
 /** Call just before the OAuth redirect leaves the page. */
-export function signInStarted(method: "apple" | "google" | "email") {
+export function signInStarted(method: "apple" | "google" | "discord" | "email") {
   write(PENDING_SIGN_IN_KEY, JSON.stringify({ method, at: Date.now() }), true);
 }
 

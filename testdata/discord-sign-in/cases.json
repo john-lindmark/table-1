@@ -1,0 +1,15 @@
+{
+  "about": "Sign in with Discord (contract/discord-sign-in-2026-10-29.md). 'needsName' is whether an account takes the name step before the app opens: every identity is email or discord (Discord brings a username, not a real name) and first_name is blank after trimming. No identities: no step. iOS DiscordSignInTests, web discordSignIn.test.ts and Android DiscordSignInTest read this.",
+  "needsName": [
+    { "name": "email, no name", "providers": ["email"], "first_name": null, "needs": true },
+    { "name": "email, named", "providers": ["email"], "first_name": "Mara", "needs": false },
+    { "name": "discord, no name", "providers": ["discord"], "first_name": null, "needs": true },
+    { "name": "discord, blank name", "providers": ["discord"], "first_name": "  ", "needs": true },
+    { "name": "discord, named", "providers": ["discord"], "first_name": "Mara", "needs": false },
+    { "name": "discord and email", "providers": ["discord", "email"], "first_name": "", "needs": true },
+    { "name": "apple", "providers": ["apple"], "first_name": null, "needs": false },
+    { "name": "google", "providers": ["google"], "first_name": null, "needs": false },
+    { "name": "discord added to a google account", "providers": ["google", "discord"], "first_name": null, "needs": false },
+    { "name": "no identities", "providers": [], "first_name": null, "needs": false }
+  ]
+}

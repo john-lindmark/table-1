@@ -159,6 +159,16 @@ fun SignInScreen(join: JoinLink? = null) {
                         run("google") { SignIn.google(context) }
                     }
                 }
+                // A surface button like email's: the accent stays Google's (contract/discord-sign-in-2026-10-29.md).
+                Box(
+                    Modifier.fillMaxWidth().background(if (busy == null) T1.surface else T1.disabled)
+                        .clickable(enabled = busy == null) { run("discord") { SignIn.discord() } }
+                        .padding(vertical = 26.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(if (busy == "discord") "OPENING DISCORD…" else "CONTINUE WITH DISCORD", color = T1.text,
+                        fontFamily = T1.mono, fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = 5.sp)
+                }
                 Box(
                     Modifier.fillMaxWidth().background(T1.surface).clickable(enabled = busy == null) { go(Step.Email) }
                         .navigationBarsPadding().padding(vertical = 26.dp),

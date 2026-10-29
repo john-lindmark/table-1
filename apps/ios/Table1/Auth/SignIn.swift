@@ -71,6 +71,18 @@ enum SignIn {
         Telemetry.capture("signed_in", ["method": "google"])
     }
 
+    // MARK: Discord
+
+    /// Discord has no ID-token sign-in, so it's Supabase's OAuth in a web sheet that comes back to
+    /// table1://auth-callback (contract/discord-sign-in-2026-10-29.md).
+    @MainActor
+    static func discord() async throws {
+        try await supabase.auth.signInWithOAuth(provider: .discord, redirectTo: discordReturn)
+        Telemetry.capture("signed_in", ["method": "discord"])
+    }
+
+    static let discordReturn = URL(string: "table1://auth-callback")!
+
     // MARK: Email
 
     /// Sends the sign-in email (a link and the same code). New addresses get an account.
@@ -103,12 +115,18 @@ enum SignIn {
         return true
     }
 
-    /// Email accounts start without a name, so one is required before the app opens.
-    /// Apple and Google bring theirs; any account that has a first name saved is done.
+    /// Email accounts start without a name, so one is required before the app opens. Discord brings a username,
+    /// not a real name, so it counts as no name too. Apple and Google bring theirs; any account that has a first
+    /// name saved is done.
     static func needsName(_ user: User?) -> Bool {
-        guard let user, let identities = user.identities, !identities.isEmpty,
-              identities.allSatisfy({ $0.provider == "email" }) else { return false }
-        return (user.userMetadata["first_name"]?.stringValue ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+        guard let user else { return false }
+        return needsName(providers: user.identities?.map(\.provider) ?? [],
+                         firstName: user.userMetadata["first_name"]?.stringValue)
+    }
+
+    static func needsName(providers: [String], firstName: String?) -> Bool {
+        guard !providers.isEmpty, providers.allSatisfy({ $0 == "email" || $0 == "discord" }) else { return false }
+        return (firstName ?? "").trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     /// First and last name: kept on the account and shown in events as "First Last".
@@ -208,6 +226,19 @@ enum SignIn {
                 switch apple.code {
                 case .canceled: self = .cancelled
                 case .unknown, .notInteractive: self = .appleUnavailable
+                default: self = .failed
+                }
+                return
+            }
+            // Discord's web sheet closed, or Cancel on Discord's own screen (access_denied in the return).
+            if let web = error as? ASWebAuthenticationSessionError {
+                self = web.code == .canceledLogin ? .cancelled : .failed
+                return
+            }
+            if let auth = error as? AuthError {
+                switch auth {
+                case .pkceGrantCodeExchange(_, "access_denied", _): self = .cancelled
+                case .implicitGrantRedirect(let message) where message.contains("access_denied"): self = .cancelled
                 default: self = .failed
                 }
                 return

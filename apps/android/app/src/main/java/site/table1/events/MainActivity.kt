@@ -64,8 +64,8 @@ class MainActivity : ComponentActivity() {
 
     private fun handle(intent: Intent?) {
         intent ?: return
-        // Sign in with Apple comes back as table1://auth-callback#...; supabase-kt finishes the session.
-        T1App.supabase.handleDeeplinks(intent)
+        // Sign in with Apple or Discord comes back as table1://auth-callback#...; supabase-kt finishes the session.
+        T1App.supabase.handleDeeplinks(intent) { SignIn.oauthReturned() }
         // table-1.site links (contract/universal-links-2026-10-22.md): the screen the web address shows, once signed in.
         val link = WebLink.parse(intent.dataString) ?: return
         Telemetry.capture("link_opened", mapOf("to" to link.kind))

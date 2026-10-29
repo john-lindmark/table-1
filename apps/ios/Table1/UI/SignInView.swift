@@ -7,6 +7,8 @@ struct SignInView: View {
     @Environment(SessionModel.self) private var session
     @State private var error: String?
     @State private var busy = false
+    /// Discord's web sheet is open.
+    @State private var discordBusy = false
     @State private var step: Step = .providers
     @State private var email = ""
     @State private var code = ""
@@ -67,6 +69,14 @@ struct SignInView: View {
                 }
             }
         }
+        Button { discord() } label: {
+            Text(discordBusy ? "OPENING DISCORD…" : "CONTINUE WITH DISCORD")
+                .font(T1.mono(16, .bold)).tracking(5)
+                .frame(maxWidth: .infinity).frame(height: 64)
+                .background(T1.surface)
+        }
+        .buttonStyle(.plain)
+        .disabled(busy || discordBusy)
         Button { go(.email) } label: {
             Text("CONTINUE WITH EMAIL")
                 .font(T1.mono(16, .bold)).tracking(5)
@@ -121,7 +131,17 @@ struct SignInView: View {
         focused = next != .providers
     }
 
-    /// Apple or Google ended without signing in: say so unless it was a cancel; report only real failures.
+    private func discord() {
+        guard !discordBusy else { return }
+        error = nil
+        discordBusy = true
+        Task {
+            defer { discordBusy = false }
+            do { try await SignIn.discord() } catch { failed(error, method: "discord") }
+        }
+    }
+
+    /// Apple, Google or Discord ended without signing in: say so unless it was a cancel; report only real failures.
     private func failed(_ error: Error, method: String) {
         let failure = SignIn.Failure(error)
         Telemetry.capture("sign_in_failed", ["method": method, "reason": failure.reason])

@@ -27,6 +27,7 @@
 		1C9E91CE73E8640C92729A23 /* CubeFieldsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CF2A00D5FD0FCF89937DEA6 /* CubeFieldsTests.swift */; };
 		1CF6D35721DE9D5E8CDE8B55 /* Table1Widgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 8FE76B9CA0F768B9F8954BD9 /* Table1Widgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1DB29EDAD128740207CF2B4C /* ChangePrinting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BAA27E3D98FA9DA777E5BE6 /* ChangePrinting.swift */; };
+		1E834ADD743006D3762A77F6 /* DiscordSignInTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA62ADA52B58392618A6A222 /* DiscordSignInTests.swift */; };
 		1F66EB68FE24E7ACF235E4AB /* SVGView in Frameworks */ = {isa = PBXBuildFile; productRef = B29FE675356369E91F94A200 /* SVGView */; };
 		2141E61DBE7770279BA6EC44 /* ListToCollection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54D68768602F823BEDB4405D /* ListToCollection.swift */; };
 		21A24A59133F57CD0FF6B17D /* CardQuery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7458D31D7677A2D5A263837C /* CardQuery.swift */; };
@@ -428,6 +429,7 @@
 		ED753FFB443A9E07ADDF24C9 /* OrganizerModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrganizerModels.swift; sourceTree = "<group>"; };
 		EDF5B5BF738823A00AF4BE22 /* InsightChartViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightChartViews.swift; sourceTree = "<group>"; };
 		F5BD0795A13AC897EDBDD0DA /* Table1WidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Table1WidgetsBundle.swift; sourceTree = "<group>"; };
+		FA62ADA52B58392618A6A222 /* DiscordSignInTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscordSignInTests.swift; sourceTree = "<group>"; };
 		FC1DA5EA10F583F3622B1F29 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		FC2EF68A6DFF8AD55E77C723 /* CollectionImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionImport.swift; sourceTree = "<group>"; };
 		FE2F821EFAEE3CEA814E2514 /* InsightsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsStore.swift; sourceTree = "<group>"; };
@@ -516,6 +518,7 @@
 				68C7222340E448B1ED82C7B0 /* CubeRankingTests.swift */,
 				2C3C427BABDE0420BBFA2F31 /* DeckImageTests.swift */,
 				C23AB8F5588863F9D0B84282 /* DeckStatsTests.swift */,
+				FA62ADA52B58392618A6A222 /* DiscordSignInTests.swift */,
 				323750FA99BF60ED31A922A6 /* EmailSignInTests.swift */,
 				B6D6321319755E4BE5D209E3 /* EventBundleTests.swift */,
 				3321F61FA0FAD5D9ECA6E3C2 /* FollowsTests.swift */,
@@ -966,6 +969,7 @@
 				4654E4C93F85DA813DFBCB43 /* CubeRankingTests.swift in Sources */,
 				AE286DDDDEFF5E6EF42FD46A /* DeckImageTests.swift in Sources */,
 				DF246074B284841D5C11B4B8 /* DeckStatsTests.swift in Sources */,
+				1E834ADD743006D3762A77F6 /* DiscordSignInTests.swift in Sources */,
 				635E55EE050B9FC49C6ED21D /* EmailSignInTests.swift in Sources */,
 				6FFBC533401E8181E8339258 /* EventBundleTests.swift in Sources */,
 				3ED1C6DBA0D86DF5289FF17D /* FollowsTests.swift in Sources */,
@@ -1247,7 +1251,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 35;
+				CURRENT_PROJECT_VERSION = 36;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 94889YTX94;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1330,7 +1334,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 35;
+				CURRENT_PROJECT_VERSION = 36;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 94889YTX94;
 				ENABLE_NS_ASSERTIONS = NO;

@@ -3,6 +3,7 @@ import { getLocalParticipant } from "./session";
 import type { User } from "@supabase/supabase-js";
 import { capture, signInStarted } from "./telemetry";
 import { isReview, REVIEW_ADDRESS } from "./emailSignIn";
+import { needsNameFor } from "./discordSignIn";
 import { joinHeader, type JoinHeader } from "./joinPreview";
 import {
   GOOGLE_REQUEST_KEY,
@@ -474,9 +475,9 @@ export async function setResultAsOrganizer(
 
 /* ── V1: accounts, QR join, results, records ─────────────────────────────── */
 
-export type OAuthProvider = "apple" | "google";
+export type OAuthProvider = "apple" | "google" | "discord";
 
-/** Apple or Google, then straight back to the page that asked. */
+/** Apple, Google or Discord, then straight back to the page that asked. */
 export async function signInWith(provider: OAuthProvider, returnTo = window.location.href) {
   signInStarted(provider);
   if (provider === "google" && GOOGLE_WEB_CLIENT_ID) return startGoogle(returnTo);
@@ -536,11 +537,10 @@ export async function signOut() {
   await supabase.auth.signOut();
 }
 
-/** Email accounts start without a name; one is required before the app opens. Apple and Google bring theirs. */
+/** Email and Discord accounts start without a real name; one is required before the app opens. Apple and Google bring theirs. */
 export function needsName(user: User | null | undefined): boolean {
-  const ids = user?.identities ?? [];
-  if (!user || ids.length === 0 || !ids.every((i) => i.provider === "email")) return false;
-  return !String(user.user_metadata?.first_name ?? "").trim();
+  if (!user) return false;
+  return needsNameFor((user.identities ?? []).map((i) => i.provider), user.user_metadata?.first_name);
 }
 
 /** First and last name: kept on the account and shown in events as "First Last". */
