@@ -9,11 +9,11 @@ CARD SCANNER: THE RIGHT PRINTING
 - The camera also reads the card's bottom strip on its own (straightened and enlarged) and reads text only around the outline.
 - A card is taken at 0.2 s when two frames agree on the exact printing (was 0.4 s).
 - Please check: scan the retro MH2 fetchlands, a few borderless cards, and a stack of ordinary modern cards; note anything that still says "Check printing" or lands on the wrong set. Changing a row's printing still sends a report that becomes a test case.
-- The app rebuilds its card file once on first open. Artists and frames arrive with the next card-file download; until then the scanner behaves as in build 34.
+- The app rebuilds its card file once on first open. The card file with artists and frames is published; the app downloads it on its next check, and until then the scanner behaves as in build 34.
 
 BUY ON TCGPLAYER
 - A want for a specific printing now opens that printing's TCGplayer product page instead of a Mass Entry line (Mass Entry kept failing on exact printings). Wants for "any printing" still go to Mass Entry by name. With more than one link, a menu lists them.
-- Needs the server update that is waiting to be applied: until it's live, Buy on TCGplayer in this build shows an error.
+- The server side is live. Product ids arrive with the night's card update (29 Oct), so a wanted printing goes to Mass Entry by name until then; after that it opens the product page.
 
 INSIGHTS
 - Matchup grid: the square you tap is outlined and its row and column names light up.
