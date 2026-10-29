@@ -194,8 +194,8 @@ One-time steps: iOS `cd apps/ios && xcodegen` (adds `UI/OrganizerPhases.swift`),
 ## 11. Table 1 for Discord (2026-10-29)
 
 **Status 2026-10-29:** steps 1–5 and 7 done (migration applied, `discord-bot` v1 deployed, secrets set, URL saved,
-commands registered globally and on John's server). Step 6, the web deploy, is pending: until then the `/link` page
-isn't on table-1.site. `tools/discord/bundle.sh` lays out the deploy copy (engine files under `events-engine/`).
+commands registered globally and on John's server). Step 6 done too: table-1.site deployed at c5cae2f on 2026-10-29, so `/discord` and the `/link` page are live. A
+server that got its own copy of the commands shows them twice once the global ones arrive: `register.sh --guild <id> --clear`. `tools/discord/bundle.sh` lays out the deploy copy (engine files under `events-engine/`).
 
 Contract `contract/discord-2026-10-29.md`, plan `table-1-context/docs/plan-discord-2026-10-29.md`. The bot is the edge
 function `discord-bot` (Discord's *interactions endpoint*: no gateway process, every request Ed25519-signed), its
