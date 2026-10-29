@@ -9,6 +9,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { apnsConfigured, sendAll, type Alert } from "./apns.ts";
 import { followCopy, tradeWantsCopy } from "./follow.ts";
 import { wantPriceCopy } from "./want-price.ts";
+import { signUpCopy, type SignUpCount } from "./sign-up.ts";
 
 const url = Deno.env.get("SUPABASE_URL")!;
 const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
@@ -32,7 +33,8 @@ const score = (d: Record<string, unknown>) => {
 };
 
 /** Alert text for one recipient. `mine` is that player's match this round, when the kind needs it. */
-function copy(m: Message, eventName: string, mine?: { table: number | null; opponent: string | null; side: number }): Copy | null {
+function copy(m: Message, eventName: string, mine?: { table: number | null; opponent: string | null; side: number },
+              count?: SignUpCount | null): Copy | null {
   const d = m.data ?? {};
   const name = String(d.event_name ?? eventName ?? "Your event");
   switch (m.kind) {
@@ -49,6 +51,10 @@ function copy(m: Message, eventName: string, mine?: { table: number | null; oppo
       return { title: `${name} is cancelled`, body: d.reason ? String(d.reason) : "The organizer called it off." };
     case "event.waitlist_in":
       return { title: "You're in", body: `A place opened in ${name}${d.venue_name ? ` · ${d.venue_name}` : ""}.` };
+    // contract/scheduled-events-2026-10-27.md § Organizer pushes: to the organizers; the app opens the event.
+    case "event.signed_up":
+    case "event.dropped":
+      return { ...signUpCopy(m.kind, { ...d, event_name: name }, count ?? null), priority: 5 };
     case "round.paired": {
       const stage = ({ quarterfinal: "Quarterfinals", semifinal: "Semifinals", final: "The final" } as Record<string, string>)[String(d.stage)];
       const round = stage ?? (d.round ? `Round ${d.round}` : "Next round");
@@ -145,6 +151,18 @@ async function matchesFor(m: Message): Promise<Map<string, { table: number | nul
   return out;
 }
 
+/** For sign-up and drop pushes: the player count now, read when sending so a waitlist move-up is counted. */
+async function signUpCount(m: Message): Promise<SignUpCount | null> {
+  if ((m.kind !== "event.signed_up" && m.kind !== "event.dropped") || !m.event_id) return null;
+  const [{ data: event }, { count: players, error: perr }, { count: waiting, error: werr }] = await Promise.all([
+    admin.from("events").select("capacity").eq("id", m.event_id).maybeSingle(),
+    admin.from("participants").select("id", { count: "exact", head: true }).eq("event_id", m.event_id).eq("status", "active"),
+    admin.from("event_waitlist").select("user_id", { count: "exact", head: true }).eq("event_id", m.event_id),
+  ]);
+  if (perr || werr || players == null) return null;
+  return { players, capacity: (event?.capacity as number | null) ?? null, waiting: waiting ?? 0 };
+}
+
 async function run() {
   if (!apnsConfigured()) return json({ ok: false, reason: "APNs not configured" });
   const { data: claimed, error } = await admin.rpc("notify_claim", { p_n: 100 });
@@ -177,11 +195,12 @@ async function run() {
     if (!devices?.length) continue;
     const muted = new Set((prefs ?? []).filter((p) => (p.muted_kinds ?? []).includes(m.kind)).map((p) => p.user_id));
     const mine = await matchesFor(m);
+    const count = await signUpCount(m);
     const alerts: Alert[] = [];
     for (const d of devices) {
       if (muted.has(d.user_id)) continue;
       if (d.platform !== "ios") { skippedAndroid++; continue; }
-      const c = copy(m, event?.name ?? "", mine.get(d.user_id));
+      const c = copy(m, event?.name ?? "", mine.get(d.user_id), count);
       if (!c) continue;
       alerts.push({
         token: d.push_token, env: d.env === "development" ? "development" : "production", priority: c.priority ?? 10,

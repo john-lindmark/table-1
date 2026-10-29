@@ -49,6 +49,17 @@ order, round names, the sign-up line. Clients: iOS `ScheduledEventsTests`, web `
   "Didn't get in".
 - Organizer, Setup → Players: section `Waitlist · n` under the players, rows `#1 Name`, actions **Let in** (seats
   them now, past the cap) and **Remove**.
+- **Organizer pushes** (2026-10-29, migration `20261029200000_organizer_sign_up_pushes.sql`, tests
+  `supabase/tests/65_organizer_pushes_test.sql`, `notify-worker/sign-up.test.ts`): every organizer (`event_members`)
+  gets `event.signed_up` when someone signs up or joins the waitlist, and `event.dropped` when someone leaves or leaves
+  the waitlist. Triggers on `participants` and `event_waitlist`, so every way in counts (sign-up link from any client
+  or Discord, join code, Nearby, an accepted invite, a signed-out guest by code). Only a player's own move: nothing
+  when an organizer adds, admits, removes or drops someone, when someone moves up behind a player who left, when an
+  organizer signs themselves up, or in demo events. Data `{event_name, name, waitlist}`; notify-worker reads the count
+  when sending: title the event, body "Ana signed up · 12/16 players", "Bea joined the waitlist · 16/16 players ·
+  3 waiting", "Cal dropped · 7/8 players" (no cap: "12 players"). Priority 5, collapsed per kind and event (the newest
+  replaces the last); a tap opens the event (every build already routes `event_id`). Mutable per account with
+  `notification_prefs.muted_kinds` (no switch in the apps yet). iOS only until FCM.
 
 ## 4. The sign-up link (`https://table-1.site/s/<id>`)
 - One link for the event's whole life: before round 1 it's the **event page** with Sign up; once round 1 is paired
