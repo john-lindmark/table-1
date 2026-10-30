@@ -521,6 +521,8 @@ data class LiveState(
     val ended get() = phase == "complete" || phase == "cancelled" || phase == "dropped"
     val canReportNow: Boolean get() = isPlaying && canReport && status == "pending"
     val needsMyAnswer: Boolean get() = isPlaying && status == "reported_them"
+    /** The reported score, mine first: `2–1`. */
+    val scoreText get() = "${myWins ?: 0}–${theirWins ?: 0}"
     val statusLine: String get() = when (phase) {
         "bye" -> "Bye this round"
         "waiting" -> "Waiting for round ${round + 1}"
@@ -528,10 +530,10 @@ data class LiveState(
         "cancelled" -> "Event cancelled"
         "dropped" -> "Dropped"
         else -> when (status) {
-            "reported_me" -> "Reported ${myWins ?: 0}–${theirWins ?: 0} · waiting on ${oppName ?: "opponent"}"
-            "reported_them" -> "${oppName ?: "Opponent"} reported ${myWins ?: 0}–${theirWins ?: 0}"
+            "reported_me" -> "Reported $scoreText · waiting on ${oppName ?: "opponent"}"
+            "reported_them" -> "${oppName ?: "Opponent"} reported $scoreText"
             "disputed" -> "Disputed · organizer deciding"
-            "confirmed" -> "Confirmed ${myWins ?: 0}–${theirWins ?: 0}"
+            "confirmed" -> "Confirmed $scoreText"
             else -> if (canReport) "Report when you're done" else "Organizer records results"
         }
     }

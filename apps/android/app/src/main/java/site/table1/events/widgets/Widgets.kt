@@ -140,12 +140,11 @@ internal object W1 {
     val text = Color(0xFFFFFFFF)
     val muted = Color(0xFFC4C4CA)
     val accent = Color(0xFF00FFD9)
+    /** Text on an accent fill. */
+    val ink = bg
     val danger = Color(0xFFFF6B6B)
 
     fun style(size: TextUnit = 13.sp, color: Color = text, bold: Boolean = false) =
         TextStyle(color = ColorProvider(color), fontSize = size, fontFamily = FontFamily.Monospace,
             fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
-
-    /** Uppercase labels with wide tracking, as in the app (Glance has no letter spacing). */
-    fun label(color: Color = muted) = style(10.sp, color, bold = false)
 }

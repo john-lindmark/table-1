@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The Current match widget's round clock: a Chronometer counting down to the round's end (Glance has none). -->
+<!-- The Current match widget's round clock: a Chronometer counting down to the round's end (Glance has none).
+     The widget sets its size per layout. -->
 <Chronometer xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/clock"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:fontFamily="monospace"
+    android:includeFontPadding="false"
+    android:singleLine="true"
     android:textColor="#FFFFFFFF"
-    android:textSize="24sp"
-    android:textStyle="bold" />
+    android:textSize="26sp" />

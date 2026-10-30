@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A widget label: uppercase mono with wide tracking, as iOS's WLabel (Glance text has no letter spacing). -->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/label"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:ellipsize="end"
+    android:fontFamily="monospace"
+    android:includeFontPadding="false"
+    android:letterSpacing="0.12"
+    android:singleLine="true"
+    android:textColor="#FFC4C4CA"
+    android:textSize="10sp" />

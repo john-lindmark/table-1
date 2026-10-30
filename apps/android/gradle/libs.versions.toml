@@ -17,6 +17,7 @@ location = "21.3.0"
 zxing = "3.5.3"
 coil = "3.0.4"
 junit = "4.13.2"
+robolectric = "4.14.1"
 camerax = "1.4.1"
 glance = "1.1.1"
 mlkitText = "19.0.1"
@@ -53,6 +54,8 @@ play-code-scanner = { module = "com.google.android.gms:play-services-code-scanne
 play-location = { module = "com.google.android.gms:play-services-location", version.ref = "location" }
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 junit = { module = "junit:junit", version.ref = "junit" }
+# Only for the widget gallery (WidgetGalleryTest), which draws the Glance widgets offscreen.
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 # The event a web "Get the app" link carried through the Play install (contract/qr-sign-up-2026-10-23.md).
 installreferrer = { module = "com.android.installreferrer:installreferrer", version.ref = "installReferrer" }
 # Card scanning: camera preview + on-device text recognition (ML Kit via Play services, no bundled model).

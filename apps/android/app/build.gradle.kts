@@ -65,6 +65,15 @@ android {
         compose = true
         buildConfig = true
     }
+    // The widget gallery draws with the app's resources (Robolectric).
+    testOptions { unitTests.isIncludeAndroidResources = true }
+}
+
+// The widget gallery is design QA, not a check: it runs only when asked, e.g.
+// ./gradlew testDebugUnitTest -PT1_WIDGET_GALLERY --tests '*WidgetGalleryTest' → app/build/widget-gallery/*.png
+tasks.withType<Test>().configureEach {
+    if (!project.hasProperty("T1_WIDGET_GALLERY")) exclude("**/WidgetGalleryTest*")
+    systemProperty("t1.widgetGallery", layout.buildDirectory.dir("widget-gallery").get().asFile.path)
 }
 
 dependencies {
@@ -116,4 +125,5 @@ dependencies {
     implementation(libs.sentry.okhttp)
 
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
 }
