@@ -52,6 +52,16 @@ select pg_temp.eq('a regional championship is major at any size',
   (public.meta_ingest(pg_temp.melee('rc-1', 'Regional Championship - Sydney')))->>'tier', 'major');
 select pg_temp.eq('a Melee name is one player across Melee events, and only hashed',
   (select count(distinct player)::text || ' ' || bool_and(player ~ '^[0-9a-f]{64}$')::text from t1_private.meta_decks), '32 true');
+-- Each card name is looked up once per event, not once per line (a flattened subquery ran the lookup 45,000 times for
+-- a 1,500-player event and timed out on live: 20261030030000_meta_ingest_lookup_once).
+set track_functions = 'all';
+create function pg_temp.lookups(p_event jsonb) returns text language plpgsql as $$
+begin
+  perform public.meta_ingest(p_event);
+  return (select calls::text from pg_stat_xact_user_functions where schemaname = 't1_private' and funcname = 'meta_card_id');
+end $$;
+select pg_temp.eq('a card name is looked up once per event', pg_temp.lookups(pg_temp.melee('lookups-1', 'Modern RCQ')), '5');
+delete from t1_private.meta_events where source_id = 'lookups-1';
 select pg_temp.throws('an unknown source', $$select public.meta_ingest('{"source": "cardsrealm", "source_id": "x", "format": "modern", "on": "2026-10-01"}')$$, '22023');
 
 -- An MTGO top-32 record for the same deck: the paper record wins.
