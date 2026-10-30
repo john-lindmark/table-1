@@ -171,6 +171,13 @@ reset role;
 select pg_temp.eq('approving relabels the format',
   (select coalesce(a.name, 'Other') from t1_private.meta_decks d left join t1_private.meta_archetypes a on a.id = d.archetype_id where d.rank = 9), 'Mono-Blue Tempo');
 select pg_temp.eq('audited', (select string_agg(action, ' ') from t1_private.insights_audit), 'archetype_approve');
+-- meta_relabel carries meta_label's rule inline (bug #23): both must land every deck in the same place
+update t1_private.meta_decks set archetype_id = 0 where format = 'modern';
+select public.meta_relabel('modern', true);
+select pg_temp.eq('relabel agrees with meta_label',
+  (select count(*) filter (where archetype_id <> t1_private.meta_label(format, main, side, colors))::text || ' of ' ||
+          (count(*) > 0)::text from t1_private.meta_decks where format = 'modern'), '0 of true');
+select pg_temp.eq('relabelled out of Other', (select count(*) filter (where archetype_id <> 0) > 0 from t1_private.meta_decks where format = 'modern')::text, 'true');
 set role authenticated;
 select pg_temp.as_user(:ANA);
 select pg_temp.eq('confirm a change', (public.insights_review_change(:CHANGE, 'confirm'))->>'status', 'confirmed');

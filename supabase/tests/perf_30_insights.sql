@@ -43,6 +43,11 @@ select pg_temp.eq('36,000 decks', (select count(*)::text from t1_private.meta_de
 select pg_temp.ms('relabel a year of Modern', $$select public.meta_relabel('modern')$$, 9000, 1);
 select pg_temp.eq('every deck labelled', (select count(*)::text from t1_private.meta_decks where archetype_id = 0), '0');
 select pg_temp.ms('relabel only Other (each build)', $$select public.meta_relabel('modern', true)$$, 500, 1);
+-- Live Standard had 21,000 decks in Other: meta_label called once a deck took 4.7 s there and the build's relabel
+-- passed the 8 s statement timeout (bug #23, 20261030070000_fix_meta_relabel_inline)
+update t1_private.meta_decks set archetype_id = 0 where id % 3 <> 0;
+select pg_temp.ms('relabel 24,000 decks in Other', $$select public.meta_relabel('modern', true)$$, 1500, 1);
+select pg_temp.eq('every deck labelled again', (select count(*)::text from t1_private.meta_decks where archetype_id = 0), '0');
 select pg_temp.ms('pack window: 90 days, all events', $$select public.meta_pack_window('modern', 'all', 90)$$, 800);
 select pg_temp.ms('pack window: 30 days, big events', $$select public.meta_pack_window('modern', 'big', 30)$$, 250);
 select pg_temp.ms('pack series: 180 days', $$select public.meta_pack_series('modern', 'all')$$, 4200);
