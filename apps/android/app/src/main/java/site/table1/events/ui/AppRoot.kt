@@ -33,6 +33,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.status.SessionStatus
+import io.github.jan.supabase.auth.user.UserSession
 import site.table1.events.T1App
 import site.table1.events.data.JoinLink
 import site.table1.events.data.WebLink
@@ -108,6 +109,7 @@ import site.table1.events.ui.screens.EventPageScreen
 import site.table1.events.ui.screens.EventsHomeScreen
 import site.table1.events.ui.screens.NearbyScreen
 import site.table1.events.auth.EmailSignIn
+import site.table1.events.auth.SessionView
 import site.table1.events.auth.SignIn
 import site.table1.events.ui.screens.NameScreen
 import site.table1.events.ui.screens.PermissionsScreen
@@ -132,19 +134,34 @@ fun AppRoot(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pendingLink: Web
     // Debug: `adb shell am start -n site.table1.events/.MainActivity --ez insightsDemo true` opens Insights on the demo packs.
     if (InsightsStore.demo) { InsightsDemoRoot(); return }
     val status by T1App.supabase.auth.sessionStatus.collectAsState()
+    // A failed refresh (offline, 5xx) keeps the app on the session it last had (SessionView).
+    var kept by remember { mutableStateOf<UserSession?>(null) }
+    var keptRead by remember { mutableStateOf(false) }
+    LaunchedEffect(status) {
+        when (val s = status) {
+            is SessionStatus.Authenticated -> { kept = s.session; keptRead = true }
+            is SessionStatus.NotAuthenticated -> { kept = null; keptRead = true }
+            is SessionStatus.RefreshFailure -> if (!keptRead) {
+                kept = runCatching { T1App.supabase.auth.sessionManager.loadSession() }.getOrNull()
+                keptRead = true
+            }
+            SessionStatus.Initializing -> {}
+        }
+    }
+    val shown = SessionView.shown(status, kept, keptRead)
     // Signed in any way: the email code step kept for a return is done with.
     val signedIn = status is SessionStatus.Authenticated
     LaunchedEffect(signedIn) { if (signedIn) EmailSignIn.clear() }
     // Why notifications and location help, once per device after sign-in (and the name step), skippable.
     val rootContext = LocalContext.current
     var needsPermissions by remember { mutableStateOf(PermissionsStep.needed(rootContext)) }
-    when (status) {
-        is SessionStatus.Authenticated ->
-            if (SignIn.needsName((status as SessionStatus.Authenticated).session.user)) NameScreen(pendingJoin)
+    when (shown) {
+        is SessionView.Shown.SignedIn ->
+            if (SignIn.needsName(shown.session.user)) NameScreen(pendingJoin)
             else if (needsPermissions) PermissionsScreen { needsPermissions = false }
             else SignedInApp(pendingJoin, onJoinConsumed, pendingLink, onLinkConsumed)
-        is SessionStatus.Initializing -> T1Screen { Bar("Table 1") }
-        else -> {
+        SessionView.Shown.Starting -> T1Screen { Bar("Table 1") }
+        SessionView.Shown.SignedOut -> {
             // Standings tapped while the app was still starting: read them on the web rather than signing in first.
             val context = LocalContext.current
             LaunchedEffect(pendingLink) {
