@@ -20,9 +20,15 @@ async function logFailure(method: string, path: string, r: Response): Promise<Re
   return r;
 }
 
+/** The interaction a webhook call belongs to. Its application id comes from Discord's signed payload, never from a
+ *  secret: a DISCORD_APPLICATION_ID secret holding its own name made every follow-up and card id read fail (50035). */
+export interface InteractionRef {
+  application_id: string;
+  token: string;
+}
+
 export class DiscordRest {
-  constructor(private readonly applicationId: string, private readonly botToken: string,
-    private readonly answerWaits = [250, 750, 1500, 3000]) {}
+  constructor(private readonly botToken: string, private readonly answerWaits = [250, 750, 1500, 3000]) {}
 
   private async call(method: string, path: string, body?: unknown, auth = true, log = true): Promise<Response> {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -64,13 +70,13 @@ export class DiscordRest {
   }
 
   /** An extra message on the interaction (ephemeral when flags has 64). Valid for 15 minutes. */
-  followUp(interactionToken: string, message: Message) {
-    return this.afterAnswer("POST", `/webhooks/${this.applicationId}/${interactionToken}`, { ...message, allowed_mentions: { parse: [] } });
+  followUp(ix: InteractionRef, message: Message) {
+    return this.afterAnswer("POST", `/webhooks/${ix.application_id}/${ix.token}`, { ...message, allowed_mentions: { parse: [] } });
   }
 
   /** The id of the message the interaction's first response made. */
-  async originalMessageId(interactionToken: string): Promise<string | null> {
-    const r = await this.afterAnswer("GET", `/webhooks/${this.applicationId}/${interactionToken}/messages/@original`);
+  async originalMessageId(ix: InteractionRef): Promise<string | null> {
+    const r = await this.afterAnswer("GET", `/webhooks/${ix.application_id}/${ix.token}/messages/@original`);
     if (!r.ok) return null;
     const m = await r.json().catch(() => null) as { id?: string } | null;
     return m?.id ?? null;

@@ -206,7 +206,8 @@ function `discord-bot` (Discord's *interactions endpoint*: no gateway process, e
    Token** and keep it in the Keychain: `security add-generic-password -s 'Table 1 Discord' -a <application id> -w <bot token>`.
    Leave every Privileged Gateway Intent off (the bot reads no messages). Installation: Guild Install only, scopes
    `bot` + `applications.commands`, permissions Send Messages + Embed Links.
-2. **Function secrets** (Supabase → Edge Functions → Secrets): `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY` (the
+2. **Function secrets** (Supabase → Edge Functions → Secrets): `DISCORD_APPLICATION_ID` (the number; the bot itself
+   uses each interaction's id, so this only salts telemetry), `DISCORD_PUBLIC_KEY` (the
    app's key `cd5249585e23c7a5ac9af4c457d4bba723806dce107724b5143a2c49fc623878` is built into `index.ts` as the default,
    so this one is optional),
    `DISCORD_BOT_TOKEN`; telemetry `POSTHOG_KEY` (the project key from `.env`), `POSTHOG_HOST`

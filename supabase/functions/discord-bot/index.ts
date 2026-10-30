@@ -4,7 +4,7 @@
 // made as the linked Table 1 account by the discord_* RPCs, answered inside Discord's 3 seconds; storing message ids,
 // follow-ups and telemetry run afterwards in EdgeRuntime.waitUntil. The database also POSTs here (x-t1-secret,
 // {refresh: event id}) whenever an event with a posted card changes, and the card is redrawn.
-//   secrets: DISCORD_PUBLIC_KEY, DISCORD_APPLICATION_ID, DISCORD_BOT_TOKEN,
+//   secrets: DISCORD_PUBLIC_KEY, DISCORD_BOT_TOKEN (follow-ups use the interaction's own application id),
 //            POSTHOG_KEY, POSTHOG_HOST (telemetry; off when empty), DISCORD_TELEMETRY_SALT, T1_ENVIRONMENT
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { DiscordRest } from "./discord.ts";
@@ -22,15 +22,14 @@ const env = (k: string, d = "") => Deno.env.get(k) ?? d;
 // The application's Ed25519 public key (John, 2026-10-29). Not a secret: it only lets us check Discord's signatures.
 // The DISCORD_PUBLIC_KEY secret, when set, wins (a new application or a reset key).
 const PUBLIC_KEY = env("DISCORD_PUBLIC_KEY") || "cd5249585e23c7a5ac9af4c457d4bba723806dce107724b5143a2c49fc623878";
-const APP_ID = env("DISCORD_APPLICATION_ID");
 const BOT_TOKEN = env("DISCORD_BOT_TOKEN");
 const ENVIRONMENT = env("T1_ENVIRONMENT", "production");
-const SALT = env("DISCORD_TELEMETRY_SALT") || APP_ID;
+const SALT = env("DISCORD_TELEMETRY_SALT") || env("DISCORD_APPLICATION_ID");
 // Where a deck's picture is drawn (the deck-image function; contract § The deck picture).
 const DECK_IMAGE = env("DECK_IMAGE_URL") || `${env("SUPABASE_URL")}/functions/v1/deck-image`;
 
 const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
-const rest = new DiscordRest(APP_ID, BOT_TOKEN);
+const rest = new DiscordRest(BOT_TOKEN);
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -87,7 +86,7 @@ async function cardFor(ctx: Ctx, eventId: string): Promise<Card> {
 /** After the first response made a public card: remember which message it is. */
 function rememberPost(ctx: Ctx, eventId: string, kind: "event" | "results") {
   later(ctx, async () => {
-    const id = await rest.originalMessageId(ctx.ix.token);
+    const id = await rest.originalMessageId(ctx.ix);
     if (id) await rpc("discord_event_posted", { p_event_id: eventId, p_kind: kind, p_message_id: id });
   });
 }
@@ -156,7 +155,7 @@ async function signUpOrDrop(ctx: Ctx, action: "up" | "down", eventId: string, vi
     // what now applies); the clicker gets a private note with their own button. The public card is redrawn when
     // Table 1 asks (refreshCard), as for a sign-up from the app.
     const personal = ((ctx.ix.message?.flags ?? 0) & EPHEMERAL) !== 0;
-    later(ctx, () => rest.followUp(ctx.ix.token, { content: note, components: eventComponents(r, true), flags: EPHEMERAL }));
+    later(ctx, () => rest.followUp(ctx.ix, { content: note, components: eventComponents(r, true), flags: EPHEMERAL }));
     return update(eventMessage(r, personal));
   }
   return ephemeral(note, eventMessage(r, true));

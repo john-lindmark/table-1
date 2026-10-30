@@ -287,13 +287,29 @@ Deno.test("the posted card's id is read once Discord has the answer (it refuses 
   const errors = console.error;
   console.error = () => {};
   try {
-    const rest = new DiscordRest("1", "t", [1, 1, 1, 1]);
-    assertEquals(await rest.originalMessageId("tok"), "123456789012345678");
+    const rest = new DiscordRest("t", [1, 1, 1, 1]);
+    assertEquals(await rest.originalMessageId({ application_id: "1", token: "tok" }), "123456789012345678");
     assertEquals(d.calls.length, 3);
     assert(d.calls.every((c) => c.method === "GET" && c.url.endsWith("/webhooks/1/tok/messages/@original")));
   } finally {
     d.restore();
     console.error = errors;
+  }
+});
+
+Deno.test("follow-ups and card id reads go to the interaction's own application, whatever the secrets say", async () => {
+  // Live on 2026-10-29 the DISCORD_APPLICATION_ID secret held its own name: every call went to
+  // /webhooks/DISCORD_APPLICATION_ID/… (400 50035), so no card's message id was ever stored.
+  const d = fakeDiscord([[200, { id: "1" }], [200, { id: "123456789012345678" }]]);
+  try {
+    const ix = { application_id: "1565382252706140300", token: "tok" };
+    const rest = new DiscordRest("t", [1]);
+    await rest.followUp(ix, { content: "hi" });
+    assertEquals(await rest.originalMessageId(ix), "123456789012345678");
+    assertEquals(d.calls.map((c) => c.url.split("/api/v10")[1]),
+      ["/webhooks/1565382252706140300/tok", "/webhooks/1565382252706140300/tok/messages/@original"]);
+  } finally {
+    d.restore();
   }
 });
 
@@ -303,16 +319,16 @@ Deno.test("retries stop on success, on other failures and after the last wait", 
   console.error = (m: string) => logged.push(m);
   try {
     let d = fakeDiscord([[200, { id: "1" }]]);
-    await new DiscordRest("1", "t", [1, 1]).followUp("tok", { content: "hi" });
+    await new DiscordRest("t", [1, 1]).followUp({ application_id: "1", token: "tok" }, { content: "hi" });
     assertEquals(d.calls.length, 1);
     d.restore();
     d = fakeDiscord([[401, { code: 50027 }]]);
-    assertEquals(await new DiscordRest("1", "t", [1, 1]).originalMessageId("tok"), null);
+    assertEquals(await new DiscordRest("t", [1, 1]).originalMessageId({ application_id: "1", token: "tok" }), null);
     assertEquals(d.calls.length, 1);
     d.restore();
     d = fakeDiscord([[400, {}], [400, {}], [400, { code: 50035 }]]);
     const token = "aW50ZXJhY3Rpb246MTIzNDU2Nzg5MDEyMzQ1Njc4OnNlY3JldA";
-    assertEquals(await new DiscordRest("1", "t", [1, 1]).originalMessageId(token), null);
+    assertEquals(await new DiscordRest("t", [1, 1]).originalMessageId({ application_id: "1", token }), null);
     assertEquals(d.calls.length, 3);
     d.restore();
     assertEquals(logged.length, 2, "only the final failure of each call is logged");
@@ -325,7 +341,7 @@ Deno.test("retries stop on success, on other failures and after the last wait", 
 Deno.test("a card edit waits once when Discord says slow down", async () => {
   const d = fakeDiscord([[429, { retry_after: 0.001 }], [200, { id: "1" }]]);
   try {
-    const r = await new DiscordRest("1", "t").editMessage("111111", "222222", { content: "x" });
+    const r = await new DiscordRest("t").editMessage("111111", "222222", { content: "x" });
     assertEquals(r.status, 200);
     assertEquals(d.calls.map((c) => c.method), ["PATCH", "PATCH"]);
     assert(d.calls[0].url.endsWith("/channels/111111/messages/222222"));
