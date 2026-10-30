@@ -116,8 +116,9 @@ fun ShareScreen(target: ShareTarget, onClose: () -> Unit, onExport: (() -> Unit)
                                         ?: ShareItem(target.part, target.id ?: "", target.title, visibility = if (target.part == "deck") "private" else null)
                                     SharingRules.reach(s, SharingRules.effective(s, item))
                                 }
-                                ListRow("Who sees this", "Change it in Account → Sharing") {
-                                    Label(if (reach == Visibility.Public) "Anyone" else reach.label, color = if (reach == Visibility.Private) T1.muted else T1.accent)
+                                if (target.id != null) WhoSeesRow(target.part, target.id, target.title, target.forTrade)
+                                else ListRow("Who sees this", if (target.sharePart?.let { s.own(it) } == null) "Same as Library · change it in Account → Sharing" else "Its own setting · change it in Account → Sharing") {
+                                    Label(reach.label, color = if (reach == Visibility.Private) T1.muted else T1.accent)
                                 }
                                 val me = Repo.userId
                                 if (reach == Visibility.Private) Notice("Only you see it on Table 1. A link works without changing that.")

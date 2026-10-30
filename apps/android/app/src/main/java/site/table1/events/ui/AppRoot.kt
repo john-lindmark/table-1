@@ -273,6 +273,11 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
             Json.parseToJsonElement(T1App.supabase.postgrest.rpc("moderation_me").data).jsonObject["moderator"]?.jsonPrimitive?.booleanOrNull == true
         }.getOrDefault(false)
     }
+    // A sharing offer made due by an action elsewhere (marking a binder For trade), shown over that screen.
+    val offer by site.table1.events.library.SharingOffer.due.collectAsState()
+    if (offer == site.table1.events.library.SharingOffer.ForTrade) site.table1.events.library.SharingOfferDialog(offer!!,
+        "Share For trade with friends?", "Friends can see these copies, and trade matches can find you.",
+        listOf(site.table1.events.library.SharePart.ForTrade)) { site.table1.events.library.SharingOffer.due.value = null }
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f).let { if (topLevel) it.consumeWindowInsets(WindowInsets.navigationBars) else it }) {
             NavHost(navController = nav, startDestination = "events") {

@@ -1,5 +1,6 @@
 package site.table1.events.ui.screens
 
+import site.table1.events.library.JoinNotice
 import site.table1.events.util.rethrowIfCancelled
 
 import site.table1.events.data.EventRules
@@ -158,6 +159,7 @@ fun EventsHomeScreen(
             }
             if (invites.isNotEmpty()) {
                 item { Section("Invitations") }
+                item { Notice(JoinNotice.TEXT) }
                 items(invites, key = { "inv-" + it.eventId }) { invite ->
                     val detail = buildList {
                         add(if (invite.source == "nearby_alert") "Starting near you" else "From ${invite.invitedBy ?: "an organizer"}")

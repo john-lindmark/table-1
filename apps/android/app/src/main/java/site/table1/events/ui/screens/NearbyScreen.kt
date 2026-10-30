@@ -1,5 +1,6 @@
 package site.table1.events.ui.screens
 
+import site.table1.events.library.JoinNotice
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -82,17 +83,20 @@ fun NearbyScreen(onJoined: (String) -> Unit, onOpen: (String) -> Unit, onBack: (
             when {
                 list == null -> item { Notice("Finding events near you…") }
                 list.isEmpty() -> item { Notice("Nothing open nearby right now.") }
-                else -> items(list, key = { it.eventId }) { e ->
-                    val detail = "${e.distanceM} m · ${e.format} · ${e.players}${e.capacity?.let { "/$it" } ?: ""} players${e.venueName?.let { " · $it" } ?: ""}"
-                    if (e.joined) {
-                        ListRow(e.name, detail, onClick = { onOpen(e.eventId) }) { Label("Joined") }
-                    } else ListRow(e.name, detail) {
-                        BarAction("Join") {
-                            val f = fix ?: return@BarAction
-                            scope.launch {
-                                runCatching { Repo.joinNearby(e.eventId, f.lat, f.lng, f.accuracyM) }
-                                    .onSuccess { onJoined(it.eventId) }
-                                    .onFailure { error = it.message }
+                else -> {
+                    item { Notice(JoinNotice.TEXT) }
+                    items(list, key = { it.eventId }) { e ->
+                        val detail = "${e.distanceM} m · ${e.format} · ${e.players}${e.capacity?.let { "/$it" } ?: ""} players${e.venueName?.let { " · $it" } ?: ""}"
+                        if (e.joined) {
+                            ListRow(e.name, detail, onClick = { onOpen(e.eventId) }) { Label("Joined") }
+                        } else ListRow(e.name, detail) {
+                            BarAction("Join") {
+                                val f = fix ?: return@BarAction
+                                scope.launch {
+                                    runCatching { Repo.joinNearby(e.eventId, f.lat, f.lng, f.accuracyM) }
+                                        .onSuccess { onJoined(it.eventId) }
+                                        .onFailure { error = it.message }
+                                }
                             }
                         }
                     }

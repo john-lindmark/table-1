@@ -80,9 +80,9 @@ fun LazyListScope.friendsAccountRows(state: FriendsState, onFriends: () -> Unit,
 
 /** One person in Trade matches (and in Trades): who, what each side has, and the value. */
 @Composable
-fun TradeMatchRow(x: TradeMatch, onClick: () -> Unit) {
+fun TradeMatchRow(x: TradeMatch, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
     ListRow(x.displayName, x.short + if (x.friend) "" else " · played with you", onClick = onClick,
-        avatar = { Avatar(x.displayName, x.userId) }) {
+        avatar = { Avatar(x.displayName, x.userId) }, onLongClick = onLongClick) {
         if (x.haveUsd + x.wantUsd > 0) PriceBook.text(x.haveUsd + x.wantUsd)?.let { Text(it, color = T1.text, fontFamily = T1.mono, fontSize = 15.sp) }
     }
 }
@@ -95,6 +95,7 @@ fun FriendsScreen(onBack: () -> Unit, onProfile: (String) -> Unit, onAdd: () -> 
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var menuFor by remember { mutableStateOf<Pair<PersonRef, String>?>(null) }
     LaunchedEffect(Unit) {
         Telemetry.screen("friends")
         FriendsStore.load()
@@ -113,11 +114,13 @@ fun FriendsScreen(onBack: () -> Unit, onProfile: (String) -> Unit, onAdd: () -> 
             if (l == null) item { Notice("Loading…") } else {
                 if (l.incoming.isNotEmpty()) item { Section("Requests · ${l.incoming.size}") }
                 items(l.incoming, key = { "in" + it.userId }) { p ->
-                    ListRow(p.displayName, if (busy == p.userId) "Working…" else "Asked you", onClick = { onProfile(p.userId) },
-                        avatar = { Avatar(p.displayName, p.userId) }) {
+                    // How you know them, never pressure: Accept · Ignore, and ignoring isn't announced (§ UX rules 7).
+                    ListRow(p.displayName, if (busy == p.userId) "Working…" else (p.sharedEvents?.takeIf { it > 0 }?.let { "${plural(it, "event")} together" } ?: "Asked you"),
+                        onClick = { onProfile(p.userId) }, avatar = { Avatar(p.displayName, p.userId) },
+                        onLongClick = { menuFor = PersonRef(p.userId, p.displayName, "incoming") to "request" }) {
                         Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                             RowAction("Accept", accent = true) { run(p.userId) { FriendsStore.respond(p.userId, true) } }
-                            RowAction("Decline") { run(p.userId) { FriendsStore.respond(p.userId, false) } }
+                            RowAction("Ignore") { run(p.userId) { FriendsStore.respond(p.userId, false) } }
                         }
                     }
                 }
@@ -126,14 +129,16 @@ fun FriendsScreen(onBack: () -> Unit, onProfile: (String) -> Unit, onAdd: () -> 
                     Notice("No friends yet. Friends see what you share with them, show up first in Add players, and their trades are matched against your wants.")
                 }
                 items(l.friends, key = { "f" + it.userId }) { p ->
-                    ListRow(p.displayName, p.handle?.let { "@$it" } ?: "Friend", onClick = { onProfile(p.userId) }, avatar = { Avatar(p.displayName, p.userId) })
+                    ListRow(p.displayName, p.handle?.let { "@$it" } ?: "Friend", onClick = { onProfile(p.userId) }, avatar = { Avatar(p.displayName, p.userId) },
+                        onLongClick = { menuFor = PersonRef(p.userId, p.displayName, "friend") to "friends" })
                 }
                 if (l.outgoing.isNotEmpty()) item { Section("Sent · ${l.outgoing.size}") }
                 items(l.outgoing, key = { "out" + it.key }) { r ->
                     val p = r.person
                     if (p != null) {
                         ListRow(p.displayName, if (busy == r.key) "Working…" else "Requested", onClick = { onProfile(p.userId) },
-                            avatar = { Avatar(p.displayName, p.userId) }) { RowAction("Cancel") { run(r.key) { FriendsStore.cancel(r) } } }
+                            avatar = { Avatar(p.displayName, p.userId) },
+                            onLongClick = { menuFor = PersonRef(p.userId, p.displayName, "requested") to "friends" }) { RowAction("Cancel") { run(r.key) { FriendsStore.cancel(r) } } }
                     } else {
                         // Asked by email: only the address (the server never says whose account it is).
                         ListRow(r.label, if (busy == r.key) "Working…" else "Asked by email") { RowAction("Cancel") { run(r.key) { FriendsStore.cancel(r) } } }
@@ -141,13 +146,15 @@ fun FriendsScreen(onBack: () -> Unit, onProfile: (String) -> Unit, onAdd: () -> 
                 }
                 if (l.blocked.isNotEmpty()) item { Section("Blocked · ${l.blocked.size}") }
                 items(l.blocked, key = { "b" + it.userId }) { p ->
-                    ListRow(p.displayName, "Can't see you or ask you", avatar = { Avatar(p.displayName, p.userId) }) {
+                    ListRow(p.displayName, "Can't see you or ask you", avatar = { Avatar(p.displayName, p.userId) },
+                        onLongClick = { menuFor = PersonRef(p.userId, p.displayName, "blocked") to "friends" }) {
                         RowAction("Unblock") { run(p.userId) { FriendsStore.block(p.userId, false) } }
                     }
                 }
             }
         }
     }
+    PersonMenu(menuFor?.first, menuFor?.second ?: "friends", onDismiss = { menuFor = null })
 }
 
 /** Add a friend: people you've played with first; a name also finds public profiles; email never says whether an account exists. */
@@ -160,6 +167,7 @@ fun FriendAddScreen(onBack: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var menuFor by remember { mutableStateOf<PersonRef?>(null) }
     suspend fun load() {
         runCatching { FriendsStore.search(query) }.onSuccess { people = it }.onFailure { error = it.message; if (people == null) people = emptyList() }
     }
@@ -188,7 +196,8 @@ fun FriendAddScreen(onBack: () -> Unit) {
                 else -> items(list, key = { it.userId }) { p ->
                     val detail = listOfNotNull(p.handle?.let { "@$it" },
                         if ((p.sharedEvents ?: 0) > 0) "${plural(p.sharedEvents ?: 0, "event")} together" else "Public profile").joinToString(" · ")
-                    ListRow(p.displayName, detail, avatar = { Avatar(p.displayName, p.userId) }) {
+                    ListRow(p.displayName, detail, avatar = { Avatar(p.displayName, p.userId) },
+                        onLongClick = { menuFor = PersonRef(p.userId, p.displayName, p.relation ?: "none") }) {
                         when (p.relation ?: "none") {
                             "friend" -> Label("Friends", color = T1.accent)
                             "requested" -> Label("Requested")
@@ -233,6 +242,7 @@ fun FriendAddScreen(onBack: () -> Unit) {
             item { Notice("Works for people who already have a Table 1 account.") }
         }
     }
+    PersonMenu(menuFor, "search", onDismiss = { menuFor = null }, changed = { scope.launch { load() } })
 }
 
 /* ── profile ── */
@@ -245,8 +255,10 @@ fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: Stri
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
-    var confirm by remember { mutableStateOf<String?>(null) }
     var reload by remember { mutableStateOf(0) }
+    /** Your own profile: You (2) · A friend (1) · Anyone (0), worked out on the device (§ UX rules 5). */
+    var viewAs by remember { mutableStateOf(2) }
+    val sharingState by FriendsStore.state.collectAsState()
     LaunchedEffect(userId, reload) {
         runCatching { FriendsStore.profile(userId) }
             .onSuccess { p ->
@@ -264,7 +276,10 @@ fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: Stri
         busy = true
         scope.launch { runCatching { work() }.onSuccess { reload++ }.onFailure { error = it.message }; busy = false }
     }
-    val p = d
+    LaunchedEffect(d?.relation) { if (d?.relation == "self" && FriendsStore.state.value.sharing == null) FriendsStore.loadSharing() }
+    val own = d
+    val sharing = sharingState.sharing
+    val p = if (own != null && own.relation == "self" && viewAs < 2 && sharing != null) SharingRules.viewAs(own, sharing, viewAs) else own
     val sub = p?.let {
         when (it.relation) {
             "self" -> "You"; "friend" -> "Friend"; "requested" -> "Requested"; "incoming" -> "Wants to be friends"; "blocked" -> "Blocked"
@@ -272,8 +287,13 @@ fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: Stri
         }
     }
     T1Screen {
-        Bar(p?.displayName ?: "Profile", sub, onBack = onBack) { if (p != null && p.relation != "self") BarAction("More") { menu = true } }
+        Bar(p?.displayName ?: "Profile", if (own?.relation == "self" && viewAs < 2) "As ${if (viewAs == 1) "a friend" else "anyone"} sees it" else sub,
+            onBack = onBack) { if (p != null && own?.relation != "self") BarAction("More") { menu = true } }
         error?.let { Notice(it, error = true) }
+        if (own?.relation == "self") T1Segmented(listOf("You", "A friend", "Anyone"), 2 - viewAs) { i ->
+            viewAs = 2 - i
+            if (viewAs < 2) Telemetry.capture("profile_view_as", mapOf("as" to if (viewAs == 1) "friend" else "anyone"))
+        }
         Hairlines(Modifier.weight(1f)) {
             if (p == null) { if (error == null) item { Notice("Loading…") }; return@Hairlines }
             val s = p.sections
@@ -303,7 +323,7 @@ fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: Stri
                 }
                 "blocked" -> item { ListRow("Blocked", "They can't see you or ask you") { RowAction("Unblock") { run { FriendsStore.block(userId, false) } } } }
                 "self" -> {
-                    item { Notice("You see everything here. Others see only what reaches them in Sharing.") }
+                    item { Notice("You see everything here. Others see only what reaches them in Sharing. Switch above to see it as they do.") }
                     item { ListRow("Sharing", "Choose who sees each part", onClick = onSharing) }
                 }
             }
@@ -316,8 +336,8 @@ fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: Stri
                     }
                 }
             }
-            if (!p.visible) item { Notice(if (p.relation == "blocked") "You blocked ${p.displayName}." else "Only ${p.displayName}'s friends can see their profile.") }
-            else if (p.relation != "self" && p.sectionCount == 0) item { Notice("${p.displayName} hasn't shared anything with you yet.") }
+            if (!p.visible) item { Notice(if (p.relation == "blocked") "You blocked ${p.displayName}." else "This isn't available.") }
+            else if (p.relation != "self" && p.sectionCount == 0) item { Notice("Nothing shared yet.") }
             fun open(title: String, detail: String, kind: String, id: String? = null) = item(key = "$kind-${id ?: ""}") {
                 ListRow(title, detail, onClick = {
                     Telemetry.capture("profile_section_opened", mapOf("section" to kind))
@@ -342,31 +362,7 @@ fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: Stri
             }
         }
     }
-    if (menu && p != null) {
-        T1Menu(p.displayName, listOfNotNull(
-            if (p.relation == "friend") T1MenuItem("Unfriend") { confirm = "unfriend" } else null,
-            if (p.relation == "blocked") T1MenuItem("Unblock") { run { FriendsStore.block(userId, false) } }
-            else T1MenuItem("Block", danger = true) { confirm = "block" },
-        )) { menu = false }
-    }
-    val c = confirm
-    if (c != null && p != null) {
-        T1AlertDialog(
-            title = if (c == "block") "Block ${p.displayName}?" else "Unfriend ${p.displayName}?",
-            onDismiss = { confirm = null },
-            confirm = {
-                TextButton(onClick = {
-                    confirm = null
-                    run { if (c == "block") FriendsStore.block(userId, true) else FriendsStore.remove(userId) }
-                }) { Label(if (c == "block") "Block" else "Unfriend", color = T1.danger) }
-            },
-            dismiss = { TextButton(onClick = { confirm = null }) { Label("Cancel", color = T1.text) } },
-            body = {
-                Text(if (c == "block") "They won't be told. They can't ask you again or see anything of yours, even what's public."
-                     else "You'll stop seeing what each of you shares with friends.", color = T1.muted, fontFamily = T1.mono, fontSize = 13.sp)
-            },
-        )
-    }
+    if (menu && p != null) PersonMenu(PersonRef(userId, p.displayName, p.relation), "profile", onDismiss = { menu = false }, changed = { reload++ })
 }
 
 /** Binders, all cards, for trade and wants: one group per card, by name; wants for any printing show the card's default
@@ -610,7 +606,7 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
 
 /* ── sharing ── */
 
-/** One part's row and its Private / Friends / Public control ("Same" first when it can follow the level above). */
+/** One part's row and its Private / Friends / Anyone control ("Same" first when it can follow the level above). */
 @Composable
 private fun SharingControl(title: String, detail: String, own: Visibility?, parent: Pair<String, Visibility>?, settings: Sharing,
                            isProfile: Boolean = false, onChange: (Visibility?) -> Unit) {
@@ -621,8 +617,8 @@ private fun SharingControl(title: String, detail: String, own: Visibility?, pare
         T1Segmented(options.map { it?.label ?: "Same" }, options.indexOf(own).coerceAtLeast(0)) { onChange(options[it]) }
         if (own == null && parent != null) Notice("Same as ${parent.first}: ${parent.second.label.lowercase()}.")
         if (!isProfile && SharingRules.capped(settings, eff)) {
-            Notice("Shows to ${if (SharingRules.reach(settings, eff) == Visibility.Friends) "friends" else "you"} only: your profile is " +
-                "${settings.own(SharePart.Profile)!!.label.lowercase()}.")
+            Notice("Set to ${eff.label}, but only ${if (SharingRules.reach(settings, eff) == Visibility.Friends) "friends see" else "you see"} it: your profile is " +
+                "${settings.own(SharePart.Profile)!!.label}.")
         }
     }
 }
@@ -632,6 +628,7 @@ fun SharingScreen(onBack: () -> Unit) {
     val st by FriendsStore.state.collectAsState()
     val scope = rememberCoroutineScope()
     var open by remember { mutableStateOf<String?>(null) }
+    val confirm = rememberWideningConfirm()
     LaunchedEffect(Unit) {
         Telemetry.screen("sharing")
         FriendsStore.loadSharing()
@@ -642,10 +639,12 @@ fun SharingScreen(onBack: () -> Unit) {
         st.error?.let { Notice(it, error = true) }
         Hairlines(Modifier.weight(1f)) {
             if (s == null) { item { Notice("Loading…") }; return@Hairlines }
-            item { Notice("Everything starts private. Friends see what's Friends or Public; anyone on Table 1 sees what's Public. Your profile caps the rest.") }
+            item { Notice(SharingRules.seesLine(s, 1)) }
+            item { Notice(SharingRules.seesLine(s, 0)) }
+            item { Notice("Everything starts private. Friends see what's Friends or Anyone; anyone on Table 1 sees what's Anyone. Your profile caps the rest.") }
             fun part(p: SharePart) = item(key = p.wire) {
                 SharingControl(p.label, p.detail, s.own(p), if (p.inherits) "Library" to s.own(SharePart.Library)!! else null, s,
-                    isProfile = p == SharePart.Profile) { v -> scope.launch { FriendsStore.set(p, v) } }
+                    isProfile = p == SharePart.Profile) { v -> confirm.ask(FriendsStore.widening(p, v)) { scope.launch { FriendsStore.set(p, v) } } }
             }
             part(SharePart.Profile)
             part(SharePart.Record)
@@ -663,7 +662,7 @@ fun SharingScreen(onBack: () -> Unit) {
                 }
                 if (open == kind) items(list, key = { it.id }) { i ->
                     SharingControl(i.name, if (i.forTrade == true) "For trade" else kind.replaceFirstChar { it.uppercase() }, i.vis,
-                        p.label to SharingRules.effective(s, p), s) { v -> scope.launch { FriendsStore.set(i, v) } }
+                        p.label to SharingRules.effective(s, p), s) { v -> confirm.ask(FriendsStore.widening(i, v)) { scope.launch { FriendsStore.set(i, v) } } }
                 }
             }
         }
@@ -675,6 +674,10 @@ fun SharingScreen(onBack: () -> Unit) {
 @Composable
 fun TradeMatchesScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onFriends: () -> Unit, onSharing: () -> Unit) {
     val st by FriendsStore.state.collectAsState()
+    var menuFor by remember { mutableStateOf<PersonRef?>(null) }
+    var offering by remember { mutableStateOf(false) }
+    var offered by remember { mutableStateOf(SharingOffer.Matches.answered) }
+    LaunchedEffect(Unit) { if (FriendsStore.state.value.sharing == null) FriendsStore.loadSharing() }
     LaunchedEffect(Unit) {
         Telemetry.screen("trade_matches")
         FriendsStore.loadMatches()
@@ -687,7 +690,12 @@ fun TradeMatchesScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onFriends: 
         Bar("Trade matches", m?.let { plural(it.size, "person", "people") }, onBack = onBack)
         st.error?.let { Notice(it, error = true) }
         Hairlines(Modifier.weight(1f)) {
-            item { Notice("Your wants against friends' for-trade cards, and theirs against yours. People you've played with count when they share publicly.") }
+            item { Notice("Your wants against friends' for-trade cards, and theirs against yours. People you've played with count when they share with anyone.") }
+            // With For trade and Wants both private, no one can match with you (§ UX rules 8): offer once.
+            val sh = st.sharing
+            if (!offered && sh != null && SharingRules.reachOf(sh, SharePart.ForTrade) == Visibility.Private && SharingRules.reachOf(sh, SharePart.Wants) == Visibility.Private) item {
+                ListRow("Share For trade and Wants with friends", "So friends' trade matches can find you", onClick = { offering = true })
+            }
             when {
                 m == null -> item { Notice("Looking…") }
                 m.isEmpty() -> {
@@ -695,10 +703,16 @@ fun TradeMatchesScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onFriends: 
                     item { ListRow("Friends", "Add friends to trade with", onClick = onFriends) }
                     item { ListRow("Sharing", "Share your For trade and Wants", onClick = onSharing) }
                 }
-                else -> items(m, key = { it.userId }) { x -> TradeMatchRow(x) { onOpen(x.userId) } }
+                else -> items(m, key = { it.userId }) { x ->
+                    TradeMatchRow(x, onLongClick = { menuFor = PersonRef(x.userId, x.displayName, if (x.friend) "friend" else "none") }) { onOpen(x.userId) }
+                }
             }
         }
     }
+    PersonMenu(menuFor, "trade_match", onDismiss = { menuFor = null })
+    if (offering) SharingOfferDialog(SharingOffer.Matches, "Share For trade and Wants with friends?",
+        "Friends can see your for-trade copies and your wishlist (never your max prices), and trade matches can find you.",
+        listOf(SharePart.ForTrade, SharePart.Wants)) { offering = false; offered = true }
 }
 
 @Composable
@@ -712,6 +726,7 @@ fun TradeMatchScreen(userId: String, onBack: () -> Unit, onProfile: () -> Unit, 
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var names by remember { mutableStateOf<Map<String, Pair<CatalogPrinting?, CatalogOracle?>>>(emptyMap()) }
+    var more by remember { mutableStateOf(false) }
     LaunchedEffect(userId) {
         Telemetry.screen("trade_match")
         CatalogStore.load(userInitiated = true)
@@ -730,7 +745,10 @@ fun TradeMatchScreen(userId: String, onBack: () -> Unit, onProfile: () -> Unit, 
         PriceBook.load(ids)
     }
     T1Screen {
-        Bar(match?.displayName ?: "Trade match", match?.let { if (it.friend) "Friend" else "Played with you" }, onBack = onBack) { BarAction("Profile", onProfile) }
+        Bar(match?.displayName ?: "Trade match", match?.let { if (it.friend) "Friend" else "Played with you" }, onBack = onBack) {
+            BarAction("Profile", onProfile)
+            if (match != null) BarAction("More") { more = true }
+        }
         error?.let { Notice(it, error = true) }
         val m = match
         Hairlines(Modifier.weight(1f)) {
@@ -769,4 +787,5 @@ fun TradeMatchScreen(userId: String, onBack: () -> Unit, onProfile: () -> Unit, 
             }
         }
     }
+    if (more) match?.let { m -> PersonMenu(PersonRef(m.userId, m.displayName, if (m.friend) "friend" else "none"), "trade_match", onDismiss = { more = false }) }
 }

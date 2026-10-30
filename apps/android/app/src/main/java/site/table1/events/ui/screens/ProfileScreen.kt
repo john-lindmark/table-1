@@ -1,5 +1,8 @@
 package site.table1.events.ui.screens
 
+import site.table1.events.library.Visibility
+import site.table1.events.library.SharePart
+import site.table1.events.library.SharingOffer
 import site.table1.events.util.rethrowIfCancelled
 
 import android.Manifest
@@ -84,6 +87,7 @@ fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit
     var editingName by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
+    var recordOffered by remember { mutableStateOf(SharingOffer.Record.answered) }
     var error by remember { mutableStateOf<String?>(null) }
     var avatarMenu by remember { mutableStateOf(false) }
     var avatarBusy by remember { mutableStateOf(false) }
@@ -170,6 +174,15 @@ fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit
                 )
             }
             Repo.userId?.let { me -> friendsAccountRows(friends, onFriends, onSharing) { onProfile(me) } }
+            // After your first event, with Record private: offer once to show it to friends (§ UX rules 8).
+            if (!recordOffered && (r?.eventsPlayed ?: 0) >= 1 && friends.sharing?.own(SharePart.Record) == Visibility.Private) item {
+                ListRow("Show your record on your profile?", "Friends would see your wins, losses and draws") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                        BarAction("Friends") { SharingOffer.Record.answer(true); recordOffered = true; scope.launch { FriendsStore.setAll(listOf(SharePart.Record), Visibility.Friends) } }
+                        BarAction("Not now") { SharingOffer.Record.answer(false); recordOffered = true }
+                    }
+                }
+            }
             item { Section("Head-to-head") }
             when {
                 overview == null -> item { Notice("Loading…") }

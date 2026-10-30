@@ -376,6 +376,8 @@ object BindersStore {
             put("p_for_trade", forTrade)
         }).decodeAs<BinderDTO>()
         val saved = Binder(r.id, r.name, r.forTrade, r.seq)
+        // Marking a binder For trade while For trade reaches no one: offer to share it with friends, once (§ UX rules 8).
+        if (saved.forTrade && old?.forTrade != true && runCatching { SharingOffer.forTradeDue() }.getOrDefault(false)) SharingOffer.due.value = SharingOffer.ForTrade
         set { s -> s.copy(binders = byName(s.binders.filter { it.id != saved.id } + saved)) }
         if (old == null) Telemetry.capture("binder_created", mapOf("for_trade" to saved.forTrade))
         else if (old.name != saved.name || old.forTrade != saved.forTrade) {

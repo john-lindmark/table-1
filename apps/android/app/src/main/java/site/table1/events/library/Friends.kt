@@ -38,7 +38,9 @@ import java.util.UUID
    apps/ios/Table1/Library/Friends.swift. */
 
 enum class Visibility(val wire: String, val label: String, /** What it asks of a viewer: public 0, friends 1, private 3. */ val asks: Int) {
-    Private("private", "Private", 3), Friends("friends", "Friends", 1), Public("public", "Public", 0);
+    Private("private", "Private", 3), Friends("friends", "Friends", 1),
+    /** "Anyone" means anyone on Table 1; the UI never says "Public" (contract § UX rules 1). */
+    Public("public", "Anyone", 0);
 
     companion object {
         fun of(s: String?) = entries.firstOrNull { it.wire == s }
@@ -91,6 +93,21 @@ data class FriendsList(
     val friends: List<Person> = emptyList(), val incoming: List<Person> = emptyList(),
     val outgoing: List<SentRequest> = emptyList(), val blocked: List<Person> = emptyList(),
 )
+
+/** user_report's reasons (contract § UX rules 6). */
+enum class ReportReason(val wire: String, val label: String) {
+    Spam("spam", "Spam or fake account"), Harassment("harassment", "Harassment"),
+    OffensiveProfile("offensive_profile", "Offensive name or photo"), OffensiveContent("offensive_content", "Offensive deck, binder or cube name"),
+    Other("other", "Something else");
+
+    /** Harassment suggests blocking too. */
+    val blocksByDefault get() = this == Harassment
+}
+
+/** What players are told before joining an event (contract § UX rules 9). */
+object JoinNotice {
+    const val TEXT = "Your name shows in this event's pairings and standings, to its players and anyone with its standings link."
+}
 
 /* ── sharing ── */
 
@@ -226,6 +243,87 @@ object SharingRules {
     fun summary(s: Sharing): String {
         val n = sharedCount(s)
         return "Profile ${s.own(SharePart.Profile)!!.label.lowercase()} · " + if (n == 0) "nothing shared" else "$n shared"
+    }
+
+    /** Who a part reaches once the profile cap applies (Record and the Library parts). */
+    fun reachOf(s: Sharing, p: SharePart): Visibility = if (p == SharePart.Profile) s.own(SharePart.Profile)!! else reach(s, effective(s, p))
+
+    fun reachOf(s: Sharing, item: ShareItem): Visibility = reach(s, effective(s, item))
+
+    /** What newly reaches friends and anyone (contract § UX rules 4). Empty = only narrows or does nothing: no question. */
+    data class Widening(
+        val friends: List<String> = emptyList(), val anyone: List<String> = emptyList(),
+        val allCardsToAnyone: Boolean = false, val profileToAnyone: Boolean = false,
+    ) {
+        val isEmpty get() = friends.isEmpty() && anyone.isEmpty()
+        val title get() = if (anyone.isEmpty()) "Show to friends?" else "Show to anyone on Table 1?"
+        val message get() = listOfNotNull(
+            anyone.takeIf { it.isNotEmpty() }?.let { "Anyone on Table 1 will see: ${it.joinToString(", ")}." },
+            friends.takeIf { it.isNotEmpty() }?.let { "Friends will see: ${it.joinToString(", ")}." },
+            if (allCardsToAnyone) "Every card you own. Your total value is never shown." else null,
+            if (profileToAnyone) "Your profile shows up when people search your name." else null,
+        ).joinToString("\n\n")
+    }
+
+    val shownParts = listOf(SharePart.Profile to "your profile", SharePart.Record to "your record", SharePart.AllCards to "All cards",
+        SharePart.ForTrade to "For trade", SharePart.Wants to "Wants")
+
+    fun widening(a: Sharing, b: Sharing): Widening {
+        val friends = mutableListOf<String>(); val anyone = mutableListOf<String>()
+        var allCards = false; var profile = false
+        fun add(name: String, to: Visibility) { if (to == Visibility.Public) anyone += name else friends += name }
+        for ((p, name) in shownParts) {
+            val ra = reachOf(a, p); val rb = reachOf(b, p)
+            if (rb.asks >= ra.asks) continue
+            add(name, rb)
+            if (p == SharePart.AllCards && rb == Visibility.Public) allCards = true
+            if (p == SharePart.Profile && rb == Visibility.Public) profile = true
+        }
+        val before = a.items.associateBy { it.id }
+        for (kind in listOf("binder", "deck", "cube")) for (to in listOf(Visibility.Public, Visibility.Friends)) {
+            val opened = b.items.filter { item ->
+                item.kind == kind && reachOf(b, item) == to && to.asks < (before[item.id]?.let { reachOf(a, it) } ?: Visibility.Private).asks
+            }
+            if (opened.size == 1) add(opened[0].name, to) else if (opened.size > 1) add("${opened.size} ${kind}s", to)
+        }
+        return Widening(friends, anyone, allCards, profile)
+    }
+
+    /** The line per audience at the top of Sharing (contract § UX rules 5). Name and photo always show. */
+    fun seesLine(s: Sharing, level: Int): String {
+        val names = mutableListOf("your name and photo")
+        val profile = s.own(SharePart.Profile)!!
+        if (level >= profile.asks) {
+            for ((p, name) in shownParts) if (p != SharePart.Profile && sees(level, profile, effective(s, p))) names += name
+            for (kind in listOf("binder", "deck", "cube")) {
+                val n = s.items.count { it.kind == kind && sees(level, profile, effective(s, it)) }
+                if (n > 0) names += "$n $kind${if (n == 1) "" else "s"}"
+            }
+        }
+        return (if (level >= 1) "Friends see: " else "Anyone on Table 1 sees: ") + names.joinToString(", ") + "."
+    }
+
+    /** Your own profile as a friend (level 1) or anyone (level 0) would get it from profile_view (contract § UX rules 5). */
+    fun viewAs(d: ProfileData, s: Sharing, level: Int): ProfileData {
+        val profile = s.own(SharePart.Profile)!!
+        val visible = level >= profile.asks
+        val base = d.copy(relation = if (level >= 1) "friend" else "none", visible = visible)
+        if (!visible) return base.copy(sections = ProfileData.Sections())
+        fun ok(v: Visibility) = sees(level, profile, v)
+        val items = s.items.associateBy { it.id }
+        fun itemOk(id: String, group: SharePart) = ok(items[id]?.let { effective(s, it) } ?: effective(s, group))
+        val src = d.sections
+        val tradeOk = ok(effective(s, SharePart.ForTrade))
+        val tradeBinders = src.binders.orEmpty().filter { it.forTrade && (tradeOk || itemOk(it.id, SharePart.Binders)) }
+        return base.copy(sections = ProfileData.Sections(
+            allCards = src.allCards?.takeIf { ok(effective(s, SharePart.AllCards)) }?.copy(valueUsd = null),
+            forTrade = if (tradeBinders.isEmpty()) null else ProfileData.Counts(cards = tradeBinders.sumOf { it.cards }),
+            wants = src.wants?.takeIf { ok(effective(s, SharePart.Wants)) },
+            binders = src.binders.orEmpty().filter { itemOk(it.id, SharePart.Binders) },
+            decks = src.decks.orEmpty().filter { itemOk(it.id, SharePart.Decks) },
+            cubes = src.cubes.orEmpty().filter { itemOk(it.id, SharePart.Cubes) },
+            record = src.record?.takeIf { ok(s.own(SharePart.Record)!!) },
+        ))
     }
 
     fun change(p: SharePart, v: Visibility?): JsonObject = buildJsonObject { put(p.wire, v?.wire?.let(::JsonPrimitive) ?: JsonNull) }
@@ -501,6 +599,47 @@ object FriendsStore {
         if (on) _state.update { s -> s.copy(matches = s.matches?.filter { it.userId != userId }) }
     }
 
+    /** Reports an account (contract § UX rules 6); [block] also blocks them. [from]: profile / friends / request / search / trade_match. */
+    suspend fun report(userId: String, reason: ReportReason, note: String, from: String, item: Pair<String, String>? = null, block: Boolean) {
+        val trimmed = note.trim().take(500)
+        rpc.rpc("user_report", buildJsonObject {
+            put("p_user_id", userId); put("p_reason", reason.wire)
+            if (trimmed.isEmpty()) put("p_note", JsonNull) else put("p_note", trimmed)
+            put("p_context", buildJsonObject { put("from", from); item?.let { put("kind", it.first); put("id", it.second) } })
+            put("p_block", block)
+        })
+        Telemetry.capture("user_reported", mapOf("reason" to reason.wire, "from" to from, "blocked" to block))
+        if (block) {
+            Telemetry.capture("user_blocked", mapOf("blocked" to true))
+            _state.update { s -> s.copy(matches = s.matches?.filter { it.userId != userId }) }
+        }
+        load()
+    }
+
+    /** A binder, deck or cube's sharing row (made up from its group when sharing_get hasn't listed it yet). */
+    fun shareItem(kind: String, id: String, name: String, forTrade: Boolean? = null): ShareItem =
+        _state.value.sharing?.items?.firstOrNull { it.id == id } ?: ShareItem(kind, id, name, forTrade)
+
+    /** What a change would newly show, to ask first (contract § UX rules 4); empty when it only narrows. */
+    fun widening(p: SharePart, v: Visibility?): SharingRules.Widening {
+        val s = _state.value.sharing ?: return SharingRules.Widening()
+        return SharingRules.widening(s, s.with(p, v))
+    }
+
+    fun widening(item: ShareItem, v: Visibility?): SharingRules.Widening {
+        val s = _state.value.sharing ?: return SharingRules.Widening()
+        val next = if (s.items.any { it.id == item.id }) s.items.map { if (it.id == item.id) it.copy(visibility = v?.wire) else it }
+            else s.items + item.copy(visibility = v?.wire)
+        return SharingRules.widening(s, s.copy(items = next))
+    }
+
+    /** Several parts at once (a sharing offer: the offer was the question). */
+    suspend fun setAll(parts: List<SharePart>, v: Visibility) {
+        val s = _state.value.sharing ?: return
+        val next = parts.fold(s) { acc, p -> acc.with(p, v) }
+        save(s, next, buildJsonObject { parts.forEach { put(it.wire, v.wire) } }, parts.joinToString(",") { it.wire }, v)
+    }
+
     suspend fun loadSharing() {
         runCatching { rpc.rpc("sharing_get").decodeAs<Sharing>() }
             .onSuccess { s -> _state.update { it.copy(sharing = s, error = null) } }.onFailure(::fail)
@@ -515,7 +654,9 @@ object FriendsStore {
     suspend fun set(item: ShareItem, v: Visibility?) {
         val s = _state.value.sharing ?: return
         if (item.vis == v) return
-        save(s, s.copy(items = s.items.map { if (it.id == item.id) it.copy(visibility = v?.wire) else it }), SharingRules.change(item, v), item.kind, v)
+        val items = if (s.items.any { it.id == item.id }) s.items.map { if (it.id == item.id) it.copy(visibility = v?.wire) else it }
+            else s.items + item.copy(visibility = v?.wire)
+        save(s, s.copy(items = items), SharingRules.change(item, v), item.kind, v)
     }
 
     private suspend fun save(before: Sharing, next: Sharing, change: JsonObject, part: String, v: Visibility?) {
@@ -609,5 +750,36 @@ object FriendsStore {
         TradesStore.load()
         Telemetry.capture("trade_started_from_match", mapOf("gives" to m.wantCopies, "gets" to m.haveCopies))
         return t.id
+    }
+}
+
+/**
+ * Sharing offers made at the moment they help, once per account on this device (contract § UX rules 8). Not now
+ * counts as an answer. Same as iOS SharingOffer.
+ */
+enum class SharingOffer(val wire: String) {
+    ForTrade("for_trade"), Matches("matches"), Record("record");
+
+    private val prefs get() = T1App.instance.getSharedPreferences("library", android.content.Context.MODE_PRIVATE)
+    private val key get() = "sharing_offer.$wire.${site.table1.events.data.Repo.userId ?: "none"}"
+    val answered get() = prefs.getBoolean(key, false)
+
+    fun answer(accepted: Boolean) {
+        prefs.edit().putBoolean(key, true).apply()
+        Telemetry.capture("sharing_offer", mapOf("offer" to wire, "accepted" to accepted))
+    }
+
+    companion object {
+        /** An offer to show now (AppRoot shows it over whatever screen made it due). */
+        val due = kotlinx.coroutines.flow.MutableStateFlow<SharingOffer?>(null)
+
+        /** After a binder is marked For trade: offer when no one can see any of For trade yet. */
+        suspend fun forTradeDue(): Boolean {
+            if (ForTrade.answered) return false
+            if (FriendsStore.state.value.sharing == null) FriendsStore.loadSharing()
+            val s = FriendsStore.state.value.sharing ?: return false
+            return SharingRules.reachOf(s, SharePart.ForTrade) == Visibility.Private &&
+                s.items.none { it.forTrade == true && SharingRules.reachOf(s, it) != Visibility.Private }
+        }
     }
 }

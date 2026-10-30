@@ -1,0 +1,33 @@
+# Android parity with iOS (2026-10-29)
+
+John asked that every iOS feature be built on Android. Found by diffing the server calls each app makes
+(`rpc(...)`/`invoke(...)`), the unit-test suites, the screens/routes and the "Android to do" notes in `contract/`.
+Library routes, Insights, events, scheduled events, decklists, spice, follows, want prices, rankings, card detail,
+trades, imports/exports, deck image, tracker options and push were already at parity.
+
+Fixed first (from John's reports on his Android phone):
+- [x] Error flash at launch (cancelled loads shown as errors), same fix as iOS 7ffff3e. 14517fc.
+- [x] Scanner laid out like iOS (camera fills the screen, guide with tips, short list, TextureView preview, card gate). 14517fc.
+- [x] Limited Insights slow to load (packs one at a time, main-thread decode, chain stopped on leaving the tab). 14517fc.
+- [x] Collection home: wrong hero art and binders late for 5-10 s (stores started one after another; iOS too). 9bf8e2c.
+
+Gaps, in build order:
+1. [x] **Report** wherever a person appears (`user_report`, contract/friends-sharing-2026-10-18.md § UX rules 6) and the
+       other sharing UX rules: Who sees this on decks/cubes/binders (2), widening asks first (4), View as (5),
+       Accept · Ignore (7), one-time offers (8), join notice (9), "This isn't available" (10). Built 2026-10-29
+       (`PersonActions.kt`, `SharingRules.widening/seesLine/viewAs`, `SharingRulesTest` on testdata/sharing/cases.json).
+       The in-app QR scan has no screen of its own on Android (Google's code scanner), so the notice shows on
+       Invitations and Nearby only.
+2. [ ] **Moderation notices and appeal** (Account → From Table 1; contract/moderation-2026-10-18.md), and the moderator
+       Review queue (restrict, mode).
+3. [ ] **Seat the ends** switch (`set_seat_ends`, contract/event-night-2026-10-16.md § 3).
+4. [ ] **Redraft pile** for finished set drafts (`redraft_*`, § 6).
+5. [ ] **Roto cube events** (contract/roto-2026-10-16.md): setup, draft room, pick lists, clock, undo.
+6. [ ] **Demo data** switch for demo testers (`demo_tester`, `demo_seed`, `demo_remove`).
+7. [ ] **Unsaved lists** kept and resent (iOS `ListsStore.unsaved`).
+8. [ ] **Quick actions and widgets**: Life tracker / Scan cards shortcuts and Quick Settings tiles, Next event and
+       Collection value widgets (Glance), live event status (iOS Live Activities → an ongoing notification).
+9. [ ] **Bug inbox** for watchers (Account → Bugs, `bugs_*`).
+10. [ ] **Insights picks follow the account** (John, 2026-10-29: "Settings for insights format views should be maintained
+       across platforms"): hidden formats/sets and the picked section, format, tier, window, set, event and group are
+       kept per device on every client today. Needs a server home (per-account settings RPC) and all three clients.

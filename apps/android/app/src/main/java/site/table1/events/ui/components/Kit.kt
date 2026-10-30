@@ -4,6 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -212,17 +214,26 @@ fun Field(label: String, value: String, onChange: (String) -> Unit, number: Bool
 }
 
 /** A tappable list row with a title, a quiet line and optional trailing content; `avatar` is a player's tile left of the name. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ListRow(
     title: String,
     detail: String? = null,
     onClick: (() -> Unit)? = null,
     avatar: (@Composable () -> Unit)? = null,
+    /** A long press: a person's menu (Block, Report) on rows that show someone. */
+    onLongClick: (() -> Unit)? = null,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().background(T1.surface)
-            .let { if (onClick != null) it.clickable(onClick = onClick) else it }
+            .let {
+                when {
+                    onLongClick != null -> it.combinedClickable(onLongClickLabel = "More", onLongClick = onLongClick, onClick = onClick ?: {})
+                    onClick != null -> it.clickable(onClick = onClick)
+                    else -> it
+                }
+            }
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),

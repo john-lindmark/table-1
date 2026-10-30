@@ -265,6 +265,7 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
         // Add cards and the empty notes stay at the top in every view.
         val top: @Composable () -> Unit = {
             Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                if (binder != null) WhoSeesRow("binder", binder.id, binder.name, binder.forTrade)
                 if (binder != null) ShareRow(ShareTarget("binder", binder.id, binder.name, binder.forTrade), "binder")
                 if (unsorted || binder != null) {
                     ListRow("Add cards", if (unsorted) "New copies, or copies out of a binder" else "Move in copies you own, or add new ones", onClick = { adding = true })

@@ -373,6 +373,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
             ListRow("Version history", "v${list.current.number} · ${list.current.note} · ${fmtDate(list.current.at)}", onClick = onVersions) {
                 Text("${list.versions.size}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
             }
+            if (!editing) WhoSeesRow(list.kind.wire, list.id, list.name)
             if (!editing) ShareRow(ShareTarget(list.kind.wire, list.id, list.name), list.kind.wire,
                 onExport = if (list.entries.isNotEmpty() && catalogReady) ({ exporting = true }) else null,
                 onImage = if (list.entries.isNotEmpty() && catalogReady && list.kind == ListKind.Deck) ({ imaging = true }) else null)
