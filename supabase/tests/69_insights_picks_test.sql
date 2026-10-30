@@ -1,4 +1,4 @@
--- Insights picks on user_settings (20261030030000_insights_picks): the owner reads and writes their own picks, an
+-- Insights picks on user_settings (20261030050000_insights_picks): the owner reads and writes their own picks, an
 -- older client's tracker_mode upsert keeps them, nobody else sees or changes them, and the shape is checked.
 \ir _helpers.sql
 
