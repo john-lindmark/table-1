@@ -67,9 +67,9 @@ object SignIn {
         Cancelled("cancelled", null),
         /** Google can't match this build's package + signing SHA-1 to an Android OAuth client (Play Services
          *  "[10]" / "[28444] Developer console is not set up correctly"); SETUP.md § 1 step 3. */
-        NotSetUp("not_set_up", "Google sign-in isn't set up for this version of the app yet. Continue with email, Apple or Discord."),
-        NoAccount("no_account", "No Google account to sign in with. Add one in Settings, or continue with email, Apple or Discord."),
-        NoProvider("no_provider", "Google sign-in needs Google Play services. Update it, or continue with email, Apple or Discord."),
+        NotSetUp("not_set_up", "Google sign-in isn't set up for this version of the app yet. Continue with email or Discord."),
+        NoAccount("no_account", "No Google account to sign in with. Add one in Settings, or continue with email or Discord."),
+        NoProvider("no_provider", "Google sign-in needs Google Play services. Update it, or continue with email or Discord."),
         Failed("error", "Sign-in failed. Try again.");
 
         companion object {

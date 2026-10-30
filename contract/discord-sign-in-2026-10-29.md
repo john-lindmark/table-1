@@ -19,7 +19,7 @@ consent screen, which names the Discord application ("Table 1").
   uses it) and the table-1.site pages.
 
 ## Buttons
-Order: Apple, Google, **Discord**, email. Discord's button is a surface button (`CONTINUE WITH DISCORD`), like
+Order: Apple, Google, **Discord**, email. Android shows no Apple button (John, 2026-10-30): Google, Discord, email. Discord's button is a surface button (`CONTINUE WITH DISCORD`), like
 email's: the accent stays Google's, and no Discord blurple (one accent). Busy while the sheet/tab is open.
 
 ## Accounts

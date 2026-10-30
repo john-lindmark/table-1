@@ -134,7 +134,7 @@ fun SignInScreen(join: JoinLink? = null) {
                     }
                     EmailSignIn.SendOutcome.TooMany -> {
                         Telemetry.capture("sign_in_failed", mapOf("method" to "email_send", "reason" to "too_many"))
-                        error = "Too many sign-in emails right now. Wait a few minutes, or continue with Apple or Google."
+                        error = "Too many sign-in emails right now. Wait a few minutes, or continue with Google or Discord."
                     }
                     EmailSignIn.SendOutcome.Failed -> {
                         Telemetry.capture("sign_in_failed", mapOf("method" to "email_send", "reason" to "error"))
@@ -157,7 +157,7 @@ fun SignInScreen(join: JoinLink? = null) {
         (error ?: SignIn.emailLinkError)?.let { Notice(it, error = true) }
         when (step) {
             Step.Providers -> {
-                BigAction("Continue with Apple", busy = busy == "apple", enabled = busy == null) { run("apple") { SignIn.apple() } }
+                // No Apple button on Android (John, 2026-10-30). SignIn.apple() stays for now.
                 if (SignIn.googleConfigured) {
                     BigAction("Continue with Google", busy = busy == "google", enabled = busy == null, accent = true) {
                         run("google") { SignIn.google(context) }
