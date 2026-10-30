@@ -1,0 +1,20 @@
+{
+  "_doc": "Deck photo size and turns (contract/event-night-2026-10-16.md § 7). turn: quarter turns clockwise after turning `by` (-1 left, +1 right), always 0-3. size: the uploaded JPEG's size, longest side at most 2048 px (never upscaled), sides swapped for an odd number of turns. Read by iOS DeckPhotoTests, web deckPhotos.test.ts, Android DeckPhotosTest.",
+  "turn": [
+    {"turns": 0, "by": 1, "out": 1},
+    {"turns": 0, "by": -1, "out": 3},
+    {"turns": 3, "by": 1, "out": 0},
+    {"turns": 2, "by": -1, "out": 1},
+    {"turns": 1, "by": 4, "out": 1},
+    {"turns": 1, "by": -6, "out": 3}
+  ],
+  "size": [
+    {"width": 4032, "height": 3024, "turns": 0, "out": [2048, 1536]},
+    {"width": 4032, "height": 3024, "turns": 1, "out": [1536, 2048]},
+    {"width": 4032, "height": 3024, "turns": 2, "out": [2048, 1536]},
+    {"width": 4032, "height": 3024, "turns": 3, "out": [1536, 2048]},
+    {"width": 3024, "height": 4032, "turns": 1, "out": [2048, 1536]},
+    {"width": 1200, "height": 900, "turns": 0, "out": [1200, 900]},
+    {"width": 1200, "height": 900, "turns": 3, "out": [900, 1200]}
+  ]
+}

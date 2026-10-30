@@ -4,6 +4,7 @@ import { SeatingPanel } from "../components/SeatingPanel";
 import { toBundle } from "../lib/api";
 import { TAB_LABELS, type OrganizerTab } from "../lib/organizer";
 import type { EventTeam, Participant, SeatingPod } from "../lib/types";
+import { DeckPhotoDemo } from "./DeckPhotos";
 import { NewEvent } from "./Home";
 import { LiveView } from "./organizer/LiveView";
 
@@ -107,7 +108,7 @@ function LiveDemo({ team = false }: { team?: boolean }) {
 }
 
 export function EventsDemo() {
-  const [screen, setScreen] = useState<"create" | "seating" | "live" | "team">("seating");
+  const [screen, setScreen] = useState<"create" | "seating" | "live" | "team" | "photos">("seating");
   return (
     <Screen width={screen === "live" || screen === "team" ? "wide" : "column"}>
       <Segmented
@@ -119,9 +120,12 @@ export function EventsDemo() {
           { value: "seating", label: "Seating" },
           { value: "live", label: "Live" },
           { value: "team", label: "Team" },
+          { value: "photos", label: "Photos" },
         ]}
       />
-      {screen === "team" ? (
+      {screen === "photos" ? (
+        <DeckPhotoDemo />
+      ) : screen === "team" ? (
         <LiveDemo key="team" team />
       ) : screen === "live" ? (
         <LiveDemo key="live" />

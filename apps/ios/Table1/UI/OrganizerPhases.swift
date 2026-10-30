@@ -1131,7 +1131,10 @@ private struct OrganizerResultsView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: event.name, subtitle: subtitle, back: { dismiss() })
+            Bar(title: event.name, subtitle: subtitle, back: { dismiss() }) {
+                // Live's More carried Deck photos; finishing the event mustn't take it away.
+                if !event.isCancelled { BarButton("More") { showMore() } }
+            }
             PhaseTabs(tabs: tabs, selection: $tab)
             if let error = ctx.error { Notice(error, error: true) }
 
@@ -1250,6 +1253,24 @@ private struct OrganizerResultsView: View {
                 }
             }
         }
+    }
+
+    @MainActor
+    private func showMore() {
+        let open = ctx.open
+        let id = event.id
+        let name = event.name
+        let pairing = event.pairing
+        let e = event
+        T1Overlays.shared.showMenu(name, [
+            T1MenuItem(title: "Add a deck photo") { open(.deckPhotos(id)) },
+        ] + (event.canRedraft ? [
+            T1MenuItem(title: "Redraft") { open(.redraft(id)) },
+        ] : []) + (event.isRoto ? [
+            T1MenuItem(title: "Draft picks") { presentRotoDraft(eventId: id, title: name, isOrganizer: true, pairing: pairing) },
+        ] : []) + [
+            T1MenuItem(title: "Share link") { shareEventLink(e) },
+        ])
     }
 
     private func finalDetail(_ p: ParticipantRow, _ s: Standing?) -> String? {

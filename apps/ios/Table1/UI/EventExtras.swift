@@ -35,6 +35,8 @@ struct DeckPhoto: Decodable, Identifiable, Hashable {
     let createdAt: String
     let mine: Bool
     let editable: Bool
+    /// Quarter turns clockwise to draw it upright (set after upload; missing from servers before 2026-10-30).
+    let turns: Int?
 }
 
 struct DeckPhotos: Decodable {
@@ -86,6 +88,14 @@ extension Repo {
         return try wireDecoder.decode(DeckPhotos.self, from: data)
     }
 
+    /// Turns an uploaded photo upright: the row keeps the quarter turns, the file never changes.
+    static func turnDeckPhoto(_ id: String, turns: Int) async throws -> DeckPhotos {
+        let data = try await supabase.rpc("deck_photo_turn", params: [
+            "p_id": AnyJSON.string(id), "p_turns": .integer(turns),
+        ]).execute().data
+        return try wireDecoder.decode(DeckPhotos.self, from: data)
+    }
+
     static func deleteDeckPhoto(_ photo: DeckPhoto) async throws -> DeckPhotos {
         let data = try await supabase.rpc("deck_photo_delete", params: ["p_id": AnyJSON.string(photo.id)]).execute().data
         // The file: only its uploader may remove it (storage policy); otherwise it stays, unreadable without its row.
@@ -127,7 +137,7 @@ struct AfterEventLinks: View {
             .buttonStyle(.plain)
         }
         Button { open(.deckPhotos(event.id)) } label: {
-            ListRow(title: "Deck photos", detail: "Everyone's decks and notes") { LabelText("Open", color: T1.text) }
+            ListRow(title: "Deck photos", detail: "Add yours · see everyone's") { LabelText("Add", color: T1.accent) }
         }
         .buttonStyle(.plain)
     }
@@ -259,6 +269,8 @@ struct DeckPhotosView: View {
     @State private var loaded = false
     @State private var busy = false
     @State private var error: String?
+    /// Turns tapped but not yet saved, so Rotate answers at once.
+    @State private var turning: [String: Int] = [:]
 
     private var me: ParticipantRow? { bundle?.participants.first { $0.userId != nil && $0.userId == Repo.userId } }
 
@@ -281,7 +293,7 @@ struct DeckPhotosView: View {
                     Notice("No deck photos yet.")
                 }
                 ForEach(photos.photos) { photo in
-                    DeckPhotoCard(photo: photo, url: urls[photo.path]) { edit(photo) }
+                    DeckPhotoCard(photo: photo, url: urls[photo.path], turns: turning[photo.id] ?? photo.turns ?? 0) { edit(photo) }
                 }
             }
         }
@@ -338,9 +350,9 @@ struct DeckPhotosView: View {
                 T1Overlays.shared.dismissPanel()
                 guard let image else { return }
                 T1Overlays.shared.present {
-                    DeckNotePanel(title: player.displayName, image: image, note: "", saveLabel: "Save photo") { note in
+                    DeckNotePanel(title: player.displayName, image: image, note: "", saveLabel: "Save photo") { note, turns in
                         T1Overlays.shared.dismissPanel()
-                        upload(image, for: player, note: note, camera: camera)
+                        upload(image, for: player, note: note, turns: turns, camera: camera)
                     }
                 }
             }
@@ -349,8 +361,8 @@ struct DeckPhotosView: View {
     }
 
     @MainActor
-    private func upload(_ image: UIImage, for player: ParticipantRow, note: String, camera: Bool) {
-        guard let jpeg = image.deckJPEG() else { error = "Couldn't read that photo."; return }
+    private func upload(_ image: UIImage, for player: ParticipantRow, note: String, turns: Int, camera: Bool) {
+        guard let jpeg = image.deckJPEG(turns: turns) else { error = "Couldn't read that photo."; return }
         busy = true
         Task { @MainActor in
             defer { busy = false }
@@ -358,9 +370,28 @@ struct DeckPhotosView: View {
                 await show(try await Repo.addDeckPhoto(eventId: eventId, participantId: player.id, jpeg: jpeg, note: note))
                 error = nil
                 Telemetry.capture("deck_photo_added", ["source": camera ? "camera" : "library",
-                                                       "own": player.id == me?.id, "has_note": !note.isEmpty,
+                                                       "own": player.id == me?.id, "has_note": !note.isEmpty, "turns": turns,
                                                        "event_over": bundle?.event.isFinished ?? false])
             } catch {
+                self.error = error.localizedDescription
+            }
+        }
+    }
+
+    /// Rotate after upload: shown at once, saved as the photo's quarter turns.
+    @MainActor
+    private func turn(_ photo: DeckPhoto, by: Int) {
+        let next = DeckPhotoTurns.turn(turning[photo.id] ?? photo.turns ?? 0, by: by)
+        turning[photo.id] = next
+        Task { @MainActor in
+            do {
+                let saved = try await Repo.turnDeckPhoto(photo.id, turns: next)
+                await show(saved)
+                if turning[photo.id] == next { turning[photo.id] = nil }
+                error = nil
+                Telemetry.capture("deck_photo_turned", ["turns": next])
+            } catch {
+                turning[photo.id] = nil
                 self.error = error.localizedDescription
             }
         }
@@ -370,9 +401,11 @@ struct DeckPhotosView: View {
     private func edit(_ photo: DeckPhoto) {
         guard photo.editable else { return }
         T1Overlays.shared.showMenu(photo.player, [
+            T1MenuItem(title: "Rotate right ↻") { turn(photo, by: 1) },
+            T1MenuItem(title: "Rotate left ↺") { turn(photo, by: -1) },
             T1MenuItem(title: photo.note.isEmpty ? "Add a note" : "Edit note") {
                 T1Overlays.shared.present {
-                    DeckNotePanel(title: photo.player, image: nil, note: photo.note, saveLabel: "Save note") { note in
+                    DeckNotePanel(title: photo.player, image: nil, note: photo.note, saveLabel: "Save note") { note, _ in
                         T1Overlays.shared.dismissPanel()
                         Task { @MainActor in
                             do {
@@ -402,6 +435,7 @@ struct DeckPhotosView: View {
 private struct DeckPhotoCard: View {
     let photo: DeckPhoto
     let url: URL?
+    let turns: Int
     let onTap: () -> Void
 
     var body: some View {
@@ -410,8 +444,20 @@ private struct DeckPhotoCard: View {
                 .aspectRatio(4 / 3, contentMode: .fit)
                 .overlay {
                     if let url {
-                        AsyncImage(url: url) { phase in
-                            if let image = phase.image { image.resizable().scaledToFill() } else { LabelText("Loading…") }
+                        GeometryReader { g in
+                            AsyncImage(url: url) { phase in
+                                if let image = phase.image {
+                                    // Whole photo, never cropped, turned as its player set it: fitted into the box's
+                                    // swapped sides for a quarter turn, then rotated into place.
+                                    let odd = turns % 2 == 1
+                                    image.resizable().scaledToFit()
+                                        .frame(width: odd ? g.size.height : g.size.width, height: odd ? g.size.width : g.size.height)
+                                        .rotationEffect(.degrees(Double(turns) * 90))
+                                        .frame(width: g.size.width, height: g.size.height)
+                                } else {
+                                    LabelText("Loading…").frame(width: g.size.width, height: g.size.height)
+                                }
+                            }
                         }
                     }
                 }
@@ -432,13 +478,16 @@ private struct DeckPhotoCard: View {
     }
 }
 
-/// A note for a deck photo (shown with the photo when adding one).
+/// A note for a deck photo. When adding one, the photo shows whole with Rotate left / right to set it upright
+/// (the turns go to `deckJPEG`).
 private struct DeckNotePanel: View {
     let title: String
     let image: UIImage?
     @State var note: String
     let saveLabel: String
-    let onSave: (String) -> Void
+    let onSave: (String, Int) -> Void
+    @State private var turns = 0
+    @State private var preview: UIImage?
 
     var body: some View {
         VStack(spacing: 1) {
@@ -446,8 +495,12 @@ private struct DeckNotePanel: View {
                 BarButton("Cancel") { T1Overlays.shared.dismissPanel() }
             }
             if let image {
-                Image(uiImage: image).resizable().scaledToFill()
-                    .frame(maxWidth: .infinity).frame(height: 180).clipped()
+                Image(uiImage: preview ?? image).resizable().scaledToFit()
+                    .frame(maxWidth: .infinity).frame(height: 260).background(T1.bg)
+                HStack(spacing: 1) {
+                    Ghost(text: "↺ Rotate left") { turn(-1, image) }
+                    Ghost(text: "Rotate right ↻") { turn(1, image) }
+                }
             }
             VStack(alignment: .leading, spacing: 4) {
                 LabelText("Note")
@@ -458,10 +511,28 @@ private struct DeckNotePanel: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(T1.surface)
             BigAction(text: saveLabel, accent: true) {
-                onSave(note.trimmingCharacters(in: .whitespacesAndNewlines))
+                onSave(note.trimmingCharacters(in: .whitespacesAndNewlines), turns)
             }
         }
         .foregroundStyle(T1.text)
+    }
+
+    /// The preview is drawn small (the full photo is only turned once, on save).
+    private func turn(_ by: Int, _ image: UIImage) {
+        turns = DeckPhotoTurns.turn(turns, by: by)
+        preview = image.deckRendered(turns: turns, longest: 900)
+    }
+}
+
+/// Quarter turns clockwise for a deck photo, 0–3 (same rule as web `turnDeckPhoto` and Android `deckPhotoTurn`).
+enum DeckPhotoTurns {
+    static func turn(_ turns: Int, by: Int) -> Int { ((turns + by) % 4 + 4) % 4 }
+
+    /// Longest side at most `longest`, never upscaled, then the sides swapped for an odd number of turns.
+    static func size(width: Double, height: Double, turns: Int, longest: Double = 2048) -> (width: Double, height: Double) {
+        let scale = min(1, longest / max(width, height, 1))
+        let w = (width * scale).rounded(), h = (height * scale).rounded()
+        return turns % 2 == 0 ? (w, h) : (h, w)
     }
 }
 
@@ -513,13 +584,64 @@ struct ImagePicker: UIViewControllerRepresentable {
 
 private extension UIImage {
     /// Longest side 2048 px, JPEG 0.8: a deck spread stays legible at a few hundred KB.
-    func deckJPEG() -> Data? {
-        let longest = max(size.width, size.height)
-        let scale = min(1, 2048 / max(longest, 1))
-        let target = CGSize(width: (size.width * scale).rounded(), height: (size.height * scale).rounded())
+    func deckJPEG(turns: Int = 0) -> Data? {
+        deckRendered(turns: turns, longest: 2048).jpegData(compressionQuality: 0.8)
+    }
+
+    /// Upright (UIKit applies the camera's orientation when drawing), turned `turns` quarter turns clockwise.
+    func deckRendered(turns: Int, longest: Double) -> UIImage {
+        let scale = min(1, longest / max(size.width, size.height, 1))
+        let drawn = CGSize(width: (size.width * scale).rounded(), height: (size.height * scale).rounded())
+        let out = DeckPhotoTurns.size(width: size.width, height: size.height, turns: turns, longest: longest)
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
-        let resized = UIGraphicsImageRenderer(size: target, format: format).image { _ in draw(in: CGRect(origin: .zero, size: target)) }
-        return resized.jpegData(compressionQuality: 0.8)
+        return UIGraphicsImageRenderer(size: CGSize(width: out.width, height: out.height), format: format).image { ctx in
+            // Positive angles turn clockwise in UIKit's flipped space.
+            ctx.cgContext.translateBy(x: out.width / 2, y: out.height / 2)
+            ctx.cgContext.rotate(by: CGFloat(turns) * .pi / 2)
+            draw(in: CGRect(x: -drawn.width / 2, y: -drawn.height / 2, width: drawn.width, height: drawn.height))
+        }
     }
 }
+
+#if DEBUG
+/// `-T1EventsDemo photo`: the add panel on a sample landscape picture marked TOP, to check Rotate left / right, then
+/// the same picture as uploaded photos drawn with 0 and 1 saved turns.
+struct DeckPhotoDemo: View {
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 1) {
+                DeckNotePanel(title: "Ann Ito", image: Self.sample, note: "", saveLabel: "Save photo") { _, _ in }
+                ForEach(0..<2) { turns in
+                    DeckPhotoCard(photo: DeckPhoto(id: "demo\(turns)", participantId: "p1", player: "Ann Ito", path: "",
+                                                   note: "Saved with \(turns) turn\(turns == 1 ? "" : "s")", createdAt: "",
+                                                   mine: true, editable: true, turns: turns),
+                                  url: Self.sampleFile, turns: turns) {}
+                }
+            }
+        }
+        .background(T1.bg)
+    }
+
+    static let sampleFile: URL? = {
+        let url = FileManager.default.temporaryDirectory.appending(path: "deck-photo-demo.jpg")
+        guard let data = sample.jpegData(compressionQuality: 0.8), (try? data.write(to: url)) != nil else { return nil }
+        return url
+    }()
+
+    static let sample: UIImage = {
+        let size = CGSize(width: 1600, height: 1200)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+            UIColor(T1.surface).setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+            UIColor(T1.accent).setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: size.width, height: 120))
+            let text = NSAttributedString(string: "TOP", attributes: [.font: UIFont.monospacedSystemFont(ofSize: 220, weight: .bold),
+                                                                     .foregroundColor: UIColor.white])
+            text.draw(at: CGPoint(x: 560, y: 400))
+        }
+    }()
+}
+#endif

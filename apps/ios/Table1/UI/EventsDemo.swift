@@ -1,8 +1,9 @@
 #if DEBUG
 import SwiftUI
 
-/// Design QA without signing in (Debug only): `-T1EventsDemo [create|setup|seating]` opens the create form,
-/// the organizer's Setup on a sample draft, or the seating table for 8, 7 and a 3 v 3 team draft.
+/// Design QA without signing in (Debug only): `-T1EventsDemo [create|setup|seating|results|photo]` opens the create
+/// form, the organizer's Setup on a sample draft, the seating table for 8, 7 and a 3 v 3 team draft, the Results of
+/// the same draft once finished, or the deck photo panel (note + Rotate) on a sample picture.
 /// Server calls made from here fail (no session); everything on screen is sample data.
 struct EventsDemoRoot: View {
     @State private var screen: String
@@ -12,16 +13,21 @@ struct EventsDemoRoot: View {
         let args = ProcessInfo.processInfo.arguments
         let i = args.firstIndex(of: "-T1EventsDemo").map { $0 + 1 }
         let pick = i.flatMap { $0 < args.count ? args[$0] : nil } ?? "create"
-        _screen = State(initialValue: ["create", "setup", "seating"].contains(pick) ? pick : "create")
+        _screen = State(initialValue: ["create", "setup", "seating", "results", "photo"].contains(pick) ? pick : "create")
     }
 
     var body: some View {
         VStack(spacing: 0) {
             T1Segmented(options: [(value: "create", label: "Create"), (value: "setup", label: "Setup"),
-                                  (value: "seating", label: "Seating")], selection: $screen)
+                                  (value: "seating", label: "Seating"), (value: "results", label: "Results"),
+                                  (value: "photo", label: "Photo")], selection: $screen)
             switch screen {
             case "setup":
                 OrganizerView(b: DemoData.bundle, engine: DemoData.engine, refresh: {}, showSeating: { _ in }, open: { _ in }) {}
+            case "results":
+                OrganizerView(b: DemoData.finished, engine: StandingsResponse(), refresh: {}, showSeating: { _ in }, open: { _ in }) {}
+            case "photo":
+                DeckPhotoDemo()
             case "seating":
                 T1Screen {
                     Bar(title: "Seating", subtitle: "Sample pods")
@@ -73,6 +79,19 @@ private enum DemoData {
              "user_id": \(i == 1 ? "\"me\"" : i % 3 == 0 ? "null" : "\"u\(i)\""), "pod_id": "pod8"}
             """)
         },
+        rounds: [],
+        isOrganizer: true
+    )
+
+    /// The sample draft, finished.
+    static let finished = EventBundle(
+        event: decode(EventRow.self, """
+        {"id": "demo-event", "short_code": "K7Q2", "name": "Draft · Duskmourn: House of Horror · Tue 14 Oct",
+         "format": "draft", "status": "completed", "number_of_rounds": 3, "current_round": 3,
+         "round_length_seconds": 3000, "format_name": "draft", "format_label": "Draft · Duskmourn: House of Horror",
+         "set_code": "dsk", "set_name": "Duskmourn: House of Horror", "show_clock": true, "auto_name": true}
+        """),
+        participants: bundle.participants,
         rounds: [],
         isOrganizer: true
     )

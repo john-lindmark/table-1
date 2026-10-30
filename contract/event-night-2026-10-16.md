@@ -71,3 +71,21 @@ still to do. Wire names are in `rpc.schema.json`.
   **Deck photos**, signed-in players only); camera or library through the file picker, scaled in a canvas. Android:
   organizer **More → Deck photos** (Results phase too), player screen button; camera through the FileProvider or the
   photo picker. Both scale to 2048 px JPEG 0.8 (`deckPhotoSize`, tested on both).
+- After the event and orientation (2026-10-29): the 29 Oct team draft's photos all went in during the event and none
+  after, because iOS's Results screen had no More menu (where Live kept **Deck photos**) and the "After the event" row
+  read like viewing only. Results now has **More → Add a deck photo** (plus Redraft, Draft picks, Share link) and the
+  row reads "Deck photos · Add yours · see everyone's · ADD". Adding after the event was always allowed (pinned in
+  `63_deck_photos_test.sql`).
+- **Rotate before saving**: the add panel shows the whole photo (fitted, 260 pt/dp/px tall, not cropped) with
+  **↺ Rotate left | Rotate right ↻**; the file is drawn turned (quarter turns clockwise, 0–3) before the 2048 px JPEG is
+  made, so it goes up upright. The preview is drawn small (900 px) per tap.
+- **Rotate after upload**: the photo's menu (player or whoever took it, like the note) has Rotate right / Rotate left.
+  The file is never rewritten (only its uploader may overwrite it, and a new file would skip moderation): the row keeps
+  `turns` (0–3, `deck_photo_turn(p_id, p_turns)`, audited as `deck_photo.turned` only when it changes; `deck_photos`
+  rows carry `turns`; migration `20261030060000_deck_photo_turns.sql`). Clients draw the photo turned, fitted into the
+  4:3 box's swapped sides for odd turns, and show a tap at once (kept until the server answers). Photos in the list are
+  shown whole (fit) rather than cropped. Older servers send no `turns`: read as 0.
+- Rule (cases `testdata/deck-photos/cases.json`, tests `DeckPhotoTests` / `deckPhotos.test.ts` / `DeckPhotosTest`):
+  turn = (turns + by) mod 4; the uploaded size is the 2048 px size with the sides swapped for odd turns.
+- Telemetry: `deck_photo_added` gains `turns`; `deck_photo_turned` {turns}.
+- Demo: iOS `-T1EventsDemo results|photo`, web `/dev/events` → Photos.

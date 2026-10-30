@@ -8,8 +8,12 @@ import {
   deckJpeg,
   deckPhotoUrls,
   deleteDeckPhoto,
+  drawDeckPhoto,
   loadDeckPhotos,
+  readDeckPhoto,
   setDeckPhotoNote,
+  turnDeckPhoto,
+  turnDeckPhotoSaved,
   type DeckPhoto,
   type DeckPhotos,
 } from "../lib/deckPhotos";
@@ -30,10 +34,12 @@ export function DeckPhotosScreen({ eventId, organizer, onBack }: { eventId: stri
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ title: string; items: MenuItem[] } | null>(null);
-  /** Adding: whose deck, the picked file and how it was picked; then the note. */
-  const [adding, setAdding] = useState<{ player: Participant; file: File; preview: string; source: "camera" | "library" } | null>(null);
+  /** Adding: whose deck, the picked photo, how it was picked and its quarter turns; then the note. */
+  const [adding, setAdding] = useState<{ player: Participant; bitmap: ImageBitmap; source: "camera" | "library"; turns: number } | null>(null);
   const [editing, setEditing] = useState<DeckPhoto | null>(null);
   const [note, setNote] = useState("");
+  /** Turns tapped but not yet saved, so Rotate answers at once. */
+  const [turning, setTurning] = useState<Record<string, number>>({});
   const pickingFor = useRef<Participant | null>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
   const libraryInput = useRef<HTMLInputElement>(null);
@@ -62,7 +68,8 @@ export function DeckPhotosScreen({ eventId, organizer, onBack }: { eventId: stri
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
-  useEffect(() => () => { if (adding) URL.revokeObjectURL(adding.preview); }, [adding]);
+  const addingBitmap = adding?.bitmap;
+  useEffect(() => () => addingBitmap?.close(), [addingBitmap]);
 
   /** Whose deck: yourself, or (organizer) any player. Then camera or library, then a note. */
   function add() {
@@ -90,23 +97,28 @@ export function DeckPhotosScreen({ eventId, organizer, onBack }: { eventId: stri
     });
   }
 
-  function picked(file: File | undefined, source: "camera" | "library") {
+  async function picked(file: File | undefined, source: "camera" | "library") {
     const player = pickingFor.current;
     if (!file || !player) return;
-    setNote("");
-    setAdding({ player, file, preview: URL.createObjectURL(file), source });
+    try {
+      const bitmap = await readDeckPhoto(file);
+      setNote("");
+      setAdding({ player, bitmap, source, turns: 0 });
+    } catch (e) {
+      setError(errorMessage(e));
+    }
   }
 
   async function upload() {
     if (!adding || !event) return;
-    const { player, file, source } = adding;
+    const { player, bitmap, source, turns } = adding;
     const text = note.trim();
     setBusy(true);
     try {
-      await show(await addDeckPhoto(eventId, player.id, await deckJpeg(file), text));
+      await show(await addDeckPhoto(eventId, player.id, await deckJpeg(bitmap, turns), text));
       setAdding(null);
       setError(null);
-      capture("deck_photo_added", { source, own: player.id === me?.id, has_note: text.length > 0,
+      capture("deck_photo_added", { source, own: player.id === me?.id, has_note: text.length > 0, turns,
                                     event_over: event.status === "completed" || event.status === "archived" });
     } catch (e) {
       setError(errorMessage(e));
@@ -116,11 +128,32 @@ export function DeckPhotosScreen({ eventId, organizer, onBack }: { eventId: stri
     }
   }
 
+  /** Rotate after upload: shown at once, saved as the photo's quarter turns. */
+  async function turn(photo: DeckPhoto, by: number) {
+    const next = turnDeckPhoto(turning[photo.id] ?? photo.turns, by);
+    setTurning((t) => ({ ...t, [photo.id]: next }));
+    try {
+      await show(await turnDeckPhotoSaved(photo.id, next));
+      setError(null);
+      capture("deck_photo_turned", { turns: next });
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+    setTurning((t) => {
+      if (t[photo.id] !== next) return t;
+      const rest = { ...t };
+      delete rest[photo.id];
+      return rest;
+    });
+  }
+
   function edit(photo: DeckPhoto) {
     if (!photo.editable) return;
     setMenu({
       title: photo.player,
       items: [
+        { title: "Rotate right ↻", onClick: () => void turn(photo, 1) },
+        { title: "Rotate left ↺", onClick: () => void turn(photo, -1) },
         { title: photo.note ? "Edit note" : "Add a note", onClick: () => { setNote(photo.note); setEditing(photo); } },
         { title: "Remove photo", onClick: () => void remove(photo) },
       ],
@@ -201,9 +234,9 @@ export function DeckPhotosScreen({ eventId, organizer, onBack }: { eventId: stri
           disabled={!photo.editable}
           className="bg-t1-surface flex flex-col text-left"
         >
-          <div className="w-full aspect-[4/3] bg-t1-bg overflow-hidden flex items-center justify-center">
+          <div className="w-full aspect-[4/3] bg-t1-bg overflow-hidden flex items-center justify-center relative">
             {urls[photo.path] ? (
-              <img src={urls[photo.path]} alt={`${photo.player}'s deck`} className="w-full h-full object-cover" />
+              <TurnedPhoto src={urls[photo.path]} alt={`${photo.player}'s deck`} turns={turning[photo.id] ?? photo.turns} />
             ) : (
               <span className="t1-label">Loading…</span>
             )}
@@ -219,9 +252,9 @@ export function DeckPhotosScreen({ eventId, organizer, onBack }: { eventId: stri
       ))}
 
       <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden
-             onChange={(e) => { picked(e.target.files?.[0], "camera"); e.target.value = ""; }} />
+             onChange={(e) => { void picked(e.target.files?.[0], "camera"); e.target.value = ""; }} />
       <input ref={libraryInput} type="file" accept="image/*" hidden
-             onChange={(e) => { picked(e.target.files?.[0], "library"); e.target.value = ""; }} />
+             onChange={(e) => { void picked(e.target.files?.[0], "library"); e.target.value = ""; }} />
 
       {menu && <Menu title={menu.title} items={menu.items} onClose={() => setMenu(null)} />}
       {adding && (
@@ -234,7 +267,20 @@ export function DeckPhotosScreen({ eventId, organizer, onBack }: { eventId: stri
           onCancel={() => setAdding(null)}
           onConfirm={() => void upload()}
         >
-          <img src={adding.preview} alt="" className="w-full h-[180px] object-cover" />
+          <TurnedPreview bitmap={adding.bitmap} turns={adding.turns} />
+          <div className="flex gap-px">
+            {([[-1, "↺ Rotate left"], [1, "Rotate right ↻"]] as const).map(([by, label]) => (
+              <button
+                key={by}
+                type="button"
+                disabled={busy}
+                onClick={() => setAdding((a) => (a ? { ...a, turns: turnDeckPhoto(a.turns, by) } : a))}
+                className="flex-1 bg-t1-surface hover:bg-t1-surface-hover py-3 t1-label !text-t1-text"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           {noteField}
         </Dialog>
       )}
@@ -253,5 +299,82 @@ export function DeckPhotosScreen({ eventId, organizer, onBack }: { eventId: stri
         </Dialog>
       )}
     </Screen>
+  );
+}
+
+/** An uploaded photo, whole and turned as its player set it: for a quarter turn it's fitted into the 4:3 box's swapped
+    sides (75% of the width, 133% of the height), then rotated into place. */
+function TurnedPhoto({ src, alt, turns }: { src: string; alt: string; turns: number }) {
+  const odd = turns % 2 === 1;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="absolute top-1/2 left-1/2 object-contain"
+      style={{
+        width: odd ? "75%" : "100%",
+        height: odd ? "133.3333%" : "100%",
+        transform: `translate(-50%, -50%) rotate(${turns * 90}deg)`,
+      }}
+    />
+  );
+}
+
+/** The picked photo, whole and turned as it will be saved (drawn small; the full size is drawn once, on save). */
+function TurnedPreview({ bitmap, turns }: { bitmap: ImageBitmap; turns: number }) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (canvas.current) drawDeckPhoto(canvas.current, bitmap, turns, 900);
+  }, [bitmap, turns]);
+  return (
+    <div className="bg-t1-bg h-[260px] flex items-center justify-center">
+      <canvas ref={canvas} className="max-w-full max-h-[260px]" aria-label={`Deck photo, turned ${turns * 90}°`} />
+    </div>
+  );
+}
+
+/** /dev/events → Photos: the add preview with Rotate on a sample landscape picture marked TOP, then the same picture as
+    uploaded photos saved with 0 and 1 turns (design QA without signing in). */
+export function DeckPhotoDemo() {
+  const [sample, setSample] = useState<{ bitmap: ImageBitmap; url: string } | null>(null);
+  const [turns, setTurns] = useState(0);
+  useEffect(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1600;
+    canvas.height = 1200;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.fillStyle = "#282839";
+    ctx.fillRect(0, 0, 1600, 1200);
+    ctx.fillStyle = "#00ffd9";
+    ctx.fillRect(0, 0, 1600, 120);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 220px monospace";
+    ctx.fillText("TOP", 560, 640);
+    let live = true;
+    void createImageBitmap(canvas).then((bitmap) => { if (live) setSample({ bitmap, url: canvas.toDataURL("image/jpeg") }); });
+    return () => { live = false; };
+  }, []);
+  if (!sample) return <Notice tone="info">Loading…</Notice>;
+  return (
+    <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
+      <TurnedPreview bitmap={sample.bitmap} turns={turns} />
+      <div className="flex gap-px">
+        {([[-1, "↺ Rotate left"], [1, "Rotate right ↻"]] as const).map(([by, label]) => (
+          <button key={by} type="button" onClick={() => setTurns((t) => turnDeckPhoto(t, by))}
+                  className="flex-1 bg-t1-surface hover:bg-t1-surface-hover py-3 t1-label !text-t1-text">
+            {label}
+          </button>
+        ))}
+      </div>
+      {[0, 1].map((saved) => (
+        <div key={saved} className="bg-t1-surface flex flex-col">
+          <div className="w-full aspect-[4/3] bg-t1-bg overflow-hidden flex items-center justify-center relative">
+            <TurnedPhoto src={sample.url} alt="Sample deck" turns={saved} />
+          </div>
+          <p className="px-4 py-3 text-[13px]">Saved with {saved} turn{saved === 1 ? "" : "s"}</p>
+        </div>
+      ))}
+    </div>
   );
 }

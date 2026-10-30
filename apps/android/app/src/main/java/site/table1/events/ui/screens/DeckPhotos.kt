@@ -10,16 +10,19 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
@@ -34,6 +37,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -56,6 +61,7 @@ import site.table1.events.data.ParticipantRow
 import site.table1.events.data.Repo
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.BigAction
+import site.table1.events.ui.components.Ghost
 import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.T1Menu
@@ -85,6 +91,8 @@ data class DeckPhoto(
     @SerialName("created_at") val createdAt: String? = null,
     val mine: Boolean = false,
     val editable: Boolean = false,
+    /** Quarter turns clockwise to draw it upright, set after upload (0 from servers before 2026-10-30). */
+    val turns: Int = 0,
 )
 
 @Serializable
@@ -114,6 +122,10 @@ object DeckPhotosRepo {
     suspend fun setNote(id: String, note: String): DeckPhotos =
         rpc.rpc("deck_photo_note", buildJsonObject { put("p_id", id); put("p_note", note) }).decodeAs()
 
+    /** Turns an uploaded photo upright: the row keeps the quarter turns, the file never changes. */
+    suspend fun turn(id: String, turns: Int): DeckPhotos =
+        rpc.rpc("deck_photo_turn", buildJsonObject { put("p_id", id); put("p_turns", turns) }).decodeAs()
+
     suspend fun delete(photo: DeckPhoto): DeckPhotos {
         val result: DeckPhotos = rpc.rpc("deck_photo_delete", buildJsonObject { put("p_id", photo.id) }).decodeAs()
         // The file: only its uploader may remove it (storage policy); otherwise it stays, unreadable without its row.
@@ -131,14 +143,29 @@ fun deckPhotoSize(width: Int, height: Int, longest: Int = 2048): Pair<Int, Int> 
     return maxOf(1, Math.round(width * scale).toInt()) to maxOf(1, Math.round(height * scale).toInt())
 }
 
-/** JPEG 80 at most 2048 px on the long side, upright (the camera's EXIF rotation applied). */
-fun deckPhotoJpeg(bytes: ByteArray): ByteArray? {
+/** Quarter turns clockwise, 0–3, after turning [by] more (−1 Rotate left, +1 Rotate right; iOS DeckPhotoTurns). */
+fun deckPhotoTurn(turns: Int, by: Int): Int = Math.floorMod(turns + by, 4)
+
+/** The drawn size after [turns] quarter turns: odd turns swap the sides. */
+fun turnedSize(size: Pair<Int, Int>, turns: Int): Pair<Int, Int> = if (turns % 2 == 0) size else size.second to size.first
+
+/** JPEG 80 at most 2048 px on the long side, upright (the camera's EXIF rotation applied), then turned [turns]. */
+fun deckPhotoJpeg(bytes: ByteArray, turns: Int = 0): ByteArray? {
+    val out = deckPhotoBitmap(bytes, turns) ?: return null
+    return ByteArrayOutputStream().use { stream ->
+        out.compress(Bitmap.CompressFormat.JPEG, 80, stream)
+        stream.toByteArray()
+    }
+}
+
+/** The photo upright and turned [turns] quarter turns clockwise, at most [longest] px on the long side. */
+fun deckPhotoBitmap(bytes: ByteArray, turns: Int, longest: Int = 2048): Bitmap? {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
     val longSide = maxOf(bounds.outWidth, bounds.outHeight)
     if (longSide <= 0) return null
     var sample = 1
-    while (longSide / (sample * 2) >= 2048) sample *= 2
+    while (longSide / (sample * 2) >= longest) sample *= 2
     val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
         ?: return null
     val degrees = runCatching {
@@ -149,16 +176,12 @@ fun deckPhotoJpeg(bytes: ByteArray): ByteArray? {
             else -> 0
         }
     }.getOrDefault(0)
-    val (w, h) = deckPhotoSize(decoded.width, decoded.height)
+    val (w, h) = deckPhotoSize(decoded.width, decoded.height, longest)
     val matrix = Matrix().apply {
         postScale(w.toFloat() / decoded.width, h.toFloat() / decoded.height)
-        postRotate(degrees.toFloat())
+        postRotate((degrees + 90 * turns).toFloat())
     }
-    val out = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
-    return ByteArrayOutputStream().use { stream ->
-        out.compress(Bitmap.CompressFormat.JPEG, 80, stream)
-        stream.toByteArray()
-    }
+    return Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
 }
 
 /** Deck photos for one event, with notes. The server decides who sees and edits what. */
@@ -176,9 +199,15 @@ fun DeckPhotosScreen(eventId: String, onBack: () -> Unit) {
     var sourceFor by remember { mutableStateOf<ParticipantRow?>(null) }
     var picking by remember { mutableStateOf<ParticipantRow?>(null) }
     var adding by remember { mutableStateOf<Triple<ParticipantRow, Uri, String>?>(null) }
+    /** The photo being added: its bytes (read once), quarter turns and a small preview drawn as it will be saved. */
+    var addingBytes by remember { mutableStateOf<ByteArray?>(null) }
+    var turns by remember { mutableStateOf(0) }
+    var preview by remember { mutableStateOf<Bitmap?>(null) }
     var editing by remember { mutableStateOf<DeckPhoto?>(null) }
     var editMenu by remember { mutableStateOf<DeckPhoto?>(null) }
     var note by remember { mutableStateOf("") }
+    /** Turns tapped but not yet saved, so Rotate answers at once. */
+    val turning = remember { mutableStateMapOf<String, Int>() }
 
     val me = bundle?.participants?.firstOrNull { it.userId != null && it.userId == Repo.userId }
     val organizer = bundle?.isOrganizer == true
@@ -197,12 +226,13 @@ fun DeckPhotosScreen(eventId: String, onBack: () -> Unit) {
         loaded = true
     }
 
-    fun upload(player: ParticipantRow, uri: Uri, source: String, text: String) {
+    fun upload(player: ParticipantRow, uri: Uri, source: String, text: String, turned: Int) {
         busy = true
+        val read = addingBytes
         scope.launch {
             try {
                 val jpeg = withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }?.let(::deckPhotoJpeg)
+                    (read ?: context.contentResolver.openInputStream(uri)?.use { it.readBytes() })?.let { deckPhotoJpeg(it, turned) }
                 }
                 if (jpeg == null) {
                     error = "Couldn't read that photo."
@@ -210,7 +240,7 @@ fun DeckPhotosScreen(eventId: String, onBack: () -> Unit) {
                     show(DeckPhotosRepo.add(eventId, player.id, jpeg, text))
                     error = null
                     Telemetry.capture("deck_photo_added", mapOf("source" to source, "own" to (player.id == me?.id),
-                        "has_note" to text.isNotEmpty(), "event_over" to (bundle?.event?.isFinished == true)))
+                        "has_note" to text.isNotEmpty(), "turns" to turned, "event_over" to (bundle?.event?.isFinished == true)))
                 }
             } catch (e: Exception) {
                 error = "Couldn't save the photo: ${e.message}"
@@ -265,11 +295,16 @@ fun DeckPhotosScreen(eventId: String, onBack: () -> Unit) {
                     Modifier.fillMaxWidth().background(T1.surface)
                         .let { if (photo.editable) it.clickable { editMenu = photo } else it },
                 ) {
-                    Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f).background(T1.bg).clipToBounds(), contentAlignment = Alignment.Center) {
+                    BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(4f / 3f).background(T1.bg).clipToBounds(), contentAlignment = Alignment.Center) {
                         val url = urls[photo.path]
+                        val turns = turning[photo.id] ?: photo.turns
                         if (url != null) {
-                            AsyncImage(model = url, contentDescription = "${photo.player}'s deck", contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f))
+                            // Whole photo, never cropped, turned as its player set it: fitted into the box's swapped
+                            // sides for a quarter turn, then rotated into place.
+                            val odd = turns % 2 == 1
+                            AsyncImage(model = url, contentDescription = "${photo.player}'s deck", contentScale = ContentScale.Fit,
+                                modifier = Modifier.requiredSize(if (odd) maxHeight else maxWidth, if (odd) maxWidth else maxHeight)
+                                    .rotate(turns * 90f))
                         } else {
                             Label("Loading…")
                         }
@@ -306,20 +341,52 @@ fun DeckPhotosScreen(eventId: String, onBack: () -> Unit) {
             })
         }, onDismiss = { sourceFor = null })
     }
+    val addingUri = adding?.second
+    LaunchedEffect(addingUri) {
+        turns = 0
+        preview = null
+        addingBytes = addingUri?.let { uri -> withContext(Dispatchers.IO) { runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull() } }
+    }
+    LaunchedEffect(addingBytes, turns) {
+        val bytes = addingBytes ?: return@LaunchedEffect
+        preview = withContext(Dispatchers.Default) { deckPhotoBitmap(bytes, turns, longest = 900) }
+    }
     adding?.let { (player, uri, source) ->
         T1Panel(player.displayName, onDismiss = { adding = null }, action = {
             BarAction("Save photo") {
                 adding = null
-                upload(player, uri, source, note.trim())
+                upload(player, uri, source, note.trim(), turns)
             }
         }) {
-            AsyncImage(model = uri, contentDescription = null, contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxWidth().height(180.dp).clipToBounds())
+            // The whole photo, turned as it will be saved; Rotate left / right set it upright.
+            Box(Modifier.fillMaxWidth().height(260.dp).background(T1.bg), contentAlignment = Alignment.Center) {
+                preview?.let {
+                    Image(it.asImageBitmap(), contentDescription = "Deck photo, turned ${turns * 90}°",
+                        contentScale = ContentScale.Fit, modifier = Modifier.fillMaxWidth().height(260.dp))
+                } ?: Label("Loading…")
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                Ghost("↺ Rotate left") { turns = deckPhotoTurn(turns, -1) }
+                Ghost("Rotate right ↻") { turns = deckPhotoTurn(turns, 1) }
+            }
             T1TextField(note, { note = it }, label = "Note", placeholder = "Archetype, key cards, how it played…")
+        }
+    }
+    // Rotate after upload: shown at once, saved as the photo's quarter turns.
+    fun turn(photo: DeckPhoto, by: Int) {
+        val next = deckPhotoTurn(turning[photo.id] ?: photo.turns, by)
+        turning[photo.id] = next
+        scope.launch {
+            runCatching { DeckPhotosRepo.turn(photo.id, next) }
+                .onSuccess { show(it); error = null; Telemetry.capture("deck_photo_turned", mapOf("turns" to next)) }
+                .onFailure { error = it.message }
+            if (turning[photo.id] == next) turning.remove(photo.id)
         }
     }
     editMenu?.let { photo ->
         T1Menu(photo.player, listOf(
+            T1MenuItem("Rotate right ↻") { turn(photo, 1) },
+            T1MenuItem("Rotate left ↺") { turn(photo, -1) },
             T1MenuItem(if (photo.note.isEmpty()) "Add a note" else "Edit note") { note = photo.note; editing = photo },
             T1MenuItem("Remove photo", danger = true) {
                 scope.launch {

@@ -19,6 +19,7 @@ insert into auth.users (id, email) values
 \set PH1 '''d0000000-0000-0000-0000-000000000001'''
 \set PH2 '''d0000000-0000-0000-0000-000000000002'''
 \set PH3 '''d0000000-0000-0000-0000-000000000003'''
+\set PH4 '''d0000000-0000-0000-0000-000000000004'''
 
 -- Alice runs (doesn't play) an event: Bea and Cal have accounts, Gus is a walk-in guest. Dee isn't in it.
 insert into public.events (id, short_code, name, created_by, status, current_round) values
@@ -80,11 +81,39 @@ select pg_temp.as_user(:C);
 select pg_temp.eq('after the event every player sees every photo',
   jsonb_array_length(public.deck_photos(:EV)->'photos')::text || '/' || (public.deck_photos(:EV)->>'shared'), '2/true');
 
+-- After the event Bea can still add one (2026-10-29: the apps hid Add once an event was over).
+select pg_temp.as_user(:B);
+insert into storage.objects (bucket_id, name, owner_id)
+values ('deck-photos', 'e0000000-0000-0000-0000-000000000063/d0000000-0000-0000-0000-000000000004.jpg', :B);
+select pg_temp.eq('a player adds a photo after the event is over',
+  jsonb_array_length(public.deck_photo_add(:PH4, :EV, :PB, 'Sideboard')->'photos')::text, '3');
+
+-- Turning after upload (20261030060000_deck_photo_turns): the player or whoever took it, 0-3, no file change.
+select pg_temp.eq('photos start upright',
+  (select string_agg(p->>'turns', ',') from jsonb_array_elements(public.deck_photos(:EV)->'photos') p), '0,0,0');
+select pg_temp.eq('a player turns their own photo',
+  (select p->>'turns' from jsonb_array_elements(public.deck_photo_turn(:PH1, 1)->'photos') p where p->>'id' = :PH1), '1');
+select pg_temp.eq('turning it the same way again changes nothing',
+  (select p->>'turns' from jsonb_array_elements(public.deck_photo_turn(:PH1, 1)->'photos') p where p->>'id' = :PH1), '1');
+select pg_temp.throws('turns are 0 to 3',
+  $$select public.deck_photo_turn('d0000000-0000-0000-0000-000000000001', 4)$$, '22023');
+select pg_temp.as_user(:C);
+select pg_temp.throws('another player cannot turn her photo',
+  $$select public.deck_photo_turn('d0000000-0000-0000-0000-000000000001', 2)$$, '42501');
+select pg_temp.as_user(:A);
+select pg_temp.eq('whoever took a photo turns it',
+  (select p->>'turns' from jsonb_array_elements(public.deck_photo_turn(:PH2, 3)->'photos') p where p->>'id' = :PH2), '3');
+reset role;
+select pg_temp.eq('turning never touches the file',
+  (select path from public.event_deck_photos where id = :PH1),
+  'e0000000-0000-0000-0000-000000000063/d0000000-0000-0000-0000-000000000001.jpg');
+set role authenticated;
+
 -- Bea removes hers.
 select pg_temp.as_user(:B);
 select pg_temp.eq('a player removes their own photo',
-  jsonb_array_length(public.deck_photo_delete(:PH1)->'photos')::text, '1');
+  jsonb_array_length(public.deck_photo_delete(:PH1)->'photos')::text, '2');
 reset role;
 select pg_temp.eq('every change is audited',
   (select string_agg(action, ',' order by action) from public.audit_log where event_id = :EV and action like 'deck_photo.%'),
-  'deck_photo.added,deck_photo.added,deck_photo.added,deck_photo.note,deck_photo.removed');
+  'deck_photo.added,deck_photo.added,deck_photo.added,deck_photo.added,deck_photo.note,deck_photo.removed,deck_photo.turned,deck_photo.turned');
