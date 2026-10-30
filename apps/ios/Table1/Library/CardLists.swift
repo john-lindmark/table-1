@@ -44,13 +44,17 @@ struct CardList: Identifiable, Hashable, Sendable {
     let id: String
     let kind: Kind
     let name: String
-    let format: String
+    var format: String
     /// Oldest first; never empty.
-    let versions: [Version]
+    var versions: [Version]
     /// A roto deck linked to its event: filled by the draft, the cards belong to the cube's owner, so it never
     /// counts Missing (contract/roto-2026-10-16.md).
     var eventId: String? = nil
     var eventName: String? = nil
+    /// The server's seq for this list (nil until the server has it), and the link it syncs from (a Cube Cobra cube,
+    /// contract/cube-sync-2026-10-30.md).
+    var seq: Int? = nil
+    var sourceUrl: String? = nil
 
     var entries: [Entry] { versions.last?.entries ?? [] }
     var current: Version? { versions.last }
@@ -231,6 +235,8 @@ final class ListsStore {
             unsaved[id] = nil
             merge(dto)
             persist()
+            // The Cube Cobra link set while the list was on its way (an import).
+            if let src = l.sourceUrl, dto.sourceUrl == nil { send("list_source_set", ["p_list_id": .string(id), "p_source_url": .string(src)]) }
         } catch where !error.isCancellation {
             guard userId == user else { return }
             unsaved[id] = error.localizedDescription
@@ -298,7 +304,7 @@ final class ListsStore {
         let l = lists[i]
         let next = CardList.Version(number: (l.versions.map(\.number).max() ?? 0) + 1, at: .now,
                                     note: "Restored v\(number)", entries: old.entries)
-        lists[i] = CardList(id: l.id, kind: l.kind, name: l.name, format: l.format, versions: l.versions + [next])
+        lists[i].versions = l.versions + [next]
         openEdit[listId] = nil
         send("list_restore", ["p_list_id": .string(listId), "p_version": .integer(number)])
         Telemetry.capture("list_version_restored", ["kind": l.kind.rawValue])
@@ -332,10 +338,42 @@ final class ListsStore {
     func setFormat(listId: String, format: String) {
         guard let i = lists.firstIndex(where: { $0.id == listId }), lists[i].format != format else { return }
         let l = lists[i]
-        lists[i] = CardList(id: l.id, kind: l.kind, name: l.name, format: format, versions: l.versions, eventId: l.eventId, eventName: l.eventName)
+        lists[i].format = format
         persist()
         send("list_update", ["p_list_id": .string(listId), "p_format": .string(format)])
         Telemetry.capture("list_format_changed", ["kind": l.kind.rawValue, "from": l.format, "to": format])
+    }
+
+    /// Remembers the Cube Cobra link a cube was imported from (list_source_set), so syncing needs no link. A list the
+    /// server doesn't have yet is skipped: its first sync asks for the link.
+    func setSource(listId: String, url: String) {
+        guard let i = lists.firstIndex(where: { $0.id == listId }), lists[i].sourceUrl != url else { return }
+        lists[i].sourceUrl = url
+        persist()
+        guard unsaved[listId] == nil else { return }
+        send("list_source_set", ["p_list_id": .string(listId), "p_source_url": .string(url)])
+    }
+
+    /// Saves a cube synced with Cube Cobra as one new version (list_sync, contract/cube-sync-2026-10-30.md). The
+    /// server refuses (PT409) when the list changed since `seq`, the one the changes were worked out against.
+    func sync(listId: String, seq: Int?, entries: [CardList.Entry], sourceUrl: String) async throws {
+        guard let i = lists.firstIndex(where: { $0.id == listId }) else { return }
+        if demo || userId == nil {
+            let l = lists[i]
+            lists[i].versions = l.versions + [CardList.Version(number: (l.versions.map(\.number).max() ?? 0) + 1, at: .now,
+                                                               note: "Synced with Cube Cobra", entries: entries)]
+            lists[i].sourceUrl = sourceUrl
+            openEdit[listId] = nil
+            return
+        }
+        guard unsaved[listId] == nil, let seq else { throw CubeSyncError.unsaved }
+        let dto: ListDTO = try await supabase.rpc("list_sync", params: [
+            "p_list_id": AnyJSON.string(listId), "p_seq": .integer(seq), "p_entries": .array(entries.map(Self.wire)),
+            "p_source_url": .string(sourceUrl),
+        ]).execute().value
+        openEdit[listId] = nil
+        merge(dto)
+        persist()
     }
 
     /// A new list with the current version's cards; its history starts fresh and names where it came from.
@@ -443,8 +481,7 @@ final class ListsStore {
         var entries = cur.entries
         change(&entries)
         guard entries != cur.entries else { return }
-        let l = lists[i]
-        var versions = l.versions
+        var versions = lists[i].versions
         if let open = openEdit[listId], open.number == cur.number, Date.now.timeIntervalSince(open.at) < 600 {
             versions[versions.count - 1] = CardList.Version(number: cur.number, at: .now, note: cur.note, entries: entries)
         } else {
@@ -452,7 +489,7 @@ final class ListsStore {
             versions.append(CardList.Version(number: n, at: .now, note: "Edited", entries: entries))
         }
         openEdit[listId] = (versions[versions.count - 1].number, .now)
-        lists[i] = CardList(id: l.id, kind: l.kind, name: l.name, format: l.format, versions: versions)
+        lists[i].versions = versions
         send("list_edit", ["p_list_id": .string(listId), "p_ops": .array(ops.map { .object($0) })])
     }
 
@@ -530,6 +567,8 @@ struct ListDTO: Codable {
     var versions: [VersionDTO]?
     var eventId: String?
     var eventName: String?
+    var seq: Int?
+    var sourceUrl: String?
 
     var list: CardList? {
         guard let kind, let name, let format, let versions, !versions.isEmpty else { return nil }
@@ -539,7 +578,7 @@ struct ListDTO: Codable {
                                              entries: v.entries.map { CardList.Entry(cardId: $0[0].text, board: $0[1].text, qty: $0[2].int,
                                                                                     finish: $0.count > 3 ? $0[3].text : "nonfoil",
                                                                                     lang: $0.count > 4 ? $0[4].text : "en") })
-                        }, eventId: eventId, eventName: eventName)
+                        }, eventId: eventId, eventName: eventName, seq: seq, sourceUrl: sourceUrl)
     }
 
     init(_ l: CardList) {
@@ -550,6 +589,8 @@ struct ListDTO: Codable {
         deleted = false
         eventId = l.eventId
         eventName = l.eventName
+        seq = l.seq
+        sourceUrl = l.sourceUrl
         versions = l.versions.map { v in
             VersionDTO(version: v.number, note: v.note, at: v.at.timeIntervalSince1970,
                        entries: v.entries.map { [.text($0.cardId), .text($0.board), .int($0.qty)]
@@ -1117,6 +1158,12 @@ struct ListDetailView: View {
                     ListRow(title: "Add to collection", detail: short > 0 ? "Missing \(short) · or every card" : "You own every card · add more copies")
                 }.buttonStyle(.plain)
             }
+        }
+        if !editing && list.kind == .cube && list.eventId == nil {
+            Button { path.append(.cubeSync(list.id)) } label: {
+                ListRow(title: "Sync with Cube Cobra",
+                        detail: CubeSync.cubeId(list.sourceUrl).map { "cubecobra.com · \($0)" } ?? "Get the latest from a Cube Cobra link")
+            }.buttonStyle(.plain)
         }
         if list.entries.isEmpty { ListRow(title: "No cards yet", detail: "Add cards to start this list") }
     }
@@ -2109,6 +2156,8 @@ struct ListImportView: View {
         let host = result?.sourceUrl.flatMap { URL(string: $0)?.host() }
         let l = ListsStore.shared.create(kind: kind, name: String(name.trimmingCharacters(in: .whitespaces).prefix(60)), format: format,
                                          entries: entries, note: host.map { "Imported from \($0)" } ?? "Imported", from: "import")
+        // A cube from Cube Cobra remembers its link, so Sync with Cube Cobra needs none (contract/cube-sync-2026-10-30.md).
+        if kind == .cube, let src = result?.sourceUrl, CubeSync.cubeId(src) != nil { ListsStore.shared.setSource(listId: l.id, url: src) }
         Telemetry.capture("list_imported", ["kind": kind.rawValue, "from": result?.sourceUrl == nil ? "paste" : "link",
                                             "cards": entries.reduce(0) { $0 + $1.qty }])
         path.removeLast()

@@ -559,6 +559,11 @@ struct LibraryDemoRoot: View {
         case "binder": return [.binders, .binder("d0000000-0000-0000-0000-00000000b001")]
         case "wants": return [.wants]
         case "trade": return [.trades, .trade(nil)]
+        case "cubesync":
+            guard let l = ListsStore.shared.lists.first(where: { $0.kind == .cube }) else { return [] }
+            CubeSyncView.demo = true
+            ListsStore.shared.setSource(listId: l.id, url: "https://cubecobra.com/cube/list/demo")
+            return [.lists(.cube), .list(l.id), .cubeSync(l.id)]
         case "deck", "cube", "deckstats", "cubestats", "hand", "odds", "pack", "spice", "cubespice":
             let kind: CardList.Kind = ["cube", "cubestats", "pack", "cubespice"].contains(args[i + 1]) ? .cube : .deck
             guard let l = ListsStore.shared.lists.first(where: { $0.kind == kind }) else { return [] }

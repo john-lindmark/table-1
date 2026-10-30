@@ -4,7 +4,8 @@
 import { useState } from "react";
 import { Bar, BigAction, Field, Notice, Row, Section, Segmented } from "../components/kit";
 import { printingBySetCn, printingsByName, type Catalog } from "../lib/catalog";
-import { BOARD_ORDER, boardTitle, createList, type Board, type Entry, type ListFinish, type ListKind } from "../lib/lists";
+import { cubeCobraId } from "../lib/cubeSync";
+import { BOARD_ORDER, boardTitle, createList, setListSource, type Board, type Entry, type ListFinish, type ListKind } from "../lib/lists";
 import { supabase } from "../lib/supabaseClient";
 import { capture } from "../lib/telemetry";
 import { CardRow, LibScreen, useCatalog } from "./Library";
@@ -79,6 +80,8 @@ export function ListImportScreen({ kind, onBack, onCreated }: { kind: ListKind; 
     try {
       const host = result.source_url ? new URL(result.source_url).host : null;
       const id = await createList(kind, name.trim().slice(0, 60), format, result.entries, host ? `Imported from ${host}` : "Imported", "import");
+      // A cube from Cube Cobra remembers its link, so Sync with Cube Cobra needs none (contract/cube-sync-2026-10-30.md).
+      if (kind === "cube" && cubeCobraId(result.source_url)) await setListSource(id, result.source_url).catch(() => undefined);
       capture("list_imported", { kind, from: result.source_url ? "link" : "paste", cards: result.entries.reduce((n, e) => n + e.qty, 0) });
       onCreated(id);
     } finally {

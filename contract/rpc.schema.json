@@ -3372,6 +3372,66 @@
         }
       }
     },
+    "list_source_set": {
+      "note": "Remembers (or, null/blank, forgets) the link a list syncs from; returns the list. contract/cube-sync-2026-10-30.md. authenticated, owner only.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_list_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_source_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "p_list_id",
+          "p_source_url"
+        ]
+      }
+    },
+    "list_sync": {
+      "note": "Replaces the contents with p_entries as a new version noted p_note (default 'Synced with Cube Cobra') and remembers p_source_url; PT409 (HTTP 409) when the list's seq isn't p_seq. Returns the list. contract/cube-sync-2026-10-30.md. authenticated, owner only.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_list_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_seq": {
+            "type": "integer"
+          },
+          "p_entries": {
+            "type": "array",
+            "items": {
+              "type": "array"
+            }
+          },
+          "p_source_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "p_list_id",
+          "p_seq",
+          "p_entries"
+        ]
+      }
+    },
     "list_delete": {
       "note": "Deletes for every device (tombstone in lists_changes). contract/lists-2026-10-15.md. authenticated.",
       "params": {
@@ -11636,7 +11696,7 @@
     "participants": "new: team_id, team_slot",
     "events": "new: format_name, format_label, event_type, team_size, set_code, set_name, cube_name, cube_url, format_other; seat_ends (boolean, draft seating drawing); pairing (swiss|round_robin; round_robin only for format_name roto); 2026-10-27: top_cut (0|8), auto_rounds (boolean); starts_at, venue_name, capacity now set by create_event_v2 / set_event_schedule; decklists (off|optional|required)",
     "profiles": "public read: id, display_name, handle, avatar_url (avatars bucket path or null; set only via avatar_set/avatar_clear)",
-    "card_lists": "event_id (uuid, nullable): set on a roto's linked deck; lists_changes/list_* answers carry event_id and event_name. Event decks never count Missing.",
+    "card_lists": "event_id (uuid, nullable): set on a roto's linked deck; lists_changes/list_* answers carry event_id and event_name. Event decks never count Missing. source_url (text, nullable, https): the link a cube syncs from (Cube Cobra); list answers carry source_url (2026-10-30, contract/cube-sync-2026-10-30.md).",
     "rounds": "stage: swiss | quarterfinal | semifinal | final (2026-10-27)",
     "event_waitlist": "RPC-only (RLS on, no policy, no grants): event_id, user_id, display_name, created_at (2026-10-27)",
     "event_decklists": "RPC-only (RLS on, no policy, no grants): participant_id (pk), event_id, body, main_count, side_count, list_id, list_name, submitted_by, submitted_at, updated_at (2026-10-27)"

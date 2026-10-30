@@ -1,0 +1,773 @@
+{
+ "printings": {
+  "bolt-m10": {
+   "oracle": "bolt",
+   "lang": "en"
+  },
+  "bolt-2xm": {
+   "oracle": "bolt",
+   "lang": "en"
+  },
+  "bolt-sta-ja": {
+   "oracle": "bolt",
+   "lang": "ja"
+  },
+  "opt-xln": {
+   "oracle": "opt",
+   "lang": "en"
+  },
+  "cs-7ed": {
+   "oracle": "counterspell",
+   "lang": "en"
+  },
+  "ponder-lrw": {
+   "oracle": "ponder",
+   "lang": "en"
+  }
+ },
+ "cases": [
+  {
+   "name": "nothing changed",
+   "current": [
+    [
+     "bolt-m10",
+     "main",
+     1
+    ],
+    [
+     "opt-xln",
+     "maybe",
+     1
+    ]
+   ],
+   "incoming": [
+    [
+     "bolt-m10",
+     "main",
+     1
+    ],
+    [
+     "opt-xln",
+     "maybe",
+     1
+    ]
+   ],
+   "want": {
+    "in": [],
+    "out": [],
+    "changed": [],
+    "same": 2,
+    "entries": [
+     [
+      "bolt-m10",
+      "main",
+      1
+     ],
+     [
+      "opt-xln",
+      "maybe",
+      1
+     ]
+    ]
+   },
+   "summary": "Up to date"
+  },
+  {
+   "name": "a card in and a card out",
+   "current": [
+    [
+     "bolt-m10",
+     "main",
+     1
+    ],
+    [
+     "opt-xln",
+     "main",
+     1
+    ]
+   ],
+   "incoming": [
+    [
+     "bolt-m10",
+     "main",
+     1
+    ],
+    [
+     "cs-7ed",
+     "main",
+     1
+    ]
+   ],
+   "want": {
+    "in": [
+     {
+      "board": "main",
+      "card": "cs-7ed",
+      "finish": "nonfoil",
+      "lang": "en",
+      "qty": 1
+     }
+    ],
+    "out": [
+     {
+      "board": "main",
+      "card": "opt-xln",
+      "finish": "nonfoil",
+      "lang": "en",
+      "qty": 1
+     }
+    ],
+    "changed": [],
+    "same": 1,
+    "entries": [
+     [
+      "bolt-m10",
+      "main",
+      1
+     ],
+     [
+      "cs-7ed",
+      "main",
+      1
+     ]
+    ]
+   },
+   "summary": "1 in · 1 out"
+  },
+  {
+   "name": "a new printing",
+   "current": [
+    [
+     "bolt-m10",
+     "main",
+     1
+    ]
+   ],
+   "incoming": [
+    [
+     "bolt-2xm",
+     "main",
+     1
+    ]
+   ],
+   "want": {
+    "in": [],
+    "out": [],
+    "changed": [
+     {
+      "board": "main",
+      "from_card": "bolt-m10",
+      "from_finish": "nonfoil",
+      "from_lang": "en",
+      "to_card": "bolt-2xm",
+      "to_finish": "nonfoil",
+      "to_lang": "en",
+      "qty": 1
+     }
+    ],
+    "same": 0,
+    "entries": [
+     [
+      "bolt-2xm",
+      "main",
+      1
+     ]
+    ]
+   },
+   "summary": "1 new printing"
+  },
+  {
+   "name": "a new finish",
+   "current": [
+    [
+     "bolt-m10",
+     "main",
+     1
+    ]
+   ],
+   "incoming": [
+    [
+     "bolt-m10",
+     "main",
+     1,
+     "foil"
+    ]
+   ],
+   "want": {
+    "in": [],
+    "out": [],
+    "changed": [
+     {
+      "board": "main",
+      "from_card": "bolt-m10",
+      "from_finish": "nonfoil",
+      "from_lang": "en",
+      "to_card": "bolt-m10",
+      "to_finish": "foil",
+      "to_lang": "en",
+      "qty": 1
+     }
+    ],
+    "same": 0,
+    "entries": [
+     [
+      "bolt-m10",
+      "main",
+      1,
+      "foil"
+     ]
+    ]
+   },
+   "summary": "1 new printing"
+  },
+  {
+   "name": "a new finish is paired before another printing",
+   "current": [
+    [
+     "bolt-m10",
+     "main",
+     1
+    ],
+    [
+     "bolt-2xm",
+     "main",
+     1
+    ]
+   ],
+   "incoming": [
+    [
+     "bolt-2xm",
+     "main",
+     1,
+     "foil"
+    ],
+    [
+     "bolt-m10",
+     "main",
+     1
+    ]
+   ],
+   "want": {
+    "in": [],
+    "out": [],
+    "changed": [
+     {
+      "board": "main",
+      "from_card": "bolt-2xm",
+      "from_finish": "nonfoil",
+      "from_lang": "en",
+      "to_card": "bolt-2xm",
+      "to_finish": "foil",
+      "to_lang": "en",
+      "qty": 1
+     }
+    ],
+    "same": 1,
+    "entries": [
+     [
+      "bolt-2xm",
+      "main",
+      1,
+      "foil"
+     ],
+     [
+      "bolt-m10",
+      "main",
+      1
+     ]
+    ]
+   },
+   "summary": "1 new printing"
+  },
+  {
+   "name": "a kept language stays on an unchanged line",
+   "current": [
+    [
+     "bolt-m10",
+     "main",
+     1,
+     "nonfoil",
+     "de"
+    ]
+   ],
+   "incoming": [
+    [
+     "bolt-m10",
+     "main",
+     1
+    ]
+   ],
+   "want": {
+    "in": [],
+    "out": [],
+    "changed": [],
+    "same": 1,
+    "entries": [
+     [
+      "bolt-m10",
+      "main",
+      1,
+      "nonfoil",
+      "de"
+     ]
+    ]
+   },
+   "summary": "Up to date"
+  },
+  {
+   "name": "a kept language follows a new English printing",
+   "current": [
+    [
+     "bolt-m10",
+     "main",
+     1,
+     "nonfoil",
+     "de"
+    ]
+   ],
+   "incoming": [
+    [
+     "bolt-2xm",
+     "main",
+     1
+    ]
+   ],
+   "want": {
+    "in": [],
+    "out": [],
+    "changed": [
+     {
+      "board": "main",
+      "from_card": "bolt-m10",
+      "from_finish": "nonfoil",
+      "from_lang": "de",
+      "to_card": "bolt-2xm",
+      "to_finish": "nonfoil",
+      "to_lang": "de",
+      "qty": 1
+     }
+    ],
+    "same": 0,
+    "entries": [
+     [
+      "bolt-2xm",
+      "main",
+      1,
+      "nonfoil",
+      "de"
+     ]
+    ]
+   },
+   "summary": "1 new printing"
+  },
+  {
+   "name": "a Japanese printing's language doesn't follow to an English one",
+   "current": [
+    [
+     "bolt-sta-ja",
+     "main",
+     1,
+     "nonfoil",
+     "ja"
+    ]
+   ],
+   "incoming": [
+    [
+     "bolt-2xm",
+     "main",
+     1
+    ]
+   ],
+   "want": {
+    "in": [],
+    "out": [],
+    "changed": [
+     {
+      "board": "main",
+      "from_card": "bolt-sta-ja",
+      "from_finish": "nonfoil",
+      "from_lang": "ja",
+      "to_card": "bolt-2xm",
+      "to_finish": "nonfoil",
+      "to_lang": "en",
+      "qty": 1
+     }
+    ],
+    "same": 0,
+    "entries": [
+     [
+      "bolt-2xm",
+      "main",
+      1
+     ]
+    ]
+   },
+   "summary": "1 new printing"
+  },
+  {
+   "name": "a new Japanese printing is Japanese",
+   "current": [
+    [
+     "bolt-m10",
+     "main",
+     1,
+     "nonfoil",
+     "de"
+    ]
+   ],
+   "incoming": [
+    [
+     "bolt-sta-ja",
+     "main",
+     1
+    ]
+   ],
+   "want": {
+    "in": [],
+    "out": [],
+    "changed": [
+     {
+      "board": "main",
+      "from_card": "bolt-m10",
+      "from_finish": "nonfoil",
+      "from_lang": "de",
+      "to_card": "bolt-sta-ja",
+      "to_finish": "nonfoil",
+      "to_lang": "ja",
+      "qty": 1
+     }
+    ],
+    "same": 0,
+    "entries": [
+     [
+      "bolt-sta-ja",
+      "main",
+      1,
+      "nonfoil",
+      "ja"
+     ]
+    ]
+   },
+   "summary": "1 new printing"
+  },
+  {
+   "name": "an In copy of a Japanese printing is Japanese",
+   "current": [],
+   "incoming": [
+    [
+     "bolt-sta-ja",
+     "main",
+     1
+    ]
+   ],
+   "want": {
+    "in": [
+     {
+      "board": "main",
+      "card": "bolt-sta-ja",
+      "finish": "nonfoil",
+      "lang": "ja",
+      "qty": 1
+     }
+    ],
+    "out": [],
+    "changed": [],
+    "same": 0,
+    "entries": [
+     [
+      "bolt-sta-ja",
+      "main",
+      1,
+      "nonfoil",
+      "ja"
+     ]
+    ]
+   },
+   "summary": "1 in"
+  },
+  {
+   "name": "moved to Considering is out of Main and in Considering",
+   "current": [
+    [
+     "opt-xln",
+     "main",
+     1
+    ]
+   ],
+   "incoming": [
+    [
+     "opt-xln",
+     "maybe",
+     1
+    ]
+   ],
+   "want": {
+    "in": [
+     {
+      "board": "maybe",
+      "card": "opt-xln",
+      "finish": "nonfoil",
+      "lang": "en",
+      "qty": 1
+     }
+    ],
+    "out": [
+     {
+      "board": "main",
+      "card": "opt-xln",
+      "finish": "nonfoil",
+      "lang": "en",
+      "qty": 1
+     }
+    ],
+    "changed": [],
+    "same": 0,
+    "entries": [
+     [
+      "opt-xln",
+      "maybe",
+      1
+     ]
+    ]
+   },
+   "summary": "1 in · 1 out"
+  },
+  {
+   "name": "more copies: two of four change, one goes",
+   "current": [
+    [
+     "bolt-m10",
+     "main",
+     4
+    ]
+   ],
+   "incoming": [
+    [
+     "bolt-m10",
+     "main",
+     1
+    ],
+    [
+     "bolt-2xm",
+     "main",
+     2
+    ]
+   ],
+   "want": {
+    "in": [],
+    "out": [
+     {
+      "board": "main",
+      "card": "bolt-m10",
+      "finish": "nonfoil",
+      "lang": "en",
+      "qty": 1
+     }
+    ],
+    "changed": [
+     {
+      "board": "main",
+      "from_card": "bolt-m10",
+      "from_finish": "nonfoil",
+      "from_lang": "en",
+      "to_card": "bolt-2xm",
+      "to_finish": "nonfoil",
+      "to_lang": "en",
+      "qty": 2
+     }
+    ],
+    "same": 1,
+    "entries": [
+     [
+      "bolt-2xm",
+      "main",
+      2
+     ],
+     [
+      "bolt-m10",
+      "main",
+      1
+     ]
+    ]
+   },
+   "summary": "1 out · 2 new printings"
+  },
+  {
+   "name": "more copies: one comes in",
+   "current": [
+    [
+     "opt-xln",
+     "main",
+     1
+    ]
+   ],
+   "incoming": [
+    [
+     "opt-xln",
+     "main",
+     2
+    ]
+   ],
+   "want": {
+    "in": [
+     {
+      "board": "main",
+      "card": "opt-xln",
+      "finish": "nonfoil",
+      "lang": "en",
+      "qty": 1
+     }
+    ],
+    "out": [],
+    "changed": [],
+    "same": 1,
+    "entries": [
+     [
+      "opt-xln",
+      "main",
+      2
+     ]
+    ]
+   },
+   "summary": "1 in"
+  },
+  {
+   "name": "English copies pair first when languages differ",
+   "current": [
+    [
+     "bolt-m10",
+     "main",
+     1
+    ],
+    [
+     "bolt-m10",
+     "main",
+     1,
+     "nonfoil",
+     "fr"
+    ]
+   ],
+   "incoming": [
+    [
+     "bolt-m10",
+     "main",
+     1
+    ],
+    [
+     "bolt-2xm",
+     "main",
+     1
+    ]
+   ],
+   "want": {
+    "in": [],
+    "out": [],
+    "changed": [
+     {
+      "board": "main",
+      "from_card": "bolt-m10",
+      "from_finish": "nonfoil",
+      "from_lang": "fr",
+      "to_card": "bolt-2xm",
+      "to_finish": "nonfoil",
+      "to_lang": "fr",
+      "qty": 1
+     }
+    ],
+    "same": 1,
+    "entries": [
+     [
+      "bolt-2xm",
+      "main",
+      1,
+      "nonfoil",
+      "fr"
+     ],
+     [
+      "bolt-m10",
+      "main",
+      1
+     ]
+    ]
+   },
+   "summary": "1 new printing"
+  },
+  {
+   "name": "duplicate incoming lines merge",
+   "current": [],
+   "incoming": [
+    [
+     "opt-xln",
+     "main",
+     1
+    ],
+    [
+     "opt-xln",
+     "main",
+     1
+    ]
+   ],
+   "want": {
+    "in": [
+     {
+      "board": "main",
+      "card": "opt-xln",
+      "finish": "nonfoil",
+      "lang": "en",
+      "qty": 2
+     }
+    ],
+    "out": [],
+    "changed": [],
+    "same": 0,
+    "entries": [
+     [
+      "opt-xln",
+      "main",
+      2
+     ]
+    ]
+   },
+   "summary": "2 in"
+  },
+  {
+   "name": "everything out",
+   "current": [
+    [
+     "cs-7ed",
+     "main",
+     1
+    ],
+    [
+     "ponder-lrw",
+     "maybe",
+     2
+    ]
+   ],
+   "incoming": [],
+   "want": {
+    "in": [],
+    "out": [
+     {
+      "board": "main",
+      "card": "cs-7ed",
+      "finish": "nonfoil",
+      "lang": "en",
+      "qty": 1
+     },
+     {
+      "board": "maybe",
+      "card": "ponder-lrw",
+      "finish": "nonfoil",
+      "lang": "en",
+      "qty": 2
+     }
+    ],
+    "changed": [],
+    "same": 0,
+    "entries": []
+   },
+   "summary": "3 out"
+  }
+ ]
+}

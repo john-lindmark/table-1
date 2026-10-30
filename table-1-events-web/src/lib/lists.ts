@@ -49,6 +49,10 @@ export interface CardList {
   /** A roto deck linked to its event: filled by the draft from the cube, so it never counts Missing. */
   eventId?: string | null;
   eventName?: string | null;
+  /** The server's seq (absent in the demo), and the link it syncs from (a Cube Cobra cube,
+   *  contract/cube-sync-2026-10-30.md). */
+  seq?: number;
+  sourceUrl?: string | null;
 }
 
 export interface Change {
@@ -121,6 +125,8 @@ interface ListWire {
   format?: string;
   event_id?: string | null;
   event_name?: string | null;
+  seq?: number;
+  source_url?: string | null;
   versions?: { version: number; note: string; at: number; entries: ([string, Board, number] | [string, Board, number, ListFinish] | [string, Board, number, ListFinish, string])[] }[];
 }
 
@@ -129,6 +135,8 @@ export function fromWire(w: ListWire): CardList | null {
   return {
     id: w.id, kind: w.kind, name: w.name, format: w.format ?? "",
     ...(w.event_id ? { eventId: w.event_id, eventName: w.event_name ?? null } : {}),
+    ...(typeof w.seq === "number" ? { seq: w.seq } : {}),
+    ...(w.source_url ? { sourceUrl: w.source_url } : {}),
     versions: w.versions.map((v) => ({
       number: v.version, at: v.at, note: v.note,
       entries: v.entries.map(([cardId, board, qty, finish, lang]) => entry(cardId, board, qty, finish ?? "nonfoil", lang ?? "en")),
@@ -312,6 +320,36 @@ export async function setListFormat(id: string, format: string): Promise<void> {
   if (demo) return set({ lists: sorted([...state.lists.filter((x) => x.id !== id), { ...l, format }]) });
   await call("list_update", { p_list_id: id, p_format: format });
   capture("list_format_changed", { kind: l.kind, from: l.format, to: format });
+}
+
+/** Remembers the Cube Cobra link a cube was imported from, so syncing needs no link. */
+export async function setListSource(id: string, url: string): Promise<void> {
+  const l = state.lists.find((x) => x.id === id);
+  if (!l || l.sourceUrl === url) return;
+  if (demo) return set({ lists: sorted([...state.lists.filter((x) => x.id !== id), { ...l, sourceUrl: url }]) });
+  await call("list_source_set", { p_list_id: id, p_source_url: url });
+}
+
+/** Saves a cube synced with Cube Cobra as one new version (contract/cube-sync-2026-10-30.md). Throws the server's
+ *  error; `code` "PT409" means the list changed since `seq` (the store syncs, and the caller asks to check again). */
+export async function syncList(id: string, seq: number | undefined, entries: Entry[], sourceUrl: string): Promise<void> {
+  if (demo) {
+    localEdit(id, () => entries.map((e) => ({ ...e })), "Synced with Cube Cobra");
+    const l = state.lists.find((x) => x.id === id);
+    if (l) set({ lists: sorted([...state.lists.filter((x) => x.id !== id), { ...l, sourceUrl }]) });
+    return;
+  }
+  const { data, error } = await supabase.rpc("list_sync", {
+    p_list_id: id, p_seq: seq ?? -1, p_entries: entries.map(entryWire), p_source_url: sourceUrl,
+  });
+  if (error) {
+    void syncLists();
+    throw error;
+  }
+  openEdit.delete(id);
+  merge(data as ListWire);
+  set({ error: null });
+  await saveCache();
 }
 
 /** A new list with the current version's cards; its history starts fresh and names where it came from. */

@@ -24,6 +24,7 @@ enum LibraryRoute: Hashable {
     case trade(String?) // trade id, nil for a new one
     case collectionImport
     case listStats(String) // list id
+    case cubeSync(String) // list id: Sync with Cube Cobra
     case sampleHand(String) // list id
     case drawOdds(String) // list id
     case samplePack(String) // list id
@@ -64,6 +65,7 @@ struct LibraryDestination: View {
         case .findDeck: "deck_finder"
         case .linePrinting: "list_printing"
         case .importList: "list_import"
+        case .cubeSync: "cube_sync"
         case .trades: "trades"
         case .trade: "trade"
         case .collectionImport: "collection_import"
@@ -107,6 +109,7 @@ struct LibraryDestination: View {
         case .trade(let id): TradeView(tradeId: id, path: $path)
         case .collectionImport: CollectionImportView(path: $path)
         case .listStats(let id): ListStatsView(listId: id, path: $path)
+        case .cubeSync(let id): CubeSyncView(listId: id, path: $path)
         case .sampleHand(let id): SampleHandView(listId: id)
         case .drawOdds(let id): DrawOddsView(listId: id)
         case .samplePack(let id): SamplePackView(listId: id)

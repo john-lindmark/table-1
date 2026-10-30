@@ -293,7 +293,7 @@ fun NewListPanel(kind: ListKind, onDismiss: () -> Unit, onCreated: (String) -> U
 @Composable
 fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Unit, onAdd: () -> Unit, onVersions: () -> Unit,
                      onOpen: (String) -> Unit, onPrinting: (cardId: String, board: String, finish: String, lang: String) -> Unit = { _, _, _, _ -> },
-                     onStats: () -> Unit = {}, onRankings: (() -> Unit)? = null) {
+                     onStats: () -> Unit = {}, onRankings: (() -> Unit)? = null, onSync: (() -> Unit)? = null) {
     val s by ListsStore.state.collectAsState()
     val list = s.lists.firstOrNull { it.id == listId }
     val owned = ownedByPrinting()
@@ -383,6 +383,10 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                 if (list.kind == ListKind.Deck) ListRow("Deck image", "The cards as a picture, to save or share", onClick = { imaging = true })
                 val short = list.missing(owned, CatalogStore.basics)
                 ListRow("Add to collection", if (short > 0) "Missing $short · or every card" else "You own every card · add more copies", onClick = { adding = true })
+            }
+            if (!editing && list.kind == ListKind.Cube && onSync != null) {
+                ListRow("Sync with Cube Cobra", CubeSync.cubeId(list.sourceUrl)?.let { "cubecobra.com · $it" } ?: "Get the latest from a Cube Cobra link",
+                    onClick = onSync)
             }
             if (list.entries.isEmpty()) ListRow("No cards yet", "Add cards to start this list")
         }

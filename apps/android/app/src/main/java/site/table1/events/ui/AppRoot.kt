@@ -76,6 +76,7 @@ import site.table1.events.library.PrintingTarget
 import site.table1.events.library.ListImportScreen
 import site.table1.events.library.ListAddScreen
 import site.table1.events.library.ListDetailScreen
+import site.table1.events.library.CubeSyncScreen
 import site.table1.events.library.ListStatsScreen
 import site.table1.events.library.SampleHandScreen
 import site.table1.events.library.DrawOddsScreen
@@ -445,7 +446,12 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                         onAdd = { nav.navigate("collection/list/$id/add") }, onVersions = { nav.navigate("collection/list/$id/versions") },
                         onOpen = { nav.navigate("collection/list/$it") },
                         onPrinting = { card, board, finish, lang -> nav.navigate("collection/list/$id/printing/$card/$board/$finish/$lang") },
-                        onStats = { nav.navigate("collection/list/$id/stats") }, onRankings = { nav.navigate("collection/list/$id/rankings") })
+                        onStats = { nav.navigate("collection/list/$id/stats") }, onRankings = { nav.navigate("collection/list/$id/rankings") },
+                        onSync = { nav.navigate("collection/list/$id/sync") })
+                }
+                composable("collection/list/{id}/sync") { e ->
+                    val id = e.arguments?.getString("id") ?: ""
+                    CubeSyncScreen(id, onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it?list=$id") })
                 }
                 composable("collection/list/{id}/stats") { e ->
                     val id = e.arguments?.getString("id") ?: ""

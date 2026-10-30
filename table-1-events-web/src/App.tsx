@@ -91,6 +91,7 @@ const RankingChanges = lazyNamed(rankings, "RankingChangesScreen");
 const DeckFinderScreen = lazyNamed(() => import("./screens/DeckFinder"), "DeckFinderScreen");
 const DeckPhotosScreen = lazyNamed(() => import("./screens/DeckPhotos"), "DeckPhotosScreen");
 const ListImportScreen = lazyNamed(() => import("./screens/ListImport"), "ListImportScreen");
+const CubeSyncScreen = lazyNamed(() => import("./screens/CubeSync"), "CubeSyncScreen");
 const insights = () => import("./screens/Insights");
 const InsightsHome = lazyNamed(insights, "InsightsHome");
 const InsightsArchetype = lazyNamed(insights, "InsightsArchetype");
@@ -353,8 +354,17 @@ function ListRoute() {
                 onAdd={() => navigate(`/library/list/${listId}/add`)} onVersions={() => navigate(`/library/list/${listId}/versions`)}
                 onOpen={(id) => navigate(`/library/list/${id}`)}
                 onPrinting={(card, board, finish, lang) => navigate(`/library/list/${listId}/printing?card=${card}&board=${board}&finish=${finish}&lang=${lang}`)}
-                onStats={() => navigate(`/library/list/${listId}/stats`)} onRankings={() => navigate(`/library/list/${listId}/rankings`)} />
+                onStats={() => navigate(`/library/list/${listId}/stats`)} onRankings={() => navigate(`/library/list/${listId}/rankings`)}
+                onSync={() => navigate(`/library/list/${listId}/sync`)} />
   );
+}
+
+function CubeSyncRoute() {
+  const { listId } = useParams();
+  const navigate = useNavigate();
+  const back = useBack(`/library/list/${listId}`);
+  if (!listId) return <Navigate to="/library" replace />;
+  return <CubeSyncScreen id={listId} onBack={back} onCard={(o) => navigate(`/library/card/${o}`, { state: { list: listId } })} />;
 }
 
 const RankingsScreens = lazyNamed(rankings, "RankingsDemoGate");
@@ -543,6 +553,7 @@ export default function App() {
         <Route path="/library/list/:listId" element={<ListRoute />} />
         <Route path="/library/list/:listId/add" element={<ListAddRoute />} />
         <Route path="/library/list/:listId/stats" element={<ListStatsRoute />} />
+        <Route path="/library/list/:listId/sync" element={<CubeSyncRoute />} />
         <Route path="/library/list/:listId/rankings" element={<RankingsRoute />} />
         <Route path="/library/rankings" element={<RankingsRoute />} />
         <Route path="/library/ranking/:rankingId" element={<RankingRoute />} />

@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -51,7 +52,10 @@ fun ownKey(cardId: String, finish: String) = "$cardId|$finish"
  *  basic land (contract/basics-2026-10-24.md). */
 fun isShort(board: String, qty: Int, owned: Int, basic: Boolean) = board != "maybe" && !basic && owned < qty
 
-data class CardList(val id: String, val kind: ListKind, val name: String, val format: String, val versions: List<ListVersion>) {
+/** [seq] is the server's (null for a list it hasn't sent), [sourceUrl] the link it syncs from (a Cube Cobra cube,
+ *  contract/cube-sync-2026-10-30.md). */
+data class CardList(val id: String, val kind: ListKind, val name: String, val format: String, val versions: List<ListVersion>,
+                    val seq: Long? = null, val sourceUrl: String? = null) {
     val current get() = versions.last()
     val entries get() = current.entries
     fun count(board: String) = entries.filter { it.board == board }.sumOf { it.qty }
@@ -97,6 +101,8 @@ data class ListWire(
     val name: String? = null,
     val format: String? = null,
     val versions: List<VersionWire> = emptyList(),
+    val seq: Long? = null,
+    @SerialName("source_url") val sourceUrl: String? = null,
 ) {
     @Serializable
     data class VersionWire(val version: Int, val note: String, val at: Double, val entries: List<JsonArray>)
@@ -108,7 +114,7 @@ data class ListWire(
                 ListEntry(it[0].jsonPrimitive.content, it[1].jsonPrimitive.content, it[2].jsonPrimitive.int,
                     if (it.size > 3) it[3].jsonPrimitive.content else "nonfoil", if (it.size > 4) it[4].jsonPrimitive.content else "en")
             })
-        })
+        }, seq, sourceUrl)
     }
 
     companion object {
@@ -122,7 +128,7 @@ data class ListWire(
 
         fun of(l: CardList) = ListWire(l.id, false, l.kind.wire, l.name, l.format, l.versions.map { v ->
             VersionWire(v.number, v.note, v.at, v.entries.map { entryWire(it) })
-        })
+        }, l.seq, l.sourceUrl)
     }
 }
 
@@ -247,6 +253,33 @@ object ListsStore {
         call("list_update", buildJsonObject { put("p_list_id", listId); put("p_format", format) })
         site.table1.events.util.Telemetry.capture("list_format_changed", mapOf("kind" to l.kind.wire, "from" to l.format, "to" to format))
     }
+
+    /** Remembers the Cube Cobra link a cube was imported from, so syncing needs no link. */
+    suspend fun setSource(listId: String, url: String) {
+        if (list(listId)?.sourceUrl == url) return
+        call("list_source_set", buildJsonObject { put("p_list_id", listId); put("p_source_url", url) })
+    }
+
+    /** Saves a cube synced with Cube Cobra as one new version (contract/cube-sync-2026-10-30.md). A list that changed
+     *  since [seq] is refused ([isSyncConflict]); the store syncs either way on failure. */
+    suspend fun syncList(listId: String, seq: Long?, entries: List<ListEntry>, sourceUrl: String) {
+        try {
+            val w = T1App.supabase.postgrest.rpc("list_sync", buildJsonObject {
+                put("p_list_id", listId); put("p_seq", seq ?: -1L); put("p_source_url", sourceUrl)
+                put("p_entries", buildJsonArray { entries.forEach { add(ListWire.entryWire(it)) } })
+            }).decodeAs<ListWire>()
+            val rest = _state.value.lists.filter { it.id != w.id }
+            setLists(w.toList()?.let { rest + it } ?: rest)
+            _state.value = _state.value.copy(error = null)
+            saveCache()
+        } catch (e: Exception) {
+            e.rethrowIfCancelled()
+            sync()
+            throw e
+        }
+    }
+
+    fun isSyncConflict(e: Throwable) = e.message?.let { "PT409" in it || "changed since you checked" in it } == true
 
     /** A new list with the current version's cards; its history starts fresh and names where it came from. */
     suspend fun duplicate(listId: String): String? {

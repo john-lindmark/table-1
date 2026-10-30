@@ -149,7 +149,13 @@ fun ListImportScreen(kind: ListKind, onBack: () -> Unit, onCreated: (String) -> 
         busy = true
         val host = result?.sourceUrl?.let { runCatching { android.net.Uri.parse(it).host }.getOrNull() }
         scope.launch {
-            runCatching { ListsStore.create(kind, name.trim().take(60), formats[format], res.entries, host?.let { "Imported from $it" } ?: "Imported", "import") }
+            runCatching {
+                val id = ListsStore.create(kind, name.trim().take(60), formats[format], res.entries, host?.let { "Imported from $it" } ?: "Imported", "import")
+                // A cube from Cube Cobra remembers its link, so Sync with Cube Cobra needs none (contract/cube-sync-2026-10-30.md).
+                val src = result?.sourceUrl
+                if (kind == ListKind.Cube && src != null && CubeSync.cubeId(src) != null) runCatching { ListsStore.setSource(id, src) }
+                id
+            }
                 .onSuccess(onCreated)
                 .onFailure { error = it.message }
             busy = false

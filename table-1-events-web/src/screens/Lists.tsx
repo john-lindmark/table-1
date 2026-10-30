@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BigAction, Field, GhostAction, Menu, Modal, Notice, Row, Screen, Section, Segmented } from "../components/kit";
 import { CANLANDER_POINT_LIMIT, basicCardIds, coverPrinting, formatName, legalityOf, type Catalog } from "../lib/catalog";
 import { DEMO_USER, useCollection } from "../lib/collection";
+import { cubeCobraId } from "../lib/cubeSync";
 import { loadDemoLists } from "../lib/libraryDemo";
 import {
   EXPORT_DETAIL, EXPORT_FILE, exportFileName, exportFormats, exportLines, renderList, type ExportFormat,
@@ -377,11 +378,13 @@ export function ExportScreen({ name, kind, entries, catalog, from, onClose }: {
   );
 }
 
-export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPrinting, onStats, onRankings }: {
+export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPrinting, onStats, onRankings, onSync }: {
   id: string; onBack: () => void; onCard: (oracleId: string) => void; onAdd: () => void; onVersions: () => void;
   onOpen: (listId: string) => void; onPrinting: (cardId: string, board: Board, finish: ListFinish, lang: string) => void; onStats: () => void;
   /** Cubes: the Rankings row. */
   onRankings?: () => void;
+  /** Cubes: Sync with Cube Cobra (contract/cube-sync-2026-10-30.md). */
+  onSync?: () => void;
 }) {
   const { session, ready, lists, owned, ownedByLang } = useListsData();
   const { catalog, error } = useCatalog();
@@ -590,6 +593,9 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
           const miss = missingIn(list, owned, basicCardIds(catalog));
           return <Row title="Add to collection" detail={miss ? `Missing ${miss} · or every card` : "You own every card · add more copies"} onClick={() => setAdding(true)} />;
         })()}
+        {!editing && list.kind === "cube" && !list.eventId && onSync &&
+          <Row title="Sync with Cube Cobra" detail={cubeCobraId(list.sourceUrl) ? `cubecobra.com · ${cubeCobraId(list.sourceUrl)}` : "Get the latest from a Cube Cobra link"}
+               onClick={onSync} />}
         {entriesOf(list).length === 0 && <Row title="No cards yet" detail="Add cards to start this list" />}
         </div>
         </>}
