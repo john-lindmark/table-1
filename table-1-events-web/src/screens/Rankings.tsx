@@ -6,8 +6,9 @@ import { cardImageUrl, cornerRatio, type Catalog } from "../lib/catalog";
 import { JOB_TITLE, compare, depthPhrase, suggestedDepth, why, type Link, type RankChange, type RankDepth, type RankJob, type RankSession, type RankingState } from "../lib/cubeRanking";
 import { fileName } from "../lib/deckImage";
 import {
-  createRanking, deleteRanking, fetchBrief, fetchRankable, fetchRankings, progressText, rankingLabel, rankingModel, rankingTitle, shortDate, UNNAMED, useRanking,
-  type CubeRankings, type RankCard, type RankableCube, type RankingBrief, type RankingModel, type RankingRow,
+  createRanking, deleteRanking, fetchBrief, fetchRankable, fetchRankableSets, fetchRankings, progressText, rankableDetail, rankingLabel, rankingModel,
+  rankingTitle, setKeyOf, setSubjectId, sharingLabel, shortDate, UNNAMED, useRanking,
+  type CubeRankings, type RankCard, type RankableCube, type RankableSet, type RankingBrief, type RankingModel, type RankingRow,
 } from "../lib/rankings";
 
 const DEPTH_OPTIONS: { value: RankDepth; label: string }[] = [
@@ -60,8 +61,9 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube }: {
   onCube?: (listId: string) => void;
 }) {
   const [data, setData] = useState<CubeRankings | null>(null);
-  /** Every ranking of yours: other people's cubes you can rank too. */
+  /** Every ranking of yours: other people's cubes you can rank too, and Limited sets. */
   const [others2, setOthers2] = useState<RankableCube[]>([]);
+  const [sets, setSets] = useState<RankableSet[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [top, setTop] = useState(100);
@@ -70,10 +72,12 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube }: {
   const depth = picked ?? suggestedDepth(top);
   const [sharing, setSharing] = useState<"cube" | "private">("cube");
   const [busy, setBusy] = useState(false);
-  const load = () => Promise.all([fetchRankings(listId), listId == null ? fetchRankable() : Promise.resolve([])])
-    .then(([d, r]) => { setData(d); setOthers2(r); setError(null); }).catch((e) => setError((e as Error).message));
+  const load = () => Promise.all([fetchRankings(listId), listId == null ? fetchRankable() : Promise.resolve([]),
+                                  listId == null ? fetchRankableSets().catch(() => []) : Promise.resolve([])])
+    .then(([d, r, s]) => { setData(d); setOthers2(r); setSets(s); setError(null); }).catch((e) => setError((e as Error).message));
   useEffect(() => { void load(); }, [listId]);
   const cube = data?.cube ?? null;
+  const isSet = !!setKeyOf(listId);
   const mine = data?.rankings.filter((r) => r.mine) ?? [], others = data?.rankings.filter((r) => !r.mine) ?? [];
   const create = async () => {
     if (!cube || busy) return;
@@ -95,33 +99,35 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube }: {
   );
   return (
     <LibScreen>
-      <Bar title="Rankings" subtitle={listId == null ? "Yours, and cubes you can rank" : cube ? (cube.mine ? cube.name : `${cube.name} · ${cube.owner?.display_name ?? ""}`) : undefined}
+      <Bar title="Rankings" subtitle={listId == null ? "Yours, and cubes and sets you can rank" : cube ? (cube.mine || isSet ? cube.name : `${cube.name} · ${cube.owner?.display_name ?? ""}`) : undefined}
            onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {error && <Notice tone="error">{error}</Notice>}
         {!data && !error && <Notice tone="info">Loading rankings…</Notice>}
-        {data && listId != null && (
-          <Notice tone="info">Sort each color by putting up to four cards in order at a time, then rank the best cards across the whole cube.
-            Everyone who can see this cube can watch and compare the rankings shared with it.</Notice>
+        {data && listId != null && (isSet
+          ? <Notice tone="info">Sort each color by putting up to four cards in order at a time, then rank the best cards across the whole set.
+              Your friends can watch and compare the rankings you share.</Notice>
+          : <Notice tone="info">Sort each color by putting up to four cards in order at a time, then rank the best cards across the whole cube.
+              Everyone who can see this cube can watch and compare the rankings shared with it.</Notice>
         )}
         {data?.can_rank && cube && (creating ? (<>
           <Segmented options={[{ value: 100, label: "Top 100" }, { value: 50, label: "Top 50" }]} value={top} onChange={setTop} />
           <Segmented options={DEPTH_OPTIONS} value={depth} onChange={setPicked} />
           <Notice tone="info">{depthNote(depth, top)}</Notice>
-          <Segmented options={[{ value: "cube", label: "Shared with the cube" }, { value: "private", label: "Only me" }]} value={sharing} onChange={setSharing} />
-          <Notice tone="info">{sharing === "cube" ? `Who sees this: everyone who can see ${cube.name}${cube.mine ? "" : `, including ${cube.owner?.display_name ?? "its owner"}`}.`
-                                                  : "Who sees this: only you."}</Notice>
+          <Segmented options={[{ value: "cube", label: sharingLabel("cube", isSet) }, { value: "private", label: "Only me" }]} value={sharing} onChange={setSharing} />
+          <Notice tone="info">{sharing !== "cube" ? "Who sees this: only you." : isSet ? "Who sees this: your friends."
+                                : `Who sees this: everyone who can see ${cube.name}${cube.mine ? "" : `, including ${cube.owner?.display_name ?? "its owner"}`}.`}</Notice>
           <div className="flex gap-px">
             <GhostAction label="Cancel" onClick={() => setCreating(false)} />
             <button type="button" onClick={() => void create()} disabled={busy}
                     className="flex-1 bg-t1-accent text-t1-ink px-4 py-3 text-[11px] uppercase tracking-[1px]">{busy ? "Starting…" : "Start"}</button>
           </div>
-        </>) : <Row title={cube.mine ? "New ranking" : cube.owner ? `Rank ${cube.owner.display_name}'s cube` : "Rank this cube"}
-                    detail={cube.mine ? "Sort each color, then the top 100" : "Your own ranking: each color, then the top 100"} onClick={() => setCreating(true)} />)}
+        </>) : <Row title={isSet ? `Rank ${cube.name}` : cube.mine ? "New ranking" : cube.owner ? `Rank ${cube.owner.display_name}'s cube` : "Rank this cube"}
+                    detail={cube.mine || isSet ? "Sort each color, then the top 100" : "Your own ranking: each color, then the top 100"} onClick={() => setCreating(true)} />)}
         {data && mine.length > 0 && (<>{listId != null && <Section title="Yours" />}{mine.map(row)}</>)}
         {data && listId != null && (<>
-          <Section title="Everyone else's" />
-          {!others.length && <Notice tone="info">Nobody else has ranked this cube yet.</Notice>}
+          <Section title={isSet ? "Your friends'" : "Everyone else's"} />
+          {!others.length && <Notice tone="info">{isSet ? "None of your friends has ranked this set yet." : "Nobody else has ranked this cube yet."}</Notice>}
           {others.map(row)}
         </>)}
         {data && listId == null && !mine.length && <Notice tone="info">No rankings yet. Open one of your cubes and choose Rankings, or rank a friend's cube below.</Notice>}
@@ -134,6 +140,10 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube }: {
                  detail={[c.owner?.display_name, plural(c.cards, "card"), c.rankings ? plural(c.rankings, "ranking") : "no rankings yet", c.mine ? `${c.mine} yours` : null]
                    .filter(Boolean).join(" · ")} />
           ))}
+        </>)}
+        {data && listId == null && sets.length > 0 && (<>
+          <Section title="Sets you can rank" />
+          {sets.slice(0, 8).map((s) => <Row key={s.key} title={s.name} detail={rankableDetail(s)} onClick={() => onCube?.(setSubjectId(s.key))} />)}
         </>)}
       </div>
     </LibScreen>
@@ -268,7 +278,7 @@ export function RankingScreen({ id, onBack, go }: { id: string; onBack: () => vo
             );
           })()}
           <Row title="Changes" detail={m.changes.length ? `${plural(m.changes.length, "change")} so far` : "Every move of every card, as it happens"} onClick={() => go("changes")} />
-          <Row title="Compare with another ranking…" detail={others.length ? plural(others.length, "other ranking") : "No other rankings of this cube yet"}
+          <Row title="Compare with another ranking…" detail={others.length ? plural(others.length, "other ranking") : `No other rankings of this ${setKeyOf(row?.list_id) ? "set" : "cube"} yet`}
                onClick={() => others.length && setMenu({ title: "Compare with", items: others.map((o) => ({ title: rankingTitle(o), onClick: () => go(`compare/${o.id}/F`) })) })} />
           <Row title={`Top ${row?.top ?? 100} image`} detail="The final as a picture, to download or share" onClick={() => setImaging(true)} />
           {row?.mine && (<>
@@ -278,11 +288,11 @@ export function RankingScreen({ id, onBack, go }: { id: string; onBack: () => vo
               // The server takes no blank name; its default is what reads as no label.
               <Btn label={newName.trim() ? "Save label" : "Remove label"} accent onClick={() => { void m.update({ name: newName.trim() || UNNAMED }); setNewName(null); }} />
             )}
-            <Notice tone="info">Rankings are titled by who ranked them. A label tells your rankings of this cube apart.</Notice>
+            <Notice tone="info">Rankings are titled by who ranked them. A label tells your rankings of this {setKeyOf(row.list_id) ? "set" : "cube"} apart.</Notice>
             <Segmented options={DEPTH_OPTIONS} value={row.depth} onChange={(d) => void m.update({ depth: d })} />
             <Notice tone="info">{depthNote(row.depth, row.top)}</Notice>
             <Segmented options={[{ value: 100, label: "Top 100" }, { value: 50, label: "Top 50" }]} value={row.top} onChange={(t) => void m.update({ top: t })} />
-            <Segmented options={[{ value: "cube", label: "Shared with the cube" }, { value: "private", label: "Only me" }]} value={row.sharing}
+            <Segmented options={[{ value: "cube", label: sharingLabel("cube", !!setKeyOf(row.list_id)) }, { value: "private", label: "Only me" }]} value={row.sharing}
                        onChange={(s) => void m.update({ sharing: s })} />
             <Row title="Delete this ranking" detail="Every pick, on every device" onClick={() => setConfirmDelete(true)} />
           </>)}

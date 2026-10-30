@@ -1,4 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
+import type { RankableSet } from "./limitedRank";
 import { supabase } from "./supabaseClient";
 import { capture } from "./telemetry";
 import { delta, pct, shortDay } from "./insightCharts";
@@ -117,6 +118,8 @@ export interface LView {
 }
 export interface LimitedPack {
   set_code: string; name: string | null; released: string | null; credit: { name: string; url: string };
+  /** An Arena cube version's family (contract/insights-2026-10-24.md § Arena cubes); absent for a set. */
+  cube?: { family: string; name: string } | null;
   events: Record<string, { updated: string; groups: { all?: LView; top?: LView } }>;
 }
 
@@ -292,8 +295,12 @@ interface State {
   error: string | null;
   picks: Picks;
   demo: boolean;
+  /** Sets and Arena cube versions to rank (limited_rankable); null until loaded. */
+  rankable: RankableSet[] | null;
+  /** New in Insights pushes on for the account; null until loaded. */
+  alerts: boolean | null;
 }
-let state: State = { index: null, constructed: {}, limited: {}, error: null, picks: readPicks(), demo: false };
+let state: State = { index: null, constructed: {}, limited: {}, error: null, picks: readPicks(), demo: false, rankable: null, alerts: null };
 const listeners = new Set<() => void>();
 const set = (patch: Partial<State>) => { state = { ...state, ...patch }; listeners.forEach((f) => f()); };
 const subscribe = (f: () => void) => { listeners.add(f); return () => listeners.delete(f); };
@@ -357,11 +364,39 @@ export function loadInsights(force = false): Promise<void> {
     if (error) { set({ error: `Insights couldn't load: ${error.message}` }); return; }
     const index = (data ?? []) as IndexEntry[];
     set({ index, error: null });
-    const first = index.find((e) => e.kind === "constructed" && e.key === state.picks.format);
+    // The pack on screen first (the format, or on Limited the set), then the rest at once.
+    const first = typeof location !== "undefined" && location.pathname.startsWith("/insights/limited")
+      ? index.find((e) => e.kind === "limited" && e.key === state.picks.set) ?? index.find((e) => e.kind === "limited")
+      : index.find((e) => e.kind === "constructed" && e.key === state.picks.format);
     if (first) await fetchPack(first);
     await Promise.all(index.filter((e) => e !== first).map(fetchPack));
   })();
   return loading;
+}
+
+/** Limited's extras: the sets to rank and the New in Insights switch; quietly empty when they can't load. */
+export async function loadInsightsExtras() {
+  if (state.demo) {
+    const soon = new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10);
+    if (!state.rankable) set({ alerts: true, rankable: [
+      { key: "FRA", name: "Foundations Remastered", released: "2026-09-23", kind: "set", cards: 281, pack: true, mine: 0, rankings: 1 },
+      { key: "NHZ", name: "New Horizons", released: soon, kind: "set", cards: 264, pack: false, mine: 0, rankings: 0 },
+      { key: "PWR-2510", name: "Arena Powered Cube · Oct 2025", released: "2025-10-30", kind: "cube", cards: 540, pack: true, mine: 0, rankings: 0 }] });
+    return;
+  }
+  const [sets, on] = await Promise.all([supabase.rpc("limited_rankable"), supabase.rpc("insights_alerts")]);
+  set({ rankable: sets.error ? state.rankable ?? [] : (sets.data as RankableSet[]),
+        alerts: on.error ? state.alerts : !!(on.data as { on: boolean }).on });
+}
+
+export async function setInsightsAlerts(on: boolean) {
+  const was = state.alerts;
+  set({ alerts: on });
+  capture("insights_alerts_changed", { on });
+  if (state.demo) return;
+  const { data, error } = await supabase.rpc("insights_alerts_set", { p_on: on });
+  if (error) set({ alerts: was, error: `Couldn't change New in Insights: ${error.message}` });
+  else set({ alerts: !!(data as { on: boolean }).on });
 }
 
 export function useLoadInsights() {

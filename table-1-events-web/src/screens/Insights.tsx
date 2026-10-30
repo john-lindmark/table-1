@@ -6,10 +6,11 @@ import { printingsByName, type Catalog } from "../lib/catalog";
 import { delta, pct, pct1, rates, seriesWindow, shortDay, wilson } from "../lib/insightCharts";
 import {
   EVENT_LABELS, EVENT_ORDER, FORMATS, PAIR_NAMES, WINDOWS, canHide, exampleFinish, formatParts, place, setHidden, sourcesCredit, visibleKeys, type Finish, type PartKey, afterWindow, archetypeName, archetypePage, cardPage, changeWords, colorsName, isBan,
-  loadInsights, loadInsightsDemo, matchup, pick, useInsights, type ArchetypePage, type CardPage, type CardRow, type ConstructedPack,
+  loadInsights, loadInsightsDemo, loadInsightsExtras, matchup, pick, setInsightsAlerts, useInsights, type ArchetypePage, type CardPage, type CardRow, type ConstructedPack,
   type LCard, type LimitedPack, type LView, type Tier,
 } from "../lib/insights";
 import { isLibraryDemo } from "../lib/libraryDemo";
+import { rankableDetail } from "../lib/limitedRank";
 import { useCatalog } from "./Library";
 import { createList, type Entry } from "../lib/lists";
 import type { ProfileCard } from "../lib/friends";
@@ -605,9 +606,32 @@ function limitedPick(packs: Record<string, LimitedPack>, setPicked: string | nul
   return { sets, set, pack, events, event, group, view: groups[group] as LView | undefined };
 }
 
+/** A set's or Arena cube version's Rankings (contract/cube-rankings-2026-10-21.md § Sets). */
+function useRankSet() {
+  const nav = useNavigate();
+  return (key: string, kind: string, from: string) => {
+    capture("insights_rank_opened", { set: key, kind, from });
+    nav(`/insights/limited/${encodeURIComponent(key)}/rankings`);
+  };
+}
+
+/** Sets out (or about to be) with no 17Lands data yet: rank them now. */
+function NewSetsToRank() {
+  const { rankable } = useInsights();
+  const rank = useRankSet();
+  const fresh = (rankable ?? []).filter((s) => !s.pack);
+  if (!fresh.length) return null;
+  return (<>
+    <Section title="New sets to rank" />
+    {fresh.map((s) => <Row key={s.key} title={`Rank ${s.name}`} detail={rankableDetail(s)} onClick={() => rank(s.key, s.kind, "new_sets")} />)}
+  </>);
+}
+
 function LimitedHome() {
   const nav = useNavigate();
-  const { limited, picks, index, error } = useInsights();
+  const { limited, picks, index, error, rankable, alerts } = useInsights();
+  const rank = useRankSet();
+  useEffect(() => { void loadInsightsExtras(); }, []);
   const [sort, setSort] = useState<"gih" | "oh" | "iwd" | "ata">("gih");
   const [rarity, setRarity] = useState("all");
   const [colour, setColour] = useState("all");
@@ -629,8 +653,11 @@ function LimitedHome() {
       });
   }, [view, sort, rarity, colour, rated]);
   if (!sets.length) {
-    return error ? <Notice tone="error">{error}</Notice>
-      : <Notice tone="info">{index ? "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena." : "Loading draft data…"}</Notice>;
+    return (<>
+      {error ? <Notice tone="error">{error}</Notice>
+        : <Notice tone="info">{index ? "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena." : "Loading draft data…"}</Notice>}
+      <NewSetsToRank />
+    </>);
   }
   if (!pack || !view || !event) return <Notice tone="info">Loading {set}…</Notice>;
   const base = `/insights/limited/${pack.set_code}/${event}/${group}`;
@@ -653,6 +680,13 @@ function LimitedHome() {
       <Brief text={view.brief} scope={`${pack.name ?? pack.set_code} ${EVENT_LABELS[event] ?? event}${group === "top" ? ", top players (60%+)" : ""}`} thin={view.games < 20000}
              credit={{ label: "Data from 17Lands", url: pack.credit.url }} />
       <Stats items={[["Games", view.games.toLocaleString()], ["Average", pct1(view.wr)], ["Weeks", String(view.weeks)]]} />
+      {(() => {
+        const r = rankable?.find((x) => x.key === pack.set_code);
+        const kind = r?.kind ?? (pack.cube ? "cube" : "set");
+        return <Row title={`Rank this ${kind === "cube" ? "cube" : "set"}`} onClick={() => rank(pack.set_code, kind, "set")}
+                    detail={r && r.rankings > 0 ? rankableDetail(r) : "Stack-rank its cards by color, then a top 100. Compare with your friends."} />;
+      })()}
+      <NewSetsToRank />
       <Section title="Colour pairs · game win rate" />
       {shown.map((p) => (
         <ShareBar key={p.p} label={`${PAIR_NAMES[p.p] ?? p.p} ${p.p === "3C" ? "" : p.p}`} value={p.wr} max={hi} min={lo} reference={view.wr} format={pct1}
@@ -701,6 +735,8 @@ function LimitedHome() {
       <Section title="Game facts" />
       <Stats items={[["On the play", pct1(view.facts.play_wr)], ["On the draw", pct1(view.facts.draw_wr)], ["Turns", view.facts.turns?.toFixed(1) ?? "–"]]} />
       <Stats items={[["Mulligans", pct(view.facts.mull_rate)], ["Kept 7", pct1(view.facts.keep7_wr)], ["After a mull", pct1(view.facts.mull_wr)]]} />
+      {alerts != null && <SwitchRow label="New in Insights" detail="A push when a new set, cube or format arrives (in the apps)" on={alerts}
+                                    onChange={(v) => void setInsightsAlerts(v)} />}
     </Scroll>
   );
 }

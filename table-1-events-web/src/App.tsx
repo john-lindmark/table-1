@@ -371,12 +371,15 @@ const RankingsScreens = lazyNamed(rankings, "RankingsDemoGate");
 function rankingGo(navigate: ReturnType<typeof useNavigate>, id: string) {
   return (path: string, replace = false) => navigate(`/library/ranking/${id}/${path}`, { replace });
 }
+/** A ranking subject's Rankings: a cube's, or a Limited set's ("set:FRA", contract/cube-rankings-2026-10-21.md § Sets) under Insights. */
+const subjectRankings = (id: string) => (id.startsWith("set:") ? `/insights/limited/${encodeURIComponent(id.slice(4))}/rankings` : `/library/list/${id}/rankings`);
 function RankingsRoute() {
-  const { listId } = useParams();
+  const { listId, set } = useParams();
   const navigate = useNavigate();
-  const back = useBack(listId ? `/library/list/${listId}` : "/library/cubes");
-  return <RankingsScreens><RankingsList key={listId ?? "mine"} listId={listId ?? null} onBack={back} onOpen={(id) => navigate(`/library/ranking/${id}`)}
-                                        onCube={(id) => navigate(`/library/list/${id}/rankings`)} /></RankingsScreens>;
+  const subject = set ? `set:${set.toUpperCase()}` : listId ?? null;
+  const back = useBack(set ? "/insights/limited" : listId ? `/library/list/${listId}` : "/library/cubes");
+  return <RankingsScreens><RankingsList key={subject ?? "mine"} listId={subject} onBack={back} onOpen={(id) => navigate(`/library/ranking/${id}`)}
+                                        onCube={(id) => navigate(subjectRankings(id))} /></RankingsScreens>;
 }
 function RankingRoute() {
   const { rankingId, job, oracleId, otherId } = useParams();
@@ -586,6 +589,7 @@ export default function App() {
         <Route path="/insights" element={<InsightsHome section="constructed" />} />
         <Route path="/insights/limited" element={<InsightsHome section="limited" />} />
         <Route path="/insights/review" element={<InsightsReview />} />
+        <Route path="/insights/limited/:set/rankings" element={<RankingsRoute />} />
         <Route path="/insights/limited/:set/:event/:group/pair/:pair" element={<InsightsPair />} />
         <Route path="/insights/limited/:set/:event/:group/card/:name" element={<InsightsLimitedCard />} />
         <Route path="/insights/:format/archetype/:id" element={<InsightsArchetype />} />

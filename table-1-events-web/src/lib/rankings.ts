@@ -9,18 +9,23 @@ import {
   COLOR_JOBS, JOB_TITLE, Knowledge, RankingState, diffPlaces, disagreements as disagreementsOf, pack as packOf, pickWins, reaskOpen,
   jobOfColor, type RankChange, type RankDepth, type RankJob, type RankScreen, type RankSession,
 } from "./cubeRanking";
+import { setKeyOf, setSubjectId, subjectRow, type RankableSet } from "./limitedRank";
 import { RankSaver, pendingStore, screenKey, type PushArgs } from "./rankSync";
 import { supabase } from "./supabaseClient";
 import { capture } from "./telemetry";
 
 export interface Person { user_id: string; display_name: string; handle?: string | null; avatar_url?: string | null }
 export interface RankingCube {
+  /** A cube's list id, or a Limited set's "set:<key>" (contract/cube-rankings-2026-10-21.md § Sets). */
   id: string; name: string; mine: boolean; owner?: Person | null; can_see?: boolean; cards?: string[];
+  /** A Limited set's key (FRA, PWR-2510) and kind (set, or cube: an Arena cube version); absent for a cube. */
+  set?: string; kind?: "set" | "cube";
   /** cube_ranking_get only: Oracle id → the printing the cube holds, so cards show as they are in the cube. */
   printings?: Record<string, string>;
 }
 export interface RankingRow {
-  id: string; list_id: string; name: string; depth: RankDepth; top: number; sharing: "cube" | "private";
+  /** What it ranks: a cube's list id, or a Limited set's "set:<key>" (the server sends list_id or set_key; see subjectRow). */
+  id: string; list_id: string; set_key?: string | null; name: string; depth: RankDepth; top: number; sharing: "cube" | "private";
   screens: number; rev: number; sorted: number; categories: number; ranked: number; updated_at?: string; mine: boolean;
   by?: Person | null; cube?: RankingCube | null;
 }
@@ -55,8 +60,18 @@ async function rpc<T>(name: string, params: Record<string, unknown>): Promise<T>
   return data as T;
 }
 
-export const fetchRankings = (listId: string | null): Promise<CubeRankings> =>
-  demo ? Promise.resolve(demo.rankings(listId)) : rpc("cube_rankings", { p_list_id: listId });
+/* ── Limited sets (contract/cube-rankings-2026-10-21.md § Sets): subject ids and rows in lib/limitedRank.ts ── */
+
+export { rankableDetail, setKeyOf, setSubjectId, sharingLabel, subjectRow, type RankableSet } from "./limitedRank";
+export const fetchRankableSets = (): Promise<RankableSet[]> => (demo ? Promise.resolve(demo.rankableSets()) : rpc("limited_rankable", {}));
+
+/** A cube's rankings, a set's ("set:FRA"), or (null) all of yours, set rankings included. */
+export const fetchRankings = async (listId: string | null): Promise<CubeRankings> => {
+  if (demo) return demo.rankings(listId);
+  const key = setKeyOf(listId);
+  const r = await rpc<CubeRankings>("cube_rankings", key ? { p_set: key } : { p_list_id: listId, p_sets: true });
+  return { ...r, rankings: r.rankings.map(subjectRow) };
+};
 
 /** ranking-brief: Claude's 2-5 sentence comparison of two rankings for one list, or why there isn't one yet. */
 export interface RankingBrief { brief: string | null; reason?: string; cached?: boolean; /** The dev demo's stand-in. */ sample?: boolean }
@@ -89,7 +104,8 @@ export async function fetchBrief(a: string, b: string, list: RankJob): Promise<R
 /** Other people's cubes you can see and rank (friends' and people you've played with). */
 export const fetchRankable = (): Promise<RankableCube[]> => (demo ? Promise.resolve(demo.rankable()) : rpc("rankable_cubes", {}));
 
-export const fetchRanking = (id: string): Promise<RankingDetail> => (demo ? Promise.resolve(demo.get(id)) : rpc("cube_ranking_get", { p_id: id }));
+export const fetchRanking = async (id: string): Promise<RankingDetail> =>
+  demo ? demo.get(id) : subjectRow(await rpc<RankingDetail>("cube_ranking_get", { p_id: id }));
 const catchUpRanking = (id: string): Promise<{ baseline: string[] }> =>
   demo ? Promise.resolve(demo.catchUp(id)) : rpc("cube_ranking_catch_up", { p_id: id });
 
@@ -103,9 +119,11 @@ export function cubeChangeOf(cubeCards: string[] | null | undefined, baseline: s
 
 export async function createRanking(o: { listId: string; name: string; depth: RankDepth; top: number; sharing: "cube" | "private"; ownCube: boolean }) {
   const id = crypto.randomUUID().toLowerCase();
+  const set = setKeyOf(o.listId);
   const row: RankingRow = demo ? demo.create(id, o.listId, o.name, o.depth, o.top, o.sharing)
-    : await rpc("cube_ranking_create", { p_id: id, p_list_id: o.listId, p_name: o.name, p_depth: o.depth, p_top: o.top, p_sharing: o.sharing });
-  capture("ranking_created", { depth: o.depth, top: o.top, sharing: o.sharing, own_cube: o.ownCube });
+    : subjectRow(await rpc<RankingRow>("cube_ranking_create", { p_id: id, p_list_id: set ? null : o.listId, p_set: set, p_name: o.name,
+                                                                p_depth: o.depth, p_top: o.top, p_sharing: o.sharing }));
+  capture("ranking_created", { depth: o.depth, top: o.top, sharing: o.sharing, own_cube: o.ownCube, subject: set ? "set" : "cube" });
   return row;
 }
 
@@ -184,7 +202,7 @@ export class RankingModel {
       storage: { load: () => pendingStore.load(id), save: (p) => pendingStore.save(id, p) },
     });
     this.saver.onSaved = (r) => {
-      this.row = { ...this.row!, ...r };
+      this.row = subjectRow({ ...this.row!, ...r, list_id: r.list_id ?? this.row!.list_id });
       this.lastChange = Date.now();
       this.error = null;
       this.relog();
@@ -433,7 +451,7 @@ export class RankingModel {
       const row: RankingRow = demo ? demo.update(this.id, patch)
         : await rpc("cube_ranking_update", { p_id: this.id, p_name: patch.name ?? null, p_depth: patch.depth ?? null, p_top: patch.top ?? null,
                                             p_sharing: patch.sharing ?? null });
-      this.row = { ...this.row!, ...row };
+      this.row = subjectRow({ ...this.row!, ...row, list_id: row.list_id ?? this.row!.list_id });
       this.rebuildState();
       if (patch.depth || patch.top) {
         this.record(before, this.state, "settings", undefined);
@@ -527,6 +545,9 @@ export class DemoRankings {
   /** Mara's cube, shared with you: one that isn't yours to rank. */
   static readonly maraCube = "d0000000-0000-0000-0000-0000000fc001";
   static readonly maraCubeName = "Mara's Legacy Cube";
+  /** A Limited set to rank (the fixture's cards stand in for its card list), with Mara's ranking of it. */
+  static readonly demoSet = setSubjectId("FRA");
+  static readonly demoSetName = "Foundations Remastered";
   private static readonly maraPerson: Person = { user_id: "d0000000-0000-0000-0000-0000000f0001", display_name: "Mara Quinn" };
 
   constructor(private cubeId: string, private cubeName: string, cards: string[], categories: Map<string, RankJob>) {
@@ -584,9 +605,13 @@ export class DemoRankings {
     run(DemoRankings.theo, { user_id: "d0000000-0000-0000-0000-0000000f0002", display_name: "Theo Vance" }, "My ranking", "half", 50, false, null, mixed("theo"));
     run(DemoRankings.mine, { user_id: "d0000000-0000-0000-0000-0000000f0000", display_name: "You" }, "My ranking", "half", 100, true, 0, mixed("me"));
     run("d0000000-0000-0000-0000-0000000aa004", DemoRankings.maraPerson, "Mara's own order", "half", 100, false, 0, mixed("mara2"), DemoRankings.maraCube, "U");
+    run("d0000000-0000-0000-0000-0000000aa005", DemoRankings.maraPerson, "My ranking", "third", 100, false, 0, mixed("mara3"), DemoRankings.demoSet, "W");
   }
 
   private cube(listId: string, cards: boolean): RankingCube {
+    if (listId === DemoRankings.demoSet) {
+      return { id: listId, set: "FRA", kind: "set", name: DemoRankings.demoSetName, mine: false, owner: null, can_see: true, ...(cards ? { cards: this.now } : {}) };
+    }
     const base = listId === DemoRankings.maraCube
       ? { id: listId, name: DemoRankings.maraCubeName, mine: false, owner: DemoRankings.maraPerson }
       : { id: this.cubeId, name: this.cubeName, mine: true, owner: { user_id: "d0000000-0000-0000-0000-0000000f0000", display_name: "You" } };
@@ -596,7 +621,7 @@ export class DemoRankings {
   rankings(listId: string | null): CubeRankings {
     const all = [...this.rows.values()].sort((a, b) => (a.mine === b.mine ? a.name.localeCompare(b.name) : a.mine ? -1 : 1));
     if (listId == null) return { cube: null, can_rank: false, rankings: all.filter((r) => r.mine).map((r) => ({ ...r, cube: this.cube(r.list_id, false) })) };
-    if (listId !== this.cubeId && listId !== DemoRankings.maraCube) return { cube: null, can_rank: false, rankings: [] };
+    if (listId !== this.cubeId && listId !== DemoRankings.maraCube && listId !== DemoRankings.demoSet) return { cube: null, can_rank: false, rankings: [] };
     return { cube: this.cube(listId, false), can_rank: true, rankings: all.filter((r) => r.list_id === listId) };
   }
 
@@ -614,6 +639,16 @@ export class DemoRankings {
     const of = [...this.rows.values()].filter((r) => r.list_id === DemoRankings.maraCube);
     return [{ id: DemoRankings.maraCube, name: DemoRankings.maraCubeName, owner: DemoRankings.maraPerson, cards: this.now.length,
               rankings: of.length, mine: of.filter((r) => r.mine).length }];
+  }
+
+  /** Insights' sets to rank: the demo set (with Mara's ranking), a set out next week and an Arena cube version. */
+  rankableSets(): RankableSet[] {
+    const of = [...this.rows.values()].filter((r) => r.list_id === DemoRankings.demoSet);
+    const soon = new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10);
+    return [{ key: "NHZ", name: "New Horizons", released: soon, kind: "set", cards: 264, pack: false, mine: 0, rankings: 0 },
+            { key: "FRA", name: DemoRankings.demoSetName, released: "2026-09-23", kind: "set", cards: this.now.length, pack: true,
+              mine: of.filter((r) => r.mine).length, rankings: of.length },
+            { key: "PWR-2510", name: "Arena Powered Cube · Oct 2025", released: "2025-10-30", kind: "cube", cards: 540, pack: true, mine: 0, rankings: 0 }];
   }
 
   get(id: string): RankingDetail {
