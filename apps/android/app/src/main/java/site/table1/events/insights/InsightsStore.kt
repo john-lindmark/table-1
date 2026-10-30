@@ -42,6 +42,40 @@ object InsightsStore {
     /** Debug demo: packs and pages from the debug assets, nothing from the network. */
     var demo = false; private set
     private var demoPages: Map<String, String> = emptyMap()
+    /** Sets and Arena cube versions to rank (limited_rankable); loaded with Limited. */
+    var rankable by mutableStateOf<List<site.table1.events.library.RankableSet>>(emptyList()); private set
+    /** New in Insights pushes on for the account; null until loaded. */
+    var alerts by mutableStateOf<Boolean?>(null); private set
+
+    @kotlinx.serialization.Serializable private data class On(val on: Boolean)
+
+    /** Limited's extras: the sets to rank and the New in Insights switch; quietly left as they were when they can't load. */
+    suspend fun loadExtras() {
+        if (demo) {
+            if (rankable.isEmpty()) rankable = listOf(
+                site.table1.events.library.RankableSet("FRA", "Foundations Remastered", "2026-09-23", "set", 281, pack = true, rankings = 1),
+                site.table1.events.library.RankableSet("NHZ", "New Horizons", java.time.LocalDate.now().plusDays(5).toString(), "set", 264, pack = false),
+                site.table1.events.library.RankableSet("PWR-2510", "Arena Powered Cube · Oct 2025", "2025-10-30", "cube", 540, pack = true))
+            if (alerts == null) alerts = true
+            return
+        }
+        if (site.table1.events.data.Repo.userId == null) return
+        runCatching { site.table1.events.library.RankingsStore.rankableSets() }.onSuccess { rankable = it }.onFailure { it.rethrowIfCancelled() }
+        runCatching { T1App.supabase.postgrest.rpc("insights_alerts").data.let { json.decodeFromString<On>(it).on } }
+            .onSuccess { alerts = it }.onFailure { it.rethrowIfCancelled() }
+    }
+
+    fun setAlerts(on: Boolean) {
+        val was = alerts
+        alerts = on
+        Telemetry.capture("insights_alerts_changed", mapOf("on" to on))
+        if (demo) return
+        scope.launch {
+            runCatching { T1App.supabase.postgrest.rpc("insights_alerts_set", buildJsonObject { put("p_on", on) }).data.let { json.decodeFromString<On>(it).on } }
+                .onSuccess { alerts = it }
+                .onFailure { it.rethrowIfCancelled(); alerts = was; error = "Couldn't change New in Insights: ${it.message}" }
+        }
+    }
 
     var section by mutableStateOf(runCatching { prefs.getString("section", "constructed") }.getOrNull() ?: "constructed"); private set
     var format by mutableStateOf(runCatching { prefs.getString("format", "modern") }.getOrNull() ?: "modern"); private set

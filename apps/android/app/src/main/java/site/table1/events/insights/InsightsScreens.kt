@@ -77,6 +77,8 @@ object InsightsRoutes {
     fun part(f: String, key: String) = "insights/part/$f/$key"
     fun pair(s: String, e: String, g: String, p: String) = "insights/pair/$s/$e/$g/$p"
     fun limitedCard(s: String, e: String, g: String, n: String) = "insights/lcard/$s/$e/$g/${Uri.encode(n)}"
+    /** A set's or Arena cube version's Rankings (contract/cube-rankings-2026-10-21.md § Sets), on the Collection routes. */
+    fun rankSet(key: String) = site.table1.events.data.PushRoutes.rankSetRoute(key)
     const val REVIEW = "insights/review"
 }
 
@@ -563,8 +565,21 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     var colour by remember { mutableStateOf("all") }
     val sets = s.shownSets
     var editing by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { s.loadExtras() }
+    fun rank(key: String, kind: String, from: String) {
+        Telemetry.capture("insights_rank_opened", mapOf("set" to key, "kind" to kind, "from" to from))
+        navigate(InsightsRoutes.rankSet(key))
+    }
+    /** Sets out (or about to be) with no 17Lands data yet: rank them now. */
+    @Composable fun newSets() {
+        val fresh = s.rankable.filter { !it.pack }
+        if (fresh.isEmpty()) return
+        Section("New sets to rank")
+        fresh.forEach { r -> ListRow("Rank ${r.name}", r.detail(), onClick = { rank(r.key, r.kind, "new_sets") }) }
+    }
     if (sets.isEmpty()) {
         Notice(s.error ?: if (s.loading) "Loading draft data…" else "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena.", error = s.error != null)
+        newSets()
         return
     }
     val set = s.setCode?.takeIf { it in sets } ?: sets.first()
@@ -582,6 +597,12 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     val v = groups[grp] ?: return
     Brief(v.brief, "${pack.name ?: pack.set_code} ${Insights.eventLabels[ev] ?: ev}" + if (grp == "top") ", top players (60%+)" else "", v.games < 20000, "Data from 17Lands" to pack.credit.url)
     Stats("Games" to "%,d".format(v.games), "Average" to InsightCharts.pct1(v.wr), "Weeks" to "${v.weeks}")
+    val ranked = s.rankable.firstOrNull { it.key == pack.set_code }
+    val kind = ranked?.kind ?: if (pack.cube != null) "cube" else "set"
+    ListRow("Rank this ${if (kind == "cube") "cube" else "set"}",
+        ranked?.takeIf { it.rankings > 0 }?.detail() ?: "Stack-rank its cards by color, then a top 100. Compare with your friends.",
+        onClick = { rank(pack.set_code, kind, "set") })
+    newSets()
     Section("Colour pairs · game win rate")
     val shown = v.pairs.filter { it.share >= 0.01 }.sortedByDescending { it.wr }
     val lo = maxOf(0.4, (shown.minOfOrNull { it.wr } ?: 0.5) - 0.02)
@@ -635,6 +656,7 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     Section("Game facts")
     Stats("On the play" to InsightCharts.pct1(v.facts.play_wr), "On the draw" to InsightCharts.pct1(v.facts.draw_wr), "Turns" to (v.facts.turns?.let { "%.1f".format(it) } ?: "–"))
     Stats("Mulligans" to InsightCharts.pct(v.facts.mull_rate), "Kept 7" to InsightCharts.pct1(v.facts.keep7_wr), "After a mull" to InsightCharts.pct1(v.facts.mull_wr))
+    s.alerts?.let { on -> ListRow("New in Insights", "A push when a new set, cube or format arrives") { T1Switch(on) { s.setAlerts(it) } } }
 }
 
 @Composable

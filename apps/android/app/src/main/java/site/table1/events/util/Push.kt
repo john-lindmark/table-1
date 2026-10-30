@@ -26,6 +26,7 @@ import site.table1.events.MainActivity
 import site.table1.events.R
 import site.table1.events.T1App
 import site.table1.events.data.PushRoutes
+import site.table1.events.insights.InsightsStore
 import site.table1.events.data.WebLink
 
 /**
@@ -92,6 +93,11 @@ object Push {
         intent.removeExtra(EXTRA)
         val data = extras.keySet().associateWith { extras.getString(it) ?: "" }
         Telemetry.capture("push_opened", mapOf("kind" to (data["kind"] ?: "unknown")))
+        // New in Insights: the format or set it names is picked first, so Insights opens on it.
+        PushRoutes.insights(data)?.let { p ->
+            InsightsStore.pickSection(p.section)
+            if (p.section == "constructed") InsightsStore.pickFormat(p.key) else InsightsStore.pickSet(p.key)
+        }
         return PushRoutes.link(data)
     }
 

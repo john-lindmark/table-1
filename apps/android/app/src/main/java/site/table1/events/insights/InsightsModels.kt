@@ -238,4 +238,7 @@ object DeckLineSerializer : KSerializer<DeckLine> {
                                val colors: List<LColors> = emptyList())
 @Serializable data class LEvent(val updated: String, val groups: Map<String, LView>)
 @Serializable data class Credit(val name: String, val url: String)
-@Serializable data class LimitedPack(val set_code: String, val name: String? = null, val released: String? = null, val credit: Credit, val events: Map<String, LEvent>)
+@Serializable data class LimitedPack(val set_code: String, val name: String? = null, val released: String? = null, val credit: Credit, val events: Map<String, LEvent>,
+                                     /** An Arena cube version's family (contract/insights-2026-10-24.md § Arena cubes); null for a set. */
+                                     val cube: CubeFamily? = null)
+@Serializable data class CubeFamily(val family: String, val name: String)

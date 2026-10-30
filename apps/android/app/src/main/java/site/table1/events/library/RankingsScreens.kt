@@ -117,8 +117,10 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
     LaunchedEffect(Unit) { Telemetry.screen("rankings") }
     val scope = rememberCoroutineScope()
     var data by remember { mutableStateOf<CubeRankings?>(null) }
-    /** Every ranking of yours: other people's cubes you can rank too. */
+    /** Every ranking of yours: other people's cubes you can rank too, and Limited sets. */
     var rankable by remember { mutableStateOf<List<RankableCube>>(emptyList()) }
+    var sets by remember { mutableStateOf<List<RankableSet>>(emptyList()) }
+    val isSet = RankSubject.setKey(listId) != null
     var error by remember { mutableStateOf<String?>(null) }
     var creating by remember { mutableStateOf(false) }
     var top by remember { mutableStateOf(100) }
@@ -129,26 +131,31 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
     var busy by remember { mutableStateOf(false) }
     LaunchedEffect(listId) {
         runCatching { RankingsStore.rankings(listId) }.onSuccess { data = it; error = null }.onFailure { error = it.message }
-        if (listId == null) runCatching { RankingsStore.rankable() }.onSuccess { rankable = it }
+        if (listId == null) {
+            runCatching { RankingsStore.rankable() }.onSuccess { rankable = it }
+            runCatching { RankingsStore.rankableSets() }.onSuccess { sets = it }
+        }
     }
     val cube = data?.cube
     T1Screen {
-        Bar("Rankings", if (listId == null) "Yours, and cubes you can rank" else cube?.let { if (it.mine) it.name else "${it.name} · ${it.owner?.displayName ?: ""}" },
+        Bar("Rankings", if (listId == null) "Yours, and cubes and sets you can rank" else cube?.let { if (it.mine || isSet) it.name else "${it.name} · ${it.owner?.displayName ?: ""}" },
             onBack = onBack)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             error?.let { Notice(it, error = true) }
             val d = data
             if (d == null) { if (error == null) Notice("Loading rankings…"); return@Column }
-            if (listId != null) Notice("Sort each color by putting up to four cards in order at a time, then rank the best cards across the whole cube. " +
+            if (listId != null) Notice(if (isSet) "Sort each color by putting up to four cards in order at a time, then rank the best cards across the whole set. " +
+                "Your friends can watch and compare the rankings you share."
+                else "Sort each color by putting up to four cards in order at a time, then rank the best cards across the whole cube. " +
                 "Everyone who can see this cube can watch and compare the rankings shared with it.")
             if (d.canRank && cube != null) {
                 if (creating) {
                     T1Segmented(listOf("Top 100", "Top 50"), if (top == 100) 0 else 1) { top = if (it == 0) 100 else 50 }
                     T1Segmented(DEPTH_LABELS, RankDepth.all.indexOf(depth).coerceAtLeast(0)) { pickedDepth = RankDepth.all[it] }
                     Notice(depthNote(depth, top))
-                    T1Segmented(listOf("Shared with the cube", "Only me"), if (sharing == "cube") 0 else 1) { sharing = if (it == 0) "cube" else "private" }
-                    Notice(if (sharing == "cube") "Who sees this: everyone who can see ${cube.name}${if (cube.mine) "" else ", including ${cube.owner?.displayName ?: "its owner"}"}."
-                           else "Who sees this: only you.")
+                    T1Segmented(listOf(RankSubject.sharingLabel("cube", isSet), "Only me"), if (sharing == "cube") 0 else 1) { sharing = if (it == 0) "cube" else "private" }
+                    Notice(if (sharing != "cube") "Who sees this: only you." else if (isSet) "Who sees this: your friends."
+                           else "Who sees this: everyone who can see ${cube.name}${if (cube.mine) "" else ", including ${cube.owner?.displayName ?: "its owner"}"}.")
                     Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                         Ghost("Cancel") { creating = false }
                         Ghost(if (busy) "Starting…" else "Start", accent = true) {
@@ -161,8 +168,8 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
                             }
                         }
                     }
-                } else ListRow(if (cube.mine) "New ranking" else cube.owner?.let { "Rank ${it.displayName}'s cube" } ?: "Rank this cube",
-                    if (cube.mine) "Sort each color, then the top 100" else "Your own ranking: each color, then the top 100", onClick = { creating = true })
+                } else ListRow(if (isSet) "Rank ${cube.name}" else if (cube.mine) "New ranking" else cube.owner?.let { "Rank ${it.displayName}'s cube" } ?: "Rank this cube",
+                    if (cube.mine || isSet) "Sort each color, then the top 100" else "Your own ranking: each color, then the top 100", onClick = { creating = true })
             }
             val mine = d.rankings.filter { it.mine }; val others = d.rankings.filter { !it.mine }
             @Composable fun row(r: RankingRow) {
@@ -173,8 +180,8 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
             }
             if (mine.isNotEmpty()) { if (listId != null) Section("Yours"); mine.forEach { row(it) } }
             if (listId != null) {
-                Section("Everyone else's")
-                if (others.isEmpty()) Notice("Nobody else has ranked this cube yet.")
+                Section(if (isSet) "Your friends'" else "Everyone else's")
+                if (others.isEmpty()) Notice(if (isSet) "None of your friends has ranked this set yet." else "Nobody else has ranked this cube yet.")
                 others.forEach { row(it) }
             } else {
                 if (mine.isEmpty()) Notice("No rankings yet. Open one of your cubes and tap Rankings, or rank a friend's cube below.")
@@ -185,6 +192,10 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
                     ListRow(c.name, listOfNotNull(c.owner?.displayName, plural(c.cards, "card"), if (c.rankings == 0) "no rankings yet" else plural(c.rankings, "ranking"),
                         if (c.mine > 0) "${c.mine} yours" else null).joinToString(" · "), onClick = { onCube(c.id) },
                         avatar = { Avatar(c.owner?.displayName ?: "?", c.owner?.userId, 28) })
+                }
+                if (sets.isNotEmpty()) {
+                    Section("Sets you can rank")
+                    sets.take(8).forEach { s -> ListRow(s.name, s.detail(), onClick = { onCube(s.subjectId) }) }
                 }
             }
         }
@@ -334,7 +345,7 @@ fun RankingScreen(id: String, onBack: () -> Unit, go: (String) -> Unit) {
                 Ghost(if (m.mine) "Open a pack" else "Pick history", accent = m.mine) { go("pack") }
             }
             ListRow("Changes", if (m.changes.isEmpty()) "Every move of every card, as it happens" else "${plural(m.changes.size, "change")} so far", onClick = { go("changes") })
-            ListRow("Compare with another ranking…", if (others.isEmpty()) "No other rankings of this cube yet" else plural(others.size, "other ranking"), onClick = {
+            ListRow("Compare with another ranking…", if (others.isEmpty()) "No other rankings of this ${if (row?.isSet == true) "set" else "cube"} yet" else plural(others.size, "other ranking"), onClick = {
                 if (others.isNotEmpty()) menu = others.map { o -> T1MenuItem(o.title) { go("compare/${o.id}/F") } }
             })
             ListRow("Top ${row?.top ?: 100} image", "The final as a picture, to save or share", onClick = { imaging = true })
@@ -346,11 +357,11 @@ fun RankingScreen(id: String, onBack: () -> Unit, go: (String) -> Unit) {
                 if (n != null && n != (row.label ?: "")) Row {
                     Ghost(if (n.isEmpty()) "Remove label" else "Save label", accent = true) { m.update(name = n.ifEmpty { RankingName.UNNAMED }); newName = null }
                 }
-                Notice("Rankings are titled by who ranked them. A label tells your rankings of this cube apart.")
+                Notice("Rankings are titled by who ranked them. A label tells your rankings of this ${if (row.isSet) "set" else "cube"} apart.")
                 T1Segmented(DEPTH_LABELS, RankDepth.all.indexOf(row.depth).coerceAtLeast(0)) { m.update(depth = RankDepth.all[it]) }
                 Notice(depthNote(row.depth, row.top))
                 T1Segmented(listOf("Top 100", "Top 50"), if (row.top == 100) 0 else 1) { m.update(top = if (it == 0) 100 else 50) }
-                T1Segmented(listOf("Shared with the cube", "Only me"), if (row.sharing == "cube") 0 else 1) { m.update(sharing = if (it == 0) "cube" else "private") }
+                T1Segmented(listOf(RankSubject.sharingLabel("cube", row.isSet), "Only me"), if (row.sharing == "cube") 0 else 1) { m.update(sharing = if (it == 0) "cube" else "private") }
                 ListRow("Delete this ranking", "Every pick, on every device", onClick = { confirmDelete = true })
             }
         }
