@@ -53,6 +53,16 @@ select pg_temp.ms('ingest a 32-deck event', $$select public.meta_ingest(jsonb_bu
   'name', 'Modern Challenge 32', 'kind', 'challenge', 'on', current_date::text, 'players', 40,
   'decks', (select jsonb_agg(jsonb_build_object('player', g, 'main', (select jsonb_agg(jsonb_build_array('Card ' || (g + k), 4)) from generate_series(1, 15) k)))
               from generate_series(1, 32) g)))$$, 150);
+-- a Regional Championship from Melee: 1,500 players, 75 lines each, every round (the per-deck card gathering was
+-- quadratic and timed out from ~1,000 players, 20261030020000_meta_ingest_big_events)
+select pg_temp.ms('ingest a 1,500-player paper event', $$select public.meta_ingest(jsonb_build_object('source', 'melee', 'source_id', 'rc', 'format', 'modern',
+  'name', 'Regional Championship', 'kind', 'championship', 'on', current_date::text, 'players', 1500,
+  'decks', (select jsonb_agg(jsonb_build_object('player', 'P' || g, 'rank', g, 'wins', 5, 'losses', 3,
+              'main', (select jsonb_agg(jsonb_build_array('Card ' || ((g + k * 7) % 400 + 1), 4)) from generate_series(1, 15) k),
+              'side', (select jsonb_agg(jsonb_build_array('Card ' || ((g * 3 + k) % 400 + 1), 1)) from generate_series(1, 15) k)))
+              from generate_series(1, 1500) g),
+  'matches', (select jsonb_agg(jsonb_build_object('round', 'Round ' || r, 'a', 'P' || g, 'b', 'P' || (g + 1), 'result', 'a'))
+                from generate_series(1, 9) r, generate_series(1, 1499, 2) g)))$$, 3000, 1);
 
 set role authenticated;
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
