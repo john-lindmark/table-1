@@ -72,12 +72,13 @@ import site.table1.events.ui.components.T1Switch
 import site.table1.events.library.ScanReports
 import site.table1.events.library.FriendsStore
 import site.table1.events.library.friendsAccountRows
+import site.table1.events.library.moderationAccountRows
 import site.table1.events.ui.components.T1TextField
 import site.table1.events.ui.theme.T1
 
 /** The Account tab: lifetime record, head-to-head, settings, and the account itself. */
 @Composable
-fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit, onProfile: (String) -> Unit) {
+fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit, onProfile: (String) -> Unit, onNotices: () -> Unit = {}, onReview: () -> Unit = {}) {
     val friends by FriendsStore.state.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -135,10 +136,12 @@ fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit
         alertsOn = Repo.nearbyAlertsOn()
         TrackerSettings.refresh()
     }
+    val moderation by site.table1.events.library.ModerationStore.state.collectAsState()
     LaunchedEffect(foregrounds) {
         load()
         FriendsStore.load()
         FriendsStore.loadSharing()
+        site.table1.events.library.loadModerationRows()
     }
 
     val r = overview?.record
@@ -174,6 +177,7 @@ fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit
                 )
             }
             Repo.userId?.let { me -> friendsAccountRows(friends, onFriends, onSharing) { onProfile(me) } }
+            moderationAccountRows(moderation, onNotices, onReview)
             // After your first event, with Record private: offer once to show it to friends (§ UX rules 8).
             if (!recordOffered && (r?.eventsPlayed ?: 0) >= 1 && friends.sharing?.own(SharePart.Record) == Visibility.Private) item {
                 ListRow("Show your record on your profile?", "Friends would see your wins, losses and draws") {

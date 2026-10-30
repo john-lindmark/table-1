@@ -2,7 +2,7 @@ package site.table1.events.data
 
 /**
  * A push's data (notify-worker: kind, event_id, ranking_id, follow_kind, item_id, user_id, ...), as the app opens it and
- * files it. The same screens as iOS's PushRoutes; Android has no Notices, Review or Bugs screens, so those open Account.
+ * files it. The same screens as iOS's PushRoutes; Android has no Bugs screen, so ops pushes open Account.
  * Plain strings, so unit tests run without Android.
  */
 object PushRoutes {
@@ -22,7 +22,9 @@ object PushRoutes {
             }
             kind == "ranking.started" -> id("ranking_id")?.let { collection("collection/ranking/$it") }
             kind.startsWith("friend.") -> WebLink.Screens("account", listOf("friends"))
-            kind.startsWith("moderation.") || kind.startsWith("ops.") -> WebLink.Screens("account", emptyList())
+            kind == "moderation.review" -> WebLink.Screens("account", listOf("review"))
+            kind.startsWith("moderation.") -> WebLink.Screens("account", listOf("notices"))
+            kind.startsWith("ops.") -> WebLink.Screens("account", emptyList())
             else -> id("event_id")?.let { WebLink.Screens("events", listOf("event/$it")) }
         }
     }

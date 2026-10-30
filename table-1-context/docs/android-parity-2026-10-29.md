@@ -18,14 +18,16 @@ Gaps, in build order:
        (`PersonActions.kt`, `SharingRules.widening/seesLine/viewAs`, `SharingRulesTest` on testdata/sharing/cases.json).
        The in-app QR scan has no screen of its own on Android (Google's code scanner), so the notice shows on
        Invitations and Nearby only.
-2. [ ] **Moderation notices and appeal** (Account → From Table 1; contract/moderation-2026-10-18.md), and the moderator
-       Review queue (restrict, mode).
+2. [x] **Moderation notices and appeal** (Account → From Table 1; contract/moderation-2026-10-18.md), and the moderator
+       Review queue (restrict, mode). Built 2026-10-29 (`Moderation.kt`, `ModerationScreens.kt`, routes `notices` /
+       `review`, pushes open them; `ModerationTest`).
 3. [ ] **Seat the ends** switch (`set_seat_ends`, contract/event-night-2026-10-16.md § 3).
 4. [ ] **Redraft pile** for finished set drafts (`redraft_*`, § 6).
 5. [ ] **Roto cube events** (contract/roto-2026-10-16.md): setup, draft room, pick lists, clock, undo.
 6. [ ] **Demo data** switch for demo testers (`demo_tester`, `demo_seed`, `demo_remove`).
 7. [ ] **Unsaved lists** kept and resent (iOS `ListsStore.unsaved`).
-8. [ ] **Quick actions and widgets**: Life tracker / Scan cards shortcuts and Quick Settings tiles, Next event and
+8. [ ] **Quick actions and widgets** (John, 2026-10-29: "build the same functionality for the widgets and live
+       activities in iOS into the similar technology for Android"): Life tracker / Scan cards shortcuts and Quick Settings tiles, Next event and
        Collection value widgets (Glance), live event status (iOS Live Activities → an ongoing notification).
 9. [ ] **Bug inbox** for watchers (Account → Bugs, `bugs_*`).
 10. [ ] **Insights picks follow the account** (John, 2026-10-29: "Settings for insights format views should be maintained

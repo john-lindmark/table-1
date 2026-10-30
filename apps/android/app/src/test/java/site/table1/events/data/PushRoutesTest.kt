@@ -28,7 +28,8 @@ class PushRoutesTest {
 
     @Test fun accountKinds() {
         assertEquals(screens("account", "friends"), link("kind" to "friend.request"))
-        assertEquals(screens("account"), link("kind" to "moderation.notice"))
+        assertEquals(screens("account", "notices"), link("kind" to "moderation.notice"))
+        assertEquals(screens("account", "review"), link("kind" to "moderation.review"))
         assertEquals(screens("account"), link("kind" to "ops.bug", "bug_id" to "12"))
     }
 
