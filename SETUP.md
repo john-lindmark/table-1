@@ -33,7 +33,7 @@ Do these once, in this order.
 3. OAuth client **Android**, one per signing key, all with package `site.table1.events`:
    - debug key SHA-1 `05:9F:BA:EF:ED:5C:86:77:BC:22:F3:3A:97:B5:7E:CD:49:15:FC:58` (this Mac's `~/.android/debug.keystore`)
    - upload key SHA-1 `AE:F5:F4:0B:48:64:A7:87:E7:C8:61:A0:5D:F9:DF:18:8F:8C:08:ED` (`~/.android/table1-upload.jks`, printed by `apps/android/tools/make-upload-key.sh`)
-   - Play App Signing SHA-1 (Play Console → Test and release → App integrity, after the first upload). Builds installed from Play are signed with this one, so Google sign-in from a Play install fails until it is added.
+   - Play App Signing SHA-1 `4E:AE:05:E6:D1:BB:E6:D1:CE:A7:16:34:A9:44:91:C7:A4:02:AE:3D` (Play Console → Protected with Play → Play app signing; App integrity moved there in 2026). Builds installed from Play are signed with this one, so Google sign-in from a Play install fails until its client exists.
    The app never uses the Android client IDs directly; Google matches package + SHA-1 to them.
 4. Supabase → Authentication → Sign In / Providers → **Google**: enable; Client ID = web client ID, Client Secret = its secret; **Authorized Client IDs** = web, iOS and Android client IDs (comma-separated); turn on **Skip nonce check** (the Google iOS SDK can't pass a nonce).
 5. Put the IDs in the apps: Android `apps/android/gradle.properties` → `T1_GOOGLE_WEB_CLIENT_ID` = web client ID; iOS `project.yml` → the iOS client ID (see §3); web needs nothing. Until then the Google button is hidden on iOS and Android.
@@ -105,7 +105,7 @@ Internal testing reaches up to 100 testers by email within minutes, with no revi
 3. **Create app**: name Table 1, app, free. Package name comes from the first upload: `site.table1.events` (permanent).
 4. **Build**: `apps/android/tools/bundle-release.sh` → `apps/android/app/build/outputs/bundle/release/app-release.aab`. Each build gets a newer versionCode (minutes since 1970).
 5. **Internal testing** → Testers: create an email list, save → Create new release → keep **Play App Signing** on (default) → upload the .aab → release notes → Save and publish. Copy the **opt-in link** from Testers and send it to testers (they accept, then install from Play).
-6. **After the first upload**, App integrity → App signing: copy the **SHA-1** into a new Android OAuth client (Google step 3) and the **SHA-256** into `table-1-events-web/public/.well-known/assetlinks.json` (next to the debug one), so Google sign-in and the email/QR app links work for Play installs.
+6. **After the first upload**, Protected with Play → Play app signing (was App integrity → App signing): copy the **SHA-1** into a new Android OAuth client (Google step 3) and the **SHA-256** into `table-1-events-web/public/.well-known/assetlinks.json` (next to the debug one), so Google sign-in and the email/QR app links work for Play installs.
 7. **App content** (Policy → App content) before the first release can be published: privacy policy URL (needed for location and camera), app access (testers sign in with email codes; give review an email they can use, or mark "all functionality available without special access" is false), ads: none, content rating questionnaire, target audience (18+ / not for children), data safety (email, name, approximate and precise location, camera stays on device; account deletion URL). Privacy policy URL: `https://table-1.site/privacy`; account-deletion URL: `https://table-1.site/delete-account` (both public, signed out, in the web app: `src/screens/Legal.tsx`; the policy text is a draft to review, and the contact address `privacy@table-1.site` must exist). Use `/privacy` for the Google consent screen's privacy policy link too. They need table-1.site deployed first.
 
 ## 5. Universal / app links
@@ -113,7 +113,7 @@ Internal testing reaches up to 100 testers by email within minutes, with no revi
 Every table-1.site page the apps have a screen for opens in the app when it's installed and on the web when it isn't: the join QR (`/j/<code>?s=<secret>`), join links, events, standings, the life tracker, the whole Collection, Account, friends and profiles, and the sign-in email's `/auth/confirm`. The list and how each address maps to a screen are in `contract/universal-links-2026-10-22.md` (cases `testdata/universal-links/cases.json`). Both hosts, `table-1.site` and `www.table-1.site`, serve:
 
 - `/.well-known/apple-app-site-association`: the paths for `94889YTX94.site.table1.events` (iOS entitlement `applinks:table-1.site` + `applinks:www.table-1.site` in `project.yml`).
-- `/.well-known/assetlinks.json`: currently the debug keystore's SHA-256; add the Play App Signing SHA-256 after the first Play upload (§4). The Android manifest's `autoVerify` filter lists the same paths.
+- `/.well-known/assetlinks.json`: the SHA-256 of the debug key, the upload key and Play App Signing (`CF:C0:3F:8E:…:E9:65:A8`, added 2026-10-30; Play installs opened email and QR links in the browser until then). The Android manifest's `autoVerify` filter lists the same paths.
 
 Both files are in `table-1-events-web/public/.well-known/` and ship with the web build. `src/lib/universalLinks.test.ts` fails if the two files, the manifest and the web routes drift apart.
 
