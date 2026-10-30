@@ -464,7 +464,8 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                         onOpen = { nav.navigate("collection/list/$it") },
                         onPrinting = { card, board, finish, lang -> nav.navigate("collection/list/$id/printing/$card/$board/$finish/$lang") },
                         onStats = { nav.navigate("collection/list/$id/stats") }, onRankings = { nav.navigate("collection/list/$id/rankings") },
-                        onSync = { nav.navigate("collection/list/$id/sync") })
+                        onSync = { nav.navigate("collection/list/$id/sync") },
+                        onInsights = { f, a -> nav.navigate(site.table1.events.insights.InsightsRoutes.archetype(f, a)) })
                 }
                 composable("collection/list/{id}/sync") { e ->
                     val id = e.arguments?.getString("id") ?: ""

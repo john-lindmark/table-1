@@ -1,0 +1,36 @@
+{
+  "about": "A deck's archetype on its own screen (contract/insights-2026-10-24.md § A deck's archetype): how each client words list_insight's answer. win: the 30-day match win rate (draws count as not won, as in Meta now) from 20 matches. change: this week's rate minus last week's in points, when both weeks have 20 matches. good / bad: matchups with 20+ decided matches, rate = wins / (wins + losses) as in the grid; good above 50% (highest first, then most matches), bad below 50% (lowest first, then most matches), three each. note: what to say when there's no archetype; null with a null title means show nothing.",
+  "min": 20,
+  "cases": [
+    { "name": "a well-played archetype",
+      "answer": { "format": "modern", "a": 18, "name": "Izzet Prowess",
+                  "month": { "wins": 120, "losses": 100, "draws": 5 }, "week": { "wins": 30, "losses": 20, "draws": 0 }, "prev": { "wins": 25, "losses": 25, "draws": 0 },
+                  "matchups": [
+                    { "vs": 1, "name": "A", "wins": 30, "losses": 10, "draws": 2 }, { "vs": 2, "name": "B", "wins": 12, "losses": 10, "draws": 0 },
+                    { "vs": 3, "name": "C", "wins": 5, "losses": 20, "draws": 0 }, { "vs": 4, "name": "D", "wins": 10, "losses": 9, "draws": 3 },
+                    { "vs": 5, "name": "E", "wins": 22, "losses": 28, "draws": 0 }, { "vs": 6, "name": "F", "wins": 20, "losses": 20, "draws": 0 },
+                    { "vs": 7, "name": "G", "wins": 15, "losses": 5, "draws": 0 }, { "vs": 8, "name": "H", "wins": 40, "losses": 60, "draws": 0 } ] },
+      "want": { "title": "Izzet Prowess", "win": "Win 53.3%", "change": "▲ 10.0 pts on last week", "good": ["A 75%", "G 75%", "B 55%"], "bad": ["C 20%", "H 40%", "E 44%"], "note": null } },
+    { "name": "falling, and only two good matchups",
+      "answer": { "format": "modern", "a": 3, "name": "Esper Goryo's",
+                  "month": { "wins": 50, "losses": 50, "draws": 0 }, "week": { "wins": 9, "losses": 11, "draws": 0 }, "prev": { "wins": 11, "losses": 9, "draws": 0 },
+                  "matchups": [ { "vs": 1, "name": "A", "wins": 14, "losses": 6, "draws": 0 }, { "vs": 2, "name": "B", "wins": 11, "losses": 10, "draws": 0 } ] },
+      "want": { "title": "Esper Goryo's", "win": "Win 50.0%", "change": "▼ 10.0 pts on last week", "good": ["A 70%", "B 52%"], "bad": [], "note": null } },
+    { "name": "too few matches for a rate or a change",
+      "answer": { "format": "modern", "a": 2, "name": "Living End",
+                  "month": { "wins": 10, "losses": 5, "draws": 0 }, "week": { "wins": 5, "losses": 5, "draws": 0 }, "prev": { "wins": 15, "losses": 15, "draws": 0 },
+                  "matchups": [] },
+      "want": { "title": "Living End", "win": null, "change": null, "good": [], "bad": [], "note": null } },
+    { "name": "no change week on week",
+      "answer": { "format": "modern", "a": 5, "name": "Simic Neoform",
+                  "month": { "wins": 40, "losses": 40, "draws": 0 }, "week": { "wins": 10, "losses": 10, "draws": 0 }, "prev": { "wins": 15, "losses": 15, "draws": 0 },
+                  "matchups": [] },
+      "want": { "title": "Simic Neoform", "win": "Win 50.0%", "change": "Same as last week", "good": [], "bad": [], "note": null } },
+    { "name": "a deck no archetype rule names",
+      "answer": { "format": "modern", "a": 0, "reason": "other" },
+      "want": { "title": null, "win": null, "change": null, "good": [], "bad": [], "note": "Doesn't match an archetype Insights knows" } },
+    { "name": "a format Insights doesn't cover: nothing shows",
+      "answer": { "format": "legacy", "a": null, "reason": "no_format" },
+      "want": { "title": null, "win": null, "change": null, "good": [], "bad": [], "note": null } }
+  ]
+}

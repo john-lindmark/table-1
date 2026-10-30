@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { screenName } from "./analytics";
 import { navKeyFor } from "./desktop";
-import { afterWindow, archetypeName, bansTitle, canHide, changeWords, colorsName, exampleFinish, formatParts, FORMATS, isBan, matchup, place, sourcesCredit, visibleKeys, readWirePicks, writeWirePicks, type BanStudy, type ConstructedPack, type LimitedPack } from "./insights";
+import { afterWindow, archetypeName, bansTitle, canHide, changeWords, colorsName, exampleFinish, formatParts, FORMATS, CLOSE, DECK_MIN, deckInsight, type DeckInsight, type DeckInsightAnswer, gridFor, isBan, yoursFirst, type Mine, matchup, matchupRows, place, sourcesCredit, visibleKeys, readWirePicks, writeWirePicks, type BanStudy, type ConstructedPack, type LimitedPack } from "./insights";
 
 /* Insights packs (contract/insights-2026-10-24.md § Packs) as the server builds them: testdata/insights holds
    constructed packs built from real MTGO pages and a Limited pack from 17Lands data (tools/insights/). */
@@ -80,6 +80,35 @@ describe("insights helpers", () => {
     expect(matchup(m, 1, 2)).toEqual({ wins: 31, losses: 22, draws: 1 });
     expect(matchup(m, 2, 1)).toEqual({ wins: 22, losses: 31, draws: 1 });
     expect(matchup(m, 1, 3)).toBeNull();
+  });
+  it("matchup rows: every discernible archetype, else the columns", () => {
+    expect(matchupRows({ archetypes: [1, 2], rows: [1, 2, 7, 0], cells: [] })).toEqual([1, 2, 7, 0]);
+    expect(matchupRows({ archetypes: [1, 2], cells: [] })).toEqual([1, 2]);
+    expect(matchupRows({ archetypes: [1, 2], rows: [], cells: [] })).toEqual([1, 2]);
+    const modern = read("constructed-modern.json") as ConstructedPack;
+    const rows = matchupRows(modern.matchups);
+    expect([modern.matchups.archetypes.length, rows.length, rows[rows.length - 1]]).toEqual([10, 23, 0]);
+    expect(rows.slice(0, 10)).toEqual(modern.matchups.archetypes);
+    expect(matchup(modern.matchups, 11, 1)?.wins).toBe(63);   // Boros Land Destruction against the top archetype
+  });
+  it("your decks first: shared cases", () => {
+    const yours = read("yours-first.json") as { close: number; cases: { name: string; rows: number[]; mine: Mine; want: [number, string | null][] }[] };
+    expect(CLOSE).toBe(yours.close);
+    for (const c of yours.cases) expect(yoursFirst(c.rows, c.mine).map((r) => [r.a, r.note]), c.name).toEqual(c.want);
+    expect(yoursFirst([1, 0], null)).toEqual([{ a: 1, note: null }, { a: 0, note: null }]);
+  });
+  it("a deck's archetype: shared cases", () => {
+    const f = read("deck-insight.json") as { min: number; cases: { name: string; answer: DeckInsightAnswer; want: DeckInsight }[] };
+    expect(DECK_MIN).toBe(f.min);
+    for (const c of f.cases) expect(deckInsight(c.answer), c.name).toEqual(c.want);
+  });
+  it("the grid follows the picked tier and window, else the pack's 90 days", () => {
+    const modern = read("constructed-modern.json") as ConstructedPack;
+    const small = { archetypes: [1], rows: [1], cells: [] as [number, number, number, number, number][] };
+    expect(gridFor(modern, "big", 30)).toEqual({ m: modern.matchups, scope: "All events, last 90 days" });
+    const picked = { ...modern, tiers: { ...modern.tiers, big: { ...modern.tiers.big, windows: { ...modern.tiers.big.windows, "30": { ...modern.tiers.big.windows["30"], matchups: small } } } } };
+    expect(gridFor(picked, "big", 30)).toEqual({ m: small, scope: "Big events, last 30 days" });
+    expect(gridFor(picked, "all", 30).scope).toBe("All events, last 90 days");
   });
 
   it("a ban study uses its longest ended window", () => {

@@ -274,6 +274,35 @@ object InsightsStore {
         return json.decodeFromString(raw)
     }
 
+    private val mines = mutableMapOf<String, Mine>()
+    /** Your decks and collection coverage in a format (`insights_mine`), once per format a session; null signed out or
+     *  on failure (the grid then keeps its order). */
+    suspend fun mine(format: String): Mine? {
+        if (demo) return demoPages["mine:$format"]?.let { json.decodeFromString<Mine>(it) }
+        mines[format]?.let { return it }
+        if (site.table1.events.data.Repo.userId == null) return null
+        return try {
+            json.decodeFromString<Mine>(T1App.supabase.postgrest.rpc("insights_mine", buildJsonObject { put("p_format", format) }).data)
+                .also { mines[format] = it }
+        } catch (e: Exception) {
+            e.rethrowIfCancelled()
+            null
+        }
+    }
+
+    private val deckInsights = mutableMapOf<String, DeckInsightAnswer>()
+    /** list_insight for a deck, once per deck a session; null when it fails (the rows don't show). */
+    suspend fun deckInsight(listId: String): DeckInsightAnswer? {
+        deckInsights[listId]?.let { return it }
+        return try {
+            json.decodeFromString<DeckInsightAnswer>(T1App.supabase.postgrest.rpc("list_insight", buildJsonObject { put("p_list_id", listId) }).data)
+                .also { deckInsights[listId] = it }
+        } catch (e: Exception) {
+            e.rethrowIfCancelled()
+            null
+        }
+    }
+
     /** Debug builds: the packs in assets/insights-demo (from real MTGO pages and a 17Lands slice, tools/insights/). */
     fun loadDemo(context: Context) {
         val files = context.assets.list("insights-demo") ?: return
@@ -284,7 +313,8 @@ object InsightsStore {
             when {
                 name.startsWith("constructed-") -> name.removePrefix("constructed-").let { constructed = constructed + (it to json.decodeFromString<ConstructedPack>(text)); entries += IndexEntry("constructed", it, it, "demo", "") }
                 name.startsWith("limited-") -> name.removePrefix("limited-").let { limited = limited + (it to json.decodeFromString<LimitedPack>(text)); entries += IndexEntry("limited", it, it, "demo", "") }
-                name == "pages" -> demoPages = json.decodeFromString<Map<String, kotlinx.serialization.json.JsonElement>>(text).mapValues { it.value.toString() }
+                name.startsWith("mine-") -> demoPages = demoPages + ("mine:${name.removePrefix("mine-")}" to text)
+                name == "pages" -> demoPages = demoPages + json.decodeFromString<Map<String, kotlinx.serialization.json.JsonElement>>(text).mapValues { it.value.toString() }
             }
         }
         index = entries

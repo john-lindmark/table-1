@@ -11,7 +11,8 @@ import { DiscordRest } from "./discord.ts";
 import {
   type Card, type CardHit, canManageServer, cardEmbed, commandPath, deckComponents, deckEmbed, deckImageUrl, type DeckPost, EPHEMERAL,
   eventIdFrom, eventMessage, focused, helpEmbed, type Interaction, InteractionType, isSnowflake, linkMessage,
-  eventComponents, needLinkMessage, opt, outcomeText, parseButtonId, parseWhen, type Part, partComponents, partConfirmMessage, partEmbed,
+  eventComponents, META_FORMATS, metaAsk, metaComponents, metaEmbed, metaImageUrl, type MetaKind, needLinkMessage, opt, outcomeText,
+  parseButtonId, parseWhen, type Part, partComponents, partConfirmMessage, partEmbed,
   type PartPost, ResponseType, resultsComponents, resultsEmbed, userId, zoneChoices,
 } from "./embeds.ts";
 import { isTeamFormat, loadStandings } from "./standings.ts";
@@ -27,6 +28,8 @@ const ENVIRONMENT = env("T1_ENVIRONMENT", "production");
 const SALT = env("DISCORD_TELEMETRY_SALT") || env("DISCORD_APPLICATION_ID");
 // Where a deck's picture is drawn (the deck-image function; contract § The deck picture).
 const DECK_IMAGE = env("DECK_IMAGE_URL") || `${env("SUPABASE_URL")}/functions/v1/deck-image`;
+// Where Insights pictures are drawn (the meta-image function; contract § Insights images).
+const META_IMAGE = env("META_IMAGE_URL") || `${env("SUPABASE_URL")}/functions/v1/meta-image`;
 
 const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
 const rest = new DiscordRest(BOT_TOKEN);
@@ -197,6 +200,22 @@ async function card(ctx: Ctx, query: string): Promise<Response> {
   return reply({ embeds: [cardEmbed(h)] });
 }
 
+/** /meta matchups | winrates | deck: an Insights picture, public in the channel. No link needed: Insights is the same
+ *  for everyone. The archetype list comes from the format's pack base (names as the apps show them). */
+async function meta(ctx: Ctx, kind: MetaKind, options: Parameters<typeof opt>[0]): Promise<Response> {
+  const ask = metaAsk(kind, options);
+  if (!ask) return ephemeral(kind === "deck" ? "Pick an archetype from the list (after the format)." : "Pick a format from the list.");
+  let archetype: string | null = null;
+  if (ask.kind === "deck") {
+    const base = await rpc<{ archetypes: { id: number; name: string }[] } | null>("meta_pack_base", { p_format: ask.format });
+    archetype = base?.archetypes.find((x) => x.id === ask.a)?.name ?? null;
+    if (!archetype) return ephemeral(`That isn't one of ${META_FORMATS[ask.format]}'s archetypes. Pick one from the list.`);
+  }
+  ctx.telemetry.push({ event: "discord_meta_posted", kind: ask.kind, format: ask.format, tier: ask.tier, days: ask.days });
+  const picture = metaImageUrl(META_IMAGE, ask, Math.floor(Date.now() / 3_600_000));
+  return reply({ embeds: [metaEmbed(ask, archetype, picture)], components: metaComponents(ask) });
+}
+
 async function settingsTimezone(ctx: Ctx, zone: string): Promise<Response> {
   if (!canManageServer(ctx.ix)) return ephemeral("Only people with Manage Server can change this.");
   const r = await rpc<{ timezone: string }>("discord_guild_timezone", { p_guild_id: ctx.guildId, p_timezone: zone.trim() });
@@ -259,6 +278,15 @@ async function autocomplete(ctx: Ctx, path: string, options: Parameters<typeof o
       if (e instanceof Refused && e.code === "28000") return choices([{ name: "Link your Table 1 account first: /link", value: "unlinked" }]);
       throw e;
     }
+  }
+  if (f?.name === "archetype" && path === "meta deck") {
+    const format = String(opt(options, "format") ?? "");
+    if (!META_FORMATS[format]) return choices([{ name: "Pick a format first", value: "none" }]);
+    const base = await rpc<{ archetypes: { id: number; name: string }[] } | null>("meta_pack_base", { p_format: format });
+    const needle = q.trim().toLowerCase();
+    const list = (base?.archetypes ?? []).filter((x) => !needle || x.name.toLowerCase().includes(needle))
+      .sort((x, y) => Number(x.id === 0) - Number(y.id === 0) || x.name.localeCompare(y.name));
+    return choices(list.map((x) => ({ name: x.name, value: String(x.id) })));
   }
   if (f?.name === "deck") {
     try {
@@ -341,6 +369,10 @@ async function route(ctx: Ctx): Promise<Response> {
     }
     case "card":
       return await card(ctx, opt(options, "name") ?? "");
+    case "meta matchups":
+    case "meta winrates":
+    case "meta deck":
+      return await meta(ctx, path.slice(5) as MetaKind, options);
   }
   return ephemeral("I don't know that command. Try /help.");
 }

@@ -1,0 +1,260 @@
+{
+  "about": "Matchup grid rows with your decks first (contract/insights-2026-10-24.md \u00a7 What the viewer gets, 'Yours'). Rows you have a deck of come first in grid order, noted 'Your deck' (or 'Your N decks'); then rows your collection covers at least `close` of, most covered first, noted 'You have N%' (rounded down); then the rest in grid order with no note. Other (0) is never moved. Each client's yoursFirst() must give `want` for `rows` and `mine`.",
+  "close": 0.6,
+  "cases": [
+    {
+      "name": "nothing of yours: the grid's order",
+      "rows": [
+        1,
+        2,
+        3,
+        0
+      ],
+      "mine": {
+        "decks": [],
+        "coverage": []
+      },
+      "want": [
+        [
+          1,
+          null
+        ],
+        [
+          2,
+          null
+        ],
+        [
+          3,
+          null
+        ],
+        [
+          0,
+          null
+        ]
+      ]
+    },
+    {
+      "name": "a deck, then near-complete archetypes by coverage, then the rest",
+      "rows": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        0
+      ],
+      "mine": {
+        "decks": [
+          {
+            "a": 4,
+            "id": "d1",
+            "name": "Mine"
+          }
+        ],
+        "coverage": [
+          {
+            "a": 2,
+            "have": 0.61
+          },
+          {
+            "a": 5,
+            "have": 0.95
+          },
+          {
+            "a": 4,
+            "have": 1.0
+          },
+          {
+            "a": 1,
+            "have": 0.59
+          }
+        ]
+      },
+      "want": [
+        [
+          4,
+          "Your deck"
+        ],
+        [
+          5,
+          "You have 95%"
+        ],
+        [
+          2,
+          "You have 61%"
+        ],
+        [
+          1,
+          null
+        ],
+        [
+          3,
+          null
+        ],
+        [
+          0,
+          null
+        ]
+      ]
+    },
+    {
+      "name": "two decks of one archetype, decks in grid order, Other never moves",
+      "rows": [
+        1,
+        2,
+        3,
+        0
+      ],
+      "mine": {
+        "decks": [
+          {
+            "a": 3,
+            "id": "d1",
+            "name": "A"
+          },
+          {
+            "a": 3,
+            "id": "d2",
+            "name": "B"
+          },
+          {
+            "a": 1,
+            "id": "d3",
+            "name": "C"
+          },
+          {
+            "a": 0,
+            "id": "d4",
+            "name": "Brew"
+          }
+        ],
+        "coverage": [
+          {
+            "a": 0,
+            "have": 0.9
+          }
+        ]
+      },
+      "want": [
+        [
+          1,
+          "Your deck"
+        ],
+        [
+          3,
+          "Your 2 decks"
+        ],
+        [
+          2,
+          null
+        ],
+        [
+          0,
+          null
+        ]
+      ]
+    },
+    {
+      "name": "a deck or coverage of an archetype the grid doesn't show changes nothing",
+      "rows": [
+        1,
+        2,
+        0
+      ],
+      "mine": {
+        "decks": [
+          {
+            "a": 9,
+            "id": "d1",
+            "name": "Off-meta"
+          }
+        ],
+        "coverage": [
+          {
+            "a": 8,
+            "have": 1.0
+          },
+          {
+            "a": 2,
+            "have": 0.999
+          }
+        ]
+      },
+      "want": [
+        [
+          2,
+          "You have 99%"
+        ],
+        [
+          1,
+          null
+        ],
+        [
+          0,
+          null
+        ]
+      ]
+    },
+    {
+      "name": "a share that isn't exact in binary still reads right",
+      "rows": [
+        1,
+        0
+      ],
+      "mine": {
+        "decks": [],
+        "coverage": [
+          {
+            "a": 1,
+            "have": 0.29
+          }
+        ]
+      },
+      "want": [
+        [
+          1,
+          null
+        ],
+        [
+          0,
+          null
+        ]
+      ]
+    },
+    {
+      "name": "coverage exactly at the line counts",
+      "rows": [
+        1,
+        2,
+        0
+      ],
+      "mine": {
+        "decks": [],
+        "coverage": [
+          {
+            "a": 2,
+            "have": 0.6
+          },
+          {
+            "a": 1,
+            "have": 0.58
+          }
+        ]
+      },
+      "want": [
+        [
+          2,
+          "You have 60%"
+        ],
+        [
+          1,
+          null
+        ],
+        [
+          0,
+          null
+        ]
+      ]
+    }
+  ]
+}

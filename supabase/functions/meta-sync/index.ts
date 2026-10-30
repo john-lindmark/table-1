@@ -251,7 +251,10 @@ async function build(format: string) {
   for (const tier of ["big", "all"] as Tier[]) {
     const windows: Record<string, Window> = {};
     for (const days of WINDOWS) {
-      windows[days] = await rpc<Window>("meta_pack_window", { p_format: format, p_tier: tier, p_days: days, p_through: through });
+      windows[days] = {
+        ...await rpc<Window>("meta_pack_window", { p_format: format, p_tier: tier, p_days: days, p_through: through }),
+        matchups: await rpc<Matchups>("meta_pack_matchups", { p_format: format, p_through: through, p_tier: tier, p_days: days }),
+      };
     }
     tiers[tier] = {
       windows,

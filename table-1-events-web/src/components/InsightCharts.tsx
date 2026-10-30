@@ -162,35 +162,39 @@ export function Scatter({ points, height = 300, onPick }: {
 }
 
 /** Matchup grid: the row archetype's match win rate against each column; under `minMatches` a cell still shows, dimmed.
- *  The picked cell is outlined and its row and column names sit on the lighter surface. */
-export function Heatmap({ labels, cell, minMatches = 30, picked, onPick }: {
-  labels: string[]; cell: (r: number, c: number) => { wins: number; losses: number } | null; minMatches?: number;
+ *  Rows can outnumber columns (every archetype against the top ones); `same` blanks a row's own column. The picked
+ *  cell is outlined and its row and column names sit on the lighter surface. The grid scrolls in its own box (at most
+ *  70% of the screen high) with the column names pinned on top and the row names pinned on the left. */
+export function Heatmap({ rows, notes, cols, same, cell, minMatches = 30, picked, onPick }: {
+  rows: string[]; notes?: (string | null)[]; cols: string[]; same: (r: number, c: number) => boolean;
+  cell: (r: number, c: number) => { wins: number; losses: number } | null; minMatches?: number;
   picked?: [number, number] | null; onPick?: (r: number, c: number) => void;
 }) {
   const labelBg = (on: boolean) => on ? "bg-t1-surface-hover" : "bg-t1-surface";
   const color = (h: Heat) => h.tone === "none" ? C.surface : h.tone === "even" ? C.hover
     : `color-mix(in srgb, ${h.tone === "up" ? C.accent : C.error} ${Math.round(h.strength * 100)}%, ${C.surface})`;
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-auto max-h-[70dvh] bg-t1-bg">
       <table className="w-full border-separate" style={{ borderSpacing: 1 }}>
         <thead>
           <tr>
-            <th className="bg-t1-surface" />
-            {labels.map((l, c) => <th key={l} className={`${labelBg(picked?.[1] === c)} t1-label px-1 py-2 font-normal align-bottom`} style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>{l}</th>)}
+            <th className="bg-t1-surface sticky top-0 left-0 z-20 shadow-[0_0_0_1px_var(--color-t1-bg)]" />
+            {cols.map((l, c) => <th key={l} className={`${labelBg(picked?.[1] === c)} sticky top-0 z-10 shadow-[0_0_0_1px_var(--color-t1-bg)] t1-label px-1 py-2 font-normal align-bottom`} style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>{l}</th>)}
           </tr>
         </thead>
         <tbody>
-          {labels.map((row, r) => (
+          {rows.map((row, r) => (
             <tr key={row}>
-              <th className={`${labelBg(picked?.[0] === r)} text-[11px] font-normal text-left px-2 py-2 whitespace-nowrap`}>{row}</th>
-              {labels.map((col, c) => {
-                const v = r === c ? null : cell(r, c);
+              <th className={`${labelBg(picked?.[0] === r)} sticky left-0 z-10 shadow-[0_0_0_1px_var(--color-t1-bg)] text-[11px] leading-tight font-normal text-left px-2 py-1 w-[112px] min-w-[112px] max-w-[112px]`}>{row}{notes?.[r] && <span className="block text-[9px] uppercase tracking-[1px] text-t1-muted mt-0.5">{notes[r]}</span>}</th>
+              {cols.map((col, c) => {
+                const own = same(r, c);
+                const v = own ? null : cell(r, c);
                 const h = heat(v?.wins ?? 0, v?.losses ?? 0, minMatches);
                 const on = picked?.[0] === r && picked?.[1] === c;
                 return (
-                  <td key={col} onClick={() => r !== c && onPick?.(r, c)}
+                  <td key={col} onClick={() => !own && onPick?.(r, c)}
                       title={v ? `${row} vs ${col}: ${v.wins}-${v.losses}${h.dim ? " (few matches)" : ""}` : undefined}
-                      className={`text-center text-[11px] tabular-nums h-9 min-w-9 ${r !== c && onPick ? "cursor-pointer" : ""}`}
+                      className={`text-center text-[11px] tabular-nums h-9 min-w-9 ${!own && onPick ? "cursor-pointer" : ""}`}
                       style={{ background: color(h), boxShadow: on ? `inset 0 0 0 1px ${C.text}` : undefined, color: h.ink ? "var(--color-t1-ink)" : h.dim ? "var(--color-t1-muted)" : undefined }}>
                     {h.label}
                   </td>

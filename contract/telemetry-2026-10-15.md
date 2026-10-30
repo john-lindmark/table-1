@@ -189,6 +189,9 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `insights_review_action` | `what`, `action` (moderators: approve / reject / confirm) |
 | `insights_matchup_opened` | `format` (a square of the matchup grid tapped for its record) |
 | `insights_part_opened` | `format`, `part`: meta / cards / new_set / changes / events (a format page row opened, 2026-10-28) |
+| `insights_yours` | `format`, `decks` (yours with an archetype), `close` (archetypes your collection nearly builds): the matchup grid put your decks first (2026-10-30) |
+| `deck_insight_shown` | `format`, `archetype`: a deck screen showed its archetype's win rate and matchups (2026-10-30) |
+| `deck_insight_opened` | `format`, `archetype`: those rows opened the archetype in Insights |
 | `insights_rank_opened` | `set` (FRA, PWR-2510), `kind`: set / cube, `from`: set / new_sets (a set's Rankings opened from Limited, 2026-10-30) |
 | `insights_alerts_changed` | `on`: bool (the New in Insights switch, 2026-10-30) |
 | `push_opened` | `kind`: insights.new (plus `what`: data / rank on iOS) |
@@ -208,6 +211,7 @@ guild, channel, message or event ids, never names (`telemetry.ts` refuses such k
 | `discord_deck_shared` | `format`, `new_link` |
 | `discord_part_posted` | `part`: wants / for_trade, `single`, `new_link`, `rows` |
 | `discord_card_looked_up` | `found` |
+| `discord_meta_posted` | `kind`: matchups / winrates / deck, `format`, `tier`: big / all, `days` (an Insights picture posted, 2026-10-30) |
 | `discord_help_viewed` | |
 Web: screens `discord`, `discord_link`; `discord_link_completed {via: link}`, `discord_unlinked {via: link}`.
 

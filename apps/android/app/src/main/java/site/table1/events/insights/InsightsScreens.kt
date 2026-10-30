@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -208,9 +209,10 @@ private fun ConstructedHome(navigate: (String) -> Unit) {
                 color = if (l.a == h) T1.ink else T1.text)
         }
     }
-    if (pack.matchups.cells.isNotEmpty()) {
-        Section("Matchups · last 90 days")
-        MatchupGrid(pack)
+    val (grid, scope) = pack.grid(tier, s.days)
+    if (grid.cells.isNotEmpty()) {
+        Section("Matchups · $scope")
+        key(tier, s.days) { MatchupGrid(pack, grid) }
     }
     Brief(w.brief, "${if (tier == "big") "Big events" else "All events"}, last ${s.days} days", w.thin,
         Insights.sourcesCredit(pack.sources))
@@ -519,28 +521,44 @@ fun MatchupsScreen(format: String, onBack: () -> Unit) {
     LaunchedEffect(format) { InsightsStore.ensure("constructed", format) }
     val pack = InsightsStore.constructed[format]
     T1Screen {
-        Bar("Matchups", "${pack?.name ?: format} · last 90 days", onBack = onBack)
-        if (pack == null) return@T1Screen
-        Scroll { MatchupGrid(pack) }
+        val tier = pack?.let { InsightsStore.tier(it) } ?: "all"
+        val grid = pack?.grid(tier, InsightsStore.days)
+        Bar("Matchups", "${pack?.name ?: format} · ${grid?.second ?: "last 90 days"}", onBack = onBack)
+        if (pack == null || grid == null) return@T1Screen
+        Scroll {
+            WindowPickers(tier)
+            key(tier, InsightsStore.days) { MatchupGrid(pack, grid.first) }
+        }
     }
 }
 
 /** The matchup grid (rows against labelled columns) and the record of the square last tapped; on the format page
  *  under Meta over time, and on its own screen for older links. */
 @Composable
-private fun MatchupGrid(pack: ConstructedPack) {
+private fun MatchupGrid(pack: ConstructedPack, m: Matchups) {
     var picked by remember(pack.format) { mutableStateOf<Pair<Int, Int>?>(null) }
-    val ids = pack.matchups.archetypes
-    Notice("Row's match win rate against each column. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.")
-    InsightHeatmap(ids.map { pack.name(it) }, { r, c -> pack.matchups.cell(ids[r], ids[c])?.let { it.first to it.second } }, picked = picked) { r, c ->
+    var mine by remember(pack.format) { mutableStateOf<Mine?>(null) }
+    LaunchedEffect(pack.format) {
+        val got = InsightsStore.mine(pack.format) ?: return@LaunchedEffect
+        mine = got
+        picked = null   // the rows just moved
+        Telemetry.capture("insights_yours", mapOf("format" to pack.format, "decks" to got.decks.count { it.a != 0 },
+            "close" to yoursFirst(m.rowIds, got).count { it.second?.startsWith("You have") == true }))
+    }
+    val cols = m.archetypes
+    val ordered = yoursFirst(m.rowIds, mine)
+    val rows = ordered.map { it.first }
+    Notice("Each archetype with 1% of decks (rows) against the 10 most played (columns): the row's match win rate. Your decks come first, then archetypes your collection nearly builds. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.")
+    InsightHeatmap(rows.map { pack.name(it) }, cols.map { pack.name(it) }, { r, c -> rows[r] == cols[c] },
+                   { r, c -> m.cell(rows[r], cols[c])?.let { it.first to it.second } }, picked = picked, notes = ordered.map { it.second }) { r, c ->
         picked = r to c
         Telemetry.capture("insights_matchup_opened", mapOf("format" to pack.format))
     }
-    picked?.let { (r, c) ->
-        pack.matchups.cell(ids[r], ids[c])?.let { (w, l, d) ->
+    picked?.takeIf { it.first < rows.size && it.second < cols.size }?.let { (r, c) ->
+        m.cell(rows[r], cols[c])?.let { (w, l, d) ->
             val n = w + l
             val (lo, hi) = InsightCharts.wilson(w, n)
-            ListRow("${pack.name(ids[r])} vs ${pack.name(ids[c])}",
+            ListRow("${pack.name(rows[r])} vs ${pack.name(cols[c])}",
                 if (n >= 30) "${InsightCharts.pct1(w.toDouble() / n)} · likely ${InsightCharts.pct(lo)}–${InsightCharts.pct(hi)}" else "Only $n matches: too few to say") {
                 Text(if (d > 0) "$w-$l-$d" else "$w-$l", color = T1.text, fontFamily = T1.mono, fontSize = 13.sp)
             }

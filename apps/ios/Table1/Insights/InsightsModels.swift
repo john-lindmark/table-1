@@ -123,6 +123,8 @@ enum Insights {
         var won_of: Int? = nil
         let share: [ShareRow]
         let cards: [String: Movers] // main, side
+        /// this tier × window's matchup grid (packs from 20261030090000 on)
+        var matchups: Matchups? = nil
     }
     struct Line: Codable, Hashable { let a: Int; let v: [Double?] }
     struct Series: Codable, Hashable { let from: String; let days: Int; let lines: [Line]; let other: [Double?] }
@@ -145,15 +147,84 @@ enum Insights {
         }
     }
     struct Matchups: Codable, Hashable {
+        /// the grid's columns (top 10)
         let archetypes: [Int]
-        /// [a, b, a_wins, b_wins, draws], a before b in `archetypes`
+        /// every discernible archetype, the columns first, Other last (missing before 20261030090000)
+        var rows: [Int]? = nil
+        /// [a, b, a_wins, b_wins, draws], a before b in `rows`
         let cells: [[Int]]
+        /// The grid's rows: every discernible archetype, or the columns in an older pack.
+        var rowIds: [Int] { (rows ?? []).isEmpty ? archetypes : rows! }
         func cell(_ a: Int, _ b: Int) -> (wins: Int, losses: Int, draws: Int)? {
             if let c = cells.first(where: { $0[0] == a && $0[1] == b }) { return (c[2], c[3], c[4]) }
             if let c = cells.first(where: { $0[0] == b && $0[1] == a }) { return (c[3], c[2], c[4]) }
             return nil
         }
     }
+    /// What `insights_mine` says about the signed-in account in a format: its decks with their archetypes, and how
+    /// much of each archetype's usual list its collection holds.
+    struct Mine: Codable, Hashable {
+        struct Deck: Codable, Hashable { let a: Int; let id: String; let name: String }
+        struct Cover: Codable, Hashable { let a: Int; let have: Double }
+        let decks: [Deck]
+        let coverage: [Cover]
+    }
+    /// Collection coverage from which an archetype counts as nearly yours.
+    static let close = 0.6
+    /// The grid's rows with your decks first, then archetypes your collection nearly builds, each with its note
+    /// (testdata/insights/yours-first.json).
+    static func yoursFirst(_ rows: [Int], _ mine: Mine?) -> [(a: Int, note: String?)] {
+        guard let mine else { return rows.map { ($0, nil) } }
+        var decks: [Int: Int] = [:]
+        for d in mine.decks where d.a != 0 { decks[d.a, default: 0] += 1 }
+        var have: [Int: Double] = [:]
+        for c in mine.coverage where c.a != 0 { have[c.a] = c.have }
+        let own = rows.filter { decks[$0] != nil }
+        let close = rows.filter { decks[$0] == nil && (have[$0] ?? 0) >= Self.close }
+            .sorted { (have[$0]!, rows.firstIndex(of: $1)!) > (have[$1]!, rows.firstIndex(of: $0)!) }
+        let rest = rows.filter { !own.contains($0) && !close.contains($0) }
+        return own.map { ($0, decks[$0]! > 1 ? "Your \(decks[$0]!) decks" : "Your deck") }
+            + close.map { ($0, "You have \(Int((have[$0]! * 100 + 1e-9).rounded(.down)))%") }
+            + rest.map { ($0, nil) }
+    }
+    // MARK: a deck's archetype, on the deck's own screen (list_insight)
+
+    struct Record3: Codable, Hashable { let wins: Int; let losses: Int; let draws: Int }
+    struct DeckMatchup: Codable, Hashable { let vs: Int; let name: String; let wins: Int; let losses: Int; let draws: Int }
+    struct DeckInsightAnswer: Codable, Hashable {
+        let format: String; let a: Int?; var name: String? = nil; var reason: String? = nil
+        var month: Record3? = nil; var week: Record3? = nil; var prev: Record3? = nil
+        var matchups: [DeckMatchup]? = nil
+    }
+    struct DeckInsight: Equatable {
+        let title: String?; let win: String?; let change: String?; let good: [String]; let bad: [String]; let note: String?
+    }
+    /// Matches a rate needs before it's shown.
+    static let deckMin = 20
+    /// How a deck screen words its archetype's numbers (testdata/insights/deck-insight.json).
+    static func deckInsight(_ r: DeckInsightAnswer) -> DeckInsight {
+        if r.reason == "other" || r.a == 0 {
+            return DeckInsight(title: nil, win: nil, change: nil, good: [], bad: [], note: "Doesn't match an archetype Insights knows")
+        }
+        guard r.a != nil, let name = r.name else { return DeckInsight(title: nil, win: nil, change: nil, good: [], bad: [], note: nil) }
+        func rate(_ x: Record3?) -> Double? {
+            guard let x else { return nil }
+            let n = x.wins + x.losses + x.draws
+            return n >= deckMin ? Double(x.wins) / Double(n) : nil
+        }
+        var change: String?
+        if let w = rate(r.week), let p = rate(r.prev) {
+            let d = (w - p) * 100
+            change = abs(d) < 0.05 ? "Same as last week" : "\(d > 0 ? "▲" : "▼") \(String(format: "%.1f", abs(d))) pts on last week"
+        }
+        let rated = (r.matchups ?? []).filter { $0.wins + $0.losses >= deckMin }
+            .map { (m: $0, wr: Double($0.wins) / Double($0.wins + $0.losses), n: $0.wins + $0.losses) }
+        let good = rated.filter { $0.wr > 0.5 }.sorted { ($0.wr, $0.n) > ($1.wr, $1.n) }.prefix(3)
+        let bad = rated.filter { $0.wr < 0.5 }.sorted { $0.wr != $1.wr ? $0.wr < $1.wr : $0.n > $1.n }.prefix(3)
+        return DeckInsight(title: name, win: rate(r.month).map { "Win \(InsightCharts.pct1($0))" }, change: change,
+                           good: good.map { "\($0.m.name) \(InsightCharts.pct($0.wr))" }, bad: bad.map { "\($0.m.name) \(InsightCharts.pct($0.wr))" }, note: nil)
+    }
+
     struct EventRow: Codable, Hashable {
         let name: String; let on: String; let players: Int?; let tier: String; let source: String; let url: String?
         let top8: [Int]?; let winner: Int?
@@ -163,6 +234,12 @@ enum Insights {
         let archetypes: [Archetype]; let changes: [Change]; let events: [EventRow]
         let tiers: [String: View]; let bans: [BanStudy]; let matchups: Matchups
         func view(_ t: Tier) -> View? { tiers[t.rawValue] }
+        /// The matchup grid for the picked tier and window, and what it covers; an older pack has only its 90-day,
+        /// All events grid.
+        func grid(_ t: Tier, days: Int) -> (m: Matchups, scope: String) {
+            if let m = view(t)?.windows[String(days)]?.matchups { return (m, "\(t == .big ? "Big events" : "All events"), last \(days) days") }
+            return (matchups, "All events, last 90 days")
+        }
         func archetype(_ id: Int) -> Archetype? { archetypes.first { $0.id == id } }
         func name(_ id: Int) -> String { archetype(id)?.name ?? "Other" }
         func change(_ id: Int) -> Change? { changes.first { $0.id == id } }

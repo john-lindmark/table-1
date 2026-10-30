@@ -43,6 +43,8 @@ export interface Window {
   decks: number; weighted: number; events: number; thin: boolean; brief: string | null;
   share: ShareRow[];
   cards: { main: { up: CardRow[]; down: CardRow[] }; side: { up: CardRow[]; down: CardRow[] } };
+  /** this tier × window's matchup grid (20261030090000; the pack's own `matchups` stays 90 days, All events) */
+  matchups?: Matchups;
 }
 export interface Series { from: string; days: number; lines: { a: number; v: (number | null)[] }[]; other: (number | null)[] }
 export interface NewSet {
@@ -64,7 +66,8 @@ export interface BanStudy {
   brief: string | null;
   daily?: { from: string; lines: { a: number; v: (number | null)[] }[] };
 }
-export interface Matchups { archetypes: number[]; cells: [number, number, number, number, number][] }
+/** `archetypes` are the grid's columns (top 10), `rows` every discernible archetype, the columns first, Other last. */
+export interface Matchups { archetypes: number[]; rows?: number[]; cells: [number, number, number, number, number][] }
 export interface EventRow { name: string; on: string; players: number | null; tier: string; source: string; url: string | null; top8: number[] | null; winner: number | null }
 export interface Base {
   format: string; name: string; through: string; sources: string[]; default_tier: Tier;

@@ -2,7 +2,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import type { RankableSet } from "./limitedRank";
 import { supabase } from "./supabaseClient";
 import { capture } from "./telemetry";
-import { delta, pct, shortDay } from "./insightCharts";
+import { delta, pct, pct1, shortDay } from "./insightCharts";
 
 /**
  * Insights (contract/insights-2026-10-24.md): the published pack index, the packs (fetched once per version) and
@@ -44,6 +44,8 @@ export interface Window {
   decks: number; weighted: number; events: number; thin: boolean; brief: string | null; won_of?: number;
   share: ShareRow[];
   cards: Record<"main" | "side", { up: CardRow[]; down: CardRow[] }>;
+  /** this tier × window's matchup grid (packs from 20261030090000 on) */
+  matchups?: Matchups;
 }
 export interface Series { from: string; days: number; lines: { a: number; v: (number | null)[] }[]; other: (number | null)[] }
 export interface NewSet { set_code: string; name: string; released: string; cards: { c: string; n: string; rate: number; copies: number | null; in: number[] | null }[] }
@@ -57,7 +59,9 @@ export interface BanStudy {
   replacements: { c: string; n: string; before: number; after: number; in: number }[];
   settled_days: number | null; brief: string | null;
 }
-export interface Matchups { archetypes: number[]; cells: [number, number, number, number, number][] }
+/** `archetypes` are the grid's columns (top 10); `rows` every discernible archetype, the columns first, Other last
+ *  (missing from packs before 20261030090000). */
+export interface Matchups { archetypes: number[]; rows?: number[]; cells: [number, number, number, number, number][] }
 export interface EventRow { name: string; on: string; players: number | null; tier: string; source: string; url: string | null; top8: number[] | null; winner: number | null }
 export interface ConstructedPack {
   format: string; name: string; through: string; sources: string[]; default_tier: Tier;
@@ -193,6 +197,80 @@ export const afterWindow = (b: BanStudy) => {
   for (const d of [60, 30, 14]) if (b.after[String(d)]) return { days: d, shares: b.after[String(d)] };
   return null;
 };
+/** The matchup grid for the picked tier and window, and what it covers; an older pack has only its 90-day,
+ *  All events grid. */
+export function gridFor(pack: ConstructedPack, tier: Tier, days: number): { m: Matchups; scope: string } {
+  const m = pack.tiers[tier]?.windows[String(days)]?.matchups;
+  return m ? { m, scope: `${tier === "big" ? "Big events" : "All events"}, last ${days} days` } : { m: pack.matchups, scope: "All events, last 90 days" };
+}
+/** What `insights_mine` says about the signed-in account in a format: its decks with their archetypes, and how much
+ *  of each archetype's usual list its collection holds. */
+export interface Mine { decks: { a: number; id: string; name: string }[]; coverage: { a: number; have: number }[] }
+/** Collection coverage from which an archetype counts as nearly yours. */
+export const CLOSE = 0.6;
+/** The grid's rows with your decks first, then archetypes your collection nearly builds, each with its note
+ *  (testdata/insights/yours-first.json). */
+export function yoursFirst(rows: number[], mine: Mine | null): { a: number; note: string | null }[] {
+  if (!mine) return rows.map((a) => ({ a, note: null }));
+  const decks = new Map<number, number>();
+  for (const d of mine.decks) if (d.a !== 0) decks.set(d.a, (decks.get(d.a) ?? 0) + 1);
+  const have = new Map(mine.coverage.filter((c) => c.a !== 0).map((c) => [c.a, c.have]));
+  const own = rows.filter((a) => decks.has(a));
+  const close = rows.filter((a) => !decks.has(a) && (have.get(a) ?? 0) >= CLOSE).sort((x, y) => have.get(y)! - have.get(x)! || rows.indexOf(x) - rows.indexOf(y));
+  const rest = rows.filter((a) => !own.includes(a) && !close.includes(a));
+  return [
+    ...own.map((a) => ({ a, note: decks.get(a)! > 1 ? `Your ${decks.get(a)} decks` : "Your deck" })),
+    ...close.map((a) => ({ a, note: `You have ${Math.floor(have.get(a)! * 100 + 1e-9)}%` })),
+    ...rest.map((a) => ({ a, note: null })),
+  ];
+}
+/* ── a deck's archetype, on the deck's own screen (list_insight) ───────── */
+
+export interface Record3 { wins: number; losses: number; draws: number }
+export interface DeckInsightAnswer {
+  format: string; a: number | null; name?: string; reason?: "other" | "no_format";
+  month?: Record3; week?: Record3; prev?: Record3;
+  matchups?: (Record3 & { vs: number; name: string })[];
+}
+export interface DeckInsight { title: string | null; win: string | null; change: string | null; good: string[]; bad: string[]; note: string | null }
+/** Matches a rate needs before it's shown. */
+export const DECK_MIN = 20;
+/** How a deck screen words its archetype's numbers (testdata/insights/deck-insight.json). */
+export function deckInsight(r: DeckInsightAnswer): DeckInsight {
+  const none = { title: null, win: null, change: null, good: [], bad: [] };
+  if (r.reason === "other" || r.a === 0) return { ...none, note: "Doesn't match an archetype Insights knows" };
+  if (!r.a || !r.name) return { ...none, note: null };
+  const rate = (x?: Record3) => { const n = x ? x.wins + x.losses + x.draws : 0; return x && n >= DECK_MIN ? x.wins / n : null; };
+  const month = rate(r.month), week = rate(r.week), prev = rate(r.prev);
+  let change: string | null = null;
+  if (week != null && prev != null) {
+    const d = (week - prev) * 100;
+    change = Math.abs(d) < 0.05 ? "Same as last week" : `${d > 0 ? "▲" : "▼"} ${Math.abs(d).toFixed(1)} pts on last week`;
+  }
+  const rated = (r.matchups ?? []).filter((m) => m.wins + m.losses >= DECK_MIN)
+    .map((m) => ({ m, wr: m.wins / (m.wins + m.losses), n: m.wins + m.losses }));
+  const label = (x: { m: { name: string }; wr: number }) => `${x.m.name} ${pct(x.wr)}`;
+  const good = rated.filter((x) => x.wr > 0.5).sort((x, y) => y.wr - x.wr || y.n - x.n).slice(0, 3).map(label);
+  const bad = rated.filter((x) => x.wr < 0.5).sort((x, y) => x.wr - y.wr || y.n - x.n).slice(0, 3).map(label);
+  return { title: r.name, win: month == null ? null : `Win ${pct1(month)}`, change, good, bad, note: null };
+}
+const deckInsights = new Map<string, Promise<DeckInsightAnswer | null>>();
+/** list_insight for a deck, once per deck a session (null when it fails: the rows don't show). */
+export function loadDeckInsight(listId: string, demo: boolean): Promise<DeckInsightAnswer | null> {
+  if (demo) return import.meta.env.DEV ? import("../../../testdata/insights/deck-insight-demo.json").then((m) => m.default as DeckInsightAnswer) : Promise.resolve(null);
+  let p = deckInsights.get(listId);
+  if (!p) {
+    p = Promise.resolve(supabase.rpc("list_insight", { p_list_id: listId })).then(({ data, error }) => {
+      if (error) { deckInsights.delete(listId); return null; }
+      return data as DeckInsightAnswer;
+    });
+    deckInsights.set(listId, p);
+  }
+  return p;
+}
+
+/** The grid's rows: every discernible archetype, or the columns in an older pack. */
+export const matchupRows = (m: Matchups) => (m.rows?.length ? m.rows : m.archetypes);
 /** A matchup cell read from the row archetype's side. */
 export function matchup(m: Matchups, a: number, b: number): { wins: number; losses: number; draws: number } | null {
   const ab = m.cells.find((c) => c[0] === a && c[1] === b);
@@ -417,9 +495,29 @@ export async function cardPage(format: string, oracleId: string, tier: Tier): Pr
   return data as CardPage;
 }
 
+const mines = new Map<string, Promise<Mine | null>>();
+/** Your decks and collection coverage in a format (`insights_mine`), once per format a session; null signed out or
+ *  on failure (the grid then keeps its order). */
+export function mineFor(format: string): Promise<Mine | null> {
+  if (state.demo) return Promise.resolve(demoMines[format] ?? null);
+  let p = mines.get(format);
+  if (!p) {
+    p = (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return null;
+      const { data, error } = await supabase.rpc("insights_mine", { p_format: format });
+      if (error) { mines.delete(format); return null; }
+      return data as Mine;
+    })();
+    mines.set(format, p);
+  }
+  return p;
+}
+
 /* ── demo (dev only, ?demo) ───────────────────────────────────────────── */
 
 let pages: Record<string, unknown> = {};
+let demoMines: Record<string, Mine> = {};
 async function demoPage(key: string, fallback: string) {
   const p = pages[key] ?? pages[fallback];
   if (!p) throw new Error("No demo page");
@@ -444,7 +542,8 @@ export async function loadInsightsDemo() {
       const k = name.slice("limited-".length);
       limited[k] = body as LimitedPack;
       index.push({ kind: "limited", key: k, name: k, version: "demo", url: "", bytes: 0, through: null });
-    } else if (name === "pages") pages = body as Record<string, unknown>;
+    } else if (name.startsWith("mine-")) demoMines[name.slice("mine-".length)] = body as Mine;
+    else if (name === "pages") pages = body as Record<string, unknown>;
   }
   set({ demo: true, index, constructed, limited, error: null });
 }
