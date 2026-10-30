@@ -13,6 +13,13 @@ import kotlinx.serialization.json.jsonPrimitive
 
 /** Insights packs and read RPCs (contract/insights-2026-10-24.md § Packs, § RPCs). Wire names as published. */
 object Insights {
+    /** Which pack to load first: the one on screen (the picked format, or on Limited the picked set or else the first), then its section's, then the rest. */
+    fun packOrder(index: List<IndexEntry>, section: String, format: String, setCode: String?): List<IndexEntry> {
+        val first = if (section == "limited") (setCode?.let { s -> index.firstOrNull { it.kind == "limited" && it.key == s } } ?: index.firstOrNull { it.kind == "limited" })
+            else index.firstOrNull { it.kind == "constructed" && it.key == format }
+        return listOfNotNull(first) + index.filter { it != first && it.kind == first?.kind } + index.filter { it.kind != first?.kind }
+    }
+
     val windows = listOf(7, 14, 30, 90)
     val formats = listOf("standard" to "Standard", "pioneer" to "Pioneer", "modern" to "Modern", "pauper" to "Pauper", "canlander" to "Canlander")
 

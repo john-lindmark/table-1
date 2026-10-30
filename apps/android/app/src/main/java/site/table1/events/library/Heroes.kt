@@ -1,5 +1,7 @@
 package site.table1.events.library
 
+import site.table1.events.util.rethrowIfCancelled
+
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -121,7 +123,7 @@ object HeroesStore {
                 _state.update { it.copy(heroes = heroes, error = null) }
                 saveCache()
             }
-            .onFailure { e -> if (_state.value.userId == user) _state.update { it.copy(error = e.message) } }
+            .onFailure { e -> e.rethrowIfCancelled(); if (_state.value.userId == user) _state.update { it.copy(error = e.message) } }
     }
 
     /** The next list after a toggle, or null when the scope already has [LIMIT] heroes. */

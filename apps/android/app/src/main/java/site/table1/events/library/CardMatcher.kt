@@ -412,8 +412,16 @@ class CardMatcher(
 
     private fun allowed(idx: Int) = owned == null || printings(idx).isNotEmpty()
 
-    private companion object {
-        const val MISSES = 5
+    companion object {
+        private const val MISSES = 5
+
+        /**
+         * Whether the lines include a type line ("Instant", "Creature — Elf"): text from a card, not a keyboard or a
+         * list. With no card found in the frame (always, on Android), a card is taken only when this holds or its set
+         * code and number agree with the name: a keyboard's "option" key is Opt (its French name), a decklist on a
+         * screen is a card. Same rule as iOS.
+         */
+        fun hasTypeLine(lines: List<String>) = lines.any { l -> typeLine(CardName.norm(l).split(' ').filter { it.isNotEmpty() }) }
 
         val TYPE_WORDS = setOf("creature", "instant", "sorcery", "artifact", "enchantment", "land", "planeswalker", "battle",
             "summon", "interrupt", "kindred", "tribal", "legendary",

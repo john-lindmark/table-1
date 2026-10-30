@@ -5,13 +5,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.jan.supabase.postgrest.postgrest
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import site.table1.events.T1App
 import site.table1.events.util.Telemetry
+import site.table1.events.util.rethrowIfCancelled
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -81,25 +88,63 @@ object InsightsStore {
     fun events(p: LimitedPack) = Insights.eventOrder.filter { p.events.containsKey(it) }
     fun currentEvent(p: LimitedPack) = events(p).let { if (event in it) event else it.firstOrNull() }
 
-    /** The index, then the pack on screen, then the rest. */
+    /** Packs being fetched, by "kind:key", so a pick and the background fill never fetch one twice. */
+    private val fetching = HashMap<String, Deferred<Unit>>()
+    /** Packs keep loading when the screen that asked goes away (leaving the tab mid-load used to stop the rest). */
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val parallel = Semaphore(3)
+
+    /**
+     * The index, then the pack on screen (the picked format, or on Limited the picked set), then the rest, three at
+     * a time. Packs were fetched one after another, constructed first, so a Limited set could wait behind the whole
+     * metagame (seven Limited packs are 0.4–0.85 MB each).
+     */
     suspend fun load(force: Boolean = false) {
         if (demo) return
-        if (!force && System.currentTimeMillis() - loadedAt < 600_000 && index.isNotEmpty()) return
+        if (!force && System.currentTimeMillis() - loadedAt < 600_000 && index.isNotEmpty()) {
+            fill()
+            return
+        }
         loading = true
         try {
             val raw = T1App.supabase.postgrest.rpc("insights_index").data
-            index = json.decodeFromString(raw)
+            index = withContext(Dispatchers.Default) { json.decodeFromString<List<IndexEntry>>(raw) }
             error = null
             loadedAt = System.currentTimeMillis()
         } catch (e: Exception) {
+            e.rethrowIfCancelled()
             error = "Insights couldn't load: ${e.message}"
         } finally {
             loading = false
         }
-        index.firstOrNull { it.kind == "constructed" && it.key == format }?.let { fetch(it) }
-        index.filter { !(it.kind == "constructed" && it.key == format) }.forEach { fetch(it) }
+        fill()
     }
 
+    /** Loads the packs on screen first and the rest behind them; returns once the one on screen is in. */
+    private suspend fun fill() {
+        val jobs = Insights.packOrder(index, section, format, setCode).filter { !has(it) }.map { start(it) }
+        jobs.firstOrNull()?.await()
+    }
+
+    /** A pack the screen needs now (a picked set or format, a page opened from a link): fetched ahead of the rest. */
+    suspend fun ensure(kind: String, key: String) {
+        if (demo) return
+        if (index.isEmpty()) load()
+        val e = index.firstOrNull { it.kind == kind && it.key == key } ?: return
+        if (!has(e)) start(e, first = true).await()
+    }
+
+    private fun has(e: IndexEntry) = if (e.kind == "constructed") constructed.containsKey(e.key) else limited.containsKey(e.key)
+
+    private fun start(e: IndexEntry, first: Boolean = false): Deferred<Unit> = fetching.getOrPut("${e.kind}:${e.key}") {
+        scope.async {
+            try {
+                if (first) fetch(e) else parallel.withPermit { fetch(e) }
+            } finally { fetching.remove("${e.kind}:${e.key}") }
+        }
+    }
+
+    /** A pack from the device when its version matches, else from the bucket; read and decoded off the main thread. */
     private suspend fun fetch(e: IndexEntry) {
         val text = withContext(Dispatchers.IO) {
             val dir = File(T1App.instance.cacheDir, "insights").apply { mkdirs() }
@@ -114,15 +159,25 @@ object InsightsStore {
                     conn.inputStream.use { it.readBytes() }.toString(Charsets.UTF_8)
                 } finally { conn.disconnect() }
             }.onSuccess { file.writeText(it); version.writeText(e.version) }.getOrNull()
-        } ?: return
+        } ?: run {
+            // Without this the screen said "Loading…" for good; the next visit to Insights tries again.
+            error = "Couldn't download the ${e.name.ifEmpty { e.key }} data. Check your connection."
+            return
+        }
         put(e.kind, e.key, text)
     }
 
-    private fun put(kind: String, key: String, text: String) {
+    private suspend fun put(kind: String, key: String, text: String) {
         try {
-            if (kind == "constructed") constructed = constructed + (key to json.decodeFromString<ConstructedPack>(text))
-            else limited = limited + (key to json.decodeFromString<LimitedPack>(text))
+            if (kind == "constructed") {
+                val p = withContext(Dispatchers.Default) { json.decodeFromString<ConstructedPack>(text) }
+                constructed = constructed + (key to p)
+            } else {
+                val p = withContext(Dispatchers.Default) { json.decodeFromString<LimitedPack>(text) }
+                limited = limited + (key to p)
+            }
         } catch (e: Exception) {
+            e.rethrowIfCancelled()
             error = "An Insights pack couldn't be read ($key)."
         }
     }
@@ -149,8 +204,8 @@ object InsightsStore {
             val text = context.assets.open("insights-demo/$f").use { it.readBytes().toString(Charsets.UTF_8) }
             val name = f.removeSuffix(".json")
             when {
-                name.startsWith("constructed-") -> name.removePrefix("constructed-").let { put("constructed", it, text); entries += IndexEntry("constructed", it, it, "demo", "") }
-                name.startsWith("limited-") -> name.removePrefix("limited-").let { put("limited", it, text); entries += IndexEntry("limited", it, it, "demo", "") }
+                name.startsWith("constructed-") -> name.removePrefix("constructed-").let { constructed = constructed + (it to json.decodeFromString<ConstructedPack>(text)); entries += IndexEntry("constructed", it, it, "demo", "") }
+                name.startsWith("limited-") -> name.removePrefix("limited-").let { limited = limited + (it to json.decodeFromString<LimitedPack>(text)); entries += IndexEntry("limited", it, it, "demo", "") }
                 name == "pages" -> demoPages = json.decodeFromString<Map<String, kotlinx.serialization.json.JsonElement>>(text).mapValues { it.value.toString() }
             }
         }

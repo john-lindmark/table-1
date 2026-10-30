@@ -1,5 +1,7 @@
 package site.table1.events.ui.screens
 
+import site.table1.events.util.rethrowIfCancelled
+
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -125,7 +127,7 @@ fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit
     val hasCamera = remember { context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY) }
 
     suspend fun load() {
-        runCatching { Repo.accountOverview() }.onSuccess { overview = it; error = null }.onFailure { error = it.message }
+        runCatching { Repo.accountOverview() }.onSuccess { overview = it; error = null }.onFailure { it.rethrowIfCancelled(); error = it.message }
         alertsOn = Repo.nearbyAlertsOn()
         TrackerSettings.refresh()
     }

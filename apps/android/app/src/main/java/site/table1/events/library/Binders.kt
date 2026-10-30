@@ -1,5 +1,7 @@
 package site.table1.events.library
 
+import site.table1.events.util.rethrowIfCancelled
+
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -319,6 +321,7 @@ object BindersStore {
                 }
             }
         } catch (e: Exception) {
+            e.rethrowIfCancelled()
             if (_state.value.userId == user) set { it.copy(error = e.message ?: "Couldn't sync your binders") }
         }
     }

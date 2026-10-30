@@ -175,6 +175,7 @@ private fun ConstructedHome(navigate: (String) -> Unit) {
         T1Segmented(keys.map { k -> Insights.formats.first { it.first == k }.second }, keys.indexOf(s.format).coerceAtLeast(0), scroll = true) { s.pickFormat(keys[it]) }
     }
     if (editing) ShownEditor("Shown formats", Insights.formats.map { Triple(it.first, it.second, null) }, s.hiddenFormats, { k, hide -> s.setHidden(true, k, hide) }) { editing = false }
+    LaunchedEffect(s.format) { s.ensure("constructed", s.format) }
     val pack = s.pack
     if (pack == null) {
         Notice(s.error ?: if (s.loading || s.index.isEmpty()) "Loading the metagame…" else "No results for this format yet.", error = s.error != null)
@@ -228,6 +229,7 @@ fun ConstructedPartScreen(format: String, part: String, navigate: (String) -> Un
     val s = InsightsStore
     val context = LocalContext.current
     var board by remember { mutableStateOf("main") }
+    LaunchedEffect(format) { s.ensure("constructed", format) }
     val pack = s.constructed[format]
     val tier = pack?.let { s.tier(it) } ?: "big"
     val title = pack?.let { p -> Insights.formatParts(p, tier, s.days).firstOrNull { it.key == part }?.title }
@@ -307,6 +309,7 @@ private fun CardMoveRow(f: String, c: CardRow, up: Boolean, navigate: (String) -
 @Composable
 fun ArchetypeInsightScreen(format: String, id: Int, finish: Int?, navigate: (String) -> Unit, onBack: () -> Unit) {
     val s = InsightsStore
+    LaunchedEffect(format) { s.ensure("constructed", format) }
     val pack = s.constructed[format]
     var page by remember { mutableStateOf<ArchetypePage?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -448,6 +451,7 @@ fun AddToDecksRow(added: AddedDeck?, onAdd: () -> Unit, onOpen: (String) -> Unit
 @Composable
 fun CardInsightScreen(format: String, oracleId: String, name: String, navigate: (String) -> Unit, onBack: () -> Unit) {
     val s = InsightsStore
+    LaunchedEffect(format) { s.ensure("constructed", format) }
     val pack = s.constructed[format]
     var page by remember { mutableStateOf<CardPage?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -478,6 +482,7 @@ fun CardInsightScreen(format: String, oracleId: String, name: String, navigate: 
 @Composable
 fun BanStudyScreen(format: String, changeId: Int, navigate: (String) -> Unit, onBack: () -> Unit) {
     LaunchedEffect(Unit) { Telemetry.screen("insights_ban") }
+    LaunchedEffect(format) { InsightsStore.ensure("constructed", format) }
     val pack = InsightsStore.constructed[format]
     val b = pack?.bans?.firstOrNull { it.change == changeId }
     val ch = pack?.change(changeId)
@@ -509,6 +514,7 @@ fun BanStudyScreen(format: String, changeId: Int, navigate: (String) -> Unit, on
 @Composable
 fun MatchupsScreen(format: String, onBack: () -> Unit) {
     LaunchedEffect(Unit) { Telemetry.screen("insights_matchups") }
+    LaunchedEffect(format) { InsightsStore.ensure("constructed", format) }
     val pack = InsightsStore.constructed[format]
     T1Screen {
         Bar("Matchups", "${pack?.name ?: format} · last 90 days", onBack = onBack)
@@ -565,7 +571,8 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     PickerRow(editing, { editing = !editing }) { T1Segmented(sets, sets.indexOf(set), scroll = true) { s.pickSet(sets[it]) } }
     if (editing) ShownEditor("Shown sets", s.limitedSets.map { Triple(it.key, it.key, it.name.takeIf { n -> n != it.key }) }, s.hiddenSets,
         { k, hide -> s.setHidden(false, k, hide) }) { editing = false }
-    val pack = s.limited[set] ?: run { Notice("Loading $set…"); return }
+    LaunchedEffect(set) { s.ensure("limited", set) }
+    val pack = s.limited[set] ?: run { Notice(s.error ?: "Loading $set…", error = s.error != null); return }
     val events = s.events(pack)
     val ev = s.currentEvent(pack) ?: return
     if (events.size > 1) T1Segmented(events.map { Insights.eventLabels[it] ?: it }, events.indexOf(ev)) { s.pickEvent(events[it]) }
@@ -633,6 +640,7 @@ private fun LimitedHome(navigate: (String) -> Unit) {
 @Composable
 fun PairInsightScreen(set: String, event: String, group: String, pair: String, navigate: (String) -> Unit, onBack: () -> Unit) {
     LaunchedEffect(Unit) { Telemetry.screen("insights_pair") }
+    LaunchedEffect(set) { InsightsStore.ensure("limited", set) }
     val pack = InsightsStore.limited[set]
     val v = pack?.events?.get(event)?.groups?.get(group)
     val p = v?.pairs?.firstOrNull { it.p == pair }
@@ -661,6 +669,7 @@ fun PairInsightScreen(set: String, event: String, group: String, pair: String, n
 @Composable
 fun LimitedCardScreen(set: String, event: String, group: String, name: String, navigate: (String) -> Unit, onBack: () -> Unit) {
     LaunchedEffect(Unit) { Telemetry.screen("insights_limited_card") }
+    LaunchedEffect(set) { InsightsStore.ensure("limited", set) }
     val pack = InsightsStore.limited[set]
     val v = pack?.events?.get(event)?.groups?.get(group)
     val c = v?.cards?.firstOrNull { it.n == name }

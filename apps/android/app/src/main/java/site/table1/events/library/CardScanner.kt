@@ -9,6 +9,23 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
+import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.key
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.layout
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,7 +38,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -58,10 +74,6 @@ import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Segmented
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
@@ -144,10 +156,14 @@ fun CardScanOverlay(
         onCancel()
     }
 
-    /** One frame's lines; true when they name a card. */
+    val view = LocalView.current
+    /**
+     * One frame's lines; true when they name a card. ML Kit finds no card in the frame on Android, so the text must
+     * look like a card's: a type line, or a set code and number that agree with the name (CardMatcher.hasTypeLine).
+     */
     fun see(lines: List<String>): Boolean {
         val m = matcher ?: return false
-        val hit = m.match(lines)
+        val hit = m.match(lines)?.takeIf { it.exact || CardMatcher.hasTypeLine(lines) }
         frames.add(lines, named = hit != null)
         reading = hit?.oracle?.name
         val take = steady.feed(hit) ?: return hit != null
@@ -160,6 +176,7 @@ fun CardScanOverlay(
             frames = frames.frames.toList(), matched = ScannedCard.Matched(take.first.cardId, take.second),
             // Owned-only scans (giving in a trade) keep the owned copy's language.
             lang = if (owned == null) Languages.forScan(take.first.lang, hit.langs, Languages.addLang) else Languages.forNew(take.first.lang, Languages.addLang)))
+        view.performHapticFeedback(if (android.os.Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY)
         return true
     }
 
@@ -189,13 +206,19 @@ fun CardScanOverlay(
                 Bar(title, subtitle = if (cards.isEmpty()) (if (owned == null) "Hold a card flat in the frame" else "Matching cards you own")
                     else "${cards.size} scanned", onBack = cancel)
                 when {
-                    !granted -> Notice(if (asked) "Camera access is off. Allow it for Table 1 in Settings, or search by name instead."
-                        else "Asking for the camera…", error = asked)
-                    cat.phase != "ready" -> CatalogStatus(cat)
-                    else -> Box(Modifier.fillMaxWidth().height(300.dp)) {
+                    !granted -> {
+                        Notice(if (asked) "Camera access is off. Allow it for Table 1 in Settings, or search by name instead."
+                            else "Asking for the camera…", error = asked)
+                        Box(Modifier.weight(1f))
+                    }
+                    cat.phase != "ready" -> {
+                        CatalogStatus(cat)
+                        Box(Modifier.weight(1f))
+                    }
+                    // The camera takes whatever the header, condition picker, scanned list and footer leave.
+                    else -> Box(Modifier.fillMaxWidth().weight(1f).clipToBounds()) {
                         CameraText { see(it) }
-                        ScanGuide(reading != null)
-                        reading?.let { Label(it, Modifier.align(Alignment.BottomStart).background(T1.bg).padding(8.dp), color = T1.text) }
+                        ScanGuide(reading)
                     }
                 }
                 if (owned == null) {
@@ -204,45 +227,15 @@ fun CardScanOverlay(
                         prefs.edit().putString("addCondition", condition).apply()
                     }
                 }
-                Hairlines(Modifier.weight(1f)) {
-                    items(cards, key = { it.id }) { c ->
-                        val finishes = c.printing.finishList
-                        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).background(T1.surface), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-                            Box(Modifier.weight(1f)) {
-                                // Tap the card to change its printing (a misread set code or collector number).
-                                CardRow(c.printing, c.oracle.name, listOfNotNull(c.printing.setLabel, Finish.of(c.finish)?.label,
-                                    if (owned == null) c.condition else null, if (owned == null && c.lang != "en") c.lang.uppercase() else null,
-                                    if (c.exact || c.fixed) null else "Check printing").joinToString(" · "),
-                                    onClick = { fixing = c.id }, finish = c.finish) {
-                                    Label("Printing", color = if (c.exact || c.fixed) T1.muted else T1.text)
-                                }
-                            }
-                            if (finishes.size > 1) {
-                                // Foil can't be told from the camera: tap to switch.
-                                Box(Modifier.fillMaxHeight().background(T1.surfaceHover).clickable {
-                                    val i = finishes.indexOfFirst { it.wire == c.finish }
-                                    val next = finishes[(i + 1) % finishes.size].wire
-                                    val at = cards.indexOfFirst { it.id == c.id }
-                                    if (at >= 0) cards[at] = c.copy(finish = next)
-                                }.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
-                                    Label(Finish.of(c.finish)?.label ?: c.finish, color = T1.text)
-                                }
-                            }
-                            // The language: the card's own when the scanner read a non-English printing, else the add default.
-                            // Owned-only scans (giving in a trade) keep the owned copy's language.
-                            if (owned == null) Box(Modifier.fillMaxHeight().background(T1.surfaceHover).clickable { languageFor = c.id }
-                                .semantics { contentDescription = "Language, ${Languages.name(c.lang)}" }
-                                .padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
-                                Label(c.lang.uppercase(), color = T1.text)
-                            }
-                            Box(Modifier.width(52.dp).fillMaxHeight().background(T1.surfaceHover).clickable {
-                                ScanReports.removed(c, owned != null)
-                                cards.removeAll { it.id == c.id }
-                            },
-                                contentAlignment = Alignment.Center) {
-                                Text("×", color = T1.text, fontFamily = T1.mono, fontSize = 20.sp)
-                            }
-                        }
+                if (cards.isNotEmpty()) {
+                    // Sized to its rows, up to about three, so the camera keeps most of the screen.
+                    Column(Modifier.fillMaxWidth().heightIn(max = 210.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        for (c in cards) key(c.id) { ScanRow(c, owned != null,
+                            onPrinting = { fixing = c.id },
+                            onLanguage = { languageFor = c.id },
+                            onFinish = { next -> val at = cards.indexOfFirst { it.id == c.id }; if (at >= 0) cards[at] = c.copy(finish = next) },
+                            onRemove = { ScanReports.removed(c, owned != null); cards.removeAll { it.id == c.id } }) }
                     }
                 }
                 BigAction(if (cards.isEmpty()) "Scan a card" else "$doneLabel ${cards.size}", enabled = cards.isNotEmpty(), accent = true) {
@@ -261,19 +254,78 @@ fun CardScanOverlay(
  * after a run of misses. One recognizer per frame; the CJK ones are made (and their models fetched by Play
  * services) only the first time they're needed.
  */
-/** Space kept above and below the guide box when the camera view's height limits it. */
-private val GUIDE_MARGIN = 24.dp
+/** Space kept above and below the guide box for its tips when the camera view's height limits it (iOS: 96 pt). */
+private val GUIDE_MARGIN = 96.dp
 
-/** What to point at: the card-sized box the scanner reads inside (ScanRegion); accent while a name is being read. */
+/** One scanned card: tap it to change the printing; language, finish (when there's a choice) and remove beside it. */
 @Composable
-private fun ScanGuide(reading: Boolean) {
-    val margin = with(LocalDensity.current) { GUIDE_MARGIN.toPx() }
-    Canvas(Modifier.fillMaxSize()) {
-        val b = ScanRegion.viewBox(size.width, size.height, margin)
-        drawRect(if (reading) T1.accent else T1.text.copy(alpha = 0.7f), topLeft = Offset(b.x, b.y), size = Size(b.w, b.h),
-            style = Stroke(width = 1.dp.toPx()))
+private fun ScanRow(c: ScannedCard, ownedOnly: Boolean, onPrinting: () -> Unit, onLanguage: () -> Unit, onFinish: (String) -> Unit, onRemove: () -> Unit) {
+    val finishes = c.printing.finishList
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).background(T1.surface), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+        Box(Modifier.weight(1f)) {
+            // Tap the card to change its printing (a misread set code or collector number).
+            CardRow(c.printing, c.oracle.name, listOfNotNull(c.printing.setLabel, Finish.of(c.finish)?.label,
+                if (!ownedOnly) c.condition else null, if (!ownedOnly && c.lang != "en") c.lang.uppercase() else null,
+                if (c.exact || c.fixed) null else "Check printing").joinToString(" · "),
+                onClick = onPrinting, finish = c.finish) {
+                Label("Printing", color = if (c.exact || c.fixed) T1.muted else T1.text)
+            }
+        }
+        // The language: the printing's or the printed name's the scanner read, else the add default. Owned-only scans
+        // (giving in a trade) keep the owned copy's language.
+        if (!ownedOnly) Box(Modifier.fillMaxHeight().background(T1.surfaceHover).clickable(onClick = onLanguage)
+            .semantics { contentDescription = "Language, ${Languages.name(c.lang)}" }
+            .padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+            Label(c.lang.uppercase(), color = T1.text)
+        }
+        if (finishes.size > 1) {
+            // Foil can't be told from the camera: tap to switch.
+            Box(Modifier.fillMaxHeight().background(T1.surfaceHover).clickable {
+                val i = finishes.indexOfFirst { it.wire == c.finish }
+                onFinish(finishes[(i + 1) % finishes.size].wire)
+            }.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+                Label(Finish.of(c.finish)?.label ?: c.finish, color = T1.text)
+            }
+        }
+        Box(Modifier.width(52.dp).fillMaxHeight().background(T1.surfaceHover).clickable(onClick = onRemove)
+            .semantics { contentDescription = "Remove" }, contentAlignment = Alignment.Center) {
+            Text("×", color = T1.text, fontFamily = T1.mono, fontSize = 20.sp)
+        }
     }
 }
+
+/**
+ * What to point at: a card-sized outline (the box the scanner reads inside, ScanRegion) with where it reads (the
+ * name at the top, the set code and collector number at the bottom left), a tip above and below. The outline and
+ * the top tip turn accent while a name is being read. Same as iOS.
+ */
+@Composable
+private fun ScanGuide(reading: String?) {
+    val density = LocalDensity.current
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val b = with(density) { ScanRegion.viewBox(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat(), GUIDE_MARGIN.toPx()) }
+        val line = if (reading == null) T1.text.copy(alpha = 0.7f) else T1.accent
+        with(density) {
+            val top = b.y.toDp(); val left = b.x.toDp(); val w = b.w.toDp(); val h = b.h.toDp()
+            Box(Modifier.offset(left, top).size(w, h).border(1.dp, line).padding(8.dp)) {
+                GuideMark("Name", Modifier.align(Alignment.TopStart))
+                GuideMark("Set · number", Modifier.align(Alignment.BottomStart))
+            }
+            GuideTip(reading ?: "One card, upright, filling the outline", if (reading == null) T1.text else T1.accent,
+                Modifier.align(Alignment.TopCenter).offset(y = top - 12.dp)
+                    .layout { m, c -> val p = m.measure(c); layout(p.width, 0) { p.place(0, -p.height) } })
+            GuideTip("Light from above, no glare", T1.muted, Modifier.align(Alignment.TopCenter).offset(y = top + h + 12.dp))
+        }
+    }
+}
+
+@Composable
+private fun GuideTip(text: String, color: Color, modifier: Modifier) =
+    Label(text, modifier.widthIn(max = 320.dp).background(T1.bg.copy(alpha = 0.8f)).padding(horizontal = 8.dp, vertical = 4.dp), color = color)
+
+@Composable
+private fun GuideMark(text: String, modifier: Modifier) =
+    Label(text, modifier.background(T1.bg.copy(alpha = 0.6f)).padding(horizontal = 6.dp, vertical = 2.dp))
 
 @Composable
 private fun CameraText(onLines: (List<String>) -> Boolean) {
@@ -316,12 +368,25 @@ private fun CameraText(onLines: (List<String>) -> Boolean) {
         reading.set(language.mode)
     }
     AndroidView(factory = { ctx ->
-        val view = PreviewView(ctx)
+        // TextureView ("compatible"): a SurfaceView punches through the dialog's window, so the preview drew outside
+        // its box and over the guide.
+        val view = PreviewView(ctx).apply {
+            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+            scaleType = PreviewView.ScaleType.FILL_CENTER
+        }
         val future = ProcessCameraProvider.getInstance(ctx)
         future.addListener({
             val provider = future.get()
-            val preview = Preview.Builder().build().also { it.surfaceProvider = view.surfaceProvider }
-            val analysis = ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build()
+            // Both 4:3, so the guide maps onto the analysed image as it shows in the preview; 1280×960 for analysis
+            // (CameraX's 640×480 default leaves the set code and collector number a few pixels tall).
+            val ratio = AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY
+            val preview = Preview.Builder().setResolutionSelector(ResolutionSelector.Builder().setAspectRatioStrategy(ratio).build())
+                .build().also { it.surfaceProvider = view.surfaceProvider }
+            val analysis = ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .setResolutionSelector(ResolutionSelector.Builder().setAspectRatioStrategy(ratio)
+                    .setResolutionStrategy(ResolutionStrategy(android.util.Size(1280, 960), ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER))
+                    .build())
+                .build()
             analysis.setAnalyzer(executor) { proxy ->
                 val media = proxy.image
                 if (media == null) { proxy.close(); return@setAnalyzer }

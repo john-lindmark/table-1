@@ -1,5 +1,7 @@
 package site.table1.events.library
 
+import site.table1.events.util.rethrowIfCancelled
+
 import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
@@ -387,6 +389,7 @@ object CatalogStore {
             old?.close()
             dir.listFiles()?.filter { it.name != file.name && it.name.startsWith("catalog-") }?.forEach { it.delete() }
         } catch (e: Exception) {
+            e.rethrowIfCancelled()
             if (e !is java.io.IOException) Telemetry.error(e, "catalog_pack")   // offline is expected
             // With a pack installed, keep using it quietly and try again next launch.
             if (!hadPack) fail(e.message ?: "Couldn't load card data")

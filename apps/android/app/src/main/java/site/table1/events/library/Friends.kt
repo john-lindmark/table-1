@@ -1,5 +1,7 @@
 package site.table1.events.library
 
+import site.table1.events.util.rethrowIfCancelled
+
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -437,7 +439,7 @@ object FriendsStore {
 
     fun stop() { _state.value = FriendsState() }
 
-    private fun fail(e: Throwable) = _state.update { it.copy(error = e.message) }
+    private fun fail(e: Throwable) { e.rethrowIfCancelled(); _state.update { it.copy(error = e.message) } }
 
     suspend fun load() {
         runCatching { rpc.rpc("friends_list").decodeAs<FriendsList>() }

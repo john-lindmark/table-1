@@ -129,3 +129,22 @@ class InsightsPackTest {
         }
     }
 }
+
+/* Pack load order: a Limited set waited behind every constructed pack, fetched one after another. */
+class InsightsPackOrderTest {
+    private fun e(kind: String, key: String) = IndexEntry(kind, key, key, "v1", "https://x/$key.json")
+    private val index = listOf(e("constructed", "standard"), e("constructed", "modern"), e("limited", "FRA"), e("limited", "MSH"))
+
+    @Test fun limitedPickFirst() {
+        assertEquals(listOf("MSH", "FRA", "standard", "modern"), Insights.packOrder(index, "limited", "modern", "MSH").map { it.key })
+    }
+
+    @Test fun limitedWithoutPickStartsAtFirstSet() {
+        assertEquals("FRA", Insights.packOrder(index, "limited", "modern", null).first().key)
+        assertEquals("FRA", Insights.packOrder(index, "limited", "modern", "GONE").first().key)
+    }
+
+    @Test fun constructedFormatFirst() {
+        assertEquals(listOf("modern", "standard", "FRA", "MSH"), Insights.packOrder(index, "constructed", "modern", "MSH").map { it.key })
+    }
+}

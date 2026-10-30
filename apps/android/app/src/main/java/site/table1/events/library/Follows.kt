@@ -1,5 +1,7 @@
 package site.table1.events.library
 
+import site.table1.events.util.rethrowIfCancelled
+
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -142,13 +144,13 @@ object FollowsStore {
     suspend fun load(): List<Follow>? =
         runCatching { rpc.rpc("follows_list").decodeAs<FollowsList>().items }
             .onSuccess { l -> _state.update { it.copy(items = l, error = null) } }
-            .onFailure { e -> _state.update { it.copy(error = e.message) } }
+            .onFailure { e -> e.rethrowIfCancelled(); _state.update { it.copy(error = e.message) } }
             .getOrNull()
 
     suspend fun loadState(kind: String, id: String) {
         runCatching { rpc.rpc("follow_get", buildJsonObject { put("p_kind", kind); put("p_id", id) }).decodeAs<FollowState>() }
             .onSuccess { s -> _state.update { it.copy(states = it.states + (id to s)) } }
-            .onFailure { e -> _state.update { it.copy(error = e.message) } }
+            .onFailure { e -> e.rethrowIfCancelled(); _state.update { it.copy(error = e.message) } }
     }
 
     /** Follow / unfollow, or pushes on / off ([push] null keeps it). [token]: the link being looked through. */

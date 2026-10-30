@@ -7,6 +7,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -486,4 +487,14 @@ class CardMatcherTest {
 
     private fun JsonObject.str(key: String, default: String = "") =
         this[key]?.jsonPrimitive?.content?.takeIf { it != "null" } ?: default
+
+    /** The card gate (iOS testCardGate): with no card found in the frame, a name counts only with a type line or an
+     *  exact set code and number, so a keyboard's "option" key isn't Opt. */
+    @Test fun typeLineGate() {
+        assertTrue(CardMatcher.hasTypeLine(listOf("Lightning Bolt", "Instant")))
+        assertTrue(CardMatcher.hasTypeLine(listOf("Llanowar Elves", "Creature — Elf Druid")))
+        assertTrue(CardMatcher.hasTypeLine(listOf("稲妻", "インスタント")))
+        assertFalse(CardMatcher.hasTypeLine(listOf("command", "option", "control")))
+        assertFalse(CardMatcher.hasTypeLine(listOf("4 Lightning Bolt", "4 Opt")))
+    }
 }

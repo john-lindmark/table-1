@@ -1,5 +1,7 @@
 package site.table1.events.library
 
+import site.table1.events.util.rethrowIfCancelled
+
 import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
 import io.github.jan.supabase.exceptions.HttpRequestException
@@ -267,6 +269,7 @@ object CollectionStore {
                 if (!page.more) return
             }
         } catch (e: Exception) {
+            e.rethrowIfCancelled()
             if (_state.value.userId == user) set { it.copy(error = e.message ?: "Couldn't sync your collection") }
         } finally {
             set { it.copy(syncing = false) }

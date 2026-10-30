@@ -1,5 +1,7 @@
 package site.table1.events.ui.screens
 
+import site.table1.events.util.rethrowIfCancelled
+
 import site.table1.events.data.EventRules
 
 import androidx.compose.foundation.background
@@ -81,7 +83,7 @@ fun EventsHomeScreen(
     suspend fun load() {
         runCatching { Repo.eventsHome() }
             .onSuccess { data = it; error = null }
-            .onFailure { if (data == null) { error = it.message; data = HomeData() } }
+            .onFailure { it.rethrowIfCancelled(); if (data == null) { error = it.message; data = HomeData() } }
         snaps = Repo.liveSnapshots().associateBy { it.eventId }
         TrackerSettings.refresh()
     }

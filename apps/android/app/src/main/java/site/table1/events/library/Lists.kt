@@ -1,5 +1,7 @@
 package site.table1.events.library
 
+import site.table1.events.util.rethrowIfCancelled
+
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -198,6 +200,7 @@ object ListsStore {
                 if (!page.more) return@repeat
             }
         } catch (e: Exception) {
+            e.rethrowIfCancelled()
             if (_state.value.userId == user) _state.value = _state.value.copy(error = e.message ?: "Couldn't sync your decks and cubes")
         } finally {
             syncRun = null
