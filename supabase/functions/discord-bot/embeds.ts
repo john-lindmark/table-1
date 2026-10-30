@@ -256,21 +256,45 @@ export function outcomeText(result: string, c: Card, position?: number | null): 
 
 // ---------------------------------------------------------------- results
 
-import type { ResultRow } from "./standings.ts";
+import type { ResultRow, TeamResultRow } from "./standings.ts";
 
-export function resultsEmbed(c: Card, rows: ResultRow[], final: boolean) {
+const record = (w: number, l: number, d: number) => `${w}-${l}${d ? `-${d}` : ""}`;
+
+/** The results post. A team event (teams given) shows each team on its own, members best first under it, as the
+ *  apps' team table does; otherwise the players in order. */
+export function resultsEmbed(c: Card, rows: ResultRow[], final: boolean, teams: TeamResultRow[] | null = null) {
+  const title = `${final ? "Results" : "Standings so far"} · ${clean(c.name)}`.slice(0, 256);
+  const after = `Table 1 · After round ${c.current_round} of ${c.number_of_rounds}`;
+  if (teams?.length) {
+    const shown = teams.slice(0, 10);
+    const fields = shown.map((t) => ({
+      name: `${t.rank === 1 && final ? "🏆" : `${t.rank}.`} ${clean(t.name)} · ${record(t.wins, t.losses, t.draws)} · ${t.points} pts · ${t.matchWins} match win${t.matchWins === 1 ? "" : "s"}`.slice(0, 256),
+      value: (t.members.length
+        ? t.members.map((m) => `${clean(m.name)}${m.dropped ? " (dropped)" : ""} · ${record(m.wins, m.losses, m.draws)}`).join("\n")
+        : "—").slice(0, 1024),
+      inline: false,
+    }));
+    if (teams.length > shown.length) fields.push({ name: `…and ${teams.length - shown.length} more teams`, value: "On Table 1", inline: false });
+    return {
+      title,
+      url: c.link,
+      color: ACCENT,
+      fields,
+      footer: { text: final ? `Table 1 · Final standings · ${teams.length} teams · ${rows.length} players` : after },
+    };
+  }
   const shown = rows.slice(0, final ? 8 : 16);
   const lines = shown.map((r) =>
-    `${r.rank === 1 && final ? "🏆" : `${r.rank}.`} ${clean(r.name)}${r.dropped ? " (dropped)" : ""} · ${r.wins}-${r.losses}${r.draws ? `-${r.draws}` : ""} · ${r.points} pts`
+    `${r.rank === 1 && final ? "🏆" : `${r.rank}.`} ${clean(r.name)}${r.dropped ? " (dropped)" : ""} · ${record(r.wins, r.losses, r.draws)} · ${r.points} pts`
   );
   if (rows.length > shown.length) lines.push(`…and ${rows.length - shown.length} more`);
   if (!rows.length) lines.push("No results yet.");
   return {
-    title: `${final ? "Results" : "Standings so far"} · ${clean(c.name)}`.slice(0, 256),
+    title,
     url: c.link,
     description: lines.join("\n").slice(0, 4000),
     color: ACCENT,
-    footer: { text: final ? `Table 1 · Final standings · ${rows.length} players` : `Table 1 · After round ${c.current_round} of ${c.number_of_rounds}` },
+    footer: { text: final ? `Table 1 · Final standings · ${rows.length} players` : after },
   };
 }
 

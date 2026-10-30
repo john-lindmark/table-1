@@ -14,7 +14,7 @@ import {
   eventComponents, needLinkMessage, opt, outcomeText, parseButtonId, parseWhen, type Part, partComponents, partConfirmMessage, partEmbed,
   type PartPost, ResponseType, resultsComponents, resultsEmbed, userId, zoneChoices,
 } from "./embeds.ts";
-import { loadStandings } from "./standings.ts";
+import { isTeamFormat, loadStandings } from "./standings.ts";
 import { hashId, Telemetry } from "./telemetry.ts";
 import { verifyInteraction } from "./verify.ts";
 
@@ -163,10 +163,10 @@ async function signUpOrDrop(ctx: Ctx, action: "up" | "down", eventId: string, vi
 
 async function results(ctx: Ctx, eventId: string): Promise<Response> {
   const r = await rpc<Card & { final: boolean; organizer: boolean }>("discord_event_results", { p_discord_id: ctx.discordId, p_guild_id: ctx.guildId, p_event_id: eventId, p_channel_id: ctx.channelId });
-  const rows = await loadStandings(admin, eventId);
-  ctx.telemetry.push({ event: "discord_results_posted", final: r.final, players: rows.length });
+  const { rows, teams } = await loadStandings(admin, eventId, isTeamFormat(r.format_name));
+  ctx.telemetry.push({ event: "discord_results_posted", final: r.final, players: rows.length, teams: teams?.length ?? 0 });
   rememberPost(ctx, eventId, "results");
-  return reply({ embeds: [resultsEmbed(r, rows, r.final)], components: resultsComponents(r) });
+  return reply({ embeds: [resultsEmbed(r, rows, r.final, teams)], components: resultsComponents(r) });
 }
 
 async function deck(ctx: Ctx, listId: string, confirm: boolean): Promise<Response> {

@@ -4,7 +4,7 @@ import {
   COMMANDS, outcomeText, parseButtonId, parseWhen, partConfirmMessage, partEmbed, resultsEmbed, statusLine, validZone, zoneChoices,
 } from "./embeds.ts";
 import { DiscordRest } from "./discord.ts";
-import { toRows } from "./standings.ts";
+import { isTeamFormat, toRows, toTeamRows } from "./standings.ts";
 import { cleanProperties, hashId, Telemetry } from "./telemetry.ts";
 import { hexToBytes, verifyInteraction } from "./verify.ts";
 
@@ -169,15 +169,39 @@ Deno.test("results: ranks, records, points, the winner, the link", () => {
   const done = { ...card, status: "completed", sign_up: "closed" as const };
   const e = resultsEmbed(done, rows, true);
   assertEquals(e.title, "Results · Friday \\*\\*Modern\\*\\*");
-  assertEquals(e.description.split("\n"), ["🏆 Bea · 5-0 · 15 pts", "2. Ana · 4-1 · 12 pts", "3. Cal (dropped) · 1-2-1 · 4 pts"]);
+  assertEquals(e.description?.split("\n"), ["🏆 Bea · 5-0 · 15 pts", "2. Ana · 4-1 · 12 pts", "3. Cal (dropped) · 1-2-1 · 4 pts"]);
   assertEquals(e.footer.text, "Table 1 · Final standings · 3 players");
   assertEquals(e.url, card.link);
   const many = Array.from({ length: 20 }, (_, i) => ({ ...rows[2], rank: i + 1, name: `P${i + 1}` }));
-  assert(resultsEmbed(done, many, true).description.endsWith("…and 12 more"));
+  assert(resultsEmbed(done, many, true).description?.endsWith("…and 12 more"));
   const sofar = resultsEmbed({ ...card, status: "in_progress", current_round: 2 }, rows, false);
   assertEquals(sofar.title, "Standings so far · Friday \\*\\*Modern\\*\\*");
-  assert(sofar.description.startsWith("1. Bea"), "no trophy before the end");
+  assert(sofar.description?.startsWith("1. Bea"), "no trophy before the end");
   assertEquals(sofar.footer.text, "Table 1 · After round 2 of 3");
+});
+
+Deno.test("team results: each team on its own, members best first under it", () => {
+  const member = (displayName: string, matchWins: number, matchLosses: number, status: "active" | "dropped" = "active") =>
+    ({ participantId: displayName, displayName, slot: null, matchWins, matchLosses, matchDraws: 0, status });
+  const base = { draws: 0, byes: 0, gameWinPct: 0.5, opponentTeamIds: [] };
+  const teams = toTeamRows([
+    { ...base, teamId: "t1", name: "Team *Red*", rank: 1, points: 6, wins: 2, losses: 1, matchWins: 5, members: [member("Ana", 3, 0), member("Ben", 1, 2), member("Cal", 1, 2)] },
+    { ...base, teamId: "t2", name: "Team Blue", rank: 2, points: 3, wins: 1, losses: 2, matchWins: 4, members: [member("Dee", 2, 1), member("Eli", 1, 2), member("Fay", 1, 2, "dropped")] },
+  ]);
+  const done = { ...card, format_name: "team_draft", status: "completed", sign_up: "closed" as const };
+  const players = toRows([]).concat(Array.from({ length: 6 }, (_, i) => ({ rank: i + 1, name: `P${i}`, wins: 0, losses: 0, draws: 0, points: 0, dropped: false })));
+  const e = resultsEmbed(done, players, true, teams);
+  assertEquals(e.title, "Results · Friday \\*\\*Modern\\*\\*");
+  assertEquals(e.description, undefined, "no player list for a team event");
+  assertEquals(e.fields?.map((f) => f.name), ["🏆 Team \\*Red\\* · 2-1 · 6 pts · 5 match wins", "2. Team Blue · 1-2 · 3 pts · 4 match wins"]);
+  assertEquals(e.fields?.[0].value.split("\n"), ["Ana · 3-0", "Ben · 1-2", "Cal · 1-2"]);
+  assertEquals(e.fields?.[1].value.split("\n"), ["Dee · 2-1", "Eli · 1-2", "Fay (dropped) · 1-2"]);
+  assertEquals(e.footer.text, "Table 1 · Final standings · 2 teams · 6 players");
+  const sofar = resultsEmbed({ ...done, status: "in_progress", current_round: 2 }, players, false, teams);
+  assert(sofar.fields?.[0].name.startsWith("1. Team"), "no trophy before the end");
+  assertEquals(sofar.footer.text, "Table 1 · After round 2 of 3");
+  assert(isTeamFormat("team_draft") && isTeamFormat("team_sealed") && !isTeamFormat("draft") && !isTeamFormat(null));
+  assert(resultsEmbed(done, players, true, []).description?.startsWith("🏆 P0"), "no teams: the players' list");
 });
 
 Deno.test("deck and card posts", () => {
