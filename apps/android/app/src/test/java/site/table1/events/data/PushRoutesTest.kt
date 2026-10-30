@@ -30,7 +30,8 @@ class PushRoutesTest {
         assertEquals(screens("account", "friends"), link("kind" to "friend.request"))
         assertEquals(screens("account", "notices"), link("kind" to "moderation.notice"))
         assertEquals(screens("account", "review"), link("kind" to "moderation.review"))
-        assertEquals(screens("account"), link("kind" to "ops.bug", "bug_id" to "12"))
+        assertEquals(screens("account", "bugs", "bug/12"), link("kind" to "ops.bug", "bug_id" to "12"))
+        assertEquals(screens("account", "bugs"), link("kind" to "ops.build"))
     }
 
     @Test fun channels() {

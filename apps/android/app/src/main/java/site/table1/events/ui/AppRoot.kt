@@ -259,7 +259,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
         }
         CatalogStore.load(userInitiated = false)
     }
-    DisposableEffect(Unit) { onDispose { CollectionStore.stop(); ListsStore.stop(); TradesStore.stop(); BindersStore.stop(); HeroesStore.stop(); FriendsStore.stop(); FollowsStore.stop(); WantPricesStore.stop(); site.table1.events.library.ModerationStore.stop() } }
+    DisposableEffect(Unit) { onDispose { CollectionStore.stop(); ListsStore.stop(); TradesStore.stop(); BindersStore.stop(); HeroesStore.stop(); FriendsStore.stop(); FollowsStore.stop(); WantPricesStore.stop(); site.table1.events.library.ModerationStore.stop(); site.table1.events.library.BugsStore.stop() } }
     LaunchedEffect(foregrounds) {
         CatalogStore.load(userInitiated = route?.startsWith("collection") == true)
         if (foregrounds > 0) HeroesStore.refresh()
@@ -312,11 +312,16 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 insightsGraph(nav, moderator)
                 composable("account") {
                     AccountScreen(foregrounds = foregrounds, onFriends = { nav.navigate("friends") }, onSharing = { nav.navigate("sharing") },
-                        onProfile = { nav.navigate("profile/$it") }, onNotices = { nav.navigate("notices") }, onReview = { nav.navigate("review") })
+                        onProfile = { nav.navigate("profile/$it") }, onNotices = { nav.navigate("notices") }, onReview = { nav.navigate("review") }, onBugs = { nav.navigate("bugs") })
                 }
                 // Moderation (contract/moderation-2026-10-18.md): notices and appeals; Review for moderators.
                 composable("notices") { site.table1.events.library.NoticesScreen(onBack = { nav.popBackStack() }) }
                 composable("review") { site.table1.events.library.ReviewScreen(onBack = { nav.popBackStack() }) }
+                // The bug inbox (contract/bug-pipeline-2026-10-18.md § Inbox), watchers only.
+                composable("bugs") { site.table1.events.library.BugsScreen(onBack = { nav.popBackStack() }, onBug = { nav.navigate("bug/$it") }) }
+                composable("bug/{id}") { e ->
+                    site.table1.events.library.BugScreen(e.arguments?.getString("id")?.toLongOrNull() ?: 0, onBack = { nav.popBackStack() })
+                }
                 // Friends, profiles, sharing and trade matches (contract/friends-sharing-2026-10-18.md).
                 composable("friends") {
                     FriendsScreen(onBack = { nav.popBackStack() }, onProfile = { nav.navigate("profile/$it") }, onAdd = { nav.navigate("friends/add") })

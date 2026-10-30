@@ -25,15 +25,18 @@ Gaps, in build order:
        old round table with a Pack 1/2/3 switch: now the long upright table (`TableLayout`, `TableLayoutTest`).
 4. [x] **Redraft pile** for finished set drafts (`redraft_*`, § 6). `ui/screens/Redraft.kt`, `RedraftTest`.
 5. [ ] **Roto cube events** (contract/roto-2026-10-16.md): setup, draft room, pick lists, clock, undo.
-6. [ ] **Demo data** switch for demo testers (`demo_tester`, `demo_seed`, `demo_remove`).
-7. [ ] **Unsaved lists** kept and resent (iOS `ListsStore.unsaved`).
+6. [x] **Demo data** switch for demo testers (`demo_tester`, `demo_seed`, `demo_remove`). Android also never asked for
+       demo data (`p_include_demo` false); it now always asks, since the server shows it to testers only in any build
+       (so the store review account sees its sample events).
+7. [x] **Unsaved lists** kept and resent (iOS `ListsStore.unsaved`): not needed. Android saves a new list to the server
+       before it shows it (`ListsStore.create` → `list_create`), so it can't strand a phone-only list as iOS did.
 8. [x] **Quick actions and widgets** (John, 2026-10-29: "build the same functionality for the widgets and live
        activities in iOS into the similar technology for Android"): Life tracker / Scan cards shortcuts and Quick Settings tiles, Next event and
        Collection value widgets (Glance), live event status (iOS Live Activities → an ongoing notification).
        Built 2026-10-29 (contract/widgets-2026-10-22.md § Android): live notification for players and organizers (Live
        Update on Android 16), Glance Next event / Collection value / Current match, Quick Settings tiles and launcher
        shortcuts. Server half (live-activity FCM, dispatch guard migration) written and tested, not deployed.
-9. [ ] **Bug inbox** for watchers (Account → Bugs, `bugs_*`).
+9. [x] **Bug inbox** for watchers (Account → Bugs, `bugs_*`). `library/Bugs.kt`, routes `bugs` / `bug/{id}`, ops pushes open them; `BugsTest`.
 10. [ ] **Insights picks follow the account** (John, 2026-10-29: "Settings for insights format views should be maintained
        across platforms"): hidden formats/sets and the picked section, format, tier, window, set, event and group are
        kept per device on every client today. Needs a server home (per-account settings RPC) and all three clients.

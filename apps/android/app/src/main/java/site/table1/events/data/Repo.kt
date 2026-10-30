@@ -53,7 +53,7 @@ object Repo {
 
     /** Everything the Events tab shows, in one call. Android never shows demo data (TestFlight only). */
     suspend fun eventsHome(): HomeData =
-        supabase.postgrest.rpc("events_home", buildJsonObject { put("p_include_demo", false) }).decodeAs()
+        supabase.postgrest.rpc("events_home", buildJsonObject { put("p_include_demo", true) }).decodeAs()
 
     /** Live seats with table, opponent, ranks and clock — the same state the iOS Live Activity shows. */
     suspend fun liveSnapshots(): List<LiveSnapshot> = liveState()?.snapshots.orEmpty()
@@ -62,7 +62,7 @@ object Repo {
      *  match widget too; null when it couldn't be read. */
     suspend fun liveState(): LiveStateResponse? = runCatching {
         val response = supabase.functions.invoke("live-activity", buildJsonObject {
-            put("action", "state"); put("include_demo", false)
+            put("action", "state"); put("include_demo", true)
         })
         json.decodeFromString<LiveStateResponse>(response.bodyAsText())
     }.onFailure { it.rethrowIfCancelled() }.getOrNull()
@@ -678,6 +678,14 @@ object Repo {
         })
     }
 
+    /** Whether this account is on the server's demo tester list. Every call above asks for demo data; the server shows
+     *  it only to testers (t1_private.demo_testers), in any build, so the store review account sees its sample events. */
+    suspend fun isDemoTester(): Boolean = runCatching { supabase.postgrest.rpc("demo_tester").decodeAs<Boolean>() }.getOrDefault(false)
+
+    /** Testers only: (re)loads sample events, opponents and results on this account, or removes them. */
+    suspend fun seedDemo() { supabase.postgrest.rpc("demo_seed") }
+    suspend fun removeDemo() { supabase.postgrest.rpc("demo_remove") }
+
     /* ── account ────────────────────────────────────────────────────────────── */
 
     /** Server-side delete: profile scrubbed (results stay as "Deleted player"), devices and alerts removed,
@@ -688,7 +696,7 @@ object Repo {
     }
 
     suspend fun accountOverview(): AccountOverview =
-        supabase.postgrest.rpc("account_overview", buildJsonObject { put("p_include_demo", false) }).decodeAs()
+        supabase.postgrest.rpc("account_overview", buildJsonObject { put("p_include_demo", true) }).decodeAs()
 
     suspend fun nearbyAlertsOn(): Boolean {
         val uid = userId ?: return false
@@ -724,7 +732,7 @@ object Repo {
             put("p_event_id", eventId)
             put("p_query", query)
             put("p_limit", 50)
-            put("p_include_demo", false)
+            put("p_include_demo", true)
         }).decodeList()
 
     suspend fun invitePlayers(eventId: String, userIds: List<String>): Int =
