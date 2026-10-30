@@ -38,8 +38,9 @@ Gaps, in build order:
        Collection value widgets (Glance), live event status (iOS Live Activities → an ongoing notification).
        Built 2026-10-29 (contract/widgets-2026-10-22.md § Android): live notification for players and organizers (Live
        Update on Android 16), Glance Next event / Collection value / Current match, Quick Settings tiles and launcher
-       shortcuts. Server half (live-activity FCM, dispatch guard migration) written and tested, not deployed.
+       shortcuts. Server half (live-activity FCM, dispatch guard migration) live 2026-10-30 with John's OK.
 9. [x] **Bug inbox** for watchers (Account → Bugs, `bugs_*`). `library/Bugs.kt`, routes `bugs` / `bug/{id}`, ops pushes open them; `BugsTest`.
-10. [ ] **Insights picks follow the account** (John, 2026-10-29: "Settings for insights format views should be maintained
-       across platforms"): hidden formats/sets and the picked section, format, tier, window, set, event and group are
-       kept per device on every client today. Needs a server home (per-account settings RPC) and all three clients.
+10. [x] **Insights picks follow the account** (John, 2026-10-29: "Settings for insights format views should be maintained
+       across platforms"): hidden formats/sets and the picked section, format, tier, window, set, event and group now
+       live in `user_settings.insights` (migration `20261030050000_insights_picks.sql`), read and written by all three
+       clients (3e2571d). Migration live and web deployed 2026-10-30; iOS/Android with their next builds.
