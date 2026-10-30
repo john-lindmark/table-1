@@ -75,7 +75,18 @@ final class PushController {
         didSet { if let p = pendingLibrary, let openLibrary { pendingLibrary = nil; openLibrary(p) } }
     }
 
+    /// A tapped "New in Insights" push: the Insights tab on that format or set (or the set's Rankings).
+    private var pendingInsights: InsightsPush?
+    var openInsights: ((InsightsPush) -> Void)? {
+        didSet { if let p = pendingInsights, let openInsights { pendingInsights = nil; openInsights(p) } }
+    }
+
     func didTap(_ userInfo: [AnyHashable: Any]) {
+        if let p = PushRoutes.insights(userInfo) {
+            Telemetry.capture("push_opened", ["kind": "insights.new", "what": p.what])
+            if let openInsights { openInsights(p) } else { pendingInsights = p }
+            return
+        }
         if let path = PushRoutes.library(userInfo) {
             Telemetry.capture("push_opened", ["kind": userInfo["kind"] as? String ?? "unknown"])
             if let openLibrary { openLibrary(path) } else { pendingLibrary = path }

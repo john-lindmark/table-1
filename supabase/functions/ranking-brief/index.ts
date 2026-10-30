@@ -29,7 +29,7 @@ const DAILY_LIMIT = 60;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 interface Detail {
-  id: string; list_id: string; name: string; depth: RankDepth; top: number; rev: number; mine: boolean;
+  id: string; list_id: string | null; set_key?: string | null; name: string; depth: RankDepth; top: number; rev: number; mine: boolean;
   by: { display_name?: string } | null; log: RankingIn["log"]; cube: { name: string; cards?: string[] } | null; baseline?: string[];
 }
 
@@ -126,7 +126,8 @@ Deno.serve(async (req) => {
   const [ra, rb] = await Promise.all([a, b].map((id) => asCaller.rpc("cube_ranking_get", { p_id: id })));
   if (ra.error || rb.error) return json({ error: (ra.error ?? rb.error)!.message }, (ra.error ?? rb.error)!.code === "42501" ? 403 : 400);
   const da = ra.data as Detail, db = rb.data as Detail;
-  if (da.list_id !== db.list_id) return json({ error: "Those rankings are of different cubes" }, 400);
+  // A cube's by its list, a Limited set's by its key (contract/cube-rankings-2026-10-21.md § Sets).
+  if ((da.list_id ?? `set:${da.set_key}`) !== (db.list_id ?? `set:${db.set_key}`)) return json({ error: "Those rankings are of different cubes" }, 400);
 
   const cardIds = [...new Set((da.cube?.cards ?? db.cube?.cards ?? [...da.log, ...db.log].flatMap((s) => s.o)).map((c) => c.toLowerCase()))];
   const ia = toIn(da), ib = toIn(db);

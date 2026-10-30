@@ -300,7 +300,10 @@ enum Insights {
     struct LEvent: Codable, Hashable { let updated: String; let groups: [String: LView] }
     struct LimitedPack: Codable, Hashable {
         struct Credit: Codable, Hashable { let name: String; let url: String }
+        /// An Arena cube version's family (contract/insights-2026-10-24.md § Arena cubes); nil for a set.
+        struct Cube: Codable, Hashable { let family: String; let name: String }
         let set_code: String; let name: String?; let released: String?; let credit: Credit
+        var cube: Cube? = nil
         let events: [String: LEvent]
     }
     static let eventOrder = ["PremierDraft", "TradDraft", "PickTwoDraft", "Sealed", "TradSealed"]

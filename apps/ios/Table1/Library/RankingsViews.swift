@@ -49,8 +49,9 @@ struct RankingsView: View {
     @Binding var path: [LibraryRoute]
     @Environment(\.dismiss) private var dismiss
     @State private var data: CubeRankings?
-    /// Every ranking of yours: other people's cubes you can rank too.
+    /// Every ranking of yours: other people's cubes you can rank too, and Limited sets.
     @State private var others: [RankableCube] = []
+    @State private var sets: [RankableSet] = []
     @State private var error: String?
     @State private var creating = false
     @State private var top = 100
@@ -63,15 +64,19 @@ struct RankingsView: View {
     var body: some View {
         let cube = data?.cube
         T1Screen {
-            Bar(title: "Rankings", subtitle: listId == nil ? "Yours, and cubes you can rank" : cube.map { $0.mine ? $0.name : "\($0.name) · \($0.owner?.displayName ?? "")" },
+            Bar(title: "Rankings", subtitle: listId == nil ? "Yours, and cubes and sets you can rank"
+                    : cube.map { $0.mine || $0.isSet ? $0.name : "\($0.name) · \($0.owner?.displayName ?? "")" },
                 back: { dismiss() })
             HairlineList {
                 if let error { Notice(error, error: true) }
                 if data == nil && error == nil { Notice("Loading rankings…") }
                 if let data {
                     if listId != nil {
-                        Notice("Sort each color by putting up to four cards in order at a time, then rank the best cards across " +
-                               "the whole cube. Everyone who can see this cube can watch and compare the rankings shared with it.")
+                        Notice(cube?.isSet == true
+                               ? "Sort each color by putting up to four cards in order at a time, then rank the best cards across " +
+                                 "the whole set. Your friends can watch and compare the rankings you share."
+                               : "Sort each color by putting up to four cards in order at a time, then rank the best cards across " +
+                                 "the whole cube. Everyone who can see this cube can watch and compare the rankings shared with it.")
                     }
                     if data.canRank, let cube { newRanking(cube) }
                     let mine = data.rankings.filter(\.mine), others = data.rankings.filter { !$0.mine }
@@ -80,13 +85,13 @@ struct RankingsView: View {
                         ForEach(mine) { row($0) }
                     }
                     if listId != nil {
-                        Section1("Everyone else's")
-                        if others.isEmpty { Notice("Nobody else has ranked this cube yet.") }
+                        Section1(cube?.isSet == true ? "Your friends'" : "Everyone else's")
+                        if others.isEmpty { Notice(cube?.isSet == true ? "None of your friends has ranked this set yet." : "Nobody else has ranked this cube yet.") }
                         ForEach(others) { row($0) }
                     } else if mine.isEmpty {
                         Notice("No rankings yet. Open one of your cubes and tap Rankings, or rank a friend's cube below.")
                     }
-                    if listId == nil { rankable }
+                    if listId == nil { rankable; rankableSets }
                 }
             }
         }
@@ -101,7 +106,12 @@ struct RankingsView: View {
         }
         do {
             data = try await RankingsStore.shared.rankings(listId: listId)
-            if listId == nil { others = try await RankingsStore.shared.rankable() }
+            if listId == nil {
+                async let cubes = RankingsStore.shared.rankable()
+                async let limited = RankingsStore.shared.rankableSets()
+                others = try await cubes
+                sets = (try? await limited) ?? []
+            }
             error = nil
         } catch where !error.isCancellation {
             self.error = error.localizedDescription
@@ -124,22 +134,33 @@ struct RankingsView: View {
         }
     }
 
+    /// Limited sets and Arena cube versions, as Insights → Limited offers them.
+    @ViewBuilder private var rankableSets: some View {
+        if !sets.isEmpty {
+            Section1("Sets you can rank")
+            ForEach(sets.prefix(8)) { s in
+                Button { path.append(.rankings(s.subjectId)) } label: { ListRow(title: s.name, detail: s.detail) }.buttonStyle(.plain)
+            }
+        }
+    }
+
     @ViewBuilder private func newRanking(_ cube: RankingCube) -> some View {
         if creating {
             T1Segmented(options: [(100, "Top 100"), (50, "Top 50")], selection: $top)
             T1Segmented(options: depthOptions, selection: Binding(get: { depth }, set: { pickedDepth = $0 }))
             Notice(depthNote(depth, top: top))
-            T1Segmented(options: [("cube", "Shared with the cube"), ("private", "Only me")], selection: $sharing)
-            Notice(sharing == "cube" ? "Who sees this: everyone who can see \(cube.name)\(cube.mine ? "" : ", including \(cube.owner?.displayName ?? "its owner")")."
-                                     : "Who sees this: only you.")
+            T1Segmented(options: [("cube", RankSubject.sharingLabel("cube", set: cube.isSet)), ("private", "Only me")], selection: $sharing)
+            Notice(sharing != "cube" ? "Who sees this: only you."
+                   : cube.isSet ? "Who sees this: your friends."
+                   : "Who sees this: everyone who can see \(cube.name)\(cube.mine ? "" : ", including \(cube.owner?.displayName ?? "its owner")").")
             HStack(spacing: 1) {
                 Ghost(text: "Cancel") { creating = false }
                 Ghost(text: busy ? "Starting…" : "Start", accent: true) { Task { await create(cube) } }
             }
         } else {
             Button { creating = true } label: {
-                ListRow(title: cube.mine ? "New ranking" : cube.owner.map { "Rank \($0.displayName)'s cube" } ?? "Rank this cube",
-                    detail: cube.mine ? "Sort each color, then the top 100" : "Your own ranking: each color, then the top 100")
+                ListRow(title: cube.isSet ? "Rank \(cube.name)" : cube.mine ? "New ranking" : cube.owner.map { "Rank \($0.displayName)'s cube" } ?? "Rank this cube",
+                    detail: cube.mine || cube.isSet ? "Sort each color, then the top 100" : "Your own ranking: each color, then the top 100")
             }.buttonStyle(.plain)
         }
     }
@@ -345,7 +366,7 @@ struct RankingView: View {
                 T1MenuItem(title: o.title) { path.append(.rankingCompare(rankingId, o.id, "F")) }
             })
         } label: {
-            ListRow(title: "Compare with another ranking…", detail: others.isEmpty ? "No other rankings of this cube yet" : plural(others.count, "other ranking"))
+            ListRow(title: "Compare with another ranking…", detail: others.isEmpty ? "No other rankings of this \(row.isSet ? "set" : "cube") yet" : plural(others.count, "other ranking"))
         }.buttonStyle(.plain)
     }
 
@@ -358,13 +379,13 @@ struct RankingView: View {
                 Task { await model.update(name: n.isEmpty ? RankingName.unnamed : n); newName = nil }
             }
         }
-        Notice("Rankings are titled by who ranked them. A label tells your rankings of this cube apart.")
+        Notice("Rankings are titled by who ranked them. A label tells your rankings of this \(row.isSet ? "set" : "cube") apart.")
         T1Segmented(options: depthOptions,
                     selection: Binding(get: { row.depth }, set: { d in Task { await model.update(depth: d) } }))
         Notice(depthNote(row.depth, top: row.top))
         T1Segmented(options: [(100, "Top 100"), (50, "Top 50")],
                     selection: Binding(get: { row.top }, set: { t in Task { await model.update(top: t) } }))
-        T1Segmented(options: [("cube", "Shared with the cube"), ("private", "Only me")],
+        T1Segmented(options: [("cube", RankSubject.sharingLabel("cube", set: row.isSet)), ("private", "Only me")],
                     selection: Binding(get: { row.sharing }, set: { s in Task { await model.update(sharing: s) } }))
         Button {
             T1Overlays.shared.ask("Delete this ranking?", message: "This removes every pick in it, on every device. It can't be undone.",

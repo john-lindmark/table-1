@@ -309,23 +309,47 @@ select pg_temp.eq('pack: deck colours with their splashes, rare ones left out',
 select pg_temp.eq('no pack without a finished run', (public.limited_pack_facts('NOPE'))::text, null);
 select pg_temp.eq('a newer dump opens a new run', (public.limited_run_open('TST', 'PremierDraft', 'game', 'https://x/game.csv.gz', '2026-10-24 12:00:00+00', 1200) is not null)::text, 'true');
 select pg_temp.eq('the finished run keeps serving until the new one is done', (public.limited_pack_facts('TST')->'events'->'PremierDraft'->>'updated'), '2026-10-17');
--- Arena's cube is no Scryfall set: offered from limited_cubes with 17Lands' file name, at any age.
-select pg_temp.eq('candidates: recent sets and the Arena cube',
-  (select string_agg((c->>'set_code') || ' ' || coalesce(c->>'file', '-'), ', ' order by c->>'set_code')
-     from jsonb_array_elements(public.limited_candidates()) c where c->>'set_code' in ('TST', 'CUBE')),
-  'CUBE Cube_-_Powered, TST -');
-select pg_temp.eq('a cube run counts weeks from the cube''s run on Arena',
-  (select public.limited_run_state(public.limited_run_open('CUBE', 'PremierDraft', 'game', 'https://x/cube.csv.gz', :LM, 1000))->>'released'), '2025-10-30');
-\set CRUN '(select id from t1_private.limited_runs where set_code = ''CUBE'' and kind = ''game'')'
+-- Arena's cubes are no Scryfall sets: each family is offered from limited_cubes with 17Lands' file name, at any age,
+-- with its latest version (none yet here); runs and packs are per version (20261030130000_limited_cube_versions.sql).
+select pg_temp.eq('candidates: recent sets and the Arena cube families',
+  (select string_agg(coalesce(c->>'family', c->>'set_code') || ' ' || coalesce(c->>'file', '-') || ' ' || coalesce(c->>'set_code', 'new'), ', '
+                     order by coalesce(c->>'family', c->>'set_code'))
+     from jsonb_array_elements(public.limited_candidates()) c where c->>'set_code' = 'TST' or c ? 'family'),
+  'ACUBE Cube new, PLNR Cube_-_Planar new, PWR Cube_-_Powered new, TST - TST');
+select pg_temp.eq('a family file''s first drafts make a version keyed by their month',
+  public.limited_cube_version('PWR', '2025-10-30', array['Lightning Bolt', 'Sacred Foundry', 'Not A Card']), 'PWR-2510');
+select pg_temp.eq('the version holds the cards 17Lands names, and the names nothing matches',
+  (select cardinality(cards) || ' ' || array_to_string(missing, ',') || ' ' || name from t1_private.limited_cube_versions where key = 'PWR-2510'),
+  '2 Not A Card Arena Powered Cube · Oct 2025');
+select pg_temp.eq('a refreshed file (first drafts days apart) is the same version',
+  public.limited_cube_version('pwr', '2025-11-02'), 'PWR-2510');
+select pg_temp.eq('a later run is a new version', public.limited_cube_version('PWR', '2026-06-04', array['Lightning Bolt']), 'PWR-2606');
+select pg_temp.eq('the old version is kept', (select string_agg(key, ',' order by key) from t1_private.limited_cube_versions), 'PWR-2510,PWR-2606');
+select pg_temp.eq('candidates offer the family''s latest version',
+  (select c->>'set_code' || ' ' || (c->>'released') from jsonb_array_elements(public.limited_candidates()) c where c->>'family' = 'PWR'),
+  'PWR-2606 2026-06-04');
+select pg_temp.throws('an unknown family is refused', $$select public.limited_cube_version('NOPE', '2026-01-01')$$, '22023');
+select pg_temp.eq('17Lands'' new cube families are added with a code from their name', public.limited_cube_family_add('Cube - Chromatic'), 'CHROMA');
+select pg_temp.eq('once', public.limited_cube_family_add('Cube - Chromatic') || ' ' ||
+  (select count(*) || ' ' || min(file) || ' ' || min(name) from t1_private.limited_cubes where code like 'CHROM%'), 'CHROMA 1 Cube_-_Chromatic Arena Chromatic Cube');
+select pg_temp.eq('known families and non-cube names add nothing',
+  coalesce(public.limited_cube_family_add('Cube - Powered'), '-') || ' ' || coalesce(public.limited_cube_family_add('Chaos'), '-'), 'PWR -');
+select pg_temp.eq('a cube run counts weeks from its version''s first drafts',
+  (select public.limited_run_state(public.limited_run_open('PWR-2510', 'PremierDraft', 'game', 'https://x/cube.csv.gz', :LM, 1000))->>'released'), '2025-10-30');
+select pg_temp.eq('a file already queued is not peeked again',
+  public.limited_file_seen('https://x/cube.csv.gz', :LM)::text || ' ' || public.limited_file_seen('https://x/cube.csv.gz', :LM::timestamptz + interval '1 day')::text,
+  'true false');
+\set CRUN '(select id from t1_private.limited_runs where set_code = ''PWR-2510'' and kind = ''game'')'
 select public.limited_step_commit(:CRUN, 0, 800, 'w', '', '{"cols": ["a"]}', 10,
   '{"T|a": [1000, 560], "cd|Lightning Bolt|a": [600, 350], "ch|Lightning Bolt|a": [600, 380],
     "cd|Mountain|a": [900, 500], "ch|Mountain|a": [900, 500], "cd|Sacred Foundry|a": [300, 170], "ch|Sacred Foundry|a": [300, 170]}', true);
-select pg_temp.eq('cube pack: named from limited_cubes, cards without a rarity',
-  (select (p->>'name') || ' ' || (p->>'released') || ' ' || coalesce(p->'events'->'PremierDraft'->'groups'->'all'->'cards'->0->>'r', 'none')
-     from (select public.limited_pack_facts('cube') p) x), 'Arena Powered Cube 2025-10-30 none');
+select pg_temp.eq('cube pack: named from its version, with its family, cards without a rarity',
+  (select (p->>'name') || ' ' || (p->>'released') || ' ' || (p->'cube'->>'family') || ' ' || coalesce(p->'events'->'PremierDraft'->'groups'->'all'->'cards'->0->>'r', 'none')
+     from (select public.limited_pack_facts('pwr-2510') p) x), 'Arena Powered Cube · Oct 2025 2025-10-30 PWR none');
+select pg_temp.eq('a set''s pack has no cube', (public.limited_pack_facts('TST') ? 'cube')::text || ' ' || coalesce(public.limited_pack_facts('TST')->>'cube', 'null'), 'true null');
 select pg_temp.eq('a Limited pack rates no basic lands (other lands stay)',
   (select string_agg(c->>'n', ', ' order by c->>'n')
-     from jsonb_array_elements(public.limited_pack_facts('cube')->'events'->'PremierDraft'->'groups'->'all'->'cards') c),
+     from jsonb_array_elements(public.limited_pack_facts('PWR-2510')->'events'->'PremierDraft'->'groups'->'all'->'cards') c),
   'Lightning Bolt, Sacred Foundry');
 
 -- Rules by colours (singleton formats) -------------------------------------------------------------------------------

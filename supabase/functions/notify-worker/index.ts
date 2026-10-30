@@ -10,6 +10,7 @@ import { apnsConfigured, sendAll, type Alert } from "./apns.ts";
 import * as fcm from "./fcm.ts";
 import { followCopy, tradeWantsCopy } from "./follow.ts";
 import { wantPriceCopy } from "./want-price.ts";
+import { insightsNewCopy } from "./insights-new.ts";
 import { signUpCopy, type SignUpCount } from "./sign-up.ts";
 
 const url = Deno.env.get("SUPABASE_URL")!;
@@ -92,6 +93,9 @@ function copy(m: Message, eventName: string, mine?: { table: number | null; oppo
     // contract/want-prices-2026-10-26.md: wants that got cheaper or fell to their max; the app opens Wants.
     case "want.price":
       return { ...wantPriceCopy(d), priority: 5 };
+    // contract/insights-2026-10-24.md § New in Insights: a new format, set, cube version or set to rank; the app opens it.
+    case "insights.new":
+      return { ...insightsNewCopy(d), priority: 5 };
     // contract/moderation-2026-10-18.md: what changed, never why in the alert (the Notices screen says why).
     case "moderation.notice": {
       if (d.restricted_days) return { title: "Table 1", body: `You can't send friend requests for ${d.restricted_days} days. Tap for details.`, priority: 5 };
@@ -199,14 +203,16 @@ async function run() {
     const mine = await matchesFor(m);
     const count = await signUpCount(m);
     // The same for every recipient: what a tap opens (the apps route by these keys), the collapse key and the group.
-    const collapseId = `${m.kind}:${m.event_id ?? m.data?.ranking_id ?? m.data?.item_id ?? m.data?.user_id ?? m.data?.bug_id ?? ""}`.slice(0, 64);
+    const collapseId = `${m.kind}:${m.event_id ?? m.data?.ranking_id ?? m.data?.item_id ?? m.data?.user_id ?? m.data?.bug_id ?? m.data?.insights_key ?? ""}`.slice(0, 64);
     const thread = m.event_id ?? (m.kind.startsWith("ops.") ? "ops" : m.kind.startsWith("ranking.") ? "rankings"
       : m.kind.startsWith("follow.") ? "following" : m.kind.startsWith("trade.") ? "trades"
-      : m.kind.startsWith("want.") ? "wants" : "friends");
+      : m.kind.startsWith("want.") ? "wants" : m.kind.startsWith("insights.") ? "insights" : "friends");
     const info = {
       kind: m.kind, event_id: m.event_id, match_id: m.data?.match_id ?? null, ranking_id: m.data?.ranking_id ?? null, bug_id: m.data?.bug_id ?? null,
       ...(m.kind === "follow.updated" ? { follow_kind: m.data?.kind ?? null, item_id: m.data?.item_id ?? null } : {}),
       ...(m.kind === "trade.wants" ? { user_id: m.data?.user_id ?? null } : {}),
+      ...(m.kind === "insights.new"
+        ? { insights_section: m.data?.insights_section ?? null, insights_key: m.data?.insights_key ?? null, what: m.data?.what ?? null } : {}),
     };
     const alerts: Alert[] = [];
     const androidAlerts: fcm.AndroidAlert[] = [];

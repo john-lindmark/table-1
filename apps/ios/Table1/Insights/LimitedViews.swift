@@ -12,10 +12,52 @@ struct LimitedHomeSection: View {
 
     var body: some View {
         let sets = store.shownSets
-        if sets.isEmpty {
-            if let e = store.error { Notice(e, error: true) }
-            else { Notice(store.loading ? "Loading draft data…" : "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena.") }
-        } else {
+        Group {
+            if sets.isEmpty {
+                if let e = store.error { Notice(e, error: true) }
+                else { Notice(store.loading ? "Loading draft data…" : "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena.") }
+                newSets
+            } else {
+                picked(sets)
+            }
+        }
+        .task { await store.loadExtras() }
+    }
+
+    /// Opens the Rankings of a set or cube version inside the Insights tab (contract/cube-rankings-2026-10-21.md § Sets).
+    private func rank(_ key: String, kind: String, from: String) {
+        Telemetry.capture("insights_rank_opened", ["set": key, "kind": kind, "from": from])
+        path.append(.library(.rankings(RankSubject.setId(key))))
+    }
+
+    /// Sets out (or about to be) that have no 17Lands data yet: rank them now.
+    @ViewBuilder private var newSets: some View {
+        let fresh = store.rankable.filter { !$0.pack }
+        if !fresh.isEmpty {
+            Section1("New sets to rank")
+            ForEach(fresh) { s in
+                Button { rank(s.key, kind: s.kind, from: "new_sets") } label: { ListRow(title: "Rank \(s.name)", detail: s.detail) }.buttonStyle(.plain)
+            }
+        }
+    }
+
+    @ViewBuilder private func rankRow(_ pack: Insights.LimitedPack) -> some View {
+        let r = store.rankable.first { $0.key == pack.set_code }
+        let kind = r?.kind ?? (pack.cube != nil ? "cube" : "set")
+        Button { rank(pack.set_code, kind: kind, from: "set") } label: {
+            ListRow(title: "Rank \(kind == "cube" ? "this cube" : "this set")",
+                    detail: r.flatMap { $0.rankings > 0 ? $0.detail : nil } ?? "Stack-rank its cards by color, then a top 100. Compare with your friends.")
+        }.buttonStyle(.plain)
+    }
+
+    @ViewBuilder private var alertsRow: some View {
+        if let on = store.alerts {
+            T1Switch(title: "New in Insights", detail: "A push when a new set, cube or format arrives",
+                     isOn: Binding(get: { on }, set: { v in Task { await store.setAlerts(v) } }))
+        }
+    }
+
+    @ViewBuilder private func picked(_ sets: [Insights.IndexEntry]) -> some View {
             let setBinding = Binding<String>(get: { store.setCode.flatMap { s in sets.contains { $0.key == s } ? s : nil } ?? sets[0].key },
                                              set: { store.setCode = $0 })
             PickerRow(editing: $editing) {
@@ -31,7 +73,8 @@ struct LimitedHomeSection: View {
                 Notice("Loading \(setBinding.wrappedValue)…")
                     .task { await store.load(force: true) }
             }
-        }
+            alertsRow
+            Color.clear.frame(height: 24)
     }
 
     @ViewBuilder
@@ -49,11 +92,12 @@ struct LimitedHomeSection: View {
             BriefBlock(brief: v.brief, scope: "\(pack.name ?? pack.set_code) \(Insights.eventLabels[ev] ?? ev)\(grp == "top" ? ", top players (60%+)" : "")",
                        thin: v.games < 20000, credit: ("Data from 17Lands", URL(string: pack.credit.url)!))
             Stats3(items: [("Games", v.games.formatted()), ("Average", InsightCharts.pct1(v.wr)), ("Weeks", "\(v.weeks)")])
+            rankRow(pack)
+            newSets
             pairs(pack, ev, grp, v)
             cards(pack, ev, grp, v)
             scatter(pack, ev, grp, v)
             facts(v)
-            Color.clear.frame(height: 24)
         }
     }
 

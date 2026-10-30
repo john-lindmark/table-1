@@ -1,6 +1,8 @@
 // limited-sync: Insights' Limited side (contract/insights-2026-10-24.md § Limited pack), from 17Lands' public
 // datasets (CC BY 4.0; credited on every Limited screen). Driven by pg_cron through pg_net (x-t1-secret):
-//   {step:"check"}        daily: HEAD each recent set's game and draft files; a new Last-Modified opens a run
+//   {step:"check"}        daily: HEAD each recent set's game and draft files; a new Last-Modified opens a run. Arena
+//                         cubes: 17Lands' new cube expansions are added as families, and a family file that changed is
+//                         peeked (its first rows) to tell which version (run) it holds
 //   {step:"slice", run}   one slice of a run: range-fetch the next compressed bytes, inflate from the checkpoint
 //                         (cards-sync's resumable inflate), add the rows' sums; the last slice builds the set's pack
 // t1_private.limited_dispatch posts the next slice (every 2 min, and right after each commit).
@@ -9,6 +11,7 @@ import { briefFor, type Facts } from "../insight-brief/brief.ts";
 import { inflateMembers, startAt } from "./members.ts";
 import { accJson, headerColumns, Lines, Rows } from "./parse.ts";
 import { limitedFacts, type LimitedPack } from "./pack.ts";
+import { firstRows, peekOf, PEEK_BYTES } from "./peek.ts";
 
 const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
   auth: { persistSession: false },
@@ -34,29 +37,61 @@ const b64 = (b: Uint8Array) => { let s = ""; for (let i = 0; i < b.length; i += 
 const unb64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 const fileUri = (set: string, event: string, kind: "game" | "draft") => `${BASE}/${kind}_data/${kind}_data_public.${set}.${event}.csv.gz`;
 
+/** Cube expansions 17Lands lists ("Cube - Powered") become families; a failed read keeps the ones we have. */
+async function discoverCubes() {
+  try {
+    const res = await fetch("https://www.17lands.com/data/expansions", { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return [];
+    const list = await res.json() as unknown;
+    const cubes = (Array.isArray(list) ? list : []).filter((x): x is string => typeof x === "string" && /^cube\b/i.test(x));
+    return (await Promise.all(cubes.map((label) => rpc<string | null>("limited_cube_family_add", { p_label: label })))).filter(Boolean);
+  } catch (e) {
+    console.warn("17Lands expansions:", String(e));
+    return [];
+  }
+}
+
+/** Which version of a cube a changed family file holds: its first rows' earliest draft day and its cards. */
+async function cubeVersion(family: string, uri: string, kind: "game" | "draft", total: number) {
+  const res = await fetch(uri, { headers: { Range: `bytes=0-${Math.min(PEEK_BYTES, total) - 1}` } });
+  if (res.status !== 206 && res.status !== 200) { await res.body?.cancel(); throw new Error(`17Lands peek ${res.status}`); }
+  const rows = firstRows(new Uint8Array(await res.arrayBuffer()), total);
+  const peek = rows && peekOf(kind, rows);
+  if (!peek) throw new Error(`no draft day in the first rows of ${uri}`);
+  return rpc<string>("limited_cube_version", { p_family: family, p_started: peek.started, p_names: kind === "game" ? peek.names : null });
+}
+
 async function check() {
-  // Sets, plus cube datasets (`file` is 17Lands' name for them: CUBE is Cube_-_Powered).
-  const sets = await rpc<{ set_code: string; file?: string; released: string }[]>("limited_candidates");
+  const families = await discoverCubes();
+  // Sets, plus cube families (`file` is 17Lands' name for them: PWR is Cube_-_Powered).
+  const sets = await rpc<{ set_code: string | null; family?: string; file?: string; released: string }[]>("limited_candidates");
   const opened: string[] = [];
   for (const s of sets) {
-    if (Date.now() - Date.parse(s.released) < EMBARGO_DAYS * 86400000) continue;
+    if (!s.family && Date.now() - Date.parse(s.released) < EMBARGO_DAYS * 86400000) continue;
     for (const event of EVENTS) {
       for (const kind of ["game", "draft"] as const) {
         if (kind === "draft" && event.includes("Sealed")) continue;
-        const uri = fileUri(s.file ?? s.set_code, event, kind);
+        const uri = fileUri(s.file ?? s.set_code!, event, kind);
         const res = await fetch(uri, { method: "HEAD" });
         if (!res.ok) continue;
         const lm = res.headers.get("last-modified"), len = Number(res.headers.get("content-length"));
         if (!lm || !len) continue;
+        const at = new Date(lm).toISOString();
+        let set = s.set_code;
+        if (s.family) {
+          if (await rpc<boolean>("limited_file_seen", { p_uri: uri, p_last_modified: at })) continue;
+          set = await cubeVersion(s.family, uri, kind, len).catch((e) => { console.warn("cube peek:", String(e)); return null; });
+          if (!set) continue;
+        }
         const id = await rpc<number | null>("limited_run_open", {
-          p_set: s.set_code, p_event: event, p_kind: kind, p_uri: uri, p_last_modified: new Date(lm).toISOString(), p_total: len,
+          p_set: set, p_event: event, p_kind: kind, p_uri: uri, p_last_modified: at, p_total: len,
         });
-        if (id) opened.push(`${s.set_code} ${event} ${kind}`);
+        if (id) opened.push(`${set} ${event} ${kind}`);
       }
     }
   }
   if (opened.length) await rpc("limited_kick");
-  return { opened };
+  return { opened, families };
 }
 
 interface RunState {

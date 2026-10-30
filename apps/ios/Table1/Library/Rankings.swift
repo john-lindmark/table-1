@@ -7,6 +7,7 @@ import SwiftUI
 // time, and re-reads someone else's ranking while it's open so it can be watched live.
 
 struct RankingCube: Decodable, Hashable, Sendable {
+    /// A cube's list id, or a Limited set's "set:<key>" (RankSubject).
     let id: String
     var name: String
     var mine: Bool
@@ -16,10 +17,15 @@ struct RankingCube: Decodable, Hashable, Sendable {
     var cards: [String]?
     /// cube_ranking_get only: Oracle id → the printing the cube holds, so cards show as they are in the cube.
     var printings: [String: String]?
+    /// A Limited set's key (FRA, PWR-2510) and kind ("set" or "cube": an Arena cube version); nil for a cube.
+    var set: String?
+    var kind: String?
+    var isSet: Bool { self.set != nil }
 }
 
 struct RankingRow: Decodable, Hashable, Identifiable, Sendable {
     let id: String
+    /// What it ranks: a cube's list id or a Limited set's "set:<key>" (the server sends list_id or set_key).
     let listId: String
     var name: String
     var depth: String
@@ -35,6 +41,37 @@ struct RankingRow: Decodable, Hashable, Identifiable, Sendable {
     var by: Person?
     var cube: RankingCube?
 
+    private enum K: String, CodingKey {
+        case id, listId, setKey, name, depth, top, sharing, screens, rev, sorted, categories, ranked, updatedAt, mine, by, cube
+    }
+    init(id: String, listId: String, name: String, depth: String, top: Int, sharing: String, screens: Int, rev: Int, sorted: Int,
+         categories: Int, ranked: Int, updatedAt: String? = nil, mine: Bool, by: Person? = nil, cube: RankingCube? = nil) {
+        self.id = id; self.listId = listId; self.name = name; self.depth = depth; self.top = top; self.sharing = sharing
+        self.screens = screens; self.rev = rev; self.sorted = sorted; self.categories = categories; self.ranked = ranked
+        self.updatedAt = updatedAt; self.mine = mine; self.by = by; self.cube = cube
+    }
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: K.self)
+        id = try c.decode(String.self, forKey: .id)
+        if let l = try c.decodeIfPresent(String.self, forKey: .listId) { listId = l }
+        else { listId = RankSubject.setId(try c.decode(String.self, forKey: .setKey)) }
+        name = try c.decode(String.self, forKey: .name)
+        depth = try c.decode(String.self, forKey: .depth)
+        top = try c.decode(Int.self, forKey: .top)
+        sharing = try c.decode(String.self, forKey: .sharing)
+        screens = try c.decode(Int.self, forKey: .screens)
+        rev = try c.decode(Int.self, forKey: .rev)
+        sorted = try c.decode(Int.self, forKey: .sorted)
+        categories = try c.decode(Int.self, forKey: .categories)
+        ranked = try c.decode(Int.self, forKey: .ranked)
+        updatedAt = try c.decodeIfPresent(String.self, forKey: .updatedAt)
+        mine = try c.decode(Bool.self, forKey: .mine)
+        by = try c.decodeIfPresent(Person.self, forKey: .by)
+        cube = try c.decodeIfPresent(RankingCube.self, forKey: .cube)
+    }
+
+    /// A Limited set's ranking (contract/cube-rankings-2026-10-21.md § Sets).
+    var isSet: Bool { RankSubject.setKey(listId) != nil }
     /// Who ranked it, then the name they gave it if any: "Mara", "Mara · Power only".
     var title: String { RankingName.title(name: name, by: by?.displayName, mine: mine) }
     /// The name its maker gave it; nil for the default.
@@ -44,6 +81,47 @@ struct RankingRow: Decodable, Hashable, Identifiable, Sendable {
     var updatedShort: String? {
         guard let updatedAt, let d = ISO8601DateFormatter.flexible(updatedAt) else { return nil }
         return d.formatted(.dateTime.month(.abbreviated).day())
+    }
+}
+
+/// What a ranking ranks (contract/cube-rankings-2026-10-21.md § Sets): a cube by its list id, or a Limited set (FRA) or
+/// Arena cube version (PWR-2510) as "set:<key>", so the Rankings screens open either by one id.
+enum RankSubject {
+    static func setId(_ key: String) -> String { "set:\(key.uppercased())" }
+    static func setKey(_ id: String?) -> String? {
+        guard let id, id.hasPrefix("set:") else { return nil }
+        let k = String(id.dropFirst(4))
+        return k.isEmpty ? nil : k
+    }
+    /// "Shared with the cube" reaches a set ranking's maker's friends (everyone can see a set).
+    static func sharingLabel(_ sharing: String, set: Bool) -> String {
+        sharing == "private" ? "Only me" : set ? "Shared with friends" : "Shared with the cube"
+    }
+}
+
+/// A set or Arena cube version you can rank (limited_rankable), newest first.
+struct RankableSet: Decodable, Hashable, Identifiable, Sendable {
+    let key: String
+    var name: String
+    var released: String?
+    var kind: String
+    var cards: Int
+    /// Insights has its 17Lands numbers.
+    var pack: Bool
+    var mine: Int
+    var rankings: Int
+    var id: String { key }
+    var subjectId: String { RankSubject.setId(key) }
+    /// "Cube · 540 cards · 2 rankings (1 yours)", "Out Nov 14 · 286 cards".
+    var detail: String {
+        var parts: [String] = []
+        if kind == "cube" { parts.append("Arena cube") }
+        else if let released, let d = ISO8601DateFormatter.day(released), d > Date() {
+            parts.append("Out \(d.formatted(.dateTime.month(.abbreviated).day()))")
+        }
+        parts.append("\(cards) cards")
+        if rankings > 0 { parts.append(mine > 0 ? "\(rankings) ranking\(rankings == 1 ? "" : "s") (\(mine) yours)" : "\(rankings) ranking\(rankings == 1 ? "" : "s")") }
+        return parts.joined(separator: " · ")
     }
 }
 
@@ -129,6 +207,13 @@ struct CubeChange: Equatable, Sendable {
 }
 
 extension ISO8601DateFormatter {
+    /// "2026-11-14" at UTC midnight.
+    static func day(_ s: String) -> Date? {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withFullDate]
+        return f.date(from: s)
+    }
+
     static func flexible(_ s: String) -> Date? {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -161,7 +246,19 @@ final class RankingsStore {
         #if DEBUG
         if let demo { return demo.rankings(listId: listId) }
         #endif
-        return try await supabase.rpc("cube_rankings", params: ["p_list_id": listId.map { AnyJSON.string($0) } ?? .null]).execute().value
+        // A set's, a cube's, or all of yours (set rankings included: this build knows them).
+        if let key = RankSubject.setKey(listId) {
+            return try await supabase.rpc("cube_rankings", params: ["p_set": AnyJSON.string(key)]).execute().value
+        }
+        return try await supabase.rpc("cube_rankings", params: ["p_list_id": listId.map { AnyJSON.string($0) } ?? .null, "p_sets": .bool(true)]).execute().value
+    }
+
+    /// Sets and Arena cube versions to rank (Insights → Limited).
+    func rankableSets() async throws -> [RankableSet] {
+        #if DEBUG
+        if let demo { return demo.rankableSets() }
+        #endif
+        return try await supabase.rpc("limited_rankable").execute().value
     }
 
     /// Briefs already fetched this session, by "a|b|list".
@@ -228,14 +325,16 @@ final class RankingsStore {
         #else
         row = try await createLive(id: id, listId: listId, name: name, depth: depth, top: top, sharing: sharing)
         #endif
-        Telemetry.capture("ranking_created", ["depth": depth, "top": top, "sharing": sharing, "own_cube": ownCube])
+        Telemetry.capture("ranking_created", ["depth": depth, "top": top, "sharing": sharing, "own_cube": ownCube,
+                                              "subject": RankSubject.setKey(listId) == nil ? "cube" : "set"])
         return row
     }
 
     private func createLive(id: String, listId: String, name: String, depth: String, top: Int, sharing: String) async throws -> RankingRow {
-        try await supabase.rpc("cube_ranking_create", params: [
-            "p_id": AnyJSON.string(id), "p_list_id": .string(listId), "p_name": .string(name), "p_depth": .string(depth),
-            "p_top": .integer(top), "p_sharing": .string(sharing),
+        let key = RankSubject.setKey(listId)
+        return try await supabase.rpc("cube_ranking_create", params: [
+            "p_id": AnyJSON.string(id), "p_list_id": key == nil ? .string(listId) : .null, "p_set": key.map { .string($0) } ?? .null,
+            "p_name": .string(name), "p_depth": .string(depth), "p_top": .integer(top), "p_sharing": .string(sharing),
         ]).execute().value
     }
 
@@ -785,6 +884,9 @@ final class RankingsDemoBackend: @unchecked Sendable {
     /// Mara's cube, shared with you: one that isn't yours to rank.
     static let maraCube = "d0000000-0000-0000-0000-0000000fc001"
     static let maraCubeName = "Mara's Legacy Cube"
+    /// A Limited set to rank (the fixture's cards stand in for its card list), with Mara's ranking of it.
+    static let demoSet = RankSubject.setId("FRA")
+    static let demoSetName = "Foundations Remastered"
 
     /// `changed`: the cube changed after you started ranking it: one White, one Blue and one Black card joined it (your
     /// ranking has never seen them), and a White and a Blue card you placed left it. Everyone else's has caught up.
@@ -857,10 +959,16 @@ final class RankingsDemoBackend: @unchecked Sendable {
         run(Self.mine, me, "My ranking", "half", 100, mine: true, finalScreens: 0, taste: mixed("me"), stopAfter: .b)
         run("d0000000-0000-0000-0000-0000000aa004", mara, "Mara's own order", "half", 100, mine: false, finalScreens: 0,
             taste: mixed("mara2"), cube: Self.maraCube, stopAfter: .u)
+        run("d0000000-0000-0000-0000-0000000aa005", mara, RankingName.unnamed, "third", 100, mine: false, finalScreens: 0,
+            taste: mixed("mara3"), cube: Self.demoSet, stopAfter: .w)
     }
 
     private func cube(_ listId: String, withCards: Bool) -> RankingCube {
-        listId == Self.maraCube
+        if listId == Self.demoSet {
+            return RankingCube(id: listId, name: Self.demoSetName, mine: false, owner: nil, canSee: true, cards: withCards ? cards : nil,
+                               set: "FRA", kind: "set")
+        }
+        return listId == Self.maraCube
             ? RankingCube(id: listId, name: Self.maraCubeName, mine: false, owner: Person(userId: FriendsDemoBackend.mara, displayName: "Mara Quinn"),
                           canSee: true, cards: withCards ? cards : nil)
             : RankingCube(id: cubeId, name: cubeName, mine: true, owner: Person(userId: FriendsDemoBackend.me, displayName: "You"),
@@ -872,7 +980,7 @@ final class RankingsDemoBackend: @unchecked Sendable {
         if listId == nil {
             return CubeRankings(cube: nil, canRank: false, rankings: all.filter(\.mine).map { var r = $0; r.cube = cube(r.listId, withCards: false); return r })
         }
-        guard listId == cubeId || listId == Self.maraCube else { return CubeRankings(cube: nil, canRank: false, rankings: []) }
+        guard listId == cubeId || listId == Self.maraCube || listId == Self.demoSet else { return CubeRankings(cube: nil, canRank: false, rankings: []) }
         return CubeRankings(cube: cube(listId!, withCards: false), canRank: true, rankings: all.filter { $0.listId == listId })
     }
 
@@ -890,6 +998,15 @@ final class RankingsDemoBackend: @unchecked Sendable {
         [RankableCube(id: Self.maraCube, name: Self.maraCubeName, owner: Person(userId: FriendsDemoBackend.mara, displayName: "Mara Quinn"),
                       cards: cards.count, rankings: rows.values.filter { $0.listId == Self.maraCube }.count,
                       mine: rows.values.filter { $0.listId == Self.maraCube && $0.mine }.count)]
+    }
+
+    /// Insights' sets to rank: the demo set (with Mara's ranking) and an Arena cube version.
+    func rankableSets() -> [RankableSet] {
+        let of = rows.values.filter { $0.listId == Self.demoSet }
+        return [RankableSet(key: "FRA", name: Self.demoSetName, released: "2026-09-23", kind: "set", cards: cards.count, pack: true,
+                            mine: of.filter(\.mine).count, rankings: of.count),
+                RankableSet(key: "PWR-2510", name: "Arena Powered Cube · Oct 2025", released: "2025-10-30", kind: "cube", cards: 540,
+                            pack: true, mine: 0, rankings: 0)]
     }
 
     func get(_ id: String) throws -> RankingDetail {

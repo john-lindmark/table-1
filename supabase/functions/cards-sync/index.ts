@@ -9,6 +9,8 @@
 //                            → printed names; each step asks for the next (t1_private.catalog_names_cursor)
 //   {step:"pack", run}       build the catalog pack; publish it only if its content changed
 //   {step:"cleanup", run}    remove the run's staging pieces
+//   {step:"sets"}            hourly: new and growing sets read from Scryfall's search API into the catalog at once
+//                            (catalog_set_gaps), then a pack when cards changed (contract/catalog-2026-10-14.md § New sets)
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   INGEST_BATCH, NAMES_BATCH, PieceSplitter, STAGE_PIECE_BYTES, namesFromSlice, packHeader, pieceLines, slimCard,
@@ -17,6 +19,7 @@ import {
 import { type InflateCheckpoint, gzipHeaderBytes } from "./inflate.ts";
 import { type ArtRow, artRow } from "./art.ts";
 import { packBody } from "./pack.ts";
+import { MAX_PAGES, SCRYFALL_GAP_MS, type SearchPage, nextPage, setSearchUrl } from "./sets.ts";
 
 const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
   auth: { persistSession: false },
@@ -233,6 +236,61 @@ async function names(run: number) {
   }
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * New and growing sets (spoiler season, release day) straight from Scryfall's search, so a set can be ranked, searched
+ * and scanned the hour it appears rather than after the next bulk file. One set run per tick; it packs when cards
+ * changed and the newest pack is 2 hours old (else a later tick's pack_due does).
+ */
+async function sets() {
+  const gaps = await rpc<{ busy: boolean; sets: { code: string; card_count: number }[]; pack_due: boolean }>("catalog_set_gaps", {});
+  if (gaps.busy || (!gaps.sets.length && !gaps.pack_due)) return { busy: gaps.busy, sets: [] };
+  const run = await rpc<number | null>("catalog_sets_begin", {});
+  if (run == null) return { busy: true, sets: [] };
+  try {
+    const done: { code: string; cards: number; oracles: number; changed: number }[] = [];
+    for (const s of gaps.sets) {
+      let url: string | null = setSearchUrl(s.code), pages = 0, cards = 0, oracles = 0, changed = 0;
+      while (url && pages < MAX_PAGES) {
+        if (pages || done.length) await sleep(SCRYFALL_GAP_MS);
+        const res = await fetch(url, { headers: SCRYFALL_HEADERS });
+        if (res.status === 404) { await res.body?.cancel(); break; }       // no cards yet
+        if (!res.ok) throw new Error(`Scryfall search ${s.code} ${res.status}`);
+        const page = await res.json() as SearchPage;
+        pages++;
+        const batch: SlimCard[] = [], art: ArtRow[] = [];
+        for (const card of page.data ?? []) {
+          const slim = slimCard(card);
+          if (slim) { batch.push(slim); art.push(artRow(card)); }
+        }
+        for (let i = 0; i < batch.length; i += INGEST_BATCH) {
+          const r = await rpc<{ oracles: number; cards: number }>("catalog_ingest", { p_run: run, p_rows: batch.slice(i, i + INGEST_BATCH) });
+          await rpc("catalog_art_ingest", { p_run: run, p_rows: art.slice(i, i + INGEST_BATCH) });
+          oracles += r.oracles; changed += r.cards;
+        }
+        cards += batch.length;
+        url = nextPage(page);
+      }
+      await rpc("catalog_set_fetched", { p_run: run, p_code: s.code, p_card_count: s.card_count, p_cards: cards });
+      done.push({ code: s.code, cards, oracles, changed });
+    }
+    const changed = done.some((d) => d.oracles + d.changed > 0);
+    const pack = gaps.pack_due || (changed && await packOld());
+    const status = await rpc<string>("catalog_sets_finish", { p_run: run, p_pack: pack });
+    return { run, sets: done, status };
+  } catch (e) {
+    await rpc("catalog_run_fail", { p_run: run, p_error: String(e) }).catch(() => {});
+    throw e;
+  }
+}
+
+/** The newest pack is 2 hours old or more (packs are ~10 MB for every phone: not more often than that). */
+async function packOld() {
+  const info = await rpc<{ created_at?: string } | null>("catalog_info", {});
+  return !info?.created_at || Date.now() - Date.parse(info.created_at) >= 2 * 3600_000;
+}
+
 async function cleanup(run: number) {
   const { data } = await admin.storage.from(STAGING).list(String(run), { limit: 1000 });
   const paths = (data ?? []).map((o) => `${run}/${o.name}`);
@@ -253,6 +311,7 @@ Deno.serve(async (req) => {
       case "pack": return json(await pack(Number(body.run)));
       case "cleanup": return json(await cleanup(Number(body.run)));
       case "names": return json(await names(Number(body.run)));
+      case "sets": return json(await sets());
       default: return json({ error: "Unknown step" }, 400);
     }
   } catch (e) {

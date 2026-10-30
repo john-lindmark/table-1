@@ -22,6 +22,10 @@ final class InsightsStore {
     private(set) var loadedAt: Date?
     /// Debug demo (-T1InsightsDemo): packs and pages from DebugResources, nothing from the network.
     @ObservationIgnored var demoPages: [String: Data]?
+    /// Sets and Arena cube versions to rank (limited_rankable), newest first; loaded with Limited.
+    private(set) var rankable: [RankableSet] = []
+    /// "New in Insights" pushes on for the account; nil until loaded.
+    private(set) var alerts: Bool?
 
     var section: String = UserDefaults.standard.string(forKey: "insights.section") ?? "constructed" {
         didSet { UserDefaults.standard.set(section, forKey: "insights.section"); if !applying { Telemetry.capture("insights_section_changed", ["section": section]) }; picksChanged() }
@@ -148,7 +152,49 @@ final class InsightsStore {
         if let first = (setCode.flatMap { s in index.first { $0.kind == "limited" && $0.key == s } } ?? limitedSets.first), section == "limited" {
             await fetch(first)
         }
-        for e in index where (e.kind == "constructed" && e.key != format) || e.kind == "limited" { await fetch(e) }
+        // The rest three at a time: a pack is a download and a decode, and there's one per set and cube version.
+        let rest = index.filter { ($0.kind == "constructed" && $0.key != format) || $0.kind == "limited" }
+        for batch in stride(from: 0, to: rest.count, by: 3).map({ Array(rest[$0..<min($0 + 3, rest.count)]) }) {
+            await withTaskGroup(of: Void.self) { g in for e in batch { g.addTask { await self.fetch(e) } } }
+        }
+    }
+
+    /// Sets to rank and the alerts switch (Limited's extras); quietly empty when they can't load.
+    func loadExtras() async {
+        #if DEBUG
+        if demoPages != nil {
+            if rankable.isEmpty {
+                rankable = [RankableSet(key: "FRA", name: "Foundations Remastered", released: "2026-09-23", kind: "set", cards: 281, pack: true, mine: 0, rankings: 1),
+                            RankableSet(key: "NHZ", name: "New Horizons", released: String(ISO8601DateFormatter().string(from: Date().addingTimeInterval(5 * 86400)).prefix(10)), kind: "set",
+                                        cards: 264, pack: false, mine: 0, rankings: 0),
+                            RankableSet(key: "PWR-2510", name: "Arena Powered Cube · Oct 2025", released: "2025-10-30", kind: "cube", cards: 540,
+                                        pack: true, mine: 0, rankings: 0)]
+            }
+            if alerts == nil { alerts = true }
+            return
+        }
+        #endif
+        guard Repo.userId != nil else { return }
+        async let sets = RankingsStore.shared.rankableSets()
+        struct On: Decodable { let on: Bool }
+        async let on: On = supabase.rpc("insights_alerts").execute().value
+        if let s = try? await sets { rankable = s }
+        if let a = try? await on { alerts = a.on }
+    }
+
+    func setAlerts(_ on: Bool) async {
+        let was = alerts
+        alerts = on
+        Telemetry.capture("insights_alerts_changed", ["on": on])
+        if demoPages != nil { return }
+        struct On: Decodable { let on: Bool }
+        do {
+            let a: On = try await supabase.rpc("insights_alerts_set", params: ["p_on": AnyJSON.bool(on)]).execute().value
+            alerts = a.on
+        } catch {
+            alerts = was
+            self.error = "Couldn't change New in Insights: \(error.localizedDescription)"
+        }
     }
 
     func ensure(format f: String) async {

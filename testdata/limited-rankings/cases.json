@@ -1,0 +1,42 @@
+{
+  "_doc": "Ranking a Limited set (contract/cube-rankings-2026-10-21.md § Sets) and New in Insights pushes (contract/insights-2026-10-24.md § New in Insights). Every client turns a ranking row into one subject id (a cube's list id, or set:<KEY>), labels sharing by subject, and routes the push the same way.",
+  "subjects": [
+    { "set_key": "fra", "id": "set:FRA" },
+    { "set_key": "PWR-2510", "id": "set:PWR-2510" }
+  ],
+  "keys": [
+    { "id": "set:FRA", "key": "FRA" },
+    { "id": "set:PWR-2510", "key": "PWR-2510" },
+    { "id": "e7000000-0000-0000-0000-000000000001", "key": null },
+    { "id": "set:", "key": null },
+    { "id": null, "key": null }
+  ],
+  "rows": [
+    { "json": { "id": "f1", "list_id": "e7000000-0000-0000-0000-000000000001", "set_key": null, "name": "My ranking", "depth": "half", "top": 100,
+                "sharing": "cube", "screens": 3, "rev": 2, "sorted": 1, "categories": 7, "ranked": 0, "mine": true },
+      "subject": "e7000000-0000-0000-0000-000000000001", "is_set": false },
+    { "json": { "id": "f2", "list_id": null, "set_key": "FRA", "name": "My ranking", "depth": "third", "top": 100,
+                "sharing": "cube", "screens": 0, "rev": 0, "sorted": 0, "categories": 0, "ranked": 0, "mine": true,
+                "cube": { "id": "set:FRA", "set": "FRA", "kind": "set", "name": "Foundations Remastered", "released": "2026-09-23", "mine": false, "owner": null, "can_see": true } },
+      "subject": "set:FRA", "is_set": true }
+  ],
+  "sharing": [
+    { "sharing": "cube", "set": false, "label": "Shared with the cube" },
+    { "sharing": "cube", "set": true, "label": "Shared with friends" },
+    { "sharing": "private", "set": true, "label": "Only me" },
+    { "sharing": "private", "set": false, "label": "Only me" }
+  ],
+  "pushes": [
+    { "info": { "kind": "insights.new", "insights_section": "limited", "insights_key": "FRA", "what": "data" },
+      "route": { "section": "limited", "key": "FRA", "what": "data" } },
+    { "info": { "kind": "insights.new", "insights_section": "limited", "insights_key": "NHZ", "what": "rank" },
+      "route": { "section": "limited", "key": "NHZ", "what": "rank" } },
+    { "info": { "kind": "insights.new", "insights_section": "constructed", "insights_key": "vintage", "what": "data" },
+      "route": { "section": "constructed", "key": "vintage", "what": "data" } },
+    { "info": { "kind": "insights.new", "insights_section": "limited", "insights_key": "FRA" },
+      "route": { "section": "limited", "key": "FRA", "what": "data" } },
+    { "info": { "kind": "insights.new", "insights_section": "events", "insights_key": "FRA", "what": "data" }, "route": null },
+    { "info": { "kind": "insights.new", "insights_section": "limited", "insights_key": "", "what": "data" }, "route": null },
+    { "info": { "kind": "want.price", "insights_section": "limited", "insights_key": "FRA" }, "route": null }
+  ]
+}

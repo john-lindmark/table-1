@@ -230,3 +230,17 @@ set role authenticated;
 select pg_temp.as_user(:BIG);
 select pg_temp.ms('tcgplayer_cart, 2000 printings', $$select public.tcgplayer_cart((select jsonb_agg(jsonb_build_object('card_id', md5('c' || g || '-1')::uuid, 'qty', 1 + g % 4)) from generate_series(1, 2000) g))$$, 300);
 reset role;
+-- Limited set rankings (contract/cube-rankings-2026-10-21.md § Sets): 20 recent sets of ~350 printings each in the
+-- live-size catalog, a 600-card set ranking opened (watchers re-read it every 10 s) and the new-set check.
+insert into public.mtg_sets (code, name, set_type, released_at, card_count)
+select 's' || g, 'Set ' || g, 'expansion', current_date - g * 15, 400 from generate_series(0, 19) g
+on conflict (code) do update set set_type = 'expansion', released_at = excluded.released_at, card_count = 400;
+analyze public.mtg_sets;
+set role authenticated;
+select pg_temp.as_user(:BIG);
+select pg_temp.ms('limited_rankable, 20 sets', $$select public.limited_rankable()$$, 150);
+select public.cube_ranking_create('f5800000-0000-0000-0000-000000000001', p_set => 'S1');
+select pg_temp.ms('cube_ranking_get, a set ranking', $$select public.cube_ranking_get('f5800000-0000-0000-0000-000000000001')$$, 60);
+select pg_temp.ms('cube_rankings of a set', $$select public.cube_rankings(p_set => 'S1')$$, 20);
+reset role;
+select pg_temp.ms('catalog_set_gaps', $$select public.catalog_set_gaps()$$, 60);

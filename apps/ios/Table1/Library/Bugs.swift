@@ -191,7 +191,23 @@ enum BugWords {
 }
 
 /// Where a tapped push with no event goes.
+/// What a tapped "New in Insights" push opens (contract/insights-2026-10-24.md § New in Insights).
+struct InsightsPush: Equatable {
+    /// constructed or limited
+    let section: String
+    /// a format (modern) or a set / cube version (FRA, PWR-2510)
+    let key: String
+    /// data: the format or set; rank: the set's Rankings
+    let what: String
+}
+
 enum PushRoutes {
+    static func insights(_ info: [AnyHashable: Any]) -> InsightsPush? {
+        guard info["kind"] as? String == "insights.new", let section = info["insights_section"] as? String,
+              section == "constructed" || section == "limited", let key = info["insights_key"] as? String, !key.isEmpty else { return nil }
+        return InsightsPush(section: section, key: key, what: info["what"] as? String == "rank" ? "rank" : "data")
+    }
+
     /// The Collection stack a tapped push opens: someone started ranking your cube (contract/cube-rankings-2026-10-21.md).
     /// Or a round of changes to something you follow (contract/follows-2026-10-25.md): its Changes.
     static func library(_ info: [AnyHashable: Any]) -> [LibraryRoute]? {
