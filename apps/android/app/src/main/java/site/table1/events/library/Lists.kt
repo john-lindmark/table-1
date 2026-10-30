@@ -133,7 +133,27 @@ data class ListWire(
 }
 
 @Serializable
-private data class ListsPage(val lists: List<ListWire>, val next: Long, val more: Boolean)
+internal data class ListsPage(val lists: List<ListWire>, val next: Long, val more: Boolean)
+
+/**
+ * Reads lists_changes pages from [after] until one says there's no more, at most [maxPages] (contract/lists-2026-10-15.md,
+ * "Sync"); also stops if a page asks for more without moving the cursor. [apply] takes each page and returns false to
+ * stop (the account changed). Returns the number of calls made. (`return@repeat` here once only skipped to the next of
+ * 50 pages, so every sync made 50 calls back to back.)
+ */
+internal suspend fun readListPages(after: Long, maxPages: Int = 50, fetch: suspend (after: Long) -> ListsPage,
+                                   apply: suspend (ListsPage) -> Boolean): Int {
+    var cursor = after
+    var calls = 0
+    while (calls < maxPages) {
+        val page = fetch(cursor)
+        calls++
+        if (!apply(page)) break
+        if (!page.more || page.next <= cursor) break
+        cursor = page.next
+    }
+    return calls
+}
 
 @Serializable
 private data class ListsCache(val cursor: Long, val lists: List<ListWire>)
@@ -192,18 +212,19 @@ object ListsStore {
         val run = CompletableDeferred<Unit>()
         syncRun = run
         try {
-            repeat(50) {
-                val page = T1App.supabase.postgrest.rpc("lists_changes", buildJsonObject {
-                    put("p_after", cursor); put("p_limit", 100)
+            readListPages(cursor, fetch = { after ->
+                T1App.supabase.postgrest.rpc("lists_changes", buildJsonObject {
+                    put("p_after", after); put("p_limit", 100)
                 }).decodeAs<ListsPage>()
-                if (_state.value.userId != user) return
+            }) { page ->
+                if (_state.value.userId != user) return@readListPages false
                 val byId = _state.value.lists.associateBy { it.id }.toMutableMap()
                 for (w in page.lists) { val l = w.toList(); if (l != null) byId[l.id] = l else byId.remove(w.id) }
                 cursor = page.next
                 setLists(byId.values.toList())
                 _state.value = _state.value.copy(ready = true, error = null)
                 saveCache()
-                if (!page.more) return@repeat
+                true
             }
         } catch (e: Exception) {
             e.rethrowIfCancelled()
