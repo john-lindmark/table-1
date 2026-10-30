@@ -266,6 +266,7 @@ object CollectionStore {
                 val next = cursor
                 local?.let { withContext(Dispatchers.IO) { it.commit(put, del, next, page.summary) } }
                 set { it.copy(items = items, summary = page.summary, ready = true) }
+                site.table1.events.widgets.Widgets.noteValue(T1App.instance, page.summary)
                 if (!page.more) return
             }
         } catch (e: Exception) {
@@ -354,6 +355,7 @@ object CollectionStore {
             }
             s.copy(items = items, summary = res.summary)
         }
+        site.table1.events.widgets.Widgets.noteValue(T1App.instance, res.summary)
         BindersStore.reflect(res.binderItems, res.wants)
     }
 }

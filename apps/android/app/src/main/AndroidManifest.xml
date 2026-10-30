@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Android 16: the live notification for an event you play or run asks to show as a Live Update. -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <!-- Card scanning only (the join QR uses Google's scanner, which needs no permission). -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -42,6 +44,8 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Long-press the icon: Life tracker and Scan cards (as iOS's App Shortcuts). -->
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
 
             <!-- table-1.site links open here when the app is installed (contract/universal-links-2026-10-22.md): every
                  page the app has a screen for, the same list as public/.well-known/apple-app-site-association. Anything
@@ -96,6 +100,35 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="events" />
+
+        <!-- Report / Confirm / Dispute from the live notification (util/LiveUpdates.kt). -->
+        <receiver android:name=".util.LiveActionReceiver" android:exported="false" />
+
+        <!-- Home screen widgets (contract/widgets-2026-10-22.md), drawn with Glance (widgets/). -->
+        <receiver android:name=".widgets.NextEventWidgetReceiver" android:exported="true" android:label="@string/widget_next_name">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_next" />
+        </receiver>
+        <receiver android:name=".widgets.ValueWidgetReceiver" android:exported="true" android:label="@string/widget_value_name">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_value" />
+        </receiver>
+        <receiver android:name=".widgets.MatchWidgetReceiver" android:exported="true" android:label="@string/widget_match_name">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_match" />
+        </receiver>
+
+        <!-- Quick Settings tiles: Life tracker and Scan cards (iOS's Control Center controls). -->
+        <service android:name=".widgets.TrackerTileService" android:exported="true" android:label="@string/control_tracker"
+            android:icon="@drawable/ic_shortcut_tracker" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
+            <meta-data android:name="android.service.quicksettings.TOGGLEABLE_TILE" android:value="false" />
+        </service>
+        <service android:name=".widgets.ScanTileService" android:exported="true" android:label="@string/control_scan"
+            android:icon="@drawable/ic_shortcut_scan" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
+            <meta-data android:name="android.service.quicksettings.TOGGLEABLE_TILE" android:value="false" />
+        </service>
 
         <!-- Account photo: the camera writes a full-size shot here before it's cropped to 512 px. -->
         <provider

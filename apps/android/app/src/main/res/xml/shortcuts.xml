@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press the app icon (contract/widgets-2026-10-22.md § Controls): the same two quick actions as iOS's controls and
+     App Shortcuts. They open table1:// addresses MainActivity reads. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="tracker"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_tracker"
+        android:shortcutShortLabel="@string/control_tracker"
+        android:shortcutLongLabel="@string/control_tracker_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="table1://tracker?src=shortcut"
+            android:targetClass="site.table1.events.MainActivity"
+            android:targetPackage="site.table1.events" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="scan"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_scan"
+        android:shortcutShortLabel="@string/control_scan"
+        android:shortcutLongLabel="@string/control_scan_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="table1://scan?src=shortcut"
+            android:targetClass="site.table1.events.MainActivity"
+            android:targetPackage="site.table1.events" />
+    </shortcut>
+</shortcuts>

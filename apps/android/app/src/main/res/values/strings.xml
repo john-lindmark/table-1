@@ -1,3 +1,13 @@
 <resources>
     <string name="app_name">Table 1</string>
+    <string name="widget_next_description">Your next event: when, where and who\'s coming.</string>
+    <string name="widget_value_description">What your collection is worth, and how it moved this week.</string>
+    <string name="widget_match_description">Round clock, table, opponent and ranks. Report your result without opening the app.</string>
+    <string name="widget_next_name">Next event</string>
+    <string name="widget_value_name">Collection value</string>
+    <string name="widget_match_name">Current match</string>
+    <string name="control_tracker">Life tracker</string>
+    <string name="control_tracker_long">Open the life tracker</string>
+    <string name="control_scan">Scan cards</string>
+    <string name="control_scan_long">Scan cards into your collection</string>
 </resources>

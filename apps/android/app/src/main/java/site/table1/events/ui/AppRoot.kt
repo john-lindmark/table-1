@@ -263,6 +263,8 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
     LaunchedEffect(foregrounds) {
         CatalogStore.load(userInitiated = route?.startsWith("collection") == true)
         if (foregrounds > 0) HeroesStore.refresh()
+        // The live notification and the Current match widget catch up whenever the app comes back.
+        site.table1.events.util.LiveUpdates.refresh(context)
     }
 
     val topLevel = route == "events" || route == "account" || route == "collection" || route == "insights"
@@ -486,6 +488,10 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 }
                 composable("collection/add") {
                     AddCardsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/card/$it") })
+                }
+                // The Scan cards tile and shortcut: Add cards with the scanner already up.
+                composable("collection/add/scan") {
+                    AddCardsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/card/$it") }, scanFirst = true)
                 }
                 composable("collection/search") {
                     AddCardsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/card/$it") }, search = true)

@@ -26,9 +26,12 @@ Gaps, in build order:
 5. [ ] **Roto cube events** (contract/roto-2026-10-16.md): setup, draft room, pick lists, clock, undo.
 6. [ ] **Demo data** switch for demo testers (`demo_tester`, `demo_seed`, `demo_remove`).
 7. [ ] **Unsaved lists** kept and resent (iOS `ListsStore.unsaved`).
-8. [ ] **Quick actions and widgets** (John, 2026-10-29: "build the same functionality for the widgets and live
+8. [x] **Quick actions and widgets** (John, 2026-10-29: "build the same functionality for the widgets and live
        activities in iOS into the similar technology for Android"): Life tracker / Scan cards shortcuts and Quick Settings tiles, Next event and
        Collection value widgets (Glance), live event status (iOS Live Activities → an ongoing notification).
+       Built 2026-10-29 (contract/widgets-2026-10-22.md § Android): live notification for players and organizers (Live
+       Update on Android 16), Glance Next event / Collection value / Current match, Quick Settings tiles and launcher
+       shortcuts. Server half (live-activity FCM, dispatch guard migration) written and tested, not deployed.
 9. [ ] **Bug inbox** for watchers (Account → Bugs, `bugs_*`).
 10. [ ] **Insights picks follow the account** (John, 2026-10-29: "Settings for insights format views should be maintained
        across platforms"): hidden formats/sets and the picked section, format, tier, window, set, event and group are

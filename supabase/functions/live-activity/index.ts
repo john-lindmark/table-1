@@ -9,6 +9,8 @@
 // Rank-only changes ride at priority 5 (delivered opportunistically); match changes at 10.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { apnsConfigured, sendAll, type Push } from "./apns.ts";
+import { organizerMessage, organizerPlan, playerMessage, playerPlan } from "./android.ts";
+import { deadToken, fcmConfigured, sendAll as fcmSendAll, type AndroidAlert } from "../notify-worker/fcm.ts";
 import { buildOrganizerState, organizerAlert, type OrgState } from "./organizer.ts";
 import { buildStates, toParticipant, toRound, type PlayerState } from "./state.ts";
 
@@ -76,7 +78,7 @@ async function stateFor(authHeader: string, includeDemo: boolean) {
   return json({ snapshots, organizer });
 }
 
-// ---------------------------------------------------------------- dispatch (database → APNs)
+// ---------------------------------------------------------------- dispatch (database → APNs, FCM)
 
 type Kind = "round_started" | "match" | "round_recorded" | "clock" | "event_ended" | "dropped";
 const now = () => Math.floor(Date.now() / 1000);
@@ -112,7 +114,8 @@ function roundAlert(ps: PlayerState) {
 }
 
 async function dispatch(body: Record<string, unknown>) {
-  if (!apnsConfigured()) return json({ ok: true, skipped: "APNs key not configured" });
+  const apns = apnsConfigured(), fcm = fcmConfigured();
+  if (!apns && !fcm) return json({ ok: true, skipped: "no push credentials" });
   const kind = body.kind as Kind;
   const eventId = String(body.event_id ?? "");
   const { event, participants, rounds } = await loadEvent(eventId);
@@ -131,6 +134,9 @@ async function dispatch(body: Record<string, unknown>) {
   const organizers = new Set((members ?? []).map((m) => m.user_id as string));
   const users = new Set([...states.map((s) => s.userId), ...organizers]);
   if (!users.size) return json({ ok: true, sent: 0 });
+
+  const android = fcm ? await androidLive(kind, body, event, participants, rounds, states, organizers) : { sent: 0, failed: 0 };
+  if (!apns) return json({ ok: true, sent: android.sent, failed: android.failed });
 
   const { data: tokens, error } = await admin.from("live_activity_tokens")
     .select("token, kind, env, event_id, user_id").in("user_id", [...users]).is("revoked_at", null);
@@ -193,7 +199,7 @@ async function dispatch(body: Record<string, unknown>) {
       case "dropped": to(update, 10, aps("end", ps)); break;
     }
   }
-  if (!pushes.length) return json({ ok: true, sent: 0 });
+  if (!pushes.length) return json({ ok: true, sent: android.sent, failed: android.failed });
 
   const results = await sendAll(pushes);
   const dead = results.filter((r) => r.status === 410 || ["BadDeviceToken", "Unregistered", "ExpiredToken"].includes(r.reason ?? ""))
@@ -204,7 +210,42 @@ async function dispatch(body: Record<string, unknown>) {
   const failed = results.filter((r) => r.status !== 200);
   console.log(JSON.stringify({ kind, event: eventId, sent: results.length - failed.length, failed: failed.length,
     reasons: [...new Set(failed.map((f) => f.reason))] }));
-  return json({ ok: true, sent: results.length - failed.length, failed: failed.length });
+  return json({ ok: true, sent: results.length - failed.length + android.sent, failed: failed.length + android.failed });
+}
+
+/** Android devices (devices.platform = android) of the players whose state changed and of the organizers: the state
+ *  itself in a data-only FCM message, drawn by the app as its live notification (android.ts). */
+async function androidLive(kind: Kind, body: Record<string, unknown>, event: Awaited<ReturnType<typeof loadEvent>>["event"],
+  participants: Awaited<ReturnType<typeof loadEvent>>["participants"], rounds: Awaited<ReturnType<typeof loadEvent>>["rounds"],
+  states: PlayerState[], organizers: Set<string>) {
+  const users = [...new Set([...states.map((s) => s.userId), ...organizers])];
+  if (!users.length) return { sent: 0, failed: 0 };
+  const { data: devices, error } = await admin.from("devices").select("user_id, push_token").eq("platform", "android").in("user_id", users);
+  if (error) throw error;
+  if (!devices?.length) return { sent: 0, failed: 0 };
+  const alerts: AndroidAlert[] = [];
+  const op = organizerPlan(kind);
+  if (op && organizers.size) {
+    const o = buildOrganizerState(event!, participants, rounds);
+    let alert: { title: string; body: string } | undefined;
+    if (kind === "match") {
+      const ids = new Set((body.match_ids as string[]) ?? []);
+      const table = rounds.flatMap((r) => r.matches).find((m) => ids.has(m.id) && m.disputed)?.tableNumber;
+      alert = organizerAlert(o, { disputed: body.disputed === true, settled: body.settled === true }, table);
+    }
+    for (const d of devices) if (organizers.has(d.user_id)) alerts.push(organizerMessage(d.push_token, o, op.event, op.priority, alert));
+  }
+  const pp = playerPlan(kind);
+  if (pp) for (const ps of states) {
+    for (const d of devices) if (d.user_id === ps.userId) alerts.push(playerMessage(d.push_token, ps, pp.event, pp.priority));
+  }
+  if (!alerts.length) return { sent: 0, failed: 0 };
+  const results = await fcmSendAll(alerts);
+  const dead = results.filter(deadToken).map((r) => r.token);
+  if (dead.length) await admin.from("devices").delete().in("push_token", dead);
+  const failed = results.filter((r) => r.status !== 200).length;
+  console.log(JSON.stringify({ kind, event: event!.id, android_sent: results.length - failed, android_failed: failed }));
+  return { sent: results.length - failed, failed };
 }
 
 // ---------------------------------------------------------------- entry

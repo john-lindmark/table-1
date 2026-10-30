@@ -181,12 +181,17 @@ object SignIn {
 
     suspend fun signOut() {
         site.table1.events.util.Push.signOut()
+        // The old account's live notifications and widget numbers go with it.
+        site.table1.events.util.LiveUpdates.clear(T1App.instance)
+        site.table1.events.widgets.Widgets.clear(T1App.instance)
         T1App.supabase.auth.signOut()
     }
 
     /** Deletes the account on the server, then drops the session on this device. */
     suspend fun deleteAccount() {
         Repo.deleteAccount()
+        site.table1.events.util.LiveUpdates.clear(T1App.instance)
+        site.table1.events.widgets.Widgets.clear(T1App.instance)
         runCatching { T1App.supabase.auth.signOut(SignOutScope.LOCAL) }
     }
 }

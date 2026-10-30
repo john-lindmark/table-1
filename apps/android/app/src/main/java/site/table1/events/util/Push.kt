@@ -44,6 +44,7 @@ object Push {
     /** App start: the channels, then register whenever a session is (or becomes) signed in. */
     fun start(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
+        LiveUpdates.channel(context)
         PushRoutes.Channel.entries.forEach { c ->
             manager.createNotificationChannel(
                 NotificationChannel(c.id, c.title, if (c.urgent) NotificationManager.IMPORTANCE_HIGH else NotificationManager.IMPORTANCE_DEFAULT)
@@ -127,6 +128,16 @@ class T1MessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
-        Push.show(this, message.data)
+        val data = message.data
+        val kind = data["kind"] ?: return
+        // live-activity's messages update the live notification; an alert rides along as an ordinary push.
+        if (kind.startsWith("live.")) {
+            LiveUpdates.onPush(this, data)
+            if (!data["title"].isNullOrEmpty()) Push.show(this, data + ("kind" to "event.live"))
+            return
+        }
+        Push.show(this, data)
+        // Anything about an event can change the live notification and the Current match widget.
+        if (data["event_id"] != null) LiveUpdates.refresh(this)
     }
 }

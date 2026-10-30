@@ -83,7 +83,7 @@ fun EventsHomeScreen(
 
     suspend fun load() {
         runCatching { Repo.eventsHome() }
-            .onSuccess { data = it; error = null }
+            .onSuccess { data = it; error = null; site.table1.events.widgets.Widgets.saveNext(context, it) }
             .onFailure { it.rethrowIfCancelled(); if (data == null) { error = it.message; data = HomeData() } }
         snaps = Repo.liveSnapshots().associateBy { it.eventId }
         TrackerSettings.refresh()

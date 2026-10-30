@@ -41,6 +41,28 @@ sealed interface WebLink {
         fun standingsUrl(eventId: String) = "https://table-1.site/s/$eventId"
         fun sharedUrl(token: String) = "https://table-1.site/l/$token"
 
+        /**
+         * The app's own table1:// addresses (contract/widgets-2026-10-22.md), opened by widgets, the live notification,
+         * Quick Settings tiles and launcher shortcuts, as on iOS: `table1://event/<id>`, `table1://events`,
+         * `table1://collection`, `table1://tracker`, `table1://scan`. A `src` query names the surface for telemetry.
+         * null for anything else (auth-callback is supabase-kt's).
+         */
+        fun parseApp(raw: String?): Pair<WebLink, String?>? {
+            val u = runCatching { URI(raw?.trim() ?: return null) }.getOrNull() ?: return null
+            if (u.scheme != "table1") return null
+            val src = (u.rawQuery ?: "").split("&").firstOrNull { it.startsWith("src=") }?.substringAfter("=")?.takeIf { it.isNotEmpty() }
+            val p = (u.rawPath ?: "").split("/").filter { it.isNotEmpty() }
+            val link = when (u.host) {
+                "event" -> p.singleOrNull()?.let { Screens("events", listOf("event/$it")) }
+                "events", "home" -> Screens("events", emptyList())
+                "collection" -> Screens("collection", emptyList())
+                "tracker" -> Tracker(null)
+                "scan" -> Screens("collection", listOf("collection/add/scan"))
+                else -> null
+            } ?: return null
+            return link to src
+        }
+
         /** null when [raw] isn't a table-1.site link at all. */
         fun parse(raw: String?): WebLink? {
             val u = runCatching { URI(raw?.trim() ?: return null) }.getOrNull() ?: return null

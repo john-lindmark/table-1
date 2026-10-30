@@ -67,6 +67,13 @@ class MainActivity : ComponentActivity() {
         intent ?: return
         // A tapped notification: its screen, once signed in.
         Push.tapped(intent)?.let { pendingLink = it; return }
+        // Widgets, the live notification, tiles and shortcuts open table1:// addresses (as on iOS).
+        WebLink.parseApp(intent.dataString)?.let { (link, src) ->
+            src?.let { Telemetry.capture("surface_opened", mapOf("source" to it)) }
+            if (src == "shortcut") Telemetry.capture("control_used", mapOf("control" to (if (link is WebLink.Tracker) "tracker" else "scan"), "surface" to "shortcut"))
+            pendingLink = link
+            return
+        }
         // Sign in with Apple or Discord comes back as table1://auth-callback#...; supabase-kt finishes the session.
         T1App.supabase.handleDeeplinks(intent) { SignIn.oauthReturned() }
         // table-1.site links (contract/universal-links-2026-10-22.md): the screen the web address shows, once signed in.

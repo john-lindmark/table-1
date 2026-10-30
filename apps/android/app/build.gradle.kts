@@ -104,6 +104,8 @@ dependencies {
     implementation(libs.camerax.camera2)
     implementation(libs.camerax.lifecycle)
     implementation(libs.camerax.view)
+    // Home screen widgets (contract/widgets-2026-10-22.md): Next event, Collection value, Current match.
+    implementation(libs.glance.appwidget)
     implementation(libs.mlkit.text)
     implementation(libs.mlkit.text.chinese)
     implementation(libs.mlkit.text.japanese)

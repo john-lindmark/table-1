@@ -481,6 +481,7 @@ data class HomeInvite(
 @Serializable
 data class LiveSnapshot(
     val eventId: String,
+    val eventName: String = "",
     val participantId: String,
     val state: LiveState,
 )
@@ -498,6 +499,7 @@ data class LiveState(
     val players: Int = 0,
     val oppName: String? = null,
     val oppRank: Int? = null,
+    val oppRecord: String? = null,
     val matchId: String? = null,
     val matchVersion: Int? = null,
     val mySide: Int? = null,
@@ -507,6 +509,12 @@ data class LiveState(
     val canReport: Boolean = true,
 ) {
     val isPlaying: Boolean get() = phase == "playing"
+    val tableText get() = table?.let { "T$it" } ?: "T–"
+    val roundText get() = "R${maxOf(round, 1)}/$rounds"
+    val myRankText get() = myRank?.let { "#$it" } ?: "#–"
+    val oppRankText get() = oppRank?.let { "#$it" } ?: "#–"
+    /** Over: the notification and the widget let go of it. */
+    val ended get() = phase == "complete" || phase == "cancelled" || phase == "dropped"
     val canReportNow: Boolean get() = isPlaying && canReport && status == "pending"
     val needsMyAnswer: Boolean get() = isPlaying && status == "reported_them"
     val statusLine: String get() = when (phase) {
@@ -526,7 +534,8 @@ data class LiveState(
 }
 
 @Serializable
-data class LiveStateResponse(val snapshots: List<LiveSnapshot> = emptyList())
+data class LiveStateResponse(val snapshots: List<LiveSnapshot> = emptyList(),
+                             /** Events you organize (older servers send none). */ val organizer: List<OrganizerSnapshot> = emptyList())
 
 /* ── Account tab (account_overview) ────────────────────────────────────────── */
 

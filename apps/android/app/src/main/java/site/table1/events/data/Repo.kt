@@ -1,5 +1,6 @@
 package site.table1.events.data
 
+import site.table1.events.util.rethrowIfCancelled
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.functions.functions
 import io.github.jan.supabase.postgrest.from
@@ -55,10 +56,17 @@ object Repo {
         supabase.postgrest.rpc("events_home", buildJsonObject { put("p_include_demo", false) }).decodeAs()
 
     /** Live seats with table, opponent, ranks and clock — the same state the iOS Live Activity shows. */
-    suspend fun liveSnapshots(): List<LiveSnapshot> = runCatching {
-        val response = supabase.functions.invoke("live-activity", buildJsonObject { put("action", "state") })
-        json.decodeFromString<LiveStateResponse>(response.bodyAsText()).snapshots
-    }.getOrDefault(emptyList())
+    suspend fun liveSnapshots(): List<LiveSnapshot> = liveState()?.snapshots.orEmpty()
+
+    /** Events you play in or run that are live (live-activity `state`), shown in the live notification and the Current
+     *  match widget too; null when it couldn't be read. */
+    suspend fun liveState(): LiveStateResponse? = runCatching {
+        val response = supabase.functions.invoke("live-activity", buildJsonObject {
+            put("action", "state"); put("include_demo", false)
+        })
+        json.decodeFromString<LiveStateResponse>(response.bodyAsText())
+    }.onFailure { it.rethrowIfCancelled() }.getOrNull()
+        ?.also { site.table1.events.util.LiveUpdates.show(site.table1.events.T1App.instance, it) }
 
     suspend fun createEvent(name: String, format: String, rounds: Int, roundMinutes: Int): CreateEventResult =
         supabase.postgrest.rpc("create_event", buildJsonObject {

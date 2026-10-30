@@ -506,7 +506,7 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
 /* ── add (search) ─────────────────────────────────────────────────────── */
 
 @Composable
-fun AddCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, search: Boolean = false) {
+fun AddCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, search: Boolean = false, scanFirst: Boolean = false) {
     val cat by CatalogStore.state.collectAsState()
     val col by CollectionStore.state.collectAsState()
     /** Search (the Collection home's magnifier): copies owned per oracle idx. */
@@ -521,7 +521,7 @@ fun AddCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, search: Boolean
         }
     }
     val scope = rememberCoroutineScope()
-    var scanning by remember { mutableStateOf(false) }
+    var scanning by remember { mutableStateOf(scanFirst) }
     var scanned by remember { mutableStateOf<Pair<String, String>?>(null) } // batch id, label
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }

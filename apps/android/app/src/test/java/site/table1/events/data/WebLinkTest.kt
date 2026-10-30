@@ -55,3 +55,17 @@ class WebLinkTest {
     private fun screen(route: String): String =
         screens.firstNotNullOfOrNull { (re, out) -> re.find(route)?.let { m -> re.replace(m.value, out) } } ?: route
 }
+
+/* The app's own table1:// addresses (contract/widgets-2026-10-22.md): widgets, the live notification, tiles, shortcuts. */
+class AppLinkTest {
+    @org.junit.Test fun appAddresses() {
+        org.junit.Assert.assertEquals(WebLink.Screens("events", listOf("event/e1")) to "widget_next", WebLink.parseApp("table1://event/e1?src=widget_next"))
+        org.junit.Assert.assertEquals(WebLink.Screens("events", emptyList()) to null, WebLink.parseApp("table1://events"))
+        org.junit.Assert.assertEquals(WebLink.Screens("collection", emptyList()) to "widget_value", WebLink.parseApp("table1://collection?src=widget_value"))
+        org.junit.Assert.assertEquals(WebLink.Tracker(null) to "tile", WebLink.parseApp("table1://tracker?src=tile"))
+        org.junit.Assert.assertEquals(WebLink.Screens("collection", listOf("collection/add/scan")) to "shortcut", WebLink.parseApp("table1://scan?src=shortcut"))
+        org.junit.Assert.assertNull(WebLink.parseApp("table1://auth-callback#access_token=x"))
+        org.junit.Assert.assertNull(WebLink.parseApp("https://table-1.site/e/e1"))
+        org.junit.Assert.assertNull(WebLink.parseApp("table1://event"))
+    }
+}
