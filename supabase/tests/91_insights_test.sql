@@ -116,6 +116,11 @@ select pg_temp.eq('meta now: win rate without mirrors, conversion to top 8, even
      from (select public.meta_pack_window('modern', 'all', 7, current_date - 15) w) x cross join jsonb_array_elements(w->'share') s
      left join t1_private.meta_archetypes a on a.id = (s->>'a')::int group by w->>'won_of'),
   '1 Boros Energy 0 0.4583 0.0000, Burn 1 0.5417 0.4000');
+select pg_temp.eq('meta now: each row''s record behind its win rate (wins, losses, draws; mirrors left out)',
+  (select string_agg(coalesce(a.name, 'Other') || ' ' || coalesce(s->>'rec', '-'), ', ' order by a.name nulls last)
+     from (select public.meta_pack_window('modern', 'all', 7, current_date - 15) w) x cross join jsonb_array_elements(w->'share') s
+     left join t1_private.meta_archetypes a on a.id = (s->>'a')::int),
+  'Boros Energy [11, 13, 0], Burn [13, 11, 0]');
 delete from t1_private.meta_events where source_id = 'E20';
 select pg_temp.eq('rising cards: no lands, no basics; Bolt in 8 of 10.5',
   (select string_agg((c->>'n') || ' ' || (c->>'rate'), ', ' order by (c->>'rate')::numeric desc, c->>'n')

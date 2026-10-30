@@ -355,6 +355,58 @@ export function deckEmbed(d: DeckPost, byName: string | null, pictureUrl: string
 
 export const deckComponents = (d: DeckPost) => [{ type: 1, components: [{ type: 2, style: 5, label: "Open on Table 1", url: d.url }] }];
 
+// ---------------------------------------------------------------- /meta: Insights as pictures (contract § Insights images)
+
+export const META_FORMATS: Record<string, string> = {
+  standard: "Standard", pioneer: "Pioneer", modern: "Modern", pauper: "Pauper", canlander: "Canadian Highlander",
+};
+export const META_DAYS = [7, 14, 30, 90];
+export type MetaKind = "matchups" | "winrates" | "deck";
+export interface MetaAsk { kind: MetaKind; format: string; tier: "big" | "all"; days: number; a: number | null }
+
+/** The /meta options, checked: a known format, Big or All events (All by default), a window (30 days by default) and,
+ *  for a deck, the archetype id its autocomplete chose. Null when the archetype isn't one from the list. */
+export function metaAsk(kind: MetaKind, options: Option[]): MetaAsk | null {
+  const format = String(opt(options, "format") ?? "");
+  if (!META_FORMATS[format]) return null;
+  const days = Number(opt(options, "days") ?? 30);
+  const raw = String(opt(options, "archetype") ?? "");
+  const a = /^[0-9]{1,6}$/.test(raw) ? Number(raw) : null;
+  if (kind === "deck" && a == null) return null;
+  return { kind, format, tier: opt(options, "events") === "big" ? "big" : "all", days: META_DAYS.includes(days) ? days : 30, a: kind === "deck" ? a : null };
+}
+
+/** The picture's address on the meta-image function. `slot` (the hour) makes a fresh address as the packs update, so
+ *  Discord's image cache never serves an old picture to a new post. */
+export function metaImageUrl(base: string, ask: MetaAsk, slot: number): string {
+  const q = new URLSearchParams({ tier: ask.tier, days: String(ask.days) });
+  if (ask.a != null) q.set("a", String(ask.a));
+  q.set("v", String(slot));
+  return `${base.replace(/\/+$/, "")}/${ask.format}/${ask.kind}.png?${q}`;
+}
+
+/** Where the post's link opens: the archetype's page, the grid, or Meta now (win rates). */
+export function metaLink(ask: MetaAsk): string {
+  const base = `${SITE}/insights/${ask.format}`;
+  return ask.kind === "deck" ? `${base}/archetype/${ask.a}` : ask.kind === "matchups" ? `${base}/matchups` : `${base}/part/meta`;
+}
+
+export function metaEmbed(ask: MetaAsk, archetype: string | null, pictureUrl: string) {
+  const fmt = META_FORMATS[ask.format];
+  const what = ask.kind === "matchups" ? "Matchups" : ask.kind === "winrates" ? "Win rates" : "Matchups";
+  const title = ask.kind === "deck" ? `${clean(archetype ?? "Other")} · ${fmt}` : `${fmt} · ${what}`;
+  return {
+    title: title.slice(0, 256),
+    url: metaLink(ask),
+    description: `${ask.kind === "deck" ? "Matchups · " : ""}${ask.tier === "big" ? "Big events" : "All events"} · last ${ask.days} days`,
+    color: ACCENT,
+    image: { url: pictureUrl },
+    footer: { text: "Table 1 Insights · Magic Online, TopDeck.gg and Melee results" },
+  };
+}
+
+export const metaComponents = (ask: MetaAsk) => [{ type: 1, components: [{ type: 2, style: 5, label: "Open in Table 1", url: metaLink(ask) }] }];
+
 export interface CardHit {
   oracle_id: string;
   name: string;

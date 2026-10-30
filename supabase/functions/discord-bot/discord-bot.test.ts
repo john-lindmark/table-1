@@ -1,7 +1,7 @@
 import { assert, assertEquals, assertThrows } from "jsr:@std/assert@1";
 import {
   type Card, canManageServer, cardEmbed, commandPath, deckEmbed, deckImageUrl, eventComponents, eventEmbed, eventIdFrom, helpEmbed, HELP,
-  COMMANDS, outcomeText, parseButtonId, parseWhen, partConfirmMessage, partEmbed, resultsEmbed, statusLine, validZone, zoneChoices,
+  COMMANDS, metaAsk, metaComponents, metaEmbed, metaImageUrl, outcomeText, parseButtonId, parseWhen, partConfirmMessage, partEmbed, resultsEmbed, statusLine, validZone, zoneChoices,
 } from "./embeds.ts";
 import { DiscordRest } from "./discord.ts";
 import { isTeamFormat, toRows, toTeamRows } from "./standings.ts";
@@ -372,4 +372,34 @@ Deno.test("a card edit waits once when Discord says slow down", async () => {
   } finally {
     d.restore();
   }
+});
+
+Deno.test("/meta: options checked, the picture's address, the post", () => {
+  const o = (v: Record<string, string | number>) => Object.entries(v).map(([name, value]) => ({ name, type: 3, value }));
+  assertEquals(metaAsk("matchups", o({ format: "modern" })), { kind: "matchups", format: "modern", tier: "all", days: 30, a: null });
+  assertEquals(metaAsk("winrates", o({ format: "pauper", events: "big", days: 7 })), { kind: "winrates", format: "pauper", tier: "big", days: 7, a: null });
+  assertEquals(metaAsk("matchups", o({ format: "legacy" })), null, "a format Insights doesn't cover");
+  assertEquals(metaAsk("matchups", o({ format: "modern", days: 45 }))!.days, 30, "a window that isn't offered");
+  assertEquals(metaAsk("deck", o({ format: "modern", archetype: "none" })), null, "the autocomplete's hint isn't an archetype");
+  assertEquals(metaAsk("deck", o({ format: "modern", archetype: "0" }))!.a, 0, "Other");
+  const ask = metaAsk("deck", o({ format: "modern", archetype: "11", events: "big", days: 90 }))!;
+  assertEquals(metaImageUrl("https://x.supabase.co/functions/v1/meta-image/", ask, 491234),
+    "https://x.supabase.co/functions/v1/meta-image/modern/deck.png?tier=big&days=90&a=11&v=491234");
+  const e = metaEmbed(ask, "Boros Land Destruction", "https://p");
+  assertEquals([e.title, e.description, e.url, e.image.url], [
+    "Boros Land Destruction · Modern", "Matchups · Big events · last 90 days", "https://table-1.site/insights/modern/archetype/11", "https://p"]);
+  const grid = metaEmbed(metaAsk("matchups", o({ format: "canlander" }))!, null, "https://p");
+  assertEquals([grid.title, grid.url], ["Canadian Highlander · Matchups", "https://table-1.site/insights/canlander/matchups"]);
+  assertEquals(metaEmbed(metaAsk("winrates", o({ format: "modern" }))!, null, "https://p").url, "https://table-1.site/insights/modern/part/meta");
+  assertEquals(metaComponents(ask)[0].components[0].url, "https://table-1.site/insights/modern/archetype/11");
+});
+
+Deno.test("/meta is registered with its three pictures, each with format, events and days", () => {
+  const meta = (COMMANDS as { name: string }[]).find((c) => c.name === "meta") as unknown as { options: { name: string; options: { name: string }[] }[] };
+  assertEquals(meta.options.map((x) => x.name), ["matchups", "deck", "winrates"]);
+  for (const sub of meta.options) {
+    const names = sub.options.map((x) => x.name);
+    assert(["format", "events", "days"].every((n) => names.includes(n)), sub.name);
+  }
+  assert(HELP.some((h) => h.command === "/meta deck"));
 });

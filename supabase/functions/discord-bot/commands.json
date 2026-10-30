@@ -58,6 +58,18 @@
       "text": "Look up a card: cost, type, cheapest TCGplayer price, image."
     },
     {
+      "command": "/meta matchups",
+      "text": "Post a picture of a format's matchup grid: every archetype with 1% of the decks against the 10 most played, from Table 1 Insights. Big or All events, the last 7, 14, 30 or 90 days."
+    },
+    {
+      "command": "/meta deck",
+      "text": "Post a picture of one archetype's matchups (pick it as you type): its win rate against each other archetype, with the likely range."
+    },
+    {
+      "command": "/meta winrates",
+      "text": "Post a picture of every archetype's match win rate, best first, with its record and likely range."
+    },
+    {
       "command": "/settings timezone",
       "text": "The time zone this server's event times are read in (people with Manage Server). Posted times show in each viewer's own zone."
     }
@@ -405,6 +417,246 @@
           "required": true,
           "min_length": 2,
           "max_length": 100
+        }
+      ]
+    },
+    {
+      "name": "meta",
+      "type": 1,
+      "description": "Table 1 Insights as a picture: matchups and win rates",
+      "contexts": [
+        0
+      ],
+      "integration_types": [
+        0
+      ],
+      "options": [
+        {
+          "name": "matchups",
+          "type": 1,
+          "description": "The matchup grid: every archetype against the most played",
+          "options": [
+            {
+              "name": "format",
+              "type": 3,
+              "description": "Which format",
+              "required": true,
+              "choices": [
+                {
+                  "name": "Standard",
+                  "value": "standard"
+                },
+                {
+                  "name": "Pioneer",
+                  "value": "pioneer"
+                },
+                {
+                  "name": "Modern",
+                  "value": "modern"
+                },
+                {
+                  "name": "Pauper",
+                  "value": "pauper"
+                },
+                {
+                  "name": "Canadian Highlander",
+                  "value": "canlander"
+                }
+              ]
+            },
+            {
+              "name": "events",
+              "type": 3,
+              "description": "Big events or all events (all when left out)",
+              "choices": [
+                {
+                  "name": "All events",
+                  "value": "all"
+                },
+                {
+                  "name": "Big events",
+                  "value": "big"
+                }
+              ]
+            },
+            {
+              "name": "days",
+              "type": 4,
+              "description": "How far back (30 days when left out)",
+              "choices": [
+                {
+                  "name": "Last 7 days",
+                  "value": 7
+                },
+                {
+                  "name": "Last 14 days",
+                  "value": 14
+                },
+                {
+                  "name": "Last 30 days",
+                  "value": 30
+                },
+                {
+                  "name": "Last 90 days",
+                  "value": 90
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "deck",
+          "type": 1,
+          "description": "One archetype's matchups",
+          "options": [
+            {
+              "name": "format",
+              "type": 3,
+              "description": "Which format",
+              "required": true,
+              "choices": [
+                {
+                  "name": "Standard",
+                  "value": "standard"
+                },
+                {
+                  "name": "Pioneer",
+                  "value": "pioneer"
+                },
+                {
+                  "name": "Modern",
+                  "value": "modern"
+                },
+                {
+                  "name": "Pauper",
+                  "value": "pauper"
+                },
+                {
+                  "name": "Canadian Highlander",
+                  "value": "canlander"
+                }
+              ]
+            },
+            {
+              "name": "archetype",
+              "type": 3,
+              "description": "Which archetype",
+              "required": true,
+              "autocomplete": true,
+              "max_length": 100
+            },
+            {
+              "name": "events",
+              "type": 3,
+              "description": "Big events or all events (all when left out)",
+              "choices": [
+                {
+                  "name": "All events",
+                  "value": "all"
+                },
+                {
+                  "name": "Big events",
+                  "value": "big"
+                }
+              ]
+            },
+            {
+              "name": "days",
+              "type": 4,
+              "description": "How far back (30 days when left out)",
+              "choices": [
+                {
+                  "name": "Last 7 days",
+                  "value": 7
+                },
+                {
+                  "name": "Last 14 days",
+                  "value": 14
+                },
+                {
+                  "name": "Last 30 days",
+                  "value": 30
+                },
+                {
+                  "name": "Last 90 days",
+                  "value": 90
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "winrates",
+          "type": 1,
+          "description": "Every archetype's match win rate, with its likely range",
+          "options": [
+            {
+              "name": "format",
+              "type": 3,
+              "description": "Which format",
+              "required": true,
+              "choices": [
+                {
+                  "name": "Standard",
+                  "value": "standard"
+                },
+                {
+                  "name": "Pioneer",
+                  "value": "pioneer"
+                },
+                {
+                  "name": "Modern",
+                  "value": "modern"
+                },
+                {
+                  "name": "Pauper",
+                  "value": "pauper"
+                },
+                {
+                  "name": "Canadian Highlander",
+                  "value": "canlander"
+                }
+              ]
+            },
+            {
+              "name": "events",
+              "type": 3,
+              "description": "Big events or all events (all when left out)",
+              "choices": [
+                {
+                  "name": "All events",
+                  "value": "all"
+                },
+                {
+                  "name": "Big events",
+                  "value": "big"
+                }
+              ]
+            },
+            {
+              "name": "days",
+              "type": 4,
+              "description": "How far back (30 days when left out)",
+              "choices": [
+                {
+                  "name": "Last 7 days",
+                  "value": 7
+                },
+                {
+                  "name": "Last 14 days",
+                  "value": 14
+                },
+                {
+                  "name": "Last 30 days",
+                  "value": 30
+                },
+                {
+                  "name": "Last 90 days",
+                  "value": 90
+                }
+              ]
+            }
+          ]
         }
       ]
     }

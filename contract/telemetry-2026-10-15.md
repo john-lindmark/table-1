@@ -208,6 +208,7 @@ guild, channel, message or event ids, never names (`telemetry.ts` refuses such k
 | `discord_deck_shared` | `format`, `new_link` |
 | `discord_part_posted` | `part`: wants / for_trade, `single`, `new_link`, `rows` |
 | `discord_card_looked_up` | `found` |
+| `discord_meta_posted` | `kind`: matchups / winrates / deck, `format`, `tier`: big / all, `days` (an Insights picture posted, 2026-10-30) |
 | `discord_help_viewed` | |
 Web: screens `discord`, `discord_link`; `discord_link_completed {via: link}`, `discord_unlinked {via: link}`.
 
