@@ -1,0 +1,23 @@
+{
+  "about": "Insights picks on the account (user_settings.insights; contract/insights-2026-10-24.md § What the viewer picked). write: a device's picks over what the account holds; keys it doesn't know stay, its own replace. read: what a device takes from the stored object; wrong types and unknown keys are ignored. Read by iOS InsightsPackTests, web insights.test.ts, Android InsightsPackTest.",
+  "write": [
+    {
+      "name": "first write from a device",
+      "held": null,
+      "picks": {"section": "limited", "format": "modern", "tier": null, "days": 30, "set": "FRA", "event": "PremierDraft", "group": "all", "hidden_formats": [], "hidden_sets": ["CUBE"]},
+      "want": {"section": "limited", "format": "modern", "days": 30, "set": "FRA", "event": "PremierDraft", "group": "all", "hidden_formats": [], "hidden_sets": ["CUBE"]}
+    },
+    {
+      "name": "a newer client's key stays; this device's replace",
+      "held": {"format": "pauper", "days": 7, "future_key": {"x": 1}},
+      "picks": {"section": "constructed", "format": "modern", "tier": "all", "days": 90, "set": null, "event": "PremierDraft", "group": "top", "hidden_formats": ["canlander"], "hidden_sets": []},
+      "want": {"format": "modern", "days": 90, "future_key": {"x": 1}, "section": "constructed", "tier": "all", "event": "PremierDraft", "group": "top", "hidden_formats": ["canlander"], "hidden_sets": []}
+    }
+  ],
+  "read": [
+    {"name": "all keys", "stored": {"section": "limited", "format": "pioneer", "tier": "big", "days": 14, "set": "MSH", "event": "TradDraft", "group": "top", "hidden_formats": ["pauper"], "hidden_sets": ["CUBE", "TMT"]},
+     "want": {"section": "limited", "format": "pioneer", "tier": "big", "days": 14, "set": "MSH", "event": "TradDraft", "group": "top", "hidden_formats": ["pauper"], "hidden_sets": ["CUBE", "TMT"]}},
+    {"name": "empty", "stored": {}, "want": {}},
+    {"name": "unknown keys ignored", "stored": {"format": "standard", "future_key": true}, "want": {"format": "standard"}}
+  ]
+}

@@ -8,8 +8,8 @@ struct InsightsError: LocalizedError {
 }
 
 /// The Insights tab's data (contract/insights-2026-10-24.md): the published pack index, the packs themselves (kept
-/// on the device and refetched only when their version changes) and what the viewer has picked, remembered per
-/// device. Archetype and card pages come from their RPCs on demand.
+/// on the device and refetched only when their version changes) and what the viewer has picked, kept on the account
+/// (user_settings.insights) with a copy on the device. Archetype and card pages come from their RPCs on demand.
 @MainActor @Observable
 final class InsightsStore {
     static let shared = InsightsStore()
@@ -24,27 +24,28 @@ final class InsightsStore {
     @ObservationIgnored var demoPages: [String: Data]?
 
     var section: String = UserDefaults.standard.string(forKey: "insights.section") ?? "constructed" {
-        didSet { UserDefaults.standard.set(section, forKey: "insights.section"); Telemetry.capture("insights_section_changed", ["section": section]) }
+        didSet { UserDefaults.standard.set(section, forKey: "insights.section"); if !applying { Telemetry.capture("insights_section_changed", ["section": section]) }; picksChanged() }
     }
     var format: String = UserDefaults.standard.string(forKey: "insights.format") ?? "modern" {
-        didSet { UserDefaults.standard.set(format, forKey: "insights.format"); Telemetry.capture("insights_format_changed", ["format": format]) }
+        didSet { UserDefaults.standard.set(format, forKey: "insights.format"); if !applying { Telemetry.capture("insights_format_changed", ["format": format]) }; picksChanged() }
     }
     /// The tier the viewer picked; nil = the pack's default (Big events unless they're thin).
     var tierPicked: Insights.Tier? = UserDefaults.standard.string(forKey: "insights.tier").flatMap(Insights.Tier.init) {
         didSet {
             UserDefaults.standard.set(tierPicked?.rawValue, forKey: "insights.tier")
-            if let t = tierPicked { Telemetry.capture("insights_tier_changed", ["tier": t.rawValue]) }
+            if let t = tierPicked, !applying { Telemetry.capture("insights_tier_changed", ["tier": t.rawValue]) }
+            picksChanged()
         }
     }
     var days: Int = { let d = UserDefaults.standard.integer(forKey: "insights.days"); return Insights.windows.contains(d) ? d : 30 }() {
-        didSet { UserDefaults.standard.set(days, forKey: "insights.days"); Telemetry.capture("insights_window_changed", ["days": days]) }
+        didSet { UserDefaults.standard.set(days, forKey: "insights.days"); if !applying { Telemetry.capture("insights_window_changed", ["days": days]) }; picksChanged() }
     }
     /// Formats and sets kept out of the pickers on this device (Insights → Edit).
     var hiddenFormats: [String] = UserDefaults.standard.stringArray(forKey: "insights.hiddenFormats") ?? [] {
-        didSet { UserDefaults.standard.set(hiddenFormats, forKey: "insights.hiddenFormats") }
+        didSet { UserDefaults.standard.set(hiddenFormats, forKey: "insights.hiddenFormats"); picksChanged() }
     }
     var hiddenSets: [String] = UserDefaults.standard.stringArray(forKey: "insights.hiddenSets") ?? [] {
-        didSet { UserDefaults.standard.set(hiddenSets, forKey: "insights.hiddenSets") }
+        didSet { UserDefaults.standard.set(hiddenSets, forKey: "insights.hiddenSets"); picksChanged() }
     }
     var shownFormats: [(key: String, label: String)] {
         let keys = Insights.visibleKeys(Insights.formats.map(\.key), hiddenFormats)
@@ -66,15 +67,58 @@ final class InsightsStore {
         Telemetry.capture("insights_picker_edited", ["picker": format ? "formats" : "sets", "hidden": format ? hiddenFormats.count : hiddenSets.count])
     }
     var setCode: String? = UserDefaults.standard.string(forKey: "insights.set") {
-        didSet { UserDefaults.standard.set(setCode, forKey: "insights.set"); captureSet() }
+        didSet { UserDefaults.standard.set(setCode, forKey: "insights.set"); captureSet(); picksChanged() }
     }
     var event: String = UserDefaults.standard.string(forKey: "insights.event") ?? "PremierDraft" {
-        didSet { UserDefaults.standard.set(event, forKey: "insights.event"); captureSet() }
+        didSet { UserDefaults.standard.set(event, forKey: "insights.event"); captureSet(); picksChanged() }
     }
     var group: String = UserDefaults.standard.string(forKey: "insights.group") ?? "all" {
-        didSet { UserDefaults.standard.set(group, forKey: "insights.group") }
+        didSet { UserDefaults.standard.set(group, forKey: "insights.group"); picksChanged() }
     }
-    private func captureSet() { Telemetry.capture("insights_set_changed", ["set": setCode ?? "", "event": event]) }
+    private func captureSet() { if !applying { Telemetry.capture("insights_set_changed", ["set": setCode ?? "", "event": event]) } }
+
+    // MARK: picks on the account (contract § What the viewer picked)
+
+    /// Setting the account's picks: no "changed" telemetry and no write back for a change nobody made here.
+    @ObservationIgnored private var applying = false
+    @ObservationIgnored private var heldPicks: [String: AnyJSON]?
+    @ObservationIgnored private var pushTask: Task<Void, Never>?
+
+    var picks: Insights.Picks {
+        .init(section: section, format: format, tier: tierPicked?.rawValue, days: days, set: setCode, event: event, group: group,
+              hidden_formats: hiddenFormats, hidden_sets: hiddenSets)
+    }
+
+    /// Written a moment after the last change.
+    private func picksChanged() {
+        guard !applying, demoPages == nil, Repo.userId != nil else { return }
+        pushTask?.cancel()
+        pushTask = Task {
+            try? await Task.sleep(for: .milliseconds(800))
+            guard !Task.isCancelled else { return }
+            let next = Insights.Picks.write(picks, held: heldPicks)
+            if (try? await Repo.setInsightsPicks(next)) != nil { heldPicks = next }
+        }
+    }
+
+    /// The account's picks over this device's; a device whose account has none yet sends its own.
+    private func pullPicks() async {
+        guard let held = await Repo.insightsPicks() else { return }
+        heldPicks = held
+        if held.isEmpty { picksChanged(); return }
+        let p = Insights.Picks.read(held)
+        applying = true
+        defer { applying = false }
+        if let v = p.section { section = v }
+        if let v = p.format { format = v }
+        if let v = p.tier.flatMap(Insights.Tier.init) { tierPicked = v }
+        if let v = p.days, Insights.windows.contains(v) { days = v }
+        if let v = p.set { setCode = v }
+        if let v = p.event { event = v }
+        if let v = p.group { group = v }
+        if let v = p.hidden_formats { hiddenFormats = v }
+        if let v = p.hidden_sets { hiddenSets = v }
+    }
 
     var pack: Insights.ConstructedPack? { constructed[format] }
     func tier(for pack: Insights.ConstructedPack) -> Insights.Tier { tierPicked ?? pack.default_tier }
@@ -92,6 +136,7 @@ final class InsightsStore {
         if !force, let at = loadedAt, Date().timeIntervalSince(at) < 600 { return }
         loading = true
         defer { loading = false }
+        await pullPicks()
         do {
             index = try await supabase.rpc("insights_index").execute().value
             error = nil

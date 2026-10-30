@@ -1,5 +1,6 @@
 import XCTest
 @testable import Table1
+import Supabase
 
 /* Insights packs (contract/insights-2026-10-24.md § Packs) as the server builds them: testdata/insights holds
    constructed packs built from real MTGO pages and a Limited pack from 17Lands data (tools/insights/). */
@@ -128,5 +129,30 @@ final class InsightsPackTests: XCTestCase {
             XCTAssertEqual(Insights.formatParts(p, tier: k.tier, days: k.days),
                            k.parts.map { Insights.Part(key: $0.key, title: $0.title, detail: $0.detail) }, "\(k.format) \(k.tier) \(k.days)")
         }
+    }
+}
+
+/// Insights picks follow the account: testdata/insights-picks/cases.json, shared with web and Android.
+final class InsightsPicksTests: XCTestCase {
+    private struct Cases: Decodable {
+        struct W: Decodable { let name: String; let held: [String: AnyJSON]?; let picks: [String: AnyJSON]; let want: [String: AnyJSON] }
+        struct R: Decodable { let name: String; let stored: [String: AnyJSON]; let want: Insights.Picks }
+        let write: [W]
+        let read: [R]
+    }
+
+    private func cases() throws -> Cases {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appending(path: "../../../testdata/insights-picks/cases.json").standardized
+        return try JSONDecoder().decode(Cases.self, from: Data(contentsOf: url))
+    }
+
+    func testWriteSharedCases() throws {
+        for c in try cases().write {
+            XCTAssertEqual(Insights.Picks.write(Insights.Picks.read(c.picks), held: c.held), c.want, c.name)
+        }
+    }
+
+    func testReadSharedCases() throws {
+        for c in try cases().read { XCTAssertEqual(Insights.Picks.read(c.stored), c.want, c.name) }
     }
 }

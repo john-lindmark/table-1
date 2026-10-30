@@ -148,3 +148,28 @@ class InsightsPackOrderTest {
         assertEquals(listOf("modern", "standard", "FRA", "MSH"), Insights.packOrder(index, "constructed", "modern", "MSH").map { it.key })
     }
 }
+
+/* Insights picks follow the account: testdata/insights-picks/cases.json, shared with iOS and web. */
+class InsightsPicksTest {
+    private val all = Json.parseToJsonElement(
+        File(generateSequence(File("").absoluteFile) { it.parentFile }.map { File(it, "testdata/insights-picks") }.first { it.isDirectory }, "cases.json").readText(),
+    ).jsonObject
+    private val enc = Json { explicitNulls = false }
+
+    @Test fun writeSharedCases() {
+        for (c in all["write"]!!.jsonArray) {
+            val o = c.jsonObject
+            val picks = InsightsPicks.read(o["picks"]!!.jsonObject)
+            val held = (o["held"] as? kotlinx.serialization.json.JsonObject)
+            assertEquals(o["name"]!!.jsonPrimitive.content, o["want"], InsightsPicks.write(picks, held))
+        }
+    }
+
+    @Test fun readSharedCases() {
+        for (c in all["read"]!!.jsonArray) {
+            val o = c.jsonObject
+            val got = enc.encodeToJsonElement(InsightsPicks.serializer(), InsightsPicks.read(o["stored"]!!.jsonObject))
+            assertEquals(o["name"]!!.jsonPrimitive.content, o["want"], got)
+        }
+    }
+}

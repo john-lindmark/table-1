@@ -1,7 +1,45 @@
 import Foundation
+import Supabase
 
 /// Insights packs and read RPCs (contract/insights-2026-10-24.md § Packs, § RPCs). Wire names as published.
 enum Insights {
+    /// What the viewer picked, kept on the account so every device opens the same way (user_settings.insights,
+    /// contract/insights-2026-10-24.md § What the viewer picked). Every key is optional; ones this build doesn't know stay.
+    struct Picks: Codable, Equatable {
+        var section: String?, format: String?, tier: String?, days: Int?, set: String?, event: String?, group: String?
+        var hidden_formats: [String]?, hidden_sets: [String]?
+
+        init(section: String? = nil, format: String? = nil, tier: String? = nil, days: Int? = nil, set: String? = nil,
+             event: String? = nil, group: String? = nil, hidden_formats: [String]? = nil, hidden_sets: [String]? = nil) {
+            self.section = section; self.format = format; self.tier = tier; self.days = days; self.set = set
+            self.event = event; self.group = group; self.hidden_formats = hidden_formats; self.hidden_sets = hidden_sets
+        }
+
+        /// A wrong type reads as missing rather than failing the rest.
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            section = try? c.decodeIfPresent(String.self, forKey: .section)
+            format = try? c.decodeIfPresent(String.self, forKey: .format)
+            tier = try? c.decodeIfPresent(String.self, forKey: .tier)
+            days = try? c.decodeIfPresent(Int.self, forKey: .days)
+            set = try? c.decodeIfPresent(String.self, forKey: .set)
+            event = try? c.decodeIfPresent(String.self, forKey: .event)
+            group = try? c.decodeIfPresent(String.self, forKey: .group)
+            hidden_formats = try? c.decodeIfPresent([String].self, forKey: .hidden_formats)
+            hidden_sets = try? c.decodeIfPresent([String].self, forKey: .hidden_sets)
+        }
+
+        static func read(_ o: [String: AnyJSON]) -> Picks {
+            (try? JSONEncoder().encode(o)).flatMap { try? JSONDecoder().decode(Picks.self, from: $0) } ?? Picks()
+        }
+
+        /// The object to store: these picks over what the account holds (keys from newer clients stay).
+        static func write(_ p: Picks, held: [String: AnyJSON]?) -> [String: AnyJSON] {
+            let mine = (try? JSONEncoder().encode(p)).flatMap { try? JSONDecoder().decode([String: AnyJSON].self, from: $0) } ?? [:]
+            return (held ?? [:]).merging(mine.filter { $0.value != .null }) { _, new in new }
+        }
+    }
+
     struct IndexEntry: Decodable, Hashable {
         let kind: String
         let key: String

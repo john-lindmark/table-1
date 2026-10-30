@@ -10,6 +10,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -54,8 +55,48 @@ object InsightsStore {
     var event by mutableStateOf(runCatching { prefs.getString("event", "PremierDraft") }.getOrNull() ?: "PremierDraft"); private set
     var group by mutableStateOf(runCatching { prefs.getString("group", "all") }.getOrNull() ?: "all"); private set
 
-    private fun save(k: String, v: Any?) = runCatching {
-        prefs.edit().apply { when (v) { is Int -> putInt(k, v); null -> remove(k); else -> putString(k, v.toString()) } }.apply()
+    private fun save(k: String, v: Any?) {
+        runCatching { prefs.edit().apply { when (v) { is Int -> putInt(k, v); null -> remove(k); else -> putString(k, v.toString()) } }.apply() }
+        pushPicks()
+    }
+
+    /* The picks follow the account: read when Insights loads, written a moment after each change. */
+    private var heldPicks: kotlinx.serialization.json.JsonObject? = null
+    private var applying = false
+    private var pushJob: kotlinx.coroutines.Job? = null
+
+    val picks get() = InsightsPicks(section, format, tierPicked, days, setCode, event, group, hiddenFormats, hiddenSets)
+
+    private fun pushPicks() {
+        if (applying || demo || site.table1.events.data.Repo.userId == null) return
+        pushJob?.cancel()
+        pushJob = scope.launch {
+            kotlinx.coroutines.delay(800)
+            val next = InsightsPicks.write(picks, heldPicks)
+            runCatching { site.table1.events.data.Repo.setInsightsPicks(next) }.onSuccess { heldPicks = next }
+        }
+    }
+
+    /** The account's picks over this device's (the account wins; a device with none yet sends its own). */
+    private suspend fun pullPicks() {
+        val held = runCatching { site.table1.events.data.Repo.insightsPicks() }.getOrNull()
+        heldPicks = held
+        if (held == null || held.isEmpty()) { pushPicks(); return }
+        val p = InsightsPicks.read(held)
+        // Straight into the fields (and this device's copy), not through the pick functions: no "changed" telemetry
+        // for a change nobody made here.
+        applying = true
+        try {
+            p.section?.let { section = it; save("section", it) }
+            p.format?.let { format = it; save("format", it) }
+            p.tier?.let { tierPicked = it; save("tier", it) }
+            p.days?.takeIf { it in Insights.windows }?.let { days = it; save("days", it) }
+            p.set?.let { setCode = it; save("set", it) }
+            p.event?.let { event = it; save("event", it) }
+            p.group?.let { group = it; save("group", it) }
+            p.hiddenFormats?.let { hiddenFormats = it; runCatching { prefs.edit().putStringSet("hiddenFormats", it.toSet()).apply() } }
+            p.hiddenSets?.let { hiddenSets = it; runCatching { prefs.edit().putStringSet("hiddenSets", it.toSet()).apply() } }
+        } finally { applying = false }
     }
     fun pickSection(v: String) { section = v; save("section", v); Telemetry.capture("insights_section_changed", mapOf("section" to v)) }
     fun pickFormat(v: String) { format = v; save("format", v); Telemetry.capture("insights_format_changed", mapOf("format" to v)) }
@@ -69,10 +110,12 @@ object InsightsStore {
         if (format) {
             hiddenFormats = hiddenFormats.filter { it != key } + (if (hide) listOf(key) else emptyList())
             runCatching { prefs.edit().putStringSet("hiddenFormats", hiddenFormats.toSet()).apply() }
+            pushPicks()
             if (this.format !in shownFormats) pickFormat(shownFormats.first())
         } else {
             hiddenSets = hiddenSets.filter { it != key } + (if (hide) listOf(key) else emptyList())
             runCatching { prefs.edit().putStringSet("hiddenSets", hiddenSets.toSet()).apply() }
+            pushPicks()
             setCode?.let { if (it !in shownSets) shownSets.firstOrNull()?.let(::pickSet) }
         }
         Telemetry.capture("insights_picker_edited", mapOf("picker" to if (format) "formats" else "sets", "hidden" to (if (format) hiddenFormats else hiddenSets).size))
@@ -106,6 +149,7 @@ object InsightsStore {
             return
         }
         loading = true
+        pullPicks()
         try {
             val raw = T1App.supabase.postgrest.rpc("insights_index").data
             index = withContext(Dispatchers.Default) { json.decodeFromString<List<IndexEntry>>(raw) }

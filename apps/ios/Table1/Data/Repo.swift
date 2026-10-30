@@ -590,6 +590,26 @@ enum Repo {
         }
     }
 
+    /// Insights picks on the account (user_settings.insights); nil when signed out or unreadable, empty when none yet.
+    static func insightsPicks() async -> [String: AnyJSON]? {
+        guard let uid = userId else { return nil }
+        struct Row: Decodable { let insights: [String: AnyJSON]? }
+        do {
+            let rows: [Row] = try await supabase.from("user_settings").select("insights").eq("user_id", value: uid).execute().value
+            return rows.first?.insights ?? [:]
+        } catch {
+            return nil
+        }
+    }
+
+    static func setInsightsPicks(_ picks: [String: AnyJSON]) async throws {
+        guard let uid = userId else { return }
+        try await supabase.from("user_settings")
+            .upsert(["user_id": AnyJSON.string(uid), "insights": .object(picks),
+                     "updated_at": .string(ISO8601DateFormatter().string(from: Date()))], onConflict: "user_id")
+            .execute()
+    }
+
     static func setTrackerMode(_ mode: String) async throws {
         guard let uid = userId else { return }
         try await supabase.from("user_settings")

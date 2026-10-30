@@ -198,7 +198,7 @@ export function matchup(m: Matchups, a: number, b: number): { wins: number; loss
   return ba ? { wins: ba[3], losses: ba[2], draws: ba[4] } : null;
 }
 
-/* ── picks, kept in this browser ──────────────────────────────────────── */
+/* ── picks, kept on the account with a copy in this browser ───────────── */
 
 export interface Picks {
   format: string; tier: Tier | null; days: number; set: string | null; event: string; group: "all" | "top";
@@ -209,6 +209,78 @@ const PICKS_KEY = "t1.insights.picks";
 function readPicks(): Picks {
   const d: Picks = { format: "modern", tier: null, days: 30, set: null, event: "PremierDraft", group: "all", hiddenFormats: [], hiddenSets: [] };
   try { return { ...d, ...JSON.parse(localStorage.getItem(PICKS_KEY) ?? "{}") }; } catch { return d; }
+}
+
+/**
+ * The picks as user_settings.insights holds them (contract/insights-2026-10-24.md § What the viewer picked): snake
+ * case, every key optional. `section` is the apps' (the web keeps it in the address), kept as the account has it.
+ */
+export type WirePicks = Record<string, unknown>;
+const str = (v: unknown) => (typeof v === "string" ? v : undefined);
+const strs = (v: unknown) => (Array.isArray(v) && v.every((x) => typeof x === "string") ? (v as string[]) : undefined);
+
+/** What a device takes from the stored object; wrong types and unknown keys are ignored. */
+export function readWirePicks(o: WirePicks): WirePicks {
+  const out: WirePicks = {};
+  for (const k of ["section", "format", "tier", "set", "event", "group"]) { const v = str(o[k]); if (v !== undefined) out[k] = v; }
+  if (typeof o.days === "number" && Number.isInteger(o.days)) out.days = o.days;
+  for (const k of ["hidden_formats", "hidden_sets"]) { const v = strs(o[k]); if (v !== undefined) out[k] = v; }
+  return out;
+}
+
+/** The object to store: these picks over what the account holds (keys from newer clients stay). */
+export function writeWirePicks(picks: WirePicks, held: WirePicks | null): WirePicks {
+  const mine = Object.fromEntries(Object.entries(readWirePicks(picks)).filter(([, v]) => v !== null));
+  return { ...(held ?? {}), ...mine };
+}
+
+const toWire = (p: Picks): WirePicks => ({ format: p.format, tier: p.tier, days: p.days, set: p.set, event: p.event, group: p.group,
+  hidden_formats: p.hiddenFormats, hidden_sets: p.hiddenSets });
+
+function fromWire(o: WirePicks): Partial<Picks> {
+  const w = readWirePicks(o);
+  const out: Partial<Picks> = {};
+  if (w.format) out.format = w.format as string;
+  if (w.tier === "big" || w.tier === "all") out.tier = w.tier;
+  if (typeof w.days === "number" && [7, 14, 30, 90].includes(w.days)) out.days = w.days;
+  if (w.set) out.set = w.set as string;
+  if (w.event) out.event = w.event as string;
+  if (w.group === "all" || w.group === "top") out.group = w.group;
+  if (w.hidden_formats) out.hiddenFormats = w.hidden_formats as string[];
+  if (w.hidden_sets) out.hiddenSets = w.hidden_sets as string[];
+  return out;
+}
+
+let heldPicks: WirePicks | null = null;
+let pushTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Written a moment after the last change, when signed in. */
+function pushPicks() {
+  if (state.demo) return;
+  if (pushTimer) clearTimeout(pushTimer);
+  pushTimer = setTimeout(async () => {
+    const { data } = await supabase.auth.getSession();
+    const uid = data.session?.user.id;
+    if (!uid) return;
+    const next = writeWirePicks(toWire(state.picks), heldPicks);
+    const { error } = await supabase.from("user_settings")
+      .upsert({ user_id: uid, insights: next, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+    if (!error) heldPicks = next;
+  }, 800);
+}
+
+/** The account's picks over this browser's; an account with none yet takes this browser's. */
+async function pullPicks() {
+  const { data } = await supabase.auth.getSession();
+  const uid = data.session?.user.id;
+  if (!uid) return;
+  const { data: row, error } = await supabase.from("user_settings").select("insights").eq("user_id", uid).maybeSingle();
+  if (error) return;
+  heldPicks = (row?.insights as WirePicks | undefined) ?? {};
+  if (!Object.keys(heldPicks).length) { pushPicks(); return; }
+  const picks = { ...state.picks, ...fromWire(heldPicks) };
+  try { localStorage.setItem(PICKS_KEY, JSON.stringify(picks)); } catch { /* private window */ }
+  set({ picks });
 }
 
 /* ── the store ────────────────────────────────────────────────────────── */
@@ -248,6 +320,7 @@ export function pick(patch: Partial<Picks>) {
   const picks = { ...state.picks, ...patch };
   try { localStorage.setItem(PICKS_KEY, JSON.stringify(picks)); } catch { /* private window */ }
   set({ picks });
+  pushPicks();
   if (patch.format) capture("insights_format_changed", { format: patch.format });
   if (patch.tier) capture("insights_tier_changed", { tier: patch.tier });
   if (patch.days) capture("insights_window_changed", { days: patch.days });
@@ -279,6 +352,7 @@ export function loadInsights(force = false): Promise<void> {
   if (!force && loading && Date.now() - loadedAt < 600_000) return loading;
   loadedAt = Date.now();
   loading = (async () => {
+    await pullPicks().catch(() => { /* keep this browser's picks */ });
     const { data, error } = await supabase.rpc("insights_index");
     if (error) { set({ error: `Insights couldn't load: ${error.message}` }); return; }
     const index = (data ?? []) as IndexEntry[];

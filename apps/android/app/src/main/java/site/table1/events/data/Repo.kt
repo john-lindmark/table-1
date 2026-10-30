@@ -649,6 +649,22 @@ object Repo {
         })
     }
 
+    /** Insights picks on the account (user_settings.insights; contract/insights-2026-10-24.md § What the viewer picked). */
+    suspend fun insightsPicks(): kotlinx.serialization.json.JsonObject? {
+        val uid = userId ?: return null
+        return supabase.from("user_settings").select(io.github.jan.supabase.postgrest.query.Columns.list("insights")) { filter { eq("user_id", uid) } }
+            .decodeList<kotlinx.serialization.json.JsonObject>().firstOrNull()?.get("insights") as? kotlinx.serialization.json.JsonObject
+    }
+
+    suspend fun setInsightsPicks(picks: kotlinx.serialization.json.JsonObject) {
+        val uid = userId ?: return
+        supabase.from("user_settings").upsert(buildJsonObject {
+            put("user_id", uid)
+            put("insights", picks)
+            put("updated_at", java.time.Instant.now().toString())
+        })
+    }
+
     /* ── account ────────────────────────────────────────────────────────────── */
 
     /** Server-side delete: profile scrubbed (results stay as "Deleted player"), devices and alerts removed,

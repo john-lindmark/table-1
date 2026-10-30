@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { screenName } from "./analytics";
 import { navKeyFor } from "./desktop";
-import { afterWindow, archetypeName, bansTitle, canHide, changeWords, colorsName, exampleFinish, formatParts, FORMATS, isBan, matchup, place, sourcesCredit, visibleKeys, type BanStudy, type ConstructedPack, type LimitedPack } from "./insights";
+import { afterWindow, archetypeName, bansTitle, canHide, changeWords, colorsName, exampleFinish, formatParts, FORMATS, isBan, matchup, place, sourcesCredit, visibleKeys, readWirePicks, writeWirePicks, type BanStudy, type ConstructedPack, type LimitedPack } from "./insights";
 
 /* Insights packs (contract/insights-2026-10-24.md § Packs) as the server builds them: testdata/insights holds
    constructed packs built from real MTGO pages and a Limited pack from 17Lands data (tools/insights/). */
@@ -126,5 +126,15 @@ describe("insights helpers", () => {
   it("sums up the format page's parts, one row each (testdata/insights/parts.json)", () => {
     const { cases } = read("parts.json") as { cases: { format: string; tier: "big" | "all"; days: number; parts: unknown[] }[] };
     for (const k of cases) expect(formatParts(read(`constructed-${k.format}.json`) as ConstructedPack, k.tier, k.days)).toEqual(k.parts);
+  });
+});
+
+describe("insights picks on the account (testdata/insights-picks/cases.json)", () => {
+  const cases = JSON.parse(readFileSync(new URL("../../../testdata/insights-picks/cases.json", import.meta.url), "utf8"));
+  it("writes a device's picks over what the account holds", () => {
+    for (const c of cases.write) expect(writeWirePicks(c.picks, c.held), c.name).toEqual(c.want);
+  });
+  it("reads only the keys it knows, of the right type", () => {
+    for (const c of cases.read) expect(readWirePicks(c.stored), c.name).toEqual(c.want);
   });
 });

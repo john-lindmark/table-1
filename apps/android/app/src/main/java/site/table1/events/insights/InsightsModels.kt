@@ -12,6 +12,28 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
 
 /** Insights packs and read RPCs (contract/insights-2026-10-24.md § Packs, § RPCs). Wire names as published. */
+/**
+ * What the viewer picked in Insights, kept on the account so every device opens the same way (user_settings.insights,
+ * contract/insights-2026-10-24.md § What the viewer picked). Every key is optional; unknown keys are kept as they were.
+ */
+@kotlinx.serialization.Serializable
+data class InsightsPicks(
+    val section: String? = null, val format: String? = null, val tier: String? = null, val days: Int? = null,
+    val set: String? = null, val event: String? = null, val group: String? = null,
+    @kotlinx.serialization.SerialName("hidden_formats") val hiddenFormats: List<String>? = null,
+    @kotlinx.serialization.SerialName("hidden_sets") val hiddenSets: List<String>? = null,
+) {
+    companion object {
+        private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; explicitNulls = false }
+
+        fun read(o: kotlinx.serialization.json.JsonObject): InsightsPicks = runCatching { json.decodeFromJsonElement(serializer(), o) }.getOrDefault(InsightsPicks())
+
+        /** The object to store: [p]'s keys over what the account already holds (keys from newer clients stay). */
+        fun write(p: InsightsPicks, held: kotlinx.serialization.json.JsonObject?): kotlinx.serialization.json.JsonObject =
+            kotlinx.serialization.json.JsonObject((held ?: emptyMap()) + json.encodeToJsonElement(serializer(), p) as kotlinx.serialization.json.JsonObject)
+    }
+}
+
 object Insights {
     /** Which pack to load first: the one on screen (the picked format, or on Limited the picked set or else the first), then its section's, then the rest. */
     fun packOrder(index: List<IndexEntry>, section: String, format: String, setCode: String?): List<IndexEntry> {
