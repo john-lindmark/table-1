@@ -82,7 +82,7 @@ still to do. Wire names are in `rpc.schema.json`.
 - **Rotate after upload**: the photo's menu (player or whoever took it, like the note) has Rotate right / Rotate left.
   The file is never rewritten (only its uploader may overwrite it, and a new file would skip moderation): the row keeps
   `turns` (0–3, `deck_photo_turn(p_id, p_turns)`, audited as `deck_photo.turned` only when it changes; `deck_photos`
-  rows carry `turns`; migration `20261030060000_deck_photo_turns.sql`). Clients draw the photo turned, fitted into the
+  rows carry `turns`; migration `20261030060000_deck_photo_turns.sql`, applied to live 2026-10-30). Clients draw the photo turned, fitted into the
   4:3 box's swapped sides for odd turns, and show a tap at once (kept until the server answers). Photos in the list are
   shown whole (fit) rather than cropped. Older servers send no `turns`: read as 0.
 - Rule (cases `testdata/deck-photos/cases.json`, tests `DeckPhotoTests` / `deckPhotos.test.ts` / `DeckPhotosTest`):
