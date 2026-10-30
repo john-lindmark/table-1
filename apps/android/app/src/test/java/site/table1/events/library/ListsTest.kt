@@ -1,5 +1,6 @@
 package site.table1.events.library
 
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -64,5 +65,35 @@ class ListsTest {
             CardList.diff(l.versions[0], l.versions[1]).sortedBy { it.delta * 10 + if (it.lang == "de") 0 else 1 })
         // Missing counts every language.
         assertEquals(1, l.missing(mapOf(ownKey(bolt, "nonfoil") to 2), emptySet()))
+    }
+
+    // A sync once made 50 lists_changes calls back to back whatever the server said (2026-10-30 edge logs: ~100 a minute
+    // from every Android launch): `return@repeat` only skipped to the next page.
+    @Test fun syncStopsWhenThereIsNoMore() = runBlocking {
+        val asked = mutableListOf<Long>()
+        val calls = readListPages(7, fetch = { after -> asked += after; ListsPage(emptyList(), 7, false) }) { true }
+        assertEquals(1, calls)
+        assertEquals(listOf(7L), asked)
+    }
+
+    @Test fun syncPagesUntilMoreIsFalse() = runBlocking {
+        val pages = mapOf(0L to ListsPage(emptyList(), 100, true), 100L to ListsPage(emptyList(), 200, true),
+            200L to ListsPage(emptyList(), 230, false))
+        val applied = mutableListOf<Long>()
+        val calls = readListPages(0, fetch = { pages.getValue(it) }) { applied += it.next; true }
+        assertEquals(3, calls)
+        assertEquals(listOf(100L, 200L, 230L), applied)
+    }
+
+    @Test fun syncStopsWhenTheCursorDoesNotMove() = runBlocking {
+        assertEquals(1, readListPages(5, fetch = { ListsPage(emptyList(), 5, true) }) { true })
+    }
+
+    @Test fun syncStopsWhenTheAccountChanges() = runBlocking {
+        assertEquals(1, readListPages(0, fetch = { ListsPage(emptyList(), it + 100, true) }) { false })
+    }
+
+    @Test fun syncReadsAtMostFiftyPages() = runBlocking {
+        assertEquals(50, readListPages(0, fetch = { ListsPage(emptyList(), it + 100, true) }) { true })
     }
 }
