@@ -148,7 +148,7 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `list_card_removed` | `kind`: deck / cube. Remove in Add, remove or replace |
 | `list_card_replaced` | `kind`. Replace swaps one copy for another card in one edit |
 | `list_card_added` | `kind`, `from`: edit (picked, then Add) / quick (the + on a hit) (2026-10-19) |
-| `ranking_created` | `depth`: half / full, `top`: 50 / 100, `sharing`: cube / private, `own_cube`: bool (2026-10-21, `cube-rankings-2026-10-21.md`) |
+| `ranking_created` | `depth`: half / full, `top`: 50 / 100, `sharing`: cube / private, `own_cube`: bool (2026-10-21, `cube-rankings-2026-10-21.md`), `subject`: cube / set (a Limited set or Arena cube version, 2026-10-30) |
 | `ranking_job_done` | `job`: W U B R G M C L F, `screens`: int |
 | `ranking_undo` / `ranking_redo` / `ranking_deleted` / `ranking_changes_opened` | — |
 | `ranking_pick` | `disagreed`: int (pack cards the ranking put above the pick), `resolution`: none / keep / pick_wins, `removed`: screens taken out |
@@ -189,6 +189,9 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `insights_review_action` | `what`, `action` (moderators: approve / reject / confirm) |
 | `insights_matchup_opened` | `format` (a square of the matchup grid tapped for its record) |
 | `insights_part_opened` | `format`, `part`: meta / cards / new_set / changes / events (a format page row opened, 2026-10-28) |
+| `insights_rank_opened` | `set` (FRA, PWR-2510), `kind`: set / cube, `from`: set / new_sets (a set's Rankings opened from Limited, 2026-10-30) |
+| `insights_alerts_changed` | `on`: bool (the New in Insights switch, 2026-10-30) |
+| `push_opened` | `kind`: insights.new (plus `what`: data / rank on iOS) |
 
 ### Discord bot (server-side, from the `discord-bot` function; contract/discord-2026-10-29.md §8)
 `platform` is `discord`; `distinct_id` is the Table 1 user id once linked, else `discord:<salted hash>`. Never Discord,

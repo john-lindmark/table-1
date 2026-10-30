@@ -42,6 +42,37 @@ checked against `testdata/cube-ranking/cases.json`, written by the independent r
 - **Not built** (cuberanker has them): Discord sign-in (Table 1 accounts instead), a public watch link (there is no
   signed-out view; rankings open from the cube, see Where), the redo cost estimate ("about N more screens").
 
+## Sets (John, 2026-10-30: "add the ability to rank a limited set from the insights view")
+
+A ranking ranks a cube (`list_id`, as before) or a **Limited subject** (`set_key`): a paper draft set by its code (FRA) or
+an Arena cube version (PWR-2510, contract/insights-2026-10-24.md § Arena cubes). Migration
+`20261030140000_limited_rankings.sql`, tests `57_limited_rankings_test.sql`, budgets in `perf_10_library.sql`, cases
+`testdata/limited-rankings/cases.json` (iOS `LimitedRankingsTests`, web `limitedRank.test.ts`, Android `LimitedRankingsTest`).
+- **What is ranked:** a set's English printings, one per card, without basic lands, tokens or art cards, each drawn in its
+  lowest collector number in the set (the regular frame); a cube version, the cards 17Lands lists for it (usual art). The
+  engine, saving, screens, picks, compare, briefs and the top-100 image are the cube ranker's. Cards Scryfall adds later
+  (spoiler season) join like cards added to a cube: they wait outside the lists until placed.
+- **Who sees one:** its maker, and with sharing `cube`, shown as **Shared with friends**, their friends (blocks and
+  restrictions as before). Everyone can see a set, so "shared with the set" would have meant everyone on Table 1. Names are
+  moderated whenever shared.
+- **Subject ids:** clients treat a set as the subject `set:<KEY>` wherever a cube's list id goes (`RankSubject` iOS /
+  Android, `lib/limitedRank.ts` web), so the Rankings screens open either by one id. The server's subject is
+  `{id: "set:<KEY>", set, kind: set | cube, name, released, mine: false, owner: null, can_see: true}` (+ `cards`,
+  `printings` from `cube_ranking_get`).
+- **Calls:** `cube_ranking_create(p_id, p_list_id?, …, p_set?)` (one of the two), `cube_rankings(p_list_id?, p_set?, p_sets
+  = false)` (a set's with `p_set`; your own list has your set rankings only with `p_sets`, which builds before this one
+  don't send, since they'd try to open the set's cube), `limited_rankable()` → `[{key, name, released, kind, cards, pack,
+  mine, rankings}]`: paper sets from the last 400 days and the next 45 with 60+ cards, and every Arena cube version.
+  Ranking rows carry `set_key` (and `list_id` null for a set).
+- **Where:** Insights → Limited: **Rank this set** / **Rank this cube** under each set's stats, **New sets to rank** (sets with
+  no 17Lands data yet). Rankings (yours): **Sets you can rank**. The set's Rankings: "Rank <Set>", **Your friends'**
+  rankings. Web `/insights/limited/<set>/rankings`; the apps push the Collection Rankings screen in the Insights tab (iOS)
+  or route `collection/list/set%3A<KEY>/rankings` (Android).
+- **Not done:** the brief's prompt still says "cube" ("how each likes to draft this cube"); pushes to an owner
+  (`ranking.started`) don't apply (a set has none); a set's P1P1 pack is 15 cards from the whole set, not a booster's
+  rarities.
+- Telemetry: `ranking_created` gains `subject`: cube / set.
+
 ## Cube changes and telling the owner (John, 2026-10-22)
 
 - **A card leaves the cube:** it's in no list any more, and what it settled still counts (knowledge covers the cube's
@@ -296,7 +327,7 @@ shared cases `testdata/ranking-save/cases.json`):
 
 ## Telemetry
 
-`ranking_created` (`depth`, `top`, `sharing`, `own_cube`), `ranking_pick` (`disagreed`: count, `resolution`: none /
+`ranking_created` (`depth`, `top`, `sharing`, `own_cube`, `subject`: cube / set), `ranking_pick` (`disagreed`: count, `resolution`: none /
 keep / pick_wins, `removed`: screens), `ranking_changes_opened`, `ranking_job_done` (`job`: color key or F, `screens`),
 `ranking_undo`, `ranking_redo`, `ranking_compared` (`list`), `ranking_brief_shown` / `ranking_brief_missing` (`list`, `cached`), `ranking_list_copied`, `ranking_image` (`how`),
 `ranking_deleted`. Never ids or names.
