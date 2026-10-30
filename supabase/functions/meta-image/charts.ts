@@ -65,6 +65,24 @@ export function gridFor(p: Pack, tier: Tier, days: number): { m: Matchups; tier:
 }
 
 export const rowsOf = (m: Matchups) => (m.rows?.length ? m.rows : m.archetypes);
+
+/** A grid row's overall match win rate against every other archetype: Meta now's record for the grid's window, else
+ *  the row's squares summed. Draws left out, as in the squares, so the row reads on the same scale as its squares. */
+export function overallOf(p: Pack, g: { m: Matchups; tier: Tier; days: number }, a: number):
+  { wins: number; losses: number; draws: number; rate: number; from: "meta" | "grid" } | null {
+  const rec = p.tiers[g.tier]?.windows[String(g.days)]?.share.find((s) => s.a === a)?.rec;
+  if (rec && rec[0] + rec[1] + rec[2] > 0) {
+    const [wins, losses, draws] = rec;
+    if (wins + losses) return { wins, losses, draws, rate: wins / (wins + losses), from: "meta" };
+  }
+  let wins = 0, losses = 0, draws = 0;
+  for (const b of rowsOf(g.m)) {
+    if (b === a) continue;
+    const v = cellOf(g.m, a, b);
+    if (v) { wins += v.wins; losses += v.losses; draws += v.draws; }
+  }
+  return wins + losses ? { wins, losses, draws, rate: wins / (wins + losses), from: "grid" } : null;
+}
 export const nameOf = (p: Pack, id: number) => p.archetypes.find((a) => a.id === id)?.name ?? "Other";
 export const scope = (tier: Tier, days: number) => `${tier === "big" ? "Big events" : "All events"} · last ${days} days`;
 const SOURCES: Record<string, string> = { mtgo: "Magic Online", topdeck: "TopDeck.gg", melee: "Melee" };
@@ -145,7 +163,7 @@ export function matchupsPicture(p: Pack, tier: Tier, days: number): Picture {
   if (!g.m.cells.length || !rows.length) return empty(`${p.name} matchups`, scope(g.tier, g.days), "No matches between known decks in this window yet.", p.sources);
   const matches = g.m.cells.reduce((s, c) => s + c[2] + c[3] + c[4], 0);
   const hd = header(`${p.name} matchups`, `${scope(g.tier, g.days)} · ${matches.toLocaleString("en-US")} matches`);
-  const labelW = 320, gap = 2, headH = 230, rowH = 58;
+  const labelW = 440, gap = 2, headH = 230, rowH = 58, rateW = 130;
   const cellW = (WIDTH - 2 * PAD - labelW - gap * cols.length) / cols.length;
   let out = hd.svg;
   const top = hd.h;
@@ -156,10 +174,23 @@ export function matchupsPicture(p: Pack, tier: Tier, days: number): Picture {
     out += `<g transform="translate(${(x + cellW / 2 + 7).toFixed(1)} ${(top + headH - 14).toFixed(1)}) rotate(-90)">` +
       text(nameOf(p, b).toUpperCase(), 0, -9, 15, C.text, { tracking: 1, max: headH - 28 }) + `</g>`;
   });
-  out += rect(PAD, top, labelW, headH, C.surface);
+  out += rect(PAD, top, labelW, headH, C.surface) +
+    text("OVERALL", PAD + labelW - 12 - rateW / 2, top + headH - 30, 13, C.muted, { tracking: 1, anchor: "middle" });
+  let fromGrid = false;
   rows.forEach((a, r) => {
     const y = top + headH + gap + r * (rowH + gap);
-    out += rect(PAD, y, labelW, rowH, C.surface) + text(nameOf(p, a), PAD + 16, y + rowH / 2 - 11, 19, C.text, { max: labelW - 32 });
+    // the row's name over its overall win rate, tinted like a square
+    const o = overallOf(p, g, a);
+    const h = heat(o?.wins ?? 0, o?.losses ?? 0);
+    if (o?.from === "grid") fromGrid = true;
+    const fill = h.tone === "none" ? C.surface : h.tone === "even" ? C.hover : mix(h.tone === "up" ? C.accent : C.error, C.surface, h.strength);
+    const ink = h.ink ? C.ink : h.dim ? C.muted : C.text;
+    out += rect(PAD, y, labelW, rowH, fill) + text(nameOf(p, a), PAD + 16, y + rowH / 2 - 11, 19, h.ink ? C.ink : C.text, { max: labelW - 40 - rateW });
+    if (o && h.label) {
+      const cx = PAD + labelW - 12 - rateW / 2;
+      out += text(`${h.label}%`, cx, y + 8, 21, ink, { weight: 600, anchor: "middle" });
+      out += text(`${o.wins}-${o.losses}${o.draws ? `-${o.draws}` : ""}`, cx, y + 35, 14, ink, { anchor: "middle", opacity: 0.85, max: rateW });
+    }
     cols.forEach((b, c) => {
       const x = PAD + labelW + gap + c * (cellW + gap);
       if (a === b) { out += rect(x, y, cellW, rowH, C.bg); return; }
@@ -177,6 +208,7 @@ export function matchupsPicture(p: Pack, tier: Tier, days: number): Picture {
   const bottom = top + headH + gap + rows.length * (rowH + gap);
   const ft = footer([
     "Row's match win rate against each column; draws left out, mirrors blank. Faded: under 30 matches, a hint more than a verdict.",
+    `Overall: the row's match win rate against every other archetype in the window, draws left out${fromGrid ? " (from the squares where the pack has no record)" : ""}.`,
     `${credit(p.sources)}. Rows: every archetype with 1% of decks and 20 matches, then Other. table-1.site`,
   ], bottom);
   return wrap(out + ft.svg, bottom + ft.h);

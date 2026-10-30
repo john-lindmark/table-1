@@ -1,6 +1,6 @@
 // meta-image: the Discord bot's Insights pictures (contract/discord-2026-10-29.md § Insights images).
 import { assert, assertEquals, assertStringIncludes } from "jsr:@std/assert@1";
-import { cellOf, credit, deckPicture, gridFor, heat, matchupsPicture, type Pack, rowsOf, wilson, winratesPicture } from "./charts.ts";
+import { C, cellOf, credit, deckPicture, gridFor, heat, matchupsPicture, mix, overallOf, type Pack, rowsOf, wilson, winratesPicture } from "./charts.ts";
 import { parseRequest } from "./request.ts";
 
 const read = (f: string) => JSON.parse(Deno.readTextFileSync(new URL(`../../../testdata/${f}`, import.meta.url)));
@@ -41,6 +41,22 @@ Deno.test("grid: a row per archetype, a column per most-played one, records in t
   const c = cellOf(p.matchups, 11, 1)!;   // Boros Land Destruction against the first column
   assert(t.includes(`${c.wins}-${c.losses}${c.draws ? `-${c.draws}` : ""}`));
   assertEquals(rowsOf(p.matchups).length, 23);
+});
+
+Deno.test("grid: each row name carries its overall win rate, from Meta now's record, else its squares", () => {
+  const p = modern();
+  const g = gridFor(p, "all", 90);
+  // the demo pack predates records: the row's squares summed, draws left out
+  let wins = 0, losses = 0;
+  for (const b of rowsOf(g.m)) if (b !== 11) { const v = cellOf(g.m, 11, b); wins += v?.wins ?? 0; losses += v?.losses ?? 0; }
+  assertEquals(overallOf(p, g, 11), { wins, losses, draws: overallOf(p, g, 11)!.draws, rate: wins / (wins + losses), from: "grid" });
+  assert(names(matchupsPicture(p, "all", 90).svg).includes(`${heat(wins, losses).label}%`));
+  // with a record, Meta now's record (draws left out, as the squares), tinted like a square
+  p.tiers.all.windows["90"].share.find((s) => s.a === 11)!.rec = [60, 30, 10];
+  assertEquals(overallOf(p, g, 11)!.rate, 60 / 90);
+  const svg = matchupsPicture(p, "all", 90).svg;
+  assert(names(svg).includes("60-30-10") && names(svg).includes("67%") && names(svg).includes("OVERALL"));
+  assertStringIncludes(svg, `fill="${mix(C.accent, C.surface, heat(60, 30).strength)}"`);
 });
 
 Deno.test("grid: nothing in the window says so", () => {
