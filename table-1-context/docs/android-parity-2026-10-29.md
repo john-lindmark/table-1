@@ -21,8 +21,9 @@ Gaps, in build order:
 2. [x] **Moderation notices and appeal** (Account → From Table 1; contract/moderation-2026-10-18.md), and the moderator
        Review queue (restrict, mode). Built 2026-10-29 (`Moderation.kt`, `ModerationScreens.kt`, routes `notices` /
        `review`, pushes open them; `ModerationTest`).
-3. [ ] **Seat the ends** switch (`set_seat_ends`, contract/event-night-2026-10-16.md § 3).
-4. [ ] **Redraft pile** for finished set drafts (`redraft_*`, § 6).
+3. [x] **Seat the ends** switch (`set_seat_ends`, contract/event-night-2026-10-16.md § 3). Android also still drew the
+       old round table with a Pack 1/2/3 switch: now the long upright table (`TableLayout`, `TableLayoutTest`).
+4. [x] **Redraft pile** for finished set drafts (`redraft_*`, § 6). `ui/screens/Redraft.kt`, `RedraftTest`.
 5. [ ] **Roto cube events** (contract/roto-2026-10-16.md): setup, draft room, pick lists, clock, undo.
 6. [ ] **Demo data** switch for demo testers (`demo_tester`, `demo_seed`, `demo_remove`).
 7. [ ] **Unsaved lists** kept and resent (iOS `ListsStore.unsaved`).

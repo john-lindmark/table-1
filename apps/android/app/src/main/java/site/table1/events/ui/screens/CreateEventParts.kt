@@ -1,5 +1,6 @@
 package site.table1.events.ui.screens
 
+import androidx.compose.ui.layout.layout
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -223,36 +224,69 @@ internal fun roundOneSeatPairs(pod: SeatingPod, teamDraft: Boolean): List<Pair<I
     return (0 until half).map { seats[it] to seats[it + half] }
 }
 
-/** Seat centres (fractions of the box) on a rectangle: seat k at −90° + 360°·(k + ½)/n, so opposite seats mirror. */
-internal fun seatPositions(n: Int, chipW: Float, chipH: Float): List<Pair<Float, Float>> {
-    val ax = 0.5f - chipW / 2 - 0.01f
-    val ay = 0.5f - chipH / 2 - 0.01f
-    return (0 until n).map { k ->
-        val t = -PI / 2 + 2 * PI * (k + 0.5) / n
-        val cx = cos(t).toFloat()
-        val sy = sin(t).toFloat()
-        val r = min(if (abs(cx) < 1e-6f) Float.MAX_VALUE else ax / abs(cx), if (abs(sy) < 1e-6f) Float.MAX_VALUE else ay / abs(sy))
-        (0.5f + r * cx) to (0.5f + r * sy)
+/**
+ * Where each seat goes around one long table drawn upright (contract/event-night-2026-10-16.md § 3): `right` seats
+ * down the right side, then `left` seats up the left side, with an end seat before each side when the ends are seated
+ * (4+ players; an odd side count puts the extra player on the right). Dp values. Same as iOS TableLayout.
+ */
+internal class TableLayout(val count: Int, ends: Boolean) {
+    val ends = ends && count >= 4
+    val right: Int
+    val left: Int
+    init {
+        val sides = count - if (this.ends) 2 else 0
+        right = (sides + 1) / 2
+        left = sides - right
+    }
+
+    val rows get() = maxOf(right, left, 1)
+    private val step get() = CHIP_H + GAP
+    /** Height of the drawing: the side rows, plus a row above and below for the ends. */
+    val height get() = (rows + if (ends) 2 else 0) * step - GAP + 8f
+    private val firstRowY get() = 4f + CHIP_H / 2 + if (ends) step else 0f
+
+    /** The table between the two columns, reaching up to the end seats: x, y, w, h. */
+    fun tableRect(width: Float, chipW: Float): List<Float> {
+        val x0 = chipW + 12; val x1 = width - chipW - 12
+        val y0 = firstRowY - CHIP_H / 2 - if (ends) GAP / 2 else 0f
+        val y1 = firstRowY + (rows - 1) * step + CHIP_H / 2 + if (ends) GAP / 2 else 0f
+        return listOf(x0, y0, maxOf(x1 - x0, 40f), y1 - y0)
+    }
+
+    /** Seat centres in seat order (clockwise from the top end, or from the right side's first seat). */
+    fun positions(width: Float, chipW: Float): List<Pair<Float, Float>> {
+        if (count == 0) return emptyList()
+        val mid = width / 2; val rightX = width - chipW / 2 - 4; val leftX = chipW / 2 + 4
+        fun rowY(r: Int) = firstRowY + r * step
+        val out = mutableListOf<Pair<Float, Float>>()
+        if (ends) out += mid to 4f + CHIP_H / 2
+        for (r in 0 until right) out += rightX to rowY(r)
+        if (ends) out += mid to rowY(rows - 1) + step
+        for (r in (0 until left).reversed()) out += leftX to rowY(r + rows - left)
+        return out
+    }
+
+    companion object {
+        const val CHIP_H = 46f
+        const val GAP = 10f
     }
 }
 
 /**
- * Each pod drawn as a table: seats clockwise from the top left (two to a side for eight, so seat 1 sits straight
- * across from seat 5). Lines join round 1 opponents; the middle says which way the chosen pack passes
- * (left = clockwise, to the next seat number). Replaces the old numbered list.
+ * Each pod drawn the way a draft table really seats people: one long table, players along both long sides and (when
+ * the organizer turns it on) one at each end. Lines join round 1 opponents; the middle says which way each pack passes
+ * (left = clockwise, to the next seat number: packs 1 and 3; pack 2 goes right). Only the drawing changes.
  */
-internal fun LazyListScope.seatingItems(pods: List<SeatingPod>, highlight: String?, teamDraft: Boolean) {
-    item(key = "seating-tables") { SeatingTables(pods, highlight, teamDraft) }
+internal fun LazyListScope.seatingItems(pods: List<SeatingPod>, highlight: String?, teamDraft: Boolean, seatEnds: Boolean = false) {
+    item(key = "seating-tables") { SeatingTables(pods, highlight, teamDraft, seatEnds) }
 }
 
 @Composable
-private fun SeatingTables(pods: List<SeatingPod>, highlight: String?, teamDraft: Boolean) {
-    var pack by remember { mutableIntStateOf(1) }
+private fun SeatingTables(pods: List<SeatingPod>, highlight: String?, teamDraft: Boolean, seatEnds: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-        T1Segmented(listOf("Pack 1", "Pack 2", "Pack 3"), pack - 1) { pack = it + 1 }
         pods.forEach { pod ->
             Section("${if (pods.size > 1) pod.name ?: "Pod" else "Seating"} · ${pod.seats.size} players")
-            PodTable(pod, roundOneSeatPairs(pod, teamDraft), pack, highlight)
+            PodTable(pod, roundOneSeatPairs(pod, teamDraft), highlight, seatEnds)
             Notice(roundOneText(pod, teamDraft))
         }
     }
@@ -269,27 +303,23 @@ private fun roundOneText(pod: SeatingPod, teamDraft: Boolean): String {
 }
 
 @Composable
-private fun PodTable(pod: SeatingPod, pairs: List<Pair<Int, Int>>, pack: Int, highlight: String?) {
+private fun PodTable(pod: SeatingPod, pairs: List<Pair<Int, Int>>, highlight: String?, seatEnds: Boolean) {
     val seats = pod.seats.sortedBy { it.seat }
     val index = seats.withIndex().associate { (i, s) -> s.seat to i }
     val mySeat = seats.firstOrNull { it.participantId == highlight }?.seat
     val byeSeat = if (seats.size % 2 == 1 && pairs.size * 2 < seats.size) seats.lastOrNull()?.seat else null
-    val left = pack % 2 == 1
+    val layout = TableLayout(seats.size, seatEnds)
     BoxWithConstraints(
         Modifier.fillMaxWidth().background(T1.surface).padding(vertical = 12.dp)
-            .semantics { contentDescription = "Table, pack $pack passes ${if (left) "left" else "right"}" },
+            .semantics { contentDescription = "Table${if (layout.ends) " with players at the ends" else ""}. Packs 1 and 3 pass left, pack 2 passes right" },
     ) {
-        val w = maxWidth
-        val h = w * 0.92f
-        val chipW = min(104f, w.value * 0.28f)
-        val chipH = 46f
-        val pos = seatPositions(seats.size, chipW / w.value, chipH / h.value)
+        val w = maxWidth.value
+        val chipW = min(140f, (w - 24) * 0.36f)
+        val pos = layout.positions(w, chipW)
+        val (tx, ty, tw, th) = layout.tableRect(w, chipW)
         val density = LocalDensity.current
-        Box(Modifier.fillMaxWidth().aspectRatio(1f / 0.92f)) {
-            Box(
-                Modifier.offset(x = w * 0.27f, y = h * 0.15f).size(w * 0.46f, h * 0.70f)
-                    .background(T1.bg).border(1.dp, T1.disabled),
-            )
+        Box(Modifier.fillMaxWidth().height(layout.height.dp)) {
+            Box(Modifier.offset(tx.dp, ty.dp).size(tw.dp, th.dp).background(T1.bg).border(1.dp, T1.disabled))
             Canvas(Modifier.fillMaxSize()) {
                 pairs.forEach { (a, b) ->
                     val i = index[a] ?: return@forEach
@@ -297,26 +327,28 @@ private fun PodTable(pod: SeatingPod, pairs: List<Pair<Int, Int>>, pack: Int, hi
                     val mine = mySeat == a || mySeat == b
                     drawLine(
                         color = if (mine) T1.accent else T1.disabled,
-                        start = Offset(pos[i].first * size.width, pos[i].second * size.height),
-                        end = Offset(pos[j].first * size.width, pos[j].second * size.height),
-                        strokeWidth = with(density) { (if (mine) 2.dp else 1.dp).toPx() },
+                        start = Offset(pos[i].first.dp.toPx(), pos[i].second.dp.toPx()),
+                        end = Offset(pos[j].first.dp.toPx(), pos[j].second.dp.toPx()),
+                        strokeWidth = (if (mine) 2.dp else 1.dp).toPx(),
                     )
                 }
             }
             Column(
-                Modifier.align(Alignment.Center).background(T1.bg).padding(horizontal = 10.dp, vertical = 6.dp),
+                Modifier.offset((tx + tw / 2).dp, (ty + th / 2).dp).layout { m, c ->
+                    val p = m.measure(c); layout(p.width, p.height) { p.place(-p.width / 2, -p.height / 2) }
+                }.background(T1.bg).padding(horizontal = 10.dp, vertical = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Label("Pack $pack")
-                Text(if (left) "↻ Pass left" else "↺ Pass right", color = T1.text, fontFamily = T1.mono, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("↻ 1·3 left", color = T1.text, fontFamily = T1.mono, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text("↺ 2 right", color = T1.muted, fontFamily = T1.mono, fontSize = 12.sp, maxLines = 1)
             }
             seats.forEachIndexed { i, s ->
                 val mine = s.participantId == highlight
-                val x = w * pos[i].first - chipW.dp / 2
-                val y = h * pos[i].second - chipH.dp / 2
+                val x = (pos[i].first - chipW / 2).dp
+                val y = (pos[i].second - TableLayout.CHIP_H / 2).dp
                 Column(
                     Modifier.offset { with(density) { IntOffset(x.roundToPx(), y.roundToPx()) } }
-                        .size(chipW.dp, chipH.dp)
+                        .size(chipW.dp, TableLayout.CHIP_H.dp)
                         .background(if (mine) T1.surfaceHover else T1.bg)
                         .border(1.dp, if (mine) T1.accent else T1.disabled)
                         .padding(horizontal = 8.dp)

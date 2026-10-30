@@ -69,7 +69,7 @@ import java.time.Instant
 
 /** One event: the organizer's control room, or a player's match card — chosen by role. */
 @Composable
-fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, onOpenTracker: (String) -> Unit, onOpenPhotos: () -> Unit) {
+fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, onOpenTracker: (String) -> Unit, onOpenPhotos: () -> Unit, onOpenRedraft: () -> Unit = {}) {
     var bundle by remember { mutableStateOf<EventBundle?>(null) }
     var standings by remember { mutableStateOf(StandingsResponse()) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -102,9 +102,9 @@ fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, o
     }
     if (b.isOrganizer) OrganizerScreen(
         b, standings, onBack, onAddPlayers, onOpenTracker, onChanged = { refresh() },
-        onSeated = { standings = standings.copy(seating = it) }, onOpenPhotos = onOpenPhotos,
+        onSeated = { standings = standings.copy(seating = it) }, onOpenPhotos = onOpenPhotos, onOpenRedraft = onOpenRedraft,
     )
-    else PlayerView(b, standings, onBack, onOpenTracker, onOpenPhotos, onChanged = { refresh() })
+    else PlayerView(b, standings, onBack, onOpenTracker, onOpenPhotos, onOpenRedraft, onChanged = { refresh() })
 }
 
 /** participant id → team name, for the team tag in the individual table and seating. */
@@ -372,7 +372,7 @@ private val outcomes = listOf("Won 2–0" to (2 to 0), "Won 2–1" to (2 to 1), 
 
 @Composable
 private fun PlayerView(
-    b: EventBundle, standings: StandingsResponse, onBack: () -> Unit, onOpenTracker: (String) -> Unit, onOpenPhotos: () -> Unit,
+    b: EventBundle, standings: StandingsResponse, onBack: () -> Unit, onOpenTracker: (String) -> Unit, onOpenPhotos: () -> Unit, onOpenRedraft: () -> Unit,
     onChanged: suspend () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -488,11 +488,15 @@ private fun PlayerView(
             }
             // Your deck during the event; everyone's once it's over (contract/event-night-2026-10-16.md § 7).
             if (me != null && !b.event.isCancelled) item {
-                Row { Ghost(if (b.event.isFinished) "Deck photos" else "Deck photo") { onOpenPhotos() } }
+                Row {
+                    Ghost(if (b.event.isFinished) "Deck photos" else "Deck photo") { onOpenPhotos() }
+                    // A finished set draft: the redraft pile (contract/event-night-2026-10-16.md § 6).
+                    if (b.event.canRedraft) Ghost("Redraft") { onOpenRedraft() }
+                }
             }
             if (b.event.isDraft && seating.isNotEmpty() && b.rounds.size <= 1) {
                 item { Section("Seating") }
-                seatingItems(seating, highlight = me?.id, teamDraft = b.event.formatName == "team_draft")
+                seatingItems(seating, highlight = me?.id, teamDraft = b.event.formatName == "team_draft", seatEnds = b.event.seatEnds)
             }
             standings.teams?.takeIf { it.isNotEmpty() }?.let { teams ->
                 teamStandingItems(teams, highlightMember = me?.id)

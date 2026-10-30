@@ -524,7 +524,11 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                         eventId = id, onBack = { nav.popBackStack() }, onAddPlayers = { nav.navigate("add/$id") },
                         onOpenTracker = { matchId -> nav.navigate("tracker/$matchId") },
                         onOpenPhotos = { nav.navigate("photos/$id") },
+                        onOpenRedraft = { nav.navigate("redraft/$id") },
                     )
+                }
+                composable("redraft/{id}") { e ->
+                    site.table1.events.ui.screens.RedraftScreen(eventId = e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() })
                 }
                 composable("eventpage/{id}?signup={signup}") { e ->
                     val id = e.arguments?.getString("id") ?: ""

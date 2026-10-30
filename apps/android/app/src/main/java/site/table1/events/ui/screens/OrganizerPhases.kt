@@ -59,6 +59,7 @@ import site.table1.events.ui.components.BigNumber
 import site.table1.events.ui.components.Ghost
 import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.ListRow
+import site.table1.events.ui.components.T1Switch
 import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.Section
 import site.table1.events.ui.components.T1AlertDialog
@@ -208,6 +209,7 @@ internal fun OrganizerScreen(
     onSeated: (List<SeatingPod>) -> Unit,
     /** Everyone's deck photos; the organizer can add one for any player. */
     onOpenPhotos: () -> Unit,
+    onOpenRedraft: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val event = b.event
@@ -303,7 +305,7 @@ internal fun OrganizerScreen(
             when (phase) {
                 OrganizerPhase.Setup -> when (selected) {
                     "players" -> SetupPlayers(b, tags, busy, onAddPlayers, onShowQr = { showQr = true }, onChanged = onChanged) { block -> act(block) }
-                    "seating" -> SetupSeating(b, standings, busy) { seat() }
+                    "seating" -> SetupSeating(b, standings, busy, act = { block -> act(block) }) { seat() }
                     "teams" -> TeamsTab(b, onChanged)
                     "details" -> DetailsTab(b, onChanged)
                 }
@@ -391,6 +393,7 @@ internal fun OrganizerScreen(
                 }
                 add(T1MenuItem("Share link") { shareEventLink(context, event) })
                 add(T1MenuItem("Deck photos", onClick = onOpenPhotos))
+                if (event.canRedraft) add(T1MenuItem("Redraft", onClick = onOpenRedraft))
                 if (phase != OrganizerPhase.Results) add(T1MenuItem("Cancel event", danger = true) { cancelling = "" })
             },
             onDismiss = { moreMenu = false },
@@ -641,7 +644,7 @@ private fun SetupPlayers(
 }
 
 @Composable
-private fun SetupSeating(b: EventBundle, standings: StandingsResponse, busy: Boolean, onSeat: () -> Unit) {
+private fun SetupSeating(b: EventBundle, standings: StandingsResponse, busy: Boolean, act: (suspend () -> Unit) -> Unit, onSeat: () -> Unit) {
     val seating = standings.seating.orEmpty()
     LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
         item {
@@ -652,7 +655,17 @@ private fun SetupSeating(b: EventBundle, standings: StandingsResponse, busy: Boo
         if (seating.isEmpty()) {
             item { Notice("Seat players for the draft, or pair round 1 to seat them automatically.") }
         } else {
-            seatingItems(seating, highlight = null, teamDraft = b.event.formatName == "team_draft")
+            item {
+                ListRow("Seat the ends", "Players at both ends of the table, not just the sides") {
+                    T1Switch(b.event.seatEnds, enabled = !busy) { on ->
+                        act {
+                            Repo.setSeatEnds(b.event.id, on)
+                            Telemetry.capture("seat_ends_changed", mapOf("on" to on, "players" to seating.sumOf { it.seats.size }))
+                        }
+                    }
+                }
+            }
+            seatingItems(seating, highlight = null, teamDraft = b.event.formatName == "team_draft", seatEnds = b.event.seatEnds)
         }
     }
 }

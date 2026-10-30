@@ -38,6 +38,8 @@ data class EventRow(
     @SerialName("show_clock") val showClock: Boolean = true,
     /** Named from its settings ("Draft · Duskmourn · Fri 17 Oct"); older events keep their typed names. */
     @SerialName("auto_name") val autoName: Boolean = false,
+    /** Draft seating drawn with players at both ends of the table (contract/event-night-2026-10-16.md § 3). */
+    @SerialName("seat_ends") val seatEnds: Boolean = false,
     /** swiss | round_robin. */
     val pairing: String = "swiss",
     /** 0 or 8 (contract/scheduled-events-2026-10-27.md). */

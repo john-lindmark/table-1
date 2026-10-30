@@ -519,6 +519,11 @@ object Repo {
         supabase.postgrest.rpc("randomize_teams", buildJsonObject { put("p_event_id", eventId) }).decodeList()
 
     /** Saves the whole layout; member order is slot order (1 = seat A). */
+    /** Draft seating drawn with players at the ends of the table (organizer; audited). */
+    suspend fun setSeatEnds(eventId: String, on: Boolean) {
+        supabase.postgrest.rpc("set_seat_ends", buildJsonObject { put("p_event_id", eventId); put("p_on", on) })
+    }
+
     suspend fun setTeams(eventId: String, teams: List<EventTeam>): List<EventTeam> =
         supabase.postgrest.rpc("set_teams", buildJsonObject {
             put("p_event_id", eventId)
