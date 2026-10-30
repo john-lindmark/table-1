@@ -215,4 +215,12 @@ final class InsightsPicksTests: XCTestCase {
     func testReadSharedCases() throws {
         for c in try cases().read { XCTAssertEqual(Insights.Picks.read(c.stored), c.want, c.name) }
     }
+
+    func testReuseLoadOnlyWithThePackOnScreen() {
+        let at = Date(timeIntervalSince1970: 1_000_000)
+        XCTAssertFalse(Insights.reuseLoad(loadedAt: nil, now: at, packOnScreen: true), "never loaded")
+        XCTAssertTrue(Insights.reuseLoad(loadedAt: at, now: at + 60, packOnScreen: true))
+        XCTAssertFalse(Insights.reuseLoad(loadedAt: at, now: at + 60, packOnScreen: false), "index in, pack cut short")
+        XCTAssertFalse(Insights.reuseLoad(loadedAt: at, now: at + 600, packOnScreen: true), "ten minutes on")
+    }
 }

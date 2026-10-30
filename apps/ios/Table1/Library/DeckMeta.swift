@@ -9,7 +9,8 @@ struct DeckMetaRows: View {
     @State private var answer: Insights.DeckInsightAnswer?
 
     var body: some View {
-        Group {
+        // A stack, not a Group: a Group with nothing in it passes .task to no view, so the rows never loaded (build 39).
+        VStack(spacing: 1) {
             if let answer {
                 let d = Insights.deckInsight(answer)
                 if let title = d.title, let a = answer.a {

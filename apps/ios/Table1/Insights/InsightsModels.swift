@@ -52,6 +52,12 @@ enum Insights {
 
     enum Tier: String, Codable, CaseIterable { case big, all }
     static let windows = [7, 14, 30, 90]
+    /// A load in the last ten minutes is reused only when the pack on screen came with it: a load cut short after the
+    /// index left Modern empty until something forced another (build 39).
+    static func reuseLoad(loadedAt: Date?, now: Date, packOnScreen: Bool) -> Bool {
+        guard let loadedAt, packOnScreen else { return false }
+        return now.timeIntervalSince(loadedAt) < 600
+    }
     static let formats: [(key: String, label: String)] = [("standard", "Standard"), ("pioneer", "Pioneer"), ("modern", "Modern"), ("pauper", "Pauper"),
                                                           ("canlander", "Canlander")]
 

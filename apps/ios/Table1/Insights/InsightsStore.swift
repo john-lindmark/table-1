@@ -134,10 +134,28 @@ final class InsightsStore {
 
     // MARK: loading
 
+    /// The load in flight, shared by every caller. It isn't the caller's task: leaving the tab cancelled build 39's
+    /// load after the index and before the pack, and the ten-minute skip then kept Modern empty.
+    @ObservationIgnored private var loadTask: Task<Void, Never>?
+
+    /// Whether the pack on screen is in (or the index has none for it).
+    private var onScreenLoaded: Bool {
+        if section == "limited" { return limitedSets.isEmpty || limitedPack != nil }
+        return !index.contains { $0.kind == "constructed" && $0.key == format } || constructed[format] != nil
+    }
+
     /// The index, then the pack on screen (and the other formats' in the background).
     func load(force: Bool = false) async {
         if demoPages != nil { return }
-        if !force, let at = loadedAt, Date().timeIntervalSince(at) < 600 { return }
+        if let running = loadTask { await running.value; return }
+        if !force, Insights.reuseLoad(loadedAt: loadedAt, now: .now, packOnScreen: onScreenLoaded) { return }
+        let task = Task { await loadNow() }
+        loadTask = task
+        await task.value
+        loadTask = nil
+    }
+
+    private func loadNow() async {
         loading = true
         defer { loading = false }
         await pullPicks()
@@ -221,16 +239,24 @@ final class InsightsStore {
             }
         }
         guard let data else { return }
-        put(e.kind, e.key, data)
+        // Off the main thread: a Limited pack is most of a megabyte.
+        let kind = e.kind
+        put(e.key, await Task.detached(priority: .userInitiated) { Self.decode(kind, data) }.value)
     }
 
-    private func put(_ kind: String, _ key: String, _ data: Data) {
-        do {
-            if kind == "constructed" { constructed[key] = try JSONDecoder().decode(Insights.ConstructedPack.self, from: data) }
-            else { limited[key] = try JSONDecoder().decode(Insights.LimitedPack.self, from: data) }
-        } catch {
-            self.error = "An Insights pack couldn't be read (\(key))."
+    private func put(_ key: String, _ pack: Pack?) {
+        switch pack {
+        case .constructed(let p): constructed[key] = p
+        case .limited(let p): limited[key] = p
+        case nil: error = "An Insights pack couldn't be read (\(key))."
         }
+    }
+
+    private enum Pack { case constructed(Insights.ConstructedPack), limited(Insights.LimitedPack) }
+
+    private nonisolated static func decode(_ kind: String, _ data: Data) -> Pack? {
+        if kind == "constructed" { return (try? JSONDecoder().decode(Insights.ConstructedPack.self, from: data)).map(Pack.constructed) }
+        return (try? JSONDecoder().decode(Insights.LimitedPack.self, from: data)).map(Pack.limited)
     }
 
     // MARK: pages
@@ -291,14 +317,14 @@ final class InsightsStore {
         var pages: [String: Data] = [:]
         for f in Insights.formats.map(\.key) {
             if let url = Bundle.main.url(forResource: "insights-demo-constructed-\(f)", withExtension: "json"), let d = try? Data(contentsOf: url) {
-                put("constructed", f, d)
+                put(f, Self.decode("constructed", d))
                 index.append(.init(kind: "constructed", key: f, name: f.capitalized, version: "demo", url: "", bytes: d.count, through: nil))
             }
         }
         for url in Bundle.main.urls(forResourcesWithExtension: "json", subdirectory: nil) ?? [] where url.lastPathComponent.hasPrefix("insights-demo-limited-") {
             let key = url.deletingPathExtension().lastPathComponent.replacingOccurrences(of: "insights-demo-limited-", with: "")
             if let d = try? Data(contentsOf: url) {
-                put("limited", key, d)
+                put(key, Self.decode("limited", d))
                 index.append(.init(kind: "limited", key: key, name: key, version: "demo", url: "", bytes: d.count, through: nil))
             }
         }
