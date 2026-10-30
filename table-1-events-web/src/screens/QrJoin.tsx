@@ -1,3 +1,4 @@
+import { JOIN_NOTICE } from "../lib/joinPreview";
 import { useEffect, useRef, useState } from "react";
 import { joinEventByQr, joinEvent, errorMessage } from "../lib/api";
 import { saveLocalParticipant } from "../lib/session";
@@ -85,6 +86,7 @@ export function QrJoin({
       <SignInButtons />
       <div className="bg-t1-surface px-4 py-2 t1-label">Or join as a guest</div>
       <Field label="Your name" value={guestName} onChange={setGuestName} placeholder="e.g. John L" />
+      <Notice tone="info">{JOIN_NOTICE}</Notice>
       {error && <Notice tone="error">{error}</Notice>}
       <div className="flex-1" />
       <BigAction

@@ -105,6 +105,8 @@ const toEvent = (r: any): Table1Event => ({
   pairing: r.pairing === "round_robin" ? "round_robin" : "swiss",
   topCut: r.top_cut === 8 ? 8 : 0,
   autoRounds: r.auto_rounds ?? false,
+  seatEnds: r.seat_ends ?? false,
+  visibility: r.visibility === "nearby" || r.visibility === "private" ? r.visibility : "link_only",
   capacity: r.capacity ?? null,
   startsAt: r.starts_at ?? null,
   venueName: r.venue_name ?? null,
@@ -676,7 +678,7 @@ export async function deleteAccount() {
 
 /** Everything the Events tab shows, in one call. The web never shows demo data (TestFlight only). */
 export async function fetchEventsHome(): Promise<HomeData> {
-  const { data, error } = await supabase.rpc("events_home", { p_include_demo: false });
+  const { data, error } = await supabase.rpc("events_home", { p_include_demo: true });
   if (error) throw error;
   return data as HomeData;
 }
@@ -710,7 +712,7 @@ export async function reportFromHome(
 }
 
 export async function fetchAccountOverview(): Promise<AccountOverview> {
-  const { data, error } = await supabase.rpc("account_overview", { p_include_demo: false });
+  const { data, error } = await supabase.rpc("account_overview", { p_include_demo: true });
   if (error) throw error;
   return data as AccountOverview;
 }
@@ -748,7 +750,7 @@ export async function fetchSuggestedPlayers(eventId: string, query: string): Pro
     p_event_id: eventId,
     p_query: query,
     p_limit: 50,
-    p_include_demo: false,
+    p_include_demo: true,
   });
   if (error) throw error;
   return (data ?? []) as SuggestedPlayer[];
@@ -1257,4 +1259,25 @@ export async function saveTrackerMode(userId: string, mode: TrackerMode) {
     .upsert({ user_id: userId, tracker_mode: mode, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
   if (error) throw error;
   capture("tracker_mode_changed", { mode });
+}
+
+/** Organizer: seat players at both ends of the draft table (drawing only; contract/event-night-2026-10-16.md § 3). */
+export async function setSeatEnds(eventId: string, on: boolean) {
+  const { error } = await supabase.rpc("set_seat_ends", { p_event_id: eventId, p_on: on });
+  if (error) throw error;
+}
+
+/* Demo data for testers (same as iOS / Android): every call above asks for demo data; the server shows it only to
+   accounts on its tester list (t1_private.demo_testers), so the store review account sees its sample events. */
+export async function isDemoTester(): Promise<boolean> {
+  const { data, error } = await supabase.rpc("demo_tester");
+  return !error && data === true;
+}
+export async function seedDemo() {
+  const { error } = await supabase.rpc("demo_seed");
+  if (error) throw error;
+}
+export async function removeDemo() {
+  const { error } = await supabase.rpc("demo_remove");
+  if (error) throw error;
 }

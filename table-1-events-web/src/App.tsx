@@ -27,6 +27,7 @@ import { SignInPage } from "./screens/Landing";
 import { NameGate } from "./components/NameGate";
 import { DesktopShell } from "./components/DesktopShell";
 import type { Board, ListFinish } from "./lib/lists";
+import { DueOffer } from "./components/PersonActions";
 import type { RankJob } from "./lib/cubeRanking";
 import type { CardContext } from "./screens/CardDetail";
 
@@ -68,6 +69,11 @@ const BindersScreen = lazyNamed(binders, "BindersScreen");
 const BinderScreen = lazyNamed(binders, "BinderScreen");
 const BinderEditor = lazyNamed(binders, "BinderEditor");
 const WantsScreen = lazyNamed(binders, "WantsScreen");
+const NearbyScreen = lazyNamed(() => import("./screens/Nearby"), "NearbyScreen");
+const RedraftScreen = lazyNamed(() => import("./screens/Redraft"), "RedraftScreen");
+const moderation = () => import("./screens/Moderation");
+const NoticesScreen = lazyNamed(moderation, "NoticesScreen");
+const ReviewScreen = lazyNamed(moderation, "ReviewScreen");
 const friends = () => import("./screens/Friends");
 const FriendsScreen = lazyNamed(friends, "FriendsScreen");
 const FriendAddScreen = lazyNamed(friends, "FriendAddScreen");
@@ -129,8 +135,14 @@ function HomeRoute() {
         navigate(`/e/${id}/add`);
       }}
       onOpenLife={(matchId) => navigate(matchId ? `/life/${matchId}` : "/life")}
+      onNearby={() => navigate("/nearby")}
     />
   );
+}
+
+function NearbyRoute() {
+  const navigate = useNavigate();
+  return <NearbyScreen onBack={useBack("/")} onOpen={(id) => navigate(`/p/${id}`)} />;
 }
 
 function OrganizerRoute() {
@@ -144,6 +156,7 @@ function OrganizerRoute() {
       onAddPlayers={() => navigate(`/e/${eventId}/add`)}
       onOpenLife={(matchId) => navigate(`/life/${matchId}`)}
       onOpenPhotos={() => navigate(`/e/${eventId}/photos`)}
+      onOpenRedraft={(setCode) => navigate(`/e/${eventId}/redraft`, { state: { setCode } })}
     />
   );
 }
@@ -154,6 +167,15 @@ function DeckPhotosRoute({ organizer }: { organizer: boolean }) {
   const back = useBack(organizer ? `/e/${eventId}` : `/p/${eventId}`);
   if (!eventId) return <Navigate to="/" replace />;
   return <DeckPhotosScreen eventId={eventId} organizer={organizer} onBack={back} />;
+}
+
+/** /e/:eventId/redraft and /p/:eventId/redraft: a finished set draft's redraft pile. */
+function RedraftRoute({ organizer }: { organizer: boolean }) {
+  const { eventId } = useParams();
+  const setCode = (useLocation().state as { setCode?: string | null } | null)?.setCode ?? null;
+  const back = useBack(organizer ? `/e/${eventId}` : `/p/${eventId}`);
+  if (!eventId) return <Navigate to="/" replace />;
+  return <RedraftScreen eventId={eventId} setCode={setCode} onBack={back} />;
 }
 
 function AddPlayersRoute() {
@@ -168,7 +190,8 @@ function JoinRoute() {
   const navigate = useNavigate();
   const back = useBack("/");
   return <PlayerView code={code} onBack={back} onOpenLife={(matchId) => navigate(`/life/${matchId}`)}
-                     onOpenPhotos={(id) => navigate(`/p/${id}/photos`)} />;
+                     onOpenPhotos={(id) => navigate(`/p/${id}/photos`)}
+                     onOpenRedraft={(id, setCode) => navigate(`/p/${id}/redraft`, { state: { setCode } })} />;
 }
 
 function QrJoinRoute() {
@@ -182,7 +205,15 @@ function QrJoinRoute() {
 function ProfileRoute() {
   const navigate = useNavigate();
   return <Profile onSignedOut={() => navigate("/")} onFriends={() => navigate("/friends")} onSharing={() => navigate("/sharing")}
-                  onProfile={(id) => navigate(`/u/${id}`)} onDiscord={() => navigate("/discord")} />;
+                  onProfile={(id) => navigate(`/u/${id}`)} onDiscord={() => navigate("/discord")}
+                  onNotices={() => navigate("/me/notices")} onReview={() => navigate("/me/review")} />;
+}
+
+function NoticesRoute() {
+  return <NoticesScreen onBack={useBack("/me")} />;
+}
+function ReviewRoute() {
+  return <ReviewScreen onBack={useBack("/me")} />;
 }
 
 function DiscordRoute() {
@@ -195,7 +226,8 @@ function PlayerRoute() {
   const navigate = useNavigate();
   const back = useBack("/");
   return <PlayerView eventIdProp={eventId} onBack={back} onOpenLife={(matchId) => navigate(`/life/${matchId}`)}
-                     onOpenPhotos={(id) => navigate(`/p/${id}/photos`)} />;
+                     onOpenPhotos={(id) => navigate(`/p/${id}/photos`)}
+                     onOpenRedraft={(id, setCode) => navigate(`/p/${id}/redraft`, { state: { setCode } })} />;
 }
 
 /** /life is the local tracker (no event); /life/:matchId is the shared tracker for a match. */
@@ -526,13 +558,18 @@ export default function App() {
         <Route path="/e/:eventId" element={<OrganizerRoute />} />
         <Route path="/e/:eventId/add" element={<AddPlayersRoute />} />
         <Route path="/e/:eventId/photos" element={<DeckPhotosRoute organizer />} />
+        <Route path="/e/:eventId/redraft" element={<RedraftRoute organizer />} />
+        <Route path="/p/:eventId/redraft" element={<RedraftRoute organizer={false} />} />
         <Route path="/join/:code" element={<JoinRoute />} />
         <Route path="/j/:code" element={<QrJoinRoute />} />
         <Route path="/auth/confirm" element={<AuthConfirm />} />
         <Route path="/auth/google" element={<GoogleReturn />} />
         <Route path="/discord" element={<DiscordRoute />} />
         <Route path="/discord/link" element={<DiscordLinkPage />} />
+        <Route path="/nearby" element={<NearbyRoute />} />
         <Route path="/me" element={<ProfileRoute />} />
+        <Route path="/me/notices" element={<NoticesRoute />} />
+        <Route path="/me/review" element={<ReviewRoute />} />
         <Route path="/sign-in" element={<SignInPage />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/delete-account" element={<DeleteAccountPage />} />
@@ -602,6 +639,7 @@ export default function App() {
         <Route path="/life/:matchId" element={<LifeRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <DueOffer />
       </DesktopShell>
       </NameGate>
       </Suspense>

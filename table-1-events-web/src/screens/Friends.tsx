@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Avatar } from "../components/Avatar";
-import { BigAction, Bar, Dialog, Field, Menu, Notice, Row, Screen, Section, Segmented, type MenuItem } from "../components/kit";
+import { PersonMenu, PersonRow, SharingOfferDialog, useWideningConfirm, type PersonRef } from "../components/PersonActions";
+import { BigAction, Bar, Field, Menu, Notice, Row, Screen, Section, Segmented } from "../components/kit";
 import { errorMessage } from "../lib/api";
 import { coverPrinting, oracleIndexById, type Catalog } from "../lib/catalog";
 import { useCollection } from "../lib/collection";
@@ -10,7 +11,7 @@ import {
   LIBRARY_PARTS, PART_DETAIL, PART_LABEL, VIS_LABEL, VISIBILITIES, blockUser, capped, effective, effectiveItem, fetchProfile,
   fetchProfileCards, fetchSharedCards, sharedByline, sharedTitle, type SharedLinkData, groupOf, inherits, loadFriends, loadMatches, loadSharing, matchShort, matchSummary, matchWith, reach,
   cancelSent, profileValue, removeFriend, requestFriend, requestFriendByEmail, respondFriend, searchPeople, sectionCount, sentLabel,
-  setItem, setPart, sharingSummary,
+  setItem, setPart, sharingSummary, setAll, answerOffer, reachOf, seesLine, viewAs, widening, withItem, withPart, offerAnswered,
   startTradeFromMatch, useFriends, friendsNow, wantTier, copyNote, sharedCardCount, sharedEntries, sharedListKind, type MatchLine, type Person, type ProfileCard, type ProfileData, type SectionKind,
   type SharePart, type ShareItem, type Sharing, type TradeMatch, type Visibility,
 } from "../lib/friends";
@@ -60,8 +61,17 @@ function Gate({ title, onBack, children }: { title: string; onBack: () => void; 
 /* ── rows for other screens ──────────────────────────────────────────── */
 
 /** Account: Friends, Sharing, your profile. */
-export function FriendsAccountRows({ onFriends, onSharing, onProfile }: { onFriends: () => void; onSharing: () => void; onProfile: () => void }) {
+export function FriendsAccountRows({ onFriends, onSharing, onProfile, eventsPlayed = 0 }: {
+  onFriends: () => void; onSharing: () => void; onProfile: () => void; eventsPlayed?: number;
+}) {
   const s = useFriends();
+  const me = useLibrarySession().userId;
+  const [recordOffered, setRecordOffered] = useState(() => offerAnswered("record", me));
+  const answerRecord = (yes: boolean) => {
+    answerOffer("record", me, yes);
+    setRecordOffered(true);
+    if (yes) void setAll(["record"], "friends");
+  };
   useEffect(() => {
     void loadFriends();
     void loadSharing();
@@ -74,6 +84,14 @@ export function FriendsAccountRows({ onFriends, onSharing, onProfile }: { onFrie
            value={waiting ? `${waiting} new` : undefined} accentValue onClick={onFriends} />
       <Row title="Sharing" detail={s.sharing ? sharingSummary(s.sharing) : "Who sees your profile and Library"} onClick={onSharing} />
       <Row title="Your profile" detail="Name, photo and what you share" onClick={onProfile} />
+      {/* After your first event, with Record private: offer once to show it to friends (§ UX rules 8). */}
+      {!recordOffered && eventsPlayed >= 1 && s.sharing?.record === "private" && (
+        <div className="flex gap-px">
+          <div className="flex-1 min-w-0"><Row title="Show your record on your profile?" detail="Friends would see your wins, losses and draws" /></div>
+          <button type="button" className="bg-t1-accent px-4 t1-label text-t1-ink!" onClick={() => answerRecord(true)}>Friends</button>
+          <button type="button" className="bg-t1-surface hover:bg-t1-surface-hover px-4 t1-label" onClick={() => answerRecord(false)}>Not now</button>
+        </div>
+      )}
     </>
   );
 }
@@ -98,10 +116,16 @@ export function TradeMatchRows({ onOpen, onNone }: { onOpen: (userId: string) =>
 }
 
 function MatchRow({ x, onOpen }: { x: TradeMatch; onOpen: (userId: string) => void }) {
+  const [menu, setMenu] = useState<PersonRef | null>(null);
   return (
-    <Row title={x.display_name} detail={matchShort(x) + (x.friend ? "" : " · played with you")}
-         avatar={<Avatar name={x.display_name} userId={x.user_id} />}
-         value={x.have_usd + x.want_usd > 0 ? usdText(x.have_usd + x.want_usd) : undefined} onClick={() => onOpen(x.user_id)} />
+    <>
+      <PersonRow person={{ userId: x.user_id, displayName: x.display_name, relation: x.friend ? "friend" : "none" }} onMenu={setMenu}>
+        <Row title={x.display_name} detail={matchShort(x) + (x.friend ? "" : " · played with you")}
+             avatar={<Avatar name={x.display_name} userId={x.user_id} />}
+             value={x.have_usd + x.want_usd > 0 ? usdText(x.have_usd + x.want_usd) : undefined} onClick={() => onOpen(x.user_id)} />
+      </PersonRow>
+      <PersonMenu person={menu} from="trade_match" onClose={() => setMenu(null)} />
+    </>
   );
 }
 
@@ -115,6 +139,7 @@ function FriendsBody({ onBack, onProfile, onAdd }: { onBack: () => void; onProfi
   const s = useFriends();
   const [busy, setBusy] = useState<string | null>(null);
   const [fail, setFail] = useState<string | null>(null);
+  const [menuFor, setMenuFor] = useState<{ p: PersonRef; from: "friends" | "request" } | null>(null);
   useEffect(() => void loadFriends(), []);
   const run = (id: string, work: () => Promise<unknown>) => {
     setBusy(id);
@@ -122,10 +147,14 @@ function FriendsBody({ onBack, onProfile, onAdd }: { onBack: () => void; onProfi
     work().catch((e) => setFail(errorMessage(e))).finally(() => setBusy(null));
   };
   const l = s.list;
-  const person = (p: Person, detail: string, action?: { label: string; onClick: () => void }) => (
-    <Row key={p.user_id} title={p.display_name} detail={busy === p.user_id ? "Working…" : detail}
-         avatar={<Avatar name={p.display_name} userId={p.user_id} />} action={action}
-         onClick={action ? undefined : () => onProfile(p.user_id)} />
+  /** Every person row takes a long press or right-click: the same menu as their profile's More (§ UX rules 6). */
+  const person = (p: Person, detail: string, relation: string, action?: { label: string; onClick: () => void }) => (
+    <PersonRow key={p.user_id} person={{ userId: p.user_id, displayName: p.display_name, relation }}
+               onMenu={(ref) => setMenuFor({ p: ref, from: relation === "incoming" ? "request" : "friends" })}>
+      <Row title={p.display_name} detail={busy === p.user_id ? "Working…" : detail}
+           avatar={<Avatar name={p.display_name} userId={p.user_id} />} action={action}
+           onClick={action ? undefined : () => onProfile(p.user_id)} />
+    </PersonRow>
   );
   return (
     <Screen>
@@ -139,26 +168,27 @@ function FriendsBody({ onBack, onProfile, onAdd }: { onBack: () => void; onProfi
         {l && l.incoming.length > 0 && <Section title="Requests" count={l.incoming.length} />}
         {l?.incoming.map((p) => (
           <div key={p.user_id} className="flex gap-px">
-            <div className="flex-1 min-w-0">{person(p, "Asked you")}</div>
+            <div className="flex-1 min-w-0">{person(p, p.shared_events ? `${plural(p.shared_events, "event")} together` : "Asked you", "incoming")}</div>
             <button type="button" className="bg-t1-accent text-t1-ink px-4 t1-label text-t1-ink!" onClick={() => run(p.user_id, () => respondFriend(p.user_id, true))}>Accept</button>
-            <button type="button" className="bg-t1-surface hover:bg-t1-surface-hover px-4 t1-label" onClick={() => run(p.user_id, () => respondFriend(p.user_id, false))}>Decline</button>
+            <button type="button" className="bg-t1-surface hover:bg-t1-surface-hover px-4 t1-label" onClick={() => run(p.user_id, () => respondFriend(p.user_id, false))}>Ignore</button>
           </div>
         ))}
         {l && <Section title="Friends" count={l.friends.length} />}
         {l && !l.friends.length && (
           <Notice tone="info">No friends yet. Friends see what you share with them, show up first in Add players, and their trades are matched against your wants.</Notice>
         )}
-        {l?.friends.map((p) => person(p, p.handle ? `@${p.handle}` : "Friend"))}
+        {l?.friends.map((p) => person(p, p.handle ? `@${p.handle}` : "Friend", "friend"))}
         {l && l.outgoing.length > 0 && <Section title="Sent" count={l.outgoing.length} />}
         {l?.outgoing.map((r) => {
           const cancel = { label: "Cancel", onClick: () => run(r.key, () => cancelSent(r)) };
-          if (r.person) return person(r.person, "Requested", cancel);
+          if (r.person) return person(r.person, "Requested", "requested", cancel);
           // Asked by email: only the address (the server never says whose account it is).
           return <Row key={r.key} title={sentLabel(r)} detail={busy === r.key ? "Working…" : "Asked by email"} action={cancel} />;
         })}
         {l && l.blocked.length > 0 && <Section title="Blocked" count={l.blocked.length} />}
-        {l?.blocked.map((p) => person(p, "Can't see you or ask you", { label: "Unblock", onClick: () => run(p.user_id, () => blockUser(p.user_id, false)) }))}
+        {l?.blocked.map((p) => person(p, "Can't see you or ask you", "blocked", { label: "Unblock", onClick: () => run(p.user_id, () => blockUser(p.user_id, false)) }))}
       </div>
+      <PersonMenu person={menuFor?.p ?? null} from={menuFor?.from ?? "friends"} onClose={() => setMenuFor(null)} />
     </Screen>
   );
 }
@@ -175,6 +205,7 @@ function FriendAddBody({ onBack }: { onBack: () => void }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [menuFor, setMenuFor] = useState<PersonRef | null>(null);
   const load = (q: string) => searchPeople(q).then(setPeople, (e) => { setError(errorMessage(e)); setPeople((p) => p ?? []); });
   useEffect(() => {
     const t = window.setTimeout(() => void load(query), query ? 300 : 0);
@@ -225,9 +256,11 @@ function FriendAddBody({ onBack }: { onBack: () => void }) {
             .filter(Boolean).join(" · ");
           const rel = p.relation ?? "none";
           return (
-            <Row key={p.user_id} title={p.display_name} detail={detail} avatar={<Avatar name={p.display_name} userId={p.user_id} />}
-                 value={rel === "friend" ? "Friends" : rel === "requested" ? "Requested" : undefined} accentValue={rel === "friend"}
-                 action={rel === "none" || rel === "incoming" ? { label: rel === "incoming" ? "Accept" : "Add", onClick: () => void ask(p), disabled: busy } : undefined} />
+            <PersonRow key={p.user_id} person={{ userId: p.user_id, displayName: p.display_name, relation: rel }} onMenu={setMenuFor}>
+              <Row title={p.display_name} detail={detail} avatar={<Avatar name={p.display_name} userId={p.user_id} />}
+                   value={rel === "friend" ? "Friends" : rel === "requested" ? "Requested" : undefined} accentValue={rel === "friend"}
+                   action={rel === "none" || rel === "incoming" ? { label: rel === "incoming" ? "Accept" : "Add", onClick: () => void ask(p), disabled: busy } : undefined} />
+            </PersonRow>
           );
         })}
         <div className="bg-t1-surface px-4 py-2 t1-label">By email</div>
@@ -240,6 +273,7 @@ function FriendAddBody({ onBack }: { onBack: () => void }) {
         </div>
         <Notice tone="info">Works for people who already have a Table 1 account.</Notice>
       </div>
+      <PersonMenu person={menuFor} from="search" onClose={() => setMenuFor(null)} changed={() => void load(query)} />
     </Screen>
   );
 }
@@ -255,12 +289,16 @@ export function ProfileScreen(props: {
 function ProfileBody({ userId, onBack, onSection, onMatch, onSharing }: {
   userId: string; onBack: () => void; onSection: (kind: SectionKind, id: string | null) => void; onMatch: () => void; onSharing: () => void;
 }) {
-  const [d, setD] = useState<ProfileData | null>(null);
+  const [own, setD] = useState<ProfileData | null>(null);
   const [match, setMatch] = useState<TradeMatch | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [menu, setMenu] = useState(false);
-  const [confirm, setConfirm] = useState<"unfriend" | "block" | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Your own profile: You (2), as a friend (1) or as anyone (0) would see it (contract § UX rules 5). */
+  const [as, setAs] = useState(2);
+  const sharing = useFriends().sharing;
+  useEffect(() => { if (own?.relation === "self") void loadSharing(); }, [own?.relation]);
+  const d = own && own.relation === "self" && as < 2 && sharing ? viewAs(own, sharing, as) : own;
   const load = async (first = false) => {
     try {
       const p = await fetchProfile(userId);
@@ -279,12 +317,7 @@ function ProfileBody({ userId, onBack, onSection, onMatch, onSharing }: {
   };
   const s = d?.sections;
   const rec = s?.record;
-  const menuItems: MenuItem[] = d ? [
-    ...(d.relation === "friend" ? [{ title: "Unfriend", onClick: () => setConfirm("unfriend") }] : []),
-    d.relation === "blocked" ? { title: "Unblock", onClick: () => run(() => blockUser(userId, false)) }
-                             : { title: "Block", detail: "They can't ask you or see anything of yours", onClick: () => setConfirm("block") },
-  ] : [];
-  const sub = d ? ({ self: "You", friend: "Friend", requested: "Requested", incoming: "Wants to be friends", blocked: "Blocked",
+  const sub = own?.relation === "self" && as < 2 ? `As ${as === 1 ? "a friend" : "anyone"} sees it` : d ? ({ self: "You", friend: "Friend", requested: "Requested", incoming: "Wants to be friends", blocked: "Blocked",
                     none: d.handle ? `@${d.handle}` : "Profile" } as const)[d.relation] : undefined;
   const open = (title: string, detail: string, kind: SectionKind, id: string | null = null) => (
     <Row key={`${kind}-${id ?? ""}`} title={title} detail={detail} onClick={() => { captureSection(kind); onSection(kind, id); }} />
@@ -293,6 +326,14 @@ function ProfileBody({ userId, onBack, onSection, onMatch, onSharing }: {
     <Screen>
       <Bar title={d?.display_name ?? "Profile"} subtitle={sub} onBack={onBack}
            right={d && d.relation !== "self" ? <button type="button" onClick={() => setMenu(true)} className="t1-label hover:text-t1-text px-2 py-1 -my-1">More</button> : undefined} />
+      {own?.relation === "self" && (
+        <Segmented options={[{ value: "2", label: "You" }, { value: "1", label: "A friend" }, { value: "0", label: "Anyone" }]} value={String(as)}
+                   onChange={(v) => {
+                     const n = Number(v);
+                     setAs(n);
+                     if (n < 2) capture("profile_view_as", { as: n === 1 ? "friend" : "anyone" });
+                   }} />
+      )}
       {error && <Notice tone="error">{error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {!d && !error && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
@@ -318,11 +359,11 @@ function ProfileBody({ userId, onBack, onSection, onMatch, onSharing }: {
         {d?.relation === "incoming" && (
           <div className="flex gap-px">
             <button type="button" className="flex-1 bg-t1-accent text-t1-ink py-3.5 t1-label text-t1-ink!" onClick={() => run(() => respondFriend(userId, true))}>Accept</button>
-            <button type="button" className="flex-1 bg-t1-surface py-3.5 t1-label" onClick={() => run(() => respondFriend(userId, false))}>Decline</button>
+            <button type="button" className="flex-1 bg-t1-surface py-3.5 t1-label" onClick={() => run(() => respondFriend(userId, false))}>Ignore</button>
           </div>
         )}
         {d?.relation === "blocked" && <Row title="Blocked" detail="They can't see you or ask you" action={{ label: "Unblock", onClick: () => run(() => blockUser(userId, false)) }} />}
-        {d?.relation === "self" && (
+        {d?.relation === "self" && as === 2 && (
           <>
             <Notice tone="info">You see everything here. Others see only what reaches them in Sharing.</Notice>
             <Row title="Sharing" detail="Choose who sees each part" onClick={onSharing} />
@@ -335,12 +376,8 @@ function ProfileBody({ userId, onBack, onSection, onMatch, onSharing }: {
                  value={match.have_usd + match.want_usd > 0 ? usdText(match.have_usd + match.want_usd) : undefined} />
           </>
         )}
-        {d && !d.visible && (
-          <Notice tone="info">{d.relation === "blocked" ? `You blocked ${d.display_name}.` : `Only ${d.display_name}'s friends can see their profile.`}</Notice>
-        )}
-        {d && d.visible && d.relation !== "self" && sectionCount(d) === 0 && (
-          <Notice tone="info">{d.display_name} hasn't shared anything with you yet.</Notice>
-        )}
+        {d && !d.visible && <Notice tone="info">{d.relation === "blocked" ? `You blocked ${d.display_name}.` : "This isn't available."}</Notice>}
+        {d && d.visible && d.relation !== "self" && sectionCount(d) === 0 && <Notice tone="info">Nothing shared yet.</Notice>}
         {s && (s.all_cards || s.for_trade || s.wants) && <Section title="Library" />}
         {s?.all_cards && open("All cards", [plural(s.all_cards.cards, "card"), d && profileValue(d) ? usdText(profileValue(d)!) : null].filter(Boolean).join(" · "), "all_cards")}
         {s?.for_trade && open("For trade", plural(s.for_trade.cards, "card"), "for_trade")}
@@ -352,19 +389,8 @@ function ProfileBody({ userId, onBack, onSection, onMatch, onSharing }: {
         {!!s?.cubes?.length && <Section title="Cubes" count={s.cubes.length} />}
         {s?.cubes?.map((l) => open(l.name, plural(l.cards, "card"), "cube", l.id))}
       </div>
-      {menu && d && <Menu title={d.display_name} items={menuItems} onClose={() => setMenu(false)} />}
-      {confirm && d && (
-        <Dialog title={confirm === "block" ? `Block ${d.display_name}?` : `Unfriend ${d.display_name}?`} tone="danger" cancelLabel="Cancel"
-                confirmLabel={confirm === "block" ? "Block" : "Unfriend"} busy={busy}
-                message={confirm === "block" ? "They won't be told. They can't ask you again or see anything of yours, even what's public."
-                                             : "You'll stop seeing what each of you shares with friends."}
-                onCancel={() => setConfirm(null)}
-                onConfirm={() => {
-                  const c = confirm;
-                  setConfirm(null);
-                  run(() => (c === "block" ? blockUser(userId, true) : removeFriend(userId)));
-                }} />
-      )}
+      <PersonMenu person={menu && d ? { userId, displayName: d.display_name, relation: d.relation } : null} from="profile"
+                  onClose={() => setMenu(false)} changed={() => void load()} />
     </Screen>
   );
 }
@@ -687,11 +713,14 @@ function SharingControl({ title, detail, own, parent, settings, isProfile, onCha
 function SharingBody({ onBack }: { onBack: () => void }) {
   const st = useFriends();
   const [open, setOpen] = useState<string | null>(null);
+  const { ask, dialog } = useWideningConfirm();
   useEffect(() => void loadSharing(), []);
   const s = st.sharing;
+  // Widening asks first, narrowing never does (contract § UX rules 4).
   const part = (p: SharePart) => s && (
     <SharingControl key={p} title={PART_LABEL[p]} detail={PART_DETAIL[p]} own={s[p]} settings={s} isProfile={p === "profile"}
-                    parent={inherits(p) ? { name: "Library", value: s.library } : null} onChange={(v) => void setPart(p, v)} />
+                    parent={inherits(p) ? { name: "Library", value: s.library } : null}
+                    onChange={(v) => ask(widening(s, withPart(s, p, v)), () => void setPart(p, v))} />
   );
   const items = (kind: ShareItem["kind"]) => {
     if (!s) return null;
@@ -705,7 +734,8 @@ function SharingBody({ onBack }: { onBack: () => void }) {
              detail={`${plural(list.length, kind)} · ${own ? `${own} set on their own` : `all ${VIS_LABEL[effective(s, group)].toLowerCase()}`}`} />
         {open === kind && list.map((i) => (
           <SharingControl key={i.id} title={i.name} detail={i.for_trade ? "For trade" : kind[0].toUpperCase() + kind.slice(1)} own={i.visibility}
-                          settings={s} parent={{ name: PART_LABEL[group], value: effective(s, group) }} onChange={(v) => void setItem(i, v)} />
+                          settings={s} parent={{ name: PART_LABEL[group], value: effective(s, group) }}
+                          onChange={(v) => ask(widening(s, withItem(s, i, v)), () => void setItem(i, v))} />
         ))}
         {open === kind && list.length > 0 && (
           <Notice tone="info">{list.map((i) => `${i.name}: ${VIS_LABEL[reach(s, effectiveItem(s, i))].toLowerCase()}`).join(" · ")}</Notice>
@@ -721,7 +751,8 @@ function SharingBody({ onBack }: { onBack: () => void }) {
         {!s && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
         {s && (
           <>
-            <Notice tone="info">Everything starts private. Friends see what's Friends or Public; anyone on Table 1 sees what's Public. Your profile caps the rest.</Notice>
+            <Notice tone="info">{seesLine(s, 1)}</Notice>
+            <Notice tone="info">{seesLine(s, 0)}</Notice>
             {part("profile")}
             {part("record")}
             <Section title="Library" />
@@ -737,6 +768,7 @@ function SharingBody({ onBack }: { onBack: () => void }) {
           </>
         )}
       </div>
+      {dialog}
     </Screen>
   );
 }
@@ -757,12 +789,20 @@ function TradeMatchesBody({ onBack, onOpen, onFriends, onSharing }: { onBack: ()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const m = st.matches;
+  const me = useLibrarySession().userId;
+  const [offered, setOffered] = useState(() => offerAnswered("matches", me));
+  const [offering, setOffering] = useState(false);
+  const sh = st.sharing;
+  useEffect(() => { if (!sh) void loadSharing(); }, [sh]);
+  // With For trade and Wants both private, no one can match with you (§ UX rules 8): offer once.
+  const offer = !offered && !!sh && reachOf(sh, "for_trade") === "private" && reachOf(sh, "wants") === "private";
   return (
     <Screen>
       <Bar title="Trade matches" subtitle={m ? plural(m.length, "person", "people") : undefined} onBack={onBack} />
       {st.error && <Notice tone="error">{st.error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
-        <Notice tone="info">Your wants against friends' for-trade cards, and theirs against yours. People you've played with count when they share publicly.</Notice>
+        <Notice tone="info">Your wants against friends' for-trade cards, and theirs against yours. People you've played with count when they share with anyone.</Notice>
+        {offer && <Row title="Share For trade and Wants with friends" detail="So friends' trade matches can find you" onClick={() => setOffering(true)} />}
         {!m && <div className="bg-t1-surface px-4 py-4 t1-label">Looking…</div>}
         {m?.length === 0 && (
           <>
@@ -773,6 +813,11 @@ function TradeMatchesBody({ onBack, onOpen, onFriends, onSharing }: { onBack: ()
         )}
         {m?.map((x) => <MatchRow key={x.user_id} x={x} onOpen={onOpen} />)}
       </div>
+      {offering && (
+        <SharingOfferDialog offer="matches" userId={me} title="Share For trade and Wants with friends?" parts={["for_trade", "wants"]}
+                            message="Friends can see your for-trade copies and your wishlist (never your max prices), and trade matches can find you."
+                            onDone={() => { setOffering(false); setOffered(true); }} />
+      )}
     </Screen>
   );
 }
@@ -790,6 +835,8 @@ function TradeMatchBody({ userId, onBack, onProfile, onCard, onTrade }: {
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [more, setMore] = useState(false);
+  const [menuFor, setMenuFor] = useState<PersonRef | null>(null);
   useEffect(() => {
     matchWith(userId).then(setMatch, (e) => setError(errorMessage(e))).finally(() => setLoaded(true));
   }, [userId]);
@@ -831,7 +878,7 @@ function TradeMatchBody({ userId, onBack, onProfile, onCard, onTrade }: {
   return (
     <LibScreen>
       <Bar title={match?.display_name ?? "Trade match"} subtitle={match ? (match.friend ? "Friend" : "Played with you") : undefined} onBack={onBack}
-           right={<button type="button" onClick={onProfile} className="t1-label hover:text-t1-text px-2 py-1 -my-1">Profile</button>} />
+           right={<button type="button" onClick={() => setMore(true)} className="t1-label hover:text-t1-text px-2 py-1 -my-1">More</button>} />
       {error && <Notice tone="error">{error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {!match && <div className="bg-t1-surface px-4 py-4 t1-label">{loaded ? "Nothing matches with them right now." : "Looking…"}</div>}
@@ -840,6 +887,13 @@ function TradeMatchBody({ userId, onBack, onProfile, onCard, onTrade }: {
         {match && side(`They want · ${match.want_copies} you have`, match.they_want, match.want_usd, false)}
       </div>
       {match && <BigAction label="Start a trade" tone="accent" busy={busy} onClick={() => void start()} />}
+      {more && (
+        <Menu title={match?.display_name ?? "Trade match"} onClose={() => setMore(false)} items={[
+          { title: "Profile", onClick: onProfile },
+          ...(match ? [{ title: "Block or report", detail: "They won't know", onClick: () => setMenuFor({ userId, displayName: match.display_name, relation: match.friend ? "friend" : "none" }) }] : []),
+        ]} />
+      )}
+      <PersonMenu person={menuFor} from="trade_match" onClose={() => setMenuFor(null)} />
     </LibScreen>
   );
 }

@@ -1,3 +1,5 @@
+import { canRedraft } from "../lib/redraft";
+import { JOIN_NOTICE } from "../lib/joinPreview";
 import { useEffect, useMemo, useState } from "react";
 import { useEvent } from "../lib/useEvent";
 import {
@@ -45,6 +47,7 @@ export function PlayerView({
   eventIdProp,
   onOpenLife,
   onOpenPhotos,
+  onOpenRedraft,
   onBack,
 }: {
   code?: string;
@@ -53,6 +56,7 @@ export function PlayerView({
   onOpenLife?: (matchId: string) => void;
   /** Deck photos for the event (signed-in players). */
   onOpenPhotos?: (eventId: string) => void;
+  onOpenRedraft?: (eventId: string, setCode: string | null) => void;
   /** Back to where the player came from (Events home when they arrived by link). */
   onBack?: () => void;
 }) {
@@ -171,6 +175,7 @@ export function PlayerView({
         <Bar title={preview?.name ?? bundle?.event.name ?? "Join event"} subtitle={code ? code.toUpperCase() : undefined} onBack={onBack} />
         {facts && <Notice tone="info">{facts}</Notice>}
         <Notice tone="info">Enter the name your opponents will see at the table.</Notice>
+        <Notice tone="info">{JOIN_NOTICE}</Notice>
         <Field label="Your name" value={name} onChange={setName} autoFocus placeholder="e.g. John L" />
         {joinError && <Notice tone="error">{joinError}</Notice>}
         <div className="flex-1" />
@@ -288,6 +293,7 @@ export function PlayerView({
             participants={bundle.participants}
             teams={teamsState.teams}
             highlightParticipantId={viewer.participantId}
+            seatEnds={bundle.event.seatEnds}
           />
         </>
       )}
@@ -457,6 +463,7 @@ export function PlayerView({
         {signedInPlayer && onOpenPhotos && event.status !== "cancelled" && (
           <div className="flex gap-px">
             <GhostAction label={finished ? "Deck photos" : "Deck photo"} onClick={() => onOpenPhotos(event.id)} />
+            {onOpenRedraft && canRedraft(event) && <GhostAction label="Redraft" onClick={() => onOpenRedraft(event.id, event.setCode)} />}
           </div>
         )}
 

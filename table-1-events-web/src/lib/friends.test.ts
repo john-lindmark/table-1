@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SHARING, capped, copyNote, effective, sharedCardCount, sharedEntries, sharedListKind, effectiveItem, linesValue, matchLines, matchShort, parseCardRow, parseFriendsList, profileValue,
-  reach, sees, sentLabel, sharedCount, sharingSummary, type ProfileData, shownLines, wantTier, type CopyIn, type MatchLine, type Sharing, type TradeMatch, type WantIn,
+  reach, sees, seesLine, sentLabel, sharedCount, sharingSummary, viewAs, VIS_LABEL, widening, wideningMessage, type ProfileData, shownLines, wantTier, type CopyIn, type MatchLine, type Sharing, type TradeMatch, type WantIn,
 } from "./friends";
 import { redactPath, screenName } from "./analytics";
 
@@ -173,5 +173,40 @@ describe("shared decks and cubes", () => {
     expect(sharedListKind("deck")).toBe("deck");
     expect(sharedListKind("cube")).toBe("cube");
     expect(sharedListKind("binder")).toBeNull();
+  });
+});
+
+/* Sharing UX rules (contract § UX rules 4-5), on testdata/sharing/cases.json: the same file iOS FriendsTests and
+   Android SharingRulesTest read. */
+describe("sharing UX rules (shared cases)", () => {
+  const sc = JSON.parse(readFileSync(new URL("../../../testdata/sharing/cases.json", import.meta.url), "utf8"));
+  const settings = (x: Partial<Sharing>): Sharing => ({ ...DEFAULT_SHARING, ...x, items: x.items ?? [] });
+  for (const c of sc.widening) {
+    it(`widening: ${c.name}`, () => {
+      const w = widening(settings(c.before), settings(c.after));
+      expect(w).toEqual({ friends: c.friends, anyone: c.anyone, all_cards_to_anyone: c.all_cards_to_anyone, profile_to_anyone: c.profile_to_anyone });
+    });
+  }
+  for (const c of sc.sees) {
+    it(`sees: ${c.name}`, () => {
+      expect(seesLine(settings(c.settings), 1)).toBe(c.friends);
+      expect(seesLine(settings(c.settings), 0)).toBe(c.anyone);
+    });
+  }
+  for (const c of sc.view_as) {
+    it(`view as: ${c.name}`, () => {
+      const v = viewAs(sc.view_as_profile as ProfileData, settings(c.settings), c.level);
+      const s = v.sections;
+      expect({
+        visible: v.visible, all_cards: s.all_cards?.cards ?? null, value: s.all_cards?.value_usd ?? null, for_trade: s.for_trade?.cards ?? null,
+        wants: s.wants?.cards ?? null, binders: (s.binders ?? []).map((b) => b.name), decks: (s.decks ?? []).map((b) => b.name),
+        cubes: (s.cubes ?? []).map((b) => b.name), record: !!s.record,
+      }).toEqual(c.want);
+    });
+  }
+  it("never says Public", () => {
+    expect(VIS_LABEL.public).toBe("Anyone");
+    expect(wideningMessage(widening(settings({}), settings({ profile: "public", library: "public" }))))
+      .toBe("Anyone on Table 1 will see: your profile, All cards, For trade, Wants.\n\nEvery card you own. Your total value is never shown.\n\nYour profile shows up when people search your name.");
   });
 });

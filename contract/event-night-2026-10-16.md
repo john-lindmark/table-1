@@ -89,3 +89,10 @@ still to do. Wire names are in `rpc.schema.json`.
   turn = (turns + by) mod 4; the uploaded size is the 2048 px size with the sides swapped for odd turns.
 - Telemetry: `deck_photo_added` gains `turns`; `deck_photo_turned` {turns}.
 - Demo: iOS `-T1EventsDemo results|photo`, web `/dev/events` → Photos.
+
+## Web (2026-10-30)
+
+§ 3 and § 6 on the web: the long upright table with the organizer's **Seat the ends** switch on Setup → Seating
+(`TableLayout` in `lib/tableLayout.ts`, tested like Android's `TableLayoutTest`), and the redraft pile at
+`/e/<id>/redraft` / `/p/<id>/redraft` (organizer header and the player's After the event buttons), where cards are added
+by search since the web has no scanner (the drafted set's English printing when the card is in it; Foil switch).

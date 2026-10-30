@@ -18,3 +18,7 @@ export function joinHeader(w: any): JoinHeader | null {
     .join(" · ");
   return { title: name, facts };
 }
+
+/** Tell players before they join (contract/friends-sharing-2026-10-18.md § UX rules 9): Nearby, invitations and joins
+ *  by code. Same words as iOS / Android `JoinNotice`. */
+export const JOIN_NOTICE = "Your name shows in this event's pairings and standings, to its players and anyone with its standings link.";

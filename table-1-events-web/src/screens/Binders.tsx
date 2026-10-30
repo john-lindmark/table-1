@@ -25,6 +25,8 @@ import { COLLAPSED, addPart, isOpen, sortParts, toggleOne, type Disclosure, type
 import { heroPrintings, heroesOf, isHero } from "../lib/heroes";
 import { CardSearchBar, CardSearchStatus, useCardSearch } from "./CardSearch";
 import { ShareRow } from "./Share";
+import { WhoSeesRow } from "../components/PersonActions";
+import { offerForTradeIfDue } from "../lib/friends";
 
 /* Binders and wants (contract/binders-wants-2026-10-17.md). Library → Binders: Unsorted and each binder; a binder
    lists its cards and can be renamed, flagged for trade or deleted. Library → Wants: the wishlist, then everything a
@@ -80,6 +82,8 @@ export function BinderEditor({ binder, onClose, onSaved }: { binder: Binder | nu
       const b = await saveBinder(binder?.id ?? null, name.trim().slice(0, 60), trade);
       onClose();
       onSaved?.(b);
+      // Marking a binder For trade while For trade reaches no one: offer once (contract § UX rules 8).
+      if (trade && !binder?.for_trade) void offerForTradeIfDue();
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -261,6 +265,7 @@ export function BinderScreen({ id, onBack, onCard }: { id: string; onBack: () =>
       <Field label="Search this binder" value={q} onChange={setQ} placeholder="Name or type" />
       {!catalog && !error && <div className="bg-t1-surface px-4 py-4 t1-label">Loading card data…</div>}
       <div ref={boxRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
+        {binder && <WhoSeesRow kind="binder" id={binder.id} name={binder.name} forTrade={binder.for_trade} />}
         {binder && <ShareRow target={{ part: "binder", id: binder.id, name: binder.name, for_trade: binder.for_trade }} from="binder" />}
         {(unsorted || binder) && (
           <Row title="Add cards" detail={unsorted ? "New copies, or copies out of a binder" : "Move in copies you own, or add new ones"}

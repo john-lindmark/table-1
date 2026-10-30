@@ -1,3 +1,5 @@
+import { currentFix, setEventLocation } from "../lib/nearby";
+import { JOIN_NOTICE } from "../lib/joinPreview";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
@@ -31,6 +33,7 @@ import {
   Field,
   GhostAction,
   Notice,
+  Row,
   Screen,
   Section,
   Segmented,
@@ -48,8 +51,11 @@ export function Home({
   onOpenPlayer,
   onAddPlayers,
   onOpenLife,
+  onNearby,
 }: {
   onOpenEvent: (eventId: string) => void;
+  /** Open events within 150 m (the browser asks for location there). */
+  onNearby?: () => void;
   onOpenPlayer: (eventId: string) => void;
   onAddPlayers: (eventId: string) => void;
   /** No match id: the local tracker. */
@@ -165,6 +171,7 @@ export function Home({
         </>
       )}
       {!desktop && <JoinByCode />}
+      {!desktop && onNearby && <Row title="Nearby" detail="Open events within 150 m" onClick={onNearby} />}
       {upcoming.length > 0 && (
         <>
           <div className="bg-t1-surface px-4 py-2 t1-label">Upcoming</div>
@@ -217,10 +224,10 @@ export function Home({
       {error && <Notice tone="error">{error}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {data === null && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
-        {empty && <EmptyEvents onCreate={() => setCreating(true)} />}
+        {empty && <EmptyEvents onCreate={() => setCreating(true)} onNearby={onNearby} />}
         {!empty && data && desktop && (
           // Desktop: your events on the left; joining, creating and the tracker on the right.
-          <Columns aside={<HomeActions onCreate={() => setCreating(true)} onOpenLife={() => onOpenLife()} />}>
+          <Columns aside={<HomeActions onCreate={() => setCreating(true)} onOpenLife={() => onOpenLife()} onNearby={onNearby} />}>
             {lists}
           </Columns>
         )}
@@ -231,7 +238,7 @@ export function Home({
 }
 
 /** Desktop Events home: the right column. */
-function HomeActions({ onCreate, onOpenLife }: { onCreate: () => void; onOpenLife: () => void }) {
+function HomeActions({ onCreate, onOpenLife, onNearby }: { onCreate: () => void; onOpenLife: () => void; onNearby?: () => void }) {
   return (
     <>
       <div className="bg-t1-surface px-4 pt-4 pb-2 t1-label">Join with an event code</div>
@@ -239,6 +246,7 @@ function HomeActions({ onCreate, onOpenLife }: { onCreate: () => void; onOpenLif
       <BigAction label="Create an event" tone="accent" onClick={onCreate} />
       <div className="flex gap-px">
         <GhostAction label="Life tracker" onClick={onOpenLife} />
+        {onNearby && <GhostAction label="Nearby" onClick={onNearby} />}
       </div>
     </>
   );
@@ -436,6 +444,7 @@ function InviteRow({ invite, onJoined, onChanged }: { invite: HomeInvite; onJoin
         <div className="flex-1 min-w-0">
           <p className="text-[14px] truncate">{invite.name}</p>
           <p className="t1-label truncate">{detail}</p>
+          <p className="text-[11px] leading-[15px] text-t1-muted mt-1">{JOIN_NOTICE}</p>
         </div>
         <button disabled={busy} onClick={() => answer(false)} className="px-3 py-2 text-[11px] uppercase tracking-[1px] bg-t1-bg">
           Decline
@@ -450,7 +459,7 @@ function InviteRow({ invite, onJoined, onChanged }: { invite: HomeInvite; onJoin
 }
 
 /** No events and no invitations: the ways in become the screen. */
-function EmptyEvents({ onCreate }: { onCreate: () => void }) {
+function EmptyEvents({ onCreate, onNearby }: { onCreate: () => void; onNearby?: () => void }) {
   return (
     <>
       <div className="bg-t1-surface px-6 py-10 flex flex-col items-center gap-2 text-center">
@@ -460,6 +469,7 @@ function EmptyEvents({ onCreate }: { onCreate: () => void }) {
         </p>
       </div>
       <JoinByCode />
+      {onNearby && <Row title="Nearby" detail="Open events within 150 m" onClick={onNearby} />}
       <BigAction label="Create an event" tone="accent" onClick={onCreate} />
     </>
   );
@@ -497,6 +507,8 @@ export function NewEvent({
   const [pairing, setPairing] = useState<"swiss" | "round_robin" | null>(null);
   const [name, setName] = useState("");
   const [schedule, setSchedule] = useState<ScheduleValue>({ startsAt: null, venueName: "", capacity: null });
+  /** Who can find it: Nearby + QR (players within 150 m, and alerts) or QR only. */
+  const [nearby, setNearby] = useState(true);
   const [autoRounds, setAutoRounds] = useState(true);
   const [topCut, setTopCut] = useState<0 | 8>(0);
   const [decklists, setDecklists] = useState<DecklistMode>("off");
@@ -560,6 +572,12 @@ export function NewEvent({
       });
       // Roto: the pool comes from a Library cube. Use the one with this name, or import the Cube Cobra link.
       if (roto) void linkRotoCube(eventId, cubeName, cubeUrl);
+      // Pin it where the organizer stands. For nearby events this also alerts opted-in players around. A scheduled
+      // event is usually made away from the venue: no pin then (Details can set it there).
+      if (!schedule.startsAt) {
+        const fix = await currentFix(6000);
+        if (fix) await setEventLocation(eventId, fix, schedule.venueName.trim() || null, nearby ? "nearby" : "link_only").catch(() => {});
+      }
       onCreated(eventId);
     } catch (e) {
       setError(errorMessage(e));
@@ -626,6 +644,13 @@ export function NewEvent({
         <RoundTimerSwitch on={showClock} onChange={setShowClock} />
         {!limited && <DecklistsFields mode={decklists} onMode={setDecklists} />}
         <PlayersEditor includeMe={includeMe} onIncludeMe={setIncludeMe} myName={myName} guests={guests} onGuests={setGuests} />
+        <Segmented label="Who can find it" value={nearby ? "nearby" : "qr"} onChange={(v) => setNearby(v === "nearby")}
+                   options={[{ value: "nearby", label: "Nearby + QR" }, { value: "qr", label: "QR only" }]} />
+        <Notice tone="info">
+          {schedule.startsAt ? "Scheduled events are pinned from Details at the venue."
+            : nearby ? "Players within 150 m can find and join it, and players nearby who turned on alerts get a Join / Decline notification. Your browser asks for your location once."
+            : "Only people with the code, link or QR code can join."}
+        </Notice>
         {error && <Notice tone="error">{error}</Notice>}
       </div>
       <BigAction label="Create event" tone="accent" busy={busy} disabled={!!problem} onClick={submit} />

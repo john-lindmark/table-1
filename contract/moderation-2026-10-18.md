@@ -124,3 +124,9 @@ Worker (service role only): `moderation_claim(p_limit)` hands out pending checks
   reports and strikes; Allow / Block; appeals with Uphold / Revert; flagged accounts with Restrict 7 days / Lift.
 - Telemetry: `moderation_notice_opened`, `moderation_appealed`, `moderation_resolved` (`decision`, `subject`), no ids.
 - iOS demo: `-T1LibraryDemo notices|review`.
+
+## Web (2026-10-30)
+
+Account → From Table 1 (`/me/notices`, appeal panel) and Review for moderators (`/me/review`, photos blurred until
+clicked), same copy as the apps: `table-1-events-web/src/lib/moderation.ts`, `screens/Moderation.tsx`. The web has no
+pushes, so nothing routes to them but the Account rows.

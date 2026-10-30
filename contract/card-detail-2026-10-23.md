@@ -130,7 +130,7 @@ says so), then Price, Card type, Rarity, Artist rows. Under them, the rest of th
 iOS built, unit-tested (`CardDetailTests` on the shared cases; `LanguageTests`, `ChangePrintingTests` share the
 place-keeping rule) and checked in the Simulator demo: `-T1LibraryDemo multicard` (grid, select, condition change,
 Undo, info view, Add to → deck → section), `searchcard` (Add to, printing picker, add to collection), `deckcard`
-(list scope). Web and Android to do. Not yet tried signed in.
+(list scope). Web and Android built since (see below). Not yet tried signed in.
 
 New edition, stepper on the selected version, and one-or-all Add to (2026-10-26): all three clients. iOS built,
 unit-tested and checked in the Simulator (`-T1LibraryDemo onecard`: a card held in one version; long press +, pick

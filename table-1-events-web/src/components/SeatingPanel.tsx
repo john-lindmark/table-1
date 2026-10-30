@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { acrossTheTable } from "../lib/seating";
-import { Segmented } from "./kit";
+import { TableLayout } from "../lib/tableLayout";
 import { membersOf, pairTeamDraftRound } from "../lib/teams";
 import type { EventTeam, FormatName, Participant, SeatingPod } from "../lib/types";
 
@@ -43,23 +43,11 @@ export function roundOneNote(
   return `Round 1 pairs across the table: ${text}.${bye ? ` Seat ${seatOf.get(bye)} has the bye.` : ""}`;
 }
 
-/** Seat centres (as % of the box) on a rectangle: seat k at −90° + 360°·(k + ½)/n, so opposite seats mirror. */
-export function seatPositions(n: number, chipW = 28, chipH = 12): { x: number; y: number }[] {
-  const ax = 50 - chipW / 2 - 1;
-  const ay = 50 - chipH / 2 - 1;
-  return Array.from({ length: n }, (_, k) => {
-    const t = -Math.PI / 2 + (2 * Math.PI * (k + 0.5)) / n;
-    const cx = Math.cos(t);
-    const sy = Math.sin(t);
-    const r = Math.min(Math.abs(cx) < 1e-9 ? Infinity : ax / Math.abs(cx), Math.abs(sy) < 1e-9 ? Infinity : ay / Math.abs(sy));
-    return { x: 50 + r * cx, y: 50 + r * sy };
-  });
-}
-
 /**
- * Each pod drawn as a table: seats clockwise from the top left (two to a side for eight, so seat 1 sits straight
- * across from seat 5). Lines join round 1 opponents; the middle says which way the chosen pack passes
- * (left = clockwise, to the next seat number).
+ * Each pod drawn the way a draft table really seats people: one long table, players along both long sides and (when
+ * the organizer turns it on) one at each end. Lines join round 1 opponents; the middle says which way each pack passes
+ * (left = clockwise, to the next seat number: packs 1 and 3; pack 2 goes right). Only the drawing changes. Same as iOS
+ * SeatingTable and Android PodTable.
  */
 export function SeatingPanel({
   pods,
@@ -67,96 +55,90 @@ export function SeatingPanel({
   participants,
   teams,
   highlightParticipantId,
+  seatEnds = false,
 }: {
   pods: SeatingPod[];
   formatName: FormatName;
   participants: Participant[];
   teams: EventTeam[] | null;
   highlightParticipantId?: string | null;
+  seatEnds?: boolean;
 }) {
-  const [pack, setPack] = useState<1 | 2 | 3>(1);
   if (!pods.length) {
     return <div className="bg-t1-surface px-4 py-4 t1-label">Nobody is seated yet</div>;
   }
-  const left = pack % 2 === 1;
   return (
     <div className="flex flex-col gap-px">
-      <Segmented
-        label="Pack"
-        value={pack}
-        onChange={setPack}
-        options={[
-          { value: 1, label: "Pack 1" },
-          { value: 2, label: "Pack 2" },
-          { value: 3, label: "Pack 3" },
-        ]}
-      />
-      {pods.map((pod) => {
-        const note = roundOneNote(pod, formatName, participants, teams);
-        const seats = [...pod.seats].sort((a, b) => a.seat - b.seat);
-        const pos = seatPositions(seats.length);
-        const index = new Map(seats.map((s, i) => [s.participant_id, i]));
-        const { pairs, bye } = roundOnePairs(pod, formatName, participants, teams);
-        return (
-          <div key={pod.pod_id} className="flex flex-col gap-px">
-            <div className="bg-t1-surface px-4 py-2 flex justify-between t1-label">
-              <span>{pods.length > 1 ? pod.name : "Seating"}</span>
-              <span>{pod.seats.length} drafters</span>
-            </div>
-            <div className="bg-t1-surface py-3">
-              <div
-                className="relative mx-auto w-full max-w-[520px] aspect-[1/0.92]"
-                role="img"
-                aria-label={`Table: ${seats.map((s) => `seat ${s.seat} ${s.display_name}`).join(", ")}. Pack ${pack} passes ${left ? "left" : "right"}.`}
-              >
-                <div className="absolute bg-t1-bg border border-t1-disabled" style={{ left: "27%", right: "27%", top: "15%", bottom: "15%" }} />
-                <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
-                  {pairs.map(([a, b]) => {
-                    const i = index.get(a);
-                    const j = index.get(b);
-                    if (i == null || j == null) return null;
-                    const mine = a === highlightParticipantId || b === highlightParticipantId;
-                    return (
-                      <line
-                        key={`${a}-${b}`}
-                        x1={pos[i].x}
-                        y1={pos[i].y}
-                        x2={pos[j].x}
-                        y2={pos[j].y}
-                        vectorEffect="non-scaling-stroke"
-                        strokeWidth={mine ? 2 : 1}
-                        className={mine ? "stroke-t1-accent" : "stroke-t1-disabled"}
-                      />
-                    );
-                  })}
-                </svg>
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-t1-bg px-3 py-1.5 text-center">
-                  <div className="t1-label">Pack {pack}</div>
-                  <div className="text-[13px] font-bold whitespace-nowrap">{left ? "↻ Pass left" : "↺ Pass right"}</div>
-                </div>
-                {seats.map((s, i) => {
-                  const mine = s.participant_id === highlightParticipantId;
-                  return (
-                    <div
-                      key={s.participant_id}
-                      className={`absolute -translate-x-1/2 -translate-y-1/2 w-[28%] h-[12%] min-h-[42px] px-2 flex flex-col justify-center border ${mine ? "bg-t1-surface-hover border-t1-accent" : "bg-t1-bg border-t1-disabled"}`}
-                      style={{ left: `${pos[i].x}%`, top: `${pos[i].y}%` }}
-                    >
-                      <span className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-t1-accent text-[13px] font-bold tabular-nums">{s.seat}</span>
-                        {s.team && <span className="t1-label truncate">{s.team}</span>}
-                        {bye === s.participant_id && <span className="t1-label text-t1-warning!">Bye</span>}
-                      </span>
-                      <span className="text-[12px] truncate">{s.display_name}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            {note && <div className="bg-t1-surface px-4 py-2.5 text-[11px] leading-[16px] text-t1-muted">{note}</div>}
+      {pods.map((pod) => (
+        <div key={pod.pod_id} className="flex flex-col gap-px">
+          <div className="bg-t1-surface px-4 py-2 flex justify-between t1-label">
+            <span>{pods.length > 1 ? pod.name : "Seating"}</span>
+            <span>{pod.seats.length} drafters</span>
           </div>
-        );
-      })}
+          <PodTable pod={pod} formatName={formatName} participants={participants} teams={teams} highlight={highlightParticipantId ?? null} seatEnds={seatEnds} />
+          {(() => {
+            const note = roundOneNote(pod, formatName, participants, teams);
+            return note && <div className="bg-t1-surface px-4 py-2.5 text-[11px] leading-[16px] text-t1-muted">{note}</div>;
+          })()}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PodTable({ pod, formatName, participants, teams, highlight, seatEnds }: {
+  pod: SeatingPod; formatName: FormatName; participants: Participant[]; teams: EventTeam[] | null; highlight: string | null; seatEnds: boolean;
+}) {
+  const [box, setBox] = useState<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState(360);
+  useEffect(() => {
+    if (!box) return;
+    const ro = new ResizeObserver(([e]) => setWidth(e.contentRect.width));
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, [box]);
+  const seats = [...pod.seats].sort((a, b) => a.seat - b.seat);
+  const index = new Map(seats.map((s, i) => [s.participant_id, i]));
+  const { pairs, bye } = roundOnePairs(pod, formatName, participants, teams);
+  const layout = new TableLayout(seats.length, seatEnds);
+  const chipW = Math.min(140, (width - 24) * 0.36);
+  const pos = layout.positions(width, chipW);
+  const t = layout.tableRect(width, chipW);
+  return (
+    <div className="bg-t1-surface py-3">
+      <div ref={setBox} className="relative mx-auto w-full max-w-[520px]" style={{ height: layout.height }} role="img"
+           aria-label={`Table${layout.ends ? " with players at the ends" : ""}: ${seats.map((s) => `seat ${s.seat} ${s.display_name}`).join(", ")}. Packs 1 and 3 pass left, pack 2 passes right.`}>
+        <div className="absolute bg-t1-bg border border-t1-disabled" style={{ left: t.x, top: t.y, width: t.w, height: t.h }} />
+        <svg className="absolute inset-0 w-full h-full" aria-hidden>
+          {pairs.map(([a, b]) => {
+            const i = index.get(a);
+            const j = index.get(b);
+            if (i == null || j == null) return null;
+            const mine = a === highlight || b === highlight;
+            return <line key={`${a}-${b}`} x1={pos[i].x} y1={pos[i].y} x2={pos[j].x} y2={pos[j].y} strokeWidth={mine ? 2 : 1}
+                         className={mine ? "stroke-t1-accent" : "stroke-t1-disabled"} />;
+          })}
+        </svg>
+        <div className="absolute -translate-x-1/2 -translate-y-1/2 bg-t1-bg px-2.5 py-1.5 text-center" style={{ left: t.x + t.w / 2, top: t.y + t.h / 2 }}>
+          <div className="text-[12px] font-bold whitespace-nowrap">↻ 1·3 left</div>
+          <div className="text-[12px] text-t1-muted whitespace-nowrap">↺ 2 right</div>
+        </div>
+        {seats.map((s, i) => {
+          const mine = s.participant_id === highlight;
+          return (
+            <div key={s.participant_id}
+                 className={`absolute px-2 flex flex-col justify-center border ${mine ? "bg-t1-surface-hover border-t1-accent" : "bg-t1-bg border-t1-disabled"}`}
+                 style={{ left: pos[i].x - chipW / 2, top: pos[i].y - TableLayout.CHIP_H / 2, width: chipW, height: TableLayout.CHIP_H }}>
+              <span className="flex items-center gap-1.5 min-w-0">
+                <span className="text-t1-accent text-[13px] font-bold tabular-nums">{s.seat}</span>
+                {s.team && <span className="t1-label truncate">{s.team}</span>}
+                {bye === s.participant_id && <span className="t1-label text-t1-warning!">Bye</span>}
+              </span>
+              <span className="text-[12px] truncate">{s.display_name}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

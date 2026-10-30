@@ -49,6 +49,10 @@ export interface Table1Event {
   /** contract/scheduled-events-2026-10-27.md */
   topCut: 0 | 8;
   autoRounds: boolean;
+  /** Who can find it: nearby (150 m and alerts) / link_only / private (contract/privacy-lockdown-2026-10-18.md). */
+  visibility: "nearby" | "link_only" | "private";
+  /** Draft seating: players at both ends of the table too (contract/event-night-2026-10-16.md § 3). Drawing only. */
+  seatEnds: boolean;
   capacity: number | null;
   startsAt: string | null;
   venueName: string | null;

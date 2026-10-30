@@ -13,7 +13,8 @@ import type { Board, Entry, ListKind } from "./lists";
 
 export type Visibility = "private" | "friends" | "public";
 export const VISIBILITIES: Visibility[] = ["private", "friends", "public"];
-export const VIS_LABEL: Record<Visibility, string> = { private: "Private", friends: "Friends", public: "Public" };
+/** "Anyone" always means anyone on Table 1; the UI never says "Public" (contract § UX rules 1). The wire value stays `public`. */
+export const VIS_LABEL: Record<Visibility, string> = { private: "Private", friends: "Friends", public: "Anyone" };
 /** What it asks of a viewer (the server's vis_ok): public 0, friends 1, private 3 (only you). */
 export const asks = (v: Visibility) => (v === "public" ? 0 : v === "friends" ? 1 : 3);
 
@@ -175,6 +176,97 @@ export const sharingSummary = (s: Sharing) => {
   const n = sharedCount(s);
   return `Profile ${VIS_LABEL[s.profile].toLowerCase()} · ${n === 0 ? "nothing shared" : `${n} shared`}`;
 };
+
+/** Who a part reaches once the profile cap applies (Record and the Library parts). */
+export const reachOf = (s: Sharing, p: SharePart): Visibility => (p === "profile" ? s.profile : reach(s, effective(s, p)));
+export const reachOfItem = (s: Sharing, item: ShareItem): Visibility => reach(s, effectiveItem(s, item));
+
+/** The settings after one change, as the server would store them. */
+export const withPart = (s: Sharing, p: SharePart, v: Visibility | null): Sharing => ({ ...s, [p]: v });
+export const withItem = (s: Sharing, item: ShareItem, v: Visibility | null): Sharing =>
+  ({ ...s, items: s.items.map((i) => (i.id === item.id && i.kind === item.kind ? { ...i, visibility: v } : i)) });
+
+/** What newly reaches friends and anyone (contract § UX rules 4). Empty = only narrows or does nothing: no question. */
+export interface Widening { friends: string[]; anyone: string[]; all_cards_to_anyone: boolean; profile_to_anyone: boolean }
+
+const SHOWN_PARTS: [SharePart, string][] = [["profile", "your profile"], ["record", "your record"], ["all_cards", "All cards"],
+  ["for_trade", "For trade"], ["wants", "Wants"]];
+
+export function widening(a: Sharing, b: Sharing): Widening {
+  const w: Widening = { friends: [], anyone: [], all_cards_to_anyone: false, profile_to_anyone: false };
+  const add = (name: string, to: Visibility) => (to === "public" ? w.anyone : w.friends).push(name);
+  for (const [p, name] of SHOWN_PARTS) {
+    const ra = reachOf(a, p), rb = reachOf(b, p);
+    if (asks(rb) >= asks(ra)) continue;
+    add(name, rb);
+    if (p === "all_cards" && rb === "public") w.all_cards_to_anyone = true;
+    if (p === "profile" && rb === "public") w.profile_to_anyone = true;
+  }
+  const before = new Map(a.items.map((i) => [`${i.kind}:${i.id}`, i]));
+  for (const kind of ["binder", "deck", "cube"] as const) {
+    for (const to of ["public", "friends"] as const) {
+      const opened = b.items.filter((i) => {
+        if (i.kind !== kind || reachOfItem(b, i) !== to) return false;
+        const old = before.get(`${i.kind}:${i.id}`);
+        return asks(to) < asks(old ? reachOfItem(a, old) : "private");
+      });
+      if (opened.length === 1) add(opened[0].name, to);
+      else if (opened.length > 1) add(`${opened.length} ${kind}s`, to);
+    }
+  }
+  return w;
+}
+
+export const wideningEmpty = (w: Widening) => !w.friends.length && !w.anyone.length;
+export const wideningTitle = (w: Widening) => (w.anyone.length ? "Show to anyone on Table 1?" : "Show to friends?");
+export const wideningMessage = (w: Widening) => [
+  w.anyone.length ? `Anyone on Table 1 will see: ${w.anyone.join(", ")}.` : null,
+  w.friends.length ? `Friends will see: ${w.friends.join(", ")}.` : null,
+  w.all_cards_to_anyone ? "Every card you own. Your total value is never shown." : null,
+  w.profile_to_anyone ? "Your profile shows up when people search your name." : null,
+].filter(Boolean).join("\n\n");
+
+/** The line per audience at the top of Sharing (contract § UX rules 5): level 1 friends, 0 anyone. Name and photo always show. */
+export function seesLine(s: Sharing, level: number): string {
+  const names = ["your name and photo"];
+  if (level >= asks(s.profile)) {
+    for (const [p, name] of SHOWN_PARTS) if (p !== "profile" && sees(level, s.profile, effective(s, p))) names.push(name);
+    for (const kind of ["binder", "deck", "cube"] as const) {
+      const n = s.items.filter((i) => i.kind === kind && sees(level, s.profile, effectiveItem(s, i))).length;
+      if (n > 0) names.push(`${n} ${kind}${n === 1 ? "" : "s"}`);
+    }
+  }
+  return `${level >= 1 ? "Friends see: " : "Anyone on Table 1 sees: "}${names.join(", ")}.`;
+}
+
+/** Your own profile as a friend (level 1) or anyone (level 0) would get it from profile_view (contract § UX rules 5). */
+export function viewAs(d: ProfileData, s: Sharing, level: number): ProfileData {
+  const visible = level >= asks(s.profile);
+  const base: ProfileData = { ...d, relation: level >= 1 ? "friend" : "none", visible, sections: {} };
+  if (!visible) return base;
+  const ok = (v: Visibility) => sees(level, s.profile, v);
+  const items = new Map(s.items.map((i) => [i.id, i]));
+  const itemOk = (id: string, group: SharePart) => {
+    const i = items.get(id);
+    return ok(i ? effectiveItem(s, i) : effective(s, group));
+  };
+  const src = d.sections;
+  const tradeOk = ok(effective(s, "for_trade"));
+  const tradeBinders = (src.binders ?? []).filter((b) => b.for_trade && (tradeOk || itemOk(b.id, "binders")));
+  const all = src.all_cards && ok(effective(s, "all_cards")) ? { cards: src.all_cards.cards, printings: src.all_cards.printings } : undefined;
+  return {
+    ...base,
+    sections: {
+      ...(all ? { all_cards: all } : {}),
+      ...(tradeBinders.length ? { for_trade: { cards: tradeBinders.reduce((n, b) => n + b.cards, 0) } } : {}),
+      ...(src.wants && ok(effective(s, "wants")) ? { wants: src.wants } : {}),
+      binders: (src.binders ?? []).filter((b) => itemOk(b.id, "binders")),
+      decks: (src.decks ?? []).filter((l) => itemOk(l.id, "decks")),
+      cubes: (src.cubes ?? []).filter((l) => itemOk(l.id, "cubes")),
+      ...(src.record && ok(s.record) ? { record: src.record } : {}),
+    },
+  };
+}
 
 /* ── profiles ────────────────────────────────────────────────────────── */
 
@@ -497,6 +589,38 @@ export async function blockUser(userId: string, on: boolean) {
   if (on && state.matches) set({ matches: state.matches.filter((m) => m.user_id !== userId) });
 }
 
+/* ── report (contract § UX rules 6) ──────────────────────────────────── */
+
+export type ReportReason = "spam" | "harassment" | "offensive_profile" | "offensive_content" | "other";
+export const REPORT_REASONS: { value: ReportReason; label: string }[] = [
+  { value: "spam", label: "Spam or fake account" },
+  { value: "harassment", label: "Harassment" },
+  { value: "offensive_profile", label: "Offensive name or photo" },
+  { value: "offensive_content", label: "Offensive deck, binder or cube name" },
+  { value: "other", label: "Something else" },
+];
+/** Also block them: on for harassment, off otherwise. */
+export const reportBlocksByDefault = (r: ReportReason) => r === "harassment";
+export const REPORT_NOTE_MAX = 500;
+export type ReportFrom = "profile" | "friends" | "request" | "search" | "trade_match";
+export interface ReportContext { from: ReportFrom; kind?: "binder" | "deck" | "cube"; id?: string }
+export const BLOCK_MESSAGE = "They won't be able to find you, see your Library or ask to be friends. They won't be told. "
+  + "You'll still both be in any event you're both playing.";
+export const REPORT_THANKS = "Thanks. We'll look into it. They won't know you reported them.";
+
+export async function reportUser(userId: string, reason: ReportReason, note: string, context: ReportContext, block: boolean) {
+  const n = note.trim().slice(0, REPORT_NOTE_MAX);
+  if (!demoOn()) {
+    await rpc("user_report", { p_user_id: userId, p_reason: reason, p_note: n || null, p_context: context, p_block: block });
+  }
+  capture("user_reported", { reason, from: context.from, blocked: block });
+  if (block) {
+    if (demoOn()) demoOn()!.block(userId, true);
+    await loadFriends();
+    if (state.matches) set({ matches: state.matches.filter((m) => m.user_id !== userId) });
+  }
+}
+
 export async function loadSharing() {
   if (demoPending()) return;
   try {
@@ -530,8 +654,49 @@ export async function setPart(p: SharePart, v: Visibility | null) {
 export async function setItem(item: ShareItem, v: Visibility | null) {
   const s = state.sharing;
   if (!s || item.visibility === v) return;
-  await saveSharing({ ...s, items: s.items.map((i) => (i.id === item.id ? { ...i, visibility: v } : i)) },
+  const known = s.items.some((i) => i.id === item.id && i.kind === item.kind);
+  await saveSharing(known ? withItem(s, item, v) : { ...s, items: [...s.items, { ...item, visibility: v }] },
     { items: [{ kind: item.kind, id: item.id, visibility: v }] }, item.kind, v);
+}
+
+/** Several parts to one value in one save (the once-only offers). */
+export async function setAll(parts: SharePart[], v: Visibility) {
+  const s = state.sharing;
+  if (!s) return;
+  const next = parts.reduce((acc, p) => withPart(acc, p, v), s);
+  await saveSharing(next, Object.fromEntries(parts.map((p) => [p, v])), parts.join(","), v);
+}
+
+/** A deck, cube or binder as Sharing knows it (a new one isn't in sharing_get yet: Same as its group). */
+export const shareItemOf = (s: Sharing, kind: ShareItem["kind"], id: string, name: string, forTrade?: boolean): ShareItem =>
+  s.items.find((i) => i.kind === kind && i.id === id) ?? { kind, id, name, for_trade: forTrade, visibility: null };
+
+/** An offer made due by an action elsewhere (marking a binder For trade), shown over that screen by <DueOffer>. */
+let dueOffer: SharingOffer | null = null;
+const dueListeners = new Set<() => void>();
+export const offerDue = () => dueOffer;
+export function setOfferDue(o: SharingOffer | null) { dueOffer = o; dueListeners.forEach((f) => f()); }
+export const subscribeOfferDue = (f: () => void) => { dueListeners.add(f); return () => void dueListeners.delete(f); };
+
+/** For trade reaches no one (neither the part nor any for-trade binder) and the offer hasn't been answered. */
+export async function offerForTradeIfDue() {
+  const me = (await supabase.auth.getSession()).data.session?.user.id ?? null;
+  if (offerAnswered("for_trade", me)) return;
+  if (!state.sharing) await loadSharing();
+  const s = state.sharing;
+  if (!s) return;
+  if (reachOf(s, "for_trade") === "private" && !s.items.some((i) => i.for_trade && reachOfItem(s, i) !== "private")) setOfferDue("for_trade");
+}
+
+/** The once-only "share with friends?" offers (contract § UX rules 8), answered per account on this browser. */
+export type SharingOffer = "for_trade" | "matches" | "record";
+const offerKey = (o: SharingOffer, userId: string | null) => `table1.sharing_offer.${o}.${userId ?? "none"}`;
+export function offerAnswered(o: SharingOffer, userId: string | null): boolean {
+  try { return localStorage.getItem(offerKey(o, userId)) === "1"; } catch { return true; }
+}
+export function answerOffer(o: SharingOffer, userId: string | null, accepted: boolean) {
+  try { localStorage.setItem(offerKey(o, userId), "1"); } catch { /* private window: asked again next time */ }
+  capture("sharing_offer", { offer: o, accepted });
 }
 
 export async function fetchProfile(userId: string): Promise<ProfileData> {

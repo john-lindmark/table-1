@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { addGuest, addSelfToEvent, errorMessage, pairNextRound, removeParticipant, seatPlayers } from "../../lib/api";
+import { addGuest, addSelfToEvent, errorMessage, pairNextRound, removeParticipant, seatPlayers, setSeatEnds } from "../../lib/api";
+import { capture } from "../../lib/telemetry";
 import { useSession } from "../../lib/useSession";
 import { AddByName, tidyName } from "../../components/EventFormFields";
 import { slotLetter } from "../../lib/formats";
@@ -7,7 +8,7 @@ import { startBlocker, startDialog } from "../../lib/organizer";
 import { teamProblems } from "../../lib/teams";
 import { toTeams, useSeating } from "../../lib/useEventExtras";
 import type { EventTeam } from "../../lib/types";
-import { BigAction, Dialog, GhostAction, Modal, Notice, Row, Section } from "../../components/kit";
+import { BigAction, Dialog, GhostAction, Modal, Notice, Row, Section, SwitchRow } from "../../components/kit";
 import { SeatingPanel } from "../../components/SeatingPanel";
 import { SharePanel } from "../../components/SharePanel";
 import { TeamsPanel } from "../../components/TeamsPanel";
@@ -106,6 +107,23 @@ export function SetupView({
     } catch (e) {
       setActionError(errorMessage(e));
       setSeatingBusy(false);
+    }
+  }
+
+  /** Players at both ends of the table too (drawing only); the switch moves at once, the reload follows. */
+  const [endsOn, setEndsOn] = useState<boolean | null>(null);
+  const seatEnds = endsOn ?? event.seatEnds;
+  async function changeSeatEnds(on: boolean) {
+    setEndsOn(on);
+    setActionError(null);
+    try {
+      await setSeatEnds(eventId, on);
+      capture("seat_ends_changed", { on, players: (pods ?? []).reduce((n, p) => n + p.seats.length, 0) });
+      await refetch();
+    } catch (e) {
+      setActionError(errorMessage(e));
+    } finally {
+      setEndsOn(null);
     }
   }
 
@@ -222,8 +240,10 @@ export function SetupView({
             >
               {seatingBusy ? "Seating…" : anySeated ? "Re-seat" : "Seat players"}
             </button>
-            {anySeated && pods ? (
-              <SeatingPanel pods={pods} formatName={event.formatName} participants={participants} teams={teams} />
+            {anySeated && pods ? (<>
+              <SwitchRow label="Seat the ends" detail="Players at both ends of the table, not just the sides" on={seatEnds} onChange={(on) => void changeSeatEnds(on)} />
+              <SeatingPanel pods={pods} formatName={event.formatName} participants={participants} teams={teams} seatEnds={seatEnds} />
+            </>
             ) : (
               <Notice tone="info">
                 {active.length} player{active.length === 1 ? "" : "s"}. Seat players now, or pairing round 1 seats

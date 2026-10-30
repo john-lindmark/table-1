@@ -81,7 +81,7 @@ const scheduleBundle: EventBundle = (() => {
     numberOfRounds: 7, currentRound: 3, roundLengthSeconds: 3000, allowPlayerReporting: true, createdBy: null, cancelReason: null,
     formatName: "roto", formatLabel: "Roto · Vintage Cube", eventType: "limited", teamSize: null, setName: null,
     cubeName: "Vintage Cube", cubeUrl: null, setCode: null, formatOther: null, cancelledAt: null, updatedAt: null, showClock: true,
-    autoName: true, pairing: "round_robin", topCut: 0, autoRounds: false, capacity: null, startsAt: null, venueName: null,
+    autoName: true, pairing: "round_robin", topCut: 0, autoRounds: false, seatEnds: false, visibility: "link_only", capacity: null, startsAt: null, venueName: null,
     decklists: "off",
   };
   const participants: Participant[] = ids.map((id, i) => ({

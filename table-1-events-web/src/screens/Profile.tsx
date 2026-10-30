@@ -1,6 +1,9 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import {
   deleteAccount,
+  isDemoTester,
+  removeDemo,
+  seedDemo,
   fetchAccountOverview,
   fetchNearbyAlerts,
   setDisplayName,
@@ -45,11 +48,14 @@ const record = (w: number, l: number, d: number) => (d > 0 ? `${w}-${l}-${d}` : 
 /** The Account tab: lifetime record, head-to-head, settings, and the account itself. */
 /** Friends and Sharing rows; their store loads with the Friends chunk, not the entry bundle. */
 const FriendsAccountRows = lazy(() => import("./Friends").then((m) => ({ default: m.FriendsAccountRows })));
+const ModerationAccountRows = lazy(() => import("./Moderation").then((m) => ({ default: m.ModerationAccountRows })));
 const CommunityJoin = lazy(() => import("./Discord").then((m) => ({ default: m.CommunityJoin })));
 
-export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscord }: {
+export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscord, onNotices, onReview }: {
   onSignedOut: () => void; onFriends: () => void; onSharing: () => void; onProfile: (userId: string) => void;
   onDiscord?: () => void;
+  onNotices?: () => void;
+  onReview?: () => void;
 }) {
   const { session, ready, userId } = useSession();
   const [overview, setOverview] = useState<AccountOverview | null>(null);
@@ -67,6 +73,26 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
   const libraryInput = useRef<HTMLInputElement>(null);
   // "Take a photo" only where the browser can open a camera (phones); elsewhere capture just picks a file.
   const hasCamera = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+
+  /** Accounts on the server's tester list: load or remove the sample events (same as the apps). */
+  const [demoTester, setDemoTester] = useState(false);
+  const [demoBusy, setDemoBusy] = useState(false);
+  const [demoNotice, setDemoNotice] = useState<string | null>(null);
+  useEffect(() => { if (userId) void isDemoTester().then(setDemoTester); }, [userId]);
+  const demo = async (seed: boolean) => {
+    if (demoBusy) return;
+    setDemoBusy(true);
+    try {
+      await (seed ? seedDemo() : removeDemo());
+      setError(null);
+      setDemoNotice(seed ? "Demo data loaded. The live round's clock restarts each time you reset." : "Demo data removed.");
+      await load();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setDemoBusy(false);
+    }
+  };
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -222,7 +248,8 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
 
         {userId && (
           <Suspense fallback={null}>
-            <FriendsAccountRows onFriends={onFriends} onSharing={onSharing} onProfile={() => onProfile(userId)} />
+            <FriendsAccountRows onFriends={onFriends} onSharing={onSharing} onProfile={() => onProfile(userId)} eventsPlayed={r?.events_played ?? 0} />
+            {onNotices && onReview && <ModerationAccountRows onNotices={onNotices} onReview={onReview} />}
           </Suspense>
         )}
 
@@ -309,6 +336,22 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
           <span className={`t1-label ${alertsOn ? "text-t1-accent!" : ""}`}>{alertsOn ? "On" : "Off"}</span>
         </button>
         <SharingToggle />
+
+        {demoTester && (
+          <>
+            <div className="bg-t1-surface px-4 py-2 t1-label">Developer · testers only</div>
+            <Notice tone="info">Sample events, opponents and results on your account. Only accounts on the tester list see them; your real record never includes them.</Notice>
+            <div className="flex gap-px">
+              <button type="button" disabled={demoBusy} onClick={() => void demo(true)}
+                      className="flex-1 bg-t1-accent px-4 py-3 text-[11px] uppercase tracking-[1px] text-t1-ink disabled:opacity-60">
+                {demoBusy ? "Working…" : "Load / reset demo"}
+              </button>
+              <button type="button" disabled={demoBusy} onClick={() => void demo(false)}
+                      className="flex-1 bg-t1-surface hover:bg-t1-surface-hover px-4 py-3 text-[11px] uppercase tracking-[1px]">Remove demo</button>
+            </div>
+            {demoNotice && <Notice tone="info">{demoNotice}</Notice>}
+          </>
+        )}
 
         <div className="bg-t1-surface px-4 py-2 t1-label">Account</div>
         {confirmDelete && (

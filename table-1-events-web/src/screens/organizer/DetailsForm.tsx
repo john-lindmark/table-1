@@ -7,6 +7,7 @@ import type { Table1Event } from "../../lib/types";
 import { Field, Notice, Segmented } from "../../components/kit";
 import { FormatPicker, ProductPicker, RoundTimerSwitch, cubeUrlProblem } from "../../components/EventFormFields";
 import { RotoPairingFields, RotoSetupFields } from "../roto/lazy";
+import { VISIBILITY_LABEL, currentFix, setEventLocation, type EventVisibility } from "../../lib/nearby";
 
 const DEBOUNCE_MS = 600;
 
@@ -27,6 +28,25 @@ export function DetailsForm({ event, onSaved, players = 0 }: { event: Table1Even
   const [schedule, setSchedule] = useState<ScheduleValue>(() => ({
     startsAt: event.startsAt, venueName: event.venueName ?? "", capacity: event.capacity,
   }));
+  /** Who can find it moves at once; it pins the event where the organizer stands (the browser asks for location). */
+  const [pendingVis, setPendingVis] = useState<EventVisibility | null>(null);
+  async function changeVisibility(v: EventVisibility) {
+    if (v === event.visibility) return;
+    setPendingVis(v);
+    try {
+      const fix = await currentFix();
+      if (!fix) setError("Turn on location to change who can find it.");
+      else {
+        await setEventLocation(event.id, fix, event.venueName, v);
+        setError(null);
+        onSaved();
+      }
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setPendingVis(null);
+    }
+  }
   const scheduleTimer = useRef<number | null>(null);
   const scheduleLatest = useRef(schedule);
 
@@ -169,6 +189,13 @@ export function DetailsForm({ event, onSaved, players = 0 }: { event: Table1Even
       )}
       <RoundTimerSwitch on={state.showClock} onChange={(on) => commit({ showClock: on }, true)} />
       {!limited && <DecklistsFields mode={state.decklists} onMode={(m) => commit({ decklists: m }, true)} />}
+      <Segmented label="Who can find it" value={pendingVis ?? event.visibility} onChange={(v) => void changeVisibility(v)}
+                 options={(["nearby", "link_only", "private"] as const).map((v) => ({ value: v, label: VISIBILITY_LABEL[v] }))} />
+      <Notice tone="info">
+        {(pendingVis ?? event.visibility) === "nearby" ? "Players within 150 m can find and join it. Pinned where you stand."
+          : (pendingVis ?? event.visibility) === "link_only" ? "Anyone with the code, link or QR code can join."
+          : "Only people you add or invite can join."}
+      </Notice>
       {error && <Notice tone="error">{error}</Notice>}
       <Notice tone="info">Details lock when round 1 is paired. Changes save as you make them.</Notice>
     </>

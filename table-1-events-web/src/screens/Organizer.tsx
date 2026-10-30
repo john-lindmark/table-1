@@ -1,3 +1,4 @@
+import { canRedraft } from "../lib/redraft";
 import { useMemo, useState } from "react";
 import { useEvent } from "../lib/useEvent";
 import { cancelEvent, errorMessage, pairNextRound } from "../lib/api";
@@ -35,6 +36,7 @@ export function Organizer({
   onAddPlayers,
   onOpenLife,
   onOpenPhotos,
+  onOpenRedraft,
 }: {
   eventId: string;
   onExit: () => void;
@@ -43,6 +45,8 @@ export function Organizer({
   onOpenLife?: (matchId: string) => void;
   /** Everyone's deck photos; the organizer can add one for any player. */
   onOpenPhotos?: () => void;
+  /** A finished set draft's redraft pile. */
+  onOpenRedraft?: (setCode: string | null) => void;
 }) {
   const { bundle, error, sync, mutate, refetch } = useEvent(eventId);
   const [selected, setSelected] = useState<{ phase: Phase; tab: OrganizerTab } | null>(null);
@@ -133,6 +137,11 @@ export function Organizer({
             {isRoto && rounds.length > 0 && (
               <button type="button" onClick={() => setDraftOpen(true)} className="t1-label hover:text-t1-text">
                 Draft
+              </button>
+            )}
+            {onOpenRedraft && canRedraft(event) && (
+              <button type="button" onClick={() => onOpenRedraft(event.setCode)} className="t1-label hover:text-t1-text">
+                Redraft
               </button>
             )}
             {onOpenPhotos && event.status !== "cancelled" && (

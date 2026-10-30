@@ -135,6 +135,7 @@ export function EventsDemo() {
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
           <SeatingPanel pods={[pod(8)]} formatName="draft" participants={people} teams={null} highlightParticipantId="p3" />
           <SeatingPanel pods={[pod(7, "pod7")]} formatName="draft" participants={people} teams={null} />
+          <SeatingPanel pods={[pod(10, "pod10")]} formatName="draft" participants={people} teams={null} seatEnds />
         </div>
       )}
     </Screen>

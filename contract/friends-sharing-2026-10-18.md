@@ -206,7 +206,9 @@ blocked you writes nothing, so it's missing from your `outgoing`.
 
 How sharing should feel, on every platform. Server migration `20261018180000_sharing_ux.sql` (reports, new decks
 private). Shared rule cases: `testdata/sharing/cases.json`. iOS built 2026-10-18 (demo `-T1LibraryDemo sharing|myprofile|deck|profile`);
-web and Android to follow. Migration applied to live 2026-10-18 (smoke-tested in a rolled-back transaction).
+Android built 2026-10-29 (`PersonActions.kt`); web built 2026-10-30 (`components/PersonActions.tsx`, rules in `lib/friends.ts`
+`widening`/`seesLine`/`viewAs`, tested on the shared cases in `friends.test.ts`; rows take a long press or right-click;
+checked in `?demo`). The web says "Anyone" everywhere it said "Public". Migration applied to live 2026-10-18 (smoke-tested in a rolled-back transaction).
 
 1. **Wording.** The three choices read **Private · Friends · Anyone**. "Anyone" always means **anyone on Table 1**
    (accounts are free, so in practice anyone). It never says "Public". The wire value stays `public`. Each control gets a

@@ -51,7 +51,7 @@ function event(extra: Partial<Table1Event> = {}): Table1Event {
     id: "e1", shortCode: "K7Q2", name: "Friday draft", format: "draft", status: "setup", numberOfRounds: 3, currentRound: 0,
     roundLengthSeconds: 3000, allowPlayerReporting: true, createdBy: "u1", cancelReason: null, formatName: "draft",
     formatLabel: "Draft", eventType: "limited", teamSize: null, setName: null, cubeName: null, cubeUrl: null, setCode: null,
-    formatOther: null, cancelledAt: null, updatedAt: "2026-10-12T20:00:00Z", showClock: true, autoName: false, pairing: "swiss", topCut: 0, autoRounds: false,
+    formatOther: null, cancelledAt: null, updatedAt: "2026-10-12T20:00:00Z", showClock: true, autoName: false, pairing: "swiss", topCut: 0, autoRounds: false, seatEnds: false, visibility: "link_only",
     capacity: null, startsAt: null, venueName: null, decklists: "off", ...extra,
   };
 }

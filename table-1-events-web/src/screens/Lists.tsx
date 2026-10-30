@@ -29,6 +29,7 @@ import { RankingsRow } from "./Rankings";
 import { DeckImageScreen } from "./DeckImage";
 import { ListToCollectionScreen } from "./ListToCollection";
 import { ShareRow } from "./Share";
+import { WhoSeesRow } from "../components/PersonActions";
 import { CommandZoneCards, CommandZonePicker } from "./CommandZone";
 import { ZONE_BOARD, ZONE_FORMATS, zoneFilling, zoneMovingIn, zoneSlots, type ZoneLine, type ZoneMate, type ZoneSlot } from "../lib/commandZone";
 
@@ -544,6 +545,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
       <div ref={boxRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {/* While searching, matches come first. */}
         {!searching && <>
+        {!editing && <WhoSeesRow kind={list.kind} id={list.id} name={list.name} />}
         {(() => {
           // Considering cards are flagged on their rows but don't make the deck unplayable.
           const bad = [...new Set(lines.filter((x) => x.board !== "maybe" && issues.has(x.oracleId ?? x.cardId)).map((x) => x.name))].sort();
