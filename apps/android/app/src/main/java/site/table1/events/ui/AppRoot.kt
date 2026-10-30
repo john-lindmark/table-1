@@ -23,6 +23,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -246,11 +248,14 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
     // The collection mirror syncs on open and on each return; the catalog pack is checked once a day.
     val userId = Repo.userId
     LaunchedEffect(userId) {
-        if (userId != null) {
-            CollectionStore.start(userId)
-            ListsStore.start(userId)
-            BindersStore.start(userId)
-            HeroesStore.start(userId)
+        // Side by side: each start reads its copy on the device, then syncs. One after another, the hero and binder
+        // copies were read only once the collection and lists had synced, so the Collection home drew fallback art
+        // and no binders for 5-10 s.
+        if (userId != null) coroutineScope {
+            launch { CollectionStore.start(userId) }
+            launch { ListsStore.start(userId) }
+            launch { BindersStore.start(userId) }
+            launch { HeroesStore.start(userId) }
         }
         CatalogStore.load(userInitiated = false)
     }

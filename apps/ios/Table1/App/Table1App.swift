@@ -397,10 +397,15 @@ struct SignedInView: View {
         // The collection mirror syncs on open and on each return; the catalog pack is checked once a day.
         .task {
             if let id = Repo.userId {
-                await CollectionStore.shared.start(userId: id)
-                await ListsStore.shared.start(userId: id)
-                await BindersStore.shared.start(userId: id)
-                await HeroesStore.shared.start(userId: id)
+                // Side by side: each start reads its copy on the device, then syncs. One after another, the hero and
+                // binder copies were read only once the collection and lists had synced, so the Collection home drew
+                // fallback art and no binders for several seconds.
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask { await CollectionStore.shared.start(userId: id) }
+                    group.addTask { await ListsStore.shared.start(userId: id) }
+                    group.addTask { await BindersStore.shared.start(userId: id) }
+                    group.addTask { await HeroesStore.shared.start(userId: id) }
+                }
                 await FriendsStore.shared.load()
             }
             CatalogStore.shared.load(userInitiated: false)
