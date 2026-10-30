@@ -33,7 +33,7 @@ Do these once, in this order.
 3. OAuth client **Android**, one per signing key, all with package `site.table1.events`:
    - debug key SHA-1 `05:9F:BA:EF:ED:5C:86:77:BC:22:F3:3A:97:B5:7E:CD:49:15:FC:58` (this Mac's `~/.android/debug.keystore`)
    - upload key SHA-1 `AE:F5:F4:0B:48:64:A7:87:E7:C8:61:A0:5D:F9:DF:18:8F:8C:08:ED` (`~/.android/table1-upload.jks`, printed by `apps/android/tools/make-upload-key.sh`)
-   - Play App Signing SHA-1 `4E:AE:05:E6:D1:BB:E6:D1:CE:A7:16:34:A9:44:91:C7:A4:02:AE:3D` (Play Console → Protected with Play → Play app signing; App integrity moved there in 2026). Builds installed from Play are signed with this one, so Google sign-in from a Play install fails until its client exists.
+   - Play App Signing SHA-1 `4E:AE:05:E6:D1:BB:E6:D1:CE:A7:16:34:A9:44:91:C7:A4:02:AE:3D` (Play Console → Protected with Play → Play app signing; App integrity moved there in 2026). Builds installed from Play are signed with this one, so Google sign-in from a Play install fails without its client ("Table 1 - Android Play", added 2026-10-30).
    The app never uses the Android client IDs directly; Google matches package + SHA-1 to them.
 4. Supabase → Authentication → Sign In / Providers → **Google**: enable; Client ID = web client ID, Client Secret = its secret; **Authorized Client IDs** = web, iOS and Android client IDs (comma-separated); turn on **Skip nonce check** (the Google iOS SDK can't pass a nonce).
 5. Put the IDs in the apps: Android `apps/android/gradle.properties` → `T1_GOOGLE_WEB_CLIENT_ID` = web client ID; iOS `project.yml` → the iOS client ID (see §3); web needs nothing. Until then the Google button is hidden on iOS and Android.
