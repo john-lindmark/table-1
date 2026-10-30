@@ -60,5 +60,30 @@ final class LimitedRankingsTests: XCTestCase {
         XCTAssertEqual(cube.subjectId, "set:PWR-2510")
         let old = RankableSet(key: "FRA", name: "Foundations Remastered", released: "2026-09-23", kind: "set", cards: 281, pack: true, mine: 0, rankings: 0)
         XCTAssertEqual(old.detail, "281 cards")
+        // A release day is a UTC day: west of UTC it read a day early ("Out Nov 3" for Nov 4).
+        let zone = NSTimeZone.default
+        NSTimeZone.default = TimeZone(identifier: "America/Los_Angeles")!
+        defer { NSTimeZone.default = zone }
+        let soon = RankableSet(key: "NHZ", name: "New Horizons", released: "2099-11-14", kind: "set", cards: 264, pack: false, mine: 0, rankings: 0)
+        XCTAssertEqual(soon.detail, "Out Nov 14 · 264 cards")
+    }
+
+    func testLimitedPicker() throws {
+        let c = try cases()
+        for l in c["labels"] as! [[String: Any]] {
+            XCTAssertEqual(LimitedPicker.label(l["key"] as! String, l["name"] as? String), l["label"] as? String)
+        }
+        let decoder = JSONDecoder()
+        func sets(_ v: Any?) throws -> [RankableSet] { try decoder.decode([RankableSet].self, from: JSONSerialization.data(withJSONObject: v ?? [])) }
+        for p in c["picker"] as! [[String: Any]] {
+            let packs = (p["packs"] as! [[String: Any]]).map { (key: $0["key"] as! String, name: $0["name"] as? String) }
+            let got = LimitedPicker.chips(packs: packs, rankable: try sets(p["rankable"]), today: p["today"] as! String)
+            let want = (p["chips"] as! [[String: Any]]).map { LimitedPicker.Chip(key: $0["key"] as! String, label: $0["label"] as! String, pack: $0["pack"] as! Bool) }
+            XCTAssertEqual(got, want, "\(p["today"]!)")
+        }
+        for s in c["soon"] as! [[String: Any]] {
+            let set = try sets([s["set"]!])[0]
+            XCTAssertEqual(LimitedPicker.soonText(set, today: s["today"] as! String), s["text"] as? String)
+        }
     }
 }

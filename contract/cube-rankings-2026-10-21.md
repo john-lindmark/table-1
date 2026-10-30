@@ -62,7 +62,9 @@ an Arena cube version (PWR-2510, contract/insights-2026-10-24.md § Arena cubes)
 - **Calls:** `cube_ranking_create(p_id, p_list_id?, …, p_set?)` (one of the two), `cube_rankings(p_list_id?, p_set?, p_sets
   = false)` (a set's with `p_set`; your own list has your set rankings only with `p_sets`, which builds before this one
   don't send, since they'd try to open the set's cube), `limited_rankable()` → `[{key, name, released, kind, cards, pack,
-  mine, rankings}]`: paper sets from the last 400 days and the next 45 with 60+ cards, and every Arena cube version.
+  mine, rankings}]`: paper sets from the last 400 days with 60+ cards, upcoming sets from 75 days out with 20+ cards
+  spoiled (spoiler season; was 45 days and 60+ until `20261030170000_limited_rankable_spoilers.sql`, test
+  `58_limited_spoilers_test.sql`), and every Arena cube version.
   Ranking rows carry `set_key` (and `list_id` null for a set).
 - **Where:** Insights → Limited: **Rank this set** / **Rank this cube** under each set's stats, **New sets to rank** (sets with
   no 17Lands data yet). Rankings (yours): **Sets you can rank**. The set's Rankings: "Rank <Set>", **Your friends'**

@@ -72,6 +72,38 @@ data class RankableSet(val key: String, val name: String, val released: String? 
     }
 }
 
+/** The Limited set picker (contract/insights-2026-10-24.md § Rank a set, cases testdata/limited-rankings/cases.json): an Arena
+ *  cube version by its name, a set by its code, and sets with no 17Lands data yet ahead of the packs. */
+object LimitedPicker {
+    data class Chip(val key: String, val label: String, val pack: Boolean)
+
+    /** "Arena Powered Cube · Oct 2025" for PWR-2510, FRA for FRA. */
+    fun label(key: String, name: String?): String =
+        if (!name.isNullOrEmpty() && Regex("^[A-Z0-9]+-[0-9]{4}$").matches(key)) name else key
+
+    /** Sets with no 17Lands data that came out in the last 28 days or are still to come (spoiler season), newest first,
+     *  then the packs in the index's order. */
+    fun chips(packs: List<Pair<String, String?>>, rankable: List<RankableSet>, today: java.time.LocalDate = utcToday()): List<Chip> {
+        val from = today.minusDays(28).toString()
+        val have = packs.map { it.first }.toSet()
+        val fresh = rankable.filter { it.kind == "set" && !it.pack && (it.released?.let { r -> r >= from } ?: false) && it.key !in have }
+        return fresh.map { Chip(it.key, it.key, false) } + packs.map { (k, n) -> Chip(k, label(k, n), true) }
+    }
+
+    /** What a set with no 17Lands data yet says above Rank this set. */
+    fun soonText(s: RankableSet, today: java.time.LocalDate = utcToday()): String {
+        val day = s.released?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
+        val coming = day?.isAfter(today) ?: false
+        val whenText = day?.let { " ${if (coming) "comes" else "came"} out ${it.format(java.time.format.DateTimeFormatter.ofPattern("MMM d", java.util.Locale.US))}." }
+            ?: " has no draft data yet."
+        return "${s.name}$whenText Draft data from 17Lands follows about three weeks after a set reaches Arena, and some sets never do. " +
+            if (coming) "Rank it now from the ${s.cards} cards on Scryfall so far: cards spoiled later join your ranking for you to place."
+            else "Rank its ${s.cards} cards now."
+    }
+
+    fun utcToday(): java.time.LocalDate = java.time.LocalDate.now(java.time.ZoneOffset.UTC)
+}
+
 /** A ranking is titled by who ranked it (contract/cube-rankings-2026-10-21.md § Names, testdata/ranking-names). Blank and
  *  "My ranking", what every ranking was called before 2026-10-28 and what the server still stores for no name, aren't names. */
 object RankingName {

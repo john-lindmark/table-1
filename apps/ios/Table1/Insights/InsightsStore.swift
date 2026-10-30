@@ -127,7 +127,10 @@ final class InsightsStore {
     var pack: Insights.ConstructedPack? { constructed[format] }
     func tier(for pack: Insights.ConstructedPack) -> Insights.Tier { tierPicked ?? pack.default_tier }
     var limitedSets: [Insights.IndexEntry] { index.filter { $0.kind == "limited" } }
-    var limitedPack: Insights.LimitedPack? { (setCode ?? limitedSets.first?.key).flatMap { limited[$0] } }
+    /// The picked set's pack, or the first set's when the pick has none (a set to rank with no 17Lands data yet).
+    var limitedPack: Insights.LimitedPack? {
+        (setCode.flatMap { s in limitedSets.contains { $0.key == s } ? s : nil } ?? limitedSets.first?.key).flatMap { limited[$0] }
+    }
     /// Events the set has data for, in the usual order; the picked one when it has data.
     func events(of p: Insights.LimitedPack) -> [String] { Insights.eventOrder.filter { p.events[$0] != nil } }
     func currentEvent(of p: Insights.LimitedPack) -> String? { events(of: p).contains(event) ? event : events(of: p).first }

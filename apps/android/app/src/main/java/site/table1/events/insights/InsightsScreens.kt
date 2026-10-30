@@ -54,6 +54,7 @@ import site.table1.events.library.ProfileCardsScreen
 import site.table1.events.library.ListEntry
 import site.table1.events.library.ListKind
 import site.table1.events.library.ListsStore
+import site.table1.events.library.LimitedPicker
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.Field
 import site.table1.events.ui.components.Ghost
@@ -600,12 +601,23 @@ private fun LimitedHome(navigate: (String) -> Unit) {
         newSets()
         return
     }
-    val set = s.setCode?.takeIf { it in sets } ?: sets.first()
-    PickerRow(editing, { editing = !editing }) { T1Segmented(sets, sets.indexOf(set), scroll = true) { s.pickSet(sets[it]) } }
-    if (editing) ShownEditor("Shown sets", s.limitedSets.map { Triple(it.key, it.key, it.name.takeIf { n -> n != it.key }) }, s.hiddenSets,
+    // Sets with no 17Lands data yet (spoiler season, or just out) lead the picker and open Rank this set.
+    val chips = LimitedPicker.chips(sets.map { k -> k to s.limitedSets.firstOrNull { it.key == k }?.name }, s.rankable)
+    val set = s.setCode?.takeIf { k -> chips.any { it.key == k } } ?: sets.first()
+    PickerRow(editing, { editing = !editing }) {
+        T1Segmented(chips.map { it.label }, chips.indexOfFirst { it.key == set }, scroll = true) { s.pickSet(chips[it].key) }
+    }
+    if (editing) ShownEditor("Shown sets", s.limitedSets.map { Triple(it.key, LimitedPicker.label(it.key, it.name), it.name.takeIf { n -> n != it.key }) }, s.hiddenSets,
         { k, hide -> s.setHidden(false, k, hide) }) { editing = false }
+    val soon = s.rankable.firstOrNull { r -> r.key == set && chips.any { !it.pack && it.key == r.key } }
+    if (soon != null) {
+        Notice(LimitedPicker.soonText(soon))
+        ListRow("Rank this set", soon.detail(), onClick = { rank(soon.key, soon.kind, "soon") })
+        s.alerts?.let { on -> ListRow("New in Insights", "A push when a new set, cube or format arrives") { T1Switch(on) { s.setAlerts(it) } } }
+        return
+    }
     LaunchedEffect(set) { s.ensure("limited", set) }
-    val pack = s.limited[set] ?: run { Notice(s.error ?: "Loading $set…", error = s.error != null); return }
+    val pack = s.limited[set] ?: run { Notice(s.error ?: "Loading ${LimitedPicker.label(set, s.limitedSets.firstOrNull { it.key == set }?.name)}…", error = s.error != null); return }
     val events = s.events(pack)
     val ev = s.currentEvent(pack) ?: return
     if (events.size > 1) T1Segmented(events.map { Insights.eventLabels[it] ?: it }, events.indexOf(ev)) { s.pickEvent(events[it]) }
@@ -685,7 +697,7 @@ fun PairInsightScreen(set: String, event: String, group: String, pair: String, n
     val v = pack?.events?.get(event)?.groups?.get(group)
     val p = v?.pairs?.firstOrNull { it.p == pair }
     T1Screen {
-        Bar("${Insights.pairNames[pair] ?: pair} $pair", "$set ${Insights.eventLabels[event] ?: event}", onBack = onBack)
+        Bar("${Insights.pairNames[pair] ?: pair} $pair", "${LimitedPicker.label(set, pack?.name)} ${Insights.eventLabels[event] ?: event}", onBack = onBack)
         if (p == null || pack == null) { Notice("This pair isn't in the pack."); return@T1Screen }
         Scroll {
             Credit(pack.credit.url)
@@ -714,7 +726,7 @@ fun LimitedCardScreen(set: String, event: String, group: String, name: String, n
     val v = pack?.events?.get(event)?.groups?.get(group)
     val c = v?.cards?.firstOrNull { it.n == name }
     T1Screen {
-        Bar(name, "$set ${Insights.eventLabels[event] ?: event}", onBack = onBack)
+        Bar(name, "${LimitedPicker.label(set, pack?.name)} ${Insights.eventLabels[event] ?: event}", onBack = onBack)
         if (c == null || pack == null) { Notice("This card isn't in the pack."); return@T1Screen }
         Scroll {
             Credit(pack.credit.url)

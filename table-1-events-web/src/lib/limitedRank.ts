@@ -29,6 +29,34 @@ export function rankableDetail(s: RankableSet, today = new Date()): string {
   return parts.join(" · ");
 }
 
+/** A Limited key as the set picker shows it: an Arena cube version by its name ("Arena Powered Cube · Oct 2025"), a set
+ *  by its code. */
+export function limitedLabel(key: string, name: string | null | undefined): string {
+  return /^[A-Z0-9]+-[0-9]{4}$/.test(key) && name ? name : key;
+}
+
+/** One chip of the Limited set picker; `pack` false for a set with no 17Lands data yet (it opens Rank this set). */
+export interface LimitedChip { key: string; label: string; pack: boolean }
+const shiftDay = (day: string, days: number) => new Date(Date.parse(`${day}T00:00:00Z`) + days * 86400000).toISOString().slice(0, 10);
+/** Sets with no 17Lands data that came out in the last 28 days or are still to come (spoiler season), newest first,
+ *  then the packs in the index's order. `today` is a UTC day, "2026-10-30". */
+export function limitedPicker(packs: { key: string; name?: string | null }[], rankable: RankableSet[], today: string): LimitedChip[] {
+  const from = shiftDay(today, -28), have = new Set(packs.map((p) => p.key));
+  const fresh = rankable.filter((s) => s.kind === "set" && !s.pack && !!s.released && s.released >= from && !have.has(s.key));
+  return [...fresh.map((s) => ({ key: s.key, label: s.key, pack: false })),
+          ...packs.map((p) => ({ key: p.key, label: limitedLabel(p.key, p.name), pack: true }))];
+}
+
+const dayLabel = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+/** What a set with no 17Lands data yet says above Rank this set. */
+export function soonText(s: RankableSet, today: string): string {
+  const coming = !!s.released && s.released > today;
+  const when = s.released ? ` ${coming ? "comes" : "came"} out ${dayLabel(s.released)}.` : " has no draft data yet.";
+  return `${s.name}${when} Draft data from 17Lands follows about three weeks after a set reaches Arena, and some sets never do. `
+    + (coming ? `Rank it now from the ${s.cards} cards on Scryfall so far: cards spoiled later join your ranking for you to place.`
+              : `Rank its ${s.cards} cards now.`);
+}
+
 /** What a tapped New in Insights push opens (the web has no pushes; the shared cases keep the rule in step). */
 export interface InsightsPush { section: "constructed" | "limited"; key: string; what: "data" | "rank" }
 export function insightsPush(info: Record<string, unknown>): InsightsPush | null {

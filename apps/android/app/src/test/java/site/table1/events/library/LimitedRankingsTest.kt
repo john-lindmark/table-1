@@ -69,4 +69,19 @@ class LimitedRankingsTest {
         assertEquals("281 cards · 1 ranking", RankableSet("FRA", "Foundations Remastered", "2026-09-23", "set", 281, true, 0, 1).detail(today))
         assertEquals("set:PWR-2510", RankableSet("PWR-2510", "x").subjectId)
     }
+
+    @Test fun limitedPicker() {
+        val json = Json { ignoreUnknownKeys = true }
+        for (c in list("labels")) assertEquals(str(c, "label"), LimitedPicker.label(str(c, "key")!!, str(c, "name")))
+        for (c in list("picker")) {
+            val packs = c["packs"]!!.jsonArray.map { it.jsonObject.let { p -> str(p, "key")!! to str(p, "name") } }
+            val rankable = json.decodeFromJsonElement(kotlinx.serialization.builtins.ListSerializer(RankableSet.serializer()), c["rankable"]!!)
+            val want = c["chips"]!!.jsonArray.map { it.jsonObject.let { h -> LimitedPicker.Chip(str(h, "key")!!, str(h, "label")!!, h["pack"]!!.jsonPrimitive.boolean) } }
+            assertEquals(str(c, "today"), want, LimitedPicker.chips(packs, rankable, LocalDate.parse(str(c, "today"))))
+        }
+        for (c in list("soon")) {
+            val set = json.decodeFromJsonElement(RankableSet.serializer(), c["set"]!!)
+            assertEquals(str(c, "text"), LimitedPicker.soonText(set, LocalDate.parse(str(c, "today"))))
+        }
+    }
 }

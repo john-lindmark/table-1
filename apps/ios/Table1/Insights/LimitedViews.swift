@@ -58,19 +58,26 @@ struct LimitedHomeSection: View {
     }
 
     @ViewBuilder private func picked(_ sets: [Insights.IndexEntry]) -> some View {
-            let setBinding = Binding<String>(get: { store.setCode.flatMap { s in sets.contains { $0.key == s } ? s : nil } ?? sets[0].key },
+            // Sets with no 17Lands data yet (spoiler season, or just out) lead the picker and open Rank this set.
+            let today = LimitedPicker.today
+            let chips = LimitedPicker.chips(packs: sets.map { ($0.key, $0.name) }, rankable: store.rankable, today: today)
+            let setBinding = Binding<String>(get: { store.setCode.flatMap { s in chips.contains { $0.key == s } ? s : nil } ?? sets[0].key },
                                              set: { store.setCode = $0 })
+            let soon = chips.contains { !$0.pack && $0.key == setBinding.wrappedValue } ? store.rankable.first { $0.key == setBinding.wrappedValue } : nil
             PickerRow(editing: $editing) {
-                T1Segmented(options: sets.map { ($0.key, $0.key) }, selection: setBinding, scroll: true)
+                T1Segmented(options: chips.map { ($0.key, $0.label) }, selection: setBinding, scroll: true)
             }
             if editing {
-                ShownEditor(title: "Shown sets", items: store.limitedSets.map { ($0.key, $0.key, $0.name == $0.key ? nil : $0.name) },
+                ShownEditor(title: "Shown sets", items: store.limitedSets.map { ($0.key, LimitedPicker.label($0.key, $0.name), $0.name == $0.key ? nil : $0.name) },
                             hidden: store.hiddenSets, set: { store.setHidden(format: false, $0, $1) }, done: { editing = false })
             }
-            if let pack = store.limited[setBinding.wrappedValue] {
+            if let soon {
+                Notice(LimitedPicker.soonText(soon, today: today))
+                Button { rank(soon.key, kind: soon.kind, from: "soon") } label: { ListRow(title: "Rank this set", detail: soon.detail) }.buttonStyle(.plain)
+            } else if let pack = store.limited[setBinding.wrappedValue] {
                 content(pack)
             } else {
-                Notice("Loading \(setBinding.wrappedValue)…")
+                Notice("Loading \(LimitedPicker.label(setBinding.wrappedValue, sets.first { $0.key == setBinding.wrappedValue }?.name))…")
                     .task { await store.load(force: true) }
             }
             alertsRow
@@ -221,7 +228,7 @@ struct PairInsightView: View {
         let v = pack?.events[event]?.groups[group]
         let p = v?.pairs.first { $0.p == pair }
         T1Screen {
-            Bar(title: "\(Insights.pairNames[pair] ?? pair) \(pair)", subtitle: "\(set) \(Insights.eventLabels[event] ?? event)") { path.removeLast() }
+            Bar(title: "\(Insights.pairNames[pair] ?? pair) \(pair)", subtitle: "\(LimitedPicker.label(set, store.limited[set]?.name)) \(Insights.eventLabels[event] ?? event)") { path.removeLast() }
             InsightsPage {
                 VStack(spacing: 1) {
                     if let p, let v, let pack {
@@ -273,7 +280,7 @@ struct LimitedCardView: View {
         let v = pack?.events[event]?.groups[group]
         let c = v?.cards.first { $0.n == name }
         T1Screen {
-            Bar(title: name, subtitle: "\(set) \(Insights.eventLabels[event] ?? event)") { path.removeLast() }
+            Bar(title: name, subtitle: "\(LimitedPicker.label(set, store.limited[set]?.name)) \(Insights.eventLabels[event] ?? event)") { path.removeLast() }
             InsightsPage {
                 VStack(spacing: 1) {
                     if let c, let v, let pack {

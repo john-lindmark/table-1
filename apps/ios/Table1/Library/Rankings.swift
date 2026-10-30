@@ -117,11 +117,54 @@ struct RankableSet: Decodable, Hashable, Identifiable, Sendable {
         var parts: [String] = []
         if kind == "cube" { parts.append("Arena cube") }
         else if let released, let d = ISO8601DateFormatter.day(released), d > Date() {
-            parts.append("Out \(d.formatted(.dateTime.month(.abbreviated).day()))")
+            parts.append("Out \(LimitedPicker.monthDay(d))")
         }
         parts.append("\(cards) cards")
         if rankings > 0 { parts.append(mine > 0 ? "\(rankings) ranking\(rankings == 1 ? "" : "s") (\(mine) yours)" : "\(rankings) ranking\(rankings == 1 ? "" : "s")") }
         return parts.joined(separator: " · ")
+    }
+}
+
+/// The Limited set picker (contract/insights-2026-10-24.md § Rank a set, cases testdata/limited-rankings/cases.json): an Arena
+/// cube version by its name, a set by its code, and sets with no 17Lands data yet ahead of the packs.
+enum LimitedPicker {
+    struct Chip: Hashable { let key: String; let label: String; let pack: Bool }
+
+    /// "Arena Powered Cube · Oct 2025" for PWR-2510, FRA for FRA.
+    static func label(_ key: String, _ name: String?) -> String {
+        guard let name, !name.isEmpty, key.range(of: "^[A-Z0-9]+-[0-9]{4}$", options: .regularExpression) != nil else { return key }
+        return name
+    }
+
+    /// Sets with no 17Lands data that came out in the last 28 days or are still to come (spoiler season), newest first,
+    /// then the packs in the index's order. `today` is a UTC day, "2026-10-30".
+    static func chips(packs: [(key: String, name: String?)], rankable: [RankableSet], today: String) -> [Chip] {
+        let from = ISO8601DateFormatter.day(today).map { dayString($0.addingTimeInterval(-28 * 86400)) } ?? today
+        let have = Set(packs.map(\.key))
+        let fresh = rankable.filter { $0.kind == "set" && !$0.pack && ($0.released.map { $0 >= from } ?? false) && !have.contains($0.key) }
+        return fresh.map { Chip(key: $0.key, label: $0.key, pack: false) } + packs.map { Chip(key: $0.key, label: label($0.key, $0.name), pack: true) }
+    }
+
+    /// What a set with no 17Lands data yet says above Rank this set.
+    static func soonText(_ s: RankableSet, today: String) -> String {
+        let coming = s.released.map { $0 > today } ?? false
+        let when = s.released.flatMap(ISO8601DateFormatter.day).map { " \(coming ? "comes" : "came") out \(monthDay($0))." } ?? " has no draft data yet."
+        return "\(s.name)\(when) Draft data from 17Lands follows about three weeks after a set reaches Arena, and some sets never do. "
+            + (coming ? "Rank it now from the \(s.cards) cards on Scryfall so far: cards spoiled later join your ranking for you to place."
+                      : "Rank its \(s.cards) cards now.")
+    }
+
+    /// Today as a UTC day.
+    static var today: String { dayString(Date()) }
+
+    private static func dayString(_ d: Date) -> String { String(ISO8601DateFormatter().string(from: d).prefix(10)) }
+    /// "Nov 13" for a UTC day, wherever the phone is.
+    static func monthDay(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.dateFormat = "MMM d"
+        return f.string(from: d)
     }
 }
 

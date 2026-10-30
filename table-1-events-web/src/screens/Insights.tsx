@@ -10,7 +10,7 @@ import {
   type LCard, type LimitedPack, type LView, type Tier,
 } from "../lib/insights";
 import { isLibraryDemo } from "../lib/libraryDemo";
-import { rankableDetail } from "../lib/limitedRank";
+import { limitedLabel, limitedPicker, rankableDetail, soonText } from "../lib/limitedRank";
 import { useCatalog } from "./Library";
 import { createList, type Entry } from "../lib/lists";
 import type { ProfileCard } from "../lib/friends";
@@ -657,6 +657,10 @@ function LimitedHome() {
   const [colour, setColour] = useState("all");
   const [editing, setEditing] = useState(false);
   const { sets, set, pack, events, event, group, view } = limitedPick(limited, picks.set, picks.event, picks.group, picks.hiddenSets);
+  // Sets with no 17Lands data yet (spoiler season, or just out) lead the picker and open Rank this set.
+  const today = new Date().toISOString().slice(0, 10);
+  const chips = limitedPicker(sets.map((k) => ({ key: k, name: limited[k]?.name })), rankable ?? [], today);
+  const soon = (rankable ?? []).find((r) => r.key === picks.set && chips.some((c) => !c.pack && c.key === r.key));
   // A cube's cards have no rarity: no rarity filter then.
   const rated = !!view?.cards.some((c) => c.r);
   const cards = useMemo(() => {
@@ -679,7 +683,27 @@ function LimitedHome() {
       <NewSetsToRank />
     </>);
   }
-  if (!pack || !view || !event) return <Notice tone="info">Loading {set}…</Notice>;
+  const picker = (
+    <>
+      <PickerRow onEdit={() => setEditing(!editing)} editing={editing}>
+        <Segmented scroll options={chips.map((c) => ({ value: c.key, label: c.label }))} value={soon?.key ?? set} onChange={(v) => pick({ set: v })} />
+      </PickerRow>
+      {editing && <ShownEditor title="Shown sets" which="hiddenSets" hidden={picks.hiddenSets} onDone={() => setEditing(false)}
+                               items={Object.values(limited).map((p) => ({ key: p.set_code, label: limitedLabel(p.set_code, p.name), detail: p.name ?? undefined }))} />}
+    </>
+  );
+  if (soon) {
+    return (
+      <Scroll>
+        {picker}
+        <Notice tone="info">{soonText(soon, today)}</Notice>
+        <Row title="Rank this set" detail={rankableDetail(soon)} onClick={() => rank(soon.key, soon.kind, "soon")} />
+        {alerts != null && <SwitchRow label="New in Insights" detail="A push when a new set, cube or format arrives (in the apps)" on={alerts}
+                                      onChange={(v) => void setInsightsAlerts(v)} />}
+      </Scroll>
+    );
+  }
+  if (!pack || !view || !event) return <Notice tone="info">Loading {set ? limitedLabel(set, limited[set]?.name) : ""}…</Notice>;
   const base = `/insights/limited/${pack.set_code}/${event}/${group}`;
   const shown = view.pairs.filter((p) => p.share >= 0.01).sort((a, b) => b.wr - a.wr);
   const lo = Math.max(0.4, Math.min(...shown.map((p) => p.wr)) - 0.02), hi = Math.min(0.7, Math.max(...shown.map((p) => p.wr)) + 0.01);
@@ -688,11 +712,7 @@ function LimitedHome() {
   const value = (c: LCard) => (sort === "oh" ? pct1(c.oh) : sort === "iwd" ? (c.iwd == null ? "–" : delta(c.iwd)) : sort === "ata" ? (c.ata?.toFixed(1) ?? "–") : pct1(c.gih));
   return (
     <Scroll>
-      <PickerRow onEdit={() => setEditing(!editing)} editing={editing}>
-        <Segmented scroll options={sets.map((s) => ({ value: s, label: s }))} value={set} onChange={(v) => pick({ set: v })} />
-      </PickerRow>
-      {editing && <ShownEditor title="Shown sets" which="hiddenSets" hidden={picks.hiddenSets} onDone={() => setEditing(false)}
-                               items={Object.values(limited).map((p) => ({ key: p.set_code, label: p.set_code, detail: p.name ?? undefined }))} />}
+      {picker}
       {events.length > 1 && <Segmented options={events.map((e) => ({ value: e, label: EVENT_LABELS[e] ?? e }))} value={event} onChange={(v) => pick({ event: v })} />}
       {pack.events[event].groups.top && (
         <Segmented options={[{ value: "all" as const, label: "All players" }, { value: "top" as const, label: "Top players" }]} value={group} onChange={(v) => pick({ group: v })} />
@@ -772,7 +792,7 @@ export function InsightsPair() {
   const best = (view?.cards ?? []).flatMap((c) => (c.pair_gih?.[pair] != null ? [[c, c.pair_gih[pair]] as const] : [])).sort((a, b) => b[1] - a[1]).slice(0, 20);
   return (
     <Screen>
-      <Bar title={`${PAIR_NAMES[pair] ?? pair} ${pair}`} subtitle={`${set} ${EVENT_LABELS[event] ?? event}`} onBack={() => nav(-1)} />
+      <Bar title={`${PAIR_NAMES[pair] ?? pair} ${pair}`} subtitle={`${limitedLabel(set, pack?.name)} ${EVENT_LABELS[event] ?? event}`} onBack={() => nav(-1)} />
       {!p || !view || !pack ? <Notice tone="info">This pair isn't in the pack.</Notice> : (
         <Scroll>
           <a href={pack.credit.url} target="_blank" rel="noreferrer" className="bg-t1-surface px-4 py-2.5 t1-label underline">Data from 17Lands</a>
@@ -806,7 +826,7 @@ export function InsightsLimitedCard() {
   const lo = Math.max(0.35, Math.min(...pairs.map(([, v]) => v)) - 0.02), hi = Math.min(0.8, Math.max(...pairs.map(([, v]) => v)) + 0.01);
   return (
     <Screen>
-      <Bar title={name} subtitle={`${set} ${EVENT_LABELS[event] ?? event}`} onBack={() => nav(-1)} />
+      <Bar title={name} subtitle={`${limitedLabel(set, pack?.name)} ${EVENT_LABELS[event] ?? event}`} onBack={() => nav(-1)} />
       {!c || !view || !pack ? <Notice tone="info">This card isn't in the pack.</Notice> : (
         <Scroll>
           <a href={pack.credit.url} target="_blank" rel="noreferrer" className="bg-t1-surface px-4 py-2.5 t1-label underline">Data from 17Lands</a>
