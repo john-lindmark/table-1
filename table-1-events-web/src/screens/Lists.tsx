@@ -3,7 +3,7 @@ import { Bar, BigAction, Field, GhostAction, Menu, Modal, Notice, Row, Screen, S
 import { CANLANDER_POINT_LIMIT, basicCardIds, coverPrinting, formatName, legalityOf, type Catalog } from "../lib/catalog";
 import { DEMO_USER, useCollection } from "../lib/collection";
 import { cubeCobraId } from "../lib/cubeSync";
-import { loadDemoLists } from "../lib/libraryDemo";
+import { isLibraryDemo, loadDemoLists } from "../lib/libraryDemo";
 import {
   EXPORT_DETAIL, EXPORT_FILE, exportFileName, exportFormats, exportLines, renderList, type ExportFormat,
 } from "../lib/listExport";
@@ -24,6 +24,7 @@ import { COLLAPSED, isOpen, lineGroups, toggleOne, type Disclosure, type LineGro
 import { HERO_LIMIT, heroPrintings, heroesOf, isHero, toggleHero, type HeroScope } from "../lib/heroes";
 import { CardSearchBar, CardSearchStatus, useCardSearch } from "./CardSearch";
 import { ListStatsRow } from "./ListStats";
+import { DeckMetaRows } from "./DeckMeta";
 import { RankingsRow } from "./Rankings";
 import { DeckImageScreen } from "./DeckImage";
 import { ListToCollectionScreen } from "./ListToCollection";
@@ -575,6 +576,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
                          onClick={() => { void duplicateList(list).then((copy) => { setEditing(false); onOpen(copy); }); }} />}
         {editing && <Row title={list.kind === "deck" ? "Delete deck" : "Delete cube"} detail="From every device" onClick={() => setConfirmDelete(true)} />}
         {!editing && catalog && <ListStatsRow list={list} catalog={catalog} onOpen={onStats} />}
+        {!editing && list.kind === "deck" && !list.eventId && <DeckMetaRows listId={list.id} demo={isLibraryDemo()} />}
         {!editing && list.kind === "cube" && onRankings && entriesOf(list).length > 0 && <RankingsRow listId={list.id} onOpen={onRankings} />}
         <Row title="Add, remove or replace" detail={list.kind === "deck" ? "Main deck, sideboard or considering" : "Search the catalog, or this cube's own cards"} onClick={onAdd} />
         <Row title="Version history" detail={`v${v.number} · ${v.note} · ${fmtDate(v.at)}`} value={list.versions.length} onClick={onVersions} />

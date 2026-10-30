@@ -24,7 +24,12 @@ for (const format of ["standard", "pioneer", "modern", "pauper"]) {
   const tiers = {} as Record<Tier, View>;
   for (const tier of ["big", "all"] as Tier[]) {
     const windows: Record<string, Window> = {};
-    for (const d of WINDOWS) windows[d] = await sql<Window>(`select public.meta_pack_window(${lit(format)}, ${lit(tier)}, ${d}, ${lit(through)})`);
+    for (const d of WINDOWS) {
+      windows[d] = {
+        ...await sql<Window>(`select public.meta_pack_window(${lit(format)}, ${lit(tier)}, ${d}, ${lit(through)})`),
+        matchups: await sql<Matchups>(`select public.meta_pack_matchups(${lit(format)}, ${lit(through)}, ${lit(tier)}, ${d})`),
+      };
+    }
     tiers[tier] = {
       windows,
       series: await sql<Series>(`select public.meta_pack_series(${lit(format)}, ${lit(tier)}, 180, ${lit(through)})`),

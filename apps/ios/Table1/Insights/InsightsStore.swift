@@ -209,6 +209,33 @@ final class InsightsStore {
         ]).execute().value
     }
 
+    /// Your decks and collection coverage in a format (`insights_mine`), once per format a session; nil signed out or
+    /// on failure (the grid then keeps its order).
+    @ObservationIgnored private var mines: [String: Insights.Mine] = [:]
+    func mine(format: String) async -> Insights.Mine? {
+        if let pages = demoPages { return pages["mine:\(format)"].flatMap { try? JSONDecoder().decode(Insights.Mine.self, from: $0) } }
+        if let m = mines[format] { return m }
+        guard Repo.userId != nil else { return nil }
+        let m: Insights.Mine? = try? await supabase.rpc("insights_mine", params: ["p_format": AnyJSON.string(format)]).execute().value
+        if let m { mines[format] = m }
+        return m
+    }
+
+    /// list_insight for a deck, once per deck a session; nil when it fails (the rows don't show).
+    @ObservationIgnored private var deckInsights: [String: Insights.DeckInsightAnswer] = [:]
+    func deckInsight(listId: String) async -> Insights.DeckInsightAnswer? {
+        #if DEBUG
+        if CollectionStore.shared.demo != nil {
+            return Bundle.main.url(forResource: "insights-demo-deck", withExtension: "json")
+                .flatMap { try? Data(contentsOf: $0) }.flatMap { try? JSONDecoder().decode(Insights.DeckInsightAnswer.self, from: $0) }
+        }
+        #endif
+        if let r = deckInsights[listId] { return r }
+        let r: Insights.DeckInsightAnswer? = try? await supabase.rpc("list_insight", params: ["p_list_id": AnyJSON.string(listId)]).execute().value
+        if let r { deckInsights[listId] = r }
+        return r
+    }
+
     // MARK: demo
 
     #if DEBUG
@@ -228,6 +255,9 @@ final class InsightsStore {
                 put("limited", key, d)
                 index.append(.init(kind: "limited", key: key, name: key, version: "demo", url: "", bytes: d.count, through: nil))
             }
+        }
+        for f in Insights.formats.map(\.key) {
+            if let url = Bundle.main.url(forResource: "insights-demo-mine-\(f)", withExtension: "json"), let d = try? Data(contentsOf: url) { pages["mine:\(f)"] = d }
         }
         if let url = Bundle.main.url(forResource: "insights-demo-pages", withExtension: "json"), let d = try? Data(contentsOf: url),
            let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {

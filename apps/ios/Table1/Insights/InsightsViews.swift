@@ -219,9 +219,10 @@ struct ConstructedHomeSection: View {
             }
         }
 
-        if !pack.matchups.cells.isEmpty {
-            Section1("Matchups · last 90 days")
-            MatchupGrid(pack: pack)
+        let grid = pack.grid(tier, days: store.days)
+        if !grid.m.cells.isEmpty {
+            Section1("Matchups · \(grid.scope)")
+            MatchupGrid(pack: pack, m: grid.m).id("\(tier)-\(store.days)")
         }
 
         BriefBlock(brief: w.brief, scope: scope, thin: w.thin, credit: credit)
@@ -705,11 +706,16 @@ struct MatchupsView: View {
 
     var body: some View {
         let pack = store.constructed[format]
+        let tier = pack.map { store.tier(for: $0) } ?? .all
+        let grid = pack?.grid(tier, days: store.days)
         T1Screen {
-            Bar(title: "Matchups", subtitle: "\(pack?.name ?? format) · last 90 days") { path.removeLast() }
+            Bar(title: "Matchups", subtitle: "\(pack?.name ?? format) · \(grid?.scope ?? "last 90 days")") { path.removeLast() }
             InsightsPage {
                 VStack(spacing: 1) {
-                    if let pack { MatchupGrid(pack: pack) }
+                    if let pack, let grid {
+                        WindowPickers(tier: Binding(get: { tier }, set: { store.tierPicked = $0 }))
+                        MatchupGrid(pack: pack, m: grid.m).id("\(tier)-\(store.days)")
+                    }
                 }
             }
         }
@@ -720,21 +726,33 @@ struct MatchupsView: View {
 /// under Meta over time, and on its own screen for push taps and older links.
 struct MatchupGrid: View {
     let pack: Insights.ConstructedPack
+    let m: Insights.Matchups
     @State private var picked: (Int, Int)?
+    @State private var mine: Insights.Mine?
 
     var body: some View {
-        let ids = pack.matchups.archetypes
-        Notice("Row's match win rate against each column. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.")
-        InsightHeatmap(labels: ids.map { pack.name($0) }, cell: { r, c in
-            pack.matchups.cell(ids[r], ids[c]).map { ($0.wins, $0.losses) }
+        let cols = m.archetypes
+        let ordered = Insights.yoursFirst(m.rowIds, mine)
+        let rows = ordered.map(\.a)
+        Notice("Each archetype with 1% of decks (rows) against the 10 most played (columns): the row's match win rate. Your decks come first, then archetypes your collection nearly builds. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.")
+        InsightHeatmap(rows: rows.map { pack.name($0) }, notes: ordered.map(\.note), cols: cols.map { pack.name($0) }, same: { rows[$0] == cols[$1] }, cell: { r, c in
+            m.cell(rows[r], cols[c]).map { ($0.wins, $0.losses) }
         }, picked: picked.map { (row: $0.0, col: $0.1) }, onTap: { r, c in
             picked = (r, c)
             Telemetry.capture("insights_matchup_opened", ["format": pack.format])
         })
-        if let (r, c) = picked, let m = pack.matchups.cell(ids[r], ids[c]) {
+        .task(id: pack.format) {
+            guard let got = await InsightsStore.shared.mine(format: pack.format) else { return }
+            mine = got
+            picked = nil   // the rows just moved
+            let notes = Insights.yoursFirst(m.rowIds, got).compactMap(\.note)
+            Telemetry.capture("insights_yours", ["format": pack.format, "decks": got.decks.filter { $0.a != 0 }.count,
+                                                 "close": notes.filter { $0.hasPrefix("You have") }.count])
+        }
+        if let (r, c) = picked, r < rows.count, c < cols.count, let m = m.cell(rows[r], cols[c]) {
             let n = m.wins + m.losses
             let ci = InsightCharts.wilson(wins: m.wins, n: n)
-            ListRow(title: "\(pack.name(ids[r])) vs \(pack.name(ids[c]))",
+            ListRow(title: "\(pack.name(rows[r])) vs \(pack.name(cols[c]))",
                     detail: n >= 30 ? "\(InsightCharts.pct1(Double(m.wins) / Double(n))) · likely \(InsightCharts.pct(ci.lo))–\(InsightCharts.pct(ci.hi))" : "Only \(n) matches: too few to say") {
                 Text("\(m.wins)-\(m.losses)\(m.draws > 0 ? "-\(m.draws)" : "")").font(T1.mono(13))
             }

@@ -37,6 +37,66 @@ final class InsightsPackTests: XCTestCase {
         XCTAssertNil(m.cell(1, 3))
     }
 
+    func testMatchupRowsAreEveryDiscernibleArchetype() throws {
+        XCTAssertEqual(Insights.Matchups(archetypes: [1, 2], rows: [1, 2, 7, 0], cells: []).rowIds, [1, 2, 7, 0])
+        XCTAssertEqual(Insights.Matchups(archetypes: [1, 2], cells: []).rowIds, [1, 2], "an older pack: the columns")
+        XCTAssertEqual(Insights.Matchups(archetypes: [1, 2], rows: [], cells: []).rowIds, [1, 2])
+        let p = try JSONDecoder().decode(Insights.ConstructedPack.self, from: Data(contentsOf: dir.appending(path: "constructed-modern.json")))
+        XCTAssertEqual(p.matchups.archetypes.count, 10)
+        XCTAssertEqual(p.matchups.rowIds.count, 23)
+        XCTAssertEqual(Array(p.matchups.rowIds.prefix(10)), p.matchups.archetypes, "the columns lead the rows")
+        XCTAssertEqual(p.matchups.rowIds.last, 0, "Other last")
+        XCTAssertEqual(p.matchups.cell(11, 1)?.wins, 63, "Boros Land Destruction against the top archetype")
+    }
+
+    func testYoursFirstSharedCases() throws {
+        struct Case: Decodable { let name: String; let rows: [Int]; let mine: Insights.Mine; let want: [[Want]] }
+        enum Want: Decodable, Equatable {
+            case id(Int), note(String), none
+            init(from d: Decoder) throws {
+                let c = try d.singleValueContainer()
+                if c.decodeNil() { self = .none } else if let i = try? c.decode(Int.self) { self = .id(i) } else { self = .note(try c.decode(String.self)) }
+            }
+        }
+        struct File: Decodable { let close: Double; let cases: [Case] }
+        let f = try JSONDecoder().decode(File.self, from: Data(contentsOf: dir.appending(path: "yours-first.json")))
+        XCTAssertEqual(Insights.close, f.close)
+        for c in f.cases {
+            let got = Insights.yoursFirst(c.rows, c.mine).map { [Want.id($0.a), $0.note.map(Want.note) ?? .none] }
+            XCTAssertEqual(got, c.want, c.name)
+        }
+        XCTAssertEqual(Insights.yoursFirst([1, 0], nil).map(\.a), [1, 0])
+    }
+
+    func testDeckInsightSharedCases() throws {
+        struct Want: Decodable, Equatable { let title: String?; let win: String?; let change: String?; let good: [String]; let bad: [String]; let note: String? }
+        struct Case: Decodable { let name: String; let answer: Insights.DeckInsightAnswer; let want: Want }
+        struct File: Decodable { let min: Int; let cases: [Case] }
+        let f = try JSONDecoder().decode(File.self, from: Data(contentsOf: dir.appending(path: "deck-insight.json")))
+        XCTAssertEqual(Insights.deckMin, f.min)
+        for c in f.cases {
+            let d = Insights.deckInsight(c.answer)
+            XCTAssertEqual(Want(title: d.title, win: d.win, change: d.change, good: d.good, bad: d.bad, note: d.note), c.want, c.name)
+        }
+    }
+
+    func testGridFollowsThePickedWindow() throws {
+        let data = try Data(contentsOf: dir.appending(path: "constructed-modern.json"))
+        let old = try JSONDecoder().decode(Insights.ConstructedPack.self, from: data)
+        XCTAssertEqual(old.grid(.big, days: 30).m, old.matchups)
+        XCTAssertEqual(old.grid(.big, days: 30).scope, "All events, last 90 days")
+        // the same pack with a grid in Big events, 30 days
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var tiers = json["tiers"] as! [String: Any], big = tiers["big"] as! [String: Any], windows = big["windows"] as! [String: Any]
+        var w30 = windows["30"] as! [String: Any]
+        w30["matchups"] = ["archetypes": [1], "rows": [1, 0], "cells": [[1, 0, 3, 2, 0]]]
+        windows["30"] = w30; big["windows"] = windows; tiers["big"] = big; json["tiers"] = tiers
+        let p = try JSONDecoder().decode(Insights.ConstructedPack.self, from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertEqual(p.grid(.big, days: 30).m.rowIds, [1, 0])
+        XCTAssertEqual(p.grid(.big, days: 30).scope, "Big events, last 30 days")
+        XCTAssertEqual(p.grid(.all, days: 30).scope, "All events, last 90 days")
+    }
+
     func testBanStudyUsesTheLongestEndedWindow() {
         let s = Insights.AShare(a: 1, share: 0.2)
         let b = Insights.BanStudy(change: 1, on: "2026-05-18", before: [s], after: ["14": [s], "30": [s]], losers: [], gainers: [], replacements: [],

@@ -189,6 +189,9 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `insights_review_action` | `what`, `action` (moderators: approve / reject / confirm) |
 | `insights_matchup_opened` | `format` (a square of the matchup grid tapped for its record) |
 | `insights_part_opened` | `format`, `part`: meta / cards / new_set / changes / events (a format page row opened, 2026-10-28) |
+| `insights_yours` | `format`, `decks` (yours with an archetype), `close` (archetypes your collection nearly builds): the matchup grid put your decks first (2026-10-30) |
+| `deck_insight_shown` | `format`, `archetype`: a deck screen showed its archetype's win rate and matchups (2026-10-30) |
+| `deck_insight_opened` | `format`, `archetype`: those rows opened the archetype in Insights |
 
 ### Discord bot (server-side, from the `discord-bot` function; contract/discord-2026-10-29.md §8)
 `platform` is `discord`; `distinct_id` is the Table 1 user id once linked, else `discord:<salted hash>`. Never Discord,

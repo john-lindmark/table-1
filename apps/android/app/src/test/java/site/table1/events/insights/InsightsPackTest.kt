@@ -1,10 +1,12 @@
 package site.table1.events.insights
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -44,6 +46,58 @@ class InsightsPackTest {
         assertEquals(Triple(31, 22, 1), m.cell(1, 2))
         assertEquals(Triple(22, 31, 1), m.cell(2, 1))
         assertNull(m.cell(1, 3))
+    }
+
+    @Test fun matchupRowsAreEveryDiscernibleArchetype() {
+        assertEquals(listOf(1, 2, 7, 0), Matchups(listOf(1, 2), emptyList(), rows = listOf(1, 2, 7, 0)).rowIds)
+        assertEquals(listOf(1, 2), Matchups(listOf(1, 2), emptyList()).rowIds)
+        assertEquals(listOf(1, 2), Matchups(listOf(1, 2), emptyList(), rows = emptyList()).rowIds)
+        val p = json.decodeFromString<ConstructedPack>(File(dir, "constructed-modern.json").readText())
+        assertEquals(10, p.matchups.archetypes.size)
+        assertEquals(23, p.matchups.rowIds.size)
+        assertEquals(p.matchups.archetypes, p.matchups.rowIds.take(10))
+        assertEquals(0, p.matchups.rowIds.last())
+        assertEquals(63, p.matchups.cell(11, 1)?.first)
+    }
+
+    @Test fun yoursFirstSharedCases() {
+        val root = json.parseToJsonElement(File(dir, "yours-first.json").readText()).jsonObject
+        assertEquals(root["close"]!!.jsonPrimitive.content.toDouble(), CLOSE, 0.0)
+        for (c in root["cases"]!!.jsonArray) {
+            val o = c.jsonObject
+            val rows = o["rows"]!!.jsonArray.map { it.jsonPrimitive.int }
+            val mine = json.decodeFromJsonElement(Mine.serializer(), o["mine"]!!)
+            val want = o["want"]!!.jsonArray.map { w -> w.jsonArray.let { it[0].jsonPrimitive.int to it[1].jsonPrimitive.contentOrNull } }
+            assertEquals(o["name"]!!.jsonPrimitive.content, want, yoursFirst(rows, mine))
+        }
+        assertEquals(listOf(1 to null, 0 to null), yoursFirst(listOf(1, 0), null))
+    }
+
+    @Test fun deckInsightSharedCases() {
+        val root = json.parseToJsonElement(File(dir, "deck-insight.json").readText()).jsonObject
+        assertEquals(root["min"]!!.jsonPrimitive.int, DECK_MIN)
+        for (c in root["cases"]!!.jsonArray) {
+            val o = c.jsonObject
+            val w = o["want"]!!.jsonObject
+            val want = DeckInsight(w["title"]!!.jsonPrimitive.contentOrNull, w["win"]!!.jsonPrimitive.contentOrNull, w["change"]!!.jsonPrimitive.contentOrNull,
+                w["good"]!!.jsonArray.map { it.jsonPrimitive.content }, w["bad"]!!.jsonArray.map { it.jsonPrimitive.content }, w["note"]!!.jsonPrimitive.contentOrNull)
+            assertEquals(o["name"]!!.jsonPrimitive.content, want, deckInsight(json.decodeFromJsonElement(DeckInsightAnswer.serializer(), o["answer"]!!)))
+        }
+    }
+
+    @Test fun gridFollowsThePickedWindow() {
+        val text = File(dir, "constructed-modern.json").readText()
+        val old = json.decodeFromString<ConstructedPack>(text)
+        assertEquals(old.matchups to "All events, last 90 days", old.grid("big", 30))
+        // the same pack with a grid in Big events, 30 days
+        val root = json.parseToJsonElement(text).jsonObject
+        val tiers = root["tiers"]!!.jsonObject; val big = tiers["big"]!!.jsonObject; val windows = big["windows"]!!.jsonObject
+        val w30 = JsonObject(windows["30"]!!.jsonObject + ("matchups" to json.parseToJsonElement("""{"archetypes":[1],"rows":[1,0],"cells":[[1,0,3,2,0]]}""")))
+        val patched = JsonObject(root + ("tiers" to JsonObject(tiers + ("big" to JsonObject(big + ("windows" to JsonObject(windows + ("30" to w30))))))))
+        val p = json.decodeFromJsonElement(ConstructedPack.serializer(), patched)
+        assertEquals(listOf(1, 0), p.grid("big", 30).first.rowIds)
+        assertEquals("Big events, last 30 days", p.grid("big", 30).second)
+        assertEquals("All events, last 90 days", p.grid("all", 30).second)
     }
 
     @Test fun banStudyUsesTheLongestEndedWindow() {

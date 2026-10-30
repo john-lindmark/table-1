@@ -1135,6 +1135,7 @@ struct ListDetailView: View {
             }.buttonStyle(.plain)
         }
         if !editing { ListStatsRow(listId: list.id, path: $path) }
+        if !editing && list.kind == .deck && list.eventId == nil { DeckMetaRows(listId: list.id) }
         if !editing && list.kind == .cube && !list.entries.isEmpty { RankingsRow(listId: list.id, path: $path) }
         Button { path.append(.listAdd(list.id)) } label: {
             ListRow(title: "Add, remove or replace", detail: list.kind == .deck ? "Main deck, sideboard or considering" : "Search the catalog, or this cube's own cards")

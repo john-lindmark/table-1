@@ -229,7 +229,13 @@ struct InsightScatter: View {
 /// Matchup grid: row archetype's match win rate against each column (named on top, read upwards); below 30 matches a
 /// cell still shows, dimmed. The picked cell is outlined and its row and column names sit on the lighter surface.
 struct InsightHeatmap: View {
-    let labels: [String]
+    /// rows can outnumber columns (every archetype against the top ones)
+    let rows: [String]
+    /// a line under a row's name ("Your deck", "You have 84%")
+    var notes: [String?] = []
+    let cols: [String]
+    /// a row's own column, left blank
+    let same: (Int, Int) -> Bool
     /// cell(row, col) → (wins, losses)
     let cell: (Int, Int) -> (wins: Int, losses: Int)?
     var minMatches = 30
@@ -237,41 +243,53 @@ struct InsightHeatmap: View {
     var onTap: ((Int, Int) -> Void)?
 
     var body: some View {
-        let n = labels.count
         VStack(spacing: 1) {
             HStack(spacing: 1) {
                 T1.surface.frame(width: 104, height: 128)
-                ForEach(0..<n, id: \.self) { c in
+                ForEach(0..<cols.count, id: \.self) { c in
                     (picked?.col == c ? T1.surfaceHover : T1.surface).frame(maxWidth: .infinity).frame(height: 128)
                         .overlay {
                             // laid out across, then turned to read upwards from the bottom of the header
-                            Text(labels[c].uppercased()).font(T1.mono(9)).tracking(0.5).lineLimit(1).truncationMode(.tail)
+                            Text(cols[c].uppercased()).font(T1.mono(9)).tracking(0.5).lineLimit(1).truncationMode(.tail)
                                 .frame(width: 120, alignment: .leading)
                                 .rotationEffect(.degrees(-90))
                         }
                         .clipped()
-                        .accessibilityLabel(labels[c])
+                        .accessibilityLabel(cols[c])
                 }
             }
-            ForEach(0..<n, id: \.self) { r in
-                HStack(spacing: 1) {
-                    Text(labels[r]).font(T1.mono(10)).lineLimit(2).minimumScaleFactor(0.8)
-                        .frame(width: 92, height: 34, alignment: .leading).padding(.horizontal, 6)
-                        .background(picked?.row == r ? T1.surfaceHover : T1.surface)
-                    ForEach(0..<n, id: \.self) { c in
-                        let v = r == c ? nil : cell(r, c)
-                        let h = InsightCharts.heat(wins: v?.wins ?? 0, losses: v?.losses ?? 0, minimum: minMatches)
-                        ZStack {
-                            Rectangle().fill(color(h))
-                            Text(h.label).font(T1.mono(10)).foregroundStyle(h.ink ? T1.ink : h.dim ? T1.muted : T1.text)
-                            if picked?.row == r && picked?.col == c { Rectangle().strokeBorder(T1.text, lineWidth: 1) }
+            // the column names stay on top: the rows scroll in their own box (columns fit the width, so the row
+            // names never scroll away)
+            ScrollView(.vertical) {
+                VStack(spacing: 1) {
+                    ForEach(0..<rows.count, id: \.self) { r in
+                        HStack(spacing: 1) {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(rows[r]).font(T1.mono(10)).lineLimit(notes.indices.contains(r) && notes[r] != nil ? 1 : 2).minimumScaleFactor(0.8)
+                                if notes.indices.contains(r), let note = notes[r] {
+                                    Text(note.uppercased()).font(T1.mono(8)).tracking(0.5).foregroundStyle(T1.muted).lineLimit(1)
+                                }
+                            }
+                            .frame(width: 92, height: 34, alignment: .leading).padding(.horizontal, 6)
+                                .background(picked?.row == r ? T1.surfaceHover : T1.surface)
+                            ForEach(0..<cols.count, id: \.self) { c in
+                                let own = same(r, c)
+                                let v = own ? nil : cell(r, c)
+                                let h = InsightCharts.heat(wins: v?.wins ?? 0, losses: v?.losses ?? 0, minimum: minMatches)
+                                ZStack {
+                                    Rectangle().fill(color(h))
+                                    Text(h.label).font(T1.mono(10)).foregroundStyle(h.ink ? T1.ink : h.dim ? T1.muted : T1.text)
+                                    if picked?.row == r && picked?.col == c { Rectangle().strokeBorder(T1.text, lineWidth: 1) }
+                                }
+                                .frame(maxWidth: .infinity).frame(height: 34)
+                                .contentShape(Rectangle())
+                                .onTapGesture { if !own { onTap?(r, c) } }
+                            }
                         }
-                        .frame(maxWidth: .infinity).frame(height: 34)
-                        .contentShape(Rectangle())
-                        .onTapGesture { if r != c { onTap?(r, c) } }
                     }
                 }
             }
+            .frame(height: min(CGFloat(rows.count) * 35 - 1, 420))
         }
     }
 

@@ -163,7 +163,9 @@ object Insights {
 @Serializable data class CardRow(val c: String, val n: String, val rate: Double, val prev: Double? = null, val copies: Double? = null)
 @Serializable data class Movers(val up: List<CardRow>, val down: List<CardRow>)
 @Serializable data class Window(val decks: Int, val weighted: Double, val events: Int, val thin: Boolean, val brief: String? = null,
-                                val share: List<ShareRow>, val cards: Map<String, Movers>, val won_of: Int? = null)
+                                val share: List<ShareRow>, val cards: Map<String, Movers>, val won_of: Int? = null,
+                                /** this tier × window's matchup grid (packs from 20261030090000 on) */
+                                val matchups: Matchups? = null)
 @Serializable data class Line(val a: Int, val v: List<Double?>)
 @Serializable data class Series(val from: String, val days: Int, val lines: List<Line>, val other: List<Double?>)
 @Serializable data class NewSetCard(val c: String, val n: String, val rate: Double, val copies: Double? = null, val `in`: List<Int>? = null)
@@ -178,7 +180,11 @@ object Insights {
     /** The longest "after" window that has ended (60 → 30 → 14 days). */
     val afterWindow: Pair<Int, List<AShare>>? get() = listOf(60, 30, 14).firstNotNullOfOrNull { d -> after[d.toString()]?.let { d to it } }
 }
-@Serializable data class Matchups(val archetypes: List<Int>, val cells: List<List<Int>>) {
+/** [archetypes] are the grid's columns (top 10); [rows] every discernible archetype, the columns first, Other last
+ *  (missing from packs before 20261030090000). */
+@Serializable data class Matchups(val archetypes: List<Int>, val cells: List<List<Int>>, val rows: List<Int>? = null) {
+    /** The grid's rows: every discernible archetype, or the columns in an older pack. */
+    val rowIds: List<Int> get() = rows?.takeIf { it.isNotEmpty() } ?: archetypes
     /** [a] against [b]: wins, losses, draws from a's side. */
     fun cell(a: Int, b: Int): Triple<Int, Int, Int>? {
         cells.firstOrNull { it[0] == a && it[1] == b }?.let { return Triple(it[2], it[3], it[4]) }
@@ -186,11 +192,67 @@ object Insights {
         return null
     }
 }
+/** What `insights_mine` says about the signed-in account in a format: its decks with their archetypes, and how much of
+ *  each archetype's usual list its collection holds. */
+@Serializable data class Mine(val decks: List<MineDeck>, val coverage: List<MineCover>)
+@Serializable data class MineDeck(val a: Int, val id: String, val name: String)
+@Serializable data class MineCover(val a: Int, val have: Double)
+/** Collection coverage from which an archetype counts as nearly yours. */
+const val CLOSE = 0.6
+/** The grid's rows with your decks first, then archetypes your collection nearly builds, each with its note
+ *  (testdata/insights/yours-first.json). */
+fun yoursFirst(rows: List<Int>, mine: Mine?): List<Pair<Int, String?>> {
+    if (mine == null) return rows.map { it to null }
+    val decks = mine.decks.filter { it.a != 0 }.groupingBy { it.a }.eachCount()
+    val have = mine.coverage.filter { it.a != 0 }.associate { it.a to it.have }
+    val own = rows.filter { it in decks }
+    val close = rows.filter { it !in decks && (have[it] ?: 0.0) >= CLOSE }
+        .sortedWith(compareByDescending<Int> { have[it]!! }.thenBy { rows.indexOf(it) })
+    val rest = rows.filter { it !in own && it !in close }
+    return own.map { it to (if (decks[it]!! > 1) "Your ${decks[it]} decks" else "Your deck") } +
+        close.map { it to "You have ${kotlin.math.floor(have[it]!! * 100 + 1e-9).toInt()}%" } +
+        rest.map { it to null }
+}
+// a deck's archetype, on the deck's own screen (list_insight)
+@Serializable data class Record3(val wins: Int, val losses: Int, val draws: Int)
+@Serializable data class DeckMatchup(val vs: Int, val name: String, val wins: Int, val losses: Int, val draws: Int)
+@Serializable data class DeckInsightAnswer(val format: String, val a: Int? = null, val name: String? = null, val reason: String? = null,
+                                           val month: Record3? = null, val week: Record3? = null, val prev: Record3? = null,
+                                           val matchups: List<DeckMatchup>? = null)
+data class DeckInsight(val title: String?, val win: String?, val change: String?, val good: List<String>, val bad: List<String>, val note: String?)
+/** Matches a rate needs before it's shown. */
+const val DECK_MIN = 20
+/** How a deck screen words its archetype's numbers (testdata/insights/deck-insight.json). */
+fun deckInsight(r: DeckInsightAnswer): DeckInsight {
+    if (r.reason == "other" || r.a == 0) return DeckInsight(null, null, null, emptyList(), emptyList(), "Doesn't match an archetype Insights knows")
+    if (r.a == null || r.name == null) return DeckInsight(null, null, null, emptyList(), emptyList(), null)
+    fun rate(x: Record3?): Double? {
+        val n = x?.let { it.wins + it.losses + it.draws } ?: 0
+        return if (x != null && n >= DECK_MIN) x.wins.toDouble() / n else null
+    }
+    val w = rate(r.week); val p = rate(r.prev)
+    val change = if (w != null && p != null) {
+        val d = (w - p) * 100
+        if (kotlin.math.abs(d) < 0.05) "Same as last week"
+        else "${if (d > 0) "▲" else "▼"} ${String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(d))} pts on last week"
+    } else null
+    data class Rated(val name: String, val wr: Double, val n: Int)
+    val rated = (r.matchups ?: emptyList()).filter { it.wins + it.losses >= DECK_MIN }
+        .map { Rated(it.name, it.wins.toDouble() / (it.wins + it.losses), it.wins + it.losses) }
+    val good = rated.filter { it.wr > 0.5 }.sortedWith(compareByDescending<Rated> { it.wr }.thenByDescending { it.n }).take(3)
+    val bad = rated.filter { it.wr < 0.5 }.sortedWith(compareBy<Rated> { it.wr }.thenByDescending { it.n }).take(3)
+    return DeckInsight(r.name, rate(r.month)?.let { "Win ${InsightCharts.pct1(it)}" }, change,
+        good.map { "${it.name} ${InsightCharts.pct(it.wr)}" }, bad.map { "${it.name} ${InsightCharts.pct(it.wr)}" }, null)
+}
 @Serializable data class EventRow(val name: String, val on: String, val players: Int? = null, val tier: String, val source: String, val url: String? = null,
                                   val top8: List<Int>? = null, val winner: Int? = null)
 @Serializable data class ConstructedPack(val format: String, val name: String, val through: String, val sources: List<String>, val default_tier: String,
                                          val archetypes: List<Archetype>, val changes: List<Change>, val events: List<EventRow>,
                                          val tiers: Map<String, View>, val bans: List<BanStudy>, val matchups: Matchups) {
+    /** The matchup grid for the picked tier and window, and what it covers; an older pack has only its 90-day, All events grid. */
+    fun grid(tier: String, days: Int): Pair<Matchups, String> =
+        tiers[tier]?.windows?.get(days.toString())?.matchups?.let { it to "${if (tier == "big") "Big events" else "All events"}, last $days days" }
+            ?: (matchups to "All events, last 90 days")
     fun name(id: Int) = archetypes.firstOrNull { it.id == id }?.name ?: "Other"
     fun change(id: Int) = changes.firstOrNull { it.id == id }
 }

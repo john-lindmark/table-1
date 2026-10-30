@@ -6,7 +6,7 @@ import { printingsByName, type Catalog } from "../lib/catalog";
 import { delta, pct, pct1, rates, seriesWindow, shortDay, wilson } from "../lib/insightCharts";
 import {
   EVENT_LABELS, EVENT_ORDER, FORMATS, PAIR_NAMES, WINDOWS, canHide, exampleFinish, formatParts, place, setHidden, sourcesCredit, visibleKeys, type Finish, type PartKey, afterWindow, archetypeName, archetypePage, cardPage, changeWords, colorsName, isBan,
-  loadInsights, loadInsightsDemo, matchup, pick, useInsights, type ArchetypePage, type CardPage, type CardRow, type ConstructedPack,
+  gridFor, loadInsights, loadInsightsDemo, matchup, matchupRows, mineFor, pick, yoursFirst, type Mine, useInsights, type ArchetypePage, type CardPage, type CardRow, type ConstructedPack, type Matchups,
   type LCard, type LimitedPack, type LView, type Tier,
 } from "../lib/insights";
 import { isLibraryDemo } from "../lib/libraryDemo";
@@ -131,6 +131,7 @@ function ConstructedBody({ pack, tier, view, w, days, hl, setHl, go }: {
   const span = seriesWindow(view.series.from, view.series.days, days);
   const lines = view.series.lines.map((l) => ({ a: l.a, v: l.v.slice(span.offset) })).filter((l) => l.v.some((v) => v != null));
   const highlighted = hl != null && lines.some((l) => l.a === hl) ? hl : lines[0]?.a;
+  const grid = gridFor(pack, tier, days);
   const markers: Marker[] = [];
   for (const c of pack.changes) {   // one marker per day: a ban and an unban on May 18 read BAN/UNBAN
     const index = Math.round((Date.parse(c.on) - Date.parse(span.from)) / 86400000);
@@ -155,10 +156,10 @@ function ConstructedBody({ pack, tier, view, w, days, hl, setHl, go }: {
           </button>
         ))}
       </div>
-      {pack.matchups.cells.length > 0 && (
+      {grid.m.cells.length > 0 && (
         <>
-          <Section title="Matchups · last 90 days" />
-          <MatchupGrid pack={pack} />
+          <Section title={`Matchups · ${grid.scope}`} />
+          <MatchupGrid key={`${tier}-${days}`} pack={pack} m={grid.m} />
         </>
       )}
       <Brief text={w.brief} scope={`${tier === "big" ? "Big events" : "All events"}, last ${days} days`} thin={w.thin} credit={credit} />
@@ -520,32 +521,51 @@ export function InsightsBan() {
 export function InsightsMatchups() {
   const { format = "" } = useParams();
   const nav = useNavigate();
-  const { constructed, session, demo, ready } = useInsightsData();
+  const { constructed, picks, session, demo, ready } = useInsightsData();
   const pack = constructed[format];
+  const tier: Tier = picks.tier ?? pack?.default_tier ?? "big";
+  const grid = pack ? gridFor(pack, tier, picks.days) : null;
   if (!session && !demo) return <Screen><Bar title="Matchups" onBack={() => nav(-1)} />{ready && <SignInFirst />}</Screen>;
   return (
     <Screen>
-      <Bar title="Matchups" subtitle={`${pack?.name ?? format} · last 90 days`} onBack={() => nav(-1)} />
-      {pack && <Scroll><MatchupGrid pack={pack} /></Scroll>}
+      <Bar title="Matchups" subtitle={`${pack?.name ?? format} · ${grid?.scope ?? "last 90 days"}`} onBack={() => nav(-1)} />
+      {pack && grid && <Scroll><WindowPickers tier={tier} days={picks.days} /><MatchupGrid key={`${tier}-${picks.days}`} pack={pack} m={grid.m} /></Scroll>}
     </Screen>
   );
 }
 
 /** The matchup grid (rows against labelled columns) and the record of the square last tapped; on the format page
  *  under Meta over time, and on its own screen for older links. */
-function MatchupGrid({ pack }: { pack: ConstructedPack }) {
+function MatchupGrid({ pack, m: grid }: { pack: ConstructedPack; m: Matchups }) {
   const [picked, setPicked] = useState<[number, number] | null>(null);
-  const ids = pack.matchups.archetypes;
-  const m = picked ? matchup(pack.matchups, ids[picked[0]], ids[picked[1]]) : null;
+  const [mine, setMine] = useState<Mine | null>(null);
+  useEffect(() => {
+    let live = true;
+    void mineFor(pack.format).then((x) => {
+      if (!live) return;
+      setMine(x);
+      setPicked(null);   // the rows just moved
+      const own = x?.decks.filter((d) => d.a !== 0).length ?? 0;
+      if (x) capture("insights_yours", { format: pack.format, decks: own, close: yoursFirst(matchupRows(grid), x).filter((r) => r.note?.startsWith("You have")).length });
+    });
+    return () => { live = false; };
+    // once per format, not per window
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pack.format]);
+  const cols = grid.archetypes;
+  const ordered = yoursFirst(matchupRows(grid), mine);
+  const rows = ordered.map((r) => r.a);
+  const m = picked && picked[0] < rows.length && picked[1] < cols.length ? matchup(grid, rows[picked[0]], cols[picked[1]]) : null;
   const n = m ? m.wins + m.losses : 0;
   const [lo, hi] = m ? wilson(m.wins, n) : [0, 1];
   return (
     <>
-      <Notice tone="info">Row's match win rate against each column. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.</Notice>
-      <Heatmap labels={ids.map((a) => archetypeName(pack, a))} picked={picked} onPick={(r, c) => { setPicked([r, c]); capture("insights_matchup_opened", { format: pack.format }); }}
-               cell={(r, c) => matchup(pack.matchups, ids[r], ids[c])} />
-      {m && picked && (
-        <Row title={`${archetypeName(pack, ids[picked[0]])} vs ${archetypeName(pack, ids[picked[1]])}`} value={`${m.wins}-${m.losses}${m.draws ? `-${m.draws}` : ""}`}
+      <Notice tone="info">Each archetype with 1% of decks (rows) against the 10 most played (columns): the row's match win rate. Your decks come first, then archetypes your collection nearly builds. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.</Notice>
+      <Heatmap rows={rows.map((a) => archetypeName(pack, a))} notes={ordered.map((r) => r.note)} cols={cols.map((a) => archetypeName(pack, a))} same={(r, c) => rows[r] === cols[c]}
+               picked={picked} onPick={(r, c) => { setPicked([r, c]); capture("insights_matchup_opened", { format: pack.format }); }}
+               cell={(r, c) => matchup(grid, rows[r], cols[c])} />
+      {m && picked && picked[0] < rows.length && (
+        <Row title={`${archetypeName(pack, rows[picked[0]])} vs ${archetypeName(pack, cols[picked[1]])}`} value={`${m.wins}-${m.losses}${m.draws ? `-${m.draws}` : ""}`}
              detail={n >= 30 ? `${pct1(m.wins / n)} · likely ${pct(lo)}–${pct(hi)}` : `Only ${n} matches: too few to say`} />
       )}
     </>

@@ -140,6 +140,8 @@ final class SessionModel {
     var pendingSignUp: EventPage?
     /// A tapped table-1.site link waiting for the signed-in app (WebLink).
     var pendingLink: WebLink?
+    /// An Insights screen opened from another tab (a deck's archetype on its deck screen).
+    var pendingInsights: InsightsRoute?
     /// A table-1.site page with no screen in the app, shown in the browser over everything.
     var webPage: WebPage?
     /// An event opened from a widget or the Live Activity.
@@ -481,6 +483,13 @@ struct SignedInView: View {
                 session.pendingSocial = nil
                 tab = .account
                 accountPath = PushRoutes.path(route)
+            }
+        }
+        .task(id: session.pendingInsights) {
+            if let route = session.pendingInsights {
+                session.pendingInsights = nil
+                select(.insights)
+                insightsPath = [route]
             }
         }
         .task(id: session.pendingJoin) {

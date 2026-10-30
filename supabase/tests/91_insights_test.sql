@@ -128,6 +128,55 @@ select pg_temp.eq('series: last day is the 7-day share',
   (select (l->'v'->>179) from jsonb_array_elements((public.meta_pack_series('modern', 'all'))->'lines') l where (l->>'a')::int = :BURN), '0.4286');
 select pg_temp.eq('matchups: named archetypes only, oriented by position',
   ((public.meta_pack_matchups('modern'))->'cells')::text, jsonb_build_array(jsonb_build_array(:BURN, :BOROS, 1, 0, 0))::text);
+
+-- Every discernible archetype (20261030090000_insights_all_archetypes): one Pioneer event of 176 decks. 101–110 hold
+-- 20 down to 11 decks, 111 and 112 five each, 113 one (under 1%), Other ten. 111, 113 and Other play 25 matches
+-- against 101 (101 wins 10), 112 only 10 against 102.
+insert into t1_private.meta_events (source, source_id, format, name, kind, on_date, players, tier)
+values ('topdeck', 'ROWS', 'pioneer', 'Rows', 'paper', current_date - 3, 176, 'major');
+insert into t1_private.meta_decks (event_id, format, on_date, tier, weight, player, main, main_qty, side, side_qty, archetype_id)
+select (select id from t1_private.meta_events where source_id = 'ROWS'), 'pioneer', current_date - 3, 'major', 1, 'p' || v.a || '-' || k,
+       '{}', '{}', '{}', '{}', v.a
+  from (values (101, 20), (102, 19), (103, 18), (104, 17), (105, 16), (106, 15), (107, 14), (108, 13), (109, 12), (110, 11),
+               (111, 5), (112, 5), (113, 1), (0, 10)) v(a, n) cross join generate_series(1, v.n) k;
+create function pg_temp.rows_deck(p_a int, p_k int) returns bigint language sql as $$
+  select id from t1_private.meta_decks where format = 'pioneer' and archetype_id = p_a
+   order by id offset (p_k - 1) % (select count(*) from t1_private.meta_decks where format = 'pioneer' and archetype_id = p_a) limit 1;
+$$;
+insert into t1_private.meta_matches (event_id, round, a, b, result)
+select (select id from t1_private.meta_events where source_id = 'ROWS'), x || '-' || g, pg_temp.rows_deck(x, g), pg_temp.rows_deck(vs, g),
+       case when g <= 15 then 'a' else 'b' end
+  from (values (111, 101, 25), (113, 101, 25), (0, 101, 25), (112, 102, 10)) v(x, vs, n) cross join generate_series(1, v.n) g;
+select pg_temp.eq('series: the 8 largest, then every named archetype at 1%+; never a smaller one',
+  (select string_agg(l->>'a', ' ' order by o) from jsonb_array_elements((public.meta_pack_series('pioneer', 'all'))->'lines') with ordinality x(l, o)),
+  '101 102 103 104 105 106 107 108 109 110 111 112');
+select pg_temp.eq('series: Other is everything without a line (Other and the 1-deck archetype)',
+  ((public.meta_pack_series('pioneer', 'all'))->'other'->>179), '0.0625');
+select pg_temp.eq('matchups: the top 10 stay the columns',
+  ((public.meta_pack_matchups('pioneer'))->'archetypes')::text, '[101, 102, 103, 104, 105, 106, 107, 108, 109, 110]');
+select pg_temp.eq('matchups: rows add each 1%+ archetype with 20 matches, then Other',
+  ((public.meta_pack_matchups('pioneer'))->'rows')::text, '[101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 0]');
+select pg_temp.eq('matchups: cells oriented by position in rows',
+  (select string_agg(c::text, ' ' order by c::text) from jsonb_array_elements((public.meta_pack_matchups('pioneer'))->'cells') c),
+  '[101, 0, 10, 15, 0] [101, 111, 10, 15, 0]');
+select pg_temp.eq('matchups: a window that misses the event is empty',
+  (public.meta_pack_matchups('pioneer', current_date, 'all', 2))::text, '{"rows": [], "cells": [], "archetypes": []}');
+-- A small (regular) event of 30 decks of 114 the same day: All events ranks it first, Big events leaves it out.
+insert into t1_private.meta_events (source, source_id, format, name, kind, on_date, players, tier)
+values ('topdeck', 'ROWS2', 'pioneer', 'Rows small', 'paper', current_date - 3, 30, 'regular');
+insert into t1_private.meta_decks (event_id, format, on_date, tier, weight, player, main, main_qty, side, side_qty, archetype_id)
+select (select id from t1_private.meta_events where source_id = 'ROWS2'), 'pioneer', current_date - 3, 'regular', 1, 'q' || k, '{}', '{}', '{}', '{}', 114
+  from generate_series(1, 30) k;
+select pg_temp.eq('matchups: the tier picks the events',
+  ((public.meta_pack_matchups('pioneer', current_date, 'all', 7))->'archetypes'->>0) || ' ' || ((public.meta_pack_matchups('pioneer', current_date, 'big', 7))->'archetypes'->>0),
+  '114 101');
+delete from t1_private.meta_events where source_id in ('ROWS', 'ROWS2');
+select pg_temp.eq('Modern archetypes go by the names players use',
+  (select string_agg(name || ' ' || colors, ', ' order by name) from t1_private.meta_archetypes
+    where format = 'modern' and name in ('Broodscale Combo', 'Rakdos Delirium', 'Azorius Chant', 'Esper Goryo''s', 'Simic Neoform', 'Grixis Reanimator',
+                                         'Eldrazi Bloodchief Combo', 'Persist', 'Neoform')),
+  'Azorius Chant WU, Broodscale Combo BG, Esper Goryo''s WUB, Grixis Reanimator UBR, Rakdos Delirium BR, Simic Neoform UG');
+select pg_temp.eq('each rename is audited', (select count(*)::text from t1_private.insights_audit where action = 'archetype_rename'), '6');
 select pg_temp.eq('base: Other first, then the approved archetypes; thin big events open on all',
   (select (b->'archetypes'->0->>'name') || ' ' || (b->>'default_tier') || ' ' || jsonb_array_length(b->'events') from (select public.meta_pack_base('modern') b) x),
   'Other all 1');
@@ -170,7 +219,7 @@ select pg_temp.eq('approve with a new name',
 reset role;
 select pg_temp.eq('approving relabels the format',
   (select coalesce(a.name, 'Other') from t1_private.meta_decks d left join t1_private.meta_archetypes a on a.id = d.archetype_id where d.rank = 9), 'Mono-Blue Tempo');
-select pg_temp.eq('audited', (select string_agg(action, ' ') from t1_private.insights_audit), 'archetype_approve');
+select pg_temp.eq('audited', (select string_agg(action, ' ') from t1_private.insights_audit where action <> 'archetype_rename'), 'archetype_approve');
 -- meta_relabel carries meta_label's rule inline (bug #23): both must land every deck in the same place
 update t1_private.meta_decks set archetype_id = 0 where format = 'modern';
 select public.meta_relabel('modern', true);

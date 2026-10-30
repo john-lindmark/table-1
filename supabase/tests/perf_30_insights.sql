@@ -50,10 +50,16 @@ select pg_temp.ms('relabel 24,000 decks in Other', $$select public.meta_relabel(
 select pg_temp.eq('every deck labelled again', (select count(*)::text from t1_private.meta_decks where archetype_id = 0), '0');
 select pg_temp.ms('pack window: 90 days, all events', $$select public.meta_pack_window('modern', 'all', 90)$$, 800);
 select pg_temp.ms('pack window: 30 days, big events', $$select public.meta_pack_window('modern', 'big', 30)$$, 250);
-select pg_temp.ms('pack series: 180 days', $$select public.meta_pack_series('modern', 'all')$$, 4200);
+-- 4.2 s before 20261030090000 summed each day once (per-line, per-day subqueries)
+select pg_temp.ms('pack series: 180 days', $$select public.meta_pack_series('modern', 'all')$$, 400);
 select pg_temp.ms('pack bans: one study', $$select public.meta_pack_bans('modern')$$, 1400, 1);
 select pg_temp.ms('pack matchups', $$select public.meta_pack_matchups('modern')$$, 50);
 select pg_temp.ms('pack base', $$select public.meta_pack_base('modern')$$, 50);
+-- Your decks first (20261030100000): the usual lists once a day (~280 ms on live Modern), then each signed-in call
+select pg_temp.ms('insights mine: usual lists, first call of the day', $$select t1_private.meta_cores_for('modern')$$, 3000, 1);
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000f1');
+select pg_temp.ms('insights mine: a signed-in call', $$select public.insights_mine('modern')$$, 100);
+select pg_temp.as_user(null);
 select pg_temp.ms('ingest a 32-deck event', $$select public.meta_ingest(jsonb_build_object('source', 'mtgo', 'source_id', 'new', 'format', 'modern',
   'name', 'Modern Challenge 32', 'kind', 'challenge', 'on', current_date::text, 'players', 40,
   'decks', (select jsonb_agg(jsonb_build_object('player', g, 'main', (select jsonb_agg(jsonb_build_array('Card ' || (g + k), 4)) from generate_series(1, 15) k)))
