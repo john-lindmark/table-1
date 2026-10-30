@@ -69,7 +69,8 @@ import java.time.Instant
 
 /** One event: the organizer's control room, or a player's match card — chosen by role. */
 @Composable
-fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, onOpenTracker: (String) -> Unit, onOpenPhotos: () -> Unit, onOpenRedraft: () -> Unit = {}) {
+fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, onOpenTracker: (String) -> Unit, onOpenPhotos: () -> Unit, onOpenRedraft: () -> Unit = {},
+                onOpenList: (String) -> Unit = {}) {
     var bundle by remember { mutableStateOf<EventBundle?>(null) }
     var standings by remember { mutableStateOf(StandingsResponse()) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -100,11 +101,19 @@ fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, o
         }
         return
     }
-    if (b.isOrganizer) OrganizerScreen(
-        b, standings, onBack, onAddPlayers, onOpenTracker, onChanged = { refresh() },
-        onSeated = { standings = standings.copy(seating = it) }, onOpenPhotos = onOpenPhotos, onOpenRedraft = onOpenRedraft,
-    )
-    else PlayerView(b, standings, onBack, onOpenTracker, onOpenPhotos, onOpenRedraft, onChanged = { refresh() })
+    val organizer: @Composable () -> Unit = {
+        OrganizerScreen(
+            b, standings, onBack, onAddPlayers, onOpenTracker, onChanged = { refresh() },
+            onSeated = { standings = standings.copy(seating = it) }, onOpenPhotos = onOpenPhotos, onOpenRedraft = onOpenRedraft, onOpenList = onOpenList,
+        )
+    }
+    val player: @Composable () -> Unit = { PlayerView(b, standings, onBack, onOpenTracker, onOpenPhotos, onOpenRedraft, onOpenList, onChanged = { refresh() }) }
+    // Roto: the Draft phase sits between Setup and round 1 (contract/roto-2026-10-16.md); Pair round 1 from there.
+    if (b.event.isRoto && b.rounds.isEmpty() && !b.event.isFinished) {
+        site.table1.events.roto.RotoDraftGate(b.event.id, b.event.name, b.isOrganizer, onBack,
+            pairRound1 = if (b.isOrganizer) ({ Repo.pairNextRound(b.event.id).error?.let { throw IllegalStateException(it) }; refresh() }) else null,
+            onOpenDeck = onOpenList) { if (b.isOrganizer) organizer() else player() }
+    } else if (b.isOrganizer) organizer() else player()
 }
 
 /** participant id → team name, for the team tag in the individual table and seating. */
@@ -373,8 +382,11 @@ private val outcomes = listOf("Won 2–0" to (2 to 0), "Won 2–1" to (2 to 1), 
 @Composable
 private fun PlayerView(
     b: EventBundle, standings: StandingsResponse, onBack: () -> Unit, onOpenTracker: (String) -> Unit, onOpenPhotos: () -> Unit, onOpenRedraft: () -> Unit,
+    onOpenList: (String) -> Unit,
     onChanged: suspend () -> Unit,
 ) {
+    var rotoOverlay by remember { mutableStateOf(false) }
+    var rotoSchedule by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val me = b.participants.firstOrNull { it.userId != null && it.userId == Repo.userId }
     val tags = teamTags(b, standings)
@@ -492,6 +504,9 @@ private fun PlayerView(
                     Ghost(if (b.event.isFinished) "Deck photos" else "Deck photo") { onOpenPhotos() }
                     // A finished set draft: the redraft pile (contract/event-night-2026-10-16.md § 6).
                     if (b.event.canRedraft) Ghost("Redraft") { onOpenRedraft() }
+                    // Roto: everyone's picks stay readable; round robin has its schedule.
+                    if (b.event.isRoto && b.rounds.isNotEmpty()) Ghost("Draft picks") { rotoOverlay = true }
+                    if (b.event.isRoto && b.event.pairing == "round_robin" && b.rounds.isNotEmpty()) Ghost("Schedule") { rotoSchedule = true }
                 }
             }
             if (b.event.isDraft && seating.isNotEmpty() && b.rounds.size <= 1) {
@@ -533,6 +548,8 @@ private fun PlayerView(
             dismiss = { BarAction("Stay") { confirmLeave = false } },
         )
     }
+    if (rotoOverlay) site.table1.events.roto.RotoDraftOverlay(b.event.id, b.event.name, false, b.event.pairing, onOpenList) { rotoOverlay = false }
+    if (rotoSchedule) site.table1.events.roto.RotoScheduleSheet(b, b.participants.firstOrNull { it.userId == site.table1.events.data.Repo.userId }?.id) { rotoSchedule = false }
 }
 
 /* ── shared ─────────────────────────────────────────────────────────────────── */

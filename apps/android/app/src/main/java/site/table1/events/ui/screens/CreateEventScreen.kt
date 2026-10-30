@@ -58,7 +58,7 @@ internal val constructedFormats = listOf(
     "vintage" to "Vintage", "pauper" to "Pauper", "premodern" to "Premodern",
     "canadian_highlander" to "Canadian Highlander", "other_constructed" to "Other",
 )
-internal val limitedFormats = listOf("draft" to "Draft", "team_draft" to "Team draft", "sealed" to "Sealed", "team_sealed" to "Team sealed")
+internal val limitedFormats = listOf("draft" to "Draft", "team_draft" to "Team draft", "sealed" to "Sealed", "team_sealed" to "Team sealed", "roto" to "Roto")
 
 @Composable
 fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
@@ -85,6 +85,8 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
     var autoRounds by remember { mutableStateOf(true) }
     var topCut by remember { mutableIntStateOf(0) }
     var decklists by remember { mutableStateOf("off") }
+    /** Roto: null follows the players (round robin for 2–8, Swiss for 9+) until picked. */
+    var pairingPicked by remember { mutableStateOf<String?>(null) }
     var formatMenu by remember { mutableStateOf(false) }
     var pickingSet by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -100,21 +102,25 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
     val formatLabel = options.firstOrNull { it.first == format }?.second ?: "Event"
     val isOther = format == "other_constructed"
     val isTeam = format == "team_draft" || format == "team_sealed"
+    // A roto is always a cube (contract/roto-2026-10-16.md).
+    val isRoto = limited && format == "roto"
+    val cube = useCube || isRoto
     val setLabel = pickedSet?.name ?: setNameFallback.trim().takeIf { setsUnavailable && it.isNotEmpty() }
     // What the server will call it: "Draft · Duskmourn · Wed 14 Oct".
     val preview = EventNaming.preview(
         if (isOther) formatOther.trim().ifEmpty { "Constructed" } else formatLabel,
-        if (!limited) null else if (useCube) cubeName else setLabel,
+        if (!limited) null else if (cube) cubeName else setLabel,
         schedule.startsAt?.toLocalDate() ?: java.time.LocalDate.now(),
     )
     val typedName = tidyName(name)
     // Swiss events of players: automatic rounds and the top cut apply.
-    val swiss = !isTeam
     val playerCount = guests.size + if (includeMe) 1 else 0
+    val pairing = pairingPicked ?: site.table1.events.roto.RotoMath.defaultPairing(playerCount)
+    val swiss = !isTeam && !(isRoto && pairing == "round_robin")
 
     val cubeUrlOk = cubeUrl.isBlank() || cubeUrl.trim().startsWith("https://")
     val valid = (!isOther || formatOther.isNotBlank()) &&
-        (!limited || !useCube || (cubeName.isNotBlank() && cubeUrlOk))
+        (!limited || !cube || (cubeName.isNotBlank() && cubeUrlOk))
 
     fun create() {
         busy = true
@@ -125,10 +131,10 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
                     formatName = format,
                     rounds = rounds,
                     showClock = showClock,
-                    setCode = if (limited && !useCube) pickedSet?.code else null,
-                    setName = if (limited && !useCube) setLabel else null,
-                    cubeName = if (limited && useCube) cubeName.trim() else null,
-                    cubeUrl = if (limited && useCube) cubeUrl.trim().ifEmpty { null } else null,
+                    setCode = if (limited && !cube) pickedSet?.code else null,
+                    setName = if (limited && !cube) setLabel else null,
+                    cubeName = if (limited && cube) cubeName.trim() else null,
+                    cubeUrl = if (limited && cube) cubeUrl.trim().ifEmpty { null } else null,
                     teamSize = if (isTeam) teamSize else null,
                     formatOther = if (isOther) formatOther.trim() else null,
                     includeMe = includeMe,
@@ -141,7 +147,10 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
                     autoRounds = swiss && autoRounds,
                     decklists = if (limited) "off" else decklists,
                     localDate = schedule.localDate,
+                    pairing = if (isRoto) pairing else null,
                 )
+                // Roto: the Library cube with that name, else the Cube Cobra link imported into the Library, becomes the pool.
+                if (isRoto) site.table1.events.roto.RotoApi.linkCube(created.eventId, cubeName, cubeUrl)
                 // Pin it where the organizer stands. For nearby events this also alerts opted-in players around.
                 // A scheduled event is usually made away from the venue: no pin then (Details can set it there).
                 val fix = if (schedule.startsAt == null) currentFix(context) else null
@@ -193,9 +202,9 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
             }
 
             if (limited) {
-                FormBlock("Product") {
-                    T1Segmented(listOf("Set", "Cube"), if (useCube) 1 else 0) { useCube = it == 1 }
-                    if (!useCube) {
+                FormBlock(if (isRoto) "Cube" else "Product") {
+                    if (!isRoto) T1Segmented(listOf("Set", "Cube"), if (useCube) 1 else 0) { useCube = it == 1 }
+                    if (!cube) {
                         if (setsUnavailable) {
                             T1TextField(setNameFallback, { setNameFallback = it.take(80) }, label = "Set name")
                         } else {
@@ -223,7 +232,8 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
             }
 
             ScheduleBlock(schedule) { schedule = it }
-            CutRoundsBlock(autoRounds, { autoRounds = it }, rounds, { rounds = it }, topCut, { topCut = it }, playerCount, swiss)
+            if (isRoto) FormBlock("Pairing") { site.table1.events.roto.RotoPairingFields(pairing, playerCount) { pairingPicked = it } }
+            if (!(isRoto && pairing == "round_robin")) CutRoundsBlock(autoRounds, { autoRounds = it }, rounds, { rounds = it }, topCut, { topCut = it }, playerCount, swiss)
             RoundTimerRow(showClock) { showClock = it }
             if (!limited) DecklistsBlock(decklists) { decklists = it }
 

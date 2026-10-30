@@ -95,7 +95,7 @@ fun resolveImport(lines: List<ImportedList.Line>, kind: ListKind, db: ListCatalo
     return ResolvedImport(entries.values.toList(), printings, names, missing.toList())
 }
 
-private suspend fun readImport(link: String, text: String): ImportedList = try {
+internal suspend fun readImport(link: String, text: String): ImportedList = try {
     val response = T1App.supabase.functions.invoke("list-import") {
         contentType(ContentType.Application.Json)
         setBody(buildJsonObject { if (link.isNotBlank()) put("url", link.trim()) else put("text", text) }.toString())

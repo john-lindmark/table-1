@@ -24,7 +24,10 @@ Gaps, in build order:
 3. [x] **Seat the ends** switch (`set_seat_ends`, contract/event-night-2026-10-16.md § 3). Android also still drew the
        old round table with a Pack 1/2/3 switch: now the long upright table (`TableLayout`, `TableLayoutTest`).
 4. [x] **Redraft pile** for finished set drafts (`redraft_*`, § 6). `ui/screens/Redraft.kt`, `RedraftTest`.
-5. [ ] **Roto cube events** (contract/roto-2026-10-16.md): setup, draft room, pick lists, clock, undo.
+5. [x] **Roto cube events** (contract/roto-2026-10-16.md): setup, draft room, pick lists, clock, undo. Built 2026-10-29
+       (`roto/`: RotoModel, RotoStore, RotoScreens; Create format Roto + Pairing, Details cube/picks/order/clock, Pick
+       order, Start draft, the Draft gate with Pair round 1, Draft picks and the round robin Schedule over Live;
+       `RotoTest` on the iOS/web cases).
 6. [x] **Demo data** switch for demo testers (`demo_tester`, `demo_seed`, `demo_remove`). Android also never asked for
        demo data (`p_include_demo` false); it now always asks, since the server shows it to testers only in any build
        (so the store review account sees its sample events).

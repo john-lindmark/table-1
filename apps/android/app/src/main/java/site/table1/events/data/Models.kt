@@ -58,6 +58,8 @@ data class EventRow(
     /** "Modern", "Draft · Duskmourn", "Team draft · Vintage Cube" (older rows: the coarse format). */
     val label: String get() = formatLabel ?: format.replaceFirstChar { it.uppercase() }
     val isDraft: Boolean get() = formatName == "draft" || formatName == "team_draft"
+    /** A roto cube draft (contract/roto-2026-10-16.md): a Draft phase between Setup and round 1. */
+    val isRoto: Boolean get() = formatName == "roto"
     val isTeamEvent: Boolean get() = teamSize != null
     /** Seats and teams can change until round 1 is paired. */
     val beforeRoundOne: Boolean get() = (status == "setup" || status == "seated") && currentRound == 0

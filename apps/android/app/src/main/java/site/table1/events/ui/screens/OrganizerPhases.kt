@@ -100,6 +100,7 @@ private fun phaseTabs(phase: OrganizerPhase, event: EventRow): List<Pair<String,
     OrganizerPhase.Setup -> buildList {
         add("players" to "Players")
         if (event.isDraft) add("seating" to "Seating")
+        if (event.isRoto) add("seating" to "Pick order")
         if (event.isTeamEvent) add("teams" to "Teams")
         add("details" to "Details")
     }
@@ -210,6 +211,8 @@ internal fun OrganizerScreen(
     /** Everyone's deck photos; the organizer can add one for any player. */
     onOpenPhotos: () -> Unit,
     onOpenRedraft: () -> Unit = {},
+    /** A Library list (a roto deck). */
+    onOpenList: (String) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val event = b.event
@@ -230,6 +233,8 @@ internal fun OrganizerScreen(
     var confirmCut by remember { mutableStateOf(false) }
     var dropping by remember { mutableStateOf<ParticipantRow?>(null) }
     var listFor by remember { mutableStateOf<ParticipantRow?>(null) }
+    var rotoOverlay by remember { mutableStateOf(false) }
+    var rotoSchedule by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     val active = b.activeRound
@@ -305,7 +310,9 @@ internal fun OrganizerScreen(
             when (phase) {
                 OrganizerPhase.Setup -> when (selected) {
                     "players" -> SetupPlayers(b, tags, busy, onAddPlayers, onShowQr = { showQr = true }, onChanged = onChanged) { block -> act(block) }
-                    "seating" -> SetupSeating(b, standings, busy, act = { block -> act(block) }) { seat() }
+                    "seating" -> if (event.isRoto) site.table1.events.roto.RotoPickOrder(
+                        b.participants.filter { it.status == "active" && it.seat != null }.sortedBy { it.seat }.map { it.seat!! to it.displayName }, busy,
+                    ) { seat() } else SetupSeating(b, standings, busy, act = { block -> act(block) }) { seat() }
                     "teams" -> TeamsTab(b, onChanged)
                     "details" -> DetailsTab(b, onChanged)
                 }
@@ -344,7 +351,9 @@ internal fun OrganizerScreen(
                         "Waiting on ${plural(b.decklistsMissing, "decklist")}"
                     else -> teamProblem(b)
                 }
-                BigAction(problem ?: "Start event · pair round 1", enabled = problem == null, busy = busy, accent = true) {
+                // Roto: Start draft (roto_start) replaces Pair round 1 until the draft is done.
+                if (event.isRoto) site.table1.events.roto.RotoStartAction(event.id, activePlayers) { scope.launch { onChanged() } }
+                else BigAction(problem ?: "Start event · pair round 1", enabled = problem == null, busy = busy, accent = true) {
                     confirmStart = true
                 }
             }
@@ -394,6 +403,9 @@ internal fun OrganizerScreen(
                 add(T1MenuItem("Share link") { shareEventLink(context, event) })
                 add(T1MenuItem("Deck photos", onClick = onOpenPhotos))
                 if (event.canRedraft) add(T1MenuItem("Redraft", onClick = onOpenRedraft))
+                // Roto: the draft stays readable over Live and Results; round robin has its schedule.
+                if (event.isRoto && b.rounds.isNotEmpty()) add(T1MenuItem("Draft picks") { rotoOverlay = true })
+                if (event.isRoto && event.pairing == "round_robin" && b.rounds.isNotEmpty()) add(T1MenuItem("Schedule") { rotoSchedule = true })
                 if (phase != OrganizerPhase.Results) add(T1MenuItem("Cancel event", danger = true) { cancelling = "" })
             },
             onDismiss = { moreMenu = false },
@@ -524,6 +536,8 @@ internal fun OrganizerScreen(
             act { Repo.setMatchResult(m.id, s0, s1, draws, "Set by organizer") }
         }
     }
+    if (rotoOverlay) site.table1.events.roto.RotoDraftOverlay(event.id, event.name, true, event.pairing, onOpenList) { rotoOverlay = false }
+    if (rotoSchedule) site.table1.events.roto.RotoScheduleSheet(b, null) { rotoSchedule = false }
 }
 
 /* ── setup ──────────────────────────────────────────────────────────────────── */
@@ -756,6 +770,8 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
     val saveLock = remember { Mutex() }
     var schedule by remember(event.id) { mutableStateOf(ScheduleDraft.from(event)) }
     var scheduleEdits by remember { mutableIntStateOf(0) }
+    /** Roto: swiss | round_robin, editable until round 1 (update_event_details p_pairing). */
+    var rotoPairing by remember(event.id) { mutableStateOf(event.pairing) }
 
     /** When / where / cap through set_event_schedule: the venue after a pause, the rest at once. */
     fun saveSchedule() {
@@ -812,6 +828,7 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
                         cubeUrl = if (limited && d.useCube) d.cubeUrl.trim().ifEmpty { null } else null,
                         teamSize = if (d.team) d.teamSize else null,
                         formatOther = if (d.other) d.formatOther.trim().ifEmpty { null } else null,
+                        pairing = if (d.formatName == "roto") rotoPairing else null,
                     )
                     error = null
                     saved = at
@@ -887,7 +904,13 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
             }
         }
 
-        if (d.limited) {
+        if (d.limited && d.formatName == "roto" && event.isRoto) {
+            // The pool is one of your Library cubes (roto_set_cube), not a typed name.
+            site.table1.events.roto.RotoSetupFields(event.id, b.participants.count { it.status == "active" }) { scope.launch { onChanged() } }
+            FormBlock("Pairing") {
+                site.table1.events.roto.RotoPairingFields(rotoPairing, b.participants.count { it.status == "active" }) { rotoPairing = it; editNow(draft) }
+            }
+        } else if (d.limited) {
             FormBlock("Product") {
                 T1Segmented(listOf("Set", "Cube"), if (d.useCube) 1 else 0) { draft = draft.copy(useCube = it == 1) }
                 if (!d.useCube) {
@@ -928,8 +951,8 @@ private fun DetailsTab(b: EventBundle, onChanged: suspend () -> Unit) {
             if (!typing) saveSchedule()
         }
 
-        CutRoundsBlock(d.autoRounds, { editNow(draft.copy(autoRounds = it)) }, d.rounds, { editNow(draft.copy(rounds = it)) },
-            d.topCut, { editNow(draft.copy(topCut = it)) }, b.participants.count { it.status == "active" }, d.swiss)
+        if (!(d.formatName == "roto" && rotoPairing == "round_robin")) CutRoundsBlock(d.autoRounds, { editNow(draft.copy(autoRounds = it)) }, d.rounds, { editNow(draft.copy(rounds = it)) },
+            d.topCut, { editNow(draft.copy(topCut = it)) }, b.participants.count { it.status == "active" }, d.swiss && !(d.formatName == "roto" && rotoPairing == "round_robin"))
 
         RoundTimerRow(d.showClock) { editNow(draft.copy(showClock = it)) }
         if (!d.limited) DecklistsBlock(d.decklists) { editNow(draft.copy(decklists = it)) }

@@ -101,6 +101,8 @@ object Repo {
         autoRounds: Boolean = false,
         decklists: String = "off",
         localDate: String = EventNaming.localDate(),
+        /** Roto only: swiss | round_robin. */
+        pairing: String? = null,
     ): CreateEventResult =
         supabase.postgrest.rpc("create_event_v2", buildJsonObject {
             put("p_format_name", formatName)
@@ -122,6 +124,7 @@ object Repo {
             put("p_top_cut", topCut)
             put("p_auto_rounds", autoRounds)
             put("p_decklists", decklists)
+            pairing?.let { put("p_pairing", it) }
         }).decodeAs<CreateEventResult>().also {
             Telemetry.capture("event_created", mapOf("format" to formatName, "organizer_plays" to includeMe, "guests" to guests.size, "scheduled" to (startsAt != null), "capped" to (capacity != null),
                 "top_cut" to topCut, "auto_rounds" to autoRounds, "named" to !name.isNullOrBlank(), "decklists" to decklists))
@@ -272,6 +275,8 @@ object Repo {
         topCut: Int? = null,
         autoRounds: Boolean? = null,
         decklists: String? = null,
+        /** Roto only: swiss | round_robin; null leaves it. */
+        pairing: String? = null,
     ): EventDetails =
         supabase.postgrest.rpc("update_event_details", buildJsonObject {
             put("p_event_id", eventId)
@@ -290,6 +295,7 @@ object Repo {
             put("p_top_cut", topCut)
             put("p_auto_rounds", autoRounds)
             put("p_decklists", decklists)
+            pairing?.let { put("p_pairing", it) }
         }).decodeAs()
 
     /**

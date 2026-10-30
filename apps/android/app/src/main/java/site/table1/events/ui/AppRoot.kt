@@ -530,6 +530,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                         onOpenTracker = { matchId -> nav.navigate("tracker/$matchId") },
                         onOpenPhotos = { nav.navigate("photos/$id") },
                         onOpenRedraft = { nav.navigate("redraft/$id") },
+                        onOpenList = { nav.navigate("collection/list/$it") },
                     )
                 }
                 composable("redraft/{id}") { e ->
