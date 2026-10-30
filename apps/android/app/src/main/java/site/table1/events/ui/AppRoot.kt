@@ -200,11 +200,19 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
         var started = false
+        var stoppedAt: Long? = null
         val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) stoppedAt = android.os.SystemClock.elapsedRealtime()
             if (event == Lifecycle.Event.ON_START) {
                 if (started) autoOpenArmed = true
                 started = true
                 foregrounds++
+                // Away 30 minutes or more: Events again, as after a fresh start. A tapped notification or link still
+                // opens its own screen: it navigates after this.
+                if (SessionView.backToEvents(stoppedAt, android.os.SystemClock.elapsedRealtime())) {
+                    nav.navigate("events") { popUpTo(nav.graph.findStartDestination().id); launchSingleTop = true }
+                }
+                stoppedAt = null
             }
         }
         lifecycle.addObserver(observer)
