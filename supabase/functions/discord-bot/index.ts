@@ -212,7 +212,7 @@ async function meta(ctx: Ctx, kind: MetaKind, options: Parameters<typeof opt>[0]
     if (!archetype) return ephemeral(`That isn't one of ${META_FORMATS[ask.format]}'s archetypes. Pick one from the list.`);
   }
   ctx.telemetry.push({ event: "discord_meta_posted", kind: ask.kind, format: ask.format, tier: ask.tier, days: ask.days });
-  const picture = metaImageUrl(META_IMAGE, ask, Math.floor(Date.now() / 3_600_000));
+  const picture = metaImageUrl(META_IMAGE, ask, ctx.ix.id);
   return reply({ embeds: [metaEmbed(ask, archetype, picture)], components: metaComponents(ask) });
 }
 

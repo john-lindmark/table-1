@@ -383,8 +383,8 @@ Deno.test("/meta: options checked, the picture's address, the post", () => {
   assertEquals(metaAsk("deck", o({ format: "modern", archetype: "none" })), null, "the autocomplete's hint isn't an archetype");
   assertEquals(metaAsk("deck", o({ format: "modern", archetype: "0" }))!.a, 0, "Other");
   const ask = metaAsk("deck", o({ format: "modern", archetype: "11", events: "big", days: 90 }))!;
-  assertEquals(metaImageUrl("https://x.supabase.co/functions/v1/meta-image/", ask, 491234),
-    "https://x.supabase.co/functions/v1/meta-image/modern/deck.png?tier=big&days=90&a=11&v=491234");
+  assertEquals(metaImageUrl("https://x.supabase.co/functions/v1/meta-image/", ask, "1433000000000000000"),
+    "https://x.supabase.co/functions/v1/meta-image/modern/deck.png?tier=big&days=90&a=11&v=1433000000000000000");
   const e = metaEmbed(ask, "Boros Land Destruction", "https://p");
   assertEquals([e.title, e.description, e.url, e.image.url], [
     "Boros Land Destruction · Modern", "Matchups · Big events · last 90 days", "https://table-1.site/insights/modern/archetype/11", "https://p"]);

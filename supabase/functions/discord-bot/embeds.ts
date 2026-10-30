@@ -376,9 +376,10 @@ export function metaAsk(kind: MetaKind, options: Option[]): MetaAsk | null {
   return { kind, format, tier: opt(options, "events") === "big" ? "big" : "all", days: META_DAYS.includes(days) ? days : 30, a: kind === "deck" ? a : null };
 }
 
-/** The picture's address on the meta-image function. `slot` (the hour) makes a fresh address as the packs update, so
- *  Discord's image cache never serves an old picture to a new post. */
-export function metaImageUrl(base: string, ask: MetaAsk, slot: number): string {
+/** The picture's address on the meta-image function. `slot` is the post's interaction id, so every post has its own
+ *  address and Discord's image cache never serves an older picture to a new post (an hour slot did, after a redraw
+ *  within the hour). meta-image keeps its own cache by pack build, so a fresh address costs a fetch, not a draw. */
+export function metaImageUrl(base: string, ask: MetaAsk, slot: string): string {
   const q = new URLSearchParams({ tier: ask.tier, days: String(ask.days) });
   if (ask.a != null) q.set("a", String(ask.a));
   q.set("v", String(slot));
