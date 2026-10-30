@@ -80,7 +80,7 @@ struct Table1App: App {
                     PushController.shared.openEvent = { session.pendingEvent = $0 }
                     PushController.shared.openSocial = { session.pendingSocial = $0 }
                     PushController.shared.openLibrary = { session.pendingLibrary = $0 }
-                    PushController.shared.openInsights = { session.pendingInsights = $0 }
+                    PushController.shared.openInsights = { session.pendingInsightsPush = $0 }
                     AppIntentRouter.handler = { session.openAppLink($0) }
                 }
                 // Apple ID access can be withdrawn from Settings at any time.
@@ -153,7 +153,7 @@ final class SessionModel {
     /// Collection tab's stack.
     var pendingLibrary: [LibraryRoute]?
     /// A tapped "New in Insights" push.
-    var pendingInsights: InsightsPush?
+    var pendingInsightsPush: InsightsPush?
     /// The Next event widget with nothing to open: the Events tab's root.
     var pendingEventsTab = false
     /// The Life tracker control: a local tracker once signed in (a cold launch is still loading the session).
@@ -467,9 +467,9 @@ struct SignedInView: View {
                 libraryPath = p
             }
         }
-        .task(id: session.pendingInsights) {
-            if let p = session.pendingInsights {
-                session.pendingInsights = nil
+        .task(id: session.pendingInsightsPush) {
+            if let p = session.pendingInsightsPush {
+                session.pendingInsightsPush = nil
                 session.tracker = nil
                 T1Overlays.shared.dismissAll()
                 let store = InsightsStore.shared
