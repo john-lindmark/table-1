@@ -90,6 +90,10 @@ object LimitedPicker {
         return fresh.map { Chip(it.key, it.key, false) } + packs.map { (k, n) -> Chip(k, label(k, n), true) }
     }
 
+    /** The chips Insights → Edit leaves shown: sets with no data yet hide like the packs, and all show if all are hidden
+     *  (the same rule as `Insights.visibleKeys`). */
+    fun shown(chips: List<Chip>, hidden: List<String>): List<Chip> = chips.filter { it.key !in hidden }.ifEmpty { chips }
+
     /** What a set with no 17Lands data yet says above Rank this set. */
     fun soonText(s: RankableSet, today: java.time.LocalDate = utcToday()): String {
         val day = s.released?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }

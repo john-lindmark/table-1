@@ -46,6 +46,12 @@ export function limitedPicker(packs: { key: string; name?: string | null }[], ra
   return [...fresh.map((s) => ({ key: s.key, label: s.key, pack: false })),
           ...packs.map((p) => ({ key: p.key, label: limitedLabel(p.key, p.name), pack: true }))];
 }
+/** The chips Insights → Edit leaves shown: sets with no data yet hide like the packs, and all show if all are hidden
+ *  (the same rule as `visibleKeys`). */
+export function shownChips(chips: LimitedChip[], hidden: string[]): LimitedChip[] {
+  const shown = chips.filter((c) => !hidden.includes(c.key));
+  return shown.length ? shown : chips;
+}
 
 const dayLabel = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 /** What a set with no 17Lands data yet says above Rank this set. */

@@ -2,7 +2,7 @@
 // LimitedRankingsTests, Android LimitedRankingsTest read the same cases).
 import { describe, expect, it } from "vitest";
 import cases from "../../../testdata/limited-rankings/cases.json";
-import { insightsPush, limitedLabel, limitedPicker, rankableDetail, type RankableSet, setKeyOf, setSubjectId, sharingLabel, soonText, subjectRow } from "./limitedRank";
+import { insightsPush, limitedLabel, limitedPicker, rankableDetail, type RankableSet, setKeyOf, setSubjectId, sharingLabel, shownChips, soonText, subjectRow } from "./limitedRank";
 
 describe("limited rankings", () => {
   it("names a set's subject", () => {
@@ -38,7 +38,11 @@ describe("limited rankings", () => {
 
   it("labels the set picker and puts sets with no data yet first", () => {
     for (const c of cases.labels) expect(limitedLabel(c.key, c.name)).toBe(c.label);
-    for (const c of cases.picker) expect(limitedPicker(c.packs, c.rankable as RankableSet[], c.today)).toEqual(c.chips);
+    for (const c of cases.picker) {
+      const chips = limitedPicker(c.packs, c.rankable as RankableSet[], c.today);
+      expect(chips).toEqual(c.chips);
+      if (c.hidden) expect(shownChips(chips, c.hidden).map((x) => x.key)).toEqual(c.shown);
+    }
     for (const c of cases.soon) expect(soonText(c.set as RankableSet, c.today)).toBe(c.text);
   });
 });

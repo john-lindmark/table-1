@@ -582,7 +582,8 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     var sort by remember { mutableStateOf("gih") }
     var rarity by remember { mutableStateOf("all") }
     var colour by remember { mutableStateOf("all") }
-    val sets = s.shownSets
+    // The picker waits for the sets to rank (kept on the device after the first visit) so it draws whole.
+    val chips = if (s.rankableReady) s.shownChips else emptyList()
     var editing by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { s.loadExtras() }
     fun rank(key: String, kind: String, from: String) {
@@ -596,18 +597,17 @@ private fun LimitedHome(navigate: (String) -> Unit) {
         Section("New sets to rank")
         fresh.forEach { r -> ListRow("Rank ${r.name}", r.detail(), onClick = { rank(r.key, r.kind, "new_sets") }) }
     }
-    if (sets.isEmpty()) {
-        Notice(s.error ?: if (s.loading) "Loading draft data…" else "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena.", error = s.error != null)
+    if (chips.isEmpty()) {
+        Notice(s.error ?: if (s.loading || !s.rankableReady) "Loading draft data…" else "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena.", error = s.error != null)
         newSets()
         return
     }
-    // Sets with no 17Lands data yet (spoiler season, or just out) lead the picker and open Rank this set.
-    val chips = LimitedPicker.chips(sets.map { k -> k to s.limitedSets.firstOrNull { it.key == k }?.name }, s.rankable)
-    val set = s.setCode?.takeIf { k -> chips.any { it.key == k } } ?: sets.first()
+    // Sets with no 17Lands data yet (spoiler season, or just out) lead the picker and open Rank this set; Edit hides any.
+    val set = s.setCode?.takeIf { k -> chips.any { it.key == k } } ?: (chips.firstOrNull { it.pack } ?: chips.first()).key
     PickerRow(editing, { editing = !editing }) {
         T1Segmented(chips.map { it.label }, chips.indexOfFirst { it.key == set }, scroll = true) { s.pickSet(chips[it].key) }
     }
-    if (editing) ShownEditor("Shown sets", s.limitedSets.map { Triple(it.key, LimitedPicker.label(it.key, it.name), it.name.takeIf { n -> n != it.key }) }, s.hiddenSets,
+    if (editing) ShownEditor("Shown sets", s.limitedChips.map { c -> Triple(c.key, c.label, s.limitedName(c.key)?.takeIf { it != c.label }) }, s.hiddenSets,
         { k, hide -> s.setHidden(false, k, hide) }) { editing = false }
     val soon = s.rankable.firstOrNull { r -> r.key == set && chips.any { !it.pack && it.key == r.key } }
     if (soon != null) {
@@ -617,7 +617,7 @@ private fun LimitedHome(navigate: (String) -> Unit) {
         return
     }
     LaunchedEffect(set) { s.ensure("limited", set) }
-    val pack = s.limited[set] ?: run { Notice(s.error ?: "Loading ${LimitedPicker.label(set, s.limitedSets.firstOrNull { it.key == set }?.name)}…", error = s.error != null); return }
+    val pack = s.limited[set] ?: run { Notice(s.error ?: "Loading ${LimitedPicker.label(set, s.limitedName(set))}…", error = s.error != null); return }
     val events = s.events(pack)
     val ev = s.currentEvent(pack) ?: return
     if (events.size > 1) T1Segmented(events.map { Insights.eventLabels[it] ?: it }, events.indexOf(ev)) { s.pickEvent(events[it]) }

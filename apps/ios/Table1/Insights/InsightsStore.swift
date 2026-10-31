@@ -22,8 +22,11 @@ final class InsightsStore {
     private(set) var loadedAt: Date?
     /// Debug demo (-T1InsightsDemo): packs and pages from DebugResources, nothing from the network.
     @ObservationIgnored var demoPages: [String: Data]?
-    /// Sets and Arena cube versions to rank (limited_rankable), newest first; loaded with Limited.
+    /// Sets and Arena cube versions to rank (limited_rankable), newest first; loaded with the index.
     private(set) var rankable: [RankableSet] = []
+    /// Whether `rankable` holds an answer (this launch's, or the device's last one for this account). Limited's picker
+    /// waits for it, so sets with no 17Lands data yet don't arrive at the front of the picker a moment after it draws.
+    private(set) var rankableReady = false
     /// "New in Insights" pushes on for the account; nil until loaded.
     private(set) var alerts: Bool?
 
@@ -55,9 +58,15 @@ final class InsightsStore {
         let keys = Insights.visibleKeys(Insights.formats.map(\.key), hiddenFormats)
         return Insights.formats.filter { keys.contains($0.key) }
     }
-    var shownSets: [Insights.IndexEntry] {
-        let keys = Insights.visibleKeys(limitedSets.map(\.key), hiddenSets)
-        return limitedSets.filter { keys.contains($0.key) }
+    /// Every chip of the Limited set picker: sets with no 17Lands data yet, then the index's packs.
+    var limitedChips: [LimitedPicker.Chip] {
+        LimitedPicker.chips(packs: limitedSets.map { ($0.key, $0.name) }, rankable: rankable, today: LimitedPicker.today)
+    }
+    /// The chips Edit leaves shown (sets with no data yet hide like the packs).
+    var shownChips: [LimitedPicker.Chip] { LimitedPicker.shown(limitedChips, hidden: hiddenSets) }
+    /// A Limited key's full name: the index's, else the set to rank's.
+    func limitedName(_ key: String) -> String? {
+        limitedSets.first { $0.key == key }?.name ?? rankable.first { $0.key == key }?.name
     }
     /// Shows or hides a format (or a set); a picked one that's hidden gives way to the first one still shown.
     func setHidden(format: Bool, _ key: String, _ hide: Bool) {
@@ -66,7 +75,7 @@ final class InsightsStore {
             if !shownFormats.contains(where: { $0.key == self.format }), let first = shownFormats.first { self.format = first.key }
         } else {
             hiddenSets = hiddenSets.filter { $0 != key } + (hide ? [key] : [])
-            if let s = setCode, !shownSets.contains(where: { $0.key == s }) { setCode = shownSets.first?.key }
+            if let s = setCode, !shownChips.contains(where: { $0.key == s }) { setCode = shownChips.first?.key }
         }
         Telemetry.capture("insights_picker_edited", ["picker": format ? "formats" : "sets", "hidden": format ? hiddenFormats.count : hiddenSets.count])
     }
@@ -161,6 +170,8 @@ final class InsightsStore {
     private func loadNow() async {
         loading = true
         defer { loading = false }
+        // Sets to rank alongside the index: Limited's picker waits for both.
+        Task { await loadExtras() }
         await pullPicks()
         do {
             index = try await supabase.rpc("insights_index").execute().value
@@ -192,16 +203,30 @@ final class InsightsStore {
                                         pack: true, mine: 0, rankings: 0)]
             }
             if alerts == nil { alerts = true }
+            rankableReady = true
             return
         }
         #endif
-        guard Repo.userId != nil else { return }
+        defer { rankableReady = true }
+        guard let uid = Repo.userId else { return }
+        if !rankableReady, let data = UserDefaults.standard.data(forKey: Self.rankableKey),
+           let held = try? JSONDecoder().decode(HeldRankable.self, from: data), held.user == uid {
+            rankable = held.sets
+            rankableReady = true
+        }
         async let sets = RankingsStore.shared.rankableSets()
         struct On: Decodable { let on: Bool }
         async let on: On = supabase.rpc("insights_alerts").execute().value
-        if let s = try? await sets { rankable = s }
+        if let s = try? await sets {
+            rankable = s
+            if let data = try? JSONEncoder().encode(HeldRankable(user: uid, sets: s)) { UserDefaults.standard.set(data, forKey: Self.rankableKey) }
+        }
         if let a = try? await on { alerts = a.on }
     }
+
+    /// The last sets to rank this device saw, for whom.
+    private struct HeldRankable: Codable { let user: String; let sets: [RankableSet] }
+    private static let rankableKey = "insights.rankable"
 
     func setAlerts(_ on: Bool) async {
         let was = alerts

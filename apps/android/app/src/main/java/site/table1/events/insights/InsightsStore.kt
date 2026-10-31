@@ -42,12 +42,17 @@ object InsightsStore {
     /** Debug demo: packs and pages from the debug assets, nothing from the network. */
     var demo = false; private set
     private var demoPages: Map<String, String> = emptyMap()
-    /** Sets and Arena cube versions to rank (limited_rankable); loaded with Limited. */
+    /** Sets and Arena cube versions to rank (limited_rankable); loaded with the index. */
     var rankable by mutableStateOf<List<site.table1.events.library.RankableSet>>(emptyList()); private set
+    /** Whether [rankable] holds an answer (this launch's, or the device's last one for this account). Limited's picker
+     *  waits for it, so sets with no 17Lands data yet don't arrive at the front of the picker a moment after it draws. */
+    var rankableReady by mutableStateOf(false); private set
     /** New in Insights pushes on for the account; null until loaded. */
     var alerts by mutableStateOf<Boolean?>(null); private set
 
     @kotlinx.serialization.Serializable private data class On(val on: Boolean)
+    /** The last sets to rank this device saw, for whom. */
+    @kotlinx.serialization.Serializable private data class HeldRankable(val user: String, val sets: List<site.table1.events.library.RankableSet>)
 
     /** Limited's extras: the sets to rank and the New in Insights switch; quietly left as they were when they can't load. */
     suspend fun loadExtras() {
@@ -57,10 +62,17 @@ object InsightsStore {
                 site.table1.events.library.RankableSet("NHZ", "New Horizons", java.time.LocalDate.now().plusDays(5).toString(), "set", 264, pack = false),
                 site.table1.events.library.RankableSet("PWR-2510", "Arena Powered Cube · Oct 2025", "2025-10-30", "cube", 540, pack = true))
             if (alerts == null) alerts = true
+            rankableReady = true
             return
         }
-        if (site.table1.events.data.Repo.userId == null) return
-        runCatching { site.table1.events.library.RankingsStore.rankableSets() }.onSuccess { rankable = it }.onFailure { it.rethrowIfCancelled() }
+        val uid = site.table1.events.data.Repo.userId ?: run { rankableReady = true; return }
+        if (!rankableReady) runCatching { prefs.getString("rankable", null)?.let { json.decodeFromString<HeldRankable>(it) } }.getOrNull()
+            ?.takeIf { it.user == uid }?.let { rankable = it.sets; rankableReady = true }
+        try {
+            runCatching { site.table1.events.library.RankingsStore.rankableSets() }
+                .onSuccess { rankable = it; runCatching { prefs.edit().putString("rankable", json.encodeToString(HeldRankable.serializer(), HeldRankable(uid, it))).apply() } }
+                .onFailure { it.rethrowIfCancelled() }
+        } finally { rankableReady = true }
         runCatching { T1App.supabase.postgrest.rpc("insights_alerts").data.let { json.decodeFromString<On>(it).on } }
             .onSuccess { alerts = it }.onFailure { it.rethrowIfCancelled() }
     }
@@ -137,7 +149,13 @@ object InsightsStore {
     fun pickTier(v: String) { tierPicked = v; save("tier", v); Telemetry.capture("insights_tier_changed", mapOf("tier" to v)) }
     fun pickDays(v: Int) { days = v; save("days", v); Telemetry.capture("insights_window_changed", mapOf("days" to v)) }
     val shownFormats: List<String> get() = Insights.visibleKeys(Insights.formats.map { it.first }, hiddenFormats)
-    val shownSets: List<String> get() = Insights.visibleKeys(limitedSets.map { it.key }, hiddenSets)
+    /** Every chip of the Limited set picker: sets with no 17Lands data yet, then the index's packs. */
+    val limitedChips: List<site.table1.events.library.LimitedPicker.Chip>
+        get() = site.table1.events.library.LimitedPicker.chips(limitedSets.map { it.key to it.name }, rankable)
+    /** The chips Edit leaves shown (sets with no data yet hide like the packs). */
+    val shownChips get() = site.table1.events.library.LimitedPicker.shown(limitedChips, hiddenSets)
+    /** A Limited key's full name: the index's, else the set to rank's. */
+    fun limitedName(key: String): String? = limitedSets.firstOrNull { it.key == key }?.name ?: rankable.firstOrNull { it.key == key }?.name
 
     /** Shows or hides a format (or a set); a picked one that's hidden gives way to the first one still shown. */
     fun setHidden(format: Boolean, key: String, hide: Boolean) {
@@ -150,7 +168,7 @@ object InsightsStore {
             hiddenSets = hiddenSets.filter { it != key } + (if (hide) listOf(key) else emptyList())
             runCatching { prefs.edit().putStringSet("hiddenSets", hiddenSets.toSet()).apply() }
             pushPicks()
-            setCode?.let { if (it !in shownSets) shownSets.firstOrNull()?.let(::pickSet) }
+            setCode?.let { k -> if (shownChips.none { it.key == k }) shownChips.firstOrNull()?.let { pickSet(it.key) } }
         }
         Telemetry.capture("insights_picker_edited", mapOf("picker" to if (format) "formats" else "sets", "hidden" to (if (format) hiddenFormats else hiddenSets).size))
     }
@@ -183,6 +201,8 @@ object InsightsStore {
             return
         }
         loading = true
+        // Sets to rank alongside the index: Limited's picker waits for both.
+        scope.launch { loadExtras() }
         pullPicks()
         try {
             val raw = T1App.supabase.postgrest.rpc("insights_index").data

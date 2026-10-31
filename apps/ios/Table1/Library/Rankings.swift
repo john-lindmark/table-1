@@ -100,7 +100,7 @@ enum RankSubject {
 }
 
 /// A set or Arena cube version you can rank (limited_rankable), newest first.
-struct RankableSet: Decodable, Hashable, Identifiable, Sendable {
+struct RankableSet: Codable, Hashable, Identifiable, Sendable {
     let key: String
     var name: String
     var released: String?
@@ -143,6 +143,13 @@ enum LimitedPicker {
         let have = Set(packs.map(\.key))
         let fresh = rankable.filter { $0.kind == "set" && !$0.pack && ($0.released.map { $0 >= from } ?? false) && !have.contains($0.key) }
         return fresh.map { Chip(key: $0.key, label: $0.key, pack: false) } + packs.map { Chip(key: $0.key, label: label($0.key, $0.name), pack: true) }
+    }
+
+    /// The chips Insights → Edit leaves shown: sets with no data yet hide like the packs, and all show if all are hidden
+    /// (the same rule as `Insights.visibleKeys`).
+    static func shown(_ chips: [Chip], hidden: [String]) -> [Chip] {
+        let shown = chips.filter { !hidden.contains($0.key) }
+        return shown.isEmpty ? chips : shown
     }
 
     /// What a set with no 17Lands data yet says above Rank this set.

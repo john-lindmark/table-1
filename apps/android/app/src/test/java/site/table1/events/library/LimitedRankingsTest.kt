@@ -77,7 +77,11 @@ class LimitedRankingsTest {
             val packs = c["packs"]!!.jsonArray.map { it.jsonObject.let { p -> str(p, "key")!! to str(p, "name") } }
             val rankable = json.decodeFromJsonElement(kotlinx.serialization.builtins.ListSerializer(RankableSet.serializer()), c["rankable"]!!)
             val want = c["chips"]!!.jsonArray.map { it.jsonObject.let { h -> LimitedPicker.Chip(str(h, "key")!!, str(h, "label")!!, h["pack"]!!.jsonPrimitive.boolean) } }
-            assertEquals(str(c, "today"), want, LimitedPicker.chips(packs, rankable, LocalDate.parse(str(c, "today"))))
+            val got = LimitedPicker.chips(packs, rankable, LocalDate.parse(str(c, "today")))
+            assertEquals(str(c, "today"), want, got)
+            c["hidden"]?.jsonArray?.map { it.jsonPrimitive.content }?.let { hidden ->
+                assertEquals("hidden $hidden", c["shown"]!!.jsonArray.map { it.jsonPrimitive.content }, LimitedPicker.shown(got, hidden).map { it.key })
+            }
         }
         for (c in list("soon")) {
             val set = json.decodeFromJsonElement(RankableSet.serializer(), c["set"]!!)

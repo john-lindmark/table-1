@@ -80,6 +80,9 @@ final class LimitedRankingsTests: XCTestCase {
             let got = LimitedPicker.chips(packs: packs, rankable: try sets(p["rankable"]), today: p["today"] as! String)
             let want = (p["chips"] as! [[String: Any]]).map { LimitedPicker.Chip(key: $0["key"] as! String, label: $0["label"] as! String, pack: $0["pack"] as! Bool) }
             XCTAssertEqual(got, want, "\(p["today"]!)")
+            if let hidden = p["hidden"] as? [String] {
+                XCTAssertEqual(LimitedPicker.shown(got, hidden: hidden).map(\.key), p["shown"] as? [String], "hidden \(hidden)")
+            }
         }
         for s in c["soon"] as! [[String: Any]] {
             let set = try sets([s["set"]!])[0]

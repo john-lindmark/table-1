@@ -437,6 +437,8 @@ export function loadInsights(force = false): Promise<void> {
   if (!force && loading && Date.now() - loadedAt < 600_000) return loading;
   loadedAt = Date.now();
   loading = (async () => {
+    // Sets to rank alongside the index: Limited's picker waits for both.
+    void loadInsightsExtras();
     await pullPicks().catch(() => { /* keep this browser's picks */ });
     const { data, error } = await supabase.rpc("insights_index");
     if (error) { set({ error: `Insights couldn't load: ${error.message}` }); return; }
@@ -462,10 +464,27 @@ export async function loadInsightsExtras() {
       { key: "PWR-2510", name: "Arena Powered Cube · Oct 2025", released: "2025-10-30", kind: "cube", cards: 540, pack: true, mine: 0, rankings: 0 }] });
     return;
   }
+  try { await loadRankable(); } finally { if (!state.rankable) set({ rankable: [] }); }
+}
+async function loadRankable() {
+  const { data } = await supabase.auth.getSession();
+  const uid = data.session?.user.id;
+  if (!uid) return;
+  // The last answer for this account first, so the set picker draws whole instead of sets arriving a moment later.
+  if (!state.rankable) {
+    try {
+      const held = JSON.parse(localStorage.getItem(RANKABLE_KEY) ?? "null") as { user: string; sets: RankableSet[] } | null;
+      if (held?.user === uid) set({ rankable: held.sets });
+    } catch { /* private window */ }
+  }
   const [sets, on] = await Promise.all([supabase.rpc("limited_rankable"), supabase.rpc("insights_alerts")]);
+  if (!sets.error) {
+    try { localStorage.setItem(RANKABLE_KEY, JSON.stringify({ user: uid, sets: sets.data })); } catch { /* private window */ }
+  }
   set({ rankable: sets.error ? state.rankable ?? [] : (sets.data as RankableSet[]),
         alerts: on.error ? state.alerts : !!(on.data as { on: boolean }).on });
 }
+const RANKABLE_KEY = "t1.insights.rankable";
 
 export async function setInsightsAlerts(on: boolean) {
   const was = state.alerts;

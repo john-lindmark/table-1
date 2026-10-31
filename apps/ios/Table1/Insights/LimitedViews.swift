@@ -11,14 +11,15 @@ struct LimitedHomeSection: View {
     @State private var editing = false
 
     var body: some View {
-        let sets = store.shownSets
+        // The picker waits for the sets to rank (kept on the device after the first visit) so it draws whole.
+        let chips = store.rankableReady ? store.shownChips : []
         Group {
-            if sets.isEmpty {
+            if chips.isEmpty {
                 if let e = store.error { Notice(e, error: true) }
-                else { Notice(store.loading ? "Loading draft data…" : "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena.") }
+                else { Notice(store.loading || !store.rankableReady ? "Loading draft data…" : "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena.") }
                 newSets
             } else {
-                picked(sets)
+                picked(chips)
             }
         }
         .task { await store.loadExtras() }
@@ -57,18 +58,17 @@ struct LimitedHomeSection: View {
         }
     }
 
-    @ViewBuilder private func picked(_ sets: [Insights.IndexEntry]) -> some View {
-            // Sets with no 17Lands data yet (spoiler season, or just out) lead the picker and open Rank this set.
+    /// Sets with no 17Lands data yet (spoiler season, or just out) lead the picker and open Rank this set; Edit hides any.
+    @ViewBuilder private func picked(_ chips: [LimitedPicker.Chip]) -> some View {
             let today = LimitedPicker.today
-            let chips = LimitedPicker.chips(packs: sets.map { ($0.key, $0.name) }, rankable: store.rankable, today: today)
-            let setBinding = Binding<String>(get: { store.setCode.flatMap { s in chips.contains { $0.key == s } ? s : nil } ?? sets[0].key },
+            let setBinding = Binding<String>(get: { store.setCode.flatMap { s in chips.contains { $0.key == s } ? s : nil } ?? (chips.first { $0.pack } ?? chips[0]).key },
                                              set: { store.setCode = $0 })
             let soon = chips.contains { !$0.pack && $0.key == setBinding.wrappedValue } ? store.rankable.first { $0.key == setBinding.wrappedValue } : nil
             PickerRow(editing: $editing) {
                 T1Segmented(options: chips.map { ($0.key, $0.label) }, selection: setBinding, scroll: true)
             }
             if editing {
-                ShownEditor(title: "Shown sets", items: store.limitedSets.map { ($0.key, LimitedPicker.label($0.key, $0.name), $0.name == $0.key ? nil : $0.name) },
+                ShownEditor(title: "Shown sets", items: store.limitedChips.map { c in (c.key, c.label, store.limitedName(c.key).flatMap { $0 == c.label ? nil : $0 }) },
                             hidden: store.hiddenSets, set: { store.setHidden(format: false, $0, $1) }, done: { editing = false })
             }
             if let soon {
@@ -77,7 +77,7 @@ struct LimitedHomeSection: View {
             } else if let pack = store.limited[setBinding.wrappedValue] {
                 content(pack)
             } else {
-                Notice("Loading \(LimitedPicker.label(setBinding.wrappedValue, sets.first { $0.key == setBinding.wrappedValue }?.name))…")
+                Notice("Loading \(LimitedPicker.label(setBinding.wrappedValue, store.limitedName(setBinding.wrappedValue)))…")
                     .task { await store.load(force: true) }
             }
             alertsRow

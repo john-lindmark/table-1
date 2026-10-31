@@ -10,7 +10,7 @@ import {
   type LCard, type LimitedPack, type LView, type Tier,
 } from "../lib/insights";
 import { isLibraryDemo } from "../lib/libraryDemo";
-import { limitedLabel, limitedPicker, rankableDetail, soonText } from "../lib/limitedRank";
+import { limitedLabel, limitedPicker, rankableDetail, shownChips, soonText } from "../lib/limitedRank";
 import { useCatalog } from "./Library";
 import { createList, type Entry } from "../lib/lists";
 import type { ProfileCard } from "../lib/friends";
@@ -615,15 +615,13 @@ function ShownEditor({ title, items, hidden, which, onDone }: {
   );
 }
 
-function limitedPick(packs: Record<string, LimitedPack>, setPicked: string | null, eventPicked: string, groupPicked: "all" | "top", hidden: string[] = []) {
-  const sets = visibleKeys(Object.keys(packs), hidden);
-  const set = setPicked && packs[setPicked] ? setPicked : sets[0];
+function limitedPick(packs: Record<string, LimitedPack>, set: string | undefined, eventPicked: string, groupPicked: "all" | "top") {
   const pack = set ? packs[set] : undefined;
   const events = pack ? EVENT_ORDER.filter((e) => pack.events[e]) : [];
   const event = events.includes(eventPicked) ? eventPicked : events[0];
   const groups = pack && event ? pack.events[event].groups : {};
   const group: "all" | "top" = groups[groupPicked] ? groupPicked : "all";
-  return { sets, set, pack, events, event, group, view: groups[group] as LView | undefined };
+  return { set, pack, events, event, group, view: groups[group] as LView | undefined };
 }
 
 /** A set's or Arena cube version's Rankings (contract/cube-rankings-2026-10-21.md § Sets). */
@@ -656,11 +654,15 @@ function LimitedHome() {
   const [rarity, setRarity] = useState("all");
   const [colour, setColour] = useState("all");
   const [editing, setEditing] = useState(false);
-  const { sets, set, pack, events, event, group, view } = limitedPick(limited, picks.set, picks.event, picks.group, picks.hiddenSets);
-  // Sets with no 17Lands data yet (spoiler season, or just out) lead the picker and open Rank this set.
+  // Sets with no 17Lands data yet (spoiler season, or just out) lead the picker and open Rank this set; the packs follow
+  // in the index's order. Edit hides any of them.
   const today = new Date().toISOString().slice(0, 10);
-  const chips = limitedPicker(sets.map((k) => ({ key: k, name: limited[k]?.name })), rankable ?? [], today);
-  const soon = (rankable ?? []).find((r) => r.key === picks.set && chips.some((c) => !c.pack && c.key === r.key));
+  const all = limitedPicker((index ?? []).filter((e) => e.kind === "limited").map((e) => ({ key: e.key, name: e.name })), rankable ?? [], today);
+  const chips = shownChips(all, picks.hiddenSets);
+  const current = chips.find((c) => c.key === picks.set) ?? chips.find((c) => c.pack) ?? chips[0];
+  const soon = current && !current.pack ? (rankable ?? []).find((r) => r.key === current.key) : undefined;
+  const nameOf = (k: string) => index?.find((e) => e.kind === "limited" && e.key === k)?.name ?? rankable?.find((r) => r.key === k)?.name;
+  const { set, pack, events, event, group, view } = limitedPick(limited, current?.pack ? current.key : undefined, picks.event, picks.group);
   // A cube's cards have no rarity: no rarity filter then.
   const rated = !!view?.cards.some((c) => c.r);
   const cards = useMemo(() => {
@@ -676,20 +678,21 @@ function LimitedHome() {
         return b.gih_n - a.gih_n;
       });
   }, [view, sort, rarity, colour, rated]);
-  if (!sets.length) {
+  // The picker waits for the index and the sets to rank (kept on the device after the first visit), so it draws whole.
+  if (!index || !rankable || !chips.length) {
     return (<>
       {error ? <Notice tone="error">{error}</Notice>
-        : <Notice tone="info">{index ? "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena." : "Loading draft data…"}</Notice>}
+        : <Notice tone="info">{index && rankable ? "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena." : "Loading draft data…"}</Notice>}
       <NewSetsToRank />
     </>);
   }
   const picker = (
     <>
       <PickerRow onEdit={() => setEditing(!editing)} editing={editing}>
-        <Segmented scroll options={chips.map((c) => ({ value: c.key, label: c.label }))} value={soon?.key ?? set} onChange={(v) => pick({ set: v })} />
+        <Segmented scroll options={chips.map((c) => ({ value: c.key, label: c.label }))} value={current.key} onChange={(v) => pick({ set: v })} />
       </PickerRow>
       {editing && <ShownEditor title="Shown sets" which="hiddenSets" hidden={picks.hiddenSets} onDone={() => setEditing(false)}
-                               items={Object.values(limited).map((p) => ({ key: p.set_code, label: limitedLabel(p.set_code, p.name), detail: p.name ?? undefined }))} />}
+                               items={all.map((c) => ({ key: c.key, label: c.label, detail: nameOf(c.key) !== c.label ? nameOf(c.key) : undefined }))} />}
     </>
   );
   if (soon) {
@@ -703,7 +706,7 @@ function LimitedHome() {
       </Scroll>
     );
   }
-  if (!pack || !view || !event) return <Notice tone="info">Loading {set ? limitedLabel(set, limited[set]?.name) : ""}…</Notice>;
+  if (!pack || !view || !event) return <Scroll>{picker}<Notice tone="info">Loading {set ? limitedLabel(set, nameOf(set)) : ""}…</Notice></Scroll>;
   const base = `/insights/limited/${pack.set_code}/${event}/${group}`;
   const shown = view.pairs.filter((p) => p.share >= 0.01).sort((a, b) => b.wr - a.wr);
   const lo = Math.max(0.4, Math.min(...shown.map((p) => p.wr)) - 0.02), hi = Math.min(0.7, Math.max(...shown.map((p) => p.wr)) + 0.01);
