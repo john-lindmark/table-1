@@ -4,6 +4,7 @@
 // Files are listed with GitHub's API (a contents call, then one tree per changed year) and read from
 // raw.githubusercontent.com. Pure apart from the URLs, so tests run on saved files.
 import type { DeckIn, EventIn, MatchIn } from "./types.ts";
+import { singletonField } from "./singleton.ts";
 
 export const CACHE_REPO = "fbettega/MTG_decklistcache";
 export const CACHE_DIR = "Tournaments/MTGmelee";
@@ -83,7 +84,7 @@ export function cacheFormat(formats: string | string[] | undefined, enabled: { f
 }
 
 /** One cached Melee event as meta_ingest's event; null when its format isn't read, it's smaller than the format's
- *  paper minimum (`topdeck_min`, as for TopDeck) or no list is public. `id` is the file name without .json. */
+ *  paper minimum (`topdeck_min`, as for TopDeck), no list is public or the field is singleton (singleton.ts). `id` is the file name without .json. */
 export function parseCacheEvent(id: string, file: CacheFile, enabled: { format: string; name: string; topdeck_min: number }[]): EventIn | null {
   const t = file.Tournament ?? {};
   const format = cacheFormat(t.Formats, enabled);
@@ -117,7 +118,7 @@ export function parseCacheEvent(id: string, file: CacheFile, enabled: { format: 
       top8: top8 && r != null && r <= 8, main, side: lines(d.Sideboard),
     }];
   });
-  if (!decks.length) return null;
+  if (!decks.length || singletonField(format, decks)) return null;
 
   const matches: MatchIn[] = [];
   rounds.forEach((r, i) => {

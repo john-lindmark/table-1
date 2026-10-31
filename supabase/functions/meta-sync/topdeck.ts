@@ -3,6 +3,7 @@
 // (contract/insights-2026-10-24.md § What the viewer gets). Pure apart from the request body, so tests run on
 // saved answers.
 import type { DeckIn, EventIn, MatchIn } from "./types.ts";
+import { singletonField } from "./singleton.ts";
 
 export const TOPDECK_GAME = "Magic: The Gathering";
 
@@ -77,7 +78,7 @@ export function deckLines(s: TdStanding): { main: [string, number][]; side: [str
   return { main, side };
 }
 
-/** One TopDeck tournament as meta_ingest's event; null when no deck is public yet. */
+/** One TopDeck tournament as meta_ingest's event; null when no deck is public yet or the field is singleton (singleton.ts). */
 export function parseTournament(t: TdTournament, format: string): EventIn | null {
   const standings = t.standings ?? [];
   const decks: DeckIn[] = standings.map((s, i) => {
@@ -89,7 +90,7 @@ export function parseTournament(t: TdTournament, format: string): EventIn | null
     };
   });
   const withLists = decks.filter((d) => d.main.reduce((n, [, q]) => n + q, 0) >= 40);
-  if (!withLists.length) return null;
+  if (!withLists.length || singletonField(format, withLists)) return null;
   const matches: MatchIn[] = [];
   for (const r of t.rounds ?? []) {
     for (const tb of r.tables ?? []) {

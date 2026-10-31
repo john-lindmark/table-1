@@ -101,7 +101,7 @@ async function readQueued(q: { source: string; slug: string; url: string }, dead
   if (q.source === "melee") {
     const id = q.slug.replace(/@[0-9a-f]+$/, "").split("/").pop()!.replace(/\.json$/, "");
     const ev = parseCacheEvent(id, JSON.parse(await get(q.url, 60_000, deadline)) as CacheFile, await formats());
-    return ev ? await rpc<{ decks: number }>("meta_ingest", { p_event: ev }) : "not a format read, under the paper minimum, or no public lists";
+    return ev ? await rpc<{ decks: number }>("meta_ingest", { p_event: ev }) : "not a format read, under the paper minimum, no public lists, or a singleton field";
   }
   const data = pageData(await get(q.url, 60_000, deadline));
   const ev = data && parseEvent(q.slug, data);

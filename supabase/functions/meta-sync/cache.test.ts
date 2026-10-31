@@ -62,11 +62,12 @@ Deno.test("an RCQ with a top 8: every deck, records from standings, byes left ou
 });
 
 Deno.test("a 1-1 or 0-0-3 result is a draw", () => {
+  const playset = Array.from({ length: 15 }, (_, i) => ({ Count: 4, CardName: `Card ${i}` }));
   const f: CacheFile = {
     Tournament: { Date: "2026-10-04T10:00:00+00:00", Name: "Draws", Uri: "u", Formats: "Modern" },
     Standings: Array.from({ length: 32 }, (_, i) => ({ Rank: i + 1, Player: `P${i}`, Wins: 0, Losses: 0, Draws: 0 })),
-    Decks: [{ Player: "P0", Result: "1st Place", Mainboard: [{ Count: 60, CardName: "Island" }] },
-            { Player: "P1", Result: "2nd Place", Mainboard: [{ Count: 60, CardName: "Island" }] }],
+    Decks: [{ Player: "P0", Result: "1st Place", Mainboard: playset },
+            { Player: "P1", Result: "2nd Place", Mainboard: playset }],
     Rounds: [{ RoundName: "Round 1", Matches: [{ Player1: "P0", Player2: "P1", Result: "1-1-1" }, { Player1: "P1", Player2: "P0", Result: "0-0-3" },
                                               { Player1: "P0", Player2: "P1", Result: "won" }] }],
   };
