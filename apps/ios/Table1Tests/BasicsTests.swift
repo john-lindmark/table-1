@@ -37,8 +37,9 @@ final class BasicsTests: XCTestCase {
                      })])
         }
         for l in lists {
-            XCTAssertEqual(missing(in: l, owned: c.owned, basics: basics), c.missing[l.name], l.name)
-            XCTAssertEqual(missing(in: l, owned: c.owned, basics: []), c.missingWithoutBasics[l.name], l.name)
+            let h = Holdings(owned: c.owned, cardOf: [:])
+            XCTAssertEqual(missing(in: l, h, basics: basics), c.missing[l.name], l.name)
+            XCTAssertEqual(missing(in: l, h, basics: []), c.missingWithoutBasics[l.name], l.name)
             // Lines and grid/stack cards (ListDetailView rows and tiles).
             func short(_ b: Set<String>) -> [String] {
                 l.entries.filter { isShort(board: $0.board, qty: $0.qty, owned: c.owned["\($0.cardId)|\($0.finish)"] ?? 0, basic: b.contains($0.cardId)) }.map(\.cardId)
@@ -46,8 +47,8 @@ final class BasicsTests: XCTestCase {
             XCTAssertEqual(short(basics), c.short[l.name], l.name)
             XCTAssertEqual(short([]), c.shortWithoutBasics[l.name], l.name)
         }
-        XCTAssertEqual(MissingView.lines(lists, owned: c.owned, basics: basics),
-                       c.lines.map { MissingLine(cardId: $0.card_id, finish: $0.finish, short: $0.short, lists: $0.lists) })
+        XCTAssertEqual(MissingView.lines(lists, Holdings(owned: c.owned, cardOf: [:]), basics: basics).map { "\($0.cardId)|\($0.finish)|\($0.short)|\($0.lists)" },
+                       c.lines.map { "\($0.card_id)|\($0.finish)|\($0.short)|\($0.lists)" })
         for a in c.add {
             let l = try XCTUnwrap(lists.first { $0.name == a.list })
             let ops = ListToCollection.ops(l.entries, kind: l.kind, owned: c.owned, mode: try XCTUnwrap(ListToCollection.Mode(rawValue: a.mode)),

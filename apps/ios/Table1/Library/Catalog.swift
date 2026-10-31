@@ -127,6 +127,30 @@ final class CatalogDB: @unchecked Sendable {
         return out
     }
 
+    private var cardKeyCache: [String: String] = [:]
+
+    /// Each printing's card ("oracle_idx" as text), remembered while the pack is open; ids the pack doesn't have are
+    /// left out (contract/owned-by-card-2026-10-31.md).
+    func cardKeys(_ ids: some Collection<String>) -> [String: String] {
+        cacheLock.lock()
+        var out: [String: String] = [:]
+        var todo: [String] = []
+        for id in ids { if let k = cardKeyCache[id] { out[id] = k } else { todo.append(id) } }
+        cacheLock.unlock()
+        guard !todo.isEmpty else { return out }
+        var found: [String: String] = [:]
+        for chunk in Self.chunks(todo) {
+            let marks = Array(repeating: "?", count: chunk.count).joined(separator: ",")
+            let rows = (try? db.query("SELECT card_id, oracle_idx FROM printings WHERE card_id IN (\(marks))",
+                                      chunk.map { .text($0) }, { ($0.text(0), String($0.int(1))) })) ?? []
+            for (id, k) in rows { found[id] = k }
+        }
+        cacheLock.lock()
+        for (id, k) in found { cardKeyCache[id] = k; out[id] = k }
+        cacheLock.unlock()
+        return out
+    }
+
     private static let oracleCols = "idx, oracle_id, name, name_norm, type_line, mana_cost, pcount, legal, points, cmc, colors, produced, tokens, pair, identity"
     private static func oracle(_ r: SQLiteDB.Row) -> CatalogOracle {
         CatalogOracle(idx: r.int(0), oracleId: r.text(1), name: r.text(2), norm: r.text(3), typeLine: r.text(4),
@@ -352,6 +376,8 @@ final class CatalogStore {
     /// Basic land printings in the open pack; empty until one is open. Reads `generation` so views redraw when a
     /// pack opens.
     var basics: Set<String> { _ = generation; return db?.basicCardIds() ?? [] }
+    /// Each printing's card, for owning a card in any printing; empty until a pack is open.
+    func cardKeys(_ ids: some Collection<String>) -> [String: String] { _ = generation; return db?.cardKeys(ids) ?? [:] }
     @ObservationIgnored private var running: Task<Void, Never>?
     /// With a pack installed, a failed update (offline, cellular) waits an hour before the next try.
     @ObservationIgnored private var lastAttempt: Date?

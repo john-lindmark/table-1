@@ -41,11 +41,12 @@ describe("diff and missing", () => {
     expect(missingIn(l, new Map([[`${BOLT}|nonfoil`, 1]]), new Set())).toBe(2);
     expect(missingIn(l, new Map([[`${BOLT}|nonfoil`, 3]]), new Set())).toBe(0);
   });
-  it("splits finishes into their own lines and counts foil lines against foil copies", () => {
+  it("splits finishes into their own lines; any finish of the card covers them (contract/owned-by-card-2026-10-31.md)", () => {
     const split = fromWire({ id: "x", kind: "deck", name: "x", format: "modern",
       versions: [{ version: 1, note: "Created", at: 0, entries: [[BOLT, "main", 2], [BOLT, "main", 2, "foil"]] }] })!;
     expect(split.versions[0].entries).toEqual([{ cardId: BOLT, board: "main", qty: 2 }, { cardId: BOLT, board: "main", qty: 2, finish: "foil" }]);
-    expect(missingIn(split, new Map([[`${BOLT}|nonfoil`, 4]]), new Set())).toBe(2);
+    expect(missingIn(split, new Map([[`${BOLT}|nonfoil`, 4]]), new Set())).toBe(0);
+    expect(missingIn(split, new Map([[`${BOLT}|foil`, 3]]), new Set())).toBe(1);
     expect(missingIn(split, new Map([[`${BOLT}|nonfoil`, 2], [`${BOLT}|foil`, 2]]), new Set())).toBe(0);
   });
 });

@@ -91,6 +91,7 @@ struct CardDetailView: View {
                 } else {
                     cardArea(versions, current: current)
                     status
+                    if last == nil, let list = listId.flatMap({ lists.list(id: $0) }) { matchRow(list) }
                     attributes(inView.isEmpty ? [current] : inView, owned: !versions.isEmpty)
                     if isSearch {
                         BigBarButton(text: "Add to") { openAddTo([current]) }
@@ -228,6 +229,21 @@ struct CardDetailView: View {
         Task {
             guard let image = await CardImageLoader.shared.image(url, maxPixel: 1400) else { return }
             ZoomImagePanel.present(title: name, subtitle: p.setLabel, image: image, screen: "card_detail")
+        }
+    }
+
+    // MARK: Match collection (contract/owned-by-card-2026-10-31.md § 2)
+
+    @ViewBuilder private func matchRow(_ list: CardList) -> some View {
+        let owned = MatchCollection.versions(printings)
+        let ids = Set(printings.map(\.cardId))
+        if !MatchCollection.sections(list, ids: ids, versions: owned).isEmpty {
+            HStack(spacing: 12) {
+                LabelText(MatchCollection.detail(list, ids: ids, versions: owned))
+                Spacer(minLength: 0)
+                BarButton("Match collection") { MatchCollection.present(list: list, printings: printings) { l, u in report(l, u) } }
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12).background(T1.surface)
         }
     }
 

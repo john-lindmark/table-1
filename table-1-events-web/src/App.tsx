@@ -523,7 +523,8 @@ function SharedLinkRoute() {
   if (!token) return <Navigate to="/" replace />;
   return <SharedLinkScreen token={token} onBack={back} onCard={(o) => navigate(`/library/card/${o}`, { state: { search: true } })}
                            onList={(id) => navigate(`/library/list/${id}`)} onSignIn={() => navigate("/sign-in")}
-                           onFollowChanges={(k, id) => navigate(`/library/following/${k}/${id}`)} />;
+                           onFollowChanges={(k, id) => navigate(`/library/following/${k}/${id}`)}
+                           onRankings={(id) => navigate(`/library/list/${id}/rankings`)} />;
 }
 
 function StandingsRoute() {

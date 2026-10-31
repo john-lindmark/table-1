@@ -109,6 +109,21 @@ class CatalogDb(file: File, override val version: String) : ScanCatalog, ImportC
             emptyArray(),
         ) { it.getString(0) }.toSet().also { basicCache = it }
 
+    private val cardKeyCache = HashMap<String, String>()
+
+    /** Each printing's card ("oracle_idx" as text), remembered while the pack is open; ids the pack doesn't have are left
+     *  out (contract/owned-by-card-2026-10-31.md). */
+    @Synchronized fun cardKeys(ids: Collection<String>): Map<String, String> {
+        val out = HashMap<String, String>()
+        val todo = ids.filter { id -> cardKeyCache[id]?.also { out[id] = it } == null }.distinct()
+        todo.chunked(500).forEach { chunk ->
+            query("SELECT card_id, oracle_idx FROM printings WHERE card_id IN (${chunk.joinToString(",") { "?" }})", chunk.toTypedArray()) {
+                it.getString(0) to it.getInt(1).toString()
+            }.forEach { (id, k) -> cardKeyCache[id] = k; out[id] = k }
+        }
+        return out
+    }
+
     /** In pack order (newest first within a card). */
     @Synchronized fun allPrintings(): List<CatalogPrinting> =
         printingCache ?: query("SELECT $PRINTING_COLS FROM printings ORDER BY ord", emptyArray(), ::printing).also { printingCache = it }
@@ -324,6 +339,8 @@ object CatalogStore {
         private set
     /** Basic land printings in the open pack; empty until one is open. */
     val basics: Set<String> get() = db?.basicCardIds() ?: emptySet()
+    /** Each printing's card, for owning a card in any printing; empty until a pack is open. */
+    fun cardKeys(ids: Collection<String>): Map<String, String> = db?.cardKeys(ids) ?: emptyMap()
     private var running: Job? = null
     /** With a pack installed, a failed update (offline, metered) waits an hour before the next try. */
     private var lastAttempt = 0L

@@ -7,7 +7,8 @@ import { useEffect, useSyncExternalStore } from "react";
 import { supabase } from "./supabaseClient";
 import { capture } from "./telemetry";
 import { DEMO_USER, demoBackend, itemKey, type ApplyResult, type Finish, type Item } from "./collection";
-import { entriesOf, finishOf, type CardList } from "./lists";
+import { needsOf, type CardList } from "./lists";
+import { holdings, missingByCard, type CardOf, type MissingLine } from "./ownedByCard";
 
 export interface Binder { id: string; name: string; for_trade: boolean; seq: number }
 export interface Alloc { binderId: string; cardId: string; finish: Finish; condition: Item["condition"]; lang: string; qty: number; seq: number }
@@ -80,35 +81,15 @@ export function meetWants(oracleId: string, cardId: string, finish: string, qty:
   return changed;
 }
 
-export interface MissingLine { cardId: string; finish: Finish; short: number; lists: string[] }
+export type { MissingLine } from "./ownedByCard";
 
 /**
- * Every list line (not Considering, not roto event decks) short of copies, per printing × finish, with the largest
- * need across lists: lists don't reserve copies, so one set of copies covers them all. Basic lands (`basics`) are never
- * missing (contract/basics-2026-10-24.md).
+ * One line per card your decks and cubes (not Considering, not roto event decks) need more copies of than you own in
+ * any printing, with the largest need across lists: lists don't reserve copies, so one set of copies covers them all
+ * (contract/owned-by-card-2026-10-31.md). Basic lands (`basics`) are never missing (contract/basics-2026-10-24.md).
  */
-export function missingLines(lists: CardList[], owned: Map<string, number>, basics: Set<string>): MissingLine[] {
-  const need = new Map<string, { max: number; lists: string[] }>();
-  for (const l of lists) {
-    if (l.eventId) continue;
-    const mine = new Map<string, number>();
-    for (const e of entriesOf(l)) {
-      if (e.board === "maybe" || basics.has(e.cardId)) continue;
-      const k = `${e.cardId}|${finishOf(e)}`;
-      mine.set(k, (mine.get(k) ?? 0) + e.qty);
-    }
-    for (const [k, n] of mine) {
-      if (n <= (owned.get(k) ?? 0)) continue;
-      const v = need.get(k) ?? { max: 0, lists: [] };
-      v.max = Math.max(v.max, n);
-      v.lists.push(l.name);
-      need.set(k, v);
-    }
-  }
-  return [...need].map(([k, v]) => {
-    const [cardId, finish] = k.split("|") as [string, Finish];
-    return { cardId, finish, short: v.max - (owned.get(k) ?? 0), lists: v.lists.sort() };
-  }).sort((a, b) => b.short - a.short || (`${a.cardId}|${a.finish}` < `${b.cardId}|${b.finish}` ? -1 : 1));
+export function missingLines(lists: CardList[], owned: Map<string, number>, basics: Set<string>, cardOf: CardOf = (id) => id): MissingLine[] {
+  return missingByCard(lists.map((l) => ({ name: l.name, event: !!l.eventId, lines: needsOf(l) })), holdings(owned, cardOf), basics);
 }
 
 /* ── store ────────────────────────────────────────────────────────────── */

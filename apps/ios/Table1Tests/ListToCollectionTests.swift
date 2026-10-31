@@ -16,6 +16,7 @@ private struct Cases: Decodable {
         let only: [String]?
         let entries: [Entry]
         let owned: [String: Int]
+        let oracles: [String: String]?
         let ops: [Op]
         let copies: Int
     }
@@ -30,7 +31,7 @@ final class ListToCollectionTests: XCTestCase {
             let entries = c.entries.map { CardList.Entry(cardId: $0.card_id, board: $0.board, qty: $0.qty, finish: $0.finish, lang: $0.lang ?? "en") }
             let ops = ListToCollection.ops(entries, kind: try XCTUnwrap(CardList.Kind(rawValue: c.kind)), owned: c.owned,
                                            mode: try XCTUnwrap(ListToCollection.Mode(rawValue: c.mode)),
-                                           sideboard: c.sideboard ?? true, only: c.only.map(Set.init))
+                                           sideboard: c.sideboard ?? true, only: c.only.map(Set.init), cardOf: c.oracles ?? [:])
             XCTAssertEqual(ops, c.ops.map { ListToCollection.Op(cardId: $0.card_id, finish: $0.finish, delta: $0.delta, lang: $0.lang ?? "en") }, c.name)
             XCTAssertEqual(ListToCollection.copies(ops), c.copies, c.name)
         }

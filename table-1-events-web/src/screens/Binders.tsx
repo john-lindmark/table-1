@@ -27,6 +27,7 @@ import { CardSearchBar, CardSearchStatus, useCardSearch } from "./CardSearch";
 import { ShareRow } from "./Share";
 import { WhoSeesRow } from "../components/PersonActions";
 import { offerForTradeIfDue } from "../lib/friends";
+import { cardOfCatalog } from "../lib/ownedByCard";
 
 /* Binders and wants (contract/binders-wants-2026-10-17.md). Library → Binders: Unsorted and each binder; a binder
    lists its cards and can be renamed, flagged for trade or deleted. Library → Wants: the wishlist, then everything a
@@ -513,7 +514,7 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
   const missing = useMemo(() => {
     const owned = new Map<string, number>();
     for (const it of col.items.values()) owned.set(`${it.cardId}|${it.finish}`, (owned.get(`${it.cardId}|${it.finish}`) ?? 0) + it.qty);
-    return missingLines(lists.lists, owned, basicCardIds(catalog));
+    return missingLines(lists.lists, owned, basicCardIds(catalog), cardOfCatalog(catalog));
   }, [lists.lists, col.version, catalog]);
   const priceVersion = usePrices(useMemo(() => wants.flatMap((w) => {
     const p = w.cardId ?? (catalog ? coverOf(catalog, w.oracleId) : null);

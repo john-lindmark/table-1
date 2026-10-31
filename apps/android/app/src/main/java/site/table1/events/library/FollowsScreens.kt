@@ -70,7 +70,7 @@ fun FollowRows(kind: String, id: String, title: String, owner: String?, token: S
                 }
             }
         } else {
-            ListRow("Follow", "Get a push when ${owner?.let { "$it changes" } ?: "they change"} it") {
+            ListRow("Follow", "Get a push when ${owner?.let { "$it changes" } ?: "they change"} it${if (kind == "cube" && token != null) ", and rank it" else ""}") {
                 Box(Modifier.background(T1.accent).clickable(enabled = !busy) {
                     busy = true
                     scope.launch {

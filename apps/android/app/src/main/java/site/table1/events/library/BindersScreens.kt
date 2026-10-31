@@ -559,7 +559,8 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
                 val o = db.oracle(w.oracleId)
                 WantRowView(w, o?.name ?: "Card not in local data yet", w.cardId?.let { printings[it] } ?: o?.let { db.covers(listOf(it.idx))[it.idx] }, o?.typeLine ?: "")
             }
-            val lines = MissingView.lines(ls, owned, db.basicCardIds())
+            val lines = MissingView.lines(ls, Holdings(owned, db.cardKeys(owned.keys.map { it.substringBefore("|") }.toSet() + ls.flatMap { l -> l.entries.map { it.cardId } })),
+                                          db.basicCardIds())
             val mp = db.printings(lines.map { it.cardId }.toSet())
             val mo = db.oracles(mp.values.map { it.oracleIdx }.toSet())
             shown to lines.map { l -> val o = mp[l.cardId]?.let { mo[it.oracleIdx] }; MissingRowView(l, mp[l.cardId], o?.name ?: "Card not in local data yet", o?.oracleId, o?.typeLine ?: "") }

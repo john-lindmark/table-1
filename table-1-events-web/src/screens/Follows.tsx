@@ -54,7 +54,7 @@ export function FollowRows({ kind, id, title, owner, token, signedIn = true, onS
         <Row title="Changes" detail={since(st.last_update, new Date())} value={st.unseen ? `${st.unseen} new` : undefined} accentValue onClick={onChanges} />
       )}
     </>) : (
-      <Row title="Follow" detail={`Get a push when ${owner ? `${owner} changes` : "they change"} it`}
+      <Row title="Follow" detail={`Get a push when ${owner ? `${owner} changes` : "they change"} it${kind === "cube" && token ? ", and rank it" : ""}`}
            action={{ label: busy ? "…" : "Follow", onClick: follow, disabled: busy }} />
     )}
     {menu && <Menu title={menu.title} items={menu.items} onClose={() => setMenu(null)} />}

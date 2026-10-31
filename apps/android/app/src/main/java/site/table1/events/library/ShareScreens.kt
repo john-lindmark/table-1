@@ -161,7 +161,7 @@ fun ShareScreen(target: ShareTarget, onClose: () -> Unit, onExport: (() -> Unit)
 /** table-1.site/l/<token> in the app (signed in): what the link shows, like a profile section. */
 @Composable
 fun SharedLinkScreen(token: String, onBack: () -> Unit, onCard: (String) -> Unit, onList: (String) -> Unit,
-                     onFollowChanges: ((String, String) -> Unit)? = null) {
+                     onFollowChanges: ((String, String) -> Unit)? = null, onRankings: ((String) -> Unit)? = null) {
     var data by remember { mutableStateOf<SharedLinkData?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(token) {
@@ -175,7 +175,7 @@ fun SharedLinkScreen(token: String, onBack: () -> Unit, onCard: (String) -> Unit
     }
     val d = data
     if (d != null) {
-        ProfileCardsScreen("", d.part, d.id, onBack, onCard, onList, link = token to d, onFollowChanges = onFollowChanges)
+        ProfileCardsScreen("", d.part, d.id, onBack, onCard, onList, link = token to d, onFollowChanges = onFollowChanges, onRankings = onRankings)
     } else T1Screen {
         Bar("Shared", onBack = onBack)
         error?.let {

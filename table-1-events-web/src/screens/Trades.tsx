@@ -16,6 +16,7 @@ import { CONDITIONS, CardArt, CardRow, LibScreen, useCatalog, useLibrarySession 
 import { LanguagePicker } from "./Languages";
 import { TradeMatchRows } from "./Friends";
 import { langForNew, languageName, storedAddLang } from "../lib/languages";
+import { cardOfCatalog } from "../lib/ownedByCard";
 
 /* Trades (contract/trades-2026-10-16.md): what you give (copies you own) and what you get (any printing). Drafts
    save as you build them; Confirm applies both sides to the collection in one batch. Scanning is on the apps. */
@@ -97,7 +98,7 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
   const missing = useMemo(() => {
     const owned = new Map<string, number>();
     for (const it of col.items.values()) owned.set(`${it.cardId}|${it.finish}`, (owned.get(`${it.cardId}|${it.finish}`) ?? 0) + it.qty);
-    return new Map(missingLines(lists.lists, owned, basicCardIds(catalog)).map((m) => [`${m.cardId}|${m.finish}`, m]));
+    return new Map(missingLines(lists.lists, owned, basicCardIds(catalog), cardOfCatalog(catalog)).map((m) => [m.card, m]));
   }, [lists.lists, col.version, catalog]);
   const wantNote = (l: TradeLine): { text: string; over: boolean } | null => {
     const p = catalog?.printingIndex.get(l.card_id);
@@ -107,7 +108,7 @@ export function TradeScreen({ id, onBack, onSaved }: { id: string | null; onBack
       const price = usdPrice(l.card_id, l.finish, l.condition);
       return w.maxUsd != null && price != null && price > w.maxUsd ? { text: `Want · over your max $${w.maxUsd}`, over: true } : { text: "Want", over: false };
     }
-    const m = missing.get(`${l.card_id}|${l.finish}`);
+    const m = missing.get(cardOfCatalog(catalog)(l.card_id));
     return m ? { text: `Missing · ${m.lists.slice(0, 2).join(", ")}`, over: false } : null;
   };
   void binders.version;

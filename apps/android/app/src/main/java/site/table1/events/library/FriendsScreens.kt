@@ -405,6 +405,7 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
                        /** Cards already in hand (an Insights example list): nothing to fetch, no owner, rows of its own above Export. */
                        preset: PresetCards? = null) {
     val cat by CatalogStore.state.collectAsState()
+    val follows by FollowsStore.state.collectAsState()
     val scope = rememberCoroutineScope()
     val kind = SharedList.kind(section)
     var rows by remember { mutableStateOf<List<ProfileCard>?>(null) }
@@ -492,7 +493,10 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
                     onClick = { exporting = true })
                 if (kind == ListKind.Deck) ListRow("Deck image", "The cards as a picture, to save or share", onClick = { imaging = true })
                 if (item != null && listFormat != null && preset == null) SpiceRow(item, link?.first, kind, listFormat, onCard)
-                if (kind == ListKind.Cube && item != null && onRankings != null && link == null) RankingsRow(item) { onRankings(item) }
+                // Through a link you can rank a cube once you follow it (contract/owned-by-card-2026-10-31.md § 3): the row shows
+                // the moment Follow succeeds.
+                if (kind == ListKind.Cube && item != null && onRankings != null && preset == null &&
+                    (link == null || follows.states[item]?.following == true)) RankingsRow(item) { onRankings(item) }
                 if (owner != null && listFormat != null) {
                     ListRow(if (copying) "Copying…" else "Copy to my Library",
                         if (kind == ListKind.Deck) "A new private deck with these cards" else "A new cube with these cards",

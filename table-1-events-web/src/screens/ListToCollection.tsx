@@ -8,6 +8,7 @@ import { languageName } from "../lib/languages";
 import { entriesOf, type CardList } from "../lib/lists";
 import { capture } from "../lib/telemetry";
 import { CardRow } from "./Library";
+import { cardOfCatalog } from "../lib/ownedByCard";
 
 const plural = (n: number) => `${n} ${n === 1 ? "card" : "cards"}`;
 
@@ -25,7 +26,7 @@ export function ListToCollectionScreen({ list, catalog, owned, onClose }: {
   useEscape(onClose);
 
   const entries = entriesOf(list);
-  const missing = useMemo(() => listAddOps(entries, list.kind, owned, "missing", sideboard, undefined, basicCardIds(catalog)),
+  const missing = useMemo(() => listAddOps(entries, list.kind, owned, "missing", sideboard, undefined, basicCardIds(catalog), cardOfCatalog(catalog)),
                           [entries, list.kind, owned, sideboard, catalog]);
   const all = useMemo(() => listAddOps(entries, list.kind, owned, "all", sideboard), [entries, list.kind, sideboard]);
   const ops = mode === "missing" ? missing : all;

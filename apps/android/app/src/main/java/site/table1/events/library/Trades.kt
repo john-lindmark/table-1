@@ -279,8 +279,9 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
     }
 
     val missing = remember(lists.lists, col.version, cat.generation) {
-        MissingView.lines(lists.lists, col.items.values.groupBy { ownKey(it.cardId, it.finish) }.mapValues { (_, v) -> v.sumOf { it.qty } }, CatalogStore.basics)
-            .associateBy { it.key }
+        val owned = col.items.values.groupBy { ownKey(it.cardId, it.finish) }.mapValues { (_, v) -> v.sumOf { it.qty } }
+        MissingView.lines(lists.lists, Holdings.of(owned, lists.lists.flatMap { l -> l.entries.map { it.cardId } }),
+                          CatalogStore.basics).associateBy { it.key }
     }
 
     /** What a get is to you: a want (and whether it's over your max price), or missing from a deck or cube. */
@@ -290,7 +291,7 @@ fun TradeScreen(tradeId: String?, onBack: () -> Unit) {
             val price = PriceBook.usd(l.cardId, l.finish, l.condition)
             return if (w.maxUsd != null && price != null && price > w.maxUsd) "Want · over your max $${w.maxUsd}" to true else "Want" to false
         }
-        return missing[ownKey(l.cardId, l.finish)]?.let { "Missing · ${it.lists.take(2).joinToString(", ")}" to false }
+        return missing[meta[l.cardId]?.oracleIdx?.toString() ?: l.cardId]?.let { "Missing · ${it.lists.take(2).joinToString(", ")}" to false }
     }
 
     /** The copy of a printing to give: the item with the most copies in for-trade binders (and that binder), else the one held most. */

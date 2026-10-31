@@ -784,7 +784,11 @@ struct ProfileCardsView: View {
                                                         basic: SpiceDemoCard.basics.contains(l.name)) }
                      }, path: $path)
         }
-        if kind == .cube, token == nil, let id = section.id { RankingsRow(listId: id, path: $path) }
+        // Through a link you can rank a cube once you follow it (contract/owned-by-card-2026-10-31.md § 3); the row
+        // shows the moment Follow succeeds.
+        if kind == .cube, let id = section.id, preset == nil, token == nil || FollowsStore.shared.states[id]?.following == true {
+            RankingsRow(listId: id, path: $path)
+        }
         if list.owner != nil {
             Button {
                 let copy = ListsStore.shared.create(kind: kind, name: title, format: list.format, entries: entries,

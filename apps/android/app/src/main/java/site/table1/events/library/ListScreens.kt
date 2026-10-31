@@ -153,11 +153,15 @@ private fun rememberMeta(ids: Set<String>): Map<String, CardMeta> {
     return meta
 }
 
+/** The collection per printing + finish and per card; any printing of a card covers its lines
+ *  (contract/owned-by-card-2026-10-31.md). [listing]: the printings the screen's lists name. */
 @Composable
-private fun ownedByPrinting(): Map<String, Int> {
+fun rememberHoldings(listing: Collection<String>): Holdings {
     val col by CollectionStore.state.collectAsState()
-    // Per printing and finish ("card_id|finish"): a foil line is covered only by foil copies of that printing.
-    return remember(col.items) { col.items.values.groupBy { ownKey(it.cardId, it.finish) }.mapValues { (_, v) -> v.sumOf { it.qty } } }
+    val cat by CatalogStore.state.collectAsState()
+    return remember(col.items, cat.generation, listing.toSet()) {
+        Holdings.of(col.items.values.groupBy { ownKey(it.cardId, it.finish) }.mapValues { (_, v) -> v.sumOf { it.qty } }, listing)
+    }
 }
 
 /** Copies owned of each printing in each finish and language ("card_id|finish|lang"), for Add to collection. */
@@ -198,7 +202,7 @@ private val CUBE_FORMATS = listOf("vintage", "legacy", "pauper", "peasant", "oth
 fun ListsScreen(kind: ListKind, onBack: () -> Unit, onOpen: (String) -> Unit, onFind: () -> Unit = {}, onImport: () -> Unit = {},
                 onRankings: (() -> Unit)? = null) {
     val s by ListsStore.state.collectAsState()
-    val owned = ownedByPrinting()
+    val owned = rememberHoldings(s.lists.filter { it.kind == kind }.flatMap { l -> l.entries.map { it.cardId } })
     val scope = rememberCoroutineScope()
     var creating by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { ListsStore.sync() }
@@ -297,7 +301,19 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                      onInsights: ((format: String, archetype: Int) -> Unit)? = null) {
     val s by ListsStore.state.collectAsState()
     val list = s.lists.firstOrNull { it.id == listId }
-    val owned = ownedByPrinting()
+    val owned = rememberHoldings(list?.entries?.map { it.cardId } ?: emptyList())
+    // What each line still needs once any printing of its card covers it (contract/owned-by-card-2026-10-31.md).
+    val shortBy = remember(list, owned) {
+        val m = HashMap<String, Int>()
+        if (list != null) {
+            val ns = OwnedByCard.needs(list)
+            OwnedByCard.shorts(ns, owned, CatalogStore.basics).forEachIndexed { i, n ->
+                if (n > 0) ns[i].let { e -> m.merge("${e.board}|${e.cardId}|${e.finish}|${e.lang}", n, Int::plus) }
+            }
+        }
+        m
+    }
+    fun shortOf(x: ListLine) = shortBy[x.key] ?: 0
     val meta = rememberMeta(list?.entries?.map { it.cardId }?.toSet() ?: emptySet())
     val scope = rememberCoroutineScope()
     val layout = rememberCardLayout("list.layout", "list.grid")
@@ -383,7 +399,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                 ListRow("Export", if (list.kind == ListKind.Deck) "Text, Arena, MTGO, download or copy" else "Text, Cube Cobra, download or copy",
                     onClick = { exporting = true })
                 if (list.kind == ListKind.Deck) ListRow("Deck image", "The cards as a picture, to save or share", onClick = { imaging = true })
-                val short = list.missing(owned, CatalogStore.basics)
+                val short = shortBy.values.sum()
                 ListRow("Add to collection", if (short > 0) "Missing $short · or every card" else "You own every card · add more copies", onClick = { adding = true })
             }
             if (!editing && list.kind == ListKind.Cube && onSync != null) {
@@ -395,11 +411,13 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     }
 
     val lineRow: @Composable (ListLine, Boolean) -> Unit = { x, sub ->
-        val have = owned[x.ownKey] ?: 0
+        // A printing's own sub-row counts that printing; a card's row, every printing of it.
+        val have = if (sub) owned.ownedPrinting(x.cardId, x.finish) else owned.ownedCard(x.cardId)
         val considering = x.board == "maybe"
-        val short = !considering && !x.basic && have < x.qty // basics are never missing
+        val need = shortOf(x)
+        val short = need > 0 // basics are never missing
         val issue = issues[x.oracleId ?: x.cardId]
-        val owns = if (considering) (if (have > 0) "Owned $have" else "Not owned") else if (short) "Owned $have · missing ${x.qty - have}"
+        val owns = if (considering) (if (have > 0) "Owned $have" else "Not owned") else if (short) "Owned $have · missing $need"
             else if (x.basic && have == 0) null else "Owned $have"
         val pts = if (x.points > 0 && list.format == "canlander") "${x.points} pt${if (x.points == 1) "" else "s"}" else null
         CardRow(x.printing, if (sub) x.printing?.setLabel ?: x.name else x.name, listOfNotNull(if (sub) null else issue, pts, x.finishLabel, x.langLabel, owns).joinToString(" · "),
@@ -414,8 +432,8 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
         val considering = lead.board == "maybe"
         val issue = issues[cg.key]
         // Basics are never missing (contract/basics-2026-10-24.md).
-        val short = if (lead.basic) 0 else cg.lines.sumOf { (it.qty - (owned[it.ownKey] ?: 0)).coerceAtLeast(0) }
-        val have = cg.lines.sumOf { owned[it.ownKey] ?: 0 }
+        val short = cg.lines.sumOf { shortOf(it) }
+        val have = owned.ownedCard(lead.cardId)
         val haveText = if (considering) (if (have > 0) "Owned $have" else "Not owned")
             else if (lead.basic) (if (have > 0) "Owned $have" else null) else if (short > 0) "Missing $short" else "All owned"
         WithChevron(cg.lines.size, open, hero, {
@@ -432,7 +450,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     fun tiles(inGroup: List<ListLine>): List<StackCard> = LineGroup.of(inGroup).flatMap { cg ->
         val hero = heroes.isHero(cg.lead.oracleId, heroScope)
         val open = { cg.lead.oracleId?.let(onCard); Unit }
-        fun warn(ls: List<ListLine>) = ls.any { isShort(it.board, it.qty, owned[it.ownKey] ?: 0, it.basic) } || issues.containsKey(cg.key)
+        fun warn(ls: List<ListLine>) = ls.any { shortOf(it) > 0 } || issues.containsKey(cg.key)
         if (!printings.value.all || cg.lines.size < 2) listOf(StackCard(cg.id, cg.lead.printing, cg.lead.name, cg.qty, warn(cg.lines), cg.lead.finish, hero, open))
         else cg.lines.map { l -> StackCard(l.key, l.printing, l.name, l.qty, warn(listOf(l)), l.finish, hero, open) }
     }

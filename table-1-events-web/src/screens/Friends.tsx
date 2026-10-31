@@ -32,6 +32,7 @@ import { BOARD_ORDER, boardTitle, createList, type ListKind } from "../lib/lists
 import { cardMatches } from "../lib/librarySearch";
 import { COLLAPSED, addPart, isOpen, lineGroups, sortParts, toggleOne, type Disclosure, type LineGroup, type Part } from "../lib/printings";
 import type { Finish } from "../lib/collection";
+import { useFollows } from "../lib/follows";
 
 /* Friends, profiles, sharing and trade matches (contract/friends-sharing-2026-10-18.md). Same screens as the iOS app:
    Account → Friends / Sharing / Your profile; Library → Trade matches. */
@@ -459,6 +460,7 @@ export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList
 }) {
   const { catalog, error: catError } = useCatalog();
   useListsData(); // your lists, so a copy lands in them (the dev demo's too)
+  const follows = useFollows();
   const [rows, setRows] = useState<ProfileCard[] | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -668,7 +670,10 @@ export function ProfileCardsBody({ userId, section, item, onBack, onCard, onList
                         return [{ oracleId: catalog.oId[oi], name: catalog.oName[oi], qty: e.qty, board: e.board, basic: catalog.oType[oi].startsWith("Basic") }];
                       })} />
           )}
-          {kind === "cube" && item && onRankings && !link && <RankingsRow listId={item} onOpen={() => onRankings(item)} />}
+          {/* Through a link you can rank a cube once you follow it (contract/owned-by-card-2026-10-31.md § 3): the row
+              shows the moment Follow succeeds. */}
+          {kind === "cube" && item && onRankings && !preset && (!link || follows.states[item]?.following) &&
+            <RankingsRow listId={item} onOpen={() => onRankings(item)} />}
           {canCopy && listFormat && (
             <Row title={copying ? "Copying…" : "Copy to my Library"} detail={kind === "deck" ? "A new private deck with these cards" : "A new cube with these cards"}
                  onClick={copying ? undefined : () => void copy()} />

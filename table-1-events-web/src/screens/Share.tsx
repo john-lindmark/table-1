@@ -153,9 +153,9 @@ export function ShareScreen({ target, onClose, onExport, onImage }: {
 }
 
 /** /l/<token>: what a link shows, signed in or out. */
-export function SharedLinkScreen({ token, onBack, onCard, onList, onSignIn, onFollowChanges }: {
+export function SharedLinkScreen({ token, onBack, onCard, onList, onSignIn, onFollowChanges, onRankings }: {
   token: string; onBack: () => void; onCard: (oracleId: string) => void; onList: (listId: string) => void; onSignIn: () => void;
-  onFollowChanges?: (kind: "binder" | "deck" | "cube", id: string) => void;
+  onFollowChanges?: (kind: "binder" | "deck" | "cube", id: string) => void; onRankings?: (listId: string) => void;
 }) {
   const { session, ready } = useLibrarySession();
   // The dev demo's friends (and Mara's linked deck) are built once the demo Library is in.
@@ -186,5 +186,6 @@ export function SharedLinkScreen({ token, onBack, onCard, onList, onSignIn, onFo
   }
   // Signed out, a card's page would only ask to sign in.
   return <ProfileCardsBody userId="" section={data.part} item={data.id ?? null} onBack={onBack} onCard={session ? onCard : () => {}} onList={onList}
-                           onFollowChanges={onFollowChanges} link={{ token, data, signedIn: !!session, onSignIn }} />;
+                           onFollowChanges={onFollowChanges} onRankings={session ? onRankings : undefined}
+                           link={{ token, data, signedIn: !!session, onSignIn }} />;
 }

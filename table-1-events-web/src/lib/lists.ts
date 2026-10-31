@@ -3,6 +3,7 @@
 // replaces the local copy. A per-account IndexedDB copy makes them show instantly. The dev demo (?demo) keeps
 // its lists in memory only.
 import { useEffect, useSyncExternalStore } from "react";
+import { holdings, shorts, type CardOf, type Need } from "./ownedByCard";
 import { supabase } from "./supabaseClient";
 import { capture } from "./telemetry";
 
@@ -98,15 +99,14 @@ export function diff(older: Version | null, newer: Version): Change[] {
 /** Key into the owned map: "card_id|finish". */
 export const ownKey = (cardId: string, finish: ListFinish = "nonfoil") => `${cardId}|${finish}`;
 
-/** Copies a list still needs: covered only by the printing and finish it names; Considering and basic lands (`basics`,
- *  contract/basics-2026-10-24.md) never count. */
-export function missingIn(l: CardList, owned: Map<string, number>, basics: Set<string>): number {
+/** A list's lines for the owned-by-card rules (contract/owned-by-card-2026-10-31.md), in list order. */
+export const needsOf = (l: CardList): Need[] => entriesOf(l).map((e) => ({ cardId: e.cardId, board: e.board, finish: finishOf(e), qty: e.qty, lang: langOf(e) }));
+
+/** Copies a list still needs: any printing of a card covers its lines (contract/owned-by-card-2026-10-31.md);
+ *  Considering and basic lands (`basics`, contract/basics-2026-10-24.md) never count. `cardOf` maps a printing to its card. */
+export function missingIn(l: CardList, owned: Map<string, number>, basics: Set<string>, cardOf: CardOf = (id) => id): number {
   if (l.eventId) return 0; // a roto deck's cards come from the cube, never from your collection
-  const need = new Map<string, number>();
-  for (const e of entriesOf(l)) if (e.board !== "maybe" && !basics.has(e.cardId)) need.set(ownKey(e.cardId, finishOf(e)), (need.get(ownKey(e.cardId, finishOf(e))) ?? 0) + e.qty);
-  let n = 0;
-  for (const [id, q] of need) n += Math.max(0, q - (owned.get(id) ?? 0));
-  return n;
+  return shorts(needsOf(l), holdings(owned, cardOf), basics).reduce((a, b) => a + b, 0);
 }
 
 /** One line (or grid/stack card) reads short when you own fewer copies than it lists: never for Considering, never for

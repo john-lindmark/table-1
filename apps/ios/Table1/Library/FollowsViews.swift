@@ -54,7 +54,7 @@ struct FollowRows: View {
                 }
             } else if s != nil {
                 Button(action: follow) {
-                    ListRow(title: "Follow", detail: "Get a push when \(owner ?? "they") change\(owner == nil ? "" : "s") it") {
+                    ListRow(title: "Follow", detail: "Get a push when \(owner ?? "they") change\(owner == nil ? "" : "s") it\(kind == "cube" && token != nil ? ", and rank it" : "")") {
                         LabelText(busy ? "…" : "Follow", color: T1.ink)
                             .padding(.horizontal, 12).padding(.vertical, 10).background(T1.accent)
                     }

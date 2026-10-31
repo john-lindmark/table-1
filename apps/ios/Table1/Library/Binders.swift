@@ -171,38 +171,26 @@ enum BinderRules {
     }
 }
 
-/// A deck or cube line you own fewer copies of than it asks for.
+/// A card your decks and cubes need more copies of than you own (contract/owned-by-card-2026-10-31.md).
 struct MissingLine: Hashable, Identifiable, Sendable {
+    /// The printing and finish the list that needs most names first.
     let cardId: String
     let finish: String
-    /// The largest need across lists, minus what you own.
+    /// The card (Oracle) key: any printing of it covers the need.
+    var card: String
+    /// The largest need across lists, minus what you own of the card.
     let short: Int
     /// Names of the lists that need more than you own.
     let lists: [String]
-    var id: String { "\(cardId)|\(finish)" }
+    var id: String { card }
 }
 
 enum MissingView {
-    /// Every list line (not Considering, not roto event decks) short of copies, per printing × finish, with the
-    /// largest need across lists: lists don't reserve copies, so one set of copies covers them all. Basic lands
-    /// (`basics`) are never missing (contract/basics-2026-10-24.md).
-    static func lines(_ lists: [CardList], owned: [String: Int], basics: Set<String>) -> [MissingLine] {
-        var need: [String: (max: Int, lists: [String])] = [:]
-        for l in lists where l.eventId == nil {
-            var mine: [String: Int] = [:]
-            for e in l.entries where e.board != "maybe" && !basics.contains(e.cardId) { mine["\(e.cardId)|\(e.finish)", default: 0] += e.qty }
-            for (k, n) in mine where n > (owned[k] ?? 0) {
-                var v = need[k] ?? (0, [])
-                v.max = max(v.max, n)
-                v.lists.append(l.name)
-                need[k] = v
-            }
-        }
-        return need.map { k, v in
-            let parts = k.split(separator: "|", maxSplits: 1).map(String.init)
-            return MissingLine(cardId: parts[0], finish: parts[1], short: v.max - (owned[k] ?? 0), lists: v.lists.sorted())
-        }
-        .sorted { $0.short != $1.short ? $0.short > $1.short : $0.id < $1.id }
+    /// One line per card (not Considering, not roto event decks), the largest need across lists: lists don't reserve
+    /// copies, so one set of copies covers them all. Any printing of the card counts; basic lands (`basics`) are never
+    /// missing (contract/basics-2026-10-24.md).
+    static func lines(_ lists: [CardList], _ holdings: Holdings, basics: Set<String>) -> [MissingLine] {
+        OwnedByCard.lines(lists, holdings, basics: basics)
     }
 }
 

@@ -10,7 +10,7 @@ import {
 import { GROUPING_KEY, groupLabel, keyFor, keysOf, sortGroups, useStoredGrouping, type GroupKeys, type Grouping } from "../lib/cardGrouping";
 import { SORT_KEY, applySort, sortKeyOf, useStoredSort, type CardSort } from "../lib/cardSort";
 import {
-  boardTitle, boardsOf, countOf, createList, entry, finishOf, langOf, ownKey, type ListFinish, current, deleteList, diff, duplicateList, editList, entriesOf, isShort, missingIn, restoreList,
+  boardTitle, boardsOf, countOf, createList, entry, finishOf, langOf, ownKey, type ListFinish, current, deleteList, diff, duplicateList, editList, entriesOf, missingIn, needsOf, restoreList,
   sectionsFor, setListFormat, useLists, type Board, type CardList, type Entry, type ListKind, type ListOp,
 } from "../lib/lists";
 import { cardMatches, matchingLines } from "../lib/librarySearch";
@@ -28,6 +28,7 @@ import { DeckMetaRows } from "./DeckMeta";
 import { RankingsRow } from "./Rankings";
 import { DeckImageScreen } from "./DeckImage";
 import { ListToCollectionScreen } from "./ListToCollection";
+import { cardOfCatalog, holdings, ownedOfCard, ownedOfPrinting, shorts } from "../lib/ownedByCard";
 import { ShareRow } from "./Share";
 import { WhoSeesRow } from "../components/PersonActions";
 import { CommandZoneCards, CommandZonePicker } from "./CommandZone";
@@ -42,7 +43,7 @@ export function useListsData() {
   const col = useCollection(userId);
   const owned = useMemo(() => {
     const m = new Map<string, number>();
-    // Per printing and finish: a foil line is covered only by foil copies of that printing.
+    // Per printing and finish; any printing of a card covers its lines (lib/ownedByCard).
     for (const it of col.items.values()) m.set(ownKey(it.cardId, it.finish), (m.get(ownKey(it.cardId, it.finish)) ?? 0) + it.qty);
     return m;
   }, [col.version]);
@@ -269,7 +270,7 @@ export function ListsScreen({ kind, onBack, onOpen, onFind, onImport, onRankings
         <Row title={kind === "deck" ? "New deck" : "New cube"} detail="Name it, then add cards" onClick={() => setCreating(true)} />
         {kind === "cube" && onRankings && <Row title="Rankings" detail="Yours, and friends' cubes you can rank" onClick={onRankings} />}
         {mine.map((l) => {
-          const miss = missingIn(l, owned, basicCardIds(catalog));
+          const miss = missingIn(l, owned, basicCardIds(catalog), cardOfCatalog(catalog));
           const side = countOf(l, "side"), maybe = countOf(l, "maybe");
           const detail = [formatName(l.format), side ? `${side} sideboard` : null, maybe ? `${maybe} considering` : null,
                           l.eventId ? `From ${l.eventName ?? "an event"}` : miss ? `${miss} missing` : "All owned", `v${current(l).number}`].filter(Boolean).join(" · ");
@@ -390,6 +391,8 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
 }) {
   const { session, ready, lists, owned, ownedByLang } = useListsData();
   const { catalog, error } = useCatalog();
+  // What each line still needs once any printing of its card covers it (contract/owned-by-card-2026-10-31.md).
+  const held = useMemo(() => holdings(owned, cardOfCatalog(catalog)), [owned, catalog]);
   const [layout, setLayout] = useStoredLayout("table1.library.list.layout", "table1.library.list.grid");
   const [editing, setEditing] = useState(false);
   const [moving, setMoving] = useState<Line | null>(null);
@@ -410,6 +413,17 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   useSearchUsed(q, list?.kind === "deck" ? "deck" : "cube");
   const lines = useMemo(() => (list && catalog ? sortLines(regrouped(linesOf(list, catalog), grouping), sort, catalog) : []), [list, catalog, grouping, sort]);
   const issues = useMemo(() => (list && catalog ? issuesOf(lines, list, catalog) : new Map<string, string>()), [lines, list, catalog]);
+  const shortBy = useMemo(() => {
+    const m = new Map<string, number>();
+    if (!list || list.eventId) return m; // a roto deck's cards come from the cube, never from your collection
+    const ns = needsOf(list);
+    shorts(ns, held, basicCardIds(catalog)).forEach((n, i) => {
+      const e = ns[i], k = `${e.board}|${e.cardId}|${e.finish}|${e.lang ?? "en"}`;
+      if (n > 0) m.set(k, (m.get(k) ?? 0) + n);
+    });
+    return m;
+  }, [list, held, catalog]);
+  const shortOf = (x: Line) => shortBy.get(lineKey(x)) ?? 0;
   const boxRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(390);
   useEffect(() => {
@@ -457,11 +471,13 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   const zoneSections = (b: Board): Board[] => (list.kind === "deck" && ZONE_FORMATS.has(list.format) && b !== ZONE_BOARD ? [ZONE_BOARD as Board] : []);
 
   const lineRow = (x: Line, sub = false) => {
-    const have = owned.get(ownKey(x.cardId, x.finish)) ?? 0;
+    // A printing's own sub-row counts that printing; a card's row, every printing of it.
+    const have = sub ? ownedOfPrinting(held, x.cardId, x.finish) : ownedOfCard(held, x.cardId);
+    const need = shortOf(x);
     const fin = x.finish === "nonfoil" ? null : FINISH_NAME[x.finish];
     const pts = x.points > 0 && list.format === "canlander" ? `${x.points} pt${x.points === 1 ? "" : "s"}` : null;
     const considering = x.board === "maybe";
-    const short = !considering && !list.eventId && !x.basic && have < x.qty; // basics are never missing
+    const short = need > 0; // basics are never missing
     const issue = issues.get(x.oracleId ?? x.cardId);
     if (editing) {
       return (
@@ -483,7 +499,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
                  title={sub && x.p != null ? `${catalog!.pSet[x.p].toUpperCase()} #${catalog!.pCn[x.p]}` : x.name}
                  hero={!sub && isHero(x.oracleId, heroScope, heroes)}
                  detail={[issue && !sub ? issue : null, pts, fin, langTag(x.lang),
-                          considering ? (have ? `Owned ${have}` : "Not owned") : short ? `Owned ${have} · missing ${x.qty - have}` : x.basic && !have ? null : `Owned ${have}`]
+                          considering ? (have ? `Owned ${have}` : "Not owned") : short ? `Owned ${have} · missing ${need}` : x.basic && !have ? null : `Owned ${have}`]
                          .filter(Boolean).join(" · ")}
                  onClick={() => x.oracleId && onCard(x.oracleId)} />
       </div>
@@ -500,8 +516,8 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
     const considering = lead.board === "maybe";
     const issue = issues.get(lead.oracleId ?? lead.cardId);
     // Basics are never missing (contract/basics-2026-10-24.md).
-    const short = lead.basic ? 0 : cg.lines.reduce((n, l) => n + Math.max(0, l.qty - (owned.get(ownKey(l.cardId, l.finish)) ?? 0)), 0);
-    const have = cg.lines.reduce((n, l) => n + (owned.get(ownKey(l.cardId, l.finish)) ?? 0), 0);
+    const short = cg.lines.reduce((n, l) => n + shortOf(l), 0);
+    const have = ownedOfCard(held, lead.cardId);
     const haveText = list.eventId ? null : considering ? (have ? `Owned ${have}` : "Not owned")
       : lead.basic ? (have ? `Owned ${have}` : null) : short ? `Missing ${short}` : "All owned";
     return (
@@ -525,7 +541,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
     const lead = cg.lines[0];
     const hero = isHero(lead.oracleId, heroScope, heroes);
     const onClick = () => lead.oracleId && onCard(lead.oracleId);
-    const warn = (ls: Line[]) => ls.some((l) => isShort(l.board, l.qty, owned.get(ownKey(l.cardId, l.finish)) ?? 0, l.basic)) || issues.has(lead.oracleId ?? lead.cardId);
+    const warn = (ls: Line[]) => ls.some((l) => shortOf(l) > 0) || issues.has(lead.oracleId ?? lead.cardId);
     if (!printings.all || cg.lines.length < 2) {
       return [{ key: cg.id, p: lead.p, name: lead.name, qty: cg.qty, warn: warn(cg.lines), finish: lead.finish, hero, onClick }];
     }
@@ -594,7 +610,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
           <Row title="Deck image" detail="The cards as a picture, to save or share" onClick={() => setImaging(true)} />}
         {/* A roto deck's cards are the cube's, not yours to add. */}
         {entriesOf(list).length > 0 && !editing && catalog && !list.eventId && (() => {
-          const miss = missingIn(list, owned, basicCardIds(catalog));
+          const miss = [...shortBy.values()].reduce((a, b) => a + b, 0);
           return <Row title="Add to collection" detail={miss ? `Missing ${miss} · or every card` : "You own every card · add more copies"} onClick={() => setAdding(true)} />;
         })()}
         {!editing && list.kind === "cube" && !list.eventId && onSync &&

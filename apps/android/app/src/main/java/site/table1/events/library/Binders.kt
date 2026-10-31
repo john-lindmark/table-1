@@ -123,33 +123,20 @@ object BinderRules {
     }
 }
 
-/** A deck or cube line you own fewer copies of than it asks for. */
-data class MissingLine(val cardId: String, val finish: String, val short: Int, val lists: List<String>) {
-    val key get() = ownKey(cardId, finish)
+/** A card your decks and cubes need more copies of than you own in any printing (contract/owned-by-card-2026-10-31.md),
+ *  shown as the printing and finish the list that needs most names; [card] is the card key. */
+data class MissingLine(val cardId: String, val finish: String, val short: Int, val lists: List<String>, val card: String = cardId) {
+    val key get() = card
 }
 
 object MissingView {
     /**
-     * Every list line (not Considering) short of copies, per printing × finish, with the largest need across lists:
-     * lists don't reserve copies, so one set of copies covers them all. Basic lands ([basics]) are never missing
+     * One line per card (not Considering), the largest need across lists: lists don't reserve copies, so one set of
+     * copies covers them all. Any printing of the card counts; basic lands ([basics]) are never missing
      * (contract/basics-2026-10-24.md).
      */
-    fun lines(lists: List<CardList>, owned: Map<String, Int>, basics: Set<String>): List<MissingLine> {
-        val need = LinkedHashMap<String, Pair<Int, MutableList<String>>>()
-        for (l in lists) {
-            val mine = l.entries.filter { it.board != "maybe" && it.cardId !in basics }.groupBy { ownKey(it.cardId, it.finish) }.mapValues { (_, v) -> v.sumOf { it.qty } }
-            for ((k, n) in mine) {
-                if (n <= (owned[k] ?: 0)) continue
-                val v = need[k] ?: (0 to mutableListOf())
-                v.second.add(l.name)
-                need[k] = maxOf(v.first, n) to v.second
-            }
-        }
-        return need.map { (k, v) ->
-            val (cardId, finish) = k.split("|", limit = 2)
-            MissingLine(cardId, finish, v.first - (owned[k] ?: 0), v.second.sorted())
-        }.sortedWith(compareByDescending<MissingLine> { it.short }.thenBy { it.key })
-    }
+    fun lines(lists: List<CardList>, h: Holdings, basics: Set<String>): List<MissingLine> =
+        OwnedByCard.lines(lists.map { it.name to OwnedByCard.needs(it) }, h, basics)
 }
 
 /* ── store ────────────────────────────────────────────────────────────── */

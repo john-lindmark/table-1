@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { BackArrow, Dialog, Menu, Notice, Row, Section, type MenuItem } from "../components/kit";
+import { BackArrow, Dialog, Menu, Notice, Row, Section, Segmented, type MenuItem } from "../components/kit";
 import { ZoomImage } from "../components/ZoomImage";
 import { capture } from "../lib/telemetry";
 import { errorMessage } from "../lib/api";
@@ -9,7 +9,7 @@ import { conditionPriceText, markConverted, usdConverted, usdPrice, usdText, use
 import { applyWants, binderById, forTrade, placementText, useBinders } from "../lib/binders";
 import { printingPlaces } from "../lib/changePrinting";
 import { ZONE_FORMATS } from "../lib/commandZone";
-import { BOARD_ORDER, boardTitle, entriesOf, finishOf, langOf, sectionsFor, editList, useLists, type Board, type CardList, type ListOp } from "../lib/lists";
+import { BOARD_ORDER, boardTitle, entriesOf, finishOf, langOf, needsOf, sectionsFor, editList, useLists, type Board, type CardList, type ListOp } from "../lib/lists";
 import { saveTrade, useTrades, type TradeLine } from "../lib/trades";
 import { LANGUAGES, langForNew, languageName, storedAddLang } from "../lib/languages";
 import { cardAddDetail, copiesOf, listAddOps, toCollectionOps, type AddOp } from "../lib/listToCollection";
@@ -22,6 +22,7 @@ import {
 } from "../lib/cardDetail";
 import { CONDITIONS, CardArt, LibScreen, SignedOut, useAddCondition, useCatalog, useLibraryHeroes, useLibrarySession } from "./Library";
 import { MoveCopies, UNSORTED, WantCardRow } from "./Binders";
+import { autoMatch, cardOfCatalog, matchDetail, matchOps, matchSections, ownedVersions, tapPick, type Move, type Need, type Pick, type Version } from "../lib/ownedByCard";
 
 /* Card detail (contract/card-detail-2026-10-23.md, Figma 318:10810): the card, one row of attributes and one bottom
    bar, in the scope it was opened from (the collection, a deck or cube, a binder, or search). The attribute row
@@ -79,6 +80,7 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
   const [confirm, setConfirm] = useState<{ title: string; run: () => void } | null>(null);
   const [addTo, setAddTo] = useState<CardVersion[] | null>(null);
   const [zoom, setZoom] = useState<number | null>(null);
+  const [matching, setMatching] = useState(false);
   const [areaRef, area] = useSize<HTMLDivElement>();
 
   const listId = context?.list;
@@ -325,6 +327,28 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
     }
   };
 
+  // Match collection (contract/owned-by-card-2026-10-31.md § 2): the list's lines of this card and the versions you own.
+  const match = (() => {
+    if (!list || list.eventId) return null;
+    const ids = new Set(facts.map((f) => f.cardId));
+    const lines = needsOf(list).filter((l) => ids.has(l.cardId));
+    const owned = ownedVersions(oldest.map((x) => catalog.pId[x]), col.items.values());
+    const boards = matchSections(lines, owned);
+    return boards.length ? { lines, owned, boards, detail: matchDetail(lines, owned) } : null;
+  })();
+  const openMatch = () => {
+    if (!match || !list) return;
+    capture("match_collection_opened", { kind: list.kind, versions: match.owned.length,
+                                         copies: match.lines.filter((l) => match.boards.includes(l.board)).reduce((n, l) => n + l.qty, 0) });
+    setMatching(true);
+  };
+  const matchStrip = match && !last ? (
+    <div className="shrink-0 bg-t1-surface px-4 py-3 flex items-center justify-between gap-3">
+      <span className="t1-label truncate">{match.detail}</span>
+      <button type="button" onClick={openMatch} className="t1-label !text-t1-text hover:!text-t1-accent shrink-0">Match collection</button>
+    </div>
+  ) : null;
+
   const price = markConverted(usdText(usdPrice(current.cardId, current.finish, current.condition)), usdConverted(current.cardId, current.finish));
   const status = last ? (
     <div className="shrink-0 bg-t1-surface px-4 py-3 flex items-center justify-between gap-3">
@@ -370,7 +394,7 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
         <>
           {status}
           <CardInfo catalog={catalog} oi={oi} version={current} p={p ?? null} printings={oldest} list={list} context={context}
-                    lists={lists.lists} report={report} onList={onList} />
+                    lists={lists.lists} report={report} onList={onList} match={match ? { detail: match.detail, open: openMatch } : null} />
         </>
       ) : (
         <>
@@ -412,6 +436,7 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
             ))}
           </div>
           {status}
+          {matchStrip}
           <div className="shrink-0 flex gap-px bg-t1-bg">
             {cells.map(({ a, value, opens }) => (
               <button key={a} type="button" aria-label={`${a}: ${value}`}
@@ -481,6 +506,10 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
         <AddToSheet catalog={catalog} oi={oi} lines={addTo} indexById={indexById} lists={lists.lists} scope={scopeName}
                     onClose={() => setAddTo(null)} onDone={(label, u) => { setAddTo(null); report(label, u); }} />
       )}
+      {matching && match && list && (
+        <MatchSheet catalog={catalog} list={list} lines={match.lines} versions={match.owned} boards={match.boards} indexById={indexById}
+                    onClose={() => setMatching(false)} onDone={(label, u) => { setMatching(false); report(label, u); }} />
+      )}
       {zoom != null && (
         <ZoomImage src={cardImageUrl(catalog, zoom, "large", back && catalog.pFaces[zoom] > 1)} alt={name} title={name}
                    subtitle={setLabel(catalog.pId[zoom])} onClose={() => setZoom(null)} />
@@ -490,6 +519,74 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
 }
 
 /* ── pieces ───────────────────────────────────────────────────────────── */
+
+/** Match collection: a section's copies of the card take the printings you own (contract/owned-by-card-2026-10-31.md § 2).
+ *  Opens filled in by Auto; a tap on a tile picks one more of it, or back to none. */
+function MatchSheet({ catalog, list, lines, versions, boards, indexById, onClose, onDone }: {
+  catalog: Catalog; list: CardList; lines: Need[]; versions: Version[]; boards: string[]; indexById: Map<string, number>;
+  onClose: () => void; onDone: (label: string, undo: Undo | null) => void;
+}) {
+  const [board, setBoard] = useState(boards[0]);
+  const section = lines.filter((l) => l.board === board);
+  const [picks, setPicks] = useState<Pick[]>(() => autoMatch(section, versions));
+  const [auto, setAuto] = useState(true);
+  const [fail, setFail] = useState<string | null>(null);
+  const total = section.reduce((n, l) => n + l.qty, 0);
+  const used = picks.reduce((n, p) => n + p.qty, 0);
+  const ops = matchOps(section, picks);
+  const w = 200;
+  const pickBoard = (b: string) => { setBoard(b); setPicks(autoMatch(lines.filter((l) => l.board === b), versions)); setAuto(true); };
+  const toOps = (ms: Move[]): ListOp[] => ms.map((m) => ({ card_id: m.cardId, board: board as Board, finish: m.finish as ListOp["finish"], lang: m.lang ?? "en",
+    to_card_id: m.toCardId, to_finish: m.toFinish as ListOp["finish"], to_lang: m.lang ?? "en", qty: m.qty, swap: true }));
+  const save = async () => {
+    if (!ops.length) return;
+    const back = [...ops].reverse().map((m) => ({ cardId: m.toCardId, finish: m.toFinish, lang: m.lang, toCardId: m.cardId, toFinish: m.finish, qty: m.qty }));
+    const moved = ops.reduce((n, m) => n + m.qty, 0);
+    try {
+      await editList(list.id, toOps(ops));
+      capture("match_collection_saved", { kind: list.kind, moved, versions: new Set(ops.map((m) => `${m.toCardId}|${m.toFinish}`)).size, auto });
+      const label = `${moved} ${moved === 1 ? "copy" : "copies"} now your printings`;
+      onDone(label, { label, run: () => editList(list.id, toOps(back)) });
+    } catch (e) { setFail(errorMessage(e)); }
+  };
+  return (
+    <Sheet onClose={onClose} label="Match collection">
+      <div className="p-4 flex flex-col gap-3">
+        <div className="t1-label">Match collection</div>
+        {boards.length > 1 && <Segmented options={boards.map((b) => ({ value: b, label: boardTitle(list.kind, b as Board) }))} value={board} onChange={pickBoard} />}
+        <div className="flex items-center gap-4">
+          <span className="t1-label flex-1 truncate">{used} of {total} picked · tap to pick</span>
+          <button type="button" className="t1-label hover:!text-t1-text" onClick={() => { setPicks([]); setAuto(false); }}>Clear</button>
+          <button type="button" className="t1-label hover:!text-t1-text" onClick={() => { setPicks(autoMatch(section, versions)); setAuto(true); }}>Auto</button>
+        </div>
+        <div className="grid grid-cols-2 gap-px max-h-[440px] overflow-y-auto">
+          {versions.map((v) => {
+            const n = picks.find((x) => x.cardId === v.cardId && x.finish === v.finish)?.qty ?? 0;
+            const p = indexById.get(v.cardId) ?? null;
+            const set = p == null ? "" : `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}`;
+            return (
+              <button key={`${v.cardId}|${v.finish}`} type="button" aria-label={`${set}, own ${v.owned}, ${n} picked`}
+                      onClick={() => { setPicks(tapPick(picks, versions, total, v.cardId, v.finish)); setAuto(false); }}
+                      className="flex flex-col items-center gap-1 pb-2">
+                <span className={`relative block ${n ? "outline outline-1 outline-t1-accent" : ""}`}>
+                  <CardArt c={catalog} p={p} width={w} finish={v.finish as Finish} />
+                  {n > 0 && <span className="absolute bg-t1-accent text-t1-ink px-2 py-0.5 text-[15px] font-semibold tabular-nums" style={{ right: w * 0.05, bottom: w * 0.05 }}>{n}</span>}
+                </span>
+                <span className="t1-label truncate max-w-full">{[set, v.finish === "nonfoil" ? null : FINISH_LABEL[v.finish as Finish], `Own ${v.owned}`].filter(Boolean).join(" · ")}</span>
+              </button>
+            );
+          })}
+        </div>
+        {total > used && <span className="t1-label">{total - used} not picked stay as listed</span>}
+        {fail && <Notice tone="error">{fail}</Notice>}
+        <button type="button" disabled={!ops.length} onClick={() => void save()}
+                className="h-[54px] bg-t1-surface hover:bg-t1-surface-hover disabled:hover:bg-t1-surface text-[15px] font-semibold uppercase tracking-[4px] disabled:text-t1-muted">
+          {ops.length ? "Use these printings" : "Already matches"}
+        </button>
+      </div>
+    </Sheet>
+  );
+}
 
 /** Figma Bar: back arrow, name, price, then + (owned scopes) and the list / tune icon. */
 function CardBar({ name, price, onBack, onAdd, onInfo, info }: {
@@ -796,9 +893,11 @@ async function fetchDetails(cardId: string): Promise<Details> {
 
 /** The list icon's view (Figma 231:9241): a smaller image, the rules text, Price / Card type / Rarity / Artist, then
  *  where the card is used, your copies, wants, hero and history. */
-function CardInfo({ catalog, oi, version, p, printings, list, context, lists, report, onList }: {
+function CardInfo({ catalog, oi, version, p, printings, list, context, lists, report, onList, match }: {
   catalog: Catalog; oi: number; version: CardVersion; p: number | null; printings: number[]; list?: CardList; context?: CardContext;
   lists: CardList[]; report: (label: string, undo: Undo | null) => void; onList?: (id: string) => void;
+  /** Match collection, when the list could use the printings you own. */
+  match?: { detail: string; open: () => void } | null;
 }) {
   const { userId } = useLibrarySession();
   const col = useCollection(userId);
@@ -851,11 +950,12 @@ function CardInfo({ catalog, oi, version, p, printings, list, context, lists, re
     const ownedBy = new Map<string, number>();
     for (const it of col.items.values()) {
       const k = `${it.cardId}|${it.finish}|${it.lang}`;
-      if (only.has(it.cardId)) ownedBy.set(k, (ownedBy.get(k) ?? 0) + it.qty);
+      // Every printing of the card: any of them covers a line (contract/owned-by-card-2026-10-31.md).
+      if (ids.has(it.cardId)) ownedBy.set(k, (ownedBy.get(k) ?? 0) + it.qty);
     }
     const entries = entriesOf(list);
     const basics = basicCardIds(catalog);
-    const missing = listAddOps(entries, list.kind, ownedBy, "missing", true, only, basics);
+    const missing = listAddOps(entries, list.kind, ownedBy, "missing", true, only, basics, cardOfCatalog(catalog));
     const all = listAddOps(entries, list.kind, ownedBy, "all", true, only);
     const m = copiesOf(missing), a = copiesOf(all);
     const add = async (ops: AddOp[], mode: string) => {
@@ -898,6 +998,7 @@ function CardInfo({ catalog, oi, version, p, printings, list, context, lists, re
       {row("Artist", details?.artist ?? "—")}
       {p != null && row("Printing", [label(version.cardId), catalog.pLang[p] === "en" ? null : languageName(catalog.pLang[p])].filter(Boolean).join(" · "))}
       {listAdd}
+      {match && <Row title="Match collection" detail={match.detail} onClick={match.open} />}
       {uses.length > 0 && (
         <>
           <Section title={used > total ? `In decks and cubes · ${used} used · own ${total}` : `In decks and cubes · ${used}`} />

@@ -67,6 +67,7 @@ import kotlinx.serialization.json.put
 import site.table1.events.ui.components.BackArrowButton
 import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.ListRow
+import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.Section
 import site.table1.events.ui.components.T1AlertDialog
@@ -120,6 +121,7 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
     var confirm by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
     var addTo by remember { mutableStateOf<List<CardVersion>?>(null) }
     var zoom by remember { mutableStateOf<Pair<Bitmap, String>?>(null) }
+    var matching by remember { mutableStateOf(false) }
     val prefs = remember { site.table1.events.T1App.instance.getSharedPreferences("library", android.content.Context.MODE_PRIVATE) }
     val addCondition = prefs.getString("addCondition", "NM") ?: "NM"
     val addLang = Languages.addLang
@@ -167,6 +169,19 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
     fun report(label: String, undo: CardUndo?) {
         error = null
         if (undo != null) { last = undo; notice = null } else { last = null; notice = label }
+    }
+    // Match collection (contract/owned-by-card-2026-10-31.md § 2): the list's lines of this card and the versions you own.
+    val match = list?.let { l ->
+        val lines = OwnedByCard.needs(l).filter { it.cardId in byId }
+        val owned = OwnedByCard.ownedVersions(printings.map { it.cardId }, col.items.values)
+        val boards = OwnedByCard.matchSections(lines, owned)
+        if (boards.isEmpty()) null else MatchInfo(lines, owned, boards, OwnedByCard.matchDetail(lines, owned))
+    }
+    fun openMatch() {
+        val m = match ?: return
+        Telemetry.capture("match_collection_opened", mapOf("kind" to (list?.kind?.wire ?: "deck"), "versions" to m.owned.size,
+            "copies" to m.lines.filter { it.board in m.boards }.sumOf { it.qty }))
+        matching = true
     }
     fun write(ops: List<CollectionOp>, label: String, then: () -> Unit = {}) {
         busy = true
@@ -363,7 +378,8 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
         }
         if (info) {
             Status()
-            CardInfo(o, byId[current.cardId], current, printings, list, context, lists.lists, Modifier.weight(1f), onList) { l, u -> report(l, u) }
+            CardInfo(o, byId[current.cardId], current, printings, list, context, lists.lists, Modifier.weight(1f), onList,
+                match?.let { m -> m.detail to { openMatch() } }) { l, u -> report(l, u) }
             return@T1Screen
         }
         // The card: one image as large as fits, or a two-column grid of versions.
@@ -414,6 +430,12 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
             }
         }
         Status()
+        if (last == null) match?.let { m ->
+            Row(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Label(m.detail, Modifier.weight(1f))
+                Label("Match collection", Modifier.clickable { openMatch() }.padding(4.dp), color = T1.text)
+            }
+        }
         // The attribute row: the value the copies in view share, or MIX.
         val setValue = CardDetailRules.shared(shown) { it.cardId }
         val printingShown = setValue?.let { byId[it] }
@@ -508,7 +530,95 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
     addTo?.let { lines ->
         if (o != null) AddToSheet(o, lines, byId, lists.lists, scopeName, onClose = { addTo = null }) { l, u -> addTo = null; report(l, u) }
     }
+    if (matching && list != null) match?.let { m ->
+        MatchSheet(list, m, byId, onClose = { matching = false }) { l, u -> matching = false; report(l, u) }
+    }
     zoom?.let { (bmp, sub) -> ZoomImageScreen(bmp, o?.name ?: "Card", sub) { zoom = null } }
+}
+
+private data class MatchInfo(val lines: List<OwnedByCard.Need>, val owned: List<OwnedByCard.Version>, val boards: List<String>, val detail: String)
+
+/** Match collection: a section's copies of the card take the printings you own (contract/owned-by-card-2026-10-31.md § 2).
+ *  Opens filled in by Auto; a tap on a tile picks one more of it, or back to none. */
+@Composable
+private fun MatchSheet(list: CardList, m: MatchInfo, printings: Map<String, CatalogPrinting>, onClose: () -> Unit, onDone: (String, CardUndo?) -> Unit) {
+    val co = rememberCoroutineScope()
+    var board by remember { mutableStateOf(m.boards.first()) }
+    val section = m.lines.filter { it.board == board }
+    var picks by remember { mutableStateOf(OwnedByCard.autoMatch(section, m.owned)) }
+    var auto by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val total = section.sumOf { it.qty }
+    val used = picks.sumOf { it.qty }
+    val ops = OwnedByCard.matchOps(section, picks)
+    fun json(ms: List<OwnedByCard.Move>) = ms.map { mv ->
+        buildJsonObject {
+            put("card_id", mv.cardId); put("board", board); put("finish", mv.finish); put("lang", mv.lang)
+            put("to_card_id", mv.toCardId); put("to_finish", mv.toFinish); put("to_lang", mv.lang); put("qty", mv.qty)
+        }
+    }
+    fun save() {
+        if (ops.isEmpty()) return
+        val back = ops.reversed().map { OwnedByCard.Move(it.toCardId, it.toFinish, it.lang, it.cardId, it.finish, it.qty) }
+        val moved = ops.sumOf { it.qty }
+        co.launch {
+            runCatching { ListsStore.editMany(list.id, json(ops)) }
+                .onSuccess {
+                    Telemetry.capture("match_collection_saved", mapOf("kind" to list.kind.wire, "moved" to moved,
+                        "versions" to ops.map { "${it.toCardId}|${it.toFinish}" }.toSet().size, "auto" to auto))
+                    val label = "$moved ${if (moved == 1) "copy" else "copies"} now your printings"
+                    onDone(label, CardUndo(label) { ListsStore.editMany(list.id, json(back)) })
+                }
+                .onFailure { error = it.message }
+        }
+    }
+    Sheet(onClose) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Label("Match collection")
+            if (m.boards.size > 1) T1Segmented(m.boards.map { list.boardTitle(it) }, m.boards.indexOf(board)) { i ->
+                board = m.boards[i]
+                picks = OwnedByCard.autoMatch(m.lines.filter { it.board == board }, m.owned)
+                auto = true
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Label("$used of $total picked · tap to pick", Modifier.weight(1f))
+                Label("Clear", Modifier.clickable { picks = emptyList(); auto = false }.padding(8.dp), color = T1.text)
+                Label("Auto", Modifier.clickable { picks = OwnedByCard.autoMatch(section, m.owned); auto = true }.padding(8.dp), color = T1.text)
+            }
+            BoxWithConstraints {
+                val w = (maxWidth - 1.dp) / 2
+                Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    m.owned.chunked(2).forEach { pair ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                            pair.forEach { v ->
+                                val n = picks.firstOrNull { it.cardId == v.cardId && it.finish == v.finish }?.qty ?: 0
+                                val p = printings[v.cardId]
+                                Column(Modifier.width(w).clickable {
+                                    picks = OwnedByCard.tap(picks, m.owned, total, v.cardId, v.finish)
+                                    auto = false
+                                }.semantics { contentDescription = "${p?.setLabel ?: "Printing"}, own ${v.owned}, $n picked" },
+                                    horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Box(Modifier.let { if (n > 0) it.border(1.dp, T1.accent) else it }, contentAlignment = Alignment.BottomEnd) {
+                                        CardArt(p, w, finish = v.finish)
+                                        if (n > 0) Text("$n", Modifier.padding(w * 0.05f).background(T1.accent).padding(horizontal = 8.dp, vertical = 3.dp),
+                                            color = T1.ink, fontFamily = T1.mono, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                    Label(listOfNotNull(p?.setLabel, Finish.of(v.finish)?.takeIf { v.finish != "nonfoil" }?.label, "Own ${v.owned}").joinToString(" · "),
+                                        Modifier.padding(vertical = 4.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (total > used) Label("${total - used} not picked stay as listed")
+            error?.let { Notice(it, error = true) }
+            Box(Modifier.fillMaxWidth().height(54.dp).background(T1.surface).clickable(enabled = ops.isNotEmpty()) { save() }, contentAlignment = Alignment.Center) {
+                Text((if (ops.isEmpty()) "Already matches" else "Use these printings").uppercase(), color = if (ops.isEmpty()) T1.muted else T1.text,
+                    fontFamily = T1.mono, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 4.sp)
+            }
+        }
+    }
 }
 
 /* ── pieces ───────────────────────────────────────────────────────────── */
@@ -785,7 +895,9 @@ private object CardDetailsSource {
  *  where the card is used, your copies, wants, hero and history. */
 @Composable
 private fun CardInfo(o: CatalogOracle, p: CatalogPrinting?, version: CardVersion, printings: List<CatalogPrinting>, list: CardList?,
-                     context: CardContext?, lists: List<CardList>, modifier: Modifier, onList: (String) -> Unit, report: (String, CardUndo?) -> Unit) {
+                     context: CardContext?, lists: List<CardList>, modifier: Modifier, onList: (String) -> Unit,
+                     /** Match collection (detail, open), when the list could use the printings you own. */
+                     match: Pair<String, () -> Unit>?, report: (String, CardUndo?) -> Unit) {
     val col by CollectionStore.state.collectAsState()
     val binders by BindersStore.state.collectAsState()
     val heroes by HeroesStore.state.collectAsState()
@@ -845,9 +957,11 @@ private fun CardInfo(o: CatalogOracle, p: CatalogPrinting?, version: CardVersion
             val lines = list.entries.filter { it.cardId in byId }.sortedBy { CardList.BOARD_ORDER.indexOf(it.board) }
             if (lines.isNotEmpty()) {
                 val only = lines.map { it.cardId }.toSet()
-                val ownedBy = col.items.values.filter { it.cardId in only }.groupBy { "${it.cardId}|${it.finish}|${it.lang}" }.mapValues { (_, v) -> v.sumOf { it.qty } }
+                // Every printing of the card: any of them covers a line (contract/owned-by-card-2026-10-31.md).
+                val ownedBy = col.items.values.filter { it.cardId in byId }.groupBy { "${it.cardId}|${it.finish}|${it.lang}" }.mapValues { (_, v) -> v.sumOf { it.qty } }
                 val basics = CatalogStore.basics
-                val missing = ListToCollection.ops(list.entries, list.kind, ownedBy, ListToCollection.Mode.Missing, only = only, basics = basics)
+                val missing = ListToCollection.ops(list.entries, list.kind, ownedBy, ListToCollection.Mode.Missing, only = only, basics = basics,
+                                                   cardOf = Holdings.cardKeys(ownedBy, list.entries.map { it.cardId }))
                 val all = ListToCollection.ops(list.entries, list.kind, ownedBy, ListToCollection.Mode.All, only = only)
                 val m = ListToCollection.copies(missing)
                 val a = ListToCollection.copies(all)
@@ -878,6 +992,7 @@ private fun CardInfo(o: CatalogOracle, p: CatalogPrinting?, version: CardVersion
                 }) { Label(if (busy) "Adding…" else "Add", color = T1.text) }
             }
         }
+        match?.let { (detail, open) -> ListRow("Match collection", detail, onClick = open) }
         if (uses.isNotEmpty()) {
             Section(if (used > total) "In decks and cubes · $used used · own $total" else "In decks and cubes · $used")
             uses.forEach { (l, qty, considering) ->

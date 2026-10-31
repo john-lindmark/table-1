@@ -339,7 +339,7 @@ struct TradeView: View {
             if let max = w.maxUsd, let price = prices.usd(l.cardId, l.finish, l.condition), price > max { return ("Want · over your max $\(max.formatted())", true) }
             return ("Want", false)
         }
-        if let m = missingLines["\(l.cardId)|\(l.finish)"] { return ("Missing · \(m.lists.prefix(2).joined(separator: ", "))", false) }
+        if let m = missingLines[String(p.oracleIdx)] { return ("Missing · \(m.lists.prefix(2).joined(separator: ", "))", false) }
         return nil
     }
 
@@ -478,7 +478,8 @@ struct TradeView: View {
         meta = found.0
         names = found.1
         oracleIds = found.2
-        missingLines = Dictionary(MissingView.lines(ListsStore.shared.lists, owned: ownedByPrinting(), basics: CatalogStore.shared.basics).map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let lists = ListsStore.shared.lists
+        missingLines = Dictionary(MissingView.lines(lists, Holdings.current(listing: lists.flatMap { $0.entries.map(\.cardId) }), basics: CatalogStore.shared.basics).map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         await prices.load(ids)
     }
 

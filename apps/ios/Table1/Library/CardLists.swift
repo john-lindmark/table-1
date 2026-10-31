@@ -428,6 +428,22 @@ final class ListsStore {
         }
     }
 
+    /// Several printing moves in one section as one edit (card detail's Match collection, contract/owned-by-card-2026-10-31.md):
+    /// one request, one step in the history. Each copy keeps its language.
+    func swapMany(listId: String, board: String, moves: [OwnedByCard.Move]) {
+        guard !moves.isEmpty else { return }
+        let ops: [[String: AnyJSON]] = moves.map {
+            ["card_id": .string($0.cardId), "board": .string(board), "finish": .string($0.finish), "lang": .string($0.lang),
+             "to_card_id": .string($0.toCardId), "to_finish": .string($0.toFinish), "to_lang": .string($0.lang), "qty": .integer($0.qty)]
+        }
+        edit(listId, ops: ops) { entries in
+            for m in moves {
+                Self.shift(&entries, cardId: m.cardId, board: board, finish: m.finish, lang: m.lang, toCardId: m.toCardId, toBoard: board,
+                           toFinish: m.toFinish, toLang: m.lang, qty: m.qty)
+            }
+        }
+    }
+
     nonisolated static func shift(_ entries: inout [CardList.Entry], cardId: String, board: String, finish: String, lang: String = "en",
                               toCardId: String, toBoard: String, toFinish: String, toLang: String = "en", qty: Int?) {
         guard let i = entries.firstIndex(where: { $0.isLine(cardId, board, finish, lang) }) else { return }
@@ -621,13 +637,33 @@ func ownedByLanguage() -> [String: Int] {
     return out
 }
 
-/// Copies a list still needs. A line counts as covered only by the printing and finish it names; Considering and
-/// basic lands (`basics`, contract/basics-2026-10-24.md) are excluded.
-func missing(in list: CardList, owned: [String: Int], basics: Set<String>) -> Int {
-    guard list.eventId == nil else { return 0 }
-    var need: [String: Int] = [:]
-    for e in list.entries where e.board != "maybe" && !basics.contains(e.cardId) { need["\(e.cardId)|\(e.finish)", default: 0] += e.qty }
-    return need.reduce(0) { $0 + max(0, $1.value - (owned[$1.key] ?? 0)) }
+/// Copies a list still needs: any printing of a card covers its lines (contract/owned-by-card-2026-10-31.md);
+/// Considering and basic lands (`basics`, contract/basics-2026-10-24.md) are excluded.
+func missing(in list: CardList, _ holdings: Holdings, basics: Set<String>) -> Int {
+    OwnedByCard.missing(list, holdings, basics: basics)
+}
+
+/// What each line of a deck or cube screen still needs, and what's held of each card (contract/owned-by-card-2026-10-31.md).
+struct LineCover {
+    let holdings: Holdings
+    private var shorts: [String: Int] = [:]
+    /// Copies the list still needs.
+    private(set) var total = 0
+
+    @MainActor init(_ list: CardList?) {
+        holdings = Holdings.current(listing: list?.entries.map(\.cardId) ?? [])
+        // A roto deck's cards come from the cube, never from your collection: every line is covered.
+        guard let list, list.eventId == nil else { return }
+        let s = OwnedByCard.shorts(OwnedByCard.needs(list), holdings, basics: CatalogStore.shared.basics)
+        for (e, n) in zip(list.entries, s) where n > 0 { shorts["\(e.board)|\(e.cardId)|\(e.finish)|\(e.lang)", default: 0] += n }
+        total = s.reduce(0, +)
+    }
+
+    func short(_ l: ListLine) -> Int { shorts[l.id] ?? 0 }
+    /// "Owned N": copies of the card in any printing; `printing` (a printing's own sub-row) counts that printing and finish.
+    func owned(_ l: ListLine, printing: Bool = false) -> Int {
+        printing ? holdings.owned(printing: l.cardId, finish: l.finish) : holdings.owned(card: l.cardId)
+    }
 }
 
 /// One line (or grid/stack card) reads short when you own fewer copies than it lists: never for Considering, never for a
@@ -664,7 +700,7 @@ struct ListsView: View {
 
     var body: some View {
         let lists = store.lists(kind)
-        let owned = ownedByPrinting()
+        let owned = Holdings.current(listing: lists.flatMap { $0.entries.map(\.cardId) })
         T1Screen {
             Bar(title: kind == .deck ? "Decks" : "Cubes", subtitle: "\(lists.count)", back: { dismiss() })
             HairlineList {
@@ -682,7 +718,7 @@ struct ListsView: View {
                     }.buttonStyle(.plain)
                 }
                 ForEach(lists) { l in
-                    let miss = missing(in: l, owned: owned, basics: CatalogStore.shared.basics)
+                    let miss = missing(in: l, owned, basics: CatalogStore.shared.basics)
                     Button { path.append(.list(l.id)) } label: {
                         HeroListRow(heroes: heroArt[l.id] ?? [], title: l.name, detail: detail(l, missing: miss)) {
                             Text(l.count("main").formatted()).font(T1.mono(17)).monospacedDigit()
@@ -903,8 +939,7 @@ struct ListDetailView: View {
 
     var body: some View {
         let list = ListsStore.shared.list(id: listId)
-        // A roto deck's cards come from the cube, never from your collection: treat every line as covered.
-        let owned = list.flatMap { $0.eventId == nil ? nil : eventCover($0) } ?? ownedByPrinting()
+        let owned = LineCover(list)
         let rows = list.map { lines(for: $0) } ?? []
         let issues = list.map { ListLine.issues(rows, list: $0) } ?? [:]
         let shown = query.isEmpty ? rows : rows.filter { CardSearch.matches(query, name: $0.name, type: $0.type) }
@@ -1082,7 +1117,7 @@ struct ListDetailView: View {
     }
 
     /// Summary, Add cards and Version history: the same in every layout.
-    @ViewBuilder private func top(_ list: CardList, owned: [String: Int], rows: [ListLine], issues: [String: String]) -> some View {
+    @ViewBuilder private func top(_ list: CardList, owned: LineCover, rows: [ListLine], issues: [String: String]) -> some View {
         WhoSeesRow(kind: list.kind == .cube ? "cube" : "deck", id: list.id, name: list.name)
         if list.eventId == nil {
             let kind = list.kind == .cube ? "cube" : "deck"
@@ -1154,7 +1189,7 @@ struct ListDetailView: View {
             }
             // A roto deck's cards are the cube's, not yours to add.
             if list.eventId == nil {
-                let short = missing(in: list, owned: owned, basics: CatalogStore.shared.basics)
+                let short = owned.total
                 Button {
                     T1Overlays.shared.present(full: true) { ListToCollectionPanel(listId: list.id).screen("list_to_collection") }
                 } label: {
@@ -1177,12 +1212,6 @@ struct ListDetailView: View {
     }
 
     /// Every line's own count, so nothing reads as missing.
-    private func eventCover(_ l: CardList) -> [String: Int] {
-        var out: [String: Int] = [:]
-        for e in l.entries { out["\(e.cardId)|\(e.finish)", default: 0] += e.qty }
-        return out
-    }
-
     private func historyRow(_ list: CardList) -> some View {
         Button { path.append(.versions(list.id)) } label: {
             ListRow(title: "Version history", detail: list.current.map { "v\($0.number) · \($0.note) · \($0.at.formatted(shortDate))" }) {
@@ -1193,17 +1222,17 @@ struct ListDetailView: View {
 
     /// A card with one line is that line's row; with several, a summary row with a chevron that opens one row per
     /// printing and finish.
-    @ViewBuilder private func groupRows(_ cg: LineGroup, owned: [String: Int], issue: String?) -> some View {
+    @ViewBuilder private func groupRows(_ cg: LineGroup, owned: LineCover, issue: String?) -> some View {
         if cg.lines.count == 1 {
-            lineRow(cg.lead, owned: owned[cg.lead.ownKey] ?? 0, issue: issue)
+            lineRow(cg.lead, owned: owned.owned(cg.lead), short: owned.short(cg.lead), issue: issue)
         } else {
             let open = printings.open(cg.id)
             let hero = HeroesStore.shared.isHero(cg.lead.oracleId, heroScope)
             let considering = cg.lead.board == "maybe"
             let eventDeck = ListsStore.shared.list(id: listId)?.eventId != nil
             // Basics are never missing (contract/basics-2026-10-24.md).
-            let short = cg.lead.basic ? 0 : cg.lines.reduce(0) { $0 + max(0, $1.qty - (owned[$1.ownKey] ?? 0)) }
-            let have = cg.lines.reduce(0) { $0 + (owned[$1.ownKey] ?? 0) }
+            let short = cg.lines.reduce(0) { $0 + owned.short($1) }
+            let have = owned.owned(cg.lead)
             let haveText: String? = eventDeck ? nil : considering ? (have > 0 ? "Owned \(have)" : "Not owned")
                 : cg.lead.basic ? (have > 0 ? "Owned \(have)" : nil) : short > 0 ? "Missing \(short)" : "All owned"
             HStack(spacing: 1) {
@@ -1223,18 +1252,20 @@ struct ListDetailView: View {
             .fixedSize(horizontal: false, vertical: true)
             if open {
                 ForEach(cg.lines) { line in
-                    lineRow(line, owned: owned[line.ownKey] ?? 0, issue: issue, sub: true).padding(.leading, 24).background(T1.surface)
+                    lineRow(line, owned: owned.owned(line, printing: true), short: owned.short(line), issue: issue, sub: true).padding(.leading, 24).background(T1.surface)
                 }
             }
         }
     }
 
-    private func lineRow(_ line: ListLine, owned: Int, issue: String?, sub: Bool = false) -> some View {
+    /// `owned`: copies of the card in any printing (a sub-row: of its printing); `missing`: what the line still needs
+    /// once the card's copies cover it (contract/owned-by-card-2026-10-31.md).
+    private func lineRow(_ line: ListLine, owned: Int, short missing: Int, issue: String?, sub: Bool = false) -> some View {
         let considering = line.board == "maybe"
-        let short = !considering && !line.basic && owned < line.qty
+        let short = missing > 0
         let eventDeck = ListsStore.shared.list(id: listId)?.eventId != nil
         let have: String? = eventDeck ? nil : considering ? (owned > 0 ? "Owned \(owned)" : "Not owned")
-            : line.basic && owned == 0 ? nil : short ? "Owned \(owned) · missing \(line.qty - owned)" : "Owned \(owned)"
+            : line.basic && owned == 0 ? nil : short ? "Owned \(owned) · missing \(missing)" : "Owned \(owned)"
         let pts = line.points > 0 && ListsStore.shared.list(id: listId)?.format == "canlander" ? "\(line.points) pt\(line.points == 1 ? "" : "s")" : nil
         let detail = [sub ? nil : issue, pts, line.finishLabel, line.langLabel, have].compactMap { $0 }.joined(separator: " · ")
         return Button {
@@ -1292,7 +1323,7 @@ struct ListDetailView: View {
 
     /// The grid keeps the list's organization: a header per section, then a sub-header per type (decks) or
     /// color (cubes), each followed by that group's cards.
-    private func gridBody(_ list: CardList, rows: [ListLine], shown: [ListLine], owned: [String: Int], issues: [String: String]) -> some View {
+    private func gridBody(_ list: CardList, rows: [ListLine], shown: [ListLine], owned: LineCover, issues: [String: String]) -> some View {
         GeometryReader { geo in
             let width = ((geo.size.width - 2) / 3).rounded(.down)
             ScrollView {
@@ -1325,12 +1356,12 @@ struct ListDetailView: View {
 
 extension ListDetailView {
     /// Grid and stack cards for one group: one per card, or with every printing expanded, one per line.
-    fileprivate func tiles(_ lines: [ListLine], owned: [String: Int], issues: [String: String]) -> [StackCard] {
+    fileprivate func tiles(_ lines: [ListLine], owned: LineCover, issues: [String: String]) -> [StackCard] {
         LineGroup.of(lines).flatMap { cg -> [StackCard] in
             let hero = HeroesStore.shared.isHero(cg.lead.oracleId, .list(listId))
             let open = { if let o = cg.lead.oracleId { path.append(.cardIn(o, .list(listId))) } }
             func warn(_ ls: [ListLine]) -> Bool {
-                ls.contains { isShort(board: $0.board, qty: $0.qty, owned: owned[$0.ownKey] ?? 0, basic: $0.basic) } || issues[cg.key] != nil
+                ls.contains { owned.short($0) > 0 } || issues[cg.key] != nil
             }
             guard printings.all, cg.lines.count > 1 else {
                 return [StackCard(id: cg.id, printing: cg.lead.printing, name: cg.lead.name, qty: cg.qty, warn: warn(cg.lines),
@@ -1344,7 +1375,7 @@ extension ListDetailView {
 
     /// Stacks keep the list's organization too: a header per section, then a stack per type (decks) or
     /// color (cubes), two to a row.
-    fileprivate func stacksBody(_ list: CardList, rows: [ListLine], shown: [ListLine], owned: [String: Int], issues: [String: String]) -> some View {
+    fileprivate func stacksBody(_ list: CardList, rows: [ListLine], shown: [ListLine], owned: LineCover, issues: [String: String]) -> some View {
         GeometryReader { geo in
             let width = ((geo.size.width - 1) / 2).rounded(.down)
             ScrollView {

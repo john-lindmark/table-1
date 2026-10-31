@@ -36,8 +36,8 @@ class ListsTest {
 
     @Test fun consideringNeverCountsAsMissing() {
         val l = json.decodeFromString<ListWire>(wire).toList()!!
-        assertEquals(2, l.missing(mapOf(ownKey(bolt, "nonfoil") to 1), emptySet()))
-        assertEquals(0, l.missing(mapOf(ownKey(bolt, "nonfoil") to 3), emptySet()))
+        assertEquals(2, l.missing(Holdings(mapOf(ownKey(bolt, "nonfoil") to 1), emptyMap()), emptySet()))
+        assertEquals(0, l.missing(Holdings(mapOf(ownKey(bolt, "nonfoil") to 3), emptyMap()), emptySet()))
     }
 
     @Test fun cacheRoundTrips() {
@@ -48,8 +48,10 @@ class ListsTest {
     @Test fun splitsFinishesIntoTheirOwnLines() {
         val l = CardList("x", ListKind.Deck, "x", "modern", listOf(ListVersion(1, 0.0, "Created",
             listOf(ListEntry(bolt, "main", 2), ListEntry(bolt, "main", 2, "foil")))))
-        assertEquals(2, l.missing(mapOf(ownKey(bolt, "nonfoil") to 4), emptySet()))
-        assertEquals(0, l.missing(mapOf(ownKey(bolt, "nonfoil") to 2, ownKey(bolt, "foil") to 2), emptySet()))
+        // Any finish of the card covers a line (contract/owned-by-card-2026-10-31.md).
+        assertEquals(0, l.missing(Holdings(mapOf(ownKey(bolt, "nonfoil") to 4), emptyMap()), emptySet()))
+        assertEquals(1, l.missing(Holdings(mapOf(ownKey(bolt, "foil") to 3), emptyMap()), emptySet()))
+        assertEquals(0, l.missing(Holdings(mapOf(ownKey(bolt, "nonfoil") to 2, ownKey(bolt, "foil") to 2), emptyMap()), emptySet()))
         val wire = ListWire.of(l).versions[0].entries.map { it.size }
         assertEquals(listOf(3, 4), wire)
         assertEquals(l, ListWire.of(l).toList())
@@ -64,7 +66,7 @@ class ListsTest {
         assertEquals(listOf(ListChange(bolt, "main", -1, "nonfoil", "en"), ListChange(bolt, "main", 1, "foil", "de"), ListChange(bolt, "main", 1, "nonfoil", "ja")),
             CardList.diff(l.versions[0], l.versions[1]).sortedBy { it.delta * 10 + if (it.lang == "de") 0 else 1 })
         // Missing counts every language.
-        assertEquals(1, l.missing(mapOf(ownKey(bolt, "nonfoil") to 2), emptySet()))
+        assertEquals(1, l.missing(Holdings(mapOf(ownKey(bolt, "nonfoil") to 2), emptyMap()), emptySet()))
     }
 
     // A sync once made 50 lists_changes calls back to back whatever the server said (2026-10-30 edge logs: ~100 a minute

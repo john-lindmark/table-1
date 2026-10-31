@@ -29,8 +29,8 @@ class BasicsTest {
         val missing = c["missing"]!!.jsonObject.mapValues { it.value.jsonPrimitive.int }
         val without = c["missingWithoutBasics"]!!.jsonObject.mapValues { it.value.jsonPrimitive.int }
         for (l in lists) {
-            assertEquals(l.name, missing[l.name], l.missing(owned, basics))
-            assertEquals(l.name, without[l.name], l.missing(owned, emptySet()))
+            assertEquals(l.name, missing[l.name], l.missing(Holdings(owned, emptyMap()), basics))
+            assertEquals(l.name, without[l.name], l.missing(Holdings(owned, emptyMap()), emptySet()))
         }
     }
 
@@ -51,7 +51,7 @@ class BasicsTest {
             MissingLine(m["card_id"]!!.jsonPrimitive.content, m["finish"]!!.jsonPrimitive.content, m["short"]!!.jsonPrimitive.int,
                 m["lists"]!!.jsonArray.map { it.jsonPrimitive.content })
         }
-        assertEquals(want, MissingView.lines(lists, owned, basics))
+        assertEquals(want, MissingView.lines(lists, Holdings(owned, emptyMap()), basics))
     }
 
     @Test fun onlyEveryCardAddsThem() {

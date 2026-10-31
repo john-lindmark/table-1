@@ -61,7 +61,7 @@ describe("wants", () => {
     expect(wants.get(wantKey("o", null, null))?.qty).toBe(1);
   });
 
-  it("Missing takes the largest need across lists, skipping Considering and roto decks", () => {
+  it("Missing takes the largest need per card across lists, skipping Considering and roto decks", () => {
     const list = (id: string, entries: CardList["versions"][0]["entries"], eventId?: string): CardList =>
       ({ id, kind: "deck", name: `Deck ${id}`, format: "modern", versions: [{ number: 1, at: 0, note: "", entries }], eventId });
     const lists = [
@@ -71,8 +71,8 @@ describe("wants", () => {
       list("3", [{ cardId: "shock", board: "main", qty: 4 }], "roto"),
     ];
     const lines = missingLines(lists, new Map([["bolt|nonfoil", 1]]), new Set());
-    expect(lines.map((m) => `${m.cardId}|${m.finish} ${m.short} ${m.lists.join("+")}`)).toEqual(["bolt|nonfoil 3 Deck 1+Deck 2", "bolt|foil 2 Deck 2"]);
-    expect(missingLines(lists, new Map([["bolt|nonfoil", 4], ["bolt|foil", 2]]), new Set())).toEqual([]);
+    expect(lines.map((m) => `${m.cardId}|${m.finish} ${m.short} ${m.lists.join("+")}`)).toEqual(["bolt|nonfoil 4 Deck 1+Deck 2"]); // one line per card: any finish covers it
+    expect(missingLines(lists, new Map([["bolt|nonfoil", 4], ["bolt|foil", 1]]), new Set())).toEqual([]);
   });
 });
 

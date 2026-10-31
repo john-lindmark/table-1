@@ -379,7 +379,8 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 composable("collection/shared/{token}") { e ->
                     SharedLinkScreen(e.arguments?.getString("token") ?: "", onBack = { nav.popBackStack() },
                         onCard = { nav.navigate("collection/card/$it?search=1") }, onList = { nav.navigate("collection/list/$it") },
-                        onFollowChanges = { k, id -> nav.navigate("collection/following/$k/$id") })
+                        onFollowChanges = { k, id -> nav.navigate("collection/following/$k/$id") },
+                        onRankings = { nav.navigate("collection/list/$it/rankings") })
                 }
                 composable("collection/matches") {
                     TradeMatchesScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/match/$it") },

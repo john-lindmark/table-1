@@ -322,7 +322,15 @@ struct CardInfoView: View {
     // MARK: the rest of the old screen
 
     @ViewBuilder private var extras: some View {
-        if case .list(let id) = context, let list = ListsStore.shared.list(id: id), list.eventId == nil { listAddRow(list) }
+        if case .list(let id) = context, let list = ListsStore.shared.list(id: id), list.eventId == nil {
+            listAddRow(list)
+            let mine = MatchCollection.versions(printings), ids = Set(printings.map(\.cardId))
+            if !MatchCollection.sections(list, ids: ids, versions: mine).isEmpty {
+                Button { MatchCollection.present(list: list, printings: printings, report: report) } label: {
+                    ListRow(title: "Match collection", detail: MatchCollection.detail(list, ids: ids, versions: mine))
+                }.buttonStyle(.plain)
+            }
+        }
         let ids = Set(printings.map(\.cardId))
         let owned = col.items.values.filter { ids.contains($0.cardId) }
             .sorted { $0.cardId != $1.cardId ? $0.cardId < $1.cardId : $0.key < $1.key }
@@ -388,7 +396,8 @@ struct CardInfoView: View {
         let only = Set(lines.map(\.cardId))
         let ownedNow = ownedByLanguage()
         let basics = CatalogStore.shared.basics
-        let missing = ListToCollection.ops(list.entries, kind: list.kind, owned: ownedNow, mode: .missing, only: only, basics: basics)
+        let missing = ListToCollection.ops(list.entries, kind: list.kind, owned: ownedNow, mode: .missing, only: only, basics: basics,
+                                           cardOf: Holdings.cardKeys(owned: ownedNow, listing: list.entries.map(\.cardId)))
         let all = ListToCollection.ops(list.entries, kind: list.kind, owned: ownedNow, mode: .all, only: only)
         let m = ListToCollection.copies(missing), a = ListToCollection.copies(all)
         func add(_ ops: [ListToCollection.Op], mode: String) {

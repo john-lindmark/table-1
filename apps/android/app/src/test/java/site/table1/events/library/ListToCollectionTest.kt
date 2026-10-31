@@ -30,7 +30,8 @@ class ListToCollectionTest {
             val mode = if (c["mode"]!!.jsonPrimitive.content == "all") ListToCollection.Mode.All else ListToCollection.Mode.Missing
             val owned = c["owned"]!!.jsonObject.mapValues { it.value.jsonPrimitive.int }
             val ops = ListToCollection.ops(entries, kind, owned, mode, c["sideboard"]?.jsonPrimitive?.boolean ?: true,
-                c["only"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet())
+                c["only"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet(),
+                cardOf = c["oracles"]?.jsonObject?.mapValues { it.value.jsonPrimitive.content } ?: emptyMap())
             val want = c["ops"]!!.jsonArray.map { it.jsonObject }.map {
                 ListToCollection.Op(it["card_id"]!!.jsonPrimitive.content, it["finish"]!!.jsonPrimitive.content, it["delta"]!!.jsonPrimitive.int,
                     it["lang"]?.jsonPrimitive?.content ?: "en")

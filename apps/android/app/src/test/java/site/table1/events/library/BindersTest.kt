@@ -54,9 +54,10 @@ class BindersTest {
             list("1", listOf(ListEntry("bolt", "main", 4), ListEntry("opt", "maybe", 4))),
             list("2", listOf(ListEntry("bolt", "main", 2), ListEntry("bolt", "side", 1), ListEntry("bolt", "main", 2, "foil"))),
         )
-        val lines = MissingView.lines(lists, mapOf("bolt|nonfoil" to 1), emptySet())
-        assertEquals(listOf("bolt|nonfoil 3 Deck 1+Deck 2", "bolt|foil 2 Deck 2"), lines.map { "${it.key} ${it.short} ${it.lists.joinToString("+")}" })
-        assertTrue(MissingView.lines(lists, mapOf("bolt|nonfoil" to 4, "bolt|foil" to 2), emptySet()).isEmpty())
+        // One line per card: any finish covers it (contract/owned-by-card-2026-10-31.md).
+        val lines = MissingView.lines(lists, Holdings(mapOf("bolt|nonfoil" to 1), emptyMap()), emptySet())
+        assertEquals(listOf("bolt|nonfoil 4 Deck 1+Deck 2"), lines.map { "${it.cardId}|${it.finish} ${it.short} ${it.lists.joinToString("+")}" })
+        assertTrue(MissingView.lines(lists, Holdings(mapOf("bolt|nonfoil" to 4, "bolt|foil" to 1), emptyMap()), emptySet()).isEmpty())
     }
 
     private fun resolve(text: String) = ImportResolver(TestImportCatalog.db, TestImportCatalog.setNames).resolve(CollectionCSV.parse(text).rows).first

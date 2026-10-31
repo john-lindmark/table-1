@@ -673,7 +673,7 @@ struct WantsView: View {
         guard let db = catalog.db else { return }
         let wants = store.liveWants
         let lists = ListsStore.shared.lists
-        let owned = ownedByPrinting()
+        let owned = Holdings.current(listing: lists.flatMap { $0.entries.map(\.cardId) })
         let out = await Task.detached(priority: .userInitiated) { () -> ([WantDisplay], [(MissingLine, CatalogPrinting?, String, String?, String)]) in
             var shown: [WantDisplay] = []
             var oracleCache: [String: CatalogOracle] = [:]
@@ -684,7 +684,7 @@ struct WantsView: View {
                 let p = w.cardId.flatMap { printings[$0] } ?? o.flatMap { db.covers(oracleIdxs: [$0.idx])[$0.idx] }
                 shown.append(WantDisplay(want: w, name: o?.name ?? "Card not in local data yet", printing: p, type: o?.typeLine ?? ""))
             }
-            let lines = MissingView.lines(lists, owned: owned, basics: db.basicCardIds())
+            let lines = MissingView.lines(lists, owned, basics: db.basicCardIds())
             let mp = db.printings(ids: lines.map(\.cardId))
             let mo = db.oracles(idxs: Array(Set(mp.values.map(\.oracleIdx))))
             let miss = lines.map { l -> (MissingLine, CatalogPrinting?, String, String?, String) in

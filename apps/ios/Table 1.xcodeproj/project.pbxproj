@@ -162,12 +162,14 @@
 		B81A52CE3760971E29E5946C /* ListToCollectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B0C34DF29680952B5D56B1 /* ListToCollectionTests.swift */; };
 		B9007E4F7A44152C7461A6B8 /* CardGroupingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34D09E621BE4DCBF528E8571 /* CardGroupingTests.swift */; };
 		B90B52F2EBEB5FECBF13B33A /* library-demo.json in Resources */ = {isa = PBXBuildFile; fileRef = C1B39C1F6212A6390E27185D /* library-demo.json */; };
+		BA2C41E5775A59C3B2DDA0FA /* MatchCollection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EDDD9DAE937C698E67E2A92 /* MatchCollection.swift */; };
 		BAB648E5B6C543CB77B87029 /* insights-demo-constructed-standard.json in Resources */ = {isa = PBXBuildFile; fileRef = C3818E7CA7BB946A07D53AB5 /* insights-demo-constructed-standard.json */; };
 		BAD44F3D02D492DC863B8103 /* LifeTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17C7651ABA7EBFC501431ACC /* LifeTrackerView.swift */; };
 		BCDA28146E9471860ED53B0B /* WebLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4697064242F2B510706BB9D4 /* WebLink.swift */; };
 		BE64AA0AC0B2BE3798439D69 /* insights-demo-limited-FRA.json in Resources */ = {isa = PBXBuildFile; fileRef = C4FE9422EDE1F08769E0D8C9 /* insights-demo-limited-FRA.json */; };
 		C0F57BCEC4D6442DD18CB0D4 /* CreateEventView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D937184FD4C3DFD141073B51 /* CreateEventView.swift */; };
 		C2CA6EA5AD21CC9187D9241A /* CatalogPackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52CEDCCE665492AD0AB4B0FF /* CatalogPackTests.swift */; };
+		C33A73BD8D3C8A087DE2229F /* OwnedByCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 231D2D5CCD65D7C882B4D908 /* OwnedByCardTests.swift */; };
 		C581CE316841920F1E8C6326 /* CardDetailTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C2721E58E45213EFE0637F2 /* CardDetailTests.swift */; };
 		C59CD1F22D9F8EE6BE81F688 /* SignInNonceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAAC1EDE299B7FF60E3BC994 /* SignInNonceTests.swift */; };
 		C62E2D01E3DC00B5D4A3E97A /* CatalogPack.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD41B679C1BA02ABB15C2B93 /* CatalogPack.swift */; };
@@ -214,6 +216,7 @@
 		F15C03497EC1E7A6D79B8C15 /* ShowAddsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31BC20E1870030E390265551 /* ShowAddsTests.swift */; };
 		F1D9BD70162B19F8B4D20264 /* PushController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46B2970D184C78B6A7649FC8 /* PushController.swift */; };
 		F1E199FDE199D57EA18B1F11 /* CommandZoneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9CE98EF83E5F02B0AA75DC0 /* CommandZoneTests.swift */; };
+		F4EA41201DB0A206889655E4 /* OwnedByCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 474FCFB6907454D95F9FA263 /* OwnedByCard.swift */; };
 		F6F2542FC32A67FB90455CB4 /* Sentry-Dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = B967E990CA99C20AA09E65D9 /* Sentry-Dynamic */; };
 		FB4808BBFC6CBC9B289A1FF5 /* RotoSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0407D38DABDD58EF2DE679B7 /* RotoSetup.swift */; };
 		FD8C089C15750DBB67527B74 /* insights-demo-constructed-pauper.json in Resources */ = {isa = PBXBuildFile; fileRef = 39E1DEBEAB1AF3D3EB3A2B0C /* insights-demo-constructed-pauper.json */; };
@@ -275,6 +278,7 @@
 		2075E9FF3F5F167D9C6B9D93 /* RankingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankingsViews.swift; sourceTree = "<group>"; };
 		21680AF95D56C9846E669A64 /* ConditionPriceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConditionPriceTests.swift; sourceTree = "<group>"; };
 		21C628817BE4FD8CB84DD520 /* SignInFailureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInFailureTests.swift; sourceTree = "<group>"; };
+		231D2D5CCD65D7C882B4D908 /* OwnedByCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnedByCardTests.swift; sourceTree = "<group>"; };
 		239D07747A4039EE164CFB4B /* ScanReports.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanReports.swift; sourceTree = "<group>"; };
 		24F623BE06487D1AB2A0F05D /* ModerationViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModerationViews.swift; sourceTree = "<group>"; };
 		2510246EB27B41479FAC4C24 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -314,6 +318,7 @@
 		445335C6A2FD8B69DD83BB4D /* CommandZone.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandZone.swift; sourceTree = "<group>"; };
 		4697064242F2B510706BB9D4 /* WebLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebLink.swift; sourceTree = "<group>"; };
 		46B2970D184C78B6A7649FC8 /* PushController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushController.swift; sourceTree = "<group>"; };
+		474FCFB6907454D95F9FA263 /* OwnedByCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnedByCard.swift; sourceTree = "<group>"; };
 		49E2DC6EEA4DFED451981849 /* Location.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Location.swift; sourceTree = "<group>"; };
 		4A4CE128D71E12EDA0482FDD /* Table1.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Table1.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4B2C58F0B55AC74EB54D4469 /* Languages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Languages.swift; sourceTree = "<group>"; };
@@ -366,6 +371,7 @@
 		7C6C10E91EC9AF7F6D714335 /* NearbyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyView.swift; sourceTree = "<group>"; };
 		7CF2A00D5FD0FCF89937DEA6 /* CubeFieldsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CubeFieldsTests.swift; sourceTree = "<group>"; };
 		7DB9F671A37B079BBD5D5379 /* WantPrices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WantPrices.swift; sourceTree = "<group>"; };
+		7EDDD9DAE937C698E67E2A92 /* MatchCollection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchCollection.swift; sourceTree = "<group>"; };
 		806A035192A635C79AA2F3A6 /* LiveSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSync.swift; sourceTree = "<group>"; };
 		8089945EACF6F5367A92B638 /* Follows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Follows.swift; sourceTree = "<group>"; };
 		8099FC0F2F66ADD7B29CD544 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -551,6 +557,7 @@
 				C461CEB0826AC133A60E7A86 /* ListExportTests.swift */,
 				C3A9CA48F46607665C58D26E /* ListsUnsavedTests.swift */,
 				36B0C34DF29680952B5D56B1 /* ListToCollectionTests.swift */,
+				231D2D5CCD65D7C882B4D908 /* OwnedByCardTests.swift */,
 				6BC1D3FEA7A2D4E270B573A2 /* PermissionsTests.swift */,
 				42CF56D442321A69A4FB21C5 /* RankingModelTests.swift */,
 				B517A25D93C588325FD387E1 /* RankSyncTests.swift */,
@@ -774,8 +781,10 @@
 				A3A9C60903D2BA0BC7797E06 /* ListExportViews.swift */,
 				D32E44C4EB38C9E8A620A495 /* ListStats.swift */,
 				54D68768602F823BEDB4405D /* ListToCollection.swift */,
+				7EDDD9DAE937C698E67E2A92 /* MatchCollection.swift */,
 				4EE4A2075E5DBCBE73C07B9F /* Moderation.swift */,
 				24F623BE06487D1AB2A0F05D /* ModerationViews.swift */,
+				474FCFB6907454D95F9FA263 /* OwnedByCard.swift */,
 				72DEBB4B6FB502FD419464DB /* Prices.swift */,
 				E8B652BBD0758CE6F2D6B13D /* Rankings.swift */,
 				2075E9FF3F5F167D9C6B9D93 /* RankingsViews.swift */,
@@ -1010,6 +1019,7 @@
 				4303E1375FC42EE4288E5DAB /* ListExportTests.swift in Sources */,
 				B81A52CE3760971E29E5946C /* ListToCollectionTests.swift in Sources */,
 				34BE806648871D0494191D8A /* ListsUnsavedTests.swift in Sources */,
+				C33A73BD8D3C8A087DE2229F /* OwnedByCardTests.swift in Sources */,
 				CAC51AE10145903D3D171C85 /* PermissionsTests.swift in Sources */,
 				06FD4A71EF2A46B079F935E2 /* RankSyncTests.swift in Sources */,
 				3A2BC4BC770631432A1F8A57 /* RankingModelTests.swift in Sources */,
@@ -1106,6 +1116,7 @@
 				10BA11DA58B8E0B86B8C2A76 /* LiveStore.swift in Sources */,
 				754A2FF43AE93BF1D9C806EB /* LiveSync.swift in Sources */,
 				88974A47AF33E5344DFE8FEF /* Location.swift in Sources */,
+				BA2C41E5775A59C3B2DDA0FA /* MatchCollection.swift in Sources */,
 				AE200AC4696554CC7406AE4C /* Models.swift in Sources */,
 				E20B375FC352FC15BE6DCB8D /* Moderation.swift in Sources */,
 				91D64D41ABFBA6DD746C8D59 /* ModerationViews.swift in Sources */,
@@ -1114,6 +1125,7 @@
 				09D30F71F458EFC5B53CAFBF /* OrganizerActivityController.swift in Sources */,
 				44B9AF72482AD190F5CC7921 /* OrganizerModels.swift in Sources */,
 				2215C27DC9BA34BF267424EF /* OrganizerPhases.swift in Sources */,
+				F4EA41201DB0A206889655E4 /* OwnedByCard.swift in Sources */,
 				971D12156FF2AB3E9757490A /* Permissions.swift in Sources */,
 				A91695BA51EE13AB55A1B435 /* Prices.swift in Sources */,
 				31399EE11B591B082148C757 /* ProfileView.swift in Sources */,
