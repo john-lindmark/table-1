@@ -41,6 +41,22 @@ enum LibraryRoute: Hashable {
     case rankingCompare(String, String, String) // ranking id, the other ranking's id, job
     case rankingPack(String) // ranking id: P1P1 packs and pick history
     case rankingChanges(String) // ranking id: the change log
+    /// An Insights screen pushed from the Library (a deck's archetype), so Back returns to the deck.
+    indirect case insights(InsightsRoute)
+
+    /// The Insights routes on top of a Library path (InsightsRoute.library the other way round): an Insights screen's
+    /// own Library pushes (an example list's cards) stay plain Library routes.
+    static func insights(_ path: Binding<[LibraryRoute]>) -> Binding<[InsightsRoute]> {
+        Binding(
+            get: {
+                let routes = path.wrappedValue.drop { if case .insights = $0 { false } else { true } }
+                return routes.map { if case .insights(let r) = $0 { r } else { .library($0) } }
+            },
+            set: { routes in
+                let base = path.wrappedValue.prefix { if case .insights = $0 { false } else { true } }
+                path.wrappedValue = Array(base) + routes.map { if case .library(let r) = $0 { r } else { .insights($0) } }
+            })
+    }
 }
 
 /// Every Library screen behind a route, shared by the Collection tab and the Debug demo.
@@ -58,6 +74,7 @@ struct LibraryDestination: View {
         case .add, .addScan: "add_cards"
         case .search: "card_search"
         case .card, .cardIn: "card_detail"
+        case .insights: "insights"
         case .lists(let kind): kind == .deck ? "decks" : "cubes"
         case .list(let id): ListsStore.shared.list(id: id)?.kind == .cube ? "cube" : "deck"
         case .versions, .version: "list_versions"
@@ -128,6 +145,7 @@ struct LibraryDestination: View {
             RankingCompareView(rankingId: id, otherId: other, job: RankJob(rawValue: job) ?? .final, path: $path)
         case .rankingPack(let id): RankingPackView(rankingId: id, path: $path)
         case .rankingChanges(let id): RankingChangesView(rankingId: id, path: $path)
+        case .insights(let r): InsightsDestination(route: r, path: LibraryRoute.insights($path))
         }
     }
 }

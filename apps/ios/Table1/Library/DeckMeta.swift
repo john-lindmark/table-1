@@ -1,11 +1,11 @@
 import SwiftUI
 
 /// A deck's archetype on the deck's own screen (contract/insights-2026-10-24.md § A deck's archetype): its name, 30-day
-/// win rate and change on last week (opens the archetype in Insights), then its best and worst matchups. Same as web
+/// win rate and change on last week (opens the archetype's Insights page over the deck), then its best and worst matchups. Same as web
 /// DeckMetaRows and Android DeckMetaRows.
 struct DeckMetaRows: View {
     let listId: String
-    @Environment(SessionModel.self) private var session
+    @Binding var path: [LibraryRoute]
     @State private var answer: Insights.DeckInsightAnswer?
 
     var body: some View {
@@ -16,7 +16,9 @@ struct DeckMetaRows: View {
                 if let title = d.title, let a = answer.a {
                     let open = {
                         Telemetry.capture("deck_insight_opened", ["format": answer.format, "archetype": a])
-                        session.pendingInsights = .archetype(answer.format, a)
+                        // On the deck's own stack, so Back returns to the deck (it switched to the Insights tab).
+                        path.append(.insights(.archetype(answer.format, a)))
+                        Task { await InsightsStore.shared.load(); await InsightsStore.shared.ensure(format: answer.format) }
                     }
                     Button(action: open) {
                         ListRow(title: title, detail: [d.win ?? "Too few matches for a win rate", d.change].compactMap { $0 }.joined(separator: " · ")) {

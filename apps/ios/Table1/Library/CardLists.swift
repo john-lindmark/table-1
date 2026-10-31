@@ -1171,7 +1171,7 @@ struct ListDetailView: View {
         }
         if !editing { ListStatsRow(listId: list.id, path: $path) }
         if !editing && list.kind == .deck && list.eventId == nil && Insights.formats.contains(where: { $0.key == list.format }) {
-            DeckMetaRows(listId: list.id)
+            DeckMetaRows(listId: list.id, path: $path)
         }
         if !editing && list.kind == .cube && !list.entries.isEmpty { RankingsRow(listId: list.id, path: $path) }
         Button { path.append(.listAdd(list.id)) } label: {
