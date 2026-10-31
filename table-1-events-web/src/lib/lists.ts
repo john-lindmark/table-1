@@ -6,6 +6,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { holdings, shorts, type CardOf, type Need } from "./ownedByCard";
 import { supabase } from "./supabaseClient";
 import { capture } from "./telemetry";
+import { isNetworkError } from "./offline";
 
 export type Board = "main" | "side" | "maybe" | "commander";
 export type ListKind = "deck" | "cube";
@@ -151,16 +152,30 @@ interface ListsState {
   lists: CardList[];
   ready: boolean;
   error: string | null;
+  /** Lists made in this browser that the server hasn't saved yet, with why the last try failed ("" = not tried yet,
+   *  or offline). Each sync sends them again until the server has them (contract/offline-2026-10-31.md § 4). */
+  unsaved: Record<string, string>;
+  /** Changes to saved lists that failed on the network, in order; sent before the next pull. The lists show them. */
+  pending: PendingCall[];
   version: number;
 }
 
-const empty: ListsState = { userId: null, lists: [], ready: false, error: null, version: 0 };
+export interface PendingCall { fn: string; args: Record<string, unknown> }
+
+const empty: ListsState = { userId: null, lists: [], ready: false, error: null, unsaved: {}, pending: [], version: 0 };
 let state = empty;
 let cursor = 0;
 let demo = false;
 let running: Promise<void> | null = null;
 let again = false;
 const listeners = new Set<() => void>();
+
+/** What a list's screen says while the server doesn't have it. */
+export function unsavedNotice(l: CardList, why: string): string {
+  const kind = l.kind === "cube" ? "cube" : "deck";
+  return why === "" ? `Saving this ${kind} to your account…`
+    : `This ${kind} isn't saved to your account yet: ${why} It's sent again each time Table 1 syncs.`;
+}
 
 function set(patch: Partial<ListsState>) {
   state = { ...state, ...patch, version: state.version + 1 };
@@ -191,12 +206,14 @@ function cacheDb(userId: string): Promise<IDBDatabase | null> {
   });
 }
 
-async function loadCache(userId: string): Promise<{ cursor: number; lists: CardList[] } | null> {
+interface ListsCache { cursor: number; lists: CardList[]; unsaved?: Record<string, string>; pending?: PendingCall[] }
+
+async function loadCache(userId: string): Promise<ListsCache | null> {
   const db = await cacheDb(userId);
   if (!db) return null;
   return new Promise((resolve) => {
     const req = db.transaction("state").objectStore("state").get("v1");
-    req.onsuccess = () => resolve((req.result as { cursor: number; lists: CardList[] }) ?? null);
+    req.onsuccess = () => resolve((req.result as ListsCache) ?? null);
     req.onerror = () => resolve(null);
   });
 }
@@ -205,7 +222,8 @@ async function saveCache() {
   if (!state.userId || demo) return;
   const db = await cacheDb(state.userId);
   if (!db) return;
-  db.transaction("state", "readwrite").objectStore("state").put({ cursor, lists: state.lists }, "v1");
+  const c: ListsCache = { cursor, lists: state.lists, unsaved: state.unsaved, pending: state.pending };
+  db.transaction("state", "readwrite").objectStore("state").put(c, "v1");
 }
 
 export async function startLists(userId: string, demoLists?: CardList[]) {
@@ -218,9 +236,65 @@ export async function startLists(userId: string, demoLists?: CardList[]) {
   const cached = await loadCache(userId);
   if (cached && state.userId === userId) {
     cursor = cached.cursor;
-    set({ lists: cached.lists, ready: true });
+    set({ lists: cached.lists, ready: true, unsaved: cached.unsaved ?? {}, pending: cached.pending ?? [] });
   }
   await syncLists();
+}
+
+/** Sends the queued changes in order. False when the network stopped it: the pull is skipped so the server's copy
+ *  doesn't hide what's still to send. A change the server refuses is dropped; the pull then sets things right. */
+async function flushPending(user: string): Promise<boolean> {
+  while (state.pending.length && state.userId === user) {
+    const p = state.pending[0];
+    const { data, error } = await supabase.rpc(p.fn, p.args);
+    if (state.userId !== user) return false;
+    if (error) {
+      if (isNetworkError(error)) return false;
+      set({ pending: state.pending.slice(1), error: `A change made offline was refused: ${error.message}` });
+      await saveCache();
+      continue;
+    }
+    set({ pending: state.pending.slice(1) });
+    merge(data as ListWire);
+    await saveCache();
+  }
+  return true;
+}
+
+/** Sends a list the server doesn't have yet with what this browser holds now; list_create returns the list it
+ *  already has for a retried id. A failure is kept on the list, and the next sync tries again. */
+const saving = new Map<string, Promise<void>>();
+function saveUnsaved(id: string): Promise<void> {
+  const run = saving.get(id);
+  if (run) return run;
+  const user = state.userId;
+  const l = state.lists.find((x) => x.id === id);
+  if (!user || demo || !l) { dropUnsaved(id); return Promise.resolve(); }
+  const cur = current(l);
+  const p = (async () => {
+    const { data, error } = await supabase.rpc("list_create", {
+      p_id: l.id, p_kind: l.kind, p_name: l.name, p_format: l.format, p_entries: cur.entries.map(entryWire), p_note: l.versions[0]?.note ?? "Created",
+    });
+    if (state.userId !== user) return;
+    if (error) {
+      set({ unsaved: { ...state.unsaved, [id]: error.message } });
+      await saveCache();
+      return;
+    }
+    dropUnsaved(id);
+    merge(data as ListWire);
+    await saveCache();
+    // The Cube Cobra link set while the list was on its way (an import).
+    if (l.sourceUrl && !(data as ListWire).source_url) void call("list_source_set", { p_list_id: id, p_source_url: l.sourceUrl });
+  })().finally(() => saving.delete(id));
+  saving.set(id, p);
+  return p;
+}
+function dropUnsaved(id: string) {
+  if (!(id in state.unsaved)) return;
+  const unsaved = { ...state.unsaved };
+  delete unsaved[id];
+  set({ unsaved });
 }
 
 /** Pulls every list changed after the local cursor; a call during a run schedules one more run. */
@@ -233,6 +307,8 @@ export function syncLists(): Promise<void> {
   const user = state.userId;
   running = (async () => {
     try {
+      if (!(await flushPending(user))) return;
+      const seen = new Set<string>();
       for (let page = 0; page < 50; page++) {
         const { data, error } = await supabase.rpc("lists_changes", { p_after: cursor, p_limit: 100 });
         if (error) throw error;
@@ -240,6 +316,7 @@ export function syncLists(): Promise<void> {
         const r = data as { lists: ListWire[]; next: number; more: boolean };
         const byId = new Map(state.lists.map((l) => [l.id, l]));
         for (const w of r.lists) {
+          seen.add(w.id);
           const l = fromWire(w);
           if (l) byId.set(l.id, l);
           else byId.delete(w.id);
@@ -249,6 +326,10 @@ export function syncLists(): Promise<void> {
         await saveCache();
         if (!r.more) break;
       }
+      // Lists the server sent are saved; the rest are sent again.
+      const unsaved = Object.fromEntries(Object.entries(state.unsaved).filter(([id]) => !seen.has(id)));
+      set({ unsaved });
+      for (const id of Object.keys(unsaved).sort()) await saveUnsaved(id);
     } catch (e) {
       set({ error: e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e) });
     } finally {
@@ -262,9 +343,30 @@ export function syncLists(): Promise<void> {
   return running;
 }
 
-async function call(fn: string, args: Record<string, unknown>): Promise<void> {
+/** A change that couldn't reach the server: applied here, queued in order, sent before the next pull. */
+function queue(fn: string, args: Record<string, unknown>, apply: () => void) {
+  apply();
+  set({ pending: [...state.pending, { fn, args }] });
+  capture("list_change_queued");
+  void saveCache();
+}
+
+/** Sends one change and replaces the local list with the server's version (the source of truth: it groups edits
+ *  into versions). On a network failure the change is applied here (`local`) and queued (contract/offline-2026-10-31.md
+ *  § 4); on any other failure the local copy is re-synced. A change to a list the server doesn't have yet waits for
+ *  the create, which carries the current cards. */
+async function call(fn: string, args: Record<string, unknown>, local?: () => void): Promise<void> {
+  const id = typeof args.p_list_id === "string" ? args.p_list_id : null;
+  if (id && id in state.unsaved) {
+    local?.();
+    await saveCache();
+    void saveUnsaved(id);
+    return;
+  }
+  if (state.pending.length && local) return queue(fn, args, local);
   const { data, error } = await supabase.rpc(fn, args);
   if (error) {
+    if (local && isNetworkError(error)) return queue(fn, args, local);
     set({ error: error.message });
     void syncLists();
     throw error;
@@ -306,9 +408,26 @@ export async function createList(kind: ListKind, name: string, format: string, e
     set({ lists: sorted([...state.lists, { id, kind, name, format, versions: [{ number: 1, at: Date.now() / 1000, note, entries: entries.map((e) => ({ ...e })) }] }]) });
     return id;
   }
-  await call("list_create", {
+  const { data, error } = await supabase.rpc("list_create", {
     p_id: id, p_kind: kind, p_name: name, p_format: format, p_entries: entries.map(entryWire), p_note: note,
   });
+  if (error) {
+    if (!isNetworkError(error)) {
+      set({ error: error.message });
+      throw error;
+    }
+    // Made here, saved to the account by the next sync (contract/offline-2026-10-31.md § 4).
+    set({
+      lists: sorted([...state.lists, { id, kind, name, format, versions: [{ number: 1, at: Date.now() / 1000, note, entries: entries.map((e) => ({ ...e })) }] }]),
+      unsaved: { ...state.unsaved, [id]: "" },
+    });
+    await saveCache();
+    capture("list_change_queued");
+  } else {
+    merge(data as ListWire);
+    set({ error: null });
+    await saveCache();
+  }
   capture("list_created", { kind, format, from });
   return id;
 }
@@ -317,8 +436,12 @@ export async function createList(kind: ListKind, name: string, format: string, e
 export async function setListFormat(id: string, format: string): Promise<void> {
   const l = state.lists.find((x) => x.id === id);
   if (!l || l.format === format) return;
-  if (demo) return set({ lists: sorted([...state.lists.filter((x) => x.id !== id), { ...l, format }]) });
-  await call("list_update", { p_list_id: id, p_format: format });
+  const local = () => {
+    const now = state.lists.find((x) => x.id === id);
+    if (now) set({ lists: sorted([...state.lists.filter((x) => x.id !== id), { ...now, format }]) });
+  };
+  if (demo) return local();
+  await call("list_update", { p_list_id: id, p_format: format }, local);
   capture("list_format_changed", { kind: l.kind, from: l.format, to: format });
 }
 
@@ -326,8 +449,12 @@ export async function setListFormat(id: string, format: string): Promise<void> {
 export async function setListSource(id: string, url: string): Promise<void> {
   const l = state.lists.find((x) => x.id === id);
   if (!l || l.sourceUrl === url) return;
-  if (demo) return set({ lists: sorted([...state.lists.filter((x) => x.id !== id), { ...l, sourceUrl: url }]) });
-  await call("list_source_set", { p_list_id: id, p_source_url: url });
+  const local = () => {
+    const now = state.lists.find((x) => x.id === id);
+    if (now) set({ lists: sorted([...state.lists.filter((x) => x.id !== id), { ...now, sourceUrl: url }]) });
+  };
+  if (demo) return local();
+  await call("list_source_set", { p_list_id: id, p_source_url: url }, local);
 }
 
 /** Saves a cube synced with Cube Cobra as one new version (contract/cube-sync-2026-10-30.md). Throws the server's
@@ -366,63 +493,78 @@ export type ListOp =
   /** Move qty copies (default all) to another printing, finish and/or language in the same section. */
   | { card_id: string; board: Board; finish?: ListFinish; lang?: string; to_card_id?: string; to_finish?: ListFinish; to_lang?: string; qty?: number; swap: true };
 
-export async function editList(id: string, ops: ListOp[]): Promise<void> {
-  if (demo) {
-    return localEdit(id, (entries) => {
-      const find = (cardId: string, board: Board, finish: ListFinish, lang: string) =>
-        entries.findIndex((e) => e.cardId === cardId && e.board === board && finishOf(e) === finish && langOf(e) === lang);
-      const put = (cardId: string, board: Board, finish: ListFinish, lang: string, q: number) => {
-        const j = find(cardId, board, finish, lang);
-        if (j >= 0) entries[j].qty += q;
-        else entries.push(entry(cardId, board, q, finish, lang));
-      };
-      for (const op of ops) {
-        const fin = op.finish ?? "nonfoil", lang = op.lang ?? "en";
-        if ("from" in op) {
-          const i = find(op.card_id, op.from, fin, lang);
-          if (i < 0) continue;
-          put(op.card_id, op.to, fin, lang, entries.splice(i, 1)[0].qty);
-        } else if ("swap" in op) {
-          const i = find(op.card_id, op.board, fin, lang);
-          if (i < 0) continue;
-          const n = Math.min(entries[i].qty, op.qty ?? entries[i].qty);
-          entries[i].qty -= n;
-          if (entries[i].qty <= 0) entries.splice(i, 1);
-          put(op.to_card_id ?? op.card_id, op.board, op.to_finish ?? fin, op.to_lang ?? lang, n);
-        } else {
-          const i = find(op.card_id, op.board, fin, lang);
-          const q = "qty" in op ? op.qty : (i >= 0 ? entries[i].qty : 0) + op.delta;
-          if (i >= 0 && q > 0) entries[i].qty = q;
-          else if (i >= 0) entries.splice(i, 1);
-          else if (q > 0) put(op.card_id, op.board, fin, lang, q);
-        }
-      }
-      return entries;
-    });
+/** The ops applied to a version's entries the way the server applies them (the demo, and a change queued offline). */
+export function applyListOps(entries: Entry[], ops: ListOp[]): Entry[] {
+  const find = (cardId: string, board: Board, finish: ListFinish, lang: string) =>
+    entries.findIndex((e) => e.cardId === cardId && e.board === board && finishOf(e) === finish && langOf(e) === lang);
+  const put = (cardId: string, board: Board, finish: ListFinish, lang: string, q: number) => {
+    const j = find(cardId, board, finish, lang);
+    if (j >= 0) entries[j].qty += q;
+    else entries.push(entry(cardId, board, q, finish, lang));
+  };
+  for (const op of ops) {
+    const fin = op.finish ?? "nonfoil", lang = op.lang ?? "en";
+    if ("from" in op) {
+      const i = find(op.card_id, op.from, fin, lang);
+      if (i < 0) continue;
+      put(op.card_id, op.to, fin, lang, entries.splice(i, 1)[0].qty);
+    } else if ("swap" in op || "to_card_id" in op || "to_finish" in op || "to_lang" in op) {
+      // A printing move: tagged `swap` here, told apart by its to_* fields when queued and replayed.
+      const mv = op as { card_id: string; board: Board; to_card_id?: string; to_finish?: ListFinish; to_lang?: string; qty?: number };
+      const i = find(mv.card_id, mv.board, fin, lang);
+      if (i < 0) continue;
+      const n = Math.min(entries[i].qty, mv.qty ?? entries[i].qty);
+      entries[i].qty -= n;
+      if (entries[i].qty <= 0) entries.splice(i, 1);
+      put(mv.to_card_id ?? mv.card_id, mv.board, mv.to_finish ?? fin, mv.to_lang ?? lang, n);
+    } else {
+      const i = find(op.card_id, op.board, fin, lang);
+      const q = "qty" in op ? op.qty : (i >= 0 ? entries[i].qty : 0) + op.delta;
+      if (i >= 0 && q > 0) entries[i].qty = q;
+      else if (i >= 0) entries.splice(i, 1);
+      else if (q > 0) put(op.card_id, op.board, fin, lang, q);
+    }
   }
+  return entries;
+}
+
+export async function editList(id: string, ops: ListOp[]): Promise<void> {
+  const local = () => localEdit(id, (entries) => applyListOps(entries, ops));
+  if (demo) return local();
   // The server tells the printing move apart by its to_* fields; `swap` is a client-side tag.
   ops = ops.map((op) => ("swap" in op ? (({ swap: _swap, ...rest }) => rest)(op) : op)) as ListOp[];
-  await call("list_edit", { p_list_id: id, p_ops: ops });
+  await call("list_edit", { p_list_id: id, p_ops: ops }, local);
 }
 
 export async function restoreList(id: string, number: number): Promise<void> {
-  if (demo) {
+  const local = () => {
     const l = state.lists.find((x) => x.id === id);
     const v = l?.versions.find((x) => x.number === number);
     if (v) localEdit(id, () => v.entries.map((e) => ({ ...e })), `Restored v${number}`);
-    return;
-  }
-  await call("list_restore", { p_list_id: id, p_version: number });
+  };
+  if (demo) return local();
+  await call("list_restore", { p_list_id: id, p_version: number }, local);
   const kind = listKindOf(id);
   if (kind) capture("list_version_restored", { kind });
 }
 
 export async function deleteList(id: string): Promise<void> {
   if (demo) return set({ lists: state.lists.filter((l) => l.id !== id) });
+  if (id in state.unsaved) {
+    // Never reached the server: forgotten here.
+    dropUnsaved(id);
+    set({ lists: state.lists.filter((l) => l.id !== id) });
+    await saveCache();
+    return;
+  }
   const { error } = await supabase.rpc("list_delete", { p_list_id: id });
   if (error) {
-    set({ error: error.message });
-    throw error;
+    if (!isNetworkError(error)) {
+      set({ error: error.message });
+      throw error;
+    }
+    queue("list_delete", { p_list_id: id }, () => set({ lists: state.lists.filter((l) => l.id !== id) }));
+    return;
   }
   const kind = listKindOf(id);
   if (kind) capture("list_deleted", { kind });

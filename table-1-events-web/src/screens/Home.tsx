@@ -6,6 +6,7 @@ import { supabase } from "../lib/supabaseClient";
 import {
   createEventV2,
   fetchEventsHome,
+  savedEventsHome,
   formatLabelOf,
   fetchLiveSnapshots,
   reportFromHome,
@@ -25,6 +26,8 @@ import { RotoPairingFields, linkRotoCube } from "./roto/lazy";
 import { claimAutoOpen, useTrackerMode } from "../lib/settings";
 import { eventNamePreview, isTeamFormat, typeOfFormat } from "../lib/formats";
 import { useDesktop } from "../lib/desktop";
+import { ageOf, isNetworkError, offlineNotice } from "../lib/offline";
+import { capture } from "../lib/telemetry";
 import {
   Bar,
   BigAction,
@@ -67,6 +70,9 @@ export function Home({
   const [snaps, setSnaps] = useState<Record<string, LiveSnapshot>>({});
   const [showPast, setShowPast] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** "Couldn't refresh · last updated …" while what's shown is the saved copy (contract/offline-2026-10-31.md § 1). */
+  const [stale, setStale] = useState<string | null>(null);
+  const savedAt = useRef<number | null>(null);
   const [creating, setCreating] = useState(false);
   const { mode } = useTrackerMode();
   const desktop = useDesktop();
@@ -81,12 +87,29 @@ export function Home({
   }, []);
 
   const load = useCallback(async () => {
+    // What this account last saw shows at once; the server's answer replaces it.
+    if (savedAt.current === null) {
+      const saved = await savedEventsHome();
+      if (saved && savedAt.current === null) {
+        savedAt.current = saved.at;
+        setData((d) => d ?? saved.value);
+      }
+    }
     try {
       setData(await fetchEventsHome());
+      savedAt.current = Date.now();
       setError(null);
+      setStale(null);
     } catch (e) {
-      setError(errorMessage(e));
-      setData((d) => d ?? { events: [], invites: [] });
+      const age = ageOf(savedAt.current);
+      const n = offlineNotice(true, age, errorMessage(e));
+      if (n && !n.isError) {
+        setStale(n.text);
+        if (isNetworkError(e)) capture("offline_shown", { screen: "home", age_s: age ?? 0 });
+      } else {
+        setError(n?.text ?? errorMessage(e));
+        setData((d) => d ?? { events: [], invites: [] });
+      }
     }
     const live = await fetchLiveSnapshots();
     setSnaps(Object.fromEntries(live.map((s) => [s.eventId, s])));
@@ -222,6 +245,8 @@ export function Home({
         }
       />
       {error && <Notice tone="error">{error}</Notice>}
+      {error && empty && <GhostAction label="Try again" onClick={() => void load()} />}
+      {stale && <Notice tone="info">{stale}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {data === null && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
         {empty && <EmptyEvents onCreate={() => setCreating(true)} onNearby={onNearby} />}

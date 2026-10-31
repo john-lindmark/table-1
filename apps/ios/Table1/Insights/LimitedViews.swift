@@ -14,9 +14,12 @@ struct LimitedHomeSection: View {
         // The picker waits for the sets to rank (kept on the device after the first visit) so it draws whole.
         let chips = store.rankableReady ? store.shownChips : []
         Group {
+            if let s = store.stale { Notice(s) }
             if chips.isEmpty {
-                if let e = store.error { Notice(e, error: true) }
-                else { Notice(store.loading || !store.rankableReady ? "Loading draft data…" : "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena.") }
+                if let e = store.error {
+                    Notice(e, error: true)
+                    Ghost(text: "Try again") { Task { await store.load(force: true) } }
+                } else { Notice(store.loading || !store.rankableReady ? "Loading draft data…" : "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena.") }
                 newSets
             } else {
                 picked(chips)

@@ -26,6 +26,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import site.table1.events.ui.components.BigAction
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -172,6 +173,7 @@ private fun WindowPickers(tier: String, days: Boolean = true) {
 @Composable
 private fun ConstructedHome(navigate: (String) -> Unit) {
     val s = InsightsStore
+    val retryScope = rememberCoroutineScope()
     var hl by remember { mutableStateOf<Int?>(null) }
     val keys = s.shownFormats
     var editing by remember { mutableStateOf(false) }
@@ -180,9 +182,11 @@ private fun ConstructedHome(navigate: (String) -> Unit) {
     }
     if (editing) ShownEditor("Shown formats", Insights.formats.map { Triple(it.first, it.second, null) }, s.hiddenFormats, { k, hide -> s.setHidden(true, k, hide) }) { editing = false }
     LaunchedEffect(s.format) { s.ensure("constructed", s.format) }
+    s.stale?.let { Notice(it) }
     val pack = s.pack
     if (pack == null) {
         Notice(s.error ?: if (s.loading || s.index.isEmpty()) "Loading the metagame…" else "No results for this format yet.", error = s.error != null)
+        if (s.error != null) BigAction("Try again") { retryScope.launch { s.load(force = true) } }
         return
     }
     val tier = s.tier(pack)
@@ -579,6 +583,7 @@ private fun Credit(url: String) {
 @Composable
 private fun LimitedHome(navigate: (String) -> Unit) {
     val s = InsightsStore
+    val retryScope = rememberCoroutineScope()
     var sort by remember { mutableStateOf("gih") }
     var rarity by remember { mutableStateOf("all") }
     var colour by remember { mutableStateOf("all") }
@@ -597,8 +602,10 @@ private fun LimitedHome(navigate: (String) -> Unit) {
         Section("New sets to rank")
         fresh.forEach { r -> ListRow("Rank ${r.name}", r.detail(), onClick = { rank(r.key, r.kind, "new_sets") }) }
     }
+    s.stale?.let { Notice(it) }
     if (chips.isEmpty()) {
         Notice(s.error ?: if (s.loading || !s.rankableReady) "Loading draft data…" else "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena.", error = s.error != null)
+        if (s.error != null) BigAction("Try again") { retryScope.launch { s.load(force = true) } }
         newSets()
         return
     }

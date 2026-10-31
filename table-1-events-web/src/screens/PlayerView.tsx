@@ -86,7 +86,7 @@ export function PlayerView({
       .finally(() => setResolving(false));
   }, [code, eventId]);
 
-  const { bundle, error: bundleError, refetch } = useEvent(eventId);
+  const { bundle, error: bundleError, stale, refetch } = useEvent(eventId);
 
   // A link (no code) to an event you're not in yet: the preview for the join form.
   useEffect(() => {
@@ -193,7 +193,10 @@ export function PlayerView({
   if (!bundle) {
     return (
       <Screen>
-        <div className="flex-1 flex items-center justify-center t1-label">Loading…</div>
+        {bundleError && <Bar title="Could not load event" onBack={onBack} />}
+        {bundleError && <Notice tone="error">{bundleError}</Notice>}
+        {bundleError && <GhostAction label="Try again" onClick={() => void refetch()} />}
+        {!bundleError && <div className="flex-1 flex items-center justify-center t1-label">Loading…</div>}
       </Screen>
     );
   }
@@ -501,6 +504,7 @@ export function PlayerView({
           <RotoSchedule bundle={bundle} meId={viewer.participantId} />
         </div>
       )}
+      {stale && <Notice tone="info">{stale}</Notice>}
     </Screen>
   );
   // Roto: the Draft phase sits between joining and round 1.

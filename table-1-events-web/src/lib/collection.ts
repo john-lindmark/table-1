@@ -6,6 +6,7 @@ import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { supabase } from "./supabaseClient";
 import { capture } from "./telemetry";
 import { isLibraryDemo, loadDemo, type DemoBackend } from "./libraryDemo";
+import { isNetworkError, outboxDeltas, queues } from "./offline";
 import { reflectBinders, shiftBinders, startBinders, syncBinders, type Alloc, type AllocRow, type WantRow } from "./binders";
 
 export type Finish = "nonfoil" | "foil" | "etched";
@@ -125,13 +126,65 @@ export interface CollectionState {
   error: string | null;
   items: Map<string, Item>;
   summary: LibrarySummary | null;
+  /** Batches of adds that failed on the network and wait to be sent (contract/offline-2026-10-31.md § 3). */
+  outbox: OutboxBatch[];
   /** Bumped on every change so components can memo on it. */
   version: number;
 }
 
+/** A batch waiting in the outbox, with the idempotency key it was first sent under. */
+export interface OutboxBatch { key: string; source: string; ops: CollectionOp[] }
+
 const empty: CollectionState = {
-  userId: null, ready: false, syncing: false, error: null, items: new Map(), summary: null, version: 0,
+  userId: null, ready: false, syncing: false, error: null, items: new Map(), summary: null, outbox: [], version: 0,
 };
+
+/** "3 changes waiting to send" on the Collection home while the outbox isn't empty. */
+export const outboxNotice = (s: CollectionState) =>
+  s.outbox.length === 0 ? null : s.outbox.length === 1 ? "1 change waiting to send" : `${s.outbox.length} changes waiting to send`;
+
+const outboxKey = (userId: string) => `table1.outbox.${userId}`;
+function loadOutbox(userId: string): OutboxBatch[] {
+  try { return (JSON.parse(localStorage.getItem(outboxKey(userId)) ?? "[]") as OutboxBatch[]) ?? []; } catch { return []; }
+}
+function saveOutbox(outbox: OutboxBatch[]) {
+  if (!state.userId) return;
+  try {
+    if (outbox.length) localStorage.setItem(outboxKey(state.userId), JSON.stringify(outbox));
+    else localStorage.removeItem(outboxKey(state.userId));
+  } catch { /* private window */ }
+  set({ outbox });
+}
+
+/** A result for a batch that waits in the outbox: Undo takes it out again. */
+const queuedResult = (key: string): ApplyResult => ({
+  batch_id: `queued:${key}`, duplicate: false, changes: 0, items: [],
+  summary: state.summary ?? { total_qty: 0, unique_printings: 0, unique_cards: 0, value_usd: 0, value_eur: 0, seq: 0 },
+});
+
+/** Sends the outbox in order before a sync. A batch the server refuses is taken back; a network failure keeps the
+ *  rest for next time. */
+async function flushOutbox(userId: string) {
+  let sent = 0;
+  while (state.outbox.length && state.userId === userId) {
+    const b = state.outbox[0];
+    const { data, error } = await supabase.rpc("collection_apply", {
+      p_ops: b.ops, p_source: b.source, p_source_id: null, p_idempotency_key: b.key,
+    });
+    if (state.userId !== userId) return;
+    if (error) {
+      if (isNetworkError(error)) break;
+      showAdds(b.ops, -1);
+      saveOutbox(state.outbox.slice(1));
+      set({ error: `A change made offline was refused: ${error.message}` });
+      continue;
+    }
+    saveOutbox(state.outbox.slice(1));
+    reflect(data as ApplyResult);
+    sent++;
+  }
+  if (sent) capture("outbox_sent", { batches: sent });
+}
 
 let state = empty;
 let db: IDBDatabase | null = null;
@@ -183,6 +236,10 @@ async function start(userId: string) {
       cursor = 0;
     }
   }
+  // Adds made offline: on screen again on top of the mirror, sent with the first sync.
+  const outbox = loadOutbox(userId);
+  set({ outbox });
+  for (const b of outbox) showAdds(b.ops, 1);
   await sync();
 }
 
@@ -200,6 +257,8 @@ export function sync(): Promise<void> {
   syncRun = (async () => {
     set({ syncing: true, error: null });
     try {
+      await flushOutbox(userId);
+      if (state.userId !== userId) return;
       for (let pages = 0; pages < 200; pages++) {
         const { data, error } = await supabase.rpc("collection_changes", { p_after: cursor, p_limit: 5000 });
         if (error) throw error;
@@ -212,8 +271,12 @@ export function sync(): Promise<void> {
           cursor = 0;
           if (db) await idbClear(db);
           set({ items: new Map() });
+          for (const b of state.outbox) showAdds(b.ops, 1);
           continue;
         }
+        // The server hasn't counted adds still in the outbox: rows show its count plus them (the mirror keeps the
+        // server's, so the next load adds them once).
+        const queued = outboxDeltas(state.outbox.map((b) => b.ops));
         const items = new Map(state.items);
         const put: Item[] = [];
         const del: string[] = [];
@@ -221,13 +284,11 @@ export function sync(): Promise<void> {
           const it = toItem(row);
           const held = items.get(it.k);
           if (held && held.seq > it.seq) continue; // a newer write is already reflected
-          if (it.qty > 0) {
-            items.set(it.k, it);
-            put.push(it);
-          } else {
-            items.delete(it.k);
-            del.push(it.k);
-          }
+          if (it.qty > 0) put.push(it);
+          else del.push(it.k);
+          const shown = it.qty + (queued.get(it.k) ?? 0);
+          if (shown > 0) items.set(it.k, { ...it, qty: shown });
+          else items.delete(it.k);
         }
         cursor = r.next;
         if (db) await idbCommit(db, put, del, { cursor, summary: r.summary });
@@ -264,6 +325,13 @@ export async function applyOps(ops: CollectionOp[], source: "manual" | "scan" | 
     return res;
   }
   showAdds(ops, 1);
+  // Behind batches already waiting: sent after them, in order, so the server sees them as they were made.
+  if (state.outbox.length && queues(ops, true)) {
+    saveOutbox([...state.outbox, { key, source, ops }]);
+    capture("outbox_queued", { ops: ops.length });
+    void sync();
+    return queuedResult(key);
+  }
   let res: ApplyResult;
   try {
     const { data, error } = await supabase.rpc("collection_apply", {
@@ -272,6 +340,12 @@ export async function applyOps(ops: CollectionOp[], source: "manual" | "scan" | 
     if (error) throw error;
     res = data as ApplyResult;
   } catch (e) {
+    // Adds that couldn't reach the server stay on screen and wait in the outbox (contract/offline-2026-10-31.md § 3).
+    if (state.userId && queues(ops, isNetworkError(e))) {
+      saveOutbox([...state.outbox, { key, source, ops }]);
+      capture("outbox_queued", { ops: ops.length });
+      return queuedResult(key);
+    }
     showAdds(ops, -1);
     void sync();
     throw e;
@@ -287,6 +361,17 @@ export async function undoBatch(batchId: string): Promise<ApplyResult> {
     const res = demo.undo(batchId);
     reflect(res);
     return res;
+  }
+  // A batch still in the outbox: out of the outbox and off the screen, nothing to undo on the server.
+  if (batchId.startsWith("queued:")) {
+    const key = batchId.slice("queued:".length);
+    const b = state.outbox.find((x) => x.key === key);
+    if (b) {
+      showAdds(b.ops, -1);
+      saveOutbox(state.outbox.filter((x) => x.key !== key));
+    }
+    capture("collection_undone");
+    return queuedResult(key);
   }
   const { data, error } = await supabase.rpc("collection_undo", {
     p_batch_id: batchId, p_idempotency_key: crypto.randomUUID(),

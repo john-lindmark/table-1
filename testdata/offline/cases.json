@@ -1,0 +1,45 @@
+{
+  "about": "Offline rules shared by iOS, web and Android (contract/offline-2026-10-31.md). ago: seconds since the saved answer -> label. notice: what a screen says after a call fails (failed, savedAgo seconds or null, the error) -> the text and whether it's an error, or null when nothing failed. queues: whether a failed collection_apply batch goes into the outbox (ops, network error) -> bool. deltas: the queued adds per item key from outbox batches (ops leave finish nonfoil, condition NM, lang en when unset). shown: a sync row's qty plus the queued deltas for its key.",
+  "ago": [
+    { "seconds": 0, "label": "just now" },
+    { "seconds": 59, "label": "just now" },
+    { "seconds": 60, "label": "1 min ago" },
+    { "seconds": 185, "label": "3 min ago" },
+    { "seconds": 3599, "label": "59 min ago" },
+    { "seconds": 3600, "label": "1 h ago" },
+    { "seconds": 7300, "label": "2 h ago" },
+    { "seconds": 86399, "label": "23 h ago" },
+    { "seconds": 86400, "label": "1 day ago" },
+    { "seconds": 200000, "label": "2 days ago" }
+  ],
+  "notice": [
+    { "name": "nothing failed", "failed": false, "savedAgo": 185, "error": "x", "text": null, "isError": false },
+    { "name": "failed with a saved answer", "failed": true, "savedAgo": 185, "error": "The request timed out.", "text": "Couldn't refresh · last updated 3 min ago", "isError": false },
+    { "name": "failed just after a good load", "failed": true, "savedAgo": 10, "error": "x", "text": "Couldn't refresh · last updated just now", "isError": false },
+    { "name": "failed with nothing saved", "failed": true, "savedAgo": null, "error": "The request timed out.", "text": "The request timed out.", "isError": true },
+    { "name": "failed with nothing saved and no message", "failed": true, "savedAgo": null, "error": null, "text": "Couldn't load. Check your connection.", "isError": true }
+  ],
+  "queues": [
+    { "name": "adds offline", "ops": [{ "card_id": "a", "delta": 1 }, { "card_id": "b", "delta": 2, "binder_id": "x" }], "network": true, "queued": true },
+    { "name": "adds refused by the server", "ops": [{ "card_id": "a", "delta": 1 }], "network": false, "queued": false },
+    { "name": "a removal offline", "ops": [{ "card_id": "a", "delta": 1 }, { "card_id": "b", "delta": -1 }], "network": true, "queued": false },
+    { "name": "a quantity set offline", "ops": [{ "card_id": "a", "qty": 3 }], "network": true, "queued": false },
+    { "name": "nothing", "ops": [], "network": true, "queued": false }
+  ],
+  "deltas": [
+    {
+      "name": "two batches, one item twice",
+      "batches": [
+        [{ "card_id": "a", "delta": 1 }, { "card_id": "b", "finish": "foil", "delta": 2 }],
+        [{ "card_id": "a", "delta": 3 }, { "card_id": "c", "condition": "LP", "lang": "ja", "delta": 1 }]
+      ],
+      "deltas": { "a|nonfoil|NM|en": 4, "b|foil|NM|en": 2, "c|nonfoil|LP|ja": 1 }
+    },
+    { "name": "no batches", "batches": [], "deltas": {} }
+  ],
+  "shown": [
+    { "name": "a sync row for an item with queued adds", "key": "a|nonfoil|NM|en", "serverQty": 2, "deltas": { "a|nonfoil|NM|en": 4 }, "qty": 6 },
+    { "name": "a sync row for an item without", "key": "b|nonfoil|NM|en", "serverQty": 2, "deltas": { "a|nonfoil|NM|en": 4 }, "qty": 2 },
+    { "name": "a removal on the server with queued adds", "key": "a|nonfoil|NM|en", "serverQty": 0, "deltas": { "a|nonfoil|NM|en": 1 }, "qty": 1 }
+  ]
+}

@@ -1,6 +1,9 @@
 package site.table1.events.library
 
+import site.table1.events.util.Offline
+import site.table1.events.util.Telemetry
 import site.table1.events.util.rethrowIfCancelled
+import kotlinx.serialization.encodeToString
 
 import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
@@ -56,6 +59,7 @@ data class LibrarySummary(
     val seq: Long = 0,
 )
 
+@Serializable
 data class CollectionOp(
     val cardId: String, val finish: String = Finish.Nonfoil.wire, val condition: String = "NM", val lang: String = "en",
     val delta: Int? = null, val qty: Int? = null,
@@ -64,6 +68,11 @@ data class CollectionOp(
 ) {
     val key get() = itemKey(cardId, finish, condition, lang)
 }
+
+/** A batch of adds that failed on the network and waits on the device to be sent again with the same idempotency key
+ *  (contract/offline-2026-10-31.md § 3). */
+@Serializable
+data class OutboxBatch(val key: String, val source: String, val ops: List<CollectionOp>)
 
 @Serializable
 data class ApplyResult(
@@ -167,9 +176,15 @@ data class CollectionState(
     val error: String? = null,
     val items: Map<String, CollectionItem> = emptyMap(),
     val summary: LibrarySummary? = null,
+    /** Batches of adds that failed on the network and wait to be sent (contract/offline-2026-10-31.md § 3). */
+    val outbox: List<OutboxBatch> = emptyList(),
     /** Bumped on every change so screens can recompute on it. */
     val version: Int = 0,
-)
+) {
+    /** "3 changes waiting to send" on the Collection home while the outbox isn't empty. */
+    val outboxNotice: String?
+        get() = when (outbox.size) { 0 -> null; 1 -> "1 change waiting to send"; else -> "${outbox.size} changes waiting to send" }
+}
 
 object CollectionStore {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -191,10 +206,13 @@ object CollectionStore {
         local = db
         val saved = db?.let { withContext(Dispatchers.IO) { runCatching { it.load() }.getOrNull() } }
         cursor = saved?.second ?: 0L
+        // Adds made offline: on screen again on top of the mirror, sent with the first sync.
+        val outbox = withContext(Dispatchers.IO) { loadOutbox(userId) }
         set {
             CollectionState(userId = userId, items = saved?.first ?: emptyMap(), summary = saved?.third,
-                ready = (saved?.first?.isNotEmpty() ?: false) || cursor > 0)
+                ready = (saved?.first?.isNotEmpty() ?: false) || cursor > 0, outbox = outbox)
         }
+        for (b in outbox) showAdds(b.ops, 1)
         sync()
     }
 
@@ -204,6 +222,64 @@ object CollectionStore {
         local = null
         cursor = 0
         set { CollectionState() }
+    }
+
+    /* ── outbox (adds that failed on the network; contract/offline-2026-10-31.md § 3) ─────────────────────── */
+
+    private val outboxJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private fun outboxFile(userId: String) = File(File(T1App.instance.filesDir, "library").apply { mkdirs() }, "outbox-$userId.json")
+    private fun loadOutbox(userId: String): List<OutboxBatch> =
+        runCatching { outboxJson.decodeFromString<List<OutboxBatch>>(outboxFile(userId).readText()) }.getOrDefault(emptyList())
+
+    private fun saveOutbox(outbox: List<OutboxBatch>) {
+        val user = _state.value.userId ?: return
+        set { it.copy(outbox = outbox) }
+        scope.launch(Dispatchers.IO) {
+            runCatching { if (outbox.isEmpty()) outboxFile(user).delete() else outboxFile(user).writeText(outboxJson.encodeToString(outbox)) }
+        }
+    }
+
+    private fun applyParams(ops: List<CollectionOp>, source: String, key: String) = buildJsonObject {
+        put("p_ops", buildJsonArray {
+            for (op in ops) add(buildJsonObject {
+                put("card_id", op.cardId); put("finish", op.finish); put("condition", op.condition); put("lang", op.lang)
+                op.delta?.let { put("delta", it) }
+                op.qty?.let { put("qty", it) }
+                op.binderId?.let { put("binder_id", it) }
+            })
+        })
+        put("p_source", source)
+        put("p_source_id", JsonNull)
+        put("p_idempotency_key", key)
+    }
+
+    /** A result for a batch that waits in the outbox: Undo takes it out again. */
+    private fun queuedResult(key: String) = ApplyResult("queued:$key", false, emptyList(),
+        _state.value.summary ?: LibrarySummary(0, 0, 0, 0.0, 0.0, 0))
+
+    /** Sends the outbox in order before a sync. A batch the server refuses is taken back; a network failure keeps
+     *  the rest for next time. */
+    private suspend fun flushOutbox(user: String) {
+        var sent = 0
+        while (true) {
+            val b = _state.value.outbox.firstOrNull() ?: break
+            if (_state.value.userId != user) return
+            try {
+                val res = T1App.supabase.postgrest.rpc("collection_apply", applyParams(b.ops, b.source, b.key)).decodeAs<ApplyResult>()
+                if (_state.value.userId != user) return
+                saveOutbox(_state.value.outbox.drop(1))
+                reflect(res)
+                sent++
+            } catch (e: Exception) {
+                e.rethrowIfCancelled()
+                if (Offline.isNetwork(e)) break
+                if (_state.value.userId != user) return
+                showAdds(b.ops, -1)
+                saveOutbox(_state.value.outbox.drop(1))
+                set { it.copy(error = "A change made offline was refused: ${e.message}") }
+            }
+        }
+        if (sent > 0) Telemetry.capture("outbox_sent", mapOf("batches" to sent))
     }
 
     fun syncInBackground() { scope.launch { sync() } }
@@ -240,6 +316,8 @@ object CollectionStore {
         val user = _state.value.userId ?: return
         set { it.copy(syncing = true, error = null) }
         try {
+            flushOutbox(user)
+            if (_state.value.userId != user) return
             repeat(200) {
                 val page = T1App.supabase.postgrest.rpc("collection_changes", buildJsonObject {
                     put("p_after", cursor)
@@ -250,8 +328,12 @@ object CollectionStore {
                     cursor = 0
                     local?.let { withContext(Dispatchers.IO) { it.clear() } }
                     set { it.copy(items = emptyMap()) }
+                    for (b in _state.value.outbox) showAdds(b.ops, 1)
                     return@repeat
                 }
+                // The server hasn't counted adds still in the outbox: rows show its count plus them (the mirror keeps
+                // the server's, so the next launch adds them once).
+                val queued = Offline.deltas(_state.value.outbox.map { it.ops })
                 val items = _state.value.items.toMutableMap()
                 val put = mutableListOf<CollectionItem>()
                 val del = mutableListOf<String>()
@@ -260,7 +342,9 @@ object CollectionStore {
                         row[3].jsonPrimitive.content, row[4].jsonPrimitive.int, row[5].jsonPrimitive.long)
                     val held = items[it.key]
                     if (held != null && held.seq > it.seq) continue // a newer write is already shown
-                    if (it.qty > 0) { items[it.key] = it; put.add(it) } else { items.remove(it.key); del.add(it.key) }
+                    if (it.qty > 0) put.add(it) else del.add(it.key)
+                    val shown = it.qty + (queued[it.key] ?: 0)
+                    if (shown > 0) items[it.key] = it.copy(qty = shown) else items.remove(it.key)
                 }
                 cursor = page.next
                 val next = cursor
@@ -283,23 +367,26 @@ object CollectionStore {
      * chunks) passes the same key each time, so a batch that already landed replays as a duplicate.
      */
     suspend fun apply(ops: List<CollectionOp>, source: String = "manual", key: String? = null): ApplyResult {
-        val params = buildJsonObject {
-            put("p_ops", buildJsonArray {
-                for (op in ops) add(buildJsonObject {
-                    put("card_id", op.cardId); put("finish", op.finish); put("condition", op.condition); put("lang", op.lang)
-                    op.delta?.let { put("delta", it) }
-                    op.qty?.let { put("qty", it) }
-                    op.binderId?.let { put("binder_id", it) }
-                })
-            })
-            put("p_source", source)
-            put("p_source_id", JsonNull)
-            put("p_idempotency_key", key ?: UUID.randomUUID().toString())
-        }
+        val key = key ?: UUID.randomUUID().toString()
+        val params = applyParams(ops, source, key)
         showAdds(ops, 1)
+        // Behind batches already waiting: sent after them, in order, so the server sees them as they were made.
+        if (_state.value.outbox.isNotEmpty() && Offline.queues(ops, true)) {
+            saveOutbox(_state.value.outbox + OutboxBatch(key, source, ops))
+            Telemetry.capture("outbox_queued", mapOf("ops" to ops.size))
+            syncInBackground()
+            return queuedResult(key)
+        }
         val res = try {
             retryOnce { T1App.supabase.postgrest.rpc("collection_apply", params).decodeAs<ApplyResult>() }
         } catch (e: Exception) {
+            e.rethrowIfCancelled()
+            // Adds that couldn't reach the server stay on screen and wait in the outbox (contract/offline-2026-10-31.md § 3).
+            if (_state.value.userId != null && Offline.queues(ops, Offline.isNetwork(e))) {
+                saveOutbox(_state.value.outbox + OutboxBatch(key, source, ops))
+                Telemetry.capture("outbox_queued", mapOf("ops" to ops.size))
+                return queuedResult(key)
+            }
             showAdds(ops, -1)
             syncInBackground()
             throw e
@@ -312,6 +399,15 @@ object CollectionStore {
     }
 
     suspend fun undo(batchId: String): ApplyResult {
+        // A batch still in the outbox: out of the outbox and off the screen, nothing to undo on the server.
+        if (batchId.startsWith("queued:")) {
+            val key = batchId.removePrefix("queued:")
+            _state.value.outbox.firstOrNull { it.key == key }?.let { b ->
+                showAdds(b.ops, -1)
+                saveOutbox(_state.value.outbox.filter { it.key != key })
+            }
+            return queuedResult(key)
+        }
         val params = buildJsonObject {
             put("p_batch_id", batchId)
             put("p_idempotency_key", UUID.randomUUID().toString())

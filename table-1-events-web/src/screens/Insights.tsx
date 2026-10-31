@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Bar as ShareBar, Heatmap, LineChart, Scatter, SlopeChart, type Marker } from "../components/InsightCharts";
-import { Bar, Notice, Row, Screen, Section, Segmented, Stat, SwitchRow, TabNav } from "../components/kit";
+import { Bar, GhostAction, Notice, Row, Screen, Section, Segmented, Stat, SwitchRow, TabNav } from "../components/kit";
 import { printingsByName, type Catalog } from "../lib/catalog";
 import { delta, pct, pct1, rates, seriesWindow, shortDay, wilson } from "../lib/insightCharts";
 import {
@@ -86,7 +86,7 @@ export function InsightsHome({ section }: { section: "constructed" | "limited" }
 
 function ConstructedHome() {
   const nav = useNavigate();
-  const { constructed, picks, error, index } = useInsights();
+  const { constructed, picks, error, index, stale } = useInsights();
   const [hl, setHl] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
   const shown = visibleKeys(FORMATS.map((f) => f.key as string), picks.hiddenFormats);
@@ -103,8 +103,10 @@ function ConstructedHome() {
       </PickerRow>
       {editing && <ShownEditor title="Shown formats" items={FORMATS.map((f) => ({ key: f.key as string, label: f.label }))} hidden={picks.hiddenFormats}
                                which="hiddenFormats" onDone={() => setEditing(false)} />}
+      {stale && <Notice tone="info">{stale}</Notice>}
       {pack && <WindowPickers tier={tier} days={picks.days} />}
       {!pack && (error ? <Notice tone="error">{error}</Notice> : <Notice tone="info">{index ? "No results for this format yet." : "Loading the metagame…"}</Notice>)}
+      {!pack && error && <GhostAction label="Try again" onClick={() => void loadInsights(true)} />}
       {pack && view && w && <ConstructedBody pack={pack} tier={tier} view={view} w={w} days={picks.days} hl={hl} setHl={setHl} go={(p) => nav(p)} />}
     </Scroll>
   );
@@ -647,7 +649,7 @@ function NewSetsToRank() {
 
 function LimitedHome() {
   const nav = useNavigate();
-  const { limited, picks, index, error, rankable, alerts } = useInsights();
+  const { limited, picks, index, error, stale, rankable, alerts } = useInsights();
   const rank = useRankSet();
   useEffect(() => { void loadInsightsExtras(); }, []);
   const [sort, setSort] = useState<"gih" | "oh" | "iwd" | "ata">("gih");
@@ -681,13 +683,16 @@ function LimitedHome() {
   // The picker waits for the index and the sets to rank (kept on the device after the first visit), so it draws whole.
   if (!index || !rankable || !chips.length) {
     return (<>
+      {stale && <Notice tone="info">{stale}</Notice>}
       {error ? <Notice tone="error">{error}</Notice>
         : <Notice tone="info">{index && rankable ? "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena." : "Loading draft data…"}</Notice>}
+      {error && <GhostAction label="Try again" onClick={() => void loadInsights(true)} />}
       <NewSetsToRank />
     </>);
   }
   const picker = (
     <>
+      {stale && <Notice tone="info">{stale}</Notice>}
       <PickerRow onEdit={() => setEditing(!editing)} editing={editing}>
         <Segmented scroll options={chips.map((c) => ({ value: c.key, label: c.label }))} value={current.key} onChange={(v) => pick({ set: v })} />
       </PickerRow>

@@ -199,6 +199,7 @@ struct LibraryHomeView: View {
             }
             .background(T1.bg)
             if let error = col.error { Notice(error, error: true) }
+            if let waiting = col.outboxNotice { Notice(waiting) }
             ScrollView {
                 VStack(spacing: 0) {
                     collectionShelf

@@ -20,6 +20,10 @@ final class InsightsStore {
     private(set) var loading = false
     private(set) var error: String?
     private(set) var loadedAt: Date?
+    /// "Couldn't refresh · last updated …" while the index on screen is the device's saved one, or a refresh failed
+    /// (contract/offline-2026-10-31.md § 1).
+    private(set) var stale: String?
+    private static let indexKey = "insights-index"
     /// Debug demo (-T1InsightsDemo): packs and pages from DebugResources, nothing from the network.
     @ObservationIgnored var demoPages: [String: Data]?
     /// Sets and Arena cube versions to rank (limited_rankable), newest first; loaded with the index.
@@ -174,11 +178,28 @@ final class InsightsStore {
         Task { await loadExtras() }
         await pullPicks()
         do {
-            index = try await supabase.rpc("insights_index").execute().value
+            let data = try await supabase.rpc("insights_index").execute().data
+            index = try wireDecoder.decode([Insights.IndexEntry].self, from: data)
+            OfflineCache.save("_", Self.indexKey, data)
             error = nil
+            stale = nil
             loadedAt = .now
+        } catch where error.isCancellation {
         } catch {
-            if !error.isCancellation { self.error = "Insights couldn't load: \(error.localizedDescription)" }
+            // The device's saved index: every pack whose version matches a file on the device then loads from it.
+            var savedAt = loadedAt
+            if index.isEmpty, let saved = OfflineCache.load("_", Self.indexKey, as: [Insights.IndexEntry].self) {
+                index = saved.value
+                savedAt = saved.at
+            }
+            let age = Offline.age(savedAt)
+            let n = Offline.notice(failed: true, savedAgo: index.isEmpty ? nil : age, error: error.localizedDescription)
+            if let n, !n.isError {
+                stale = n.text
+                Telemetry.capture("offline_shown", ["screen": "insights", "age_s": age ?? 0])
+            } else {
+                self.error = "Insights couldn't load: \(error.localizedDescription)"
+            }
         }
         for e in index where e.kind == "constructed" && e.key == format { await fetch(e) }
         if let first = (setCode.flatMap { s in index.first { $0.kind == "limited" && $0.key == s } } ?? limitedSets.first), section == "limited" {

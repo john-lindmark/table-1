@@ -15,3 +15,13 @@
 # Vite's hashed bundles never change under the same name.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# The service worker and the shell it precaches are checked on every load, so a deploy is seen at once.
+/sw.js
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-cache
+
+/
+  Cache-Control: no-cache

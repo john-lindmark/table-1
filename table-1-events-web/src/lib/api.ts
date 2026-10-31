@@ -1,5 +1,6 @@
 import { supabase } from "./supabaseClient";
 import { getLocalParticipant } from "./session";
+import { loadSaved, saveAnswer } from "./offline";
 import type { User } from "@supabase/supabase-js";
 import { capture, signInStarted } from "./telemetry";
 import { isReview, REVIEW_ADDRESS } from "./emailSignIn";
@@ -217,7 +218,22 @@ export async function fetchBundle(eventId: string): Promise<EventBundle> {
   const token = getLocalParticipant(eventId)?.token ?? null;
   const { data, error } = await supabase.rpc("event_bundle", { p_event_id: eventId, p_token: token });
   if (error) throw error;
+  // Kept on this device for the next time the server can't be reached (contract/offline-2026-10-31.md § 1).
+  void saveAnswer(await offlineAccount(eventId), `event-${eventId}`, data);
   return toBundle(data);
+}
+
+/** Whose saved answers an event's belong to: the signed-in account, or the guest token's event. */
+async function offlineAccount(eventId?: string): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  if (data.session) return data.session.user.id;
+  return eventId && getLocalParticipant(eventId) ? `guest-${eventId}` : null;
+}
+
+/** The event as this device last saw it, with when (ms). */
+export async function savedBundle(eventId: string): Promise<{ value: EventBundle; at: number } | null> {
+  const s = await loadSaved<unknown>(await offlineAccount(eventId), `event-${eventId}`);
+  return s ? { value: toBundle(s.value), at: s.at } : null;
 }
 
 export function toBundle(r: any): EventBundle {
@@ -680,7 +696,13 @@ export async function deleteAccount() {
 export async function fetchEventsHome(): Promise<HomeData> {
   const { data, error } = await supabase.rpc("events_home", { p_include_demo: true });
   if (error) throw error;
+  void saveAnswer(await offlineAccount(), "home", data);
   return data as HomeData;
+}
+
+/** The last events_home this account saw, with when (ms) (contract/offline-2026-10-31.md § 1). */
+export async function savedEventsHome(): Promise<{ value: HomeData; at: number } | null> {
+  return loadSaved<HomeData>(await offlineAccount(), "home");
 }
 
 /** Live seats with table, opponent, ranks and clock. Empty when signed out or nothing is live. */

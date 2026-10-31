@@ -1,5 +1,6 @@
 package site.table1.events.library
 
+import site.table1.events.util.Offline
 import site.table1.events.util.rethrowIfCancelled
 
 import io.github.jan.supabase.postgrest.postgrest
@@ -153,10 +154,68 @@ internal suspend fun readListPages(after: Long, maxPages: Int = 50, fetch: suspe
     return calls
 }
 
+/** A change to a saved list that failed on the network, waiting to be sent (contract/offline-2026-10-31.md § 4). */
 @Serializable
-private data class ListsCache(val cursor: Long, val lists: List<ListWire>)
+data class PendingCall(val fn: String, val params: JsonObject)
 
-data class ListsState(val userId: String? = null, val lists: List<CardList> = emptyList(), val ready: Boolean = false, val error: String? = null)
+@Serializable
+private data class ListsCache(val cursor: Long, val lists: List<ListWire>, val unsaved: Map<String, String>? = null, val pending: List<PendingCall>? = null)
+
+/**
+ * [unsaved]: lists made on this device that the server hasn't saved yet, with why the last try failed ("" = not tried
+ * yet, or offline); each sync sends them again until the server has them. [pending]: changes to saved lists that
+ * failed on the network, in order; sent before the next pull. The lists already show both.
+ */
+data class ListsState(val userId: String? = null, val lists: List<CardList> = emptyList(), val ready: Boolean = false, val error: String? = null,
+                      val unsaved: Map<String, String> = emptyMap(), val pending: List<PendingCall> = emptyList())
+
+/** What a list's screen says while the server doesn't have it. */
+fun unsavedNotice(l: CardList, why: String): String {
+    val kind = if (l.kind == ListKind.Cube) "cube" else "deck"
+    return if (why.isEmpty()) "Saving this $kind to your account…"
+    else "This $kind isn't saved to your account yet: $why It's sent again each time Table 1 syncs."
+}
+
+/** The ops of a list_edit applied to a version's entries the way the server applies them (a change queued offline). */
+fun applyListOps(entries: List<ListEntry>, ops: List<JsonObject>): List<ListEntry> {
+    val out = entries.toMutableList()
+    fun str(o: JsonObject, k: String) = o[k]?.jsonPrimitive?.content
+    fun find(cardId: String, board: String, finish: String, lang: String) = out.indexOfFirst { it.isLine(cardId, board, finish, lang) }
+    fun put(cardId: String, board: String, finish: String, lang: String, q: Int) {
+        val j = find(cardId, board, finish, lang)
+        if (j >= 0) out[j] = out[j].copy(qty = out[j].qty + q) else out.add(ListEntry(cardId, board, q, finish, lang))
+    }
+    for (op in ops) {
+        val cardId = str(op, "card_id") ?: continue
+        val fin = str(op, "finish") ?: "nonfoil"
+        val lang = str(op, "lang") ?: "en"
+        val from = str(op, "from")
+        if (from != null) {
+            val to = str(op, "to") ?: continue
+            val i = find(cardId, from, fin, lang)
+            if (i < 0) continue
+            val moved = out.removeAt(i)
+            put(cardId, to, fin, lang, moved.qty)
+            continue
+        }
+        val board = str(op, "board") ?: continue
+        if (op.containsKey("to_card_id") || op.containsKey("to_finish") || op.containsKey("to_lang")) {
+            val i = find(cardId, board, fin, lang)
+            if (i < 0) continue
+            val have = out[i].qty
+            val n = minOf(have, op["qty"]?.jsonPrimitive?.int ?: have)
+            if (have - n > 0) out[i] = out[i].copy(qty = have - n) else out.removeAt(i)
+            put(str(op, "to_card_id") ?: cardId, board, str(op, "to_finish") ?: fin, str(op, "to_lang") ?: lang, n)
+            continue
+        }
+        val i = find(cardId, board, fin, lang)
+        val q = op["qty"]?.jsonPrimitive?.int ?: ((if (i >= 0) out[i].qty else 0) + (op["delta"]?.jsonPrimitive?.int ?: 0))
+        if (i >= 0 && q > 0) out[i] = out[i].copy(qty = q)
+        else if (i >= 0) out.removeAt(i)
+        else if (q > 0) put(cardId, board, fin, lang, q)
+    }
+    return out
+}
 
 object ListsStore {
     private val _state = MutableStateFlow(ListsState())
@@ -185,7 +244,7 @@ object ListsStore {
         if (cached != null && _state.value.userId == userId) {
             cursor = cached.cursor
             setLists(cached.lists.mapNotNull { it.toList() })
-            _state.value = _state.value.copy(ready = true)
+            _state.value = _state.value.copy(ready = true, unsaved = cached.unsaved ?: emptyMap(), pending = cached.pending ?: emptyList())
         }
         sync()
     }
@@ -197,11 +256,77 @@ object ListsStore {
 
     private suspend fun saveCache() {
         val user = _state.value.userId ?: return
-        val c = ListsCache(cursor, _state.value.lists.map { ListWire.of(it) })
+        val c = ListsCache(cursor, _state.value.lists.map { ListWire.of(it) }, _state.value.unsaved, _state.value.pending)
         withContext(Dispatchers.IO) { runCatching { cacheFile(user).writeText(json.encodeToString(c)) } }
     }
 
     fun syncInBackground() { scope.launch { sync() } }
+
+    /** Sends the queued changes in order. False when the network stopped it: the pull is skipped so the server's copy
+     *  doesn't hide what's still to send. A change the server refuses is dropped; the pull then sets things right. */
+    private suspend fun flushPending(user: String): Boolean {
+        while (true) {
+            val p = _state.value.pending.firstOrNull() ?: return true
+            if (_state.value.userId != user) return false
+            try {
+                val w = T1App.supabase.postgrest.rpc(p.fn, p.params).decodeAs<ListWire>()
+                if (_state.value.userId != user) return false
+                _state.value = _state.value.copy(pending = _state.value.pending.drop(1))
+                mergeWire(w)
+                saveCache()
+            } catch (e: Exception) {
+                e.rethrowIfCancelled()
+                if (Offline.isNetwork(e)) return false
+                if (_state.value.userId != user) return false
+                _state.value = _state.value.copy(pending = _state.value.pending.drop(1), error = "A change made offline was refused: ${e.message}")
+                saveCache()
+            }
+        }
+    }
+
+    private fun mergeWire(w: ListWire) {
+        val rest = _state.value.lists.filter { it.id != w.id }
+        setLists(w.toList()?.let { rest + it } ?: rest)
+    }
+
+    /** Sends a list the server doesn't have yet with what this device holds now; list_create returns the list it
+     *  already has for a retried id. A failure is kept on the list, and the next sync tries again. */
+    private val saving = HashMap<String, CompletableDeferred<Unit>>()
+    private suspend fun saveUnsaved(id: String) {
+        saving[id]?.let { it.await(); return }
+        val user = _state.value.userId
+        val l = list(id)
+        if (user == null || l == null) { dropUnsaved(id); return }
+        val run = CompletableDeferred<Unit>()
+        saving[id] = run
+        try {
+            val w = T1App.supabase.postgrest.rpc("list_create", buildJsonObject {
+                put("p_id", l.id); put("p_kind", l.kind.wire); put("p_name", l.name); put("p_format", l.format)
+                put("p_entries", buildJsonArray { l.entries.forEach { add(ListWire.entryWire(it)) } })
+                put("p_note", l.versions.firstOrNull()?.note ?: "Created")
+            }).decodeAs<ListWire>()
+            if (_state.value.userId != user) return
+            dropUnsaved(id)
+            mergeWire(w)
+            saveCache()
+            // The Cube Cobra link set while the list was on its way (an import).
+            if (l.sourceUrl != null && w.sourceUrl == null) runCatching { call("list_source_set", buildJsonObject { put("p_list_id", id); put("p_source_url", l.sourceUrl) }) }
+        } catch (e: Exception) {
+            e.rethrowIfCancelled()
+            if (_state.value.userId == user) {
+                _state.value = _state.value.copy(unsaved = _state.value.unsaved + (id to (e.message ?: "")))
+                saveCache()
+            }
+        } finally {
+            saving.remove(id)
+            run.complete(Unit)
+        }
+    }
+
+    private fun dropUnsaved(id: String) {
+        if (id !in _state.value.unsaved) return
+        _state.value = _state.value.copy(unsaved = _state.value.unsaved - id)
+    }
 
     /** Pulls every list changed after the local cursor; a call during a run schedules one more run. */
     suspend fun sync() {
@@ -210,6 +335,8 @@ object ListsStore {
         val run = CompletableDeferred<Unit>()
         syncRun = run
         try {
+            if (!flushPending(user)) return
+            val seen = HashSet<String>()
             readListPages(cursor, fetch = { after ->
                 T1App.supabase.postgrest.rpc("lists_changes", buildJsonObject {
                     put("p_after", after); put("p_limit", 100)
@@ -217,12 +344,17 @@ object ListsStore {
             }) { page ->
                 if (_state.value.userId != user) return@readListPages false
                 val byId = _state.value.lists.associateBy { it.id }.toMutableMap()
-                for (w in page.lists) { val l = w.toList(); if (l != null) byId[l.id] = l else byId.remove(w.id) }
+                for (w in page.lists) { seen.add(w.id); val l = w.toList(); if (l != null) byId[l.id] = l else byId.remove(w.id) }
                 cursor = page.next
                 setLists(byId.values.toList())
                 _state.value = _state.value.copy(ready = true, error = null)
                 saveCache()
                 true
+            }
+            // Lists the server sent are saved; the rest are sent again.
+            if (_state.value.userId == user) {
+                _state.value = _state.value.copy(unsaved = _state.value.unsaved.filterKeys { it !in seen })
+                for (id in _state.value.unsaved.keys.sorted()) saveUnsaved(id)
             }
         } catch (e: Exception) {
             e.rethrowIfCancelled()
@@ -234,33 +366,89 @@ object ListsStore {
         if (syncAgain) { syncAgain = false; sync() }
     }
 
-    private suspend fun call(fn: String, params: JsonObject) {
+    /** A change that couldn't reach the server: applied here, queued in order, sent before the next pull. */
+    private suspend fun queue(fn: String, params: JsonObject, local: () -> Unit) {
+        local()
+        _state.value = _state.value.copy(pending = _state.value.pending + PendingCall(fn, params))
+        site.table1.events.util.Telemetry.capture("list_change_queued")
+        saveCache()
+    }
+
+    /**
+     * Sends one change and replaces the local list with the server's version (the source of truth: it groups edits
+     * into versions). On a network failure the change is applied here ([local]) and queued (contract/offline-2026-10-31.md
+     * § 4); on any other failure the local copy is re-synced. A change to a list the server doesn't have yet waits
+     * for the create, which carries the current cards.
+     */
+    private suspend fun call(fn: String, params: JsonObject, local: (() -> Unit)? = null) {
+        val id = params["p_list_id"]?.jsonPrimitive?.content
+        if (id != null && id in _state.value.unsaved) {
+            local?.invoke()
+            saveCache()
+            scope.launch { saveUnsaved(id) }
+            return
+        }
+        if (_state.value.pending.isNotEmpty() && local != null) return queue(fn, params, local)
         try {
             val w = T1App.supabase.postgrest.rpc(fn, params).decodeAs<ListWire>()
-            val rest = _state.value.lists.filter { it.id != w.id }
-            setLists(w.toList()?.let { rest + it } ?: rest)
+            mergeWire(w)
             _state.value = _state.value.copy(error = null)
             saveCache()
         } catch (e: Exception) {
+            e.rethrowIfCancelled()
+            if (local != null && Offline.isNetwork(e)) return queue(fn, params, local)
             _state.value = _state.value.copy(error = e.message ?: "Couldn't save that change")
             sync()
             throw e
         }
     }
 
-    /** A new list, optionally starting with cards (a duplicate, an import or a found decklist). */
+    /** The version an editing session is filling: edits within 10 minutes of each other share one version, as on the
+     *  server (for a change applied here while offline). */
+    private val openEdit = HashMap<String, Pair<Int, Double>>()
+
+    private fun localEdit(id: String, note: String = "Edited", change: (List<ListEntry>) -> List<ListEntry>) {
+        val l = list(id) ?: return
+        val cur = l.current
+        val entries = change(cur.entries)
+        val now = System.currentTimeMillis() / 1000.0
+        val open = openEdit[id]
+        val versions = if (note == "Edited" && open != null && open.first == cur.number && now - open.second < 600)
+            l.versions.dropLast(1) + cur.copy(at = now, entries = entries)
+        else l.versions + ListVersion((l.versions.maxOfOrNull { it.number } ?: 0) + 1, now, note, entries)
+        openEdit[id] = if (note == "Edited") versions.last().number to now else -1 to 0.0
+        setLists(_state.value.lists.filter { it.id != id } + l.copy(versions = versions))
+    }
+
     /** A new list, optionally starting with cards. `from` is for telemetry only: new / duplicate / import / finder /
-     *  profile (a copy of a shared deck or cube). */
+     *  profile (a copy of a shared deck or cube). Made here and saved by the next sync when the server can't be reached. */
     suspend fun create(kind: ListKind, name: String, format: String, entries: List<ListEntry> = emptyList(), note: String = "Created",
                        from: String = "new"): String {
         val id = UUID.randomUUID().toString()
-        call("list_create", buildJsonObject {
-            put("p_id", id); put("p_kind", kind.wire); put("p_name", name); put("p_format", format)
-            put("p_entries", buildJsonArray {
-                entries.forEach { e -> add(ListWire.entryWire(e)) }
-            })
-            put("p_note", note)
-        })
+        try {
+            val w = T1App.supabase.postgrest.rpc("list_create", buildJsonObject {
+                put("p_id", id); put("p_kind", kind.wire); put("p_name", name); put("p_format", format)
+                put("p_entries", buildJsonArray {
+                    entries.forEach { e -> add(ListWire.entryWire(e)) }
+                })
+                put("p_note", note)
+            }).decodeAs<ListWire>()
+            mergeWire(w)
+            _state.value = _state.value.copy(error = null)
+            saveCache()
+        } catch (e: Exception) {
+            e.rethrowIfCancelled()
+            if (!Offline.isNetwork(e) || _state.value.userId == null) {
+                _state.value = _state.value.copy(error = e.message ?: "Couldn't save that change")
+                sync()
+                throw e
+            }
+            val l = CardList(id, kind, name, format, listOf(ListVersion(1, System.currentTimeMillis() / 1000.0, note, entries)))
+            setLists(_state.value.lists + l)
+            _state.value = _state.value.copy(unsaved = _state.value.unsaved + (id to ""))
+            saveCache()
+            site.table1.events.util.Telemetry.capture("list_change_queued")
+        }
         site.table1.events.util.Telemetry.capture("list_created", mapOf("kind" to kind.wire, "format" to format, "from" to from))
         return id
     }
@@ -269,14 +457,18 @@ object ListsStore {
     suspend fun setFormat(listId: String, format: String) {
         val l = list(listId) ?: return
         if (l.format == format) return
-        call("list_update", buildJsonObject { put("p_list_id", listId); put("p_format", format) })
+        call("list_update", buildJsonObject { put("p_list_id", listId); put("p_format", format) }) {
+            list(listId)?.let { now -> setLists(_state.value.lists.filter { it.id != listId } + now.copy(format = format)) }
+        }
         site.table1.events.util.Telemetry.capture("list_format_changed", mapOf("kind" to l.kind.wire, "from" to l.format, "to" to format))
     }
 
     /** Remembers the Cube Cobra link a cube was imported from, so syncing needs no link. */
     suspend fun setSource(listId: String, url: String) {
         if (list(listId)?.sourceUrl == url) return
-        call("list_source_set", buildJsonObject { put("p_list_id", listId); put("p_source_url", url) })
+        call("list_source_set", buildJsonObject { put("p_list_id", listId); put("p_source_url", url) }) {
+            list(listId)?.let { now -> setLists(_state.value.lists.filter { it.id != listId } + now.copy(sourceUrl = url)) }
+        }
     }
 
     /** Saves a cube synced with Cube Cobra as one new version (contract/cube-sync-2026-10-30.md). A list that changed
@@ -343,17 +535,34 @@ object ListsStore {
     /** Several ops as one edit (card detail's changes and their Undo): one request, one step in the history. */
     suspend fun editMany(listId: String, ops: List<JsonObject>) {
         if (ops.isEmpty()) return
-        call("list_edit", buildJsonObject { put("p_list_id", listId); put("p_ops", buildJsonArray { ops.forEach { add(it) } }) })
+        call("list_edit", buildJsonObject { put("p_list_id", listId); put("p_ops", buildJsonArray { ops.forEach { add(it) } }) }) {
+            localEdit(listId) { applyListOps(it, ops) }
+        }
     }
 
-    private suspend fun edit(listId: String, op: JsonObject) =
-        call("list_edit", buildJsonObject { put("p_list_id", listId); put("p_ops", buildJsonArray { add(op) }) })
+    private suspend fun edit(listId: String, op: JsonObject) = editMany(listId, listOf(op))
 
     suspend fun restore(listId: String, version: Int) =
-        call("list_restore", buildJsonObject { put("p_list_id", listId); put("p_version", version) })
+        call("list_restore", buildJsonObject { put("p_list_id", listId); put("p_version", version) }) {
+            list(listId)?.versions?.firstOrNull { it.number == version }?.let { v -> localEdit(listId, "Restored v$version") { v.entries } }
+        }
 
     suspend fun delete(listId: String) {
-        T1App.supabase.postgrest.rpc("list_delete", buildJsonObject { put("p_list_id", listId) })
+        if (listId in _state.value.unsaved) {
+            // Never reached the server: forgotten here.
+            dropUnsaved(listId)
+            setLists(_state.value.lists.filter { it.id != listId })
+            saveCache()
+            return
+        }
+        try {
+            T1App.supabase.postgrest.rpc("list_delete", buildJsonObject { put("p_list_id", listId) })
+        } catch (e: Exception) {
+            e.rethrowIfCancelled()
+            if (!Offline.isNetwork(e)) throw e
+            queue("list_delete", buildJsonObject { put("p_list_id", listId) }) { setLists(_state.value.lists.filter { it.id != listId }) }
+            return
+        }
         setLists(_state.value.lists.filter { it.id != listId })
         saveCache()
     }

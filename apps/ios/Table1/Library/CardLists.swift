@@ -115,6 +115,14 @@ final class ListsStore {
     /// yet, or offline). Each sync sends them again until the server has them, so a refused create never leaves a
     /// list that only this phone knows about without saying so.
     private(set) var unsaved: [String: String] = [:]
+    /// Changes to saved lists that failed on the network, in order; sent before the next pull
+    /// (contract/offline-2026-10-31.md § 4). The lists already show them.
+    private(set) var pending: [PendingCall] = []
+
+    struct PendingCall: Codable {
+        let fn: String
+        let params: [String: AnyJSON]
+    }
 
     /// Signed in: lists live in the database (contract/lists-2026-10-15.md) and sync by seq; this device keeps a
     /// cached copy so they show instantly and offline. Demo (`replace`): local only.
@@ -145,6 +153,7 @@ final class ListsStore {
         lists = cached.lists
         cursor = cached.audited ? cached.cursor : 0
         unsaved = cached.unsaved
+        pending = cached.pending
         audit = !cached.audited
         await sync()
     }
@@ -154,6 +163,29 @@ final class ListsStore {
         lists = []
         cursor = 0
         unsaved = [:]
+        pending = []
+    }
+
+    /// Sends the queued changes in order. False when the network stopped it: the pull is skipped so the server's
+    /// copy doesn't hide what's still to send. A change the server refuses is dropped; the pull then sets things right.
+    private func flushPending(_ user: String) async -> Bool {
+        while let p = pending.first, userId == user {
+            do {
+                let dto: ListDTO = try await supabase.rpc(p.fn, params: p.params).execute().value
+                guard userId == user else { return false }
+                pending.removeFirst()
+                merge(dto)
+                persist()
+            } catch where Offline.isNetwork(error) || error.isCancellation {
+                return false
+            } catch {
+                guard userId == user else { return false }
+                pending.removeFirst()
+                persist()
+                self.error = "A change made offline was refused: \(error.localizedDescription)"
+            }
+        }
+        return true
     }
 
     /// Pulls every list changed after the local cursor. A call during a run schedules one more run after it.
@@ -169,6 +201,7 @@ final class ListsStore {
             defer { syncing = false }
             let from = cursor
             var seen = Set<String>()
+            guard await flushPending(user) else { return }
             do {
                 for _ in 0..<50 {
                     let page: ListsPage = try await supabase.rpc("lists_changes", params: [
@@ -257,7 +290,14 @@ final class ListsStore {
     }
 
     private func persist() {
-        if let u = userId { Self.saveCache(u, lists: lists, cursor: cursor, unsaved: unsaved) }
+        if let u = userId { Self.saveCache(u, lists: lists, cursor: cursor, unsaved: unsaved, pending: pending) }
+    }
+
+    /// A change that couldn't reach the server waits in order behind any already waiting.
+    private func queue(_ fn: String, _ params: [String: AnyJSON]) {
+        pending.append(PendingCall(fn: fn, params: params))
+        persist()
+        Telemetry.capture("list_change_queued")
     }
 
     private func merge(_ dto: ListDTO) {
@@ -280,12 +320,21 @@ final class ListsStore {
             }
             return
         }
+        // Behind changes already waiting: sent after them, in order.
+        if !pending.isEmpty {
+            queue(fn, params)
+            Task { await sync() }
+            return
+        }
         Task {
             do {
                 let dto: ListDTO = try await supabase.rpc(fn, params: params).execute().value
                 merge(dto)
                 persist()
                 error = nil
+            } catch where Offline.isNetwork(error) {
+                queue(fn, params)
+            } catch where error.isCancellation {
             } catch {
                 self.error = error.localizedDescription
                 await sync()
@@ -526,6 +575,8 @@ final class ListsStore {
         var lists: [ListDTO]
         /// Missing in caches written before 2026-10-22 (nil): those get one full pull to find unsaved lists.
         var unsaved: [String: String]?
+        /// Changes waiting to be sent (contract/offline-2026-10-31.md § 4); missing before 2026-10-31.
+        var pending: [PendingCall]?
     }
 
     nonisolated private static func cacheURL(_ userId: String) -> URL {
@@ -534,9 +585,10 @@ final class ListsStore {
         return dir.appending(path: "lists-\(userId).json")
     }
 
-    private static func loadCache(_ userId: String) -> (lists: [CardList], cursor: Int, unsaved: [String: String], audited: Bool) {
-        guard let data = try? Data(contentsOf: cacheURL(userId)) else { return ([], 0, [:], true) }
-        return decodeCache(data)
+    private static func loadCache(_ userId: String) -> (lists: [CardList], cursor: Int, unsaved: [String: String], audited: Bool, pending: [PendingCall]) {
+        guard let data = try? Data(contentsOf: cacheURL(userId)) else { return ([], 0, [:], true, []) }
+        let c = decodeCache(data)
+        return (c.lists, c.cursor, c.unsaved, c.audited, decodePending(data))
     }
 
     /// No cache needs no audit (nothing to find); an unreadable one is treated like an old one.
@@ -545,8 +597,12 @@ final class ListsStore {
         return (c.lists.compactMap(\.list), c.cursor, c.unsaved ?? [:], c.unsaved != nil)
     }
 
-    private static func saveCache(_ userId: String, lists: [CardList], cursor: Int, unsaved: [String: String]) {
-        let c = Cache(cursor: cursor, lists: lists.map(ListDTO.init), unsaved: unsaved)
+    nonisolated static func decodePending(_ data: Data) -> [PendingCall] {
+        (try? JSONDecoder().decode(Cache.self, from: data))?.pending ?? []
+    }
+
+    private static func saveCache(_ userId: String, lists: [CardList], cursor: Int, unsaved: [String: String], pending: [PendingCall]) {
+        let c = Cache(cursor: cursor, lists: lists.map(ListDTO.init), unsaved: unsaved, pending: pending)
         if let data = try? JSONEncoder().encode(c) { try? data.write(to: cacheURL(userId), options: .atomic) }
     }
 }

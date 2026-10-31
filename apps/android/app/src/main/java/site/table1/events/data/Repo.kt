@@ -36,6 +36,8 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.add
 import site.table1.events.T1App
+import site.table1.events.util.OfflineCache
+import kotlinx.coroutines.withContext
 import site.table1.events.util.Telemetry
 import java.util.UUID
 
@@ -51,9 +53,31 @@ object Repo {
 
     /* ── events ─────────────────────────────────────────────────────────────── */
 
-    /** Everything the Events tab shows, in one call. Android never shows demo data (TestFlight only). */
-    suspend fun eventsHome(): HomeData =
-        supabase.postgrest.rpc("events_home", buildJsonObject { put("p_include_demo", true) }).decodeAs()
+    /** Everything the Events tab shows, in one call. The answer is kept on the device for the next time the server
+     *  can't be reached (contract/offline-2026-10-31.md § 1). */
+    suspend fun eventsHome(): HomeData {
+        val raw = supabase.postgrest.rpc("events_home", buildJsonObject { put("p_include_demo", true) }).data
+        val home = json.decodeFromString<HomeData>(raw)
+        userId?.let { u -> withContext(Dispatchers.IO) { OfflineCache.save(u, "home", raw) } }
+        return home
+    }
+
+    /** The last events_home this account saw, with when (ms). */
+    suspend fun savedHome(): Pair<HomeData, Long>? = saved("home") { json.decodeFromString<HomeData>(it) }
+
+    /** The event as this account last saw it, with when (ms). */
+    suspend fun savedEvent(eventId: String): Pair<EventBundle, Long>? =
+        saved("event-$eventId") { bundle(json.decodeFromString<EventBundleWire>(it)) }
+
+    suspend fun savedStandings(eventId: String): StandingsResponse? =
+        saved("standings-$eventId") { json.decodeFromString<StandingsResponse>(it) }?.first
+
+    private suspend fun <T> saved(key: String, decode: (String) -> T): Pair<T, Long>? {
+        val u = userId ?: return null
+        return withContext(Dispatchers.IO) {
+            OfflineCache.load(u, key)?.let { (text, at) -> runCatching { decode(text) }.getOrNull()?.let { it to at } }
+        }
+    }
 
     /** Live seats with table, opponent, ranks and clock — the same state the iOS Live Activity shows. */
     suspend fun liveSnapshots(): List<LiveSnapshot> = liveState()?.snapshots.orEmpty()
@@ -302,8 +326,12 @@ object Repo {
      * The whole event in one call (contract/privacy-lockdown-2026-10-18.md): event_bundle checks who's asking
      * (organizer or player) and refuses anyone else with "That event isn't available".
      */
-    suspend fun loadEvent(eventId: String): EventBundle =
-        bundle(supabase.postgrest.rpc("event_bundle", buildJsonObject { put("p_event_id", eventId) }).decodeAs<EventBundleWire>())
+    suspend fun loadEvent(eventId: String): EventBundle {
+        val raw = supabase.postgrest.rpc("event_bundle", buildJsonObject { put("p_event_id", eventId) }).data
+        val b = bundle(json.decodeFromString<EventBundleWire>(raw))
+        userId?.let { u -> withContext(Dispatchers.IO) { OfflineCache.save(u, "event-$eventId", raw) } }
+        return b
+    }
 
     /** event_bundle's rows into the screen's bundle (testdata/event-bundle/bundle.json in EventBundleTest). */
     fun bundle(w: EventBundleWire): EventBundle = EventBundle(
@@ -506,7 +534,10 @@ object Repo {
             put("action", "standings")
             put("event_id", eventId)
         })
-        return json.decodeFromString<StandingsResponse>(response.bodyAsText())
+        val raw = response.bodyAsText()
+        val s = json.decodeFromString<StandingsResponse>(raw)
+        userId?.let { u -> withContext(Dispatchers.IO) { OfflineCache.save(u, "standings-$eventId", raw) } }
+        return s
     }
 
     /**

@@ -11,7 +11,7 @@ import { GROUPING_KEY, groupLabel, keyFor, keysOf, sortGroups, useStoredGrouping
 import { SORT_KEY, applySort, sortKeyOf, useStoredSort, type CardSort } from "../lib/cardSort";
 import {
   boardTitle, boardsOf, countOf, createList, entry, finishOf, langOf, ownKey, type ListFinish, current, deleteList, diff, duplicateList, editList, entriesOf, missingIn, needsOf, restoreList,
-  sectionsFor, setListFormat, useLists, type Board, type CardList, type Entry, type ListKind, type ListOp,
+  sectionsFor, setListFormat, unsavedNotice, useLists, type Board, type CardList, type Entry, type ListKind, type ListOp,
 } from "../lib/lists";
 import { cardMatches, matchingLines } from "../lib/librarySearch";
 import { capture } from "../lib/telemetry";
@@ -557,6 +557,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
                                       grouping={grouping} onGrouping={setGrouping} list sort={sort} onSort={setSort} sorts="list" />}
            </span>} />
       {(lists.error || error || heroFull) && <Notice tone="error">{lists.error ?? error ?? heroFull}</Notice>}
+      {list.id in lists.unsaved && <Notice tone={lists.unsaved[list.id] ? "error" : "info"}>{unsavedNotice(list, lists.unsaved[list.id])}</Notice>}
       {entriesOf(list).length > 0 && <Field label={list.kind === "cube" ? "Search this cube" : "Search this deck"} value={q} onChange={setQ} placeholder="Name or type" />}
       <div ref={boxRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         {/* While searching, matches come first. */}

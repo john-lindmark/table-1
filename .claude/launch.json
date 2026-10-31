@@ -345,6 +345,21 @@
         "--strictPort"
       ],
       "port": 5301
+    },
+    {
+      "name": "web-offline",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "table-1-events-web",
+        "run",
+        "preview",
+        "--",
+        "--port",
+        "4181",
+        "--strictPort"
+      ],
+      "port": 4181
     }
   ]
 }

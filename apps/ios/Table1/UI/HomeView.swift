@@ -12,6 +12,10 @@ struct EventsHomeView: View {
     @State private var snapshots: [String: LiveSnapshot] = [:]
     @State private var showPast = false
     @State private var error: String?
+    /// When `data` was fetched (this launch's, or the device's saved copy), and the notice when a refresh fails
+    /// (contract/offline-2026-10-31.md § 1).
+    @State private var savedAt: Date?
+    @State private var stale: String?
 
     private var live: [HomeEvent] { data?.events.filter { $0.bucket == "live" } ?? [] }
     private var upcoming: [HomeEvent] { data?.events.filter { $0.bucket == "upcoming" } ?? [] }
@@ -30,10 +34,12 @@ struct EventsHomeView: View {
                 BarButton("+ New") { path.append(.create) }
             }
             if let error { Notice(error, error: true) }
+            if let stale { Notice(stale) }
             HairlineList {
                 if data == nil {
                     Notice("Loading…")
                 } else if isEmpty {
+                    if error != nil { Ghost(text: "Try again") { Task { await load() } } }
                     EmptyEvents(path: $path)
                 } else {
                     ForEach(live) { e in
@@ -113,10 +119,17 @@ struct EventsHomeView: View {
 
     private func load() async {
         await BuildFlavor.resolve()
+        // What this account last saw shows at once; the server's answer replaces it.
+        if data == nil, let saved = Repo.savedHome() {
+            data = saved.value
+            savedAt = saved.at
+        }
         do {
             let home = try await Repo.eventsHome()
             data = home
             error = nil
+            stale = nil
+            savedAt = .now
             // The Next event widget reads the same data from the App Group.
             if NextEventStore.save(events: home.events.map(NextEventItem.init), invites: home.invites.count) {
                 WidgetCenter.shared.reloadTimelines(ofKind: "site.table1.next")
@@ -125,7 +138,15 @@ struct EventsHomeView: View {
             // At launch the app turning active restarts this task; the newer load shows the result.
             return
         } catch {
-            if data == nil { self.error = error.localizedDescription; data = HomeData() }
+            let age = Offline.age(savedAt)
+            let n = Offline.notice(failed: true, savedAgo: age, error: error.localizedDescription)
+            if let n, !n.isError {
+                stale = n.text
+                Telemetry.capture("offline_shown", ["screen": "home", "age_s": age ?? 0])
+            } else if data == nil {
+                self.error = n?.text
+                data = HomeData()
+            }
         }
         await LiveActivityController.shared.refresh()
         snapshots = Dictionary(LiveStore.load().map { ($0.eventId, $0) }, uniquingKeysWith: { a, _ in a })

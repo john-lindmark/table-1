@@ -249,6 +249,7 @@ fun LibraryHomeScreen(foregrounds: Int, go: (String) -> Unit) {
                 contentAlignment = Alignment.Center) { IconGlyph(T1Icon.Search) }
         }
         col.error?.let { Notice(it, error = true) }
+        col.outboxNotice?.let { Notice(it) }
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 64.dp)) {
             item {
                 Box(Modifier.fillMaxWidth().height(179.dp).clickable { go("collection/all") }) {

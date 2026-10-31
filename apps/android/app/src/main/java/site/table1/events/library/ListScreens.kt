@@ -342,6 +342,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
         T1Screen { Bar("List", onBack = onBack); Notice(if (s.ready) "That list isn't here anymore." else "Loading…") }
         return
     }
+    val unsavedWhy = s.unsaved[list.id]
     val rows = sort.value.apply(lines(list, meta, grouping.value)) { SortKey.of(it.name, it.keys, it.printing) }
     val issues = legalityIssues(rows, list)
     val searching = CardName.norm(query).isNotEmpty()
@@ -356,6 +357,8 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     // Summary, Add cards, Version history: the same block above both the list and the grid.
     val top: @Composable () -> Unit = {
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            // Made on this device and not on the account yet (contract/offline-2026-10-31.md § 4).
+            if (unsavedWhy != null) Notice(unsavedNotice(list, unsavedWhy), error = unsavedWhy.isNotEmpty())
             // Considering cards are flagged on their rows but don't make the deck unplayable.
             val bad = rows.filter { it.board != "maybe" && issues.containsKey(it.oracleId ?: it.cardId) }.map { it.name }.distinct().sorted()
             if (bad.isNotEmpty()) {

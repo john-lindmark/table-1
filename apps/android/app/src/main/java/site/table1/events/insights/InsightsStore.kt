@@ -18,6 +18,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import site.table1.events.T1App
+import site.table1.events.util.Offline
+import site.table1.events.util.OfflineCache
 import site.table1.events.util.Telemetry
 import site.table1.events.util.rethrowIfCancelled
 import java.io.File
@@ -37,8 +39,14 @@ object InsightsStore {
     var constructed by mutableStateOf<Map<String, ConstructedPack>>(emptyMap()); private set
     var limited by mutableStateOf<Map<String, LimitedPack>>(emptyMap()); private set
     var error by mutableStateOf<String?>(null); private set
+    /** "Couldn't refresh · last updated …" while the index on screen is the device's saved one, or a refresh failed
+     *  (contract/offline-2026-10-31.md § 1). */
+    var stale by mutableStateOf<String?>(null); private set
     var loading by mutableStateOf(false); private set
     private var loadedAt = 0L
+    /** When the index on screen came from the server (ms); 0 while it's the saved one. */
+    private var fetchedAt = 0L
+    private const val INDEX_KEY = "insights-index"
     /** Debug demo: packs and pages from the debug assets, nothing from the network. */
     var demo = false; private set
     private var demoPages: Map<String, String> = emptyMap()
@@ -207,11 +215,26 @@ object InsightsStore {
         try {
             val raw = T1App.supabase.postgrest.rpc("insights_index").data
             index = withContext(Dispatchers.Default) { json.decodeFromString<List<IndexEntry>>(raw) }
+            withContext(Dispatchers.IO) { OfflineCache.save("_", INDEX_KEY, raw) }
             error = null
+            stale = null
             loadedAt = System.currentTimeMillis()
+            fetchedAt = loadedAt
         } catch (e: Exception) {
             e.rethrowIfCancelled()
-            error = "Insights couldn't load: ${e.message}"
+            // The device's saved index: every pack whose version matches a file on the device then loads from it.
+            var at: Long? = fetchedAt.takeIf { it > 0 }
+            if (index.isEmpty()) {
+                withContext(Dispatchers.IO) { OfflineCache.load("_", INDEX_KEY) }?.let { (text, savedAt) ->
+                    runCatching { json.decodeFromString<List<IndexEntry>>(text) }.getOrNull()?.let { index = it; at = savedAt }
+                }
+            }
+            val age = Offline.age(at)
+            val n = Offline.notice(true, if (index.isEmpty()) null else age, e.message)
+            if (n != null && !n.second) {
+                stale = n.first
+                Telemetry.capture("offline_shown", mapOf("screen" to "insights", "age_s" to (age ?: 0L)))
+            } else error = "Insights couldn't load: ${e.message}"
         } finally {
             loading = false
         }

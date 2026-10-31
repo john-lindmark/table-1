@@ -48,7 +48,7 @@ export function Organizer({
   /** A finished set draft's redraft pile. */
   onOpenRedraft?: (setCode: string | null) => void;
 }) {
-  const { bundle, error, sync, mutate, refetch } = useEvent(eventId);
+  const { bundle, error, sync, stale, mutate, refetch } = useEvent(eventId);
   const [selected, setSelected] = useState<{ phase: Phase; tab: OrganizerTab } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<string | null>(null);
@@ -230,6 +230,7 @@ export function Organizer({
       {draftOpen && (
         <RotoDraftOverlay eventId={eventId} title={event.name} isOrganizer pairing={event.pairing} onClose={() => setDraftOpen(false)} />
       )}
+      {stale && <Notice tone="info">{stale}</Notice>}
     </Screen>
   );
   // Roto: the Draft phase sits between Setup and Live; Pair round 1 from there once the draft is done.

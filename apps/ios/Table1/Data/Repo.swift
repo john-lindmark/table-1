@@ -19,9 +19,19 @@ enum Repo {
 
     // MARK: events
 
-    /// Everything the Events tab shows, in one call. Demo events only in TestFlight / Xcode builds.
+    /// Everything the Events tab shows, in one call. Demo events only in TestFlight / Xcode builds. The answer is kept
+    /// on the device for the next time the server can't be reached (contract/offline-2026-10-31.md § 1).
     static func eventsHome() async throws -> HomeData {
-        try await supabase.rpc("events_home", params: ["p_include_demo": AnyJSON.bool(BuildFlavor.isTest)]).execute().value
+        let data = try await supabase.rpc("events_home", params: ["p_include_demo": AnyJSON.bool(BuildFlavor.isTest)]).execute().data
+        let home = try wireDecoder.decode(HomeData.self, from: data)
+        if let u = userId { OfflineCache.save(u, "home", data) }
+        return home
+    }
+
+    /// The last events_home this account saw, with when.
+    static func savedHome() -> (value: HomeData, at: Date)? {
+        guard let u = userId else { return nil }
+        return OfflineCache.load(u, "home", as: HomeData.self)
     }
 
     static func createEvent(name: String, format: String, rounds: Int, roundMinutes: Int) async throws -> CreateEventResult {
@@ -215,8 +225,21 @@ enum Repo {
     /// The whole event in one call (contract/privacy-lockdown-2026-10-18.md): event_bundle checks who's asking
     /// (organizer or player) and refuses anyone else with "That event isn't available".
     static func loadEvent(_ eventId: String) async throws -> EventBundle {
-        let w: BundleWire = try await supabase.rpc("event_bundle", params: ["p_event_id": AnyJSON.string(eventId)]).execute().value
+        let data = try await supabase.rpc("event_bundle", params: ["p_event_id": AnyJSON.string(eventId)]).execute().data
+        let w = try wireDecoder.decode(BundleWire.self, from: data)
+        if let u = userId { OfflineCache.save(u, "event-\(eventId)", data) }
         return bundle(w)
+    }
+
+    /// The event as this account last saw it, with when (contract/offline-2026-10-31.md § 1).
+    static func savedEvent(_ eventId: String) -> (value: EventBundle, at: Date)? {
+        guard let u = userId, let (w, at) = OfflineCache.load(u, "event-\(eventId)", as: BundleWire.self) else { return nil }
+        return (bundle(w), at)
+    }
+
+    static func savedStandings(_ eventId: String) -> StandingsResponse? {
+        guard let u = userId else { return nil }
+        return OfflineCache.load(u, "standings-\(eventId)", as: StandingsResponse.self)?.value
     }
 
     static func bundle(_ w: BundleWire) -> EventBundle {
@@ -423,7 +446,10 @@ enum Repo {
 
     /// Individual standings, plus team standings (team events) and seating (draft events).
     static func standings(_ eventId: String) async throws -> StandingsResponse {
-        try await engine("standings", eventId)
+        let data = try await engineData("standings", eventId)
+        let s = try wireDecoder.decode(StandingsResponse.self, from: data)
+        if let u = userId { OfflineCache.save(u, "standings-\(eventId)", data) }
+        return s
     }
 
     /// Draft events before round 1: random seats in pods of up to 8. Calling again re-shuffles.
@@ -440,11 +466,15 @@ enum Repo {
     /// events-engine with the user's token. A refusal (4xx) surfaces the server's own message,
     /// e.g. "2 players aren't on a team yet".
     private static func engine<T: Decodable>(_ action: String, _ eventId: String) async throws -> T {
+        try wireDecoder.decode(T.self, from: try await engineData(action, eventId))
+    }
+
+    private static func engineData(_ action: String, _ eventId: String) async throws -> Data {
         do {
             return try await supabase.functions.invoke(
                 "events-engine",
                 options: FunctionInvokeOptions(body: ["action": action, "event_id": eventId])
-            ) { data, _ in try wireDecoder.decode(T.self, from: data) }
+            ) { data, _ in data }
         } catch FunctionsError.httpError(_, let data) {
             let message = (try? wireDecoder.decode(EngineError.self, from: data))?.error ?? "Something went wrong. Try again."
             throw NSError(domain: "Table1", code: 1, userInfo: [NSLocalizedDescriptionKey: message])

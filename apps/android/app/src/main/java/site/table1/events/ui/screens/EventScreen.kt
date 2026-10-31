@@ -26,6 +26,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import site.table1.events.ui.components.BigAction
+import site.table1.events.util.Offline
+import site.table1.events.util.Telemetry
+import site.table1.events.util.rethrowIfCancelled
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.async
@@ -74,17 +80,42 @@ fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, o
     var bundle by remember { mutableStateOf<EventBundle?>(null) }
     var standings by remember { mutableStateOf(StandingsResponse()) }
     var error by remember { mutableStateOf<String?>(null) }
+    // When `bundle` was fetched (this visit's, or the device's saved copy), and the notice along the bottom when a
+    // refresh fails (contract/offline-2026-10-31.md § 1).
+    var savedAt by remember { mutableStateOf<Long?>(null) }
+    var stale by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     // The bundle and the engine's standings don't depend on each other: fetch both at once.
     suspend fun refresh(): Unit = coroutineScope {
         val latestStandings = async { runCatching { Repo.standingsFull(eventId) } }
         runCatching { Repo.loadEvent(eventId) }
-            .onSuccess { bundle = it; error = null }
-            .onFailure { if (bundle == null) error = it.message }
+            .onSuccess { bundle = it; error = null; stale = null; savedAt = System.currentTimeMillis() }
+            .onFailure { e ->
+                e.rethrowIfCancelled()
+                val age = Offline.age(savedAt)
+                val n = Offline.notice(true, if (bundle == null) null else age, e.message)
+                if (n != null && !n.second) {
+                    stale = n.first
+                    Telemetry.capture("offline_shown", mapOf("screen" to "event", "age_s" to (age ?: 0L)))
+                } else if (bundle == null) error = n?.first
+            }
         latestStandings.await().onSuccess { standings = it }
     }
 
-    LaunchedEffect(eventId) {
+    // Coming back to the foreground refreshes and resubscribes (a subscription that failed offline never pings).
+    var resumes by remember { mutableIntStateOf(0) }
+    var firstResume by remember { mutableStateOf(true) }
+    LifecycleResumeEffect(eventId) {
+        if (firstResume) firstResume = false else resumes++
+        onPauseOrDispose { }
+    }
+    LaunchedEffect(eventId, resumes) {
+        if (bundle == null) Repo.savedEvent(eventId)?.let { (b, at) ->
+            bundle = b
+            savedAt = at
+            Repo.savedStandings(eventId)?.let { standings = it }
+        }
         refresh()
         // Realtime: any change in this event refetches, coalesced so a burst of reports is one reload.
         Repo.eventChanges(eventId).collectLatest {
@@ -98,6 +129,7 @@ fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, o
         T1Screen {
             Bar("Event", onBack = onBack)
             Notice(error ?: "Loading…", error = error != null)
+            if (error != null) BigAction("Try again") { scope.launch { refresh() } }
         }
         return
     }
@@ -108,12 +140,17 @@ fun EventScreen(eventId: String, onBack: () -> Unit, onAddPlayers: () -> Unit, o
         )
     }
     val player: @Composable () -> Unit = { PlayerView(b, standings, onBack, onOpenTracker, onOpenPhotos, onOpenRedraft, onOpenList, onChanged = { refresh() }) }
-    // Roto: the Draft phase sits between Setup and round 1 (contract/roto-2026-10-16.md); Pair round 1 from there.
-    if (b.event.isRoto && b.rounds.isEmpty() && !b.event.isFinished) {
-        site.table1.events.roto.RotoDraftGate(b.event.id, b.event.name, b.isOrganizer, onBack,
-            pairRound1 = if (b.isOrganizer) ({ Repo.pairNextRound(b.event.id).error?.let { throw IllegalStateException(it) }; refresh() }) else null,
-            onOpenDeck = onOpenList) { if (b.isOrganizer) organizer() else player() }
-    } else if (b.isOrganizer) organizer() else player()
+    Column(Modifier.fillMaxSize()) {
+        Box(Modifier.weight(1f)) {
+            // Roto: the Draft phase sits between Setup and round 1 (contract/roto-2026-10-16.md); Pair round 1 from there.
+            if (b.event.isRoto && b.rounds.isEmpty() && !b.event.isFinished) {
+                site.table1.events.roto.RotoDraftGate(b.event.id, b.event.name, b.isOrganizer, onBack,
+                    pairRound1 = if (b.isOrganizer) ({ Repo.pairNextRound(b.event.id).error?.let { throw IllegalStateException(it) }; refresh() }) else null,
+                    onOpenDeck = onOpenList) { if (b.isOrganizer) organizer() else player() }
+            } else if (b.isOrganizer) organizer() else player()
+        }
+        stale?.let { Notice(it) }
+    }
 }
 
 /** participant id → team name, for the team tag in the individual table and seating. */

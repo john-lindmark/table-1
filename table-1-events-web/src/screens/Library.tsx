@@ -14,7 +14,7 @@ import {
 } from "../lib/collection";
 import { useSession } from "../lib/useSession";
 import { isLibraryDemo, loadDemoLists } from "../lib/libraryDemo";
-import { DEMO_USER, type Condition } from "../lib/collection";
+import { DEMO_USER, outboxNotice, type Condition } from "../lib/collection";
 import { usdPrice, usdText, usePrices } from "../lib/prices";
 import { itemsIn, useBinders } from "../lib/binders";
 import { entriesOf, useLists } from "../lib/lists";
@@ -649,6 +649,7 @@ export function LibraryHome({ go, onNew }: {
                 className="w-[50px] h-[50px] flex items-center justify-center hover:text-t1-accent"><Icon d={ICON.search} /></button>
       </div>
       {col.error && <Notice tone="error">{col.error}</Notice>}
+      {outboxNotice(col) && <Notice tone="info">{outboxNotice(col)}</Notice>}
       <div className="flex-1 min-h-0 overflow-y-auto pb-16">
         <button type="button" onClick={() => go("/library/cards")} aria-label={`All cards, ${s?.total_qty ?? 0} cards`}
                 className="relative w-full h-[179px] flex group">

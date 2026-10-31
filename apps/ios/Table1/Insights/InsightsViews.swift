@@ -172,6 +172,7 @@ struct ConstructedHomeSection: View {
             ShownEditor(title: "Shown formats", items: Insights.formats.map { ($0.key, $0.label, nil) }, hidden: store.hiddenFormats,
                         set: { store.setHidden(format: true, $0, $1) }, done: { editing = false })
         }
+        if let s = store.stale { Notice(s) }
         if let pack = store.pack {
             let tier = store.tier(for: pack)
             let tierBinding = Binding<Insights.Tier>(get: { tier }, set: { store.tierPicked = $0 })
@@ -181,6 +182,7 @@ struct ConstructedHomeSection: View {
             }
         } else if let e = store.error {
             Notice(e, error: true)
+            Ghost(text: "Try again") { Task { await store.load(force: true) } }
         } else if store.loading || store.index.isEmpty && store.loadedAt == nil {
             Notice("Loading the metagame…")
         } else {

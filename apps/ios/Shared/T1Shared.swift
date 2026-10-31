@@ -21,6 +21,15 @@ enum T1Shared {
         return d
     }()
 
+    /// Every request fails after 25 s without an answer and 120 s in all (uploads), so a dead connection shows the
+    /// saved screen or the error instead of "Loading…" for a minute (contract/offline-2026-10-31.md § 2).
+    static let session: URLSession = {
+        let c = URLSessionConfiguration.default
+        c.timeoutIntervalForRequest = 25
+        c.timeoutIntervalForResource = 120
+        return URLSession(configuration: c)
+    }()
+
     /// One client per process. The extension never runs a background refresh timer; it refreshes
     /// on demand, so a widget reload costs one request and no idle work.
     static let client = SupabaseClient(
@@ -28,7 +37,8 @@ enum T1Shared {
         supabaseKey: anonKey,
         options: SupabaseClientOptions(
             db: .init(decoder: snakeDecoder),
-            auth: .init(storage: SharedAuthStorage(), autoRefreshToken: !isExtension)
+            auth: .init(storage: SharedAuthStorage(), autoRefreshToken: !isExtension),
+            global: .init(session: session)
         )
     )
 }

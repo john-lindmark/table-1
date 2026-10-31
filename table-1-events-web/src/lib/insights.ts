@@ -3,6 +3,7 @@ import type { RankableSet } from "./limitedRank";
 import { supabase } from "./supabaseClient";
 import { capture } from "./telemetry";
 import { delta, pct, pct1, shortDay } from "./insightCharts";
+import { ageOf, offlineNotice } from "./offline";
 
 /**
  * Insights (contract/insights-2026-10-24.md): the published pack index, the packs (fetched once per version) and
@@ -372,6 +373,8 @@ interface State {
   constructed: Record<string, ConstructedPack>;
   limited: Record<string, LimitedPack>;
   error: string | null;
+  /** "Couldn't refresh · last updated …" while the index on screen is the browser's saved one (contract/offline-2026-10-31.md § 1). */
+  stale: string | null;
   picks: Picks;
   demo: boolean;
   /** Sets and Arena cube versions to rank (limited_rankable); null until loaded. */
@@ -379,7 +382,7 @@ interface State {
   /** New in Insights pushes on for the account; null until loaded. */
   alerts: boolean | null;
 }
-let state: State = { index: null, constructed: {}, limited: {}, error: null, picks: readPicks(), demo: false, rankable: null, alerts: null };
+let state: State = { index: null, constructed: {}, limited: {}, error: null, stale: null, picks: readPicks(), demo: false, rankable: null, alerts: null };
 const listeners = new Set<() => void>();
 const set = (patch: Partial<State>) => { state = { ...state, ...patch }; listeners.forEach((f) => f()); };
 const subscribe = (f: () => void) => { listeners.add(f); return () => listeners.delete(f); };
@@ -415,21 +418,46 @@ export function pick(patch: Partial<Picks>) {
 
 let loading: Promise<void> | null = null;
 let loadedAt = 0;
+/** When the index on screen came from the server (ms); 0 while it's the saved one. */
+let fetchedAt = 0;
 const fetching = new Map<string, Promise<void>>();
+
+/** Packs are kept in Cache Storage by url and version, so a saved index opens them with no network. */
+const PACKS_CACHE = "t1-insights-packs";
 
 async function fetchPack(e: IndexEntry) {
   const key = `${e.kind}:${e.key}:${e.version}`;
   if (fetching.has(key)) return fetching.get(key);
   const p = (async () => {
     // The version in the url keeps the browser's cache honest across rebuilds.
-    const res = await fetch(`${e.url}?v=${encodeURIComponent(e.version)}`);
-    if (!res.ok) throw new Error(`pack ${e.key}: ${res.status}`);
+    const url = `${e.url}?v=${encodeURIComponent(e.version)}`;
+    let cache: Cache | null = null;
+    try { cache = await caches.open(PACKS_CACHE); } catch { /* private window */ }
+    let res = cache ? await cache.match(url) : undefined;
+    if (!res) {
+      res = await fetch(url);
+      if (!res.ok) throw new Error(`pack ${e.key}: ${res.status}`);
+      if (cache) {
+        try {
+          await cache.put(url, res.clone());
+          // Older versions of the same pack are dead weight once a new one is in.
+          const prefix = `${e.url}?`;
+          for (const req of await cache.keys()) if (req.url.startsWith(prefix) && req.url !== url) await cache.delete(req);
+        } catch { /* quota */ }
+      }
+    }
     const body = await res.json();
     if (e.kind === "constructed") set({ constructed: { ...state.constructed, [e.key]: body } });
     else set({ limited: { ...state.limited, [e.key]: body } });
   })().catch((err) => set({ error: `Insights couldn't load: ${String(err?.message ?? err)}` }));
   fetching.set(key, p);
   return p;
+}
+
+/* The last index this browser saw, with when (ms): shown when the server can't be reached. */
+const INDEX_KEY = "t1.insights.index";
+function savedIndex(): { index: IndexEntry[]; at: number } | null {
+  try { return JSON.parse(localStorage.getItem(INDEX_KEY) ?? "null"); } catch { return null; }
 }
 
 /** The index, then the packs (the format on screen first). */
@@ -442,9 +470,23 @@ export function loadInsights(force = false): Promise<void> {
     void loadInsightsExtras();
     await pullPicks().catch(() => { /* keep this browser's picks */ });
     const { data, error } = await supabase.rpc("insights_index");
-    if (error) { set({ error: `Insights couldn't load: ${error.message}` }); return; }
-    const index = (data ?? []) as IndexEntry[];
-    set({ index, error: null });
+    let index: IndexEntry[];
+    if (error) {
+      // The browser's saved index: every pack kept in Cache Storage then loads from it.
+      const saved = state.index ? null : savedIndex();
+      const at = saved?.at ?? (state.index ? fetchedAt : null);
+      const age = ageOf(at);
+      const n = offlineNotice(true, state.index || saved ? age : null, error.message);
+      if (!n || n.isError) { set({ error: `Insights couldn't load: ${error.message}` }); return; }
+      index = state.index ?? saved!.index;
+      set({ index, stale: n.text, error: null });
+      capture("offline_shown", { screen: "insights", age_s: age ?? 0 });
+    } else {
+      index = (data ?? []) as IndexEntry[];
+      fetchedAt = Date.now();
+      try { localStorage.setItem(INDEX_KEY, JSON.stringify({ index, at: fetchedAt })); } catch { /* private window */ }
+      set({ index, error: null, stale: null });
+    }
     // The pack on screen first (the format, or on Limited the set), then the rest at once.
     const first = typeof location !== "undefined" && location.pathname.startsWith("/insights/limited")
       ? index.find((e) => e.kind === "limited" && e.key === state.picks.set) ?? index.find((e) => e.kind === "limited")

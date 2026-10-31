@@ -7,6 +7,10 @@ struct EventView: View {
     @State private var bundle: EventBundle?
     @State private var engine = StandingsResponse()
     @State private var error: String?
+    /// When `bundle` was fetched (this visit's, or the device's saved copy), and the notice along the bottom when a
+    /// refresh fails (contract/offline-2026-10-31.md § 1).
+    @State private var savedAt: Date?
+    @State private var stale: String?
     /// Roto events: the draft (Setup, the Draft phase, and read-only from Live).
     @State private var roto: RotoStore?
     @State private var pairing = false
@@ -32,10 +36,18 @@ struct EventView: View {
                 T1Screen {
                     Bar(title: "Event")
                     Notice(error ?? "Loading…", error: error != nil)
+                    if error != nil { Ghost(text: "Try again") { Task { await refresh() } } }
                 }
             }
         }
-        .task(id: eventId) {
+        .safeAreaInset(edge: .bottom) { if let stale { Notice(stale) } }
+        // Coming back to the foreground refreshes and resubscribes (a subscription that failed offline never pings).
+        .task(id: "\(eventId)|\(session.foregrounds)") {
+            if bundle == nil, let saved = Repo.savedEvent(eventId) {
+                bundle = saved.value
+                savedAt = saved.at
+                if let s = Repo.savedStandings(eventId) { engine = s }
+            }
             await refresh()
             // Realtime: any change in this event refetches, coalesced so a burst of reports is one reload.
             for await _ in Repo.eventChanges(eventId) {
@@ -73,8 +85,18 @@ struct EventView: View {
         do {
             bundle = try await Repo.loadEvent(eventId)
             error = nil
+            stale = nil
+            savedAt = .now
+        } catch where error.isCancellation {
         } catch {
-            if bundle == nil { self.error = error.localizedDescription }
+            let age = Offline.age(savedAt)
+            let n = Offline.notice(failed: true, savedAgo: bundle == nil ? nil : age, error: error.localizedDescription)
+            if let n, !n.isError {
+                stale = n.text
+                Telemetry.capture("offline_shown", ["screen": "event", "age_s": age ?? 0])
+            } else if bundle == nil {
+                self.error = n?.text
+            }
         }
         if let latest = await latestStandings { engine = latest }
         // Players' seats and the organizer's own activity (at most every 20 s however often this screen refreshes).

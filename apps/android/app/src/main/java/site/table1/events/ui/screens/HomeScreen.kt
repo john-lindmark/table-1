@@ -2,6 +2,8 @@ package site.table1.events.ui.screens
 
 import site.table1.events.library.JoinNotice
 import site.table1.events.util.rethrowIfCancelled
+import site.table1.events.util.Offline
+import site.table1.events.util.Telemetry
 
 import site.table1.events.data.EventRules
 
@@ -80,11 +82,25 @@ fun EventsHomeScreen(
     var snaps by remember { mutableStateOf<Map<String, LiveSnapshot>>(emptyMap()) }
     var showPast by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // When `data` was fetched (this launch's, or the device's saved copy), and the notice when a refresh fails
+    // (contract/offline-2026-10-31.md § 1).
+    var savedAt by remember { mutableStateOf<Long?>(null) }
+    var stale by remember { mutableStateOf<String?>(null) }
 
     suspend fun load() {
+        // What this account last saw shows at once; the server's answer replaces it.
+        if (data == null) Repo.savedHome()?.let { (h, at) -> data = h; savedAt = at }
         runCatching { Repo.eventsHome() }
-            .onSuccess { data = it; error = null; site.table1.events.widgets.Widgets.saveNext(context, it) }
-            .onFailure { it.rethrowIfCancelled(); if (data == null) { error = it.message; data = HomeData() } }
+            .onSuccess { data = it; error = null; stale = null; savedAt = System.currentTimeMillis(); site.table1.events.widgets.Widgets.saveNext(context, it) }
+            .onFailure { e ->
+                e.rethrowIfCancelled()
+                val age = Offline.age(savedAt)
+                val n = Offline.notice(true, age, e.message)
+                if (n != null && !n.second) {
+                    stale = n.first
+                    Telemetry.capture("offline_shown", mapOf("screen" to "home", "age_s" to (age ?: 0L)))
+                } else if (data == null) { error = n?.first; data = HomeData() }
+            }
         snaps = Repo.liveSnapshots().associateBy { it.eventId }
         TrackerSettings.refresh()
     }
@@ -139,12 +155,14 @@ fun EventsHomeScreen(
             BarAction("+ New", onCreate)
         }
         error?.let { Notice(it, error = true) }
+        stale?.let { Notice(it) }
         val d = data
         if (d == null) {
             Notice("Loading…")
             return@T1Screen
         }
         if (d.events.isEmpty() && invites.isEmpty() && d.waitlist.isEmpty()) {
+            if (error != null) BigAction("Try again") { scope.launch { load() } }
             EmptyEvents(onScan = { scan() }, onNearby = onNearby, onCreate = onCreate)
             return@T1Screen
         }

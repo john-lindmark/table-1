@@ -37,7 +37,7 @@ struct LibrarySummary: Codable, Equatable, Sendable {
     let seq: Int
 }
 
-struct CollectionOp {
+struct CollectionOp: Codable {
     let cardId: String
     var finish: String = Finish.nonfoil.rawValue
     var condition = "NM"
@@ -57,6 +57,14 @@ struct CollectionOp {
         return .object(o)
     }
     var itemKey: String { CollectionStore.key(cardId, finish, condition, lang) }
+}
+
+/// A batch of adds that failed on the network and waits on the device to be sent again with the same idempotency
+/// key (contract/offline-2026-10-31.md § 3).
+struct OutboxBatch: Codable {
+    let key: String
+    let source: String
+    let ops: [CollectionOp]
 }
 
 struct ApplyResult: Decodable {
@@ -238,7 +246,72 @@ final class CollectionStore {
                 version += 1
             }
         }
+        // Adds made offline: on screen again on top of the mirror, sent with the first sync.
+        outbox = Self.loadOutbox(userId)
+        for b in outbox { showAdds(b.ops) }
         await sync()
+    }
+
+    // MARK: outbox (adds that failed on the network; contract/offline-2026-10-31.md § 3)
+
+    /// Batches waiting to be sent, in order. Each keeps its idempotency key, so the retry can't double-count.
+    private(set) var outbox: [OutboxBatch] = []
+    /// "3 changes waiting to send" on the Collection home while the outbox isn't empty.
+    var outboxNotice: String? {
+        outbox.isEmpty ? nil : outbox.count == 1 ? "1 change waiting to send" : "\(outbox.count) changes waiting to send"
+    }
+
+    nonisolated private static func outboxURL(_ userId: String) -> URL {
+        let dir = URL.applicationSupportDirectory.appending(path: "Library", directoryHint: .isDirectory)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appending(path: "outbox-\(userId).json")
+    }
+
+    nonisolated private static func loadOutbox(_ userId: String) -> [OutboxBatch] {
+        guard let data = try? Data(contentsOf: outboxURL(userId)) else { return [] }
+        return (try? JSONDecoder().decode([OutboxBatch].self, from: data)) ?? []
+    }
+
+    private func persistOutbox() {
+        guard let userId else { return }
+        if outbox.isEmpty { try? FileManager.default.removeItem(at: Self.outboxURL(userId)); return }
+        if let data = try? JSONEncoder().encode(outbox) { try? data.write(to: Self.outboxURL(userId), options: .atomic) }
+    }
+
+    private static func applyParams(_ ops: [CollectionOp], source: String, key: String) -> [String: AnyJSON] {
+        ["p_ops": .array(ops.map(\.json)), "p_source": .string(source), "p_source_id": .null, "p_idempotency_key": .string(key)]
+    }
+
+    /// Sends the outbox in order before a sync. A batch the server refuses is taken back; a network failure keeps
+    /// the rest for next time.
+    private func flushOutbox(_ user: String) async {
+        var sent = 0
+        while let b = outbox.first, userId == user {
+            do {
+                let res: ApplyResult = try await supabase.rpc("collection_apply", params: Self.applyParams(b.ops, source: b.source, key: b.key))
+                    .execute().value
+                guard userId == user else { return }
+                outbox.removeFirst()
+                persistOutbox()
+                reflect(res)
+                sent += 1
+            } catch where Offline.isNetwork(error) || error.isCancellation {
+                break
+            } catch {
+                guard userId == user else { return }
+                takeBackAdds(b.ops)
+                outbox.removeFirst()
+                persistOutbox()
+                self.error = "A change made offline was refused: \(error.localizedDescription)"
+            }
+        }
+        if sent > 0 { Telemetry.capture("outbox_sent", ["batches": sent]) }
+    }
+
+    /// A result for a batch that waits in the outbox: Undo takes it out again.
+    private func queuedResult(_ key: String) -> ApplyResult {
+        ApplyResult(batchId: "queued:\(key)", duplicate: false, items: [],
+                    summary: summary ?? LibrarySummary(totalQty: 0, uniquePrintings: 0, uniqueCards: 0, valueUsd: 0, valueEur: 0, seq: 0))
     }
 
     /// The Collection value widget's daily point (contract/widgets-2026-10-22.md); never for the demo.
@@ -261,6 +334,7 @@ final class CollectionStore {
         summary = nil
         ready = false
         error = nil
+        outbox = []
         version += 1
     }
 
@@ -294,6 +368,8 @@ final class CollectionStore {
         syncing = true
         error = nil
         defer { syncing = false }
+        await flushOutbox(user)
+        guard userId == user else { return }
         do {
             for _ in 0..<200 {
                 let page: ChangesPage = try await supabase.rpc("collection_changes", params: [
@@ -304,21 +380,22 @@ final class CollectionStore {
                     cursor = 0
                     try? local?.clear()
                     items = [:]
+                    for b in outbox { showAdds(b.ops) }
                     version += 1
                     continue
                 }
+                // The server hasn't counted adds still in the outbox: rows show its count plus them (the mirror keeps
+                // the server's, so the next launch adds them once).
+                let queued = Offline.deltas(outbox.map(\.ops))
                 var put: [CollectionItem] = []
                 var del: [String] = []
                 for row in page.items {
                     let it = row.item
                     if let held = items[it.key], held.seq > it.seq { continue } // a newer write is already shown
-                    if it.qty > 0 {
-                        items[it.key] = it
-                        put.append(it)
-                    } else {
-                        items[it.key] = nil
-                        del.append(it.key)
-                    }
+                    if it.qty > 0 { put.append(it) } else { del.append(it.key) }
+                    let shown = it.qty + (queued[it.key] ?? 0)
+                    items[it.key] = shown > 0 ? CollectionItem(cardId: it.cardId, finish: it.finish, condition: it.condition,
+                                                                lang: it.lang, qty: shown, seq: it.seq) : nil
                 }
                 cursor = page.next
                 try local?.commit(put: put, delete: del, cursor: cursor, summary: page.summary)
@@ -347,15 +424,27 @@ final class CollectionStore {
         }
         #endif
         let key = key ?? UUID().uuidString.lowercased()
-        let params: [String: AnyJSON] = [
-            "p_ops": .array(ops.map(\.json)), "p_source": .string(source), "p_source_id": .null,
-            "p_idempotency_key": .string(key),
-        ]
+        let params = Self.applyParams(ops, source: source, key: key)
         showAdds(ops)
+        // Behind batches already waiting: sent after them, in order, so the server sees them as they were made.
+        if !outbox.isEmpty, Offline.queues(ops, network: true) {
+            outbox.append(OutboxBatch(key: key, source: source, ops: ops))
+            persistOutbox()
+            Telemetry.capture("outbox_queued", ["ops": ops.count])
+            Task { await sync() }
+            return queuedResult(key)
+        }
         let res: ApplyResult
         do {
             res = try await retryOnce { try await supabase.rpc("collection_apply", params: params).execute().value }
         } catch {
+            // Adds that couldn't reach the server stay on screen and wait in the outbox (contract/offline-2026-10-31.md § 3).
+            if Offline.queues(ops, network: Offline.isNetwork(error)), userId != nil {
+                outbox.append(OutboxBatch(key: key, source: source, ops: ops))
+                persistOutbox()
+                Telemetry.capture("outbox_queued", ["ops": ops.count])
+                return queuedResult(key)
+            }
             takeBackAdds(ops)
             Task { await sync() }
             throw error
@@ -379,6 +468,17 @@ final class CollectionStore {
             return res
         }
         #endif
+        // A batch still in the outbox: out of the outbox and off the screen, nothing to undo on the server.
+        if batchId.hasPrefix("queued:") {
+            let key = String(batchId.dropFirst("queued:".count))
+            if let i = outbox.firstIndex(where: { $0.key == key }) {
+                takeBackAdds(outbox[i].ops)
+                outbox.remove(at: i)
+                persistOutbox()
+            }
+            Telemetry.capture("collection_undone")
+            return queuedResult(key)
+        }
         let params: [String: AnyJSON] = ["p_batch_id": .string(batchId), "p_idempotency_key": .string(UUID().uuidString.lowercased())]
         let res: ApplyResult = try await retryOnce { try await supabase.rpc("collection_undo", params: params).execute().value }
         Telemetry.capture("collection_undone")
