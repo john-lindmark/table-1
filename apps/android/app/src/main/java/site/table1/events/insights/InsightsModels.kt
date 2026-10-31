@@ -43,7 +43,8 @@ object Insights {
     }
 
     val windows = listOf(7, 14, 30, 90)
-    val formats = listOf("standard" to "Standard", "pioneer" to "Pioneer", "modern" to "Modern", "pauper" to "Pauper", "canlander" to "Canlander")
+    val formats = listOf("standard" to "Standard", "pioneer" to "Pioneer", "modern" to "Modern", "legacy" to "Legacy", "vintage" to "Vintage",
+        "pauper" to "Pauper", "canlander" to "Canlander")
 
     /** The options a picker shows: every one not hidden, in order (all of them if every one is hidden). */
     fun visibleKeys(all: List<String>, hidden: List<String>): List<String> = all.filter { it !in hidden }.ifEmpty { all }

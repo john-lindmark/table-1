@@ -146,7 +146,7 @@ final class InsightsPackTests: XCTestCase {
         XCTAssertEqual(Insights.sourcesCredit(["mtgo", "melee"]).label, "Results from Magic Online and Melee")
         XCTAssertEqual(Insights.sourcesCredit(["melee"]).url.host, "melee.gg")
         XCTAssertEqual(Insights.sourcesCredit([]).label, "Results from Magic Online")
-        XCTAssertEqual(Insights.formats.map(\.key), ["standard", "pioneer", "modern", "pauper", "canlander"])
+        XCTAssertEqual(Insights.formats.map(\.key), ["standard", "pioneer", "modern", "legacy", "vintage", "pauper", "canlander"])
     }
 
     func testChangeWords() {

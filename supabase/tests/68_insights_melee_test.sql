@@ -19,7 +19,7 @@ insert into public.card_names (name_norm, oracle_id, is_face) select name_norm, 
 select pg_temp.eq('a Melee file is queued without a format; MTGO pages still need an enabled one',
   public.meta_queue_add('[{"source": "melee", "format": null, "slug": "2026/10/02/a.json@abc", "url": "https://raw.example/a.json"},
                           {"source": "melee", "format": "legacy", "slug": "2026/10/02/b.json@abc", "url": "https://raw.example/b.json"},
-                          {"source": "mtgo", "format": "legacy", "slug": "legacy-challenge", "url": "https://www.mtgo.com/x"},
+                          {"source": "mtgo", "format": "premodern", "slug": "premodern-challenge", "url": "https://www.mtgo.com/x"},
                           {"source": "mtgo", "slug": "nothing", "url": "https://www.mtgo.com/y"}]')::text, '2');
 select pg_temp.eq('queued Melee rows have no format',
   (select string_agg(slug || ':' || coalesce(format, '-'), ' ' order by slug) from t1_private.meta_queue), '2026/10/02/a.json@abc:- 2026/10/02/b.json@abc:-');

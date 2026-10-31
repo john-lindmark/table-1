@@ -58,8 +58,8 @@ enum Insights {
         guard let loadedAt, packOnScreen else { return false }
         return now.timeIntervalSince(loadedAt) < 600
     }
-    static let formats: [(key: String, label: String)] = [("standard", "Standard"), ("pioneer", "Pioneer"), ("modern", "Modern"), ("pauper", "Pauper"),
-                                                          ("canlander", "Canlander")]
+    static let formats: [(key: String, label: String)] = [("standard", "Standard"), ("pioneer", "Pioneer"), ("modern", "Modern"), ("legacy", "Legacy"),
+                                                          ("vintage", "Vintage"), ("pauper", "Pauper"), ("canlander", "Canlander")]
 
     /// The credit under a constructed brief, from the pack's sources: TopDeck.gg asks for a visible credit and link
     /// whenever its data is shown; Canadian Highlander comes from TopDeck alone.

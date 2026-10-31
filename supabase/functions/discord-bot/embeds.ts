@@ -358,7 +358,8 @@ export const deckComponents = (d: DeckPost) => [{ type: 1, components: [{ type: 
 // ---------------------------------------------------------------- /meta: Insights as pictures (contract § Insights images)
 
 export const META_FORMATS: Record<string, string> = {
-  standard: "Standard", pioneer: "Pioneer", modern: "Modern", pauper: "Pauper", canlander: "Canadian Highlander",
+  standard: "Standard", pioneer: "Pioneer", modern: "Modern", legacy: "Legacy", vintage: "Vintage", pauper: "Pauper",
+  canlander: "Canadian Highlander",
 };
 export const META_DAYS = [7, 14, 30, 90];
 export type MetaKind = "matchups" | "winrates" | "deck";

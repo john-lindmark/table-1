@@ -73,7 +73,7 @@ describe("insights helpers", () => {
     expect(sourcesCredit(["mtgo", "melee"])).toEqual({ label: "Results from Magic Online and Melee", url: "https://www.mtgo.com/decklists" });
     expect(sourcesCredit(["melee"])).toEqual({ label: "Results from Melee", url: "https://melee.gg" });
     expect(sourcesCredit([]).label).toBe("Results from Magic Online");
-    expect(FORMATS.map((f) => f.key)).toEqual(["standard", "pioneer", "modern", "pauper", "canlander"]);
+    expect(FORMATS.map((f) => f.key)).toEqual(["standard", "pioneer", "modern", "legacy", "vintage", "pauper", "canlander"]);
   });
   it("matchup cells read from either side", () => {
     const m = { archetypes: [1, 2], cells: [[1, 2, 31, 22, 1]] as [number, number, number, number, number][] };

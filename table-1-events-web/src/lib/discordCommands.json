@@ -455,6 +455,14 @@
                   "value": "modern"
                 },
                 {
+                  "name": "Legacy",
+                  "value": "legacy"
+                },
+                {
+                  "name": "Vintage",
+                  "value": "vintage"
+                },
+                {
                   "name": "Pauper",
                   "value": "pauper"
                 },
@@ -526,6 +534,14 @@
                 {
                   "name": "Modern",
                   "value": "modern"
+                },
+                {
+                  "name": "Legacy",
+                  "value": "legacy"
+                },
+                {
+                  "name": "Vintage",
+                  "value": "vintage"
                 },
                 {
                   "name": "Pauper",
@@ -607,6 +623,14 @@
                 {
                   "name": "Modern",
                   "value": "modern"
+                },
+                {
+                  "name": "Legacy",
+                  "value": "legacy"
+                },
+                {
+                  "name": "Vintage",
+                  "value": "vintage"
                 },
                 {
                   "name": "Pauper",

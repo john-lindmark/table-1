@@ -13,7 +13,8 @@ export type Tier = "big" | "all";
 export const WINDOWS = [7, 14, 30, 90] as const;
 export const FORMATS = [
   { key: "standard", label: "Standard" }, { key: "pioneer", label: "Pioneer" },
-  { key: "modern", label: "Modern" }, { key: "pauper", label: "Pauper" },
+  { key: "modern", label: "Modern" }, { key: "legacy", label: "Legacy" },
+  { key: "vintage", label: "Vintage" }, { key: "pauper", label: "Pauper" },
   { key: "canlander", label: "Canlander" },
 ] as const;
 

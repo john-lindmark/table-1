@@ -378,7 +378,8 @@ Deno.test("/meta: options checked, the picture's address, the post", () => {
   const o = (v: Record<string, string | number>) => Object.entries(v).map(([name, value]) => ({ name, type: 3, value }));
   assertEquals(metaAsk("matchups", o({ format: "modern" })), { kind: "matchups", format: "modern", tier: "all", days: 30, a: null });
   assertEquals(metaAsk("winrates", o({ format: "pauper", events: "big", days: 7 })), { kind: "winrates", format: "pauper", tier: "big", days: 7, a: null });
-  assertEquals(metaAsk("matchups", o({ format: "legacy" })), null, "a format Insights doesn't cover");
+  assertEquals(metaAsk("matchups", o({ format: "premodern" })), null, "a format Insights doesn't cover");
+  assertEquals(metaAsk("matchups", o({ format: "vintage" }))?.format, "vintage", "Legacy and Vintage since 2026-10-31");
   assertEquals(metaAsk("matchups", o({ format: "modern", days: 45 }))!.days, 30, "a window that isn't offered");
   assertEquals(metaAsk("deck", o({ format: "modern", archetype: "none" })), null, "the autocomplete's hint isn't an archetype");
   assertEquals(metaAsk("deck", o({ format: "modern", archetype: "0" }))!.a, 0, "Other");

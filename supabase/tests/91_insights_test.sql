@@ -29,7 +29,7 @@ select distinct on (v.nm, o.oracle_id) v.nm, o.oracle_id, v.f from public.card_o
 select pg_temp.eq('the enabled formats, in order, with TopDeck''s names and minimum sizes',
   (select string_agg((f->>'format') || ':' || (f->>'topdeck') || ':' || (f->>'topdeck_min'), ' ' order by (f->>'ord')::int)
      from jsonb_array_elements(public.meta_formats_enabled()) f),
-  'standard:Standard:32 pioneer:Pioneer:32 modern:Modern:32 pauper:Pauper:32 canlander:Canadian Highlander:16');
+  'standard:Standard:32 pioneer:Pioneer:32 modern:Modern:32 legacy:Legacy:32 vintage:Vintage:32 pauper:Pauper:32 canlander:Canadian Highlander:16');
 select pg_temp.eq('league is small', t1_private.meta_tier('league', null), 'small');
 select pg_temp.eq('68 players is large', t1_private.meta_tier('challenge', 68), 'large');
 select pg_temp.eq('40 players is regular', t1_private.meta_tier('challenge', 40), 'regular');
@@ -263,7 +263,7 @@ select pg_temp.eq('lists read spells first, lands last',
   'Blood Moon, Boltwave, Lava Spike, Lightning Bolt, Mountain');
 select pg_temp.throws('unknown archetype', $$select public.meta_archetype('modern', -5)$$, '22023');
 select pg_temp.throws('another format''s archetype', format('select public.meta_archetype(%L, %s)', 'pauper', :BURN), '22023');
-select pg_temp.throws('a format that isn''t on', $$select public.meta_archetype('legacy', 0)$$, '22023');
+select pg_temp.throws('a format that isn''t on', $$select public.meta_archetype('premodern', 0)$$, '22023');
 select pg_temp.throws('a bad tier', $$select public.meta_archetype('modern', 0, 'huge')$$, '22023');
 select pg_temp.eq('card page: 26 weeks, the archetypes playing it',
   (select jsonb_array_length(c->'series'->'main') || ' ' || jsonb_array_length(c->'by_archetype') || ' ' || (c->>'copies')
