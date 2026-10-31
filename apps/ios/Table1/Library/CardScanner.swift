@@ -86,6 +86,10 @@ struct CardTextScanner: UIViewRepresentable {
         private var configured = false
         private var last = Date.distantPast
         private var detect = false
+        /// Whether the main thread is still matching the last frame handed to it: a frame that arrives meanwhile is
+        /// dropped like a late video frame, so a slow match never builds a backlog that lags the rest of the session
+        /// (2026-10-31: frames were queued on the main thread faster than the matcher cleared them).
+        private var matching = false
         private let latin = Coordinator.request(detect: false)
         private let anyScript = Coordinator.request(detect: true)
         private let cards = Coordinator.cardRequest()
@@ -222,7 +226,7 @@ struct CardTextScanner: UIViewRepresentable {
         func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
             // Frames about 200 ms apart, like the movement clips ScanSteadiness was tuned on.
             let now = Date()
-            guard now.timeIntervalSince(last) >= 0.18, let pixels = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+            guard now.timeIntervalSince(last) >= 0.18, !matching, let pixels = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
             last = now
             // The sensor is landscape; the app is portrait only.
             let request = detect ? anyScript : latin
@@ -248,10 +252,11 @@ struct CardTextScanner: UIViewRepresentable {
                 .compactMap { $0.topCandidates(1).first?.string }
             if let found { lines += bottomLines(pixels, found, image: image) }
             let onCard = card != nil
+            matching = true
             DispatchQueue.main.async { [self] in
                 language.feed(matched: onLines(lines, onCard), text: !lines.isEmpty)
                 let cjk = language.mode != .latin
-                queue.async { [self] in detect = cjk }
+                queue.async { [self] in detect = cjk; matching = false }
             }
         }
     }
@@ -381,7 +386,9 @@ struct CardScanView: View {
         var m = matcher.match(lines)
         if !onCard, m?.exact != true, !CardMatcher.hasTypeLine(lines) { m = nil }
         frames.add(lines, named: m != nil)
-        reading = m.map { $0.oracle.name }
+        // Set only when it changes: every frame redrew the screen, scanned rows included.
+        let name = m.map { $0.oracle.name }
+        if reading != name { reading = name }
         guard let taken = steady.feed(m), let m else { return m != nil }
         var card = ScannedCard(oracle: m.oracle, printing: taken.0, finish: matcher.defaultFinish(taken.0),
                                condition: owned == nil ? condition : "NM", exact: taken.1)

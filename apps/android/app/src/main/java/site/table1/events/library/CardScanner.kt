@@ -343,6 +343,9 @@ private fun CameraText(onLines: (List<String>) -> Boolean) {
     val language = remember { ScanLanguage(readers = cjk.size) }
     // ScanLanguage.mode, for the executor; fed on the main thread.
     val reading = remember { AtomicInteger(ScanLanguage.LATIN) }
+    // Whether the main thread is still matching the last frame handed to it: a frame read meanwhile is dropped like
+    // a late camera frame, so a slow match never builds a backlog that lags the rest of the session (2026-10-31).
+    val matching = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
     // Keep the screen on while the camera is reading.
     val screen = LocalView.current
     DisposableEffect(screen) {
@@ -366,6 +369,10 @@ private fun CameraText(onLines: (List<String>) -> Boolean) {
     fun fed(lines: List<String>) {
         language.feed(matched = callback.value(lines), text = lines.isNotEmpty())
         reading.set(language.mode)
+    }
+    fun feedOnMain(lines: List<String>) {
+        if (!matching.compareAndSet(false, true)) return
+        ContextCompat.getMainExecutor(context).execute { try { fed(lines) } finally { matching.set(false) } }
     }
     AndroidView(factory = { ctx ->
         // TextureView ("compatible"): a SurfaceView punches through the dialog's window, so the preview drew outside
@@ -402,11 +409,11 @@ private fun CameraText(onLines: (List<String>) -> Boolean) {
                         val lines = text.textBlocks.flatMap { it.lines }
                             .filter { l -> l.boundingBox?.let { b -> ScanRegion.readsText(guide, b.exactCenterX() / iw, b.exactCenterY() / ih) } ?: false }
                             .sortedBy { it.boundingBox?.top ?: 0 }.map { it.text }
-                        ContextCompat.getMainExecutor(context).execute { fed(lines) }
+                        feedOnMain(lines)
                     }
                     // A CJK model still downloading (Play services fetches it on first use) fails: a miss, so the next
                     // recognizer gets the next frame.
-                    .addOnFailureListener { ContextCompat.getMainExecutor(context).execute { fed(emptyList()) } }
+                    .addOnFailureListener { feedOnMain(emptyList()) }
                     .addOnCompleteListener { proxy.close() }
             }
             runCatching {

@@ -244,6 +244,15 @@ is merged. Still photos (iOS): names 236/291, printing 186/208 (89%, was 183/208
 188/212. Movement clips: shake median 0.6 → 0.2 s (two frames that read the same printing exactly take the card),
 settle 1.2 s as before, sweep 0/48 taken, 0 wrong.
 
+Bounded evidence (2026-10-31; `testEvidenceStaysBounded` / `evidenceStaysBounded`): the merged evidence had kept every
+frame's words for as long as a card stayed in view, and the artist's fuzzy word match ran over all of it several
+times per printing on every frame, so each frame was slower than the last (80 frames of one card on a cluttered
+desk: 0.1 s → 7.9 s per frame on the JVM) and frames queued up behind the main thread for the rest of the session.
+Now the last ten frames are kept, each artist is looked up once per frame and each frame searched once per artist
+(`ScanLines`, words compared as bytes), the per-line
+regexes are skipped on lines that can't match them (no digit, no two capitals in a row, no "Illus."-like start), and
+the scanners drop a frame read while the last one is still being matched. Accuracy numbers unchanged.
+
 Reported corrections (201 clips): name 196/201, **printing 90/195 (46%), was 5/195** (every report was a wrong
 printing). Of the 105 left: 21 The List (the bottom text is the reprinted set's; only a tiny symbol differs), 11
 prerelease and promo-pack stamps the camera doesn't read, 8 Unlimited/Beta read as Revised (nothing printed tells

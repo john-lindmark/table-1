@@ -255,6 +255,46 @@ final class CardMatcherTests: XCTestCase {
         XCTAssertEqual(after?.printing.cn, "312"); XCTAssertEqual(after?.exact, false)
     }
 
+    /// The matcher's work per frame must not grow while a card stays in view (2026-10-31): the evidence merged over
+    /// frames had kept every frame's words for as long as the card was named, and the artist's fuzzy match scanned
+    /// all of them several times per printing, so each frame of a card held on a cluttered desk was slower than the
+    /// last (80 frames: 0.1 s → 7.9 s each), on the main thread. Only the last `CardMatcher.frames` are kept and each
+    /// artist is looked up once per frame.
+    func testEvidenceStaysBounded() {
+        let m = matcher()
+        let clutter = (0..<30).map { "desk line number \($0) with some other words printed on it" }
+        let frame = ["Lightning Bolt", "Instant", "Lightning Bolt deals 3 damage to any target.", "Illus. Christopher Rush"] + clutter
+        var times: [TimeInterval] = []
+        for _ in 0..<80 {
+            let t = Date()
+            XCTAssertEqual(m.match(frame)?.oracle.name, "Lightning Bolt")
+            times.append(Date().timeIntervalSince(t))
+        }
+        XCTAssertEqual(m.rememberedFrames, CardMatcher.frames)
+        let first = times.prefix(20).reduce(0, +) * 1000, last = times.suffix(20).reduce(0, +) * 1000
+        XCTAssertLessThan(last, first * 2 + 50, "later frames must not be slower: first 20 \(Int(first)) ms, last 20 \(Int(last)) ms")
+        // The same card scanned in owned-only mode (trades) and a plain frame: every scan mode stays flat.
+        let owned = CardMatcher(db: Self.db, owned: ["": []], names: Self.names)
+        let plain = ["Lightning Bolt", "Instant", "Lightning Bolt deals 3 damage to any target.", "3ED • EN"]
+        var ownedMs = 0.0, plainMs = 0.0
+        for _ in 0..<80 {
+            var t = Date(); _ = owned.match(frame); ownedMs += Date().timeIntervalSince(t) * 1000
+            t = Date(); XCTAssertEqual(m.match(plain)?.exact, true); plainMs += Date().timeIntervalSince(t) * 1000
+        }
+        print("Matcher per frame: cluttered first 20 \(Int(first / 20)) ms, last 20 \(Int(last / 20)) ms; owned-only \(Int(ownedMs / 80)) ms; plain \(Int(plainMs / 80)) ms")
+        // Evidence still carries across frames: a set code, then nothing, then the number.
+        let triome = ["Zagoth Triome", "Land - Swamp Forest Island"]
+        _ = m.match(triome + ["IKO • EN"])
+        for _ in 0..<(CardMatcher.frames - 2) { _ = m.match(triome) }
+        let got = m.match(triome + ["313"])
+        XCTAssertEqual(got?.printing.set, "iko"); XCTAssertEqual(got?.printing.cn, "313"); XCTAssertEqual(got?.exact, true)
+        // Frames that name nothing forget the card after `misses`; a take forgets it at once.
+        for _ in 0..<CardMatcher.misses { XCTAssertNil(m.match(["nothing here"])) }
+        XCTAssertEqual(m.rememberedFrames, 0)
+        _ = m.match(frame); m.took()
+        XCTAssertEqual(m.rememberedFrames, 0)
+    }
+
     func testCollectorLanguage() {
         XCTAssertEqual(Collector(["154/264 M", "WAR • JP Artist"], sets: ["war"]).lang, "ja")
         XCTAssertEqual(Collector(["RIX • RU"], sets: ["rix"]).lang, "ru")

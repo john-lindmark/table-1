@@ -260,6 +260,50 @@ class CardMatcherTest {
         assertEquals("312", after?.printing?.cn); assertEquals(false, after?.exact)
     }
 
+    /**
+     * The matcher's work per frame must not grow while a card stays in view (2026-10-31): the evidence merged over
+     * frames had kept every frame's words for as long as the card was named, and the artist's fuzzy match scanned all
+     * of them several times per printing, so each frame of a card held on a cluttered desk was slower than the last
+     * (80 frames: 0.1 s → 7.9 s each), on the main thread. Only the last FRAMES frames are kept and each artist is
+     * looked up once per frame.
+     */
+    @Test
+    fun evidenceStaysBounded() {
+        val m = matcher()
+        val clutter = (0 until 30).map { "desk line number $it with some other words printed on it" }
+        val frame = listOf("Lightning Bolt", "Instant", "Lightning Bolt deals 3 damage to any target.", "Illus. Christopher Rush") + clutter
+        val times = ArrayList<Long>()
+        repeat(80) {
+            val t = System.nanoTime()
+            assertEquals("Lightning Bolt", m.match(frame)?.oracle?.name)
+            times.add(System.nanoTime() - t)
+        }
+        assertEquals(CardMatcher.FRAMES, m.rememberedFrames)
+        val first = times.take(20).sum() / 1e6
+        val last = times.takeLast(20).sum() / 1e6
+        assertTrue("later frames must not be slower: first 20 $first ms, last 20 $last ms", last < first * 2 + 50)
+        // The same card scanned in owned-only mode (trades) and a plain frame: every scan mode stays flat.
+        val owned = CardMatcher(catalog, mapOf("" to emptySet()), names)
+        val plain = listOf("Lightning Bolt", "Instant", "Lightning Bolt deals 3 damage to any target.", "3ED • EN")
+        var ownedNs = 0L; var plainNs = 0L
+        repeat(80) {
+            var t = System.nanoTime(); owned.match(frame); ownedNs += System.nanoTime() - t
+            t = System.nanoTime(); assertEquals(true, m.match(plain)?.exact); plainNs += System.nanoTime() - t
+        }
+        println("Matcher per frame: cluttered first 20 ${first / 20} ms, last 20 ${last / 20} ms; owned-only ${ownedNs / 80 / 1e6} ms; plain ${plainNs / 80 / 1e6} ms")
+        // Evidence still carries across frames: a set code, then nothing, then the number.
+        val triome = listOf("Zagoth Triome", "Land - Swamp Forest Island")
+        m.match(triome + "IKO • EN")
+        repeat(CardMatcher.FRAMES - 2) { m.match(triome) }
+        val got = m.match(triome + "313")
+        assertEquals(Triple("iko", "313", true), got?.let { Triple(it.printing.set, it.printing.cn, it.exact) })
+        // Frames that name nothing forget the card after MISSES; a take forgets it at once.
+        repeat(CardMatcher.MISSES) { assertNull(m.match(listOf("nothing here"))) }
+        assertEquals(0, m.rememberedFrames)
+        m.match(frame); m.took()
+        assertEquals(0, m.rememberedFrames)
+    }
+
     /** The language code printed by the set code, only by a set the catalog has. */
     @Test
     fun collectorLanguage() {

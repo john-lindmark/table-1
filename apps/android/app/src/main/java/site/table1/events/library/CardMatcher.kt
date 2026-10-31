@@ -351,12 +351,22 @@ class CardMatcher(
         fun year(p: CatalogPrinting) = p.releasedAt.take(4).toIntOrNull()
         fun numbered(p: CatalogPrinting) = number(p) in bottom.numbers || (noPT && number(p) in bottom.loneNumbers)
         fun retro(p: CatalogPrinting) = bottom.illustrated && (p.frame == "1993" || p.frame == "1997")
-        fun drawn(p: CatalogPrinting) = if (artistTells && p.artist.isNotEmpty()) bottom.names(p.artist) else null
+        // Each artist is looked up in the frames' words once per pick, and each printing scored once: the scores are
+        // read several times per printing while sorting, and the fuzzy word match over every line is the costly part.
+        val drawnBy = HashMap<String, Collector.ArtistLine?>()
+        fun drawn(p: CatalogPrinting): Collector.ArtistLine? {
+            if (!artistTells || p.artist.isEmpty()) return null
+            if (p.artist !in drawnBy) drawnBy[p.artist] = bottom.names(p.artist)
+            return drawnBy[p.artist]
+        }
         // The artist read after a brush, not "Illus.": a 2003 or newer frame.
         fun modern(p: CatalogPrinting) = drawn(p) == Collector.ArtistLine.PLAIN && (p.frame == "2003" || p.frame == "2015" || p.frame == "future")
-        fun score(p: CatalogPrinting) = (if (p.set in bottom.sets) 4 else 0) + (if (numbered(p)) 2 else 0) +
-            (if (year(p) in bottom.years || (old && early(p))) 1 else 0) + (if (retro(p)) 2 else 0) +
-            (if (drawn(p) != null) 2 else 0) + (if (modern(p)) 1 else 0)
+        val scores = HashMap<String, Int>()
+        fun score(p: CatalogPrinting) = scores.getOrPut(p.cardId) {
+            (if (p.set in bottom.sets) 4 else 0) + (if (numbered(p)) 2 else 0) +
+                (if (year(p) in bottom.years || (old && early(p))) 1 else 0) + (if (retro(p)) 2 else 0) +
+                (if (drawn(p) != null) 2 else 0) + (if (modern(p)) 1 else 0)
+        }
         val last = lastPick
         fun near(p: CatalogPrinting) = if (last == null || p.set != last.set) Int.MIN_VALUE else -abs(digits(p.cn) - digits(last.cn))
         var best = ps.sortedWith(
@@ -378,18 +388,33 @@ class CardMatcher(
     /**
      * Evidence about the card in view, kept over its last frames: the set code read in one frame and the number in
      * the next pick the printing together (a borderless Tourach read "MH2 • EN" in one frame and "312" four frames
-     * later, and went in as the regular 102). Cleared after MISSES frames that named nothing, when another card is
-     * named, after a hand-picked printing, and when the card is taken (`took`).
+     * later, and went in as the regular 102). Only the last FRAMES frames are kept (2026-10-31: the merged evidence
+     * had grown by every frame's words for as long as the card stayed in view, and the artist's fuzzy match scanned
+     * all of them, so each frame was slower than the last; 80 frames of one card went 0.1 s → 7.9 s each). Cleared
+     * after MISSES frames that named nothing, when another card is named, after a hand-picked printing, and when the
+     * card is taken (`took`).
      */
-    private class Recent(val idx: Int, val bottom: Collector, var misses: Int = 0)
+    private class Recent(val idx: Int) {
+        val frames = ArrayDeque<Collector>()
+        var misses = 0
+    }
     private var recent: Recent? = null
+
+    /** How many frames of the card in view are remembered (tests). */
+    val rememberedFrames: Int get() = recent?.frames?.size ?: 0
 
     /** The evidence for this card: this frame's, merged with what the last frames of the same card read. */
     private fun remembered(idx: Int, bottom: Collector): Collector {
-        val r = recent
-        if (r != null && r.idx == idx) bottom.merge(r.bottom)
-        recent = Recent(idx, bottom)
-        return bottom
+        val r = recent?.takeIf { it.idx == idx } ?: Recent(idx)
+        r.frames.addLast(bottom)
+        while (r.frames.size > FRAMES) r.frames.removeFirst()
+        r.misses = 0
+        recent = r
+        if (r.frames.size == 1) return bottom
+        // Newest first, so this frame's language code wins as before.
+        val merged = Collector(emptyList(), emptySet())
+        for (f in r.frames.asReversed()) merged.merge(f)
+        return merged
     }
 
     private fun missed() {
@@ -413,7 +438,9 @@ class CardMatcher(
     private fun allowed(idx: Int) = owned == null || printings(idx).isNotEmpty()
 
     companion object {
-        private const val MISSES = 5
+        const val MISSES = 5
+        /** Frames of the card in view whose bottom text is remembered: about 2 s at the camera's pace. */
+        const val FRAMES = 10
 
         /**
          * Whether the lines include a type line ("Instant", "Creature — Elf"): text from a card, not a keyboard or a
@@ -489,8 +516,9 @@ class Collector(lines: List<String>, known: Set<String>) {
     var dated = false
         private set
     /** Every line's words, normalized, for the illustrator's name, and whether the line is an "Illus." credit. */
-    private val words = ArrayList<List<String>>()
-    private val credits = ArrayList<Boolean>()
+    /** This frame's lines for the illustrator's name (then older frames' after [merge]); each frame remembers which
+     *  illustrators it names, so it's searched once per artist however many frames it stays in memory. */
+    private val frames = ArrayList<ScanLines>()
 
     /** How the illustrator's name was printed: after "Illus." (a 1993 or 1997 frame) or plainly, after a brush. */
     enum class ArtistLine { ILLUSTRATED, PLAIN }
@@ -498,33 +526,44 @@ class Collector(lines: List<String>, known: Set<String>) {
     init {
         var langLine = false
         val printed = HashSet<String>()
-        for (line in lines) {
-            var codes = SET_LANG.findAll(line).map { it.groupValues[1] to it.groupValues[2] }.toList()
-            if (codes.isEmpty()) codes = SET_LANG_LOOSE.findAll(line).map { it.groupValues[1] to it.groupValues[2] }.toList()
+        val digits = BooleanArray(lines.size)
+        val words = ArrayList<List<String>>()
+        val credits = ArrayList<Boolean>()
+        for ((i, line) in lines.withIndex()) {
+            // Cheap checks first: most lines of a busy desk have no digit and no two capitals in a row, and none of
+            // these patterns can match without them (2026-10-31).
+            val hasDigit = line.any { it in '0'..'9' }
+            digits[i] = hasDigit
+            var codes = if (hasCode(line)) SET_LANG.findAll(line).map { it.groupValues[1] to it.groupValues[2] }.toList() else emptyList()
+            if (codes.isEmpty() && hasCode(line)) codes = SET_LANG_LOOSE.findAll(line).map { it.groupValues[1] to it.groupValues[2] }.toList()
             for ((raw, l) in codes) {
                 val lang = LANGS[l] ?: continue
                 langLine = true
                 known(raw, known)?.let { sets.add(it); printed.add(lang) }
             }
-            for (m in OF_TOTAL.findAll(line)) {
-                if ((m.groupValues[3].toIntOrNull() ?: 0) >= 30) {
-                    val n = strip(m.groupValues[1]) + m.groupValues[2].lowercase()
-                    numbers.add(n)
-                    collectorNumbers.add(n)
+            if (hasDigit) {
+                for (m in OF_TOTAL.findAll(line)) {
+                    if ((m.groupValues[3].toIntOrNull() ?: 0) >= 30) {
+                        val n = strip(m.groupValues[1]) + m.groupValues[2].lowercase()
+                        numbers.add(n)
+                        collectorNumbers.add(n)
+                    }
                 }
+                val range = YEAR_RANGE.find(line)
+                if (range != null) years.add(range.groupValues[2].toInt())
+                else if (COPYRIGHT.containsMatchIn(line)) YEAR.findAll(line).lastOrNull()?.let { years.add(it.value.toInt()) }
             }
-            val range = YEAR_RANGE.find(line)
-            if (range != null) years.add(range.groupValues[2].toInt())
-            else if (COPYRIGHT.containsMatchIn(line)) YEAR.findAll(line).lastOrNull()?.let { years.add(it.value.toInt()) }
-            val credit = ILLUS.containsMatchIn(line.trim())
+            val credit = mayCredit(line) && ILLUS.containsMatchIn(line.trim())
             if (credit) illustrated = true
             val norm = CardName.norm(line)
-            if (YEAR.containsMatchIn(norm) && "wizards" !in norm && norm.split(Regex("[^a-zа-я]+")).any { it in MONTHS }) dated = true
+            if (hasDigit && YEAR.containsMatchIn(norm) && "wizards" !in norm && norm.split(Regex("[^a-zа-я]+")).any { it in MONTHS }) dated = true
             words.add(norm.split(' ').filter { it.isNotEmpty() })
             credits.add(credit)
         }
+        frames.add(ScanLines(words, credits))
         lang = printed.singleOrNull()
-        for (line in lines) {
+        for ((i, line) in lines.withIndex()) {
+            if (!digits[i]) continue
             val m = ALONE.matchEntire(line)
             if (m != null) {
                 val n = m.groupValues[1].replace(" ", "")
@@ -553,12 +592,7 @@ class Collector(lines: List<String>, known: Set<String>) {
     fun names(artist: String): ArtistLine? {
         val want = CardName.norm(artist).split(' ').filter { it.isNotEmpty() && it != "and" && it != "&" }
         if (want.isEmpty()) return null
-        for ((i, line) in words.withIndex()) {
-            if (line.size < want.size) continue
-            for (start in 0..(line.size - want.size)) {
-                if (want.indices.all { k -> alike(line[start + k], want[k]) }) return if (credits[i]) ArtistLine.ILLUSTRATED else ArtistLine.PLAIN
-            }
-        }
+        for (f in frames) f.names(artist, want)?.let { return it }
         return null
     }
 
@@ -568,8 +602,7 @@ class Collector(lines: List<String>, known: Set<String>) {
         loneNumbers.addAll(o.loneNumbers); years.addAll(o.years)
         illustrated = illustrated || o.illustrated
         dated = dated || o.dated
-        words.addAll(o.words)
-        credits.addAll(o.credits)
+        frames.addAll(o.frames)
         if (lang == null) lang = o.lang
     }
 
@@ -610,7 +643,17 @@ class Collector(lines: List<String>, known: Set<String>) {
 
         fun strip(s: String) = s.trimStart('0').ifEmpty { "0" }
 
-        private fun alike(a: String, b: String): Boolean {
+        /** Two capital letters in a row, as every set-code-and-language pattern needs ("EN", "JP"). */
+        fun hasCode(line: String): Boolean {
+            var upper = false
+            for (c in line) { val u = c in 'A'..'Z'; if (u && upper) return true; upper = u }
+            return false
+        }
+
+        /** Could be an "Illus." credit: starts with i, l, 1, | or u, like every spelling ILLUS accepts. */
+        fun mayCredit(line: String) = line.trimStart().firstOrNull()?.let { it in "iIlL1|uU" } ?: false
+
+        fun alike(a: String, b: String): Boolean {
             if (a == b) return true
             val n = b.length
             if (n < 4 || abs(a.length - n) > 2) return false
@@ -644,6 +687,33 @@ class Collector(lines: List<String>, known: Set<String>) {
             if (code.length >= 4) for (cut in listOf(code.drop(1), code.dropLast(1))) if (cut in known) return cut
             return null
         }
+    }
+}
+
+/**
+ * One frame's lines, normalized, for the illustrator's name: each line's words and whether it's an "Illus." credit.
+ * A class with a cache, so the answer per artist is kept while the frame stays in the matcher's memory (2026-10-31:
+ * every remembered frame was searched again for every artist on every frame).
+ */
+class ScanLines(private val words: List<List<String>>, private val credits: List<Boolean>) {
+    private val found = HashMap<String, Collector.ArtistLine?>()
+
+    /** Whether these lines name the artist ([want]: the name's words), and how: every word of the name, in order, in
+     *  one line, each [Collector.alike] its word. The first line that does decides. */
+    fun names(artist: String, want: List<String>): Collector.ArtistLine? {
+        if (artist in found) return found[artist]
+        var how: Collector.ArtistLine? = null
+        search@ for ((i, line) in words.withIndex()) {
+            if (line.size < want.size) continue
+            for (start in 0..(line.size - want.size)) {
+                if (want.indices.all { k -> Collector.alike(line[start + k], want[k]) }) {
+                    how = if (credits[i]) Collector.ArtistLine.ILLUSTRATED else Collector.ArtistLine.PLAIN
+                    break@search
+                }
+            }
+        }
+        found[artist] = how
+        return how
     }
 }
 

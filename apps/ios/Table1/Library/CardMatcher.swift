@@ -467,13 +467,26 @@ final class CardMatcher: @unchecked Sendable {
             bottom.numbers.contains(number(p)) || (noPT && bottom.loneNumbers.contains(number(p)))
         }
         func retro(_ p: CatalogPrinting) -> Bool { bottom.illustrated && (p.frame == "1993" || p.frame == "1997") }
-        func drawn(_ p: CatalogPrinting) -> Collector.ArtistLine? { artistTells && !p.artist.isEmpty ? bottom.names(artist: p.artist) : nil }
+        // Each artist is looked up in the frames' words once per pick, and each printing scored once: the scores are
+        // read several times per printing while sorting, and the fuzzy word match over every line is the costly part.
+        var drawnBy: [String: Collector.ArtistLine?] = [:]
+        func drawn(_ p: CatalogPrinting) -> Collector.ArtistLine? {
+            guard artistTells, !p.artist.isEmpty else { return nil }
+            if let cached = drawnBy[p.artist] { return cached }
+            let found = bottom.names(artist: p.artist)
+            drawnBy[p.artist] = .some(found)
+            return found
+        }
         // The artist read after a brush, not "Illus.": a 2003 or newer frame.
         func modern(_ p: CatalogPrinting) -> Bool { drawn(p) == .plain && (p.frame == "2003" || p.frame == "2015" || p.frame == "future") }
+        var scores: [String: Int] = [:]
         func score(_ p: CatalogPrinting) -> Int {
-            (bottom.sets.contains(p.set) ? 4 : 0) + (numbered(p) ? 2 : 0)
+            if let s = scores[p.cardId] { return s }
+            let s = (bottom.sets.contains(p.set) ? 4 : 0) + (numbered(p) ? 2 : 0)
                 + (year(p).map(bottom.years.contains) == true || (old && Self.early(p)) ? 1 : 0)
                 + (retro(p) ? 2 : 0) + (drawn(p) != nil ? 2 : 0) + (modern(p) ? 1 : 0)
+            scores[p.cardId] = s
+            return s
         }
         let last = lastPick.map { ($0.set, Self.digits($0.cn)) }
         func near(_ p: CatalogPrinting) -> Int {
@@ -517,16 +530,28 @@ final class CardMatcher: @unchecked Sendable {
 
     /// Evidence about the card in view, kept over its last frames: the set code read in one frame and the number in
     /// the next pick the printing together (a borderless Tourach read "MH2 • EN" in one frame and "312" four frames
-    /// later, and went in as the regular 102). Cleared after `misses` frames that named nothing, when another card
-    /// is named, after a hand-picked printing, and when the card is taken (`took`).
-    private var recent: (idx: Int, bottom: Collector, misses: Int)?
-    private static let misses = 5
+    /// later, and went in as the regular 102). Only the last `frames` frames are kept (2026-10-31: the merged
+    /// evidence had grown by every frame's words for as long as the card stayed in view, and the artist's fuzzy
+    /// match scanned all of them, so each frame was slower than the last; 80 frames of one card went 0.1 s → 7.9 s
+    /// each). Cleared after `misses` frames that named nothing, when another card is named, after a hand-picked
+    /// printing, and when the card is taken (`took`).
+    private var recent: (idx: Int, frames: [Collector], misses: Int)?
+    static let misses = 5
+    /// Frames of the card in view whose bottom text is remembered: about 2 s at the camera's pace.
+    static let frames = 10
+
+    /// How many frames of the card in view are remembered (tests).
+    var rememberedFrames: Int { recent?.frames.count ?? 0 }
 
     /// The evidence for this card: this frame's, merged with what the last frames of the same card read.
     private func remembered(_ idx: Int, _ bottom: Collector) -> Collector {
+        var frames = recent?.idx == idx ? recent!.frames : []
+        frames.append(bottom)
+        if frames.count > Self.frames { frames.removeFirst(frames.count - Self.frames) }
+        recent = (idx, frames, 0)
+        // Newest first, so this frame's language code wins as before.
         var merged = bottom
-        if let r = recent, r.idx == idx { merged.merge(r.bottom) }
-        recent = (idx, merged, 0)
+        for f in frames.dropLast().reversed() { merged.merge(f) }
         return merged
     }
 
@@ -587,9 +612,9 @@ struct Collector {
     var illustrated = false
     /// A prerelease date stamp ("30-31 January 2021", "27-28 giugno 2020"): a month and a year on a line that isn't the copyright.
     var dated = false
-    /// Every line's words, normalized, for the illustrator's name, and whether the line is an "Illus." credit.
-    var words: [[Substring]] = []
-    var credits: [Bool] = []
+    /// This frame's lines for the illustrator's name (then older frames' after `merge`); each frame remembers which
+    /// illustrators it names, so it's searched once per artist however many frames it stays in memory.
+    var lines: [ScanLines] = []
 
     /// How the illustrator's name was printed: after "Illus." (a 1993 or 1997 frame) or plainly, after a brush.
     enum ArtistLine { case illustrated, plain }
@@ -631,36 +656,49 @@ struct Collector {
     init(_ lines: [String], sets known: Set<String>) {
         var langLine = false
         var printed = Set<String>()
+        var digits: [Bool] = []
+        var words: [[[UInt8]]] = []
+        var credits: [Bool] = []
         for line in lines {
-            var codes: [(String, String)] = line.matches(of: Self.setLang).map { (String($0.output.1), String($0.output.2)) }
-            if codes.isEmpty { codes = line.matches(of: Self.setLangLoose).map { (String($0.output.1), String($0.output.2)) } }
+            // Cheap checks first: most lines of a busy desk have no digit and no two capitals in a row, and none of
+            // these patterns can match without them (2026-10-31; Swift's regex engine is slow, more so in Debug).
+            let hasDigit = line.utf8.contains { $0 >= 48 && $0 <= 57 }
+            digits.append(hasDigit)
+            var codes: [(String, String)] = []
+            if Self.hasCode(line) {
+                codes = line.matches(of: Self.setLang).map { (String($0.output.1), String($0.output.2)) }
+                if codes.isEmpty { codes = line.matches(of: Self.setLangLoose).map { (String($0.output.1), String($0.output.2)) } }
+            }
             for (raw, l) in codes {
                 guard let lang = Self.langs[l] else { continue }
                 langLine = true
                 if let code = Self.known(raw, known) { sets.insert(code); printed.insert(lang) }
             }
-            for m in line.matches(of: Self.ofTotal) where (Int(m.output.3) ?? 0) >= 30 {
-                let n = Self.strip(String(m.output.1)) + m.output.2.lowercased()
-                numbers.insert(n)
-                collectorNumbers.insert(n)
+            if hasDigit {
+                for m in line.matches(of: Self.ofTotal) where (Int(m.output.3) ?? 0) >= 30 {
+                    let n = Self.strip(String(m.output.1)) + m.output.2.lowercased()
+                    numbers.insert(n)
+                    collectorNumbers.insert(n)
+                }
+                if let m = line.firstMatch(of: Self.yearRange) {
+                    if let y = Int(m.output.2) { years.insert(y) }
+                } else if line.firstMatch(of: Self.copyright) != nil, let y = line.matches(of: Self.year).last.flatMap({ Int($0.output.1) }) {
+                    years.insert(y)
+                }
             }
-            if let m = line.firstMatch(of: Self.yearRange) {
-                if let y = Int(m.output.2) { years.insert(y) }
-            } else if line.firstMatch(of: Self.copyright) != nil, let y = line.matches(of: Self.year).last.flatMap({ Int($0.output.1) }) {
-                years.insert(y)
-            }
-            let credit = line.trimmingCharacters(in: .whitespaces).firstMatch(of: Self.illus) != nil
+            let credit = Self.mayCredit(line) && line.trimmingCharacters(in: .whitespaces).firstMatch(of: Self.illus) != nil
             if credit { illustrated = true }
             let norm = CardName.norm(line)
-            if norm.firstMatch(of: Self.year) != nil, !norm.contains("wizards"),
+            if hasDigit, norm.firstMatch(of: Self.year) != nil, !norm.contains("wizards"),
                norm.split(whereSeparator: { !$0.isLetter }).contains(where: { Self.months.contains(String($0)) }) {
                 dated = true
             }
-            words.append(norm.split(separator: " "))
+            words.append(norm.split(separator: " ").map { Array($0.utf8) })
             credits.append(credit)
         }
+        self.lines = [ScanLines(words: words, credits: credits)]
         if printed.count == 1 { lang = printed.first }
-        for line in lines {
+        for (line, hasDigit) in zip(lines, digits) where hasDigit {
             if let m = line.wholeMatch(of: Self.alone) {
                 let n = m.output.1.replacingOccurrences(of: " ", with: "")
                 guard n.count <= 4 else { continue }
@@ -686,27 +724,39 @@ struct Collector {
     /// four or five letters may be one edit off and a longer one two ("TOOD LOCKVOOD", "Shells Wan", "CANARAT" for
     /// Canavan), shorter ones exact.
     func names(artist: String) -> ArtistLine? {
-        let want = CardName.norm(artist).split(separator: " ").filter { $0 != "and" && $0 != "&" }
+        let want = CardName.norm(artist).split(separator: " ").filter { $0 != "and" && $0 != "&" }.map { Array($0.utf8) }
         guard !want.isEmpty else { return nil }
-        for (i, line) in words.enumerated() where line.count >= want.count {
-            for start in 0...(line.count - want.count) {
-                var ok = true
-                for (k, w) in want.enumerated() where !Self.alike(line[start + k], w) { ok = false; break }
-                if ok { return credits[i] ? .illustrated : .plain }
-            }
-        }
+        for frame in lines { if let how = frame.names(artist: artist, want: want) { return how } }
         return nil
     }
 
-    private static func alike(_ a: Substring, _ b: Substring) -> Bool {
-        if a == b { return true }
+    static func alike(_ a: [UInt8], _ b: [UInt8]) -> Bool {
         let n = b.count
-        guard n >= 4, abs(a.count - n) <= 2 else { return false }
-        return edits(Array(a), Array(b), atMost: n >= 6 ? 2 : 1)
+        guard abs(a.count - n) <= 2 else { return false }
+        if a == b { return true }
+        guard n >= 4 else { return false }
+        return edits(a, b, atMost: n >= 6 ? 2 : 1)
+    }
+
+    /// Two capital letters in a row, as every set-code-and-language pattern needs ("EN", "JP").
+    private static func hasCode(_ line: String) -> Bool {
+        var upper = false
+        for b in line.utf8 {
+            let u = b >= 65 && b <= 90
+            if u && upper { return true }
+            upper = u
+        }
+        return false
+    }
+
+    /// Could be an "Illus." credit: starts with i, l, 1, | or u, like every spelling `illus` accepts.
+    private static func mayCredit(_ line: String) -> Bool {
+        guard let c = line.drop(while: { $0 == " " || $0 == "\t" }).first else { return false }
+        return "iIlL1|uU".contains(c)
     }
 
     /// Whether a and b are within `atMost` single-character edits (insert, delete, replace) of each other.
-    static func edits(_ a: [Character], _ b: [Character], atMost k: Int) -> Bool {
+    static func edits<T: Equatable>(_ a: [T], _ b: [T], atMost k: Int) -> Bool {
         if abs(a.count - b.count) > k { return false }
         var prev = Array(0...b.count)
         for i in 1...max(a.count, 1) where i <= a.count {
@@ -731,8 +781,7 @@ struct Collector {
         years.formUnion(o.years)
         illustrated = illustrated || o.illustrated
         dated = dated || o.dated
-        words += o.words
-        credits += o.credits
+        lines += o.lines
         if lang == nil { lang = o.lang }
     }
 
@@ -752,6 +801,36 @@ struct Collector {
     private static func strip(_ s: String) -> String {
         let t = s.drop { $0 == "0" }
         return t.isEmpty ? "0" : String(t)
+    }
+}
+
+/// One frame's lines, normalized, for the illustrator's name: each line's words as bytes (compared without
+/// allocating) and whether it's an "Illus." credit. A class, so the answer per artist is kept while the frame stays
+/// in the matcher's memory (2026-10-31: every remembered frame was searched again for every artist on every frame).
+final class ScanLines {
+    let words: [[[UInt8]]]
+    let credits: [Bool]
+    private var found: [String: Collector.ArtistLine?] = [:]
+
+    init(words: [[[UInt8]]], credits: [Bool]) {
+        self.words = words
+        self.credits = credits
+    }
+
+    /// Whether these lines name the artist (`want`: the name's words as bytes), and how: every word of the name, in
+    /// order, in one line, each `Collector.alike` its word. The first line that does decides.
+    func names(artist: String, want: [[UInt8]]) -> Collector.ArtistLine? {
+        if let cached = found[artist] { return cached }
+        var how: Collector.ArtistLine?
+        search: for (i, line) in words.enumerated() where line.count >= want.count {
+            for start in 0...(line.count - want.count) {
+                var ok = true
+                for (k, w) in want.enumerated() where !Collector.alike(line[start + k], w) { ok = false; break }
+                if ok { how = credits[i] ? .illustrated : .plain; break search }
+            }
+        }
+        found[artist] = .some(how)
+        return how
     }
 }
 
