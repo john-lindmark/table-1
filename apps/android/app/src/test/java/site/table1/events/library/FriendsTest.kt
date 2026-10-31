@@ -191,4 +191,14 @@ class FriendsTest {
         assertEquals(ListKind.Cube, SharedList.kind("cube"))
         assertNull(SharedList.kind("binder"))
     }
+
+    @Test fun profileCardsPageDecodesByRuntimeLookup() {
+        // supabase-kt's decodeAs<T>() looks the serializer up at run time: a shared deck/cube/binder failed with
+        // "Serializer for class 'ProfileCardsPage' is not found" after its @Serializable moved onto SharedList.
+        @Suppress("UNCHECKED_CAST")
+        val s = kotlinx.serialization.serializer(kotlin.reflect.typeOf<ProfileCardsPage>()) as kotlinx.serialization.KSerializer<ProfileCardsPage>
+        val page = Json.decodeFromString(s, """{"rows": [["c1", "main", 2]], "more": true}""")
+        assertTrue(page.more)
+        assertEquals(2, ProfileCard.parse("deck", page.rows.single())?.qty)
+    }
 }

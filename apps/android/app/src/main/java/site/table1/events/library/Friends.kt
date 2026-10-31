@@ -395,7 +395,6 @@ data class ProfileCard(
     }
 }
 
-@Serializable
 /** A deck or cube opened from a profile: what Export and Copy to my Library need beyond its cards
  *  (contract/shared-lists-grouping-2026-10-20.md §1). */
 object SharedList {
@@ -419,7 +418,10 @@ object SharedList {
     fun copyNote(owner: String?, name: String) = if (owner != null) "Copied from $owner's $name" else "Copied from $name"
 }
 
-private data class ProfileCardsPage(val rows: List<JsonArray> = emptyList(), val more: Boolean = false)
+/** profile_cards / shared_cards. Decoded by supabase-kt's runtime serializer lookup, so a missing @Serializable
+ *  only fails when called ("Serializer for class … is not found"); FriendsTest decodes it the same way. */
+@Serializable
+internal data class ProfileCardsPage(val rows: List<JsonArray> = emptyList(), val more: Boolean = false)
 
 /* ── trade matches ── */
 
