@@ -22,22 +22,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.jan.supabase.functions.functions
-import io.ktor.client.plugins.timeout
-import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
+import androidx.compose.runtime.DisposableEffect
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.addJsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
-import site.table1.events.T1App
+import site.table1.events.util.Push
+import site.table1.events.util.Telemetry
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.BarAction
 import site.table1.events.ui.components.BigAction
@@ -51,7 +44,8 @@ import site.table1.events.ui.theme.T1
 
 // Deck finder (contract/deck-finder-2026-10-15.md): describe a deck in plain words; an agent finds a recent
 // tournament list, asks when the request is ambiguous, and the list is created with each card's original
-// paper printing. Same flow as iOS and the web.
+// paper printing. Same flow as iOS and the web. The search runs on the server as a job (contract § Jobs): the
+// screen polls it, the phone can be locked, and a `deck.found` push brings the player back to it.
 
 @Serializable
 data class FinderResult(
@@ -70,45 +64,31 @@ data class FinderResult(
         val name: String = "", val archetype: String = "", val format: String = "", val event: String = "",
         val date: String = "", val placement: String = "", val player: String = "",
         @SerialName("source_url") val sourceUrl: String = "", val notes: String = "",
+        /** table1 (Table 1's own results) or web; older answers have none. */
+        val from: String? = null,
         val main: List<Line> = emptyList(), val side: List<Line> = emptyList(),
     )
 }
 
-private data class FinderAnswer(val question: String, val answer: String)
-
 private val FINDER_FORMATS = listOf("modern", "pioneer", "standard", "legacy", "vintage", "pauper", "commander", "premodern")
 
-/** One search. The function streams spaces while it works, so the request gets a long timeout. */
-private suspend fun findDeck(query: String, format: String, answers: List<FinderAnswer>): FinderResult = try {
-    val response = T1App.supabase.functions.invoke("deck-finder") {
-        contentType(ContentType.Application.Json)
-        setBody(buildJsonObject {
-            put("query", query); put("format", format)
-            putJsonArray("answers") { answers.forEach { a -> addJsonObject { put("question", a.question); put("answer", a.answer) } } }
-        }.toString())
-        timeout { requestTimeoutMillis = 170_000; socketTimeoutMillis = 60_000 }
-    }
-    val r = T1App.json.decodeFromString<FinderResult>(response.bodyAsText().trim())
-    if (r.error != null) r.copy(status = "error", message = r.error) else r
-} catch (e: Exception) {
-    // A refusal (sign in, daily allowance) carries the server's own message.
-    val msg = e.message?.let { m -> Regex("\"error\"\\s*:\\s*\"([^\"]+)\"").find(m)?.groupValues?.get(1) }
-    FinderResult(status = "error", message = msg ?: "The deck finder couldn't search just now. Try again.")
-}
-
+/** [jobId]: a job to open (a tapped `deck.found` push); null starts fresh and picks up the newest job when it's recent. */
 @Composable
-fun DeckFinderScreen(onBack: () -> Unit, onCreated: (String) -> Unit) {
+fun DeckFinderScreen(onBack: () -> Unit, onCreated: (String) -> Unit, jobId: String? = null) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val cat by CatalogStore.state.collectAsState()
     var query by remember { mutableStateOf("") }
     var format by remember { mutableStateOf(0) }
     var answers by remember { mutableStateOf(listOf<FinderAnswer>()) }
-    var searching by remember { mutableStateOf(false) }
+    /** The job under way or last shown; polled while it runs. */
+    var job by remember { mutableStateOf(jobId) }
+    var searching by remember { mutableStateOf(jobId != null) }
     var result by remember { mutableStateOf<FinderResult?>(null) }
     var reply by remember { mutableStateOf("") }
     var creating by remember { mutableStateOf(false) }
     var resolved by remember { mutableStateOf<Map<String, CatalogPrinting>>(emptyMap()) }
+    var resumed by remember { mutableStateOf(if (jobId != null) "push" else null) }
     val deck = result?.deck?.takeIf { result?.status == "deck" }
     LaunchedEffect(Unit) { CatalogStore.load(userInitiated = true) }
     LaunchedEffect(deck, cat.generation) {
@@ -117,13 +97,45 @@ fun DeckFinderScreen(onBack: () -> Unit, onCreated: (String) -> Unit) {
         resolved = withContext(Dispatchers.Default) { db.printingsByName(names) }
     }
 
+    fun pickFormat(f: String?) { f?.let { FINDER_FORMATS.indexOf(it).takeIf { i -> i >= 0 } }?.let { format = it } }
+    fun show(r: FinderResult) {
+        pickFormat(r.deck?.format)
+        if (r.status != "question") Telemetry.capture("deck_finder_used", mapOf("found" to (r.deck != null), "from" to (r.deck?.from ?: ""), "resumed" to (resumed ?: "")))
+        result = r
+        searching = false
+        Push.quietDeckJob = null
+    }
+    // Opening with no job of its own: the account's newest job when it's still running or just finished.
+    LaunchedEffect(Unit) {
+        if (job != null) return@LaunchedEffect
+        val j = runCatching { DeckFinderJobs.job(null) }.getOrNull() ?: return@LaunchedEffect
+        if (!DeckFinderJobs.resume(j)) return@LaunchedEffect
+        resumed = "open"
+        query = j.query; pickFormat(j.format); answers = j.answers
+        if (j.finished) show(DeckFinderJobs.resultOf(j)) else { searching = true; job = j.job_id }
+    }
+    // Asks after the job every few seconds until it's finished (errors, offline too, just wait for the next ask).
+    LaunchedEffect(job) {
+        val id = job ?: return@LaunchedEffect
+        Push.quietDeckJob = id
+        while (true) {
+            val j = runCatching { DeckFinderJobs.job(id) }.getOrNull()
+            if (j != null) {
+                if (query.isEmpty()) { query = j.query; pickFormat(j.format); answers = j.answers }
+                if (j.finished) { show(DeckFinderJobs.resultOf(j)); return@LaunchedEffect }
+            }
+            delay(DeckFinderJobs.POLL_MS)
+        }
+    }
+    DisposableEffect(Unit) { onDispose { if (Push.quietDeckJob == job) Push.quietDeckJob = null } }
+
     fun search(with: List<FinderAnswer>) {
         searching = true
+        result = null
         scope.launch {
-            val r = findDeck(query.trim(), FINDER_FORMATS[format], with)
-            r.deck?.format?.let { f -> FINDER_FORMATS.indexOf(f).takeIf { it >= 0 }?.let { format = it } }
-            result = r
-            searching = false
+            runCatching { DeckFinderJobs.start(query.trim(), FINDER_FORMATS[format], with) }
+                .onSuccess { resumed = null; job = it }
+                .onFailure { e -> searching = false; result = FinderResult(status = "error", message = DeckFinderJobs.words(e)) }
         }
     }
     fun answer(text: String) {
@@ -169,7 +181,7 @@ fun DeckFinderScreen(onBack: () -> Unit, onCreated: (String) -> Unit) {
                 }
             }
             if (searching) item {
-                Notice("Searching mtgdecks, melee.gg, MTGGoldfish and MTGO results for the newest strong finishes. This can take a minute or two.")
+                Notice("Searching Table 1's results, mtgdecks, melee.gg, MTGGoldfish and MTGO for the newest strong finishes. This can take a minute or two: you can lock your phone or leave this screen, and you'll get a notification when it's done.")
             }
             val r = result
             if (!searching && r != null) when {
@@ -182,7 +194,7 @@ fun DeckFinderScreen(onBack: () -> Unit, onCreated: (String) -> Unit) {
                 deck != null -> {
                     val main = deck.main.sumOf { it.qty }; val side = deck.side.sumOf { it.qty }
                     val missing = (deck.main + deck.side).map { it.name }.filter { it !in resolved }.distinct().sorted()
-                    item { ListRow(deck.name, listOf(deck.placement, deck.event, deck.date).filter { it.isNotBlank() }.joinToString(" · ")) }
+                    item { ListRow(deck.name, DeckFinderJobs.headline(deck.placement, deck.event, deck.date)) }
                     if (deck.player.isNotBlank() || deck.notes.isNotBlank()) item {
                         Notice(listOfNotNull(deck.player.takeIf { it.isNotBlank() }?.let { "Played by $it." }, deck.notes.takeIf { it.isNotBlank() }).joinToString(" "))
                     }
@@ -199,7 +211,10 @@ fun DeckFinderScreen(onBack: () -> Unit, onCreated: (String) -> Unit) {
                     if (deck.side.isNotEmpty()) item { Section("Sideboard · $side") }
                     items(deck.side) { l -> FinderLine(l, resolved[l.name]) }
                 }
-                else -> item { Notice(r.message ?: "Nothing turned up. Try naming the archetype.", error = true) }
+                else -> {
+                    item { Notice(r.message ?: "Nothing turned up. Try naming the archetype.", error = true) }
+                    item { ListRow("Search again", onClick = { result = null }) }
+                }
             }
         }
     }

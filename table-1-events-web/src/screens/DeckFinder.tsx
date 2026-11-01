@@ -1,35 +1,18 @@
 // Deck finder (contract/deck-finder-2026-10-15.md): describe a deck in plain words; an agent finds a recent
 // tournament list, asks when the request is ambiguous, and the list is created with each card's original
-// paper printing. Same flow as iOS and Android.
-import { useMemo, useState } from "react";
+// paper printing. Same flow as iOS and Android. The search runs on the server as a job (contract § Jobs): the
+// screen polls it, and a search started before the tab was closed is picked up when Find a deck opens again.
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BigAction, Field, Notice, Row, Section, Segmented } from "../components/kit";
 import { printingsByName } from "../lib/catalog";
+import * as finder from "../lib/deckFinder";
+import type { Answer, FoundDeck, Line, Result } from "../lib/deckFinder";
 import { createList, type Entry } from "../lib/lists";
-import { supabase } from "../lib/supabaseClient";
 import { capture } from "../lib/telemetry";
 import { CardRow, LibScreen, useCatalog } from "./Library";
 import { useListsData } from "./Lists";
 
-interface Line { qty: number; name: string }
-interface FoundDeck {
-  name: string; archetype: string; format: string; event: string; date: string; placement: string; player: string;
-  source_url: string; notes: string; main: Line[]; side: Line[];
-}
-interface Result { status: "deck" | "question" | "not_found" | "error"; question?: string; options?: string[]; message?: string; deck?: FoundDeck }
-interface Answer { question: string; answer: string }
-
 const FORMATS = ["modern", "pioneer", "standard", "legacy", "vintage", "pauper", "commander", "premodern"];
-
-async function findDeck(query: string, format: string, answers: Answer[]): Promise<Result> {
-  const { data, error } = await supabase.functions.invoke("deck-finder", { body: { query, format, answers } });
-  if (error) {
-    // A refusal (sign in, daily allowance) carries the server's own message.
-    const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
-    return { status: "error", message: body?.error ?? "The deck finder couldn't search just now. Try again." };
-  }
-  const r = (typeof data === "string" ? JSON.parse(data) : data) as Result & { error?: string };
-  return r.error ? { status: "error", message: r.error } : r;
-}
 
 export function DeckFinderScreen({ onBack, onCreated }: { onBack: () => void; onCreated: (listId: string) => void }) {
   const { session, ready } = useListsData();
@@ -37,25 +20,68 @@ export function DeckFinderScreen({ onBack, onCreated }: { onBack: () => void; on
   const [query, setQuery] = useState("");
   const [format, setFormat] = useState("modern");
   const [answers, setAnswers] = useState<Answer[]>([]);
+  const [job, setJob] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [reply, setReply] = useState("");
   const [creating, setCreating] = useState(false);
+  const resumed = useRef<string | null>(null);
   const deck = result?.status === "deck" ? result.deck : undefined;
   const resolved = useMemo(
     () => (deck && catalog ? printingsByName(catalog, [...deck.main, ...deck.side].map((l) => l.name)) : new Map<string, number>()),
     [deck, catalog],
   );
 
+  const show = (r: Result) => {
+    if (r.status !== "question") capture("deck_finder_used", { found: !!r.deck, from: r.deck?.from ?? "", resumed: resumed.current ?? "" });
+    if (r.deck && FORMATS.includes(r.deck.format)) setFormat(r.deck.format);
+    setResult(r);
+    setSearching(false);
+  };
+  // Opening with no job of its own: the account's newest job when it's still running or just finished.
+  useEffect(() => {
+    if (!session || job) return;
+    let gone = false;
+    void finder.job(null).then((j) => {
+      if (gone || !j || !finder.resumeJob(j)) return;
+      resumed.current = "open";
+      setQuery(j.query);
+      if (j.format && FORMATS.includes(j.format)) setFormat(j.format);
+      setAnswers(j.answers);
+      if (finder.finished(j)) show(finder.resultOf(j));
+      else { setSearching(true); setJob(j.job_id); }
+    }).catch(() => {});
+    return () => { gone = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+  // Asks after the job every few seconds until it's finished (errors just wait for the next ask); at once when
+  // the tab comes back.
+  useEffect(() => {
+    if (!job) return;
+    let gone = false;
+    const ask = async () => {
+      const j = await finder.job(job).catch(() => null);
+      if (gone || !j || !finder.finished(j)) return;
+      gone = true;
+      show(finder.resultOf(j));
+    };
+    void ask();
+    const timer = setInterval(() => void ask(), finder.POLL_MS);
+    const visible = () => { if (document.visibilityState === "visible") void ask(); };
+    document.addEventListener("visibilitychange", visible);
+    return () => { gone = true; clearInterval(timer); document.removeEventListener("visibilitychange", visible); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job]);
+
   const search = async (with_: Answer[]) => {
     setSearching(true);
+    setResult(null);
     try {
-      const r = await findDeck(query.trim(), format, with_);
-      if (r.status === "deck" || r.status === "not_found") capture("deck_finder_used", { found: !!r.deck });
-      if (r.deck && FORMATS.includes(r.deck.format)) setFormat(r.deck.format);
-      setResult(r);
-    } finally {
+      resumed.current = null;
+      setJob(await finder.start(query.trim(), format, with_));
+    } catch (e) {
       setSearching(false);
+      setResult({ status: "error", message: e instanceof Error ? e.message : "The deck finder couldn't search just now. Try again." });
     }
   };
   const answer = (text: string) => {
@@ -110,7 +136,7 @@ export function DeckFinderScreen({ onBack, onCreated }: { onBack: () => void; on
                      onClick={() => { setAnswers([]); void search([]); }} />
         )}
         {searching && (
-          <Notice tone="info">Searching mtgdecks, melee.gg, MTGGoldfish and MTGO results for the newest strong finishes. This can take a minute or two.</Notice>
+          <Notice tone="info">Searching Table 1's results, mtgdecks, melee.gg, MTGGoldfish and MTGO for the newest strong finishes. This can take a minute or two: you can leave this page and come back, the search goes on.</Notice>
         )}
         {!searching && result?.status === "question" && (
           <>
@@ -121,11 +147,14 @@ export function DeckFinderScreen({ onBack, onCreated }: { onBack: () => void; on
           </>
         )}
         {!searching && (result?.status === "not_found" || result?.status === "error") && (
-          <Notice tone="error">{result.message ?? "Nothing turned up. Try naming the archetype."}</Notice>
+          <>
+            <Notice tone="error">{result.message ?? "Nothing turned up. Try naming the archetype."}</Notice>
+            <Row title="Search again" onClick={() => setResult(null)} />
+          </>
         )}
         {!searching && deck && catalog && (
           <>
-            <Row title={deck.name} detail={[deck.placement, deck.event, deck.date].filter(Boolean).join(" · ")} />
+            <Row title={deck.name} detail={finder.headline(deck.placement, deck.event, deck.date)} />
             {(deck.player || deck.notes) && (
               <Notice tone="info">{[deck.player ? `Played by ${deck.player}.` : "", deck.notes].filter(Boolean).join(" ")}</Notice>
             )}

@@ -27,6 +27,8 @@ object PushRoutes {
         return when {
             kind == "insights.new" -> insights(data)?.let { WebLink.Screens("insights", if (it.what == "rank") listOf(rankSetRoute(it.key)) else emptyList()) }
             kind == "want.price" -> collection("collection/wants")
+            // A deck search finished (contract/deck-finder-2026-10-15.md § Jobs): Find a deck on that job.
+            kind == "deck.found" -> id("job_id")?.let { collection("collection/decks", "collection/find?job=$it") }
             kind == "trade.wants" -> id("user_id")?.let { collection("collection/matches", "collection/match/$it") }
                 ?: collection("collection/matches")
             kind == "follow.updated" -> {
@@ -48,7 +50,7 @@ object PushRoutes {
     /** Notification channels, so each kind can be turned off in Android's settings. */
     enum class Channel(val id: String, val title: String, val description: String, val urgent: Boolean) {
         Events("events", "Events", "Pairings, results to confirm, invitations and sign-ups", true),
-        Collection("collection", "Collection", "Decks you follow, trades, price drops and cube rankings", false),
+        Collection("collection", "Collection", "Decks you follow, trades, price drops, cube rankings and found decks", false),
         Friends("friends", "Friends", "Friend requests", false),
         Account("account", "From Table 1", "About your account", false),
         Insights("insights", "New in Insights", "New formats, sets and Arena cubes in Insights", false),
@@ -56,7 +58,7 @@ object PushRoutes {
 
     fun channel(kind: String): Channel = when {
         kind.startsWith("event.") || kind.startsWith("round.") || kind.startsWith("result.") -> Channel.Events
-        kind.startsWith("follow.") || kind.startsWith("trade.") || kind.startsWith("want.") || kind.startsWith("ranking.") -> Channel.Collection
+        kind.startsWith("follow.") || kind.startsWith("trade.") || kind.startsWith("want.") || kind.startsWith("ranking.") || kind.startsWith("deck.") -> Channel.Collection
         kind.startsWith("friend.") -> Channel.Friends
         kind.startsWith("insights.") -> Channel.Insights
         else -> Channel.Account

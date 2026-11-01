@@ -416,11 +416,11 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                         nav.navigate("collection/list/$id")
                     })
                 }
-                composable("collection/find") {
+                composable("collection/find?job={job}", arguments = listOf(navArgument("job") { nullable = true })) { e ->
                     DeckFinderScreen(onBack = { nav.popBackStack() }, onCreated = { id ->
                         nav.popBackStack()
                         nav.navigate("collection/list/$id")
-                    })
+                    }, jobId = e.arguments?.getString("job"))
                 }
                 composable("collection/cubes") {
                     ListsScreen(ListKind.Cube, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/list/$it") },

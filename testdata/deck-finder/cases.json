@@ -1,0 +1,19 @@
+{
+  "note": "Deck finder jobs (contract/deck-finder-2026-10-15.md § Jobs). resume: whether Find a deck shows the account's newest job when the screen opens with no job of its own (it does for a search still running, and for one that finished in the last hour, so a locked phone's search is there when the app is reopened). headline: the one line under a found deck's name, from its placement, event and date. Tests: iOS DeckFinderTests, web deckFinder.test.ts, Android DeckFinderTest.",
+  "resume": [
+    { "status": "queued", "finished_seconds_ago": null, "show": true },
+    { "status": "running", "finished_seconds_ago": null, "show": true },
+    { "status": "done", "finished_seconds_ago": 0, "show": true },
+    { "status": "done", "finished_seconds_ago": 3599, "show": true },
+    { "status": "done", "finished_seconds_ago": 3600, "show": false },
+    { "status": "failed", "finished_seconds_ago": 60, "show": true },
+    { "status": "failed", "finished_seconds_ago": 7200, "show": false },
+    { "status": "done", "finished_seconds_ago": null, "show": false }
+  ],
+  "headline": [
+    { "placement": "1st", "event": "Modern Challenge 32", "date": "2026-10-30", "text": "1st · Modern Challenge 32 · 2026-10-30" },
+    { "placement": "", "event": "Modern Challenge 32", "date": "2026-10-30", "text": "Modern Challenge 32 · 2026-10-30" },
+    { "placement": "5-0", "event": "", "date": "", "text": "5-0" },
+    { "placement": "", "event": "", "date": "", "text": "" }
+  ]
+}

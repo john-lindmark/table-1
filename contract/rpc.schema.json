@@ -11343,6 +11343,152 @@
         "42501": "This isn't available",
         "22023": "That link isn't a deck"
       }
+    },
+    "deck_finder_start": {
+      "note": "Starts a deck search as a job the server runs on its own; the phone can be locked. Takes one of the day's 20 searches (raises P0001 when used up); the same search already under way is handed back (again: true). contract/deck-finder-2026-10-15.md § Jobs. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_query": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "p_format": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "p_answers": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "object",
+              "properties": {
+                "question": {
+                  "type": "string"
+                },
+                "answer": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "question",
+                "answer"
+              ]
+            }
+          }
+        },
+        "required": [
+          "p_query"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "again": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "job_id",
+          "status"
+        ]
+      }
+    },
+    "deck_finder_job": {
+      "note": "One of your deck searches by id, or with no id your newest of the last 24 hours (null when none): status and, once done, the result. Clients poll it every few seconds while the screen is open and read it when a deck.found push is tapped. contract/deck-finder-2026-10-15.md § Jobs. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "result": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "queued",
+                  "running",
+                  "done",
+                  "failed"
+                ]
+              },
+              "query": {
+                "type": "string"
+              },
+              "format": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "answers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "question": {
+                      "type": "string"
+                    },
+                    "answer": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "question",
+                    "answer"
+                  ]
+                }
+              },
+              "result": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "description": "The function's answer once done: {status: deck|question|not_found|error, deck?, question?, options?, message?} as contract/deck-finder-2026-10-15.md"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "finished_at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "job_id",
+              "status",
+              "query",
+              "answers",
+              "created_at"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
     }
   },
   "functions": {

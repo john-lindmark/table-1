@@ -762,7 +762,7 @@ struct ListsView: View {
             HairlineList {
                 Button {
                     T1Overlays.shared.present {
-                        NewListPanel(kind: kind, created: { id in path.append(.list(id)) }, find: { path.append(.findDeck) },
+                        NewListPanel(kind: kind, created: { id in path.append(.list(id)) }, find: { path.append(.findDeck(nil)) },
                                      importList: { path.append(.importList(kind)) })
                     }
                 } label: {
@@ -1888,6 +1888,8 @@ struct DeckFinderResult: Decodable {
         let notes: String
         let main: [Line]
         let side: [Line]
+        /// table1 (Table 1's own results) or web; older answers have none.
+        var from: String?
     }
     let status: String
     var question: String?
@@ -1906,25 +1908,39 @@ struct DeckFinderResult: Decodable {
         message = try c.decodeIfPresent(String.self, forKey: .message) ?? error
         deck = try c.decodeIfPresent(Deck.self, forKey: .deck)
     }
+
+    init(status: String, message: String?) {
+        self.status = status
+        self.message = message
+        self.error = message
+    }
+
+    static func failed(_ message: String) -> DeckFinderResult { DeckFinderResult(status: "error", message: message) }
 }
 
 /// Describe a deck in plain words; an agent finds a recent tournament list, asks when the request is
-/// ambiguous, and the list is created with each card's original paper printing.
+/// ambiguous, and the list is created with each card's original paper printing. The search runs on the server
+/// as a job (contract § Jobs): the screen polls it, the phone can be locked, and a push brings the player back.
 struct DeckFinderView: View {
     @Binding var path: [LibraryRoute]
+    /// A job to open (a tapped `deck.found` push); nil starts fresh and picks up the newest job when it's recent.
+    var jobId: String?
     @Environment(\.dismiss) private var dismiss
+    @Environment(SessionModel.self) private var session
     private var catalog: CatalogStore { CatalogStore.shared }
-    private struct Answer: Encodable { let question: String; let answer: String }
-    private struct Request: Encodable { let query: String; let format: String; let answers: [Answer] }
+    private typealias Answer = DeckFinderJob.Answer
 
     @State private var query = ""
     @State private var format = "modern"
     @State private var answers: [Answer] = []
+    /// The job under way or last shown; polled while it runs.
+    @State private var job: String?
     @State private var searching = false
     @State private var result: DeckFinderResult?
     @State private var reply = ""
     /// Card names resolved to printings; names missing from the card data are listed so nothing is dropped silently.
     @State private var resolved: [String: CatalogPrinting] = [:]
+    @State private var resumed: String?
     @FocusState private var focused: Bool
 
     private let formats: [(String, String)] = [("modern", "Modern"), ("pioneer", "Pioneer"), ("standard", "Standard"), ("legacy", "Legacy"),
@@ -1945,12 +1961,16 @@ struct DeckFinderView: View {
                     }
                 }
                 if searching {
-                    Notice("Searching mtgdecks, melee.gg, MTGGoldfish and MTGO results for the newest strong finishes. This can take a minute or two.")
+                    Notice("Searching Table 1's results, mtgdecks, melee.gg, MTGGoldfish and MTGO for the newest strong finishes. This can take a minute or two: you can lock your phone or leave this screen, and you'll get a notification when it's done.")
                 }
                 if let r = result, !searching { resultBody(r) }
             }
         }
-        .onAppear { catalog.load(userInitiated: true); focused = true }
+        .onAppear { catalog.load(userInitiated: true); focused = jobId == nil }
+        .task { await open() }
+        .task(id: job) { await poll() }
+        .task(id: session.foregrounds) { if session.foregrounds > 0 { await refresh() } }
+        .onDisappear { if PushController.shared.watchingDeckJob == job { PushController.shared.watchingDeckJob = nil } }
     }
 
     @ViewBuilder private func resultBody(_ r: DeckFinderResult) -> some View {
@@ -1966,6 +1986,7 @@ struct DeckFinderView: View {
             if let d = r.deck { deckBody(d) }
         default:
             Notice(r.message ?? "Nothing turned up. Try naming the archetype.", error: true)
+            Button { result = nil } label: { ListRow(title: "Search again") }.buttonStyle(.plain)
         }
     }
 
@@ -1973,7 +1994,7 @@ struct DeckFinderView: View {
         let names = (d.main + d.side).map(\.name)
         let missing = Array(Set(names.filter { resolved[$0] == nil })).sorted()
         let mainCount = d.main.reduce(0) { $0 + $1.qty }, sideCount = d.side.reduce(0) { $0 + $1.qty }
-        ListRow(title: d.name, detail: [d.placement, d.event, d.date].filter { !$0.isEmpty }.joined(separator: " · "))
+        ListRow(title: d.name, detail: DeckFinderJobs.headline(placement: d.placement, event: d.event, date: d.date))
         if !d.player.isEmpty || !d.notes.isEmpty {
             Notice([d.player.isEmpty ? nil : "Played by \(d.player).", d.notes.isEmpty ? nil : d.notes].compactMap { $0 }.joined(separator: " "))
         }
@@ -2008,28 +2029,82 @@ struct DeckFinderView: View {
         Task { await search() }
     }
 
+    /// Opening: a tapped push's job, else the account's newest job when it's still running or just finished.
+    private func open() async {
+        if let jobId {
+            resumed = "push"
+            searching = true
+            job = jobId
+            return
+        }
+        guard job == nil, let latest = try? await DeckFinderJobs.job(id: nil), DeckFinderJobs.resume(latest) else { return }
+        resumed = "open"
+        adopt(latest)
+    }
+
+    /// Shows a job: its request, and its result once finished.
+    private func adopt(_ j: DeckFinderJob) {
+        query = j.query
+        if let f = j.format, formats.contains(where: { $0.0 == f }) { format = f }
+        answers = j.answers
+        if j.finished {
+            searching = false
+            Task { await show(j.result ?? DeckFinderResult.failed("The deck finder couldn't finish that search. Try again.")) }
+        } else {
+            searching = true
+            result = nil
+        }
+        if job != j.jobId { job = j.jobId } else if j.finished { PushController.shared.watchingDeckJob = nil }
+    }
+
     private func search() async {
         searching = true
-        defer { searching = false }
-        let req = Request(query: query.trimmingCharacters(in: .whitespaces), format: format, answers: answers)
+        result = nil
         do {
-            let r: DeckFinderResult = try await supabase.functions.invoke("deck-finder", options: FunctionInvokeOptions(body: req)) { data, _ in
-                try JSONDecoder.snake.decode(DeckFinderResult.self, from: data)
-            }
-            if let d = r.deck, let db = catalog.db {
-                let names = (d.main + d.side).map(\.name)
-                resolved = await Task.detached(priority: .userInitiated) { db.printings(names: names) }.value
-                if FormatsCheck.known.contains(d.format) { format = d.format }
-            }
-            Telemetry.capture("deck_finder_used", ["found": r.deck != nil])
-            result = r
-        } catch FunctionsError.httpError(_, let data) {
-            result = (try? JSONDecoder.snake.decode(DeckFinderResult.self, from: data))
-                ?? (try? JSONDecoder.snake.decode(DeckFinderResult.self, from: Data(#"{"status":"error","error":"The deck finder couldn't search just now."}"#.utf8)))
+            job = try await DeckFinderJobs.start(query: query.trimmingCharacters(in: .whitespaces), format: format, answers: answers)
+            resumed = nil
         } catch {
-            result = try? JSONDecoder.snake.decode(DeckFinderResult.self,
-                                                   from: JSONEncoder().encode(["status": "error", "error": error.localizedDescription]))
+            searching = false
+            result = DeckFinderResult.failed(DeckFinderJobs.words(error))
         }
+    }
+
+    /// Asks after the job every few seconds until it's finished (errors, offline too, just wait for the next ask).
+    private func poll() async {
+        guard let id = job else { return }
+        PushController.shared.watchingDeckJob = id
+        while !Task.isCancelled {
+            if let j = try? await DeckFinderJobs.job(id: id) {
+                if query.isEmpty { query = j.query; if let f = j.format, formats.contains(where: { $0.0 == f }) { format = f }; answers = j.answers }
+                if j.finished {
+                    searching = false
+                    PushController.shared.watchingDeckJob = nil
+                    await show(j.result ?? DeckFinderResult.failed("The deck finder couldn't finish that search. Try again."))
+                    return
+                }
+            }
+            try? await Task.sleep(nanoseconds: DeckFinderJobs.pollSeconds * 1_000_000_000)
+        }
+    }
+
+    /// Back in the foreground: the job may have finished while the phone was locked.
+    private func refresh() async {
+        guard let id = job, searching, let j = try? await DeckFinderJobs.job(id: id), j.finished else { return }
+        searching = false
+        PushController.shared.watchingDeckJob = nil
+        await show(j.result ?? DeckFinderResult.failed("The deck finder couldn't finish that search. Try again."))
+    }
+
+    private func show(_ r: DeckFinderResult) async {
+        if let d = r.deck, let db = catalog.db {
+            let names = (d.main + d.side).map(\.name)
+            resolved = await Task.detached(priority: .userInitiated) { db.printings(names: names) }.value
+            if FormatsCheck.known.contains(d.format) { format = d.format }
+        }
+        if r.status != "question" {
+            Telemetry.capture("deck_finder_used", ["found": r.deck != nil, "from": r.deck?.from ?? "", "resumed": resumed ?? ""])
+        }
+        result = r
     }
 
     private func create(_ d: DeckFinderResult.Deck) {
@@ -2044,7 +2119,7 @@ struct DeckFinderView: View {
                 }
             }
         }
-        let source = [d.placement, d.event, d.date].filter { !$0.isEmpty }.joined(separator: ", ")
+        let source = DeckFinderJobs.headline(placement: d.placement, event: d.event, date: d.date).replacingOccurrences(of: " · ", with: ", ")
         let l = ListsStore.shared.create(kind: .deck, name: String(d.name.prefix(60)), format: format, entries: entries,
                                          note: source.isEmpty ? "Found online" : String("Found: \(source)".prefix(120)), from: "finder")
         path.removeLast()

@@ -65,7 +65,7 @@ enum WebLink: Equatable {
         case "card" where p.count == 2: return [.card(p[1])]
         case "decks" where p.count == 1: return [.lists(.deck)]
         case "cubes" where p.count == 1: return [.lists(.cube)]
-        case "find" where p.count == 1: return [.lists(.deck), .findDeck]
+        case "find" where p.count == 1: return [.lists(.deck), .findDeck(nil)]
         case "import" where p.count == 1: return [.collectionImport]
         case "import" where p.count == 2:
             let kind: CardList.Kind = p[1] == "cube" ? .cube : .deck

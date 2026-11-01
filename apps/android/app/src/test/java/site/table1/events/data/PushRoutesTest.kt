@@ -23,6 +23,8 @@ class PushRoutesTest {
         assertEquals(screens("collection", "collection/following", "collection/following/deck/d1"),
             link("kind" to "follow.updated", "follow_kind" to "deck", "item_id" to "d1"))
         assertEquals(screens("collection", "collection/ranking/r1"), link("kind" to "ranking.started", "ranking_id" to "r1"))
+        assertEquals(screens("collection", "collection/decks", "collection/find?job=j1"), link("kind" to "deck.found", "job_id" to "j1", "status" to "deck"))
+        assertNull(link("kind" to "deck.found", "job_id" to ""))
         assertNull(link("kind" to "ranking.started", "ranking_id" to ""))
     }
 
@@ -38,6 +40,7 @@ class PushRoutesTest {
         assertEquals(PushRoutes.Channel.Events, PushRoutes.channel("result.reported"))
         assertEquals(PushRoutes.Channel.Events, PushRoutes.channel("event.waitlist_in"))
         assertEquals(PushRoutes.Channel.Collection, PushRoutes.channel("want.price"))
+        assertEquals(PushRoutes.Channel.Collection, PushRoutes.channel("deck.found"))
         assertEquals(PushRoutes.Channel.Friends, PushRoutes.channel("friend.accepted"))
         assertEquals(PushRoutes.Channel.Account, PushRoutes.channel("moderation.review"))
         assertEquals(PushRoutes.Channel.Account, PushRoutes.channel("ops.build"))

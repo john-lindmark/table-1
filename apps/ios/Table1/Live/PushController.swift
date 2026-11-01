@@ -81,6 +81,15 @@ final class PushController {
         didSet { if let p = pendingInsights, let openInsights { pendingInsights = nil; openInsights(p) } }
     }
 
+    /// The deck finder job the Find a deck screen is showing: its own `deck.found` push needs no banner.
+    var watchingDeckJob: String?
+
+    /// Whether a push arriving in the foreground is already on screen, so no banner is shown.
+    func quiet(_ userInfo: [AnyHashable: Any]) -> Bool {
+        guard userInfo["kind"] as? String == "deck.found", let job = userInfo["job_id"] as? String else { return false }
+        return job == watchingDeckJob
+    }
+
     func didTap(_ userInfo: [AnyHashable: Any]) {
         if let p = PushRoutes.insights(userInfo) {
             Telemetry.capture("push_opened", ["kind": "insights.new", "what": p.what])

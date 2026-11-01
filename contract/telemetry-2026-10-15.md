@@ -118,7 +118,7 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `list_created` | `kind`: deck / cube, `format`, `from`: new / duplicate / import / finder |
 | `list_deleted` | `kind` |
 | `list_version_restored` | `kind` |
-| `deck_finder_used` | `found`: bool |
+| `deck_finder_used` | `found`: bool, `from`: table1 / web / "" (2026-11-01: where the list came from), `resumed`: push / open / "" (the job was opened from its push, or picked up when the screen opened) |
 | `list_imported` | `kind`, `from`: link / paste, `cards`: int |
 | `scan_session_ended` | `context`: add / trade / deck / cube / binder / wants (2026-10-19), `cards`: int, `exact`: int (read from set + collector number), `cancelled`: bool |
 | `trade_confirmed` | `gives`: int, `gets`: int, `list_conflict`: none / removed / kept, `wants_met`: int (copies), `from_trade_binder`: int (give copies from for-trade binders) |

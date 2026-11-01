@@ -118,7 +118,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async
-        -> UNNotificationPresentationOptions { [.banner, .list, .sound] }
+        -> UNNotificationPresentationOptions {
+        let info = notification.request.content.userInfo
+        if await MainActor.run(body: { PushController.shared.quiet(info) }) { return [] }
+        return [.banner, .list, .sound]
+    }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
         let info = response.notification.request.content.userInfo

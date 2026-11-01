@@ -101,10 +101,17 @@ object Push {
         return PushRoutes.link(data)
     }
 
+    /** The deck finder job the Find a deck screen is showing: its own `deck.found` push needs no notification. */
+    @Volatile var quietDeckJob: String? = null
+
+    /** Whether a push arriving is already on screen, so nothing is shown. */
+    fun quiet(data: Map<String, String>) = data["kind"] == "deck.found" && data["job_id"] != null && data["job_id"] == quietDeckJob
+
     fun show(context: Context, data: Map<String, String>) {
         val manager = NotificationManagerCompat.from(context)
         if (!manager.areNotificationsEnabled()) return
         val kind = data["kind"] ?: return
+        if (quiet(data)) return
         val tag = data["tag"] ?: kind
         val open = Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)

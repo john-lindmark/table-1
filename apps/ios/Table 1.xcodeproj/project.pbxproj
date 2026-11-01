@@ -125,6 +125,7 @@
 		86272ABAC2C1C73362AD3010 /* SignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6EB72928D7AFA1E731CE966 /* SignIn.swift */; };
 		870EDE7184C95307A98BC4A1 /* ScannerPerfTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B9DEC99DA160E4BD09F6783 /* ScannerPerfTests.swift */; };
 		8817EBF6E6B7C0D60BA7132D /* WidgetsDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B10BB83FAB7877B33910B97 /* WidgetsDemo.swift */; };
+		887AD2AF5D75DB0C55AF3AC5 /* DeckFinderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F8672BF51BE4AEAC870C925 /* DeckFinderTests.swift */; };
 		88974A47AF33E5344DFE8FEF /* Location.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49E2DC6EEA4DFED451981849 /* Location.swift */; };
 		8A85826F809DAF243771207B /* InsightsPackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5018A0E2CCCE57D7EAFC35D7 /* InsightsPackTests.swift */; };
 		8BCEC2EB4046AE6586557E96 /* LimitedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94616A41B662A13D6879A7CD /* LimitedViews.swift */; };
@@ -216,6 +217,7 @@
 		EF632CAA734ABA8B12D6B46A /* RotoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16F4325890018E036AF3A739 /* RotoStore.swift */; };
 		F01DCBAFD475341DA98BC417 /* Icons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 605B1F53DB5DCBB40CE99BBD /* Icons.swift */; };
 		F030B87EDDEA0A4ACC83541E /* DeckImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18F8B303A6D4B2219F4F8926 /* DeckImage.swift */; };
+		F0701D8A76DC78D4C98BF31D /* DeckFinderJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4767165483EE84E3E9EC265 /* DeckFinderJobs.swift */; };
 		F15C03497EC1E7A6D79B8C15 /* ShowAddsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31BC20E1870030E390265551 /* ShowAddsTests.swift */; };
 		F1D9BD70162B19F8B4D20264 /* PushController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46B2970D184C78B6A7649FC8 /* PushController.swift */; };
 		F1E199FDE199D57EA18B1F11 /* CommandZoneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9CE98EF83E5F02B0AA75DC0 /* CommandZoneTests.swift */; };
@@ -387,6 +389,7 @@
 		8CEF6031CE6F5FCA7347F5DC /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		8D37DEAB0271A674B48F9D14 /* RotoDraftView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RotoDraftView.swift; sourceTree = "<group>"; };
 		8F3765FB8D25AE05BDC0E5F6 /* CardSort.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardSort.swift; sourceTree = "<group>"; };
+		8F8672BF51BE4AEAC870C925 /* DeckFinderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckFinderTests.swift; sourceTree = "<group>"; };
 		8FE76B9CA0F768B9F8954BD9 /* Table1Widgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = Table1Widgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		91F111256FB3908BC5FBA4FE /* RotoModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RotoModel.swift; sourceTree = "<group>"; };
 		93425BE14DABA84BB49D084B /* BugsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BugsViews.swift; sourceTree = "<group>"; };
@@ -456,6 +459,7 @@
 		EAC61F0965BF63C069AA8AEC /* CardLists.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardLists.swift; sourceTree = "<group>"; };
 		ED753FFB443A9E07ADDF24C9 /* OrganizerModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrganizerModels.swift; sourceTree = "<group>"; };
 		EDF5B5BF738823A00AF4BE22 /* InsightChartViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightChartViews.swift; sourceTree = "<group>"; };
+		F4767165483EE84E3E9EC265 /* DeckFinderJobs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckFinderJobs.swift; sourceTree = "<group>"; };
 		F5BD0795A13AC897EDBDD0DA /* Table1WidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Table1WidgetsBundle.swift; sourceTree = "<group>"; };
 		FA62ADA52B58392618A6A222 /* DiscordSignInTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscordSignInTests.swift; sourceTree = "<group>"; };
 		FC1DA5EA10F583F3622B1F29 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -548,6 +552,7 @@
 				7CF2A00D5FD0FCF89937DEA6 /* CubeFieldsTests.swift */,
 				68C7222340E448B1ED82C7B0 /* CubeRankingTests.swift */,
 				507E846E91B6B1E06DB8E396 /* CubeSyncTests.swift */,
+				8F8672BF51BE4AEAC870C925 /* DeckFinderTests.swift */,
 				2C3C427BABDE0420BBFA2F31 /* DeckImageTests.swift */,
 				55984EF20A9062A4F0D1E4B9 /* DeckPhotoTests.swift */,
 				C23AB8F5588863F9D0B84282 /* DeckStatsTests.swift */,
@@ -774,6 +779,7 @@
 				0311F5466BCC42718B21F368 /* CubeRanking.swift */,
 				8A95E8A80E44E30303097909 /* CubeSync.swift */,
 				71BAD312832FB789063B97CD /* CubeSyncView.swift */,
+				F4767165483EE84E3E9EC265 /* DeckFinderJobs.swift */,
 				18F8B303A6D4B2219F4F8926 /* DeckImage.swift */,
 				4F881E5C3C0CE1939D60FC1D /* DeckMeta.swift */,
 				0F04DEBE4B56F89397A9AC63 /* DeckStats.swift */,
@@ -1012,6 +1018,7 @@
 				1C9E91CE73E8640C92729A23 /* CubeFieldsTests.swift in Sources */,
 				4654E4C93F85DA813DFBCB43 /* CubeRankingTests.swift in Sources */,
 				E01CB9A8AAB34CEC93C89971 /* CubeSyncTests.swift in Sources */,
+				887AD2AF5D75DB0C55AF3AC5 /* DeckFinderTests.swift in Sources */,
 				AE286DDDDEFF5E6EF42FD46A /* DeckImageTests.swift in Sources */,
 				341E732432FC9DBDF11EFEEC /* DeckPhotoTests.swift in Sources */,
 				DF246074B284841D5C11B4B8 /* DeckStatsTests.swift in Sources */,
@@ -1087,6 +1094,7 @@
 				4C501198ACB0A942F8B843F1 /* CubeRanking.swift in Sources */,
 				E9CA333EE5A5C3180B881E35 /* CubeSync.swift in Sources */,
 				3986897A5A481B5E3BAAEB5F /* CubeSyncView.swift in Sources */,
+				F0701D8A76DC78D4C98BF31D /* DeckFinderJobs.swift in Sources */,
 				F030B87EDDEA0A4ACC83541E /* DeckImage.swift in Sources */,
 				93FB41A6A5FE2BDECC95B81A /* DeckMeta.swift in Sources */,
 				ABFF22B51BC01146BF2C6D1A /* DeckStats.swift in Sources */,

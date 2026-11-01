@@ -213,6 +213,10 @@ enum PushRoutes {
     static func library(_ info: [AnyHashable: Any]) -> [LibraryRoute]? {
         // Wants got cheaper or fell to their max (contract/want-prices-2026-10-26.md): Wants.
         if info["kind"] as? String == "want.price" { return [.wants] }
+        // A deck search finished (contract/deck-finder-2026-10-15.md § Jobs): Find a deck on that job.
+        if info["kind"] as? String == "deck.found", let job = info["job_id"] as? String, !job.isEmpty {
+            return [.lists(.deck), .findDeck(job)]
+        }
         // A friend put cards you want up for trade: your match with them.
         if info["kind"] as? String == "trade.wants", let user = info["user_id"] as? String, !user.isEmpty {
             return [.social(.matches), .social(.match(user))]
