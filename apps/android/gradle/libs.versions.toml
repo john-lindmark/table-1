@@ -23,6 +23,7 @@ glance = "1.1.1"
 mlkitText = "19.0.1"
 mlkitTextCjk = "16.0.1"
 sentry = "8.59.0"
+posthog = "3.72.3"
 installReferrer = "2.2"
 firebaseBom = "33.7.0"
 googleServices = "4.4.2"
@@ -76,6 +77,8 @@ coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version
 sentry-android-core = { module = "io.sentry:sentry-android-core", version.ref = "sentry" }
 sentry-android-ndk = { module = "io.sentry:sentry-android-ndk", version.ref = "sentry" }
 sentry-okhttp = { module = "io.sentry:sentry-okhttp", version.ref = "sentry" }
+# Product analytics (contract/telemetry-2026-10-15.md § PostHog). No session replay.
+posthog-android = { module = "com.posthog:posthog-android", version.ref = "posthog" }
 # Android push (FCM); the project comes from app/google-services.json.
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging" }

@@ -247,11 +247,14 @@ Web (2026-10-22, `web-desktop-2026-10-22.md`): `$pageview` carries `layout`: des
 
 ## Keys
 Client keys are public by design, like the Supabase anon key. iOS reads `T1PostHogKey`, `T1PostHogHost` (default `https://us.i.posthog.com`)
-and `T1SentryDSN` from Info.plist (set in `project.yml`); empty means telemetry is off. Android reads `BuildConfig` (Sentry: `T1_SENTRY_DSN` in gradle.properties; Debug sends only when built with `-PT1_TELEMETRY=1`), web reads `VITE_POSTHOG_KEY`
+and `T1SentryDSN` from Info.plist (set in `project.yml`); empty means telemetry is off. Android reads `BuildConfig` (`T1_SENTRY_DSN`, `T1_POSTHOG_KEY`, `T1_POSTHOG_HOST` in gradle.properties; Debug sends only when built with `-PT1_TELEMETRY=1`), web reads `VITE_POSTHOG_KEY`
 and `VITE_SENTRY_DSN`. Web drops GA4 (`gtag`) for PostHog but keeps `redactPath` / `redactSearch` for `$current_url`.
 
 ## Rollout
 iOS (2026-10-15) → web → Android, per the build order. Android Sentry (crashes, native crashes, ANRs, non-fatal errors, 5xx
 from the Supabase client) built 2026-10-19 with the Account opt-out; off until `T1_SENTRY_DSN` is set and the `table-1-android` alert rules
-point at the Table 1 Bugs integration; not yet run on a device; ProGuard mapping upload waits for release signing. Android PostHog is not wired yet
-(`Telemetry.capture` logs in Debug). Server-side capture from `events-engine` is not needed while business numbers come from Postgres.
+point at the Table 1 Bugs integration; not yet run on a device; ProGuard mapping upload waits for release signing. Android DSN set 2026-11-01.
+Android PostHog wired 2026-11-01 (posthog-android 3.72.3, same project as iOS/web): lifecycle events, hand-named screens,
+push opens and the FCM push subscription on; screen autocapture, deep links (they can carry share tokens and join codes),
+element interactions, rage/dead clicks, session replay and surveys off; identified-only person profiles; the Account opt-out
+flushes and opts out. Not yet seen in PostHog from a device. Widget super properties (iOS `syncSurfaces`) not on Android yet. Server-side capture from `events-engine` is not needed while business numbers come from Postgres.

@@ -2,6 +2,10 @@ package site.table1.events.util
 
 import android.content.Context
 import android.util.Log
+import com.posthog.PersonProfiles
+import com.posthog.PostHog
+import com.posthog.android.PostHogAndroid
+import com.posthog.android.PostHogAndroidConfig
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.sentry.Breadcrumb
@@ -23,14 +27,16 @@ import site.table1.events.T1App
 
 /**
  * Crash reporting (Sentry) and product analytics, per contract/telemetry-2026-10-15.md, mirroring iOS Telemetry.swift.
- * Sentry is off when `T1_SENTRY_DSN` is empty, in Debug unless built with `-PT1_TELEMETRY=1`, and when the person turns
- * off "Share usage and crash data" in Account. PostHog isn't wired on Android yet: `capture` logs in Debug until it lands.
+ * Sentry is off when `T1_SENTRY_DSN` is empty, PostHog when `T1_POSTHOG_KEY` is; both are off in Debug unless built with
+ * `-PT1_TELEMETRY=1`, and when the person turns off "Share usage and crash data" in Account.
  * Properties are counts, enums and booleans only: never names, free text, join codes or row ids.
  */
 object Telemetry {
     private const val OPT_OUT_KEY = "telemetry.optedOut"
     private val prefs get() = T1App.instance.getSharedPreferences("telemetry", Context.MODE_PRIVATE)
     private var sentryOn = false
+    private var postHogOn = false
+    private var postHogSetUp = false   // PostHogAndroid.setup runs once per process; opting back in only calls optIn
     private var watchingSession = false
 
     val sharing: Boolean get() = !prefs.getBoolean(OPT_OUT_KEY, false)
@@ -40,7 +46,14 @@ object Telemetry {
 
     /** Called first thing in Application.onCreate, before anything else can crash. */
     fun start(context: Context) {
-        if (!allowedInBuild || !sharing || BuildConfig.SENTRY_DSN.isEmpty()) return
+        if (!allowedInBuild || !sharing) return
+        startSentry(context)
+        startPostHog(context)
+        if (sentryOn || postHogOn) watchSession()
+    }
+
+    private fun startSentry(context: Context) {
+        if (BuildConfig.SENTRY_DSN.isEmpty()) return
         val env = environment
         SentryAndroid.init(context) { o ->
             o.dsn = BuildConfig.SENTRY_DSN
@@ -58,7 +71,35 @@ object Telemetry {
             o.setBeforeSendTransaction { tx, _ -> scrub(tx) }
         }
         sentryOn = true
-        watchSession()
+    }
+
+    private fun startPostHog(context: Context) {
+        if (BuildConfig.POSTHOG_KEY.isEmpty()) return
+        if (!postHogSetUp) {
+            val config = PostHogAndroidConfig(BuildConfig.POSTHOG_KEY, BuildConfig.POSTHOG_HOST).apply {
+                captureApplicationLifecycleEvents = true
+                captureScreenViews = false      // named by hand with screen()
+                // Opened links can carry share-link tokens and join codes; `link_opened` records the kind instead.
+                captureDeepLinks = false
+                captureElementInteractions = false
+                captureRageClicks = false
+                captureDeadClicks = false
+                sessionReplay = false
+                surveys = false
+                // Push stays on, as on iOS: `$push_notification_opened` and the FCM push subscription. For pushes
+                // we send, PostHog records the open without the title or body.
+                personProfiles = PersonProfiles.IDENTIFIED_ONLY
+                debug = BuildConfig.DEBUG       // logs each capture and flush to logcat
+            }
+            PostHogAndroid.setup(context, config)
+            postHogSetUp = true
+        }
+        PostHog.optIn()   // clears an earlier opt-out; start() only runs while sharing is on
+        PostHog.register("platform", "android")
+        PostHog.register("app_version", BuildConfig.VERSION_NAME)
+        PostHog.register("build", BuildConfig.VERSION_CODE.toString())
+        PostHog.register("environment", environment)
+        postHogOn = true
     }
 
     /**
@@ -87,23 +128,41 @@ object Telemetry {
         }
     }
 
-    /** The Supabase user id only: no email or name. */
+    /** The Supabase user id only: no email or name, in either tool. */
     fun identify(userId: String) {
+        if (postHogOn) {
+            PostHog.identify(
+                userId,
+                userProperties = mapOf("platform" to "android"),
+                userPropertiesSetOnce = mapOf("first_seen_app_version" to BuildConfig.VERSION_NAME),
+            )
+        }
         if (sentryOn) Sentry.setUser(User().apply { id = userId })
     }
 
     fun reset() {
+        if (postHogOn) PostHog.reset()
         if (sentryOn) Sentry.setUser(null)
     }
 
     // events
 
     fun capture(event: String, properties: Map<String, Any> = emptyMap()) {
-        if (BuildConfig.DEBUG) Log.d("Telemetry", "$event $properties")
+        if (!postHogOn) {
+            if (BuildConfig.DEBUG) Log.d("Telemetry", "$event $properties")
+            return
+        }
+        PostHog.capture(event, properties = properties.ifEmpty { null })
     }
 
     /** A screen shown: `$screen` with a name from the contract's screen list (never ids). */
-    fun screen(name: String) = capture("\$screen", mapOf("\$screen_name" to name))
+    fun screen(name: String) {
+        if (!postHogOn) {
+            if (BuildConfig.DEBUG) Log.d("Telemetry", "\$screen $name")
+            return
+        }
+        PostHog.screen(name)
+    }
 
     /** A failure the app recovered from but that shouldn't happen. */
     fun error(error: Throwable, area: String) {
@@ -121,7 +180,9 @@ object Telemetry {
             T1App.supabase.auth.currentUserOrNull()?.id?.let { identify(it) }
         } else {
             capture("analytics_opted_out")
+            if (postHogOn) { PostHog.flush(); PostHog.optOut() }
             if (sentryOn) Sentry.close()
+            postHogOn = false
             sentryOn = false
             prefs.edit().putBoolean(OPT_OUT_KEY, true).apply()
         }

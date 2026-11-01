@@ -31,9 +31,11 @@ android {
         buildConfigField("String", "SUPABASE_URL", "\"${prop("T1_SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${prop("T1_SUPABASE_ANON_KEY")}\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${prop("T1_GOOGLE_WEB_CLIENT_ID")}\"")
-        // Sentry (contract/telemetry-2026-10-15.md): empty DSN = off. Debug builds send nothing unless
-        // built with -PT1_TELEMETRY=1. Release builds report T1_ENVIRONMENT (testflight or production).
+        // Sentry and PostHog (contract/telemetry-2026-10-15.md): an empty DSN / key = off. Debug builds send nothing
+        // unless built with -PT1_TELEMETRY=1. Release builds report T1_ENVIRONMENT (testflight or production).
         buildConfigField("String", "SENTRY_DSN", "\"${prop("T1_SENTRY_DSN")}\"")
+        buildConfigField("String", "POSTHOG_KEY", "\"${prop("T1_POSTHOG_KEY")}\"")
+        buildConfigField("String", "POSTHOG_HOST", "\"${prop("T1_POSTHOG_HOST").ifEmpty { "https://us.i.posthog.com" }}\"")
         buildConfigField("boolean", "TELEMETRY_IN_DEBUG", (prop("T1_TELEMETRY") == "1").toString())
         buildConfigField("String", "RELEASE_ENVIRONMENT", "\"${prop("T1_ENVIRONMENT").ifEmpty { "production" }}\"")
     }
@@ -123,6 +125,7 @@ dependencies {
     implementation(libs.sentry.android.core)
     implementation(libs.sentry.android.ndk)
     implementation(libs.sentry.okhttp)
+    implementation(libs.posthog.android)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
