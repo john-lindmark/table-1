@@ -1,5 +1,4 @@
 import AVFoundation
-import CoreImage
 import SwiftUI
 import Vision
 
@@ -93,9 +92,6 @@ struct CardTextScanner: UIViewRepresentable {
         private let latin = Coordinator.request(detect: false)
         private let anyScript = Coordinator.request(detect: true)
         private let cards = Coordinator.cardRequest()
-        /// The card's bottom strip, read on its own (see `bottomLines`).
-        private let strip = Coordinator.request(detect: false)
-        private let ci = CIContext(options: [.cacheIntermediates: false])
         /// The preview's size (main thread writes it through `queue`), to place the guide box in the image.
         private var view: CGSize = .zero
 
@@ -135,29 +131,6 @@ struct CardTextScanner: UIViewRepresentable {
             let q = [o.topLeft, o.topRight, o.bottomRight, o.bottomLeft]
             let c = CGPoint(x: q.map(\.x).reduce(0, +) / 4, y: q.map(\.y).reduce(0, +) / 4)
             return q.map { CGPoint(x: c.x + ($0.x - c.x) * 1.1, y: c.y + ($0.y - c.y) * 1.1) }
-        }
-
-        /// The card's bottom strip read on its own (2026-10-28): the card deskewed to 630 × 880, its bottom 11% cropped
-        /// and upscaled 2x, then read. That strip holds the set code, collector number, copyright year and the
-        /// "Illus." credit, printed too small for the whole-frame read to get on most frames: retro-frame reprints
-        /// (MH2's fetchlands) went in as their first printing with "Check printing" because only the name and rules
-        /// text read. A few tens of milliseconds; measured on the photo set as the `bottom` read in testdata/scan.
-        private func bottomLines(_ pixels: CVPixelBuffer, _ o: VNRectangleObservation, image: CGSize) -> [String] {
-            let f = CIFilter(name: "CIPerspectiveCorrection")!
-            // Upright like Vision's results, with its origin at zero so the normalized corners scale onto it.
-            let src = CIImage(cvPixelBuffer: pixels).oriented(.right)
-            f.setValue(src.transformed(by: CGAffineTransform(translationX: -src.extent.minX, y: -src.extent.minY)), forKey: kCIInputImageKey)
-            for (key, p) in [("inputTopLeft", o.topLeft), ("inputTopRight", o.topRight), ("inputBottomRight", o.bottomRight), ("inputBottomLeft", o.bottomLeft)] {
-                f.setValue(CIVector(x: p.x * image.width, y: p.y * image.height), forKey: key)
-            }
-            guard let card = f.outputImage else { return [] }
-            let e = card.extent
-            let upright = card.transformed(by: CGAffineTransform(translationX: -e.minX, y: -e.minY))
-                .transformed(by: CGAffineTransform(scaleX: 630 / e.width, y: 880 / e.height))
-            let crop = upright.cropped(to: CGRect(x: 0, y: 0, width: 630, height: 880 * 0.11)).transformed(by: CGAffineTransform(scaleX: 2, y: 2))
-            guard let cg = ci.createCGImage(crop, from: crop.extent),
-                  (try? VNImageRequestHandler(cgImage: cg).perform([strip])) != nil else { return [] }
-            return (strip.results ?? []).sorted { $0.boundingBox.maxY > $1.boundingBox.maxY }.compactMap { $0.topCandidates(1).first?.string }
         }
 
         /// Whether p is inside the convex quad q.
@@ -232,17 +205,18 @@ struct CardTextScanner: UIViewRepresentable {
             let request = detect ? anyScript : latin
             let image = CGSize(width: CVPixelBufferGetHeight(pixels), height: CVPixelBufferGetWidth(pixels))
             let guide = view.width > 0 ? ScanRegion.normalized(ScanRegion.viewBox(view), view: view, image: image) : nil
-            // Text is read only around the guide (a card held a little off it still fits): fewer pixels per frame,
-            // so frames come faster. Rectangles are found in the whole frame; they cost little.
-            request.regionOfInterest = guide.map(ScanRegion.reading) ?? CGRect(x: 0, y: 0, width: 1, height: 1)
+            // The whole frame is read, as before 2026-10-28: reading only around the guide, with the card's bottom strip
+            // deskewed and read on its own, cost a Core Image render and a second Vision pass per frame on the phone,
+            // and a card held larger than the guide lost its title to the region's edge, so its flavor text named the
+            // card (an Ice Age Counterspell went in as Gustha Ebbasdotter, 2026-11-01). Measured on the Mac the two
+            // cost about the same; on the phone the one read is the lighter and the surer.
             guard (try? VNImageRequestHandler(cvPixelBuffer: pixels, orientation: .right).perform([cards, request])) != nil else { return }
             // With a card in the guide, only the text on it: a keyboard, a screen or another card beside it can't name
             // a card. Without one, only the text inside the guide.
-            let found = Self.card(cards.results ?? [], guide: guide, image: image)
-            let card = found.map(Self.grown)
+            let card = Self.card(cards.results ?? [], guide: guide, image: image).map(Self.grown)
             let reading = guide.map { ScanRegion.grown($0, 0.1) }
             // Vision's origin is bottom-left: the top of the frame has the largest maxY.
-            var lines = (request.results ?? [])
+            let lines = (request.results ?? [])
                 .filter { o in
                     let c = CGPoint(x: o.boundingBox.midX, y: o.boundingBox.midY)
                     if let card { return Self.inside(c, card) }
@@ -250,7 +224,6 @@ struct CardTextScanner: UIViewRepresentable {
                 }
                 .sorted { $0.boundingBox.maxY > $1.boundingBox.maxY }
                 .compactMap { $0.topCandidates(1).first?.string }
-            if let found { lines += bottomLines(pixels, found, image: image) }
             let onCard = card != nil
             matching = true
             DispatchQueue.main.async { [self] in
@@ -491,12 +464,6 @@ enum ScanRegion {
     }
 
     static func grown(_ r: CGRect, _ f: CGFloat) -> CGRect { r.insetBy(dx: -r.width * f / 2, dy: -r.height * f / 2) }
-
-    /// Where text is read: the guide grown by half, inside the image, so a card whose centre is anywhere `pick`
-    /// accepts (the guide grown by a quarter) is read whole, and the rest of the frame costs nothing.
-    static func reading(_ guide: CGRect) -> CGRect {
-        grown(guide, 0.5).intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
-    }
 
     /// Of card-shaped quads (normalized corners), the one to read: its centre inside the guide grown by a quarter
     /// (a card held a little off still counts), nearest the guide's centre in pixels. Nil when none is in the guide.

@@ -190,6 +190,22 @@ class CardMatcherTest {
      * line, years on copyright lines the camera garbles, more spellings of the set code line, an "Illus." line, lone
      * numbers that could be a misread power/toughness kept apart, and the illustrator's name read with a few errors.
      */
+    /**
+     * A name is never read from below the type line (2026-11-01): the title is above it, and the flavor text under
+     * it names people who are cards too. An Ice Age Counterspell whose title the camera missed went in as Gustha
+     * Ebbasdotter (Mystery Booster Commander) from "-Gustha Ebbasdotter," on John's iPhone (report 17843b42).
+     */
+    @Test
+    fun noNameFromBelowTheTypeLine() {
+        val m = CardMatcher(catalog, null, names)
+        val flavor = listOf("Interrupt", "Counter target spell.", "\"The duel was going badly for me,", "and Zur thought I was finished. He",
+            "-Lightning Bolt,", "Kjeldoran Royal Mage", "Illus. L.A. Williams")
+        assertNull("a card named in the flavor text isn't the card", m.match(flavor))
+        assertEquals("Lightning Bolt", m.match(listOf("Lightning Bolt", "Instant", "Lightning Bolt deals 3 damage to any target."))?.oracle?.name)
+        // Without a type line read, a multi-word name lower down still counts, as before.
+        assertEquals("Lightning Bolt", m.match(listOf("smudge", "glare", "more glare", "Lightning Bolt", "deals 3 damage to any target."))?.oracle?.name)
+    }
+
     @Test
     fun bottomLineParsing() {
         val sets = setOf("mh2", "mh1", "rvr", "40k", "ecl", "neo", "a25", "gtc")

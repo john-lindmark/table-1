@@ -295,6 +295,20 @@ final class CardMatcherTests: XCTestCase {
         XCTAssertEqual(m.rememberedFrames, 0)
     }
 
+    /// A name is never read from below the type line (2026-11-01): the title is above it, and the flavor text
+    /// under it names people who are cards too. An Ice Age Counterspell whose title the camera missed went in as
+    /// Gustha Ebbasdotter (Mystery Booster Commander) from "-Gustha Ebbasdotter," on John's phone, three takes in a
+    /// row (report 17843b42, in testdata/scan/reports).
+    func testNoNameFromBelowTheTypeLine() {
+        let m = matcher()
+        let flavor = ["Interrupt", "Counter target spell.", "\"The duel was going badly for me,", "and Zur thought I was finished. He",
+                      "-Lightning Bolt,", "Kjeldoran Royal Mage", "Illus. L.A. Williams"]
+        XCTAssertNil(m.match(flavor), "a card named in the flavor text isn't the card")
+        XCTAssertEqual(m.match(["Lightning Bolt", "Instant", "Lightning Bolt deals 3 damage to any target."])?.oracle.name, "Lightning Bolt")
+        // Without a type line read, a multi-word name lower down still counts, as before.
+        XCTAssertEqual(m.match(["smudge", "glare", "more glare", "Lightning Bolt", "deals 3 damage to any target."])?.oracle.name, "Lightning Bolt")
+    }
+
     func testCollectorLanguage() {
         XCTAssertEqual(Collector(["154/264 M", "WAR • JP Artist"], sets: ["war"]).lang, "ja")
         XCTAssertEqual(Collector(["RIX • RU"], sets: ["rix"]).lang, "ru")

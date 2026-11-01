@@ -298,8 +298,11 @@ class CardMatcher(
             if (typeLine(words[i])) break
             for (q in candidates(words[i])) if (fits(q, i)) (names.prefix(q) ?: names.fuzzy(q))?.takeIf { allowed(it.idx) }?.let { return it }
         }
-        // Not a Japanese, Chinese or Korean name: short ones turn up in rules text.
-        for (i in minOf(3, words.size) until words.size) {
+        // Not a Japanese, Chinese or Korean name: short ones turn up in rules text. And never from below the type
+        // line: the title is above it, and the flavor text under it names people who are cards too (an Ice Age
+        // Counterspell whose title didn't read went in as Gustha Ebbasdotter, from "-Gustha Ebbasdotter,", 2026-11-01).
+        val below = words.indexOfFirst { typeLine(it) }.let { if (it < 0) words.size else it }
+        for (i in minOf(3, words.size) until below) {
             if (words[i].any(CardName::hasCjk)) continue
             exact(i)?.let { if (oracle(it.idx)?.norm?.contains(' ') == true) return it }
         }

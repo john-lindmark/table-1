@@ -29,20 +29,6 @@ final class ScanRegionTests: XCTestCase {
         XCTAssertEqual(top.minY, 0.9, accuracy: 0.001)
     }
 
-    /// Text is read only around the guide (2026-10-28): a card held anywhere `pick` accepts is still read whole, and
-    /// the region never leaves the image.
-    func testReadingRegionCoversACardHeldOff() {
-        let guide = CGRect(x: 0.14, y: 0.25, width: 0.72, height: 0.5)
-        let r = ScanRegion.reading(guide)
-        XCTAssertTrue(r.contains(guide))
-        XCTAssertTrue(CGRect(x: 0, y: 0, width: 1, height: 1).contains(r), "inside the image")
-        // A card the size of the guide, centred at the edge of the zone pick accepts (the guide grown by a quarter).
-        let zone = ScanRegion.grown(guide, 0.25)
-        let card = CGRect(x: zone.minX - guide.width / 2, y: zone.midY - guide.height / 2, width: guide.width, height: guide.height)
-        XCTAssertTrue(r.contains(card.intersection(CGRect(x: 0, y: 0, width: 1, height: 1))))
-        XCTAssertLessThan(r.width * r.height, 1, "cheaper than the whole frame")
-    }
-
     private func quad(cx: CGFloat, cy: CGFloat, w: CGFloat = 0.3, h: CGFloat = 0.25) -> [CGPoint] {
         [CGPoint(x: cx - w / 2, y: cy + h / 2), CGPoint(x: cx + w / 2, y: cy + h / 2),
          CGPoint(x: cx + w / 2, y: cy - h / 2), CGPoint(x: cx - w / 2, y: cy - h / 2)]

@@ -412,8 +412,11 @@ final class CardMatcher: @unchecked Sendable {
                 if let o = names.prefix(q) ?? names.fuzzy(q), allowed(o.idx) { return o }
             }
         }
-        // Not a Japanese, Chinese or Korean name: short ones turn up in rules text.
-        for i in min(3, words.count)..<words.count where !words[i].contains(where: { CardName.hasCJK(String($0)) }) {
+        // Not a Japanese, Chinese or Korean name: short ones turn up in rules text. And never from below the type
+        // line: the title is above it, and the flavor text under it names people who are cards too (an Ice Age
+        // Counterspell whose title didn't read went in as Gustha Ebbasdotter, from "-Gustha Ebbasdotter,", 2026-11-01).
+        let below = words.firstIndex(where: Self.typeLine) ?? words.count
+        for i in min(3, words.count)..<max(below, min(3, words.count)) where !words[i].contains(where: { CardName.hasCJK(String($0)) }) {
             if let o = exact(i), oracle(o.idx)?.norm.contains(" ") == true { return o }
         }
         return nil

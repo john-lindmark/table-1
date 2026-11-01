@@ -265,6 +265,19 @@ sustained load, so if scanning still slows with time rather than with rows, ther
 the scanner stays in once it has switched while cards keep matching, costs only a few percent more per read on the
 Mac (median 146 vs 140 ms over 30 photos) and isn't it.
 
+Build 43 was still slow on John's phone and named cards wrong (2026-11-01), so the camera side of 2026-10-28 is
+reverted: the iOS scanner reads the whole frame again (no region of interest around the guide, no deskewed
+bottom-strip read, no Core Image per frame); the matcher's printing rules from that day stay. His reports showed
+why: an Ice Age Counterspell, held larger than the guide, lost its title to the reading region's edge in most frames
+(they start at "Interrupt"), and the matcher's fallback, an exact multi-word name anywhere in the first twelve lines,
+took the flavor text's "-Gustha Ebbasdotter," for the card (a Mystery Booster Commander card), three takes in a row
+(report 17843b42, now a case here). The matcher on both platforms now never takes a name from below the type line
+(`testNoNameFromBelowTheTypeLine` / `noNameFromBelowTheTypeLine`); the photo and report numbers are unchanged
+(JVM: reports name 196/202, 0 wrong, printing 90/195). Old sets stay a guess: Alpha, Beta, Unlimited and Revised
+print nothing that tells them apart, so the scanner guesses Revised and follows a hand fix for the next card; the
+border colour (black for Alpha, Beta and Foreign Black Border, white for Unlimited and Revised) is the next tell
+worth reading from the frame, and would halve that guess.
+
 Reported corrections (201 clips): name 196/201, **printing 90/195 (46%), was 5/195** (every report was a wrong
 printing). Of the 105 left: 21 The List (the bottom text is the reprinted set's; only a tiny symbol differs), 11
 prerelease and promo-pack stamps the camera doesn't read, 8 Unlimited/Beta read as Revised (nothing printed tells
