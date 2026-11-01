@@ -79,7 +79,7 @@ class InsightsPackTest {
         for (c in root["cases"]!!.jsonArray) {
             val o = c.jsonObject
             val w = o["want"]!!.jsonObject
-            val want = DeckInsight(w["title"]!!.jsonPrimitive.contentOrNull, w["win"]!!.jsonPrimitive.contentOrNull, w["change"]!!.jsonPrimitive.contentOrNull,
+            val want = DeckInsight(w["title"]!!.jsonPrimitive.contentOrNull, w["similar"]!!.jsonPrimitive.contentOrNull, w["win"]!!.jsonPrimitive.contentOrNull, w["change"]!!.jsonPrimitive.contentOrNull,
                 w["good"]!!.jsonArray.map { it.jsonPrimitive.content }, w["bad"]!!.jsonArray.map { it.jsonPrimitive.content }, w["note"]!!.jsonPrimitive.contentOrNull)
             assertEquals(o["name"]!!.jsonPrimitive.content, want, deckInsight(json.decodeFromJsonElement(DeckInsightAnswer.serializer(), o["answer"]!!)))
         }

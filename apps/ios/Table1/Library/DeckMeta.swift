@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// A deck's archetype on the deck's own screen (contract/insights-2026-10-24.md § A deck's archetype): its name, 30-day
-/// win rate and change on last week (opens the archetype's Insights page over the deck), then its best and worst matchups. Same as web
-/// DeckMetaRows and Android DeckMetaRows.
+/// A deck's archetype on the deck's own screen (contract/insights-2026-10-24.md § A deck's archetype): its name, how
+/// similar the deck is to the archetype's nearest list, 30-day win rate and change on last week (opens the archetype's
+/// Insights page over the deck), then its best and worst matchups; nothing for a brew. Same as web DeckMetaRows and
+/// Android DeckMetaRows.
 struct DeckMetaRows: View {
     let listId: String
     @Binding var path: [LibraryRoute]
@@ -21,9 +22,9 @@ struct DeckMetaRows: View {
                         Task { await InsightsStore.shared.load(); await InsightsStore.shared.ensure(format: answer.format) }
                     }
                     Button(action: open) {
-                        ListRow(title: title, detail: [d.win ?? "Too few matches for a win rate", d.change].compactMap { $0 }.joined(separator: " · ")) {
-                            Text("Insights").font(T1.mono(13))
-                        }
+                        // Similarity on a line of its own, so a phone still shows the change on last week.
+                        LinesRow(title: title, lines: [d.similar, [d.win ?? "Too few matches for a win rate", d.change].compactMap { $0 }.joined(separator: " · ")].compactMap { $0 },
+                                 value: "Insights")
                     }.buttonStyle(.plain)
                     if !d.good.isEmpty { Button(action: open) { LinesRow(title: "Good against", lines: d.good) }.buttonStyle(.plain) }
                     if !d.bad.isEmpty { Button(action: open) { LinesRow(title: "Bad against", lines: d.bad) }.buttonStyle(.plain) }
@@ -45,10 +46,15 @@ struct DeckMetaRows: View {
 private struct LinesRow: View {
     let title: String
     let lines: [String]
+    var value: String? = nil
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(T1.mono(14)).lineLimit(1)
-            ForEach(lines, id: \.self) { LabelText($0) }
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(T1.mono(14)).lineLimit(1)
+                ForEach(lines, id: \.self) { LabelText($0) }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if let value { Text(value).font(T1.mono(13)) }
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)

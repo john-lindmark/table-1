@@ -217,16 +217,18 @@ fun yoursFirst(rows: List<Int>, mine: Mine?): List<Pair<Int, String?>> {
 // a deck's archetype, on the deck's own screen (list_insight)
 @Serializable data class Record3(val wins: Int, val losses: Int, val draws: Int)
 @Serializable data class DeckMatchup(val vs: Int, val name: String, val wins: Int, val losses: Int, val draws: Int)
+/** list_insight's answer; `similarity` is the deck against its archetype's nearest list, 0–1 (a brew, reason "brew", has no `a`). */
 @Serializable data class DeckInsightAnswer(val format: String, val a: Int? = null, val name: String? = null, val reason: String? = null,
+                                           val similarity: Double? = null,
                                            val month: Record3? = null, val week: Record3? = null, val prev: Record3? = null,
                                            val matchups: List<DeckMatchup>? = null)
-data class DeckInsight(val title: String?, val win: String?, val change: String?, val good: List<String>, val bad: List<String>, val note: String?)
+data class DeckInsight(val title: String?, val similar: String?, val win: String?, val change: String?, val good: List<String>, val bad: List<String>, val note: String?)
 /** Matches a rate needs before it's shown. */
 const val DECK_MIN = 20
 /** How a deck screen words its archetype's numbers (testdata/insights/deck-insight.json). */
 fun deckInsight(r: DeckInsightAnswer): DeckInsight {
-    if (r.reason == "other" || r.a == 0) return DeckInsight(null, null, null, emptyList(), emptyList(), "Doesn't match an archetype Insights knows")
-    if (r.a == null || r.name == null) return DeckInsight(null, null, null, emptyList(), emptyList(), null)
+    if (r.reason == "other" || r.a == 0) return DeckInsight(null, null, null, null, emptyList(), emptyList(), "Doesn't match an archetype Insights knows")
+    if (r.a == null || r.name == null) return DeckInsight(null, null, null, null, emptyList(), emptyList(), null)
     fun rate(x: Record3?): Double? {
         val n = x?.let { it.wins + it.losses + it.draws } ?: 0
         return if (x != null && n >= DECK_MIN) x.wins.toDouble() / n else null
@@ -242,7 +244,7 @@ fun deckInsight(r: DeckInsightAnswer): DeckInsight {
         .map { Rated(it.name, it.wins.toDouble() / (it.wins + it.losses), it.wins + it.losses) }
     val good = rated.filter { it.wr > 0.5 }.sortedWith(compareByDescending<Rated> { it.wr }.thenByDescending { it.n }).take(3)
     val bad = rated.filter { it.wr < 0.5 }.sortedWith(compareBy<Rated> { it.wr }.thenByDescending { it.n }).take(3)
-    return DeckInsight(r.name, rate(r.month)?.let { "Win ${InsightCharts.pct1(it)}" }, change,
+    return DeckInsight(r.name, r.similarity?.let { "${Math.round(it * 100)}% similar" }, rate(r.month)?.let { "Win ${InsightCharts.pct1(it)}" }, change,
         good.map { "${it.name} ${InsightCharts.pct(it.wr)}" }, bad.map { "${it.name} ${InsightCharts.pct(it.wr)}" }, null)
 }
 @Serializable data class EventRow(val name: String, val on: String, val players: Int? = null, val tier: String, val source: String, val url: String? = null,

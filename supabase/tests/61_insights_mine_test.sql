@@ -96,13 +96,42 @@ set role authenticated;
 select pg_temp.as_user(:ANA);
 select pg_temp.eq('your deck: its archetype, 30 days, this week, the week before, and each matchup',
   (public.list_insight(:DECK))::text,
-  '{"a": 1, "name": "Red", "prev": {"wins": 0, "draws": 0, "losses": 1}, "week": {"wins": 2, "draws": 0, "losses": 1}, "month": {"wins": 2, "draws": 0, "losses": 2}, "format": "modern", "matchups": [{"vs": 2, "name": "Blue", "wins": 2, "draws": 0, "losses": 2}]}');
+  '{"a": 1, "name": "Red", "prev": {"wins": 0, "draws": 0, "losses": 1}, "week": {"wins": 2, "draws": 0, "losses": 1}, "month": {"wins": 2, "draws": 0, "losses": 2}, "format": "modern", "matchups": [{"vs": 2, "name": "Blue", "wins": 2, "draws": 0, "losses": 2}], "similarity": 0.760}');
 reset role;
 select pg_temp.eq('kept for the archetype and the day', (select count(*) || ' ' || bool_and(on_day = current_date)::text from t1_private.archetype_insight), '1 true');
+select pg_temp.eq('the kept answer carries no deck''s similarity', (select count(*) from t1_private.archetype_insight where result ? 'similarity')::text, '0');
 set role authenticated;
 select pg_temp.as_user(:ANA);
 select pg_temp.eq('a second ask reads the kept answer', (public.list_insight(:DECK))->'week'->>'wins', '2');
 select pg_temp.eq('a deck no rule names', (public.list_insight('d2000000-0000-0000-0000-000000000002'))->>'reason', 'other');
+
+-- How close a deck is: the mean over the (up to) 10 nearest Red lists, non-basic main cards only
+-- (20261101140000_list_insight_similarity.sql). 4 Alpha + 2 Delta (and Mountains): p3 shares 5 of the larger 6
+-- copies, the four other Red lists 4 of 6: (5 + 4 × 4) ÷ 30.
+select public.list_create('d2000000-0000-0000-0000-000000000003', 'deck', 'Red with Delta', 'modern',
+  jsonb_build_array(jsonb_build_array(pg_temp.p('Alpha'), 'main', 4), jsonb_build_array(pg_temp.p('Delta'), 'main', 2),
+                    jsonb_build_array(pg_temp.p('Mountain'), 'main', 18))) is not null as made \gset
+select pg_temp.eq('similarity to the archetype''s nearest lists', (public.list_insight('d2000000-0000-0000-0000-000000000003'))->>'similarity', '0.700');
+select pg_temp.eq('a kept answer still gets this deck''s similarity', (public.list_insight(:DECK))->>'similarity', '0.760');
+reset role;
+select pg_temp.eq('lists older than 90 days only count when there are no newer ones',
+  t1_private.meta_similarity('modern', 1, array[md5('Alpha'), md5('Delta')]::uuid[], '{4,4}')::text, '0.525');
+select pg_temp.eq('basics only: no similarity', (t1_private.meta_similarity('modern', 1, array[md5('Mountain')]::uuid[], '{20}') is null)::text, 'true');
+delete from t1_private.meta_decks where player = 'p7';
+update t1_private.meta_decks set on_date = current_date - 200 where archetype_id = 2;
+select pg_temp.eq('no list in 90 days: the year''s',
+  t1_private.meta_similarity('modern', 2, array[md5('Gamma')]::uuid[], '{4}')::text, '1.000');
+update t1_private.meta_decks set on_date = current_date - 5 where archetype_id = 2 and event_id = 1;
+update t1_private.meta_decks set on_date = current_date - 10 where archetype_id = 2 and event_id = 3;
+
+-- A brew (Spice 50+) shows no archetype: the answer has no a, so builds from before this hide the rows too.
+insert into t1_private.list_spice (list_id, seq, on_day, result)
+select id, seq, current_date, '{"kind": "deck", "score": 62, "word": "brew"}' from public.card_lists where id = 'd2000000-0000-0000-0000-000000000003'
+on conflict (list_id) do update set seq = excluded.seq, on_day = excluded.on_day, result = excluded.result;
+set role authenticated;
+select pg_temp.as_user(:ANA);
+select pg_temp.eq('a brew', (public.list_insight('d2000000-0000-0000-0000-000000000003'))::text,
+  '{"a": null, "format": "modern", "reason": "brew", "archetype": 1, "similarity": 0.700}');
 select pg_temp.as_user(:BEN);
 select pg_temp.throws('someone else''s private deck', format('select public.list_insight(%L)', :DECK), '42501');
 select pg_temp.as_user(null);

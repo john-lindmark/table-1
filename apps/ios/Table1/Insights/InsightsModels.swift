@@ -199,20 +199,22 @@ enum Insights {
     struct DeckMatchup: Codable, Hashable { let vs: Int; let name: String; let wins: Int; let losses: Int; let draws: Int }
     struct DeckInsightAnswer: Codable, Hashable {
         let format: String; let a: Int?; var name: String? = nil; var reason: String? = nil
+        /// The deck against its archetype's nearest list, 0–1; a brew (reason "brew") has no `a`.
+        var similarity: Double? = nil
         var month: Record3? = nil; var week: Record3? = nil; var prev: Record3? = nil
         var matchups: [DeckMatchup]? = nil
     }
     struct DeckInsight: Equatable {
-        let title: String?; let win: String?; let change: String?; let good: [String]; let bad: [String]; let note: String?
+        let title: String?; let similar: String?; let win: String?; let change: String?; let good: [String]; let bad: [String]; let note: String?
     }
     /// Matches a rate needs before it's shown.
     static let deckMin = 20
     /// How a deck screen words its archetype's numbers (testdata/insights/deck-insight.json).
     static func deckInsight(_ r: DeckInsightAnswer) -> DeckInsight {
         if r.reason == "other" || r.a == 0 {
-            return DeckInsight(title: nil, win: nil, change: nil, good: [], bad: [], note: "Doesn't match an archetype Insights knows")
+            return DeckInsight(title: nil, similar: nil, win: nil, change: nil, good: [], bad: [], note: "Doesn't match an archetype Insights knows")
         }
-        guard r.a != nil, let name = r.name else { return DeckInsight(title: nil, win: nil, change: nil, good: [], bad: [], note: nil) }
+        guard r.a != nil, let name = r.name else { return DeckInsight(title: nil, similar: nil, win: nil, change: nil, good: [], bad: [], note: nil) }
         func rate(_ x: Record3?) -> Double? {
             guard let x else { return nil }
             let n = x.wins + x.losses + x.draws
@@ -227,7 +229,7 @@ enum Insights {
             .map { (m: $0, wr: Double($0.wins) / Double($0.wins + $0.losses), n: $0.wins + $0.losses) }
         let good = rated.filter { $0.wr > 0.5 }.sorted { ($0.wr, $0.n) > ($1.wr, $1.n) }.prefix(3)
         let bad = rated.filter { $0.wr < 0.5 }.sorted { $0.wr != $1.wr ? $0.wr < $1.wr : $0.n > $1.n }.prefix(3)
-        return DeckInsight(title: name, win: rate(r.month).map { "Win \(InsightCharts.pct1($0))" }, change: change,
+        return DeckInsight(title: name, similar: r.similarity.map { "\(Int(($0 * 100).rounded()))% similar" }, win: rate(r.month).map { "Win \(InsightCharts.pct1($0))" }, change: change,
                            good: good.map { "\($0.m.name) \(InsightCharts.pct($0.wr))" }, bad: bad.map { "\($0.m.name) \(InsightCharts.pct($0.wr))" }, note: nil)
     }
 

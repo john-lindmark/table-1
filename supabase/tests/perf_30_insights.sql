@@ -90,6 +90,10 @@ select pg_temp.ms('spice: deck in its archetype', format($$select t1_private.spi
   array_fill(4, array[16]), '{}', '{}')$$, :spice_arch, :'spice_main'), 15);
 select pg_temp.ms('spice: Other, the closest archetype', format($$select t1_private.spice_deck('modern', 0, %L::uuid[],
   array_fill(4, array[16]), '{}', '{}')$$, :'spice_main'), 25);
+-- A deck's similarity to its archetype (20261101140000_list_insight_similarity.sql): every list of the largest
+-- archetype in 90 days, worked out on each open of the deck screen.
+select pg_temp.ms('deck screen: similarity to the largest archetype', format($$select t1_private.meta_similarity('modern', %s,
+  %L::uuid[], array_fill(4, array[16]))$$, :spice_arch, :'spice_main'), 30);
 
 -- A Limited set at 17Lands' size (bug #15: FRA's pack took 10 s on live, past the 8 s statement timeout): five event
 -- types, each a game run of ~7,000 sums (300 cards, 16 pairs, 12 weeks, both groups) and a draft run for ATA.

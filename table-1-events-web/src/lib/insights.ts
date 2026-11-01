@@ -230,16 +230,18 @@ export function yoursFirst(rows: number[], mine: Mine | null): { a: number; note
 
 export interface Record3 { wins: number; losses: number; draws: number }
 export interface DeckInsightAnswer {
-  format: string; a: number | null; name?: string; reason?: "other" | "no_format";
+  format: string; a: number | null; name?: string; reason?: "other" | "no_format" | "brew";
+  /** The deck against its archetype's nearest list, 0–1; a brew's archetype id sits in `archetype`. */
+  similarity?: number | null; archetype?: number;
   month?: Record3; week?: Record3; prev?: Record3;
   matchups?: (Record3 & { vs: number; name: string })[];
 }
-export interface DeckInsight { title: string | null; win: string | null; change: string | null; good: string[]; bad: string[]; note: string | null }
+export interface DeckInsight { title: string | null; similar: string | null; win: string | null; change: string | null; good: string[]; bad: string[]; note: string | null }
 /** Matches a rate needs before it's shown. */
 export const DECK_MIN = 20;
 /** How a deck screen words its archetype's numbers (testdata/insights/deck-insight.json). */
 export function deckInsight(r: DeckInsightAnswer): DeckInsight {
-  const none = { title: null, win: null, change: null, good: [], bad: [] };
+  const none = { title: null, similar: null, win: null, change: null, good: [], bad: [] };
   if (r.reason === "other" || r.a === 0) return { ...none, note: "Doesn't match an archetype Insights knows" };
   if (!r.a || !r.name) return { ...none, note: null };
   const rate = (x?: Record3) => { const n = x ? x.wins + x.losses + x.draws : 0; return x && n >= DECK_MIN ? x.wins / n : null; };
@@ -254,7 +256,8 @@ export function deckInsight(r: DeckInsightAnswer): DeckInsight {
   const label = (x: { m: { name: string }; wr: number }) => `${x.m.name} ${pct(x.wr)}`;
   const good = rated.filter((x) => x.wr > 0.5).sort((x, y) => y.wr - x.wr || y.n - x.n).slice(0, 3).map(label);
   const bad = rated.filter((x) => x.wr < 0.5).sort((x, y) => x.wr - y.wr || y.n - x.n).slice(0, 3).map(label);
-  return { title: r.name, win: month == null ? null : `Win ${pct1(month)}`, change, good, bad, note: null };
+  const similar = r.similarity == null ? null : `${Math.round(r.similarity * 100)}% similar`;
+  return { title: r.name, similar, win: month == null ? null : `Win ${pct1(month)}`, change, good, bad, note: null };
 }
 const deckInsights = new Map<string, Promise<DeckInsightAnswer | null>>();
 /** list_insight for a deck, once per deck a session (null when it fails: the rows don't show). */

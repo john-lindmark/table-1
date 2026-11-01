@@ -69,14 +69,14 @@ final class InsightsPackTests: XCTestCase {
     }
 
     func testDeckInsightSharedCases() throws {
-        struct Want: Decodable, Equatable { let title: String?; let win: String?; let change: String?; let good: [String]; let bad: [String]; let note: String? }
+        struct Want: Decodable, Equatable { let title: String?; let similar: String?; let win: String?; let change: String?; let good: [String]; let bad: [String]; let note: String? }
         struct Case: Decodable { let name: String; let answer: Insights.DeckInsightAnswer; let want: Want }
         struct File: Decodable { let min: Int; let cases: [Case] }
         let f = try JSONDecoder().decode(File.self, from: Data(contentsOf: dir.appending(path: "deck-insight.json")))
         XCTAssertEqual(Insights.deckMin, f.min)
         for c in f.cases {
             let d = Insights.deckInsight(c.answer)
-            XCTAssertEqual(Want(title: d.title, win: d.win, change: d.change, good: d.good, bad: d.bad, note: d.note), c.want, c.name)
+            XCTAssertEqual(Want(title: d.title, similar: d.similar, win: d.win, change: d.change, good: d.good, bad: d.bad, note: d.note), c.want, c.name)
         }
     }
 
