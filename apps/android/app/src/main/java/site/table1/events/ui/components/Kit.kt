@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
@@ -70,6 +71,14 @@ import kotlinx.coroutines.delay
 import site.table1.events.library.IconGlyph
 import site.table1.events.library.T1Icon
 import site.table1.events.ui.theme.T1
+
+/**
+ * Full-screen dialogs (the scanner, Add cards panels, pickers, Share, Export): drawn edge to edge, so the T1Screen
+ * inside pads them for the system bars and the keyboard. With the window fitting the system bars instead, Android 15
+ * and later still laid it out under the navigation bar while its content saw no insets, so the bottom button sat
+ * behind the bar.
+ */
+val FullScreenDialog = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
 
 /** Full-bleed column; blocks are separated by 1px of background (the hairline grid). */
 @Composable

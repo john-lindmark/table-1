@@ -59,6 +59,7 @@ import site.table1.events.ui.components.T1Menu
 import site.table1.events.ui.components.T1MenuItem
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1TextField
+import site.table1.events.ui.components.FullScreenDialog
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
 import kotlinx.serialization.json.JsonArray
@@ -546,7 +547,7 @@ private fun TradePickOverlay(give: Boolean, onPick: (TradeLine) -> Unit, onClose
         }
     }
     androidx.compose.ui.window.Dialog(onDismissRequest = onClose,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        properties = FullScreenDialog) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
                 Bar(if (give) "Add what you give" else "Add what you get", subtitle = added, onBack = onClose)

@@ -24,7 +24,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
 import site.table1.events.data.Repo
 import site.table1.events.ui.components.Bar
@@ -34,6 +33,7 @@ import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.Section
 import site.table1.events.ui.components.T1AlertDialog
 import site.table1.events.ui.components.T1Screen
+import site.table1.events.ui.components.FullScreenDialog
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
 
@@ -86,7 +86,7 @@ fun ShareScreen(target: ShareTarget, onClose: () -> Unit, onExport: (() -> Unit)
         Telemetry.capture("share_link_sent", mapOf("part" to target.part, "how" to "copy"))
     }
 
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = onClose, properties = FullScreenDialog) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
                 Bar("Share", target.title, onBack = onClose)

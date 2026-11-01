@@ -49,7 +49,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -70,6 +69,7 @@ import site.table1.events.ui.components.T1MenuItem
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.parseInstant
+import site.table1.events.ui.components.FullScreenDialog
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
 import java.time.Instant
@@ -917,7 +917,7 @@ private fun RankingImageScreen(m: RankingModel, onClose: () -> Unit) {
             partial, "Ranked on Table 1", java.time.LocalDate.now().format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US))).joinToString(" · ")
         image = withContext(Dispatchers.Default) { RankingImageDrawing.draw(name, byline, cards, loaded) }
     }
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = onClose, properties = FullScreenDialog) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
                 Bar("Top ${m.row?.top ?: 100} image", name, onBack = onClose)

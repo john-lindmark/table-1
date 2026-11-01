@@ -30,10 +30,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.T1Screen
+import site.table1.events.ui.components.FullScreenDialog
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
 
@@ -100,7 +100,7 @@ fun ZoomImageScreen(image: Bitmap, title: String, subtitle: String?, onClose: ()
     var view by remember { mutableStateOf(Zoom.View(1f, 0f, 0f)) }
     val fit = Zoom.fitted(box, img)
     val density = LocalDensity.current
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = onClose, properties = FullScreenDialog) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
                 Bar(title, subtitle, onBack = onClose)

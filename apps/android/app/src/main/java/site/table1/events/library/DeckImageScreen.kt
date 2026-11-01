@@ -38,7 +38,6 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -55,6 +54,7 @@ import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.T1Switch
+import site.table1.events.ui.components.FullScreenDialog
 import site.table1.events.util.Telemetry
 import java.io.File
 import java.text.SimpleDateFormat
@@ -121,7 +121,7 @@ fun DeckImageScreen(name: String, format: String, entries: List<ListEntry>, owne
     fun sent(how: String) = Telemetry.capture("deck_image_shared", mapOf("layout" to layout.wire, "grouping" to grouping.wire,
         "sideboard" to showSide, "cards" to (lines?.sumOf { it.qty } ?: 0), "from" to from, "how" to how))
 
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = onClose, properties = FullScreenDialog) {
         Box(Modifier.fillMaxSize().background(site.table1.events.ui.theme.T1.bg)) {
             T1Screen {
                 Bar("Deck image", name, onBack = onClose)
