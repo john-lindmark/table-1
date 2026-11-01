@@ -334,7 +334,7 @@ fun ArchetypeInsightScreen(format: String, id: Int, finish: Int?, navigate: (Str
     if (finish != null) {
         val p = page
         val fin = p?.finishes?.getOrNull(finish)
-        // an Other group's example is named for its colours
+        // an Other group's example is named for its colors
         val group = if (id == 0) p?.groups?.firstOrNull { it.example == finish } else null
         val title = group?.let { Insights.colorsName(it.colors.ifEmpty { "C" }, "") } ?: name
         val cat by CatalogStore.state.collectAsState()
@@ -368,8 +368,8 @@ fun ArchetypeInsightScreen(format: String, id: Int, finish: Int?, navigate: (Str
             val groups = p.groups.orEmpty()
             val ex = Insights.exampleFinish(p.finishes)
             if (id == 0 && groups.isNotEmpty()) {
-                Section("Inside Other · by colours")
-                Notice("Decks no archetype names yet, grouped by their colours. Open one for an example list.")
+                Section("Inside Other · by colors")
+                Notice("Decks no archetype names yet, grouped by their colors. Open one for an example list.")
                 groups.forEach { g ->
                     ListRow(Insights.colorsName(g.colors.ifEmpty { "C" }, ""),
                         (listOf("${g.decks} deck${if (g.decks == 1) "" else "s"}") + listOf(g.cards.joinToString(", ")).filter { it.isNotEmpty() }).joinToString(" · "),
@@ -586,7 +586,7 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     val retryScope = rememberCoroutineScope()
     var sort by remember { mutableStateOf("gih") }
     var rarity by remember { mutableStateOf("all") }
-    var colour by remember { mutableStateOf("all") }
+    var color by remember { mutableStateOf("all") }
     // The picker waits for the sets to rank (kept on the device after the first visit) so it draws whole.
     val chips = if (s.rankableReady) s.shownChips else emptyList()
     var editing by remember { mutableStateOf(false) }
@@ -640,7 +640,7 @@ private fun LimitedHome(navigate: (String) -> Unit) {
         ranked?.takeIf { it.rankings > 0 }?.detail() ?: "Stack-rank its cards by color, then a top 100. Compare with your friends.",
         onClick = { rank(pack.set_code, kind, "set") })
     newSets()
-    Section("Colour pairs · game win rate")
+    Section("Color pairs · game win rate")
     val shown = v.pairs.filter { it.share >= 0.01 }.sortedByDescending { it.wr }
     val lo = maxOf(0.4, (shown.minOfOrNull { it.wr } ?: 0.5) - 0.02)
     val hi = minOf(0.7, (shown.maxOfOrNull { it.wr } ?: 0.6) + 0.01)
@@ -649,7 +649,7 @@ private fun LimitedHome(navigate: (String) -> Unit) {
             highlighted = p.p == shown.firstOrNull()?.p, format = InsightCharts::pct1, reference = v.wr, onClick = { navigate(InsightsRoutes.pair(pack.set_code, ev, grp, p.p)) })
     }
     if (v.colors.isNotEmpty()) {
-        Section("Deck colours · with splashes, most played first")
+        Section("Deck colors · with splashes, most played first")
         val rows = v.colors.take(15)
         val clo = maxOf(0.35, rows.minOf { it.wr } - 0.02); val chi = minOf(0.75, rows.maxOf { it.wr } + 0.01)
         val best = rows.maxByOrNull { it.wr }
@@ -671,10 +671,10 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     // A cube's cards have no rarity: no rarity filter then.
     val rated = v.cards.any { it.r != null }
     if (rated) T1Segmented(listOf("All", "C", "U", "R", "M"), rarities.indexOf(rarity)) { rarity = rarities[it] }
-    val colours = listOf("all", "W", "U", "B", "R", "G", "M")
-    T1Segmented(listOf("All", "W", "U", "B", "R", "G", "Multi"), colours.indexOf(colour)) { colour = colours[it] }
+    val colors = listOf("all", "W", "U", "B", "R", "G", "M")
+    T1Segmented(listOf("All", "W", "U", "B", "R", "G", "Multi"), colors.indexOf(color)) { color = colors[it] }
     fun key(c: LCard): Double? = when (sort) { "oh" -> c.oh; "iwd" -> c.iwd; "ata" -> c.ata?.let { -it }; else -> c.gih }
-    val cards = v.cards.filter { c -> (!rated || rarity == "all" || c.r == rarity) && (colour == "all" || if (colour == "M") (c.col?.length ?: 0) > 1 else c.col == colour) }
+    val cards = v.cards.filter { c -> (!rated || rarity == "all" || c.r == rarity) && (color == "all" || if (color == "M") (c.col?.length ?: 0) > 1 else c.col == color) }
         .sortedWith(compareBy<LCard> { key(it) == null }.thenByDescending { key(it) ?: 0.0 }.thenByDescending { it.gih_n })
     cards.take(40).forEach { c ->
         ListRow(c.n, listOfNotNull(c.r?.replaceFirstChar { it.uppercase() }, c.col, "%,d in hand".format(c.gih_n), c.ata?.let { "taken %.1f".format(it) }).joinToString(" · "),
@@ -749,7 +749,7 @@ fun LimitedCardScreen(set: String, event: String, group: String, name: String, n
             }
             val pairs = c.pair_gih?.entries?.sortedByDescending { it.value }.orEmpty()
             if (pairs.isNotEmpty()) {
-                Section("By colour pair · in hand")
+                Section("By color pair · in hand")
                 val lo = maxOf(0.35, pairs.minOf { it.value } - 0.02); val hi = minOf(0.8, pairs.maxOf { it.value } + 0.01)
                 pairs.forEachIndexed { i, (k, wr) ->
                     InsightBar("${Insights.pairNames[k] ?: k} $k", wr, hi, lo, highlighted = i == 0, format = InsightCharts::pct1, reference = c.gih,
@@ -795,7 +795,7 @@ fun InsightsReviewScreen(onBack: () -> Unit) {
             Section("Proposed archetypes · ${r.archetypes.size}")
             if (r.archetypes.isEmpty()) Notice("Nothing proposed.")
             r.archetypes.forEach { a ->
-                ListRow(a.name, "${a.format} · ${a.family} · ${a.colors.ifEmpty { "colourless" }} · ${a.decks ?: 0} decks")
+                ListRow(a.name, "${a.format} · ${a.family} · ${a.colors.ifEmpty { "colorless" }} · ${a.decks ?: 0} decks")
                 Notice(a.signature.take(10).joinToString(", ") + if (a.missing.isNotEmpty()) "\nNot in the catalog: ${a.missing.joinToString(", ")}" else "")
                 Field("Name", names[a.id] ?: a.name, { names[a.id] = it })
                 Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {

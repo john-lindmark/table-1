@@ -58,7 +58,7 @@
       "key": "rank",
       "title": "Rank cubes and sets",
       "headline": "Rank a cube four cards at a time",
-      "body": "Order each colour of a cube or a new set, settle the top 100, compare rankings with friends and refine yours with first picks. New sets are rankable in spoiler season, with 17Lands data once the set is on Arena.",
+      "body": "Order each color of a cube or a new set, settle the top 100, compare rankings with friends and refine yours with first picks. New sets are rankable in spoiler season, with 17Lands data once the set is on Arena.",
       "shot": { "route": "/library/ranking/d0000000-0000-0000-0000-0000000aa001/screen/U?demo", "ready": "Lock in" },
       "onboarding": true,
       "store": true

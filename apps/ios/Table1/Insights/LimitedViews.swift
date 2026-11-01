@@ -113,7 +113,7 @@ struct LimitedHomeSection: View {
 
     @ViewBuilder
     private func pairs(_ pack: Insights.LimitedPack, _ ev: String, _ grp: String, _ v: Insights.LView) -> some View {
-        Section1("Colour pairs · game win rate")
+        Section1("Color pairs · game win rate")
         let shown = v.pairs.filter { $0.share >= 0.01 }.sorted { $0.wr > $1.wr }
         let lo = max(0.4, (shown.map(\.wr).min() ?? 0.5) - 0.02), hi = min(0.7, (shown.map(\.wr).max() ?? 0.6) + 0.01)
         ForEach(shown) { p in
@@ -124,7 +124,7 @@ struct LimitedHomeSection: View {
             }.buttonStyle(.plain)
         }
         if let colors = v.colors, !colors.isEmpty {
-            Section1("Deck colours · with splashes, most played first")
+            Section1("Deck colors · with splashes, most played first")
             let rows = Array(colors.prefix(15))
             let clo = max(0.35, (rows.map(\.wr).min() ?? 0.5) - 0.02), chi = min(0.75, (rows.map(\.wr).max() ?? 0.6) + 0.01)
             let best = rows.max { $0.wr < $1.wr }
@@ -220,7 +220,7 @@ struct LimitedHomeSection: View {
     }
 }
 
-/// One colour pair: its week by week, and the cards that do best in it.
+/// One color pair: its week by week, and the cards that do best in it.
 struct PairInsightView: View {
     let set: String, event: String, group: String, pair: String
     @Binding var path: [InsightsRoute]
@@ -300,7 +300,7 @@ struct LimitedCardView: View {
                                 .padding(.vertical, 12).padding(.leading, 8).background(T1.surface)
                         }
                         if let pg = c.pair_gih, !pg.isEmpty {
-                            Section1("By colour pair · in hand")
+                            Section1("By color pair · in hand")
                             let rows = pg.sorted { $0.value > $1.value }
                             let lo = max(0.35, (rows.map(\.value).min() ?? 0.5) - 0.02), hi = min(0.8, (rows.map(\.value).max() ?? 0.6) + 0.01)
                             ForEach(rows, id: \.key) { k, wr in

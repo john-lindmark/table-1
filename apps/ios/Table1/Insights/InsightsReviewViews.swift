@@ -55,7 +55,7 @@ struct InsightsReviewView: View {
     @ViewBuilder
     private func proposal(_ a: Review.Proposal) -> some View {
         VStack(spacing: 1) {
-            ListRow(title: a.name, detail: "\(a.format) · \(a.family) · \(a.colors.isEmpty ? "colourless" : a.colors) · \(a.decks ?? 0) decks")
+            ListRow(title: a.name, detail: "\(a.format) · \(a.family) · \(a.colors.isEmpty ? "colorless" : a.colors) · \(a.decks ?? 0) decks")
             Notice(a.signature.prefix(10).joined(separator: ", ") + (a.missing.isEmpty ? "" : "\nNot in the catalog: \(a.missing.joined(separator: ", "))"))
             Field(label: "Name", text: Binding(get: { names[a.id] ?? a.name }, set: { names[a.id] = $0 }))
             HStack(spacing: 1) {

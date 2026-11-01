@@ -165,15 +165,15 @@ final class InsightsPackTests: XCTestCase {
         XCTAssertTrue(v.cards.contains { $0.gih != nil && $0.c != nil })
         XCTAssertTrue(v.cards.contains { $0.ata != nil }, "draft data gives the pick taken at")
         XCTAssertTrue(v.pairs.contains { $0.p == "3C" })
-        XCTAssertTrue(v.colors?.contains { !$0.s.isEmpty } == true, "deck colours carry their splashes")
+        XCTAssertTrue(v.colors?.contains { !$0.s.isEmpty } == true, "deck colors carry their splashes")
     }
 
-    func testDeckColourNames() {
+    func testDeckColorNames() {
         XCTAssertEqual(Insights.colorsName("UB", ""), "Dimir UB")
         XCTAssertEqual(Insights.colorsName("UB", "R"), "Dimir UB + r")
         XCTAssertEqual(Insights.colorsName("WUB", ""), "Esper WUB")
         XCTAssertEqual(Insights.colorsName("WRG", "U"), "Naya WRG + u")
-        XCTAssertEqual(Insights.colorsName("WUBR", ""), "Four-colour WUBR")
+        XCTAssertEqual(Insights.colorsName("WUBR", ""), "Four-color WUBR")
     }
 
     /// The format page's rows (testdata/insights/parts.json, also web insights.test.ts and Android InsightsPackTest).

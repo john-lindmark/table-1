@@ -607,7 +607,7 @@ function CardBar({ name, price, onBack, onAdd, onInfo, info }: {
 }
 
 /** One third of the stepper: 88 px on a phone (the home indicator under it), the glyph 24 px from the top. Disabled is
- *  the flat disabled colour, never dimmed. */
+ *  the flat disabled color, never dimmed. */
 function StepCell({ label, enabled, onClick, onLongPress, longPressLabel, children }: {
   label: string; enabled: boolean; onClick: () => void; onLongPress?: () => void; longPressLabel?: string; children: ReactNode;
 }) {

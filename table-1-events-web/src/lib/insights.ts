@@ -79,7 +79,7 @@ export interface ArchetypePage {
   core: CardRow[]; flex: CardRow[]; side: CardRow[];
   matchups: { vs: number; wins: number; losses: number; draws: number }[];
   finishes: { event: string; on: string; players: number | null; tier: string; rank: number | null; url: string | null; main: [string, number][]; side: [string, number][] }[];
-  /** Other (archetype 0) only: its decks by colours, each with its most-played cards and its example list in `finishes`. */
+  /** Other (archetype 0) only: its decks by colors, each with its most-played cards and its example list in `finishes`. */
   groups?: { colors: string; decks: number; share: number; cards: string[]; example: number | null }[];
   brief: string | null;
 }
@@ -116,7 +116,7 @@ export interface LCard {
   ata: number | null; deck: number; week_gih: (number | null)[] | null; pair_gih: Record<string, number> | null;
 }
 export interface LPair { p: string; games: number; wr: number; share: number; splash: number; play_wr: number | null; draw_wr: number | null; week_wr: (number | null)[]; week_share: (number | null)[] }
-/** One exact colour combination: main colours (WUBRG order, as 17Lands writes them) and the splash ('' for none). */
+/** One exact color combination: main colors (WUBRG order, as 17Lands writes them) and the splash ('' for none). */
 export interface LColors { m: string; s: string; games: number; wr: number; share: number }
 export interface LView {
   games: number; wr: number; weeks: number; brief?: string | null; pairs: LPair[]; cards: LCard[]; colors?: LColors[];
@@ -133,13 +133,13 @@ export const EVENT_ORDER = ["PremierDraft", "TradDraft", "PickTwoDraft", "Sealed
 export const EVENT_LABELS: Record<string, string> = { PremierDraft: "Premier", TradDraft: "Traditional", PickTwoDraft: "Pick Two", Sealed: "Sealed", TradSealed: "Trad Sealed" };
 export const PAIR_NAMES: Record<string, string> = {
   WU: "Azorius", WB: "Orzhov", WR: "Boros", WG: "Selesnya", UB: "Dimir", UR: "Izzet", UG: "Simic", BR: "Rakdos", BG: "Golgari", RG: "Gruul",
-  W: "Mono-White", U: "Mono-Blue", B: "Mono-Black", R: "Mono-Red", G: "Mono-Green", "3C": "Three or more", C: "Colourless",
+  W: "Mono-White", U: "Mono-Blue", B: "Mono-Black", R: "Mono-Red", G: "Mono-Green", "3C": "Three or more", C: "Colorless",
 };
 
 const SHARDS: Record<string, string> = { WUB: "Esper", UBR: "Grixis", BRG: "Jund", WRG: "Naya", WUG: "Bant", WBG: "Abzan", WUR: "Jeskai", UBG: "Sultai", WBR: "Mardu", URG: "Temur" };
-/** "Dimir UB + r", "Esper WUB", "Four-colour WUBR": a deck's colours as 17Lands' deck colour table names them. */
+/** "Dimir UB + r", "Esper WUB", "Four-color WUBR": a deck's colors as 17Lands' deck color table names them. */
 export function colorsName(m: string, s: string): string {
-  const base = m.length <= 2 ? (PAIR_NAMES[m] ?? m) : m.length === 3 ? (SHARDS[m] ?? "Three-colour") : m.length === 4 ? "Four-colour" : "Five-colour";
+  const base = m.length <= 2 ? (PAIR_NAMES[m] ?? m) : m.length === 3 ? (SHARDS[m] ?? "Three-color") : m.length === 4 ? "Four-color" : "Five-color";
   return `${base} ${m}${s ? ` + ${s.toLowerCase()}` : ""}`;
 }
 

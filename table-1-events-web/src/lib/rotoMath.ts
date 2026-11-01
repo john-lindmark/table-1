@@ -329,7 +329,7 @@ export function rotoCard(cardId: string, name: string, typeLine: string, manaCos
 
 export const unknownCard = (cardId: string): RotoCard => rotoCard(cardId, "Card", "", "", null);
 
-/** Colour of a bar segment; "L" lands and "C" colourless. */
+/** Color of a bar segment; "L" lands and "C" colorless. */
 export const COLOR_HEX: Record<string, string> = {
   W: "#f5edcc", U: "#408cf2", B: "#8c8094", R: "#eb5445", G: "#40b366", C: "#9e9ea8", L: "#9e9ea8",
 };

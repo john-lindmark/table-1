@@ -78,7 +78,7 @@ export const SERVER_TOOLS = [
 export const TABLE1_TOOLS = [
   {
     name: "table1_events",
-    description: "Recent tournament events in Table 1's results for a format, newest first, each with its best-placed decks (archetype, colours, rank, record, deck_id). An archetype name narrows events and decks to those playing it (a substring match on Table 1's archetype names, e.g. \"Energy\"). Empty when the format isn't covered or nothing matches.",
+    description: "Recent tournament events in Table 1's results for a format, newest first, each with its best-placed decks (archetype, colors, rank, record, deck_id). An archetype name narrows events and decks to those playing it (a substring match on Table 1's archetype names, e.g. \"Energy\"). Empty when the format isn't covered or nothing matches.",
     input_schema: {
       type: "object",
       additionalProperties: false,

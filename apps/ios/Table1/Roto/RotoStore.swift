@@ -233,7 +233,7 @@ final class RotoStore {
         pickBySlot = Dictionary(p.map { ($0.slot, $0) }, uniquingKeysWith: { _, b in b })
     }
 
-    /// Card names and colours for the whole pool, read once from the local catalog off the main thread.
+    /// Card names and colors for the whole pool, read once from the local catalog off the main thread.
     func resolveCards() async {
         let catalog = CatalogStore.shared
         catalog.load(userInitiated: true)

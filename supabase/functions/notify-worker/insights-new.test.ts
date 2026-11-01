@@ -5,7 +5,7 @@ import { insightsNewCopy } from "./insights-new.ts";
 
 test("a set's first draft data", () => {
   assert.deepEqual(insightsNewCopy({ insights_section: "limited", insights_key: "FRA", name: "Foundations Remastered", what: "data" }),
-    { title: "New in Insights", body: "Foundations Remastered: draft data from 17Lands is in. See the best cards and colour pairs." });
+    { title: "New in Insights", body: "Foundations Remastered: draft data from 17Lands is in. See the best cards and color pairs." });
 });
 
 test("a new cube version", () => {

@@ -10,7 +10,7 @@ export interface LPair {
   p: string; games: number; wr: number; share: number; splash: number; play_wr: number | null; draw_wr: number | null;
   week_wr: (number | null)[]; week_share: (number | null)[];
 }
-/** One exact colour combination: main colours as 17Lands writes them (WUBRG order) and the splash ('' for none). */
+/** One exact color combination: main colors as 17Lands writes them (WUBRG order) and the splash ('' for none). */
 export interface LColors { m: string; s: string; games: number; wr: number; share: number }
 export interface LView {
   games: number; wr: number; weeks: number; brief?: string | null;
@@ -24,7 +24,7 @@ export interface LimitedPack {
 }
 
 const p1 = (x: number) => `${(x * 100).toFixed(1)}%`;
-/** A main-colour string as a pair key (3+ colours read as 3C). */
+/** A main-color string as a pair key (3+ colors read as 3C). */
 const c2 = (m: string) => (m.length >= 3 ? "3C" : m);
 export const EVENT_NAMES: Record<string, string> = {
   PremierDraft: "Premier Draft", TradDraft: "Traditional Draft", PickTwoDraft: "Pick Two Draft", Sealed: "Sealed", TradSealed: "Traditional Sealed",
@@ -32,7 +32,7 @@ export const EVENT_NAMES: Record<string, string> = {
 export const PAIR_NAMES: Record<string, string> = {
   WU: "white-blue", WB: "white-black", WR: "white-red", WG: "white-green", UB: "blue-black", UR: "blue-red", UG: "blue-green",
   BR: "black-red", BG: "black-green", RG: "red-green", W: "mono-white", U: "mono-blue", B: "mono-black", R: "mono-red", G: "mono-green",
-  "3C": "three or more colours", C: "colourless",
+  "3C": "three or more colors", C: "colorless",
 };
 
 /** Pairs, standout commons and uncommons, the most underdrafted cards and the play/draw gap. */

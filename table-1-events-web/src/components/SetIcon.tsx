@@ -1,5 +1,5 @@
 /**
- * A set's Scryfall symbol, tinted with the text colour (CSS mask), so it reads on the dark surface and
+ * A set's Scryfall symbol, tinted with the text color (CSS mask), so it reads on the dark surface and
  * inverts with the row when selected. draftable_sets rows carry the exact URL; otherwise Scryfall's path by code.
  */
 export function SetIcon({ code, uri, size = 18, className = "" }: { code: string; uri?: string | null; size?: number; className?: string }) {

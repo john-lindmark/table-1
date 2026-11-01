@@ -68,7 +68,7 @@ export function known(c: Cluster, signatures: string[][]): boolean {
   return signatures.some((s) => s.length && s.filter((x) => mine.has(x)).length / Math.min(s.length, mine.size) >= 0.5);
 }
 
-export const NAME_SYSTEM = `You name Magic: The Gathering constructed archetypes for a metagame dashboard. You get a group of tournament decks from one format: their colours and the nonland cards almost all of them play, most distinctive first.
+export const NAME_SYSTEM = `You name Magic: The Gathering constructed archetypes for a metagame dashboard. You get a group of tournament decks from one format: their colors and the nonland cards almost all of them play, most distinctive first.
 
 Answer with the name players use for this deck in that format (e.g. "Boros Energy", "Amulet Titan", "Izzet Prowess", "Mono-Blue Belcher"), at most 30 characters; a guild or shard name plus the deck's key card or plan when there's no common name. Pick its family: aggro, midrange, control, combo or ramp. Pick 1 to 3 rule cards from the given cards that every deck of this archetype plays and other decks rarely do.`;
 
@@ -82,7 +82,7 @@ export const NAME_SCHEMA = {
 } as const;
 
 export const namePrompt = (format: string, c: Cluster) =>
-  `Format: ${format}\nDecks in the group: ${c.size} (${(c.share * 100).toFixed(1)}% of recent decks)\nColours: ${c.colors || "colourless"}\nCards (most distinctive first): ${c.signature.join("; ")}`;
+  `Format: ${format}\nDecks in the group: ${c.size} (${(c.share * 100).toFixed(1)}% of recent decks)\nColors: ${c.colors || "colorless"}\nCards (most distinctive first): ${c.signature.join("; ")}`;
 
 /** The proposal to store, or null when the answer doesn't fit (rule cards must come from the signature). */
 export function proposal(c: Cluster, raw: unknown): { name: string; family: string; rule: { main: string[] } } | null {

@@ -314,7 +314,7 @@ enum Insights {
         let core: [CardRow]; let flex: [CardRow]; let side: [CardRow]
         let matchups: [Matchup]
         let finishes: [Finish]
-        /// Other (archetype 0) only: its decks by colours, each with its most-played cards and its example in `finishes`.
+        /// Other (archetype 0) only: its decks by colors, each with its most-played cards and its example in `finishes`.
         struct Group: Decodable, Hashable { let colors: String; let decks: Int; let share: Double; let cards: [String]; let example: Int? }
         let groups: [Group]?
         let brief: String?
@@ -366,7 +366,7 @@ enum Insights {
         let play_wr: Double?; let draw_wr: Double?; let mull_rate: Double?; let mull_wr: Double?; let keep7_wr: Double?
         let mull_play: Double?; let turns: Double?
     }
-    /// One exact colour combination: main colours (WUBRG order, as 17Lands writes them) and the splash ("" for none).
+    /// One exact color combination: main colors (WUBRG order, as 17Lands writes them) and the splash ("" for none).
     struct LColors: Codable, Hashable { let m: String; let s: String; let games: Int; let wr: Double; let share: Double }
     struct LView: Codable, Hashable {
         let games: Int; let wr: Double; let weeks: Int; let brief: String?
@@ -375,9 +375,9 @@ enum Insights {
     }
     static let shards = ["WUB": "Esper", "UBR": "Grixis", "BRG": "Jund", "WRG": "Naya", "WUG": "Bant", "WBG": "Abzan", "WUR": "Jeskai",
                          "UBG": "Sultai", "WBR": "Mardu", "URG": "Temur"]
-    /// "Dimir UB + r", "Esper WUB", "Four-colour WUBR": a deck's colours as 17Lands' deck colour table names them.
+    /// "Dimir UB + r", "Esper WUB", "Four-color WUBR": a deck's colors as 17Lands' deck color table names them.
     static func colorsName(_ m: String, _ s: String) -> String {
-        let base = m.count <= 2 ? (pairNames[m] ?? m) : m.count == 3 ? (shards[m] ?? "Three-colour") : m.count == 4 ? "Four-colour" : "Five-colour"
+        let base = m.count <= 2 ? (pairNames[m] ?? m) : m.count == 3 ? (shards[m] ?? "Three-color") : m.count == 4 ? "Four-color" : "Five-color"
         return "\(base) \(m)" + (s.isEmpty ? "" : " + \(s.lowercased())")
     }
     struct LEvent: Codable, Hashable { let updated: String; let groups: [String: LView] }
@@ -393,5 +393,5 @@ enum Insights {
     static let eventLabels = ["PremierDraft": "Premier", "TradDraft": "Traditional", "PickTwoDraft": "Pick Two", "Sealed": "Sealed", "TradSealed": "Trad Sealed"]
     static let pairNames = ["WU": "Azorius", "WB": "Orzhov", "WR": "Boros", "WG": "Selesnya", "UB": "Dimir", "UR": "Izzet", "UG": "Simic",
                             "BR": "Rakdos", "BG": "Golgari", "RG": "Gruul", "W": "Mono-White", "U": "Mono-Blue", "B": "Mono-Black",
-                            "R": "Mono-Red", "G": "Mono-Green", "3C": "Three or more", "C": "Colourless"]
+                            "R": "Mono-Red", "G": "Mono-Green", "3C": "Three or more", "C": "Colorless"]
 }

@@ -16,7 +16,7 @@ Table 1
 ## Short description (66/80)
 Run Magic tournaments, play your matches and keep your collection.
 
-## Full description (1918/4000)
+## Full description (1917/4000)
 Tournaments for Magic players.
 
 Run your store's Friday night or your kitchen-table draft, play your matches and keep your collection, in one account on iPhone, Android and the web.
@@ -37,7 +37,7 @@ BRING YOUR COLLECTION
 Import an export from ManaBox, Moxfield, Archidekt, Deckbox, Dragon Shield, TCGplayer or Delver Lens and see what matched before anything is written. Decks and cubes from links or paste. Export whenever you like, or scan cards with your phone.
 
 RANK CUBES AND SETS
-Order each colour of a cube or a new set, settle the top 100, compare rankings with friends and refine yours with first picks. New sets are rankable in spoiler season, with 17Lands data once the set is on Arena.
+Order each color of a cube or a new set, settle the top 100, compare rankings with friends and refine yours with first picks. New sets are rankable in spoiler season, with 17Lands data once the set is on Arena.
 
 Table 1 is free, with no ads or purchases, and the same account works on iPhone, Android and the web at table-1.site.
 

@@ -70,7 +70,7 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-/** A set's Scryfall symbol (SVG), tinted to the text colour. draftable_sets rows carry the exact URL. */
+/** A set's Scryfall symbol (SVG), tinted to the text color. draftable_sets rows carry the exact URL. */
 @Composable
 internal fun SetIcon(code: String, uri: String? = null, size: Dp = 20.dp, color: Color = T1.text) {
     val context = LocalContext.current

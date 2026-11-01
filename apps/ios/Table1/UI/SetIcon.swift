@@ -1,7 +1,7 @@
 import SVGView
 import SwiftUI
 
-/// A set's Scryfall symbol (SVG), tinted to the text colour. Icons are fetched once per launch and
+/// A set's Scryfall symbol (SVG), tinted to the text color. Icons are fetched once per launch and
 /// kept in memory; URLSession's cache keeps them across launches.
 struct SetIcon: View {
     let code: String

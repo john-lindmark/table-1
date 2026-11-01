@@ -434,8 +434,8 @@ struct ArchetypeInsightView: View {
             Notice(r.basis == "topdeck" ? "Record from paper events' rounds." : "Record of players who reached a Challenge's top 32, so it runs high.")
         }
         if id == 0, let groups = p.groups, !groups.isEmpty {
-            Section1("Inside Other · by colours")
-            Notice("Decks no archetype names yet, grouped by their colours. Open one for an example list.")
+            Section1("Inside Other · by colors")
+            Notice("Decks no archetype names yet, grouped by their colors. Open one for an example list.")
             ForEach(groups, id: \.self) { g in
                 Button { if let ex = g.example { path.append(.finish(format, id, ex)) } } label: {
                     ListRow(title: Insights.colorsName(g.colors.isEmpty ? "C" : g.colors, ""),
@@ -555,7 +555,7 @@ struct FinishView: View {
 
     var body: some View {
         let f = page?.finishes[safe: index]
-        // an Other group's example is named for its colours
+        // an Other group's example is named for its colors
         let group = archetypeId == 0 ? page?.groups?.first { $0.example == index } : nil
         let title = group.map { Insights.colorsName($0.colors.isEmpty ? "C" : $0.colors, "") } ?? page?.archetype.name ?? "Deck"
         Group {

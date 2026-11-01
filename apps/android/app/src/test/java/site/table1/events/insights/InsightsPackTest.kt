@@ -157,15 +157,15 @@ class InsightsPackTest {
         assertTrue(v.cards.any { it.gih != null && it.c != null })
         assertTrue(v.cards.any { it.ata != null })
         assertTrue(v.pairs.any { it.p == "3C" })
-        assertTrue("deck colours carry their splashes", v.colors.any { it.s.isNotEmpty() })
+        assertTrue("deck colors carry their splashes", v.colors.any { it.s.isNotEmpty() })
     }
 
-    @Test fun deckColourNames() {
+    @Test fun deckColorNames() {
         assertEquals("Dimir UB", Insights.colorsName("UB", ""))
         assertEquals("Dimir UB + r", Insights.colorsName("UB", "R"))
         assertEquals("Esper WUB", Insights.colorsName("WUB", ""))
         assertEquals("Naya WRG + u", Insights.colorsName("WRG", "U"))
-        assertEquals("Four-colour WUBR", Insights.colorsName("WUBR", ""))
+        assertEquals("Four-color WUBR", Insights.colorsName("WUBR", ""))
     }
 
     /** The format page's rows (testdata/insights/parts.json, also web insights.test.ts and iOS InsightsPackTests). */

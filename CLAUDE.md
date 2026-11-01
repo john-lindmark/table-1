@@ -29,6 +29,7 @@ Table 1 is John's suite of products for competitive Magic: The Gathering players
 - Design source of truth: Figma file `Hbkg1vKjdTFpwYt0NtCCYq` (screens) and `R9h660jfTHZEcnFZ2DJtLA` (roto (Copy), tokens). Figma Make prototype `qjTBMsO4R5LgfSv1ihavu8` is visual reference only; do not build on it.
 - Table 1 components everywhere (tab bars, segmented controls, switches, steppers, menus, sheets). Only alert dialogs are platform-native.
 - Look: SF Mono (temporarily JetBrains Mono in Figma), uppercase labels with wide tracking, zero radius, no shadows/cards, 1px hairline grid, dark default `#171725`, surface `#282839`, one accent teal `#00ffd9` meaning "the result", disabled = flat `#545461` fill (no opacity dimming).
+- Spelling: "color", never "colour" (John, 2026-11-01), in copy, UI strings, server text and code on every platform.
 - Build first, then Figma (John, 2026-10-14; reverses "Figma first"): build the feature in code, then add or update the Figma screens/components to match what was built.
 
 ## Where things stand (as of 2026-10-13)

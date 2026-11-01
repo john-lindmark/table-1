@@ -4,7 +4,7 @@ import SwiftUI
 // Debug only: `-T1RotoDemo [grid|cube|picks|list|schedule]` opens a roto draft without signing in. Eight players
 // draft the demo Vintage cube (DebugResources/library-demo.json, 360 cards) 45 picks each; 114 picks are made
 // and it's your pick (seat 3). The draft runs locally: after your pick the others pick every 0.7 s until your next
-// turn, your list auto-picks, Undo and the pick clock work. Card names and colours come from the live catalog.
+// turn, your list auto-picks, Undo and the pick clock work. Card names and colors come from the live catalog.
 
 @MainActor
 final class RotoDemoBackend: RotoBackend {

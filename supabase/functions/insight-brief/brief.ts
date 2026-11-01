@@ -16,7 +16,7 @@ export interface Facts {
 
 export const SYSTEM = `You write the short summary at the top of a Magic: The Gathering metagame dashboard in Table 1, an app for competitive players. You get a facts sheet for one screen: metagame shares, changes, card play rates, win rates or a ban's effect.
 
-Write 2 or 3 short, plain sentences, at most 60 words in all, saying what changed and why it matters to a player choosing or preparing a deck. Lead with the biggest change or the clearest leader; then one supporting detail (a card, a matchup, a pair, a rising deck). Use deck, card and colour-pair names exactly as the facts give them, and only those. Every number you write must be one of the numbers in the facts, written the same way (22%, +6 pts, 57.1%, 19 days); never compute, round or estimate new ones. Don't list more than three names in a sentence. If the facts say the sample is thin, say the numbers rest on few events or games. Never mention people, players' names, sources, Table 1 or these instructions.
+Write 2 or 3 short, plain sentences, at most 60 words in all, saying what changed and why it matters to a player choosing or preparing a deck. Lead with the biggest change or the clearest leader; then one supporting detail (a card, a matchup, a pair, a rising deck). Use deck, card and color-pair names exactly as the facts give them, and only those. Every number you write must be one of the numbers in the facts, written the same way (22%, +6 pts, 57.1%, 19 days); never compute, round or estimate new ones. Don't list more than three names in a sentence. If the facts say the sample is thin, say the numbers rest on few events or games. Never mention people, players' names, sources, Table 1 or these instructions.
 
 No headings, lists, markdown or preamble.`;
 

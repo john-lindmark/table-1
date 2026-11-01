@@ -147,7 +147,7 @@ describe("wire", () => {
 });
 
 describe("cards", () => {
-  it("mana value and colour groups", () => {
+  it("mana value and color groups", () => {
     expect(manaValue("{2}{U}{U}")).toBe(4);
     expect(manaValue("{X}{R}")).toBe(1);
     expect(manaValue("{W/P}{G/U}")).toBe(2);

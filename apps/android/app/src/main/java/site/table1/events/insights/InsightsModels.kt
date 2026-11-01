@@ -131,13 +131,13 @@ object Insights {
     val eventLabels = mapOf("PremierDraft" to "Premier", "TradDraft" to "Traditional", "PickTwoDraft" to "Pick Two", "Sealed" to "Sealed", "TradSealed" to "Trad Sealed")
     val pairNames = mapOf("WU" to "Azorius", "WB" to "Orzhov", "WR" to "Boros", "WG" to "Selesnya", "UB" to "Dimir", "UR" to "Izzet", "UG" to "Simic",
         "BR" to "Rakdos", "BG" to "Golgari", "RG" to "Gruul", "W" to "Mono-White", "U" to "Mono-Blue", "B" to "Mono-Black", "R" to "Mono-Red",
-        "G" to "Mono-Green", "3C" to "Three or more", "C" to "Colourless")
+        "G" to "Mono-Green", "3C" to "Three or more", "C" to "Colorless")
     private val shards = mapOf("WUB" to "Esper", "UBR" to "Grixis", "BRG" to "Jund", "WRG" to "Naya", "WUG" to "Bant", "WBG" to "Abzan", "WUR" to "Jeskai",
         "UBG" to "Sultai", "WBR" to "Mardu", "URG" to "Temur")
 
-    /** "Dimir UB + r", "Esper WUB", "Four-colour WUBR": a deck's colours as 17Lands' deck colour table names them. */
+    /** "Dimir UB + r", "Esper WUB", "Four-color WUBR": a deck's colors as 17Lands' deck color table names them. */
     fun colorsName(m: String, s: String): String {
-        val base = when (m.length) { 0, 1, 2 -> pairNames[m] ?: m; 3 -> shards[m] ?: "Three-colour"; 4 -> "Four-colour"; else -> "Five-colour" }
+        val base = when (m.length) { 0, 1, 2 -> pairNames[m] ?: m; 3 -> shards[m] ?: "Three-color"; 4 -> "Four-color"; else -> "Five-color" }
         return "$base $m" + if (s.isEmpty()) "" else " + ${s.lowercase()}"
     }
 }
@@ -272,7 +272,7 @@ object DeckLineSerializer : KSerializer<DeckLine> {
 @Serializable data class ArchetypePage(
     val archetype: Archetype, val decks: Int, val series: Weekly, val record: Record? = null, val conv: Double? = null,
     val core: List<CardRow>, val flex: List<CardRow>, val side: List<CardRow>, val matchups: List<Matchup>, val finishes: List<Finish>, val brief: String? = null,
-    /** Other (archetype 0) only: its decks by colours, each with its most-played cards and its example in [finishes]. */
+    /** Other (archetype 0) only: its decks by colors, each with its most-played cards and its example in [finishes]. */
     val groups: List<Group>? = null,
 ) {
     @Serializable data class Group(val colors: String, val decks: Int, val share: Double, val cards: List<String>, val example: Int? = null)
@@ -295,7 +295,7 @@ object DeckLineSerializer : KSerializer<DeckLine> {
                                val draw_wr: Double? = null, val week_wr: List<Double?>, val week_share: List<Double?>)
 @Serializable data class LFacts(val play_wr: Double? = null, val draw_wr: Double? = null, val mull_rate: Double? = null, val mull_wr: Double? = null,
                                 val keep7_wr: Double? = null, val mull_play: Double? = null, val turns: Double? = null)
-/** One exact colour combination: main colours (WUBRG order, as 17Lands writes them) and the splash ("" for none). */
+/** One exact color combination: main colors (WUBRG order, as 17Lands writes them) and the splash ("" for none). */
 @Serializable data class LColors(val m: String, val s: String, val games: Int, val wr: Double, val share: Double)
 @Serializable data class LView(val games: Int, val wr: Double, val weeks: Int, val brief: String? = null, val pairs: List<LPair>, val cards: List<LCard>, val facts: LFacts,
                                val colors: List<LColors> = emptyList())

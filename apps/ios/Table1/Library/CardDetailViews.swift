@@ -625,7 +625,7 @@ private struct StepCell<Content: View>: View {
     let action: () -> Void
     @ViewBuilder let content: Content
     var body: some View {
-        // Not .disabled: that dims the label, and disabled is drawn as the flat disabled colour (design rule).
+        // Not .disabled: that dims the label, and disabled is drawn as the flat disabled color (design rule).
         // Gestures rather than a Button, so a held press doesn't also count as a tap.
         content.frame(height: 18).padding(.top, 24)
             .frame(maxWidth: .infinity).frame(height: 54, alignment: .top)

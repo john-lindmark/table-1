@@ -346,7 +346,7 @@ export class RotoStore {
     this.poolOrder = [...this.pool.keys()].sort((a, b) => name(a).localeCompare(name(b)) || a - b);
   }
 
-  /** Card names and colours for the whole pool, read once from the local catalog. */
+  /** Card names and colors for the whole pool, read once from the local catalog. */
   async resolveCards(catalog?: Catalog): Promise<void> {
     try {
       const c = catalog ?? (await loadCatalog());

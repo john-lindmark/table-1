@@ -118,12 +118,12 @@ describe("insights helpers", () => {
     expect(afterWindow({ ...b, after: {} })).toBeNull();
   });
 
-  it("deck colour names", () => {
+  it("deck color names", () => {
     expect(colorsName("UB", "")).toBe("Dimir UB");
     expect(colorsName("UB", "R")).toBe("Dimir UB + r");
     expect(colorsName("WUB", "")).toBe("Esper WUB");
     expect(colorsName("WRG", "U")).toBe("Naya WRG + u");
-    expect(colorsName("WUBR", "")).toBe("Four-colour WUBR");
+    expect(colorsName("WUBR", "")).toBe("Four-color WUBR");
     expect(colorsName("R", "")).toBe("Mono-Red R");
   });
 

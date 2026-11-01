@@ -645,7 +645,7 @@ private fun IconButton(icon: Icon, label: String, onClick: () -> Unit) {
 }
 
 /** One cell of the bottom bar: 54 dp above the navigation bar, the glyph 24 dp from the top, the surface running under
- *  the navigation bar. Disabled is the flat disabled colour, never dimmed. */
+ *  the navigation bar. Disabled is the flat disabled color, never dimmed. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BottomCell(modifier: Modifier, enabled: Boolean = true, onClick: (() -> Unit)? = null, label: String,

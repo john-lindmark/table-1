@@ -81,7 +81,7 @@ struct RotoDraftView: View {
             }
         }
         .fullScreenCover(item: $deck) { d in RotoDeckScreen(listId: d.id) }
-        // Names and colours come from the catalog pack; re-read them when a pack is installed or replaced.
+        // Names and colors come from the catalog pack; re-read them when a pack is installed or replaced.
         .task(id: CatalogStore.shared.generation) { await store.resolveCards() }
         .alert("Undo the last pick?", isPresented: $confirmUndo) {
             Button("Keep it", role: .cancel) {}
@@ -206,9 +206,9 @@ struct RotoSummary: View {
     }
 }
 
-// MARK: colour bar
+// MARK: color bar
 
-/// Thin bar in the card's colours (gold for none); lands get a neutral bar.
+/// Thin bar in the card's colors (gold for none); lands get a neutral bar.
 struct RotoColorBar: View {
     let colors: [String]
     var isLand = false
@@ -260,7 +260,7 @@ private struct GridOffsetKey: PreferenceKey {
 }
 
 /// The classic roto sheet: seats across (sticky names), rounds down (sticky numbers with the snake direction).
-/// Cells: card name, colour bar, AUTO for automatic picks; the next pick outlined in accent.
+/// Cells: card name, color bar, AUTO for automatic picks; the next pick outlined in accent.
 struct RotoGridView: View {
     let store: RotoStore
     var interactive = true
@@ -424,7 +424,7 @@ private struct RotoGridRounds: View {
 
 // MARK: cube
 
-/// Every card in the pool by colour, with search and Available · All · Picked. Picked cards stay in place with a
+/// Every card in the pool by color, with search and Available · All · Picked. Picked cards stay in place with a
 /// flat #545461 tag `#23 · ANNA`.
 struct RotoCubeView: View {
     let store: RotoStore
@@ -467,7 +467,7 @@ struct RotoCubeView: View {
     }
 }
 
-/// A pool card: colour bar, name, type · mana value; picked ones carry `#23 · ANNA`, listed ones `LISTED #4`.
+/// A pool card: color bar, name, type · mana value; picked ones carry `#23 · ANNA`, listed ones `LISTED #4`.
 private struct RotoCubeRow: View {
     let store: RotoStore
     let slot: Int
@@ -507,7 +507,7 @@ private struct RotoCubeRow: View {
     }
 }
 
-/// The flat disabled-colour tag on picked cards: `#23 · ANNA`.
+/// The flat disabled-color tag on picked cards: `#23 · ANNA`.
 struct RotoPickedTag: View {
     let text: String
     var body: some View {
@@ -519,7 +519,7 @@ struct RotoPickedTag: View {
 
 // MARK: picks
 
-/// One player's picks: You first, then seat order. Colour counts, a mana-value curve, creatures; list or images.
+/// One player's picks: You first, then seat order. Color counts, a mana-value curve, creatures; list or images.
 struct RotoPicksView: View {
     let store: RotoStore
     var openDeck: ((String) -> Void)?
@@ -598,7 +598,7 @@ struct RotoPicksView: View {
     }
 }
 
-/// Colour counts, a mana-value curve (0 … 7+) and creatures / other spells / lands.
+/// Color counts, a mana-value curve (0 … 7+) and creatures / other spells / lands.
 struct RotoPickStats: View {
     let cards: [RotoCard]
 
@@ -695,7 +695,7 @@ struct RotoListView: View {
     }
 }
 
-/// One card on your list: rank, colour, name (opens the card), ×.
+/// One card on your list: rank, color, name (opens the card), ×.
 private struct RotoListRow: View {
     let store: RotoStore
     let slot: Int

@@ -338,7 +338,7 @@ export function InsightsArchetype() {
   };
   if (i != null) {
     const fin = page?.finishes[Number(i)];
-    // an Other group's example is named for its colours
+    // an Other group's example is named for its colors
     const group = Number(id) === 0 ? page?.groups?.find((g) => g.example === Number(i)) : undefined;
     const title = group ? colorsName(group.colors || "C", "") : name;
     const loading = (
@@ -382,8 +382,8 @@ export function InsightsArchetype() {
           {page.record && <Notice tone="info">{page.record.basis === "topdeck" ? "Record from paper events' rounds." : "Record of players who reached a Challenge's top 32, so it runs high."}</Notice>}
           {Number(id) === 0 && (page.groups?.length ?? 0) > 0 && (
             <>
-              <Section title="Inside Other · by colours" />
-              <Notice tone="info">Decks no archetype names yet, grouped by their colours. Open one for an example list.</Notice>
+              <Section title="Inside Other · by colors" />
+              <Notice tone="info">Decks no archetype names yet, grouped by their colors. Open one for an example list.</Notice>
               {page.groups!.map((g) => (
                 <Row key={g.colors} title={colorsName(g.colors || "C", "")} value={pct(g.share)}
                      detail={[`${g.decks} deck${g.decks === 1 ? "" : "s"}`, g.cards.join(", ")].filter(Boolean).join(" · ")}
@@ -578,7 +578,7 @@ function MatchupGrid({ pack, m: grid }: { pack: ConstructedPack; m: Matchups }) 
 /* ── limited ──────────────────────────────────────────────────────────── */
 
 const RARITIES = [{ value: "all", label: "All" }, { value: "common", label: "C" }, { value: "uncommon", label: "U" }, { value: "rare", label: "R" }, { value: "mythic", label: "M" }];
-const COLOURS = [{ value: "all", label: "All" }, ...["W", "U", "B", "R", "G"].map((c) => ({ value: c, label: c })), { value: "M", label: "Multi" }];
+const COLORS = [{ value: "all", label: "All" }, ...["W", "U", "B", "R", "G"].map((c) => ({ value: c, label: c })), { value: "M", label: "Multi" }];
 
 /** Add to my decks, then what happened with Open (the new deck) once it's there. */
 function AddRow({ copied, onAdd, onOpen }: { copied: { text: string; listId?: string } | null; onAdd: () => void; onOpen: (listId: string) => void }) {
@@ -654,7 +654,7 @@ function LimitedHome() {
   useEffect(() => { void loadInsightsExtras(); }, []);
   const [sort, setSort] = useState<"gih" | "oh" | "iwd" | "ata">("gih");
   const [rarity, setRarity] = useState("all");
-  const [colour, setColour] = useState("all");
+  const [color, setColor] = useState("all");
   const [editing, setEditing] = useState(false);
   // Sets with no 17Lands data yet (spoiler season, or just out) lead the picker and open Rank this set; the packs follow
   // in the index's order. Edit hides any of them.
@@ -671,7 +671,7 @@ function LimitedHome() {
     if (!view) return [];
     const key = (c: LCard) => (sort === "oh" ? c.oh : sort === "iwd" ? c.iwd : sort === "ata" ? (c.ata == null ? null : -c.ata) : c.gih);
     return view.cards
-      .filter((c) => (!rated || rarity === "all" || c.r === rarity) && (colour === "all" || (colour === "M" ? (c.col?.length ?? 0) > 1 : c.col === colour)))
+      .filter((c) => (!rated || rarity === "all" || c.r === rarity) && (color === "all" || (color === "M" ? (c.col?.length ?? 0) > 1 : c.col === color)))
       .sort((a, b) => {
         const x = key(a), y = key(b);
         if (x != null && y != null) return y - x;
@@ -679,7 +679,7 @@ function LimitedHome() {
         if (y != null) return 1;
         return b.gih_n - a.gih_n;
       });
-  }, [view, sort, rarity, colour, rated]);
+  }, [view, sort, rarity, color, rated]);
   // The picker waits for the index and the sets to rank (kept on the device after the first visit), so it draws whole.
   if (!index || !rankable || !chips.length) {
     return (<>
@@ -735,7 +735,7 @@ function LimitedHome() {
                     detail={r && r.rankings > 0 ? rankableDetail(r) : "Stack-rank its cards by color, then a top 100. Compare with your friends."} />;
       })()}
       <NewSetsToRank />
-      <Section title="Colour pairs · game win rate" />
+      <Section title="Color pairs · game win rate" />
       {shown.map((p) => (
         <ShareBar key={p.p} label={`${PAIR_NAMES[p.p] ?? p.p} ${p.p === "3C" ? "" : p.p}`} value={p.wr} max={hi} min={lo} reference={view.wr} format={pct1}
                   highlighted={p.p === shown[0]?.p} detail={`${pct(p.share)} of games · splash ${pct(p.splash)}`} onClick={() => nav(`${base}/pair/${p.p}`)} />
@@ -746,7 +746,7 @@ function LimitedHome() {
         const best = [...rows].sort((a, b) => b.wr - a.wr)[0];
         return (
           <>
-            <Section title="Deck colours · with splashes, most played first" />
+            <Section title="Deck colors · with splashes, most played first" />
             {rows.map((c) => (
               <ShareBar key={`${c.m}+${c.s}`} label={colorsName(c.m, c.s)} value={c.wr} max={chi} min={clo} reference={view.wr} format={pct1}
                         highlighted={c === best} detail={`${pct(c.share)} of games · ${c.games.toLocaleString()} games`} />
@@ -767,7 +767,7 @@ function LimitedHome() {
       <Segmented options={[{ value: "gih" as const, label: "GIH WR" }, { value: "oh" as const, label: "OH WR" }, { value: "iwd" as const, label: "IWD" }, { value: "ata" as const, label: "ATA" }]}
                  value={sort} onChange={(v) => { setSort(v); capture("insights_sort_changed", { sort: v }); }} />
       {rated && <Segmented options={RARITIES} value={rarity} onChange={setRarity} />}
-      <Segmented options={COLOURS} value={colour} onChange={setColour} />
+      <Segmented options={COLORS} value={color} onChange={setColor} />
       {cards.slice(0, 40).map((c) => (
         <Row key={c.n} title={c.n} value={value(c)} dim={c.gih == null} onClick={() => nav(`${base}/card/${encodeURIComponent(c.n)}`)}
              detail={[(c.r ? c.r[0].toUpperCase() + c.r.slice(1) : null), c.col, `${c.gih_n.toLocaleString()} in hand`, c.ata != null ? `taken ${c.ata.toFixed(1)}` : null].filter(Boolean).join(" · ")} />
@@ -849,7 +849,7 @@ export function InsightsLimitedCard() {
                                 series={[{ id: "w", label: "", values: c.week_gih, highlighted: true }]} /></Chart>
             </>
           )}
-          {pairs.length > 0 && <Section title="By colour pair · in hand" />}
+          {pairs.length > 0 && <Section title="By color pair · in hand" />}
           {pairs.map(([k, wr], i) => (
             <ShareBar key={k} label={`${PAIR_NAMES[k] ?? k} ${k}`} value={wr} max={hi} min={lo} reference={c.gih} format={pct1} highlighted={i === 0}
                       onClick={() => nav(`/insights/limited/${set}/${event}/${group}/pair/${k}`)} />
@@ -899,7 +899,7 @@ export function InsightsReview() {
           {!review.archetypes.length && <Notice tone="info">Nothing proposed.</Notice>}
           {review.archetypes.map((a) => (
             <div key={a.id} className="flex flex-col gap-px">
-              <Row title={a.name} detail={`${a.format} · ${a.family} · ${a.colors || "colourless"} · ${a.decks ?? 0} decks`} />
+              <Row title={a.name} detail={`${a.format} · ${a.family} · ${a.colors || "colorless"} · ${a.decks ?? 0} decks`} />
               <Notice tone="info">{a.signature.slice(0, 10).join(", ")}{a.missing.length ? ` · Not in the catalog: ${a.missing.join(", ")}` : ""}</Notice>
               <label className="bg-t1-surface px-4 py-3 flex flex-col gap-1">
                 <span className="t1-label">Name</span>

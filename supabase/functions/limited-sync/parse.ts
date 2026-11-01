@@ -4,10 +4,10 @@
 //   T|grp  P|grp (on the play)  D|grp (on the draw)  M|grp (mulliganed)  MP|grp (mulliganed on the play)
 //   K|grp (kept 7)  N|grp (g games, w = sum of turns)
 //   p|pair|grp  pp|pair|grp (on the play)  ps|pair|grp (splashed)  pw|pair|week|grp
-//   dc|main|splash|grp  each deck's exact colours as 17Lands writes them (main WUBRG order, splash '' when none)
+//   dc|main|splash|grp  each deck's exact colors as 17Lands writes them (main WUBRG order, splash '' when none)
 //   cd|card|grp (in deck)  ch|card|grp (in hand: opening hand or drawn)  co|card|grp (opening hand)
 //   cg|card|grp (drawn, not in the opening hand)  cn|card|grp (in deck, never seen)
-//   cw|card|week (in hand, all players)  cp|card|pair (in hand, all players, two-colour pairs)
+//   cw|card|week (in hand, all players)  cp|card|pair (in hand, all players, two-color pairs)
 //   a|card|grp     draft data: g = times taken, w = sum of the pick position (1-14)
 
 export type Acc = Map<string, [number, number]>;
@@ -41,7 +41,7 @@ export interface Layout {
   cols: string[];
 }
 
-/** A two-colour pair, a mono colour, or 3C for three or more (17Lands writes colours in WUBRG order). */
+/** A two-color pair, a mono color, or 3C for three or more (17Lands writes colors in WUBRG order). */
 export const pairOf = (c: string) => c.length >= 3 ? "3C" : c || "C";
 
 export const PAIRS = ["WU", "WB", "WR", "WG", "UB", "UR", "UG", "BR", "BG", "RG"];

@@ -9,5 +9,5 @@ export function insightsNewCopy(d: Record<string, unknown>): { title: string; bo
     return { title: "New in Insights", body: `${name} is in Insights: the metagame, matchups and decklists.` };
   }
   const cube = /\bcube\b/i.test(name);
-  return { title: "New in Insights", body: `${name}: draft data from 17Lands is in. See the best ${cube ? "cards" : "cards and colour pairs"}.` };
+  return { title: "New in Insights", body: `${name}: draft data from 17Lands is in. See the best ${cube ? "cards" : "cards and color pairs"}.` };
 }

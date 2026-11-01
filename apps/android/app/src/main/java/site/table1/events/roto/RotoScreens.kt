@@ -283,7 +283,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.stickyHeaderRow(seats
     }
 }
 
-/** Every card in the pool by colour, with search and Available · All · Picked; picked ones carry `#23 · ANNA`. */
+/** Every card in the pool by color, with search and Available · All · Picked; picked ones carry `#23 · ANNA`. */
 @Composable
 private fun Cube(v: RotoView, onOpen: (Int) -> Unit) {
     var query by remember { mutableStateOf("") }
@@ -332,7 +332,7 @@ private fun Cube(v: RotoView, onOpen: (Int) -> Unit) {
     }
 }
 
-/** One player's picks: You first, then seat order. Colour counts, a mana-value curve, creatures; Open deck for you. */
+/** One player's picks: You first, then seat order. Color counts, a mana-value curve, creatures; Open deck for you. */
 @Composable
 private fun Picks(v: RotoView, onOpen: (Int) -> Unit, onOpenDeck: () -> Unit) {
     val seated = v.orderedSeats.filter { it.seat != null }

@@ -47,7 +47,7 @@ Deno.test("header: quoted card names with commas", () => {
   assertEquals(headerColumns('"say ""hi""",x'), ['say "hi"', "x"]);
 });
 
-Deno.test("pairs: two colours as written, 3C for more, C for none", () => {
+Deno.test("pairs: two colors as written, 3C for more, C for none", () => {
   assertEquals([pairOf("UB"), pairOf("WUB"), pairOf("R"), pairOf("")], ["UB", "3C", "R", "C"]);
 });
 
@@ -57,7 +57,7 @@ Deno.test("game data: the reference sums, read whole", async () => {
   assertEquals(rows, cases.game_rows);
   assertEquals(steps, 1);
   assert(check(total, /^(T|P|D|p|pw|dc|cd|ch|cn)\|/) > 200);
-  assert(check(total, /^dc\|/) > 10, "deck colours with their splashes");
+  assert(check(total, /^dc\|/) > 10, "deck colors with their splashes");
   // in hand + never seen never exceeds in deck
   for (const [k, [g]] of total) {
     if (!k.startsWith("cd|")) continue;

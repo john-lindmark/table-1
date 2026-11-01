@@ -261,7 +261,7 @@ class RotoStore(val eventId: String) {
     private fun sortedOrder(pool: Map<Int, RotoPoolCard>, cards: Map<String, RotoCard>) =
         pool.keys.sortedWith(compareBy<Int>({ pool[it]?.let { p -> cards[p.cardId]?.name } ?: "" }, { it }))
 
-    /** Card names, types and colours from the local catalog only (no network per card). */
+    /** Card names, types and colors from the local catalog only (no network per card). */
     suspend fun resolveCards() {
         CatalogStore.load(userInitiated = true)
         val db = CatalogStore.db ?: return

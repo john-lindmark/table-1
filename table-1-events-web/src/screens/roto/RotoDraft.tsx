@@ -221,9 +221,9 @@ function RotoSummary({ store, onPickFor }: { store: RotoStore; onPickFor?: () =>
   );
 }
 
-/* ── colour bar ───────────────────────────────────────────────────── */
+/* ── color bar ───────────────────────────────────────────────────── */
 
-/** Thin bar in the card's colours (grey for none); lands get a neutral bar. */
+/** Thin bar in the card's colors (grey for none); lands get a neutral bar. */
 function ColorBar({ card, vertical = false, className = "" }: { card: RotoCard | null; vertical?: boolean; className?: string }) {
   const list = card?.colors.length ? card.colors : [card?.isLand ? "L" : "C"];
   return (
@@ -358,7 +358,7 @@ const GridRow = memo(function GridRow({ store, round, players, next, current, in
 
 type CubeFilter = "available" | "all" | "picked";
 
-/** Every card in the pool by colour, with search and Available · All · Picked. Picked cards keep a flat `#23 · ANNA`. */
+/** Every card in the pool by color, with search and Available · All · Picked. Picked cards keep a flat `#23 · ANNA`. */
 function RotoCube({ store, onOpen }: { store: RotoStore; onOpen: (slot: number) => void }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<CubeFilter>("available");
@@ -405,7 +405,7 @@ const typeDetail = (c: RotoCard) => {
   return c.isLand ? type : `${type} · ${c.manaValue}`;
 };
 
-/** A pool card: colour bar, name, type · mana value; picked ones carry `#23 · ANNA`, listed ones `LISTED #4`. */
+/** A pool card: color bar, name, type · mana value; picked ones carry `#23 · ANNA`, listed ones `LISTED #4`. */
 function CubeRow({ store, slot, onOpen }: { store: RotoStore; slot: number; onOpen: (slot: number) => void }) {
   const card = store.card(slot);
   const taken = store.takenBy(slot);
@@ -423,14 +423,14 @@ function CubeRow({ store, slot, onOpen }: { store: RotoStore; slot: number; onOp
   );
 }
 
-/** The flat disabled-colour tag on picked cards: `#23 · ANNA` (no opacity dimming). */
+/** The flat disabled-color tag on picked cards: `#23 · ANNA` (no opacity dimming). */
 function PickedTag({ children }: { children: ReactNode }) {
   return <span className="shrink-0 bg-t1-disabled text-white px-2 py-1 text-[10px] uppercase tracking-[1px] truncate max-w-[45%]">{children}</span>;
 }
 
 /* ── picks ────────────────────────────────────────────────────────── */
 
-/** One player's picks: You first, then seat order. Colour counts, a mana-value curve, creatures; list or images. */
+/** One player's picks: You first, then seat order. Color counts, a mana-value curve, creatures; list or images. */
 function RotoPicks({ store, onOpen, onOpenDeck }: { store: RotoStore; onOpen: (slot: number) => void; onOpenDeck: () => void }) {
   const seated = store.orderedSeats.filter((x) => x.seat != null);
   const choices = [...seated.filter((x) => x.me), ...seated.filter((x) => !x.me)];
@@ -491,7 +491,7 @@ function RotoPicks({ store, onOpen, onOpenDeck }: { store: RotoStore; onOpen: (s
   );
 }
 
-/** Colour counts, a mana-value curve (0 … 7+) and creatures / other spells / lands. */
+/** Color counts, a mana-value curve (0 … 7+) and creatures / other spells / lands. */
 function PickStats({ cards }: { cards: RotoCard[] }) {
   const spells = cards.filter((c) => !c.isLand);
   const curve = Array.from({ length: 8 }, (_, mv) => spells.filter((c) => (mv === 7 ? c.manaValue >= 7 : c.manaValue === mv)).length);
