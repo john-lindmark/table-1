@@ -36,9 +36,9 @@ struct ScannedCard: Identifiable, Hashable {
 /// language. VisionKit's DataScanner can't switch like that: it reads with the first language it's given only, and
 /// English first turns CJK into noise while Japanese first breaks Korean and Cyrillic.
 struct CardTextScanner: UIViewRepresentable {
-    /// One frame's lines, top first, and whether they're from inside a card found in the frame; returns true when
-    /// they name a card.
-    let onLines: ([String], Bool) -> Bool
+    /// One frame's lines, top first, whether they're from inside a card found in the frame, and the colour of the
+    /// card's border when it could be read (ScanBorder); returns true when they name a card.
+    let onLines: ([String], Bool, ScanBorder) -> Bool
 
     static var isAvailable: Bool {
         Coordinator.camera() != nil && ![.denied, .restricted].contains(AVCaptureDevice.authorizationStatus(for: .video))
@@ -77,7 +77,7 @@ struct CardTextScanner: UIViewRepresentable {
     /// Runs the capture session and Vision on its own queue, one frame at a time (late frames are dropped).
     final class Coordinator: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
         // Main thread only.
-        var onLines: ([String], Bool) -> Bool
+        var onLines: ([String], Bool, ScanBorder) -> Bool
         private var language = ScanLanguage(readers: 1)
         let session = AVCaptureSession()
         private let queue = DispatchQueue(label: "site.table1.card-text", qos: .userInitiated)
@@ -95,7 +95,7 @@ struct CardTextScanner: UIViewRepresentable {
         /// The preview's size (main thread writes it through `queue`), to place the guide box in the image.
         private var view: CGSize = .zero
 
-        init(onLines: @escaping ([String], Bool) -> Bool) { self.onLines = onLines }
+        init(onLines: @escaping ([String], Bool, ScanBorder) -> Bool) { self.onLines = onLines }
 
         func viewSize(_ size: CGSize) { queue.async { [self] in view = size } }
 
@@ -142,6 +142,40 @@ struct CardTextScanner: UIViewRepresentable {
                 if sign == 0 { sign = cross } else if sign * cross < 0 { return false }
             }
             return true
+        }
+
+        /// The border colour read around the card (Vision's rectangle, normalized, origin bottom-left) or, without
+        /// one, along the guide box, from the frame's luma plane. The buffer is the sensor's landscape image read with
+        /// orientation .right, so an upright pixel (x, y) is the buffer's (y, height − 1 − x) (`bufferPixel`); 420v
+        /// video-range luma is scaled to full range, as the photo set's samples are.
+        static func border(_ pixels: CVPixelBuffer, quad: [CGPoint]?, guide: CGRect?, image: CGSize) -> ScanBorder {
+            let format = CVPixelBufferGetPixelFormatType(pixels)
+            guard format == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange || format == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
+                  quad != nil || guide != nil else { return .unknown }
+            CVPixelBufferLockBaseAddress(pixels, .readOnly)
+            defer { CVPixelBufferUnlockBaseAddress(pixels, .readOnly) }
+            guard let base = CVPixelBufferGetBaseAddressOfPlane(pixels, 0) else { return .unknown }
+            let stride = CVPixelBufferGetBytesPerRowOfPlane(pixels, 0)
+            let bw = CVPixelBufferGetWidthOfPlane(pixels, 0), bh = CVPixelBufferGetHeightOfPlane(pixels, 0)
+            let video = format == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+            let y = base.assumingMemoryBound(to: UInt8.self)
+            let luma: (CGPoint) -> Int = { p in
+                let b = bufferPixel(p, upright: image)
+                let v = Int(y[max(0, min(bh - 1, b.y)) * stride + max(0, min(bw - 1, b.x))])
+                return video ? max(0, min(255, (v - 16) * 255 / 219)) : v
+            }
+            // Upright pixels, origin top-left.
+            func px(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x * image.width, y: (1 - p.y) * image.height) }
+            if let quad { return ScanBorder.classify(ScanBorder.samples(quad: quad.map(px), luma: luma)) }
+            let g = guide!
+            let box = CGRect(x: g.minX * image.width, y: (1 - g.maxY) * image.height, width: g.width * image.width, height: g.height * image.height)
+            return ScanBorder.classify(ScanBorder.samples(guide: box, luma: luma))
+        }
+
+        /// An upright pixel (origin top-left, `upright` = the portrait image's size) in the landscape buffer that
+        /// Vision read with orientation .right (checked by testdata/scan/tools/border.swift's orientation check).
+        static func bufferPixel(_ p: CGPoint, upright: CGSize) -> (x: Int, y: Int) {
+            (Int(p.y.rounded()), Int((upright.width - 1 - p.x).rounded()))
         }
 
         private static func request(detect: Bool) -> VNRecognizeTextRequest {
@@ -213,8 +247,12 @@ struct CardTextScanner: UIViewRepresentable {
             guard (try? VNImageRequestHandler(cvPixelBuffer: pixels, orientation: .right).perform([cards, request])) != nil else { return }
             // With a card in the guide, only the text on it: a keyboard, a screen or another card beside it can't name
             // a card. Without one, only the text inside the guide.
-            let card = Self.card(cards.results ?? [], guide: guide, image: image).map(Self.grown)
+            let found = Self.card(cards.results ?? [], guide: guide, image: image)
+            let card = found.map(Self.grown)
             let reading = guide.map { ScanRegion.grown($0, 0.1) }
+            // The border colour, from a few luma reads of the frame around the card's edge (120 with a rectangle, 624
+            // along the guide without one; tens of microseconds): Alpha and Beta are black, Unlimited and Revised white.
+            let border = Self.border(pixels, quad: found.map { [$0.topLeft, $0.topRight, $0.bottomRight, $0.bottomLeft] }, guide: guide, image: image)
             // Vision's origin is bottom-left: the top of the frame has the largest maxY.
             let lines = (request.results ?? [])
                 .filter { o in
@@ -227,7 +265,7 @@ struct CardTextScanner: UIViewRepresentable {
             let onCard = card != nil
             matching = true
             DispatchQueue.main.async { [self] in
-                language.feed(matched: onLines(lines, onCard), text: !lines.isEmpty)
+                language.feed(matched: onLines(lines, onCard, border), text: !lines.isEmpty)
                 let cjk = language.mode != .latin
                 queue.async { [self] in detect = cjk; matching = false }
             }
@@ -331,7 +369,7 @@ struct CardScanView: View {
                 Spacer(minLength: 0)
             } else {
                 // The camera takes whatever the header, condition picker, scanned list and footer leave.
-                CardTextScanner { lines, onCard in see(lines, onCard: onCard) }
+                CardTextScanner { lines, onCard, border in see(lines, onCard: onCard, border: border) }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .overlay { ScanGuide(reading: reading) }
                     .clipped()
@@ -376,9 +414,9 @@ struct CardScanView: View {
     /// One frame's lines; true when they name a card. Without a card found in the frame, the text must look like a
     /// card's: a type line, or a set code and number that agree with the name. Otherwise a keyboard's "option" key
     /// is Opt (its French name) and a decklist on a screen is a card.
-    private func see(_ lines: [String], onCard: Bool) -> Bool {
+    private func see(_ lines: [String], onCard: Bool, border: ScanBorder = .unknown) -> Bool {
         guard let matcher else { return false }
-        var m = matcher.match(lines)
+        var m = matcher.match(lines, border: border)
         if !onCard, m?.exact != true, !CardMatcher.hasTypeLine(lines) { m = nil }
         feed.frames.add(lines, named: m != nil)
         // Set only when it changes: every frame redrew the screen, scanned rows included.

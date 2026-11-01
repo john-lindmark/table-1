@@ -161,9 +161,9 @@ fun CardScanOverlay(
      * One frame's lines; true when they name a card. ML Kit finds no card in the frame on Android, so the text must
      * look like a card's: a type line, or a set code and number that agree with the name (CardMatcher.hasTypeLine).
      */
-    fun see(lines: List<String>): Boolean {
+    fun see(lines: List<String>, border: ScanBorder): Boolean {
         val m = matcher ?: return false
-        val hit = m.match(lines)?.takeIf { it.exact || CardMatcher.hasTypeLine(lines) }
+        val hit = m.match(lines, border)?.takeIf { it.exact || CardMatcher.hasTypeLine(lines) }
         frames.add(lines, named = hit != null)
         reading = hit?.oracle?.name
         val take = steady.feed(hit) ?: return hit != null
@@ -217,7 +217,7 @@ fun CardScanOverlay(
                     }
                     // The camera takes whatever the header, condition picker, scanned list and footer leave.
                     else -> Box(Modifier.fillMaxWidth().weight(1f).clipToBounds()) {
-                        CameraText { see(it) }
+                        CameraText { lines, border -> see(lines, border) }
                         ScanGuide(reading)
                     }
                 }
@@ -328,7 +328,7 @@ private fun GuideMark(text: String, modifier: Modifier) =
     Label(text, modifier.background(T1.bg.copy(alpha = 0.6f)).padding(horizontal = 6.dp, vertical = 2.dp))
 
 @Composable
-private fun CameraText(onLines: (List<String>) -> Boolean) {
+private fun CameraText(onLines: (List<String>, ScanBorder) -> Boolean) {
     val context = LocalContext.current
     /** The preview's size in px (main thread writes it), to place the guide box in the image. */
     val viewSize = remember { java.util.concurrent.atomic.AtomicReference(0f to 0f) }
@@ -366,13 +366,39 @@ private fun CameraText(onLines: (List<String>) -> Boolean) {
             else -> KoreanTextRecognizerOptions.Builder().build()
         },
     ).also { cjk[mode] = it }
-    fun fed(lines: List<String>) {
-        language.feed(matched = callback.value(lines), text = lines.isNotEmpty())
+    fun fed(lines: List<String>, border: ScanBorder) {
+        language.feed(matched = callback.value(lines, border), text = lines.isNotEmpty())
         reading.set(language.mode)
     }
-    fun feedOnMain(lines: List<String>) {
+    fun feedOnMain(lines: List<String>, border: ScanBorder) {
         if (!matching.compareAndSet(false, true)) return
-        ContextCompat.getMainExecutor(context).execute { try { fed(lines) } finally { matching.set(false) } }
+        ContextCompat.getMainExecutor(context).execute { try { fed(lines, border) } finally { matching.set(false) } }
+    }
+    /**
+     * The border colour read along the guide box from the frame's luma plane, before the frame goes to ML Kit (624
+     * byte reads, microseconds): Alpha and Beta are black, Unlimited and Revised white (ScanBorder). The guide is in the
+     * upright image; the raw image needs `rotation` degrees to show upright (ScanBorder.rawPixel).
+     */
+    fun border(media: android.media.Image, rotation: Int): ScanBorder {
+        val upright = rotation % 180 != 0
+        val iw = (if (upright) media.height else media.width).toFloat()
+        val ih = (if (upright) media.width else media.height).toFloat()
+        val (vw, vh) = viewSize.get()
+        if (vw <= 0 || vh <= 0 || media.format != android.graphics.ImageFormat.YUV_420_888) return ScanBorder.UNKNOWN
+        val n = ScanRegion.normalized(ScanRegion.viewBox(vw, vh, margin), vw, vh, iw, ih)
+        val guide = Box(n.x * iw, n.y * ih, n.w * iw, n.h * ih)
+        val plane = media.planes[0]
+        val buffer = plane.buffer
+        val rowStride = plane.rowStride
+        val pixelStride = plane.pixelStride
+        val rw = media.width
+        val rh = media.height
+        val maxX = iw.toInt() - 1
+        val maxY = ih.toInt() - 1
+        return ScanBorder.classify(ScanBorder.samples(guide) { x, y ->
+            val (rx, ry) = ScanBorder.rawPixel(x.toInt().coerceIn(0, maxX), y.toInt().coerceIn(0, maxY), rotation, rw, rh)
+            buffer.get(ry * rowStride + rx * pixelStride).toInt() and 0xFF
+        })
     }
     AndroidView(factory = { ctx ->
         // TextureView ("compatible"): a SurfaceView punches through the dialog's window, so the preview drew outside
@@ -397,6 +423,7 @@ private fun CameraText(onLines: (List<String>) -> Boolean) {
             analysis.setAnalyzer(executor) { proxy ->
                 val media = proxy.image
                 if (media == null) { proxy.close(); return@setAnalyzer }
+                val border = runCatching { border(media, proxy.imageInfo.rotationDegrees) }.getOrDefault(ScanBorder.UNKNOWN)
                 recognizer(reading.get()).process(InputImage.fromMediaImage(media, proxy.imageInfo.rotationDegrees))
                     .addOnSuccessListener { text ->
                         // Only the text inside the guide box: a keyboard, a screen or another card beside it can't name a
@@ -409,11 +436,11 @@ private fun CameraText(onLines: (List<String>) -> Boolean) {
                         val lines = text.textBlocks.flatMap { it.lines }
                             .filter { l -> l.boundingBox?.let { b -> ScanRegion.readsText(guide, b.exactCenterX() / iw, b.exactCenterY() / ih) } ?: false }
                             .sortedBy { it.boundingBox?.top ?: 0 }.map { it.text }
-                        feedOnMain(lines)
+                        feedOnMain(lines, border)
                     }
                     // A CJK model still downloading (Play services fetches it on first use) fails: a miss, so the next
                     // recognizer gets the next frame.
-                    .addOnFailureListener { feedOnMain(emptyList()) }
+                    .addOnFailureListener { feedOnMain(emptyList(), ScanBorder.UNKNOWN) }
                     .addOnCompleteListener { proxy.close() }
             }
             runCatching {

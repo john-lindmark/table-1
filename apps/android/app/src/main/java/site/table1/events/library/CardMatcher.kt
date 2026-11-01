@@ -235,8 +235,9 @@ class CardMatcher(
     var lastPick: CatalogPrinting? = null
         private set
 
-    fun match(lines: List<String>): ScanMatch? {
-        val frame = Collector(lines, names.sets)
+    /** [border]: the colour of the card's border read from the camera frame ([ScanBorder]), when the scanner could tell. */
+    fun match(lines: List<String>, border: ScanBorder = ScanBorder.UNKNOWN): ScanMatch? {
+        val frame = Collector(lines, names.sets, border)
         name(lines)?.let { hit ->
             oracle(hit.idx)?.let { o ->
                 val bottom = remembered(o.idx, frame)
@@ -338,8 +339,9 @@ class CardMatcher(
      * illustrator's name read (2, when the card's printings don't all share one), or for an old frame with no year
      * (4th Edition on prints "© 1995") a 1993–94 printing (1); ties go to a for-trade copy, the set last picked by
      * hand (nearest its number), the name's language on an old frame (French Sol Ring → Foreign Black Border),
-     * English, a regular collector number, the most printed of Revised, Unlimited, Beta, Alpha (nothing printed on
-     * them tells them apart, and Alpha was the rarest), then the default printing. Exact when one printing leads
+     * the border colour the camera read when nothing printed was (black: Alpha, Beta, Foreign Black Border; white:
+     * Unlimited, Revised), English, a regular collector number, the most printed of Revised, Unlimited, Beta, Alpha
+     * (nothing printed on them tells them apart, and Alpha was the rarest), then the default printing. Exact when one printing leads
      * with the set code and number (or the set's only printing), or with the number and one more thing (the year,
      * the frame), or with the set code and the artist. A prerelease date stamp picks the set's prerelease promo.
      */
@@ -372,9 +374,17 @@ class CardMatcher(
         }
         val last = lastPick
         fun near(p: CatalogPrinting) = if (last == null || p.set != last.set) Int.MIN_VALUE else -abs(digits(p.cn) - digits(last.cn))
+        // The border the camera read counts only when nothing printed was read (a set code, number or year read
+        // always wins, and old cards print none), and after a hand-picked set: a fix still carries to the next card.
+        val border = if (bottom.sets.isEmpty() && bottom.numbers.isEmpty() && bottom.years.isEmpty()) bottom.border else ScanBorder.UNKNOWN
+        fun bordered(p: CatalogPrinting) = when (border) {
+            ScanBorder.BLACK -> p.set in BLACK_BORDER
+            ScanBorder.WHITE -> p.set in WHITE_BORDER
+            ScanBorder.UNKNOWN -> false
+        }
         var best = ps.sortedWith(
             compareByDescending<CatalogPrinting> { score(it) }.thenByDescending { it.cardId in preferred }.thenByDescending { near(it) }
-                .thenByDescending { old && it.lang in langs }.thenByDescending { it.lang == "en" }
+                .thenByDescending { old && it.lang in langs }.thenByDescending { bordered(it) }.thenByDescending { it.lang == "en" }
                 .thenBy { it.cn.endsWith("★") }.thenByDescending { PRINT_RUN[it.set] ?: 0 }.thenByDescending { it.original }.thenBy { it.ord },
         ).first()
         val top = score(best)
@@ -484,6 +494,11 @@ class CardMatcher(
 
         /** The 1993–94 core sets, most printed first: one printed card reads the same in all four. */
         val PRINT_RUN = mapOf("3ed" to 4, "2ed" to 3, "leb" to 2, "lea" to 1)
+        /** The 1993–95 printings with a black border (Alpha, Beta, Collectors' Edition, Foreign Black Border, 4th Edition's
+         *  foreign black border) and a white one (Unlimited, Revised, Summer Magic): what the camera's border read picks
+         *  between when nothing printed tells them apart. */
+        val BLACK_BORDER = setOf("lea", "leb", "ced", "cei", "fbb", "4bb")
+        val WHITE_BORDER = setOf("2ed", "3ed", "sum")
 
         /** Printed before cards carried a copyright year (4th Edition, April 1995). */
         fun early(p: CatalogPrinting) = (p.releasedAt.take(4).toIntOrNull() ?: 9999) <= 1994
@@ -499,7 +514,10 @@ class CardMatcher(
  * prerelease date stamp. Built per frame; `merge` keeps what earlier frames of the same card read. Same rules as
  * iOS (CardMatcher.swift).
  */
-class Collector(lines: List<String>, known: Set<String>) {
+class Collector(lines: List<String>, known: Set<String>, border: ScanBorder = ScanBorder.UNKNOWN) {
+    /** The border colour the camera read in this frame ([ScanBorder]), when it could tell. */
+    var border = border
+        private set
     val sets = HashSet<String>()
     val numbers = HashSet<String>()
     /** The numbers written as collector numbers ("154/196", "0244", "R 1695", "297"), not a lone "212" that may be a misread 2/2. */
@@ -607,6 +625,7 @@ class Collector(lines: List<String>, known: Set<String>) {
         dated = dated || o.dated
         frames.addAll(o.frames)
         if (lang == null) lang = o.lang
+        if (border == ScanBorder.UNKNOWN) border = o.border
     }
 
     companion object {
@@ -689,6 +708,167 @@ class Collector(lines: List<String>, known: Set<String>) {
             if (swapped != code && swapped in known) return swapped
             if (code.length >= 4) for (cut in listOf(code.drop(1), code.dropLast(1))) if (cut in known) return cut
             return null
+        }
+    }
+}
+
+/**
+ * The colour of a card's border, read from the camera frame: Alpha, Beta and Foreign Black Border cards have black
+ * borders, Unlimited and Revised white ones, and nothing printed on a 1993–94 card tells them apart, so this breaks
+ * that tie in [CardMatcher] (contract/trades-2026-10-16.md § Scanning "Border colour"; measured over the photo set in
+ * testdata/scan/border.json, made by testdata/scan/tools/border.swift, which holds the reference copy of these rules;
+ * iOS: `ScanBorder` in CardMatcher.swift. Change all three together.)
+ *
+ * The scanner samples luma (0–255) at a few points per camera frame: just inside and just outside each side of the
+ * card's edge (ML Kit finds no card rectangle, so the edge is found in a short luma profile across each side of the
+ * guide box, which the card roughly fills), further outside, and in the card's text box, whose ink and paper are the
+ * frame's own black and white, so a dim or low-contrast frame still reads.
+ */
+enum class ScanBorder {
+    BLACK, WHITE, UNKNOWN;
+
+    /** The samples one frame yields: per side (top, right, bottom, left) twelve just inside the edge, twelve just
+     *  outside, twelve further out; and 24 in the text box. */
+    data class Samples(val inside: List<List<Int>>, val outside: List<List<Int>>, val far: List<List<Int>>, val inner: List<Int>)
+
+    companion object {
+        /** Where a side's samples are taken: six points along it, 15–85% of its length. */
+        val ALONG = doubleArrayOf(0.15, 0.29, 0.43, 0.57, 0.71, 0.85)
+        /** Offsets from the edge, as fractions of the card's width: a 1993–94 border is about 4.5% wide. */
+        val DEPTHS = doubleArrayOf(0.015, 0.03)
+        /** Further out, past where a border would end: tells a border plateau outside an edge that was the frame
+         *  inside the border (a step between the two) from a table that just goes on (no step). */
+        val FAR_DEPTHS = doubleArrayOf(0.065, 0.09)
+        /** Where the text box is sampled (u right, v down, fractions of the card): light with dark text on every
+         *  1993–2003 card. */
+        val INNER_U = doubleArrayOf(0.2, 0.32, 0.44, 0.56, 0.68, 0.8)
+        val INNER_V = doubleArrayOf(0.66, 0.72, 0.78, 0.84)
+        /** The luma profile across a side of the guide box: from 12% outside to 12% inside its width, 25 samples. */
+        const val PROFILE_STEPS = 25
+        const val PROFILE_SPAN = 0.12
+
+        /** Luma at or under this is black, at or over the other white, whatever the card (a phone's auto exposure keeps
+         *  a card about this bright); in between, the card's own text box decides. */
+        const val BLACK_AT_MOST = 70
+        const val WHITE_AT_LEAST = 165
+        /** Relative to the text box (0 = its ink, 1 = its paper): a border this far below the paper is black, this far
+         *  above the ink white, within these absolute bounds (so a lit black border or a greyed white one still counts,
+         *  but not frame texture), when the text box has this much contrast. */
+        const val BLACK_BELOW = 0.25
+        const val WHITE_ABOVE = 0.9
+        const val BLACK_ABS_MAX = 115
+        const val WHITE_ABS_MIN = 140
+        const val TEXT_BOX_CONTRAST = 50
+        /** A border plateau outside the edge found ends in a step this big (relative to the text box; in luma when it
+         *  has no contrast) to the table beyond it; a table just goes on. */
+        const val PLATEAU_STEP = 0.3
+        const val PLATEAU_STEP_LUMA = 45
+
+        fun upperMedian(a: List<Int>) = a.sorted()[a.size / 2]
+
+        /**
+         * The border from a frame's samples: at least three of the four sides one colour just inside the edge and none
+         * the other; else, when the inside is mostly neither (the edge found was the frame inside the border), the same
+         * just outside, counting only sides where the outside band steps to what lies beyond it (a border ends; a table
+         * doesn't).
+         */
+        fun classify(s: Samples): ScanBorder {
+            if (s.inside.size != 4 || s.outside.size != 4 || s.far.size != 4 || s.inner.isEmpty() ||
+                s.inside.any { it.isEmpty() } || s.outside.any { it.isEmpty() } || s.far.any { it.isEmpty() }) return UNKNOWN
+            val sorted = s.inner.sorted()
+            val ink = sorted[0]
+            val paper = sorted[minOf(sorted.size - 1, sorted.size * 3 / 4)]
+            val ref = paper - ink >= TEXT_BOX_CONTRAST
+            fun norm(m: Int) = (m - ink).toDouble() / (paper - ink)
+            fun shade(samples: List<Int>): ScanBorder {
+                val m = upperMedian(samples)
+                if (m <= BLACK_AT_MOST || (ref && norm(m) <= BLACK_BELOW && m <= BLACK_ABS_MAX)) return BLACK
+                if (m >= WHITE_AT_LEAST || (ref && norm(m) >= WHITE_ABOVE && m >= WHITE_ABS_MIN)) return WHITE
+                return UNKNOWN
+            }
+            fun agree(shades: List<ScanBorder>): ScanBorder {
+                val black = shades.count { it == BLACK }
+                val white = shades.count { it == WHITE }
+                if (black >= 3 && white == 0) return BLACK
+                if (white >= 3 && black == 0) return WHITE
+                return UNKNOWN
+            }
+            val ins = s.inside.map(::shade)
+            val a = agree(ins)
+            if (a != UNKNOWN) return a
+            if (ins.count { it == UNKNOWN } < 3) return UNKNOWN
+            val outs = (0 until 4).map { k ->
+                val o = upperMedian(s.outside[k])
+                val f = upperMedian(s.far[k])
+                val step = if (ref) abs(norm(o) - norm(f)) >= PLATEAU_STEP else abs(o - f) >= PLATEAU_STEP_LUMA
+                if (step) shade(s.outside[k]) else UNKNOWN
+            }
+            return agree(outs)
+        }
+
+        /** Luma at the text-box points inside a quad (corners TL, TR, BR, BL as x, y pairs; bilinear in them). */
+        fun innerSamples(q: List<Pair<Double, Double>>, luma: (Double, Double) -> Int): List<Int> =
+            INNER_V.flatMap { v -> INNER_U.map { u ->
+                val tx = q[0].first + (q[1].first - q[0].first) * u
+                val ty = q[0].second + (q[1].second - q[0].second) * u
+                val bx = q[3].first + (q[2].first - q[3].first) * u
+                val by = q[3].second + (q[2].second - q[3].second) * u
+                luma(tx + (bx - tx) * v, ty + (by - ty) * v)
+            } }
+
+        /**
+         * The samples around the guide box ([Box] in pixels, origin top-left): along each side six luma profiles from 12%
+         * outside to 12% inside find the card's edge (the strongest step), and the bands around it are the inside, outside
+         * and far samples. 624 reads; [luma] reads one pixel (clamping to the image is its job).
+         */
+        fun samples(guide: Box, luma: (Double, Double) -> Int): Samples {
+            val g = guide
+            val x0 = g.x.toDouble(); val y0 = g.y.toDouble(); val x1 = (g.x + g.w).toDouble(); val y1 = (g.y + g.h).toDouble()
+            val sides = listOf( // start, end, inward unit
+                Triple(x0 to y0, x1 to y0, 0.0 to 1.0),
+                Triple(x1 to y0, x1 to y1, -1.0 to 0.0),
+                Triple(x1 to y1, x0 to y1, 0.0 to -1.0),
+                Triple(x0 to y1, x0 to y0, 1.0 to 0.0),
+            )
+            val inside = ArrayList<List<Int>>(); val outside = ArrayList<List<Int>>(); val far = ArrayList<List<Int>>()
+            for ((a, b, n) in sides) {
+                val ins = ArrayList<Int>(); val outs = ArrayList<Int>(); val fars = ArrayList<Int>()
+                for (t in ALONG) {
+                    val px = a.first + (b.first - a.first) * t
+                    val py = a.second + (b.second - a.second) * t
+                    val s = (0 until PROFILE_STEPS).map { k ->
+                        val d = (-PROFILE_SPAN + k * (2 * PROFILE_SPAN) / (PROFILE_STEPS - 1)) * g.w
+                        luma(px + n.first * d, py + n.second * d)
+                    }
+                    val (i, o, f) = edge(s)
+                    ins += i; outs += o; fars += f
+                }
+                inside.add(ins); outside.add(outs); far.add(fars)
+            }
+            val q = listOf(x0 to y0, x1 to y0, x1 to y1, x0 to y1)
+            return Samples(inside, outside, far, innerSamples(q, luma))
+        }
+
+        /** From one profile (outside first), the samples around the card's edge: the strongest step is the edge; the two
+         *  samples inward of it are inside (about 1–2% in), the two outward outside, two more beyond them far. */
+        fun edge(s: List<Int>): Triple<List<Int>, List<Int>, List<Int>> {
+            val n = s.size
+            var e = n / 2
+            var best = 0
+            for (k in 2 until n - 2) if (abs(s[k] - s[k - 1]) > best) { best = abs(s[k] - s[k - 1]); e = k }
+            return Triple(listOf(s[minOf(n - 1, e + 1)], s[minOf(n - 1, e + 2)]), listOf(s[maxOf(0, e - 2)], s[maxOf(0, e - 3)]),
+                listOf(s[maxOf(0, e - 7)], s[maxOf(0, e - 9)]))
+        }
+
+        /**
+         * An upright pixel (origin top-left; [uw] × [uh] the upright image) in the camera's raw image of [rw] × [rh],
+         * which needs [rotation] degrees clockwise to show upright (CameraX's rotationDegrees).
+         */
+        fun rawPixel(ux: Int, uy: Int, rotation: Int, rw: Int, rh: Int): Pair<Int, Int> = when (rotation) {
+            90 -> uy to rh - 1 - ux
+            180 -> rw - 1 - ux to rh - 1 - uy
+            270 -> rw - 1 - uy to ux
+            else -> ux to uy
         }
     }
 }

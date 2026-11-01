@@ -310,8 +310,9 @@ final class CardMatcher: @unchecked Sendable {
     /// when neither tells (an English name, which many cards print in every language).
     typealias Match = (oracle: CatalogOracle, printing: CatalogPrinting, exact: Bool, langs: [String])
 
-    func match(_ lines: [String]) -> Match? {
-        let frame = Collector(lines, sets: names.sets)
+    /// `border`: the colour of the card's border read from the camera frame (ScanBorder), when the scanner could tell.
+    func match(_ lines: [String], border: ScanBorder = .unknown) -> Match? {
+        let frame = Collector(lines, sets: names.sets, border: border)
         if let hit = name(lines), let o = oracle(hit.idx) {
             let bottom = remembered(o.idx, frame)
             guard let (p, exact) = pick(o, bottom, langs: hit.langs) else { missed(); return nil }
@@ -452,8 +453,9 @@ final class CardMatcher: @unchecked Sendable {
     /// illustrator's name read (2, when the card's printings don't all share one), or for an old frame with no year
     /// (4th Edition on prints "© 1995") a 1993–94 printing (1); ties go to a for-trade copy, the set last picked by
     /// hand (nearest its number), the name's language on an old frame (French Sol Ring → Foreign Black Border),
-    /// English, a regular collector number, the most printed of Revised, Unlimited, Beta, Alpha (nothing printed on
-    /// them tells them apart, and Alpha was the rarest), then the default printing. Exact when one printing leads
+    /// the border colour the camera read when nothing printed was (black: Alpha, Beta, Foreign Black Border; white:
+    /// Unlimited, Revised), English, a regular collector number, the most printed of Revised, Unlimited, Beta, Alpha
+    /// (nothing printed on them tells them apart, and Alpha was the rarest), then the default printing. Exact when one printing leads
     /// with the set code and number (or the set's only printing), or with the number and one more thing (the year,
     /// the frame), or with the set code and the artist. A prerelease date stamp picks the set's prerelease promo.
     private func pick(_ o: CatalogOracle, _ bottom: Collector, langs: [String] = []) -> (CatalogPrinting, Bool)? {
@@ -496,11 +498,21 @@ final class CardMatcher: @unchecked Sendable {
             guard let last, p.set == last.0 else { return Int.min }
             return -abs(Self.digits(p.cn) - last.1)
         }
+        // The border the camera read counts only when nothing printed was read (a set code, number or year read
+        // always wins, and old cards print none), and after a hand-picked set: a fix still carries to the next card.
+        let border = bottom.sets.isEmpty && bottom.numbers.isEmpty && bottom.years.isEmpty ? bottom.border : .unknown
+        func bordered(_ p: CatalogPrinting) -> Int {
+            switch border {
+            case .black: Self.blackBorder.contains(p.set) ? 1 : 0
+            case .white: Self.whiteBorder.contains(p.set) ? 1 : 0
+            case .unknown: 0
+            }
+        }
         func key(_ p: CatalogPrinting) -> [Int] {
             let s = score(p), trade = preferred[p.cardId] != nil ? 1 : 0, picked = near(p)
             let lang = old && langs.contains(p.lang) ? 1 : 0, en = p.lang == "en" ? 1 : 0
             let regular = p.cn.hasSuffix("★") ? 0 : 1, run = Self.printRun[p.set] ?? 0
-            return [s, trade, picked, lang, en, regular, run, p.original ? 1 : 0, -p.ord]
+            return [s, trade, picked, lang, bordered(p), en, regular, run, p.original ? 1 : 0, -p.ord]
         }
         var best = ps.max { key($0).lexicographicallyPrecedes(key($1)) }!
         let top = score(best)
@@ -517,6 +529,11 @@ final class CardMatcher: @unchecked Sendable {
 
     /// The 1993–94 core sets, most printed first: one printed card reads the same in all four.
     private static let printRun = ["3ed": 4, "2ed": 3, "leb": 2, "lea": 1]
+    /// The 1993–95 printings with a black border (Alpha, Beta, Collectors' Edition, Foreign Black Border, 4th Edition's
+    /// foreign black border) and a white one (Unlimited, Revised, Summer Magic): what the camera's border read picks
+    /// between when nothing printed tells them apart.
+    static let blackBorder: Set<String> = ["lea", "leb", "ced", "cei", "fbb", "4bb"]
+    static let whiteBorder: Set<String> = ["2ed", "3ed", "sum"]
 
     /// Printed before cards carried a copyright year (4th Edition, April 1995).
     private static func early(_ p: CatalogPrinting) -> Bool { (Int(p.releasedAt.prefix(4)) ?? 9999) <= 1994 }
@@ -615,6 +632,8 @@ struct Collector {
     var illustrated = false
     /// A prerelease date stamp ("30-31 January 2021", "27-28 giugno 2020"): a month and a year on a line that isn't the copyright.
     var dated = false
+    /// The border colour the camera read in this frame (ScanBorder), when it could tell.
+    var border = ScanBorder.unknown
     /// This frame's lines for the illustrator's name (then older frames' after `merge`); each frame remembers which
     /// illustrators it names, so it's searched once per artist however many frames it stays in memory.
     var lines: [ScanLines] = []
@@ -656,7 +675,8 @@ struct Collector {
         "июля", "августа", "сентября", "октября", "ноября", "декабря",
     ]
 
-    init(_ lines: [String], sets known: Set<String>) {
+    init(_ lines: [String], sets known: Set<String>, border: ScanBorder = .unknown) {
+        self.border = border
         var langLine = false
         var printed = Set<String>()
         var digits: [Bool] = []
@@ -786,6 +806,7 @@ struct Collector {
         dated = dated || o.dated
         lines += o.lines
         if lang == nil { lang = o.lang }
+        if border == .unknown { border = o.border }
     }
 
     /// A read set code as the catalog knows it: as read, else with the letters the camera swaps for digits put back
@@ -804,6 +825,163 @@ struct Collector {
     private static func strip(_ s: String) -> String {
         let t = s.drop { $0 == "0" }
         return t.isEmpty ? "0" : String(t)
+    }
+}
+
+/// The colour of a card's border, read from the camera frame: Alpha, Beta and Foreign Black Border cards have black
+/// borders, Unlimited and Revised white ones, and nothing printed on a 1993–94 card tells them apart, so this breaks
+/// that tie in `CardMatcher.pick` (contract/trades-2026-10-16.md § Scanning "Border colour"; measured over the photo
+/// set in testdata/scan/border.json, made by testdata/scan/tools/border.swift, which holds the reference copy of these
+/// rules; Android: `ScanBorder` in CardMatcher.kt. Change all three together.)
+///
+/// The scanner samples luma (0–255, full range) at a few points per camera frame: just inside and just outside each
+/// side of the card's edge (iOS: the card-shaped rectangle Vision finds; without one, and always on Android, the
+/// card's edge is found in a short luma profile across each side of the guide box), further outside, and in the card's
+/// text box, whose ink and paper are the frame's own black and white, so a dim or low-contrast frame still reads.
+enum ScanBorder: String, Codable, Sendable {
+    case black, white, unknown
+
+    /// Where a side's samples are taken: six points along it, 15–85% of its length.
+    static let along: [Double] = [0.15, 0.29, 0.43, 0.57, 0.71, 0.85]
+    /// Offsets from the edge, as fractions of the card's width: a 1993–94 border is about 4.5% wide.
+    static let depths: [Double] = [0.015, 0.03]
+    /// Further out, past where a border would end: tells a border plateau outside a rectangle that was the frame
+    /// inside the border (a step between the two) from a table that just goes on (no step).
+    static let farDepths: [Double] = [0.065, 0.09]
+    /// Where the text box is sampled (u right, v down, fractions of the card): light with dark text on every
+    /// 1993–2003 card.
+    static let innerU: [Double] = [0.2, 0.32, 0.44, 0.56, 0.68, 0.8]
+    static let innerV: [Double] = [0.66, 0.72, 0.78, 0.84]
+    /// The luma profile across a side of the guide box: from 12% outside to 12% inside its width, 25 samples.
+    static let profileSteps = 25
+    static let profileSpan = 0.12
+
+    /// Luma at or under this is black, at or over the other white, whatever the card (a phone's auto exposure keeps a
+    /// card about this bright); in between, the card's own text box decides.
+    static let blackAtMost = 70, whiteAtLeast = 165
+    /// Relative to the text box (0 = its ink, 1 = its paper): a border this far below the paper is black, this far
+    /// above the ink white, within these absolute bounds (so a lit black border or a greyed white one still counts, but
+    /// not frame texture), when the text box has this much contrast.
+    static let blackBelow = 0.25, whiteAbove = 0.9, blackAbsMax = 115, whiteAbsMin = 140, textBoxContrast = 50
+    /// A border plateau outside the rectangle found ends in a step this big (relative to the text box; in luma when it
+    /// has no contrast) to the table beyond it; a table just goes on.
+    static let plateauStep = 0.3, plateauStepLuma = 45
+
+    /// The samples one frame yields: per side (top, right, bottom, left) twelve just inside the edge, twelve just
+    /// outside, twelve further out; and 24 in the text box.
+    struct Samples: Equatable {
+        var inside: [[Int]]
+        var outside: [[Int]]
+        var far: [[Int]]
+        var inner: [Int]
+    }
+
+    static func upperMedian(_ a: [Int]) -> Int { a.sorted()[a.count / 2] }
+
+    /// The border from a frame's samples: at least three of the four sides one colour just inside the edge and none
+    /// the other; else, when the inside is mostly neither (the rectangle was the frame inside the border), the same
+    /// just outside, counting only sides where the outside band steps to what lies beyond it (a border ends; a table
+    /// doesn't).
+    static func classify(_ s: Samples) -> ScanBorder {
+        guard s.inside.count == 4, s.outside.count == 4, s.far.count == 4, !s.inner.isEmpty,
+              s.inside.allSatisfy({ !$0.isEmpty }), s.outside.allSatisfy({ !$0.isEmpty }), s.far.allSatisfy({ !$0.isEmpty }) else { return .unknown }
+        let sorted = s.inner.sorted()
+        let ink = sorted[0], paper = sorted[min(sorted.count - 1, sorted.count * 3 / 4)]
+        let ref = paper - ink >= textBoxContrast
+        func norm(_ m: Int) -> Double { Double(m - ink) / Double(paper - ink) }
+        func shade(_ samples: [Int]) -> ScanBorder {
+            let m = upperMedian(samples)
+            if m <= blackAtMost || (ref && norm(m) <= blackBelow && m <= blackAbsMax) { return .black }
+            if m >= whiteAtLeast || (ref && norm(m) >= whiteAbove && m >= whiteAbsMin) { return .white }
+            return .unknown
+        }
+        func agree(_ shades: [ScanBorder]) -> ScanBorder {
+            let black = shades.filter { $0 == .black }.count, white = shades.filter { $0 == .white }.count
+            if black >= 3 && white == 0 { return .black }
+            if white >= 3 && black == 0 { return .white }
+            return .unknown
+        }
+        let ins = s.inside.map(shade)
+        let a = agree(ins)
+        if a != .unknown { return a }
+        guard ins.filter({ $0 == .unknown }).count >= 3 else { return .unknown }
+        let outs = (0..<4).map { k -> ScanBorder in
+            let o = upperMedian(s.outside[k]), f = upperMedian(s.far[k])
+            let step = ref ? abs(norm(o) - norm(f)) >= plateauStep : abs(o - f) >= plateauStepLuma
+            return step ? shade(s.outside[k]) : .unknown
+        }
+        return agree(outs)
+    }
+
+    /// The samples around a card-shaped quad (corners TL, TR, BR, BL in pixels, origin top-left); `luma` reads one
+    /// pixel (clamping to the image is its job). 120 reads.
+    static func samples(quad q: [CGPoint], luma: (CGPoint) -> Int) -> Samples {
+        let w = (hypot(q[1].x - q[0].x, q[1].y - q[0].y) + hypot(q[2].x - q[3].x, q[2].y - q[3].y)) / 2
+        let c = CGPoint(x: q.map(\.x).reduce(0, +) / 4, y: q.map(\.y).reduce(0, +) / 4)
+        var inside: [[Int]] = [], outside: [[Int]] = [], far: [[Int]] = []
+        for k in 0..<4 {
+            let a = q[k], b = q[(k + 1) % 4]
+            let mid = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
+            let len = max(1, hypot(c.x - mid.x, c.y - mid.y))
+            let n = CGPoint(x: (c.x - mid.x) / len, y: (c.y - mid.y) / len) // inward
+            var ins: [Int] = [], outs: [Int] = [], fars: [Int] = []
+            for t in along {
+                let p = CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
+                for d in depths {
+                    ins.append(luma(CGPoint(x: p.x + n.x * w * d, y: p.y + n.y * w * d)))
+                    outs.append(luma(CGPoint(x: p.x - n.x * w * d, y: p.y - n.y * w * d)))
+                }
+                for d in farDepths { fars.append(luma(CGPoint(x: p.x - n.x * w * d, y: p.y - n.y * w * d))) }
+            }
+            inside.append(ins); outside.append(outs); far.append(fars)
+        }
+        return Samples(inside: inside, outside: outside, far: far, inner: innerSamples(q, luma))
+    }
+
+    /// Luma at the text-box points inside a quad (bilinear in its corners TL, TR, BR, BL).
+    static func innerSamples(_ q: [CGPoint], _ luma: (CGPoint) -> Int) -> [Int] {
+        innerV.flatMap { v in innerU.map { u in
+            let top = CGPoint(x: q[0].x + (q[1].x - q[0].x) * u, y: q[0].y + (q[1].y - q[0].y) * u)
+            let bottom = CGPoint(x: q[3].x + (q[2].x - q[3].x) * u, y: q[3].y + (q[2].y - q[3].y) * u)
+            return luma(CGPoint(x: top.x + (bottom.x - top.x) * v, y: top.y + (bottom.y - top.y) * v))
+        } }
+    }
+
+    /// The samples around the guide box (pixels, origin top-left) when no rectangle was found: along each side six
+    /// luma profiles from 12% outside to 12% inside find the card's edge (the strongest step), and the bands around it
+    /// are the inside, outside and far samples. 624 reads.
+    static func samples(guide g: CGRect, luma: (CGPoint) -> Int) -> Samples {
+        let sides: [(CGPoint, CGPoint, CGPoint)] = [ // start, end, inward unit
+            (CGPoint(x: g.minX, y: g.minY), CGPoint(x: g.maxX, y: g.minY), CGPoint(x: 0, y: 1)),
+            (CGPoint(x: g.maxX, y: g.minY), CGPoint(x: g.maxX, y: g.maxY), CGPoint(x: -1, y: 0)),
+            (CGPoint(x: g.maxX, y: g.maxY), CGPoint(x: g.minX, y: g.maxY), CGPoint(x: 0, y: -1)),
+            (CGPoint(x: g.minX, y: g.maxY), CGPoint(x: g.minX, y: g.minY), CGPoint(x: 1, y: 0)),
+        ]
+        var inside: [[Int]] = [], outside: [[Int]] = [], far: [[Int]] = []
+        for (a, b, n) in sides {
+            var ins: [Int] = [], outs: [Int] = [], fars: [Int] = []
+            for t in along {
+                let p = CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
+                let s = (0..<profileSteps).map { k -> Int in
+                    let d = (-profileSpan + Double(k) * (2 * profileSpan) / Double(profileSteps - 1)) * g.width
+                    return luma(CGPoint(x: p.x + n.x * d, y: p.y + n.y * d))
+                }
+                let (i, o, f) = edge(s)
+                ins += i; outs += o; fars += f
+            }
+            inside.append(ins); outside.append(outs); far.append(fars)
+        }
+        let q = [CGPoint(x: g.minX, y: g.minY), CGPoint(x: g.maxX, y: g.minY), CGPoint(x: g.maxX, y: g.maxY), CGPoint(x: g.minX, y: g.maxY)]
+        return Samples(inside: inside, outside: outside, far: far, inner: innerSamples(q, luma))
+    }
+
+    /// From one profile (outside first), the samples around the card's edge: the strongest step is the edge; the two
+    /// samples inward of it are inside (about 1–2% in), the two outward outside, two more beyond them far.
+    static func edge(_ s: [Int]) -> (inside: [Int], outside: [Int], far: [Int]) {
+        let n = s.count
+        var e = n / 2, best = 0
+        for k in 2..<(n - 2) where abs(s[k] - s[k - 1]) > best { best = abs(s[k] - s[k - 1]); e = k }
+        return ([s[min(n - 1, e + 1)], s[min(n - 1, e + 2)]], [s[max(0, e - 2)], s[max(0, e - 3)]], [s[max(0, e - 7)], s[max(0, e - 9)]])
     }
 }
 

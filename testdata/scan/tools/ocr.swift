@@ -14,7 +14,14 @@
 //             bottom 11% cropped, upscaled 2x and read; where the set code, collector number, copyright year and
 //             "Illus." credit sit, too small for the full-frame read on a phone. `accurate` as is without a rectangle.
 //
-// With `bottom`, it only adds the `bottom` key to an existing ocr.json (the other reads are slow).
+//   dim       `accurate` on a dim, low-contrast copy of the photo (contrast 0.55, brightness −0.12, a little blur: the
+//             frame a phone sees in a dim room; the same copy testdata/scan/tools/border.swift samples), and dimFixed
+//             the same copy with its contrast stretched back before the read (CIColorControls contrast 1.8), to
+//             measure whether fixing the image before OCR helps old cards' names (2026-11-01). Only for photos in the
+//             1993 and 1997 frames (`frame93`, `frame97` tags).
+//
+// With `bottom`, it only adds the `bottom` key to an existing ocr.json (the other reads are slow). With `dim`, only
+// the `dim` and `dimFixed` keys.
 // The unit tests on iOS and Android run the matcher over these lines, so OCR runs once here, not in the tests.
 //
 // With `motion`, it writes testdata/scan/motion.json instead: for each photo, a 2.4 s clip of 12 frames (one every
@@ -252,6 +259,30 @@ if CommandLine.arguments.dropFirst().first == "motion" {
     enc.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
     try enc.encode(clips).write(to: root.appending(path: "motion.json"))
     print("\(clips.count) clips")
+    exit(0)
+}
+
+if CommandLine.arguments.dropFirst().first == "dim" {
+    var out = try JSONDecoder().decode([String: [String: [String]]].self, from: Data(contentsOf: root.appending(path: "ocr.json")))
+    var n = 0
+    for row in rows where row[5].contains("frame93") || row[5].contains("frame97") {
+        let file = row[0]
+        guard let ns = NSImage(contentsOf: root.appending(path: "photos/\(file)")),
+              let image = ns.cgImage(forProposedRect: nil, context: nil, hints: nil), out[file] != nil else { continue }
+        let src = CIImage(cgImage: image)
+        let dimmed = src.applyingFilter("CIColorControls", parameters: [kCIInputContrastKey: 0.55, kCIInputBrightnessKey: -0.12, kCIInputSaturationKey: 0.8])
+            .clampedToExtent().applyingGaussianBlur(sigma: 0.8).cropped(to: src.extent)
+        let fixed = dimmed.applyingFilter("CIColorControls", parameters: [kCIInputContrastKey: 1.8, kCIInputBrightnessKey: 0.0, kCIInputSaturationKey: 1.0])
+        guard let dimCG = ci.createCGImage(dimmed, from: src.extent), let fixedCG = ci.createCGImage(fixed, from: src.extent) else { continue }
+        out[file]?["dim"] = try read(dimCG, level: .accurate)
+        out[file]?["dimFixed"] = try read(fixedCG, level: .accurate)
+        n += 1
+        FileHandle.standardError.write("\(file): \(out[file]!["dim"]!.first ?? "-") | \(out[file]!["dimFixed"]!.first ?? "-")\n".data(using: .utf8)!)
+    }
+    let enc = JSONEncoder()
+    enc.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+    try enc.encode(out).write(to: root.appending(path: "ocr.json"))
+    print("\(n) old-frame photos read dim and fixed")
     exit(0)
 }
 

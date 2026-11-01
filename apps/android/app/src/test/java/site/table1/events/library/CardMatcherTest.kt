@@ -152,12 +152,15 @@ class CardMatcherTest {
         val englishResults = HashMap<String, Tally>()
         // English cards a scan would put in another language (a misread English name close to a printed one).
         val notEnglish = HashMap<String, Int>()
-        for (mode in listOf("accurate", "fast", "small", "multi", "title", "bottom")) {
+        // `dim` and `dimFixed` exist only for the 1993 and 1997 frames (README § Low-contrast reads).
+        val oldFrame = HashMap<String, Tally>()
+        for (mode in listOf("accurate", "fast", "small", "multi", "title", "bottom", "dim", "dimFixed")) {
             val all = Tally(); val english = Tally(); val foreign = Tally()
             val byTag = sortedMapOf<String, Tally>()
             for (c in cases) {
                 val lines = ocr[c.id]?.jsonObject?.get(mode)?.jsonArray?.map { it.jsonPrimitive.content } ?: continue
                 val m = matcher().match(lines)
+                if ("frame93" in c.tags || "frame97" in c.tags) grade(c, m?.oracle, m?.printing, m?.exact ?: false, oldFrame.getOrPut(mode) { Tally() })
                 if (m != null && m.oracle.idx != catalog.expected[CardName.norm(c.name)]) report += "    WRONG $mode ${c.id}: ${m.oracle.name}"
                 if (c.lang == "en" && m != null && Languages.forScan(m.printing.lang, m.langs, "en") != "en") {
                     notEnglish.merge(mode, 1, Int::plus)
@@ -172,6 +175,7 @@ class CardMatcherTest {
             report += listOf("  $mode: ${all.line()}", "    English: ${english.line()}", "    other languages: ${foreign.line()}")
             if (mode == "accurate") report += byTag.map { (tag, t) -> "      $tag: ${t.line()}" }
         }
+        report += "  1993 and 1997 frames (${oldFrame["dim"]?.n ?: 0}): " + listOf("accurate", "multi", "dim", "dimFixed").joinToString("; ") { "$it ${oldFrame[it]?.line() ?: "-"}" }
         println(report.joinToString("\n"))
         // Other languages have their own test (foreignCards).
         val accurate = results.getValue("accurate")
@@ -182,6 +186,11 @@ class CardMatcherTest {
         assertTrue(accurate.exactWrong <= 2)
         assertTrue(results.getValue("fast").wrong + results.getValue("small").wrong <= 1)
         assertEquals("a wrong card from a steady photo read as the scanner reads", 0, results.getValue("multi").wrong)
+        // Dim, low-contrast copies of the old-frame photos (2026-11-01): no wrong card, and names within a few of the
+        // plain read's (README § Low-contrast reads has the numbers; `dimFixed`, a contrast stretch before OCR, is
+        // only measured: it read fewer names and two wrong cards, so the scanners don't do it).
+        assertEquals("a wrong card from a dim photo", 0, results.getValue("dim").wrong)
+        assertTrue(oldFrame.getValue("dim").name >= oldFrame.getValue("accurate").name - 8)
         assertEquals("an English card put in another language", 0, (notEnglish["accurate"] ?: 0) + (notEnglish["multi"] ?: 0))
     }
 
@@ -441,6 +450,102 @@ class CardMatcherTest {
         m.picked(printings("Marsh Flats").first { it.set == "mh2" && it.cn == "437" })
         assertEquals("retro, as picked", "mh2 439", got(listOf("Scalding Tarn", "Land", "Pay 1 life, Sacrifice Scalding Tarn")))
         assertEquals("mh2 436", got(listOf("Arid Mesa", "Land")))
+    }
+
+    /**
+     * The border colour read from the camera frame (2026-11-01; testdata/scan/border.json from
+     * testdata/scan/tools/border.swift): the rule over the luma samples of every photo with a border, as iOS samples
+     * around Vision's rectangle (`quad`) and as Android samples along the guide box (`g100`), each also on a dim,
+     * low-contrast copy (`dim.`). What counts is the 1993 frame (the only cards it picks between): most read right,
+     * almost none wrong; a wrong read is no worse than today's Revised guess. Same as iOS testBorderRule.
+     */
+    @Test
+    fun borderRule() {
+        val photos = Json.parseToJsonElement(File(root, "border.json").readText()).jsonObject
+        val old = photos().filter { "frame93" in it.tags }.map { it.id }.toSet()
+        fun ints(e: JsonObject, key: String) = e.getValue(key).jsonArray.map { it.jsonPrimitive.content.toInt() }
+        fun sides(e: JsonObject, key: String) = e.getValue(key).jsonArray.map { s -> s.jsonArray.map { it.jsonPrimitive.content.toInt() } }
+        val report = mutableListOf("Border (${photos.size} photos):")
+        class T { var right = 0; var wrong = 0; var unknown = 0; var oldRight = 0; var oldWrong = 0; var oldN = 0 }
+        val tallies = HashMap<String, T>()
+        for (read in listOf("quad", "dim.quad", "g100", "dim.g100")) {
+            val t = T()
+            for ((file, p) in photos) {
+                val r = p.jsonObject.getValue("reads").jsonObject[read]?.jsonObject ?: continue
+                val got = ScanBorder.classify(ScanBorder.Samples(sides(r, "inside"), sides(r, "outside"), sides(r, "far"), ints(r, "inner")))
+                val isOld = file in old
+                if (isOld) t.oldN++
+                val expected = p.jsonObject.getValue("expected").jsonPrimitive.content
+                if (got.name.lowercase() == expected) { t.right++; if (isOld) t.oldRight++ }
+                else if (got == ScanBorder.UNKNOWN) t.unknown++
+                else { t.wrong++; if (isOld) { t.oldWrong++; report += "    WRONG $read $file: $got" } }
+            }
+            tallies[read] = t
+            report += "  $read: old frame right ${t.oldRight}/${t.oldN}, wrong ${t.oldWrong}; all right ${t.right}, wrong ${t.wrong}, unknown ${t.unknown}"
+        }
+        println(report.joinToString("\n"))
+        fun oldRate(read: String) = tallies.getValue(read).let { it.oldRight.toDouble() / it.oldN }
+        // What the set reached on 2026-11-01: quad 47/58 (1 wrong: a full-art basic), g100 31/58, dim 37/58 and 26/58.
+        assertTrue(oldRate("quad") >= 0.78); assertTrue(tallies.getValue("quad").oldWrong <= 1)
+        assertTrue(oldRate("g100") >= 0.5); assertTrue(tallies.getValue("g100").oldWrong <= 1)
+        assertTrue(oldRate("dim.quad") >= 0.6); assertEquals(0, tallies.getValue("dim.quad").oldWrong)
+        assertTrue(oldRate("dim.g100") >= 0.42); assertEquals(0, tallies.getValue("dim.g100").oldWrong)
+        assertTrue(tallies.getValue("quad").wrong <= 10)
+        assertEquals(ScanBorder.UNKNOWN, ScanBorder.classify(ScanBorder.Samples(emptyList(), emptyList(), emptyList(), emptyList())))
+    }
+
+    /**
+     * The border breaks the Alpha / Beta / Unlimited / Revised tie (2026-11-01): black picks Beta, white Revised, a
+     * French name with a black border Foreign Black Border; anything printed that was read still wins, and so does the
+     * set last picked by hand. Remembered over the card's frames. Same as iOS testBorderPicksPrinting.
+     */
+    @Test
+    fun borderPicksPrinting() {
+        val m = matcher()
+        fun got(lines: List<String>, border: ScanBorder) =
+            m.match(lines, border)?.let { "${it.printing.set} ${it.printing.cn}${if (it.exact) " exact" else ""}" } ?: "nothing"
+        val counterspell = listOf("Counterspell", "Interrupt", "Counter target spell.", "Illus. Mark Poole")
+        assertEquals("no border read: Revised, as before", "3ed 54", got(counterspell, ScanBorder.UNKNOWN))
+        assertEquals("black: Beta over Alpha", "leb 55", got(counterspell, ScanBorder.BLACK)); m.took()
+        assertEquals("white: Revised over Unlimited", "3ed 54", got(counterspell, ScanBorder.WHITE)); m.took()
+        assertEquals("no Illus. line read either", "leb 55", got(listOf("Counterspell", "Counters target spell", "as it is being cast."), ScanBorder.BLACK)); m.took()
+        assertEquals("white, not in Revised", "2ed 233", got(listOf("Black Lotus", "Mono Artifact", "Illus. Christopher Rush"), ScanBorder.WHITE)); m.took()
+        assertEquals("French, black: Foreign Black Border", "fbb 54", got(listOf("Contresort", "Interruption", "Illus. Mark Poole"), ScanBorder.BLACK)); m.took()
+        assertEquals("the name's language beats the border", "fbb 54", got(listOf("Contresort", "Interruption", "Illus. Mark Poole"), ScanBorder.WHITE)); m.took()
+        assertEquals("a year read wins over the border", "4ed 65",
+            got(listOf("Counterspell", "Interrupt", "Illus. Mark Poole", "© 1995 Wizards of the Coast, Inc."), ScanBorder.BLACK)); m.took()
+        assertEquals("a set code read wins", "ice 64 exact", got(listOf("Counterspell", "Instant", "ICE • EN"), ScanBorder.WHITE)); m.took()
+        assertEquals("leb 55", got(counterspell, ScanBorder.BLACK))
+        assertEquals("the border read two frames ago still counts", "leb 55", got(counterspell, ScanBorder.UNKNOWN)); m.took()
+        assertEquals("forgotten with the take", "3ed 54", got(counterspell, ScanBorder.UNKNOWN))
+        fun printings(name: String) = catalog.printings(catalog.expected.getValue(CardName.norm(name)))
+        m.picked(printings("Tundra").first { it.set == "lea" })
+        assertEquals("Alpha, as picked, over the white border", "lea 54", got(counterspell, ScanBorder.WHITE))
+    }
+
+    /** Upright pixels in the camera's raw image for each rotation CameraX reports, and what the sampling costs per frame. */
+    @Test
+    fun borderSamplingCostAndMapping() {
+        // A 1920×1080 raw image that needs 90° to show upright (1080×1920): the upright top-left is the raw bottom-left.
+        assertEquals(0 to 1079, ScanBorder.rawPixel(0, 0, 90, 1920, 1080))
+        assertEquals(0 to 0, ScanBorder.rawPixel(1079, 0, 90, 1920, 1080))
+        assertEquals(1919 to 1079, ScanBorder.rawPixel(0, 1919, 90, 1920, 1080))
+        assertEquals(1919 to 0, ScanBorder.rawPixel(0, 0, 270, 1920, 1080))
+        assertEquals(5 to 7, ScanBorder.rawPixel(5, 7, 0, 1080, 1920))
+        assertEquals(1074 to 1912, ScanBorder.rawPixel(5, 7, 180, 1080, 1920))
+        // A frame-sized luma plane with a white-bordered card in it; the samples and the rule per frame.
+        val plane = ByteArray(1080 * 1920) { 60 }
+        for (y in 400 until 1500) for (x in 150 until 930) plane[y * 1080 + x] = (if (y < 450 || y >= 1450 || x < 200 || x >= 880) 230 else 120).toByte()
+        for (y in 1150 until 1400) for (x in 240 until 840) plane[y * 1080 + x] = (if ((x / 7 + y / 9) % 5 == 0) 20 else 215).toByte()
+        val luma = { x: Double, y: Double -> plane[y.toInt().coerceIn(0, 1919) * 1080 + x.toInt().coerceIn(0, 1079)].toInt() and 0xFF }
+        val guide = Box(170f, 430f, 740f, 1040f) // the card a little bigger than the outline
+        assertEquals(ScanBorder.WHITE, ScanBorder.classify(ScanBorder.samples(guide, luma)))
+        repeat(50) { ScanBorder.classify(ScanBorder.samples(guide, luma)) }
+        val t = System.nanoTime()
+        repeat(200) { ScanBorder.classify(ScanBorder.samples(guide, luma)) }
+        val ms = (System.nanoTime() - t) / 200 / 1e6
+        println("Border per frame (JVM): guide %.3f ms (624 reads)".format(ms))
+        assertTrue("border sampling per frame $ms ms", ms < 5)
     }
 
     /** An old card whose name reads in every other frame or so: Crusade, named 6 times in 2.4 s with gaps of 0.6 s. */

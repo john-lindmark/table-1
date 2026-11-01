@@ -12,6 +12,8 @@ run the matcher over OCR text read from these photos, so OCR runs once here, on 
 | `motion.json` | A 2.4 s clip per photo, 12 frames 200 ms apart, of a hand moving the card on all three axes (pan, toward/away, roll and tilt, with motion blur), each frame read like `accurate`. Photo *n* (in `photos.tsv` order) is a *settle* clip when *n* % 3 = 0 (moves in, then holds), *shake* when 1 (tremor and slow drift), *sweep* when 2 (large continuous movement). |
 | `catalog.tsv.gz` | The catalog pack the tests match against: every card, printing and printed name (N lines, de es fr it pt ru ja zhs zht ko) of pack `v1-4f3fd420d850`, ids shortened. |
 | `reports/` | Scan corrections people made in the app, exported by `tools/export_reports.py`; the tests run each one as a clip. 201 labelled on 2026-10-28 (232 reports from Oct 24–28, 199 of them wrong printings; the 32 with no answer sit in `reports/unlabelled/`, which the tests skip). |
+| `border.json` | The luma samples the border rule reads (see "Border colour"), per photo with a border (259: `borderless` cards left out): `quad` as the iOS scanner samples around Vision's rectangle, `g100` as Android samples along the guide box (here the rectangle's bounds standing for the guide), and both again on a dim, low-contrast copy (`dim.quad`, `dim.g100`); `expected` is `white` for `white-border` photos, else `black`. Compact JSON; made by `tools/border.swift`. |
+| `tools/border.swift` | Makes `border.json` (`swift testdata/scan/tools/border.swift [check]`; `check` also tallies the reference rule per read and checks the iOS orientation mapping against Vision). |
 | `tools/ocr.swift` | Makes `ocr.json` (`swift testdata/scan/tools/ocr.swift`) and `motion.json` (`… ocr.swift motion`; compile it with `swiftc -O` first, it's slow interpreted). |
 | `tools/trim_pack.py` | Makes `catalog.tsv.gz` from a downloaded pack (keeps the illustrator and frame fields since 2026-10-28). |
 | `tools/art_fields.py` | Adds the illustrator and frame to an older `catalog.tsv.gz` from Scryfall's `default_cards` bulk file (by set, number and language; the test pack's ids are counters). |
@@ -213,7 +215,8 @@ What changed:
 Known gaps:
 - Old cards (1993–1997 frames) print no set code or collector number, so the printing is a guess (flagged "Check
   printing"). Since 2026-10-26 the guess is Revised, not Alpha; Beta and Unlimited need one fix by hand, then
-  follow. The border colour isn't read. Old-frame names misread far more than modern ones on a phone. Since
+  follow. Since 2026-11-01 the border colour is read from the frame and picks Beta or Revised (see "Border colour");
+  Alpha from Beta and Unlimited from Revised still need a fix by hand. Old-frame names misread far more than modern ones on a phone. Since
   2026-10-28 an "Illus." line prefers 1993/1997 frames, so a retro-frame reprint of a card with no old printing
   (MH2 438) is found from the credit alone; a card with both (Lightning Bolt) still goes in as Revised.
 - Japanese, Korean and Chinese: see the 25 misses above. Language detection has not been tried on a phone yet.
@@ -286,6 +289,84 @@ them apart; the border colour would), 3 where the frames read a number that cont
 Mindbreak Trap, shocklands of 2012–13): those are what the iOS scanner's bottom strip read is for, which the clips
 (whole-frame reads) can't show; real phone reports after the next build are the check. The test floor on reports
 is 44%.
+
+### Border colour (2026-11-01; `testBorderRule`, `testBorderPicksPrinting`, Android `borderRule`, `borderPicksPrinting`)
+
+Alpha, Beta and Foreign Black Border cards have black borders; Unlimited and Revised white ones; nothing printed on
+a 1993–94 card tells them apart, so every one went in as Revised (John's Android report, 2026-11-01). Now the
+scanners read the border colour from the camera frame and the matcher uses it as a tie-break under the hand-picked
+set: black picks Beta (the commoner black border), white Revised; a foreign name still picks its language's printing
+first (French → Foreign Black Border); anything printed that was read (a set code, number or year) still wins; the
+read is remembered over the card's frames like the rest of the bottom evidence, and forgotten with the take. Alpha
+from Beta and Unlimited from Revised still need a fix by hand, which carries to the next card as before.
+
+How it reads (`ScanBorder`, the same rule in CardMatcher.swift, CardMatcher.kt and `tools/border.swift`): a few luma
+reads per camera frame, never an image pass. On iOS the card's edge is Vision's card-shaped rectangle (the one the
+scanner already finds; the ungrown corners), and without one the guide box; on Android, where ML Kit finds no
+rectangle, always the guide box. Around a rectangle: six points a side, luma 1.5% and 3% of the card's width just
+inside (12 a side), the same just outside, and at 6.5% and 9% outside (the table), plus 24 points in the text box
+(whose darkest sample is the frame's ink and 75th percentile its paper): 120 reads. Along the guide: at six points a
+side a profile from 12% outside to 12% inside in 1% steps, the strongest step is the card's edge, and the bands
+around it are the same inside / outside / far samples: 624 reads. A side is black when its median luma is ≤ 70,
+or ≤ 25% of the way from ink to paper and ≤ 115; white when ≥ 165, or ≥ 90% of the way and ≥ 140 (the absolute
+bounds are a well-exposed phone frame; the relative ones keep a dim or low-contrast frame readable; the text box
+decides only when it has 50+ of contrast). At least three sides one colour and none the other just inside the edge
+is the border; when three or more inside sides are neither, the rectangle was the frame inside the border, and the
+same rule runs just outside, counting only sides whose outside band steps (0.3 of ink-to-paper, or 45 luma) to the
+far band: a border ends at the table, a table just goes on (without that check a white desk beside a lit black
+border read as white). iOS reads the 420v luma plane scaled to full range; an upright pixel (x, y) is the landscape
+buffer's (y, height − 1 − x) for orientation .right, checked against Vision by `tools/border.swift check`. Android
+reads the Y plane by CameraX's rotation (`ScanBorder.rawPixel`).
+
+Measured over the photo set (`border.json`, 259 photos with a border, 212 with a rectangle), the 61 old-frame
+(`frame93`) photos are what the rule is for; "all" includes modern cards, where a wrong read is harmless (the border
+only picks between 1993–95 printings) and comes from sleeves and toploaders (their clear margin reads white):
+
+| Read | Old frame right / wrong / unknown (of 58 with a rectangle) | All right / wrong / unknown |
+| --- | --- | --- |
+| `quad` (iOS, Vision's rectangle) | 47 / 1 / 10 | 139 / 9 / 64 |
+| `g100` (Android, the guide; rectangle bounds standing in) | 31 / 0 / 27 | 99 / 15 / 98 |
+| guide 6% small / 6% large (`g094`, `g106`, tallied only) | 33 / 0 / 25, 34 / 1 / 23 | 89 / 19 / 104, 108 / 13 / 91 |
+| `dim.quad` (contrast 0.55, brightness −0.12, blur 0.8) | 37 / 0 / 21 | 85 / 6 / 121 |
+| `dim.g100` | 26 / 0 / 32 | 53 / 9 / 150 |
+
+The one old-frame wrong is 263 Snow-Covered Island (a full-art basic: no text box, so the paper reference is the
+art). Rules tried on the way: fixed thresholds alone (149 right but 14 wrong on `quad`, and the dim copies all
+unknown: a black border lifts to ~95 luma), the text-box reference alone (basics and dark text boxes break it),
+and no far-band check (the outside fallback read white desks as white borders: 085 Imprison). "Unknown" is mostly
+a hand or shadow on one side, a sleeve edge, or the guide landing on art rather than the edge; the scanner then
+guesses Revised as before. Not yet tried on a phone: real frames (auto-exposed, 1080p) should sit nearer the
+plain photos than the dim copies.
+
+Cost per frame, samples and rule together (`testBorderSamplingCostAndMapping`, `borderSamplingCostAndMapping`):
+0.03 ms around a rectangle (120 reads) and 0.13 ms along the guide (624 reads) in the Debug Simulator, 0.15 ms
+along the guide on the JVM; the camera hands the matcher a frame every 200 ms. No image is rendered or copied: the
+reads go straight to the camera buffer's luma plane while Vision / ML Kit already hold it.
+
+### Low-contrast reads of old cards (2026-11-01; `dim`, `dimFixed` in `ocr.json`)
+
+John asked whether processing the image so the name reads better would help old cards, and for lower-contrast
+images in the suite. `… ocr.swift dim` reads every `frame93` and `frame97` photo twice more: `dim` is the same dim,
+low-contrast copy `border.swift` samples (contrast 0.55, brightness −0.12, blur 0.8), `dimFixed` that copy with its
+contrast stretched back (CIColorControls contrast 1.8) before OCR, which is what a per-frame fix on the phone would
+do. The matcher's name accuracy on each is in `testStillPhotos` / `stillPhotos` (modes `dim`, `dimFixed`).
+
+| Read of the 97 old-frame photos | Named | Wrong card | Printing |
+| --- | --- | --- | --- |
+| `accurate` (plain photo) | 64/97 (66%) | 0 | 32/46 |
+| `multi` (as the scanners read) | 69/97 (71%) | 0 | 36/49 |
+| `dim` | 64/97 (66%) | 0 | 35/47 |
+| `dimFixed` (contrast stretched back before OCR) | 56/97 (58%) | **2** (Volcanic Island it → Island, Northern Paladin ja → Into the North) | 29/41 |
+
+Vision reads the dim copy as well as the plain photo: lower contrast costs no names. Stretching the contrast back
+before OCR reads fewer (the stretch clips the frame's texture into the letters and sharpens noise) and names two
+wrong cards, so the scanners don't do it; a per-frame contrast fix on the phone would cost a Core Image render and
+help nothing. The old-frame names the set still loses (33 of 97) are the same ones in every read: titles too small
+or soft in the photo for any contrast ("D vamp", Cyclopean Tomb), and the 20 px Japanese titles the title-bar pass
+also couldn't read. The thing that would help old names is pixels, not processing: a 1080p phone frame of a card
+filling the guide has a title about 60 px tall, three times these photos', which is why real phone reports
+(`reports/`) are the measure that counts. The test floor: `dim` names no wrong card and within 8 of `accurate`.
+
 
 ## Art matching spike (2026-10-16; measured, not in the scanners)
 

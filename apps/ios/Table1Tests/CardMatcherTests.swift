@@ -101,12 +101,17 @@ final class CardMatcherTests: XCTestCase {
         var results: [String: Tally] = [:], englishResults: [String: Tally] = [:]
         // English cards a scan would put in another language (a misread English name close to a printed one).
         var notEnglish: [String: Int] = [:]
-        for mode in ["accurate", "fast", "small", "multi", "title", "bottom"] {
+        // `dim` and `dimFixed` exist only for the 1993 and 1997 frames (README § Low-contrast reads).
+        var oldFrame: [String: Tally] = [:]
+        for mode in ["accurate", "fast", "small", "multi", "title", "bottom", "dim", "dimFixed"] {
             var all = Tally(), english = Tally(), foreign = Tally()
             var byTag: [String: Tally] = [:]
             for c in cases {
                 guard let lines = ocr[c.id]?[mode] else { continue }
                 let m = matcher().match(lines)
+                if c.tags.contains("frame93") || c.tags.contains("frame97") {
+                    grade(c, m?.oracle, m?.printing, exact: m?.exact ?? false, into: &oldFrame[mode, default: Tally()])
+                }
                 if let got = m?.oracle, got.idx != Self.expectedIdx[CardName.norm(c.name)] {
                     report.append("    WRONG \(mode) \(c.id): \(got.name)")
                 }
@@ -128,6 +133,7 @@ final class CardMatcherTests: XCTestCase {
                 report += byTag.keys.sorted().map { "      \($0): \(byTag[$0]!.line)" }
             }
         }
+        report.append("  1993 and 1997 frames (\(oldFrame["dim"]?.n ?? 0)): " + ["accurate", "multi", "dim", "dimFixed"].map { "\($0) \(oldFrame[$0]?.line ?? "-")" }.joined(separator: "; "))
         print(report.joined(separator: "\n"))
         // Other languages have their own test (testForeignCards).
         let accurate = results["accurate"]!, english = englishResults["accurate"]!
@@ -137,6 +143,11 @@ final class CardMatcherTests: XCTestCase {
         XCTAssertLessThanOrEqual(accurate.exactWrong, 2)
         XCTAssertLessThanOrEqual(results["fast"]!.wrong + results["small"]!.wrong, 1)
         XCTAssertEqual(results["multi"]!.wrong, 0, "a wrong card from a steady photo read as the scanner reads")
+        // Dim, low-contrast copies of the old-frame photos (2026-11-01): no wrong card, and names within a few of the
+        // plain read's (README § Low-contrast reads has the numbers; `dimFixed`, a contrast stretch before OCR, is
+        // only measured: it read fewer names and two wrong cards, so the scanners don't do it).
+        XCTAssertEqual(results["dim"]!.wrong, 0, "a wrong card from a dim photo")
+        XCTAssertGreaterThanOrEqual(oldFrame["dim"]!.name, oldFrame["accurate"]!.name - 8)
         XCTAssertEqual(notEnglish["accurate", default: 0] + notEnglish["multi", default: 0], 0, "an English card put in another language")
     }
 
@@ -344,6 +355,118 @@ final class CardMatcherTests: XCTestCase {
         m.picked(printings("Marsh Flats").first { $0.set == "mh2" && $0.cn == "437" }!)
         XCTAssertEqual(got(["Scalding Tarn", "Land", "Pay 1 life, Sacrifice Scalding Tarn"]), "mh2 439", "retro, as picked")
         XCTAssertEqual(got(["Arid Mesa", "Land"]), "mh2 436")
+    }
+
+    /// The border colour read from the camera frame (2026-11-01; testdata/scan/border.json from
+    /// testdata/scan/tools/border.swift): the rule over the luma samples of every photo with a border, as the iOS
+    /// scanner samples around Vision's rectangle (`quad`) and as Android samples along the guide box (`g100`), each
+    /// also on a dim, low-contrast copy (`dim.`). What counts is the 1993 frame (the only cards it picks between):
+    /// most read right, almost none wrong; a wrong read is no worse than today's Revised guess.
+    func testBorderRule() throws {
+        struct Read: Decodable { let inside: [[Int]], outside: [[Int]], far: [[Int]], inner: [Int] }
+        struct Photo: Decodable { let expected: String, reads: [String: Read] }
+        let photos = try JSONDecoder().decode([String: Photo].self, from: Data(contentsOf: root.appending(path: "border.json")))
+        let old = Set(try self.photos().filter { $0.tags.contains("frame93") }.map(\.id))
+        var report = ["Border (\(photos.count) photos, \(old.filter { photos[$0] != nil }.count) old frame):"]
+        var tallies: [String: (right: Int, wrong: Int, unknown: Int, oldRight: Int, oldWrong: Int, oldN: Int)] = [:]
+        for read in ["quad", "dim.quad", "g100", "dim.g100"] {
+            var t = (right: 0, wrong: 0, unknown: 0, oldRight: 0, oldWrong: 0, oldN: 0)
+            for (file, p) in photos {
+                guard let r = p.reads[read] else { continue }
+                let got = ScanBorder.classify(.init(inside: r.inside, outside: r.outside, far: r.far, inner: r.inner))
+                let isOld = old.contains(file)
+                if isOld { t.oldN += 1 }
+                if got.rawValue == p.expected { t.right += 1; if isOld { t.oldRight += 1 } }
+                else if got == .unknown { t.unknown += 1 }
+                else { t.wrong += 1; if isOld { t.oldWrong += 1; report.append("    WRONG \(read) \(file): \(got)") } }
+            }
+            tallies[read] = t
+            report.append("  \(read): old frame right \(t.oldRight)/\(t.oldN), wrong \(t.oldWrong); all right \(t.right), wrong \(t.wrong), unknown \(t.unknown)")
+        }
+        print(report.joined(separator: "\n"))
+        func oldRate(_ read: String) -> Double { Double(tallies[read]!.oldRight) / Double(tallies[read]!.oldN) }
+        // What the set reached on 2026-11-01: quad 47/58 (1 wrong: a full-art basic), g100 31/58, dim 37/58 and 26/58.
+        XCTAssertGreaterThanOrEqual(oldRate("quad"), 0.78); XCTAssertLessThanOrEqual(tallies["quad"]!.oldWrong, 1)
+        XCTAssertGreaterThanOrEqual(oldRate("g100"), 0.5); XCTAssertLessThanOrEqual(tallies["g100"]!.oldWrong, 1)
+        XCTAssertGreaterThanOrEqual(oldRate("dim.quad"), 0.6); XCTAssertEqual(tallies["dim.quad"]!.oldWrong, 0)
+        XCTAssertGreaterThanOrEqual(oldRate("dim.g100"), 0.42); XCTAssertEqual(tallies["dim.g100"]!.oldWrong, 0)
+        // Modern cards in sleeves read the sleeve's margin as a white border; harmless (the border only picks between
+        // 1993–94 printings), but keep it from growing.
+        XCTAssertLessThanOrEqual(tallies["quad"]!.wrong, 10)
+        // Too few samples, or none, is unknown, never a crash.
+        XCTAssertEqual(ScanBorder.classify(.init(inside: [], outside: [], far: [], inner: [])), .unknown)
+        XCTAssertEqual(ScanBorder.classify(.init(inside: [[], [], [], []], outside: [[1], [1], [1], [1]], far: [[1], [1], [1], [1]], inner: [1])), .unknown)
+    }
+
+    /// The border breaks the Alpha / Beta / Unlimited / Revised tie (2026-11-01): black picks Beta (the commoner black
+    /// border), white Revised, a French name with a black border Foreign Black Border; anything printed that was read
+    /// still wins, and so does the set last picked by hand. The read is remembered over the card's frames, so a frame
+    /// that couldn't tell still picks from an earlier one.
+    func testBorderPicksPrinting() {
+        let m = matcher()
+        func got(_ lines: [String], _ border: ScanBorder) -> String {
+            guard let r = m.match(lines, border: border) else { return "nothing" }
+            return "\(r.printing.set) \(r.printing.cn)\(r.exact ? " exact" : "")"
+        }
+        let counterspell = ["Counterspell", "Interrupt", "Counter target spell.", "Illus. Mark Poole"]
+        XCTAssertEqual(got(counterspell, .unknown), "3ed 54", "no border read: Revised, as before")
+        XCTAssertEqual(got(counterspell, .black), "leb 55", "black: Beta over Alpha")
+        m.took()
+        XCTAssertEqual(got(counterspell, .white), "3ed 54", "white: Revised over Unlimited")
+        m.took()
+        XCTAssertEqual(got(["Counterspell", "Counters target spell", "as it is being cast."], .black), "leb 55", "no Illus. line read either")
+        m.took()
+        XCTAssertEqual(got(["Black Lotus", "Mono Artifact", "Illus. Christopher Rush"], .white), "2ed 233", "white, not in Revised")
+        m.took()
+        XCTAssertEqual(got(["Contresort", "Interruption", "Illus. Mark Poole"], .black), "fbb 54", "French, black: Foreign Black Border")
+        m.took()
+        XCTAssertEqual(got(["Contresort", "Interruption", "Illus. Mark Poole"], .white), "fbb 54", "the name's language beats the border")
+        m.took()
+        XCTAssertEqual(got(["Counterspell", "Interrupt", "Illus. Mark Poole", "© 1995 Wizards of the Coast, Inc."], .black), "4ed 65",
+                       "a year read wins over the border")
+        m.took()
+        XCTAssertEqual(got(["Counterspell", "Instant", "ICE • EN"], .white), "ice 64 exact", "a set code read wins")
+        m.took()
+        // Remembered over the card's frames: a frame with no read still picks from the last one that had.
+        XCTAssertEqual(got(counterspell, .black), "leb 55")
+        XCTAssertEqual(got(counterspell, .unknown), "leb 55", "the border read two frames ago still counts")
+        m.took()
+        XCTAssertEqual(got(counterspell, .unknown), "3ed 54", "forgotten with the take")
+        // A hand-picked set still carries to the next card, whatever the border says.
+        let printings = { (name: String) in Self.db.printings(oracleIdx: Self.expectedIdx[CardName.norm(name)]!) }
+        m.picked(printings("Tundra").first { $0.set == "lea" }!)
+        XCTAssertEqual(got(counterspell, .white), "lea 54", "Alpha, as picked, over the white border")
+    }
+
+    /// Upright pixels of the portrait image in the camera's landscape buffer (read by Vision with orientation .right;
+    /// checked against Vision in testdata/scan/tools/border.swift `check`): the top-left lands at the buffer's
+    /// bottom-left. And what the sampling costs per frame.
+    func testBorderSamplingCostAndMapping() {
+        let upright = CGSize(width: 1080, height: 1920)
+        func buffer(_ x: CGFloat, _ y: CGFloat) -> [Int] {
+            let b = CardTextScanner.Coordinator.bufferPixel(CGPoint(x: x, y: y), upright: upright)
+            return [b.x, b.y]
+        }
+        XCTAssertEqual(buffer(0, 0), [0, 1079])
+        XCTAssertEqual(buffer(1079, 0), [0, 0])
+        XCTAssertEqual(buffer(0, 1919), [1919, 1079])
+        // A frame-sized luma plane with a white-bordered card in it; the samples and the rule per frame, both ways.
+        var plane = [UInt8](repeating: 60, count: 1080 * 1920)
+        for y in 400..<1500 { for x in 150..<930 { plane[y * 1080 + x] = (y < 450 || y >= 1450 || x < 200 || x >= 880) ? 230 : 120 } }
+        for y in 1150..<1400 { for x in 240..<840 { plane[y * 1080 + x] = (x / 7 + y / 9) % 5 == 0 ? 20 : 215 } } // text box
+        let luma: (CGPoint) -> Int = { p in Int(plane[max(0, min(1919, Int(p.y))) * 1080 + max(0, min(1079, Int(p.x)))]) }
+        let quad = [CGPoint(x: 150, y: 400), CGPoint(x: 930, y: 400), CGPoint(x: 930, y: 1500), CGPoint(x: 150, y: 1500)]
+        XCTAssertEqual(ScanBorder.classify(ScanBorder.samples(quad: quad, luma: luma)), .white)
+        let guide = CGRect(x: 170, y: 430, width: 740, height: 1040) // the card a little bigger than the outline
+        XCTAssertEqual(ScanBorder.classify(ScanBorder.samples(guide: guide, luma: luma)), .white)
+        var t = Date()
+        for _ in 0..<200 { _ = ScanBorder.classify(ScanBorder.samples(quad: quad, luma: luma)) }
+        let quadMs = Date().timeIntervalSince(t) * 1000 / 200
+        t = Date()
+        for _ in 0..<200 { _ = ScanBorder.classify(ScanBorder.samples(guide: guide, luma: luma)) }
+        let guideMs = Date().timeIntervalSince(t) * 1000 / 200
+        print(String(format: "Border per frame (Debug): rectangle %.3f ms (120 reads), guide %.3f ms (624 reads)", quadMs, guideMs))
+        XCTAssertLessThan(quadMs, 2); XCTAssertLessThan(guideMs, 5)
     }
 
     /// An old card whose name reads in every other frame or so (no printing to read, so the slow take): named 6 times
