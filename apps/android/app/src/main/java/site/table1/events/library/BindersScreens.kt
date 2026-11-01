@@ -21,6 +21,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -215,15 +216,17 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
     val binder = if (unsorted) null else b.binder(id)
     var groups by remember { mutableStateOf<List<CardGroup>>(emptyList()) }
     var keys by remember { mutableStateOf<Map<String, GroupKeys>>(emptyMap()) }
+    /** The groups are built for these items: until then the scroll position waits (rememberKeptListState). */
+    var builtFor by remember { mutableStateOf<List<CollectionItem>?>(null) }
     val grouping = rememberCardGrouping(GroupingKey.BINDER, CardGrouping.None, list = false)
     val sort = rememberCardSort(SortPref.BINDER, CardSort.Screen.Binder)
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     var menu by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     var askDelete by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    val printingsState = remember { mutableStateOf(PrintingsDisclosure()) }
+    val printingsState = rememberPrintingsDisclosure()
     var printings by printingsState
     val layout = rememberCardLayout("binder.layout", "binder.grid")
     var viewMenu by remember { mutableStateOf(false) }
@@ -241,6 +244,7 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
         }
         groups = g
         keys = k
+        builtFor = items
         PriceBook.load(items.map { it.cardId }.toSet())
     }
     val copies = items.sumOf { it.qty }
@@ -281,8 +285,9 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
         val grouped = grouping.value != CardGrouping.None
         fun title(key: String, cards: List<CardGroup>) = "${grouping.value.label(key)} · ${cards.sumOf { it.qty }}"
         fun tiles(cards: List<CardGroup>) = groupTiles(cards, printings.all, { !unsorted && heroes.isHero(it.id, HeroScope.InBinder(id)) }) { if (it.known) onCard(it.id) }
+        val ready = builtFor != null
         if (layout.value == CardLayout.Grid) {
-            CardGrid(Modifier.weight(1f)) { tile ->
+            CardGrid(Modifier.weight(1f), rememberKeptGridState(ready)) { tile ->
                 gridHeader("top") { top() }
                 for ((key, cards) in sections) {
                     if (grouped) gridHeader("h-$key") { Section(title(key, cards)) }
@@ -295,12 +300,12 @@ fun BinderScreen(id: String, onBack: () -> Unit, onCard: (String) -> Unit) {
                 // Grouped: one stack per group; None: stacks of ten.
                 val stacks = if (grouped) sections.map { (key, cards) -> CardStackSpec("st|$key|${printings.all}", title(key, cards), tiles(cards)) }
                     else runStacks(tiles(shown), false, { "" }, "st|${printings.all}|").map { (key, title, run) -> CardStackSpec(key, title, run) }
-                LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                LazyColumn(Modifier.fillMaxSize(), rememberKeptListState(ready), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     item(key = "top") { top() }
                     stackRows("binder", stacks, cols, width)
                 }
             }
-        } else Hairlines(Modifier.weight(1f)) {
+        } else Hairlines(Modifier.weight(1f), rememberKeptListState(ready)) {
             item(key = "top") { top() }
             for ((key, cards) in sections) {
                 if (grouped) item(key = "h-$key") { Section(title(key, cards)) }

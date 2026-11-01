@@ -30,6 +30,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.material3.Text
@@ -39,6 +41,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -106,8 +109,8 @@ internal fun CatalogStatus(state: CatalogState) {
 }
 
 @Composable
-internal fun Hairlines(modifier: Modifier = Modifier, content: LazyListScope.() -> Unit) {
-    LazyColumn(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(1.dp), content = content)
+internal fun Hairlines(modifier: Modifier = Modifier, state: LazyListState = rememberLazyListState(), content: LazyListScope.() -> Unit) {
+    LazyColumn(modifier.fillMaxWidth(), state = state, verticalArrangement = Arrangement.spacedBy(1.dp), content = content)
 }
 
 @Composable
@@ -145,7 +148,7 @@ fun CardArtCrop(printing: CatalogPrinting?, modifier: Modifier = Modifier) {
         val maxPx = with(density) { maxOf(maxWidth, maxHeight).roundToPx() }
         val url = printing?.imageUrl("art_crop")
         var image by remember(url) { mutableStateOf(url?.let { CardImageLoader.cached(it, maxPx) }) }
-        LaunchedEffect(url) { if (url != null && image == null) image = CardImageLoader.load(url, maxPx) }
+        LaunchedEffect(url) { if (url != null && image == null) image = CardImageLoader.loadRetrying(url, maxPx) }
         image?.let { Image(it, contentDescription = null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
     }
 }
@@ -395,7 +398,7 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
     val cat by CatalogStore.state.collectAsState()
     var groups by remember { mutableStateOf<List<CardGroup>?>(null) }
     var keys by remember { mutableStateOf<Map<String, GroupKeys>>(emptyMap()) }
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     val grouping = rememberCardGrouping(GroupingKey.ALL_CARDS, CardGrouping.None, list = false)
     val sortState = rememberCardSort(SortPref.ALL_CARDS, CardSort.Screen.AllCards)
     val sort = sortState.value
@@ -403,7 +406,7 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
     val layout = rememberCardLayout("allCards.layout", "allCards.grid")
     var viewMenu by remember { mutableStateOf(false) }
     var sharing by remember { mutableStateOf(false) }
-    val printings = remember { mutableStateOf(PrintingsDisclosure()) }
+    val printings = rememberPrintingsDisclosure()
     val heroes by HeroesStore.state.collectAsState()
     LaunchedEffect(Unit) { CatalogStore.load(userInitiated = true) }
     LaunchedEffect(col.version, cat.generation) {
@@ -470,10 +473,10 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
                 }
                 BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                     val (cols, width) = stackColumns(maxWidth)
-                    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 1.dp)) { stackRows("all", stacks, cols, width) }
+                    LazyColumn(Modifier.fillMaxSize(), rememberKeptListState(true), contentPadding = PaddingValues(top = 1.dp)) { stackRows("all", stacks, cols, width) }
                 }
             } else if (layout.value == CardLayout.Grid) {
-                CardGrid(Modifier.weight(1f)) { tile ->
+                CardGrid(Modifier.weight(1f), rememberKeptGridState(true)) { tile ->
                     for ((key, cards) in sections) {
                         if (grouping.value != CardGrouping.None) gridHeader("h-$key") { Section(title(key, cards)) }
                         val tiles = groupTiles(cards, printings.value.all, { heroes.isHero(it.id, HeroScope.Collection) }) { if (it.known) onOpen(it.id) }
@@ -483,7 +486,7 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
                     }
                 }
             } else {
-                Hairlines(Modifier.weight(1f)) {
+                Hairlines(Modifier.weight(1f), rememberKeptListState(true)) {
                     for ((key, cards) in sections) {
                         if (grouping.value != CardGrouping.None) item(key = "h-$key") { Section(title(key, cards)) }
                         for (row in cards) {

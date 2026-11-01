@@ -1,5 +1,11 @@
 package site.table1.events.library
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
+
 /* Printings, collapsed (contract/library-polish-2026-10-19.md § Printings, collapsed): a card with several printings
    (or finishes) is one row that opens into one row per printing and finish. Same rules as iOS `PrintingsDisclosure`
    and `LineGroup`. */
@@ -11,6 +17,13 @@ data class PrintingsDisclosure(val all: Boolean = false, val flipped: Set<String
     fun toggle(id: String) = copy(flipped = if (id in flipped) flipped - id else flipped + id)
     fun setAll(on: Boolean) = PrintingsDisclosure(all = on)
 }
+
+/** Kept through a trip to card detail and back, so opened cards (and the rows under them) are where they were. */
+@Composable
+fun rememberPrintingsDisclosure(): MutableState<PrintingsDisclosure> = rememberSaveable(saver = listSaver(
+    save = { listOf(it.value.all.toString()) + it.value.flipped },
+    restore = { mutableStateOf(PrintingsDisclosure(it[0] == "true", it.drop(1).toSet())) },
+)) { mutableStateOf(PrintingsDisclosure()) }
 
 /** One card's lines in one section (its printings and finishes), shown as one row until opened. First-seen order is
  *  kept; inside, the line with the most copies leads. */

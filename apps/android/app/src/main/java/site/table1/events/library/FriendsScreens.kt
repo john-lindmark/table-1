@@ -22,6 +22,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -415,13 +416,15 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
     var keys by remember { mutableStateOf<Map<String, GroupKeys>>(emptyMap()) }
     /** Decks and cubes: one line per card, board and printing. */
     var lines by remember { mutableStateOf<List<ListLine>>(emptyList()) }
-    var query by remember { mutableStateOf("") }
+    /** The cards are fetched and resolved again each time the screen is drawn; the scroll position waits for them. */
+    var built by remember { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var viewMenu by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
     var imaging by remember { mutableStateOf(false) }
     var copying by remember { mutableStateOf(false) }
-    val printings = remember { mutableStateOf(PrintingsDisclosure()) }
+    val printings = rememberPrintingsDisclosure()
     val layout = rememberCardLayout("shared.layout", "shared.grid")
     // Decks and cubes share Group by with your own; everything else has its own (None to start).
     val grouping = if (kind != null) rememberListGrouping(kind) else rememberCardGrouping(GroupingKey.SHARED, CardGrouping.None, list = false)
@@ -446,6 +449,7 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
         val r = rows ?: return@LaunchedEffect
         if (kind != null) lines = withContext(Dispatchers.Default) { resolveLines(entries, db, grouping.value) }
         else withContext(Dispatchers.Default) { groupProfileCards(r, db).let { it to GroupKeys.forGroups(it, db) } }.let { (g, k) -> groups = g; keys = k }
+        built = true
     }
     val s = profile?.sections
     val shared = (s?.decks.orEmpty() + s?.cubes.orEmpty()).firstOrNull { it.id == item }
@@ -527,7 +531,7 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
         if (layout.value == CardLayout.Stacks) {
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                 val (cols, width) = stackColumns(maxWidth)
-                LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                LazyColumn(Modifier.fillMaxSize(), rememberKeptListState(built), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     item(key = "top") { top() }
                     if (kind != null) for (board in boards) {
                         val inBoard = shownLines.filter { it.board == board }
@@ -546,7 +550,7 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
                 }
             }
         } else if (layout.value == CardLayout.Grid) {
-            CardGrid(Modifier.weight(1f)) { tile ->
+            CardGrid(Modifier.weight(1f), rememberKeptGridState(built)) { tile ->
                 gridHeader("top") { top() }
                 if (kind != null) for (board in boards) {
                     val inBoard = shownLines.filter { it.board == board }
@@ -561,7 +565,7 @@ fun ProfileCardsScreen(userId: String, section: String, item: String?, onBack: (
                     gridItems(groupTiles(cards), key = { "t-${it.key}" }) { t -> CardTile(t.printing, t.qty, tile, onClick = t.onClick, finish = t.finish) }
                 }
             }
-        } else Hairlines(Modifier.weight(1f)) {
+        } else Hairlines(Modifier.weight(1f), rememberKeptListState(built)) {
             item(key = "top") { top() }
             if (kind != null) for (board in boards) {
                 val inBoard = shownLines.filter { it.board == board }

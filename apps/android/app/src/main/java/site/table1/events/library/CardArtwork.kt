@@ -22,6 +22,8 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -62,8 +64,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
@@ -105,8 +111,7 @@ object CardImageLoader {
         override fun sizeOf(key: String, value: ImageBitmap) = value.width * value.height * 4
     }
     private val network = Semaphore(6)
-    private val lock = Mutex()
-    private val flights = HashMap<String, CompletableDeferred<ImageBitmap?>>()
+    private val flights = SharedFlights<ImageBitmap>(CoroutineScope(SupervisorJob() + Dispatchers.IO))
     private val dir by lazy { File(T1App.instance.cacheDir, "card-images").apply { mkdirs() } }
     @Volatile private var trimmed = false
 
@@ -118,17 +123,16 @@ object CardImageLoader {
     suspend fun load(url: String, maxPx: Int): ImageBitmap? {
         val k = key(url, maxPx)
         memory.get(k)?.let { return it }
-        var mine = false
-        val flight = lock.withLock {
-            flights[k] ?: CompletableDeferred<ImageBitmap?>().also { flights[k] = it; mine = true }
+        return flights.get(k) { fetch(url, maxPx)?.also { memory.put(k, it) } }
+    }
+
+    /** [load], tried again after 1 s and 3 s: a drawn card had stayed blank for good after one dropped download. */
+    suspend fun loadRetrying(url: String, maxPx: Int): ImageBitmap? {
+        for (wait in listOf(1_000L, 3_000L)) {
+            load(url, maxPx)?.let { return it }
+            delay(wait)
         }
-        if (mine) {
-            val result = runCatching { fetch(url, maxPx) }.getOrNull()
-            result?.let { memory.put(k, it) }
-            lock.withLock { flights.remove(k) }
-            flight.complete(result)
-        }
-        return flight.await()
+        return load(url, maxPx)
     }
 
     private suspend fun fetch(url: String, maxPx: Int): ImageBitmap? = withContext(Dispatchers.IO) {
@@ -138,12 +142,15 @@ object CardImageLoader {
             network.withPermit {
                 val conn = URL(url).openConnection() as HttpURLConnection
                 conn.setRequestProperty("User-Agent", "Table1Events/1.0 (table-1.site)")
+                // Its own temp file: two sizes of one image download at once, and a shared "<name>.part" left a
+                // file of both in the cache that never decoded again.
+                val tmp = File.createTempFile(name, ".part", dir)
                 try {
                     if (conn.responseCode != 200) return@withContext null
-                    val tmp = File(dir, "$name.part")
                     conn.inputStream.use { input -> tmp.outputStream().use { input.copyTo(it) } }
                     tmp.renameTo(file)
                 } finally {
+                    tmp.delete()
                     conn.disconnect()
                 }
             }
@@ -151,7 +158,8 @@ object CardImageLoader {
         } else {
             file.setLastModified(System.currentTimeMillis()) // keeps recently seen images on trim
         }
-        decode(file, maxPx)?.asImageBitmap()
+        // A file that doesn't decode (cut short) is dropped, so the next ask downloads it again.
+        decode(file, maxPx)?.asImageBitmap() ?: run { file.delete(); null }
     }
 
     /** Decodes with the largest power-of-two sample that still covers `maxPx` on the long side. */
@@ -172,7 +180,10 @@ object CardImageLoader {
 
     /** Keeps the disk cache under its limit, dropping the least recently used files first. */
     private fun trimDisk() {
-        val files = dir.listFiles()?.filter { it.extension == "jpg" } ?: return
+        val all = dir.listFiles() ?: return
+        // Temp files older than an hour are from a download the app was killed in.
+        all.filter { it.extension == "part" && it.lastModified() < System.currentTimeMillis() - 3_600_000 }.forEach { it.delete() }
+        val files = all.filter { it.extension == "jpg" }
         var total = files.sumOf { it.length() }
         if (total <= DISK_LIMIT) return
         for (f in files.sortedBy { it.lastModified() }) {
@@ -180,6 +191,29 @@ object CardImageLoader {
             total -= f.length()
             f.delete()
         }
+    }
+}
+
+/**
+ * One run of `work` per key, however many callers ask at once. The work runs in [scope], not the caller's: a card whose
+ * screen went away mid-download (a condition change redraws the card) used to cancel the download for every other card
+ * waiting on it, which then stayed blank. A failure (null or a throw) isn't kept, so the next ask runs it again.
+ */
+internal class SharedFlights<V : Any>(private val scope: CoroutineScope) {
+    private val lock = Mutex()
+    private val running = HashMap<String, Deferred<V?>>()
+
+    suspend fun get(key: String, work: suspend () -> V?): V? {
+        val flight = lock.withLock {
+            running.getOrPut(key) {
+                scope.async {
+                    val result = runCatching { work() }.getOrNull()
+                    lock.withLock { running.remove(key) }
+                    result
+                }
+            }
+        }
+        return flight.await()
     }
 }
 
@@ -193,7 +227,7 @@ fun CardArt(printing: CatalogPrinting?, width: Dp, modifier: Modifier = Modifier
     val url = printing?.imageUrl(CardImageLoader.size(with(density) { width.roundToPx() }), back)
     val shape = RoundedCornerShape(width * CardCorners.ratio(printing?.set ?: ""))
     var image by remember(url) { mutableStateOf(url?.let { CardImageLoader.cached(it, maxPx) }) }
-    LaunchedEffect(url) { if (url != null && image == null) image = CardImageLoader.load(url, maxPx) }
+    LaunchedEffect(url) { if (url != null && image == null) image = CardImageLoader.loadRetrying(url, maxPx) }
     Box(modifier.size(width, height).clip(shape).background(T1.bg).let { if (finish != "nonfoil") it.foilSheen(finish == "etched") else it }) {
         image?.let { Image(it, contentDescription = null, Modifier.size(width, height), contentScale = ContentScale.Crop) }
     }
@@ -282,11 +316,11 @@ fun CardTile(printing: CatalogPrinting?, qty: Int, width: Dp, warn: Boolean = fa
 
 /** A lazily built card grid that fills the width: three columns on a phone, more on wider screens. */
 @Composable
-fun CardGrid(modifier: Modifier = Modifier, content: LazyGridScope.(tileWidth: Dp) -> Unit) {
+fun CardGrid(modifier: Modifier = Modifier, state: LazyGridState = rememberLazyGridState(), content: LazyGridScope.(tileWidth: Dp) -> Unit) {
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val cols = maxOf(3, (maxWidth / 180.dp).toInt())
         val tile = (maxWidth - 1.dp * (cols - 1)) / cols
-        LazyVerticalGrid(GridCells.Fixed(cols), horizontalArrangement = Arrangement.spacedBy(1.dp),
+        LazyVerticalGrid(GridCells.Fixed(cols), state = state, horizontalArrangement = Arrangement.spacedBy(1.dp),
             verticalArrangement = Arrangement.spacedBy(1.dp)) { content(tile) }
     }
 }

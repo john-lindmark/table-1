@@ -26,6 +26,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -331,8 +332,8 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     var renaming by remember { mutableStateOf(false) }
     val grouping = rememberListGrouping(list?.kind)
     val sort = rememberListSort(list?.kind)
-    var query by remember { mutableStateOf("") }
-    val printings = remember { mutableStateOf(PrintingsDisclosure()) }
+    var query by rememberSaveable { mutableStateOf("") }
+    val printings = rememberPrintingsDisclosure()
     val heroes by HeroesStore.state.collectAsState()
     val heroScope = HeroScope.InList(listId)
     var heroFull by remember { mutableStateOf<String?>(null) }
@@ -346,6 +347,8 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
         return
     }
     val unsavedWhy = s.unsaved[list.id]
+    // Card details are looked up again each time the screen is drawn; the scroll position goes back once they're in.
+    val rowsReady = list.entries.all { it.cardId in meta }
     val rows = sort.value.apply(lines(list, meta, grouping.value)) { SortKey.of(it.name, it.keys, it.printing) }
     val issues = legalityIssues(rows, list)
     val searching = CardName.norm(query).isNotEmpty()
@@ -474,7 +477,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
             // Stacks keep the organization too: section header, then a stack per type (decks) or color (cubes).
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                 val (cols, width) = stackColumns(maxWidth)
-                LazyColumn(Modifier.fillMaxSize()) {
+                LazyColumn(Modifier.fillMaxSize(), rememberKeptListState(rowsReady)) {
                     if (!searching) item(key = "top") { top() }
                     for (board in boards) {
                         val inBoard = shown.filter { it.board == board }
@@ -489,7 +492,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
             }
         } else if (layout.value == CardLayout.Grid && !editing) {
             // The grid keeps the organization: section header, then type (decks) or color (cubes) headers.
-            CardGrid(Modifier.weight(1f)) { tile ->
+            CardGrid(Modifier.weight(1f), rememberKeptGridState(rowsReady)) { tile ->
                 if (!searching) gridHeader("top") { top() }
                 for (board in boards) {
                     val inBoard = shown.filter { it.board == board }
@@ -504,7 +507,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                 }
             }
         } else {
-            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            LazyColumn(Modifier.weight(1f), rememberKeptListState(rowsReady), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 if (!searching) item(key = "top") { top() }
                 for (board in boards) {
                     val inBoard = shown.filter { it.board == board }
