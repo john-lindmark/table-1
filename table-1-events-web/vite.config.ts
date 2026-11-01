@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 import { execSync } from "node:child_process";
+import { resolve } from "node:path";
 import pkg from "./package.json";
 
 /** The commit a build came from: telemetry's `build` and the Sentry release (site.table1.events@<version>+<build>). */
@@ -42,9 +43,11 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
     __APP_BUILD__: JSON.stringify(gitBuild()),
+    // The feature-spot shots' folder: the dev server serves it as /@fs/… so a fresh shoot shows without a restart.
+    __SPOTS_SHOTS_DIR__: JSON.stringify(resolve(__dirname, "../marketing/bundle/spots/shots")),
   },
   // The dev-only demos (?demo) read the iOS Debug fixture and the Insights packs from the repo.
-  server: { port: 5173, fs: { allow: [".", "../apps/ios/Table1/DebugResources", "../testdata/insights"] } },
+  server: { port: 5173, fs: { allow: [".", "../apps/ios/Table1/DebugResources", "../testdata/insights", "../marketing"] } },
   // Libraries change far less often than the app, so they get their own long-cached chunks.
   build: {
     rollupOptions: {

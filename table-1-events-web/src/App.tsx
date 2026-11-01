@@ -112,6 +112,7 @@ const CollectionImportScreen = lazyNamed(() => import("./screens/CollectionImpor
 const EventsDemo = lazyNamed(() => import("./screens/EventsDemo"), "EventsDemo");
 // Dev only: production builds drop the demo and its fixture.
 const RotoDemo = import.meta.env.DEV ? lazyNamed(() => import("./screens/RotoDemo"), "RotoDemo") : () => null;
+const SpotsDev = import.meta.env.DEV ? lazyNamed(() => import("./screens/SpotsDev"), "SpotsDev") : () => null;
 
 /** Back where the user came from, or a sensible default when the tracker was opened directly. */
 function useBack(fallback: string) {
@@ -580,6 +581,7 @@ export default function App() {
         <Route path="/l/:token" element={<SharedLinkRoute />} />
         {import.meta.env.DEV && <Route path="/dev/events" element={<EventsDemo />} />}
         {import.meta.env.DEV && <Route path="/dev/roto" element={<RotoDemo />} />}
+        {import.meta.env.DEV && <Route path="/dev/spots" element={<SpotsDev />} />}
         <Route path="/library" element={<LibraryHomeRoute />} />
         <Route path="/library/cards" element={<AllCardsRoute />} />
         <Route path="/library/add" element={<AddCardsRoute />} />

@@ -23,3 +23,5 @@ interface ImportMetaEnv {
 declare const __APP_VERSION__: string;
 /** Short git commit of the build, set by vite.config.ts. */
 declare const __APP_BUILD__: string;
+/** marketing/bundle/spots/shots on disk, set by vite.config.ts; the dev server serves it as /@fs/… */
+declare const __SPOTS_SHOTS_DIR__: string;

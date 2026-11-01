@@ -1,0 +1,9 @@
+{
+  "name": "table-1-spots",
+  "private": true,
+  "type": "module",
+  "description": "Feature spots: shoots the apps' screens from the web dev server and lays out store images (marketing/).",
+  "devDependencies": {
+    "playwright": "^1.50.0"
+  }
+}

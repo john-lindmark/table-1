@@ -16,6 +16,8 @@ import { avatarJpeg, clearAvatar, setAvatar, useAvatarPath } from "../lib/avatar
 import { Avatar } from "../components/Avatar";
 import type { AccountOverview } from "../lib/types";
 import { useSession } from "../lib/useSession";
+import { isLibraryDemo } from "../lib/libraryDemo";
+import { DEMO_OVERVIEW } from "../lib/profileDemo";
 import { Bar, Menu, Notice, Row, Screen, Segmented, TabNav, type MenuItem } from "../components/kit";
 import { useTrackerMode } from "../lib/settings";
 import { FAN_CONTENT } from "../lib/legal";
@@ -57,8 +59,11 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
   onNotices?: () => void;
   onReview?: () => void;
 }) {
-  const { session, ready, userId } = useSession();
-  const [overview, setOverview] = useState<AccountOverview | null>(null);
+  const real = useSession();
+  // Dev server, `?demo`: the account on sample results (the feature-spot shot of the record), no sign-in.
+  const demoAccount = import.meta.env.DEV && isLibraryDemo();
+  const { session, ready, userId } = demoAccount ? { session: true as const, ready: true, userId: null } : real;
+  const [overview, setOverview] = useState<AccountOverview | null>(demoAccount ? DEMO_OVERVIEW : null);
   const [alertsOn, setAlertsOn] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [nameDraft, setNameDraft] = useState<string | null>(null);
@@ -95,7 +100,7 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
   };
 
   const load = useCallback(async () => {
-    if (!userId) return;
+    if (!userId || demoAccount) return;
     try {
       setOverview(await fetchAccountOverview());
       setAlertsOn(await fetchNearbyAlerts(userId));

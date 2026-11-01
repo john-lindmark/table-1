@@ -1,0 +1,74 @@
+{
+  "about": "Feature spots (contract/feature-spots-2026-11-01.md): the pieces of Table 1 worth showing, each with copy and a phone shot of the real screen. One source for the web landing page, the apps' sign-in carousel, the App Store and Play listings and any other promotional placement. Change copy here; re-shoot with tools/spots/run.sh after a UI change (it writes shots/ and marketing/store/). Read at runtime by the web (import), iOS (bundle folder spots/) and Android (assets spots/).",
+  "updated": "2026-11-01",
+  "product": {
+    "name": "Table 1",
+    "tagline": "Tournaments for Magic players",
+    "line": "Run your store's Friday night or your kitchen-table draft, play your matches and keep your collection, in one account on iPhone, Android and the web.",
+    "fan_content": "Table 1 is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC."
+  },
+  "limits": { "title": 26, "headline": 44, "body": 260 },
+  "spots": [
+    {
+      "key": "run",
+      "title": "Run your own events",
+      "headline": "Run the night from your phone",
+      "body": "Swiss pairings, the round clock, results and standings for a Friday night, a kitchen-table draft or a team event, by the Magic Tournament Rules. Players join with a QR code or a link; standings update for everyone.",
+      "shot": { "route": "/dev/events?screen=live&bare", "ready": "Round 2" },
+      "onboarding": true,
+      "store": true
+    },
+    {
+      "key": "play",
+      "title": "Play your matches",
+      "headline": "Report from the life tracker",
+      "body": "Scan the organizer's QR code and you're seated. Keep life and counters, report the result when the match ends, and your opponent confirms. Your record keeps every match.",
+      "shot": { "route": "/life", "ready": "Options" },
+      "onboarding": true,
+      "store": true
+    },
+    {
+      "key": "record",
+      "title": "Your record, every event",
+      "headline": "Every match you have played, kept",
+      "body": "Your lifetime record, head-to-head against the people you play most, and every event's standings and results, from the first draft on. Share your record with friends, or keep it to yourself.",
+      "shot": { "route": "/me?demo", "ready": "Head-to-head" },
+      "onboarding": true,
+      "store": true
+    },
+    {
+      "key": "insights",
+      "title": "Insights for your decks",
+      "headline": "Know how your deck does in the meta",
+      "body": "The matchup grid puts your decks first and marks the archetypes your collection can nearly build, from tournament results on Magic Online, TopDeck.gg and Melee. Each deck shows its archetype's win rate this week, what it beats and what beats it.",
+      "shot": { "route": "/insights/modern/matchups?demo", "ready": "Your deck" },
+      "onboarding": true,
+      "store": true
+    },
+    {
+      "key": "import",
+      "title": "Bring your collection",
+      "headline": "Switch in minutes",
+      "body": "Import an export from ManaBox, Moxfield, Archidekt, Deckbox, Dragon Shield, TCGplayer or Delver Lens and see what matched before anything is written. Decks and cubes from links or paste. Export whenever you like, or scan cards with your phone.",
+      "shot": { "route": "/library/import?demo", "ready": "Matched", "file": "testdata/collection-import/manabox.csv" },
+      "onboarding": true,
+      "store": true
+    },
+    {
+      "key": "rank",
+      "title": "Rank cubes and sets",
+      "headline": "Rank a cube four cards at a time",
+      "body": "Order each colour of a cube or a new set, settle the top 100, compare rankings with friends and refine yours with first picks. New sets are rankable in spoiler season, with 17Lands data once the set is on Arena.",
+      "shot": { "route": "/library/ranking/d0000000-0000-0000-0000-0000000aa001/screen/U?demo", "ready": "Lock in" },
+      "onboarding": true,
+      "store": true
+    }
+  ],
+  "store": {
+    "subtitle": "Run events, play, keep cards",
+    "promotional_text": "Run tournaments from your phone, keep every match you play, and see how your decks do in the meta.",
+    "keywords": "magic,mtg,tournament,swiss,pairings,life counter,draft,cube,collection,decks,meta,limited",
+    "short_description": "Run Magic tournaments, play your matches and keep your collection.",
+    "whats_new_hint": "Keep the per-release notes in table-1-context/docs/testflight-build-<n>.md and android-release-<code>.md; this file holds the standing listing only."
+  }
+}

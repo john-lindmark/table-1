@@ -4,21 +4,7 @@ import { SignInButtons } from "../components/SignInButtons";
 import { JoinByCode } from "../components/JoinByCode";
 import { BackArrow, BigAction, Screen, T1Logo } from "../components/kit";
 import { FAN_CONTENT } from "../lib/legal";
-
-const FEATURES: { title: string; body: string }[] = [
-  {
-    title: "Run the event",
-    body: "Swiss pairings, the round clock, results and standings from your phone. Constructed, drafts with seating, cubes and team events, by the Magic Tournament Rules.",
-  },
-  {
-    title: "Play your matches",
-    body: "Scan the organizer's QR code to join. Report from the life tracker; your opponent confirms. Standings update for everyone.",
-  },
-  {
-    title: "Keep your cards",
-    body: "Your collection, decks and cubes with every version saved, and trades that update your collection when you confirm them. Scan cards with the phone apps.",
-  },
-];
+import { SPOTS, shotUrl, spots } from "../lib/spots";
 
 /** table-1.site for signed-out visitors: what Table 1 is, with sign-in one tap away. */
 export function Landing() {
@@ -38,27 +24,15 @@ export function Landing() {
         <T1Logo className="w-full max-w-[400px] h-auto" />
       </div>
       <div className="bg-t1-surface px-4 py-8 flex flex-col gap-3">
-        <h1 className="text-[22px] leading-8 uppercase tracking-[4px] font-bold max-w-[640px]">
-          Tournaments for Magic players
-        </h1>
-        <p className="text-[14px] leading-[22px] text-t1-muted max-w-[560px]">
-          Run your store's Friday night or your kitchen-table draft, play your matches and keep your collection, in one
-          account on iPhone, Android and the web.
-        </p>
+        <h1 className="text-[22px] leading-8 uppercase tracking-[4px] font-bold max-w-[640px]">{SPOTS.product.tagline}</h1>
+        <p className="text-[14px] leading-[22px] text-t1-muted max-w-[560px]">{SPOTS.product.line}</p>
       </div>
       <BigAction label="Sign in or sign up" tone="accent" onClick={() => navigate("/sign-in")} />
 
       <div className="bg-t1-surface px-4 pt-4 pb-2 t1-label">Playing tonight? Enter the event code</div>
       <JoinByCode />
 
-      <div className="grid gap-px md:grid-cols-3">
-        {FEATURES.map((f) => (
-          <section key={f.title} className="bg-t1-surface px-4 py-6 flex flex-col gap-2">
-            <h2 className="t1-label text-t1-text!">{f.title}</h2>
-            <p className="text-[14px] leading-[22px] text-t1-muted">{f.body}</p>
-          </section>
-        ))}
-      </div>
+      <Spots />
 
       <div className="flex-1 bg-t1-surface" />
       <footer className="bg-t1-surface px-4 py-4 flex flex-wrap gap-x-6 gap-y-2 t1-label">
@@ -91,5 +65,32 @@ export function SignInPage() {
       </div>
       <SignInButtons />
     </Screen>
+  );
+}
+
+/** The feature spots (contract/feature-spots-2026-11-01.md): copy beside the phone shot of the real screen, shot and
+ *  copy swapping sides down the page on a wide window, stacked on a phone. The same spots open the apps. */
+function Spots() {
+  return (
+    <div className="flex flex-col gap-px">
+      {spots().map((s, i) => {
+        const src = shotUrl(s.key);
+        return (
+          <section key={s.key} className="grid gap-px md:grid-cols-2">
+            <div className={`bg-t1-surface px-4 py-8 md:px-8 md:py-12 flex flex-col gap-3 justify-center ${i % 2 ? "md:order-last" : ""}`}>
+              <h2 className="t1-label">{s.title}</h2>
+              <p className="text-[20px] leading-7 uppercase tracking-[2px] font-bold max-w-[480px]">{s.headline}</p>
+              <p className="text-[14px] leading-[22px] text-t1-muted max-w-[480px]">{s.body}</p>
+            </div>
+            {src && (
+              <div className="bg-t1-surface flex justify-center items-start px-4 pt-6 max-h-[440px] md:max-h-[560px] overflow-hidden">
+                <img src={src} alt={s.headline} width={390} height={844} loading={i === 0 ? "eager" : "lazy"}
+                     className="w-[260px] md:w-[300px] h-auto border border-t1-bg border-b-0" />
+              </div>
+            )}
+          </section>
+        );
+      })}
+    </div>
   );
 }

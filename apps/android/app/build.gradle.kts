@@ -69,6 +69,9 @@ android {
     }
     // The widget gallery draws with the app's resources (Robolectric).
     testOptions { unitTests.isIncludeAndroidResources = true }
+    // The feature spots (contract/feature-spots-2026-11-01.md): copy and phone shots shared with the web and iOS,
+    // bundled as assets/spots/ (spots.json, shots/<key>.png).
+    sourceSets.getByName("main").assets.srcDir("../../../marketing/bundle")
 }
 
 // The widget gallery is design QA, not a check: it runs only when asked, e.g.
@@ -129,4 +132,8 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
+    // Compose state checks under Robolectric (KeptScrollTest).
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
 }

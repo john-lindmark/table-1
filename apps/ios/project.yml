@@ -36,6 +36,11 @@ targets:
     sources:
       - Table1
       - Shared
+      # The feature spots (contract/feature-spots-2026-11-01.md): copy and phone shots shared with the web and
+      # Android, bundled as the folder `spots/` (spots.json, shots/<key>.png). Shipped in Release.
+      - path: ../../marketing/bundle/spots
+        type: folder
+        buildPhase: resources
     dependencies:
       - target: Table1Widgets
       - package: Supabase

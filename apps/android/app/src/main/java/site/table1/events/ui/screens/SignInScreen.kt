@@ -45,6 +45,9 @@ import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.T1Logo
 import site.table1.events.ui.components.T1TextField
+import site.table1.events.ui.spots.Spots
+import site.table1.events.ui.spots.SpotsCarousel
+import androidx.compose.foundation.layout.height
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.PermissionState
 import site.table1.events.util.PermissionsStep
@@ -148,11 +151,23 @@ fun SignInScreen(join: JoinLink? = null) {
         }
     }
 
+    // Plain sign-in (no event waiting, the providers step): the mark as a band over the feature spots
+    // (contract/feature-spots-2026-11-01.md); otherwise the mark fills the space above the step as before.
+    val spots = remember(step, join) {
+        if (step == Step.Providers && join == null && site.table1.events.ui.PendingSignUp.page == null) Spots.onboarding(context) else emptyList()
+    }
     Column(Modifier.fillMaxSize().background(T1.bg).imePadding(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-        Box(
-            Modifier.weight(1f).fillMaxWidth().background(T1.surface).statusBarsPadding().padding(top = 40.dp),
-            contentAlignment = Alignment.Center,
-        ) { T1Logo(Modifier.fillMaxWidth()) }
+        if (spots.isEmpty()) {
+            Box(
+                Modifier.weight(1f).fillMaxWidth().background(T1.surface).statusBarsPadding().padding(top = 40.dp),
+                contentAlignment = Alignment.Center,
+            ) { T1Logo(Modifier.fillMaxWidth()) }
+        } else {
+            Box(Modifier.fillMaxWidth().background(T1.surface).statusBarsPadding().padding(16.dp), contentAlignment = Alignment.CenterStart) {
+                T1Logo(Modifier.height(56.dp))
+            }
+            SpotsCarousel(spots, Modifier.weight(1f))
+        }
         join?.let { JoinHeader(it) } ?: site.table1.events.ui.PendingSignUp.page?.let { SignUpHeader(it) }
         (error ?: SignIn.emailLinkError)?.let { Notice(it, error = true) }
         when (step) {

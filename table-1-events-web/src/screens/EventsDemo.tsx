@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Screen, Segmented, TabBar } from "../components/kit";
+import { Bar, Screen, Segmented, TabBar } from "../components/kit";
 import { SeatingPanel } from "../components/SeatingPanel";
 import { toBundle } from "../lib/api";
 import { TAB_LABELS, type OrganizerTab } from "../lib/organizer";
@@ -107,11 +107,21 @@ function LiveDemo({ team = false }: { team?: boolean }) {
   );
 }
 
+type DemoScreen = "create" | "seating" | "live" | "team" | "photos";
+const DEMO_SCREENS: DemoScreen[] = ["create", "seating", "live", "team", "photos"];
+
 export function EventsDemo() {
-  const [screen, setScreen] = useState<"create" | "seating" | "live" | "team" | "photos">("seating");
+  // `?screen=live` opens on that screen; `&bare` swaps the demo's picker for the organizer screen's own bar (the
+  // feature-spot shots, tools/spots/shoot.mjs).
+  const params = new URLSearchParams(window.location.search);
+  const bare = params.has("bare");
+  const [screen, setScreen] = useState<DemoScreen>(() => {
+    const asked = params.get("screen") as DemoScreen | null;
+    return asked && DEMO_SCREENS.includes(asked) ? asked : "seating";
+  });
   return (
     <Screen width={screen === "live" || screen === "team" ? "wide" : "column"}>
-      <Segmented
+      {bare ? <Bar title={screen === "team" ? "Team draft · Duskmourn · Fri 24 Oct" : "Draft · Duskmourn · Fri 24 Oct"} subtitle="Organizer · Round 2 of 3" onBack={() => {}} /> : <Segmented
         label="Demo"
         value={screen}
         onChange={setScreen}
@@ -122,7 +132,7 @@ export function EventsDemo() {
           { value: "team", label: "Team" },
           { value: "photos", label: "Photos" },
         ]}
-      />
+      />}
       {screen === "photos" ? (
         <DeckPhotoDemo />
       ) : screen === "team" ? (

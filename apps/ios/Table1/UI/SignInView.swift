@@ -25,8 +25,12 @@ struct SignInView: View {
     private var codeValid: Bool { code.count >= 6 }
 
     var body: some View {
+        // Plain sign-in (no event waiting, the providers step): the mark as a band over the feature spots; otherwise
+        // the mark fills the space above the step as before.
+        let spots = step == .providers && session.pendingJoin == nil && session.pendingSignUp == nil ? Spots.onboarding : []
         VStack(spacing: 1) {
-            SignInMark()
+            SignInMark(band: !spots.isEmpty)
+            if !spots.isEmpty { SpotsCarousel(spots: spots) }
             if let join = session.pendingJoin { JoinHeader(link: join) }
             else if let page = session.pendingSignUp { SignUpHeader(page: page) }
             if let message = error ?? session.emailLinkError { Notice(message, error: true) }
@@ -200,12 +204,15 @@ struct SignInView: View {
 
 /// The mark, full-bleed on the surface band, above every sign-in step.
 private struct SignInMark: View {
+    /// A short band (the mark 56 pt tall, left) over the feature spots, instead of the mark filling the space.
+    var band = false
     var body: some View {
         T1Logo()
             .fill(T1.text)
             .aspectRatio(T1Logo.aspect, contentMode: .fit)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.top, 40)
+            .frame(maxWidth: band ? nil : .infinity, maxHeight: band ? 56 : .infinity)
+            .frame(maxWidth: .infinity, alignment: band ? .leading : .center)
+            .padding(.top, band ? 16 : 40).padding(.bottom, band ? 16 : 0).padding(.horizontal, band ? 16 : 0)
             .background(T1.surface.ignoresSafeArea(edges: .top))
             .accessibilityElement()
             .accessibilityLabel("Table 1")
