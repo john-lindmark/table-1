@@ -18,7 +18,7 @@ import Anthropic from "npm:@anthropic-ai/sdk@0.110.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { briefFor } from "../insight-brief/brief.ts";
 import { clusters, known, NAME_SCHEMA, NAME_SYSTEM, namePrompt, proposal, type ClusterDeck } from "./cluster.ts";
-import { backfillAfter, backfillMonth, bounced, indexSlugs, monthBefore, MTGO_FORMATS, pageData, parseEvent, slugInfo } from "./mtgo.ts";
+import { backfillAfter, backfillMonth, bounced, indexOrEmpty, indexSlugs, monthBefore, MTGO_FORMATS, pageData, parseEvent, slugInfo } from "./mtgo.ts";
 import { archetypeFacts, assemble, banFacts, windowFacts } from "./pack.ts";
 import { callTimeout, fetchRetrying } from "./deadline.ts";
 import { CACHE_YEARS_URL, cacheItems, cacheTreeUrl, cacheYears, parseCacheEvent, type CacheFile } from "./cache.ts";
@@ -119,9 +119,9 @@ async function tick() {
     const now = new Date();
     const hourly = !state.index_at || t0 - Date.parse(state.index_at) > 3_600_000;
     if (hourly) {
-      const cur = await readIndex(month(now), hard);
+      const cur = await indexOrEmpty(() => readIndex(month(now), hard));
       out.queued += cur.queued;
-      if (now.getUTCDate() <= 3) out.queued += (await readIndex(monthBefore(month(now)), hard)).queued;
+      if (now.getUTCDate() <= 3) out.queued += (await indexOrEmpty(() => readIndex(monthBefore(month(now)), hard))).queued;
       // An empty list is read again next tick (the first days of a month may truly have none: then hourly as before).
       if (cur.slugs > 0 || now.getUTCDate() <= 2) await rpc("meta_state_put", { p_patch: { index_at: now.toISOString() } });
     }
@@ -134,7 +134,7 @@ async function tick() {
     const b = { next: state.backfill_next ?? monthBefore(month(now)), until, retry: state.backfill_retry ?? "" };
     const m = backfillMonth(b, hourly);
     if (m) {
-      const r = await readIndex(m, hard);
+      const r = await indexOrEmpty(() => readIndex(m, hard));
       out.queued += r.queued;
       out.backfill = `${m}: ${r.slugs} pages`;
       const after = backfillAfter(b, m, r.slugs);

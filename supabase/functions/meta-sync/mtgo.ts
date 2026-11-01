@@ -70,6 +70,17 @@ export function bounced(requested: string, res: { redirected: boolean; url: stri
   try { return new URL(res.url).pathname.replace(/\/$/, "") !== new URL(requested).pathname.replace(/\/$/, ""); } catch { return false; }
 }
 
+/** A month index read that never fails the tick. MTGO bounces a month it hasn't listed yet (the new month's first
+ *  hours, 1 Nov 2026: 7 hours of failed ticks, bug #25) or hasn't served lately to /decklists; that throws in the
+ *  fetch, and thrown it stopped the queue, TopDeck and the cache too. Read as an empty list instead: the current month
+ *  is read again next tick, a backfill month goes on the retry list (`backfillAfter`). */
+export async function indexOrEmpty(read: () => Promise<{ slugs: number; queued: number }>): Promise<{ slugs: number; queued: number; error?: string }> {
+  try { return await read(); } catch (e) {
+    console.error("meta-sync index", String(e));
+    return { slugs: 0, queued: 0, error: String(e) };
+  }
+}
+
 /** The page's data object, or null when the page has none (not published yet, or a changed layout). */
 export function pageData(html: string): Record<string, unknown> | null {
   const m = /window\.MTGO\.decklists\.data\s*=\s*(\{[\s\S]*?\});\s*\n/.exec(html);

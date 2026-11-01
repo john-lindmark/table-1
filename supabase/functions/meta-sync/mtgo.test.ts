@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { backfillAfter, backfillMonth, bounced, INDEX_TRIES, indexSlugs, monthBefore, pageData, parseEvent, slugInfo } from "./mtgo.ts";
+import { backfillAfter, backfillMonth, bounced, INDEX_TRIES, indexOrEmpty, indexSlugs, monthBefore, pageData, parseEvent, slugInfo } from "./mtgo.ts";
 
 const T = "../../testdata/insights/mtgo";
 const json = async (f: string) => JSON.parse(await Deno.readTextFile(`${T}/${f}`));
@@ -106,4 +106,15 @@ Deno.test("backfill: an empty month index is retried later instead of passed ove
   b = backfillAfter({ ...b, retry: `2026/01:${INDEX_TRIES - 1}` }, "2026/01", 0);
   assertEquals(b.retry, "", "given up after INDEX_TRIES");
   assertEquals(backfillMonth(b, true), null, "nothing left to read");
+});
+
+Deno.test("month index: a failed read is an empty list, not a failed tick (bug #25: 2026/11 bounced for 7 hours on 1 Nov and every tick failed)", async () => {
+  const bounce = () => Promise.reject(new Error("https://www.mtgo.com/decklists/2026/11 sent to https://www.mtgo.com/decklists"));
+  const r = await indexOrEmpty(bounce);
+  assertEquals(r.slugs, 0);
+  assertEquals(r.queued, 0);
+  assert(r.error?.includes("2026/11"));
+  assertEquals(await indexOrEmpty(() => Promise.resolve({ slugs: 3, queued: 2 })), { slugs: 3, queued: 2 });
+  // An empty answer goes on the backfill's retry list like MTGO's cold empty index.
+  assertEquals(backfillAfter({ next: "2026/05", until: "2025/10", retry: "" }, "2026/05", r.slugs).retry, "2026/05:1");
 });
