@@ -1,5 +1,8 @@
 package site.table1.events.util
 
+import android.app.NotificationManager
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
 import android.util.Log
 import com.posthog.PersonProfiles
@@ -16,6 +19,7 @@ import io.sentry.android.core.SentryAndroid
 import io.sentry.okhttp.SentryOkHttpInterceptor
 import io.sentry.protocol.SentryTransaction
 import io.sentry.protocol.User
+import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,6 +28,9 @@ import kotlinx.coroutines.launch
 import okhttp3.Interceptor
 import site.table1.events.BuildConfig
 import site.table1.events.T1App
+import site.table1.events.widgets.MatchWidgetReceiver
+import site.table1.events.widgets.NextEventWidgetReceiver
+import site.table1.events.widgets.ValueWidgetReceiver
 
 /**
  * Crash reporting (Sentry) and product analytics, per contract/telemetry-2026-10-15.md, mirroring iOS Telemetry.swift.
@@ -170,6 +177,51 @@ object Telemetry {
         Sentry.captureException(error) { it.setTag("area", area) }
     }
 
+    // live notifications and widgets
+
+    private const val WIDGETS_KEY = "telemetry.widgets"
+    private val widgetKinds = listOf(
+        NextEventWidgetReceiver::class.java to "next_event",
+        ValueWidgetReceiver::class.java to "value",
+        MatchWidgetReceiver::class.java to "match",
+    )
+
+    /**
+     * Super properties for the system surfaces (live notifications allowed, widgets on the home screen), plus
+     * `widgets_changed` when the set of widgets differs from last time, as iOS's syncSurfaces. Run on each start of
+     * MainActivity (launch and every return to the foreground).
+     */
+    fun syncSurfaces(context: Context) {
+        if (!postHogOn) return
+        PostHog.register("live_activities_enabled", liveUpdatesAllowed(context))
+        val manager = AppWidgetManager.getInstance(context) ?: return
+        val families = widgetKinds.flatMap { (receiver, kind) ->
+            List(manager.getAppWidgetIds(ComponentName(context, receiver)).size) { kind }
+        }.sorted()
+        PostHog.register("widgets", families.size)
+        val (key, send) = widgetsDiff(prefs.getString(WIDGETS_KEY, null), families) ?: return
+        prefs.edit().putString(WIDGETS_KEY, key).apply()
+        if (send) capture("widgets_changed", mapOf("count" to families.size, "families" to families))
+    }
+
+    /**
+     * The key to keep when the installed [families] differ from the [stored] key (null when unchanged), and whether
+     * to send `widgets_changed`: not for the first look, when it finds none.
+     */
+    internal fun widgetsDiff(stored: String?, families: List<String>): Pair<String, Boolean>? {
+        val key = families.sorted().joinToString(",")
+        if (key == stored) return null
+        return key to !(stored == null && families.isEmpty())
+    }
+
+    /** Android's counterpart of "Live Activities allowed": notifications on and the live channel not turned off. */
+    private fun liveUpdatesAllowed(context: Context): Boolean {
+        val nm = NotificationManagerCompat.from(context)
+        if (!nm.areNotificationsEnabled()) return false
+        val channel = nm.getNotificationChannel(LiveUpdates.CHANNEL)
+        return channel == null || channel.importance != NotificationManager.IMPORTANCE_NONE
+    }
+
     // opt-out
 
     fun setSharing(on: Boolean) {
@@ -178,6 +230,7 @@ object Telemetry {
             prefs.edit().putBoolean(OPT_OUT_KEY, false).apply()
             start(T1App.instance)
             T1App.supabase.auth.currentUserOrNull()?.id?.let { identify(it) }
+            syncSurfaces(T1App.instance)
         } else {
             capture("analytics_opted_out")
             if (postHogOn) { PostHog.flush(); PostHog.optOut() }

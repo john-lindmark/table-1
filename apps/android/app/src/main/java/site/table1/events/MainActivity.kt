@@ -58,6 +58,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        Telemetry.syncSurfaces(this)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handle(intent)
@@ -69,7 +74,7 @@ class MainActivity : ComponentActivity() {
         Push.tapped(intent)?.let { pendingLink = it; return }
         // Widgets, the live notification, tiles and shortcuts open table1:// addresses (as on iOS).
         WebLink.parseApp(intent.dataString)?.let { (link, src) ->
-            src?.let { Telemetry.capture("surface_opened", mapOf("source" to it)) }
+            src?.let { Telemetry.capture("surface_opened", mapOf("source" to it, "target" to (intent.data?.host ?: ""))) }
             if (src == "shortcut") Telemetry.capture("control_used", mapOf("control" to (if (link is WebLink.Tracker) "tracker" else "scan"), "surface" to "shortcut"))
             pendingLink = link
             return

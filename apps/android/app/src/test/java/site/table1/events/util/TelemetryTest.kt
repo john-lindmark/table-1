@@ -79,4 +79,13 @@ class TelemetryTest {
         assertEquals(base, data["url"])
         assertFalse(data.containsKey("http.query"))
     }
+
+    // contract/telemetry-2026-10-15.md § Push, Live Activities, widgets: `widgets_changed` only when the set changes.
+    @Test fun widgetsChangedOnlyWhenTheSetChanges() {
+        assertEquals("" to false, Telemetry.widgetsDiff(null, emptyList()))                           // first look, none: kept, not sent
+        assertEquals("match,value" to true, Telemetry.widgetsDiff(null, listOf("value", "match")))   // first look, some: sent
+        assertNull(Telemetry.widgetsDiff("match,value", listOf("value", "match")))                   // same set, any order
+        assertEquals("match,match,value" to true, Telemetry.widgetsDiff("match,value", listOf("match", "value", "match")))
+        assertEquals("" to true, Telemetry.widgetsDiff("next_event", emptyList()))                   // all removed: sent
+    }
 }

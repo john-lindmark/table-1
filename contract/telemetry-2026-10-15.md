@@ -227,6 +227,10 @@ Web: screens `discord`, `discord_link`; `discord_link_completed {via: link}`, `d
 
 Super properties `live_activities_enabled` (bool) and `widgets` (count) are refreshed at launch and on each foreground.
 Widget and Live Activity links carry `?src=<source>` so the app knows what was tapped. The widget extension itself sends nothing.
+Android (2026-11-01, `Telemetry.syncSurfaces` on each MainActivity start): `widgets` counts its Glance widgets, `widgets_changed`
+`families` are the widget kinds (next_event / value / match, one per installed widget), `live_activities_enabled` is notifications
+on with the `live` channel not turned off, and `surface_opened` `source` is widget / widget_next / widget_value / live_activity /
+tile / shortcut with `target` the address's host (event / events / home / collection / tracker / scan).
 PostHog push subscriptions are on, so the device's push token goes to PostHog (only once the app registers for remote notifications,
 when notify-worker ships). That's what PostHog needs to send pushes itself. Turn it off if notify-worker stays the only sender.
 
@@ -257,4 +261,4 @@ point at the Table 1 Bugs integration; not yet run on a device; ProGuard mapping
 Android PostHog wired 2026-11-01 (posthog-android 3.72.3, same project as iOS/web): lifecycle events, hand-named screens,
 push opens and the FCM push subscription on; screen autocapture, deep links (they can carry share tokens and join codes),
 element interactions, rage/dead clicks, session replay and surveys off; identified-only person profiles; the Account opt-out
-flushes and opts out. Not yet seen in PostHog from a device. Widget super properties (iOS `syncSurfaces`) not on Android yet. Server-side capture from `events-engine` is not needed while business numbers come from Postgres.
+flushes and opts out. Not yet seen in PostHog from a device. Android sends the surface events too (2026-11-01; see § Push, Live Activities, widgets). Server-side capture from `events-engine` is not needed while business numbers come from Postgres.
