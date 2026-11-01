@@ -256,8 +256,7 @@ and `VITE_SENTRY_DSN`. Web drops GA4 (`gtag`) for PostHog but keeps `redactPath`
 
 ## Rollout
 iOS (2026-10-15) → web → Android, per the build order. Android Sentry (crashes, native crashes, ANRs, non-fatal errors, 5xx
-from the Supabase client) built 2026-10-19 with the Account opt-out; off until `T1_SENTRY_DSN` is set and the `table-1-android` alert rules
-point at the Table 1 Bugs integration; not yet run on a device; ProGuard mapping upload waits for release signing. Android DSN set 2026-11-01.
+from the Supabase client) built 2026-10-19 with the Account opt-out; DSN and the Table 1 Bugs alert rules (shared with iOS and web) set 2026-11-01; not yet run on a device; ProGuard mapping upload waits for release signing. Android DSN set 2026-11-01.
 Android PostHog wired 2026-11-01 (posthog-android 3.72.3, same project as iOS/web): lifecycle events, hand-named screens,
 push opens and the FCM push subscription on; screen autocapture, deep links (they can carry share tokens and join codes),
 element interactions, rage/dead clicks, session replay and surveys off; identified-only person profiles; the Account opt-out
