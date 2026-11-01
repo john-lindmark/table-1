@@ -22,6 +22,8 @@ export function DeckFinderScreen({ onBack, onCreated }: { onBack: () => void; on
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [job, setJob] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
+  // The agent's work so far, shown while it runs (contract § Jobs "Show the work").
+  const [steps, setSteps] = useState<string[]>([]);
   const [result, setResult] = useState<Result | null>(null);
   const [reply, setReply] = useState("");
   const [creating, setCreating] = useState(false);
@@ -48,6 +50,7 @@ export function DeckFinderScreen({ onBack, onCreated }: { onBack: () => void; on
       setQuery(j.query);
       if (j.format && FORMATS.includes(j.format)) setFormat(j.format);
       setAnswers(j.answers);
+      setSteps(j.steps ?? []);
       if (finder.finished(j)) show(finder.resultOf(j));
       else { setSearching(true); setJob(j.job_id); }
     }).catch(() => {});
@@ -61,7 +64,9 @@ export function DeckFinderScreen({ onBack, onCreated }: { onBack: () => void; on
     let gone = false;
     const ask = async () => {
       const j = await finder.job(job).catch(() => null);
-      if (gone || !j || !finder.finished(j)) return;
+      if (gone || !j) return;
+      if (j.steps) setSteps(j.steps);
+      if (!finder.finished(j)) return;
       gone = true;
       show(finder.resultOf(j));
     };
@@ -76,6 +81,7 @@ export function DeckFinderScreen({ onBack, onCreated }: { onBack: () => void; on
   const search = async (with_: Answer[]) => {
     setSearching(true);
     setResult(null);
+    setSteps([]);
     try {
       resumed.current = null;
       setJob(await finder.start(query.trim(), format, with_));
@@ -136,7 +142,11 @@ export function DeckFinderScreen({ onBack, onCreated }: { onBack: () => void; on
                      onClick={() => { setAnswers([]); void search([]); }} />
         )}
         {searching && (
-          <Notice tone="info">Searching Table 1's results, mtgdecks, melee.gg, MTGGoldfish and MTGO for the newest strong finishes. This can take a minute or two: you can leave this page and come back, the search goes on.</Notice>
+          <>
+            <Notice tone="info">Searching Table 1's results, mtgdecks, melee.gg, MTGGoldfish and MTGO for the newest strong finishes. This can take a minute or two: you can leave this page and come back, the search goes on.</Notice>
+            {steps.length > 0 && <Section title="Working" />}
+            {steps.map((s, i) => <Row key={i} title={s} detail={i === steps.length - 1 ? "…" : undefined} />)}
+          </>
         )}
         {!searching && result?.status === "question" && (
           <>

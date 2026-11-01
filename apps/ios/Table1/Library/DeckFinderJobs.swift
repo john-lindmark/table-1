@@ -14,6 +14,8 @@ struct DeckFinderJob: Decodable {
     let format: String?
     let answers: [Answer]
     let result: DeckFinderResult?
+    /// What the agent has done so far, in order, for the screen to show while it runs.
+    var steps: [String]?
     let createdAt: Date
     let finishedAt: Date?
 

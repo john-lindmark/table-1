@@ -28,6 +28,8 @@ data class FinderJob(
     val format: String? = null,
     val answers: List<FinderAnswer> = emptyList(),
     val result: FinderResult? = null,
+    /** What the agent has done so far, in order, for the screen to show while it runs. */
+    val steps: List<String> = emptyList(),
     val created_at: String = "",
     val finished_at: String? = null,
 ) {

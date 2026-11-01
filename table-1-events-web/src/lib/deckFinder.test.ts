@@ -14,7 +14,7 @@ describe("deck finder jobs", () => {
     for (const c of cases.headline) expect(headline(c.placement, c.event, c.date)).toBe(c.text);
   });
   it("a job's state", () => {
-    const j: Job = { job_id: "j1", status: "done", query: "x", format: "modern", answers: [], result: null,
+    const j: Job = { job_id: "j1", status: "done", query: "x", format: "modern", answers: [], result: null, steps: ["Searching the web: x"],
       created_at: "2026-11-01T16:11:02Z", finished_at: "2026-11-01T16:12:10Z" };
     expect(finished(j)).toBe(true);
     expect(finished({ ...j, status: "running" })).toBe(false);

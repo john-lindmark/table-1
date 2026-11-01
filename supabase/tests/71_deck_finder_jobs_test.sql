@@ -67,15 +67,25 @@ reset role;
 select pg_temp.eq('claim takes the queued job', (select c->>'query' || '|' || (c->>'user_id' = :A)::text from public.deck_finder_claim(:'job'::uuid) c), 'latest Boros Energy|true');
 select pg_temp.eq('a second claim gets nothing', coalesce(public.deck_finder_claim(:'job'::uuid)::text, 'null'), 'null');
 select pg_temp.eq('running', (select status from t1_private.deck_finder_jobs where id = :'job'), 'running');
+select pg_temp.eq('steps are taken while it runs', public.deck_finder_progress(:'job'::uuid, ('["Checking Table 1''s results: Modern", "", " ", "' || repeat('x', 250) || '"]')::jsonb)::text, 'true');
+select pg_temp.eq('trimmed and capped',
+  (select (j->'steps'->>0) || '|' || length(j->'steps'->>1) || '|' || jsonb_array_length(j->'steps') from t1_private.deck_finder_jobs x, t1_private.deck_finder_job_json(x) j where x.id = :'job'),
+  'Checking Table 1''s results: Modern|200|2');
+select public.deck_finder_progress(:'job'::uuid, '"no"');
+select pg_temp.eq('a bad steps value is an empty list', (select jsonb_array_length(steps)::text from t1_private.deck_finder_jobs where id = :'job'), '0');
+select public.deck_finder_progress(:'job'::uuid, '["Searching the web: boros energy"]');
 select pg_temp.eq('finish ends it', public.deck_finder_finish(:'job'::uuid,
   '{"status": "deck", "deck": {"name": "Boros Energy", "placement": "1st", "event": "Modern Challenge 32", "date": "2026-10-30", "main": [{"qty": 4, "name": "Guide of Souls"}]}}')::text, 'true');
 select pg_temp.eq('one push, with the headline and never the list', pg_temp.pushes(), 'deck:Boros Energy');
 select pg_temp.eq('the push data', (select (msg->'data')::text from pgmq.messages where msg->>'kind' = 'deck.found'),
   '{"date": "2026-10-30", "name": "Boros Energy", "event": "Modern Challenge 32", "job_id": "' || :'job' || '", "status": "deck", "placement": "1st"}');
 select pg_temp.eq('finishing twice is no news', public.deck_finder_finish(:'job'::uuid, '{"status": "not_found"}')::text, 'false');
+select pg_temp.eq('no steps once finished', public.deck_finder_progress(:'job'::uuid, '["late"]')::text, 'false');
+select pg_temp.throws('clients can''t write steps', $$set role authenticated; select public.deck_finder_progress('00000000-0000-0000-0000-000000000000', '[]')$$, '42501');
+reset role;
 set role authenticated;
 select pg_temp.as_user(:A);
-select pg_temp.eq('the owner reads the result', (select j->>'status' || '|' || (j->'result'->'deck'->>'name') from public.deck_finder_job(:'job'::uuid) j), 'done|Boros Energy');
+select pg_temp.eq('the owner reads the result and the steps', (select j->>'status' || '|' || (j->'result'->'deck'->>'name') || '|' || (j->'steps')::text from public.deck_finder_job(:'job'::uuid) j), 'done|Boros Energy|["Searching the web: boros energy"]');
 reset role;
 
 -- The sweep -----------------------------------------------------------------------------------------------------------

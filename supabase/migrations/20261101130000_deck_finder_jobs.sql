@@ -15,6 +15,8 @@ create table if not exists t1_private.deck_finder_jobs (
   answers jsonb not null default '[]'::jsonb,
   status text not null default 'queued' check (status in ('queued', 'running', 'done', 'failed')),
   result jsonb,
+  -- What the agent is doing, in order, for the screen to show while it runs ("Checking Table 1's results: Modern").
+  steps jsonb not null default '[]'::jsonb,
   attempts integer not null default 0,
   request_id bigint,
   created_at timestamptz not null default now(),
@@ -46,7 +48,7 @@ create or replace function t1_private.deck_finder_job_json(j t1_private.deck_fin
 returns jsonb language sql immutable set search_path = '' as $$
   select jsonb_build_object(
     'job_id', j.id, 'status', j.status, 'query', j.query, 'format', j.format, 'answers', j.answers,
-    'result', j.result, 'created_at', j.created_at, 'finished_at', j.finished_at);
+    'result', j.result, 'steps', j.steps, 'created_at', j.created_at, 'finished_at', j.finished_at);
 $$;
 
 -- Starts a search. Returns {job_id, status}. Raises when the day's allowance is used (the same words the function
@@ -107,6 +109,18 @@ begin
   returning * into j;
   if j.id is null then return null; end if;
   return jsonb_build_object('job_id', j.id, 'user_id', j.user_id, 'query', j.query, 'format', j.format, 'answers', j.answers);
+end $$;
+
+-- The agent's steps so far (the whole list each time; 40 at most, 200 characters each), while the job runs.
+create or replace function public.deck_finder_progress(p_id uuid, p_steps jsonb)
+returns boolean language plpgsql security definer set search_path = '' as $$
+declare v_steps jsonb;
+begin
+  select coalesce(jsonb_agg(left(s, 200) order by n), '[]'::jsonb) into v_steps
+    from (select s, n from jsonb_array_elements_text(case when jsonb_typeof(p_steps) = 'array' then p_steps else '[]'::jsonb end) with ordinality t(s, n)
+           where btrim(s) <> '' order by n limit 40) q;
+  update t1_private.deck_finder_jobs set steps = v_steps where id = p_id and status = 'running';
+  return found;
 end $$;
 
 -- What the push carries: enough for the alert text and the screen it opens, never the whole list.
@@ -216,6 +230,8 @@ revoke all on function public.deck_finder_claim(uuid) from public, anon, authent
 grant execute on function public.deck_finder_claim(uuid) to service_role;
 revoke all on function public.deck_finder_finish(uuid, jsonb) from public, anon, authenticated;
 grant execute on function public.deck_finder_finish(uuid, jsonb) to service_role;
+revoke all on function public.deck_finder_progress(uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.deck_finder_progress(uuid, jsonb) to service_role;
 revoke all on function public.deck_finder_events(text, integer, text, integer) from public, anon, authenticated;
 grant execute on function public.deck_finder_events(text, integer, text, integer) to service_role;
 revoke all on function public.deck_finder_deck(bigint) from public, anon, authenticated;

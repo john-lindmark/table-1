@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.background
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -84,6 +85,8 @@ fun DeckFinderScreen(onBack: () -> Unit, onCreated: (String) -> Unit, jobId: Str
     /** The job under way or last shown; polled while it runs. */
     var job by remember { mutableStateOf(jobId) }
     var searching by remember { mutableStateOf(jobId != null) }
+    /** The agent's work so far, shown while it runs (contract § Jobs "Show the work"). */
+    var steps by remember { mutableStateOf(listOf<String>()) }
     var result by remember { mutableStateOf<FinderResult?>(null) }
     var reply by remember { mutableStateOf("") }
     var creating by remember { mutableStateOf(false) }
@@ -111,7 +114,7 @@ fun DeckFinderScreen(onBack: () -> Unit, onCreated: (String) -> Unit, jobId: Str
         val j = runCatching { DeckFinderJobs.job(null) }.getOrNull() ?: return@LaunchedEffect
         if (!DeckFinderJobs.resume(j)) return@LaunchedEffect
         resumed = "open"
-        query = j.query; pickFormat(j.format); answers = j.answers
+        query = j.query; pickFormat(j.format); answers = j.answers; steps = j.steps
         if (j.finished) show(DeckFinderJobs.resultOf(j)) else { searching = true; job = j.job_id }
     }
     // Asks after the job every few seconds until it's finished (errors, offline too, just wait for the next ask).
@@ -122,6 +125,7 @@ fun DeckFinderScreen(onBack: () -> Unit, onCreated: (String) -> Unit, jobId: Str
             val j = runCatching { DeckFinderJobs.job(id) }.getOrNull()
             if (j != null) {
                 if (query.isEmpty()) { query = j.query; pickFormat(j.format); answers = j.answers }
+                if (j.steps != steps) steps = j.steps
                 if (j.finished) { show(DeckFinderJobs.resultOf(j)); return@LaunchedEffect }
             }
             delay(DeckFinderJobs.POLL_MS)
@@ -132,6 +136,7 @@ fun DeckFinderScreen(onBack: () -> Unit, onCreated: (String) -> Unit, jobId: Str
     fun search(with: List<FinderAnswer>) {
         searching = true
         result = null
+        steps = emptyList()
         scope.launch {
             runCatching { DeckFinderJobs.start(query.trim(), FINDER_FORMATS[format], with) }
                 .onSuccess { resumed = null; job = it }
@@ -180,8 +185,10 @@ fun DeckFinderScreen(onBack: () -> Unit, onCreated: (String) -> Unit, jobId: Str
                     answers = emptyList(); search(emptyList())
                 }
             }
-            if (searching) item {
-                Notice("Searching Table 1's results, mtgdecks, melee.gg, MTGGoldfish and MTGO for the newest strong finishes. This can take a minute or two: you can lock your phone or leave this screen, and you'll get a notification when it's done.")
+            if (searching) {
+                item { Notice("Searching Table 1's results, mtgdecks, melee.gg, MTGGoldfish and MTGO for the newest strong finishes. This can take a minute or two: you can lock your phone or leave this screen, and you'll get a notification when it's done.") }
+                if (steps.isNotEmpty()) item { Section("Working") }
+                itemsIndexed(steps) { i, step -> ListRow(step, if (i == steps.lastIndex) "…" else null) }
             }
             val r = result
             if (!searching && r != null) when {

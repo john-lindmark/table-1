@@ -1936,6 +1936,8 @@ struct DeckFinderView: View {
     /// The job under way or last shown; polled while it runs.
     @State private var job: String?
     @State private var searching = false
+    /// The agent's work so far, shown while it runs (contract § Jobs "Show the work").
+    @State private var steps: [String] = []
     @State private var result: DeckFinderResult?
     @State private var reply = ""
     /// Card names resolved to printings; names missing from the card data are listed so nothing is dropped silently.
@@ -1962,6 +1964,12 @@ struct DeckFinderView: View {
                 }
                 if searching {
                     Notice("Searching Table 1's results, mtgdecks, melee.gg, MTGGoldfish and MTGO for the newest strong finishes. This can take a minute or two: you can lock your phone or leave this screen, and you'll get a notification when it's done.")
+                    if !steps.isEmpty {
+                        Section1("Working")
+                        ForEach(Array(steps.enumerated()), id: \.offset) { i, step in
+                            ListRow(title: step, detail: i == steps.count - 1 ? "…" : nil)
+                        }
+                    }
                 }
                 if let r = result, !searching { resultBody(r) }
             }
@@ -2047,6 +2055,7 @@ struct DeckFinderView: View {
         query = j.query
         if let f = j.format, formats.contains(where: { $0.0 == f }) { format = f }
         answers = j.answers
+        steps = j.steps ?? []
         if j.finished {
             searching = false
             Task { await show(j.result ?? DeckFinderResult.failed("The deck finder couldn't finish that search. Try again.")) }
@@ -2060,6 +2069,7 @@ struct DeckFinderView: View {
     private func search() async {
         searching = true
         result = nil
+        steps = []
         do {
             job = try await DeckFinderJobs.start(query: query.trimmingCharacters(in: .whitespaces), format: format, answers: answers)
             resumed = nil
@@ -2076,6 +2086,7 @@ struct DeckFinderView: View {
         while !Task.isCancelled {
             if let j = try? await DeckFinderJobs.job(id: id) {
                 if query.isEmpty { query = j.query; if let f = j.format, formats.contains(where: { $0.0 == f }) { format = f }; answers = j.answers }
+                if let s = j.steps, s != steps { steps = s }
                 if j.finished {
                     searching = false
                     PushController.shared.watchingDeckJob = nil

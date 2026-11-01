@@ -11474,6 +11474,13 @@
                   "string",
                   "null"
                 ]
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "What the agent has done so far, in order (\"Checking Table 1's results: Modern, last 30 days\", \"Searching the web: …\", \"Reading www.mtgo.com/…\"), for the screen to show while it runs; 40 at most"
               }
             },
             "required": [

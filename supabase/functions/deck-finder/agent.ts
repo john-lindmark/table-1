@@ -183,13 +183,75 @@ export function shape(r: Rec) {
 /** Runs one of the table1_* tools; the function binds this to the database. Returns the JSON text for the model. */
 export type Table1Runner = (name: string, input: Rec) => Promise<unknown>;
 
+/** Told the steps so far, each time there's a new one; the function writes them to the job for the screen. */
+export type OnSteps = (steps: string[]) => Promise<void> | void;
+
+const FORMAT_NAMES: Record<string, string> = {
+  standard: "Standard", pioneer: "Pioneer", modern: "Modern", legacy: "Legacy", vintage: "Vintage", pauper: "Pauper",
+  commander: "Commander", premodern: "Premodern", canlander: "Canadian Highlander",
+};
+const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t);
+
+/**
+ * What the agent is doing, in words, from one of its turns: its own short remarks, each web search and page it
+ * reads, and each Table 1 lookup. Shown on the Find a deck screen while the search runs ("show the work").
+ */
+export function stepsOf(content: Array<Rec>): string[] {
+  const out: string[] = [];
+  for (const b of content) {
+    const input = (b.input ?? {}) as Rec;
+    if (b.type === "text" && typeof b.text === "string") {
+      const text = b.text.replace(/\s+/g, " ").trim();
+      if (text) out.push(clip(text, 160));
+    } else if (b.type === "server_tool_use" && b.name === "web_search") {
+      out.push(`Searching the web: ${clip(str(input.query), 100)}`);
+    } else if (b.type === "server_tool_use" && b.name === "web_fetch") {
+      let page = str(input.url);
+      try { const u = new URL(page); page = `${u.host}${clip(u.pathname, 60)}`; } catch { page = clip(page, 80); }
+      out.push(`Reading ${page}`);
+    } else if (b.type === "tool_use" && b.name === "table1_events") {
+      const archetype = str(input.archetype);
+      const days = Number(input.days) || 30;
+      out.push(`Checking Table 1's results: ${FORMAT_NAMES[str(input.format)] ?? str(input.format)}, last ${days} days${archetype ? `, "${clip(archetype, 40)}"` : ""}`);
+    } else if (b.type === "tool_use" && b.name === "table1_decklist") {
+      out.push(`Reading deck ${Math.round(Number(input.deck_id) || 0)} from Table 1's results`);
+    }
+  }
+  return out;
+}
+
+/** What a Table 1 lookup found, in a line. */
+export function stepOfResult(name: string, data: unknown): string | null {
+  if (name === "table1_events") {
+    const events = Array.isArray(data) ? data as Rec[] : [];
+    if (!events.length) return "Nothing in Table 1's results for that";
+    const decks = events.reduce((n, e) => n + (Array.isArray(e.decks) ? e.decks.length : 0), 0);
+    const first = events[0];
+    return `${events.length} event${events.length === 1 ? "" : "s"} with ${decks} deck${decks === 1 ? "" : "s"}, newest ${str(first.name)}${str(first.date) ? ` · ${str(first.date)}` : ""}`;
+  }
+  if (name === "table1_decklist") {
+    const d = (data ?? {}) as Rec;
+    if (!Array.isArray(d.main) || !d.main.length) return "No such deck in Table 1's results";
+    const what = str(d.archetype) || "A deck";
+    const place = placementOf(d);
+    return `Read ${what}${place ? ` · ${place}` : ""}${str(d.event) ? ` at ${str(d.event)}` : ""}`;
+  }
+  return null;
+}
+
 /**
  * Runs the agent until it calls report_result: resumes server-tool pauses, answers table1_* calls, and reminds it
  * once if it stops without reporting. The report is the raw tool input (shape it after).
  */
-export async function find(client: Anthropic, userText: string, signal: AbortSignal, table1: Table1Runner): Promise<Rec> {
+export async function find(client: Anthropic, userText: string, signal: AbortSignal, table1: Table1Runner, onSteps?: OnSteps): Promise<Rec> {
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: userText }];
   let reminded = false;
+  const steps: string[] = [];
+  const note = async (more: string[]) => {
+    if (!more.length) return;
+    steps.push(...more);
+    try { await onSteps?.(steps.slice(-40)); } catch (e) { console.error("deck-finder steps", e); }
+  };
   for (let turn = 0; turn < 14; turn++) {
     // Opus 5.5 with web search/fetch; `fallbacks: "default"` re-runs a safety decline on Anthropic's recommended model.
     const stream = client.beta.messages.stream({
@@ -207,20 +269,27 @@ export async function find(client: Anthropic, userText: string, signal: AbortSig
     if (msg.stop_reason === "refusal") return { status: "not_found", message: "That request couldn't be searched." };
     const uses = msg.content.filter((b) => b.type === "tool_use") as Anthropic.Beta.BetaToolUseBlock[];
     const report = uses.find((b) => b.name === "report_result");
+    await note(stepsOf(msg.content as unknown as Rec[]));
     if (report) return report.input as Rec;
     messages.push({ role: "assistant", content: msg.content });
     if (msg.stop_reason === "pause_turn") continue; // the server-side tool loop paused; resend to resume
     const ours = uses.filter((b) => b.name.startsWith("table1_"));
     if (ours.length) {
+      const found: string[] = [];
       const results = await Promise.all(ours.map(async (u) => {
         let content: string;
         try {
-          content = JSON.stringify(await table1(u.name, (u.input ?? {}) as Rec) ?? null);
+          const data = await table1(u.name, (u.input ?? {}) as Rec);
+          const line = stepOfResult(u.name, data);
+          if (line) found.push(line);
+          content = JSON.stringify(data ?? null);
         } catch (e) {
+          found.push("Table 1's results couldn't be read just now");
           content = `Table 1's results couldn't be read just now (${e instanceof Error ? e.message : String(e)}). Use the web.`;
         }
         return { type: "tool_result" as const, tool_use_id: u.id, content };
       }));
+      await note(found);
       messages.push({ role: "user", content: results });
       continue;
     }

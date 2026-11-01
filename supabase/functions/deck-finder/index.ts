@@ -12,7 +12,7 @@
 // Deployed with verify_jwt off: the database's posts carry no JWT, and the Bearer path checks the user itself.
 import Anthropic from "npm:@anthropic-ai/sdk@0.110.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { FORMATS, find, prompt, shape, withTable1Deck, type Answer, type Table1Runner } from "./agent.ts";
+import { FORMATS, find, prompt, shape, withTable1Deck, type Answer, type OnSteps, type Table1Runner } from "./agent.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -53,12 +53,12 @@ const table1: Table1Runner = async (name, input) => {
 };
 
 /** One search: the agent with a deadline, the report checked against Table 1's list when it names one. */
-async function search(apiKey: string, query: string, format: string | null, answers: Answer[]): Promise<Rec> {
+async function search(apiKey: string, query: string, format: string | null, answers: Answer[], onSteps?: OnSteps): Promise<Rec> {
   const client = new Anthropic({ apiKey });
   const abort = new AbortController();
   const deadline = setTimeout(() => abort.abort(), DEADLINE_MS);
   try {
-    const report = await find(client, prompt(query, format, answers), abort.signal, table1);
+    const report = await find(client, prompt(query, format, answers), abort.signal, table1, onSteps);
     const deckId = Math.round(Number(((report.deck ?? {}) as Rec).table1_deck_id) || 0);
     let db: Rec | null = null;
     if (report.status === "deck" && deckId > 0) {
@@ -103,9 +103,14 @@ async function job(req: Request, apiKey: string | undefined) {
   if (error) return json({ error: error.message }, 500);
   if (!claimed) return json({ ok: true, claimed: false });
   const j = claimed as { query: string; format: string | null; answers: unknown };
+  // The screen shows the work as it happens: each turn's steps go on the job (a failed write is just missed).
+  const onSteps: OnSteps = async (steps) => {
+    const { error: e } = await admin.rpc("deck_finder_progress", { p_id: id, p_steps: steps });
+    if (e) console.error("deck-finder progress", e.message);
+  };
   const work = (async () => {
     const out = apiKey
-      ? await search(apiKey, String(j.query ?? ""), j.format && FORMATS.includes(j.format) ? j.format : null, cleanAnswers(j.answers))
+      ? await search(apiKey, String(j.query ?? ""), j.format && FORMATS.includes(j.format) ? j.format : null, cleanAnswers(j.answers), onSteps)
       : { status: "error", message: "The deck finder isn't set up yet" };
     const { error: finishError } = await admin.rpc("deck_finder_finish", { p_id: id, p_result: out });
     if (finishError) console.error("deck-finder finish", finishError.message);

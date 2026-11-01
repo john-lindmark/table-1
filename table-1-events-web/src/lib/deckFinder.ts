@@ -17,6 +17,8 @@ export interface Job {
   format: string | null;
   answers: Answer[];
   result: Result | null;
+  /** What the agent has done so far, in order, for the screen to show while it runs. */
+  steps?: string[];
   created_at: string;
   finished_at: string | null;
 }
