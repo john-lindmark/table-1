@@ -273,21 +273,43 @@ struct CardScanView: View {
     let onDone: ([ScannedCard]) -> Void
     let onCancel: () -> Void
 
+    init(title: String, doneLabel: String, owned: [String: Set<String>]? = nil, preferred: [String: Set<String>] = [:],
+         scanned: [ScannedCard] = [], onDone: @escaping ([ScannedCard]) -> Void, onCancel: @escaping () -> Void) {
+        self.title = title
+        self.doneLabel = doneLabel
+        self.owned = owned
+        self.preferred = preferred
+        self.onDone = onDone
+        self.onCancel = onCancel
+        // Rows already taken (the redraw measurement in ScannerPerfTests).
+        _cards = State(initialValue: scanned)
+    }
+
     @AppStorage("library.addCondition") private var condition = "NM"
     @AppStorage("library.addLang") private var addLang = "en"
     @State private var cards: [ScannedCard] = []
     /// The row whose language is being changed; the camera is off meanwhile, like `fixing`.
     @State private var languageFor: UUID?
     @State private var matcher: CardMatcher?
-    @State private var steady = ScanSteadiness()
     @State private var reading: String?
-    @State private var frames = ScanFrames()
+    /// What every camera frame feeds; the body never reads it, so no frame redraws the screen.
+    @State private var feed = Feed()
     /// Cards taken this session, deleted ones included (a session with none is a miss if a card is then added by hand).
     @State private var taken = 0
     /// The row whose printing is being changed; the camera is off meanwhile, so nothing is taken behind it.
     @State private var fixing: UUID?
     @State private var listHeight: CGFloat = 0
     private var catalog: CatalogStore { CatalogStore.shared }
+
+    /// The steadiness and frame memory every camera frame feeds, in a class: as `@State` structs, written about five
+    /// times a second, each frame re-evaluated the whole body, the scanned rows included, so a frame cost more for
+    /// every card taken (2026-11-01; `reading` had been given the same care on 2026-10-31, but these two were still
+    /// written). A class held in `@State` is one instance for the screen's life, and writes to its properties redraw
+    /// nothing. Kept internal for the test that pins this.
+    final class Feed {
+        var steady = ScanSteadiness()
+        var frames = ScanFrames()
+    }
 
     var body: some View {
         if let id = fixing, let card = cards.first(where: { $0.id == id }) {
@@ -314,14 +336,14 @@ struct CardScanView: View {
     }
 
     private func cancel() {
-        ScanReports.scannerClosed(taken: taken, frames: frames, ownedOnly: owned != nil)
+        ScanReports.scannerClosed(taken: taken, frames: feed.frames, ownedOnly: owned != nil)
         onCancel()
     }
 
     private func closePrinting() {
         fixing = nil
-        steady = ScanSteadiness()
-        frames = ScanFrames()
+        feed.steady = ScanSteadiness()
+        feed.frames = ScanFrames()
     }
 
     private var scanner: some View {
@@ -385,18 +407,18 @@ struct CardScanView: View {
         guard let matcher else { return false }
         var m = matcher.match(lines)
         if !onCard, m?.exact != true, !CardMatcher.hasTypeLine(lines) { m = nil }
-        frames.add(lines, named: m != nil)
+        feed.frames.add(lines, named: m != nil)
         // Set only when it changes: every frame redrew the screen, scanned rows included.
         let name = m.map { $0.oracle.name }
         if reading != name { reading = name }
-        guard let taken = steady.feed(m), let m else { return m != nil }
+        guard let taken = feed.steady.feed(m), let m else { return m != nil }
         var card = ScannedCard(oracle: m.oracle, printing: taken.0, finish: matcher.defaultFinish(taken.0),
                                condition: owned == nil ? condition : "NM", exact: taken.1)
         // Owned-only scans (giving in a trade) keep the owned copy's language.
         card.lang = owned == nil ? Languages.forScan(taken.0, read: m.langs, picked: addLang) : Languages.forNew(taken.0, picked: addLang)
-        card.frames = frames.frames
+        card.frames = feed.frames.frames
         card.matched = .init(cardId: taken.0.cardId, exact: taken.1)
-        frames.took()
+        feed.frames.took()
         matcher.took()
         self.taken += 1
         cards.insert(card, at: 0)

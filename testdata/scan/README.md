@@ -253,6 +253,18 @@ Now the last ten frames are kept, each artist is looked up once per frame and ea
 regexes are skipped on lines that can't match them (no digit, no two capitals in a row, no "Illus."-like start), and
 the scanners drop a frame read while the last one is still being matched. Accuracy numbers unchanged.
 
+Still slower after many cards on build 42 (2026-11-01, iOS; `testFrameRedrawsNothing`): the matcher was bounded, but
+the scanner screen's steadiness and frame memory were `@State` structs written on every camera frame, so every frame
+re-evaluated the whole screen, scanned rows included, and that costs more for every row: measured in the Simulator
+(Debug) at 0.5 ms with no rows and 14.8 ms with 60, about five times a second, on the main thread the matcher shares.
+Now they live in a class held in `@State` (`CardScanView.Feed`), and a frame redraws nothing; the test pins the type
+and prints the cost. Android's steadiness and frame memory were never Compose state, so it had no such redraw. The
+remaining per-frame work is Vision's two text reads, the rectangle search and the strip crop; on a phone that is a
+sustained load, so if scanning still slows with time rather than with rows, thermal throttling is the next suspect
+(it would recover after a minute idle, not on reopening the scanner). Vision's automatic language detection, which
+the scanner stays in once it has switched while cards keep matching, costs only a few percent more per read on the
+Mac (median 146 vs 140 ms over 30 photos) and isn't it.
+
 Reported corrections (201 clips): name 196/201, **printing 90/195 (46%), was 5/195** (every report was a wrong
 printing). Of the 105 left: 21 The List (the bottom text is the reprinted set's; only a tiny symbol differs), 11
 prerelease and promo-pack stamps the camera doesn't read, 8 Unlimited/Beta read as Revised (nothing printed tells

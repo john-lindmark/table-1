@@ -1,3 +1,4 @@
+import SwiftUI
 import XCTest
 @testable import Table1
 
@@ -53,6 +54,53 @@ final class ScannerPerfTests: XCTestCase {
         }
         print("perf ios catalog search: worst \(String(format: "%.1f", worst)) ms on \"\(worstQuery)\" (budget \(Budget.searchMs))")
         XCTAssertLessThan(worst, Budget.searchMs, "catalog search \"\(worstQuery)\"")
+    }
+
+    /// Every camera frame used to re-evaluate the scanner screen (builds up to 42: `frames` and `steady` were `@State`
+    /// structs written about five times a second), and a re-evaluation costs more for every scanned row, so a frame
+    /// got slower with every card taken. Since 2026-11-01 the per-frame state is a class (`CardScanView.Feed`) and a
+    /// frame redraws nothing: this pins the type, and prints what one re-evaluation costs with no rows and with 60
+    /// (what each frame paid before), as a Debug-Simulator number.
+    @MainActor
+    func testFrameRedrawsNothing() throws {
+        func isClass<T>(_: T.Type) -> Bool { T.self is AnyObject.Type }
+        XCTAssertTrue(isClass(CardScanView.Feed.self),
+                      "the per-frame scanner state must stay a class: a @State struct redraws the screen, rows included, every frame")
+        let matcher = CardMatcher(db: Self.db, owned: nil, names: Self.names)
+        let m = try XCTUnwrap(matcher.match(["Lightning Bolt", "Instant", "Lightning Bolt deals 3 damage to any target.", "3ED • EN"]))
+        func redrawMs(rows: Int) -> Double {
+            let cards = (0..<rows).map { _ in
+                ScannedCard(oracle: m.oracle, printing: m.printing, finish: "nonfoil", condition: "NM", exact: true)
+            }
+            func screen(_ i: Int) -> CardScanView {
+                CardScanView(title: "Scan \(i)", doneLabel: "Add", scanned: cards, onDone: { _ in }, onCancel: {})
+            }
+            let host = UIHostingController(rootView: screen(0))
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+            window.rootViewController = host
+            window.makeKeyAndVisible()
+            /// Lays out and runs what SwiftUI left for the run loop, without waiting for anything new.
+            func settle() -> Double {
+                let t0 = CFAbsoluteTimeGetCurrent()
+                host.view.setNeedsLayout()
+                host.view.layoutIfNeeded()
+                while CFRunLoopRunInMode(.defaultMode, 0, true) == .handledSource {}
+                return (CFAbsoluteTimeGetCurrent() - t0) * 1000
+            }
+            let first = settle()
+            var times: [Double] = []
+            for i in 1...20 {
+                let t0 = CFAbsoluteTimeGetCurrent()
+                host.rootView = screen(i)
+                _ = settle()
+                times.append((CFAbsoluteTimeGetCurrent() - t0) * 1000)
+            }
+            window.isHidden = true
+            print("perf ios scanner first layout with \(rows) rows: \(String(format: "%.1f", first)) ms")
+            return times.sorted()[times.count / 2]
+        }
+        let none = redrawMs(rows: 0), sixty = redrawMs(rows: 60)
+        print("perf ios scanner redraw: no rows \(String(format: "%.1f", none)) ms, 60 rows \(String(format: "%.1f", sixty)) ms per re-evaluation")
     }
 
     func testMatcherPerFrame() throws {
