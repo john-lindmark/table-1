@@ -131,7 +131,7 @@ Full history and decisions are in `table-1-context/docs/` (copies of the project
 Client feature specs live in `contract/` (`features-2026-10-13.md`, `organizer-phases-2026-10-14.md`). `SETUP.md` is the run/setup guide (same as `table-1-context/docs/app-setup.md`, which carries the superseded-decision notes).
 
 ## Feature guide (John, 2026-10-18)
-- The user-facing feature guide is the artifact **Table 1 Feature Guide**, https://claude.ai/artifact/Lj6y8earFPdKFka4YdN8Ai (last updated 2026-11-01: iPhone build 43 on TestFlight with the scanner redraw fix, rename decks and cubes, Android bundle 29892550, offline live on the web).
+- The user-facing feature guide is the artifact **Table 1 Feature Guide**, https://claude.ai/artifact/Lj6y8earFPdKFka4YdN8Ai (last updated 2026-11-01: scanner whole-frame read and no names from flavor text, iPhone build 44 archived, build 43 on TestFlight, Android bundle 29892550).
 - **Whenever new functionality is merged or committed to `main`, update the guide in the same session**: read it (Artifact `read`), add or change the sections the work touches, add a line to "What's new", update the Status table (per platform, and say what isn't live or tested yet), bump the date in the header and footer, and republish to that same URL. Write from the contract in `contract/`, in plain user-facing words (no RPC or table names).
 - Skip it only for changes with nothing a user would notice (tests, refactors, tooling). If you can't publish, say so in your wrap-up so it isn't lost.
 
