@@ -445,6 +445,25 @@ export async function setListFormat(id: string, format: string): Promise<void> {
   capture("list_format_changed", { kind: l.kind, from: l.format, to: format });
 }
 
+/** A name as the server keeps it (list_update): trimmed, at most 60 characters. Blank means "keep the old one". */
+export function listName(raw: string): string {
+  return raw.trim().slice(0, 60);
+}
+
+/** Renames the list; a blank name is ignored. */
+export async function renameList(id: string, raw: string): Promise<void> {
+  const name = listName(raw);
+  const l = state.lists.find((x) => x.id === id);
+  if (!l || !name || l.name === name) return;
+  const local = () => {
+    const now = state.lists.find((x) => x.id === id);
+    if (now) set({ lists: sorted([...state.lists.filter((x) => x.id !== id), { ...now, name }]) });
+  };
+  if (demo) return local();
+  await call("list_update", { p_list_id: id, p_name: name }, local);
+  capture("list_renamed", { kind: l.kind });
+}
+
 /** Remembers the Cube Cobra link a cube was imported from, so syncing needs no link. */
 export async function setListSource(id: string, url: string): Promise<void> {
   const l = state.lists.find((x) => x.id === id);

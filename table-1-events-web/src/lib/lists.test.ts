@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./supabaseClient", () => ({ supabase: {} }));
-const { boardsOf, countOf, current, diff, entryWire, fromWire, missingIn } = await import("./lists");
+const { boardsOf, countOf, current, diff, entryWire, fromWire, listName, missingIn } = await import("./lists");
 
 const BOLT = "f29ba16f-c8fb-42fe-aabf-87089cb214a7";
 const DELVER = "11bf83bb-c95b-4b4f-9a56-ce7a1816307a";
@@ -71,5 +71,13 @@ describe("languages (contract/lists-2026-10-15.md, Languages)", () => {
   });
   it("counts Missing over every language", () => {
     expect(missingIn(l, new Map([[`${BOLT}|nonfoil`, 2]]), new Set())).toBe(1);
+  });
+});
+
+describe("renaming a deck or cube", () => {
+  it("keeps the name the way the server stores it", () => {
+    expect(listName("  Izzet Murktide \n")).toBe("Izzet Murktide");
+    expect(listName("a".repeat(70))).toHaveLength(60);
+    expect(listName("   ")).toBe(""); // blank keeps the old name
   });
 });

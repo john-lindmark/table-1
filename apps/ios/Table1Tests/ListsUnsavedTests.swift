@@ -47,4 +47,11 @@ final class ListsUnsavedTests: XCTestCase {
         XCTAssertEqual(ListsStore.unsavedNotice(cube, "Unknown card: x"),
                        "This cube isn't saved to your account yet: Unknown card: x It's sent again each time Table 1 syncs.")
     }
+
+    /// Renaming a deck or cube (Edit → Name) keeps the name the way the server stores it.
+    func testRenamedNamesMatchTheServer() {
+        XCTAssertEqual(ListsStore.listName("  Izzet Murktide \n"), "Izzet Murktide")
+        XCTAssertEqual(ListsStore.listName(String(repeating: "a", count: 70)).count, 60)
+        XCTAssertEqual(ListsStore.listName("   "), "", "blank keeps the old name")
+    }
 }

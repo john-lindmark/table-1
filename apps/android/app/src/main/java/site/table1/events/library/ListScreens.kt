@@ -55,6 +55,8 @@ import site.table1.events.ui.components.T1Panel
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.T1TextField
+import androidx.compose.material3.TextButton
+import site.table1.events.ui.components.T1AlertDialog
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
 import java.text.DateFormat
@@ -326,6 +328,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     var adding by remember { mutableStateOf(false) }
     var choosingZone by remember { mutableStateOf<CommandZone.Slot?>(null) }
     var choosingFormat by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf(false) }
     val grouping = rememberListGrouping(list?.kind)
     val sort = rememberListSort(list?.kind)
     var query by remember { mutableStateOf("") }
@@ -382,6 +385,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                     onRemove = { sl -> sl.cardId?.let { id -> scope.launch { ListsStore.remove(list.id, id, CommandZone.BOARD, sl.finish, sl.lang) } } },
                     onOpen = { sl -> lineOf(sl)?.oracleId?.let(onCard) })
             }
+            if (editing) ListRow("Name", list.name, onClick = { renaming = true }) { Label("Change", color = T1.text) }
             if (editing) ListRow("Format", CatalogPack.formatName(list.format), onClick = { choosingFormat = true }) { Label("Change", color = T1.text) }
             if (editing) ListRow(if (list.kind == ListKind.Deck) "Duplicate deck" else "Duplicate cube", "A new list with these cards", onClick = {
                 scope.launch { runCatching { ListsStore.duplicate(list.id) }.getOrNull()?.let { editing = false; onOpen(it) } }
@@ -588,6 +592,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
             Telemetry.capture("command_zone_set", mapOf("format" to list.format, "role" to slot.role.wire, "from" to if (slot.cardId == null) "add" else "change"))
         }
     }
+    if (renaming) ListNameDialog(list) { renaming = false }
     if (choosingFormat) {
         T1Menu("Format", (if (list.kind == ListKind.Deck) DECK_FORMATS else CUBE_FORMATS).map { f ->
             T1MenuItem(CatalogPack.formatName(f), selected = f == list.format) { scope.launch { runCatching { ListsStore.setFormat(list.id, f) } } }
@@ -814,4 +819,28 @@ fun ListVersionScreen(listId: String, number: Int, onBack: () -> Unit, onCard: (
             }
         }
     }
+}
+
+/** Renames a deck or cube from its Edit section. */
+@Composable
+private fun ListNameDialog(list: CardList, onClose: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var name by remember { mutableStateOf(list.name) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    T1AlertDialog(
+        title = if (list.kind == ListKind.Deck) "Rename deck" else "Rename cube",
+        onDismiss = onClose,
+        confirm = {
+            TextButton(enabled = name.isNotBlank() && !busy, onClick = {
+                busy = true
+                scope.launch {
+                    runCatching { ListsStore.rename(list.id, name) }.onSuccess { onClose() }.onFailure { error = it.message }
+                    busy = false
+                }
+            }) { Label("Save", color = T1.text) }
+        },
+        dismiss = { TextButton(onClick = onClose) { Label("Cancel", color = T1.text) } },
+        body = { T1TextField(name, { name = it.take(60) }, label = "Name", error = error) },
+    )
 }

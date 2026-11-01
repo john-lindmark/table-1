@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bar, BigAction, Field, GhostAction, Menu, Modal, Notice, Row, Screen, Section, Segmented } from "../components/kit";
+import { Bar, BigAction, Dialog, Field, GhostAction, Menu, Modal, Notice, Row, Screen, Section, Segmented } from "../components/kit";
 import { CANLANDER_POINT_LIMIT, basicCardIds, coverPrinting, formatName, legalityOf, type Catalog } from "../lib/catalog";
 import { DEMO_USER, useCollection } from "../lib/collection";
 import { cubeCobraId } from "../lib/cubeSync";
@@ -11,10 +11,11 @@ import { GROUPING_KEY, groupLabel, keyFor, keysOf, sortGroups, useStoredGrouping
 import { SORT_KEY, applySort, sortKeyOf, useStoredSort, type CardSort } from "../lib/cardSort";
 import {
   boardTitle, boardsOf, countOf, createList, entry, finishOf, langOf, ownKey, type ListFinish, current, deleteList, diff, duplicateList, editList, entriesOf, missingIn, needsOf, restoreList,
-  sectionsFor, setListFormat, unsavedNotice, useLists, type Board, type CardList, type Entry, type ListKind, type ListOp,
+  renameList, sectionsFor, setListFormat, unsavedNotice, useLists, type Board, type CardList, type Entry, type ListKind, type ListOp,
 } from "../lib/lists";
 import { cardMatches, matchingLines } from "../lib/librarySearch";
 import { capture } from "../lib/telemetry";
+import { errorMessage } from "../lib/api";
 import { useSearchUsed } from "./Binders";
 import {
   CardGroupRow, CardRow, CardTile, HeroListRow, LibScreen, StackRows, ViewButton, useCatalog, useLibraryHeroes, useLibrarySession, useStoredLayout,
@@ -405,6 +406,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   const [heroFull, setHeroFull] = useState<string | null>(null);
   const [choosing, setChoosing] = useState<ZoneSlot | null>(null);
   const [choosingFormat, setChoosingFormat] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const heroes = useLibraryHeroes();
   const list = lists.lists.find((l) => l.id === id) ?? null;
   const [grouping, setGrouping] = useListGrouping(list?.kind);
@@ -590,6 +592,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         )}
         {/* Desktop: the screen's actions three across. */}
         <div className="flex flex-col gap-px lg:grid lg:grid-cols-3">
+        {editing && <Row title="Name" detail={list.name} value="Change" onClick={() => setRenaming(true)} />}
         {editing && !list.eventId && <Row title="Format" detail={formatName(list.format)} value="Change" onClick={() => setChoosingFormat(true)} />}
         {editing && <Row title={list.kind === "deck" ? "Duplicate deck" : "Duplicate cube"} detail="A new list with these cards"
                          onClick={() => { void duplicateList(list).then((copy) => { setEditing(false); onOpen(copy); }); }} />}
@@ -693,6 +696,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
                            deck={lines.filter((x) => x.board !== ZONE_BOARD).map((x) => ({ cardId: x.cardId, board: x.board, typeLine: x.type, finish: x.finish, lang: x.lang, qty: x.qty, pair: pairOf(x), name: x.name, p: x.p }))}
                            onPickDeck={(d) => moveInZone(choosing, d)} partnerOf={choosing.role === "partner" ? commander : null} />
       )}
+      {renaming && <ListNameDialog list={list} onClose={() => setRenaming(false)} />}
       {choosingFormat && (
         <Menu title="Format" onClose={() => setChoosingFormat(false)}
               items={(list.kind === "deck" ? DECK_FORMATS : CUBE_FORMATS).map((f) => ({
@@ -710,6 +714,31 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         </Modal>
       )}
     </LibScreen>
+  );
+}
+
+/** Renames a deck or cube from its Edit section. */
+function ListNameDialog({ list, onClose }: { list: CardList; onClose: () => void }) {
+  const [name, setName] = useState(list.name);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await renameList(list.id, name);
+      onClose();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Dialog title={list.kind === "deck" ? "Rename deck" : "Rename cube"} cancelLabel="Cancel" confirmLabel="Save"
+            onCancel={onClose} onConfirm={() => name.trim() && void save()} busy={busy} error={error}>
+      <Field label="Name" value={name} onChange={setName} autoFocus />
+    </Dialog>
   );
 }
 

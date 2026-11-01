@@ -98,4 +98,11 @@ class ListsTest {
     @Test fun syncReadsAtMostFiftyPages() = runBlocking {
         assertEquals(50, readListPages(0, fetch = { ListsPage(emptyList(), it + 100, true) }) { true })
     }
+
+    /** Renaming a deck or cube (Edit → Name) keeps the name the way the server stores it. */
+    @Test fun renamedNamesMatchTheServer() {
+        assertEquals("Izzet Murktide", listName("  Izzet Murktide \n"))
+        assertEquals(60, listName("a".repeat(70)).length)
+        assertEquals("", listName("   ")) // blank keeps the old name
+    }
 }

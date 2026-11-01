@@ -43,7 +43,7 @@ struct CardList: Identifiable, Hashable, Sendable {
 
     let id: String
     let kind: Kind
-    let name: String
+    var name: String
     var format: String
     /// Oldest first; never empty.
     var versions: [Version]
@@ -391,6 +391,23 @@ final class ListsStore {
         persist()
         send("list_update", ["p_list_id": .string(listId), "p_format": .string(format)])
         Telemetry.capture("list_format_changed", ["kind": l.kind.rawValue, "from": l.format, "to": format])
+    }
+
+    /// A name as the server keeps it (list_update): trimmed, at most 60 characters. Blank means "keep the old one".
+    nonisolated static func listName(_ raw: String) -> String {
+        String(raw.trimmingCharacters(in: .whitespacesAndNewlines).prefix(60))
+    }
+
+    /// Renames the list (list_update); a blank name is ignored.
+    func rename(listId: String, name: String) {
+        let name = Self.listName(name)
+        guard !name.isEmpty, let i = lists.firstIndex(where: { $0.id == listId }), lists[i].name != name else { return }
+        let l = lists[i]
+        lists[i].name = name
+        lists.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        persist()
+        send("list_update", ["p_list_id": .string(listId), "p_name": .string(name)])
+        Telemetry.capture("list_renamed", ["kind": l.kind.rawValue])
     }
 
     /// Remembers the Cube Cobra link a cube was imported from (list_source_set), so syncing needs no link. A list the
@@ -1200,6 +1217,11 @@ struct ListDetailView: View {
             if main < 100 { Notice("Canadian Highlander decks need at least 100 cards: \(main) so far.") }
         }
         if showsZone(list) { commandZone(list, rows: rows) }
+        if editing {
+            Button { T1Overlays.shared.present { ListNamePanel(list: list) } } label: {
+                ListRow(title: "Name", detail: list.name) { LabelText("Change", color: T1.text) }
+            }.buttonStyle(.plain)
+        }
         if editing && list.eventId == nil {
             Button { chooseFormat(list) } label: {
                 ListRow(title: "Format", detail: formatName(list.format)) { LabelText("Change", color: T1.text) }
@@ -1654,6 +1676,30 @@ struct NewListPanel: View {
 /// picked the button removes one copy, with both picked it replaces that copy with the added card in the same section,
 /// as one edit (so the history shows a swap). Each card goes in as its original paper printing unless a search or
 /// scan named another; change it from the card page.
+/// Renames a deck or cube from its Edit section.
+struct ListNamePanel: View {
+    let list: CardList
+    @State private var name: String
+
+    init(list: CardList) {
+        self.list = list
+        _name = State(initialValue: list.name)
+    }
+
+    private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    var body: some View {
+        VStack(spacing: 1) {
+            Bar(title: list.kind == .deck ? "Rename deck" : "Rename cube") { BarButton("Cancel") { T1Overlays.shared.dismissPanel() } }
+            Field(label: "Name", text: $name)
+            BigAction(text: "Save", enabled: !trimmed.isEmpty) {
+                ListsStore.shared.rename(listId: list.id, name: trimmed)
+                T1Overlays.shared.dismissPanel()
+            }
+        }
+    }
+}
+
 struct ListAddCardsView: View {
     let listId: String
     @Binding var path: [LibraryRoute]

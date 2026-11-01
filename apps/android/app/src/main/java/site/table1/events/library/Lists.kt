@@ -217,6 +217,9 @@ fun applyListOps(entries: List<ListEntry>, ops: List<JsonObject>): List<ListEntr
     return out
 }
 
+/** A name as the server keeps it (list_update): trimmed, at most 60 characters. Blank means "keep the old one". */
+fun listName(raw: String): String = raw.trim().take(60)
+
 object ListsStore {
     private val _state = MutableStateFlow(ListsState())
     val state: StateFlow<ListsState> = _state.asStateFlow()
@@ -461,6 +464,17 @@ object ListsStore {
             list(listId)?.let { now -> setLists(_state.value.lists.filter { it.id != listId } + now.copy(format = format)) }
         }
         site.table1.events.util.Telemetry.capture("list_format_changed", mapOf("kind" to l.kind.wire, "from" to l.format, "to" to format))
+    }
+
+    /** Renames the list; a blank name is ignored. */
+    suspend fun rename(listId: String, raw: String) {
+        val name = listName(raw)
+        val l = list(listId) ?: return
+        if (name.isEmpty() || l.name == name) return
+        call("list_update", buildJsonObject { put("p_list_id", listId); put("p_name", name) }) {
+            list(listId)?.let { now -> setLists(_state.value.lists.filter { it.id != listId } + now.copy(name = name)) }
+        }
+        site.table1.events.util.Telemetry.capture("list_renamed", mapOf("kind" to l.kind.wire))
     }
 
     /** Remembers the Cube Cobra link a cube was imported from, so syncing needs no link. */
