@@ -26,8 +26,8 @@ Supersedes "Missing counts a line as covered only by owned copies of that printi
   printings, expanded) counts that printing and finish.
 - **Wants → Missing** has one line per card: the largest shortfall across lists, shown as the printing of the first
   short line of the list that needs most. Trade gets are tagged "Missing · <list>" for any printing of a missing card.
-- **Add to collection → Missing** (deck/cube screen and card detail): after the printing's own copies (language rules as
-  before), the card's other copies cover the rest, lines by card_id, finish, then language.
+- **Add to collection → Missing** (deck/cube screen and card detail) does not go by card: since 2026-11-01 it adds the
+  exact printing, finish and language listed, counting only copies of those (contract/list-to-collection-2026-10-22.md).
 - Before the catalog has loaded a printing is its own card (the old rule).
 
 ## 2. Match collection (card detail, deck or cube scope)

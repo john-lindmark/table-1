@@ -51,7 +51,7 @@ class OwnedByCardTest {
             val want = x["ops"]!!.jsonArray.map { it.jsonObject }.map {
                 ListToCollection.Op(str(it, "card_id"), str(it, "finish"), it["delta"]!!.jsonPrimitive.int, it["lang"]?.jsonPrimitive?.content ?: "en")
             }
-            assertEquals(str(x, "name"), want, ListToCollection.ops(entries, kind, ints(x, "owned"), mode, cardOf = strs(x, "oracles")))
+            assertEquals(str(x, "name"), want, ListToCollection.ops(entries, kind, ints(x, "owned"), mode))
         }
     }
 

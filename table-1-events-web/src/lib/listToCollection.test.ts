@@ -9,7 +9,7 @@ import type { Entry, ListKind } from "./lists";
 interface Case {
   name: string; kind: ListKind; mode: AddMode; sideboard?: boolean; only?: string[];
   entries: { card_id: string; board: Entry["board"]; finish: Entry["finish"]; qty: number; lang?: string }[];
-  owned: Record<string, number>; oracles?: Record<string, string>; ops: { card_id: string; finish: string; delta: number; lang?: string }[]; copies: number;
+  owned: Record<string, number>; ops: { card_id: string; finish: string; delta: number; lang?: string }[]; copies: number;
 }
 const { cases }: { cases: Case[] } = JSON.parse(readFileSync(new URL("../../../testdata/list-to-collection/cases.json", import.meta.url), "utf8"));
 
@@ -18,8 +18,7 @@ describe("listAddOps", () => {
   for (const c of cases) {
     it(c.name, () => {
       const entries: Entry[] = c.entries.map((e) => ({ cardId: e.card_id, board: e.board, qty: e.qty, finish: e.finish, ...(e.lang ? { lang: e.lang } : {}) }));
-      const ops = listAddOps(entries, c.kind, new Map(Object.entries(c.owned)), c.mode, c.sideboard ?? true, c.only ? new Set(c.only) : undefined,
-                             undefined, c.oracles ? (id: string) => c.oracles?.[id] ?? id : undefined);
+      const ops = listAddOps(entries, c.kind, new Map(Object.entries(c.owned)), c.mode, c.sideboard ?? true, c.only ? new Set(c.only) : undefined);
       expect(ops).toEqual(c.ops);
       expect(copiesOf(ops)).toBe(c.copies);
     });

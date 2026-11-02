@@ -9,24 +9,27 @@ A row on every deck and cube screen (not while editing, not on an empty list, no
 cube's): **Add to collection**, detail "Missing N · or every card" or "You own every card · add more copies". It
 opens a full screen:
 
-- **Missing N | Every card M** (segmented, Missing first). Missing adds only what the collection lacks of each
-  printing + finish; Every card adds every copy listed.
+- **Missing N | Every card M** (segmented, Missing first). Missing adds only what the collection lacks of each exact
+  printing + finish + language; Every card adds every copy listed.
 - **Sideboard** switch on decks with a sideboard (on by default).
 - No condition picker: a list names no condition, so every copy goes in near mint (John, 2026-10-27; it used to
   take the remembered condition from card detail's Add a printing).
 - No language picker: each copy goes in as the language its line names (lists § Languages; a non-English printing
   is always its own), never the language picked for other adds (John, 2026-10-26; it used to turn English printings
   into the picked language).
-- A note: each card goes in near mint, as the printing, finish and language the list names; Considering isn't added.
+- A note: each card goes in near mint, as the exact printing, finish and language the list names; Missing counts only
+  copies of those; Considering isn't added.
 - **To add · N**: one row per printing + finish with `+n`.
 - **Add N cards** (accent). After it: "Added N cards to your collection.", an **Undo** row, and the button becomes
   **Done**.
 
 Rule (`ListToCollection.ops` / `listAddOps`): Main and Commander always count; a deck's sideboard unless switched
 off; Considering never. Needs are summed per `card_id|finish|lang` across sections, then Missing subtracts what's owned of
-that printing + finish over every condition and language: owned copies cover lines in their own language first, then
-the rest, English lines first, then by language code. Each op carries its line's language. Ops are sorted by card_id,
-then finish, then language; only delta > 0.
+that exact printing + finish + language over every condition. Copies in another printing, finish or language never cover
+a line here (John, 2026-11-01: "add in the exact printings that were added to that deck, and language"), unlike the
+deck's own Missing, which goes by card (contract/owned-by-card-2026-10-31.md). The deck/cube screen's row counts the same
+way ("Missing N · or every card"). Each op carries its line's language. Ops are sorted by card_id, then finish, then
+language; only delta > 0.
 More than 5,000 printings at once is refused with a message (the batch limit). Shared cases:
 `testdata/list-to-collection/cases.json` (iOS `ListToCollectionTests`, web `listToCollection.test.ts`, Android
 `ListToCollectionTest`).

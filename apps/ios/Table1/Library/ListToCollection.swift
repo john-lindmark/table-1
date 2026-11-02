@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Adding a deck or cube to the collection (contract/list-to-collection-2026-10-22.md): each line goes in as the
-/// printing and finish the list names, either what the collection lacks or every copy. Cases in
+/// Adding a deck or cube to the collection (contract/list-to-collection-2026-10-22.md): each line goes in as the exact
+/// printing, finish and language the list names, either what the collection lacks of it or every copy. Cases in
 /// testdata/list-to-collection/cases.json.
 enum ListToCollection {
     enum Mode: String, CaseIterable { case missing, all }
@@ -13,68 +13,36 @@ enum ListToCollection {
         var lang = "en"
     }
 
-    /// Main (and Commander) always counts, a deck's sideboard unless `sideboard` is off, Considering never. Each line
-    /// keeps its language. `owned` is keyed "card_id|finish" (English copies) or "card_id|finish|lang"; Missing goes by
-    /// card (contract/owned-by-card-2026-10-31.md): copies of the printing + finish a line names over every condition and
-    /// language cover it first, their own language first, then the rest, English lines first, then by language code;
-    /// then the card's other copies (`cardOf` maps a printing to its card) cover what's left, lines by card_id, finish,
-    /// then language. `only` limits it to some printings (card detail). Basic lands (`basics`) are never missing, so
-    /// only Every card adds them (contract/basics-2026-10-24.md).
+    /// Main (and Commander) always counts, a deck's sideboard unless `sideboard` is off, Considering never. Each line goes
+    /// in as the exact printing, finish and language it names, so Missing counts only owned copies of that printing,
+    /// finish and language, over every condition (`owned` is keyed "card_id|finish" for English copies or
+    /// "card_id|finish|lang"); another printing, finish or language of the card never covers a line here (John,
+    /// 2026-11-01), unlike the deck's own Missing (contract/owned-by-card-2026-10-31.md). `only` limits it to some
+    /// printings (card detail). Basic lands (`basics`) are never missing, so only Every card adds them
+    /// (contract/basics-2026-10-24.md).
     static func ops(_ entries: [CardList.Entry], kind: CardList.Kind, owned: [String: Int], mode: Mode,
-                    sideboard: Bool = true, only: Set<String>? = nil, basics: Set<String> = [],
-                    cardOf: [String: String] = [:]) -> [Op] {
-        var need: [String: [String: Int]] = [:] // "card|finish" → lang → copies
+                    sideboard: Bool = true, only: Set<String>? = nil, basics: Set<String> = []) -> [Op] {
+        var need: [String: Int] = [:] // "card|finish|lang" → copies
         for e in entries where e.board == "main" || e.board == "commander" || (e.board == "side" && kind == .deck && sideboard) {
             if let only, !only.contains(e.cardId) { continue }
             if mode == .missing && basics.contains(e.cardId) { continue }
-            need["\(e.cardId)|\(e.finish)", default: [:]][e.lang, default: 0] += e.qty
+            need["\(e.cardId)|\(e.finish)|\(e.lang)", default: 0] += e.qty
         }
-        var left = need
         if mode == .missing {
-            var have: [String: [String: Int]] = [:]
             for (k, n) in owned {
                 let parts = k.split(separator: "|", maxSplits: 2).map(String.init)
                 guard parts.count >= 2 else { continue }
-                have["\(parts[0])|\(parts[1])", default: [:]][parts.count > 2 ? parts[2] : "en", default: 0] += n
-            }
-            for (key, langs) in need {
-                let mine = have[key] ?? [:]
-                var spare = mine.values.reduce(0, +)
-                var l2 = langs
-                for (l, n) in l2 { let c = min(n, mine[l] ?? 0); l2[l] = n - c; spare -= c }
-                for l in l2.keys.sorted(by: langOrder) where spare > 0 {
-                    let c = min(l2[l]!, spare)
-                    l2[l]! -= c
-                    spare -= c
-                }
-                left[key] = l2
-            }
-            // What the card's copies hold beyond the lines that name their printing and finish.
-            func card(_ key: String) -> String { let id = String(key.split(separator: "|")[0]); return cardOf[id] ?? id }
-            var pool: [String: Int] = [:]
-            for (key, mine) in have {
-                let total = mine.values.reduce(0, +)
-                pool[card(key), default: 0] += total - min(total, need[key]?.values.reduce(0, +) ?? 0)
-            }
-            for key in left.keys.sorted() {
-                let o = card(key)
-                for l in left[key]!.keys.sorted(by: langOrder) where (pool[o] ?? 0) > 0 {
-                    let c = min(left[key]![l]!, pool[o]!)
-                    left[key]![l]! -= c
-                    pool[o]! -= c
-                }
+                let key = "\(parts[0])|\(parts[1])|\(parts.count > 2 ? parts[2] : "en")"
+                if need[key] != nil { need[key]! -= n }
             }
         }
         var out: [Op] = []
-        for (key, langs) in left {
-            let parts = key.split(separator: "|", maxSplits: 1).map(String.init)
-            for (l, n) in langs where n > 0 { out.append(Op(cardId: parts[0], finish: parts[1], delta: n, lang: l)) }
+        for (key, n) in need where n > 0 {
+            let parts = key.split(separator: "|", maxSplits: 2).map(String.init)
+            out.append(Op(cardId: parts[0], finish: parts[1], delta: n, lang: parts[2]))
         }
         return out.sorted { ($0.cardId, $0.finish, $0.lang) < ($1.cardId, $1.finish, $1.lang) }
     }
-
-    /// English first, then by language code.
-    private static func langOrder(_ a: String, _ b: String) -> Bool { a == "en" ? b != "en" : b == "en" ? false : a < b }
 
     static func copies(_ ops: [Op]) -> Int { ops.reduce(0) { $0 + $1.delta } }
 
@@ -111,8 +79,7 @@ struct ListToCollectionPanel: View {
         let owned = ownedByLanguage()
         let entries = list?.entries ?? []
         let kind = list?.kind ?? .deck
-        let missing = ListToCollection.ops(entries, kind: kind, owned: owned, mode: .missing, sideboard: sideboard, basics: catalog.basics,
-                                           cardOf: Holdings.cardKeys(owned: owned, listing: entries.map(\.cardId)))
+        let missing = ListToCollection.ops(entries, kind: kind, owned: owned, mode: .missing, sideboard: sideboard, basics: catalog.basics)
         let all = ListToCollection.ops(entries, kind: kind, owned: owned, mode: .all, sideboard: sideboard)
         let ops = mode == .missing ? missing : all
         let copies = ListToCollection.copies(ops)
@@ -130,7 +97,7 @@ struct ListToCollectionPanel: View {
                 T1Segmented(options: [(ListToCollection.Mode.missing, "Missing \(ListToCollection.copies(missing))"),
                                       (ListToCollection.Mode.all, "Every card \(ListToCollection.copies(all))")], selection: $mode)
                 if kind == .deck && side > 0 { T1Switch(title: "Sideboard", detail: "\(side) \(side == 1 ? "card" : "cards")", isOn: $sideboard) }
-                Notice("Each card goes in near mint, as the printing, finish and language this \(kind == .deck ? "deck" : "cube") lists. Considering isn't added.")
+                Notice("Each card goes in near mint, as the exact printing, finish and language this \(kind == .deck ? "deck" : "cube") lists; Missing counts only copies of those. Considering isn't added.")
                 Section1("To add · \(copies)")
                 if ops.isEmpty {
                     ListRow(title: mode == .missing ? "You own every card here" : "No cards to add",

@@ -396,8 +396,7 @@ struct CardInfoView: View {
         let only = Set(lines.map(\.cardId))
         let ownedNow = ownedByLanguage()
         let basics = CatalogStore.shared.basics
-        let missing = ListToCollection.ops(list.entries, kind: list.kind, owned: ownedNow, mode: .missing, only: only, basics: basics,
-                                           cardOf: Holdings.cardKeys(owned: ownedNow, listing: list.entries.map(\.cardId)))
+        let missing = ListToCollection.ops(list.entries, kind: list.kind, owned: ownedNow, mode: .missing, only: only, basics: basics)
         let all = ListToCollection.ops(list.entries, kind: list.kind, owned: ownedNow, mode: .all, only: only)
         let m = ListToCollection.copies(missing), a = ListToCollection.copies(all)
         func add(_ ops: [ListToCollection.Op], mode: String) {

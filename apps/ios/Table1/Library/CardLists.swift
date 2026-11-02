@@ -1267,7 +1267,9 @@ struct ListDetailView: View {
             }
             // A roto deck's cards are the cube's, not yours to add.
             if list.eventId == nil {
-                let short = owned.total
+                // The exact printings and languages listed, unlike the deck's own Missing, which goes by card.
+                let short = ListToCollection.copies(ListToCollection.ops(list.entries, kind: list.kind, owned: ownedByLanguage(), mode: .missing,
+                                                                         basics: CatalogStore.shared.basics))
                 Button {
                     T1Overlays.shared.present(full: true) { ListToCollectionPanel(listId: list.id).screen("list_to_collection") }
                 } label: {

@@ -1,5 +1,5 @@
 {
- "about": "Add a deck or cube to the collection (contract/list-to-collection-2026-10-22.md). Each line goes in as the printing, finish and language the list names (an entry's or op's lang defaults to en). Main and Commander always count; a deck's sideboard counts unless sideboard is false; Considering never does. 'missing' adds only what the collection lacks of each card (contract/owned-by-card-2026-10-31.md): copies of the printing + finish a line names over every condition and language (owned is keyed 'card_id|finish' for English copies or 'card_id|finish|lang'); owned copies cover lines in their own language first, then the others, English lines first, then by language code; then the card's other copies (another printing or finish; 'oracles' maps a printing to its card, a printing missing from it is its own card) cover what's left, lines by card_id, finish, then language as before; 'all' adds every copy listed. 'only' limits it to some printings (card detail). Ops come out sorted by card_id, then finish, then lang, and only with delta > 0. iOS ListToCollectionTests, web listToCollection.test.ts and Android ListToCollectionTest read this.",
+ "about": "Add a deck or cube to the collection (contract/list-to-collection-2026-10-22.md). Each line goes in as the exact printing, finish and language the list names (an entry's or op's lang defaults to en). Main and Commander always count; a deck's sideboard counts unless sideboard is false; Considering never does. 'missing' adds only what the collection lacks of each exact printing + finish + language, over every condition (owned is keyed 'card_id|finish' for English copies or 'card_id|finish|lang'); copies in another printing, finish or language never cover a line (John, 2026-11-01), unlike the deck's own Missing (contract/owned-by-card-2026-10-31.md). 'all' adds every copy listed. 'only' limits it to some printings (card detail). Ops come out sorted by card_id, then finish, then lang, and only with delta > 0. iOS ListToCollectionTests, web listToCollection.test.ts and Android ListToCollectionTest read this; testdata/owned-by-card/make_cases.py checks it.",
  "cases": [
   {
    "name": "deck, every copy: main and sideboard, not considering",
@@ -207,7 +207,7 @@
    "copies": 1
   },
   {
-   "name": "finishes: a spare foil copy covers a non-foil line",
+   "name": "finishes: a spare foil copy doesn't cover a non-foil line",
    "kind": "cube",
    "mode": "missing",
    "entries": [
@@ -227,8 +227,14 @@
    "owned": {
     "a|foil": 2
    },
-   "ops": [],
-   "copies": 0
+   "ops": [
+    {
+     "card_id": "a",
+     "finish": "nonfoil",
+     "delta": 1
+    }
+   ],
+   "copies": 1
   },
   {
    "name": "cube: considering is left out",
@@ -368,7 +374,7 @@
    "copies": 3
   },
   {
-   "name": "missing: owned copies cover their own language first, spare ones the rest",
+   "name": "missing: owned copies cover only their own language",
    "kind": "deck",
    "mode": "missing",
    "entries": [
@@ -393,13 +399,13 @@
     {
      "card_id": "a",
      "finish": "nonfoil",
-     "delta": 1
+     "delta": 2
     }
    ],
-   "copies": 1
+   "copies": 2
   },
   {
-   "name": "missing: copies in other languages cover English lines first, then by language code",
+   "name": "missing: copies in another language cover no line",
    "kind": "deck",
    "mode": "missing",
    "entries": [
@@ -432,10 +438,21 @@
      "card_id": "a",
      "finish": "nonfoil",
      "delta": 1,
+     "lang": "de"
+    },
+    {
+     "card_id": "a",
+     "finish": "nonfoil",
+     "delta": 1
+    },
+    {
+     "card_id": "a",
+     "finish": "nonfoil",
+     "delta": 1,
      "lang": "ja"
     }
    ],
-   "copies": 1
+   "copies": 3
   }
  ]
 }

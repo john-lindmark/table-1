@@ -30,7 +30,7 @@ describe("owned by card", () => {
   });
   for (const c of cases.add) {
     it(`add to collection: ${c.name}`, () => {
-      expect(listAddOps(c.entries.map(entry), c.kind, owned(c.owned), c.mode, true, undefined, undefined, cardOfMap(c.oracles))).toEqual(c.ops);
+      expect(listAddOps(c.entries.map(entry), c.kind, owned(c.owned), c.mode)).toEqual(c.ops);
     });
   }
   for (const c of cases.match) {

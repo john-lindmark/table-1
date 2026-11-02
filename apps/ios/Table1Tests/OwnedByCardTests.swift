@@ -18,7 +18,7 @@ private struct Cases: Decodable {
     struct Missing: Decodable { let card_id, finish: String; let short: Int; let lists: [String] }
     struct Lines: Decodable { let lists: [List]; let owned: [String: Int]; let oracles: [String: String]; let expect: [Missing] }
     struct Op: Decodable { let card_id, finish: String; let delta: Int; let lang: String? }
-    struct Add: Decodable { let name, kind, mode: String; let entries: [Line]; let owned: [String: Int]; let oracles: [String: String]; let ops: [Op] }
+    struct Add: Decodable { let name, kind, mode: String; let entries: [Line]; let owned: [String: Int]; let ops: [Op] }
     struct Version: Decodable { let card_id, finish: String; let owned: Int }
     struct Pick: Decodable { let card_id, finish: String; let qty: Int }
     struct Move: Decodable { let card_id, finish: String; let lang: String?; let to_card_id, to_finish: String; let qty: Int }
@@ -55,7 +55,7 @@ final class OwnedByCardTests: XCTestCase {
     func testAddToCollection() throws {
         for c in cases.add {
             let ops = ListToCollection.ops(c.entries.map(\.entry), kind: try XCTUnwrap(CardList.Kind(rawValue: c.kind)), owned: c.owned,
-                                           mode: try XCTUnwrap(ListToCollection.Mode(rawValue: c.mode)), cardOf: c.oracles)
+                                           mode: try XCTUnwrap(ListToCollection.Mode(rawValue: c.mode)))
             XCTAssertEqual(ops, c.ops.map { ListToCollection.Op(cardId: $0.card_id, finish: $0.finish, delta: $0.delta, lang: $0.lang ?? "en") }, c.name)
         }
     }

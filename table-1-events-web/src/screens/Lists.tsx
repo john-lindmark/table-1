@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BigAction, Dialog, Field, GhostAction, Menu, Modal, Notice, Row, Screen, Section, Segmented } from "../components/kit";
+import { copiesOf, listAddOps } from "../lib/listToCollection";
 import { CANLANDER_POINT_LIMIT, basicCardIds, coverPrinting, formatName, legalityOf, type Catalog } from "../lib/catalog";
 import { DEMO_USER, useCollection } from "../lib/collection";
 import { cubeCobraId } from "../lib/cubeSync";
@@ -614,7 +615,8 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
           <Row title="Deck image" detail="The cards as a picture, to save or share" onClick={() => setImaging(true)} />}
         {/* A roto deck's cards are the cube's, not yours to add. */}
         {entriesOf(list).length > 0 && !editing && catalog && !list.eventId && (() => {
-          const miss = [...shortBy.values()].reduce((a, b) => a + b, 0);
+          // The exact printings and languages listed, unlike the deck's own Missing, which goes by card.
+          const miss = copiesOf(listAddOps(entriesOf(list), list.kind, ownedByLang, "missing", true, undefined, basicCardIds(catalog)));
           return <Row title="Add to collection" detail={miss ? `Missing ${miss} · or every card` : "You own every card · add more copies"} onClick={() => setAdding(true)} />;
         })()}
         {!editing && list.kind === "cube" && !list.eventId && onSync &&

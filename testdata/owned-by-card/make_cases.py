@@ -4,7 +4,7 @@
 A deck or cube line is covered by copies of the same card in any printing, finish or language: the printing and finish
 the line names first, then any other copy of that card. Also the card detail rules for matching a deck's printings to
 the copies you own. Writes cases.json, which iOS OwnedByCardTests, web ownedByCard.test.ts and Android OwnedByCardTest
-read, and checks the language rules of testdata/list-to-collection/cases.json still hold with oracles added.
+read, and checks testdata/list-to-collection/cases.json against Add to collection's rule.
 
     python3 -I testdata/owned-by-card/make_cases.py      # rewrites testdata/owned-by-card/cases.json
 """
@@ -97,10 +97,11 @@ def lang_order(lang):
     return (lang != "en", lang)
 
 
-def add_ops(entries, kind, owned, mode, sideboard=True, only=None, basics=(), oracles=None):
-    """Add to collection (contract/list-to-collection-2026-10-22.md), Missing now counting any copy of the card."""
-    oracles = oracles or {}
-    need = {}  # (card, finish) -> {lang: n}
+def add_ops(entries, kind, owned, mode, sideboard=True, only=None, basics=()):
+    """Add to collection (contract/list-to-collection-2026-10-22.md): a line goes in as the exact printing, finish and
+    language it names, so Missing counts only owned copies of that printing, finish and language (any condition); other
+    printings, finishes and languages of the card never cover it (John, 2026-11-01), unlike the deck's own Missing."""
+    need = {}  # (card, finish, lang) -> n
     for e in entries:
         b = e["board"]
         if not (b in ("main", "commander") or (b == "side" and kind == "deck" and sideboard)):
@@ -109,56 +110,21 @@ def add_ops(entries, kind, owned, mode, sideboard=True, only=None, basics=(), or
             continue
         if mode == "missing" and e["card_id"] in basics:
             continue
-        m = need.setdefault((e["card_id"], e["finish"]), {})
-        lang = e.get("lang", "en")
-        m[lang] = m.get(lang, 0) + e["qty"]
-    left = {k: dict(v) for k, v in need.items()}
+        k = (e["card_id"], e["finish"], e.get("lang", "en"))
+        need[k] = need.get(k, 0) + e["qty"]
     if mode == "missing":
-        have = {}  # (card, finish) -> {lang: n}
         for k, n in owned.items():
             p = k.split("|")
-            m = have.setdefault((p[0], p[1]), {})
-            lang = p[2] if len(p) > 2 else "en"
-            m[lang] = m.get(lang, 0) + n
-        spare_card = {}
-        for (card, finish), langs in sorted(left.items()):
-            mine = have.get((card, finish), {})
-            spare = sum(mine.values())
-            for lang in list(langs):
-                c = min(langs[lang], mine.get(lang, 0))
-                langs[lang] -= c
-                spare -= c
-            for lang in sorted(langs, key=lang_order):
-                if spare <= 0:
-                    break
-                c = min(langs[lang], spare)
-                langs[lang] -= c
-                spare -= c
-        # Copies of the card in printings and finishes no line names, then a line's spare copies, cover the rest.
-        used = {}
-        for (card, finish), langs in need.items():
-            mine = have.get((card, finish), {})
-            used[(card, finish)] = min(sum(mine.values()), sum(langs.values()))
-        for (card, finish), langs in have.items():
-            o = oracle(card, oracles)
-            spare_card[o] = spare_card.get(o, 0) + sum(langs.values()) - used.get((card, finish), 0)
-        for (card, finish) in sorted(left):
-            o = oracle(card, oracles)
-            langs = left[(card, finish)]
-            for lang in sorted(langs, key=lang_order):
-                if spare_card.get(o, 0) <= 0:
-                    break
-                c = min(langs[lang], spare_card[o])
-                langs[lang] -= c
-                spare_card[o] -= c
+            key = (p[0], p[1], p[2] if len(p) > 2 else "en")
+            if key in need:
+                need[key] -= n
     out = []
-    for (card, finish), langs in left.items():
-        for lang, n in langs.items():
-            if n > 0:
-                op = {"card_id": card, "finish": finish, "delta": n}
-                if lang != "en":
-                    op["lang"] = lang
-                out.append(op)
+    for (card, finish, lang), n in need.items():
+        if n > 0:
+            op = {"card_id": card, "finish": finish, "delta": n}
+            if lang != "en":
+                op["lang"] = lang
+            out.append(op)
     return sorted(out, key=lambda o: (o["card_id"], o["finish"], o.get("lang", "en")))
 
 
@@ -264,19 +230,18 @@ LISTS = [
 LINES_OWNED = {"bolt-lea|nonfoil": 2, "guide-a25|foil": 1}
 
 ADD_CASES = [
-    {"name": "missing: another printing of the card covers a line", "kind": "deck", "mode": "missing",
+    {"name": "missing: another printing of the card doesn't cover a line", "kind": "deck", "mode": "missing",
      "entries": [line("bolt-m10", 4)], "owned": {"bolt-lea|nonfoil": 3}},
-    {"name": "missing: the listed printing first, then the card's other copies by card_id",
+    {"name": "missing: only copies of the listed printing count, and spare ones cover no other line",
      "kind": "deck", "mode": "missing", "entries": [line("bolt-m10", 2), line("bolt-lea", 2), line("guide-zen", 1)],
      "owned": {"bolt-m10|nonfoil": 3, "guide-a25|nonfoil|ja": 1}},
-    {"name": "missing: a line's spare copies cover another printing's line", "kind": "cube", "mode": "missing",
-     "entries": [line("bolt-lea", 1), line("bolt-m10", 1, lang="ja")], "owned": {"bolt-lea|nonfoil": 2}},
+    {"name": "missing: the listed language too", "kind": "cube", "mode": "missing",
+     "entries": [line("bolt-lea", 1), line("bolt-m10", 1, lang="ja")], "owned": {"bolt-lea|nonfoil": 2, "bolt-m10|nonfoil": 1}},
     {"name": "every card still adds every copy", "kind": "deck", "mode": "all",
      "entries": [line("bolt-m10", 2)], "owned": {"bolt-lea|nonfoil": 2}},
 ]
 for c in ADD_CASES:
-    c["oracles"] = ORACLES
-    c["ops"] = add_ops(c["entries"], c["kind"], c["owned"], c["mode"], oracles=ORACLES)
+    c["ops"] = add_ops(c["entries"], c["kind"], c["owned"], c["mode"])
     c["copies"] = sum(o["delta"] for o in c["ops"])
 
 VERSIONS = [{"card_id": "bolt-lea", "finish": "nonfoil", "owned": 1}, {"card_id": "bolt-m10", "finish": "foil", "owned": 3},
@@ -310,7 +275,7 @@ def check_list_to_collection():
     d = json.loads((HERE.parent / "list-to-collection" / "cases.json").read_text())
     for c in d["cases"]:
         got = add_ops(c["entries"], c["kind"], c["owned"], c["mode"], c.get("sideboard", True),
-                      set(c["only"]) if "only" in c else None, set(c.get("basics", [])), c.get("oracles"))
+                      set(c["only"]) if "only" in c else None, set(c.get("basics", [])))
         assert got == c["ops"], (c["name"], got, c["ops"])
 
 
@@ -319,7 +284,7 @@ def main():
         "about": "Owning a card in any printing (contract/owned-by-card-2026-10-31.md). owned is keyed 'card_id|finish' "
                  "or 'card_id|finish|lang'; oracles maps a printing to its card (a printing missing from it is its own "
                  "card). 'shorts': copies each line still needs, in list order (Considering and basics: 0). 'lines': "
-                 "Wants -> Missing, one per card. 'add': Add to collection's Missing mode. 'match': card detail's Match "
+                 "Wants -> Missing, one per card. 'add': Add to collection's Missing mode (exact printing, finish and language only). 'match': card detail's Match "
                  "collection: 'auto' picks, then each tap in 'taps' ([card_id, finish]) gives 'picks', and 'ops' are the "
                  "list_edit move ops for 'picks'. Generated by make_cases.py.",
         "basics": BASICS,

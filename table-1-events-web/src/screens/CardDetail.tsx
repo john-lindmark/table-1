@@ -22,7 +22,7 @@ import {
 } from "../lib/cardDetail";
 import { CONDITIONS, CardArt, LibScreen, SignedOut, useAddCondition, useCatalog, useLibraryHeroes, useLibrarySession } from "./Library";
 import { MoveCopies, UNSORTED, WantCardRow } from "./Binders";
-import { autoMatch, cardOfCatalog, matchDetail, matchOps, matchSections, ownedVersions, tapPick, type Move, type Need, type Pick, type Version } from "../lib/ownedByCard";
+import { autoMatch, matchDetail, matchOps, matchSections, ownedVersions, tapPick, type Move, type Need, type Pick, type Version } from "../lib/ownedByCard";
 
 /* Card detail (contract/card-detail-2026-10-23.md, Figma 318:10810): the card, one row of attributes and one bottom
    bar, in the scope it was opened from (the collection, a deck or cube, a binder, or search). The attribute row
@@ -950,12 +950,12 @@ function CardInfo({ catalog, oi, version, p, printings, list, context, lists, re
     const ownedBy = new Map<string, number>();
     for (const it of col.items.values()) {
       const k = `${it.cardId}|${it.finish}|${it.lang}`;
-      // Every printing of the card: any of them covers a line (contract/owned-by-card-2026-10-31.md).
+      // Only the listed printing, finish and language counts here (contract/list-to-collection-2026-10-22.md).
       if (ids.has(it.cardId)) ownedBy.set(k, (ownedBy.get(k) ?? 0) + it.qty);
     }
     const entries = entriesOf(list);
     const basics = basicCardIds(catalog);
-    const missing = listAddOps(entries, list.kind, ownedBy, "missing", true, only, basics, cardOfCatalog(catalog));
+    const missing = listAddOps(entries, list.kind, ownedBy, "missing", true, only, basics);
     const all = listAddOps(entries, list.kind, ownedBy, "all", true, only);
     const m = copiesOf(missing), a = copiesOf(all);
     const add = async (ops: AddOp[], mode: string) => {

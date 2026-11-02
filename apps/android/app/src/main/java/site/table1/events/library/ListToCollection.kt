@@ -37,8 +37,8 @@ import site.table1.events.ui.components.FullScreenDialog
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
 
-/* Adding a deck or cube to the collection (contract/list-to-collection-2026-10-22.md): each line goes in as the
-   printing and finish the list names, either what the collection lacks or every copy. Cases in
+/* Adding a deck or cube to the collection (contract/list-to-collection-2026-10-22.md): each line goes in as the exact
+   printing, finish and language the list names, either what the collection lacks of it or every copy. Cases in
    testdata/list-to-collection/cases.json, shared with iOS and the web (ListToCollectionTest). */
 object ListToCollection {
     enum class Mode(val wire: String) { Missing("missing"), All("all") }
@@ -46,68 +46,32 @@ object ListToCollection {
     data class Op(val cardId: String, val finish: String, val delta: Int, val lang: String = "en")
 
     /** Main and Commander always count, a deck's sideboard unless `sideboard` is false, Considering never. Each line
-     *  keeps its language. `owned` is keyed "card_id|finish" (English copies) or "card_id|finish|lang"; Missing goes by
-     *  card (contract/owned-by-card-2026-10-31.md): copies of the printing + finish a line names over every condition and
-     *  language cover it first, their own language first, then the rest, English lines first, then by language code;
-     *  then the card's other copies ([cardOf] maps a printing to its card) cover what's left, lines by card_id, finish,
-     *  then language. `only` limits it to some printings (card detail). Basic lands ([basics]) are never missing, so
-     *  only All adds them (contract/basics-2026-10-24.md). */
+     *  goes in as the exact printing, finish and language it names, so Missing counts only owned copies of that
+     *  printing, finish and language, over every condition (`owned` is keyed "card_id|finish" for English copies or
+     *  "card_id|finish|lang"); another printing, finish or language of the card never covers a line here (John,
+     *  2026-11-01), unlike the deck's own Missing (contract/owned-by-card-2026-10-31.md). `only` limits it to some
+     *  printings (card detail). Basic lands ([basics]) are never missing, so only All adds them
+     *  (contract/basics-2026-10-24.md). */
     fun ops(entries: List<ListEntry>, kind: ListKind, owned: Map<String, Int>, mode: Mode, sideboard: Boolean = true, only: Set<String>? = null,
-            basics: Set<String> = emptySet(), cardOf: Map<String, String> = emptyMap()): List<Op> {
-        val need = LinkedHashMap<String, MutableMap<String, Int>>() // "card|finish" → lang → copies
+            basics: Set<String> = emptySet()): List<Op> {
+        val need = LinkedHashMap<String, Int>() // "card|finish|lang" → copies
         for (e in entries) {
             if (!(e.board == "main" || e.board == "commander" || (e.board == "side" && kind == ListKind.Deck && sideboard))) continue
             if (only != null && e.cardId !in only) continue
             if (mode == Mode.Missing && e.cardId in basics) continue
-            need.getOrPut(ownKey(e.cardId, e.finish)) { HashMap() }.merge(e.lang, e.qty, Int::plus)
+            need.merge("${ownKey(e.cardId, e.finish)}|${e.lang}", e.qty, Int::plus)
         }
-        val have = HashMap<String, MutableMap<String, Int>>()
         if (mode == Mode.Missing) for ((k, n) in owned) {
             val parts = k.split("|", limit = 3)
             if (parts.size < 2) continue
-            have.getOrPut("${parts[0]}|${parts[1]}") { HashMap() }.merge(parts.getOrElse(2) { "en" }, n, Int::plus)
-        }
-        val langOrder = compareBy<String>({ it != "en" }, { it })
-        val lefts = LinkedHashMap<String, HashMap<String, Int>>()
-        for ((key, langs) in need) {
-            val left = HashMap(langs)
-            if (mode == Mode.Missing) {
-                val mine = have[key] ?: emptyMap()
-                var spare = mine.values.sum()
-                for ((l, n) in langs) { val c = minOf(n, mine[l] ?: 0); left[l] = n - c; spare -= c }
-                for (l in left.keys.sortedWith(langOrder)) {
-                    if (spare <= 0) break
-                    val c = minOf(left[l]!!, spare)
-                    left[l] = left[l]!! - c
-                    spare -= c
-                }
-            }
-            lefts[key] = left
-        }
-        if (mode == Mode.Missing) {
-            // What the card's copies hold beyond the lines that name their printing and finish.
-            fun card(key: String) = key.substringBefore("|").let { cardOf[it] ?: it }
-            val pool = HashMap<String, Int>()
-            for ((key, mine) in have) {
-                val total = mine.values.sum()
-                pool.merge(card(key), total - minOf(total, need[key]?.values?.sum() ?: 0), Int::plus)
-            }
-            for (key in lefts.keys.sorted()) {
-                val o = card(key)
-                val left = lefts[key]!!
-                for (l in left.keys.sortedWith(langOrder)) {
-                    val p = pool[o] ?: 0
-                    if (p <= 0) break
-                    val c = minOf(left[l]!!, p)
-                    left[l] = left[l]!! - c
-                    pool[o] = p - c
-                }
-            }
+            val key = "${parts[0]}|${parts[1]}|${parts.getOrElse(2) { "en" }}"
+            need[key]?.let { need[key] = it - n }
         }
         val out = mutableListOf<Op>()
-        for ((key, left) in lefts) {
-            val (card, finish) = key.split("|", limit = 2)
-            for ((l, n) in left) if (n > 0) out += Op(card, finish, n, l)
+        for ((key, n) in need) {
+            if (n <= 0) continue
+            val (card, finish, lang) = key.split("|", limit = 3)
+            out += Op(card, finish, n, lang)
         }
         return out.sortedWith(compareBy({ it.cardId }, { it.finish }, { it.lang }))
     }
@@ -152,8 +116,7 @@ fun ListToCollectionScreen(list: CardList, owned: Map<String, Int>, onClose: () 
         names = ns
     }
 
-    val missing = ListToCollection.ops(list.entries, list.kind, owned, ListToCollection.Mode.Missing, sideboard, basics = CatalogStore.basics,
-                                       cardOf = remember(owned, list.entries) { Holdings.cardKeys(owned, list.entries.map { it.cardId }) })
+    val missing = ListToCollection.ops(list.entries, list.kind, owned, ListToCollection.Mode.Missing, sideboard, basics = CatalogStore.basics)
     val all = ListToCollection.ops(list.entries, list.kind, owned, ListToCollection.Mode.All, sideboard)
     val ops = if (mode == ListToCollection.Mode.Missing) missing else all
     val copies = ListToCollection.copies(ops)
@@ -184,7 +147,7 @@ fun ListToCollectionScreen(list: CardList, owned: Map<String, Int>, onClose: () 
                             if (mode == ListToCollection.Mode.Missing) 0 else 1) { mode = if (it == 0) ListToCollection.Mode.Missing else ListToCollection.Mode.All }
                     }
                     if (list.kind == ListKind.Deck && side > 0) item { ListRow("Sideboard", plural(side)) { T1Switch(sideboard) { sideboard = it } } }
-                    item { Notice("Each card goes in near mint, as the printing, finish and language this ${if (list.kind == ListKind.Deck) "deck" else "cube"} lists. Considering isn't added.") }
+                    item { Notice("Each card goes in near mint, as the exact printing, finish and language this ${if (list.kind == ListKind.Deck) "deck" else "cube"} lists; Missing counts only copies of those. Considering isn't added.") }
                     item { Section("To add · $copies") }
                     if (ops.isEmpty()) item {
                         ListRow(if (mode == ListToCollection.Mode.Missing) "You own every card here" else "No cards to add",

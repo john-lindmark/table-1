@@ -957,11 +957,10 @@ private fun CardInfo(o: CatalogOracle, p: CatalogPrinting?, version: CardVersion
             val lines = list.entries.filter { it.cardId in byId }.sortedBy { CardList.BOARD_ORDER.indexOf(it.board) }
             if (lines.isNotEmpty()) {
                 val only = lines.map { it.cardId }.toSet()
-                // Every printing of the card: any of them covers a line (contract/owned-by-card-2026-10-31.md).
+                // Only the listed printing, finish and language counts here (contract/list-to-collection-2026-10-22.md).
                 val ownedBy = col.items.values.filter { it.cardId in byId }.groupBy { "${it.cardId}|${it.finish}|${it.lang}" }.mapValues { (_, v) -> v.sumOf { it.qty } }
                 val basics = CatalogStore.basics
-                val missing = ListToCollection.ops(list.entries, list.kind, ownedBy, ListToCollection.Mode.Missing, only = only, basics = basics,
-                                                   cardOf = Holdings.cardKeys(ownedBy, list.entries.map { it.cardId }))
+                val missing = ListToCollection.ops(list.entries, list.kind, ownedBy, ListToCollection.Mode.Missing, only = only, basics = basics)
                 val all = ListToCollection.ops(list.entries, list.kind, ownedBy, ListToCollection.Mode.All, only = only)
                 val m = ListToCollection.copies(missing)
                 val a = ListToCollection.copies(all)

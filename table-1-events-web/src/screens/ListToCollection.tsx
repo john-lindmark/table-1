@@ -8,7 +8,6 @@ import { languageName } from "../lib/languages";
 import { entriesOf, type CardList } from "../lib/lists";
 import { capture } from "../lib/telemetry";
 import { CardRow } from "./Library";
-import { cardOfCatalog } from "../lib/ownedByCard";
 
 const plural = (n: number) => `${n} ${n === 1 ? "card" : "cards"}`;
 
@@ -26,7 +25,7 @@ export function ListToCollectionScreen({ list, catalog, owned, onClose }: {
   useEscape(onClose);
 
   const entries = entriesOf(list);
-  const missing = useMemo(() => listAddOps(entries, list.kind, owned, "missing", sideboard, undefined, basicCardIds(catalog), cardOfCatalog(catalog)),
+  const missing = useMemo(() => listAddOps(entries, list.kind, owned, "missing", sideboard, undefined, basicCardIds(catalog)),
                           [entries, list.kind, owned, sideboard, catalog]);
   const all = useMemo(() => listAddOps(entries, list.kind, owned, "all", sideboard), [entries, list.kind, sideboard]);
   const ops = mode === "missing" ? missing : all;
@@ -74,7 +73,7 @@ export function ListToCollectionScreen({ list, catalog, owned, onClose }: {
         <Segmented options={[{ value: "missing", label: `Missing ${copiesOf(missing)}` }, { value: "all", label: `Every card ${copiesOf(all)}` }]}
                    value={mode} onChange={(m) => setMode(m as AddMode)} />
         {list.kind === "deck" && side > 0 && <SwitchRow label="Sideboard" detail={plural(side)} on={sideboard} onChange={setSideboard} />}
-        <Notice tone="info">Each card goes in near mint, as the printing, finish and language this {list.kind} lists. Considering isn't added.</Notice>
+        <Notice tone="info">Each card goes in near mint, as the exact printing, finish and language this {list.kind} lists; Missing counts only copies of those. Considering isn't added.</Notice>
         <Section title="To add" count={copies} />
         {!ops.length && <Row title={mode === "missing" ? "You own every card here" : "No cards to add"}
                              detail={mode === "missing" ? "Pick Every card to add another copy of each" : undefined} />}

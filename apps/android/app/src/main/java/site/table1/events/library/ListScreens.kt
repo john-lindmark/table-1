@@ -409,7 +409,9 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                 ListRow("Export", if (list.kind == ListKind.Deck) "Text, Arena, MTGO, download or copy" else "Text, Cube Cobra, download or copy",
                     onClick = { exporting = true })
                 if (list.kind == ListKind.Deck) ListRow("Deck image", "The cards as a picture, to save or share", onClick = { imaging = true })
-                val short = shortBy.values.sum()
+                // The exact printings and languages listed, unlike the deck's own Missing, which goes by card.
+                val short = ListToCollection.copies(ListToCollection.ops(list.entries, list.kind, ownedByLanguage(), ListToCollection.Mode.Missing,
+                                                                         basics = CatalogStore.basics))
                 ListRow("Add to collection", if (short > 0) "Missing $short · or every card" else "You own every card · add more copies", onClick = { adding = true })
             }
             if (!editing && list.kind == ListKind.Cube && onSync != null) {
