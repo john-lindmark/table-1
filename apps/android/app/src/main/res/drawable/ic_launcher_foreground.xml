@@ -1,6 +1,8 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <!-- Placeholder mark: a single teal table on the dark field. Replace with the brand icon. -->
-    <path android:fillColor="#00FFD9" android:pathData="M34,46h40v8h-40z" />
-    <path android:fillColor="#00FFD9" android:pathData="M38,54h6v14h-6zM64,54h6v14h-6z" />
+    <!-- The Table 1 mark (Figma "App icons" 19726:2784, Table 1 Logo 19677:2898 in R9h660jfTHZEcnFZ2DJtLA): 863 x 428 logo
+         units scaled to 33.68 dp, the iOS icon's 479/1024 share of the 72 dp a launcher shows. Also the monochrome layer. -->
+    <group android:translateX="37.16" android:translateY="45.65" android:scaleX="0.039028" android:scaleY="0.039028">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M285,428H144.5V288H285V428ZM574,428H433.5V288H574V428ZM718.5,428H578V288H718.5V428ZM863,428H722.5V288H863V428ZM285,284H144.5V144H285V284ZM718.5,284H578V144H718.5V284ZM140.5,140H0V0H140.5V140ZM285,140H144.5V0H285V140ZM429.5,140H289V0H429.5V140ZM574,140H433.5V0H574V140ZM718.5,140H578V0H718.5V140Z" />
+    </group>
 </vector>

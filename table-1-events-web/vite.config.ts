@@ -23,11 +23,23 @@ export default defineConfig({
     // The app shell works offline (contract/offline-2026-10-31.md § 5): Workbox precaches index.html and every chunk,
     // a new deploy takes over on the next load, and every route falls back to index.html. The .well-known files and
     // the Supabase functions are never served from the worker; Supabase calls aren't cached by it (the stores keep
-    // what the screens need). No manifest yet (no icons), so no install prompt.
+    // what the screens need). The manifest's icons come from Figma's "App icons" board (R9h660jfTHZEcnFZ2DJtLA 19726:2756).
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: "auto",
-      manifest: false,
+      manifest: {
+        name: "Table 1",
+        short_name: "Table 1",
+        start_url: "/",
+        display: "standalone",
+        background_color: "#171725",
+        theme_color: "#171725",
+        icons: [
+          { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
+          { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
+          { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        ],
+      },
       workbox: {
         globPatterns: ["**/*.{js,css,html,woff2}"],
         navigateFallback: "/index.html",

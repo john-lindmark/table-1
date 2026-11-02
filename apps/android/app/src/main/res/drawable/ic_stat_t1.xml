@@ -1,8 +1,8 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp" android:height="24dp" android:viewportWidth="48" android:viewportHeight="48">
-    <!-- Notification icon: the launcher's table mark, white (Android draws only its shape). -->
-    <group android:translateX="-30" android:translateY="-33">
-        <path android:fillColor="#FFFFFFFF" android:pathData="M34,46h40v8h-40z" />
-        <path android:fillColor="#FFFFFFFF" android:pathData="M38,54h6v14h-6zM64,54h6v14h-6z" />
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <!-- Notification icon: the Table 1 mark as whole 3 dp cells with no hairline gaps (Figma 19726:2794);
+         Android draws only its shape. -->
+    <group android:translateX="3" android:translateY="7.5" android:scaleX="3" android:scaleY="3">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M5,2h1v1H3V2h1V1H2v2H1V1H0V0h5z" />
     </group>
 </vector>
