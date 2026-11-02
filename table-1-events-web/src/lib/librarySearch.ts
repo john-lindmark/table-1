@@ -1,4 +1,4 @@
-import { normName } from "./catalog";
+import { formatName, normName } from "./catalog";
 import type { Item } from "./collection";
 import type { Binder, Want, WantOp } from "./binders";
 
@@ -42,6 +42,26 @@ export function listOrder<T>(query: string, items: T[], name: (t: T) => string):
   keyed.sort((a, b) => Number(!a.n.startsWith(first)) - Number(!b.n.startsWith(first))
     || (a.n < b.n ? -1 : a.n > b.n ? 1 : 0) || (a.raw < b.raw ? -1 : a.raw > b.raw ? 1 : 0));
   return keyed.map((k) => k.t);
+}
+
+/** What a Collection Search row's second line is made of: library_search's fields, the owner's name only on someone else's. */
+export interface HitLine {
+  kind: string; format?: string; for_trade?: boolean; owner?: string;
+  has?: { name: string; qty: number }; decks?: number; label?: string;
+}
+
+const HIT_KIND: Record<string, string> = { deck: "Deck", cube: "Cube", binder: "Binder", archetype: "Archetype", ranking: "Ranking" };
+
+/** A Collection Search row's second line: "Deck · Modern · Mara Quinn · 4 Lightning Bolt", "Archetype · Modern · 412 lists". */
+export function hitDetail(h: HitLine): string {
+  const parts = [HIT_KIND[h.kind] ?? h.kind];
+  if ((h.kind === "deck" || h.kind === "archetype") && h.format) parts.push(formatName(h.format));
+  if (h.kind === "binder" && h.for_trade) parts.push("For trade");
+  if (h.owner) parts.push(h.owner);
+  if (h.has) parts.push(`${h.has.qty} ${h.has.name}`);
+  if (h.kind === "archetype" && h.decks != null) parts.push(`${h.decks} ${h.decks === 1 ? "list" : "lists"}`);
+  if (h.kind === "ranking" && h.label) parts.push(h.label);
+  return parts.join(" · ");
 }
 
 /**

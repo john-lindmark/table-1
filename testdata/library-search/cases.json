@@ -1,5 +1,5 @@
 {
-  "_doc": "In-screen search (contract/library-search-2026-10-18.md). cards: every normalized word of the query is in the card's name or type line. printings: every word (split on spaces and #) starts the set code, collector number or year. lists (Collection Search, your own decks, cubes and binders): every normalized word of the query is in the name or the format code; an empty query matches nothing. listOrder: names starting with the query's first word first, then by normalized name, then name. Tested by iOS LibrarySearchTests, web librarySearch.test.ts, Android LibrarySearchTest.",
+  "_doc": "In-screen search (contract/library-search-2026-10-18.md). cards: every normalized word of the query is in the card's name or type line. printings: every word (split on spaces and #) starts the set code, collector number or year. lists (Collection Search, your own decks, cubes and binders): every normalized word of the query is in the name or the format code; an empty query matches nothing. listOrder: names starting with the query's first word first, then by normalized name, then name. hitDetail: a Collection Search row's second line (format codes given here as modern = Modern; cube format not shown; owner only on someone else's; has, decks, label as library_search returns them). Tested by iOS LibrarySearchTests, web librarySearch.test.ts, Android LibrarySearchTest.",
   "cards": [
     {"query": "", "name": "Lightning Bolt", "type": "Instant", "match": true},
     {"query": "bolt", "name": "Lightning Bolt", "type": "Instant", "match": true},
@@ -36,5 +36,19 @@
   "listOrder": [
     {"query": "burn", "names": ["Rakdos burn", "Burn sideboard", "burn", "Atarka Burn"], "want": ["burn", "Burn sideboard", "Atarka Burn", "Rakdos burn"]},
     {"query": "red", "names": ["Big red", "Red deck wins", "Mono-Red"], "want": ["Red deck wins", "Big red", "Mono-Red"]}
+  ],
+  "hitDetail": [
+    {"hit": {"kind": "deck", "format": "modern"}, "detail": "Deck · Modern"},
+    {"hit": {"kind": "deck", "format": ""}, "detail": "Deck"},
+    {"hit": {"kind": "deck", "format": "modern", "owner": "Mara Quinn"}, "detail": "Deck · Modern · Mara Quinn"},
+    {"hit": {"kind": "deck", "format": "modern", "owner": "Mara Quinn", "has": {"name": "Lightning Bolt", "qty": 4}}, "detail": "Deck · Modern · Mara Quinn · 4 Lightning Bolt"},
+    {"hit": {"kind": "cube", "format": "cube", "has": {"name": "Lightning Bolt", "qty": 1}}, "detail": "Cube · 1 Lightning Bolt"},
+    {"hit": {"kind": "cube", "owner": "Mara Quinn"}, "detail": "Cube · Mara Quinn"},
+    {"hit": {"kind": "binder", "for_trade": true}, "detail": "Binder · For trade"},
+    {"hit": {"kind": "binder", "for_trade": true, "owner": "Mara Quinn", "has": {"name": "Opt", "qty": 12}}, "detail": "Binder · For trade · Mara Quinn · 12 Opt"},
+    {"hit": {"kind": "archetype", "format": "modern", "decks": 412}, "detail": "Archetype · Modern · 412 lists"},
+    {"hit": {"kind": "archetype", "format": "modern", "decks": 1}, "detail": "Archetype · Modern · 1 list"},
+    {"hit": {"kind": "ranking", "owner": "Ana Lind", "label": "Power only"}, "detail": "Ranking · Ana Lind · Power only"},
+    {"hit": {"kind": "ranking", "owner": "Ana Lind"}, "detail": "Ranking · Ana Lind"}
   ]
 }

@@ -514,6 +514,31 @@ enum CardSearch {
         return words.allSatisfy { hay.contains($0) }
     }
 
+    /// What a Collection Search row's second line is made of: library_search's fields, the owner only on someone else's.
+    struct HitLine: Decodable, Equatable {
+        var kind: String
+        var format: String?
+        var forTrade: Bool?
+        var owner: String?
+        var has: ListHit.Has?
+        var decks: Int?
+        var label: String?
+    }
+
+    /// A Collection Search row's second line: "Deck · Modern · Mara Quinn · 4 Lightning Bolt", "Archetype · Modern · 412 lists"
+    /// (cases hitDetail in testdata/library-search/cases.json).
+    static func hitDetail(_ h: HitLine) -> String {
+        let kinds = ["deck": "Deck", "cube": "Cube", "binder": "Binder", "archetype": "Archetype", "ranking": "Ranking"]
+        var parts = [kinds[h.kind] ?? h.kind]
+        if h.kind == "deck" || h.kind == "archetype", let f = h.format, !f.isEmpty { parts.append(formatName(f)) }
+        if h.kind == "binder", h.forTrade == true { parts.append("For trade") }
+        if let o = h.owner { parts.append(o) }
+        if let has = h.has { parts.append("\(has.qty) \(has.name)") }
+        if h.kind == "archetype", let n = h.decks { parts.append("\(n) \(n == 1 ? "list" : "lists")") }
+        if h.kind == "ranking", let l = h.label { parts.append(l) }
+        return parts.joined(separator: " · ")
+    }
+
     /// Names starting with the query's first word first, then by normalized name, then name.
     static func order<T>(_ query: String, _ items: [T], name: (T) -> String) -> [T] {
         let first = CardName.norm(query).split(separator: " ").first.map(String.init) ?? ""

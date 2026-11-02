@@ -39,6 +39,27 @@ object CardSearch {
         return items.sortedWith(compareBy<T> { !CardName.norm(name(it)).startsWith(first) }.thenBy { CardName.norm(name(it)) }.thenBy { name(it) })
     }
 
+    /** What a Collection Search row's second line is made of: library_search's fields, the owner only on someone else's. */
+    data class HitLine(
+        val kind: String, val format: String? = null, val forTrade: Boolean? = null, val owner: String? = null,
+        val has: ListHit.Has? = null, val decks: Int? = null, val label: String? = null,
+    )
+
+    private val HIT_KIND = mapOf("deck" to "Deck", "cube" to "Cube", "binder" to "Binder", "archetype" to "Archetype", "ranking" to "Ranking")
+
+    /** A Collection Search row's second line: "Deck · Modern · Mara Quinn · 4 Lightning Bolt", "Archetype · Modern · 412 lists"
+     *  (cases hitDetail in testdata/library-search/cases.json). */
+    fun hitDetail(h: HitLine): String {
+        val parts = mutableListOf(HIT_KIND[h.kind] ?: h.kind)
+        if ((h.kind == "deck" || h.kind == "archetype") && !h.format.isNullOrEmpty()) parts += CatalogPack.formatName(h.format)
+        if (h.kind == "binder" && h.forTrade == true) parts += "For trade"
+        h.owner?.let { parts += it }
+        h.has?.let { parts += "${it.qty} ${it.name}" }
+        if (h.kind == "archetype" && h.decks != null) parts += "${h.decks} ${if (h.decks == 1) "list" else "lists"}"
+        if (h.kind == "ranking") h.label?.let { parts += it }
+        return parts.joinToString(" · ")
+    }
+
     /** The list's own lines whose card matches a search, by name: what Remove or replace offers. Empty query: none. */
     fun <T> matchingLines(lines: List<T>, query: String, name: (T) -> String, type: (T) -> String, board: (T) -> String, finish: (T) -> String): List<T> {
         if (CardName.norm(query).isEmpty()) return emptyList()

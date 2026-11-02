@@ -24,11 +24,12 @@ import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
 import site.table1.events.util.rethrowIfCancelled
 
-/* Collection Search finds decks, cubes and binders (contract/library-search-2026-10-18.md § Collection search).
-   Your own are matched on the device (CardSearch.matchesList); everyone else's you can see come from
-   library_search: what you follow, friends', and anyone's set to Anyone. A section per kind above the cards. */
+/* Collection Search finds decks, cubes and binders, Insights archetypes and rankings
+   (contract/library-search-2026-10-18.md § Collection search). Your own lists are matched on the device by name
+   (CardSearch.matchesList); everything else comes from library_search with p_all: other people's lists you can see,
+   lists (yours too) holding a card the query names, archetypes and rankings. A section per kind above the cards. */
 
-/** One of library_search's items: someone else's binder, deck or cube. */
+/** One of library_search's items. */
 @Serializable
 data class ListHit(
     val kind: String,
@@ -43,9 +44,24 @@ data class ListHit(
     /** Seen through the link you followed with: open the link. */
     val token: String? = null,
     val following: Boolean = false,
+    /** Your own, found by a card it holds. */
+    val mine: Boolean = false,
+    /** Found by a card it holds, not its name. */
+    val has: Has? = null,
+    /** Archetypes: lists in the last 90 days. */
+    val decks: Int? = null,
+    /** Rankings: the cube's id or "set:<KEY>", and the name its maker gave it. */
+    val subject: String? = null,
+    val label: String? = null,
 ) {
-    /** Where it opens: its profile section, or the link it was followed through. */
+    @Serializable data class Has(val name: String, val qty: Int)
+
+    /** Where it opens: your own screen, their profile section, the link it was followed through, an Insights archetype
+     *  or a ranking. */
     val route: String? get() = when {
+        kind == "archetype" -> format?.let { f -> id.toIntOrNull()?.let { site.table1.events.insights.InsightsRoutes.archetype(f, it) } }
+        kind == "ranking" -> "collection/ranking/$id"
+        mine -> if (kind == "binder") "collection/binder/$id" else "collection/list/$id"
         token != null -> "collection/shared/$token"
         userId != null -> "profile/$userId/$kind/$id"
         else -> null
@@ -60,34 +76,37 @@ object ListSearch {
     const val SHOWN = 3
 
     suspend fun search(query: String): List<ListHit> =
-        T1App.supabase.postgrest.rpc("library_search", buildJsonObject { put("p_query", query.trim()) }).decodeAs<ListHits>().items
+        T1App.supabase.postgrest.rpc("library_search", buildJsonObject { put("p_query", query.trim()); put("p_all", true) }).decodeAs<ListHits>().items
 
-    data class Hit(val key: String, val title: String, val detail: String, val value: Int?, val route: String, val whose: String)
+    data class Hit(val key: String, val title: String, val detail: String, val value: Int?, val route: String, val whose: String, val by: String = "name")
     data class Group(val kind: String, val title: String, val hits: List<Hit>)
 
-    private val KINDS = listOf(Triple("deck", "Decks", "Deck"), Triple("cube", "Cubes", "Cube"), Triple("binder", "Binders", "Binder"))
+    private val KINDS = listOf("deck" to "Decks", "cube" to "Cubes", "binder" to "Binders", "archetype" to "Archetypes", "ranking" to "Rankings")
 
-    /** Yours (by the shared order), then everyone else's (in the server's order), per kind; kinds with none left out. */
+    /** Yours by name (the shared order), then what the server found (yours by card, then everyone else's, in its order),
+     *  per kind; kinds with none left out. */
     fun groups(query: String, lists: List<CardList>, binders: List<Binder>, binderCopies: Map<String, Int>, others: List<ListHit>): List<Group> =
-        KINDS.mapNotNull { (kind, title, label) ->
-            val mine = if (kind == "binder") {
-                CardSearch.order(query, binders.filter { CardSearch.matchesList(query, it.name, "") }) { it.name }.map { b ->
-                    Hit(b.id, b.name, listOfNotNull(label, if (b.forTrade) "For trade" else null).joinToString(" · "), binderCopies[b.id], "collection/binder/${b.id}", "mine")
+        KINDS.mapNotNull { (kind, title) ->
+            val mine = when (kind) {
+                "binder" -> CardSearch.order(query, binders.filter { CardSearch.matchesList(query, it.name, "") }) { it.name }.map { b ->
+                    Hit(b.id, b.name, CardSearch.hitDetail(CardSearch.HitLine(kind, forTrade = b.forTrade)), binderCopies[b.id], "collection/binder/${b.id}", "mine")
                 }
-            } else {
-                val k = if (kind == "deck") ListKind.Deck else ListKind.Cube
-                CardSearch.order(query, lists.filter { it.kind == k && CardSearch.matchesList(query, it.name, it.format) }) { it.name }.map { l ->
-                    Hit(l.id, l.name, listOfNotNull(label, if (kind == "deck" && l.format.isNotEmpty()) CatalogPack.formatName(l.format) else null).joinToString(" · "),
-                        l.count("main"), "collection/list/${l.id}", "mine")
+                "deck", "cube" -> {
+                    val k = if (kind == "deck") ListKind.Deck else ListKind.Cube
+                    CardSearch.order(query, lists.filter { it.kind == k && CardSearch.matchesList(query, it.name, it.format) }) { it.name }.map { l ->
+                        Hit(l.id, l.name, CardSearch.hitDetail(CardSearch.HitLine(kind, format = l.format)), l.count("main"), "collection/list/${l.id}", "mine")
+                    }
                 }
+                else -> emptyList()
             }
-            val theirs = others.filter { it.kind == kind }.mapNotNull { h ->
+            val seen = mine.map { it.key }.toSet()
+            val found = others.filter { it.kind == kind && it.id !in seen }.mapNotNull { h ->
                 val route = h.route ?: return@mapNotNull null
-                val detail = listOfNotNull(label, if (kind == "deck") h.format?.takeIf { it.isNotEmpty() }?.let(CatalogPack::formatName) else null,
-                    if (kind == "binder" && h.forTrade == true) "For trade" else null, h.owner?.displayName)
-                Hit("${h.kind}|${h.id}", h.name, detail.joinToString(" · "), h.cards, route, if (h.following) "following" else "shared")
+                val line = CardSearch.HitLine(h.kind, h.format, h.forTrade, if (h.mine) null else h.owner?.displayName, h.has, h.decks, h.label)
+                Hit("${h.kind}|${h.id}", h.name, CardSearch.hitDetail(line), if (kind == "archetype" || kind == "ranking") null else h.cards, route,
+                    if (h.mine) "mine" else if (h.following) "following" else "shared", if (h.has != null) "card" else "name")
             }
-            (mine + theirs).takeIf { it.isNotEmpty() }?.let { Group(kind, title, it) }
+            (mine + found).takeIf { it.isNotEmpty() }?.let { Group(kind, title, it) }
         }
 }
 
@@ -122,7 +141,7 @@ fun LazyListScope.listHitSections(state: ListHitsState, go: (String) -> Unit) {
         item(key = "lh-${g.kind}") { Section("${g.title} · ${g.hits.size}") }
         items(if (all) g.hits else g.hits.take(ListSearch.SHOWN), key = { "lh-${g.kind}-${it.key}" }) { h ->
             ListRow(h.title, h.detail, onClick = {
-                Telemetry.capture("search_list_opened", mapOf("kind" to g.kind, "whose" to h.whose))
+                Telemetry.capture("search_list_opened", mapOf("kind" to g.kind, "whose" to h.whose, "by" to h.by))
                 go(h.route)
             }) {
                 h.value?.let { Text("$it", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp) }

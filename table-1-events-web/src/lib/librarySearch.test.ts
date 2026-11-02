@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { Binder, Want } from "./binders";
 import type { Item } from "./collection";
-import { cardMatches, listMatches, listOrder, matchingLines, moveInSource, printingMatches, repointWant } from "./librarySearch";
+import { cardMatches, hitDetail, listMatches, listOrder, matchingLines, moveInSource, printingMatches, repointWant } from "./librarySearch";
 
 /* Same cases as iOS LibrarySearchTests and Android LibrarySearchTest. */
 
@@ -11,6 +11,7 @@ const cases = JSON.parse(readFileSync(new URL("../../../testdata/library-search/
   printings: { query: string; set: string; cn: string; releasedAt: string; match: boolean }[];
   lists: { query: string; name: string; format: string; match: boolean }[];
   listOrder: { query: string; names: string[]; want: string[] }[];
+  hitDetail: { hit: Parameters<typeof hitDetail>[0]; detail: string }[];
 };
 
 describe("library search", () => {
@@ -25,6 +26,9 @@ describe("library search", () => {
   });
   it("orders lists like the shared cases", () => {
     for (const c of cases.listOrder) expect(listOrder(c.query, c.names, (n) => n)).toEqual(c.want);
+  });
+  it("writes search rows' second lines like the shared cases", () => {
+    for (const c of cases.hitDetail) expect(hitDetail(c.hit)).toBe(c.detail);
   });
   it("remove search only offers the list's own cards", () => {
     const lines = [

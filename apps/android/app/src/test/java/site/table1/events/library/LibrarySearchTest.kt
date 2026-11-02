@@ -5,6 +5,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -38,6 +39,14 @@ class LibrarySearchTest {
         for (c in cases["listOrder"]!!.jsonArray) {
             val names = c.jsonObject["names"]!!.jsonArray.map { it.jsonPrimitive.content }
             assertEquals(s(c, "query"), c.jsonObject["want"]!!.jsonArray.map { it.jsonPrimitive.content }, CardSearch.order(s(c, "query"), names) { it })
+        }
+        for (c in cases["hitDetail"]!!.jsonArray) {
+            val h = c.jsonObject["hit"]!!.jsonObject
+            fun str(k: String) = h[k]?.jsonPrimitive?.content
+            val has = h["has"]?.jsonObject?.let { ListHit.Has(it["name"]!!.jsonPrimitive.content, it["qty"]!!.jsonPrimitive.int) }
+            val line = CardSearch.HitLine(str("kind")!!, str("format"), h["for_trade"]?.jsonPrimitive?.boolean, str("owner"), has,
+                h["decks"]?.jsonPrimitive?.int, str("label"))
+            assertEquals(c.jsonObject["detail"]!!.jsonPrimitive.content, CardSearch.hitDetail(line))
         }
     }
 

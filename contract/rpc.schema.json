@@ -10234,7 +10234,7 @@
       }
     },
     "library_search": {
-      "note": "Collection Search: other people's binders, decks and cubes you can see (on their profile, or through the live link you followed with) whose name, owner's name or format holds every word of p_query (2+ characters). Followed first, then friends', played-with, everyone else. user_id when seen on the profile, token when through a followed link. Never your own. contract/library-search-2026-10-18.md § Collection search. authenticated.",
+      "note": "Collection Search: other people's binders, decks and cubes you can see (on their profile, or through the live link you followed with) whose name, owner's name or format holds every word of p_query (2+ characters). Followed first, then friends', played-with, everyone else. user_id when seen on the profile, token when through a followed link. Never your own. With p_all (new clients; each kind limited on its own): also lists that hold a card the query names (has {name, qty}; your own too, mine true), Insights archetypes (kind archetype, id as text, format, decks in 90 days) and rankings you can see (kind ranking, name the subject, subject the cube id or set:KEY, label, owner, mine). contract/library-search-2026-10-18.md § Collection search. authenticated.",
       "params": {
         "type": "object",
         "properties": {
@@ -10246,6 +10246,10 @@
             "minimum": 1,
             "maximum": 50,
             "default": 20
+          },
+          "p_all": {
+            "type": "boolean",
+            "default": false
           }
         },
         "required": [
@@ -10265,12 +10269,13 @@
                   "enum": [
                     "binder",
                     "deck",
-                    "cube"
+                    "cube",
+                    "archetype",
+                    "ranking"
                   ]
                 },
                 "id": {
-                  "type": "string",
-                  "format": "uuid"
+                  "type": "string"
                 },
                 "name": {
                   "type": "string"
@@ -10307,15 +10312,39 @@
                 },
                 "following": {
                   "type": "boolean"
+                },
+                "mine": {
+                  "type": "boolean"
+                },
+                "has": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "qty": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "qty"
+                  ]
+                },
+                "decks": {
+                  "type": "integer"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
                 }
               },
               "required": [
                 "kind",
                 "id",
-                "name",
-                "cards",
-                "owner",
-                "following"
+                "name"
               ]
             }
           }

@@ -265,3 +265,17 @@ select pg_temp.ms('library_search "burn", 20k lists', $$select public.library_se
 select pg_temp.ms('library_search two words', $$select public.library_search('izzet murk')$$, 80);
 select pg_temp.ms('library_search nothing found', $$select public.library_search('zzzz')$$, 40);
 reset role;
+-- With p_all: 15 cards in each of the 20k lists (300k lines), a card named, archetypes and rankings looked at too.
+insert into public.card_list_entries (list_id, board, card_id, finish, qty)
+select md5('slist' || i || '-' || k)::uuid, 'main', md5('c' || (1 + (i * 7919 + k * 104729 + j * 31) % 35000) || '-0')::uuid,
+       'nonfoil', 1 + j % 4
+  from generate_series(1, 2000) i, generate_series(1, 10) k, generate_series(1, 15) j
+on conflict do nothing;
+analyze public.card_list_entries;
+set role authenticated;
+select pg_temp.as_user(:BIG);
+select pg_temp.eq('lists holding a card found', (jsonb_array_length(public.library_search('lightning bolt', 20, true)->'items') > 0)::text, 'true');
+select pg_temp.ms('library_search p_all, a card in 300k lines', $$select public.library_search('lightning bolt', 20, true)$$, 150);
+select pg_temp.ms('library_search p_all "burn"', $$select public.library_search('burn', 20, true)$$, 120);
+select pg_temp.ms('library_search p_all nothing found', $$select public.library_search('zzzz', 20, true)$$, 60);
+reset role;

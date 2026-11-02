@@ -132,16 +132,20 @@ final class LibrarySearchTests: XCTestCase {
         struct Printing: Decodable { let query: String; let set: String; let cn: String; let releasedAt: String; let match: Bool }
         struct ListCase: Decodable { let query: String; let name: String; let format: String; let match: Bool }
         struct Order: Decodable { let query: String; let names: [String]; let want: [String] }
+        struct Detail: Decodable { let hit: CardSearch.HitLine; let detail: String }
         let cards: [Card]
         let printings: [Printing]
         let lists: [ListCase]
         let listOrder: [Order]
+        let hitDetail: [Detail]
     }
 
     func testSharedCases() throws {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .appending(path: "../../../testdata/library-search/cases.json").standardized
-        let cases = try JSONDecoder().decode(Cases.self, from: Data(contentsOf: url))
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let cases = try decoder.decode(Cases.self, from: Data(contentsOf: url))
         for c in cases.cards {
             XCTAssertEqual(CardSearch.matches(c.query, name: c.name, type: c.type), c.match, "\(c.query) / \(c.name)")
         }
@@ -153,6 +157,9 @@ final class LibrarySearchTests: XCTestCase {
         }
         for c in cases.listOrder {
             XCTAssertEqual(CardSearch.order(c.query, c.names) { $0 }, c.want, c.query)
+        }
+        for c in cases.hitDetail {
+            XCTAssertEqual(CardSearch.hitDetail(c.hit), c.detail)
         }
     }
 

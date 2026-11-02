@@ -75,10 +75,33 @@ the cards.
   rows when there are four or fewer), then a Cards heading over the card rows. Rows: name; "Deck · Modern",
   "Cube", "Binder · For trade", plus the owner's name on someone else's; the right value is main-deck cards (decks,
   cubes) or copies (binders). Taps open your deck/cube/binder screen, their profile section, or the link.
-- Not searched yet: the cards inside other people's lists ("decks with Ragavan").
+- **More (2026-11-02, later)**: John, after the first version found one list on his account (his friends share
+  nothing yet): "tournament decks", "cards in shared lists", "rankings". New clients call
+  `library_search(p_query, p_limit, p_all => true)`; each kind is then limited on its own (`p_limit` per kind), and
+  the answer adds:
+  - **Cards inside lists**: when the query (3+ characters) names a card (every word in the name; basic lands left
+    out; the closest five: exact name, then names starting with the first word, then shortest), decks, cubes and
+    binders that hold it (decks and cubes outside Considering, binders' copies) come back with `has` {name, qty}
+    (the matched card with the most copies). Everyone else's by the same visibility rule; **your own too**
+    (`mine: true`, no owner), since the device matches yours only by name. A list that matches by name has no `has`.
+  - **Insights archetypes** (`kind` `archetype`, `id` the archetype id as text, `name`, `format`, `decks`: lists in
+    the last 90 days): approved archetypes of the formats Insights reads, with lists in 90 days, whose name, format
+    code or format name holds every word; most lists first. A tap opens the archetype's Insights page (share, example
+    list, finishes).
+  - **Rankings you can see** (`kind` `ranking`, `id`, `name` the cube or set it ranks, `subject` the cube id or
+    `set:<KEY>`, `label` when it has one (not "My ranking"), `owner` {display_name}, `mine`): by the subject's name,
+    who ranked it, the label or the set code; the same rule as a ranking's own screen (`ranking_seen`). Yours first,
+    then friends', newest first. A tap opens the ranking.
+  - Without `p_all` (builds 47 and earlier) the answer is as before. An account a moderator restricted shares nothing
+    (as `share_of`).
+- **Sections**, in order: Decks, Cubes, Binders (yours by name, then yours by card, then everyone else's), Archetypes,
+  Rankings, then Cards. A row's second line is `hitDetail` (cases in `testdata/library-search/cases.json`): the kind,
+  the format name for decks and archetypes, "For trade", the owner on someone else's, then "4 Lightning Bolt" for a
+  card match, "412 lists" for an archetype, the label for a ranking. Right value: cards (lists) only.
 
-Server: migration `20261102120000_library_search.sql`, tests `supabase/tests/84_library_search_test.sql`, budget in
-`perf_10_library.sql` (20k lists: ~15 ms locally). Clients: iOS `Library/ListSearch.swift`, web `lib/listSearch.ts` +
+Server: migrations `20261102120000_library_search.sql` and `20261102140000_library_search_more.sql` (`p_all`, a
+`binder_items (card_id)` index), tests `supabase/tests/84_library_search_test.sql` (32 checks), budgets in
+`perf_10_library.sql` (20k lists ~23 ms; with `p_all`, a card in 300k list lines ~30 ms locally). Clients: iOS `Library/ListSearch.swift`, web `lib/listSearch.ts` +
 `screens/ListSearch.tsx`, Android `library/ListSearch.kt`. Design QA: iOS `-T1LibraryDemo search -T1SearchQuery tr`,
 web `/library/search?demo` (the demo's followed items stand in for other people's).
 
@@ -87,7 +110,7 @@ web `/library/search?demo` (the demo's followed items stand in for other people'
 `library_searched` (`screen`), `list_card_removed` / `list_card_replaced` (`kind`), `want_added` gains `finish`,
 `want_changed` gains `printing`, `any_printing`, `finish` when repointed. Binder adds count as `binder_copies_moved`
 and `collection_changed` as before. Screens `want_printing`, `binder_add`. Collection search:
-`search_list_opened` (`kind` deck / cube / binder, `whose` mine / following / shared).
+`search_list_opened` (`kind` deck / cube / binder / archetype / ranking, `whose` mine / following / shared, `by` name / card).
 
 ## Code and tests
 
