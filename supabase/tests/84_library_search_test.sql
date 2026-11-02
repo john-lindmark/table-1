@@ -122,6 +122,19 @@ select pg_temp.eq('an archetype carries its format and lists', (public.library_s
 select pg_temp.eq('archetypes by format too', pg_temp.more('modern boros'), 'archetype:Boros Burn');
 select pg_temp.eq('your own lists by name stay on the device', pg_temp.more('mono red'), '');
 select pg_temp.eq('two letters don''t look for cards (Bolt)', pg_temp.more('bo'), 'archetype:Boros Burn');
+reset role;
+insert into public.card_oracles (oracle_id, name, name_norm, layout, source_card_id, source_rank, content_hash) values
+  ('c0000000-0000-0000-0000-000000000002', 'Emeritus of Conflict // Lightning Bolt', 'emeritus of conflict lightning bolt', 'modal_dfc',
+   'c1000000-0000-0000-0000-000000000002', 'a', 'h');
+insert into public.cards (id, oracle_id, set_code, collector_number, lang, rarity, finishes, layout, content_hash) values
+  ('c1000000-0000-0000-0000-000000000002', 'c0000000-0000-0000-0000-000000000002', 'sos', '1', 'en', 'mythic', '{nonfoil}', 'modal_dfc', 'h');
+set role authenticated;
+select pg_temp.as_user(:BEN);
+select public.list_create('d1000000-0000-0000-0000-000000000006', 'deck', 'Emeritus pile', 'modern',
+  jsonb_build_array(jsonb_build_array('c1000000-0000-0000-0000-000000000002', 'main', 1)));
+select pg_temp.eq('a card named exactly is the only one looked for', pg_temp.more('lightning bolt'),
+  'deck:Mono red has 2 Lightning Bolt mine,deck:Open burn has 3 Lightning Bolt,deck:Burn has 4 Lightning Bolt');
+select pg_temp.eq('otherwise the closest few', pg_temp.more('conflict'), 'deck:Emeritus pile has 1 Emeritus of Conflict // Lightning Bolt mine');
 
 select pg_temp.as_user(:ANA);
 select public.sharing_set(jsonb_build_object('items', jsonb_build_array(jsonb_build_object('kind', 'cube', 'id', :CUBE, 'visibility', 'friends'))));
