@@ -7,6 +7,9 @@ struct Table1WidgetsBundle: WidgetBundle {
         MatchWidget()
         NextEventWidget()
         ValueWidget()
+        MetaBreakdownWidget()
+        MatchupGridWidget()
+        ArchetypeMatchupsWidget()
         PlayerLiveActivity()
         OrganizerLiveActivity()
         if #available(iOS 18.0, *) {

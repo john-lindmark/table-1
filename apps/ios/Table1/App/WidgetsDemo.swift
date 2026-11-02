@@ -2,8 +2,9 @@
 import SwiftUI
 import WidgetKit
 
-/// Design QA for the widgets batch without a home screen: `-T1WidgetsDemo [organizer|next|value]` draws every
-/// family on sample data at its real size (iPhone 17 points). Debug only.
+/// Design QA for the widgets batch without a home screen: `-T1WidgetsDemo [organizer|next|value|meta|grid|archetype]`
+/// draws every family on sample data at its real size (iPhone 17 points); the Insights widgets on the live Modern pack
+/// of 2026-11-02 (DebugResources/insights-demo-widget-modern.json). Debug only.
 struct WidgetsDemoRoot: View {
     private let only: String? = {
         let args = ProcessInfo.processInfo.arguments
@@ -17,6 +18,9 @@ struct WidgetsDemoRoot: View {
                 if only == nil || only == "organizer" { organizer }
                 if only == nil || only == "next" { next }
                 if only == nil || only == "value" { value }
+                if only == nil || only == "meta" { meta }
+                if only == nil || only == "grid" { grid }
+                if only == nil || only == "archetype" { archetype }
             }
             .padding(16)
         }
@@ -74,6 +78,38 @@ struct WidgetsDemoRoot: View {
         tile(.systemMedium) { ValueView(family: .systemMedium, record: .sample) }
     }
 
+    private static let pack: MetaPack? = Bundle.main.url(forResource: "insights-demo-widget-modern", withExtension: "json")
+        .flatMap { try? Data(contentsOf: $0) }.flatMap(MetaPackStore.decode)
+
+    @ViewBuilder private var meta: some View {
+        let picks = MetaPicks()
+        caption("Meta · small, medium, large, all events 7 days, no pack")
+        HStack(spacing: 16) {
+            tile(.systemSmall) { MetaBreakdownView(family: .systemSmall, pack: Self.pack, picks: picks) }
+            tile(.systemSmall) { MetaBreakdownView(family: .systemSmall, pack: nil, picks: picks) }
+        }
+        tile(.systemMedium) { MetaBreakdownView(family: .systemMedium, pack: Self.pack, picks: picks) }
+        tile(.systemMedium) { MetaBreakdownView(family: .systemMedium, pack: Self.pack, picks: MetaPicks(tier: "all", days: 7)) }
+        tile(.systemLarge) { MetaBreakdownView(family: .systemLarge, pack: Self.pack, picks: picks) }
+    }
+
+    @ViewBuilder private var grid: some View {
+        caption("Matchup grid · medium, large")
+        tile(.systemMedium) { MatchupGridWidgetView(family: .systemMedium, pack: Self.pack, picks: MetaPicks()) }
+        tile(.systemLarge) { MatchupGridWidgetView(family: .systemLarge, pack: Self.pack, picks: MetaPicks(tier: "all", days: 90)) }
+    }
+
+    @ViewBuilder private var archetype: some View {
+        let picks = MetaPicks(tier: "all", days: 30)
+        caption("Archetype matchups · small, medium, large")
+        HStack(spacing: 16) {
+            tile(.systemSmall) { ArchetypeWidgetView(family: .systemSmall, pack: Self.pack, picks: picks) }
+            tile(.systemSmall) { ArchetypeWidgetView(family: .systemSmall, pack: Self.pack, picks: MetaPicks(tier: "all", days: 30, archetype: 17)) }
+        }
+        tile(.systemMedium) { ArchetypeWidgetView(family: .systemMedium, pack: Self.pack, picks: picks) }
+        tile(.systemLarge) { ArchetypeWidgetView(family: .systemLarge, pack: Self.pack, picks: MetaPicks(tier: "all", days: 30, archetype: 17)) }
+    }
+
     private func caption(_ s: String) -> some View {
         Text(s.uppercased()).font(.system(size: 11, design: .monospaced)).tracking(1.2).foregroundStyle(.white)
     }
@@ -82,11 +118,12 @@ struct WidgetsDemoRoot: View {
         let size: CGSize = switch family {
         case .systemSmall: CGSize(width: 170, height: 170)
         case .systemMedium: CGSize(width: 364, height: 170)
+        case .systemLarge: CGSize(width: 364, height: 382)
         case .accessoryRectangular: CGSize(width: 172, height: 76)
         case .accessoryInline: CGSize(width: 250, height: 22)
         default: CGSize(width: 170, height: 170)
         }
-        let system = family == .systemSmall || family == .systemMedium
+        let system = family == .systemSmall || family == .systemMedium || family == .systemLarge
         return content()
             .padding(system ? 16 : 0)
             .frame(width: size.width, height: size.height, alignment: .topLeading)

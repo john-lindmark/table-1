@@ -117,6 +117,23 @@
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_match" />
         </receiver>
+        <receiver android:name=".widgets.MetaWidgetReceiver" android:exported="true" android:label="@string/widget_meta_name">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_meta" />
+        </receiver>
+        <receiver android:name=".widgets.MatchupGridWidgetReceiver" android:exported="true" android:label="@string/widget_grid_name">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_grid" />
+        </receiver>
+        <receiver android:name=".widgets.ArchetypeWidgetReceiver" android:exported="true" android:label="@string/widget_archetype_name">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_archetype" />
+        </receiver>
+        <!-- The Insights widgets' settings (format, events, window, archetype). -->
+        <activity android:name=".widgets.MetaWidgetConfigActivity" android:exported="true" android:theme="@style/Theme.Table1"
+            android:taskAffinity="" android:excludeFromRecents="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" /></intent-filter>
+        </activity>
 
         <!-- Quick Settings tiles: Life tracker and Scan cards (iOS's Control Center controls). -->
         <service android:name=".widgets.TrackerTileService" android:exported="true" android:label="@string/control_tracker"

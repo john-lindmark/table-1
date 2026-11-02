@@ -191,6 +191,8 @@ final class SessionModel {
         case "scan":
             Telemetry.capture("control_used", ["control": "scan"])
             pendingLibrary = [.addScan]
+        case "insights":
+            pendingInsightsPush = PushRoutes.insightsWidget(url)
         default:
             break
         }
@@ -479,8 +481,15 @@ struct SignedInView: View {
                 let store = InsightsStore.shared
                 store.section = p.section
                 if p.section == "constructed" { store.format = p.key } else { store.setCode = p.key }
+                if let t = p.tier.flatMap(Insights.Tier.init) { store.tierPicked = t }
+                if let d = p.days { store.days = d }
                 tab = .insights
-                insightsPath = p.what == "rank" ? [.library(.rankings(RankSubject.setId(p.key)))] : []
+                insightsPath = switch p.what {
+                case "rank": [.library(.rankings(RankSubject.setId(p.key)))]
+                case "matchups": [.matchups(p.key)]
+                case let w where w.hasPrefix("archetype:"): Int(w.dropFirst(10)).map { [.archetype(p.key, $0)] } ?? []
+                default: []
+                }
                 await store.load(force: true)
             }
         }

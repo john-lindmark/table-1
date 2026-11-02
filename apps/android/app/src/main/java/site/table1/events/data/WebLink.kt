@@ -19,6 +19,8 @@ sealed interface WebLink {
     /** A tab ("events", "collection", "account") and the nav routes above it, parents first. */
     data class Screens(val tab: String, val stack: List<String>) : WebLink
     data class Tracker(val matchId: String?) : WebLink
+    /** An Insights widget's tap: the format on the widget's events and window, then the grid or an archetype's page. */
+    data class Insights(val format: String, val tier: String?, val days: Int?, val stack: List<String>) : WebLink
     /** table-1.site, but no screen in the app (privacy policy, account deletion, a web sign-in's return): the browser. */
     data object Web : WebLink
 
@@ -31,6 +33,7 @@ sealed interface WebLink {
         is Shared -> "shared"
         is Screens -> if (tab == "events" && stack.isNotEmpty()) "event" else tab
         is Tracker -> "tracker"
+        is Insights -> "insights"
         Web -> "web"
     }
 
@@ -58,6 +61,16 @@ sealed interface WebLink {
                 "collection" -> Screens("collection", emptyList())
                 "tracker" -> Tracker(null)
                 "scan" -> Screens("collection", listOf("collection/add/scan"))
+                // Insights widgets: table1://insights/<format>[/matchups | /archetype/<id>]?tier=big&days=30
+                "insights" -> p.firstOrNull()?.let { f ->
+                    val q = (u.rawQuery ?: "").split("&").associate { it.substringBefore("=") to it.substringAfter("=", "") }
+                    val stack = when {
+                        p.getOrNull(1) == "matchups" -> listOf("insights/matchups/$f")
+                        p.getOrNull(1) == "archetype" && p.getOrNull(2)?.toIntOrNull() != null -> listOf("insights/arch/$f/${p[2]}")
+                        else -> emptyList()
+                    }
+                    Insights(f, q["tier"]?.takeIf { it == "big" || it == "all" }, q["days"]?.toIntOrNull()?.takeIf { it in listOf(7, 14, 30, 90) }, stack)
+                }
                 else -> null
             } ?: return null
             return link to src

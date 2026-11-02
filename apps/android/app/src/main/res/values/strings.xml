@@ -6,6 +6,12 @@
     <string name="widget_next_name">Next event</string>
     <string name="widget_value_name">Collection value</string>
     <string name="widget_match_name">Current match</string>
+    <string name="widget_meta_name">Meta</string>
+    <string name="widget_meta_description">A format\'s most played archetypes, and how their shares moved.</string>
+    <string name="widget_grid_name">Matchup grid</string>
+    <string name="widget_grid_description">How the most played archetypes do against each other.</string>
+    <string name="widget_archetype_name">Archetype matchups</string>
+    <string name="widget_archetype_description">One archetype\'s win rate and how it does against the rest of the meta.</string>
     <string name="control_tracker">Life tracker</string>
     <string name="control_tracker_long">Open the life tracker</string>
     <string name="control_scan">Scan cards</string>

@@ -99,6 +99,19 @@ class WidgetGalleryTest {
         draw("match-none", "Current match · none", null as LiveSnapshot?) { size, s -> MatchContent(s, size, tap) { _, _, _ -> tap } }
     }
 
+    /** The live Modern pack of 2026-11-02 (testdata/meta-widgets/modern.json). */
+    private val meta: MetaPack = MetaPacks.decode(File(generateSequence(File("").absoluteFile) { it.parentFile }
+        .map { File(it, "testdata/meta-widgets") }.first { it.isDirectory }, "modern.json").readText())!!
+
+    @Test fun insights() {
+        draw("meta", "Meta · Big events, 30 days", meta) { size, p -> MetaContent(p, MetaPicks(), size, tap) }
+        draw("meta-7d", "Meta · All events, 7 days", meta) { size, p -> MetaContent(p, MetaPicks(tier = "all", days = 7), size, tap) }
+        draw("meta-none", "Meta · no pack yet", null as MetaPack?) { size, p -> MetaContent(p, MetaPicks(), size, tap) }
+        draw("matchup-grid", "Matchup grid · Big events, 30 days", meta) { size, p -> MatchupGridContent(p, MetaPicks(), size, tap) }
+        draw("archetype", "Archetype matchups · most played", meta) { size, p -> ArchetypeContent(p, MetaPicks(tier = "all"), size, tap) }
+        draw("archetype-boros", "Archetype matchups · Boros Energy", meta) { size, p -> ArchetypeContent(p, MetaPicks(tier = "all", archetype = 17), size, tap) }
+    }
+
     private fun <D> draw(file: String, title: String, data: D, content: @Composable (DpSize, D) -> Unit) = runBlocking {
         val d = context.resources.displayMetrics.density
         val gap = (16 * d).toInt()

@@ -243,6 +243,13 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
         autoOpenArmed = false
         when (link) {
             is WebLink.Screens -> show(link.tab, link.stack)
+            is WebLink.Insights -> {
+                InsightsStore.pickSection("constructed")
+                InsightsStore.pickFormat(link.format)
+                link.tier?.let(InsightsStore::pickTier)
+                link.days?.let(InsightsStore::pickDays)
+                show("insights", link.stack)
+            }
             is WebLink.Tracker -> show("events", listOf(link.matchId?.let { "tracker/$it" } ?: "tracker"))
             is WebLink.JoinCode -> runCatching { Repo.joinByCode(link.code) }
                 .onSuccess { show("events", listOf("event/${it.eventId}")) }

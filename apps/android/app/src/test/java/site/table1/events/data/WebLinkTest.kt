@@ -32,6 +32,8 @@ class WebLinkTest {
         is WebLink.Tracker -> listOfNotNull("tracker", link.matchId).joinToString(" ")
         WebLink.Web -> "web"
         is WebLink.Screens -> (listOf(link.tab) + link.stack.map(::screen)).joinToString(" > ")
+        // Only from a widget's table1:// address (MetaWidgetDataTest), never a web link.
+        is WebLink.Insights -> "insights ${link.format}"
     }
 
     private val screens = listOf(

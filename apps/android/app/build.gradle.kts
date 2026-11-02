@@ -137,3 +137,24 @@ dependencies {
     testImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.test.manifest)
 }
+
+// ReleaseChecks: every GlanceAppWidget must survive R8 whole and under its own name. Glance finds a widget's ids by its
+// provider's class name; when R8 merged the three widget classes into one, every widget turned into Collection value
+// (2026-11-02). Runs after R8 on each release build and fails it when a widget class is missing or renamed.
+tasks.matching { it.name == "minifyReleaseWithR8" }.configureEach {
+    doLast {
+        val mapping = layout.buildDirectory.file("outputs/mapping/release/mapping.txt").get().asFile
+        if (!mapping.exists()) return@doLast
+        val widgets = fileTree("src/main/java").matching { include("**/*.kt") }.files.flatMap { f ->
+            val pkg = Regex("^package ([\\w.]+)", RegexOption.MULTILINE).find(f.readText())?.groupValues?.get(1) ?: return@flatMap emptyList()
+            Regex("class (\\w+)\\s*:\\s*GlanceAppWidget\\(").findAll(f.readText()).map { "$pkg.${it.groupValues[1]}" }.toList()
+        }
+        val kept = mapping.useLines { lines ->
+            lines.filter { !it.startsWith(" ") && !it.startsWith("#") }
+                .mapNotNull { Regex("^(\\S+) -> (\\S+):$").find(it)?.destructured?.let { (from, to) -> from to to } }.toMap()
+        }
+        val bad = widgets.filter { kept[it] != it }
+        if (widgets.isEmpty() || bad.isNotEmpty())
+            throw GradleException("R8 renamed or merged home screen widget classes (keep them in proguard-rules.pro): ${bad.ifEmpty { listOf("none found") }}")
+    }
+}

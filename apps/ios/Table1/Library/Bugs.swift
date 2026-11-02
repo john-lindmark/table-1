@@ -197,11 +197,30 @@ struct InsightsPush: Equatable {
     let section: String
     /// a format (modern) or a set / cube version (FRA, PWR-2510)
     let key: String
-    /// data: the format or set; rank: the set's Rankings
+    /// data: the format or set; rank: the set's Rankings; matchups: the format's grid; archetype:<id>: its page
     let what: String
+    /// A widget's picks (contract/widgets-2026-10-22.md § Meta widgets): big or all, and the window in days.
+    var tier: String? = nil
+    var days: Int? = nil
 }
 
 enum PushRoutes {
+    /// A tapped Insights widget: `table1://insights/<format>[/matchups | /archetype/<id>]?tier=big&days=30`.
+    static func insightsWidget(_ url: URL) -> InsightsPush? {
+        guard url.scheme == "table1", url.host() == "insights" else { return nil }
+        let p = url.pathComponents.filter { $0 != "/" }
+        guard let format = p.first, !format.isEmpty else { return nil }
+        let q = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let tier = q.first { $0.name == "tier" }?.value.flatMap { ["big", "all"].contains($0) ? $0 : nil }
+        let days = q.first { $0.name == "days" }?.value.flatMap(Int.init).flatMap { [7, 14, 30, 90].contains($0) ? $0 : nil }
+        let what = switch p.dropFirst().first {
+        case "matchups": "matchups"
+        case "archetype": p.count > 2 ? Int(p[2]).map { "archetype:\($0)" } ?? "data" : "data"
+        default: "data"
+        }
+        return InsightsPush(section: "constructed", key: format, what: what, tier: tier, days: days)
+    }
+
     static func insights(_ info: [AnyHashable: Any]) -> InsightsPush? {
         guard info["kind"] as? String == "insights.new", let section = info["insights_section"] as? String,
               section == "constructed" || section == "limited", let key = info["insights_key"] as? String, !key.isEmpty else { return nil }

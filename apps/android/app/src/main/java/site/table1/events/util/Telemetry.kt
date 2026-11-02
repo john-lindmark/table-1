@@ -30,6 +30,9 @@ import site.table1.events.BuildConfig
 import site.table1.events.T1App
 import site.table1.events.widgets.MatchWidgetReceiver
 import site.table1.events.widgets.NextEventWidgetReceiver
+import site.table1.events.widgets.MetaWidgetReceiver
+import site.table1.events.widgets.MatchupGridWidgetReceiver
+import site.table1.events.widgets.ArchetypeWidgetReceiver
 import site.table1.events.widgets.ValueWidgetReceiver
 
 /**
@@ -184,6 +187,9 @@ object Telemetry {
         NextEventWidgetReceiver::class.java to "next_event",
         ValueWidgetReceiver::class.java to "value",
         MatchWidgetReceiver::class.java to "match",
+        MetaWidgetReceiver::class.java to "meta",
+        MatchupGridWidgetReceiver::class.java to "matchup_grid",
+        ArchetypeWidgetReceiver::class.java to "archetype",
     )
 
     /**

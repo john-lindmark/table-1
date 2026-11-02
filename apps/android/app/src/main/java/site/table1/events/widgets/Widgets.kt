@@ -6,7 +6,10 @@ import android.net.Uri
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
-import androidx.glance.appwidget.updateAll
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.text.FontFamily
 import androidx.glance.text.FontWeight
 import androidx.glance.text.TextStyle
@@ -53,7 +56,7 @@ object Widgets {
         val new = NextEventData(home.events.map(NextEventItem::of), home.invites.size, System.currentTimeMillis())
         val old = next(context)
         prefs(context).edit().putString("next", json.encodeToString(NextEventData.serializer(), new)).apply()
-        if (old?.events != new.events || old.invites != new.invites) scope.launch { NextEventWidget().updateAll(context) }
+        if (old?.events != new.events || old.invites != new.invites) refresh(context, NextEventWidget(), NextEventWidgetReceiver::class.java)
     }
 
     suspend fun nextFresh(context: Context): NextEventData? {
@@ -78,7 +81,7 @@ object Widgets {
         val r = ValueHistory.record(old, user, s.valueUsd, s.uniqueCards, s.totalQty)
             .let { if (fetched) it.copy(fetchedAt = System.currentTimeMillis()) else it.copy(fetchedAt = old?.takeIf { o -> o.userId == user }?.fetchedAt ?: 0) }
         prefs(context).edit().putString("value", json.encodeToString(ValueRecord.serializer(), r)).apply()
-        if (old?.points != r.points || old.cards != r.cards) scope.launch { ValueWidget().updateAll(context) }
+        if (old?.points != r.points || old.cards != r.cards) refresh(context, ValueWidget(), ValueWidgetReceiver::class.java)
     }
 
     suspend fun valueFresh(context: Context): ValueRecord? {
@@ -112,13 +115,26 @@ object Widgets {
         return withTimeoutOrNull(8_000) { Repo.liveState() } ?: held?.first
     }
 
-    fun updateMatch(context: Context) { scope.launch { MatchWidget().updateAll(context) } }
+    fun updateMatch(context: Context) = refresh(context, MatchWidget(), MatchWidgetReceiver::class.java)
 
     /** Signed out: the old account's numbers go, and the widgets say so. */
     fun clear(context: Context) {
         prefs(context).edit().clear().apply()
+        refresh(context, NextEventWidget(), NextEventWidgetReceiver::class.java)
+        refresh(context, ValueWidget(), ValueWidgetReceiver::class.java)
+        refresh(context, MatchWidget(), MatchWidgetReceiver::class.java)
+    }
+
+    /**
+     * Redraws the widgets placed through [receiver] with [widget]. By the receiver's own ids, never Glance's updateAll:
+     * that looks ids up by the provider's class name, and when R8 gave the three widget classes one name every widget
+     * turned into Collection value (2026-11-02; proguard-rules.pro now keeps the names too).
+     */
+    fun refresh(context: Context, widget: GlanceAppWidget, receiver: Class<*>) {
         scope.launch {
-            NextEventWidget().updateAll(context); ValueWidget().updateAll(context); MatchWidget().updateAll(context)
+            val ids = AppWidgetManager.getInstance(context)?.getAppWidgetIds(ComponentName(context, receiver)) ?: return@launch
+            val glance = GlanceAppWidgetManager(context)
+            for (id in ids) runCatching { widget.update(context, glance.getGlanceIdBy(id)) }
         }
     }
 

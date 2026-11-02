@@ -171,7 +171,9 @@ enum Telemetry {
             guard key != UserDefaults.standard.string(forKey: widgetsKey) else { return }
             let first = UserDefaults.standard.string(forKey: widgetsKey) == nil
             UserDefaults.standard.set(key, forKey: widgetsKey)
-            if !(first && widgets.isEmpty) { capture("widgets_changed", ["count": widgets.count, "families": families]) }
+            if !(first && widgets.isEmpty) {
+                capture("widgets_changed", ["count": widgets.count, "families": families, "kinds": widgets.map(\.kind).sorted()])
+            }
         }
     }
 
