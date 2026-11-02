@@ -310,6 +310,8 @@ struct CardScanView: View {
     /// The row whose printing is being changed; the camera is off meanwhile, so nothing is taken behind it.
     @State private var fixing: UUID?
     @State private var listHeight: CGFloat = 0
+    /// Back with cards scanned asks whether to add them first, so a tap on the arrow never throws a pile away.
+    @State private var leaving: LeavePrompt?
     private var catalog: CatalogStore { CatalogStore.shared }
 
     /// The steadiness and frame memory every camera frame feeds, in a class: as `@State` structs, written about five
@@ -346,9 +348,38 @@ struct CardScanView: View {
         }
     }
 
+    /// What Back asks once cards are scanned: add them (the screen's own action) or leave without adding. None asked
+    /// with nothing scanned.
+    struct LeavePrompt: Equatable {
+        let title: String
+        let message: String
+        let add: String
+
+        static func of(count: Int, doneLabel: String) -> LeavePrompt? {
+            guard count > 0 else { return nil }
+            let cards = count == 1 ? "1 card" : "\(count) cards"
+            return LeavePrompt(title: "\(doneLabel) the \(cards) you scanned?",
+                               message: "Leaving without adding them throws the scanned cards away.",
+                               add: "\(doneLabel) \(count)")
+        }
+    }
+
+    private func back() {
+        if let prompt = LeavePrompt.of(count: count, doneLabel: doneLabel) { leaving = prompt } else { cancel() }
+    }
+
     private func cancel() {
         ScanReports.scannerClosed(taken: taken, frames: feed.frames, ownedOnly: owned != nil)
         onCancel()
+    }
+
+    private func leave(_ choice: String) {
+        Telemetry.capture("scan_leave_answered", ["choice": choice, "cards": count, "owned_only": owned != nil])
+        switch choice {
+        case "add": onDone(cards)
+        case "discard": cancel()
+        default: break
+        }
     }
 
     private func closePrinting() {
@@ -360,7 +391,7 @@ struct CardScanView: View {
     private var scanner: some View {
         T1Screen {
             Bar(title: title, subtitle: cards.isEmpty ? (owned == nil ? "Hold a card flat in the frame" : "Matching cards you own")
-                                                      : "\(count) scanned", back: cancel)
+                                                      : "\(count) scanned", back: back)
             if !CardTextScanner.isAvailable {
                 Notice("The camera isn't available. Allow camera access for Table 1 in Settings, or search by name instead.", error: true)
                 Spacer(minLength: 0)
@@ -400,6 +431,14 @@ struct CardScanView: View {
             makeMatcher()
         }
         .onChange(of: catalog.generation) { makeMatcher() }
+        .alert(leaving?.title ?? "", isPresented: Binding(get: { leaving != nil }, set: { if !$0 { leaving = nil } }),
+               presenting: leaving) { p in
+            Button(p.add) { leave("add") }
+            Button("Leave without adding", role: .destructive) { leave("discard") }
+            Button("Keep scanning", role: .cancel) { leave("stay") }
+        } message: { p in
+            Text(p.message)
+        }
     }
 
     /// The matcher's name index takes a moment to build the first time, so it's built off the main thread.
@@ -415,7 +454,8 @@ struct CardScanView: View {
     /// card's: a type line, or a set code and number that agree with the name. Otherwise a keyboard's "option" key
     /// is Opt (its French name) and a decklist on a screen is a card.
     private func see(_ lines: [String], onCard: Bool, border: ScanBorder = .unknown) -> Bool {
-        guard let matcher else { return false }
+        // Nothing is taken while Back is asking, so the count it asked about is the count added.
+        guard leaving == nil, let matcher else { return false }
         var m = matcher.match(lines, border: border)
         if !onCard, m?.exact != true, !CardMatcher.hasTypeLine(lines) { m = nil }
         feed.frames.add(lines, named: m != nil)

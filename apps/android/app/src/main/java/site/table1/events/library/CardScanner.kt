@@ -73,7 +73,10 @@ import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Segmented
+import site.table1.events.ui.components.T1AlertDialog
+import site.table1.events.ui.components.T1TextAction
 import site.table1.events.ui.components.FullScreenDialog
+import site.table1.events.util.Telemetry
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
@@ -111,6 +114,21 @@ data class ScannedCard(
     val lang: String = "en",
 ) {
     data class Matched(val cardId: String, val exact: Boolean)
+}
+
+/**
+ * What Back asks once cards are scanned: add them (the screen's own action) or leave without adding. None asked with
+ * nothing scanned.
+ */
+data class ScanLeavePrompt(val title: String, val message: String, val add: String) {
+    companion object {
+        fun of(count: Int, doneLabel: String): ScanLeavePrompt? {
+            if (count <= 0) return null
+            val cards = if (count == 1) "1 card" else "$count cards"
+            return ScanLeavePrompt("$doneLabel the $cards you scanned?",
+                "Leaving without adding them throws the scanned cards away.", "$doneLabel $count")
+        }
+    }
 }
 
 /** Full-screen scanner used by Add cards and Trades. Collects cards until Done; nothing is written here. */
@@ -155,6 +173,20 @@ fun CardScanOverlay(
         ScanReports.scannerClosed(taken, frames, owned != null)
         onCancel()
     }
+    /** Back with cards scanned asks whether to add them first, so a tap on the arrow never throws a pile away. */
+    var leaving by remember { mutableStateOf<ScanLeavePrompt?>(null) }
+    val back = {
+        val prompt = ScanLeavePrompt.of(cards.size, doneLabel)
+        if (prompt != null) leaving = prompt else cancel()
+    }
+    fun leave(choice: String) {
+        Telemetry.capture("scan_leave_answered", mapOf("choice" to choice, "cards" to cards.size, "owned_only" to (owned != null)))
+        leaving = null
+        when (choice) {
+            "add" -> onDone(cards.toList())
+            "discard" -> cancel()
+        }
+    }
 
     val view = LocalView.current
     /**
@@ -162,6 +194,8 @@ fun CardScanOverlay(
      * look like a card's: a type line, or a set code and number that agree with the name (CardMatcher.hasTypeLine).
      */
     fun see(lines: List<String>, border: ScanBorder): Boolean {
+        // Nothing is taken while Back is asking, so the count it asked about is the count added.
+        if (leaving != null) return false
         val m = matcher ?: return false
         val hit = m.match(lines, border)?.takeIf { it.exact || CardMatcher.hasTypeLine(lines) }
         frames.add(lines, named = hit != null)
@@ -180,7 +214,7 @@ fun CardScanOverlay(
         return true
     }
 
-    Dialog(onDismissRequest = cancel, properties = FullScreenDialog) {
+    Dialog(onDismissRequest = back, properties = FullScreenDialog) {
         val fix = fixing?.let { id -> cards.firstOrNull { it.id == id } }
         val langCard = languageFor?.let { id -> cards.firstOrNull { it.id == id } }
         if (langCard != null) {
@@ -204,7 +238,7 @@ fun CardScanOverlay(
         } else Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
                 Bar(title, subtitle = if (cards.isEmpty()) (if (owned == null) "Hold a card flat in the frame" else "Matching cards you own")
-                    else "${cards.size} scanned", onBack = cancel)
+                    else "${cards.size} scanned", onBack = back)
                 when {
                     !granted -> {
                         Notice(if (asked) "Camera access is off. Allow it for Table 1 in Settings, or search by name instead."
@@ -242,6 +276,21 @@ fun CardScanOverlay(
                     onDone(cards.toList())
                 }
             }
+        }
+        leaving?.let { p ->
+            T1AlertDialog(
+                title = p.title,
+                onDismiss = { leave("stay") },
+                body = { Text(p.message, fontFamily = T1.mono, color = T1.muted, fontSize = 13.sp) },
+                // One per line: three side by side don't fit a phone's dialog.
+                confirm = {
+                    Column(horizontalAlignment = Alignment.End) {
+                        T1TextAction(p.add) { leave("add") }
+                        T1TextAction("Leave without adding", color = T1.danger) { leave("discard") }
+                        T1TextAction("Keep scanning") { leave("stay") }
+                    }
+                },
+            )
         }
     }
 }
