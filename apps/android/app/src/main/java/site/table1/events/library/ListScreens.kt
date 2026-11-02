@@ -74,13 +74,15 @@ data class ListLine(val cardId: String, val printing: CatalogPrinting?, val orac
                     /** Its group under each grouping (Group by in the View menu). */
                     val keys: GroupKeys = GroupKeys(), val lang: String = "en",
                     /** Who it shares the command zone with ([CommandZone.Mate]), null when the catalog doesn't say. */
-                    val pair: String? = null) {
+                    val pair: String? = null, val cond: String = "NM") {
     val ownKey get() = ownKey(cardId, finish)
-    val key get() = "$board|$cardId|$finish|$lang"
+    val key get() = "$board|$cardId|$finish|$lang|$cond"
     /** "Foil" / "Etched"; null for non-foil. */
     val finishLabel get() = if (finish == "nonfoil") null else finish.replaceFirstChar { it.uppercase() }
     /** "JA" for a non-English line; null for English. */
     val langLabel get() = if (lang == "en") null else lang.uppercase()
+    /** "LP" for a line in any condition but near mint; null for NM. */
+    val condLabel get() = if (cond == "NM") null else cond
 }
 
 private data class CardMeta(val printing: CatalogPrinting?, val oracleId: String?, val name: String, val type: String,
@@ -102,7 +104,7 @@ private fun lines(l: CardList, meta: Map<String, CardMeta>, by: CardGrouping): L
 private fun lines(entries: List<ListEntry>, meta: Map<String, CardMeta>, by: CardGrouping): List<ListLine> = entries.mapNotNull { e ->
     val m = meta[e.cardId] ?: return@mapNotNull null
     val type = m.type.substringBefore(" // ")
-    ListLine(e.cardId, m.printing, m.oracleId, m.name, m.keys[by], e.board, e.qty, m.legal, e.finish, m.points, "Basic" in type, m.type, m.keys, e.lang, m.pair)
+    ListLine(e.cardId, m.printing, m.oracleId, m.name, m.keys[by], e.board, e.qty, m.legal, e.finish, m.points, "Basic" in type, m.type, m.keys, e.lang, m.pair, e.cond)
 }.sortedBy { it.name }
 
 /** A shared deck's or cube's entries as lines (ProfileCardsScreen), resolved off the main thread. */
@@ -171,7 +173,7 @@ fun rememberHoldings(listing: Collection<String>): Holdings {
 @Composable
 private fun ownedByLanguage(): Map<String, Int> {
     val col by CollectionStore.state.collectAsState()
-    return remember(col.items) { col.items.values.groupBy { "${it.cardId}|${it.finish}|${it.lang}" }.mapValues { (_, v) -> v.sumOf { it.qty } } }
+    return remember(col.items) { col.items.values.groupBy { "${it.cardId}|${it.finish}|${it.lang}|${it.condition}" }.mapValues { (_, v) -> v.sumOf { it.qty } } }
 }
 
 private fun fmtDate(epoch: Double): String = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date((epoch * 1000).toLong()))
@@ -299,7 +301,7 @@ fun NewListPanel(kind: ListKind, onDismiss: () -> Unit, onCreated: (String) -> U
 
 @Composable
 fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Unit, onAdd: () -> Unit, onVersions: () -> Unit,
-                     onOpen: (String) -> Unit, onPrinting: (cardId: String, board: String, finish: String, lang: String) -> Unit = { _, _, _, _ -> },
+                     onOpen: (String) -> Unit, onPrinting: (cardId: String, board: String, finish: String, lang: String, cond: String) -> Unit = { _, _, _, _, _ -> },
                      onStats: () -> Unit = {}, onRankings: (() -> Unit)? = null, onSync: (() -> Unit)? = null,
                      onInsights: ((format: String, archetype: Int) -> Unit)? = null) {
     val s by ListsStore.state.collectAsState()
@@ -311,7 +313,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
         if (list != null) {
             val ns = OwnedByCard.needs(list)
             OwnedByCard.shorts(ns, owned, CatalogStore.basics).forEachIndexed { i, n ->
-                if (n > 0) ns[i].let { e -> m.merge("${e.board}|${e.cardId}|${e.finish}|${e.lang}", n, Int::plus) }
+                if (n > 0) ns[i].let { e -> m.merge("${e.board}|${e.cardId}|${e.finish}|${e.lang}|${e.cond}", n, Int::plus) }
             }
         }
         m
@@ -381,11 +383,11 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                 if (main < 100) Notice("Canadian Highlander decks need at least 100 cards: $main so far.")
             }
             if (showsZone) {
-                val lineOf = { slot: CommandZone.Slot -> zone.firstOrNull { it.cardId == slot.cardId && it.finish == slot.finish && it.lang == slot.lang } }
-                CommandZoneCards(CommandZone.slots(list.format, zone.map { CommandZone.Line(it.cardId, it.type, it.finish, it.lang, it.pair) }),
+                val lineOf = { slot: CommandZone.Slot -> zone.firstOrNull { it.cardId == slot.cardId && it.finish == slot.finish && it.lang == slot.lang && it.cond == slot.cond } }
+                CommandZoneCards(CommandZone.slots(list.format, zone.map { CommandZone.Line(it.cardId, it.type, it.finish, it.lang, it.pair, it.cond) }),
                     commander = zoneCommander,
                     card = { sl -> lineOf(sl)?.let { it.name to it.printing } }, onChoose = { choosingZone = it },
-                    onRemove = { sl -> sl.cardId?.let { id -> scope.launch { ListsStore.remove(list.id, id, CommandZone.BOARD, sl.finish, sl.lang) } } },
+                    onRemove = { sl -> sl.cardId?.let { id -> scope.launch { ListsStore.remove(list.id, id, CommandZone.BOARD, sl.finish, sl.lang, sl.cond) } } },
                     onOpen = { sl -> lineOf(sl)?.oracleId?.let(onCard) })
             }
             if (editing) ListRow("Name", list.name, onClick = { renaming = true }) { Label("Change", color = T1.text) }
@@ -432,7 +434,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
         val owns = if (considering) (if (have > 0) "Owned $have" else "Not owned") else if (short) "Owned $have · missing $need"
             else if (x.basic && have == 0) null else "Owned $have"
         val pts = if (x.points > 0 && list.format == "canlander") "${x.points} pt${if (x.points == 1) "" else "s"}" else null
-        CardRow(x.printing, if (sub) x.printing?.setLabel ?: x.name else x.name, listOfNotNull(if (sub) null else issue, pts, x.finishLabel, x.langLabel, owns).joinToString(" · "),
+        CardRow(x.printing, if (sub) x.printing?.setLabel ?: x.name else x.name, listOfNotNull(if (sub) null else issue, pts, x.finishLabel, x.langLabel, x.condLabel, owns).joinToString(" · "),
             onClick = { x.oracleId?.let(onCard) }, finish = x.finish, hero = !sub && heroes.isHero(x.oracleId, heroScope), indent = sub) {
             Text("${x.qty}", color = if (short || issue != null) T1.error else T1.text, fontFamily = T1.mono, fontSize = 17.sp)
         }
@@ -530,13 +532,13 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                             if (editing) {
                                 Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                                     Box(Modifier.weight(1f)) {
-                                        CardRow(x.printing, x.name, listOfNotNull(x.finishLabel, x.langLabel, "Tap to move, change or remove").joinToString(" · "), onClick = { moving = x },
+                                        CardRow(x.printing, x.name, listOfNotNull(x.finishLabel, x.langLabel, x.condLabel, "Tap to move, change or remove").joinToString(" · "), onClick = { moving = x },
                                             finish = x.finish, hero = heroes.isHero(x.oracleId, heroScope)) {
                                             Text("${x.qty}", color = T1.text, fontFamily = T1.mono, fontSize = 17.sp)
                                         }
                                     }
-                                    Step("−") { scope.launch { runCatching { ListsStore.add(list.id, x.cardId, x.board, -1, x.finish, x.lang) } } }
-                                    Step("+") { scope.launch { runCatching { ListsStore.add(list.id, x.cardId, x.board, 1, x.finish, x.lang) } } }
+                                    Step("−") { scope.launch { runCatching { ListsStore.add(list.id, x.cardId, x.board, -1, x.finish, x.lang, x.cond) } } }
+                                    Step("+") { scope.launch { runCatching { ListsStore.add(list.id, x.cardId, x.board, 1, x.finish, x.lang, x.cond) } } }
                                 }
                             }
                         }
@@ -548,8 +550,8 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     moving?.let { x ->
         val zoneSection = if (list.kind == ListKind.Deck && list.format in CommandZone.FORMATS && x.board != CommandZone.BOARD) listOf(CommandZone.BOARD) else emptyList()
         T1Menu(x.name, (zoneSection + list.sections).filter { it != x.board }.map { b ->
-            T1MenuItem("Move to ${list.boardTitle(b)}") { scope.launch { runCatching { ListsStore.move(list.id, x.cardId, x.board, b, x.finish, x.lang) } } }
-        } + T1MenuItem("Change printing or finish") { onPrinting(x.cardId, x.board, x.finish, x.lang) } +
+            T1MenuItem("Move to ${list.boardTitle(b)}") { scope.launch { runCatching { ListsStore.move(list.id, x.cardId, x.board, b, x.finish, x.lang, x.cond) } } }
+        } + T1MenuItem("Change printing or finish") { onPrinting(x.cardId, x.board, x.finish, x.lang, x.cond) } +
             listOfNotNull(x.oracleId?.let { o ->
                 val on = heroes.isHero(o, heroScope)
                 T1MenuItem(if (on) "Not a hero card" else "Make it a hero card") {
@@ -557,7 +559,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                 }
             }) +
             T1MenuItem("Remove from ${list.boardTitle(x.board)}", danger = true) {
-            scope.launch { runCatching { ListsStore.remove(list.id, x.cardId, x.board, x.finish, x.lang) } }
+            scope.launch { runCatching { ListsStore.remove(list.id, x.cardId, x.board, x.finish, x.lang, x.cond) } }
         }, onDismiss = { moving = null })
     }
     if (confirmDelete) {
@@ -569,7 +571,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
     }
     choosingZone?.let { slot ->
         val deck = rows.filter { it.board != CommandZone.BOARD }.map {
-            ZoneDeckCard(CommandZone.DeckLine(it.cardId, it.board, it.type, it.finish, it.lang, it.qty, it.pair), it.name, it.printing)
+            ZoneDeckCard(CommandZone.DeckLine(it.cardId, it.board, it.type, it.finish, it.lang, it.qty, it.pair, it.cond), it.name, it.printing)
         }
         CommandZonePicker(slot.role, onDismiss = { choosingZone = null }, deck = deck,
             partnerOf = if (slot.role == CommandZone.Role.Partner) zoneCommander else null, onPickDeck = { d ->
@@ -578,10 +580,10 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                     ListsStore.editMany(list.id, CommandZone.movingIn(d.line, slot).map { op ->
                         when (op) {
                             is CommandZone.Op.Move -> buildJsonObject {
-                                put("card_id", op.cardId); put("finish", op.finish); put("lang", op.lang); put("from", op.from); put("to", op.to)
+                                put("card_id", op.cardId); put("finish", op.finish); put("lang", op.lang); put("cond", op.cond); put("from", op.from); put("to", op.to)
                             }
                             is CommandZone.Op.Delta -> buildJsonObject {
-                                put("card_id", op.cardId); put("board", op.board); put("finish", op.finish); put("lang", op.lang); put("delta", op.by)
+                                put("card_id", op.cardId); put("board", op.board); put("finish", op.finish); put("lang", op.lang); put("cond", op.cond); put("delta", op.by)
                             }
                         }
                     })
@@ -591,7 +593,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
         }) { _, p ->
             scope.launch {
                 val id = slot.cardId
-                if (id != null) ListsStore.swap(list.id, id, CommandZone.BOARD, slot.finish, p.cardId, "nonfoil", null, slot.lang, "en")
+                if (id != null) ListsStore.swap(list.id, id, CommandZone.BOARD, slot.finish, p.cardId, "nonfoil", null, slot.lang, "en", slot.cond, "NM")
                 else ListsStore.add(list.id, p.cardId, CommandZone.BOARD, 1)
             }
             Telemetry.capture("command_zone_set", mapOf("format" to list.format, "role" to slot.role.wire, "from" to if (slot.cardId == null) "add" else "change"))
@@ -661,11 +663,11 @@ fun ListAddScreen(listId: String, onDone: () -> Unit, @Suppress("UNUSED_PARAMETE
         val r = removePick ?: return
         val a = addPick
         if (a != null) {
-            scope.launch { runCatching { ListsStore.swap(list.id, r.cardId, r.board, r.finish, a.second.cardId, finishOf(a.second), 1, r.lang, a.second.lang) } }
+            scope.launch { runCatching { ListsStore.swap(list.id, r.cardId, r.board, r.finish, a.second.cardId, finishOf(a.second), 1, r.lang, a.second.lang, r.cond, "NM") } }
             Telemetry.capture("list_card_replaced", mapOf("kind" to list.kind.wire))
             note = "Replaced ${r.name} with ${a.first.name} in ${list.boardTitle(r.board)}"
         } else {
-            scope.launch { runCatching { ListsStore.add(list.id, r.cardId, r.board, -1, r.finish, r.lang) } }
+            scope.launch { runCatching { ListsStore.add(list.id, r.cardId, r.board, -1, r.finish, r.lang, r.cond) } }
             Telemetry.capture("list_card_removed", mapOf("kind" to list.kind.wire))
             note = "Removed 1 ${r.name} from ${list.boardTitle(r.board)}"
         }
@@ -714,7 +716,7 @@ fun ListAddScreen(listId: String, onDone: () -> Unit, @Suppress("UNUSED_PARAMETE
                     Notice("Search the cards in ${list.name}. Remove takes one copy out; with a card picked to add, Replace swaps it in the same section.")
                 } else if (removeHits.isEmpty()) item { ListRow("No card in ${list.name} matches") }
                 items(removeHits, key = { "l-${it.key}" }) { x ->
-                    CardRow(x.printing, x.name, listOfNotNull(list.boardTitle(x.board), x.finishLabel, x.langLabel, if (x.qty > 1) "${x.qty} copies" else null).joinToString(" · "),
+                    CardRow(x.printing, x.name, listOfNotNull(list.boardTitle(x.board), x.finishLabel, x.langLabel, x.condLabel, if (x.qty > 1) "${x.qty} copies" else null).joinToString(" · "),
                         onClick = { pickRemove(x) }, finish = x.finish)
                 }
             } else if (addPick == null) {

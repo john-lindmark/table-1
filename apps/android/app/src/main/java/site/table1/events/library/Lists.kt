@@ -36,15 +36,18 @@ import java.util.UUID
 enum class ListKind(val wire: String) { Deck("deck"), Cube("cube") }
 
 /**
- * A line is printing × section × finish × language, so 2 foil and 2 non-foil copies of a card are two lines. A
- * non-English printing is always its own language (contract/lists-2026-10-15.md, "Languages").
+ * A line is printing × section × finish × language × condition, so 2 foil and 2 non-foil copies of a card are two
+ * lines. A non-English printing is always its own language (contract/lists-2026-10-15.md, "Languages"); the condition
+ * is NM unless the copies came from the collection ("Conditions").
  */
-data class ListEntry(val cardId: String, val board: String, val qty: Int, val finish: String = "nonfoil", val lang: String = "en") {
-    fun isLine(cardId: String, board: String, finish: String, lang: String) =
-        this.cardId == cardId && this.board == board && this.finish == finish && this.lang == lang
+data class ListEntry(val cardId: String, val board: String, val qty: Int, val finish: String = "nonfoil", val lang: String = "en",
+                     val cond: String = "NM") {
+    fun isLine(cardId: String, board: String, finish: String, lang: String, cond: String) =
+        this.cardId == cardId && this.board == board && this.finish == finish && this.lang == lang && this.cond == cond
 }
 data class ListVersion(val number: Int, val at: Double, val note: String, val entries: List<ListEntry>)
-data class ListChange(val cardId: String, val board: String, val delta: Int, val finish: String = "nonfoil", val lang: String = "en")
+data class ListChange(val cardId: String, val board: String, val delta: Int, val finish: String = "nonfoil", val lang: String = "en",
+                      val cond: String = "NM")
 
 /** Key into the owned map: "card_id|finish". */
 fun ownKey(cardId: String, finish: String) = "$cardId|$finish"
@@ -83,9 +86,9 @@ data class CardList(val id: String, val kind: ListKind, val name: String, val fo
         /** What changed from `older` (null = nothing) to `newer`, per card and section; removals first. */
         fun diff(older: ListVersion?, newer: ListVersion): List<ListChange> {
             val q = HashMap<String, Int>()
-            older?.entries?.forEach { q.merge("${it.board}|${it.cardId}|${it.finish}|${it.lang}", -it.qty, Int::plus) }
-            newer.entries.forEach { q.merge("${it.board}|${it.cardId}|${it.finish}|${it.lang}", it.qty, Int::plus) }
-            return q.filterValues { it != 0 }.map { (k, d) -> k.split("|", limit = 4).let { ListChange(it[1], it[0], d, it[2], it[3]) } }
+            older?.entries?.forEach { q.merge("${it.board}|${it.cardId}|${it.finish}|${it.lang}|${it.cond}", -it.qty, Int::plus) }
+            newer.entries.forEach { q.merge("${it.board}|${it.cardId}|${it.finish}|${it.lang}|${it.cond}", it.qty, Int::plus) }
+            return q.filterValues { it != 0 }.map { (k, d) -> k.split("|", limit = 5).let { ListChange(it[1], it[0], d, it[2], it[3], it[4]) } }
                 .sortedWith(compareBy<ListChange>({ BOARD_ORDER.indexOf(it.board) }, { it.delta }))
         }
     }
@@ -111,18 +114,20 @@ data class ListWire(
         return CardList(id, if (kind == "cube") ListKind.Cube else ListKind.Deck, name, format ?: "", versions.map { v ->
             ListVersion(v.version, v.at, v.note, v.entries.map {
                 ListEntry(it[0].jsonPrimitive.content, it[1].jsonPrimitive.content, it[2].jsonPrimitive.int,
-                    if (it.size > 3) it[3].jsonPrimitive.content else "nonfoil", if (it.size > 4) it[4].jsonPrimitive.content else "en")
+                    if (it.size > 3) it[3].jsonPrimitive.content else "nonfoil", if (it.size > 4) it[4].jsonPrimitive.content else "en",
+                    if (it.size > 5) it[5].jsonPrimitive.content else "NM")
             })
         }, seq, sourceUrl)
     }
 
     companion object {
-        /** [card_id, board, qty] for non-foil English; foil and etched add the finish; another language adds the finish
-         *  and the language. */
+        /** [card_id, board, qty] for non-foil English NM; foil and etched add the finish; another language adds the finish
+         *  and the language; another condition adds all three. */
         fun entryWire(e: ListEntry) = buildJsonArray {
             add(JsonPrimitive(e.cardId)); add(JsonPrimitive(e.board)); add(JsonPrimitive(e.qty))
-            if (e.finish != "nonfoil" || e.lang != "en") add(JsonPrimitive(e.finish))
-            if (e.lang != "en") add(JsonPrimitive(e.lang))
+            if (e.finish != "nonfoil" || e.lang != "en" || e.cond != "NM") add(JsonPrimitive(e.finish))
+            if (e.lang != "en" || e.cond != "NM") add(JsonPrimitive(e.lang))
+            if (e.cond != "NM") add(JsonPrimitive(e.cond))
         }
 
         fun of(l: CardList) = ListWire(l.id, false, l.kind.wire, l.name, l.format, l.versions.map { v ->
@@ -180,39 +185,40 @@ fun unsavedNotice(l: CardList, why: String): String {
 fun applyListOps(entries: List<ListEntry>, ops: List<JsonObject>): List<ListEntry> {
     val out = entries.toMutableList()
     fun str(o: JsonObject, k: String) = o[k]?.jsonPrimitive?.content
-    fun find(cardId: String, board: String, finish: String, lang: String) = out.indexOfFirst { it.isLine(cardId, board, finish, lang) }
-    fun put(cardId: String, board: String, finish: String, lang: String, q: Int) {
-        val j = find(cardId, board, finish, lang)
-        if (j >= 0) out[j] = out[j].copy(qty = out[j].qty + q) else out.add(ListEntry(cardId, board, q, finish, lang))
+    fun find(cardId: String, board: String, finish: String, lang: String, cond: String) = out.indexOfFirst { it.isLine(cardId, board, finish, lang, cond) }
+    fun put(cardId: String, board: String, finish: String, lang: String, cond: String, q: Int) {
+        val j = find(cardId, board, finish, lang, cond)
+        if (j >= 0) out[j] = out[j].copy(qty = out[j].qty + q) else out.add(ListEntry(cardId, board, q, finish, lang, cond))
     }
     for (op in ops) {
         val cardId = str(op, "card_id") ?: continue
         val fin = str(op, "finish") ?: "nonfoil"
         val lang = str(op, "lang") ?: "en"
+        val cond = str(op, "cond") ?: "NM"
         val from = str(op, "from")
         if (from != null) {
             val to = str(op, "to") ?: continue
-            val i = find(cardId, from, fin, lang)
+            val i = find(cardId, from, fin, lang, cond)
             if (i < 0) continue
             val moved = out.removeAt(i)
-            put(cardId, to, fin, lang, moved.qty)
+            put(cardId, to, fin, lang, cond, moved.qty)
             continue
         }
         val board = str(op, "board") ?: continue
-        if (op.containsKey("to_card_id") || op.containsKey("to_finish") || op.containsKey("to_lang")) {
-            val i = find(cardId, board, fin, lang)
+        if (op.containsKey("to_card_id") || op.containsKey("to_finish") || op.containsKey("to_lang") || op.containsKey("to_cond")) {
+            val i = find(cardId, board, fin, lang, cond)
             if (i < 0) continue
             val have = out[i].qty
             val n = minOf(have, op["qty"]?.jsonPrimitive?.int ?: have)
             if (have - n > 0) out[i] = out[i].copy(qty = have - n) else out.removeAt(i)
-            put(str(op, "to_card_id") ?: cardId, board, str(op, "to_finish") ?: fin, str(op, "to_lang") ?: lang, n)
+            put(str(op, "to_card_id") ?: cardId, board, str(op, "to_finish") ?: fin, str(op, "to_lang") ?: lang, str(op, "to_cond") ?: cond, n)
             continue
         }
-        val i = find(cardId, board, fin, lang)
+        val i = find(cardId, board, fin, lang, cond)
         val q = op["qty"]?.jsonPrimitive?.int ?: ((if (i >= 0) out[i].qty else 0) + (op["delta"]?.jsonPrimitive?.int ?: 0))
         if (i >= 0 && q > 0) out[i] = out[i].copy(qty = q)
         else if (i >= 0) out.removeAt(i)
-        else if (q > 0) put(cardId, board, fin, lang, q)
+        else if (q > 0) put(cardId, board, fin, lang, cond, q)
     }
     return out
 }
@@ -512,24 +518,27 @@ object ListsStore {
         return create(l.kind, "${l.name} (copy)".take(60), l.format, l.entries, "Duplicated from ${l.name} v${l.current.number}", "duplicate")
     }
 
-    suspend fun add(listId: String, cardId: String, board: String, delta: Int, finish: String = "nonfoil", lang: String = "en") =
-        edit(listId, buildJsonObject { put("card_id", cardId); put("board", board); put("finish", finish); put("lang", lang); put("delta", delta) })
+    suspend fun add(listId: String, cardId: String, board: String, delta: Int, finish: String = "nonfoil", lang: String = "en", cond: String = "NM") =
+        edit(listId, buildJsonObject {
+            put("card_id", cardId); put("board", board); put("finish", finish); put("lang", lang); put("cond", cond); put("delta", delta)
+        })
 
-    suspend fun move(listId: String, cardId: String, from: String, to: String, finish: String = "nonfoil", lang: String = "en") =
-        edit(listId, buildJsonObject { put("card_id", cardId); put("finish", finish); put("lang", lang); put("from", from); put("to", to) })
+    suspend fun move(listId: String, cardId: String, from: String, to: String, finish: String = "nonfoil", lang: String = "en", cond: String = "NM") =
+        edit(listId, buildJsonObject { put("card_id", cardId); put("finish", finish); put("lang", lang); put("cond", cond); put("from", from); put("to", to) })
 
-    suspend fun remove(listId: String, cardId: String, board: String, finish: String = "nonfoil", lang: String = "en") =
-        edit(listId, buildJsonObject { put("card_id", cardId); put("board", board); put("finish", finish); put("lang", lang); put("qty", 0) })
+    suspend fun remove(listId: String, cardId: String, board: String, finish: String = "nonfoil", lang: String = "en", cond: String = "NM") =
+        edit(listId, buildJsonObject { put("card_id", cardId); put("board", board); put("finish", finish); put("lang", lang); put("cond", cond); put("qty", 0) })
 
     /**
      * Moves [qty] copies (null = all) of a line to another printing, finish and/or language in the same section: change
-     * a printing, split 4 non-foil into 2 non-foil and 2 foil, or call 2 of them Japanese. [toLang] null keeps the line's.
+     * a printing, split 4 non-foil into 2 non-foil and 2 foil, or call 2 of them Japanese. [toLang] null keeps the line's
+     * language, [toCond] null its condition.
      */
     suspend fun swap(listId: String, cardId: String, board: String, finish: String, toCardId: String, toFinish: String, qty: Int?,
-                     lang: String = "en", toLang: String? = null) =
+                     lang: String = "en", toLang: String? = null, cond: String = "NM", toCond: String? = null) =
         edit(listId, buildJsonObject {
-            put("card_id", cardId); put("board", board); put("finish", finish); put("lang", lang)
-            put("to_card_id", toCardId); put("to_finish", toFinish); put("to_lang", toLang ?: lang)
+            put("card_id", cardId); put("board", board); put("finish", finish); put("lang", lang); put("cond", cond)
+            put("to_card_id", toCardId); put("to_finish", toFinish); put("to_lang", toLang ?: lang); put("to_cond", toCond ?: cond)
             if (qty != null) put("qty", qty)
         })
 

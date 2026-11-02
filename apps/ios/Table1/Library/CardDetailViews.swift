@@ -123,7 +123,8 @@ struct CardDetailView: View {
 
     /// A new version: the card's original printing in the condition and language picked for adds.
     private var fresh: CardVersion? {
-        CardDetailRules.fresh(printings, condition: addCondition, lang: addLang, board: listId == nil ? nil : "main")
+        // A deck or cube line starts near mint: its condition comes only from copies added from your collection.
+        CardDetailRules.fresh(printings, condition: listId == nil ? addCondition : "NM", lang: addLang, board: listId == nil ? nil : "main")
     }
 
     // MARK: bar
@@ -270,9 +271,12 @@ struct CardDetailView: View {
         let set = shared(\.cardId)
         let printing = set.flatMap { byId[$0] }
         var cells: [(CardAttribute, String, Bool)] = [(.set, printing?.set.uppercased() ?? "Mix", true)]
-        // A non-English printing's language is its own. Deck and cube lines name a language too, but no condition.
-        cells.append((.language, shared(\.lang)?.uppercased() ?? "Mix", printing.map { $0.lang == "en" } ?? true))
-        if list == nil { cells.append((.condition, shared(\.condition) ?? "Mix", true)) }
+        // A non-English printing's language is its own. Deck and cube lines record a language and condition, but the
+        // card page opened from a deck or cube shows neither (John, 2026-11-01): they come from the copies added to it.
+        if list == nil {
+            cells.append((.language, shared(\.lang)?.uppercased() ?? "Mix", printing.map { $0.lang == "en" } ?? true))
+            cells.append((.condition, shared(\.condition) ?? "Mix", true))
+        }
         if CardDetailRules.showsFinish(shown, printings: byId) {
             let f = shared(\.finish)
             cells.append((.finish, f.map(Self.finishCode) ?? "Mix", printing.map { $0.finishList.count > 1 } ?? true))
@@ -396,17 +400,17 @@ struct CardDetailView: View {
                 let board = v.board ?? "main", n = one ? 1 : v.qty
                 if a == .section {
                     let toBoard = to.board ?? "main"
-                    lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, delta: -n)
-                    lists.add(listId: listId, cardId: v.cardId, board: toBoard, finish: v.finish, lang: v.lang, delta: n)
+                    lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, cond: v.condition, delta: -n)
+                    lists.add(listId: listId, cardId: v.cardId, board: toBoard, finish: v.finish, lang: v.lang, cond: v.condition, delta: n)
                     undo.append {
-                        lists.add(listId: listId, cardId: v.cardId, board: toBoard, finish: v.finish, lang: v.lang, delta: -n)
-                        lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, delta: n)
+                        lists.add(listId: listId, cardId: v.cardId, board: toBoard, finish: v.finish, lang: v.lang, cond: v.condition, delta: -n)
+                        lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, cond: v.condition, delta: n)
                     }
                 } else {
-                    lists.swap(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, toCardId: to.cardId,
-                               toFinish: to.finish, toLang: to.lang, qty: n)
-                    undo.append { lists.swap(listId: listId, cardId: to.cardId, board: board, finish: to.finish, lang: to.lang, toCardId: v.cardId,
-                                             toFinish: v.finish, toLang: v.lang, qty: n) }
+                    lists.swap(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, cond: v.condition, toCardId: to.cardId,
+                               toFinish: to.finish, toLang: to.lang, toCond: to.condition, qty: n)
+                    undo.append { lists.swap(listId: listId, cardId: to.cardId, board: board, finish: to.finish, lang: to.lang, cond: to.condition,
+                                             toCardId: v.cardId, toFinish: v.finish, toLang: v.lang, toCond: v.condition, qty: n) }
                 }
                 if selectedVersion != nil, !one || v.qty == 1 { selected = to.id }
             }
@@ -463,7 +467,7 @@ struct CardDetailView: View {
         edition = CardDetailRules.newEdition(from: v)
         selected = Self.editionId
         last = nil
-        notice = listId == nil ? "Change its set, language, condition or finish to add it." : "Change its set, language, finish or section to add it."
+        notice = listId == nil ? "Change its set, language, condition or finish to add it." : "Change its set, finish or section to add it."
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         Telemetry.capture("card_edition_started", ["scope": scopeName, "versions": versions.count])
     }
@@ -488,9 +492,9 @@ struct CardDetailView: View {
         let props: [String: Any] = ["scope": scopeName, "attribute": attribute.rawValue, "copies": v.qty]
         if let listId {
             let board = v.board ?? "main"
-            lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, delta: v.qty)
+            lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, cond: v.condition, delta: v.qty)
             Telemetry.capture("card_edition_added", props)
-            report(text, CardUndo(label: text) { lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, delta: -v.qty) })
+            report(text, CardUndo(label: text) { lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, cond: v.condition, delta: -v.qty) })
             return
         }
         write([CardDetailRules.step(v, delta: v.qty, binderId: binderId)], label: text) {
@@ -521,9 +525,9 @@ struct CardDetailView: View {
         if delta < 0 && v.qty <= 1 { draft = CardVersion(cardId: v.cardId, finish: v.finish, condition: v.condition, lang: v.lang, board: v.board) }
         if let listId {
             let board = v.board ?? "main"
-            lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, delta: delta)
+            lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, cond: v.condition, delta: delta)
             Telemetry.capture("card_stepped", props)
-            report(text, CardUndo(label: text) { lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, delta: -delta) })
+            report(text, CardUndo(label: text) { lists.add(listId: listId, cardId: v.cardId, board: board, finish: v.finish, lang: v.lang, cond: v.condition, delta: -delta) })
             return
         }
         write([CardDetailRules.step(v, delta: delta, binderId: binderId)], label: text) {

@@ -22,7 +22,7 @@ class OwnedByCardTest {
     private fun ints(o: JsonObject, k: String) = o[k]!!.jsonObject.mapValues { it.value.jsonPrimitive.int }
     private fun strs(o: JsonObject, k: String) = o[k]!!.jsonObject.mapValues { it.value.jsonPrimitive.content }
     private fun need(o: JsonObject) = OwnedByCard.Need(str(o, "card_id"), str(o, "board"), str(o, "finish"), o["qty"]!!.jsonPrimitive.int,
-        o["lang"]?.jsonPrimitive?.content ?: "en")
+        o["lang"]?.jsonPrimitive?.content ?: "en", o["cond"]?.jsonPrimitive?.content ?: "NM")
     private fun needs(o: JsonObject, k: String) = o[k]!!.jsonArray.map { need(it.jsonObject) }
 
     @Test fun shorts() {
@@ -45,11 +45,12 @@ class OwnedByCardTest {
 
     @Test fun addToCollection() {
         for (x in c["add"]!!.jsonArray.map { it.jsonObject }) {
-            val entries = needs(x, "entries").map { ListEntry(it.cardId, it.board, it.qty, it.finish, it.lang) }
+            val entries = needs(x, "entries").map { ListEntry(it.cardId, it.board, it.qty, it.finish, it.lang, it.cond) }
             val kind = if (str(x, "kind") == "deck") ListKind.Deck else ListKind.Cube
             val mode = if (str(x, "mode") == "all") ListToCollection.Mode.All else ListToCollection.Mode.Missing
             val want = x["ops"]!!.jsonArray.map { it.jsonObject }.map {
-                ListToCollection.Op(str(it, "card_id"), str(it, "finish"), it["delta"]!!.jsonPrimitive.int, it["lang"]?.jsonPrimitive?.content ?: "en")
+                ListToCollection.Op(str(it, "card_id"), str(it, "finish"), it["delta"]!!.jsonPrimitive.int, it["lang"]?.jsonPrimitive?.content ?: "en",
+                    it["cond"]?.jsonPrimitive?.content ?: "NM")
             }
             assertEquals(str(x, "name"), want, ListToCollection.ops(entries, kind, ints(x, "owned"), mode))
         }

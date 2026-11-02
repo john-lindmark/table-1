@@ -70,7 +70,8 @@ object CommandZone {
     }
 
     /** `pair`: who the card shares the command zone with ([Mate]), null when the catalog doesn't say. */
-    data class Line(val cardId: String, val typeLine: String, val finish: String = "nonfoil", val lang: String = "en", val pair: String? = null)
+    data class Line(val cardId: String, val typeLine: String, val finish: String = "nonfoil", val lang: String = "en", val pair: String? = null,
+                    val cond: String = "NM")
 
     /** A card as a partner sees it (contract § Partners). `pair`: P partner, P:<name> partner with, G:<group>
      *  partner—group, F friends forever, B choose a Background, D doctor's companion, "" none, null unknown (an older
@@ -112,18 +113,18 @@ object CommandZone {
             else -> Role.Partner.hint
         }
     }
-    data class Slot(val role: Role, val cardId: String? = null, val finish: String = "nonfoil", val lang: String = "en")
+    data class Slot(val role: Role, val cardId: String? = null, val finish: String = "nonfoil", val lang: String = "en", val cond: String = "NM")
 
     /** The slots a deck of this format shows, filled from its command-zone lines in order (see the contract). */
     fun slots(format: String, lines: List<Line>): List<Slot> = when (format) {
         "commander" -> {
-            val out = lines.take(2).mapIndexed { i, l -> Slot(if (i == 0) Role.Commander else Role.Partner, l.cardId, l.finish, l.lang) }.toMutableList()
+            val out = lines.take(2).mapIndexed { i, l -> Slot(if (i == 0) Role.Commander else Role.Partner, l.cardId, l.finish, l.lang, l.cond) }.toMutableList()
             if (out.isEmpty()) out += Slot(Role.Commander)
             else if (out.size == 1 && canPair(lines[0].typeLine, lines[0].pair)) out += Slot(Role.Partner)
             out
         }
         "oathbreaker" -> listOf(Role.Oathbreaker, Role.Signature).map { role ->
-            lines.firstOrNull { role.fits(it.typeLine) }?.let { Slot(role, it.cardId, it.finish, it.lang) } ?: Slot(role)
+            lines.firstOrNull { role.fits(it.typeLine) }?.let { Slot(role, it.cardId, it.finish, it.lang, it.cond) } ?: Slot(role)
         }
         else -> emptyList()
     }
@@ -138,7 +139,7 @@ object CommandZone {
 
     /** A deck line outside the command zone that could be moved in. */
     data class DeckLine(val cardId: String, val board: String, val typeLine: String, val finish: String = "nonfoil",
-                        val lang: String = "en", val qty: Int = 1, val pair: String? = null)
+                        val lang: String = "en", val qty: Int = 1, val pair: String? = null, val cond: String = "NM")
 
     /** The deck's own cards a slot's picker offers first: main deck, then sideboard, those that fit. A deck made before
      *  the command zone has its commander in the main deck. */
@@ -148,18 +149,18 @@ object CommandZone {
     /** A list_edit change that moves a deck card into a slot. */
     sealed interface Op {
         /** Every copy of a line to another section. */
-        data class Move(val cardId: String, val finish: String, val lang: String, val from: String, val to: String) : Op
-        data class Delta(val cardId: String, val finish: String, val lang: String, val board: String, val by: Int) : Op
+        data class Move(val cardId: String, val finish: String, val lang: String, val from: String, val to: String, val cond: String = "NM") : Op
+        data class Delta(val cardId: String, val finish: String, val lang: String, val board: String, val by: Int, val cond: String = "NM") : Op
     }
 
     /** The changes that put one copy of [line] in [slot]: the slot's card (if any) goes to the main deck; a single copy
      *  moves, one of several moves by deltas. */
     fun movingIn(line: DeckLine, slot: Slot): List<Op> = buildList {
-        slot.cardId?.let { add(Op.Move(it, slot.finish, slot.lang, BOARD, "main")) }
-        if (line.qty <= 1) add(Op.Move(line.cardId, line.finish, line.lang, line.board, BOARD))
+        slot.cardId?.let { add(Op.Move(it, slot.finish, slot.lang, BOARD, "main", slot.cond)) }
+        if (line.qty <= 1) add(Op.Move(line.cardId, line.finish, line.lang, line.board, BOARD, line.cond))
         else {
-            add(Op.Delta(line.cardId, line.finish, line.lang, line.board, -1))
-            add(Op.Delta(line.cardId, line.finish, line.lang, BOARD, 1))
+            add(Op.Delta(line.cardId, line.finish, line.lang, line.board, -1, line.cond))
+            add(Op.Delta(line.cardId, line.finish, line.lang, BOARD, 1, line.cond))
         }
     }
 

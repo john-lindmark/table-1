@@ -768,6 +768,120 @@
     "entries": []
    },
    "summary": "3 out"
+  },
+  {
+   "name": "a kept condition stays; NM copies pair first",
+   "current": [
+    [
+     "bolt-m10",
+     "main",
+     1,
+     "nonfoil",
+     "en",
+     "LP"
+    ],
+    [
+     "bolt-m10",
+     "main",
+     1
+    ]
+   ],
+   "incoming": [
+    [
+     "bolt-m10",
+     "main",
+     1
+    ]
+   ],
+   "want": {
+    "in": [],
+    "out": [
+     {
+      "board": "main",
+      "card": "bolt-m10",
+      "finish": "nonfoil",
+      "lang": "en",
+      "cond": "LP",
+      "qty": 1
+     }
+    ],
+    "changed": [],
+    "same": 1,
+    "entries": [
+     [
+      "bolt-m10",
+      "main",
+      1
+     ]
+    ]
+   },
+   "summary": "1 out"
+  },
+  {
+   "name": "a condition follows a new printing; In copies are NM",
+   "current": [
+    [
+     "bolt-m10",
+     "main",
+     1,
+     "nonfoil",
+     "de",
+     "HP"
+    ]
+   ],
+   "incoming": [
+    [
+     "bolt-2xm",
+     "main",
+     1
+    ],
+    [
+     "opt-xln",
+     "main",
+     1
+    ]
+   ],
+   "want": {
+    "in": [
+     {
+      "board": "main",
+      "card": "opt-xln",
+      "finish": "nonfoil",
+      "lang": "en",
+      "qty": 1
+     }
+    ],
+    "out": [],
+    "changed": [
+     {
+      "board": "main",
+      "from_card": "bolt-m10",
+      "from_finish": "nonfoil",
+      "from_lang": "de",
+      "to_card": "bolt-2xm",
+      "to_finish": "nonfoil",
+      "to_lang": "de",
+      "qty": 1
+     }
+    ],
+    "same": 0,
+    "entries": [
+     [
+      "bolt-2xm",
+      "main",
+      1,
+      "nonfoil",
+      "de",
+      "HP"
+     ],
+     [
+      "opt-xln",
+      "main",
+      1
+     ]
+    ]
+   },
+   "summary": "1 in · 1 new printing"
   }
  ]
 }

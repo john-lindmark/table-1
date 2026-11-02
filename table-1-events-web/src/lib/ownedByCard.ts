@@ -16,7 +16,7 @@ export const cardOfMap = (m: Record<string, string>): CardOf => (id) => m[id] ??
 /** What the collection holds, per printing + finish and per card. */
 export interface Holdings { byPrinting: Map<string, number>; byCard: Map<string, number>; cardOf: CardOf }
 
-/** `owned` keyed "card_id|finish" or "card_id|finish|lang". */
+/** `owned` keyed "card_id|finish", "card_id|finish|lang" or "card_id|finish|lang|cond". */
 export function holdings(owned: Map<string, number>, cardOf: CardOf): Holdings {
   const byPrinting = new Map<string, number>(), byCard = new Map<string, number>();
   for (const [k, n] of owned) {
@@ -31,7 +31,7 @@ export const ownedOfCard = (h: Holdings, cardId: string) => h.byCard.get(h.cardO
 export const ownedOfPrinting = (h: Holdings, cardId: string, finish: string) => h.byPrinting.get(`${cardId}|${finish}`) ?? 0;
 
 /** One deck or cube line, in list order. */
-export interface Need { cardId: string; board: string; finish: string; qty: number; lang?: string }
+export interface Need { cardId: string; board: string; finish: string; qty: number; lang?: string; cond?: string }
 
 /** Copies each line still needs. The printing and finish a line names cover it first, then the card's other copies
  *  cover what's left, lines in order; a copy covers one line. Considering and basics never need any or use copies. */
@@ -91,8 +91,8 @@ export function missingByCard(lists: { name: string; event?: boolean; lines: Nee
 /** A version you own: printing × finish, every condition and language together. */
 export interface Version { cardId: string; finish: string; owned: number }
 export interface Pick { cardId: string; finish: string; qty: number }
-/** A list_edit move op: `qty` copies of a line to another printing and/or finish, keeping its language. */
-export interface Move { cardId: string; finish: string; lang?: string; toCardId: string; toFinish: string; qty: number }
+/** A list_edit move op: `qty` copies of a line to another printing and/or finish, keeping its language and condition. */
+export interface Move { cardId: string; finish: string; lang?: string; cond?: string; toCardId: string; toFinish: string; qty: number }
 
 const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -141,7 +141,8 @@ export function matchOps(lines: Need[], picks: Pick[]): Move[] {
       if (movable <= 0) break;
       const n = Math.min(movable, t.left);
       if (n <= 0) continue;
-      ops.push({ cardId: l.cardId, finish: l.finish, ...(l.lang && l.lang !== "en" ? { lang: l.lang } : {}), toCardId: t.p.cardId, toFinish: t.p.finish, qty: n });
+      ops.push({ cardId: l.cardId, finish: l.finish, ...(l.lang && l.lang !== "en" ? { lang: l.lang } : {}),
+                   ...(l.cond && l.cond !== "NM" ? { cond: l.cond } : {}), toCardId: t.p.cardId, toFinish: t.p.finish, qty: n });
       t.left -= n;
       movable -= n;
     }

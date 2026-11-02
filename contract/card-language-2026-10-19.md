@@ -25,7 +25,8 @@ Codes: en de fr it es pt ja ko ru zhs zht he la grc ar sa ph qya. One full-scree
 - **Trades**: a get line's menu has Language. A give line is the copy you own; change that copy's language in the
   collection first.
 - Deck and cube lines name a language since 2026-10-26 (contract/lists-2026-10-15.md § Languages): card detail
-  opened from a deck or cube has a Language cell. Wants still have no language of their own.
+  opened from a deck or cube had a Language cell until 2026-11-01 (now hidden there; lists § Conditions). Wants still
+  have no language of their own.
 
 ## Rules (shared by every platform)
 - `LanguageChange.ops(item, places, to, qty, from?)`: nil when the language is the same, qty is 0 or more than owned,

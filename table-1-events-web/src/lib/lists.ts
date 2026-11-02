@@ -3,6 +3,7 @@
 // replaces the local copy. A per-account IndexedDB copy makes them show instantly. The dev demo (?demo) keeps
 // its lists in memory only.
 import { useEffect, useSyncExternalStore } from "react";
+import type { Condition } from "./collection";
 import { holdings, shorts, type CardOf, type Need } from "./ownedByCard";
 import { supabase } from "./supabaseClient";
 import { capture } from "./telemetry";
@@ -13,26 +14,31 @@ export type ListKind = "deck" | "cube";
 
 export type ListFinish = "nonfoil" | "foil" | "etched";
 
-/** A line is printing × section × finish × language, so 2 foil and 2 non-foil copies of a card are two lines
- *  (contract/lists-2026-10-15.md, "Languages"). */
+/** A line is printing × section × finish × language × condition, so 2 foil and 2 non-foil copies of a card are two
+ *  lines (contract/lists-2026-10-15.md, "Languages" and "Conditions"). */
 export interface Entry {
   cardId: string;
   board: Board;
   qty: number;
   finish?: ListFinish; // absent = nonfoil
   lang?: string; // absent = en; a non-English printing is always its own
+  cond?: Condition; // absent = NM
 }
 
 export const finishOf = (e: { finish?: ListFinish }): ListFinish => e.finish ?? "nonfoil";
 export const langOf = (e: { lang?: string }): string => e.lang ?? "en";
+export const condOf = (e: { cond?: Condition }): Condition => e.cond ?? "NM";
+/** Conditions best first, the order lines and Add to collection's ops sort in. */
+export const LIST_CONDITIONS: Condition[] = ["NM", "LP", "MP", "HP", "DMG"];
 /** An entry with only the fields that aren't their defaults. */
-export function entry(cardId: string, board: Board, qty: number, finish: ListFinish = "nonfoil", lang = "en"): Entry {
-  return { cardId, board, qty, ...(finish !== "nonfoil" ? { finish } : {}), ...(lang !== "en" ? { lang } : {}) };
+export function entry(cardId: string, board: Board, qty: number, finish: ListFinish = "nonfoil", lang = "en", cond: Condition = "NM"): Entry {
+  return { cardId, board, qty, ...(finish !== "nonfoil" ? { finish } : {}), ...(lang !== "en" ? { lang } : {}), ...(cond !== "NM" ? { cond } : {}) };
 }
-/** An entry as list_create takes it: the finish and language only when they aren't non-foil / English. */
+/** An entry as list_create takes it: the finish, language and condition only when they aren't non-foil / English / NM. */
 export function entryWire(e: Entry): (string | number)[] {
-  const f = finishOf(e), l = langOf(e);
-  return l !== "en" ? [e.cardId, e.board, e.qty, f, l] : f !== "nonfoil" ? [e.cardId, e.board, e.qty, f] : [e.cardId, e.board, e.qty];
+  const f = finishOf(e), l = langOf(e), c = condOf(e);
+  return c !== "NM" ? [e.cardId, e.board, e.qty, f, l, c] : l !== "en" ? [e.cardId, e.board, e.qty, f, l]
+    : f !== "nonfoil" ? [e.cardId, e.board, e.qty, f] : [e.cardId, e.board, e.qty];
 }
 
 export interface Version {
@@ -63,6 +69,7 @@ export interface Change {
   delta: number;
   finish: ListFinish;
   lang: string;
+  cond: Condition;
 }
 
 export const BOARD_ORDER: Board[] = ["commander", "main", "side", "maybe"];
@@ -85,14 +92,14 @@ export function boardTitle(kind: ListKind, board: Board, format?: string): strin
 /** What changed from `older` (null = nothing) to `newer`, per card and section; removals first. */
 export function diff(older: Version | null, newer: Version): Change[] {
   const q = new Map<string, number>();
-  const key = (e: Entry) => `${e.board}|${e.cardId}|${finishOf(e)}|${langOf(e)}`;
+  const key = (e: Entry) => `${e.board}|${e.cardId}|${finishOf(e)}|${langOf(e)}|${condOf(e)}`;
   for (const e of older?.entries ?? []) q.set(key(e), (q.get(key(e)) ?? 0) - e.qty);
   for (const e of newer.entries) q.set(key(e), (q.get(key(e)) ?? 0) + e.qty);
   const out: Change[] = [];
   for (const [k, d] of q) {
     if (d === 0) continue;
-    const [board, cardId, finish, lang] = k.split("|") as [Board, string, ListFinish, string];
-    out.push({ cardId, board, delta: d, finish, lang });
+    const [board, cardId, finish, lang, cond] = k.split("|") as [Board, string, ListFinish, string, Condition];
+    out.push({ cardId, board, delta: d, finish, lang, cond });
   }
   return out.sort((a, b) => BOARD_ORDER.indexOf(a.board) - BOARD_ORDER.indexOf(b.board) || a.delta - b.delta);
 }
@@ -101,7 +108,7 @@ export function diff(older: Version | null, newer: Version): Change[] {
 export const ownKey = (cardId: string, finish: ListFinish = "nonfoil") => `${cardId}|${finish}`;
 
 /** A list's lines for the owned-by-card rules (contract/owned-by-card-2026-10-31.md), in list order. */
-export const needsOf = (l: CardList): Need[] => entriesOf(l).map((e) => ({ cardId: e.cardId, board: e.board, finish: finishOf(e), qty: e.qty, lang: langOf(e) }));
+export const needsOf = (l: CardList): Need[] => entriesOf(l).map((e) => ({ cardId: e.cardId, board: e.board, finish: finishOf(e), qty: e.qty, lang: langOf(e), cond: condOf(e) }));
 
 /** Copies a list still needs: any printing of a card covers its lines (contract/owned-by-card-2026-10-31.md);
  *  Considering and basic lands (`basics`, contract/basics-2026-10-24.md) never count. `cardOf` maps a printing to its card. */
@@ -128,7 +135,8 @@ interface ListWire {
   event_name?: string | null;
   seq?: number;
   source_url?: string | null;
-  versions?: { version: number; note: string; at: number; entries: ([string, Board, number] | [string, Board, number, ListFinish] | [string, Board, number, ListFinish, string])[] }[];
+  versions?: { version: number; note: string; at: number; entries: ([string, Board, number] | [string, Board, number, ListFinish] | [string, Board, number, ListFinish, string]
+                                                                | [string, Board, number, ListFinish, string, Condition])[] }[];
 }
 
 export function fromWire(w: ListWire): CardList | null {
@@ -140,7 +148,7 @@ export function fromWire(w: ListWire): CardList | null {
     ...(w.source_url ? { sourceUrl: w.source_url } : {}),
     versions: w.versions.map((v) => ({
       number: v.version, at: v.at, note: v.note,
-      entries: v.entries.map(([cardId, board, qty, finish, lang]) => entry(cardId, board, qty, finish ?? "nonfoil", lang ?? "en")),
+      entries: v.entries.map(([cardId, board, qty, finish, lang, cond]) => entry(cardId, board, qty, finish ?? "nonfoil", lang ?? "en", cond ?? "NM")),
     })),
   };
 }
@@ -504,44 +512,45 @@ export function duplicateList(l: CardList): Promise<string> {
   return createList(l.kind, `${l.name} (copy)`.slice(0, 60), l.format, v.entries, `Duplicated from ${l.name} v${v.number}`, "duplicate");
 }
 
-/** `lang` defaults to en everywhere; `to_lang` to the line's own. */
+/** `lang` defaults to en and `cond` to NM everywhere; `to_lang` and `to_cond` to the line's own. */
 export type ListOp =
-  | { card_id: string; board: Board; finish?: ListFinish; lang?: string; delta: number }
-  | { card_id: string; board: Board; finish?: ListFinish; lang?: string; qty: number }
-  | { card_id: string; finish?: ListFinish; lang?: string; from: Board; to: Board }
-  /** Move qty copies (default all) to another printing, finish and/or language in the same section. */
-  | { card_id: string; board: Board; finish?: ListFinish; lang?: string; to_card_id?: string; to_finish?: ListFinish; to_lang?: string; qty?: number; swap: true };
+  | { card_id: string; board: Board; finish?: ListFinish; lang?: string; cond?: Condition; delta: number }
+  | { card_id: string; board: Board; finish?: ListFinish; lang?: string; cond?: Condition; qty: number }
+  | { card_id: string; finish?: ListFinish; lang?: string; cond?: Condition; from: Board; to: Board }
+  /** Move qty copies (default all) to another printing, finish, language and/or condition in the same section. */
+  | { card_id: string; board: Board; finish?: ListFinish; lang?: string; cond?: Condition; to_card_id?: string; to_finish?: ListFinish;
+      to_lang?: string; to_cond?: Condition; qty?: number; swap: true };
 
 /** The ops applied to a version's entries the way the server applies them (the demo, and a change queued offline). */
 export function applyListOps(entries: Entry[], ops: ListOp[]): Entry[] {
-  const find = (cardId: string, board: Board, finish: ListFinish, lang: string) =>
-    entries.findIndex((e) => e.cardId === cardId && e.board === board && finishOf(e) === finish && langOf(e) === lang);
-  const put = (cardId: string, board: Board, finish: ListFinish, lang: string, q: number) => {
-    const j = find(cardId, board, finish, lang);
+  const find = (cardId: string, board: Board, finish: ListFinish, lang: string, cond: Condition) =>
+    entries.findIndex((e) => e.cardId === cardId && e.board === board && finishOf(e) === finish && langOf(e) === lang && condOf(e) === cond);
+  const put = (cardId: string, board: Board, finish: ListFinish, lang: string, cond: Condition, q: number) => {
+    const j = find(cardId, board, finish, lang, cond);
     if (j >= 0) entries[j].qty += q;
-    else entries.push(entry(cardId, board, q, finish, lang));
+    else entries.push(entry(cardId, board, q, finish, lang, cond));
   };
   for (const op of ops) {
-    const fin = op.finish ?? "nonfoil", lang = op.lang ?? "en";
+    const fin = op.finish ?? "nonfoil", lang = op.lang ?? "en", cond = op.cond ?? "NM";
     if ("from" in op) {
-      const i = find(op.card_id, op.from, fin, lang);
+      const i = find(op.card_id, op.from, fin, lang, cond);
       if (i < 0) continue;
-      put(op.card_id, op.to, fin, lang, entries.splice(i, 1)[0].qty);
-    } else if ("swap" in op || "to_card_id" in op || "to_finish" in op || "to_lang" in op) {
+      put(op.card_id, op.to, fin, lang, cond, entries.splice(i, 1)[0].qty);
+    } else if ("swap" in op || "to_card_id" in op || "to_finish" in op || "to_lang" in op || "to_cond" in op) {
       // A printing move: tagged `swap` here, told apart by its to_* fields when queued and replayed.
-      const mv = op as { card_id: string; board: Board; to_card_id?: string; to_finish?: ListFinish; to_lang?: string; qty?: number };
-      const i = find(mv.card_id, mv.board, fin, lang);
+      const mv = op as { card_id: string; board: Board; to_card_id?: string; to_finish?: ListFinish; to_lang?: string; to_cond?: Condition; qty?: number };
+      const i = find(mv.card_id, mv.board, fin, lang, cond);
       if (i < 0) continue;
       const n = Math.min(entries[i].qty, mv.qty ?? entries[i].qty);
       entries[i].qty -= n;
       if (entries[i].qty <= 0) entries.splice(i, 1);
-      put(mv.to_card_id ?? mv.card_id, mv.board, mv.to_finish ?? fin, mv.to_lang ?? lang, n);
+      put(mv.to_card_id ?? mv.card_id, mv.board, mv.to_finish ?? fin, mv.to_lang ?? lang, mv.to_cond ?? cond, n);
     } else {
-      const i = find(op.card_id, op.board, fin, lang);
+      const i = find(op.card_id, op.board, fin, lang, cond);
       const q = "qty" in op ? op.qty : (i >= 0 ? entries[i].qty : 0) + op.delta;
       if (i >= 0 && q > 0) entries[i].qty = q;
       else if (i >= 0) entries.splice(i, 1);
-      else if (q > 0) put(op.card_id, op.board, fin, lang, q);
+      else if (q > 0) put(op.card_id, op.board, fin, lang, cond, q);
     }
   }
   return entries;

@@ -97,11 +97,17 @@ def lang_order(lang):
     return (lang != "en", lang)
 
 
+CONDITIONS = ["NM", "LP", "MP", "HP", "DMG"]
+
+
 def add_ops(entries, kind, owned, mode, sideboard=True, only=None, basics=()):
-    """Add to collection (contract/list-to-collection-2026-10-22.md): a line goes in as the exact printing, finish and
-    language it names, so Missing counts only owned copies of that printing, finish and language (any condition); other
-    printings, finishes and languages of the card never cover it (John, 2026-11-01), unlike the deck's own Missing."""
-    need = {}  # (card, finish, lang) -> n
+    """Add to collection (contract/list-to-collection-2026-10-22.md): a line goes in as the exact printing, finish,
+    language and condition it records, so Missing counts only owned copies of that printing, finish and language;
+    other printings, finishes and languages of the card never cover it (John, 2026-11-01), unlike the deck's own
+    Missing. Owned copies of any condition count: they cover lines in their own condition first, then the rest in
+    condition order (NM, LP, MP, HP, DMG). owned is keyed 'card|finish', 'card|finish|lang' or
+    'card|finish|lang|cond' (lang defaults to en, cond to NM)."""
+    need = {}  # (card, finish, lang) -> {cond: n}
     for e in entries:
         b = e["board"]
         if not (b in ("main", "commander") or (b == "side" and kind == "deck" and sideboard)):
@@ -110,22 +116,40 @@ def add_ops(entries, kind, owned, mode, sideboard=True, only=None, basics=()):
             continue
         if mode == "missing" and e["card_id"] in basics:
             continue
-        k = (e["card_id"], e["finish"], e.get("lang", "en"))
-        need[k] = need.get(k, 0) + e["qty"]
+        m = need.setdefault((e["card_id"], e["finish"], e.get("lang", "en")), {})
+        cond = e.get("cond", "NM")
+        m[cond] = m.get(cond, 0) + e["qty"]
     if mode == "missing":
+        have = {}  # (card, finish, lang) -> {cond: n}
         for k, n in owned.items():
             p = k.split("|")
-            key = (p[0], p[1], p[2] if len(p) > 2 else "en")
-            if key in need:
-                need[key] -= n
+            m = have.setdefault((p[0], p[1], p[2] if len(p) > 2 else "en"), {})
+            cond = p[3] if len(p) > 3 else "NM"
+            m[cond] = m.get(cond, 0) + n
+        for key, conds in need.items():
+            mine = have.get(key, {})
+            spare = sum(mine.values())
+            for cond in list(conds):
+                c = min(conds[cond], mine.get(cond, 0))
+                conds[cond] -= c
+                spare -= c
+            for cond in sorted(conds, key=CONDITIONS.index):
+                if spare <= 0:
+                    break
+                c = min(conds[cond], spare)
+                conds[cond] -= c
+                spare -= c
     out = []
-    for (card, finish, lang), n in need.items():
-        if n > 0:
-            op = {"card_id": card, "finish": finish, "delta": n}
-            if lang != "en":
-                op["lang"] = lang
-            out.append(op)
-    return sorted(out, key=lambda o: (o["card_id"], o["finish"], o.get("lang", "en")))
+    for (card, finish, lang), conds in need.items():
+        for cond, n in conds.items():
+            if n > 0:
+                op = {"card_id": card, "finish": finish, "delta": n}
+                if lang != "en":
+                    op["lang"] = lang
+                if cond != "NM":
+                    op["cond"] = cond
+                out.append(op)
+    return sorted(out, key=lambda o: (o["card_id"], o["finish"], o.get("lang", "en"), CONDITIONS.index(o.get("cond", "NM"))))
 
 
 def auto_match(lines, versions):
@@ -237,6 +261,12 @@ ADD_CASES = [
      "owned": {"bolt-m10|nonfoil": 3, "guide-a25|nonfoil|ja": 1}},
     {"name": "missing: the listed language too", "kind": "cube", "mode": "missing",
      "entries": [line("bolt-lea", 1), line("bolt-m10", 1, lang="ja")], "owned": {"bolt-lea|nonfoil": 2, "bolt-m10|nonfoil": 1}},
+    {"name": "every card adds each line in its own condition", "kind": "deck", "mode": "all",
+     "entries": [line("bolt-m10", 2), dict(line("bolt-m10", 1, lang="ja"), cond="LP")], "owned": {}},
+    {"name": "missing: owned copies of a condition cover that condition first, spare ones the rest from NM down",
+     "kind": "deck", "mode": "missing",
+     "entries": [line("bolt-m10", 2), dict(line("bolt-m10", 2), cond="LP"), dict(line("bolt-m10", 1), cond="HP")],
+     "owned": {"bolt-m10|nonfoil|en|LP": 3}},
     {"name": "every card still adds every copy", "kind": "deck", "mode": "all",
      "entries": [line("bolt-m10", 2)], "owned": {"bolt-lea|nonfoil": 2}},
 ]

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./supabaseClient", () => ({ supabase: {} }));
-const { boardsOf, countOf, current, diff, entryWire, fromWire, listName, missingIn } = await import("./lists");
+const { applyListOps, boardsOf, condOf, countOf, current, diff, entryWire, fromWire, listName, missingIn } = await import("./lists");
 
 const BOLT = "f29ba16f-c8fb-42fe-aabf-87089cb214a7";
 const DELVER = "11bf83bb-c95b-4b4f-9a56-ce7a1816307a";
@@ -33,8 +33,8 @@ describe("diff and missing", () => {
   const l = fromWire(wire)!;
   it("lists removals before additions, per section", () => {
     expect(diff(l.versions[0], l.versions[1])).toEqual([
-      { cardId: BOLT, board: "main", delta: -1, finish: "nonfoil", lang: "en" },
-      { cardId: DELVER, board: "maybe", delta: 2, finish: "nonfoil", lang: "en" },
+      { cardId: BOLT, board: "main", delta: -1, finish: "nonfoil", lang: "en", cond: "NM" },
+      { cardId: DELVER, board: "maybe", delta: 2, finish: "nonfoil", lang: "en", cond: "NM" },
     ]);
   });
   it("never counts Considering as missing", () => {
@@ -65,12 +65,36 @@ describe("languages (contract/lists-2026-10-15.md, Languages)", () => {
   });
   it("sees a language change in the history", () => {
     expect(diff(l.versions[0], l.versions[1]).filter((c) => c.cardId === BOLT)).toEqual([
-      { cardId: BOLT, board: "main", delta: -1, finish: "nonfoil", lang: "en" },
-      { cardId: BOLT, board: "main", delta: 1, finish: "nonfoil", lang: "ja" },
+      { cardId: BOLT, board: "main", delta: -1, finish: "nonfoil", lang: "en", cond: "NM" },
+      { cardId: BOLT, board: "main", delta: 1, finish: "nonfoil", lang: "ja", cond: "NM" },
     ]);
   });
   it("counts Missing over every language", () => {
     expect(missingIn(l, new Map([[`${BOLT}|nonfoil`, 2]]), new Set())).toBe(1);
+  });
+});
+
+describe("conditions (contract/lists-2026-10-15.md, Conditions)", () => {
+  const l = fromWire({ id: "c", kind: "deck", name: "c", format: "modern", versions: [
+    { version: 1, note: "Created", at: 0, entries: [[BOLT, "main", 2], [BOLT, "main", 1, "nonfoil", "en", "LP"], [DELVER, "side", 1, "foil", "ja", "HP"]] },
+  ] })!;
+  it("reads the sixth element as the line's condition; absent is NM", () => {
+    expect(current(l).entries).toEqual([{ cardId: BOLT, board: "main", qty: 2 }, { cardId: BOLT, board: "main", qty: 1, cond: "LP" },
+                                        { cardId: DELVER, board: "side", qty: 1, finish: "foil", lang: "ja", cond: "HP" }]);
+    expect(current(l).entries.map(condOf)).toEqual(["NM", "LP", "HP"]);
+  });
+  it("writes the condition only when it isn't NM, with the finish and language before it", () => {
+    expect(current(l).entries.map(entryWire)).toEqual([[BOLT, "main", 2], [BOLT, "main", 1, "nonfoil", "en", "LP"], [DELVER, "side", 1, "foil", "ja", "HP"]]);
+  });
+  it("applies edits by condition the way list_edit does", () => {
+    const out = applyListOps(current(l).entries.map((e) => ({ ...e })), [
+      { card_id: BOLT, board: "main", cond: "LP", delta: 1 },
+      { card_id: BOLT, board: "main", delta: -1 },
+      { card_id: DELVER, finish: "foil", lang: "ja", cond: "HP", from: "side", to: "maybe" },
+      { card_id: BOLT, board: "main", cond: "LP", to_cond: "MP", qty: 1, swap: true },
+    ]);
+    expect(out).toEqual([{ cardId: BOLT, board: "main", qty: 1 }, { cardId: BOLT, board: "main", qty: 1, cond: "LP" },
+                         { cardId: DELVER, board: "maybe", qty: 1, finish: "foil", lang: "ja", cond: "HP" }, { cardId: BOLT, board: "main", qty: 1, cond: "MP" }]);
   });
 });
 

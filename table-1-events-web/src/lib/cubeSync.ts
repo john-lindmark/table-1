@@ -1,9 +1,11 @@
 // Sync a cube with Cube Cobra (contract/cube-sync-2026-10-30.md): what's in, out and in a new printing or finish
 // between the cube and Cube Cobra's answer, and the entries to save. Shared cases: testdata/cube-sync/cases.json
 // (also iOS CubeSyncTests and Android CubeSyncTest).
-import { entry, finishOf, langOf, type Board, type Entry, type ListFinish } from "./lists";
+import type { Condition } from "./collection";
+import { LIST_CONDITIONS, condOf, entry, finishOf, langOf, type Board, type Entry, type ListFinish } from "./lists";
 
-export interface SyncLine { board: Board; card: string; finish: ListFinish; lang: string; qty: number }
+/** `cond` only when the line records one other than NM (Cube Cobra records none, so In lines never do). */
+export interface SyncLine { board: Board; card: string; finish: ListFinish; lang: string; cond?: Condition; qty: number }
 export interface SyncChanged {
   board: Board; from_card: string; from_finish: ListFinish; from_lang: string;
   to_card: string; to_finish: ListFinish; to_lang: string; qty: number;
@@ -19,14 +21,16 @@ const cmp = (a: string[], b: string[]) => {
 };
 /** English first, then by code. */
 const langKey = (l: string) => (l === "en" ? "0" : "1" + l);
+/** Best condition first. */
+const condKey = (c: string) => String(LIST_CONDITIONS.indexOf(c as Condition));
 const add = (m: Map<string, number>, k: string, n: number) => m.set(k, (m.get(k) ?? 0) + n);
 const parts = (k: string) => k.split(SEP);
 
 export function cubeSyncDiff(current: Entry[], incoming: Entry[], printings: (cardId: string) => SyncPrinting | undefined): SyncResult {
   const plang = (c: string) => printings(c)?.lang ?? "en";
   const oracle = (c: string) => printings(c)?.oracle ?? c;
-  const cur = new Map<string, number>(); // board|card|finish|lang
-  for (const e of current) add(cur, [e.board, e.cardId, finishOf(e), langOf(e)].join(SEP), e.qty);
+  const cur = new Map<string, number>(); // board|card|finish|lang|cond
+  for (const e of current) add(cur, [e.board, e.cardId, finishOf(e), langOf(e), condOf(e)].join(SEP), e.qty);
   const inc = new Map<string, number>(); // board|card|finish
   for (const e of incoming) add(inc, [e.board, e.cardId, finishOf(e)].join(SEP), e.qty);
   const final = new Map<string, number>();
@@ -37,7 +41,7 @@ export function cubeSyncDiff(current: Entry[], incoming: Entry[], printings: (ca
   // 1. Same printing and finish.
   for (const k of incKeys) {
     const matches = [...cur.keys()].filter((m) => parts(m).slice(0, 3).join(SEP) === k)
-      .sort((a, b) => cmp([langKey(parts(a)[3])], [langKey(parts(b)[3])]));
+      .sort((a, b) => cmp([langKey(parts(a)[3]), condKey(parts(a)[4])], [langKey(parts(b)[3]), condKey(parts(b)[4])]));
     for (const m of matches) {
       const n = Math.min(inc.get(k)!, cur.get(m)!);
       if (n <= 0) continue;
@@ -54,7 +58,7 @@ export function cubeSyncDiff(current: Entry[], incoming: Entry[], printings: (ca
       const [b, c, f] = parts(k);
       const order = [...cur.keys()].sort((x, y) => {
         const px = parts(x), py = parts(y);
-        return cmp([...px.slice(0, 3), langKey(px[3])], [...py.slice(0, 3), langKey(py[3])]);
+        return cmp([...px.slice(0, 3), langKey(px[3]), condKey(px[4])], [...py.slice(0, 3), langKey(py[3]), condKey(py[4])]);
       });
       for (const m of order) {
         if (inc.get(k)! <= 0) break;
@@ -64,7 +68,7 @@ export function cubeSyncDiff(current: Entry[], incoming: Entry[], printings: (ca
         cur.set(m, cur.get(m)! - n);
         inc.set(k, inc.get(k)! - n);
         const toLang = changedLang(pm[1], pm[3], c, plang);
-        add(final, [b, c, f, toLang].join(SEP), n);
+        add(final, [b, c, f, toLang, pm[4]].join(SEP), n);
         add(changed, [b, pm[1], pm[2], pm[3], c, f, toLang].join(SEP), n);
       }
     }
@@ -76,14 +80,14 @@ export function cubeSyncDiff(current: Entry[], incoming: Entry[], printings: (ca
   for (const [k, n] of inc) {
     if (n <= 0) continue;
     const [b, c, f] = parts(k);
-    const key = [b, c, f, plang(c)].join(SEP);
+    const key = [b, c, f, plang(c), "NM"].join(SEP);
     add(into, key, n);
     add(final, key, n);
   }
   const sortedOf = (m: Map<string, number>) => [...m.entries()].filter(([, n]) => n > 0).sort(([a], [b]) => cmp(parts(a), parts(b)));
   const line = ([k, n]: [string, number]): SyncLine => {
-    const [board, card, finish, lang] = parts(k);
-    return { board: board as Board, card, finish: finish as ListFinish, lang, qty: n };
+    const [board, card, finish, lang, cond] = parts(k);
+    return { board: board as Board, card, finish: finish as ListFinish, lang, ...(cond !== "NM" ? { cond: cond as Condition } : {}), qty: n };
   };
   return {
     in: sortedOf(into).map(line),
@@ -95,8 +99,8 @@ export function cubeSyncDiff(current: Entry[], incoming: Entry[], printings: (ca
     }),
     same,
     entries: sortedOf(final).map(([k, n]) => {
-      const [board, card, finish, lang] = parts(k);
-      return entry(card, board as Board, n, finish as ListFinish, lang);
+      const [board, card, finish, lang, cond] = parts(k);
+      return entry(card, board as Board, n, finish as ListFinish, lang, cond as Condition);
     }),
   };
 }

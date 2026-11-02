@@ -14,14 +14,16 @@ struct CardList: Identifiable, Hashable, Sendable {
         let cardId: String
         let board: String // main | side | maybe | commander
         let qty: Int
-        /// nonfoil | foil | etched. A line is printing × section × finish × language, so 2 foil and 2 non-foil
-        /// copies of a card are two lines.
+        /// nonfoil | foil | etched. A line is printing × section × finish × language × condition, so 2 foil and 2
+        /// non-foil copies of a card are two lines.
         var finish: String = "nonfoil"
         /// The copies' language (contract/lists-2026-10-15.md, "Languages"); a non-English printing is always its own.
         var lang: String = "en"
+        /// The copies' condition (contract/lists-2026-10-15.md, "Conditions"): NM unless they came from the collection.
+        var cond: String = "NM"
 
-        func isLine(_ cardId: String, _ board: String, _ finish: String, _ lang: String) -> Bool {
-            self.cardId == cardId && self.board == board && self.finish == finish && self.lang == lang
+        func isLine(_ cardId: String, _ board: String, _ finish: String, _ lang: String, _ cond: String) -> Bool {
+            self.cardId == cardId && self.board == board && self.finish == finish && self.lang == lang && self.cond == cond
         }
     }
     struct Version: Identifiable, Hashable, Sendable {
@@ -38,6 +40,7 @@ struct CardList: Identifiable, Hashable, Sendable {
         let delta: Int
         var finish: String = "nonfoil"
         var lang: String = "en"
+        var cond: String = "NM"
     }
     enum Kind: String, Sendable { case deck, cube }
 
@@ -90,12 +93,12 @@ struct CardList: Identifiable, Hashable, Sendable {
     /// removals before additions.
     static func diff(_ older: Version?, _ newer: Version) -> [Change] {
         var qty: [String: Int] = [:]
-        for e in older?.entries ?? [] { qty["\(e.board)|\(e.cardId)|\(e.finish)|\(e.lang)", default: 0] -= e.qty }
-        for e in newer.entries { qty["\(e.board)|\(e.cardId)|\(e.finish)|\(e.lang)", default: 0] += e.qty }
+        for e in older?.entries ?? [] { qty["\(e.board)|\(e.cardId)|\(e.finish)|\(e.lang)|\(e.cond)", default: 0] -= e.qty }
+        for e in newer.entries { qty["\(e.board)|\(e.cardId)|\(e.finish)|\(e.lang)|\(e.cond)", default: 0] += e.qty }
         return qty.compactMap { k, d -> Change? in
             guard d != 0 else { return nil }
-            let parts = k.split(separator: "|", maxSplits: 3).map(String.init)
-            return Change(cardId: parts[1], board: parts[0], delta: d, finish: parts[2], lang: parts[3])
+            let parts = k.split(separator: "|", maxSplits: 4).map(String.init)
+            return Change(cardId: parts[1], board: parts[0], delta: d, finish: parts[2], lang: parts[3], cond: parts[4])
         }
         .sorted { a, b in
             let ia = boardOrder.firstIndex(of: a.board) ?? 9, ib = boardOrder.firstIndex(of: b.board) ?? 9
@@ -286,7 +289,8 @@ final class ListsStore {
 
     nonisolated static func wire(_ e: CardList.Entry) -> AnyJSON {
         .array([.string(e.cardId), .string(e.board), .integer(e.qty)]
-               + (e.lang != "en" ? [.string(e.finish), .string(e.lang)] : e.finish == "nonfoil" ? [] : [.string(e.finish)]))
+               + (e.cond != "NM" ? [.string(e.finish), .string(e.lang), .string(e.cond)]
+                  : e.lang != "en" ? [.string(e.finish), .string(e.lang)] : e.finish == "nonfoil" ? [] : [.string(e.finish)]))
     }
 
     private func persist() {
@@ -457,84 +461,95 @@ final class ListsStore {
         send("list_delete", ["p_list_id": .string(listId)])
     }
 
-    func add(listId: String, cardId: String, board: String, finish: String = "nonfoil", lang: String = "en", delta: Int) {
+    func add(listId: String, cardId: String, board: String, finish: String = "nonfoil", lang: String = "en", cond: String = "NM", delta: Int) {
         edit(listId, op: ["card_id": .string(cardId), "board": .string(board), "finish": .string(finish), "lang": .string(lang),
-                          "delta": .integer(delta)]) { entries in
-            if let i = entries.firstIndex(where: { $0.isLine(cardId, board, finish, lang) }) {
+                          "cond": .string(cond), "delta": .integer(delta)]) { entries in
+            if let i = entries.firstIndex(where: { $0.isLine(cardId, board, finish, lang, cond) }) {
                 let q = entries[i].qty + delta
-                if q > 0 { entries[i] = .init(cardId: cardId, board: board, qty: q, finish: finish, lang: lang) } else { entries.remove(at: i) }
+                if q > 0 { entries[i] = .init(cardId: cardId, board: board, qty: q, finish: finish, lang: lang, cond: cond) } else { entries.remove(at: i) }
             } else if delta > 0 {
-                entries.append(.init(cardId: cardId, board: board, qty: delta, finish: finish, lang: lang))
+                entries.append(.init(cardId: cardId, board: board, qty: delta, finish: finish, lang: lang, cond: cond))
             }
         }
     }
 
     /// Moves every copy of a line to another section (merging with copies already there).
-    func move(listId: String, cardId: String, finish: String = "nonfoil", lang: String = "en", from: String, to: String) {
+    func move(listId: String, cardId: String, finish: String = "nonfoil", lang: String = "en", cond: String = "NM", from: String, to: String) {
         guard from != to else { return }
-        edit(listId, op: ["card_id": .string(cardId), "finish": .string(finish), "lang": .string(lang), "from": .string(from), "to": .string(to)]) { entries in
-            Self.shift(&entries, cardId: cardId, board: from, finish: finish, lang: lang, toCardId: cardId, toBoard: to, toFinish: finish,
-                       toLang: lang, qty: nil)
+        edit(listId, op: ["card_id": .string(cardId), "finish": .string(finish), "lang": .string(lang), "cond": .string(cond),
+                          "from": .string(from), "to": .string(to)]) { entries in
+            Self.shift(&entries, cardId: cardId, board: from, finish: finish, lang: lang, cond: cond, toCardId: cardId, toBoard: to, toFinish: finish,
+                       toLang: lang, toCond: cond, qty: nil)
         }
     }
 
     /// Moves `qty` copies (nil = all) of a line to another printing, finish and/or language in the same section:
     /// change a printing, split 4 non-foil into 2 non-foil and 2 foil, or call 2 of them Japanese. `toLang` nil keeps
-    /// the line's language.
-    func swap(listId: String, cardId: String, board: String, finish: String, lang: String = "en", toCardId: String, toFinish: String,
-              toLang: String? = nil, qty: Int?) {
-        let toLang = toLang ?? lang
-        guard cardId != toCardId || finish != toFinish || lang != toLang else { return }
+    /// the line's language, `toCond` nil its condition.
+    func swap(listId: String, cardId: String, board: String, finish: String, lang: String = "en", cond: String = "NM", toCardId: String,
+              toFinish: String, toLang: String? = nil, toCond: String? = nil, qty: Int?) {
+        let toLang = toLang ?? lang, toCond = toCond ?? cond
+        guard cardId != toCardId || finish != toFinish || lang != toLang || cond != toCond else { return }
         var op: [String: AnyJSON] = ["card_id": .string(cardId), "board": .string(board), "finish": .string(finish), "lang": .string(lang),
-                                     "to_card_id": .string(toCardId), "to_finish": .string(toFinish), "to_lang": .string(toLang)]
+                                     "cond": .string(cond), "to_card_id": .string(toCardId), "to_finish": .string(toFinish),
+                                     "to_lang": .string(toLang), "to_cond": .string(toCond)]
         if let qty { op["qty"] = .integer(qty) }
         edit(listId, op: op) { entries in
-            Self.shift(&entries, cardId: cardId, board: board, finish: finish, lang: lang, toCardId: toCardId, toBoard: board,
-                       toFinish: toFinish, toLang: toLang, qty: qty)
+            Self.shift(&entries, cardId: cardId, board: board, finish: finish, lang: lang, cond: cond, toCardId: toCardId, toBoard: board,
+                       toFinish: toFinish, toLang: toLang, toCond: toCond, qty: qty)
         }
     }
 
     /// Several printing moves in one section as one edit (card detail's Match collection, contract/owned-by-card-2026-10-31.md):
-    /// one request, one step in the history. Each copy keeps its language.
+    /// one request, one step in the history. Each copy keeps its language and condition.
     func swapMany(listId: String, board: String, moves: [OwnedByCard.Move]) {
         guard !moves.isEmpty else { return }
         let ops: [[String: AnyJSON]] = moves.map {
             ["card_id": .string($0.cardId), "board": .string(board), "finish": .string($0.finish), "lang": .string($0.lang),
-             "to_card_id": .string($0.toCardId), "to_finish": .string($0.toFinish), "to_lang": .string($0.lang), "qty": .integer($0.qty)]
+             "cond": .string($0.cond), "to_card_id": .string($0.toCardId), "to_finish": .string($0.toFinish), "to_lang": .string($0.lang),
+             "qty": .integer($0.qty)]
         }
         edit(listId, ops: ops) { entries in
             for m in moves {
-                Self.shift(&entries, cardId: m.cardId, board: board, finish: m.finish, lang: m.lang, toCardId: m.toCardId, toBoard: board,
-                           toFinish: m.toFinish, toLang: m.lang, qty: m.qty)
+                Self.shift(&entries, cardId: m.cardId, board: board, finish: m.finish, lang: m.lang, cond: m.cond, toCardId: m.toCardId,
+                           toBoard: board, toFinish: m.toFinish, toLang: m.lang, toCond: m.cond, qty: m.qty)
             }
         }
     }
 
     nonisolated static func shift(_ entries: inout [CardList.Entry], cardId: String, board: String, finish: String, lang: String = "en",
-                              toCardId: String, toBoard: String, toFinish: String, toLang: String = "en", qty: Int?) {
-        guard let i = entries.firstIndex(where: { $0.isLine(cardId, board, finish, lang) }) else { return }
+                              cond: String = "NM", toCardId: String, toBoard: String, toFinish: String, toLang: String = "en",
+                              toCond: String = "NM", qty: Int?) {
+        guard let i = entries.firstIndex(where: { $0.isLine(cardId, board, finish, lang, cond) }) else { return }
         let have = entries[i].qty
         let n = min(have, qty ?? have)
         guard n > 0 else { return }
-        if have - n > 0 { entries[i] = .init(cardId: cardId, board: board, qty: have - n, finish: finish, lang: lang) } else { entries.remove(at: i) }
-        if let j = entries.firstIndex(where: { $0.isLine(toCardId, toBoard, toFinish, toLang) }) {
-            entries[j] = .init(cardId: toCardId, board: toBoard, qty: entries[j].qty + n, finish: toFinish, lang: toLang)
+        if have - n > 0 {
+            entries[i] = .init(cardId: cardId, board: board, qty: have - n, finish: finish, lang: lang, cond: cond)
         } else {
-            entries.append(.init(cardId: toCardId, board: toBoard, qty: n, finish: toFinish, lang: toLang))
+            entries.remove(at: i)
+        }
+        if let j = entries.firstIndex(where: { $0.isLine(toCardId, toBoard, toFinish, toLang, toCond) }) {
+            entries[j] = .init(cardId: toCardId, board: toBoard, qty: entries[j].qty + n, finish: toFinish, lang: toLang, cond: toCond)
+        } else {
+            entries.append(.init(cardId: toCardId, board: toBoard, qty: n, finish: toFinish, lang: toLang, cond: toCond))
         }
     }
 
     /// Replaces one copy of a line with another card (Cube Cobra's Remove/Replace), in the same section: one edit,
     /// so the version history shows the swap.
-    func replaceCard(listId: String, cardId: String, board: String, finish: String, lang: String = "en", with toCardId: String, toFinish: String,
-                     toLang: String = "en") {
-        swap(listId: listId, cardId: cardId, board: board, finish: finish, lang: lang, toCardId: toCardId, toFinish: toFinish, toLang: toLang, qty: 1)
+    func replaceCard(listId: String, cardId: String, board: String, finish: String, lang: String = "en", cond: String = "NM", with toCardId: String,
+                     toFinish: String, toLang: String = "en") {
+        // Another card isn't the copy that was there: it starts near mint.
+        swap(listId: listId, cardId: cardId, board: board, finish: finish, lang: lang, cond: cond, toCardId: toCardId, toFinish: toFinish,
+             toLang: toLang, toCond: "NM", qty: 1)
         Telemetry.capture("list_card_replaced", ["kind": list(id: listId)?.kind.rawValue ?? "cube"])
     }
 
-    func remove(listId: String, cardId: String, board: String, finish: String = "nonfoil", lang: String = "en") {
-        edit(listId, op: ["card_id": .string(cardId), "board": .string(board), "finish": .string(finish), "lang": .string(lang), "qty": .integer(0)]) {
-            $0.removeAll { $0.isLine(cardId, board, finish, lang) }
+    func remove(listId: String, cardId: String, board: String, finish: String = "nonfoil", lang: String = "en", cond: String = "NM") {
+        edit(listId, op: ["card_id": .string(cardId), "board": .string(board), "finish": .string(finish), "lang": .string(lang),
+                          "cond": .string(cond), "qty": .integer(0)]) {
+            $0.removeAll { $0.isLine(cardId, board, finish, lang, cond) }
         }
     }
 
@@ -545,7 +560,7 @@ final class ListsStore {
                                                     "lang": .string($0.lang), "delta": .integer(1)] }
         edit(listId, ops: ops) { entries in
             for c in cards {
-                if let i = entries.firstIndex(where: { $0.isLine(c.cardId, board, c.finish, c.lang) }) {
+                if let i = entries.firstIndex(where: { $0.isLine(c.cardId, board, c.finish, c.lang, "NM") }) {
                     entries[i] = .init(cardId: c.cardId, board: board, qty: entries[i].qty + 1, finish: c.finish, lang: c.lang)
                 } else {
                     entries.append(.init(cardId: c.cardId, board: board, qty: 1, finish: c.finish, lang: c.lang))
@@ -666,7 +681,8 @@ struct ListDTO: Codable {
                             CardList.Version(number: v.version, at: Date(timeIntervalSince1970: v.at), note: v.note,
                                              entries: v.entries.map { CardList.Entry(cardId: $0[0].text, board: $0[1].text, qty: $0[2].int,
                                                                                     finish: $0.count > 3 ? $0[3].text : "nonfoil",
-                                                                                    lang: $0.count > 4 ? $0[4].text : "en") })
+                                                                                    lang: $0.count > 4 ? $0[4].text : "en",
+                                                                                    cond: $0.count > 5 ? $0[5].text : "NM") })
                         }, eventId: eventId, eventName: eventName, seq: seq, sourceUrl: sourceUrl)
     }
 
@@ -683,7 +699,8 @@ struct ListDTO: Codable {
         versions = l.versions.map { v in
             VersionDTO(version: v.number, note: v.note, at: v.at.timeIntervalSince1970,
                        entries: v.entries.map { [.text($0.cardId), .text($0.board), .int($0.qty)]
-                           + ($0.lang != "en" ? [.text($0.finish), .text($0.lang)] : $0.finish == "nonfoil" ? [] : [.text($0.finish)]) })
+                           + ($0.cond != "NM" ? [.text($0.finish), .text($0.lang), .text($0.cond)]
+                              : $0.lang != "en" ? [.text($0.finish), .text($0.lang)] : $0.finish == "nonfoil" ? [] : [.text($0.finish)]) })
         }
     }
 }
@@ -706,7 +723,7 @@ func ownedByPrinting() -> [String: Int] {
 @MainActor
 func ownedByLanguage() -> [String: Int] {
     var out: [String: Int] = [:]
-    for it in CollectionStore.shared.items.values { out["\(it.cardId)|\(it.finish)|\(it.lang)", default: 0] += it.qty }
+    for it in CollectionStore.shared.items.values { out["\(it.cardId)|\(it.finish)|\(it.lang)|\(it.condition)", default: 0] += it.qty }
     return out
 }
 
@@ -728,7 +745,7 @@ struct LineCover {
         // A roto deck's cards come from the cube, never from your collection: every line is covered.
         guard let list, list.eventId == nil else { return }
         let s = OwnedByCard.shorts(OwnedByCard.needs(list), holdings, basics: CatalogStore.shared.basics)
-        for (e, n) in zip(list.entries, s) where n > 0 { shorts["\(e.board)|\(e.cardId)|\(e.finish)|\(e.lang)", default: 0] += n }
+        for (e, n) in zip(list.entries, s) where n > 0 { shorts["\(e.board)|\(e.cardId)|\(e.finish)|\(e.lang)|\(e.cond)", default: 0] += n }
         total = s.reduce(0, +)
     }
 
@@ -839,6 +856,7 @@ struct ListLine: Identifiable, Hashable {
     var legal: String = ""
     var finish: String = "nonfoil"
     var lang: String = "en"
+    var cond: String = "NM"
     /// Canadian Highlander points for one copy (0 = none).
     var points: Int = 0
     /// Basic lands are exempt from singleton rules.
@@ -852,6 +870,8 @@ struct ListLine: Identifiable, Hashable {
     var finishLabel: String? { finish == "nonfoil" ? nil : finish.capitalized }
     /// "JA" for a non-English line; nil for English.
     var langLabel: String? { lang == "en" ? nil : lang.uppercased() }
+    /// "LP" for a line in any condition but near mint; nil for NM.
+    var condLabel: String? { cond == "NM" ? nil : cond }
 
     static let typeOrder = ["Creatures", "Planeswalkers", "Instants", "Sorceries", "Artifacts", "Enchantments", "Battles", "Lands", "Other"]
     static let colorOrder = ["White", "Blue", "Black", "Red", "Green", "Multicolor", "Colorless", "Lands"]
@@ -866,7 +886,7 @@ struct ListLine: Identifiable, Hashable {
             let keys = GroupKeys(o)
             return ListLine(id: "\(e.board)-\(i)", cardId: e.cardId, printing: printings[e.cardId], oracleId: o?.oracleId,
                             name: o?.name ?? "Unknown card", group: keys[kind == .deck ? .type : .color], board: e.board, qty: e.qty,
-                            keys: keys, legal: o?.legal ?? "", finish: e.finish, lang: e.lang,
+                            keys: keys, legal: o?.legal ?? "", finish: e.finish, lang: e.lang, cond: e.cond,
                             points: o?.points ?? 0, basic: type.contains("Basic"), type: o?.typeLine ?? "", pair: o?.pair)
         }
         .sorted { $0.name < $1.name }
@@ -1123,12 +1143,12 @@ struct ListDetailView: View {
         let (zone, commander) = zoneOf(rows)
         Section1("Command zone")
         CommandZoneCards { width in
-            ForEach(CommandZone.slots(format: list.format, lines: zone.map { .init(cardId: $0.cardId, typeLine: $0.type, finish: $0.finish, lang: $0.lang, pair: $0.pair) }),
+            ForEach(CommandZone.slots(format: list.format, lines: zone.map { .init(cardId: $0.cardId, typeLine: $0.type, finish: $0.finish, lang: $0.lang, cond: $0.cond, pair: $0.pair) }),
                     id: \.self) { slot in
-                let line = zone.first { $0.cardId == slot.cardId && $0.finish == slot.finish && $0.lang == slot.lang }
+                let line = zone.first { $0.cardId == slot.cardId && $0.finish == slot.finish && $0.lang == slot.lang && $0.cond == slot.cond }
                 CommandZoneCard(slot: slot, printing: line?.printing, name: line?.name, width: width,
                                 hint: slot.role == .partner ? commander.map(CommandZone.partnerHint) : nil, choose: { chooseZone(list, slot) },
-                                remove: slot.cardId.map { id in { ListsStore.shared.remove(listId: list.id, cardId: id, board: CommandZone.board, finish: slot.finish, lang: slot.lang) } },
+                                remove: slot.cardId.map { id in { ListsStore.shared.remove(listId: list.id, cardId: id, board: CommandZone.board, finish: slot.finish, lang: slot.lang, cond: slot.cond) } },
                                 open: line?.oracleId.map { o in { path.append(.cardIn(o, .list(list.id))) } })
             }
         }
@@ -1149,7 +1169,7 @@ struct ListDetailView: View {
         let rows = lines(for: list)
         let deck = rows.filter { $0.board != CommandZone.board }.map {
             CommandZonePicker.DeckCard(line: .init(cardId: $0.cardId, board: $0.board, typeLine: $0.type, finish: $0.finish, lang: $0.lang,
-                                                   qty: $0.qty, pair: $0.pair),
+                                                   cond: $0.cond, qty: $0.qty, pair: $0.pair),
                                        name: $0.name, printing: $0.printing)
         }
         let partnerOf = slot.role == .partner ? zoneOf(rows).commander : nil
@@ -1158,18 +1178,18 @@ struct ListDetailView: View {
                 let store = ListsStore.shared
                 for op in CommandZone.movingIn(c.line, slot: slot) {
                     switch op {
-                    case let .move(id, finish, lang, from, to):
-                        store.move(listId: listId, cardId: id, finish: finish, lang: lang, from: from, to: to)
-                    case let .delta(id, finish, lang, board, by):
-                        store.add(listId: listId, cardId: id, board: board, finish: finish, lang: lang, delta: by)
+                    case let .move(id, finish, lang, cond, from, to):
+                        store.move(listId: listId, cardId: id, finish: finish, lang: lang, cond: cond, from: from, to: to)
+                    case let .delta(id, finish, lang, cond, board, by):
+                        store.add(listId: listId, cardId: id, board: board, finish: finish, lang: lang, cond: cond, delta: by)
                     }
                 }
                 Telemetry.capture("command_zone_set", ["format": format, "role": slot.role.rawValue, "from": "deck"])
             }, partnerOf: partnerOf) { _, p in
                 let store = ListsStore.shared
                 if let id = slot.cardId {
-                    store.swap(listId: listId, cardId: id, board: CommandZone.board, finish: slot.finish, lang: slot.lang,
-                               toCardId: p.cardId, toFinish: "nonfoil", toLang: "en", qty: nil)
+                    store.swap(listId: listId, cardId: id, board: CommandZone.board, finish: slot.finish, lang: slot.lang, cond: slot.cond,
+                               toCardId: p.cardId, toFinish: "nonfoil", toLang: "en", toCond: "NM", qty: nil)
                 } else {
                     store.add(listId: listId, cardId: p.cardId, board: CommandZone.board, delta: 1)
                 }
@@ -1182,8 +1202,8 @@ struct ListDetailView: View {
     private func lines(for list: CardList) -> [ListLine] {
         let lines = list.entries.compactMap { e -> ListLine? in
             guard let m = meta[e.cardId] else { return nil }
-            return ListLine(id: "\(e.board)|\(e.cardId)|\(e.finish)|\(e.lang)", cardId: e.cardId, printing: m.printing, oracleId: m.oracleId,
-                            name: m.name, group: m.keys[grouping], board: e.board, qty: e.qty, keys: m.keys, legal: m.legal, finish: e.finish, lang: e.lang,
+            return ListLine(id: "\(e.board)|\(e.cardId)|\(e.finish)|\(e.lang)|\(e.cond)", cardId: e.cardId, printing: m.printing, oracleId: m.oracleId,
+                            name: m.name, group: m.keys[grouping], board: e.board, qty: e.qty, keys: m.keys, legal: m.legal, finish: e.finish, lang: e.lang, cond: e.cond,
                             points: m.points, basic: m.basic, type: m.type, pair: m.pair)
         }
         return sort.apply(lines) { SortKey(name: $0.name, keys: $0.keys, printing: $0.printing) }
@@ -1347,7 +1367,7 @@ struct ListDetailView: View {
         let have: String? = eventDeck ? nil : considering ? (owned > 0 ? "Owned \(owned)" : "Not owned")
             : line.basic && owned == 0 ? nil : short ? "Owned \(owned) · missing \(missing)" : "Owned \(owned)"
         let pts = line.points > 0 && ListsStore.shared.list(id: listId)?.format == "canlander" ? "\(line.points) pt\(line.points == 1 ? "" : "s")" : nil
-        let detail = [sub ? nil : issue, pts, line.finishLabel, line.langLabel, have].compactMap { $0 }.joined(separator: " · ")
+        let detail = [sub ? nil : issue, pts, line.finishLabel, line.langLabel, line.condLabel, have].compactMap { $0 }.joined(separator: " · ")
         return Button {
             if let o = line.oracleId { path.append(.cardIn(o, .list(listId))) }
         } label: {
@@ -1367,10 +1387,10 @@ struct ListDetailView: View {
                     + (list.kind == .deck ? ["main", "side", "maybe"] : ["main", "maybe"])
                 T1Overlays.shared.showMenu(line.name, others.filter { $0 != line.board }.map { b in
                     T1MenuItem(title: "Move to \(list.boardTitle(b))") {
-                        store.move(listId: list.id, cardId: line.cardId, finish: line.finish, lang: line.lang, from: line.board, to: b)
+                        store.move(listId: list.id, cardId: line.cardId, finish: line.finish, lang: line.lang, cond: line.cond, from: line.board, to: b)
                     }
                 } + [T1MenuItem(title: "Change printing or finish", detail: "Or split copies between finishes") {
-                    path.append(.linePrinting(list.id, line.cardId, line.board, line.finish, line.lang))
+                    path.append(.linePrinting(list.id, line.cardId, line.board, line.finish, line.lang, line.cond))
                 }] + (line.oracleId.map { o in
                     let on = HeroesStore.shared.isHero(o, .list(list.id))
                     return [T1MenuItem(title: on ? "Not a hero card" : "Make it a hero card",
@@ -1380,17 +1400,17 @@ struct ListDetailView: View {
                         }
                     }]
                 } ?? []) + [T1MenuItem(title: "Remove from \(list.boardTitle(line.board))", destructive: true) {
-                    store.remove(listId: list.id, cardId: line.cardId, board: line.board, finish: line.finish, lang: line.lang)
+                    store.remove(listId: list.id, cardId: line.cardId, board: line.board, finish: line.finish, lang: line.lang, cond: line.cond)
                 }])
             } label: {
                 CardRow(printing: line.printing, title: line.name,
-                        detail: [line.finishLabel, line.langLabel, "Tap to move, change or remove"].compactMap { $0 }.joined(separator: " · "),
+                        detail: [line.finishLabel, line.langLabel, line.condLabel, "Tap to move, change or remove"].compactMap { $0 }.joined(separator: " · "),
                         finish: line.finish, hero: HeroesStore.shared.isHero(line.oracleId, .list(list.id))) {
                     Text("\(line.qty)").font(T1.mono(17)).monospacedDigit()
                 }
             }.buttonStyle(.plain)
-            stepper("−") { store.add(listId: list.id, cardId: line.cardId, board: line.board, finish: line.finish, lang: line.lang, delta: -1) }
-            stepper("+") { store.add(listId: list.id, cardId: line.cardId, board: line.board, finish: line.finish, lang: line.lang, delta: 1) }
+            stepper("−") { store.add(listId: list.id, cardId: line.cardId, board: line.board, finish: line.finish, lang: line.lang, cond: line.cond, delta: -1) }
+            stepper("+") { store.add(listId: list.id, cardId: line.cardId, board: line.board, finish: line.finish, lang: line.lang, cond: line.cond, delta: 1) }
         }
         .fixedSize(horizontal: false, vertical: true)
     }
@@ -1565,7 +1585,7 @@ struct ListVersionView: View {
         return Button { if let o = card?.oracleId { path.append(.cardIn(o, .list(listId))) } } label: {
             CardRow(printing: card?.printing, title: card?.name ?? "…",
                     detail: [c.delta > 0 ? "Added" : "Removed", c.finish == "nonfoil" ? nil : c.finish.capitalized,
-                             c.lang == "en" ? nil : c.lang.uppercased()].compactMap { $0 }.joined(separator: " · ")) {
+                             c.lang == "en" ? nil : c.lang.uppercased(), c.cond == "NM" ? nil : c.cond].compactMap { $0 }.joined(separator: " · ")) {
                 Text(c.delta > 0 ? "+\(c.delta)" : "−\(-c.delta)").font(T1.mono(17)).monospacedDigit()
                     .foregroundStyle(c.delta > 0 ? T1.text : T1.error)
             }

@@ -12,7 +12,7 @@ struct Holdings: Sendable {
     let byCard: [String: Int]
     private let cardOf: [String: String]
 
-    /// `owned` keyed "card_id|finish" or "card_id|finish|lang"; `cardOf` maps a printing to its card (a printing
+    /// `owned` keyed "card_id|finish", "card_id|finish|lang" or "card_id|finish|lang|cond"; `cardOf` maps a printing to its card (a printing
     /// missing from it is its own card, as before the catalog loads).
     init(owned: [String: Int], cardOf: [String: String]) {
         var p: [String: Int] = [:], c: [String: Int] = [:]
@@ -56,6 +56,7 @@ enum OwnedByCard {
         var finish = "nonfoil"
         let qty: Int
         var lang = "en"
+        var cond = "NM"
     }
 
     /// Copies each line still needs. The printing and finish a line names cover it first, then the card's other
@@ -82,7 +83,7 @@ enum OwnedByCard {
     }
 
     static func needs(_ list: CardList) -> [Need] {
-        list.entries.map { Need(cardId: $0.cardId, board: $0.board, finish: $0.finish, qty: $0.qty, lang: $0.lang) }
+        list.entries.map { Need(cardId: $0.cardId, board: $0.board, finish: $0.finish, qty: $0.qty, lang: $0.lang, cond: $0.cond) }
     }
 
     /// Copies a list still needs (a roto deck's cards come from the cube, never from your collection).
@@ -134,11 +135,12 @@ enum OwnedByCard {
         var key: String { "\(cardId)|\(finish)" }
     }
 
-    /// A `list_edit` move op: `qty` copies of a line to another printing and/or finish, keeping its language.
+    /// A `list_edit` move op: `qty` copies of a line to another printing and/or finish, keeping its language and condition.
     struct Move: Hashable, Sendable {
         let cardId: String
         let finish: String
         var lang = "en"
+        var cond = "NM"
         let toCardId: String
         let toFinish: String
         let qty: Int
@@ -195,7 +197,7 @@ enum OwnedByCard {
             for t in targets.indices where movable > 0 {
                 let n = min(movable, targets[t].1)
                 guard n > 0 else { continue }
-                ops.append(Move(cardId: l.cardId, finish: l.finish, lang: l.lang, toCardId: targets[t].0.cardId,
+                ops.append(Move(cardId: l.cardId, finish: l.finish, lang: l.lang, cond: l.cond, toCardId: targets[t].0.cardId,
                                 toFinish: targets[t].0.finish, qty: n))
                 targets[t].1 -= n
                 movable -= n

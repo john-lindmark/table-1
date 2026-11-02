@@ -159,7 +159,8 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
     LaunchedEffect(versions) { if (selected != null && selected != EDITION && versions.none { it.id == selected }) selected = null }
 
     val o = oracle
-    val fresh = CardDetailRules.fresh(printings, addCondition, addLang, if (listId != null) "main" else null)
+    // A deck or cube line starts near mint: its condition comes only from copies added from your collection.
+    val fresh = CardDetailRules.fresh(printings, if (listId != null) "NM" else addCondition, addLang, if (listId != null) "main" else null)
     val chosen = if (selected == EDITION) edition else versions.firstOrNull { it.id == selected }
     val inView = chosen?.let { listOf(it) } ?: versions
     val current = chosen ?: CardDetailRules.main(versions) ?: draft ?: fresh
@@ -218,11 +219,12 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
         if (listId != null) {
             val ops = mutableListOf<JsonObject>()
             val reverse = mutableListOf<JsonObject>()
-            fun delta(cardId: String, board: String, finish: String, lang: String, d: Int) =
-                buildJsonObject { put("card_id", cardId); put("board", board); put("finish", finish); put("lang", lang); put("delta", d) }
+            fun delta(cardId: String, board: String, finish: String, lang: String, cond: String, d: Int) = buildJsonObject {
+                put("card_id", cardId); put("board", board); put("finish", finish); put("lang", lang); put("cond", cond); put("delta", d)
+            }
             fun swap(from: CardVersion, board: String, to: CardVersion, n: Int) = buildJsonObject {
-                put("card_id", from.cardId); put("board", board); put("finish", from.finish); put("lang", from.lang)
-                put("to_card_id", to.cardId); put("to_finish", to.finish); put("to_lang", to.lang); put("qty", n)
+                put("card_id", from.cardId); put("board", board); put("finish", from.finish); put("lang", from.lang); put("cond", from.condition)
+                put("to_card_id", to.cardId); put("to_finish", to.finish); put("to_lang", to.lang); put("to_cond", to.condition); put("qty", n)
             }
             for (v in targets) {
                 val to = CardDetailRules.repoint(v, a, value, printing)
@@ -230,8 +232,8 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
                 val n = if (one) 1 else v.qty
                 if (a == CardAttribute.Section) {
                     val toBoard = to.board ?: "main"
-                    ops += delta(v.cardId, board, v.finish, v.lang, -n); ops += delta(v.cardId, toBoard, v.finish, v.lang, n)
-                    reverse += delta(v.cardId, toBoard, v.finish, v.lang, -n); reverse += delta(v.cardId, board, v.finish, v.lang, n)
+                    ops += delta(v.cardId, board, v.finish, v.lang, v.condition, -n); ops += delta(v.cardId, toBoard, v.finish, v.lang, v.condition, n)
+                    reverse += delta(v.cardId, toBoard, v.finish, v.lang, v.condition, -n); reverse += delta(v.cardId, board, v.finish, v.lang, v.condition, n)
                 } else {
                     ops += swap(v, board, to, n)
                     reverse += swap(to, board, v, n)
@@ -266,7 +268,9 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
         val props = mapOf("scope" to scopeName, "attribute" to a.wire, "copies" to v.qty)
         if (listId != null) {
             val board = v.board ?: "main"
-            fun op(d: Int) = buildJsonObject { put("card_id", v.cardId); put("board", board); put("finish", v.finish); put("lang", v.lang); put("delta", d) }
+            fun op(d: Int) = buildJsonObject {
+                put("card_id", v.cardId); put("board", board); put("finish", v.finish); put("lang", v.lang); put("cond", v.condition); put("delta", d)
+            }
             listEdit(listOf(op(v.qty)), listOf(op(-v.qty)), label) { Telemetry.capture("card_edition_added", props) }
             return
         }
@@ -279,7 +283,7 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
         edition = CardDetailRules.newEdition(chosen ?: CardDetailRules.main(versions) ?: return)
         selected = EDITION
         last = null
-        notice = if (listId != null) "Change its set, language, finish or section to add it." else "Change its set, language, condition or finish to add it."
+        notice = if (listId != null) "Change its set, finish or section to add it." else "Change its set, language, condition or finish to add it."
         Telemetry.capture("card_edition_started", mapOf("scope" to scopeName, "versions" to versions.size))
     }
 
@@ -339,7 +343,9 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
         if (delta < 0 && v.qty <= 1) draft = v.copy(qty = 0)
         if (listId != null) {
             val board = v.board ?: "main"
-            fun op(d: Int) = buildJsonObject { put("card_id", v.cardId); put("board", board); put("finish", v.finish); put("lang", v.lang); put("delta", d) }
+            fun op(d: Int) = buildJsonObject {
+                put("card_id", v.cardId); put("board", board); put("finish", v.finish); put("lang", v.lang); put("cond", v.condition); put("delta", d)
+            }
             listEdit(listOf(op(delta)), listOf(op(-delta)), label) { Telemetry.capture("card_stepped", props) }
             return
         }
@@ -441,9 +447,12 @@ fun CardDetailScreen(oracleId: String, onBack: () -> Unit, context: CardContext?
         val printingShown = setValue?.let { byId[it] }
         val cells = buildList {
             add(Triple(CardAttribute.Set, printingShown?.set?.uppercase() ?: "Mix", true))
-            // A non-English printing's language is its own. Deck and cube lines name a language too, but no condition.
-            add(Triple(CardAttribute.Language, CardDetailRules.shared(shown) { it.lang }?.uppercase() ?: "Mix", printingShown?.let { it.lang == "en" } ?: true))
-            if (list == null) add(Triple(CardAttribute.Condition, CardDetailRules.shared(shown) { it.condition } ?: "Mix", true))
+            // A non-English printing's language is its own. Deck and cube lines record a language and condition, but the
+            // card page opened from a deck or cube shows neither (John, 2026-11-01): they come from the copies added to it.
+            if (list == null) {
+                add(Triple(CardAttribute.Language, CardDetailRules.shared(shown) { it.lang }?.uppercase() ?: "Mix", printingShown?.let { it.lang == "en" } ?: true))
+                add(Triple(CardAttribute.Condition, CardDetailRules.shared(shown) { it.condition } ?: "Mix", true))
+            }
             if (CardDetailRules.showsFinish(shown, byId)) {
                 add(Triple(CardAttribute.Finish, CardDetailRules.shared(shown) { it.finish }?.let(::finishCode) ?: "Mix", printingShown?.let { it.finishList.size > 1 } ?: true))
             }
@@ -553,13 +562,13 @@ private fun MatchSheet(list: CardList, m: MatchInfo, printings: Map<String, Cata
     val ops = OwnedByCard.matchOps(section, picks)
     fun json(ms: List<OwnedByCard.Move>) = ms.map { mv ->
         buildJsonObject {
-            put("card_id", mv.cardId); put("board", board); put("finish", mv.finish); put("lang", mv.lang)
+            put("card_id", mv.cardId); put("board", board); put("finish", mv.finish); put("lang", mv.lang); put("cond", mv.cond)
             put("to_card_id", mv.toCardId); put("to_finish", mv.toFinish); put("to_lang", mv.lang); put("qty", mv.qty)
         }
     }
     fun save() {
         if (ops.isEmpty()) return
-        val back = ops.reversed().map { OwnedByCard.Move(it.toCardId, it.toFinish, it.lang, it.cardId, it.finish, it.qty) }
+        val back = ops.reversed().map { OwnedByCard.Move(it.toCardId, it.toFinish, it.lang, it.cardId, it.finish, it.qty, it.cond) }
         val moved = ops.sumOf { it.qty }
         co.launch {
             runCatching { ListsStore.editMany(list.id, json(ops)) }
@@ -787,14 +796,14 @@ private fun AddToSheet(o: CatalogOracle, lines: List<CardVersion>, printings: Ma
             val pr = printings[line.cardId] ?: return@mapNotNull null
             // A finish the printing lacks is saved in one it has (contract/lists-2026-10-15.md).
             val f = pr.finishList.map { it.wire }.let { fs -> if (line.finish in fs) line.finish else fs.firstOrNull() ?: "nonfoil" }
-            // The copy keeps the language on screen (a Japanese copy you own goes in as Japanese).
+            // The copy keeps the language and condition on screen (a Japanese LP copy you own goes in as Japanese LP).
             val lang = Languages.forNew(pr.lang, line.lang)
-            ListsStore.add(id, pr.cardId, board, line.qty, f, lang)
-            listOf(pr.cardId, f, lang) to line.qty
+            ListsStore.add(id, pr.cardId, board, line.qty, f, lang, line.condition)
+            listOf(pr.cardId, f, lang, line.condition) to line.qty
         }
         if (added.isEmpty()) return@launch
         val label = "Added $count $name to ${l.name} · ${l.boardTitle(board)}"
-        finish(l.kind.wire, label, CardUndo(label) { added.forEach { (k, n) -> ListsStore.add(id, k[0], board, -n, k[1], k[2]) } })
+        finish(l.kind.wire, label, CardUndo(label) { added.forEach { (k, n) -> ListsStore.add(id, k[0], board, -n, k[1], k[2], k[3]) } })
     }
     fun want(how: String) = launch {
         // One want per printing (and finish), counting the copies of each.
@@ -911,7 +920,6 @@ private fun CardInfo(o: CatalogOracle, p: CatalogPrinting?, version: CardVersion
     var pickingPrinting by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     val prefs = remember { site.table1.events.T1App.instance.getSharedPreferences("library", android.content.Context.MODE_PRIVATE) }
-    val addCondition = prefs.getString("addCondition", "NM") ?: "NM"
     LaunchedEffect(version.cardId) {
         failed = false
         runCatching { CardDetailsSource.details(version.cardId) }.onSuccess { details = it }.onFailure { failed = true }
@@ -958,7 +966,7 @@ private fun CardInfo(o: CatalogOracle, p: CatalogPrinting?, version: CardVersion
             if (lines.isNotEmpty()) {
                 val only = lines.map { it.cardId }.toSet()
                 // Only the listed printing, finish and language counts here (contract/list-to-collection-2026-10-22.md).
-                val ownedBy = col.items.values.filter { it.cardId in byId }.groupBy { "${it.cardId}|${it.finish}|${it.lang}" }.mapValues { (_, v) -> v.sumOf { it.qty } }
+                val ownedBy = col.items.values.filter { it.cardId in byId }.groupBy { "${it.cardId}|${it.finish}|${it.lang}|${it.condition}" }.mapValues { (_, v) -> v.sumOf { it.qty } }
                 val basics = CatalogStore.basics
                 val missing = ListToCollection.ops(list.entries, list.kind, ownedBy, ListToCollection.Mode.Missing, only = only, basics = basics)
                 val all = ListToCollection.ops(list.entries, list.kind, ownedBy, ListToCollection.Mode.All, only = only)
@@ -968,7 +976,7 @@ private fun CardInfo(o: CatalogOracle, p: CatalogPrinting?, version: CardVersion
                     val n = ListToCollection.copies(ops)
                     busy = true
                     co.launch {
-                        runCatching { CollectionStore.apply(ListToCollection.collectionOps(ops, { byId[it]?.lang }, addCondition)) }
+                        runCatching { CollectionStore.apply(ListToCollection.collectionOps(ops, { byId[it]?.lang })) }
                             .onSuccess { res ->
                                 val label = "Added $n ${o.name} to your collection"
                                 report(label, CardUndo(label) { CollectionStore.undo(res.batchId) })
@@ -980,12 +988,12 @@ private fun CardInfo(o: CatalogOracle, p: CatalogPrinting?, version: CardVersion
                 }
                 ListRow("Add to collection", ListToCollection.cardDetail(m, only.any { it in basics }), onClick = {
                     if (!busy) menu = "Add ${o.name} to your collection" to (listOfNotNull(
-                        if (m > 0) T1MenuItem("Add the $m missing · $addCondition") { add(missing, "missing") } else null,
-                        if (a > 0 && a != m) T1MenuItem("Add all $a · $addCondition") { add(all, "all") } else null,
+                        if (m > 0) T1MenuItem("Add the $m missing") { add(missing, "missing") } else null,
+                        if (a > 0 && a != m) T1MenuItem("Add all $a") { add(all, "all") } else null,
                     ) + lines.take(4).map { e ->
                         T1MenuItem("Add 1 ${byId[e.cardId]?.setLabel}${if (e.finish == "nonfoil") "" else " · ${Finish.of(e.finish)?.label ?: e.finish}"}" +
-                                "${if (e.lang == "en") "" else " · ${e.lang.uppercase()}"} · ${list.boardTitle(e.board)}") {
-                            add(listOf(ListToCollection.Op(e.cardId, e.finish, 1, e.lang)), "one")
+                                "${if (e.lang == "en") "" else " · ${e.lang.uppercase()}"}${if (e.cond == "NM") "" else " · ${e.cond}"} · ${list.boardTitle(e.board)}") {
+                            add(listOf(ListToCollection.Op(e.cardId, e.finish, 1, e.lang, e.cond)), "one")
                         }
                     })
                 }) { Label(if (busy) "Adding…" else "Add", color = T1.text) }

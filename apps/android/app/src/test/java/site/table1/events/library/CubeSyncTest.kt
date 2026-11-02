@@ -21,10 +21,12 @@ class CubeSyncTest {
     private fun entry(e: JsonElement): ListEntry {
         val a = e.jsonArray
         return ListEntry(a[0].jsonPrimitive.content, a[1].jsonPrimitive.content, a[2].jsonPrimitive.int,
-            if (a.size > 3) a[3].jsonPrimitive.content else "nonfoil", if (a.size > 4) a[4].jsonPrimitive.content else "en")
+            if (a.size > 3) a[3].jsonPrimitive.content else "nonfoil", if (a.size > 4) a[4].jsonPrimitive.content else "en",
+            if (a.size > 5) a[5].jsonPrimitive.content else "NM")
     }
     private fun s(o: Map<String, JsonElement>, k: String) = o[k]!!.jsonPrimitive.content
-    private fun line(e: JsonElement) = e.jsonObject.let { CubeSync.Line(s(it, "board"), s(it, "card"), s(it, "finish"), s(it, "lang"), it["qty"]!!.jsonPrimitive.int) }
+    private fun line(e: JsonElement) = e.jsonObject.let { CubeSync.Line(s(it, "board"), s(it, "card"), s(it, "finish"), s(it, "lang"), it["qty"]!!.jsonPrimitive.int,
+        it["cond"]?.jsonPrimitive?.content ?: "NM") }
 
     @Test fun sharedCases() {
         val printings = root["printings"]!!.jsonObject.mapValues { (_, v) -> CubeSync.Printing(s(v.jsonObject, "oracle"), s(v.jsonObject, "lang")) }

@@ -9,7 +9,7 @@ import { conditionPriceText, markConverted, usdConverted, usdPrice, usdText, use
 import { applyWants, binderById, forTrade, placementText, useBinders } from "../lib/binders";
 import { printingPlaces } from "../lib/changePrinting";
 import { ZONE_FORMATS } from "../lib/commandZone";
-import { BOARD_ORDER, boardTitle, entriesOf, finishOf, langOf, needsOf, sectionsFor, editList, useLists, type Board, type CardList, type ListOp } from "../lib/lists";
+import { BOARD_ORDER, boardTitle, condOf, entriesOf, finishOf, langOf, needsOf, sectionsFor, editList, useLists, type Board, type CardList, type ListOp } from "../lib/lists";
 import { saveTrade, useTrades, type TradeLine } from "../lib/trades";
 import { LANGUAGES, langForNew, languageName, storedAddLang } from "../lib/languages";
 import { cardAddDetail, copiesOf, listAddOps, toCollectionOps, type AddOp } from "../lib/listToCollection";
@@ -109,7 +109,7 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
     let raw: CardVersion[] = [];
     if (listId) {
       raw = list ? entriesOf(list).filter((e) => ids.has(e.cardId))
-        .map((e) => ({ cardId: e.cardId, finish: finishOf(e), condition: "NM" as Condition, lang: langOf(e), board: e.board, qty: e.qty })) : [];
+        .map((e) => ({ cardId: e.cardId, finish: finishOf(e), condition: condOf(e), lang: langOf(e), board: e.board, qty: e.qty })) : [];
     } else if (binderId) {
       raw = [...col.items.values()].filter((it) => ids.has(it.cardId)).flatMap((it) => {
         const q = printingPlaces(it).find((pl) => pl.place === binderId)?.qty ?? 0;
@@ -140,7 +140,8 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
     );
   }
 
-  const fresh = freshVersion(facts, addCondition, addLang, listId ? "main" : undefined);
+  // A deck or cube line starts near mint: its condition comes only from copies added from your collection.
+  const fresh = freshVersion(facts, listId ? "NM" : addCondition, addLang, listId ? "main" : undefined);
   const chosen = (selected === EDITION ? edition : versions.find((v) => versionId(v) === selected)) ?? null;
   const inView = chosen ? [chosen] : versions;
   const current = chosen ?? mainVersion(versions) ?? draft ?? fresh;
@@ -225,11 +226,14 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
         const board = v.board ?? "main", n = one ? 1 : v.qty;
         if (a === "section") {
           const toBoard = to.board ?? "main";
-          ops.push({ card_id: v.cardId, board, finish: v.finish, lang: v.lang, delta: -n }, { card_id: v.cardId, board: toBoard, finish: v.finish, lang: v.lang, delta: n });
-          reverse.push({ card_id: v.cardId, board: toBoard, finish: v.finish, lang: v.lang, delta: -n }, { card_id: v.cardId, board, finish: v.finish, lang: v.lang, delta: n });
+          const c = v.condition;
+          ops.push({ card_id: v.cardId, board, finish: v.finish, lang: v.lang, cond: c, delta: -n }, { card_id: v.cardId, board: toBoard, finish: v.finish, lang: v.lang, cond: c, delta: n });
+          reverse.push({ card_id: v.cardId, board: toBoard, finish: v.finish, lang: v.lang, cond: c, delta: -n }, { card_id: v.cardId, board, finish: v.finish, lang: v.lang, cond: c, delta: n });
         } else {
-          ops.push({ card_id: v.cardId, board, finish: v.finish, lang: v.lang, to_card_id: to.cardId, to_finish: to.finish, to_lang: to.lang, qty: n, swap: true });
-          reverse.push({ card_id: to.cardId, board, finish: to.finish, lang: to.lang, to_card_id: v.cardId, to_finish: v.finish, to_lang: v.lang, qty: n, swap: true });
+          ops.push({ card_id: v.cardId, board, finish: v.finish, lang: v.lang, cond: v.condition, to_card_id: to.cardId, to_finish: to.finish, to_lang: to.lang,
+                     to_cond: to.condition, qty: n, swap: true });
+          reverse.push({ card_id: to.cardId, board, finish: to.finish, lang: to.lang, cond: to.condition, to_card_id: v.cardId, to_finish: v.finish, to_lang: v.lang,
+                         to_cond: v.condition, qty: n, swap: true });
         }
         follow(to, v);
       }
@@ -264,7 +268,8 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
     if (delta < 0 && v.qty <= 1) setDraft({ ...v, qty: 0 });
     if (listId) {
       const board = v.board ?? "main";
-      void listEdit([{ card_id: v.cardId, board, finish: v.finish, lang: v.lang, delta }], [{ card_id: v.cardId, board, finish: v.finish, lang: v.lang, delta: -delta }],
+      void listEdit([{ card_id: v.cardId, board, finish: v.finish, lang: v.lang, cond: v.condition, delta }],
+                    [{ card_id: v.cardId, board, finish: v.finish, lang: v.lang, cond: v.condition, delta: -delta }],
                     label, () => capture("card_stepped", props));
       return;
     }
@@ -277,7 +282,7 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
     setEdition(newEdition(chosen ?? mainVersion(versions)!));
     setSelected(EDITION);
     setLast(null);
-    setNotice(listId ? "Change its set, language, finish or section to add it." : "Change its set, language, condition or finish to add it.");
+    setNotice(listId ? "Change its set, finish or section to add it." : "Change its set, language, condition or finish to add it.");
     capture("card_edition_started", { scope: scopeName, versions: versions.length });
   };
 
@@ -296,7 +301,8 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
     const props = { scope: scopeName, attribute: a, copies: v.qty };
     if (listId) {
       const board = v.board ?? "main";
-      void listEdit([{ card_id: v.cardId, board, finish: v.finish, lang: v.lang, delta: v.qty }], [{ card_id: v.cardId, board, finish: v.finish, lang: v.lang, delta: -v.qty }],
+      void listEdit([{ card_id: v.cardId, board, finish: v.finish, lang: v.lang, cond: v.condition, delta: v.qty }],
+                    [{ card_id: v.cardId, board, finish: v.finish, lang: v.lang, cond: v.condition, delta: -v.qty }],
                     label, () => capture("card_edition_added", props));
       return;
     }
@@ -363,10 +369,13 @@ export function CardDetail({ oracleId, onBack, context, onList }: {
   const cells: { a: CardAttribute; value: string; opens: boolean }[] = [
     { a: "set", value: setValue ? catalog.pSet[indexById.get(setValue)!].toUpperCase() : "Mix", opens: true },
   ];
-  // A non-English printing's language is its own. Deck and cube lines name a language too, but no condition.
-  const lang = shared(shown, (v) => v.lang);
-  cells.push({ a: "language", value: lang?.toUpperCase() ?? "Mix", opens: printingShown ? printingShown.lang === "en" : true });
-  if (!list) cells.push({ a: "condition", value: shared(shown, (v) => v.condition) ?? "Mix", opens: true });
+  // A non-English printing's language is its own. Deck and cube lines record a language and condition, but the card
+  // page opened from a deck or cube shows neither (John, 2026-11-01): they come from the copies added to it.
+  if (!list) {
+    const lang = shared(shown, (v) => v.lang);
+    cells.push({ a: "language", value: lang?.toUpperCase() ?? "Mix", opens: printingShown ? printingShown.lang === "en" : true });
+    cells.push({ a: "condition", value: shared(shown, (v) => v.condition) ?? "Mix", opens: true });
+  }
   if (showsFinish(shown, factsById)) {
     const f = shared(shown, (v) => v.finish);
     cells.push({ a: "finish", value: f ? finishCode(f) : "Mix", opens: printingShown ? finishesOf(printingShown).length > 1 : true });
@@ -537,10 +546,10 @@ function MatchSheet({ catalog, list, lines, versions, boards, indexById, onClose
   const w = 200;
   const pickBoard = (b: string) => { setBoard(b); setPicks(autoMatch(lines.filter((l) => l.board === b), versions)); setAuto(true); };
   const toOps = (ms: Move[]): ListOp[] => ms.map((m) => ({ card_id: m.cardId, board: board as Board, finish: m.finish as ListOp["finish"], lang: m.lang ?? "en",
-    to_card_id: m.toCardId, to_finish: m.toFinish as ListOp["finish"], to_lang: m.lang ?? "en", qty: m.qty, swap: true }));
+    cond: (m.cond ?? "NM") as Condition, to_card_id: m.toCardId, to_finish: m.toFinish as ListOp["finish"], to_lang: m.lang ?? "en", qty: m.qty, swap: true }));
   const save = async () => {
     if (!ops.length) return;
-    const back = [...ops].reverse().map((m) => ({ cardId: m.toCardId, finish: m.toFinish, lang: m.lang, toCardId: m.cardId, toFinish: m.finish, qty: m.qty }));
+    const back = [...ops].reverse().map((m) => ({ cardId: m.toCardId, finish: m.toFinish, lang: m.lang, cond: m.cond, toCardId: m.cardId, toFinish: m.finish, qty: m.qty }));
     const moved = ops.reduce((n, m) => n + m.qty, 0);
     try {
       await editList(list.id, toOps(ops));
@@ -752,14 +761,14 @@ function AddToSheet({ catalog, oi, lines, indexById, lists, scope, onClose, onDo
   const toList = async (id: string, board: Board) => {
     const l = lists.find((x) => x.id === id);
     if (!l) return;
-    const ops: { card_id: string; board: Board; finish: Finish; lang: string; delta: number }[] = lines.flatMap((line) => {
+    const ops: { card_id: string; board: Board; finish: Finish; lang: string; cond: Condition; delta: number }[] = lines.flatMap((line) => {
       const lp = pIndex(line.cardId);
       if (lp == null) return [];
       // A finish the printing lacks is saved in one it has (contract/lists-2026-10-15.md).
       const fs = finishesOf(factsOf(catalog, lp));
-      // The copy keeps the language on screen (a Japanese copy you own goes in as Japanese).
+      // The copy keeps the language and condition on screen (a Japanese LP copy you own goes in as Japanese LP).
       return [{ card_id: line.cardId, board, finish: fs.includes(line.finish) ? line.finish : fs[0] ?? "nonfoil",
-                lang: langForNew(catalog.pLang[lp], line.lang), delta: line.qty }];
+                lang: langForNew(catalog.pLang[lp], line.lang), cond: line.condition, delta: line.qty }];
     });
     if (!ops.length) return;
     try {
@@ -903,7 +912,6 @@ function CardInfo({ catalog, oi, version, p, printings, list, context, lists, re
   const col = useCollection(userId);
   const b = useBinders(userId);
   const heroes = useLibraryHeroes();
-  const [addCondition] = useAddCondition();
   const [details, setDetails] = useState<Details | null>(null);
   const [failed, setFailed] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
@@ -949,8 +957,8 @@ function CardInfo({ catalog, oi, version, p, printings, list, context, lists, re
     const only = new Set(lines.map((e) => e.cardId));
     const ownedBy = new Map<string, number>();
     for (const it of col.items.values()) {
-      const k = `${it.cardId}|${it.finish}|${it.lang}`;
-      // Only the listed printing, finish and language counts here (contract/list-to-collection-2026-10-22.md).
+      const k = `${it.cardId}|${it.finish}|${it.lang}|${it.condition}`;
+      // Only the listed printing, finish and language counts here, any condition (contract/list-to-collection-2026-10-22.md).
       if (ids.has(it.cardId)) ownedBy.set(k, (ownedBy.get(k) ?? 0) + it.qty);
     }
     const entries = entriesOf(list);
@@ -962,20 +970,19 @@ function CardInfo({ catalog, oi, version, p, printings, list, context, lists, re
       const n = copiesOf(ops);
       setBusy(true);
       try {
-        const res = await applyOps(toCollectionOps(ops, (id) => { const x = catalog.printingIndex.get(id); return x == null ? undefined : catalog.pLang[x]; },
-                                                   addCondition));
+        const res = await applyOps(toCollectionOps(ops, (id) => { const x = catalog.printingIndex.get(id); return x == null ? undefined : catalog.pLang[x]; }));
         const text = `Added ${n} ${catalog.oName[oi]} to your collection`;
         report(text, { label: text, run: () => undoBatch(res.batch_id) });
         capture("list_added_to_collection", { kind: list.kind, mode, sideboard: true, copies: n, lines: ops.length, from: "card" });
       } catch (e) { report(errorMessage(e), null); } finally { setBusy(false); }
     };
     const items: MenuItem[] = [
-      ...(m > 0 ? [{ title: `Add the ${m} missing`, detail: `As listed here · ${addCondition}`, onClick: () => void add(missing, "missing") }] : []),
-      ...(a > 0 && a !== m ? [{ title: `Add all ${a}`, detail: `Every copy listed here · ${addCondition}`, onClick: () => void add(all, "all") }] : []),
+      ...(m > 0 ? [{ title: `Add the ${m} missing`, detail: "As listed here", onClick: () => void add(missing, "missing") }] : []),
+      ...(a > 0 && a !== m ? [{ title: `Add all ${a}`, detail: "Every copy listed here", onClick: () => void add(all, "all") }] : []),
       ...lines.slice(0, 4).map((e) => ({
-        title: `Add 1 ${label(e.cardId)}${finishOf(e) === "nonfoil" ? "" : ` · ${FINISH_LABEL[finishOf(e)]}`}${langOf(e) === "en" ? "" : ` · ${langOf(e).toUpperCase()}`}`,
+        title: `Add 1 ${label(e.cardId)}${finishOf(e) === "nonfoil" ? "" : ` · ${FINISH_LABEL[finishOf(e)]}`}${langOf(e) === "en" ? "" : ` · ${langOf(e).toUpperCase()}`}${condOf(e) === "NM" ? "" : ` · ${condOf(e)}`}`,
         detail: boardTitle(list.kind, e.board),
-        onClick: () => void add([{ card_id: e.cardId, finish: finishOf(e), delta: 1, lang: langOf(e) }], "one"),
+        onClick: () => void add([{ card_id: e.cardId, finish: finishOf(e), delta: 1, lang: langOf(e), cond: condOf(e) }], "one"),
       })),
     ];
     return <Row title="Add to collection" detail={cardAddDetail(m, [...only].some((id) => basics.has(id)))}

@@ -18,7 +18,7 @@ enum LibraryRoute: Hashable {
     case version(String, Int) // list id, version number
     case listAdd(String) // list id
     case findDeck(String?) // a deck finder job id (a tapped deck.found push), or nil for a new search
-    case linePrinting(String, String, String, String, String) // list id, card id, board, finish, language
+    case linePrinting(String, String, String, String, String, String) // list id, card id, board, finish, language, condition
     case importList(CardList.Kind)
     case trades
     case trade(String?) // trade id, nil for a new one
@@ -120,7 +120,8 @@ struct LibraryDestination: View {
         case .version(let id, let n): ListVersionView(listId: id, number: n, path: $path)
         case .listAdd(let id): ListAddCardsView(listId: id, path: $path)
         case .findDeck(let job): DeckFinderView(path: $path, jobId: job)
-        case .linePrinting(let l, let c, let b, let f, let lang): ChangePrintingView(target: .listLine(listId: l, cardId: c, board: b, finish: f, lang: lang))
+        case .linePrinting(let l, let c, let b, let f, let lang, let cond):
+            ChangePrintingView(target: .listLine(listId: l, cardId: c, board: b, finish: f, lang: lang, cond: cond))
         case .importList(let kind): ListImportView(kind: kind, path: $path)
         case .trades: TradesView(path: $path)
         case .trade(let id): TradeView(tradeId: id, path: $path)

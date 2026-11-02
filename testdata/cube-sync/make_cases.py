@@ -25,6 +25,9 @@ import json
 import os
 
 LANG_ORDER = lambda lang: (lang != "en", lang)
+# A line's condition (contract/lists-2026-10-15.md § Conditions): Cube Cobra records none, so a kept or changed copy
+# keeps its line's condition and an In copy is NM. Best first among lines that differ only by condition.
+COND_RANK = lambda cond: ["NM", "LP", "MP", "HP", "DMG"].index(cond)
 
 
 def norm_current(entries):
@@ -33,7 +36,8 @@ def norm_current(entries):
         card, board, qty = e[0], e[1], e[2]
         finish = e[3] if len(e) > 3 and e[3] else "nonfoil"
         lang = e[4] if len(e) > 4 and e[4] else "en"
-        k = (board, card, finish, lang)
+        cond = e[5] if len(e) > 5 and e[5] else "NM"
+        k = (board, card, finish, lang, cond)
         out[k] = out.get(k, 0) + qty
     return out
 
@@ -65,7 +69,9 @@ def changed_lang(printings, from_card, from_lang, to_card):
     return "en"
 
 
-def entry(board, card, qty, finish, lang):
+def entry(board, card, qty, finish, lang, cond="NM"):
+    if cond != "NM":
+        return [card, board, qty, finish, lang, cond]
     if lang != "en":
         return [card, board, qty, finish, lang]
     if finish != "nonfoil":
@@ -85,7 +91,7 @@ def sync(printings, current, incoming):
 
     # 1. Same printing and finish.
     for (b, c, f) in sorted(inc):
-        for k in sorted([k for k in cur if k[:3] == (b, c, f)], key=lambda k: LANG_ORDER(k[3])):
+        for k in sorted([k for k in cur if k[:3] == (b, c, f)], key=lambda k: (LANG_ORDER(k[3]), COND_RANK(k[4]))):
             n = min(inc[(b, c, f)], cur[k])
             if n <= 0:
                 continue
@@ -96,7 +102,7 @@ def sync(printings, current, incoming):
 
     def pair(match):
         for (b, c, f) in sorted(inc):
-            for k in sorted(cur, key=lambda k: (k[0], k[1], k[2], LANG_ORDER(k[3]))):
+            for k in sorted(cur, key=lambda k: (k[0], k[1], k[2], LANG_ORDER(k[3]), COND_RANK(k[4]))):
                 if inc[(b, c, f)] <= 0:
                     break
                 if cur[k] <= 0 or k[0] != b or not match(k, c):
@@ -105,7 +111,7 @@ def sync(printings, current, incoming):
                 cur[k] -= n
                 inc[(b, c, f)] -= n
                 to_lang = changed_lang(printings, k[1], k[3], c)
-                add(final, (b, c, f, to_lang), n)
+                add(final, (b, c, f, to_lang, k[4]), n)
                 add(changed, (b, k[1], k[2], k[3], c, f, to_lang), n)
 
     # 2. Same printing, other finish. 3. Same card, other printing.
@@ -116,18 +122,18 @@ def sync(printings, current, incoming):
     for (b, c, f), n in inc.items():
         if n > 0:
             lang = plang(printings, c)
-            add(ins, (b, c, f, lang), n)
-            add(final, (b, c, f, lang), n)
+            add(ins, (b, c, f, lang, "NM"), n)
+            add(final, (b, c, f, lang, "NM"), n)
     outs = {k: n for k, n in cur.items() if n > 0}
 
-    row = lambda k, n: {"board": k[0], "card": k[1], "finish": k[2], "lang": k[3], "qty": n}
+    row = lambda k, n: {"board": k[0], "card": k[1], "finish": k[2], "lang": k[3], **({"cond": k[4]} if k[4] != "NM" else {}), "qty": n}
     return {
         "in": [row(k, ins[k]) for k in sorted(ins)],
         "out": [row(k, outs[k]) for k in sorted(outs)],
         "changed": [{"board": k[0], "from_card": k[1], "from_finish": k[2], "from_lang": k[3],
                      "to_card": k[4], "to_finish": k[5], "to_lang": k[6], "qty": changed[k]} for k in sorted(changed)],
         "same": same,
-        "entries": [entry(k[0], k[1], n, k[2], k[3]) for k, n in sorted(final.items()) if n > 0],
+        "entries": [entry(k[0], k[1], n, k[2], k[3], k[4]) for k, n in sorted(final.items()) if n > 0],
     }
 
 
@@ -179,6 +185,10 @@ CASES = [
      [["bolt-m10", "main", 1], ["bolt-m10", "main", 1, "nonfoil", "fr"]], [["bolt-m10", "main", 1], ["bolt-2xm", "main", 1]]),
     ("duplicate incoming lines merge", [], [["opt-xln", "main", 1], ["opt-xln", "main", 1]]),
     ("everything out", [["cs-7ed", "main", 1], ["ponder-lrw", "maybe", 2]], []),
+    ("a kept condition stays; NM copies pair first", [["bolt-m10", "main", 1, "nonfoil", "en", "LP"], ["bolt-m10", "main", 1]],
+     [["bolt-m10", "main", 1]]),
+    ("a condition follows a new printing; In copies are NM",
+     [["bolt-m10", "main", 1, "nonfoil", "de", "HP"]], [["bolt-2xm", "main", 1], ["opt-xln", "main", 1]]),
 ]
 
 

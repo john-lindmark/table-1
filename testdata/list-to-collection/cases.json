@@ -1,5 +1,5 @@
 {
- "about": "Add a deck or cube to the collection (contract/list-to-collection-2026-10-22.md). Each line goes in as the exact printing, finish and language the list names (an entry's or op's lang defaults to en). Main and Commander always count; a deck's sideboard counts unless sideboard is false; Considering never does. 'missing' adds only what the collection lacks of each exact printing + finish + language, over every condition (owned is keyed 'card_id|finish' for English copies or 'card_id|finish|lang'); copies in another printing, finish or language never cover a line (John, 2026-11-01), unlike the deck's own Missing (contract/owned-by-card-2026-10-31.md). 'all' adds every copy listed. 'only' limits it to some printings (card detail). Ops come out sorted by card_id, then finish, then lang, and only with delta > 0. iOS ListToCollectionTests, web listToCollection.test.ts and Android ListToCollectionTest read this; testdata/owned-by-card/make_cases.py checks it.",
+ "about": "Add a deck or cube to the collection (contract/list-to-collection-2026-10-22.md). Each line goes in as the exact printing, finish, language and condition the list records (an entry's or op's lang defaults to en, cond to NM). Main and Commander always count; a deck's sideboard counts unless sideboard is false; Considering never does. 'missing' adds only what the collection lacks of each exact printing + finish + language, over every condition (owned is keyed 'card_id|finish' for English NM copies, 'card_id|finish|lang' or 'card_id|finish|lang|cond'); owned copies cover lines in their own condition first, then the rest from NM down (NM, LP, MP, HP, DMG); copies in another printing, finish or language never cover a line (John, 2026-11-01), unlike the deck's own Missing (contract/owned-by-card-2026-10-31.md). 'all' adds every copy listed. 'only' limits it to some printings (card detail). Ops come out sorted by card_id, then finish, then lang, then condition (NM to DMG), and only with delta > 0. iOS ListToCollectionTests, web listToCollection.test.ts and Android ListToCollectionTest read this; testdata/owned-by-card/make_cases.py checks it.",
  "cases": [
   {
    "name": "deck, every copy: main and sideboard, not considering",
@@ -453,6 +453,127 @@
     }
    ],
    "copies": 3
+  },
+  {
+   "name": "every card: each line in its own condition and language",
+   "kind": "cube",
+   "mode": "all",
+   "entries": [
+    {
+     "card_id": "a",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 1
+    },
+    {
+     "card_id": "a",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 2,
+     "cond": "LP"
+    },
+    {
+     "card_id": "a",
+     "board": "main",
+     "finish": "foil",
+     "qty": 1,
+     "lang": "ja",
+     "cond": "DMG"
+    }
+   ],
+   "owned": {},
+   "ops": [
+    {
+     "card_id": "a",
+     "finish": "foil",
+     "delta": 1,
+     "lang": "ja",
+     "cond": "DMG"
+    },
+    {
+     "card_id": "a",
+     "finish": "nonfoil",
+     "delta": 1
+    },
+    {
+     "card_id": "a",
+     "finish": "nonfoil",
+     "delta": 2,
+     "cond": "LP"
+    }
+   ],
+   "copies": 4
+  },
+  {
+   "name": "missing: an owned copy in another condition still covers the line",
+   "kind": "deck",
+   "mode": "missing",
+   "entries": [
+    {
+     "card_id": "a",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 2,
+     "cond": "MP"
+    }
+   ],
+   "owned": {
+    "a|nonfoil": 1
+   },
+   "ops": [
+    {
+     "card_id": "a",
+     "finish": "nonfoil",
+     "delta": 1,
+     "cond": "MP"
+    }
+   ],
+   "copies": 1
+  },
+  {
+   "name": "missing: owned copies cover their own condition first, then from NM down",
+   "kind": "deck",
+   "mode": "missing",
+   "entries": [
+    {
+     "card_id": "a",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 2
+    },
+    {
+     "card_id": "a",
+     "board": "side",
+     "finish": "nonfoil",
+     "qty": 2,
+     "cond": "LP"
+    },
+    {
+     "card_id": "a",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 1,
+     "cond": "HP"
+    }
+   ],
+   "owned": {
+    "a|nonfoil|en|LP": 3,
+    "a|nonfoil|ja|NM": 4
+   },
+   "ops": [
+    {
+     "card_id": "a",
+     "finish": "nonfoil",
+     "delta": 1
+    },
+    {
+     "card_id": "a",
+     "finish": "nonfoil",
+     "delta": 1,
+     "cond": "HP"
+    }
+   ],
+   "copies": 2
   }
  ]
 }

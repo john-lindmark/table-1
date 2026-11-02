@@ -37,7 +37,7 @@ export function roleFits(role: ZoneRole, typeLine: string): boolean {
 }
 
 /** `pair`: who it shares the command zone with (ZoneMate); null or absent when the catalog doesn't say. */
-export interface ZoneLine { cardId: string; typeLine: string; finish?: string; lang?: string; pair?: string | null }
+export interface ZoneLine { cardId: string; typeLine: string; finish?: string; lang?: string; cond?: string; pair?: string | null }
 
 /** A card as a partner sees it (contract § Partners). `pair`: P partner, P:<name> partner with, G:<group> partner—group,
  *  F friends forever, B choose a Background, D doctor's companion, "" none, null unknown (an older pack: lenient). */
@@ -80,11 +80,13 @@ export function zonePartnerHint(a: ZoneMate): string {
   if (pair.startsWith("G:")) return `Another with partner—${pair.slice(2)}`;
   return ROLE_HINT.partner;
 }
-export interface ZoneSlot { role: ZoneRole; cardId: string | null; finish: string; lang: string }
+/** `cond` only when the line records one other than NM. */
+export interface ZoneSlot { role: ZoneRole; cardId: string | null; finish: string; lang: string; cond?: string }
 
 /** The slots a deck of this format shows, filled from its command-zone lines in order (see the contract). */
 export function zoneSlots(format: string, lines: ZoneLine[]): ZoneSlot[] {
-  const slot = (role: ZoneRole, l?: ZoneLine): ZoneSlot => ({ role, cardId: l?.cardId ?? null, finish: l?.finish ?? "nonfoil", lang: l?.lang ?? "en" });
+  const slot = (role: ZoneRole, l?: ZoneLine): ZoneSlot => ({ role, cardId: l?.cardId ?? null, finish: l?.finish ?? "nonfoil", lang: l?.lang ?? "en",
+                                                             ...(l?.cond && l.cond !== "NM" ? { cond: l.cond } : {}) });
   if (format === "commander") {
     const out = lines.slice(0, 2).map((l, i) => slot(i === 0 ? "commander" : "partner", l));
     if (!out.length) out.push(slot("commander"));
@@ -106,7 +108,7 @@ export function zoneFilling(lines: ZoneLine[], slotCard: string | null, next: Zo
 }
 
 /** A deck line outside the command zone that could be moved in. */
-export interface ZoneDeckLine { cardId: string; board: string; typeLine: string; finish?: string; lang?: string; qty?: number; pair?: string | null }
+export interface ZoneDeckLine { cardId: string; board: string; typeLine: string; finish?: string; lang?: string; cond?: string; qty?: number; pair?: string | null }
 
 /** The deck's own cards a slot's picker offers first: main deck, then sideboard, those that fit. A deck made before the
  *  command zone has its commander in the main deck. */
@@ -116,18 +118,19 @@ export function zoneInDeck<T extends ZoneDeckLine>(role: ZoneRole, lines: T[]): 
 
 /** A list_edit change that moves a deck card into a slot: every copy of a line to another section, or a count change. */
 export type ZoneOp =
-  | { kind: "move"; cardId: string; finish: string; lang: string; from: string; to: string }
-  | { kind: "delta"; cardId: string; finish: string; lang: string; board: string; by: number };
+  | { kind: "move"; cardId: string; finish: string; lang: string; cond?: string; from: string; to: string }
+  | { kind: "delta"; cardId: string; finish: string; lang: string; cond?: string; board: string; by: number };
 
 /** The changes that put one copy of `line` in `slot`: the slot's card (if any) goes to the main deck; a single copy moves,
  *  one of several moves by deltas. */
 export function zoneMovingIn(line: ZoneDeckLine, slot: ZoneSlot): ZoneOp[] {
   const finish = line.finish ?? "nonfoil", lang = line.lang ?? "en";
+  const cond = line.cond && line.cond !== "NM" ? { cond: line.cond } : {};
   const ops: ZoneOp[] = [];
-  if (slot.cardId) ops.push({ kind: "move", cardId: slot.cardId, finish: slot.finish, lang: slot.lang, from: ZONE_BOARD, to: "main" });
-  if ((line.qty ?? 1) <= 1) ops.push({ kind: "move", cardId: line.cardId, finish, lang, from: line.board, to: ZONE_BOARD });
-  else ops.push({ kind: "delta", cardId: line.cardId, finish, lang, board: line.board, by: -1 },
-                { kind: "delta", cardId: line.cardId, finish, lang, board: ZONE_BOARD, by: 1 });
+  if (slot.cardId) ops.push({ kind: "move", cardId: slot.cardId, finish: slot.finish, lang: slot.lang, ...(slot.cond ? { cond: slot.cond } : {}), from: ZONE_BOARD, to: "main" });
+  if ((line.qty ?? 1) <= 1) ops.push({ kind: "move", cardId: line.cardId, finish, lang, ...cond, from: line.board, to: ZONE_BOARD });
+  else ops.push({ kind: "delta", cardId: line.cardId, finish, lang, ...cond, board: line.board, by: -1 },
+                { kind: "delta", cardId: line.cardId, finish, lang, ...cond, board: ZONE_BOARD, by: 1 });
   return ops;
 }
 

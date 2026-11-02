@@ -24,7 +24,7 @@ class ListToCollectionTest {
             val name = c["name"]!!.jsonPrimitive.content
             val entries = c["entries"]!!.jsonArray.map { it.jsonObject }.map {
                 ListEntry(it["card_id"]!!.jsonPrimitive.content, it["board"]!!.jsonPrimitive.content, it["qty"]!!.jsonPrimitive.int, it["finish"]!!.jsonPrimitive.content,
-                    it["lang"]?.jsonPrimitive?.content ?: "en")
+                    it["lang"]?.jsonPrimitive?.content ?: "en", it["cond"]?.jsonPrimitive?.content ?: "NM")
             }
             val kind = if (c["kind"]!!.jsonPrimitive.content == "deck") ListKind.Deck else ListKind.Cube
             val mode = if (c["mode"]!!.jsonPrimitive.content == "all") ListToCollection.Mode.All else ListToCollection.Mode.Missing
@@ -33,18 +33,18 @@ class ListToCollectionTest {
                 c["only"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet())
             val want = c["ops"]!!.jsonArray.map { it.jsonObject }.map {
                 ListToCollection.Op(it["card_id"]!!.jsonPrimitive.content, it["finish"]!!.jsonPrimitive.content, it["delta"]!!.jsonPrimitive.int,
-                    it["lang"]?.jsonPrimitive?.content ?: "en")
+                    it["lang"]?.jsonPrimitive?.content ?: "en", it["cond"]?.jsonPrimitive?.content ?: "NM")
             }
             assertEquals(name, want, ops)
             assertEquals(name, c["copies"]!!.jsonPrimitive.int, ListToCollection.copies(ops))
         }
     }
 
-    @Test fun collectionOpsKeepTheListedLanguage() {
-        val ops = ListToCollection.collectionOps(listOf(ListToCollection.Op("a", "foil", 2), ListToCollection.Op("a", "nonfoil", 1, "de"),
-            ListToCollection.Op("j", "nonfoil", 1), ListToCollection.Op("u", "nonfoil", 1)), { mapOf("a" to "en", "j" to "ja")[it] }, "LP")
-        assertEquals(listOf(CollectionOp("a", "foil", "LP", "en", delta = 2), CollectionOp("a", "nonfoil", "LP", "de", delta = 1),
-            CollectionOp("j", "nonfoil", "LP", "ja", delta = 1), CollectionOp("u", "nonfoil", "LP", "en", delta = 1)), ops)
+    @Test fun collectionOpsKeepTheListedLanguageAndCondition() {
+        val ops = ListToCollection.collectionOps(listOf(ListToCollection.Op("a", "foil", 2, cond = "LP"), ListToCollection.Op("a", "nonfoil", 1, "de"),
+            ListToCollection.Op("j", "nonfoil", 1, cond = "DMG"), ListToCollection.Op("u", "nonfoil", 1)), { mapOf("a" to "en", "j" to "ja")[it] })
+        assertEquals(listOf(CollectionOp("a", "foil", "LP", "en", delta = 2), CollectionOp("a", "nonfoil", "NM", "de", delta = 1),
+            CollectionOp("j", "nonfoil", "DMG", "ja", delta = 1), CollectionOp("u", "nonfoil", "NM", "en", delta = 1)), ops)
     }
 
     private val box = Zoom.Size(400f, 800f)

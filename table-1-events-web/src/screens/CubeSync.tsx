@@ -180,8 +180,9 @@ export function CubeSyncScreen({ id, onBack, onCard }: { id: string; onBack: () 
               `+${l.qty}`, false, `in|${l.board}|${l.card}|${l.finish}|${l.lang}`))}
             {r.out.length > 0 && <Section title="Out" count={syncCounts(r).out} />}
             {r.out.map((l) => row(catalog.printingIndex.get(l.card),
-              [setLabel(catalog.printingIndex.get(l.card)), l.finish !== "nonfoil" && cap(l.finish), l.lang !== "en" && l.lang.toUpperCase(), l.board === "maybe" && "Considering"],
-              `−${l.qty}`, true, `out|${l.board}|${l.card}|${l.finish}|${l.lang}`))}
+              [setLabel(catalog.printingIndex.get(l.card)), l.finish !== "nonfoil" && cap(l.finish), l.lang !== "en" && l.lang.toUpperCase(), l.cond ?? null,
+               l.board === "maybe" && "Considering"],
+              `−${l.qty}`, true, `out|${l.board}|${l.card}|${l.finish}|${l.lang}|${l.cond ?? "NM"}`))}
             {r.changed.length > 0 && <Section title="New printing or finish" count={syncCounts(r).changed} />}
             {r.changed.map((ch) => {
               const from = catalog.printingIndex.get(ch.from_card), to = catalog.printingIndex.get(ch.to_card);

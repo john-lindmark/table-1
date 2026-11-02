@@ -9,10 +9,10 @@ type Entry = import("./lists").Entry;
 /* Owning a card in any printing and Match collection (contract/owned-by-card-2026-10-31.md) against
    testdata/owned-by-card/cases.json, shared with iOS and Android. */
 
-interface L { card_id: string; board: string; finish: string; qty: number; lang?: string }
+interface L { card_id: string; board: string; finish: string; qty: number; lang?: string; cond?: string }
 const cases = JSON.parse(readFileSync(new URL("../../../testdata/owned-by-card/cases.json", import.meta.url), "utf8"));
 const need = (l: L): Need => ({ cardId: l.card_id, board: l.board, finish: l.finish, qty: l.qty, lang: l.lang ?? "en" });
-const entry = (l: L) => ({ cardId: l.card_id, board: l.board, qty: l.qty, finish: l.finish, ...(l.lang ? { lang: l.lang } : {}) }) as unknown as Entry;
+const entry = (l: L) => ({ cardId: l.card_id, board: l.board, qty: l.qty, finish: l.finish, ...(l.lang ? { lang: l.lang } : {}), ...(l.cond ? { cond: l.cond } : {}) }) as unknown as Entry;
 const owned = (o: Record<string, number>) => new Map(Object.entries(o));
 const basics = new Set<string>(cases.basics);
 

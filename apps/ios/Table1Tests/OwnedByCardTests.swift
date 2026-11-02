@@ -9,15 +9,15 @@ private let casesURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent
 
 private struct Cases: Decodable {
     struct Line: Decodable {
-        let card_id, board, finish: String; let qty: Int; let lang: String?
-        var need: OwnedByCard.Need { OwnedByCard.Need(cardId: card_id, board: board, finish: finish, qty: qty, lang: lang ?? "en") }
-        var entry: CardList.Entry { CardList.Entry(cardId: card_id, board: board, qty: qty, finish: finish, lang: lang ?? "en") }
+        let card_id, board, finish: String; let qty: Int; let lang: String?; let cond: String?
+        var need: OwnedByCard.Need { OwnedByCard.Need(cardId: card_id, board: board, finish: finish, qty: qty, lang: lang ?? "en", cond: cond ?? "NM") }
+        var entry: CardList.Entry { CardList.Entry(cardId: card_id, board: board, qty: qty, finish: finish, lang: lang ?? "en", cond: cond ?? "NM") }
     }
     struct Short: Decodable { let name: String; let lines: [Line]; let owned: [String: Int]; let oracles: [String: String]; let shorts: [Int] }
     struct List: Decodable { let name: String; let event: Bool?; let entries: [Line] }
     struct Missing: Decodable { let card_id, finish: String; let short: Int; let lists: [String] }
     struct Lines: Decodable { let lists: [List]; let owned: [String: Int]; let oracles: [String: String]; let expect: [Missing] }
-    struct Op: Decodable { let card_id, finish: String; let delta: Int; let lang: String? }
+    struct Op: Decodable { let card_id, finish: String; let delta: Int; let lang: String?; let cond: String? }
     struct Add: Decodable { let name, kind, mode: String; let entries: [Line]; let owned: [String: Int]; let ops: [Op] }
     struct Version: Decodable { let card_id, finish: String; let owned: Int }
     struct Pick: Decodable { let card_id, finish: String; let qty: Int }
@@ -56,7 +56,7 @@ final class OwnedByCardTests: XCTestCase {
         for c in cases.add {
             let ops = ListToCollection.ops(c.entries.map(\.entry), kind: try XCTUnwrap(CardList.Kind(rawValue: c.kind)), owned: c.owned,
                                            mode: try XCTUnwrap(ListToCollection.Mode(rawValue: c.mode)))
-            XCTAssertEqual(ops, c.ops.map { ListToCollection.Op(cardId: $0.card_id, finish: $0.finish, delta: $0.delta, lang: $0.lang ?? "en") }, c.name)
+            XCTAssertEqual(ops, c.ops.map { ListToCollection.Op(cardId: $0.card_id, finish: $0.finish, delta: $0.delta, lang: $0.lang ?? "en", cond: $0.cond ?? "NM") }, c.name)
         }
     }
 

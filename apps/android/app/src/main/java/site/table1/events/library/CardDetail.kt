@@ -17,7 +17,7 @@ data class CardVersion(
 
     companion object {
         fun of(item: CollectionItem, qty: Int = item.qty) = CardVersion(item.cardId, item.finish, item.condition, item.lang, qty = qty)
-        fun of(e: ListEntry) = CardVersion(e.cardId, e.finish, lang = e.lang, board = e.board, qty = e.qty)
+        fun of(e: ListEntry) = CardVersion(e.cardId, e.finish, condition = e.cond, lang = e.lang, board = e.board, qty = e.qty)
     }
 }
 

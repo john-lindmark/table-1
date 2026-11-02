@@ -7,17 +7,18 @@ private let casesURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent
     .appending(path: "../../../testdata/cube-sync/cases.json").standardized
 
 final class CubeSyncTests: XCTestCase {
-    /// [card, board, qty, finish?, lang?] → an entry.
+    /// [card, board, qty, finish?, lang?, cond?] → an entry.
     private func entry(_ a: Any) -> CardList.Entry {
         let e = a as! [Any]
         return CardList.Entry(cardId: e[0] as! String, board: e[1] as! String, qty: e[2] as! Int,
-                              finish: e.count > 3 ? e[3] as! String : "nonfoil", lang: e.count > 4 ? e[4] as! String : "en")
+                              finish: e.count > 3 ? e[3] as! String : "nonfoil", lang: e.count > 4 ? e[4] as! String : "en",
+                              cond: e.count > 5 ? e[5] as! String : "NM")
     }
 
     private func line(_ a: Any) -> CubeSync.Line {
         let d = a as! [String: Any]
         return CubeSync.Line(board: d["board"] as! String, cardId: d["card"] as! String, finish: d["finish"] as! String,
-                             lang: d["lang"] as! String, qty: d["qty"] as! Int)
+                             lang: d["lang"] as! String, cond: d["cond"] as? String ?? "NM", qty: d["qty"] as! Int)
     }
 
     func testSharedCases() throws {

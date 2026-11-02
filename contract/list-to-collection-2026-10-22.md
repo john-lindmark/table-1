@@ -12,24 +12,26 @@ opens a full screen:
 - **Missing N | Every card M** (segmented, Missing first). Missing adds only what the collection lacks of each exact
   printing + finish + language; Every card adds every copy listed.
 - **Sideboard** switch on decks with a sideboard (on by default).
-- No condition picker: a list names no condition, so every copy goes in near mint (John, 2026-10-27; it used to
-  take the remembered condition from card detail's Add a printing).
+- No condition picker: each copy goes in as the condition its line records (contract/lists-2026-10-15.md § Conditions;
+  John, 2026-11-01), near mint unless it came from the collection. (2026-10-27 to 11-01 every copy went in near mint;
+  before that it took the remembered condition from card detail's Add a printing.)
 - No language picker: each copy goes in as the language its line names (lists § Languages; a non-English printing
   is always its own), never the language picked for other adds (John, 2026-10-26; it used to turn English printings
   into the picked language).
-- A note: each card goes in near mint, as the exact printing, finish and language the list names; Missing counts only
-  copies of those; Considering isn't added.
+- A note: each card goes in as the exact printing, finish, language and condition the list records; Missing counts only
+  copies of that printing, finish and language; Considering isn't added.
 - **To add · N**: one row per printing + finish with `+n`.
 - **Add N cards** (accent). After it: "Added N cards to your collection.", an **Undo** row, and the button becomes
   **Done**.
 
 Rule (`ListToCollection.ops` / `listAddOps`): Main and Commander always count; a deck's sideboard unless switched
-off; Considering never. Needs are summed per `card_id|finish|lang` across sections, then Missing subtracts what's owned of
-that exact printing + finish + language over every condition. Copies in another printing, finish or language never cover
+off; Considering never. Needs are summed per `card_id|finish|lang|cond` across sections, then Missing subtracts what's owned of
+that exact printing + finish + language over every condition: owned copies cover lines in their own condition first,
+then the rest from NM down (NM, LP, MP, HP, DMG). Copies in another printing, finish or language never cover
 a line here (John, 2026-11-01: "add in the exact printings that were added to that deck, and language"), unlike the
 deck's own Missing, which goes by card (contract/owned-by-card-2026-10-31.md). The deck/cube screen's row counts the same
-way ("Missing N · or every card"). Each op carries its line's language. Ops are sorted by card_id, then finish, then
-language; only delta > 0.
+way ("Missing N · or every card"). Each op carries its line's language and condition. Ops are sorted by card_id,
+then finish, then language, then condition (NM to DMG); only delta > 0.
 More than 5,000 printings at once is refused with a message (the batch limit). Shared cases:
 `testdata/list-to-collection/cases.json` (iOS `ListToCollectionTests`, web `listToCollection.test.ts`, Android
 `ListToCollectionTest`).
@@ -43,7 +45,8 @@ printing listed here" or "You own every copy listed here"; trailing Add). It ope
 - **Add all M** (when different from the missing count): every copy of this card the list lists.
 - **Add 1 <set #cn> [· finish]** for each of up to four listed lines (Considering lines included here: you picked it).
 
-All use the condition under Add a printing and the listed language, land as one batch, and show the usual Undo bar.
+All use the listed language and condition (since 2026-11-01; the condition under Add a printing before), land as one
+batch, and show the usual Undo bar.
 
 ## 3. Zoom on the deck image and the top 100 / top 50 image
 

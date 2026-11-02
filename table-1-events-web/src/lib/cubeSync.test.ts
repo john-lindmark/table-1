@@ -1,15 +1,16 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { cubeCobraId, cubeSyncDiff, syncSummary, type SyncPrinting } from "./cubeSync";
+import type { Condition } from "./collection";
 import { entry, fromWire, type Board, type Entry, type ListFinish } from "./lists";
 
 /* Sync a cube with Cube Cobra against testdata/cube-sync/cases.json (also iOS CubeSyncTests and Android CubeSyncTest). */
 
-type Wire = [string, Board, number, ListFinish?, string?];
+type Wire = [string, Board, number, ListFinish?, string?, Condition?];
 interface Case { name: string; current: Wire[]; incoming: Wire[]; want: Record<string, unknown> & { entries: Wire[] }; summary: string }
 const { printings, cases }: { printings: Record<string, SyncPrinting>; cases: Case[] } =
   JSON.parse(readFileSync(new URL("../../../testdata/cube-sync/cases.json", import.meta.url), "utf8"));
-const toEntry = ([c, b, q, f, l]: Wire): Entry => entry(c, b, q, f ?? "nonfoil", l ?? "en");
+const toEntry = ([c, b, q, f, l, k]: Wire): Entry => entry(c, b, q, f ?? "nonfoil", l ?? "en", k ?? "NM");
 
 describe("cubeSyncDiff", () => {
   it("has cases", () => expect(cases.length).toBeGreaterThan(0));

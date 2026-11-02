@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BigAction, Dialog, Field, GhostAction, Menu, Modal, Notice, Row, Screen, Section, Segmented } from "../components/kit";
 import { copiesOf, listAddOps } from "../lib/listToCollection";
 import { CANLANDER_POINT_LIMIT, basicCardIds, coverPrinting, formatName, legalityOf, type Catalog } from "../lib/catalog";
-import { DEMO_USER, useCollection } from "../lib/collection";
+import { DEMO_USER, useCollection, type Condition } from "../lib/collection";
 import { cubeCobraId } from "../lib/cubeSync";
 import { isLibraryDemo, loadDemoLists } from "../lib/libraryDemo";
 import {
@@ -11,7 +11,7 @@ import {
 import { GROUPING_KEY, groupLabel, keyFor, keysOf, sortGroups, useStoredGrouping, type GroupKeys, type Grouping } from "../lib/cardGrouping";
 import { SORT_KEY, applySort, sortKeyOf, useStoredSort, type CardSort } from "../lib/cardSort";
 import {
-  boardTitle, boardsOf, countOf, createList, entry, finishOf, langOf, ownKey, type ListFinish, current, deleteList, diff, duplicateList, editList, entriesOf, missingIn, needsOf, restoreList,
+  boardTitle, boardsOf, condOf, countOf, createList, entry, finishOf, langOf, ownKey, type ListFinish, current, deleteList, diff, duplicateList, editList, entriesOf, missingIn, needsOf, restoreList,
   renameList, sectionsFor, setListFormat, unsavedNotice, useLists, type Board, type CardList, type Entry, type ListKind, type ListOp,
 } from "../lib/lists";
 import { cardMatches, matchingLines } from "../lib/librarySearch";
@@ -52,7 +52,7 @@ export function useListsData() {
   // Per printing, finish and language ("card_id|finish|lang"), for Add to collection.
   const ownedByLang = useMemo(() => {
     const m = new Map<string, number>();
-    for (const it of col.items.values()) { const k = `${it.cardId}|${it.finish}|${it.lang}`; m.set(k, (m.get(k) ?? 0) + it.qty); }
+    for (const it of col.items.values()) { const k = `${it.cardId}|${it.finish}|${it.lang}|${it.condition}`; m.set(k, (m.get(k) ?? 0) + it.qty); }
     return m;
   }, [col.version]);
   return { session, ready, lists, owned, ownedByLang };
@@ -76,18 +76,21 @@ export interface Line {
   oi: number;
   finish: ListFinish;
   lang: string;
+  cond: Condition;
   points: number;
   basic: boolean;
   type: string;
 }
 
 const FINISH_NAME: Record<ListFinish, string> = { nonfoil: "Non-foil", foil: "Foil", etched: "Etched" };
-const lineKey = (x: Line) => `${x.board}|${x.cardId}|${x.finish}|${x.lang}`;
+const lineKey = (x: Line) => `${x.board}|${x.cardId}|${x.finish}|${x.lang}|${x.cond}`;
 /** A collapsed card's lines: "2 printings", or "2 versions" when some share a printing (finishes, languages). */
 const versionsText = (lines: Line[]) =>
   `${lines.length} ${new Set(lines.map((l) => l.cardId)).size === lines.length ? "printings" : "versions"}`;
 /** "JA" for a non-English line. */
 const langTag = (lang: string) => (lang === "en" ? null : lang.toUpperCase());
+/** "LP" for a line in any condition but near mint. */
+const condTag = (cond: Condition) => (cond === "NM" ? null : cond);
 
 function linesOf(l: CardList, c: Catalog): Line[] {
   return resolveLines(entriesOf(l), l.kind, c);
@@ -101,7 +104,7 @@ export function resolveLines(entries: Entry[], kind: ListKind, c: Catalog): Line
     const type = oi >= 0 ? c.oType[oi].split(" // ")[0] : "";
     const keys = keysOf(c, oi);
     return { cardId: e.cardId, p, oracleId: oi >= 0 ? c.oId[oi] : null, name: oi >= 0 ? c.oName[oi] : "Unknown card", group: keys[kind === "deck" ? "type" : "color"], keys,
-             board: e.board, qty: e.qty, oi, finish: finishOf(e), lang: langOf(e),
+             board: e.board, qty: e.qty, oi, finish: finishOf(e), lang: langOf(e), cond: condOf(e),
              points: oi >= 0 ? c.oPoints[oi] : 0, basic: type.includes("Basic"), type: oi >= 0 ? c.oType[oi] : "" };
   }).sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -385,7 +388,7 @@ export function ExportScreen({ name, kind, entries, catalog, from, onClose }: {
 
 export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPrinting, onStats, onRankings, onSync }: {
   id: string; onBack: () => void; onCard: (oracleId: string) => void; onAdd: () => void; onVersions: () => void;
-  onOpen: (listId: string) => void; onPrinting: (cardId: string, board: Board, finish: ListFinish, lang: string) => void; onStats: () => void;
+  onOpen: (listId: string) => void; onPrinting: (cardId: string, board: Board, finish: ListFinish, lang: string, cond: Condition) => void; onStats: () => void;
   /** Cubes: the Rankings row. */
   onRankings?: () => void;
   /** Cubes: Sync with Cube Cobra (contract/cube-sync-2026-10-30.md). */
@@ -421,7 +424,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
     if (!list || list.eventId) return m; // a roto deck's cards come from the cube, never from your collection
     const ns = needsOf(list);
     shorts(ns, held, basicCardIds(catalog)).forEach((n, i) => {
-      const e = ns[i], k = `${e.board}|${e.cardId}|${e.finish}|${e.lang ?? "en"}`;
+      const e = ns[i], k = `${e.board}|${e.cardId}|${e.finish}|${e.lang ?? "en"}|${e.cond ?? "NM"}`;
       if (n > 0) m.set(k, (m.get(k) ?? 0) + n);
     });
     return m;
@@ -456,19 +459,20 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   const showsZone = list.kind === "deck" && !list.eventId && ZONE_FORMATS.has(list.format) && !searching;
   const zone = lines.filter((x) => x.board === ZONE_BOARD);
   const pairOf = (x: Line) => (catalog && x.oi >= 0 ? catalog.oPair[x.oi] : null);
-  const slots = showsZone ? zoneSlots(list.format, zone.map((x) => ({ cardId: x.cardId, typeLine: x.type, finish: x.finish, lang: x.lang, pair: pairOf(x) }))) : [];
+  const slots = showsZone ? zoneSlots(list.format, zone.map((x) => ({ cardId: x.cardId, typeLine: x.type, finish: x.finish, lang: x.lang, cond: x.cond, pair: pairOf(x) }))) : [];
   const commander: ZoneMate | null = zone[0] ? { typeLine: zone[0].type, pair: pairOf(zone[0]), name: zone[0].name } : null;
   const chooseZone = (slot: ZoneSlot, cardId: string) => {
     void editList(list.id, [slot.cardId
-      ? { card_id: slot.cardId, board: ZONE_BOARD, finish: slot.finish as ListFinish, lang: slot.lang, to_card_id: cardId, to_finish: "nonfoil", to_lang: "en", swap: true }
+      ? { card_id: slot.cardId, board: ZONE_BOARD, finish: slot.finish as ListFinish, lang: slot.lang, cond: (slot.cond ?? "NM") as Condition, to_card_id: cardId,
+          to_finish: "nonfoil", to_lang: "en", to_cond: "NM", swap: true }
       : { card_id: cardId, board: ZONE_BOARD, delta: 1 }]);
     capture("command_zone_set", { format: list.format, role: slot.role, from: slot.cardId ? "change" : "add" });
   };
   // A card already in the deck moves in (a deck made before the command zone has its commander in the main deck).
-  const moveInZone = (slot: ZoneSlot, card: { cardId: string; board: string; typeLine: string; finish?: string; lang?: string; qty?: number }) => {
+  const moveInZone = (slot: ZoneSlot, card: { cardId: string; board: string; typeLine: string; finish?: string; lang?: string; cond?: string; qty?: number }) => {
     void editList(list.id, zoneMovingIn(card, slot).map((o): ListOp => o.kind === "move"
-      ? { card_id: o.cardId, finish: o.finish as ListFinish, lang: o.lang, from: o.from as Board, to: o.to as Board }
-      : { card_id: o.cardId, board: o.board as Board, finish: o.finish as ListFinish, lang: o.lang, delta: o.by }));
+      ? { card_id: o.cardId, finish: o.finish as ListFinish, lang: o.lang, cond: (o.cond ?? "NM") as Condition, from: o.from as Board, to: o.to as Board }
+      : { card_id: o.cardId, board: o.board as Board, finish: o.finish as ListFinish, lang: o.lang, cond: (o.cond ?? "NM") as Condition, delta: o.by }));
     capture("command_zone_set", { format: list.format, role: slot.role, from: "deck" });
   };
   const zoneSections = (b: Board): Board[] => (list.kind === "deck" && ZONE_FORMATS.has(list.format) && b !== ZONE_BOARD ? [ZONE_BOARD as Board] : []);
@@ -486,13 +490,13 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
       return (
         <div key={lineKey(x)} className="flex items-stretch gap-px h-[60px]">
           <div className="flex-1 min-w-0">
-            <CardRow c={catalog!} p={x.p} title={x.name} detail={[fin, langTag(x.lang), "Tap to move, change or remove"].filter(Boolean).join(" · ")}
+            <CardRow c={catalog!} p={x.p} title={x.name} detail={[fin, langTag(x.lang), condTag(x.cond), "Tap to move, change or remove"].filter(Boolean).join(" · ")}
                      finish={x.finish} hero={isHero(x.oracleId, heroScope, heroes)} value={x.qty} onClick={() => setMoving(x)} />
           </div>
           <button type="button" aria-label="Remove one" className="w-14 bg-t1-surface-hover text-[20px]"
-                  onClick={() => editList(list.id, [{ card_id: x.cardId, board: x.board, finish: x.finish, lang: x.lang, delta: -1 }])}>−</button>
+                  onClick={() => editList(list.id, [{ card_id: x.cardId, board: x.board, finish: x.finish, lang: x.lang, cond: x.cond, delta: -1 }])}>−</button>
           <button type="button" aria-label="Add one" className="w-14 bg-t1-surface-hover text-[20px]"
-                  onClick={() => editList(list.id, [{ card_id: x.cardId, board: x.board, finish: x.finish, lang: x.lang, delta: 1 }])}>+</button>
+                  onClick={() => editList(list.id, [{ card_id: x.cardId, board: x.board, finish: x.finish, lang: x.lang, cond: x.cond, delta: 1 }])}>+</button>
         </div>
       );
     }
@@ -501,7 +505,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         <CardRow c={catalog!} p={x.p} value={x.qty} warn={short || !!issue} finish={x.finish} indent={sub}
                  title={sub && x.p != null ? `${catalog!.pSet[x.p].toUpperCase()} #${catalog!.pCn[x.p]}` : x.name}
                  hero={!sub && isHero(x.oracleId, heroScope, heroes)}
-                 detail={[issue && !sub ? issue : null, pts, fin, langTag(x.lang),
+                 detail={[issue && !sub ? issue : null, pts, fin, langTag(x.lang), condTag(x.cond),
                           considering ? (have ? `Owned ${have}` : "Not owned") : short ? `Owned ${have} · missing ${need}` : x.basic && !have ? null : `Owned ${have}`]
                          .filter(Boolean).join(" · ")}
                  onClick={() => x.oracleId && onCard(x.oracleId)} />
@@ -588,7 +592,7 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
         })()}
         {showsZone && (
           <CommandZoneCards catalog={catalog} slots={slots} onChoose={setChoosing} commander={commander}
-                           onRemove={(sl) => sl.cardId && void editList(list.id, [{ card_id: sl.cardId, board: ZONE_BOARD, finish: sl.finish as ListFinish, lang: sl.lang, qty: 0 }])}
+                           onRemove={(sl) => sl.cardId && void editList(list.id, [{ card_id: sl.cardId, board: ZONE_BOARD, finish: sl.finish as ListFinish, lang: sl.lang, cond: (sl.cond ?? "NM") as Condition, qty: 0 }])}
                            onOpen={(sl) => { const o = zone.find((x) => x.cardId === sl.cardId)?.oracleId; if (o) onCard(o); }} />
         )}
         {/* Desktop: the screen's actions three across. */}
@@ -672,10 +676,10 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
           <div className="flex flex-col gap-px">
             {[...zoneSections(moving.board), ...sectionsFor(list.kind)].filter((b) => b !== moving.board).map((b) => (
               <Row key={b} title={`Move to ${boardTitle(list.kind, b)}`}
-                   onClick={() => { void editList(list.id, [{ card_id: moving.cardId, finish: moving.finish, lang: moving.lang, from: moving.board, to: b }]); setMoving(null); }} />
+                   onClick={() => { void editList(list.id, [{ card_id: moving.cardId, finish: moving.finish, lang: moving.lang, cond: moving.cond, from: moving.board, to: b }]); setMoving(null); }} />
             ))}
             <Row title="Change printing or finish" detail="Or split copies between finishes"
-                 onClick={() => { const m = moving; setMoving(null); onPrinting(m.cardId, m.board, m.finish, m.lang); }} />
+                 onClick={() => { const m = moving; setMoving(null); onPrinting(m.cardId, m.board, m.finish, m.lang, m.cond); }} />
             {moving.oracleId && (() => {
               const on = isHero(moving.oracleId, heroScope, heroes);
               return (
@@ -688,14 +692,14 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
               );
             })()}
             <Row title={`Remove from ${boardTitle(list.kind, moving.board)}`}
-                 onClick={() => { void editList(list.id, [{ card_id: moving.cardId, board: moving.board, finish: moving.finish, lang: moving.lang, qty: 0 }]); setMoving(null); }} />
+                 onClick={() => { void editList(list.id, [{ card_id: moving.cardId, board: moving.board, finish: moving.finish, lang: moving.lang, cond: moving.cond, qty: 0 }]); setMoving(null); }} />
           </div>
         </Modal>
       )}
       {exporting && catalog && <ExportScreen name={list.name} kind={list.kind} entries={entriesOf(list)} catalog={catalog} from="own" onClose={() => setExporting(false)} />}
       {choosing && catalog && (
         <CommandZonePicker catalog={catalog} role={choosing.role} onClose={() => setChoosing(null)} onPick={(cardId) => chooseZone(choosing, cardId)}
-                           deck={lines.filter((x) => x.board !== ZONE_BOARD).map((x) => ({ cardId: x.cardId, board: x.board, typeLine: x.type, finish: x.finish, lang: x.lang, qty: x.qty, pair: pairOf(x), name: x.name, p: x.p }))}
+                           deck={lines.filter((x) => x.board !== ZONE_BOARD).map((x) => ({ cardId: x.cardId, board: x.board, typeLine: x.type, finish: x.finish, lang: x.lang, cond: x.cond, qty: x.qty, pair: pairOf(x), name: x.name, p: x.p }))}
                            onPickDeck={(d) => moveInZone(choosing, d)} partnerOf={choosing.role === "partner" ? commander : null} />
       )}
       {renaming && <ListNameDialog list={list} onClose={() => setRenaming(false)} />}
@@ -803,12 +807,12 @@ export function ListAddScreen({ id, onDone }: { id: string; onDone: () => void; 
     if (!removePick || !catalog) return;
     const r = removePick;
     if (addPick) {
-      void editList(list.id, [{ card_id: r.cardId, board: r.board, finish: r.finish, lang: r.lang, to_card_id: catalog.pId[addPick.p],
-                                to_finish: finishFor(addPick.p), to_lang: catalog.pLang[addPick.p], qty: 1, swap: true }]);
+      void editList(list.id, [{ card_id: r.cardId, board: r.board, finish: r.finish, lang: r.lang, cond: r.cond, to_card_id: catalog.pId[addPick.p],
+                                to_finish: finishFor(addPick.p), to_lang: catalog.pLang[addPick.p], to_cond: "NM", qty: 1, swap: true }]);
       capture("list_card_replaced", { kind: list.kind });
       setNote(`Replaced ${r.name} with ${catalog.oName[addPick.oi]} in ${title(r.board)}`);
     } else {
-      void editList(list.id, [{ card_id: r.cardId, board: r.board, finish: r.finish, lang: r.lang, delta: -1 }]);
+      void editList(list.id, [{ card_id: r.cardId, board: r.board, finish: r.finish, lang: r.lang, cond: r.cond, delta: -1 }]);
       capture("list_card_removed", { kind: list.kind });
       setNote(`Removed 1 ${r.name} from ${title(r.board)}`);
     }
@@ -867,7 +871,7 @@ export function ListAddScreen({ id, onDone }: { id: string; onDone: () => void; 
           {removeHits.map((x) => (
             <div key={lineKey(x)} className="h-[60px] shrink-0">
               <CardRow c={catalog} p={x.p} title={x.name} finish={x.finish} onClick={() => pickRemove(x)}
-                       detail={[title(x.board), x.finish === "nonfoil" ? null : FINISH_NAME[x.finish], langTag(x.lang), x.qty > 1 ? `${x.qty} copies` : null].filter(Boolean).join(" · ")} />
+                       detail={[title(x.board), x.finish === "nonfoil" ? null : FINISH_NAME[x.finish], langTag(x.lang), condTag(x.cond), x.qty > 1 ? `${x.qty} copies` : null].filter(Boolean).join(" · ")} />
             </div>
           ))}
         </>)}
@@ -954,9 +958,9 @@ export function VersionScreen({ id, number, onBack, onCard }: { id: string; numb
               const p = catalog.printingIndex.get(c.cardId) ?? null;
               const oi = p == null ? -1 : catalog.pOracle[p];
               return (
-                <div key={`${c.board}|${c.cardId}|${c.finish}|${c.lang}`} className="h-[60px]">
+                <div key={`${c.board}|${c.cardId}|${c.finish}|${c.lang}|${c.cond}`} className="h-[60px]">
                   <CardRow c={catalog} p={p} title={oi >= 0 ? catalog.oName[oi] : "Unknown card"}
-                           detail={[c.delta > 0 ? "Added" : "Removed", c.finish === "nonfoil" ? null : FINISH_NAME[c.finish], langTag(c.lang)].filter(Boolean).join(" · ")}
+                           detail={[c.delta > 0 ? "Added" : "Removed", c.finish === "nonfoil" ? null : FINISH_NAME[c.finish], langTag(c.lang), condTag(c.cond)].filter(Boolean).join(" · ")}
                            value={c.delta > 0 ? `+${c.delta}` : `−${-c.delta}`} warn={c.delta < 0}
                            onClick={() => oi >= 0 && onCard(catalog.oId[oi])} />
                 </div>

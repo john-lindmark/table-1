@@ -492,7 +492,7 @@ struct LibraryDemoRoot: View {
                 path = [.lists(.deck), .list(l.id), .cardIn(o.oracleId, .list(l.id))]
                 if arg == "deckprinting" {
                     T1Overlays.shared.present(full: true) {
-                        ChangePrintingView(target: .listLine(listId: l.id, cardId: e.cardId, board: e.board, finish: e.finish, lang: e.lang),
+                        ChangePrintingView(target: .listLine(listId: l.id, cardId: e.cardId, board: e.board, finish: e.finish, lang: e.lang, cond: e.cond),
                                            close: { T1Overlays.shared.dismissPanel() })
                     }
                 }

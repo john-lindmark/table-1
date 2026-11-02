@@ -5,7 +5,7 @@ package site.table1.events.library
    collection. Cases in testdata/owned-by-card/cases.json (OwnedByCardTest). */
 
 /** What the collection holds, per printing + finish and per card. [owned] is keyed "card_id|finish" or
- *  "card_id|finish|lang"; [cardOf] maps a printing to its card (a printing missing from it is its own card). */
+ *  "card_id|finish|lang" (or "…|cond"); [cardOf] maps a printing to its card (a printing missing from it is its own card). */
 class Holdings(owned: Map<String, Int>, private val cardOf: Map<String, String>) {
     val byPrinting: Map<String, Int>
     val byCard: Map<String, Int>
@@ -40,9 +40,9 @@ class Holdings(owned: Map<String, Int>, private val cardOf: Map<String, String>)
 
 object OwnedByCard {
     /** One deck or cube line, in list order. */
-    data class Need(val cardId: String, val board: String, val finish: String = "nonfoil", val qty: Int, val lang: String = "en")
+    data class Need(val cardId: String, val board: String, val finish: String = "nonfoil", val qty: Int, val lang: String = "en", val cond: String = "NM")
 
-    fun needs(l: CardList) = l.entries.map { Need(it.cardId, it.board, it.finish, it.qty, it.lang) }
+    fun needs(l: CardList) = l.entries.map { Need(it.cardId, it.board, it.finish, it.qty, it.lang, it.cond) }
 
     /** Copies each line still needs. The printing and finish a line names cover it first, then the card's other copies
      *  cover what's left, lines in order; a copy covers one line. Considering and basics never need any or use copies. */
@@ -101,8 +101,9 @@ object OwnedByCard {
     /** A version you own: printing × finish, every condition and language together. */
     data class Version(val cardId: String, val finish: String, val owned: Int)
     data class Pick(val cardId: String, val finish: String, val qty: Int) { val key get() = "$cardId|$finish" }
-    /** A `list_edit` move op: [qty] copies of a line to another printing and/or finish, keeping its language. */
-    data class Move(val cardId: String, val finish: String, val lang: String = "en", val toCardId: String, val toFinish: String, val qty: Int)
+    /** A `list_edit` move op: [qty] copies of a line to another printing and/or finish, keeping its language and condition. */
+    data class Move(val cardId: String, val finish: String, val lang: String = "en", val toCardId: String, val toFinish: String, val qty: Int,
+                    val cond: String = "NM")
 
     /** Versions the section already lists first, then the ones you hold most of, then by card id and finish. */
     fun autoMatch(lines: List<Need>, versions: List<Version>): List<Pick> {
@@ -144,7 +145,7 @@ object OwnedByCard {
                 if (movable <= 0) break
                 val n = minOf(movable, targets[t].second)
                 if (n <= 0) continue
-                ops += Move(l.cardId, l.finish, l.lang, targets[t].first.cardId, targets[t].first.finish, n)
+                ops += Move(l.cardId, l.finish, l.lang, targets[t].first.cardId, targets[t].first.finish, n, l.cond)
                 targets[t] = targets[t].first to targets[t].second - n
                 movable -= n
             }

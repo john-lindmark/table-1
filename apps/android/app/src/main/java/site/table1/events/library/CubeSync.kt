@@ -37,7 +37,8 @@ import site.table1.events.util.rethrowIfCancelled
 // the cube and Cube Cobra's answer, and the entries to save. Shared cases: testdata/cube-sync/cases.json.
 
 object CubeSync {
-    data class Line(val board: String, val card: String, val finish: String, val lang: String, val qty: Int)
+    /** [cond]: the line's condition. Cube Cobra records none, so a kept or changed copy keeps it and an In copy is NM. */
+    data class Line(val board: String, val card: String, val finish: String, val lang: String, val qty: Int, val cond: String = "NM")
     data class Changed(val board: String, val fromCard: String, val fromFinish: String, val fromLang: String,
                        val toCard: String, val toFinish: String, val toLang: String, val qty: Int)
     /** A printing's card (oracle) and language, from the catalog. */
@@ -64,12 +65,14 @@ object CubeSync {
     private val byParts = Comparator<List<String>> { a, b -> cmp(a, b) }
     /** English first, then by code. */
     private fun langKey(l: String) = if (l == "en") "0" else "1$l"
+    /** Best condition first. */
+    private fun condKey(c: String) = "${ListToCollection.CONDITIONS.indexOf(c)}"
 
     fun diff(current: List<ListEntry>, incoming: List<ListEntry>, printings: Map<String, Printing>): Result {
         val plang = { c: String -> printings[c]?.lang ?: "en" }
         val oracle = { c: String -> printings[c]?.oracle ?: c }
-        val cur = HashMap<List<String>, Int>() // board, card, finish, lang
-        for (e in current) cur.merge(listOf(e.board, e.cardId, e.finish, e.lang), e.qty, Int::plus)
+        val cur = HashMap<List<String>, Int>() // board, card, finish, lang, cond
+        for (e in current) cur.merge(listOf(e.board, e.cardId, e.finish, e.lang, e.cond), e.qty, Int::plus)
         val inc = HashMap<List<String>, Int>() // board, card, finish
         for (e in incoming) inc.merge(listOf(e.board, e.cardId, e.finish), e.qty, Int::plus)
         val final = HashMap<List<String>, Int>()
@@ -79,7 +82,7 @@ object CubeSync {
 
         // 1. Same printing and finish.
         for (k in incKeys) {
-            for (m in cur.keys.filter { it.subList(0, 3) == k }.sortedBy { langKey(it[3]) }) {
+            for (m in cur.keys.filter { it.subList(0, 3) == k }.sortedWith { x, y -> cmp(listOf(langKey(x[3]), condKey(x[4])), listOf(langKey(y[3]), condKey(y[4]))) }) {
                 val n = minOf(inc[k]!!, cur[m]!!)
                 if (n <= 0) continue
                 cur[m] = cur[m]!! - n; inc[k] = inc[k]!! - n
@@ -92,14 +95,14 @@ object CubeSync {
         fun pair(match: (List<String>, String) -> Boolean) {
             for (k in incKeys) {
                 val (b, c, f) = k
-                val order = cur.keys.sortedWith { x, y -> cmp(x.subList(0, 3) + langKey(x[3]), y.subList(0, 3) + langKey(y[3])) }
+                val order = cur.keys.sortedWith { x, y -> cmp(x.subList(0, 3) + langKey(x[3]) + condKey(x[4]), y.subList(0, 3) + langKey(y[3]) + condKey(y[4])) }
                 for (m in order) {
                     if (inc[k]!! <= 0) break
                     if (cur[m]!! <= 0 || m[0] != b || !match(m, c)) continue
                     val n = minOf(inc[k]!!, cur[m]!!)
                     cur[m] = cur[m]!! - n; inc[k] = inc[k]!! - n
                     val toLang = changedLang(m[1], m[3], c, plang)
-                    final.merge(listOf(b, c, f, toLang), n, Int::plus)
+                    final.merge(listOf(b, c, f, toLang, m[4]), n, Int::plus)
                     changed.merge(listOf(b, m[1], m[2], m[3], c, f, toLang), n, Int::plus)
                 }
             }
@@ -110,18 +113,18 @@ object CubeSync {
         val into = HashMap<List<String>, Int>()
         for ((k, n) in inc) {
             if (n <= 0) continue
-            val key = listOf(k[0], k[1], k[2], plang(k[1]))
+            val key = listOf(k[0], k[1], k[2], plang(k[1]), "NM")
             into.merge(key, n, Int::plus)
             final.merge(key, n, Int::plus)
         }
         fun sorted(m: Map<List<String>, Int>) = m.filter { it.value > 0 }.toSortedMap(byParts).entries
-        val line = { k: List<String>, n: Int -> Line(k[0], k[1], k[2], k[3], n) }
+        val line = { k: List<String>, n: Int -> Line(k[0], k[1], k[2], k[3], n, k[4]) }
         return Result(
             into = sorted(into).map { line(it.key, it.value) },
             out = sorted(cur).map { line(it.key, it.value) },
             changed = sorted(changed).map { (k, n) -> Changed(k[0], k[1], k[2], k[3], k[4], k[5], k[6], n) },
             same = same,
-            entries = sorted(final).map { (k, n) -> ListEntry(k[1], k[0], n, k[2], k[3]) },
+            entries = sorted(final).map { (k, n) -> ListEntry(k[1], k[0], n, k[2], k[3], k[4]) },
         )
     }
 
@@ -267,8 +270,9 @@ fun CubeSyncScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Unit)
                     }
                     if (r.out.isNotEmpty()) {
                         item(key = "s-out") { Section("Out · ${r.outCount}") }
-                        items(r.out, key = { "out-${it.board}-${it.card}-${it.finish}-${it.lang}" }) { l ->
+                        items(r.out, key = { "out-${it.board}-${it.card}-${it.finish}-${it.lang}-${it.cond}" }) { l ->
                             SyncRow(c, l.card, onCard, listOf(label(l.card), if (l.finish == "nonfoil") null else cap(l.finish), if (l.lang == "en") null else l.lang.uppercase(),
+                                if (l.cond == "NM") null else l.cond,
                                 if (l.board == "maybe") "Considering" else null), "−${l.qty}", true)
                         }
                     }

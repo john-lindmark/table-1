@@ -150,20 +150,20 @@ struct AddToPanel: View {
 
     private func addToList(_ id: String, board: String) {
         guard let l = lists.list(id: id) else { return }
-        var added: [(cardId: String, finish: String, lang: String, qty: Int)] = []
+        var added: [(cardId: String, finish: String, lang: String, cond: String, qty: Int)] = []
         for line in lines {
             guard let p = printings[line.cardId] else { continue }
             // A finish the printing lacks is saved in one it has (contract/lists-2026-10-15.md).
             let f = p.finishList.map(\.rawValue).contains(line.finish) ? line.finish : p.finishList.first?.rawValue ?? "nonfoil"
-            // The copy keeps the language on screen (a Japanese copy you own goes in as Japanese).
+            // The copy keeps the language and condition on screen (a Japanese LP copy you own goes in as Japanese LP).
             let lang = Languages.forNew(p, picked: line.lang)
-            lists.add(listId: id, cardId: p.cardId, board: board, finish: f, lang: lang, delta: line.qty)
-            added.append((p.cardId, f, lang, line.qty))
+            lists.add(listId: id, cardId: p.cardId, board: board, finish: f, lang: lang, cond: line.condition, delta: line.qty)
+            added.append((p.cardId, f, lang, line.condition, line.qty))
         }
         guard !added.isEmpty else { return }
         let label = "Added \(count) \(name) to \(l.name) · \(l.boardTitle(board))"
         finish(l.kind.rawValue, label, CardUndo(label: label) {
-            for a in added { lists.add(listId: id, cardId: a.cardId, board: board, finish: a.finish, lang: a.lang, delta: -a.qty) }
+            for a in added { lists.add(listId: id, cardId: a.cardId, board: board, finish: a.finish, lang: a.lang, cond: a.cond, delta: -a.qty) }
         })
     }
 
@@ -263,7 +263,6 @@ struct CardInfoView: View {
     @State private var failed = false
     @State private var history: [HistoryEntry]?
     @State private var busy = false
-    @AppStorage("library.addCondition") private var addCondition = "NM"
     private var col: CollectionStore { CollectionStore.shared }
 
     var body: some View {
@@ -405,7 +404,7 @@ struct CardInfoView: View {
             Task {
                 defer { busy = false }
                 do {
-                    let res = try await col.apply(ListToCollection.collectionOps(ops, printingLang: { byId[$0]?.lang }, condition: addCondition))
+                    let res = try await col.apply(ListToCollection.collectionOps(ops, printingLang: { byId[$0]?.lang }))
                     let label = "Added \(n) \(oracle.name) to your collection"
                     report(label, CardUndo(label: label) { _ = try await CollectionStore.shared.undo(batchId: res.batchId) })
                     Telemetry.capture("list_added_to_collection", ["kind": list.kind.rawValue, "mode": mode, "sideboard": true,
@@ -415,13 +414,13 @@ struct CardInfoView: View {
         }
         return Button {
             var items: [T1MenuItem] = []
-            if m > 0 { items.append(T1MenuItem(title: "Add the \(m) missing", detail: "As listed here · \(addCondition)") { add(missing, mode: "missing") }) }
-            if a > 0 && a != m { items.append(T1MenuItem(title: "Add all \(a)", detail: "Every copy listed here · \(addCondition)") { add(all, mode: "all") }) }
+            if m > 0 { items.append(T1MenuItem(title: "Add the \(m) missing", detail: "As listed here") { add(missing, mode: "missing") }) }
+            if a > 0 && a != m { items.append(T1MenuItem(title: "Add all \(a)", detail: "Every copy listed here") { add(all, mode: "all") }) }
             for l in lines.prefix(4) {
                 let p = byId[l.cardId]
-                let label = "\(p?.setLabel ?? "?")\(l.finish == "nonfoil" ? "" : " · \(Finish(rawValue: l.finish)?.label ?? l.finish)")\(l.lang == "en" ? "" : " · \(l.lang.uppercased())")"
+                let label = "\(p?.setLabel ?? "?")\(l.finish == "nonfoil" ? "" : " · \(Finish(rawValue: l.finish)?.label ?? l.finish)")\(l.lang == "en" ? "" : " · \(l.lang.uppercased())")\(l.cond == "NM" ? "" : " · \(l.cond)")"
                 items.append(T1MenuItem(title: "Add 1 \(label)", detail: list.boardTitle(l.board)) {
-                    add([ListToCollection.Op(cardId: l.cardId, finish: l.finish, delta: 1, lang: l.lang)], mode: "one")
+                    add([ListToCollection.Op(cardId: l.cardId, finish: l.finish, delta: 1, lang: l.lang, cond: l.cond)], mode: "one")
                 })
             }
             T1Overlays.shared.showMenu("Add \(oracle.name) to your collection", items)

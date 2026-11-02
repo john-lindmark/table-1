@@ -39,7 +39,7 @@ export function ListToCollectionScreen({ list, catalog, owned, onClose }: {
     setError(null);
     try {
       const pLang = (id: string) => { const p = catalog.printingIndex.get(id); return p == null ? undefined : catalog.pLang[p]; };
-      const res = await applyOps(toCollectionOps(ops, pLang, "NM"), "import");
+      const res = await applyOps(toCollectionOps(ops, pLang), "import");
       setDone({ batch: res.batch_id, copies });
       capture("list_added_to_collection", { kind: list.kind, mode, sideboard, copies, lines: ops.length, from: "list" });
     } catch (e) {
@@ -73,7 +73,7 @@ export function ListToCollectionScreen({ list, catalog, owned, onClose }: {
         <Segmented options={[{ value: "missing", label: `Missing ${copiesOf(missing)}` }, { value: "all", label: `Every card ${copiesOf(all)}` }]}
                    value={mode} onChange={(m) => setMode(m as AddMode)} />
         {list.kind === "deck" && side > 0 && <SwitchRow label="Sideboard" detail={plural(side)} on={sideboard} onChange={setSideboard} />}
-        <Notice tone="info">Each card goes in near mint, as the exact printing, finish and language this {list.kind} lists; Missing counts only copies of those. Considering isn't added.</Notice>
+        <Notice tone="info">Each card goes in as the exact printing, finish, language and condition this {list.kind} records; Missing counts only copies of that printing, finish and language. Considering isn't added.</Notice>
         <Section title="To add" count={copies} />
         {!ops.length && <Row title={mode === "missing" ? "You own every card here" : "No cards to add"}
                              detail={mode === "missing" ? "Pick Every card to add another copy of each" : undefined} />}
@@ -82,9 +82,9 @@ export function ListToCollectionScreen({ list, catalog, owned, onClose }: {
           const oi = p == null ? -1 : catalog.pOracle[p];
           const set = p == null ? null : `${catalog.pSet[p].toUpperCase()} #${catalog.pCn[p]}`;
           return (
-            <div key={`${o.card_id}|${o.finish}|${o.lang ?? "en"}`} className="h-[60px] shrink-0">
+            <div key={`${o.card_id}|${o.finish}|${o.lang ?? "en"}|${o.cond ?? "NM"}`} className="h-[60px] shrink-0">
               <CardRow c={catalog} p={p} title={oi >= 0 ? catalog.oName[oi] : "Unknown card"} finish={o.finish}
-                       detail={[set, o.finish === "nonfoil" ? null : o.finish === "foil" ? "Foil" : "Etched", o.lang ? languageName(o.lang) : null].filter(Boolean).join(" · ")}
+                       detail={[set, o.finish === "nonfoil" ? null : o.finish === "foil" ? "Foil" : "Etched", o.lang ? languageName(o.lang) : null, o.cond ?? null].filter(Boolean).join(" · ")}
                        value={`+${o.delta}`} />
             </div>
           );

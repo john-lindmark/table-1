@@ -77,8 +77,8 @@ final class CommandZoneTests: XCTestCase {
             let line = CommandZone.DeckLine(cardId: m.card[0].str, board: m.card[1].str, typeLine: "", qty: m.card[2].int)
             let got: [[Cases.Item]] = CommandZone.movingIn(line, slot: .init(role: .commander, cardId: m.slot)).map {
                 switch $0 {
-                case let .move(id, _, _, from, to): [.s("move"), .s(id), .s(from), .s(to)]
-                case let .delta(id, _, _, board, by): [.s("delta"), .s(id), .s(board), .n(by)]
+                case let .move(id, _, _, _, from, to): [.s("move"), .s(id), .s(from), .s(to)]
+                case let .delta(id, _, _, _, board, by): [.s("delta"), .s(id), .s(board), .n(by)]
                 }
             }
             XCTAssertEqual(got, m.ops, m.name)

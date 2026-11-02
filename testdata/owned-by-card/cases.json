@@ -483,6 +483,87 @@
    "copies": 1
   },
   {
+   "name": "every card adds each line in its own condition",
+   "kind": "deck",
+   "mode": "all",
+   "entries": [
+    {
+     "card_id": "bolt-m10",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 2
+    },
+    {
+     "card_id": "bolt-m10",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 1,
+     "lang": "ja",
+     "cond": "LP"
+    }
+   ],
+   "owned": {},
+   "ops": [
+    {
+     "card_id": "bolt-m10",
+     "finish": "nonfoil",
+     "delta": 2
+    },
+    {
+     "card_id": "bolt-m10",
+     "finish": "nonfoil",
+     "delta": 1,
+     "lang": "ja",
+     "cond": "LP"
+    }
+   ],
+   "copies": 3
+  },
+  {
+   "name": "missing: owned copies of a condition cover that condition first, spare ones the rest from NM down",
+   "kind": "deck",
+   "mode": "missing",
+   "entries": [
+    {
+     "card_id": "bolt-m10",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 2
+    },
+    {
+     "card_id": "bolt-m10",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 2,
+     "cond": "LP"
+    },
+    {
+     "card_id": "bolt-m10",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 1,
+     "cond": "HP"
+    }
+   ],
+   "owned": {
+    "bolt-m10|nonfoil|en|LP": 3
+   },
+   "ops": [
+    {
+     "card_id": "bolt-m10",
+     "finish": "nonfoil",
+     "delta": 1
+    },
+    {
+     "card_id": "bolt-m10",
+     "finish": "nonfoil",
+     "delta": 1,
+     "cond": "HP"
+    }
+   ],
+   "copies": 2
+  },
+  {
    "name": "every card still adds every copy",
    "kind": "deck",
    "mode": "all",

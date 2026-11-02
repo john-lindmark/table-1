@@ -32,7 +32,7 @@ struct CardVersion: Hashable, Identifiable, Sendable {
     }
 
     init(_ entry: CardList.Entry) {
-        self.init(cardId: entry.cardId, finish: entry.finish, lang: entry.lang, board: entry.board, qty: entry.qty)
+        self.init(cardId: entry.cardId, finish: entry.finish, condition: entry.cond, lang: entry.lang, board: entry.board, qty: entry.qty)
     }
 }
 

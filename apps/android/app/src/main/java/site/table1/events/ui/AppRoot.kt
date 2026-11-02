@@ -471,7 +471,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                     ListDetailScreen(id, onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it?list=$id") },
                         onAdd = { nav.navigate("collection/list/$id/add") }, onVersions = { nav.navigate("collection/list/$id/versions") },
                         onOpen = { nav.navigate("collection/list/$it") },
-                        onPrinting = { card, board, finish, lang -> nav.navigate("collection/list/$id/printing/$card/$board/$finish/$lang") },
+                        onPrinting = { card, board, finish, lang, cond -> nav.navigate("collection/list/$id/printing/$card/$board/$finish/$lang/$cond") },
                         onStats = { nav.navigate("collection/list/$id/stats") }, onRankings = { nav.navigate("collection/list/$id/rankings") },
                         onSync = { nav.navigate("collection/list/$id/sync") },
                         onInsights = { f, a -> nav.navigate(site.table1.events.insights.InsightsRoutes.archetype(f, a)) })
@@ -489,10 +489,10 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 composable("collection/list/{id}/stats/hand") { e -> SampleHandScreen(e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() }) }
                 composable("collection/list/{id}/stats/odds") { e -> DrawOddsScreen(e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() }) }
                 composable("collection/list/{id}/stats/pack") { e -> SamplePackScreen(e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() }) }
-                composable("collection/list/{id}/printing/{card}/{board}/{finish}/{lang}") { e ->
+                composable("collection/list/{id}/printing/{card}/{board}/{finish}/{lang}/{cond}") { e ->
                     val a = e.arguments
                     ChangePrintingScreen(PrintingTarget.ListLine(a?.getString("id") ?: "", a?.getString("card") ?: "", a?.getString("board") ?: "main",
-                        a?.getString("finish") ?: "nonfoil", a?.getString("lang") ?: "en"), onClose = { nav.popBackStack() })
+                        a?.getString("finish") ?: "nonfoil", a?.getString("lang") ?: "en", a?.getString("cond") ?: "NM"), onClose = { nav.popBackStack() })
                 }
                 composable("collection/list/{id}/add") { e ->
                     val id = e.arguments?.getString("id") ?: ""

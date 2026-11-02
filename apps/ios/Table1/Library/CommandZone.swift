@@ -68,6 +68,7 @@ enum CommandZone {
         var cardId: String?
         var finish = "nonfoil"
         var lang = "en"
+        var cond = "NM"
     }
 
     /// A command-zone line: its card and type line, and its pair code (nil when the catalog doesn't say).
@@ -76,6 +77,7 @@ enum CommandZone {
         let typeLine: String
         var finish = "nonfoil"
         var lang = "en"
+        var cond = "NM"
         var pair: String? = nil
     }
 
@@ -134,7 +136,7 @@ enum CommandZone {
         switch format {
         case "commander":
             var out = lines.prefix(2).enumerated().map { i, l in
-                Slot(role: i == 0 ? .commander : .partner, cardId: l.cardId, finish: l.finish, lang: l.lang)
+                Slot(role: i == 0 ? .commander : .partner, cardId: l.cardId, finish: l.finish, lang: l.lang, cond: l.cond)
             }
             if out.isEmpty { out.append(Slot(role: .commander)) }
             else if out.count == 1, canPair(typeLine: lines[0].typeLine, pair: lines[0].pair) { out.append(Slot(role: .partner)) }
@@ -142,7 +144,7 @@ enum CommandZone {
         case "oathbreaker":
             return [Role.oathbreaker, .signature].map { role in
                 guard let l = lines.first(where: { role.fits($0.typeLine) }) else { return Slot(role: role) }
-                return Slot(role: role, cardId: l.cardId, finish: l.finish, lang: l.lang)
+                return Slot(role: role, cardId: l.cardId, finish: l.finish, lang: l.lang, cond: l.cond)
             }
         default:
             return []
@@ -163,6 +165,7 @@ enum CommandZone {
         let typeLine: String
         var finish = "nonfoil"
         var lang = "en"
+        var cond = "NM"
         var qty = 1
         var pair: String? = nil
     }
@@ -176,20 +179,20 @@ enum CommandZone {
     /// A list_edit change that moves a deck card into a slot.
     enum Op: Equatable, Sendable {
         /// Every copy of a line to another section.
-        case move(cardId: String, finish: String, lang: String, from: String, to: String)
-        case delta(cardId: String, finish: String, lang: String, board: String, by: Int)
+        case move(cardId: String, finish: String, lang: String, cond: String, from: String, to: String)
+        case delta(cardId: String, finish: String, lang: String, cond: String, board: String, by: Int)
     }
 
     /// The changes that put one copy of `line` in `slot`: the slot's card (if any) goes to the main deck; a single copy
     /// moves, one of several moves by deltas.
     static func movingIn(_ line: DeckLine, slot: Slot) -> [Op] {
         var ops: [Op] = []
-        if let id = slot.cardId { ops.append(.move(cardId: id, finish: slot.finish, lang: slot.lang, from: board, to: "main")) }
+        if let id = slot.cardId { ops.append(.move(cardId: id, finish: slot.finish, lang: slot.lang, cond: slot.cond, from: board, to: "main")) }
         if line.qty <= 1 {
-            ops.append(.move(cardId: line.cardId, finish: line.finish, lang: line.lang, from: line.board, to: board))
+            ops.append(.move(cardId: line.cardId, finish: line.finish, lang: line.lang, cond: line.cond, from: line.board, to: board))
         } else {
-            ops.append(.delta(cardId: line.cardId, finish: line.finish, lang: line.lang, board: line.board, by: -1))
-            ops.append(.delta(cardId: line.cardId, finish: line.finish, lang: line.lang, board: board, by: 1))
+            ops.append(.delta(cardId: line.cardId, finish: line.finish, lang: line.lang, cond: line.cond, board: line.board, by: -1))
+            ops.append(.delta(cardId: line.cardId, finish: line.finish, lang: line.lang, cond: line.cond, board: board, by: 1))
         }
         return ops
     }
