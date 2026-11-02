@@ -176,9 +176,10 @@ select jobid, 'failed', 'ERROR: canceling statement due to statement timeout (af
   from cron.job, generate_series(1, 3) g where jobname = 't1-cards-sync';
 insert into cron.job_run_details (jobid, status, return_message, start_time)
 select jobid, 'succeeded', '1 row', now() from cron.job where jobname = 't1-cards-sync';
-insert into net._http_response (id, status_code, content, timed_out, error_msg) values
-  (1, 200, 'ok', false, null), (2, 500, '{"error":"boom 42"}', false, null), (3, 500, '{"error":"boom 43"}', false, null),
-  (4, null, null, true, 'Timeout of 30000 ms reached');
+insert into net._http_response (id, status_code, content, timed_out, error_msg, created) values
+  (1, 200, 'ok', false, null, now() - interval '5 minutes'), (2, 500, '{"error":"boom 42"}', false, null, now() - interval '5 minutes'),
+  (3, 500, '{"error":"boom 43"}', false, null, now() - interval '5 minutes'),
+  (4, null, null, true, 'Timeout of 30000 ms reached', now() - interval '5 minutes');
 select pg_temp.eq('sweep files failed cron runs and failed calls', t1_private.bugs_sweep_server()::text, '6');
 select pg_temp.eq('grouped by job and message', (select string_agg(left(title, 34) || ' x' || events, ' | ' order by title) from t1_private.bugs where source = 'server'),
   'Background call failed (HTTP 500): x2 | Background call failed (timed out) x1 | Cron job t1-cards-sync failed: ERR x3');
