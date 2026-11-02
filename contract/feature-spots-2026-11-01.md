@@ -26,7 +26,7 @@ headline 44, body 260). `updated` is the day the copy or shots last changed.
 The six spots on day one: **run** (organizer's live round), **play** (life tracker), **record** (lifetime record and
 head-to-head, on a sample account), **insights** (a deck's archetype rows: win rate, good and bad against),
 **import** (a ManaBox import previewed), **rank** (a ranking screen, four cards). Scanning stays in the import body
-until there's a way to shoot the phone's camera screen.
+until there's a way to shoot the phone's camera screen. **To add** (John, 2026-11-02): a **widgets** spot (Lock Screen and home screen widgets, Live Activities, Android live notifications) once the widget work under way is done; widgets have no web screen, so the shooter needs a second shot source (the iOS Debug gallery `-T1WidgetsDemo`, or a dev-only web page drawing the widget views).
 
 ## The shots
 
