@@ -542,14 +542,17 @@ object ListsStore {
             if (qty != null) put("qty", qty)
         })
 
-    /** Several cards into one section as one edit (a scan session): one request, one step in the history. */
-    suspend fun addMany(listId: String, board: String, cards: List<Triple<String, String, String>>) {
+    /** Several cards into one section as one edit (a scan session): one request, one step in the history. [cards]: one entry
+     *  per scanned copy (qty 1), in the condition picked in the scanner (contract/lists-2026-10-15.md § Conditions). */
+    suspend fun addMany(listId: String, board: String, cards: List<ListEntry>) {
         if (cards.isEmpty()) return
         call("list_edit", buildJsonObject {
             put("p_list_id", listId)
             put("p_ops", buildJsonArray {
-                cards.forEach { (cardId, finish, lang) ->
-                    add(buildJsonObject { put("card_id", cardId); put("board", board); put("finish", finish); put("lang", lang); put("delta", 1) })
+                cards.forEach { c ->
+                    add(buildJsonObject {
+                        put("card_id", c.cardId); put("board", board); put("finish", c.finish); put("lang", c.lang); put("cond", c.cond); put("delta", 1)
+                    })
                 }
             })
         })

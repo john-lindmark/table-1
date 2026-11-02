@@ -553,17 +553,18 @@ final class ListsStore {
         }
     }
 
-    /// Several cards into one section as one edit (a scan session): one request, one step in the history.
-    func addMany(listId: String, board: String, cards: [(cardId: String, finish: String, lang: String)]) {
+    /// Several cards into one section as one edit (a scan session): one request, one step in the history. Each card in
+    /// the condition picked in the scanner (contract/lists-2026-10-15.md § Conditions).
+    func addMany(listId: String, board: String, cards: [(cardId: String, finish: String, lang: String, cond: String)]) {
         guard !cards.isEmpty else { return }
         let ops: [[String: AnyJSON]] = cards.map { ["card_id": .string($0.cardId), "board": .string(board), "finish": .string($0.finish),
-                                                    "lang": .string($0.lang), "delta": .integer(1)] }
+                                                    "lang": .string($0.lang), "cond": .string($0.cond), "delta": .integer(1)] }
         edit(listId, ops: ops) { entries in
             for c in cards {
-                if let i = entries.firstIndex(where: { $0.isLine(c.cardId, board, c.finish, c.lang, "NM") }) {
-                    entries[i] = .init(cardId: c.cardId, board: board, qty: entries[i].qty + 1, finish: c.finish, lang: c.lang)
+                if let i = entries.firstIndex(where: { $0.isLine(c.cardId, board, c.finish, c.lang, c.cond) }) {
+                    entries[i] = .init(cardId: c.cardId, board: board, qty: entries[i].qty + 1, finish: c.finish, lang: c.lang, cond: c.cond)
                 } else {
-                    entries.append(.init(cardId: c.cardId, board: board, qty: 1, finish: c.finish, lang: c.lang))
+                    entries.append(.init(cardId: c.cardId, board: board, qty: 1, finish: c.finish, lang: c.lang, cond: c.cond))
                 }
             }
         }
@@ -1867,7 +1868,8 @@ struct ListAddCardsView: View {
         addFocused = true
     }
 
-    /// Scanned cards go into the chosen section as one edit, each in the printing and finish the scanner read.
+    /// Scanned cards go into the chosen section as one edit, each in the printing and finish the scanner read and the
+    /// language and condition the scanner gave it.
     private func scan(_ list: CardList) {
         addFocused = false
         removeFocused = false
@@ -1878,7 +1880,7 @@ struct ListAddCardsView: View {
                                                          "exact": cards.filter(\.exact).count, "cancelled": false])
                 T1Overlays.shared.dismissPanel()
                 guard !cards.isEmpty else { return }
-                ListsStore.shared.addMany(listId: list.id, board: target, cards: cards.map { ($0.printing.cardId, $0.finish, $0.lang) })
+                ListsStore.shared.addMany(listId: list.id, board: target, cards: cards.map { ($0.printing.cardId, $0.finish, $0.lang, $0.condition) })
                 note = "Added \(cards.count) scanned card\(cards.count == 1 ? "" : "s") to \(list.boardTitle(target))"
             }, onCancel: {
                 Telemetry.capture("scan_session_ended", ["context": list.kind.rawValue, "cards": 0, "exact": 0, "cancelled": true])

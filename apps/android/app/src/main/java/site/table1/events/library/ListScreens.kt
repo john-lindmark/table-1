@@ -751,7 +751,7 @@ fun ListAddScreen(listId: String, onDone: () -> Unit, @Suppress("UNUSED_PARAMETE
             scanning = false
             Telemetry.capture("scan_session_ended", mapOf("context" to list.kind.wire, "cards" to cards.size, "exact" to cards.count { it.exact }, "cancelled" to false))
             if (cards.isNotEmpty()) {
-                scope.launch { runCatching { ListsStore.addMany(list.id, target, cards.map { Triple(it.printing.cardId, it.finish, it.lang) }) } }
+                scope.launch { runCatching { ListsStore.addMany(list.id, target, cards.map { ListEntry(it.printing.cardId, target, 1, it.finish, it.lang, it.condition) }) } }
                 note = "Added ${cards.size} scanned card${if (cards.size == 1) "" else "s"} to ${list.boardTitle(target)}"
             }
         }, onCancel = {
