@@ -539,7 +539,8 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                     AddCardsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/card/$it") }, scanFirst = true)
                 }
                 composable("collection/search") {
-                    AddCardsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/card/$it") }, search = true)
+                    AddCardsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/card/$it") }, search = true,
+                        go = { nav.navigate(it) })
                 }
                 // Opened from a deck/cube (?list=) or a binder (?binder=): that list's lines or binder's copies come first.
                 // ?search=1: wants, Missing, a friend's or shared card (contract/card-detail-2026-10-23.md § Scope).

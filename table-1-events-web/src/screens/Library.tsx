@@ -27,6 +27,7 @@ import { hasSyntax } from "../lib/cardQuery";
 import { hidePeek, movePeek, showPeek } from "../components/CardPeek";
 import { PEEK_W, useHoverPreview } from "../lib/desktop";
 import { ShareButton } from "./Share";
+import { ListHits } from "./ListSearch";
 
 export const CONDITIONS: Condition[] = ["NM", "LP", "MP", "HP", "DMG"];
 
@@ -963,13 +964,15 @@ export function CardGroupRow({ open, parts, hero, onToggle, children }: {
 
 /* ── add (search) ─────────────────────────────────────────────────────── */
 
-export function AddCards({ onBack, onOpen, search = false }: {
+export function AddCards({ onBack, onOpen, search = false, go }: {
   onBack: () => void; onOpen: (oracleId: string) => void;
-  /** Search (the Collection home's magnifier): each card says how many you own. */
+  /** Search (the Collection home's magnifier): each card says how many you own, and decks, cubes and binders come
+   *  first, opened with `go`. */
   search?: boolean;
+  go?: (path: string) => void;
 }) {
   const { catalog, error } = useCatalog();
-  const { userId } = useLibrarySession();
+  const { userId, demo } = useLibrarySession();
   const col = useCollection(search ? userId : null);
   const [q, setQ] = useState("");
   const found = useCardSearch(catalog, q);
@@ -988,11 +991,13 @@ export function AddCards({ onBack, onOpen, search = false }: {
     <LibScreen>
       <Bar title={search ? "Search" : "Add cards"} onBack={onBack} />
       {error && <Notice tone="error">{error}</Notice>}
-      <CardSearchBar label="Card" value={q} onChange={setQ} placeholder="Lightning Bolt, or t:dragon c:r" autoFocus
+      <CardSearchBar label={search ? "Search" : "Card"} value={q} onChange={setQ} autoFocus
+                     placeholder={search ? "A card, deck, cube or binder" : "Lightning Bolt, or t:dragon c:r"}
                      onSubmit={() => { if (hits[0] != null && catalog) onOpen(catalog.oId[hits[0]]); }} />
       <CardSearchStatus query={q} found={found} />
       {!catalog && !error && <div className="bg-t1-surface px-4 py-4 t1-label">Loading card data…</div>}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
+        {search && go && <ListHits query={q} userId={userId} demo={!!demo} go={go} />}
         {catalog && found?.query === q && normName(q).length >= 2 && hits.length === 0 && !hasSyntax(q) && (
           <div className="bg-t1-surface px-4 py-4 t1-label">No card by that name</div>
         )}

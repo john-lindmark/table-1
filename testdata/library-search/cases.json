@@ -1,5 +1,5 @@
 {
-  "_doc": "In-screen search (contract/library-search-2026-10-18.md). cards: every normalized word of the query is in the card's name or type line. printings: every word (split on spaces and #) starts the set code, collector number or year. Tested by iOS LibrarySearchTests, web librarySearch.test.ts, Android LibrarySearchTest.",
+  "_doc": "In-screen search (contract/library-search-2026-10-18.md). cards: every normalized word of the query is in the card's name or type line. printings: every word (split on spaces and #) starts the set code, collector number or year. lists (Collection Search, your own decks, cubes and binders): every normalized word of the query is in the name or the format code; an empty query matches nothing. listOrder: names starting with the query's first word first, then by normalized name, then name. Tested by iOS LibrarySearchTests, web librarySearch.test.ts, Android LibrarySearchTest.",
   "cards": [
     {"query": "", "name": "Lightning Bolt", "type": "Instant", "match": true},
     {"query": "bolt", "name": "Lightning Bolt", "type": "Instant", "match": true},
@@ -21,5 +21,20 @@
     {"query": "2022", "set": "mh2", "cn": "130", "releasedAt": "2021-06-18", "match": false},
     {"query": "mh2 131", "set": "mh2", "cn": "130", "releasedAt": "2021-06-18", "match": false},
     {"query": "lea", "set": "mh2", "cn": "130", "releasedAt": "2021-06-18", "match": false}
+  ],
+  "lists": [
+    {"query": "burn", "name": "Burn", "format": "modern", "match": true},
+    {"query": "BURN mod", "name": "Burn", "format": "modern", "match": true},
+    {"query": "izzet murk", "name": "Izzet Murktide", "format": "modern", "match": true},
+    {"query": "mono red", "name": "Mono-Red Prowess", "format": "pioneer", "match": true},
+    {"query": "jotun", "name": "Jötun's Den", "format": "", "match": true},
+    {"query": "legacy", "name": "Burn", "format": "modern", "match": false},
+    {"query": "trade", "name": "Trade binder", "format": "", "match": true},
+    {"query": "", "name": "Burn", "format": "modern", "match": false},
+    {"query": "  ", "name": "Burn", "format": "modern", "match": false}
+  ],
+  "listOrder": [
+    {"query": "burn", "names": ["Rakdos burn", "Burn sideboard", "burn", "Atarka Burn"], "want": ["burn", "Burn sideboard", "Atarka Burn", "Rakdos burn"]},
+    {"query": "red", "names": ["Big red", "Red deck wins", "Mono-Red"], "want": ["Red deck wins", "Big red", "Mono-Red"]}
   ]
 }

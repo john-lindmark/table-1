@@ -244,3 +244,24 @@ select pg_temp.ms('cube_ranking_get, a set ranking', $$select public.cube_rankin
 select pg_temp.ms('cube_rankings of a set', $$select public.cube_rankings(p_set => 'S1')$$, 20);
 reset role;
 select pg_temp.ms('catalog_set_gaps', $$select public.catalog_set_gaps()$$, 60);
+-- Collection search (contract/library-search-2026-10-18.md § Collection search): 2,000 more accounts with 10 decks
+-- or cubes each (20k lists, names from a word list), half on public profiles with every deck set to Anyone, plus the
+-- 200 friends' binders. Live has ~100 lists (2026-11-02).
+insert into auth.users (id, email, raw_user_meta_data)
+select md5('searcher' || i)::uuid, 's' || i || '@example.com', jsonb_build_object('full_name', 'Player ' || i) from generate_series(1, 2000) i;
+insert into public.share_settings (user_id, profile, decks, cubes)
+select md5('searcher' || i)::uuid, 'public', 'public', 'public' from generate_series(1, 2000, 2) i;
+insert into public.card_lists (id, user_id, kind, name, format, visibility, seq)
+select md5('slist' || i || '-' || k)::uuid, md5('searcher' || i)::uuid, case when k = 10 then 'cube' else 'deck' end,
+       (array['Burn', 'Mono-red prowess', 'Izzet murktide', 'Rakdos scam', 'Boros energy', 'Amulet titan', 'Jund',
+              'Living end', 'Vintage cube', 'Pauper cube'])[k] || ' ' || i,
+       case when k = 10 then 'cube' else 'modern' end, case when i % 2 = 1 then 'public' end, nextval('public.card_list_seq')
+  from generate_series(1, 2000) i, generate_series(1, 10) k;
+analyze public.card_lists;
+set role authenticated;
+select pg_temp.as_user(:BIG);
+select pg_temp.eq('public lists found', (jsonb_array_length(public.library_search('burn')->'items') = 20)::text, 'true');
+select pg_temp.ms('library_search "burn", 20k lists', $$select public.library_search('burn')$$, 80);
+select pg_temp.ms('library_search two words', $$select public.library_search('izzet murk')$$, 80);
+select pg_temp.ms('library_search nothing found', $$select public.library_search('zzzz')$$, 40);
+reset role;

@@ -510,7 +510,9 @@ fun AllCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAdd: () -> Un
 /* ── add (search) ─────────────────────────────────────────────────────── */
 
 @Composable
-fun AddCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, search: Boolean = false, scanFirst: Boolean = false) {
+fun AddCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, search: Boolean = false, scanFirst: Boolean = false,
+                   /** Search: decks, cubes and binders come first, opened with this. */
+                   go: ((String) -> Unit)? = null) {
     val cat by CatalogStore.state.collectAsState()
     val col by CollectionStore.state.collectAsState()
     /** Search (the Collection home's magnifier): copies owned per oracle idx. */
@@ -532,6 +534,7 @@ fun AddCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, search: Boolean
     var query by remember { mutableStateOf("") }
     val result = rememberCardSearch(query)
     val hits = if (query.isBlank()) emptyList() else result?.hits ?: emptyList()
+    val listHits = rememberListHits(query, search && go != null)
     val covers = result?.covers ?: emptyMap()
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
@@ -556,11 +559,13 @@ fun AddCardsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, search: Boolean
             }
         }
         Box(Modifier.focusRequester(focus)) {
-            CardSearchBar(query, { query = it }, placeholder = "Lightning Bolt, or t:dragon c:r", label = "Card", onScan = if (search) null else ({ scanning = true }),
+            CardSearchBar(query, { query = it }, placeholder = if (search) "A card, deck, cube or binder" else "Lightning Bolt, or t:dragon c:r",
+                label = if (search) "Search" else "Card", onScan = if (search) null else ({ scanning = true }),
                 onSubmit = { hits.firstOrNull()?.let { onOpen(it.oracleId) } })
         }
         CardSearchStatus(query, result)
         Hairlines(Modifier.weight(1f)) {
+            if (go != null) listHitSections(listHits, go)
             if (cat.phase == "ready" && result != null && CardName.norm(query).length >= 2 && hits.isEmpty() && !CardQuery.hasSyntax(query)) item { QuietRow("No card by that name") }
             items(hits, key = { it.idx }) { o ->
                 CardRow(covers[o.idx], o.name, if (o.manaCost.isEmpty()) o.typeLine else "${o.typeLine} · ${o.manaCost}", onClick = { onOpen(o.oracleId) }) {

@@ -356,7 +356,7 @@ function AddCardsRoute() {
 function CardSearchRoute() {
   const navigate = useNavigate();
   const back = useBack("/library");
-  return <AddCards search onBack={back} onOpen={(id) => navigate(`/library/card/${id}`)} />;
+  return <AddCards search onBack={back} onOpen={(id) => navigate(`/library/card/${id}`)} go={(path) => navigate(path)} />;
 }
 
 function CardDetailRoute() {

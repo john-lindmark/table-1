@@ -130,8 +130,12 @@ final class LibrarySearchTests: XCTestCase {
     private struct Cases: Decodable {
         struct Card: Decodable { let query: String; let name: String; let type: String; let match: Bool }
         struct Printing: Decodable { let query: String; let set: String; let cn: String; let releasedAt: String; let match: Bool }
+        struct ListCase: Decodable { let query: String; let name: String; let format: String; let match: Bool }
+        struct Order: Decodable { let query: String; let names: [String]; let want: [String] }
         let cards: [Card]
         let printings: [Printing]
+        let lists: [ListCase]
+        let listOrder: [Order]
     }
 
     func testSharedCases() throws {
@@ -143,6 +147,12 @@ final class LibrarySearchTests: XCTestCase {
         }
         for c in cases.printings {
             XCTAssertEqual(CardSearch.matches(c.query, set: c.set, cn: c.cn, releasedAt: c.releasedAt), c.match, "\(c.query) / \(c.set) \(c.cn)")
+        }
+        for c in cases.lists {
+            XCTAssertEqual(CardSearch.matches(c.query, list: c.name, format: c.format), c.match, "\(c.query) / \(c.name)")
+        }
+        for c in cases.listOrder {
+            XCTAssertEqual(CardSearch.order(c.query, c.names) { $0 }, c.want, c.query)
         }
     }
 

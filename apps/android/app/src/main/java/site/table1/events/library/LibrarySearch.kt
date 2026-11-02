@@ -22,6 +22,23 @@ object CardSearch {
         return words.all { w -> hay.any { it.startsWith(w) } }
     }
 
+    /**
+     * Collection Search, your own decks, cubes and binders: every word of the query is in the name or the format code
+     * (normalized like card names). An empty query matches nothing.
+     */
+    fun matchesList(query: String, name: String, format: String): Boolean {
+        val words = CardName.norm(query).split(" ").filter { it.isNotEmpty() }
+        if (words.isEmpty()) return false
+        val hay = CardName.norm(name) + " | " + CardName.norm(format)
+        return words.all { hay.contains(it) }
+    }
+
+    /** Names starting with the query's first word first, then by normalized name, then name. */
+    fun <T> order(query: String, items: List<T>, name: (T) -> String): List<T> {
+        val first = CardName.norm(query).split(" ").firstOrNull() ?: ""
+        return items.sortedWith(compareBy<T> { !CardName.norm(name(it)).startsWith(first) }.thenBy { CardName.norm(name(it)) }.thenBy { name(it) })
+    }
+
     /** The list's own lines whose card matches a search, by name: what Remove or replace offers. Empty query: none. */
     fun <T> matchingLines(lines: List<T>, query: String, name: (T) -> String, type: (T) -> String, board: (T) -> String, finish: (T) -> String): List<T> {
         if (CardName.norm(query).isEmpty()) return emptyList()

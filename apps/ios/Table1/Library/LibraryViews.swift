@@ -714,9 +714,11 @@ struct AddCardsView: View {
                 }
                 .padding(.horizontal, 16).padding(.vertical, 12).background(T1.surface)
             }
-            CardSearchBar(query: $query, prompt: "Lightning Bolt, or t:dragon c:r", scan: search ? nil : { scan() }, focused: $focused)
+            CardSearchBar(query: $query, prompt: search ? "A card, deck, cube or binder" : "Lightning Bolt, or t:dragon c:r",
+                          scan: search ? nil : { scan() }, focused: $focused)
             CardSearchStatus(query: query, result: result)
             HairlineList {
+                if search { ListHitsSections(query: query, path: $path) }
                 if catalog.phase == .ready && CardName.norm(query).count >= 2 && hits.isEmpty && !CardQuery.hasSyntax(query) {
                     LoadingRow(text: "No card by that name")
                 }
@@ -735,6 +737,10 @@ struct AddCardsView: View {
         }
         .onAppear {
             catalog.load(userInitiated: true)
+            #if DEBUG
+            // Design QA: `-T1LibraryDemo search -T1SearchQuery tr` opens Search with a query typed.
+            if search, query.isEmpty, let q = UserDefaults.standard.string(forKey: "T1SearchQuery") { query = q }
+            #endif
             if scanOnOpen && !autoScanned {
                 autoScanned = true
                 scan()

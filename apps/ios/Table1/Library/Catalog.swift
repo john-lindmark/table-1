@@ -504,4 +504,25 @@ enum CardSearch {
         let hay = [set.lowercased(), cn.lowercased(), String(releasedAt.prefix(4))]
         return words.allSatisfy { w in hay.contains { $0.hasPrefix(w) } }
     }
+
+    /// Collection Search, your own decks, cubes and binders: every word of the query is in the name or the format
+    /// code (normalized like card names). An empty query matches nothing.
+    static func matches(_ query: String, list name: String, format: String) -> Bool {
+        let words = CardName.norm(query).split(separator: " ")
+        if words.isEmpty { return false }
+        let hay = CardName.norm(name) + " | " + CardName.norm(format)
+        return words.allSatisfy { hay.contains($0) }
+    }
+
+    /// Names starting with the query's first word first, then by normalized name, then name.
+    static func order<T>(_ query: String, _ items: [T], name: (T) -> String) -> [T] {
+        let first = CardName.norm(query).split(separator: " ").first.map(String.init) ?? ""
+        return items.map { (t: $0, n: CardName.norm(name($0)), raw: name($0)) }
+            .sorted { a, b in
+                let sa = a.n.hasPrefix(first), sb = b.n.hasPrefix(first)
+                if sa != sb { return sa }
+                return a.n != b.n ? a.n < b.n : a.raw < b.raw
+            }
+            .map(\.t)
+    }
 }

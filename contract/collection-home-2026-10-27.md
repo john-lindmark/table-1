@@ -18,7 +18,7 @@ Figma `Hbkg1vKjdTFpwYt0NtCCYq` node 325:10820. Client-only; all three clients.
 
 ## + and Search
 - **+** menu: Add cards, New deck, New binder, New cube (the same panels as on Decks / Binders / Cubes).
-- **Search**: the Add cards search (name or Scryfall syntax) titled Search, no scanner; each card shows how many copies you own; a tap opens its card page. Routes: iOS `.search`, web `/library/search`, Android `collection/search`.
+- **Search**: the Add cards search (name or Scryfall syntax) titled Search, no scanner; each card shows how many copies you own; a tap opens its card page. Since 2026-11-02 it also finds decks, cubes and binders, yours and others' you can see (contract/library-search-2026-10-18.md § Collection search). Routes: iOS `.search`, web `/library/search`, Android `collection/search`.
 
 ## Moved
 - **Trade matches** now sit inside Trades as a Matches section (person rows as on Trade matches; with none, one "No matches yet" row opens Trade matches, which explains how they start). The Trade matches screen stays (push taps and the desktop sidebar open it).

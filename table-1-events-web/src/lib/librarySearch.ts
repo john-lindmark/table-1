@@ -25,6 +25,26 @@ export function printingMatches(query: string, set: string, cn: string, released
 }
 
 /**
+ * Collection Search, your own decks, cubes and binders: every word of the query is in the name or the format code
+ * (normalized like card names). An empty query matches nothing.
+ */
+export function listMatches(query: string, name: string, format: string): boolean {
+  const words = normName(query).split(" ").filter(Boolean);
+  if (!words.length) return false;
+  const hay = `${normName(name)} | ${normName(format)}`;
+  return words.every((w) => hay.includes(w));
+}
+
+/** Names starting with the query's first word first, then by normalized name, then name. */
+export function listOrder<T>(query: string, items: T[], name: (t: T) => string): T[] {
+  const first = normName(query).split(" ")[0] ?? "";
+  const keyed = items.map((t) => ({ t, n: normName(name(t)), raw: name(t) }));
+  keyed.sort((a, b) => Number(!a.n.startsWith(first)) - Number(!b.n.startsWith(first))
+    || (a.n < b.n ? -1 : a.n > b.n ? 1 : 0) || (a.raw < b.raw ? -1 : a.raw > b.raw ? 1 : 0));
+  return keyed.map((k) => k.t);
+}
+
+/**
  * Ops that point a want at another printing (`cardId` null = any printing; `finish` only with a printing): the old
  * want comes off and its copies are added to the new one (merging into a want already there), keeping its max
  * price. Null when it already points there.

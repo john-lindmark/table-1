@@ -31,6 +31,16 @@ class LibrarySearchTest {
         }
     }
 
+    @Test fun sharedListCases() {
+        for (c in cases["lists"]!!.jsonArray) {
+            assertEquals("${s(c, "query")} / ${s(c, "name")}", c.jsonObject["match"]!!.jsonPrimitive.boolean, CardSearch.matchesList(s(c, "query"), s(c, "name"), s(c, "format")))
+        }
+        for (c in cases["listOrder"]!!.jsonArray) {
+            val names = c.jsonObject["names"]!!.jsonArray.map { it.jsonPrimitive.content }
+            assertEquals(s(c, "query"), c.jsonObject["want"]!!.jsonArray.map { it.jsonPrimitive.content }, CardSearch.order(s(c, "query"), names) { it })
+        }
+    }
+
     @Test fun repointMovesCountAndMax() {
         val w = Want("o", null, null, qty = 3, maxUsd = 5.0)
         val ops = repointWant(w, "p", "foil")!!

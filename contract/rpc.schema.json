@@ -10233,6 +10233,98 @@
         ]
       }
     },
+    "library_search": {
+      "note": "Collection Search: other people's binders, decks and cubes you can see (on their profile, or through the live link you followed with) whose name, owner's name or format holds every word of p_query (2+ characters). Followed first, then friends', played-with, everyone else. user_id when seen on the profile, token when through a followed link. Never your own. contract/library-search-2026-10-18.md § Collection search. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_query": {
+            "type": "string"
+          },
+          "p_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          }
+        },
+        "required": [
+          "p_query"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "binder",
+                    "deck",
+                    "cube"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "format": {
+                  "type": "string"
+                },
+                "for_trade": {
+                  "type": "boolean"
+                },
+                "cards": {
+                  "type": "integer"
+                },
+                "owner": {
+                  "type": "object",
+                  "properties": {
+                    "display_name": {
+                      "type": "string"
+                    },
+                    "avatar_url": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "display_name"
+                  ]
+                },
+                "user_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "token": {
+                  "type": "string"
+                },
+                "following": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "kind",
+                "id",
+                "name",
+                "cards",
+                "owner",
+                "following"
+              ]
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      }
+    },
     "follow_changes": {
       "note": "Updates since you followed, newest first; marks them seen. cards: [card_id, board (main/side/commander; main for cubes; null for binders), delta]. Not following or not visible: 42501. contract/follows-2026-10-25.md. authenticated.",
       "params": {

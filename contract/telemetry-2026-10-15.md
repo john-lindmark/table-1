@@ -145,6 +145,7 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `want_changed` | `printing`: true, `any_printing`: bool, `finish`: bool when the want was pointed at another printing (2026-10-18); otherwise — |
 | `want_removed` | — |
 | `library_searched` | `screen`: cube / deck / wants / binder / binders. Once per visit, when that screen's search is first used; never the text (2026-10-18, `library-search-2026-10-18.md`) |
+| `search_list_opened` | `kind`: deck / cube / binder; `whose`: mine / following / shared. A deck, cube or binder opened from Collection Search; never the text or ids (2026-11-02, `library-search-2026-10-18.md` § Collection search) |
 | `list_card_removed` | `kind`: deck / cube. Remove in Add, remove or replace |
 | `list_card_replaced` | `kind`. Replace swaps one copy for another card in one edit |
 | `list_card_added` | `kind`, `from`: edit (picked, then Add) / quick (the + on a hit) (2026-10-19) |

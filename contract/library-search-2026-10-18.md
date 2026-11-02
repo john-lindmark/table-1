@@ -52,11 +52,42 @@ Client-only. No migration and no new RPC: everything uses `wants_apply`, `list_e
     condition last picked on card detail (default NM), with `binder_id` this binder (none for Unsorted).
   - The last action shows with **Undo** (`collection_undo` on its batch).
 
+## Collection search (2026-11-02)
+
+John: "allow users to search from collection to not just cards but also decks, cubes, and binders that are visible
+to them". The Collection home's Search (contract/collection-home-2026-10-27.md) finds decks, cubes and binders above
+the cards.
+
+- **Field**: labelled Search, placeholder "A card, deck, cube or binder". Cards search as before (name or Scryfall
+  syntax); lists show once the normalized query has 2+ characters.
+- **Yours** are matched on the device, offline too: every normalized word of the query is in the name or the format
+  code (`matchesList`; an empty query matches nothing), ordered names starting with the first word first, then by
+  normalized name (`order`). Cases `lists` / `listOrder` in `testdata/library-search/cases.json`.
+- **Everyone else's** come from `library_search(p_query, p_limit 20, max 50)` (signed in only, 300 ms after typing
+  stops): items you can see on their owner's profile (friends', and anyone's set to Anyone on a public profile, the
+  same rule as `profile_view`) or through the live link you followed with. Every lowercase word must be in the name,
+  the owner's name or (decks and cubes) the format. Never your own, a deleted or demo account's, or across a block.
+  Order: followed first, then friends', people you've played with, everyone else; names starting with the first word
+  first, then by name. Each item: `kind`, `id`, `name`, `format`, `for_trade` (binders), `cards`, `owner`
+  {display_name, avatar_url}, `user_id` (seen on the profile: opens their profile section) or `token` (seen through
+  a followed link: opens the link), `following`. A failed call (offline) shows yours only.
+- **Sections**: Decks · N, Cubes · N, Binders · N, yours first, then others'; three rows each and "Show all N" (all
+  rows when there are four or fewer), then a Cards heading over the card rows. Rows: name; "Deck · Modern",
+  "Cube", "Binder · For trade", plus the owner's name on someone else's; the right value is main-deck cards (decks,
+  cubes) or copies (binders). Taps open your deck/cube/binder screen, their profile section, or the link.
+- Not searched yet: the cards inside other people's lists ("decks with Ragavan").
+
+Server: migration `20261102120000_library_search.sql`, tests `supabase/tests/84_library_search_test.sql`, budget in
+`perf_10_library.sql` (20k lists: ~15 ms locally). Clients: iOS `Library/ListSearch.swift`, web `lib/listSearch.ts` +
+`screens/ListSearch.tsx`, Android `library/ListSearch.kt`. Design QA: iOS `-T1LibraryDemo search -T1SearchQuery tr`,
+web `/library/search?demo` (the demo's followed items stand in for other people's).
+
 ## Telemetry (`contract/telemetry-2026-10-15.md`)
 
 `library_searched` (`screen`), `list_card_removed` / `list_card_replaced` (`kind`), `want_added` gains `finish`,
 `want_changed` gains `printing`, `any_printing`, `finish` when repointed. Binder adds count as `binder_copies_moved`
-and `collection_changed` as before. Screens `want_printing`, `binder_add`.
+and `collection_changed` as before. Screens `want_printing`, `binder_add`. Collection search:
+`search_list_opened` (`kind` deck / cube / binder, `whose` mine / following / shared).
 
 ## Code and tests
 
