@@ -2,7 +2,7 @@
 import SwiftUI
 import WidgetKit
 
-/// Design QA for the widgets batch without a home screen: `-T1WidgetsDemo [organizer|next|value|meta|grid|archetype]`
+/// Design QA for the widgets batch without a home screen: `-T1WidgetsDemo [organizer|next|value|meta|grid|archetype|tinted]`
 /// draws every family on sample data at its real size (iPhone 17 points); the Insights widgets on the live Modern pack
 /// of 2026-11-02 (DebugResources/insights-demo-widget-modern.json). Debug only.
 struct WidgetsDemoRoot: View {
@@ -21,6 +21,7 @@ struct WidgetsDemoRoot: View {
                 if only == nil || only == "meta" { meta }
                 if only == nil || only == "grid" { grid }
                 if only == nil || only == "archetype" { archetype }
+                if only == "tinted" { tintedAll }
             }
             .padding(16)
         }
@@ -91,12 +92,19 @@ struct WidgetsDemoRoot: View {
         tile(.systemMedium) { MetaBreakdownView(family: .systemMedium, pack: Self.pack, picks: picks) }
         tile(.systemMedium) { MetaBreakdownView(family: .systemMedium, pack: Self.pack, picks: MetaPicks(tier: "all", days: 7)) }
         tile(.systemLarge) { MetaBreakdownView(family: .systemLarge, pack: Self.pack, picks: picks) }
+        caption("Meta · a row tapped (Izzet Prowess), tinted Home Screen")
+        tile(.systemMedium) { MetaBreakdownView(family: .systemMedium, pack: Self.pack, picks: picks, focus: 18) }
+        tinted(.systemLarge) { MetaBreakdownView(family: .systemLarge, pack: Self.pack, picks: picks, focus: 18, tintedPreview: true) }
     }
 
     @ViewBuilder private var grid: some View {
         caption("Matchup grid · medium, large")
         tile(.systemMedium) { MatchupGridWidgetView(family: .systemMedium, pack: Self.pack, picks: MetaPicks()) }
         tile(.systemLarge) { MatchupGridWidgetView(family: .systemLarge, pack: Self.pack, picks: MetaPicks(tier: "all", days: 90)) }
+        caption("Matchup grid · a square tapped, tinted Home Screen")
+        tile(.systemMedium) { MatchupGridWidgetView(family: .systemMedium, pack: Self.pack, picks: MetaPicks(), selected: (1, 18)) }
+        tinted(.systemLarge) { MatchupGridWidgetView(family: .systemLarge, pack: Self.pack, picks: MetaPicks(), selected: (17, 22), tintedPreview: true) }
+        tinted(.systemMedium) { MatchupGridWidgetView(family: .systemMedium, pack: Self.pack, picks: MetaPicks(), tintedPreview: true) }
     }
 
     @ViewBuilder private var archetype: some View {
@@ -108,6 +116,26 @@ struct WidgetsDemoRoot: View {
         }
         tile(.systemMedium) { ArchetypeWidgetView(family: .systemMedium, pack: Self.pack, picks: picks) }
         tile(.systemLarge) { ArchetypeWidgetView(family: .systemLarge, pack: Self.pack, picks: MetaPicks(tier: "all", days: 30, archetype: 17)) }
+        tinted(.systemMedium) { ArchetypeWidgetView(family: .systemMedium, pack: Self.pack, picks: picks, tintedPreview: true) }
+    }
+
+    /// Every Insights widget on a tinted Home Screen, a square and a row tapped.
+    @ViewBuilder private var tintedAll: some View {
+        caption("Insights widgets · tinted Home Screen")
+        tinted(.systemMedium) { MatchupGridWidgetView(family: .systemMedium, pack: Self.pack, picks: MetaPicks(), selected: (1, 18), tintedPreview: true) }
+        tinted(.systemMedium) { MetaBreakdownView(family: .systemMedium, pack: Self.pack, picks: MetaPicks(), focus: 18, tintedPreview: true) }
+        tinted(.systemMedium) { ArchetypeWidgetView(family: .systemMedium, pack: Self.pack, picks: MetaPicks(tier: "all"), tintedPreview: true) }
+        tinted(.systemLarge) { MatchupGridWidgetView(family: .systemLarge, pack: Self.pack, picks: MetaPicks(), tintedPreview: true) }
+    }
+
+    /// A tinted Home Screen as near as the gallery gets: a green glass behind, everything white by opacity.
+    private func tinted(_ family: WidgetFamily, @ViewBuilder _ content: () -> some View) -> some View {
+        // how bright each thing is becomes how opaque it is, drawn in the tint's near-white
+        let size = family == .systemLarge ? CGSize(width: 364, height: 382) : CGSize(width: 364, height: 170)
+        return Color(red: 0.88, green: 1, blue: 0.95)
+            .mask(tile(family, content).compositingGroup().luminanceToAlpha())
+            .frame(width: size.width, height: size.height)
+            .background(Color(red: 0.24, green: 0.42, blue: 0.36)).clipShape(RoundedRectangle(cornerRadius: 22))
     }
 
     private func caption(_ s: String) -> some View {

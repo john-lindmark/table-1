@@ -108,6 +108,8 @@ class WidgetGalleryTest {
         draw("meta-7d", "Meta · All events, 7 days", meta) { size, p -> MetaContent(p, MetaPicks(tier = "all", days = 7), size, tap) }
         draw("meta-none", "Meta · no pack yet", null as MetaPack?) { size, p -> MetaContent(p, MetaPicks(), size, tap) }
         draw("matchup-grid", "Matchup grid · Big events, 30 days", meta) { size, p -> MatchupGridContent(p, MetaPicks(), size, tap) }
+        draw("matchup-grid-tapped", "Matchup grid · a square tapped", meta) { size, p -> MatchupGridContent(p, MetaPicks(), size, tap, selected = 1 to 18) }
+        draw("meta-focus", "Meta · a row tapped (Izzet Prowess)", meta) { size, p -> MetaContent(p, MetaPicks(), size, tap, focus = 18) }
         draw("archetype", "Archetype matchups · most played", meta) { size, p -> ArchetypeContent(p, MetaPicks(tier = "all"), size, tap) }
         draw("archetype-boros", "Archetype matchups · Boros Energy", meta) { size, p -> ArchetypeContent(p, MetaPicks(tier = "all", archetype = 17), size, tap) }
     }

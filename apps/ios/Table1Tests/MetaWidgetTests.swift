@@ -44,6 +44,11 @@ private struct Cases: Decodable {
     let grid_thin: Grid
     let matchups: [Matchups]
     let choices: [Int]
+    struct CellDetail: Decodable {
+        struct Out: Decodable { let title: String; let line: String; let record: String }
+        let tier: String; let days: Int; let a: Int; let b: Int; let out: Out?
+    }
+    let cell_detail: [CellDetail]
 }
 
 final class MetaWidgetTests: XCTestCase {
@@ -147,6 +152,25 @@ final class MetaWidgetTests: XCTestCase {
             }
             XCTAssertEqual(got.good, o.good, "good \(c.a)"); XCTAssertEqual(got.bad, o.bad, "bad \(c.a)")
         }
+    }
+
+    /// A tapped square reads as the Insights tab's grid does.
+    func testCellDetail() {
+        for c in cases.cell_detail {
+            let got = MetaWidgets.cellDetail(pack, c.tier, c.days, c.a, c.b)
+            XCTAssertEqual(got.map { [$0.title, $0.line, $0.record] }, c.out.map { [$0.title, $0.line, $0.record] }, "\(c.a) vs \(c.b)")
+        }
+    }
+
+    /// A tap picks a square or row; the same tap again lets it go; another picks that one.
+    func testSelectionToggle() {
+        XCTAssertEqual(MetaSelection.toggled(nil, "1:18"), "1:18")
+        XCTAssertNil(MetaSelection.toggled("1:18", "1:18"))
+        XCTAssertEqual(MetaSelection.toggled("1:18", "18:1"), "18:1")
+        XCTAssertTrue(MetaSelection.cell("1:18")! == (1, 18))
+        XCTAssertNil(MetaSelection.cell("12"))
+        XCTAssertNil(MetaSelection.cell(nil))
+        XCTAssertEqual(MetaSelection.key("grid", MetaPicks(format: "pauper", tier: "all", days: 7)), "grid|pauper|all|7")
     }
 
     func testChoices() { XCTAssertEqual(MetaWidgets.choices(pack), cases.choices) }

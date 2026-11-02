@@ -97,6 +97,15 @@ struct MetaEntry: TimelineEntry {
     let date: Date
     let picks: MetaPicks
     let pack: MetaPack?
+    /// What's tapped on a widget with these picks (MetaSelection): a Meta row and a grid square.
+    var focus: Int? = nil
+    var cell: (Int, Int)? = nil
+
+    init(date: Date, picks: MetaPicks, pack: MetaPack?) {
+        self.date = date; self.picks = picks; self.pack = pack
+        focus = MetaSelection.get(MetaSelection.key("meta", picks)).flatMap { Int($0) }
+        cell = MetaSelection.cell(MetaSelection.get(MetaSelection.key("grid", picks)))
+    }
 }
 
 /// Every 3 hours; the pack itself changes every 6.
@@ -131,11 +140,11 @@ struct ArchetypeProvider: AppIntentTimelineProvider {
 struct MetaBreakdownWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "site.table1.meta", intent: MetaWidgetIntent.self, provider: MetaProvider()) { e in
-            MetaWidgetFrame { family in MetaBreakdownView(family: family, pack: e.pack, picks: e.picks) }
+            MetaWidgetFrame { family in MetaBreakdownView(family: family, pack: e.pack, picks: e.picks, focus: e.focus) }
                 .widgetURL(e.picks.link(nil, src: "widget_meta"))
         }
         .configurationDisplayName("Meta")
-        .description("A format's most played archetypes, and how their shares moved.")
+        .description("A format's most played archetypes, and how their shares moved. Tap one to pick out its line.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
@@ -143,11 +152,11 @@ struct MetaBreakdownWidget: Widget {
 struct MatchupGridWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "site.table1.matchups", intent: MetaWidgetIntent.self, provider: MetaProvider()) { e in
-            MetaWidgetFrame { family in MatchupGridWidgetView(family: family, pack: e.pack, picks: e.picks) }
+            MetaWidgetFrame { family in MatchupGridWidgetView(family: family, pack: e.pack, picks: e.picks, selected: e.cell) }
                 .widgetURL(e.picks.link("matchups", src: "widget_grid"))
         }
         .configurationDisplayName("Matchup grid")
-        .description("How the most played archetypes do against each other.")
+        .description("How the most played archetypes do against each other. Tap a square for its record.")
         .supportedFamilies([.systemMedium, .systemLarge])
     }
 }

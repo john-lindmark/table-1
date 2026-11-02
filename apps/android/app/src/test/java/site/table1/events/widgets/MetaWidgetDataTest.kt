@@ -33,8 +33,11 @@ class MetaWidgetDataTest {
     @Serializable data class MOut(val a: Int, val name: String, val slot: Int? = null, val title: String, val share: Double? = null, val wr: Double? = null,
                                   val record: List<Int>? = null, val rows: List<MRow>, val good: List<Int>, val bad: List<Int>)
     @Serializable data class Matchups(val tier: String, val days: Int, val a: Int, val out: MOut)
+    @Serializable data class DetailOut(val title: String, val line: String, val record: String)
+    @Serializable data class CellDetailCase(val tier: String, val days: Int, val a: Int, val b: Int, val out: DetailOut? = null)
     @Serializable data class Cases(val slots: Int, val tier_for: List<TierFor>, val breakdown: List<Breakdown>, val chart: List<Chart>,
-                                   val codes: List<Codes>, val grid: List<Grid>, val grid_thin: Grid, val matchups: List<Matchups>, val choices: List<Int>)
+                                   val codes: List<Codes>, val grid: List<Grid>, val grid_thin: Grid, val matchups: List<Matchups>, val choices: List<Int>,
+                                   val cell_detail: List<CellDetailCase>)
 
     private val dir = generateSequence(File("").absoluteFile) { it.parentFile }.map { File(it, "testdata/meta-widgets") }.first { it.isDirectory }
     private val json = Json { ignoreUnknownKeys = true }
@@ -117,6 +120,22 @@ class MetaWidgetDataTest {
             near(e.wr, g.wr, "wr ${e.vs}"); heat(e.heat, g.heat, "heat ${e.vs}")
         }
         assertEquals("good ${c.a}", o.good, got.good); assertEquals("bad ${c.a}", o.bad, got.bad)
+    }
+
+    /** A tapped square reads as the Insights tab's grid does. */
+    @Test fun cellDetail() = cases.cell_detail.forEach { c ->
+        val got = MetaWidgets.cellDetail(pack, c.tier, c.days, c.a, c.b)
+        assertEquals("${c.a} vs ${c.b}", c.out?.let { listOf(it.title, it.line, it.record) }, got?.let { listOf(it.title, it.line, it.record) })
+    }
+
+    /** A tap picks a square or row; the same tap again lets it go; another picks that one. */
+    @Test fun selectionToggle() {
+        assertEquals("1:18", MetaWidgets.toggled(null, "1:18"))
+        assertNull(MetaWidgets.toggled("1:18", "1:18"))
+        assertEquals("18:1", MetaWidgets.toggled("1:18", "18:1"))
+        assertEquals(1 to 18, MetaWidgets.cellOf("1:18"))
+        assertNull(MetaWidgets.cellOf("12"))
+        assertNull(MetaWidgets.cellOf(null))
     }
 
     @Test fun choices() = assertEquals(cases.choices, MetaWidgets.choices(pack))

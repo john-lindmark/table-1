@@ -185,6 +185,29 @@ object MetaWidgets {
         return rows + pack.archetypes.filter { it.id != 0 && it.id !in rows }.sortedBy { it.name }.map { it.id }
     }
 
+    data class CellDetail(val title: String, val line: String, val record: String)
+
+    /** A tapped square, worded as the Insights tab's grid: "A vs B", the win rate with its likely range from 30
+     *  matches (else "Only N matches: too few to say"), and the record. Null when a row meets itself or the pair has
+     *  no decided match. */
+    fun cellDetail(pack: MetaPack, tier: String, days: Int, a: Int, b: Int): CellDetail? {
+        if (a == b) return null
+        val x = cell(gridOf(pack, tier, days).first, a, b) ?: return null
+        val n = x.first + x.second
+        if (n == 0) return null
+        val (lo, hi) = InsightCharts.wilson(x.first, n)
+        val line = if (n >= 30) "${InsightCharts.pct1(x.first.toDouble() / n)} · likely ${InsightCharts.pct(lo)}–${InsightCharts.pct(hi)}"
+            else "Only $n matches: too few to say"
+        return CellDetail("${pack.name(a)} vs ${pack.name(b)}", line, "${x.first}-${x.second}" + if (x.third > 0) "-${x.third}" else "")
+    }
+
+    /** The new selection after tapping [value] while [current] is selected: a second tap lets it go. */
+    fun toggled(current: String?, value: String): String? = if (current == value) null else value
+
+    /** "12:4" → 12 to 4. */
+    fun cellOf(s: String?): Pair<Int, Int>? =
+        s?.split(":")?.mapNotNull { it.toIntOrNull() }?.takeIf { it.size == 2 }?.let { it[0] to it[1] }
+
     /** The archetype the widget shows: the picked one when the format has it, else the most played. */
     fun archetypeFor(pack: MetaPack, picks: MetaPicks): Int? {
         val choices = choices(pack)
@@ -239,10 +262,18 @@ object MetaPacks {
         prefs(context).getString("picks.$widgetId", null)?.let { runCatching { json.decodeFromString<MetaPicks>(it) }.getOrNull() } ?: MetaPicks()
 
     fun savePicks(context: Context, widgetId: Int, picks: MetaPicks) {
-        prefs(context).edit().putString("picks.$widgetId", json.encodeToString(MetaPicks.serializer(), picks)).apply()
+        prefs(context).edit().putString("picks.$widgetId", json.encodeToString(MetaPicks.serializer(), picks)).remove("sel.$widgetId").apply()
     }
 
     fun forget(context: Context, widgetIds: IntArray) {
-        prefs(context).edit().apply { widgetIds.forEach { remove("picks.$it") } }.apply()
+        prefs(context).edit().apply { widgetIds.forEach { remove("picks.$it"); remove("sel.$it") } }.apply()
+    }
+
+    /** What's tapped on one widget: a grid square ("12:4") or a Meta row ("12"). Cleared when its picks change. */
+    fun selection(context: Context, widgetId: Int): String? = prefs(context).getString("sel.$widgetId", null)
+
+    fun toggle(context: Context, widgetId: Int, value: String) {
+        val next = MetaWidgets.toggled(selection(context, widgetId), value)
+        prefs(context).edit().apply { if (next == null) remove("sel.$widgetId") else putString("sel.$widgetId", next) }.apply()
     }
 }

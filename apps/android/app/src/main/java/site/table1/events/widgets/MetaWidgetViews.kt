@@ -18,6 +18,7 @@ import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.action.Action
+import androidx.glance.action.clickable
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -62,6 +63,12 @@ private object MetaLook {
         else -> (if (h.tone == "up") W1.accent else down).copy(alpha = h.strength.toFloat())
     }
     fun ink(h: InsightCharts.Heat): Color = if (h.ink) W1.ink else if (h.dim) W1.muted else W1.text
+    /** A heat fill laid over the background, so it stays the same color inside a white frame. */
+    fun solid(h: InsightCharts.Heat?): Color {
+        val f = h?.let(::fill) ?: return W1.bg
+        val a = f.alpha
+        return Color(red = f.red * a + W1.bg.red * (1 - a), green = f.green * a + W1.bg.green * (1 - a), blue = f.blue * a + W1.bg.blue * (1 - a))
+    }
     fun tone(h: InsightCharts.Heat): Color = when (h.tone) { "up" -> W1.accent; "down" -> down; else -> W1.text }
 }
 
@@ -89,8 +96,10 @@ private fun ColumnScope.MetaEmpty(shape: WShape, picks: MetaPicks) {
 
 /** Shares as one bar: each archetype in its color, the rest grey, 2 dp apart. */
 @Composable
-private fun ShareBar(rows: List<MetaWidgets.Row>, rest: Double, width: Dp, height: Dp = 6.dp) {
-    val parts = rows.map { it.share to MetaPalette.color(it.slot) } + (rest to W1.surface)
+private fun ShareBar(rows: List<MetaWidgets.Row>, rest: Double, width: Dp, height: Dp = 6.dp, focus: Int? = null) {
+    // a highlighted archetype stays full; the rest fade
+    val parts = rows.map { it.share to MetaPalette.color(it.slot).copy(alpha = if (focus == null || focus == it.a) 1f else 0.25f) } +
+        (rest to W1.surface)
     val room = width.value - 2f * (parts.size - 1)
     val total = parts.sumOf { it.first }.coerceAtLeast(1e-9)
     Row(GlanceModifier.fillMaxWidth().height(height)) {
@@ -103,14 +112,14 @@ private fun ShareBar(rows: List<MetaWidgets.Row>, rest: Double, width: Dp, heigh
 
 /** The share lines, drawn as a bitmap at about the size they show (Glance draws no paths). */
 @Composable
-private fun MetaChart(chart: MetaWidgets.Chart, width: Dp, height: Dp, modifier: GlanceModifier) {
+private fun MetaChart(chart: MetaWidgets.Chart, width: Dp, height: Dp, modifier: GlanceModifier, focus: Int? = null) {
     val density = LocalContext.current.resources.displayMetrics.density
     val w = (width.value.coerceAtLeast(60f) * density).toInt()
     val h = (height.value.coerceAtLeast(40f) * density).toInt()
-    Image(ImageProvider(chartBitmap(chart, w, h, density)), "Meta over time", modifier, contentScale = ContentScale.FillBounds)
+    Image(ImageProvider(chartBitmap(chart, w, h, density, focus)), "Meta over time", modifier, contentScale = ContentScale.FillBounds)
 }
 
-internal fun chartBitmap(chart: MetaWidgets.Chart, w: Int, h: Int, density: Float): Bitmap {
+internal fun chartBitmap(chart: MetaWidgets.Chart, w: Int, h: Int, density: Float, focus: Int? = null): Bitmap {
     val b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
     val c = Canvas(b)
     val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = W1.muted.toArgb(); textSize = 8 * density; typeface = Typeface.MONOSPACE }
@@ -135,10 +144,12 @@ internal fun chartBitmap(chart: MetaWidgets.Chart, w: Int, h: Int, density: Floa
         c.drawText(l, cx - tw / 2, h - 2 * density, text)
         lastX = x(i)
     }
-    // The largest on top.
-    for (line in chart.lines.reversed()) {
+    // The largest on top, and a highlighted one over everything at full strength while the rest fade.
+    for (line in chart.lines.reversed().sortedBy { if (it.a == focus) 1 else 0 }) {
+        val on = focus == null || focus == line.a
         val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = MetaPalette.color(line.slot).toArgb(); style = Paint.Style.STROKE; strokeWidth = 1.5f * density
+            color = MetaPalette.color(line.slot).copy(alpha = if (on) 1f else 0.2f).toArgb(); style = Paint.Style.STROKE
+            strokeWidth = (if (focus == line.a) 2f else 1.5f) * density
             strokeJoin = Paint.Join.ROUND; strokeCap = Paint.Cap.ROUND
         }
         val path = Path()
@@ -155,7 +166,8 @@ private fun pctOf(share: Double) = InsightCharts.pct(share)
 // ─────────────────────────────────────────────── Meta breakdown
 
 @Composable
-internal fun MetaContent(pack: MetaPack?, picks: MetaPicks, size: DpSize, tap: Action) {
+internal fun MetaContent(pack: MetaPack?, picks: MetaPicks, size: DpSize, tap: Action, focus: Int? = null,
+                         select: ((String) -> Action)? = null) {
     val shape = WShape.of(size)
     WidgetFrame(shape, tap) {
         val tier = pack?.let(picks::tier)
@@ -167,19 +179,26 @@ internal fun MetaContent(pack: MetaPack?, picks: MetaPicks, size: DpSize, tap: A
         if (pack == null || tier == null || b == null || b.rows.isEmpty()) { MetaEmpty(shape, picks); return@WidgetFrame }
         val inner = size.width - (if (shape.strip) 28.dp else 32.dp)
         val chart = MetaWidgets.chart(pack, tier, picks.days, b.rows.map { it.a })
+        // A legend row (from 4×2 up, where there's a graph) picks out its line; a second tap lets it go.
+        val legend = shape == WShape.MEDIUM || shape.tall
+        val focus = focus?.takeIf { f -> legend && b.rows.any { it.a == f } }
 
         @Composable
-        fun Line(r: MetaWidgets.Row, text: TextUnit = 11.sp, extra: Boolean = false) =
-            Row(GlanceModifier.fillMaxWidth().height(if (extra) 17.dp else 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Swatch(r.slot)
+        fun Line(r: MetaWidgets.Row, text: TextUnit = 11.sp, extra: Boolean = false) {
+            val dim = focus != null && focus != r.a
+            val ink = if (dim) W1.muted.copy(alpha = 0.5f) else W1.text
+            val row = GlanceModifier.fillMaxWidth().height(if (extra) 17.dp else 16.dp)
+            Row(if (legend && select != null) row.clickable(select(r.a.toString())) else row, verticalAlignment = Alignment.CenterVertically) {
+                Box(GlanceModifier.size(8.dp).background(MetaPalette.color(r.slot).copy(alpha = if (dim) 0.3f else 1f))) {}
                 WGap(6.dp)
-                MT(r.name, text, modifier = GlanceModifier.defaultWeight())
+                MT(r.name, text, ink, modifier = GlanceModifier.defaultWeight())
                 if (extra) {
                     r.delta?.let { d -> MT((if (d >= 0) "▲" else "▼") + InsightCharts.delta(d).drop(1), 10.sp, if (d >= 0) W1.accent else MetaLook.down, modifier = GlanceModifier.width(44.dp), end = true) }
                     r.wr?.let { MT("W ${(it * 100).let(Math::round)}%", 10.sp, W1.muted, modifier = GlanceModifier.width(48.dp), end = true) }
                 }
-                MT(pctOf(r.share), text, bold = true, modifier = GlanceModifier.width(44.dp), end = true)
+                MT(pctOf(r.share), text, ink, bold = true, modifier = GlanceModifier.width(44.dp), end = true)
             }
+        }
 
         @Composable
         fun Header() = Row(GlanceModifier.fillMaxWidth()) {
@@ -216,20 +235,20 @@ internal fun MetaContent(pack: MetaPack?, picks: MetaPicks, size: DpSize, tap: A
                 VGap(8.dp)
                 Row(GlanceModifier.fillMaxSize()) {
                     Column(GlanceModifier.width(156.dp)) {
-                        ShareBar(b.rows, b.rest, 156.dp, 5.dp)
+                        ShareBar(b.rows, b.rest, 156.dp, 5.dp, focus)
                         VGap(4.dp)
                         b.rows.forEach { Line(it, 10.sp) }
                     }
                     WGap(12.dp)
-                    MetaChart(chart, inner - 168.dp, size.height - 60.dp, GlanceModifier.defaultWeight().fillMaxHeight())
+                    MetaChart(chart, inner - 168.dp, size.height - 60.dp, GlanceModifier.defaultWeight().fillMaxHeight(), focus)
                 }
             }
             else -> {
                 Header()
                 VGap(8.dp)
-                MetaChart(chart, inner, 140.dp, GlanceModifier.fillMaxWidth().height(140.dp))
+                MetaChart(chart, inner, 140.dp, GlanceModifier.fillMaxWidth().height(140.dp), focus)
                 VGap(8.dp)
-                ShareBar(b.rows, b.rest, inner)
+                ShareBar(b.rows, b.rest, inner, focus = focus)
                 VGap(6.dp)
                 Column(GlanceModifier.fillMaxWidth()) { b.rows.forEach { Line(it, extra = shape.wide) } }
             }
@@ -240,7 +259,8 @@ internal fun MetaContent(pack: MetaPack?, picks: MetaPicks, size: DpSize, tap: A
 // ─────────────────────────────────────────────── Matchup grid
 
 @Composable
-internal fun MatchupGridContent(pack: MetaPack?, picks: MetaPicks, size: DpSize, tap: Action) {
+internal fun MatchupGridContent(pack: MetaPack?, picks: MetaPicks, size: DpSize, tap: Action, selected: Pair<Int, Int>? = null,
+                                select: ((String) -> Action)? = null) {
     val shape = WShape.of(size)
     WidgetFrame(shape, tap) {
         if (pack == null) { MetaEmpty(shape, picks); return@WidgetFrame }
@@ -249,9 +269,21 @@ internal fun MatchupGridContent(pack: MetaPack?, picks: MetaPicks, size: DpSize,
         val nameWidth = if (shape.wide) 104.dp else 34.dp
         // Squares at least 26 dp wide; at most nine columns (Glance draws ten children in a row).
         val cols = floor((inner.value - nameWidth.value) / 28f).toInt().coerceIn(1, 9)
-        val rows = if (shape.strip) 1 else floor((size.height.value - 32f - 18f - 16f) / 20f).toInt().coerceIn(1, 14)
+        // a tapped square on a tall grid adds a line (its win rate and range) above the grid
+        val extra = if (selected != null && shape.tall) 16f else 0f
+        val rows = if (shape.strip) 1 else floor((size.height.value - 32f - 18f - 16f - extra) / 20f).toInt().coerceIn(1, 14)
         val g = MetaWidgets.grid(pack, tier, picks.days, rows, cols)
-        Label(if (shape.wide) "Matchups · ${picks.label(tier)}" else MetaFormats.short(picks.format))
+        // A tapped square (shown while it's on the widget): outlined, its names lit, its record in place of the label.
+        val sel = selected?.takeIf { s -> g.rows.any { it.a == s.first } && g.cols.any { it.a == s.second } }
+        val detail = sel?.let { MetaWidgets.cellDetail(pack, tier, picks.days, it.first, it.second) }
+        if (detail != null) {
+            Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                MT(detail.title, 9.sp, bold = true, modifier = GlanceModifier.defaultWeight())
+                WGap(6.dp)
+                MT(detail.record, 9.sp)
+            }
+            if (shape.tall) Label(detail.line)
+        } else Label(if (shape.wide) "Matchups · ${picks.label(tier)}" else MetaFormats.short(picks.format))
         VGap(4.dp)
         if (g.rows.isEmpty() || g.cols.isEmpty()) { MT("No matchups in this window", 12.sp, W1.muted); return@WidgetFrame }
         val cellW = ((inner.value - nameWidth.value - 2f * g.cols.size) / g.cols.size).dp
@@ -259,28 +291,39 @@ internal fun MatchupGridContent(pack: MetaPack?, picks: MetaPicks, size: DpSize,
         Row(GlanceModifier.fillMaxWidth()) {
             Spacer(GlanceModifier.width(nameWidth))
             g.cols.forEach { c ->
-                Column(GlanceModifier.width(cellW + 2.dp).padding(start = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    MT(c.code, 8.sp, W1.muted)
+                Column(GlanceModifier.width(cellW + 2.dp).padding(start = 2.dp).background(if (sel?.second == c.a) MetaLook.hover else W1.bg),
+                    horizontalAlignment = Alignment.CenterHorizontally) {
+                    MT(c.code, 8.sp, if (sel?.second == c.a) W1.text else W1.muted)
                     VGap(2.dp)
                     Box(GlanceModifier.width(cellW).height(2.dp).background(MetaPalette.color(c.slot))) {}
                 }
             }
         }
-        val rowH = ((size.height.value - 32f - 18f - 16f) / rows - 2f).coerceIn(16f, 24f).dp
+        val rowH = ((size.height.value - 32f - 18f - 16f - extra) / rows - 2f).coerceIn(16f, 24f).dp
         Column(GlanceModifier.fillMaxWidth()) {
             g.rows.indices.chunked(8).forEach { chunk ->
                 Column(GlanceModifier.fillMaxWidth()) {
                     chunk.forEach { i ->
                         Row(GlanceModifier.fillMaxWidth().height(rowH + 2.dp).padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Row(GlanceModifier.width(nameWidth), verticalAlignment = Alignment.CenterVertically) {
+                            Row(GlanceModifier.width(nameWidth).fillMaxHeight().background(if (sel?.first == g.rows[i].a) MetaLook.hover else W1.bg),
+                                verticalAlignment = Alignment.CenterVertically) {
                                 Swatch(g.rows[i].slot, 6.dp)
                                 WGap(4.dp)
                                 MT(if (shape.wide) g.rows[i].name else MetaWidgets.codes(listOf(g.rows[i].name))[0], 9.sp)
                             }
-                            g.cells[i].forEach { h ->
-                                Box(GlanceModifier.width(cellW + 2.dp).fillMaxHeight().padding(start = 2.dp)) {
-                                    Box(GlanceModifier.fillMaxSize().background(h?.let(MetaLook::fill) ?: W1.bg), contentAlignment = Alignment.Center) {
-                                        if (h != null) MT(h.label, 9.sp, MetaLook.ink(h), bold = h.ink)
+                            g.cells[i].forEachIndexed { j, h ->
+                                val ra = g.rows[i].a
+                                val ca = g.cols[j].a
+                                val on = sel?.first == ra && sel.second == ca
+                                val outer = GlanceModifier.width(cellW + 2.dp).fillMaxHeight().padding(start = 2.dp)
+                                Box(if (h != null && select != null) outer.clickable(select("$ra:$ca")) else outer) {
+                                    // the tapped square: a 1.5 dp white frame around its fill
+                                    Box(GlanceModifier.fillMaxSize().background(if (on) W1.text else h?.let(MetaLook::fill) ?: W1.bg)
+                                        .padding(if (on) 1.5.dp else 0.dp)) {
+                                        Box(GlanceModifier.fillMaxSize().background(if (on) MetaLook.solid(h) else h?.let(MetaLook::fill) ?: W1.bg),
+                                            contentAlignment = Alignment.Center) {
+                                            if (h != null) MT(h.label, 9.sp, MetaLook.ink(h), bold = h.ink || on)
+                                        }
                                     }
                                 }
                             }

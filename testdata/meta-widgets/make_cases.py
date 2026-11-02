@@ -125,6 +125,34 @@ def cell(m, a, b):
     return None
 
 
+def wilson(wins, n, z=1.6449):
+    """testdata/insight-charts make_cases.py `wilson` (the apps call InsightCharts.wilson)."""
+    if n <= 0: return [0.0, 1.0]
+    p = wins / n; d = 1 + z * z / n
+    c = (p + z * z / (2 * n)) / d; h = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
+    return [max(0.0, c - h), min(1.0, c + h)]
+
+
+def pct(x):
+    """InsightCharts.pct: whole percent from 10%, else one decimal."""
+    return f"{round(x * 100)}%" if x >= 0.0995 or x == 0 else f"{x * 100:.1f}%"
+
+
+def cell_detail(pack, tier, days, a, b):
+    """A tapped square, worded as the Insights tab's grid: "A vs B", the win rate with its likely range from 30
+    matches (else "Only N matches: too few to say"), and the record (draws only when there are some). None when the
+    pair has no decided match or a row meets itself."""
+    if a == b: return None
+    m, _ = grid_of(pack, tier, days)
+    x = cell(m, a, b)
+    if not x or x[0] + x[1] == 0: return None
+    n = x[0] + x[1]
+    lo, hi = wilson(x[0], n)
+    line = f"{x[0] / n * 100:.1f}% · likely {pct(lo)}–{pct(hi)}" if n >= 30 else f"Only {n} matches: too few to say"
+    record = f"{x[0]}-{x[1]}" + (f"-{x[2]}" if x[2] > 0 else "")
+    return {"title": f"{name(pack, a)} vs {name(pack, b)}", "line": line, "record": record}
+
+
 def grid(pack, tier, days, max_rows, max_cols):
     """The top-left of the matchup grid that fits: the most played columns and the first rows. A row's own column is
     null; a pair with no matches is a cell with tone none."""
@@ -206,6 +234,10 @@ def main():
         "matchups": [{"tier": t, "days": d, "a": a, "out": matchups(pack, t, d, a)}
                      for t, d, a in (("all", 30, top[0]), ("big", 90, top[3]), ("all", 30, 999), ("all", 7, top[1]))],
         "choices": choices(pack),
+        "cell_detail": [{"tier": t, "days": d, "a": a, "b": b, "out": cell_detail(pack, t, d, a, b)}
+                        for t, d, a, b in (("big", 30, top[0], top[1]), ("all", 90, top[1], top[0]),
+                                           ("all", 7, top[2], top[5]), ("big", 30, top[0], top[0]),
+                                           ("all", 30, top[0], 999), ("big", 7, top[3], top[7]))],
     }
     with open(os.path.join(HERE, "cases.json"), "w") as f:
         json.dump(cases, f, indent=1)

@@ -3331,5 +3331,61 @@
   21,
   9,
   19
+ ],
+ "cell_detail": [
+  {
+   "tier": "big",
+   "days": 30,
+   "a": 1,
+   "b": 18,
+   "out": {
+    "title": "Broodscale Combo vs Izzet Prowess",
+    "line": "57.6% \u00b7 likely 54%\u201361%",
+    "record": "321-236-14"
+   }
+  },
+  {
+   "tier": "all",
+   "days": 90,
+   "a": 18,
+   "b": 1,
+   "out": {
+    "title": "Izzet Prowess vs Broodscale Combo",
+    "line": "44.9% \u00b7 likely 43%\u201347%",
+    "record": "545-668-41"
+   }
+  },
+  {
+   "tier": "all",
+   "days": 7,
+   "a": 22,
+   "b": 15,
+   "out": {
+    "title": "Azorius Chant vs Domain Zoo",
+    "line": "Only 2 matches: too few to say",
+    "record": "1-1"
+   }
+  },
+  {
+   "tier": "big",
+   "days": 30,
+   "a": 1,
+   "b": 1,
+   "out": null
+  },
+  {
+   "tier": "all",
+   "days": 30,
+   "a": 1,
+   "b": 999,
+   "out": null
+  },
+  {
+   "tier": "big",
+   "days": 7,
+   "a": 17,
+   "b": 23,
+   "out": null
+  }
  ]
 }

@@ -1,3 +1,4 @@
+import AppIntents
 import Foundation
 import SwiftUI
 
@@ -183,6 +184,21 @@ enum MetaWidgets {
                         rows: rows, good: good.map(\.vs), bad: bad.map(\.vs))
     }
 
+    struct CellDetail: Equatable { let title: String; let line: String; let record: String }
+
+    /// A tapped square, worded as the Insights tab's grid: "A vs B", the win rate with its likely range from 30
+    /// matches (else "Only N matches: too few to say"), and the record. Nil when a row meets itself or the pair has
+    /// no decided match.
+    static func cellDetail(_ pack: MetaPack, _ tier: String, _ days: Int, _ a: Int, _ b: Int) -> CellDetail? {
+        guard a != b, let x = cell(gridOf(pack, tier, days).0, a, b), x.0 + x.1 > 0 else { return nil }
+        let n = x.0 + x.1
+        let ci = InsightCharts.wilson(wins: x.0, n: n)
+        let line = n >= 30 ? "\(InsightCharts.pct1(Double(x.0) / Double(n))) · likely \(InsightCharts.pct(ci.lo))–\(InsightCharts.pct(ci.hi))"
+            : "Only \(n) matches: too few to say"
+        return CellDetail(title: "\(pack.name(a)) vs \(pack.name(b))", line: line,
+                          record: "\(x.0)-\(x.1)" + (x.2 > 0 ? "-\(x.2)" : ""))
+    }
+
     /// The archetypes a widget can follow: the 90-day grid's rows (they have matchups), then the other named ones by
     /// name. Never Other.
     static func choices(_ pack: MetaPack) -> [Int] {
@@ -240,5 +256,46 @@ enum MetaPackStore {
         defaults?.set(Date.now.timeIntervalSince1970, forKey: "meta.\(format).at")
         defaults?.set(http.value(forHTTPHeaderField: "ETag"), forKey: "meta.\(format).etag")
         return pack
+    }
+}
+
+/// What's tapped in an Insights widget: a grid square ("12:4") or a Meta row ("12"), per widget kind and picks
+/// (a widget's intent can't name the widget it's on, so two widgets with the same picks share it). A second tap
+/// on the same thing lets it go.
+enum MetaSelection {
+    private static var defaults: UserDefaults? { UserDefaults(suiteName: T1Shared.appGroup) }
+
+    static func key(_ kind: String, _ picks: MetaPicks) -> String { "\(kind)|\(picks.format)|\(picks.tier)|\(picks.days)" }
+
+    static func get(_ key: String) -> String? { defaults?.string(forKey: "meta.sel.\(key)") }
+
+    /// The new selection after tapping `value` while `current` is selected.
+    static func toggled(_ current: String?, _ value: String) -> String? { current == value ? nil : value }
+
+    static func toggle(_ key: String, _ value: String) {
+        defaults?.set(toggled(get(key), value), forKey: "meta.sel.\(key)")
+    }
+
+    /// "12:4" → (12, 4).
+    static func cell(_ s: String?) -> (Int, Int)? {
+        let p = (s ?? "").split(separator: ":").compactMap { Int($0) }
+        return p.count == 2 ? (p[0], p[1]) : nil
+    }
+}
+
+/// A tap on a grid square or a Meta row: picks it (or lets it go) and the widget redraws. Runs in the widget.
+struct MetaSelectIntent: AppIntent {
+    static var title: LocalizedStringResource = "Pick in an Insights widget"
+    static var isDiscoverable = false
+
+    @Parameter(title: "Key") var key: String
+    @Parameter(title: "Value") var value: String
+
+    init() {}
+    init(key: String, value: String) { self.key = key; self.value = value }
+
+    func perform() async throws -> some IntentResult {
+        MetaSelection.toggle(key, value)
+        return .result()
     }
 }

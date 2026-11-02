@@ -30,6 +30,10 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
+import androidx.glance.action.ActionParameters
+import androidx.glance.action.actionParametersOf
+import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.provideContent
 import kotlinx.coroutines.Dispatchers
@@ -49,24 +53,49 @@ import site.table1.events.util.Telemetry
    widget's long-press Reconfigure / settings on 12+, where it's placed on Modern, Big events, 30 days). The pack is
    public, so they work signed out. MetaWidgetViews.kt draws them. */
 
-private suspend fun metaPick(context: Context, id: GlanceId): Pair<MetaPicks, MetaPack?> {
-    val picks = MetaPacks.picks(context, GlanceAppWidgetManager(context).getAppWidgetId(id))
-    return picks to withContext(Dispatchers.IO) { MetaPacks.fresh(context, picks.format) }
+private data class MetaState(val picks: MetaPicks, val pack: MetaPack?, val selection: String?)
+
+private suspend fun metaPick(context: Context, id: GlanceId): MetaState {
+    val widgetId = GlanceAppWidgetManager(context).getAppWidgetId(id)
+    val picks = MetaPacks.picks(context, widgetId)
+    return MetaState(picks, withContext(Dispatchers.IO) { MetaPacks.fresh(context, picks.format) }, MetaPacks.selection(context, widgetId))
+}
+
+/** A tap on a grid square or a Meta row: picks it on that widget (or lets it go) and redraws the widget. */
+class MetaSelectAction : ActionCallback {
+    companion object {
+        val Value = ActionParameters.Key<String>("value")
+        val Kind = ActionParameters.Key<String>("kind")
+        fun of(kind: String, value: String) = actionRunCallback<MetaSelectAction>(actionParametersOf(Kind to kind, Value to value))
+    }
+
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val value = parameters[Value] ?: return
+        MetaPacks.toggle(context, GlanceAppWidgetManager(context).getAppWidgetId(glanceId), value)
+        Telemetry.capture("widget_tapped", mapOf("widget" to (parameters[Kind] ?: ""), "what" to if (":" in value) "cell" else "row"))
+        (if (parameters[Kind] == "grid") MatchupGridWidget() else MetaWidget()).update(context, glanceId)
+    }
 }
 
 class MetaWidget : GlanceAppWidget() {
     override val sizeMode = SizeMode.Exact
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val (picks, pack) = metaPick(context, id)
-        provideContent { MetaContent(pack, picks, LocalSize.current, actionStartActivity(Widgets.open(context, picks.link(null, "widget_meta")))) }
+        val (picks, pack, sel) = metaPick(context, id)
+        provideContent {
+            MetaContent(pack, picks, LocalSize.current, actionStartActivity(Widgets.open(context, picks.link(null, "widget_meta"))),
+                focus = sel?.toIntOrNull(), select = { MetaSelectAction.of("meta", it) })
+        }
     }
 }
 
 class MatchupGridWidget : GlanceAppWidget() {
     override val sizeMode = SizeMode.Exact
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val (picks, pack) = metaPick(context, id)
-        provideContent { MatchupGridContent(pack, picks, LocalSize.current, actionStartActivity(Widgets.open(context, picks.link("matchups", "widget_grid")))) }
+        val (picks, pack, sel) = metaPick(context, id)
+        provideContent {
+            MatchupGridContent(pack, picks, LocalSize.current, actionStartActivity(Widgets.open(context, picks.link("matchups", "widget_grid"))),
+                selected = MetaWidgets.cellOf(sel), select = { MetaSelectAction.of("grid", it) })
+        }
     }
 }
 
