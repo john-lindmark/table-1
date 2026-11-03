@@ -178,7 +178,8 @@ export interface Card {
   results_message_id?: string | null;
 }
 
-const clean = (s: string) => s.replace(/[*_`~|>\\]/g, (c) => `\\${c}`).replace(/@/g, "@​").replace(/\s+/g, " ").trim();
+/** Text from people, safe in an embed: no markdown, no mentions, one line. */
+export const clean = (s: string) => s.replace(/[*_`~|>\\]/g, (c) => `\\${c}`).replace(/@/g, "@​").replace(/\s+/g, " ").trim();
 
 function names(list: string[], max = 25): string {
   if (!list.length) return "—";

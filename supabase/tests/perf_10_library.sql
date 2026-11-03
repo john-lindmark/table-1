@@ -180,6 +180,14 @@ select pg_temp.ms('cube_ranking_push, redo of the first of 6000 (p_drop)', $$sel
   (public.cube_rankings('e7000000-0000-0000-0000-0000000000f1')->'rankings'->0->>'rev')::int, 6000, '[]', p_count := 6000, p_removed := 1,
   p_drop := jsonb_build_array(public.cube_ranking_get('f7000000-0000-0000-0000-0000000000f1')->'log'->0))$$, 400, 1);
 select pg_temp.ms('cube_rankings of a cube', $$select public.cube_rankings('e7000000-0000-0000-0000-0000000000f1')$$, 25);
+-- Discord's /ranking (20261103235000_discord_rankings): the ranking with its 540 cards' facts, and the picker.
+reset role;
+insert into t1_private.discord_links (discord_user_id, user_id) values ('110001', :BIG);
+select pg_temp.eq('/ranking reads the cube''s 540 cards', jsonb_array_length(public.discord_ranking('110001', 'f7000000-0000-0000-0000-0000000000f1')->'facts')::text, '540');
+select pg_temp.ms('discord_ranking, 540 cards, 6000 screens', $$select public.discord_ranking('110001', 'f7000000-0000-0000-0000-0000000000f1')$$, 200);
+select pg_temp.ms('discord_my_rankings (autocomplete)', $$select public.discord_my_rankings('110001', 'big')$$, 10);
+set role authenticated;
+select pg_temp.as_user(:BIG);
 -- Follows (contract/follows-2026-10-25.md): the big account follows its 200 friends' trade binders (500 printings
 -- each, the big trader's 5,000), then all 200 change at once and one digest run sends them.
 reset role;

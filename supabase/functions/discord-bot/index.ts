@@ -15,6 +15,7 @@ import {
   parseButtonId, parseWhen, type Part, partComponents, partConfirmMessage, partEmbed,
   type PartPost, ResponseType, resultsComponents, resultsEmbed, userId, zoneChoices,
 } from "./embeds.ts";
+import { emptyText, rankingChoice, rankingComponents, rankingEmbed, type RankingPost, type RankingRow, rankingView, rankShow } from "./ranking.ts";
 import { isTeamFormat, loadStandings } from "./standings.ts";
 import { hashId, Telemetry } from "./telemetry.ts";
 import { verifyInteraction } from "./verify.ts";
@@ -216,6 +217,19 @@ async function meta(ctx: Ctx, kind: MetaKind, options: Parameters<typeof opt>[0]
   return reply({ embeds: [metaEmbed(ask, archetype, picture)], components: metaComponents(ask) });
 }
 
+/** /ranking: one of your rankings, its final top 50 / 100 or one color's list, public in the channel. Nothing is shared
+ *  on Table 1 by posting: the names go to Discord, and Open in Table 1 is there only when the ranking is shared. */
+async function ranking(ctx: Ctx, id: string, showValue: string | undefined): Promise<Response> {
+  const p = await rpc<RankingPost>("discord_ranking", { p_discord_id: ctx.discordId, p_id: id });
+  const show = rankShow(showValue, p.top);
+  if (!show) return ephemeral("Pick Top 50, Top 100 or a color.");
+  const v = rankingView(p, show);
+  const empty = emptyText(p, show.job, v);
+  if (empty || !v) return ephemeral(empty ?? "Nothing to post yet.");
+  ctx.telemetry.push({ event: "discord_ranking_posted", show: show.job === "F" ? String(show.n) : show.job, kind: p.set_key ? "set" : "cube", done: v.done, places: v.rows.length });
+  return reply({ embeds: [rankingEmbed(p, v)], components: rankingComponents(p, show.job) });
+}
+
 async function settingsTimezone(ctx: Ctx, zone: string): Promise<Response> {
   if (!canManageServer(ctx.ix)) return ephemeral("Only people with Manage Server can change this.");
   const r = await rpc<{ timezone: string }>("discord_guild_timezone", { p_guild_id: ctx.guildId, p_timezone: zone.trim() });
@@ -287,6 +301,16 @@ async function autocomplete(ctx: Ctx, path: string, options: Parameters<typeof o
     const list = (base?.archetypes ?? []).filter((x) => !needle || x.name.toLowerCase().includes(needle))
       .sort((x, y) => Number(x.id === 0) - Number(y.id === 0) || x.name.localeCompare(y.name));
     return choices(list.map((x) => ({ name: x.name, value: String(x.id) })));
+  }
+  if (f?.name === "ranking" && path === "ranking") {
+    try {
+      const rows = await rpc<RankingRow[]>("discord_my_rankings", { p_discord_id: ctx.discordId, p_query: q || null, p_limit: 25 });
+      if (!rows.length) return choices([{ name: q ? "None of your rankings match" : "No rankings yet: rank a cube or set on Table 1", value: "none" }]);
+      return choices(rows.map((r) => ({ name: rankingChoice(r), value: r.id })));
+    } catch (e) {
+      if (e instanceof Refused && e.code === "28000") return choices([{ name: "Link your Table 1 account first: /link", value: "unlinked" }]);
+      throw e;
+    }
   }
   if (f?.name === "deck") {
     try {
@@ -369,6 +393,12 @@ async function route(ctx: Ctx): Promise<Response> {
     }
     case "card":
       return await card(ctx, opt(options, "name") ?? "");
+    case "ranking": {
+      const id = opt(options, "ranking") ?? "";
+      if (id === "unlinked") return reply(needLinkMessage("post a ranking"));
+      if (!eventIdFrom(id)) return ephemeral("Pick one of your rankings from the list.");
+      return await ranking(ctx, id, opt(options, "show"));
+    }
     case "meta matchups":
     case "meta winrates":
     case "meta deck":

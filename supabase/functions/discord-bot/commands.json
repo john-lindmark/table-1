@@ -70,6 +70,10 @@
       "text": "Post a picture of every archetype's match win rate, best first, with its record and likely range."
     },
     {
+      "command": "/ranking",
+      "text": "Post one of your cube or Limited set rankings (pick it as you type): its top 50, top 100 or one color's list, best first, with how far along it is."
+    },
+    {
       "command": "/settings timezone",
       "text": "The time zone this server's event times are read in (people with Manage Server). Posted times show in each viewer's own zone."
     }
@@ -679,6 +683,73 @@
                   "value": 90
                 }
               ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ranking",
+      "type": 1,
+      "description": "Post a cube or set ranking you made",
+      "contexts": [
+        0
+      ],
+      "integration_types": [
+        0
+      ],
+      "options": [
+        {
+          "name": "ranking",
+          "type": 3,
+          "description": "One of your rankings",
+          "required": true,
+          "autocomplete": true
+        },
+        {
+          "name": "show",
+          "type": 3,
+          "description": "Top 50, top 100 or a color (left out: the ranking's own top 50 or 100)",
+          "choices": [
+            {
+              "name": "Top 50",
+              "value": "50"
+            },
+            {
+              "name": "Top 100",
+              "value": "100"
+            },
+            {
+              "name": "White",
+              "value": "W"
+            },
+            {
+              "name": "Blue",
+              "value": "U"
+            },
+            {
+              "name": "Black",
+              "value": "B"
+            },
+            {
+              "name": "Red",
+              "value": "R"
+            },
+            {
+              "name": "Green",
+              "value": "G"
+            },
+            {
+              "name": "Multicolor",
+              "value": "M"
+            },
+            {
+              "name": "Colorless",
+              "value": "C"
+            },
+            {
+              "name": "Lands",
+              "value": "L"
             }
           ]
         }
