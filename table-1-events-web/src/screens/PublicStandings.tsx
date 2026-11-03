@@ -24,8 +24,9 @@ import { useSession } from "../lib/useSession";
  * then the standings. Read-only, no sign-in. This is the link people share (contract/privacy-lockdown-2026-10-18.md): event_public
  * gives the event, the clock and current pairings by name, and events-engine the ranked standings. No player list
  * or account ids reach this page; a private event reads "That event isn't available".
+ * People land here from a shared link, so every state leads with Back: home when the tab has nothing earlier in the app.
  */
-export function PublicStandings({ eventId }: { eventId: string }) {
+export function PublicStandings({ eventId, onBack }: { eventId: string; onBack: () => void }) {
   const [event, setEvent] = useState<PublicEvent | null>(null);
   const [rows, setRows] = useState<PublicStandingRow[] | null>(null);
   const [bracket, setBracket] = useState<PublicBracketStage[]>([]);
@@ -57,7 +58,7 @@ export function PublicStandings({ eventId }: { eventId: string }) {
   if (error && !event) {
     return (
       <Screen>
-        <Bar title="Event not found" />
+        <Bar title="Event not found" onBack={onBack} />
         <Notice tone="error">{error}</Notice>
       </Screen>
     );
@@ -65,6 +66,7 @@ export function PublicStandings({ eventId }: { eventId: string }) {
   if (!event || !rows) {
     return (
       <Screen>
+        <Bar title="Event" onBack={onBack} />
         <div className="flex-1 flex items-center justify-center t1-label">Loading…</div>
       </Screen>
     );
@@ -72,7 +74,7 @@ export function PublicStandings({ eventId }: { eventId: string }) {
 
   // Before round 1 (and for someone still on the waitlist then): the sign-up page.
   if (event.signUp !== "closed" || (event.me === "waitlisted" && event.currentRound === 0)) {
-    return <SignUpPage event={event} reload={load} />;
+    return <SignUpPage event={event} reload={load} onBack={onBack} />;
   }
 
   const round = event.round;
@@ -80,6 +82,7 @@ export function PublicStandings({ eventId }: { eventId: string }) {
     <Screen>
       <Bar
         title={event.name}
+        onBack={onBack}
         subtitle={
           event.status === "completed"
             ? "Final standings"
@@ -177,7 +180,7 @@ function PairingRow({ match }: { match: PublicPairing }) {
  * The sign-up page: when, where, the format, how many are in, and Sign up / Join the waitlist. Signed out, Sign up
  * signs in first (any option makes an account) and comes back here with ?signup=1, which signs up once.
  */
-function SignUpPage({ event, reload }: { event: PublicEvent; reload: () => Promise<void> }) {
+export function SignUpPage({ event, reload, onBack }: { event: PublicEvent; reload: () => Promise<void>; onBack: () => void }) {
   const { session, ready } = useSession();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -211,7 +214,8 @@ function SignUpPage({ event, reload }: { event: PublicEvent; reload: () => Promi
   useEffect(() => {
     if (!ready || !session || !auto.current) return;
     auto.current = false;
-    window.history.replaceState(null, "", window.location.pathname);
+    // Keep the router's entry state, so Back still knows what came before.
+    window.history.replaceState(window.history.state, "", window.location.pathname);
     if (state === "sign_up" || state === "waitlist") void signUp(true);
   }, [ready, session, state, signUp]);
 
@@ -233,7 +237,7 @@ function SignUpPage({ event, reload }: { event: PublicEvent; reload: () => Promi
     .filter(Boolean).join(" · ");
   return (
     <Screen>
-      <Bar title={event.name} subtitle={event.shortCode ? `Event ${event.shortCode}` : undefined} />
+      <Bar title={event.name} subtitle={event.shortCode ? `Event ${event.shortCode}` : undefined} onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         <div className="bg-t1-surface px-5 py-5 flex flex-col gap-2">
           <p className="text-[22px] leading-7">{event.name}</p>

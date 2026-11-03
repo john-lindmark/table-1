@@ -266,7 +266,8 @@ function FriendAddRoute() {
 function ProfileUserRoute() {
   const { userId } = useParams();
   const navigate = useNavigate();
-  const back = useBack("/friends");
+  // A shared profile link lands under Account, as in the apps (testdata/universal-links/cases.json).
+  const back = useBack("/me");
   if (!userId) return <Navigate to="/friends" replace />;
   return <ProfileScreen userId={userId} onBack={back} onSharing={() => navigate("/sharing")}
                         onMatch={() => navigate(`/library/match/${userId}`)}
@@ -532,8 +533,9 @@ function SharedLinkRoute() {
 
 function StandingsRoute() {
   const { eventId } = useParams();
+  const back = useBack("/");
   if (!eventId) return <Navigate to="/" replace />;
-  return <PublicStandings eventId={eventId} />;
+  return <PublicStandings eventId={eventId} onBack={back} />;
 }
 
 /** Sends one redacted page view per navigation, including the first. */
