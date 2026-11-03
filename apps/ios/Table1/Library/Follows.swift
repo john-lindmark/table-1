@@ -37,6 +37,8 @@ struct Follow: Codable, Hashable, Identifiable, Sendable {
     var userId: String?
     /// Reaches you through the link you followed with: open the link.
     var token: String?
+    /// The printing its tile shows: the owner's hero, else its first card by copies (nil when it holds nothing).
+    var art: String?
     var lastUpdate: FollowUpdateSummary?
 
     var title: String { available ? name ?? "Untitled" : "A \(kind) you followed" }
@@ -274,7 +276,7 @@ final class FollowsDemo {
         follows[Self.deck] = Follow(kind: "deck", id: Self.deck, available: true, push: true, followedAt: at(200), unseen: last == nil ? 0 : 1,
                                     name: "Mono-red prowess", format: ListsStore.shared.lists.first { $0.kind == .deck }?.format ?? "modern",
                                     cards: entries.filter { $0.board != "maybe" }.reduce(0) { $0 + $1.qty }, owner: mara,
-                                    userId: FriendsDemoBackend.mara, lastUpdate: last)
+                                    userId: FriendsDemoBackend.mara, art: main.max { $0.qty < $1.qty }?.cardId, lastUpdate: last)
         follows[Self.binder] = Follow(kind: "binder", id: Self.binder, available: true, push: false, followedAt: at(30), unseen: 0,
                                       name: "Trade binder", forTrade: true, cards: 12, owner: mara, userId: FriendsDemoBackend.mara)
         let gone = "d0000000-0000-0000-0000-0000000fc009"

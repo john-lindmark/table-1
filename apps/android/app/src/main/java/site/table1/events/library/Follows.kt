@@ -57,6 +57,8 @@ data class Follow(
     @SerialName("user_id") val userId: String? = null,
     /** Reaches you through the link you followed with: open the link. */
     val token: String? = null,
+    /** The printing its tile shows: the owner's hero, else its first card by copies (null when it holds nothing). */
+    val art: String? = null,
     @SerialName("last_update") val lastUpdate: FollowUpdateSummary? = null,
 ) {
     val title get() = if (available) name ?: "Untitled" else "A $kind you followed"

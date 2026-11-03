@@ -222,9 +222,10 @@ fun LibraryHomeScreen(foregrounds: Int, go: (String) -> Unit) {
     }
     LaunchedEffect(Unit) { if (follows.items == null) FollowsStore.load() }
     LaunchedEffect(col.version) { PriceBook.load(col.items.values.map { it.cardId }) }
-    /** Shelf art by place: "collection", "list:<id>", "binder:<id>". */
+    /** Shelf art by place: "collection", "list:<id>", "binder:<id>", "follow:<id>". */
     var art by remember { mutableStateOf<Map<String, List<CatalogPrinting>>>(emptyMap()) }
-    LaunchedEffect(heroes, cat.generation, col.version, binders.version, pricesVersion, lists.lists.map { "${it.id}${it.current.number}" }) {
+    LaunchedEffect(heroes, cat.generation, col.version, binders.version, pricesVersion, lists.lists.map { "${it.id}${it.current.number}" },
+                   follows.items.orEmpty().map { "${it.id}${it.art}" }) {
         val db = CatalogStore.db ?: run { art = emptyMap(); return@LaunchedEffect }
         val basics = CatalogStore.basics
         val items = col.items.values.filter { it.qty > 0 }
@@ -235,8 +236,12 @@ fun LibraryHomeScreen(foregrounds: Int, go: (String) -> Unit) {
             l.entries.filter { it.board != "side" && it.board != "maybe" }.sortedByDescending { it.qty }.map { it.cardId })
         for (b in binders.binders) places += Triple("binder:${b.id}", heroes.heroes(HeroScope.InBinder(b.id)),
             binders.itemsIn(b.id, col.items).sortedByDescending { it.qty }.map { it.cardId })
+        // Followed items: the printing the server picked the same way (contract/follows-2026-10-25.md § Follow art).
+        val followed = follows.items.orEmpty().mapNotNull { f -> f.art?.takeIf { f.available }?.let { f.id to it } }
         art = withContext(Dispatchers.Default) {
-            places.associate { (k, h, held) -> k to ShelfArt.printings(h, held, basics, if (k == "collection") 2 else 1, db) }
+            val found = db.printings(followed.map { it.second }.toSet())
+            places.associate { (k, h, held) -> k to ShelfArt.printings(h, held, basics, if (k == "collection") 2 else 1, db) } +
+                followed.mapNotNull { (id, card) -> found[card]?.let { "follow:$id" to listOf(it) } }
         }
     }
     fun tap(target: String) = Telemetry.capture("collection_home_tap", mapOf("target" to target))
@@ -273,21 +278,21 @@ fun LibraryHomeScreen(foregrounds: Int, go: (String) -> Unit) {
                     items(decks, key = { it.id }) { l ->
                         ShelfTile(art["list:${l.id}"]?.firstOrNull(), l.name, CatalogPack.formatName(l.format)) { go("collection/list/${l.id}") }
                     }
-                    items(followed("deck"), key = { "f" + it.id }) { f -> ShelfTile(null, f.title, f.owner?.displayName, if (f.unseen > 0) "${f.unseen} new" else null) { f.route?.let(go) } }
+                    items(followed("deck"), key = { "f" + it.id }) { f -> ShelfTile(art["follow:${f.id}"]?.firstOrNull(), f.title, f.owner?.displayName, if (f.unseen > 0) "${f.unseen} new" else null) { f.route?.let(go) } }
                     if (decks.isEmpty()) item { ShelfTile(null, "New deck", "Build or import") { creating = "deck" } }
                 }
             }
             item {
                 Shelf(T1Icon.Binders, "Binders", { go("collection/binders") }) {
                     items(binders.binders, key = { it.id }) { b -> ShelfTile(art["binder:${b.id}"]?.firstOrNull(), b.name) { go("collection/binder/${b.id}") } }
-                    items(followed("binder"), key = { "f" + it.id }) { f -> ShelfTile(null, f.title, f.owner?.displayName, if (f.unseen > 0) "${f.unseen} new" else null) { f.route?.let(go) } }
+                    items(followed("binder"), key = { "f" + it.id }) { f -> ShelfTile(art["follow:${f.id}"]?.firstOrNull(), f.title, f.owner?.displayName, if (f.unseen > 0) "${f.unseen} new" else null) { f.route?.let(go) } }
                     if (binders.binders.isEmpty()) item { ShelfTile(null, "New binder", "Where your copies are") { creating = "binder" } }
                 }
             }
             item {
                 Shelf(T1Icon.Cubes, "Cubes", { go("collection/cubes") }) {
                     items(cubes, key = { it.id }) { l -> ShelfTile(art["list:${l.id}"]?.firstOrNull(), l.name) { go("collection/list/${l.id}") } }
-                    items(followed("cube"), key = { "f" + it.id }) { f -> ShelfTile(null, f.title, f.owner?.displayName, if (f.unseen > 0) "${f.unseen} new" else null) { f.route?.let(go) } }
+                    items(followed("cube"), key = { "f" + it.id }) { f -> ShelfTile(art["follow:${f.id}"]?.firstOrNull(), f.title, f.owner?.displayName, if (f.unseen > 0) "${f.unseen} new" else null) { f.route?.let(go) } }
                     if (cubes.isEmpty()) item { ShelfTile(null, "New cube", "Build or import") { creating = "cube" } }
                 }
             }

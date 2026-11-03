@@ -9,7 +9,7 @@ Figma `Hbkg1vKjdTFpwYt0NtCCYq` node 325:10820. Client-only; all three clients.
   - Decks: yours (detail: format, or the event for a roto deck), then decks you follow (detail: owner).
   - Binders: yours (no detail), then binders you follow (owner).
   - Cubes: yours (no detail), then cubes you follow (owner).
-  - A followed item with unseen updates shows "N new" in the accent at the right. Followed tiles have no art (the follow list carries none).
+  - A followed item with unseen updates shows "N new" in the accent at the right. Followed tiles show the art the follow list names (`art`, contract/follows-2026-10-25.md § Follow art; since 2026-11-03, before that they had none).
   - No decks / binders / cubes of your own: one tile, New deck / New binder / New cube.
 - **Actions** along the bottom, above the tab bar: Trade (Trades) · Wants · Import (Import and export). 50 pt, 11 pt labels.
 

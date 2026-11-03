@@ -632,7 +632,7 @@ export function LibraryHome({ go, onNew }: {
   const s = col.summary;
   const tap = (target: string) => capture("collection_home_tap", { target });
   const followed = (kind: string) => (follows.items ?? []).filter((f) => f.kind === kind && f.available).map((f) => (
-    <ShelfTile key={`f-${f.id}`} c={catalog} p={null} title={followTitle(f)} subtitle={f.owner?.display_name} note={f.unseen ? `${f.unseen} new` : null}
+    <ShelfTile key={`f-${f.id}`} c={catalog} p={(f.art ? catalog?.printingIndex.get(f.art) : null) ?? null} title={followTitle(f)} subtitle={f.owner?.display_name} note={f.unseen ? `${f.unseen} new` : null}
                onClick={() => { const href = followHref(f); if (href) go(href); }} />
   ));
   const action = (title: string, href: string) => (

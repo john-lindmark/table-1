@@ -292,7 +292,7 @@ struct LibraryHomeView: View {
     /// Items of this kind you follow, after your own: the owner's name under the title.
     @ViewBuilder private func followed(_ kind: String) -> some View {
         ForEach((FollowsStore.shared.items ?? []).filter { $0.kind == kind && $0.available }) { f in
-            ShelfTile(art: nil, title: f.title, subtitle: f.owner?.displayName, note: f.unseen > 0 ? "\(f.unseen) new" : nil) {
+            ShelfTile(art: art["follow:\(f.id)"]?.first, title: f.title, subtitle: f.owner?.displayName, note: f.unseen > 0 ? "\(f.unseen) new" : nil) {
                 if let r = FollowsStore.route(f) { path.append(.social(r)) }
             }
         }
@@ -338,6 +338,7 @@ struct LibraryHomeView: View {
     private var artKey: String {
         "\(HeroesStore.shared.heroes)-\(CatalogStore.shared.generation)-\(col.version)-\(binders.version)-\(PriceBook.shared.version)-"
             + lists.lists.map { "\($0.id)\($0.current?.number ?? 0)" }.joined(separator: ",")
+            + (FollowsStore.shared.items ?? []).map { "\($0.id)\($0.art ?? "")" }.joined(separator: ",")
     }
 
     private func loadArt() async {
@@ -357,9 +358,14 @@ struct LibraryHomeView: View {
             places.append((HeroScope.binder(b.id).key, HeroesStore.shared.heroes(.binder(b.id)),
                            binders.items(in: b.id, col.items).sorted { $0.qty > $1.qty }.map(\.item.cardId)))
         }
+        // Followed items: the printing the server picked the same way (contract/follows-2026-10-25.md § Follow art).
+        let followed = (FollowsStore.shared.items ?? []).compactMap { f in f.available ? f.art.map { (f.id, $0) } : nil }
         art = await Task.detached(priority: .userInitiated) {
-            Dictionary(places.map { p in (p.key, ShelfArt.printings(heroes: p.heroes, held: p.held, basics: basics, count: 2, db)) },
-                       uniquingKeysWith: { a, _ in a })
+            var m = Dictionary(places.map { p in (p.key, ShelfArt.printings(heroes: p.heroes, held: p.held, basics: basics, count: 2, db)) },
+                               uniquingKeysWith: { a, _ in a })
+            let found = db.printings(ids: followed.map(\.1))
+            for (id, card) in followed { if let p = found[card] { m["follow:\(id)"] = [p] } }
+            return m
         }.value
     }
 }

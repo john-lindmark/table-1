@@ -28,6 +28,8 @@ export interface Follow {
   user_id?: string;
   /** Reaches you through the link you followed with: open /l/<token>. */
   token?: string;
+  /** The printing its tile shows: the owner's hero, else its first card by copies (absent when it holds nothing). */
+  art?: string;
   last_update?: FollowUpdateSummary;
 }
 
@@ -197,6 +199,7 @@ class FollowsDemo {
       kind: "deck", id: DEMO_FOLLOWED_DECK, available: true, push: true, followed_at: at(200), unseen: last ? 1 : 0,
       name: "Mono-red prowess", format, cards: entries.filter((e) => e.board !== "maybe").reduce((n, e) => n + e.qty, 0),
       owner: mara, user_id: DEMO_MARA, ...(last ? { last_update: last } : {}),
+      ...(main.length ? { art: main.slice().sort((x, y) => y.qty - x.qty)[0].cardId } : {}),
     });
     this.follows.set(DEMO_FOLLOWED_BINDER, {
       kind: "binder", id: DEMO_FOLLOWED_BINDER, available: true, push: false, followed_at: at(30), unseen: 0,
