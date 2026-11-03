@@ -13,9 +13,9 @@ import java.util.UUID
  * totals = starting value + sum of deltas for the game; history groups are computed for display only.
  */
 
-data class CounterKind(val id: String, val label: String, val min: Int?, val max: Int?) {
+data class CounterKind(val id: String, val label: String, val min: Int?, val max: Int?, val short: String? = null) {
     /** Column label; "Experience" doesn't fit a narrow column. */
-    val shortLabel: String get() = if (id == "experience") "Exp" else label
+    val shortLabel: String get() = short ?: if (id == "experience") "Exp" else label
 }
 
 val trackerCounters = listOf(
@@ -128,15 +128,49 @@ data class TrackerDoc(
     fun wins(side: Int): Int = games.count { !it.isDraw && it.winnerSide == side }
     val draws: Int get() = games.count { it.isDraw }
 
-    /** Someone has 2 game wins, or 3 games have been played. */
-    val decided: Boolean get() = wins(0) >= 2 || wins(1) >= 2 || games.size >= 3
+    /** 2 for every synced match; 2–5 at a local table. */
+    val players: Int get() = names.size
+    val sides: IntRange get() = 0 until players
+
+    /** Local tables starting at 30 or more life track commander damage (contract/life-tracker-commander-2026-11-03.md). */
+    val commanderDamage: Boolean get() = !synced && startingLife >= TrackerTable.COMMANDER_FROM
+
+    /** Someone has 2 game wins, or 3 games have been played. A bigger table plays game after game. */
+    val decided: Boolean get() = players == 2 && (wins(0) >= 2 || wins(1) >= 2 || games.size >= 3)
+
+    /** My game wins first; with three or more, every player's ("P1 1 · P2 0 · P3 2"). */
+    val scoreText: String get() =
+        if (players > 2) sides.joinToString(" · ") { "${name(it)} ${wins(it)}" } else "${wins(bottomSide)}–${wins(topSide)}"
+
+    /** A counter by id, commander damage included ("Commander P3" / "Cmd P3"; just "Commander" with one opponent). */
+    fun counterKind(id: String): CounterKind? {
+        val from = commanderFrom(id) ?: return trackerCounters.firstOrNull { it.id == id }
+        val who = if (players > 2) " ${name(from)}" else ""
+        return CounterKind(id, "Commander$who", 0, 999, short = "Cmd$who")
+    }
+
+    fun label(id: String): String = if (id == "life") "Life" else counterKind(id)?.label ?: id
+
+    /** What the counter picker lists: commander damage from each opponent first (when it counts), then the rest. */
+    fun pickerCounters(side: Int): List<CounterKind> {
+        val commander = if (commanderDamage) sides.filter { it != side }.mapNotNull { counterKind("cmd:$it") } else emptyList()
+        return commander + trackerCounters
+    }
 
     /** One game's ops in tap order: sorted by tapped_at, ties kept in insertion order (stable sort). */
     fun opsFor(game: Int): List<TrackerOp> = ops.filter { it.gameNo == game }.sortedBy { opMillis(it) }
 
+    /** Life also loses every point of commander damage the side has taken. */
     fun total(game: Int, side: Int, counter: String): Int {
         val base = if (counter == "life") startingLife else 0
-        return base + ops.sumOf { if (it.gameNo == game && it.side == side && it.counter == counter) it.delta else 0 }
+        return base + ops.sumOf {
+            when {
+                it.gameNo != game || it.side != side -> 0
+                it.counter == counter -> it.delta
+                counter == "life" && commanderFrom(it.counter) != null -> -it.delta
+                else -> 0
+            }
+        }
     }
 
     /**
@@ -150,6 +184,11 @@ data class TrackerDoc(
             val key = o.side to o.counter
             val value = (running[key] ?: if (o.counter == "life") startingLife else 0) + o.delta
             running[key] = value
+            if (commanderFrom(o.counter) != null) {
+                // Commander damage comes off life, so a later life group's result counts it.
+                val life = o.side to "life"
+                running[life] = (running[life] ?: startingLife) - o.delta
+            }
             val t = opMillis(o)
             val last = out.lastOrNull()
             if (last != null && last.side == o.side && last.counter == o.counter && t - last.endMillis < GROUP_WINDOW_MS) {
@@ -202,13 +241,13 @@ data class TrackerDoc(
      */
     fun shownCounters(side: Int): List<CounterKind> {
         val p = counterPrefs.getOrNull(side) ?: CounterPrefs()
-        return trackerCounters.filter {
+        return pickerCounters(side).filter {
             it.id in p.on || (total(currentGame, side, it.id) != 0 && it.id !in p.off)
         }.take(MAX_COUNTERS)
     }
 
     fun withCounterToggled(side: Int, id: String): TrackerDoc {
-        val prefs = counterPrefs.toMutableList().also { while (it.size < 2) it += CounterPrefs() }
+        val prefs = counterPrefs.toMutableList().also { while (it.size < players) it += CounterPrefs() }
         val p = prefs[side]
         val shown = shownCounters(side).map { it.id }
         prefs[side] = when {
@@ -219,16 +258,24 @@ data class TrackerDoc(
         return copy(counterPrefs = prefs)
     }
 
-    /** "Marcus is at 0 — record game 2?" for the first side that has lost, with the winner side. */
-    fun loseCondition(): Pair<String, Int>? {
+    /** This game is over for the side: life ≤ 0, poison ≥ 10, or 21 commander damage from one opponent. */
+    fun hasLost(side: Int): Boolean {
         val g = currentGame
-        for (side in listOf(topSide, bottomSide)) {
-            val life = total(g, side, "life")
-            val poison = total(g, side, "poison")
-            if (life <= 0) return "${name(side)} is at $life — record game $g?" to (1 - side)
-            if (poison >= 10) return "${name(side)} has $poison poison — record game $g?" to (1 - side)
+        if (total(g, side, "life") <= 0 || total(g, side, "poison") >= 10) return true
+        return commanderDamage && sides.any { it != side && total(g, side, "cmd:$it") >= TrackerTable.COMMANDER_LOSS }
+    }
+
+    /**
+     * Who has won this game, once it's settled: the other side when one of two has lost (the opponent's half is
+     * checked first), or the last player standing at a bigger table. Record turns accent and is pre-filled.
+     */
+    fun settledWinner(): Int? {
+        if (players == 2) {
+            if (hasLost(topSide)) return bottomSide
+            if (hasLost(bottomSide)) return topSide
+            return null
         }
-        return null
+        return sides.filter { !hasLost(it) }.singleOrNull()
     }
 
     companion object {

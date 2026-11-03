@@ -146,7 +146,7 @@ describe("games", () => {
   });
 
   it("scores and decides a best of three", () => {
-    expect(matchScore([game(1, 0), game(2, null, true)])).toEqual({ wins: { 0: 1, 1: 0 }, draws: 1, played: 2 });
+    expect(matchScore([game(1, 0), game(2, null, true)])).toEqual({ wins: [1, 0], draws: 1, played: 2 });
     expect(matchDecided([game(1, 0)])).toBe(false);
     expect(matchDecided([game(1, 1), game(2, 1)])).toBe(true);
     expect(matchDecided([game(1, 0), game(2, 1)])).toBe(false);

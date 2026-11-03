@@ -9,9 +9,14 @@
 //   undo     removes the newest group by adding its inverse op, stamped at the group's last tap so it
 //            folds into that group (net 0) on every device; net-zero groups are hidden from history.
 //   game     current game = recorded games + 1.
+//   cmd      commander damage a side has taken from side N's commander (`cmd:N`, local tables at 30+
+//            life only; contract/life-tracker-commander-2026-11-03.md). It comes off life in `totals`.
 
-export type Counter = "life" | "poison" | "energy" | "experience" | "rad" | "speed";
-export type Side = 0 | 1;
+export type BaseCounter = "life" | "poison" | "energy" | "experience" | "rad" | "speed";
+export type CommanderCounter = `cmd:${number}`;
+export type Counter = BaseCounter | CommanderCounter;
+/** 0 or 1 in a synced match; 0–4 at a local table. */
+export type Side = number;
 
 export interface TrackerOp {
   client_op_id: string;
@@ -47,8 +52,8 @@ export interface ChangeGroup {
 }
 
 export const GROUP_WINDOW_MS = 2000;
-export const COUNTERS: Counter[] = ["life", "poison", "energy", "experience", "rad", "speed"];
-export const COUNTER_LABEL: Record<Counter, string> = {
+export const COUNTERS: BaseCounter[] = ["life", "poison", "energy", "experience", "rad", "speed"];
+export const COUNTER_LABEL: Record<BaseCounter, string> = {
   life: "Life",
   poison: "Poison",
   energy: "Energy",
@@ -56,8 +61,8 @@ export const COUNTER_LABEL: Record<Counter, string> = {
   rad: "Rad",
   speed: "Speed",
 };
-/** Bounds a counter can't be pushed past (life is unbounded). */
-export const COUNTER_RANGE: Partial<Record<Counter, [number, number]>> = {
+/** Bounds a counter can't be pushed past (life is unbounded; commander damage 0–999). */
+export const COUNTER_RANGE: Partial<Record<BaseCounter, [number, number]>> = {
   poison: [0, 99],
   energy: [0, 999],
   experience: [0, 999],
@@ -65,8 +70,19 @@ export const COUNTER_RANGE: Partial<Record<Counter, [number, number]>> = {
   speed: [0, 4],
 };
 export const POISON_LOSS = 10;
+/** Commander damage counts from this starting life (Commander 40, Pauper Commander 30; Oathbreaker is 20). */
+export const COMMANDER_FROM = 30;
+/** Commander damage from one opponent that loses the game. */
+export const COMMANDER_LOSS = 21;
 
-export type Totals = Record<Side, Record<Counter, number>>;
+export function commanderFrom(c: Counter): number | null {
+  if (!c.startsWith("cmd:")) return null;
+  const n = Number(c.slice(4));
+  return Number.isInteger(n) && n >= 0 && c.length > 4 ? n : null;
+}
+
+/** Per side; commander damage keys exist for every opponent at the table. */
+export type Totals = Record<Counter, number>[];
 
 const time = (iso: string) => {
   const t = Date.parse(iso);
@@ -89,14 +105,18 @@ export function startValue(counter: Counter, startingLife: number): number {
   return counter === "life" ? startingLife : 0;
 }
 
-export function totals(ops: TrackerOp[], gameNo: number, startingLife: number): Totals {
-  const make = (): Record<Counter, number> => ({
-    life: startingLife, poison: 0, energy: 0, experience: 0, rad: 0, speed: 0,
-  });
-  const out: Totals = { 0: make(), 1: make() };
+/** Life also loses every point of commander damage the side has taken. */
+export function totals(ops: TrackerOp[], gameNo: number, startingLife: number, players = 2): Totals {
+  const make = (side: number): Record<Counter, number> => {
+    const t: Record<Counter, number> = { life: startingLife, poison: 0, energy: 0, experience: 0, rad: 0, speed: 0 };
+    for (let other = 0; other < players; other++) if (other !== side) t[`cmd:${other}`] = 0;
+    return t;
+  };
+  const out: Totals = Array.from({ length: players }, (_, side) => make(side));
   for (const op of ops) {
-    if (op.game_no !== gameNo) continue;
-    out[op.side][op.counter] += op.delta;
+    if (op.game_no !== gameNo || !out[op.side]) continue;
+    out[op.side][op.counter] = (out[op.side][op.counter] ?? 0) + op.delta;
+    if (commanderFrom(op.counter) != null) out[op.side].life -= op.delta;
   }
   return out;
 }
@@ -110,6 +130,11 @@ export function groupOps(ops: TrackerOp[], gameNo: number, startingLife: number)
   for (const op of sorted) {
     const key = `${op.side}:${op.counter}`;
     running[key] = (running[key] ?? startValue(op.counter, startingLife)) + op.delta;
+    if (commanderFrom(op.counter) != null) {
+      // Commander damage comes off life, so a later life group's result counts it.
+      const life = `${op.side}:life`;
+      running[life] = (running[life] ?? startingLife) - op.delta;
+    }
     const t = time(op.tapped_at);
     if (last && last.side === op.side && last.counter === op.counter && t - last.endedAt < GROUP_WINDOW_MS) {
       last.delta += op.delta;
@@ -198,7 +223,7 @@ export function resetOps(ops: TrackerOp[], gameNo: number, startingLife: number,
 
 /** Clamp a tap so bounded counters stay in range; 0 means "ignore this tap". */
 export function clampDelta(current: number, delta: number, counter: Counter): number {
-  const range = COUNTER_RANGE[counter];
+  const range = commanderFrom(counter) != null ? ([0, 999] as [number, number]) : COUNTER_RANGE[counter as BaseCounter];
   if (!range) return delta;
   const next = Math.min(range[1], Math.max(range[0], current + delta));
   return next - current;
@@ -209,33 +234,57 @@ export function currentGameNo(games: TrackerGame[]): number {
 }
 
 export interface MatchScore {
-  wins: Record<Side, number>;
+  /** Wins per side, one entry per player. */
+  wins: number[];
   draws: number;
   played: number;
 }
 
-export function matchScore(games: TrackerGame[]): MatchScore {
-  const wins: Record<Side, number> = { 0: 0, 1: 0 };
+export function matchScore(games: TrackerGame[], players = 2): MatchScore {
+  const wins = Array.from({ length: players }, () => 0);
   let draws = 0;
   for (const g of games) {
     if (g.is_draw || g.winner_side == null) draws += 1;
-    else wins[g.winner_side] += 1;
+    else wins[g.winner_side] = (wins[g.winner_side] ?? 0) + 1;
   }
   return { wins, draws, played: games.length };
 }
 
-/** Best of three: someone has two wins, or three games have been played. */
-export function matchDecided(games: TrackerGame[]): boolean {
+/** Best of three: someone has two wins, or three games have been played. A bigger table plays game after game. */
+export function matchDecided(games: TrackerGame[], players = 2): boolean {
+  if (players > 2) return false;
   const s = matchScore(games);
   return s.wins[0] >= 2 || s.wins[1] >= 2 || s.played >= 3;
 }
 
-/** The side that has lost the current game on the board (life ≤ 0 or poison ≥ 10), if any. */
+/** The side that has lost the current game on the board (life ≤ 0 or poison ≥ 10), if any. Two players. */
 export function losingSide(t: Totals): Side | null {
   for (const side of [0, 1] as Side[]) {
-    if (t[side].life <= 0 || t[side].poison >= POISON_LOSS) return side;
+    if (hasLost(t, side, false)) return side;
   }
   return null;
+}
+
+/** Life ≤ 0, poison ≥ 10, or (when it counts) 21 commander damage from one opponent. */
+export function hasLost(t: Totals, side: Side, commander: boolean): boolean {
+  const v = t[side];
+  if (!v) return false;
+  if (v.life <= 0 || v.poison >= POISON_LOSS) return true;
+  return commander && t.some((_, other) => other !== side && (v[`cmd:${other}`] ?? 0) >= COMMANDER_LOSS);
+}
+
+/**
+ * Who has won the current game once it's settled: the other side when one of two has lost (the top half is
+ * checked first), or the last player standing at a bigger table.
+ */
+export function settledWinner(t: Totals, commander: boolean, top: Side = 1, bottom: Side = 0): Side | null {
+  if (t.length === 2) {
+    if (hasLost(t, top, commander)) return bottom;
+    if (hasLost(t, bottom, commander)) return top;
+    return null;
+  }
+  const left = t.map((_, side) => side).filter((side) => !hasLost(t, side, commander));
+  return left.length === 1 ? left[0] : null;
 }
 
 /** Union by client_op_id, keeping the first copy's position. */
@@ -309,18 +358,43 @@ export function clockProgress(remaining: number, duration: number): number {
    unless the player turned it off. This is display only; it's kept per device. */
 
 export const MAX_COUNTERS = 3;
-export const COUNTER_SHORT: Record<Counter, string> = { ...COUNTER_LABEL, experience: "Exp" };
+export const COUNTER_SHORT: Record<BaseCounter, string> = { ...COUNTER_LABEL, experience: "Exp" };
+
+/** "Commander P3" (just "Commander" with one opponent), or the counter's own label. */
+export function counterLabel(c: Counter, names: string[]): string {
+  const from = commanderFrom(c);
+  if (from == null) return COUNTER_LABEL[c as BaseCounter];
+  return names.length > 2 ? `Commander ${names[from] ?? ""}`.trim() : "Commander";
+}
+
+/** Column label: "Cmd P3", "Cmd", "Exp". */
+export function counterShort(c: Counter, names: string[]): string {
+  const from = commanderFrom(c);
+  if (from == null) return COUNTER_SHORT[c as BaseCounter];
+  return names.length > 2 ? `Cmd ${names[from] ?? ""}`.trim() : "Cmd";
+}
 
 export interface CounterPrefs {
   on: Counter[];
   off: Counter[];
 }
 
-export const EXTRA_COUNTERS: Counter[] = COUNTERS.filter((c) => c !== "life");
+export const EXTRA_COUNTERS: BaseCounter[] = COUNTERS.filter((c) => c !== "life");
 
-export function shownCounters(values: Record<Counter, number>, prefs: CounterPrefs): Counter[] {
-  return EXTRA_COUNTERS.filter(
-    (c) => prefs.on.includes(c) || (values[c] !== 0 && !prefs.off.includes(c)),
+/** What a side's counter picker lists: commander damage from each opponent first (when it counts), then the rest. */
+export function pickerCounters(side: Side, players: number, commander: boolean): Counter[] {
+  const cmd: Counter[] = [];
+  if (commander) for (let other = 0; other < players; other++) if (other !== side) cmd.push(`cmd:${other}`);
+  return [...cmd, ...EXTRA_COUNTERS];
+}
+
+export function shownCounters(
+  values: Record<Counter, number>,
+  prefs: CounterPrefs,
+  candidates: Counter[] = EXTRA_COUNTERS,
+): Counter[] {
+  return candidates.filter(
+    (c) => prefs.on.includes(c) || ((values[c] ?? 0) !== 0 && !prefs.off.includes(c)),
   ).slice(0, MAX_COUNTERS);
 }
 

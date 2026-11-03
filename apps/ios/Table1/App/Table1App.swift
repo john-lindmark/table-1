@@ -20,7 +20,7 @@ struct Table1App: App {
         WindowGroup {
             RootView()
                 #if DEBUG
-                // Design QA: `-T1Tracker` opens the local life tracker without signing in.
+                // Design QA: `-T1Tracker [players:life[:cmd][:pick<side>]]` opens the local life tracker without signing in (Setup, or that table).
                 .overlay {
                     if ProcessInfo.processInfo.arguments.contains("-T1Tracker") { LifeTrackerView(matchId: nil) {} }
                 }

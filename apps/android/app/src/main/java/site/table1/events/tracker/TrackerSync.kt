@@ -30,6 +30,7 @@ import java.time.Instant
  */
 class TrackerController(context: Context, private val matchId: String?) {
     private val prefs = context.getSharedPreferences("t1.tracker", Context.MODE_PRIVATE)
+    private val setupPrefs = context.getSharedPreferences("t1.tracker.setup", Context.MODE_PRIVATE)
     private val key = if (matchId == null) "local" else "match:$matchId"
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val pushLock = Mutex()
@@ -123,7 +124,7 @@ class TrackerController(context: Context, private val matchId: String?) {
         val d = doc ?: return
         if (d.readOnly) return
         if (counter != "life") {
-            val kind = trackerCounters.firstOrNull { it.id == counter }
+            val kind = d.counterKind(counter)
             val next = d.total(d.currentGame, side, counter) + delta
             if (kind?.min != null && next < kind.min) return
             if (kind?.max != null && next > kind.max) return
@@ -147,12 +148,20 @@ class TrackerController(context: Context, private val matchId: String?) {
         }
     }
 
-    /** Local sessions only. */
-    fun setStartingLife(life: Int) {
+    /** Local only: a new table from Setup. Clears games, history and counter columns, names the players. */
+    fun configure(players: Int, life: Int) {
         val d = doc ?: return
         if (synced) return
-        update(d.copy(startingLife = life))
+        val names = TrackerTable.names(players.coerceIn(2, 5))
+        update(d.copy(names = names, startingLife = life, games = emptyList(), ops = emptyList(), promptedAt = 0,
+            counterPrefs = names.map { CounterPrefs() }))
+        setupPrefs.edit().putInt("players", players).putInt("life", life).apply()
     }
+
+    /** The last setup used on this device (2 players, 20 life by default). */
+    val lastSetup: Pair<Int, Int> get() =
+        (setupPrefs.getInt("players", 2).takeIf { it in TrackerTable.playerChoices } ?: 2) to
+            (setupPrefs.getInt("life", 20).takeIf { it in TrackerTable.lifeChoices } ?: 20)
 
     /** Shows or hides a counter column for one side (display only, kept on this device). */
     fun toggleCounter(side: Int, id: String) {
@@ -172,7 +181,7 @@ class TrackerController(context: Context, private val matchId: String?) {
         val d = doc ?: return
         if (synced) return
         update(d.copy(games = emptyList(), ops = emptyList(), promptedAt = 0,
-            counterPrefs = listOf(CounterPrefs(), CounterPrefs())))
+            counterPrefs = d.names.map { CounterPrefs() }))
     }
 
     fun markPrompted() {

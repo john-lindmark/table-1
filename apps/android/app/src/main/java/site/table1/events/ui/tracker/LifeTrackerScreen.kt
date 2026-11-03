@@ -39,6 +39,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -70,13 +72,16 @@ import site.table1.events.tracker.CounterKind
 import site.table1.events.tracker.MAX_COUNTERS
 import site.table1.events.tracker.TrackerController
 import site.table1.events.tracker.TrackerDoc
+import site.table1.events.tracker.TrackerPlace
+import site.table1.events.tracker.TrackerRow
+import site.table1.events.tracker.TrackerSeat
+import site.table1.events.tracker.TrackerTable
 import site.table1.events.tracker.clockTone
-import site.table1.events.tracker.counterLabel
+import site.table1.events.tracker.commanderFrom
 import site.table1.events.tracker.formatTrackerClock
 import site.table1.events.tracker.progress
 import site.table1.events.tracker.remaining
 import site.table1.events.tracker.signed
-import site.table1.events.tracker.trackerCounters
 import site.table1.events.ui.components.BarAction
 import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.ListRow
@@ -104,6 +109,10 @@ private data class Winner(val side: Int?, val draw: Boolean)
  * them) around the info strip: round clock, Record, Options (chooser, dice, history, leave; 231:9191), Reset.
  * Swipe down on a half, in that player's
  * orientation, to choose its counter columns. Full screen, screen kept on.
+ *
+ * A local tracker opens on Setup (2–5 players, 20/30/40 life), then the chooser; three to five players sit
+ * around the phone ([TrackerTable.layout]), and 30+ life tracks commander damage
+ * (contract/life-tracker-commander-2026-11-03.md).
  */
 @Composable
 fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
@@ -151,10 +160,12 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
     var resetting by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf<Winner?>(null) }
-    var startingLife by remember { mutableStateOf(false) }
     var forceReport by remember { mutableStateOf(false) }
     var reportNotice by remember { mutableStateOf<String?>(null) }
     var picker by remember { mutableStateOf<Int?>(null) }
+    // Local trackers open on Setup.
+    var setup by remember { mutableStateOf(!controller.synced) }
+    val commanderTapped = remember { mutableSetOf<Int>() }
 
     val me = d.bottomSide
     val them = d.topSide
@@ -163,15 +174,64 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
     fun tap(side: Int, counter: String, delta: Int) {
         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
         controller.tap(side, counter, delta)
+        if (commanderFrom(counter) != null && commanderTapped.add(game)) {
+            Telemetry.capture("tracker_commander_damage", mapOf("players" to d.players))
+        }
+    }
+
+    fun newTable() {
+        picker = null
+        setup = true
+    }
+
+    if (setup) {
+        TrackerSetup(
+            initial = controller.lastSetup,
+            canContinue = d.games.isNotEmpty() || d.groups(d.currentGame).isNotEmpty(),
+            onStart = { players, life ->
+                controller.configure(players, life)
+                commanderTapped.clear()
+                picker = null
+                setup = false
+                panel = "chooser"
+                Telemetry.capture("tracker_setup_started", mapOf("players" to players, "life" to life))
+            },
+            onContinue = {
+                setup = false
+                Telemetry.capture("tracker_setup_continued", mapOf("players" to d.players))
+            },
+            onClose = onClose,
+        )
+        return
+    }
+
+    // Two players: mine at the bottom (the organizer watching sees side 0 there), the opponent's facing them.
+    val rows: List<TrackerRow> = if (d.players == 2) {
+        listOf(listOf(TrackerPlace(them, TrackerSeat.Top)), null, listOf(TrackerPlace(me, TrackerSeat.Bottom)))
+    } else {
+        TrackerTable.layout(d.players)
     }
 
     // Edge to edge: the halves' tap zones and column hairlines reach the very top and bottom of the screen.
-    Column(Modifier.fillMaxSize().background(T1.bg), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-        TrackerHalf(
-            d, side = them, pickerOpen = picker == them, onPicker = { picker = if (it) them else null },
-            onTap = ::tap, onToggle = { controller.toggleCounter(them, it) },
-            modifier = Modifier.weight(1f).rotate(180f),
-        )
+    // Hairlines between seats at a bigger table.
+    Column(
+        Modifier.fillMaxSize().background(if (d.players > 2) T1.surface else T1.bg),
+        verticalArrangement = Arrangement.spacedBy(1.dp),
+    ) {
+      rows.forEach { row ->
+        if (row != null) {
+            Row(Modifier.weight(1f).fillMaxWidth().background(T1.surface), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                row.forEach { place ->
+                    TrackerHalf(
+                        d, side = place.side, pickerOpen = picker == place.side,
+                        onPicker = { picker = if (it) place.side else null },
+                        onTap = ::tap, onToggle = { controller.toggleCounter(place.side, it) },
+                        modifier = Modifier.weight(1f).fillMaxHeight().seat(place.seat),
+                    )
+                }
+            }
+            return@forEach
+        }
         InfoStrip(
             d,
             context = reportNotice ?: controller.error ?: contextLine(d),
@@ -180,20 +240,16 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
                 controller.error != null -> T1.danger
                 else -> T1.disabled
             },
-            recordAccent = !d.readOnly && d.loseCondition() != null,
+            recordAccent = !d.readOnly && d.settledWinner() != null,
             busy = controller.busy,
             onOptions = { panel = "options" },
             onReset = { resetting = true },
             onRecord = {
-                val lose = d.loseCondition()
-                if (lose != null) confirming = Winner(lose.second, false) else picking = true
+                val winner = d.settledWinner()
+                if (winner != null) confirming = Winner(winner, false) else picking = true
             },
         )
-        TrackerHalf(
-            d, side = me, pickerOpen = picker == me, onPicker = { picker = if (it) me else null },
-            onTap = ::tap, onToggle = { controller.toggleCounter(me, it) },
-            modifier = Modifier.weight(1f),
-        )
+      }
     }
 
     when (panel) {
@@ -202,6 +258,7 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
             onChooser = { panel = "chooser" },
             onDice = { panel = "dice" },
             onHistory = { showHistory = true },
+            onNewMatch = if (!controller.synced) ::newTable else null,
             onLeave = onClose,
         )
         "dice" -> TrackerDicePanel(onDismiss = { panel = null })
@@ -211,7 +268,7 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
     if (resetting) {
         // Only this device's own games can be cleared, never an event's recorded ones.
         val canResetMatch = !controller.synced && d.games.isNotEmpty()
-        val score = "${d.wins(me)}–${d.wins(them)}"
+        val score = d.scoreText
         val life = "Life goes back to ${d.startingLife} and counters to 0."
         fun reset(match: Boolean) {
             resetting = false
@@ -247,31 +304,20 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
             d,
             onUndo = { controller.undoLast() },
             onReset = { controller.resetGame(); showHistory = false },
-            onStartingLife = if (!controller.synced) ({ showHistory = false; startingLife = true }) else null,
-            onNewMatch = if (!controller.synced) ({ controller.newMatch(); showHistory = false }) else null,
+            onNewMatch = if (!controller.synced) ({ showHistory = false; newTable() }) else null,
             onReport = if (controller.synced && !d.readOnly) ({ showHistory = false; forceReport = true }) else null,
             onDismiss = { showHistory = false },
-        )
-    }
-
-    if (startingLife) {
-        T1Menu(
-            title = "Starting life",
-            items = listOf(20, 25, 30, 40).map { life ->
-                T1MenuItem("$life", selected = d.startingLife == life) { controller.setStartingLife(life) }
-            },
-            onDismiss = { startingLife = false },
         )
     }
 
     if (picking) {
         T1Menu(
             title = "Who won game $game?",
-            items = listOf(
-                T1MenuItem("Me") { confirming = Winner(me, false) },
-                T1MenuItem(d.name(them)) { confirming = Winner(them, false) },
-                T1MenuItem("Draw") { confirming = Winner(null, true) },
-            ),
+            items = (if (d.players == 2) {
+                listOf(T1MenuItem("Me") { confirming = Winner(me, false) }, T1MenuItem(d.name(them)) { confirming = Winner(them, false) })
+            } else {
+                d.sides.map { side -> T1MenuItem(d.name(side)) { confirming = Winner(side, false) } }
+            }) + T1MenuItem("Draw") { confirming = Winner(null, true) },
             onDismiss = { picking = false },
         )
     }
@@ -282,6 +328,7 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
         val draws = d.draws + if (w.draw) 1 else 0
         val who = when {
             w.draw -> "draw"
+            d.players > 2 -> "${d.name(w.side ?: 0)} won"
             w.side == me -> "you won"
             else -> "${d.name(them)} won"
         }
@@ -289,7 +336,11 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
             title = "Record game $game: $who?",
             onDismiss = { confirming = null },
             body = {
-                Text("Match is $myWins–$theirWins${if (draws > 0) "–$draws" else ""}.", fontFamily = T1.mono, color = T1.muted, fontSize = 13.sp)
+                Text(
+                    if (d.players > 2) "Game ${game + 1} starts at ${d.startingLife}."
+                    else "Match is $myWins–$theirWins${if (draws > 0) "–$draws" else ""}.",
+                    fontFamily = T1.mono, color = T1.muted, fontSize = 13.sp,
+                )
             },
             confirm = {
                 T1TextAction("Record", color = T1.accent) {
@@ -346,7 +397,7 @@ fun LifeTrackerScreen(matchId: String?, onClose: () -> Unit) {
 /** "R2 | Table 13 | Kai Budde"; offline / sending takes the slot while it lasts. */
 private fun contextLine(d: TrackerDoc): String {
     if (d.synced && d.pending.isNotEmpty()) return "Sending…"
-    if (!d.synced) return "Local game"
+    if (!d.synced) return if (d.players > 2) "Local game | ${d.players} players" else "Local game"
     return listOfNotNull(
         if (d.readOnly) "Watching" else null,
         d.round?.let { "R$it" },
@@ -428,8 +479,23 @@ internal fun StripButton(text: String, accent: Boolean = false, onClick: () -> U
 }
 
 /**
- * One player's half (Figma "Me", Counters=0…3): life, plus up to three counter columns, each with its own
- * top +1 / bottom −1 zones. Swipe down (in this half's own orientation — the rotation carries the touch
+ * Lays a seat out in its player's own frame (width and height swapped for side seats) and turns it to face
+ * their edge. Compose turns the touches with the drawing, so the half inside works as if it were upright.
+ */
+private fun Modifier.seat(seat: TrackerSeat): Modifier = when (seat) {
+    TrackerSeat.Bottom -> this
+    TrackerSeat.Top -> rotate(180f)
+    TrackerSeat.Left, TrackerSeat.Right -> layout { measurable, constraints ->
+        val w = constraints.maxWidth
+        val h = constraints.maxHeight
+        val p = measurable.measure(Constraints.fixed(h, w))
+        layout(w, h) { p.placeWithLayer((w - h) / 2, (h - w) / 2) { rotationZ = seat.degrees } }
+    }
+}
+
+/**
+ * One player's half or seat (Figma "Me", Counters=0…3): life, plus up to three counter columns, each with its
+ * own top +1 / bottom −1 zones. Swipe down (in this half's own orientation — the rotation carries the touch
  * coordinates with it) opens the counter picker; swipe up or Done closes it.
  */
 @Composable
@@ -446,6 +512,8 @@ private fun TrackerHalf(
     val enabled = !d.readOnly
     val counters = d.shownCounters(side)
     val life = d.total(game, side, "life")
+    // Seats at a bigger table are a third to a half the size of a two-player half.
+    val scale = if (d.players > 2) 0.6f else 1f
     val swipePx = with(LocalDensity.current) { 24.dp.toPx() }
     val open by rememberUpdatedState(pickerOpen)
     val setOpen by rememberUpdatedState(onPicker)
@@ -470,7 +538,7 @@ private fun TrackerHalf(
     ) {
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
             CounterColumn(
-                value = life, label = null, target = if (counters.isEmpty()) 162f else 120f, lost = life <= 0,
+                value = life, label = null, target = (if (counters.isEmpty()) 162f else 120f) * scale, lost = life <= 0,
                 enabled = enabled, name = "${d.name(side)} life", modifier = Modifier.weight(1f),
             ) { onTap(side, "life", it) }
             if (counters.isNotEmpty()) {
@@ -479,8 +547,9 @@ private fun TrackerHalf(
                         val value = d.total(game, side, c.id)
                         CounterColumn(
                             value = value, label = c.shortLabel,
-                            target = when (counters.size) { 1 -> 80f; 2 -> 64f; else -> 44f },
-                            lost = c.id == "poison" && value >= 10, enabled = enabled,
+                            target = when (counters.size) { 1 -> 80f; 2 -> 64f; else -> 44f } * scale,
+                            lost = if (c.id == "poison") value >= 10 else commanderFrom(c.id) != null && value >= TrackerTable.COMMANDER_LOSS,
+                            enabled = enabled,
                             name = "${d.name(side)} ${c.label}", modifier = Modifier.weight(1f),
                         ) { onTap(side, c.id, it) }
                     }
@@ -496,7 +565,7 @@ private fun TrackerHalf(
             enter = slideInVertically(tween(150)) { -it },
             exit = slideOutVertically(tween(150)) { -it },
         ) {
-            CounterPicker(d.shownCounters(side), onToggle = onToggle, onDone = { onPicker(false) })
+            CounterPicker(d.pickerCounters(side), d.shownCounters(side), onToggle = onToggle, onDone = { onPicker(false) })
         }
     }
 }
@@ -590,9 +659,9 @@ private fun TapZone(enabled: Boolean, label: String, modifier: Modifier, onStep:
     )
 }
 
-/** Counter Picker: which counters this side shows, three at most. */
+/** Counter Picker: which counters this side shows, three at most; commander damage from each opponent first. */
 @Composable
-private fun CounterPicker(shown: List<CounterKind>, onToggle: (String) -> Unit, onDone: () -> Unit) {
+private fun CounterPicker(all: List<CounterKind>, shown: List<CounterKind>, onToggle: (String) -> Unit, onDone: () -> Unit) {
     val full = shown.size >= MAX_COUNTERS
     Column(Modifier.fillMaxSize().background(T1.surface), verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Row(Modifier.fillMaxWidth().background(T1.bg), verticalAlignment = Alignment.CenterVertically) {
@@ -603,7 +672,7 @@ private fun CounterPicker(shown: List<CounterKind>, onToggle: (String) -> Unit, 
             Modifier.weight(1f).fillMaxWidth().background(T1.bg).verticalScroll(rememberScrollState()),
         ) {
             Column(Modifier.background(T1.surface), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                trackerCounters.forEach { c ->
+                all.forEach { c ->
                     val on = shown.any { it.id == c.id }
                     val disabled = !on && full
                     val interaction = remember { MutableInteractionSource() }
@@ -635,7 +704,6 @@ private fun HistoryPanel(
     d: TrackerDoc,
     onUndo: () -> Unit,
     onReset: () -> Unit,
-    onStartingLife: (() -> Unit)?,
     onNewMatch: (() -> Unit)?,
     onReport: (() -> Unit)?,
     onDismiss: () -> Unit,
@@ -671,10 +739,9 @@ private fun HistoryPanel(
             }
             item(key = "actions") {
                 Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                    Section("Match ${d.wins(d.bottomSide)}–${d.wins(d.topSide)}")
+                    Section(if (d.players > 2) "Games · ${d.scoreText}" else "Match ${d.scoreText}")
                     if (!d.readOnly) ListRow("Reset game", onClick = onReset)
-                    onStartingLife?.let { ListRow("Starting life", detail = "${d.startingLife}", onClick = it) }
-                    onNewMatch?.let { ListRow("New match", onClick = it) }
+                    onNewMatch?.let { ListRow("New match", detail = "${d.players} · ${d.startingLife}", onClick = it) }
                     onReport?.let { ListRow("Report now", onClick = it) }
                 }
             }
@@ -695,7 +762,7 @@ private fun HistoryRow(d: TrackerDoc, g: ChangeGroup) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            "${d.name(g.side)} · ${counterLabel(g.counter)} ${signed(g.delta)} → ${g.after}",
+            "${d.name(g.side)} · ${d.label(g.counter)} ${signed(g.delta)} → ${g.after}",
             Modifier.weight(1f), color = T1.text, fontFamily = T1.mono, fontSize = 13.sp,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
         )

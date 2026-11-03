@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { BigAction, Segmented, Stepper } from "../components/kit";
+import { Bar, BigAction, GhostAction, Segmented, Stepper } from "../components/kit";
 import { capture } from "../lib/telemetry";
+import { LIFE_CHOICES, PLAYER_CHOICES, lastSetup } from "../lib/trackerTable";
 import {
   CHOOSER_MIN_FINGERS,
   DICE_SIDES,
@@ -27,18 +28,23 @@ function BottomPanel({ label, onClose, children }: { label: string; onClose: () 
   );
 }
 
-/** Options (Figma 231:9191): Chooser, Roll dice, History, Leave tracker. Each row closes the panel first. */
+/**
+ * Options (Figma 231:9191): Chooser, Roll dice, History, New match (local trackers: back to Setup), Leave tracker.
+ * Each row closes the panel first.
+ */
 export function TrackerOptionsPanel({
   onClose,
   onChooser,
   onDice,
   onHistory,
+  onNewMatch,
   onLeave,
 }: {
   onClose: () => void;
   onChooser: () => void;
   onDice: () => void;
   onHistory: () => void;
+  onNewMatch?: () => void;
   onLeave: () => void;
 }) {
   const row = (title: string, run: () => void) => (
@@ -59,6 +65,7 @@ export function TrackerOptionsPanel({
         {row("Chooser", onChooser)}
         {row("Roll dice", onDice)}
         {row("History", onHistory)}
+        {onNewMatch && row("New match", onNewMatch)}
         {row("Leave tracker", onLeave)}
       </div>
     </BottomPanel>
@@ -250,6 +257,54 @@ export function TrackerChooser({ onClose }: { onClose: () => void }) {
       >
         Done
       </button>
+    </div>
+  );
+}
+
+/**
+ * A local tracker's first screen (contract/life-tracker-commander-2026-11-03.md): how many players and their
+ * starting life, then Start (the chooser opens next). Continue reopens the saved table as it was.
+ */
+export function TrackerSetup({
+  canContinue,
+  onStart,
+  onContinue,
+  onClose,
+}: {
+  canContinue: boolean;
+  onStart: (players: number, life: number) => void;
+  onContinue: () => void;
+  onClose: () => void;
+}) {
+  const [pick, setPick] = useState(lastSetup);
+  return (
+    <div className="fixed inset-0 bg-t1-bg text-t1-text flex flex-col gap-px">
+      <Bar title="Life tracker" onBack={onClose} />
+      <div className="bg-t1-bg p-4 flex flex-col gap-2">
+        <span className={`${LABEL} text-t1-disabled`}>Players</span>
+        <Segmented
+          options={PLAYER_CHOICES.map((n) => ({ value: n, label: String(n) }))}
+          value={pick.players}
+          onChange={(players) => setPick((p) => ({ ...p, players }))}
+        />
+      </div>
+      <div className="bg-t1-bg p-4 flex flex-col gap-2">
+        <span className={`${LABEL} text-t1-disabled`}>Starting life</span>
+        <Segmented
+          options={LIFE_CHOICES.map((n) => ({ value: n, label: String(n) }))}
+          value={pick.life}
+          onChange={(life) => setPick((p) => ({ ...p, life }))}
+        />
+      </div>
+      <div className="flex-1" />
+      {canContinue && (
+        <div className="flex">
+          <GhostAction label="Continue" onClick={onContinue} />
+        </div>
+      )}
+      <div className="pb-[env(safe-area-inset-bottom)] bg-t1-text">
+        <BigAction label="Start" onClick={() => onStart(pick.players, pick.life)} />
+      </div>
     </div>
   );
 }

@@ -3,11 +3,13 @@ import UIKit
 
 // MARK: Options (Figma 231:9191)
 
-/// The tracker's Options panel, rising from the bottom: Chooser, Roll dice, History, Leave tracker.
+/// The tracker's Options panel, rising from the bottom: Chooser, Roll dice, History, New match (local trackers:
+/// back to Setup), Leave tracker.
 struct TrackerOptionsPanel: View {
     let chooser: () -> Void
     let dice: () -> Void
     let history: () -> Void
+    var newMatch: (() -> Void)?
     let leave: () -> Void
 
     var body: some View {
@@ -15,6 +17,7 @@ struct TrackerOptionsPanel: View {
             row("Chooser", chooser)
             row("Roll dice", dice)
             row("History", history)
+            if let newMatch { row("New match", newMatch) }
             row("Leave tracker", leave)
         }
         .padding(16)
@@ -209,5 +212,47 @@ private struct MultiTouchSurface: UIViewRepresentable {
         override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
             for t in touches { onUp?(id(t)) }
         }
+    }
+}
+
+// MARK: Setup
+
+/// A local tracker's first screen (contract/life-tracker-commander-2026-11-03.md): how many players and their
+/// starting life, then Start (the chooser opens next). Continue reopens the saved table as it was.
+struct TrackerSetupView: View {
+    let canContinue: Bool
+    let start: (_ players: Int, _ life: Int) -> Void
+    let resume: () -> Void
+    let close: () -> Void
+    @State private var players = TrackerTable.lastPlayers
+    @State private var life = TrackerTable.lastLife
+
+    var body: some View {
+        VStack(spacing: 1) {
+            Bar(title: "Life tracker", back: close)
+            VStack(spacing: 1) {
+                field("Players") {
+                    T1Segmented(options: TrackerTable.playerChoices.map { (value: $0, label: "\($0)") }, selection: $players)
+                }
+                field("Starting life") {
+                    T1Segmented(options: TrackerTable.lifeChoices.map { (value: $0, label: "\($0)") }, selection: $life)
+                }
+            }
+            Spacer(minLength: 0)
+            if canContinue { Ghost(text: "Continue", action: resume) }
+            BigAction(text: "Start") { start(players, life) }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(T1.bg.ignoresSafeArea())
+    }
+
+    private func field(_ label: String, @ViewBuilder _ control: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            LabelText(label, color: T1.disabled)
+            control()
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(T1.bg)
     }
 }

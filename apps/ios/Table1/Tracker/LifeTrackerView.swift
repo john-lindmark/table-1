@@ -6,6 +6,10 @@ import UIKit
 /// Options (231:9191) holds the chooser, dice, history and Leave tracker.
 /// Swipe down on a half, in that player's orientation, to choose its counter columns. Full screen, no tab
 /// bar, screen kept on.
+///
+/// A local tracker opens on Setup (2–5 players, 20/30/40 life), then the chooser; three to five players sit
+/// around the phone (`TrackerTable.layout`), and 30+ life tracks commander damage
+/// (contract/life-tracker-commander-2026-11-03.md).
 struct LifeTrackerView: View {
     let onClose: () -> Void
     @Environment(\.scenePhase) private var scenePhase
@@ -17,6 +21,10 @@ struct LifeTrackerView: View {
     @State private var notice: String?
     @State private var actionError: String?
     @State private var resetPrompt = false
+    /// Local trackers open on Setup.
+    @State private var setup: Bool
+    /// Games whose first commander damage has been counted for telemetry.
+    @State private var commanderTapped: Set<Int> = []
     private let haptic = UIImpactFeedbackGenerator(style: .light)
 
     struct WinnerChoice: Equatable {
@@ -28,6 +36,7 @@ struct LifeTrackerView: View {
     init(matchId: String?, onClose: @escaping () -> Void) {
         self.onClose = onClose
         _model = State(initialValue: TrackerModel(matchId: matchId))
+        _setup = State(initialValue: matchId == nil)
     }
 
     var body: some View {
@@ -44,15 +53,34 @@ struct LifeTrackerView: View {
                 Ghost(text: "Close") { onClose() }
                 Spacer()
             case .ready:
-                half(model.topSide, rotated: true)
-                infoStrip
-                half(model.bottomSide, rotated: false)
+                if setup {
+                    TrackerSetupView(canContinue: model.hasHistory || !model.games.isEmpty,
+                                     start: { players, life in start(players: players, life: life) },
+                                     resume: {
+                                         setup = false
+                                         Telemetry.capture("tracker_setup_continued", ["players": model.players])
+                                     },
+                                     close: onClose)
+                } else {
+                    ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                        switch row {
+                        case .strip:
+                            infoStrip
+                        case .seats(let places):
+                            HStack(spacing: 1) {
+                                ForEach(places, id: \.side) { seat($0) }
+                            }
+                            .background(T1.surface)
+                        }
+                    }
+                }
             }
         }
         // The halves run edge to edge, under the Dynamic Island and home indicator: their tap zones and
         // column hairlines reach the very top and bottom of the screen.
-        .ignoresSafeArea(.container, edges: isReady ? .all : [])
-        .background(T1.bg.ignoresSafeArea())
+        .ignoresSafeArea(.container, edges: isReady && !setup ? .all : [])
+        // Hairlines between seats at a bigger table.
+        .background((model.players > 2 && !setup ? T1.surface : T1.bg).ignoresSafeArea())
         .foregroundStyle(T1.text)
         .statusBarHidden()
         .persistentSystemOverlays(.hidden)
@@ -66,7 +94,12 @@ struct LifeTrackerView: View {
             let model = model
             Task { await model.flushNow() }
         }
-        .task { await model.start() }
+        .task {
+            await model.start()
+            #if DEBUG
+            debugPreset()
+            #endif
+        }
         .onChange(of: scenePhase) { _, now in
             if now == .active {
                 Task { await model.refetch() }
@@ -116,9 +149,16 @@ struct LifeTrackerView: View {
         return false
     }
 
-    private func half(_ side: Int, rotated: Bool) -> some View {
-        TrackerHalf(model: model, side: side, rotated: rotated,
-                    pickerOpen: Binding(get: { picker == side }, set: { picker = $0 ? side : nil }),
+    /// Two players: mine at the bottom (the organizer watching sees side 0 there), the opponent's facing them.
+    private var rows: [TrackerTable.Row] {
+        guard model.players == 2 else { return TrackerTable.layout(model.players) }
+        return [.seats([TrackerTable.Place(side: model.topSide, seat: .top)]), .strip,
+                .seats([TrackerTable.Place(side: model.bottomSide, seat: .bottom)])]
+    }
+
+    private func seat(_ place: TrackerTable.Place) -> some View {
+        TrackerHalf(model: model, side: place.side, seat: place.seat,
+                    pickerOpen: Binding(get: { picker == place.side }, set: { picker = $0 ? place.side : nil }),
                     tap: tap)
     }
 
@@ -158,7 +198,7 @@ struct LifeTrackerView: View {
                 ZStack(alignment: .leading) {
                     Color.clear
                     if !model.readOnly {
-                        StripButton(busy ? "Saving…" : "Record", accent: model.losingSide != nil) { if !busy { recordTapped() } }
+                        StripButton(busy ? "Saving…" : "Record", accent: model.settledWinner != nil) { if !busy { recordTapped() } }
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -186,7 +226,7 @@ struct LifeTrackerView: View {
     private var contextLine: String {
         if let notice { return notice }
         if model.offline { return "Offline | changes will sync" }
-        guard model.isSynced else { return "Local game" }
+        guard model.isSynced else { return model.players > 2 ? "Local game | \(model.players) players" : "Local game" }
         var parts: [String] = []
         if model.readOnly { parts.append("Watching") }
         if let r = model.round { parts.append("R\(r)") }
@@ -204,12 +244,17 @@ struct LifeTrackerView: View {
     private func showOptions() {
         T1Overlays.shared.present {
             TrackerOptionsPanel(
-                chooser: { T1Overlays.shared.present(full: true, swipeBack: false) { TrackerChooserScreen() } },
+                chooser: { showChooser() },
                 dice: { T1Overlays.shared.present { TrackerDicePanel() } },
                 history: { showHistory() },
+                newMatch: model.isSynced ? nil : { newTable() },
                 leave: { onClose() }
             )
         }
+    }
+
+    private func showChooser() {
+        T1Overlays.shared.present(full: true, swipeBack: false) { TrackerChooserScreen() }
     }
 
     private func showHistory() {
@@ -217,33 +262,45 @@ struct LifeTrackerView: View {
         T1Overlays.shared.present(full: true) {
             TrackerHistoryPanel(
                 model: model,
-                chooseStartingLife: { chooseStartingLife() },
+                newMatch: { newTable() },
                 reportNow: { decidedPrompt = true }
             )
         }
     }
 
+    /// Back to Setup (local only).
+    private func newTable() {
+        picker = nil
+        withAnimation(.easeOut(duration: 0.15)) { setup = true }
+    }
+
+    /// Setup's Start: a fresh table, then the chooser picks who goes first.
+    private func start(players: Int, life: Int) {
+        model.configure(players: players, life: life)
+        TrackerTable.lastPlayers = players
+        TrackerTable.lastLife = life
+        commanderTapped = []
+        picker = nil
+        setup = false
+        Telemetry.capture("tracker_setup_started", ["players": players, "life": life])
+        showChooser()
+    }
+
     private func recordTapped() {
-        if let losing = model.losingSide {
-            pendingRecord = WinnerChoice(winner: 1 - losing.side)
+        if let winner = model.settledWinner {
+            pendingRecord = WinnerChoice(winner: winner)
         } else {
             chooseWinner()
         }
     }
 
     private func chooseWinner() {
-        T1Overlays.shared.showMenu("Who won game \(model.currentGame)?", [
-            T1MenuItem(title: "Me") { pendingRecord = WinnerChoice(winner: model.bottomSide) },
-            T1MenuItem(title: model.name(model.topSide)) { pendingRecord = WinnerChoice(winner: model.topSide) },
-            T1MenuItem(title: "Draw") { pendingRecord = WinnerChoice(winner: nil) },
-        ])
-    }
-
-    private func chooseStartingLife() {
-        let model = model
-        T1Overlays.shared.showMenu("Starting life", TrackerModel.lifeChoices.map { life in
-            T1MenuItem(title: "\(life)", checked: life == model.startingLife) { model.setStartingLife(life) }
-        })
+        let items: [T1MenuItem] = model.players == 2
+            ? [T1MenuItem(title: "Me") { pendingRecord = WinnerChoice(winner: model.bottomSide) },
+               T1MenuItem(title: model.name(model.topSide)) { pendingRecord = WinnerChoice(winner: model.topSide) }]
+            : model.sides.map { side in T1MenuItem(title: model.name(side)) { pendingRecord = WinnerChoice(winner: side) } }
+        T1Overlays.shared.showMenu("Who won game \(model.currentGame)?",
+                                   items + [T1MenuItem(title: "Draw") { pendingRecord = WinnerChoice(winner: nil) }])
     }
 
     // MARK: copy
@@ -251,6 +308,7 @@ struct LifeTrackerView: View {
     private var recordTitle: String {
         guard let choice = pendingRecord else { return "Record game \(model.currentGame)?" }
         if choice.draw { return "Record game \(model.currentGame) as a draw?" }
+        if model.players > 2, let winner = choice.winner { return "Record game \(model.currentGame): \(model.name(winner)) won?" }
         return choice.winner == model.bottomSide
             ? "Record game \(model.currentGame): you won?"
             : "Record game \(model.currentGame): \(model.name(model.topSide)) won?"
@@ -258,6 +316,7 @@ struct LifeTrackerView: View {
 
     private var recordMessage: String {
         guard let choice = pendingRecord else { return "" }
+        if model.players > 2 { return "Game \(model.currentGame + 1) starts at \(model.startingLife)." }
         let mine = model.wins(model.bottomSide) + (choice.winner == model.bottomSide ? 1 : 0)
         let theirs = model.wins(model.topSide) + (choice.winner == model.topSide ? 1 : 0)
         return "Match is \(mine)–\(theirs)."
@@ -292,8 +351,33 @@ struct LifeTrackerView: View {
     private func tap(_ side: Int, _ counter: TrackerCounter, _ delta: Int) -> String? {
         let id = model.tap(side: side, counter: counter, delta: delta)
         if id != nil { haptic.impactOccurred() }
+        if id != nil, counter.commanderFrom != nil, !commanderTapped.contains(model.currentGame) {
+            commanderTapped.insert(model.currentGame)
+            Telemetry.capture("tracker_commander_damage", ["players": model.players])
+        }
         return id
     }
+
+    #if DEBUG
+    /// Design QA: `-T1Tracker <players>:<life>[:cmd][:pick<side>]` skips Setup (e.g. `4:40:cmd:pick2`); `cmd`
+    /// turns on commander damage columns with some damage dealt, `pick` opens a seat's counter picker.
+    private func debugPreset() {
+        let args = ProcessInfo.processInfo.arguments
+        guard model.matchId == nil, let i = args.firstIndex(of: "-T1Tracker"), args.indices.contains(i + 1) else { return }
+        let parts = args[i + 1].split(separator: ":").map(String.init)
+        guard parts.count >= 2, let players = Int(parts[0]), let life = Int(parts[1]) else { return }
+        model.configure(players: players, life: life)
+        setup = false
+        if parts.contains("cmd") {
+            for side in model.sides {
+                let from = (side + 1) % model.players
+                model.toggleCounter(.commander(from), side: side)
+                model.tap(side: side, counter: .commander(from), delta: 3 + side * 4)
+            }
+        }
+        if let pick = parts.first(where: { $0.hasPrefix("pick") }), let side = Int(pick.dropFirst(4)) { picker = side }
+    }
+    #endif
 
     private func reset(match: Bool) {
         if match { model.resetMatch() } else { model.resetGame() }
@@ -327,16 +411,14 @@ struct LifeTrackerView: View {
     }
 }
 
-// MARK: one half (Me, Counters=0…3)
+// MARK: one seat (Me, Counters=0…3)
 
-/// The opponent's half faces them. `rotationEffect` turns only the drawing, not where touches land, so a
-/// rotated half is laid out in screen order instead (columns, zones and picker rows reversed) and only the
-/// text is turned 180°.
+/// One player's half (two players) or seat (three to five). Laid out in screen order so touches land where the
+/// player sees things (`TrackerSeat`): columns, tap zones and picker rows placed by the seat, text turned.
 private struct TrackerHalf: View {
     let model: TrackerModel
     let side: Int
-    /// The opponent's half: their "down" is up on screen.
-    let rotated: Bool
+    let seat: TrackerSeat
     @Binding var pickerOpen: Bool
     let tap: (Int, TrackerCounter, Int) -> String?
 
@@ -345,83 +427,85 @@ private struct TrackerHalf: View {
         let enabled = !model.readOnly
         let name = model.name(side)
         let life = model.total(side, .life)
-        let lifeColumn = CounterColumn(value: life, label: nil, size: counters.isEmpty ? 162 : 120, lost: life <= 0,
-                                       rotated: rotated, enabled: enabled, name: "\(name) life",
-                                       retract: { model.retract($0) }) { tap(side, .life, $0) }
-        ZStack(alignment: rotated ? .bottom : .top) {
-            HStack(spacing: 1) {
-                if !rotated { lifeColumn }
-                if !counters.isEmpty {
-                    HStack(spacing: 1) {
-                        ForEach(rotated ? counters.reversed() : counters) { counter in
-                            let value = model.total(side, counter)
-                            CounterColumn(value: value, label: counter.shortLabel,
-                                          size: counters.count == 1 ? 80 : counters.count == 2 ? 64 : 44,
-                                          lost: counter == .poison && value >= 10, rotated: rotated,
-                                          enabled: enabled, name: "\(name) \(counter.label)",
-                                          retract: { model.retract($0) }) { tap(side, counter, $0) }
-                        }
-                    }
-                }
-                if rotated { lifeColumn }
+        // Seats at a bigger table are a third to a half the size of a two-player half.
+        let scale: CGFloat = model.players > 2 ? 0.6 : 1
+        let lifeColumn = CounterColumn(value: life, label: nil, size: (counters.isEmpty ? 162 : 120) * scale,
+                                       lost: life <= 0, seat: seat, enabled: enabled,
+                                       name: "\(name) life", retract: { model.retract($0) }) { tap(side, .life, $0) }
+        // Life first on the player's left.
+        let columns: [AnyView] = [AnyView(lifeColumn)] + counters.map { counter in
+            let value = model.total(side, counter)
+            let lost = counter == .poison ? value >= 10 : counter.commanderFrom != nil && value >= TrackerTable.commanderLoss
+            return AnyView(CounterColumn(value: value, label: model.shortLabel(counter),
+                                         size: (counters.count == 1 ? 80 : counters.count == 2 ? 64 : 44) * scale,
+                                         lost: lost, seat: seat, enabled: enabled, name: "\(name) \(model.label(counter))",
+                                         retract: { model.retract($0) }) { tap(side, counter, $0) })
+        }
+        let ordered = seat.reversed ? Array(columns.reversed()) : columns
+        let stack = seat.sideways ? AnyLayout(VStackLayout(spacing: 1)) : AnyLayout(HStackLayout(spacing: 1))
+        ZStack(alignment: seat.farAlignment) {
+            stack {
+                ForEach(ordered.indices, id: \.self) { ordered[$0] }
             }
             .background(T1.surface)
             if counters.isEmpty {
-                // The hairline mark sits 8 pt from the strip.
-                Rectangle().fill(T1.surface).frame(width: 26, height: 1)
-                    .padding(rotated ? .bottom : .top, 8).allowsHitTesting(false)
+                // The hairline mark sits 8 pt from the player's far edge (the strip, with two players).
+                Rectangle().fill(T1.surface)
+                    .frame(width: seat.sideways ? 1 : 26, height: seat.sideways ? 26 : 1)
+                    .padding(Edge.Set(seat.farEdge), 8).allowsHitTesting(false)
             }
             if pickerOpen {
-                CounterPicker(model: model, side: side, rotated: rotated) {
+                CounterPicker(model: model, side: side, seat: seat) {
                     withAnimation(.easeOut(duration: 0.15)) { pickerOpen = false }
                 }
-                .transition(.move(edge: rotated ? .bottom : .top))
+                .transition(.move(edge: seat.farEdge))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
         .simultaneousGesture(
             DragGesture(minimumDistance: 24, coordinateSpace: .global).onEnded { value in
-                let dy = value.translation.height * (rotated ? -1 : 1)
-                guard abs(dy) > abs(value.translation.width) * 1.5 else { return }
-                withAnimation(.easeOut(duration: 0.15)) { pickerOpen = dy > 0 }
+                let (down, across) = seat.toward(value.translation)
+                guard abs(down) > abs(across) * 1.5 else { return }
+                withAnimation(.easeOut(duration: 0.15)) { pickerOpen = down > 0 }
             }
         )
     }
 }
 
-/// Counter Column: its own top +1 / bottom −1 zones, the total, and a label for counters.
+/// Counter Column: its own +1 (the player's top half) / −1 zones, the total, and a label for counters.
 private struct CounterColumn: View {
     let value: Int
     let label: String?
     let size: CGFloat
     let lost: Bool
-    let rotated: Bool
+    let seat: TrackerSeat
     let enabled: Bool
     let name: String
     let retract: (String) -> Void
     let onDelta: (Int) -> String?
 
     var body: some View {
+        let first = seat.firstZoneDelta
+        let zones = seat.sideways ? AnyLayout(HStackLayout(spacing: 1)) : AnyLayout(VStackLayout(spacing: 1))
         ZStack {
-            // +1 on top in the player's orientation: on screen, the rotated half has −1 on top.
-            VStack(spacing: 1) {
-                TapZone(enabled: enabled, label: "\(name) \(rotated ? "−1" : "+1")", retract: retract) { onDelta(rotated ? -1 : 1) }
-                TapZone(enabled: enabled, label: "\(name) \(rotated ? "+1" : "−1")", retract: retract) { onDelta(rotated ? 1 : -1) }
+            zones {
+                TapZone(enabled: enabled, label: "\(name) \(first > 0 ? "+1" : "−1")", retract: retract) { onDelta(first) }
+                TapZone(enabled: enabled, label: "\(name) \(first > 0 ? "−1" : "+1")", retract: retract) { onDelta(-first) }
             }
-            VStack(spacing: 8) {
-                Text("\(value)")
-                    .font(T1.mono(size, .semibold)).tracking(-size * 0.025).monospacedDigit()
-                    .lineLimit(1).minimumScaleFactor(0.4)
-                    .foregroundStyle(lost ? T1.error : T1.text)
-                    .contentTransition(.numericText(value: Double(value)))
-                    .animation(.snappy(duration: 0.1), value: value)
-                if let label { LabelText(label, color: T1.disabled) }
+            Turned(seat: seat) {
+                VStack(spacing: 8) {
+                    Text("\(value)")
+                        .font(T1.mono(size, .semibold)).tracking(-size * 0.025).monospacedDigit()
+                        .lineLimit(1).minimumScaleFactor(0.25)
+                        .foregroundStyle(lost ? T1.error : T1.text)
+                        .contentTransition(.numericText(value: Double(value)))
+                        .animation(.snappy(duration: 0.1), value: value)
+                    if let label { LabelText(label, color: T1.disabled).lineLimit(1).minimumScaleFactor(0.6) }
+                }
+                .padding(.horizontal, 4)
+                .padding(.bottom, 32)
             }
-            .padding(.horizontal, 4)
-            .padding(.bottom, 32)
-            .rotationEffect(.degrees(rotated ? 180 : 0))
-            .allowsHitTesting(false)
         }
         .background(T1.bg)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -492,35 +576,40 @@ private struct TapZone: View {
     }
 }
 
-/// Counter Picker: which counters this side shows, three at most. Swipe up or Done closes it.
+/// Counter Picker: which counters this seat shows, three at most; commander damage from each opponent first at
+/// 30+ life. Swipe away or Done closes it. Rows run from the player's far edge in screen order (sideways seats
+/// scroll across), each row's content turned to face them.
 private struct CounterPicker: View {
     let model: TrackerModel
     let side: Int
-    /// Rows run bottom-up on screen and each row's content is turned 180° (see TrackerHalf).
-    let rotated: Bool
+    let seat: TrackerSeat
     let done: () -> Void
 
     var body: some View {
         let shown = model.visibleCounters(side)
         let full = shown.count >= TrackerModel.maxCounters
-        let rows = rotated ? TrackerCounter.extras.reversed() : TrackerCounter.extras
-        VStack(spacing: 1) {
-            if !rotated { header(shown.count) }
-            ScrollView {
-                VStack(spacing: 1) {
+        let all = model.pickerCounters(side)
+        let rows = seat.topFirst ? all : all.reversed()
+        let stack = seat.sideways ? AnyLayout(HStackLayout(spacing: 1)) : AnyLayout(VStackLayout(spacing: 1))
+        stack {
+            if seat.topFirst { header(shown.count) }
+            ScrollView(seat.sideways ? .horizontal : .vertical) {
+                stack {
                     ForEach(rows) { counter in
                         let on = shown.contains(counter)
                         let disabled = !on && full
                         Button { model.toggleCounter(counter, side: side) } label: {
-                            HStack {
-                                LabelText(counter.label, color: disabled ? T1.bg : T1.text)
-                                Spacer()
-                                LabelText(on ? "On" : disabled ? "Max 3" : "Off",
-                                          color: disabled ? T1.bg : on ? T1.text : T1.disabled)
+                            Turned(seat: seat) {
+                                HStack {
+                                    LabelText(model.label(counter), color: disabled ? T1.bg : T1.text)
+                                    Spacer()
+                                    LabelText(on ? "On" : disabled ? "Max 3" : "Off",
+                                              color: disabled ? T1.bg : on ? T1.text : T1.disabled)
+                                }
+                                .padding(.horizontal, 16)
                             }
-                            .padding(.horizontal, 16)
-                            .rotationEffect(.degrees(rotated ? 180 : 0))
-                            .frame(height: 48)
+                            .frame(width: seat.sideways ? 48 : nil, height: seat.sideways ? nil : 48)
+                            .frame(maxWidth: seat.sideways ? nil : .infinity, maxHeight: seat.sideways ? .infinity : nil)
                             .background(disabled ? T1.disabled : Color.clear)
                             .contentShape(Rectangle())
                         }
@@ -530,23 +619,35 @@ private struct CounterPicker: View {
                 }
                 .background(T1.surface)
             }
-            .defaultScrollAnchor(rotated ? .bottom : .top)
+            .defaultScrollAnchor(seat.topFirst ? (seat.sideways ? .leading : .top) : (seat.sideways ? .trailing : .bottom))
             .background(T1.bg)
-            if rotated { header(shown.count) }
+            if !seat.topFirst { header(shown.count) }
         }
         .background(T1.surface)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: rotated ? .bottom : .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: seat.farAlignment)
     }
 
+    /// "Counters · 1 of 3" then Done, on the player's left to right.
     private func header(_ count: Int) -> some View {
-        HStack(spacing: 0) {
-            if rotated { StripButton("Done", rotated: true) { done() } }
-            LabelText("Counters · \(count) of \(TrackerModel.maxCounters)", color: T1.disabled)
-                .rotationEffect(.degrees(rotated ? 180 : 0))
-                .padding(.horizontal, 16)
-                .frame(maxWidth: .infinity, alignment: rotated ? .trailing : .leading)
-            if !rotated { StripButton("Done") { done() } }
+        let stack = seat.sideways ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
+        let parts: [AnyView] = [
+            AnyView(Turned(seat: seat) {
+                LabelText("Counters · \(count) of \(TrackerModel.maxCounters)", color: T1.disabled)
+                    .padding(.horizontal, 16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }),
+            AnyView(Button(action: done) {
+                Turned(seat: seat) { LabelText("Done", color: T1.text) }
+                    .frame(width: seat.sideways ? 48 : 80, height: seat.sideways ? 80 : 48)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PressFill())),
+        ]
+        let ordered = seat.reversed ? Array(parts.reversed()) : parts
+        return stack {
+            ForEach(ordered.indices, id: \.self) { ordered[$0] }
         }
+        .frame(width: seat.sideways ? 48 : nil, height: seat.sideways ? nil : 48)
         .background(T1.bg)
     }
 }
@@ -590,7 +691,7 @@ struct PressFill: ButtonStyle {
 /// The footer holds what used to be in the ⋯ menu.
 private struct TrackerHistoryPanel: View {
     let model: TrackerModel
-    let chooseStartingLife: () -> Void
+    let newMatch: () -> Void
     let reportNow: () -> Void
 
     var body: some View {
@@ -612,13 +713,12 @@ private struct TrackerHistoryPanel: View {
                         }
                     }
                 }
-                Section1("Match \(model.scoreText)")
+                Section1(model.players > 2 ? "Games · \(model.scoreText)" : "Match \(model.scoreText)")
                 if !model.readOnly {
                     action("Reset game") { model.resetGame() }
                 }
                 if !model.isSynced {
-                    action("Starting life", detail: "\(model.startingLife)") { chooseStartingLife() }
-                    action("New match") { model.newMatch() }
+                    action("New match", detail: "\(model.players) · \(model.startingLife)") { newMatch() }
                 }
                 if model.isSynced && model.mySide != nil {
                     action("Report now") { reportNow() }
@@ -642,7 +742,7 @@ private struct TrackerHistoryPanel: View {
 
     private func line(_ g: TrackerModel.ChangeGroup) -> String {
         let delta = g.delta > 0 ? "+\(g.delta)" : "−\(abs(g.delta))"
-        return "\(model.name(g.side)) · \(g.counter.label) \(delta) → \(g.result)"
+        return "\(model.name(g.side)) · \(model.label(g.counter)) \(delta) → \(g.result)"
     }
 
     private func meta(_ g: TrackerModel.ChangeGroup) -> String {

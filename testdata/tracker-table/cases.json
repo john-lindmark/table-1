@@ -1,0 +1,74 @@
+{
+  "_doc": "contract/life-tracker-commander-2026-11-03.md. Ops are {side, counter, delta}; groups' ops add at (ms after start).",
+  "setup": { "players": [2, 3, 4, 5], "lives": [20, 30, 40], "default": { "players": 2, "life": 20 }, "commanderFrom": 30, "commanderLoss": 21 },
+  "names": [
+    { "players": 2, "names": ["You", "Opponent"] },
+    { "players": 3, "names": ["P1", "P2", "P3"] },
+    { "players": 4, "names": ["P1", "P2", "P3", "P4"] },
+    { "players": 5, "names": ["P1", "P2", "P3", "P4", "P5"] }
+  ],
+  "layouts": [
+    { "players": 2, "rows": [[{ "side": 1, "seat": "top" }], "strip", [{ "side": 0, "seat": "bottom" }]] },
+    { "players": 3, "rows": [[{ "side": 1, "seat": "left" }, { "side": 2, "seat": "right" }], "strip", [{ "side": 0, "seat": "bottom" }]] },
+    { "players": 4, "rows": [[{ "side": 1, "seat": "left" }, { "side": 2, "seat": "right" }], "strip", [{ "side": 0, "seat": "left" }, { "side": 3, "seat": "right" }]] },
+    { "players": 5, "rows": [[{ "side": 2, "seat": "left" }, { "side": 3, "seat": "right" }], [{ "side": 1, "seat": "left" }, { "side": 4, "seat": "right" }], "strip", [{ "side": 0, "seat": "bottom" }]] }
+  ],
+  "picker": [
+    { "players": 2, "life": 20, "side": 0, "rows": ["poison", "energy", "experience", "rad", "speed"] },
+    { "players": 2, "life": 30, "side": 1, "rows": ["cmd:0", "poison", "energy", "experience", "rad", "speed"] },
+    { "players": 4, "life": 40, "side": 2, "rows": ["cmd:0", "cmd:1", "cmd:3", "poison", "energy", "experience", "rad", "speed"] },
+    { "players": 5, "life": 20, "side": 0, "rows": ["poison", "energy", "experience", "rad", "speed"] }
+  ],
+  "labels": [
+    { "players": 2, "counter": "cmd:1", "label": "Commander", "short": "Cmd" },
+    { "players": 4, "counter": "cmd:2", "label": "Commander P3", "short": "Cmd P3" },
+    { "players": 4, "counter": "poison", "label": "Poison", "short": "Poison" },
+    { "players": 3, "counter": "experience", "label": "Experience", "short": "Exp" }
+  ],
+  "totals": [
+    {
+      "players": 3, "life": 40,
+      "ops": [
+        { "side": 0, "counter": "cmd:1", "delta": 5 }, { "side": 0, "counter": "life", "delta": -2 },
+        { "side": 0, "counter": "cmd:2", "delta": 3 }, { "side": 1, "counter": "cmd:0", "delta": 1 },
+        { "side": 1, "counter": "cmd:0", "delta": -1 }
+      ],
+      "lifeTotals": [30, 40, 40],
+      "counters": [{ "side": 0, "counter": "cmd:1", "value": 5 }, { "side": 0, "counter": "cmd:2", "value": 3 }, { "side": 1, "counter": "cmd:0", "value": 0 }]
+    }
+  ],
+  "losing": [
+    { "players": 2, "life": 40, "ops": [{ "side": 0, "counter": "cmd:1", "delta": 21 }], "lost": [0], "winner": 1 },
+    { "players": 2, "life": 20, "ops": [{ "side": 1, "counter": "life", "delta": -20 }], "lost": [1], "winner": 0 },
+    { "players": 4, "life": 40, "ops": [{ "side": 1, "counter": "life", "delta": -40 }, { "side": 2, "counter": "cmd:0", "delta": 21 }], "lost": [1, 2], "winner": null },
+    {
+      "players": 4, "life": 40,
+      "ops": [
+        { "side": 1, "counter": "life", "delta": -40 }, { "side": 2, "counter": "poison", "delta": 10 },
+        { "side": 3, "counter": "cmd:0", "delta": 11 }, { "side": 3, "counter": "cmd:2", "delta": 10 }
+      ],
+      "lost": [1, 2], "winner": null
+    },
+    { "players": 3, "life": 30, "ops": [{ "side": 1, "counter": "life", "delta": -30 }, { "side": 2, "counter": "cmd:0", "delta": 21 }], "lost": [1, 2], "winner": 0 }
+  ],
+  "groups": [
+    {
+      "players": 2, "life": 40,
+      "ops": [
+        { "at": 0, "side": 0, "counter": "cmd:1", "delta": 1 }, { "at": 300, "side": 0, "counter": "cmd:1", "delta": 1 },
+        { "at": 600, "side": 0, "counter": "cmd:1", "delta": 1 }, { "at": 5000, "side": 0, "counter": "life", "delta": -2 },
+        { "at": 9000, "side": 0, "counter": "cmd:1", "delta": -1 }
+      ],
+      "groups": [
+        { "side": 0, "counter": "cmd:1", "delta": 3, "after": 3 },
+        { "side": 0, "counter": "life", "delta": -2, "after": 35 },
+        { "side": 0, "counter": "cmd:1", "delta": -1, "after": 2 }
+      ],
+      "lifeTotals": [36, 40]
+    }
+  ],
+  "score": [
+    { "players": 3, "winners": [2, 0, 2], "text": "P1 1 · P2 0 · P3 2" },
+    { "players": 2, "winners": [1, 0], "text": "1–1" }
+  ]
+}

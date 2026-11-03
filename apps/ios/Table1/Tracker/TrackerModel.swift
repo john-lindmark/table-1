@@ -4,10 +4,40 @@ import Observation
 // MARK: wire
 
 /// The counters a player can track. Life starts at the session's starting life, everything else at 0.
-enum TrackerCounter: String, CaseIterable, Identifiable {
+enum TrackerCounter: Hashable, Identifiable {
     case life, poison, energy, experience, rad, speed
+    /// Commander damage this side has taken from side `from`'s commander (wire `cmd:<from>`; local sessions
+    /// only). It comes off life: see `TrackerModel.total`.
+    case commander(Int)
+
+    init?(rawValue: String) {
+        switch rawValue {
+        case "life": self = .life
+        case "poison": self = .poison
+        case "energy": self = .energy
+        case "experience": self = .experience
+        case "rad": self = .rad
+        case "speed": self = .speed
+        default:
+            guard rawValue.hasPrefix("cmd:"), let from = Int(rawValue.dropFirst(4)), from >= 0 else { return nil }
+            self = .commander(from)
+        }
+    }
+
+    var rawValue: String {
+        switch self {
+        case .life: "life"
+        case .poison: "poison"
+        case .energy: "energy"
+        case .experience: "experience"
+        case .rad: "rad"
+        case .speed: "speed"
+        case .commander(let from): "cmd:\(from)"
+        }
+    }
 
     var id: String { rawValue }
+    /// Commander damage needs the players' names: `TrackerModel.label(_:)`.
     var label: String {
         switch self {
         case .life: "Life"
@@ -16,6 +46,7 @@ enum TrackerCounter: String, CaseIterable, Identifiable {
         case .experience: "Experience"
         case .rad: "Rad"
         case .speed: "Speed"
+        case .commander: "Commander"
         }
     }
     var range: ClosedRange<Int> {
@@ -26,7 +57,17 @@ enum TrackerCounter: String, CaseIterable, Identifiable {
         }
     }
     /// Column label; "Experience" doesn't fit a narrow column.
-    var shortLabel: String { self == .experience ? "Exp" : label }
+    var shortLabel: String {
+        switch self {
+        case .experience: "Exp"
+        case .commander: "Cmd"
+        default: label
+        }
+    }
+    var commanderFrom: Int? {
+        if case .commander(let from) = self { return from }
+        return nil
+    }
     /// Counters that can be shown as columns next to life.
     static let extras: [TrackerCounter] = [.poison, .energy, .experience, .rad, .speed]
 }
@@ -237,7 +278,6 @@ final class TrackerModel {
     }
 
     static let groupGap: TimeInterval = 2.0
-    static let lifeChoices = [20, 25, 30, 40]
 
     let matchId: String?
     var phase: Phase = .loading
@@ -282,31 +322,65 @@ final class TrackerModel {
 
     func name(_ side: Int) -> String { names.indices.contains(side) ? names[side] : (side == bottomSide ? "You" : "Opponent") }
 
+    /// 2 for every synced match; 2–5 for a local table.
+    var players: Int { names.count }
+    var sides: Range<Int> { 0..<players }
+
+    /// Local tables starting at 30 or more life track commander damage (contract/life-tracker-commander-2026-11-03.md).
+    var commanderDamage: Bool { !isSynced && startingLife >= TrackerTable.commanderFrom }
+
+    /// "Commander P3", "Cmd P3"; just "Commander" / "Cmd" when there's one opponent.
+    func label(_ counter: TrackerCounter) -> String {
+        guard let from = counter.commanderFrom, players > 2 else { return counter.label }
+        return "\(counter.label) \(name(from))"
+    }
+
+    func shortLabel(_ counter: TrackerCounter) -> String {
+        guard let from = counter.commanderFrom, players > 2 else { return counter.shortLabel }
+        return "\(counter.shortLabel) \(name(from))"
+    }
+
     // MARK: totals
 
+    /// Life also loses every point of commander damage the side has taken.
     func total(_ side: Int, _ counter: TrackerCounter, game: Int? = nil) -> Int {
         let g = game ?? currentGame
         let base = counter == .life ? startingLife : 0
+        let key = counter.rawValue
         return ops.reduce(base) { sum, op in
-            op.gameNo == g && op.side == side && op.counter == counter.rawValue ? sum + op.delta : sum
+            guard op.gameNo == g, op.side == side else { return sum }
+            if op.counter == key { return sum + op.delta }
+            if counter == .life, op.counter.hasPrefix("cmd:") { return sum - op.delta }
+            return sum
         }
     }
 
     func wins(_ side: Int) -> Int { games.filter { !$0.isDraw && $0.winnerSide == side }.count }
     var draws: Int { games.filter(\.isDraw).count }
-    /// My game wins first.
-    var scoreText: String { "\(wins(bottomSide))–\(wins(topSide))" }
-    var matchDecided: Bool { wins(0) >= 2 || wins(1) >= 2 || games.count >= 3 }
+    /// My game wins first; with three or more, every player's ("P1 1 · P2 0 · P3 2").
+    var scoreText: String {
+        guard players > 2 else { return "\(wins(bottomSide))–\(wins(topSide))" }
+        return sides.map { "\(name($0)) \(wins($0))" }.joined(separator: " · ")
+    }
+    /// Best of three with two players; a multiplayer table just plays game after game.
+    var matchDecided: Bool { players == 2 && (wins(0) >= 2 || wins(1) >= 2 || games.count >= 3) }
     var reportText: String {
         let base = "\(wins(bottomSide))–\(wins(topSide))"
         return draws > 0 ? "\(base)–\(draws)" : base
     }
 
+    /// What the counter picker lists: commander damage from each opponent first (when it counts), then the rest.
+    func pickerCounters(_ side: Int) -> [TrackerCounter] {
+        let commander = commanderDamage ? sides.filter { $0 != side }.map(TrackerCounter.commander) : []
+        return commander + TrackerCounter.extras
+    }
+
     /// Columns next to life: counters turned on, plus any that aren't zero (so poison you dealt shows
     /// on the other phone) unless turned off. Three at most.
     func visibleCounters(_ side: Int) -> [TrackerCounter] {
+        guard counterPrefs.indices.contains(side) else { return [] }
         let p = counterPrefs[side]
-        return Array(TrackerCounter.extras.filter {
+        return Array(pickerCounters(side).filter {
             p.on.contains($0.rawValue) || (total(side, $0) != 0 && !p.off.contains($0.rawValue))
         }.prefix(Self.maxCounters))
     }
@@ -332,7 +406,10 @@ final class TrackerModel {
 
     private func loadCounterPrefs() {
         guard let data = UserDefaults.standard.data(forKey: counterPrefsKey),
-              let prefs = try? JSONDecoder().decode([CounterPrefs].self, from: data), prefs.count == 2 else { return }
+              let prefs = try? JSONDecoder().decode([CounterPrefs].self, from: data), prefs.count == players else {
+            counterPrefs = Array(repeating: CounterPrefs(), count: players)
+            return
+        }
         counterPrefs = prefs
     }
 
@@ -340,15 +417,23 @@ final class TrackerModel {
         if let data = try? JSONEncoder().encode(counterPrefs) { UserDefaults.standard.set(data, forKey: counterPrefsKey) }
     }
 
-    /// A side that has lost this game (life ≤ 0 or poison ≥ 10): Record turns accent and is pre-filled.
-    var losingSide: (side: Int, reason: String)? {
-        for side in [topSide, bottomSide] {
-            let life = total(side, .life)
-            if life <= 0 { return (side, "\(name(side)) is at \(life)") }
-            let poison = total(side, .poison)
-            if poison >= 10 { return (side, "\(name(side)) has \(poison) poison") }
+    /// This game is over for the side: life ≤ 0, poison ≥ 10, or 21 commander damage from one opponent.
+    func hasLost(_ side: Int) -> Bool {
+        if total(side, .life) <= 0 || total(side, .poison) >= 10 { return true }
+        return commanderDamage && sides.contains { $0 != side && total(side, .commander($0)) >= TrackerTable.commanderLoss }
+    }
+
+    /// Who has won this game, once it's settled: the other side when one of two has lost, or the last player
+    /// standing at a bigger table. Record turns accent and is pre-filled.
+    var settledWinner: Int? {
+        if players == 2 {
+            // The opponent's half is checked first, as before.
+            if hasLost(topSide) { return bottomSide }
+            if hasLost(bottomSide) { return topSide }
+            return nil
         }
-        return nil
+        let left = sides.filter { !hasLost($0) }
+        return left.count == 1 ? left[0] : nil
     }
 
     // MARK: history
@@ -368,6 +453,11 @@ final class TrackerModel {
             let key = "\(op.side)-\(op.counter)"
             let value = (running[key] ?? (kind == .life ? startingLife : 0)) + op.delta
             running[key] = value
+            if kind.commanderFrom != nil {
+                // Commander damage comes off life, so a later life group's result counts it.
+                let life = "\(op.side)-life"
+                running[life] = (running[life] ?? startingLife) - op.delta
+            }
             if var last = out.last, last.side == op.side, last.counter == kind,
                op.at.timeIntervalSince(last.end) < Self.groupGap {
                 last.delta += op.delta
@@ -473,10 +563,15 @@ final class TrackerModel {
         saveLocal()
     }
 
-    /// Local only.
-    func setStartingLife(_ life: Int) {
+    /// Local only: a new table from Setup. Clears games, history and counter columns, names the players.
+    func configure(players: Int, life: Int) {
         guard !isSynced else { return }
+        names = TrackerTable.names(min(max(players, 2), 5))
         startingLife = life
+        games = []
+        ops = []
+        counterPrefs = Array(repeating: CounterPrefs(), count: self.players)
+        saveCounterPrefs()
         saveLocal()
     }
 
@@ -485,7 +580,7 @@ final class TrackerModel {
         guard !isSynced else { return }
         games = []
         ops = []
-        counterPrefs = [CounterPrefs(), CounterPrefs()]
+        counterPrefs = Array(repeating: CounterPrefs(), count: players)
         saveCounterPrefs()
         saveLocal()
     }
@@ -661,9 +756,10 @@ final class TrackerModel {
         guard let data = defaults.data(forKey: Self.localKey),
               let save = try? JSONDecoder().decode(LocalSave.self, from: data) else { return }
         startingLife = save.startingLife
-        if save.names.count == 2 { names = save.names }
+        if TrackerTable.playerChoices.contains(save.names.count) { names = save.names }
         games = save.games
         ops = save.ops
+        loadCounterPrefs()
     }
 
     private func saveQueue() {

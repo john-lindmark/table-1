@@ -4,8 +4,7 @@ import { useSession } from "../lib/useSession";
 import { capture } from "../lib/telemetry";
 import { TrackerSync, type TrackerSnapshot } from "../lib/trackerSync";
 import {
-  COUNTER_LABEL,
-  COUNTER_SHORT,
+  COMMANDER_LOSS,
   EXTRA_COUNTERS,
   MAX_COUNTERS,
   POISON_LOSS,
@@ -16,13 +15,17 @@ import {
   currentGameNo,
   formatDelta,
   formatTrackerClock,
+  commanderFrom,
+  counterLabel,
+  counterShort,
   historyGroups,
-  losingSide,
   makeOp,
   matchDecided,
   matchScore,
+  pickerCounters,
   resetOps,
   scoreLabel,
+  settledWinner,
   shownCounters,
   toggleCounter,
   totals,
@@ -36,14 +39,28 @@ import {
   type TrackerOp,
 } from "../lib/tracker";
 import { GhostAction, Modal, Notice, useNow } from "../components/kit";
-import { TrackerChooser, TrackerDicePanel, TrackerOptionsPanel } from "./TrackerOptions";
+import {
+  SEAT_DEGREES,
+  saveSetup,
+  sideways,
+  tableLayout,
+  tableNames,
+  tableScore,
+  toward,
+  tracksCommander,
+  type Seat,
+  type TableRow,
+} from "../lib/trackerTable";
+import { TrackerChooser, TrackerDicePanel, TrackerOptionsPanel, TrackerSetup } from "./TrackerOptions";
 
 /* ── model ─────────────────────────────────────────────────────────────────
-   One board for both kinds of session. Local: no event, stored on this device.
-   Synced: one match, shared with the opponent (and watchable by the organizer). */
+   One board for both kinds of session. Local: no event, stored on this device, 2–5 players set up on Setup
+   (contract/life-tracker-commander-2026-11-03.md). Synced: one match, shared with the opponent (and watchable
+   by the organizer). */
 
 interface Model {
-  names: [string, string];
+  /** Two for every synced match; 2–5 at a local table. */
+  names: string[];
   startingLife: number;
   /** The side at the bottom of the screen that this person plays; null = watching. */
   mySide: Side | null;
@@ -66,8 +83,9 @@ interface Controller {
   add: (ops: TrackerOp[]) => void;
   record: (gameNo: number, winner: Side | null, draw: boolean) => Promise<void>;
   resetGame: () => void;
-  setStartingLife?: (n: number) => void;
   newMatch?: () => void;
+  /** Local only: a new table from Setup (clears games and history, names the players). */
+  configure?: (players: number, life: number) => void;
 }
 
 const errorText = (e: unknown) =>
@@ -78,7 +96,7 @@ const errorText = (e: unknown) =>
 const LOCAL_KEY = "table1.lifeTracker.local";
 
 interface LocalSession {
-  names: [string, string];
+  names: string[];
   startingLife: number;
   ops: TrackerOp[];
   games: TrackerGame[];
@@ -97,7 +115,7 @@ function loadLocal(): LocalSession {
     if (!raw) return blankLocal();
     const s = JSON.parse(raw) as Partial<LocalSession>;
     return {
-      names: Array.isArray(s.names) && s.names.length === 2 ? [String(s.names[0]), String(s.names[1])] : ["You", "Opponent"],
+      names: Array.isArray(s.names) && s.names.length >= 2 && s.names.length <= 5 ? s.names.map(String) : ["You", "Opponent"],
       startingLife: typeof s.startingLife === "number" ? s.startingLife : 20,
       ops: Array.isArray(s.ops) ? s.ops : [],
       games: Array.isArray(s.games) ? s.games : [],
@@ -126,7 +144,7 @@ function useLocalTracker(): Controller {
       ops: s.ops,
       games: s.games,
       synced: false,
-      subtitle: "Local game",
+      subtitle: s.names.length > 2 ? `Local game | ${s.names.length} players` : "Local game",
       clock: null,
     }),
     [s],
@@ -153,8 +171,8 @@ function useLocalTracker(): Controller {
         const g = currentGameNo(p.games);
         return { ...p, ops: p.ops.filter((o) => o.game_no !== g) };
       }),
-    setStartingLife: (n) => setS((p) => ({ ...p, startingLife: n })),
     newMatch: () => setS((p) => blankLocal(p)),
+    configure: (players, life) => setS(blankLocal({ names: tableNames(players), startingLife: life })),
   };
 }
 
@@ -182,7 +200,7 @@ function useSyncedTracker(matchId: string): Controller {
   const model = useMemo<Model | null>(() => {
     if (!snap) return null;
     const m = snap.meta;
-    const names: [string, string] = [m.names?.[0] ?? "Player 1", m.names?.[1] ?? "Player 2"];
+    const names = [m.names?.[0] ?? "Player 1", m.names?.[1] ?? "Player 2"];
     const status = snap.status === "offline" ? (snap.unsent ? `Offline | ${snap.unsent} unsent` : "Offline") : snap.unsent ? "Sending…" : null;
     const who = m.my_side == null ? `Watching | ${names[0]} vs ${names[1]}` : names[m.my_side === 0 ? 1 : 0];
     return {
@@ -261,7 +279,7 @@ export function LifeTracker({ matchId, onClose }: { matchId?: string; onClose: (
 }
 
 function LocalBoard({ onClose }: { onClose: () => void }) {
-  return <Board ctl={useLocalTracker()} prefsKey="local" onClose={onClose} />;
+  return <Board ctl={useLocalTracker()} prefsKey="local" onClose={onClose} setupFirst />;
 }
 
 function SyncedBoard({ matchId, onClose }: { matchId: string; onClose: () => void }) {
@@ -273,19 +291,23 @@ type RecordFlow = { step: "pick" } | { step: "confirm"; winner: Side | null; dra
 /* ── counter columns ──────────────────────────────────────────────────────
    Which counters each side shows is a per-device choice, kept per match ("local" for local games). */
 
-type SidePrefs = Record<Side, CounterPrefs>;
-const noPrefs = (): SidePrefs => ({ 0: { on: [], off: [] }, 1: { on: [], off: [] } });
+/** One entry per side; a missing one reads as nothing turned on or off. */
+type SidePrefs = CounterPrefs[];
+const noPrefs = (): SidePrefs => [];
+const prefsOf = (prefs: SidePrefs, side: Side): CounterPrefs => prefs[side] ?? { on: [], off: [] };
 const prefsStorageKey = (key: string) => `table1.trackerCounters.${key}`;
+const knownCounter = (c: Counter) => (EXTRA_COUNTERS as Counter[]).includes(c) || commanderFrom(c) != null;
 
 function readPrefs(key: string): SidePrefs {
   try {
     const raw = localStorage.getItem(prefsStorageKey(key));
-    const p = raw ? (JSON.parse(raw) as Partial<Record<"0" | "1", Partial<CounterPrefs>>>) : null;
+    // Older builds kept {0: …, 1: …}.
+    const p = raw ? (JSON.parse(raw) as Record<string, Partial<CounterPrefs>>) : null;
     const side = (x?: Partial<CounterPrefs>): CounterPrefs => ({
-      on: Array.isArray(x?.on) ? x.on.filter((c) => EXTRA_COUNTERS.includes(c)) : [],
-      off: Array.isArray(x?.off) ? x.off.filter((c) => EXTRA_COUNTERS.includes(c)) : [],
+      on: Array.isArray(x?.on) ? x.on.filter(knownCounter) : [],
+      off: Array.isArray(x?.off) ? x.off.filter(knownCounter) : [],
     });
-    return p ? { 0: side(p[0]), 1: side(p[1]) } : noPrefs();
+    return p ? Array.from({ length: 5 }, (_, i) => side(p[i])) : noPrefs();
   } catch {
     return noPrefs();
   }
@@ -317,8 +339,21 @@ const TONE_FILL: Record<ClockTone, string> = {
   overtime: "bg-t1-error",
 };
 
-function Board({ ctl, prefsKey, onClose }: { ctl: Controller; prefsKey: string; onClose: () => void }) {
+function Board({
+  ctl,
+  prefsKey,
+  onClose,
+  setupFirst = false,
+}: {
+  ctl: Controller;
+  prefsKey: string;
+  onClose: () => void;
+  /** Local trackers open on Setup. */
+  setupFirst?: boolean;
+}) {
   const [prefs, setPrefs] = useCounterPrefs(prefsKey);
+  const [setup, setSetup] = useState(setupFirst);
+  const commanderTapped = useRef<Set<number>>(new Set());
   const [picker, setPicker] = useState<Side | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [panel, setPanel] = useState<"options" | "dice" | "chooser" | null>(null);
@@ -345,14 +380,39 @@ function Board({ ctl, prefsKey, onClose }: { ctl: Controller; prefsKey: string; 
     );
   }
 
+  if (setup && ctl.configure) {
+    return (
+      <TrackerSetup
+        canContinue={m.games.length > 0 || m.ops.some((o) => o.game_no === currentGameNo(m.games))}
+        onStart={(players, life) => {
+          ctl.configure!(players, life);
+          saveSetup(players, life);
+          setPrefs(noPrefs());
+          setPicker(null);
+          commanderTapped.current = new Set();
+          setSetup(false);
+          setPanel("chooser");
+          capture("tracker_setup_started", { players, life });
+        }}
+        onContinue={() => {
+          setSetup(false);
+          capture("tracker_setup_continued", { players: m.names.length });
+        }}
+        onClose={onClose}
+      />
+    );
+  }
+
+  const players = m.names.length;
   const gameNo = currentGameNo(m.games);
-  const t = totals(m.ops, gameNo, m.startingLife);
+  const t = totals(m.ops, gameNo, m.startingLife, players);
+  const commander = tracksCommander(m.synced, m.startingLife);
   const bottom: Side = m.mySide ?? 0;
   const top: Side = bottom === 0 ? 1 : 0;
-  const score = matchScore(m.games);
+  const score = matchScore(m.games, players);
   const myWins = score.wins[bottom];
   const theirWins = score.wins[top];
-  const loser = losingSide(t);
+  const winner = settledWinner(t, commander, top, bottom);
   const canEdit = !m.readOnly;
   const meLabel = m.synced || m.names[bottom] === "You" ? "Me" : m.names[bottom];
   const currentHistory = historyGroups(m.ops, gameNo, m.startingLife);
@@ -362,15 +422,25 @@ function Board({ ctl, prefsKey, onClose }: { ctl: Controller; prefsKey: string; 
 
   function tap(side: Side, counter: Counter, delta: number) {
     if (!canEdit || !m) return;
-    const live = totals(m.ops, gameNo, m.startingLife);
-    const d = clampDelta(live[side][counter], delta, counter);
+    const live = totals(m.ops, gameNo, m.startingLife, players);
+    const d = clampDelta(live[side][counter] ?? 0, delta, counter);
     if (d === 0) return;
     ctl.add([makeOp(gameNo, side, counter, d)]);
+    if (commanderFrom(counter) != null && !commanderTapped.current.has(gameNo)) {
+      commanderTapped.current.add(gameNo);
+      capture("tracker_commander_damage", { players });
+    }
   }
 
   function newMatch() {
     ctl.newMatch?.();
     setPrefs(noPrefs());
+  }
+
+  /** Back to Setup (local only). */
+  function newTable() {
+    setPicker(null);
+    setSetup(true);
   }
 
   const gamesAfter = (winner: Side | null, draw: boolean): TrackerGame[] => [
@@ -384,7 +454,7 @@ function Board({ ctl, prefsKey, onClose }: { ctl: Controller; prefsKey: string; 
     try {
       await ctl.record(gameNo, winner, draw);
       setFlow(null);
-      if (matchDecided(gamesAfter(winner, draw))) setDecided(true);
+      if (matchDecided(gamesAfter(winner, draw), players)) setDecided(true);
     } catch (e) {
       setFlowError(errorText(e));
     } finally {
@@ -392,34 +462,50 @@ function Board({ ctl, prefsKey, onClose }: { ctl: Controller; prefsKey: string; 
     }
   }
 
-  const half = (side: Side, rotated: boolean) => (
-    <TrackerHalf
-      key={side}
-      name={m.names[side]}
-      values={t[side]}
-      counters={shownCounters(t[side], prefs[side])}
-      rotated={rotated}
-      readOnly={!canEdit}
-      onDelta={(c, d) => tap(side, c, d)}
-      pickerOpen={picker === side}
-      onPicker={(open) => setPicker(open ? side : null)}
-      onToggle={(c) => setPrefs((p) => ({ ...p, [side]: toggleCounter(p[side], shownCounters(t[side], p[side]), c) }))}
-    />
-  );
+  const seat = (side: Side, at: Seat) => {
+    const candidates = pickerCounters(side, players, commander);
+    return (
+      <SeatBox key={side} seat={at}>
+        <TrackerHalf
+          name={m.names[side]}
+          names={m.names}
+          values={t[side]}
+          counters={shownCounters(t[side], prefsOf(prefs, side), candidates)}
+          candidates={candidates}
+          seat={at}
+          small={players > 2}
+          readOnly={!canEdit}
+          onDelta={(c, d) => tap(side, c, d)}
+          pickerOpen={picker === side}
+          onPicker={(open) => setPicker(open ? side : null)}
+          onToggle={(c) =>
+            setPrefs((p) => {
+              const next = [...p];
+              const mine = prefsOf(p, side);
+              next[side] = toggleCounter(mine, shownCounters(t[side], mine, candidates), c);
+              return Array.from({ length: Math.max(next.length, players) }, (_, i) => next[i] ?? { on: [], off: [] });
+            })
+          }
+        />
+      </SeatBox>
+    );
+  };
+
+  // Two players: mine at the bottom (the organizer watching sees side 0 there), the opponent's facing them.
+  const rows: TableRow[] =
+    players === 2 ? [[{ side: top, seat: "top" }], "strip", [{ side: bottom, seat: "bottom" }]] : tableLayout(players);
+  const scoreText = tableScore(score.wins, m.names, bottom, top, score.draws);
 
   const winnerText = (winner: Side | null, draw: boolean) =>
-    draw ? "a draw" : winner === bottom && m.mySide != null ? "you won" : `${m.names[winner ?? 0]} won`;
+    draw ? "a draw" : winner === bottom && m.mySide != null && players === 2 ? "you won" : `${m.names[winner ?? 0]} won`;
   const scoreAfter = (winner: Side | null, draw: boolean) => {
-    const s = matchScore(gamesAfter(winner, draw));
+    const s = matchScore(gamesAfter(winner, draw), players);
     return scoreLabel(s.wins[bottom], s.wins[top], s.draws);
   };
 
-  return (
-    <div className="fixed inset-0 bg-t1-bg text-t1-text flex flex-col gap-px overflow-hidden select-none" style={{ touchAction: "manipulation" }}>
-      {half(top, true)}
-
-      {/* Lifetracker Info (Figma 73:5617): clock + context, progress bar, Record / Options / Reset. */}
-      <div className="shrink-0 flex flex-col gap-px bg-t1-bg">
+  const strip = (
+      /* Lifetracker Info (Figma 73:5617): clock + context, progress bar, Record / Options / Reset. */
+      <div key="strip" className="shrink-0 flex flex-col gap-px bg-t1-bg">
         <div className="h-12 flex items-center">
           {remaining != null && tone && (
             <span role="timer" className={`${LABEL} px-4 tabular-nums shrink-0 ${TONE_TEXT[tone]}`}>
@@ -440,10 +526,8 @@ function Board({ ctl, prefsKey, onClose }: { ctl: Controller; prefsKey: string; 
           <div className="flex-1 flex">
             {canEdit && (
               <StripButton
-                accent={loser != null}
-                onClick={() =>
-                  setFlow(loser != null ? { step: "confirm", winner: loser === 0 ? 1 : 0, draw: false } : { step: "pick" })
-                }
+                accent={winner != null}
+                onClick={() => setFlow(winner != null ? { step: "confirm", winner, draw: false } : { step: "pick" })}
               >
                 Record
               </StripButton>
@@ -455,8 +539,25 @@ function Board({ ctl, prefsKey, onClose }: { ctl: Controller; prefsKey: string; 
           </div>
         </div>
       </div>
+  );
 
-      {half(bottom, false)}
+  return (
+    <div
+      className={`fixed inset-0 text-t1-text flex flex-col gap-px overflow-hidden select-none ${
+        // Hairlines between seats at a bigger table.
+        players > 2 ? "bg-t1-surface" : "bg-t1-bg"
+      }`}
+      style={{ touchAction: "manipulation" }}
+    >
+      {rows.map((row, i) =>
+        row === "strip" ? (
+          strip
+        ) : (
+          <div key={i} className="flex-1 min-h-0 flex gap-px bg-t1-surface">
+            {row.map((p) => seat(p.side, p.seat))}
+          </div>
+        ),
+      )}
 
       {panel === "options" && (
         <TrackerOptionsPanel
@@ -464,6 +565,7 @@ function Board({ ctl, prefsKey, onClose }: { ctl: Controller; prefsKey: string; 
           onChooser={() => setPanel("chooser")}
           onDice={() => setPanel("dice")}
           onHistory={() => setHistoryOpen(true)}
+          onNewMatch={ctl.configure ? newTable : undefined}
           onLeave={onClose}
         />
       )}
@@ -474,7 +576,7 @@ function Board({ ctl, prefsKey, onClose }: { ctl: Controller; prefsKey: string; 
         <ResetDialog
           gameNo={gameNo}
           startingLife={m.startingLife}
-          score={scoreLabel(myWins, theirWins, score.draws)}
+          score={scoreText}
           // Only this device's own games can be cleared, never an event's recorded ones.
           canResetMatch={!m.synced && m.games.length > 0 && !!ctl.newMatch}
           keepsGames={m.synced && m.games.length > 0}
@@ -510,13 +612,13 @@ function Board({ ctl, prefsKey, onClose }: { ctl: Controller; prefsKey: string; 
                 <div className="bg-t1-bg px-4 py-2 t1-label">
                   Game {g}
                   {result ? ` · ${result.is_draw ? "draw" : winnerText(result.winner_side, false)}` : " · now"}
-                  {g === gameNo ? ` · match ${scoreLabel(myWins, theirWins, score.draws)}` : ""}
+                  {g === gameNo ? ` · ${players > 2 ? "games" : "match"} ${scoreText}` : ""}
                 </div>
                 {groups.length === 0 && <div className="bg-t1-surface px-4 py-3 t1-label">No changes yet</div>}
                 {groups.map((gr) => (
                   <div key={gr.id} className="bg-t1-surface px-4 py-2.5 flex items-center gap-3">
                     <span className="flex-1 min-w-0 truncate text-[13px]">
-                      {m.names[gr.side]} · {COUNTER_LABEL[gr.counter]} {formatDelta(gr.delta)} → {gr.after}
+                      {m.names[gr.side]} · {counterLabel(gr.counter, m.names)} {formatDelta(gr.delta)} → {gr.after}
                     </span>
                     <span className="t1-label shrink-0">
                       {new Date(gr.endedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" })}
@@ -546,24 +648,6 @@ function Board({ ctl, prefsKey, onClose }: { ctl: Controller; prefsKey: string; 
                 Reset game
               </MenuItem>
             )}
-            {ctl.setStartingLife && (
-              <div className="bg-t1-surface flex flex-col">
-                <span className="t1-label px-4 pt-3 pb-2">Starting life</span>
-                <div className="flex gap-px bg-t1-bg pt-px">
-                  {[20, 25, 30, 40].map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => ctl.setStartingLife!(n)}
-                      className={`flex-1 py-3 text-[14px] tabular-nums ${
-                        m.startingLife === n ? "bg-t1-text text-t1-bg" : "bg-t1-surface hover:bg-t1-surface-hover"
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
             {m.synced && m.mySide != null && (
               <MenuItem
                 onClick={() => {
@@ -574,14 +658,14 @@ function Board({ ctl, prefsKey, onClose }: { ctl: Controller; prefsKey: string; 
                 Report now
               </MenuItem>
             )}
-            {ctl.newMatch && (
+            {ctl.configure && (
               <MenuItem
                 onClick={() => {
-                  newMatch();
                   setHistoryOpen(false);
+                  newTable();
                 }}
               >
-                New match
+                New match · {players} · {m.startingLife}
               </MenuItem>
             )}
           </div>
@@ -592,8 +676,12 @@ function Board({ ctl, prefsKey, onClose }: { ctl: Controller; prefsKey: string; 
         <Modal title={`Who won game ${gameNo}?`} onClose={() => setFlow(null)}>
           <div className="flex flex-col gap-px">
             {[
-              { label: meLabel, winner: bottom as Side | null, draw: false },
-              { label: m.names[top], winner: top as Side | null, draw: false },
+              ...(players === 2
+                ? [
+                    { label: meLabel, winner: bottom as Side | null, draw: false },
+                    { label: m.names[top], winner: top as Side | null, draw: false },
+                  ]
+                : m.names.map((name, side) => ({ label: name, winner: side as Side | null, draw: false }))),
               { label: "Draw", winner: null, draw: true },
             ].map((o) => (
               <button
@@ -613,7 +701,11 @@ function Board({ ctl, prefsKey, onClose }: { ctl: Controller; prefsKey: string; 
 
       {flow?.step === "confirm" && (
         <Modal
-          title={`Record game ${gameNo}: ${winnerText(flow.winner, flow.draw)}? Match is ${scoreAfter(flow.winner, flow.draw)}.`}
+          title={
+            players > 2
+              ? `Record game ${gameNo}: ${winnerText(flow.winner, flow.draw)}? Game ${gameNo + 1} starts at ${m.startingLife}.`
+              : `Record game ${gameNo}: ${winnerText(flow.winner, flow.draw)}? Match is ${scoreAfter(flow.winner, flow.draw)}.`
+          }
           onClose={() => !recording && setFlow(null)}
         >
           <button onClick={() => setFlow({ step: "pick" })} className="t1-label text-left">
@@ -807,28 +899,60 @@ function StripButton({ children, onClick, accent }: { children: ReactNode; onCli
   );
 }
 
-/* Number sizes from the Me / Counter Column components, capped so they fit narrow and short screens. */
+/* Number sizes from the Me / Counter Column components, capped so they fit the seat (its container, in the
+   player's own orientation). Seats at a bigger table use 60% of the two-player sizes. */
 type ColumnSize = "alone" | "life" | "L" | "M" | "S";
-const COLUMN_FONT: Record<ColumnSize, string> = {
-  alone: "min(162px, 37vw, 19dvh)",
-  life: "min(120px, 28vw, 15dvh)",
-  L: "min(80px, 19vw, 10dvh)",
-  M: "min(64px, 14vw, 8dvh)",
-  S: "min(44px, 10vw, 6dvh)",
+const COLUMN_PX: Record<ColumnSize, [number, number, number]> = {
+  alone: [162, 37, 42],
+  life: [120, 28, 33],
+  L: [80, 19, 22],
+  M: [64, 14, 18],
+  S: [44, 10, 13],
 };
+const columnFont = (size: ColumnSize, small: boolean) => {
+  const [px, w, h] = COLUMN_PX[size];
+  return `min(${Math.round(px * (small ? 0.6 : 1))}px, ${w}cqw, ${h}cqh)`;
+};
+
+/**
+ * A seat facing its own edge of the phone (contract/life-tracker-commander-2026-11-03.md). The half inside is
+ * laid out in the player's frame (width and height swapped for side seats) and turned; the browser turns the
+ * touches with it.
+ */
+function SeatBox({ seat, children }: { seat: Seat; children: ReactNode }) {
+  const turned = sideways(seat);
+  return (
+    <div className="relative flex-1 min-w-0 min-h-0 overflow-hidden" style={{ containerType: "size" }}>
+      <div
+        className="absolute left-1/2 top-1/2 flex"
+        style={{
+          width: turned ? "100cqh" : "100cqw",
+          height: turned ? "100cqw" : "100cqh",
+          transform: `translate(-50%, -50%) rotate(${SEAT_DEGREES[seat]}deg)`,
+          containerType: "size",
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 const SWIPE_PX = 24;
 const TAP_SLOP_PX = 10;
 
 /**
- * One player's half (Figma "Me", Counters=0…3). Swipe down — in this player's orientation — opens the
- * counter picker inside the half; swipe up or Done closes it.
+ * One player's half (Figma "Me", Counters=0…3), drawn inside its SeatBox. Swipe down — in this player's
+ * orientation — opens the counter picker inside the half; swipe up or Done closes it.
  */
 function TrackerHalf({
   name,
+  names,
   values,
   counters,
-  rotated,
+  candidates,
+  seat,
+  small,
   readOnly,
   onDelta,
   pickerOpen,
@@ -836,9 +960,13 @@ function TrackerHalf({
   onToggle,
 }: {
   name: string;
+  names: string[];
   values: Record<Counter, number>;
   counters: Counter[];
-  rotated: boolean;
+  /** What the picker lists (commander damage first at 30+ life). */
+  candidates: Counter[];
+  seat: Seat;
+  small: boolean;
   readOnly: boolean;
   onDelta: (counter: Counter, delta: number) => void;
   pickerOpen: boolean;
@@ -850,9 +978,8 @@ function TrackerHalf({
   function onMove(e: PointerEvent) {
     const s = start.current;
     if (!s || s.id !== e.pointerId) return;
-    // The opponent's half is turned 180°, so their "down" is up on screen.
-    const dy = (e.clientY - s.y) * (rotated ? -1 : 1);
-    const dx = e.clientX - s.x;
+    // Pointer moves are in screen pixels; a turned seat's "down" points elsewhere on screen.
+    const { down: dy, across: dx } = toward(seat, e.clientX - s.x, e.clientY - s.y);
     if (Math.abs(dy) < SWIPE_PX || Math.abs(dy) < Math.abs(dx) * 1.5) return;
     start.current = null;
     if (dy > 0 && !pickerOpen) onPicker(true);
@@ -864,8 +991,8 @@ function TrackerHalf({
 
   return (
     <section
-      className={`relative flex-1 min-h-0 overflow-hidden flex gap-px bg-t1-surface ${rotated ? "rotate-180" : ""}`}
-      aria-label={`${name}: ${values.life} life${counters.map((c) => `, ${COUNTER_LABEL[c]} ${values[c]}`).join("")}`}
+      className="relative flex-1 min-h-0 overflow-hidden flex gap-px bg-t1-surface"
+      aria-label={`${name}: ${values.life} life${counters.map((c) => `, ${counterLabel(c, names)} ${values[c] ?? 0}`).join("")}`}
       onPointerDown={(e) => (start.current = { id: e.pointerId, x: e.clientX, y: e.clientY })}
       onPointerMove={onMove}
       onPointerUp={() => (start.current = null)}
@@ -875,6 +1002,7 @@ function TrackerHalf({
         name={`${name} life`}
         value={values.life}
         size={size}
+        small={small}
         lost={values.life <= 0}
         readOnly={readOnly}
         onDelta={(d) => onDelta("life", d)}
@@ -884,11 +1012,12 @@ function TrackerHalf({
           {counters.map((c) => (
             <Column
               key={c}
-              name={`${name} ${COUNTER_LABEL[c]}`}
-              value={values[c]}
-              label={COUNTER_SHORT[c]}
+              name={`${name} ${counterLabel(c, names)}`}
+              value={values[c] ?? 0}
+              label={counterShort(c, names)}
               size={counterSize}
-              lost={c === "poison" && values[c] >= POISON_LOSS}
+              small={small}
+              lost={c === "poison" ? values[c] >= POISON_LOSS : commanderFrom(c) != null && (values[c] ?? 0) >= COMMANDER_LOSS}
               readOnly={readOnly}
               onDelta={(d) => onDelta(c, d)}
             />
@@ -898,7 +1027,15 @@ function TrackerHalf({
       {counters.length === 0 && (
         <div className="absolute top-2 left-1/2 -translate-x-1/2 w-[26px] h-px bg-t1-surface pointer-events-none" />
       )}
-      {pickerOpen && <CounterPicker shown={counters} onToggle={onToggle} onDone={() => onPicker(false)} />}
+      {pickerOpen && (
+        <CounterPicker
+          shown={counters}
+          candidates={candidates}
+          names={names}
+          onToggle={onToggle}
+          onDone={() => onPicker(false)}
+        />
+      )}
     </section>
   );
 }
@@ -909,6 +1046,7 @@ function Column({
   value,
   label,
   size,
+  small,
   lost,
   readOnly,
   onDelta,
@@ -917,6 +1055,7 @@ function Column({
   value: number;
   label?: string;
   size: ColumnSize;
+  small: boolean;
   lost: boolean;
   readOnly: boolean;
   onDelta: (delta: number) => void;
@@ -932,7 +1071,7 @@ function Column({
       <div className="absolute inset-0 pb-8 px-1 flex flex-col items-center justify-center gap-2 pointer-events-none">
         <span
           className={`tabular-nums leading-none font-semibold ${lost ? "text-t1-error" : ""}`}
-          style={{ fontSize: COLUMN_FONT[size], letterSpacing: "-0.025em" }}
+          style={{ fontSize: columnFont(size, small), letterSpacing: "-0.025em" }}
         >
           {value}
         </span>
@@ -942,8 +1081,20 @@ function Column({
   );
 }
 
-/** Counter Picker (Figma): which counters this side shows, three at most. */
-function CounterPicker({ shown, onToggle, onDone }: { shown: Counter[]; onToggle: (c: Counter) => void; onDone: () => void }) {
+/** Counter Picker (Figma): which counters this side shows, three at most; commander damage from each opponent first. */
+function CounterPicker({
+  shown,
+  candidates,
+  names,
+  onToggle,
+  onDone,
+}: {
+  shown: Counter[];
+  candidates: Counter[];
+  names: string[];
+  onToggle: (c: Counter) => void;
+  onDone: () => void;
+}) {
   const full = shown.length >= MAX_COUNTERS;
   return (
     <div
@@ -958,7 +1109,7 @@ function CounterPicker({ shown, onToggle, onDone }: { shown: Counter[]; onToggle
         <StripButton onClick={onDone}>Done</StripButton>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
-        {EXTRA_COUNTERS.map((c) => {
+        {candidates.map((c) => {
           const on = shown.includes(c);
           const disabled = !on && full;
           return (
@@ -972,7 +1123,7 @@ function CounterPicker({ shown, onToggle, onDone }: { shown: Counter[]; onToggle
                 disabled ? "bg-t1-disabled text-t1-bg" : "bg-t1-bg text-t1-text active:bg-t1-surface"
               }`}
             >
-              <span>{COUNTER_LABEL[c]}</span>
+              <span>{counterLabel(c, names)}</span>
               <span className={on || disabled ? "" : "text-t1-disabled"}>{on ? "On" : disabled ? "Max 3" : "Off"}</span>
             </button>
           );

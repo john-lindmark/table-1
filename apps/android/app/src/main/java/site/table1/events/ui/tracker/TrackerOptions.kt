@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -43,9 +44,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import site.table1.events.tracker.Chooser
 import site.table1.events.tracker.Dice
+import site.table1.events.tracker.TrackerTable
+import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.BigAction
+import site.table1.events.ui.components.Ghost
 import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.T1Overlay
+import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.T1Stepper
 import site.table1.events.ui.theme.T1
@@ -64,6 +69,7 @@ internal fun TrackerOptionsPanel(
     onChooser: () -> Unit,
     onDice: () -> Unit,
     onHistory: () -> Unit,
+    onNewMatch: (() -> Unit)? = null,
     onLeave: () -> Unit,
 ) {
     T1Overlay(onDismiss) {
@@ -71,7 +77,8 @@ internal fun TrackerOptionsPanel(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().absorbTaps().background(T1.bg)
                 .navigationBarsPadding().padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 30.dp),
         ) {
-            listOf("Chooser" to onChooser, "Roll dice" to onDice, "History" to onHistory, "Leave tracker" to onLeave)
+            listOfNotNull("Chooser" to onChooser, "Roll dice" to onDice, "History" to onHistory,
+                onNewMatch?.let { "New match" to it }, "Leave tracker" to onLeave)
                 .forEach { (title, run) ->
                     Box(
                         Modifier.fillMaxWidth().clickable { onDismiss(); run() }.padding(horizontal = 8.dp, vertical = 16.dp),
@@ -228,5 +235,39 @@ private fun FingerMark(x: Float, y: Float, state: Int, progress: Float) {
                 drawArc(T1.text, -90f, 360f * progress, false, inset, ring, style = stroke)
             }
         }
+    }
+}
+
+/**
+ * A local tracker's first screen (contract/life-tracker-commander-2026-11-03.md): how many players and their
+ * starting life, then Start (the chooser opens next). Continue reopens the saved table as it was.
+ */
+@Composable
+internal fun TrackerSetup(
+    initial: Pair<Int, Int>,
+    canContinue: Boolean,
+    onStart: (players: Int, life: Int) -> Unit,
+    onContinue: () -> Unit,
+    onClose: () -> Unit,
+) {
+    var players by remember { mutableIntStateOf(initial.first) }
+    var life by remember { mutableIntStateOf(initial.second) }
+    T1Screen {
+        Bar("Life tracker", onBack = onClose)
+        Column(Modifier.fillMaxWidth().background(T1.bg).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Label("Players", color = T1.disabled)
+            T1Segmented(TrackerTable.playerChoices.map { "$it" }, TrackerTable.playerChoices.indexOf(players)) {
+                players = TrackerTable.playerChoices[it]
+            }
+        }
+        Column(Modifier.fillMaxWidth().background(T1.bg).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Label("Starting life", color = T1.disabled)
+            T1Segmented(TrackerTable.lifeChoices.map { "$it" }, TrackerTable.lifeChoices.indexOf(life)) {
+                life = TrackerTable.lifeChoices[it]
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        if (canContinue) Row { Ghost("Continue", onClick = onContinue) }
+        BigAction("Start") { onStart(players, life) }
     }
 }

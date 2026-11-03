@@ -170,6 +170,7 @@
 		AE286DDDDEFF5E6EF42FD46A /* DeckImageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C3C427BABDE0420BBFA2F31 /* DeckImageTests.swift */; };
 		B27CD6B6E6888120C3F4CBF0 /* Avatar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59C86AD83E780247A2D36857 /* Avatar.swift */; };
 		B2F842D1E87CF4F8513B8436 /* CardMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6773EAB78C0C783B5ECD9530 /* CardMatcher.swift */; };
+		B52F9A11047D6E1F237AAB78 /* TrackerTableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 333F2D78A13779DEA5EF8525 /* TrackerTableTests.swift */; };
 		B6A6C7D12C940E5BD1E747B9 /* SignInFailureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21C628817BE4FD8CB84DD520 /* SignInFailureTests.swift */; };
 		B72679DFE6E9B307F9182371 /* LiveModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51120128682593DE4286B900 /* LiveModels.swift */; };
 		B7E603EEDA55923110DBF557 /* insights-demo-pages.json in Resources */ = {isa = PBXBuildFile; fileRef = B8A3E817705FF4658785BE3E /* insights-demo-pages.json */; };
@@ -216,6 +217,7 @@
 		E1653E41E6B091A494CAE849 /* CollectionCSV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EAF46D535765875C2F293C5 /* CollectionCSV.swift */; };
 		E1F0E45102E1CC8C52D256A3 /* Kit.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A9DF73F61953DB5F0B47C5 /* Kit.swift */; };
 		E20B375FC352FC15BE6DCB8D /* Moderation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EE4A2075E5DBCBE73C07B9F /* Moderation.swift */; };
+		E367BDDB053873A2B8026086 /* TrackerTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 666D54A7EEF53A4ADCD246A3 /* TrackerTable.swift */; };
 		E4629FB53DD09687F5587E3E /* ResultIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524852D7ADCC9B3C35EC6E7E /* ResultIntents.swift */; };
 		E6EF75CBF6D8EE5FBFCFC1FC /* EventSignUp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A74A6BB8902A12FD8305F32D /* EventSignUp.swift */; };
 		E811FEF95285336653021201 /* TrackerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEBFF4C2089BBCAD4FA4189B /* TrackerModel.swift */; };
@@ -321,6 +323,7 @@
 		323750FA99BF60ED31A922A6 /* EmailSignInTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailSignInTests.swift; sourceTree = "<group>"; };
 		3250839A7E013039DCDCA31A /* TrackerTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerTools.swift; sourceTree = "<group>"; };
 		3321F61FA0FAD5D9ECA6E3C2 /* FollowsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowsTests.swift; sourceTree = "<group>"; };
+		333F2D78A13779DEA5EF8525 /* TrackerTableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerTableTests.swift; sourceTree = "<group>"; };
 		33A07FDE8D216408D15B1D37 /* BindersViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BindersViews.swift; sourceTree = "<group>"; };
 		33A21DAB0495F4693D23EC24 /* Controls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Controls.swift; sourceTree = "<group>"; };
 		33EF1D253D3C68A7E1E89270 /* insights-demo-constructed-modern.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "insights-demo-constructed-modern.json"; sourceTree = "<group>"; };
@@ -379,6 +382,7 @@
 		605B1F53DB5DCBB40CE99BBD /* Icons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Icons.swift; sourceTree = "<group>"; };
 		6154A378C9E146013FBB40EB /* MetaWidgetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetaWidgetTests.swift; sourceTree = "<group>"; };
 		615983FE56560F6B33D264D8 /* WidgetLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetLogicTests.swift; sourceTree = "<group>"; };
+		666D54A7EEF53A4ADCD246A3 /* TrackerTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerTable.swift; sourceTree = "<group>"; };
 		66BF17B948514FF1CAA8D71C /* Table1App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Table1App.swift; sourceTree = "<group>"; };
 		6773EAB78C0C783B5ECD9530 /* CardMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardMatcher.swift; sourceTree = "<group>"; };
 		67E76A43B3D3DCD33442A2B6 /* EventView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventView.swift; sourceTree = "<group>"; };
@@ -613,6 +617,7 @@
 				68BD680ADA8784C842E698AE /* SpiceTests.swift */,
 				2A58D77D68C5D44D9BC95D78 /* SpotsTests.swift */,
 				B315C86A391E28E160556A28 /* TelemetryTests.swift */,
+				333F2D78A13779DEA5EF8525 /* TrackerTableTests.swift */,
 				27D70D37E0D41352AEB48679 /* TrackerToolsTests.swift */,
 				C43C53CE7466CCA393B65C8C /* TradesStoreTests.swift */,
 				C762952B6C07F999AFBE53F2 /* WantPricesTests.swift */,
@@ -628,6 +633,7 @@
 				17C7651ABA7EBFC501431ACC /* LifeTrackerView.swift */,
 				DEBFF4C2089BBCAD4FA4189B /* TrackerModel.swift */,
 				68BF61D7BD51BF63A272E61C /* TrackerOptions.swift */,
+				666D54A7EEF53A4ADCD246A3 /* TrackerTable.swift */,
 				3250839A7E013039DCDCA31A /* TrackerTools.swift */,
 			);
 			path = Tracker;
@@ -1115,6 +1121,7 @@
 				721D871B01D6D27B9D713E76 /* SpiceTests.swift in Sources */,
 				2B829B4A57CFC7151F8A404C /* SpotsTests.swift in Sources */,
 				2CFD4D7040430A9A75487FD5 /* TelemetryTests.swift in Sources */,
+				B52F9A11047D6E1F237AAB78 /* TrackerTableTests.swift in Sources */,
 				AA18C4873606A59EE0F5D0CA /* TrackerToolsTests.swift in Sources */,
 				976660A2A840C1DEF55C74D9 /* TradesStoreTests.swift in Sources */,
 				72D25F18D04A432DF1F08706 /* WantPricesTests.swift in Sources */,
@@ -1243,6 +1250,7 @@
 				4BAE3961425780663A1AE860 /* Telemetry.swift in Sources */,
 				E811FEF95285336653021201 /* TrackerModel.swift in Sources */,
 				00C17422CF72D1C2AF674621 /* TrackerOptions.swift in Sources */,
+				E367BDDB053873A2B8026086 /* TrackerTable.swift in Sources */,
 				D2B58DA19C86628F117BBCF4 /* TrackerTools.swift in Sources */,
 				8F76AC20A2EAB907F47E8028 /* Trades.swift in Sources */,
 				2A4E42EC5BBCE37EE4BC7CE5 /* ValueHistory.swift in Sources */,
