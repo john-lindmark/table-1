@@ -1,6 +1,9 @@
 package site.table1.events.library
 
 import site.table1.events.util.rethrowIfCancelled
+import site.table1.events.util.isExpiredSession
+import site.table1.events.util.retryOnExpiredSession
+import io.github.jan.supabase.auth.auth
 
 import android.content.Context
 import android.database.Cursor
@@ -377,7 +380,9 @@ object CatalogStore {
         val hadPack = db != null
         if (!hadPack) _state.update { it.copy(phase = "loading", error = null) }
         try {
-            val raw = T1App.supabase.postgrest.rpc("catalog_info").decodeAs<kotlinx.serialization.json.JsonElement>()
+            val raw = retryOnExpiredSession(refresh = { T1App.supabase.auth.refreshCurrentSession() }) {
+                T1App.supabase.postgrest.rpc("catalog_info").decodeAs<kotlinx.serialization.json.JsonElement>()
+            }
             if (raw == JsonNull || raw !is JsonObject) {
                 if (!hadPack) fail("Card data isn't available yet")
                 return
@@ -407,7 +412,8 @@ object CatalogStore {
             dir.listFiles()?.filter { it.name != file.name && it.name.startsWith("catalog-") }?.forEach { it.delete() }
         } catch (e: Exception) {
             e.rethrowIfCancelled()
-            if (e !is java.io.IOException) Telemetry.error(e, "catalog_pack")   // offline is expected
+            // Offline, or a token the refresh couldn't renew (offline too), is expected.
+            if (e !is java.io.IOException && !e.isExpiredSession()) Telemetry.error(e, "catalog_pack")
             // With a pack installed, keep using it quietly and try again next launch.
             if (!hadPack) fail(e.message ?: "Couldn't load card data")
         }
