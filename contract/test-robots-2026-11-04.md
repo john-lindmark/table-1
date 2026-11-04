@@ -44,4 +44,13 @@ A false positive comes back out with `select t1_private.robot_release('<id>')`.
 Accounts with an Apple sign-in are left for delete-account (Apple's token must be revoked). One that can't go (it joined
 a real event) stays and is tried again the next day. `t1_private.robot_remove('<id>')` removes one at once.
 
+## Testers are never robots (2026-11-04)
+
+Accounts in `t1_private.demo_testers` are never marked (`robot_quarantine` returns false, whatever the reason) and
+never removed (`robot_remove` returns false, for a tester marked before it became one). The store review account
+(`appreview@table-1.site`) is a demo tester, and Play's pre-launch robots sign in with the App access credentials on
+Test Lab phones, where the Android app marks whoever signs in; without this the sweep would delete the review account
+a week later. Migration `20261104140000_robots_spare_testers.sql`. To mark a tester as a robot, take it off the
+tester list first.
+
 Tests: `supabase/tests/52_test_robots_test.sql`, Android `TestLabTest`.

@@ -77,6 +77,44 @@ Sign-in required: yes. User name `appreview@table-1.site`, password: the code fr
 >
 > Table 1 is unofficial Fan Content permitted under Wizards of the Coast's Fan Content Policy and is free.
 
+## App access (Google Play Console)
+
+Policy → App content → App access: "All or some functionality is restricted", one set of instructions. Name
+"Review account", username `appreview@table-1.site`, password the code from the Keychain, and the App Store notes above
+as the instructions (replace "Sign in with Apple also works" with "Google and Discord sign-in also work"). Play's
+pre-launch robots use these credentials too; the account is a demo tester, so it is never marked or removed as a robot
+(contract/test-robots-2026-11-04.md § Testers are never robots). They can still change its data, so reseed before each
+submission.
+
+## Data safety (Google Play Console)
+
+- Collects or shares required data types: **Yes**.
+- Encrypted in transit: **Yes** (every call is HTTPS: Supabase, PostHog, Sentry).
+- Users can request deletion: **Yes**, in the app (Account → Delete account) and at
+  `https://table-1.site/delete-account`. Account creation: email code, Google, Discord (OAuth).
+- Shared: **No** for every type. Supabase, Sentry, PostHog and Anthropic (moderation, deck finder, briefs) process
+  data for us as service providers, and Discord and TCGplayer get data only when the user sends it there, all of
+  which Play exempts.
+- Processed ephemerally: **No** for every type.
+
+| Data type | Required / optional | Purposes |
+|---|---|---|
+| Location → Approximate location (rough area for nearby events and alerts) | Optional | App functionality |
+| Location → Precise location (an event pinned where the organizer is) | Optional | App functionality |
+| Personal info → Name | Required | App functionality, Account management, Fraud prevention, security and compliance |
+| Personal info → Email address | Required | App functionality, Account management |
+| Personal info → User IDs | Required | App functionality, Analytics, Account management |
+| Photos and videos → Photos (profile and deck photos) | Optional | App functionality, Fraud prevention, security and compliance |
+| App activity → App interactions (PostHog) | Required | Analytics |
+| App activity → Other user-generated content (results, collection, decks, trades, reports) | Required | App functionality, Fraud prevention, security and compliance |
+| App info and performance → Crash logs (Sentry) | Required | App functionality, Analytics |
+| App info and performance → Diagnostics (Sentry) | Required | App functionality, Analytics |
+| App info and performance → Other app performance data (scan reports: text read from cards, never images; Account → Improve scanning turns them off) | Optional | Analytics |
+| Device or other IDs (FCM push token, PostHog's install id) | Required | App functionality, Analytics |
+
+Not collected: financial info, health, messages, contacts, calendar, files, audio, web browsing, installed apps,
+search history. Camera frames are read on the phone and never leave it.
+
 ## App Privacy (App Store Connect), matching `PrivacyInfo.xcprivacy`
 
 None of it is used for tracking. All of it is linked to the user (the account id).
@@ -95,7 +133,7 @@ None of it is used for tracking. All of it is linked to the user (the account id
 Not collected: contacts, purchases, financial info, health, browsing or search history, device ID, coarse
 location (nearby searches aren't stored).
 
-Google Play's Data safety form takes the same list (SETUP.md §4 step 7).
+Google Play's Data safety answers are above; they add approximate location, device IDs and scan reports.
 
 ## Before submitting
 
