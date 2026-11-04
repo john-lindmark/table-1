@@ -1,5 +1,5 @@
 -- Table 1 — Google's test robots (2026-11-04; contract/test-robots-2026-11-04.md).
--- Four accounts John didn't recognise (Oct 31 – Nov 4) were Google Play's pre-launch report: Firebase Test Lab phones
+-- Four accounts John didn't recognize (Oct 31 – Nov 4) were Google Play's pre-launch report: Firebase Test Lab phones
 -- signing in with Google from Google's networks, creating a Star Trek draft with every default and leaving. They were
 -- real accounts with real events, three of them Nearby, so robot events could alert real players (none did).
 -- Robots stay allowed (the pre-launch report finds crashes on real phones) but are kept apart:
