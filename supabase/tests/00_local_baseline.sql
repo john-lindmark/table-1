@@ -32,6 +32,14 @@ create table auth.identities (
   created_at timestamptz default now(),
   unique (provider, provider_id)
 );
+-- Sign-in sessions (Supabase ships this; ip is the client's address).
+create table auth.sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz default now(),
+  user_agent text,
+  ip inet
+);
 create function auth.uid() returns uuid language sql stable as
 $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
 

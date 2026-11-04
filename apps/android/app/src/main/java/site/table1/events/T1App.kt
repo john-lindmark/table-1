@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import site.table1.events.util.Push
 import site.table1.events.util.Telemetry
+import site.table1.events.util.TestLab
 
 /** One Supabase client for the whole app; the session persists across launches. */
 class T1App : Application() {
@@ -22,6 +23,7 @@ class T1App : Application() {
         instance = this
         Telemetry.start(this)
         Push.start(this)
+        TestLab.start(this)
     }
 
     companion object {

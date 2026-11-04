@@ -600,6 +600,26 @@
         "type": "null"
       }
     },
+    "account_mark_robot": {
+      "note": "Android only, on Firebase Test Lab phones (Settings.System firebase.test.lab = true): marks the signed-in account as Google's test robot. contract/test-robots-2026-11-04.md.",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "marked": {
+            "type": "boolean",
+            "description": "False when the account was already marked."
+          }
+        },
+        "required": [
+          "marked"
+        ]
+      }
+    },
     "is_event_organizer": {
       "note": "True when the signed-in account is an owner/organizer of the event. Picks the organizer vs player screen.",
       "params": {

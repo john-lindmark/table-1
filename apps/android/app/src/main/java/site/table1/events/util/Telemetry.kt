@@ -54,17 +54,21 @@ object Telemetry {
     private val allowedInBuild get() = !BuildConfig.DEBUG || BuildConfig.TELEMETRY_IN_DEBUG
     private val environment get() = if (BuildConfig.DEBUG) "debug" else BuildConfig.RELEASE_ENVIRONMENT
 
-    /** Called first thing in Application.onCreate, before anything else can crash. */
+    /**
+     * Called first thing in Application.onCreate, before anything else can crash. On Google's Test Lab phones (the Play
+     * pre-launch report) crashes still go to Sentry, as environment `test_lab`, and nothing goes to PostHog.
+     */
     fun start(context: Context) {
         if (!allowedInBuild || !sharing) return
-        startSentry(context)
-        startPostHog(context)
+        val robot = TestLab.isTestLab(context)
+        startSentry(context, robot)
+        if (!robot) startPostHog(context)
         if (sentryOn || postHogOn) watchSession()
     }
 
-    private fun startSentry(context: Context) {
+    private fun startSentry(context: Context, robot: Boolean) {
         if (BuildConfig.SENTRY_DSN.isEmpty()) return
-        val env = environment
+        val env = if (robot) "test_lab" else environment
         SentryAndroid.init(context) { o ->
             o.dsn = BuildConfig.SENTRY_DSN
             o.environment = env
