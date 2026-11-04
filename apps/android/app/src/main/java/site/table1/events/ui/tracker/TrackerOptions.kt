@@ -157,8 +157,8 @@ internal fun TrackerDicePanel(onDismiss: () -> Unit) {
 /**
  * Covers the screen. Everyone puts a finger down; when the fingers have stayed put for two seconds one is
  * picked at random and turns accent, and the tracker comes back [Chooser.RETURN_MS] later (Done leaves sooner).
- * A full-screen dialog drawn edge to edge, so Done is padded above the navigation bar (in a popup it sat
- * behind it, and the only way out was the back gesture).
+ * A full-screen dialog drawn edge to edge like the app's other full-screen screens, with Done padded for the
+ * system bars. In a popup John saw no Done and left only with the back gesture (cause not found).
  */
 @Composable
 internal fun TrackerChooser(onDismiss: () -> Unit) {

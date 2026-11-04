@@ -24,8 +24,9 @@ class FullScreenDialogTest {
         assertEquals(emptyList<String>(), offenders)
     }
 
-    /** The chooser covers the screen with Done at the bottom; drawn in a popup, Done sat behind the navigation bar
-     *  and the only way back to the tracker was the back gesture (John, 2026-11-04). */
+    /** The chooser covers the screen with Done at the bottom. In a popup John saw no Done and got back to the
+     *  tracker only with the back gesture (2026-11-04, gesture navigation, cause not found); it is drawn like the
+     *  other full-screen screens now. */
     @Test fun theChooserIsAFullScreenDialog() {
         val src = File("src/main/java/site/table1/events/ui/tracker/TrackerOptions.kt").readText()
         val chooser = src.substringAfter("internal fun TrackerChooser(").substringBefore("\n}\n")
