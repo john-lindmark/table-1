@@ -28,8 +28,11 @@ Starting life, New match, Report now). Leave tracker closes the tracker (what Cl
 Covers the screen. Everyone puts a finger down. Once two or more fingers have stayed down with no finger
 landing or lifting for **2 s**, one is picked at random (uniform). Moving a finger doesn't restart the wait.
 While waiting each finger shows a ring that closes over the 2 s; the pick fills in accent (the result), the
-others turn grey. The marks stay until every finger lifts; fingers that land after the pick are ignored.
-Then it's ready again. Done closes it. Swipe-back is off on this screen (it would fight the fingers).
+others turn grey. Fingers that land after the pick are ignored. **1.5 s after the pick the tracker comes
+back on its own** (2026-11-04, John: on Android there was no way back after a pick but the back gesture);
+Done closes it sooner. Swipe-back is off on this screen (it would fight the fingers). On Android the chooser
+is a full-screen dialog drawn edge to edge (`FullScreenDialog`), so Done sits above the navigation bar; in a
+popup it sat behind it.
 
 ## Roll dice
 
@@ -40,7 +43,7 @@ remembered on this device.
 ## Logic and tests
 
 Pure, with an injectable random source: `TrackerTools.swift` (`Dice`, `Chooser`), `trackerTools.ts`,
-`TrackerTools.kt`. Same cases on each: `TrackerToolsTests` (iOS, also Reset game vs Reset match on a local
+`TrackerTools.kt` (return delay `Chooser.returnAfter` / `CHOOSER_RETURN_MS` / `Chooser.RETURN_MS`). Same cases on each: `TrackerToolsTests` (iOS, also Reset game vs Reset match on a local
 model), `trackerTools.test.ts`, `TrackerToolsTest`.
 
 Telemetry: `tracker_dice_rolled {sides, count}`, `tracker_chooser_opened`, `tracker_chooser_picked {fingers}`,

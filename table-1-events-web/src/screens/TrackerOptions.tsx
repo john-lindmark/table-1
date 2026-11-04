@@ -4,6 +4,7 @@ import { capture } from "../lib/telemetry";
 import { LIFE_CHOICES, PLAYER_CHOICES, lastSetup } from "../lib/trackerTable";
 import {
   CHOOSER_MIN_FINGERS,
+  CHOOSER_RETURN_MS,
   DICE_SIDES,
   MAX_DICE,
   chooserDown,
@@ -150,7 +151,7 @@ export function TrackerDicePanel({ onClose }: { onClose: () => void }) {
 }
 
 /** Covers the screen. Everyone puts a finger down; when the fingers have stayed put for two seconds one is
- *  picked at random and turns accent. Lift every finger to go again. */
+ *  picked at random and turns accent, and the tracker comes back CHOOSER_RETURN_MS later (Done leaves sooner). */
 export function TrackerChooser({ onClose }: { onClose: () => void }) {
   const [state, setState] = useState(emptyChooser);
   const [now, setNow] = useState(() => performance.now());
@@ -179,6 +180,8 @@ export function TrackerChooser({ onClose }: { onClose: () => void }) {
     if (!picked) return;
     navigator.vibrate?.(30);
     capture("tracker_chooser_picked", { fingers });
+    const back = setTimeout(onClose, CHOOSER_RETURN_MS);
+    return () => clearTimeout(back);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per pick
   }, [picked]);
 

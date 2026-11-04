@@ -24,6 +24,8 @@ export const diceBreakdown = (rolls: number[]): string | null => (rolls.length >
 
 export const CHOOSER_SETTLE_MS = 2000;
 export const CHOOSER_MIN_FINGERS = 2;
+/** After the pick the tracker comes back on its own this much later. */
+export const CHOOSER_RETURN_MS = 1500;
 
 export interface Finger {
   id: number;

@@ -93,4 +93,9 @@ class TrackerToolsTest {
         }
         assertEquals(setOf(1L, 2L, 3L, 4L), winners)
     }
+
+    /** John couldn't get back to the tracker after a pick (2026-11-04): it now comes back on its own, shortly. */
+    @Test fun theTrackerComesBackShortlyAfterThePick() {
+        assertEquals(1_500L, Chooser.RETURN_MS)
+    }
 }

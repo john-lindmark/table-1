@@ -66,5 +66,7 @@ data class Chooser(
     companion object {
         const val SETTLE_MS = 2_000L
         const val MIN_FINGERS = 2
+        /** After the pick the tracker comes back on its own this much later. */
+        const val RETURN_MS = 1_500L
     }
 }

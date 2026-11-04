@@ -23,4 +23,14 @@ class FullScreenDialogTest {
             .filter { "usePlatformDefaultWidth = false" in it.readText() }.map { it.name }.toList()
         assertEquals(emptyList<String>(), offenders)
     }
+
+    /** The chooser covers the screen with Done at the bottom; drawn in a popup, Done sat behind the navigation bar
+     *  and the only way back to the tracker was the back gesture (John, 2026-11-04). */
+    @Test fun theChooserIsAFullScreenDialog() {
+        val src = File("src/main/java/site/table1/events/ui/tracker/TrackerOptions.kt").readText()
+        val chooser = src.substringAfter("internal fun TrackerChooser(").substringBefore("\n}\n")
+        assertTrue(chooser.contains("Dialog(onDismissRequest = onDismiss, properties = FullScreenDialog)"))
+        assertFalse(chooser.contains("T1Overlay("))
+        assertTrue(chooser.contains("navigationBarsPadding()"))
+    }
 }

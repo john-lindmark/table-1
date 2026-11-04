@@ -101,7 +101,7 @@ struct TrackerDicePanel: View {
 // MARK: Chooser
 
 /// Covers the screen. Everyone puts a finger down; when the fingers have stayed put for two seconds one is
-/// picked at random and turns accent. Lift every finger to go again.
+/// picked at random and turns accent, and the tracker comes back `Chooser.returnAfter` later (Done leaves sooner).
 struct TrackerChooserScreen: View {
     @State private var chooser = Chooser()
     @State private var pickCount = 0
@@ -136,6 +136,12 @@ struct TrackerChooserScreen: View {
         .background(T1.bg.ignoresSafeArea())
         .statusBarHidden()
         .sensoryFeedback(.success, trigger: pickCount)
+        .task(id: pickCount) {
+            guard pickCount > 0 else { return }
+            try? await Task.sleep(for: .seconds(Chooser.returnAfter))
+            guard !Task.isCancelled else { return }
+            T1Overlays.shared.dismissPanel()
+        }
         .onAppear { Telemetry.capture("tracker_chooser_opened") }
     }
 

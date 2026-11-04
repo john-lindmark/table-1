@@ -42,11 +42,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import kotlinx.coroutines.delay
 import site.table1.events.tracker.Chooser
 import site.table1.events.tracker.Dice
 import site.table1.events.tracker.TrackerTable
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.BigAction
+import site.table1.events.ui.components.FullScreenDialog
 import site.table1.events.ui.components.Ghost
 import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.T1Overlay
@@ -153,7 +156,9 @@ internal fun TrackerDicePanel(onDismiss: () -> Unit) {
 
 /**
  * Covers the screen. Everyone puts a finger down; when the fingers have stayed put for two seconds one is
- * picked at random and turns accent. Lift every finger to go again.
+ * picked at random and turns accent, and the tracker comes back [Chooser.RETURN_MS] later (Done leaves sooner).
+ * A full-screen dialog drawn edge to edge, so Done is padded above the navigation bar (in a popup it sat
+ * behind it, and the only way out was the back gesture).
  */
 @Composable
 internal fun TrackerChooser(onDismiss: () -> Unit) {
@@ -175,9 +180,11 @@ internal fun TrackerChooser(onDismiss: () -> Unit) {
         if (!chooser.picked) return@LaunchedEffect
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         Telemetry.capture("tracker_chooser_picked", mapOf("fingers" to chooser.fingers.size))
+        delay(Chooser.RETURN_MS)
+        onDismiss()
     }
 
-    T1Overlay(onDismiss) {
+    Dialog(onDismissRequest = onDismiss, properties = FullScreenDialog) {
         Box(
             Modifier.fillMaxSize().background(T1.bg).pointerInput(Unit) {
                 awaitPointerEventScope {

@@ -108,6 +108,11 @@ final class TrackerToolsTests: XCTestCase {
         XCTAssertEqual(winners, [1, 2, 3, 4])
     }
 
+    /// The tracker comes back on its own shortly after the pick (John, 2026-11-04), as on Android and the web.
+    func testTheTrackerComesBackShortlyAfterThePick() {
+        XCTAssertEqual(Chooser.returnAfter, 1.5)
+    }
+
     @MainActor
     func testResetMatchClearsLocalGamesButResetGameKeepsThem() async {
         let saved = UserDefaults.standard.data(forKey: "tracker.local.v1")

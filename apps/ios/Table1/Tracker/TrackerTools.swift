@@ -29,6 +29,8 @@ enum Dice {
 struct Chooser {
     static let settle: TimeInterval = 2.0
     static let minFingers = 2
+    /// After the pick the tracker comes back on its own this much later.
+    static let returnAfter: TimeInterval = 1.5
 
     struct Finger: Equatable {
         let id: Int

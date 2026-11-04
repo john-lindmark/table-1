@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CHOOSER_RETURN_MS,
   CHOOSER_SETTLE_MS,
   DICE_SIDES,
   MAX_DICE,
@@ -111,5 +112,10 @@ describe("chooser", () => {
       if (w != null) winners.add(w);
     }
     expect([...winners].sort()).toEqual([1, 2, 3, 4]);
+  });
+
+  // The tracker comes back on its own shortly after the pick (John, 2026-11-04), as on iOS and Android.
+  it("brings the tracker back shortly after the pick", () => {
+    expect(CHOOSER_RETURN_MS).toBe(1500);
   });
 });
