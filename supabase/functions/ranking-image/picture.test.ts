@@ -1,7 +1,7 @@
 // ranking-image (picture.ts, request.ts): the apps' Top 100 picture as SVG, for a top 100, a top 50 and a color's list,
 // and the request the bot sends.
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { CH, CW, GAP, MAX_CARDS, MIN_WIDTH, PAD, PEEK, PER, rankingPicture, size } from "./picture.ts";
+import { CH, corner, CW, GAP, MAX_CARDS, MIN_WIDTH, PAD, PEEK, PER, rankingPicture, size } from "./picture.ts";
 import { layoutFor, parseAsk } from "./request.ts";
 
 const uuid = (n: number) => `c0000000-0000-0000-0000-${String(n).padStart(12, "0")}`;
@@ -28,8 +28,19 @@ Deno.test("every card drawn in rank order with its badge; pile headings; the hea
   // Card 11 starts the second pile, at the top; card 12 peeks below it.
   assert(pic.svg.includes(`<image x="${PAD + CW + GAP}" y="${PAD + 90 + 24}"`));
   assert(pic.svg.includes(`<image x="${PAD + CW + GAP}" y="${PAD + 90 + 24 + PEEK}"`));
-  // Alpha's rounder corners, as in the deck picture.
-  assert(pic.svg.includes(`rx="${(CW * 0.0699).toFixed(2)}"`));
+  // No clip paths (a layer per card in resvg, what hit the edge's CPU limit); the corners that show are painted over,
+  // Alpha's rounder, as in the deck picture: a pile's first card's top corners, its last card's bottom ones.
+  assert(!pic.svg.includes("clip-path") && !pic.svg.includes("<clipPath"));
+  assert(pic.svg.includes(corner(PAD, PAD + 90 + 24, CW * 0.0699, 1, 1)), "Alpha's top-left corner");
+  assertEquals((pic.svg.match(/<path /g) ?? []).length, 5 * 4, "four corners per pile of ten");
+  const short = rankingPicture({ title: "T", byline: "B", cards: cards(3), art: art(3) });
+  assert(short.svg.includes(corner(PAD + CW, PAD + 90 + 24 + 2 * PEEK + CH, CW * 0.0432, -1, -1)), "a short pile's last card's bottom-right");
+});
+
+Deno.test("a corner is the square outside its radius, swept toward the card", () => {
+  assertEquals(corner(10, 20, 5, 1, 1), `<path d="M10.00 20.00H15.00A5.00 5.00 0 0 0 10.00 25.00Z" fill="#171725"/>`);
+  assertEquals(corner(10, 20, 5, -1, 1), `<path d="M10.00 20.00H5.00A5.00 5.00 0 0 1 10.00 25.00Z" fill="#171725"/>`);
+  assertEquals(corner(10, 20, 0, 1, 1), "", "a square-cornered printing (CED) has none");
 });
 
 Deno.test("a card without art shows its name; text is escaped; a short list pile is labelled to its end", () => {
@@ -52,8 +63,7 @@ Deno.test("the request: a title, a byline and 1 to 100 cards with Oracle ids; ba
   assertEquals(parseAsk(null), null);
 });
 
-Deno.test("small card images; 1.5x up to 50 cards, 1x beyond", () => {
-  assertEquals(layoutFor(17), { scale: 1.5, art: "small" });
-  assertEquals(layoutFor(50), { scale: 1.5, art: "small" });
-  assertEquals(layoutFor(100), { scale: 1, art: "small" });
+Deno.test("cards drawn at the small image's own 146 px, nearest-neighbour, so nothing is resampled", () => {
+  for (const n of [17, 50, 100]) assertEquals(layoutFor(n), { scale: 146 / 168, art: "small", imageRendering: 1 });
+  assertEquals(Math.round(CW * layoutFor(100).scale), 146);
 });

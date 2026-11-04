@@ -2,7 +2,7 @@
 // out from the ranking it read as its owner and POSTs it here with the service key; the PNG comes back and the bot
 // attaches it to its message, so no ranking is ever served at a public address.
 //   POST { title, byline, cards: [{ oracle_id, name, card_id? }] }   Authorization: Bearer <service role key>
-//   -> image/png (a top 100 is 1870 px wide, a top 50 1440; layoutFor)
+//   -> image/png (a top 100 is 1625 px wide, a top 50 835; layoutFor)
 // Deployed with verify_jwt off; the service key is compared exactly, so only the bot (or whatever holds that key) can ask.
 // A card without the cube's printing is drawn in its usual one (card_oracles.source_card_id).
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -92,6 +92,7 @@ export async function render(ask: Ask): Promise<Uint8Array<ArrayBuffer>> {
   const r = new Resvg(pic.svg, {
     fitTo: { mode: "width", value: Math.round(pic.width * layout.scale) },
     font: { fontBuffers: fonts, loadSystemFonts: false, defaultFontFamily: "JetBrains Mono" },
+    imageRendering: layout.imageRendering,
   });
   const rendered = r.render().asPng();
   const png = new Uint8Array(new ArrayBuffer(rendered.byteLength));

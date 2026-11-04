@@ -36,6 +36,15 @@ export function size(n: number): { width: number; height: number; piles: number 
   return { width, height, piles };
 }
 
+/** The background over a card's square corner outside its radius: at corner (cx, cy), the card lying toward (dx, dy). */
+export function corner(cx: number, cy: number, r: number, dx: 1 | -1, dy: 1 | -1): string {
+  if (r <= 0) return "";
+  const f = (v: number) => v.toFixed(2);
+  // From the corner along the top or bottom edge, the quarter arc back to the side edge, then home.
+  const sweep = dx === dy ? 0 : 1;
+  return `<path d="M${f(cx)} ${f(cy)}H${f(cx + dx * r)}A${f(r)} ${f(r)} 0 0 ${sweep} ${f(cx)} ${f(cy + dy * r)}Z" fill="${C.bg}"/>`;
+}
+
 /** Text placed by its baseline, as the canvas does. */
 const at = (s: string, x: number, baseline: number, fs: number, color: string, o: Parameters<typeof text>[5] = {}) =>
   text(s, x, baseline - fs * 0.78, fs, color, o);
@@ -52,11 +61,14 @@ export function rankingPicture(d: RankingPictureInput): Picture {
     const x = PAD + pile * (CW + GAP), y = PAD + HEAD + 24 + k * PEEK;
     if (k === 0) parts.push(at(`#${i + 1}–${Math.min(i + PER, cards.length)}`, x, PAD + HEAD + 12, 12, C.muted));
     const r = CW * cornerRatio(card.set ?? "");
-    const id = `r${i}`;
-    parts.push(`<clipPath id="${id}"><rect x="${x}" y="${y}" width="${CW}" height="${CH}" rx="${r.toFixed(2)}"/></clipPath>`);
     const art = card.cardId ? d.art.get(card.cardId) : undefined;
     if (art?.href) {
-      parts.push(`<image x="${x}" y="${y}" width="${CW}" height="${CH}" preserveAspectRatio="none" clip-path="url(#${id})" xlink:href="${art.href}"/>`);
+      // No clip path: a clip is a whole extra layer per card in resvg, most of the render's CPU (2026-11-04, 546s on
+      // the edge). The rounded corners are painted over in the background where they show: the pile's top card's top
+      // corners and its last card's bottom ones (elsewhere a corner sits on the card above, a few pixels either way).
+      parts.push(`<image x="${x}" y="${y}" width="${CW}" height="${CH}" preserveAspectRatio="none" xlink:href="${art.href}"/>`);
+      if (k === 0) parts.push(corner(x, y, r, 1, 1), corner(x + CW, y, r, -1, 1));
+      if (k === PER - 1 || i === cards.length - 1) parts.push(corner(x, y + CH, r, 1, -1), corner(x + CW, y + CH, r, -1, -1));
     } else {
       // No art: the name where the name bar would be, on the hover color, as the app draws it.
       parts.push(`<rect x="${x}" y="${y}" width="${CW}" height="${CH}" rx="${r.toFixed(2)}" fill="${C.hover}"/>`);

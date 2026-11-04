@@ -1,10 +1,12 @@
 // What the bot sends ranking-image (index.ts), checked. Pure, for the tests.
 import { MAX_CARDS } from "./picture.ts";
 
-/** Points to pixels, and the Scryfall size the cards are fetched in. Scryfall's small images (146 px wide) keep the
- *  render inside an edge function's CPU budget: 100 full-size images took 2.1 s of rendering on a Mac at 1.5×, small
- *  ones 0.8 s at 1×. Up to 50 cards are drawn at 1.5×, more at 1×; either way about 0.75 s (measured 2026-11-03). */
-export const layoutFor = (n: number): { scale: number; art: "small" | "normal" } => ({ scale: n > 50 ? 1 : 1.5, art: "small" });
+/** Points to pixels, the Scryfall size the cards are fetched in, and resvg's image rendering. Every card is drawn at
+ *  exactly the small image's 146 px (168 pt × 146/168), so no image is resampled and nearest-neighbour costs nothing:
+ *  smoothing and per-card clip layers were the render's CPU, and a top 50 at 1.5× with them hit the edge's limit
+ *  (546 WORKER_RESOURCE_LIMIT, 2026-11-04). On a Mac a top 50 went 629 → 79 ms of rendering. */
+export const layoutFor = (_n: number): { scale: number; art: "small" | "normal"; imageRendering: 0 | 1 } =>
+  ({ scale: 146 / 168, art: "small", imageRendering: 1 });
 
 export interface AskCard { oracle_id: string; name: string; card_id: string | null }
 export interface Ask { title: string; byline: string; cards: AskCard[] }
