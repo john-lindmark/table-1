@@ -15,7 +15,9 @@ import {
   parseButtonId, parseWhen, type Part, partComponents, partConfirmMessage, partEmbed,
   type PartPost, ResponseType, resultsComponents, resultsEmbed, userId, zoneChoices,
 } from "./embeds.ts";
-import { emptyText, rankingChoice, rankingComponents, rankingEmbed, type RankingPost, type RankingRow, rankingView, rankShow } from "./ranking.ts";
+import {
+  emptyText, RANKING_FILE, rankingChoice, rankingComponents, rankingEmbed, rankingImageAsk, type RankingPost, type RankingRow, rankingView, rankShow,
+} from "./ranking.ts";
 import { isTeamFormat, loadStandings } from "./standings.ts";
 import { hashId, Telemetry } from "./telemetry.ts";
 import { verifyInteraction } from "./verify.ts";
@@ -31,6 +33,8 @@ const SALT = env("DISCORD_TELEMETRY_SALT") || env("DISCORD_APPLICATION_ID");
 const DECK_IMAGE = env("DECK_IMAGE_URL") || `${env("SUPABASE_URL")}/functions/v1/deck-image`;
 // Where Insights pictures are drawn (the meta-image function; contract § Insights images).
 const META_IMAGE = env("META_IMAGE_URL") || `${env("SUPABASE_URL")}/functions/v1/meta-image`;
+// Where a ranking's picture is drawn (the ranking-image function, asked with the service key; contract § Rankings).
+const RANKING_IMAGE = env("RANKING_IMAGE_URL") || `${env("SUPABASE_URL")}/functions/v1/ranking-image`;
 
 const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
 const rest = new DiscordRest(BOT_TOKEN);
@@ -217,8 +221,10 @@ async function meta(ctx: Ctx, kind: MetaKind, options: Parameters<typeof opt>[0]
   return reply({ embeds: [metaEmbed(ask, archetype, picture)], components: metaComponents(ask) });
 }
 
-/** /ranking: one of your rankings, its final top 50 / 100 or one color's list, public in the channel. Nothing is shared
- *  on Table 1 by posting: the names go to Discord, and Open in Table 1 is there only when the ranking is shared. */
+/** /ranking: one of your rankings, its final top 50 / 100 or one color's list, as the apps' Top 100 picture, public in
+ *  the channel. Drawing takes seconds, so the answer is Discord's "thinking…" and the post is put in place once
+ *  ranking-image has drawn it; if it can't be drawn, the post is taken down and only the person is told. Nothing is
+ *  shared on Table 1 by posting: Open in Table 1 is there only when the ranking is shared. */
 async function ranking(ctx: Ctx, id: string, showValue: string | undefined): Promise<Response> {
   const p = await rpc<RankingPost>("discord_ranking", { p_discord_id: ctx.discordId, p_id: id });
   const show = rankShow(showValue, p.top);
@@ -227,7 +233,37 @@ async function ranking(ctx: Ctx, id: string, showValue: string | undefined): Pro
   const empty = emptyText(p, show.job, v);
   if (empty || !v) return ephemeral(empty ?? "Nothing to post yet.");
   ctx.telemetry.push({ event: "discord_ranking_posted", show: show.job === "F" ? String(show.n) : show.job, kind: p.set_key ? "set" : "cube", done: v.done, places: v.rows.length });
-  return reply({ embeds: [rankingEmbed(p, v)], components: rankingComponents(p, show.job) });
+  later(ctx, async () => {
+    const png = await drawRanking(rankingImageAsk(p, v));
+    if (png) {
+      const r = await rest.editOriginal(ctx.ix, { embeds: [rankingEmbed(p, v)], components: rankingComponents(p, show.job) }, { name: RANKING_FILE, bytes: png, type: "image/png" });
+      if (r.ok) return;
+    }
+    await rest.deleteOriginal(ctx.ix);
+    await rest.followUp(ctx.ix, { content: "Couldn't draw the ranking's picture just now. Try /ranking again in a moment.", flags: EPHEMERAL });
+  });
+  return json({ type: ResponseType.DEFERRED });
+}
+
+/** The ranking's picture from ranking-image, or null (logged) when it can't be drawn. */
+async function drawRanking(ask: ReturnType<typeof rankingImageAsk>): Promise<Uint8Array<ArrayBuffer> | null> {
+  try {
+    const r = await fetch(RANKING_IMAGE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${env("SUPABASE_SERVICE_ROLE_KEY")}` },
+      body: JSON.stringify(ask),
+      signal: AbortSignal.timeout(60000),
+    });
+    if (!r.ok) {
+      console.error(`discord-bot: ranking-image → ${r.status}`);
+      await r.body?.cancel();
+      return null;
+    }
+    return new Uint8Array(await r.arrayBuffer());
+  } catch (e) {
+    console.error("discord-bot: ranking-image failed", e instanceof Error ? e.message : e);
+    return null;
+  }
 }
 
 async function settingsTimezone(ctx: Ctx, zone: string): Promise<Response> {

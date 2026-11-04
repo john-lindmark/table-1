@@ -31,7 +31,7 @@ export interface Interaction {
 }
 
 export const InteractionType = { PING: 1, COMMAND: 2, COMPONENT: 3, AUTOCOMPLETE: 4 } as const;
-export const ResponseType = { PONG: 1, MESSAGE: 4, UPDATE_MESSAGE: 7, AUTOCOMPLETE: 8 } as const;
+export const ResponseType = { PONG: 1, MESSAGE: 4, DEFERRED: 5, UPDATE_MESSAGE: 7, AUTOCOMPLETE: 8 } as const;
 
 /** "event create" for a subcommand, "help" for a plain command. */
 export function commandPath(ix: Interaction): { path: string; options: Option[] } {

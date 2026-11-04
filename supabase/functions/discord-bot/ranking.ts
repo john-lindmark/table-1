@@ -5,7 +5,7 @@
 // Pure, so discord-bot.test.ts checks it without Discord or a database.
 import { colorJob, type CardFact } from "../ranking-brief/brief.ts";
 import { COLOR_JOBS, depthPhrase, JOB_TITLE, RankingState, type RankDepth, type RankJob, type RankScreen } from "../ranking-brief/cubeRanking.ts";
-import { ACCENT, clean, imageUrl, SITE } from "./embeds.ts";
+import { ACCENT, clean, SITE } from "./embeds.ts";
 
 /** discord_ranking's answer (the parts read here). `facts`: [oracle id, name, type line, mana cost, colors]. */
 export interface RankingPost {
@@ -116,32 +116,29 @@ function statusText(p: RankingPost, v: RankingView): string {
   return bits.join(" ");
 }
 
-const NAME_MAX = 30;
-const cut = (s: string) => (s.length > NAME_MAX ? `${s.slice(0, NAME_MAX - 1)}…` : s);
-
-/** Columns of 25 places, numbered in a code span so Discord doesn't make them a list. */
-export function rankingFields(rows: { name: string }[], per = 25, max = 100) {
-  const shown = rows.slice(0, max);
-  const width = String(shown.length).length;
-  const out: { name: string; value: string; inline: boolean }[] = [];
-  for (let i = 0; i < shown.length; i += per) {
-    const chunk = shown.slice(i, i + per);
-    out.push({
-      name: `${i + 1}–${i + chunk.length}`,
-      value: chunk.map((r, k) => `\`${String(i + k + 1).padStart(width)}\` ${clean(cut(r.name))}`).join("\n").slice(0, 1024),
-      inline: true,
-    });
-  }
-  return out;
-}
-
 export const rankingLink = (p: RankingPost, job: RankJob) => `${SITE}/library/ranking/${p.id}/lists/${job}`;
 
+/** The picture's file name on the message; the embed shows it with attachment://. */
+export const RANKING_FILE = "ranking.png";
+
+/** What ranking-image draws: the apps' Top 100 image for the list posted (contract/cube-rankings-2026-10-21.md), titled
+ *  like the apps ("Mara Quinn · Power only") with its byline: the subject, the list, how far along, the date. */
+export function rankingImageAsk(p: RankingPost, v: RankingView, now = new Date()) {
+  const subject = p.cube?.name || p.set_key || "a cube";
+  const list = v.job === "F" ? `Top ${v.rows.length}` : JOB_TITLE[v.job];
+  const partial = v.done ? null : `${v.placed} of ${v.target} ranked so far`;
+  const date = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+  return {
+    title: rankingTitle(p.by?.display_name, p.name),
+    byline: [`Ranking of ${subject}`, list, partial, "Ranked on Table 1", date].filter(Boolean).join(" · "),
+    cards: v.rows.map((r) => ({ oracle_id: r.id, name: r.name, card_id: p.cube?.printings?.[r.id] ?? null })),
+  };
+}
+
+/** The post: the subject and list, who ranked it, how far along, and the picture (no list of cards: the picture is it). */
 export function rankingEmbed(p: RankingPost, v: RankingView) {
   const subject = clean(p.cube?.name || p.set_key || "Cube");
   const list = v.job === "F" ? `Top ${v.rows.length}` : JOB_TITLE[v.job];
-  const first = v.rows[0];
-  const printing = first ? p.cube?.printings?.[first.id] : undefined;
   const status = statusText(p, v);
   return {
     title: `${subject} · ${list}`.slice(0, 256),
@@ -149,8 +146,7 @@ export function rankingEmbed(p: RankingPost, v: RankingView) {
     author: { name: `Ranking by ${rankingTitle(p.by?.display_name, p.name)}`.slice(0, 256) },
     description: status || undefined,
     color: ACCENT,
-    fields: rankingFields(v.rows),
-    thumbnail: printing ? { url: imageUrl(printing, null) } : undefined,
+    image: { url: `attachment://${RANKING_FILE}` },
     footer: { text: p.set_key ? "Table 1 Rankings · Limited" : "Table 1 Rankings" },
   };
 }

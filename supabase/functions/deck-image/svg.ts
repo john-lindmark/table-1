@@ -6,7 +6,7 @@ import { ASPECT, type Card, cornerRatio, count, fit, GAP, HEADER, mainCount, ord
 export const C = { bg: "#171725", surface: "#282839", hover: "#33334a", text: "#ffffff", muted: "#c4c4ca" };
 export const FONT = "JetBrains Mono";
 
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+export const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** A mono font's width per character, in ems. */
 const EM = 0.6;
@@ -31,14 +31,14 @@ export interface Picture {
 
 /** The Table 1 mark: eleven tiles on a 6 × 3 grid, right-aligned at `right`, `h` tall. */
 const TILES: [number, number][] = [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [1, 1], [4, 1], [1, 2], [3, 2], [4, 2], [5, 2]];
-function logo(right: number, top: number, h: number): string {
+export function logo(right: number, top: number, h: number): string {
   const w = (h * 393) / 192.69, sx = w / 393, sy = h / 192.69, x0 = right - w;
   return TILES.map(([c, r]) =>
     `<rect x="${(x0 + c * 65.8036 * sx).toFixed(2)}" y="${(top + r * 64.8302 * sy).toFixed(2)}" width="${(63.982 * sx).toFixed(2)}" height="${(63.0294 * sy).toFixed(2)}" fill="${C.text}"/>`
   ).join("");
 }
 
-function text(s: string, x: number, y: number, size: number, color: string, o: { weight?: number; tracking?: number; anchor?: "start" | "middle" | "end"; max?: number } = {}): string {
+export function text(s: string, x: number, y: number, size: number, color: string, o: { weight?: number; tracking?: number; anchor?: "start" | "middle" | "end"; max?: number } = {}): string {
   const line = o.max ? clip(s, size, o.max) : s;
   // y is the top of the text, as on the canvas: shift down by the ascent.
   return `<text x="${x}" y="${(y + size * 0.78).toFixed(1)}" font-family="${FONT}" font-weight="${o.weight ?? 400}" font-size="${size}" fill="${color}"` +

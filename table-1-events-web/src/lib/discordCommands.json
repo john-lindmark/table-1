@@ -71,7 +71,7 @@
     },
     {
       "command": "/ranking",
-      "text": "Post one of your cube or Limited set rankings (pick it as you type): its top 50, top 100 or one color's list, best first, with how far along it is."
+      "text": "Post a picture of one of your cube or Limited set rankings (pick it as you type), like the app's Top 100 image: its top 50, top 100 or one color's list, best first, with how far along it is."
     },
     {
       "command": "/settings timezone",

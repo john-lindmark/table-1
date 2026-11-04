@@ -1,5 +1,5 @@
-// Discord's REST API, the little we use: follow-ups on an interaction, reading the message an interaction made,
-// editing a card in a channel, posting a message. Everything runs after the interaction has been answered (or, for a
+// Discord's REST API, the little we use: follow-ups on an interaction, reading, replacing (with a file) or deleting the
+// message an interaction made, editing a card in a channel, posting a message. Everything runs after the interaction has been answered (or, for a
 // card edit, when Table 1 asks).
 
 const API = "https://discord.com/api/v10";
@@ -80,6 +80,31 @@ export class DiscordRest {
     if (!r.ok) return null;
     const m = await r.json().catch(() => null) as { id?: string } | null;
     return m?.id ?? null;
+  }
+
+  /** Replaces the interaction's first response (a deferred "thinking…" one) with a message carrying a file, which an
+   *  embed shows as attachment://<name>. Uploads get longer than a JSON call. */
+  async editOriginal(ix: InteractionRef, message: Message, file: { name: string; bytes: Uint8Array<ArrayBuffer>; type: string }): Promise<Response> {
+    const path = `/webhooks/${ix.application_id}/${ix.token}/messages/@original`;
+    const send = () => {
+      const form = new FormData();
+      form.append("payload_json", JSON.stringify({ ...message, attachments: [{ id: 0, filename: file.name }], allowed_mentions: { parse: [] } }));
+      form.append("files[0]", new Blob([file.bytes], { type: file.type }), file.name);
+      return fetch(`${API}${path}`, { method: "PATCH", body: form, signal: AbortSignal.timeout(30000) });
+    };
+    let r = await send();
+    // Our deferred answer may still be on its way to Discord (as in afterAnswer): one more try.
+    if (r.status === 400 || r.status === 404) {
+      await r.body?.cancel();
+      await new Promise((ok) => setTimeout(ok, 1500));
+      r = await send();
+    }
+    return await logFailure("PATCH", path, r);
+  }
+
+  /** Takes the interaction's first response down. */
+  deleteOriginal(ix: InteractionRef) {
+    return this.afterAnswer("DELETE", `/webhooks/${ix.application_id}/${ix.token}/messages/@original`);
   }
 
   async postMessage(channelId: string, message: Message): Promise<string | null> {

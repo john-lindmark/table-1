@@ -4,7 +4,7 @@ import { assert, assertEquals } from "jsr:@std/assert@1";
 import { type CardFact, simulateLog } from "../ranking-brief/brief.ts";
 import { COMMANDS, HELP } from "./embeds.ts";
 import {
-  emptyText, rankingChoice, rankingComponents, rankingEmbed, rankingFields, type RankingPost, rankingTitle, rankingView, rankShow,
+  emptyText, rankingChoice, rankingComponents, rankingEmbed, rankingImageAsk, type RankingPost, rankingTitle, rankingView, rankShow,
 } from "./ranking.ts";
 
 const id = (n: number) => `c0000000-0000-0000-0000-${String(n).padStart(12, "0")}`;
@@ -94,32 +94,37 @@ Deno.test("a color the cube doesn't have, and a top 100 of a top-50 ranking", ()
   assertEquals(rankingEmbed(post(), v).description, "This ranking's final is a top 50.");
 });
 
-Deno.test("the post: cube and list, who ranked it, places in columns, the top card's printing", () => {
+Deno.test("the post: cube and list, who ranked it, how far along, the picture and no list of cards", () => {
   const p = post();
   const e = rankingEmbed(p, rankingView(p, { job: "F", n: 50 })!);
   assertEquals(e.title, "Lindmark Cube · Top 12");
   assertEquals(e.author.name, "Ranking by Ana Lind · Summer");
   assertEquals(e.url, `https://table-1.site/library/ranking/${RID}/lists/F`);
-  assertEquals(e.thumbnail?.url, "https://cards.scryfall.io/normal/front/c/1/c1000000-0000-0000-0000-000000000002.jpg");
-  assertEquals(e.fields[0].value.split("\n")[0], "` 1` Ancestral Recall");
+  assertEquals(e.image, { url: "attachment://ranking.png" });
   assertEquals(e.footer.text, "Table 1 Rankings");
+  assert(!("fields" in e) && !("thumbnail" in e));
   const w = rankingEmbed(p, rankingView(p, { job: "W", n: null })!);
   assertEquals([w.title, w.description], ["Lindmark Cube · White", "All 4 white cards."]);
   const set = rankingEmbed({ ...p, set_key: "FRA", cube: { name: "Foundations Remix" } }, rankingView(p, { job: "F", n: 50 })!);
-  assertEquals([set.title, set.footer.text, set.thumbnail], ["Foundations Remix · Top 12", "Table 1 Rankings · Limited", undefined]);
+  assertEquals([set.title, set.footer.text], ["Foundations Remix · Top 12", "Table 1 Rankings · Limited"]);
 });
 
-Deno.test("columns of 25, numbers padded in code, names cut and escaped, inside Discord's limits", () => {
-  const rows = Array.from({ length: 100 }, (_, i) => ({ name: i === 0 ? "Asmoranomardicadaistinaculdacar, the *Long*" : `Card ${i + 1}` }));
-  const f = rankingFields(rows);
-  assertEquals(f.map((x) => x.name), ["1–25", "26–50", "51–75", "76–100"]);
-  assertEquals(f[0].value.split("\n")[0], "`  1` Asmoranomardicadaistinaculdac…");
-  assertEquals(f[3].value.split("\n").at(-1), "`100` Card 100");
-  assert(f.every((x) => x.inline && x.value.length <= 1024));
-  const total = f.reduce((n, x) => n + x.name.length + x.value.length, 0);
-  assert(total < 5000, `${total}`);
-  assertEquals(rankingFields(rows.slice(0, 3)).length, 1);
-  assertEquals(rankingFields([{ name: "*Bold*" }])[0].value, "`1` \\*Bold\\*");
+Deno.test("the picture asked for: the apps' title and byline, the cards in order in the cube's printings", () => {
+  const day = new Date("2026-11-03T20:00:00Z");
+  const p = post();
+  const fin = rankingImageAsk(p, rankingView(p, { job: "F", n: 50 })!, day);
+  assertEquals(fin.title, "Ana Lind · Summer");
+  assertEquals(fin.byline, "Ranking of Lindmark Cube · Top 12 · Ranked on Table 1 · Nov 3, 2026");
+  assertEquals(fin.cards.map((c) => c.oracle_id), ORDER);
+  assertEquals(fin.cards[0], { oracle_id: id(2), name: "Ancestral Recall", card_id: "c1000000-0000-0000-0000-000000000002" });
+  assertEquals(fin.cards[1].card_id, null, "no printing named: ranking-image draws the usual one");
+  const white = rankingImageAsk(p, rankingView(p, { job: "W", n: null })!, day);
+  assertEquals([white.byline, white.cards.length], ["Ranking of Lindmark Cube · White · Ranked on Table 1 · Nov 3, 2026", 4]);
+  const half = { ...p, log: p.log.slice(0, Math.floor(p.log.length / 2)), name: "My ranking" };
+  const v = rankingView(half, { job: "F", n: 50 })!;
+  const partial = rankingImageAsk(half, v, day);
+  assertEquals(partial.title, "Ana Lind");
+  assertEquals(partial.byline, `Ranking of Lindmark Cube · Top ${v.placed} · ${v.placed} of 12 ranked so far · Ranked on Table 1 · Nov 3, 2026`);
 });
 
 Deno.test("titles and the picker: the label after the person; My ranking isn't one", () => {

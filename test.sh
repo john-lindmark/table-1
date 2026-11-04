@@ -35,7 +35,7 @@ run() {  # run <name> <command...>
 
 web_unit()   { (cd table-1-events-web && npx tsc -b && npx vitest run); }
 parity()     { tools/test/engine-parity.sh; }
-engine()     { (cd supabase/functions && deno test --quiet events-engine/ cards-sync/ live-activity/ notify-worker/ discord-bot/ discord-community/ && deno test --quiet --allow-read=../../testdata list-import/ moderate/ bugs/ ranking-brief/ meta-sync/ limited-sync/ insight-brief/ deck-image/ meta-image/ deck-finder/); }
+engine()     { (cd supabase/functions && deno test --quiet events-engine/ cards-sync/ live-activity/ notify-worker/ discord-bot/ discord-community/ && deno test --quiet --allow-read=../../testdata list-import/ moderate/ bugs/ ranking-brief/ meta-sync/ limited-sync/ insight-brief/ deck-image/ meta-image/ ranking-image/ deck-finder/); }
 database()   { supabase/tests/run.sh; }
 ios_unit() {
   xcrun simctl list devices | grep -q " $IOS_SIM (" || xcrun simctl create "$IOS_SIM" "iPhone 17" >/dev/null
@@ -56,7 +56,7 @@ staged() {
   local files; files=$(git diff --cached --name-only)
   [ -z "$files" ] && { echo "nothing staged"; return; }
   grep -qE '^(table-1-events-web/|supabase/functions/(events-engine|ranking-brief)/)' <<<"$files" && { run "web types + unit" web_unit; run "rules parity" parity; }
-  grep -qE '^(supabase/functions/(events-engine|list-import|cards-sync|moderate|bugs|ranking-brief|live-activity|notify-worker|meta-sync|limited-sync|insight-brief|discord-bot|discord-community|deck-image|meta-image|deck-finder)/|testdata/(list-export|moderation|bugs|cube-ranking|insights|deck-image|insight-charts)/)' <<<"$files" && run "engine (deno)" engine
+  grep -qE '^(supabase/functions/(events-engine|list-import|cards-sync|moderate|bugs|ranking-brief|live-activity|notify-worker|meta-sync|limited-sync|insight-brief|discord-bot|discord-community|deck-image|meta-image|ranking-image|deck-finder)/|testdata/(list-export|moderation|bugs|cube-ranking|insights|deck-image|insight-charts)/)' <<<"$files" && run "engine (deno)" engine
   grep -qE '^supabase/(migrations|tests)/' <<<"$files" && run "database" database
   true
 }
