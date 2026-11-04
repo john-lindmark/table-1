@@ -107,8 +107,8 @@ submission.
 | Photos and videos → Photos (profile and deck photos) | Optional | App functionality, Fraud prevention, security and compliance |
 | App activity → App interactions (PostHog) | Required | Analytics |
 | App activity → Other user-generated content (results, collection, decks, trades, reports) | Required | App functionality, Fraud prevention, security and compliance |
-| App info and performance → Crash logs (Sentry) | Required | App functionality, Analytics |
-| App info and performance → Diagnostics (Sentry) | Required | App functionality, Analytics |
+| App info and performance → Crash logs (Sentry) | Required | Analytics |
+| App info and performance → Diagnostics (Sentry) | Required | Analytics |
 | App info and performance → Other app performance data (scan reports: text read from cards, never images; Account → Improve scanning turns them off) | Optional | Analytics |
 | Device or other IDs (FCM push token, PostHog's install id) | Required | App functionality, Analytics |
 
