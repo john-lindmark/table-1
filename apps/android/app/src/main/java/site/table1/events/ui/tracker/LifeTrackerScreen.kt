@@ -496,7 +496,7 @@ private fun Modifier.seat(seat: TrackerSeat): Modifier = when (seat) {
 /**
  * One player's half or seat (Figma "Me", Counters=0…3): life, plus up to three counter columns, each with its
  * own top +1 / bottom −1 zones. Swipe down (in this half's own orientation — the rotation carries the touch
- * coordinates with it) opens the counter picker; swipe up or Done closes it.
+ * coordinates with it) opens the counter picker; only Done closes it (swiping up scrolls its rows).
  */
 @Composable
 private fun TrackerHalf(
@@ -526,10 +526,11 @@ private fun TrackerHalf(
                     val event = awaitPointerEvent()
                     val change = event.changes.firstOrNull { it.id == down.id } ?: break
                     if (!change.pressed) break
+                    // The seat is already turned, so these are in its player's own frame.
                     val dx = change.position.x - down.position.x
                     val dy = change.position.y - down.position.y
-                    if (kotlin.math.abs(dy) >= swipePx && kotlin.math.abs(dy) > kotlin.math.abs(dx) * 1.5f) {
-                        if (dy > 0 && !open) setOpen(true) else if (dy < 0 && open) setOpen(false)
+                    if (TrackerSeat.Bottom.opensPicker(dx, dy, swipePx)) {
+                        if (!open) setOpen(true)
                         break
                     }
                 }

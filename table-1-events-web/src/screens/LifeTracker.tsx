@@ -41,12 +41,12 @@ import {
 import { GhostAction, Modal, Notice, useNow } from "../components/kit";
 import {
   SEAT_DEGREES,
+  opensPicker,
   saveSetup,
   sideways,
   tableLayout,
   tableNames,
   tableScore,
-  toward,
   tracksCommander,
   type Seat,
   type TableRow,
@@ -943,7 +943,7 @@ const TAP_SLOP_PX = 10;
 
 /**
  * One player's half (Figma "Me", Counters=0…3), drawn inside its SeatBox. Swipe down — in this player's
- * orientation — opens the counter picker inside the half; swipe up or Done closes it.
+ * orientation — opens the counter picker inside the half; only Done closes it (swiping up scrolls its rows).
  */
 function TrackerHalf({
   name,
@@ -979,11 +979,9 @@ function TrackerHalf({
     const s = start.current;
     if (!s || s.id !== e.pointerId) return;
     // Pointer moves are in screen pixels; a turned seat's "down" points elsewhere on screen.
-    const { down: dy, across: dx } = toward(seat, e.clientX - s.x, e.clientY - s.y);
-    if (Math.abs(dy) < SWIPE_PX || Math.abs(dy) < Math.abs(dx) * 1.5) return;
+    if (!opensPicker(seat, e.clientX - s.x, e.clientY - s.y, SWIPE_PX)) return;
     start.current = null;
-    if (dy > 0 && !pickerOpen) onPicker(true);
-    else if (dy < 0 && pickerOpen) onPicker(false);
+    if (!pickerOpen) onPicker(true);
   }
 
   const size: ColumnSize = counters.length === 0 ? "alone" : "life";

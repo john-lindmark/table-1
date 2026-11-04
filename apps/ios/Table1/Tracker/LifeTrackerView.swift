@@ -465,9 +465,8 @@ private struct TrackerHalf: View {
         .clipped()
         .simultaneousGesture(
             DragGesture(minimumDistance: 24, coordinateSpace: .global).onEnded { value in
-                let (down, across) = seat.toward(value.translation)
-                guard abs(down) > abs(across) * 1.5 else { return }
-                withAnimation(.easeOut(duration: 0.15)) { pickerOpen = down > 0 }
+                guard !pickerOpen, seat.opensPicker(value.translation) else { return }
+                withAnimation(.easeOut(duration: 0.15)) { pickerOpen = true }
             }
         )
     }

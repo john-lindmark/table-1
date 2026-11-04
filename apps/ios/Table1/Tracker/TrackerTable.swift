@@ -59,6 +59,13 @@ enum TrackerSeat: String {
         case .right: (t.width, t.height)
         }
     }
+
+    /// A swipe toward the player opens their counter picker. No swipe closes it, only Done: swiping away is also
+    /// how the picker's rows scroll (commander damage made the list long).
+    func opensPicker(_ t: CGSize, min: CGFloat = 24) -> Bool {
+        let (down, across) = toward(t)
+        return down >= min && down > abs(across) * 1.5
+    }
 }
 
 /// The table a local tracker is set up for: 2–5 players and their starting life.

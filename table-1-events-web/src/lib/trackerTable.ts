@@ -60,6 +60,15 @@ export function toward(seat: Seat, dx: number, dy: number): { down: number; acro
   }
 }
 
+/**
+ * A swipe toward the player opens their counter picker. No swipe closes it, only Done: swiping away is also how
+ * the picker's rows scroll (commander damage made the list long).
+ */
+export function opensPicker(seat: Seat, dx: number, dy: number, min = 24): boolean {
+  const { down, across } = toward(seat, dx, dy);
+  return down >= min && down > Math.abs(across) * 1.5;
+}
+
 const SETUP_KEY = "table1.lifeTracker.setup";
 
 /** The last setup used on this device (2 players, 20 life by default). */

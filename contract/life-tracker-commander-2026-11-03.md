@@ -37,7 +37,8 @@ clockwise, `right` 90° counter-clockwise). Rows run top to bottom on screen; `s
 
 Every seat works like a two-player half in its own orientation: the life column first (on the player's left),
 then up to three counter columns; +1 on the player's top half of a column, −1 on the bottom half; swipe toward
-yourself to open the counter picker from your far edge, away to close it.
+yourself to open the counter picker from your far edge; only Done closes it (a swipe away scrolls the picker's
+rows, which commander damage makes long, and never closes it).
 
 ## Commander damage
 

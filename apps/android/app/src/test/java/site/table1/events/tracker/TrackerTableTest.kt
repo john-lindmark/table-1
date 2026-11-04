@@ -138,4 +138,16 @@ class TrackerTableTest {
         assertEquals(30f, TrackerSeat.Left.toward(-30f, 0f).first)
         assertEquals(30f, TrackerSeat.Right.toward(30f, 0f).first)
     }
+
+    @Test fun onlyASwipeTowardThePlayerOpensThePicker() {
+        assertTrue(TrackerSeat.Bottom.opensPicker(0f, 30f, 24f))
+        assertTrue(TrackerSeat.Top.opensPicker(0f, -30f, 24f))
+        assertTrue(TrackerSeat.Left.opensPicker(-30f, 0f, 24f))
+        assertTrue(TrackerSeat.Right.opensPicker(30f, 0f, 24f))
+        // Swiping up (scrolling the picker's rows) is not a close.
+        assertFalse(TrackerSeat.Bottom.opensPicker(0f, -60f, 24f))
+        assertFalse(TrackerSeat.Top.opensPicker(0f, 60f, 24f))
+        assertFalse(TrackerSeat.Bottom.opensPicker(0f, 20f, 24f))
+        assertFalse(TrackerSeat.Bottom.opensPicker(30f, 30f, 24f))
+    }
 }

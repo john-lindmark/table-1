@@ -19,6 +19,15 @@ enum class TrackerSeat(val degrees: Float) {
         Left -> -dx to dy
         Right -> dx to dy
     }
+
+    /**
+     * A swipe toward the player opens their counter picker. No swipe closes it, only Done: swiping away is also
+     * how the picker's rows scroll (commander damage made the list long).
+     */
+    fun opensPicker(dx: Float, dy: Float, minPx: Float): Boolean {
+        val (down, across) = toward(dx, dy)
+        return down >= minPx && down > kotlin.math.abs(across) * 1.5f
+    }
 }
 
 data class TrackerPlace(val side: Int, val seat: TrackerSeat)

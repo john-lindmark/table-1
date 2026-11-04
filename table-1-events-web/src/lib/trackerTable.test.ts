@@ -15,7 +15,16 @@ import {
   type Counter,
   type TrackerOp,
 } from "./tracker";
-import { LIFE_CHOICES, PLAYER_CHOICES, tableLayout, tableNames, tableScore, toward, tracksCommander } from "./trackerTable";
+import {
+  LIFE_CHOICES,
+  PLAYER_CHOICES,
+  opensPicker,
+  tableLayout,
+  tableNames,
+  tableScore,
+  toward,
+  tracksCommander,
+} from "./trackerTable";
 
 /* The life tracker's table setup, seats and commander damage (contract/life-tracker-commander-2026-11-03.md)
    against testdata/tracker-table/cases.json (also iOS TrackerTableTests, Android TrackerTableTest). */
@@ -118,5 +127,17 @@ describe("tracker table", () => {
     expect(toward("top", 0, 30).down).toBe(-30);
     expect(toward("left", -30, 0).down).toBe(30);
     expect(toward("right", 30, 0).down).toBe(30);
+  });
+
+  it("opens the counter picker on a swipe toward the player, and never closes it on a swipe away", () => {
+    expect(opensPicker("bottom", 0, 30)).toBe(true);
+    expect(opensPicker("top", 0, -30)).toBe(true);
+    expect(opensPicker("left", -30, 0)).toBe(true);
+    expect(opensPicker("right", 30, 0)).toBe(true);
+    // Swiping up (scrolling the picker's rows) is not a close.
+    expect(opensPicker("bottom", 0, -60)).toBe(false);
+    expect(opensPicker("top", 0, 60)).toBe(false);
+    expect(opensPicker("bottom", 0, 20)).toBe(false);
+    expect(opensPicker("bottom", 30, 30)).toBe(false);
   });
 });

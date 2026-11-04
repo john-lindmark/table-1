@@ -171,6 +171,18 @@ final class TrackerTableTests: XCTestCase {
         XCTAssertFalse(TrackerModel(matchId: "m").commanderDamage, "a synced match never tracks it")
     }
 
+    func testOnlyASwipeTowardThePlayerOpensThePicker() {
+        XCTAssertTrue(TrackerSeat.bottom.opensPicker(CGSize(width: 0, height: 30)))
+        XCTAssertTrue(TrackerSeat.top.opensPicker(CGSize(width: 0, height: -30)))
+        XCTAssertTrue(TrackerSeat.left.opensPicker(CGSize(width: -30, height: 0)))
+        XCTAssertTrue(TrackerSeat.right.opensPicker(CGSize(width: 30, height: 0)))
+        // Swiping up (scrolling the picker's rows) is not a close.
+        XCTAssertFalse(TrackerSeat.bottom.opensPicker(CGSize(width: 0, height: -60)))
+        XCTAssertFalse(TrackerSeat.top.opensPicker(CGSize(width: 0, height: 60)))
+        XCTAssertFalse(TrackerSeat.bottom.opensPicker(CGSize(width: 0, height: 20)))
+        XCTAssertFalse(TrackerSeat.bottom.opensPicker(CGSize(width: 30, height: 30)))
+    }
+
     func testSetupKeepsAcrossALaunchAndNewMatchKeepsTheTable() async {
         let model = await table(5, life: 40, ops: [Op(at: nil, side: 3, counter: "cmd:1", delta: 4)])
         let again = TrackerModel(matchId: nil)
