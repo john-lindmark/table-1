@@ -5,7 +5,7 @@ The first bundle meant for closed testing (testers from outside the internal lis
 ## Play Console "What's new" (en-US, under 500 characters)
 
 <en-US>
-Welcome to the Table 1 test. Run Magic events from your phone with Swiss pairings, a round clock and standings; play your matches with the life tracker (2 to 5 players, commander damage); keep your collection, decks and cubes; and see how your decks do in the meta in Insights. Report a problem from Account, or reply to the invite.
+Welcome to the Table 1 test. Run Magic events from your phone with Swiss pairings, a round clock and standings; play your matches with the life tracker (2 to 5 players, commander damage); keep your collection, decks and cubes; and see how your decks do in the meta in Insights. Tell us what breaks and what you miss.
 </en-US>
 
 ## What to test
