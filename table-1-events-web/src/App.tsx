@@ -390,8 +390,21 @@ function ListRoute() {
                 onOpen={(id) => navigate(`/library/list/${id}`)}
                 onPrinting={(card, board, finish, lang, cond) => navigate(`/library/list/${listId}/printing?card=${card}&board=${board}&finish=${finish}&lang=${lang}${cond !== "NM" ? `&cond=${cond}` : ""}`)}
                 onStats={() => navigate(`/library/list/${listId}/stats`)} onRankings={() => navigate(`/library/list/${listId}/rankings`)}
-                onSync={() => navigate(`/library/list/${listId}/sync`)} />
+                onSync={() => navigate(`/library/list/${listId}/sync`)} onGuide={() => navigate(`/library/list/${listId}/guide`)} />
   );
+}
+
+const SideboardGuideScreen = lazyNamed(() => import("./screens/SideboardGuide"), "SideboardGuideScreen");
+/** A deck's sideboard guide and its screens (contract/sideboard-guide-2026-11-04.md). */
+function SideboardGuideRoute({ page }: { page: "guide" | "new" | "print" | "pool" | "matchup" | "pick" }) {
+  const { listId, matchupId, side } = useParams();
+  const navigate = useNavigate();
+  const base = `/library/list/${listId}/guide`;
+  const back = useBack(page === "guide" ? `/library/list/${listId}` : page === "pick" ? `${base}/m/${matchupId}` : base);
+  if (!listId) return <Navigate to="/library" replace />;
+  const at = page === "matchup" ? { page, id: matchupId ?? "" } as const
+    : page === "pick" ? { page, id: matchupId ?? "", side: side === "out" ? "out" as const : "in" as const } : { page };
+  return <SideboardGuideScreen id={listId} at={at} onBack={back} go={(path, replace) => navigate(`${base}/${path}`, { replace })} />;
 }
 
 function CubeSyncRoute() {
@@ -601,6 +614,12 @@ export default function App() {
         <Route path="/library/list/:listId/add" element={<ListAddRoute />} />
         <Route path="/library/list/:listId/stats" element={<ListStatsRoute />} />
         <Route path="/library/list/:listId/sync" element={<CubeSyncRoute />} />
+        <Route path="/library/list/:listId/guide" element={<SideboardGuideRoute page="guide" />} />
+        <Route path="/library/list/:listId/guide/new" element={<SideboardGuideRoute page="new" />} />
+        <Route path="/library/list/:listId/guide/print" element={<SideboardGuideRoute page="print" />} />
+        <Route path="/library/list/:listId/guide/pool" element={<SideboardGuideRoute page="pool" />} />
+        <Route path="/library/list/:listId/guide/m/:matchupId" element={<SideboardGuideRoute page="matchup" />} />
+        <Route path="/library/list/:listId/guide/m/:matchupId/:side" element={<SideboardGuideRoute page="pick" />} />
         <Route path="/library/list/:listId/rankings" element={<RankingsRoute />} />
         <Route path="/library/rankings" element={<RankingsRoute />} />
         <Route path="/library/ranking/:rankingId" element={<RankingRoute />} />

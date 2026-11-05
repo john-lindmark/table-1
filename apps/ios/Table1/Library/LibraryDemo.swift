@@ -458,11 +458,32 @@ struct LibraryDemoRoot: View {
             // `card`: a card with copies in the trade binder. `tradewants`: a draft giving a trade-binder copy and
             // getting a wanted card (the want is marked). Both need the card data, so they open once it's in.
             guard let db = CatalogStore.shared.db, path.isEmpty, let arg = Self.arg,
-                  ["card", "tradewants", "deckcard", "deckprinting", "bindercard", "binderprinting", "multicard", "searchcard", "onecard"].contains(arg) else { return }
+                  ["card", "tradewants", "deckcard", "deckprinting", "bindercard", "binderprinting", "multicard", "searchcard", "onecard",
+                   "guide", "matchup", "guidepick"].contains(arg) else { return }
             let store = BindersStore.shared
             // Card detail (contract/card-detail-2026-10-23.md): `multicard` the card owned in the most versions (the
             // grid), `searchcard` the same card opened from search (Add to), `onecard` a card held in one version with
             // the most copies (long press + for a new edition).
+            // Sideboard guide (contract/sideboard-guide-2026-11-04.md): the first deck gets a made-up guide from its own
+            // cards; `matchup` opens the first matchup, `guidepick` its In picker (add `-T1GuidePrint` for the preview).
+            if ["guide", "matchup", "guidepick"].contains(arg), let l = ListsStore.shared.lists.first(where: { $0.kind == .deck }) {
+                var seen = Set<String>()
+                let lines = SideboardRules.lines(l, db).filter { seen.insert("\($0.board)|\($0.oracle)").inserted }
+                let main = lines.filter { $0.board == "main" && $0.qty > 1 }, side = lines.filter { $0.board == "side" }
+                let maybe = lines.filter { $0.board == "maybe" }
+                func card(_ ls: [SideboardRules.Line], _ i: Int, _ n: Int) -> [SideboardGuide.Card] { i < ls.count ? [.init(ls[i].oracle, min(n, ls[i].qty))] : [] }
+                let g = SideboardGuide(matchups: [
+                    .init(id: "demo-1", name: "Boros Energy", ins: card(side, 0, 2) + card(side, 1, 1), outs: card(main, 0, 2) + card(main, 1, 1),
+                          notes: "Keep hands with two removal spells.\nOn the draw: bring in the second one."),
+                    .init(id: "demo-2", name: "Esper Goryo's", ins: card(side, 2, 2) + card(maybe, 0, 1), outs: card(main, 2, 2) + card(main, 3, 1)),
+                    .init(id: "demo-3", name: "Mirror"),
+                ])
+                ListsStore.shared.setGuide(listId: l.id, g)
+                let base: [LibraryRoute] = [.lists(.deck), .list(l.id), .sideboardGuide(l.id)]
+                path = arg == "guide" ? base : arg == "matchup" ? base + [.sideboardMatchup(l.id, "demo-1")]
+                    : base + [.sideboardMatchup(l.id, "demo-1"), .sideboardPick(l.id, "demo-1", "in")]
+                return
+            }
             if arg == "onecard" {
                 let items = Array(CollectionStore.shared.items.values)
                 let printings = db.printings(ids: items.map(\.cardId))

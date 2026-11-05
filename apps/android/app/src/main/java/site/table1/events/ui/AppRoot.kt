@@ -43,6 +43,13 @@ import site.table1.events.library.RankingsScreen
 import site.table1.events.library.SharedLinkScreen
 import site.table1.events.library.FollowsStore
 import site.table1.events.library.T1Icon
+import site.table1.events.library.GuideSide
+import site.table1.events.library.NewMatchupScreen
+import site.table1.events.library.SideboardGuideScreen
+import site.table1.events.library.SideboardMatchupScreen
+import site.table1.events.library.SideboardPickScreen
+import site.table1.events.library.SideboardPoolScreen
+import site.table1.events.library.SideboardPrintScreen
 import site.table1.events.library.WantPricesStore
 import site.table1.events.library.FollowingScreen
 import site.table1.events.library.FollowChangesScreen
@@ -481,7 +488,31 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                         onPrinting = { card, board, finish, lang, cond -> nav.navigate("collection/list/$id/printing/$card/$board/$finish/$lang/$cond") },
                         onStats = { nav.navigate("collection/list/$id/stats") }, onRankings = { nav.navigate("collection/list/$id/rankings") },
                         onSync = { nav.navigate("collection/list/$id/sync") },
-                        onInsights = { f, a -> nav.navigate(site.table1.events.insights.InsightsRoutes.archetype(f, a)) })
+                        onInsights = { f, a -> nav.navigate(site.table1.events.insights.InsightsRoutes.archetype(f, a)) },
+                        onGuide = { nav.navigate("collection/list/$id/guide") })
+                }
+                // A deck's sideboard guide (contract/sideboard-guide-2026-11-04.md).
+                composable("collection/list/{id}/guide") { e ->
+                    val id = e.arguments?.getString("id") ?: ""
+                    SideboardGuideScreen(id, onBack = { nav.popBackStack() }, go = { nav.navigate("collection/list/$id/guide/$it") })
+                }
+                composable("collection/list/{id}/guide/new") { e ->
+                    val id = e.arguments?.getString("id") ?: ""
+                    NewMatchupScreen(id, onBack = { nav.popBackStack() }, onCreated = { m ->
+                        nav.navigate("collection/list/$id/guide/m/$m") { popUpTo("collection/list/{id}/guide/new") { inclusive = true } }
+                    })
+                }
+                composable("collection/list/{id}/guide/print") { e -> SideboardPrintScreen(e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() }) }
+                composable("collection/list/{id}/guide/pool") { e -> SideboardPoolScreen(e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() }) }
+                composable("collection/list/{id}/guide/m/{m}") { e ->
+                    val id = e.arguments?.getString("id") ?: ""
+                    val m = e.arguments?.getString("m") ?: ""
+                    SideboardMatchupScreen(id, m, onBack = { nav.popBackStack() },
+                        onPick = { side -> nav.navigate("collection/list/$id/guide/m/$m/${if (side == GuideSide.In) "in" else "out"}") })
+                }
+                composable("collection/list/{id}/guide/m/{m}/{side}") { e ->
+                    SideboardPickScreen(e.arguments?.getString("id") ?: "", e.arguments?.getString("m") ?: "",
+                        if (e.arguments?.getString("side") == "out") GuideSide.Out else GuideSide.In, onBack = { nav.popBackStack() })
                 }
                 composable("collection/list/{id}/sync") { e ->
                     val id = e.arguments?.getString("id") ?: ""

@@ -11637,6 +11637,28 @@
           }
         ]
       }
+    },
+    "list_guide_set": {
+      "note": "Replaces the deck's sideboard guide ({matchups: [{id, name, archetype?, in: [[oracle_id, qty]], out: [[oracle_id, qty]], notes}]}; null or no matchups clears it); returns the list. contract/sideboard-guide-2026-11-04.md. authenticated, owner only, decks only.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_list_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_guide": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "p_list_id",
+          "p_guide"
+        ]
+      }
     }
   },
   "functions": {

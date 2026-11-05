@@ -27,6 +27,7 @@ import { HERO_LIMIT, heroPrintings, heroesOf, isHero, toggleHero, type HeroScope
 import { CardSearchBar, CardSearchStatus, useCardSearch } from "./CardSearch";
 import { ListStatsRow } from "./ListStats";
 import { DeckMetaRows } from "./DeckMeta";
+import { hasGuide } from "../lib/sideboardGuide";
 import { RankingsRow } from "./Rankings";
 import { DeckImageScreen } from "./DeckImage";
 import { ListToCollectionScreen } from "./ListToCollection";
@@ -386,13 +387,15 @@ export function ExportScreen({ name, kind, entries, catalog, from, onClose }: {
   );
 }
 
-export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPrinting, onStats, onRankings, onSync }: {
+export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPrinting, onStats, onRankings, onSync, onGuide }: {
   id: string; onBack: () => void; onCard: (oracleId: string) => void; onAdd: () => void; onVersions: () => void;
   onOpen: (listId: string) => void; onPrinting: (cardId: string, board: Board, finish: ListFinish, lang: string, cond: Condition) => void; onStats: () => void;
   /** Cubes: the Rankings row. */
   onRankings?: () => void;
   /** Cubes: Sync with Cube Cobra (contract/cube-sync-2026-10-30.md). */
   onSync?: () => void;
+  /** The deck's sideboard guide (contract/sideboard-guide-2026-11-04.md). */
+  onGuide?: () => void;
 }) {
   const { session, ready, lists, owned, ownedByLang } = useListsData();
   const { catalog, error } = useCatalog();
@@ -603,6 +606,10 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
                          onClick={() => { void duplicateList(list).then((copy) => { setEditing(false); onOpen(copy); }); }} />}
         {editing && <Row title={list.kind === "deck" ? "Delete deck" : "Delete cube"} detail="From every device" onClick={() => setConfirmDelete(true)} />}
         {!editing && catalog && <ListStatsRow list={list} catalog={catalog} onOpen={onStats} />}
+        {!editing && list.kind === "deck" && hasGuide(list.format) && onGuide && (() => {
+          const n = list.guide?.matchups.length ?? 0;
+          return <Row title="Sideboard guide" detail={`${n} ${n === 1 ? "matchup" : "matchups"} · sideboard ${countOf(list, "side")}`} onClick={onGuide} />;
+        })()}
         {!editing && list.kind === "deck" && !list.eventId && <DeckMetaRows listId={list.id} demo={isLibraryDemo()} />}
         {!editing && list.kind === "cube" && onRankings && entriesOf(list).length > 0 && <RankingsRow listId={list.id} onOpen={onRankings} />}
         <Row title="Add, remove or replace" detail={list.kind === "deck" ? "Main deck, sideboard or considering" : "Search the catalog, or this cube's own cards"} onClick={onAdd} />

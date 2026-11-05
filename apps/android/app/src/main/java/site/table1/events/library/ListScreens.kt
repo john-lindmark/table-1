@@ -303,7 +303,7 @@ fun NewListPanel(kind: ListKind, onDismiss: () -> Unit, onCreated: (String) -> U
 fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Unit, onAdd: () -> Unit, onVersions: () -> Unit,
                      onOpen: (String) -> Unit, onPrinting: (cardId: String, board: String, finish: String, lang: String, cond: String) -> Unit = { _, _, _, _, _ -> },
                      onStats: () -> Unit = {}, onRankings: (() -> Unit)? = null, onSync: (() -> Unit)? = null,
-                     onInsights: ((format: String, archetype: Int) -> Unit)? = null) {
+                     onInsights: ((format: String, archetype: Int) -> Unit)? = null, onGuide: (() -> Unit)? = null) {
     val s by ListsStore.state.collectAsState()
     val list = s.lists.firstOrNull { it.id == listId }
     val owned = rememberHoldings(list?.entries?.map { it.cardId } ?: emptyList())
@@ -397,6 +397,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
             })
             if (editing) ListRow(if (list.kind == ListKind.Deck) "Delete deck" else "Delete cube", "From every device", onClick = { confirmDelete = true })
             if (!editing) ListStatsRow(list.id, onStats)
+            if (!editing && list.kind == ListKind.Deck && SideboardRules.hasGuide(list.format) && onGuide != null) SideboardGuideRow(list, onGuide)
             if (!editing && list.kind == ListKind.Deck && onInsights != null) DeckMetaRows(list.id, onInsights)
             if (!editing && list.kind == ListKind.Cube && list.entries.isNotEmpty() && onRankings != null) RankingsRow(list.id, onRankings)
             ListRow("Add, remove or replace", if (list.kind == ListKind.Deck) "Main deck, sideboard or considering" else "Search the catalog, or this cube's own cards", onClick = onAdd)

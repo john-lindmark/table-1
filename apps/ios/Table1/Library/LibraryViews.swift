@@ -25,6 +25,10 @@ enum LibraryRoute: Hashable {
     case collectionImport
     case listStats(String) // list id
     case cubeSync(String) // list id: Sync with Cube Cobra
+    case sideboardGuide(String) // list id
+    case sideboardMatchup(String, String) // list id, matchup id
+    case sideboardPick(String, String, String) // list id, matchup id, in | out
+    case sideboardPool(String) // list id: the sideboard and Considering
     case sampleHand(String) // list id
     case drawOdds(String) // list id
     case samplePack(String) // list id
@@ -83,6 +87,10 @@ struct LibraryDestination: View {
         case .linePrinting: "list_printing"
         case .importList: "list_import"
         case .cubeSync: "cube_sync"
+        case .sideboardGuide: "sideboard_guide"
+        case .sideboardMatchup: "sideboard_matchup"
+        case .sideboardPick(_, _, let side): side == "in" ? "sideboard_in" : "sideboard_out"
+        case .sideboardPool: "sideboard_pool"
         case .trades: "trades"
         case .trade: "trade"
         case .collectionImport: "collection_import"
@@ -128,6 +136,10 @@ struct LibraryDestination: View {
         case .collectionImport: CollectionImportView(path: $path)
         case .listStats(let id): ListStatsView(listId: id, path: $path)
         case .cubeSync(let id): CubeSyncView(listId: id, path: $path)
+        case .sideboardGuide(let id): SideboardGuideView(listId: id, path: $path)
+        case .sideboardMatchup(let id, let m): SideboardMatchupView(listId: id, matchupId: m, path: $path)
+        case .sideboardPick(let id, let m, let side): SideboardPickView(listId: id, matchupId: m, side: side == "in" ? .in : .out)
+        case .sideboardPool(let id): SideboardPoolView(listId: id)
         case .sampleHand(let id): SampleHandView(listId: id)
         case .drawOdds(let id): DrawOddsView(listId: id)
         case .samplePack(let id): SamplePackView(listId: id)

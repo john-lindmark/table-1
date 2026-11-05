@@ -58,6 +58,8 @@ struct CardList: Identifiable, Hashable, Sendable {
     /// contract/cube-sync-2026-10-30.md).
     var seq: Int? = nil
     var sourceUrl: String? = nil
+    /// Decks only, the owner's own (contract/sideboard-guide-2026-11-04.md).
+    var guide: SideboardGuide? = nil
 
     var entries: [Entry] { versions.last?.entries ?? [] }
     var current: Version? { versions.last }
@@ -256,6 +258,7 @@ final class ListsStore {
         saveTasks[id] = nil
     }
     @ObservationIgnored private var saveTasks: [String: Task<Void, Never>] = [:]
+    @ObservationIgnored private var guideTasks: [String: Task<Void, Never>] = [:]
 
     /// list_create returns the list it already has for a retried id. A failure is kept on the list, and the next
     /// sync tries again.
@@ -422,6 +425,21 @@ final class ListsStore {
         persist()
         guard unsaved[listId] == nil else { return }
         send("list_source_set", ["p_list_id": .string(listId), "p_source_url": .string(url)])
+    }
+
+    /// Replaces a deck's sideboard guide (list_guide_set): shown at once, sent 0.8 s after the last change so a run of
+    /// taps is one call (each sends the whole guide; the server keeps the last).
+    func setGuide(listId: String, _ guide: SideboardGuide) {
+        guard let i = lists.firstIndex(where: { $0.id == listId }), lists[i].guide != guide else { return }
+        lists[i].guide = guide.matchups.isEmpty ? nil : guide
+        persist()
+        guideTasks[listId]?.cancel()
+        guideTasks[listId] = Task {
+            try? await Task.sleep(for: .milliseconds(800))
+            guard !Task.isCancelled else { return }
+            guideTasks[listId] = nil
+            send("list_guide_set", ["p_list_id": .string(listId), "p_guide": guide.wire])
+        }
     }
 
     /// Saves a cube synced with Cube Cobra as one new version (list_sync, contract/cube-sync-2026-10-30.md). The
@@ -674,6 +692,7 @@ struct ListDTO: Codable {
     var eventName: String?
     var seq: Int?
     var sourceUrl: String?
+    var guide: SideboardGuide?
 
     var list: CardList? {
         guard let kind, let name, let format, let versions, !versions.isEmpty else { return nil }
@@ -684,7 +703,7 @@ struct ListDTO: Codable {
                                                                                     finish: $0.count > 3 ? $0[3].text : "nonfoil",
                                                                                     lang: $0.count > 4 ? $0[4].text : "en",
                                                                                     cond: $0.count > 5 ? $0[5].text : "NM") })
-                        }, eventId: eventId, eventName: eventName, seq: seq, sourceUrl: sourceUrl)
+                        }, eventId: eventId, eventName: eventName, seq: seq, sourceUrl: sourceUrl, guide: guide)
     }
 
     init(_ l: CardList) {
@@ -697,6 +716,7 @@ struct ListDTO: Codable {
         eventName = l.eventName
         seq = l.seq
         sourceUrl = l.sourceUrl
+        guide = l.guide
         versions = l.versions.map { v in
             VersionDTO(version: v.number, note: v.note, at: v.at.timeIntervalSince1970,
                        entries: v.entries.map { [.text($0.cardId), .text($0.board), .int($0.qty)]
@@ -1269,6 +1289,7 @@ struct ListDetailView: View {
             }.buttonStyle(.plain)
         }
         if !editing { ListStatsRow(listId: list.id, path: $path) }
+        if !editing && list.kind == .deck && SideboardRules.hasGuide(list.format) { SideboardGuideRow(listId: list.id, path: $path) }
         if !editing && list.kind == .deck && list.eventId == nil && Insights.formats.contains(where: { $0.key == list.format }) {
             DeckMetaRows(listId: list.id, path: $path)
         }

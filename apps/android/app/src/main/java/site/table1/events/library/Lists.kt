@@ -59,7 +59,9 @@ fun isShort(board: String, qty: Int, owned: Int, basic: Boolean) = board != "may
 /** [seq] is the server's (null for a list it hasn't sent), [sourceUrl] the link it syncs from (a Cube Cobra cube,
  *  contract/cube-sync-2026-10-30.md). */
 data class CardList(val id: String, val kind: ListKind, val name: String, val format: String, val versions: List<ListVersion>,
-                    val seq: Long? = null, val sourceUrl: String? = null) {
+                    val seq: Long? = null, val sourceUrl: String? = null,
+                    /** Decks only, the owner's own (contract/sideboard-guide-2026-11-04.md). */
+                    val guide: SideboardGuide? = null) {
     val current get() = versions.last()
     val entries get() = current.entries
     fun count(board: String) = entries.filter { it.board == board }.sumOf { it.qty }
@@ -105,6 +107,7 @@ data class ListWire(
     val versions: List<VersionWire> = emptyList(),
     val seq: Long? = null,
     @SerialName("source_url") val sourceUrl: String? = null,
+    val guide: SideboardGuide? = null,
 ) {
     @Serializable
     data class VersionWire(val version: Int, val note: String, val at: Double, val entries: List<JsonArray>)
@@ -117,7 +120,7 @@ data class ListWire(
                     if (it.size > 3) it[3].jsonPrimitive.content else "nonfoil", if (it.size > 4) it[4].jsonPrimitive.content else "en",
                     if (it.size > 5) it[5].jsonPrimitive.content else "NM")
             })
-        }, seq, sourceUrl)
+        }, seq, sourceUrl, guide?.takeIf { it.matchups.isNotEmpty() })
     }
 
     companion object {
@@ -132,7 +135,7 @@ data class ListWire(
 
         fun of(l: CardList) = ListWire(l.id, false, l.kind.wire, l.name, l.format, l.versions.map { v ->
             VersionWire(v.number, v.note, v.at, v.entries.map { entryWire(it) })
-        }, l.seq, l.sourceUrl)
+        }, l.seq, l.sourceUrl, l.guide)
     }
 }
 
@@ -488,6 +491,25 @@ object ListsStore {
         if (list(listId)?.sourceUrl == url) return
         call("list_source_set", buildJsonObject { put("p_list_id", listId); put("p_source_url", url) }) {
             list(listId)?.let { now -> setLists(_state.value.lists.filter { it.id != listId } + now.copy(sourceUrl = url)) }
+        }
+    }
+
+    private val guideJobs = HashMap<String, kotlinx.coroutines.Job>()
+
+    /** Replaces a deck's sideboard guide: shown at once, sent 0.8 s after the last change so a run of taps is one call
+     *  (each sends the whole guide; the server keeps the last). */
+    fun setGuide(listId: String, guide: SideboardGuide) {
+        val next = guide.takeIf { it.matchups.isNotEmpty() }
+        val local = { list(listId)?.let { now -> setLists(_state.value.lists.filter { it.id != listId } + now.copy(guide = next)) }; Unit }
+        if (list(listId)?.guide == next) return
+        local()
+        guideJobs[listId]?.cancel()
+        guideJobs[listId] = scope.launch {
+            saveCache()
+            kotlinx.coroutines.delay(800)
+            guideJobs.remove(listId)
+            val wire = next?.let { json.encodeToJsonElement(SideboardGuide.serializer(), it) } ?: kotlinx.serialization.json.JsonNull
+            runCatching { call("list_guide_set", buildJsonObject { put("p_list_id", listId); put("p_guide", wire) }, local) }
         }
     }
 

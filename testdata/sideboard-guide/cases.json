@@ -1,0 +1,716 @@
+{
+ "lines": [
+  {
+   "oracle": "o-bolt",
+   "name": "Lightning Bolt",
+   "board": "main",
+   "qty": 4
+  },
+  {
+   "oracle": "o-ragavan",
+   "name": "Ragavan, Nimble Pilferer",
+   "board": "main",
+   "qty": 4
+  },
+  {
+   "oracle": "o-engineer",
+   "name": "Dragon's Rage Channeler",
+   "board": "main",
+   "qty": 4
+  },
+  {
+   "oracle": "o-spell",
+   "name": "Spell Pierce",
+   "board": "main",
+   "qty": 2
+  },
+  {
+   "oracle": "o-island",
+   "name": "Island",
+   "board": "main",
+   "qty": 46
+  },
+  {
+   "oracle": "o-blood",
+   "name": "Blood Moon",
+   "board": "side",
+   "qty": 2
+  },
+  {
+   "oracle": "o-fury",
+   "name": "Fury",
+   "board": "side",
+   "qty": 2
+  },
+  {
+   "oracle": "o-pierce",
+   "name": "Mystical Dispute",
+   "board": "side",
+   "qty": 3
+  },
+  {
+   "oracle": "o-relic",
+   "name": "Relic of Progenitus",
+   "board": "side",
+   "qty": 1
+  },
+  {
+   "oracle": "o-relic",
+   "name": "Relic of Progenitus",
+   "board": "maybe",
+   "qty": 2
+  },
+  {
+   "oracle": "o-dress",
+   "name": "Dress Down",
+   "board": "maybe",
+   "qty": 1
+  }
+ ],
+ "guide": {
+  "matchups": [
+   {
+    "id": "m1",
+    "name": "Boros Energy",
+    "archetype": 12,
+    "in": [
+     [
+      "o-fury",
+      2
+     ],
+     [
+      "o-blood",
+      1
+     ]
+    ],
+    "out": [
+     [
+      "o-spell",
+      2
+     ],
+     [
+      "o-engineer",
+      1
+     ]
+    ],
+    "notes": "Keep hands with two removal spells.\nOn the draw: Fury over Blood Moon."
+   },
+   {
+    "id": "m2",
+    "name": "Esper Goryo's & <friends>",
+    "archetype": null,
+    "in": [
+     [
+      "o-relic",
+      3
+     ],
+     [
+      "o-dress",
+      1
+     ],
+     [
+      "o-pierce",
+      3
+     ]
+    ],
+    "out": [
+     [
+      "o-ragavan",
+      2
+     ],
+     [
+      "o-bolt",
+      4
+     ],
+     [
+      "o-engineer",
+      2
+     ]
+    ],
+    "notes": ""
+   },
+   {
+    "id": "m3",
+    "name": "Mirror",
+    "archetype": null,
+    "in": [],
+    "out": [],
+    "notes": ""
+   }
+  ]
+ },
+ "has_guide": {
+  "modern": true,
+  "commander": false,
+  "oathbreaker": false,
+  "other": true,
+  "canlander": true
+ },
+ "deck_min": {
+  "modern": 60,
+  "canlander": 100,
+  "other": null,
+  "commander": null
+ },
+ "check": [
+  {
+   "format": "modern",
+   "matchup": "m1",
+   "expect": {
+    "in": 3,
+    "out": 3,
+    "deck": 60,
+    "label": "IN 3 · OUT 3",
+    "issues": []
+   }
+  },
+  {
+   "format": "modern",
+   "matchup": "m2",
+   "expect": {
+    "in": 7,
+    "out": 8,
+    "deck": 59,
+    "label": "IN 7 · OUT 8",
+    "issues": [
+     {
+      "code": "considering",
+      "oracle": "o-relic",
+      "qty": 2
+     },
+     {
+      "code": "considering",
+      "oracle": "o-dress",
+      "qty": 1
+     },
+     {
+      "code": "below_min",
+      "deck": 59,
+      "min": 60
+     }
+    ]
+   }
+  },
+  {
+   "format": "modern",
+   "matchup": "m3",
+   "expect": {
+    "in": 0,
+    "out": 0,
+    "deck": 60,
+    "label": "NO CHANGES",
+    "issues": []
+   }
+  },
+  {
+   "format": "modern",
+   "matchup": "short",
+   "in": [],
+   "out": [
+    [
+     "o-bolt",
+     4
+    ],
+    [
+     "o-ragavan",
+     1
+    ]
+   ],
+   "expect": {
+    "in": 0,
+    "out": 5,
+    "deck": 55,
+    "label": "IN 0 · OUT 5",
+    "issues": [
+     {
+      "code": "below_min",
+      "deck": 55,
+      "min": 60
+     }
+    ]
+   }
+  },
+  {
+   "format": "other",
+   "matchup": "short",
+   "in": [],
+   "out": [
+    [
+     "o-bolt",
+     4
+    ],
+    [
+     "o-ragavan",
+     1
+    ]
+   ],
+   "expect": {
+    "in": 0,
+    "out": 5,
+    "deck": 55,
+    "label": "IN 0 · OUT 5",
+    "issues": []
+   }
+  },
+  {
+   "format": "modern",
+   "matchup": "gone",
+   "in": [
+    [
+     "o-missing",
+     1
+    ]
+   ],
+   "out": [
+    [
+     "o-missing",
+     1
+    ]
+   ],
+   "expect": {
+    "in": 1,
+    "out": 1,
+    "deck": 60,
+    "label": "IN 1 · OUT 1",
+    "issues": [
+     {
+      "code": "gone",
+      "side": "in",
+      "oracle": "o-missing"
+     },
+     {
+      "code": "gone",
+      "side": "out",
+      "oracle": "o-missing"
+     }
+    ]
+   }
+  }
+ ],
+ "sideboard_count": 8,
+ "over_sideboard": [
+  {
+   "format": "modern",
+   "lines": [
+    {
+     "oracle": "o-bolt",
+     "name": "Lightning Bolt",
+     "board": "main",
+     "qty": 4
+    },
+    {
+     "oracle": "o-ragavan",
+     "name": "Ragavan, Nimble Pilferer",
+     "board": "main",
+     "qty": 4
+    },
+    {
+     "oracle": "o-engineer",
+     "name": "Dragon's Rage Channeler",
+     "board": "main",
+     "qty": 4
+    },
+    {
+     "oracle": "o-spell",
+     "name": "Spell Pierce",
+     "board": "main",
+     "qty": 2
+    },
+    {
+     "oracle": "o-island",
+     "name": "Island",
+     "board": "main",
+     "qty": 46
+    },
+    {
+     "oracle": "o-blood",
+     "name": "Blood Moon",
+     "board": "side",
+     "qty": 2
+    },
+    {
+     "oracle": "o-fury",
+     "name": "Fury",
+     "board": "side",
+     "qty": 2
+    },
+    {
+     "oracle": "o-pierce",
+     "name": "Mystical Dispute",
+     "board": "side",
+     "qty": 3
+    },
+    {
+     "oracle": "o-relic",
+     "name": "Relic of Progenitus",
+     "board": "side",
+     "qty": 1
+    },
+    {
+     "oracle": "o-relic",
+     "name": "Relic of Progenitus",
+     "board": "maybe",
+     "qty": 2
+    },
+    {
+     "oracle": "o-dress",
+     "name": "Dress Down",
+     "board": "maybe",
+     "qty": 1
+    }
+   ],
+   "expect": null
+  },
+  {
+   "format": "modern",
+   "lines": [
+    {
+     "oracle": "o-bolt",
+     "name": "Lightning Bolt",
+     "board": "main",
+     "qty": 4
+    },
+    {
+     "oracle": "o-ragavan",
+     "name": "Ragavan, Nimble Pilferer",
+     "board": "main",
+     "qty": 4
+    },
+    {
+     "oracle": "o-engineer",
+     "name": "Dragon's Rage Channeler",
+     "board": "main",
+     "qty": 4
+    },
+    {
+     "oracle": "o-spell",
+     "name": "Spell Pierce",
+     "board": "main",
+     "qty": 2
+    },
+    {
+     "oracle": "o-island",
+     "name": "Island",
+     "board": "main",
+     "qty": 46
+    },
+    {
+     "oracle": "o-blood",
+     "name": "Blood Moon",
+     "board": "side",
+     "qty": 2
+    },
+    {
+     "oracle": "o-fury",
+     "name": "Fury",
+     "board": "side",
+     "qty": 2
+    },
+    {
+     "oracle": "o-pierce",
+     "name": "Mystical Dispute",
+     "board": "side",
+     "qty": 3
+    },
+    {
+     "oracle": "o-relic",
+     "name": "Relic of Progenitus",
+     "board": "side",
+     "qty": 1
+    },
+    {
+     "oracle": "o-relic",
+     "name": "Relic of Progenitus",
+     "board": "maybe",
+     "qty": 2
+    },
+    {
+     "oracle": "o-dress",
+     "name": "Dress Down",
+     "board": "maybe",
+     "qty": 1
+    },
+    {
+     "oracle": "o-x",
+     "name": "X",
+     "board": "side",
+     "qty": 8
+    }
+   ],
+   "expect": 16
+  },
+  {
+   "format": "other",
+   "lines": [
+    {
+     "oracle": "o-bolt",
+     "name": "Lightning Bolt",
+     "board": "main",
+     "qty": 4
+    },
+    {
+     "oracle": "o-ragavan",
+     "name": "Ragavan, Nimble Pilferer",
+     "board": "main",
+     "qty": 4
+    },
+    {
+     "oracle": "o-engineer",
+     "name": "Dragon's Rage Channeler",
+     "board": "main",
+     "qty": 4
+    },
+    {
+     "oracle": "o-spell",
+     "name": "Spell Pierce",
+     "board": "main",
+     "qty": 2
+    },
+    {
+     "oracle": "o-island",
+     "name": "Island",
+     "board": "main",
+     "qty": 46
+    },
+    {
+     "oracle": "o-blood",
+     "name": "Blood Moon",
+     "board": "side",
+     "qty": 2
+    },
+    {
+     "oracle": "o-fury",
+     "name": "Fury",
+     "board": "side",
+     "qty": 2
+    },
+    {
+     "oracle": "o-pierce",
+     "name": "Mystical Dispute",
+     "board": "side",
+     "qty": 3
+    },
+    {
+     "oracle": "o-relic",
+     "name": "Relic of Progenitus",
+     "board": "side",
+     "qty": 1
+    },
+    {
+     "oracle": "o-relic",
+     "name": "Relic of Progenitus",
+     "board": "maybe",
+     "qty": 2
+    },
+    {
+     "oracle": "o-dress",
+     "name": "Dress Down",
+     "board": "maybe",
+     "qty": 1
+    },
+    {
+     "oracle": "o-x",
+     "name": "X",
+     "board": "side",
+     "qty": 8
+    }
+   ],
+   "expect": null
+  }
+ ],
+ "uses": {
+  "o-fury": 1,
+  "o-blood": 1,
+  "o-relic": 1,
+  "o-dress": 1,
+  "o-pierce": 1
+ },
+ "normalize": [
+  {
+   "in": {
+    "matchups": [
+     {
+      "id": "a",
+      "name": "  Burn  ",
+      "in": [
+       [
+        "o-bolt",
+        1
+       ],
+       [
+        "o-bolt",
+        2
+       ]
+      ],
+      "out": [],
+      "notes": "  go wide \n"
+     }
+    ]
+   },
+   "expect": {
+    "matchups": [
+     {
+      "id": "a",
+      "name": "Burn",
+      "archetype": null,
+      "in": [
+       [
+        "o-bolt",
+        3
+       ]
+      ],
+      "out": [],
+      "notes": "go wide"
+     }
+    ]
+   }
+  },
+  {
+   "in": {
+    "matchups": [
+     {
+      "id": "a",
+      "name": "   ",
+      "in": [],
+      "out": []
+     }
+    ]
+   },
+   "expect": null
+  },
+  {
+   "in": {
+    "matchups": [
+     {
+      "id": "a",
+      "name": "Burn",
+      "in": [
+       [
+        "o-bolt",
+        0
+       ]
+      ],
+      "out": []
+     }
+    ]
+   },
+   "expect": null
+  },
+  {
+   "in": {
+    "matchups": []
+   },
+   "expect": null
+  }
+ ],
+ "print": {
+  "model": {
+   "deck": "Izzet Murktide",
+   "format": "Modern",
+   "date": "2026-11-04",
+   "sideboard": [
+    [
+     2,
+     "Blood Moon"
+    ],
+    [
+     2,
+     "Fury"
+    ],
+    [
+     3,
+     "Mystical Dispute"
+    ],
+    [
+     1,
+     "Relic of Progenitus"
+    ]
+   ],
+   "matchups": [
+    {
+     "name": "Boros Energy",
+     "in": [
+      [
+       2,
+       "Fury"
+      ],
+      [
+       1,
+       "Blood Moon"
+      ]
+     ],
+     "out": [
+      [
+       2,
+       "Spell Pierce"
+      ],
+      [
+       1,
+       "Dragon's Rage Channeler"
+      ]
+     ],
+     "notes": "Keep hands with two removal spells.\nOn the draw: Fury over Blood Moon."
+    },
+    {
+     "name": "Esper Goryo's & <friends>",
+     "in": [
+      [
+       1,
+       "Relic of Progenitus"
+      ],
+      [
+       3,
+       "Mystical Dispute"
+      ]
+     ],
+     "out": [
+      [
+       2,
+       "Ragavan, Nimble Pilferer"
+      ],
+      [
+       4,
+       "Lightning Bolt"
+      ],
+      [
+       2,
+       "Dragon's Rage Channeler"
+      ]
+     ],
+     "notes": ""
+    },
+    {
+     "name": "Mirror",
+     "in": [],
+     "out": [],
+     "notes": ""
+    }
+   ]
+  },
+  "warnings": [
+   {
+    "code": "considering",
+    "qty": 3
+   }
+  ],
+  "sheets": 1
+ },
+ "sheets": [
+  {
+   "matchups": 1,
+   "expect": 1
+  },
+  {
+   "matchups": 8,
+   "expect": 2
+  },
+  {
+   "matchups": 12,
+   "expect": 2
+  },
+  {
+   "matchups": 20,
+   "expect": 3
+  }
+ ]
+}

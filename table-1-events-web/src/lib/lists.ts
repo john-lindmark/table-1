@@ -5,6 +5,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import type { Condition } from "./collection";
 import { holdings, shorts, type CardOf, type Need } from "./ownedByCard";
+import { guideFromWire, type SideboardGuide } from "./sideboardGuide";
 import { supabase } from "./supabaseClient";
 import { capture } from "./telemetry";
 import { isNetworkError } from "./offline";
@@ -61,6 +62,8 @@ export interface CardList {
    *  contract/cube-sync-2026-10-30.md). */
   seq?: number;
   sourceUrl?: string | null;
+  /** Decks only, the owner's own (contract/sideboard-guide-2026-11-04.md). */
+  guide?: SideboardGuide | null;
 }
 
 export interface Change {
@@ -135,6 +138,7 @@ interface ListWire {
   event_name?: string | null;
   seq?: number;
   source_url?: string | null;
+  guide?: unknown;
   versions?: { version: number; note: string; at: number; entries: ([string, Board, number] | [string, Board, number, ListFinish] | [string, Board, number, ListFinish, string]
                                                                 | [string, Board, number, ListFinish, string, Condition])[] }[];
 }
@@ -146,6 +150,7 @@ export function fromWire(w: ListWire): CardList | null {
     ...(w.event_id ? { eventId: w.event_id, eventName: w.event_name ?? null } : {}),
     ...(typeof w.seq === "number" ? { seq: w.seq } : {}),
     ...(w.source_url ? { sourceUrl: w.source_url } : {}),
+    ...(guideFromWire(w.guide) ? { guide: guideFromWire(w.guide) } : {}),
     versions: w.versions.map((v) => ({
       number: v.version, at: v.at, note: v.note,
       entries: v.entries.map(([cardId, board, qty, finish, lang, cond]) => entry(cardId, board, qty, finish ?? "nonfoil", lang ?? "en", cond ?? "NM")),
@@ -482,6 +487,28 @@ export async function setListSource(id: string, url: string): Promise<void> {
   };
   if (demo) return local();
   await call("list_source_set", { p_list_id: id, p_source_url: url }, local);
+}
+
+const guideTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+/** Replaces a deck's sideboard guide: shown at once, sent 0.8 s after the last change so a run of taps is one call
+ *  (each sends the whole guide; the server keeps the last). */
+export function setListGuide(id: string, guide: SideboardGuide): void {
+  const l = state.lists.find((x) => x.id === id);
+  if (!l) return;
+  const next = guide.matchups.length ? guide : null;
+  const local = () => {
+    const now = state.lists.find((x) => x.id === id);
+    if (now) set({ lists: sorted([...state.lists.filter((x) => x.id !== id), { ...now, guide: next }]) });
+  };
+  local();
+  if (demo) return;
+  void saveCache();
+  clearTimeout(guideTimers.get(id));
+  guideTimers.set(id, setTimeout(() => {
+    guideTimers.delete(id);
+    void call("list_guide_set", { p_list_id: id, p_guide: next }, local).catch(() => { /* shown as the store's error */ });
+  }, 800));
 }
 
 /** Saves a cube synced with Cube Cobra as one new version (contract/cube-sync-2026-10-30.md). Throws the server's
