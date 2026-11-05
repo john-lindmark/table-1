@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Catalog updates wait for an unmetered network once a pack is installed. -->
@@ -157,5 +158,11 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/avatar_paths" />
         </provider>
+        <!-- Glance routes clicks through these only inside its lazy lists, which no widget uses. Started without its
+             target intent (bug #33, Android 11) the trampoline crashed the app, so both are off; GlanceTrampolineTest. -->
+        <activity android:name="androidx.glance.appwidget.action.ActionTrampolineActivity"
+            android:enabled="false" tools:replace="android:enabled" />
+        <activity android:name="androidx.glance.appwidget.action.InvisibleActionTrampolineActivity"
+            android:enabled="false" tools:replace="android:enabled" />
     </application>
 </manifest>
