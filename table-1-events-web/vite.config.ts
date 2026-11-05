@@ -26,7 +26,8 @@ export default defineConfig({
     // what the screens need). The manifest's icons come from Figma's "App icons" board (R9h660jfTHZEcnFZ2DJtLA 19726:2756).
     VitePWA({
       registerType: "autoUpdate",
-      injectRegister: "auto",
+      // Registered by src/lib/serviceWorker.ts, which catches a refused registration (bug #31).
+      injectRegister: null,
       manifest: {
         name: "Table 1",
         short_name: "Table 1",
