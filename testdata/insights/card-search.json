@@ -1,0 +1,318 @@
+{
+  "about": "Insights card search and the card page (contract/insights-2026-10-24.md § Card search and the card page): how each client words meta_card_search's hits and meta_card's archetype rows and lists. hitDetail: 'Main <pct>' and 'Side <pct>' (90-day shares; a part at 0 left out, pct as InsightCharts.pct: a whole percent from 9.95% or at 0, else one decimal), joined ' · '; neither: 'Not in the last 90 days · N list(s) this year'. archetypeDetail: '<decks> of <of> list(s)', then ' · <copies> main' and ' · <side_copies> side' (one decimal) when present; the bar is decks / of. finishTitle: '<place> · <event>' (1st, 2nd, 3rd, 4th, 11th…), the event alone with no place. finishDetail: the archetype's name, '<n> main' and '<n> side' when not 0, and the day as shortDay (MMM d, upper case). markers: the format changes naming the card (its exact name in cards) inside the weekly series, at week (day - from) / 7 rounded down, labelled by kind in upper case; two on one week join with '/'; drawn as a ban marker when any of them is a ban, unban, restrict, unrestrict or points change (Change.isBan).",
+  "hits": [
+    {
+      "name": "main and side",
+      "hit": {
+        "c": "x",
+        "n": "Lightning Bolt",
+        "type": "Instant",
+        "main": 0.6667,
+        "side": 0.3333,
+        "year": 6
+      },
+      "want": "Main 67% · Side 33%"
+    },
+    {
+      "name": "small shares keep a decimal",
+      "hit": {
+        "c": "x",
+        "n": "Blood Moon",
+        "type": "Enchantment",
+        "main": 0.012,
+        "side": 0.0995,
+        "year": 40
+      },
+      "want": "Main 1.2% · Side 10%"
+    },
+    {
+      "name": "sideboard only",
+      "hit": {
+        "c": "x",
+        "n": "Blood Moon",
+        "type": "Enchantment",
+        "main": 0,
+        "side": 0.25,
+        "year": 12
+      },
+      "want": "Side 25%"
+    },
+    {
+      "name": "only earlier in the year",
+      "hit": {
+        "c": "x",
+        "n": "Boltwave",
+        "type": "Sorcery",
+        "main": 0,
+        "side": 0,
+        "year": 6
+      },
+      "want": "Not in the last 90 days · 6 lists this year"
+    },
+    {
+      "name": "one list",
+      "hit": {
+        "c": "x",
+        "n": "Boltwave",
+        "type": "Sorcery",
+        "main": 0,
+        "side": 0,
+        "year": 1
+      },
+      "want": "Not in the last 90 days · 1 list this year"
+    }
+  ],
+  "archetypes": [
+    {
+      "name": "main and side copies",
+      "row": {
+        "a": 3,
+        "rate": 0.8,
+        "copies": 3.33,
+        "side_copies": 1.0,
+        "decks": 4,
+        "of": 6
+      },
+      "want": "4 of 6 lists · 3.3 main · 1.0 side",
+      "bar": 0.6667
+    },
+    {
+      "name": "sideboard only",
+      "row": {
+        "a": 3,
+        "rate": 0,
+        "copies": null,
+        "side_copies": 2.5,
+        "decks": 2,
+        "of": 9
+      },
+      "want": "2 of 9 lists · 2.5 side",
+      "bar": 0.2222
+    },
+    {
+      "name": "one list",
+      "row": {
+        "a": 0,
+        "rate": 1,
+        "copies": 4,
+        "side_copies": null,
+        "decks": 1,
+        "of": 1
+      },
+      "want": "1 of 1 list · 4.0 main",
+      "bar": 1
+    }
+  ],
+  "finishes": [
+    {
+      "name": "a place, main and side",
+      "finish": {
+        "event": "Modern Challenge 64",
+        "on": "2026-11-03",
+        "players": 70,
+        "tier": "large",
+        "rank": 1,
+        "url": null,
+        "a": 3,
+        "qty": [
+          4,
+          1
+        ],
+        "main": [],
+        "side": []
+      },
+      "archetype": "Burn",
+      "title": "1st · Modern Challenge 64",
+      "detail": "Burn · 4 main · 1 side · NOV 3"
+    },
+    {
+      "name": "eleventh, side only",
+      "finish": {
+        "event": "Regional Championship",
+        "on": "2026-10-12",
+        "players": 1200,
+        "tier": "major",
+        "rank": 11,
+        "url": null,
+        "a": 0,
+        "qty": [
+          0,
+          2
+        ],
+        "main": [],
+        "side": []
+      },
+      "archetype": "Other",
+      "title": "11th · Regional Championship",
+      "detail": "Other · 2 side · OCT 12"
+    },
+    {
+      "name": "no place",
+      "finish": {
+        "event": "Modern League",
+        "on": "2026-09-02",
+        "players": null,
+        "tier": "small",
+        "rank": null,
+        "url": null,
+        "a": 5,
+        "qty": [
+          2,
+          0
+        ],
+        "main": [],
+        "side": []
+      },
+      "archetype": "Living End",
+      "title": "Modern League",
+      "detail": "Living End · 2 main · SEP 2"
+    },
+    {
+      "name": "twenty-second",
+      "finish": {
+        "event": "Modern Challenge 32",
+        "on": "2026-11-05",
+        "players": 40,
+        "tier": "regular",
+        "rank": 22,
+        "url": null,
+        "a": 5,
+        "qty": [
+          3,
+          0
+        ],
+        "main": [],
+        "side": []
+      },
+      "archetype": "Living End",
+      "title": "22nd · Modern Challenge 32",
+      "detail": "Living End · 3 main · NOV 5"
+    }
+  ],
+  "markers": [
+    {
+      "name": "a ban on the card, another card's ban left out",
+      "from": "2025-11-08",
+      "weeks": 52,
+      "card": "Grief",
+      "changes": [
+        {
+          "id": 1,
+          "on": "2026-03-02",
+          "kind": "ban",
+          "cards": [
+            "Grief",
+            "Mox Opal"
+          ],
+          "set_code": null,
+          "note": null,
+          "url": null
+        },
+        {
+          "id": 2,
+          "on": "2026-05-18",
+          "kind": "ban",
+          "cards": [
+            "Psychic Frog"
+          ],
+          "set_code": null,
+          "note": null,
+          "url": null
+        }
+      ],
+      "want": [
+        [
+          16,
+          "BAN",
+          true
+        ]
+      ]
+    },
+    {
+      "name": "before the series starts and after it ends",
+      "from": "2025-11-08",
+      "weeks": 52,
+      "card": "Grief",
+      "changes": [
+        {
+          "id": 1,
+          "on": "2025-10-01",
+          "kind": "ban",
+          "cards": [
+            "Grief"
+          ],
+          "set_code": null,
+          "note": null,
+          "url": null
+        },
+        {
+          "id": 2,
+          "on": "2026-11-07",
+          "kind": "unban",
+          "cards": [
+            "Grief"
+          ],
+          "set_code": null,
+          "note": null,
+          "url": null
+        }
+      ],
+      "want": []
+    },
+    {
+      "name": "two on one week",
+      "from": "2025-11-08",
+      "weeks": 52,
+      "card": "Sol Ring",
+      "changes": [
+        {
+          "id": 1,
+          "on": "2026-01-05",
+          "kind": "restrict",
+          "cards": [
+            "Sol Ring"
+          ],
+          "set_code": null,
+          "note": null,
+          "url": null
+        },
+        {
+          "id": 2,
+          "on": "2026-01-06",
+          "kind": "unban",
+          "cards": [
+            "Sol Ring"
+          ],
+          "set_code": null,
+          "note": null,
+          "url": null
+        }
+      ],
+      "want": [
+        [
+          8,
+          "RESTRICT/UNBAN",
+          true
+        ]
+      ]
+    },
+    {
+      "name": "a set release never marks a card",
+      "from": "2025-11-08",
+      "weeks": 52,
+      "card": "Grief",
+      "changes": [
+        {
+          "id": 3,
+          "on": "2026-02-01",
+          "kind": "set_release",
+          "cards": [],
+          "set_code": "tdm",
+          "note": null,
+          "url": null
+        }
+      ],
+      "want": []
+    }
+  ]
+}

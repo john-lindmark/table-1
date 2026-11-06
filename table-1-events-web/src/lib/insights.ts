@@ -104,10 +104,53 @@ export const place = (rank: number) => {
   return `${rank}${t >= 11 && t <= 13 ? "th" : u === 1 ? "st" : u === 2 ? "nd" : u === 3 ? "rd" : "th"}`;
 };
 
+/** meta_card (contract § Card search and the card page): `window`, archetype `decks`/`of`/`side_copies`, `finishes`
+ *  and `last_seen` came 2026-11-06. */
+export interface CardArchetype { a: number; rate: number; copies: number | null; side_copies?: number | null; decks?: number; of?: number }
+export interface CardFinish extends Finish { a: number; qty: [number, number] }
 export interface CardPage {
   c: string; n: string | null;
   series: { from: string; weeks: number; main: (number | null)[]; side: (number | null)[] };
-  copies: number | null; by_archetype: { a: number; rate: number; copies: number | null }[]; first_seen: string | null;
+  window?: { days: number; decks: number; of: number; main: number | null; side: number | null; copies: number | null; side_copies: number | null };
+  copies: number | null; by_archetype: CardArchetype[]; finishes?: CardFinish[]; first_seen: string | null; last_seen?: string | null;
+}
+/** A meta_card_search hit: 90-day shares of lists playing it main / side, lists with it this year. */
+export interface CardHit { c: string; n: string; type: string | null; main: number; side: number; year: number }
+
+/** "Main 67% · Side 33%", or "Not in the last 90 days · 6 lists this year" (testdata/insights/card-search.json). */
+export function hitDetail(h: CardHit): string {
+  const parts = [h.main > 0 ? `Main ${pct(h.main)}` : null, h.side > 0 ? `Side ${pct(h.side)}` : null].filter(Boolean);
+  return parts.length ? parts.join(" · ") : `Not in the last 90 days · ${h.year} list${h.year === 1 ? "" : "s"} this year`;
+}
+/** "4 of 6 lists · 3.3 main · 1.0 side": an archetype row on the card page. */
+export function archetypeDetail(b: CardArchetype): string {
+  const of = b.of ?? b.decks ?? 0;
+  const parts = b.decks != null ? [`${b.decks} of ${of} list${of === 1 ? "" : "s"}`] : [];
+  if (b.copies != null) parts.push(`${b.copies.toFixed(1)} main`);
+  if (b.side_copies != null) parts.push(`${b.side_copies.toFixed(1)} side`);
+  return parts.join(" · ");
+}
+/** The archetype row's bar: its lists that play the card (old answers: the main-deck rate). */
+export const archetypeBar = (b: CardArchetype) => (b.decks != null && b.of ? b.decks / b.of : b.rate);
+/** "1st · Modern Challenge 64", or the event with no place. */
+export const finishTitle = (f: CardFinish) => (f.rank != null ? `${place(f.rank)} · ${f.event}` : f.event);
+/** "Burn · 4 main · 1 side · NOV 3". */
+export const finishDetail = (f: CardFinish, archetype: string) =>
+  [archetype, f.qty[0] > 0 ? `${f.qty[0]} main` : null, f.qty[1] > 0 ? `${f.qty[1]} side` : null, shortDay(f.on)].filter(Boolean).join(" · ");
+/** The format changes naming the card, at their week in the card's weekly series (ban markers on the chart). */
+export function cardMarkers(changes: Change[], card: string, from: string, weeks: number): { index: number; label: string; ban: boolean }[] {
+  const d0 = Date.parse(`${from.slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(d0)) return [];
+  const out: { index: number; label: string; ban: boolean }[] = [];
+  for (const c of [...changes].sort((a, b) => (a.on < b.on ? -1 : a.on > b.on ? 1 : a.id - b.id))) {
+    if (!c.cards.includes(card)) continue;
+    const days = Math.round((Date.parse(`${c.on.slice(0, 10)}T00:00:00Z`) - d0) / 86400000);
+    if (Number.isNaN(days) || days < 0 || Math.floor(days / 7) >= weeks) continue;
+    const index = Math.floor(days / 7), label = c.kind.toUpperCase();
+    const same = out.find((m) => m.index === index);
+    if (same) { same.label = `${same.label}/${label}`; same.ban ||= isBan(c); } else out.push({ index, label, ban: isBan(c) });
+  }
+  return out;
 }
 
 export interface LCard {
@@ -553,11 +596,26 @@ export async function archetypePage(format: string, id: number, tier: Tier, days
   return data as ArchetypePage;
 }
 
-export async function cardPage(format: string, oracleId: string, tier: Tier): Promise<CardPage> {
+export async function cardPage(format: string, oracleId: string, tier: Tier, days: number): Promise<CardPage> {
   if (state.demo) return demoPage(`card:${format}:${oracleId}`, "card:any") as Promise<CardPage>;
-  const { data, error } = await supabase.rpc("meta_card", { p_format: format, p_oracle_id: oracleId, p_tier: tier });
+  const { data, error } = await supabase.rpc("meta_card", { p_format: format, p_oracle_id: oracleId, p_tier: tier, p_days: days });
   if (error) throw new Error(error.message);
   return data as CardPage;
+}
+
+/** meta_card_search: cards played in the format this year whose name matches (contract § Card search). */
+export async function searchCards(format: string, query: string): Promise<CardHit[]> {
+  if (state.demo) {
+    // the demo's card pages stand in: every page of the format whose name holds the words
+    const q = query.toLowerCase();
+    return Object.entries(pages).filter(([k]) => k.startsWith(`card:${format}:`)).map(([, v]) => v as CardPage)
+      .filter((p) => p.n?.toLowerCase().includes(q))
+      .map((p) => ({ c: p.c, n: p.n!, type: null, main: p.series.main.at(-1) ?? 0, side: p.series.side.at(-1) ?? 0, year: p.by_archetype.length }))
+      .sort((a, b) => b.main + b.side - (a.main + a.side) || (a.n < b.n ? -1 : 1));
+  }
+  const { data, error } = await supabase.rpc("meta_card_search", { p_format: format, p_query: query, p_limit: 30 });
+  if (error) throw new Error(error.message);
+  return data as CardHit[];
 }
 
 const mines = new Map<string, Promise<Mine | null>>();

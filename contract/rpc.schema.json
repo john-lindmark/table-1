@@ -9774,7 +9774,7 @@
       }
     },
     "meta_card": {
-      "note": "A card's play in a format: weekly share of decks playing it main and side (26 weeks), average copies (30 days), the archetypes playing it, first seen. contract/insights-2026-10-24.md § RPCs. authenticated.",
+      "note": "A card's play in a format: a year of weekly shares of lists playing it main and side, the picked window (lists, shares, copies), every archetype playing it, its ten best lists, first and last seen. p_days 2026-11-06 (old builds send three arguments). contract/insights-2026-10-24.md § RPCs. authenticated.",
       "params": {
         "type": "object",
         "properties": {
@@ -9792,6 +9792,17 @@
               "all"
             ],
             "default": "all"
+          },
+          "p_days": {
+            "type": "integer",
+            "enum": [
+              7,
+              14,
+              30,
+              90,
+              365
+            ],
+            "default": 30
           }
         },
         "required": [
@@ -9863,6 +9874,18 @@
                     "number",
                     "null"
                   ]
+                },
+                "side_copies": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "decks": {
+                  "type": "integer"
+                },
+                "of": {
+                  "type": "integer"
                 }
               }
             }
@@ -9873,7 +9896,204 @@
               "null"
             ],
             "format": "date"
+          },
+          "window": {
+            "type": "object",
+            "properties": {
+              "days": {
+                "type": "integer"
+              },
+              "decks": {
+                "type": "integer"
+              },
+              "of": {
+                "type": "integer"
+              },
+              "main": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "side": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "copies": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "side_copies": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "days",
+              "decks",
+              "of"
+            ]
+          },
+          "finishes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "event": {
+                  "type": "string"
+                },
+                "on": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "players": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "tier": {
+                  "type": "string"
+                },
+                "rank": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "a": {
+                  "type": "integer"
+                },
+                "qty": {
+                  "type": "array",
+                  "prefixItems": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "main": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  }
+                },
+                "side": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "event",
+                "on",
+                "tier",
+                "a",
+                "qty",
+                "main",
+                "side"
+              ]
+            }
+          },
+          "last_seen": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
+        }
+      }
+    },
+    "meta_card_search": {
+      "note": "Cards played in a format over the last year whose name matches the query, best names first, then by 90-day play; basics left out. 2026-11-06. contract/insights-2026-10-24.md § RPCs. authenticated.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_format": {
+            "type": "string"
+          },
+          "p_query": {
+            "type": "string"
+          },
+          "p_limit": {
+            "type": "integer",
+            "default": 20,
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": [
+          "p_format",
+          "p_query"
+        ]
+      },
+      "result": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "c": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "n": {
+              "type": "string"
+            },
+            "type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "main": {
+              "type": "number"
+            },
+            "side": {
+              "type": "number"
+            },
+            "year": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "c",
+            "n",
+            "main",
+            "side",
+            "year"
+          ]
         }
       }
     },

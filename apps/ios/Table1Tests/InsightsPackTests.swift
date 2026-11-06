@@ -80,6 +80,43 @@ final class InsightsPackTests: XCTestCase {
         }
     }
 
+    /// Card search and the card page (testdata/insights/card-search.json).
+    func testCardSearchWording() throws {
+        struct Hit: Decodable { let name: String; let hit: Insights.CardHit; let want: String }
+        struct Arch: Decodable { let name: String; let row: Insights.CardPage.ByArchetype; let want: String; let bar: Double }
+        struct Fin: Decodable { let name: String; let finish: Insights.CardPage.Finish; let archetype: String; let title: String; let detail: String }
+        struct Marker: Decodable, Equatable {
+            let index: Int; let label: String; let ban: Bool
+            init(index: Int, label: String, ban: Bool) { self.index = index; self.label = label; self.ban = ban }
+            init(from d: Decoder) throws {
+                var c = try d.unkeyedContainer()
+                index = try c.decode(Int.self); label = try c.decode(String.self); ban = try c.decode(Bool.self)
+            }
+        }
+        struct Marks: Decodable { let name: String; let from: String; let weeks: Int; let card: String; let changes: [Insights.Change]; let want: [Marker] }
+        struct File: Decodable { let hits: [Hit]; let archetypes: [Arch]; let finishes: [Fin]; let markers: [Marks] }
+        let f = try JSONDecoder().decode(File.self, from: Data(contentsOf: dir.appending(path: "card-search.json")))
+        for c in f.hits { XCTAssertEqual(Insights.hitDetail(c.hit), c.want, c.name) }
+        for c in f.archetypes {
+            XCTAssertEqual(Insights.archetypeDetail(c.row), c.want, c.name)
+            XCTAssertEqual(Insights.archetypeBar(c.row), c.bar, accuracy: 0.0001, c.name)
+        }
+        for c in f.finishes {
+            XCTAssertEqual(Insights.finishTitle(c.finish), c.title, c.name)
+            XCTAssertEqual(Insights.finishDetail(c.finish, archetype: c.archetype), c.detail, c.name)
+        }
+        for c in f.markers {
+            let got = Insights.cardMarkers(c.changes, card: c.card, from: c.from, weeks: c.weeks).map { Marker(index: $0.index, label: $0.label, ban: $0.ban) }
+            XCTAssertEqual(got, c.want, c.name)
+        }
+        // an answer from before 2026-11-06 still reads
+        let old = #"{"c": "x", "n": "Bolt", "series": {"from": "2026-05-01", "weeks": 26, "main": [0.1], "side": [null]}, "copies": 3.5, "by_archetype": [{"a": 1, "rate": 0.5, "copies": 4}], "first_seen": null}"#
+        let p = try JSONDecoder().decode(Insights.CardPage.self, from: Data(old.utf8))
+        XCTAssertNil(p.window); XCTAssertNil(p.finishes)
+        XCTAssertEqual(Insights.archetypeBar(p.by_archetype[0]), 0.5)
+        XCTAssertEqual(Insights.archetypeDetail(p.by_archetype[0]), "4.0 main")
+    }
+
     func testGridFollowsThePickedWindow() throws {
         let data = try Data(contentsOf: dir.appending(path: "constructed-modern.json"))
         let old = try JSONDecoder().decode(Insights.ConstructedPack.self, from: data)

@@ -339,15 +339,83 @@ enum Insights {
         let t = rank % 100, u = rank % 10
         return "\(rank)" + ((11...13).contains(t) ? "th" : u == 1 ? "st" : u == 2 ? "nd" : u == 3 ? "rd" : "th")
     }
+    /// meta_card: a year of weeks, the picked window, every archetype playing the card and its best lists
+    /// (contract § Card search and the card page). The window, decks, finishes and last_seen came 2026-11-06.
     struct CardPage: Decodable {
         struct Weekly: Decodable { let from: String; let weeks: Int; let main: [Double?]; let side: [Double?] }
-        struct ByArchetype: Decodable, Hashable { let a: Int; let rate: Double; let copies: Double? }
+        struct ByArchetype: Decodable, Hashable {
+            let a: Int; let rate: Double; let copies: Double?
+            var side_copies: Double? = nil; var decks: Int? = nil; var of: Int? = nil
+        }
+        struct Window: Decodable, Hashable {
+            let days: Int; let decks: Int; let of: Int
+            let main: Double?; let side: Double?; let copies: Double?; let side_copies: Double?
+        }
+        /// A list that played the card: an archetype page's finish, plus its archetype and the card's copies.
+        struct Finish: Decodable, Hashable {
+            let event: String; let on: String; let players: Int?; let tier: String; let rank: Int?; let url: String?
+            let a: Int; let qty: [Int]
+            let main: [ArchetypePage.Line]; let side: [ArchetypePage.Line]
+            var asFinish: ArchetypePage.Finish { .init(event: event, on: on, players: players, tier: tier, rank: rank, url: url, main: main, side: side) }
+        }
         let c: String
         let n: String?
         let series: Weekly
+        var window: Window? = nil
         let copies: Double?
         let by_archetype: [ByArchetype]
+        var finishes: [Finish]? = nil
         let first_seen: String?
+        var last_seen: String? = nil
+    }
+    /// A meta_card_search hit: 90-day shares of lists playing it main / side, and lists with it this year.
+    struct CardHit: Decodable, Hashable, Identifiable {
+        let c: String; let n: String; let type: String?
+        let main: Double; let side: Double; let year: Int
+        var id: String { c }
+    }
+    /// "Main 67% · Side 33%", or "Not in the last 90 days · 6 lists this year" (testdata/insights/card-search.json).
+    static func hitDetail(_ h: CardHit) -> String {
+        let parts = [h.main > 0 ? "Main \(InsightCharts.pct(h.main))" : nil, h.side > 0 ? "Side \(InsightCharts.pct(h.side))" : nil].compactMap { $0 }
+        if parts.isEmpty { return "Not in the last 90 days · \(h.year) list\(h.year == 1 ? "" : "s") this year" }
+        return parts.joined(separator: " · ")
+    }
+    /// "4 of 6 lists · 3.3 main · 1.0 side": an archetype row on the card page.
+    static func archetypeDetail(_ b: CardPage.ByArchetype) -> String {
+        let of = b.of ?? b.decks ?? 0
+        var parts = b.decks.map { ["\($0) of \(of) list\(of == 1 ? "" : "s")"] } ?? []
+        if let c = b.copies { parts.append(String(format: "%.1f main", c)) }
+        if let c = b.side_copies { parts.append(String(format: "%.1f side", c)) }
+        return parts.joined(separator: " · ")
+    }
+    /// The archetype row's bar: its lists that play the card (old answers: the main-deck rate).
+    static func archetypeBar(_ b: CardPage.ByArchetype) -> Double {
+        guard let d = b.decks, let of = b.of, of > 0 else { return b.rate }
+        return Double(d) / Double(of)
+    }
+    /// The format changes naming the card, at their week in the card's weekly series (ban markers on the chart).
+    static func cardMarkers(_ changes: [Change], card: String, from: String, weeks: Int) -> [(index: Int, label: String, ban: Bool)] {
+        guard let d0 = InsightCharts.day(from) else { return [] }
+        var out: [(index: Int, label: String, ban: Bool)] = []
+        for c in changes.sorted(by: { ($0.on, $0.id) < ($1.on, $1.id) }) where c.cards.contains(card) {
+            guard let d = InsightCharts.day(c.on) else { continue }
+            let days = Int((d.timeIntervalSince(d0) / 86400).rounded())
+            guard days >= 0, days / 7 < weeks else { continue }
+            let i = days / 7
+            if let k = out.firstIndex(where: { $0.index == i }) {
+                out[k] = (i, out[k].label + "/" + c.kind.uppercased(), out[k].ban || c.isBan)
+            } else { out.append((i, c.kind.uppercased(), c.isBan)) }
+        }
+        return out
+    }
+    /// "1st · Modern Challenge 64", or the event with no place.
+    static func finishTitle(_ f: CardPage.Finish) -> String {
+        f.rank.map { "\(place($0)) · \(f.event)" } ?? f.event
+    }
+    /// "Burn · 4 main · 1 side · NOV 3".
+    static func finishDetail(_ f: CardPage.Finish, archetype: String) -> String {
+        let m = f.qty.first ?? 0, s = f.qty.count > 1 ? f.qty[1] : 0
+        return [archetype, m > 0 ? "\(m) main" : nil, s > 0 ? "\(s) side" : nil, InsightCharts.shortDay(f.on)].compactMap { $0 }.joined(separator: " · ")
     }
 
     // MARK: limited

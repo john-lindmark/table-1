@@ -103,6 +103,7 @@ const insights = () => import("./screens/Insights");
 const InsightsHome = lazyNamed(insights, "InsightsHome");
 const InsightsArchetype = lazyNamed(insights, "InsightsArchetype");
 const InsightsCard = lazyNamed(insights, "InsightsCard");
+const InsightsCardSearch = lazyNamed(insights, "InsightsCardSearch");
 const InsightsBan = lazyNamed(insights, "InsightsBan");
 const InsightsMatchups = lazyNamed(insights, "InsightsMatchups");
 const InsightsPart = lazyNamed(insights, "InsightsPart");
@@ -674,6 +675,8 @@ export default function App() {
         <Route path="/insights/:format/archetype/:id" element={<InsightsArchetype />} />
         <Route path="/insights/:format/archetype/:id/finish/:i" element={<InsightsArchetype />} />
         <Route path="/insights/:format/card/:oracleId" element={<InsightsCard />} />
+        <Route path="/insights/:format/card/:oracleId/list/:i" element={<InsightsCard />} />
+        <Route path="/insights/:format/cards" element={<InsightsCardSearch />} />
         <Route path="/insights/:format/ban/:id" element={<InsightsBan />} />
         <Route path="/insights/:format/matchups" element={<InsightsMatchups />} />
         <Route path="/insights/:format/part/:part" element={<InsightsPart />} />

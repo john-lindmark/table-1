@@ -284,10 +284,67 @@ object DeckLineSerializer : KSerializer<DeckLine> {
     @Serializable data class Finish(val event: String, val on: String, val players: Int? = null, val tier: String, val rank: Int? = null, val url: String? = null,
                                     val main: List<DeckLine>, val side: List<DeckLine>)
 }
-@Serializable data class CardPage(val c: String, val n: String? = null, val series: Weekly, val copies: Double? = null, val by_archetype: List<ByArchetype>,
-                                  val first_seen: String? = null) {
+/** meta_card (contract § Card search and the card page): `window`, archetype decks / of / side_copies, `finishes` and
+ *  last_seen came 2026-11-06. */
+@Serializable data class CardPage(val c: String, val n: String? = null, val series: Weekly, val window: Window? = null, val copies: Double? = null,
+                                  val by_archetype: List<ByArchetype>, val finishes: List<Finish>? = null,
+                                  val first_seen: String? = null, val last_seen: String? = null) {
     @Serializable data class Weekly(val from: String, val weeks: Int, val main: List<Double?>, val side: List<Double?>)
-    @Serializable data class ByArchetype(val a: Int, val rate: Double, val copies: Double? = null)
+    @Serializable data class ByArchetype(val a: Int, val rate: Double, val copies: Double? = null, val side_copies: Double? = null,
+                                         val decks: Int? = null, val of: Int? = null)
+    @Serializable data class Window(val days: Int, val decks: Int, val of: Int, val main: Double? = null, val side: Double? = null,
+                                    val copies: Double? = null, val side_copies: Double? = null)
+    /** A list that played the card: an archetype page's finish, plus its archetype and the card's copies [main, side]. */
+    @Serializable data class Finish(val event: String, val on: String, val players: Int? = null, val tier: String, val rank: Int? = null, val url: String? = null,
+                                    val a: Int, val qty: List<Int>, val main: List<DeckLine>, val side: List<DeckLine>) {
+        val asFinish get() = ArchetypePage.Finish(event, on, players, tier, rank, url, main, side)
+    }
+}
+/** A meta_card_search hit: 90-day shares of lists playing it main / side, and lists with it this year. */
+@Serializable data class CardHit(val c: String, val n: String, val type: String? = null, val main: Double, val side: Double, val year: Int)
+
+/** Card search and the card page's wording (testdata/insights/card-search.json). */
+object CardInsights {
+    /** "Main 67% · Side 33%", or "Not in the last 90 days · 6 lists this year". */
+    fun hitDetail(h: CardHit): String {
+        val parts = listOfNotNull(if (h.main > 0) "Main ${InsightCharts.pct(h.main)}" else null, if (h.side > 0) "Side ${InsightCharts.pct(h.side)}" else null)
+        return if (parts.isEmpty()) "Not in the last 90 days · ${h.year} list${if (h.year == 1) "" else "s"} this year" else parts.joinToString(" · ")
+    }
+    /** "4 of 6 lists · 3.3 main · 1.0 side": an archetype row on the card page. */
+    fun archetypeDetail(b: CardPage.ByArchetype): String {
+        val of = b.of ?: b.decks ?: 0
+        val parts = mutableListOf<String>()
+        b.decks?.let { parts += "$it of $of list${if (of == 1) "" else "s"}" }
+        b.copies?.let { parts += String.format(java.util.Locale.US, "%.1f main", it) }
+        b.side_copies?.let { parts += String.format(java.util.Locale.US, "%.1f side", it) }
+        return parts.joinToString(" · ")
+    }
+    /** The archetype row's bar: its lists that play the card (old answers: the main-deck rate). */
+    fun archetypeBar(b: CardPage.ByArchetype): Double = if (b.decks != null && b.of != null && b.of > 0) b.decks.toDouble() / b.of else b.rate
+    /** "1st · Modern Challenge 64", or the event with no place. */
+    fun finishTitle(f: CardPage.Finish): String = f.rank?.let { "${Insights.place(it)} · ${f.event}" } ?: f.event
+    /** "Burn · 4 main · 1 side · NOV 3". */
+    fun finishDetail(f: CardPage.Finish, archetype: String): String {
+        val m = f.qty.getOrElse(0) { 0 }; val s = f.qty.getOrElse(1) { 0 }
+        return listOfNotNull(archetype, if (m > 0) "$m main" else null, if (s > 0) "$s side" else null, InsightCharts.shortDay(f.on)).joinToString(" · ")
+    }
+    data class Mark(val index: Int, val label: String, val ban: Boolean)
+    /** The format changes naming the card, at their week in the card's weekly series (ban markers on the chart). */
+    fun markers(changes: List<Change>, card: String, from: String, weeks: Int): List<Mark> {
+        val d0 = runCatching { java.time.LocalDate.parse(from.take(10)) }.getOrNull() ?: return emptyList()
+        val out = mutableListOf<Mark>()
+        for (c in changes.sortedWith(compareBy({ it.on }, { it.id }))) {
+            if (card !in c.cards) continue
+            val d = runCatching { java.time.LocalDate.parse(c.on.take(10)) }.getOrNull() ?: continue
+            val days = java.time.temporal.ChronoUnit.DAYS.between(d0, d).toInt()
+            if (days < 0 || days / 7 >= weeks) continue
+            val i = days / 7
+            val k = out.indexOfFirst { it.index == i }
+            if (k >= 0) out[k] = Mark(i, out[k].label + "/" + c.kind.uppercase(), out[k].ban || c.isBan)
+            else out += Mark(i, c.kind.uppercase(), c.isBan)
+        }
+        return out
+    }
 }
 
 @Serializable data class LCard(val c: String? = null, val n: String, val r: String? = null, val col: String? = null,

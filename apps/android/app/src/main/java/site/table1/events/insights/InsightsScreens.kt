@@ -69,12 +69,22 @@ import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.T1Switch
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import kotlinx.coroutines.delay
+import site.table1.events.library.IconGlyph
+import site.table1.events.library.T1Icon
+import site.table1.events.library.SearchBand
+import site.table1.events.util.rethrowIfCancelled
 
 /** Where Insights screens go: the app's NavHost routes (AppRoot). */
 object InsightsRoutes {
     fun archetype(f: String, id: Int) = "insights/arch/$f/$id"
     fun finish(f: String, id: Int, i: Int) = "insights/finish/$f/$id/$i"
     fun card(f: String, id: String, n: String) = "insights/card/$f/$id?n=${Uri.encode(n)}"
+    fun cardSearch(f: String) = "insights/cards/$f"
+    fun cardList(f: String, id: String, i: Int) = "insights/cardlist/$f/$id/$i"
     fun ban(f: String, id: Int) = "insights/ban/$f/$id"
     fun matchups(f: String) = "insights/matchups/$f"
     fun part(f: String, key: String) = "insights/part/$f/$key"
@@ -124,7 +134,14 @@ fun InsightsHomeScreen(navigate: (String) -> Unit, moderator: Boolean) {
     LaunchedEffect(Unit) { s.load() }
     LaunchedEffect(s.section) { Telemetry.screen(if (s.section == "limited") "insights_limited" else "insights_constructed") }
     T1Screen {
-        Bar("Insights", if (s.section == "limited") "Arena draft" else "Constructed metagame")
+        Bar("Insights", if (s.section == "limited") "Arena draft" else "Constructed metagame") {
+            if (s.section != "limited") {
+                Box(Modifier.size(50.dp).clickable {
+                    Telemetry.capture("insights_card_search_opened", mapOf("format" to s.format))
+                    navigate(InsightsRoutes.cardSearch(s.format))
+                }.semantics { contentDescription = "Search cards" }, contentAlignment = Alignment.Center) { IconGlyph(T1Icon.Search) }
+            }
+        }
         T1Segmented(listOf("Constructed", "Limited"), if (s.section == "limited") 1 else 0) { s.pickSection(if (it == 1) "limited" else "constructed") }
         Scroll {
             if (s.section == "limited") LimitedHome(navigate) else ConstructedHome(navigate)
@@ -315,6 +332,30 @@ private fun CardMoveRow(f: String, c: CardRow, up: Boolean, navigate: (String) -
     }
 }
 
+/** One list from an archetype or card page, drawn like a deck shared with you (View, Group by, Sort, card art, Export,
+ *  Deck image), with Add to my decks. */
+@Composable
+private fun FinishList(format: String, fin: ArchetypePage.Finish?, title: String, error: String?, added: AddedDeck?,
+                       add: (ArchetypePage.Finish) -> Unit, navigate: (String) -> Unit, onBack: () -> Unit) {
+    val openDeck = { listId: String -> navigate("collection/list/$listId") }
+    val cat by CatalogStore.state.collectAsState()
+    val db = CatalogStore.db
+    LaunchedEffect(Unit) { CatalogStore.load(userInitiated = true) }
+    val resolved = remember(fin, db, cat.generation) { if (fin != null && db != null) finishRows(fin, db) else null }
+    if (fin == null || resolved == null) {
+        T1Screen {
+            Bar(title, fin?.let { "${it.event} · ${InsightCharts.shortDay(it.on)}" }, onBack = onBack)
+            CatalogStatus(cat)
+            Notice(error ?: "Loading…", error = error != null)
+        }
+        return
+    }
+    val byline = (listOfNotNull((fin.rank?.let { "${Insights.place(it)} at " } ?: "") + fin.event, InsightCharts.shortDay(fin.on), fin.players?.let { "$it players" }) +
+        listOfNotNull(resolved.second.takeIf { it > 0 }?.let { "$it card${if (it == 1) "" else "s"} not found" })).joinToString(" · ")
+    ProfileCardsScreen("", "deck", null, onBack = onBack, onCard = { navigate("collection/card/$it?search=1") }, onList = openDeck,
+        preset = PresetCards(resolved.first, title, format, byline) { AddToDecksRow(added, { add(fin) }, openDeck) })
+}
+
 @Composable
 fun ArchetypeInsightScreen(format: String, id: Int, finish: Int?, navigate: (String) -> Unit, onBack: () -> Unit) {
     val s = InsightsStore
@@ -337,23 +378,7 @@ fun ArchetypeInsightScreen(format: String, id: Int, finish: Int?, navigate: (Str
         // an Other group's example is named for its colors
         val group = if (id == 0) p?.groups?.firstOrNull { it.example == finish } else null
         val title = group?.let { Insights.colorsName(it.colors.ifEmpty { "C" }, "") } ?: name
-        val cat by CatalogStore.state.collectAsState()
-        val db = CatalogStore.db
-        LaunchedEffect(Unit) { CatalogStore.load(userInitiated = true) }
-        val resolved = remember(fin, db, cat.generation) { if (fin != null && db != null) finishRows(fin, db) else null }
-        if (fin == null || resolved == null) {
-            T1Screen {
-                Bar(title, fin?.let { "${it.event} · ${InsightCharts.shortDay(it.on)}" }, onBack = onBack)
-                CatalogStatus(cat)
-                Notice(error ?: "Loading…", error = error != null)
-            }
-            return
-        }
-        // drawn like a deck shared with you (View, Group by, Sort, card art, Export, Deck image)
-        val byline = (listOfNotNull((fin.rank?.let { "${Insights.place(it)} at " } ?: "") + fin.event, InsightCharts.shortDay(fin.on), fin.players?.let { "$it players" }) +
-            listOfNotNull(resolved.second.takeIf { it > 0 }?.let { "$it card${if (it == 1) "" else "s"} not found" })).joinToString(" · ")
-        ProfileCardsScreen("", "deck", null, onBack = onBack, onCard = { navigate("collection/card/$it?search=1") }, onList = openDeck,
-            preset = PresetCards(resolved.first, title, format, byline) { AddToDecksRow(added, { add(fin, title, "finish") }, openDeck) })
+        FinishList(format, fin, title, error, added, { add(it, title, "finish") }, navigate, onBack)
         return
     }
     T1Screen {
@@ -458,32 +483,95 @@ fun AddToDecksRow(added: AddedDeck?, onAdd: () -> Unit, onOpen: (String) -> Unit
 }
 
 @Composable
-fun CardInsightScreen(format: String, oracleId: String, name: String, navigate: (String) -> Unit, onBack: () -> Unit) {
+fun CardInsightScreen(format: String, oracleId: String, name: String, list: Int?, navigate: (String) -> Unit, onBack: () -> Unit) {
     val s = InsightsStore
     LaunchedEffect(format) { s.ensure("constructed", format) }
     val pack = s.constructed[format]
+    val tier = pack?.let { s.tier(it) } ?: "all"
     var page by remember { mutableStateOf<CardPage?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(format, oracleId) {
-        Telemetry.screen("insights_card")
-        runCatching { s.card(format, oracleId, "all") }.onSuccess { page = it }.onFailure { error = "This card couldn't load: ${it.message}" }
+    var added by remember { mutableStateOf<AddedDeck?>(null) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) { Telemetry.screen(if (list != null) "insights_finish" else "insights_card") }
+    LaunchedEffect(format, oracleId, tier, s.days) {
+        runCatching { s.card(format, oracleId, tier, s.days) }
+            .onSuccess { page = it; error = null }
+            .onFailure { it.rethrowIfCancelled(); error = "This card couldn't load: ${it.message}" }
+    }
+    if (list != null) {
+        val f = page?.finishes?.getOrNull(list)
+        val deck = f?.let { pack?.name(it.a) } ?: "Deck"
+        FinishList(format, f?.asFinish, deck, error, added, { fin -> scope.launch { added = addToDecks(fin, deck, format, "card") } }, navigate, onBack)
+        return
     }
     T1Screen {
-        Bar(page?.n ?: name, "${pack?.name ?: format} · all events", onBack = onBack)
+        Bar(page?.n ?: name, onBack = onBack)
+        if (pack != null) WindowPickers(tier)
         val p = page
         if (p == null) { Notice(error ?: "Loading…", error = error != null); return@T1Screen }
+        val w = p.window
+        val days = w?.days ?: s.days
         Scroll {
-            Stats("Main decks" to InsightCharts.pct(p.series.main.lastOrNull()), "Copies" to (p.copies?.let { "%.1f".format(it) } ?: "–"),
-                "First seen" to (p.first_seen?.let(InsightCharts::shortDay) ?: "–"))
-            Section("Share of decks by week")
-            InsightLineChart(listOf(LineSeries("m", "Main", p.series.main, true), LineSeries("s", "Side", p.series.side)), p.series.weeks, height = 150.dp, labelWidth = 70.dp)
-            if (p.by_archetype.isNotEmpty()) Section("Played in · last 30 days")
-            val max = (p.by_archetype.maxOfOrNull { it.rate } ?: 1.0).coerceAtLeast(0.01)
+            Stats("Main" to InsightCharts.pct(w?.main ?: p.series.main.lastOrNull()), "Side" to InsightCharts.pct(w?.side ?: p.series.side.lastOrNull()),
+                "Copies" to ((w?.copies ?: p.copies)?.let { String.format(java.util.Locale.US, "%.1f", it) } ?: "–"))
+            Stats("Lists" to (w?.let { "${it.decks}/${it.of}" } ?: "–"), "First seen" to (p.first_seen?.let(InsightCharts::shortDay) ?: "–"),
+                "Last seen" to (p.last_seen?.let(InsightCharts::shortDay) ?: "–"))
+            Section("Share of ${pack?.name ?: format} lists by week")
+            val months = InsightCharts.months(p.series.from, p.series.weeks * 7).map { it.first / 7 to it.second }
+            val labels = months.filterIndexed { k, _ -> k % 2 == (if (months.size % 2 == 0) 1 else 0) }
+            val marks = pack?.let { CardInsights.markers(it.changes, p.n ?: name, p.series.from, p.series.weeks) }.orEmpty().map { ChartMarker(it.index, it.label, it.ban) }
+            InsightLineChart(listOf(LineSeries("m", "Main", p.series.main, true), LineSeries("s", "Side", p.series.side)), p.series.weeks,
+                markers = marks, xLabels = labels, height = 190.dp, labelWidth = 60.dp)
+            if (w?.decks == 0) Notice("No lists played it in the last $days days.")
+            if (p.by_archetype.isNotEmpty()) Section("Played in · last $days days")
+            val max = (p.by_archetype.maxOfOrNull { CardInsights.archetypeBar(it) } ?: 1.0).coerceAtLeast(0.01)
             p.by_archetype.forEach { a ->
-                InsightBar(pack?.name(a.a) ?: "Other", a.rate, max, detail = a.copies?.let { "%.1f copies in its lists".format(it) },
+                InsightBar(pack?.name(a.a) ?: "Other", CardInsights.archetypeBar(a), max, detail = CardInsights.archetypeDetail(a),
                     onClick = { navigate(InsightsRoutes.archetype(format, a.a)) })
             }
+            val lists = p.finishes.orEmpty()
+            if (lists.isNotEmpty()) Section("Best lists · last $days days")
+            lists.forEachIndexed { i, f ->
+                ListRow(CardInsights.finishTitle(f), CardInsights.finishDetail(f, pack?.name(f.a) ?: "Other"), onClick = {
+                    Telemetry.capture("insights_card_list_opened", mapOf("format" to format, "tier" to f.tier))
+                    navigate(InsightsRoutes.cardList(format, oracleId, i))
+                })
+            }
             ListRow("Open the card", "Prices, printings and your copies", onClick = { navigate("collection/card/$oracleId") })
+        }
+    }
+}
+
+/** Insights → search: cards played in the format this year, by name (meta_card_search), each opening its card page. */
+@Composable
+fun CardSearchScreen(format: String, navigate: (String) -> Unit, onBack: () -> Unit) {
+    val label = Insights.formats.firstOrNull { it.first == format }?.second ?: format
+    var query by remember { mutableStateOf("") }
+    var hits by remember { mutableStateOf<List<CardHit>>(emptyList()) }
+    var answered by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) { Telemetry.screen("insights_card_search") }
+    val q = query.trim()
+    LaunchedEffect(q) {
+        if (q.length < 2) { hits = emptyList(); answered = null; error = null; return@LaunchedEffect }
+        delay(250)
+        // a newer query restarts this effect, so an older answer never lands over a newer one
+        runCatching { InsightsStore.searchCards(format, q) }
+            .onSuccess { hits = it; answered = q; error = null; Telemetry.capture("insights_card_search", mapOf("format" to format, "results" to it.size)) }
+            .onFailure { it.rethrowIfCancelled(); error = "Search didn't work: ${it.message}" }
+    }
+    T1Screen {
+        Bar("$label cards", onBack = onBack)
+        SearchBand(query, "Card name") { query = it }
+        Scroll {
+            error?.let { Notice(it, error = true) }
+            if (error == null && q.length >= 2 && answered == q && hits.isEmpty()) Notice("No $label lists played a card called that this year.")
+            if (q.length >= 2) hits.forEach { h ->
+                ListRow(h.n, CardInsights.hitDetail(h), onClick = {
+                    Telemetry.capture("insights_card_opened", mapOf("format" to format, "from" to "search"))
+                    navigate(InsightsRoutes.card(format, h.c, h.n))
+                })
+            }
         }
     }
 }
@@ -830,8 +918,12 @@ fun NavGraphBuilder.insightsGraph(nav: NavHostController, moderator: Boolean) {
         ArchetypeInsightScreen(e.arguments?.getString("format") ?: "", e.arguments?.getString("id")?.toIntOrNull() ?: 0, e.arguments?.getString("i")?.toIntOrNull() ?: 0, go, back)
     }
     composable("insights/card/{format}/{id}?n={n}") { e ->
-        CardInsightScreen(e.arguments?.getString("format") ?: "", e.arguments?.getString("id") ?: "", e.arguments?.getString("n") ?: "Card", go, back)
+        CardInsightScreen(e.arguments?.getString("format") ?: "", e.arguments?.getString("id") ?: "", e.arguments?.getString("n") ?: "Card", null, go, back)
     }
+    composable("insights/cardlist/{format}/{id}/{i}") { e ->
+        CardInsightScreen(e.arguments?.getString("format") ?: "", e.arguments?.getString("id") ?: "", "Card", e.arguments?.getString("i")?.toIntOrNull() ?: 0, go, back)
+    }
+    composable("insights/cards/{format}") { e -> CardSearchScreen(e.arguments?.getString("format") ?: "", go, back) }
     composable("insights/ban/{format}/{id}") { e ->
         BanStudyScreen(e.arguments?.getString("format") ?: "", e.arguments?.getString("id")?.toIntOrNull() ?: 0, go, back)
     }

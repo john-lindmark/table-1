@@ -85,6 +85,40 @@ class InsightsPackTest {
         }
     }
 
+    /** Card search and the card page (testdata/insights/card-search.json). */
+    @Test fun cardSearchSharedCases() {
+        val root = json.parseToJsonElement(File(dir, "card-search.json").readText()).jsonObject
+        for (c in root["hits"]!!.jsonArray) {
+            val o = c.jsonObject
+            assertEquals(o["name"]!!.jsonPrimitive.content, o["want"]!!.jsonPrimitive.content,
+                CardInsights.hitDetail(json.decodeFromJsonElement(CardHit.serializer(), o["hit"]!!)))
+        }
+        for (c in root["archetypes"]!!.jsonArray) {
+            val o = c.jsonObject
+            val row = json.decodeFromJsonElement(CardPage.ByArchetype.serializer(), o["row"]!!)
+            assertEquals(o["name"]!!.jsonPrimitive.content, o["want"]!!.jsonPrimitive.content, CardInsights.archetypeDetail(row))
+            assertEquals(o["name"]!!.jsonPrimitive.content, o["bar"]!!.jsonPrimitive.content.toDouble(), CardInsights.archetypeBar(row), 0.0001)
+        }
+        for (c in root["finishes"]!!.jsonArray) {
+            val o = c.jsonObject
+            val f = json.decodeFromJsonElement(CardPage.Finish.serializer(), o["finish"]!!)
+            assertEquals(o["name"]!!.jsonPrimitive.content, o["title"]!!.jsonPrimitive.content, CardInsights.finishTitle(f))
+            assertEquals(o["name"]!!.jsonPrimitive.content, o["detail"]!!.jsonPrimitive.content, CardInsights.finishDetail(f, o["archetype"]!!.jsonPrimitive.content))
+        }
+        for (c in root["markers"]!!.jsonArray) {
+            val o = c.jsonObject
+            val changes = o["changes"]!!.jsonArray.map { json.decodeFromJsonElement(Change.serializer(), it) }
+            val want = o["want"]!!.jsonArray.map { m -> m.jsonArray.let { CardInsights.Mark(it[0].jsonPrimitive.int, it[1].jsonPrimitive.content, it[2].jsonPrimitive.content.toBoolean()) } }
+            assertEquals(o["name"]!!.jsonPrimitive.content, want,
+                CardInsights.markers(changes, o["card"]!!.jsonPrimitive.content, o["from"]!!.jsonPrimitive.content, o["weeks"]!!.jsonPrimitive.int))
+        }
+        // an answer from before 2026-11-06 still reads
+        val old = json.decodeFromString<CardPage>("""{"c":"x","n":"Bolt","series":{"from":"2026-05-01","weeks":26,"main":[0.1],"side":[null]},"copies":3.5,"by_archetype":[{"a":1,"rate":0.5,"copies":4}],"first_seen":null}""")
+        assertNull(old.window); assertNull(old.finishes)
+        assertEquals(0.5, CardInsights.archetypeBar(old.by_archetype[0]), 0.0)
+        assertEquals("4.0 main", CardInsights.archetypeDetail(old.by_archetype[0]))
+    }
+
     @Test fun gridFollowsThePickedWindow() {
         val text = File(dir, "constructed-modern.json").readText()
         val old = json.decodeFromString<ConstructedPack>(text)

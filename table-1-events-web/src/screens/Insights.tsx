@@ -3,15 +3,16 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Bar as ShareBar, Heatmap, LineChart, Scatter, SlopeChart, type Marker } from "../components/InsightCharts";
 import { Bar, GhostAction, Notice, Row, Screen, Section, Segmented, Stat, SwitchRow, TabNav } from "../components/kit";
 import { printingsByName, type Catalog } from "../lib/catalog";
-import { delta, pct, pct1, rates, seriesWindow, shortDay, wilson } from "../lib/insightCharts";
+import { delta, months, pct, pct1, rates, seriesWindow, shortDay, wilson } from "../lib/insightCharts";
 import {
   EVENT_LABELS, EVENT_ORDER, FORMATS, PAIR_NAMES, WINDOWS, canHide, exampleFinish, formatParts, place, setHidden, sourcesCredit, visibleKeys, type Finish, type PartKey, afterWindow, archetypeName, archetypePage, cardPage, changeWords, colorsName, isBan,
   gridFor, loadInsights, loadInsightsDemo, loadInsightsExtras, matchup, matchupRows, mineFor, pick, setInsightsAlerts, yoursFirst, type Mine, useInsights, type ArchetypePage, type CardPage, type CardRow, type ConstructedPack, type Matchups,
   type LCard, type LimitedPack, type LView, type Tier,
+  archetypeBar, archetypeDetail, cardMarkers, finishDetail, finishTitle, hitDetail, searchCards, type CardFinish, type CardHit,
 } from "../lib/insights";
 import { isLibraryDemo } from "../lib/libraryDemo";
 import { limitedLabel, limitedPicker, rankableDetail, shownChips, soonText } from "../lib/limitedRank";
-import { useCatalog } from "./Library";
+import { ICON, Icon, useCatalog } from "./Library";
 import { createList, type Entry } from "../lib/lists";
 import type { ProfileCard } from "../lib/friends";
 
@@ -74,7 +75,12 @@ export function InsightsHome({ section }: { section: "constructed" | "limited" }
   return (
     <Screen>
       <TabNav />
-      <Bar title="Insights" subtitle={section === "limited" ? "Arena draft" : "Constructed metagame"} />
+      <Bar title="Insights" subtitle={section === "limited" ? "Arena draft" : "Constructed metagame"}
+           right={section === "constructed" && (data.session || data.demo) ? (
+             <button type="button" aria-label="Search cards" className="w-[50px] h-[50px] -my-3 -mr-4 flex items-center justify-center hover:text-t1-accent"
+                     onClick={() => { capture("insights_card_search_opened", { format: data.picks.format }); nav(`/insights/${data.picks.format}/cards${data.demo ? "?demo" : ""}`); }}>
+               <Icon d={ICON.search} />
+             </button>) : undefined} />
       <Segmented options={[{ value: "constructed", label: "Constructed" }, { value: "limited", label: "Limited" }]} value={section}
                  onChange={(v) => { capture("insights_section_changed", { section: v }); nav(v === "limited" ? "/insights/limited" : "/insights"); }} />
       {!data.session && !data.demo ? (data.ready ? <SignInFirst /> : null)
@@ -440,38 +446,138 @@ export function InsightsArchetype() {
 /* ── card ─────────────────────────────────────────────────────────────── */
 
 export function InsightsCard() {
-  const { format = "", oracleId = "" } = useParams();
+  const { format = "", oracleId = "", i } = useParams();
   const nav = useNavigate();
   const name = new URLSearchParams(location.search).get("n") ?? "Card";
-  const { constructed, session, demo, ready } = useInsightsData();
+  const { constructed, picks, session, demo, ready } = useInsightsData();
   const [page, setPage] = useState<CardPage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState<{ text: string; listId?: string } | null>(null);
+  const { catalog } = useCatalog();
   const pack = constructed[format];
+  const tier: Tier = picks.tier ?? pack?.default_tier ?? "big";
   useEffect(() => {
     if (!session && !demo) return;
-    cardPage(format, oracleId, "all").then(setPage, (e) => setError(String(e?.message ?? e)));
-  }, [format, oracleId, session, demo]);
-  if (!session && !demo) return <Screen><Bar title={name} onBack={() => nav(-1)} />{ready && <SignInFirst />}</Screen>;
-  const max = Math.max(0.01, ...(page?.by_archetype.map((a) => a.rate) ?? []));
+    let live = true;
+    cardPage(format, oracleId, tier, picks.days).then((p) => { if (live) { setPage(p); setError(null); } }, (e) => live && setError(String(e?.message ?? e)));
+    return () => { live = false; };
+  }, [format, oracleId, tier, picks.days, session, demo]);
+  const back = () => nav(-1);
+  const title = page?.n ?? name;
+  if (!session && !demo) return <Screen><Bar title={title} onBack={back} />{ready && <SignInFirst />}</Screen>;
+
+  if (i != null) {
+    // one of the card's best lists, drawn like an archetype's example list
+    const fin = page?.finishes?.[Number(i)];
+    const deck = fin ? archetypeName(pack, fin.a) : title;
+    const loading = <Screen><Bar title={deck} onBack={back} /><Notice tone="info">Loading…</Notice></Screen>;
+    if (!fin || !catalog) return loading;
+    const { rows, missing } = finishRows(fin, catalog);
+    const byline = [`${fin.rank != null ? `${place(fin.rank)} at ` : ""}${fin.event}`, shortDay(fin.on), fin.players != null ? `${fin.players} players` : null,
+                    missing ? `${missing} card${missing === 1 ? "" : "s"} not found` : null].filter(Boolean).join(" · ");
+    const add = async () => {
+      const byName = printingsByName(catalog, [...fin.main, ...fin.side].map(([n]) => n));
+      const entries: Entry[] = [];
+      for (const [board, lines] of [["main", fin.main], ["side", fin.side]] as const) {
+        for (const [n, q] of lines) { const p = byName.get(n); if (p !== undefined) entries.push({ cardId: catalog.pId[p], board, qty: q }); }
+      }
+      try {
+        const listId = await createList("deck", deck.slice(0, 60), format, entries, `From ${fin.event}, ${fin.on}`.slice(0, 120), "insights");
+        capture("insights_copy_to_library", { format, archetype: deck, from: "card" });
+        setCopied({ text: `Added to your decks as ${deck}${missing ? ` (${missing} card${missing === 1 ? "" : "s"} not found)` : ""}`, listId });
+      } catch (e) { setCopied({ text: `Couldn't add it: ${(e as { message?: string })?.message ?? String(e)}` }); }
+    };
+    return (
+      <Suspense fallback={loading}>
+        <ProfileCardsBody userId="" section="deck" item={null} onBack={back} onList={(listId) => nav(`/library/list/${listId}`)}
+                          onCard={(o) => nav(`/library/card/${o}`, { state: { search: true } })}
+                          preset={{ rows, name: deck, format, byline,
+                                    actions: <AddRow copied={copied} onAdd={() => void add()} onOpen={(listId) => nav(`/library/list/${listId}`)} /> }} />
+      </Suspense>
+    );
+  }
+
+  const w = page?.window;
+  const days = w?.days ?? picks.days;
+  const s = page?.series;
+  const last = (v: (number | null)[] | undefined) => (v ? [...v].reverse().find((x) => x != null) ?? null : null);
+  const max = Math.max(0.01, ...(page?.by_archetype.map(archetypeBar) ?? []));
+  const monthLabels = (from: string, weeks: number): [number, string][] => {
+    const m = months(from, weeks * 7).map(([d, l]) => [Math.floor(d / 7), l] as [number, string]);
+    return m.filter((_, k) => k % 2 === (m.length % 2 === 0 ? 1 : 0));
+  };
   return (
     <Screen>
-      <Bar title={page?.n ?? name} subtitle={`${pack?.name ?? format} · all events`} onBack={() => nav(-1)} />
+      <Bar title={title} onBack={back} />
+      {pack && <WindowPickers tier={tier} days={picks.days} />}
       {error && <Notice tone="error">{error}</Notice>}
       {!page && !error && <Notice tone="info">Loading…</Notice>}
-      {page && (
+      {page && s && (
         <Scroll>
-          <Stats items={[["Main decks", pct(page.series.main[page.series.main.length - 1])], ["Copies", page.copies?.toFixed(1) ?? "–"], ["First seen", page.first_seen ? shortDay(page.first_seen) : "–"]]} />
-          <Section title="Share of decks by week" />
-          <Chart><LineChart count={page.series.weeks} height={160} labelWidth={80}
-                            series={[{ id: "m", label: "Main", values: page.series.main, highlighted: true }, { id: "s", label: "Side", values: page.series.side }]} /></Chart>
-          {page.by_archetype.length > 0 && <Section title="Played in · last 30 days" />}
+          <Stats items={[["Main", pct(w ? w.main : last(s.main))], ["Side", pct(w ? w.side : last(s.side))], ["Copies", (w ? w.copies : page.copies)?.toFixed(1) ?? "–"]]} />
+          <Stats items={[["Lists", w ? `${w.decks}/${w.of}` : "–"], ["First seen", page.first_seen ? shortDay(page.first_seen) : "–"], ["Last seen", page.last_seen ? shortDay(page.last_seen) : "–"]]} />
+          <Section title={`Share of ${pack?.name ?? format} lists by week`} />
+          <Chart><LineChart count={s.weeks} height={190} labelWidth={70} xLabels={monthLabels(s.from, s.weeks)}
+                            markers={pack ? cardMarkers(pack.changes, page.n ?? name, s.from, s.weeks) : []}
+                            series={[{ id: "m", label: "Main", values: s.main, highlighted: true }, { id: "s", label: "Side", values: s.side }]} /></Chart>
+          {w?.decks === 0 && <Notice tone="info">No lists played it in the last {days} days.</Notice>}
+          {page.by_archetype.length > 0 && <Section title={`Played in · last ${days} days`} />}
           {page.by_archetype.map((a) => (
-            <ShareBar key={a.a} label={archetypeName(pack, a.a)} value={a.rate} max={max} onClick={() => nav(`/insights/${format}/archetype/${a.a}`)}
-                      detail={a.copies != null ? `${a.copies.toFixed(1)} copies in its lists` : null} />
+            <ShareBar key={a.a} label={archetypeName(pack, a.a)} value={archetypeBar(a)} max={max} onClick={() => nav(`/insights/${format}/archetype/${a.a}`)}
+                      detail={archetypeDetail(a)} />
+          ))}
+          {(page.finishes?.length ?? 0) > 0 && <Section title={`Best lists · last ${days} days`} />}
+          {page.finishes?.map((f: CardFinish, k) => (
+            <Row key={k} title={finishTitle(f)} detail={finishDetail(f, archetypeName(pack, f.a))}
+                 onClick={() => { capture("insights_card_list_opened", { format, tier: f.tier }); nav(`/insights/${format}/card/${oracleId}/list/${k}${location.search}`); }} />
           ))}
           <Row title="Open the card" detail="Prices, printings and your copies" onClick={() => nav(`/library/card/${oracleId}`)} />
         </Scroll>
       )}
+    </Screen>
+  );
+}
+
+/** Insights → search: cards played in the format this year, by name (meta_card_search), each opening its card page. */
+export function InsightsCardSearch() {
+  const { format = "" } = useParams();
+  const nav = useNavigate();
+  const { session, demo, ready } = useInsightsData();
+  const label = FORMATS.find((f) => f.key === format)?.label ?? format;
+  const [query, setQuery] = useState("");
+  const [found, setFound] = useState<{ q: string; hits: CardHit[] } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const q = query.trim();
+  useEffect(() => {
+    if (q.length < 2 || (!session && !demo)) { setFound(null); setError(null); return; }
+    let live = true;
+    const t = setTimeout(() => {
+      searchCards(format, q).then((hits) => {
+        if (!live) return;  // a newer query took over: an older answer never lands over it
+        setFound({ q, hits }); setError(null);
+        capture("insights_card_search", { format, results: hits.length });
+      }, (e) => live && setError(`Search didn't work: ${String(e?.message ?? e)}`));
+    }, 250);
+    return () => { live = false; clearTimeout(t); };
+  }, [q, format, session, demo]);
+  if (!session && !demo) return <Screen><Bar title={`${label} cards`} onBack={() => nav(-1)} />{ready && <SignInFirst />}</Screen>;
+  return (
+    <Screen>
+      <Bar title={`${label} cards`} onBack={() => nav(-1)} />
+      <label className="shrink-0 bg-t1-surface px-4 py-3 flex flex-col gap-1">
+        <span className="t1-label">Search</span>
+        <input type="search" value={query} autoFocus placeholder="Card name" autoCapitalize="off" autoCorrect="off" spellCheck={false}
+               onChange={(e) => setQuery(e.target.value)}
+               className="bg-transparent border-0 outline-0 text-[15px] text-t1-text placeholder:text-t1-muted/60 w-full" />
+      </label>
+      <Scroll>
+        {error && <Notice tone="error">{error}</Notice>}
+        {!error && found && found.q === q && found.hits.length === 0 && <Notice tone="info">No {label} lists played a card called that this year.</Notice>}
+        {q.length >= 2 && found?.hits.map((h) => (
+          <Row key={h.c} title={h.n} detail={hitDetail(h)}
+               onClick={() => { capture("insights_card_opened", { format, from: "search" }); nav(`/insights/${format}/card/${h.c}?n=${encodeURIComponent(h.n)}${demo ? "&demo" : ""}`); }} />
+        ))}
+      </Scroll>
     </Screen>
   );
 }

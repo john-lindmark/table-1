@@ -320,13 +320,30 @@ final class InsightsStore {
         ]).execute().value
     }
 
-    func card(format: String, oracleId: String, tier: Insights.Tier) async throws -> Insights.CardPage {
+    func card(format: String, oracleId: String, tier: Insights.Tier, days: Int) async throws -> Insights.CardPage {
         if let pages = demoPages {
             guard let d = pages["card:\(format):\(oracleId)"] ?? pages["card:any"] else { throw InsightsError(message: "No demo page") }
             return try JSONDecoder().decode(Insights.CardPage.self, from: d)
         }
         return try await supabase.rpc("meta_card", params: [
-            "p_format": AnyJSON.string(format), "p_oracle_id": .string(oracleId), "p_tier": .string(tier.rawValue),
+            "p_format": AnyJSON.string(format), "p_oracle_id": .string(oracleId), "p_tier": .string(tier.rawValue), "p_days": .integer(days),
+        ]).execute().value
+    }
+
+    /// meta_card_search: cards played in the format this year whose name matches (contract § Card search).
+    func searchCards(format: String, query: String) async throws -> [Insights.CardHit] {
+        if let pages = demoPages {
+            // the demo's card pages stand in: every page of the format whose name holds the words
+            let q = query.lowercased()
+            return pages.compactMap { k, d -> Insights.CardHit? in
+                guard k.hasPrefix("card:\(format):"), let p = try? JSONDecoder().decode(Insights.CardPage.self, from: d),
+                      let n = p.n, n.lowercased().contains(q) else { return nil }
+                let main = p.series.main.last.flatMap { $0 } ?? 0, side = p.series.side.last.flatMap { $0 } ?? 0
+                return .init(c: p.c, n: n, type: nil, main: main, side: side, year: p.by_archetype.count)
+            }.sorted { ($0.main + $0.side, $1.n) > ($1.main + $1.side, $0.n) }
+        }
+        return try await supabase.rpc("meta_card_search", params: [
+            "p_format": AnyJSON.string(format), "p_query": .string(query), "p_limit": .integer(30),
         ]).execute().value
     }
 

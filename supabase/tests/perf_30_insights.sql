@@ -75,10 +75,15 @@ select pg_temp.ms('ingest a 1,500-player paper event', $$select public.meta_inge
   'matches', (select jsonb_agg(jsonb_build_object('round', 'Round ' || r, 'a', 'P' || g, 'b', 'P' || (g + 1), 'result', 'a'))
                 from generate_series(1, 9) r, generate_series(1, 1499, 2) g)))$$, 3000, 1);
 
+-- card search reads the daily counts (spice_refresh, 04:40 UTC)
+select t1_private.spice_refresh() > 0 as counted \gset
 set role authenticated;
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
 select pg_temp.ms('archetype page (a viewer''s tap)', $$select public.meta_archetype('modern', (select 1 + 0), 'all', 30)$$, 100);
 select pg_temp.ms('card page (a viewer''s tap)', $$select public.meta_card('modern', md5('c40')::uuid, 'all')$$, 200);
+-- 20261106140000: a year of weeks, the window, every archetype and the ten best lists
+select pg_temp.ms('card page, 90 days', $$select public.meta_card('modern', md5('c40')::uuid, 'all', 90)$$, 300);
+select pg_temp.ms('card search (each keystroke)', $$select public.meta_card_search('modern', 'card 4')$$, 50);
 reset role;
 
 -- Spice (contract/spice-2026-10-28.md): a 60-card deck against that year of Modern. The archetype path is what most

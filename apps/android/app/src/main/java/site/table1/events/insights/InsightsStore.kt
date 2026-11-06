@@ -311,9 +311,28 @@ object InsightsStore {
         return json.decodeFromString(raw)
     }
 
-    suspend fun card(format: String, oracleId: String, tier: String): CardPage {
+    suspend fun card(format: String, oracleId: String, tier: String, days: Int): CardPage {
         if (demo) return json.decodeFromString(demoPages["card:$format:$oracleId"] ?: demoPages["card:any"] ?: error("No demo page"))
-        val raw = T1App.supabase.postgrest.rpc("meta_card", buildJsonObject { put("p_format", format); put("p_oracle_id", oracleId); put("p_tier", tier) }).data
+        val raw = T1App.supabase.postgrest.rpc("meta_card", buildJsonObject {
+            put("p_format", format); put("p_oracle_id", oracleId); put("p_tier", tier); put("p_days", days)
+        }).data
+        return json.decodeFromString(raw)
+    }
+
+    /** meta_card_search: cards played in the format this year whose name matches (contract § Card search). */
+    suspend fun searchCards(format: String, query: String): List<CardHit> {
+        if (demo) {
+            // the demo's card pages stand in: every page of the format whose name holds the words
+            val q = query.lowercase()
+            return demoPages.filterKeys { it.startsWith("card:$format:") }.values
+                .mapNotNull { runCatching { json.decodeFromString<CardPage>(it) }.getOrNull() }
+                .filter { it.n?.lowercase()?.contains(q) == true }
+                .map { CardHit(it.c, it.n!!, null, it.series.main.lastOrNull() ?: 0.0, it.series.side.lastOrNull() ?: 0.0, it.by_archetype.size) }
+                .sortedWith(compareByDescending<CardHit> { it.main + it.side }.thenBy { it.n })
+        }
+        val raw = T1App.supabase.postgrest.rpc("meta_card_search", buildJsonObject {
+            put("p_format", format); put("p_query", query); put("p_limit", 30)
+        }).data
         return json.decodeFromString(raw)
     }
 

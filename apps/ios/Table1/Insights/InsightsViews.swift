@@ -4,6 +4,8 @@ import SwiftUI
 enum InsightsRoute: Hashable {
     case archetype(String, Int)            // format, archetype id (0 = Other)
     case card(String, String, String)      // format, oracle id, name
+    case cardSearch(String)                // format
+    case cardFinish(String, String, Int)   // format, oracle id, list index on the card page
     case ban(String, Int)                  // format, change id
     case matchups(String)                  // format
     case part(String, String)              // format, part key (Insights.formatParts)
@@ -31,6 +33,8 @@ struct InsightsDestination: View {
         switch route {
         case .archetype(let f, let id): ArchetypeInsightView(format: f, id: id, path: $path).screen("insights_archetype")
         case .card(let f, let id, let n): CardInsightView(format: f, oracleId: id, name: n, path: $path).screen("insights_card")
+        case .cardSearch(let f): CardSearchView(format: f, path: $path).screen("insights_card_search")
+        case .cardFinish(let f, let id, let i): FinishView(format: f, archetypeId: 0, index: i, oracleId: id, path: $path).screen("insights_finish")
         case .ban(let f, let id): BanStudyView(format: f, changeId: id, path: $path).screen("insights_ban")
         case .matchups(let f): MatchupsView(format: f, path: $path).screen("insights_matchups")
         case .part(let f, let k): ConstructedPartView(format: f, part: k, path: $path).screen("insights_part")
@@ -51,7 +55,14 @@ struct InsightsHomeView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: "Insights", subtitle: store.section == "limited" ? "Arena draft" : "Constructed metagame")
+            Bar(title: "Insights", subtitle: store.section == "limited" ? "Arena draft" : "Constructed metagame") {
+                if store.section != "limited" {
+                    T1IconButton(icon: .search, label: "Search cards") {
+                        Telemetry.capture("insights_card_search_opened", ["format": store.format])
+                        path.append(.cardSearch(store.format))
+                    }
+                }
+            }
             T1Segmented(options: [("constructed", "Constructed"), ("limited", "Limited")], selection: $store.section)
             InsightsPage {
                 VStack(spacing: 1) {
@@ -544,8 +555,11 @@ struct FinishView: View {
     let format: String
     let archetypeId: Int
     let index: Int
+    /// Set for one of a card page's lists (its `finishes`); else the archetype page's.
+    var oracleId: String?
     @Binding var path: [InsightsRoute]
     @State private var page: Insights.ArchetypePage?
+    @State private var cardList: Insights.CardPage.Finish?
     @State private var added: AddedDeck?
     /// The list in its original printings, once the catalog is in; and how many cards it couldn't name.
     @State private var resolved: (rows: [ProfileCard], missing: Int)?
@@ -554,10 +568,11 @@ struct FinishView: View {
     private var catalog: CatalogStore { CatalogStore.shared }
 
     var body: some View {
-        let f = page?.finishes[safe: index]
+        let f = oracleId == nil ? page?.finishes[safe: index] : cardList?.asFinish
         // an Other group's example is named for its colors
-        let group = archetypeId == 0 ? page?.groups?.first { $0.example == index } : nil
-        let title = group.map { Insights.colorsName($0.colors.isEmpty ? "C" : $0.colors, "") } ?? page?.archetype.name ?? "Deck"
+        let group = archetypeId == 0 && oracleId == nil ? page?.groups?.first { $0.example == index } : nil
+        let title = cardList.map { store.constructed[format]?.name($0.a) ?? "Deck" }
+            ?? group.map { Insights.colorsName($0.colors.isEmpty ? "C" : $0.colors, "") } ?? page?.archetype.name ?? "Deck"
         Group {
             if let f, let resolved {
                 ProfileCardsView(userId: "", section: ProfileSection(kind: "deck"), title: title, list: SharedList(format: format),
@@ -573,8 +588,15 @@ struct FinishView: View {
                 }
             }
         }
-        .task { page = try? await store.archetype(format: format, id: archetypeId, tier: .all, days: store.days) }
-        .task(id: "\(page == nil)-\(catalog.generation)") {
+        .task {
+            if let oracleId {
+                let tier = store.constructed[format].map { store.tier(for: $0) } ?? .all
+                cardList = (try? await store.card(format: format, oracleId: oracleId, tier: tier, days: store.days))?.finishes?[safe: index]
+            } else {
+                page = try? await store.archetype(format: format, id: archetypeId, tier: .all, days: store.days)
+            }
+        }
+        .task(id: "\(page == nil)-\(cardList == nil)-\(catalog.generation)") {
             catalog.load(userInitiated: true)
             guard let f, let db = catalog.db else { return }
             let lines = [("main", f.main.map { ($0.name, $0.qty) }), ("side", f.side.map { ($0.name, $0.qty) })]
@@ -613,40 +635,127 @@ struct CardInsightView: View {
     @Binding var path: [InsightsRoute]
     @State private var page: Insights.CardPage?
     @State private var error: String?
-    private var store: InsightsStore { InsightsStore.shared }
+    @Bindable private var store = InsightsStore.shared
 
     var body: some View {
         let pack = store.constructed[format]
+        let tier = pack.map { store.tier(for: $0) } ?? .all
         T1Screen {
-            Bar(title: name, subtitle: "\(pack?.name ?? format) · all events") { path.removeLast() }
+            Bar(title: name) { path.removeLast() }
             InsightsPage {
                 VStack(spacing: 1) {
-                    if let page, let pack {
-                        Stats3(items: [("Main decks", InsightCharts.pct(page.series.main.last ?? nil)),
-                                       ("Copies", page.copies.map { String(format: "%.1f", $0) } ?? "–"),
-                                       ("First seen", page.first_seen.map(InsightCharts.shortDay) ?? "–")])
-                        Section1("Share of decks by week")
-                        InsightLineChart(series: [.init(id: 0, label: "Main", values: page.series.main, highlighted: true),
-                                                  .init(id: 1, label: "Side", values: page.series.side, highlighted: false)],
-                                         count: page.series.weeks, height: 150, labelWidth: 70)
-                            .padding(.vertical, 12).padding(.leading, 8).background(T1.surface)
-                        if !page.by_archetype.isEmpty {
-                            Section1("Played in · last 30 days")
-                            let m = page.by_archetype.map(\.rate).max() ?? 1
-                            ForEach(page.by_archetype, id: \.self) { a in
-                                Button { path.append(.archetype(format, a.a)) } label: {
-                                    InsightBar(label: pack.name(a.a), value: a.rate, maxValue: max(m, 0.01),
-                                               detail: a.copies.map { String(format: "%.1f copies in its lists", $0) })
-                                }.buttonStyle(.plain)
-                            }
-                        }
-                    } else if let error { Notice(error, error: true) } else { Notice("Loading…") }
+                    WindowPickers(tier: Binding(get: { tier }, set: { store.tierPicked = $0 }))
+                    if let page, let pack { content(page, pack) }
+                    else if let error { Notice(error, error: true) } else { Notice("Loading…") }
+                    Color.clear.frame(height: 24)
                 }
             }
         }
-        .task {
-            do { page = try await store.card(format: format, oracleId: oracleId, tier: .all) }
+        .task(id: "\(tier.rawValue)-\(store.days)") {
+            do { page = try await store.card(format: format, oracleId: oracleId, tier: tier, days: store.days); error = nil }
             catch { if !error.isCancellation { self.error = "This card couldn't load: \(error.localizedDescription)" } }
+        }
+    }
+
+    @ViewBuilder
+    private func content(_ page: Insights.CardPage, _ pack: Insights.ConstructedPack) -> some View {
+        let w = page.window
+        let days = w?.days ?? store.days
+        Stats3(items: [("Main", InsightCharts.pct(w?.main ?? page.series.main.last ?? nil)),
+                       ("Side", InsightCharts.pct(w?.side ?? page.series.side.last ?? nil)),
+                       ("Copies", (w?.copies ?? page.copies).map { String(format: "%.1f", $0) } ?? "–")])
+        Stats3(items: [("Lists", w.map { "\($0.decks)/\($0.of)" } ?? "–"),
+                       ("First seen", page.first_seen.map(InsightCharts.shortDay) ?? "–"),
+                       ("Last seen", page.last_seen.map(InsightCharts.shortDay) ?? "–")])
+        Section1("Share of \(pack.name) lists by week")
+        let s = page.series
+        InsightLineChart(series: [.init(id: 0, label: "Main", values: s.main, highlighted: true),
+                                  .init(id: 1, label: "Side", values: s.side, highlighted: false)],
+                         markers: Insights.cardMarkers(pack.changes, card: page.n ?? name, from: s.from, weeks: s.weeks)
+                            .map { .init(index: $0.index, label: $0.label, ban: $0.ban) },
+                         xLabels: Self.monthLabels(from: s.from, weeks: s.weeks),
+                         count: s.weeks, height: 190, labelWidth: 52)
+            .padding(.vertical, 12).padding(.leading, 8).background(T1.surface)
+        if w?.decks == 0 { Notice("No lists played it in the last \(days) days.") }
+        if !page.by_archetype.isEmpty {
+            Section1("Played in · last \(days) days")
+            let m = page.by_archetype.map(Insights.archetypeBar).max() ?? 1
+            ForEach(page.by_archetype, id: \.self) { a in
+                Button { path.append(.archetype(format, a.a)) } label: {
+                    InsightBar(label: pack.name(a.a), value: Insights.archetypeBar(a), maxValue: max(m, 0.01),
+                               detail: Insights.archetypeDetail(a))
+                }.buttonStyle(.plain)
+            }
+        }
+        if let lists = page.finishes, !lists.isEmpty {
+            Section1("Best lists · last \(days) days")
+            ForEach(Array(lists.enumerated()), id: \.offset) { i, f in
+                Button {
+                    Telemetry.capture("insights_card_list_opened", ["format": format, "tier": f.tier])
+                    path.append(.cardFinish(format, oracleId, i))
+                } label: {
+                    ListRow(title: Insights.finishTitle(f), detail: Insights.finishDetail(f, archetype: pack.name(f.a)))
+                }.buttonStyle(.plain)
+            }
+        }
+    }
+
+    /// Every other month's name at its week.
+    static func monthLabels(from: String, weeks: Int) -> [(Int, String)] {
+        let m = InsightCharts.months(from: from, days: weeks * 7).map { ($0.0 / 7, $0.1) }
+        return m.enumerated().filter { $0.offset % 2 == (m.count % 2 == 0 ? 1 : 0) }.map(\.element)
+    }
+}
+
+/// Insights → search: cards played in the format this year, by name (meta_card_search), each opening its card page.
+struct CardSearchView: View {
+    let format: String
+    @Binding var path: [InsightsRoute]
+    @State private var query = ""
+    @State private var hits: [Insights.CardHit] = []
+    /// The query the shown hits answer; nil until a search settles.
+    @State private var answered: String?
+    @State private var error: String?
+    @FocusState private var focused: Bool
+    private var store: InsightsStore { InsightsStore.shared }
+
+    var body: some View {
+        let label = Insights.formats.first { $0.key == format }?.label ?? format
+        T1Screen {
+            Bar(title: "\(label) cards") { path.removeLast() }
+            T1SearchField(text: $query, prompt: "Card name").focused($focused)
+            InsightsPage {
+                VStack(spacing: 1) {
+                    let q = query.trimmingCharacters(in: .whitespaces)
+                    if let error { Notice(error, error: true) }
+                    else if q.count >= 2, answered == q, hits.isEmpty {
+                        Notice("No \(label) lists played a card called that this year.")
+                    }
+                    ForEach(hits) { h in
+                        Button {
+                            Telemetry.capture("insights_card_opened", ["format": format, "from": "search"])
+                            path.append(.card(format, h.c, h.n))
+                        } label: { ListRow(title: h.n, detail: Insights.hitDetail(h)) }.buttonStyle(.plain)
+                    }
+                }
+            }
+            .scrollDismissesKeyboard(.immediately)
+        }
+        .onAppear { if answered == nil { focused = true } }
+        .task(id: query) {
+            let q = query.trimmingCharacters(in: .whitespaces)
+            guard q.count >= 2 else { hits = []; answered = nil; error = nil; return }
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            do {
+                let found = try await store.searchCards(format: format, query: q)
+                // a newer query cancels this task, so an older answer never lands over a newer one
+                guard !Task.isCancelled else { return }
+                hits = found; answered = q; error = nil
+                Telemetry.capture("insights_card_search", ["format": format, "results": found.count])
+            } catch {
+                if !error.isCancellation && !Task.isCancelled { self.error = "Search didn't work: \(error.localizedDescription)" }
+            }
         }
     }
 }

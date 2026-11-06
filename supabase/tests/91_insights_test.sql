@@ -265,9 +265,9 @@ select pg_temp.throws('unknown archetype', $$select public.meta_archetype('moder
 select pg_temp.throws('another format''s archetype', format('select public.meta_archetype(%L, %s)', 'pauper', :BURN), '22023');
 select pg_temp.throws('a format that isn''t on', $$select public.meta_archetype('premodern', 0)$$, '22023');
 select pg_temp.throws('a bad tier', $$select public.meta_archetype('modern', 0, 'huge')$$, '22023');
-select pg_temp.eq('card page: 26 weeks, the archetypes playing it',
+select pg_temp.eq('card page: a year of weeks, the archetypes playing it',
   (select jsonb_array_length(c->'series'->'main') || ' ' || jsonb_array_length(c->'by_archetype') || ' ' || (c->>'copies')
-     from (select public.meta_card('modern', md5('Lightning Bolt')::uuid) c) x), '26 2 4.00');
+     from (select public.meta_card('modern', md5('Lightning Bolt')::uuid) c) x), '52 2 4.00');
 select pg_temp.eq('index: nothing published yet', public.insights_index()::text, '[]');
 select pg_temp.throws('workers only: ingest', $$select public.meta_ingest('{}')$$, '42501');
 select pg_temp.throws('workers only: pack facts', $$select public.meta_pack_window('modern', 'all', 7)$$, '42501');

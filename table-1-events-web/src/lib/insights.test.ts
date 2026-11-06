@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { screenName } from "./analytics";
 import { navKeyFor } from "./desktop";
-import { afterWindow, archetypeName, bansTitle, canHide, changeWords, colorsName, exampleFinish, formatParts, FORMATS, CLOSE, DECK_MIN, deckInsight, type DeckInsight, type DeckInsightAnswer, gridFor, isBan, yoursFirst, type Mine, matchup, matchupRows, place, sourcesCredit, visibleKeys, readWirePicks, writeWirePicks, type BanStudy, type ConstructedPack, type LimitedPack } from "./insights";
+import { afterWindow, archetypeName, bansTitle, canHide, changeWords, colorsName, exampleFinish, formatParts, FORMATS, CLOSE, DECK_MIN, deckInsight, type DeckInsight, type DeckInsightAnswer, gridFor, isBan, yoursFirst, type Mine, matchup, matchupRows, place, sourcesCredit, visibleKeys, readWirePicks, writeWirePicks, type BanStudy, type ConstructedPack, type LimitedPack,
+  archetypeBar, archetypeDetail, cardMarkers, finishDetail, finishTitle, hitDetail, type CardArchetype, type CardFinish, type CardHit, type Change } from "./insights";
 
 /* Insights packs (contract/insights-2026-10-24.md § Packs) as the server builds them: testdata/insights holds
    constructed packs built from real MTGO pages and a Limited pack from 17Lands data (tools/insights/). */
@@ -101,6 +102,29 @@ describe("insights helpers", () => {
     const f = read("deck-insight.json") as { min: number; cases: { name: string; answer: DeckInsightAnswer; want: DeckInsight }[] };
     expect(DECK_MIN).toBe(f.min);
     for (const c of f.cases) expect(deckInsight(c.answer), c.name).toEqual(c.want);
+  });
+  it("card search and the card page: shared cases", () => {
+    const f = read("card-search.json") as {
+      hits: { name: string; hit: CardHit; want: string }[];
+      archetypes: { name: string; row: CardArchetype; want: string; bar: number }[];
+      finishes: { name: string; finish: CardFinish; archetype: string; title: string; detail: string }[];
+      markers: { name: string; from: string; weeks: number; card: string; changes: Change[]; want: [number, string, boolean][] }[];
+    };
+    for (const c of f.hits) expect(hitDetail(c.hit), c.name).toBe(c.want);
+    for (const c of f.archetypes) {
+      expect(archetypeDetail(c.row), c.name).toBe(c.want);
+      expect(archetypeBar(c.row), c.name).toBeCloseTo(c.bar, 4);
+    }
+    for (const c of f.finishes) {
+      expect(finishTitle(c.finish), c.name).toBe(c.title);
+      expect(finishDetail(c.finish, c.archetype), c.name).toBe(c.detail);
+    }
+    for (const c of f.markers) {
+      expect(cardMarkers(c.changes, c.card, c.from, c.weeks).map((m) => [m.index, m.label, m.ban]), c.name).toEqual(c.want);
+    }
+    // an answer from before 2026-11-06: no list counts, the main-deck rate
+    expect(archetypeBar({ a: 1, rate: 0.5, copies: 4 })).toBe(0.5);
+    expect(archetypeDetail({ a: 1, rate: 0.5, copies: 4 })).toBe("4.0 main");
   });
   it("the grid follows the picked tier and window, else the pack's 90 days", () => {
     const modern = read("constructed-modern.json") as ConstructedPack;

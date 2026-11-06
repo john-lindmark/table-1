@@ -51,7 +51,7 @@ properties. Every client sends the same names, so one PostHog insight covers all
 (2026-10-18, `library-search-2026-10-18.md`), `item_printing`, `trade_printing` (2026-10-18, `change-printing-2026-10-18.md`), `rankings`, `ranking`, `ranking_screen`,
 `ranking_lists`, `ranking_card`, `ranking_compare`, `ranking_pack`, `ranking_changes`, `ranking_image` (2026-10-21,
 `cube-rankings-2026-10-21.md`), `insights_constructed`, `insights_limited`, `insights_archetype`, `insights_finish`,
-`insights_card`, `insights_ban`, `insights_matchups`, `insights_pair`, `insights_limited_card`, `insights_review`
+`insights_card`, `insights_card_search` (2026-11-06), `insights_ban`, `insights_matchups`, `insights_pair`, `insights_limited_card`, `insights_review`
 (2026-10-25, `insights-2026-10-24.md`), `deck_spice`, `discord`, `discord_link` (2026-10-29, `discord-2026-10-29.md`), `cube_spice` (2026-10-28, `spice-2026-10-28.md`: the Stats
 screen's Spice section once drawn, or a shared list's Spice screen on iOS).
 
@@ -195,6 +195,10 @@ Timeouts and auto-picks happen on the server; count them in Postgres (`roto_pick
 | `deck_insight_opened` | `format`, `archetype`: those rows opened the archetype in Insights |
 | `insights_rank_opened` | `set` (FRA, PWR-2510), `kind`: set / cube, `from`: set / new_sets (a set's Rankings opened from Limited, 2026-10-30) |
 | `insights_alerts_changed` | `on`: bool (the New in Insights switch, 2026-10-30) |
+| `insights_card_search_opened` | `format`: the search icon on the Constructed bar tapped (2026-11-06) |
+| `insights_card_search` | `format`, `results`: a card search settled (once per answered query) |
+| `insights_card_opened` | `format`, `from`: search (a hit opened its card page) |
+| `insights_card_list_opened` | `format`, `tier`: one of a card page's best lists opened |
 | `push_opened` | `kind`: insights.new (plus `what`: data / rank on iOS) |
 
 ### Discord bot (server-side, from the `discord-bot` function; contract/discord-2026-10-29.md §8)
