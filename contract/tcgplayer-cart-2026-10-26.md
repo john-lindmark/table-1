@@ -12,16 +12,25 @@ Cart Optimizer there. Server: migration `20261026070000_tcgplayer_cart.sql`; tes
   no way for another site to run the optimizer, so the app says to tap Optimize.
 - **The whole link is the server's** (`tcgplayer_cart`): card names, set and number, encoding, parts and the link
   around it, so an affiliate link (coming) or a change at TCGplayer needs no app update.
-- **Affiliate link:** `tcgplayer.link` in `t1_private.settings`, default `{url}`. When the affiliate link arrives:
+- **Affiliate link (live 2026-11-06):** `tcgplayer.link` in `t1_private.settings` (default `{url}`) wraps every
+  Mass Entry and product link. John's Impact tracking link, set by migration `20261106120000_tcgplayer_affiliate.sql`:
 
-  ```sql
-  insert into t1_private.settings (name, value)
-  values ('tcgplayer.link', 'https://partner.tcgplayer.com/c/<id>/<ad>/<campaign>?u={url_encoded}')
-  on conflict (name) do update set value = excluded.value;
+  ```
+  https://partner.tcgplayer.com/c/8048898/1780961/21018?subId1={platform}&subId2={from}&partnerpropertyid=9068666&u={url_encoded}
   ```
 
-  `{url}` is the Mass Entry address as is, `{url_encoded}` encoded for a redirect's parameter (the exact shape comes
-  with the affiliate program's link; check one in a browser before setting it).
+  `{url}` is the TCGplayer address as is, `{url_encoded}` encoded for the redirect's `u`. Checked in a browser
+  2026-11-06: Impact answers 301 to the exact address with its click id (`irclickid`, `utm_source=impact`) added,
+  and Mass Entry fills in. Clicks and sales split by tag in Impact's reports:
+  - `{platform}`: `ios` / `android` / `web` / `unknown`, from the Supabase library's `x-client-info` header
+    (`t1_private.client_platform()`: supabase-swift, supabase-kt, supabase-js), so every build is tagged.
+  - `{from}`: the screen, `p_from` on `tcgplayer_cart`: `wants`, `missing` (later `card`, `deck`, …; any
+    `^[a-z][a-z0-9-]{0,23}$`), else `unknown` (builds before 2026-11-06 send none).
+  - No account ids or anything personal in a tag.
+
+  **Impact refuses a link over ~8,200 characters** (2026-11-06: 8,218 redirected, 8,272 answered 400), and wrapping
+  makes a Mass Entry address about 1.4× longer, so parts are cut by the finished link's length too:
+  `tcgplayer.max_link` (default 8000) beside `tcgplayer.max_url` (6000, the Mass Entry address itself).
 - **Off switch:** `tcgplayer.enabled` = `false` hides the rows everywhere at the next load (the RPC answers
   `enabled: false`). Also `tcgplayer.massentry` (the address), `tcgplayer.product` (the product page address the id follows, default `https://www.tcgplayer.com/product/`) and `tcgplayer.max_url` (6000).
 
@@ -59,7 +68,7 @@ A name TCGplayer doesn't list would still fail the whole Mass Entry cart.
 
 | Call | Does |
 |---|---|
-| `tcgplayer_cart(p_items, p_products default false)` | `p_items`: `[{oracle_id?, card_id?, qty}]`, up to 2000, qty 1–999 (22023 otherwise). A `card_id` is that printing; an `oracle_id` alone is any printing. Returns `{enabled, lines, unknown, urls, products}`. `urls`: Mass Entry, `<qty> <name>` lines, the same card twice summed. With `p_products` (apps from 2026-10-28) a printing with a TCGplayer product is left out of Mass Entry and comes in `products` instead: `[{card_id, name, set, number, qty, url}]` by name, then set and number, `url` its product page (`tcgplayer.product` + id, wrapped by `tcgplayer.link` like the urls), the same printing twice summed; without it `products` is empty and every printing goes into Mass Entry by name (§ Printings). `lines` counts Mass Entry lines; lines go A–Z, cards the catalog doesn't know are counted in `unknown` and left out, and a long list is split into parts no longer than `max_url` (each part adds to the same TCGplayer cart). `enabled: false` → no urls. Signed out: 28000. |
+| `tcgplayer_cart(p_items, p_products default false, p_from default null)` | `p_items`: `[{oracle_id?, card_id?, qty}]`, up to 2000, qty 1–999 (22023 otherwise). A `card_id` is that printing; an `oracle_id` alone is any printing. Returns `{enabled, lines, unknown, urls, products}`. `urls`: Mass Entry, `<qty> <name>` lines, the same card twice summed. With `p_products` (apps from 2026-10-28) a printing with a TCGplayer product is left out of Mass Entry and comes in `products` instead: `[{card_id, name, set, number, qty, url}]` by name, then set and number, `url` its product page (`tcgplayer.product` + id, wrapped by `tcgplayer.link` like the urls), the same printing twice summed; without it `products` is empty and every printing goes into Mass Entry by name (§ Printings). `lines` counts Mass Entry lines; lines go A–Z, cards the catalog doesn't know are counted in `unknown` and left out, and a long list is split into parts no longer than `max_url`, and no longer than `max_link` once wrapped (each part adds to the same TCGplayer cart). `p_from` tags the affiliate link (§ Decisions). `enabled: false` → no urls. Signed out: 28000. |
 
 ## Clients
 
@@ -76,5 +85,6 @@ A name TCGplayer doesn't list would still fail the whole Mass Entry cart.
   they read "title · detail". Cases `testdata/tcgplayer-cart/cases.json` (`TCGplayerCartTests`, `wantPrices.test.ts`,
   `TCGplayerCartTest`). Cards the server doesn't know (`unknown`, only cards newer than
   the server's catalog) are left out. No urls: "Nothing to buy". Errors show as the screen's error.
+- **Tags:** the call sends `p_from` = `wants` / `missing` (the same value as telemetry's `from`); builds before 2026-11-06 send none. A build that sends `p_from` needs the 2026-11-06 server (PostgREST finds no function otherwise).
 - **Telemetry:** `tcgplayer_cart_opened` (`from`: wants / missing, `lines`, `parts`, `products`). No card names.
 - **Demo:** the rows show; a tap says "Sign in to build a TCGplayer cart" (the demo has no account).

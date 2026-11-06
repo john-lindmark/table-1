@@ -647,7 +647,7 @@ struct WantsView: View {
     private func buy(_ items: [TCGplayerCart.Item], from: String) {
         Task {
             do {
-                let a = try await TCGplayerCart.links(items)
+                let a = try await TCGplayerCart.links(items, from: from)
                 Telemetry.capture("tcgplayer_cart_opened", ["from": from, "lines": a.lines, "parts": a.urls.count, "products": a.products.count])
                 if let u = TCGplayerCart.direct(a).flatMap(URL.init(string:)) { openURL(u); return }
                 let menu = TCGplayerCart.menu(a)

@@ -528,7 +528,7 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
   }, [session]);
   // Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): one link opens in a new tab, several are a menu.
   const buy = (items: CartItem[], from: "wants" | "missing") => {
-    tcgplayerCart(items).then((a) => {
+    tcgplayerCart(items, from).then((a) => {
       capture("tcgplayer_cart_opened", { from, lines: a.lines, parts: a.urls.length, products: a.products?.length ?? 0 });
       const direct = cartDirect(a);
       const menu = cartMenu(a);

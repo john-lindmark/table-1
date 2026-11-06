@@ -165,9 +165,10 @@ export function cartMenu(a: Pick<CartAnswer, "urls" | "products">): CartEntry[] 
 }
 
 /** The server writes the links (names, parts, product pages, affiliate wrapper). The demo has no account. */
-export async function tcgplayerCart(items: CartItem[]): Promise<CartAnswer> {
+/** `from` tags the affiliate link with the screen (wants / missing); the server adds the platform. */
+export async function tcgplayerCart(items: CartItem[], from?: string): Promise<CartAnswer> {
   if (isLibraryDemo()) throw new Error("Sign in to build a TCGplayer cart");
-  const { data, error: e } = await supabase.rpc("tcgplayer_cart", { p_items: items, p_products: true });
+  const { data, error: e } = await supabase.rpc("tcgplayer_cart", { p_items: items, p_products: true, ...(from ? { p_from: from } : {}) });
   if (e) throw new Error(e.message);
   return data as CartAnswer;
 }

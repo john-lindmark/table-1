@@ -536,7 +536,7 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
     // Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): one link opens in the browser, several are a menu.
     fun buy(items: List<TCGplayerCart.Item>, from: String) {
         scope.launch {
-            runCatching { TCGplayerCart.links(items) }
+            runCatching { TCGplayerCart.links(items, from) }
                 .onSuccess { a ->
                     Telemetry.capture("tcgplayer_cart_opened", mapOf("from" to from, "lines" to a.lines, "parts" to a.urls.size, "products" to a.products.size))
                     val direct = TCGplayerCart.direct(a)

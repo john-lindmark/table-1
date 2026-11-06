@@ -193,7 +193,8 @@ enum TCGplayerCart {
     }
 
     @MainActor
-    static func links(_ items: [Item]) async throws -> Answer {
+    /// `from` tags the affiliate link with the screen (wants / missing); the server adds the platform.
+    static func links(_ items: [Item], from: String? = nil) async throws -> Answer {
         #if DEBUG
         if CollectionStore.shared.demo != nil { throw DemoOnly() }
         #endif
@@ -201,7 +202,8 @@ enum TCGplayerCart {
             .object(["oracle_id": i.oracleId.map { .string($0) } ?? .null, "card_id": i.cardId.map { .string($0) } ?? .null,
                      "qty": .integer(i.qty)])
         }
-        return try await supabase.rpc("tcgplayer_cart", params: ["p_items": AnyJSON.array(p), "p_products": .bool(true)]).execute().value
+        return try await supabase.rpc("tcgplayer_cart", params: ["p_items": AnyJSON.array(p), "p_products": .bool(true),
+                                                              "p_from": from.map { AnyJSON.string($0) } ?? .null]).execute().value
     }
 
     /// Whether the rows show: the server's switch (an empty cart answers it).

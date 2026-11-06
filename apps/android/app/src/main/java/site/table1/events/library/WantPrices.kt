@@ -147,7 +147,8 @@ object TCGplayerCart {
         }
     }
 
-    suspend fun links(items: List<Item>): TCGplayerCartAnswer =
+    /** [from] tags the affiliate link with the screen (wants / missing); the server adds the platform. */
+    suspend fun links(items: List<Item>, from: String? = null): TCGplayerCartAnswer =
         T1App.supabase.postgrest.rpc("tcgplayer_cart", buildJsonObject {
             put("p_items", kotlinx.serialization.json.buildJsonArray {
                 for (i in items) add(buildJsonObject {
@@ -157,6 +158,7 @@ object TCGplayerCart {
                 })
             })
             put("p_products", true)
+            if (from != null) put("p_from", from)
         }).decodeAs()
 
     /** Whether the Buy on TCGplayer rows show: the server's switch (an empty cart answers it). */
