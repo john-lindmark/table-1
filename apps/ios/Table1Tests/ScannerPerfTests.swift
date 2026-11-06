@@ -18,12 +18,15 @@ private enum Budget {
     static let searchMs = 120.0            // one catalog search, worst of the queries below
     static let matchMeanMs = 20.0          // matcher per frame, mean over every OCR read in the test set
     static let matchP95Ms = 90.0
+    /// The scanner's name index over ~200k English and printed names: 0.6 s in Debug since it's built in the
+    /// optimized ScanIndex package (2026-11-06; 5.2 s when it was app code at -Onone).
+    static let nameIndexMs = 2_500.0
 }
 
 final class ScannerPerfTests: XCTestCase {
     private static var db: CatalogDB!
     private static var names: ScanNames!
-    private static var buildMs = 0.0
+    private static var buildMs = 0.0, namesMs = 0.0
 
     override class func setUp() {
         super.setUp()
@@ -34,7 +37,14 @@ final class ScannerPerfTests: XCTestCase {
         let header = try! CatalogDB.build(pack: pack, at: path)
         buildMs = (CFAbsoluteTimeGetCurrent() - t0) * 1000
         db = try! CatalogDB(path: path, version: header.version)
+        let t1 = CFAbsoluteTimeGetCurrent()
         names = ScanNames(db)
+        namesMs = (CFAbsoluteTimeGetCurrent() - t1) * 1000
+    }
+
+    func testNameIndex() {
+        print("perf ios scanner name index: \(Int(Self.namesMs)) ms (budget \(Int(Budget.nameIndexMs)))")
+        XCTAssertLessThan(Self.namesMs, Budget.nameIndexMs, "the scanner's name index got slower (is Packages/ScanIndex still built with -O?)")
     }
 
     func testPackBuild() {

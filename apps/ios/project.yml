@@ -29,6 +29,9 @@ packages:
   Sentry:
     url: https://github.com/getsentry/sentry-cocoa
     from: "9.30.0"
+  # The scanner's name index, built optimized in Debug too (Packages/ScanIndex/Package.swift).
+  ScanIndex:
+    path: Packages/ScanIndex
 targets:
   Table1:
     type: application
@@ -55,6 +58,7 @@ targets:
       # reported "Upload Symbols Failed" for Sentry.framework.
       - package: Sentry
         product: Sentry-Dynamic
+      - package: ScanIndex
     entitlements:
       path: Table1/Table1.entitlements
       properties:

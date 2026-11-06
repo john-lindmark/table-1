@@ -3,3 +3,5 @@ xcuserdata/
 build/
 DerivedData/
 .DS_Store
+# Local packages built with swift test / swift build
+Packages/*/.build/

@@ -1,4 +1,5 @@
 import Foundation
+import ScanIndex
 
 /* Scanner matching: OCR lines in, a card and printing out. Tuned against the photo test set in testdata/scan
    (README there; accuracy test in Table1Tests/CardMatcherTests.swift). Same rules on Android (CardMatcher.kt). */
@@ -13,15 +14,9 @@ final class ScanNames: @unchecked Sendable {
     /// A card the name belongs to, and the languages it's printed in (empty for an English name, which doesn't
     /// tell: a German card whose name is the English one reads the same).
     struct Hit: Equatable { let idx: Int; let langs: [String] }
-    /// Normalized names, sorted by UTF-8 bytes (cut-off names are looked up by prefix).
-    private let keys: [String]
-    private let idxs: [Int]
-    /// Per key, a bit per language in `Languages.all` (0 = an English name).
-    private let langBits: [UInt32]
-    private let byKey: [String: Int]
-    /// Trigram → the keys containing it, as a range of `postings` (key positions, ascending).
-    private let grams: [Int: Range<Int>]
-    private let postings: [Int32]
+    /// The names, sorted, with their trigrams; in the ScanIndex package (Packages/ScanIndex), which is built
+    /// optimized in Debug too: ~200k names took 5 s to index at -Onone.
+    private let index: NameIndex
 
     private static let lock = NSLock()
     nonisolated(unsafe) private static var cached: ScanNames?
@@ -39,112 +34,33 @@ final class ScanNames: @unchecked Sendable {
     init(_ db: CatalogDB) {
         version = db.version
         sets = db.setCodes()
-        // printings -1 marks a printed name in another language; idx -1 one that two cards share.
-        var best: [String: (idx: Int, printings: Int, langs: UInt32)] = [:]
+        var english: [(norm: String, idx: Int, printings: Int)] = []
         var scannable = Set<Int>()
         for o in db.scanNames() where o.printings > 0 && !Self.unscannable(o.typeLine) {
-            var names = [o.norm]
             if let cut = o.name.range(of: " // ") {
                 let front = CardName.norm(String(o.name[..<cut.lowerBound]))
                 if front == CardName.norm(String(o.name[cut.upperBound...])) { continue } // an art card ("X // X")
-                names.append(front)
+                english.append((o.norm, o.idx, o.printings))
+                english.append((front, o.idx, o.printings))
+            } else {
+                english.append((o.norm, o.idx, o.printings))
             }
             scannable.insert(o.idx)
-            for k in names where best[k].map({ o.printings > $0.printings }) ?? true { best[k] = (o.idx, o.printings, 0) }
         }
-        let foreign = db.scanForeignNames()
-        best.reserveCapacity(best.count + foreign.count)
         let bit = Dictionary(uniqueKeysWithValues: Languages.all.enumerated().map { ($1.code, UInt32(1) << UInt32($0)) })
-        for n in foreign where scannable.contains(n.idx) {
-            let l = bit[n.lang] ?? 0
-            if let b = best[n.norm] {
-                if b.printings < 0 && b.idx != n.idx { best[n.norm] = (-1, -1, 0) }
-                else if b.printings < 0 && b.idx == n.idx { best[n.norm] = (b.idx, -1, b.langs | l) }
-            } else {
-                best[n.norm] = (n.idx, -1, l)
-            }
+        let foreign = db.scanForeignNames().compactMap { n in
+            scannable.contains(n.idx) ? (norm: n.norm, idx: n.idx, lang: bit[n.lang] ?? 0) : nil
         }
-        // Byte order: the same as String's < for these normalized names, without its Unicode comparison.
-        let sorted = best.filter { $0.value.idx >= 0 }.sorted { $0.key.utf8.lexicographicallyPrecedes($1.key.utf8) }
-        keys = sorted.map(\.key)
-        idxs = sorted.map(\.value.idx)
-        langBits = sorted.map(\.value.langs)
-        byKey = Dictionary(uniqueKeysWithValues: keys.enumerated().map { ($1, $0) })
-        // Every (trigram, key position), keys in order; a stable radix sort on the 24-bit trigram then gives one
-        // ascending posting list per trigram.
-        var tri: [UInt32] = [], pos: [Int32] = []
-        tri.reserveCapacity(keys.count * 20)
-        pos.reserveCapacity(keys.count * 20)
-        var codes: [Int] = []
-        for (i, k) in keys.enumerated() {
-            codes.removeAll(keepingCapacity: true)
-            Self.trigrams(k, into: &codes)
-            codes.sort()
-            var last = -1
-            for c in codes where c != last { tri.append(UInt32(c)); pos.append(Int32(i)); last = c }
-        }
-        for shift in [0, 12] as [UInt32] {
-            var t2 = [UInt32](repeating: 0, count: tri.count), p2 = [Int32](repeating: 0, count: pos.count)
-            Self.radixPass(tri, pos, shift, &t2, &p2)
-            tri = t2; pos = p2
-        }
-        var g: [Int: Range<Int>] = [:]
-        var start = 0
-        for j in tri.indices where j + 1 == tri.count || tri[j + 1] != tri[j] {
-            g[Int(tri[j])] = start..<(j + 1)
-            start = j + 1
-        }
-        grams = g
-        postings = pos
-    }
-
-    /// One stable counting-sort pass on 12 bits of the trigram. On raw buffers: Debug builds don't optimize array
-    /// access, and this runs over ~3M entries.
-    private static func radixPass(_ tri: [UInt32], _ pos: [Int32], _ shift: UInt32, _ t2: inout [UInt32], _ p2: inout [Int32]) {
-        var count = [Int](repeating: 0, count: 4097)
-        tri.withUnsafeBufferPointer { t in
-            pos.withUnsafeBufferPointer { p in
-                t2.withUnsafeMutableBufferPointer { ot in
-                    p2.withUnsafeMutableBufferPointer { op in
-                        count.withUnsafeMutableBufferPointer { c in
-                            for v in t { c[Int(v >> shift & 0xFFF) + 1] += 1 }
-                            for d in 1..<c.count { c[d] += c[d - 1] }
-                            for j in 0..<t.count {
-                                let d = Int(t[j] >> shift & 0xFFF)
-                                ot[c[d]] = t[j]
-                                op[c[d]] = p[j]
-                                c[d] += 1
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        index = NameIndex(english: english, foreign: foreign)
     }
 
     private static func unscannable(_ typeLine: String) -> Bool {
         ["Token", "Card", "Emblem", "Vanguard"].contains { typeLine.hasPrefix($0) }
     }
 
-    /// Byte trigrams of the name padded with a space each side.
-    private static func trigrams(_ s: String, into out: inout [Int]) {
-        var a = 32, b = -1
-        for c in s.utf8 {
-            if b >= 0 { out.append(a << 16 | b << 8 | Int(c)); a = b }
-            b = Int(c)
-        }
-        if b >= 0 { out.append(a << 16 | b << 8 | 32) }
-    }
+    func exact(_ q: String) -> Hit? { index.position(q).map(hit) }
 
-    private static func trigrams(_ s: String) -> Set<Int> {
-        var out: [Int] = []
-        trigrams(s, into: &out)
-        return Set(out)
-    }
-
-    func exact(_ q: String) -> Hit? { byKey[q].map(hit) }
-
-    private func hit(_ i: Int) -> Hit { Hit(idx: idxs[i], langs: Self.langs(langBits[i])) }
+    private func hit(_ i: Int) -> Hit { Hit(idx: index.idxs[i], langs: Self.langs(index.langBits[i])) }
 
     private static func langs(_ bits: UInt32) -> [String] {
         Languages.all.indices.filter { bits & (1 << UInt32($0)) != 0 }.map { Languages.all[$0].code }
@@ -154,11 +70,8 @@ final class ScanNames: @unchecked Sendable {
     /// names often share a start: "Urza's Saga", "Urzas Sage"), and it's most of one of them.
     func prefix(_ q: String) -> Hit? {
         guard q.count >= (CardName.hasCJK(q) ? 4 : 8) else { return nil }
-        var lo = 0, hi = keys.count
-        while lo < hi {
-            let mid = (lo + hi) / 2
-            if keys[mid].utf8.lexicographicallyPrecedes(q.utf8) { lo = mid + 1 } else { hi = mid }
-        }
+        let keys = index.keys, idxs = index.idxs, langBits = index.langBits
+        let lo = index.lowerBound(q)
         var hit: Int?, most = false
         // The languages of the names it starts; none when one of them is English (it doesn't tell).
         var bits: UInt32?
@@ -179,104 +92,19 @@ final class ScanNames: @unchecked Sendable {
         let cjk = CardName.hasCJK(q)
         guard q.count >= (cjk ? 4 : 5), q.utf8.count < 250 else { return nil }
         let cap = max(1, q.count / (cjk ? 6 : 8))
-        let tg = Self.trigrams(q)
+        let tg = NameIndex.trigrams(q)
         // The 60 names sharing the most trigrams, of those sharing at least 40%.
         let enough = Int((Double(tg.count) * 0.4).rounded(.up))
-        let top = sharing(tg, enough).prefix(60)
+        let top = index.sharing(tg, enough).prefix(60)
+        let keys = index.keys, idxs = index.idxs
         let target = cjk ? q.unicodeScalars.map(\.value) : q.utf8.map(UInt32.init)
         var best = (d: cap + 1, i: -1), second = cap + 1
         for i in top {
-            let d = Self.distance(target, cjk ? keys[i].unicodeScalars.map(\.value) : keys[i].utf8.map(UInt32.init), cap: cap)
+            let d = NameIndex.distance(target, cjk ? keys[i].unicodeScalars.map(\.value) : keys[i].utf8.map(UInt32.init), cap: cap)
             let other = best.i < 0 || idxs[best.i] != idxs[i]
             if d < best.d { if other { second = best.d }; best = (d, i) } else if d < second && other { second = d }
         }
         return best.i >= 0 && best.d <= cap && second > best.d ? hit(best.i) : nil
-    }
-
-    /// The key positions sharing at least `enough` of the trigrams, most shared first (then by position). A name
-    /// missing from all of the shortest `lists.count - enough + 1` posting lists shares too few, so only those are
-    /// walked to find candidates; the long lists (" th", "es ", the bulk of a long misread line) are only searched
-    /// for the candidates still able to reach `enough`. While loops on raw pointers, as in radixPass: Debug builds
-    /// don't optimize array access or range iteration, and a misread line of rules text reads thousands of postings.
-    private func sharing(_ tg: Set<Int>, _ enough: Int) -> [Int] {
-        let lists = tg.compactMap { grams[$0] }.sorted { $0.count < $1.count }
-        // Trigrams no name has count as empty lists, the shortest of all.
-        let seed = lists.count - enough + 1
-        guard seed > 0 else { return [] }
-        // Shared trigrams per key position; calloc zeroes it at once (Array(repeating:) fills it byte by byte in Debug).
-        let sh = calloc(max(keys.count, 1), 1)!.assumingMemoryBound(to: UInt8.self)
-        defer { free(sh) }
-        let live = UnsafeMutablePointer<Int32>.allocate(capacity: lists[..<seed].reduce(0) { $0 + $1.count })
-        defer { live.deallocate() }
-        var n = 0
-        /// Drops the candidates that can't reach `enough` with `left` lists to go.
-        func prune(_ left: Int) {
-            var k = 0, j = 0
-            while j < n {
-                if Int(sh[Int(live[j])]) + left >= enough { live[k] = live[j]; k += 1 }
-                j += 1
-            }
-            n = k
-        }
-        postings.withUnsafeBufferPointer { buf in
-            let post = buf.baseAddress!
-            for r in lists[..<seed] {
-                var j = r.lowerBound
-                while j < r.upperBound {
-                    let i = Int(post[j])
-                    if sh[i] == 0 { live[n] = post[j]; n += 1 }
-                    sh[i] &+= 1
-                    j += 1
-                }
-            }
-            var left = lists.count - seed
-            prune(left)
-            for r in lists[seed...] where n > 0 {
-                left -= 1
-                // Walk the list, or binary-search it for each candidate, whichever reads fewer postings.
-                if n * (Int.bitWidth - r.count.leadingZeroBitCount) < r.count {
-                    var c = 0
-                    while c < n {
-                        let i = live[c]
-                        var lo = r.lowerBound, hi = r.upperBound
-                        while lo < hi {
-                            let mid = (lo + hi) / 2
-                            if post[mid] < i { lo = mid + 1 } else { hi = mid }
-                        }
-                        if lo < r.upperBound && post[lo] == i { sh[Int(i)] &+= 1 }
-                        c += 1
-                    }
-                } else {
-                    var j = r.lowerBound
-                    while j < r.upperBound {
-                        let i = Int(post[j])
-                        if sh[i] != 0 { sh[i] &+= 1 }
-                        j += 1
-                    }
-                }
-                prune(left)
-            }
-        }
-        return UnsafeBufferPointer(start: live, count: n).map(Int.init)
-            .sorted { sh[$0] != sh[$1] ? sh[$0] > sh[$1] : $0 < $1 }
-    }
-
-    /// Levenshtein distance, giving up (cap + 1) once it's sure to exceed cap.
-    private static func distance(_ a: [UInt32], _ b: [UInt32], cap: Int) -> Int {
-        if abs(a.count - b.count) > cap { return cap + 1 }
-        if a.isEmpty || b.isEmpty { return max(a.count, b.count) }
-        var prev = Array(0...b.count), cur = prev
-        for i in 1...a.count {
-            cur[0] = i
-            var low = i
-            for j in 1...b.count {
-                cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1))
-                low = min(low, cur[j])
-            }
-            if low > cap { return cap + 1 }
-            swap(&prev, &cur)
-        }
-        return prev[b.count]
     }
 }
 

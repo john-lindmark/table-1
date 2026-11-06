@@ -66,7 +66,9 @@ everyone paired once, one bye when odd, no second bye. Its time budgets apply un
 **iOS** (`apps/ios/Table1Tests`, scheme test action). Scanner accuracy floors (`CardMatcherTests`), catalog pack
 (`CatalogPackTests`), collection CSV import (`CollectionCSVTests`: every format's fixture in `testdata/collection-import`
 parsed and matched against the test catalog, export read back, `CollectionImportPerfTests` on 20k lines), and `ScannerPerfTests`: pack → SQLite build, catalog search, matcher per camera frame over
-all 1,455 OCR reads in `testdata/scan`. `DeckStatsTests`: deck and cube stats against the shared cases in
+all 1,455 OCR reads in `testdata/scan`, and the scanner's name index. The index itself lives in the local package
+`apps/ios/Packages/ScanIndex` (built with `-O` in Debug too); its own tests run with `swift test --package-path
+apps/ios/Packages/ScanIndex` (also in `./test.sh ios`). `DeckStatsTests`: deck and cube stats against the shared cases in
 `testdata/deck-stats/cases.json` (the web's `deckStats.test.ts` and Android's `DeckStatsTest` read the same file). Runs on its own `T1-Tests` simulator with derived data in
 `/var/tmp/t1-test-dd`, so it never touches another session's simulator.
 
@@ -93,6 +95,7 @@ the test JVM's heap.
 | iOS catalog search, worst query | 40 ms ("the") | 120 ms |
 | iOS matcher per frame (Debug) mean / p95 | 6.9 / 33 ms (max 206) | 20 / 90 ms |
 | Android matcher per frame (JVM) mean / p95 | 0.44 / 2.1 ms | 2 / 8 ms |
+| iOS scanner name index (Debug, Simulator; optimized `Packages/ScanIndex`) | 0.6 s | 2.5 s |
 | Android scanner name index | 0.7 s | 2.5 s |
 | Collection CSV import, 20k lines, iOS Debug: parse / match by id / by set + number | 210 / 150 / 470 ms | 650 / 1,500 / 1,500 ms |
 | Collection CSV import, 20k lines, web: parse / match by id / by set + number | 30 / 32 / 80 ms | 150 / 400 / 400 ms |

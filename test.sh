@@ -39,6 +39,8 @@ engine()     { (cd supabase/functions && deno test --quiet events-engine/ cards-
 database()   { supabase/tests/run.sh; }
 ios_unit() {
   xcrun simctl list devices | grep -q " $IOS_SIM (" || xcrun simctl create "$IOS_SIM" "iPhone 17" >/dev/null
+  swift test --quiet --package-path apps/ios/Packages/ScanIndex --scratch-path "$IOS_DD/ScanIndex" >/dev/null 2>&1 \
+    || { echo "error: ScanIndex package tests failed (swift test --package-path apps/ios/Packages/ScanIndex)"; return 1; }
   (cd apps/ios && xcodegen -q && xcodebuild -project "Table 1.xcodeproj" -scheme "Table 1" \
      -destination "platform=iOS Simulator,name=$IOS_SIM" -derivedDataPath "$IOS_DD" test) \
     | grep -E "perf ios|error:|Executed .* tests|TEST (SUCCEEDED|FAILED)"

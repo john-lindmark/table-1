@@ -89,6 +89,7 @@
 		4D746C5E6955E657FC9C3859 /* BasicsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEE64F1EE01FC96A0112D176 /* BasicsTests.swift */; };
 		4DF81CE6AE64132B3F5AD949 /* T1Shared.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00C95CF97E3DDF3302A0F73 /* T1Shared.swift */; };
 		4DF87A4D609939BD61117048 /* BindersViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33A07FDE8D216408D15B1D37 /* BindersViews.swift */; };
+		4E06BE4B7AF8E6979786FAE5 /* ScanIndex in Frameworks */ = {isa = PBXBuildFile; productRef = 70072D235E2B342D755E5221 /* ScanIndex */; };
 		4FE7D9A928D8239FDA095347 /* ScanRegionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 590568D59862CBFE33BB634F /* ScanRegionTests.swift */; };
 		50360418066F5F3304A048A9 /* LanguageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C7B65AB3CD8BAFB67DBE23F /* LanguageTests.swift */; };
 		523EE3A4F5D6D71E907E1C87 /* WebLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CD8F959394AF7474B16BE48 /* WebLinkTests.swift */; };
@@ -459,6 +460,7 @@
 		BA5585D460ED8D0ECA5B05DA /* RotoRepo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RotoRepo.swift; sourceTree = "<group>"; };
 		BA8DF19517F082A44841191D /* PlayerLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerLiveActivity.swift; sourceTree = "<group>"; };
 		BB923D0FC11DA7387A5E5624 /* Trades.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Trades.swift; sourceTree = "<group>"; };
+		BD4AA36C3F64B73BE2A6326F /* ScanIndex */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ScanIndex; path = Packages/ScanIndex; sourceTree = SOURCE_ROOT; };
 		BE2E6A0A7DB915829889FB54 /* ChangePrintingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangePrintingTests.swift; sourceTree = "<group>"; };
 		BF3BBF32A0E4379EB892A339 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 		C1730671388E1EEF6E83C7BB /* InsightsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsViews.swift; sourceTree = "<group>"; };
@@ -518,6 +520,7 @@
 				1F66EB68FE24E7ACF235E4AB /* SVGView in Frameworks */,
 				2F36C38D763F28B48271612F /* PostHog in Frameworks */,
 				F6F2542FC32A67FB90455CB4 /* Sentry-Dynamic in Frameworks */,
+				4E06BE4B7AF8E6979786FAE5 /* ScanIndex in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -654,6 +657,14 @@
 			path = Tracker;
 			sourceTree = "<group>";
 		};
+		27F238ADB364780C7A736C57 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				BD4AA36C3F64B73BE2A6326F /* ScanIndex */,
+			);
+			path = Packages;
+			sourceTree = "<group>";
+		};
 		3B777083C2E72A95E5C74CDE /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -708,6 +719,7 @@
 		7AA89A701997374B23C6D644 = {
 			isa = PBXGroup;
 			children = (
+				27F238ADB364780C7A736C57 /* Packages */,
 				94C2E7F02A3DAE1FF71EDE4D /* Shared */,
 				FAC20170C0D0AA71EF16E21F /* Table 1 */,
 				B8ED600412DBA4BF39193857 /* Table1 */,
@@ -996,6 +1008,7 @@
 				B29FE675356369E91F94A200 /* SVGView */,
 				ADA225913FAE2D658150CD96 /* PostHog */,
 				B967E990CA99C20AA09E65D9 /* Sentry-Dynamic */,
+				70072D235E2B342D755E5221 /* ScanIndex */,
 			);
 			productName = Table1;
 			productReference = 4A4CE128D71E12EDA0482FDD /* Table1.app */;
@@ -1036,6 +1049,7 @@
 				9BA5ACD66666A3DA36D7FFD9 /* XCRemoteSwiftPackageReference "SVGView" */,
 				5D6A0AC5F32CD4066523948E /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
 				74216BDCA796BF29689359A6 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				7C69285A967D8FCFD4A07604 /* XCLocalSwiftPackageReference "Packages/ScanIndex" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3B777083C2E72A95E5C74CDE /* Products */;
@@ -1603,6 +1617,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		7C69285A967D8FCFD4A07604 /* XCLocalSwiftPackageReference "Packages/ScanIndex" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/ScanIndex;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		35EDC623A01E1649F2CF55C4 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -1651,6 +1672,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 74216BDCA796BF29689359A6 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		70072D235E2B342D755E5221 /* ScanIndex */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ScanIndex;
 		};
 		772AD52A8F7AAA91FA28D759 /* GoogleSignIn */ = {
 			isa = XCSwiftPackageProductDependency;
