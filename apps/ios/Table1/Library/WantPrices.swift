@@ -135,12 +135,12 @@ final class WantPricesStore {
    want for a printing as a link to its product page (§ Printings). The server writes the links (names, parts,
    affiliate wrapper); the app opens them. */
 enum TCGplayerCart {
-    struct Item: Sendable {
+    struct Item: Equatable, Sendable {
         var oracleId: String?
         var cardId: String?
         var qty: Int
     }
-    struct Product: Decodable, Sendable {
+    struct Product: Decodable, Equatable, Sendable {
         let name: String
         let set: String
         let number: String
@@ -148,11 +148,15 @@ enum TCGplayerCart {
         let url: String
     }
     struct Answer: Decodable, Sendable {
-        let enabled: Bool
-        let lines: Int
-        let unknown: Int
-        let urls: [String]
+        var enabled: Bool
+        var lines: Int
+        var unknown: Int
+        var urls: [String]
         var products: [Product] = []
+
+        init(enabled: Bool, lines: Int, unknown: Int, urls: [String], products: [Product]) {
+            self.enabled = enabled; self.lines = lines; self.unknown = unknown; self.urls = urls; self.products = products
+        }
 
         enum CodingKeys: String, CodingKey { case enabled, lines, unknown, urls, products }
         init(from d: Decoder) throws {
@@ -193,8 +197,9 @@ enum TCGplayerCart {
     }
 
     @MainActor
-    /// `from` tags the affiliate link with the screen (wants / missing); the server adds the platform.
-    static func links(_ items: [Item], from: String? = nil) async throws -> Answer {
+    /// `from` tags the affiliate link with the screen (wants / missing / deck / cube / card); the server adds the
+    /// platform. `products` sends printings to their product pages; off, every card goes into Mass Entry by name.
+    static func links(_ items: [Item], from: String? = nil, products: Bool = true) async throws -> Answer {
         #if DEBUG
         if CollectionStore.shared.demo != nil { throw DemoOnly() }
         #endif
@@ -202,7 +207,7 @@ enum TCGplayerCart {
             .object(["oracle_id": i.oracleId.map { .string($0) } ?? .null, "card_id": i.cardId.map { .string($0) } ?? .null,
                      "qty": .integer(i.qty)])
         }
-        return try await supabase.rpc("tcgplayer_cart", params: ["p_items": AnyJSON.array(p), "p_products": .bool(true),
+        return try await supabase.rpc("tcgplayer_cart", params: ["p_items": AnyJSON.array(p), "p_products": .bool(products),
                                                               "p_from": from.map { AnyJSON.string($0) } ?? .null]).execute().value
     }
 

@@ -331,7 +331,19 @@ function BinderRoute() {
 function WantsRoute() {
   const navigate = useNavigate();
   const back = useBack("/library");
-  return <WantsScreen onBack={back} onCard={(o) => navigate(`/library/card/${o}`, { state: { search: true } })} />;
+  return <WantsScreen onBack={back} onCard={(o) => navigate(`/library/card/${o}`, { state: { search: true } })}
+                      onBuy={(what) => navigate(`/library/buy/${what}`)} />;
+}
+
+const BuyScreen = lazyNamed(() => import("./screens/Buy"), "BuyScreen");
+/** The Buy screen (contract/buy-2026-11-06.md): a deck or cube, Wants or Missing. */
+function BuyRoute({ what }: { what?: "wants" | "missing" }) {
+  const { listId } = useParams();
+  const navigate = useNavigate();
+  const back = useBack(listId ? `/library/list/${listId}` : "/library/wants");
+  const source = what ?? (listId ? { list: listId } : null);
+  if (!source) return <Navigate to="/library" replace />;
+  return <BuyScreen source={source} onBack={back} onCard={(o) => navigate(`/library/card/${o}`, { state: { search: true } })} />;
 }
 
 function CollectionImportRoute() {
@@ -390,7 +402,8 @@ function ListRoute() {
                 onOpen={(id) => navigate(`/library/list/${id}`)}
                 onPrinting={(card, board, finish, lang, cond) => navigate(`/library/list/${listId}/printing?card=${card}&board=${board}&finish=${finish}&lang=${lang}${cond !== "NM" ? `&cond=${cond}` : ""}`)}
                 onStats={() => navigate(`/library/list/${listId}/stats`)} onRankings={() => navigate(`/library/list/${listId}/rankings`)}
-                onSync={() => navigate(`/library/list/${listId}/sync`)} onGuide={() => navigate(`/library/list/${listId}/guide`)} />
+                onSync={() => navigate(`/library/list/${listId}/sync`)} onGuide={() => navigate(`/library/list/${listId}/guide`)}
+                onBuy={() => navigate(`/library/list/${listId}/buy`)} />
   );
 }
 
@@ -614,6 +627,9 @@ export default function App() {
         <Route path="/library/list/:listId/add" element={<ListAddRoute />} />
         <Route path="/library/list/:listId/stats" element={<ListStatsRoute />} />
         <Route path="/library/list/:listId/sync" element={<CubeSyncRoute />} />
+        <Route path="/library/list/:listId/buy" element={<BuyRoute />} />
+        <Route path="/library/buy/wants" element={<BuyRoute what="wants" />} />
+        <Route path="/library/buy/missing" element={<BuyRoute what="missing" />} />
         <Route path="/library/list/:listId/guide" element={<SideboardGuideRoute page="guide" />} />
         <Route path="/library/list/:listId/guide/new" element={<SideboardGuideRoute page="new" />} />
         <Route path="/library/list/:listId/guide/print" element={<SideboardGuideRoute page="print" />} />

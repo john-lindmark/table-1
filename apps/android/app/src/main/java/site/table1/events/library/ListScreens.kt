@@ -303,7 +303,8 @@ fun NewListPanel(kind: ListKind, onDismiss: () -> Unit, onCreated: (String) -> U
 fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Unit, onAdd: () -> Unit, onVersions: () -> Unit,
                      onOpen: (String) -> Unit, onPrinting: (cardId: String, board: String, finish: String, lang: String, cond: String) -> Unit = { _, _, _, _, _ -> },
                      onStats: () -> Unit = {}, onRankings: (() -> Unit)? = null, onSync: (() -> Unit)? = null,
-                     onInsights: ((format: String, archetype: Int) -> Unit)? = null, onGuide: (() -> Unit)? = null) {
+                     onInsights: ((format: String, archetype: Int) -> Unit)? = null, onGuide: (() -> Unit)? = null,
+                     onBuy: (() -> Unit)? = null) {
     val s by ListsStore.state.collectAsState()
     val list = s.lists.firstOrNull { it.id == listId }
     val owned = rememberHoldings(list?.entries?.map { it.cardId } ?: emptyList())
@@ -416,6 +417,7 @@ fun ListDetailScreen(listId: String, onBack: () -> Unit, onCard: (String) -> Uni
                 val short = ListToCollection.copies(ListToCollection.ops(list.entries, list.kind, ownedByLanguage(), ListToCollection.Mode.Missing,
                                                                          basics = CatalogStore.basics))
                 ListRow("Add to collection", if (short > 0) "Missing $short · or every card" else "You own every card · add more copies", onClick = { adding = true })
+                if (onBuy != null) BuyRow(list, owned, onBuy)
             }
             if (!editing && list.kind == ListKind.Cube && onSync != null) {
                 ListRow("Sync with Cube Cobra", CubeSync.cubeId(list.sourceUrl)?.let { "cubecobra.com · $it" } ?: "Get the latest from a Cube Cobra link",

@@ -771,6 +771,8 @@ private fun AddToSheet(o: CatalogOracle, lines: List<CardVersion>, printings: Ma
     val col by CollectionStore.state.collectAsState()
     var step by remember { mutableStateOf<AddStep>(AddStep.Root) }
     var error by remember { mutableStateOf<String?>(null) }
+    var buyLinks by remember { mutableStateOf<List<TCGplayerCart.Entry>?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(Unit) { if (!trades.loaded) TradesStore.load() }
     val version = lines.first()
     val printingIds = lines.map { it.cardId }.distinct()
@@ -824,9 +826,32 @@ private fun AddToSheet(o: CatalogOracle, lines: List<CardVersion>, printings: Ma
         finish("trade", "${if (give) "Giving" else "Getting"} $count $name in the trade${saved.partner?.let { " with $it" } ?: ""}", null)
     }
 
+    // Add to → TCGplayer (contract/buy-2026-11-06.md § Card page): each printing in view to its product page.
+    fun openUrl(url: String) {
+        runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+            .onFailure { error = it.message }
+    }
+    fun toTCGplayer() = launch {
+        val items = lines.filter { it.qty > 0 }.groupBy { it.cardId }.map { (id, vs) -> TCGplayerCart.Item(cardId = id, qty = vs.sumOf { it.qty }) }
+        val a = TCGplayerCart.links(items, "card", products = true)
+        Telemetry.capture("tcgplayer_cart_opened", mapOf("from" to "card", "lines" to a.lines, "parts" to a.urls.size, "products" to a.products.size))
+        val direct = TCGplayerCart.direct(a)
+        val m = TCGplayerCart.menu(a)
+        when {
+            direct != null -> { openUrl(direct); onClose() }
+            m.isEmpty() -> error = "Nothing to buy"
+            else -> buyLinks = m
+        }
+    }
+    buyLinks?.let { m ->
+        T1Menu("Buy on TCGplayer", m.map { e -> T1MenuItem("${e.title} · ${e.detail}") { openUrl(e.url) } }) { onClose() }
+        return
+    }
+
     val s = step
     val (title, options) = when (s) {
-        AddStep.Root -> null to listOf("collection" to "Collection", "deck" to "Deck", "cube" to "Cube", "binder" to "Binder", "want" to "Want", "trade" to "Trade")
+        AddStep.Root -> null to listOf("collection" to "Collection", "deck" to "Deck", "cube" to "Cube", "binder" to "Binder", "want" to "Want", "trade" to "Trade",
+                                       "tcgplayer" to "TCGplayer")
             .map { Triple(it.first, it.second, null as String?) }
         AddStep.Decks -> "Deck" to lists.filter { it.kind == ListKind.Deck }.map { Triple(it.id, it.name, CatalogPack.formatName(it.format) as String?) }
             .ifEmpty { listOf(Triple("", "No decks yet", null)) }
@@ -860,6 +885,7 @@ private fun AddToSheet(o: CatalogOracle, lines: List<CardVersion>, printings: Ma
                     "cube" -> step = AddStep.Cubes
                     "binder" -> step = AddStep.Binders
                     "want" -> step = AddStep.Want
+                    "tcgplayer" -> toTCGplayer()
                     else -> step = AddStep.Trades
                 }
                 AddStep.Decks -> step = AddStep.Section(v)

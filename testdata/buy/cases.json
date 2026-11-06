@@ -1,0 +1,1067 @@
+{
+ "_about": "Buy screen (contract/buy-2026-11-06.md): rows (copies listed, owned, bought) for the picked options, totals in cents, the tcgplayer_cart calls, and two answers merged. Owned keys are card_id|finish[|lang[|cond]]; oracles maps a printing to its card.",
+ "oracles": {
+  "bolt-m11": "bolt",
+  "bolt-2x2": "bolt",
+  "bolt-lea": "bolt",
+  "ragavan-mh2": "ragavan",
+  "ragavan-promo": "ragavan",
+  "island-1": "island",
+  "treasure-t": "treasure",
+  "opt-eld": "opt"
+ },
+ "cases": [
+  {
+   "name": "skip owned, any printing counts",
+   "lines": [
+    {
+     "card_id": "ragavan-mh2",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "unit": 5500
+    },
+    {
+     "card_id": "bolt-m11",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "unit": 150
+    },
+    {
+     "card_id": "island-1",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 6,
+     "unit": 10,
+     "basic": true
+    },
+    {
+     "card_id": "bolt-2x2",
+     "board": "side",
+     "finish": "foil",
+     "qty": 2,
+     "unit": 400
+    },
+    {
+     "card_id": "opt-eld",
+     "board": "maybe",
+     "finish": "nonfoil",
+     "qty": 1,
+     "unit": null
+    },
+    {
+     "card_id": "treasure-t",
+     "board": "tokens",
+     "finish": "nonfoil",
+     "qty": 1,
+     "unit": 25
+    }
+   ],
+   "owned": {
+    "ragavan-promo|foil|en": 1,
+    "bolt-m11|nonfoil|en|LP": 3,
+    "bolt-lea|nonfoil": 2,
+    "island-1|nonfoil": 20
+   },
+   "options": {
+    "skip_owned": true,
+    "any_printing": true,
+    "exact": false,
+    "boards": [
+     "main",
+     "side"
+    ]
+   },
+   "rows": [
+    {
+     "card_id": "ragavan-mh2",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "owned": 1,
+     "buy": 3
+    },
+    {
+     "card_id": "bolt-m11",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "owned": 4,
+     "buy": 0
+    },
+    {
+     "card_id": "bolt-2x2",
+     "board": "side",
+     "finish": "foil",
+     "qty": 2,
+     "owned": 1,
+     "buy": 1
+    }
+   ],
+   "totals": {
+    "cards": 10,
+    "owned": 6,
+    "buy": 4,
+    "price": 23400,
+    "owned_value": 6500,
+    "total": 16900,
+    "unpriced": 0
+   },
+   "calls": [
+    {
+     "products": false,
+     "items": [
+      {
+       "card_id": "ragavan-mh2",
+       "qty": 3
+      },
+      {
+       "card_id": "bolt-2x2",
+       "qty": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "only the exact printing counts",
+   "lines": [
+    {
+     "card_id": "ragavan-mh2",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "unit": 5500
+    },
+    {
+     "card_id": "bolt-m11",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "unit": 150
+    },
+    {
+     "card_id": "island-1",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 6,
+     "unit": 10,
+     "basic": true
+    },
+    {
+     "card_id": "bolt-2x2",
+     "board": "side",
+     "finish": "foil",
+     "qty": 2,
+     "unit": 400
+    },
+    {
+     "card_id": "opt-eld",
+     "board": "maybe",
+     "finish": "nonfoil",
+     "qty": 1,
+     "unit": null
+    },
+    {
+     "card_id": "treasure-t",
+     "board": "tokens",
+     "finish": "nonfoil",
+     "qty": 1,
+     "unit": 25
+    }
+   ],
+   "owned": {
+    "ragavan-promo|foil|en": 1,
+    "bolt-m11|nonfoil|en|LP": 3,
+    "bolt-lea|nonfoil": 2,
+    "island-1|nonfoil": 20
+   },
+   "options": {
+    "skip_owned": true,
+    "any_printing": false,
+    "exact": false,
+    "boards": [
+     "main",
+     "side"
+    ]
+   },
+   "rows": [
+    {
+     "card_id": "ragavan-mh2",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "owned": 0,
+     "buy": 4
+    },
+    {
+     "card_id": "bolt-m11",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "owned": 3,
+     "buy": 1
+    },
+    {
+     "card_id": "bolt-2x2",
+     "board": "side",
+     "finish": "foil",
+     "qty": 2,
+     "owned": 0,
+     "buy": 2
+    }
+   ],
+   "totals": {
+    "cards": 10,
+    "owned": 3,
+    "buy": 7,
+    "price": 23400,
+    "owned_value": 450,
+    "total": 22950,
+    "unpriced": 0
+   },
+   "calls": [
+    {
+     "products": false,
+     "items": [
+      {
+       "card_id": "ragavan-mh2",
+       "qty": 4
+      },
+      {
+       "card_id": "bolt-m11",
+       "qty": 1
+      },
+      {
+       "card_id": "bolt-2x2",
+       "qty": 2
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "buy every card, basics too",
+   "lines": [
+    {
+     "card_id": "ragavan-mh2",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "unit": 5500
+    },
+    {
+     "card_id": "bolt-m11",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "unit": 150
+    },
+    {
+     "card_id": "island-1",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 6,
+     "unit": 10,
+     "basic": true
+    },
+    {
+     "card_id": "bolt-2x2",
+     "board": "side",
+     "finish": "foil",
+     "qty": 2,
+     "unit": 400
+    },
+    {
+     "card_id": "opt-eld",
+     "board": "maybe",
+     "finish": "nonfoil",
+     "qty": 1,
+     "unit": null
+    },
+    {
+     "card_id": "treasure-t",
+     "board": "tokens",
+     "finish": "nonfoil",
+     "qty": 1,
+     "unit": 25
+    }
+   ],
+   "owned": {
+    "ragavan-promo|foil|en": 1,
+    "bolt-m11|nonfoil|en|LP": 3,
+    "bolt-lea|nonfoil": 2,
+    "island-1|nonfoil": 20
+   },
+   "options": {
+    "skip_owned": false,
+    "any_printing": true,
+    "exact": false,
+    "boards": [
+     "main",
+     "side"
+    ]
+   },
+   "rows": [
+    {
+     "card_id": "ragavan-mh2",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "owned": 0,
+     "buy": 4
+    },
+    {
+     "card_id": "bolt-m11",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "owned": 0,
+     "buy": 4
+    },
+    {
+     "card_id": "island-1",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 6,
+     "owned": 0,
+     "buy": 6
+    },
+    {
+     "card_id": "bolt-2x2",
+     "board": "side",
+     "finish": "foil",
+     "qty": 2,
+     "owned": 0,
+     "buy": 2
+    }
+   ],
+   "totals": {
+    "cards": 16,
+    "owned": 0,
+    "buy": 16,
+    "price": 23460,
+    "owned_value": 0,
+    "total": 23460,
+    "unpriced": 0
+   },
+   "calls": [
+    {
+     "products": false,
+     "items": [
+      {
+       "card_id": "ragavan-mh2",
+       "qty": 4
+      },
+      {
+       "card_id": "bolt-m11",
+       "qty": 4
+      },
+      {
+       "card_id": "island-1",
+       "qty": 6
+      },
+      {
+       "card_id": "bolt-2x2",
+       "qty": 2
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "exact printings: one call with product pages",
+   "lines": [
+    {
+     "card_id": "ragavan-mh2",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "unit": 5500
+    },
+    {
+     "card_id": "bolt-m11",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "unit": 150
+    },
+    {
+     "card_id": "island-1",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 6,
+     "unit": 10,
+     "basic": true
+    },
+    {
+     "card_id": "bolt-2x2",
+     "board": "side",
+     "finish": "foil",
+     "qty": 2,
+     "unit": 400
+    },
+    {
+     "card_id": "opt-eld",
+     "board": "maybe",
+     "finish": "nonfoil",
+     "qty": 1,
+     "unit": null
+    },
+    {
+     "card_id": "treasure-t",
+     "board": "tokens",
+     "finish": "nonfoil",
+     "qty": 1,
+     "unit": 25
+    }
+   ],
+   "owned": {
+    "ragavan-promo|foil|en": 1,
+    "bolt-m11|nonfoil|en|LP": 3,
+    "bolt-lea|nonfoil": 2,
+    "island-1|nonfoil": 20
+   },
+   "options": {
+    "skip_owned": true,
+    "any_printing": true,
+    "exact": true,
+    "boards": [
+     "main",
+     "side"
+    ]
+   },
+   "rows": [
+    {
+     "card_id": "ragavan-mh2",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "owned": 1,
+     "buy": 3
+    },
+    {
+     "card_id": "bolt-m11",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "owned": 4,
+     "buy": 0
+    },
+    {
+     "card_id": "bolt-2x2",
+     "board": "side",
+     "finish": "foil",
+     "qty": 2,
+     "owned": 1,
+     "buy": 1
+    }
+   ],
+   "totals": {
+    "cards": 10,
+    "owned": 6,
+    "buy": 4,
+    "price": 23400,
+    "owned_value": 6500,
+    "total": 16900,
+    "unpriced": 0
+   },
+   "calls": [
+    {
+     "products": true,
+     "items": [
+      {
+       "card_id": "ragavan-mh2",
+       "qty": 3
+      },
+      {
+       "card_id": "bolt-2x2",
+       "qty": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "considering and tokens: tokens to their pages, the rest by name",
+   "lines": [
+    {
+     "card_id": "ragavan-mh2",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "unit": 5500
+    },
+    {
+     "card_id": "bolt-m11",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "unit": 150
+    },
+    {
+     "card_id": "island-1",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 6,
+     "unit": 10,
+     "basic": true
+    },
+    {
+     "card_id": "bolt-2x2",
+     "board": "side",
+     "finish": "foil",
+     "qty": 2,
+     "unit": 400
+    },
+    {
+     "card_id": "opt-eld",
+     "board": "maybe",
+     "finish": "nonfoil",
+     "qty": 1,
+     "unit": null
+    },
+    {
+     "card_id": "treasure-t",
+     "board": "tokens",
+     "finish": "nonfoil",
+     "qty": 1,
+     "unit": 25
+    }
+   ],
+   "owned": {
+    "ragavan-promo|foil|en": 1,
+    "bolt-m11|nonfoil|en|LP": 3,
+    "bolt-lea|nonfoil": 2,
+    "island-1|nonfoil": 20
+   },
+   "options": {
+    "skip_owned": true,
+    "any_printing": true,
+    "exact": false,
+    "boards": [
+     "main",
+     "side",
+     "maybe",
+     "tokens"
+    ]
+   },
+   "rows": [
+    {
+     "card_id": "ragavan-mh2",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "owned": 1,
+     "buy": 3
+    },
+    {
+     "card_id": "bolt-m11",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "owned": 4,
+     "buy": 0
+    },
+    {
+     "card_id": "bolt-2x2",
+     "board": "side",
+     "finish": "foil",
+     "qty": 2,
+     "owned": 1,
+     "buy": 1
+    },
+    {
+     "card_id": "opt-eld",
+     "board": "maybe",
+     "finish": "nonfoil",
+     "qty": 1,
+     "owned": 0,
+     "buy": 1
+    },
+    {
+     "card_id": "treasure-t",
+     "board": "tokens",
+     "finish": "nonfoil",
+     "qty": 1,
+     "owned": 0,
+     "buy": 1
+    }
+   ],
+   "totals": {
+    "cards": 12,
+    "owned": 6,
+    "buy": 6,
+    "price": 23425,
+    "owned_value": 6500,
+    "total": 16925,
+    "unpriced": 1
+   },
+   "calls": [
+    {
+     "products": false,
+     "items": [
+      {
+       "card_id": "ragavan-mh2",
+       "qty": 3
+      },
+      {
+       "card_id": "bolt-2x2",
+       "qty": 1
+      },
+      {
+       "card_id": "opt-eld",
+       "qty": 1
+      }
+     ]
+    },
+    {
+     "products": true,
+     "items": [
+      {
+       "card_id": "treasure-t",
+       "qty": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "exact printings with tokens: one call",
+   "lines": [
+    {
+     "card_id": "ragavan-mh2",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "unit": 5500
+    },
+    {
+     "card_id": "bolt-m11",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "unit": 150
+    },
+    {
+     "card_id": "island-1",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 6,
+     "unit": 10,
+     "basic": true
+    },
+    {
+     "card_id": "bolt-2x2",
+     "board": "side",
+     "finish": "foil",
+     "qty": 2,
+     "unit": 400
+    },
+    {
+     "card_id": "opt-eld",
+     "board": "maybe",
+     "finish": "nonfoil",
+     "qty": 1,
+     "unit": null
+    },
+    {
+     "card_id": "treasure-t",
+     "board": "tokens",
+     "finish": "nonfoil",
+     "qty": 1,
+     "unit": 25
+    }
+   ],
+   "owned": {
+    "ragavan-promo|foil|en": 1,
+    "bolt-m11|nonfoil|en|LP": 3,
+    "bolt-lea|nonfoil": 2,
+    "island-1|nonfoil": 20
+   },
+   "options": {
+    "skip_owned": true,
+    "any_printing": true,
+    "exact": true,
+    "boards": [
+     "main",
+     "tokens"
+    ]
+   },
+   "rows": [
+    {
+     "card_id": "ragavan-mh2",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "owned": 1,
+     "buy": 3
+    },
+    {
+     "card_id": "bolt-m11",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "owned": 4,
+     "buy": 0
+    },
+    {
+     "card_id": "treasure-t",
+     "board": "tokens",
+     "finish": "nonfoil",
+     "qty": 1,
+     "owned": 0,
+     "buy": 1
+    }
+   ],
+   "totals": {
+    "cards": 9,
+    "owned": 5,
+    "buy": 4,
+    "price": 22625,
+    "owned_value": 6100,
+    "total": 16525,
+    "unpriced": 0
+   },
+   "calls": [
+    {
+     "products": true,
+     "items": [
+      {
+       "card_id": "ragavan-mh2",
+       "qty": 3
+      },
+      {
+       "card_id": "treasure-t",
+       "qty": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "nothing to buy",
+   "lines": [
+    {
+     "card_id": "ragavan-mh2",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "unit": 5500
+    },
+    {
+     "card_id": "bolt-m11",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "unit": 150
+    },
+    {
+     "card_id": "island-1",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 6,
+     "unit": 10,
+     "basic": true
+    },
+    {
+     "card_id": "bolt-2x2",
+     "board": "side",
+     "finish": "foil",
+     "qty": 2,
+     "unit": 400
+    },
+    {
+     "card_id": "opt-eld",
+     "board": "maybe",
+     "finish": "nonfoil",
+     "qty": 1,
+     "unit": null
+    },
+    {
+     "card_id": "treasure-t",
+     "board": "tokens",
+     "finish": "nonfoil",
+     "qty": 1,
+     "unit": 25
+    }
+   ],
+   "owned": {
+    "ragavan-mh2|nonfoil": 4,
+    "bolt-m11|nonfoil": 4,
+    "bolt-2x2|foil": 2
+   },
+   "options": {
+    "skip_owned": true,
+    "any_printing": true,
+    "exact": false,
+    "boards": [
+     "main",
+     "side"
+    ]
+   },
+   "rows": [
+    {
+     "card_id": "ragavan-mh2",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "owned": 4,
+     "buy": 0
+    },
+    {
+     "card_id": "bolt-m11",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "owned": 4,
+     "buy": 0
+    },
+    {
+     "card_id": "bolt-2x2",
+     "board": "side",
+     "finish": "foil",
+     "qty": 2,
+     "owned": 2,
+     "buy": 0
+    }
+   ],
+   "totals": {
+    "cards": 10,
+    "owned": 10,
+    "buy": 0,
+    "price": 23400,
+    "owned_value": 23400,
+    "total": 0,
+    "unpriced": 0
+   },
+   "calls": []
+  },
+  {
+   "name": "wants: any printing by card, a printing by its page",
+   "lines": [
+    {
+     "card_id": "bolt-m11",
+     "oracle_id": "o-bolt",
+     "any": true,
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "unit": 150
+    },
+    {
+     "card_id": "ragavan-promo",
+     "board": "main",
+     "finish": "foil",
+     "qty": 1,
+     "unit": 9000
+    },
+    {
+     "card_id": "bolt-lea",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 1,
+     "unit": null
+    }
+   ],
+   "owned": {},
+   "options": {
+    "skip_owned": false,
+    "any_printing": true,
+    "exact": true,
+    "boards": [
+     "main"
+    ]
+   },
+   "rows": [
+    {
+     "card_id": "bolt-m11",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 4,
+     "owned": 0,
+     "buy": 4
+    },
+    {
+     "card_id": "ragavan-promo",
+     "board": "main",
+     "finish": "foil",
+     "qty": 1,
+     "owned": 0,
+     "buy": 1
+    },
+    {
+     "card_id": "bolt-lea",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 1,
+     "owned": 0,
+     "buy": 1
+    }
+   ],
+   "totals": {
+    "cards": 6,
+    "owned": 0,
+    "buy": 6,
+    "price": 9600,
+    "owned_value": 0,
+    "total": 9600,
+    "unpriced": 1
+   },
+   "calls": [
+    {
+     "products": true,
+     "items": [
+      {
+       "oracle_id": "o-bolt",
+       "qty": 4
+      },
+      {
+       "card_id": "ragavan-promo",
+       "qty": 1
+      },
+      {
+       "card_id": "bolt-lea",
+       "qty": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "the same printing twice is summed",
+   "lines": [
+    {
+     "card_id": "bolt-m11",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 3,
+     "unit": 150
+    },
+    {
+     "card_id": "bolt-m11",
+     "board": "side",
+     "finish": "nonfoil",
+     "qty": 1,
+     "unit": 150
+    }
+   ],
+   "owned": {},
+   "options": {
+    "skip_owned": true,
+    "any_printing": true,
+    "exact": false,
+    "boards": [
+     "main",
+     "side"
+    ]
+   },
+   "rows": [
+    {
+     "card_id": "bolt-m11",
+     "board": "main",
+     "finish": "nonfoil",
+     "qty": 3,
+     "owned": 0,
+     "buy": 3
+    },
+    {
+     "card_id": "bolt-m11",
+     "board": "side",
+     "finish": "nonfoil",
+     "qty": 1,
+     "owned": 0,
+     "buy": 1
+    }
+   ],
+   "totals": {
+    "cards": 4,
+    "owned": 0,
+    "buy": 4,
+    "price": 600,
+    "owned_value": 0,
+    "total": 600,
+    "unpriced": 0
+   },
+   "calls": [
+    {
+     "products": false,
+     "items": [
+      {
+       "card_id": "bolt-m11",
+       "qty": 4
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "merge": [
+  {
+   "name": "cards and tokens",
+   "answers": [
+    {
+     "enabled": true,
+     "lines": 2,
+     "unknown": 0,
+     "urls": [
+      "https://e/1"
+     ],
+     "products": [
+      {
+       "card_id": "t2",
+       "name": "Treasure",
+       "set": "TMH2",
+       "number": "21",
+       "qty": 1,
+       "url": "https://p/2"
+      }
+     ]
+    },
+    {
+     "enabled": true,
+     "lines": 0,
+     "unknown": 1,
+     "urls": [],
+     "products": [
+      {
+       "card_id": "t1",
+       "name": "Goblin",
+       "set": "TM11",
+       "number": "6",
+       "qty": 1,
+       "url": "https://p/1"
+      }
+     ]
+    }
+   ],
+   "merged": {
+    "enabled": true,
+    "lines": 2,
+    "unknown": 1,
+    "urls": [
+     "https://e/1"
+    ],
+    "products": [
+     {
+      "card_id": "t1",
+      "name": "Goblin",
+      "set": "TM11",
+      "number": "6",
+      "qty": 1,
+      "url": "https://p/1"
+     },
+     {
+      "card_id": "t2",
+      "name": "Treasure",
+      "set": "TMH2",
+      "number": "21",
+      "qty": 1,
+      "url": "https://p/2"
+     }
+    ]
+   }
+  }
+ ]
+}

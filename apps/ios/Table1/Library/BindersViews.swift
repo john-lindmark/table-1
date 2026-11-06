@@ -558,7 +558,6 @@ struct WantsView: View {
     private var store: BindersStore { BindersStore.shared }
     private var catalog: CatalogStore { CatalogStore.shared }
     private var prices: WantPricesStore { WantPricesStore.shared }
-    @Environment(\.openURL) private var openURL
     @State private var tcgplayer = false
     @State private var rows: [WantDisplay] = []
     @State private var missing: [(line: MissingLine, printing: CatalogPrinting?, name: String, oracleId: String?, type: String)] = []
@@ -590,7 +589,7 @@ struct WantsView: View {
                              isOn: Binding(get: { on }, set: { v in Task { await prices.setAlerts(v) } }))
                 }
                 if tcgplayer && !rows.isEmpty && query.isEmpty {
-                    Button { buy(rows.map { TCGplayerCart.Item(oracleId: $0.want.oracleId, cardId: $0.want.cardId, qty: $0.want.qty) }, from: "wants") } label: {
+                    Button { path.append(.buy(.wants)) } label: {
                         ListRow(title: "Buy on TCGplayer", detail: "\(wanted) cards into a cart, then Optimize")
                     }.buttonStyle(.plain)
                 }
@@ -609,7 +608,7 @@ struct WantsView: View {
                 }
                 Section1(query.isEmpty ? "Missing from decks and cubes · \(short)" : "Missing from decks and cubes · \(shownMissing.count) match")
                 if tcgplayer && !missing.isEmpty && query.isEmpty {
-                    Button { buy(missing.map { TCGplayerCart.Item(cardId: $0.line.cardId, qty: $0.line.short) }, from: "missing") } label: {
+                    Button { path.append(.buy(.missing)) } label: {
                         ListRow(title: "Buy missing on TCGplayer", detail: "\(short) cards into a cart, then Optimize")
                     }.buttonStyle(.plain)
                 }
@@ -641,24 +640,6 @@ struct WantsView: View {
         .task(id: "\(store.version)-\(CollectionStore.shared.version)-\(catalog.generation)-\(ListsStore.shared.lists.count)") { await rebuild() }
         .searchUsed(query, screen: "wants")
         .task { tcgplayer = await TCGplayerCart.enabled() }
-    }
-
-    /// Buy on TCGplayer (contract/tcgplayer-cart-2026-10-26.md): one link opens in the browser, several are a menu.
-    private func buy(_ items: [TCGplayerCart.Item], from: String) {
-        Task {
-            do {
-                let a = try await TCGplayerCart.links(items, from: from)
-                Telemetry.capture("tcgplayer_cart_opened", ["from": from, "lines": a.lines, "parts": a.urls.count, "products": a.products.count])
-                if let u = TCGplayerCart.direct(a).flatMap(URL.init(string:)) { openURL(u); return }
-                let menu = TCGplayerCart.menu(a)
-                if menu.isEmpty { store.error = "Nothing to buy"; return }
-                T1Overlays.shared.showMenu("Buy on TCGplayer", menu.compactMap { e in
-                    URL(string: e.url).map { u in T1MenuItem(title: e.title, detail: e.detail) { openURL(u) } }
-                })
-            } catch {
-                store.error = error.localizedDescription
-            }
-        }
     }
 
     /// Which printing · Max · Now (From for any printing) (contract/want-prices-2026-10-26.md).

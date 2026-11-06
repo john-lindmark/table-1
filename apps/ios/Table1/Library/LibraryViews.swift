@@ -36,6 +36,7 @@ enum LibraryRoute: Hashable {
     case binders
     case binder(String) // binder id, or BinderRoute.unsorted
     case wants
+    case buy(BuySource) // the Buy screen for a deck, a cube, Wants or Missing (BuyViews.swift)
     case social(SocialRoute) // friends, profiles, sharing, trade matches (FriendsViews.swift)
     case rankings(String?) // a cube's rankings (list id), or every ranking of yours (RankingsViews.swift)
     case ranking(String) // ranking id
@@ -102,6 +103,7 @@ struct LibraryDestination: View {
         case .binders: "binders"
         case .binder: "binder"
         case .wants: "wants"
+        case .buy: "buy"
         case .social(let r): r.screenName
         case .rankings: "rankings"
         case .ranking: "ranking"
@@ -148,6 +150,7 @@ struct LibraryDestination: View {
         case .binders: BindersView(path: $path)
         case .binder(let id): BinderView(binderId: id, path: $path)
         case .wants: WantsView(path: $path)
+        case .buy(let source): BuyView(source: source, path: $path)
         case .social(let r): SocialDestination(route: r, path: $path)
         case .rankings(let list): RankingsView(listId: list, path: $path)
         case .ranking(let id): RankingView(rankingId: id, path: $path)

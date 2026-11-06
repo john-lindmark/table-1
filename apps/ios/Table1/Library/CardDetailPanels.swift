@@ -14,6 +14,7 @@ struct AddToPanel: View {
     let done: (String, CardUndo?) -> Void
     @State private var step: Step = .root
     @State private var error: String?
+    @Environment(\.openURL) private var openURL
 
     enum Step: Equatable { case root, decks, deckSection(String), cubes, binders, want, trades, tradeSide(String?) }
 
@@ -58,7 +59,8 @@ struct AddToPanel: View {
     private var options: [SelectorOption] {
         switch step {
         case .root:
-            return [("collection", "Collection"), ("deck", "Deck"), ("cube", "Cube"), ("binder", "Binder"), ("want", "Want"), ("trade", "Trade")]
+            return [("collection", "Collection"), ("deck", "Deck"), ("cube", "Cube"), ("binder", "Binder"), ("want", "Want"), ("trade", "Trade"),
+                    ("tcgplayer", "TCGplayer")]
                 .map { SelectorOption(value: $0.0, label: $0.1) }
         case .decks:
             let decks = lists.lists(.deck).filter { $0.eventId == nil }
@@ -114,6 +116,7 @@ struct AddToPanel: View {
             case "cube": step = .cubes
             case "binder": step = .binders
             case "want": step = .want
+            case "tcgplayer": buy()
             default: step = .trades
             }
         case .decks: step = .deckSection(value)
@@ -133,6 +136,25 @@ struct AddToPanel: View {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         T1Overlays.shared.dismissPanel()
         done(label, undo)
+    }
+
+    /// Add to → TCGplayer (contract/buy-2026-11-06.md § Card page): each printing in view to its product page.
+    private func buy() {
+        var items: [TCGplayerCart.Item] = []
+        for l in lines where l.qty > 0 {
+            if let i = items.firstIndex(where: { $0.cardId == l.cardId }) { items[i].qty += l.qty }
+            else { items.append(TCGplayerCart.Item(cardId: l.cardId, qty: l.qty)) }
+        }
+        Task {
+            do {
+                let a = try await TCGplayerCart.links(items, from: "card", products: true)
+                Telemetry.capture("tcgplayer_cart_opened", ["from": "card", "lines": a.lines, "parts": a.urls.count, "products": a.products.count])
+                T1Overlays.shared.dismissPanel()
+                if !TCGplayerCart.present(a, open: { openURL($0) }) { error = "Nothing to buy" }
+            } catch {
+                self.error = error.localizedDescription
+            }
+        }
     }
 
     private func addToCollection(binderId: String?, place: String) {

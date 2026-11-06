@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BackArrow, Dialog, Menu, Notice, Row, Section, Segmented, type MenuItem } from "../components/kit";
+import { cartDirect, cartMenu, tcgplayerCart, type CartEntry } from "../lib/wantPrices";
 import { ZoomImage } from "../components/ZoomImage";
 import { capture } from "../lib/telemetry";
 import { errorMessage } from "../lib/api";
@@ -731,6 +732,7 @@ function AddToSheet({ catalog, oi, lines, indexById, lists, scope, onClose, onDo
 }) {
   const [step, setStep] = useState<Step>({ k: "root" });
   const [error, setError] = useState<string | null>(null);
+  const [links, setLinks] = useState<CartEntry[] | null>(null);
   const trades = useTrades();
   const { userId } = useLibrarySession();
   const col = useCollection(userId);
@@ -806,16 +808,33 @@ function AddToSheet({ catalog, oi, lines, indexById, lists, scope, onClose, onDo
     } catch (e) { fail(e); }
   };
 
+  // Add to → TCGplayer (contract/buy-2026-11-06.md § Card page): each printing in view to its product page.
+  const toTCGplayer = async () => {
+    const items = new Map<string, number>();
+    for (const l of lines) if (l.qty > 0) items.set(l.cardId, (items.get(l.cardId) ?? 0) + l.qty);
+    try {
+      const a = await tcgplayerCart([...items].map(([card_id, qty]) => ({ card_id, qty })), "card", true);
+      capture("tcgplayer_cart_opened", { from: "card", lines: a.lines, parts: a.urls.length, products: a.products?.length ?? 0 });
+      const direct = cartDirect(a);
+      const m = cartMenu(a);
+      if (direct) { window.open(direct, "_blank", "noopener"); onClose(); }
+      else if (m.length) setLinks(m);
+      else setError("Nothing to buy");
+    } catch (e) { fail(e); }
+  };
+
   void b.version;
   let title: string | undefined;
   let options: Option[] = [];
   let onPick: (v: string) => void = () => {};
   switch (step.k) {
     case "root":
-      options = [["collection", "Collection"], ["deck", "Deck"], ["cube", "Cube"], ["binder", "Binder"], ["want", "Want"], ["trade", "Trade"]]
+      options = [["collection", "Collection"], ["deck", "Deck"], ["cube", "Cube"], ["binder", "Binder"], ["want", "Want"], ["trade", "Trade"],
+                 ["tcgplayer", "TCGplayer"]]
         .map(([value, label]) => ({ value, label }));
       onPick = (v) => {
         if (v === "collection") void toCollection(null, "your collection");
+        else if (v === "tcgplayer") void toTCGplayer();
         else setStep(v === "deck" ? { k: "decks" } : v === "cube" ? { k: "cubes" } : v === "binder" ? { k: "binders" } : v === "want" ? { k: "want" } : { k: "trades" });
       };
       break;
@@ -872,6 +891,10 @@ function AddToSheet({ catalog, oi, lines, indexById, lists, scope, onClose, onDo
       break;
   }
   const parent: Step = step.k === "section" ? { k: "decks" } : step.k === "side" ? { k: "trades" } : { k: "root" };
+  if (links) {
+    return <Menu title="Buy on TCGplayer" onClose={onClose}
+                 items={links.map((e) => ({ title: e.title, detail: e.detail, onClick: () => { window.open(e.url, "_blank", "noopener"); } }))} />;
+  }
   return (
     <Sheet onClose={onClose} label="Add to">
       {error && <Notice tone="error">{error}</Notice>}

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BigAction, Dialog, Field, GhostAction, Menu, Modal, Notice, Row, Screen, Section, Segmented } from "../components/kit";
 import { copiesOf, listAddOps } from "../lib/listToCollection";
+import { buyMoney, buyRows, buyTotals, cents, storedBuyOptions } from "../lib/buyList";
+import { usdPrice } from "../lib/prices";
 import { CANLANDER_POINT_LIMIT, basicCardIds, coverPrinting, formatName, legalityOf, type Catalog } from "../lib/catalog";
 import { DEMO_USER, useCollection, type Condition } from "../lib/collection";
 import { cubeCobraId } from "../lib/cubeSync";
@@ -387,7 +389,7 @@ export function ExportScreen({ name, kind, entries, catalog, from, onClose }: {
   );
 }
 
-export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPrinting, onStats, onRankings, onSync, onGuide }: {
+export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPrinting, onStats, onRankings, onSync, onGuide, onBuy }: {
   id: string; onBack: () => void; onCard: (oracleId: string) => void; onAdd: () => void; onVersions: () => void;
   onOpen: (listId: string) => void; onPrinting: (cardId: string, board: Board, finish: ListFinish, lang: string, cond: Condition) => void; onStats: () => void;
   /** Cubes: the Rankings row. */
@@ -396,6 +398,8 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
   onSync?: () => void;
   /** The deck's sideboard guide (contract/sideboard-guide-2026-11-04.md). */
   onGuide?: () => void;
+  /** The Buy screen (contract/buy-2026-11-06.md). */
+  onBuy?: () => void;
 }) {
   const { session, ready, lists, owned, ownedByLang } = useListsData();
   const { catalog, error } = useCatalog();
@@ -629,6 +633,13 @@ export function ListScreen({ id, onBack, onCard, onAdd, onVersions, onOpen, onPr
           // The exact printings and languages listed, unlike the deck's own Missing, which goes by card.
           const miss = copiesOf(listAddOps(entriesOf(list), list.kind, ownedByLang, "missing", true, undefined, basicCardIds(catalog)));
           return <Row title="Add to collection" detail={miss ? `Missing ${miss} · or every card` : "You own every card · add more copies"} onClick={() => setAdding(true)} />;
+        })()}
+        {entriesOf(list).length > 0 && !editing && catalog && !list.eventId && onBuy && (() => {
+          // Copies to buy with the remembered options (tokens left out), and their price once it's in.
+          const basics = basicCardIds(catalog);
+          const t = buyTotals(buyRows(entriesOf(list).map((e) => ({ cardId: e.cardId, board: e.board, finish: finishOf(e), qty: e.qty,
+            unit: cents(usdPrice(e.cardId, finishOf(e))), basic: basics.has(e.cardId) })), held, storedBuyOptions(list.kind)));
+          return <Row title="Buy" detail={t.buy ? `${t.buy} to buy${t.total ? ` · ${buyMoney(t.total)}` : ""}` : "You own every card"} onClick={onBuy} />;
         })()}
         {!editing && list.kind === "cube" && !list.eventId && onSync &&
           <Row title="Sync with Cube Cobra" detail={cubeCobraId(list.sourceUrl) ? `cubecobra.com · ${cubeCobraId(list.sourceUrl)}` : "Get the latest from a Cube Cobra link"}

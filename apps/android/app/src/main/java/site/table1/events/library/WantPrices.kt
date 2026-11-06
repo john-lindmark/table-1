@@ -147,8 +147,9 @@ object TCGplayerCart {
         }
     }
 
-    /** [from] tags the affiliate link with the screen (wants / missing); the server adds the platform. */
-    suspend fun links(items: List<Item>, from: String? = null): TCGplayerCartAnswer =
+    /** [from] tags the affiliate link with the screen (wants / missing / deck / cube / card); the server adds the platform.
+     *  [products] sends printings to their product pages; off, every card goes into Mass Entry by name. */
+    suspend fun links(items: List<Item>, from: String? = null, products: Boolean = true): TCGplayerCartAnswer =
         T1App.supabase.postgrest.rpc("tcgplayer_cart", buildJsonObject {
             put("p_items", kotlinx.serialization.json.buildJsonArray {
                 for (i in items) add(buildJsonObject {
@@ -157,7 +158,7 @@ object TCGplayerCart {
                     put("qty", i.qty)
                 })
             })
-            put("p_products", true)
+            put("p_products", products)
             if (from != null) put("p_from", from)
         }).decodeAs()
 

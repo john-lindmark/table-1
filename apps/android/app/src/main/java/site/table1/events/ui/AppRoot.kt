@@ -41,6 +41,7 @@ import site.table1.events.openInBrowser
 import site.table1.events.data.Repo
 import site.table1.events.library.RankingsScreen
 import site.table1.events.library.SharedLinkScreen
+import site.table1.events.library.BuyScreen
 import site.table1.events.library.FollowsStore
 import site.table1.events.library.T1Icon
 import site.table1.events.library.GuideSide
@@ -417,7 +418,8 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                     BinderScreen(id, onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it?binder=$id") })
                 }
                 composable("collection/wants") {
-                    WantsScreen(onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it?search=1") })
+                    WantsScreen(onBack = { nav.popBackStack() }, onCard = { nav.navigate("collection/card/$it?search=1") },
+                        onBuy = { nav.navigate("collection/buy/$it") })
                 }
                 composable("collection/decks") {
                     ListsScreen(ListKind.Deck, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("collection/list/$it") },
@@ -489,7 +491,13 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                         onStats = { nav.navigate("collection/list/$id/stats") }, onRankings = { nav.navigate("collection/list/$id/rankings") },
                         onSync = { nav.navigate("collection/list/$id/sync") },
                         onInsights = { f, a -> nav.navigate(site.table1.events.insights.InsightsRoutes.archetype(f, a)) },
-                        onGuide = { nav.navigate("collection/list/$id/guide") })
+                        onGuide = { nav.navigate("collection/list/$id/guide") },
+                        onBuy = { nav.navigate("collection/buy/$id") })
+                }
+                // The Buy screen (contract/buy-2026-11-06.md): a deck or cube id, "wants" or "missing".
+                composable("collection/buy/{source}") { e ->
+                    BuyScreen(e.arguments?.getString("source") ?: "wants", onBack = { nav.popBackStack() },
+                        onCard = { nav.navigate("collection/card/$it?search=1") })
                 }
                 // A deck's sideboard guide (contract/sideboard-guide-2026-11-04.md).
                 composable("collection/list/{id}/guide") { e ->

@@ -580,6 +580,12 @@ struct LibraryDemoRoot: View {
         case "binders": return [.binders]
         case "binder": return [.binders, .binder("d0000000-0000-0000-0000-00000000b001")]
         case "wants": return [.wants]
+        case "buywants": return [.wants, .buy(.wants)]
+        case "buymissing": return [.wants, .buy(.missing)]
+        case "buy", "buycube":
+            let kind: CardList.Kind = args[i + 1] == "buycube" ? .cube : .deck
+            guard let l = ListsStore.shared.lists.first(where: { $0.kind == kind }) else { return [] }
+            return [.lists(kind), .list(l.id), .buy(.list(l.id))]
         case "trade": return [.trades, .trade(nil)]
         case "cubesync":
             guard let l = ListsStore.shared.lists.first(where: { $0.kind == .cube }) else { return [] }

@@ -496,7 +496,7 @@ function coverOf(c: Catalog, oracleId: string): string | null {
   return oi < 0 ? null : c.pId[coverPrinting(c, oi)];
 }
 
-export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (oracleId: string) => void }) {
+export function WantsScreen({ onBack, onCard, onBuy }: { onBack: () => void; onCard: (oracleId: string) => void; onBuy?: (what: "wants" | "missing") => void }) {
   const { session, ready, userId } = useLibrarySession();
   const col = useCollection(userId);
   const b = useBinders(userId);
@@ -599,7 +599,7 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
         )}
         {tcgplayer && wants.length > 0 && !q && (
           <Row title="Buy on TCGplayer" detail={`${wanted} cards into a cart, then Optimize`}
-               onClick={() => buy(wants.map((w) => ({ oracle_id: w.oracleId, card_id: w.cardId, qty: w.qty })), "wants")} />
+               onClick={() => (onBuy ? onBuy("wants") : buy(wants.map((w) => ({ oracle_id: w.oracleId, card_id: w.cardId, qty: w.qty })), "wants"))} />
         )}
         {wants.length > 0 && !q && <ShareRow target={{ part: "wants", id: null, name: null }} from="wants" />}
         <Section title="Wanted" count={shownWants.length} />
@@ -619,7 +619,7 @@ export function WantsScreen({ onBack, onCard }: { onBack: () => void; onCard: (o
         <Section title="Missing from decks and cubes" count={normName(q) ? shownMissing.length : short} />
         {tcgplayer && missing.length > 0 && !q && (
           <Row title="Buy missing on TCGplayer" detail={`${short} cards into a cart, then Optimize`}
-               onClick={() => buy(missing.map((m) => ({ card_id: m.cardId, qty: m.short })), "missing")} />
+               onClick={() => (onBuy ? onBuy("missing") : buy(missing.map((m) => ({ card_id: m.cardId, qty: m.short })), "missing"))} />
         )}
         {catalog && !shownMissing.length && !!normName(q) && <Row title="Nothing missing matches" />}
         {catalog && !missing.length && <Notice tone="info">Your decks and cubes have every card they need.</Notice>}

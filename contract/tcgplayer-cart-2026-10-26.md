@@ -72,6 +72,10 @@ A name TCGplayer doesn't list would still fail the whole Mass Entry cart.
 
 ## Clients
 
+**Since 2026-11-06 the Wants and Missing rows open the Buy screen** (`contract/buy-2026-11-06.md`: options, cards,
+price − owned = total, then Buy on TCGplayer); decks, cubes and the card page buy too. What follows is the tap's
+link and menu rule, which the Buy screen keeps.
+
 - **Wants screen:** a **Buy on TCGplayer** row under Price alerts, when you have wants and it's enabled: detail
   "N cards into a cart, then Optimize" (N = wanted copies). Sends every want (qty; its printing when it has one).
 - **Missing from decks and cubes:** a **Buy missing on TCGplayer** row at the top of the section, when anything is

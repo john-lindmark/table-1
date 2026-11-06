@@ -508,7 +508,7 @@ private data class WantRowView(val want: Want, val name: String, val printing: C
 private data class MissingRowView(val line: MissingLine, val printing: CatalogPrinting?, val name: String, val oracleId: String?, val type: String = "")
 
 @Composable
-fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
+fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit, onBuy: ((String) -> Unit)? = null) {
     val col by CollectionStore.state.collectAsState()
     val b by BindersStore.state.collectAsState()
     val lists by ListsStore.state.collectAsState()
@@ -600,7 +600,7 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
             }
             if (tcgplayer && rows.isNotEmpty() && !searching) item(key = "tcgplayer") {
                 ListRow("Buy on TCGplayer", "${rows.sumOf { it.want.qty }} cards into a cart, then Optimize", onClick = {
-                    buy(rows.map { TCGplayerCart.Item(it.want.oracleId, it.want.cardId, it.want.qty) }, "wants")
+                    if (onBuy != null) onBuy("wants") else buy(rows.map { TCGplayerCart.Item(it.want.oracleId, it.want.cardId, it.want.qty) }, "wants")
                 })
             }
             if (rows.isNotEmpty() && !searching) item(key = "share") { ShareRow(ShareTarget.Wants, "wants") }
@@ -621,7 +621,7 @@ fun WantsScreen(onBack: () -> Unit, onCard: (String) -> Unit) {
             item { Section(if (searching) "Missing from decks and cubes · ${shownMissing.size} match" else "Missing from decks and cubes · $short") }
             if (tcgplayer && missing.isNotEmpty() && !searching) item(key = "tcgplayer-missing") {
                 ListRow("Buy missing on TCGplayer", "${missing.sumOf { it.line.short }} cards into a cart, then Optimize", onClick = {
-                    buy(missing.map { TCGplayerCart.Item(cardId = it.line.cardId, qty = it.line.short) }, "missing")
+                    if (onBuy != null) onBuy("missing") else buy(missing.map { TCGplayerCart.Item(cardId = it.line.cardId, qty = it.line.short) }, "missing")
                 })
             }
             if (shownMissing.isEmpty() && searching) item { ListRow("Nothing missing matches") }

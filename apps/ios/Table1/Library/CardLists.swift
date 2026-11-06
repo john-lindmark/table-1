@@ -1317,6 +1317,7 @@ struct ListDetailView: View {
                 } label: {
                     ListRow(title: "Add to collection", detail: short > 0 ? "Missing \(short) · or every card" : "You own every card · add more copies")
                 }.buttonStyle(.plain)
+                BuyRow(list: list, path: $path)
             }
         }
         if !editing && list.kind == .cube && list.eventId == nil {
