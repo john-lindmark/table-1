@@ -2,7 +2,7 @@
 import SwiftUI
 import WidgetKit
 
-/// Design QA for the widgets batch without a home screen: `-T1WidgetsDemo [organizer|next|value|meta|grid|archetype|tinted]`
+/// Design QA for the widgets batch without a home screen: `-T1WidgetsDemo [organizer|next|value|meta|grid|archetype|icon|tinted]`
 /// draws every family on sample data at its real size (iPhone 17 points); the Insights widgets on the live Modern pack
 /// of 2026-11-02 (DebugResources/insights-demo-widget-modern.json). Debug only.
 struct WidgetsDemoRoot: View {
@@ -21,6 +21,7 @@ struct WidgetsDemoRoot: View {
                 if only == nil || only == "meta" { meta }
                 if only == nil || only == "grid" { grid }
                 if only == nil || only == "archetype" { archetype }
+                if only == nil || only == "icon" { IconDemo() }
                 if only == "tinted" { tintedAll }
             }
             .padding(16)
@@ -136,6 +137,33 @@ struct WidgetsDemoRoot: View {
             .mask(tile(family, content).compositingGroup().luminanceToAlpha())
             .frame(width: size.width, height: size.height)
             .background(Color(red: 0.24, green: 0.42, blue: 0.36)).clipShape(RoundedRectangle(cornerRadius: 22))
+    }
+
+    /// The card icon widget: Lightning Bolt (2XM), the newest icon card on this device, and none (the plain icon).
+    private struct IconDemo: View {
+        @State private var bolt: UIImage?
+        var body: some View {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("CARD ICON · CARD, NEWEST ICON CARD, NONE").font(.system(size: 11, design: .monospaced)).tracking(1.2).foregroundStyle(.white)
+                HStack(spacing: 16) {
+                    face(bolt)
+                    face(IconCardStore.load().first.flatMap { IconCardStore.art($0.id) })
+                }
+                face(nil)
+            }
+            .task {
+                if let url = CatalogPack.imageURL(cardId: "f29ba16f-c8fb-42fe-aabf-87089cb214a7", imageTs: "", size: "art_crop") {
+                    bolt = await CardImageLoader.shared.image(url, maxPixel: Int(IconCardStore.maxPixel))
+                }
+            }
+        }
+
+        private func face(_ art: UIImage?) -> some View {
+            IconCardView(art: art)
+                .frame(width: 170, height: 170)
+                .background(IconCardView.background(art))
+                .clipShape(RoundedRectangle(cornerRadius: 22))
+        }
     }
 
     private func caption(_ s: String) -> some View {

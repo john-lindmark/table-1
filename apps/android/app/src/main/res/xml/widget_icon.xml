@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The card icon widget (contract/icon-widget-2026-11-06.md): the Table 1 mark over a card's art. One cell, like an
+     app icon; resizable. Its settings (IconWidgetConfigActivity) pick one of the icon cards; placed showing the newest. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:configure="site.table1.events.widgets.IconWidgetConfigActivity"
+    android:widgetFeatures="reconfigurable|configuration_optional"
+    android:description="@string/widget_icon_description"
+    android:initialLayout="@layout/widget_loading"
+    android:minWidth="40dp"
+    android:minHeight="40dp"
+    android:minResizeWidth="40dp"
+    android:minResizeHeight="40dp"
+    android:targetCellWidth="1"
+    android:targetCellHeight="1"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

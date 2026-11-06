@@ -46,7 +46,7 @@ class WidgetGalleryTest {
 
     /** Rows of sizes, as a phone launcher draws them (two cells about 170 dp, four about 370). */
     private val sheet = listOf(
-        listOf("2×1" to DpSize(170.dp, 72.dp), "4×1" to DpSize(370.dp, 72.dp)),
+        listOf("1×1" to DpSize(72.dp, 72.dp), "2×1" to DpSize(170.dp, 72.dp), "4×1" to DpSize(370.dp, 72.dp)),
         listOf("2×2" to DpSize(170.dp, 170.dp), "4×2" to DpSize(370.dp, 170.dp)),
         listOf("2×3" to DpSize(170.dp, 270.dp), "4×3" to DpSize(370.dp, 270.dp)),
         listOf("4×4" to DpSize(370.dp, 370.dp)),
@@ -112,6 +112,21 @@ class WidgetGalleryTest {
         draw("meta-focus", "Meta · a row tapped (Izzet Prowess)", meta) { size, p -> MetaContent(p, MetaPicks(), size, tap, focus = 18) }
         draw("archetype", "Archetype matchups · most played", meta) { size, p -> ArchetypeContent(p, MetaPicks(tier = "all"), size, tap) }
         draw("archetype-boros", "Archetype matchups · Boros Energy", meta) { size, p -> ArchetypeContent(p, MetaPicks(tier = "all", archetype = 17), size, tap) }
+    }
+
+    /** Stand-in art (no card images in the repo): a red-to-blue wash with streaks, about an art crop's shape. */
+    private val art: Bitmap = Bitmap.createBitmap(626, 457, Bitmap.Config.ARGB_8888).also { b ->
+        val c = Canvas(b)
+        c.drawPaint(Paint().apply {
+            shader = android.graphics.LinearGradient(0f, 0f, 626f, 457f, 0xFFB0303A.toInt(), 0xFF2A4E9A.toInt(), android.graphics.Shader.TileMode.CLAMP)
+        })
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFF2E6C8.toInt(); strokeWidth = 6f }
+        for (i in 0 until 6) c.drawLine(80f + i * 90, 0f, 20f + i * 110, 457f, p)
+    }
+
+    @Test fun cardIcon() {
+        draw("card-icon", "Card icon · a card", art) { size, a -> IconContent(a, size, tap) }
+        draw("card-icon-none", "Card icon · none", null as Bitmap?) { size, a -> IconContent(a, size, tap) }
     }
 
     private fun <D> draw(file: String, title: String, data: D, content: @Composable (DpSize, D) -> Unit) = runBlocking {

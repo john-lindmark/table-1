@@ -1,0 +1,6 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="86.3dp" android:height="42.8dp" android:viewportWidth="863" android:viewportHeight="428">
+    <!-- The Table 1 mark alone (Table 1 Logo 19677:2898 in R9h660jfTHZEcnFZ2DJtLA), as in ic_launcher_foreground: the card
+         icon widget draws it over a card's art (contract/icon-widget-2026-11-06.md). -->
+    <path android:fillColor="#FFFFFFFF" android:pathData="M285,428H144.5V288H285V428ZM574,428H433.5V288H574V428ZM718.5,428H578V288H718.5V428ZM863,428H722.5V288H863V428ZM285,284H144.5V144H285V284ZM718.5,284H578V144H718.5V284ZM140.5,140H0V0H140.5V140ZM285,140H144.5V0H285V140ZM429.5,140H289V0H429.5V140ZM574,140H433.5V0H574V140ZM718.5,140H578V0H718.5V140Z" />
+</vector>

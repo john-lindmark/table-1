@@ -250,28 +250,6 @@ enum Keyboard {
     }
 }
 
-/// The Table 1 mark: eleven tiles on a 6 × 3 grid, scaled from the library's "Table 1 Logo" vector
-/// (393 × 192.69). Fill it and give it the width; the height follows the aspect ratio.
-struct T1Logo: Shape {
-    static let aspect: CGFloat = 393 / 192.69
-    /// (column, row) of each tile.
-    private static let tiles: [(Int, Int)] = [
-        (0, 0), (1, 0), (2, 0), (3, 0), (4, 0),
-        (1, 1), (4, 1),
-        (1, 2), (3, 2), (4, 2), (5, 2),
-    ]
-
-    func path(in rect: CGRect) -> Path {
-        let sx = rect.width / 393, sy = rect.height / 192.69
-        var p = Path()
-        for (c, r) in Self.tiles {
-            p.addRect(CGRect(x: rect.minX + CGFloat(c) * 65.8036 * sx, y: rect.minY + CGFloat(r) * 64.8302 * sy,
-                             width: 63.982 * sx, height: 63.0294 * sy))
-        }
-        return p
-    }
-}
-
 /// Counts down to a fixed end time (or shows a paused clock). Every phone shows the same number
 /// because the end time comes from the server.
 struct Countdown: View {

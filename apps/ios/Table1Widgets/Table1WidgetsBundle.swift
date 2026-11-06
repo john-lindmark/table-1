@@ -10,6 +10,7 @@ struct Table1WidgetsBundle: WidgetBundle {
         MetaBreakdownWidget()
         MatchupGridWidget()
         ArchetypeMatchupsWidget()
+        IconWidget()
         PlayerLiveActivity()
         OrganizerLiveActivity()
         if #available(iOS 18.0, *) {

@@ -7,6 +7,8 @@
     <string name="widget_value_name">Collection value</string>
     <string name="widget_match_name">Current match</string>
     <string name="widget_meta_name">Meta</string>
+    <string name="widget_icon_name">Card icon</string>
+    <string name="widget_icon_description">Table 1 over a card you pick from its page in the app.</string>
     <string name="widget_meta_description">A format\'s most played archetypes, and how their shares moved.</string>
     <string name="widget_grid_name">Matchup grid</string>
     <string name="widget_grid_description">How the most played archetypes do against each other.</string>

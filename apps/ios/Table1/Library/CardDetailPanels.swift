@@ -263,6 +263,8 @@ struct CardInfoView: View {
     @State private var failed = false
     @State private var history: [HistoryEntry]?
     @State private var busy = false
+    @State private var iconOn = false
+    @State private var iconBusy = false
     private var col: CollectionStore { CollectionStore.shared }
 
     var body: some View {
@@ -369,6 +371,7 @@ struct CardInfoView: View {
         }
         wantRow
         heroRow
+        iconRow
         Section1("History · \(printing?.setLabel ?? oracle.name)")
         VStack(alignment: .leading, spacing: 4) {
             if let history {
@@ -459,6 +462,46 @@ struct CardInfoView: View {
                                                          props: ["any_printing": p == nil, "finish": false, "has_max": false, "from": "card"])
                 report("Wanted 1 \(p?.setLabel ?? oracle.name)", nil)
             } catch { report(error.localizedDescription, nil) }
+        }
+    }
+
+    /// The card icon widget (contract/icon-widget-2026-11-06.md): this printing's art behind the Table 1 mark on the
+    /// home screen. Adds it to the device's icon cards (newest first); on the list, a tap offers to take it off.
+    @ViewBuilder private var iconRow: some View {
+        if let printing, printing.imageFaces > 0,
+           let url = CatalogPack.imageURL(cardId: printing.cardId, imageTs: printing.imageTs, size: "art_crop") {
+            let card = IconCard(id: printing.cardId, name: oracle.name, set: printing.setLabel)
+            Button {
+                if iconOn {
+                    T1Overlays.shared.showMenu("Icon widget", [T1MenuItem(title: "Remove from icon widgets", destructive: true) {
+                        IconCardStore.remove(card.id)
+                        iconOn = false
+                        report("Removed \(oracle.name) from your icon widgets", nil)
+                        Telemetry.capture("icon_card_removed", ["count": IconCardStore.load().count])
+                    }])
+                    return
+                }
+                iconBusy = true
+                Task {
+                    defer { iconBusy = false }
+                    guard let image = await CardImageLoader.shared.image(url, maxPixel: Int(IconCardStore.maxPixel)),
+                          IconCardStore.add(card, image: image) else {
+                        report("Couldn't load the art. Try again when you're online.", nil)
+                        return
+                    }
+                    iconOn = true
+                    report("Added to your icon widgets. Long-press your home screen to add one.", nil)
+                    Telemetry.capture("icon_card_added", ["count": IconCardStore.load().count])
+                }
+            } label: {
+                ListRow(title: iconOn ? "On your icon widget" : "Use for the icon widget",
+                        detail: iconOn ? "Tap to take it off" : "Table 1 over this art on your home screen") {
+                    if iconBusy { LabelText("Saving…") } else if iconOn { LabelText("Icon", color: T1.text) }
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(iconBusy)
+            .task(id: printing.cardId) { iconOn = IconCardStore.contains(printing.cardId) }
         }
     }
 

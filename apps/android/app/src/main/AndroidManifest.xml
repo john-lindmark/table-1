@@ -130,6 +130,15 @@
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_archetype" />
         </receiver>
+        <receiver android:name=".widgets.IconWidgetReceiver" android:exported="true" android:label="@string/widget_icon_name">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_icon" />
+        </receiver>
+        <!-- The card icon widget's settings: which icon card it shows. -->
+        <activity android:name=".widgets.IconWidgetConfigActivity" android:exported="true" android:theme="@style/Theme.Table1"
+            android:taskAffinity="" android:excludeFromRecents="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" /></intent-filter>
+        </activity>
         <!-- The Insights widgets' settings (format, events, window, archetype). -->
         <activity android:name=".widgets.MetaWidgetConfigActivity" android:exported="true" android:theme="@style/Theme.Table1"
             android:taskAffinity="" android:excludeFromRecents="true">

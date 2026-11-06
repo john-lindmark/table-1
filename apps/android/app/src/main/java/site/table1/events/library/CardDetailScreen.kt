@@ -1036,6 +1036,42 @@ private fun CardInfo(o: CatalogOracle, p: CatalogPrinting?, version: CardVersion
                 if (on) Label("Hero", color = T1.text)
             }
         }
+        // The card icon widget (contract/icon-widget-2026-11-06.md): this printing's art behind the Table 1 mark.
+        val artUrl = p?.imageUrl("art_crop")
+        if (p != null && artUrl != null) {
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            var iconOn by remember(p.cardId) { mutableStateOf(site.table1.events.widgets.IconCardStore.contains(ctx, p.cardId)) }
+            var iconBusy by remember { mutableStateOf(false) }
+            val card = site.table1.events.widgets.IconCard(p.cardId, o.name, p.setLabel)
+            ListRow(if (iconOn) "On your icon widget" else "Use for the icon widget",
+                if (iconOn) "Tap to take it off" else "Table 1 over this art on your home screen",
+                onClick = {
+                    if (iconBusy) return@ListRow
+                    if (iconOn) {
+                        menu = "Icon widget" to listOf(T1MenuItem("Remove from icon widgets", danger = true) {
+                            site.table1.events.widgets.IconCardStore.remove(ctx, card.id)
+                            iconOn = false
+                            report("Removed ${o.name} from your icon widgets", null)
+                            Telemetry.capture("icon_card_removed", mapOf("count" to site.table1.events.widgets.IconCardStore.load(ctx).size))
+                        })
+                        return@ListRow
+                    }
+                    iconBusy = true
+                    co.launch {
+                        val image = CardImageLoader.loadRetrying(artUrl, site.table1.events.widgets.IconCardStore.MAX_PX)
+                        val ok = image != null && withContext(Dispatchers.IO) {
+                            site.table1.events.widgets.IconCardStore.add(ctx, card, image.asAndroidBitmap())
+                        }
+                        iconBusy = false
+                        if (!ok) { report("Couldn't load the art. Try again when you're online.", null); return@launch }
+                        iconOn = true
+                        report("Added to your icon widgets. Long-press your home screen to add one.", null)
+                        Telemetry.capture("icon_card_added", mapOf("count" to site.table1.events.widgets.IconCardStore.load(ctx).size))
+                    }
+                }) {
+                if (iconBusy) Label("Saving…") else if (iconOn) Label("Icon", color = T1.text)
+            }
+        }
         Section("History · ${p?.setLabel ?: o.name}")
         Column(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             val h = history
