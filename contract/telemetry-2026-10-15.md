@@ -29,6 +29,13 @@ properties. Every client sends the same names, so one PostHog insight covers all
 - **Opt-out:** Account → "Share usage and crash data" (on by default). Off stops PostHog capture and Sentry sending on that device.
 - **Environments:** each event carries `environment`, which is `debug`, `testflight` or `production` (web: `dev` or `production`).
   Debug/dev builds send nothing unless launched with `-T1Telemetry` (iOS) or `VITE_TELEMETRY=1` (web). Insights filter to `production`.
+- **Apple's review devices** (2026-11-06, John's OK): after every upload, App Store Connect's devices open the iOS app signed
+  out, tap each sign-in, and look like App Store installs (`environment` `production`, real iPhone models as well as
+  `iPhone99,10`), so the app can't tell them apart. PostHog's project test-account filter drops them by `$ip` instead:
+  `not_regex ^(17\.|2620:149:|2a01:b740:|2403:300:|139\.178\.(12[89]|1[3-9][0-9]|2[0-5][0-9])\.)` (Apple's 17.0.0.0/8,
+  139.178.128.0/17 and IPv6 blocks), next to the Internal / Test users cohort. Turn on "Filter out internal and test users"
+  in insights. Over 2026-09-07 – 11-06 they were 66 of 78 iOS people and 841 of 851 `sign_in_failed`. Android's Firebase
+  Test Lab phones send nothing (contract/test-robots-2026-11-04.md).
 - Account deletion (follow-up, server): `delete-account` also deletes the PostHog person (personal API key secret). Sentry keeps
   events for 90 days with only the user id.
 - App Store privacy label: Usage Data (Product Interaction) and Diagnostics (Crash, Performance), linked to the user and not
