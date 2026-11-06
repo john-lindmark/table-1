@@ -210,6 +210,13 @@ struct AccountView: View {
     }
 
     private func load() async {
+        #if DEBUG
+        // `-T1EventsDemo account`: a sample record instead of the server's answer (EventsDemo.swift).
+        if let demo = DemoScreens.account {
+            overview = demo
+            return
+        }
+        #endif
         isDemoTester = await Repo.isDemoTester()
         await session.loadSettings()
         do {

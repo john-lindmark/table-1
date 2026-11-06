@@ -28,7 +28,8 @@ struct Table1App: App {
                 .overlay {
                     if ProcessInfo.processInfo.arguments.contains("-T1LibraryDemo") { LibraryDemoRoot() }
                 }
-                // `-T1EventsDemo [create|setup|seating]`: the create form, Setup and the seating table on sample data.
+                // `-T1EventsDemo [create|setup|seating|results|photo|home|homeorg|account|live|player|playerdone]`
+                // [-T1Tab <tab>]: event screens on sample data (modes in EventsDemo.swift).
                 .overlay {
                     if ProcessInfo.processInfo.arguments.contains("-T1EventsDemo") { EventsDemoRoot() }
                 }
@@ -339,7 +340,7 @@ struct SignedInView: View {
     @State private var joinError: String?
     @State private var keyboardUp = false
 
-    private let tabs: [T1TabItem<Tab>] = [
+    static let tabs: [T1TabItem<Tab>] = [
         T1TabItem(id: .events, label: "Events", icon: .tabEvents),
         T1TabItem(id: .collection, label: "Collection", icon: .tabCollection),
         T1TabItem(id: .insights, label: "Insights", icon: .tabInsights),
@@ -401,7 +402,7 @@ struct SignedInView: View {
             // Only on a tab's main view (anything pushed above it hides the bar), and hidden while typing
             // so it doesn't ride up on the keyboard.
             if !keyboardUp && atTabRoot {
-                T1TabBar(items: tabs, selection: tab) { select($0) }
+                T1TabBar(items: Self.tabs, selection: tab) { select($0) }
             }
         }
         .background(T1.bg.ignoresSafeArea())

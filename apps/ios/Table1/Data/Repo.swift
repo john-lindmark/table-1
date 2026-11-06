@@ -15,7 +15,13 @@ extension Error {
 /// pairing and standings come from the events-engine edge function so the rules exist once.
 enum Repo {
     /// Postgres prints UUIDs lowercase; Swift's uuidString is uppercase.
+    #if DEBUG
+    static var userId: String? { demoUserId ?? supabase.auth.currentUser?.id.uuidString.lowercased() }
+    /// Who "you" are in the signed-out design demos (`-T1EventsDemo`, EventsDemo.swift); nil otherwise.
+    static var demoUserId: String?
+    #else
     static var userId: String? { supabase.auth.currentUser?.id.uuidString.lowercased() }
+    #endif
 
     // MARK: events
 

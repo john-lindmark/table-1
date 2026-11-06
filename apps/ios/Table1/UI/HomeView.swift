@@ -103,6 +103,9 @@ struct EventsHomeView: View {
             }
         }
         .task {
+            #if DEBUG
+            if DemoScreens.home != nil { return }   // the design demo: no server, no location
+            #endif
             // Keep this account's area cell fresh for nearby alerts (opt-in on the Nearby screen). Never prompts: the
             // permissions step after sign-in asks, or Nearby / Create when they need a fix.
             if let fix = await LocationFix.shared.currentIfAllowed() { try? await Repo.updatePresence(lat: fix.lat, lng: fix.lng) }
@@ -118,6 +121,14 @@ struct EventsHomeView: View {
     }
 
     private func load() async {
+        #if DEBUG
+        // `-T1EventsDemo home|homeorg`: sample data instead of the server's answer (EventsDemo.swift).
+        if let demo = DemoScreens.home {
+            data = demo
+            snapshots = Dictionary(DemoScreens.snapshots.map { ($0.eventId, $0) }, uniquingKeysWith: { a, _ in a })
+            return
+        }
+        #endif
         await BuildFlavor.resolve()
         // What this account last saw shows at once; the server's answer replaces it.
         if data == nil, let saved = Repo.savedHome() {

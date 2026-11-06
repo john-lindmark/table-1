@@ -63,14 +63,16 @@ struct OrganizerView: View {
     @State private var cancelReason = ""
 
     init(b: EventBundle, engine: StandingsResponse, refresh: @escaping () async -> Void,
-         showSeating: @escaping ([SeatingPod]) -> Void, open: @escaping (Route) -> Void, addPlayers: @escaping () -> Void) {
+         showSeating: @escaping ([SeatingPod]) -> Void, open: @escaping (Route) -> Void, startTab: String? = nil,
+         addPlayers: @escaping () -> Void) {
         self.b = b
         self.engine = engine
         self.refresh = refresh
         self.showSeating = showSeating
         self.open = open
         self.addPlayers = addPlayers
-        _tab = State(initialValue: OrganizerPhase.of(b).firstTab)
+        // `startTab`: the design demo's `-T1Tab`; the app always opens on the phase's first tab.
+        _tab = State(initialValue: startTab ?? OrganizerPhase.of(b).firstTab)
     }
 
     var body: some View {

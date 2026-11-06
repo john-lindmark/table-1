@@ -36,6 +36,24 @@ struct CreateEventView: View {
     @State private var busy = false
     @State private var error: String?
 
+    init(path: Binding<[Route]>) {
+        _path = path
+        #if DEBUG
+        // Design demo (`-T1EventsDemo create`): `-T1Kind`, `-T1Format` and `-T1Product` pick the starting choices.
+        let args = ProcessInfo.processInfo.arguments
+        func arg(_ name: String) -> String? {
+            args.firstIndex(of: name).flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil }
+        }
+        if let f = arg("-T1Format").flatMap(FormatOption.init(rawValue:)) {
+            let limited = FormatOption.limited.contains(f)
+            _kind = State(initialValue: limited ? .limited : .constructed)
+            if limited { _limitedFormat = State(initialValue: f) } else { _constructedFormat = State(initialValue: f) }
+        }
+        if let k = arg("-T1Kind").flatMap(EventKind.init(rawValue:)) { _kind = State(initialValue: k) }
+        if let p = arg("-T1Product").flatMap(EventProduct.init(rawValue:)) { _product = State(initialValue: p) }
+        #endif
+    }
+
     private var format: FormatOption { kind == .constructed ? constructedFormat : limitedFormat }
     private var isLimited: Bool { kind == .limited }
     private var isRoto: Bool { isLimited && format == .roto }

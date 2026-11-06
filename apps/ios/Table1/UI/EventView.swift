@@ -176,7 +176,8 @@ private let outcomes = [
     Outcome(id: "Lost 1–2", my: 1, their: 2), Outcome(id: "Lost 0–2", my: 0, their: 2),
 ]
 
-private struct PlayerView: View {
+/// Internal (not private) so the Debug design demo can draw it on sample data (`-T1EventsDemo player`).
+struct PlayerView: View {
     let b: EventBundle
     let engine: StandingsResponse
     let refresh: () async -> Void
