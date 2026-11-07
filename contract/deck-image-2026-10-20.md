@@ -44,7 +44,31 @@ only (a cube is too many cards for one picture). Opens a full screen: options, a
   `Pictures/Table 1/<deck>.jpg` through MediaStore (no permission on Android 10+; on 8–9 it fails with a note to use
   Share); **Share** sends the JPEG through the FileProvider. Options are remembered in the `library` preferences.
 
+## Long press (2026-11-07)
+
+John: "add the ability in generated deck/ranking images to long press to copy/share/etc via native functions". The
+deck image and the Top N ranking image (and their full-screen zoom views) answer a long press with **Copy**, **Save to
+Photos** and **Share**, each going straight to the platform's own function. The row under the preview reads "Tap to
+zoom · hold to copy, save or share" (web with a mouse: "Click to zoom · right-click to copy or save"). Card art's zoom
+view (card detail) has no menu.
+
+- **iOS**: the system context menu (`.contextMenu` with the picture as its preview; text items, no SF Symbols). Copy
+  puts the picture on `UIPasteboard`, Save to Photos and Share are the screen's own buttons' actions. In the zoom view
+  Copy's and Save's answer shows as a notice under the bar for 3 s. VoiceOver gets the three as custom actions.
+  (`MadeImageActions`, `madeImageMenu` in `ZoomImage.swift`; test `MadeImageTests`.)
+- **Web**: the browser's own image menu. The preview is a plain `<img>` (no longer inside a `<button>`, which kept
+  Safari from offering its image menu) with `-webkit-touch-callout: default`; the row under it is the zoom button.
+  Phones' long press gives Safari's Copy / Save to Photos / Share and Chrome's Download / Share / Copy image; a mouse
+  gets the right-click menu. (`previewHint` in `lib/zoom.ts`.)
+- **Android**: there is no system long-press menu, so a Table 1 menu (`T1Menu`) lists the three; Copy puts the JPEG
+  on the system clipboard as a FileProvider content URI (`image/jpeg`; Android 13+ shows its own copied preview), Save
+  to Photos writes through MediaStore, Share opens the system share sheet (now with the picture as ClipData, so the
+  sheet previews it). In the zoom view Copy's and Save's answer replaces the hint row for 3 s. (`MadeImageActions`,
+  `copyImage` in `DeckImageScreen.kt`; test `MadeImageMenuTest`.)
+
 ## Telemetry
 
 `deck_image_shared`: `layout` (grid / stacks), `grouping`, `sideboard` (bool), `cards`, `from` (own / profile), `how`
-(photos / share; web: download / share / copy).
+(photos / share / copy; web: download / share / copy). `ranking_image` `how` gains `copy` (apps).
+`image_menu` {`screen` (deck_image / ranking_image, `_zoom` in the zoom view), `how` (copy / photos / share; web has no
+`how`: it fires when the browser's menu opens)}.

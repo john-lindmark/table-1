@@ -1,5 +1,8 @@
 package site.table1.events.library
 
+import android.content.ClipData
+import android.content.ClipDescription
+import android.content.ClipboardManager
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -120,6 +123,26 @@ fun DeckImageScreen(name: String, format: String, entries: List<ListEntry>, owne
     fun sent(how: String) = Telemetry.capture("deck_image_shared", mapOf("layout" to layout.wire, "grouping" to grouping.wire,
         "sideboard" to showSide, "cards" to (lines?.sumOf { it.qty } ?: 0), "from" to from, "how" to how))
 
+    suspend fun save(): String {
+        val img = image ?: return ""
+        return runCatching { saveToPhotos(context, img, DeckImage.fileName(name)) }.fold(
+            { note = "Saved to Photos (Pictures/Table 1)."; error = null; sent("photos"); note ?: "" },
+            { e -> "Couldn't save: ${e.message}. Use Share instead.".also { error = it } })
+    }
+    suspend fun share() {
+        val img = image ?: return
+        runCatching { shareImage(context, img, DeckImage.fileName(name)) }
+            .onSuccess { error = null; sent("share") }
+            .onFailure { error = it.message }
+    }
+    suspend fun copy(): String {
+        val img = image ?: return ""
+        return runCatching { copyImage(context, img, DeckImage.fileName(name)) }.fold(
+            { note = "Copied the image."; error = null; sent("copy"); note ?: "" },
+            { e -> "Couldn't copy: ${e.message}".also { error = it } })
+    }
+    val actions = MadeImageActions(copy = { copy() }, save = { save() }, share = { share() })
+
     T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(site.table1.events.ui.theme.T1.bg)) {
             T1Screen {
@@ -144,28 +167,14 @@ fun DeckImageScreen(name: String, format: String, entries: List<ListEntry>, owne
                     note?.let { Notice(it) }
                     val img = image
                     if (img != null) {
-                        ZoomablePreview(img, "Deck image", name, "deck_image")
+                        ZoomablePreview(img, "Deck image", name, "deck_image", actions)
                     } else {
                         Notice(if (art == null) "Getting card images… ${progress.first} of ${progress.second}" else "Laying out the cards…")
                     }
                 }
                 Row(Modifier.fillMaxWidth().padding(bottom = 1.dp), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-                    Ghost("Save to Photos", enabled = image != null, accent = true) {
-                        val img = image ?: return@Ghost
-                        scope.launch {
-                            runCatching { saveToPhotos(context, img, DeckImage.fileName(name)) }
-                                .onSuccess { note = "Saved to Photos (Pictures/Table 1)."; error = null; sent("photos") }
-                                .onFailure { error = "Couldn't save: ${it.message}. Use Share instead." }
-                        }
-                    }
-                    Ghost("Share", enabled = image != null) {
-                        val img = image ?: return@Ghost
-                        scope.launch {
-                            runCatching { shareImage(context, img, DeckImage.fileName(name)) }
-                                .onSuccess { error = null; sent("share") }
-                                .onFailure { error = it.message }
-                        }
-                    }
+                    Ghost("Save to Photos", enabled = image != null, accent = true) { scope.launch { save() } }
+                    Ghost("Share", enabled = image != null) { scope.launch { share() } }
                 }
             }
         }
@@ -190,18 +199,32 @@ internal suspend fun saveToPhotos(context: Context, image: Bitmap, fileName: Str
     }
 }
 
-/** A JPEG under the export FileProvider path, to the share sheet. */
-internal suspend fun shareImage(context: Context, image: Bitmap, fileName: String) {
+/** The picture as a JPEG under the export FileProvider path, for the share sheet and the clipboard. */
+private suspend fun exported(context: Context, image: Bitmap, fileName: String): android.net.Uri {
     val file = File(context.cacheDir, "export/deck-image/$fileName")
     withContext(Dispatchers.IO) {
         file.parentFile?.mkdirs()
         file.outputStream().use { image.compress(Bitmap.CompressFormat.JPEG, 90, it) }
     }
+    return FileProvider.getUriForFile(context, "${context.packageName}.avatars", file)
+}
+
+/** The system share sheet, with the picture as its preview (ClipData) so the sheet can show it and offer Copy. */
+internal suspend fun shareImage(context: Context, image: Bitmap, fileName: String) {
+    val uri = exported(context, image, fileName)
     val send = Intent(Intent.ACTION_SEND)
     send.type = "image/jpeg"
-    send.putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(context, "${context.packageName}.avatars", file))
+    send.putExtra(Intent.EXTRA_STREAM, uri)
+    send.clipData = ClipData.newRawUri(fileName, uri)
     send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     context.startActivity(Intent.createChooser(send, fileName))
+}
+
+/** The picture on the system clipboard as a content URI (FileProvider grants the pasting app read access). */
+internal suspend fun copyImage(context: Context, image: Bitmap, fileName: String) {
+    val uri = exported(context, image, fileName)
+    (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+        .setPrimaryClip(ClipData(ClipDescription(fileName, arrayOf("image/jpeg")), ClipData.Item(uri)))
 }
 
 /** The iOS DeckImageCanvas on an android.graphics.Canvas, at 2×. */

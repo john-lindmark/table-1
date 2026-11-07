@@ -1,26 +1,30 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { capture } from "../lib/telemetry";
-import { STEP_ZOOM, fitView, fitted, pan, toggle, zoomTo, type Size, type View } from "../lib/zoom";
+import { STEP_ZOOM, fitView, previewHint, fitted, pan, toggle, zoomTo, type Size, type View } from "../lib/zoom";
 import { Bar } from "./kit";
 
-/** The preview of a made picture (deck image, top 100): a click opens it full screen to zoom. */
+/** The preview of a made picture (deck image, top 100): a click opens it full screen to zoom. The picture is a plain
+    image, not inside a button, so a long press on a phone or a right-click gets the browser's own image menu (copy,
+    save, share; contract/deck-image-2026-10-20.md § Long press). */
 export function ZoomablePreview({ src, alt, title, subtitle, screen }: { src: string; alt: string; title: string; subtitle?: string; screen: string }) {
   const [open, setOpen] = useState(false);
+  const zoom = () => { setOpen(true); capture("image_zoomed", { screen }); };
   return (
     <>
-      <button type="button" onClick={() => { setOpen(true); capture("image_zoomed", { screen }); }}
-              className="block w-full cursor-zoom-in text-left" aria-label={`${alt}. Open to zoom`}>
-        <img src={src} alt={alt} className="w-full h-auto block" />
-        <p className="t1-label bg-t1-surface px-4 py-2 mt-px">Click the picture to zoom</p>
-      </button>
-      {open && <ZoomImage src={src} alt={alt} title={title} subtitle={subtitle} onClose={() => setOpen(false)} />}
+      <div className="block w-full">
+        <img src={src} alt={alt} onClick={zoom} onContextMenu={() => capture("image_menu", { screen })}
+             className="w-full h-auto block cursor-zoom-in" style={{ WebkitTouchCallout: "default" }} />
+        <button type="button" onClick={zoom} aria-label={`${alt}. Open to zoom`}
+                className="block w-full text-left t1-label bg-t1-surface px-4 py-2 mt-px">{previewHint()}</button>
+      </div>
+      {open && <ZoomImage src={src} alt={alt} title={title} subtitle={subtitle} screen={screen} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
 /** Full screen: wheel or pinch zooms around the pointer, drag pans, double-click toggles 3×, + − 0 on a keyboard,
     Esc closes this view only. */
-export function ZoomImage({ src, alt, title, subtitle, onClose }: { src: string; alt: string; title: string; subtitle?: string; onClose: () => void }) {
+export function ZoomImage({ src, alt, title, subtitle, screen, onClose }: { src: string; alt: string; title: string; subtitle?: string; screen?: string; onClose: () => void }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<Size>({ w: 0, h: 0 });
   const [img, setImg] = useState<Size>({ w: 0, h: 0 });
@@ -114,10 +118,10 @@ export function ZoomImage({ src, alt, title, subtitle, onClose }: { src: string;
       <div ref={boxRef} className={`relative flex-1 min-h-0 overflow-hidden select-none touch-none ${zoomed ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"}`}
            onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
            onDoubleClick={(e) => { const p = local(e); setView((v) => toggle(v, p.x, p.y, box, fit)); }}>
-        <img src={src} alt={alt} draggable={false}
+        <img src={src} alt={alt} draggable={false} style={{ WebkitTouchCallout: "default", width: fit.w || undefined, height: fit.h || undefined, transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})` }}
+             onContextMenu={() => screen && capture("image_menu", { screen: `${screen}_zoom` })}
              onLoad={(e) => setImg({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
-             className="absolute top-0 left-0 max-w-none origin-top-left"
-             style={{ width: fit.w || undefined, height: fit.h || undefined, transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})` }} />
+             className="absolute top-0 left-0 max-w-none origin-top-left" />
       </div>
       <p className="shrink-0 t1-label bg-t1-surface px-4 py-2">
         {zoomed ? `${Math.round(view.s * 100)}% · drag to look around · double-click to fit` : `Scroll, pinch or double-click to zoom (${STEP_ZOOM}×)`}

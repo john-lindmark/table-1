@@ -41,3 +41,8 @@ export function pan(v: View, dx: number, dy: number, box: Size, fit: Size): View
 export function toggle(v: View, px: number, py: number, box: Size, fit: Size): View {
   return v.s > 1.01 ? fitView(box, fit) : zoomTo(v, STEP_ZOOM, px, py, box, fit);
 }
+
+/** The row under a made picture's preview: touch screens hold for the browser's image menu, mice right-click. */
+export function previewHint(coarse = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches): string {
+  return coarse ? "Tap to zoom · hold to copy, save or share" : "Click to zoom · right-click to copy or save";
+}

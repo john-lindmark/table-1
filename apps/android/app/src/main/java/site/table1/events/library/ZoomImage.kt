@@ -3,7 +3,8 @@ package site.table1.events.library
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
@@ -13,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +36,10 @@ import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1FullScreenDialog
+import site.table1.events.ui.components.T1Menu
+import site.table1.events.ui.components.T1MenuItem
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
 
@@ -77,23 +84,57 @@ object Zoom {
         if (v.s > 1.01f) fitView(box, fit) else zoomTo(v, STEP, px, py, box, fit)
 }
 
-/** The preview of a made picture: a tap opens it full screen to zoom, and a row under it says so. */
+/** What a long press on a made picture offers (contract/deck-image-2026-10-20.md § Long press): Copy to the system
+    clipboard, Save to Photos (MediaStore) and Share (the system share sheet). Copy and Save return what to say. */
+class MadeImageActions(val copy: suspend () -> String, val save: suspend () -> String, val share: suspend () -> Unit)
+
+/** The long-press menu; `said` gets Copy's and Save's answer. */
 @Composable
-fun ZoomablePreview(image: Bitmap, title: String, subtitle: String?, screen: String) {
-    var open by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth().clickable {
-        open = true
-        Telemetry.capture("image_zoomed", mapOf("screen" to screen))
-    }.semantics { contentDescription = "${listOfNotNull(title, subtitle).joinToString(", ")}. Opens it full screen to zoom" }) {
-        Image(image.asImageBitmap(), null, Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
-        Label("Tap the picture to zoom", Modifier.fillMaxWidth().padding(top = 1.dp).background(T1.surface).padding(horizontal = 16.dp, vertical = 8.dp))
+private fun MadeImageMenu(actions: MadeImageActions, screen: String, said: (String) -> Unit, onDismiss: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    fun pick(how: String, run: suspend () -> Unit) {
+        Telemetry.capture("image_menu", mapOf("screen" to screen, "how" to how))
+        scope.launch { run() }
     }
-    if (open) ZoomImageScreen(image, title, subtitle) { open = false }
+    T1Menu(null, listOf(
+        T1MenuItem("Copy") { pick("copy") { said(actions.copy()) } },
+        T1MenuItem("Save to Photos") { pick("photos") { said(actions.save()) } },
+        T1MenuItem("Share") { pick("share") { actions.share() } },
+    ), onDismiss)
 }
 
-/** Full screen: pinch to zoom, drag to pan, double-tap toggles 3×. */
+/** The preview of a made picture: a tap opens it full screen to zoom, a long press offers Copy, Save to Photos and
+    Share, and a row under it says so. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ZoomImageScreen(image: Bitmap, title: String, subtitle: String?, onClose: () -> Unit) {
+fun ZoomablePreview(image: Bitmap, title: String, subtitle: String?, screen: String, actions: MadeImageActions) {
+    var open by remember { mutableStateOf(false) }
+    var menu by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().combinedClickable(
+        onLongClickLabel = "Copy, save or share",
+        onLongClick = { menu = true },
+        onClick = {
+            open = true
+            Telemetry.capture("image_zoomed", mapOf("screen" to screen))
+        },
+    ).semantics { contentDescription = "${listOfNotNull(title, subtitle).joinToString(", ")}. Opens it full screen to zoom" }) {
+        Image(image.asImageBitmap(), null, Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
+        Label(PREVIEW_HINT, Modifier.fillMaxWidth().padding(top = 1.dp).background(T1.surface).padding(horizontal = 16.dp, vertical = 8.dp))
+    }
+    if (menu) MadeImageMenu(actions, screen, said = {}) { menu = false }
+    if (open) ZoomImageScreen(image, title, subtitle, actions, screen) { open = false }
+}
+
+/** The row under a made picture's preview (iOS says the same). */
+const val PREVIEW_HINT = "Tap to zoom · hold to copy, save or share"
+
+/** Full screen: pinch to zoom, drag to pan, double-tap toggles 3×, long press for Copy, Save and Share when `actions`
+    are given (made pictures; card art has none). */
+@Composable
+fun ZoomImageScreen(image: Bitmap, title: String, subtitle: String?, actions: MadeImageActions? = null, screen: String = "", onClose: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    var said by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(said) { if (said != null) { delay(3000); said = null } }
     val img = Zoom.Size(image.width.toFloat(), image.height.toFloat())
     var box by remember { mutableStateOf(Zoom.Size(0f, 0f)) }
     var view by remember { mutableStateOf(Zoom.View(1f, 0f, 0f)) }
@@ -116,7 +157,10 @@ fun ZoomImageScreen(image: Bitmap, title: String, subtitle: String?, onClose: ()
                             }
                         }
                         .pointerInput(box) {
-                            detectTapGestures(onDoubleTap = { p -> view = Zoom.toggle(view, p.x, p.y, box, Zoom.fitted(box, img)) })
+                            detectTapGestures(
+                                onDoubleTap = { p -> view = Zoom.toggle(view, p.x, p.y, box, Zoom.fitted(box, img)) },
+                                onLongPress = if (actions != null) { _ -> menu = true } else null,
+                            )
                         }
                         .semantics { contentDescription = listOfNotNull(title, subtitle).joinToString(", ") },
                     contentAlignment = Alignment.TopStart,
@@ -136,9 +180,10 @@ fun ZoomImageScreen(image: Bitmap, title: String, subtitle: String?, onClose: ()
                         )
                     }
                 }
-                Label(if (view.s > 1.01f) "${(view.s * 100).toInt()}% · drag to look around · double-tap to fit" else "Pinch or double-tap to zoom",
+                Label(said ?: if (view.s > 1.01f) "${(view.s * 100).toInt()}% · drag to look around · double-tap to fit" else "Pinch or double-tap to zoom",
                     Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 8.dp))
             }
         }
+        if (menu && actions != null) MadeImageMenu(actions, "${screen}_zoom", said = { said = it }) { menu = false }
     }
 }

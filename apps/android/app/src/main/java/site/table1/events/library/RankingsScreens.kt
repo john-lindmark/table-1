@@ -916,6 +916,26 @@ private fun RankingImageScreen(m: RankingModel, onClose: () -> Unit) {
             partial, "Ranked on Table 1", java.time.LocalDate.now().format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US))).joinToString(" · ")
         image = withContext(Dispatchers.Default) { RankingImageDrawing.draw(name, byline, cards, loaded) }
     }
+    suspend fun save(): String {
+        val img = image ?: return ""
+        return runCatching { saveToPhotos(context, img, DeckImage.fileName(name)) }.fold(
+            { note = "Saved to Photos (Pictures/Table 1)."; error = null; Telemetry.capture("ranking_image", mapOf("how" to "photos")); note ?: "" },
+            { e -> "Couldn't save: ${e.message}. Use Share instead.".also { error = it } })
+    }
+    suspend fun share() {
+        val img = image ?: return
+        runCatching { shareImage(context, img, DeckImage.fileName(name)) }
+            .onSuccess { error = null; Telemetry.capture("ranking_image", mapOf("how" to "share")) }
+            .onFailure { error = it.message }
+    }
+    suspend fun copy(): String {
+        val img = image ?: return ""
+        return runCatching { copyImage(context, img, DeckImage.fileName(name)) }.fold(
+            { note = "Copied the image."; error = null; Telemetry.capture("ranking_image", mapOf("how" to "copy")); note ?: "" },
+            { e -> "Couldn't copy: ${e.message}".also { error = it } })
+    }
+    val actions = MadeImageActions(copy = { copy() }, save = { save() }, share = { share() })
+
     T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
@@ -926,27 +946,13 @@ private fun RankingImageScreen(m: RankingModel, onClose: () -> Unit) {
                     val img = image
                     when {
                         cards.isEmpty() -> Notice("Nothing ranked in the final yet.")
-                        img != null -> ZoomablePreview(img, "Top ${m.row?.top ?: 100} image", name, "ranking_image")
+                        img != null -> ZoomablePreview(img, "Top ${m.row?.top ?: 100} image", name, "ranking_image", actions)
                         else -> Notice("Getting card images… ${progress.first} of ${progress.second}")
                     }
                 }
                 Row(Modifier.fillMaxWidth().padding(bottom = 1.dp), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-                    Ghost("Save to Photos", enabled = image != null, accent = true) {
-                        val img = image ?: return@Ghost
-                        scope.launch {
-                            runCatching { saveToPhotos(context, img, DeckImage.fileName(name)) }
-                                .onSuccess { note = "Saved to Photos (Pictures/Table 1)."; error = null; Telemetry.capture("ranking_image", mapOf("how" to "photos")) }
-                                .onFailure { error = "Couldn't save: ${it.message}. Use Share instead." }
-                        }
-                    }
-                    Ghost("Share", enabled = image != null) {
-                        val img = image ?: return@Ghost
-                        scope.launch {
-                            runCatching { shareImage(context, img, DeckImage.fileName(name)) }
-                                .onSuccess { error = null; Telemetry.capture("ranking_image", mapOf("how" to "share")) }
-                                .onFailure { error = it.message }
-                        }
-                    }
+                    Ghost("Save to Photos", enabled = image != null, accent = true) { scope.launch { save() } }
+                    Ghost("Share", enabled = image != null) { scope.launch { share() } }
                 }
             }
         }

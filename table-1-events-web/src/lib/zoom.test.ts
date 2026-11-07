@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_ZOOM, clamp, fitView, fitted, pan, toggle, zoomTo } from "./zoom";
+import { MAX_ZOOM, clamp, fitView, fitted, pan, previewHint, toggle, zoomTo } from "./zoom";
 
 /* Zoom view for the deck image and top 100 image (contract/list-to-collection-2026-10-22.md § Zoom). */
 
@@ -44,5 +44,12 @@ describe("zoom", () => {
 
   it("re-centers when the box grows", () => {
     expect(clamp({ s: 1, x: -50, y: 0 }, { w: 800, h: 800 }, fitted({ w: 800, h: 800 }, img))).toEqual({ s: 1, x: 0, y: 175 });
+  });
+});
+
+describe("previewHint (contract/deck-image-2026-10-20.md § Long press)", () => {
+  it("says hold on touch screens and right-click with a mouse", () => {
+    expect(previewHint(true)).toBe("Tap to zoom · hold to copy, save or share");
+    expect(previewHint(false)).toBe("Click to zoom · right-click to copy or save");
   });
 });

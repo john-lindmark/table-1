@@ -139,6 +139,7 @@
 		82EB09856DF4B433377F5903 /* LibraryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1787264FADE7BB2CC0A924 /* LibraryViews.swift */; };
 		86272ABAC2C1C73362AD3010 /* SignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6EB72928D7AFA1E731CE966 /* SignIn.swift */; };
 		870EDE7184C95307A98BC4A1 /* ScannerPerfTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B9DEC99DA160E4BD09F6783 /* ScannerPerfTests.swift */; };
+		8751679A0FFBC06D9EB1E781 /* MadeImageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F2289F8DCFD141E098F6096 /* MadeImageTests.swift */; };
 		8817EBF6E6B7C0D60BA7132D /* WidgetsDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B10BB83FAB7877B33910B97 /* WidgetsDemo.swift */; };
 		887AD2AF5D75DB0C55AF3AC5 /* DeckFinderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F8672BF51BE4AEAC870C925 /* DeckFinderTests.swift */; };
 		88974A47AF33E5344DFE8FEF /* Location.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49E2DC6EEA4DFED451981849 /* Location.swift */; };
@@ -359,6 +360,7 @@
 		3C2810EC9B5D367AC9FE6D3A /* LibraryInsightsRouteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryInsightsRouteTests.swift; sourceTree = "<group>"; };
 		3DEABA0F74C6845F33051903 /* MatchWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchWidget.swift; sourceTree = "<group>"; };
 		3F0C0426951AFC6C3876DEDC /* spots */ = {isa = PBXFileReference; lastKnownFileType = folder; name = spots; path = ../../marketing/bundle/spots; sourceTree = SOURCE_ROOT; };
+		3F2289F8DCFD141E098F6096 /* MadeImageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MadeImageTests.swift; sourceTree = "<group>"; };
 		3FC453246052E90FA8A5F479 /* CardDetail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardDetail.swift; sourceTree = "<group>"; };
 		3FE432FCC9DD2A247502156A /* OfflineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineTests.swift; sourceTree = "<group>"; };
 		408BE6071B5BA9CA1A83CB83 /* Bugs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bugs.swift; sourceTree = "<group>"; };
@@ -630,6 +632,7 @@
 				C461CEB0826AC133A60E7A86 /* ListExportTests.swift */,
 				C3A9CA48F46607665C58D26E /* ListsUnsavedTests.swift */,
 				36B0C34DF29680952B5D56B1 /* ListToCollectionTests.swift */,
+				3F2289F8DCFD141E098F6096 /* MadeImageTests.swift */,
 				6154A378C9E146013FBB40EB /* MetaWidgetTests.swift */,
 				3FE432FCC9DD2A247502156A /* OfflineTests.swift */,
 				231D2D5CCD65D7C882B4D908 /* OwnedByCardTests.swift */,
@@ -1158,6 +1161,7 @@
 				4303E1375FC42EE4288E5DAB /* ListExportTests.swift in Sources */,
 				B81A52CE3760971E29E5946C /* ListToCollectionTests.swift in Sources */,
 				34BE806648871D0494191D8A /* ListsUnsavedTests.swift in Sources */,
+				8751679A0FFBC06D9EB1E781 /* MadeImageTests.swift in Sources */,
 				3C0078E093BFBAA4F36CB730 /* MetaWidgetTests.swift in Sources */,
 				304E4DAFFE33D6D6BE92F2F9 /* OfflineTests.swift in Sources */,
 				C33A73BD8D3C8A087DE2229F /* OwnedByCardTests.swift in Sources */,
@@ -1462,7 +1466,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 53;
+				CURRENT_PROJECT_VERSION = 54;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 94889YTX94;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1545,7 +1549,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 53;
+				CURRENT_PROJECT_VERSION = 54;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 94889YTX94;
 				ENABLE_NS_ASSERTIONS = NO;

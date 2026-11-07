@@ -1122,7 +1122,8 @@ struct RankingImagePanel: View {
                 if cards.isEmpty {
                     Notice("Nothing ranked in the final yet.")
                 } else if let image {
-                    ZoomablePreview(title: "Top \(cards.count) image", subtitle: model.row?.title, image: image, screen: "ranking_image")
+                    ZoomablePreview(title: "Top \(cards.count) image", subtitle: model.row?.title, image: image, screen: "ranking_image",
+                                    actions: MadeImageActions(copy: copy, save: save, share: shareImage))
                 } else if let progress {
                     Notice("Getting card images… \(progress.done) of \(progress.of)")
                 } else {
@@ -1178,21 +1179,33 @@ struct RankingImagePanel: View {
         image = r.uiImage
     }
 
-    private func save() async {
-        guard let image else { return }
+    @discardableResult
+    private func save() async -> String {
+        guard let image else { return "" }
         let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
         guard status == .authorized || status == .limited else {
             error = "Table 1 can't add to Photos. Allow it in Settings → Table 1 → Photos, or use Share → Save Image."
-            return
+            return error ?? ""
         }
         do {
             try await PHPhotoLibrary.shared().performChanges { PHAssetChangeRequest.creationRequestForAsset(from: image) }
             error = nil
             note = "Saved to Photos."
             Telemetry.capture("ranking_image", ["how": "photos"])
+            return "Saved to Photos."
         } catch {
             self.error = error.localizedDescription
+            return error.localizedDescription
         }
+    }
+
+    private func copy() -> String {
+        guard let image else { return "" }
+        let said = MadeImageActions.copy(image)
+        error = nil
+        note = said
+        Telemetry.capture("ranking_image", ["how": "copy"])
+        return said
     }
 
     private func shareImage() {
