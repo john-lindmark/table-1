@@ -55,7 +55,7 @@ the steadiness rule needs the same card over several frames, so one misread fram
 
 Nobody picks a language. The scanner reads like the phone (`accurate`: Latin and Cyrillic, English first) until
 text in view names no card for 0.6 s, then reads Chinese, Japanese and Korean (`multi`), stays there while cards
-match and goes back after 1.2 s of misses (`ScanLanguage` in CardMatcher.swift/.kt). iOS switches Vision's
+match and goes back after 1.2 s of misses (`ScanLanguage` in CardMatcher.swift/.kt). On Android (2026-11-06) a card named in a Latin or Cyrillic script while reading CJK goes back to Latin at once (`ScanLanguage.latin`): the CJK recognizers read Latin too, so a pile of English cards after one gap had stayed on the slower CJK models for the rest of the session. iOS still waits for the 1.2 s. iOS switches Vision's
 automatic language detection on (VisionKit's DataScanner can't: given a list of languages it uses only the first
 one's model; English first turns CJK into noise, Japanese first breaks Korean and Cyrillic). Android switches from
 ML Kit's Latin recognizer to its Japanese, Chinese and Korean ones, a frame each in turn (created, and their models

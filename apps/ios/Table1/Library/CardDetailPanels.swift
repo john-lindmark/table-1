@@ -4,6 +4,7 @@ import SwiftUI
 
 /// Collection / Deck / Cube / Binder / Want / Trade, each drilling down in place (Figma Add To Selection and Add to
 /// Drilldown). Adds one of the version on screen; condition and language go with collection, binder and trade adds.
+/// The Collection scanner opens it for every card scanned (`scanned`), many cards at once.
 struct AddToPanel: View {
     let oracle: CatalogOracle
     let printings: [String: CatalogPrinting]
@@ -11,6 +12,9 @@ struct AddToPanel: View {
     let lines: [CardVersion]
     let scope: String
     var path: Binding<[LibraryRoute]>?
+    /// Several cards (the Collection scanner's list): what the done line calls them ("12 cards") and each printing's
+    /// oracle id for wants. No TCGplayer row.
+    var scanned: (name: String, oracleIds: [String: String])?
     let done: (String, CardUndo?) -> Void
     @State private var step: Step = .root
     @State private var error: String?
@@ -22,7 +26,7 @@ struct AddToPanel: View {
     private var version: CardVersion { lines[0] }
     /// The printing when every line shares one.
     private var printing: CatalogPrinting? { Set(lines.map(\.cardId)).count == 1 ? printings[version.cardId] : nil }
-    private var name: String { printing?.setLabel ?? oracle.name }
+    private var name: String { scanned?.name ?? printing?.setLabel ?? oracle.name }
     private var count: Int { lines.reduce(0) { $0 + $1.qty } }
 
     var body: some View {
@@ -59,8 +63,8 @@ struct AddToPanel: View {
     private var options: [SelectorOption] {
         switch step {
         case .root:
-            return [("collection", "Collection"), ("deck", "Deck"), ("cube", "Cube"), ("binder", "Binder"), ("want", "Want"), ("trade", "Trade"),
-                    ("tcgplayer", "TCGplayer")]
+            return ([("collection", "Collection"), ("deck", "Deck"), ("cube", "Cube"), ("binder", "Binder"), ("want", "Want"), ("trade", "Trade")]
+                    + (scanned == nil ? [("tcgplayer", "TCGplayer")] : []))
                 .map { SelectorOption(value: $0.0, label: $0.1) }
         case .decks:
             let decks = lists.lists(.deck).filter { $0.eventId == nil }
@@ -79,7 +83,10 @@ struct AddToPanel: View {
                 : all.map { SelectorOption(value: $0.id, label: $0.name, detail: $0.forTrade ? "For trade" : nil) }
         case .want:
             var out = [SelectorOption(value: "any", label: "Any printing")]
-            if printing == nil && lines.count > 1 {
+            if scanned != nil {
+                out.append(SelectorOption(value: "printing", label: "These printings"))
+                out.append(SelectorOption(value: "finish", label: "These printings and finishes"))
+            } else if printing == nil && lines.count > 1 {
                 out.append(SelectorOption(value: "printing", label: "Each printing", detail: "\(Set(lines.map(\.cardId)).count) printings"))
                 out.append(SelectorOption(value: "finish", label: "Each printing and finish"))
             } else if printing != nil {
@@ -132,7 +139,7 @@ struct AddToPanel: View {
     }
 
     private func finish(_ destination: String, _ label: String, _ undo: CardUndo?) {
-        Telemetry.capture("card_added_to", ["destination": destination, "scope": scope, "copies": count])
+        Telemetry.capture(scanned == nil ? "card_added_to" : "scan_added_to", ["destination": destination, "scope": scope, "copies": count])
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         T1Overlays.shared.dismissPanel()
         done(label, undo)
@@ -161,7 +168,7 @@ struct AddToPanel: View {
         let ops = lines.map { CardDetailRules.step($0, delta: $0.qty, binderId: binderId) }
         Task {
             do {
-                let res = try await CollectionStore.shared.apply(ops)
+                let res = try await CollectionStore.shared.apply(ops, source: scanned == nil ? "manual" : "scan")
                 let label = "Added \(count) \(name) to \(place)"
                 finish(binderId == nil ? "collection" : "binder", label, CardUndo(label: label) {
                     _ = try await CollectionStore.shared.undo(batchId: res.batchId)
@@ -190,21 +197,23 @@ struct AddToPanel: View {
     }
 
     private func want(_ how: String) {
-        // One want per printing (and finish), counting the copies of each.
-        var counts: [String: (cardId: String?, finish: String?, qty: Int)] = [:]
+        // One want per card (any printing), printing, or printing and finish, counting the copies of each.
+        var counts: [String: (oracleId: String, cardId: String?, finish: String?, qty: Int)] = [:]
         var order: [String] = []
         for line in lines {
+            let oracleId = scanned?.oracleIds[line.cardId] ?? oracle.oracleId
             let cardId = how == "any" ? nil : line.cardId, finish = how == "finish" ? line.finish : nil
-            let key = "\(cardId ?? "")|\(finish ?? "")"
+            let key = "\(oracleId)|\(cardId ?? "")|\(finish ?? "")"
             if counts[key] == nil { order.append(key) }
-            counts[key, default: (cardId, finish, 0)].qty += line.qty
+            counts[key, default: (oracleId, cardId, finish, 0)].qty += line.qty
         }
-        let ops = order.compactMap { counts[$0] }.map { WantOp(oracleId: oracle.oracleId, cardId: $0.cardId, finish: $0.finish, delta: $0.qty) }
+        let ops = order.compactMap { counts[$0] }.map { WantOp(oracleId: $0.oracleId, cardId: $0.cardId, finish: $0.finish, delta: $0.qty) }
         Task {
             do {
                 try await BindersStore.shared.applyWants(ops, event: "want_added",
-                                                         props: ["any_printing": how == "any", "finish": how == "finish", "has_max": false, "from": "card"])
-                finish("want", "Wanted \(count) \(how == "any" ? oracle.name : name)", nil)
+                                                         props: ["any_printing": how == "any", "finish": how == "finish", "has_max": false,
+                                                                 "from": scanned == nil ? "card" : "scan"])
+                finish("want", "Wanted \(count) \(how == "any" && scanned == nil ? oracle.name : name)", nil)
             } catch { self.error = error.localizedDescription }
         }
     }

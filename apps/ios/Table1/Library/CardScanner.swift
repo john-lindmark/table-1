@@ -273,7 +273,49 @@ struct CardTextScanner: UIViewRepresentable {
     }
 }
 
-/// Full-screen scanner used by Add cards and Trades. Collects cards until Done; nothing is written here.
+/// Holds the scanner while something is shown over it (the Collection scanner's Add to): no card is taken behind it.
+final class ScanHold {
+    var on = false
+}
+
+/// What a scan session hands on, and the price line under each scanned row (contract/trades-2026-10-16.md § Scanning
+/// "Scan from the Collection" / "Prices").
+@MainActor
+enum ScanBatch {
+    /// Scanned cards as Add to lines: copies of one printing, finish, condition and language counted together, in
+    /// the order they were first scanned (the scanner lists the newest first).
+    static func lines(_ newestFirst: [ScannedCard]) -> [CardVersion] {
+        lines(copies: newestFirst.map { CardVersion(cardId: $0.printing.cardId, finish: $0.finish, condition: $0.condition, lang: $0.lang, qty: 1) })
+    }
+
+    /// The same for one copy each, newest first.
+    static func lines(copies newestFirst: [CardVersion]) -> [CardVersion] {
+        var out: [CardVersion] = []
+        for c in newestFirst.reversed() {
+            if let i = out.firstIndex(where: { $0.itemKey == c.itemKey }) { out[i].qty += c.qty } else { out.append(c) }
+        }
+        return out
+    }
+
+    /// "1 card", "12 cards".
+    static func count(_ n: Int) -> String { n == 1 ? "1 card" : "\(n) cards" }
+
+    /// A scanned row's price line: one copy in its finish and condition ("$9.00", "≈ $7,992.55" when converted from
+    /// Cardmarket), "No price" once prices are in and there's none, nothing while they load.
+    static func priceLine(usd: Double?, loaded: Bool, converted: Bool) -> String? {
+        if let usd { return PriceBook.marked(PriceBook.text(usd), converted: converted) }
+        return loaded ? "No price" : nil
+    }
+
+    /// The scanned cards' value, nil until one has a price.
+    static func total(_ prices: [Double?]) -> Double? {
+        let known = prices.compactMap { $0 }
+        return known.isEmpty ? nil : Double(known.reduce(0) { $0 + Int(($1 * 100).rounded()) }) / 100
+    }
+}
+
+/// Full-screen scanner used by Add cards, Trades and the Collection bar. Collects cards until Done; nothing is
+/// written here.
 struct CardScanView: View {
     let title: String
     let doneLabel: String
@@ -281,15 +323,18 @@ struct CardScanView: View {
     var owned: [String: Set<String>]?
     /// Owned-only: printing id → finishes in for-trade binders, preferred when the text doesn't settle the printing.
     var preferred: [String: Set<String>] = [:]
+    /// Set while something is shown over the scanner, so nothing is taken behind it.
+    var hold: ScanHold?
     let onDone: ([ScannedCard]) -> Void
     let onCancel: () -> Void
 
     init(title: String, doneLabel: String, owned: [String: Set<String>]? = nil, preferred: [String: Set<String>] = [:],
-         scanned: [ScannedCard] = [], onDone: @escaping ([ScannedCard]) -> Void, onCancel: @escaping () -> Void) {
+         scanned: [ScannedCard] = [], hold: ScanHold? = nil, onDone: @escaping ([ScannedCard]) -> Void, onCancel: @escaping () -> Void) {
         self.title = title
         self.doneLabel = doneLabel
         self.owned = owned
         self.preferred = preferred
+        self.hold = hold
         self.onDone = onDone
         self.onCancel = onCancel
         // Rows already taken (the redraw measurement in ScannerPerfTests).
@@ -391,7 +436,7 @@ struct CardScanView: View {
     private var scanner: some View {
         T1Screen {
             Bar(title: title, subtitle: cards.isEmpty ? (owned == nil ? "Hold a card flat in the frame" : "Matching cards you own")
-                                                      : "\(count) scanned", back: back)
+                                                      : scannedLine, back: back)
             if !CardTextScanner.isAvailable {
                 Notice("The camera isn't available. Allow camera access for Table 1 in Settings, or search by name instead.", error: true)
                 Spacer(minLength: 0)
@@ -431,6 +476,7 @@ struct CardScanView: View {
             makeMatcher()
         }
         .onChange(of: catalog.generation) { makeMatcher() }
+        .task(id: cards.map(\.printing.cardId)) { await PriceBook.shared.load(cards.map(\.printing.cardId)) }
         .alert(leaving?.title ?? "", isPresented: Binding(get: { leaving != nil }, set: { if !$0 { leaving = nil } }),
                presenting: leaving) { p in
             Button(p.add) { leave("add") }
@@ -450,12 +496,20 @@ struct CardScanView: View {
 
     private var count: Int { cards.count }
 
+    private func usd(_ c: ScannedCard) -> Double? { PriceBook.shared.usd(c.printing.cardId, c.finish, c.condition) }
+
+    /// "3 scanned · $12.40" once a card has a price.
+    private var scannedLine: String {
+        guard let total = ScanBatch.total(cards.map(usd)), let text = PriceBook.text(total) else { return "\(count) scanned" }
+        return "\(count) scanned · \(text)"
+    }
+
     /// One frame's lines; true when they name a card. Without a card found in the frame, the text must look like a
     /// card's: a type line, or a set code and number that agree with the name. Otherwise a keyboard's "option" key
     /// is Opt (its French name) and a decklist on a screen is a card.
     private func see(_ lines: [String], onCard: Bool, border: ScanBorder = .unknown) -> Bool {
         // Nothing is taken while Back is asking, so the count it asked about is the count added.
-        guard leaving == nil, let matcher else { return false }
+        guard leaving == nil, hold?.on != true, let matcher else { return false }
         var m = matcher.match(lines, border: border)
         if !onCard, m?.exact != true, !CardMatcher.hasTypeLine(lines) { m = nil }
         feed.frames.add(lines, named: m != nil)
@@ -487,7 +541,9 @@ struct CardScanView: View {
                         detail: [c.printing.setLabel, Finish(rawValue: c.finish)?.label, owned == nil ? c.condition : nil,
                                  owned == nil && c.lang != "en" ? c.lang.uppercased() : nil,
                                  c.exact || c.fixed ? nil : "Check printing"].compactMap { $0 }.joined(separator: " · "),
-                        finish: c.finish) {
+                        finish: c.finish,
+                        note: ScanBatch.priceLine(usd: usd(c), loaded: PriceBook.shared.rows[c.printing.cardId] != nil,
+                                                  converted: PriceBook.shared.converted(c.printing.cardId, c.finish))) {
                     LabelText("Printing", color: c.exact || c.fixed ? T1.muted : T1.text)
                 }
             }.buttonStyle(.plain)
