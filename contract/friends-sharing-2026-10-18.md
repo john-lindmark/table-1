@@ -167,6 +167,33 @@ were friends).
   Shared matcher cases: `testdata/trade-matches/cases.json`. Client tests: iOS `FriendsTests`,
   web `friends.test.ts`, Android `FriendsTest`.
 
+## Tapping a person (John, 2026-11-06)
+
+"When a user taps the representation of another user in the app it should take them to that user's profile. They should
+be able to add them as a friend from their profile pages." Client-only; `profile_view` already answers for any account
+(name and photo always, the rest as shared) and the profile already has Add friend / Requested · Cancel / Accept · Ignore.
+
+- **The rule.** Wherever a player or another account is drawn with an account behind it, a tap opens their profile on the
+  same tab's back stack, so Back returns to where you were. Guests (no account) aren't tappable. Yourself opens your own
+  profile. A row whose own tap already does something else keeps it; there only the avatar tile opens the profile, and
+  buttons inside a row (Drop, Let in, List, Add) keep their own taps.
+- **Whole row opens the profile:** standings rows and team members (player, organizer, results), the organizer's Players
+  rows (Setup, Live, Dropped, Results), the waitlist, roto pick order (iOS), the opponent at the top of the player screen,
+  Account → Head-to-head, Add a friend search results.
+- **Avatar only:** Add players suggestions (a tap selects), Rankings rows and Cubes you can rank (a tap opens the
+  ranking), Trade matches rows (a tap opens the match).
+- **Not tappable:** match rows ("Ana v Bo": a tap enters the result), seating tables, signed-out pages (`/s` standings), and
+  panels drawn over the tabs on iOS (the life tracker, roto draft).
+- **Hidden profile:** a profile that doesn't reach you says "Only <name>'s friends can see their profile." under Add friend
+  on all three (web and Android said "This isn't available.", which read like an error next to Add friend).
+- **Where it lives:** iOS `UI/PersonLink.swift` (`openProfile` environment set on each tab's NavigationStack, `.opensProfile`,
+  `AvatarView(opensFrom:)`; the Events tab reaches Library screens through `Route.library`), web `lib/personLink.ts`
+  (`useOpenProfile`, `Avatar opens`; signed out nothing is tappable; the demos open `/u/<id>?demo`), Android
+  `ui/components/PersonLink.kt` (`LocalOpenProfile` around the NavHost, `rememberOpenProfile`, `Avatar(opensFrom =)`).
+  Tests `PersonLinkTests` / `personLink.test.ts` / `PersonLinkTest`.
+- **Telemetry:** `person_tapped` (`from`: standings / event_players / waitlist / roto_seats / opponent / head_to_head /
+  friend_search / add_players / rankings / trade_match). No ids.
+
 ## Account deletion
 
 `delete_account` removes your friendships, requests, blocks (both ways), sharing settings and audit rows, and clears
