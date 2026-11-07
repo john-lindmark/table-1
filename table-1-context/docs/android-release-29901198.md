@@ -15,10 +15,10 @@ Everything in 29900203, plus:
 - The other scanners (Add cards, a deck, a binder, Wants, a trade) show prices too.
 - The scanner starts zoomed in (1.6×): hold a card a little further away so it fills the guide and stays sharp.
 - Tap a player in standings, Players, your opponent or Head-to-head: their profile opens, with Add friend.
-- Account → Deck photos (needs the server update; until then it shows an error).
+- Account → Deck photos: every photo of a deck you played, by event, newest first.
 
 Nothing in this bundle has been run on a phone yet (no Android device or emulator on the build Mac).
 
 ---
 
-Build notes (not for testers): built 2026-11-07 at 5343299 (the build-54 commit only touches iOS) from the clean checkout with `apps/android/tools/bundle-release.sh` (upload key; `jarsigner -verify`: jar verified, with the usual "signed in JarFile but not in JarInputStream" warnings; versionCode 29901198, versionName 0.1.0, 17 MB) at `apps/android/app/build/outputs/bundle/release/app-release.aab`. Android changes since 29900203: 5d2a98e (ML Kit off the main thread, Latin model at install, back to Latin after CJK, scanner timing), 8e65ced (scan from the Collection, prices on every scanner), 64d3c6f (tapping a person opens their profile), 4cf20f0 (deck photos on your account; needs migration `20261106170000_my_deck_photos.sql` on live, not applied yet), faf31ce (1.6× scanner zoom, exposure metered on the guide). 452 unit tests passed at 5343299. Not yet uploaded; after uploading, `bugs.py shipped android 29901198 --commit 5343299`.
+Build notes (not for testers): built 2026-11-07 at 5343299 (the build-54 commit only touches iOS) from the clean checkout with `apps/android/tools/bundle-release.sh` (upload key; `jarsigner -verify`: jar verified, with the usual "signed in JarFile but not in JarInputStream" warnings; versionCode 29901198, versionName 0.1.0, 17 MB) at `apps/android/app/build/outputs/bundle/release/app-release.aab`. Android changes since 29900203: 5d2a98e (ML Kit off the main thread, Latin model at install, back to Latin after CJK, scanner timing), 8e65ced (scan from the Collection, prices on every scanner), 64d3c6f (tapping a person opens their profile), 4cf20f0 (deck photos on your account; its migration applied to live 2026-11-07), faf31ce (1.6× scanner zoom, exposure metered on the guide). 452 unit tests passed at 5343299. Not yet uploaded; after uploading, `bugs.py shipped android 29901198 --commit 5343299`.
