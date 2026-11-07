@@ -21,7 +21,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -33,7 +32,7 @@ import site.table1.events.ui.components.Section
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.T1Switch
-import site.table1.events.ui.components.FullScreenDialog
+import site.table1.events.ui.components.T1FullScreenDialog
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
 
@@ -138,7 +137,7 @@ fun ListToCollectionScreen(list: CardList, owned: Map<String, Int>, onClose: () 
     val side = list.count("side")
     fun plural(n: Int) = "$n ${if (n == 1) "card" else "cards"}"
 
-    Dialog(onDismissRequest = onClose, properties = FullScreenDialog) {
+    T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
                 Bar("Add to collection", list.name, onBack = onClose)

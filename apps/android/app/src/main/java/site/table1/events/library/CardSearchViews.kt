@@ -27,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -40,7 +39,7 @@ import site.table1.events.ui.components.Section
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.T1TextField
-import site.table1.events.ui.components.FullScreenDialog
+import site.table1.events.ui.components.T1FullScreenDialog
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
 
@@ -107,7 +106,7 @@ private val RARITY_LABEL = mapOf('c' to "Common", 'u' to "Uncommon", 'r' to "Rar
 fun AdvancedSearchPanel(start: String, onClose: () -> Unit, onApply: (String) -> Unit) {
     var f by remember { mutableStateOf(if (CardQuery.hasSyntax(start)) AdvancedSearchFields() else AdvancedSearchFields(name = start)) }
     LaunchedEffect(Unit) { Telemetry.screen("advanced_search") }
-    Dialog(onDismissRequest = onClose, properties = FullScreenDialog) {
+    T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
                 Bar("Advanced search", subtitle = "Scryfall syntax", onBack = onClose) { BarAction("Clear") { f = AdvancedSearchFields() } }

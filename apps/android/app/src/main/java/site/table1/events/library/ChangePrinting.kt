@@ -35,7 +35,7 @@ import site.table1.events.ui.components.ListRow
 import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.Section
 import site.table1.events.ui.components.T1Screen
-import site.table1.events.ui.components.FullScreenDialog
+import site.table1.events.ui.components.T1FullScreenDialog
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
 
@@ -125,8 +125,7 @@ fun List<TradeLine>.repoint(key: String, cardId: String, finish: String): List<T
 @Composable
 fun ChangePrintingOverlay(target: PrintingTarget, screen: String, onClose: () -> Unit, onChanged: (String, String) -> Unit = { _, _ -> }) {
     LaunchedEffect(Unit) { Telemetry.screen(screen) }
-    androidx.compose.ui.window.Dialog(onDismissRequest = onClose,
-        properties = FullScreenDialog) {
+    T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) { ChangePrintingScreen(target, onClose, onChanged) }
     }
 }

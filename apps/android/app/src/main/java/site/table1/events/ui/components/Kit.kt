@@ -50,6 +50,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -64,6 +67,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
@@ -79,6 +83,61 @@ import site.table1.events.ui.theme.T1
  * behind the bar.
  */
 val FullScreenDialog = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+
+/**
+ * Every full-screen dialog goes through this (FullScreenDialogTest), never Dialog(properties = FullScreenDialog).
+ *
+ * Compose 1.7 measures a dialog's content against Configuration.screenHeightDp, but its window stays a floating one
+ * that stops at the status and navigation bars. Apps targeting Android 15+ get a Configuration that counts the bars,
+ * so the content came out taller than its window and its bottom (Save to Photos / Share under the deck and ranking
+ * images, the scanner's button, the chooser's Done) was cut off (John, 2026-11-06). When the Configuration covers
+ * the whole screen, the window does too: it fills the display, edge to edge, and the T1Screen inside pads for the
+ * bars. Where the Configuration leaves the bars out (Android 14 and older) the floating window already matches it.
+ */
+@Composable
+fun T1FullScreenDialog(onDismissRequest: () -> Unit, content: @Composable () -> Unit) {
+    val host = LocalView.current
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismissRequest, properties = FullScreenDialog) {
+        val window = (LocalView.current.parent as? DialogWindowProvider)?.window
+        val config = LocalConfiguration.current
+        val density = LocalDensity.current.density
+        LaunchedEffect(window, config.screenHeightDp, config.screenWidthDp) {
+            val w = window ?: return@LaunchedEffect
+            val root = host.rootView
+            if (FullScreenWindow.coversBars(config.screenHeightDp, config.screenWidthDp, density, root.height, root.width)) {
+                FullScreenWindow.fill(w)
+            }
+        }
+        content()
+    }
+}
+
+internal object FullScreenWindow {
+    /** True when the dialog's content is measured for the whole screen (the app's window, which is edge to edge),
+     *  not the part between the system bars. A few dp of rounding is allowed. */
+    fun coversBars(screenHeightDp: Int, screenWidthDp: Int, density: Float, hostHeightPx: Int, hostWidthPx: Int): Boolean {
+        if (hostHeightPx <= 0 || hostWidthPx <= 0) return false
+        val slop = 8 * density
+        return screenHeightDp * density >= hostHeightPx - slop && screenWidthDp * density >= hostWidthPx - slop
+    }
+
+    /** The whole display, behind the bars and the cutout, light bar icons on our dark background. */
+    fun fill(window: android.view.Window) {
+        window.setLayout(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
+        val attrs = window.attributes
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            attrs.fitInsetsTypes = 0
+            attrs.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            attrs.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+        window.attributes = attrs
+        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
+    }
+}
 
 /** Full-bleed column; blocks are separated by 1px of background (the hairline grid). */
 @Composable

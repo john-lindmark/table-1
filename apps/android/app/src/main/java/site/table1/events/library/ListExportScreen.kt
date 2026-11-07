@@ -29,7 +29,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -39,7 +38,7 @@ import site.table1.events.ui.components.Ghost
 import site.table1.events.ui.components.Notice
 import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Segmented
-import site.table1.events.ui.components.FullScreenDialog
+import site.table1.events.ui.components.T1FullScreenDialog
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
 import java.io.File
@@ -102,7 +101,7 @@ fun ListExportScreen(name: String, kind: ListKind, entries: List<ListEntry>, fro
         }
     }
 
-    Dialog(onDismissRequest = onClose, properties = FullScreenDialog) {
+    T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
                 Bar("Export", name, onBack = onClose)

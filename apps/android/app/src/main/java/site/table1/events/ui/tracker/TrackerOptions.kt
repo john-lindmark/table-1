@@ -42,14 +42,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.delay
 import site.table1.events.tracker.Chooser
 import site.table1.events.tracker.Dice
 import site.table1.events.tracker.TrackerTable
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.BigAction
-import site.table1.events.ui.components.FullScreenDialog
+import site.table1.events.ui.components.T1FullScreenDialog
 import site.table1.events.ui.components.Ghost
 import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.T1Overlay
@@ -184,7 +183,7 @@ internal fun TrackerChooser(onDismiss: () -> Unit) {
         onDismiss()
     }
 
-    Dialog(onDismissRequest = onDismiss, properties = FullScreenDialog) {
+    T1FullScreenDialog(onDismissRequest = onDismiss) {
         Box(
             Modifier.fillMaxSize().background(T1.bg).pointerInput(Unit) {
                 awaitPointerEventScope {

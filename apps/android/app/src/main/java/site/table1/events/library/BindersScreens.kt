@@ -50,7 +50,7 @@ import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Switch
 import site.table1.events.T1App
 import site.table1.events.ui.components.T1TextField
-import site.table1.events.ui.components.FullScreenDialog
+import site.table1.events.ui.components.T1FullScreenDialog
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
 
@@ -388,8 +388,7 @@ private fun BinderAddOverlay(binderId: String?, onClose: () -> Unit) {
             busy = false
         }
     }
-    androidx.compose.ui.window.Dialog(onDismissRequest = onClose,
-        properties = FullScreenDialog) {
+    T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
                 Bar("Add to $target", onBack = onClose)
@@ -694,8 +693,7 @@ private fun WantPickOverlay(onClose: () -> Unit, onScanned: (List<ScannedCard>) 
     var added by remember { mutableStateOf<String?>(null) }
     var picking by remember { mutableStateOf<CatalogOracle?>(null) }
     var scanning by remember { mutableStateOf(false) }
-    androidx.compose.ui.window.Dialog(onDismissRequest = onClose,
-        properties = FullScreenDialog) {
+    T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
                 Bar("Add a want", subtitle = added, onBack = onClose)
@@ -780,8 +778,7 @@ fun WantPrintingOverlay(oracleId: String, replacing: Want? = null, from: String 
     }
     val shown = if (query.isEmpty()) printings else printings.filter { CardSearch.matchesPrinting(query, it.set, it.cn, it.releasedAt) }
     val anyNow = replacing != null && replacing.cardId == null
-    androidx.compose.ui.window.Dialog(onDismissRequest = onClose,
-        properties = FullScreenDialog) {
+    T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
                 Bar(if (replacing == null) "Want which printing" else "Change printing", subtitle = name, onBack = onClose)

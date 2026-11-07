@@ -57,7 +57,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
@@ -75,7 +74,7 @@ import site.table1.events.ui.components.T1Screen
 import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.T1AlertDialog
 import site.table1.events.ui.components.T1TextAction
-import site.table1.events.ui.components.FullScreenDialog
+import site.table1.events.ui.components.T1FullScreenDialog
 import site.table1.events.util.Telemetry
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -214,7 +213,7 @@ fun CardScanOverlay(
         return true
     }
 
-    Dialog(onDismissRequest = back, properties = FullScreenDialog) {
+    T1FullScreenDialog(onDismissRequest = back) {
         val fix = fixing?.let { id -> cards.firstOrNull { it.id == id } }
         val langCard = languageFor?.let { id -> cards.firstOrNull { it.id == id } }
         if (langCard != null) {

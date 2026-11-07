@@ -64,7 +64,7 @@ import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.T1Stepper
 import site.table1.events.ui.components.T1Switch
 import site.table1.events.ui.components.T1TextField
-import site.table1.events.ui.components.FullScreenDialog
+import site.table1.events.ui.components.T1FullScreenDialog
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
 
@@ -670,7 +670,7 @@ fun RotoSchedule(roster: List<Pair<String, String>>, meId: String?, rounds: Int,
 @Composable
 fun RotoDraftOverlay(eventId: String, title: String, isOrganizer: Boolean, pairing: String, onOpenDeck: (String) -> Unit, onClose: () -> Unit) {
     val store = remember(eventId) { RotoStore.of(eventId) }
-    androidx.compose.ui.window.Dialog(onDismissRequest = onClose, properties = FullScreenDialog) {
+    T1FullScreenDialog(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().background(T1.bg)) {
             RotoDraftScreen(store, title, isOrganizer, readOnly = true, onBack = onClose, pairing = pairing, onOpenDeck = { onClose(); onOpenDeck(it) })
         }
