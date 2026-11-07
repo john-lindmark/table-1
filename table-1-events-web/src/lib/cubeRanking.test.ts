@@ -9,8 +9,8 @@ import {
    testdata/cube-ranking/cases.json, written by the reference make_cases.py; iOS CubeRankingTests and Android
    CubeRankingTest read the same file. */
 
-type Summary = Record<string, { top: string[]; done: boolean; target: number; size: number; screens: number; question: string[] | null; pinned: string[] | null; waiting: string[] }>;
-interface Step { s: RankJob; at: number; question: string[]; pinned: string[]; answer: string[]; pack?: string[]; disagree?: string[] }
+type Summary = Record<string, { top: string[]; done: boolean; target: number; size: number; screens: number; question: string[] | null; pinned: string[] | null; waiting: string[]; check: boolean; checked: number }>;
+interface Step { s: RankJob; at: number; question: string[]; pinned: string[]; check?: boolean; answer: string[]; pack?: string[]; disagree?: string[] }
 interface Run { id: string; depth: RankDepth; top: number; steps: Step[]; summary: Summary; contradicted?: Record<string, [string, string][]> }
 type ChangeRow = [string, string, number | null, number | null];
 type Row = [string, number, boolean, number, boolean, number, boolean];
@@ -37,9 +37,9 @@ function checkSummary(st: RankingState, want: Summary) {
     const s = st.session(key as RankJob);
     expect({ key, top: s.top.map((x) => st.id(x)), done: s.done, target: s.target, size: s.size,
              screens: st.knowledge.perJob[key as RankJob] ?? 0, question: s.question?.map((x) => st.id(x)) ?? null,
-             pinned: s.question ? s.pinned.map((x) => st.id(x)) : null, waiting: s.waiting.map((x) => st.id(x)) })
+             pinned: s.question ? s.pinned.map((x) => st.id(x)) : null, waiting: s.waiting.map((x) => st.id(x)), check: s.check, checked: s.checked })
       .toEqual({ key, top: w.top, done: w.done, target: w.target, size: w.size, screens: w.screens, question: w.question, pinned: w.pinned,
-                 waiting: w.waiting });
+                 waiting: w.waiting, check: w.check, checked: w.checked });
   }
 }
 
@@ -63,6 +63,7 @@ describe("replaying each run screen by screen", () => {
         const s = st.session(step.s);
         expect(s.question?.map((x) => st.id(x))).toEqual(step.question);
         expect(s.pinned.map((x) => st.id(x))).toEqual(step.pinned);
+        expect(s.check).toBe(step.check);
         st = st.appending({ s: step.s, o: step.answer });
       }
       checkSummary(st, run.summary);

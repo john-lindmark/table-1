@@ -9,8 +9,9 @@ import kotlin.math.ln
 // undo, redo and watching never need repair. Same rules as the reference testdata/cube-ranking/make_cases.py, iOS
 // CubeRanking.swift and web cubeRanking.ts, checked against its cases.json by CubeRankingTest:
 // - A screen is 2-4 cards put in order, best first; every pair on it is known. A P1P1 pick ("P") is the picked card,
-//   then the rest of its pack: the picked card beats each of them. Knowledge is the transitive closure, applied in log
-//   order; a pair that contradicts what's known is skipped. It covers the cube's cards and every card in the log, so a
+//   then the rest of its pack: the picked card beats each of them. Knowledge is the transitive closure, applied final
+//   screens newest first, then the colors' screens, then picks (applyOrder); a pair that contradicts what's known is
+//   skipped. It covers the cube's cards and every card in the log, so a
 //   card that left the cube still carries what it settled; jobs and lists only hold the cube's cards.
 // - Cards added since the ranking last caught up with its cube ("fresh") wait outside the lists until they're placed
 //   (in a list with nothing placed yet they're simply part of what's left to sort).
@@ -19,6 +20,8 @@ import kotlin.math.ln
 // - The next screen: the cards nothing still in is known to beat (fewest known below, then a seeded hash), filled to
 //   four with cards unordered against the screen, nearest the top first; in the final, new colors first. When only two
 //   qualify it's a placement screen: one free card against up to three locked cards in known order.
+// - The final places a card only once its order against the rest is checked (RankSupport); until then the next screen
+//   is that check, and its answer wins over what the colors or a detour through another color had settled.
 
 /** A ranking job: a color of the cube (Group by color) or the final. [Pick] isn't a job: its screens are P1P1 picks. */
 enum class RankJob(val key: String, val title: String) {
@@ -101,7 +104,13 @@ class RankKnowledge private constructor(
     screens: Int, val perJob: MutableMap<String, Int>,
     /** Screen index → pairs it said that were skipped because the opposite was already known. */
     val contradicted: MutableMap<Int, List<Pair<Int, Int>>>,
+    /** The screens this knowledge was built from. */
+    private val screenLog: MutableList<RankScreen> = ArrayList(),
 ) {
+    val log: List<RankScreen> get() = screenLog
+    /** The final's support, kept up to date one screen at a time (built again when a check overturns an order). */
+    private var support: RankSupport? = null
+
     var screens = screens
         private set
 
@@ -111,7 +120,11 @@ class RankKnowledge private constructor(
     fun belowSet(x: Int) = w[x]
     fun known(a: Int, c: Int) = c in b[a]
 
-    fun copy() = RankKnowledge(ids, idx, Array(size) { b[it].copy() }, Array(size) { w[it].copy() }, screens, HashMap(perJob), HashMap(contradicted))
+    fun copy(): RankKnowledge = RankKnowledge(ids, idx, Array(size) { b[it].copy() }, Array(size) { w[it].copy() }, screens, HashMap(perJob), HashMap(contradicted),
+                               ArrayList(screenLog)).also { it.support = support?.copy() }
+
+    /** The same cards, nothing known (RankSupport's own orders). */
+    fun blank(): RankKnowledge = RankKnowledge(ids, idx, Array(size) { RankBits(size) }, Array(size) { RankBits(size) }, 0, HashMap(), HashMap())
 
     fun indexes(cards: List<String>): List<Int> {
         val xs = ArrayList<Int>()
@@ -132,15 +145,40 @@ class RankKnowledge private constructor(
         return out
     }
 
+    private fun build() {
+        for (x in 0 until size) { b[x] = RankBits(size); w[x] = RankBits(size) }
+        contradicted.clear()
+        perJob.clear()
+        support = null
+        for (s in screenLog) perJob[s.s] = (perJob[s.s] ?: 0) + 1
+        for (k in applyOrder(screenLog)) {
+            val skipped = pairs(screenLog[k]).filter { !add(it.first, it.second) }
+            if (skipped.isNotEmpty()) contradicted[k] = skipped
+        }
+        screens = screenLog.size
+    }
+
+    /** One more screen. A final screen that contradicts what's known wins (final screens apply newest first), so the
+     *  whole log is applied again; anything else gives the same answer added on its own. */
     fun apply(screen: RankScreen) {
+        screenLog += screen
+        val prs = pairs(screen)
+        if (screen.s == RankJob.Final.key && prs.any { known(it.second, it.first) }) { build(); return }
         perJob[screen.s] = (perJob[screen.s] ?: 0) + 1
-        val skipped = pairs(screen).filter { !add(it.first, it.second) }
+        val skipped = prs.filter { !add(it.first, it.second) }
         if (skipped.isNotEmpty()) contradicted[screens] = skipped
         screens++
+        support?.addScreen(this, screen)
+    }
+
+    /** The final's support for these colors (built once, then kept up to date by [apply]). */
+    fun supportFor(groups: IntArray): RankSupport {
+        support?.let { if (it.groups.contentEquals(groups)) return it }
+        return RankSupport(this, groups).also { support = it }
     }
 
     /** Learns a beats c; false when the opposite was already known (the pair is skipped). */
-    private fun add(a: Int, c: Int): Boolean {
+    fun add(a: Int, c: Int): Boolean {
         if (a in b[c]) return false
         if (c in b[a]) return true
         val ups = w[a].copy().also { it.add(a) }
@@ -157,9 +195,20 @@ class RankKnowledge private constructor(
         fun of(cards: Collection<String>, log: List<RankScreen> = emptyList()): RankKnowledge {
             val ids = (cards + log.flatMap { it.o }).map { it.lowercase() }.toSortedSet().toList()
             val k = RankKnowledge(ids, ids.withIndex().associate { it.value to it.index }, Array(ids.size) { RankBits(ids.size) },
-                                  Array(ids.size) { RankBits(ids.size) }, 0, HashMap(), HashMap())
-            log.forEach { k.apply(it) }
+                                  Array(ids.size) { RankBits(ids.size) }, 0, HashMap(), HashMap(), ArrayList(log))
+            k.build()
             return k
+        }
+
+        /** The order screens are applied in (2026-11-07): final screens newest first, then the colors' screens, then
+         *  picks, each in log order. Without a contradiction the order changes nothing (the closure is the same). With
+         *  one, a newer final screen wins over an older one and over a color's sort, so the final's checks can correct an
+         *  order the colors or a detour through another color settled. Picks stay last, so "Keep my ranking" still skips
+         *  a pick's disagreeing pairs. */
+        fun applyOrder(log: List<RankScreen>): List<Int> {
+            val f = RankJob.Final.key; val p = RankJob.Pick.key
+            return log.indices.reversed().filter { log[it].s == f } + log.indices.filter { log[it].s != f && log[it].s != p } +
+                log.indices.filter { log[it].s == p }
         }
     }
 }
@@ -167,7 +216,82 @@ class RankKnowledge private constructor(
 /** One job's state: who is placed, whether it's done, and the next screen. */
 class RankSession(val top: List<Int>, val done: Boolean, val target: Int, val size: Int, val question: List<Int>?, val pinned: List<Int>, val open: RankBits,
                   /** New cards that can still make the list and aren't placed yet: [top] leaves them out. */
-                  val waiting: List<Int> = emptyList())
+                  val waiting: List<Int> = emptyList(),
+                  /** The final's check: the next card to place against cards its order with hasn't been asked about directly. */
+                  val check: Boolean = false,
+                  /** Places checked from the top (the final; a color's list counts every place). `done` once it reaches the
+                   *  target; [top] shows every place the log settles, checked or not. */
+                  val checked: Int = 0)
+
+/** What the final needs before it places a card (2026-11-07): which orders a screen asked about directly. `met[x]` the
+ *  cards x was ordered against on any screen (a pick: the picked card and the rest), `metFinal[x]` on a final screen,
+ *  `won[x]` the cards x beat on a screen (and still beats); `color` the same-color order screens set directly (no detour
+ *  through another color), `sorted` the order the color's own screens set. */
+class RankSupport private constructor(
+    val groups: IntArray, private val met: Array<RankBits>, private val metFinal: Array<RankBits>, private val won: Array<RankBits>,
+    private val color: RankKnowledge, private val sorted: RankKnowledge,
+) {
+    constructor(K: RankKnowledge, groups: IntArray) : this(groups, Array(K.size) { RankBits(K.size) }, Array(K.size) { RankBits(K.size) },
+                                                          Array(K.size) { RankBits(K.size) }, K.blank(), K.blank()) {
+        for (sc in K.log) addScreen(K, sc)
+    }
+
+    fun copy(): RankSupport = RankSupport(groups, Array(met.size) { met[it].copy() }, Array(met.size) { metFinal[it].copy() }, Array(met.size) { won[it].copy() },
+                             color.copy(), sorted.copy())
+
+    /** One more screen of K's log (K already knows it). */
+    fun addScreen(K: RankKnowledge, sc: RankScreen) {
+        val f = RankJob.Final.key; val p = RankJob.Pick.key
+        for ((w, l) in K.pairs(sc)) {
+            met[w].add(l); met[l].add(w)
+            if (sc.s == f) { metFinal[w].add(l); metFinal[l].add(w) }
+            if (K.known(w, l)) {
+                won[w].add(l)
+                if (groups[w] == groups[l]) {
+                    color.add(w, l)
+                    if (sc.s != f && sc.s != p) sorted.add(w, l)
+                }
+            }
+        }
+    }
+
+    /** How many colors other than x's and y's have cards known between them. */
+    private fun thirdColors(K: RankKnowledge, x: Int, y: Int): Int {
+        val gs = HashSet<Int>()
+        for (m in K.beatsSet(x).members) if (m in K.belowSet(y) && groups[m] != groups[x] && groups[m] != groups[y]) gs += groups[m]
+        return gs.size
+    }
+
+    /** x is known to beat every other card in [u]. The cards it still needs a screen with, one per color at most: each
+     *  other color's best card still in (fewest known above it in u, then index) when its order against x went through a
+     *  third color (Novice Inspector over Colossal Dreadmask over Counterspell put 13 white cards above Counterspell in a
+     *  Pauper top 50 that never showed them together), and x's own color's best card when only the color's own screens
+     *  put x above it (a color sorted wrong holds its better cards back, then lets them out in a run). Checked: x met the
+     *  card on a screen; or, for another color, x (or a card of its color x is above, by that color's screens) beat a
+     *  card of the other color that is above it or is it, by that color's screens; or cards of two or more other colors
+     *  sit between them (Black Lotus over Minsc & Boo through blue and black cards needs no screen of its own). */
+    fun unchecked(K: RankKnowledge, x: Int, u: RankBits): RankBits {
+        val best = HashMap<Int, Pair<Int, Int>>()
+        for (y in u.members) {
+            if (y == x) continue
+            val g = groups[y]; val k = K.belowSet(y).andCount(u)
+            val cur = best[g]
+            if (cur == null || k < cur.first || (k == cur.first && y < cur.second)) best[g] = k to y
+        }
+        val reach by lazy { // worked out only when a card x never met needs it
+            val r = color.beatsSet(x).copy()
+            for (a in listOf(x) + color.beatsSet(x).members) for (c in won[a].members) { r.add(c); r.union(color.beatsSet(c)) }
+            r
+        }
+        val miss = RankBits(K.size)
+        for ((g, ky) in best) {
+            val y = ky.second
+            if (g == groups[x]) { if (sorted.known(x, y) && y !in metFinal[x]) miss.add(y) }
+            else if (y !in met[x] && y !in reach && thirdColors(K, x, y) < 2) miss.add(y)
+        }
+        return miss
+    }
+}
 
 object CubeRanking {
     const val PACK_SIZE = 15
@@ -213,6 +337,14 @@ object CubeRanking {
         for (x in inScope) if (K.belowSet(x).andCount(scope) < T) live.add(x)
         val u = live.copy()
         val full = ranked(K, u, T)
+        var sure = full.size
+        var stuck: Pair<Int, RankBits>? = null
+        var left = u
+        if (groups != null) {
+            left = live.copy()
+            val (good, why) = checked(K, left, T, K.supportFor(groups))
+            sure = good.size; stuck = why
+        }
         val placed = full.toSet()
         var waiting = if (fresh == null) emptyList() else live.members.filter { it in fresh && it !in placed }
         var top = full
@@ -223,10 +355,11 @@ object CubeRanking {
             // A list with nothing placed yet: new cards are simply part of what's left to sort.
             if (top.isEmpty()) { top = full; waiting = emptyList() }
         }
-        if (full.size >= T) return RankSession(top, true, T, n, null, emptyList(), u, waiting)
+        if (sure >= T) return RankSession(top, true, T, n, null, emptyList(), u, waiting, checked = sure)
 
         val hashes = HashMap<Int, Long>()
         fun h(x: Int) = hashes.getOrPut(x) { fnv1a("$seed:${K.ids[x]}") }
+        if (stuck != null && groups != null) return RankSession(top, false, T, n, checkScreen(K, left, stuck.first, stuck.second, groups, ::h), emptyList(), u, waiting, true, sure)
         val open = u.members
         val cands = open.filter { !K.belowSet(it).intersects(u) }
         val sortedCands = cands.sortedWith(compareBy<Int>({ K.beatsSet(it).andCount(u) }, { h(it) }, { it }))
@@ -239,7 +372,32 @@ object CubeRanking {
         }
         var pinned = emptyList<Int>()
         if (picked.size == 2) placement(K, u, picked[0], picked[1], ::h).let { picked = it.first; pinned = it.second }
-        return RankSession(top, false, T, n, picked, pinned, u, waiting)
+        return RankSession(top, false, T, n, picked, pinned, u, waiting, checked = sure)
+    }
+
+    /** ranked() for the final: a card known to beat every other card still in is placed only once its order against them
+     *  is checked (RankSupport.unchecked). Returns the places and, when it stops at one, the card and its unchecked cards. */
+    private fun checked(K: RankKnowledge, u: RankBits, T: Int, support: RankSupport): Pair<List<Int>, Pair<Int, RankBits>?> {
+        val top = ArrayList<Int>()
+        while (top.size < T) {
+            val x = ranked(K, u.copy(), 1).firstOrNull() ?: break
+            val miss = support.unchecked(K, x, u)
+            if (miss.members.isNotEmpty()) return top to (x to miss)
+            top += x
+            u.remove(x)
+        }
+        return top to null
+    }
+
+    /** The check: x with up to three of the cards it hasn't been checked against: its own color's next card first, then
+     *  other colors' cards nearest the top, one per color first. Nothing is locked: the answer is new and wins. */
+    private fun checkScreen(K: RankKnowledge, u: RankBits, x: Int, miss: RankBits, groups: IntArray, h: (Int) -> Long): List<Int> {
+        val ys = miss.members.sortedWith(compareBy<Int>({ K.belowSet(it).andCount(u) }, { h(it) }, { it }))
+        val picked = mutableListOf(x)
+        picked += ys.filter { groups[it] == groups[x] }.take(1)
+        for (y in ys) if (picked.size < 4 && y !in picked && picked.none { groups[it] == groups[y] }) picked += y
+        for (y in ys) if (picked.size < 4 && y !in picked) picked += y
+        return picked
     }
 
     private fun choose(K: RankKnowledge, order: List<Int>, groups: IntArray?, start: List<Int>): List<Int> {
@@ -303,7 +461,7 @@ object CubeRanking {
             for (t in 0..T) for (k in 0..minOf(s, t)) g[t] += f[t - k] * C[t][k]
             f = g
         }
-        return ceil(1.78 * log2(f[T]) / log2(24.0)).toInt()
+        return ceil(4.9 * log2(f[T]) / log2(24.0)).toInt()
     }
 
     data class Link(val winner: String, val loser: String, val screen: Int)

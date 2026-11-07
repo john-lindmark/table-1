@@ -23,6 +23,11 @@ The engine is pure: everything comes from the ranking's screen log, so undo, red
   ever have a known order, so a screen can't contradict earlier ones. In the final, cards from colors not already on the
   screen come first. When only two cards qualify, the screen is a placement: one free card against up to three
   cards whose order is known, locked (see placement()).
+- The final checks before it places (2026-11-07, see Support and checked()): a card is placed once its order against each
+  other color's best card still in was asked on a screen (directly or through cards of its own and that color only, or
+  backed by two other colors), and against its own color's next card on a final screen. Until then the next screen is
+  that check, and its answer wins: final screens apply newest first (apply_order). The list shows every settled place;
+  `checked` counts the checked ones and `done` waits for them.
 """
 import json
 import math
@@ -64,17 +69,18 @@ class Knowledge:
         self.ids = sorted(set(cards) | {c for sc in screens for c in sc["o"]})
         self.idx = {c: i for i, c in enumerate(self.ids)}
         n = len(self.ids)
+        self.log = list(screens)
         self.beats = [0] * n   # beats[x]: cards x is known to beat
         self.below = [0] * n   # below[x]: cards known to beat x
         self.per_session = {}
         self.contradicted = {}  # screen index -> [(winner, loser)] pairs skipped because the opposite was known
-        self.screens = 0
+        self.screens = len(screens)
         for sc in screens:
             self.per_session[sc["s"]] = self.per_session.get(sc["s"], 0) + 1
-            skipped = [(w, l) for w, l in pairs(self, sc) if not self.add(w, l)]
+        for k in apply_order(screens):
+            skipped = [(w, l) for w, l in pairs(self, screens[k]) if not self.add(w, l)]
             if skipped:
-                self.contradicted[self.screens] = skipped
-            self.screens += 1
+                self.contradicted[k] = skipped
 
     def add(self, a, b):
         """Learns a beats b; False when the opposite was already known (the pair is skipped)."""
@@ -92,6 +98,17 @@ class Knowledge:
 
     def known(self, a, b):
         return bool(self.beats[a] >> b & 1)
+
+
+def apply_order(screens):
+    """The order screens are applied in (2026-11-07): final screens newest first, then the colors' screens, then picks,
+    each in log order. Without a contradiction the order changes nothing (the closure is the same). With one, a newer
+    final screen wins over an older one and over a color's sort: the final's checks (see checked()) can correct an
+    order the colors or a detour settled. Picks stay last, so "Keep my ranking" still skips a pick's disagreeing pairs."""
+    finals = [k for k in range(len(screens) - 1, -1, -1) if screens[k]["s"] == FINAL]
+    colors = [k for k, sc in enumerate(screens) if sc["s"] not in (FINAL, PICK)]
+    picks = [k for k, sc in enumerate(screens) if sc["s"] == PICK]
+    return finals + colors + picks
 
 
 def indexes(K, cards):
@@ -128,10 +145,109 @@ def ranked(K, U, T):
     return top, U
 
 
+class Support:
+    """What the final needs before it places a card (2026-11-07): which orders a screen asked about directly. Built from
+    the log: `met[x]` the cards x was ordered against on any screen (a pick: the picked card and the rest), `met_final[x]`
+    on a final screen, `won[x]` the cards x beat on a screen (and still beats); `color` the same-color order screens set
+    directly (no detour through another color), `sorted` the order the color's own screens set."""
+
+    def __init__(self, K, groups):
+        n = len(K.ids)
+        self.groups = groups
+        self.met, self.met_final, self.won = [0] * n, [0] * n, [0] * n
+
+        def blank():
+            k = Knowledge([], [])
+            k.ids, k.idx, k.beats, k.below = K.ids, K.idx, [0] * n, [0] * n
+            return k
+
+        self.color, self.sorted = blank(), blank()
+        for sc in K.log:
+            for w, l in pairs(K, sc):
+                self.met[w] |= 1 << l
+                self.met[l] |= 1 << w
+                if sc["s"] == FINAL:
+                    self.met_final[w] |= 1 << l
+                    self.met_final[l] |= 1 << w
+                if K.known(w, l):
+                    self.won[w] |= 1 << l
+                    if groups[w] == groups[l]:
+                        self.color.add(w, l)
+                        if sc["s"] not in (FINAL, PICK):
+                            self.sorted.add(w, l)
+
+    def unchecked(self, K, x, U):
+        """x is known to beat every other card in U. The cards it still needs a screen with, one per color at most:
+        each other color's best card still in (fewest known above it in U, then index) when its order against x went
+        through a third color (Novice Inspector over Colossal Dreadmask over Counterspell put 13 white cards above
+        Counterspell in a Pauper top 50 that never showed them together), and x's own color's best card when only the
+        color's own screens put x above it (a color sorted wrong holds its better cards back, then lets them out in a
+        run). Checked: x met the card on a screen; or, for another color, x (or a card of its color x is above, by
+        that color's screens) beat a card of the other color that is above it or is it, by that color's screens; or
+        cards of two or more other colors sit between them (Black Lotus over Minsc & Boo through blue and black cards
+        needs no screen of its own)."""
+        rest = U & ~(1 << x)
+        best = {}
+        for y in bits(rest):
+            g = self.groups[y]
+            k = (pop(K.below[y] & U), y)
+            if g not in best or k < best[g][0]:
+                best[g] = (k, y)
+        C = self.color
+        reach = C.beats[x] | self.met[x]
+        for a in [x] + list(bits(C.beats[x])):
+            for b in bits(self.won[a]):
+                reach |= 1 << b | C.beats[b]
+        miss = 0
+        for g, (_, y) in best.items():
+            if g == self.groups[x]:
+                if self.sorted.known(x, y) and not self.met_final[x] >> y & 1:
+                    miss |= 1 << y
+            elif not reach >> y & 1 and len({self.groups[m] for m in bits(K.beats[x] & K.below[y])} - {self.groups[x], g}) < 2:
+                miss |= 1 << y
+        return miss
+
+
+def checked(K, U, T, sup):
+    """ranked() for the final: a card known to beat every other card still in is placed only once its order against
+    them has been checked (Support.unchecked). Returns (places, what's left, (the card, its unchecked cards) or None)."""
+    top = []
+    while len(top) < T:
+        found = None
+        for x in bits(U):
+            if (U & ~(1 << x)) & ~K.beats[x] == 0:
+                found = x
+                break
+        if found is None:
+            break
+        miss = sup.unchecked(K, found, U)
+        if miss:
+            return top, U, (found, miss)
+        top.append(found)
+        U &= ~(1 << found)
+    return top, U, None
+
+
+def check_screen(K, U, x, miss, groups, h):
+    """The check: x with up to three of the cards it hasn't been checked against: its own color's next card first,
+    then other colors' cards nearest the top, one per color first. Nothing is locked: the answer is new and wins."""
+    ys = sorted(bits(miss), key=lambda y: (pop(K.below[y] & U), h(y), y))
+    picked = [x] + [y for y in ys if groups[y] == groups[x]][:1]
+    for y in ys:
+        if len(picked) < 4 and y not in picked and groups[y] not in {groups[p] for p in picked}:
+            picked.append(y)
+    for y in ys:
+        if len(picked) < 4 and y not in picked:
+            picked.append(y)
+    return picked
+
+
 def session(K, scope, target, seed, groups=None, new=0):
     """One job: scope is a bitmask of card indexes; groups maps a card index to its color (final only); new is the
     cube's new cards (bitmask). The list (`top`) leaves out new cards still waiting to be placed (`waiting`); the
-    screens and `done` count every card."""
+    screens and `done` count every card. The final's list shows every place the log settles, but it's done only once
+    `checked` reaches the target: places are checked from the top (checked()), and until the next one is, the next
+    screen is its check (`check`)."""
     n = pop(scope)
     T = min(target, n)
     live = 0
@@ -139,14 +255,20 @@ def session(K, scope, target, seed, groups=None, new=0):
         if pop(K.below[x] & scope) < T:
             live |= 1 << x
     top, U = ranked(K, live, T)
-    done = len(top) >= T
+    sure, stuck = len(top), None
+    if groups is not None:
+        good, left, stuck = checked(K, live, T, Support(K, groups))
+        sure = len(good)
+    done = sure >= T
     waiting = [x for x in bits(new & live) if x not in top]
     shown = ranked(K, live & ~new | sum(1 << x for x in bits(new & live) if x in top), T)[0] if waiting else top
     if not shown:  # a list with nothing placed yet: new cards are simply part of what's left to sort
         waiting, shown = [], top
     question, pinned = None, []
-    if not done:
-        h = lambda x: fnv1a(seed + ":" + K.ids[x])
+    h = lambda x: fnv1a(seed + ":" + K.ids[x])
+    if not done and stuck:
+        question = check_screen(K, left, stuck[0], stuck[1], groups, h)
+    elif not done:
         cands = [x for x in bits(U) if K.below[x] & U == 0]
         cands.sort(key=lambda x: (pop(K.beats[x] & U), h(x), x))
         picked = choose(K, cands, groups, [])
@@ -158,7 +280,7 @@ def session(K, scope, target, seed, groups=None, new=0):
         if len(picked) == 2:
             question, pinned = placement(K, U, picked[0], picked[1], h)
     return {"top": shown, "done": done, "target": T, "size": n, "question": question, "pinned": pinned, "open": U,
-            "waiting": waiting}
+            "waiting": waiting, "check": bool(stuck) and not done, "checked": sure}
 
 
 def placement(K, U, a, b, h):
@@ -292,7 +414,7 @@ def expected_merge(sizes, top):
             for k in range(0, min(s, t) + 1):
                 g[t] += f[t - k] * C[t][k]
         f = g
-    return math.ceil(1.78 * math.log2(f[T]) / LOG2_24)
+    return math.ceil(4.9 * math.log2(f[T]) / LOG2_24)  # 1.78 before the final's checks (2026-11-07)
 
 
 # ---- explaining a place ----
@@ -447,9 +569,11 @@ def truth(cards, salt):
     return sorted(cards, key=lambda c: fnv1a(salt + c))
 
 
-def simulate(ranking_id, cards, cats, depth, top_size, order_of_jobs, true_order, stop_after=None):
-    """Answers every screen by true_order; records each step for the clients to replay."""
+def simulate(ranking_id, cards, cats, depth, top_size, order_of_jobs, true_order, stop_after=None, final_order=None):
+    """Answers every screen by true_order (the final's by final_order when given: a ranker who changes their mind, so
+    the final's checks overturn what the colors said); records each step for the clients to replay."""
     rank = {c: i for i, c in enumerate(true_order)}
+    final_rank = {c: i for i, c in enumerate(final_order or true_order)}
     log, steps = [], []
     for key in order_of_jobs:
         count = 0
@@ -459,9 +583,9 @@ def simulate(ranking_id, cards, cats, depth, top_size, order_of_jobs, true_order
             if st["done"] or (stop_after and key in stop_after and count >= stop_after[key]):
                 break
             q = [K.ids[x] for x in st["question"]]
-            answer = sorted(q, key=lambda c: rank[c])
+            answer = sorted(q, key=lambda c: (final_rank if key == FINAL else rank)[c])
             steps.append({"s": key, "at": len(log), "question": q, "pinned": [K.ids[x] for x in st["pinned"]],
-                          "answer": answer})
+                          "check": st["check"], "answer": answer})
             log.append({"s": key, "o": answer})
             count += 1
     return log, steps
@@ -477,7 +601,8 @@ def summary(K, cats, ranking_id, depth, top_size, new_cards=()):
                     "waiting": [K.ids[x] for x in st["waiting"]],
                     "size": st["size"], "screens": K.per_session.get(key, 0),
                     "question": [K.ids[x] for x in st["question"]] if st["question"] else None,
-                    "pinned": [K.ids[x] for x in st["pinned"]] if st["question"] else None}
+                    "pinned": [K.ids[x] for x in st["pinned"]] if st["question"] else None, "check": st["check"],
+                    "checked": st["checked"]}
     return out
 
 
@@ -501,7 +626,7 @@ def main():
             q = [K.ids[x] for x in st["question"]]
             ans = sorted(q, key=lambda c: rank_b[c])
             steps_b.append({"s": key, "at": len(log_b), "question": q, "pinned": [K.ids[x] for x in st["pinned"]],
-                            "answer": ans})
+                            "check": st["check"], "answer": ans})
             log_b.append({"s": key, "o": ans})
 
     # D and E: the top quarter and the top third of each color, then the final (exact either way).
@@ -513,6 +638,18 @@ def main():
     log_t, steps_t = simulate(t_id, cards, cats, "third", top, SESSIONS + [FINAL], true_q)
     sum_t = summary(Knowledge(cards, log_t), cats, t_id, "third", top)
     assert sum_t[FINAL]["top"] == true_q[:top]
+
+    # G: a ranker whose final disagrees with their colors here and there (cards up to ten places apart swap): the final's
+    # checks put those orders right, newest answer first, and the final still ends with the final answers' top N.
+    g_id = "a1b2c3d4-0000-4000-8000-00000000000f"
+    true_g = truth(cards, "g:")
+    shift = {c: i + (fnv1a("shift:" + c) % 11) - 5 for i, c in enumerate(true_g)}
+    final_g = sorted(true_g, key=lambda c: (shift[c], c))
+    log_g, steps_g = simulate(g_id, cards, cats, "quarter", top, SESSIONS + [FINAL], true_g, final_order=final_g)
+    Kg = Knowledge(cards, log_g)
+    sum_g = summary(Kg, cats, g_id, "quarter", top)
+    assert any(st["check"] for st in steps_g) and Kg.contradicted, "run G overturns orders through checks"
+    contradicted_g = {str(k): [[Kg.ids[w], Kg.ids[l]] for w, l in v] for k, v in sorted(Kg.contradicted.items())}
 
     Ka, Kb = Knowledge(cards, log_a), Knowledge(cards, log_b)
     sum_a = summary(Ka, cats, a_id, "half", top)
@@ -586,7 +723,7 @@ def main():
             q = [K.ids[x] for x in st["question"]]
             ans = sorted(q, key=lambda c: rank_c[c])
             steps_c.append({"s": key, "at": len(log_c), "question": q, "pinned": [K.ids[x] for x in st["pinned"]],
-                            "answer": ans})
+                            "check": st["check"], "answer": ans})
             log_c.append({"s": key, "o": ans})
     picks(4, contrary)
     Kc = Knowledge(cards, log_c)
@@ -628,7 +765,7 @@ def main():
             q = [K.ids[x] for x in st["question"]]
             ans = sorted(q, key=lambda c: rank_d[c])
             steps_d.append({"s": key, "at": len(log_d), "question": q, "pinned": [K.ids[x] for x in st["pinned"]],
-                            "answer": ans, "waiting": [K.ids[x] for x in st["waiting"]], "top": [K.ids[x] for x in st["top"]]})
+                            "check": st["check"], "answer": ans, "waiting": [K.ids[x] for x in st["waiting"]], "top": [K.ids[x] for x in st["top"]]})
             log_d.append({"s": key, "o": ans})
     Kd = Knowledge(cards_d, log_d)
     cube_change = {
@@ -650,6 +787,7 @@ def main():
             {"id": c_id, "depth": "half", "top": top, "steps": steps_c, "summary": sum_c, "contradicted": contradicted},
             {"id": q_id, "depth": "quarter", "top": top, "steps": steps_q, "summary": sum_q},
             {"id": t_id, "depth": "third", "top": top, "steps": steps_t, "summary": sum_t},
+            {"id": g_id, "depth": "quarter", "top": top, "steps": steps_g, "summary": sum_g, "contradicted": contradicted_g},
         ],
         "pickWins": win,
         "compare": comparisons,

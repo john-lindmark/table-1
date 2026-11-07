@@ -355,7 +355,9 @@ export class RankingModel {
     }
     const st = this.state;
     const screen: RankScreen = { s: job, o: order.map((x) => st.id(x)), t: now() };
-    const wasDone = st.session(job).done;
+    const was = st.session(job), wasDone = was.done;
+    // The final's check (contract § Checks in the final): did the answer overturn an order the log had settled?
+    if (was.check) capture("ranking_check", { overturned: st.knowledge.pairs(screen).some(([w, l]) => st.knowledge.known(l, w)) });
     this.log = [...this.log, screen];
     this.reask = null;
     const next = st.appending(screen);

@@ -47,6 +47,8 @@ class CubeRankingTest {
             assertEquals("$label $key question", strings(w["question"]), s.question?.map(st::id))
             strings(w["pinned"])?.let { assertEquals("$label $key pinned", it, s.pinned.map(st::id)) }
             assertEquals("$label $key waiting", strings(w["waiting"]) ?: emptyList<String>(), s.waiting.map(st::id))
+            assertEquals("$label $key check", (w["check"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "true", s.check)
+            assertEquals("$label $key checked", w["checked"]?.jsonPrimitive?.int, s.checked)
         }
     }
 
@@ -104,6 +106,7 @@ class CubeRankingTest {
                 val s = st.session(job)
                 assertEquals("$id screen ${step["at"]}", strings(step["question"]), s.question?.map(st::id))
                 assertEquals("$id pinned ${step["at"]}", strings(step["pinned"]), s.pinned.map(st::id))
+                assertEquals("$id check ${step["at"]}", (step["check"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "true", s.check)
                 st = st.appending(RankScreen(job.key, answer))
             }
             checkSummary(st, run["summary"]!!.jsonObject, id)

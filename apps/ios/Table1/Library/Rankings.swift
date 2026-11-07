@@ -658,7 +658,11 @@ final class RankingModel {
             return
         }
         let screen = RankScreen(s: job.rawValue, o: order.map(state.id), t: Self.now)
-        let wasDone = state.session(job).done
+        let was = state.session(job), wasDone = was.done
+        // The final's check (contract § Checks in the final): did the answer overturn an order the log had settled?
+        if was.check {
+            Telemetry.capture("ranking_check", ["overturned": state.knowledge.pairs(screen).contains { state.knowledge.known($0.1, $0.0) }])
+        }
         pending.adds.append(screen)
         log.append(screen)
         reask = nil

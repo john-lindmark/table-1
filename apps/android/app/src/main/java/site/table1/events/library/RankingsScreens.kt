@@ -404,17 +404,20 @@ fun RankingPickScreen(id: String, job: RankJob, onBack: () -> Unit, go: (String)
         val qq = q ?: return@Frame
         val s = qq.session; val used = st.knowledge.perJob[job.key] ?: 0; val label = if (job == RankJob.Final) "Final" else job.title
         val placing = s.waiting.isNotEmpty()
+        val place = (if (s.check) s.checked else s.top.size) + 1
+        // Only checks left (every place is settled): about one screen per place still to check.
+        val toGo = if (s.top.size >= s.target) maxOf(1, s.target - s.checked) else maxOf(1, st.expected(job) - used)
         Column(Modifier.fillMaxWidth().background(T1.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (!m.mine) Label("Watching ${m.row?.by?.displayName ?: "someone"}'s ranking live")
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text(if (s.done) "✓" else if (placing) "+${s.waiting.size}" else "#${s.top.size + 1}", color = T1.accent, fontFamily = T1.mono, fontSize = 44.sp, fontWeight = FontWeight.Bold)
+                Text(if (s.done) "✓" else if (placing) "+${s.waiting.size}" else "#$place", color = T1.accent, fontFamily = T1.mono, fontSize = 44.sp, fontWeight = FontWeight.Bold)
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Label(if (s.done) "$label · done" else if (placing) "$label · placing new cards" else "$label · deciding #${s.top.size + 1} of the top ${s.target}", color = T1.text)
+                    Label(if (s.done) "$label · done" else if (placing) "$label · placing new cards" else "$label · ${if (s.check) "checking" else "deciding"} #$place of the top ${s.target}", color = T1.text)
                     Text(if (placing) "${plural(s.waiting.size, "new card")} to place; your order stays as it is" else "${s.top.size} of the top ${s.target} (${plural(s.size, "card")}) placed",
                         color = T1.muted, fontFamily = T1.mono, fontSize = 12.sp)
                     Text(if (s.done) "Done in ${plural(used, "screen")}"
                          else if (placing) "Screen ${st.knowledge.screens + 1} of this ranking · only the new cards are asked about"
-                         else "Screen ${st.knowledge.screens + 1} of this ranking · about ${maxOf(1, st.expected(job) - used)} to go in $label",
+                         else "Screen ${st.knowledge.screens + 1} of this ranking · about $toGo to go in $label",
                         color = T1.muted, fontFamily = T1.mono, fontSize = 11.sp)
                 }
             }

@@ -42,6 +42,8 @@ final class CubeRankingTests: XCTestCase {
             XCTAssertEqual(s.question?.map(st.id), w["question"] as? [String], "\(label) \(key) question")
             if let p = w["pinned"] as? [String] { XCTAssertEqual(s.pinned.map(st.id), p, "\(label) \(key) pinned") }
             XCTAssertEqual(s.waiting.map(st.id), w["waiting"] as? [String] ?? [], "\(label) \(key) waiting")
+            XCTAssertEqual(s.check, w["check"] as? Bool ?? false, "\(label) \(key) check")
+            XCTAssertEqual(s.checked, w["checked"] as? Int ?? -1, "\(label) \(key) checked")
         }
     }
 
@@ -104,6 +106,7 @@ final class CubeRankingTests: XCTestCase {
                 let s = st.session(job)
                 XCTAssertEqual(s.question?.map(st.id), step["question"] as? [String], "\(run["id"]!) screen \(step["at"]!)")
                 XCTAssertEqual(s.pinned.map(st.id), step["pinned"] as! [String], "\(run["id"]!) pinned \(step["at"]!)")
+                XCTAssertEqual(s.check, step["check"] as? Bool ?? false, "\(run["id"]!) check \(step["at"]!)")
                 st = st.appending(RankScreen(s: job.rawValue, o: step["answer"] as! [String]))
             }
             checkSummary(st, run["summary"] as! [String: Any], run["id"] as! String)
