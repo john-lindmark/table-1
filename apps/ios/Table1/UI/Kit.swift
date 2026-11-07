@@ -136,10 +136,16 @@ struct BigAction: View {
                 .frame(maxWidth: .infinity).padding(.vertical, 26)
                 .background(on ? (accent ? T1.accent : T1.text) : T1.disabled)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FlatPress())
         .disabled(!on)
         .sensoryFeedback(.impact, trigger: busy)
     }
+}
+
+/// For buttons that draw their own disabled fill (Neutral_3): the plain style also fades a disabled
+/// button to about half opacity, which the design rule forbids (design guidance § 4, "never opacity").
+struct FlatPress: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View { configuration.label }
 }
 
 struct Ghost: View {

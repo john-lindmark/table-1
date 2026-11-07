@@ -540,7 +540,7 @@ struct LibraryDemoRoot: View {
         }
     }
 
-    /// Design QA: `-T1LibraryDemo allcards|add|search|zone|zonepick|oldcommander|newdeck|import|trades|trade|tradewants|binders|binder|wants|card|deckcard|deckprinting|bindercard|binderprinting|onecard|deck|cube|
+    /// Design QA: `-T1LibraryDemo allcards|add|deckadd|cubeadd|binderadd|search|zone|zonepick|oldcommander|newdeck|import|trades|trade|tradewants|binders|binder|wants|card|deckcard|deckprinting|bindercard|binderprinting|onecard|deck|cube|
     /// deckstats|cubestats|hand|odds|pack|friends|profile|sharing|matches|match|me` opens that screen (deck and cube: the fixture's first of each; stats, sample
     /// hand, draw odds and sample pack on it; `-T1ListExport arena|moxfield|mtgo|text|cubecobra` then exports it).
     /// `import` with `-T1ImportFile <path>` reads that file as if it had been picked.
@@ -579,6 +579,16 @@ struct LibraryDemoRoot: View {
         case "trades": return [.trades]
         case "binders": return [.binders]
         case "binder": return [.binders, .binder("d0000000-0000-0000-0000-00000000b001")]
+        case "binderadd":
+            // A binder's Add cards panel (`-T1AddQuery <q>` types a search; `-T1AddPick YES` adds the top hit new).
+            T1Overlays.shared.present(full: true) { BinderAddPanel(binderId: "d0000000-0000-0000-0000-00000000b001") }
+            return [.binders, .binder("d0000000-0000-0000-0000-00000000b001")]
+        case "deckadd", "cubeadd":
+            // A deck's or cube's Add cards screen. `-T1AddQuery <q>` types in Card to add, `-T1RemoveQuery <q>` in Remove
+            // or replace, `-T1AddPick YES` picks the top hit of each (both: Replace).
+            let kind: CardList.Kind = args[i + 1] == "cubeadd" ? .cube : .deck
+            guard let l = ListsStore.shared.lists.first(where: { $0.kind == kind }) else { return [] }
+            return [.lists(kind), .list(l.id), .listAdd(l.id)]
         case "wants": return [.wants]
         case "buywants": return [.wants, .buy(.wants)]
         case "buymissing": return [.wants, .buy(.missing)]

@@ -1761,6 +1761,10 @@ struct ListAddCardsView: View {
     @State private var note: String?
     @FocusState private var addFocused: Bool
     @FocusState private var removeFocused: Bool
+    #if DEBUG
+    /// Design QA (`-T1LibraryDemo deckadd|cubeadd`): each box's demo pick happens once.
+    @State private var demoPicked: Set<String> = []
+    #endif
 
     var body: some View {
         let list = ListsStore.shared.list(id: listId)
@@ -1794,6 +1798,13 @@ struct ListAddCardsView: View {
         }
         .onAppear {
             catalog.load(userInitiated: true)
+            #if DEBUG
+            // Design QA: `-T1AddQuery <q>` / `-T1RemoveQuery <q>` type in the boxes, `-T1AddPick YES` picks their top hits.
+            if addQuery.isEmpty, let q = UserDefaults.standard.string(forKey: "T1AddQuery") { addQuery = q }
+            if removeQuery.isEmpty, let q = UserDefaults.standard.string(forKey: "T1RemoveQuery") { removeQuery = q }
+            // No keyboard over the rows when a demo query is typed.
+            if UserDefaults.standard.string(forKey: "T1AddQuery") != nil || UserDefaults.standard.string(forKey: "T1RemoveQuery") != nil { return }
+            #endif
             addFocused = true
         }
         .task(id: "\(addQuery)-\(catalog.generation)") {
@@ -1803,11 +1814,18 @@ struct ListAddCardsView: View {
             if Task.isCancelled { return }
             let found = await Task.detached(priority: .userInitiated) { await CardSearchEngine.run(q, db) }.value
             if !Task.isCancelled { result = found }
+            #if DEBUG
+            if !q.isEmpty, UserDefaults.standard.bool(forKey: "T1AddPick"), demoPicked.insert("add").inserted { pickTopHit() }
+            #endif
         }
         .task(id: "\(catalog.generation)-\(list?.current?.number ?? 0)-\(list?.entries.count ?? 0)-\(list?.entries.reduce(0) { $0 + $1.qty } ?? 0)") {
             guard let db = catalog.db, let list else { return }
             let entries = list.entries, kind = list.kind
             lines = await Task.detached(priority: .userInitiated) { ListLine.resolve(entries, kind: kind, db) }.value
+            #if DEBUG
+            if !removeQuery.isEmpty, UserDefaults.standard.bool(forKey: "T1AddPick"),
+               let first = ListLine.matching(lines, removeQuery).first, demoPicked.insert("remove").inserted { pickRemove(first) }
+            #endif
         }
     }
 
@@ -1831,7 +1849,7 @@ struct ListAddCardsView: View {
                 .background(enabled ? T1.text : T1.disabled)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FlatPress())
         .disabled(!enabled)
         .sensoryFeedback(.impact, trigger: note)
     }

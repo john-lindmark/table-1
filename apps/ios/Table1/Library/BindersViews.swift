@@ -351,6 +351,9 @@ struct BinderAddPanel: View {
     @AppStorage("library.addCondition") private var addCondition = "NM"
     @AppStorage("library.addLang") private var addLang = "en"
     @FocusState private var focused: Bool
+    #if DEBUG
+    @State private var demoAdded = false
+    #endif
 
     private var target: String { binderId.flatMap { store.binder($0)?.name } ?? "Unsorted" }
 
@@ -381,7 +384,13 @@ struct BinderAddPanel: View {
             }
             BigAction(text: "Done", accent: false) { T1Overlays.shared.dismissPanel() }
         }
-        .onAppear { focused = true }
+        .onAppear {
+            #if DEBUG
+            // Design QA (`-T1LibraryDemo binderadd`): `-T1AddQuery <q>` types a search, `-T1AddPick YES` adds the top hit new.
+            if query.isEmpty, let q = UserDefaults.standard.string(forKey: "T1AddQuery") { query = q; return }
+            #endif
+            focused = true
+        }
         .task(id: "\(query)-\(catalog.generation)") {
             catalog.load(userInitiated: true)
             guard let db = catalog.db else { return }
@@ -390,6 +399,12 @@ struct BinderAddPanel: View {
             if Task.isCancelled { return }
             let found = await Task.detached(priority: .userInitiated) { await CardSearchEngine.run(q, db) }.value
             if !Task.isCancelled { hits = found.hits; covers = found.covers; result = found }
+            #if DEBUG
+            if !q.isEmpty, last == nil, !demoAdded, UserDefaults.standard.bool(forKey: "T1AddPick"), let o = found.hits.first {
+                demoAdded = true
+                addNew(o)
+            }
+            #endif
         }
         .task(id: "\(col.version)-\(catalog.generation)") {
             guard let db = catalog.db else { return }
