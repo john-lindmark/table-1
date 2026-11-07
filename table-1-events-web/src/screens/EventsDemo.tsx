@@ -23,7 +23,14 @@ function pod(n: number, id = `pod${n}`): SeatingPod {
 
 const people: Participant[] = NAMES.map((n, i) => ({
   id: `p${i + 1}`, eventId: "demo", podId: "pod8", displayName: n, seat: i + 1, status: "active", droppedInRound: null,
+  // Accounts, so a tap opens the demo profile (lib/personLink.ts); the last player is a guest.
+  userId: demoUser(i + 1),
 }));
+
+/** Seat n's account, so a tap opens the demo profile (lib/personLink.ts); the last seat is a guest. */
+function demoUser(n: number): string | null {
+  return n < NAMES.length ? `d0000000-0000-0000-0000-0000000e${String(n).padStart(4, "0")}` : null;
+}
 
 /** An 8-player draft in round 2 of 3, round 1 played, in event_bundle's wire shape. A `team` bundle is a 3v3 team
  *  draft after round 1 with two of round 2's matches in: Alpha has 5 of 9 match wins, so it has clinched. */
@@ -57,7 +64,7 @@ function liveBundle(team = false) {
       },
       participants: ids.map((i) => ({
         id: `p${i}`, event_id: E, pod_id: "pod8", display_name: NAMES[i - 1], seat: i, status: "active", dropped_in_round: null,
-        team_id: i <= 3 ? "tA" : "tB", team_slot: ((i - 1) % 3) + 1, user_id: null, created_at: "2026-10-22T18:00:00Z",
+        team_id: i <= 3 ? "tA" : "tB", team_slot: ((i - 1) % 3) + 1, user_id: demoUser(i), created_at: "2026-10-22T18:00:00Z",
       })),
       rounds: [
         round(1, "recorded", [match(1, 1, 1, 5, 2, 1, "confirmed"), match(1, 2, 2, 6, 2, 0, "confirmed"), match(1, 3, 3, 4, 2, 1, "confirmed")]),
@@ -75,7 +82,7 @@ function liveBundle(team = false) {
     },
     participants: NAMES.map((n, i) => ({
       id: `p${i + 1}`, event_id: E, pod_id: "pod8", display_name: n, seat: i + 1, status: "active", dropped_in_round: null,
-      team_id: null, team_slot: null, user_id: null, created_at: "2026-10-22T18:00:00Z",
+      team_id: null, team_slot: null, user_id: demoUser(i + 1), created_at: "2026-10-22T18:00:00Z",
     })),
     rounds: [
       round(1, "completed", [match(1, 1, 1, 5, 2, 0, "confirmed"), match(1, 2, 2, 6, 2, 1, "confirmed"),

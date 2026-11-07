@@ -95,7 +95,7 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube }: {
   const row = (r: RankingRow) => (
     <Row key={r.id} title={rankingTitle(r)} onClick={() => onOpen(r.id)} value={shortDate(r.updated_at) ?? undefined}
          detail={[listId == null ? r.cube?.name : null, progressText(r)].filter(Boolean).join(" · ")}
-         avatar={r.mine ? undefined : <Avatar name={r.by?.display_name ?? "?"} userId={r.by?.user_id} size={28} />} />
+         avatar={r.mine ? undefined : <Avatar name={r.by?.display_name ?? "?"} userId={r.by?.user_id} size={28} opens="rankings" />} />
   );
   return (
     <LibScreen>
@@ -136,7 +136,7 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube }: {
           {!others2.length && <Notice tone="info">When a friend, or someone you've played with, shares a cube with you, it shows here. You can also open any cube
             shared with you on someone's profile and choose Rankings.</Notice>}
           {others2.map((c) => (
-            <Row key={c.id} title={c.name} onClick={() => onCube?.(c.id)} avatar={<Avatar name={c.owner?.display_name ?? "?"} userId={c.owner?.user_id} size={28} />}
+            <Row key={c.id} title={c.name} onClick={() => onCube?.(c.id)} avatar={<Avatar name={c.owner?.display_name ?? "?"} userId={c.owner?.user_id} size={28} opens="rankings" />}
                  detail={[c.owner?.display_name, plural(c.cards, "card"), c.rankings ? plural(c.rankings, "ranking") : "no rankings yet", c.mine ? `${c.mine} yours` : null]
                    .filter(Boolean).join(" · ")} />
           ))}

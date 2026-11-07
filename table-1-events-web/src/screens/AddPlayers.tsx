@@ -54,7 +54,7 @@ export function AddPlayers({ eventId, onDone }: { eventId: string; onDone: () =>
         onClick={() => toggle(p.user_id)}
         className="bg-t1-surface hover:bg-t1-surface-hover px-4 py-3.5 flex items-center gap-3 text-left disabled:hover:bg-t1-surface"
       >
-        <Avatar name={p.display_name} userId={p.user_id} />
+        <Avatar name={p.display_name} userId={p.user_id} opens="add_players" />
         <span className="flex-1 min-w-0 flex flex-col">
           <span className="text-[14px] truncate">{p.handle || p.display_name}</span>
           <span className="t1-label">{p.friend ? (p.shared_events ? `Friend · ${together}` : "Friend") : together}</span>

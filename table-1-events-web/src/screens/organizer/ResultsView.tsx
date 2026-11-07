@@ -8,6 +8,7 @@ import type { Match } from "../../lib/types";
 import { Notice, Row, Section, WinnerCard } from "../../components/kit";
 import { StandingsBlock, type PhaseViewProps } from "./shared";
 import { Avatar } from "../../components/Avatar";
+import { useOpenProfile } from "../../lib/personLink";
 
 const wld = (w: number, l: number, d: number) => (d > 0 ? `${w}-${l}-${d}` : `${w}-${l}`);
 
@@ -18,6 +19,7 @@ export function ResultsView(props: PhaseViewProps) {
   const cancelled = event.status === "cancelled";
   const nameOf = nameLookup(participants);
   const standings = playoffStandings(participants, rounds);
+  const openProfile = useOpenProfile("event_players");
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
@@ -76,6 +78,7 @@ export function ResultsView(props: PhaseViewProps) {
                 key={s.participantId}
                 title={s.displayName}
                 avatar={<Avatar name={s.displayName} userId={p?.userId} />}
+                onClick={openProfile(p?.userId)}
                 detail={p?.status === "dropped" ? `Dropped after round ${p.droppedInRound ?? lastRoundNumber(rounds)}` : undefined}
                 value={`${recordLabel(s)} · ${s.matchPoints} pts`}
               />

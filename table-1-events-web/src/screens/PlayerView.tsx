@@ -1,6 +1,6 @@
 import { canRedraft } from "../lib/redraft";
 import { JOIN_NOTICE } from "../lib/joinPreview";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useEvent } from "../lib/useEvent";
 import {
   fetchEventPreview,
@@ -15,6 +15,7 @@ import {
 import { useSession } from "../lib/useSession";
 import { getLocalParticipant, saveLocalParticipant } from "../lib/session";
 import { StandingsTable } from "../components/StandingsTable";
+import { useOpenProfile } from "../lib/personLink";
 import { TeamStandingsTable } from "../components/TeamStandingsTable";
 import { SeatingPanel } from "../components/SeatingPanel";
 import { GetTheApp } from "../components/GetTheApp";
@@ -118,6 +119,7 @@ export function PlayerView({
     () => new Map((bundle?.participants ?? []).map((p) => [p.id, p])),
     [bundle],
   );
+  const openProfile = useOpenProfile("opponent");
   const formatName = bundle?.event.formatName ?? "draft";
   const isTeam = !!bundle?.event.teamSize && isTeamFormat(formatName);
   const isDraft = !!bundle && isDraftFormat(formatName);
@@ -356,10 +358,10 @@ export function PlayerView({
             </div>
           ) : (
             <>
-              <div className="bg-t1-surface px-4 py-5 flex flex-col gap-1 items-center">
+              <PersonBlock open={openProfile(theirSide?.participantId ? participants.get(theirSide.participantId)?.userId : null)}>
                 <p className="t1-label">Table {myMatch.tableNumber} · playing</p>
                 <p className="text-[22px] tracking-[1px]">{opponentName ?? "—"}</p>
-              </div>
+              </PersonBlock>
               {trackerFirst && <BigAction label="Open life tracker" tone="accent" onClick={() => onOpenLife!(myMatch.id)} />}
               {opponentReported && (
                 <div className="flex flex-col gap-px">
@@ -512,4 +514,11 @@ export function PlayerView({
     return <RotoDraftGate eventId={event.id} title={event.name} isOrganizer={false}>{screen}</RotoDraftGate>;
   }
   return screen;
+}
+
+/** The opponent at the top: their profile on a tap when they have an account. */
+function PersonBlock({ open, children }: { open?: () => void; children: ReactNode }) {
+  const cls = "bg-t1-surface px-4 py-5 flex flex-col gap-1 items-center";
+  if (!open) return <div className={cls}>{children}</div>;
+  return <button type="button" onClick={open} className={`${cls} hover:bg-t1-surface-hover w-full`}>{children}</button>;
 }

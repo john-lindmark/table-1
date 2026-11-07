@@ -2,6 +2,7 @@ import { slotLetter } from "../lib/formats";
 import { formatPct } from "../lib/standings";
 import { computeTeamStandings, type Team } from "../lib/teams";
 import type { Participant, RoundWithMatches } from "../lib/types";
+import { useOpenProfile } from "../lib/personLink";
 
 const wld = (w: number, l: number, d: number) => (d > 0 ? `${w}-${l}-${d}` : `${w}-${l}`);
 
@@ -17,6 +18,8 @@ export function TeamStandingsTable({
   rounds: RoundWithMatches[];
   highlightParticipantId?: string | null;
 }) {
+  const openProfile = useOpenProfile("standings");
+  const userOf = new Map(participants.map((p) => [p.id, p.userId ?? null]));
   if (!teams.length) return <div className="bg-t1-surface px-4 py-6 t1-label">No teams yet</div>;
   const rows = computeTeamStandings(teams, participants, rounds);
   return (
@@ -46,7 +49,9 @@ export function TeamStandingsTable({
             {t.members.map((m) => (
               <div
                 key={m.participantId}
-                className={`pl-13 pr-4 py-1.5 flex items-center gap-3 text-[11px] tabular-nums bg-t1-bg ${
+                role={openProfile(userOf.get(m.participantId)) ? "link" : undefined}
+                onClick={openProfile(userOf.get(m.participantId))}
+                className={`${openProfile(userOf.get(m.participantId)) ? "cursor-pointer hover:text-t1-text " : ""}pl-13 pr-4 py-1.5 flex items-center gap-3 text-[11px] tabular-nums bg-t1-bg ${
                   m.participantId === highlightParticipantId ? "text-t1-accent" : "text-t1-muted"
                 }`}
               >

@@ -122,7 +122,7 @@ function MatchRow({ x, onOpen }: { x: TradeMatch; onOpen: (userId: string) => vo
     <>
       <PersonRow person={{ userId: x.user_id, displayName: x.display_name, relation: x.friend ? "friend" : "none" }} onMenu={setMenu}>
         <Row title={x.display_name} detail={matchShort(x) + (x.friend ? "" : " · played with you")}
-             avatar={<Avatar name={x.display_name} userId={x.user_id} />}
+             avatar={<Avatar name={x.display_name} userId={x.user_id} opens="trade_match" />}
              value={x.have_usd + x.want_usd > 0 ? usdText(x.have_usd + x.want_usd) : undefined} onClick={() => onOpen(x.user_id)} />
       </PersonRow>
       <PersonMenu person={menu} from="trade_match" onClose={() => setMenu(null)} />
@@ -258,7 +258,7 @@ function FriendAddBody({ onBack }: { onBack: () => void }) {
           const rel = p.relation ?? "none";
           return (
             <PersonRow key={p.user_id} person={{ userId: p.user_id, displayName: p.display_name, relation: rel }} onMenu={setMenuFor}>
-              <Row title={p.display_name} detail={detail} avatar={<Avatar name={p.display_name} userId={p.user_id} />}
+              <Row title={p.display_name} detail={detail} avatar={<Avatar name={p.display_name} userId={p.user_id} opens="friend_search" />}
                    value={rel === "friend" ? "Friends" : rel === "requested" ? "Requested" : undefined} accentValue={rel === "friend"}
                    action={rel === "none" || rel === "incoming" ? { label: rel === "incoming" ? "Accept" : "Add", onClick: () => void ask(p), disabled: busy } : undefined} />
             </PersonRow>
@@ -377,7 +377,7 @@ function ProfileBody({ userId, onBack, onSection, onMatch, onSharing }: {
                  value={match.have_usd + match.want_usd > 0 ? usdText(match.have_usd + match.want_usd) : undefined} />
           </>
         )}
-        {d && !d.visible && <Notice tone="info">{d.relation === "blocked" ? `You blocked ${d.display_name}.` : "This isn't available."}</Notice>}
+        {d && !d.visible && <Notice tone="info">{d.relation === "blocked" ? `You blocked ${d.display_name}.` : `Only ${d.display_name}'s friends can see their profile.`}</Notice>}
         {d && d.visible && d.relation !== "self" && sectionCount(d) === 0 && <Notice tone="info">Nothing shared yet.</Notice>}
         {s && (s.all_cards || s.for_trade || s.wants) && <Section title="Library" />}
         {s?.all_cards && open("All cards", [plural(s.all_cards.cards, "card"), d && profileValue(d) ? usdText(profileValue(d)!) : null].filter(Boolean).join(" · "), "all_cards")}

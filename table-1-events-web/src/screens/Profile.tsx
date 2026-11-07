@@ -14,6 +14,7 @@ import {
 import { capture, setSharing, sharing } from "../lib/telemetry";
 import { avatarJpeg, clearAvatar, setAvatar, useAvatarPath } from "../lib/avatarStore";
 import { Avatar } from "../components/Avatar";
+import { useOpenProfile } from "../lib/personLink";
 import type { AccountOverview } from "../lib/types";
 import { useSession } from "../lib/useSession";
 import { isLibraryDemo } from "../lib/libraryDemo";
@@ -66,6 +67,7 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
   const [overview, setOverview] = useState<AccountOverview | null>(demoAccount ? DEMO_OVERVIEW : null);
   const [alertsOn, setAlertsOn] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const openProfile = useOpenProfile("head_to_head");
   const [nameDraft, setNameDraft] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -274,7 +276,9 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
           <div className="bg-t1-surface px-4 py-6 t1-label">Play a match to start your head-to-head.</div>
         )}
         {(showAll ? rivals : rivals.slice(0, 8)).map((h) => (
-          <div key={h.opponent_id} className="bg-t1-surface px-4 py-3 flex items-center gap-3">
+          <div key={h.opponent_id} role="link" tabIndex={0} onClick={openProfile(h.opponent_id)}
+               onKeyDown={(e) => { if (e.key === "Enter") openProfile(h.opponent_id)?.(); }}
+               className="bg-t1-surface hover:bg-t1-surface-hover cursor-pointer px-4 py-3 flex items-center gap-3">
             <Avatar name={h.name} userId={h.opponent_id} />
             <span className="flex-1 min-w-0 flex flex-col">
               <span className="text-[14px] truncate">{h.name}</span>

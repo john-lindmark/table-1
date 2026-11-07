@@ -1,6 +1,7 @@
 import { computeStandings, formatPct, recordLabel } from "../lib/standings";
 import type { Participant, RoundWithMatches } from "../lib/types";
 import { Avatar } from "./Avatar";
+import { useOpenProfile } from "../lib/personLink";
 
 export function StandingsTable({
   participants,
@@ -17,6 +18,7 @@ export function StandingsTable({
   teamNames?: Map<string, string>;
 }) {
   const userOf = new Map(participants.map((p) => [p.id, p.userId ?? null]));
+  const openProfile = useOpenProfile("standings");
   const teamOf = new Map(participants.map((p) => [p.id, p.teamId ? teamNames?.get(p.teamId) ?? null : null]));
   const standings = computeStandings(participants, rounds);
   if (standings.length === 0) {
@@ -35,12 +37,17 @@ export function StandingsTable({
       </div>
       {standings.map((row) => {
         const mine = row.participantId === highlightParticipantId;
+        const open = openProfile(userOf.get(row.participantId));
         return (
           <div
             key={row.participantId}
+            role={open ? "link" : undefined}
+            tabIndex={open ? 0 : undefined}
+            onClick={open}
+            onKeyDown={open && ((e) => { if (e.key === "Enter") open(); })}
             className={`px-4 py-3 flex items-center gap-3 text-[12px] tabular-nums ${
               mine ? "bg-t1-accent text-t1-ink" : "bg-t1-surface"
-            }`}
+            } ${open && !mine ? "cursor-pointer hover:bg-t1-surface-hover" : open ? "cursor-pointer" : ""}`}
           >
             <span className={`w-6 shrink-0 ${mine ? "" : "text-t1-muted"}`}>{row.rank}</span>
             <span className="flex-1 min-w-0 flex items-center gap-2">

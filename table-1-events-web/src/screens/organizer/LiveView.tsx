@@ -173,7 +173,7 @@ export function LiveView(
                 key={p.id}
                 title={p.displayName}
                 detail={teamTag(p)}
-                avatar={<Avatar name={p.displayName} userId={p.userId} />}
+                avatar={<Avatar name={p.displayName} userId={p.userId} opens="event_players" />}
                 action={{
                   label: "Drop",
                   onClick: () => {
@@ -188,7 +188,7 @@ export function LiveView(
               <Row
                 key={p.id}
                 title={p.displayName}
-                avatar={<Avatar name={p.displayName} userId={p.userId} />}
+                avatar={<Avatar name={p.displayName} userId={p.userId} opens="event_players" />}
                 detail={`Dropped after round ${p.droppedInRound ?? currentRound} · still counts in tiebreakers`}
                 action={{ label: "Reinstate", onClick: () => void setStatus(p, "active"), disabled: dropBusy }}
                 dim

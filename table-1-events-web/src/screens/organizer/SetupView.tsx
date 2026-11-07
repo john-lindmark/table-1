@@ -189,7 +189,7 @@ export function SetupView({
             )}
             {participants.map((p) => takesLists ? (
               <div key={p.id} className="bg-t1-surface px-4 py-3 flex items-center gap-3">
-                <Avatar name={p.displayName} userId={p.userId} />
+                <Avatar name={p.displayName} userId={p.userId} opens="event_players" />
                 <span className="flex-1 min-w-0 flex flex-col gap-0.5">
                   <span className="text-[13px] truncate">{p.id === me?.id ? `You · ${p.displayName}` : p.displayName}</span>
                   <span className="t1-label truncate">{playerDetail(p)}</span>
@@ -205,7 +205,7 @@ export function SetupView({
               <Row
                 key={p.id}
                 title={p.id === me?.id ? `You · ${p.displayName}` : p.displayName}
-                avatar={<Avatar name={p.displayName} userId={p.userId} />}
+                avatar={<Avatar name={p.displayName} userId={p.userId} opens="event_players" />}
                 detail={[playerDetail(p), (isDraft || isRoto) && p.seat != null ? `${isRoto ? "Pick" : "Seat"} ${p.seat}` : null].filter(Boolean).join(" · ")}
                 action={{ label: "Remove", onClick: () => setRemoving(p), disabled: playersBusy }}
                 dim={p.status === "dropped"}

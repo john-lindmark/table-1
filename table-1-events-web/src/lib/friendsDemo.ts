@@ -110,7 +110,7 @@ class Demo implements FriendsDemo {
 
   private person(uid: string): Person {
     return this.people.get(uid)?.person ?? [...this.list.incoming, ...this.list.outgoing.flatMap((x) => (x.person ? [x.person] : [])), ...this.list.blocked, ...this.playedWith]
-      .find((x) => x.user_id === uid) ?? p(7, "Nadia Stone", { handle: "nstone" });
+      .find((x) => x.user_id === uid) ?? { ...p(7, "Nadia Stone", { handle: "nstone" }), user_id: uid };
   }
 
   search(q: string): Person[] {
