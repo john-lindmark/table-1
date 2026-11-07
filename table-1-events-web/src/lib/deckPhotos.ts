@@ -128,3 +128,70 @@ export async function deckJpeg(bitmap: ImageBitmap, turns = 0): Promise<Blob> {
   if (!blob) throw new Error("Couldn't read that photo.");
   return blob;
 }
+
+/* Your deck photos on your account (§ 7 On your account, 2026-11-06): every photo of a deck you played, across
+   events, newest event first (`my_deck_photos`). Same rules as iOS MyDeckPhotoRules and Android MyDeckPhotoRules,
+   testdata/deck-photos/cases.json `summary` and `groups`. */
+
+export interface MyDeckPhoto extends DeckPhoto {
+  eventId: string;
+  eventName: string;
+  eventStatus: string;
+  formatLabel: string;
+  eventAt: string;
+}
+
+export interface MyDeckPhotos {
+  total: number;
+  events: number;
+  photos: MyDeckPhoto[];
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function toMyPhotos(raw: any): MyDeckPhotos {
+  const base = toPhotos(raw).photos;
+  return {
+    total: Number(raw?.total ?? 0) || 0,
+    events: Number(raw?.events ?? 0) || 0,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    photos: (raw?.photos ?? []).map((p: any, i: number) => ({
+      ...base[i],
+      eventId: p.event_id ?? "", eventName: p.event_name ?? "", eventStatus: p.event_status ?? "",
+      formatLabel: p.format_label ?? "", eventAt: p.event_at ?? "",
+    })),
+  };
+}
+
+export async function loadMyDeckPhotos(limit = 200): Promise<MyDeckPhotos> {
+  const { data, error } = await supabase.rpc("my_deck_photos", { p_limit: limit });
+  if (error) throw error;
+  return toMyPhotos(data);
+}
+
+/** The Account row: "12 photos · 5 events", or "None yet". */
+export function myDeckPhotoSummary(total: number, events: number): string {
+  if (total === 0) return "None yet";
+  return `${total} photo${total === 1 ? "" : "s"} · ${events} event${events === 1 ? "" : "s"}`;
+}
+
+/** The server's order kept; consecutive photos of one event under one heading (its name, "Event" when blank). */
+export function myDeckPhotoGroups<T extends { eventId: string; eventName: string }>(photos: T[]): { eventId: string; title: string; photos: T[] }[] {
+  const out: { eventId: string; title: string; photos: T[] }[] = [];
+  for (const p of photos) {
+    const last = out[out.length - 1];
+    if (last && last.eventId === p.eventId) last.photos.push(p);
+    else out.push({ eventId: p.eventId, title: p.eventName.trim() || "Event", photos: [p] });
+  }
+  return out;
+}
+
+/** "29 Nov 2026 · Draft": the event's local date, then its format unless the name already says it. */
+export function myDeckPhotoDetail(p: { eventAt: string; formatLabel: string; eventName: string }): string {
+  const parts: string[] = [];
+  const at = p.eventAt ? new Date(p.eventAt) : null;
+  if (at && !Number.isNaN(at.getTime())) {
+    parts.push(at.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }));
+  }
+  if (p.formatLabel && !p.eventName.toLowerCase().includes(p.formatLabel.toLowerCase())) parts.push(p.formatLabel);
+  return parts.join(" · ");
+}

@@ -10,14 +10,21 @@ import {
   deleteDeckPhoto,
   drawDeckPhoto,
   loadDeckPhotos,
+  loadMyDeckPhotos,
+  myDeckPhotoDetail,
+  myDeckPhotoGroups,
+  myDeckPhotoSummary,
   readDeckPhoto,
   setDeckPhotoNote,
   turnDeckPhoto,
   turnDeckPhotoSaved,
   type DeckPhoto,
   type DeckPhotos,
+  type MyDeckPhotos,
+  type MyDeckPhoto,
 } from "../lib/deckPhotos";
 import type { Participant } from "../lib/types";
+import { isLibraryDemo } from "../lib/libraryDemo";
 import { Bar, Dialog, Menu, type MenuItem, Notice, Screen } from "../components/kit";
 
 /**
@@ -135,7 +142,7 @@ export function DeckPhotosScreen({ eventId, organizer, onBack }: { eventId: stri
     try {
       await show(await turnDeckPhotoSaved(photo.id, next));
       setError(null);
-      capture("deck_photo_turned", { turns: next });
+      capture("deck_photo_turned", { turns: next, from: "event" });
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -168,7 +175,7 @@ export function DeckPhotosScreen({ eventId, organizer, onBack }: { eventId: stri
       await show(await setDeckPhotoNote(editing.id, text));
       setEditing(null);
       setError(null);
-      capture("deck_photo_note_saved", { has_note: text.length > 0 });
+      capture("deck_photo_note_saved", { has_note: text.length > 0, from: "event" });
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -180,7 +187,7 @@ export function DeckPhotosScreen({ eventId, organizer, onBack }: { eventId: stri
     try {
       await show(await deleteDeckPhoto(photo));
       setError(null);
-      capture("deck_photo_removed");
+      capture("deck_photo_removed", { from: "event" });
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -301,6 +308,181 @@ export function DeckPhotosScreen({ eventId, organizer, onBack }: { eventId: stri
     </Screen>
   );
 }
+
+/**
+ * Account → Deck photos (§ 7 On your account; iOS MyDeckPhotosView): every photo of a deck you played, headed by event,
+ * newest first. A photo's menu opens its event or (once it's over) everyone's photos from it, then Rotate, note and
+ * Remove as on the event's own screen.
+ */
+export function MyDeckPhotosScreen({ onBack, onOpenEvent, onOpenEventPhotos }: {
+  onBack: () => void; onOpenEvent: (eventId: string) => void; onOpenEventPhotos: (eventId: string) => void;
+}) {
+  const [mine, setMine] = useState<MyDeckPhotos>({ total: 0, events: 0, photos: [] });
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ title: string; items: MenuItem[] } | null>(null);
+  const [editing, setEditing] = useState<MyDeckPhoto | null>(null);
+  const [note, setNote] = useState("");
+  const [turning, setTurning] = useState<Record<string, number>>({});
+  const urlsRef = useRef<Record<string, string>>({});
+
+  async function load() {
+    if (isLibraryDemo()) {
+      setMine(DEMO_MINE);
+      setUrls(Object.fromEntries(DEMO_MINE.photos.map((p) => [p.path, DEMO_PHOTO])));
+      setLoaded(true);
+      return;
+    }
+    try {
+      const next = await loadMyDeckPhotos();
+      setMine(next);
+      const missing = next.photos.map((p) => p.path).filter((p) => !urlsRef.current[p]);
+      if (missing.length) {
+        const fresh = await deckPhotoUrls(missing);
+        urlsRef.current = { ...urlsRef.current, ...fresh };
+        setUrls(urlsRef.current);
+      }
+      setError(null);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+    setLoaded(true);
+  }
+
+  useEffect(() => { void load(); }, []);
+
+  async function act(call: () => Promise<unknown>, event: string, props: Record<string, unknown> = {}) {
+    try {
+      await call();
+      capture(event, { ...props, from: "account" });
+      await load();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }
+
+  async function turn(photo: MyDeckPhoto, by: number) {
+    const next = turnDeckPhoto(turning[photo.id] ?? photo.turns, by);
+    setTurning((t) => ({ ...t, [photo.id]: next }));
+    await act(() => turnDeckPhotoSaved(photo.id, next), "deck_photo_turned", { turns: next });
+    setTurning((t) => {
+      if (t[photo.id] !== next) return t;
+      const rest = { ...t };
+      delete rest[photo.id];
+      return rest;
+    });
+  }
+
+  function edit(photo: MyDeckPhoto) {
+    const over = photo.eventStatus === "completed" || photo.eventStatus === "archived";
+    setMenu({
+      title: photo.eventName || photo.player,
+      items: [
+        { title: "Open event", onClick: () => { capture("my_deck_photo_opened", { to: "event" }); onOpenEvent(photo.eventId); } },
+        ...(over ? [{ title: "Everyone's photos from this event", onClick: () => {
+          capture("my_deck_photo_opened", { to: "event_photos" });
+          onOpenEventPhotos(photo.eventId);
+        } }] : []),
+        { title: "Rotate right ↻", onClick: () => void turn(photo, 1) },
+        { title: "Rotate left ↺", onClick: () => void turn(photo, -1) },
+        { title: photo.note ? "Edit note" : "Add a note", onClick: () => { setNote(photo.note); setEditing(photo); } },
+        { title: "Remove photo", onClick: () => void act(() => deleteDeckPhoto(photo), "deck_photo_removed") },
+      ],
+    });
+  }
+
+  async function saveNote() {
+    if (!editing) return;
+    const text = note.trim();
+    setBusy(true);
+    await act(() => setDeckPhotoNote(editing.id, text), "deck_photo_note_saved", { has_note: text.length > 0 });
+    setEditing(null);
+    setBusy(false);
+  }
+
+  return (
+    <Screen>
+      <Bar title="Deck photos" subtitle={loaded ? myDeckPhotoSummary(mine.total, mine.events) : undefined} onBack={onBack} />
+      {error && <Notice tone="error">{error}</Notice>}
+      {!loaded ? (
+        <Notice tone="info">Loading…</Notice>
+      ) : mine.photos.length === 0 && !error ? (
+        <Notice tone="info">No deck photos yet.</Notice>
+      ) : null}
+      {myDeckPhotoGroups(mine.photos).map((group) => {
+        const detail = myDeckPhotoDetail(group.photos[0]);
+        return (
+          <div key={group.eventId} className="flex flex-col gap-px">
+            <div className="bg-t1-surface px-4 py-2 t1-label">{detail ? `${group.title} · ${detail}` : group.title}</div>
+            {group.photos.map((photo) => (
+              <button key={photo.id} type="button" onClick={() => edit(photo)} className="bg-t1-surface flex flex-col text-left">
+                <div className="w-full aspect-[4/3] bg-t1-bg overflow-hidden flex items-center justify-center relative">
+                  {urls[photo.path] ? (
+                    <TurnedPhoto src={urls[photo.path]} alt={`${photo.player}'s deck`} turns={turning[photo.id] ?? photo.turns} />
+                  ) : (
+                    <span className="t1-label">Loading…</span>
+                  )}
+                </div>
+                <div className="px-4 py-3 flex flex-col gap-1.5 w-full">
+                  <div className="flex items-center gap-3">
+                    <span className="t1-label !text-t1-text flex-1 truncate">{`${photo.player} · you`}</span>
+                    <span className="t1-label">Edit</span>
+                  </div>
+                  {photo.note && <p className="text-[13px] whitespace-pre-wrap">{photo.note}</p>}
+                </div>
+              </button>
+            ))}
+          </div>
+        );
+      })}
+      {loaded && mine.total > mine.photos.length && (
+        <Notice tone="info">{`Showing the newest ${mine.photos.length} of ${mine.total}.`}</Notice>
+      )}
+      {menu && <Menu title={menu.title} items={menu.items} onClose={() => setMenu(null)} />}
+      {editing && (
+        <Dialog
+          title={editing.eventName || editing.player}
+          message="Deck photo"
+          cancelLabel="Cancel"
+          confirmLabel="Save note"
+          busyLabel="Saving…"
+          busy={busy}
+          onCancel={() => setEditing(null)}
+          onConfirm={() => void saveNote()}
+        >
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength={2000}
+            rows={4}
+            autoFocus
+            placeholder="Archetype, key cards, how it played…"
+            className="bg-t1-surface px-3 py-3 outline-0 border-0 text-[14px] resize-none placeholder:text-t1-muted/60"
+          />
+        </Dialog>
+      )}
+    </Screen>
+  );
+}
+
+/** `/me/deck-photos?demo`: three photos over two events, one saved with a quarter turn. */
+const DEMO_PHOTO = "data:image/svg+xml," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1200"><rect width="1600" height="1200" fill="#282839"/>' +
+  '<rect width="1600" height="120" fill="#00ffd9"/><text x="560" y="700" font-family="monospace" font-size="220" fill="#fff">TOP</text></svg>');
+const demoRow = (id: string, eventId: string, eventName: string, eventStatus: string, formatLabel: string, eventAt: string,
+                 note: string, turns: number): MyDeckPhoto => ({
+  id, participantId: `p-${eventId}`, player: "Ann Ito", path: `demo/${id}.jpg`, note, createdAt: eventAt, mine: true,
+  editable: true, turns, eventId, eventName, eventStatus, formatLabel, eventAt,
+});
+const DEMO_MINE: MyDeckPhotos = {
+  total: 3, events: 2, photos: [
+    demoRow("dp1", "ev-sealed", "Thursday Sealed", "in_progress", "Sealed", "2026-11-05T18:30:00Z", "Pool before building", 0),
+    demoRow("dp2", "ev-draft", "Team Draft", "completed", "Team draft", "2026-10-29T18:00:00Z", "Mono red, 17 lands", 1),
+    demoRow("dp3", "ev-draft", "Team Draft", "completed", "Team draft", "2026-10-29T18:00:00Z", "", 0),
+  ],
+};
 
 /** An uploaded photo, whole and turned as its player set it: for a quarter turn it's fitted into the 4:3 box's swapped
     sides (75% of the width, 133% of the height), then rotated into place. */

@@ -1,5 +1,4 @@
 {
-  "originHash" : "8c68b6a77b72485769c0cfb96f052a8d83d9c285e968773de6ca2c447e456707",
   "pins" : [
     {
       "identity" : "app-check",
@@ -173,5 +172,5 @@
       }
     }
   ],
-  "version" : 3
+  "version" : 2
 }

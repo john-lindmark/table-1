@@ -37,6 +37,12 @@ struct DeckPhoto: Decodable, Identifiable, Hashable {
     let editable: Bool
     /// Quarter turns clockwise to draw it upright (set after upload; missing from servers before 2026-10-30).
     let turns: Int?
+    /// Only in `my_deck_photos` (Account → Deck photos): the photo's event.
+    var eventId: String? = nil
+    var eventName: String? = nil
+    var eventStatus: String? = nil
+    var formatLabel: String? = nil
+    var eventAt: String? = nil
 }
 
 struct DeckPhotos: Decodable {
@@ -389,7 +395,7 @@ struct DeckPhotosView: View {
                 await show(saved)
                 if turning[photo.id] == next { turning[photo.id] = nil }
                 error = nil
-                Telemetry.capture("deck_photo_turned", ["turns": next])
+                Telemetry.capture("deck_photo_turned", ["turns": next, "from": "event"])
             } catch {
                 turning[photo.id] = nil
                 self.error = error.localizedDescription
@@ -400,39 +406,48 @@ struct DeckPhotosView: View {
     @MainActor
     private func edit(_ photo: DeckPhoto) {
         guard photo.editable else { return }
-        T1Overlays.shared.showMenu(photo.player, [
-            T1MenuItem(title: "Rotate right ↻") { turn(photo, by: 1) },
-            T1MenuItem(title: "Rotate left ↺") { turn(photo, by: -1) },
+        DeckPhotoMenu.show(photo, title: photo.player, from: "event", turn: { turn(photo, by: $0) }) { call in
+            Task { @MainActor in
+                do { await show(try await call()) } catch { self.error = error.localizedDescription }
+            }
+        }
+    }
+}
+
+/// A photo's own actions (the player or whoever took it): Rotate, note, Remove. `extra` goes first (Account → Deck
+/// photos adds Open event). `run` performs a call that answers with the event's photos.
+@MainActor
+enum DeckPhotoMenu {
+    static func show(_ photo: DeckPhoto, title: String, from: String, extra: [T1MenuItem] = [],
+                     turn: @escaping (Int) -> Void,
+                     run: @escaping (@escaping () async throws -> DeckPhotos) -> Void) {
+        T1Overlays.shared.showMenu(title, extra + [
+            T1MenuItem(title: "Rotate right ↻") { turn(1) },
+            T1MenuItem(title: "Rotate left ↺") { turn(-1) },
             T1MenuItem(title: photo.note.isEmpty ? "Add a note" : "Edit note") {
                 T1Overlays.shared.present {
-                    DeckNotePanel(title: photo.player, image: nil, note: photo.note, saveLabel: "Save note") { note, _ in
+                    DeckNotePanel(title: title, image: nil, note: photo.note, saveLabel: "Save note") { note, _ in
                         T1Overlays.shared.dismissPanel()
-                        Task { @MainActor in
-                            do {
-                                await show(try await Repo.setDeckPhotoNote(photo.id, note: note))
-                                Telemetry.capture("deck_photo_note_saved", ["has_note": !note.isEmpty])
-                            } catch {
-                                self.error = error.localizedDescription
-                            }
+                        run {
+                            let out = try await Repo.setDeckPhotoNote(photo.id, note: note)
+                            Telemetry.capture("deck_photo_note_saved", ["has_note": !note.isEmpty, "from": from])
+                            return out
                         }
                     }
                 }
             },
             T1MenuItem(title: "Remove photo", destructive: true) {
-                Task { @MainActor in
-                    do {
-                        await show(try await Repo.deleteDeckPhoto(photo))
-                        Telemetry.capture("deck_photo_removed")
-                    } catch {
-                        self.error = error.localizedDescription
-                    }
+                run {
+                    let out = try await Repo.deleteDeckPhoto(photo)
+                    Telemetry.capture("deck_photo_removed", ["from": from])
+                    return out
                 }
             },
         ])
     }
 }
 
-private struct DeckPhotoCard: View {
+struct DeckPhotoCard: View {
     let photo: DeckPhoto
     let url: URL?
     let turns: Int

@@ -80,7 +80,12 @@ import site.table1.events.ui.components.rememberOpenProfile
 
 /** The Account tab: lifetime record, head-to-head, settings, and the account itself. */
 @Composable
-fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit, onProfile: (String) -> Unit, onNotices: () -> Unit = {}, onReview: () -> Unit = {}, onBugs: () -> Unit = {}) {
+fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit, onProfile: (String) -> Unit, onNotices: () -> Unit = {}, onReview: () -> Unit = {}, onBugs: () -> Unit = {}, onDeckPhotos: () -> Unit = {}) {
+    /** Account → Deck photos' summary ("12 photos · 5 events"), from my_deck_photos asked for one photo. */
+    var deckPhotos by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(foregrounds) {
+        runCatching { DeckPhotosRepo.mine(limit = 1) }.onSuccess { deckPhotos = MyDeckPhotoRules.summary(it.total, it.events) }
+    }
     val friends by FriendsStore.state.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -184,6 +189,7 @@ fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit
                         if ((r?.byes ?: 0) > 0) " · ${r?.byes} byes" else "",
                 )
             }
+            deckPhotosAccountRow(deckPhotos, onDeckPhotos)
             Repo.userId?.let { me -> friendsAccountRows(friends, onFriends, onSharing) { onProfile(me) } }
             moderationAccountRows(moderation, onNotices, onReview)
             bugsAccountRow(bugs, onBugs)

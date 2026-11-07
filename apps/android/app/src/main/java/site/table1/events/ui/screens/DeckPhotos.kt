@@ -93,10 +93,19 @@ data class DeckPhoto(
     val editable: Boolean = false,
     /** Quarter turns clockwise to draw it upright, set after upload (0 from servers before 2026-10-30). */
     val turns: Int = 0,
+    /** Only in `my_deck_photos` (Account → Deck photos): the photo's event. */
+    @SerialName("event_id") val eventId: String = "",
+    @SerialName("event_name") val eventName: String = "",
+    @SerialName("event_status") val eventStatus: String = "",
+    @SerialName("format_label") val formatLabel: String = "",
+    @SerialName("event_at") val eventAt: String = "",
 )
 
 @Serializable
 data class DeckPhotos(val shared: Boolean = false, val photos: List<DeckPhoto> = emptyList())
+
+@Serializable
+data class MyDeckPhotos(val total: Int = 0, val events: Int = 0, val photos: List<DeckPhoto> = emptyList())
 
 object DeckPhotosRepo {
     private val rpc get() = T1App.supabase.postgrest
@@ -132,6 +141,10 @@ object DeckPhotosRepo {
         runCatching { bucket.delete(photo.path) }
         return result
     }
+
+    /** Every photo of a deck you played, across events, newest event first (Account → Deck photos). */
+    suspend fun mine(limit: Int = 200): MyDeckPhotos =
+        rpc.rpc("my_deck_photos", buildJsonObject { put("p_limit", limit) }).decodeAs()
 
     /** A signed link for a photo (private bucket), valid an hour. */
     suspend fun url(path: String): String? = runCatching { bucket.createSignedUrl(path, 1.hours) }.getOrNull()
@@ -291,32 +304,8 @@ fun DeckPhotosScreen(eventId: String, onBack: () -> Unit) {
                 photos.photos.isEmpty() -> item { Notice("No deck photos yet.") }
             }
             items(photos.photos, key = { it.id }) { photo ->
-                Column(
-                    Modifier.fillMaxWidth().background(T1.surface)
-                        .let { if (photo.editable) it.clickable { editMenu = photo } else it },
-                ) {
-                    BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(4f / 3f).background(T1.bg).clipToBounds(), contentAlignment = Alignment.Center) {
-                        val url = urls[photo.path]
-                        val turns = turning[photo.id] ?: photo.turns
-                        if (url != null) {
-                            // Whole photo, never cropped, turned as its player set it: fitted into the box's swapped
-                            // sides for a quarter turn, then rotated into place.
-                            val odd = turns % 2 == 1
-                            AsyncImage(model = url, contentDescription = "${photo.player}'s deck", contentScale = ContentScale.Fit,
-                                modifier = Modifier.requiredSize(if (odd) maxHeight else maxWidth, if (odd) maxWidth else maxHeight)
-                                    .rotate(turns * 90f))
-                        } else {
-                            Label("Loading…")
-                        }
-                    }
-                    Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Label(if (photo.mine) "${photo.player} · you" else photo.player, Modifier.weight(1f), color = T1.text)
-                            if (photo.editable) Label("Edit")
-                        }
-                        if (photo.note.isNotEmpty()) Text(photo.note, color = T1.text, fontFamily = T1.mono, fontSize = 13.sp)
-                    }
-                }
+                DeckPhotoCard(photo, urls[photo.path], turning[photo.id] ?: photo.turns,
+                    onClick = if (photo.editable) ({ editMenu = photo }) else null)
             }
         }
     }
@@ -378,7 +367,7 @@ fun DeckPhotosScreen(eventId: String, onBack: () -> Unit) {
         turning[photo.id] = next
         scope.launch {
             runCatching { DeckPhotosRepo.turn(photo.id, next) }
-                .onSuccess { show(it); error = null; Telemetry.capture("deck_photo_turned", mapOf("turns" to next)) }
+                .onSuccess { show(it); error = null; Telemetry.capture("deck_photo_turned", mapOf("turns" to next, "from" to "event")) }
                 .onFailure { error = it.message }
             if (turning[photo.id] == next) turning.remove(photo.id)
         }
@@ -391,7 +380,7 @@ fun DeckPhotosScreen(eventId: String, onBack: () -> Unit) {
             T1MenuItem("Remove photo", danger = true) {
                 scope.launch {
                     runCatching { DeckPhotosRepo.delete(photo) }
-                        .onSuccess { show(it); error = null; Telemetry.capture("deck_photo_removed") }
+                        .onSuccess { show(it); error = null; Telemetry.capture("deck_photo_removed", mapOf("from" to "event")) }
                         .onFailure { error = it.message }
                 }
             },
@@ -404,12 +393,38 @@ fun DeckPhotosScreen(eventId: String, onBack: () -> Unit) {
                 val text = note.trim()
                 scope.launch {
                     runCatching { DeckPhotosRepo.setNote(photo.id, text) }
-                        .onSuccess { show(it); error = null; Telemetry.capture("deck_photo_note_saved", mapOf("has_note" to text.isNotEmpty())) }
+                        .onSuccess { show(it); error = null; Telemetry.capture("deck_photo_note_saved", mapOf("has_note" to text.isNotEmpty(), "from" to "event")) }
                         .onFailure { error = it.message }
                 }
             }
         }) {
             T1TextField(note, { note = it }, label = "Note", placeholder = "Archetype, key cards, how it played…")
+        }
+    }
+}
+
+/** One uploaded photo, whole and turned as its player set it, with its player and note. */
+@Composable
+fun DeckPhotoCard(photo: DeckPhoto, url: String?, turns: Int, onClick: (() -> Unit)?) {
+    Column(Modifier.fillMaxWidth().background(T1.surface).let { if (onClick != null) it.clickable { onClick() } else it }) {
+        BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(4f / 3f).background(T1.bg).clipToBounds(), contentAlignment = Alignment.Center) {
+            if (url != null) {
+                // Whole photo, never cropped, turned as its player set it: fitted into the box's swapped
+                // sides for a quarter turn, then rotated into place.
+                val odd = turns % 2 == 1
+                AsyncImage(model = url, contentDescription = "${photo.player}'s deck", contentScale = ContentScale.Fit,
+                    modifier = Modifier.requiredSize(if (odd) maxHeight else maxWidth, if (odd) maxWidth else maxHeight)
+                        .rotate(turns * 90f))
+            } else {
+                Label("Loading…")
+            }
+        }
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Label(if (photo.mine) "${photo.player} · you" else photo.player, Modifier.weight(1f), color = T1.text)
+                if (onClick != null) Label("Edit")
+            }
+            if (photo.note.isNotEmpty()) Text(photo.note, color = T1.text, fontFamily = T1.mono, fontSize = 13.sp)
         }
     }
 }

@@ -1,20 +1,200 @@
 {
-  "_doc": "Deck photo size and turns (contract/event-night-2026-10-16.md § 7). turn: quarter turns clockwise after turning `by` (-1 left, +1 right), always 0-3. size: the uploaded JPEG's size, longest side at most 2048 px (never upscaled), sides swapped for an odd number of turns. Read by iOS DeckPhotoTests, web deckPhotos.test.ts, Android DeckPhotosTest.",
+  "_doc": "Deck photo size and turns (contract/event-night-2026-10-16.md § 7). turn: quarter turns clockwise after turning `by` (-1 left, +1 right), always 0-3. size: the uploaded JPEG's size, longest side at most 2048 px (never upscaled), sides swapped for an odd number of turns. Read by iOS DeckPhotoTests, web deckPhotos.test.ts, Android DeckPhotosTest. mine (2026-11-06, § 7 On your account): the Account row's summary from my_deck_photos' total and events, and the screen's groups: the server's order kept, consecutive photos of one event under one heading (its name, \"Event\" when blank).",
   "turn": [
-    {"turns": 0, "by": 1, "out": 1},
-    {"turns": 0, "by": -1, "out": 3},
-    {"turns": 3, "by": 1, "out": 0},
-    {"turns": 2, "by": -1, "out": 1},
-    {"turns": 1, "by": 4, "out": 1},
-    {"turns": 1, "by": -6, "out": 3}
+    {
+      "turns": 0,
+      "by": 1,
+      "out": 1
+    },
+    {
+      "turns": 0,
+      "by": -1,
+      "out": 3
+    },
+    {
+      "turns": 3,
+      "by": 1,
+      "out": 0
+    },
+    {
+      "turns": 2,
+      "by": -1,
+      "out": 1
+    },
+    {
+      "turns": 1,
+      "by": 4,
+      "out": 1
+    },
+    {
+      "turns": 1,
+      "by": -6,
+      "out": 3
+    }
   ],
   "size": [
-    {"width": 4032, "height": 3024, "turns": 0, "out": [2048, 1536]},
-    {"width": 4032, "height": 3024, "turns": 1, "out": [1536, 2048]},
-    {"width": 4032, "height": 3024, "turns": 2, "out": [2048, 1536]},
-    {"width": 4032, "height": 3024, "turns": 3, "out": [1536, 2048]},
-    {"width": 3024, "height": 4032, "turns": 1, "out": [2048, 1536]},
-    {"width": 1200, "height": 900, "turns": 0, "out": [1200, 900]},
-    {"width": 1200, "height": 900, "turns": 3, "out": [900, 1200]}
+    {
+      "width": 4032,
+      "height": 3024,
+      "turns": 0,
+      "out": [
+        2048,
+        1536
+      ]
+    },
+    {
+      "width": 4032,
+      "height": 3024,
+      "turns": 1,
+      "out": [
+        1536,
+        2048
+      ]
+    },
+    {
+      "width": 4032,
+      "height": 3024,
+      "turns": 2,
+      "out": [
+        2048,
+        1536
+      ]
+    },
+    {
+      "width": 4032,
+      "height": 3024,
+      "turns": 3,
+      "out": [
+        1536,
+        2048
+      ]
+    },
+    {
+      "width": 3024,
+      "height": 4032,
+      "turns": 1,
+      "out": [
+        2048,
+        1536
+      ]
+    },
+    {
+      "width": 1200,
+      "height": 900,
+      "turns": 0,
+      "out": [
+        1200,
+        900
+      ]
+    },
+    {
+      "width": 1200,
+      "height": 900,
+      "turns": 3,
+      "out": [
+        900,
+        1200
+      ]
+    }
+  ],
+  "summary": [
+    {
+      "total": 0,
+      "events": 0,
+      "out": "None yet"
+    },
+    {
+      "total": 1,
+      "events": 1,
+      "out": "1 photo · 1 event"
+    },
+    {
+      "total": 2,
+      "events": 1,
+      "out": "2 photos · 1 event"
+    },
+    {
+      "total": 12,
+      "events": 5,
+      "out": "12 photos · 5 events"
+    }
+  ],
+  "groups": [
+    {
+      "photos": [],
+      "out": []
+    },
+    {
+      "photos": [
+        {
+          "id": "6",
+          "event_id": "e2",
+          "event_name": "New sealed"
+        },
+        {
+          "id": "7",
+          "event_id": "e2",
+          "event_name": "New sealed"
+        },
+        {
+          "id": "2",
+          "event_id": "e1",
+          "event_name": "Old draft"
+        },
+        {
+          "id": "1",
+          "event_id": "e1",
+          "event_name": "Old draft"
+        }
+      ],
+      "out": [
+        {
+          "event_id": "e2",
+          "title": "New sealed",
+          "ids": [
+            "6",
+            "7"
+          ]
+        },
+        {
+          "event_id": "e1",
+          "title": "Old draft",
+          "ids": [
+            "2",
+            "1"
+          ]
+        }
+      ]
+    },
+    {
+      "photos": [
+        {
+          "id": "3",
+          "event_id": "e3",
+          "event_name": "  "
+        },
+        {
+          "id": "4",
+          "event_id": "e4",
+          "event_name": " Cube night "
+        }
+      ],
+      "out": [
+        {
+          "event_id": "e3",
+          "title": "Event",
+          "ids": [
+            "3"
+          ]
+        },
+        {
+          "event_id": "e4",
+          "title": "Cube night",
+          "ids": [
+            "4"
+          ]
+        }
+      ]
+    }
   ]
 }

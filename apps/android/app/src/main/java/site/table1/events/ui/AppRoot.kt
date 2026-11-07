@@ -356,7 +356,13 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 insightsGraph(nav, moderator)
                 composable("account") {
                     AccountScreen(foregrounds = foregrounds, onFriends = { nav.navigate("friends") }, onSharing = { nav.navigate("sharing") },
-                        onProfile = { nav.navigate("profile/$it") }, onNotices = { nav.navigate("notices") }, onReview = { nav.navigate("review") }, onBugs = { nav.navigate("bugs") })
+                        onProfile = { nav.navigate("profile/$it") }, onNotices = { nav.navigate("notices") }, onReview = { nav.navigate("review") }, onBugs = { nav.navigate("bugs") },
+                        onDeckPhotos = { nav.navigate("mydeckphotos") })
+                }
+                // Account → Deck photos (contract/event-night-2026-10-16.md § 7 On your account).
+                composable("mydeckphotos") {
+                    site.table1.events.ui.screens.MyDeckPhotosScreen(onBack = { nav.popBackStack() },
+                        onOpenEvent = { nav.navigate("event/$it") }, onOpenEventPhotos = { nav.navigate("photos/$it") })
                 }
                 // Moderation (contract/moderation-2026-10-18.md): notices and appeals; Review for moderators.
                 composable("notices") { site.table1.events.library.NoticesScreen(onBack = { nav.popBackStack() }) }
