@@ -56,6 +56,7 @@ import site.table1.events.ui.components.shortWhen
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.PermissionsStep
 import site.table1.events.util.currentFix
+import site.table1.events.util.QrScan
 import site.table1.events.util.scanQr
 
 /**
@@ -138,7 +139,16 @@ fun EventsHomeScreen(
     }
 
     fun scan() = scope.launch {
-        val raw = scanQr(context) ?: return@launch
+        val raw = when (val scan = scanQr(context)) {
+            is QrScan.Read -> scan.text
+            QrScan.Cancelled -> return@launch
+            QrScan.Unavailable -> {
+                Telemetry.capture("qr_scanner_unavailable", mapOf("screen" to "home"))
+                error = "This phone can't open Google's QR scanner yet. Update Google Play services and try again, " +
+                    "or open the organizer's link."
+                return@launch
+            }
+        }
         val link = JoinLink.parse(raw)
         if (link != null) onJoinLink(link) else error = "That QR code isn't a Table 1 event."
     }
