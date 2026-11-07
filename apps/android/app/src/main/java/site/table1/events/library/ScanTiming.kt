@@ -13,6 +13,8 @@ class ScanTiming(private val started: Long = System.currentTimeMillis()) {
     private var dropped = 0
     private var cjk = 0
     private var frameSize: Pair<Int, Int>? = null
+    private var zoom: Float? = null
+    private var minFocusCm: Int? = null
 
     /** One frame through ML Kit: how long it took, whether a CJK recognizer read it, and whether it failed. */
     @Synchronized fun read(ms: Long, cjkReader: Boolean, ok: Boolean, width: Int, height: Int) {
@@ -21,6 +23,9 @@ class ScanTiming(private val started: Long = System.currentTimeMillis()) {
         if (!ok) failed++
         frameSize = width to height
     }
+
+    /** The zoom set on the camera (ScanCamera) and its closest focus in cm, once it's bound. */
+    @Synchronized fun camera(zoom: Float, minFocusCm: Int?) { this.zoom = zoom; this.minFocusCm = minFocusCm }
 
     /** One frame's match on the main thread. */
     @Synchronized fun matched(ms: Long) { if (match.size < MAX) match.add(ms.toInt()) }
@@ -44,6 +49,8 @@ class ScanTiming(private val started: Long = System.currentTimeMillis()) {
             put("failed", failed)
             put("cjk_frames", cjk)
             frameSize?.let { put("width", it.first); put("height", it.second) }
+            zoom?.let { put("zoom", Math.round(it * 100) / 100.0) }
+            minFocusCm?.let { put("min_focus_cm", it) }
         }
     }
 

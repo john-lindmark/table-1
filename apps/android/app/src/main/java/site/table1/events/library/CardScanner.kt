@@ -5,6 +5,8 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.FocusMeteringAction
+import androidx.camera.core.SurfaceOrientedMeteringPointFactory
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -423,6 +425,14 @@ private fun GuideTip(text: String, color: Color, modifier: Modifier) =
 private fun GuideMark(text: String, modifier: Modifier) =
     Label(text, modifier.background(T1.bg.copy(alpha = 0.6f)).padding(horizontal = 6.dp, vertical = 2.dp))
 
+/** The camera's closest focus in cm (Camera2's minimum focus distance is in diopters); null for fixed focus. */
+@androidx.annotation.OptIn(androidx.camera.camera2.interop.ExperimentalCamera2Interop::class)
+private fun minFocusCm(info: androidx.camera.core.CameraInfo): Int? = runCatching {
+    val d = androidx.camera.camera2.interop.Camera2CameraInfo.from(info)
+        .getCameraCharacteristic(android.hardware.camera2.CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE)
+    if (d == null || d <= 0f) null else Math.round(100f / d)
+}.getOrNull()
+
 @Composable
 private fun CameraText(onLines: (List<String>, ScanBorder) -> ScanMatch?) {
     val context = LocalContext.current
@@ -555,7 +565,18 @@ private fun CameraText(onLines: (List<String>, ScanBorder) -> ScanMatch?) {
             }
             runCatching {
                 provider.unbindAll()
-                provider.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
+                val camera = provider.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
+                // A little zoom so a card fills the guide outside the main camera's close focus limit (ScanCamera).
+                val z = camera.cameraInfo.zoomState.value
+                val zoom = if (z != null) ScanCamera.zoom(z.minZoomRatio, z.maxZoomRatio) else ScanCamera.ZOOM
+                if (zoom != null) camera.cameraControl.setZoomRatio(zoom)
+                // Exposure and white balance from the card in the guide (centered in the frame), not the playmat or
+                // desk around it; focus stays continuous (an AF point would lock it after one sweep).
+                val point = SurfaceOrientedMeteringPointFactory(1f, 1f).createPoint(0.5f, 0.5f, ScanCamera.METERING_SIZE)
+                val metering = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AE or FocusMeteringAction.FLAG_AWB)
+                    .disableAutoCancel().build()
+                if (camera.cameraInfo.isFocusMeteringSupported(metering)) camera.cameraControl.startFocusAndMetering(metering)
+                timing.camera(zoom ?: 1f, minFocusCm(camera.cameraInfo))
             }
         }, ContextCompat.getMainExecutor(ctx))
         view
