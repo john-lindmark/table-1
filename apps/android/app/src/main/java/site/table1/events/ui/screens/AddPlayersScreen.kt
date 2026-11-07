@@ -85,7 +85,7 @@ fun AddPlayersScreen(eventId: String, onDone: () -> Unit) {
                     val together = "${p.sharedEvents} event${if (p.sharedEvents == 1) "" else "s"} together"
                     ListRow(p.label, if (p.friend) (if (p.sharedEvents > 0) "Friend · $together" else "Friend") else together,
                         onClick = if (p.invited) null else ({ picked = if (on) picked - p.userId else picked + p.userId }),
-                        avatar = { Avatar(p.displayName, p.userId) }) {
+                        avatar = { Avatar(p.displayName, p.userId, opensFrom = "add_players") }) {
                         if (p.invited) Label("Invited")
                         else Box(Modifier.size(20.dp).background(if (on) T1.accent else T1.bg))
                     }

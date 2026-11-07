@@ -67,6 +67,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
+import site.table1.events.ui.components.Avatar
+import site.table1.events.ui.components.rememberOpenProfile
 
 // Scheduled events, the sign-up link, the waitlist, top 8 and decklists (contract/scheduled-events-2026-10-27.md):
 // the form pieces Create and Setup → Details share, the waitlist and bracket rows, the decklist panel and the in-app
@@ -193,7 +195,8 @@ fun LazyListScope.waitlistItems(b: EventBundle, busy: Boolean, act: (suspend () 
     if (b.waitlist.isEmpty()) return
     item { Section("Waitlist · ${b.waitlist.size}") }
     items(b.waitlist, key = { "w-${it.userId}" }) { w ->
-        ListRow("#${w.position} ${w.displayName}", if (b.event.beforeRoundOne) null else "Didn't get in") {
+        ListRow("#${w.position} ${w.displayName}", if (b.event.beforeRoundOne) null else "Didn't get in",
+            onClick = rememberOpenProfile("waitlist")(w.userId), avatar = { Avatar(w.displayName, w.userId) }) {
             if (b.event.beforeRoundOne) {
                 Label("Let in", Modifier.clickable(enabled = !busy) { act { Repo.waitlistAdmit(b.event.id, w.userId) } }, color = T1.accent)
                 Label("Remove", Modifier.padding(start = 16.dp).clickable(enabled = !busy) { act { Repo.waitlistRemove(b.event.id, w.userId) } }, color = T1.danger)

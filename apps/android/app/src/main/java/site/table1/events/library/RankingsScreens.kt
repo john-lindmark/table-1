@@ -173,7 +173,7 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
             val mine = d.rankings.filter { it.mine }; val others = d.rankings.filter { !it.mine }
             @Composable fun row(r: RankingRow) {
                 ListRow(r.title, listOfNotNull(if (listId == null) r.cube?.name else null, r.progress).joinToString(" · "),
-                    onClick = { onOpen(r.id) }, avatar = if (r.mine) null else ({ Avatar(r.by?.displayName ?: "?", r.by?.userId, 28) })) {
+                    onClick = { onOpen(r.id) }, avatar = if (r.mine) null else ({ Avatar(r.by?.displayName ?: "?", r.by?.userId, 28, opensFrom = "rankings") })) {
                     parseInstant(r.updatedAt)?.let { Label(Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).format(shortFmt)) }
                 }
             }
@@ -190,7 +190,7 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
                 rankable.forEach { c ->
                     ListRow(c.name, listOfNotNull(c.owner?.displayName, plural(c.cards, "card"), if (c.rankings == 0) "no rankings yet" else plural(c.rankings, "ranking"),
                         if (c.mine > 0) "${c.mine} yours" else null).joinToString(" · "), onClick = { onCube(c.id) },
-                        avatar = { Avatar(c.owner?.displayName ?: "?", c.owner?.userId, 28) })
+                        avatar = { Avatar(c.owner?.displayName ?: "?", c.owner?.userId, 28, opensFrom = "rankings") })
                 }
                 if (sets.isNotEmpty()) {
                     Section("Sets you can rank")

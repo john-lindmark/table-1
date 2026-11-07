@@ -76,6 +76,7 @@ import site.table1.events.library.moderationAccountRows
 import site.table1.events.library.bugsAccountRow
 import site.table1.events.ui.components.T1TextField
 import site.table1.events.ui.theme.T1
+import site.table1.events.ui.components.rememberOpenProfile
 
 /** The Account tab: lifetime record, head-to-head, settings, and the account itself. */
 @Composable
@@ -201,7 +202,7 @@ fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit
                 rivals.isEmpty() -> item { Notice("Play a match to start your head-to-head.") }
                 else -> items(if (showAll) rivals else rivals.take(8), key = { it.opponentId }) { rival ->
                     ListRow(rival.name, "${rival.played} match${if (rival.played == 1) "" else "es"} · games ${rival.gameWins}-${rival.gameLosses}",
-                        avatar = { Avatar(rival.name, rival.opponentId) }) {
+                        onClick = rememberOpenProfile("head_to_head")(rival.opponentId), avatar = { Avatar(rival.name, rival.opponentId) }) {
                         Text(record(rival.matchWins, rival.matchLosses, rival.matchDraws), color = T1.text, fontFamily = T1.mono, fontSize = 16.sp)
                     }
                 }

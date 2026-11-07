@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -323,6 +324,8 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
         listOf(site.table1.events.library.SharePart.ForTrade)) { site.table1.events.library.SharingOffer.due.value = null }
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f).let { if (topLevel) it.consumeWindowInsets(WindowInsets.navigationBars) else it }) {
+            // A tapped person opens their profile on this back stack (ui/components/PersonLink.kt).
+            CompositionLocalProvider(site.table1.events.ui.components.LocalOpenProfile provides { id: String -> nav.navigate("profile/$id") }) {
             NavHost(navController = nav, startDestination = "events") {
                 composable("events") {
                     var scanned by remember { mutableStateOf<JoinLink?>(null) }
@@ -638,6 +641,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                     NearbyScreen(onJoined = { id -> nav.navigate("event/$id") { popUpTo("events") } }, onOpen = { id -> nav.navigate("event/$id") },
                         onBack = { nav.popBackStack() })
                 }
+            }
             }
         }
         if (topLevel) {

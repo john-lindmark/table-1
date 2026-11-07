@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
@@ -22,6 +23,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -185,15 +188,20 @@ fun avatarJpeg(bytes: ByteArray): ByteArray? {
     }
 }
 
-/** A square tile: the photo when the account has one, otherwise initials on its color. */
+/** A square tile: the photo when the account has one, otherwise initials on its color. With [opensFrom] (where the row's own
+ *  tap does something else) the tile alone opens their profile (PersonLink.kt); it names the place for telemetry. */
 @Composable
-fun Avatar(name: String, userId: String?, size: Int = 24) {
+fun Avatar(name: String, userId: String?, size: Int = 24, opensFrom: String? = null) {
+    val open = opensFrom?.let { rememberOpenProfile(it)(userId) }
     LaunchedEffect(userId) { userId?.let { AvatarStore.want(it) } }
     val path = userId?.let { AvatarStore.path(it) }
     var failed by remember { mutableStateOf<String?>(null) }
     val fontSize = with(LocalDensity.current) { (size * 0.4f).dp.toSp() }
     Box(
-        Modifier.size(size.dp).clipToBounds().background(AvatarStyle.color(userId, name)).clearAndSetSemantics {},
+        Modifier.size(size.dp)
+            .let { m -> if (open != null) m.clickable(onClickLabel = "Profile", onClick = open) else m }
+            .clipToBounds().background(AvatarStyle.color(userId, name))
+            .let { m -> if (open != null) m.semantics { contentDescription = "$name's profile" } else m.clearAndSetSemantics {} },
         contentAlignment = Alignment.Center,
     ) {
         Text(

@@ -72,6 +72,7 @@ import site.table1.events.ui.components.T1TextField
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.qrBitmap
 import java.time.Instant
+import site.table1.events.ui.components.rememberOpenProfile
 
 /** One event: the organizer's control room, or a player's match card — chosen by role. */
 @Composable
@@ -482,7 +483,10 @@ private fun PlayerView(
                 }
                 else -> {
                     item {
-                        Column(Modifier.fillMaxWidth().background(T1.surface).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        val open = rememberOpenProfile("opponent")(theirs?.participantId?.let { b.userIds[it] })
+                        Column(Modifier.fillMaxWidth().background(T1.surface)
+                            .let { m -> if (open != null) m.clickable(onClickLabel = "Profile", onClick = open) else m }
+                            .padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Label("Table ${match.tableNumber ?: "–"} · playing")
                             Text(b.name(theirs?.participantId), color = T1.text, fontFamily = T1.mono, fontSize = 22.sp)
                         }
@@ -551,7 +555,7 @@ private fun PlayerView(
                 seatingItems(seating, highlight = me?.id, teamDraft = b.event.formatName == "team_draft", seatEnds = b.event.seatEnds)
             }
             standings.teams?.takeIf { it.isNotEmpty() }?.let { teams ->
-                teamStandingItems(teams, highlightMember = me?.id)
+                teamStandingItems(teams, highlightMember = me?.id, userIds = b.userIds)
             }
             bracketItems(standings.bracket)
             if (standings.bracket.isEmpty()) item { Section(if (standings.teams.isNullOrEmpty()) "Standings" else "Players") }
@@ -615,7 +619,7 @@ internal fun StandingsList(
         bracketItems(bracket)
         if (standings.isEmpty()) item { Notice("Standings appear after the first results.") }
         if (!teams.isNullOrEmpty()) {
-            teamStandingItems(teams, highlightMember = highlight)
+            teamStandingItems(teams, highlightMember = highlight, userIds = userIds)
             if (standings.isNotEmpty()) item { Section("Players") }
         }
         items(standings, key = { it.participantId }) {
@@ -626,7 +630,7 @@ internal fun StandingsList(
 }
 
 /** Team table: rank · name · points · W-L-D · match wins, members (slot letter + record) underneath, best first. */
-internal fun LazyListScope.teamStandingItems(teams: List<TeamStanding>, highlightMember: String?) {
+internal fun LazyListScope.teamStandingItems(teams: List<TeamStanding>, highlightMember: String?, userIds: Map<String, String> = emptyMap()) {
     item { Section("Teams") }
     teams.forEach { t ->
         item(key = "team-${t.teamId}") {
@@ -645,8 +649,11 @@ internal fun LazyListScope.teamStandingItems(teams: List<TeamStanding>, highligh
         }
         // Best first by record, then game-win %, then OMW (the engine's order).
         items(t.members, key = { "team-${t.teamId}-${it.participantId}" }) { m ->
+            val open = rememberOpenProfile("standings")(userIds[m.participantId])
             Row(
-                Modifier.fillMaxWidth().background(T1.bg).padding(start = 40.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+                Modifier.fillMaxWidth().background(T1.bg)
+                    .let { x -> if (open != null) x.clickable(onClickLabel = "Profile", onClick = open) else x }
+                    .padding(start = 40.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -661,8 +668,11 @@ internal fun LazyListScope.teamStandingItems(teams: List<TeamStanding>, highligh
 
 @Composable
 internal fun StandingLine(s: Standing, highlight: Boolean, team: String? = null, userId: String? = null) {
+    val open = rememberOpenProfile("standings")(userId)
     Row(
-        Modifier.fillMaxWidth().background(if (highlight) T1.surfaceHover else T1.surface).padding(horizontal = 16.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().background(if (highlight) T1.surfaceHover else T1.surface)
+            .let { m -> if (open != null) m.clickable(onClickLabel = "Profile", onClick = open) else m }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

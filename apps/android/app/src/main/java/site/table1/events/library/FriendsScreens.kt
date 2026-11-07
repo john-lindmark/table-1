@@ -50,6 +50,7 @@ import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.T1TextField
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
+import site.table1.events.ui.components.rememberOpenProfile
 
 /* Friends, profiles, sharing and trade matches (contract/friends-sharing-2026-10-18.md). Same screens as the iOS app:
    Account → Friends / Sharing / Your profile; Library → Trade matches. */
@@ -83,7 +84,7 @@ fun LazyListScope.friendsAccountRows(state: FriendsState, onFriends: () -> Unit,
 @Composable
 fun TradeMatchRow(x: TradeMatch, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
     ListRow(x.displayName, x.short + if (x.friend) "" else " · played with you", onClick = onClick,
-        avatar = { Avatar(x.displayName, x.userId) }, onLongClick = onLongClick) {
+        avatar = { Avatar(x.displayName, x.userId, opensFrom = "trade_match") }, onLongClick = onLongClick) {
         if (x.haveUsd + x.wantUsd > 0) PriceBook.text(x.haveUsd + x.wantUsd)?.let { Text(it, color = T1.text, fontFamily = T1.mono, fontSize = 15.sp) }
     }
 }
@@ -198,6 +199,7 @@ fun FriendAddScreen(onBack: () -> Unit) {
                     val detail = listOfNotNull(p.handle?.let { "@$it" },
                         if ((p.sharedEvents ?: 0) > 0) "${plural(p.sharedEvents ?: 0, "event")} together" else "Public profile").joinToString(" · ")
                     ListRow(p.displayName, detail, avatar = { Avatar(p.displayName, p.userId) },
+                        onClick = rememberOpenProfile("friend_search")(p.userId),
                         onLongClick = { menuFor = PersonRef(p.userId, p.displayName, p.relation ?: "none") }) {
                         when (p.relation ?: "none") {
                             "friend" -> Label("Friends", color = T1.accent)
@@ -337,7 +339,7 @@ fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: Stri
                     }
                 }
             }
-            if (!p.visible) item { Notice(if (p.relation == "blocked") "You blocked ${p.displayName}." else "This isn't available.") }
+            if (!p.visible) item { Notice(if (p.relation == "blocked") "You blocked ${p.displayName}." else "Only ${p.displayName}'s friends can see their profile.") }
             else if (p.relation != "self" && p.sectionCount == 0) item { Notice("Nothing shared yet.") }
             fun open(title: String, detail: String, kind: String, id: String? = null) = item(key = "$kind-${id ?: ""}") {
                 ListRow(title, detail, onClick = {
