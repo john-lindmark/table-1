@@ -123,6 +123,8 @@ enum class T1Icon(d: String) {
     /** Material "print" (Sharp, 300). */
     Print("M12 6.2308V3.9808H6V6.2308H4.875V2.8558H13.125V6.2308H12ZM3.2164 7.3558H14.7836H3.2164ZM13.3558 9.2308C13.5683 9.2308 13.7464 9.1589 13.8902 9.0152C14.0339 8.8714 14.1058 8.6933 14.1058 8.4808C14.1058 8.2683 14.0339 8.0902 13.8902 7.9464C13.7464 7.8027 13.5683 7.7308 13.3558 7.7308C13.1433 7.7308 12.9652 7.8027 12.8214 7.9464C12.6777 8.0902 12.6058 8.2683 12.6058 8.4808C12.6058 8.6933 12.6777 8.8714 12.8214 9.0152C12.9652 9.1589 13.1433 9.2308 13.3558 9.2308ZM12 14.25V11.0481H6V14.25H12ZM13.125 15.375H4.875V12.375H2.0914V6.2308H15.9086V12.375H13.125V15.375ZM14.7836 11.25V7.3558H3.2164V11.25H4.875V9.9231H13.125V11.25H14.7836Z"),
     Plus("M8.4375 9.5625H4.125V8.4375H8.4375V4.125H9.5625V8.4375H13.875V9.5625H9.5625V13.875H8.4375V9.5625Z"),
+    /** photo_camera (Figma 530:10275): scan cards from the Collection bar. */
+    PhotoCamera("M9 12.8364C9.86063 12.8364 10.5902 12.5372 11.1887 11.9387C11.7872 11.3402 12.0864 10.6106 12.0864 9.75C12.0864 8.88937 11.7872 8.15981 11.1887 7.56131C10.5902 6.96281 9.86063 6.66356 9 6.66356C8.13937 6.66356 7.40981 6.96281 6.81131 7.56131C6.21281 8.15981 5.91356 8.88937 5.91356 9.75C5.91356 10.6106 6.21281 11.3402 6.81131 11.9387C7.40981 12.5372 8.13937 12.8364 9 12.8364ZM9 11.7116C8.44612 11.7116 7.98075 11.5231 7.60387 11.1461C7.22688 10.7692 7.03837 10.3039 7.03837 9.75C7.03837 9.19612 7.22688 8.73075 7.60387 8.35387C7.98075 7.97687 8.44612 7.78837 9 7.78837C9.55387 7.78837 10.0193 7.97687 10.3961 8.35387C10.7731 8.73075 10.9616 9.19612 10.9616 9.75C10.9616 10.3039 10.7731 10.7692 10.3961 11.1461C10.0193 11.5231 9.55387 11.7116 9 11.7116ZM1.875 15.375V4.125H5.52112L6.90862 2.625H11.0914L12.4789 4.125H16.125V15.375H1.875ZM3 14.25H15V5.25H11.9769L10.6009 3.75H7.39912L6.02306 5.25H3V14.25Z"),
     Search("M14.6567 15.4328L9.94613 10.722C9.57113 11.0316 9.13987 11.2739 8.65237 11.4489C8.16487 11.6239 7.66056 11.7114 7.13944 11.7114C5.85869 11.7114 4.77406 11.2673 3.88556 10.3789C2.99719 9.49038 2.553 8.40575 2.553 7.125C2.553 5.84425 2.99719 4.75963 3.88556 3.87113C4.77406 2.98275 5.85869 2.53856 7.13944 2.53856C8.42019 2.53856 9.50481 2.98275 10.3933 3.87113C11.2817 4.75963 11.7259 5.84425 11.7259 7.125C11.7259 7.66063 11.636 8.17219 11.4562 8.65969C11.2764 9.14719 11.0364 9.57119 10.7364 9.93169L15.447 14.6422L14.6567 15.4328ZM7.13944 10.5866C8.10581 10.5866 8.92431 10.2513 9.59494 9.5805C10.2657 8.90987 10.6011 8.09138 10.6011 7.125C10.6011 6.15862 10.2657 5.34012 9.59494 4.6695C8.92431 3.99875 8.10581 3.66337 7.13944 3.66337C6.17306 3.66337 5.35456 3.99875 4.68394 4.6695C4.01319 5.34012 3.67781 6.15862 3.67781 7.125C3.67781 8.09138 4.01319 8.90987 4.68394 9.5805C5.35456 10.2513 6.17306 10.5866 7.13944 10.5866Z"),
     Arrow("M10.3847 13.2403L9.59419 12.4269L12.4586 9.5625H3.375V8.4375H12.4586L9.59419 5.57306L10.3847 4.75969L14.625 9L10.3847 13.2403Z"),
     Decks("M8.22295 9.81524L1.95395 6.56561L9.82163 2.36842L16.0979 5.61824L8.22295 9.81524ZM8.22295 12.7431L2.3852 9.73005L3.56345 9.08373L8.22295 11.4624L14.4883 8.13637L15.6667 8.78268L8.22295 12.7431ZM8.22295 15.6711L2.3852 12.6579L3.56345 12.0117L8.22295 14.3902L14.4883 11.0644L15.6667 11.7105L8.22295 15.6711ZM8.22295 8.53462L13.7527 5.61824L9.82163 3.64923L4.29901 6.56561L8.22295 8.53462Z"),
@@ -217,6 +219,14 @@ fun LibraryHomeScreen(foregrounds: Int, go: (String) -> Unit) {
     val pricesVersion by PriceBook.version.collectAsState()
     var menu by remember { mutableStateOf(false) }
     var creating by remember { mutableStateOf<String?>(null) } // deck | cube | binder
+    /** The camera (Figma 327:8076): scan a pile, then Add to puts them all in the collection, a deck, cube, binder,
+     *  wants or a trade. */
+    var scanning by remember { mutableStateOf(false) }
+    /** What the last scan added, with its Undo when it has one. */
+    var scanAdded by remember { mutableStateOf<Pair<String, CardUndo?>?>(null) }
+    var scanError by remember { mutableStateOf<String?>(null) }
+    var undoing by remember { mutableStateOf(false) }
+    val homeScope = rememberCoroutineScope()
     // Syncs on open and on every return to the Library or to the app.
     LaunchedEffect(foregrounds) {
         CollectionStore.sync()
@@ -257,8 +267,24 @@ fun LibraryHomeScreen(foregrounds: Int, go: (String) -> Unit) {
             Box(Modifier.size(50.dp).clickable { tap("add"); menu = true }.semantics { contentDescription = "Add" }, contentAlignment = Alignment.Center) { IconGlyph(T1Icon.Plus) }
             Box(Modifier.size(50.dp).clickable { tap("search"); go("collection/search") }.semantics { contentDescription = "Search cards" },
                 contentAlignment = Alignment.Center) { IconGlyph(T1Icon.Search) }
+            Box(Modifier.size(50.dp).clickable { tap("scan"); scanError = null; scanning = true }.semantics { contentDescription = "Scan cards" },
+                contentAlignment = Alignment.Center) { IconGlyph(T1Icon.PhotoCamera) }
         }
         col.error?.let { Notice(it, error = true) }
+        scanError?.let { Notice(it, error = true) }
+        scanAdded?.let { (label, undo) ->
+            Row(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Label(label, Modifier.weight(1f))
+                if (undo != null) BarAction(if (undoing) "Undoing…" else "Undo") {
+                    if (undoing) return@BarAction
+                    undoing = true
+                    homeScope.launch {
+                        runCatching { undo.run() }.onSuccess { scanAdded = null }.onFailure { scanError = it.message }
+                        undoing = false
+                    }
+                }
+            }
+        }
         col.outboxNotice?.let { Notice(it) }
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 64.dp)) {
             item {
@@ -320,6 +346,25 @@ fun LibraryHomeScreen(foregrounds: Int, go: (String) -> Unit) {
                 onFind = { go("collection/find") }, onImport = { go("collection/import/${kind.wire}") })
         }
         "binder" -> BinderEditDialog(null, onClose = { creating = null }) { go("collection/binder/${it.id}") }
+    }
+    if (scanning) {
+        // Add opens Add to over the scanner; closing it goes back to scanning with the cards kept, and picking a place
+        // adds them all and closes both.
+        CardScanOverlay("Scan cards", "Add", owned = null, onDone = {}, onCancel = {
+            scanning = false
+            Telemetry.capture("scan_session_ended", mapOf("context" to "collection", "cards" to 0, "exact" to 0, "cancelled" to true))
+        }, addTo = { cards, close ->
+            val first = cards.last()
+            AddToSheet(first.oracle, ScanBatch.lines(cards), cards.associate { it.printing.cardId to it.printing }, lists.lists, "scan",
+                onClose = close,
+                scanned = ScannedAdd(if (cards.size == 1) "scanned card" else "scanned cards",
+                    cards.associate { it.printing.cardId to it.oracle.oracleId })) { label, undo ->
+                Telemetry.capture("scan_session_ended", mapOf("context" to "collection", "cards" to cards.size,
+                    "exact" to cards.count { it.exact }, "cancelled" to false))
+                scanning = false
+                scanAdded = label to undo
+            }
+        })
     }
 }
 

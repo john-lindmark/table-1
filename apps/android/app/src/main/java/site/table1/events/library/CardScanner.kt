@@ -130,7 +130,41 @@ data class ScanLeavePrompt(val title: String, val message: String, val add: Stri
     }
 }
 
-/** Full-screen scanner used by Add cards and Trades. Collects cards until Done; nothing is written here. */
+/** What a scan session hands on, and the price line under each scanned row (contract/trades-2026-10-16.md § Scanning
+ *  "Scan from the Collection" / "Prices"; cases testdata/scan-batch/cases.json). */
+object ScanBatch {
+    /** Scanned cards as Add to lines: copies of one printing, finish, condition and language counted together, in the
+     *  order they were first scanned (the scanner lists the newest first). */
+    fun lines(newestFirst: List<ScannedCard>): List<CardVersion> =
+        linesOf(newestFirst.map { CardVersion(it.printing.cardId, it.finish, it.condition, it.lang, qty = 1) })
+
+    /** The same for one copy each, newest first. */
+    fun linesOf(newestFirst: List<CardVersion>): List<CardVersion> {
+        val out = mutableListOf<CardVersion>()
+        for (c in newestFirst.asReversed()) {
+            val i = out.indexOfFirst { it.itemKey == c.itemKey }
+            if (i >= 0) out[i] = out[i].copy(qty = out[i].qty + c.qty) else out += c
+        }
+        return out
+    }
+
+    /** A scanned row's price line: one copy in its finish and condition ("$9.00", "≈ $7,992.55" when converted from
+     *  Cardmarket), "No price" once prices are in and there's none, nothing while they load. */
+    fun priceLine(usd: Double?, loaded: Boolean, converted: Boolean): String? =
+        if (usd != null) PriceBook.marked(PriceBook.text(usd), converted) else if (loaded) "No price" else null
+
+    /** The scanned cards' value, null until one has a price. */
+    fun total(prices: List<Double?>): Double? {
+        val known = prices.filterNotNull()
+        return if (known.isEmpty()) null else known.sumOf { Math.round(it * 100) } / 100.0
+    }
+}
+
+/**
+ * Full-screen scanner used by Add cards, Trades and the Collection bar. Collects cards until Done; nothing is written
+ * here. With `addTo` (the Collection bar), Done opens it over the camera, which is held meanwhile; closing it goes back
+ * to scanning with the cards kept.
+ */
 @Composable
 fun CardScanOverlay(
     title: String,
@@ -140,12 +174,21 @@ fun CardScanOverlay(
     onCancel: () -> Unit,
     /** Owned-only: printing id → finishes in for-trade binders, preferred when the text doesn't settle the printing. */
     preferred: Map<String, Set<String>> = emptyMap(),
+    /** Drawn over the scanner after Done instead of calling `onDone`: the cards, and how to close it. */
+    addTo: (@Composable (List<ScannedCard>, () -> Unit) -> Unit)? = null,
+    /** Rows already taken (the Debug scan demo; the emulator has no card to point at). */
+    scanned: List<ScannedCard> = emptyList(),
 ) {
     val context = LocalContext.current
     val cat by CatalogStore.state.collectAsState()
     val prefs = remember { T1App.instance.getSharedPreferences("library", android.content.Context.MODE_PRIVATE) }
     var condition by remember { mutableStateOf(prefs.getString("addCondition", "NM") ?: "NM") }
-    val cards = remember { mutableStateListOf<ScannedCard>() }
+    val cards = remember { mutableStateListOf<ScannedCard>().apply { addAll(scanned) } }
+    /** The cards Add to is open for; the camera takes nothing meanwhile. */
+    var picking by remember { mutableStateOf<List<ScannedCard>?>(null) }
+    val done = { list: List<ScannedCard> -> if (addTo != null) picking = list else onDone(list) }
+    val pricesVersion by PriceBook.version.collectAsState()
+    LaunchedEffect(cards.map { it.printing.cardId }) { PriceBook.load(cards.map { it.printing.cardId }) }
     var reading by remember { mutableStateOf<String?>(null) }
     var granted by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
@@ -182,7 +225,7 @@ fun CardScanOverlay(
         Telemetry.capture("scan_leave_answered", mapOf("choice" to choice, "cards" to cards.size, "owned_only" to (owned != null)))
         leaving = null
         when (choice) {
-            "add" -> onDone(cards.toList())
+            "add" -> done(cards.toList())
             "discard" -> cancel()
         }
     }
@@ -194,7 +237,7 @@ fun CardScanOverlay(
      */
     fun see(lines: List<String>, border: ScanBorder): ScanMatch? {
         // Nothing is taken while Back is asking, so the count it asked about is the count added.
-        if (leaving != null) return null
+        if (leaving != null || picking != null) return null
         val m = matcher ?: return null
         val hit = m.match(lines, border)?.takeIf { it.exact || CardMatcher.hasTypeLine(lines) }
         frames.add(lines, named = hit != null)
@@ -237,7 +280,8 @@ fun CardScanOverlay(
         } else Box(Modifier.fillMaxSize().background(T1.bg)) {
             T1Screen {
                 Bar(title, subtitle = if (cards.isEmpty()) (if (owned == null) "Hold a card flat in the frame" else "Matching cards you own")
-                    else "${cards.size} scanned", onBack = back)
+                    else ScanBatch.total(cards.map { PriceBook.usd(it.printing.cardId, it.finish, it.condition) })
+                        .also { pricesVersion }?.let { "${cards.size} scanned · ${PriceBook.text(it)}" } ?: "${cards.size} scanned", onBack = back)
                 when {
                     !granted -> {
                         Notice(if (asked) "Camera access is off. Allow it for Table 1 in Settings, or search by name instead."
@@ -264,7 +308,7 @@ fun CardScanOverlay(
                     // Sized to its rows, up to about three, so the camera keeps most of the screen.
                     Column(Modifier.fillMaxWidth().heightIn(max = 210.dp).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                        for (c in cards) key(c.id) { ScanRow(c, owned != null,
+                        for (c in cards) key(c.id) { ScanRow(c, owned != null, pricesVersion,
                             onPrinting = { fixing = c.id },
                             onLanguage = { languageFor = c.id },
                             onFinish = { next -> val at = cards.indexOfFirst { it.id == c.id }; if (at >= 0) cards[at] = c.copy(finish = next) },
@@ -272,10 +316,11 @@ fun CardScanOverlay(
                     }
                 }
                 BigAction(if (cards.isEmpty()) "Scan a card" else "$doneLabel ${cards.size}", enabled = cards.isNotEmpty(), accent = true) {
-                    onDone(cards.toList())
+                    done(cards.toList())
                 }
             }
         }
+        picking?.let { list -> addTo?.invoke(list) { picking = null; steady = ScanSteadiness(); frames.clear() } }
         leaving?.let { p ->
             T1AlertDialog(
                 title = p.title,
@@ -307,7 +352,7 @@ private val GUIDE_MARGIN = 96.dp
 
 /** One scanned card: tap it to change the printing; language, finish (when there's a choice) and remove beside it. */
 @Composable
-private fun ScanRow(c: ScannedCard, ownedOnly: Boolean, onPrinting: () -> Unit, onLanguage: () -> Unit, onFinish: (String) -> Unit, onRemove: () -> Unit) {
+private fun ScanRow(c: ScannedCard, ownedOnly: Boolean, pricesVersion: Int, onPrinting: () -> Unit, onLanguage: () -> Unit, onFinish: (String) -> Unit, onRemove: () -> Unit) {
     val finishes = c.printing.finishList
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).background(T1.surface), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
         Box(Modifier.weight(1f)) {
@@ -315,7 +360,10 @@ private fun ScanRow(c: ScannedCard, ownedOnly: Boolean, onPrinting: () -> Unit, 
             CardRow(c.printing, c.oracle.name, listOfNotNull(c.printing.setLabel, Finish.of(c.finish)?.label,
                 if (!ownedOnly) c.condition else null, if (!ownedOnly && c.lang != "en") c.lang.uppercase() else null,
                 if (c.exact || c.fixed) null else "Check printing").joinToString(" · "),
-                onClick = onPrinting, finish = c.finish) {
+                onClick = onPrinting, finish = c.finish,
+                // One copy's price in its finish and condition (pricesVersion redraws the row when prices arrive).
+                note = pricesVersion.let { ScanBatch.priceLine(PriceBook.usd(c.printing.cardId, c.finish, c.condition),
+                    PriceBook.has(c.printing.cardId), PriceBook.converted(c.printing.cardId, c.finish)) }) {
                 Label("Printing", color = if (c.exact || c.fixed) T1.muted else T1.text)
             }
         }

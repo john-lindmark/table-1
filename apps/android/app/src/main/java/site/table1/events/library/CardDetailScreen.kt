@@ -87,7 +87,7 @@ import java.net.URL
    else. The list icon flips to the info view. Same screen as iOS CardDetailViews.swift and web CardDetail.tsx. */
 
 /** An Undo for the strip: a collection batch, or the reverse list edits. */
-private class CardUndo(val label: String, val run: suspend () -> Unit)
+internal class CardUndo(val label: String, val run: suspend () -> Unit)
 
 /** `selected` when the new edition (long press on +) is the picked tile. */
 private const val EDITION = "new-edition"
@@ -759,12 +759,17 @@ private sealed interface AddStep {
     data class Side(val id: String?) : AddStep
 }
 
+/** What the Collection scanner hands Add to: what the done line calls the cards ("12 scanned cards") and each
+ *  printing's oracle id for wants. */
+data class ScannedAdd(val name: String, val oracleIds: Map<String, String>)
+
 /** Collection / Deck / Cube / Binder / Want / Trade, each drilling down in place (Figma Add To Selection and Add to
  *  Drilldown). Adds `lines` (one copy, or every copy in view, each version with its count); condition and language go
- *  with collection, binder and trade adds. */
+ *  with collection, binder and trade adds. The Collection scanner opens it for every card scanned (`scanned`): many
+ *  cards at once, no TCGplayer row. */
 @Composable
-private fun AddToSheet(o: CatalogOracle, lines: List<CardVersion>, printings: Map<String, CatalogPrinting>, lists: List<CardList>, scope: String,
-                       onClose: () -> Unit, onDone: (String, CardUndo?) -> Unit) {
+internal fun AddToSheet(o: CatalogOracle, lines: List<CardVersion>, printings: Map<String, CatalogPrinting>, lists: List<CardList>, scope: String,
+                        onClose: () -> Unit, scanned: ScannedAdd? = null, onDone: (String, CardUndo?) -> Unit) {
     val co = rememberCoroutineScope()
     val trades by TradesStore.state.collectAsState()
     val binders by BindersStore.state.collectAsState()
@@ -778,17 +783,17 @@ private fun AddToSheet(o: CatalogOracle, lines: List<CardVersion>, printings: Ma
     val printingIds = lines.map { it.cardId }.distinct()
     // The printing when every line shares one.
     val p = if (printingIds.size == 1) printings[version.cardId] else null
-    val name = p?.setLabel ?: o.name
+    val name = scanned?.name ?: p?.setLabel ?: o.name
     val count = lines.sumOf { it.qty }
     val owned = lines.all { (col.items[it.itemKey]?.qty ?: 0) > 0 }
 
     fun finish(destination: String, label: String, undo: CardUndo?) {
-        Telemetry.capture("card_added_to", mapOf("destination" to destination, "scope" to scope, "copies" to count))
+        Telemetry.capture(if (scanned == null) "card_added_to" else "scan_added_to", mapOf("destination" to destination, "scope" to scope, "copies" to count))
         onDone(label, undo)
     }
     fun launch(block: suspend () -> Unit) { co.launch { runCatching { block() }.onFailure { error = it.message } } }
     fun toCollection(binderId: String?, place: String) = launch {
-        val res = CollectionStore.apply(lines.map { CardDetailRules.step(it, it.qty, binderId) })
+        val res = CollectionStore.apply(lines.map { CardDetailRules.step(it, it.qty, binderId) }, source = if (scanned == null) "manual" else "scan")
         val label = "Added $count $name to $place"
         finish(if (binderId == null) "collection" else "binder", label, CardUndo(label) { CollectionStore.undo(res.batchId) })
     }
@@ -808,12 +813,13 @@ private fun AddToSheet(o: CatalogOracle, lines: List<CardVersion>, printings: Ma
         finish(l.kind.wire, label, CardUndo(label) { added.forEach { (k, n) -> ListsStore.add(id, k[0], board, -n, k[1], k[2], k[3]) } })
     }
     fun want(how: String) = launch {
-        // One want per printing (and finish), counting the copies of each.
-        val ops = lines.groupBy { (if (how == "any") null else it.cardId) to (if (how == "finish") it.finish else null) }
-            .map { (k, vs) -> WantOp(o.oracleId, cardId = k.first, finish = k.second, delta = vs.sumOf { it.qty }) }
+        // One want per card (any printing), printing, or printing and finish, counting the copies of each.
+        val ops = lines.groupBy { Triple(scanned?.oracleIds?.get(it.cardId) ?: o.oracleId, if (how == "any") null else it.cardId,
+                                         if (how == "finish") it.finish else null) }
+            .map { (k, vs) -> WantOp(k.first, cardId = k.second, finish = k.third, delta = vs.sumOf { it.qty }) }
         BindersStore.applyWants(ops, "want_added",
-            mapOf("any_printing" to (how == "any"), "finish" to (how == "finish"), "has_max" to false, "from" to "card"))
-        finish("want", "Wanted $count ${if (how == "any") o.name else name}", null)
+            mapOf("any_printing" to (how == "any"), "finish" to (how == "finish"), "has_max" to false, "from" to if (scanned == null) "card" else "scan"))
+        finish("want", "Wanted $count ${if (how == "any" && scanned == null) o.name else name}", null)
     }
     fun toTrade(id: String?, give: Boolean) = launch {
         val t = id?.let { TradesStore.trade(it) }
@@ -850,8 +856,8 @@ private fun AddToSheet(o: CatalogOracle, lines: List<CardVersion>, printings: Ma
 
     val s = step
     val (title, options) = when (s) {
-        AddStep.Root -> null to listOf("collection" to "Collection", "deck" to "Deck", "cube" to "Cube", "binder" to "Binder", "want" to "Want", "trade" to "Trade",
-                                       "tcgplayer" to "TCGplayer")
+        AddStep.Root -> null to (listOf("collection" to "Collection", "deck" to "Deck", "cube" to "Cube", "binder" to "Binder", "want" to "Want", "trade" to "Trade") +
+                                 if (scanned == null) listOf("tcgplayer" to "TCGplayer") else emptyList())
             .map { Triple(it.first, it.second, null as String?) }
         AddStep.Decks -> "Deck" to lists.filter { it.kind == ListKind.Deck }.map { Triple(it.id, it.name, CatalogPack.formatName(it.format) as String?) }
             .ifEmpty { listOf(Triple("", "No decks yet", null)) }
@@ -861,7 +867,8 @@ private fun AddToSheet(o: CatalogOracle, lines: List<CardVersion>, printings: Ma
             .ifEmpty { listOf(Triple("", "No cubes yet", null)) }
         AddStep.Binders -> "Binder" to binders.binders.sortedBy { it.name.lowercase() }.map { Triple(it.id, it.name, if (it.forTrade) "For trade" else null) }
             .ifEmpty { listOf(Triple("", "No binders yet", null)) }
-        AddStep.Want -> "Want" to listOfNotNull(Triple("any", "Any printing", null as String?),
+        AddStep.Want -> "Want" to if (scanned != null) listOf(Triple("any", "Any printing", null as String?),
+            Triple("printing", "These printings", null), Triple("finish", "These printings and finishes", null)) else listOfNotNull(Triple("any", "Any printing", null as String?),
             if (p == null && printingIds.size > 1) Triple("printing", "Each printing", "${printingIds.size} printings") else null,
             if (p == null && printingIds.size > 1) Triple("finish", "Each printing and finish", null) else null,
             p?.let { Triple("printing", "This printing", name) },

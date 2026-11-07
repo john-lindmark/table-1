@@ -195,7 +195,8 @@ private struct CatalogStatus: View {
 
 /// The Collection tab (Figma 325:10820): the collection as a shelf of its hero art, then a shelf each of decks,
 /// binders and cubes (yours, then the ones you follow), with Trade · Wants · Import along the bottom. + adds cards
-/// or makes a deck, binder or cube; the magnifier searches every card.
+/// or makes a deck, binder or cube; the magnifier searches every card; the camera (Figma 327:8076) scans a pile of
+/// cards and adds them all to the collection, a deck, cube, binder, wants or a trade.
 struct LibraryHomeView: View {
     @Binding var path: [LibraryRoute]
     private var col: CollectionStore { CollectionStore.shared }
@@ -203,6 +204,10 @@ struct LibraryHomeView: View {
     private var binders: BindersStore { BindersStore.shared }
     /// Shelf art by scope key (`HeroScope.key`): heroes first, else the card the place holds most.
     @State private var art: [String: [CatalogPrinting]] = [:]
+    /// What the last scan added, with its Undo when it has one.
+    @State private var scanAdded: (label: String, undo: CardUndo?)?
+    @State private var undoing = false
+    @State private var scanError: String?
 
     var body: some View {
         T1Screen {
@@ -212,9 +217,19 @@ struct LibraryHomeView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 T1IconButton(icon: .plus, label: "Add") { add() }
                 T1IconButton(icon: .search, label: "Search cards") { tap("search"); path.append(.search) }
+                T1IconButton(icon: .photoCamera, label: "Scan cards") { scan() }
             }
             .background(T1.bg)
             if let error = col.error { Notice(error, error: true) }
+            if let scanError { Notice(scanError, error: true) }
+            if let scanAdded {
+                HStack(spacing: 12) {
+                    LabelText(scanAdded.label)
+                    Spacer(minLength: 0)
+                    if scanAdded.undo != nil { BarButton(undoing ? "Undoing…" : "Undo") { undoScan() } }
+                }
+                .padding(.horizontal, 16).padding(.vertical, 12).background(T1.surface)
+            }
             if let waiting = col.outboxNotice { Notice(waiting) }
             ScrollView {
                 VStack(spacing: 0) {
@@ -253,6 +268,11 @@ struct LibraryHomeView: View {
         }
         .task { if FollowsStore.shared.items == nil { await FollowsStore.shared.load() } }
         .task(id: col.version) { await PriceBook.shared.load(col.items.values.map(\.cardId)) }
+        #if DEBUG
+        // Design QA: `-T1ScanDemo [addto]` opens the scanner with the demo collection's first cards already scanned
+        // (the Simulator has no camera), and with `addto` Add to over it.
+        .task(id: CatalogStore.shared.generation) { scanDemo() }
+        #endif
         .task(id: artKey) { await loadArt() }
     }
 
@@ -347,6 +367,82 @@ struct LibraryHomeView: View {
     }
 
     private func tap(_ target: String) { Telemetry.capture("collection_home_tap", ["target": target]) }
+
+    // MARK: scan
+
+    /// The camera: scan as many cards as you like, then Add opens Add to over the scanner (the camera held meanwhile).
+    /// Closing Add to goes back to the scanner with the cards kept; picking a place adds them all and closes both.
+    private func scan() {
+        tap("scan")
+        scanError = nil
+        let hold = ScanHold()
+        T1Overlays.shared.present(full: true, swipeBack: false) {
+            CardScanView(title: "Scan cards", doneLabel: "Add", hold: hold, onDone: { cards in
+                guard !cards.isEmpty else { return }
+                hold.on = true
+                addScanned(cards, hold: hold)
+            }, onCancel: {
+                Telemetry.capture("scan_session_ended", ["context": "collection", "cards": 0, "exact": 0, "cancelled": true])
+                T1Overlays.shared.dismissPanel()
+            })
+            .screen("card_scanner")
+        }
+    }
+
+    private func addScanned(_ cards: [ScannedCard], hold: ScanHold) {
+        let lines = ScanBatch.lines(cards)
+        var printings: [String: CatalogPrinting] = [:], oracleIds: [String: String] = [:]
+        for c in cards { printings[c.printing.cardId] = c.printing; oracleIds[c.printing.cardId] = c.oracle.oracleId }
+        guard let first = cards.last else { return }
+        T1Overlays.shared.present {
+            AddToPanel(oracle: first.oracle, printings: printings, lines: lines, scope: "scan",
+                       scanned: (cards.count == 1 ? "scanned card" : "scanned cards", oracleIds)) { label, undo in
+                Telemetry.capture("scan_session_ended", ["context": "collection", "cards": cards.count,
+                                                         "exact": cards.filter(\.exact).count, "cancelled": false])
+                T1Overlays.shared.dismissPanel() // the scanner (Add to closed itself)
+                scanAdded = (label, undo)
+            }
+            .onDisappear { hold.on = false }
+            .screen("scan_add_to")
+        }
+    }
+
+    #if DEBUG
+    private func scanDemo() {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-T1ScanDemo"), let db = CatalogStore.shared.db, T1Overlays.shared.panels.isEmpty else { return }
+        let items = col.items.values.sorted { $0.cardId < $1.cardId }.prefix(4)
+        let printings = db.printings(ids: items.map(\.cardId))
+        let oracles = db.oracles(idxs: printings.values.map(\.oracleIdx))
+        let cards = items.compactMap { it -> ScannedCard? in
+            guard let p = printings[it.cardId], let o = oracles[p.oracleIdx] else { return nil }
+            return ScannedCard(oracle: o, printing: p, finish: it.finish, condition: it.condition, exact: true)
+        }
+        guard !cards.isEmpty else { return }
+        let hold = ScanHold()
+        T1Overlays.shared.present(full: true, swipeBack: false) {
+            CardScanView(title: "Scan cards", doneLabel: "Add", scanned: cards, hold: hold, onDone: { cards in
+                hold.on = true
+                addScanned(cards, hold: hold)
+            }, onCancel: { T1Overlays.shared.dismissPanel() })
+        }
+        if i + 1 < args.count, args[i + 1] == "addto" { hold.on = true; addScanned(cards, hold: hold) }
+    }
+    #endif
+
+    private func undoScan() {
+        guard let undo = scanAdded?.undo, !undoing else { return }
+        undoing = true
+        Task {
+            defer { undoing = false }
+            do {
+                try await undo.run()
+                scanAdded = nil
+            } catch {
+                scanError = error.localizedDescription
+            }
+        }
+    }
 
     // MARK: art
 

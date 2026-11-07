@@ -1,0 +1,46 @@
+{
+  "_about": "Scan from the Collection (contract/trades-2026-10-16.md § Scanning, 'Scan from the Collection' and 'Prices'). lines: the scanner's rows, newest first, become Add to lines counted by printing, finish, condition and language, first scanned first. priceLine: a scanned row's price line. total: the scanned cards' value (whole cents), null until one has a price.",
+  "lines": [
+    {
+      "name": "copies of one version count together, first scanned first",
+      "scanned": [
+        {"card": "bolt-m10", "finish": "nonfoil", "condition": "NM", "lang": "en"},
+        {"card": "opt-dom", "finish": "foil", "condition": "NM", "lang": "en"},
+        {"card": "bolt-m10", "finish": "nonfoil", "condition": "NM", "lang": "en"}
+      ],
+      "lines": [
+        {"card": "bolt-m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 2},
+        {"card": "opt-dom", "finish": "foil", "condition": "NM", "lang": "en", "qty": 1}
+      ]
+    },
+    {
+      "name": "finish, condition and language keep copies apart",
+      "scanned": [
+        {"card": "bolt-m10", "finish": "foil", "condition": "NM", "lang": "en"},
+        {"card": "bolt-m10", "finish": "nonfoil", "condition": "LP", "lang": "en"},
+        {"card": "bolt-m10", "finish": "nonfoil", "condition": "NM", "lang": "ja"},
+        {"card": "bolt-m10", "finish": "nonfoil", "condition": "NM", "lang": "en"}
+      ],
+      "lines": [
+        {"card": "bolt-m10", "finish": "nonfoil", "condition": "NM", "lang": "en", "qty": 1},
+        {"card": "bolt-m10", "finish": "nonfoil", "condition": "NM", "lang": "ja", "qty": 1},
+        {"card": "bolt-m10", "finish": "nonfoil", "condition": "LP", "lang": "en", "qty": 1},
+        {"card": "bolt-m10", "finish": "foil", "condition": "NM", "lang": "en", "qty": 1}
+      ]
+    },
+    {"name": "nothing scanned", "scanned": [], "lines": []}
+  ],
+  "priceLine": [
+    {"usd": 9.0, "loaded": true, "converted": false, "text": "$9.00"},
+    {"usd": 0.25, "loaded": true, "converted": false, "text": "$0.25"},
+    {"usd": 7992.55, "loaded": true, "converted": true, "text": "≈ $7,992.55"},
+    {"usd": null, "loaded": true, "converted": false, "text": "No price"},
+    {"usd": null, "loaded": false, "converted": false, "text": null}
+  ],
+  "total": [
+    {"prices": [9.0, null, 0.25, 0.1], "total": 9.35},
+    {"prices": [0.1, 0.2], "total": 0.3},
+    {"prices": [null, null], "total": null},
+    {"prices": [], "total": null}
+  ]
+}

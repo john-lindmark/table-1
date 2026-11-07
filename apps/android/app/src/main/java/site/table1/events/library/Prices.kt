@@ -48,6 +48,9 @@ object PriceBook {
         }
     }
 
+    /** Whether prices for this printing have come back (with or without one). */
+    fun has(cardId: String): Boolean = synchronized(this) { cardId in rows }
+
     /** One copy's USD price in a finish and condition, null when there's no market price. */
     fun usd(cardId: String, finish: String, condition: String = "NM"): Double? {
         val r = synchronized(this) { rows[cardId] } ?: return null
