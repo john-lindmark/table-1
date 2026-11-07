@@ -972,7 +972,11 @@ class ScanLanguage(private val readers: Int) {
     private var missSince: Long? = null
 
     /** Feed every frame: whether its lines named a card, and whether there were any lines at all. */
-    fun feed(matched: Boolean, text: Boolean, now: Long = System.currentTimeMillis()) {
+    fun feed(matched: Boolean, text: Boolean, now: Long = System.currentTimeMillis(), latin: Boolean = false) {
+        // A card named in a Latin or Cyrillic script while reading CJK goes back to the Latin reader at once: the CJK
+        // recognizers read Latin too, so a pile of English cards after one gap kept the scanner on the slower Japanese,
+        // Chinese and Korean models for the rest of the session (only 1.2 s with no card at all went back, 2026-11-06).
+        if (matched && latin && mode != LATIN) { mode = LATIN; missSince = null; return }
         if (matched) { missSince = null; return }
         if (mode == LATIN) {
             if (!text) { missSince = null; return }
@@ -992,5 +996,10 @@ class ScanLanguage(private val readers: Int) {
         const val DETECT_MS = 600L
         /** CJK reading naming no card for this long goes back. */
         const val BACK_MS = 1200L
+        private val CJK = setOf("ja", "ko", "zhs", "zht")
+
+        /** Whether a match was read from Latin-script text: no Chinese, Japanese or Korean in what it says it's in (an
+         *  English name says nothing, so it counts as Latin). */
+        fun latin(m: ScanMatch): Boolean = m.langs.none { it in CJK }
     }
 }

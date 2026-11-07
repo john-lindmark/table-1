@@ -36,6 +36,11 @@
         <!-- Sentry starts from Telemetry.start (DSN, opt-out, scrubbing), not from its own provider. -->
         <meta-data android:name="io.sentry.auto-init" android:value="false" />
 
+        <!-- The scanner's Latin text model comes from Play services (play-services-mlkit-text-recognition). Without this
+             it's fetched on the first scan, and until it arrives every frame fails and nothing is read; with it Play
+             fetches it when the app is installed. The CJK models still come on first use (ScanLanguage). -->
+        <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="ocr" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

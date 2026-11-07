@@ -607,7 +607,7 @@ class CardMatcherTest {
                 val m = matcher.match(lines)
                 val taken = steady.feed(m, at)
                 if (taken != null && m != null) { got = m.copy(printing = taken.first, exact = taken.second) to at; break }
-                language.feed(matched = m != null, text = lines.isNotEmpty(), now = at)
+                language.feed(matched = m != null, text = lines.isNotEmpty(), now = at, latin = m != null && ScanLanguage.latin(m))
             }
             if (got != null && got.first.oracle.idx != catalog.expected[CardName.norm(c.name)]) report += "    WRONG ${c.id}: ${got.first.oracle.name}"
             grade(c, got?.first?.oracle, got?.first?.printing, got?.first?.exact ?: false, groups.getOrPut(group) { Tally() })

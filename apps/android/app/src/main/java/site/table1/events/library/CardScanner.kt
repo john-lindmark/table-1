@@ -189,18 +189,18 @@ fun CardScanOverlay(
 
     val view = LocalView.current
     /**
-     * One frame's lines; true when they name a card. ML Kit finds no card in the frame on Android, so the text must
+     * One frame's lines; the card they name, if any. ML Kit finds no card in the frame on Android, so the text must
      * look like a card's: a type line, or a set code and number that agree with the name (CardMatcher.hasTypeLine).
      */
-    fun see(lines: List<String>, border: ScanBorder): Boolean {
+    fun see(lines: List<String>, border: ScanBorder): ScanMatch? {
         // Nothing is taken while Back is asking, so the count it asked about is the count added.
-        if (leaving != null) return false
-        val m = matcher ?: return false
+        if (leaving != null) return null
+        val m = matcher ?: return null
         val hit = m.match(lines, border)?.takeIf { it.exact || CardMatcher.hasTypeLine(lines) }
         frames.add(lines, named = hit != null)
         reading = hit?.oracle?.name
-        val take = steady.feed(hit) ?: return hit != null
-        val o = hit?.oracle ?: return false
+        val take = steady.feed(hit) ?: return hit
+        val o = hit?.oracle ?: return null
         frames.took()
         m.took()
         taken++
@@ -210,7 +210,7 @@ fun CardScanOverlay(
             // Owned-only scans (giving in a trade) keep the owned copy's language.
             lang = if (owned == null) Languages.forScan(take.first.lang, hit.langs, Languages.addLang) else Languages.forNew(take.first.lang, Languages.addLang)))
         view.performHapticFeedback(if (android.os.Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY)
-        return true
+        return hit
     }
 
     T1FullScreenDialog(onDismissRequest = back) {
@@ -376,7 +376,7 @@ private fun GuideMark(text: String, modifier: Modifier) =
     Label(text, modifier.background(T1.bg.copy(alpha = 0.6f)).padding(horizontal = 6.dp, vertical = 2.dp))
 
 @Composable
-private fun CameraText(onLines: (List<String>, ScanBorder) -> Boolean) {
+private fun CameraText(onLines: (List<String>, ScanBorder) -> ScanMatch?) {
     val context = LocalContext.current
     /** The preview's size in px (main thread writes it), to place the guide box in the image. */
     val viewSize = remember { java.util.concurrent.atomic.AtomicReference(0f to 0f) }
@@ -385,6 +385,9 @@ private fun CameraText(onLines: (List<String>, ScanBorder) -> Boolean) {
     val callback = remember { mutableStateOf(onLines) }
     callback.value = onLines
     val executor = remember { Executors.newSingleThreadExecutor() }
+    // ML Kit's listeners run here too; one that lands after the scanner closed (executor shut down) is dropped, not
+    // thrown on ML Kit's thread.
+    val onCamera = remember { java.util.concurrent.Executor { r -> runCatching { executor.execute(r) } } }
     val latin = remember { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
     // Japanese first: its model also reads kanji. Made on the executor, the first time each is needed.
     val cjk = remember { arrayOfNulls<TextRecognizer>(3) }
@@ -394,6 +397,7 @@ private fun CameraText(onLines: (List<String>, ScanBorder) -> Boolean) {
     // Whether the main thread is still matching the last frame handed to it: a frame read meanwhile is dropped like
     // a late camera frame, so a slow match never builds a backlog that lags the rest of the session (2026-10-31).
     val matching = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+    val timing = remember { ScanTiming() }
     // Keep the screen on while the camera is reading.
     val screen = LocalView.current
     DisposableEffect(screen) {
@@ -402,6 +406,7 @@ private fun CameraText(onLines: (List<String>, ScanBorder) -> Boolean) {
     }
     DisposableEffect(Unit) {
         onDispose {
+            timing.summary()?.let { Telemetry.capture("scanner_timing", it) }
             latin.close()
             executor.execute { cjk.forEach { it?.close() } }
             executor.shutdown()
@@ -415,11 +420,14 @@ private fun CameraText(onLines: (List<String>, ScanBorder) -> Boolean) {
         },
     ).also { cjk[mode] = it }
     fun fed(lines: List<String>, border: ScanBorder) {
-        language.feed(matched = callback.value(lines, border), text = lines.isNotEmpty())
+        val start = android.os.SystemClock.elapsedRealtime()
+        val hit = callback.value(lines, border)
+        timing.matched(android.os.SystemClock.elapsedRealtime() - start)
+        language.feed(matched = hit != null, text = lines.isNotEmpty(), latin = hit != null && ScanLanguage.latin(hit))
         reading.set(language.mode)
     }
     fun feedOnMain(lines: List<String>, border: ScanBorder) {
-        if (!matching.compareAndSet(false, true)) return
+        if (!matching.compareAndSet(false, true)) { timing.drop(); return }
         ContextCompat.getMainExecutor(context).execute { try { fed(lines, border) } finally { matching.set(false) } }
     }
     /**
@@ -472,8 +480,14 @@ private fun CameraText(onLines: (List<String>, ScanBorder) -> Boolean) {
                 val media = proxy.image
                 if (media == null) { proxy.close(); return@setAnalyzer }
                 val border = runCatching { border(media, proxy.imageInfo.rotationDegrees) }.getOrDefault(ScanBorder.UNKNOWN)
-                recognizer(reading.get()).process(InputImage.fromMediaImage(media, proxy.imageInfo.rotationDegrees))
-                    .addOnSuccessListener { text ->
+                val mode = reading.get()
+                val start = android.os.SystemClock.elapsedRealtime()
+                fun took(ok: Boolean) = timing.read(android.os.SystemClock.elapsedRealtime() - start, mode != ScanLanguage.LATIN, ok, proxy.width, proxy.height)
+                // Every listener on the camera's executor, not the main thread (Tasks' default): the next frame waits
+                // for proxy.close(), so a main thread busy drawing the list held the camera back (2026-11-06).
+                recognizer(mode).process(InputImage.fromMediaImage(media, proxy.imageInfo.rotationDegrees))
+                    .addOnSuccessListener(onCamera) { text ->
+                        took(true)
                         // Only the text inside the guide box: a keyboard, a screen or another card beside it can't name a
                         // card. ML Kit finds no card rectangle on Android, so this is the "no card found" rule.
                         val upright = proxy.imageInfo.rotationDegrees % 180 != 0
@@ -488,8 +502,8 @@ private fun CameraText(onLines: (List<String>, ScanBorder) -> Boolean) {
                     }
                     // A CJK model still downloading (Play services fetches it on first use) fails: a miss, so the next
                     // recognizer gets the next frame.
-                    .addOnFailureListener { feedOnMain(emptyList(), ScanBorder.UNKNOWN) }
-                    .addOnCompleteListener { proxy.close() }
+                    .addOnFailureListener(onCamera) { took(false); feedOnMain(emptyList(), ScanBorder.UNKNOWN) }
+                    .addOnCompleteListener(onCamera) { proxy.close() }
             }
             runCatching {
                 provider.unbindAll()
