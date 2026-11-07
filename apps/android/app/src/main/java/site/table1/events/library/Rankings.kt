@@ -452,7 +452,9 @@ class RankingModel(val id: String) {
             return
         }
         val screen = RankScreen(job.key, order.map(st::id), now())
-        val wasDone = st.session(job).done
+        val was = st.session(job); val wasDone = was.done
+        // The final's check (contract § Checks in the final): did the answer overturn an order the log had settled?
+        if (was.check) Telemetry.capture("ranking_check", mapOf("overturned" to st.knowledge.pairs(screen).any { st.knowledge.known(it.second, it.first) }))
         log = log + screen
         reask = null
         val next = st.appending(screen)

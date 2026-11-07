@@ -110,7 +110,9 @@ an Arena cube version (PWR-2510, contract/insights-2026-10-24.md § Arena cubes)
 
 Read `make_cases.py`'s docstring; in short:
 - **Log:** `[{s, o: [oracle ids, best first], t?}]`, oldest first. Knowledge is the transitive closure of every screen's
-  pairs, applied in order; a pair that contradicts what's known is skipped (only two devices racing can cause it). It
+  pairs, applied final screens newest first, then the colors' screens, then picks (each in log order; since 2026-11-07,
+  see § Checks in the final); a pair that contradicts what's known is skipped (two devices racing, a pick, or a check
+  that overturns an order). It
   covers the cube's cards and every card in the log (a card that left the cube still carries what it settled); jobs
   only hold the cube's cards. Card indexes are those Oracle ids sorted as strings.
 - **A job** (a color, or the final over every card) with a target: a card with `target` or more cards known above it is
@@ -135,7 +137,7 @@ Read `make_cases.py`'s docstring; in short:
   When other screens already settle everything it did, say "Removing it changes nothing".
 - **Undo:** removes the last screen of the job you're in and shows those cards again.
 - **Estimates:** screens for a job = ceil(f · log2(n!/(n−k)!) / log2 24), f = 1.55 for a full sort (k ≥ n − 1), 1.66
-  for a top-k; the final = ceil(1.78 · log2(ways) / log2 24), ways = the number of color sequences for the top N given
+  for a top-k; the final = ceil(4.9 · log2(ways) / log2 24) (1.78 before the final's checks), ways = the number of color sequences for the top N given
   each color's size. "About N to go" is max(1, estimate − screens so far in that job). Tests allow ±1.
 - **Why is A above B:** the shortest chain of screens (each screen one link; every pair on a screen counts, earliest
   screen first) that puts A above B, or "No screen has settled these two yet".
@@ -143,6 +145,51 @@ Read `make_cases.py`'s docstring; in short:
   and the other finished a list that stops short (then it sits at the first place past the cut, and its gap is "at
   least"). Shows how many compared, the average gap (tenths, half up), the ten biggest gaps (ties: the better best
   place, then index) and "In one top half, not the other" (best place first).
+
+## Checks in the final (2026-11-07)
+
+John: "had a user do the ranking and then 30-40 were all white. Do a deeper dive and make sure the ranking logic can be
+thorough." Daniel Shea's Pauper Cube top 50 (every card sorted, 694 screens) had places 30–42 all white. Replaying his
+log: one final screen put Colossal Dreadmask over Counterspell and Sparksmith; each white card then only had to beat
+Dreadmask, so 13 white creatures went above Counterspell, which was never on a screen with any of them. In the five
+finished live finals, 26–44% of the cross-color orders among neighbouring places came through a third color like this.
+
+**Simulation** (noisy rankers: each screen sorts by a card's true value plus noise, 540-card cube in Lindmark Cube's color
+sizes, colors a little stronger or weaker, 16 rankers; scripts were scratch work, the numbers are here): the old final's
+longest same-color run averaged 6.25 against 2.75 in the true order, the worst card sat 31 places off, and 13 of the true
+top 50 were missing or 10+ places off. Depth didn't matter (a quarter and every card gave the same final). Half the error
+came from the colors' sorts (a card sorted below a weaker one of its color waits behind it, then comes out in a run), half
+from the final's detours. Checking every card against every color directly cost 7× the final; checking each color's best
+card only, skipping orders that cards of two other colors back up, is what shipped:
+
+| top 50, quarter depth | screens | longest run (truth 2.75) | worst card | 10+ off or missing | wrong pairs |
+|---|---|---|---|---|---|
+| before | 392 | 6.25 | 31 | 13.3 | 12.6% |
+| checks, noisy ranker | 583 | 2.9 | 25 | 8.8 | 9.7% |
+| before, consistent ranker | 401 | 3.8 | 13 | 1.8 | 5.3% |
+| checks, consistent ranker | 501 | 3.1 | 15 | 2.3 | 4.2% |
+
+**Rules** (reference `make_cases.py` `Support` / `checked` / `check_screen`; `RankSupport` iOS/Android, `Support` web):
+- **Apply order:** final screens newest first, then the colors' screens, then picks, each in log order (`applyOrder`).
+  With no contradiction this changes nothing. With one, the newer final answer wins over an older final screen and over
+  a color's sort, so a check can correct a color's order or a detour. Picks stay last ("Keep my ranking" unchanged).
+  A final screen that contradicts the knowledge rebuilds it from the log; any other screen is added on its own.
+- **A place is checked** when the card x known to beat everything still in has, for each other color, met that color's
+  best card still in (fewest known above it) on a screen; or x, or a card of its color below x by that color's own
+  screens, beat a card of the other color at or above that best card on a screen; or cards of two or more other colors
+  sit between them (Black Lotus over Minsc & Boo needs no screen of its own). And x met its own color's best remaining
+  card on a final screen, when only the color's screens put x above it.
+- **Check screen:** x, its own color's next card, then other colors' unchecked best cards nearest the top, one per color,
+  up to four. Nothing locked; `check` is true on the session. It shows as "Final · checking #N of the top 50".
+- **Lists stay full** (John's pick, 2026-11-07): the final's `top` is every place the log settles, as before; `checked`
+  counts the places checked from the top and `done` waits for it to reach the target. A final finished before this keeps
+  its 50/100 places and asks its checks (the five finished live finals: about 41–96 screens each if the ranker agrees
+  with everything; the lists come out the same then). With only checks left, "about N to go" is the unchecked places.
+- **Ends:** every check puts two cards on a screen that never met; other screens only add unknown orders. Finite.
+- Shared case: run G (`…000f`, quarter, top 20) answers the final with a taste up to ten places off the colors' (checks
+  overturn orders, 3 contradicted pairs, rebuilds); every step carries `check`, every summary `checked`.
+- Perf: web lock-in p95 2.5 ms, opening a 733-screen ranking 14 ms (the Support index is kept on the knowledge and
+  updated one screen at a time; rebuilt only when a check overturns an order).
 
 ## Brief (John, 2026-10-21)
 
@@ -331,7 +378,7 @@ shared cases `testdata/ranking-save/cases.json`):
 
 `ranking_created` (`depth`, `top`, `sharing`, `own_cube`, `subject`: cube / set), `ranking_pick` (`disagreed`: count, `resolution`: none /
 keep / pick_wins, `removed`: screens), `ranking_changes_opened`, `ranking_job_done` (`job`: color key or F, `screens`),
-`ranking_undo`, `ranking_redo`, `ranking_compared` (`list`), `ranking_brief_shown` / `ranking_brief_missing` (`list`, `cached`), `ranking_list_copied`, `ranking_image` (`how`),
+`ranking_check` (`overturned`: the check's answer contradicted an order the log had settled; 2026-11-07), `ranking_undo`, `ranking_redo`, `ranking_compared` (`list`), `ranking_brief_shown` / `ranking_brief_missing` (`list`, `cached`), `ranking_list_copied`, `ranking_image` (`how`),
 `ranking_deleted`. Never ids or names.
 
 ## Status

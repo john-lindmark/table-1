@@ -472,8 +472,10 @@ struct RankingPickView: View {
 
     private func header(_ st: RankingState, _ s: RankSession, _ row: RankingRow) -> some View {
         let used = st.knowledge.perJob[job.rawValue] ?? 0
-        let place = s.top.count + 1
+        let place = (s.check ? s.checked : s.top.count) + 1
         let label = job == .final ? "Final" : job.title
+        // Only checks left (every place is settled): about one screen per place still to check.
+        let toGo = s.top.count >= s.target ? max(1, s.target - s.checked) : max(1, st.expected(job) - used)
         let placing = !s.waiting.isEmpty
         let screen = "Screen \((st.knowledge.screens + 1).formatted()) of this ranking"
         return VStack(alignment: .leading, spacing: 8) {
@@ -481,13 +483,14 @@ struct RankingPickView: View {
             HStack(alignment: .firstTextBaseline, spacing: 14) {
                 Text(s.done ? "✓" : placing ? "+\(s.waiting.count)" : "#\(place)").font(T1.mono(44, .bold)).foregroundStyle(T1.accent).monospacedDigit()
                 VStack(alignment: .leading, spacing: 4) {
-                    LabelText(s.done ? "\(label) · done" : placing ? "\(label) · placing new cards" : "\(label) · deciding #\(place) of the top \(s.target)",
+                    LabelText(s.done ? "\(label) · done" : placing ? "\(label) · placing new cards"
+                              : "\(label) · \(s.check ? "checking" : "deciding") #\(place) of the top \(s.target)",
                               color: T1.text)
                     Text(placing ? "\(plural(s.waiting.count, "new card")) to place; your order stays as it is"
                                  : "\(s.top.count) of the top \(s.target) (\(plural(s.size, "card"))) placed").font(T1.mono(12)).foregroundStyle(T1.muted)
                     Text(s.done ? "Done in \(plural(used, "screen"))"
                          : placing ? "\(screen) · only the new cards are asked about"
-                         : "\(screen) · about \(max(1, st.expected(job) - used)) to go in \(label)")
+                         : "\(screen) · about \(toGo) to go in \(label)")
                         .font(T1.mono(11)).foregroundStyle(T1.muted)
                 }
             }

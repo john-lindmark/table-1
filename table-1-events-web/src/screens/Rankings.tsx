@@ -419,20 +419,23 @@ export function RankingPickScreen({ id, job, onBack, go }: { id: string; job: Ra
         if (!q) return null;
         const s = q.session, used = st.knowledge.perJob[job] ?? 0, label = job === "F" ? "Final" : JOB_TITLE[job];
         const placing = s.waiting.length > 0, next = m.reRankJob;
+        const place = (s.check ? s.checked : s.top.length) + 1;
+        // Only checks left (every place is settled): about one screen per place still to check.
+        const toGo = s.top.length >= s.target ? Math.max(1, s.target - s.checked) : Math.max(1, st.expected(job) - used);
         return (
           <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
             <div className="bg-t1-surface p-4 flex flex-col gap-2">
               {!m.mine && <p className="t1-label">Watching {m.row?.by?.display_name ?? "someone"}'s ranking live</p>}
               <div className="flex items-baseline gap-3.5">
-                <span className="text-[44px] font-bold text-t1-accent tabular-nums leading-none">{s.done ? "✓" : placing ? `+${s.waiting.length}` : `#${s.top.length + 1}`}</span>
+                <span className="text-[44px] font-bold text-t1-accent tabular-nums leading-none">{s.done ? "✓" : placing ? `+${s.waiting.length}` : `#${place}`}</span>
                 <div className="flex flex-col gap-1 min-w-0">
                   <span className="t1-label !text-t1-text">{s.done ? `${label} · done` : placing ? `${label} · placing new cards`
-                    : `${label} · deciding #${s.top.length + 1} of the top ${s.target}`}</span>
+                    : `${label} · ${s.check ? "checking" : "deciding"} #${place} of the top ${s.target}`}</span>
                   <span className="text-[12px] text-t1-muted">{placing ? `${plural(s.waiting.length, "new card")} to place; your order stays as it is`
                     : `${s.top.length} of the top ${s.target} (${plural(s.size, "card")}) placed`}</span>
                   <span className="text-[11px] text-t1-muted">{s.done ? `Done in ${plural(used, "screen")}`
                     : placing ? `Screen ${(st.knowledge.screens + 1).toLocaleString()} of this ranking · only the new cards are asked about`
-                    : `Screen ${(st.knowledge.screens + 1).toLocaleString()} of this ranking · about ${Math.max(1, st.expected(job) - used)} to go in ${label}`}</span>
+                    : `Screen ${(st.knowledge.screens + 1).toLocaleString()} of this ranking · about ${toGo} to go in ${label}`}</span>
                 </div>
               </div>
               <ProgressBar fraction={s.top.length / Math.max(1, s.target)} />
