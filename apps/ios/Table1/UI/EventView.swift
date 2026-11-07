@@ -215,6 +215,7 @@ struct PlayerView: View {
                             Text(b.name(theirs?.participantId)).font(T1.mono(22))
                         }
                         .frame(maxWidth: .infinity).padding(20).background(T1.surface)
+                        .opensProfile(b.participants.first { $0.id == theirs?.participantId }?.userId, from: "opponent")
 
                         if session.trackerMode == .tracker {
                             // Tracking here: the life tracker leads; results are secondary.
@@ -433,7 +434,7 @@ struct StandingsRows: View {
         if engine.standings.isEmpty && teams.isEmpty { Notice("Standings appear after the first results.") }
         if !teams.isEmpty {
             Section1("Teams")
-            ForEach(teams) { TeamStandingLine(t: $0, highlight: highlight) }
+            ForEach(teams) { TeamStandingLine(t: $0, highlight: highlight, players: players) }
             Section1("Players")
         }
         ForEach(engine.standings) { s in
@@ -447,6 +448,8 @@ struct StandingsRows: View {
 struct TeamStandingLine: View {
     let t: TeamStanding
     let highlight: String?
+    /// Whose account each member is, so a member opens their profile.
+    var players: [ParticipantRow] = []
     var body: some View {
         VStack(spacing: 1) {
             HStack(spacing: 12) {
@@ -472,6 +475,7 @@ struct TeamStandingLine: View {
                 }
                 .padding(.leading, 40).padding(.trailing, 16).padding(.vertical, 8)
                 .background(m.participantId == highlight ? T1.surfaceHover : T1.bg)
+                .opensProfile(players.first { $0.id == m.participantId }?.userId, from: "standings")
             }
         }
     }
@@ -496,6 +500,7 @@ struct StandingLine: View {
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
         .background(highlight ? T1.surfaceHover : T1.surface)
+        .opensProfile(userId, from: "standings")
     }
 }
 

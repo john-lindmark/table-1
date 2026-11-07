@@ -261,6 +261,7 @@ struct FriendAddPanel: View {
                             action(p)
                         }
                         .contentShape(Rectangle())
+                        .opensProfile(p.userId, from: "friend_search")
                         .personMenu { PersonActions.menu(p, p.relation ?? .none, from: "search") { Task { await load() } } }
                     }
                 } else {
@@ -1031,7 +1032,7 @@ struct TradeMatchRow: View {
         let x = match
         Button { if T1Overlays.shared.menu == nil { path.append(.social(.match(x.userId))) } } label: {
             ListRow(title: x.displayName, detail: x.short + (x.friend ? "" : " · played with you"),
-                    avatar: AvatarView(name: x.displayName, userId: x.userId)) {
+                    avatar: AvatarView(name: x.displayName, userId: x.userId, opensFrom: "trade_match")) {
                 if x.haveUsd + x.wantUsd > 0, let v = PriceBook.text(x.haveUsd + x.wantUsd) { Text(v).font(T1.mono(15)).monospacedDigit() }
             }
         }

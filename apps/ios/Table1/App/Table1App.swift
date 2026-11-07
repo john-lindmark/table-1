@@ -322,6 +322,18 @@ enum Route: Hashable {
     case addPlayers(String)
     case redraft(String)
     case deckPhotos(String)
+    /// A Library screen on the Events tab: a player's profile (PersonLink.swift) and whatever it opens.
+    case library(LibraryRoute)
+
+    /// The Library routes on top of an Events path, so a profile's screens push and pop in the Events tab.
+    static func library(_ path: Binding<[Route]>) -> Binding<[LibraryRoute]> {
+        Binding(
+            get: { path.wrappedValue.compactMap { if case .library(let r) = $0 { r } else { nil } } },
+            set: { routes in
+                let base = path.wrappedValue.prefix { if case .library = $0 { false } else { true } }
+                path.wrappedValue = Array(base) + routes.map { .library($0) }
+            })
+    }
 }
 
 enum Tab: Hashable { case events, collection, insights, account }
@@ -363,9 +375,11 @@ struct SignedInView: View {
                             case .addPlayers(let id): AddPlayersView(eventId: id).screen("add_players")
                             case .redraft(let id): RedraftView(eventId: id).screen("redraft")
                             case .deckPhotos(let id): DeckPhotosView(eventId: id).screen("deck_photos")
+                            case .library(let r): LibraryDestination(route: r, path: Route.library($path))
                             }
                         }
                 }
+                .environment(\.openProfile) { path.append(.library(.social(.profile($0)))) }
                 .opacity(tab == .events ? 1 : 0)
                 .allowsHitTesting(tab == .events)
                 .accessibilityHidden(tab != .events)
@@ -375,6 +389,7 @@ struct SignedInView: View {
                         .screen("library_home", when: tab == .collection)
                         .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $libraryPath) }
                 }
+                .environment(\.openProfile) { libraryPath.append(.social(.profile($0))) }
                 .opacity(tab == .collection ? 1 : 0)
                 .allowsHitTesting(tab == .collection)
                 .accessibilityHidden(tab != .collection)
@@ -384,6 +399,7 @@ struct SignedInView: View {
                         .screen(InsightsStore.shared.section == "limited" ? "insights_limited" : "insights_constructed", when: tab == .insights)
                         .navigationDestination(for: InsightsRoute.self) { InsightsDestination(route: $0, path: $insightsPath) }
                 }
+                .environment(\.openProfile) { insightsPath.append(.library(.social(.profile($0)))) }
                 .opacity(tab == .insights ? 1 : 0)
                 .allowsHitTesting(tab == .insights)
                 .accessibilityHidden(tab != .insights)
@@ -393,6 +409,7 @@ struct SignedInView: View {
                         .screen("account", when: tab == .account)
                         .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $accountPath) }
                 }
+                .environment(\.openProfile) { accountPath.append(.social(.profile($0))) }
                     .opacity(tab == .account ? 1 : 0)
                     .allowsHitTesting(tab == .account)
                     .accessibilityHidden(tab != .account)

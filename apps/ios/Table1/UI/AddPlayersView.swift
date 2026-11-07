@@ -81,7 +81,7 @@ struct AddPlayersView: View {
             ? (p.sharedEvents > 0 ? "Friend · \(p.sharedEvents) event\(p.sharedEvents == 1 ? "" : "s") together" : "Friend")
             : "\(p.sharedEvents) event\(p.sharedEvents == 1 ? "" : "s") together"
         return Button { toggle(p) } label: {
-            ListRow(title: p.label, detail: detail, avatar: AvatarView(name: p.displayName, userId: p.userId)) {
+            ListRow(title: p.label, detail: detail, avatar: AvatarView(name: p.displayName, userId: p.userId, opensFrom: "add_players")) {
                 if p.invited {
                     LabelText("Invited", color: T1.muted)
                 } else {

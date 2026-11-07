@@ -125,6 +125,7 @@ struct WaitlistRows: View {
                         }
                     }
                 }
+                .opensProfile(w.userId, from: "waitlist")
             }
         }
     }

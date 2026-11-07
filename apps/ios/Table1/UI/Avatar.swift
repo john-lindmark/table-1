@@ -106,6 +106,8 @@ struct AvatarView: View {
     let name: String
     var userId: String?
     var size: CGFloat = 24
+    /// Set where the row's own tap does something else: then the tile alone opens the profile (PersonLink.swift).
+    var opensFrom: String?
     @State private var image: UIImage?
 
     var body: some View {
@@ -121,7 +123,9 @@ struct AvatarView: View {
         }
         .frame(width: size, height: size)
         .clipped()
-        .accessibilityHidden(true)
+        .accessibilityHidden(opensFrom == nil)
+        .accessibilityLabel(name)
+        .opensProfile(opensFrom == nil ? nil : userId, from: opensFrom ?? "")
         .onAppear { if let userId { AvatarStore.shared.want(userId) } }
         .task(id: path) {
             image = nil

@@ -75,9 +75,14 @@ struct EventsDemoRoot: View {
                     EventsHomeView(path: $path, isFront: true)
                         .navigationDestination(for: Route.self) { destination($0) }
                 }
+                .environment(\.openProfile) { path.append(.library(.social(.profile($0)))) }
                 T1TabBar(items: SignedInView.tabs, selection: .events) { _ in }
             case "account":
-                NavigationStack(path: $accountPath) { AccountView(path: $accountPath) }
+                NavigationStack(path: $accountPath) {
+                    AccountView(path: $accountPath)
+                        .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $accountPath) }
+                }
+                .environment(\.openProfile) { accountPath.append(.social(.profile($0))) }
                 T1TabBar(items: SignedInView.tabs, selection: .account) { _ in }
             case "photo":
                 DeckPhotoDemo()
@@ -115,6 +120,8 @@ struct EventsDemoRoot: View {
             PlayerView(b: DemoData.live.asPlayer, engine: DemoData.liveStandings, refresh: {}, open: { _ in })
         case .create:
             CreateEventView(path: $path)
+        case .library(let r):
+            LibraryDestination(route: r, path: Route.library($path))
         default:
             T1Screen {
                 Bar(title: "Demo", back: { path.removeLast() })

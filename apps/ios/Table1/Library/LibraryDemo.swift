@@ -392,6 +392,7 @@ struct LibraryDemoRoot: View {
                 LibraryHomeView(path: $path)
                     .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $path) }
             }
+            .environment(\.openProfile) { path.append(.social(.profile($0))) }
             if path.isEmpty {
                 T1TabBar(items: [
                     T1TabItem(id: 0, label: "Events", icon: .tabEvents),

@@ -56,6 +56,7 @@ struct AccountView: View {
                             avatar: AvatarView(name: rival.name, userId: rival.opponentId)) {
                         Text(recordText(rival.matchWins, rival.matchLosses, rival.matchDraws)).font(T1.mono(16))
                     }
+                    .opensProfile(rival.opponentId, from: "head_to_head")
                 }
                 if rivals.count > 8 {
                     Ghost(text: showAllRivals ? "Show fewer" : "Show all \(rivals.count)") { showAllRivals.toggle() }

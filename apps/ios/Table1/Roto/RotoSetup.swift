@@ -79,6 +79,7 @@ struct RotoPickOrderTab: View {
                             avatar: AvatarView(name: p.displayName, userId: p.userId)) {
                         Text("\(p.seat ?? 0)").font(T1.mono(17)).monospacedDigit()
                     }
+                    .opensProfile(p.userId, from: "roto_seats")
                 }
             }
         }

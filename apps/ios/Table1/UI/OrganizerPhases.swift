@@ -277,6 +277,7 @@ private struct OrganizerSetupView: View {
                         }
                     }
                 }
+                .opensProfile(p.userId, from: "event_players")
             }
             AddByNameRow(text: $guestName, enabled: !guestTrimmed.isEmpty && !guestDuplicate && !ctx.busy) { addGuest() }
             if guestDuplicate && !guestTrimmed.isEmpty { Notice("\(guestTrimmed) is already in this event.", error: true) }
@@ -931,6 +932,7 @@ private struct OrganizerLiveView: View {
                         BarButton("Drop") { dropping = p }
                     }
                 }
+                .opensProfile(p.userId, from: "event_players")
             }
             if !dropped.isEmpty {
                 Section1("Dropped · \(dropped.count)")
@@ -941,6 +943,7 @@ private struct OrganizerLiveView: View {
                             avatar: AvatarView(name: p.displayName, userId: p.userId)) {
                         BarButton("Reinstate") { setStatus(p, dropped: false) }
                     }
+                    .opensProfile(p.userId, from: "event_players")
                 }
             }
         }
@@ -1253,6 +1256,7 @@ private struct OrganizerResultsView: View {
                 ListRow(title: p.displayName, detail: finalDetail(p, s), avatar: AvatarView(name: p.displayName, userId: p.userId)) {
                     Text(s.map { recordText($0.matchWins, $0.matchLosses, $0.matchDraws) } ?? "–").font(T1.mono(14))
                 }
+                .opensProfile(p.userId, from: "event_players")
             }
         }
     }

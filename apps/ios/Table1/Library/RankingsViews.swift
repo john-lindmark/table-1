@@ -129,7 +129,7 @@ struct RankingsView: View {
             Button { path.append(.rankings(c.id)) } label: {
                 ListRow(title: c.name, detail: [c.owner?.displayName, plural(c.cards, "card"), c.rankings == 0 ? "no rankings yet" : plural(c.rankings, "ranking"),
                                                 c.mine > 0 ? "\(c.mine) yours" : nil].compactMap { $0 }.joined(separator: " · "),
-                        avatar: AvatarView(name: c.owner?.displayName ?? "?", userId: c.owner?.userId, size: 28))
+                        avatar: AvatarView(name: c.owner?.displayName ?? "?", userId: c.owner?.userId, size: 28, opensFrom: "rankings"))
             }.buttonStyle(.plain)
         }
     }
@@ -184,7 +184,7 @@ struct RankingsView: View {
         Button { path.append(.ranking(r.id)) } label: {
             ListRow(title: r.title, detail: [listId == nil ? r.cube?.name : nil, r.progress]
                         .compactMap { $0 }.joined(separator: " · "),
-                    avatar: r.mine ? nil : AvatarView(name: r.by?.displayName ?? "?", userId: r.by?.userId, size: 28)) {
+                    avatar: r.mine ? nil : AvatarView(name: r.by?.displayName ?? "?", userId: r.by?.userId, size: 28, opensFrom: "rankings")) {
                 if let d = r.updatedShort { LabelText(d) }
             }
         }.buttonStyle(.plain)
