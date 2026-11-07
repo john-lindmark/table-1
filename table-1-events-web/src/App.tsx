@@ -97,6 +97,7 @@ const RankingPack = lazyNamed(rankings, "RankingPackScreen");
 const RankingChanges = lazyNamed(rankings, "RankingChangesScreen");
 const DeckFinderScreen = lazyNamed(() => import("./screens/DeckFinder"), "DeckFinderScreen");
 const DeckPhotosScreen = lazyNamed(() => import("./screens/DeckPhotos"), "DeckPhotosScreen");
+const MyDeckPhotosScreen = lazyNamed(() => import("./screens/DeckPhotos"), "MyDeckPhotosScreen");
 const ListImportScreen = lazyNamed(() => import("./screens/ListImport"), "ListImportScreen");
 const CubeSyncScreen = lazyNamed(() => import("./screens/CubeSync"), "CubeSyncScreen");
 const insights = () => import("./screens/Insights");
@@ -209,7 +210,15 @@ function ProfileRoute() {
   const navigate = useNavigate();
   return <Profile onSignedOut={() => navigate("/")} onFriends={() => navigate("/friends")} onSharing={() => navigate("/sharing")}
                   onProfile={(id) => navigate(`/u/${id}`)} onDiscord={() => navigate("/discord")}
-                  onNotices={() => navigate("/me/notices")} onReview={() => navigate("/me/review")} />;
+                  onNotices={() => navigate("/me/notices")} onReview={() => navigate("/me/review")}
+                  onDeckPhotos={() => navigate("/me/deck-photos")} />;
+}
+
+/** /me/deck-photos: every photo of your decks (Account → Deck photos). */
+function MyDeckPhotosRoute() {
+  const navigate = useNavigate();
+  return <MyDeckPhotosScreen onBack={useBack("/me")} onOpenEvent={(id) => navigate(`/p/${id}`)}
+                             onOpenEventPhotos={(id) => navigate(`/p/${id}/photos`)} />;
 }
 
 function NoticesRoute() {
@@ -602,6 +611,7 @@ export default function App() {
         <Route path="/nearby" element={<NearbyRoute />} />
         <Route path="/me" element={<ProfileRoute />} />
         <Route path="/me/notices" element={<NoticesRoute />} />
+        <Route path="/me/deck-photos" element={<MyDeckPhotosRoute />} />
         <Route path="/me/review" element={<ReviewRoute />} />
         <Route path="/sign-in" element={<SignInPage />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />

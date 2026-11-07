@@ -46,6 +46,8 @@ enum LibraryRoute: Hashable {
     case rankingCompare(String, String, String) // ranking id, the other ranking's id, job
     case rankingPack(String) // ranking id: P1P1 packs and pick history
     case rankingChanges(String) // ranking id: the change log
+    case myDeckPhotos // Account → Deck photos: every photo of your decks (MyDeckPhotos.swift)
+    case eventDeckPhotos(String) // event id: that event's Deck photos, opened from Account → Deck photos
     /// An Insights screen pushed from the Library (a deck's archetype), so Back returns to the deck.
     indirect case insights(InsightsRoute)
 
@@ -113,6 +115,8 @@ struct LibraryDestination: View {
         case .rankingCompare: "ranking_compare"
         case .rankingPack: "ranking_pack"
         case .rankingChanges: "ranking_changes"
+        case .myDeckPhotos: "my_deck_photos"
+        case .eventDeckPhotos: "deck_photos"
         }
     }
 
@@ -161,6 +165,8 @@ struct LibraryDestination: View {
             RankingCompareView(rankingId: id, otherId: other, job: RankJob(rawValue: job) ?? .final, path: $path)
         case .rankingPack(let id): RankingPackView(rankingId: id, path: $path)
         case .rankingChanges(let id): RankingChangesView(rankingId: id, path: $path)
+        case .myDeckPhotos: MyDeckPhotosView(path: $path)
+        case .eventDeckPhotos(let id): DeckPhotosView(eventId: id)
         case .insights(let r): InsightsDestination(route: r, path: LibraryRoute.insights($path))
         }
     }

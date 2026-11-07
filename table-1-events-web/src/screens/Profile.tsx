@@ -18,6 +18,7 @@ import type { AccountOverview } from "../lib/types";
 import { useSession } from "../lib/useSession";
 import { isLibraryDemo } from "../lib/libraryDemo";
 import { DEMO_OVERVIEW } from "../lib/profileDemo";
+import { loadMyDeckPhotos, myDeckPhotoSummary } from "../lib/deckPhotos";
 import { Bar, Menu, Notice, Row, Screen, Segmented, TabNav, type MenuItem } from "../components/kit";
 import { useTrackerMode } from "../lib/settings";
 import { FAN_CONTENT } from "../lib/legal";
@@ -53,10 +54,12 @@ const FriendsAccountRows = lazy(() => import("./Friends").then((m) => ({ default
 const ModerationAccountRows = lazy(() => import("./Moderation").then((m) => ({ default: m.ModerationAccountRows })));
 const CommunityJoin = lazy(() => import("./Discord").then((m) => ({ default: m.CommunityJoin })));
 
-export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscord, onNotices, onReview }: {
+export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscord, onNotices, onReview, onDeckPhotos }: {
   onSignedOut: () => void; onFriends: () => void; onSharing: () => void; onProfile: (userId: string) => void;
   onDiscord?: () => void;
   onNotices?: () => void;
+  /** Account → Deck photos (/me/deck-photos). */
+  onDeckPhotos?: () => void;
   onReview?: () => void;
 }) {
   const real = useSession();
@@ -251,6 +254,8 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
           </p>
         </div>
 
+        {(userId || isLibraryDemo()) && onDeckPhotos && <DeckPhotosAccountRow onOpen={onDeckPhotos} />}
+
         {userId && (
           <Suspense fallback={null}>
             <FriendsAccountRows onFriends={onFriends} onSharing={onSharing} onProfile={() => onProfile(userId)} eventsPlayed={r?.events_played ?? 0} />
@@ -396,4 +401,16 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
       {avatarMenu && <Menu title="Profile photo" items={avatarItems} onClose={() => setAvatarMenu(false)} />}
     </Screen>
   );
+}
+
+/** Account → Deck photos: "12 photos · 5 events" (my_deck_photos asked for one photo, for its totals). */
+function DeckPhotosAccountRow({ onOpen }: { onOpen: () => void }) {
+  const [summary, setSummary] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (isLibraryDemo()) { setSummary(myDeckPhotoSummary(3, 2)); return; }
+    let live = true;
+    loadMyDeckPhotos(1).then((m) => { if (live) setSummary(myDeckPhotoSummary(m.total, m.events)); }).catch(() => undefined);
+    return () => { live = false; };
+  }, []);
+  return <Row title="Deck photos" detail={summary} onClick={onOpen} />;
 }

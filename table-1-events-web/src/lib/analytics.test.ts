@@ -119,6 +119,7 @@ describe("screenName", () => {
     expect(screenName(`/e/${UUID}/add`)).toBe("add_players");
     expect(screenName(`/e/${UUID}/photos`)).toBe("deck_photos");
     expect(screenName(`/p/${UUID}/photos`)).toBe("deck_photos");
+    expect(screenName("/me/deck-photos")).toBe("my_deck_photos");
     expect(screenName("/life")).toBe("life_tracker");
     expect(screenName("/library/rankings")).toBe("rankings");
     expect(screenName(`/library/list/${UUID}/rankings`)).toBe("rankings");

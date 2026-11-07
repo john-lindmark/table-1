@@ -89,6 +89,25 @@ still to do. Wire names are in `rpc.schema.json`.
   turn = (turns + by) mod 4; the uploaded size is the 2048 px size with the sides swapped for odd turns.
 - Telemetry: `deck_photo_added` gains `turns`; `deck_photo_turned` {turns}.
 - Demo: iOS `-T1EventsDemo results|photo`, web `/dev/events` → Photos.
+- **On your account** (2026-11-06; John: "Users should be able to see their past deck photos from their
+  account/profile view"): until now a photo could only be found inside its event. Account → **Deck photos** (row under
+  the lifetime record, "12 photos · 5 events" or "None yet") opens every photo of a deck you played, whoever took it,
+  across events: headed by event ("TEAM DRAFT · 29 OCT 2026", the format added only when the name doesn't already say
+  it), newest event first, each photo whole and turned. A photo's menu: **Open event**, **Everyone's photos from this
+  event** (only once it's over, since before that you'd see only your own), then Rotate, note and Remove as on the
+  event's screen. Server: `my_deck_photos(p_limit default 200, max 500)` → `{total, events, photos}`, each photo the
+  `deck_photos` row plus `event_id`, `event_name`, `event_status`, `format_label`, `event_at` (starts_at, else
+  created_at); `total`/`events` count everything, so the row asks for one photo. Visibility as `deck_photo_visible`
+  for the player (a photo moderation hid shows only to whoever took it), demo events only for demo testers, signed out
+  28000, anon no execute; migration `20261106170000_my_deck_photos.sql` (+ index on `participant_id`), tests
+  `63b_my_deck_photos_test.sql`, budget in `perf_20_event_reads.sql` (600 of 10,500 photos, ~3–5 ms). Rules shared via
+  `testdata/deck-photos/cases.json` `summary` / `groups` (iOS `MyDeckPhotoRules` in `MyDeckPhotoTests`, web
+  `myDeckPhoto*` in `deckPhotos.test.ts`, Android `MyDeckPhotoRules` in `DeckPhotosTest`). Routes: iOS
+  `LibraryRoute.myDeckPhotos` / `.eventDeckPhotos(id)` on the Account stack (Open event switches to Events), web
+  `/me/deck-photos`, Android `mydeckphotos`. Not shared on your public profile (photos stay with the people in their
+  event). Telemetry: screen `my_deck_photos`, `my_deck_photo_opened` {to: event | event_photos}; `deck_photo_turned`,
+  `deck_photo_note_saved` and `deck_photo_removed` gain `from` (event | account). Demo: iOS `-T1EventsDemo account
+  [-T1Open deckphotos]`, web `/me/deck-photos?demo`.
 
 ## Web (2026-10-30)
 

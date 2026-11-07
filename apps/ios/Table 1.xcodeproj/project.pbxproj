@@ -41,6 +41,7 @@
 		22E00FA074D0791B5FE081CA /* CardDetailViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D7FD5FE52443203BAA9649F /* CardDetailViews.swift */; };
 		230D198D165140462945A16A /* RotoModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91F111256FB3908BC5FBA4FE /* RotoModel.swift */; };
 		23D409E16AAA4D23D123BAE9 /* EventsDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 312B7979FC297A98B689D311 /* EventsDemo.swift */; };
+		F3200A182A95EE219BDC9036 /* MyDeckPhotos.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9338AE4A9C1931829D2D39A1 /* MyDeckPhotos.swift */; };
 		23F54908C9BD4B5B92F95F63 /* spots in Resources */ = {isa = PBXBuildFile; fileRef = 3F0C0426951AFC6C3876DEDC /* spots */; };
 		2660578AF2ACE970E56E77F1 /* InsightsDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = D05C27DC199CFAA742F7167F /* InsightsDemo.swift */; };
 		271F749F426616B562345937 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D2BD7D181061AD027D497369 /* PrivacyInfo.xcprivacy */; };
@@ -333,6 +334,7 @@
 		2F731E98AB6DD1EF22EFD182 /* OrganizerLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrganizerLiveActivity.swift; sourceTree = "<group>"; };
 		3013FC3AC8C4757DF4B44684 /* CollectionCSVTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionCSVTests.swift; sourceTree = "<group>"; };
 		312B7979FC297A98B689D311 /* EventsDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventsDemo.swift; sourceTree = "<group>"; };
+		9338AE4A9C1931829D2D39A1 /* MyDeckPhotos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyDeckPhotos.swift; sourceTree = "<group>"; };
 		31BC20E1870030E390265551 /* ShowAddsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShowAddsTests.swift; sourceTree = "<group>"; };
 		323750FA99BF60ED31A922A6 /* EmailSignInTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailSignInTests.swift; sourceTree = "<group>"; };
 		3250839A7E013039DCDCA31A /* TrackerTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerTools.swift; sourceTree = "<group>"; };
@@ -908,6 +910,7 @@
 				D937184FD4C3DFD141073B51 /* CreateEventView.swift */,
 				08682F89E12E0BD4142A428C /* EventExtras.swift */,
 				312B7979FC297A98B689D311 /* EventsDemo.swift */,
+				9338AE4A9C1931829D2D39A1 /* MyDeckPhotos.swift */,
 				A74A6BB8902A12FD8305F32D /* EventSignUp.swift */,
 				67E76A43B3D3DCD33442A2B6 /* EventView.swift */,
 				AC11D94B446E9B472EBB60DB /* HomeView.swift */,
@@ -1220,6 +1223,7 @@
 				E6EF75CBF6D8EE5FBFCFC1FC /* EventSignUp.swift in Sources */,
 				82A14A356927E32BF1BA4C09 /* EventView.swift in Sources */,
 				23D409E16AAA4D23D123BAE9 /* EventsDemo.swift in Sources */,
+				F3200A182A95EE219BDC9036 /* MyDeckPhotos.swift in Sources */,
 				EABCC8FF2AB74A55A2C74E5C /* Follows.swift in Sources */,
 				DE457CB9913BD0E1B4BC5FD2 /* FollowsViews.swift in Sources */,
 				81AFCD9AE878DC40DF1FDDB8 /* Friends.swift in Sources */,

@@ -42,3 +42,26 @@ truncate realtime.sent;
 select pg_temp.ms('round result write with pings (32 matches)',
   $$update public.matches set game_draws = game_draws where round_id = md5('r6')::uuid$$, 25, 1);
 select pg_temp.eq('one event ping for 32 rows', (select count(*)::text from realtime.sent where topic like 'event:%'), '1');
+
+-- Your deck photos on your account (20261106170000_my_deck_photos): a regular with 300 events, two photos each, among
+-- 20,000 other players' photos.
+reset role;
+insert into public.events (id, short_code, name, created_by, status)
+select md5('pe' || g)::uuid, 'PH' || g, 'Night ' || g, :ORG, 'completed' from generate_series(1, 300) g;
+insert into public.participants (id, event_id, user_id, display_name, seat)
+select md5('pp' || g)::uuid, md5('pe' || g)::uuid, md5('u1')::uuid, 'Player 1', 1 from generate_series(1, 300) g;
+insert into public.participants (id, event_id, display_name, seat)
+select md5('po' || g || '-' || s)::uuid, md5('pe' || g)::uuid, 'Guest ' || s, s + 1
+  from generate_series(1, 300) g, generate_series(1, 33) s;
+insert into public.event_deck_photos (id, event_id, participant_id, uploaded_by, path)
+select md5('ph' || g || '-' || k)::uuid, md5('pe' || g)::uuid, md5('pp' || g)::uuid, md5('u1')::uuid, 'p/' || g || '-' || k
+  from generate_series(1, 300) g, generate_series(1, 2) k;
+insert into public.event_deck_photos (id, event_id, participant_id, uploaded_by, path)
+select md5('pg' || g || '-' || s)::uuid, md5('pe' || g)::uuid, md5('po' || g || '-' || s)::uuid, :ORG, 'g/' || g || '-' || s
+  from generate_series(1, 300) g, generate_series(1, 33) s;
+analyze;
+set role authenticated;
+select pg_temp.as_user(md5('u1')::uuid);
+select pg_temp.eq('her 200 newest photos', jsonb_array_length(public.my_deck_photos()->'photos')::text, '200');
+select pg_temp.ms('my_deck_photos, 600 of 10,500 photos', $$select public.my_deck_photos()$$, 25);
+reset role;

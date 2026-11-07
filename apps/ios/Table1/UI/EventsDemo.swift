@@ -44,6 +44,7 @@ struct EventsDemoRoot: View {
         DemoScreens.home = mode == "home" ? DemoData.playerHome : mode == "homeorg" ? DemoData.organizerHome : nil
         DemoScreens.snapshots = mode == "home" ? [DemoData.playSnapshot] : []
         DemoScreens.account = mode == "account" ? DemoData.account : nil
+        DemoScreens.deckPhotos = mode == "account" ? DemoData.myDeckPhotos : nil
     }
 
     static func arg(_ name: String) -> String? {
@@ -77,7 +78,12 @@ struct EventsDemoRoot: View {
                 }
                 T1TabBar(items: SignedInView.tabs, selection: .events) { _ in }
             case "account":
-                NavigationStack(path: $accountPath) { AccountView(path: $accountPath) }
+                NavigationStack(path: $accountPath) {
+                    AccountView(path: $accountPath)
+                        .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $accountPath) }
+                        // `-T1Open deckphotos`: Account → Deck photos opened once the stack is up.
+                        .task { if Self.arg("-T1Open") == "deckphotos", accountPath.isEmpty { accountPath = [.myDeckPhotos] } }
+                }
                 T1TabBar(items: SignedInView.tabs, selection: .account) { _ in }
             case "photo":
                 DeckPhotoDemo()
@@ -130,6 +136,8 @@ enum DemoScreens {
     static var home: HomeData?
     static var snapshots: [LiveSnapshot] = []
     static var account: AccountOverview?
+    /// Account → Deck photos (MyDeckPhotos.swift), drawn with DeckPhotoDemo's sample picture.
+    static var deckPhotos: MyDeckPhotos?
 }
 
 private extension EventBundle {
@@ -345,6 +353,19 @@ private enum DemoData {
         {"opponent_id": "u\(r.0)", "name": "\(names[r.0 - 1])", "match_wins": \(r.1), "match_losses": \(r.2),
          "match_draws": \(r.3), "game_wins": \(r.4), "game_losses": \(r.5), "played": \(r.1 + r.2 + r.3)}
         """ }.joined(separator: ","))]}
+    """)
+
+    static let myDeckPhotos: MyDeckPhotos = decode(MyDeckPhotos.self, """
+    {"total": 3, "events": 2, "photos": [
+      {"id": "dp1", "participant_id": "p1", "player": "\(names[0])", "path": "demo/1.jpg", "note": "Pool before building",
+       "created_at": "2026-11-05T19:10:00Z", "turns": 0, "mine": true, "editable": true, "event_id": "ev-sealed",
+       "event_name": "Thursday Sealed", "event_status": "in_progress", "format_label": "Sealed", "event_at": "2026-11-05T18:30:00Z"},
+      {"id": "dp2", "participant_id": "p2", "player": "\(names[0])", "path": "demo/2.jpg", "note": "Mono red, 17 lands",
+       "created_at": "2026-10-29T19:40:00Z", "turns": 1, "mine": true, "editable": true, "event_id": "ev-draft",
+       "event_name": "Team Draft", "event_status": "completed", "format_label": "Team draft", "event_at": "2026-10-29T18:00:00Z"},
+      {"id": "dp3", "participant_id": "p2", "player": "\(names[0])", "path": "demo/3.jpg", "note": "",
+       "created_at": "2026-10-29T22:10:00Z", "turns": 0, "mine": true, "editable": true, "event_id": "ev-draft",
+       "event_name": "Team Draft", "event_status": "completed", "format_label": "Team draft", "event_at": "2026-10-29T18:00:00Z"}]}
     """)
 
     static func decode<T: Decodable>(_ type: T.Type, _ json: String) -> T {
