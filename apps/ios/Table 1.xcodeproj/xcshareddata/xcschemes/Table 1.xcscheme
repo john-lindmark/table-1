@@ -116,5 +116,23 @@
    <ArchiveAction
       buildConfiguration = "Release"
       revealArchiveInOrganizer = "YES">
+      <PostActions>
+         <ExecutionAction
+            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent
+               title = "Upload dSYMs to Sentry"
+               scriptText = "&quot;${PROJECT_DIR}/tools/upload_dsyms.sh&quot; &quot;${ARCHIVE_DSYMS_PATH}&quot;&#10;">
+               <EnvironmentBuildable>
+                  <BuildableReference
+                     BuildableIdentifier = "primary"
+                     BlueprintIdentifier = "BDB6595C1498771E08197032"
+                     BuildableName = "Table1.app"
+                     BlueprintName = "Table1"
+                     ReferencedContainer = "container:Table 1.xcodeproj">
+                  </BuildableReference>
+               </EnvironmentBuildable>
+            </ActionContent>
+         </ExecutionAction>
+      </PostActions>
    </ArchiveAction>
 </Scheme>

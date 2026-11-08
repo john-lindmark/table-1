@@ -170,3 +170,10 @@ schemes:
       config: Release
     archive:
       config: Release
+      # Sends the archive's dSYMs to Sentry so iOS crash and hang reports are readable (tools/upload_dsyms.sh;
+      # skips quietly without sentry-cli or the Keychain token; log in ~/Library/Logs/Table1/dsym-upload.log).
+      postActions:
+        - name: Upload dSYMs to Sentry
+          settingsTarget: Table1
+          script: |
+            "${PROJECT_DIR}/tools/upload_dsyms.sh" "${ARCHIVE_DSYMS_PATH}"
