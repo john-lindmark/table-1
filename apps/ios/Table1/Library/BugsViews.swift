@@ -301,6 +301,7 @@ struct BugNotePanel: View {
                 .lineLimit(3...8)
                 .font(T1.mono(15)).tint(T1.accent)
                 .padding(.horizontal, 16).padding(.vertical, 14).background(T1.surface)
+                .focusArea()
                 .onChange(of: text) { _, v in if v.count > 2000 { text = String(v.prefix(2000)) } }
             BigAction(text: sendBack ? "Send to the fix runner" : "Save note",
                       enabled: !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, busy: busy, accent: true) { send() }

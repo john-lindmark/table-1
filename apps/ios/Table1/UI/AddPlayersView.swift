@@ -25,6 +25,7 @@ struct AddPlayersView: View {
                     .textInputAutocapitalization(.words).autocorrectionDisabled()
             }
             .padding(.horizontal, 16).padding(.vertical, 14).background(T1.surface)
+            .focusArea()
 
             HairlineList {
                 if let error { Notice(error, error: true) }
@@ -55,6 +56,7 @@ struct AddPlayersView: View {
                         .font(T1.mono(15)).tint(T1.accent)
                         .keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
                         .padding(.horizontal, 16).padding(.vertical, 14).background(T1.surface)
+                        .focusArea()
                     Button { sendEmail() } label: {
                         LabelText("Send", color: emailValid ? T1.ink : T1.muted)
                             .padding(.horizontal, 20).padding(.vertical, 16)

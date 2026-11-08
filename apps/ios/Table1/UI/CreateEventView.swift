@@ -267,6 +267,7 @@ struct AddByNameRow: View {
             .padding(.horizontal, 16).padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(T1.surface)
+            .focusArea()
             Button(action: add) {
                 LabelText("Add", color: enabled ? T1.ink : T1.muted)
                     .frame(width: 72).frame(maxHeight: .infinity)

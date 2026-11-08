@@ -142,14 +142,18 @@ fun AddPlayersScreen(eventId: String, onDone: () -> Unit) {
 
 @Composable
 private fun SearchField(value: String, placeholder: String, email: Boolean = false, onChange: (String) -> Unit) {
-    Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 14.dp)) {
-        if (value.isEmpty()) Text(placeholder, color = T1.muted, fontFamily = T1.mono, fontSize = 15.sp)
-        BasicTextField(
-            value = value, onValueChange = onChange, singleLine = true,
-            textStyle = TextStyle(color = T1.text, fontFamily = T1.mono, fontSize = 15.sp),
-            cursorBrush = SolidColor(T1.accent),
-            keyboardOptions = KeyboardOptions(keyboardType = if (email) KeyboardType.Email else KeyboardType.Text),
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
+    // The whole box is the decoration: a tap anywhere in it focuses the field.
+    BasicTextField(
+        value = value, onValueChange = onChange, singleLine = true,
+        textStyle = TextStyle(color = T1.text, fontFamily = T1.mono, fontSize = 15.sp),
+        cursorBrush = SolidColor(T1.accent),
+        keyboardOptions = KeyboardOptions(keyboardType = if (email) KeyboardType.Email else KeyboardType.Text),
+        modifier = Modifier.fillMaxWidth(),
+        decorationBox = { inner ->
+            Box(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 14.dp)) {
+                if (value.isEmpty()) Text(placeholder, color = T1.muted, fontFamily = T1.mono, fontSize = 15.sp)
+                inner()
+            }
+        },
+    )
 }

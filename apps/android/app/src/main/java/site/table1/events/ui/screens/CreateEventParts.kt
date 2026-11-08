@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -100,17 +101,21 @@ internal fun tidyName(s: String) = s.trim().replace(Regex("\\s+"), " ")
 @Composable
 internal fun AddByNameRow(value: String, onChange: (String) -> Unit, enabled: Boolean, onAdd: () -> Unit) {
     Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-        Column(Modifier.weight(1f).background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Label("Add a player by name")
-            BasicTextField(
-                value = value, onValueChange = { onChange(it.take(40)) }, singleLine = true,
-                textStyle = TextStyle(color = T1.text, fontFamily = T1.mono, fontSize = 15.sp),
-                cursorBrush = SolidColor(T1.accent),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done, capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words),
-                keyboardActions = KeyboardActions(onDone = { if (enabled) onAdd() }),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        // The label and padding are the text field's decoration, so a tap anywhere in the box focuses it.
+        BasicTextField(
+            value = value, onValueChange = { onChange(it.take(40)) }, singleLine = true,
+            textStyle = TextStyle(color = T1.text, fontFamily = T1.mono, fontSize = 15.sp),
+            cursorBrush = SolidColor(T1.accent),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done, capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words),
+            keyboardActions = KeyboardActions(onDone = { if (enabled) onAdd() }),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
+            decorationBox = { inner ->
+                Column(Modifier.fillMaxSize().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Label("Add a player by name")
+                    inner()
+                }
+            },
+        )
         Box(
             Modifier.width(76.dp).fillMaxSize().background(if (enabled) T1.accent else T1.disabled)
                 .clickable(enabled = enabled, onClick = onAdd),

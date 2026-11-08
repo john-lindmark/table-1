@@ -92,6 +92,7 @@ struct AdvancedSearchPanel: View {
                             .font(T1.mono(15)).tint(T1.accent).keyboardType(.decimalPad)
                             .multilineTextAlignment(.center)
                             .frame(width: 64).frame(maxHeight: .infinity).background(T1.surface)
+                            .focusArea()
                     }
                     .fixedSize(horizontal: false, vertical: true)
                     Section1("Rarity")

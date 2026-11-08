@@ -320,6 +320,7 @@ private struct MatchupTextPanel: View {
             .padding(.horizontal, 16).padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(T1.surface)
+            .focusArea()
             BigAction(text: "Save", enabled: multiline || !SideboardRules.name(text).isEmpty) {
                 save(text.trimmingCharacters(in: .whitespacesAndNewlines))
                 T1Overlays.shared.dismissPanel()

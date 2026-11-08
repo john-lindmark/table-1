@@ -267,18 +267,22 @@ fun Section(text: String) {
 
 @Composable
 fun Field(label: String, value: String, onChange: (String) -> Unit, number: Boolean = false) {
-    Column(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp)) {
-        Label(label)
-        BasicTextField(
-            value = value,
-            onValueChange = onChange,
-            singleLine = true,
-            textStyle = TextStyle(color = T1.text, fontFamily = T1.mono, fontSize = 15.sp),
-            cursorBrush = SolidColor(T1.accent),
-            keyboardOptions = KeyboardOptions(keyboardType = if (number) KeyboardType.Number else KeyboardType.Text),
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-        )
-    }
+    // The whole box is the text field's decoration, so a tap anywhere in it (label and padding too) focuses it.
+    BasicTextField(
+        value = value,
+        onValueChange = onChange,
+        singleLine = true,
+        textStyle = TextStyle(color = T1.text, fontFamily = T1.mono, fontSize = 15.sp),
+        cursorBrush = SolidColor(T1.accent),
+        keyboardOptions = KeyboardOptions(keyboardType = if (number) KeyboardType.Number else KeyboardType.Text),
+        modifier = Modifier.fillMaxWidth(),
+        decorationBox = { inner ->
+            Column(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Label(label)
+                Box(Modifier.fillMaxWidth().padding(top = 4.dp)) { inner() }
+            }
+        },
+    )
 }
 
 /** A tappable list row with a title, a quiet line and optional trailing content; `avatar` is a player's tile left of the name. */
@@ -505,8 +509,9 @@ fun T1TextField(
     /** The keyboard's Search key (a search box: usually picks the top hit). */
     onSubmit: (() -> Unit)? = null,
 ) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        label?.let { Label(it, color = if (error != null) T1.danger else T1.muted) }
+    val labelColor = if (error != null) T1.danger else T1.muted
+    // The well: placeholder or value, then the trailing note.
+    val well: @Composable (@Composable () -> Unit) -> Unit = { text ->
         Row(
             Modifier.fillMaxWidth().background(T1.bg)
                 .border(1.dp, if (error != null) T1.danger else T1.disabled)
@@ -514,24 +519,37 @@ fun T1TextField(
                 .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(Modifier.weight(1f)) {
-                if (onClick != null) {
-                    Text(value.ifEmpty { placeholder ?: "" }, color = if (value.isEmpty()) T1.muted else T1.text,
-                        fontFamily = T1.mono, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                } else {
-                    if (value.isEmpty() && placeholder != null) Text(placeholder, color = T1.muted, fontFamily = T1.mono, fontSize = 15.sp)
-                    BasicTextField(
-                        value = value, onValueChange = onChange, singleLine = true,
-                        textStyle = TextStyle(color = T1.text, fontFamily = T1.mono, fontSize = 15.sp),
-                        cursorBrush = SolidColor(T1.accent),
-                        keyboardOptions = KeyboardOptions(keyboardType = keyboardType,
-                            imeAction = if (onSubmit != null) androidx.compose.ui.text.input.ImeAction.Search else androidx.compose.ui.text.input.ImeAction.Default),
-                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { onSubmit?.invoke() }),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
+            Box(Modifier.weight(1f)) { text() }
             trailing?.let { Text(it, Modifier.padding(start = 8.dp), color = T1.muted, fontFamily = T1.mono, fontSize = 13.sp) }
+        }
+    }
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (onClick != null) {
+            label?.let { Label(it, color = labelColor) }
+            well {
+                Text(value.ifEmpty { placeholder ?: "" }, color = if (value.isEmpty()) T1.muted else T1.text,
+                    fontFamily = T1.mono, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        } else {
+            // The label and the whole well are the text field's decoration, so a tap anywhere in them focuses it.
+            BasicTextField(
+                value = value, onValueChange = onChange, singleLine = true,
+                textStyle = TextStyle(color = T1.text, fontFamily = T1.mono, fontSize = 15.sp),
+                cursorBrush = SolidColor(T1.accent),
+                keyboardOptions = KeyboardOptions(keyboardType = keyboardType,
+                    imeAction = if (onSubmit != null) androidx.compose.ui.text.input.ImeAction.Search else androidx.compose.ui.text.input.ImeAction.Default),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { onSubmit?.invoke() }),
+                modifier = Modifier.fillMaxWidth(),
+                decorationBox = { inner ->
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        label?.let { Label(it, color = labelColor) }
+                        well {
+                            if (value.isEmpty() && placeholder != null) Text(placeholder, color = T1.muted, fontFamily = T1.mono, fontSize = 15.sp)
+                            inner()
+                        }
+                    }
+                },
+            )
         }
         error?.let { Text(it, color = T1.danger, fontFamily = T1.mono, fontSize = 11.sp) }
     }

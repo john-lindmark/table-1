@@ -410,6 +410,7 @@ struct DecklistPanel: View {
                                     .disabled(listId != nil)
                             }
                             .padding(.horizontal, 16).padding(.vertical, 12).background(T1.surface)
+                            .focusArea()
                             ListRow(title: EventRules.countsText(main: counts.main, side: counts.side), detail: "One card a line: 4 Lightning Bolt. Sideboard after a Sideboard line or a blank line.")
                         }
                         if let error { Notice(error, error: true) }

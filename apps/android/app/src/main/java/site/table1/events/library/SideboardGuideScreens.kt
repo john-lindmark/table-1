@@ -203,14 +203,18 @@ fun SideboardMatchupScreen(listId: String, matchupId: String, onBack: () -> Unit
             }
             item { Section("Notes · ${notes.length}/${SideboardRules.MAX_NOTES}") }
             item {
-                Box(Modifier.fillMaxWidth().heightIn(min = 140.dp).background(T1.surface).padding(horizontal = 16.dp, vertical = 14.dp)) {
-                    if (notes.isEmpty()) Text("Add notes", color = T1.muted, fontFamily = T1.mono, fontSize = 14.sp)
-                    BasicTextField(notes, { v ->
-                        notes = v.take(SideboardRules.MAX_NOTES)
-                        editMatchup(list, m.id) { it.copy(notes = notes.trim()) }
-                    }, Modifier.fillMaxWidth(), textStyle = TextStyle(color = T1.text, fontFamily = T1.mono, fontSize = 14.sp, lineHeight = 22.sp),
-                        cursorBrush = SolidColor(T1.accent))
-                }
+                // The whole box is the text field's decoration: a tap anywhere in it focuses the notes.
+                BasicTextField(notes, { v ->
+                    notes = v.take(SideboardRules.MAX_NOTES)
+                    editMatchup(list, m.id) { it.copy(notes = notes.trim()) }
+                }, Modifier.fillMaxWidth(), textStyle = TextStyle(color = T1.text, fontFamily = T1.mono, fontSize = 14.sp, lineHeight = 22.sp),
+                    cursorBrush = SolidColor(T1.accent),
+                    decorationBox = { inner ->
+                        Box(Modifier.fillMaxWidth().heightIn(min = 140.dp).background(T1.surface).padding(horizontal = 16.dp, vertical = 14.dp)) {
+                            if (notes.isEmpty()) Text("Add notes", color = T1.muted, fontFamily = T1.mono, fontSize = 14.sp)
+                            inner()
+                        }
+                    })
             }
         }
         if (menu) T1Menu(m.name, listOfNotNull(

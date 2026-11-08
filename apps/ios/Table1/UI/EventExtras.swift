@@ -525,6 +525,7 @@ private struct DeckNotePanel: View {
             .padding(.horizontal, 16).padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(T1.surface)
+            .focusArea()
             BigAction(text: saveLabel, accent: true) {
                 onSave(note.trimmingCharacters(in: .whitespacesAndNewlines), turns)
             }

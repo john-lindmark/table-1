@@ -174,11 +174,15 @@ fun ListImportScreen(kind: ListKind, onBack: () -> Unit, onCreated: (String) -> 
                     }
                 }
                 item {
-                    Column(Modifier.fillMaxWidth().background(T1.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Label("Or paste a list")
-                        BasicTextField(text, { text = it }, Modifier.fillMaxWidth().heightIn(min = 160.dp),
-                            textStyle = TextStyle(color = T1.text, fontFamily = T1.mono, fontSize = 13.sp), cursorBrush = SolidColor(T1.accent))
-                    }
+                    // The whole block is the text field's decoration: a tap anywhere in it focuses the list.
+                    BasicTextField(text, { text = it }, Modifier.fillMaxWidth(),
+                        textStyle = TextStyle(color = T1.text, fontFamily = T1.mono, fontSize = 13.sp), cursorBrush = SolidColor(T1.accent),
+                        decorationBox = { inner ->
+                            Column(Modifier.fillMaxWidth().background(T1.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Label("Or paste a list")
+                                Box(Modifier.fillMaxWidth().heightIn(min = 160.dp)) { inner() }
+                            }
+                        })
                 }
                 item {
                     Notice(if (kind == ListKind.Deck) "Moxfield doesn't share decks with other apps: in Moxfield choose Export, copy the list as text and paste it here."

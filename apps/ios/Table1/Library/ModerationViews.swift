@@ -101,6 +101,7 @@ struct AppealPanel: View {
                 .lineLimit(3...6)
                 .font(T1.mono(15)).tint(T1.accent)
                 .padding(.horizontal, 16).padding(.vertical, 14).background(T1.surface)
+                .focusArea()
                 .onChange(of: note) { _, v in if v.count > 500 { note = String(v.prefix(500)) } }
             BigAction(text: "Send appeal", busy: busy, accent: true) { send() }
         }

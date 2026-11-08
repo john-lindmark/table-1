@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
@@ -304,11 +305,15 @@ fun DecklistPanel(event: EventRow, participantId: String, playerName: String, by
                     }
                 }
                 if (source == "text" || byOrganizer || listId != null) {
-                    FormBlock(if (listId == null) "The list" else "From your deck") {
-                        BasicTextField(text, { if (listId == null || source == "text") { text = it; listId = null } },
-                            Modifier.fillMaxWidth().heightIn(min = 180.dp),
-                            textStyle = TextStyle(color = T1.text, fontFamily = T1.mono, fontSize = 13.sp), cursorBrush = SolidColor(T1.accent))
-                    }
+                    // The whole block is the text field's decoration: a tap anywhere in it focuses the list.
+                    BasicTextField(text, { if (listId == null || source == "text") { text = it; listId = null } },
+                        Modifier.fillMaxWidth(),
+                        textStyle = TextStyle(color = T1.text, fontFamily = T1.mono, fontSize = 13.sp), cursorBrush = SolidColor(T1.accent),
+                        decorationBox = { inner ->
+                            FormBlock(if (listId == null) "The list" else "From your deck") {
+                                Box(Modifier.fillMaxWidth().heightIn(min = 180.dp)) { inner() }
+                            }
+                        })
                     ListRow(EventRules.countsText(counts.main, counts.side), "One card a line: 4 Lightning Bolt. Sideboard after a Sideboard line or a blank line.")
                 }
                 error?.let { Notice(it, error = true) }

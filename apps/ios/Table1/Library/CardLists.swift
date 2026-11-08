@@ -2326,6 +2326,7 @@ struct ListImportView: View {
                             .textInputAutocapitalization(.never)
                     }
                     .padding(.horizontal, 16).padding(.vertical, 12).background(T1.surface)
+                    .focusArea()
                     Notice(kind == .deck
                            ? "Moxfield doesn't share decks with other apps: in Moxfield choose Export, copy the list as text and paste it here."
                            : "Cube Cobra: paste the cube's link. Any one-card-per-line list works too.")

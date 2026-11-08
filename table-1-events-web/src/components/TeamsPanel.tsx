@@ -173,7 +173,9 @@ export function TeamsPanel({
 
       {draft.map((t) => (
         <div key={t.key} className="flex flex-col gap-px">
-          <div className="bg-t1-surface px-4 py-2 flex items-center gap-3">
+          {/* A click anywhere in the row (not on Remove) focuses the name, like a label. */}
+          <div className="bg-t1-surface px-4 py-2 flex items-center gap-3"
+               onClick={(e) => { if (!(e.target as Element).closest("button,input")) e.currentTarget.querySelector("input")?.focus(); }}>
             {locked ? (
               <span className="flex-1 text-[13px] truncate">{t.name}</span>
             ) : (

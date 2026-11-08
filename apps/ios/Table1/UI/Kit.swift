@@ -234,7 +234,25 @@ struct Field: View {
         .padding(.horizontal, 16).padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(T1.surface)
+        .focusArea()
     }
+}
+
+/// A text field's whole box takes the tap: a tap anywhere in it (label, padding, empty space) focuses the field,
+/// not only the line the text or placeholder sits on. Put it after the box's padding and background. A caller's own
+/// `.focused(...)` on the box keeps working beside it.
+struct FocusArea: ViewModifier {
+    @FocusState private var focused: Bool
+    func body(content: Content) -> some View {
+        content
+            .focused($focused)
+            .contentShape(Rectangle())
+            .onTapGesture { focused = true }
+    }
+}
+
+extension View {
+    func focusArea() -> some View { modifier(FocusArea()) }
 }
 
 /// Scrollable column that keeps the 1px hairline grid.
@@ -411,6 +429,7 @@ struct T1SearchField: View {
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
         .background(T1.surface)
+        .focusArea()
     }
 }
 

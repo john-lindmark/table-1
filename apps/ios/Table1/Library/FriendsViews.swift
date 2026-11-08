@@ -273,6 +273,7 @@ struct FriendAddPanel: View {
                         .font(T1.mono(15)).tint(T1.accent)
                         .keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
                         .padding(.horizontal, 16).padding(.vertical, 14).background(T1.surface)
+                        .focusArea()
                     Button { sendEmail() } label: {
                         LabelText("Ask", color: emailValid ? T1.ink : T1.muted)
                             .padding(.horizontal, 20).padding(.vertical, 16)
@@ -1257,6 +1258,7 @@ struct ReportPanel: View {
                         .lineLimit(3...6)
                         .font(T1.mono(15)).tint(T1.accent)
                         .padding(.horizontal, 16).padding(.vertical, 14).background(T1.surface)
+                        .focusArea()
                         .onChange(of: note) { _, v in if v.count > 500 { note = String(v.prefix(500)) } }
                     T1Switch(title: "Also block them", detail: "They can't find you or ask you", isOn: $block)
                 }
