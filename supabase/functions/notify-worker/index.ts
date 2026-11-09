@@ -61,10 +61,12 @@ function copy(m: Message, eventName: string, mine?: { table: number | null; oppo
     case "round.paired": {
       const stage = ({ quarterfinal: "Quarterfinals", semifinal: "Semifinals", final: "The final" } as Record<string, string>)[String(d.stage)];
       const round = stage ?? (d.round ? `Round ${d.round}` : "Next round");
+      // Re-paired after a corrected result (contract/repair-round-2026-11-09.md): same push, new pairings.
+      const title = d.repaired ? `${round} re-paired` : `${round} is up`;
       if (mine && mine.opponent) {
-        return { title: `${round} is up`, body: `Table ${mine.table ?? "–"} vs ${mine.opponent}` };
+        return { title, body: `Table ${mine.table ?? "–"} vs ${mine.opponent}` };
       }
-      return { title: `${round} is up`, body: mine ? "You have the bye." : name };
+      return { title, body: mine ? "You have the bye." : name };
     }
     case "result.reported": {
       if (!mine) return { title: "Result reported", body: name };

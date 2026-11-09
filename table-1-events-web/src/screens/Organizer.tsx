@@ -1,7 +1,8 @@
 import { canRedraft } from "../lib/redraft";
 import { useMemo, useState } from "react";
 import { useEvent } from "../lib/useEvent";
-import { cancelEvent, errorMessage, pairNextRound } from "../lib/api";
+import { cancelEvent, errorMessage, pairNextRound, repairRound } from "../lib/api";
+import { repairConfirm, repairLabel, repairableRound } from "../lib/repairRound";
 import { isDraftFormat, isTeamFormat } from "../lib/formats";
 import {
   TAB_LABELS,
@@ -56,6 +57,10 @@ export function Organizer({
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [openMatchId, setOpenMatchId] = useState<string | null>(null);
   const [draftOpen, setDraftOpen] = useState(false);
+  // Re-pair (contract/repair-round-2026-11-09.md): where it was asked from, while the confirm is up.
+  const [repairing, setRepairing] = useState<"notice" | "menu" | null>(null);
+  const [repairBusy, setRepairBusy] = useState(false);
+  const [repairError, setRepairError] = useState<string | null>(null);
 
   const formatName = bundle?.event.formatName ?? "draft";
   const isTeam = !!bundle && isTeamFormat(formatName) && !!bundle.event.teamSize;
@@ -87,7 +92,9 @@ export function Organizer({
 
   const { event, participants, rounds } = bundle;
   const isRoto = event.formatName === "roto";
-  const tabs = phaseTabs(phase, { isTeam, isDraft, isRoto, roundRobin: isRoto && event.pairing === "round_robin" });
+  const repairable = phase === "live" ? repairableRound(rounds) : null;
+  const earlier = rounds.some((r) => r.status !== "active");
+  const tabs = phaseTabs(phase, { isTeam, isDraft, isRoto, roundRobin: isRoto && event.pairing === "round_robin", earlier });
   const tab = resolveTab(selected, phase, tabs);
   const activePlayers = participants.filter((p) => p.status === "active").length;
   const subtitle =
@@ -98,6 +105,29 @@ export function Organizer({
         : resultsSubtitle(event, rounds, participants.length);
   const openMatch: Match | null =
     (openMatchId && rounds.flatMap((r) => r.matches).find((m) => m.id === openMatchId)) || null;
+
+  const repairName = repairable ? repairLabel(repairable.stage, repairable.number) : "";
+  const repairCopy = repairable ? repairConfirm(repairName, repairable.matches) : null;
+
+  async function handleRepair() {
+    if (!repairable || !repairCopy || !repairing) return;
+    setRepairBusy(true);
+    setRepairError(null);
+    try {
+      await repairRound(eventId, repairable.id, repairCopy.results > 0, repairing);
+      setRepairing(null);
+      setSelected({ phase: "live", tab: "round" });
+      await refetch();
+    } catch (e) {
+      setRepairError(errorMessage(e));
+    } finally {
+      setRepairBusy(false);
+    }
+  }
+  function askRepair(from: "notice" | "menu") {
+    setRepairError(null);
+    setRepairing(from);
+  }
 
   async function handleCancel() {
     setCancelBusy(true);
@@ -149,6 +179,11 @@ export function Organizer({
                 Deck photos
               </button>
             )}
+            {repairable && (
+              <button type="button" onClick={() => askRepair("menu")} className="t1-label hover:text-t1-text">
+                Re-pair {repairName}
+              </button>
+            )}
             {phase !== "results" && (
               <button
                 type="button"
@@ -172,7 +207,11 @@ export function Organizer({
           setActionError(null);
           setSelected({ phase, tab: t });
         }}
-        labels={isRoto ? { ...TAB_LABELS, seating: "Pick order" } : TAB_LABELS}
+        labels={{
+          ...TAB_LABELS,
+          ...(isRoto ? { seating: "Pick order" } : {}),
+          ...(phase === "live" ? { rounds: "Earlier" } : {}),
+        }}
       />
 
       {sync === "error" && <Notice tone="error">{error ?? "Something failed to save."}</Notice>}
@@ -189,7 +228,7 @@ export function Organizer({
           }}
         />
       )}
-      {phase === "live" && <LiveView key="live" {...viewProps} mutate={mutate} />}
+      {phase === "live" && <LiveView key="live" {...viewProps} mutate={mutate} onRepair={() => askRepair("notice")} />}
       {phase === "results" && <ResultsView key="results" {...viewProps} />}
 
       {openMatch && (
@@ -197,11 +236,26 @@ export function Organizer({
           key={openMatch.id}
           match={openMatch}
           participants={participants}
-          correcting={phase === "results"}
+          correcting={phase === "results" || rounds.find((r) => r.id === openMatch.roundId)?.status !== "active"}
           onClose={() => setOpenMatchId(null)}
           onSaved={() => void refetch()}
           onOpenLife={onOpenLife}
           playoff={(bundle?.rounds.find((r) => r.id === openMatch.roundId)?.stage ?? "swiss") !== "swiss"}
+        />
+      )}
+
+      {repairing && repairCopy && (
+        <Dialog
+          title={repairCopy.title}
+          message={repairCopy.message}
+          cancelLabel="Not yet"
+          confirmLabel="Re-pair"
+          busyLabel="Re-pairing…"
+          tone={repairCopy.results > 0 ? "danger" : "primary"}
+          busy={repairBusy}
+          error={repairError}
+          onCancel={() => setRepairing(null)}
+          onConfirm={() => void handleRepair()}
         />
       )}
 

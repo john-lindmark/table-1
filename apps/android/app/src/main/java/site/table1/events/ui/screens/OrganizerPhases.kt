@@ -42,6 +42,7 @@ import site.table1.events.data.EventRow
 import site.table1.events.data.EventRules
 import site.table1.events.data.MatchRow
 import site.table1.events.data.ParticipantRow
+import site.table1.events.data.RepairRound
 import site.table1.events.data.Repo
 import site.table1.events.data.RoundRow
 import site.table1.events.data.SeatingPod
@@ -97,7 +98,7 @@ internal fun organizerPhase(b: EventBundle): OrganizerPhase {
 }
 
 /** Tabs per phase as (id, label); the first one is selected when the phase changes. */
-private fun phaseTabs(phase: OrganizerPhase, event: EventRow): List<Pair<String, String>> = when (phase) {
+private fun phaseTabs(phase: OrganizerPhase, b: EventBundle, event: EventRow = b.event): List<Pair<String, String>> = when (phase) {
     OrganizerPhase.Setup -> buildList {
         add("players" to "Players")
         if (event.isDraft) add("seating" to "Seating")
@@ -107,6 +108,8 @@ private fun phaseTabs(phase: OrganizerPhase, event: EventRow): List<Pair<String,
     }
     OrganizerPhase.Live -> buildList {
         add("round" to "Round")
+        // Earlier: the rounds before this one, to correct a result (then re-pair; contract/repair-round-2026-11-09.md).
+        if (b.rounds.any { it.status != "active" }) add("rounds" to "Earlier")
         add("standings" to "Standings")
         add("players" to "Players")
         if (event.isTeamEvent) add("teams" to "Teams")
@@ -218,7 +221,7 @@ internal fun OrganizerScreen(
     val scope = rememberCoroutineScope()
     val event = b.event
     val phase = organizerPhase(b)
-    val tabs = phaseTabs(phase, event)
+    val tabs = phaseTabs(phase, b)
     // A phase change resets to that phase's first tab.
     var tab by remember(phase) { mutableStateOf(tabs.first().first) }
     val selected = tabs.firstOrNull { it.first == tab }?.first ?: tabs.first().first
@@ -236,6 +239,8 @@ internal fun OrganizerScreen(
     var listFor by remember { mutableStateOf<ParticipantRow?>(null) }
     var rotoOverlay by remember { mutableStateOf(false) }
     var rotoSchedule by remember { mutableStateOf(false) }
+    // Re-pair: where it was asked from ("notice" | "menu") while the alert is up.
+    var repairFrom by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
     val active = b.activeRound
@@ -277,6 +282,9 @@ internal fun OrganizerScreen(
     }
 
     fun pair() = act { Repo.pairNextRound(event.id).error?.let { throw IllegalStateException(it) } }
+
+    val repairable = if (phase == OrganizerPhase.Live) RepairRound.repairable(b.rounds) else null
+    val repairName = repairable?.let { RepairRound.label(it.stage, it.number) } ?: ""
 
     val roundsPlayed = b.rounds.maxOfOrNull { it.number } ?: 0
     val subtitle = when (phase) {
@@ -322,6 +330,12 @@ internal fun OrganizerScreen(
                         b, active, secondsLeft, paused, busy, standings.clinched,
                         onClock = { action -> active?.let { r -> act { Repo.setRoundClock(r.id, action, 300) } } },
                         onEdit = { editing = it },
+                        onRepair = { repairFrom = "notice" },
+                    )
+                    "rounds" -> ResultsRounds(
+                        b, onEdit = { editing = it }, rounds = b.rounds.filter { it.id != active?.id },
+                        note = if (active != null) "Tap a match to correct its result. If that changes who should have played whom, re-pair $repairName."
+                        else "Tap a match to correct its result. Standings and records update.",
                     )
                     "standings" -> {
                         val open = active?.matches?.count { !it.isBye && (it.status == "pending" || it.isDisputedOpen) } ?: 0
@@ -407,9 +421,28 @@ internal fun OrganizerScreen(
                 // Roto: the draft stays readable over Live and Results; round robin has its schedule.
                 if (event.isRoto && b.rounds.isNotEmpty()) add(T1MenuItem("Draft picks") { rotoOverlay = true })
                 if (event.isRoto && event.pairing == "round_robin" && b.rounds.isNotEmpty()) add(T1MenuItem("Schedule") { rotoSchedule = true })
+                if (repairable != null) add(T1MenuItem("Re-pair $repairName") { repairFrom = "menu" })
                 if (phase != OrganizerPhase.Results) add(T1MenuItem("Cancel event", danger = true) { cancelling = "" })
             },
             onDismiss = { moreMenu = false },
+        )
+    }
+
+    val repairing = repairFrom
+    if (repairing != null && repairable != null) {
+        val copy = RepairRound.confirm(repairName, repairable.matches.map { it.isBye to it.status })
+        T1AlertDialog(
+            title = copy.title,
+            onDismiss = { repairFrom = null },
+            body = { DialogText(copy.message) },
+            confirm = {
+                BarAction("Re-pair") {
+                    repairFrom = null
+                    tab = "round"
+                    act { Repo.repairRound(event.id, repairable.id, copy.results > 0, repairing) }
+                }
+            },
+            dismiss = { BarAction("Not yet") { repairFrom = null } },
         )
     }
 
@@ -1005,9 +1038,19 @@ private fun LiveRound(
     clinch: TeamClinch?,
     onClock: (String) -> Unit,
     onEdit: (MatchRow) -> Unit,
+    onRepair: () -> Unit,
 ) {
     val event = b.event
     LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        // An earlier result was corrected after this round was paired: offer to pair it again.
+        RepairRound.prompt(b.rounds)?.let { prompt ->
+            item(key = "repair") {
+                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Notice(prompt.text)
+                    Row { Ghost("Re-pair ${RepairRound.label(active?.stage, prompt.round)}", enabled = !busy) { onRepair() } }
+                }
+            }
+        }
         clinch?.let { item(key = "clinch") { Notice("${it.text} You can finish now; open matches won't count.") } }
         if (active == null) {
             val next = (b.rounds.maxOfOrNull { it.number } ?: 0) + 1
@@ -1182,10 +1225,15 @@ private fun ResultsStandings(b: EventBundle, standings: StandingsResponse, tags:
 }
 
 @Composable
-private fun ResultsRounds(b: EventBundle, onEdit: (MatchRow) -> Unit) {
+private fun ResultsRounds(
+    b: EventBundle,
+    onEdit: (MatchRow) -> Unit,
+    rounds: List<RoundRow> = b.rounds,
+    note: String = "Tap a match to correct its result. Standings and records update.",
+) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-        if (b.rounds.isEmpty()) item { Notice("No rounds were played.") }
-        b.rounds.sortedByDescending { it.number }.forEach { r ->
+        if (rounds.isEmpty()) item { Notice("No rounds were played.") }
+        rounds.sortedByDescending { it.number }.forEach { r ->
             item(key = "round-${r.id}") { Section(if (r.isPlayoff) r.name(b.event.numberOfRounds) else "Round ${r.number}") }
             items(r.matches.sortedWith(compareBy({ it.isBye }, { it.tableNumber ?: 0 })), key = { it.id }) { m ->
                 if (m.isBye) {
@@ -1201,7 +1249,7 @@ private fun ResultsRounds(b: EventBundle, onEdit: (MatchRow) -> Unit) {
                 }
             }
         }
-        if (b.rounds.isNotEmpty()) item(key = "rounds-note") { Notice("Tap a match to correct its result. Standings and records update.") }
+        if (rounds.isNotEmpty()) item(key = "rounds-note") { Notice(note) }
     }
 }
 

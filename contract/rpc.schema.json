@@ -11879,6 +11879,54 @@
           "p_guide"
         ]
       }
+    },
+    "withdraw_round": {
+      "note": "Organizer only; called by events-engine repair_round with the organizer's JWT once the new pairings are known (clients don't call it). Takes back the latest, still active round: deletes its life trackers, matches (sides/outcomes cascade, lifetime records reverse) and the round, sets current_round back one, audits round.withdrawn with the old tables. Errors: 42501, P0002, 22023 (not latest / recorded / event not running / earlier dispute), PT409 results in without p_clear_results. contract/repair-round-2026-11-09.md.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_round_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_clear_results": {
+            "type": "boolean"
+          },
+          "p_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "p_round_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "round_number": {
+            "type": "integer"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "cleared_results": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "event_id",
+          "round_number",
+          "stage",
+          "cleared_results"
+        ]
+      }
     }
   },
   "functions": {
@@ -12057,7 +12105,65 @@
           ]
         }
       },
-      "note": " New: action seat_players (organizer, draft events before round 1) -> {pods:[{pod_id,name,seats:[{seat,participant_id,display_name,team}]}]}. standings now also returns teams (team events) and seating (draft events). pair_round handles draft round 1 across the table, team draft and team sealed. 2026-10-16 (v7): pair_round pairs round robin when events.pairing = round_robin (circle method on seat order; rounds = n−1 even / n odd, set on round 1; a later drop gives each opponent a bye) and refuses round 1 of a roto until the draft is finished (409). 2026-10-27 (v10, contract/scheduled-events-2026-10-27.md §5–6): pair_round goes on to quarterfinal / semifinal / final when events.top_cut = 8 (more than 8 active players), answers stage, and fixes number_of_rounds at round 1 for auto_rounds events. standings rows gain swiss_rank and playoff (winner|final|semifinal|quarterfinal|null), rank is the final order; top level gains top_cut and bracket [{stage, matches: [{match_id, table_number, status, winner, sides: [{seed, participant_id, display_name, game_wins}]}]}]. pair_round refuses round 1 (409 'N players haven't sent a decklist') when events.decklists = required."
+      "note": " New: action seat_players (organizer, draft events before round 1) -> {pods:[{pod_id,name,seats:[{seat,participant_id,display_name,team}]}]}. standings now also returns teams (team events) and seating (draft events). pair_round handles draft round 1 across the table, team draft and team sealed. 2026-10-16 (v7): pair_round pairs round robin when events.pairing = round_robin (circle method on seat order; rounds = n−1 even / n odd, set on round 1; a later drop gives each opponent a bye) and refuses round 1 of a roto until the draft is finished (409). 2026-10-27 (v10, contract/scheduled-events-2026-10-27.md §5–6): pair_round goes on to quarterfinal / semifinal / final when events.top_cut = 8 (more than 8 active players), answers stage, and fixes number_of_rounds at round 1 for auto_rounds events. standings rows gain swiss_rank and playoff (winner|final|semifinal|quarterfinal|null), rank is the final order; top level gains top_cut and bracket [{stage, matches: [{match_id, table_number, status, winner, sides: [{seed, participant_id, display_name, game_wins}]}]}]. pair_round refuses round 1 (409 'N players haven't sent a decklist') when events.decklists = required.",
+      "repair_round": {
+        "note": "Organizer only (Bearer user JWT). Pairs the latest, still active round again from the results as they are now: works out the new pairings first, then withdraw_round, then pairs like pair_round (fresh clock, round.paired push and audit with repaired: true). 409 {error, code: 'has_results'} when results are in and clear_results isn't true; 409 for an earlier dispute or a round that isn't the latest/active. contract/repair-round-2026-11-09.md.",
+        "request": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "const": "repair_round"
+            },
+            "event_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "round_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "clear_results": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "action",
+            "event_id",
+            "round_id"
+          ]
+        },
+        "response": {
+          "type": "object",
+          "properties": {
+            "round_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "round_number": {
+              "type": "integer"
+            },
+            "stage": {
+              "type": "string"
+            },
+            "timer_ends_at": {
+              "type": "string"
+            },
+            "matches": {
+              "type": "array"
+            },
+            "repaired": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "round_number",
+            "repaired"
+          ]
+        }
+      }
     },
     "live-activity": {
       "note": "POST {action:'state', include_demo?} with the user's JWT → {snapshots:[{eventId,eventName,participantId,state}]} (camelCase, Unix seconds). Dispatch is database-only."

@@ -89,6 +89,7 @@ describe("phase tabs", () => {
   it("live and results", () => {
     expect(phaseTabs("live", { isTeam: false, isDraft: true })).toEqual(["round", "standings", "players"]);
     expect(phaseTabs("live", { isTeam: true, isDraft: false })).toEqual(["round", "standings", "players", "teams"]);
+    expect(phaseTabs("live", { isTeam: false, isDraft: false, earlier: true })).toEqual(["round", "rounds", "standings", "players"]);
     expect(phaseTabs("results", { isTeam: true, isDraft: true })).toEqual(["standings", "rounds", "players"]);
   });
   it("a phase change resets to the first tab", () => {

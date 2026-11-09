@@ -234,15 +234,29 @@ private enum DemoData {
     static let round3 = round(3, active: false, [match(3, 1, 1, 7, 2, 0), match(3, 2, 2, 4, 2, 1),
                                                  match(3, 3, 3, 6, 1, 2), match(3, 4, 5, 8, 2, 0)])
 
-    /// Round 2 running: your match at table 1 open, one confirmed, one disputed, one reported.
-    static let live = EventBundle(
-        event: event(status: "in_progress", round: 2), participants: participants,
-        rounds: [round1, round(2, active: true, [
+    /// `-T1Repair`: round 1's table 3 corrected by the organizer after round 2 went out (the re-pair notice).
+    static var liveRound1: RoundRow {
+        guard ProcessInfo.processInfo.arguments.contains("-T1Repair") else { return round1 }
+        var r = round1
+        r.matches[2].resultSource = "organizer"
+        r.matches[2].updatedAt = iso(Date().addingTimeInterval(-60))
+        return r
+    }
+    static var liveRound2: RoundRow {
+        var r = round(2, active: true, [
             match(2, 1, 1, 2, 0, 0, status: "pending"),
             match(2, 2, 7, 4, 2, 1),
             match(2, 3, 5, 3, 2, 1, status: "reported", disputed: true, reportedBy: "u5"),
             match(2, 4, 6, 8, 2, 0, status: "reported", reportedBy: "u8"),
-        ])],
+        ])
+        r.pairingsPublishedAt = iso(Date().addingTimeInterval(-19 * 60))
+        return r
+    }
+
+    /// Round 2 running: your match at table 1 open, one confirmed, one disputed, one reported.
+    static let live = EventBundle(
+        event: event(status: "in_progress", round: 2), participants: participants,
+        rounds: [liveRound1, liveRound2],
         isOrganizer: true)
 
     /// The sample draft, finished.

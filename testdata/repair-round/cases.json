@@ -1,0 +1,336 @@
+{
+  "note": "Re-pair a round (contract/repair-round-2026-11-09.md). prompt: given the rounds (number, status, pairings_published_at, matches with is_bye, status, result_source, updated_at), the Live notice that an earlier result changed after the current round was paired, or null. confirm: the dialog for re-pairing a round (label is how the screen names it), counting results already in (not byes, not pending). Shared by iOS RepairRoundTests, web repairRound.test.ts, Android RepairRoundTest. labels: how a round is named in the action and dialog (action 'Re-pair ' + label).",
+  "prompt": [
+    {
+      "name": "an organizer correction in round 2 after round 3 was paired",
+      "rounds": [
+        {
+          "number": 1,
+          "status": "recorded",
+          "pairings_published_at": "2026-11-09T18:00:00Z",
+          "matches": [
+            {
+              "is_bye": false,
+              "status": "confirmed",
+              "result_source": "player",
+              "updated_at": "2026-11-09T18:40:00Z"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "status": "recorded",
+          "pairings_published_at": "2026-11-09T19:00:00Z",
+          "matches": [
+            {
+              "is_bye": false,
+              "status": "confirmed",
+              "result_source": "organizer",
+              "updated_at": "2026-11-09T20:05:00Z"
+            },
+            {
+              "is_bye": true,
+              "status": "confirmed",
+              "result_source": null,
+              "updated_at": "2026-11-09T19:00:00Z"
+            }
+          ]
+        },
+        {
+          "number": 3,
+          "status": "active",
+          "pairings_published_at": "2026-11-09T20:00:00Z",
+          "matches": [
+            {
+              "is_bye": false,
+              "status": "pending",
+              "result_source": null,
+              "updated_at": "2026-11-09T20:00:00Z"
+            }
+          ]
+        }
+      ],
+      "want": {
+        "round": 3,
+        "changed": [
+          2
+        ],
+        "text": "A round 2 result changed after round 3 was paired."
+      }
+    },
+    {
+      "name": "offsets compare as instants, not text",
+      "rounds": [
+        {
+          "number": 1,
+          "status": "recorded",
+          "pairings_published_at": "2026-11-09T18:00:00Z",
+          "matches": [
+            {
+              "is_bye": false,
+              "status": "confirmed",
+              "result_source": "organizer",
+              "updated_at": "2026-11-09T13:30:00-07:00"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "status": "active",
+          "pairings_published_at": "2026-11-09T20:00:00Z",
+          "matches": []
+        }
+      ],
+      "want": {
+        "round": 2,
+        "changed": [
+          1
+        ],
+        "text": "A round 1 result changed after round 2 was paired."
+      }
+    },
+    {
+      "name": "corrections in two rounds",
+      "rounds": [
+        {
+          "number": 1,
+          "status": "recorded",
+          "pairings_published_at": "2026-11-09T18:00:00Z",
+          "matches": [
+            {
+              "is_bye": false,
+              "status": "confirmed",
+              "result_source": "organizer",
+              "updated_at": "2026-11-09T21:00:00Z"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "status": "recorded",
+          "pairings_published_at": "2026-11-09T19:00:00Z",
+          "matches": [
+            {
+              "is_bye": false,
+              "status": "confirmed",
+              "result_source": "organizer",
+              "updated_at": "2026-11-09T21:01:00Z"
+            }
+          ]
+        },
+        {
+          "number": 3,
+          "status": "active",
+          "pairings_published_at": "2026-11-09T20:00:00Z",
+          "matches": []
+        }
+      ],
+      "want": {
+        "round": 3,
+        "changed": [
+          1,
+          2
+        ],
+        "text": "Results in rounds 1 and 2 changed after round 3 was paired."
+      }
+    },
+    {
+      "name": "an organizer result set before the round was paired is not a change",
+      "rounds": [
+        {
+          "number": 1,
+          "status": "recorded",
+          "pairings_published_at": "2026-11-09T18:00:00Z",
+          "matches": [
+            {
+              "is_bye": false,
+              "status": "confirmed",
+              "result_source": "organizer",
+              "updated_at": "2026-11-09T18:59:00Z"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "status": "active",
+          "pairings_published_at": "2026-11-09T19:00:00Z",
+          "matches": []
+        }
+      ],
+      "want": null
+    },
+    {
+      "name": "a player's late report is not an organizer correction",
+      "rounds": [
+        {
+          "number": 1,
+          "status": "recorded",
+          "pairings_published_at": "2026-11-09T18:00:00Z",
+          "matches": [
+            {
+              "is_bye": false,
+              "status": "confirmed",
+              "result_source": "player",
+              "updated_at": "2026-11-09T19:30:00Z"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "status": "active",
+          "pairings_published_at": "2026-11-09T19:00:00Z",
+          "matches": []
+        }
+      ],
+      "want": null
+    },
+    {
+      "name": "no active round, nothing to re-pair",
+      "rounds": [
+        {
+          "number": 1,
+          "status": "recorded",
+          "pairings_published_at": "2026-11-09T18:00:00Z",
+          "matches": [
+            {
+              "is_bye": false,
+              "status": "confirmed",
+              "result_source": "organizer",
+              "updated_at": "2026-11-09T21:00:00Z"
+            }
+          ]
+        }
+      ],
+      "want": null
+    },
+    {
+      "name": "corrections inside the current round don't ask for a re-pair",
+      "rounds": [
+        {
+          "number": 1,
+          "status": "active",
+          "pairings_published_at": "2026-11-09T18:00:00Z",
+          "matches": [
+            {
+              "is_bye": false,
+              "status": "confirmed",
+              "result_source": "organizer",
+              "updated_at": "2026-11-09T18:30:00Z"
+            }
+          ]
+        }
+      ],
+      "want": null
+    },
+    {
+      "name": "an old round with no publish time reads nothing",
+      "rounds": [
+        {
+          "number": 1,
+          "status": "recorded",
+          "pairings_published_at": null,
+          "matches": [
+            {
+              "is_bye": false,
+              "status": "confirmed",
+              "result_source": "organizer",
+              "updated_at": "2026-11-09T21:00:00Z"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "status": "active",
+          "pairings_published_at": null,
+          "matches": []
+        }
+      ],
+      "want": null
+    }
+  ],
+  "confirm": [
+    {
+      "name": "nothing in yet",
+      "label": "round 3",
+      "matches": [
+        {
+          "is_bye": false,
+          "status": "pending"
+        },
+        {
+          "is_bye": true,
+          "status": "confirmed"
+        }
+      ],
+      "want": {
+        "title": "Re-pair round 3?",
+        "message": "New pairings from the standings as they are now. Players get their new tables and the clock starts again.",
+        "results": 0
+      }
+    },
+    {
+      "name": "one result in",
+      "label": "round 3",
+      "matches": [
+        {
+          "is_bye": false,
+          "status": "reported"
+        },
+        {
+          "is_bye": false,
+          "status": "pending"
+        }
+      ],
+      "want": {
+        "title": "Re-pair round 3?",
+        "message": "New pairings from the standings as they are now. Players get their new tables and the clock starts again. The 1 result already in for round 3 is cleared.",
+        "results": 1
+      }
+    },
+    {
+      "name": "two results in, a playoff round",
+      "label": "the quarterfinals",
+      "matches": [
+        {
+          "is_bye": false,
+          "status": "confirmed"
+        },
+        {
+          "is_bye": false,
+          "status": "reported"
+        },
+        {
+          "is_bye": false,
+          "status": "pending"
+        }
+      ],
+      "want": {
+        "title": "Re-pair the quarterfinals?",
+        "message": "New pairings from the standings as they are now. Players get their new tables and the clock starts again. The 2 results already in for the quarterfinals are cleared.",
+        "results": 2
+      }
+    }
+  ],
+  "labels": [
+    {
+      "stage": "swiss",
+      "number": 3,
+      "want": "round 3"
+    },
+    {
+      "stage": "quarterfinal",
+      "number": 4,
+      "want": "the quarterfinals"
+    },
+    {
+      "stage": "semifinal",
+      "number": 5,
+      "want": "the semifinals"
+    },
+    {
+      "stage": "final",
+      "number": 6,
+      "want": "the final"
+    }
+  ]
+}

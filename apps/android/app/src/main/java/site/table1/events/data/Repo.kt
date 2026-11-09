@@ -526,6 +526,23 @@ object Repo {
         return json.decodeFromString(response.bodyAsText())
     }
 
+    /**
+     * Pairs the latest, still active round again from the results as they are now (contract/repair-round-2026-11-09.md).
+     * clearResults: results already in for that round are cleared (the server refuses with 409 otherwise).
+     */
+    suspend fun repairRound(eventId: String, roundId: String, clearResults: Boolean, from: String) {
+        val response = supabase.functions.invoke("events-engine", buildJsonObject {
+            put("action", "repair_round")
+            put("event_id", eventId)
+            put("round_id", roundId)
+            put("clear_results", clearResults)
+        })
+        val r = json.decodeFromString<PairRoundResponse>(response.bodyAsText())
+        r.error?.let { throw IllegalStateException(it) }
+        Telemetry.capture("round_repaired", mapOf("round" to r.roundNumber, "stage" to (r.stage ?: "swiss"),
+            "cleared" to clearResults, "from" to from))
+    }
+
     suspend fun standings(eventId: String): List<Standing> = standingsFull(eventId).standings
 
     /** Individual standings plus team standings (team events) and draft seating (draft events). */

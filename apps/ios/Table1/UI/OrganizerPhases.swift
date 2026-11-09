@@ -743,15 +743,21 @@ private struct OrganizerLiveView: View {
     @State private var confirmFinish = false
     @State private var confirmCut = false
     @State private var dropping: ParticipantRow?
+    /// Re-pair (contract/repair-round-2026-11-09.md): where it was asked from while the alert is up.
+    @State private var repairFrom: String?
 
     private var b: EventBundle { ctx.b }
     private var event: EventRow { ctx.b.event }
     private var round: RoundRow? { b.activeRound }
+    private var repairable: RoundRow? { RepairRound.repairable(b.rounds) }
+    private var repairName: String { repairable.map { RepairRound.label(stage: $0.stage, number: $0.number) } ?? "" }
 
     private var tabs: [(id: String, label: String)] {
         var list: [(id: String, label: String)] = [
             (id: "round", label: "Round"), (id: "standings", label: "Standings"), (id: "players", label: "Players"),
         ]
+        // Earlier: the rounds before this one, to correct a result (then re-pair).
+        if b.rounds.contains(where: { $0.status != "active" }) { list.insert((id: "rounds", label: "Earlier"), at: 1) }
         if event.isTeamEvent { list.append((id: "teams", label: "Teams")) }
         if event.pairing == "round_robin" { list.insert((id: "schedule", label: "Schedule"), at: 1) }
         return list
@@ -773,10 +779,41 @@ private struct OrganizerLiveView: View {
             case "schedule": RotoScheduleView(b: b)
             case "players": playersTab
             case "teams": TeamsEditor(b: b, refresh: ctx.refresh)
+            case "rounds": earlierTab
             default: roundTab(groups)
             }
 
             bigAction
+        }
+        .alert(repairAlert.title, isPresented: Binding(get: { repairFrom != nil }, set: { if !$0 { repairFrom = nil } })) {
+            Button("Not yet", role: .cancel) {}
+            Button("Re-pair", role: repairAlert.results > 0 ? .destructive : nil) { repair() }
+        } message: {
+            Text(repairAlert.message)
+        }
+    }
+
+    private var repairAlert: (title: String, message: String, results: Int) {
+        RepairRound.confirm(label: repairName, matches: (repairable?.matches ?? []).map { (isBye: $0.isBye, status: $0.status) })
+    }
+
+    @MainActor
+    private func repair() {
+        guard let r = repairable, let from = repairFrom else { return }
+        let id = event.id
+        let clear = repairAlert.results > 0
+        tab = "round"
+        ctx.act { try await Repo.repairRound(id, roundId: r.id, clearResults: clear, from: from) }
+    }
+
+    // MARK: earlier rounds
+
+    private var earlierTab: some View {
+        HairlineList {
+            RoundsList(ctx: ctx, rounds: b.rounds.filter { $0.id != round?.id })
+            Notice(round == nil
+                   ? "Tap a match to correct its result. Standings and records update."
+                   : "Tap a match to correct its result. If that changes who should have played whom, re-pair \(repairName).")
         }
     }
 
@@ -802,6 +839,10 @@ private struct OrganizerLiveView: View {
     @ViewBuilder
     private func roundTab(_ g: MatchGroups) -> some View {
         HairlineList {
+            if let prompt = RepairRound.prompt(b.rounds) {
+                Notice(prompt.text)
+                Ghost(text: "Re-pair \(repairName)") { repairFrom = "notice" }
+            }
             if let clinch = ctx.engine.clinched { Notice("\(clinch.text) You can finish now; open matches won't count.") }
             if let round {
                 if event.showClock {
@@ -1054,10 +1095,14 @@ private struct OrganizerLiveView: View {
         let id = event.id
         let name = event.name
         let pairing = event.pairing
+        let canRepair = repairable != nil
+        let repairTitle = "Re-pair \(repairName)"
         T1Overlays.shared.showMenu(event.name, [
             T1MenuItem(title: "Deck photos") { open(.deckPhotos(id)) },
         ] + (event.isRoto ? [
             T1MenuItem(title: "Draft picks") { presentRotoDraft(eventId: id, title: name, isOrganizer: true, pairing: pairing) },
+        ] : []) + (canRepair ? [
+            T1MenuItem(title: repairTitle) { repairFrom = "menu" },
         ] : []) + [
             T1MenuItem(title: "Cancel event", destructive: true) { cancel() },
         ])
@@ -1220,23 +1265,7 @@ private struct OrganizerResultsView: View {
     private var roundsTab: some View {
         HairlineList {
             if b.rounds.isEmpty { Notice("No rounds were played.") }
-            ForEach(b.rounds.sorted(by: { $0.number > $1.number })) { r in
-                Section1(r.isPlayoff ? r.name(of: event.numberOfRounds) : "Round \(r.number)")
-                ForEach(r.matches.filter { !$0.isBye }) { m in
-                    Button { ctx.edit(m, false) } label: {
-                        ListRow(title: matchTitle(m, b), detail: m.resultSource == "organizer" ? "Set by organizer" : nil) {
-                            Text(m.status == "pending" ? "Set" : scoreText(m))
-                                .font(T1.mono(16))
-                                .foregroundStyle(m.status == "pending" ? T1.muted : T1.accent)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .id("\(m.id)-\(m.version)")
-                }
-                ForEach(r.matches.filter { $0.isBye }) { m in
-                    ListRow(title: "\(b.name(m.side(0)?.participantId)) · Bye")
-                }
-            }
+            RoundsList(ctx: ctx, rounds: b.rounds)
             if !b.rounds.isEmpty {
                 Notice("Tap a match to correct its result. Standings and records update.")
             }
@@ -1310,6 +1339,33 @@ struct WinnerCard: View {
 }
 
 // MARK: shared
+
+/// Rounds newest first, every match tappable to correct its result (Results → Rounds, Live → Earlier).
+private struct RoundsList: View {
+    let ctx: OrganizerContext
+    let rounds: [RoundRow]
+
+    var body: some View {
+        let b = ctx.b
+        ForEach(rounds.sorted(by: { $0.number > $1.number })) { r in
+            Section1(r.isPlayoff ? r.name(of: b.event.numberOfRounds) : "Round \(r.number)")
+            ForEach(r.matches.filter { !$0.isBye }) { m in
+                Button { ctx.edit(m, false) } label: {
+                    ListRow(title: matchTitle(m, b), detail: m.resultSource == "organizer" ? "Set by organizer" : nil) {
+                        Text(m.status == "pending" ? "Set" : scoreText(m))
+                            .font(T1.mono(16))
+                            .foregroundStyle(m.status == "pending" ? T1.muted : T1.accent)
+                    }
+                }
+                .buttonStyle(.plain)
+                .id("\(m.id)-\(m.version)")
+            }
+            ForEach(r.matches.filter { $0.isBye }) { m in
+                ListRow(title: "\(b.name(m.side(0)?.participantId)) · Bye")
+            }
+        }
+    }
+}
 
 /// A phase's tabs in the T1 segmented style.
 private struct PhaseTabs: View {

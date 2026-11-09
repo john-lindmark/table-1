@@ -39,7 +39,7 @@ export const TAB_LABELS: Record<OrganizerTab, string> = {
 /** The tabs of each phase, first tab first (it's where a phase change lands). */
 export function phaseTabs(
   phase: Phase,
-  opts: { isTeam: boolean; isDraft: boolean; isRoto?: boolean; roundRobin?: boolean },
+  opts: { isTeam: boolean; isDraft: boolean; isRoto?: boolean; roundRobin?: boolean; earlier?: boolean },
 ): OrganizerTab[] {
   if (phase === "setup") {
     // Roto: Seating is the pick order list.
@@ -47,7 +47,9 @@ export function phaseTabs(
     return ["players", ...(seating ? (["seating"] as const) : []), ...(opts.isTeam ? (["teams"] as const) : []), "details"];
   }
   if (phase === "live") {
-    return ["round", ...(opts.roundRobin ? (["schedule"] as const) : []), "standings", "players", ...(opts.isTeam ? (["teams"] as const) : [])];
+    // Earlier: the rounds before the current one, to correct a result (and re-pair; contract/repair-round-2026-11-09.md).
+    return ["round", ...(opts.earlier ? (["rounds"] as const) : []), ...(opts.roundRobin ? (["schedule"] as const) : []),
+            "standings", "players", ...(opts.isTeam ? (["teams"] as const) : [])];
   }
   return ["standings", "rounds", "players"];
 }
