@@ -2,7 +2,8 @@
 
 John: "add the ability for users to follow events they are not in." All three clients and the server. Migration
 `20261109220000_event_follows.sql`, tests `supabase/tests/64b_event_follows_test.sql`, notify-worker
-`event-follow.ts` (+ test), shared cases `testdata/event-links/cases.json` (`followed`).
+`event-follow.ts` (+ test), shared cases `testdata/event-links/cases.json` (`followed`). **Live 2026-11-09**: migration
+applied as `event_follows`, notify-worker v22.
 
 ## Who can follow
 Anyone signed in who can read the event by its link: not private, not cancelled, not demo, no block either way with
