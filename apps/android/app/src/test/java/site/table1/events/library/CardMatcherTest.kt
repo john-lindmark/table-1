@@ -215,6 +215,95 @@ class CardMatcherTest {
         assertEquals("Lightning Bolt", m.match(listOf("smudge", "glare", "more glare", "Lightning Bolt", "deals 3 damage to any target."))?.oracle?.name)
     }
 
+    /**
+     * Split cards (2026-11-08, README § Split cards): Vision's reads of Boom // Bust, Fire // Ice, Wear // Tear, a fuse
+     * card, an Aftermath card, Dead // Gone and a Room, each held four ways (testdata/scan/split.json, from
+     * tools/split.swift). Put in the text's own order (ScanOrder), every read names its card; in the order they come
+     * (top of each line's box first, as the scanners handed them on before), never a wrong card. Same cases as iOS.
+     */
+    @Test
+    fun splitCards() {
+        val reads = Json.parseToJsonElement(File(root, "split.json").readText()).jsonArray.map { it.jsonObject }
+        assertEquals(36, reads.size)
+        val ordered = Tally()
+        val unordered = Tally()
+        val misses = mutableListOf<String>()
+        for (r in reads) {
+            fun f(k: String) = r.getValue(k).jsonPrimitive.content
+            val c = Case(f("id"), f("name"), f("set"), f("cn"), emptySet())
+            val lines = r.getValue("lines").jsonArray.map { l ->
+                val o = l.jsonObject
+                ScanOrder.Line(o.getValue("t").jsonPrimitive.content, o.getValue("q").jsonArray.map { it.jsonPrimitive.content.toFloat() }.toFloatArray())
+            }
+            val o = ScanOrder.order(lines)
+            val m = matcher().match(o.lines)
+            val plain = matcher().match(lines.map { it.text })
+            val before = ordered.name
+            grade(c, m?.oracle, m?.printing, m?.exact ?: false, ordered)
+            grade(c, plain?.oracle, plain?.printing, plain?.exact ?: false, unordered)
+            if (ordered.name == before) misses.add("${c.id} (${o.turn.wire}): ${m?.oracle?.name ?: "nothing"} from ${o.lines.take(4)}")
+        }
+        println("Split cards (${reads.size} reads): ordered ${ordered.line()}; as they came ${unordered.line()}" + misses.joinToString("") { "\n  missed $it" })
+        assertEquals("a wrong card from a split card", 0, ordered.wrong + unordered.wrong)
+        assertEquals("a split card read in the text's order that named nothing", reads.size, ordered.name)
+    }
+
+    /** Either half's name, or both, name a split card; a half that's also another card's name stays that card's. */
+    @Test
+    fun splitHalves() {
+        val m = matcher()
+        fun name(vararg lines: String) = m.match(lines.toList())?.oracle?.name
+        assertEquals("Fire // Ice", name("Ice", "Instant", "Tap target permanent.", "Draw a card."))
+        assertEquals("Wear // Tear", name("Tear", "Instant", "Destroy target enchantment."))
+        assertEquals("Boom // Bust", name("Boom", "Bust", "Sorcery", "Sorcery"))
+        assertEquals("Commit // Memory", name("Memory", "Sorcery", "Aftermath (Cast this spell only from your graveyard.)"))
+        // The halves out of order, under their type lines (report 76cbcce6, an MH2 Fire // Ice held upright).
+        assertEquals("Fire // Ice", name("Tap target permanent.", "Draw a card.", "Ice", "Instant", "divided as you choose",
+            "Fire deals 2 damage", "among one or two", "Fire", "Instant", "targets."))
+        // One half alone, low down, is still nothing (it's often a word in rules text).
+        assertNull(name("Instant", "Tap target permanent.", "Draw a card.", "Ice"))
+        // Liberate, Chaos and Blood are cards (or tokens) of their own.
+        assertEquals("Liberate", name("Liberate", "Instant", "Exile target creature you control."))
+        assertNull(name("Blood", "Token Artifact - Blood"))
+        assertEquals("Bind // Liberate", name("Bind", "Liberate", "Instant", "Instant"))
+        assertTrue(ScanNames.split("Fire // Ice", "Instant // Instant"))
+        assertTrue(ScanNames.split("Commit // Memory", "Instant // Sorcery"))
+        assertTrue(ScanNames.split("Bottomless Pool // Locker Room", "Enchantment — Room // Enchantment — Room"))
+        assertFalse(ScanNames.split("Bonecrusher Giant // Stomp", "Creature — Giant // Instant — Adventure"))
+        assertFalse(ScanNames.split("Spikefield Hazard // Spikefield Cave", "Instant // Land"))
+    }
+
+    /** ScanOrder keeps mostly upright text as it came, and reads turned text in its own direction. */
+    @Test
+    fun scanOrder() {
+        fun line(t: String, x: Float, y: Float, turn: ScanOrder.Turn, len: Float = 100f): ScanOrder.Line {
+            val h = 20f
+            val q = when (turn) {
+                ScanOrder.Turn.UPRIGHT -> floatArrayOf(x, y, x + len, y, x + len, y + h, x, y + h)
+                ScanOrder.Turn.CLOCKWISE -> floatArrayOf(x, y, x, y + len, x - h, y + len, x - h, y)
+                ScanOrder.Turn.UPSIDE_DOWN -> floatArrayOf(x, y, x - len, y, x - len, y - h, x, y - h)
+                ScanOrder.Turn.COUNTERCLOCKWISE -> floatArrayOf(x, y, x, y - len, x + h, y - len, x + h, y)
+            }
+            return ScanOrder.Line(t, q)
+        }
+        // A card turned clockwise: its top faces the frame's right edge, so the title is the rightmost line.
+        val cw = listOf(line("Instant", 400f, 100f, ScanOrder.Turn.CLOCKWISE), line("Rules text here", 200f, 100f, ScanOrder.Turn.CLOCKWISE),
+            line("Fire", 600f, 100f, ScanOrder.Turn.CLOCKWISE), line("Ice", 600f, 500f, ScanOrder.Turn.CLOCKWISE))
+        assertEquals(listOf("Fire", "Ice", "Instant", "Rules text here"), ScanOrder.order(cw).lines)
+        assertEquals(ScanOrder.Turn.CLOCKWISE, ScanOrder.order(cw).turn)
+        val ccw = listOf(line("Rules", 300f, 900f, ScanOrder.Turn.COUNTERCLOCKWISE), line("Boom", 50f, 900f, ScanOrder.Turn.COUNTERCLOCKWISE),
+            line("Bust", 50f, 400f, ScanOrder.Turn.COUNTERCLOCKWISE))
+        assertEquals(listOf("Boom", "Bust", "Rules"), ScanOrder.order(ccw).lines)
+        val down = listOf(line("Lightning Bolt deals 3", 700f, 100f, ScanOrder.Turn.UPSIDE_DOWN), line("Lightning Bolt", 700f, 900f, ScanOrder.Turn.UPSIDE_DOWN))
+        assertEquals(listOf("Lightning Bolt", "Lightning Bolt deals 3"), ScanOrder.order(down).lines)
+        // Mostly upright: as it came, a sideways line beside it included.
+        val up = listOf(line("Shock", 10f, 10f, ScanOrder.Turn.UPRIGHT), line("Noise", 500f, 5f, ScanOrder.Turn.CLOCKWISE, len = 30f),
+            line("Instant", 10f, 400f, ScanOrder.Turn.UPRIGHT))
+        assertEquals(listOf("Shock", "Noise", "Instant"), ScanOrder.order(up).lines)
+        assertEquals(ScanOrder.Turn.UPRIGHT, ScanOrder.order(up).turn)
+        assertEquals(emptyList<String>(), ScanOrder.order(emptyList()).lines)
+    }
+
     @Test
     fun bottomLineParsing() {
         val sets = setOf("mh2", "mh1", "rvr", "40k", "ecl", "neo", "a25", "gtc")

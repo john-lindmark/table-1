@@ -1,0 +1,74 @@
+{
+  "id": "76cbcce6-bb02-44f9-b9db-5d2bce417809",
+  "source": "report",
+  "frames": [
+    [
+      "Fire"
+    ],
+    [
+      "Tap target permanent.",
+      "Draw a card.",
+      "Ice",
+      "Instant",
+      "divided as you choose",
+      "Fire deals 2 damage",
+      "among one or two",
+      "Fire",
+      "Instant",
+      "targets.",
+      "IN & © 2021 Wizards of the Coast"
+    ],
+    [
+      "Tap target permanent.",
+      "Draw a card.",
+      "Ice",
+      "Instant",
+      "divided as you choose",
+      "Fire deals 2 damage",
+      "among one or two",
+      "Fire",
+      "Instant",
+      "targets.",
+      "NO DAN SCOTT",
+      "™ & © 2021 Wizands of the Coas"
+    ],
+    [
+      "Fire",
+      "a S05 /066"
+    ],
+    [
+      "Tap target permanent.",
+      "Draw a card",
+      "Ice",
+      "Instant",
+      "divided as you choose",
+      "Fire deals 2 damage",
+      "among one or two",
+      "Fire",
+      "Instant",
+      "targets.",
+      "* & C 2021 0",
+      "de of the Coal"
+    ],
+    [
+      "1",
+      "Fire"
+    ]
+  ],
+  "name": "Fire // Ice",
+  "set": "mh2",
+  "cn": "290",
+  "kind": "wrong_printing",
+  "platform": "ios",
+  "app_version": "0.1.0 (54)",
+  "pack_version": "v1-dca96ba2fdfd",
+  "owned_only": false,
+  "matched": {
+    "cn": "UMA-225",
+    "set": "plst",
+    "name": "Fire // Ice",
+    "exact": false,
+    "card_id": "610135d6-d32f-4ee9-b053-dc32da14c333"
+  },
+  "reported_at": "2026-11-09T03:41:05.150894+00:00"
+}

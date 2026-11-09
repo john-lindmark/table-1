@@ -234,7 +234,7 @@ fun CardScanOverlay(
      * One frame's lines; the card they name, if any. ML Kit finds no card in the frame on Android, so the text must
      * look like a card's: a type line, or a set code and number that agree with the name (CardMatcher.hasTypeLine).
      */
-    fun see(lines: List<String>, border: ScanBorder): ScanMatch? {
+    fun see(lines: List<String>, border: ScanBorder, turn: ScanOrder.Turn = ScanOrder.Turn.UPRIGHT): ScanMatch? {
         // Nothing is taken while Back is asking, so the count it asked about is the count added.
         if (leaving != null || picking != null) return null
         val m = matcher ?: return null
@@ -246,6 +246,11 @@ fun CardScanOverlay(
         frames.took()
         m.took()
         taken++
+        // Split cards (printed sideways) and cards read from turned text (README § Split cards): how often they come.
+        val split = ScanNames.split(o.name, o.typeLine)
+        if (split || turn != ScanOrder.Turn.UPRIGHT) {
+            Telemetry.capture("scan_turned", mapOf("turn" to turn.wire, "split" to split, "exact" to take.second))
+        }
         cards.add(0, ScannedCard(oracle = o, printing = take.first, finish = m.defaultFinish(take.first),
             condition = if (owned == null) condition else "NM", exact = take.second,
             frames = frames.frames.toList(), matched = ScannedCard.Matched(take.first.cardId, take.second),
@@ -293,7 +298,7 @@ fun CardScanOverlay(
                     }
                     // The camera takes whatever the header, condition picker, scanned list and footer leave.
                     else -> Box(Modifier.fillMaxWidth().weight(1f).clipToBounds()) {
-                        CameraText { lines, border -> see(lines, border) }
+                        CameraText { lines, border, turn -> see(lines, border, turn) }
                         ScanGuide(reading)
                     }
                 }
@@ -431,7 +436,7 @@ private fun minFocusCm(info: androidx.camera.core.CameraInfo): Int? = runCatchin
 }.getOrNull()
 
 @Composable
-private fun CameraText(onLines: (List<String>, ScanBorder) -> ScanMatch?) {
+private fun CameraText(onLines: (List<String>, ScanBorder, ScanOrder.Turn) -> ScanMatch?) {
     val context = LocalContext.current
     /** The preview's size in px (main thread writes it), to place the guide box in the image. */
     val viewSize = remember { java.util.concurrent.atomic.AtomicReference(0f to 0f) }
@@ -472,9 +477,9 @@ private fun CameraText(onLines: (List<String>, ScanBorder) -> ScanMatch?) {
     fun recognizer(mode: Int): TextRecognizer = if (mode == ScanLanguage.LATIN) latin else cjk[mode] ?: ScanModels.recognizer(mode).also { cjk[mode] = it }
     /** One frame's lines, read by `reader`: the next frame has usually started (with the reader in use before this
      *  one is fed) by now, so ScanLanguage is told which reader read these. */
-    fun fed(lines: List<String>, border: ScanBorder, reader: Int) {
+    fun fed(lines: List<String>, border: ScanBorder, reader: Int, turn: ScanOrder.Turn) {
         val start = android.os.SystemClock.elapsedRealtime()
-        val hit = callback.value(lines, border)
+        val hit = callback.value(lines, border, turn)
         timing.matched(android.os.SystemClock.elapsedRealtime() - start)
         timing.named(reader, hit != null)
         val before = language.mode
@@ -482,9 +487,9 @@ private fun CameraText(onLines: (List<String>, ScanBorder) -> ScanMatch?) {
         timing.switched(before, language.mode)
         reading.set(language.mode)
     }
-    fun feedOnMain(lines: List<String>, border: ScanBorder, reader: Int) {
+    fun feedOnMain(lines: List<String>, border: ScanBorder, reader: Int, turn: ScanOrder.Turn = ScanOrder.Turn.UPRIGHT) {
         if (!matching.compareAndSet(false, true)) { timing.drop(); return }
-        ContextCompat.getMainExecutor(context).execute { try { fed(lines, border, reader) } finally { matching.set(false) } }
+        ContextCompat.getMainExecutor(context).execute { try { fed(lines, border, reader, turn) } finally { matching.set(false) } }
     }
     /**
      * The border colour read along the guide box from the frame's luma plane, before the frame goes to ML Kit (624
@@ -551,10 +556,20 @@ private fun CameraText(onLines: (List<String>, ScanBorder) -> ScanMatch?) {
                         val ih = (if (upright) proxy.width else proxy.height).toFloat()
                         val (vw, vh) = viewSize.get()
                         val guide = if (vw > 0 && vh > 0) ScanRegion.normalized(ScanRegion.viewBox(vw, vh, margin), vw, vh, iw, ih) else null
-                        val lines = text.textBlocks.flatMap { it.lines }
+                        // Top of the box first, then in the text's own direction when most of it isn't upright (a split
+                        // card held upright, a card upside down; ScanOrder), from ML Kit's corners, which follow the text.
+                        val read = ScanOrder.order(text.textBlocks.flatMap { it.lines }
                             .filter { l -> l.boundingBox?.let { b -> ScanRegion.readsText(guide, b.exactCenterX() / iw, b.exactCenterY() / ih) } ?: false }
-                            .sortedBy { it.boundingBox?.top ?: 0 }.map { it.text }
-                        feedOnMain(lines, border, mode)
+                            .sortedBy { it.boundingBox?.top ?: 0 }
+                            .map { l ->
+                                val c = l.cornerPoints?.takeIf { it.size == 4 }
+                                val b = l.boundingBox
+                                val quad = c?.flatMap { listOf(it.x.toFloat(), it.y.toFloat()) }?.toFloatArray()
+                                    ?: floatArrayOf((b?.left ?: 0).toFloat(), (b?.top ?: 0).toFloat(), (b?.right ?: 0).toFloat(), (b?.top ?: 0).toFloat(),
+                                        (b?.right ?: 0).toFloat(), (b?.bottom ?: 0).toFloat(), (b?.left ?: 0).toFloat(), (b?.bottom ?: 0).toFloat())
+                                ScanOrder.Line(l.text, quad)
+                            })
+                        feedOnMain(read.lines, border, mode, read.turn)
                     }
                     // A CJK model not installed yet (ScanModels) fails: a miss, so the next recognizer gets the next frame.
                     .addOnFailureListener(onCamera) { took(false); feedOnMain(emptyList(), ScanBorder.UNKNOWN, mode) }

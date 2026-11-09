@@ -320,6 +320,84 @@ final class CardMatcherTests: XCTestCase {
         XCTAssertEqual(m.match(["smudge", "glare", "more glare", "Lightning Bolt", "deals 3 damage to any target."])?.oracle.name, "Lightning Bolt")
     }
 
+    /// Split cards (2026-11-08, README § Split cards): Vision's reads of Boom // Bust, Fire // Ice, Wear // Tear, a
+    /// fuse card, an Aftermath card, Dead // Gone and a Room, each held four ways (testdata/scan/split.json, from
+    /// tools/split.swift). Put in the text's own order (ScanOrder), every read names its card; in the order they come
+    /// (top of each line's box first, as the scanners handed them on before), never a wrong card. Same cases on Android.
+    func testSplitCards() throws {
+        struct Read: Decodable {
+            struct L: Decodable { let t: String; let q: [Double] }
+            let id: String, name: String, set: String, cn: String, lines: [L]
+        }
+        let reads = try JSONDecoder().decode([Read].self, from: Data(contentsOf: root.appending(path: "split.json")))
+        XCTAssertEqual(reads.count, 36)
+        var ordered = Tally(), unordered = Tally(), misses: [String] = []
+        for r in reads {
+            let c = Case(id: r.id, name: r.name, set: r.set, cn: r.cn, tags: [])
+            let lines = r.lines.map { l in ScanOrder.Line(text: l.t, quad: stride(from: 0, to: 8, by: 2).map { i in CGPoint(x: l.q[i], y: l.q[i + 1]) }) }
+            let o = ScanOrder.order(lines)
+            let m = matcher().match(o.lines), plain = matcher().match(lines.map(\.text))
+            let before = ordered.name
+            grade(c, m?.oracle, m?.printing, exact: m?.exact ?? false, into: &ordered)
+            grade(c, plain?.oracle, plain?.printing, exact: plain?.exact ?? false, into: &unordered)
+            if ordered.name == before { misses.append("\(r.id) (\(ScanOrder.name(o.turn))): \(m?.oracle.name ?? "nothing") from \(o.lines.prefix(4))") }
+        }
+        print("Split cards (\(reads.count) reads): ordered \(ordered.line); as they came \(unordered.line)" + misses.map { "\n  missed \($0)" }.joined())
+        XCTAssertEqual(ordered.wrong + unordered.wrong, 0, "a wrong card from a split card")
+        XCTAssertEqual(ordered.name, reads.count, "a split card read in the text's order that named nothing")
+    }
+
+    /// Either half's name, or both, name a split card; a half that's also another card's name stays that card's.
+    func testSplitHalves() {
+        let m = matcher()
+        XCTAssertEqual(m.match(["Ice", "Instant", "Tap target permanent.", "Draw a card."])?.oracle.name, "Fire // Ice")
+        XCTAssertEqual(m.match(["Tear", "Instant", "Destroy target enchantment."])?.oracle.name, "Wear // Tear")
+        XCTAssertEqual(m.match(["Boom", "Bust", "Sorcery", "Sorcery"])?.oracle.name, "Boom // Bust")
+        XCTAssertEqual(m.match(["Memory", "Sorcery", "Aftermath (Cast this spell only from your graveyard.)"])?.oracle.name, "Commit // Memory")
+        // The halves out of order, under their type lines (report 76cbcce6, an MH2 Fire // Ice held upright).
+        XCTAssertEqual(m.match(["Tap target permanent.", "Draw a card.", "Ice", "Instant", "divided as you choose",
+                                "Fire deals 2 damage", "among one or two", "Fire", "Instant", "targets."])?.oracle.name, "Fire // Ice")
+        // One half alone, low down, is still nothing (it's often a word in rules text).
+        XCTAssertNil(m.match(["Instant", "Tap target permanent.", "Draw a card.", "Ice"]))
+        // Liberate, Chaos and Blood are cards (or tokens) of their own.
+        XCTAssertEqual(m.match(["Liberate", "Instant", "Exile target creature you control."])?.oracle.name, "Liberate")
+        XCTAssertNil(m.match(["Blood", "Token Artifact - Blood"]))
+        XCTAssertEqual(m.match(["Bind", "Liberate", "Instant", "Instant"])?.oracle.name, "Bind // Liberate")
+        XCTAssertTrue(ScanNames.split(name: "Fire // Ice", typeLine: "Instant // Instant"))
+        XCTAssertTrue(ScanNames.split(name: "Commit // Memory", typeLine: "Instant // Sorcery"))
+        XCTAssertTrue(ScanNames.split(name: "Bottomless Pool // Locker Room", typeLine: "Enchantment — Room // Enchantment — Room"))
+        XCTAssertFalse(ScanNames.split(name: "Bonecrusher Giant // Stomp", typeLine: "Creature — Giant // Instant — Adventure"))
+        XCTAssertFalse(ScanNames.split(name: "Spikefield Hazard // Spikefield Cave", typeLine: "Instant // Land"))
+    }
+
+    /// ScanOrder keeps mostly upright text as it came, and reads turned text in its own direction.
+    func testScanOrder() {
+        func line(_ t: String, _ x: Double, _ y: Double, _ turn: ScanOrder.Turn, len: Double = 100) -> ScanOrder.Line {
+            let h = 20.0
+            let q: [(Double, Double)] = switch turn {
+            case .upright: [(x, y), (x + len, y), (x + len, y + h), (x, y + h)]
+            case .clockwise: [(x, y), (x, y + len), (x - h, y + len), (x - h, y)]
+            case .upsideDown: [(x, y), (x - len, y), (x - len, y - h), (x, y - h)]
+            case .counterclockwise: [(x, y), (x, y - len), (x + h, y - len), (x + h, y)]
+            }
+            return .init(text: t, quad: q.map { CGPoint(x: $0.0, y: $0.1) })
+        }
+        // A card turned clockwise: its top faces the frame's right edge, so the title is the rightmost line.
+        let cw = [line("Instant", 400, 100, .clockwise), line("Rules text here", 200, 100, .clockwise), line("Fire", 600, 100, .clockwise),
+                  line("Ice", 600, 500, .clockwise)]
+        XCTAssertEqual(ScanOrder.order(cw).lines, ["Fire", "Ice", "Instant", "Rules text here"])
+        XCTAssertEqual(ScanOrder.order(cw).turn, .clockwise)
+        let ccw = [line("Rules", 300, 900, .counterclockwise), line("Boom", 50, 900, .counterclockwise), line("Bust", 50, 400, .counterclockwise)]
+        XCTAssertEqual(ScanOrder.order(ccw).lines, ["Boom", "Bust", "Rules"])
+        let down = [line("Lightning Bolt deals 3", 700, 100, .upsideDown), line("Lightning Bolt", 700, 900, .upsideDown)]
+        XCTAssertEqual(ScanOrder.order(down).lines, ["Lightning Bolt", "Lightning Bolt deals 3"])
+        // Mostly upright: as it came, a sideways line beside it included.
+        let up = [line("Shock", 10, 10, .upright), line("Noise", 500, 5, .clockwise, len: 30), line("Instant", 10, 400, .upright)]
+        XCTAssertEqual(ScanOrder.order(up).lines, ["Shock", "Noise", "Instant"])
+        XCTAssertEqual(ScanOrder.order(up).turn, .upright)
+        XCTAssertEqual(ScanOrder.order([]).lines, [])
+    }
+
     func testCollectorLanguage() {
         XCTAssertEqual(Collector(["154/264 M", "WAR • JP Artist"], sets: ["war"]).lang, "ja")
         XCTAssertEqual(Collector(["RIX • RU"], sets: ["rix"]).lang, "ru")

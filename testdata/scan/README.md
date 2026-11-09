@@ -11,8 +11,10 @@ run the matcher over OCR text read from these photos, so OCR runs once here, on 
 | `ocr.json` | Apple Vision's read of each photo, lines top of the frame first (the order the scanner hands the matcher): `accurate`, `fast`, `small` (accurate at half size, the card further away) `multi` (accurate with automatic language detection, so Japanese, Chinese and Korean come through; the scanners switch to reading like this when text names no card, see "Language detection"), `title` (the card's title bar read on its own, in front of `multi`; measured, not read by the scanners, see "Title bar pass") and `bottom` (`accurate`, then the card's bottom strip read on its own, as the iOS scanner reads since 2026-10-28; `… ocr.swift bottom` adds it to an existing file). |
 | `motion.json` | A 2.4 s clip per photo, 12 frames 200 ms apart, of a hand moving the card on all three axes (pan, toward/away, roll and tilt, with motion blur), each frame read like `accurate`. Photo *n* (in `photos.tsv` order) is a *settle* clip when *n* % 3 = 0 (moves in, then holds), *shake* when 1 (tremor and slow drift), *sweep* when 2 (large continuous movement). |
 | `catalog.tsv.gz` | The catalog pack the tests match against: every card, printing and printed name (N lines, de es fr it pt ru ja zhs zht ko) of pack `v1-4f3fd420d850`, ids shortened. |
-| `reports/` | Scan corrections people made in the app, exported by `tools/export_reports.py`; the tests run each one as a clip. 201 labelled on 2026-10-28 (232 reports from Oct 24–28, 199 of them wrong printings; the 32 with no answer sit in `reports/unlabelled/`, which the tests skip). |
+| `reports/` | Scan corrections people made in the app, exported by `tools/export_reports.py`; the tests run each one as a clip. 201 labelled on 2026-10-28 (232 reports from Oct 24–28, 199 of them wrong printings; the 32 with no answer sit in `reports/unlabelled/`, which the tests skip), and 76cbcce6 (an MH2 Fire // Ice, 2026-11-08). |
 | `border.json` | The luma samples the border rule reads (see "Border colour"), per photo with a border (259: `borderless` cards left out): `quad` as the iOS scanner samples around Vision's rectangle, `g100` as Android samples along the guide box (here the rectangle's bounds standing for the guide), and both again on a dim, low-contrast copy (`dim.quad`, `dim.g100`); `expected` is `white` for `white-border` photos, else `black`. Compact JSON; made by `tools/border.swift`. |
+| `split.json` | Vision's reads of split cards held four ways (see "Split cards"): 36 reads, each line with its four corners in the text's own direction. Made by `tools/split.swift`. |
+| `tools/split.swift` | Makes `split.json` from the photo set's two split cards and Scryfall's scans of seven more printings (fetched into `$T1_SPLIT_CACHE`, not kept here). |
 | `tools/border.swift` | Makes `border.json` (`swift testdata/scan/tools/border.swift [check]`; `check` also tallies the reference rule per read and checks the iOS orientation mapping against Vision). |
 | `tools/ocr.swift` | Makes `ocr.json` (`swift testdata/scan/tools/ocr.swift`) and `motion.json` (`… ocr.swift motion`; compile it with `swiftc -O` first, it's slow interpreted). |
 | `tools/trim_pack.py` | Makes `catalog.tsv.gz` from a downloaded pack (keeps the illustrator and frame fields since 2026-10-28). |
@@ -380,6 +382,51 @@ also couldn't read. The thing that would help old names is pixels, not processin
 filling the guide has a title about 60 px tall, three times these photos', which is why real phone reports
 (`reports/`) are the measure that counts. The test floor: `dim` names no wrong card and within 8 of `accurate`.
 
+
+### Split cards (2026-11-08; `testSplitCards`, `testSplitHalves`, `testScanOrder`, Android `splitCards`, `splitHalves`, `scanOrder`)
+
+Boom // Bust, Fire // Ice, Wear // Tear and the other split cards (fuse, Aftermath, Rooms) print both halves on one
+face, sideways: held upright in the guide, their text runs up or down the frame. Vision reads turned text (and
+upside-down text) as well as upright, but the scanners sorted lines by the top of each line's box, so a sideways
+card's lines came out scrambled: Boom // Bust held upright read "Destroy all lands.", "-John Avon", "Sorcery",
+"Bust", …, and the name search stops at the first type line. The catalog only knew a split card by its whole name and
+its first half. John's MH2 Fire // Ice (report 76cbcce6, 2026-11-08) went in as The List's printing: only a frame
+reading "Fire" alone named it, so the year (2021) and the artist (Dan Scott) the scrambled frames read were never
+merged into its printing evidence.
+
+Three changes, the same on both platforms:
+- **Text in its own order** (`ScanOrder`). Vision and ML Kit give each line's corners in the text's direction
+  (top-left, top-right, bottom-right, bottom-left). When most of a frame's letters and digits read in one other
+  direction (a quarter turn either way, or upside down), those lines are put in reading order for that direction
+  (top line first, then left to right) and the rest follow as they came; mostly upright text keeps its order, so
+  upright cards read exactly as before.
+- **Either half**: every half of a split card (all its faces instants or sorceries, or all Rooms) is a name the
+  matcher knows. Halves after the first (Ice, Bust, Memory, a Room's second door) are looked up exactly only, kept
+  out of the trigram index so cut-off and misread names never reach them, and only where no other card or token has
+  the name (Bind // Liberate's Liberate stays Liberate, Flesh // Blood's Blood the token's).
+- **Both halves, anywhere**: two halves of one split card, each read as a line of its own among the first 24 lines,
+  are that card wherever they sit, type lines in between too. Nothing else prints two such lines, so this doesn't
+  undo the rule that a name never comes from below the type line (`testNoNameFromBelowTheTypeLine` still passes).
+
+`split.json` (from `tools/split.swift`): the photo set's Wear // Tear (055) and Polluted Cistern // Dim Oubliette
+(169), and Scryfall scans of Boom // Bust (PLC), Fire // Ice (APC, MH2), Wear // Tear (DGM), Breaking // Entering
+(DGM, fuse), Commit // Memory (AKH, Aftermath) and Dead // Gone (PLC), drawn smaller on a dark mat with a little blur,
+each read four ways (as photographed, a quarter turn either way, upside down):
+
+| | Named | Wrong card | Printing |
+| --- | --- | --- | --- |
+| Before (2026-11-08 matcher, lines as they came) | 16/36 | 0 | |
+| Lines as they came (top of the box first) | 34/36 | 0 | 33/34 |
+| **In the text's order (ScanOrder), as the scanners read now** | **36/36** | **0** | **35/36** |
+
+Before these changes (lines as they came, the matcher of 2026-11-08) it named 16 of the 36, none wrong. Everything
+else is unchanged or better (iOS and Android alike): still photos, movement clips, cards in other languages and
+language detection read the same; the card gate names 237/291 (was 236: Wear // Tear's in-card read starts at
+"Tear"); reports 197/203 named, 0 wrong, printing 91/196 (the Fire // Ice report now goes in as MH2 290).
+Telemetry `scan_turned` (`turn`, `split`, `exact`) for each split card taken and each card taken from turned text.
+Not yet tried on a phone; Android's ML Kit is assumed to read turned text and give corners in the text's direction
+as Vision does (its `Line.cornerPoints` are documented that way), which no test here can check. Printed names of split
+cards in other languages ("Feuer // Eis") are still matched whole only.
 
 ## Art matching spike (2026-10-16; measured, not in the scanners)
 

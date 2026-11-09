@@ -17,6 +17,14 @@ final class ScanNames: @unchecked Sendable {
     /// The names, sorted, with their trigrams; in the ScanIndex package (Packages/ScanIndex), which is built
     /// optimized in Debug too: ~200k names took 5 s to index at -Onone.
     private let index: NameIndex
+    /// Each half of a split card (instants and sorceries: Fire // Ice, fuse, Aftermath; and Rooms), normalized → the
+    /// cards with that half (Fire: Fire // Ice and Start // Fire). Every half of a split card is printed on the one
+    /// face, so two halves of one card read are that card (README § Split cards).
+    private let halves: [String: [Int]]
+    /// The halves after the first (Ice, Memory, a Room's second door) that no other card is named: read exactly, the
+    /// card. Not in the trigram index, so cut-off and misread names never come to them (Liberate, Blood, Chaos and
+    /// Saw are also cards or tokens of their own, so Bind // Liberate's Liberate isn't here).
+    private let laterHalves: [String: Int]
 
     private static let lock = NSLock()
     nonisolated(unsafe) private static var cached: ScanNames?
@@ -36,7 +44,24 @@ final class ScanNames: @unchecked Sendable {
         sets = db.setCodes()
         var english: [(norm: String, idx: Int, printings: Int)] = []
         var scannable = Set<Int>()
-        for o in db.scanNames() where o.printings > 0 && !Self.unscannable(o.typeLine) {
+        let all = db.scanNames()
+        // Every name and face name any card has, tokens too: a later half by one of these isn't the split card's.
+        var taken: [String: Set<Int>] = [:]
+        for o in all {
+            taken[o.norm, default: []].insert(o.idx)
+            for face in o.name.components(separatedBy: " // ") where o.name.contains(" // ") { taken[CardName.norm(face), default: []].insert(o.idx) }
+        }
+        var halves: [String: [Int]] = [:], later: [String: Int] = [:]
+        for o in all where o.printings > 0 && Self.split(name: o.name, typeLine: o.typeLine) {
+            for (k, face) in o.name.components(separatedBy: " // ").enumerated() {
+                let h = CardName.norm(face)
+                if halves[h]?.contains(o.idx) != true { halves[h, default: []].append(o.idx) }
+                if k > 0 && taken[h] == [o.idx] { later[h] = later[h] == nil ? o.idx : -1 }
+            }
+        }
+        self.halves = halves
+        laterHalves = later.filter { $0.value >= 0 }
+        for o in all where o.printings > 0 && !Self.unscannable(o.typeLine) {
             if let cut = o.name.range(of: " // ") {
                 let front = CardName.norm(String(o.name[..<cut.lowerBound]))
                 if front == CardName.norm(String(o.name[cut.upperBound...])) { continue } // an art card ("X // X")
@@ -58,7 +83,25 @@ final class ScanNames: @unchecked Sendable {
         ["Token", "Card", "Emblem", "Vanguard"].contains { typeLine.hasPrefix($0) }
     }
 
+    /// A split card: its halves are all instants or sorceries (split, fuse, Aftermath) or all Rooms, every one printed
+    /// on the same face. Adventures, omens, flip and double-faced cards have a creature, land or other face.
+    static func split(name: String, typeLine: String) -> Bool {
+        let faces = typeLine.components(separatedBy: " // ")
+        guard faces.count >= 2, faces.count == name.components(separatedBy: " // ").count else { return false }
+        let spells: Set<Substring> = ["Instant", "Sorcery", "Kindred", "Tribal"]
+        return faces.allSatisfy { f in
+            let types = f.split(separator: "—").first.map { $0.split(separator: " ") } ?? []
+            return !types.isEmpty && types.allSatisfy(spells.contains)
+        } || faces.allSatisfy { $0.hasSuffix("Room") }
+    }
+
     func exact(_ q: String) -> Hit? { index.position(q).map(hit) }
+
+    /// A split card by a later half's name read exactly (Ice, Memory).
+    func laterHalf(_ q: String) -> Hit? { laterHalves[q].map { Hit(idx: $0, langs: []) } }
+
+    /// The split cards a half's name belongs to, any half.
+    func half(_ q: String) -> [Int] { halves[q] ?? [] }
 
     private func hit(_ i: Int) -> Hit { Hit(idx: index.idxs[i], langs: Self.langs(index.langBits[i])) }
 
@@ -224,8 +267,14 @@ final class CardMatcher: @unchecked Sendable {
             q.contains(" ") || (text[i] && text[..<i].filter { $0 }.count <= (q.count <= 2 && CardName.hasCJK(q) ? 0 : 1))
         }
         func long(_ q: String) -> Bool { q.count >= (CardName.hasCJK(q) ? 2 : 3) }
+        // A split card's halves, each a line of its own anywhere: printed sideways, the halves' title lines can land
+        // anywhere among the lines (below their own type lines too). Two halves of one card can't come from anything
+        // else, so where they are doesn't matter.
+        if let split = splitHalves(lines) { return split }
         func exact(_ i: Int) -> ScanNames.Hit? {
-            for q in candidates(words[i]) where long(q) && fits(q, i) { if let o = names.exact(q), allowed(o.idx) { return o } }
+            for q in candidates(words[i]) where long(q) && fits(q, i) {
+                if let o = names.exact(q) ?? names.laterHalf(q), allowed(o.idx) { return o }
+            }
             // A name broken over two lines.
             if i + 1 < words.count, words[i].count <= 3, words[i + 1].count <= 3 {
                 for q in candidates(words[i] + words[i + 1]) where long(q) && fits(q, i) {
@@ -247,6 +296,21 @@ final class CardMatcher: @unchecked Sendable {
         let below = words.firstIndex(where: Self.typeLine) ?? words.count
         for i in min(3, words.count)..<max(below, min(3, words.count)) where !words[i].contains(where: { CardName.hasCJK(String($0)) }) {
             if let o = exact(i), oracle(o.idx)?.norm.contains(" ") == true { return o }
+        }
+        return nil
+    }
+
+    /// A split card two of whose halves are read as lines of their own ("Fire" and "Ice"), among the first 24 lines.
+    private func splitHalves(_ lines: [String]) -> ScanNames.Hit? {
+        var seen: [Int: Set<String>] = [:]
+        for line in lines.prefix(24) {
+            let words = CardName.norm(line).split(separator: " ")
+            guard (1...6).contains(words.count) else { continue }
+            guard let q = candidates(words).first(where: { !names.half($0).isEmpty }) else { continue }
+            for idx in names.half(q) {
+                seen[idx, default: []].insert(q)
+                if seen[idx]!.count >= 2, allowed(idx) { return ScanNames.Hit(idx: idx, langs: []) }
+            }
         }
         return nil
     }
@@ -949,4 +1013,58 @@ struct ScanLanguage: Equatable {
 
     private func ms(_ a: Date, _ b: Date) -> Int { Int((a.timeIntervalSince(b) * 1000).rounded()) }
     private func ms(_ t: TimeInterval) -> Int { Int((t * 1000).rounded()) }
+}
+
+/// The order the scanner hands lines to the matcher when the card's text isn't upright (README § Split cards). A
+/// split card's halves are printed sideways, so held upright in the guide its text runs up or down the frame, and
+/// sorted by the top of each line's box its names land among the rules text, under the type lines; an upside-down
+/// card reads bottom first. OCR gives each line's corners in the text's own direction (top-left, top-right,
+/// bottom-right, bottom-left), so when most of the text (by letters and digits) reads in one other direction, those
+/// lines are put in reading order for that direction, top line first, and the rest follow as they came. Text that
+/// is mostly upright keeps the order it came in. Same rule on Android (CardMatcher.kt), cases in testdata/scan/split.json.
+enum ScanOrder {
+    /// A line read, with its corners in pixels, origin top-left: top-left, top-right, bottom-right, bottom-left of the text.
+    struct Line { let text: String; let quad: [CGPoint] }
+
+    /// Which way a line reads: upright, turned a quarter clockwise (reads down the frame), upside down, or turned a
+    /// quarter counterclockwise (reads up the frame).
+    enum Turn: Int { case upright, clockwise, upsideDown, counterclockwise }
+
+    static func turn(_ quad: [CGPoint]) -> Turn {
+        let dx = quad[1].x - quad[0].x, dy = quad[1].y - quad[0].y
+        if abs(dx) >= abs(dy) { return dx >= 0 ? .upright : .upsideDown }
+        return dy > 0 ? .clockwise : .counterclockwise
+    }
+
+    /// Lines in the order they came (top of the box first), reordered by the text's direction when most of it isn't
+    /// upright, and that direction.
+    static func order(_ lines: [Line]) -> (lines: [String], turn: Turn) {
+        var weight = [Int](repeating: 0, count: 4)
+        let turns = lines.map { turn($0.quad) }
+        for (l, t) in zip(lines, turns) { weight[t.rawValue] += l.text.reduce(0) { $1.isLetter || $1.isNumber ? $0 + 1 : $0 } }
+        guard let most = (1..<4).max(by: { weight[$0] < weight[$1] }), weight[most] > weight[0], let turn = Turn(rawValue: most)
+        else { return (lines.map(\.text), .upright) }
+        // The text's up and along, in the frame.
+        let (up, along): (CGPoint, CGPoint) = switch turn {
+        case .upright: (CGPoint(x: 0, y: -1), CGPoint(x: 1, y: 0))
+        case .clockwise: (CGPoint(x: 1, y: 0), CGPoint(x: 0, y: 1))
+        case .upsideDown: (CGPoint(x: 0, y: 1), CGPoint(x: -1, y: 0))
+        case .counterclockwise: (CGPoint(x: -1, y: 0), CGPoint(x: 0, y: -1))
+        }
+        func dot(_ p: CGPoint, _ v: CGPoint) -> CGFloat { p.x * v.x + p.y * v.y }
+        struct Keyed { let text: String; let top: CGFloat; let start: CGFloat }
+        var read: [Keyed] = [], rest: [String] = []
+        for (l, t) in zip(lines, turns) {
+            if t == turn {
+                read.append(Keyed(text: l.text, top: l.quad.map { dot($0, up) }.max() ?? 0, start: l.quad.map { dot($0, along) }.min() ?? 0))
+            } else {
+                rest.append(l.text)
+            }
+        }
+        read.sort { $0.top != $1.top ? $0.top > $1.top : $0.start < $1.start }
+        return (read.map(\.text) + rest, turn)
+    }
+
+    /// The telemetry name of a direction.
+    static func name(_ t: Turn) -> String { ["upright", "clockwise", "upside_down", "counterclockwise"][t.rawValue] }
 }

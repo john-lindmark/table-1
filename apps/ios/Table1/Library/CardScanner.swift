@@ -38,7 +38,7 @@ struct ScannedCard: Identifiable, Hashable {
 struct CardTextScanner: UIViewRepresentable {
     /// One frame's lines, top first, whether they're from inside a card found in the frame, and the colour of the
     /// card's border when it could be read (ScanBorder); returns true when they name a card.
-    let onLines: ([String], Bool, ScanBorder) -> Bool
+    let onLines: ([String], Bool, ScanBorder, ScanOrder.Turn) -> Bool
 
     static var isAvailable: Bool {
         Coordinator.camera() != nil && ![.denied, .restricted].contains(AVCaptureDevice.authorizationStatus(for: .video))
@@ -77,7 +77,7 @@ struct CardTextScanner: UIViewRepresentable {
     /// Runs the capture session and Vision on its own queue, one frame at a time (late frames are dropped).
     final class Coordinator: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
         // Main thread only.
-        var onLines: ([String], Bool, ScanBorder) -> Bool
+        var onLines: ([String], Bool, ScanBorder, ScanOrder.Turn) -> Bool
         private var language = ScanLanguage(readers: 1)
         let session = AVCaptureSession()
         private let queue = DispatchQueue(label: "site.table1.card-text", qos: .userInitiated)
@@ -95,7 +95,7 @@ struct CardTextScanner: UIViewRepresentable {
         /// The preview's size (main thread writes it through `queue`), to place the guide box in the image.
         private var view: CGSize = .zero
 
-        init(onLines: @escaping ([String], Bool, ScanBorder) -> Bool) { self.onLines = onLines }
+        init(onLines: @escaping ([String], Bool, ScanBorder, ScanOrder.Turn) -> Bool) { self.onLines = onLines }
 
         func viewSize(_ size: CGSize) { queue.async { [self] in view = size } }
 
@@ -253,19 +253,24 @@ struct CardTextScanner: UIViewRepresentable {
             // The border colour, from a few luma reads of the frame around the card's edge (120 with a rectangle, 624
             // along the guide without one; tens of microseconds): Alpha and Beta are black, Unlimited and Revised white.
             let border = Self.border(pixels, quad: found.map { [$0.topLeft, $0.topRight, $0.bottomRight, $0.bottomLeft] }, guide: guide, image: image)
-            // Vision's origin is bottom-left: the top of the frame has the largest maxY.
-            let lines = (request.results ?? [])
+            // Vision's origin is bottom-left: the top of the frame has the largest maxY. Then in the text's own
+            // direction when most of it isn't upright (a split card held upright, a card upside down; ScanOrder),
+            // from each line's corners, which Vision gives in the text's direction.
+            func px(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x * image.width, y: (1 - p.y) * image.height) }
+            let (lines, turn) = ScanOrder.order((request.results ?? [])
                 .filter { o in
                     let c = CGPoint(x: o.boundingBox.midX, y: o.boundingBox.midY)
                     if let card { return Self.inside(c, card) }
                     return reading?.contains(c) ?? true
                 }
                 .sorted { $0.boundingBox.maxY > $1.boundingBox.maxY }
-                .compactMap { $0.topCandidates(1).first?.string }
+                .compactMap { o in
+                    o.topCandidates(1).first.map { ScanOrder.Line(text: $0.string, quad: [o.topLeft, o.topRight, o.bottomRight, o.bottomLeft].map(px)) }
+                })
             let onCard = card != nil
             matching = true
             DispatchQueue.main.async { [self] in
-                language.feed(matched: onLines(lines, onCard, border), text: !lines.isEmpty)
+                language.feed(matched: onLines(lines, onCard, border, turn), text: !lines.isEmpty)
                 let cjk = language.mode != .latin
                 queue.async { [self] in detect = cjk; matching = false }
             }
@@ -445,7 +450,7 @@ struct CardScanView: View {
                 Spacer(minLength: 0)
             } else {
                 // The camera takes whatever the header, condition picker, scanned list and footer leave.
-                CardTextScanner { lines, onCard, border in see(lines, onCard: onCard, border: border) }
+                CardTextScanner { lines, onCard, border, turn in see(lines, onCard: onCard, border: border, turn: turn) }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .overlay { ScanGuide(reading: reading) }
                     .clipped()
@@ -507,7 +512,7 @@ struct CardScanView: View {
     /// One frame's lines; true when they name a card. Without a card found in the frame, the text must look like a
     /// card's: a type line, or a set code and number that agree with the name. Otherwise a keyboard's "option" key
     /// is Opt (its French name) and a decklist on a screen is a card.
-    private func see(_ lines: [String], onCard: Bool, border: ScanBorder = .unknown) -> Bool {
+    private func see(_ lines: [String], onCard: Bool, border: ScanBorder = .unknown, turn: ScanOrder.Turn = .upright) -> Bool {
         // Nothing is taken while Back is asking, so the count it asked about is the count added.
         guard leaving == nil, hold?.on != true, let matcher else { return false }
         var m = matcher.match(lines, border: border)
@@ -526,6 +531,11 @@ struct CardScanView: View {
         feed.frames.took()
         matcher.took()
         self.taken += 1
+        // Split cards (printed sideways) and cards read from turned text (README § Split cards): how often they come.
+        let split = ScanNames.split(name: m.oracle.name, typeLine: m.oracle.typeLine)
+        if split || turn != .upright {
+            Telemetry.capture("scan_turned", ["turn": ScanOrder.name(turn), "split": split, "exact": taken.1])
+        }
         cards.insert(card, at: 0)
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         return true

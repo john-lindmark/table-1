@@ -54,13 +54,45 @@ class ScanNames(catalog: ScanCatalog) {
     /** Trigram → the keys containing it: a range of [postings] (key positions, ascending), packed start shl 32 or end. */
     private val grams: HashMap<Int, Long>
     private val postings: IntArray
+    /**
+     * Each half of a split card (instants and sorceries: Fire // Ice, fuse, Aftermath; and Rooms), normalized → the
+     * cards with that half (Fire: Fire // Ice and Start // Fire). Every half of a split card is printed on the one
+     * face, so two halves of one card read are that card (README § Split cards).
+     */
+    private val halves: Map<String, List<Int>>
+    /**
+     * The halves after the first (Ice, Memory, a Room's second door) that no other card is named: read exactly, the
+     * card. Not in the trigram index, so cut-off and misread names never come to them (Liberate, Blood, Chaos and
+     * Saw are also cards or tokens of their own, so Bind // Liberate's Liberate isn't here).
+     */
+    private val laterHalves: Map<String, Int>
 
     init {
+        val all = catalog.scanNames()
+        // Every name and face name any card has, tokens too: a later half by one of these isn't the split card's.
+        val taken = HashMap<String, MutableSet<Int>>()
+        for (o in all) {
+            taken.getOrPut(o.norm) { HashSet() }.add(o.idx)
+            if (" // " in o.name) for (face in o.name.split(" // ")) taken.getOrPut(CardName.norm(face)) { HashSet() }.add(o.idx)
+        }
+        val halves = HashMap<String, MutableList<Int>>()
+        val later = HashMap<String, Int>()
+        for (o in all) {
+            if (o.printings == 0 || !split(o.name, o.typeLine)) continue
+            for ((k, face) in o.name.split(" // ").withIndex()) {
+                val h = CardName.norm(face)
+                val cards = halves.getOrPut(h) { mutableListOf() }
+                if (o.idx !in cards) cards.add(o.idx)
+                if (k > 0 && taken[h] == setOf(o.idx)) later[h] = if (h in later) -1 else o.idx
+            }
+        }
+        this.halves = halves
+        laterHalves = later.filterValues { it >= 0 }
         // printings -1 marks a printed name in another language; idx -1 one that two cards share.
         class Best(val idx: Int, val printings: Int, val langs: Int = 0)
         val best = HashMap<String, Best>()
         val scannable = HashSet<Int>()
-        for (o in catalog.scanNames()) {
+        for (o in all) {
             if (o.printings == 0 || UNSCANNABLE.any { o.typeLine.startsWith(it) }) continue
             val names = mutableListOf(o.norm)
             val cut = o.name.indexOf(" // ")
@@ -111,6 +143,12 @@ class ScanNames(catalog: ScanCatalog) {
     }
 
     fun exact(q: String): Hit? = byKey[q]?.let(::hit)
+
+    /** A split card by a later half's name read exactly (Ice, Memory). */
+    fun laterHalf(q: String): Hit? = laterHalves[q]?.let { Hit(it, emptyList()) }
+
+    /** The split cards a half's name belongs to, any half. */
+    fun half(q: String): List<Int> = halves[q] ?: emptyList()
 
     private fun hit(i: Int) = Hit(idxs[i], langs(langBits[i]))
 
@@ -182,6 +220,21 @@ class ScanNames(catalog: ScanCatalog) {
         }
 
         private val UNSCANNABLE = listOf("Token", "Card", "Emblem", "Vanguard")
+
+        private val SPELLS = setOf("Instant", "Sorcery", "Kindred", "Tribal")
+
+        /**
+         * A split card: its halves are all instants or sorceries (split, fuse, Aftermath) or all Rooms, every one
+         * printed on the same face. Adventures, omens, flip and double-faced cards have a creature, land or other face.
+         */
+        fun split(name: String, typeLine: String): Boolean {
+            val faces = typeLine.split(" // ")
+            if (faces.size < 2 || faces.size != name.split(" // ").size) return false
+            return faces.all { f ->
+                val types = f.split("—").first().split(' ').filter { it.isNotEmpty() }
+                types.isNotEmpty() && types.all { it in SPELLS }
+            } || faces.all { it.endsWith("Room") }
+        }
 
         private fun trigrams(s: String): Set<Int> = trigramCodes(s).toSet()
 
@@ -286,8 +339,12 @@ class CardMatcher(
         fun fits(q: String, i: Int) =
             ' ' in q || (text[i] && (0 until i).count { text[it] } <= (if (q.length <= 2 && CardName.hasCjk(q)) 0 else 1))
         fun long(q: String) = q.length >= (if (CardName.hasCjk(q)) 2 else 3)
+        // A split card's halves, each a line of its own anywhere: printed sideways, the halves' title lines can land
+        // anywhere among the lines (below their own type lines too). Two halves of one card can't come from anything
+        // else, so where they are doesn't matter.
+        splitHalves(lines)?.let { return it }
         fun exact(i: Int): ScanNames.Hit? {
-            for (q in candidates(words[i])) if (long(q) && fits(q, i)) names.exact(q)?.takeIf { allowed(it.idx) }?.let { return it }
+            for (q in candidates(words[i])) if (long(q) && fits(q, i)) (names.exact(q) ?: names.laterHalf(q))?.takeIf { allowed(it.idx) }?.let { return it }
             // A name broken over two lines.
             if (i + 1 < words.size && words[i].size <= 3 && words[i + 1].size <= 3) {
                 for (q in candidates(words[i] + words[i + 1])) if (long(q) && fits(q, i)) names.exact(q)?.takeIf { allowed(it.idx) }?.let { return it }
@@ -306,6 +363,22 @@ class CardMatcher(
         for (i in minOf(3, words.size) until below) {
             if (words[i].any(CardName::hasCjk)) continue
             exact(i)?.let { if (oracle(it.idx)?.norm?.contains(' ') == true) return it }
+        }
+        return null
+    }
+
+    /** A split card two of whose halves are read as lines of their own ("Fire" and "Ice"), among the first 24 lines. */
+    private fun splitHalves(lines: List<String>): ScanNames.Hit? {
+        val seen = HashMap<Int, MutableSet<String>>()
+        for (line in lines.take(24)) {
+            val words = CardName.norm(line).split(' ').filter { it.isNotEmpty() }
+            if (words.size !in 1..6) continue
+            val q = candidates(words).firstOrNull { names.half(it).isNotEmpty() } ?: continue
+            for (idx in names.half(q)) {
+                val s = seen.getOrPut(idx) { HashSet() }
+                s.add(q)
+                if (s.size >= 2 && allowed(idx)) return ScanNames.Hit(idx, emptyList())
+            }
         }
         return null
     }
@@ -955,5 +1028,58 @@ class ScanSteadiness {
         const val GAP_MS = 1000L
         /** After a take, the same card has to be out of view this long before it counts again. */
         const val AWAY_MS = 1000L
+    }
+}
+
+/**
+ * The order the scanner hands lines to the matcher when the card's text isn't upright (README § Split cards). A
+ * split card's halves are printed sideways, so held upright in the guide its text runs up or down the frame, and
+ * sorted by the top of each line's box its names land among the rules text, under the type lines; an upside-down
+ * card reads bottom first. OCR gives each line's corners in the text's own direction (top-left, top-right,
+ * bottom-right, bottom-left), so when most of the text (by letters and digits) reads in one other direction, those
+ * lines are put in reading order for that direction, top line first, and the rest follow as they came. Text that
+ * is mostly upright keeps the order it came in. Same rule on iOS (CardMatcher.swift), cases in testdata/scan/split.json.
+ */
+object ScanOrder {
+    /** A line read, with its corners in pixels, origin top-left: x, y of top-left, top-right, bottom-right, bottom-left. */
+    class Line(val text: String, val quad: FloatArray)
+
+    /** Which way a line reads: upright, a quarter clockwise (reads down the frame), upside down, a quarter counterclockwise. */
+    enum class Turn(val wire: String) { UPRIGHT("upright"), CLOCKWISE("clockwise"), UPSIDE_DOWN("upside_down"), COUNTERCLOCKWISE("counterclockwise") }
+
+    class Ordered(val lines: List<String>, val turn: Turn)
+
+    fun turn(q: FloatArray): Turn {
+        val dx = q[2] - q[0]
+        val dy = q[3] - q[1]
+        if (abs(dx) >= abs(dy)) return if (dx >= 0) Turn.UPRIGHT else Turn.UPSIDE_DOWN
+        return if (dy > 0) Turn.CLOCKWISE else Turn.COUNTERCLOCKWISE
+    }
+
+    /** Lines in the order they came (top of the box first), reordered by the text's direction when most of it isn't upright. */
+    fun order(lines: List<Line>): Ordered {
+        val turns = lines.map { turn(it.quad) }
+        val weight = IntArray(4)
+        for ((l, t) in lines.zip(turns)) weight[t.ordinal] += l.text.count { it.isLetterOrDigit() }
+        val most = (1..3).maxByOrNull { weight[it] }!!
+        if (weight[most] <= weight[0]) return Ordered(lines.map { it.text }, Turn.UPRIGHT)
+        val turn = Turn.entries[most]
+        // The text's up and along, in the frame.
+        val (up, along) = when (turn) {
+            Turn.UPRIGHT -> floatArrayOf(0f, -1f) to floatArrayOf(1f, 0f)
+            Turn.CLOCKWISE -> floatArrayOf(1f, 0f) to floatArrayOf(0f, 1f)
+            Turn.UPSIDE_DOWN -> floatArrayOf(0f, 1f) to floatArrayOf(-1f, 0f)
+            Turn.COUNTERCLOCKWISE -> floatArrayOf(-1f, 0f) to floatArrayOf(0f, -1f)
+        }
+        fun dots(q: FloatArray, v: FloatArray) = (0 until 4).map { q[2 * it] * v[0] + q[2 * it + 1] * v[1] }
+        class Keyed(val text: String, val top: Float, val start: Float)
+        val read = mutableListOf<Keyed>()
+        val rest = mutableListOf<String>()
+        for ((l, t) in lines.zip(turns)) {
+            if (t == turn) read.add(Keyed(l.text, dots(l.quad, up).max(), dots(l.quad, along).min())) else rest.add(l.text)
+        }
+        // Descending top, then ascending start: the same comparisons as iOS's sort.
+        val sorted = read.sortedWith { a, b -> if (a.top != b.top) b.top.compareTo(a.top) else a.start.compareTo(b.start) }
+        return Ordered(sorted.map { it.text } + rest, turn)
     }
 }
