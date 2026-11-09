@@ -184,6 +184,7 @@ final class FriendsDemoBackend {
                                          valueUsd: TradeMatcher.CopyIn.value(s.copies))
                 }
             }
+            if id == Self.mara, lv >= 1 { sec.friends = .init(mutual: friends(of: id).filter { $0.mutual == true }.count) }
             sec.decks = sec.decks ?? []
             sec.cubes = []
             sec.binders = sec.binders ?? []
@@ -210,8 +211,25 @@ final class FriendsDemoBackend {
         sec.decks = ListsStore.shared.lists.filter { $0.kind == .deck }.map(summary)
         sec.cubes = ListsStore.shared.lists.filter { $0.kind == .cube }.map(summary)
         sec.record = .init(matchWins: 12, matchLosses: 7, matchDraws: 1, eventsPlayed: 5)
+        sec.friends = .init(mutual: 0)
         return ProfileData(userId: Self.me, displayName: "You", handle: "demo", avatarUrl: nil, relation: .me,
                            friendsSince: nil, visible: true, sections: sec)
+    }
+
+    /// Friends lists: yours (everyone), and Mara's to her friends (Theo is yours too); nobody else shares theirs.
+    func friends(of id: String) -> [Person] {
+        if id == Self.me { return list.friends.map { var p = $0; p.relation = .friend; p.mutual = false; return p } }
+        guard id == Self.mara, level(id) >= 1 else { return [] }
+        let rows = [Person(userId: Self.theo, displayName: "Theo Vance"), Person(userId: Self.ines, displayName: "Ines Ruiz"),
+                    Person(userId: Self.me, displayName: "You", handle: "demo"),
+                    Person(userId: Self.id(7), displayName: "Nadia Stone", handle: "nstone")]
+            .map { p -> Person in
+                var p = p
+                p.relation = p.userId == Self.me ? .me : relation(p.userId)
+                p.mutual = p.relation == .friend
+                return p
+            }
+        return rows.filter { $0.mutual == true } + rows.filter { $0.mutual != true }.sorted { $0.displayName < $1.displayName }
     }
 
     func cards(_ id: String, _ section: ProfileSection) -> [ProfileCard] {
@@ -344,7 +362,7 @@ enum FriendsDemo {
         await FollowsStore.shared.load()
     }
 
-    /// `-T1LibraryDemo friends|profile|profiledeck|sharing|share|shareall|shareon|sharedlink|badlink|matches|match|me|myprofile|notices|review|bugs|bug|following|followchanges|followdeck`.
+    /// `-T1LibraryDemo friends|profile|profilefriends|profiledeck|sharing|share|shareall|shareon|sharedlink|badlink|matches|match|me|myprofile|notices|review|bugs|bug|following|followchanges|followdeck`.
     @MainActor
     static func route(_ arg: String) -> [LibraryRoute]? {
         if arg == "shareon" {
@@ -355,6 +373,7 @@ enum FriendsDemo {
         return switch arg {
         case "friends": [.social(.friends)]
         case "profile": [.social(.friends), .social(.profile(FriendsDemoBackend.mara))]
+        case "profilefriends": [.social(.profile(FriendsDemoBackend.mara)), .social(.profileFriends(FriendsDemoBackend.mara, "Mara Quinn"))]
         case "profiledeck": [.social(.profile(FriendsDemoBackend.mara)),
                              .social(.profileCards(FriendsDemoBackend.mara, "deck", "d0000000-0000-0000-0000-0000000fd001", "Mono-red prowess",
                                                    SharedList(format: "modern", owner: "Mara")))]

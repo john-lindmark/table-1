@@ -78,7 +78,38 @@ class SharingRulesTest {
             assertEquals(name, strings(want["decks"]), v.sections.decks.orEmpty().map { it.name })
             assertEquals(name, strings(want["cubes"]), v.sections.cubes.orEmpty().map { it.name })
             assertEquals(name, want["record"]!!.jsonPrimitive.boolean, v.sections.record != null)
+            assertEquals(name, want["friends"]!!.jsonPrimitive.boolean, v.sections.friends != null)
             assertEquals(name, if (level >= 1) "friend" else "none", v.relation)
         }
+    }
+
+    /** § Friends on profiles: the row and list words, a server without the new keys, and profile_friends rows. */
+    @Test fun profileFriendsSharedCases() {
+        val c = all["profile_friends"]!!.jsonObject
+        for (d in c["detail"]!!.jsonArray) {
+            val o = d.jsonObject
+            assertEquals(o["want"]?.jsonPrimitive?.contentOrNull, ProfileFriends.detail(o["mutual"]?.jsonPrimitive?.intOrNull))
+        }
+        for ((v, want) in c["own"]!!.jsonObject) assertEquals(want.jsonPrimitive.content, ProfileFriends.ownDetail(Visibility.of(v)!!))
+        for (r in c["rows"]!!.jsonArray) {
+            val o = r.jsonObject
+            val p = Person("u", "N", handle = o["handle"]?.jsonPrimitive?.contentOrNull, relation = o["relation"]!!.jsonPrimitive.content,
+                mutual = o["mutual"]!!.jsonPrimitive.boolean)
+            assertEquals(o["want"]?.jsonPrimitive?.contentOrNull, ProfileFriends.rowDetail(p))
+        }
+    }
+
+    @Test fun friendsSettingsDefaults() {
+        val old = json.decodeFromString(Sharing.serializer(), """{"profile": "public", "library": "private", "record": "private", "items": []}""")
+        assertEquals(Visibility.Private, old.own(SharePart.Friends))
+        assertEquals(Visibility.Friends, old.own(SharePart.Listed))
+        assertEquals(false, SharePart.Friends.inherits)
+        assertEquals(listOf("your friends"), SharingRules.widening(old, old.with(SharePart.Friends, Visibility.Friends)).friends)
+        assertEquals(1, SharingRules.sharedCount(old.with(SharePart.Friends, Visibility.Public)))
+        assertEquals(Visibility.Private, old.with(SharePart.Friends, null).own(SharePart.Friends))
+        val d = json.decodeFromString(ProfileData.serializer(),
+            """{"user_id": "u", "display_name": "Ana", "relation": "friend", "visible": true, "sections": {"friends": {"mutual": 2}}}""")
+        assertEquals(2, d.sections.friends?.mutual)
+        assertEquals(1, d.sectionCount)
     }
 }

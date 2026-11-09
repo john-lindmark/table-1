@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SHARING, capped, copyNote, effective, sharedCardCount, sharedEntries, sharedListKind, effectiveItem, linesValue, matchLines, matchShort, parseCardRow, parseFriendsList, profileValue,
+  friendRowDetail, friendsDetail, friendsOwnDetail, type Person,
   reach, sees, seesLine, sentLabel, sharedCount, sharingSummary, viewAs, VIS_LABEL, widening, wideningMessage, type ProfileData, shownLines, wantTier, type CopyIn, type MatchLine, type Sharing, type TradeMatch, type WantIn,
 } from "./friends";
 import { redactPath, screenName } from "./analytics";
@@ -200,10 +201,28 @@ describe("sharing UX rules (shared cases)", () => {
       expect({
         visible: v.visible, all_cards: s.all_cards?.cards ?? null, value: s.all_cards?.value_usd ?? null, for_trade: s.for_trade?.cards ?? null,
         wants: s.wants?.cards ?? null, binders: (s.binders ?? []).map((b) => b.name), decks: (s.decks ?? []).map((b) => b.name),
-        cubes: (s.cubes ?? []).map((b) => b.name), record: !!s.record,
+        cubes: (s.cubes ?? []).map((b) => b.name), record: !!s.record, friends: !!s.friends,
       }).toEqual(c.want);
     });
   }
+  /* Friends on profiles (contract § Friends on profiles). */
+  it("friends words", () => {
+    for (const d of sc.profile_friends.detail) expect(friendsDetail(d.mutual)).toBe(d.want);
+    for (const [v, want] of Object.entries(sc.profile_friends.own)) expect(friendsOwnDetail(v as Sharing["profile"])).toBe(want);
+    for (const r of sc.profile_friends.rows) {
+      const p: Person = { user_id: "u", display_name: "N", handle: r.handle, avatar_url: null, relation: r.relation, mutual: r.mutual };
+      expect(friendRowDetail(p)).toBe(r.want);
+    }
+  });
+  it("reads a server without the friends settings as their defaults", () => {
+    const old = { profile: "public", library: "private", all_cards: null, for_trade: null, wants: null, binders: null, decks: null, cubes: null,
+                  record: "private", items: [] } as Sharing;
+    expect(effective(old, "friends")).toBe("private");
+    expect(effective(old, "listed")).toBe("friends");
+    expect(widening(old, { ...old, friends: "friends" }).friends).toEqual(["your friends"]);
+    expect(widening(old, { ...old, listed: "public" }).anyone).toEqual(["you in your friends' lists"]);
+    expect(sharedCount({ ...old, friends: "public" })).toBe(1);
+  });
   it("never says Public", () => {
     expect(VIS_LABEL.public).toBe("Anyone");
     expect(wideningMessage(widening(settings({}), settings({ profile: "public", library: "public" }))))

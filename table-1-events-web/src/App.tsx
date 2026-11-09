@@ -80,6 +80,7 @@ const FriendsScreen = lazyNamed(friends, "FriendsScreen");
 const FriendAddScreen = lazyNamed(friends, "FriendAddScreen");
 const ProfileScreen = lazyNamed(friends, "ProfileScreen");
 const ProfileCardsScreen = lazyNamed(friends, "ProfileCardsScreen");
+const ProfileFriendsScreen = lazyNamed(friends, "ProfileFriendsScreen");
 const SharingScreen = lazyNamed(friends, "SharingScreen");
 const TradeMatchesScreen = lazyNamed(friends, "TradeMatchesScreen");
 const TradeMatchScreen = lazyNamed(friends, "TradeMatchScreen");
@@ -280,8 +281,15 @@ function ProfileUserRoute() {
   const back = useBack("/me");
   if (!userId) return <Navigate to="/friends" replace />;
   return <ProfileScreen userId={userId} onBack={back} onSharing={() => navigate("/sharing")}
-                        onMatch={() => navigate(`/library/match/${userId}`)}
+                        onMatch={() => navigate(`/library/match/${userId}`)} onFriends={() => navigate(`/u/${userId}/friends`)}
                         onSection={(kind, id) => navigate(`/u/${userId}/${kind}${id ? `/${id}` : ""}`)} />;
+}
+function ProfileFriendsRoute() {
+  const { userId } = useParams();
+  const navigate = useNavigate();
+  const back = useBack(`/u/${userId}`);
+  if (!userId) return <Navigate to="/friends" replace />;
+  return <ProfileFriendsScreen userId={userId} onBack={back} onProfile={(id) => navigate(`/u/${id}`)} />;
 }
 function ProfileCardsRoute() {
   const { userId, section, itemId } = useParams();
@@ -674,6 +682,7 @@ export default function App() {
         <Route path="/sharing" element={<SharingRoute />} />
         <Route path="/u/:userId" element={<ProfileUserRoute />} />
         <Route path="/u/:userId/:section" element={<ProfileCardsRoute />} />
+        <Route path="/u/:userId/friends" element={<ProfileFriendsRoute />} />
         <Route path="/u/:userId/:section/:itemId" element={<ProfileCardsRoute />} />
         <Route path="/library/trade/:tradeId" element={<TradeRoute />} />
         <Route path="/insights" element={<InsightsHome section="constructed" />} />

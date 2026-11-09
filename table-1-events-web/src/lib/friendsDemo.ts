@@ -181,6 +181,7 @@ class Demo implements FriendsDemo {
       sections.decks = lv >= 1 ? s.decks : [];
       sections.cubes = [];
       if (lv >= 1 && s.record) sections.record = s.record;
+      if (lv >= 1 && uid === DEMO_FRIEND) sections.friends = { mutual: this.friendsOf(uid).filter((f) => f.mutual).length };
       // Older servers sent value_usd to everyone who sees All cards: the profile must still hide it.
       if (lv >= 1 && uid === DEMO_FRIEND) {
         sections.all_cards = { cards: s.copies.reduce((n, c) => n + c.qty, 0), printings: s.copies.length,
@@ -188,6 +189,14 @@ class Demo implements FriendsDemo {
       }
     }
     return { ...base, friends_since: lv === 1 ? "2026-09-12T19:00:00Z" : null, visible, sections };
+  }
+
+  /** Mara shows her friends list to friends (Theo is yours too); nobody else shares theirs. */
+  friendsOf(uid: string): Person[] {
+    if (uid !== DEMO_FRIEND || this.level(uid) < 1) return [];
+    const rows = [p(2, "Theo Vance"), p(3, "Ines Ruiz"), p(7, "Nadia Stone", { handle: "nstone" })]
+      .map((x) => ({ ...x, relation: this.relation(x.user_id), mutual: this.relation(x.user_id) === "friend" }));
+    return [...rows.filter((x) => x.mutual), ...rows.filter((x) => !x.mutual)];
   }
 
   cards(uid: string, section: SectionKind, item: string | null): ProfileCard[] {

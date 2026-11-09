@@ -58,6 +58,8 @@ data class Person(
     @SerialName("shared_events") val sharedEvents: Int? = null,
     /** self / friend / requested (you asked) / incoming (they asked) / blocked / none */
     val relation: String? = null,
+    /** A profile's friends list (profile_friends): also the viewer's friend. */
+    val mutual: Boolean? = null,
 )
 
 /**
@@ -114,6 +116,9 @@ object JoinNotice {
 enum class SharePart(val wire: String, val label: String, val detail: String) {
     Profile("profile", "Profile", "Who can open your profile at all"),
     Record("record", "Record", "Lifetime wins, losses and draws"),
+    /** Who sees your friends list on your profile; who sees you in your friends' lists (§ Friends on profiles). */
+    Friends("friends", "Friends", "Your list, on your profile"),
+    Listed("listed", "You in friends' lists", "You, on friends' profiles"),
     Library("library", "Library", "The default for everything in it"),
     AllCards("all_cards", "All cards", "Your whole collection"),
     ForTrade("for_trade", "For trade", "Copies in for-trade binders, as one list. Trade matches read this"),
@@ -123,7 +128,7 @@ enum class SharePart(val wire: String, val label: String, val detail: String) {
     Cubes("cubes", "Cubes", "The default for each cube");
 
     /** Library parts can be "Same as Library". */
-    val inherits get() = this != Profile && this != Library && this != Record
+    val inherits get() = this in libraryParts
 
     companion object {
         val libraryParts = listOf(AllCards, ForTrade, Wants, Binders, Decks, Cubes)
@@ -142,7 +147,10 @@ data class Sharing(
     val profile: String = "friends", val library: String = "private",
     @SerialName("all_cards") val allCards: String? = null, @SerialName("for_trade") val forTrade: String? = null,
     val wants: String? = null, val binders: String? = null, val decks: String? = null, val cubes: String? = null,
-    val record: String = "private", val items: List<ShareItem> = emptyList(),
+    val record: String = "private",
+    /** null from a server without them: private and friends (the server's defaults). */
+    val friends: String? = null, val listed: String? = null,
+    val items: List<ShareItem> = emptyList(),
     /** Live share links (contract/share-links-2026-10-23.md); null from a server without them. */
     val links: List<PartLink>? = null,
 ) {
@@ -151,6 +159,7 @@ data class Sharing(
         SharePart.Profile -> profile; SharePart.Library -> library; SharePart.Record -> record
         SharePart.AllCards -> allCards; SharePart.ForTrade -> forTrade; SharePart.Wants -> wants
         SharePart.Binders -> binders; SharePart.Decks -> decks; SharePart.Cubes -> cubes
+        SharePart.Friends -> friends ?: "private"; SharePart.Listed -> listed ?: "friends"
     })
 
     fun with(p: SharePart, v: Visibility?): Sharing {
@@ -160,6 +169,7 @@ data class Sharing(
             SharePart.Record -> copy(record = w ?: "private"); SharePart.AllCards -> copy(allCards = w)
             SharePart.ForTrade -> copy(forTrade = w); SharePart.Wants -> copy(wants = w); SharePart.Binders -> copy(binders = w)
             SharePart.Decks -> copy(decks = w); SharePart.Cubes -> copy(cubes = w)
+            SharePart.Friends -> copy(friends = w ?: "private"); SharePart.Listed -> copy(listed = w ?: "friends")
         }
     }
 }
@@ -237,7 +247,7 @@ object SharingRules {
     fun sees(level: Int, profile: Visibility, part: Visibility) = level >= 3 || (level >= 0 && level >= profile.asks && level >= part.asks)
 
     fun sharedCount(s: Sharing): Int =
-        (SharePart.libraryParts + SharePart.Record).count { reach(s, effective(s, it)) != Visibility.Private } +
+        (SharePart.libraryParts + SharePart.Record + SharePart.Friends).count { reach(s, effective(s, it)) != Visibility.Private } +
             s.items.count { it.vis != null && reach(s, effective(s, it)) != Visibility.Private }
 
     fun summary(s: Sharing): String {
@@ -265,14 +275,16 @@ object SharingRules {
         ).joinToString("\n\n")
     }
 
-    val shownParts = listOf(SharePart.Profile to "your profile", SharePart.Record to "your record", SharePart.AllCards to "All cards",
-        SharePart.ForTrade to "For trade", SharePart.Wants to "Wants")
+    val shownParts = listOf(SharePart.Profile to "your profile", SharePart.Record to "your record", SharePart.Friends to "your friends",
+        SharePart.AllCards to "All cards", SharePart.ForTrade to "For trade", SharePart.Wants to "Wants")
+    /** Widening also names you in your friends' lists (the Sharing summary lines don't: it shows on their profiles). */
+    val wideningParts = shownParts.take(3) + (SharePart.Listed to "you in your friends' lists") + shownParts.drop(3)
 
     fun widening(a: Sharing, b: Sharing): Widening {
         val friends = mutableListOf<String>(); val anyone = mutableListOf<String>()
         var allCards = false; var profile = false
         fun add(name: String, to: Visibility) { if (to == Visibility.Public) anyone += name else friends += name }
-        for ((p, name) in shownParts) {
+        for ((p, name) in wideningParts) {
             val ra = reachOf(a, p); val rb = reachOf(b, p)
             if (rb.asks >= ra.asks) continue
             add(name, rb)
@@ -323,6 +335,8 @@ object SharingRules {
             decks = src.decks.orEmpty().filter { itemOk(it.id, SharePart.Decks) },
             cubes = src.cubes.orEmpty().filter { itemOk(it.id, SharePart.Cubes) },
             record = src.record?.takeIf { ok(s.own(SharePart.Record)!!) },
+            // How many a viewer would see depends on each friend's own setting, which isn't yours to know.
+            friends = if (ok(effective(s, SharePart.Friends))) ProfileData.FriendsCount() else null,
         ))
     }
 
@@ -339,6 +353,29 @@ object SharingRules {
 }
 
 /* ── profiles ── */
+
+/** Words for friends lists on profiles (contract § Friends on profiles; cases in testdata/sharing/cases.json `profile_friends`). */
+object ProfileFriends {
+    /** The Friends row on someone's profile: "3 mutual", or nothing. */
+    fun detail(mutual: Int?): String? = mutual?.takeIf { it > 0 }?.let { "$it mutual" }
+
+    /** The Friends row on your own profile: who it reaches. */
+    fun ownDetail(reach: Visibility) = when (reach) {
+        Visibility.Private -> "Only you"
+        Visibility.Friends -> "Seen by friends"
+        Visibility.Public -> "Seen by anyone"
+    }
+
+    /** One person in the list: "You", "Mutual friend", or their handle. */
+    fun rowDetail(p: Person): String? = when {
+        p.relation == "self" -> "You"
+        p.mutual == true -> "Mutual friend"
+        else -> p.handle?.let { "@$it" }
+    }
+}
+
+@Serializable
+private data class FriendsPage(val rows: List<Person>, val more: Boolean)
 
 @Serializable
 data class ProfileData(
@@ -358,10 +395,12 @@ data class ProfileData(
         @SerialName("match_wins") val matchWins: Int, @SerialName("match_losses") val matchLosses: Int,
         @SerialName("match_draws") val matchDraws: Int, @SerialName("events_played") val eventsPlayed: Int,
     )
+    /** The friends list reaches you; [mutual]: how many shown are your friends too (null in View as). */
+    @Serializable data class FriendsCount(val mutual: Int? = null)
     @Serializable data class Sections(
         @SerialName("all_cards") val allCards: Counts? = null, @SerialName("for_trade") val forTrade: Counts? = null,
         val wants: Counts? = null, val binders: List<BinderSummary>? = null, val decks: List<ListSummary>? = null,
-        val cubes: List<ListSummary>? = null, val record: Record? = null,
+        val cubes: List<ListSummary>? = null, val record: Record? = null, val friends: FriendsCount? = null,
     )
 
     /** The collection's value, on your own profile only (the server sends it only there now; older servers sent it to
@@ -369,7 +408,7 @@ data class ProfileData(
     val valueUsd get() = if (relation == "self") sections.allCards?.valueUsd else null
 
     /** Sections that reach you (binders, decks and cubes count one each). */
-    val sectionCount get() = listOf(sections.allCards, sections.forTrade, sections.wants, sections.record).count { it != null } +
+    val sectionCount get() = listOf(sections.allCards, sections.forTrade, sections.wants, sections.record, sections.friends).count { it != null } +
         (sections.binders?.size ?: 0) + (sections.decks?.size ?: 0) + (sections.cubes?.size ?: 0)
 }
 
@@ -711,6 +750,20 @@ object FriendsStore {
 
     suspend fun profile(userId: String): ProfileData =
         rpc.rpc("profile_view", buildJsonObject { put("p_user_id", userId) }).decodeAs()
+
+    /** The friends behind a profile's Friends section that reach you: mutual first, then by name (profile_friends). */
+    suspend fun friendsOf(userId: String): List<Person> {
+        val out = mutableListOf<Person>()
+        var after = 0
+        while (true) {
+            val page = rpc.rpc("profile_friends", buildJsonObject {
+                put("p_user_id", userId); put("p_after", after); put("p_limit", 500)
+            }).decodeAs<FriendsPage>()
+            out += page.rows
+            after += page.rows.size
+            if (!page.more || page.rows.isEmpty()) return out
+        }
+    }
 
     /** Every row of a section, 5000 at a time. */
     suspend fun cards(userId: String, section: String, item: String?): List<ProfileCard> {

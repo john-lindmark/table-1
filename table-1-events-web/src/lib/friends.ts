@@ -29,6 +29,8 @@ export interface Person {
   at?: string;
   shared_events?: number;
   relation?: Relation;
+  /** A profile's friends list (profile_friends): also the viewer's friend. */
+  mutual?: boolean;
 }
 
 /** A request you sent: to an account (asked by id: a Person) or to an address (asked by email: `{email, at}` with no
@@ -54,11 +56,12 @@ export function parseFriendsList(w: FriendsListWire): FriendsList {
 
 /* ── sharing ─────────────────────────────────────────────────────────── */
 
-export type SharePart = "profile" | "library" | "all_cards" | "for_trade" | "wants" | "binders" | "decks" | "cubes" | "record";
+export type SharePart = "profile" | "library" | "all_cards" | "for_trade" | "wants" | "binders" | "decks" | "cubes" | "record"
+  | "friends" | "listed";
 export const LIBRARY_PARTS: SharePart[] = ["all_cards", "for_trade", "wants", "binders", "decks", "cubes"];
 export const PART_LABEL: Record<SharePart, string> = {
   profile: "Profile", library: "Library", all_cards: "All cards", for_trade: "For trade", wants: "Wants", binders: "Binders",
-  decks: "Decks", cubes: "Cubes", record: "Record",
+  decks: "Decks", cubes: "Cubes", record: "Record", friends: "Friends", listed: "You in friends' lists",
 };
 export const PART_DETAIL: Record<SharePart, string> = {
   profile: "Who can open your profile at all",
@@ -70,9 +73,13 @@ export const PART_DETAIL: Record<SharePart, string> = {
   decks: "The default for each deck",
   cubes: "The default for each cube",
   record: "Lifetime wins, losses and draws",
+  friends: "Your list, on your profile",
+  listed: "You, on friends' profiles",
 };
 /** Library parts can be "Same as Library". */
-export const inherits = (p: SharePart) => p !== "profile" && p !== "library" && p !== "record";
+export const inherits = (p: SharePart) => LIBRARY_PARTS.includes(p);
+/** Friends on profiles (§ Friends on profiles): missing from an older server, read as the server's defaults. */
+const PART_DEFAULT: Partial<Record<SharePart, Visibility>> = { friends: "private", listed: "friends" };
 
 export interface ShareItem { kind: "binder" | "deck" | "cube"; id: string; name: string; for_trade?: boolean; visibility: Visibility | null }
 
@@ -86,6 +93,9 @@ export interface Sharing {
   decks: Visibility | null;
   cubes: Visibility | null;
   record: Visibility;
+  /** Who sees your friends list on your profile; who sees you in your friends' lists. */
+  friends?: Visibility;
+  listed?: Visibility;
   items: ShareItem[];
   /** Live share links (contract/share-links-2026-10-23.md); missing from a server without them. */
   links?: PartLink[];
@@ -146,14 +156,14 @@ export const sharedByline = (d: SharedLinkData) => (d.mine ? "Your link · anyon
 
 export const DEFAULT_SHARING: Sharing = {
   profile: "friends", library: "private", all_cards: null, for_trade: null, wants: null, binders: null, decks: null, cubes: null,
-  record: "private", items: [],
+  record: "private", friends: "private", listed: "friends", items: [],
 };
 
 export const groupOf = (kind: ShareItem["kind"]): SharePart => (kind === "binder" ? "binders" : kind === "cube" ? "cubes" : "decks");
 
 /** What a part is set to after following "Same as …" up the tree. */
 export function effective(s: Sharing, p: SharePart): Visibility {
-  return s[p] ?? (inherits(p) ? s.library : "private");
+  return s[p] ?? (inherits(p) ? s.library : PART_DEFAULT[p] ?? "private");
 }
 
 export const effectiveItem = (s: Sharing, item: ShareItem): Visibility => item.visibility ?? effective(s, groupOf(item.kind));
@@ -168,7 +178,7 @@ export const sees = (level: number, profile: Visibility, part: Visibility) =>
   level >= 3 || (level >= 0 && level >= asks(profile) && level >= asks(part));
 
 export function sharedCount(s: Sharing): number {
-  const parts = [...LIBRARY_PARTS, "record" as SharePart].filter((p) => reach(s, effective(s, p)) !== "private").length;
+  const parts = [...LIBRARY_PARTS, "record" as SharePart, "friends" as SharePart].filter((p) => reach(s, effective(s, p)) !== "private").length;
   return parts + s.items.filter((i) => i.visibility != null && reach(s, effectiveItem(s, i)) !== "private").length;
 }
 
@@ -189,13 +199,15 @@ export const withItem = (s: Sharing, item: ShareItem, v: Visibility | null): Sha
 /** What newly reaches friends and anyone (contract § UX rules 4). Empty = only narrows or does nothing: no question. */
 export interface Widening { friends: string[]; anyone: string[]; all_cards_to_anyone: boolean; profile_to_anyone: boolean }
 
-const SHOWN_PARTS: [SharePart, string][] = [["profile", "your profile"], ["record", "your record"], ["all_cards", "All cards"],
-  ["for_trade", "For trade"], ["wants", "Wants"]];
+const SHOWN_PARTS: [SharePart, string][] = [["profile", "your profile"], ["record", "your record"], ["friends", "your friends"],
+  ["all_cards", "All cards"], ["for_trade", "For trade"], ["wants", "Wants"]];
+/** Widening also names you in your friends' lists (the Sharing summary lines don't: it shows on their profiles). */
+const WIDENING_PARTS: [SharePart, string][] = [...SHOWN_PARTS.slice(0, 3), ["listed", "you in your friends' lists"], ...SHOWN_PARTS.slice(3)];
 
 export function widening(a: Sharing, b: Sharing): Widening {
   const w: Widening = { friends: [], anyone: [], all_cards_to_anyone: false, profile_to_anyone: false };
   const add = (name: string, to: Visibility) => (to === "public" ? w.anyone : w.friends).push(name);
-  for (const [p, name] of SHOWN_PARTS) {
+  for (const [p, name] of WIDENING_PARTS) {
     const ra = reachOf(a, p), rb = reachOf(b, p);
     if (asks(rb) >= asks(ra)) continue;
     add(name, rb);
@@ -264,6 +276,8 @@ export function viewAs(d: ProfileData, s: Sharing, level: number): ProfileData {
       decks: (src.decks ?? []).filter((l) => itemOk(l.id, "decks")),
       cubes: (src.cubes ?? []).filter((l) => itemOk(l.id, "cubes")),
       ...(src.record && ok(s.record) ? { record: src.record } : {}),
+      // How many a viewer would see depends on each friend's own setting, which isn't yours to know.
+      ...(ok(effective(s, "friends")) ? { friends: {} } : {}),
     },
   };
 }
@@ -287,6 +301,8 @@ export interface ProfileData {
     decks?: { id: string; name: string; format: string; cards: number }[];
     cubes?: { id: string; name: string; format: string; cards: number }[];
     record?: { match_wins: number; match_losses: number; match_draws: number; events_played: number };
+    /** The friends list reaches you; mutual: how many shown are your friends too (missing in View as). */
+    friends?: { mutual?: number };
   };
 }
 
@@ -294,10 +310,21 @@ export interface ProfileData {
 export const profileValue = (p: ProfileData): number | null => (p.relation === "self" ? p.sections.all_cards?.value_usd ?? null : null);
 
 export const sectionCount = (p: ProfileData) =>
-  [p.sections.all_cards, p.sections.for_trade, p.sections.wants, p.sections.record].filter(Boolean).length
+  [p.sections.all_cards, p.sections.for_trade, p.sections.wants, p.sections.record, p.sections.friends].filter(Boolean).length
   + (p.sections.binders?.length ?? 0) + (p.sections.decks?.length ?? 0) + (p.sections.cubes?.length ?? 0);
 
 export type SectionKind = "all_cards" | "for_trade" | "wants" | "binder" | "deck" | "cube";
+
+/* ── friends on profiles (contract § Friends on profiles; cases in testdata/sharing/cases.json `profile_friends`) ── */
+
+/** The Friends row on someone's profile: "3 mutual", or nothing. */
+export const friendsDetail = (mutual: number | null | undefined) => (mutual && mutual > 0 ? `${mutual} mutual` : null);
+/** The Friends row on your own profile: who it reaches. */
+export const friendsOwnDetail = (reach: Visibility) =>
+  reach === "private" ? "Only you" : reach === "friends" ? "Seen by friends" : "Seen by anyone";
+/** One person in the list: "You", "Mutual friend", or their handle. */
+export const friendRowDetail = (p: Person) =>
+  p.relation === "self" ? "You" : p.mutual ? "Mutual friend" : p.handle ? `@${p.handle}` : null;
 
 /** One row of profile_cards, whatever the section's shape. */
 export interface ProfileCard {
@@ -472,6 +499,7 @@ export interface FriendsDemo {
   block(id: string, on: boolean): void;
   profile(id: string): ProfileData;
   cards(id: string, section: SectionKind, item: string | null): ProfileCard[];
+  friendsOf(id: string): Person[];
   matches(only: string | null): TradeMatch[];
   shared(token: string): SharedLinkData;
   sharedCards(token: string): ProfileCard[];
@@ -702,6 +730,19 @@ export function answerOffer(o: SharingOffer, userId: string | null, accepted: bo
 export async function fetchProfile(userId: string): Promise<ProfileData> {
   const d = demoOn();
   return d ? d.profile(userId) : rpc<ProfileData>("profile_view", { p_user_id: userId });
+}
+
+/** The friends behind a profile's Friends section that reach you: mutual first, then by name (profile_friends). */
+export async function fetchProfileFriends(userId: string): Promise<Person[]> {
+  const d = demoOn();
+  if (d) return d.friendsOf(userId);
+  const out: Person[] = [];
+  for (let after = 0; ;) {
+    const page = await rpc<{ rows: Person[]; more: boolean }>("profile_friends", { p_user_id: userId, p_after: after, p_limit: 500 });
+    out.push(...page.rows);
+    after += page.rows.length;
+    if (!page.more || !page.rows.length) return out;
+  }
 }
 
 /** Every row of a section, 5000 at a time. */

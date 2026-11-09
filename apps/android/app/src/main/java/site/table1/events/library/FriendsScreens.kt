@@ -50,6 +50,7 @@ import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.T1TextField
 import site.table1.events.ui.theme.T1
 import site.table1.events.util.Telemetry
+import site.table1.events.util.rethrowIfCancelled
 import site.table1.events.ui.components.rememberOpenProfile
 
 /* Friends, profiles, sharing and trade matches (contract/friends-sharing-2026-10-18.md). Same screens as the iOS app:
@@ -251,7 +252,8 @@ fun FriendAddScreen(onBack: () -> Unit) {
 /* ── profile ── */
 
 @Composable
-fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: String, id: String?) -> Unit, onMatch: () -> Unit, onSharing: () -> Unit) {
+fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: String, id: String?) -> Unit, onMatch: () -> Unit, onSharing: () -> Unit,
+                      onFriends: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     var d by remember { mutableStateOf<ProfileData?>(null) }
     var match by remember { mutableStateOf<TradeMatch?>(null) }
@@ -347,6 +349,18 @@ fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: Stri
                     onSection(kind, id)
                 })
             }
+            s.friends?.let { f ->
+                // View as can't know which of them each viewer would see, so the row doesn't open there.
+                val asOther = own?.relation == "self" && viewAs < 2
+                val detail = if (p.relation == "self") sharing?.takeIf { !asOther }?.let { ProfileFriends.ownDetail(SharingRules.reachOf(it, SharePart.Friends)) }
+                    else ProfileFriends.detail(f.mutual)
+                item(key = "friends") {
+                    ListRow("Friends", detail, onClick = if (asOther) null else ({
+                        Telemetry.capture("profile_section_opened", mapOf("section" to "friends"))
+                        onFriends()
+                    }))
+                }
+            }
             if (s.allCards != null || s.forTrade != null || s.wants != null) item { Section("Library") }
             s.allCards?.let { c -> open("All cards", listOfNotNull(plural(c.cards, "card"), p.valueUsd?.takeIf { it > 0 }?.let(PriceBook::text)).joinToString(" · "), "all_cards") }
             s.forTrade?.let { open("For trade", plural(it.cards, "card"), "for_trade") }
@@ -366,6 +380,48 @@ fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: Stri
         }
     }
     if (menu && p != null) PersonMenu(PersonRef(userId, p.displayName, p.relation), "profile", onDismiss = { menu = false }, changed = { reload++ })
+}
+
+/** A profile's friends that reach you (contract § Friends on profiles): mutual friends first; a tap opens their profile,
+ *  a long press the person menu. Nothing says how many are hidden. */
+@Composable
+fun ProfileFriendsScreen(userId: String, onBack: () -> Unit, onProfile: (String) -> Unit) {
+    var people by remember { mutableStateOf<List<Person>?>(null) }
+    var name by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var reload by remember { mutableStateOf(0) }
+    var menuFor by remember { mutableStateOf<PersonRef?>(null) }
+    LaunchedEffect(userId, reload) {
+        runCatching { FriendsStore.friendsOf(userId) }
+            .onSuccess { rows ->
+                if (people == null) {
+                    Telemetry.screen("profile_friends")
+                    Telemetry.capture("profile_friends_viewed", mapOf("people" to rows.size, "mutual" to rows.count { it.mutual == true }))
+                }
+                people = rows
+                error = null
+            }
+            .onFailure { it.rethrowIfCancelled(); error = "This isn't available." }
+        if (name == null) name = runCatching { FriendsStore.profile(userId).displayName }.getOrNull()
+    }
+    T1Screen {
+        Bar("Friends", name, onBack = onBack)
+        error?.let { Notice(it, error = true) }
+        Hairlines(Modifier.weight(1f)) {
+            val l = people
+            if (l == null) { if (error == null) item { Notice("Loading…") }; return@Hairlines }
+            if (l.isEmpty()) item { Notice("No friends to show.") }
+            items(l, key = { it.userId }) { p ->
+                ListRow(p.displayName, ProfileFriends.rowDetail(p), avatar = { Avatar(p.displayName, p.userId) },
+                    onClick = {
+                        Telemetry.capture("person_tapped", mapOf("from" to "profile_friends"))
+                        onProfile(p.userId)
+                    },
+                    onLongClick = if (p.relation == "self") null else ({ menuFor = PersonRef(p.userId, p.displayName, p.relation ?: "none") }))
+            }
+        }
+    }
+    menuFor?.let { PersonMenu(it, "profile", onDismiss = { menuFor = null }, changed = { reload++ }) }
 }
 
 /** Binders, all cards, for trade and wants: one group per card, by name; wants for any printing show the card's default
@@ -653,11 +709,15 @@ fun SharingScreen(onBack: () -> Unit) {
             item { Notice(SharingRules.seesLine(s, 0)) }
             item { Notice("Everything starts private. Friends see what's Friends or Anyone; anyone on Table 1 sees what's Anyone. Your profile caps the rest.") }
             fun part(p: SharePart) = item(key = p.wire) {
-                SharingControl(p.label, p.detail, s.own(p), if (p.inherits) "Library" to s.own(SharePart.Library)!! else null, s,
+                SharingControl(p.label, p.detail, if (p.inherits) s.own(p) else SharingRules.effective(s, p),
+                    if (p.inherits) "Library" to s.own(SharePart.Library)!! else null, s,
                     isProfile = p == SharePart.Profile) { v -> confirm.ask(FriendsStore.widening(p, v)) { scope.launch { FriendsStore.set(p, v) } } }
             }
             part(SharePart.Profile)
             part(SharePart.Record)
+            item { Section("Friends") }
+            part(SharePart.Friends)
+            part(SharePart.Listed)
             item { Section("Library") }
             part(SharePart.Library)
             for (p in SharePart.libraryParts) {

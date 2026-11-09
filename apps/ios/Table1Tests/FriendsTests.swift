@@ -24,12 +24,21 @@ private struct SharingCases: Decodable {
         let allCards: Int?, value: Double?, forTrade: Int?, wants: Int?
         let binders: [String], decks: [String], cubes: [String]
         let record: Bool
+        let friends: Bool
     }
     struct V: Decodable { let name: String; let settings: SharingSettings; let level: Int; let want: Want }
     let widening: [W]
     let sees: [S]
     let viewAsProfile: ProfileData
     let viewAs: [V]
+    struct PF: Decodable {
+        struct D: Decodable { let mutual: Int?; let want: String? }
+        struct R: Decodable { let relation: Relation; let mutual: Bool; let handle: String?; let want: String? }
+        let detail: [D]
+        let own: [String: String]
+        let rows: [R]
+    }
+    let profileFriends: PF
 }
 
 private struct Cases: Decodable {
@@ -209,10 +218,46 @@ final class FriendsTests: XCTestCase {
             let got = SharingCases.Want(visible: v.visible, allCards: v.sections.allCards?.cards, value: v.sections.allCards?.valueUsd,
                                         forTrade: v.sections.forTrade?.cards, wants: v.sections.wants?.cards,
                                         binders: (v.sections.binders ?? []).map(\.name), decks: (v.sections.decks ?? []).map(\.name),
-                                        cubes: (v.sections.cubes ?? []).map(\.name), record: v.sections.record != nil)
+                                        cubes: (v.sections.cubes ?? []).map(\.name), record: v.sections.record != nil,
+                                        friends: v.sections.friends != nil)
             XCTAssertEqual(got, c.want, c.name)
             XCTAssertEqual(v.relation, c.level >= 1 ? .friend : Relation.none, c.name)
         }
+    }
+
+    /// § Friends on profiles: the row and list words, a server without the new keys, and profile_friends rows.
+    func testProfileFriendsSharedCases() throws {
+        let c = try sharingCases().profileFriends
+        for d in c.detail { XCTAssertEqual(ProfileFriends.detail(mutual: d.mutual), d.want, "\(String(describing: d.mutual))") }
+        for (v, want) in c.own { XCTAssertEqual(ProfileFriends.ownDetail(Visibility(rawValue: v)!), want) }
+        for r in c.rows {
+            let p = Person(userId: "u", displayName: "N", handle: r.handle, relation: r.relation, mutual: r.mutual)
+            XCTAssertEqual(ProfileFriends.rowDetail(p), r.want)
+        }
+    }
+
+    func testFriendsSettingsDefaults() throws {
+        let old = try decode(SharingSettings.self, #"{"profile": "friends", "library": "private", "record": "private", "items": []}"#)
+        XCTAssertEqual(old.own(.friends), .private)
+        XCTAssertEqual(old.own(.listed), .friends)
+        XCTAssertFalse(SharePart.friends.inherits)
+        let new = try decode(SharingSettings.self, #"{"profile": "public", "library": "private", "record": "private", "friends": "public", "listed": "private", "items": []}"#)
+        XCTAssertEqual(SharingRules.reachOf(new, .friends), .public)
+        XCTAssertEqual(SharingRules.reachOf(new, .listed), .private)
+        XCTAssertEqual(SharingRules.sharedCount(new), 1)
+        var s = new
+        s.set(.friends, nil)
+        XCTAssertEqual(s.friends, .private)
+        if case .object(let o) = SharingRules.change(.listed, .public) { XCTAssertEqual(o["listed"], .string("public")) } else { XCTFail() }
+    }
+
+    func testProfileFriendsDecode() throws {
+        let d = try decode(ProfileData.self, #"{"user_id": "u", "display_name": "Ana", "relation": "friend", "visible": true, "sections": {"friends": {"mutual": 2}}}"#)
+        XCTAssertEqual(d.sections.friends?.mutual, 2)
+        XCTAssertEqual(d.sectionCount, 1)
+        let p = try decode(Person.self, #"{"user_id": "c", "display_name": "Cal", "handle": null, "avatar_url": null, "relation": "friend", "mutual": true}"#)
+        XCTAssertEqual(p.mutual, true)
+        XCTAssertEqual(p.relation, .friend)
     }
 
     func testWideningMessage() {

@@ -57,6 +57,8 @@ struct Person: Codable, Hashable, Identifiable, Sendable {
     /// Search rows only.
     var sharedEvents: Int?
     var relation: Relation?
+    /// A profile's friends list (profile_friends): also the viewer's friend.
+    var mutual: Bool?
     var id: String { userId }
     var label: String { displayName }
 }
@@ -105,6 +107,8 @@ struct FriendsList: Codable, Equatable, Sendable {
 /// The parts of an account the owner shares. Children are `null` = "Same as Library".
 enum SharePart: String, CaseIterable, Sendable {
     case profile, library, allCards = "all_cards", forTrade = "for_trade", wants, binders, decks, cubes, record
+    /// Who sees your friends list on your profile; who sees you in your friends' lists (§ Friends on profiles).
+    case friends, listed
 
     var label: String {
         switch self {
@@ -117,6 +121,8 @@ enum SharePart: String, CaseIterable, Sendable {
         case .decks: "Decks"
         case .cubes: "Cubes"
         case .record: "Record"
+        case .friends: "Friends"
+        case .listed: "You in friends' lists"
         }
     }
 
@@ -131,11 +137,13 @@ enum SharePart: String, CaseIterable, Sendable {
         case .decks: "The default for each deck"
         case .cubes: "The default for each cube"
         case .record: "Lifetime wins, losses and draws"
+        case .friends: "Your list, on your profile"
+        case .listed: "You, on friends' profiles"
         }
     }
 
     /// Library parts can be "Same as Library".
-    var inherits: Bool { ![.profile, .library, .record].contains(self) }
+    var inherits: Bool { ![.profile, .library, .record, .friends, .listed].contains(self) }
     static let libraryParts: [SharePart] = [.allCards, .forTrade, .wants, .binders, .decks, .cubes]
 }
 
@@ -159,6 +167,9 @@ struct SharingSettings: Codable, Equatable, Sendable {
     var decks: Visibility?
     var cubes: Visibility?
     var record: Visibility = .private
+    /// nil from a server without them: private and friends (the server's defaults).
+    var friends: Visibility?
+    var listed: Visibility?
     var items: [ShareItem] = []
     /// Live share links (contract/share-links-2026-10-23.md); nil from a server without them.
     var links: [PartLink]?
@@ -175,6 +186,8 @@ struct SharingSettings: Codable, Equatable, Sendable {
         case .decks: decks
         case .cubes: cubes
         case .record: record
+        case .friends: friends ?? .private
+        case .listed: listed ?? .friends
         }
     }
 
@@ -189,6 +202,8 @@ struct SharingSettings: Codable, Equatable, Sendable {
         case .decks: decks = v
         case .cubes: cubes = v
         case .record: record = v ?? .private
+        case .friends: friends = v ?? .private
+        case .listed: listed = v ?? .friends
         }
     }
 }
@@ -218,7 +233,7 @@ enum SharingRules {
 
     /// How many parts, binders, decks and cubes reach someone besides you.
     static func sharedCount(_ s: SharingSettings) -> Int {
-        let parts = (SharePart.libraryParts + [.record]).filter { reach(s, effective(s, $0)) != .private }.count
+        let parts = (SharePart.libraryParts + [.record, .friends]).filter { reach(s, effective(s, $0)) != .private }.count
         let items = s.items.filter { $0.visibility != nil && reach(s, effective(s, $0)) != .private }.count
         return parts + items
     }
@@ -258,13 +273,16 @@ enum SharingRules {
         }
     }
 
-    static let shownParts: [(SharePart, String)] = [(.profile, "your profile"), (.record, "your record"),
+    static let shownParts: [(SharePart, String)] = [(.profile, "your profile"), (.record, "your record"), (.friends, "your friends"),
                                                      (.allCards, "All cards"), (.forTrade, "For trade"), (.wants, "Wants")]
+    /// Widening also names you in your friends' lists (the Sharing summary lines don't: it shows on their profiles).
+    static let wideningParts: [(SharePart, String)] = Array(shownParts.prefix(3)) + [(.listed, "you in your friends' lists")]
+        + Array(shownParts.dropFirst(3))
 
     static func widening(_ a: SharingSettings, _ b: SharingSettings) -> Widening {
         var w = Widening()
         func add(_ name: String, _ to: Visibility) { if to == .public { w.anyone.append(name) } else { w.friends.append(name) } }
-        for (p, name) in shownParts {
+        for (p, name) in wideningParts {
             let ra = reachOf(a, p), rb = reachOf(b, p)
             guard rb.asks < ra.asks else { continue }
             add(name, rb)
@@ -326,6 +344,8 @@ enum SharingRules {
         x.decks = (d.sections.decks ?? []).filter { itemOk($0.id, "deck", .decks) }
         x.cubes = (d.sections.cubes ?? []).filter { itemOk($0.id, "cube", .cubes) }
         if ok(s.record) { x.record = d.sections.record }
+        // How many of them a viewer would see depends on each friend's own setting, which isn't yours to know.
+        if ok(effective(s, .friends)) { x.friends = ProfileData.FriendsCount() }
         out.sections = x
         return out
     }
@@ -379,6 +399,31 @@ enum SharingOffer: String {
     }
 }
 
+/// Words for friends lists on profiles (contract § Friends on profiles; cases in testdata/sharing/cases.json `profile_friends`).
+enum ProfileFriends {
+    /// The Friends row on someone's profile: "3 mutual", or nothing.
+    static func detail(mutual: Int?) -> String? {
+        guard let n = mutual, n > 0 else { return nil }
+        return "\(n) mutual"
+    }
+
+    /// The Friends row on your own profile: who it reaches.
+    static func ownDetail(_ reach: Visibility) -> String {
+        switch reach {
+        case .private: "Only you"
+        case .friends: "Seen by friends"
+        case .public: "Seen by anyone"
+        }
+    }
+
+    /// One person in the list: "You", "Mutual friend", or their handle.
+    static func rowDetail(_ p: Person) -> String? {
+        if p.relation == .me { return "You" }
+        if p.mutual == true { return "Mutual friend" }
+        return p.handle.map { "@\($0)" }
+    }
+}
+
 /// What players are told before joining an event (contract § UX rules 9).
 enum JoinNotice {
     static let text = "Your name shows in this event's pairings and standings, to its players and anyone with its standings link."
@@ -420,6 +465,8 @@ struct ProfileData: Decodable, Sendable {
     struct BinderSummary: Decodable, Identifiable, Sendable { let id: String; let name: String; let forTrade: Bool; let cards: Int }
     struct ListSummary: Decodable, Identifiable, Sendable { let id: String; let name: String; let format: String; let cards: Int }
     struct Record: Decodable, Sendable { let matchWins: Int; let matchLosses: Int; let matchDraws: Int; let eventsPlayed: Int }
+    /// The friends list reaches you; `mutual`: how many shown are your friends too (nil in View as).
+    struct FriendsCount: Decodable, Sendable { var mutual: Int? }
     struct Sections: Decodable, Sendable {
         var allCards: Counts?
         var forTrade: Counts?
@@ -428,6 +475,7 @@ struct ProfileData: Decodable, Sendable {
         var decks: [ListSummary]?
         var cubes: [ListSummary]?
         var record: Record?
+        var friends: FriendsCount?
     }
 
     var person: Person { Person(userId: userId, displayName: displayName, handle: handle, avatarUrl: avatarUrl, relation: relation) }
@@ -438,7 +486,8 @@ struct ProfileData: Decodable, Sendable {
 
     /// Sections that reach you (binders, decks and cubes count one each).
     var sectionCount: Int {
-        [sections.allCards != nil, sections.forTrade != nil, sections.wants != nil, sections.record != nil].filter { $0 }.count
+        [sections.allCards != nil, sections.forTrade != nil, sections.wants != nil, sections.record != nil, sections.friends != nil]
+            .filter { $0 }.count
             + (sections.binders?.count ?? 0) + (sections.decks?.count ?? 0) + (sections.cubes?.count ?? 0)
     }
 }
@@ -1112,6 +1161,24 @@ final class FriendsStore {
         #endif
         return try await supabase.rpc("profile_view", params: ["p_user_id": AnyJSON.string(userId)]).execute().value
     }
+
+    /// The friends behind a profile's Friends section that reach you: mutual first, then by name (profile_friends).
+    func friends(of userId: String) async throws -> [Person] {
+        #if DEBUG
+        if let demo { return demo.friends(of: userId) }
+        #endif
+        var out: [Person] = [], after = 0
+        while true {
+            let page: FriendsPage = try await supabase.rpc("profile_friends", params: [
+                "p_user_id": AnyJSON.string(userId), "p_after": .integer(after), "p_limit": .integer(500),
+            ]).execute().value
+            out += page.rows
+            after += page.rows.count
+            if !page.more || page.rows.isEmpty { return out }
+        }
+    }
+
+    private struct FriendsPage: Decodable { let rows: [Person]; let more: Bool }
 
     /// Every row of a section, a page of 5000 at a time.
     func cards(_ userId: String, _ section: ProfileSection) async throws -> [ProfileCard] {

@@ -12,6 +12,7 @@ import {
   fetchProfileCards, fetchSharedCards, sharedByline, sharedTitle, type SharedLinkData, groupOf, inherits, loadFriends, loadMatches, loadSharing, matchShort, matchSummary, matchWith, reach,
   cancelSent, profileValue, removeFriend, requestFriend, requestFriendByEmail, respondFriend, searchPeople, sectionCount, sentLabel,
   setItem, setPart, sharingSummary, setAll, answerOffer, reachOf, seesLine, viewAs, widening, withItem, withPart, offerAnswered,
+  fetchProfileFriends, friendsDetail, friendsOwnDetail, friendRowDetail,
   startTradeFromMatch, useFriends, friendsNow, wantTier, copyNote, sharedCardCount, sharedEntries, sharedListKind, type MatchLine, type Person, type ProfileCard, type ProfileData, type SectionKind,
   type SharePart, type ShareItem, type Sharing, type TradeMatch, type Visibility,
 } from "../lib/friends";
@@ -283,12 +284,14 @@ function FriendAddBody({ onBack }: { onBack: () => void }) {
 
 export function ProfileScreen(props: {
   userId: string; onBack: () => void; onSection: (kind: SectionKind, id: string | null) => void; onMatch: () => void; onSharing: () => void;
+  onFriends: () => void;
 }) {
   return <Gate title="Profile" onBack={props.onBack}>{() => <ProfileBody key={props.userId} {...props} />}</Gate>;
 }
 
-function ProfileBody({ userId, onBack, onSection, onMatch, onSharing }: {
+function ProfileBody({ userId, onBack, onSection, onMatch, onSharing, onFriends }: {
   userId: string; onBack: () => void; onSection: (kind: SectionKind, id: string | null) => void; onMatch: () => void; onSharing: () => void;
+  onFriends: () => void;
 }) {
   const [own, setD] = useState<ProfileData | null>(null);
   const [match, setMatch] = useState<TradeMatch | null>(null);
@@ -379,6 +382,14 @@ function ProfileBody({ userId, onBack, onSection, onMatch, onSharing }: {
         )}
         {d && !d.visible && <Notice tone="info">{d.relation === "blocked" ? `You blocked ${d.display_name}.` : `Only ${d.display_name}'s friends can see their profile.`}</Notice>}
         {d && d.visible && d.relation !== "self" && sectionCount(d) === 0 && <Notice tone="info">Nothing shared yet.</Notice>}
+        {s?.friends && (() => {
+          // View as can't know which of them each viewer would see, so the row doesn't open there.
+          const asOther = own?.relation === "self" && as < 2;
+          const detail = d?.relation === "self" ? (asOther || !sharing ? undefined : friendsOwnDetail(reachOf(sharing, "friends")))
+            : friendsDetail(s.friends.mutual) ?? undefined;
+          return <Row title="Friends" detail={detail}
+                      onClick={asOther ? undefined : () => { capture("profile_section_opened", { section: "friends" }); onFriends(); }} />;
+        })()}
         {s && (s.all_cards || s.for_trade || s.wants) && <Section title="Library" />}
         {s?.all_cards && open("All cards", [plural(s.all_cards.cards, "card"), d && profileValue(d) ? usdText(profileValue(d)!) : null].filter(Boolean).join(" · "), "all_cards")}
         {s?.for_trade && open("For trade", plural(s.for_trade.cards, "card"), "for_trade")}
@@ -392,6 +403,51 @@ function ProfileBody({ userId, onBack, onSection, onMatch, onSharing }: {
       </div>
       <PersonMenu person={menu && d ? { userId, displayName: d.display_name, relation: d.relation } : null} from="profile"
                   onClose={() => setMenu(false)} changed={() => void load()} />
+    </Screen>
+  );
+}
+
+/** A profile's friends that reach you (contract § Friends on profiles): mutual friends first; a tap opens their
+ *  profile, a long press or right-click the person menu. Nothing says how many are hidden. */
+export function ProfileFriendsScreen(props: { userId: string; onBack: () => void; onProfile: (userId: string) => void }) {
+  return <Gate title="Friends" onBack={props.onBack}>{() => <ProfileFriendsBody key={props.userId} {...props} />}</Gate>;
+}
+
+function ProfileFriendsBody({ userId, onBack, onProfile }: { userId: string; onBack: () => void; onProfile: (userId: string) => void }) {
+  const [people, setPeople] = useState<Person[] | null>(null);
+  const [name, setName] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [menuFor, setMenuFor] = useState<PersonRef | null>(null);
+  const load = async (first = false) => {
+    try {
+      const rows = await fetchProfileFriends(userId);
+      if (first) capture("profile_friends_viewed", { people: rows.length, mutual: rows.filter((r) => r.mutual).length });
+      setPeople(rows);
+      setError(null);
+    } catch {
+      setError("This isn't available.");
+    }
+  };
+  useEffect(() => {
+    void load(true);
+    fetchProfile(userId).then((p) => setName(p.display_name)).catch(() => undefined);
+  }, [userId]);
+  return (
+    <Screen>
+      <Bar title="Friends" subtitle={name ?? undefined} onBack={onBack} />
+      {error && <Notice tone="error">{error}</Notice>}
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
+        {!people && !error && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}
+        {people && !people.length && <Notice tone="info">No friends to show.</Notice>}
+        {people?.map((p) => (
+          <PersonRow key={p.user_id} person={{ userId: p.user_id, displayName: p.display_name, relation: p.relation ?? "none" }}
+                     onMenu={(ref) => { if (p.relation !== "self") setMenuFor(ref); }}>
+            <Row title={p.display_name} detail={friendRowDetail(p) ?? undefined} avatar={<Avatar name={p.display_name} userId={p.user_id} />}
+                 onClick={() => { capture("person_tapped", { from: "profile_friends" }); onProfile(p.user_id); }} />
+          </PersonRow>
+        ))}
+      </div>
+      <PersonMenu person={menuFor} from="profile" onClose={() => setMenuFor(null)} changed={() => void load()} />
     </Screen>
   );
 }
@@ -723,7 +779,8 @@ function SharingBody({ onBack }: { onBack: () => void }) {
   const s = st.sharing;
   // Widening asks first, narrowing never does (contract § UX rules 4).
   const part = (p: SharePart) => s && (
-    <SharingControl key={p} title={PART_LABEL[p]} detail={PART_DETAIL[p]} own={s[p]} settings={s} isProfile={p === "profile"}
+    <SharingControl key={p} title={PART_LABEL[p]} detail={PART_DETAIL[p]} own={inherits(p) ? s[p] ?? null : effective(s, p)} settings={s}
+                    isProfile={p === "profile"}
                     parent={inherits(p) ? { name: "Library", value: s.library } : null}
                     onChange={(v) => ask(widening(s, withPart(s, p, v)), () => void setPart(p, v))} />
   );
@@ -760,6 +817,9 @@ function SharingBody({ onBack }: { onBack: () => void }) {
             <Notice tone="info">{seesLine(s, 0)}</Notice>
             {part("profile")}
             {part("record")}
+            <Section title="Friends" />
+            {part("friends")}
+            {part("listed")}
             <Section title="Library" />
             {part("library")}
             {LIBRARY_PARTS.map((p) => (

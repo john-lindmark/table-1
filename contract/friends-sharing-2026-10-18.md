@@ -194,6 +194,40 @@ be able to add them as a friend from their profile pages." Client-only; `profile
 - **Telemetry:** `person_tapped` (`from`: standings / event_players / waitlist / roto_seats / opponent / head_to_head /
   friend_search / add_players / rankings / trade_match). No ids.
 
+## Friends on profiles (John, 2026-11-09)
+
+"Add the ability to see other people's friends in profiles and for users to set the visibility of themselves across
+friends and the ability to set who can see their friends on their own profile." Migration
+`20261109210000_profile_friends.sql`, tests `supabase/tests/80b_profile_friends_test.sql`; shared cases in
+`testdata/sharing/cases.json` (`widening`, `sees`, `view_as` gain the new parts; `profile_friends` for the words).
+
+- **Two new settings**, both on Account → Sharing under **Friends**, both capped by the profile like every part:
+  - `friends` (default **private**): who sees your friends list on your profile.
+  - `listed` (default **friends**): who sees *you* in the friends lists of your friends' profiles. Friends means people
+    who are your friends too; Anyone means anyone who can see that list; Private means only you (and the list's owner).
+  `sharing_get` returns both; `sharing_set` takes both (a value is required, like `record`). A missing key (an older
+  server) reads as its default on every client.
+- **Who shows in a list.** A friend shows to a viewer only when the owner's `friends` reaches the viewer and that
+  friend's own `listed` reaches the viewer (their level to the viewer, capped by their profile). You always see
+  yourself; the owner sees every friend. Blocks either way, deleted, demo and restricted accounts never show.
+- **No totals.** Nothing ever says how many friends someone has or how many are hidden (§ UX rules 7 still holds):
+  only the rows that reach you, plus how many of those are mutual.
+- **`profile_view`** gains `sections.friends: {mutual}` when the list reaches you (`mutual`: how many shown are your
+  friends too; 0 on your own profile). **`profile_friends(p_user_id, p_after=0, p_limit=200 ≤ 500)`** →
+  `{rows: [Person + relation (to you) + mutual], more}`, mutual friends first, then by name. Not visible: 42501.
+- **Clients.** A **Friends** row on a profile (after Trade matches, before Library): "3 mutual" on someone else's,
+  who it reaches on your own ("Only you" / "Seen by friends" / "Seen by anyone"); in View as it shows but doesn't
+  open (what each viewer sees depends on each friend's setting). It opens **Friends · <name>**: avatar, name, "You" /
+  "Mutual friend" / @handle; a tap opens their profile, a long press the person menu; "No friends to show." when
+  empty, "This isn't available." when refused. Widening asks first like any part: "Friends will see: your friends.",
+  "Anyone on Table 1 will see: you in your friends' lists." The Sharing summary lines name "your friends", never
+  `listed`. Rules: `ProfileFriends` (iOS/Android), `friendsDetail` / `friendsOwnDetail` / `friendRowDetail` (web).
+- **Routes.** iOS `SocialRoute.profileFriends(id, name)`, web `/u/:id/friends`, Android `profile/{id}/friends`.
+  Demos: iOS `-T1LibraryDemo profilefriends` (Mara shows hers to friends; Theo is yours too), web
+  `/u/d0000000-0000-0000-0000-0000000f0001?demo` → Friends.
+- **Telemetry:** `profile_section_opened` `section: friends`, `profile_friends_viewed` (`people`, `mutual`: counts),
+  `person_tapped` `from: profile_friends`, `sharing_changed` `part: friends | listed`. Screen `profile_friends`.
+
 ## Account deletion
 
 `delete_account` removes your friendships, requests, blocks (both ways), sharing settings and audit rows, and clears

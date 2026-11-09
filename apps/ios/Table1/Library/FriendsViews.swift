@@ -7,6 +7,7 @@ import SwiftUI
 enum SocialRoute: Hashable {
     case friends
     case profile(String) // user id
+    case profileFriends(String, String) // user id, their name
     case profileCards(String, String, String?, String, SharedList? = nil) // user id, section, binder/list id, title, deck/cube
     case sharing
     case sharingItems(String) // binder / deck / cube
@@ -26,6 +27,7 @@ enum SocialRoute: Hashable {
         switch self {
         case .friends: "friends"
         case .profile: "profile"
+        case .profileFriends: "profile_friends"
         case .profileCards: "profile_cards"
         case .sharing, .sharingItems: "sharing"
         case .share: "share"
@@ -50,6 +52,7 @@ struct SocialDestination: View {
         switch route {
         case .friends: FriendsView(path: $path)
         case .profile(let id): ProfileScreen(userId: id, path: $path)
+        case .profileFriends(let id, let name): ProfileFriendsView(userId: id, name: name, path: $path)
         case .profileCards(let id, let kind, let item, let title, let list):
             ProfileCardsView(userId: id, section: ProfileSection(kind: kind, id: item), title: title, list: list, path: $path)
         case .sharing: SharingView(path: $path)
@@ -466,6 +469,16 @@ struct ProfileScreen: View {
         } else if d.sectionCount == 0 && d.relation != .me {
             Notice("Nothing shared yet.")
         }
+        if let f = s.friends {
+            Button {
+                Telemetry.capture("profile_section_opened", ["section": "friends"])
+                path.append(.social(.profileFriends(userId, d.displayName)))
+            } label: {
+                ListRow(title: "Friends", detail: friendsDetail(d, f)) { if !asOther { LabelText("Open", color: T1.text) } }
+            }
+            .buttonStyle(.plain)
+            .disabled(asOther) // View as can't know which of them each viewer would see.
+        }
         if s.allCards != nil || s.forTrade != nil || s.wants != nil { Section1("Library") }
         if let c = s.allCards {
             // The collection's value shows only on your own profile.
@@ -486,6 +499,15 @@ struct ProfileScreen: View {
             Section1("Cubes · \(l.count)")
             ForEach(l) { x in open(x.name, detail: plural(x.cards, "card"), kind: "cube", id: x.id, list: shared(d, x)) }
         }
+    }
+
+    /// "3 mutual" on someone else's profile; who sees it on your own.
+    private func friendsDetail(_ d: ProfileData, _ f: ProfileData.FriendsCount) -> String? {
+        if d.relation == .me {
+            guard !asOther, let s = store.sharing else { return nil }
+            return ProfileFriends.ownDetail(SharingRules.reachOf(s, .friends))
+        }
+        return ProfileFriends.detail(mutual: f.mutual)
     }
 
     private func shared(_ d: ProfileData, _ x: ProfileData.ListSummary) -> SharedList {
@@ -522,6 +544,60 @@ struct ProfileScreen: View {
             defer { busy = false }
             do { try await work(); await load() } catch { self.error = FriendsStore.message(error) }
         }
+    }
+}
+
+/// A profile's friends that reach you (contract § Friends on profiles): mutual friends first; a tap opens their
+/// profile. Nothing says how many are hidden.
+struct ProfileFriendsView: View {
+    let userId: String
+    let name: String
+    @Binding var path: [LibraryRoute]
+    @Environment(\.dismiss) private var dismiss
+    private var store: FriendsStore { FriendsStore.shared }
+    @State private var people: [Person]?
+    @State private var error: String?
+
+    var body: some View {
+        T1Screen {
+            Bar(title: "Friends", subtitle: name, back: { dismiss() })
+            HairlineList {
+                if let error { Notice(error, error: true) }
+                if let people {
+                    if people.isEmpty { Notice("No friends to show.") }
+                    ForEach(people) { p in
+                        Button { open(p) } label: {
+                            ListRow(title: p.displayName, detail: ProfileFriends.rowDetail(p),
+                                    avatar: AvatarView(name: p.displayName, userId: p.userId)) { EmptyView() }
+                        }
+                        .buttonStyle(.plain)
+                        .personMenu { if p.relation != .me { PersonActions.menu(p, p.relation ?? .none, from: "profile") } }
+                    }
+                } else if error == nil {
+                    Notice("Loading…")
+                }
+            }
+        }
+        .task { await load() }
+        .refreshable { await load() }
+    }
+
+    /// A long press that opened a menu also lifts the finger on the row: don't open the profile then.
+    private func open(_ p: Person) {
+        guard T1Overlays.shared.menu == nil else { return }
+        Telemetry.capture("person_tapped", ["from": "profile_friends"])
+        path.append(.social(.profile(p.userId)))
+    }
+
+    private func load() async {
+        do {
+            let rows = try await store.friends(of: userId)
+            if people == nil { Telemetry.capture("profile_friends_viewed", ["people": rows.count, "mutual": rows.filter { $0.mutual == true }.count]) }
+            people = rows
+            error = nil
+        } catch where !error.isCancellation {
+            self.error = "This isn't available."
+        } catch {}
     }
 }
 
@@ -842,6 +918,9 @@ struct SharingView: View {
                     Notice("Everything starts private, and new decks stay private until you share them. Your profile caps the rest.")
                     part(.profile, s)
                     part(.record, s)
+                    Section1("Friends")
+                    part(.friends, s)
+                    part(.listed, s)
                     Section1("Library")
                     part(.library, s)
                     ForEach(SharePart.libraryParts, id: \.self) { p in
@@ -868,7 +947,7 @@ struct SharingView: View {
 
     private func part(_ p: SharePart, _ s: SharingSettings) -> some View {
         SharingControl(title: p.label, detail: p.detail, own: s.own(p), inherits: p.inherits,
-                       parent: p == .profile || p == .library || p == .record ? nil : ("Library", s.library),
+                       parent: p.inherits ? ("Library", s.library) : nil,
                        settings: s, isProfile: p == .profile, effect: effect(p)) { v in
             store.change(p, v)
         }
@@ -891,6 +970,8 @@ struct SharingView: View {
         case .forTrade: "your for-trade copies"
         case .wants: "your wants, without max prices"
         case .record: "your lifetime record"
+        case .friends: "your friends list"
+        case .listed: "you in your friends' lists"
         }
     }
 }

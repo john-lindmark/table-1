@@ -100,6 +100,7 @@ import site.table1.events.library.FriendAddScreen
 import site.table1.events.library.FriendsScreen
 import site.table1.events.library.FriendsStore
 import site.table1.events.library.ProfileCardsScreen
+import site.table1.events.library.ProfileFriendsScreen
 import site.table1.events.library.ProfileUserScreen
 import site.table1.events.library.SharingScreen
 import site.table1.events.library.TradeMatchScreen
@@ -382,7 +383,11 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                     val id = e.arguments?.getString("id") ?: ""
                     ProfileUserScreen(id, onBack = { nav.popBackStack() },
                         onSection = { kind, item -> nav.navigate("profile/$id/$kind/${item ?: "-"}") },
-                        onMatch = { nav.navigate("collection/match/$id") }, onSharing = { nav.navigate("sharing") })
+                        onMatch = { nav.navigate("collection/match/$id") }, onSharing = { nav.navigate("sharing") },
+                        onFriends = { nav.navigate("profile/$id/friends") })
+                }
+                composable("profile/{id}/friends") { e ->
+                    ProfileFriendsScreen(e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() }, onProfile = { nav.navigate("profile/$it") })
                 }
                 composable("profile/{id}/{section}/{item}") { e ->
                     ProfileCardsScreen(e.arguments?.getString("id") ?: "", e.arguments?.getString("section") ?: "",
