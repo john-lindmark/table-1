@@ -205,7 +205,7 @@ friends and the ability to set who can see their friends on their own profile." 
   - `friends` (default **friends**, John 2026-11-09: "the friends list is default viewable by friends"): who sees your
     friends list on your profile. Capped by the profile like every part.
   - `listed` (default **friends**): who sees *you* in the friends lists of your friends' profiles. Since
-    `20261109230000_listed_friends_of_friends.sql` (John, 2026-11-09: "the default setting for folks to be able to be
+    `20261109230000_listed_friends_of_friends.sql` (live 2026-11-09; John, 2026-11-09: "the default setting for folks to be able to be
     seen by friends of friends"; "by default, anyone should be able to see the list of friends of someone they are
     friends with"): `friends` means **friends of friends** (your friends, and the list owner's friends), `public`
     anyone who can see that list, `private` only you (and the list's owner). Only a **Private** profile holds it back.
