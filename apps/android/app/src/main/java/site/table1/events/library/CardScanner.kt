@@ -63,9 +63,6 @@ import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
-import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
-import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
-import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import site.table1.events.T1App
 import site.table1.events.ui.components.Bar
@@ -346,8 +343,8 @@ fun CardScanOverlay(
  * whether they named a card. ML Kit reads one script per recognizer and can't tell which a card is in, and nobody
  * picks a language: the Latin recognizer reads until text in view names no card for a while (ScanLanguage), then
  * the Japanese, Chinese and Korean ones a frame each in turn, keeping the one that names cards, and back to Latin
- * after a run of misses. One recognizer per frame; the CJK ones are made (and their models fetched by Play
- * services) only the first time they're needed.
+ * after a run of misses. One recognizer per frame; the CJK ones are made the first time they're needed, and their
+ * models are Play services modules (ScanModels).
  */
 /** Space kept above and below the guide box for its tips when the camera view's height limits it (iOS: 96 pt). */
 private val GUIDE_MARGIN = 96.dp
@@ -462,6 +459,8 @@ private fun CameraText(onLines: (List<String>, ScanBorder) -> ScanMatch?) {
         screen.keepScreenOn = true
         onDispose { screen.keepScreenOn = false }
     }
+    // The CJK models are Play services modules: ask for them now if the phone doesn't have them (ScanModels).
+    LaunchedEffect(Unit) { timing.models(ScanModels.ensure(context)) }
     DisposableEffect(Unit) {
         onDispose {
             timing.summary()?.let { Telemetry.capture("scanner_timing", it) }
@@ -470,23 +469,22 @@ private fun CameraText(onLines: (List<String>, ScanBorder) -> ScanMatch?) {
             executor.shutdown()
         }
     }
-    fun recognizer(mode: Int): TextRecognizer = if (mode == ScanLanguage.LATIN) latin else cjk[mode] ?: TextRecognition.getClient(
-        when (mode) {
-            0 -> JapaneseTextRecognizerOptions.Builder().build()
-            1 -> ChineseTextRecognizerOptions.Builder().build()
-            else -> KoreanTextRecognizerOptions.Builder().build()
-        },
-    ).also { cjk[mode] = it }
-    fun fed(lines: List<String>, border: ScanBorder) {
+    fun recognizer(mode: Int): TextRecognizer = if (mode == ScanLanguage.LATIN) latin else cjk[mode] ?: ScanModels.recognizer(mode).also { cjk[mode] = it }
+    /** One frame's lines, read by `reader`: the next frame has usually started (with the reader in use before this
+     *  one is fed) by now, so ScanLanguage is told which reader read these. */
+    fun fed(lines: List<String>, border: ScanBorder, reader: Int) {
         val start = android.os.SystemClock.elapsedRealtime()
         val hit = callback.value(lines, border)
         timing.matched(android.os.SystemClock.elapsedRealtime() - start)
-        language.feed(matched = hit != null, text = lines.isNotEmpty(), latin = hit != null && ScanLanguage.latin(hit))
+        timing.named(reader, hit != null)
+        val before = language.mode
+        language.feed(matched = hit != null, text = lines.isNotEmpty(), latin = hit != null && ScanLanguage.latin(hit), reader = reader)
+        timing.switched(before, language.mode)
         reading.set(language.mode)
     }
-    fun feedOnMain(lines: List<String>, border: ScanBorder) {
+    fun feedOnMain(lines: List<String>, border: ScanBorder, reader: Int) {
         if (!matching.compareAndSet(false, true)) { timing.drop(); return }
-        ContextCompat.getMainExecutor(context).execute { try { fed(lines, border) } finally { matching.set(false) } }
+        ContextCompat.getMainExecutor(context).execute { try { fed(lines, border, reader) } finally { matching.set(false) } }
     }
     /**
      * The border colour read along the guide box from the frame's luma plane, before the frame goes to ML Kit (624
@@ -540,7 +538,7 @@ private fun CameraText(onLines: (List<String>, ScanBorder) -> ScanMatch?) {
                 val border = runCatching { border(media, proxy.imageInfo.rotationDegrees) }.getOrDefault(ScanBorder.UNKNOWN)
                 val mode = reading.get()
                 val start = android.os.SystemClock.elapsedRealtime()
-                fun took(ok: Boolean) = timing.read(android.os.SystemClock.elapsedRealtime() - start, mode != ScanLanguage.LATIN, ok, proxy.width, proxy.height)
+                fun took(ok: Boolean) = timing.read(android.os.SystemClock.elapsedRealtime() - start, mode, ok, proxy.width, proxy.height)
                 // Every listener on the camera's executor, not the main thread (Tasks' default): the next frame waits
                 // for proxy.close(), so a main thread busy drawing the list held the camera back (2026-11-06).
                 recognizer(mode).process(InputImage.fromMediaImage(media, proxy.imageInfo.rotationDegrees))
@@ -556,11 +554,10 @@ private fun CameraText(onLines: (List<String>, ScanBorder) -> ScanMatch?) {
                         val lines = text.textBlocks.flatMap { it.lines }
                             .filter { l -> l.boundingBox?.let { b -> ScanRegion.readsText(guide, b.exactCenterX() / iw, b.exactCenterY() / ih) } ?: false }
                             .sortedBy { it.boundingBox?.top ?: 0 }.map { it.text }
-                        feedOnMain(lines, border)
+                        feedOnMain(lines, border, mode)
                     }
-                    // A CJK model still downloading (Play services fetches it on first use) fails: a miss, so the next
-                    // recognizer gets the next frame.
-                    .addOnFailureListener(onCamera) { took(false); feedOnMain(emptyList(), ScanBorder.UNKNOWN) }
+                    // A CJK model not installed yet (ScanModels) fails: a miss, so the next recognizer gets the next frame.
+                    .addOnFailureListener(onCamera) { took(false); feedOnMain(emptyList(), ScanBorder.UNKNOWN, mode) }
                     .addOnCompleteListener(onCamera) { proxy.close() }
             }
             runCatching {

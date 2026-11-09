@@ -40,7 +40,7 @@
              it's fetched on the first scan, and until it arrives every frame fails and nothing is read; with it Play
              fetches it when the app is installed. The CJK models still come on first use (ScanLanguage). barcode_ui is the
              join QR's code scanner (play-services-code-scanner): starting it before it's installed crashes (bug #34). -->
-        <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="ocr,barcode_ui" />
+        <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="ocr,ocr_japanese,ocr_chinese,ocr_korean,barcode_ui" />
 
         <activity
             android:name=".MainActivity"

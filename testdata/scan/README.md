@@ -58,8 +58,8 @@ text in view names no card for 0.6 s, then reads Chinese, Japanese and Korean (`
 match and goes back after 1.2 s of misses (`ScanLanguage` in CardMatcher.swift/.kt). On Android (2026-11-06) a card named in a Latin or Cyrillic script while reading CJK goes back to Latin at once (`ScanLanguage.latin`): the CJK recognizers read Latin too, so a pile of English cards after one gap had stayed on the slower CJK models for the rest of the session. iOS still waits for the 1.2 s. iOS switches Vision's
 automatic language detection on (VisionKit's DataScanner can't: given a list of languages it uses only the first
 one's model; English first turns CJK into noise, Japanese first breaks Korean and Cyrillic). Android switches from
-ML Kit's Latin recognizer to its Japanese, Chinese and Korean ones, a frame each in turn (created, and their models
-fetched by Play services, only when first needed). The test holds each photo still for 2.4 s through this and
+ML Kit's Latin recognizer to its Japanese, Chinese and Korean ones, a frame each in turn (created only when first
+needed; their models are Play services modules, asked for at install and again when the scanner opens). The test holds each photo still for 2.4 s through this and
 ScanSteadiness (Android: `multi` stands in for every CJK recognizer):
 
 | | Taken | Wrong | Median time to take |
@@ -67,6 +67,19 @@ ScanSteadiness (Android: `multi` stands in for every CJK recognizer):
 | English (148) | 141/148, printing 115/135: the same as `accurate` | 0 | 0.4 s |
 | Latin and Cyrillic (80) | 75/80 | 0 | 0.8 s |
 | Chinese, Japanese, Korean (63) | 38/63 | 0 | 1.2 s (0.6 s of it finding the script) |
+
+**On a phone** (`ScanLanguagePipelineTest`, Android, 2026-11-08): the test above feeds each frame's lines before the
+next frame starts, which a phone doesn't: the camera hands over the next frame as soon as the last is closed, before
+its lines are matched, so the frame after a switch is still read by the old reader. The pipeline test runs it that
+way (Latin frames 150 ms, CJK 500 ms, each photo held 4 s, through the card gate; the recognizer for a card's own
+script reads `multi`, the other two only its Latin text, `accurate`). Before 2026-11-08 every result counted for the
+reader in use when it came back, so after a switch a stale Latin miss moved on from Japanese, a Japanese read then
+counted for the Chinese reader, and 1.2 s went back before the Korean reader read anything: 21/63 Chinese, Japanese
+and Korean cards taken, in 0.5 s on average, i.e. only those the Latin reader names by set code and number. With
+each frame credited to its own reader (`ScanLanguage.feed(reader =)`), every reader tried before going back, and
+the last reader that named a card first: 39/63, 0 wrong, mean 1.7 s; English 139/148 and Latin and Cyrillic 74/80
+either way (fewer than above: the card gate wants a type line or a set code and number). iOS reads with one reader,
+so this doesn't arise there.
 
 ### Cards in other languages (143; `testForeignCards` / `foreignCards`)
 

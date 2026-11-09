@@ -31,7 +31,7 @@ class ScanCameraTest {
 
     @Test fun timingCarriesTheCamera() {
         val t = ScanTiming(started = 0)
-        t.read(100, cjkReader = false, ok = true, width = 1280, height = 960)
+        t.read(100, reader = ScanLanguage.LATIN, ok = true, width = 1280, height = 960)
         t.camera(1.6f, 10)
         val s = t.summary(now = 1000)!!
         assertEquals(1.6, s["zoom"])

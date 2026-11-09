@@ -12,17 +12,37 @@ class ScanTiming(private val started: Long = System.currentTimeMillis()) {
     private var failed = 0
     private var dropped = 0
     private var cjk = 0
+    /** Per CJK reader (ScanLanguage.READERS): frames read, frames that failed (a model not installed yet) and
+     *  frames whose lines named a card. */
+    private val cjkReads = IntArray(ScanLanguage.READERS.size)
+    private val cjkFailed = IntArray(ScanLanguage.READERS.size)
+    private val cjkNamed = IntArray(ScanLanguage.READERS.size)
+    private var toCjk = 0
+    private var toLatin = 0
+    private var models: String? = null
     private var frameSize: Pair<Int, Int>? = null
     private var zoom: Float? = null
     private var minFocusCm: Int? = null
 
-    /** One frame through ML Kit: how long it took, whether a CJK recognizer read it, and whether it failed. */
-    @Synchronized fun read(ms: Long, cjkReader: Boolean, ok: Boolean, width: Int, height: Int) {
+    /** One frame through ML Kit: how long it took, which reader read it (ScanLanguage.mode), and whether it failed. */
+    @Synchronized fun read(ms: Long, reader: Int, ok: Boolean, width: Int, height: Int) {
         if (ocr.size < MAX) ocr.add(ms.toInt())
-        if (cjkReader) cjk++
+        if (reader in cjkReads.indices) { cjk++; cjkReads[reader]++; if (!ok) cjkFailed[reader]++ }
         if (!ok) failed++
         frameSize = width to height
     }
+
+    /** One frame's lines matched: which reader read them and whether they named a card. */
+    @Synchronized fun named(reader: Int, named: Boolean) { if (named && reader in cjkNamed.indices) cjkNamed[reader]++ }
+
+    /** The scanner switched reader (ScanLanguage.mode before and after a frame). */
+    @Synchronized fun switched(from: Int, to: Int) {
+        if (from == to) return
+        if (from == ScanLanguage.LATIN) toCjk++ else if (to == ScanLanguage.LATIN) toLatin++
+    }
+
+    /** Whether the Japanese, Chinese and Korean models were on the phone when the scanner opened (ScanModels). */
+    @Synchronized fun models(state: String) { models = state }
 
     /** The zoom set on the camera (ScanCamera) and its closest focus in cm, once it's bound. */
     @Synchronized fun camera(zoom: Float, minFocusCm: Int?) { this.zoom = zoom; this.minFocusCm = minFocusCm }
@@ -48,6 +68,12 @@ class ScanTiming(private val started: Long = System.currentTimeMillis()) {
             put("dropped", dropped)
             put("failed", failed)
             put("cjk_frames", cjk)
+            put("to_cjk", toCjk)
+            put("to_latin", toLatin)
+            ScanLanguage.READERS.forEachIndexed { i, r ->
+                put("${r}_frames", cjkReads[i]); put("${r}_failed", cjkFailed[i]); put("${r}_named", cjkNamed[i])
+            }
+            models?.let { put("cjk_models", it) }
             frameSize?.let { put("width", it.first); put("height", it.second) }
             zoom?.let { put("zoom", Math.round(it * 100) / 100.0) }
             minFocusCm?.let { put("min_focus_cm", it) }
