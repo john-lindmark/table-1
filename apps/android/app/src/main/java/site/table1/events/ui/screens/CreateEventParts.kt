@@ -56,7 +56,9 @@ import coil3.svg.SvgDecoder
 import kotlinx.coroutines.delay
 import site.table1.events.data.RecentCube
 import site.table1.events.data.Repo
+import site.table1.events.data.DraftPods
 import site.table1.events.data.SeatingPod
+import site.table1.events.data.SeatingSeat
 import site.table1.events.ui.components.Label
 import site.table1.events.ui.components.ListRow
 import site.table1.events.ui.components.Notice
@@ -282,37 +284,40 @@ internal class TableLayout(val count: Int, ends: Boolean) {
  * the organizer turns it on) one at each end. Lines join round 1 opponents; the middle says which way each pack passes
  * (left = clockwise, to the next seat number: packs 1 and 3; pack 2 goes right). Only the drawing changes.
  */
-internal fun LazyListScope.seatingItems(pods: List<SeatingPod>, highlight: String?, teamDraft: Boolean, seatEnds: Boolean = false) {
-    item(key = "seating-tables") { SeatingTables(pods, highlight, teamDraft, seatEnds) }
+internal fun LazyListScope.seatingItems(pods: List<SeatingPod>, highlight: String?, teamDraft: Boolean, seatEnds: Boolean = false,
+                                        onTap: ((SeatingSeat, SeatingPod) -> Unit)? = null) {
+    item(key = "seating-tables") { SeatingTables(pods, highlight, teamDraft, seatEnds, onTap) }
 }
 
 @Composable
-private fun SeatingTables(pods: List<SeatingPod>, highlight: String?, teamDraft: Boolean, seatEnds: Boolean) {
+private fun SeatingTables(pods: List<SeatingPod>, highlight: String?, teamDraft: Boolean, seatEnds: Boolean,
+                          onTap: ((SeatingSeat, SeatingPod) -> Unit)?) {
+    val seatNumbers = pods.map { p -> p.seats.map { it.seat } }
     Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-        pods.forEach { pod ->
+        pods.forEachIndexed { i, pod ->
             Section("${if (pods.size > 1) pod.name ?: "Pod" else "Seating"} · ${pod.seats.size} players")
-            PodTable(pod, roundOneSeatPairs(pod, teamDraft), highlight, seatEnds)
-            Notice(roundOneText(pod, teamDraft))
+            PodTable(pod, roundOneSeatPairs(pod, teamDraft), highlight, seatEnds,
+                     byeSeat = if (teamDraft) null else DraftPods.byeSeat(seatNumbers, i),
+                     onTap = onTap?.let { tap -> { seat: SeatingSeat -> tap(seat, pod) } })
+            Notice(if (teamDraft) teamDraftText(pod) else DraftPods.note(seatNumbers, i) { pods[it].name ?: "Pod ${it + 1}" })
         }
     }
 }
 
-private fun roundOneText(pod: SeatingPod, teamDraft: Boolean): String {
-    val pairs = roundOneSeatPairs(pod, teamDraft)
-    if (pairs.isEmpty()) return if (teamDraft) "Round 1 pairs each player with the other team." else "Round 1 pairs across the table."
-    val text = pairs.joinToString(", ") { "${it.first} v ${it.second}" }
-    if (teamDraft) return "Round 1 pairs: $text."
-    val seats = pod.seats.map { it.seat }.sorted()
-    val bye = if (seats.size % 2 == 1) " Seat ${seats.last()} has the bye." else ""
-    return "Round 1 pairs across the table: $text.$bye"
+private fun teamDraftText(pod: SeatingPod): String {
+    val pairs = roundOneSeatPairs(pod, true)
+    if (pairs.isEmpty()) return "Round 1 pairs each player with the other team."
+    return "Round 1 pairs: ${pairs.joinToString(", ") { "${it.first} v ${it.second}" }}."
 }
 
+/** One pod's table; `byeSeat` is the seat with round 1's bye (an odd pod's last seat plays another odd pod's unless
+ *  the event is odd, contract/draft-pods-2026-11-09.md). */
 @Composable
-private fun PodTable(pod: SeatingPod, pairs: List<Pair<Int, Int>>, highlight: String?, seatEnds: Boolean) {
+private fun PodTable(pod: SeatingPod, pairs: List<Pair<Int, Int>>, highlight: String?, seatEnds: Boolean, byeSeat: Int?,
+                     onTap: ((SeatingSeat) -> Unit)? = null) {
     val seats = pod.seats.sortedBy { it.seat }
     val index = seats.withIndex().associate { (i, s) -> s.seat to i }
     val mySeat = seats.firstOrNull { it.participantId == highlight }?.seat
-    val byeSeat = if (seats.size % 2 == 1 && pairs.size * 2 < seats.size) seats.lastOrNull()?.seat else null
     val layout = TableLayout(seats.size, seatEnds)
     BoxWithConstraints(
         Modifier.fillMaxWidth().background(T1.surface).padding(vertical = 12.dp)
@@ -356,6 +361,7 @@ private fun PodTable(pod: SeatingPod, pairs: List<Pair<Int, Int>>, highlight: St
                         .size(chipW.dp, TableLayout.CHIP_H.dp)
                         .background(if (mine) T1.surfaceHover else T1.bg)
                         .border(1.dp, if (mine) T1.accent else T1.disabled)
+                        .then(if (onTap != null) Modifier.clickable(onClickLabel = "Move or swap") { onTap(s) } else Modifier)
                         .padding(horizontal = 8.dp)
                         .semantics { contentDescription = "Seat ${s.seat}, ${s.displayName}" + (s.team?.let { ", $it" } ?: "") + if (s.seat == byeSeat) ", bye" else "" },
                     verticalArrangement = Arrangement.Center,

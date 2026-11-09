@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import site.table1.events.data.BracketStage
+import site.table1.events.data.DraftPods
 import site.table1.events.data.EventBundle
 import site.table1.events.data.EventPage
 import site.table1.events.data.EventRow
@@ -153,9 +154,11 @@ fun ScheduleBlock(value: ScheduleDraft, onChange: (ScheduleDraft) -> Unit) {
 fun CutRoundsBlock(
     autoRounds: Boolean, onAutoRounds: (Boolean) -> Unit, rounds: Int, onRounds: (Int) -> Unit,
     topCut: Int, onTopCut: (Int) -> Unit, players: Int, swiss: Boolean,
+    /** Drafts with pods: the automatic count follows the pods (DraftPods.autoLabel). */
+    autoDetail: String? = null,
 ) {
     if (swiss) {
-        ListRow("Automatic rounds", if (autoRounds) EventRules.autoLabel(players) else "Set by hand", onClick = { onAutoRounds(!autoRounds) }) {
+        ListRow("Automatic rounds", if (autoRounds) autoDetail ?: EventRules.autoLabel(players) else "Set by hand", onClick = { onAutoRounds(!autoRounds) }) {
             T1Switch(autoRounds) { onAutoRounds(it) }
         }
     }
@@ -169,6 +172,25 @@ fun CutRoundsBlock(
                    else "Top 8 needs 9 or more players: with $players the event ends after Swiss.")
         }
     }
+}
+
+/** Drafts: how many pods (Auto = pods of up to 8) and how rounds 2+ pair (contract/draft-pods-2026-11-09.md). */
+@Composable
+fun DraftPodsBlock(pods: Int?, pairing: String, players: Int, seated: Boolean = false, enabled: Boolean = true,
+                   onChange: (Int?, String) -> Unit) {
+    FormBlock("Pods") {
+        T1Segmented(listOf("Auto", "Choose"), if (pods == null) 0 else 1, enabled = enabled) {
+            onChange(if (it == 0) null else maxOf(2, DraftPods.count(players, null)), pairing)
+        }
+        if (pods != null) T1Stepper(null, pods, 1..16, Modifier.fillMaxWidth()) { onChange(it, pairing) }
+    }
+    Notice(DraftPods.label(players, pods) + if (seated) " · a new number re-draws the seats" else "")
+    FormBlock("Pairings") {
+        T1Segmented(listOf("Inside pods", "Across pods"), if (pairing == DraftPods.INSIDE) 0 else 1, enabled = enabled) {
+            onChange(pods, if (it == 0) DraftPods.INSIDE else DraftPods.ACROSS)
+        }
+    }
+    Notice(if (pairing == DraftPods.INSIDE) "After round 1 you play your own pod." else "After round 1, Swiss across every pod.")
 }
 
 private val decklistModes = listOf("off" to "Off", "optional" to "Optional", "required" to "Required")

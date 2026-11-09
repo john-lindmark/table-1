@@ -43,6 +43,7 @@ import site.table1.events.data.EventRules
 import site.table1.events.data.MatchRow
 import site.table1.events.data.ParticipantRow
 import site.table1.events.data.Repo
+import site.table1.events.data.SeatingSeat
 import site.table1.events.data.RoundRow
 import site.table1.events.data.SeatingPod
 import site.table1.events.data.Standing
@@ -276,6 +277,23 @@ internal fun OrganizerScreen(
         }
     }
 
+    // A seating change (move, swap): its answer is shown at once, the reload runs after.
+    fun reseat(block: suspend () -> List<SeatingPod>) {
+        busy = true
+        error = null
+        scope.launch {
+            try {
+                onSeated(block())
+                busy = false
+                onChanged()
+            } catch (e: Exception) {
+                error = userMessage(e)
+            } finally {
+                busy = false
+            }
+        }
+    }
+
     fun pair() = act { Repo.pairNextRound(event.id).error?.let { throw IllegalStateException(it) } }
 
     val roundsPlayed = b.rounds.maxOfOrNull { it.number } ?: 0
@@ -313,7 +331,7 @@ internal fun OrganizerScreen(
                     "players" -> SetupPlayers(b, tags, busy, onAddPlayers, onShowQr = { showQr = true }, onChanged = onChanged) { block -> act(block) }
                     "seating" -> if (event.isRoto) site.table1.events.roto.RotoPickOrder(
                         b.participants.filter { it.status == "active" && it.seat != null }.sortedBy { it.seat }.map { it.seat!! to it.displayName }, busy,
-                    ) { seat() } else SetupSeating(b, standings, busy, act = { block -> act(block) }) { seat() }
+                    ) { seat() } else SetupSeating(b, standings, busy, act = { block -> act(block) }, reseat = { block -> reseat(block) }) { seat() }
                     "teams" -> TeamsTab(b, onChanged)
                     "details" -> DetailsTab(b, onChanged)
                 }
@@ -325,7 +343,7 @@ internal fun OrganizerScreen(
                     )
                     "standings" -> {
                         val open = active?.matches?.count { !it.isBye && (it.status == "pending" || it.isDisputedOpen) } ?: 0
-                        StandingsList(standings.standings, standings.teams, tags, highlight = null, userIds = b.userIds, bracket = standings.bracket, header = {
+                        StandingsList(standings.standings, standings.teams, tags, highlight = null, userIds = b.userIds, bracket = standings.bracket, seating = standings.seating, header = {
                             if (open > 0) item { Notice("Live: updates as results come in. ${plural(open, "match", "matches")} still open.") }
                         })
                     }
@@ -659,12 +677,53 @@ private fun SetupPlayers(
 }
 
 @Composable
-private fun SetupSeating(b: EventBundle, standings: StandingsResponse, busy: Boolean, act: (suspend () -> Unit) -> Unit, onSeat: () -> Unit) {
+private fun SetupSeating(b: EventBundle, standings: StandingsResponse, busy: Boolean, act: (suspend () -> Unit) -> Unit,
+                         reseat: (suspend () -> List<SeatingPod>) -> Unit, onSeat: () -> Unit) {
     val seating = standings.seating.orEmpty()
+    val event = b.event
+    // Drafts (not team drafts or rotos): pods, how rounds 2+ pair, seats moved by hand (contract/draft-pods-2026-11-09.md).
+    val hasPods = event.formatName == "draft"
+    val active = b.participants.filter { it.status == "active" }
+    val seatedIds = seating.flatMap { p -> p.seats.map { it.participantId } }.toSet()
+    val unseated = if (event.status == "seated") active.filter { it.id !in seatedIds } else emptyList()
+    var swapFrom by remember { mutableStateOf<SeatingSeat?>(null) }
+    var menu by remember { mutableStateOf<Pair<String, List<T1MenuItem>>?>(null) }
+
+    fun tap(seat: SeatingSeat, pod: SeatingPod) {
+        swapFrom?.let { from ->
+            swapFrom = null
+            if (from.participantId != seat.participantId) reseat { Repo.seatSwap(from.participantId, seat.participantId).pods }
+            return
+        }
+        val items = seating.filter { it.podId != pod.podId }.map { other ->
+            T1MenuItem("Move to ${other.name ?: "pod"} · ${other.seats.size}") { reseat { Repo.seatMove(seat.participantId, other.podId).pods } }
+        }.toMutableList()
+        if (pod.seats.size > 1) items += T1MenuItem("Move to a new pod") { reseat { Repo.seatMove(seat.participantId, null).pods } }
+        items += T1MenuItem("Swap with…") { swapFrom = seat }
+        menu = "${pod.name ?: "Pod"} · seat ${seat.seat} · ${seat.displayName}" to items
+    }
+
+    menu?.let { (title, items) -> T1Menu(title, items) { menu = null } }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        if (hasPods) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    DraftPodsBlock(event.pods, event.podPairing, active.size, seated = seating.isNotEmpty(), enabled = !busy) { n, p ->
+                        act { Repo.setEventPods(event.id, n, p) }
+                    }
+                }
+            }
+        }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-                Ghost(if (seating.isEmpty()) "Seat players" else "Re-seat", enabled = !busy, onClick = onSeat)
+                Ghost(if (seating.isEmpty()) "Seat players" else "Randomize", enabled = !busy, onClick = onSeat)
+            }
+        }
+        swapFrom?.let { from ->
+            item {
+                ListRow("Swap ${from.displayName} with…", "Tap the other player", onClick = { swapFrom = null }) {
+                    Label("Cancel", color = T1.accent)
+                }
             }
         }
         if (seating.isEmpty()) {
@@ -680,7 +739,12 @@ private fun SetupSeating(b: EventBundle, standings: StandingsResponse, busy: Boo
                     }
                 }
             }
-            seatingItems(seating, highlight = null, teamDraft = b.event.formatName == "team_draft", seatEnds = b.event.seatEnds)
+            seatingItems(seating, highlight = swapFrom?.participantId, teamDraft = b.event.formatName == "team_draft", seatEnds = b.event.seatEnds,
+                         onTap = if (hasPods && event.status == "seated" && !busy) ::tap else null)
+            if (unseated.isNotEmpty()) {
+                item { Section("Not seated · ${unseated.size}") }
+                unseated.forEach { p -> item(key = "unseated-${p.id}") { ListRow(p.displayName, "Seated at round 1, in the smallest pod") } }
+            }
         }
     }
 }
@@ -1142,7 +1206,7 @@ private fun ResultsStandings(b: EventBundle, standings: StandingsResponse, tags:
     val event = b.event
     val teams: List<TeamStanding>? = standings.teams
     StandingsList(
-        standings.standings, teams, tags, highlight = null, userIds = b.userIds, bracket = standings.bracket,
+        standings.standings, teams, tags, highlight = null, userIds = b.userIds, bracket = standings.bracket, seating = standings.seating,
         header = {
             if (event.isCancelled) {
                 item(key = "cancelled") {

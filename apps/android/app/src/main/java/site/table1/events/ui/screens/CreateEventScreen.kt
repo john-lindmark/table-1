@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import site.table1.events.data.DraftableSet
+import site.table1.events.data.DraftPods
 import site.table1.events.data.Repo
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.BarAction
@@ -85,6 +86,9 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
     var autoRounds by remember { mutableStateOf(true) }
     var topCut by remember { mutableIntStateOf(0) }
     var decklists by remember { mutableStateOf("off") }
+    /** Drafts: null = automatic pods (up to 8 each); "pod" or "cross" after round 1. */
+    var podsPick by remember { mutableStateOf<Int?>(null) }
+    var podPairing by remember { mutableStateOf(DraftPods.INSIDE) }
     /** Roto: null follows the players (round robin for 2–8, Swiss for 9+) until picked. */
     var pairingPicked by remember { mutableStateOf<String?>(null) }
     var formatMenu by remember { mutableStateOf(false) }
@@ -104,6 +108,7 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
     val isTeam = format == "team_draft" || format == "team_sealed"
     // A roto is always a cube (contract/roto-2026-10-16.md).
     val isRoto = limited && format == "roto"
+    val hasPods = limited && format == "draft"
     val cube = useCube || isRoto
     val setLabel = pickedSet?.name ?: setNameFallback.trim().takeIf { setsUnavailable && it.isNotEmpty() }
     // What the server will call it: "Draft · Duskmourn · Wed 14 Oct".
@@ -151,6 +156,10 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
                 )
                 // Roto: the Library cube with that name, else the Cube Cobra link imported into the Library, becomes the pool.
                 if (isRoto) site.table1.events.roto.RotoApi.linkCube(created.eventId, cubeName, cubeUrl)
+                // Drafts: the pods, when not the defaults (automatic, inside pods). Setup → Seating can change them.
+                if (hasPods && (podsPick != null || podPairing != DraftPods.INSIDE)) {
+                    runCatching { Repo.setEventPods(created.eventId, podsPick, podPairing) }
+                }
                 // Pin it where the organizer stands. For nearby events this also alerts opted-in players around.
                 // A scheduled event is usually made away from the venue: no pin then (Details can set it there).
                 val fix = if (schedule.startsAt == null) currentFix(context) else null
@@ -231,9 +240,12 @@ fun CreateEventScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
                 }
             }
 
+            if (hasPods) DraftPodsBlock(podsPick, podPairing, playerCount) { n, p -> podsPick = n; podPairing = p }
+
             ScheduleBlock(schedule) { schedule = it }
             if (isRoto) FormBlock("Pairing") { site.table1.events.roto.RotoPairingFields(pairing, playerCount) { pairingPicked = it } }
-            if (!(isRoto && pairing == "round_robin")) CutRoundsBlock(autoRounds, { autoRounds = it }, rounds, { rounds = it }, topCut, { topCut = it }, playerCount, swiss)
+            if (!(isRoto && pairing == "round_robin")) CutRoundsBlock(autoRounds, { autoRounds = it }, rounds, { rounds = it }, topCut, { topCut = it }, playerCount, swiss,
+                autoDetail = if (hasPods) DraftPods.autoLabel(playerCount, podsPick, podPairing) else null)
             RoundTimerRow(showClock) { showClock = it }
             if (!limited) DecklistsBlock(decklists) { decklists = it }
 

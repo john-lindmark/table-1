@@ -541,7 +541,8 @@ object Repo {
     }
 
     /**
-     * Draft events before round 1: random seats in pods of up to 8. Calling again re-shuffles.
+     * Draft events before round 1: random pods and seats for the organizer's pick (pods of up to 8 when automatic).
+     * Calling again re-draws everyone (Randomize).
      * One Postgres call (seat_event); the answer is the new seating. Refusals throw with the server's message.
      */
     suspend fun seatPlayers(eventId: String): SeatPlayersResponse =
@@ -556,6 +557,32 @@ object Repo {
         supabase.postgrest.rpc("randomize_teams", buildJsonObject { put("p_event_id", eventId) }).decodeList()
 
     /** Saves the whole layout; member order is slot order (1 = seat A). */
+    /** Drafts before round 1: the number of pods (null = automatic) and how rounds 2+ pair ("pod" | "cross"). A new
+     *  number of pods on a seated draft re-draws the seats (contract/draft-pods-2026-11-09.md). */
+    suspend fun setEventPods(eventId: String, pods: Int?, pairing: String) {
+        val r = supabase.postgrest.rpc("set_event_pods", buildJsonObject {
+            put("p_event_id", eventId); put("p_pods", pods); put("p_pod_pairing", pairing)
+        }).decodeAs<kotlinx.serialization.json.JsonObject>()
+        val reseated = (r["reseated"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "true"
+        Telemetry.capture("event_pods_set", mapOf("pods" to (pods ?: 0), "pod_pairing" to pairing, "reseated" to reseated))
+    }
+
+    /** Moves a seated player to another pod (null = a new pod), at a seat (null = the end). Returns the seating. */
+    suspend fun seatMove(participantId: String, podId: String?, seat: Int? = null): SeatPlayersResponse {
+        val r: SeatPlayersResponse = supabase.postgrest.rpc("seat_move", buildJsonObject {
+            put("p_participant_id", participantId); put("p_pod_id", podId); put("p_seat", seat)
+        }).decodeAs()
+        Telemetry.capture("seat_moved", mapOf("to" to if (podId == null) "new" else if (seat == null) "pod" else "seat"))
+        return r
+    }
+
+    /** Two seated players trade pod and seat. Returns the seating. */
+    suspend fun seatSwap(a: String, b: String): SeatPlayersResponse {
+        val r: SeatPlayersResponse = supabase.postgrest.rpc("seat_swap", buildJsonObject { put("p_a", a); put("p_b", b) }).decodeAs()
+        Telemetry.capture("seat_swapped", emptyMap())
+        return r
+    }
+
     /** Draft seating drawn with players at the ends of the table (organizer; audited). */
     suspend fun setSeatEnds(eventId: String, on: Boolean) {
         supabase.postgrest.rpc("set_seat_ends", buildJsonObject { put("p_event_id", eventId); put("p_on", on) })

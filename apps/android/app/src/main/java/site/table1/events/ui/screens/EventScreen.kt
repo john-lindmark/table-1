@@ -53,6 +53,7 @@ import site.table1.events.data.TeamStanding
 import site.table1.events.data.slotLetter
 import site.table1.events.tracker.TrackerSettings
 import site.table1.events.ui.components.Avatar
+import site.table1.events.ui.components.T1Segmented
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.BarAction
 import site.table1.events.ui.components.Ghost
@@ -559,7 +560,11 @@ private fun PlayerView(
             }
             bracketItems(standings.bracket)
             if (standings.bracket.isEmpty()) item { Section(if (standings.teams.isNullOrEmpty()) "Standings" else "Players") }
-            items(standings.standings, key = { it.participantId }) { s -> StandingLine(s, highlight = s.participantId == me?.id, team = tags[s.participantId], userId = b.userIds[s.participantId]) }
+            val podTags = podsInStandings(standings.seating, standings.standings).withIndex()
+                .associate { (i, p) -> p.podId to site.table1.events.data.DraftPods.code(p.name, i) }
+            items(standings.standings, key = { it.participantId }) { s ->
+                StandingLine(s, highlight = s.participantId == me?.id, team = tags[s.participantId] ?: s.podId?.let { podTags[it] }, userId = b.userIds[s.participantId])
+            }
         }
     }
     if (listOpen && me != null) {
@@ -613,7 +618,12 @@ internal fun StandingsList(
     footer: LazyListScope.() -> Unit = {},
     /** Top 8 (events-engine `bracket`): drawn above the standings once the cut is made. */
     bracket: List<site.table1.events.data.BracketStage> = emptyList(),
+    /** Drafts (events-engine `seating`): with 2+ pods each row is tagged with its pod and a filter shows one pod. */
+    seating: List<site.table1.events.data.SeatingPod>? = null,
 ) {
+    val pods = podsInStandings(seating, standings)
+    var podFilter by remember { mutableStateOf<String?>(null) }
+    val podTags = pods.withIndex().associate { (i, p) -> p.podId to site.table1.events.data.DraftPods.code(p.name, i) }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
         header()
         bracketItems(bracket)
@@ -622,8 +632,15 @@ internal fun StandingsList(
             teamStandingItems(teams, highlightMember = highlight, userIds = userIds)
             if (standings.isNotEmpty()) item { Section("Players") }
         }
-        items(standings, key = { it.participantId }) {
-            StandingLine(it, it.participantId == highlight, tags[it.participantId], userIds[it.participantId])
+        if (pods.isNotEmpty()) {
+            item(key = "pod-filter") {
+                T1Segmented(listOf("All") + pods.map { it.name ?: "Pod" }, pods.indexOfFirst { it.podId == podFilter } + 1, scroll = true) {
+                    podFilter = if (it == 0) null else pods[it - 1].podId
+                }
+            }
+        }
+        items(standings.filter { podFilter == null || it.podId == podFilter }, key = { it.participantId }) {
+            StandingLine(it, it.participantId == highlight, tags[it.participantId] ?: it.podId?.let { p -> podTags[p] }, userIds[it.participantId])
         }
         footer()
     }
@@ -665,6 +682,10 @@ internal fun LazyListScope.teamStandingItems(teams: List<TeamStanding>, highligh
         }
     }
 }
+
+/** Pods with seats, in order, when a draft has two or more and the standings say whose pod is whose. */
+internal fun podsInStandings(seating: List<site.table1.events.data.SeatingPod>?, standings: List<Standing>) =
+    seating.orEmpty().filter { it.seats.isNotEmpty() }.takeIf { p -> p.size > 1 && standings.any { it.podId != null } }.orEmpty()
 
 @Composable
 internal fun StandingLine(s: Standing, highlight: Boolean, team: String? = null, userId: String? = null) {

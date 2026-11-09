@@ -50,6 +50,10 @@ data class EventRow(
     val capacity: Int? = null,
     /** off | optional | required (constructed events). */
     val decklists: String = "off",
+    /** Drafts: the organizer's number of pods (null = automatic, pods of up to 8) and how rounds 2+ pair:
+     *  "pod" inside each pod, "cross" Swiss across every pod (contract/draft-pods-2026-11-09.md). */
+    val pods: Int? = null,
+    @SerialName("pod_pairing") val podPairing: String = "cross",
 ) {
     val isConstructed: Boolean get() = formatName in EventRules.constructedFormats
     val takesDecklists: Boolean get() = decklists != "off"
@@ -196,6 +200,8 @@ data class Standing(
     /** Top 8: the Swiss place and the furthest stage reached. */
     @SerialName("swiss_rank") val swissRank: Int? = null,
     val playoff: String? = null,
+    /** Drafts: the player's pod. */
+    @SerialName("pod_id") val podId: String? = null,
 )
 
 @Serializable
