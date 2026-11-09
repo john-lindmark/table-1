@@ -201,15 +201,21 @@ friends and the ability to set who can see their friends on their own profile." 
 `20261109210000_profile_friends.sql`, tests `supabase/tests/80b_profile_friends_test.sql`; shared cases in
 `testdata/sharing/cases.json` (`widening`, `sees`, `view_as` gain the new parts; `profile_friends` for the words).
 
-- **Two new settings**, both on Account → Sharing under **Friends**, both capped by the profile like every part:
-  - `friends` (default **private**): who sees your friends list on your profile.
-  - `listed` (default **friends**): who sees *you* in the friends lists of your friends' profiles. Friends means people
-    who are your friends too; Anyone means anyone who can see that list; Private means only you (and the list's owner).
+- **Two new settings**, both on Account → Sharing under **Friends**:
+  - `friends` (default **friends**, John 2026-11-09: "the friends list is default viewable by friends"): who sees your
+    friends list on your profile. Capped by the profile like every part.
+  - `listed` (default **friends**): who sees *you* in the friends lists of your friends' profiles. Since
+    `20261109230000_listed_friends_of_friends.sql` (John, 2026-11-09: "the default setting for folks to be able to be
+    seen by friends of friends"; "by default, anyone should be able to see the list of friends of someone they are
+    friends with"): `friends` means **friends of friends** (your friends, and the list owner's friends), `public`
+    anyone who can see that list, `private` only you (and the list's owner). Only a **Private** profile holds it back.
   `sharing_get` returns both; `sharing_set` takes both (a value is required, like `record`). A missing key (an older
-  server) reads as its default on every client.
+  server) reads as its default on every client. The change is server-only: clients still label `listed`'s middle choice
+  "Friends" and say "only friends see it" under Anyone on a Friends profile (wording follow-up, not built).
 - **Who shows in a list.** A friend shows to a viewer only when the owner's `friends` reaches the viewer and that
-  friend's own `listed` reaches the viewer (their level to the viewer, capped by their profile). You always see
-  yourself; the owner sees every friend. Blocks either way, deleted, demo and restricted accounts never show.
+  friend's own `listed` reaches the viewer as above. So by default, anyone who's your friend sees your whole friends
+  list. You always see yourself; the owner sees every friend. Blocks either way, deleted, demo and restricted accounts
+  never show.
 - **No totals.** Nothing ever says how many friends someone has or how many are hidden (§ UX rules 7 still holds):
   only the rows that reach you, plus how many of those are mutual.
 - **`profile_view`** gains `sections.friends: {mutual}` when the list reaches you (`mutual`: how many shown are your

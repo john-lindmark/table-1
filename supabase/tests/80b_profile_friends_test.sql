@@ -46,11 +46,15 @@ $$;
 
 -- ==================================================================== defaults
 select pg_temp.as_user(:ANA);
-select pg_temp.eq('defaults: friends private, listed friends',
-  (select (public.sharing_get()->>'friends') || ',' || (public.sharing_get()->>'listed')), 'private,friends');
+select pg_temp.eq('defaults: the list to friends, listed to friends of friends',
+  (select (public.sharing_get()->>'friends') || ',' || (public.sharing_get()->>'listed')), 'friends,friends');
 select pg_temp.eq('your own profile has the section', pg_temp.section(:ANA), '{"mutual": 0}');
 select pg_temp.eq('you see every live friend, Fay too, by name', pg_temp.names(:ANA), 'Ben Ortiz,Cal Reyes,Dee Park,Eve Gone,Fay Moss');
 
+select pg_temp.as_user(:BEN);
+select pg_temp.eq('by default a friend sees the section', pg_temp.section(:ANA), '{"mutual": 1}');
+select pg_temp.as_user(:ANA);
+select public.sharing_set('{"friends": "private"}');
 select pg_temp.as_user(:BEN);
 select pg_temp.eq('a private list: no section for a friend', pg_temp.section(:ANA), null);
 select pg_temp.throws('a private list: profile_friends refused', $$select public.profile_friends('00000000-0000-0000-0000-0000000080a1')$$, '42501');
@@ -62,11 +66,11 @@ select pg_temp.eq('the change is audited', (select count(*)::text from public.ac
   where actor = :ANA and action = 'sharing.set' and after->>'friends' = 'friends'), '1');
 select public.sharing_set('{"friends": "friends"}');
 select pg_temp.eq('the same value writes no audit row', (select count(*)::text from public.account_audit
-  where actor = :ANA and action = 'sharing.set'), '1');
+  where actor = :ANA and action = 'sharing.set'), '2');
 
 select pg_temp.as_user(:BEN);
--- Ben is friends with Cal (mutual, first) and himself; Dee and Fay are listed to friends only, and they aren't his.
-select pg_temp.eq('a friend: mutual first, themselves, nobody whose listing stops at their friends', pg_temp.names(:ANA), 'Cal Reyes,Ben Ortiz');
+-- By default you show to friends of friends: Ben (Ana's friend) sees all her live friends, Cal (his friend too) first.
+select pg_temp.eq('a friend: mutual first, then everyone listed to friends of friends', pg_temp.names(:ANA), 'Cal Reyes,Ben Ortiz,Dee Park,Eve Gone,Fay Moss');
 select pg_temp.eq('a friend: the mutual count', pg_temp.section(:ANA), '{"mutual": 1}');
 select pg_temp.eq('rows carry relation and mutual',
   (select (r->>'relation') || '/' || (r->>'mutual') from jsonb_array_elements(public.profile_friends(:ANA)->'rows') r
@@ -80,26 +84,31 @@ select pg_temp.eq('a stranger: a friends-only list has no section', pg_temp.sect
 select pg_temp.throws('a stranger: refused', $$select public.profile_friends('00000000-0000-0000-0000-0000000080a1')$$, '42501');
 
 -- ==================================================================== listed
--- Dee lists herself to anyone, but her profile is friends: Ben still doesn't see her (the profile caps it).
+select pg_temp.as_user(:DEE);
+select public.sharing_set('{"listed": "private"}');
+select pg_temp.as_user(:BEN);
+select pg_temp.eq('listed private: gone from others'' view', pg_temp.names(:ANA), 'Cal Reyes,Ben Ortiz,Eve Gone,Fay Moss');
 select pg_temp.as_user(:DEE);
 select public.sharing_set('{"listed": "public"}');
 select pg_temp.as_user(:BEN);
-select pg_temp.eq('listed public under a friends profile is capped', pg_temp.names(:ANA), 'Cal Reyes,Ben Ortiz');
+select pg_temp.eq('listed public: a Friends profile doesn''t narrow it', pg_temp.names(:ANA), 'Cal Reyes,Ben Ortiz,Dee Park,Eve Gone,Fay Moss');
 select pg_temp.as_user(:DEE);
-select public.sharing_set('{"profile": "public"}');
+select public.sharing_set('{"profile": "private"}');
 select pg_temp.as_user(:BEN);
-select pg_temp.eq('listed public on a public profile shows to anyone who sees the list', pg_temp.names(:ANA), 'Cal Reyes,Ben Ortiz,Dee Park');
+select pg_temp.eq('a Private profile hides you from every list', pg_temp.names(:ANA), 'Cal Reyes,Ben Ortiz,Eve Gone,Fay Moss');
+select pg_temp.as_user(:DEE);
+select public.sharing_set('{"profile": "friends"}');
 
 -- Cal hides himself: gone from Ben's view of Ana's list, still on Ana's own.
 select pg_temp.as_user(:CAL);
 select public.sharing_set('{"listed": "private"}');
 select pg_temp.as_user(:BEN);
-select pg_temp.eq('listed private hides you from others', pg_temp.names(:ANA), 'Ben Ortiz,Dee Park');
+select pg_temp.eq('listed private hides you from others', pg_temp.names(:ANA), 'Ben Ortiz,Dee Park,Eve Gone,Fay Moss');
 select pg_temp.eq('and from the mutual count', pg_temp.section(:ANA), '{"mutual": 0}');
 select pg_temp.as_user(:ANA);
 select pg_temp.eq('the owner still sees a hidden friend', pg_temp.names(:ANA), 'Ben Ortiz,Cal Reyes,Dee Park,Eve Gone,Fay Moss');
 select pg_temp.as_user(:CAL);
-select pg_temp.eq('a hidden friend sees themselves', pg_temp.names(:ANA), 'Ben Ortiz,Cal Reyes,Dee Park');
+select pg_temp.eq('a hidden friend sees themselves', pg_temp.names(:ANA), 'Ben Ortiz,Cal Reyes,Dee Park,Eve Gone,Fay Moss');
 
 -- ==================================================================== list to anyone
 select pg_temp.as_user(:ANA);
@@ -109,9 +118,13 @@ select pg_temp.eq('anyone, but Ana''s profile is friends: still capped', pg_temp
 select pg_temp.as_user(:ANA);
 select public.sharing_set('{"profile": "public"}');
 select pg_temp.as_user(:VIC);
--- Vic is Dee's friend (mutual), and Dee lists to anyone; Ben lists to friends only (Vic isn't his).
+-- Vic is Dee's friend (mutual), and Dee lists to anyone; Ben, Eve and Fay list to friends of friends (Vic is none).
 select pg_temp.eq('a stranger sees who lists to anyone, mutual first', pg_temp.names(:ANA), 'Dee Park');
 select pg_temp.eq('a stranger''s mutual count', pg_temp.section(:ANA), '{"mutual": 1}');
+select pg_temp.as_user(:DEE);
+select public.sharing_set('{"listed": "friends"}');
+select pg_temp.as_user(:VIC);
+select pg_temp.eq('friends of friends includes your own friends, wherever the list is', pg_temp.names(:ANA), 'Dee Park');
 
 -- ==================================================================== blocks, deleted, demo
 -- Fay lists to anyone on a public profile, then blocks Vic: Vic never sees her.
