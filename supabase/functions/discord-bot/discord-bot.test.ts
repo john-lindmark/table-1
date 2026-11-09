@@ -1,10 +1,10 @@
 import { assert, assertEquals, assertThrows } from "jsr:@std/assert@1";
 import {
   type Card, canManageServer, cardEmbed, commandPath, deckEmbed, deckImageUrl, eventComponents, eventEmbed, eventIdFrom, helpEmbed, HELP,
-  COMMANDS, metaAsk, metaComponents, metaEmbed, metaImageUrl, outcomeText, parseButtonId, parseWhen, partConfirmMessage, partEmbed, resultsEmbed, statusLine, validZone, zoneChoices,
+  COMMANDS, podsLine, metaAsk, metaComponents, metaEmbed, metaImageUrl, outcomeText, parseButtonId, parseWhen, partConfirmMessage, partEmbed, resultsEmbed, statusLine, validZone, zoneChoices,
 } from "./embeds.ts";
 import { DiscordRest } from "./discord.ts";
-import { isTeamFormat, toRows, toTeamRows } from "./standings.ts";
+import { isTeamFormat, podCode, podCodes, toRows, toTeamRows } from "./standings.ts";
 import { cleanProperties, hashId, Telemetry } from "./telemetry.ts";
 import { hexToBytes, verifyInteraction } from "./verify.ts";
 
@@ -178,6 +178,53 @@ Deno.test("results: ranks, records, points, the winner, the link", () => {
   assertEquals(sofar.title, "Standings so far · Friday \\*\\*Modern\\*\\*");
   assert(sofar.description?.startsWith("1. Bea"), "no trophy before the end");
   assertEquals(sofar.footer.text, "Table 1 · After round 2 of 3");
+});
+
+Deno.test("drafts with pods: the card's Pods line, before and after the draw, and nothing for one pod or other formats", () => {
+  const draft = { ...card, format_name: "draft", format_label: "Draft", pod_pairing: "pod" as const, pods: null, pod_sizes: null };
+  assertEquals(podsLine({ ...draft, players: 6 }), null, "an ordinary draft of up to 8 says nothing");
+  assertEquals(podsLine({ ...draft, players: 17 }), "3 pods · 6, 6, 5 · paired inside pods", "automatic, before the draw");
+  assertEquals(podsLine({ ...draft, players: 15, pods: 2, pod_pairing: "cross" }), "2 pods · 8, 7 · Swiss across pods");
+  assertEquals(podsLine({ ...draft, players: 0, pods: 2 }), "2 pods · paired inside pods", "picked before anyone signed up");
+  assertEquals(podsLine({ ...draft, players: 12, pods: 1 }), "1 pod · 12", "one pod, asked for");
+  assertEquals(podsLine({ ...draft, status: "seated", players: 16, pods: 2, pod_sizes: [9, 7] }), "2 pods · 9, 7 · paired inside pods",
+    "seated: the pods as drawn and moved by hand, not the plan");
+  assertEquals(podsLine({ ...card, format_name: "modern", players: 30 }), null, "constructed");
+  assertEquals(podsLine({ ...card, format_name: "team_draft", players: 8 }), null, "team drafts are one pod");
+  const e = eventEmbed({ ...draft, players: 15, pods: 2 });
+  assertEquals(e.fields.find((f) => f.name === "Pods")?.value, "2 pods · 8, 7 · paired inside pods");
+  assertEquals(eventEmbed(card).fields.some((f) => f.name === "Pods"), false);
+});
+
+Deno.test("drafts with pods: results tag each player's pod when there are two or more", () => {
+  const p = (id: string, podId: string | null, seat: number | null = 1) =>
+    ({ id, eventId: "e", podId, displayName: id, seat, status: "active" as const, droppedInRound: null });
+  const pods = [{ id: "b", name: "Pod 2", display_order: 1 }, { id: "a", name: "Pod 1", display_order: 0 }, { id: "c", name: "Pod 3", display_order: 2 }];
+  const codes = podCodes([p("x", "a"), p("y", "b"), p("z", "c", null)], pods);
+  assertEquals([...codes.entries()], [["x", "P1"], ["y", "P2"]], "an empty pod (nobody seated) isn't counted or tagged");
+  assertEquals(podCodes([p("x", "a"), p("y", "a")], pods).size, 0, "one pod in play: no tags");
+  assertEquals(podCode("Pod 7", 0), "P7");
+  assertEquals(podCode("Main table", 1), "P2");
+  const standing = (participantId: string, rank: number) => ({ rank, swissRank: rank, playoff: null, participantId, displayName: participantId.toUpperCase(),
+    status: "active" as const, matchWins: 3 - rank, matchLosses: rank - 1, matchDraws: 0, byes: 0, matchPoints: 3 * (3 - rank), matchesPlayed: 2,
+    gamePoints: 0, gamesPlayed: 0, opponentIds: [], matchWinPct: 0.5, gameWinPct: 0.5, opponentMatchWinPct: 0.5, opponentGameWinPct: 0.5 });
+  const rows = toRows([standing("x", 1), standing("y", 2)], codes);
+  const e = resultsEmbed({ ...card, format_name: "draft", status: "completed", sign_up: "closed" }, rows, true);
+  assertEquals(e.description?.split("\n"), ["🏆 X · P1 · 2-0 · 6 pts", "2. Y · P2 · 1-1 · 3 pts"]);
+  assertEquals(toRows([standing("x", 1)])[0].pod, null, "no pods given: no tag");
+});
+
+Deno.test("/event create offers pods and pairing for drafts", () => {
+  // deno-lint-ignore no-explicit-any
+  const ev = (COMMANDS as any[]).find((c) => c.name === "event");
+  // deno-lint-ignore no-explicit-any
+  const create = (ev.options as any[]).find((o) => o.name === "create");
+  // deno-lint-ignore no-explicit-any
+  const byName = new Map((create.options as any[]).map((o) => [o.name, o]));
+  assertEquals([byName.get("pods")?.min_value, byName.get("pods")?.max_value], [1, 16]);
+  // deno-lint-ignore no-explicit-any
+  assertEquals(byName.get("pairing")?.choices.map((c: any) => c.value), ["pod", "cross"]);
+  assert(create.options.length <= 25, "Discord allows 25 options");
 });
 
 Deno.test("team results: each team on its own, members best first under it", () => {

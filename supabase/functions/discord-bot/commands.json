@@ -15,7 +15,7 @@
     },
     {
       "command": "/event create",
-      "text": "Make a Table 1 event and post its card here: format, name, when and where, player cap, top 8, rounds (automatic when left out), set or cube. You're seated as the organizer."
+      "text": "Make a Table 1 event and post its card here: format, name, when and where, player cap, top 8, rounds (automatic when left out), set or cube, and for a draft its pods and whether later rounds pair inside them or across. You're seated as the organizer."
     },
     {
       "command": "/event post",
@@ -234,6 +234,28 @@
               "type": 3,
               "description": "Draft: the cube's name",
               "max_length": 80
+            },
+            {
+              "name": "pods",
+              "type": 4,
+              "description": "Draft: how many pods (left out: pods of up to 8)",
+              "min_value": 1,
+              "max_value": 16
+            },
+            {
+              "name": "pairing",
+              "type": 3,
+              "description": "Draft: after round 1, pair inside each pod or Swiss across all pods",
+              "choices": [
+                {
+                  "name": "Inside pods",
+                  "value": "pod"
+                },
+                {
+                  "name": "Across pods",
+                  "value": "cross"
+                }
+              ]
             }
           ]
         },

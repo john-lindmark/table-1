@@ -2,6 +2,7 @@
 // database returns (contract/discord-2026-10-29.md §5), so they are tested without Discord or a database. Also the
 // option reading, the button ids and the "when" parsing the commands need.
 import commands from "./commands.json" with { type: "json" };
+import { podPlan } from "../events-engine/seating.ts";
 
 export const ACCENT = 0x00ffd9;
 export const SITE = "https://table-1.site";
@@ -176,6 +177,11 @@ export interface Card {
   channel_id?: string | null;
   message_id?: string | null;
   results_message_id?: string | null;
+  /** Drafts (contract/draft-pods-2026-11-09.md): the organizer's number of pods (null = automatic), how rounds
+   *  after the first pair, and once the seats are drawn each pod's size in order. Absent on other formats. */
+  pods?: number | null;
+  pod_pairing?: "pod" | "cross" | null;
+  pod_sizes?: number[] | null;
 }
 
 /** Text from people, safe in an embed: no markdown, no mentions, one line. */
@@ -199,6 +205,19 @@ export function statusLine(c: Card): string {
   return "Sign-ups open";
 }
 
+/** The card's Pods line for a draft: the seated pods once drawn, else the pick for the players so far. Nothing for
+ *  one pod nobody asked for (an ordinary draft of up to 8) or for other formats.
+ *  "2 pods · 8, 7 · paired inside pods" / "3 pods · 6, 6, 5 · Swiss across pods" / "2 pods · paired inside pods". */
+export function podsLine(c: Card): string | null {
+  if (c.format_name !== "draft") return null;
+  const sizes = c.pod_sizes?.length ? c.pod_sizes : podPlan(c.players, c.pods ?? null);
+  if (sizes.length < 2 && c.pods == null) return null;
+  const pairing = c.pod_pairing === "cross" ? "Swiss across pods" : "paired inside pods";
+  if (!sizes.length) return `${c.pods} pod${c.pods === 1 ? "" : "s"} · ${pairing}`;
+  if (sizes.length === 1) return `1 pod · ${sizes[0]}`;
+  return `${sizes.length} pods · ${sizes.join(", ")} · ${pairing}`;
+}
+
 export function eventEmbed(c: Card) {
   const product = c.set_name ?? c.cube_name;
   const lines: string[] = [];
@@ -212,6 +231,8 @@ export function eventEmbed(c: Card) {
   if (c.waitlist > 0) fields.push({ name: `Waitlist · ${c.waitlist}`, value: names(c.waitlist_names), inline: false });
   fields.push({ name: "Rounds", value: c.auto_rounds && c.status === "setup" ? `${c.number_of_rounds} (follows the players)` : String(c.number_of_rounds), inline: true });
   fields.push({ name: "Top cut", value: c.top_cut === 8 ? "Top 8" : "None", inline: true });
+  const pods = podsLine(c);
+  if (pods) fields.push({ name: "Pods", value: pods, inline: true });
   if (c.short_code && c.sign_up !== "closed") fields.push({ name: "Join code", value: `\`${c.short_code}\``, inline: true });
   return {
     title: clean(c.name).slice(0, 256),
@@ -285,8 +306,9 @@ export function resultsEmbed(c: Card, rows: ResultRow[], final: boolean, teams: 
     };
   }
   const shown = rows.slice(0, final ? 8 : 16);
+  // Drafts with two or more pods tag each player with theirs ("P1"), like the apps' standings.
   const lines = shown.map((r) =>
-    `${r.rank === 1 && final ? "🏆" : `${r.rank}.`} ${clean(r.name)}${r.dropped ? " (dropped)" : ""} · ${record(r.wins, r.losses, r.draws)} · ${r.points} pts`
+    `${r.rank === 1 && final ? "🏆" : `${r.rank}.`} ${clean(r.name)}${r.pod ? ` · ${r.pod}` : ""}${r.dropped ? " (dropped)" : ""} · ${record(r.wins, r.losses, r.draws)} · ${r.points} pts`
   );
   if (rows.length > shown.length) lines.push(`…and ${rows.length - shown.length} more`);
   if (!rows.length) lines.push("No results yet.");

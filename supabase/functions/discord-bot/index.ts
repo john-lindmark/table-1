@@ -120,10 +120,12 @@ async function eventCreate(ctx: Ctx, options: Parameters<typeof opt>[0]): Promis
     p_capacity: opt<number>(options, "cap") ?? null, p_top_cut: opt<boolean>(options, "top8") ? 8 : 0,
     p_rounds: opt<number>(options, "rounds") ?? null, p_set_code: opt(options, "set") ?? null,
     p_cube_name: opt(options, "cube") ?? null, p_local_date: localDate,
+    p_pods: opt<number>(options, "pods") ?? null, p_pod_pairing: opt(options, "pairing") ?? null,
   });
   ctx.telemetry.push({
     event: "discord_event_created", format, scheduled: Boolean(startsAt), capped: card.capacity != null,
     top_cut: card.top_cut, auto_rounds: card.auto_rounds, named: Boolean(opt(options, "name")),
+    pods: card.pods ?? 0, pod_pairing: card.pod_pairing ?? null,
   });
   rememberPost(ctx, card.event_id, "event");
   return reply(eventMessage(card));
@@ -171,7 +173,7 @@ async function signUpOrDrop(ctx: Ctx, action: "up" | "down", eventId: string, vi
 
 async function results(ctx: Ctx, eventId: string): Promise<Response> {
   const r = await rpc<Card & { final: boolean; organizer: boolean }>("discord_event_results", { p_discord_id: ctx.discordId, p_guild_id: ctx.guildId, p_event_id: eventId, p_channel_id: ctx.channelId });
-  const { rows, teams } = await loadStandings(admin, eventId, isTeamFormat(r.format_name));
+  const { rows, teams } = await loadStandings(admin, eventId, isTeamFormat(r.format_name), r.format_name === "draft");
   ctx.telemetry.push({ event: "discord_results_posted", final: r.final, players: rows.length, teams: teams?.length ?? 0 });
   rememberPost(ctx, eventId, "results");
   return reply({ embeds: [resultsEmbed(r, rows, r.final, teams)], components: resultsComponents(r) });

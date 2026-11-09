@@ -38,13 +38,30 @@ export interface ResultRow {
   draws: number;
   points: number;
   dropped: boolean;
+  /** Drafts with two or more pods: the player's pod as the apps show it ("P1"). */
+  pod?: string | null;
 }
 
-export function toRows(standings: PlayoffStanding[]): ResultRow[] {
+export function toRows(standings: PlayoffStanding[], podOf: Map<string, string> = new Map()): ResultRow[] {
   return standings.map((s) => ({
     rank: s.rank, name: s.displayName, wins: s.matchWins + s.byes, losses: s.matchLosses, draws: s.matchDraws,
-    points: s.matchPoints, dropped: s.status === "dropped",
+    points: s.matchPoints, dropped: s.status === "dropped", pod: podOf.get(s.participantId) ?? null,
   }));
+}
+
+/** "P1" from "Pod 1", else the pod's place (web draftPods.ts podCode, iOS/Android DraftPods.code). */
+export function podCode(name: string | null | undefined, index: number): string {
+  const n = name?.trim().split(/\s+/).at(-1);
+  return n && /^\d+$/.test(n) ? `P${n}` : `P${index + 1}`;
+}
+
+/** Participant id → pod code, only when two or more pods have players (one pod says nothing). */
+export function podCodes(participants: Participant[], pods: { id: string; name: string; display_order: number }[]): Map<string, string> {
+  const used = new Set(participants.filter((p) => p.seat != null).map((p) => p.podId));
+  const shown = [...pods].sort((a, b) => a.display_order - b.display_order).filter((d) => used.has(d.id));
+  if (shown.length < 2) return new Map();
+  const code = new Map(shown.map((d, i) => [d.id, podCode(d.name, i)]));
+  return new Map(participants.filter((p) => p.podId && code.has(p.podId)).map((p) => [p.id, code.get(p.podId!)!]));
 }
 
 /** A team event's teams in order, each with its members best first (events-engine teams.ts). */
@@ -71,28 +88,35 @@ export function toTeamRows(teams: TeamStanding[]): TeamResultRow[] {
 
 export const isTeamFormat = (format: string | null | undefined) => format === "team_draft" || format === "team_sealed";
 
-/** The players' standings, and for a team event (team draft, team sealed) the teams' too; null otherwise. */
+/** The players' standings, and for a team event (team draft, team sealed) the teams' too; null otherwise. A draft
+ *  with two or more pods tags each player with their pod. */
 export async function loadStandings(
   admin: SupabaseClient,
   eventId: string,
   teamEvent = false,
+  draft = false,
 ): Promise<{ rows: ResultRow[]; teams: TeamResultRow[] | null }> {
-  const [parts, rounds, teams] = await Promise.all([
+  const [parts, rounds, teams, pods] = await Promise.all([
     admin.from("participants").select("*").eq("event_id", eventId).order("seat"),
     admin.from("rounds").select("*, matches(*, match_sides(*))").eq("event_id", eventId).order("number"),
     teamEvent
       ? admin.from("event_teams").select("*").eq("event_id", eventId).eq("active", true).order("display_order")
       : Promise.resolve({ data: [], error: null }),
+    draft
+      ? admin.from("pods").select("id, name, display_order").eq("event_id", eventId)
+      : Promise.resolve({ data: [], error: null }),
   ]);
   if (parts.error) throw parts.error;
   if (rounds.error) throw rounds.error;
   if (teams.error) throw teams.error;
+  if (pods.error) throw pods.error;
   const participants = (parts.data ?? []).map(toParticipant);
   const staged = (rounds.data ?? []).map(toRound);
   // deno-lint-ignore no-explicit-any
   const teamList = (teams.data ?? []).map((t: any): Team => ({ id: t.id, name: t.name, order: t.display_order }));
   return {
-    rows: toRows(playoffStandings(participants, staged)),
+    // deno-lint-ignore no-explicit-any
+    rows: toRows(playoffStandings(participants, staged), podCodes(participants, (pods.data ?? []) as any[])),
     teams: teamEvent && teamList.length ? toTeamRows(computeTeamStandings(teamList, participants, staged)) : null,
   };
 }
