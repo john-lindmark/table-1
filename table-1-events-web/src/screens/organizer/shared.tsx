@@ -1,8 +1,10 @@
 import type { EventBundle } from "../../lib/api";
 import type { OrganizerTab } from "../../lib/organizer";
 import { toTeams } from "../../lib/useEventExtras";
-import type { EventTeam, Match } from "../../lib/types";
-import { Section } from "../../components/kit";
+import type { EventTeam, Match, Participant, RoundWithMatches } from "../../lib/types";
+import { matchTitle, nameLookup, scoreText } from "../../lib/organizer";
+import { roundName } from "../../lib/scheduledEvents";
+import { Row, Section } from "../../components/kit";
 import { StandingsTable } from "../../components/StandingsTable";
 import { TeamStandingsTable } from "../../components/TeamStandingsTable";
 
@@ -42,4 +44,42 @@ export function StandingsBlock({
                       pods={bundle.event.formatName === "draft" ? bundle.pods : undefined} />
     </>
   );
+}
+
+/** Rounds newest first, every match tappable to correct its result (Results → Rounds, Live → Earlier). */
+export function RoundsList({ rounds, participants, numberOfRounds, onOpenMatch }: {
+  rounds: RoundWithMatches[];
+  participants: Participant[];
+  numberOfRounds: number;
+  onOpenMatch: (match: Match) => void;
+}) {
+  const nameOf = nameLookup(participants);
+  return (
+    <>
+      {[...rounds]
+        .sort((a, b) => b.number - a.number)
+        .map((r) => (
+          <div key={r.id} className="flex flex-col gap-px">
+            <Section title={r.stage && r.stage !== "swiss" ? roundName(r.stage, r.number, numberOfRounds) : `Round ${r.number}`} />
+            {[...r.matches]
+              .sort((a, b) => Number(a.isBye) - Number(b.isBye) || (a.tableNumber ?? 0) - (b.tableNumber ?? 0))
+              .map((m) => (
+                <Row
+                  key={m.id}
+                  title={matchTitle(m, nameOf)}
+                  detail={m.resultSource === "organizer" && !m.isBye ? "Set by organizer" : undefined}
+                  value={roundValue(m)}
+                  onClick={m.isBye ? undefined : () => onOpenMatch(m)}
+                />
+              ))}
+          </div>
+        ))}
+    </>
+  );
+}
+
+function roundValue(m: Match): string {
+  if (m.isBye) return "2–0";
+  if (m.status === "pending") return "—";
+  return scoreText(m);
 }

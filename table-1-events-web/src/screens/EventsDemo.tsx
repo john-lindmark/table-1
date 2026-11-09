@@ -51,7 +51,7 @@ function liveBundle(team = false) {
     };
   };
   const round = (n: number, status: string, matches: unknown[]) => ({
-    id: `r${n}`, event_id: E, number: n, status, matches, pairings_published_at: null, recorded_at: null, started_at: null,
+    id: `r${n}`, event_id: E, number: n, status, matches, pairings_published_at: `2026-10-22T${17 + n}:00:00Z`, recorded_at: null, started_at: null,
     timer_duration_seconds: 3000, timer_ends_at: null, timer_last_started_at: null, timer_remaining_at_change: 1724, timer_status: "paused",
   });
   if (team) {
@@ -88,15 +88,19 @@ function liveBundle(team = false) {
       team_id: null, team_slot: null, user_id: demoUser(i + 1), created_at: "2026-10-22T18:00:00Z",
     })),
     rounds: [
-      round(1, "completed", [match(1, 1, 1, 5, 2, 0, "confirmed"), match(1, 2, 2, 6, 2, 1, "confirmed"),
-                             match(1, 3, 3, 7, 1, 2, "confirmed"), match(1, 4, 4, 8, 0, 2, "confirmed")]),
+      // ?repair: table 3 was corrected by the organizer after round 2 went out, so Live offers to re-pair round 2.
+      round(1, "recorded", [match(1, 1, 1, 5, 2, 0, "confirmed"), match(1, 2, 2, 6, 2, 1, "confirmed"),
+                            new URLSearchParams(location.search).has("repair")
+                              ? { ...match(1, 3, 3, 7, 1, 2, "confirmed"), result_source: "organizer", updated_at: "2026-10-22T19:20:00Z" }
+                              : match(1, 3, 3, 7, 1, 2, "confirmed"),
+                            match(1, 4, 4, 8, 0, 2, "confirmed")]),
       round(2, "active", [match(2, 1, 1, 2, 2, 1, "confirmed"), match(2, 2, 7, 8, 1, 0, "reported"),
                           match(2, 3, 5, 6, 0, 0, "pending"), match(2, 4, 3, 4, 0, 0, "pending")]),
     ],
   });
 }
 
-const LIVE_TABS: OrganizerTab[] = ["round", "standings", "players"];
+const LIVE_TABS: OrganizerTab[] = ["round", "rounds", "standings", "players"];
 
 const DEMO_TEAMS: EventTeam[] = [
   { id: "tA", name: "Alpha", order: 1, members: [] },
@@ -109,10 +113,11 @@ function LiveDemo({ team = false }: { team?: boolean }) {
   const teams = team ? DEMO_TEAMS : null;
   return (
     <>
-      <TabBar tabs={LIVE_TABS} value={tab} onChange={setTab} labels={TAB_LABELS} />
+      <TabBar tabs={LIVE_TABS} value={tab} onChange={setTab} labels={{ ...TAB_LABELS, rounds: "Earlier" }} />
       <LiveView eventId="demo-event" bundle={bundle} tab={tab} isTeam={team} isDraft teams={teams}
                 teamNames={new Map((teams ?? []).map((t) => [t.id, t.name]))}
-                refetch={async () => {}} onOpenMatch={() => {}} setActionError={() => {}} mutate={async () => {}} />
+                refetch={async () => {}} onOpenMatch={() => {}} setActionError={() => {}} mutate={async () => {}}
+                onRepair={() => window.alert("Re-pair round 2? (demo)")} />
     </>
   );
 }

@@ -11879,6 +11879,193 @@
           "p_guide"
         ]
       }
+    },
+    "withdraw_round": {
+      "note": "Organizer only; called by events-engine repair_round with the organizer's JWT once the new pairings are known (clients don't call it). Takes back the latest, still active round: deletes its life trackers, matches (sides/outcomes cascade, lifetime records reverse) and the round, sets current_round back one, audits round.withdrawn with the old tables. Errors: 42501, P0002, 22023 (not latest / recorded / event not running / earlier dispute), PT409 results in without p_clear_results. contract/repair-round-2026-11-09.md.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_round_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_clear_results": {
+            "type": "boolean"
+          },
+          "p_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "p_round_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "round_number": {
+            "type": "integer"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "cleared_results": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "event_id",
+          "round_number",
+          "stage",
+          "cleared_results"
+        ]
+      }
+    },
+    "set_event_pods": {
+      "note": "Organizer, format draft, before round 1. p_pods null = automatic (pods of up to 8), else 1–16; p_pod_pairing 'pod' (rounds 2+ inside each pod) | 'cross' (Swiss across pods). A new number of pods on a seated draft re-draws every seat (reseated). Audited event.pods_updated. Errors 28000, P0002, 42501, 55000 (not a draft / round 1 paired), 22023. contract/draft-pods-2026-11-09.md.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_pods": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "p_pod_pairing": {
+            "type": "string",
+            "enum": [
+              "pod",
+              "cross"
+            ]
+          }
+        },
+        "required": [
+          "p_event_id",
+          "p_pods",
+          "p_pod_pairing"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pods": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "pod_pairing": {
+            "type": "string"
+          },
+          "number_of_rounds": {
+            "type": "integer"
+          },
+          "reseated": {
+            "type": "boolean"
+          },
+          "seating": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "event_id",
+          "pod_pairing",
+          "number_of_rounds",
+          "reseated",
+          "seating"
+        ]
+      }
+    },
+    "seat_move": {
+      "note": "Organizer, seated draft, before round 1: one player to another pod (p_pod_id; null = a new pod, the first empty one or 'Pod N', max 16) at a seat (p_seat; null or past the end = the end). Pods stay 1..n. Audited participant.seat_moved. Errors P0002, 42501, 55000, 22023 (pod not in the event). contract/draft-pods-2026-11-09.md.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_participant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_pod_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "p_seat": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "p_participant_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "note": "Same as seat_event: {event_id, pods: [{pod_id, name, seats: [{seat, participant_id, display_name, team}]}]}"
+      }
+    },
+    "seat_swap": {
+      "note": "Organizer, seated draft or team draft, before round 1: two players trade pod and seat. Audited participant.seats_swapped. Errors P0002, 42501, 55000. contract/draft-pods-2026-11-09.md.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_a": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "p_b": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_a",
+          "p_b"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "note": "Same as seat_event: {event_id, pods: [{pod_id, name, seats: [{seat, participant_id, display_name, team}]}]}"
+      }
+    },
+    "seat_fill": {
+      "note": "Organizer or service role (events-engine pair_round): seats active players without a seat at the end of the smallest pod each, leaving everyone else; before the draw it is seat_event. Audited event.seats_filled. contract/draft-pods-2026-11-09.md.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "p_event_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "p_event_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "note": "Same as seat_event: {event_id, pods: [{pod_id, name, seats: [{seat, participant_id, display_name, team}]}]}"
+      }
     }
   },
   "functions": {
@@ -12057,7 +12244,65 @@
           ]
         }
       },
-      "note": " New: action seat_players (organizer, draft events before round 1) -> {pods:[{pod_id,name,seats:[{seat,participant_id,display_name,team}]}]}. standings now also returns teams (team events) and seating (draft events). pair_round handles draft round 1 across the table, team draft and team sealed. 2026-10-16 (v7): pair_round pairs round robin when events.pairing = round_robin (circle method on seat order; rounds = n−1 even / n odd, set on round 1; a later drop gives each opponent a bye) and refuses round 1 of a roto until the draft is finished (409). 2026-10-27 (v10, contract/scheduled-events-2026-10-27.md §5–6): pair_round goes on to quarterfinal / semifinal / final when events.top_cut = 8 (more than 8 active players), answers stage, and fixes number_of_rounds at round 1 for auto_rounds events. standings rows gain swiss_rank and playoff (winner|final|semifinal|quarterfinal|null), rank is the final order; top level gains top_cut and bracket [{stage, matches: [{match_id, table_number, status, winner, sides: [{seed, participant_id, display_name, game_wins}]}]}]. pair_round refuses round 1 (409 'N players haven't sent a decklist') when events.decklists = required."
+      "note": " New: action seat_players (organizer, draft events before round 1) -> {pods:[{pod_id,name,seats:[{seat,participant_id,display_name,team}]}]}. standings now also returns teams (team events) and seating (draft events). pair_round handles draft round 1 across the table, team draft and team sealed. 2026-10-16 (v7): pair_round pairs round robin when events.pairing = round_robin (circle method on seat order; rounds = n−1 even / n odd, set on round 1; a later drop gives each opponent a bye) and refuses round 1 of a roto until the draft is finished (409). 2026-10-27 (v10, contract/scheduled-events-2026-10-27.md §5–6): pair_round goes on to quarterfinal / semifinal / final when events.top_cut = 8 (more than 8 active players), answers stage, and fixes number_of_rounds at round 1 for auto_rounds events. standings rows gain swiss_rank and playoff (winner|final|semifinal|quarterfinal|null), rank is the final order; top level gains top_cut and bracket [{stage, matches: [{match_id, table_number, status, winner, sides: [{seed, participant_id, display_name, game_wins}]}]}]. pair_round refuses round 1 (409 'N players haven't sent a decklist') when events.decklists = required.",
+      "repair_round": {
+        "note": "Organizer only (Bearer user JWT). Pairs the latest, still active round again from the results as they are now: works out the new pairings first, then withdraw_round, then pairs like pair_round (fresh clock, round.paired push and audit with repaired: true). 409 {error, code: 'has_results'} when results are in and clear_results isn't true; 409 for an earlier dispute or a round that isn't the latest/active. contract/repair-round-2026-11-09.md.",
+        "request": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "const": "repair_round"
+            },
+            "event_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "round_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "clear_results": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "action",
+            "event_id",
+            "round_id"
+          ]
+        },
+        "response": {
+          "type": "object",
+          "properties": {
+            "round_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "round_number": {
+              "type": "integer"
+            },
+            "stage": {
+              "type": "string"
+            },
+            "timer_ends_at": {
+              "type": "string"
+            },
+            "matches": {
+              "type": "array"
+            },
+            "repaired": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "round_number",
+            "repaired"
+          ]
+        }
+      }
     },
     "live-activity": {
       "note": "POST {action:'state', include_demo?} with the user's JWT → {snapshots:[{eventId,eventName,participantId,state}]} (camelCase, Unix seconds). Dispatch is database-only."

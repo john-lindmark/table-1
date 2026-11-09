@@ -131,6 +131,8 @@ data class MatchRow(
     /** 'player' | 'organizer' (null while pending). */
     @SerialName("result_source") val resultSource: String? = null,
     @SerialName("match_sides") val sides: List<SideRow> = emptyList(),
+    /** Last change on the server (re-pair notice, RepairRound). */
+    @SerialName("updated_at") val updatedAt: String? = null,
 ) {
     fun side(n: Int): SideRow? = sides.firstOrNull { it.side == n }
 }
@@ -151,6 +153,8 @@ data class RoundRow(
     val matches: List<MatchRow> = emptyList(),
     /** swiss | quarterfinal | semifinal | final. */
     val stage: String = "swiss",
+    /** When the pairings went out (re-pair notice, RepairRound). */
+    @SerialName("pairings_published_at") val pairingsPublishedAt: String? = null,
 ) {
     val isPlayoff: Boolean get() = stage != "swiss"
     fun name(of: Int): String = EventRules.roundName(stage, number, of)

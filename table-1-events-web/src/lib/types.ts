@@ -91,6 +91,8 @@ export interface Round {
   timerEndsAt?: string | null;
   /** swiss | quarterfinal | semifinal | final (top 8). */
   stage?: "swiss" | "quarterfinal" | "semifinal" | "final";
+  /** When the pairings went out (re-pair notice, lib/repairRound.ts). */
+  pairingsPublishedAt?: string | null;
 }
 
 export interface MatchSide {
@@ -118,6 +120,8 @@ export interface Match {
   reportedByParticipant?: string | null;
   /** Who entered the result: a player report or the organizer (set_match_result). */
   resultSource?: "player" | "organizer" | null;
+  /** Last change on the server (re-pair notice, lib/repairRound.ts). */
+  updatedAt?: string | null;
 }
 
 export interface RoundWithMatches extends Round {

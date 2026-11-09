@@ -156,6 +156,8 @@ struct MatchRow: Decodable, Identifiable, Hashable {
     /// player | organizer (nil until a result exists).
     var resultSource: String?
     var reportedByParticipant: String?
+    /// Last change on the server (re-pair notice, RepairRound).
+    var updatedAt: String?
 
     func side(_ n: Int) -> SideRow? { matchSides.first { $0.side == n } }
 }
@@ -174,6 +176,8 @@ struct RoundRow: Decodable, Identifiable, Hashable {
     var timerLastStartedAt: String?
     /// swiss | quarterfinal | semifinal | final (nil from older servers = swiss).
     var stage: String?
+    /// When the pairings went out (re-pair notice, RepairRound).
+    var pairingsPublishedAt: String?
 
     var isPlayoff: Bool { (stage ?? "swiss") != "swiss" }
     func name(of rounds: Int) -> String { EventRules.roundName(stage: stage, number: number, of: rounds) }

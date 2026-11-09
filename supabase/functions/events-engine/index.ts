@@ -5,6 +5,9 @@
 //   POST { action: "seat_players", event_id }  -> random draft seats via rpc seat_event (organizers only; older builds)
 //   POST { action: "pair_round", event_id }    -> pairs and opens the next round (organizers only): Swiss, then the
 //                                                  top 8 quarterfinals, semifinals and final when events.top_cut = 8
+//   POST { action: "repair_round", event_id, round_id, clear_results?, reason? }
+//                                              -> pairs the latest, still active round again from the results as they
+//                                                  are now (organizers only; contract/repair-round-2026-11-09.md)
 // Rules are the same files the web app ships (standings, pairings, seating, teams), so web and server agree.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { pairRound, type ProposedMatch } from "./pairings.ts";
@@ -202,7 +205,10 @@ async function standings(eventId: string, authHeader: string, token: string | nu
   });
 }
 
-async function pairNextRound(eventId: string, authHeader: string) {
+/** Re-pair: the latest round, still active, taken back (public.withdraw_round) once its new pairings are known. */
+type Repair = { roundId: string; clearResults: boolean; reason: string | null };
+
+async function pairNextRound(eventId: string, authHeader: string, repair: Repair | null = null) {
   const auth = await callerIsOrganizer(eventId, authHeader);
   if (auth.error) return auth.error;
 
@@ -210,6 +216,19 @@ async function pairNextRound(eventId: string, authHeader: string) {
   if (!event) return json({ error: "Event not found" }, 404);
   if (event.status === "cancelled") return json({ error: "That event was cancelled" }, 409);
   if (["completed", "archived"].includes(event.status)) return json({ error: "That event has finished" }, 409);
+  if (repair) {
+    const latest = rounds.at(-1);
+    if (!latest || latest.id !== repair.roundId) return json({ error: "Only the latest round can be re-paired" }, 409);
+    if (latest.status !== "active") return json({ error: `Round ${latest.number} is already recorded` }, 409);
+    const entered = latest.matches.filter((m) => !m.isBye && m.status !== "pending").length;
+    if (entered > 0 && !repair.clearResults) {
+      return json({ error: `Round ${latest.number} has ${entered} ${entered === 1 ? "result" : "results"} in. Clear them to re-pair.`,
+                    code: "has_results", results: entered }, 409);
+    }
+  }
+  // Re-pairing works out the round as if it had never been paired; nothing is written until the pairings are known.
+  const withoutRepaired = (all: StagedRound[]) => repair ? all.filter((r) => r.id !== repair.roundId) : all;
+  rounds = withoutRepaired(rounds);
   const open = rounds.find((r) => r.status === "active");
   if (open) {
     const unreported = open.matches.filter((m) => !m.isBye && m.status === "pending").length;
@@ -228,6 +247,7 @@ async function pairNextRound(eventId: string, authHeader: string) {
       && (event.status === "setup" || participants.some((p) => p.status === "active" && p.seat == null))) {
     await writeSeats(eventId, event.status === "seated");
     ({ event, participants, rounds, teams, pods } = await loadEvent(eventId));
+    rounds = withoutRepaired(rounds);
   }
   const roundRobin = event.pairing === "round_robin";
   const active = participants.filter((p) => p.status === "active").length;
@@ -285,6 +305,21 @@ async function pairNextRound(eventId: string, authHeader: string) {
   }
   if (proposed.length === 0) return json({ error: "No active players to pair" }, 409);
 
+  if (repair) {
+    // As the organizer, so withdraw_round's own checks and audit row apply; one transaction.
+    const asCaller = createClient(url, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false },
+    });
+    const { error } = await asCaller.rpc("withdraw_round", {
+      p_round_id: repair.roundId, p_clear_results: repair.clearResults, p_reason: repair.reason,
+    });
+    if (error) {
+      const status = error.code === "42501" ? 403 : error.code === "P0002" ? 404 : 409;
+      return json({ error: error.message, ...(error.code === "PT409" ? { code: "has_results" } : {}) }, status);
+    }
+  }
+
   if (open) {
     const { error } = await admin.from("rounds")
       .update({ status: "recorded", recorded_at: new Date().toISOString() }).eq("id", open.id);
@@ -341,17 +376,20 @@ async function pairNextRound(eventId: string, authHeader: string) {
   if (userIds.length) {
     await admin.rpc("enqueue_notification", {
       p_kind: "round.paired", p_event_id: eventId, p_user_ids: userIds,
-      p_data: { round: roundNumber, stage, ends_at: endsAt.toISOString() },
+      p_data: { round: roundNumber, stage, ends_at: endsAt.toISOString(), ...(repair ? { repaired: true } : {}) },
     });
   }
 
   await admin.from("audit_log").insert({
     event_id: eventId, action: "round.paired", target_type: "round", target_id: round.id,
-    after: { round: roundNumber, stage, tables: proposed.length,
+    after: { round: roundNumber, stage, tables: proposed.length, ...(repair ? { repaired: true } : {}),
              ...(event.format_name === "draft" ? { pod_pairing: podPairing, pods: seatedPodSizes(participants).length } : {}) },
   });
 
-  return json({ round_id: round.id, round_number: roundNumber, stage, timer_ends_at: endsAt.toISOString(), matches: proposed });
+  return json({
+    round_id: round.id, round_number: roundNumber, stage, timer_ends_at: endsAt.toISOString(), matches: proposed,
+    ...(repair ? { repaired: true } : {}),
+  });
 }
 
 Deno.serve(async (req) => {
@@ -365,9 +403,15 @@ Deno.serve(async (req) => {
       const token = typeof body.token === "string" && body.token ? body.token : null;
       return await standings(eventId, req.headers.get("Authorization") ?? "", token);
     }
-    if (body.action === "pair_round" || body.action === "seat_players") {
+    if (body.action === "pair_round" || body.action === "seat_players" || body.action === "repair_round") {
       const auth = req.headers.get("Authorization") ?? "";
       if (!auth.startsWith("Bearer ")) return json({ error: "Sign in required" }, 401);
+      if (body.action === "repair_round") {
+        const roundId = String(body.round_id ?? "");
+        if (!/^[0-9a-f-]{36}$/i.test(roundId)) return json({ error: "round_id is required" }, 400);
+        const reason = typeof body.reason === "string" && body.reason.trim() ? body.reason.trim().slice(0, 200) : null;
+        return await pairNextRound(eventId, auth, { roundId, clearResults: body.clear_results === true, reason });
+      }
       return body.action === "pair_round" ? await pairNextRound(eventId, auth) : await seatPlayers(eventId, auth);
     }
     return json({ error: "Unknown action" }, 400);

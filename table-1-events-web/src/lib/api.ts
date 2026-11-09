@@ -156,6 +156,7 @@ const toMatch = (r: any): Match => ({
   reportedByUser: r.reported_by_user ?? null,
   reportedByParticipant: r.reported_by_participant ?? null,
   resultSource: r.result_source ?? null,
+  updatedAt: r.updated_at ?? null,
 });
 
 const toRound = (r: any): RoundWithMatches => ({
@@ -169,6 +170,7 @@ const toRound = (r: any): RoundWithMatches => ({
   timerLastStartedAt: r.timer_last_started_at,
   timerEndsAt: r.timer_ends_at ?? null,
   stage: r.stage ?? "swiss",
+  pairingsPublishedAt: r.pairings_published_at ?? null,
   matches: (r.matches ?? []).map(toMatch).sort(
     (a: Match, b: Match) => (a.tableNumber ?? 0) - (b.tableNumber ?? 0),
   ),
@@ -1168,6 +1170,18 @@ export async function pairNextRound(eventId: string, pairing: "swiss" | "round_r
     event_id: eventId,
   });
   capture("round_paired", { round: r?.round_number ?? 0, pairing, stage: r?.stage ?? "swiss" });
+  return r;
+}
+
+/**
+ * Pairs the latest, still active round again from the results as they are now (contract/repair-round-2026-11-09.md).
+ * clearResults: results already in for that round are cleared (the server refuses with 409 otherwise).
+ */
+export async function repairRound(eventId: string, roundId: string, clearResults: boolean, from: "notice" | "menu") {
+  const r = await invokeEngine<{ round_id: string; round_number: number; stage?: string }>({
+    action: "repair_round", event_id: eventId, round_id: roundId, clear_results: clearResults,
+  });
+  capture("round_repaired", { round: r?.round_number ?? 0, stage: r?.stage ?? "swiss", cleared: clearResults, from });
   return r;
 }
 

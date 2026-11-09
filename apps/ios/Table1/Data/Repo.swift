@@ -480,6 +480,15 @@ enum Repo {
         return r
     }
 
+    /// Pairs the latest, still active round again from the results as they are now (contract/repair-round-2026-11-09.md).
+    /// `clearResults`: results already in for that round are cleared (the server refuses with 409 otherwise).
+    static func repairRound(_ eventId: String, roundId: String, clearResults: Bool, from: String) async throws {
+        let data = try await engineData("repair_round", eventId, extra: ["round_id": .string(roundId), "clear_results": .bool(clearResults)])
+        let r = try wireDecoder.decode(PairRoundResponse.self, from: data)
+        if let message = r.error { throw NSError(domain: "Table1", code: 1, userInfo: [NSLocalizedDescriptionKey: message]) }
+        Telemetry.capture("round_repaired", ["round": r.roundNumber ?? 0, "stage": r.stage ?? "swiss", "cleared": clearResults, "from": from])
+    }
+
     /// Individual standings, plus team standings (team events) and seating (draft events).
     static func standings(_ eventId: String) async throws -> StandingsResponse {
         let data = try await engineData("standings", eventId)
@@ -506,11 +515,13 @@ enum Repo {
         try wireDecoder.decode(T.self, from: try await engineData(action, eventId))
     }
 
-    private static func engineData(_ action: String, _ eventId: String) async throws -> Data {
+    private static func engineData(_ action: String, _ eventId: String, extra: [String: AnyJSON] = [:]) async throws -> Data {
+        var body: [String: AnyJSON] = ["action": .string(action), "event_id": .string(eventId)]
+        body.merge(extra) { _, new in new }
         do {
             return try await supabase.functions.invoke(
                 "events-engine",
-                options: FunctionInvokeOptions(body: ["action": action, "event_id": eventId])
+                options: FunctionInvokeOptions(body: body)
             ) { data, _ in data }
         } catch FunctionsError.httpError(_, let data) {
             let message = (try? wireDecoder.decode(EngineError.self, from: data))?.error ?? "Something went wrong. Try again."

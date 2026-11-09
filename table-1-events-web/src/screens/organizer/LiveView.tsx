@@ -25,7 +25,8 @@ import { TeamsPanel } from "../../components/TeamsPanel";
 import { teamClinch } from "../../lib/teams";
 import { capture } from "../../lib/telemetry";
 import { toTeams } from "../../lib/useEventExtras";
-import { StandingsBlock, type PhaseViewProps } from "./shared";
+import { RoundsList, StandingsBlock, type PhaseViewProps } from "./shared";
+import { repairLabel, repairPrompt } from "../../lib/repairRound";
 import { RotoSchedule } from "../roto/lazy";
 import { useSession } from "../../lib/useSession";
 import { Avatar } from "../../components/Avatar";
@@ -36,9 +37,11 @@ const ADD_SECONDS = 300;
 export function LiveView(
   props: PhaseViewProps & {
     mutate: (optimistic: (prev: EventBundle) => EventBundle, call: () => Promise<unknown>) => Promise<void>;
+    /** Opens the re-pair confirm for the current round (contract/repair-round-2026-11-09.md). */
+    onRepair: () => void;
   },
 ) {
-  const { eventId, bundle, tab, isTeam, teams, refetch, onOpenMatch, setActionError, mutate } = props;
+  const { eventId, bundle, tab, isTeam, teams, refetch, onOpenMatch, setActionError, mutate, onRepair } = props;
   const { event, rounds, participants } = bundle;
   const active = activeRoundOf(rounds);
   const currentRound = active?.number ?? lastRoundNumber(rounds);
@@ -49,6 +52,8 @@ export function LiveView(
   const { userId } = useSession();
   const desktop = useDesktop();
   const meId = (userId && participants.find((p) => p.userId === userId)?.id) || null;
+  // An earlier result was corrected after this round was paired: offer to pair it again.
+  const prompt = repairPrompt(rounds);
 
   const [busy, setBusy] = useState(false);
   const [confirmFinish, setConfirmFinish] = useState(false);
@@ -129,6 +134,12 @@ export function LiveView(
               <StandingsBlock bundle={bundle} isTeam={isTeam} teams={teams} teamNames={props.teamNames} />
             </>
           ) : undefined}>
+            {prompt && active && (
+              <div className="flex flex-col gap-px">
+                <Notice tone="info">{prompt.text}</Notice>
+                <GhostAction label={`Re-pair ${repairLabel(active.stage, active.number)}`} onClick={onRepair} />
+              </div>
+            )}
             {action.kind === "finish" && action.clinch && (
               <Notice tone="info">{clinchText(action.clinch)} You can finish now; open matches won't count.</Notice>
             )}
@@ -150,6 +161,22 @@ export function LiveView(
               </Notice>
             )}
           </Columns>
+        )}
+
+        {tab === "rounds" && (
+          <>
+            <RoundsList
+              rounds={rounds.filter((r) => r.id !== active?.id)}
+              participants={participants}
+              numberOfRounds={event.numberOfRounds}
+              onOpenMatch={onOpenMatch}
+            />
+            <Notice tone="info">
+              {active
+                ? `Tap a match to correct its result. If that changes who should have played whom, re-pair ${repairLabel(active.stage, active.number)}.`
+                : "Tap a match to correct its result. Standings and records update."}
+            </Notice>
+          </>
         )}
 
         {tab === "schedule" && <RotoSchedule bundle={bundle} meId={meId} />}
