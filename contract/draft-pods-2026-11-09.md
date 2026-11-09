@@ -61,16 +61,22 @@ across pods, `swissRounds(everyone)` (16 → 4). Before the draw from the pick, 
 
 ## Clients
 
-- Create → Draft: **Pods** row (Auto · 1 · 2 · 3 · 4, a stepper beyond) with `podLabel` for the players so far, and
-  **Pairings** Inside pods | Across pods. Rounds' automatic count uses `draftRounds`.
-- Setup → Seating (drafts): Randomize (was Seat players / Re-seat), the same Pods and Pairings rows, each pod drawn
-  as before; tapping a seat opens a menu: Move to Pod N (end) · Move to a new pod · Swap with… (then tap the other
-  player). Players not seated yet are listed under the pods ("Not seated · seated at round 1").
-- The round-1 note under a pod names its left-over seat: "Seat 7 plays Pod 2's seat 7" or "Seat 7 has the bye".
-- Standings: with 2+ pods, the pod is the row's second-line code (`P1`), and a pod filter (All · Pod 1 · Pod 2 …)
-  shows one pod's players in overall order.
-- Telemetry: `event_pods_set` {pods, pod_pairing, reseated}, `seat_moved` {to: pod|new|seat}, `seat_swapped`,
-  `seating_drawn` (existing) gains `pods`.
+- Create → Draft: **Pods** Auto | Choose (a 1–16 stepper; Choose starts at the automatic count, at least 2) with
+  `podLabel` for the players so far, and **Pairings** Inside pods | Across pods. The Automatic rounds row's detail
+  follows the pods (`draftAutoLabel`, cases `auto_label`: "Auto · 3 rounds for pods of 9"). Sent with
+  `set_event_pods` right after create when not the defaults.
+- Setup → Seating (drafts): the same Pods and Pairings rows (saved at once), **Randomize** (was Re-seat; "Seat
+  players" before the draw), each pod drawn as before. Tapping a seat (seated draft, before round 1) opens a menu:
+  Move to Pod N (to its end) · Move to a new pod (when the pod has 2+) · Swap with… (a banner "Swap Ana with… · Tap
+  the other player · Cancel"; the next seat tapped swaps). Players who joined after the draw are listed under the
+  pods ("Not seated · Seated at round 1, in the smallest pod").
+- The round-1 note under a pod names its left-over seat (cases `note`): "Seat 7 plays Pod 2's seat 7" or "Seat 7 has
+  the bye"; only the real bye's chip says Bye.
+- Standings (organizer and player): with 2+ pods seated, each row's tag is its pod code (`P1`, `podCode`) unless it
+  has a team, and a filter (All · Pod 1 · Pod 2 …) shows one pod's players in overall order and overall rank.
+- Demos: iOS `-T1EventsDemo pods -T1Tab seating`; web `/dev/events?screen=pods`.
+- Telemetry: `event_pods_set` {pods (0 = auto), pod_pairing, reseated}, `seat_moved` {to: pod|new|seat},
+  `seat_swapped`; `seating_drawn` unchanged.
 
 ## Not yet
 
