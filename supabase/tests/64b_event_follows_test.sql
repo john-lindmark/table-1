@@ -84,6 +84,8 @@ select pg_temp.as_user(:C);
 select pg_temp.eq('a finished event stays on the list', (select count(*)::text from jsonb_array_elements(public.events_followed())), '1');
 select pg_temp.eq('and can still be unfollowed', public.event_follow_set(:EV, false)::text, '{"notify": false, "following": false}');
 select pg_temp.eq('gone from the list', public.events_followed()::text, '[]');
+select pg_temp.eq('unfollow audited with the event', (select count(*)::text from public.account_audit
+  where actor = :C and action = 'event.unfollowed' and target_id = :EV), '1');
 
 -- Cancelled: the followers who kept notifications on hear it.
 select pg_temp.as_user(:C);

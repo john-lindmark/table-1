@@ -56,7 +56,9 @@ begin
   if not p_follow then
     delete from public.event_follows where user_id = v_uid and event_id = p_event_id;
     get diagnostics v_n = row_count;
-    if v_n > 0 then perform t1_private.account_audit(v_uid, 'event.unfollowed', null); end if;
+    if v_n > 0 then
+      insert into public.account_audit (actor, action, target_id) values (v_uid, 'event.unfollowed', p_event_id);
+    end if;
     return jsonb_build_object('following', false, 'notify', false);
   end if;
   v_access := t1_private.event_access(p_event_id);
