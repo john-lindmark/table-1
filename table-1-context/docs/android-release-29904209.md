@@ -14,10 +14,10 @@ Everything in 29904012, plus:
 - Setup → Seating: Randomize; tap a seat to move it to another pod or a new one, or Swap with… then tap the other player.
 - Add a player after seating: listed as Not seated, seated in the smallest pod at round 1.
 - Round 1: the note under each odd pod says who its last seat plays. Standings show P1/P2 and a pod filter.
-- Live → Earlier: correct a past result. (Re-pair round needs a server update that isn't live yet.)
+- Live → Earlier: correct a past result, then Re-pair round N from the Round tab or More.
 
 Nothing in this bundle has been run on a phone yet (no Android device or emulator on the build Mac).
 
 ---
 
-Build notes (not for testers): built 2026-11-09 at 8052216 (the build-56 commit only touches iOS) from a clean worktree with `apps/android/tools/bundle-release.sh` (upload key; `jarsigner -verify`: jar verified, with the usual "signed in JarFile but not in JarInputStream" warnings; versionCode 29904209, versionName 0.1.0, 17.9 MB; copied to the checkout's `apps/android/app/build/outputs/bundle/release/app-release.aab`). Android changes since 29904012: a3f3eb0 (re-pair a round; server side not live yet), 7ffba59 (drafts with several pods; server live 2026-11-09). 472 unit tests passed at 1a8303b (the same app code). Not yet uploaded; after uploading, `bugs.py shipped android 29904209 --commit 8052216`.
+Build notes (not for testers): built 2026-11-09 at 8052216 (the build-56 commit only touches iOS) from a clean worktree with `apps/android/tools/bundle-release.sh` (upload key; `jarsigner -verify`: jar verified, with the usual "signed in JarFile but not in JarInputStream" warnings; versionCode 29904209, versionName 0.1.0, 17.9 MB; copied to the checkout's `apps/android/app/build/outputs/bundle/release/app-release.aab`). Android changes since 29904012: a3f3eb0 (re-pair a round; server live 2026-11-09), 7ffba59 (drafts with several pods; server live 2026-11-09). 472 unit tests passed at 1a8303b (the same app code). Not yet uploaded; after uploading, `bugs.py shipped android 29904209 --commit 8052216`.
