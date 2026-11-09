@@ -87,12 +87,16 @@ fun EventsHomeScreen(
     // (contract/offline-2026-10-31.md § 1).
     var savedAt by remember { mutableStateOf<Long?>(null) }
     var stale by remember { mutableStateOf<String?>(null) }
+    /** Events you follow but aren't in (contract/event-follows-2026-11-09.md). */
+    var followed by remember { mutableStateOf<List<site.table1.events.data.FollowedEvent>>(emptyList()) }
 
     suspend fun load() {
         // What this account last saw shows at once; the server's answer replaces it.
         if (data == null) Repo.savedHome()?.let { (h, at) -> data = h; savedAt = at }
         runCatching { Repo.eventsHome() }
             .onSuccess { data = it; error = null; stale = null; savedAt = System.currentTimeMillis(); site.table1.events.widgets.Widgets.saveNext(context, it) }
+        // A server without event follows (or a failed read) just shows no Following section.
+        runCatching { Repo.eventsFollowed() }.onSuccess { followed = it }.onFailure { it.rethrowIfCancelled() }
             .onFailure { e ->
                 e.rethrowIfCancelled()
                 val age = Offline.age(savedAt)
@@ -171,7 +175,7 @@ fun EventsHomeScreen(
             Notice("Loading…")
             return@T1Screen
         }
-        if (d.events.isEmpty() && invites.isEmpty() && d.waitlist.isEmpty()) {
+        if (d.events.isEmpty() && invites.isEmpty() && d.waitlist.isEmpty() && followed.isEmpty()) {
             if (error != null) BigAction("Try again") { scope.launch { load() } }
             EmptyEvents(onScan = { scan() }, onNearby = onNearby, onCreate = onCreate)
             return@T1Screen
@@ -217,6 +221,10 @@ fun EventsHomeScreen(
                     ListRow(w.name, listOfNotNull("Number ${w.position ?: 1} on the waitlist", EventRules.whenText(w.startsAt), w.venueName).joinToString(" · "),
                         onClick = { onOpenPage(w.eventId) })
                 }
+            }
+            if (followed.isNotEmpty()) {
+                item { Section("Following") }
+                items(followed, key = { "f-${it.eventId}" }) { f -> ListRow(f.name, f.detail, onClick = { onOpenPage(f.eventId) }) }
             }
             if (past.isNotEmpty()) {
                 item {

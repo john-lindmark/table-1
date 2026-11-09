@@ -111,6 +111,26 @@ enum Repo {
         try await supabase.rpc("event_public", params: ["p_event_id": AnyJSON.string(eventId)]).execute().value
     }
 
+    /// Whether you follow an event you're not in (contract/event-follows-2026-11-09.md).
+    static func eventFollow(_ eventId: String) async throws -> EventFollow {
+        try await supabase.rpc("event_follow_get", params: ["p_event_id": AnyJSON.string(eventId)]).execute().value
+    }
+
+    /// Follow or unfollow; `notify` turns its notifications on or off (nil keeps).
+    static func setEventFollow(_ eventId: String, follow: Bool, notify: Bool? = nil) async throws -> EventFollow {
+        let r: EventFollow = try await supabase.rpc("event_follow_set", params: [
+            "p_event_id": AnyJSON.string(eventId), "p_follow": .bool(follow), "p_notify": notify.map { .bool($0) } ?? .null,
+        ]).execute().value
+        if notify != nil && follow { Telemetry.capture("event_follow_notify", ["notify": r.notify]) }
+        else { Telemetry.capture(follow ? "event_followed" : "event_unfollowed") }
+        return r
+    }
+
+    /// The Events home's Following section.
+    static func eventsFollowed() async throws -> [FollowedEvent] {
+        try await supabase.rpc("events_followed").execute().value
+    }
+
     /// Sign up from the link: a seat, or the waitlist when it's full.
     static func signUp(_ eventId: String, signedInNow: Bool) async throws -> SignUpResult {
         let r: SignUpResult = try await supabase.rpc("event_sign_up", params: ["p_event_id": AnyJSON.string(eventId)]).execute().value

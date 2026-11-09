@@ -480,6 +480,7 @@ struct SignedInView: View {
                 session.tracker = nil
                 tab = .events
                 path = [.event(id)]
+                swapForEventPage(id)
             }
         }
         .task(id: session.pendingLibrary) {
@@ -592,6 +593,7 @@ struct SignedInView: View {
         case .events(let stack):
             select(.events)
             path = stack
+            if case .event(let id)? = stack.first { swapForEventPage(id) }
         case .collection(let stack):
             select(.collection)
             libraryPath = stack
@@ -608,8 +610,18 @@ struct SignedInView: View {
         }
     }
 
-    /// The event screen has the standings for its organizer and players; anyone else gets the public page.
-    /// Before round 1 anyone else gets the sign-up page (signing up at once when they came through sign-in from it).
+    /// An event opened (link or push) by someone who doesn't run or play in it gets its page (sign-up, then standings
+    /// and matchups, Follow) instead of an event screen it can't load (contract/event-links-2026-11-09.md).
+    private func swapForEventPage(_ id: String) {
+        Task {
+            guard let page = try? await Repo.eventPage(id), page.available,
+                  page.access != "organizer", page.access != "player", page.access != "guest" else { return }
+            if path.first == .event(id) { path = [.eventPage(id, signUp: false)] }
+        }
+    }
+
+    /// The event screen has the standings for its organizer and players; anyone else gets the event page in the app:
+    /// before round 1 the sign-up page (signing up at once when they came through sign-in from it), then standings.
     private func openStandings(_ id: String) {
         let signUp = session.pendingSignUp?.eventId == id
         session.pendingSignUp = nil
@@ -619,11 +631,11 @@ struct SignedInView: View {
             if access == "organizer" || access == "player" {
                 select(.events)
                 path = [.event(id)]
-            } else if let page, page.available, page.signUp != "closed" || page.me == "waitlisted" {
-                select(.events)
-                path = [.eventPage(id, signUp: signUp)]
             } else {
-                session.webPage = WebPage(url: WebLink.standingsURL(id))
+                // Everyone else signed in gets the page in the app: sign-up before round 1, standings and matchups
+                // after (a private or unknown event says it isn't available there).
+                select(.events)
+                path = [.eventPage(id, signUp: signUp && page?.showsResults == false)]
             }
         }
     }

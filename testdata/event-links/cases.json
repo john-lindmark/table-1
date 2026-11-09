@@ -1,0 +1,34 @@
+{
+  "about": "Event links in the apps and following events (contract/event-links-2026-11-09.md, contract/event-follows-2026-11-09.md). results: when the event page shows standings and matchups instead of sign-up (sign_up closed, unless still waitlisted before round 1). title: the bar's subtitle once it does. round_title: a Matchups section header. score: a match row's score. followed: a Following row's second line. Read by iOS EventLinksTests, Android EventLinksTest, web eventFollows.test.ts.",
+  "results": [
+    {"name": "open sign-up", "sign_up": "open", "me": null, "current_round": 0, "want": false},
+    {"name": "full, before round 1", "sign_up": "full", "me": null, "current_round": 0, "want": false},
+    {"name": "round 1 paired", "sign_up": "closed", "me": null, "current_round": 1, "want": true},
+    {"name": "still waiting before round 1", "sign_up": "closed", "me": "waitlisted", "current_round": 0, "want": false},
+    {"name": "waited, didn't get in", "sign_up": "closed", "me": "waitlisted", "current_round": 2, "want": true},
+    {"name": "finished", "sign_up": "closed", "me": null, "current_round": 3, "want": true}
+  ],
+  "title": [
+    {"status": "completed", "round": {"number": 3, "stage": "swiss"}, "current_round": 3, "number_of_rounds": 3, "want": "Final standings"},
+    {"status": "in_progress", "round": {"number": 2, "stage": "swiss"}, "current_round": 2, "number_of_rounds": 4, "want": "Round 2 of 4"},
+    {"status": "in_progress", "round": {"number": 5, "stage": "quarterfinal"}, "current_round": 5, "number_of_rounds": 4, "want": "Quarterfinals"},
+    {"status": "in_progress", "round": null, "current_round": 1, "number_of_rounds": 3, "want": "Round 1 of 3"}
+  ],
+  "round_title": [
+    {"number": 2, "stage": "swiss", "status": "active", "want": "Round 2 · now"},
+    {"number": 1, "stage": "swiss", "status": "recorded", "want": "Round 1"},
+    {"number": 6, "stage": "semifinal", "status": "recorded", "want": "Semifinals"},
+    {"number": 7, "stage": "final", "status": "active", "want": "Final · now"}
+  ],
+  "score": [
+    {"status": "pending", "sides": [[0, 0], [1, 0]], "game_draws": 0, "want": "vs"},
+    {"status": "confirmed", "sides": [[0, 2], [1, 1]], "game_draws": 0, "want": "2–1"},
+    {"status": "reported", "sides": [[1, 2], [0, 0]], "game_draws": 1, "want": "0–2–1"}
+  ],
+  "followed": [
+    {"status": "completed", "current_round": 3, "number_of_rounds": 3, "stage": "swiss", "format_label": "Modern", "starts_at": null, "venue_name": null, "want": "Final standings · Modern"},
+    {"status": "in_progress", "current_round": 2, "number_of_rounds": 4, "stage": "swiss", "format_label": "Modern", "starts_at": null, "venue_name": null, "want": "Round 2 of 4 · Modern"},
+    {"status": "in_progress", "current_round": 5, "number_of_rounds": 4, "stage": "final", "format_label": null, "starts_at": null, "venue_name": null, "want": "Final"},
+    {"status": "setup", "current_round": 0, "number_of_rounds": 3, "stage": null, "format_label": "Draft · FRA", "starts_at": null, "venue_name": "The Shop", "want": "The Shop · Draft · FRA"}
+  ]
+}

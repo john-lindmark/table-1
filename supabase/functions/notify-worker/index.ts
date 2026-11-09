@@ -13,6 +13,7 @@ import { wantPriceCopy } from "./want-price.ts";
 import { insightsNewCopy } from "./insights-new.ts";
 import { signUpCopy, type SignUpCount } from "./sign-up.ts";
 import { deckFoundCopy } from "./deck-found.ts";
+import { eventFollowCopy } from "./event-follow.ts";
 
 const url = Deno.env.get("SUPABASE_URL")!;
 const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
@@ -58,6 +59,10 @@ function copy(m: Message, eventName: string, mine?: { table: number | null; oppo
     case "event.signed_up":
     case "event.dropped":
       return { ...signUpCopy(m.kind, { ...d, event_name: name }, count ?? null), priority: 5 };
+    // contract/event-follows-2026-11-09.md: an event you follow but aren't in; the app opens its page.
+    case "event.follow_round":
+    case "event.follow_done":
+      return { ...eventFollowCopy(m.kind, { ...d, event_name: name }), priority: 5 };
     case "round.paired": {
       const stage = ({ quarterfinal: "Quarterfinals", semifinal: "Semifinals", final: "The final" } as Record<string, string>)[String(d.stage)];
       const round = stage ?? (d.round ? `Round ${d.round}` : "Next round");

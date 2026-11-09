@@ -31,6 +31,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -166,6 +167,24 @@ object Repo {
             put("p_local_date", localDate)
         })
     }
+
+    /** Whether you follow an event you're not in (contract/event-follows-2026-11-09.md). */
+    suspend fun eventFollow(eventId: String): EventFollow =
+        supabase.postgrest.rpc("event_follow_get", buildJsonObject { put("p_event_id", eventId) }).decodeAs()
+
+    /** Follow or unfollow; [notify] turns its notifications on or off (null keeps). */
+    suspend fun setEventFollow(eventId: String, follow: Boolean, notify: Boolean? = null): EventFollow {
+        val r: EventFollow = supabase.postgrest.rpc("event_follow_set", buildJsonObject {
+            put("p_event_id", eventId); put("p_follow", follow)
+            if (notify == null) put("p_notify", JsonNull) else put("p_notify", notify)
+        }).decodeAs()
+        if (notify != null && follow) Telemetry.capture("event_follow_notify", mapOf("notify" to r.notify))
+        else Telemetry.capture(if (follow) "event_followed" else "event_unfollowed")
+        return r
+    }
+
+    /** The Events home's Following section. */
+    suspend fun eventsFollowed(): List<FollowedEvent> = supabase.postgrest.rpc("events_followed").decodeAs()
 
     /** The event page: what anyone with the link sees (works signed out). */
     suspend fun eventPage(eventId: String): EventPage =

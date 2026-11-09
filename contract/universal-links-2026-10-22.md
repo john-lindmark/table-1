@@ -28,7 +28,7 @@ Stacks are opened fresh on that tab, parents first, so Back lands where it would
 | `/`, `/sign-in` | Events tab |
 | `/e/<id>`, `/p/<id>` | Events › the event |
 | `/e/<id>/add` | Events › the event › Add players |
-| `/s/<id>` | the event if you organize or play in it (`event_preview` access), else the standings page on the web |
+| `/s/<id>` | the event if you organize or play in it (`event_public` access), else the event page in the app: sign-up, then standings and matchups (contract/event-links-2026-11-09.md); signed out, the standings page on the web |
 | `/join/<code>` | joins with the code (`join_event`, your account's name; already in → lands on it), then the event; a refusal shows the server's words ("Ask the organizer for an invite") |
 | `/j/<code>?s=<secret>` | QR join, as before |
 | `/auth/confirm?token_hash=…` | sign-in email, as before |

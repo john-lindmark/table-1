@@ -252,7 +252,15 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
         onLinkConsumed()
         autoOpenArmed = false
         when (link) {
-            is WebLink.Screens -> show(link.tab, link.stack)
+            is WebLink.Screens -> {
+                // An event opened (link or push) by someone who doesn't run or play in it gets its page (sign-up, then
+                // standings and matchups, Follow) instead of an event screen it can't load (contract/event-links-2026-11-09.md).
+                val eventId = link.stack.singleOrNull()?.takeIf { link.tab == "events" && it.startsWith("event/") }?.removePrefix("event/")
+                val page = eventId?.let { runCatching { Repo.eventPage(it) }.getOrNull() }
+                if (eventId != null && page != null && page.available && page.access !in setOf("organizer", "player", "guest"))
+                    show("events", listOf("eventpage/$eventId?signup=false"))
+                else show(link.tab, link.stack)
+            }
             is WebLink.Insights -> {
                 InsightsStore.pickSection("constructed")
                 InsightsStore.pickFormat(link.format)
@@ -264,17 +272,15 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
             is WebLink.JoinCode -> runCatching { Repo.joinByCode(link.code) }
                 .onSuccess { show("events", listOf("event/${it.eventId}")) }
                 .onFailure { joinError = it.message; show("events", emptyList()) }
-            // Organizers and players get the event; before round 1 anyone else the sign-up page (signing up at once when
-            // they came through sign-in from it); after that the public standings page.
+            // Organizers and players get the event; anyone else signed in the event page in the app: before round 1 the
+            // sign-up page (signing up at once when they came through sign-in from it), then standings and matchups.
             is WebLink.Standings -> {
                 val signUp = PendingSignUp.page?.eventId == link.eventId
                 PendingSignUp.page = null
                 val page = runCatching { Repo.eventPage(link.eventId) }.getOrNull()
                 when {
                     page?.access in setOf("organizer", "player") -> show("events", listOf("event/${link.eventId}"))
-                    page != null && page.available && (page.signUp != "closed" || page.me == "waitlisted") ->
-                        show("events", listOf("eventpage/${link.eventId}?signup=$signUp"))
-                    else -> openInBrowser(context, Uri.parse(WebLink.standingsUrl(link.eventId)))
+                    else -> show("events", listOf("eventpage/${link.eventId}?signup=${signUp && page?.showsResults == false}"))
                 }
             }
             is WebLink.Shared -> show("collection", listOf("collection/shared/${link.token}"))

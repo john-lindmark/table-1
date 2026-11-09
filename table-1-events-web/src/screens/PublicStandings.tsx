@@ -15,6 +15,7 @@ import {
   type PublicStandingRow,
 } from "../lib/api";
 import { formatPct } from "../lib/standings";
+import { fetchEventFollow, matchScore, roundTitle, setEventFollow, type EventFollow } from "../lib/eventFollows";
 import { pageButton, roundName, roundsLine, signUpLine, when } from "../lib/scheduledEvents";
 import { capture } from "../lib/telemetry";
 import { useSession } from "../lib/useSession";
@@ -90,6 +91,7 @@ export function PublicStandings({ eventId, onBack }: { eventId: string; onBack: 
         }
       />
       {event.me === "waitlisted" && <Notice tone="info">Sign-ups are closed: you didn't get in this time.</Notice>}
+      <FollowRow event={event} />
       {round && event.showClock && (
         <div className="bg-t1-bg py-4">
           <ClockFace round={round} size="small" />
@@ -107,10 +109,7 @@ export function PublicStandings({ eventId, onBack }: { eventId: string; onBack: 
           (event.rounds.length ? event.rounds : round ? [{ number: round.number, stage: round.stage ?? "swiss", status: "active", matches: event.pairings }] : [])
             .map((r) => (
               <div key={r.number} className="flex flex-col gap-px">
-                <div className="bg-t1-surface px-4 py-2 t1-label">
-                  {r.stage !== "swiss" ? roundName(r.stage, r.number, event.numberOfRounds) : `Round ${r.number}`}
-                  {r.status === "active" ? " · now" : ""}
-                </div>
+                <div className="bg-t1-surface px-4 py-2 t1-label">{roundTitle(r.number, r.stage, r.status)}</div>
                 {r.matches.map((m) => <PairingRow key={m.matchId} match={m} />)}
               </div>
             ))
@@ -167,7 +166,7 @@ function PairingRow({ match }: { match: PublicPairing }) {
       {!match.isBye && (
         <>
           <span className="w-16 shrink-0 text-center tabular-nums text-t1-muted">
-            {scored ? `${a?.gameWins ?? 0}–${b?.gameWins ?? 0}${match.gameDraws > 0 ? `–${match.gameDraws}` : ""}` : "vs"}
+            {matchScore(scored ? match.status : "pending", match.sides, match.gameDraws)}
           </span>
           <span className="flex-1 min-w-0 truncate text-right">{b?.displayName ?? "—"}</span>
         </>
@@ -246,6 +245,7 @@ export function SignUpPage({ event, reload, onBack }: { event: PublicEvent; relo
           {event.decklists !== "off" && <p className="t1-label">{event.decklists === "required" ? "Decklist required" : "Decklists welcome"}</p>}
         </div>
         <div className="bg-t1-surface px-4 py-3 text-[13px]">{signUpLine(event.players, event.capacity, event.waitlist)}</div>
+        <FollowRow event={event} />
         {message && <Notice tone="info">{message}</Notice>}
         {error && <Notice tone="error">{error}</Notice>}
         {state === "in" && <Notice tone="info">You're in. Your event is on the Events page.</Notice>}
@@ -302,6 +302,46 @@ export function SignUpPage({ event, reload, onBack }: { event: PublicEvent; relo
         />
       )}
     </Screen>
+  );
+}
+
+/**
+ * Follow / Following for anyone signed in who doesn't run or play in the event (contract/event-follows-2026-11-09.md):
+ * it shows on their Events page under Following, with a notification for each round and the final standings in the apps.
+ */
+function FollowRow({ event }: { event: PublicEvent }) {
+  const { session } = useSession();
+  const [f, setF] = useState<EventFollow | null>(null);
+  const [menu, setMenu] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const member = event.me === "organizer" || event.me === "player";
+  useEffect(() => {
+    if (!session || member) return;
+    fetchEventFollow(event.eventId).then(setF).catch(() => setF(null));
+  }, [session, member, event.eventId]);
+  if (!f || member || !(f.following || f.can_follow)) return null;
+  const set = (on: boolean, notify: boolean | null) => {
+    setMenu(false);
+    setEventFollow(event.eventId, on, notify).then((r) => setF({ ...r, can_follow: true })).catch((e) => setError(errorMessage(e)));
+  };
+  return (
+    <>
+      <button type="button" onClick={() => (f.following ? setMenu((m) => !m) : set(true, null))}
+              className="bg-t1-surface hover:bg-t1-surface-hover px-4 py-3 flex items-center gap-3 text-left">
+        <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <span className="text-[14px]">{f.following ? "Following" : "Follow"}</span>
+          {f.following && <span className="t1-label">{f.notify ? "Each round and the final standings" : "Notifications off"}</span>}
+        </span>
+        <span className={`t1-label ${f.following ? "text-t1-accent" : "text-t1-text"}`}>{f.following ? "✓" : "Follow"}</span>
+      </button>
+      {menu && (
+        <div className="flex gap-px">
+          <GhostAction label={f.notify ? "Notifications off" : "Notifications on"} onClick={() => set(true, !f.notify)} />
+          <GhostAction label="Unfollow" onClick={() => set(false, null)} />
+        </div>
+      )}
+      {error && <Notice tone="error">{error}</Notice>}
+    </>
   );
 }
 

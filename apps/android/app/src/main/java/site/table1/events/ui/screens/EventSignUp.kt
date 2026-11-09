@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -352,7 +353,9 @@ fun DecklistPanel(event: EventRow, participantId: String, playerName: String, by
 
 /**
  * What anyone with the link sees before round 1: when, where, how many are in, and Sign up / the waitlist.
- * Organizers and players go to the event itself; after round 1 the link is the standings page on the web.
+ * Organizers and players go to the event itself. After round 1 it's the standings page, drawn here too (Standings |
+ * Matchups, as on the web), so a link never sends someone who isn't playing out to the browser; anyone signed in who
+ * isn't in it can Follow it (contract/event-links-2026-11-09.md, contract/event-follows-2026-11-09.md).
  */
 @Composable
 fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onOpenEvent: (String) -> Unit) {
@@ -363,11 +366,31 @@ fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onO
     var message by remember { mutableStateOf<String?>(null) }
     var confirmLeave by remember { mutableStateOf(false) }
     var signedUpOnce by remember { mutableStateOf(false) }
+    var standings by remember { mutableStateOf<site.table1.events.data.StandingsResponse?>(null) }
+    var matchups by remember { mutableStateOf(false) }
+    var follow by remember { mutableStateOf<site.table1.events.data.EventFollow?>(null) }
+    var followMenu by remember { mutableStateOf(false) }
     val state = EventRules.button(true, page?.signUp, page?.me)
 
+    suspend fun reload() {
+        val p = runCatching { Repo.eventPage(eventId) }.getOrElse { EventPage() }
+        page = p
+        if (p.available && p.me != "organizer" && p.me != "player") follow = runCatching { Repo.eventFollow(eventId) }.getOrNull()
+        if (p.available && p.showsResults) {
+            runCatching { Repo.standingsFull(eventId) }.onSuccess { standings = it; error = null }
+                .onFailure { if (standings == null) error = userMessage(it) }
+        }
+    }
+
     fun load(then: (() -> Unit)? = null) = scope.launch {
-        page = runCatching { Repo.eventPage(eventId) }.getOrElse { EventPage() }
+        reload()
         then?.invoke()
+    }
+
+    fun setFollow(on: Boolean, notify: Boolean?) = scope.launch {
+        runCatching { Repo.setEventFollow(eventId, on, notify) }
+            .onSuccess { follow = it.copy(canFollow = true) }
+            .onFailure { error = userMessage(it) }
     }
 
     fun signUp() {
@@ -387,16 +410,63 @@ fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onO
         }
     }
 
+    // The standings page follows the event while it's open, like the web's.
+    LaunchedEffect(page?.showsResults == true) {
+        if (page?.showsResults != true) return@LaunchedEffect
+        while (true) {
+            kotlinx.coroutines.delay(20_000)
+            reload()
+        }
+    }
+
     LaunchedEffect(eventId) {
         load {
-            Telemetry.capture("event_page_viewed", mapOf("state" to state))
+            Telemetry.capture("event_page_viewed", mapOf("state" to if (page?.showsResults == true) "results" else EventRules.button(true, page?.signUp, page?.me)))
             val s = EventRules.button(true, page?.signUp, page?.me)
             if (signUpNow && !signedUpOnce && (s == "sign_up" || s == "waitlist")) signUp()
         }
     }
 
     val p = page
-    T1Screen {
+    val f = follow
+    @Composable
+    fun followRow() {
+        if (f != null && p?.me != "organizer" && p?.me != "player" && (f.following || f.canFollow == true)) {
+            ListRow(if (f.following) "Following" else "Follow",
+                if (f.following) (if (f.notify) "Each round and the final standings" else "Notifications off") else null,
+                onClick = { if (f.following) followMenu = true else setFollow(true, null) }) {
+                Label(if (f.following) "✓" else "Follow", color = if (f.following) T1.accent else T1.text)
+            }
+        }
+    }
+    if (p != null && p.available && p.showsResults) {
+        T1Screen {
+            Bar(p.name ?: "Event", p.resultsTitle, onBack = onBack)
+            if (p.me == "waitlisted") Notice("Sign-ups are closed: you didn't get in this time.")
+            followRow()
+            T1Segmented(listOf("Standings", "Matchups"), if (matchups) 1 else 0) { matchups = it == 1 }
+            error?.let { Notice(it, error = true) }
+            Box(Modifier.weight(1f)) {
+                val st = standings
+                if (!matchups) {
+                    if (st != null) {
+                        StandingsList(st.standings, st.teams, emptyMap(), null, bracket = st.bracket.orEmpty(), seating = st.seating,
+                            footer = { item { Notice("Ordered by match points, then opponents' match-win %, then game-win %, then opponents' game-win %. Percentages floored at 33% per the Magic Tournament Rules.") } })
+                    } else if (error == null) Notice("Loading…")
+                } else {
+                    androidx.compose.foundation.lazy.LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        val rounds = p.matchupRounds
+                        if (rounds.isEmpty()) item { Notice("No rounds yet") }
+                        rounds.forEach { r ->
+                            item(key = "r-${r.number}-${r.status}") { Section(r.title) }
+                            items(r.matches, key = { "m-${it.matchId}" }) { PublicMatchRow(it) }
+                        }
+                    }
+                }
+            }
+            if (p.me == "organizer" || p.me == "player") BigAction("Open event", accent = true) { onOpenEvent(eventId) }
+        }
+    } else T1Screen {
         Bar(p?.name ?: "Event", p?.shortCode?.let { "Event $it" }, onBack = onBack)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             if (p != null && p.available) {
@@ -407,6 +477,7 @@ fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onO
                     if (p.decklists != "off") Label(if (p.decklists == "required") "Decklist required" else "Decklists welcome")
                 }
                 ListRow(p.signUpLine)
+                followRow()
                 message?.let { Notice(it) }
                 error?.let { Notice(it, error = true) }
                 when (state) {
@@ -428,6 +499,12 @@ fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onO
             }
             "waitlisted" -> BigAction("Leave the waitlist", busy = busy) { confirmLeave = true }
         }
+    }
+    if (followMenu && f != null) {
+        site.table1.events.ui.components.T1Menu(p?.name, listOf(
+            site.table1.events.ui.components.T1MenuItem(if (f.notify) "Turn notifications off" else "Turn notifications on") { setFollow(true, !f.notify) },
+            site.table1.events.ui.components.T1MenuItem("Unfollow") { setFollow(false, null) },
+        )) { followMenu = false }
     }
     if (confirmLeave) {
         T1AlertDialog(
@@ -458,6 +535,22 @@ fun EventPageScreen(eventId: String, signUpNow: Boolean, onBack: () -> Unit, onO
             },
             dismiss = { BarAction("Stay") { confirmLeave = false } },
         )
+    }
+}
+
+/** "T3 · Ana 2–1 Bo" on the public page's Matchups ("Bye · Ana" for a bye). */
+@Composable
+private fun PublicMatchRow(m: site.table1.events.data.PublicMatch) {
+    Row(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Label(m.tableLabel, Modifier.width(40.dp))
+        Text(m.name(0), Modifier.weight(1f), color = T1.text, fontFamily = T1.mono, fontSize = 13.sp, maxLines = 1)
+        if (!m.isBye) {
+            Text(m.score, Modifier.width(56.dp), color = T1.muted, fontFamily = T1.mono, fontSize = 13.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text(m.name(1), Modifier.weight(1f), color = T1.text, fontFamily = T1.mono, fontSize = 13.sp, maxLines = 1,
+                textAlign = androidx.compose.ui.text.style.TextAlign.End)
+        }
     }
 }
 

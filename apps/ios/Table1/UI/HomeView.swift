@@ -16,6 +16,8 @@ struct EventsHomeView: View {
     /// (contract/offline-2026-10-31.md § 1).
     @State private var savedAt: Date?
     @State private var stale: String?
+    /// Events you follow but aren't in (contract/event-follows-2026-11-09.md).
+    @State private var followed: [FollowedEvent] = []
 
     private var live: [HomeEvent] { data?.events.filter { $0.bucket == "live" } ?? [] }
     private var upcoming: [HomeEvent] { data?.events.filter { $0.bucket == "upcoming" } ?? [] }
@@ -25,7 +27,7 @@ struct EventsHomeView: View {
     private var liveMatchId: String? {
         live.lazy.compactMap { e in snapshots[e.id]?.state }.first { $0.isPlaying && $0.matchId != nil }?.matchId
     }
-    private var isEmpty: Bool { data != nil && data!.events.isEmpty && invites.isEmpty && data!.waitlist.isEmpty }
+    private var isEmpty: Bool { data != nil && data!.events.isEmpty && invites.isEmpty && data!.waitlist.isEmpty && followed.isEmpty }
 
     var body: some View {
         T1Screen {
@@ -76,6 +78,15 @@ struct EventsHomeView: View {
                             Button { path.append(.eventPage(w.eventId, signUp: false)) } label: {
                                 ListRow(title: w.name, detail: ["Number \(w.position ?? 1) on the waitlist", EventRules.when(w.startsAt), w.venueName]
                                     .compactMap { $0 }.joined(separator: " · "))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    if !followed.isEmpty {
+                        Section1("Following")
+                        ForEach(followed) { f in
+                            Button { path.append(.eventPage(f.eventId, signUp: false)) } label: {
+                                ListRow(title: f.name, detail: f.detail)
                             }
                             .buttonStyle(.plain)
                         }
@@ -138,6 +149,8 @@ struct EventsHomeView: View {
         do {
             let home = try await Repo.eventsHome()
             data = home
+            // A server without event follows (or a failed read) just shows no Following section.
+            followed = (try? await Repo.eventsFollowed()) ?? followed
             error = nil
             stale = nil
             savedAt = .now

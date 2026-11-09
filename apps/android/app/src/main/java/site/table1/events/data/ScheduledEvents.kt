@@ -149,13 +149,100 @@ data class EventPage(
     val me: String? = null,
     val position: Int? = null,
     val decklists: String = "off",
+    /** After round 1 (contract/event-links-2026-11-09.md): the round being played and every round's matchups. */
+    @SerialName("current_round") val currentRound: Int = 0,
+    val round: Head? = null,
+    val rounds: List<PublicRound>? = null,
+    /** The current round's matchups, from servers before `rounds`. */
+    val pairings: List<PublicMatch>? = null,
 ) {
+    @Serializable data class Head(val number: Int, val stage: String? = null)
+
+    /** Standings and matchups rather than sign-up: sign-ups closed, except someone still waiting before round 1. */
+    val showsResults: Boolean get() = signUp == "closed" && !(me == "waitlisted" && currentRound == 0)
+
+    /** Under the bar after round 1: "Final standings", "Round 2 of 4", "Quarterfinals". */
+    val resultsTitle: String
+        get() = when {
+            status == "completed" -> "Final standings"
+            round != null -> EventRules.roundName(round.stage, round.number, numberOfRounds)
+            else -> "Round $currentRound of $numberOfRounds"
+        }
+
+    /** Matchups, newest first; an older server's current pairings stand in for its round. */
+    val matchupRounds: List<PublicRound>
+        get() = rounds?.takeIf { it.isNotEmpty() }
+            ?: round?.let { r -> pairings?.takeIf { it.isNotEmpty() }?.let { listOf(PublicRound(r.number, r.stage, "active", it)) } }
+            ?: emptyList()
+
     val available: Boolean get() = eventId != null && access != "none"
     val signUpLine: String get() = EventRules.signUpLine(players, capacity, waitlist)
     val roundsLine: String get() = EventRules.roundsLine(autoRounds, numberOfRounds, topCut, signUp != "closed")
     val facts: String
         get() = listOfNotNull(EventRules.whenText(startsAt), venueName, formatLabel, organizerName?.let { "Run by $it" })
             .filter { it.isNotBlank() }.joinToString(" · ")
+}
+
+/** One round on the public page: "Round 2 · now", then its matches by name. */
+@Serializable
+data class PublicRound(val number: Int, val stage: String? = null, val status: String? = null, val matches: List<PublicMatch> = emptyList()) {
+    val title: String
+        get() = (if ((stage ?: "swiss") == "swiss") "Round $number" else EventRules.roundName(stage, number, 0)) +
+            if (status == "active") " · now" else ""
+}
+
+/** A match on the public page: names only, no account ids. */
+@Serializable
+data class PublicMatch(
+    @SerialName("match_id") val matchId: String,
+    @SerialName("table_number") val tableNumber: Int? = null,
+    @SerialName("is_bye") val isBye: Boolean = false,
+    val status: String? = null,
+    @SerialName("game_draws") val gameDraws: Int = 0,
+    val sides: List<Side> = emptyList(),
+) {
+    @Serializable data class Side(val side: Int, @SerialName("display_name") val displayName: String? = null, @SerialName("game_wins") val gameWins: Int = 0)
+
+    fun name(side: Int) = sides.firstOrNull { it.side == side }?.displayName ?: "—"
+    val tableLabel: String get() = if (isBye) "Bye" else "T${tableNumber ?: "–"}"
+    val score: String
+        get() {
+            if (status == "pending") return "vs"
+            val a = sides.firstOrNull { it.side == 0 }?.gameWins ?: 0
+            val b = sides.firstOrNull { it.side == 1 }?.gameWins ?: 0
+            return "$a–$b" + if (gameDraws > 0) "–$gameDraws" else ""
+        }
+}
+
+/** Following an event you're not in (contract/event-follows-2026-11-09.md). */
+@Serializable
+data class EventFollow(val following: Boolean = false, val notify: Boolean = false, @SerialName("can_follow") val canFollow: Boolean? = null)
+
+/** An event you follow, for the Events home's Following section. */
+@Serializable
+data class FollowedEvent(
+    @SerialName("event_id") val eventId: String,
+    val name: String,
+    @SerialName("format_label") val formatLabel: String? = null,
+    val status: String? = null,
+    @SerialName("current_round") val currentRound: Int = 0,
+    @SerialName("number_of_rounds") val numberOfRounds: Int = 0,
+    @SerialName("top_cut") val topCut: Int = 0,
+    @SerialName("starts_at") val startsAt: String? = null,
+    @SerialName("venue_name") val venueName: String? = null,
+    val notify: Boolean = true,
+    val stage: String? = null,
+) {
+    /** "Round 2 of 4 · Modern", "Final standings · Modern", "Sat 8 Nov · 18:30 · The Shop · Modern". */
+    val detail: String
+        get() {
+            val state = when {
+                status == "completed" -> "Final standings"
+                currentRound > 0 -> EventRules.roundName(stage, currentRound, numberOfRounds)
+                else -> listOfNotNull(EventRules.whenText(startsAt), venueName).joinToString(" · ").ifEmpty { null }
+            }
+            return listOfNotNull(state, formatLabel).joinToString(" · ")
+        }
 }
 
 @Serializable

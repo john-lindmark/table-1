@@ -220,7 +220,9 @@ struct BracketRows: View {
 // MARK: event page (/s/<id>)
 
 /// What anyone with the link sees before round 1: when, where, how many are in, and Sign up / the waitlist.
-/// Organizers and players go to the event itself; after round 1 the link is the standings page.
+/// Organizers and players go to the event itself. After round 1 it's the standings page, drawn here too (Standings |
+/// Matchups, as on the web), so a link never drops someone who isn't playing into a web sheet
+/// (contract/event-links-2026-11-09.md).
 struct EventPageView: View {
     let eventId: String
     /// Arrived through sign-in from the link: sign up straight away.
@@ -233,6 +235,11 @@ struct EventPageView: View {
     @State private var message: String?
     @State private var confirmLeave = false
     @State private var signedUpOnce = false
+    /// After round 1: the engine's standings (top 8 bracket included) and which tab.
+    @State private var standings: StandingsResponse?
+    @State private var matchups = false
+    /// Following it when you're not in it (contract/event-follows-2026-11-09.md).
+    @State private var follow: EventFollow?
 
     private var state: EventRules.PageButton {
         EventRules.button(signedIn: true, signUp: page?.signUp, me: page?.me)
@@ -240,7 +247,68 @@ struct EventPageView: View {
 
     var body: some View {
         T1Screen {
-            Bar(title: page?.name ?? "Event", subtitle: page?.shortCode.map { "Event \($0)" }, back: { dismiss() })
+            Bar(title: page?.name ?? "Event",
+                subtitle: page.map { $0.available && $0.showsResults ? $0.resultsTitle : $0.shortCode.map { "Event \($0)" } } ?? nil,
+                back: { dismiss() })
+            if let page, page.available, page.showsResults {
+                results(page)
+            } else {
+                signUpBody
+            }
+        }
+        .task { await load(signUp: signUpNow) }
+        .task(id: page?.showsResults == true) {
+            // The standings page follows the event while it's open, like the web's.
+            guard page?.showsResults == true else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(20))
+                if Task.isCancelled { break }
+                await load(signUp: false)
+            }
+        }
+        .alert("Leave \(page?.name ?? "the event")?", isPresented: $confirmLeave) {
+            Button("Stay", role: .cancel) {}
+            Button("Leave", role: .destructive) { leave() }
+        } message: {
+            Text(state == .waitlisted ? "You'll lose your place on the waitlist."
+                 : (page?.waitlist ?? 0) > 0 ? "Your place goes to the next person on the waitlist." : "You can sign up again while there's room.")
+        }
+        .onAppear { Telemetry.capture("event_page_viewed", ["state": page?.showsResults == true ? "results" : state.rawValue]) }
+    }
+
+    /// After round 1: Standings (the top 8 first once cut) and Matchups (every round, newest first).
+    @ViewBuilder
+    private func results(_ page: EventPage) -> some View {
+        if page.me == "waitlisted" { Notice("Sign-ups are closed: you didn't get in this time.") }
+        followRow
+        T1Segmented(options: [(value: false, label: "Standings"), (value: true, label: "Matchups")], selection: $matchups)
+        HairlineList {
+            if let error { Notice(error, error: true) }
+            if !matchups {
+                if let standings {
+                    BracketRows(bracket: standings.bracket ?? [])
+                    StandingsRows(engine: standings, highlight: nil)
+                    Notice("Ordered by match points, then opponents' match-win %, then game-win %, then opponents' game-win %. Percentages floored at 33% per the Magic Tournament Rules.")
+                } else if error == nil {
+                    Notice("Loading…")
+                }
+            } else if page.matchupRounds.isEmpty {
+                Notice("No rounds yet")
+            } else {
+                ForEach(page.matchupRounds) { r in
+                    Section1(r.title)
+                    ForEach(r.matches ?? []) { m in PublicMatchRow(match: m) }
+                }
+            }
+        }
+        .refreshable { await load(signUp: false) }
+        if page.me == "organizer" || page.me == "player" {
+            BigAction(text: "Open event", accent: true) { path = [.event(eventId)] }
+        }
+    }
+
+    private var signUpBody: some View {
+        Group {
             ScrollView {
                 VStack(spacing: 1) {
                     if let page, page.available {
@@ -254,6 +322,7 @@ struct EventPageView: View {
                         }
                         .padding(20).frame(maxWidth: .infinity, alignment: .leading).background(T1.surface)
                         ListRow(title: page.signUpLine)
+                        followRow
                         if let message { Notice(message) }
                         if let error { Notice(error, error: true) }
                         status
@@ -264,15 +333,6 @@ struct EventPageView: View {
             }
             action
         }
-        .task { await load(signUp: signUpNow) }
-        .alert("Leave \(page?.name ?? "the event")?", isPresented: $confirmLeave) {
-            Button("Stay", role: .cancel) {}
-            Button("Leave", role: .destructive) { leave() }
-        } message: {
-            Text(state == .waitlisted ? "You'll lose your place on the waitlist."
-                 : (page?.waitlist ?? 0) > 0 ? "Your place goes to the next person on the waitlist." : "You can sign up again while there's room.")
-        }
-        .onAppear { Telemetry.capture("event_page_viewed", ["state": state.rawValue]) }
     }
 
     @ViewBuilder
@@ -301,10 +361,48 @@ struct EventPageView: View {
         }
     }
 
+    /// Follow / Following for anyone signed in who doesn't run or play in it (and can, or already does).
+    @ViewBuilder
+    private var followRow: some View {
+        if let f = follow, page?.me != "organizer", page?.me != "player", f.following || f.canFollow == true {
+            Button { followTapped(f) } label: {
+                ListRow(title: f.following ? "Following" : "Follow",
+                        detail: f.following ? (f.notify ? "Each round and the final standings" : "Notifications off") : nil) {
+                    LabelText(f.following ? "✓" : "Follow", color: f.following ? T1.accent : T1.text)
+                }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func followTapped(_ f: EventFollow) {
+        guard f.following else { setFollow(true, nil); return }
+        T1Overlays.shared.showMenu(page?.name ?? "Event", [
+            T1MenuItem(title: f.notify ? "Turn notifications off" : "Turn notifications on") { setFollow(true, !f.notify) },
+            T1MenuItem(title: "Unfollow") { setFollow(false, nil) },
+        ])
+    }
+
+    private func setFollow(_ on: Bool, _ notify: Bool?) {
+        let id = eventId
+        Task { @MainActor in
+            do { follow = try await Repo.setEventFollow(id, follow: on, notify: notify); follow?.canFollow = true }
+            catch { self.error = error.localizedDescription }
+        }
+    }
+
     @MainActor
     private func load(signUp: Bool) async {
         do {
             page = try await Repo.eventPage(eventId)
+            if page?.available == true, page?.me != "organizer", page?.me != "player" {
+                follow = try? await Repo.eventFollow(eventId)
+            }
+            if page?.available == true, page?.showsResults == true {
+                do { standings = try await Repo.standings(eventId); error = nil } catch where !error.isCancellation {
+                    if standings == nil { self.error = error.localizedDescription }
+                }
+            }
             if signUp && !signedUpOnce && (state == .signUp || state == .waitlist) { self.signUp() }
         } catch {
             if !error.isCancellation { page = EventPage(eventId: nil) }
@@ -346,6 +444,24 @@ struct EventPageView: View {
                 self.error = error.localizedDescription
             }
         }
+    }
+}
+
+/// "T3 · Ana 2–1 Bo" on the public page's Matchups ("Bye · Ana" for a bye).
+struct PublicMatchRow: View {
+    let match: PublicMatch
+
+    var body: some View {
+        HStack(spacing: 12) {
+            LabelText(match.tableLabel).frame(width: 40, alignment: .leading)
+            Text(match.name(0)).font(T1.mono(13)).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+            if match.isBye != true {
+                Text(match.score).font(T1.mono(13)).monospacedDigit().foregroundStyle(T1.muted).frame(width: 56)
+                Text(match.name(1)).font(T1.mono(13)).lineLimit(1).frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 12)
+        .background(T1.surface)
     }
 }
 

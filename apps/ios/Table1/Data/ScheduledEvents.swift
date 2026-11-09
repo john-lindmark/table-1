@@ -155,8 +155,34 @@ struct EventPage: Decodable, Equatable {
     var me: String?
     var position: Int?
     var decklists: String?
+    /// After round 1 (contract/event-links-2026-11-09.md): the round being played and every round's matchups.
+    var currentRound: Int?
+    var round: Head?
+    var rounds: [PublicRound]?
+    /// The current round's matchups, from servers before `rounds`.
+    var pairings: [PublicMatch]?
+
+    struct Head: Decodable, Equatable { var number: Int; var stage: String? }
 
     var available: Bool { eventId != nil && access != "none" }
+
+    /// The page shows standings and matchups rather than sign-up: sign-ups are closed (round 1 paired, or the
+    /// event over), except for someone still waiting before round 1.
+    var showsResults: Bool { signUp == "closed" && !(me == "waitlisted" && (currentRound ?? 0) == 0) }
+
+    /// Under the bar after round 1: "Final standings", "Round 2 of 4", "Quarterfinals".
+    var resultsTitle: String {
+        if status == "completed" { return "Final standings" }
+        if let r = round { return EventRules.roundName(stage: r.stage, number: r.number, of: numberOfRounds ?? 0) }
+        return "Round \(currentRound ?? 0) of \(numberOfRounds ?? 0)"
+    }
+
+    /// Matchups, newest first; an older server's current pairings stand in for its round.
+    var matchupRounds: [PublicRound] {
+        if let rounds, !rounds.isEmpty { return rounds }
+        guard let r = round, let pairings, !pairings.isEmpty else { return [] }
+        return [PublicRound(number: r.number, stage: r.stage, status: "active", matches: pairings)]
+    }
     var signUpLine: String { EventRules.signUpLine(players: players ?? 0, capacity: capacity, waitlist: waitlist ?? 0) }
     var roundsLine: String {
         EventRules.roundsLine(auto: autoRounds ?? false, rounds: numberOfRounds ?? 3, topCut: topCut ?? 0, open: signUp != "closed")
@@ -165,6 +191,76 @@ struct EventPage: Decodable, Equatable {
     var facts: String {
         [EventRules.when(startsAt), venueName, formatLabel, organizerName.map { "Run by \($0)" }]
             .compactMap { $0?.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+}
+
+/// One round on the public page: "Round 2 · now", then its matches by name.
+struct PublicRound: Decodable, Equatable, Identifiable {
+    let number: Int
+    var stage: String?
+    var status: String?
+    var matches: [PublicMatch]?
+    var id: Int { number }
+
+    /// "Round 2 · now", "Quarterfinals".
+    var title: String {
+        let name = (stage ?? "swiss") == "swiss" ? "Round \(number)" : EventRules.roundName(stage: stage, number: number, of: 0)
+        return name + (status == "active" ? " · now" : "")
+    }
+}
+
+/// A match on the public page: names only, no account ids.
+struct PublicMatch: Decodable, Equatable, Identifiable {
+    let matchId: String
+    var tableNumber: Int?
+    var isBye: Bool?
+    var status: String?
+    var gameDraws: Int?
+    var sides: [Side]?
+    var id: String { matchId }
+
+    struct Side: Decodable, Equatable { var side: Int; var displayName: String?; var gameWins: Int? }
+
+    func name(_ side: Int) -> String { (sides ?? []).first { $0.side == side }?.displayName ?? "—" }
+    /// "T3", "Bye".
+    var tableLabel: String { isBye == true ? "Bye" : "T\(tableNumber.map(String.init) ?? "–")" }
+    /// "2–1", "1–1–1", or "vs" before a result.
+    var score: String {
+        guard status != "pending" else { return "vs" }
+        let a = (sides ?? []).first { $0.side == 0 }?.gameWins ?? 0, b = (sides ?? []).first { $0.side == 1 }?.gameWins ?? 0
+        return "\(a)–\(b)" + ((gameDraws ?? 0) > 0 ? "–\(gameDraws ?? 0)" : "")
+    }
+}
+
+/// Following an event you're not in (contract/event-follows-2026-11-09.md).
+struct EventFollow: Decodable, Equatable {
+    var following = false
+    var notify = false
+    var canFollow: Bool?
+}
+
+/// An event you follow, for the Events home's Following section.
+struct FollowedEvent: Decodable, Identifiable, Hashable {
+    let eventId: String
+    let name: String
+    var formatLabel: String?
+    var status: String?
+    var currentRound: Int?
+    var numberOfRounds: Int?
+    var topCut: Int?
+    var startsAt: String?
+    var venueName: String?
+    var notify: Bool?
+    var stage: String?
+    var id: String { eventId }
+
+    /// "Round 2 of 4 · Modern", "Final standings · Modern", "Sat 8 Nov · 18:30 · The Shop · Modern".
+    var detail: String {
+        let state: String?
+        if status == "completed" { state = "Final standings" }
+        else if (currentRound ?? 0) > 0 { state = EventRules.roundName(stage: stage, number: currentRound ?? 0, of: numberOfRounds ?? 0) }
+        else { state = [EventRules.when(startsAt), venueName].compactMap { $0 }.joined(separator: " · ").nilIfEmpty }
+        return [state, formatLabel].compactMap { $0 }.joined(separator: " · ")
     }
 }
 

@@ -21,6 +21,7 @@ import { JoinByCode } from "../components/JoinByCode";
 import { Landing } from "./Landing";
 import { FormatPicker, PlayersEditor, ProductPicker, RoundTimerSwitch, cubeUrlProblem } from "../components/EventFormFields";
 import { when } from "../lib/scheduledEvents";
+import { fetchEventsFollowed, followedDetail, type FollowedEvent } from "../lib/eventFollows";
 import { CutAndRoundsFields, DecklistsFields, DraftPodFields, ScheduleFields, type DecklistMode, type ScheduleValue } from "../components/EventExtras";
 import { draftAutoLabel, type PodPairing } from "../lib/draftPods";
 import { defaultPairing } from "../lib/rotoMath";
@@ -69,6 +70,7 @@ export function Home({
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
   const [data, setData] = useState<HomeData | null>(null);
+  const [followed, setFollowed] = useState<FollowedEvent[]>([]);
   const [snaps, setSnaps] = useState<Record<string, LiveSnapshot>>({});
   const [showPast, setShowPast] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,6 +115,8 @@ export function Home({
         setData((d) => d ?? { events: [], invites: [] });
       }
     }
+    // Events you follow but aren't in (contract/event-follows-2026-11-09.md).
+    setFollowed(await fetchEventsFollowed());
     const live = await fetchLiveSnapshots();
     setSnaps(Object.fromEntries(live.map((s) => [s.eventId, s])));
   }, []);
@@ -168,7 +172,7 @@ export function Home({
   }
 
   const open = (e: HomeEvent) => (e.organizing ? onOpenEvent(e.id) : onOpenPlayer(e.id));
-  const empty = data !== null && data.events.length === 0 && invites.length === 0 && !(data.waitlist ?? []).length;
+  const empty = data !== null && data.events.length === 0 && invites.length === 0 && !(data.waitlist ?? []).length && !followed.length;
   // Live, invitations, (Join,) upcoming and past: the whole page on a phone, the left column on a desktop.
   const lists = (
     <>
@@ -214,6 +218,17 @@ export function Home({
               <span className="t1-label truncate">
                 {[`Number ${w.position ?? 1} on the waitlist`, when(w.starts_at), w.venue_name].filter(Boolean).join(" · ")}
               </span>
+            </a>
+          ))}
+        </>
+      )}
+      {followed.length > 0 && (
+        <>
+          <div className="bg-t1-surface px-4 py-2 t1-label">Following</div>
+          {followed.map((f) => (
+            <a key={f.event_id} href={`/s/${f.event_id}`} className="bg-t1-surface hover:bg-t1-surface-hover px-4 py-4 flex flex-col gap-1">
+              <span className="text-[14px] truncate">{f.name}</span>
+              <span className="t1-label truncate">{followedDetail(f)}</span>
             </a>
           ))}
         </>
