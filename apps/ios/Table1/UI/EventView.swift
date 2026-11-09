@@ -428,17 +428,32 @@ struct StandingsRows: View {
     let highlight: String?
     /// For avatars: whose account each standing is.
     var players: [ParticipantRow] = []
+    /// Drafts with 2+ pods: one pod's players (nil = everyone), in overall order.
+    @State private var podFilter: String?
+
+    /// Pods with seats, in order, when there are two or more (contract/draft-pods-2026-11-09.md).
+    private var pods: [SeatingPod] {
+        let p = (engine.seating ?? []).filter { !$0.seats.isEmpty }
+        return p.count > 1 && engine.standings.contains { $0.podId != nil } ? p : []
+    }
 
     var body: some View {
         let teams = engine.teams ?? []
+        let pods = pods
+        let codes = Dictionary(uniqueKeysWithValues: pods.enumerated().map { ($1.podId, DraftPods.code($1.name, index: $0)) })
         if engine.standings.isEmpty && teams.isEmpty { Notice("Standings appear after the first results.") }
         if !teams.isEmpty {
             Section1("Teams")
             ForEach(teams) { TeamStandingLine(t: $0, highlight: highlight, players: players) }
             Section1("Players")
         }
-        ForEach(engine.standings) { s in
-            StandingLine(s: s, highlight: s.participantId == highlight, tag: engine.teamOf(s.participantId)?.name,
+        if !pods.isEmpty {
+            T1Segmented(options: [(value: "", label: "All")] + pods.map { (value: $0.podId, label: $0.name ?? "Pod") },
+                        selection: Binding(get: { podFilter ?? "" }, set: { podFilter = $0.isEmpty ? nil : $0 }), scroll: true)
+        }
+        ForEach(engine.standings.filter { podFilter == nil || $0.podId == podFilter }) { s in
+            StandingLine(s: s, highlight: s.participantId == highlight,
+                         tag: engine.teamOf(s.participantId)?.name ?? s.podId.flatMap { codes[$0] },
                          userId: players.first { $0.id == s.participantId }?.userId)
         }
     }

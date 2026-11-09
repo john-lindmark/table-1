@@ -28,7 +28,7 @@ struct Table1App: App {
                 .overlay {
                     if ProcessInfo.processInfo.arguments.contains("-T1LibraryDemo") { LibraryDemoRoot() }
                 }
-                // `-T1EventsDemo [create|setup|seating|results|photo|home|homeorg|account|live|player|playerdone]`
+                // `-T1EventsDemo [create|setup|seating|results|photo|home|homeorg|account|live|player|playerdone|pods]`
                 // [-T1Tab <tab>]: event screens on sample data (modes in EventsDemo.swift).
                 .overlay {
                     if ProcessInfo.processInfo.arguments.contains("-T1EventsDemo") { EventsDemoRoot() }

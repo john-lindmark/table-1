@@ -26,6 +26,9 @@ struct CreateEventView: View {
     @State private var autoRounds = true
     @State private var topCut = 0
     @State private var decklists = "off"
+    /// Drafts: nil = automatic pods (up to 8 each); "pod" or "cross" after round 1.
+    @State private var podsPick: Int?
+    @State private var podPairing = DraftPods.inside
     /// Roto only: prefilled from the player count (round robin for 2–8, Swiss for 9+) until changed by hand.
     @State private var pairing = "round_robin"
     @State private var pairingTouched = false
@@ -60,6 +63,8 @@ struct CreateEventView: View {
     /// Roto is always a cube.
     private var usesCube: Bool { isLimited && (product == .cube || isRoto) }
     private var playerCount: Int { guests.count + (includeMe ? 1 : 0) }
+    /// An individual draft has pods to pick (team drafts and rotos are one pod).
+    private var hasPods: Bool { isLimited && format == .draft }
     private var trimmedCubeUrl: String { cubeUrl.trimmingCharacters(in: .whitespaces) }
     private var cubeUrlValid: Bool { EventProduct.cubeUrlValid(cubeUrl) }
     /// Swiss events of players: automatic rounds and the top cut apply.
@@ -112,12 +117,16 @@ struct CreateEventView: View {
                     if format.isTeam {
                         TeamSizeFields(format: format, teamSize: $teamSize)
                     }
+                    if hasPods {
+                        DraftPodFields(pods: $podsPick, pairing: $podPairing, players: playerCount)
+                    }
 
                     ScheduleFields(schedule: $schedule)
 
                     Section1("Rounds")
                     if !(isRoto && pairing == "round_robin") {
-                        CutAndRoundsFields(autoRounds: $autoRounds, rounds: $rounds, topCut: $topCut, players: playerCount, swiss: swiss)
+                        CutAndRoundsFields(autoRounds: $autoRounds, rounds: $rounds, topCut: $topCut, players: playerCount, swiss: swiss,
+                                           autoDetail: hasPods ? DraftPods.autoLabel(players: playerCount, pods: podsPick, pairing: podPairing) : nil)
                     }
                     RoundTimerSwitch(isOn: $showClock)
                     if isRoto {
@@ -174,12 +183,17 @@ struct CreateEventView: View {
         let schedule = schedule
         let venue = schedule.venue.trimmingCharacters(in: .whitespaces)
         let roto = isRoto
+        let pods = hasPods ? (podsPick, podPairing) : nil
         let guests = guests
         let includeMe = includeMe
         Task {
             defer { busy = false }
             do {
                 let created = try await Repo.createEventV2(draft, includeMe: includeMe, guests: guests, schedule: schedule)
+                // Drafts: the pods, when not the defaults (automatic, inside pods). Setup → Seating can change them.
+                if let pods, pods.0 != nil || pods.1 != DraftPods.inside {
+                    try? await Repo.setEventPods(created.eventId, pods: pods.0, pairing: pods.1)
+                }
                 // Pin it where the organizer stands; for nearby events this also alerts opted-in players around.
                 // A scheduled event is usually made away from the venue: no pin then (Details can set it there).
                 if schedule.startsAt == nil, let fix = await LocationFix.shared.current() {

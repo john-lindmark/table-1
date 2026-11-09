@@ -69,10 +69,12 @@ struct CutAndRoundsFields: View {
     let players: Int
     /// Swiss events of players (not team events or round robin).
     let swiss: Bool
+    /// Drafts with pods: the automatic count follows the pods (DraftPods.autoLabel).
+    var autoDetail: String?
 
     var body: some View {
         if swiss {
-            T1Switch(title: "Automatic rounds", detail: autoRounds ? EventRules.autoLabel(players: players) : "Set by hand",
+            T1Switch(title: "Automatic rounds", detail: autoRounds ? (autoDetail ?? EventRules.autoLabel(players: players)) : "Set by hand",
                      isOn: $autoRounds)
         }
         if !swiss || !autoRounds {
@@ -86,6 +88,29 @@ struct CutAndRoundsFields: View {
                        : "Top 8 needs 9 or more players: with \(players) the event ends after Swiss.")
             }
         }
+    }
+}
+
+/// Drafts: how many pods (Auto = pods of up to 8) and how rounds 2+ pair (contract/draft-pods-2026-11-09.md).
+struct DraftPodFields: View {
+    @Binding var pods: Int?
+    @Binding var pairing: String
+    let players: Int
+    /// The seats are drawn: a new number of pods re-draws them.
+    var seated = false
+
+    var body: some View {
+        Section1("Pods")
+        T1Segmented(options: [(value: false, label: "Auto"), (value: true, label: "Choose")],
+                    selection: Binding(get: { pods != nil },
+                                       set: { on in pods = on ? max(2, DraftPods.count(players: players, pods: nil)) : nil }))
+        if let n = pods {
+            T1Stepper(label: "Pods", value: Binding(get: { n }, set: { pods = $0 }), range: 1...16)
+        }
+        Notice(DraftPods.label(players: players, pods: pods) + (seated ? " · a new number re-draws the seats" : ""))
+        T1Segmented(options: [(value: DraftPods.inside, label: "Inside pods"), (value: DraftPods.across, label: "Across pods")],
+                    selection: $pairing)
+        Notice(pairing == DraftPods.inside ? "After round 1 you play your own pod." : "After round 1, Swiss across every pod.")
     }
 }
 

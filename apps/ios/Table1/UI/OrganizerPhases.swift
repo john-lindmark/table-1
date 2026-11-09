@@ -43,6 +43,8 @@ struct OrganizerContext {
     let open: (Route) -> Void
     /// Seats players (or re-seats) and shows the answer at once; the reload follows in the background.
     let seat: () -> Void
+    /// Runs a seating change (move, swap) and shows its answer at once; the reload follows.
+    let reseat: (@escaping () async throws -> [SeatingPod]) -> Void
 
     var event: EventRow { b.event }
 }
@@ -84,7 +86,8 @@ struct OrganizerView: View {
             cancelEvent: { confirmCancel = true },
             addPlayers: addPlayers,
             open: open,
-            seat: { seat() }
+            seat: { seat() },
+            reseat: { block in reseat(block) }
         )
         Group {
             switch phase {
@@ -150,6 +153,23 @@ struct OrganizerView: View {
     }
 
     @MainActor
+    private func reseat(_ block: @escaping () async throws -> [SeatingPod]) {
+        guard !busy else { return }
+        busy = true
+        error = nil
+        Task { @MainActor in
+            do {
+                showSeating(try await block())
+                busy = false
+                await refresh()
+            } catch {
+                self.error = error.localizedDescription
+                busy = false
+            }
+        }
+    }
+
+    @MainActor
     private func act(_ block: @escaping () async throws -> Void) {
         busy = true
         error = nil
@@ -177,6 +197,8 @@ private struct OrganizerSetupView: View {
     @State private var removed: Set<String> = []
     @State private var removeError: String?
     @State private var guestName = ""
+    /// Seating: the player picked by "Swap with…", waiting for the other tap.
+    @State private var swapFrom: SeatingPod.Seat?
 
     private var b: EventBundle { ctx.b }
     private var participants: [ParticipantRow] { b.participants.filter { !removed.contains($0.id) } }
@@ -330,9 +352,27 @@ private struct OrganizerSetupView: View {
         }
     }
 
+    /// Draft (not team draft or roto): pods, how rounds 2+ pair, and seats moved by hand.
+    private var hasPods: Bool { event.formatName == "draft" }
+    private var unseated: [ParticipantRow] {
+        guard event.status == "seated" else { return [] }
+        let seatedIds = Set(seating.flatMap { $0.seats.map(\.participantId) })
+        return active.filter { !seatedIds.contains($0.id) }
+    }
+
     private var seatingTab: some View {
         HairlineList {
-            Ghost(text: ctx.busy ? "Working…" : (seating.isEmpty ? "Seat players" : "Re-seat"), accent: seating.isEmpty) { seat() }
+            if hasPods {
+                DraftPodFields(pods: Binding(get: { event.pods }, set: { setPods($0, event.podPairing) }),
+                               pairing: Binding(get: { event.podPairing }, set: { setPods(event.pods, $0) }),
+                               players: active.count, seated: !seating.isEmpty)
+            }
+            Ghost(text: ctx.busy ? "Working…" : (seating.isEmpty ? "Seat players" : "Randomize"), accent: seating.isEmpty) { seat() }
+            if let from = swapFrom {
+                ListRow(title: "Swap \(from.displayName) with…", detail: "Tap the other player") {
+                    Button { swapFrom = nil } label: { LabelText("Cancel", color: T1.accent) }.buttonStyle(.plain)
+                }
+            }
             if seating.isEmpty {
                 Notice("Seat players for the draft, then start the event: round 1 pairs across the table.")
             } else {
@@ -344,10 +384,46 @@ private struct OrganizerSetupView: View {
                                  Telemetry.capture("seat_ends_changed", ["on": on, "players": seating.reduce(0) { $0 + $1.seats.count }])
                              }
                          }))
-                SeatingTable(pods: seating, teamDraft: event.formatName == "team_draft", highlight: me?.id,
-                             seatEnds: event.seatEnds)
+                SeatingTable(pods: seating, teamDraft: event.formatName == "team_draft", highlight: swapFrom?.participantId ?? me?.id,
+                             seatEnds: event.seatEnds, onTap: hasPods && event.isBeforeRound1 ? { seat, pod in tapSeat(seat, pod) } : nil)
+                if !unseated.isEmpty {
+                    Section1("Not seated · \(unseated.count)")
+                    ForEach(unseated) { p in
+                        ListRow(title: p.displayName, detail: "Seated at round 1, in the smallest pod",
+                                avatar: AvatarView(name: p.displayName, userId: p.userId)) { EmptyView() }
+                    }
+                }
             }
         }
+    }
+
+    @MainActor
+    private func setPods(_ pods: Int?, _ pairing: String) {
+        let id = event.id
+        ctx.act { try await Repo.setEventPods(id, pods: pods, pairing: pairing) }
+    }
+
+    @MainActor
+    private func tapSeat(_ seat: SeatingPod.Seat, _ pod: SeatingPod) {
+        if let from = swapFrom {
+            swapFrom = nil
+            guard from.participantId != seat.participantId else { return }
+            let a = from.participantId, b = seat.participantId
+            ctx.reseat { try await Repo.seatSwap(a, b) }
+            return
+        }
+        let pid = seat.participantId
+        var items = seating.filter { $0.podId != pod.podId }.map { other in
+            T1MenuItem(title: "Move to \(other.name ?? "pod")", detail: "\(other.seats.count) players") {
+                let to = other.podId
+                ctx.reseat { try await Repo.seatMove(pid, podId: to) }
+            }
+        }
+        if pod.seats.count > 1 {
+            items.append(T1MenuItem(title: "Move to a new pod") { ctx.reseat { try await Repo.seatMove(pid, podId: nil) } })
+        }
+        items.append(T1MenuItem(title: "Swap with…") { swapFrom = seat })
+        T1Overlays.shared.showMenu("\(pod.name ?? "Pod") · seat \(seat.seat)", message: seat.displayName, items)
     }
 
     // MARK: start

@@ -10,13 +10,18 @@ struct SeatingTable: View {
     var highlight: String?
     /// Seat the two ends of the table too (event setting; changes only the drawing).
     var seatEnds = false
+    /// Organizer before round 1: a tapped seat (move or swap it).
+    var onTap: ((SeatingPod.Seat, SeatingPod) -> Void)?
+
+    private var seatNumbers: [[Int]] { pods.map { $0.seats.map(\.seat) } }
 
     var body: some View {
-        ForEach(pods) { pod in
+        ForEach(Array(pods.enumerated()), id: \.element.id) { i, pod in
             Section1("\(pods.count > 1 ? (pod.name ?? "Pod") : "Seating") · \(pod.seats.count) players")
             PodTable(pod: pod, pairs: Self.pairs(pod, teamDraft: teamDraft), highlight: highlight,
-                     seatEnds: seatEnds)
-            Notice(teamDraft ? Self.teamDraftText(pod) : Self.acrossText(pod))
+                     seatEnds: seatEnds, byeSeat: teamDraft ? nil : DraftPods.byeSeat(seatNumbers, pod: i),
+                     onTap: onTap.map { tap in { seat in tap(seat, pod) } })
+            Notice(teamDraft ? Self.teamDraftText(pod) : Self.acrossText(pods, pod: i))
         }
     }
 
@@ -45,15 +50,10 @@ struct SeatingTable: View {
         return "Round 1 pairs: \(pairs)."
     }
 
-    /// "Round 1 pairs across the table: 1 v 5, 2 v 6, 3 v 7, 4 v 8." An odd pod's last seat has the bye.
-    static func acrossText(_ pod: SeatingPod) -> String {
-        let seats = pod.seats.map(\.seat).sorted()
-        let even = seats.count - seats.count % 2
-        let half = even / 2
-        guard half > 0 else { return "Round 1 pairs across the table." }
-        let pairs = (0..<half).map { "\(seats[$0]) v \(seats[$0 + half])" }.joined(separator: ", ")
-        let bye = seats.count % 2 == 1 ? " Seat \(seats[seats.count - 1]) has the bye." : ""
-        return "Round 1 pairs across the table: \(pairs).\(bye)"
+    /// "Round 1 pairs across the table: 1 v 4, 2 v 5, 3 v 6. Seat 7 plays Pod 2's seat 7." An odd pod's last seat
+    /// plays another odd pod's, or has the bye when the event is odd (DraftPods.note, testdata/draft-pods).
+    static func acrossText(_ pods: [SeatingPod], pod index: Int) -> String {
+        DraftPods.note(pods.map { $0.seats.map(\.seat) }, pod: index) { i in pods[i].name ?? "Pod \(i + 1)" }
     }
 }
 
@@ -66,9 +66,11 @@ private struct PodTable: View {
     let pairs: [(Int, Int)]
     let highlight: String?
     let seatEnds: Bool
+    /// The seat with round 1's bye (an odd pod's last seat plays another odd pod's unless the event is odd).
+    let byeSeat: Int?
+    var onTap: ((SeatingPod.Seat) -> Void)?
 
     private var seats: [SeatingPod.Seat] { pod.seats.sorted { $0.seat < $1.seat } }
-    private var byeSeat: Int? { seats.count % 2 == 1 && pairs.count * 2 < seats.count ? seats.last?.seat : nil }
     private var mySeat: Int? { seats.first { $0.participantId == highlight }?.seat }
     private var layout: TableLayout { TableLayout(count: seats.count, ends: seatEnds) }
 
@@ -107,9 +109,19 @@ private struct PodTable: View {
                 .background(T1.bg)
                 .position(x: table.midX, y: table.midY)
                 ForEach(Array(seats.enumerated()), id: \.element.id) { i, seat in
-                    SeatChip(seat: seat, mine: seat.participantId == highlight, bye: seat.seat == byeSeat)
-                        .frame(width: chip.width, height: chip.height)
-                        .position(points[i])
+                    Group {
+                        if let onTap {
+                            Button { onTap(seat) } label: {
+                                SeatChip(seat: seat, mine: seat.participantId == highlight, bye: seat.seat == byeSeat)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint("Move or swap")
+                        } else {
+                            SeatChip(seat: seat, mine: seat.participantId == highlight, bye: seat.seat == byeSeat)
+                        }
+                    }
+                    .frame(width: chip.width, height: chip.height)
+                    .position(points[i])
                 }
             }
         }

@@ -218,6 +218,36 @@ enum Repo {
         ]).execute()
     }
 
+    /// Drafts before round 1: the number of pods (nil = automatic) and how rounds 2+ pair ("pod" | "cross").
+    /// A new number of pods on a seated draft re-draws the seats (contract/draft-pods-2026-11-09.md).
+    static func setEventPods(_ eventId: String, pods: Int?, pairing: String) async throws {
+        struct Answer: Decodable { let reseated: Bool? }
+        let a: Answer = try await supabase.rpc("set_event_pods", params: [
+            "p_event_id": AnyJSON.string(eventId), "p_pods": pods.map { AnyJSON.integer($0) } ?? .null,
+            "p_pod_pairing": .string(pairing),
+        ]).execute().value
+        Telemetry.capture("event_pods_set", ["pods": pods ?? 0, "pod_pairing": pairing, "reseated": a.reseated ?? false])
+    }
+
+    /// Moves a seated player to another pod (nil = a new pod), at a seat (nil = the end of it). Returns the seating.
+    static func seatMove(_ participantId: String, podId: String?, seat: Int? = nil) async throws -> [SeatingPod] {
+        let r: SeatPlayersResponse = try await supabase.rpc("seat_move", params: [
+            "p_participant_id": AnyJSON.string(participantId), "p_pod_id": podId.map { AnyJSON.string($0) } ?? .null,
+            "p_seat": seat.map { AnyJSON.integer($0) } ?? .null,
+        ]).execute().value
+        Telemetry.capture("seat_moved", ["to": podId == nil ? "new" : seat == nil ? "pod" : "seat"])
+        return r.pods
+    }
+
+    /// Two seated players trade pod and seat. Returns the seating.
+    static func seatSwap(_ a: String, _ b: String) async throws -> [SeatingPod] {
+        let r: SeatPlayersResponse = try await supabase.rpc("seat_swap", params: [
+            "p_a": AnyJSON.string(a), "p_b": .string(b),
+        ]).execute().value
+        Telemetry.capture("seat_swapped", [:])
+        return r.pods
+    }
+
     /// event_bundle's shape (rows exactly as the tables return them); testdata/event-bundle/bundle.json in tests.
     struct BundleWire: Decodable {
         let event: EventRow
@@ -458,7 +488,8 @@ enum Repo {
         return s
     }
 
-    /// Draft events before round 1: random seats in pods of up to 8. Calling again re-shuffles.
+    /// Draft events before round 1: random pods and seats for the organizer's pick (pods of up to 8 when automatic).
+    /// Calling again re-draws everyone (Randomize).
     /// One Postgres call (seat_event); the answer is the new seating.
     static func seatPlayers(_ eventId: String) async throws -> [SeatingPod] {
         let r: SeatPlayersResponse = try await supabase.rpc("seat_event", params: ["p_event_id": AnyJSON.string(eventId)])

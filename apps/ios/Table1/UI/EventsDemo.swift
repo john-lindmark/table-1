@@ -26,7 +26,7 @@ import SwiftUI
 /// sample data, and nothing here asks for location or notifications.
 struct EventsDemoRoot: View {
     static let switcherModes = ["create", "setup", "seating", "results", "photo"]
-    static let fullModes = ["home", "homeorg", "account", "live", "player", "playerdone"]
+    static let fullModes = ["pods", "home", "homeorg", "account", "live", "player", "playerdone"]
 
     @State private var screen: String
     @State private var path: [Route] = []
@@ -63,6 +63,9 @@ struct EventsDemoRoot: View {
             switch screen {
             case "setup":
                 organizer(DemoData.bundle, DemoData.engine)
+            case "pods":
+                // A seated draft of 15 in two pods, paired inside pods (contract/draft-pods-2026-11-09.md).
+                organizer(DemoData.podsBundle, DemoData.podsEngine)
             case "results":
                 organizer(DemoData.finished, DemoData.finalStandings)
             case "live":
@@ -202,6 +205,35 @@ private enum DemoData {
     }
 
     static let bundle = EventBundle(event: event(status: "seated", round: 0), participants: participants, rounds: [], isOrganizer: true)
+
+    /// `-T1EventsDemo pods`: 15 seated in Pod 1 (8) and Pod 2 (7), the organizer picked 2 pods inside pods; a 16th
+    /// joined after the draw and waits unseated.
+    static let podNames = names + ["Kai Sato", "Lu Bianchi", "Max Weber", "Nia Adeyemi", "Oli Kerr", "Pia Holm"]
+    static let podsParticipants: [ParticipantRow] = (1...16).map { i in
+        let pod = i <= 8 ? "podA" : "podB"
+        let seat = i == 16 ? "null" : "\(i <= 8 ? i : i - 8)"
+        return decode(ParticipantRow.self, """
+        {"id": "p\(i)", "event_id": "\(eventId)", "display_name": "\(podNames[i - 1])", "seat": \(seat), "status": "active",
+         "user_id": \(i == 1 ? "\"\(me)\"" : "\"u\(i)\""), "pod_id": "\(pod)"}
+        """)
+    }
+    static let podsBundle: EventBundle = {
+        var e = event(status: "seated", round: 0)
+        e.pods = 2
+        e.podPairing = DraftPods.inside
+        e.autoRounds = true
+        return EventBundle(event: e, participants: podsParticipants, rounds: [], isOrganizer: true)
+    }()
+    static let podsEngine: StandingsResponse = {
+        func seats(_ range: ClosedRange<Int>, offset: Int) -> String {
+            range.map { #"{"seat": \#($0 - offset), "participant_id": "p\#($0)", "display_name": "\#(podNames[$0 - 1])", "team": null}"# }
+                .joined(separator: ",")
+        }
+        var r = StandingsResponse()
+        r.seating = [decode(SeatingPod.self, #"{"pod_id": "podA", "name": "Pod 1", "seats": [\#(seats(1...8, offset: 0))]}"#),
+                     decode(SeatingPod.self, #"{"pod_id": "podB", "name": "Pod 2", "seats": [\#(seats(9...15, offset: 8))]}"#)]
+        return r
+    }()
 
     /// One match. Sides are numbered 0 and 1, as the server sends them (`MatchRow.side(_:)`).
     static func match(_ round: Int, _ table: Int, _ a: Int, _ b: Int, _ aw: Int, _ bw: Int,

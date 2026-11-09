@@ -1934,6 +1934,421 @@
    "want": "3 pods \u00b7 8, 8, 8"
   }
  ],
+ "auto_label": [
+  {
+   "players": 0,
+   "pods": null,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 set when round 1 is paired"
+  },
+  {
+   "players": 0,
+   "pods": null,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 set when round 1 is paired"
+  },
+  {
+   "players": 0,
+   "pods": 1,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 set when round 1 is paired"
+  },
+  {
+   "players": 0,
+   "pods": 1,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 set when round 1 is paired"
+  },
+  {
+   "players": 0,
+   "pods": 2,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 set when round 1 is paired"
+  },
+  {
+   "players": 0,
+   "pods": 2,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 set when round 1 is paired"
+  },
+  {
+   "players": 1,
+   "pods": null,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 set when round 1 is paired"
+  },
+  {
+   "players": 1,
+   "pods": null,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 set when round 1 is paired"
+  },
+  {
+   "players": 1,
+   "pods": 1,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 set when round 1 is paired"
+  },
+  {
+   "players": 1,
+   "pods": 1,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 set when round 1 is paired"
+  },
+  {
+   "players": 1,
+   "pods": 2,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 set when round 1 is paired"
+  },
+  {
+   "players": 1,
+   "pods": 2,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 set when round 1 is paired"
+  },
+  {
+   "players": 2,
+   "pods": null,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 1 round for 2 players"
+  },
+  {
+   "players": 2,
+   "pods": null,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 1 round for 2 players"
+  },
+  {
+   "players": 2,
+   "pods": 1,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 1 round for 2 players"
+  },
+  {
+   "players": 2,
+   "pods": 1,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 1 round for 2 players"
+  },
+  {
+   "players": 2,
+   "pods": 2,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 1 round for 2 players"
+  },
+  {
+   "players": 2,
+   "pods": 2,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 1 round for 2 players"
+  },
+  {
+   "players": 8,
+   "pods": null,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 3 rounds for 8 players"
+  },
+  {
+   "players": 8,
+   "pods": null,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 3 rounds for 8 players"
+  },
+  {
+   "players": 8,
+   "pods": 1,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 3 rounds for 8 players"
+  },
+  {
+   "players": 8,
+   "pods": 1,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 3 rounds for 8 players"
+  },
+  {
+   "players": 8,
+   "pods": 2,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 2 rounds for pods of 4"
+  },
+  {
+   "players": 8,
+   "pods": 2,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 3 rounds for 8 players"
+  },
+  {
+   "players": 9,
+   "pods": null,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 3 rounds for pods of 5"
+  },
+  {
+   "players": 9,
+   "pods": null,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 4 rounds for 9 players"
+  },
+  {
+   "players": 9,
+   "pods": 1,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 4 rounds for 9 players"
+  },
+  {
+   "players": 9,
+   "pods": 1,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 4 rounds for 9 players"
+  },
+  {
+   "players": 9,
+   "pods": 2,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 3 rounds for pods of 5"
+  },
+  {
+   "players": 9,
+   "pods": 2,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 4 rounds for 9 players"
+  },
+  {
+   "players": 16,
+   "pods": null,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 3 rounds for pods of 8"
+  },
+  {
+   "players": 16,
+   "pods": null,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 4 rounds for 16 players"
+  },
+  {
+   "players": 16,
+   "pods": 1,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 4 rounds for 16 players"
+  },
+  {
+   "players": 16,
+   "pods": 1,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 4 rounds for 16 players"
+  },
+  {
+   "players": 16,
+   "pods": 2,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 3 rounds for pods of 8"
+  },
+  {
+   "players": 16,
+   "pods": 2,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 4 rounds for 16 players"
+  },
+  {
+   "players": 17,
+   "pods": null,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 3 rounds for pods of 6"
+  },
+  {
+   "players": 17,
+   "pods": null,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 5 rounds for 17 players"
+  },
+  {
+   "players": 17,
+   "pods": 1,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 5 rounds for 17 players"
+  },
+  {
+   "players": 17,
+   "pods": 1,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 5 rounds for 17 players"
+  },
+  {
+   "players": 17,
+   "pods": 2,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 4 rounds for pods of 9"
+  },
+  {
+   "players": 17,
+   "pods": 2,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 5 rounds for 17 players"
+  },
+  {
+   "players": 24,
+   "pods": null,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 3 rounds for pods of 8"
+  },
+  {
+   "players": 24,
+   "pods": null,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 5 rounds for 24 players"
+  },
+  {
+   "players": 24,
+   "pods": 1,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 5 rounds for 24 players"
+  },
+  {
+   "players": 24,
+   "pods": 1,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 5 rounds for 24 players"
+  },
+  {
+   "players": 24,
+   "pods": 2,
+   "pod_pairing": "pod",
+   "want": "Auto \u00b7 4 rounds for pods of 12"
+  },
+  {
+   "players": 24,
+   "pods": 2,
+   "pod_pairing": "cross",
+   "want": "Auto \u00b7 5 rounds for 24 players"
+  }
+ ],
+ "note": [
+  {
+   "sizes": [
+    8
+   ],
+   "pod": 0,
+   "want": "Round 1 pairs across the table: 1 v 5, 2 v 6, 3 v 7, 4 v 8."
+  },
+  {
+   "sizes": [
+    7
+   ],
+   "pod": 0,
+   "want": "Round 1 pairs across the table: 1 v 4, 2 v 5, 3 v 6. Seat 7 has the bye."
+  },
+  {
+   "sizes": [
+    7,
+    7
+   ],
+   "pod": 0,
+   "want": "Round 1 pairs across the table: 1 v 4, 2 v 5, 3 v 6. Seat 7 plays Pod 2's seat 7."
+  },
+  {
+   "sizes": [
+    7,
+    7
+   ],
+   "pod": 1,
+   "want": "Round 1 pairs across the table: 1 v 4, 2 v 5, 3 v 6. Seat 7 plays Pod 1's seat 7."
+  },
+  {
+   "sizes": [
+    7,
+    7,
+    7
+   ],
+   "pod": 0,
+   "want": "Round 1 pairs across the table: 1 v 4, 2 v 5, 3 v 6. Seat 7 plays Pod 2's seat 7."
+  },
+  {
+   "sizes": [
+    7,
+    7,
+    7
+   ],
+   "pod": 1,
+   "want": "Round 1 pairs across the table: 1 v 4, 2 v 5, 3 v 6. Seat 7 plays Pod 1's seat 7."
+  },
+  {
+   "sizes": [
+    7,
+    7,
+    7
+   ],
+   "pod": 2,
+   "want": "Round 1 pairs across the table: 1 v 4, 2 v 5, 3 v 6. Seat 7 has the bye."
+  },
+  {
+   "sizes": [
+    6,
+    6,
+    5
+   ],
+   "pod": 0,
+   "want": "Round 1 pairs across the table: 1 v 4, 2 v 5, 3 v 6."
+  },
+  {
+   "sizes": [
+    6,
+    6,
+    5
+   ],
+   "pod": 1,
+   "want": "Round 1 pairs across the table: 1 v 4, 2 v 5, 3 v 6."
+  },
+  {
+   "sizes": [
+    6,
+    6,
+    5
+   ],
+   "pod": 2,
+   "want": "Round 1 pairs across the table: 1 v 3, 2 v 4. Seat 5 has the bye."
+  },
+  {
+   "sizes": [
+    9,
+    8
+   ],
+   "pod": 0,
+   "want": "Round 1 pairs across the table: 1 v 5, 2 v 6, 3 v 7, 4 v 8. Seat 9 has the bye."
+  },
+  {
+   "sizes": [
+    9,
+    8
+   ],
+   "pod": 1,
+   "want": "Round 1 pairs across the table: 1 v 5, 2 v 6, 3 v 7, 4 v 8."
+  },
+  {
+   "sizes": [
+    1
+   ],
+   "pod": 0,
+   "want": "Round 1 pairs across the table. Seat 1 has the bye."
+  },
+  {
+   "sizes": [
+    2,
+    1
+   ],
+   "pod": 0,
+   "want": "Round 1 pairs across the table: 1 v 2."
+  },
+  {
+   "sizes": [
+    2,
+    1
+   ],
+   "pod": 1,
+   "want": "Round 1 pairs across the table. Seat 1 has the bye."
+  }
+ ],
  "round1": [
   {
    "sizes": [

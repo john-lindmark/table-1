@@ -48,6 +48,10 @@ struct EventRow: Decodable, Identifiable, Hashable {
     var capacity: Int?
     /// off | optional | required (constructed events).
     var decklists = "off"
+    /// Drafts: the organizer's number of pods (nil = automatic, pods of up to 8) and how rounds 2+ pair:
+    /// "pod" inside each pod, "cross" Swiss across every pod (contract/draft-pods-2026-11-09.md).
+    var pods: Int?
+    var podPairing = "cross"
 
     var isCancelled: Bool { status == "cancelled" }
     var isFinished: Bool { ["completed", "archived", "cancelled"].contains(status) }
@@ -65,7 +69,7 @@ struct EventRow: Decodable, Identifiable, Hashable {
              allowPlayerReporting, venueName, createdAt, cancelReason, isDemo,
              formatName, formatLabel, eventType, teamSize, setCode, setName, cubeName, cubeUrl,
              formatOther, visibility, startsAt, cancelledAt, updatedAt, showClock, autoName, seatEnds, pairing,
-             topCut, autoRounds, capacity, decklists
+             topCut, autoRounds, capacity, decklists, pods, podPairing
     }
 
     init(from decoder: Decoder) throws {
@@ -104,6 +108,8 @@ struct EventRow: Decodable, Identifiable, Hashable {
         autoRounds = try c.decodeIfPresent(Bool.self, forKey: .autoRounds) ?? false
         capacity = try c.decodeIfPresent(Int.self, forKey: .capacity)
         decklists = try c.decodeIfPresent(String.self, forKey: .decklists) ?? "off"
+        pods = try c.decodeIfPresent(Int.self, forKey: .pods)
+        podPairing = try c.decodeIfPresent(String.self, forKey: .podPairing) ?? "cross"
     }
 }
 
@@ -236,6 +242,8 @@ struct Standing: Decodable, Identifiable, Hashable {
     /// Top 8: the Swiss place and the furthest stage reached (winner | final | semifinal | quarterfinal).
     var swissRank: Int?
     var playoff: String?
+    /// Drafts: the player's pod.
+    var podId: String?
 }
 
 /// events-engine `standings`: individual rows, plus team rows (team events) and seating (draft events).

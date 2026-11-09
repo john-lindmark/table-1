@@ -35,6 +35,31 @@ def label(n, pods):
     if len(sizes) == 1: return f"1 pod · {sizes[0]}"
     return f"{len(sizes)} pods · " + ", ".join(str(s) for s in sizes)
 
+def auto_label(n, pods, pairing):
+    """The Automatic rounds switch's detail for a draft (ScheduledEvents autoLabel otherwise)."""
+    if n < 2: return "Auto · set when round 1 is paired"
+    sizes = plan(n, pods)
+    r = rounds(sizes, pairing)
+    rs = f"{r} round{'' if r == 1 else 's'}"
+    if pairing == "pod" and len(sizes) > 1: return f"Auto · {rs} for pods of {max(sizes)}"
+    return f"Auto · {rs} for {n} players"
+
+def note(sizes, p):
+    """Round 1 under pod p (0-based) of a seated draft: the pairs, then what its left-over seat does."""
+    plan1 = round1(sizes)
+    pod = plan1["pods"][p]
+    seat = lambda pid: int(pid.split("S")[1])
+    podno = lambda pid: int(pid[1:].split("S")[0])
+    pairs = ", ".join(f"{seat(a)} v {seat(b)}" for a, b in pod["pairs"])
+    text = f"Round 1 pairs across the table: {pairs}." if pairs else "Round 1 pairs across the table."
+    left = pod["left"]
+    if left:
+        if plan1["bye"] == left: text += f" Seat {seat(left)} has the bye."
+        else:
+            other = next(b if a == left else a for a, b in plan1["across"] if left in (a, b))
+            text += f" Seat {seat(left)} plays Pod {podno(other)}'s seat {seat(other)}."
+    return text
+
 def round1(sizes):
     """Seats per pod 1..n; ids 'P<pod>S<seat>' (pods from 1)."""
     pods, left = [], []
@@ -55,6 +80,9 @@ out = {
                for s in [[], [8], [8, 8], [7, 7], [6, 6, 5], [9, 8], [5, 4, 4, 4], [17], [8, 8, 8, 8], [1], [3, 2], [16, 16], [10, 1]]
                for pp in ["pod", "cross"]],
     "label": [{"players": n, "pods": p, "want": label(n, p)} for n in [0, 1, 6, 9, 14, 17, 24] for p in [None, 1, 2, 3]],
+    "auto_label": [{"players": n, "pods": p, "pod_pairing": pp, "want": auto_label(n, p, pp)}
+                   for n in [0, 1, 2, 8, 9, 16, 17, 24] for p in [None, 1, 2] for pp in ["pod", "cross"]],
+    "note": [{"sizes": s, "pod": i, "want": note(s, i)} for s in [[8], [7], [7, 7], [7, 7, 7], [6, 6, 5], [9, 8], [1], [2, 1]] for i in range(len(s))],
     "round1": [{"sizes": s, "want": round1(s)} for s in [[8], [7], [8, 8], [7, 7], [7, 7, 7], [6, 6, 5], [5, 5, 5, 5], [3], [1], [2, 1], [9, 8]]],
 }
 print(json.dumps(out, indent=1))
