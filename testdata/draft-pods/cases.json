@@ -1,0 +1,2422 @@
+{
+ "plan": [
+  {
+   "players": 0,
+   "pods": null,
+   "want": []
+  },
+  {
+   "players": 0,
+   "pods": 1,
+   "want": []
+  },
+  {
+   "players": 0,
+   "pods": 2,
+   "want": []
+  },
+  {
+   "players": 0,
+   "pods": 3,
+   "want": []
+  },
+  {
+   "players": 0,
+   "pods": 4,
+   "want": []
+  },
+  {
+   "players": 0,
+   "pods": 6,
+   "want": []
+  },
+  {
+   "players": 0,
+   "pods": 16,
+   "want": []
+  },
+  {
+   "players": 1,
+   "pods": null,
+   "want": [
+    1
+   ]
+  },
+  {
+   "players": 1,
+   "pods": 1,
+   "want": [
+    1
+   ]
+  },
+  {
+   "players": 1,
+   "pods": 2,
+   "want": [
+    1
+   ]
+  },
+  {
+   "players": 1,
+   "pods": 3,
+   "want": [
+    1
+   ]
+  },
+  {
+   "players": 1,
+   "pods": 4,
+   "want": [
+    1
+   ]
+  },
+  {
+   "players": 1,
+   "pods": 6,
+   "want": [
+    1
+   ]
+  },
+  {
+   "players": 1,
+   "pods": 16,
+   "want": [
+    1
+   ]
+  },
+  {
+   "players": 2,
+   "pods": null,
+   "want": [
+    2
+   ]
+  },
+  {
+   "players": 2,
+   "pods": 1,
+   "want": [
+    2
+   ]
+  },
+  {
+   "players": 2,
+   "pods": 2,
+   "want": [
+    2
+   ]
+  },
+  {
+   "players": 2,
+   "pods": 3,
+   "want": [
+    2
+   ]
+  },
+  {
+   "players": 2,
+   "pods": 4,
+   "want": [
+    2
+   ]
+  },
+  {
+   "players": 2,
+   "pods": 6,
+   "want": [
+    2
+   ]
+  },
+  {
+   "players": 2,
+   "pods": 16,
+   "want": [
+    2
+   ]
+  },
+  {
+   "players": 3,
+   "pods": null,
+   "want": [
+    3
+   ]
+  },
+  {
+   "players": 3,
+   "pods": 1,
+   "want": [
+    3
+   ]
+  },
+  {
+   "players": 3,
+   "pods": 2,
+   "want": [
+    3
+   ]
+  },
+  {
+   "players": 3,
+   "pods": 3,
+   "want": [
+    3
+   ]
+  },
+  {
+   "players": 3,
+   "pods": 4,
+   "want": [
+    3
+   ]
+  },
+  {
+   "players": 3,
+   "pods": 6,
+   "want": [
+    3
+   ]
+  },
+  {
+   "players": 3,
+   "pods": 16,
+   "want": [
+    3
+   ]
+  },
+  {
+   "players": 4,
+   "pods": null,
+   "want": [
+    4
+   ]
+  },
+  {
+   "players": 4,
+   "pods": 1,
+   "want": [
+    4
+   ]
+  },
+  {
+   "players": 4,
+   "pods": 2,
+   "want": [
+    2,
+    2
+   ]
+  },
+  {
+   "players": 4,
+   "pods": 3,
+   "want": [
+    2,
+    2
+   ]
+  },
+  {
+   "players": 4,
+   "pods": 4,
+   "want": [
+    2,
+    2
+   ]
+  },
+  {
+   "players": 4,
+   "pods": 6,
+   "want": [
+    2,
+    2
+   ]
+  },
+  {
+   "players": 4,
+   "pods": 16,
+   "want": [
+    2,
+    2
+   ]
+  },
+  {
+   "players": 5,
+   "pods": null,
+   "want": [
+    5
+   ]
+  },
+  {
+   "players": 5,
+   "pods": 1,
+   "want": [
+    5
+   ]
+  },
+  {
+   "players": 5,
+   "pods": 2,
+   "want": [
+    3,
+    2
+   ]
+  },
+  {
+   "players": 5,
+   "pods": 3,
+   "want": [
+    3,
+    2
+   ]
+  },
+  {
+   "players": 5,
+   "pods": 4,
+   "want": [
+    3,
+    2
+   ]
+  },
+  {
+   "players": 5,
+   "pods": 6,
+   "want": [
+    3,
+    2
+   ]
+  },
+  {
+   "players": 5,
+   "pods": 16,
+   "want": [
+    3,
+    2
+   ]
+  },
+  {
+   "players": 7,
+   "pods": null,
+   "want": [
+    7
+   ]
+  },
+  {
+   "players": 7,
+   "pods": 1,
+   "want": [
+    7
+   ]
+  },
+  {
+   "players": 7,
+   "pods": 2,
+   "want": [
+    4,
+    3
+   ]
+  },
+  {
+   "players": 7,
+   "pods": 3,
+   "want": [
+    3,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 7,
+   "pods": 4,
+   "want": [
+    3,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 7,
+   "pods": 6,
+   "want": [
+    3,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 7,
+   "pods": 16,
+   "want": [
+    3,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 8,
+   "pods": null,
+   "want": [
+    8
+   ]
+  },
+  {
+   "players": 8,
+   "pods": 1,
+   "want": [
+    8
+   ]
+  },
+  {
+   "players": 8,
+   "pods": 2,
+   "want": [
+    4,
+    4
+   ]
+  },
+  {
+   "players": 8,
+   "pods": 3,
+   "want": [
+    3,
+    3,
+    2
+   ]
+  },
+  {
+   "players": 8,
+   "pods": 4,
+   "want": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 8,
+   "pods": 6,
+   "want": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 8,
+   "pods": 16,
+   "want": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 9,
+   "pods": null,
+   "want": [
+    5,
+    4
+   ]
+  },
+  {
+   "players": 9,
+   "pods": 1,
+   "want": [
+    9
+   ]
+  },
+  {
+   "players": 9,
+   "pods": 2,
+   "want": [
+    5,
+    4
+   ]
+  },
+  {
+   "players": 9,
+   "pods": 3,
+   "want": [
+    3,
+    3,
+    3
+   ]
+  },
+  {
+   "players": 9,
+   "pods": 4,
+   "want": [
+    3,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 9,
+   "pods": 6,
+   "want": [
+    3,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 9,
+   "pods": 16,
+   "want": [
+    3,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 10,
+   "pods": null,
+   "want": [
+    5,
+    5
+   ]
+  },
+  {
+   "players": 10,
+   "pods": 1,
+   "want": [
+    10
+   ]
+  },
+  {
+   "players": 10,
+   "pods": 2,
+   "want": [
+    5,
+    5
+   ]
+  },
+  {
+   "players": 10,
+   "pods": 3,
+   "want": [
+    4,
+    3,
+    3
+   ]
+  },
+  {
+   "players": 10,
+   "pods": 4,
+   "want": [
+    3,
+    3,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 10,
+   "pods": 6,
+   "want": [
+    2,
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 10,
+   "pods": 16,
+   "want": [
+    2,
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 12,
+   "pods": null,
+   "want": [
+    6,
+    6
+   ]
+  },
+  {
+   "players": 12,
+   "pods": 1,
+   "want": [
+    12
+   ]
+  },
+  {
+   "players": 12,
+   "pods": 2,
+   "want": [
+    6,
+    6
+   ]
+  },
+  {
+   "players": 12,
+   "pods": 3,
+   "want": [
+    4,
+    4,
+    4
+   ]
+  },
+  {
+   "players": 12,
+   "pods": 4,
+   "want": [
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  {
+   "players": 12,
+   "pods": 6,
+   "want": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 12,
+   "pods": 16,
+   "want": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 14,
+   "pods": null,
+   "want": [
+    7,
+    7
+   ]
+  },
+  {
+   "players": 14,
+   "pods": 1,
+   "want": [
+    14
+   ]
+  },
+  {
+   "players": 14,
+   "pods": 2,
+   "want": [
+    7,
+    7
+   ]
+  },
+  {
+   "players": 14,
+   "pods": 3,
+   "want": [
+    5,
+    5,
+    4
+   ]
+  },
+  {
+   "players": 14,
+   "pods": 4,
+   "want": [
+    4,
+    4,
+    3,
+    3
+   ]
+  },
+  {
+   "players": 14,
+   "pods": 6,
+   "want": [
+    3,
+    3,
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 14,
+   "pods": 16,
+   "want": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 15,
+   "pods": null,
+   "want": [
+    8,
+    7
+   ]
+  },
+  {
+   "players": 15,
+   "pods": 1,
+   "want": [
+    15
+   ]
+  },
+  {
+   "players": 15,
+   "pods": 2,
+   "want": [
+    8,
+    7
+   ]
+  },
+  {
+   "players": 15,
+   "pods": 3,
+   "want": [
+    5,
+    5,
+    5
+   ]
+  },
+  {
+   "players": 15,
+   "pods": 4,
+   "want": [
+    4,
+    4,
+    4,
+    3
+   ]
+  },
+  {
+   "players": 15,
+   "pods": 6,
+   "want": [
+    3,
+    3,
+    3,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 15,
+   "pods": 16,
+   "want": [
+    3,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 16,
+   "pods": null,
+   "want": [
+    8,
+    8
+   ]
+  },
+  {
+   "players": 16,
+   "pods": 1,
+   "want": [
+    16
+   ]
+  },
+  {
+   "players": 16,
+   "pods": 2,
+   "want": [
+    8,
+    8
+   ]
+  },
+  {
+   "players": 16,
+   "pods": 3,
+   "want": [
+    6,
+    5,
+    5
+   ]
+  },
+  {
+   "players": 16,
+   "pods": 4,
+   "want": [
+    4,
+    4,
+    4,
+    4
+   ]
+  },
+  {
+   "players": 16,
+   "pods": 6,
+   "want": [
+    3,
+    3,
+    3,
+    3,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 16,
+   "pods": 16,
+   "want": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 17,
+   "pods": null,
+   "want": [
+    6,
+    6,
+    5
+   ]
+  },
+  {
+   "players": 17,
+   "pods": 1,
+   "want": [
+    17
+   ]
+  },
+  {
+   "players": 17,
+   "pods": 2,
+   "want": [
+    9,
+    8
+   ]
+  },
+  {
+   "players": 17,
+   "pods": 3,
+   "want": [
+    6,
+    6,
+    5
+   ]
+  },
+  {
+   "players": 17,
+   "pods": 4,
+   "want": [
+    5,
+    4,
+    4,
+    4
+   ]
+  },
+  {
+   "players": 17,
+   "pods": 6,
+   "want": [
+    3,
+    3,
+    3,
+    3,
+    3,
+    2
+   ]
+  },
+  {
+   "players": 17,
+   "pods": 16,
+   "want": [
+    3,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 23,
+   "pods": null,
+   "want": [
+    8,
+    8,
+    7
+   ]
+  },
+  {
+   "players": 23,
+   "pods": 1,
+   "want": [
+    23
+   ]
+  },
+  {
+   "players": 23,
+   "pods": 2,
+   "want": [
+    12,
+    11
+   ]
+  },
+  {
+   "players": 23,
+   "pods": 3,
+   "want": [
+    8,
+    8,
+    7
+   ]
+  },
+  {
+   "players": 23,
+   "pods": 4,
+   "want": [
+    6,
+    6,
+    6,
+    5
+   ]
+  },
+  {
+   "players": 23,
+   "pods": 6,
+   "want": [
+    4,
+    4,
+    4,
+    4,
+    4,
+    3
+   ]
+  },
+  {
+   "players": 23,
+   "pods": 16,
+   "want": [
+    3,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 24,
+   "pods": null,
+   "want": [
+    8,
+    8,
+    8
+   ]
+  },
+  {
+   "players": 24,
+   "pods": 1,
+   "want": [
+    24
+   ]
+  },
+  {
+   "players": 24,
+   "pods": 2,
+   "want": [
+    12,
+    12
+   ]
+  },
+  {
+   "players": 24,
+   "pods": 3,
+   "want": [
+    8,
+    8,
+    8
+   ]
+  },
+  {
+   "players": 24,
+   "pods": 4,
+   "want": [
+    6,
+    6,
+    6,
+    6
+   ]
+  },
+  {
+   "players": 24,
+   "pods": 6,
+   "want": [
+    4,
+    4,
+    4,
+    4,
+    4,
+    4
+   ]
+  },
+  {
+   "players": 24,
+   "pods": 16,
+   "want": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 25,
+   "pods": null,
+   "want": [
+    7,
+    6,
+    6,
+    6
+   ]
+  },
+  {
+   "players": 25,
+   "pods": 1,
+   "want": [
+    25
+   ]
+  },
+  {
+   "players": 25,
+   "pods": 2,
+   "want": [
+    13,
+    12
+   ]
+  },
+  {
+   "players": 25,
+   "pods": 3,
+   "want": [
+    9,
+    8,
+    8
+   ]
+  },
+  {
+   "players": 25,
+   "pods": 4,
+   "want": [
+    7,
+    6,
+    6,
+    6
+   ]
+  },
+  {
+   "players": 25,
+   "pods": 6,
+   "want": [
+    5,
+    4,
+    4,
+    4,
+    4,
+    4
+   ]
+  },
+  {
+   "players": 25,
+   "pods": 16,
+   "want": [
+    3,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 31,
+   "pods": null,
+   "want": [
+    8,
+    8,
+    8,
+    7
+   ]
+  },
+  {
+   "players": 31,
+   "pods": 1,
+   "want": [
+    31
+   ]
+  },
+  {
+   "players": 31,
+   "pods": 2,
+   "want": [
+    16,
+    15
+   ]
+  },
+  {
+   "players": 31,
+   "pods": 3,
+   "want": [
+    11,
+    10,
+    10
+   ]
+  },
+  {
+   "players": 31,
+   "pods": 4,
+   "want": [
+    8,
+    8,
+    8,
+    7
+   ]
+  },
+  {
+   "players": 31,
+   "pods": 6,
+   "want": [
+    6,
+    5,
+    5,
+    5,
+    5,
+    5
+   ]
+  },
+  {
+   "players": 31,
+   "pods": 16,
+   "want": [
+    3,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 33,
+   "pods": null,
+   "want": [
+    7,
+    7,
+    7,
+    6,
+    6
+   ]
+  },
+  {
+   "players": 33,
+   "pods": 1,
+   "want": [
+    33
+   ]
+  },
+  {
+   "players": 33,
+   "pods": 2,
+   "want": [
+    17,
+    16
+   ]
+  },
+  {
+   "players": 33,
+   "pods": 3,
+   "want": [
+    11,
+    11,
+    11
+   ]
+  },
+  {
+   "players": 33,
+   "pods": 4,
+   "want": [
+    9,
+    8,
+    8,
+    8
+   ]
+  },
+  {
+   "players": 33,
+   "pods": 6,
+   "want": [
+    6,
+    6,
+    6,
+    5,
+    5,
+    5
+   ]
+  },
+  {
+   "players": 33,
+   "pods": 16,
+   "want": [
+    3,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "players": 48,
+   "pods": null,
+   "want": [
+    8,
+    8,
+    8,
+    8,
+    8,
+    8
+   ]
+  },
+  {
+   "players": 48,
+   "pods": 1,
+   "want": [
+    48
+   ]
+  },
+  {
+   "players": 48,
+   "pods": 2,
+   "want": [
+    24,
+    24
+   ]
+  },
+  {
+   "players": 48,
+   "pods": 3,
+   "want": [
+    16,
+    16,
+    16
+   ]
+  },
+  {
+   "players": 48,
+   "pods": 4,
+   "want": [
+    12,
+    12,
+    12,
+    12
+   ]
+  },
+  {
+   "players": 48,
+   "pods": 6,
+   "want": [
+    8,
+    8,
+    8,
+    8,
+    8,
+    8
+   ]
+  },
+  {
+   "players": 48,
+   "pods": 16,
+   "want": [
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  {
+   "players": 64,
+   "pods": null,
+   "want": [
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8
+   ]
+  },
+  {
+   "players": 64,
+   "pods": 1,
+   "want": [
+    64
+   ]
+  },
+  {
+   "players": 64,
+   "pods": 2,
+   "want": [
+    32,
+    32
+   ]
+  },
+  {
+   "players": 64,
+   "pods": 3,
+   "want": [
+    22,
+    21,
+    21
+   ]
+  },
+  {
+   "players": 64,
+   "pods": 4,
+   "want": [
+    16,
+    16,
+    16,
+    16
+   ]
+  },
+  {
+   "players": 64,
+   "pods": 6,
+   "want": [
+    11,
+    11,
+    11,
+    11,
+    10,
+    10
+   ]
+  },
+  {
+   "players": 64,
+   "pods": 16,
+   "want": [
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4
+   ]
+  },
+  {
+   "players": 65,
+   "pods": null,
+   "want": [
+    8,
+    8,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7
+   ]
+  },
+  {
+   "players": 65,
+   "pods": 1,
+   "want": [
+    65
+   ]
+  },
+  {
+   "players": 65,
+   "pods": 2,
+   "want": [
+    33,
+    32
+   ]
+  },
+  {
+   "players": 65,
+   "pods": 3,
+   "want": [
+    22,
+    22,
+    21
+   ]
+  },
+  {
+   "players": 65,
+   "pods": 4,
+   "want": [
+    17,
+    16,
+    16,
+    16
+   ]
+  },
+  {
+   "players": 65,
+   "pods": 6,
+   "want": [
+    11,
+    11,
+    11,
+    11,
+    11,
+    10
+   ]
+  },
+  {
+   "players": 65,
+   "pods": 16,
+   "want": [
+    5,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4
+   ]
+  },
+  {
+   "players": 129,
+   "pods": null,
+   "want": [
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7
+   ]
+  },
+  {
+   "players": 129,
+   "pods": 1,
+   "want": [
+    129
+   ]
+  },
+  {
+   "players": 129,
+   "pods": 2,
+   "want": [
+    65,
+    64
+   ]
+  },
+  {
+   "players": 129,
+   "pods": 3,
+   "want": [
+    43,
+    43,
+    43
+   ]
+  },
+  {
+   "players": 129,
+   "pods": 4,
+   "want": [
+    33,
+    32,
+    32,
+    32
+   ]
+  },
+  {
+   "players": 129,
+   "pods": 6,
+   "want": [
+    22,
+    22,
+    22,
+    21,
+    21,
+    21
+   ]
+  },
+  {
+   "players": 129,
+   "pods": 16,
+   "want": [
+    9,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8
+   ]
+  }
+ ],
+ "rounds": [
+  {
+   "sizes": [],
+   "pod_pairing": "pod",
+   "want": 1
+  },
+  {
+   "sizes": [],
+   "pod_pairing": "cross",
+   "want": 1
+  },
+  {
+   "sizes": [
+    8
+   ],
+   "pod_pairing": "pod",
+   "want": 3
+  },
+  {
+   "sizes": [
+    8
+   ],
+   "pod_pairing": "cross",
+   "want": 3
+  },
+  {
+   "sizes": [
+    8,
+    8
+   ],
+   "pod_pairing": "pod",
+   "want": 3
+  },
+  {
+   "sizes": [
+    8,
+    8
+   ],
+   "pod_pairing": "cross",
+   "want": 4
+  },
+  {
+   "sizes": [
+    7,
+    7
+   ],
+   "pod_pairing": "pod",
+   "want": 3
+  },
+  {
+   "sizes": [
+    7,
+    7
+   ],
+   "pod_pairing": "cross",
+   "want": 4
+  },
+  {
+   "sizes": [
+    6,
+    6,
+    5
+   ],
+   "pod_pairing": "pod",
+   "want": 3
+  },
+  {
+   "sizes": [
+    6,
+    6,
+    5
+   ],
+   "pod_pairing": "cross",
+   "want": 5
+  },
+  {
+   "sizes": [
+    9,
+    8
+   ],
+   "pod_pairing": "pod",
+   "want": 4
+  },
+  {
+   "sizes": [
+    9,
+    8
+   ],
+   "pod_pairing": "cross",
+   "want": 5
+  },
+  {
+   "sizes": [
+    5,
+    4,
+    4,
+    4
+   ],
+   "pod_pairing": "pod",
+   "want": 3
+  },
+  {
+   "sizes": [
+    5,
+    4,
+    4,
+    4
+   ],
+   "pod_pairing": "cross",
+   "want": 5
+  },
+  {
+   "sizes": [
+    17
+   ],
+   "pod_pairing": "pod",
+   "want": 5
+  },
+  {
+   "sizes": [
+    17
+   ],
+   "pod_pairing": "cross",
+   "want": 5
+  },
+  {
+   "sizes": [
+    8,
+    8,
+    8,
+    8
+   ],
+   "pod_pairing": "pod",
+   "want": 3
+  },
+  {
+   "sizes": [
+    8,
+    8,
+    8,
+    8
+   ],
+   "pod_pairing": "cross",
+   "want": 5
+  },
+  {
+   "sizes": [
+    1
+   ],
+   "pod_pairing": "pod",
+   "want": 1
+  },
+  {
+   "sizes": [
+    1
+   ],
+   "pod_pairing": "cross",
+   "want": 1
+  },
+  {
+   "sizes": [
+    3,
+    2
+   ],
+   "pod_pairing": "pod",
+   "want": 2
+  },
+  {
+   "sizes": [
+    3,
+    2
+   ],
+   "pod_pairing": "cross",
+   "want": 3
+  },
+  {
+   "sizes": [
+    16,
+    16
+   ],
+   "pod_pairing": "pod",
+   "want": 4
+  },
+  {
+   "sizes": [
+    16,
+    16
+   ],
+   "pod_pairing": "cross",
+   "want": 5
+  },
+  {
+   "sizes": [
+    10,
+    1
+   ],
+   "pod_pairing": "pod",
+   "want": 4
+  },
+  {
+   "sizes": [
+    10,
+    1
+   ],
+   "pod_pairing": "cross",
+   "want": 4
+  }
+ ],
+ "label": [
+  {
+   "players": 0,
+   "pods": null,
+   "want": "No players yet"
+  },
+  {
+   "players": 0,
+   "pods": 1,
+   "want": "No players yet"
+  },
+  {
+   "players": 0,
+   "pods": 2,
+   "want": "No players yet"
+  },
+  {
+   "players": 0,
+   "pods": 3,
+   "want": "No players yet"
+  },
+  {
+   "players": 1,
+   "pods": null,
+   "want": "1 pod \u00b7 1"
+  },
+  {
+   "players": 1,
+   "pods": 1,
+   "want": "1 pod \u00b7 1"
+  },
+  {
+   "players": 1,
+   "pods": 2,
+   "want": "1 pod \u00b7 1"
+  },
+  {
+   "players": 1,
+   "pods": 3,
+   "want": "1 pod \u00b7 1"
+  },
+  {
+   "players": 6,
+   "pods": null,
+   "want": "1 pod \u00b7 6"
+  },
+  {
+   "players": 6,
+   "pods": 1,
+   "want": "1 pod \u00b7 6"
+  },
+  {
+   "players": 6,
+   "pods": 2,
+   "want": "2 pods \u00b7 3, 3"
+  },
+  {
+   "players": 6,
+   "pods": 3,
+   "want": "3 pods \u00b7 2, 2, 2"
+  },
+  {
+   "players": 9,
+   "pods": null,
+   "want": "2 pods \u00b7 5, 4"
+  },
+  {
+   "players": 9,
+   "pods": 1,
+   "want": "1 pod \u00b7 9"
+  },
+  {
+   "players": 9,
+   "pods": 2,
+   "want": "2 pods \u00b7 5, 4"
+  },
+  {
+   "players": 9,
+   "pods": 3,
+   "want": "3 pods \u00b7 3, 3, 3"
+  },
+  {
+   "players": 14,
+   "pods": null,
+   "want": "2 pods \u00b7 7, 7"
+  },
+  {
+   "players": 14,
+   "pods": 1,
+   "want": "1 pod \u00b7 14"
+  },
+  {
+   "players": 14,
+   "pods": 2,
+   "want": "2 pods \u00b7 7, 7"
+  },
+  {
+   "players": 14,
+   "pods": 3,
+   "want": "3 pods \u00b7 5, 5, 4"
+  },
+  {
+   "players": 17,
+   "pods": null,
+   "want": "3 pods \u00b7 6, 6, 5"
+  },
+  {
+   "players": 17,
+   "pods": 1,
+   "want": "1 pod \u00b7 17"
+  },
+  {
+   "players": 17,
+   "pods": 2,
+   "want": "2 pods \u00b7 9, 8"
+  },
+  {
+   "players": 17,
+   "pods": 3,
+   "want": "3 pods \u00b7 6, 6, 5"
+  },
+  {
+   "players": 24,
+   "pods": null,
+   "want": "3 pods \u00b7 8, 8, 8"
+  },
+  {
+   "players": 24,
+   "pods": 1,
+   "want": "1 pod \u00b7 24"
+  },
+  {
+   "players": 24,
+   "pods": 2,
+   "want": "2 pods \u00b7 12, 12"
+  },
+  {
+   "players": 24,
+   "pods": 3,
+   "want": "3 pods \u00b7 8, 8, 8"
+  }
+ ],
+ "round1": [
+  {
+   "sizes": [
+    8
+   ],
+   "want": {
+    "pods": [
+     {
+      "pairs": [
+       [
+        "P1S1",
+        "P1S5"
+       ],
+       [
+        "P1S2",
+        "P1S6"
+       ],
+       [
+        "P1S3",
+        "P1S7"
+       ],
+       [
+        "P1S4",
+        "P1S8"
+       ]
+      ],
+      "left": null
+     }
+    ],
+    "across": [],
+    "bye": null
+   }
+  },
+  {
+   "sizes": [
+    7
+   ],
+   "want": {
+    "pods": [
+     {
+      "pairs": [
+       [
+        "P1S1",
+        "P1S4"
+       ],
+       [
+        "P1S2",
+        "P1S5"
+       ],
+       [
+        "P1S3",
+        "P1S6"
+       ]
+      ],
+      "left": "P1S7"
+     }
+    ],
+    "across": [],
+    "bye": "P1S7"
+   }
+  },
+  {
+   "sizes": [
+    8,
+    8
+   ],
+   "want": {
+    "pods": [
+     {
+      "pairs": [
+       [
+        "P1S1",
+        "P1S5"
+       ],
+       [
+        "P1S2",
+        "P1S6"
+       ],
+       [
+        "P1S3",
+        "P1S7"
+       ],
+       [
+        "P1S4",
+        "P1S8"
+       ]
+      ],
+      "left": null
+     },
+     {
+      "pairs": [
+       [
+        "P2S1",
+        "P2S5"
+       ],
+       [
+        "P2S2",
+        "P2S6"
+       ],
+       [
+        "P2S3",
+        "P2S7"
+       ],
+       [
+        "P2S4",
+        "P2S8"
+       ]
+      ],
+      "left": null
+     }
+    ],
+    "across": [],
+    "bye": null
+   }
+  },
+  {
+   "sizes": [
+    7,
+    7
+   ],
+   "want": {
+    "pods": [
+     {
+      "pairs": [
+       [
+        "P1S1",
+        "P1S4"
+       ],
+       [
+        "P1S2",
+        "P1S5"
+       ],
+       [
+        "P1S3",
+        "P1S6"
+       ]
+      ],
+      "left": "P1S7"
+     },
+     {
+      "pairs": [
+       [
+        "P2S1",
+        "P2S4"
+       ],
+       [
+        "P2S2",
+        "P2S5"
+       ],
+       [
+        "P2S3",
+        "P2S6"
+       ]
+      ],
+      "left": "P2S7"
+     }
+    ],
+    "across": [
+     [
+      "P1S7",
+      "P2S7"
+     ]
+    ],
+    "bye": null
+   }
+  },
+  {
+   "sizes": [
+    7,
+    7,
+    7
+   ],
+   "want": {
+    "pods": [
+     {
+      "pairs": [
+       [
+        "P1S1",
+        "P1S4"
+       ],
+       [
+        "P1S2",
+        "P1S5"
+       ],
+       [
+        "P1S3",
+        "P1S6"
+       ]
+      ],
+      "left": "P1S7"
+     },
+     {
+      "pairs": [
+       [
+        "P2S1",
+        "P2S4"
+       ],
+       [
+        "P2S2",
+        "P2S5"
+       ],
+       [
+        "P2S3",
+        "P2S6"
+       ]
+      ],
+      "left": "P2S7"
+     },
+     {
+      "pairs": [
+       [
+        "P3S1",
+        "P3S4"
+       ],
+       [
+        "P3S2",
+        "P3S5"
+       ],
+       [
+        "P3S3",
+        "P3S6"
+       ]
+      ],
+      "left": "P3S7"
+     }
+    ],
+    "across": [
+     [
+      "P1S7",
+      "P2S7"
+     ]
+    ],
+    "bye": "P3S7"
+   }
+  },
+  {
+   "sizes": [
+    6,
+    6,
+    5
+   ],
+   "want": {
+    "pods": [
+     {
+      "pairs": [
+       [
+        "P1S1",
+        "P1S4"
+       ],
+       [
+        "P1S2",
+        "P1S5"
+       ],
+       [
+        "P1S3",
+        "P1S6"
+       ]
+      ],
+      "left": null
+     },
+     {
+      "pairs": [
+       [
+        "P2S1",
+        "P2S4"
+       ],
+       [
+        "P2S2",
+        "P2S5"
+       ],
+       [
+        "P2S3",
+        "P2S6"
+       ]
+      ],
+      "left": null
+     },
+     {
+      "pairs": [
+       [
+        "P3S1",
+        "P3S3"
+       ],
+       [
+        "P3S2",
+        "P3S4"
+       ]
+      ],
+      "left": "P3S5"
+     }
+    ],
+    "across": [],
+    "bye": "P3S5"
+   }
+  },
+  {
+   "sizes": [
+    5,
+    5,
+    5,
+    5
+   ],
+   "want": {
+    "pods": [
+     {
+      "pairs": [
+       [
+        "P1S1",
+        "P1S3"
+       ],
+       [
+        "P1S2",
+        "P1S4"
+       ]
+      ],
+      "left": "P1S5"
+     },
+     {
+      "pairs": [
+       [
+        "P2S1",
+        "P2S3"
+       ],
+       [
+        "P2S2",
+        "P2S4"
+       ]
+      ],
+      "left": "P2S5"
+     },
+     {
+      "pairs": [
+       [
+        "P3S1",
+        "P3S3"
+       ],
+       [
+        "P3S2",
+        "P3S4"
+       ]
+      ],
+      "left": "P3S5"
+     },
+     {
+      "pairs": [
+       [
+        "P4S1",
+        "P4S3"
+       ],
+       [
+        "P4S2",
+        "P4S4"
+       ]
+      ],
+      "left": "P4S5"
+     }
+    ],
+    "across": [
+     [
+      "P1S5",
+      "P2S5"
+     ],
+     [
+      "P3S5",
+      "P4S5"
+     ]
+    ],
+    "bye": null
+   }
+  },
+  {
+   "sizes": [
+    3
+   ],
+   "want": {
+    "pods": [
+     {
+      "pairs": [
+       [
+        "P1S1",
+        "P1S2"
+       ]
+      ],
+      "left": "P1S3"
+     }
+    ],
+    "across": [],
+    "bye": "P1S3"
+   }
+  },
+  {
+   "sizes": [
+    1
+   ],
+   "want": {
+    "pods": [
+     {
+      "pairs": [],
+      "left": "P1S1"
+     }
+    ],
+    "across": [],
+    "bye": "P1S1"
+   }
+  },
+  {
+   "sizes": [
+    2,
+    1
+   ],
+   "want": {
+    "pods": [
+     {
+      "pairs": [
+       [
+        "P1S1",
+        "P1S2"
+       ]
+      ],
+      "left": null
+     },
+     {
+      "pairs": [],
+      "left": "P2S1"
+     }
+    ],
+    "across": [],
+    "bye": "P2S1"
+   }
+  },
+  {
+   "sizes": [
+    9,
+    8
+   ],
+   "want": {
+    "pods": [
+     {
+      "pairs": [
+       [
+        "P1S1",
+        "P1S5"
+       ],
+       [
+        "P1S2",
+        "P1S6"
+       ],
+       [
+        "P1S3",
+        "P1S7"
+       ],
+       [
+        "P1S4",
+        "P1S8"
+       ]
+      ],
+      "left": "P1S9"
+     },
+     {
+      "pairs": [
+       [
+        "P2S1",
+        "P2S5"
+       ],
+       [
+        "P2S2",
+        "P2S6"
+       ],
+       [
+        "P2S3",
+        "P2S7"
+       ],
+       [
+        "P2S4",
+        "P2S8"
+       ]
+      ],
+      "left": null
+     }
+    ],
+    "across": [],
+    "bye": "P1S9"
+   }
+  }
+ ]
+}

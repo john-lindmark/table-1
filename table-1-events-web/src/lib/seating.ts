@@ -4,8 +4,11 @@
 // size (10 → 5 + 5, 17 → 6 + 6 + 5). Seats run 1..n around each table.
 //
 // Round 1 of a draft pairs each player with the one sitting directly across:
-// in an 8-seat pod that is 1v5, 2v6, 3v7, 4v8. An odd pod gives the last seat
-// the bye and pairs the rest across. Later rounds are ordinary Swiss.
+// in an 8-seat pod that is 1v5, 2v6, 3v7, 4v8. An odd pod's last seat is left
+// over: the left-over seats of odd pods play each other (pod 1's against pod
+// 2's, pod 3's against pod 4's), and only an odd total leaves the last one a
+// bye. Later rounds stay inside each pod ("pod") or are Swiss across every pod
+// ("cross"), events.pod_pairing (contract/draft-pods-2026-11-09.md).
 
 export interface SeatAssignment {
   participantId: string;
@@ -27,6 +30,33 @@ export function podSizes(count: number, maxPerPod = 8): number[] {
   return Array.from({ length: pods }, (_, i) => base + (i < extra ? 1 : 0));
 }
 
+/**
+ * How many pods an organizer's pick makes: `pods` null is automatic (pods of up to 8), otherwise that many,
+ * never so many that a pod would hold fewer than 2 (t1_private.pod_count says the same).
+ */
+export function podCount(players: number, pods: number | null | undefined): number {
+  if (players <= 0) return 0;
+  if (pods == null) return Math.ceil(players / 8);
+  return Math.max(1, Math.min(Math.floor(pods), Math.floor(players / 2)));
+}
+
+/** Pod sizes for the organizer's pick, largest first: 14 players in 2 → [7, 7]; 17 automatic → [6, 6, 5]. */
+export function podPlan(players: number, pods: number | null | undefined): number[] {
+  const count = podCount(players, pods);
+  if (count === 0) return [];
+  const base = Math.floor(players / count);
+  const extra = players % count;
+  return Array.from({ length: count }, (_, i) => base + (i < extra ? 1 : 0));
+}
+
+/** A pick summed up before the draw: "2 pods · 9, 8", "1 pod · 6", "No players yet" (testdata/draft-pods). */
+export function podLabel(players: number, pods: number | null | undefined): string {
+  const sizes = podPlan(players, pods);
+  if (sizes.length === 0) return "No players yet";
+  if (sizes.length === 1) return `1 pod · ${sizes[0]}`;
+  return `${sizes.length} pods · ${sizes.join(", ")}`;
+}
+
 export function shuffled<T>(items: T[], rng: () => number = Math.random): T[] {
   const out = [...items];
   for (let i = out.length - 1; i > 0; i--) {
@@ -36,12 +66,12 @@ export function shuffled<T>(items: T[], rng: () => number = Math.random): T[] {
   return out;
 }
 
-/** Random seats for an individual draft, split into pods of up to 8. */
-export function seatDraft(participantIds: string[], rng: () => number = Math.random): SeatAssignment[] {
+/** Random seats for an individual draft, split into pods of up to 8 (or the organizer's number of pods). */
+export function seatDraft(participantIds: string[], rng: () => number = Math.random, pods: number | null = null): SeatAssignment[] {
   const order = shuffled(participantIds, rng);
   const out: SeatAssignment[] = [];
   let at = 0;
-  podSizes(order.length).forEach((size, podIndex) => {
+  podPlan(order.length, pods).forEach((size, podIndex) => {
     for (let s = 1; s <= size; s++) out.push({ participantId: order[at++], podIndex, seat: s });
   });
   return out;
@@ -71,6 +101,23 @@ export function acrossTheTable(pod: SeatedPlayer[]): { pairs: [string, string][]
   const pairs: [string, string][] = [];
   for (let i = 0; i < half; i++) pairs.push([bySeat[i], bySeat[i + half]]);
   return { pairs, bye };
+}
+
+/**
+ * Round 1 across every pod: each pod across its table, then the seats odd pods leave over paired in pod order
+ * (1st v 2nd, 3rd v 4th, …), the last one a bye when the event is odd. `pods` in display order.
+ */
+export function roundOnePlan(pods: SeatedPlayer[][]): {
+  pods: { pairs: [string, string][]; left: string | null }[]; across: [string, string][]; bye: string | null;
+} {
+  const out = pods.map((pod) => {
+    const { pairs, bye } = acrossTheTable(pod);
+    return { pairs, left: bye };
+  });
+  const left = out.map((p) => p.left).filter((id): id is string => id != null);
+  const across: [string, string][] = [];
+  for (let i = 0; i + 1 < left.length; i += 2) across.push([left[i], left[i + 1]]);
+  return { pods: out, across, bye: left.length % 2 === 1 ? left[left.length - 1] : null };
 }
 
 /** Pass direction for each pack: left, right, left. */

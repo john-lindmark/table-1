@@ -10,7 +10,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { pairRound, type ProposedMatch } from "./pairings.ts";
 import { pairRoundRobin, roundRobinRoster, roundRobinRounds } from "./roundrobin.ts";
 import {
-  bracket, nextStage, pairPlayoff, playoffStandings, stageOf, swissRounds, type Stage, type StagedRound,
+  bracket, draftRounds, nextStage, pairPlayoff, playoffStandings, stageOf, swissRounds, type Stage, type StagedRound,
 } from "./playoffs.ts";
 import {
   computeTeamStandings, membersOf, pairTeamDraftRound, pairTeamSwissRound, teamClinch, teamProblems, type Team,
@@ -106,10 +106,23 @@ function seatingView(participants: Participant[], pods: any[], teams: Team[]) {
     .filter((pod) => pod.seats.length > 0);
 }
 
-/** Draft seats for every active player, in one Postgres transaction (public.seat_event). */
-async function writeSeats(eventId: string) {
-  const { error } = await admin.rpc("seat_event", { p_event_id: eventId });
+/**
+ * Draft seats before round 1, in one Postgres transaction: not drawn yet → public.seat_event draws every pod and
+ * seat; drawn → public.seat_fill seats only the newcomers, so pods the organizer arranged by hand stay.
+ */
+async function writeSeats(eventId: string, drawn: boolean) {
+  const { error } = await admin.rpc(drawn ? "seat_fill" : "seat_event", { p_event_id: eventId });
   if (error) throw new HttpError(409, error.message);
+}
+
+/** Sizes of the pods active players sit in (a draft's pods as seated). */
+function seatedPodSizes(participants: Participant[]): number[] {
+  const sizes = new Map<string, number>();
+  for (const p of participants) {
+    if (p.status !== "active") continue;
+    sizes.set(p.podId ?? "", (sizes.get(p.podId ?? "") ?? 0) + 1);
+  }
+  return [...sizes.values()];
 }
 
 class HttpError extends Error {
@@ -147,6 +160,7 @@ async function standings(eventId: string, authHeader: string, token: string | nu
   if (refused) return refused;
   const { event, participants, rounds, teams, pods } = await loadEvent(eventId);
   if (!event) return json({ error: "That event isn't available" }, 404);
+  const podOf = new Map(participants.map((p) => [p.id, p.podId]));
   // Tiebreakers are Swiss only; once the top 8 is cut, rank is the final order (playoffs.ts).
   const rows = playoffStandings(participants, rounds).map((s) => ({
     rank: s.rank,
@@ -154,6 +168,7 @@ async function standings(eventId: string, authHeader: string, token: string | nu
     playoff: s.playoff,
     participant_id: s.participantId,
     display_name: s.displayName,
+    pod_id: podOf.get(s.participantId) ?? null,
     status: s.status,
     match_points: s.matchPoints,
     match_wins: s.matchWins,
@@ -183,6 +198,7 @@ async function standings(eventId: string, authHeader: string, token: string | nu
     clinched: clinch && { team_id: clinch.teamId, name: clinch.name, match_wins: clinch.matchWins,
                           opponent_match_wins: clinch.opponentMatchWins, remaining: clinch.remaining },
     seating: isDraft(event) ? seatingView(participants, pods, teams) : null,
+    pod_pairing: event.format_name === "draft" ? event.pod_pairing ?? "cross" : null,
   });
 }
 
@@ -206,10 +222,21 @@ async function pairNextRound(eventId: string, authHeader: string) {
     if (error) throw error;
     if (!draft?.finished_at) return json({ error: "Finish the draft before pairing round 1" }, 409);
   }
+  // Drafts pair round 1 across the table: draw the pods if the organizer hasn't (in setup, seats are only
+  // placeholders), or seat whoever joined after the draw.
+  if (roundNumber === 1 && isDraft(event)
+      && (event.status === "setup" || participants.some((p) => p.status === "active" && p.seat == null))) {
+    await writeSeats(eventId, event.status === "seated");
+    ({ event, participants, rounds, teams, pods } = await loadEvent(eventId));
+  }
   const roundRobin = event.pairing === "round_robin";
   const active = participants.filter((p) => p.status === "active").length;
-  // Auto rounds: round 1 fixes the Swiss count from the players there (the database keeps it in step until then).
-  const swissTotal = event.auto_rounds && roundNumber === 1 ? swissRounds(active) : event.number_of_rounds;
+  const podPairing: "pod" | "cross" = event.format_name === "draft" && event.pod_pairing === "pod" ? "pod" : "cross";
+  // Auto rounds: round 1 fixes the Swiss count from the players there (the database keeps it in step until then);
+  // a draft paired inside pods plays enough rounds for its largest pod.
+  const swissTotal = event.auto_rounds && roundNumber === 1
+    ? (event.format_name === "draft" ? draftRounds(seatedPodSizes(participants), podPairing) : swissRounds(active))
+    : event.number_of_rounds;
   const totalRounds = roundRobin ? roundRobinRounds(roundRobinRoster(participants).length) : swissTotal;
   // Swiss events of players go on to the top 8 when there is one; team events and round robin stop at their count.
   let stage: Stage = "swiss";
@@ -235,12 +262,6 @@ async function pairNextRound(eventId: string, authHeader: string) {
       return json({ error: `${missing} ${missing === 1 ? "player hasn't" : "players haven't"} sent a decklist` }, 409);
     }
   }
-  // Drafts pair round 1 across the table, so seat everyone first if the organizer hasn't.
-  if (roundNumber === 1 && isDraft(event) && participants.some((p) => p.status === "active" && p.seat == null)) {
-    await writeSeats(eventId);
-    ({ event, participants, rounds, teams, pods } = await loadEvent(eventId));
-  }
-
   let proposed: ProposedMatch[];
   if (stage !== "swiss") {
     try {
@@ -259,6 +280,7 @@ async function pairNextRound(eventId: string, authHeader: string) {
       participants, rounds: rounds.filter((r) => stageOf(r) === "swiss"), roundNumber,
       draftSeating: event.format_name === "draft",
       podOrder: pods.map((p) => p.id),
+      podPairing,
     });
   }
   if (proposed.length === 0) return json({ error: "No active players to pair" }, 409);
@@ -279,10 +301,18 @@ async function pairNextRound(eventId: string, authHeader: string) {
   }).select().single();
   if (roundError) throw roundError;
 
+  // Drafts with several pods: a match inside one pod carries it (across pods and playoffs carry none).
+  const podOf = new Map(participants.map((p) => [p.id, p.podId]));
+  const podsInPlay = new Set(participants.filter((p) => p.status === "active").map((p) => p.podId ?? ""));
+  const matchPod = (m: ProposedMatch) => {
+    if (event.format_name !== "draft" || stage !== "swiss" || podsInPlay.size < 2) return null;
+    const a = podOf.get(m.side0ParticipantId) ?? null;
+    return m.side1ParticipantId && podOf.get(m.side1ParticipantId) !== a ? null : a;
+  };
   const { data: matchRows, error: matchError } = await admin.from("matches").insert(
     proposed.map((m) => ({
       event_id: eventId, round_id: round.id, table_number: m.tableNumber, is_bye: m.isBye,
-      status: m.isBye ? "confirmed" : "pending",
+      status: m.isBye ? "confirmed" : "pending", pod_id: matchPod(m),
     })),
   ).select("id, table_number");
   if (matchError) throw matchError;
@@ -317,7 +347,8 @@ async function pairNextRound(eventId: string, authHeader: string) {
 
   await admin.from("audit_log").insert({
     event_id: eventId, action: "round.paired", target_type: "round", target_id: round.id,
-    after: { round: roundNumber, stage, tables: proposed.length },
+    after: { round: roundNumber, stage, tables: proposed.length,
+             ...(event.format_name === "draft" ? { pod_pairing: podPairing, pods: seatedPodSizes(participants).length } : {}) },
   });
 
   return json({ round_id: round.id, round_number: roundNumber, stage, timer_ends_at: endsAt.toISOString(), matches: proposed });

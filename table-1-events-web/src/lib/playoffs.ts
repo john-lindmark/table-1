@@ -28,6 +28,16 @@ export function swissRounds(players: number): number {
 }
 
 /**
+ * Automatic Swiss rounds for a draft with pods (contract/draft-pods-2026-11-09.md): paired inside pods, enough
+ * for the largest pod (two pods of 8 play 3); across pods, enough for everyone (16 play 4).
+ */
+export function draftRounds(podSizes: number[], podPairing: "pod" | "cross"): number {
+  const sizes = podSizes.filter((n) => n > 0);
+  if (sizes.length === 0) return swissRounds(0);
+  return podPairing === "pod" ? swissRounds(Math.max(...sizes)) : swissRounds(sizes.reduce((a, b) => a + b, 0));
+}
+
+/**
  * What the organizer does next. `stages` are the paired rounds in order; `waiting` is true while the open round
  * still has a match without a result or with a dispute.
  */

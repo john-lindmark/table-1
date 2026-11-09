@@ -11,7 +11,7 @@
 // second — that only happens in very small events.
 
 import { computeStandings } from "./standings";
-import { acrossTheTable } from "./seating";
+import { roundOnePlan } from "./seating";
 import type { Participant, RoundWithMatches } from "./types";
 
 export interface ProposedMatch {
@@ -30,6 +30,11 @@ export interface PairRoundOptions {
   draftSeating?: boolean;
   /** Pod ids in display order, so table numbers run pod by pod. */
   podOrder?: string[];
+  /**
+   * Draft events, rounds 2+: "pod" pairs inside each pod (the seats odd pods leave over play each other),
+   * "cross" is Swiss across every pod. Default "cross", as before pods could be picked.
+   */
+  podPairing?: "pod" | "cross";
 }
 
 /** Deterministic PRNG so a pairing can be reproduced in a test or an audit. */
@@ -103,6 +108,9 @@ export function pairRound(options: PairRoundOptions): ProposedMatch[] {
   if (roundNumber <= 1 && options.draftSeating && active.every((p) => p.seat != null)) {
     return pairAcrossPods(active, options.podOrder);
   }
+  if (roundNumber > 1 && options.draftSeating && options.podPairing === "pod") {
+    return pairInPods(active, rounds, options.podOrder);
+  }
 
   const order =
     roundNumber <= 1
@@ -154,27 +162,125 @@ export function pairRound(options: PairRoundOptions): ProposedMatch[] {
   return matches;
 }
 
-/** Round 1 of a draft: across the table in every pod; byes (odd pods) go last. */
-export function pairAcrossPods(active: Participant[], podOrder?: string[]): ProposedMatch[] {
+/** Active players grouped by pod, pods in display order (players with no pod last, as their own group). */
+export function podGroups(active: Participant[], podOrder?: string[]): Participant[][] {
   const pods = new Map<string, Participant[]>();
   for (const p of active) {
     const key = p.podId ?? "";
     pods.set(key, [...(pods.get(key) ?? []), p]);
   }
-  const ordered = [...pods.entries()].sort(([a], [b]) => (podOrder?.indexOf(a) ?? 0) - (podOrder?.indexOf(b) ?? 0) || a.localeCompare(b))
-    .map(([, pod]) => pod);
+  const rank = (id: string) => {
+    if (id === "") return Number.MAX_SAFE_INTEGER;
+    const i = podOrder?.indexOf(id) ?? -1;
+    return i < 0 ? Number.MAX_SAFE_INTEGER - 1 : i;
+  };
+  return [...pods.entries()].sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b)).map(([, pod]) => pod);
+}
+
+/**
+ * Round 1 of a draft: across the table in every pod, then the seats odd pods leave over against each other
+ * (seating.ts roundOnePlan); a bye only when the event is odd. Tables run pod by pod, the across-pod matches
+ * after them, the bye last.
+ */
+export function pairAcrossPods(active: Participant[], podOrder?: string[]): ProposedMatch[] {
+  const plan = roundOnePlan(podGroups(active, podOrder)
+    .map((pod) => pod.map((p) => ({ participantId: p.id, podId: p.podId, seat: p.seat ?? 0 }))));
   const matches: ProposedMatch[] = [];
-  const byes: string[] = [];
-  for (const pod of ordered) {
-    const { pairs, bye } = acrossTheTable(pod.map((p) => ({ participantId: p.id, podId: p.podId, seat: p.seat ?? 0 })));
-    for (const [a, b] of pairs) {
-      matches.push({ tableNumber: matches.length + 1, side0ParticipantId: a, side1ParticipantId: b, isBye: false });
+  const add = (a: string, b: string | null) =>
+    matches.push({ tableNumber: matches.length + 1, side0ParticipantId: a, side1ParticipantId: b, isBye: b == null });
+  for (const pod of plan.pods) for (const [a, b] of pod.pairs) add(a, b);
+  for (const [a, b] of plan.across) add(a, b);
+  if (plan.bye) add(plan.bye, null);
+  return matches;
+}
+
+/** How many tries pairInPods makes at picking who each odd pod leaves over before it takes the best so far. */
+const LEFTOVER_TRIES = 4096;
+
+/**
+ * Rounds 2+ of a draft paired inside pods (events.pod_pairing = 'pod'). Each pod pairs down its own standings
+ * with no rematch where one can be avoided. An odd pod leaves one player over, picked from the bottom of the pod
+ * so the rest can still pair without a rematch (a pod too small to pair without one leaves two more over); the
+ * left-over players play each other across pods by overall
+ * standings, and when the event is odd the lowest of them who hasn't had a bye takes it. Among the ways to pick
+ * the left-over players it takes the first (lowest-ranked first) with no rematch and no second bye.
+ * Tables run pod by pod, then the across-pod matches, then the bye.
+ */
+export function pairInPods(active: Participant[], rounds: RoundWithMatches[], podOrder?: string[]): ProposedMatch[] {
+  const overall = computeStandings(active, rounds).filter((s) => s.status === "active").map((s) => s.participantId);
+  const place = new Map(overall.map((id, i) => [id, i]));
+  const played = previousOpponents(rounds);
+  const byes = byeCounts(rounds);
+  const pods = podGroups(active, podOrder)
+    .map((pod) => pod.map((p) => p.id).sort((a, b) => (place.get(a) ?? 0) - (place.get(b) ?? 0)));
+
+  // Who each pod could leave over, bottom up: an odd pod one player whose podmates still pair rematch-free; an
+  // even pod nobody. A pod that can't pair that way (a pod of 2 in round 2) leaves two more over, so the rematch
+  // can be avoided across pods; failing that, the plain choice.
+  const choices = pods.map((ids): string[][] => {
+    const bottomUp = [...ids].reverse();
+    const clean = (left: string[]) => solve(ids.filter((x) => !left.includes(x)), played) != null;
+    const sets = (k: number): string[][] => {
+      if (k === 0) return [[]];
+      const out: string[][] = [];
+      const pick = (from: number, acc: string[]) => {
+        if (out.length >= 24) return;
+        if (acc.length === k) { out.push(acc); return; }
+        for (let i = from; i < bottomUp.length; i++) pick(i + 1, [...acc, bottomUp[i]]);
+      };
+      pick(0, []);
+      return out;
+    };
+    const base = ids.length % 2;
+    for (let k = base; k <= Math.min(base + 2, ids.length); k += 2) {
+      const ok = sets(k).filter(clean);
+      if (ok.length) return ok;
     }
-    if (bye) byes.push(bye);
-  }
-  for (const id of byes) {
-    matches.push({ tableNumber: matches.length + 1, side0ParticipantId: id, side1ParticipantId: null, isBye: true });
-  }
+    return sets(base);
+  });
+
+  const leftoverPlan = (left: string[]) => {
+    const pool = [...left].sort((a, b) => (place.get(a) ?? 0) - (place.get(b) ?? 0));
+    let bye: string | null = null;
+    if (pool.length % 2 === 1) {
+      bye = [...pool].reverse().find((id) => (byes.get(id) ?? 0) === 0) ?? pool[pool.length - 1];
+      pool.splice(pool.indexOf(bye), 1);
+    }
+    const clean = solve(pool, played);
+    const pairs = clean ?? solve(pool, new Set<string>()) ?? [];
+    const cost = (clean ? 0 : 2) + (bye != null && (byes.get(bye) ?? 0) > 0 ? 1 : 0);
+    return { pairs, bye, cost };
+  };
+
+  let best: { pick: string[][]; plan: ReturnType<typeof leftoverPlan> } | null = null;
+  let tries = 0;
+  const pick: string[][] = [];
+  const search = (i: number): boolean => {
+    if (i === pods.length) {
+      tries++;
+      const plan = leftoverPlan(pick.flat());
+      if (!best || plan.cost < best.plan.cost) best = { pick: [...pick], plan };
+      return plan.cost === 0 || tries >= LEFTOVER_TRIES;
+    }
+    for (const left of choices[i]) {
+      pick[i] = left;
+      if (search(i + 1)) return true;
+    }
+    return false;
+  };
+  search(0);
+  const chosen = best as unknown as { pick: string[][]; plan: ReturnType<typeof leftoverPlan> };
+
+  const matches: ProposedMatch[] = [];
+  const add = (a: string, b: string | null) =>
+    matches.push({ tableNumber: matches.length + 1, side0ParticipantId: a, side1ParticipantId: b, isBye: b == null });
+  pods.forEach((ids, i) => {
+    const pool = ids.filter((id) => !chosen.pick[i].includes(id));
+    const pairs = solve(pool, played) ?? solve(pool, new Set<string>()) ?? [];
+    for (const [a, b] of pairs) add(a, b);
+  });
+  for (const [a, b] of chosen.plan.pairs) add(a, b);
+  if (chosen.plan.bye) add(chosen.plan.bye, null);
   return matches;
 }
 
