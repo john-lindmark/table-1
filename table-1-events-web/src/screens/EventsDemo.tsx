@@ -7,6 +7,9 @@ import type { EventTeam, Participant, SeatingPod } from "../lib/types";
 import { DeckPhotoDemo } from "./DeckPhotos";
 import { NewEvent } from "./Home";
 import { LiveView } from "./organizer/LiveView";
+import { SetupView } from "./organizer/SetupView";
+import { StandingsTable } from "../components/StandingsTable";
+import { pairRound } from "../lib/pairings";
 
 // Design QA without signing in (dev server only): /dev/events shows the create form, the seating table and the
 // organizer's Live round (two columns on a desktop window) on sample data. Server calls made from here fail (no
@@ -114,8 +117,57 @@ function LiveDemo({ team = false }: { team?: boolean }) {
   );
 }
 
-type DemoScreen = "create" | "seating" | "live" | "team" | "photos";
-const DEMO_SCREENS: DemoScreen[] = ["create", "seating", "live", "team", "photos"];
+/** `?screen=pods`: a seated draft of 14 in two pods of 7, paired inside pods (contract/draft-pods-2026-11-09.md),
+ *  the organizer's Seating tab, then standings after round 1 as the engine would pair and a sample result. */
+const POD_NAMES = [...NAMES, "Ivy Novak", "Jo Reyes", "Kai Sato", "Lu Bianchi", "Max Weber", "Nia Adeyemi"];
+function podsBundle() {
+  const E = "demo-pods";
+  return toBundle({
+    access: "organizer", is_organizer: true, teams: [],
+    pods: [{ id: "podA", name: "Pod 1", display_order: 0 }, { id: "podB", name: "Pod 2", display_order: 1 }],
+    event: {
+      id: E, name: "Draft · Duskmourn · Fri 24 Oct", short_code: "PODS", status: "seated", format: "draft", format_name: "draft",
+      format_label: "Draft · Duskmourn", event_type: "limited", current_round: 0, number_of_rounds: 3, pairing: "swiss", show_clock: true,
+      allow_player_reporting: true, round_length_seconds: 3000, visibility: "link_only", team_size: null, set_name: "Duskmourn",
+      created_by: null, created_at: "2026-10-22T18:00:00Z", updated_at: "2026-10-22T18:00:00Z", pods: 2, pod_pairing: "pod", auto_rounds: true,
+    },
+    participants: POD_NAMES.map((n, i) => ({
+      id: `q${i + 1}`, event_id: E, pod_id: i < 7 ? "podA" : "podB", display_name: n, seat: (i % 7) + 1, status: "active",
+      dropped_in_round: null, team_id: null, team_slot: null, user_id: null, created_at: "2026-10-22T18:00:00Z",
+    })),
+    rounds: [],
+  });
+}
+
+function PodsDemo() {
+  const [bundle] = useState(podsBundle);
+  const [error, setError] = useState<string | null>(null);
+  // Round 1 as the engine pairs it; side 0 wins every match 2–1.
+  const r1 = pairRound({ participants: bundle.participants, rounds: [], roundNumber: 1, draftSeating: true, podOrder: ["podA", "podB"] });
+  const played = [{
+    id: "r1", eventId: "demo-pods", number: 1, status: "recorded" as const, timerDurationSeconds: 3000, timerRemainingAtChange: 0,
+    timerStatus: "paused" as const, timerLastStartedAt: null, timerEndsAt: null,
+    matches: r1.map((m) => ({
+      id: `m${m.tableNumber}`, eventId: "demo-pods", roundId: "r1", tableNumber: m.tableNumber, isBye: m.isBye, gameDraws: 0,
+      intentionalDraw: false, status: "confirmed" as const,
+      sides: [{ id: `m${m.tableNumber}a`, matchId: `m${m.tableNumber}`, participantId: m.side0ParticipantId, side: 0 as const, gameWins: 2 },
+              ...(m.side1ParticipantId ? [{ id: `m${m.tableNumber}b`, matchId: `m${m.tableNumber}`, participantId: m.side1ParticipantId, side: 1 as const, gameWins: 1 }] : [])],
+    })),
+  }];
+  return (
+    <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
+      <SetupView eventId="demo-pods" bundle={bundle} tab="seating" isTeam={false} isDraft teams={null} teamNames={new Map()}
+                 refetch={async () => {}} setActionError={setError} onAddPlayers={() => {}} onTeamsSaved={() => {}}
+                 onOpenMatch={() => {}} />
+      {error && <div className="bg-t1-surface px-4 py-2 text-[11px] text-t1-muted">Demo: {error}</div>}
+      <div className="bg-t1-surface px-4 py-2 t1-label">Standings after round 1</div>
+      <StandingsTable participants={bundle.participants} rounds={played} pods={bundle.pods} />
+    </div>
+  );
+}
+
+type DemoScreen = "create" | "seating" | "live" | "team" | "photos" | "pods";
+const DEMO_SCREENS: DemoScreen[] = ["create", "seating", "live", "team", "photos", "pods"];
 
 export function EventsDemo() {
   // `?screen=live` opens on that screen; `&bare` swaps the demo's picker for the organizer screen's own bar (the
@@ -138,9 +190,12 @@ export function EventsDemo() {
           { value: "live", label: "Live" },
           { value: "team", label: "Team" },
           { value: "photos", label: "Photos" },
+          { value: "pods", label: "Pods" },
         ]}
       />}
-      {screen === "photos" ? (
+      {screen === "pods" ? (
+        <PodsDemo />
+      ) : screen === "photos" ? (
         <DeckPhotoDemo />
       ) : screen === "team" ? (
         <LiveDemo key="team" team />

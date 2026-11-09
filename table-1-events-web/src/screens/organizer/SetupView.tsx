@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { addGuest, addSelfToEvent, errorMessage, pairNextRound, removeParticipant, seatPlayers, setSeatEnds } from "../../lib/api";
+import { addGuest, addSelfToEvent, errorMessage, pairNextRound, removeParticipant, seatMove, seatPlayers, seatSwap, setEventPods, setSeatEnds } from "../../lib/api";
 import { capture } from "../../lib/telemetry";
 import { useSession } from "../../lib/useSession";
 import { AddByName, tidyName } from "../../components/EventFormFields";
@@ -7,13 +7,14 @@ import { slotLetter } from "../../lib/formats";
 import { startBlocker, startDialog } from "../../lib/organizer";
 import { teamProblems } from "../../lib/teams";
 import { toTeams, useSeating } from "../../lib/useEventExtras";
-import type { EventTeam } from "../../lib/types";
-import { BigAction, Dialog, GhostAction, Modal, Notice, Row, Section, SwitchRow } from "../../components/kit";
+import type { EventTeam, SeatingPod } from "../../lib/types";
+import { BigAction, Dialog, GhostAction, Menu, Modal, Notice, Row, Section, SwitchRow, type MenuItem } from "../../components/kit";
 import { SeatingPanel } from "../../components/SeatingPanel";
 import { SharePanel } from "../../components/SharePanel";
 import { TeamsPanel } from "../../components/TeamsPanel";
 import { DetailsForm } from "./DetailsForm";
-import { DecklistPanel, WaitlistRows, copyEventLink, decklistDetail, decklistOf, decklistsMissing } from "../../components/EventExtras";
+import { DecklistPanel, DraftPodFields, WaitlistRows, copyEventLink, decklistDetail, decklistOf, decklistsMissing } from "../../components/EventExtras";
+import type { PodPairing } from "../../lib/draftPods";
 import { decklistsLine, when } from "../../lib/scheduledEvents";
 import { RotoPickOrder, RotoStartAction } from "../roto/lazy";
 import type { PhaseViewProps } from "./shared";
@@ -127,6 +128,56 @@ export function SetupView({
     }
   }
 
+  // Pods (drafts): the pick, moves and swaps (contract/draft-pods-2026-11-09.md).
+  const hasPods = event.formatName === "draft";
+  const [seatMenu, setSeatMenu] = useState<{ title: string; items: MenuItem[] } | null>(null);
+  const [swapFrom, setSwapFrom] = useState<{ id: string; name: string } | null>(null);
+  const seatedIds = new Set((pods ?? []).flatMap((p) => p.seats.map((s) => s.participant_id)));
+  const unseated = event.status === "seated" ? active.filter((p) => !seatedIds.has(p.id)) : [];
+
+  async function changePods(n: number | null, pairing: PodPairing) {
+    setSeatingBusy(true);
+    setActionError(null);
+    try {
+      await setEventPods(eventId, n, pairing);
+      await refetch();
+    } catch (e) {
+      setActionError(errorMessage(e));
+    } finally {
+      setSeatingBusy(false);
+    }
+  }
+
+  async function reseat(call: () => Promise<SeatingPod[]>) {
+    setSeatingBusy(true);
+    setActionError(null);
+    try {
+      setSeating(await call());
+      setSeatingBusy(false);
+      void refetch();
+    } catch (e) {
+      setActionError(errorMessage(e));
+      setSeatingBusy(false);
+    }
+  }
+
+  function tapSeat(seat: SeatingPod["seats"][number], pod: SeatingPod) {
+    if (swapFrom) {
+      const from = swapFrom.id;
+      setSwapFrom(null);
+      if (from !== seat.participant_id) void reseat(() => seatSwap(from, seat.participant_id));
+      return;
+    }
+    const id = seat.participant_id;
+    const items: MenuItem[] = (pods ?? []).filter((p) => p.pod_id !== pod.pod_id).map((other) => ({
+      title: `Move to ${other.name}`, detail: `${other.seats.length} players`,
+      onClick: () => void reseat(() => seatMove(id, other.pod_id)),
+    }));
+    if (pod.seats.length > 1) items.push({ title: "Move to a new pod", onClick: () => void reseat(() => seatMove(id, null)) });
+    items.push({ title: "Swap with…", onClick: () => setSwapFrom({ id, name: seat.display_name }) });
+    setSeatMenu({ title: `${pod.name} · seat ${seat.seat} · ${seat.display_name}`, items });
+  }
+
   async function start() {
     setStarting(true);
     setStartError(null);
@@ -232,17 +283,34 @@ export function SetupView({
 
         {tab === "seating" && isDraft && !isRoto && (
           <>
+            {hasPods && (
+              <DraftPodFields pods={event.pods} pairing={event.podPairing} players={active.length} seated={anySeated && !!pods?.length && event.status === "seated"}
+                              onChange={(n, p) => void changePods(n, p)} />
+            )}
             <button
               type="button"
               onClick={seat}
               disabled={seatingBusy || active.length === 0}
               className="shrink-0 bg-t1-surface hover:bg-t1-surface-hover py-3.5 text-[11px] uppercase tracking-[1px] disabled:opacity-50"
             >
-              {seatingBusy ? "Seating…" : anySeated ? "Re-seat" : "Seat players"}
+              {seatingBusy ? "Seating…" : anySeated ? "Randomize" : "Seat players"}
             </button>
+            {swapFrom && (
+              <Row title={`Swap ${swapFrom.name} with…`} detail="Tap the other player"
+                   action={{ label: "Cancel", onClick: () => setSwapFrom(null) }} />
+            )}
             {anySeated && pods ? (<>
               <SwitchRow label="Seat the ends" detail="Players at both ends of the table, not just the sides" on={seatEnds} onChange={(on) => void changeSeatEnds(on)} />
-              <SeatingPanel pods={pods} formatName={event.formatName} participants={participants} teams={teams} seatEnds={seatEnds} />
+              <SeatingPanel pods={pods} formatName={event.formatName} participants={participants} teams={teams} seatEnds={seatEnds}
+                            highlightParticipantId={swapFrom?.id ?? me?.id ?? null}
+                            onSeatTap={hasPods && event.status === "seated" && !seatingBusy ? tapSeat : undefined} />
+              {unseated.length > 0 && (<>
+                <Section title="Not seated" count={unseated.length} />
+                {unseated.map((p) => (
+                  <Row key={p.id} title={p.displayName} detail="Seated at round 1, in the smallest pod"
+                       avatar={<Avatar name={p.displayName} userId={p.userId} />} />
+                ))}
+              </>)}
             </>
             ) : (
               <Notice tone="info">
@@ -310,6 +378,7 @@ export function SetupView({
         />
       )}
 
+      {seatMenu && <Menu title={seatMenu.title} items={seatMenu.items} onClose={() => setSeatMenu(null)} />}
       {confirmStart && (
         <Dialog
           title={dialog.title}

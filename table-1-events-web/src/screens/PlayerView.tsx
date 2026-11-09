@@ -322,6 +322,7 @@ export function PlayerView({
         highlightParticipantId={viewer.participantId}
         compact
         teamNames={isTeam ? teamNames : undefined}
+        pods={bundle.event.formatName === "draft" ? bundle.pods : undefined}
       />
     </>
   );

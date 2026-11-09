@@ -5,6 +5,7 @@
 --   d_moves     seat_move (to another pod, a seat, or a new pod) and seat_swap, by hand before round 1
 --   e_settings  set_event_pods
 --   f_joins     joining a seated draft leaves you unseated (as add_guest and the waitlist already did)
+--   h_reads     event_bundle carries the pods
 --   g_grants
 
 -- ==================================================================== a_columns
@@ -548,6 +549,54 @@ begin
     'participant_id', v_participant_id,
     'token', v_token
   );
+end $$;
+
+-- ==================================================================== h_reads
+-- event_bundle (from 20261027120000_scheduled_events) plus the event's pods (id, name, order), so standings and
+-- matches can name a player's pod.
+create or replace function public.event_bundle(p_event_id uuid, p_token text default null)
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare
+  v_access text := t1_private.event_access(p_event_id, p_token);
+begin
+  if v_access not in ('organizer', 'player', 'guest') then
+    raise exception 'That event isn''t available' using errcode = '42501';
+  end if;
+  return jsonb_build_object(
+    'event', (select to_jsonb(e) from public.events e where e.id = p_event_id),
+    'participants', coalesce((select jsonb_agg(to_jsonb(p) order by p.seat nulls last, p.created_at, p.id)
+                                from public.participants p where p.event_id = p_event_id), '[]'::jsonb),
+    'rounds', coalesce((select jsonb_agg(to_jsonb(r) || jsonb_build_object('matches', coalesce((
+                  select jsonb_agg(to_jsonb(m) || jsonb_build_object('match_sides', coalesce((
+                             select jsonb_agg(to_jsonb(s) order by s.side, s.id) from public.match_sides s where s.match_id = m.id),
+                           '[]'::jsonb))
+                         order by m.table_number nulls last, m.id)
+                    from public.matches m where m.round_id = r.id), '[]'::jsonb))
+                order by r.number)
+                from public.rounds r where r.event_id = p_event_id), '[]'::jsonb),
+    'teams', t1_private.event_teams_json(p_event_id),
+    'pods', coalesce((select jsonb_agg(jsonb_build_object('id', d.id, 'name', d.name, 'display_order', d.display_order)
+                                       order by d.display_order)
+                        from public.pods d where d.event_id = p_event_id), '[]'::jsonb),
+    'waitlist', case when v_access = 'organizer' then coalesce((
+                  select jsonb_agg(jsonb_build_object('user_id', w.user_id, 'display_name', w.display_name,
+                                                      'position', w.n, 'created_at', w.created_at) order by w.n)
+                    from (select x.*, row_number() over (order by x.created_at, x.user_id)::int n
+                            from public.event_waitlist x where x.event_id = p_event_id) w), '[]'::jsonb)
+                  else '[]'::jsonb end,
+    'decklists', coalesce((
+      select jsonb_agg(jsonb_build_object('participant_id', d.participant_id, 'main_count', d.main_count,
+                                          'side_count', d.side_count, 'list_name', d.list_name,
+                                          'source', case when d.list_id is null and d.list_name is null then 'text' else 'deck' end,
+                                          'submitted_at', d.submitted_at) order by d.submitted_at)
+        from public.event_decklists d join public.participants p on p.id = d.participant_id
+       where d.event_id = p_event_id
+         and (v_access = 'organizer'
+              or (auth.uid() is not null and p.user_id = auth.uid())
+              or (v_access = 'guest' and exists (select 1 from public.participant_tokens t
+                                                  where t.participant_id = p.id and t.token = p_token)))), '[]'::jsonb),
+    'is_organizer', v_access = 'organizer',
+    'access', v_access);
 end $$;
 
 -- ==================================================================== g_grants

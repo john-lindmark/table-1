@@ -3,6 +3,8 @@ import { errorMessage, waitlistAdmit, waitlistRemove, type EventBundle } from ".
 import { bracket as bracketOf, type StagedRound } from "../lib/playoffs";
 import { autoLabel, when } from "../lib/scheduledEvents";
 import { capture } from "../lib/telemetry";
+import type { PodPairing } from "../lib/draftPods";
+import { podCount, podLabel } from "../lib/seating";
 import type { Participant, Table1Event } from "../lib/types";
 import { Field, Notice, Section, Segmented, Stepper, SwitchRow } from "./kit";
 
@@ -77,14 +79,16 @@ export function ScheduleFields({ value, onChange, onCommit }: {
 }
 
 /** Automatic rounds and the top cut (Swiss events of players), then the rounds stepper when set by hand. */
-export function CutAndRoundsFields({ autoRounds, onAutoRounds, rounds, onRounds, topCut, onTopCut, players, swiss }: {
+export function CutAndRoundsFields({ autoRounds, onAutoRounds, rounds, onRounds, topCut, onTopCut, players, swiss, autoDetail }: {
   autoRounds: boolean; onAutoRounds: (v: boolean) => void; rounds: number; onRounds: (n: number) => void;
   topCut: 0 | 8; onTopCut: (v: 0 | 8) => void; players: number; swiss: boolean;
+  /** Drafts with pods: the automatic count follows the pods (draftAutoLabel). */
+  autoDetail?: string;
 }) {
   return (
     <>
       {swiss && (
-        <SwitchRow label="Automatic rounds" detail={autoRounds ? autoLabel(players) : "Set by hand"} on={autoRounds} onChange={onAutoRounds} />
+        <SwitchRow label="Automatic rounds" detail={autoRounds ? autoDetail ?? autoLabel(players) : "Set by hand"} on={autoRounds} onChange={onAutoRounds} />
       )}
       {(!swiss || !autoRounds) && <Stepper label="Rounds" value={rounds} onChange={onRounds} min={1} max={15} />}
       {swiss && (
@@ -98,6 +102,26 @@ export function CutAndRoundsFields({ autoRounds, onAutoRounds, rounds, onRounds,
             : `Top 8 needs 9 or more players: with ${players} the event ends after Swiss.`}
         </Notice>
       )}
+    </>
+  );
+}
+
+/** Drafts: how many pods (Auto = pods of up to 8) and how rounds 2+ pair (contract/draft-pods-2026-11-09.md). */
+export function DraftPodFields({ pods, pairing, onChange, players, seated = false }: {
+  pods: number | null; pairing: PodPairing; onChange: (pods: number | null, pairing: PodPairing) => void;
+  players: number; seated?: boolean;
+}) {
+  return (
+    <>
+      <Section title="Pods" />
+      <Segmented value={pods == null ? "auto" : "choose"}
+                 onChange={(v) => onChange(v === "auto" ? null : Math.max(2, podCount(players, null)), pairing)}
+                 options={[{ value: "auto", label: "Auto" }, { value: "choose", label: "Choose" }]} />
+      {pods != null && <Stepper label="Pods" value={pods} onChange={(n) => onChange(n, pairing)} min={1} max={16} />}
+      <Notice tone="info">{podLabel(players, pods)}{seated ? " · a new number re-draws the seats" : ""}</Notice>
+      <Segmented value={pairing} onChange={(v) => onChange(pods, v)}
+                 options={[{ value: "pod" as const, label: "Inside pods" }, { value: "cross" as const, label: "Across pods" }]} />
+      <Notice tone="info">{pairing === "pod" ? "After round 1 you play your own pod." : "After round 1, Swiss across every pod."}</Notice>
     </>
   );
 }

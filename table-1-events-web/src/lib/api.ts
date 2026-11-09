@@ -42,7 +42,11 @@ export interface EventBundle {
   waitlist: WaitlistEntry[];
   /** Who has sent a decklist: all for organizers, your own for players and guests. */
   decklists: DecklistInfo[];
+  /** The event's pods in order (drafts; servers before 2026-11-09 send none). */
+  pods: EventPod[];
 }
+
+export interface EventPod { id: string; name: string; displayOrder: number }
 
 export interface WaitlistEntry { userId: string; displayName: string; position: number }
 export interface DecklistInfo { participantId: string; mainCount: number; sideCount: number; listName: string | null; source: "text" | "deck" }
@@ -112,6 +116,8 @@ const toEvent = (r: any): Table1Event => ({
   startsAt: r.starts_at ?? null,
   venueName: r.venue_name ?? null,
   decklists: r.decklists === "optional" || r.decklists === "required" ? r.decklists : "off",
+  pods: typeof r.pods === "number" ? r.pods : null,
+  podPairing: r.pod_pairing === "pod" ? "pod" : "cross",
 });
 
 const toParticipant = (r: any): Participant => ({
@@ -243,6 +249,7 @@ export function toBundle(r: any): EventBundle {
     rounds: (r.rounds ?? []).map(toRound),
     waitlist: (r.waitlist ?? []).map((w: any) => ({ userId: w.user_id, displayName: w.display_name, position: w.position })),
     decklists: (r.decklists ?? []).map(toDecklistInfo),
+    pods: (r.pods ?? []).map((d: any) => ({ id: d.id, name: d.name ?? "Pod", displayOrder: d.display_order ?? 0 })),
   };
 }
 
@@ -1164,14 +1171,37 @@ export async function pairNextRound(eventId: string, pairing: "swiss" | "round_r
   return r;
 }
 
-/** Random draft seats in pods of up to 8. Calling again re-shuffles. */
-/** Seats (or re-seats) a draft in one call; returns the new seating. */
+/** Draws a draft's pods and seats at random for the organizer's pick in one call (Randomize); returns the seating. */
 export async function seatPlayers(eventId: string): Promise<SeatingPod[]> {
   const { data, error } = await supabase.rpc("seat_event", { p_event_id: eventId });
   if (error) throw error;
   const pods = (data?.pods ?? []) as SeatingPod[];
   capture("seating_drawn", { pods: pods.length });
   return pods;
+}
+
+/** Drafts before round 1: the number of pods (null = automatic) and how rounds 2+ pair. A new number of pods on a
+ *  seated draft re-draws the seats (contract/draft-pods-2026-11-09.md). */
+export async function setEventPods(eventId: string, pods: number | null, pairing: "pod" | "cross") {
+  const { data, error } = await supabase.rpc("set_event_pods", { p_event_id: eventId, p_pods: pods, p_pod_pairing: pairing });
+  if (error) throw error;
+  capture("event_pods_set", { pods: pods ?? 0, pod_pairing: pairing, reseated: !!data?.reseated });
+}
+
+/** Moves a seated player to another pod (null = a new pod), at a seat (null = the end). Returns the seating. */
+export async function seatMove(participantId: string, podId: string | null, seat: number | null = null): Promise<SeatingPod[]> {
+  const { data, error } = await supabase.rpc("seat_move", { p_participant_id: participantId, p_pod_id: podId, p_seat: seat });
+  if (error) throw error;
+  capture("seat_moved", { to: podId == null ? "new" : seat == null ? "pod" : "seat" });
+  return (data?.pods ?? []) as SeatingPod[];
+}
+
+/** Two seated players trade pod and seat. Returns the seating. */
+export async function seatSwap(a: string, b: string): Promise<SeatingPod[]> {
+  const { data, error } = await supabase.rpc("seat_swap", { p_a: a, p_b: b });
+  if (error) throw error;
+  capture("seat_swapped", {});
+  return (data?.pods ?? []) as SeatingPod[];
 }
 
 export interface EngineStandings {

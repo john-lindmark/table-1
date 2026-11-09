@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
 import {
   createEventV2,
+  setEventPods,
   fetchEventsHome,
   savedEventsHome,
   formatLabelOf,
@@ -20,7 +21,8 @@ import { JoinByCode } from "../components/JoinByCode";
 import { Landing } from "./Landing";
 import { FormatPicker, PlayersEditor, ProductPicker, RoundTimerSwitch, cubeUrlProblem } from "../components/EventFormFields";
 import { when } from "../lib/scheduledEvents";
-import { CutAndRoundsFields, DecklistsFields, ScheduleFields, type DecklistMode, type ScheduleValue } from "../components/EventExtras";
+import { CutAndRoundsFields, DecklistsFields, DraftPodFields, ScheduleFields, type DecklistMode, type ScheduleValue } from "../components/EventExtras";
+import { draftAutoLabel, type PodPairing } from "../lib/draftPods";
 import { defaultPairing } from "../lib/rotoMath";
 import { RotoPairingFields, linkRotoCube } from "./roto/lazy";
 import { claimAutoOpen, useTrackerMode } from "../lib/settings";
@@ -537,7 +539,11 @@ export function NewEvent({
   const [autoRounds, setAutoRounds] = useState(true);
   const [topCut, setTopCut] = useState<0 | 8>(0);
   const [decklists, setDecklists] = useState<DecklistMode>("off");
+  /** Drafts: null = automatic pods (up to 8 each); how rounds 2+ pair (contract/draft-pods-2026-11-09.md). */
+  const [podsPick, setPodsPick] = useState<number | null>(null);
+  const [podPairing, setPodPairing] = useState<PodPairing>("pod");
   const roto = format === "roto";
+  const hasPods = format === "draft";
   const playerCount = guests.length + (includeMe ? 1 : 0);
   const shownPairing = pairing ?? defaultPairing(playerCount);
 
@@ -597,6 +603,8 @@ export function NewEvent({
       });
       // Roto: the pool comes from a Library cube. Use the one with this name, or import the Cube Cobra link.
       if (roto) void linkRotoCube(eventId, cubeName, cubeUrl);
+      // Drafts: the pods, when not the defaults (automatic, inside pods). Setup → Seating can change them.
+      if (hasPods && (podsPick != null || podPairing !== "pod")) await setEventPods(eventId, podsPick, podPairing).catch(() => {});
       // Pin it where the organizer stands. For nearby events this also alerts opted-in players around. A scheduled
       // event is usually made away from the venue: no pin then (Details can set it there).
       if (!schedule.startsAt) {
@@ -659,11 +667,17 @@ export function NewEvent({
           />
         )}
 
+        {hasPods && (
+          <DraftPodFields pods={podsPick} pairing={podPairing} players={playerCount}
+                          onChange={(n, p) => { setPodsPick(n); setPodPairing(p); }} />
+        )}
+
         <ScheduleFields value={schedule} onChange={setSchedule} />
         <Section title="Rounds" />
         {!(roto && shownPairing === "round_robin") && (
           <CutAndRoundsFields autoRounds={autoRounds} onAutoRounds={setAutoRounds} rounds={rounds} onRounds={setRounds}
-                              topCut={topCut} onTopCut={setTopCut} players={playerCount} swiss={swiss} />
+                              topCut={topCut} onTopCut={setTopCut} players={playerCount} swiss={swiss}
+                              autoDetail={hasPods ? draftAutoLabel(playerCount, podsPick, podPairing) : undefined} />
         )}
         {roto && <RotoPairingFields pairing={shownPairing} onPairing={setPairing} players={playerCount} />}
         <RoundTimerSwitch on={showClock} onChange={setShowClock} />

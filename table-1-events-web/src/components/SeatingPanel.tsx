@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { acrossTheTable } from "../lib/seating";
+import { podNote, roundOneBye } from "../lib/draftPods";
 import { TableLayout } from "../lib/tableLayout";
 import { membersOf, pairTeamDraftRound } from "../lib/teams";
 import type { EventTeam, FormatName, Participant, SeatingPod } from "../lib/types";
@@ -23,7 +24,7 @@ export function roundOnePairs(
   return acrossTheTable(pod.seats.map((s) => ({ participantId: s.participant_id, podId: pod.pod_id, seat: s.seat })));
 }
 
-/** "Round 1 pairs across the table: 1 v 5, 2 v 6, 3 v 7, 4 v 8." for one pod. */
+/** "Round 1 pairs across the table: 1 v 5, 2 v 6, 3 v 7, 4 v 8." for one pod (team drafts; drafts use podNote). */
 export function roundOneNote(
   pod: SeatingPod,
   formatName: FormatName,
@@ -56,6 +57,7 @@ export function SeatingPanel({
   teams,
   highlightParticipantId,
   seatEnds = false,
+  onSeatTap,
 }: {
   pods: SeatingPod[];
   formatName: FormatName;
@@ -63,21 +65,26 @@ export function SeatingPanel({
   teams: EventTeam[] | null;
   highlightParticipantId?: string | null;
   seatEnds?: boolean;
+  /** Organizer before round 1: a seat was tapped (move or swap it). */
+  onSeatTap?: (seat: SeatingPod["seats"][number], pod: SeatingPod) => void;
 }) {
   if (!pods.length) {
     return <div className="bg-t1-surface px-4 py-4 t1-label">Nobody is seated yet</div>;
   }
+  // Drafts: an odd pod's last seat plays another odd pod's; only an odd event has a bye (contract/draft-pods).
+  const bye = formatName === "team_draft" ? null : roundOneBye(pods);
   return (
     <div className="flex flex-col gap-px">
-      {pods.map((pod) => (
+      {pods.map((pod, podIndex) => (
         <div key={pod.pod_id} className="flex flex-col gap-px">
           <div className="bg-t1-surface px-4 py-2 flex justify-between t1-label">
             <span>{pods.length > 1 ? pod.name : "Seating"}</span>
             <span>{pod.seats.length} drafters</span>
           </div>
-          <PodTable pod={pod} formatName={formatName} participants={participants} teams={teams} highlight={highlightParticipantId ?? null} seatEnds={seatEnds} />
+          <PodTable pod={pod} formatName={formatName} participants={participants} teams={teams} highlight={highlightParticipantId ?? null}
+                    seatEnds={seatEnds} bye={bye} onSeatTap={onSeatTap && ((s) => onSeatTap(s, pod))} />
           {(() => {
-            const note = roundOneNote(pod, formatName, participants, teams);
+            const note = formatName === "team_draft" ? roundOneNote(pod, formatName, participants, teams) : podNote(pods, podIndex);
             return note && <div className="bg-t1-surface px-4 py-2.5 text-[11px] leading-[16px] text-t1-muted">{note}</div>;
           })()}
         </div>
@@ -86,8 +93,9 @@ export function SeatingPanel({
   );
 }
 
-function PodTable({ pod, formatName, participants, teams, highlight, seatEnds }: {
+function PodTable({ pod, formatName, participants, teams, highlight, seatEnds, bye, onSeatTap }: {
   pod: SeatingPod; formatName: FormatName; participants: Participant[]; teams: EventTeam[] | null; highlight: string | null; seatEnds: boolean;
+  bye: string | null; onSeatTap?: (seat: SeatingPod["seats"][number]) => void;
 }) {
   const [box, setBox] = useState<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(360);
@@ -99,7 +107,7 @@ function PodTable({ pod, formatName, participants, teams, highlight, seatEnds }:
   }, [box]);
   const seats = [...pod.seats].sort((a, b) => a.seat - b.seat);
   const index = new Map(seats.map((s, i) => [s.participant_id, i]));
-  const { pairs, bye } = roundOnePairs(pod, formatName, participants, teams);
+  const { pairs } = roundOnePairs(pod, formatName, participants, teams);
   const layout = new TableLayout(seats.length, seatEnds);
   const chipW = Math.min(140, (width - 24) * 0.36);
   const pos = layout.positions(width, chipW);
@@ -125,9 +133,10 @@ function PodTable({ pod, formatName, participants, teams, highlight, seatEnds }:
         </div>
         {seats.map((s, i) => {
           const mine = s.participant_id === highlight;
+          const Tag = onSeatTap ? "button" : "div";
           return (
-            <div key={s.participant_id}
-                 className={`absolute px-2 flex flex-col justify-center border ${mine ? "bg-t1-surface-hover border-t1-accent" : "bg-t1-bg border-t1-disabled"}`}
+            <Tag key={s.participant_id} {...(onSeatTap ? { type: "button" as const, onClick: () => onSeatTap(s), "aria-label": `Seat ${s.seat}, ${s.display_name}: move or swap` } : {})}
+                 className={`absolute px-2 flex flex-col justify-center text-left border ${mine ? "bg-t1-surface-hover border-t1-accent" : "bg-t1-bg border-t1-disabled"} ${onSeatTap ? "cursor-pointer hover:border-t1-muted" : ""}`}
                  style={{ left: pos[i].x - chipW / 2, top: pos[i].y - TableLayout.CHIP_H / 2, width: chipW, height: TableLayout.CHIP_H }}>
               <span className="flex items-center gap-1.5 min-w-0">
                 <span className="text-t1-accent text-[13px] font-bold tabular-nums">{s.seat}</span>
@@ -135,7 +144,7 @@ function PodTable({ pod, formatName, participants, teams, highlight, seatEnds }:
                 {bye === s.participant_id && <span className="t1-label text-t1-warning!">Bye</span>}
               </span>
               <span className="text-[12px] truncate">{s.display_name}</span>
-            </div>
+            </Tag>
           );
         })}
       </div>

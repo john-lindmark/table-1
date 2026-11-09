@@ -179,7 +179,9 @@ select pg_temp.eq('the column default for new events is inside pods',
   '''pod''::text');
 set role authenticated;
 select pg_temp.eq('event_bundle carries pods and pod_pairing',
-  (select (b->'event'->>'pod_pairing') || '|' || (b->'event'->>'pods') from public.event_bundle(:'ev') b), 'pod|2');
+  (select (b->'event'->>'pod_pairing') || '|' || (b->'event'->>'pods') || '|' ||
+          (select string_agg(x->>'name', ',' order by (x->>'display_order')::int) from jsonb_array_elements(b->'pods') x)
+     from public.event_bundle(:'ev') b), 'pod|2|Pod 1,Pod 2');
 reset role;
 select pg_temp.eq('helpers closed to clients',
   (select string_agg(has_function_privilege('authenticated', f, 'execute')::text, ',') from unnest(array[

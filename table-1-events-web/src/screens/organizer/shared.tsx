@@ -38,7 +38,8 @@ export function StandingsBlock({
           <Section title="Players" />
         </>
       )}
-      <StandingsTable participants={bundle.participants} rounds={bundle.rounds} teamNames={isTeam ? teamNames : undefined} />
+      <StandingsTable participants={bundle.participants} rounds={bundle.rounds} teamNames={isTeam ? teamNames : undefined}
+                      pods={bundle.event.formatName === "draft" ? bundle.pods : undefined} />
     </>
   );
 }

@@ -57,6 +57,10 @@ export interface Table1Event {
   startsAt: string | null;
   venueName: string | null;
   decklists: "off" | "optional" | "required";
+  /** Drafts: the organizer's number of pods (null = automatic, pods of up to 8) and how rounds 2+ pair
+   *  (contract/draft-pods-2026-11-09.md). */
+  pods: number | null;
+  podPairing: "pod" | "cross";
 }
 
 export interface Participant {
