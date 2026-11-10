@@ -40,7 +40,9 @@ export interface IndexEntry { kind: "constructed" | "limited"; key: string; name
 export interface Archetype { id: number; name: string; family: string; colors: string }
 export interface Change { id: number; on: string; kind: string; cards: string[]; set_code: string | null; note: string | null; url: string | null }
 /** `wr`, `t8r`, `won` and the window's `won_of` are missing from packs built before 2026-10-28. */
-export interface ShareRow { a: number; share: number; prev: number | null; decks: number; top8: number; conv: number | null; wr?: number | null; t8r?: number | null; won?: number }
+export interface ShareRow { a: number; share: number; prev: number | null; decks: number; top8: number; conv: number | null; wr?: number | null; t8r?: number | null; won?: number;
+  /** The window's match record against other archetypes [wins, losses, draws] (packs from 2026-10-30 on). */
+  rec?: [number, number, number] | null }
 export interface CardRow { c: string; n: string; rate: number; prev: number | null; copies: number | null }
 export interface Window {
   decks: number; weighted: number; events: number; thin: boolean; brief: string | null; won_of?: number;
@@ -247,6 +249,13 @@ export const afterWindow = (b: BanStudy) => {
 export function gridFor(pack: ConstructedPack, tier: Tier, days: number): { m: Matchups; scope: string } {
   const m = pack.tiers[tier]?.windows[String(days)]?.matchups;
   return m ? { m, scope: `${tier === "big" ? "Big events" : "All events"}, last ${days} days` } : { m: pack.matchups, scope: "All events, last 90 days" };
+}
+
+/** The Meta now rows of the window gridFor drew from: their records give the grid's Overall column. */
+export function gridShare(pack: ConstructedPack, tier: Tier, days: number): ShareRow[] {
+  const w = pack.tiers[tier]?.windows[String(days)];
+  if (w?.matchups) return w.share;
+  return pack.tiers.all?.windows["90"]?.share ?? [];
 }
 /** What `insights_mine` says about the signed-in account in a format: its decks with their archetypes, and how much
  *  of each archetype's usual list its collection holds. */

@@ -121,6 +121,8 @@ enum Insights {
     struct ShareRow: Codable, Hashable {
         let a: Int; let share: Double; let prev: Double?; let decks: Int; let top8: Int; let conv: Double?
         var wr: Double? = nil; var t8r: Double? = nil; var won: Int? = nil
+        /// The window's match record against other archetypes [wins, losses, draws] (packs from 2026-10-30 on).
+        var rec: [Int]? = nil
     }
     struct CardRow: Codable, Hashable { let c: String; let n: String; let rate: Double; let prev: Double?; let copies: Double? }
     struct Movers: Codable, Hashable { let up: [CardRow]; let down: [CardRow] }
@@ -247,6 +249,11 @@ enum Insights {
         func grid(_ t: Tier, days: Int) -> (m: Matchups, scope: String) {
             if let m = view(t)?.windows[String(days)]?.matchups { return (m, "\(t == .big ? "Big events" : "All events"), last \(days) days") }
             return (matchups, "All events, last 90 days")
+        }
+        /// The Meta now rows of the window `grid` drew from: their records give the grid's Overall column.
+        func gridShare(_ t: Tier, days: Int) -> [ShareRow] {
+            if let w = view(t)?.windows[String(days)], w.matchups != nil { return w.share }
+            return view(.all)?.windows["90"]?.share ?? []
         }
         func archetype(_ id: Int) -> Archetype? { archetypes.first { $0.id == id } }
         func name(_ id: Int) -> String { archetype(id)?.name ?? "Other" }

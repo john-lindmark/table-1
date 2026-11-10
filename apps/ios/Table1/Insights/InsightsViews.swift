@@ -115,6 +115,64 @@ struct PickerRow<Content: View>: View {
     }
 }
 
+/// A filter as an attribute cell: its value, and the picker it opens (design guidance § Attribute row, § Picker).
+struct FilterCell {
+    /// what the filter is ("Format"): the picker's header and the cell's spoken label
+    let name: String
+    let value: String
+    let options: [SelectorOption]
+    let current: String?
+    let pick: (String) -> Void
+}
+
+/// Insights' filters: one row of equal cells, 50 pt tall and 1 px apart, each a dropdown that opens its picker.
+struct FilterRow: View {
+    let cells: [FilterCell]
+    var body: some View {
+        HStack(spacing: 1) {
+            ForEach(cells, id: \.name) { c in
+                Button {
+                    T1Overlays.shared.present {
+                        SelectorPanel(title: c.name, options: c.options, current: c.current) { v in
+                            T1Overlays.shared.dismissPanel()
+                            if v != c.current { Telemetry.capture("insights_filter_changed", ["filter": c.name.lowercased(), "value": v]) }
+                            c.pick(v)
+                        }
+                        .screen("insights_filter_picker")
+                    }
+                } label: {
+                    HStack(spacing: 2) {
+                        Text(c.value.uppercased()).font(T1.mono(11)).tracking(1.5).lineLimit(1).minimumScaleFactor(0.7)
+                        T1Icon.arrowDropDown.fill(T1.muted).frame(width: 16, height: 16)
+                    }
+                    .padding(.horizontal, 6)
+                    .frame(maxWidth: .infinity).frame(height: 50).background(T1.surface).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(c.name): \(c.value)")
+            }
+        }
+        .background(T1.bg)
+    }
+}
+
+extension FilterCell {
+    /// Big events | All events.
+    static func tier(_ tier: Binding<Insights.Tier>) -> FilterCell {
+        FilterCell(name: "Events", value: tier.wrappedValue == .big ? "Big events" : "All events",
+                   options: [SelectorOption(value: "big", label: "Big events"),
+                             SelectorOption(value: "all", label: "All events")],
+                   current: tier.wrappedValue.rawValue) { tier.wrappedValue = Insights.Tier(rawValue: $0) ?? .big }
+    }
+    /// The window, 7–90 days.
+    static func days(_ days: Binding<Int>) -> FilterCell {
+        FilterCell(name: "Window", value: "\(days.wrappedValue) days", options: Insights.windows.map { SelectorOption(value: "\($0)", label: "Last \($0) days") },
+                   current: "\(days.wrappedValue)") { days.wrappedValue = Int($0) ?? days.wrappedValue }
+    }
+    /// The option at the end of the format and set pickers that opens Edit.
+    static let editValue = "__edit"
+}
+
 /// Insights → Edit: On / Off per format or set; the last one shown can't be hidden. Kept on this device.
 struct ShownEditor: View {
     let title: String
@@ -176,9 +234,15 @@ struct ConstructedHomeSection: View {
     @State private var editing = false
 
     var body: some View {
-        PickerRow(editing: $editing) {
-            T1Segmented(options: store.shownFormats.map { ($0.key, $0.label) }, selection: $store.format, scroll: true)
-        }
+        let tierNow = store.pack.map { store.tier(for: $0) } ?? .big
+        FilterRow(cells: [
+            FilterCell(name: "Format", value: store.shownFormats.first { $0.key == store.format }?.label ?? store.format,
+                       options: store.shownFormats.map { SelectorOption(value: $0.key, label: $0.label) }
+                           + [SelectorOption(value: FilterCell.editValue, label: "Shown formats…")],
+                       current: store.format) { v in if v == FilterCell.editValue { editing = true } else { store.format = v } },
+            .tier(Binding(get: { tierNow }, set: { store.tierPicked = $0 })),
+            .days($store.days),
+        ])
         if editing {
             ShownEditor(title: "Shown formats", items: Insights.formats.map { ($0.key, $0.label, nil) }, hidden: store.hiddenFormats,
                         set: { store.setHidden(format: true, $0, $1) }, done: { editing = false })
@@ -186,8 +250,6 @@ struct ConstructedHomeSection: View {
         if let s = store.stale { Notice(s) }
         if let pack = store.pack {
             let tier = store.tier(for: pack)
-            let tierBinding = Binding<Insights.Tier>(get: { tier }, set: { store.tierPicked = $0 })
-            WindowPickers(tier: tierBinding)
             if let view = pack.view(tier), let w = view.windows[String(store.days)] {
                 content(pack, view, w, tier)
             }
@@ -235,7 +297,7 @@ struct ConstructedHomeSection: View {
         let grid = pack.grid(tier, days: store.days)
         if !grid.m.cells.isEmpty {
             Section1("Matchups · \(grid.scope)")
-            MatchupGrid(pack: pack, m: grid.m).id("\(tier)-\(store.days)")
+            MatchupGrid(pack: pack, m: grid.m, share: pack.gridShare(tier, days: store.days)).id("\(tier)-\(store.days)")
         }
 
         BriefBlock(brief: w.brief, scope: scope, thin: w.thin, credit: credit)
@@ -275,8 +337,7 @@ struct WindowPickers: View {
     var days = true
     @Bindable private var store = InsightsStore.shared
     var body: some View {
-        T1Segmented(options: [(.big, "Big events"), (.all, "All events")], selection: tier)
-        if days { T1Segmented(options: Insights.windows.map { ($0, "\($0)D") }, selection: $store.days) }
+        FilterRow(cells: days ? [.tier(tier), .days($store.days)] : [.tier(tier)])
     }
 }
 
@@ -825,7 +886,7 @@ struct MatchupsView: View {
                 VStack(spacing: 1) {
                     if let pack, let grid {
                         WindowPickers(tier: Binding(get: { tier }, set: { store.tierPicked = $0 }))
-                        MatchupGrid(pack: pack, m: grid.m).id("\(tier)-\(store.days)")
+                        MatchupGrid(pack: pack, m: grid.m, share: pack.gridShare(tier, days: store.days)).id("\(tier)-\(store.days)")
                     }
                 }
             }
@@ -838,6 +899,8 @@ struct MatchupsView: View {
 struct MatchupGrid: View {
     let pack: Insights.ConstructedPack
     let m: Insights.Matchups
+    /// The Meta now rows of the window the grid is from (their records are the Overall column).
+    var share: [Insights.ShareRow] = []
     @State private var picked: (Int, Int)?
     @State private var mine: Insights.Mine?
 
@@ -845,13 +908,13 @@ struct MatchupGrid: View {
         let cols = m.archetypes
         let ordered = Insights.yoursFirst(m.rowIds, mine)
         let rows = ordered.map(\.a)
-        Notice("Each archetype with 1% of decks (rows) against the 10 most played (columns): the row's match win rate. Your decks come first, then archetypes your collection nearly builds. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.")
+        Notice("Each archetype with 1% of decks (rows) against the 10 most played (columns): the row's match win rate, and first its win rate against every archetype. Your decks come first, then archetypes your collection nearly builds. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.")
         InsightHeatmap(rows: rows.map { pack.name($0) }, notes: ordered.map(\.note), cols: cols.map { pack.name($0) }, same: { rows[$0] == cols[$1] }, cell: { r, c in
             m.cell(rows[r], cols[c]).map { ($0.wins, $0.losses) }
         }, picked: picked.map { (row: $0.0, col: $0.1) }, onTap: { r, c in
             picked = (r, c)
-            Telemetry.capture("insights_matchup_opened", ["format": pack.format])
-        })
+            Telemetry.capture("insights_matchup_opened", ["format": pack.format, "overall": c < 0])
+        }, overall: { r in Insights.overall(share, m, rows[r]).map { ($0.wins, $0.losses) } })
         .task(id: pack.format) {
             guard let got = await InsightsStore.shared.mine(format: pack.format) else { return }
             mine = got
@@ -860,7 +923,15 @@ struct MatchupGrid: View {
             Telemetry.capture("insights_yours", ["format": pack.format, "decks": got.decks.filter { $0.a != 0 }.count,
                                                  "close": notes.filter { $0.hasPrefix("You have") }.count])
         }
-        if let (r, c) = picked, r < rows.count, c < cols.count, let m = m.cell(rows[r], cols[c]) {
+        if let (r, c) = picked, r < rows.count, c < 0, let o = Insights.overall(share, m, rows[r]) {
+            let n = o.wins + o.losses
+            let ci = InsightCharts.wilson(wins: o.wins, n: n)
+            ListRow(title: "\(pack.name(rows[r])) overall",
+                    detail: n >= 30 ? "\(InsightCharts.pct1(Double(o.wins) / Double(n))) · likely \(InsightCharts.pct(ci.lo))–\(InsightCharts.pct(ci.hi))" : "Only \(n) matches: too few to say") {
+                Text("\(o.wins)-\(o.losses)\(o.draws > 0 ? "-\(o.draws)" : "")").font(T1.mono(13))
+            }
+        }
+        if let (r, c) = picked, r < rows.count, c >= 0, c < cols.count, let m = m.cell(rows[r], cols[c]) {
             let n = m.wins + m.losses
             let ci = InsightCharts.wilson(wins: m.wins, n: n)
             ListRow(title: "\(pack.name(rows[r])) vs \(pack.name(cols[c]))",

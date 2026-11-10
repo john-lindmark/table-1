@@ -410,7 +410,7 @@ object Repo {
         }).decodeAs()
 
     /** A shared /join/<code> link (open events only, rate-limited). An account already in the event lands on it. */
-    suspend fun joinByCode(code: String): SeatResult {
+    suspend fun joinByCode(code: String, via: String = "link"): SeatResult {
         val w = supabase.postgrest.rpc("join_event", buildJsonObject {
             put("p_code", code)
             put("p_display_name", myDisplayName() ?: "Player")
@@ -420,7 +420,7 @@ object Repo {
         if (w.waitlisted) Telemetry.capture("event_signed_up", mapOf("status" to "waitlisted", "signed_in_now" to false))
         if (w.waitlisted) throw IllegalStateException(w.message ?: "This event is full")
         val eventId = w.eventId ?: throw IllegalStateException(w.message ?: "No event found with that code")
-        if (!w.alreadyJoined) Telemetry.capture("event_joined", mapOf("via" to "link"))
+        if (!w.alreadyJoined) Telemetry.capture("event_joined", mapOf("via" to via))
         return SeatResult(eventId = eventId, participantId = w.participantId, alreadyJoined = w.alreadyJoined)
     }
 

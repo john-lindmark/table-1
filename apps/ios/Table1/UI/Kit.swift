@@ -421,7 +421,7 @@ struct T1SearchField: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").foregroundStyle(T1.muted)
+            T1Icon.search.fill(T1.muted).frame(width: 18, height: 18)
             TextField("", text: $text, prompt: Text(prompt).foregroundStyle(T1.muted))
                 .font(T1.mono(15)).tint(T1.accent)
                 .autocorrectionDisabled()

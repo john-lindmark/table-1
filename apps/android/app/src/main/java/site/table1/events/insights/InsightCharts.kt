@@ -112,7 +112,11 @@ object InsightCharts {
     }
 
     /** 57.1%: win rates keep one decimal. */
-    fun pct1(x: Double?): String = if (x == null) "–" else String.format(java.util.Locale.US, "%.1f%%", x * 100)
+    fun pct1(x: Double?): String = if (x == null) "–" else "${fixed1(x * 100)}%"
+
+    /** One decimal from the double's exact value, as iOS's and C's printf and JavaScript's toFixed round it: Java's
+     *  "%.1f" rounds the shortest decimal instead, so 4.55 (4.5499… in binary) read 4.6 here and 4.5 everywhere else. */
+    fun fixed1(x: Double): String = java.math.BigDecimal(x).setScale(1, java.math.RoundingMode.HALF_EVEN).toPlainString().let { if (it == "-0.0") "0.0" else it }
 
     /** A Meta now row's win rate, conversion rate (lists that made top 8) and event win rate (first place, of the
      *  window's events with a winner); a part the pack has no number for is left out (make_cases.py `rates`). */
@@ -126,7 +130,7 @@ object InsightCharts {
     fun delta(d: Double?): String {
         if (d == null) return ""
         val v = abs(d * 100)
-        return (if (d >= 0) "+" else "-") + (if (v >= 10) v.roundToInt().toString() else String.format(java.util.Locale.US, "%.1f", v))
+        return (if (d >= 0) "+" else "-") + (if (v >= 10) v.roundToInt().toString() else fixed1(v))
     }
 
     private val MONTHS = listOf("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")

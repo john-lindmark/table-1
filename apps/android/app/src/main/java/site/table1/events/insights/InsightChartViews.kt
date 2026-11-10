@@ -210,7 +210,9 @@ fun InsightScatter(points: List<ScatterPoint>, height: Dp = 240.dp, onTap: (Scat
  *  blanks a row's own column. The [picked] cell is outlined and its row and column names sit on the lighter surface. */
 @Composable
 fun InsightHeatmap(rows: List<String>, cols: List<String>, same: (Int, Int) -> Boolean, cell: (Int, Int) -> Pair<Int, Int>?, minMatches: Int = 30,
-                   picked: Pair<Int, Int>? = null, notes: List<String?> = emptyList(), onTap: (Int, Int) -> Unit = { _, _ -> }) {
+                   picked: Pair<Int, Int>? = null, notes: List<String?> = emptyList(),
+                   /** A row's overall record, drawn as the first column ("Overall", column -1 for [picked] and [onTap]). */
+                   overall: ((Int) -> Pair<Int, Int>?)? = null, onTap: (Int, Int) -> Unit = { _, _ -> }) {
     // Column names pinned on top and row names pinned on the left: the names and the cells scroll in their own boxes,
     // the rows sharing one vertical scroll.
     val down = rememberScrollState()
@@ -237,6 +239,11 @@ fun InsightHeatmap(rows: List<String>, cols: List<String>, same: (Int, Int) -> B
         }
         Column(Modifier.horizontalScroll(across), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                if (overall != null) {
+                    Box(Modifier.width(40.dp).height(128.dp).background(if (picked?.second == -1) T1.surfaceHover else T1.surface).clipToBounds(), contentAlignment = Alignment.Center) {
+                        Text("OVERALL", Modifier.requiredWidth(120.dp).rotate(-90f), color = T1.text, fontFamily = T1.mono, fontSize = 9.sp, letterSpacing = 0.5.sp, maxLines = 1)
+                    }
+                }
                 cols.forEachIndexed { c, col ->
                     // laid out across, then turned to read upwards from the bottom of the header
                     Box(Modifier.width(40.dp).height(128.dp).background(if (picked?.second == c) T1.surfaceHover else T1.surface).clipToBounds(), contentAlignment = Alignment.Center) {
@@ -248,6 +255,16 @@ fun InsightHeatmap(rows: List<String>, cols: List<String>, same: (Int, Int) -> B
             Column(box, verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 rows.indices.forEach { r ->
                     Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                        if (overall != null) {
+                            val v = overall(r)
+                            val h = InsightCharts.heat(v?.first ?: 0, v?.second ?: 0, minMatches)
+                            val on = picked?.first == r && picked.second == -1
+                            Box(Modifier.width(40.dp).height(34.dp).background(bg(h)).then(if (on) Modifier.border(1.dp, T1.text) else Modifier)
+                                .clickable(enabled = v != null) { onTap(r, -1) }, contentAlignment = Alignment.Center) {
+                                if (h.label.isNotEmpty()) Text(h.label, color = if (h.ink) T1.ink else if (h.dim) T1.muted else T1.text, fontFamily = T1.mono, fontSize = 10.sp,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                            }
+                        }
                         cols.indices.forEach { c ->
                             val own = same(r, c)
                             val v = if (own) null else cell(r, c)

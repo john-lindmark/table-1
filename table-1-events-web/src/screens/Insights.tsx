@@ -2,11 +2,13 @@ import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from "re
 import { useNavigate, useParams } from "react-router-dom";
 import { Bar as ShareBar, Heatmap, LineChart, Scatter, SlopeChart, type Marker } from "../components/InsightCharts";
 import { Bar, GhostAction, Notice, Row, Screen, Section, Segmented, Stat, SwitchRow, TabNav } from "../components/kit";
-import { printingsByName, type Catalog } from "../lib/catalog";
+import { cardImageUrl, printingsByName, type Catalog } from "../lib/catalog";
+import { EDIT_VALUE, FilterRow, ManaCost, type FilterCell } from "../components/FilterRow";
+import { LIMITED_COLORS, LIMITED_RARITIES, LIMITED_SORTS, LIMITED_TOP, MIN_QUERY, limitedCards, limitedSearch, limitedValue, overall, searchNorm } from "../lib/limitedCards";
 import { delta, months, pct, pct1, rates, seriesWindow, shortDay, wilson } from "../lib/insightCharts";
 import {
   EVENT_LABELS, EVENT_ORDER, FORMATS, PAIR_NAMES, WINDOWS, canHide, exampleFinish, formatParts, place, setHidden, sourcesCredit, visibleKeys, type Finish, type PartKey, afterWindow, archetypeName, archetypePage, cardPage, changeWords, colorsName, isBan,
-  gridFor, loadInsights, loadInsightsDemo, loadInsightsExtras, matchup, matchupRows, mineFor, pick, setInsightsAlerts, yoursFirst, type Mine, useInsights, type ArchetypePage, type CardPage, type CardRow, type ConstructedPack, type Matchups,
+  gridFor, gridShare, type ShareRow, loadInsights, loadInsightsDemo, loadInsightsExtras, matchup, matchupRows, mineFor, pick, setInsightsAlerts, yoursFirst, type Mine, useInsights, type ArchetypePage, type CardPage, type CardRow, type ConstructedPack, type Matchups,
   type LCard, type LimitedPack, type LView, type Tier,
   archetypeBar, archetypeDetail, cardMarkers, finishDetail, finishTitle, hitDetail, searchCards, type CardFinish, type CardHit,
 } from "../lib/insights";
@@ -103,14 +105,15 @@ function ConstructedHome() {
   const w = view?.windows[String(picks.days)];
   return (
     <Scroll>
-      <PickerRow onEdit={() => setEditing(!editing)} editing={editing}>
-        <Segmented scroll options={FORMATS.filter((f) => shown.includes(f.key)).map((f) => ({ value: f.key as string, label: f.label }))} value={format}
-                   onChange={(v) => pick({ format: v })} />
-      </PickerRow>
+      <FilterRow cells={[
+        { name: "Format", value: FORMATS.find((f) => f.key === format)?.label ?? format, current: format,
+          options: [...FORMATS.filter((f) => shown.includes(f.key)).map((f) => ({ value: f.key as string, label: f.label })), { value: EDIT_VALUE, label: "Shown formats…" }],
+          onPick: (v) => (v === EDIT_VALUE ? setEditing(true) : pick({ format: v })) },
+        tierCell(tier), daysCell(picks.days),
+      ]} />
       {editing && <ShownEditor title="Shown formats" items={FORMATS.map((f) => ({ key: f.key as string, label: f.label }))} hidden={picks.hiddenFormats}
                                which="hiddenFormats" onDone={() => setEditing(false)} />}
       {stale && <Notice tone="info">{stale}</Notice>}
-      {pack && <WindowPickers tier={tier} days={picks.days} />}
       {!pack && (error ? <Notice tone="error">{error}</Notice> : <Notice tone="info">{index ? "No results for this format yet." : "Loading the metagame…"}</Notice>)}
       {!pack && error && <GhostAction label="Try again" onClick={() => void loadInsights(true)} />}
       {pack && view && w && <ConstructedBody pack={pack} tier={tier} view={view} w={w} days={picks.days} hl={hl} setHl={setHl} go={(p) => nav(p)} />}
@@ -118,14 +121,20 @@ function ConstructedHome() {
   );
 }
 
+/** Big events | All events as a filter cell. */
+const tierCell = (tier: Tier): FilterCell => ({
+  name: "Events", value: tier === "big" ? "Big events" : "All events", current: tier,
+  options: [{ value: "big", label: "Big events" }, { value: "all", label: "All events" }], onPick: (v) => pick({ tier: v as Tier }),
+});
+/** The window, 7–90 days, as a filter cell. */
+const daysCell = (days: number): FilterCell => ({
+  name: "Window", value: `${days} days`, current: String(days),
+  options: WINDOWS.map((d) => ({ value: String(d), label: `Last ${d} days` })), onPick: (v) => pick({ days: Number(v) }),
+});
+
 /** Big events | All events, then the window (7–90 days); `days` off where the part doesn't depend on it. */
 function WindowPickers({ tier, days, showDays = true }: { tier: Tier; days: number; showDays?: boolean }) {
-  return (
-    <>
-      <Segmented options={[{ value: "big" as Tier, label: "Big events" }, { value: "all" as Tier, label: "All events" }]} value={tier} onChange={(v) => pick({ tier: v })} />
-      {showDays && <Segmented options={WINDOWS.map((d) => ({ value: d as number, label: `${d}D` }))} value={days} onChange={(v) => pick({ days: v })} />}
-    </>
-  );
+  return <FilterRow cells={showDays ? [tierCell(tier), daysCell(days)] : [tierCell(tier)]} />;
 }
 
 /** The format page: Meta over time and the matchup grid first, then the brief, and a row for each part, which opens
@@ -168,7 +177,7 @@ function ConstructedBody({ pack, tier, view, w, days, hl, setHl, go }: {
       {grid.m.cells.length > 0 && (
         <>
           <Section title={`Matchups · ${grid.scope}`} />
-          <MatchupGrid key={`${tier}-${days}`} pack={pack} m={grid.m} />
+          <MatchupGrid key={`${tier}-${days}`} pack={pack} m={grid.m} share={gridShare(pack, tier, days)} />
         </>
       )}
       <Brief text={w.brief} scope={`${tier === "big" ? "Big events" : "All events"}, last ${days} days`} thin={w.thin} credit={credit} />
@@ -638,14 +647,14 @@ export function InsightsMatchups() {
   return (
     <Screen>
       <Bar title="Matchups" subtitle={`${pack?.name ?? format} · ${grid?.scope ?? "last 90 days"}`} onBack={() => nav(-1)} />
-      {pack && grid && <Scroll><WindowPickers tier={tier} days={picks.days} /><MatchupGrid key={`${tier}-${picks.days}`} pack={pack} m={grid.m} /></Scroll>}
+      {pack && grid && <Scroll><WindowPickers tier={tier} days={picks.days} /><MatchupGrid key={`${tier}-${picks.days}`} pack={pack} m={grid.m} share={gridShare(pack, tier, picks.days)} /></Scroll>}
     </Screen>
   );
 }
 
 /** The matchup grid (rows against labelled columns) and the record of the square last tapped; on the format page
  *  under Meta over time, and on its own screen for older links. */
-function MatchupGrid({ pack, m: grid }: { pack: ConstructedPack; m: Matchups }) {
+function MatchupGrid({ pack, m: grid, share }: { pack: ConstructedPack; m: Matchups; share: ShareRow[] }) {
   const [picked, setPicked] = useState<[number, number] | null>(null);
   const [mine, setMine] = useState<Mine | null>(null);
   useEffect(() => {
@@ -664,15 +673,22 @@ function MatchupGrid({ pack, m: grid }: { pack: ConstructedPack; m: Matchups }) 
   const cols = grid.archetypes;
   const ordered = yoursFirst(matchupRows(grid), mine);
   const rows = ordered.map((r) => r.a);
-  const m = picked && picked[0] < rows.length && picked[1] < cols.length ? matchup(grid, rows[picked[0]], cols[picked[1]]) : null;
+  const m = picked && picked[0] < rows.length && picked[1] >= 0 && picked[1] < cols.length ? matchup(grid, rows[picked[0]], cols[picked[1]]) : null;
+  const o = picked && picked[0] < rows.length && picked[1] < 0 ? overall(share, grid, rows[picked[0]]) : null;
+  const on = o ? o.wins + o.losses : 0;
+  const [olo, ohi] = o ? wilson(o.wins, on) : [0, 1];
   const n = m ? m.wins + m.losses : 0;
   const [lo, hi] = m ? wilson(m.wins, n) : [0, 1];
   return (
     <>
-      <Notice tone="info">Each archetype with 1% of decks (rows) against the 10 most played (columns): the row's match win rate. Your decks come first, then archetypes your collection nearly builds. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.</Notice>
+      <Notice tone="info">Each archetype with 1% of decks (rows) against the 10 most played (columns): the row's match win rate, and first its win rate against every archetype. Your decks come first, then archetypes your collection nearly builds. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.</Notice>
       <Heatmap rows={rows.map((a) => archetypeName(pack, a))} notes={ordered.map((r) => r.note)} cols={cols.map((a) => archetypeName(pack, a))} same={(r, c) => rows[r] === cols[c]}
-               picked={picked} onPick={(r, c) => { setPicked([r, c]); capture("insights_matchup_opened", { format: pack.format }); }}
-               cell={(r, c) => matchup(grid, rows[r], cols[c])} />
+               picked={picked} onPick={(r, c) => { setPicked([r, c]); capture("insights_matchup_opened", { format: pack.format, overall: c < 0 }); }}
+               cell={(r, c) => matchup(grid, rows[r], cols[c])} overall={(r) => overall(share, grid, rows[r])} />
+      {o && picked && (
+        <Row title={`${archetypeName(pack, rows[picked[0]])} overall`} value={`${o.wins}-${o.losses}${o.draws ? `-${o.draws}` : ""}`}
+             detail={on >= 30 ? `${pct1(o.wins / on)} · likely ${pct(olo)}–${pct(ohi)}` : `Only ${on} matches: too few to say`} />
+      )}
       {m && picked && picked[0] < rows.length && (
         <Row title={`${archetypeName(pack, rows[picked[0]])} vs ${archetypeName(pack, cols[picked[1]])}`} value={`${m.wins}-${m.losses}${m.draws ? `-${m.draws}` : ""}`}
              detail={n >= 30 ? `${pct1(m.wins / n)} · likely ${pct(lo)}–${pct(hi)}` : `Only ${n} matches: too few to say`} />
@@ -683,26 +699,11 @@ function MatchupGrid({ pack, m: grid }: { pack: ConstructedPack; m: Matchups }) 
 
 /* ── limited ──────────────────────────────────────────────────────────── */
 
-const RARITIES = [{ value: "all", label: "All" }, { value: "common", label: "C" }, { value: "uncommon", label: "U" }, { value: "rare", label: "R" }, { value: "mythic", label: "M" }];
-const COLORS = [{ value: "all", label: "All" }, ...["W", "U", "B", "R", "G"].map((c) => ({ value: c, label: c })), { value: "M", label: "Multi" }];
 
 /** Add to my decks, then what happened with Open (the new deck) once it's there. */
 function AddRow({ copied, onAdd, onOpen }: { copied: { text: string; listId?: string } | null; onAdd: () => void; onOpen: (listId: string) => void }) {
   if (copied?.listId) return <Row title={copied.text} detail="A new private deck" action={{ label: "Open", onClick: () => onOpen(copied.listId!) }} />;
   return <Row title="Add to my decks" detail={copied?.text ?? "A new private deck with these cards"} action={{ label: "Add", onClick: onAdd }} />;
-}
-
-/** A picker row with Edit at its end (which formats or sets the row shows). */
-function PickerRow({ children, onEdit, editing }: { children: ReactNode; onEdit: () => void; editing: boolean }) {
-  return (
-    <div className="flex gap-px bg-t1-bg">
-      <div className="flex-1 min-w-0">{children}</div>
-      <button type="button" onClick={onEdit} aria-expanded={editing}
-              className={`mt-px px-4 text-[11px] uppercase tracking-[1px] ${editing ? "bg-t1-text text-t1-bg" : "bg-t1-surface hover:bg-t1-surface-hover text-t1-muted"}`}>
-        Edit
-      </button>
-    </div>
-  );
 }
 
 /** Insights → Edit: a switch per format or set; the last one shown can't be hidden. Kept in this browser. */
@@ -753,39 +754,88 @@ function NewSetsToRank() {
   </>);
 }
 
+const oracleMaps = new WeakMap<Catalog, Map<string, number>>();
+
+/** Each card's mana cost and its printing in the set (art), by name; a cube's cards take their original printing. */
+function limitedFaces(catalog: Catalog | null, set: string, cards: LCard[]): Map<string, { cost: string; p: number }> {
+  const out = new Map<string, { cost: string; p: number }>();
+  if (!catalog) return out;
+  let ids = oracleMaps.get(catalog);
+  if (!ids) { ids = new Map(catalog.oId.map((id, i) => [id, i])); oracleMaps.set(catalog, ids); }
+  const code = set.toLowerCase();
+  for (const c of cards) {
+    const oi = c.c ? ids.get(c.c) : undefined;
+    if (oi == null) continue;
+    let pick = -1;
+    for (let p = catalog.pFirst[oi]; p < catalog.pFirst[oi] + catalog.pCount[oi]; p++) {
+      if (catalog.pSet[p] === code && (pick < 0 || (catalog.pLang[p] === "en" && catalog.pLang[pick] !== "en"))) pick = p;
+    }
+    if (pick < 0) pick = catalog.oOriginal[oi] >= 0 ? catalog.oOriginal[oi] : catalog.pFirst[oi];
+    out.set(c.n, { cost: catalog.oCost[oi], p: pick });
+  }
+  return out;
+}
+
+/** One card on the Limited page: its place, art, name, mana cost, rarity and games, and the sort's number with how far
+ *  it sits from the average under it. */
+function LimitedCardRow({ rank, c, face, catalog, value, vs, onClick }: {
+  rank: number | null; c: LCard; face?: { cost: string; p: number }; catalog: Catalog | null; value: string; vs: string | null; onClick: () => void;
+}) {
+  return (
+    <button type="button" onClick={onClick} className="w-full flex items-center gap-2.5 bg-t1-surface hover:bg-t1-surface-hover px-4 py-2 text-left">
+      {rank != null && <span className="w-[22px] shrink-0 text-right text-[11px] text-t1-muted tabular-nums">{rank}</span>}
+      <span className="w-[52px] h-[38px] shrink-0 bg-t1-bg overflow-hidden">
+        {catalog && face && face.p >= 0 && <img src={cardImageUrl(catalog, face.p, "art_crop")} alt="" loading="lazy" className="w-full h-full object-cover" />}
+      </span>
+      <span className="flex-1 min-w-0 flex flex-col gap-1">
+        <span className="text-[14px] truncate">{c.n}</span>
+        <span className="flex items-center gap-1.5 min-w-0">
+          {face?.cost && <ManaCost cost={face.cost} size={12} />}
+          <span className="t1-label truncate">{[c.r ? c.r[0].toUpperCase() : null, `${c.gih_n.toLocaleString()} in hand`].filter(Boolean).join(" · ")}</span>
+        </span>
+      </span>
+      <span className="shrink-0 flex flex-col items-end gap-0.5">
+        <span className={`text-[14px] tabular-nums ${c.gih == null ? "text-t1-disabled" : ""}`}>{value}</span>
+        {vs && <span className={`t1-label ${vs.startsWith("+") ? "text-t1-text" : ""}`}>{vs}</span>}
+      </span>
+    </button>
+  );
+}
+
+/** A screen's one big action with a line of data under it (Rank this set): the words large, the data small. */
+function RankAction({ title, detail, onClick }: { title: string; detail?: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="w-full min-h-[88px] px-4 flex flex-col items-center justify-center gap-2 bg-t1-surface hover:bg-t1-surface-hover border-t border-t1-text">
+      <span className="text-[15px] font-semibold uppercase tracking-[4px]">{title}</span>
+      {detail && <span className="t1-label text-center">{detail}</span>}
+    </button>
+  );
+}
+
 function LimitedHome() {
   const nav = useNavigate();
   const { limited, picks, index, error, stale, rankable, alerts } = useInsights();
+  const { catalog } = useCatalog();
   const rank = useRankSet();
   useEffect(() => { void loadInsightsExtras(); }, []);
-  const [sort, setSort] = useState<"gih" | "oh" | "iwd" | "ata">("gih");
+  const [sort, setSort] = useState("gih");
   const [rarity, setRarity] = useState("all");
   const [color, setColor] = useState("all");
   const [editing, setEditing] = useState(false);
+  const [query, setQuery] = useState("");
+  const [all, setAll] = useState(false);
   // Sets with no 17Lands data yet (spoiler season, or just out) lead the picker and open Rank this set; the packs follow
   // in the index's order. Edit hides any of them.
   const today = new Date().toISOString().slice(0, 10);
-  const all = limitedPicker((index ?? []).filter((e) => e.kind === "limited").map((e) => ({ key: e.key, name: e.name })), rankable ?? [], today);
-  const chips = shownChips(all, picks.hiddenSets);
+  const allChips = limitedPicker((index ?? []).filter((e) => e.kind === "limited").map((e) => ({ key: e.key, name: e.name })), rankable ?? [], today);
+  const chips = shownChips(allChips, picks.hiddenSets);
   const current = chips.find((c) => c.key === picks.set) ?? chips.find((c) => c.pack) ?? chips[0];
   const soon = current && !current.pack ? (rankable ?? []).find((r) => r.key === current.key) : undefined;
   const nameOf = (k: string) => index?.find((e) => e.kind === "limited" && e.key === k)?.name ?? rankable?.find((r) => r.key === k)?.name;
   const { set, pack, events, event, group, view } = limitedPick(limited, current?.pack ? current.key : undefined, picks.event, picks.group);
-  // A cube's cards have no rarity: no rarity filter then.
   const rated = !!view?.cards.some((c) => c.r);
-  const cards = useMemo(() => {
-    if (!view) return [];
-    const key = (c: LCard) => (sort === "oh" ? c.oh : sort === "iwd" ? c.iwd : sort === "ata" ? (c.ata == null ? null : -c.ata) : c.gih);
-    return view.cards
-      .filter((c) => (!rated || rarity === "all" || c.r === rarity) && (color === "all" || (color === "M" ? (c.col?.length ?? 0) > 1 : c.col === color)))
-      .sort((a, b) => {
-        const x = key(a), y = key(b);
-        if (x != null && y != null) return y - x;
-        if (x != null) return -1;
-        if (y != null) return 1;
-        return b.gih_n - a.gih_n;
-      });
-  }, [view, sort, rarity, color, rated]);
+  const cards = useMemo(() => (view ? limitedCards(view.cards, sort, rarity, color) : []), [view, sort, rarity, color]);
+  const faces = useMemo(() => (pack && view ? limitedFaces(catalog, pack.set_code, view.cards) : new Map()), [catalog, pack, view]);
   // The picker waits for the index and the sets to rank (kept on the device after the first visit), so it draws whole.
   if (!index || !rankable || !chips.length) {
     return (<>
@@ -796,50 +846,103 @@ function LimitedHome() {
       <NewSetsToRank />
     </>);
   }
-  const picker = (
-    <>
-      {stale && <Notice tone="info">{stale}</Notice>}
-      <PickerRow onEdit={() => setEditing(!editing)} editing={editing}>
-        <Segmented scroll options={chips.map((c) => ({ value: c.key, label: c.label }))} value={current.key} onChange={(v) => pick({ set: v })} />
-      </PickerRow>
-      {editing && <ShownEditor title="Shown sets" which="hiddenSets" hidden={picks.hiddenSets} onDone={() => setEditing(false)}
-                               items={all.map((c) => ({ key: c.key, label: c.label, detail: nameOf(c.key) !== c.label ? nameOf(c.key) : undefined }))} />}
-    </>
-  );
+  const setCell: FilterCell = {
+    name: "Set", value: current.label, current: current.key,
+    options: [...chips.map((c) => ({ value: c.key, label: c.label, detail: nameOf(c.key) !== c.label ? nameOf(c.key) : undefined })), { value: EDIT_VALUE, label: "Shown sets…" }],
+    onPick: (v) => { if (v === EDIT_VALUE) setEditing(true); else { pick({ set: v }); setQuery(""); setAll(false); } },
+  };
+  const editor = editing && <ShownEditor title="Shown sets" which="hiddenSets" hidden={picks.hiddenSets} onDone={() => setEditing(false)}
+                                          items={allChips.map((c) => ({ key: c.key, label: c.label, detail: nameOf(c.key) !== c.label ? nameOf(c.key) : undefined }))} />;
+  const alertsRow = alerts != null && <SwitchRow label="New in Insights" detail="A push when a new set, cube or format arrives (in the apps)" on={alerts}
+                                                 onChange={(v) => void setInsightsAlerts(v)} />;
   if (soon) {
     return (
       <Scroll>
-        {picker}
+        {stale && <Notice tone="info">{stale}</Notice>}
+        <FilterRow cells={[setCell]} />
+        {editor}
         <Notice tone="info">{soonText(soon, today)}</Notice>
-        <Row title="Rank this set" detail={rankableDetail(soon)} onClick={() => rank(soon.key, soon.kind, "soon")} />
-        {alerts != null && <SwitchRow label="New in Insights" detail="A push when a new set, cube or format arrives (in the apps)" on={alerts}
-                                      onChange={(v) => void setInsightsAlerts(v)} />}
+        <RankAction title="Rank this set" detail={rankableDetail(soon)} onClick={() => rank(soon.key, soon.kind, "soon")} />
+        {alertsRow}
       </Scroll>
     );
   }
-  if (!pack || !view || !event) return <Scroll>{picker}<Notice tone="info">Loading {set ? limitedLabel(set, nameOf(set)) : ""}…</Notice></Scroll>;
+  if (!pack || !view || !event) return <Scroll><FilterRow cells={[setCell]} />{editor}<Notice tone="info">Loading {set ? limitedLabel(set, nameOf(set)) : ""}…</Notice></Scroll>;
   const base = `/insights/limited/${pack.set_code}/${event}/${group}`;
+  const cells: FilterCell[] = [setCell];
+  if (events.length > 1) cells.push({ name: "Event", value: EVENT_LABELS[event] ?? event, current: event, options: events.map((e) => ({ value: e, label: EVENT_LABELS[e] ?? e })), onPick: (v) => pick({ event: v }) });
+  if (pack.events[event].groups.top) {
+    cells.push({ name: "Players", value: group === "top" ? "Top players" : "All players", current: group,
+                 options: [{ value: "all", label: "All players" }, { value: "top", label: "Top players", detail: "60%+ win rate" }], onPick: (v) => pick({ group: v as "all" | "top" }) });
+  }
   const shown = view.pairs.filter((p) => p.share >= 0.01).sort((a, b) => b.wr - a.wr);
   const lo = Math.max(0.4, Math.min(...shown.map((p) => p.wr)) - 0.02), hi = Math.min(0.7, Math.max(...shown.map((p) => p.wr)) + 0.01);
   const two = shown.filter((p) => p.p.length === 2 && p.p !== "3C").slice(0, 5);
   const pts = view.cards.filter((c) => c.gih != null && c.ata != null && c.gih_n >= 1000).map((c) => ({ id: c.n, label: c.n, x: c.ata!, y: c.gih! }));
-  const value = (c: LCard) => (sort === "oh" ? pct1(c.oh) : sort === "iwd" ? (c.iwd == null ? "–" : delta(c.iwd)) : sort === "ata" ? (c.ata?.toFixed(1) ?? "–") : pct1(c.gih));
+  const sortOpt = LIMITED_SORTS.find((x) => x.value === sort);
+  const searching = searchNorm(query).length >= MIN_QUERY;
+  const hits = searching ? limitedSearch(query, view.cards.map((c) => c.n), Object.values(limited).filter((p) => p.set_code !== pack.set_code)
+    .sort((a, b) => (b.released ?? "").localeCompare(a.released ?? ""))
+    .map((p) => ({ key: p.set_code, names: [...new Set(Object.values(p.events).flatMap((e) => e.groups.all?.cards.map((c) => c.n) ?? []))].sort() }))) : null;
+  const row = (c: LCard, i: number | null) => {
+    const v = limitedValue(c, sort, view.wr);
+    return <LimitedCardRow key={c.n} rank={i} c={c} face={faces.get(c.n)} catalog={catalog} value={v.value} vs={v.vs}
+                           onClick={() => nav(`${base}/card/${encodeURIComponent(c.n)}`)} />;
+  };
+  const r = rankable?.find((x) => x.key === pack.set_code);
+  const kind = r?.kind ?? (pack.cube ? "cube" : "set");
   return (
     <Scroll>
-      {picker}
-      {events.length > 1 && <Segmented options={events.map((e) => ({ value: e, label: EVENT_LABELS[e] ?? e }))} value={event} onChange={(v) => pick({ event: v })} />}
-      {pack.events[event].groups.top && (
-        <Segmented options={[{ value: "all" as const, label: "All players" }, { value: "top" as const, label: "Top players" }]} value={group} onChange={(v) => pick({ group: v })} />
+      {stale && <Notice tone="info">{stale}</Notice>}
+      <FilterRow cells={cells} />
+      {editor}
+      <Section title={`Top cards · ${sortOpt?.label.toLowerCase() ?? sort}`} />
+      <FilterRow cells={[
+        { name: "Sort", value: sortOpt?.code ?? sort, current: sort, options: LIMITED_SORTS.map((x) => ({ value: x.value, label: x.label, detail: x.code })),
+          onPick: (v) => { setSort(v); setAll(false); capture("insights_sort_changed", { sort: v }); } },
+        ...(rated ? [{ name: "Rarity", value: LIMITED_RARITIES.find((x) => x.value === rarity)?.label ?? rarity, current: rarity, options: LIMITED_RARITIES,
+                       onPick: (v: string) => { setRarity(v); setAll(false); } }] : []),
+        { name: "Color", value: LIMITED_COLORS.find((x) => x.value === color)?.code ?? color, current: color, options: LIMITED_COLORS.map((x) => ({ value: x.value, label: x.label })),
+          onPick: (v) => { setColor(v); setAll(false); } },
+      ]} />
+      <label className="flex items-center gap-2 bg-t1-surface px-4">
+        <Icon d={ICON.search} />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search cards" aria-label="Search cards"
+               className="flex-1 min-w-0 bg-transparent py-3.5 outline-0 border-0 text-[15px] placeholder:text-t1-muted" />
+        {query && <button type="button" className="t1-label" onClick={() => setQuery("")}>Clear</button>}
+      </label>
+      {hits ? (
+        <>
+          {hits.here.map((n) => { const c = view.cards.find((x) => x.n === n); return c ? row(c, null) : null; })}
+          {!hits.here.length && hits.elsewhere.length > 0 && (
+            <>
+              <Section title={`Not in ${limitedLabel(pack.set_code, pack.name)} · in other sets`} />
+              {hits.elsewhere.map(([k, n]) => (
+                <Row key={`${k}|${n}`} title={n} detail={limitedLabel(k, nameOf(k))}
+                     onClick={() => {
+                       capture("insights_card_search_elsewhere", { set: k });
+                       const other = limited[k];
+                       const e = other ? EVENT_ORDER.find((x) => other.events[x]) ?? "PremierDraft" : "PremierDraft";
+                       nav(`/insights/limited/${k}/${e}/all/card/${encodeURIComponent(n)}`);
+                     }} />
+              ))}
+            </>
+          )}
+          {!hits.here.length && !hits.elsewhere.length && <Notice tone="info">No card in any set's draft data is called that.</Notice>}
+        </>
+      ) : (
+        <>
+          {(all ? cards : cards.slice(0, LIMITED_TOP)).map((c, i) => row(c, i + 1))}
+          {!cards.length && <Notice tone="info">No card matches these filters.</Notice>}
+          {cards.length > LIMITED_TOP && (
+            <GhostAction label={all ? `Show the top ${LIMITED_TOP}` : `Show all ${cards.length}`}
+                         onClick={() => { setAll(!all); if (!all) capture("insights_cards_expanded", { set: pack.set_code, count: cards.length }); }} />
+          )}
+        </>
       )}
-      <Brief text={view.brief} scope={`${pack.name ?? pack.set_code} ${EVENT_LABELS[event] ?? event}${group === "top" ? ", top players (60%+)" : ""}`} thin={view.games < 20000}
-             credit={{ label: "Data from 17Lands", url: pack.credit.url }} />
-      <Stats items={[["Games", view.games.toLocaleString()], ["Average", pct1(view.wr)], ["Weeks", String(view.weeks)]]} />
-      {(() => {
-        const r = rankable?.find((x) => x.key === pack.set_code);
-        const kind = r?.kind ?? (pack.cube ? "cube" : "set");
-        return <Row title={`Rank this ${kind === "cube" ? "cube" : "set"}`} onClick={() => rank(pack.set_code, kind, "set")}
-                    detail={r && r.rankings > 0 ? rankableDetail(r) : "Stack-rank its cards by color, then a top 100. Compare with your friends."} />;
-      })()}
+      <Notice tone="info">GIH WR: win rate with the card in hand · OH: in the opening hand · IWD: improvement when drawn · ATA: average pick taken · under it: points above or below the average</Notice>
+      <RankAction title={`Rank this ${kind === "cube" ? "cube" : "set"}`} onClick={() => rank(pack.set_code, kind, "set")}
+                  detail={r && r.rankings > 0 ? rankableDetail(r) : "Stack-rank its cards by color, then a top 100. Compare with friends."} />
       <NewSetsToRank />
       <Section title="Color pairs · game win rate" />
       {shown.map((p) => (
@@ -869,17 +972,6 @@ function LimitedHome() {
           </Chart>
         </>
       )}
-      <Section title="Cards" />
-      <Segmented options={[{ value: "gih" as const, label: "GIH WR" }, { value: "oh" as const, label: "OH WR" }, { value: "iwd" as const, label: "IWD" }, { value: "ata" as const, label: "ATA" }]}
-                 value={sort} onChange={(v) => { setSort(v); capture("insights_sort_changed", { sort: v }); }} />
-      {rated && <Segmented options={RARITIES} value={rarity} onChange={setRarity} />}
-      <Segmented options={COLORS} value={color} onChange={setColor} />
-      {cards.slice(0, 40).map((c) => (
-        <Row key={c.n} title={c.n} value={value(c)} dim={c.gih == null} onClick={() => nav(`${base}/card/${encodeURIComponent(c.n)}`)}
-             detail={[(c.r ? c.r[0].toUpperCase() + c.r.slice(1) : null), c.col, `${c.gih_n.toLocaleString()} in hand`, c.ata != null ? `taken ${c.ata.toFixed(1)}` : null].filter(Boolean).join(" · ")} />
-      ))}
-      {!cards.length && <Notice tone="info">No card matches these filters.</Notice>}
-      <Notice tone="info">GIH WR: win rate with the card in hand · OH: in the opening hand · IWD: improvement when drawn · ATA: average pick taken</Notice>
       {pts.length >= 20 && (
         <>
           <Section title="Taken vs win rate · above the line is taken too late" />
@@ -889,8 +981,10 @@ function LimitedHome() {
       <Section title="Game facts" />
       <Stats items={[["On the play", pct1(view.facts.play_wr)], ["On the draw", pct1(view.facts.draw_wr)], ["Turns", view.facts.turns?.toFixed(1) ?? "–"]]} />
       <Stats items={[["Mulligans", pct(view.facts.mull_rate)], ["Kept 7", pct1(view.facts.keep7_wr)], ["After a mull", pct1(view.facts.mull_wr)]]} />
-      {alerts != null && <SwitchRow label="New in Insights" detail="A push when a new set, cube or format arrives (in the apps)" on={alerts}
-                                    onChange={(v) => void setInsightsAlerts(v)} />}
+      <Brief text={view.brief} scope={`${pack.name ?? pack.set_code} ${EVENT_LABELS[event] ?? event}${group === "top" ? ", top players (60%+)" : ""}`} thin={view.games < 20000}
+             credit={{ label: "Data from 17Lands", url: pack.credit.url }} />
+      <Stats items={[["Games", view.games.toLocaleString()], ["Average", pct1(view.wr)], ["Weeks", String(view.weeks)]]} />
+      {alertsRow}
     </Scroll>
   );
 }
@@ -935,6 +1029,8 @@ export function InsightsLimitedCard() {
   const pack = limited[set];
   const view = pack?.events[event]?.groups[group as "all" | "top"];
   const c = view?.cards.find((x) => x.n === name);
+  const { catalog } = useCatalog();
+  const face = useMemo(() => (c ? limitedFaces(catalog, set, [c]).get(c.n) : undefined), [catalog, set, c]);
   if (!session && !demo) return <Screen><Bar title={name} onBack={() => nav(-1)} />{ready && <SignInFirst />}</Screen>;
   const pairs = Object.entries(c?.pair_gih ?? {}).sort((a, b) => b[1] - a[1]);
   const lo = Math.max(0.35, Math.min(...pairs.map(([, v]) => v)) - 0.02), hi = Math.min(0.8, Math.max(...pairs.map(([, v]) => v)) + 0.01);
@@ -943,6 +1039,12 @@ export function InsightsLimitedCard() {
       <Bar title={name} subtitle={`${limitedLabel(set, pack?.name)} ${EVENT_LABELS[event] ?? event}`} onBack={() => nav(-1)} />
       {!c || !view || !pack ? <Notice tone="info">This card isn't in the pack.</Notice> : (
         <Scroll>
+          {face && catalog && (
+            <div className="flex flex-col items-center gap-3 py-5">
+              {face.p >= 0 && <img src={cardImageUrl(catalog, face.p, "normal")} alt={c.n} className="w-[220px] rounded-[9px]" />}
+              {face.cost && <ManaCost cost={face.cost} size={16} />}
+            </div>
+          )}
           <a href={pack.credit.url} target="_blank" rel="noreferrer" className="bg-t1-surface px-4 py-2.5 t1-label underline">Data from 17Lands</a>
           {c.gih == null && <Notice tone="info">Fewer than 500 games with this card in hand: no win rates yet.</Notice>}
           <Stats items={[["In hand", pct1(c.gih)], ["Opening hand", pct1(c.oh)], ["Drawn", pct1(c.gd)]]} />

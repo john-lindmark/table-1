@@ -1,0 +1,179 @@
+{
+ "about": "ManaSymbols.parse(cost) \u2192 symbol names (tools/mana/make.py). `symbols` is every symbol each client bundles; a name outside it draws as a plain grey circle with its text.",
+ "symbols": [
+  "0",
+  "1",
+  "10",
+  "11",
+  "12",
+  "13",
+  "14",
+  "15",
+  "16",
+  "2",
+  "2B",
+  "2G",
+  "2R",
+  "2U",
+  "2W",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "B",
+  "BG",
+  "BP",
+  "BR",
+  "C",
+  "CB",
+  "CG",
+  "CP",
+  "CR",
+  "CU",
+  "CW",
+  "D",
+  "G",
+  "GP",
+  "GU",
+  "GUP",
+  "GW",
+  "GWP",
+  "L",
+  "R",
+  "RG",
+  "RP",
+  "RW",
+  "S",
+  "U",
+  "UB",
+  "UP",
+  "UR",
+  "W",
+  "WB",
+  "WP",
+  "WU",
+  "X",
+  "Y",
+  "Z"
+ ],
+ "cases": [
+  {
+   "cost": "{2}{W}",
+   "want": [
+    "2",
+    "W"
+   ]
+  },
+  {
+   "cost": "{W}{U}",
+   "want": [
+    "W",
+    "U"
+   ]
+  },
+  {
+   "cost": "{X}{R}{R}",
+   "want": [
+    "X",
+    "R",
+    "R"
+   ]
+  },
+  {
+   "cost": "{1}{U/B}{U/B}",
+   "want": [
+    "1",
+    "UB",
+    "UB"
+   ]
+  },
+  {
+   "cost": "{2/W}{2/W}",
+   "want": [
+    "2W",
+    "2W"
+   ]
+  },
+  {
+   "cost": "{G/U/P}",
+   "want": [
+    "GUP"
+   ]
+  },
+  {
+   "cost": "{W/P}",
+   "want": [
+    "WP"
+   ]
+  },
+  {
+   "cost": "{C}",
+   "want": [
+    "C"
+   ]
+  },
+  {
+   "cost": "{S}",
+   "want": [
+    "S"
+   ]
+  },
+  {
+   "cost": "{0}",
+   "want": [
+    "0"
+   ]
+  },
+  {
+   "cost": "{16}",
+   "want": [
+    "16"
+   ]
+  },
+  {
+   "cost": "",
+   "want": []
+  },
+  {
+   "cost": "{1}{R} // {2}{U}",
+   "want": [
+    "1",
+    "R",
+    "//",
+    "2",
+    "U"
+   ]
+  },
+  {
+   "cost": "{3}{U} // {B}",
+   "want": [
+    "3",
+    "U",
+    "//",
+    "B"
+   ]
+  },
+  {
+   "cost": "{HW}",
+   "want": [
+    "HW"
+   ]
+  },
+  {
+   "cost": "{1000000}",
+   "want": [
+    "1000000"
+   ]
+  },
+  {
+   "cost": "{w}{u}",
+   "want": [
+    "W",
+    "U"
+   ]
+  }
+ ]
+}

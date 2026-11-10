@@ -160,7 +160,9 @@ object Insights {
 }
 /** `wr`, `t8r`, `won` and the window's `won_of` are missing from packs built before 2026-10-28. */
 @Serializable data class ShareRow(val a: Int, val share: Double, val prev: Double? = null, val decks: Int, val top8: Int, val conv: Double? = null,
-                                  val wr: Double? = null, val t8r: Double? = null, val won: Int? = null)
+                                  val wr: Double? = null, val t8r: Double? = null, val won: Int? = null,
+                                  /** The window's match record against other archetypes [wins, losses, draws] (packs from 2026-10-30 on). */
+                                  val rec: List<Int>? = null)
 @Serializable data class CardRow(val c: String, val n: String, val rate: Double, val prev: Double? = null, val copies: Double? = null)
 @Serializable data class Movers(val up: List<CardRow>, val down: List<CardRow>)
 @Serializable data class Window(val decks: Int, val weighted: Double, val events: Int, val thin: Boolean, val brief: String? = null,
@@ -256,6 +258,11 @@ fun deckInsight(r: DeckInsightAnswer): DeckInsight {
     fun grid(tier: String, days: Int): Pair<Matchups, String> =
         tiers[tier]?.windows?.get(days.toString())?.matchups?.let { it to "${if (tier == "big") "Big events" else "All events"}, last $days days" }
             ?: (matchups to "All events, last 90 days")
+    /** The Meta now rows of the window [grid] drew from: their records give the grid's Overall column. */
+    fun gridShare(tier: String, days: Int): List<ShareRow> {
+        val w = tiers[tier]?.windows?.get(days.toString())
+        return if (w?.matchups != null) w.share else tiers["all"]?.windows?.get("90")?.share.orEmpty()
+    }
     fun name(id: Int) = archetypes.firstOrNull { it.id == id }?.name ?: "Other"
     fun change(id: Int) = changes.firstOrNull { it.id == id }
 }

@@ -241,11 +241,21 @@ struct InsightHeatmap: View {
     var minMatches = 30
     var picked: (row: Int, col: Int)?
     var onTap: ((Int, Int) -> Void)?
+    /// A row's overall record, drawn as the first column ("Overall", column index -1 for `picked` and `onTap`).
+    var overall: ((Int) -> (wins: Int, losses: Int)?)?
 
     var body: some View {
         VStack(spacing: 1) {
             HStack(spacing: 1) {
                 T1.surface.frame(width: 104, height: 128)
+                if overall != nil {
+                    (picked?.col == -1 ? T1.surfaceHover : T1.surface).frame(width: 34, height: 128)
+                        .overlay {
+                            Text("OVERALL").font(T1.mono(9)).tracking(0.5).fixedSize().frame(width: 120, alignment: .leading)
+                                .rotationEffect(.degrees(-90))
+                        }
+                        .clipped()
+                }
                 ForEach(0..<cols.count, id: \.self) { c in
                     (picked?.col == c ? T1.surfaceHover : T1.surface).frame(maxWidth: .infinity).frame(height: 128)
                         .overlay {
@@ -272,6 +282,19 @@ struct InsightHeatmap: View {
                             }
                             .frame(width: 92, height: 34, alignment: .leading).padding(.horizontal, 6)
                                 .background(picked?.row == r ? T1.surfaceHover : T1.surface)
+                            if let overall {
+                                let v = overall(r)
+                                let h = InsightCharts.heat(wins: v?.wins ?? 0, losses: v?.losses ?? 0, minimum: minMatches)
+                                ZStack {
+                                    Rectangle().fill(color(h))
+                                    Text(h.label).font(T1.mono(10).weight(.semibold)).foregroundStyle(h.ink ? T1.ink : h.dim ? T1.muted : T1.text)
+                                    if picked?.row == r && picked?.col == -1 { Rectangle().strokeBorder(T1.text, lineWidth: 1) }
+                                }
+                                .frame(width: 34, height: 34)
+                                .contentShape(Rectangle())
+                                .onTapGesture { if v != nil { onTap?(r, -1) } }
+                                .accessibilityLabel("Overall \(h.label)%")
+                            }
                             ForEach(0..<cols.count, id: \.self) { c in
                                 let own = same(r, c)
                                 let v = own ? nil : cell(r, c)

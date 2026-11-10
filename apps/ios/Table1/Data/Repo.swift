@@ -363,7 +363,7 @@ enum Repo {
     }
 
     /// A shared /join/<code> link (open events only, rate-limited). An account already in the event lands on it.
-    static func joinByCode(_ code: String) async throws -> SeatResult {
+    static func joinByCode(_ code: String, via: String = "link") async throws -> SeatResult {
         struct Wire: Decodable {
             let eventId: String?; let participantId: String?; let alreadyJoined: Bool?; let message: String?
             var waitlisted: Bool?
@@ -381,7 +381,7 @@ enum Repo {
         guard let eventId = w.eventId else {
             throw NSError(domain: "Table1", code: 1, userInfo: [NSLocalizedDescriptionKey: w.message ?? "No event found with that code"])
         }
-        if w.alreadyJoined != true { Telemetry.capture("event_joined", ["via": "link"]) }
+        if w.alreadyJoined != true { Telemetry.capture("event_joined", ["via": via]) }
         return SeatResult(eventId: eventId, participantId: w.participantId, alreadyJoined: w.alreadyJoined)
     }
 

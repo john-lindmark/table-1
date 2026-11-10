@@ -177,7 +177,7 @@ fun EventsHomeScreen(
         }
         if (d.events.isEmpty() && invites.isEmpty() && d.waitlist.isEmpty() && followed.isEmpty()) {
             if (error != null) BigAction("Try again") { scope.launch { load() } }
-            EmptyEvents(onScan = { scan() }, onNearby = onNearby, onCreate = onCreate)
+            EmptyEvents(onScan = { scan() }, onNearby = onNearby, onCreate = onCreate, onJoined = onOpenEvent)
             return@T1Screen
         }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -211,6 +211,7 @@ fun EventsHomeScreen(
                     Ghost("Nearby", onClick = onNearby)
                 }
             }
+            item { JoinCodeRow(onJoined = onOpenEvent) }
             if (upcoming.isNotEmpty()) {
                 item { Section("Upcoming") }
                 items(upcoming, key = { it.id }) { e -> EventLine(e) { onOpenEvent(e.id) } }
@@ -358,14 +359,15 @@ private fun EventLine(e: HomeEvent, onClick: () -> Unit) {
 
 /** No events and no invitations: the ways in become the screen. */
 @Composable
-private fun EmptyEvents(onScan: () -> Unit, onNearby: () -> Unit, onCreate: () -> Unit) {
+private fun EmptyEvents(onScan: () -> Unit, onNearby: () -> Unit, onCreate: () -> Unit, onJoined: (String) -> Unit) {
     Column(Modifier.fillMaxWidth().background(T1.surface).padding(horizontal = 24.dp, vertical = 40.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("No events yet", color = T1.text, fontFamily = T1.mono, fontSize = 20.sp)
-        Text("Scan an organizer's QR code, find an event happening near you, or run your own.",
+        Text("Scan an organizer's QR code, enter their event code, find an event happening near you, or run your own.",
             color = T1.muted, fontFamily = T1.mono, fontSize = 12.sp, textAlign = TextAlign.Center)
     }
     BigAction("Scan QR", accent = true, onClick = onScan)
     BigAction("Find nearby", onClick = onNearby)
+    JoinCodeRow(onJoined = onJoined)
     Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) { Ghost("Create an event", onClick = onCreate) }
 }

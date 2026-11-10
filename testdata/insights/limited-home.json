@@ -1,0 +1,1558 @@
+{
+ "about": "The Limited page's cards (contract/insights-2026-10-24.md § The Limited page). `cards` are a pack view's cards; each `filters` case is limitedCards(cards, sort, rarity, color) → names in order (`unrated`: the cards with rarity removed, as in an Arena cube). `values` are the row's number and how far it sits from `avg` (the view's average game win rate). `search` cases are limitedSearch(query, cards, others).",
+ "top": 10,
+ "others_max": 20,
+ "min_query": 2,
+ "avg": 0.5542,
+ "cards": [
+  {
+   "n": "Island",
+   "r": "common",
+   "col": "C",
+   "gih": 0.5624,
+   "gih_n": 163459,
+   "oh": 0.5668,
+   "iwd": 0.07,
+   "ata": 13.93
+  },
+  {
+   "n": "Swamp",
+   "r": "common",
+   "col": "C",
+   "gih": 0.56,
+   "gih_n": 145075,
+   "oh": 0.5591,
+   "iwd": 0.0455,
+   "ata": 13.94
+  },
+  {
+   "n": "Forest",
+   "r": "common",
+   "col": "C",
+   "gih": 0.5568,
+   "gih_n": 138120,
+   "oh": 0.5558,
+   "iwd": 0.0474,
+   "ata": 13.93
+  },
+  {
+   "n": "Mountain",
+   "r": "common",
+   "col": "C",
+   "gih": 0.5544,
+   "gih_n": 127972,
+   "oh": 0.5538,
+   "iwd": 0.0471,
+   "ata": 13.94
+  },
+  {
+   "n": "Plains",
+   "r": "common",
+   "col": "C",
+   "gih": 0.5528,
+   "gih_n": 122325,
+   "oh": 0.5553,
+   "iwd": 0.0543,
+   "ata": 13.93
+  },
+  {
+   "n": "Mindseeker Oculus",
+   "r": "common",
+   "col": "U",
+   "gih": 0.6004,
+   "gih_n": 51173,
+   "oh": 0.6013,
+   "iwd": 0.0688,
+   "ata": 4.03
+  },
+  {
+   "n": "Room of Refuge",
+   "r": "common",
+   "col": "C",
+   "gih": 0.5636,
+   "gih_n": 44730,
+   "oh": 0.5759,
+   "iwd": 0.0016,
+   "ata": 7.31
+  },
+  {
+   "n": "Extended Absence",
+   "r": "common",
+   "col": "B",
+   "gih": 0.5984,
+   "gih_n": 43347,
+   "oh": 0.5641,
+   "iwd": 0.0713,
+   "ata": 3.91
+  },
+  {
+   "n": "Surveillance Phantasm",
+   "r": "common",
+   "col": "U",
+   "gih": 0.58,
+   "gih_n": 42066,
+   "oh": 0.5688,
+   "iwd": 0.0352,
+   "ata": 6.37
+  },
+  {
+   "n": "Icy Reception",
+   "r": "common",
+   "col": "U",
+   "gih": 0.5856,
+   "gih_n": 40010,
+   "oh": 0.5744,
+   "iwd": 0.0432,
+   "ata": 6.89
+  },
+  {
+   "n": "Unsummon",
+   "r": "common",
+   "col": "U",
+   "gih": 0.5802,
+   "gih_n": 39461,
+   "oh": 0.5444,
+   "iwd": 0.0389,
+   "ata": 7.02
+  },
+  {
+   "n": "Undulating Witness",
+   "r": "common",
+   "col": "U",
+   "gih": 0.5653,
+   "gih_n": 38771,
+   "oh": 0.5388,
+   "iwd": 0.0203,
+   "ata": 7.42
+  },
+  {
+   "n": "Fatehold Chronologist",
+   "r": "common",
+   "col": "WU",
+   "gih": 0.572,
+   "gih_n": 38651,
+   "oh": 0.5579,
+   "iwd": 0.0265,
+   "ata": 5.83
+  },
+  {
+   "n": "Twinned Vision",
+   "r": "common",
+   "col": "UR",
+   "gih": 0.5885,
+   "gih_n": 38516,
+   "oh": 0.5804,
+   "iwd": 0.0299,
+   "ata": 6.86
+  },
+  {
+   "n": "Protege's Awakening",
+   "r": "common",
+   "col": "U",
+   "gih": 0.5904,
+   "gih_n": 37756,
+   "oh": 0.564,
+   "iwd": 0.0502,
+   "ata": 6.91
+  },
+  {
+   "n": "Last Gasp",
+   "r": "common",
+   "col": "B",
+   "gih": 0.5758,
+   "gih_n": 37389,
+   "oh": 0.5667,
+   "iwd": 0.0385,
+   "ata": 4.57
+  },
+  {
+   "n": "Infinite Coursework",
+   "r": "common",
+   "col": "U",
+   "gih": 0.5664,
+   "gih_n": 36166,
+   "oh": 0.5307,
+   "iwd": 0.0244,
+   "ata": 5.91
+  },
+  {
+   "n": "Hexhaven Battalion",
+   "r": "common",
+   "col": "W",
+   "gih": 0.5812,
+   "gih_n": 36035,
+   "oh": 0.56,
+   "iwd": 0.0419,
+   "ata": 5.61
+  },
+  {
+   "n": "Apex Witchstalker",
+   "r": "common",
+   "col": "B",
+   "gih": 0.5628,
+   "gih_n": 34790,
+   "oh": 0.5416,
+   "iwd": 0.0142,
+   "ata": 7.28
+  },
+  {
+   "n": "No Admittance",
+   "r": "common",
+   "col": "R",
+   "gih": 0.5721,
+   "gih_n": 34219,
+   "oh": 0.5621,
+   "iwd": 0.0329,
+   "ata": 4.2
+  },
+  {
+   "n": "Awaken the Inferno",
+   "r": "common",
+   "col": "R",
+   "gih": 0.5677,
+   "gih_n": 32788,
+   "oh": 0.5495,
+   "iwd": 0.0217,
+   "ata": 6.33
+  },
+  {
+   "n": "Wrath of the Bloodmane",
+   "r": "common",
+   "col": "R",
+   "gih": 0.5671,
+   "gih_n": 32440,
+   "oh": 0.556,
+   "iwd": 0.0246,
+   "ata": 5.1
+  },
+  {
+   "n": "Arcane Amphisbaena",
+   "r": "common",
+   "col": "G",
+   "gih": 0.5654,
+   "gih_n": 32233,
+   "oh": 0.5604,
+   "iwd": 0.023,
+   "ata": 5.81
+  },
+  {
+   "n": "Memory Trap",
+   "r": "common",
+   "col": "W",
+   "gih": 0.5687,
+   "gih_n": 32048,
+   "oh": 0.5514,
+   "iwd": 0.0314,
+   "ata": 4.06
+  },
+  {
+   "n": "Bestial Incursion",
+   "r": "common",
+   "col": "G",
+   "gih": 0.5679,
+   "gih_n": 31570,
+   "oh": 0.5572,
+   "iwd": 0.0262,
+   "ata": 6.56
+  },
+  {
+   "n": "Surgical Precision",
+   "r": "common",
+   "col": "W",
+   "gih": 0.5797,
+   "gih_n": 30761,
+   "oh": 0.5553,
+   "iwd": 0.041,
+   "ata": 5.78
+  },
+  {
+   "n": "Vinelasher Adept",
+   "r": "common",
+   "col": "G",
+   "gih": 0.5634,
+   "gih_n": 30377,
+   "oh": 0.5421,
+   "iwd": 0.0197,
+   "ata": 7.64
+  },
+  {
+   "n": "Compel Brutality",
+   "r": "common",
+   "col": "G",
+   "gih": 0.5563,
+   "gih_n": 30317,
+   "oh": 0.5251,
+   "iwd": 0.0183,
+   "ata": 5.87
+  },
+  {
+   "n": "Konstrari Improviser",
+   "r": "common",
+   "col": "RG",
+   "gih": 0.551,
+   "gih_n": 27311,
+   "oh": 0.5691,
+   "iwd": 0.0083,
+   "ata": 6.03
+  },
+  {
+   "n": "Campus Crier",
+   "r": "common",
+   "col": "W",
+   "gih": 0.5633,
+   "gih_n": 27140,
+   "oh": 0.5755,
+   "iwd": 0.0062,
+   "ata": 7.56
+  },
+  {
+   "n": "Murmuring Volume",
+   "r": "common",
+   "col": "C",
+   "gih": 0.5724,
+   "gih_n": 26203,
+   "oh": 0.5676,
+   "iwd": 0.0261,
+   "ata": 8.66
+  },
+  {
+   "n": "Keeper of the Quiet Hour",
+   "r": "common",
+   "col": "C",
+   "gih": 0.5692,
+   "gih_n": 26053,
+   "oh": 0.5457,
+   "iwd": 0.015,
+   "ata": 9.2
+  },
+  {
+   "n": "Plan for All Outcomes",
+   "r": "uncommon",
+   "col": "U",
+   "gih": 0.5978,
+   "gih_n": 26018,
+   "oh": 0.5813,
+   "iwd": 0.0559,
+   "ata": 3.37
+  },
+  {
+   "n": "Countersculpt",
+   "r": "uncommon",
+   "col": "U",
+   "gih": 0.6014,
+   "gih_n": 25763,
+   "oh": 0.5766,
+   "iwd": 0.0636,
+   "ata": 4.38
+  },
+  {
+   "n": "Rank Rat",
+   "r": "common",
+   "col": "B",
+   "gih": 0.5555,
+   "gih_n": 25118,
+   "oh": 0.5603,
+   "iwd": 0.0126,
+   "ata": 8.09
+  },
+  {
+   "n": "Theoretical Necromancer",
+   "r": "common",
+   "col": "B",
+   "gih": 0.5575,
+   "gih_n": 25096,
+   "oh": 0.5444,
+   "iwd": -0.0048,
+   "ata": 9.13
+  },
+  {
+   "n": "Recursive Recruitment",
+   "r": "uncommon",
+   "col": "UB",
+   "gih": 0.6149,
+   "gih_n": 24612,
+   "oh": 0.5923,
+   "iwd": 0.0766,
+   "ata": 4.09
+  },
+  {
+   "n": "Tam's Resistance",
+   "r": "common",
+   "col": "UG",
+   "gih": 0.5697,
+   "gih_n": 24291,
+   "oh": 0.5478,
+   "iwd": 0.0316,
+   "ata": 8.18
+  },
+  {
+   "n": "Greenhouse Propagator",
+   "r": "common",
+   "col": "G",
+   "gih": 0.5508,
+   "gih_n": 23623,
+   "oh": 0.5513,
+   "iwd": 0.0127,
+   "ata": 6.14
+  },
+  {
+   "n": "Theorix Annex",
+   "r": "common",
+   "col": "C",
+   "gih": 0.5694,
+   "gih_n": 23444,
+   "oh": 0.5678,
+   "iwd": 0.0123,
+   "ata": 8.39
+  },
+  {
+   "n": "Silence the Echo",
+   "r": "common",
+   "col": "B",
+   "gih": 0.5371,
+   "gih_n": 22899,
+   "oh": 0.496,
+   "iwd": 0.0026,
+   "ata": 7.31
+  },
+  {
+   "n": "Way of the Mind Sculptor",
+   "r": "uncommon",
+   "col": "U",
+   "gih": 0.5892,
+   "gih_n": 22549,
+   "oh": 0.5634,
+   "iwd": 0.0535,
+   "ata": 3.74
+  },
+  {
+   "n": "Blossom-Blessed Angel",
+   "r": "common",
+   "col": "W",
+   "gih": 0.5624,
+   "gih_n": 22036,
+   "oh": 0.5455,
+   "iwd": 0.0278,
+   "ata": 7.12
+  },
+  {
+   "n": "Semester Foreseer",
+   "r": "common",
+   "col": "U",
+   "gih": 0.543,
+   "gih_n": 21976,
+   "oh": 0.5033,
+   "iwd": 0.0031,
+   "ata": 8.65
+  },
+  {
+   "n": "Break Under Pressure",
+   "r": "uncommon",
+   "col": "B",
+   "gih": 0.6035,
+   "gih_n": 21777,
+   "oh": 0.5838,
+   "iwd": 0.0732,
+   "ata": 3.39
+  },
+  {
+   "n": "Heartstring Puller",
+   "r": "common",
+   "col": "R",
+   "gih": 0.5528,
+   "gih_n": 21736,
+   "oh": 0.5451,
+   "iwd": 0.006,
+   "ata": 8.35
+  },
+  {
+   "n": "Proft, Consulting Detective",
+   "r": "uncommon",
+   "col": "U",
+   "gih": 0.5821,
+   "gih_n": 21717,
+   "oh": 0.5793,
+   "iwd": 0.0365,
+   "ata": 4.29
+  },
+  {
+   "n": "Fblthp, Impossibly Lost",
+   "r": "uncommon",
+   "col": "U",
+   "gih": 0.5833,
+   "gih_n": 20799,
+   "oh": 0.5789,
+   "iwd": 0.0443,
+   "ata": 5.18
+  },
+  {
+   "n": "Multiply by Zero",
+   "r": "uncommon",
+   "col": "B",
+   "gih": 0.5957,
+   "gih_n": 20602,
+   "oh": 0.5748,
+   "iwd": 0.058,
+   "ata": 2.98
+  },
+  {
+   "n": "Something Worth Saving",
+   "r": "common",
+   "col": "G",
+   "gih": 0.5729,
+   "gih_n": 20552,
+   "oh": 0.559,
+   "iwd": 0.0177,
+   "ata": 9.45
+  },
+  {
+   "n": "Kiora of Fire and Ashes",
+   "r": "uncommon",
+   "col": "R",
+   "gih": 0.6177,
+   "gih_n": 20515,
+   "oh": 0.5903,
+   "iwd": 0.0869,
+   "ata": 2.43
+  },
+  {
+   "n": "Rewrite Regrets",
+   "r": "uncommon",
+   "col": "B",
+   "gih": 0.5926,
+   "gih_n": 19927,
+   "oh": 0.5612,
+   "iwd": 0.0548,
+   "ata": 4.75
+  },
+  {
+   "n": "Sureshot Sower",
+   "r": "common",
+   "col": "G",
+   "gih": 0.5444,
+   "gih_n": 19684,
+   "oh": 0.5309,
+   "iwd": -0.0051,
+   "ata": 9.21
+  },
+  {
+   "n": "Theorix Metamage",
+   "r": "common",
+   "col": "UB",
+   "gih": 0.5497,
+   "gih_n": 19632,
+   "oh": 0.5207,
+   "iwd": 0.0119,
+   "ata": 9.36
+  },
+  {
+   "n": "Formidable Commons",
+   "r": "common",
+   "col": "C",
+   "gih": 0.5686,
+   "gih_n": 18714,
+   "oh": 0.576,
+   "iwd": 0.0133,
+   "ata": 8.92
+  },
+  {
+   "n": "Violent Echoes",
+   "r": "uncommon",
+   "col": "R",
+   "gih": 0.5963,
+   "gih_n": 18454,
+   "oh": 0.5836,
+   "iwd": 0.0522,
+   "ata": 3.33
+  },
+  {
+   "n": "Void Extrapolator",
+   "r": "common",
+   "col": "B",
+   "gih": 0.5646,
+   "gih_n": 18439,
+   "oh": 0.5521,
+   "iwd": 0.0109,
+   "ata": 9.78
+  },
+  {
+   "n": "Hapatra, the Desert Fang",
+   "r": "uncommon",
+   "col": "BG",
+   "gih": 0.602,
+   "gih_n": 18360,
+   "oh": 0.5759,
+   "iwd": 0.0706,
+   "ata": 4.86
+  },
+  {
+   "n": "Fblthp, Knows the Way",
+   "r": "uncommon",
+   "col": "G",
+   "gih": 0.5792,
+   "gih_n": 18354,
+   "oh": 0.5688,
+   "iwd": 0.042,
+   "ata": 4.65
+  },
+  {
+   "n": "Skilled Battlecarver",
+   "r": "common",
+   "col": "R",
+   "gih": 0.536,
+   "gih_n": 18260,
+   "oh": 0.5492,
+   "iwd": -0.0059,
+   "ata": 9.16
+  },
+  {
+   "n": "Tied Twin",
+   "r": "common",
+   "col": "W",
+   "gih": 0.5544,
+   "gih_n": 127972,
+   "oh": null,
+   "iwd": null,
+   "ata": null
+  },
+  {
+   "n": "Rare Sight",
+   "r": "rare",
+   "col": "G",
+   "gih": null,
+   "gih_n": 120,
+   "oh": null,
+   "iwd": null,
+   "ata": 2.0
+  }
+ ],
+ "others": [
+  {
+   "key": "CUBE",
+   "cards": [
+    {
+     "n": "Mountain"
+    },
+    {
+     "n": "Island"
+    },
+    {
+     "n": "Plains"
+    },
+    {
+     "n": "Swamp"
+    },
+    {
+     "n": "Forest"
+    },
+    {
+     "n": "Broadside Bombardiers"
+    },
+    {
+     "n": "Karakas"
+    },
+    {
+     "n": "Pyrogoyf"
+    },
+    {
+     "n": "Phelia, Exuberant Shepherd"
+    },
+    {
+     "n": "Parallax Wave"
+    },
+    {
+     "n": "Gut, True Soul Zealot"
+    },
+    {
+     "n": "Guide of Souls"
+    },
+    {
+     "n": "Death-Greeter's Champion"
+    },
+    {
+     "n": "Arid Mesa"
+    },
+    {
+     "n": "Comet, Stellar Pup"
+    },
+    {
+     "n": "Ajani, Nacatl Pariah"
+    },
+    {
+     "n": "Fable of the Mirror-Breaker"
+    },
+    {
+     "n": "Swords to Plowshares"
+    },
+    {
+     "n": "Mother of Runes"
+    },
+    {
+     "n": "Laelia, the Blade Reforged"
+    },
+    {
+     "n": "Lightning Bolt"
+    },
+    {
+     "n": "Ocelot Pride"
+    },
+    {
+     "n": "Sanguine Evangelist"
+    },
+    {
+     "n": "Luminarch Aspirant"
+    },
+    {
+     "n": "Sacred Foundry"
+    },
+    {
+     "n": "Scalding Tarn"
+    },
+    {
+     "n": "Dismember"
+    },
+    {
+     "n": "Marsh Flats"
+    },
+    {
+     "n": "Flooded Strand"
+    },
+    {
+     "n": "Bloodstained Mire"
+    },
+    {
+     "n": "Plateau"
+    },
+    {
+     "n": "Phlage, Titan of Fire's Fury"
+    },
+    {
+     "n": "Inspiring Vantage"
+    },
+    {
+     "n": "Reprieve"
+    },
+    {
+     "n": "Multiversal Passage"
+    },
+    {
+     "n": "Fury"
+    },
+    {
+     "n": "Ragavan, Nimble Pilferer"
+    },
+    {
+     "n": "Wooded Foothills"
+    },
+    {
+     "n": "Inti, Seneschal of the Sun"
+    },
+    {
+     "n": "Ancestral Recall"
+    },
+    {
+     "n": "Oust"
+    },
+    {
+     "n": "Voice of Victory"
+    },
+    {
+     "n": "Galvanic Discharge"
+    },
+    {
+     "n": "Staff of the Storyteller"
+    },
+    {
+     "n": "Flame Slash"
+    },
+    {
+     "n": "Chain Lightning"
+    },
+    {
+     "n": "Glimmer Lens"
+    },
+    {
+     "n": "Solitude"
+    },
+    {
+     "n": "Sunbillow Verge"
+    },
+    {
+     "n": "Polluted Delta"
+    },
+    {
+     "n": "Time Walk"
+    },
+    {
+     "n": "Generous Plunderer"
+    },
+    {
+     "n": "Mox Pearl"
+    },
+    {
+     "n": "Mox Ruby"
+    },
+    {
+     "n": "Remand"
+    },
+    {
+     "n": "Minsc & Boo, Timeless Heroes"
+    },
+    {
+     "n": "Windswept Heath"
+    },
+    {
+     "n": "Mox Emerald"
+    },
+    {
+     "n": "Black Lotus"
+    },
+    {
+     "n": "Tamiyo, Inquisitive Student"
+    },
+    {
+     "n": "Adeline, Resplendent Cathar"
+    },
+    {
+     "n": "Mana Crypt"
+    },
+    {
+     "n": "Fiery Confluence"
+    },
+    {
+     "n": "Psychic Frog"
+    },
+    {
+     "n": "Giver of Runes"
+    },
+    {
+     "n": "Sunbaked Canyon"
+    },
+    {
+     "n": "Mox Jet"
+    },
+    {
+     "n": "Mox Sapphire"
+    },
+    {
+     "n": "Sol Ring"
+    },
+    {
+     "n": "Makdee and Itla, Skysnarers"
+    },
+    {
+     "n": "Misty Rainforest"
+    },
+    {
+     "n": "Mana Leak"
+    },
+    {
+     "n": "Memory Lapse"
+    },
+    {
+     "n": "Smuggler's Copter"
+    },
+    {
+     "n": "Spell Pierce"
+    },
+    {
+     "n": "Stock Up"
+    },
+    {
+     "n": "Sage of the Skies"
+    },
+    {
+     "n": "Booster Tutor"
+    },
+    {
+     "n": "Verdant Catacombs"
+    },
+    {
+     "n": "Thoughtseize"
+    }
+   ]
+  },
+  {
+   "key": "OLD",
+   "cards": [
+    {
+     "n": "Lightning Bolt"
+    },
+    {
+     "n": "Bolt Bend"
+    },
+    {
+     "n": "Thunderbolt"
+    },
+    {
+     "n": "Æther Vial"
+    },
+    {
+     "n": "Urza's Saga"
+    }
+   ]
+  }
+ ],
+ "filters": [
+  {
+   "name": "gih · all · all",
+   "sort": "gih",
+   "rarity": "all",
+   "color": "all",
+   "want": [
+    "Kiora of Fire and Ashes",
+    "Recursive Recruitment",
+    "Break Under Pressure",
+    "Hapatra, the Desert Fang",
+    "Countersculpt",
+    "Mindseeker Oculus",
+    "Extended Absence",
+    "Plan for All Outcomes",
+    "Violent Echoes",
+    "Multiply by Zero",
+    "Rewrite Regrets",
+    "Protege's Awakening",
+    "Way of the Mind Sculptor",
+    "Twinned Vision",
+    "Icy Reception",
+    "Fblthp, Impossibly Lost",
+    "Proft, Consulting Detective",
+    "Hexhaven Battalion",
+    "Unsummon",
+    "Surveillance Phantasm",
+    "Surgical Precision",
+    "Fblthp, Knows the Way",
+    "Last Gasp",
+    "Something Worth Saving",
+    "Murmuring Volume",
+    "No Admittance",
+    "Fatehold Chronologist",
+    "Tam's Resistance",
+    "Theorix Annex",
+    "Keeper of the Quiet Hour",
+    "Memory Trap",
+    "Formidable Commons",
+    "Bestial Incursion",
+    "Awaken the Inferno",
+    "Wrath of the Bloodmane",
+    "Infinite Coursework",
+    "Arcane Amphisbaena",
+    "Undulating Witness",
+    "Void Extrapolator",
+    "Room of Refuge",
+    "Vinelasher Adept",
+    "Campus Crier",
+    "Apex Witchstalker",
+    "Island",
+    "Blossom-Blessed Angel",
+    "Swamp",
+    "Theoretical Necromancer",
+    "Forest",
+    "Compel Brutality",
+    "Rank Rat",
+    "Mountain",
+    "Tied Twin",
+    "Plains",
+    "Heartstring Puller",
+    "Konstrari Improviser",
+    "Greenhouse Propagator",
+    "Theorix Metamage",
+    "Sureshot Sower",
+    "Semester Foreseer",
+    "Silence the Echo",
+    "Skilled Battlecarver",
+    "Rare Sight"
+   ]
+  },
+  {
+   "name": "oh · all · all",
+   "sort": "oh",
+   "rarity": "all",
+   "color": "all",
+   "want": [
+    "Mindseeker Oculus",
+    "Recursive Recruitment",
+    "Kiora of Fire and Ashes",
+    "Break Under Pressure",
+    "Violent Echoes",
+    "Plan for All Outcomes",
+    "Twinned Vision",
+    "Proft, Consulting Detective",
+    "Fblthp, Impossibly Lost",
+    "Countersculpt",
+    "Formidable Commons",
+    "Room of Refuge",
+    "Hapatra, the Desert Fang",
+    "Campus Crier",
+    "Multiply by Zero",
+    "Icy Reception",
+    "Konstrari Improviser",
+    "Surveillance Phantasm",
+    "Fblthp, Knows the Way",
+    "Theorix Annex",
+    "Murmuring Volume",
+    "Island",
+    "Last Gasp",
+    "Extended Absence",
+    "Protege's Awakening",
+    "Way of the Mind Sculptor",
+    "No Admittance",
+    "Rewrite Regrets",
+    "Arcane Amphisbaena",
+    "Rank Rat",
+    "Hexhaven Battalion",
+    "Swamp",
+    "Something Worth Saving",
+    "Fatehold Chronologist",
+    "Bestial Incursion",
+    "Wrath of the Bloodmane",
+    "Forest",
+    "Plains",
+    "Surgical Precision",
+    "Mountain",
+    "Void Extrapolator",
+    "Memory Trap",
+    "Greenhouse Propagator",
+    "Awaken the Inferno",
+    "Skilled Battlecarver",
+    "Tam's Resistance",
+    "Keeper of the Quiet Hour",
+    "Blossom-Blessed Angel",
+    "Heartstring Puller",
+    "Unsummon",
+    "Theoretical Necromancer",
+    "Vinelasher Adept",
+    "Apex Witchstalker",
+    "Undulating Witness",
+    "Sureshot Sower",
+    "Infinite Coursework",
+    "Compel Brutality",
+    "Theorix Metamage",
+    "Semester Foreseer",
+    "Silence the Echo",
+    "Tied Twin",
+    "Rare Sight"
+   ]
+  },
+  {
+   "name": "iwd · all · all",
+   "sort": "iwd",
+   "rarity": "all",
+   "color": "all",
+   "want": [
+    "Kiora of Fire and Ashes",
+    "Recursive Recruitment",
+    "Break Under Pressure",
+    "Extended Absence",
+    "Hapatra, the Desert Fang",
+    "Island",
+    "Mindseeker Oculus",
+    "Countersculpt",
+    "Multiply by Zero",
+    "Plan for All Outcomes",
+    "Rewrite Regrets",
+    "Plains",
+    "Way of the Mind Sculptor",
+    "Violent Echoes",
+    "Protege's Awakening",
+    "Forest",
+    "Mountain",
+    "Swamp",
+    "Fblthp, Impossibly Lost",
+    "Icy Reception",
+    "Fblthp, Knows the Way",
+    "Hexhaven Battalion",
+    "Surgical Precision",
+    "Unsummon",
+    "Last Gasp",
+    "Proft, Consulting Detective",
+    "Surveillance Phantasm",
+    "No Admittance",
+    "Tam's Resistance",
+    "Memory Trap",
+    "Twinned Vision",
+    "Blossom-Blessed Angel",
+    "Fatehold Chronologist",
+    "Bestial Incursion",
+    "Murmuring Volume",
+    "Wrath of the Bloodmane",
+    "Infinite Coursework",
+    "Arcane Amphisbaena",
+    "Awaken the Inferno",
+    "Undulating Witness",
+    "Vinelasher Adept",
+    "Compel Brutality",
+    "Something Worth Saving",
+    "Keeper of the Quiet Hour",
+    "Apex Witchstalker",
+    "Formidable Commons",
+    "Greenhouse Propagator",
+    "Rank Rat",
+    "Theorix Annex",
+    "Theorix Metamage",
+    "Void Extrapolator",
+    "Konstrari Improviser",
+    "Campus Crier",
+    "Heartstring Puller",
+    "Semester Foreseer",
+    "Silence the Echo",
+    "Room of Refuge",
+    "Theoretical Necromancer",
+    "Sureshot Sower",
+    "Skilled Battlecarver",
+    "Tied Twin",
+    "Rare Sight"
+   ]
+  },
+  {
+   "name": "ata · all · all",
+   "sort": "ata",
+   "rarity": "all",
+   "color": "all",
+   "want": [
+    "Rare Sight",
+    "Kiora of Fire and Ashes",
+    "Multiply by Zero",
+    "Violent Echoes",
+    "Plan for All Outcomes",
+    "Break Under Pressure",
+    "Way of the Mind Sculptor",
+    "Extended Absence",
+    "Mindseeker Oculus",
+    "Memory Trap",
+    "Recursive Recruitment",
+    "No Admittance",
+    "Proft, Consulting Detective",
+    "Countersculpt",
+    "Last Gasp",
+    "Fblthp, Knows the Way",
+    "Rewrite Regrets",
+    "Hapatra, the Desert Fang",
+    "Wrath of the Bloodmane",
+    "Fblthp, Impossibly Lost",
+    "Hexhaven Battalion",
+    "Surgical Precision",
+    "Arcane Amphisbaena",
+    "Fatehold Chronologist",
+    "Compel Brutality",
+    "Infinite Coursework",
+    "Konstrari Improviser",
+    "Greenhouse Propagator",
+    "Awaken the Inferno",
+    "Surveillance Phantasm",
+    "Bestial Incursion",
+    "Twinned Vision",
+    "Icy Reception",
+    "Protege's Awakening",
+    "Unsummon",
+    "Blossom-Blessed Angel",
+    "Apex Witchstalker",
+    "Room of Refuge",
+    "Silence the Echo",
+    "Undulating Witness",
+    "Campus Crier",
+    "Vinelasher Adept",
+    "Rank Rat",
+    "Tam's Resistance",
+    "Heartstring Puller",
+    "Theorix Annex",
+    "Semester Foreseer",
+    "Murmuring Volume",
+    "Formidable Commons",
+    "Theoretical Necromancer",
+    "Skilled Battlecarver",
+    "Keeper of the Quiet Hour",
+    "Sureshot Sower",
+    "Theorix Metamage",
+    "Something Worth Saving",
+    "Void Extrapolator",
+    "Island",
+    "Forest",
+    "Plains",
+    "Swamp",
+    "Mountain",
+    "Tied Twin"
+   ]
+  },
+  {
+   "name": "gih · common · all",
+   "sort": "gih",
+   "rarity": "common",
+   "color": "all",
+   "want": [
+    "Mindseeker Oculus",
+    "Extended Absence",
+    "Protege's Awakening",
+    "Twinned Vision",
+    "Icy Reception",
+    "Hexhaven Battalion",
+    "Unsummon",
+    "Surveillance Phantasm",
+    "Surgical Precision",
+    "Last Gasp",
+    "Something Worth Saving",
+    "Murmuring Volume",
+    "No Admittance",
+    "Fatehold Chronologist",
+    "Tam's Resistance",
+    "Theorix Annex",
+    "Keeper of the Quiet Hour",
+    "Memory Trap",
+    "Formidable Commons",
+    "Bestial Incursion",
+    "Awaken the Inferno",
+    "Wrath of the Bloodmane",
+    "Infinite Coursework",
+    "Arcane Amphisbaena",
+    "Undulating Witness",
+    "Void Extrapolator",
+    "Room of Refuge",
+    "Vinelasher Adept",
+    "Campus Crier",
+    "Apex Witchstalker",
+    "Island",
+    "Blossom-Blessed Angel",
+    "Swamp",
+    "Theoretical Necromancer",
+    "Forest",
+    "Compel Brutality",
+    "Rank Rat",
+    "Mountain",
+    "Tied Twin",
+    "Plains",
+    "Heartstring Puller",
+    "Konstrari Improviser",
+    "Greenhouse Propagator",
+    "Theorix Metamage",
+    "Sureshot Sower",
+    "Semester Foreseer",
+    "Silence the Echo",
+    "Skilled Battlecarver"
+   ]
+  },
+  {
+   "name": "gih · all · W",
+   "sort": "gih",
+   "rarity": "all",
+   "color": "W",
+   "want": [
+    "Hexhaven Battalion",
+    "Surgical Precision",
+    "Memory Trap",
+    "Campus Crier",
+    "Blossom-Blessed Angel",
+    "Tied Twin"
+   ]
+  },
+  {
+   "name": "gih · all · M",
+   "sort": "gih",
+   "rarity": "all",
+   "color": "M",
+   "want": [
+    "Recursive Recruitment",
+    "Hapatra, the Desert Fang",
+    "Twinned Vision",
+    "Fatehold Chronologist",
+    "Tam's Resistance",
+    "Konstrari Improviser",
+    "Theorix Metamage"
+   ]
+  },
+  {
+   "name": "gih · all · C",
+   "sort": "gih",
+   "rarity": "all",
+   "color": "C",
+   "want": [
+    "Murmuring Volume",
+    "Theorix Annex",
+    "Keeper of the Quiet Hour",
+    "Formidable Commons",
+    "Room of Refuge",
+    "Island",
+    "Swamp",
+    "Forest",
+    "Mountain",
+    "Plains"
+   ]
+  },
+  {
+   "name": "gih · rare · G",
+   "sort": "gih",
+   "rarity": "rare",
+   "color": "G",
+   "want": [
+    "Rare Sight"
+   ]
+  },
+  {
+   "name": "a cube: no rarity, so no rarity filter",
+   "unrated": true,
+   "sort": "gih",
+   "rarity": "common",
+   "color": "all",
+   "want": [
+    "Mindseeker Oculus",
+    "Extended Absence",
+    "Icy Reception",
+    "Unsummon",
+    "Surveillance Phantasm",
+    "Undulating Witness",
+    "Room of Refuge",
+    "Island",
+    "Swamp",
+    "Forest",
+    "Mountain",
+    "Plains"
+   ]
+  }
+ ],
+ "values": [
+  {
+   "card": "Island",
+   "sort": "gih",
+   "want": {
+    "value": "56.2%",
+    "vs": "+0.8"
+   }
+  },
+  {
+   "card": "Swamp",
+   "sort": "gih",
+   "want": {
+    "value": "56.0%",
+    "vs": "+0.6"
+   }
+  },
+  {
+   "card": "Forest",
+   "sort": "gih",
+   "want": {
+    "value": "55.7%",
+    "vs": "+0.3"
+   }
+  },
+  {
+   "card": "Rare Sight",
+   "sort": "gih",
+   "want": {
+    "value": "–",
+    "vs": null
+   }
+  },
+  {
+   "card": "Island",
+   "sort": "oh",
+   "want": {
+    "value": "56.7%",
+    "vs": "+1.3"
+   }
+  },
+  {
+   "card": "Swamp",
+   "sort": "oh",
+   "want": {
+    "value": "55.9%",
+    "vs": "+0.5"
+   }
+  },
+  {
+   "card": "Forest",
+   "sort": "oh",
+   "want": {
+    "value": "55.6%",
+    "vs": "+0.2"
+   }
+  },
+  {
+   "card": "Rare Sight",
+   "sort": "oh",
+   "want": {
+    "value": "–",
+    "vs": null
+   }
+  },
+  {
+   "card": "Island",
+   "sort": "iwd",
+   "want": {
+    "value": "+7.0",
+    "vs": null
+   }
+  },
+  {
+   "card": "Swamp",
+   "sort": "iwd",
+   "want": {
+    "value": "+4.5",
+    "vs": null
+   }
+  },
+  {
+   "card": "Forest",
+   "sort": "iwd",
+   "want": {
+    "value": "+4.7",
+    "vs": null
+   }
+  },
+  {
+   "card": "Rare Sight",
+   "sort": "iwd",
+   "want": {
+    "value": "–",
+    "vs": null
+   }
+  },
+  {
+   "card": "Island",
+   "sort": "ata",
+   "want": {
+    "value": "13.9",
+    "vs": null
+   }
+  },
+  {
+   "card": "Swamp",
+   "sort": "ata",
+   "want": {
+    "value": "13.9",
+    "vs": null
+   }
+  },
+  {
+   "card": "Forest",
+   "sort": "ata",
+   "want": {
+    "value": "13.9",
+    "vs": null
+   }
+  },
+  {
+   "card": "Rare Sight",
+   "sort": "ata",
+   "want": {
+    "value": "2.0",
+    "vs": null
+   }
+  }
+ ],
+ "search": [
+  {
+   "query": "is",
+   "want": {
+    "here": [
+     "Island",
+     "Arcane Amphisbaena",
+     "Fatehold Chronologist",
+     "Konstrari Improviser",
+     "Surgical Precision",
+     "Tam's Resistance",
+     "Twinned Vision"
+    ],
+    "elsewhere": []
+   }
+  },
+  {
+   "query": "isl",
+   "want": {
+    "here": [
+     "Island"
+    ],
+    "elsewhere": []
+   }
+  },
+  {
+   "query": "  ISLAND ",
+   "want": {
+    "here": [
+     "Island"
+    ],
+    "elsewhere": []
+   }
+  },
+  {
+   "query": "x",
+   "want": {
+    "here": [],
+    "elsewhere": []
+   }
+  },
+  {
+   "query": "bolt",
+   "want": {
+    "here": [],
+    "elsewhere": [
+     [
+      "OLD",
+      "Bolt Bend"
+     ],
+     [
+      "CUBE",
+      "Lightning Bolt"
+     ],
+     [
+      "OLD",
+      "Lightning Bolt"
+     ],
+     [
+      "OLD",
+      "Thunderbolt"
+     ]
+    ]
+   }
+  },
+  {
+   "query": "aether",
+   "want": {
+    "here": [],
+    "elsewhere": [
+     [
+      "OLD",
+      "Æther Vial"
+     ]
+    ]
+   }
+  },
+  {
+   "query": "urzas",
+   "want": {
+    "here": [],
+    "elsewhere": [
+     [
+      "OLD",
+      "Urza's Saga"
+     ]
+    ]
+   }
+  },
+  {
+   "query": "zzzz",
+   "want": {
+    "here": [],
+    "elsewhere": []
+   }
+  },
+  {
+   "query": "Mind",
+   "want": {
+    "here": [
+     "Mindseeker Oculus",
+     "Way of the Mind Sculptor"
+    ],
+    "elsewhere": []
+   }
+  },
+  {
+   "query": "ence",
+   "want": {
+    "here": [
+     "Extended Absence",
+     "Silence the Echo"
+    ],
+    "elsewhere": []
+   }
+  }
+ ]
+}

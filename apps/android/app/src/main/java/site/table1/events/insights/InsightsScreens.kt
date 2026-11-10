@@ -56,6 +56,9 @@ import site.table1.events.library.ListEntry
 import site.table1.events.library.ListKind
 import site.table1.events.library.ListsStore
 import site.table1.events.library.LimitedPicker
+import site.table1.events.library.CardArt
+import site.table1.events.library.SearchBand
+import androidx.compose.foundation.layout.width
 import site.table1.events.ui.components.Bar
 import site.table1.events.ui.components.Field
 import site.table1.events.ui.components.Ghost
@@ -150,20 +153,6 @@ fun InsightsHomeScreen(navigate: (String) -> Unit, moderator: Boolean) {
     }
 }
 
-/** A picker row with Edit at its end (which formats or sets the row shows). Edit's padding matches a segment's, so the
- *  two line up without intrinsic sizes (the scrolling row can't report them). */
-@Composable
-private fun PickerRow(editing: Boolean, onEdit: () -> Unit, content: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth().background(T1.bg), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-        Box(Modifier.weight(1f)) { content() }
-        Box(
-            Modifier.background(if (editing) T1.text else T1.surface).border(1.dp, if (editing) T1.text else T1.disabled)
-                .clickable(onClick = onEdit).padding(vertical = 12.dp, horizontal = 16.dp),
-            contentAlignment = Alignment.Center,
-        ) { Label("Edit", color = if (editing) T1.bg else T1.muted) }
-    }
-}
-
 /** Insights → Edit: a switch per format or set; the last one shown can't be hidden. Kept on this device. */
 @Composable
 private fun ShownEditor(title: String, items: List<Triple<String, String, String?>>, hidden: List<String>, set: (String, Boolean) -> Unit, done: () -> Unit) {
@@ -180,10 +169,16 @@ private fun ShownEditor(title: String, items: List<Triple<String, String, String
  *  format page's. */
 @Composable
 private fun WindowPickers(tier: String, days: Boolean = true) {
-    val s = InsightsStore
-    T1Segmented(listOf("Big events", "All events"), if (tier == "big") 0 else 1) { s.pickTier(if (it == 0) "big" else "all") }
-    if (days) T1Segmented(Insights.windows.map { "${it}D" }, Insights.windows.indexOf(s.days)) { s.pickDays(Insights.windows[it]) }
+    FilterRow(if (days) listOf(tierCell(tier), daysCell()) else listOf(tierCell(tier)))
 }
+
+/** Big events | All events as a filter cell. */
+private fun tierCell(tier: String) = FilterCell("Events", if (tier == "big") "Big events" else "All events",
+    listOf(Triple("big", "Big events", null), Triple("all", "All events", null)), tier) { InsightsStore.pickTier(it) }
+
+/** The window, 7–90 days, as a filter cell. */
+private fun daysCell() = FilterCell("Window", "${InsightsStore.days} days", Insights.windows.map { Triple("$it", "Last $it days", null) },
+    "${InsightsStore.days}") { v -> v.toIntOrNull()?.let { InsightsStore.pickDays(it) } }
 
 /** The format page: Meta over time and the matchup grid first, then the brief, and a row for each part, which opens
  *  on its own screen (ConstructedPartScreen). */
@@ -194,9 +189,14 @@ private fun ConstructedHome(navigate: (String) -> Unit) {
     var hl by remember { mutableStateOf<Int?>(null) }
     val keys = s.shownFormats
     var editing by remember { mutableStateOf(false) }
-    PickerRow(editing, { editing = !editing }) {
-        T1Segmented(keys.map { k -> Insights.formats.first { it.first == k }.second }, keys.indexOf(s.format).coerceAtLeast(0), scroll = true) { s.pickFormat(keys[it]) }
-    }
+    val tierNow = s.pack?.let { s.tier(it) } ?: "big"
+    FilterRow(listOf(
+        FilterCell("Format", Insights.formats.firstOrNull { it.first == s.format }?.second ?: s.format,
+            keys.map { k -> Triple(k, Insights.formats.first { it.first == k }.second, null) } + Triple(FilterCell.EDIT, "Shown formats…", null), s.format) { v ->
+            if (v == FilterCell.EDIT) editing = true else s.pickFormat(v)
+        },
+        tierCell(tierNow), daysCell(),
+    ))
     if (editing) ShownEditor("Shown formats", Insights.formats.map { Triple(it.first, it.second, null) }, s.hiddenFormats, { k, hide -> s.setHidden(true, k, hide) }) { editing = false }
     LaunchedEffect(s.format) { s.ensure("constructed", s.format) }
     s.stale?.let { Notice(it) }
@@ -207,7 +207,6 @@ private fun ConstructedHome(navigate: (String) -> Unit) {
         return
     }
     val tier = s.tier(pack)
-    WindowPickers(tier)
     val view = pack.tiers[tier] ?: return
     val w = view.windows[s.days.toString()] ?: return
     val f = pack.format
@@ -234,7 +233,7 @@ private fun ConstructedHome(navigate: (String) -> Unit) {
     val (grid, scope) = pack.grid(tier, s.days)
     if (grid.cells.isNotEmpty()) {
         Section("Matchups · $scope")
-        key(tier, s.days) { MatchupGrid(pack, grid) }
+        key(tier, s.days) { MatchupGrid(pack, grid, pack.gridShare(tier, s.days)) }
     }
     Brief(w.brief, "${if (tier == "big") "Big events" else "All events"}, last ${s.days} days", w.thin,
         Insights.sourcesCredit(pack.sources))
@@ -620,7 +619,7 @@ fun MatchupsScreen(format: String, onBack: () -> Unit) {
         if (pack == null || grid == null) return@T1Screen
         Scroll {
             WindowPickers(tier)
-            key(tier, InsightsStore.days) { MatchupGrid(pack, grid.first) }
+            key(tier, InsightsStore.days) { MatchupGrid(pack, grid.first, pack.gridShare(tier, InsightsStore.days)) }
         }
     }
 }
@@ -628,7 +627,7 @@ fun MatchupsScreen(format: String, onBack: () -> Unit) {
 /** The matchup grid (rows against labelled columns) and the record of the square last tapped; on the format page
  *  under Meta over time, and on its own screen for older links. */
 @Composable
-private fun MatchupGrid(pack: ConstructedPack, m: Matchups) {
+private fun MatchupGrid(pack: ConstructedPack, m: Matchups, share: List<ShareRow>) {
     var picked by remember(pack.format) { mutableStateOf<Pair<Int, Int>?>(null) }
     var mine by remember(pack.format) { mutableStateOf<Mine?>(null) }
     LaunchedEffect(pack.format) {
@@ -641,13 +640,24 @@ private fun MatchupGrid(pack: ConstructedPack, m: Matchups) {
     val cols = m.archetypes
     val ordered = yoursFirst(m.rowIds, mine)
     val rows = ordered.map { it.first }
-    Notice("Each archetype with 1% of decks (rows) against the 10 most played (columns): the row's match win rate. Your decks come first, then archetypes your collection nearly builds. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.")
+    Notice("Each archetype with 1% of decks (rows) against the 10 most played (columns): the row's match win rate, and first its win rate against every archetype. Your decks come first, then archetypes your collection nearly builds. Faded: fewer than 30 matches, so treat it as a hint. Tap a square for the record. From MTGO top 8 brackets and paper events' rounds.")
     InsightHeatmap(rows.map { pack.name(it) }, cols.map { pack.name(it) }, { r, c -> rows[r] == cols[c] },
-                   { r, c -> m.cell(rows[r], cols[c])?.let { it.first to it.second } }, picked = picked, notes = ordered.map { it.second }) { r, c ->
+                   { r, c -> m.cell(rows[r], cols[c])?.let { it.first to it.second } }, picked = picked, notes = ordered.map { it.second },
+                   overall = { r -> LimitedCards.overall(share, m, rows[r])?.let { it.wins to it.losses } }) { r, c ->
         picked = r to c
-        Telemetry.capture("insights_matchup_opened", mapOf("format" to pack.format))
+        Telemetry.capture("insights_matchup_opened", mapOf("format" to pack.format, "overall" to (c < 0)))
     }
-    picked?.takeIf { it.first < rows.size && it.second < cols.size }?.let { (r, c) ->
+    picked?.takeIf { it.first < rows.size && it.second < 0 }?.let { (r, _) ->
+        LimitedCards.overall(share, m, rows[r])?.let { o ->
+            val n = o.wins + o.losses
+            val (lo, hi) = InsightCharts.wilson(o.wins, n)
+            ListRow("${pack.name(rows[r])} overall",
+                if (n >= 30) "${InsightCharts.pct1(o.wins.toDouble() / n)} · likely ${InsightCharts.pct(lo)}–${InsightCharts.pct(hi)}" else "Only $n matches: too few to say") {
+                Text(if (o.draws > 0) "${o.wins}-${o.losses}-${o.draws}" else "${o.wins}-${o.losses}", color = T1.text, fontFamily = T1.mono, fontSize = 13.sp)
+            }
+        }
+    }
+    picked?.takeIf { it.first < rows.size && it.second >= 0 && it.second < cols.size }?.let { (r, c) ->
         m.cell(rows[r], cols[c])?.let { (w, l, d) ->
             val n = w + l
             val (lo, hi) = InsightCharts.wilson(w, n)
@@ -675,6 +685,8 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     var sort by remember { mutableStateOf("gih") }
     var rarity by remember { mutableStateOf("all") }
     var color by remember { mutableStateOf("all") }
+    var query by remember { mutableStateOf("") }
+    var all by remember { mutableStateOf(false) }
     // The picker waits for the sets to rank (kept on the device after the first visit) so it draws whole.
     val chips = if (s.rankableReady) s.shownChips else emptyList()
     var editing by remember { mutableStateOf(false) }
@@ -690,6 +702,9 @@ private fun LimitedHome(navigate: (String) -> Unit) {
         Section("New sets to rank")
         fresh.forEach { r -> ListRow("Rank ${r.name}", r.detail(), onClick = { rank(r.key, r.kind, "new_sets") }) }
     }
+    @Composable fun alertsRow() {
+        s.alerts?.let { on -> ListRow("New in Insights", "A push when a new set, cube or format arrives") { T1Switch(on) { s.setAlerts(it) } } }
+    }
     s.stale?.let { Notice(it) }
     if (chips.isEmpty()) {
         Notice(s.error ?: if (s.loading || !s.rankableReady) "Loading draft data…" else "No set has 17Lands data yet. A new set's numbers arrive about three weeks after it comes out on Arena.", error = s.error != null)
@@ -699,34 +714,98 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     }
     // Sets with no 17Lands data yet (spoiler season, or just out) lead the picker and open Rank this set; Edit hides any.
     val set = s.setCode?.takeIf { k -> chips.any { it.key == k } } ?: (chips.firstOrNull { it.pack } ?: chips.first()).key
-    PickerRow(editing, { editing = !editing }) {
-        T1Segmented(chips.map { it.label }, chips.indexOfFirst { it.key == set }, scroll = true) { s.pickSet(chips[it].key) }
+    val setCell = FilterCell("Set", chips.firstOrNull { it.key == set }?.label ?: set,
+        chips.map { c -> Triple(c.key, c.label, s.limitedName(c.key)?.takeIf { it != c.label }) } + Triple(FilterCell.EDIT, "Shown sets…", null), set) { v ->
+        if (v == FilterCell.EDIT) editing = true else { s.pickSet(v); query = ""; all = false }
     }
-    if (editing) ShownEditor("Shown sets", s.limitedChips.map { c -> Triple(c.key, c.label, s.limitedName(c.key)?.takeIf { it != c.label }) }, s.hiddenSets,
-        { k, hide -> s.setHidden(false, k, hide) }) { editing = false }
+    @Composable fun editor() {
+        if (editing) ShownEditor("Shown sets", s.limitedChips.map { c -> Triple(c.key, c.label, s.limitedName(c.key)?.takeIf { it != c.label }) }, s.hiddenSets,
+            { k, hide -> s.setHidden(false, k, hide) }) { editing = false }
+    }
     val soon = s.rankable.firstOrNull { r -> r.key == set && chips.any { !it.pack && it.key == r.key } }
     if (soon != null) {
+        FilterRow(listOf(setCell))
+        editor()
         Notice(LimitedPicker.soonText(soon))
-        ListRow("Rank this set", soon.detail(), onClick = { rank(soon.key, soon.kind, "soon") })
-        s.alerts?.let { on -> ListRow("New in Insights", "A push when a new set, cube or format arrives") { T1Switch(on) { s.setAlerts(it) } } }
+        RankAction("Rank this set", soon.detail()) { rank(soon.key, soon.kind, "soon") }
+        alertsRow()
         return
     }
     LaunchedEffect(set) { s.ensure("limited", set) }
-    val pack = s.limited[set] ?: run { Notice(s.error ?: "Loading ${LimitedPicker.label(set, s.limitedName(set))}…", error = s.error != null); return }
+    val pack = s.limited[set] ?: run {
+        FilterRow(listOf(setCell)); editor()
+        Notice(s.error ?: "Loading ${LimitedPicker.label(set, s.limitedName(set))}…", error = s.error != null); return
+    }
     val events = s.events(pack)
     val ev = s.currentEvent(pack) ?: return
-    if (events.size > 1) T1Segmented(events.map { Insights.eventLabels[it] ?: it }, events.indexOf(ev)) { s.pickEvent(events[it]) }
     val groups = pack.events[ev]?.groups ?: return
     val grp = if (groups.containsKey(s.group)) s.group else "all"
-    if (groups.containsKey("top")) T1Segmented(listOf("All players", "Top players"), if (grp == "top") 1 else 0) { s.pickGroup(if (it == 1) "top" else "all") }
+    FilterRow(buildList {
+        add(setCell)
+        if (events.size > 1) add(FilterCell("Event", Insights.eventLabels[ev] ?: ev, events.map { Triple(it, Insights.eventLabels[it] ?: it, null) }, ev) { s.pickEvent(it) })
+        if (groups.containsKey("top")) add(FilterCell("Players", if (grp == "top") "Top players" else "All players",
+            listOf(Triple("all", "All players", null), Triple("top", "Top players", "60%+ win rate")), grp) { s.pickGroup(it) })
+    })
+    editor()
     val v = groups[grp] ?: return
-    Brief(v.brief, "${pack.name ?: pack.set_code} ${Insights.eventLabels[ev] ?: ev}" + if (grp == "top") ", top players (60%+)" else "", v.games < 20000, "Data from 17Lands" to pack.credit.url)
-    Stats("Games" to "%,d".format(v.games), "Average" to InsightCharts.pct1(v.wr), "Weeks" to "${v.weeks}")
+
+    // Cards first: the best for the sort and filters (ten, then Show all), with search across the set, then every other set.
+    val catalog by CatalogStore.state.collectAsState()
+    var faces by remember { mutableStateOf<Map<String, LimitedFace>>(emptyMap()) }
+    LaunchedEffect(pack.set_code, catalog.generation) {
+        CatalogStore.load(userInitiated = true)   // art and mana costs come from the card catalog
+        faces = LimitedFace.load(pack.set_code, v.cards)
+    }
+    val rated = v.cards.any { it.r != null }
+    val sortOpt = LimitedCards.sorts.firstOrNull { it.first == sort }
+    Section("Top cards · ${sortOpt?.second?.lowercase() ?: sort}")
+    FilterRow(buildList {
+        add(FilterCell("Sort", sortOpt?.third ?: sort, LimitedCards.sorts.map { Triple(it.first, it.second, it.third) }, sort) {
+            sort = it; all = false; Telemetry.capture("insights_sort_changed", mapOf("sort" to it))
+        })
+        if (rated) add(FilterCell("Rarity", LimitedCards.rarities.firstOrNull { it.first == rarity }?.second ?: rarity,
+            LimitedCards.rarities.map { Triple(it.first, it.second, null) }, rarity) { rarity = it; all = false })
+        add(FilterCell("Color", LimitedCards.colors.firstOrNull { it.first == color }?.third ?: color,
+            LimitedCards.colors.map { Triple(it.first, it.second, null) }, color) { color = it; all = false })
+    })
+    SearchBand(query, "Search cards") { query = it }
+    @Composable fun row(c: LCard, i: Int?) {
+        val (value, vs) = LimitedCards.value(c, sort, v.wr)
+        LimitedCardRow(i, c, faces[c.n], value, vs) { navigate(InsightsRoutes.limitedCard(pack.set_code, ev, grp, c.n)) }
+    }
+    if (LimitedCards.norm(query).length >= LimitedCards.MIN_QUERY) {
+        val others = s.limited.values.filter { it.set_code != pack.set_code }.sortedByDescending { it.released ?: "" }
+            .map { p -> p.set_code to p.events.values.flatMap { e -> e.groups["all"]?.cards?.map { it.n }.orEmpty() }.distinct().sorted() }
+        val (here, elsewhere) = LimitedCards.search(query, v.cards.map { it.n }, others)
+        here.forEach { n -> v.cards.firstOrNull { it.n == n }?.let { row(it, null) } }
+        if (here.isEmpty() && elsewhere.isNotEmpty()) {
+            Section("Not in ${LimitedPicker.label(pack.set_code, pack.name)} · in other sets")
+            elsewhere.forEach { (k, n) ->
+                ListRow(n, LimitedPicker.label(k, s.limitedName(k)), onClick = {
+                    Telemetry.capture("insights_card_search_elsewhere", mapOf("set" to k))
+                    val e = s.limited[k]?.let { s.currentEvent(it) } ?: "PremierDraft"
+                    navigate(InsightsRoutes.limitedCard(k, e, "all", n))
+                })
+            }
+        }
+        if (here.isEmpty() && elsewhere.isEmpty()) Notice("No card in any set's draft data is called that.")
+    } else {
+        val cards = LimitedCards.cards(v.cards, sort, rarity, color)
+        (if (all) cards else cards.take(LimitedCards.TOP)).forEachIndexed { i, c -> row(c, i + 1) }
+        if (cards.isEmpty()) Notice("No card matches these filters.")
+        if (cards.size > LimitedCards.TOP) Row(Modifier.fillMaxWidth()) {
+            Ghost(if (all) "Show the top ${LimitedCards.TOP}" else "Show all ${cards.size}") {
+                all = !all
+                if (all) Telemetry.capture("insights_cards_expanded", mapOf("set" to pack.set_code, "count" to cards.size))
+            }
+        }
+    }
+    Notice("GIH WR: win rate with the card in hand · OH: in the opening hand · IWD: improvement when drawn · ATA: average pick taken · under it: points above or below the average")
+
     val ranked = s.rankable.firstOrNull { it.key == pack.set_code }
     val kind = ranked?.kind ?: if (pack.cube != null) "cube" else "set"
-    ListRow("Rank this ${if (kind == "cube") "cube" else "set"}",
-        ranked?.takeIf { it.rankings > 0 }?.detail() ?: "Stack-rank its cards by color, then a top 100. Compare with your friends.",
-        onClick = { rank(pack.set_code, kind, "set") })
+    RankAction("Rank this ${if (kind == "cube") "cube" else "set"}",
+        ranked?.takeIf { it.rankings > 0 }?.detail() ?: "Stack-rank its cards by color, then a top 100. Compare with friends.") { rank(pack.set_code, kind, "set") }
     newSets()
     Section("Color pairs · game win rate")
     val shown = v.pairs.filter { it.share >= 0.01 }.sortedByDescending { it.wr }
@@ -752,27 +831,6 @@ private fun LimitedHome(navigate: (String) -> Unit) {
         InsightLineChart(top.mapIndexed { i, p -> LineSeries(p.p, p.p, p.week_wr, i == 0) }, v.weeks, xLabels = (0 until v.weeks).map { it to "W${it + 1}" },
             height = 160.dp, format = InsightCharts::pct1, labelWidth = 70.dp, fit = true, reference = "AVG" to v.wr)
     }
-    Section("Cards")
-    val sorts = listOf("gih", "oh", "iwd", "ata")
-    T1Segmented(listOf("GIH WR", "OH WR", "IWD", "ATA"), sorts.indexOf(sort)) { sort = sorts[it]; Telemetry.capture("insights_sort_changed", mapOf("sort" to sort)) }
-    val rarities = listOf("all", "common", "uncommon", "rare", "mythic")
-    // A cube's cards have no rarity: no rarity filter then.
-    val rated = v.cards.any { it.r != null }
-    if (rated) T1Segmented(listOf("All", "C", "U", "R", "M"), rarities.indexOf(rarity)) { rarity = rarities[it] }
-    val colors = listOf("all", "W", "U", "B", "R", "G", "M")
-    T1Segmented(listOf("All", "W", "U", "B", "R", "G", "Multi"), colors.indexOf(color)) { color = colors[it] }
-    fun key(c: LCard): Double? = when (sort) { "oh" -> c.oh; "iwd" -> c.iwd; "ata" -> c.ata?.let { -it }; else -> c.gih }
-    val cards = v.cards.filter { c -> (!rated || rarity == "all" || c.r == rarity) && (color == "all" || if (color == "M") (c.col?.length ?: 0) > 1 else c.col == color) }
-        .sortedWith(compareBy<LCard> { key(it) == null }.thenByDescending { key(it) ?: 0.0 }.thenByDescending { it.gih_n })
-    cards.take(40).forEach { c ->
-        ListRow(c.n, listOfNotNull(c.r?.replaceFirstChar { it.uppercase() }, c.col, "%,d in hand".format(c.gih_n), c.ata?.let { "taken %.1f".format(it) }).joinToString(" · "),
-            onClick = { navigate(InsightsRoutes.limitedCard(pack.set_code, ev, grp, c.n)) }) {
-            val value = when (sort) { "oh" -> InsightCharts.pct1(c.oh); "iwd" -> c.iwd?.let { InsightCharts.delta(it) } ?: "–"; "ata" -> c.ata?.let { "%.1f".format(it) } ?: "–"; else -> InsightCharts.pct1(c.gih) }
-            Text(value, color = if (c.gih == null) T1.disabled else T1.text, fontFamily = T1.mono, fontSize = 13.sp)
-        }
-    }
-    if (cards.isEmpty()) Notice("No card matches these filters.")
-    Notice("GIH WR: win rate with the card in hand · OH: in the opening hand · IWD: improvement when drawn · ATA: average pick taken")
     val pts = v.cards.filter { it.gih != null && it.ata != null && it.gih_n >= 1000 }.map { ScatterPoint(it.n, it.n, it.ata!!, it.gih!!) }
     if (pts.size >= 20) {
         Section("Taken vs win rate · above the line is taken too late")
@@ -781,7 +839,9 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     Section("Game facts")
     Stats("On the play" to InsightCharts.pct1(v.facts.play_wr), "On the draw" to InsightCharts.pct1(v.facts.draw_wr), "Turns" to (v.facts.turns?.let { "%.1f".format(it) } ?: "–"))
     Stats("Mulligans" to InsightCharts.pct(v.facts.mull_rate), "Kept 7" to InsightCharts.pct1(v.facts.keep7_wr), "After a mull" to InsightCharts.pct1(v.facts.mull_wr))
-    s.alerts?.let { on -> ListRow("New in Insights", "A push when a new set, cube or format arrives") { T1Switch(on) { s.setAlerts(it) } } }
+    Brief(v.brief, "${pack.name ?: pack.set_code} ${Insights.eventLabels[ev] ?: ev}" + if (grp == "top") ", top players (60%+)" else "", v.games < 20000, "Data from 17Lands" to pack.credit.url)
+    Stats("Games" to "%,d".format(v.games), "Average" to InsightCharts.pct1(v.wr), "Weeks" to "${v.weeks}")
+    alertsRow()
 }
 
 @Composable
@@ -823,7 +883,18 @@ fun LimitedCardScreen(set: String, event: String, group: String, name: String, n
     T1Screen {
         Bar(name, "${LimitedPicker.label(set, pack?.name)} ${Insights.eventLabels[event] ?: event}", onBack = onBack)
         if (c == null || pack == null) { Notice("This card isn't in the pack."); return@T1Screen }
+        val catalog by CatalogStore.state.collectAsState()
+        var face by remember { mutableStateOf<LimitedFace?>(null) }
+        LaunchedEffect(name, catalog.generation) {
+            CatalogStore.load(userInitiated = true)
+            face = LimitedFace.load(set, listOf(c)).values.firstOrNull()
+        }
         Scroll {
+            // the card first: its picture in the set's printing and its mana cost
+            Column(Modifier.fillMaxWidth().padding(vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                face?.printing?.let { CardArt(it, 220.dp) } ?: Box(Modifier.width(220.dp).height(306.dp).background(T1.surface))
+                face?.cost?.takeIf { it.isNotEmpty() }?.let { ManaCost(it, 16.dp) }
+            }
             Credit(pack.credit.url)
             if (c.gih == null) Notice("Fewer than 500 games with this card in hand: no win rates yet.")
             Stats("In hand" to InsightCharts.pct1(c.gih), "Opening hand" to InsightCharts.pct1(c.oh), "Drawn" to InsightCharts.pct1(c.gd))

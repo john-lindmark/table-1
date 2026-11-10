@@ -1,0 +1,155 @@
+{
+ "about": "A table-1.site link wins: /j/<code>?s=<secret> is the QR's own join (code + secret), /join/<code> a code. Else the\nwhole text, without spaces and dashes, when it is 4 letters or digits. Else a 4-character word right after \"code\"\n(\"Code: K7PQ\", \"event code is k7pq\"). Else a word of 4 capitals and digits from the code alphabet with a digit in it\n(\"Draft tonight! K7PQ\"), never inside another site's link. Codes come back in capitals.",
+ "alphabet": "ABCDEFGHJKLMNPQRSTUVWXYZ23456789",
+ "cases": [
+  {
+   "text": "K7PQ",
+   "want": {
+    "kind": "code",
+    "code": "K7PQ"
+   }
+  },
+  {
+   "text": "k7pq",
+   "want": {
+    "kind": "code",
+    "code": "K7PQ"
+   }
+  },
+  {
+   "text": " K7PQ\n",
+   "want": {
+    "kind": "code",
+    "code": "K7PQ"
+   }
+  },
+  {
+   "text": "K7-PQ",
+   "want": {
+    "kind": "code",
+    "code": "K7PQ"
+   }
+  },
+  {
+   "text": "K 7 P Q",
+   "want": {
+    "kind": "code",
+    "code": "K7PQ"
+   }
+  },
+  {
+   "text": "KPQR",
+   "want": {
+    "kind": "code",
+    "code": "KPQR"
+   }
+  },
+  {
+   "text": "K7PQX",
+   "want": null
+  },
+  {
+   "text": "K7P",
+   "want": null
+  },
+  {
+   "text": "",
+   "want": null
+  },
+  {
+   "text": "https://table-1.site/join/K7PQ",
+   "want": {
+    "kind": "code",
+    "code": "K7PQ"
+   }
+  },
+  {
+   "text": "table-1.site/join/k7pq",
+   "want": {
+    "kind": "code",
+    "code": "K7PQ"
+   }
+  },
+  {
+   "text": "https://www.table-1.site/join/K7PQ?ref=x",
+   "want": {
+    "kind": "code",
+    "code": "K7PQ"
+   }
+  },
+  {
+   "text": "Join my draft: https://table-1.site/join/AB3K tonight",
+   "want": {
+    "kind": "code",
+    "code": "AB3K"
+   }
+  },
+  {
+   "text": "https://table-1.site/j/AB3K?s=9f8e7d",
+   "want": {
+    "kind": "qr",
+    "code": "AB3K",
+    "secret": "9f8e7d"
+   }
+  },
+  {
+   "text": "https://table-1.site/j/AB3K",
+   "want": null
+  },
+  {
+   "text": "https://table-1.site/e/7d0c0a7e-0000-4000-8000-000000000000",
+   "want": null
+  },
+  {
+   "text": "https://example.com/join/K7PQ",
+   "want": null
+  },
+  {
+   "text": "Code: K7PQ",
+   "want": {
+    "kind": "code",
+    "code": "K7PQ"
+   }
+  },
+  {
+   "text": "event code is k7pq",
+   "want": {
+    "kind": "code",
+    "code": "K7PQ"
+   }
+  },
+  {
+   "text": "the code k7pq!",
+   "want": {
+    "kind": "code",
+    "code": "K7PQ"
+   }
+  },
+  {
+   "text": "Draft tonight! K7PQ at the shop",
+   "want": {
+    "kind": "code",
+    "code": "K7PQ"
+   }
+  },
+  {
+   "text": "JOIN THE DRAFT",
+   "want": null
+  },
+  {
+   "text": "Room 1234 at 7pm",
+   "want": null
+  },
+  {
+   "text": "Bring 2 friends and JK3P",
+   "want": {
+    "kind": "code",
+    "code": "JK3P"
+   }
+  },
+  {
+   "text": "hello world",
+   "want": null
+  }
+ ]
+}

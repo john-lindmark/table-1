@@ -673,7 +673,7 @@ private fun BottomCell(modifier: Modifier, enabled: Boolean = true, onClick: (()
 
 /** A bottom panel over a scrim (Figma Selector panels). */
 @Composable
-private fun Sheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+internal fun Sheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     T1Overlay(onDismiss) {
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(T1.bg)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
@@ -684,7 +684,7 @@ private fun Sheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> 
 /** Selector rows: centred uppercase labels; pressed rows fill with surface; the current value is outlined in accent.
  *  Options are (value, label, detail). */
 @Composable
-private fun SelectorRows(options: List<Triple<String, String, String?>>, current: String?, title: String? = null, onBack: (() -> Unit)? = null,
+internal fun SelectorRows(options: List<Triple<String, String, String?>>, current: String?, title: String? = null, onBack: (() -> Unit)? = null,
                          onPick: (String) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (title != null || onBack != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {

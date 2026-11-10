@@ -68,6 +68,7 @@ struct EventsHomeView: View {
                         Ghost(text: "Scan QR") { path.append(.scan) }
                         Ghost(text: "Nearby") { path.append(.nearby) }
                     }
+                    JoinCodeRow(path: $path)
                     if !upcoming.isEmpty {
                         Section1("Upcoming")
                         ForEach(upcoming) { e in EventLine(e: e) { path.append(.event(e.id)) } }
@@ -384,13 +385,109 @@ private struct EmptyEvents: View {
         VStack(spacing: 1) {
             VStack(spacing: 8) {
                 Text("No events yet").font(T1.mono(20))
-                Text("Scan an organizer's QR code, find an event happening near you, or run your own.")
+                Text("Scan an organizer's QR code, enter their event code, find an event happening near you, or run your own.")
                     .font(T1.mono(12)).foregroundStyle(T1.muted).multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity).padding(.vertical, 40).padding(.horizontal, 24).background(T1.surface)
             BigAction(text: "Scan QR", accent: true) { path.append(.scan) }
             BigAction(text: "Find nearby") { path.append(.nearby) }
+            JoinCodeRow(path: $path)
             Ghost(text: "Create an event") { path.append(.create) }
+        }
+    }
+}
+
+/// Join with the organizer's event code: typed, or Paste, which reads a code, a join link or the QR's link out of what
+/// was copied (JoinCode.parse; contract/qr-sign-up-2026-10-23.md § Enter or paste a code). A long paste into the field
+/// is read the same way.
+struct JoinCodeRow: View {
+    @Binding var path: [Route]
+    @State private var code = ""
+    @State private var link: JoinLink?
+    @State private var busy = false
+    @State private var error: String?
+    @State private var canPaste = UIPasteboard.general.hasStrings
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(spacing: 1) {
+            HStack(spacing: 1) {
+                TextField("", text: $code, prompt: Text("EVENT CODE").foregroundStyle(T1.muted))
+                    .font(T1.mono(16)).tracking(4).tint(T1.accent)
+                    .textInputAutocapitalization(.characters).autocorrectionDisabled().keyboardType(.asciiCapable)
+                    .submitLabel(.join).onSubmit(join)
+                    .focused($focused)
+                    .padding(.horizontal, 16).frame(height: 50).frame(maxWidth: .infinity)
+                    .background(T1.surface)
+                    .onChange(of: code) { _, typed in take(typed, via: "typed") }
+                    .accessibilityLabel("Event code")
+                if canPaste && code.isEmpty {
+                    cell("Paste", fill: T1.surface, ink: T1.text) { paste() }
+                }
+                cell(busy ? "…" : "Join", fill: code.count == 4 && !busy ? T1.text : T1.disabled, ink: T1.ink) { join() }
+                    .disabled(code.count != 4 || busy)
+            }
+            if let error { Notice(error, error: true) }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIPasteboard.changedNotification)) { _ in canPaste = UIPasteboard.general.hasStrings }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in canPaste = UIPasteboard.general.hasStrings }
+    }
+
+    private func cell(_ text: String, fill: Color, ink: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            LabelText(text, color: ink).padding(.horizontal, 18).frame(height: 50).background(fill).contentShape(Rectangle())
+        }
+        .buttonStyle(FlatPress())
+    }
+
+    /// What's in the field: a code typed in keeps to 4 letters and digits; anything longer (a pasted message or link)
+    /// is read for its code.
+    private func take(_ text: String, via: String) {
+        error = nil
+        let plain = String(text.uppercased().filter { $0.isASCII && ($0.isLetter || $0.isNumber) })
+        if text.count <= 4 && plain == text { if link?.code.uppercased() != text { link = nil }; return }
+        switch JoinCode.parse(text) {
+        case .code(let c)?: link = nil; set(c)
+        case .qr(let l)?: link = l; set(l.code)
+        case nil:
+            if text.count > 6 { error = "That has no event code in it." }
+            set(String(plain.prefix(4)))
+        }
+        if text.count > 4 { Telemetry.capture("join_code_pasted", ["via": via, "found": code.count == 4]) }
+    }
+
+    private func set(_ c: String) { if code != c { code = c } }
+
+    private func paste() {
+        guard let text = UIPasteboard.general.string else { return }
+        guard let found = JoinCode.parse(text) else {
+            error = "What you copied has no event code in it."
+            Telemetry.capture("join_code_pasted", ["via": "paste", "found": false])
+            return
+        }
+        switch found {
+        case .code(let c): link = nil; code = c
+        case .qr(let l): link = l; code = l.code
+        }
+        Telemetry.capture("join_code_pasted", ["via": "paste", "found": true])
+        join()
+    }
+
+    private func join() {
+        guard code.count == 4, !busy else { return }
+        busy = true
+        error = nil
+        focused = false
+        let qr = link.flatMap { $0.code.uppercased() == code ? $0 : nil }
+        Task {
+            defer { busy = false }
+            do {
+                let seat = qr != nil ? try await Repo.joinByQr(qr!, via: "paste") : try await Repo.joinByCode(code, via: "code")
+                code = ""; link = nil
+                path.append(.event(seat.eventId))
+            } catch {
+                self.error = error.localizedDescription
+            }
         }
     }
 }

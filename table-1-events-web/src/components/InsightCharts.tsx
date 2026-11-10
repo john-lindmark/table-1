@@ -165,10 +165,12 @@ export function Scatter({ points, height = 300, onPick }: {
  *  Rows can outnumber columns (every archetype against the top ones); `same` blanks a row's own column. The picked
  *  cell is outlined and its row and column names sit on the lighter surface. The grid scrolls in its own box (at most
  *  70% of the screen high) with the column names pinned on top and the row names pinned on the left. */
-export function Heatmap({ rows, notes, cols, same, cell, minMatches = 30, picked, onPick }: {
+export function Heatmap({ rows, notes, cols, same, cell, minMatches = 30, picked, onPick, overall }: {
   rows: string[]; notes?: (string | null)[]; cols: string[]; same: (r: number, c: number) => boolean;
   cell: (r: number, c: number) => { wins: number; losses: number } | null; minMatches?: number;
   picked?: [number, number] | null; onPick?: (r: number, c: number) => void;
+  /** A row's overall record, drawn as the first column ("Overall", column -1 for `picked` and `onPick`). */
+  overall?: (r: number) => { wins: number; losses: number } | null;
 }) {
   const labelBg = (on: boolean) => on ? "bg-t1-surface-hover" : "bg-t1-surface";
   const color = (h: Heat) => h.tone === "none" ? C.surface : h.tone === "even" ? C.hover
@@ -179,6 +181,7 @@ export function Heatmap({ rows, notes, cols, same, cell, minMatches = 30, picked
         <thead>
           <tr>
             <th className="bg-t1-surface sticky top-0 left-0 z-20 shadow-[0_0_0_1px_var(--color-t1-bg)]" />
+            {overall && <th className={`${labelBg(picked?.[1] === -1)} sticky top-0 z-10 shadow-[0_0_0_1px_var(--color-t1-bg)] t1-label px-1 py-2 font-normal align-bottom`} style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>Overall</th>}
             {cols.map((l, c) => <th key={l} className={`${labelBg(picked?.[1] === c)} sticky top-0 z-10 shadow-[0_0_0_1px_var(--color-t1-bg)] t1-label px-1 py-2 font-normal align-bottom`} style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>{l}</th>)}
           </tr>
         </thead>
@@ -186,6 +189,18 @@ export function Heatmap({ rows, notes, cols, same, cell, minMatches = 30, picked
           {rows.map((row, r) => (
             <tr key={row}>
               <th className={`${labelBg(picked?.[0] === r)} sticky left-0 z-10 shadow-[0_0_0_1px_var(--color-t1-bg)] text-[11px] leading-tight font-normal text-left px-2 py-1 w-[112px] min-w-[112px] max-w-[112px]`}>{row}{notes?.[r] && <span className="block text-[9px] uppercase tracking-[1px] text-t1-muted mt-0.5">{notes[r]}</span>}</th>
+              {overall && (() => {
+                const v = overall(r);
+                const h = heat(v?.wins ?? 0, v?.losses ?? 0, minMatches);
+                const on = picked?.[0] === r && picked?.[1] === -1;
+                return (
+                  <td onClick={() => v && onPick?.(r, -1)} title={v ? `${row} overall: ${v.wins}-${v.losses}${h.dim ? " (few matches)" : ""}` : undefined}
+                      className={`text-center text-[11px] font-semibold tabular-nums h-9 min-w-9 ${v && onPick ? "cursor-pointer" : ""}`}
+                      style={{ background: color(h), boxShadow: on ? `inset 0 0 0 1px ${C.text}` : undefined, color: h.ink ? "var(--color-t1-ink)" : h.dim ? "var(--color-t1-muted)" : undefined }}>
+                    {h.label}
+                  </td>
+                );
+              })()}
               {cols.map((col, c) => {
                 const own = same(r, c);
                 const v = own ? null : cell(r, c);

@@ -9,6 +9,10 @@ struct LimitedHomeSection: View {
     @State private var rarity = "all"
     @State private var color = "all"
     @State private var editing = false
+    @State private var query = ""
+    @State private var all = false
+    /// Each card's mana cost and its printing in the set (art), by name, for the pack on screen.
+    @State private var faces: [String: LimitedFace] = [:]
 
     var body: some View {
         // The picker waits for the sets to rank (kept on the device after the first visit) so it draws whole.
@@ -45,13 +49,14 @@ struct LimitedHomeSection: View {
         }
     }
 
-    @ViewBuilder private func rankRow(_ pack: Insights.LimitedPack) -> some View {
+    /// The page's one big action: rank the set (or cube), with who has already.
+    @ViewBuilder private func rankBlock(_ pack: Insights.LimitedPack) -> some View {
         let r = store.rankable.first { $0.key == pack.set_code }
         let kind = r?.kind ?? (pack.cube != nil ? "cube" : "set")
-        Button { rank(pack.set_code, kind: kind, from: "set") } label: {
-            ListRow(title: "Rank \(kind == "cube" ? "this cube" : "this set")",
-                    detail: r.flatMap { $0.rankings > 0 ? $0.detail : nil } ?? "Stack-rank its cards by color, then a top 100. Compare with your friends.")
-        }.buttonStyle(.plain)
+        RankAction(title: "Rank this \(kind == "cube" ? "cube" : "set")",
+                   detail: r.flatMap { $0.rankings > 0 ? $0.detail : nil } ?? "Stack-rank its cards by color, then a top 100. Compare with friends.") {
+            rank(pack.set_code, kind: kind, from: "set")
+        }
     }
 
     @ViewBuilder private var alertsRow: some View {
@@ -63,51 +68,80 @@ struct LimitedHomeSection: View {
 
     /// Sets with no 17Lands data yet (spoiler season, or just out) lead the picker and open Rank this set; Edit hides any.
     @ViewBuilder private func picked(_ chips: [LimitedPicker.Chip]) -> some View {
-            let today = LimitedPicker.today
-            let setBinding = Binding<String>(get: { store.setCode.flatMap { s in chips.contains { $0.key == s } ? s : nil } ?? (chips.first { $0.pack } ?? chips[0]).key },
-                                             set: { store.setCode = $0 })
-            let soon = chips.contains { !$0.pack && $0.key == setBinding.wrappedValue } ? store.rankable.first { $0.key == setBinding.wrappedValue } : nil
-            PickerRow(editing: $editing) {
-                T1Segmented(options: chips.map { ($0.key, $0.label) }, selection: setBinding, scroll: true)
-            }
-            if editing {
-                ShownEditor(title: "Shown sets", items: store.limitedChips.map { c in (c.key, c.label, store.limitedName(c.key).flatMap { $0 == c.label ? nil : $0 }) },
-                            hidden: store.hiddenSets, set: { store.setHidden(format: false, $0, $1) }, done: { editing = false })
-            }
-            if let soon {
-                Notice(LimitedPicker.soonText(soon, today: today))
-                Button { rank(soon.key, kind: soon.kind, from: "soon") } label: { ListRow(title: "Rank this set", detail: soon.detail) }.buttonStyle(.plain)
-            } else if let pack = store.limited[setBinding.wrappedValue] {
-                content(pack)
-            } else {
-                Notice("Loading \(LimitedPicker.label(setBinding.wrappedValue, store.limitedName(setBinding.wrappedValue)))…")
-                    .task { await store.load(force: true) }
-            }
-            alertsRow
-            Color.clear.frame(height: 24)
+        let today = LimitedPicker.today
+        let current = store.setCode.flatMap { s in chips.contains { $0.key == s } ? s : nil } ?? (chips.first { $0.pack } ?? chips[0]).key
+        let soon = chips.contains { !$0.pack && $0.key == current } ? store.rankable.first { $0.key == current } : nil
+        let setCell = FilterCell(name: "Set", value: chips.first { $0.key == current }?.label ?? current,
+                                 options: chips.map { c in SelectorOption(value: c.key, label: c.label, detail: store.limitedName(c.key).flatMap { $0 == c.label ? nil : $0 }) }
+                                     + [SelectorOption(value: FilterCell.editValue, label: "Shown sets…")],
+                                 current: current) { v in
+            if v == FilterCell.editValue { editing = true } else { store.setCode = v; query = ""; all = false }
+        }
+        if let soon {
+            FilterRow(cells: [setCell])
+            editor
+            Notice(LimitedPicker.soonText(soon, today: today))
+            RankAction(title: "Rank this set", detail: soon.detail) { rank(soon.key, kind: soon.kind, from: "soon") }
+        } else if let pack = store.limited[current] {
+            content(pack, setCell)
+        } else {
+            FilterRow(cells: [setCell])
+            editor
+            Notice("Loading \(LimitedPicker.label(current, store.limitedName(current)))…")
+                .task { await store.load(force: true) }
+        }
+        alertsRow
+        Color.clear.frame(height: 24)
     }
 
+    /// Event (when the set has more than one) and Players (when there's a Top players view) after Set.
+    private func eventCells(_ events: [String], _ ev: String, _ groups: [String: Insights.LView], _ grp: String) -> [FilterCell] {
+        var cells: [FilterCell] = []
+        if events.count > 1 {
+            cells.append(FilterCell(name: "Event", value: Insights.eventLabels[ev] ?? ev, options: events.map { SelectorOption(value: $0, label: Insights.eventLabels[$0] ?? $0) },
+                                    current: ev) { store.event = $0 })
+        }
+        if groups["top"] != nil {
+            cells.append(FilterCell(name: "Players", value: grp == "top" ? "Top players" : "All players",
+                                    options: [SelectorOption(value: "all", label: "All players"), SelectorOption(value: "top", label: "Top players", detail: "60%+ win rate")],
+                                    current: grp) { store.group = $0 })
+        }
+        return cells
+    }
+
+    @ViewBuilder private var editor: some View {
+        if editing {
+            ShownEditor(title: "Shown sets", items: store.limitedChips.map { c in (c.key, c.label, store.limitedName(c.key).flatMap { $0 == c.label ? nil : $0 }) },
+                        hidden: store.hiddenSets, set: { store.setHidden(format: false, $0, $1) }, done: { editing = false })
+        }
+    }
+
+    /// Cards first (the best of them, then search and Show all), then Rank this set, the color pairs and the rest, the
+    /// brief last (John's friend, 2026-11-09).
     @ViewBuilder
-    private func content(_ pack: Insights.LimitedPack) -> some View {
+    private func content(_ pack: Insights.LimitedPack, _ setCell: FilterCell) -> some View {
         let events = store.events(of: pack)
         let ev = store.currentEvent(of: pack) ?? "PremierDraft"
-        let evBinding = Binding<String>(get: { ev }, set: { store.event = $0 })
-        if events.count > 1 { T1Segmented(options: events.map { ($0, Insights.eventLabels[$0] ?? $0) }, selection: evBinding) }
         let groups = pack.events[ev]?.groups ?? [:]
         let grp = groups[store.group] != nil ? store.group : "all"
-        if groups["top"] != nil {
-            T1Segmented(options: [("all", "All players"), ("top", "Top players")], selection: $store.group)
-        }
+        let cells = [setCell] + eventCells(events, ev, groups, grp)
+        FilterRow(cells: cells)
+        editor
         if let v = groups[grp] {
+            cards(pack, ev, grp, v)
+                .task(id: "\(pack.set_code) \(CatalogStore.shared.generation)") {
+                    // art and mana costs come from the card catalog: ask for it (any network) like the Library does
+                    CatalogStore.shared.load(userInitiated: true)
+                    faces = await LimitedFace.load(set: pack.set_code, cards: v.cards)
+                }
+            rankBlock(pack)
+            newSets
+            pairs(pack, ev, grp, v)
+            scatter(pack, ev, grp, v)
+            facts(v)
             BriefBlock(brief: v.brief, scope: "\(pack.name ?? pack.set_code) \(Insights.eventLabels[ev] ?? ev)\(grp == "top" ? ", top players (60%+)" : "")",
                        thin: v.games < 20000, credit: ("Data from 17Lands", URL(string: pack.credit.url)!))
             Stats3(items: [("Games", v.games.formatted()), ("Average", InsightCharts.pct1(v.wr)), ("Weeks", "\(v.weeks)")])
-            rankRow(pack)
-            newSets
-            pairs(pack, ev, grp, v)
-            cards(pack, ev, grp, v)
-            scatter(pack, ev, grp, v)
-            facts(v)
         }
     }
 
@@ -144,57 +178,75 @@ struct LimitedHomeSection: View {
         }
     }
 
+    /// The best cards for the sort and filters (ten, then Show all), with search across the set and then every other set.
     @ViewBuilder
     private func cards(_ pack: Insights.LimitedPack, _ ev: String, _ grp: String, _ v: Insights.LView) -> some View {
-        Section1("Cards")
-        T1Segmented(options: [("gih", "GIH WR"), ("oh", "OH WR"), ("iwd", "IWD"), ("ata", "ATA")], selection: Binding(get: { sort }, set: {
-            sort = $0; Telemetry.capture("insights_sort_changed", ["sort": $0])
-        }))
-        // A cube's cards have no rarity: no rarity filter then.
-        if v.cards.contains(where: { $0.r != nil }) {
-            T1Segmented(options: [("all", "All"), ("common", "C"), ("uncommon", "U"), ("rare", "R"), ("mythic", "M")], selection: $rarity)
-        }
-        T1Segmented(options: [("all", "All"), ("W", "W"), ("U", "U"), ("B", "B"), ("R", "R"), ("G", "G"), ("M", "Multi")], selection: $color)
-        let rows = sorted(v.cards).prefix(40)
-        ForEach(Array(rows)) { c in
-            Button { path.append(.limitedCard(pack.set_code, ev, grp, c.n)) } label: {
-                ListRow(title: c.n, detail: [c.r?.capitalized, c.col, "\(c.gih_n.formatted()) in hand",
-                                             c.ata.map { String(format: "taken %.1f", $0) }].compactMap { $0 }.joined(separator: " · ")) {
-                    Text(value(c)).font(T1.mono(13)).foregroundStyle(c.gih == nil ? T1.disabled : T1.text)
+        let rated = v.cards.contains { $0.r != nil }
+        let sortLabel = Insights.limitedSorts.first { $0.key == sort }
+        Section1("Top cards · \(sortLabel?.label.lowercased() ?? sort)")
+        FilterRow(cells: [
+            FilterCell(name: "Sort", value: sortLabel?.code ?? sort, options: Insights.limitedSorts.map { SelectorOption(value: $0.key, label: $0.label, detail: $0.code) },
+                       current: sort) { sort = $0; all = false; Telemetry.capture("insights_sort_changed", ["sort": $0]) },
+        ] + (rated ? [FilterCell(name: "Rarity", value: Insights.limitedRarities.first { $0.key == rarity }?.code ?? rarity,
+                                 options: Insights.limitedRarities.map { SelectorOption(value: $0.key, label: $0.label) }, current: rarity) { rarity = $0; all = false }] : []) + [
+            FilterCell(name: "Color", value: Insights.limitedColors.first { $0.key == color }?.code ?? color,
+                       options: Insights.limitedColors.map { SelectorOption(value: $0.key, label: $0.label) }, current: color) { color = $0; all = false },
+        ])
+        T1SearchField(text: $query, prompt: "Search cards")
+        let q = Insights.searchNorm(query)
+        if q.count >= Insights.minQuery {
+            searchResults(pack, ev, grp, v)
+        } else {
+            let rows = Insights.limitedCards(v.cards, sort: sort, rarity: rarity, color: color)
+            let shown = all ? rows : Array(rows.prefix(Insights.limitedTop))
+            ForEach(Array(shown.enumerated()), id: \.element.id) { i, c in
+                cardRow(c, rank: i + 1, v) { path.append(.limitedCard(pack.set_code, ev, grp, c.n)) }
+            }
+            if rows.isEmpty { Notice("No card matches these filters.") }
+            if rows.count > Insights.limitedTop {
+                Ghost(text: all ? "Show the top \(Insights.limitedTop)" : "Show all \(rows.count)") {
+                    all.toggle()
+                    if all { Telemetry.capture("insights_cards_expanded", ["set": pack.set_code, "count": rows.count]) }
                 }
-            }.buttonStyle(.plain)
-        }
-        if rows.isEmpty { Notice("No card matches these filters.") }
-        LabelText("GIH WR: win rate with the card in hand · OH: in the opening hand · IWD: improvement when drawn · ATA: average pick taken")
-            .lineLimit(3).padding(.horizontal, 16).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading).background(T1.surface)
-    }
-
-    private func sorted(_ cards: [Insights.LCard]) -> [Insights.LCard] {
-        let rated = cards.contains { $0.r != nil }
-        let f = cards.filter { c in
-            (!rated || rarity == "all" || c.r == rarity) &&
-            (color == "all" || (color == "M" ? (c.col?.count ?? 0) > 1 : c.col == color))
-        }
-        let key: (Insights.LCard) -> Double? = { c in
-            switch sort { case "oh": c.oh; case "iwd": c.iwd; case "ata": c.ata.map { -$0 }; default: c.gih }
-        }
-        return f.sorted { a, b in
-            switch (key(a), key(b)) {
-            case let (x?, y?): x > y
-            case (_?, nil): true
-            case (nil, _?): false
-            default: a.gih_n > b.gih_n
             }
         }
+        LabelText("GIH WR: win rate with the card in hand · OH: in the opening hand · IWD: improvement when drawn · ATA: average pick taken · under it: points above or below the average")
+            .lineLimit(4).padding(.horizontal, 16).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading).background(T1.surface)
     }
 
-    private func value(_ c: Insights.LCard) -> String {
-        switch sort {
-        case "oh": InsightCharts.pct1(c.oh)
-        case "iwd": c.iwd.map { InsightCharts.delta($0) } ?? "–"
-        case "ata": c.ata.map { String(format: "%.1f", $0) } ?? "–"
-        default: InsightCharts.pct1(c.gih)
+    @ViewBuilder
+    private func searchResults(_ pack: Insights.LimitedPack, _ ev: String, _ grp: String, _ v: Insights.LView) -> some View {
+        let others = store.limited.values.filter { $0.set_code != pack.set_code }.sorted { ($0.released ?? "") > ($1.released ?? "") }
+            .map { p in (key: p.set_code, names: p.events.values.flatMap { $0.groups["all"]?.cards.map(\.n) ?? [] }) }
+            .map { (key: $0.key, names: Array(Set($0.names)).sorted()) }
+        let hits = Insights.limitedSearch(query, here: v.cards.map(\.n), others: others)
+        let byName = Dictionary(v.cards.map { ($0.n, $0) }, uniquingKeysWith: { a, _ in a })
+        ForEach(hits.here, id: \.self) { n in
+            if let c = byName[n] { cardRow(c, rank: nil, v) { path.append(.limitedCard(pack.set_code, ev, grp, c.n)) } }
         }
+        if hits.here.isEmpty && !hits.elsewhere.isEmpty {
+            Section1("Not in \(LimitedPicker.label(pack.set_code, pack.name)) · in other sets")
+            ForEach(hits.elsewhere, id: \.self) { h in
+                Button {
+                    Telemetry.capture("insights_card_search_elsewhere", ["set": h.set])
+                    let other = store.limited[h.set]
+                    let e = other.flatMap { store.currentEvent(of: $0) } ?? "PremierDraft"
+                    path.append(.limitedCard(h.set, e, "all", h.name))
+                } label: {
+                    ListRow(title: h.name, detail: LimitedPicker.label(h.set, store.limitedName(h.set)))
+                }.buttonStyle(.plain)
+            }
+        }
+        if hits.here.isEmpty && hits.elsewhere.isEmpty {
+            Notice("No card in any set's draft data is called that.")
+        }
+    }
+
+    private func cardRow(_ c: Insights.LCard, rank: Int?, _ v: Insights.LView, open: @escaping () -> Void) -> some View {
+        let shown = Insights.limitedValue(c, sort: sort, average: v.wr)
+        return Button(action: open) {
+            LimitedCardRow(rank: rank, card: c, face: faces[c.n], value: shown.value, vs: shown.vs, dim: c.gih == nil)
+        }.buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -217,6 +269,90 @@ struct LimitedHomeSection: View {
                        ("Turns", v.facts.turns.map { String(format: "%.1f", $0) } ?? "–")])
         Stats3(items: [("Mulligans", InsightCharts.pct(v.facts.mull_rate)), ("Kept 7", InsightCharts.pct1(v.facts.keep7_wr)),
                        ("After a mull", InsightCharts.pct1(v.facts.mull_wr))])
+    }
+}
+
+/// A card's mana cost and its printing in the set (for the art); a cube's cards take their original printing.
+struct LimitedFace: Hashable {
+    let cost: String
+    let printing: CatalogPrinting?
+
+    @MainActor static func load(set: String, cards: [Insights.LCard]) async -> [String: LimitedFace] {
+        guard let db = CatalogStore.shared.db else { return [:] }
+        let ids = cards.compactMap(\.c)
+        return await Task.detached(priority: .userInitiated) {
+            let oracles = db.oracles(oracleIds: ids)
+            var inSet: [Int: CatalogPrinting] = [:]
+            for p in db.printings(set: set.lowercased()) where inSet[p.oracleIdx] == nil || (p.lang == "en" && inSet[p.oracleIdx]?.lang != "en") {
+                inSet[p.oracleIdx] = p
+            }
+            let missing = oracles.values.map(\.idx).filter { inSet[$0] == nil }
+            let covers = missing.isEmpty ? [:] : db.covers(oracleIdxs: missing)
+            var out: [String: LimitedFace] = [:]
+            for c in cards {
+                guard let id = c.c, let o = oracles[id] else { continue }
+                out[c.n] = LimitedFace(cost: o.manaCost, printing: inSet[o.idx] ?? covers[o.idx])
+            }
+            return out
+        }.value
+    }
+}
+
+/// One card on the Limited page: its place, art, name, mana cost, rarity and games, and the sort's number with how far
+/// it sits from the average under it.
+struct LimitedCardRow: View {
+    let rank: Int?
+    let card: Insights.LCard
+    let face: LimitedFace?
+    let value: String
+    let vs: String?
+    var dim = false
+
+    var body: some View {
+        HStack(spacing: 10) {
+            if let rank {
+                Text("\(rank)").font(T1.mono(11)).foregroundStyle(T1.muted).frame(width: 22, alignment: .trailing)
+            }
+            Group { if let p = face?.printing { CardArtCrop(printing: p) } else { T1.bg } }.frame(width: 52, height: 38)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(card.n).font(T1.mono(14)).lineLimit(1)
+                HStack(spacing: 6) {
+                    if let cost = face?.cost, !cost.isEmpty { ManaCostView(cost: cost, size: 12) }
+                    LabelText([card.r.map { String($0.prefix(1)).uppercased() }, "\(card.gih_n.formatted()) in hand"].compactMap { $0 }.joined(separator: " · "))
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+            VStack(alignment: .trailing, spacing: 3) {
+                Text(value).font(T1.mono(14)).foregroundStyle(dim ? T1.disabled : T1.text)
+                if let vs { LabelText(vs, color: vs.hasPrefix("+") ? T1.text : T1.muted) }
+            }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .background(T1.surface)
+        .contentShape(Rectangle())
+    }
+}
+
+/// A screen's one big action with a line of data under it (Rank this set): the words large, the data small.
+struct RankAction: View {
+    let title: String
+    let detail: String?
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Text(title.uppercased()).font(T1.mono(15, .semibold)).tracking(4)
+                if let detail { LabelText(detail).multilineTextAlignment(.center).lineLimit(2) }
+            }
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, minHeight: 88)
+            .background(T1.surface)
+            .overlay(alignment: .top) { Rectangle().fill(T1.text).frame(height: 1) }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(FlatPress())
     }
 }
 
@@ -276,6 +412,7 @@ struct LimitedCardView: View {
     let set: String, event: String, group: String, name: String
     @Binding var path: [InsightsRoute]
     @Environment(SessionModel.self) private var session
+    @State private var face: LimitedFace?
     private var store: InsightsStore { InsightsStore.shared }
 
     var body: some View {
@@ -287,6 +424,18 @@ struct LimitedCardView: View {
             InsightsPage {
                 VStack(spacing: 1) {
                     if let c, let v, let pack {
+                        // the card first: its picture in the set's printing and its mana cost
+                        VStack(spacing: 12) {
+                            if let p = face?.printing { p.art(width: 220) } else {
+                                RoundedRectangle(cornerRadius: 220 * 0.0432).fill(T1.surface).frame(width: 220, height: 220 / CardArt.aspect)
+                            }
+                            if let cost = face?.cost, !cost.isEmpty { ManaCostView(cost: cost, size: 16) }
+                        }
+                        .frame(maxWidth: .infinity).padding(.vertical, 20)
+                        .task(id: "\(name) \(CatalogStore.shared.generation)") {
+                            CatalogStore.shared.load(userInitiated: true)
+                            face = await LimitedFace.load(set: set, cards: [c]).values.first
+                        }
                         CreditRow(url: pack.credit.url)
                         if c.gih == nil { Notice("Fewer than 500 games with this card in hand: no win rates yet.") }
                         Stats3(items: [("In hand", InsightCharts.pct1(c.gih)), ("Opening hand", InsightCharts.pct1(c.oh)), ("Drawn", InsightCharts.pct1(c.gd))])
