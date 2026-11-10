@@ -119,6 +119,7 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
     /** Every ranking of yours: other people's cubes you can rank too, and Limited sets. */
     var rankable by remember { mutableStateOf<List<RankableCube>>(emptyList()) }
     var sets by remember { mutableStateOf<List<RankableSet>>(emptyList()) }
+    var popular by remember { mutableStateOf<List<PopularCube>>(emptyList()) }
     val isSet = RankSubject.setKey(listId) != null
     var error by remember { mutableStateOf<String?>(null) }
     var creating by remember { mutableStateOf(false) }
@@ -133,9 +134,12 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
         if (listId == null) {
             runCatching { RankingsStore.rankable() }.onSuccess { rankable = it }
             runCatching { RankingsStore.rankableSets() }.onSuccess { sets = it }
+            runCatching { RankingsStore.popularCubes() }.onSuccess { popular = it }
         }
     }
     val cube = data?.cube
+    /** A set's screen says "set"; a popular cube's or an Arena cube version's says "cube". */
+    val noun = RankSubject.noun(cube?.kind)
     T1Screen {
         Bar("Rankings", if (listId == null) "Yours, and cubes and sets you can rank" else cube?.let { if (it.mine || isSet) it.name else "${it.name} · ${it.owner?.displayName ?: ""}" },
             onBack = onBack)
@@ -143,7 +147,7 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
             error?.let { Notice(it, error = true) }
             val d = data
             if (d == null) { if (error == null) Notice("Loading rankings…"); return@Column }
-            if (listId != null) Notice(if (isSet) "Sort each color by putting up to four cards in order at a time, then rank the best cards across the whole set. " +
+            if (listId != null) Notice(if (isSet) "Sort each color by putting up to four cards in order at a time, then rank the best cards across the whole $noun. " +
                 "Your friends can watch and compare the rankings you share."
                 else "Sort each color by putting up to four cards in order at a time, then rank the best cards across the whole cube. " +
                 "Everyone who can see this cube can watch and compare the rankings shared with it.")
@@ -161,7 +165,7 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
                             if (busy) return@Ghost
                             busy = true
                             scope.launch {
-                                runCatching { RankingsStore.create(cube.id, "", depth, top, sharing, cube.mine) }
+                                runCatching { RankingsStore.create(cube.id, "", depth, top, sharing, cube.mine, cube.kind) }
                                     .onSuccess { creating = false; onOpen(it.id) }.onFailure { error = it.message }
                                 busy = false
                             }
@@ -180,7 +184,7 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
             if (mine.isNotEmpty()) { if (listId != null) Section("Yours"); mine.forEach { row(it) } }
             if (listId != null) {
                 Section(if (isSet) "Your friends'" else "Everyone else's")
-                if (others.isEmpty()) Notice(if (isSet) "None of your friends has ranked this set yet." else "Nobody else has ranked this cube yet.")
+                if (others.isEmpty()) Notice(if (isSet) "None of your friends has ranked this $noun yet." else "Nobody else has ranked this cube yet.")
                 others.forEach { row(it) }
             } else {
                 if (mine.isEmpty()) Notice("No rankings yet. Open one of your cubes and tap Rankings, or rank a friend's cube below.")
@@ -191,6 +195,10 @@ fun RankingsScreen(listId: String?, onBack: () -> Unit, onOpen: (String) -> Unit
                     ListRow(c.name, listOfNotNull(c.owner?.displayName, plural(c.cards, "card"), if (c.rankings == 0) "no rankings yet" else plural(c.rankings, "ranking"),
                         if (c.mine > 0) "${c.mine} yours" else null).joinToString(" · "), onClick = { onCube(c.id) },
                         avatar = { Avatar(c.owner?.displayName ?: "?", c.owner?.userId, 28, opensFrom = "rankings") })
+                }
+                if (popular.isNotEmpty()) {
+                    Section("Popular cubes")
+                    popular.forEach { c -> ListRow(c.name, c.detail, onClick = { onCube(c.subjectId) }) }
                 }
                 if (sets.isNotEmpty()) {
                     Section("Sets you can rank")
@@ -344,7 +352,7 @@ fun RankingScreen(id: String, onBack: () -> Unit, go: (String) -> Unit) {
                 Ghost(if (m.mine) "Open a pack" else "Pick history", accent = m.mine) { go("pack") }
             }
             ListRow("Changes", if (m.changes.isEmpty()) "Every move of every card, as it happens" else "${plural(m.changes.size, "change")} so far", onClick = { go("changes") })
-            ListRow("Compare with another ranking…", if (others.isEmpty()) "No other rankings of this ${if (row?.isSet == true) "set" else "cube"} yet" else plural(others.size, "other ranking"), onClick = {
+            ListRow("Compare with another ranking…", if (others.isEmpty()) "No other rankings of this ${m.cube?.noun ?: if (row?.isSet == true) "set" else "cube"} yet" else plural(others.size, "other ranking"), onClick = {
                 if (others.isNotEmpty()) menu = others.map { o -> T1MenuItem(o.title) { go("compare/${o.id}/F") } }
             })
             ListRow("Top ${row?.top ?: 100} image", "The final as a picture, to save or share", onClick = { imaging = true })
@@ -356,7 +364,7 @@ fun RankingScreen(id: String, onBack: () -> Unit, go: (String) -> Unit) {
                 if (n != null && n != (row.label ?: "")) Row {
                     Ghost(if (n.isEmpty()) "Remove label" else "Save label", accent = true) { m.update(name = n.ifEmpty { RankingName.UNNAMED }); newName = null }
                 }
-                Notice("Rankings are titled by who ranked them. A label tells your rankings of this ${if (row.isSet) "set" else "cube"} apart.")
+                Notice("Rankings are titled by who ranked them. A label tells your rankings of this ${m.cube?.noun ?: if (row.isSet) "set" else "cube"} apart.")
                 T1Segmented(DEPTH_LABELS, RankDepth.all.indexOf(row.depth).coerceAtLeast(0)) { m.update(depth = RankDepth.all[it]) }
                 Notice(depthNote(row.depth, row.top))
                 T1Segmented(listOf("Top 100", "Top 50"), if (row.top == 100) 0 else 1) { m.update(top = if (it == 0) 100 else 50) }

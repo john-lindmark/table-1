@@ -253,8 +253,12 @@ fun FriendAddScreen(onBack: () -> Unit) {
 
 @Composable
 fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: String, id: String?) -> Unit, onMatch: () -> Unit, onSharing: () -> Unit,
-                      onFriends: () -> Unit = {}, onRanking: (String) -> Unit = {}) {
+                      onFriends: () -> Unit = {}, onRanking: (String) -> Unit = {},
+                      /** Your own profile: a popular cube's Rankings ("set:PLSV"). */
+                      onPopular: (String) -> Unit = {}) {
     val scope = rememberCoroutineScope()
+    /** Your own profile ends its Rankings with the popular cubes (contract/cube-rankings-2026-10-21.md § Popular cubes). */
+    var popular by remember { mutableStateOf<List<PopularCube>>(emptyList()) }
     var d by remember { mutableStateOf<ProfileData?>(null) }
     var match by remember { mutableStateOf<TradeMatch?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -281,7 +285,12 @@ fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: Stri
         busy = true
         scope.launch { runCatching { work() }.onSuccess { reload++ }.onFailure { error = it.message }; busy = false }
     }
-    LaunchedEffect(d?.relation) { if (d?.relation == "self" && FriendsStore.state.value.sharing == null) FriendsStore.loadSharing() }
+    LaunchedEffect(d?.relation) {
+        if (d?.relation == "self") {
+            if (FriendsStore.state.value.sharing == null) FriendsStore.loadSharing()
+            popular = runCatching { RankingsStore.popularCubes() }.getOrDefault(emptyList())
+        }
+    }
     val own = d
     val sharing = sharingState.sharing
     val p = if (own != null && own.relation == "self" && viewAs < 2 && sharing != null) SharingRules.viewAs(own, sharing, viewAs) else own
@@ -384,6 +393,17 @@ fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: Stri
                         ListRow(r.subject.name, ProfileRankings.detail(r), onClick = {
                             Telemetry.capture("profile_section_opened", mapOf("section" to "ranking", "kind" to r.subject.kind))
                             onRanking(r.id)
+                        })
+                    }
+                }
+            }
+            if (own?.relation == "self" && viewAs == 2 && popular.isNotEmpty()) {
+                item { Section("Popular cubes") }
+                popular.forEach { c ->
+                    item(key = "popular-${c.key}") {
+                        ListRow(c.name, c.detail, onClick = {
+                            Telemetry.capture("profile_section_opened", mapOf("section" to "popular_cube"))
+                            onPopular(c.subjectId)
                         })
                     }
                 }

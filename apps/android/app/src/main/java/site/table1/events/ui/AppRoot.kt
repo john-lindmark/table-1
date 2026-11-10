@@ -409,7 +409,8 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                     ProfileUserScreen(id, onBack = { nav.popBackStack() },
                         onSection = { kind, item -> nav.navigate("profile/$id/$kind/${item ?: "-"}") },
                         onMatch = { nav.navigate("collection/match/$id") }, onSharing = { nav.navigate("sharing") },
-                        onFriends = { nav.navigate("profile/$id/friends") }, onRanking = { nav.navigate("collection/ranking/$it") })
+                        onFriends = { nav.navigate("profile/$id/friends") }, onRanking = { nav.navigate("collection/ranking/$it") },
+                        onPopular = { nav.navigate("collection/list/$it/rankings") })
                 }
                 composable("profile/{id}/friends") { e ->
                     ProfileFriendsScreen(e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() }, onProfile = { nav.navigate("profile/$it") })

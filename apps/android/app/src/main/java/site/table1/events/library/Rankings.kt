@@ -40,9 +40,12 @@ data class RankingCube(val id: String, val name: String, val mine: Boolean = fal
                        @SerialName("can_see") val canSee: Boolean? = null, val cards: List<String>? = null,
                        /** cube_ranking_get only: Oracle id → the printing the cube holds, so cards show as they are in the cube. */
                        val printings: Map<String, String>? = null,
-                       /** A Limited set's key (FRA, PWR-2510) and kind (set, or cube: an Arena cube version); null for a cube. */
-                       val set: String? = null, val kind: String? = null) {
+                       /** A Limited set's key (FRA, PWR-2510) and kind (set; cube: an Arena cube version; popular: a popular
+                        *  cube, with its curator and page); null for a cube. */
+                       val set: String? = null, val kind: String? = null, val curator: String? = null, val url: String? = null) {
     val isSet get() = set != null
+    /** What a set subject is called on screen: "cube" for a popular cube or an Arena cube version, else "set". */
+    val noun get() = if (isSet) RankSubject.noun(kind) else "cube"
 }
 
 /** What a ranking ranks (contract/cube-rankings-2026-10-21.md § Sets, testdata/limited-rankings): a cube by its list id, or a
@@ -52,6 +55,22 @@ object RankSubject {
     fun setKey(id: String?): String? = id?.takeIf { it.startsWith("set:") }?.drop(4)?.ifEmpty { null }
     /** "Shared with the cube" reaches a set ranking's maker's friends (everyone can see a set). */
     fun sharingLabel(sharing: String, set: Boolean) = if (sharing == "private") "Only me" else if (set) "Shared with friends" else "Shared with the cube"
+    /** What a set subject is called (cases testdata/popular-cubes/cases.json `noun`). */
+    fun noun(kind: String?) = if (kind == "popular" || kind == "cube") "cube" else "set"
+}
+
+/** A popular cube you can rank (popular_cubes; contract/cube-rankings-2026-10-21.md § Popular cubes): PowerLSV, LSVCube,
+ *  MTGO Vintage Cube, Arena Powered Cube. Opens as the subject "set:<key>". */
+@Serializable
+data class PopularCube(val key: String, val name: String, val curator: String? = null, val url: String? = null, val cards: Int = 0,
+                       val updated: String? = null,
+                       /** Your rankings of it; all you can see (yours too); your friends'. */
+                       val mine: Int = 0, val rankings: Int = 0, val friends: Int = 0) {
+    val subjectId get() = RankSubject.setId(key)
+    /** "LSV · 528 cards · 3 friends' rankings · 1 yours" (cases testdata/popular-cubes/cases.json `detail`). */
+    val detail get() = listOfNotNull(curator, "$cards cards",
+        when (friends) { 0 -> null; 1 -> "1 friend's ranking"; else -> "$friends friends' rankings" },
+        if (mine > 0) "$mine yours" else null).joinToString(" · ")
 }
 
 /** A set or Arena cube version you can rank (limited_rankable), newest first. */
@@ -181,6 +200,9 @@ object RankingsStore {
     /** Sets and Arena cube versions to rank (Insights → Limited). */
     suspend fun rankableSets(): List<RankableSet> = T1App.supabase.postgrest.rpc("limited_rankable").decodeAs<List<RankableSet>>()
 
+    /** The popular cubes with your and your friends' rankings of each. */
+    suspend fun popularCubes(): List<PopularCube> = T1App.supabase.postgrest.rpc("popular_cubes").decodeAs<List<PopularCube>>()
+
     /** Briefs already fetched this session, by "a|b|list". */
     private val briefs = HashMap<String, RankingBrief>()
 
@@ -216,7 +238,7 @@ object RankingsStore {
     suspend fun catchUp(id: String): List<String> =
         T1App.supabase.postgrest.rpc("cube_ranking_catch_up", buildJsonObject { put("p_id", id) }).decodeAs<CaughtUp>().baseline
 
-    suspend fun create(listId: String, name: String, depth: String, top: Int, sharing: String, ownCube: Boolean): RankingRow {
+    suspend fun create(listId: String, name: String, depth: String, top: Int, sharing: String, ownCube: Boolean, kind: String? = null): RankingRow {
         val row = T1App.supabase.postgrest.rpc("cube_ranking_create", buildJsonObject {
             val key = RankSubject.setKey(listId)
             put("p_id", UUID.randomUUID().toString().lowercase())
@@ -224,7 +246,7 @@ object RankingsStore {
             put("p_name", name); put("p_depth", depth); put("p_top", top); put("p_sharing", sharing)
         }).decodeAs<RankingRow>()
         Telemetry.capture("ranking_created", mapOf("depth" to depth, "top" to top, "sharing" to sharing, "own_cube" to ownCube,
-                                                   "subject" to if (RankSubject.setKey(listId) != null) "set" else "cube"))
+                                                   "subject" to if (kind == "popular") "popular" else if (RankSubject.setKey(listId) != null) "set" else "cube"))
         return row
     }
 

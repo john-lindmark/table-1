@@ -5,6 +5,7 @@
 //                         peeked (its first rows) to tell which version (run) it holds
 //   {step:"slice", run}   one slice of a run: range-fetch the next compressed bytes, inflate from the checkpoint
 //                         (cards-sync's resumable inflate), add the rows' sums; the last slice builds the set's pack
+//   {step:"popular"}      weekly: read the popular cubes' lists (Cube Cobra, mtgo.com, Scryfall) for rankings
 // t1_private.limited_dispatch posts the next slice (every 2 min, and right after each commit).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { briefFor, type Facts } from "../insight-brief/brief.ts";
@@ -12,6 +13,7 @@ import { inflateMembers, startAt } from "./members.ts";
 import { accJson, headerColumns, Lines, Rows } from "./parse.ts";
 import { limitedFacts, type LimitedPack } from "./pack.ts";
 import { firstRows, peekOf, PEEK_BYTES } from "./peek.ts";
+import { readPopular, type PopularSource } from "./popular.ts";
 
 const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
   auth: { persistSession: false },
@@ -169,6 +171,22 @@ async function buildPack(set: string) {
   return { set, version, bytes: body.length };
 }
 
+/** Every popular cube's list, one at a time; a source that fails or reads too few cards keeps the list it had. */
+async function popular(only?: string) {
+  const sources = (await rpc<PopularSource[]>("popular_cube_sources")).filter((s) => !only || s.key === only);
+  const out: Record<string, unknown>[] = [];
+  for (const s of sources) {
+    try {
+      const cards = await readPopular(s);
+      out.push(await rpc<Record<string, unknown>>("popular_cube_put", { p_key: s.key, p_cards: cards }));
+    } catch (e) {
+      console.error("limited-sync popular", s.key, String(e));
+      out.push({ key: s.key, error: String(e) });
+    }
+  }
+  return { cubes: out };
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
   const { data: ok } = await admin.rpc("live_push_secret_ok", { p_secret: req.headers.get("x-t1-secret") ?? "" });
@@ -179,6 +197,7 @@ Deno.serve(async (req) => {
       case "check": return json(await check());
       case "slice": return json(await slice(Number(body.run)));
       case "pack": return json(await buildPack(String(body.set ?? "").toUpperCase()));
+      case "popular": return json(await popular(body.set ? String(body.set).toUpperCase() : undefined));
       default: return json({ error: "Unknown step" }, 400);
     }
   } catch (e) {

@@ -1,0 +1,51 @@
+{
+ "name": "PowerLSV",
+ "shortId": "PowerLSV",
+ "cards": {
+  "mainboard": [
+   {
+    "cardID": "4e117771-5a8b-4812-b487-32ba34b7f724",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Giver of Runes"
+    }
+   },
+   {
+    "cardID": "76c3cad2-1e25-4abe-878d-9194de6fcc27",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Guide of Souls"
+    }
+   },
+   {
+    "cardID": "0b1a46ab-95cb-4c24-924f-fc2afd4fcac7",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Mother of Runes"
+    }
+   },
+   {
+    "cardID": "859d2ff4-8b8c-410b-8636-7e6a539fd291",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Ocelot Pride"
+    }
+   }
+  ],
+  "maybeboard": [],
+  "basics": [
+   {
+    "cardID": "19e71532-3f79-4fec-974f-b0e85c7fe701",
+    "details": {
+     "name": "Forest"
+    }
+   },
+   {
+    "cardID": "0c4eaecf-dd4c-45ab-9b50-2abe987d35d4",
+    "details": {
+     "name": "Island"
+    }
+   }
+  ]
+ }
+}
