@@ -48,6 +48,11 @@ enum LibraryRoute: Hashable {
     case rankingChanges(String) // ranking id: the change log
     case myDeckPhotos // Account → Deck photos: every photo of your decks (MyDeckPhotos.swift)
     case eventDeckPhotos(String) // event id: that event's Deck photos, opened from Account → Deck photos
+    case support // Account → Support: questions and the guide (UI/Support.swift)
+    case supportGuides // the guide's sections
+    case supportTopic(String) // an FAQ topic key
+    case supportFaq(String, String) // FAQ id, how it was reached (search | topic)
+    case supportGuide(String, String?, String) // guide section id, the entry to scroll to, how it was reached
     /// An Insights screen pushed from the Library (a deck's archetype), so Back returns to the deck.
     indirect case insights(InsightsRoute)
 
@@ -117,6 +122,11 @@ struct LibraryDestination: View {
         case .rankingChanges: "ranking_changes"
         case .myDeckPhotos: "my_deck_photos"
         case .eventDeckPhotos: "deck_photos"
+        case .support: "support"
+        case .supportGuides: "support_guides"
+        case .supportTopic: "support_topic"
+        case .supportFaq: "support_faq"
+        case .supportGuide: "support_guide"
         }
     }
 
@@ -167,6 +177,11 @@ struct LibraryDestination: View {
         case .rankingChanges(let id): RankingChangesView(rankingId: id, path: $path)
         case .myDeckPhotos: MyDeckPhotosView(path: $path)
         case .eventDeckPhotos(let id): DeckPhotosView(eventId: id)
+        case .support: SupportView(path: $path)
+        case .supportGuides: SupportGuidesView(path: $path)
+        case .supportTopic(let key): SupportTopicView(topic: key, path: $path)
+        case .supportFaq(let id, let from): SupportFaqView(id: id, from: from, path: $path)
+        case .supportGuide(let section, let entry, let from): SupportGuideView(section: section, entry: entry, from: from)
         case .insights(let r): InsightsDestination(route: r, path: LibraryRoute.insights($path))
         }
     }

@@ -85,6 +85,10 @@ export function screenName(pathname: string, listKind?: (id: string) => "deck" |
   if (p === "/") return "events_home";
   if (p === "/me") return "account";
   if (p === "/me/deck-photos") return "my_deck_photos";
+  if (p === "/support") return "support";
+  if (p === "/support/guide") return "support_guides";
+  const support = p.match(/^\/support\/(topic|faq|guide)\/[^/]+$/);
+  if (support) return `support_${support[1]}`;
   if (/^\/(e|p|s|join|j)\/[^/]+$/.test(p)) return "event";
   if (/^\/e\/[^/]+\/add$/.test(p)) return "add_players";
   if (/^\/(e|p)\/[^/]+\/photos$/.test(p)) return "deck_photos";

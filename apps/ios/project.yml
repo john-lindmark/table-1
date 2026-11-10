@@ -44,6 +44,11 @@ targets:
       - path: ../../marketing/bundle/spots
         type: folder
         buildPhase: resources
+      # Support (contract/support-2026-11-10.md): the FAQ and the scrubbed Feature Guide, shared with the web and
+      # Android, bundled as the folder `support/` (faq.json, guide.json).
+      - path: ../../marketing/bundle/support
+        type: folder
+        buildPhase: resources
     dependencies:
       - target: Table1Widgets
       - package: Supabase

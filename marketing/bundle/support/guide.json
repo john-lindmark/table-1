@@ -1,0 +1,3921 @@
+{
+ "source": "Table 1 Feature Guide",
+ "sections": [
+  {
+   "id": "overview",
+   "title": "Overview"
+  },
+  {
+   "id": "create",
+   "title": "Creating an event"
+  },
+  {
+   "id": "run",
+   "title": "Running an event"
+  },
+  {
+   "id": "play",
+   "title": "Playing in an event"
+  },
+  {
+   "id": "widgets",
+   "title": "Widgets and quick actions"
+  },
+  {
+   "id": "roto",
+   "title": "Roto cube drafts"
+  },
+  {
+   "id": "after",
+   "title": "After the event"
+  },
+  {
+   "id": "tracker",
+   "title": "Life tracker"
+  },
+  {
+   "id": "insights",
+   "title": "Insights"
+  },
+  {
+   "id": "library",
+   "title": "Card data and prices"
+  },
+  {
+   "id": "collection",
+   "title": "Collection"
+  },
+  {
+   "id": "binders",
+   "title": "Binders and wants"
+  },
+  {
+   "id": "csv",
+   "title": "Collection import and export"
+  },
+  {
+   "id": "scanning",
+   "title": "Card scanning"
+  },
+  {
+   "id": "trades",
+   "title": "Trades"
+  },
+  {
+   "id": "decks",
+   "title": "Decks and cubes"
+  },
+  {
+   "id": "heroes",
+   "title": "Hero cards"
+  },
+  {
+   "id": "search",
+   "title": "Advanced search"
+  },
+  {
+   "id": "stats",
+   "title": "Deck and cube stats"
+  },
+  {
+   "id": "deckimage",
+   "title": "Deck image"
+  },
+  {
+   "id": "rankings",
+   "title": "Cube and set rankings"
+  },
+  {
+   "id": "legality",
+   "title": "Formats and legality"
+  },
+  {
+   "id": "finder",
+   "title": "Deck finder"
+  },
+  {
+   "id": "import",
+   "title": "Importing and exporting lists"
+  },
+  {
+   "id": "friends",
+   "title": "Friends and profiles"
+  },
+  {
+   "id": "sharing",
+   "title": "Sharing"
+  },
+  {
+   "id": "matches",
+   "title": "Trade matches"
+  },
+  {
+   "id": "following",
+   "title": "Following"
+  },
+  {
+   "id": "safety",
+   "title": "Safety and moderation"
+  },
+  {
+   "id": "push",
+   "title": "Notifications"
+  },
+  {
+   "id": "sync",
+   "title": "Sync and offline"
+  },
+  {
+   "id": "account",
+   "title": "Account and sign-in"
+  },
+  {
+   "id": "privacy",
+   "title": "Privacy and telemetry"
+  },
+  {
+   "id": "links",
+   "title": "Links"
+  },
+  {
+   "id": "web",
+   "title": "Website"
+  },
+  {
+   "id": "discord",
+   "title": "Discord"
+  }
+ ],
+ "entries": [
+  {
+   "id": "overview-1",
+   "s": "overview",
+   "x": "The app has four tabs: Events, Collection, Insights and Account. Events is the product: players and organizers arrive there to play or run a tournament. Collection holds the Library: every card you own, your binders and wants, your decks, your cubes and your trades. Insights shows the metagame and Arena draft data. Account holds your profile, friends and sharing."
+  },
+  {
+   "id": "overview-2",
+   "s": "overview",
+   "h": "Events",
+   "x": "A live card for the event you're in, invitations, upcoming events, and past events tucked away. + New creates an event; Life opens the life tracker for the match you're playing, or a local one."
+  },
+  {
+   "id": "overview-3",
+   "s": "overview",
+   "h": "Collection",
+   "x": "Your collection's hero art with its card count and value (tap for All cards), then rows of your Decks, Binders and Cubes to swipe through. + adds cards or makes a deck, binder or cube; the magnifier searches every card; the camera scans a pile of cards to add anywhere. Trade, Wants and Import sit along the bottom."
+  },
+  {
+   "id": "overview-4",
+   "s": "overview",
+   "h": "Insights",
+   "t": "Constructed",
+   "x": "(what's winning in Standard, Pioneer, Modern, Legacy, Vintage, Pauper and Canadian Highlander) or Limited (the sets on Arena), each opening with a short written summary."
+  },
+  {
+   "id": "overview-5",
+   "s": "overview",
+   "h": "Account",
+   "x": "Your avatar and record, Friends, Sharing, View your profile, settings such as how you track games, privacy switches, notices from Table 1, and account deletion."
+  },
+  {
+   "id": "overview-6",
+   "s": "overview",
+   "h": "Account",
+   "x": "The tab bar runs along the bottom (on the website on a phone too): an icon over each tab's name, the tab you're on in white under a thin teal line, the others with icon and name in the same light grey. It shows only on those four screens. Every screen you open from them has a back arrow on the left, and on iPhone a swipe from the left edge goes back too (the camera is the exception)."
+  },
+  {
+   "id": "create-1",
+   "s": "create",
+   "x": "One scrolling form. Give the event a name, or leave it empty and it names itself from its format and the day, for example \"Draft · Duskmourn: House of Horror · Fri 17 Oct\", updating if you change the format."
+  },
+  {
+   "id": "create-2",
+   "s": "create",
+   "t": "Event name",
+   "x": "up to 80 characters. Setup → Details can rename it any time before round 1; clearing the name goes back to the automatic one."
+  },
+  {
+   "id": "create-3",
+   "s": "create",
+   "t": "When",
+   "x": "Now, or Later with a day and time (up to a year ahead). The time shows on the event, on Upcoming and on its sign-up link. Nothing starts by itself: you still pair round 1."
+  },
+  {
+   "id": "create-4",
+   "s": "create",
+   "t": "Where",
+   "x": "(optional) and a Player cap: sign-ups past the cap join a waitlist. You can still add players past the cap yourself."
+  },
+  {
+   "id": "create-5",
+   "s": "create",
+   "t": "Type",
+   "x": "Constructed or Limited."
+  },
+  {
+   "id": "create-6",
+   "s": "create",
+   "t": "Format",
+   "x": "Constructed offers Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Premodern, Canadian Highlander or Other (type a name). Limited offers Draft, Team draft, Sealed, Team sealed and Roto."
+  },
+  {
+   "id": "create-7",
+   "s": "create",
+   "t": "Product",
+   "x": "(Limited): pick a set from a searchable list with set icons, or a cube. Your cubes from the Library come first, then recent cubes; or paste a Cube Cobra link and the name fills in. Picking a cube hides the link and name fields. A roto draws its card pool from the Library cube you pick."
+  },
+  {
+   "id": "create-8",
+   "s": "create",
+   "t": "Teams",
+   "x": "(team formats): 3 or 4 players per team."
+  },
+  {
+   "id": "create-9",
+   "s": "create",
+   "t": "Pods",
+   "x": "(Draft): Auto (pods of up to 8) or Choose 1 to 16, never so many that a pod would have fewer than 2; the line under it says how they split for the players so far (\"2 pods · 9, 8\"). Pairings: Inside pods (after round 1 you play your own pod; new drafts start here) or Across pods (Swiss over everyone). Automatic rounds count the largest pod inside pods (\"Auto · 3 rounds for pods of 9\"), everyone across. Team drafts and rotos are one pod."
+  },
+  {
+   "id": "create-10",
+   "s": "create",
+   "t": "Automatic rounds",
+   "x": "(Swiss events, on to start): the number of rounds follows the players signed up, \"Auto · 4 rounds for 12 players\": 2 players play 1 round, 3–4 play 2, 5–8 play 3, 9–16 play 4, 17–32 play 5, 33–64 play 6, 65–128 play 7, and bigger events follow the Magic Tournament Rules' table. It's fixed when round 1 is paired. Switch it off to set the rounds by hand."
+  },
+  {
+   "id": "create-11",
+   "s": "create",
+   "t": "Top cut",
+   "x": "(Swiss events of players): No top cut or Top 8. Top 8 needs 9 or more players; with fewer the event ends after Swiss."
+  },
+  {
+   "id": "create-12",
+   "s": "create",
+   "t": "Decklists",
+   "x": "(Constructed): Off, Optional or Required. Players add theirs as text or from their own Table 1 decks; Required holds round 1 until every list is in."
+  },
+  {
+   "id": "create-13",
+   "s": "create",
+   "t": "Rounds",
+   "x": "(set by hand, team events and roto): 1 to 15, default 3. Rounds run 50 minutes. A switch shows or hides the clock everywhere for that event; results still auto-confirm at round end either way."
+  },
+  {
+   "id": "create-14",
+   "s": "create",
+   "t": "Pairing",
+   "x": "(roto): Round robin for 2 to 8 players, Swiss for 9 or more, changeable until round 1. Round robin sets the number of rounds itself."
+  },
+  {
+   "id": "create-15",
+   "s": "create",
+   "t": "Players",
+   "x": "you're in by default (switch off to only run it). Add players by name; each gets a claim link to connect their account later. Friends are listed first, then people you've played with. Invite people with accounts by email, or let them join by code, QR or nearby."
+  },
+  {
+   "id": "create-16",
+   "s": "create",
+   "t": "Who can find it",
+   "x": "Nearby + QR (players within 150 m can find and join it, and nearby players with alerts on are told) or QR only; an event that starts now is pinned where you stand. Setup → Details sets Nearby, Link only or Private later. On all three; the website asks for your location once, when you create the event."
+  },
+  {
+   "id": "run-1",
+   "s": "run",
+   "x": "The organizer's screen switches between three phases on its own as the event moves along."
+  },
+  {
+   "id": "run-2",
+   "s": "run",
+   "h": "1 · Setup",
+   "t": "Players",
+   "x": "add or remove people before round 1 (the row goes at once), show the join QR and code, join as a player yourself. Each player shows with their avatar."
+  },
+  {
+   "id": "run-3",
+   "s": "run",
+   "h": "1 · Setup",
+   "t": "Seating",
+   "x": "(drafts): one long table per pod, drawn upright, seats running clockwise. Seat the ends (4+ players) puts seat 1 at the head and one at the foot. The middle reads \"↻ 1·3 left\" and \"↺ 2 right\"; see who you face in round 1."
+  },
+  {
+   "id": "run-4",
+   "s": "run",
+   "h": "1 · Setup",
+   "t": "Pods",
+   "x": "(Seating, drafts): the same Pods and Pairings rows as Create, saved at once (a new number of pods re-draws the seats). Randomize draws every pod and seat again. Tap a seat to Move to another pod (to its end) or a new pod, or Swap with… and tap the other player; seats close up so every pod stays 1 to n, and every move is logged. Players who join after the draw are listed as \"Not seated\" and go to the smallest pod at round 1, leaving your arrangement alone. Each pod's note names its left-over seat: \"Seat 7 plays Pod 2's seat 7\", or \"Seat 7 has the bye\" when the event is odd. Locked once round 1 is paired."
+  },
+  {
+   "id": "run-5",
+   "s": "run",
+   "h": "1 · Setup",
+   "t": "Teams",
+   "x": "(team events): randomize, move players, rename teams."
+  },
+  {
+   "id": "run-6",
+   "s": "run",
+   "h": "1 · Setup",
+   "t": "Details",
+   "x": "edit the name, when and where, the cap, format, product, teams, rounds, top cut, decklists and the clock; changes save as you make them."
+  },
+  {
+   "id": "run-7",
+   "s": "run",
+   "h": "1 · Setup",
+   "t": "Share link",
+   "x": "(also in More): copies or shares the event's link, a sign-up page until round 1 (see Playing in an event)."
+  },
+  {
+   "id": "run-8",
+   "s": "run",
+   "h": "1 · Setup",
+   "t": "Sign-up notifications",
+   "x": "you get a notification whenever a player signs up, joins the waitlist, drops or leaves it, with the count (\"Ana signed up · 12/16 players\"). Not for changes you make yourself."
+  },
+  {
+   "id": "run-9",
+   "s": "run",
+   "h": "1 · Setup",
+   "t": "Waitlist",
+   "x": "the people waiting, in order, each with Let in (seats them now, past the cap) and Remove. When a player leaves, you remove one, or you raise the cap, the next in line moves up on their own and is told. Once round 1 is paired the waitlist closes (\"Didn't get in\")."
+  },
+  {
+   "id": "run-10",
+   "s": "run",
+   "h": "1 · Setup",
+   "t": "Decklists",
+   "x": "\"5/8 decklists in\", and each player's row says Decklist ✓ or No decklist. List on a row opens their list to read, or to enter or fix it (for a guest, say). With decklists Required, Start waits until every list is in."
+  },
+  {
+   "id": "run-11",
+   "s": "run",
+   "h": "1 · Setup",
+   "t": "Start event · pair round 1",
+   "x": ", with a confirmation. Details and teams lock, and so does the round count when it's automatic."
+  },
+  {
+   "id": "run-12",
+   "s": "run",
+   "h": "2 · Live",
+   "t": "Round",
+   "x": "a big countdown clock with Pause and +5 min, and matches grouped as Disputed, Waiting and Results in. Tap any match to set its result."
+  },
+  {
+   "id": "run-13",
+   "s": "run",
+   "h": "2 · Live",
+   "t": "Your match · Table N",
+   "x": "when you're playing too: your opponent, Open life tracker and Set result, right under the clock."
+  },
+  {
+   "id": "run-14",
+   "s": "run",
+   "h": "2 · Live",
+   "t": "Guest matches",
+   "x": "when neither player has an account, your phone keeps score with the life tracker and reports the result."
+  },
+  {
+   "id": "run-15",
+   "s": "run",
+   "h": "2 · Live",
+   "t": "Standings",
+   "x": "updating as results arrive (teams first for team events). With two or more pods, each player shows their pod (P1, P2) and a filter (All · Pod 1 · Pod 2) shows one pod in overall order."
+  },
+  {
+   "id": "run-16",
+   "s": "run",
+   "h": "2 · Live",
+   "t": "Players",
+   "x": "drop a player (they're not paired again but their results still count) or reinstate them."
+  },
+  {
+   "id": "run-17",
+   "s": "run",
+   "h": "2 · Live",
+   "t": "Deck photos",
+   "x": "(More on phones, the top bar on the website) to photograph any player's deck."
+  },
+  {
+   "id": "run-18",
+   "s": "run",
+   "h": "2 · Live",
+   "x": "The big button moves from \"Waiting on 2 results\" to Pair round 3 to Finish event."
+  },
+  {
+   "id": "run-19",
+   "s": "run",
+   "h": "2 · Live",
+   "t": "Earlier",
+   "x": "a tab after Round with every earlier round, newest first; tap a match to correct its result."
+  },
+  {
+   "id": "run-20",
+   "s": "run",
+   "h": "2 · Live",
+   "t": "Re-pair round N",
+   "x": "(More; the bar on the website): pairs the running round again from the standings as they are now, with a fresh clock. It asks first and says when results already in will be cleared. A notice on the Round tab offers it when an earlier result was corrected after the round was paired (\"A round 2 result changed after round 3 was paired.\"). Only the latest round, while it runs, with no open dispute in earlier rounds; the old pairings stay in the event's log, and players are told \"Round 3 re-paired\"."
+  },
+  {
+   "id": "run-21",
+   "s": "run",
+   "h": "2 · Live",
+   "t": "Top 8",
+   "x": "after the last Swiss round the button is Cut to top 8 (it asks first), which pairs the quarterfinals by Swiss standings: 1 v 8, 4 v 5, 2 v 7, 3 v 6, the higher seed choosing to play or draw. Then Pair semifinals, Pair the final and Finish event. Playoff matches need a winner: draws can't be entered. Rounds are named Quarterfinals, Semifinals and Final, and the standings gain a Top 8 bracket with each seed and score."
+  },
+  {
+   "id": "run-22",
+   "s": "run",
+   "h": "2 · Live",
+   "t": "Team clinched",
+   "x": "in a team event with two teams, once one team has more match wins than the other could reach with every match still to play (5 of 9 in a 3-on-3 over three rounds, 7 of 12 in a 4-on-4), the round shows \"Team Alpha has clinched it: 5–1 in match wins with 3 matches left to play\" and the big button is Finish event straight away. Matches not yet played don't count for anyone. If the round is in, Play on · pair round N keeps going instead. A dispute still has to be settled first."
+  },
+  {
+   "id": "run-23",
+   "s": "run",
+   "h": "3 · Results",
+   "x": "A winner card (or winning team) above the final standings. With a top 8 the order is the winner, the finalist, the semifinalists, the quarterfinalists (each by seed), then everyone else by their Swiss standing."
+  },
+  {
+   "id": "run-24",
+   "s": "run",
+   "h": "3 · Results",
+   "x": "Every round's matches, newest first. Results can still be corrected; standings and records update."
+  },
+  {
+   "id": "run-25",
+   "s": "run",
+   "h": "3 · Results",
+   "x": "Cancelled events show standings after the last completed round and the reason."
+  },
+  {
+   "id": "run-26",
+   "s": "run",
+   "h": "How results work",
+   "x": "One player's report counts. If the opponent reports the same score it's confirmed; a different score is a dispute."
+  },
+  {
+   "id": "run-27",
+   "s": "run",
+   "h": "How results work",
+   "x": "Results auto-confirm at round end. Disputes must be settled before the next round can be paired."
+  },
+  {
+   "id": "run-28",
+   "s": "run",
+   "h": "How results work",
+   "x": "The organizer can set any result; every change is recorded. A correction made after the next round was paired can be followed by Re-pair on that round."
+  },
+  {
+   "id": "run-29",
+   "s": "run",
+   "h": "How results work",
+   "x": "Scoring follows the Magic Tournament Rules: 3 points for a win, 1 for a draw, a bye counts as a win; tiebreakers are opponents' match-win %, game-win % and opponents' game-win %, each with a 33% floor."
+  },
+  {
+   "id": "run-30",
+   "s": "run",
+   "h": "How results work",
+   "t": "Drafts with pods",
+   "x": "round 1 is across each table; odd pods' last seats play each other, pod 1's against pod 2's, and only an odd event has a bye. Inside pods, later rounds pair each pod by its own standings; an odd pod's lowest-ranked player (one who can cross without a rematch) plays another pod's, and the bye, if any, goes to one of them who hasn't had one. Across pods, later rounds are ordinary Swiss. Standings are one list either way, and the top 8 cuts from it."
+  },
+  {
+   "id": "run-31",
+   "s": "run",
+   "h": "How results work",
+   "x": "Team events: a team wins a round by winning more of its matches; teams are ordered by those round results, then total match wins. Inside each team, players are listed best first by record, then game-win %, then opponents' match-win %, each with their record (\"2-0\")."
+  },
+  {
+   "id": "run-32",
+   "s": "run",
+   "h": "How results work",
+   "x": "Older app versions still run these events, but show Finish where newer ones show Cut to top 8. The organizer's match and guest scorekeeping are on iOS; Seat the ends on iOS, Android and the website."
+  },
+  {
+   "id": "play-1",
+   "s": "play",
+   "x": "The Events tab's live card shows your table, opponent and round clock, and leads with reporting your result (or opening the life tracker, if you chose that in settings)."
+  },
+  {
+   "id": "play-2",
+   "s": "play",
+   "x": "Report a match in one tap; your opponent confirms or disputes it."
+  },
+  {
+   "id": "play-3",
+   "s": "play",
+   "t": "Sign up by link",
+   "x": "before round 1 an event's link (table-1.site/s/…) shows when and where it is, the format, who runs it, the rounds (\"Auto rounds · Top 8\"), how many have signed up (\"12/16 players · 3 on the waitlist\") and Sign up. Signed out, Sign up goes through sign-in (Apple, Google or email, which make an account if you don't have one) and comes back signed up, in the app or on the website. A full event offers Join the waitlist, then says your place (\"You're number 2 on the waitlist\"); when a place opens you're seated and get a \"You're in\" notification. Private events don't show."
+  },
+  {
+   "id": "play-4",
+   "s": "play",
+   "t": "Leave event",
+   "x": "until round 1, leave your seat or your place on the waitlist from the event screen; the next person on the waitlist moves up."
+  },
+  {
+   "id": "play-5",
+   "s": "play",
+   "t": "Decklist",
+   "x": "(Constructed events that take them): the Decklist row on the event screen (\"Add your decklist\", or \"Required · add it before round 1\"; Events says \"Add your decklist\" too while it's missing). Paste it as text (Arena, MTGO and Moxfield lists all read, and the screen counts \"60 main · 15 sideboard\" as you go) or pick one of your own decks in the event's format. Change or remove it until round 1; after that ask the organizer. Only you and the organizer see it."
+  },
+  {
+   "id": "play-6",
+   "s": "play",
+   "t": "The link after round 1",
+   "x": "the same link shows Standings (with the top 8 bracket once there is one) and Matchups: every round's tables and scores, newest first. Anyone with the link can follow along, signed in or not."
+  },
+  {
+   "id": "play-7",
+   "s": "play",
+   "t": "Nearby",
+   "x": ": open events within 150 m, nearest first, with Join, after the note that your name shows in its pairings and standings. Your location is sent once per look and never kept."
+  },
+  {
+   "id": "play-8",
+   "s": "play",
+   "t": "Event code",
+   "x": "(iPhone and Android Events tab, under Scan QR and Nearby; the website's box on its home page): type the organizer's 4-character code and Join, or Paste what you copied (a code, a join link, the QR's link, or a message with the code in it) and it joins at once. A wrong, closed or full event says so under the box."
+  },
+  {
+   "id": "play-9",
+   "s": "play",
+   "x": "Join by QR, link, code or nearby. A join link (with or without the QR's secret) opens the app and joins when the app is installed, and the website otherwise. A nearby event you've already joined (or run) says Joined and opens the event instead of offering Join."
+  },
+  {
+   "id": "play-10",
+   "s": "play",
+   "t": "No account yet?",
+   "x": "Scan the organizer's QR with your phone's camera. Signed out, the page (or the app, if you have it) names the event you're joining (its name, format, venue, organizer and how many players are in) and offers Continue with Apple, Google or email. Each one makes your account if you don't have one; a new email account adds your first and last name, and then you're seated. On the website you can also join as a guest with just a name. Private events show only their code until you're in."
+  },
+  {
+   "id": "play-11",
+   "s": "play",
+   "t": "Get the app",
+   "x": "after joining on a phone's browser, the event screen offers the app for that phone and says which sign-in to use there (\"Continue with Apple\", or the email address). Your seat is on your account, so signing in the same way puts the event on the app's Events tab. On Android the store link also carries the event through the install: the app opens on it the first time (after you sign in). Not now hides it on that browser. Guests don't see it (their seat lives in that browser)."
+  },
+  {
+   "id": "play-12",
+   "s": "play",
+   "x": "Before you join, the app says plainly that your name shows in the event's pairings and standings, to its players and anyone with its standings link."
+  },
+  {
+   "id": "play-13",
+   "s": "play",
+   "x": "Standings and matchups are public by link, so friends can follow along. A code join to a full event puts you on the waitlist (guests are told it's full); the QR and nearby joins say it's full, since the organizer can add you."
+  },
+  {
+   "id": "play-14",
+   "s": "play",
+   "x": "In a top 8, your playoff rounds are named Quarterfinals, Semifinals and Final, and can't be reported as a draw."
+  },
+  {
+   "id": "play-15",
+   "s": "play",
+   "x": "On iPhone, the round shows in a Live Activity and widgets (clock, table and opponent on the Lock Screen), and push notifications tell you when you're paired."
+  },
+  {
+   "id": "play-16",
+   "s": "play",
+   "x": "In drafts you see your seat at the table and the pass direction for each pack; in team events your team and seat letter."
+  },
+  {
+   "id": "play-17",
+   "s": "play",
+   "t": "Deck photo",
+   "x": "photograph your own deck (or pick a photo) with a note. Before saving, Rotate left or Rotate right turns it upright. Only you and the organizer see it until the event is over. On iPhone, Android and the website, when you're signed in; a guest's deck can be added by the organizer."
+  },
+  {
+   "id": "play-18",
+   "s": "play",
+   "t": "An event you're not in",
+   "x": "(signed in, in the apps): its link opens the event page in the app, never the website: the sign-up page before round 1, then Standings | Matchups (top 8, teams and pods included; every round's tables and scores), refreshing every 20 seconds. Its notifications open the same page."
+  },
+  {
+   "id": "play-19",
+   "s": "play",
+   "t": "Follow",
+   "x": "on that page, for anyone signed in who isn't its organizer or a player (and can see it by its link). It's listed on the Events tab under Following (running first, then upcoming, then finished in the last week), with a notification when each round is paired, when it finishes and if it's cancelled. Following → turn notifications off, or Unfollow. Up to 200; nobody sees who follows."
+  },
+  {
+   "id": "play-20",
+   "s": "play",
+   "x": "On the website, the event screen has a back arrow to Events (or wherever you came from). So does the event's shared link page (sign-up, standings and matchups, signed in or out): opened straight from a link, the arrow goes to the home page."
+  },
+  {
+   "id": "widgets-1",
+   "s": "widgets",
+   "x": "Table 1 on the Lock Screen, the home screen and Control Center, so the common things don't need the app opened first. Tapping any of them opens the right screen."
+  },
+  {
+   "id": "widgets-2",
+   "s": "widgets",
+   "h": "Organizer on the Lock Screen",
+   "x": "While you run a round, the Lock Screen and Dynamic Island show it: the round, the clock, and 5/8 in with a bar of one mark per match (teal = result in, red = disputed)."
+  },
+  {
+   "id": "widgets-3",
+   "s": "widgets",
+   "h": "Organizer on the Lock Screen",
+   "x": "One line says what's next: \"Waiting on 3 results\", then Ready: Pair round 4 or Ready: Finish event once every result is in. Under it: disputes to decide, and guest matches you have to enter yourself."
+  },
+  {
+   "id": "widgets-4",
+   "s": "widgets",
+   "h": "Organizer on the Lock Screen",
+   "x": "Between rounds it says \"Round 3 recorded · Pair round 4\". It ends with the event."
+  },
+  {
+   "id": "widgets-5",
+   "s": "widgets",
+   "h": "Organizer on the Lock Screen",
+   "x": "You get an alert when a match is disputed and when the last result of a round comes in, not for every result."
+  },
+  {
+   "id": "widgets-6",
+   "s": "widgets",
+   "h": "Organizer on the Lock Screen",
+   "x": "It only shows: pairing and deciding disputes happen on the organizer screen, one tap away. If you also play, your own match has its own Live Activity as before."
+  },
+  {
+   "id": "widgets-7",
+   "s": "widgets",
+   "h": "Next event",
+   "x": "A home screen widget (small or medium) and a Lock Screen one: your next event's format, name, venue and player count, and when it starts (\"In 2h 10m\", or the day and time)."
+  },
+  {
+   "id": "widgets-8",
+   "s": "widgets",
+   "h": "Next event",
+   "x": "A live event comes first, then the soonest one with a start time. It says when you're organizing. The medium size adds the one after and any invitations waiting."
+  },
+  {
+   "id": "widgets-9",
+   "s": "widgets",
+   "h": "Next event",
+   "x": "It uses what the Events tab shows, refreshed when you open the app and every so often in between."
+  },
+  {
+   "id": "widgets-10",
+   "s": "widgets",
+   "h": "Collection value",
+   "x": "A home screen widget: your collection's value in USD, the change over the last 7 days, and a line of the last 30 days. The medium size adds distinct cards and copies."
+  },
+  {
+   "id": "widgets-11",
+   "s": "widgets",
+   "h": "Collection value",
+   "x": "The change counts cards you added or removed as well as price moves, so it says \"7 days\", not \"market\"."
+  },
+  {
+   "id": "widgets-12",
+   "s": "widgets",
+   "h": "Collection value",
+   "x": "It starts tracking when you add it, so the first day shows just the value (\"From today\")."
+  },
+  {
+   "id": "widgets-13",
+   "s": "widgets",
+   "h": "Collection value",
+   "x": "Kept off the Lock Screen, and hidden while your phone is locked, because your collection's value is private."
+  },
+  {
+   "id": "widgets-14",
+   "s": "widgets",
+   "h": "Quick actions",
+   "t": "Life tracker",
+   "x": "opens a life tracker straight away, for a game at the table."
+  },
+  {
+   "id": "widgets-15",
+   "s": "widgets",
+   "h": "Quick actions",
+   "t": "Scan cards",
+   "x": "opens Add cards with the camera already scanning; everything you scan goes in as one batch with Undo, as usual."
+  },
+  {
+   "id": "widgets-16",
+   "s": "widgets",
+   "h": "Quick actions",
+   "x": "Both are in Shortcuts and can go on the Action Button; on iOS 18 and later also in Control Center and the Lock Screen's buttons. Siri knows them as \"Open Table 1 life tracker\" and \"Scan cards with Table 1\"."
+  },
+  {
+   "id": "widgets-17",
+   "s": "widgets",
+   "h": "Card icon",
+   "t": "Any card behind the Table 1 mark",
+   "x": "on a card's page, details (the list icon) → Use for the icon widget saves that printing's art on the phone; the row then reads On your icon widget, and a tap offers Remove from icon widgets. It shows for any printing that has a picture: in your collection, a deck, a binder, a search, a friend's list."
+  },
+  {
+   "id": "widgets-18",
+   "s": "widgets",
+   "h": "Card icon",
+   "t": "The widget",
+   "x": "(iPhone small; Android one cell, resizable to any shape): the card's art filling the widget under a 60% dark scrim, with the Table 1 mark in white at the app icon's size. No words. A tap opens Table 1 where you left it, as the icon does. With no card picked, or its art missing, it's the plain icon."
+  },
+  {
+   "id": "widgets-19",
+   "s": "widgets",
+   "h": "Card icon",
+   "t": "Your icon cards",
+   "x": "the phone keeps the last 12 you picked, newest first; picking one again moves it up. Each widget shows the newest unless you pick one in its settings (iPhone: Edit Widget → Card; Android: Newest or a card, with its art). A widget whose card was removed goes back to the newest."
+  },
+  {
+   "id": "widgets-20",
+   "s": "widgets",
+   "h": "Card icon",
+   "x": "Kept on the phone, not in your account, so they stay through sign-out and don't follow you to another device. The website has no widgets."
+  },
+  {
+   "id": "widgets-21",
+   "s": "widgets",
+   "h": "Insights widgets",
+   "t": "Set up in the widget",
+   "x": "each has its own settings (iPhone: long-press → Edit Widget; Android: the settings screen that opens when you place it on older Android, or the widget's settings or Reconfigure on newer ones): Format (Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Canadian Highlander), Events (Big events or All events) and Window (7, 14, 30 or 90 days). They start on Modern, Big events, 30 days. When Big events has nothing in the window, the widget shows All events and says so on its label."
+  },
+  {
+   "id": "widgets-22",
+   "s": "widgets",
+   "h": "Insights widgets",
+   "t": "Meta",
+   "x": "(iPhone small, medium, large; Android any size): \"MODERN · BIG · 30D\", a bar of the whole meta with each archetype in its color, and the most played archetypes with their shares (five, or eight on the large size). From the medium size up, the graph: Meta over time for those archetypes across the window, each line in its color. The large size adds each archetype's change on the window before (▲ in teal, ▼ in pink) and its win rate."
+  },
+  {
+   "id": "widgets-23",
+   "s": "widgets",
+   "h": "Insights widgets",
+   "t": "Matchup grid",
+   "x": "(iPhone medium, large; Android two rows and up): the window's matchup grid, the most played archetypes along the top (by short initials, over a line in their color) against the rows that fit, each square's win rate tinted teal or pink like the Insights tab, faded under 30 matches."
+  },
+  {
+   "id": "widgets-24",
+   "s": "widgets",
+   "h": "Insights widgets",
+   "t": "Archetype matchups",
+   "x": "(iPhone small, medium, large; Android any size): pick the archetype in the widget's settings (the format's archetypes, those with matchups first; or leave it on the most played). It shows the archetype's win rate and share; small adds its best and worst matchup, medium Good against and Bad against (three each, from 20 or more decided matches), large every matchup as a bar from 50%, with its percent and match count."
+  },
+  {
+   "id": "widgets-25",
+   "s": "widgets",
+   "h": "Insights widgets",
+   "t": "Colors",
+   "x": "the eight most played archetypes of the window each get their own color (a palette checked for color-blind readers on Table 1's dark background), the rest grey; an archetype has the same color in all three widgets with the same settings, and its name always sits beside it."
+  },
+  {
+   "id": "widgets-26",
+   "s": "widgets",
+   "h": "Insights widgets",
+   "t": "Tap a square",
+   "x": "on the Matchup grid: it's outlined, its row and column names light up, and the top line reads \"Broodscale Combo vs Izzet Prowess\" with the record (\"321-236-14\"); large adds the win rate and likely range, or \"Only 2 matches: too few to say\". Tap it again to let go, or another square to move. On iPhone, two grid widgets with the same settings share what's tapped."
+  },
+  {
+   "id": "widgets-27",
+   "s": "widgets",
+   "h": "Insights widgets",
+   "t": "Tap a deck",
+   "x": "in Meta's list (medium and up): its line is drawn on top and the other lines and decks fade. Tap again to let go."
+  },
+  {
+   "id": "widgets-28",
+   "s": "widgets",
+   "h": "Insights widgets",
+   "t": "Tinted and clear Home Screens",
+   "x": "(iPhone): decks in white that fades by place, winning squares filled faintly, losing ones outlined, text always full, so every number stays readable."
+  },
+  {
+   "id": "widgets-29",
+   "s": "widgets",
+   "h": "Insights widgets",
+   "x": "A tap anywhere else opens Insights on the same format, events and window (the grid, or the archetype's page). The widgets read the same public Insights data as the tab, with no sign-in, and refresh every three hours; offline before their first load they say the format loads when you're online."
+  },
+  {
+   "id": "widgets-30",
+   "s": "widgets",
+   "h": "On Android",
+   "t": "A live notification",
+   "x": "for each event you play in or run, in its own quiet Live events group (alerts still come as ordinary notifications). Playing: \"R2/4 · T3 · vs Ana\", where the result stands, ranks and records, and the round clock counting down; Won 2–0, Won 2–1 and Other result while the match is open, Confirm and Dispute when your opponent has reported. Running: \"5/8 in\" with a bar, the next step, disputes and results to enter yourself, and the clock. A tap opens the event. When the event ends the last line stays half an hour, then goes. On Android 16 both show as Live Updates."
+  },
+  {
+   "id": "widgets-31",
+   "s": "widgets",
+   "h": "On Android",
+   "t": "Home screen widgets",
+   "x": "Next event, Collection value and Current match, drawn like the iPhone's (same labels, order, colors and buttons) with the same rules. Current match ticks the round clock and, from the wider size, reports (2-0 to 0-2), confirms or disputes without opening the app. Android has no lock screen widgets; the live notification covers the match there."
+  },
+  {
+   "id": "widgets-32",
+   "s": "widgets",
+   "h": "On Android",
+   "t": "Any size",
+   "x": "long-press a widget and drag its edges, from one row up to the full width and any height. One row: Next event shows when and the name, Collection value the amount (wide: with the line and the week's change), Current match the round, table and clock. 2×2 and 4×2 are the iPhone's small and medium. Three rows and up: Next event lists the later events that fit under the first (tap one to open it, \"+2 more\" for the rest), Collection value grows the amount and the 30-day line, and Current match shows the big clock, where the result stands and all five result buttons (on a narrow one, Confirm above Dispute)."
+  },
+  {
+   "id": "widgets-33",
+   "s": "widgets",
+   "h": "On Android",
+   "t": "Quick Settings tiles",
+   "x": "and long-press shortcuts on the app icon: Life tracker and Scan cards."
+  },
+  {
+   "id": "widgets-34",
+   "s": "widgets",
+   "h": "On Android",
+   "x": "The app refreshes them whenever it reads your events, when it comes back to the front, and when a notification about an event arrives. A widget fetches for itself when its copy is old (Next event 15 minutes, Collection value 6 hours, Current match 5 minutes). Signing out clears them."
+  },
+  {
+   "id": "roto-1",
+   "s": "roto",
+   "x": "A rotisserie draft: the whole cube is laid out face up and players take turns picking from it, snake order by seat. The picks fill a deck in each player's Library, then rounds run like any other event."
+  },
+  {
+   "id": "roto-2",
+   "s": "roto",
+   "h": "Organizer",
+   "x": "Pick one of your Library cubes (a Cube Cobra link is imported first). The cube must hold players × picks."
+  },
+  {
+   "id": "roto-3",
+   "s": "roto",
+   "h": "Organizer",
+   "x": "Picks per player (default 45), order (Snake or Same order), and an optional pick clock that can change by round (30 s to 24 h), pause and resume."
+  },
+  {
+   "id": "roto-4",
+   "s": "roto",
+   "h": "Organizer",
+   "t": "Start draft",
+   "x": "seats everyone at random. Pick for anyone, or Undo last pick."
+  },
+  {
+   "id": "roto-5",
+   "s": "roto",
+   "h": "Players",
+   "x": "A summary line on top: who's on the clock, the pick number, and \"You pick in 3\" or Your pick."
+  },
+  {
+   "id": "roto-6",
+   "s": "roto",
+   "h": "Players",
+   "t": "Grid",
+   "x": "(seats × rounds), Cube (by color, Available / All / Picked), Picks (anyone's, with colors and curve) and My list."
+  },
+  {
+   "id": "roto-7",
+   "s": "roto",
+   "h": "Players",
+   "x": "My list is a private ranked list; with Auto-pick on, your turn picks the top card still there. Taken cards leave everyone's list at once."
+  },
+  {
+   "id": "roto-8",
+   "s": "roto",
+   "h": "After the draft",
+   "x": "Your deck is a normal Library deck marked \"From <event>\". It never counts as Missing."
+  },
+  {
+   "id": "roto-9",
+   "s": "roto",
+   "h": "After the draft",
+   "x": "Round robin or Swiss, then results and standings as usual."
+  },
+  {
+   "id": "roto-10",
+   "s": "roto",
+   "h": "After the draft",
+   "x": "A guest who claims their seat later gets the deck at once."
+  },
+  {
+   "id": "roto-11",
+   "s": "roto",
+   "h": "After the draft",
+   "x": "If someone picked that card first, you see it taken and pick again."
+  },
+  {
+   "id": "after-1",
+   "s": "after",
+   "t": "Deck photos",
+   "x": "(all platforms): once the event is over, everyone in it sees every deck photo and its note, and players can still add theirs: Deck photos · Add under After the event, or More → Add a deck photo on the organizer's Results. The player or whoever took it can edit the note, remove it, or Rotate right / Rotate left to set a sideways photo upright; it turns for everyone and the original file stays as it was. Photos show whole, not cropped."
+  },
+  {
+   "id": "after-2",
+   "s": "after",
+   "t": "On your account",
+   "x": "Account → Deck photos (\"12 photos · 5 events\", under your lifetime record) lists every photo of a deck you played across events, whoever took it, headed by event (name, format, date), newest event first. Each photo's menu: Open event, Everyone's photos from this event (finished events), Rotate, the note and Remove. On all three; the website at table-1.site/me/deck-photos."
+  },
+  {
+   "id": "after-3",
+   "s": "after",
+   "t": "Redraft",
+   "x": "(finished set drafts, iPhone, Android and the website ): everyone in the event scans their cards into one pile, most valuable first, with who added each card and its market price, and the pile's total. Tap a card to take it out. The website has no camera scanner, so there cards are added by search, in the drafted set's printing when the card is in it, with a Foil switch."
+  },
+  {
+   "id": "tracker-1",
+   "s": "tracker",
+   "x": "Full screen, edge to edge, screen stays awake. With two players, your half is at the bottom and your opponent's is upside down at the top; with three to five, everyone sits around the phone. Tap the top of a number for +1, the bottom for −1; hold to repeat."
+  },
+  {
+   "id": "tracker-2",
+   "s": "tracker",
+   "h": "Setup",
+   "x": "Opened without an event (from Events, the life tracker shortcut or a tracker link), the tracker starts on Setup: Players 2 · 3 · 4 · 5 and Starting life 20 · 30 · 40, starting on what you picked last time."
+  },
+  {
+   "id": "tracker-3",
+   "s": "tracker",
+   "h": "Setup",
+   "t": "Start",
+   "x": "begins a fresh game and opens the Chooser, so the table picks who goes first."
+  },
+  {
+   "id": "tracker-4",
+   "s": "tracker",
+   "h": "Setup",
+   "t": "Continue",
+   "x": "(when a saved game has changes or recorded games) picks it up where you left it."
+  },
+  {
+   "id": "tracker-5",
+   "s": "tracker",
+   "h": "Setup",
+   "t": "New match",
+   "x": "in Options or History goes back to Setup. An event's match never shows Setup: it's always two players at the event's life."
+  },
+  {
+   "id": "tracker-6",
+   "s": "tracker",
+   "h": "Three to five players",
+   "x": "Players sit clockwise from the bottom, each facing their own edge of the phone: three is one down each side and one at the bottom, four is two down each side, five is two down each side and one at the bottom. They're named P1 to P5 (two players stay You and Opponent)."
+  },
+  {
+   "id": "tracker-7",
+   "s": "tracker",
+   "h": "Three to five players",
+   "x": "Each seat works like a two-player half, the way its player sees it: life on their left, counters beside it, +1 on their top half, and a swipe toward themselves to open the counter picker (only Done closes it)."
+  },
+  {
+   "id": "tracker-8",
+   "s": "tracker",
+   "h": "Three to five players",
+   "t": "Record",
+   "x": "lights up once only one player is left and is filled in with them; otherwise it asks who won, listing every player and Draw. Games follow one another with no best of three, and History keeps the score (\"P1 1 · P2 0 · P3 2\")."
+  },
+  {
+   "id": "tracker-9",
+   "s": "tracker",
+   "h": "Commander damage",
+   "x": "At 30 or 40 starting life (Commander 40, Pauper Commander 30), the counter picker lists commander damage from each opponent first (\"Commander P3\", or just \"Commander\" with one opponent), then poison and the rest. A turned-on column reads \"Cmd P3\"."
+  },
+  {
+   "id": "tracker-10",
+   "s": "tracker",
+   "h": "Commander damage",
+   "x": "Commander damage is life lost too: +1 takes a life, −1 gives it back, and Undo or Reset takes both back together. History shows it (\"P1 · Commander P3 +3 → 3\")."
+  },
+  {
+   "id": "tracker-11",
+   "s": "tracker",
+   "h": "Commander damage",
+   "t": "21",
+   "x": "commander damage from one opponent loses the game; that column turns red. Oathbreaker plays at 20 without commander damage."
+  },
+  {
+   "id": "tracker-12",
+   "s": "tracker",
+   "h": "Everywhere",
+   "x": "A tap counts the moment your finger touches down; if it turns into a swipe, the change is taken back."
+  },
+  {
+   "id": "tracker-13",
+   "s": "tracker",
+   "h": "Everywhere",
+   "x": "Swipe down on a half to turn on up to 3 counters: poison (you lose at 10), energy, experience, rad and speed (and commander damage at 30+ life). Done closes the picker: no swipe does, so swiping up scrolls its list instead of closing it."
+  },
+  {
+   "id": "tracker-14",
+   "s": "tracker",
+   "h": "Everywhere",
+   "x": "The center strip shows the round clock (teal, amber under 10 minutes, pink in overtime), your round and table, and Record · Options · Reset. Someone watching sees Options only."
+  },
+  {
+   "id": "tracker-15",
+   "s": "tracker",
+   "h": "Everywhere",
+   "t": "Reset",
+   "x": "asks first, then puts everyone's life back to the starting life and every counter to 0 for this game. In a game on your own phone with games already recorded, it also offers Reset match, which clears the games too and keeps the players, starting life and counters you turned on. In an event, recorded games stay: they're the event's record."
+  },
+  {
+   "id": "tracker-16",
+   "s": "tracker",
+   "h": "Everywhere",
+   "t": "Options",
+   "x": "rises from the bottom: Chooser, Roll dice, History, New match (without an event) and Leave tracker."
+  },
+  {
+   "id": "tracker-17",
+   "s": "tracker",
+   "h": "Everywhere",
+   "t": "Chooser",
+   "x": "covers the screen. Everyone puts a finger down; a ring closes around each finger, and once no finger has landed or lifted for two seconds one is picked at random and fills in teal. A moment later (1.5 seconds) the tracker comes back on its own; Done leaves sooner."
+  },
+  {
+   "id": "tracker-18",
+   "s": "tracker",
+   "h": "Everywhere",
+   "t": "Roll dice",
+   "x": "pick the die (D4, D6, D8, D10, D12, D20) and how many (1 to 10), then Roll. The total shows large, with each die under it (\"2D6 · 4 + 5\"); tap the total to roll again. Your die and count are remembered."
+  },
+  {
+   "id": "tracker-19",
+   "s": "tracker",
+   "h": "Everywhere",
+   "x": "History groups quick taps into one entry (\"Marcus · Life −5 → 15\") and lets you undo."
+  },
+  {
+   "id": "tracker-20",
+   "s": "tracker",
+   "h": "Everywhere",
+   "x": "With two players, when someone hits 0 life or 10 poison Record lights up. Recording a game moves to the next one; when the match is decided the app offers to report it, for example \"Report 2–1 to the event?\"."
+  },
+  {
+   "id": "tracker-21",
+   "s": "tracker",
+   "h": "Everywhere",
+   "x": "In an event, both players' phones stay in sync and the organizer can watch read-only (or keep score for a guest match)."
+  },
+  {
+   "id": "insights-1",
+   "s": "insights",
+   "x": "What's winning, at a glance. Its own tab between Collection and Account (in the sidebar on a computer), with Constructed | Limited at the top; the app remembers which you used last. Free for anyone signed in."
+  },
+  {
+   "id": "insights-2",
+   "s": "insights",
+   "h": "Constructed",
+   "x": "Pick Standard, Pioneer, Modern, Legacy, Vintage, Pauper or Canadian Highlander, Big events or All events, and a window of 7, 14, 30 or 90 days (30 to start), from dropdowns: one row of three cells (Format · Events · Window) with a small arrow, each opening its list with the current choice outlined. The format list ends in Shown formats…, which opens the switches that hide formats you don't play. A list's own screen (Meta now and the rest) has the Events and Window dropdowns it needs."
+  },
+  {
+   "id": "insights-3",
+   "s": "insights",
+   "h": "Constructed",
+   "t": "The format page",
+   "x": "Meta over time and the matchup grid come first, then In brief with the Decks · Events · Through numbers, then one row each for Meta now, Cards rising and falling, New set, Bans and unbans (Points changes in Canadian Highlander) and Big events (or Events). Each row sums its list up in one line (\"Eldrazi Bloodchief Combo 17% · 25 archetypes\", \"Rising most: Lightning Bolt ▲ 11\", \"24 events · latest Modern Challenge 64\") and opens it on its own screen, in full, with the pickers that list depends on; they're the same picks as the format page."
+  },
+  {
+   "id": "insights-4",
+   "s": "insights",
+   "h": "Constructed",
+   "t": "Meta now",
+   "x": "each deck's share of top finishes and its change from the window before, and under it \"Win 54.2% · Conv 31% · 1st 16%\": its win rate in matches against other decks (top 8 brackets and paper rounds; mirrors left out, draws count as not won; shown from 20 matches), its conversion rate (the share of its lists that made top 8, in events with a top 8, leagues left out; shown from 20 lists; on Magic Online only the top 32 lists are published, so there it's top 32 to top 8), and 1st, the share of the window's events it won."
+  },
+  {
+   "id": "insights-5",
+   "s": "insights",
+   "h": "Constructed",
+   "t": "Meta over time",
+   "x": "every named deck with at least 1% of the window's decks (as well as the eight biggest), its share day by day over the window you picked (7, 14, 30 or 90 days), with bans and new sets marked. Shorter windows show dates along the bottom, 90 days shows months; a deck with no results in the window drops off the chart. The chart runs the full width: tap a deck in the row under it to light up its line, and that deck's button shows its current share. A set is marked only when it brings the format new cards, so reprint sets like Mystery Booster Commander don't show."
+  },
+  {
+   "id": "insights-6",
+   "s": "insights",
+   "h": "Constructed",
+   "t": "Cards",
+   "x": "the cards played more and less (main deck or sideboard), and the newest set's cards ranked by how much they're played."
+  },
+  {
+   "id": "insights-7",
+   "s": "insights",
+   "h": "Constructed",
+   "t": "Bans",
+   "x": "for each ban or unban in the last year, the decks it hit, the decks that gained, what took the banned cards' place, and how long the meta took to settle."
+  },
+  {
+   "id": "insights-8",
+   "s": "insights",
+   "h": "Constructed",
+   "t": "Matchups",
+   "x": "right under Meta over time: each row's win rate against each column, the columns the ten most played decks named along the top, and a row for every named deck with at least 1% of the decks and 20 matches, plus Other at the bottom. It follows the Big events / All events and window you picked (\"Matchups · All events, last 30 days\"). A pairing with fewer than 30 matches is faded: a hint, not a verdict. Tap a square for that matchup's record, shown below the grid. Overall, the first column, is each row's win rate against every archetype in the window (its Meta now record, or the sum of its squares when the window has none), colored like a square; tap it for \"Broodscale Combo overall\" with the record and its likely range. On a phone it scrolls in its own box, the deck names pinned on the left and the column names on top."
+  },
+  {
+   "id": "insights-9",
+   "s": "insights",
+   "h": "Constructed",
+   "t": "Your decks first",
+   "x": "signed in, the grid's rows start with the archetypes you have a deck of in that format (\"Your deck\", or \"Your 2 decks\"), then those whose usual list your collection covers at 60% or more (\"You have 84%\", most first; the usual list is every card in at least half that archetype's lists, at its usual copies, basic lands left out), then the rest in their usual order."
+  },
+  {
+   "id": "insights-10",
+   "s": "insights",
+   "h": "Constructed",
+   "x": "The last month's big events with their top 8s."
+  },
+  {
+   "id": "insights-11",
+   "s": "insights",
+   "h": "Constructed",
+   "x": "Tap a deck for its share over time, record, an example list (its best recent finish at the biggest event) with Add to my decks, core and flex cards, sideboard, matchups and recent finishes with full lists. Other is broken down by colors instead, each group with its share and an example list. Tap a card for its card page (below)."
+  },
+  {
+   "id": "insights-12",
+   "s": "insights",
+   "h": "Constructed",
+   "t": "Search cards",
+   "x": "the search icon at the top of Constructed opens \"<Format> cards\". From two letters it lists the cards played in that format in the last year, never a basic land: the exact name first, then names starting with what you typed or with a word starting with it, then anywhere in the name, then close spellings, each by how much it was played in the last 90 days, with \"Main 23% · Side 0.5%\" (or \"Not in the last 90 days · 6 lists this year\"). Nothing found says \"No Modern lists played a card called that this year.\""
+  },
+  {
+   "id": "insights-13",
+   "s": "insights",
+   "h": "Constructed",
+   "t": "The card page",
+   "x": "(from search, Cards rising and falling, or a ban study) follows the format page's Big events / All events and window, with the pickers on the page: Main · Side · Copies (copies: the average in lists that main it), Lists (\"235/707\"), first and last seen; Share of lists by week over a year, main and sideboard, marked where the card itself was banned, unbanned, restricted or given new points; Played in: every archetype with a list playing it, a bar of how many of its lists do (\"108 of 112 lists · 3.7 main · 1.0 side\"), tapping through to the archetype; and Best lists: the ten best lists that played it in the window (biggest events, then best finish, then newest), \"1st · Modern Challenge 64\" and \"Burn · 4 main · 1 side · NOV 3\", each opening the full list with Add to my decks. Open the card goes to its own page with prices and your copies."
+  },
+  {
+   "id": "insights-14",
+   "s": "insights",
+   "h": "Constructed",
+   "t": "A finish's list",
+   "x": "opens like a deck shared with you: card art, grouped by type, View (list, grid, stacks, Group by, Sort), search, Export and Deck image, with Add to my decks on top and where it finished above. Tap a card for its card page."
+  },
+  {
+   "id": "insights-15",
+   "s": "insights",
+   "h": "Constructed",
+   "t": "Edit",
+   "x": "at the end of the format row hides the formats you don't play (one always stays). Your picks follow your account: hidden formats and sets, and the format, events, window, set, event and players you picked, open the same way on every device."
+  },
+  {
+   "id": "insights-16",
+   "s": "insights",
+   "h": "Constructed",
+   "t": "Canadian Highlander",
+   "x": "has Points changes where other formats have bans: each points update is marked POINTS on the charts, with a page for who it hit and who gained."
+  },
+  {
+   "id": "insights-17",
+   "s": "insights",
+   "h": "Limited",
+   "x": "Pick a set on Arena, or an Arena cube run, shown by its name, such as Arena Powered Cube · Oct 2025, the event (Premier, Traditional, Pick Two or Sealed, where there's data), and All players or Top players (a 60% win rate or better over 50 games), from the Set · Event · Players dropdowns (Event and Players only when there's a choice; the set list ends in Shown sets… to hide sets you don't draft)."
+  },
+  {
+   "id": "insights-18",
+   "s": "insights",
+   "h": "Limited",
+   "t": "Cards first",
+   "x": "Top cards leads the page, with Sort (win rate in hand, in the opening hand, improvement when drawn, average pick), Rarity (not for a cube) and Color (W U B R G, Multicolor, Colorless) dropdowns, a search box, and the ten best cards for them. Each row: its place, the art of the set's own printing, the name, the mana cost in Scryfall's symbols, rarity and games in hand, and the sort's number with, for the win rates, the points above or below the format's average under it (\"+4.1\"). Show all N opens the rest. Art and mana costs come from the card file on your device (the page fetches it if it's missing)."
+  },
+  {
+   "id": "insights-19",
+   "s": "insights",
+   "h": "Limited",
+   "t": "Search",
+   "x": "two letters or more find the set's cards by name (starts first, accents and apostrophes ignored), whatever the filters. With no match in the set, it searches every other set's draft data on the device, up to 20, under \"Not in <set> · in other sets\", and a tap opens the card's page in that set."
+  },
+  {
+   "id": "insights-20",
+   "s": "insights",
+   "h": "Limited",
+   "t": "Rank this set",
+   "x": "comes right after the cards as the page's big action, with who has ranked it under the words. Then the color pairs and the rest; In brief and Games · Average · Weeks close the page."
+  },
+  {
+   "id": "insights-21",
+   "s": "insights",
+   "h": "Limited",
+   "t": "A card's page",
+   "x": "opens on the card's picture in the set's printing and its mana cost, then its win rates."
+  },
+  {
+   "id": "insights-22",
+   "s": "insights",
+   "h": "Limited",
+   "t": "Color pairs",
+   "x": "against the set's average, Deck colors (every main-color combination with its splash), and pairs week by week: the chart's scale fits the win rates shown, with the average as a dashed AVG line."
+  },
+  {
+   "id": "insights-23",
+   "s": "insights",
+   "h": "Limited",
+   "t": "Cards",
+   "x": "win rate in hand, in the opening hand, the gain from drawing it, and how early it's taken, with rarity and color filters (a cube has no rarities, so no rarity filter). Taken vs win rate shows which cards go later than they should."
+  },
+  {
+   "id": "insights-24",
+   "s": "insights",
+   "h": "Limited",
+   "t": "Game facts",
+   "x": "on the play and on the draw, mulligans, game length."
+  },
+  {
+   "id": "insights-25",
+   "s": "insights",
+   "h": "Limited",
+   "t": "Rank this set",
+   "x": "(Rank this cube for a cube run) opens its Rankings, and New sets to rank lists sets with no 17Lands data yet (\"Out Nov 13 · 286 cards\")."
+  },
+  {
+   "id": "insights-26",
+   "s": "insights",
+   "h": "Limited",
+   "t": "Spoiler season",
+   "x": "a set still to come, or out in the last four weeks, with no 17Lands data yet leads the set row by its code (TRK for Star Trek). Picking it says when it's out, that draft data follows about three weeks after a set reaches Arena (some never do), and how many cards Scryfall has so far, with Rank this set and the New in Insights switch. The row still opens on the newest set with data. Shown sets… lists them with the other sets, so they can be hidden the same way. The row draws once it knows which sets are coming, which it remembers on your device after your first visit, so they never jump in at the front a moment later."
+  },
+  {
+   "id": "insights-27",
+   "s": "insights",
+   "h": "Limited",
+   "t": "Arena cubes, run by run",
+   "x": "each cube Arena runs (Powered, Arena Cube, Planar, and any other 17Lands adds) gets an entry per run, named by its month (\"Arena Powered Cube · Oct 2025\"), with weeks counted from that run's first draft. A later run is a new entry; the old one stays as it was."
+  },
+  {
+   "id": "insights-28",
+   "s": "insights",
+   "h": "Limited",
+   "t": "New in Insights",
+   "x": "(at the bottom of Limited): a notification when a new Constructed format, a set's first draft data, a new cube run, or a set ready to rank (within 10 days of release) arrives. Once each, to people who opened Insights in the last 60 days; the switch turns it off."
+  },
+  {
+   "id": "insights-29",
+   "s": "insights",
+   "h": "Where it comes from",
+   "x": "Constructed: published Magic Online results (Challenges, Qualifiers, Showcases and Leagues), plus paper events of 32 or more players from TopDeck.gg and from Melee.gg, a year back. Bigger events count for more: 128 or more players four times a regular event, 64 or more twice, Regional Championships and other championships four times at any size, and a top 8 finish double."
+  },
+  {
+   "id": "insights-30",
+   "s": "insights",
+   "h": "Where it comes from",
+   "t": "Melee",
+   "x": "events come from MTG_decklistcache, an open collection of tournament results kept on GitHub and updated daily; Table 1 reads it, not Melee. Every public list, the standings and every round count (byes left out). Melee numbers its playoff rounds like Swiss ones, so a top 8 is marked when the last three rounds are a quarterfinal, semifinal and final among the top eight. A deck's record is its paper record (TopDeck.gg and Melee) when it has one, else its Magic Online top-32 record."
+  },
+  {
+   "id": "insights-31",
+   "s": "insights",
+   "h": "Where it comes from",
+   "t": "Legacy and Vintage",
+   "x": "come from the same three sources as the other formats. Some paper events are listed as Vintage when they're really 7-point Highlander or Commander, where nearly every card is a single copy; events where half or more of the decks are like that are left out, in every format but Canadian Highlander."
+  },
+  {
+   "id": "insights-32",
+   "s": "insights",
+   "h": "Where it comes from",
+   "t": "Canadian Highlander",
+   "x": "isn't played on Magic Online, so it comes from TopDeck.gg alone, from 16 players up (its events are smaller), and its screens say \"Results from TopDeck.gg\". Its events are small, so most windows say the numbers rest on few events."
+  },
+  {
+   "id": "insights-33",
+   "s": "insights",
+   "h": "Where it comes from",
+   "x": "Decks are named by rules for each format's known archetypes. Canadian Highlander decks are singletons that share few cards, so they're named by their colors and plan (Esper Control, Bant Midrange, Red Deck Wins, Jeskai Black), and a color pair or shard's own name (Izzet, Naya) for the rarer ones. New groups of decks are named by Claude and checked by a person before they show."
+  },
+  {
+   "id": "insights-34",
+   "s": "insights",
+   "h": "Where it comes from",
+   "x": "Limited: 17Lands' public data, credited on every Limited screen. Its files come out about two weeks after a set reaches Arena, then keep updating. Each cube run's data is from that run; when 17Lands publishes a new file for a cube, Table 1 reads its first rows to tell whether it's the same run updated or a new one."
+  },
+  {
+   "id": "insights-35",
+   "s": "insights",
+   "h": "Where it comes from",
+   "x": "No player names, anywhere."
+  },
+  {
+   "id": "insights-36",
+   "s": "insights",
+   "h": "In brief",
+   "x": "Every view opens with two or three short sentences, written by Claude from that view's numbers: what moved, and one deck, card or pair worth knowing."
+  },
+  {
+   "id": "library-1",
+   "s": "library",
+   "x": "Every card printed for paper play (about 37,900 cards and 110,000 printings) is downloaded once as a compact card file and kept on your device, so search, browsing, deck pages, stats and the scanner work offline and instantly. It refreshes daily from Scryfall but downloads again only when the cards actually change. The file also carries each card's printed names in ten other languages, legality, Canadian Highlander points, the mana each card makes, the tokens it creates, and each printing's illustrator and frame, for the scanner."
+  },
+  {
+   "id": "library-2",
+   "s": "library",
+   "t": "New sets the hour they appear",
+   "x": "Scryfall's set list is read every hour, and a set released in the last month or the next two whose card count grew is read card by card straight away, then the card file is rebuilt (at most every two hours). The nightly update still brings everything else."
+  },
+  {
+   "id": "library-3",
+   "s": "library",
+   "t": "Search",
+   "x": "by name: exact matches first, then names that start with what you typed, then any match; tokens last. Add cards searches also take Scryfall's syntax (see Advanced search)."
+  },
+  {
+   "id": "library-4",
+   "s": "library",
+   "t": "Search inside a screen",
+   "x": "a deck, cube, binder, all your binders and Wants each have their own search. Every word must appear in the card's name or type line, so \"jace mind\" finds Jace, the Mind Sculptor and \"legendary creature\" finds legends."
+  },
+  {
+   "id": "library-5",
+   "s": "library",
+   "t": "Card art",
+   "x": "loads at the smallest size that looks sharp, with rounded corners at the real card proportion, including Alpha's rounder corners and the square Collectors' Edition."
+  },
+  {
+   "id": "library-6",
+   "s": "library",
+   "t": "Original printing by default.",
+   "x": "Wherever you add a card it starts as the card's original paper printing, for example Alpha Lightning Bolt rather than a promo. You can change it any time."
+  },
+  {
+   "id": "library-7",
+   "s": "library",
+   "t": "Foil sheen",
+   "x": "foil copies show a light rainbow shimmer over the card image, etched copies a dimmer one, wherever the finish is known."
+  },
+  {
+   "id": "library-8",
+   "s": "library",
+   "t": "Prices",
+   "x": "USD is TCGplayer's market price and EUR is Cardmarket's, both via Scryfall, daily. Those are near-mint prices. A copy's price follows its condition: NM 100%, LP 90%, MP 75%, HP 60%, DMG 40% of the near-mint price, rounded to the cent. Your collection's value, All cards, card pages, binders, trades, trade matches and the import preview price each copy in its condition. Decks, cubes, wants, search results and Stats have no condition and show near mint. (Scryfall publishes no prices by condition, so these are fixed discounts.)"
+  },
+  {
+   "id": "library-9",
+   "s": "library",
+   "t": "When TCGplayer has no price",
+   "x": "a card's price in dollars is Cardmarket's converted at the European Central Bank's daily rate (non-foil and foil; etched never), refreshed nightly. A card's page marks it \"≈ $7,992.55 · from Cardmarket\". A converted price under a tenth of the card's cheapest TCGplayer price is left out, since a few Cardmarket prices point at the wrong product. Collection value, trades, trade matches and the redraft pile use it; want prices and price alerts stay on TCGplayer only."
+  },
+  {
+   "id": "collection-1",
+   "s": "collection",
+   "h": "The Collection tab",
+   "t": "Your collection",
+   "x": "at the top: up to two of its hero cards' art side by side (or, without heroes, your most valuable cards), with how many cards you have and what they're worth. Tap it for All cards."
+  },
+  {
+   "id": "collection-2",
+   "s": "collection",
+   "h": "The Collection tab",
+   "t": "Decks, Binders, Cubes",
+   "x": "a row each that you swipe sideways. Each tile shows its hero card's art (or the card it holds most of), its name, and for decks the format. The arrow beside the heading opens the full list, with New deck, New binder or New cube. With none yet, the row offers to make one."
+  },
+  {
+   "id": "collection-3",
+   "s": "collection",
+   "h": "The Collection tab",
+   "t": "Followed",
+   "x": "decks, binders and cubes come after your own on their row, with the owner's name and \"N new\" in teal when they've changed, and their art: the owner's hero card, else the card it holds most of that isn't a basic land. Tap one to open it. (The full Following list opens from a follow notification, or from the sidebar on a computer.)"
+  },
+  {
+   "id": "collection-4",
+   "s": "collection",
+   "h": "The Collection tab",
+   "t": "+",
+   "x": "at the top: Add cards, New deck, New binder or New cube."
+  },
+  {
+   "id": "collection-5",
+   "s": "collection",
+   "h": "The Collection tab",
+   "t": "The camera",
+   "x": "(iPhone and Android): scan a pile of cards, then Add puts them all in your collection, a deck, a cube, a binder, your wants or a trade (see Card scanning). What it added shows under the bar with Undo."
+  },
+  {
+   "id": "collection-6",
+   "s": "collection",
+   "h": "The Collection tab",
+   "t": "Search",
+   "x": "(the magnifier): search every card by name or with Scryfall syntax. Each result shows how many copies you own, and a tap opens its card page, where you can add it anywhere."
+  },
+  {
+   "id": "collection-7",
+   "s": "collection",
+   "h": "The Collection tab",
+   "t": "Search finds decks, cubes and binders",
+   "x": "from two letters, Decks, Cubes and Binders sections sit above the cards. Yours come first, matched on the device by every word of the search in the name or format (so they show offline). Then everyone else's you can see: decks, cubes and binders you follow (on the owner's profile or through the link you followed), friends' shared ones, and anyone's set to Anyone on a public profile, matched by name, owner's name or format; followed first, then friends', people you've played with, everyone else. Each row reads \"Deck · Modern · Mara Quinn\" (yours without a name, binders \"Binder · For trade\") with its card count; three per kind, then Show all N. Never your own twice, nothing private, nothing across a block."
+  },
+  {
+   "id": "collection-8",
+   "s": "collection",
+   "h": "The Collection tab",
+   "t": "Cards inside lists, archetypes, rankings",
+   "x": "a card's name (three letters or more; basic lands left out) also finds the decks, cubes and binders that hold it, everyone else's you can see and your own, with how many (\"Deck · Modern · Mara Quinn · 4 Lightning Bolt\"). Archetypes lists the Insights archetypes in the formats it reads whose name or format matches, most played first, with their tournament lists in the last 90 days; a tap opens the archetype's page. Rankings lists the cube and set rankings you can see (yours first, then friends'), by the cube or set, who ranked it or its label; a tap opens the ranking. Accounts a moderator has restricted don't show."
+  },
+  {
+   "id": "collection-9",
+   "s": "collection",
+   "h": "The Collection tab",
+   "t": "Trade · Wants · Import",
+   "x": "along the bottom open Trades (with your trade matches), Wants, and Import and export."
+  },
+  {
+   "id": "collection-10",
+   "s": "collection",
+   "h": "The Collection tab",
+   "x": "Each copy is tracked by printing, finish (non-foil, foil, etched), condition and language. Two foil and three non-foil copies of the same printing are separate counts, as are copies of other printings."
+  },
+  {
+   "id": "collection-11",
+   "s": "collection",
+   "h": "The Collection tab",
+   "t": "All cards",
+   "x": "lists every card you own, grouped by card (\"Lightning Bolt · 3 printings · 7 copies\"), as a list, a grid or stacks. Sort by Recent, Price (most valuable single copy first, in its condition; cards with no price yet come first, so they're easy to look up), Name, MV or Set."
+  },
+  {
+   "id": "collection-12",
+   "s": "collection",
+   "h": "The Collection tab",
+   "t": "Sort",
+   "x": "(View menu, every card list): Sort by name (A to Z), Sort by mana value (spells from lowest to highest, then lands, each by name) or Sort by set (newest set first, then collector number; the printing that counts is the one shown, and a card too new for the card data goes last). Binders also have Most copies first, where they start; All cards also has Recent and Price, and its row picks the same setting. Decks, cubes and shared sections start on Name. Each kind of screen remembers its own choice on the device; decks and cubes share theirs with ones a friend shares."
+  },
+  {
+   "id": "collection-13",
+   "s": "collection",
+   "h": "The Collection tab",
+   "t": "Group by",
+   "x": "(View menu): split All cards or a binder into groups by type, color, color identity or mana value, or show them ungrouped. The sort applies inside each group, and in stacks each group is one stack."
+  },
+  {
+   "id": "collection-14",
+   "s": "collection",
+   "h": "The Collection tab",
+   "t": "Color identity",
+   "x": "each combination is its own group, in this order: White, Blue, Black, Red, Green; the pairs Azorius, Dimir, Rakdos, Gruul, Selesnya, Orzhov, Izzet, Golgari, Boros, Simic; the three-color Esper, Grixis, Jund, Naya, Bant, Abzan, Jeskai, Sultai, Mardu, Temur; the four-color Not white, Not blue, Not black, Not red, Not green; Five-color; Colorless. Headings of two colors or more show the letters (\"Azorius · WU\"). A card's identity is Scryfall's: mana symbols in its rules text count, so Golos is Five-color. Lands have no group of their own here: Breeding Pool is Simic, a Mountain Red, Command Tower and fetch lands Colorless."
+  },
+  {
+   "id": "collection-15",
+   "s": "collection",
+   "h": "The Collection tab",
+   "t": "Printings, collapsed",
+   "x": "a card you own in several printings or finishes is one row with a chevron; open it to see each printing and finish with its count and price. View → Expand all printings opens every card. Lists start collapsed each visit."
+  },
+  {
+   "id": "collection-16",
+   "s": "collection",
+   "h": "The card page",
+   "x": "Tap any card (in All cards, a deck, a cube, a binder, your wants, a friend's profile or a shared link) and its page opens: the card as large as the screen allows, one row under it, and one bar at the bottom. The bar's price is the version on screen in its finish and condition."
+  },
+  {
+   "id": "collection-17",
+   "s": "collection",
+   "h": "The card page",
+   "t": "The row",
+   "x": "Set (a grid of every printing, earliest first), Language, Condition (NM, LP, MP, HP, DMG) and Finish (only the finishes the printing has, and hidden when it has one). When your copies differ it reads MIX. A non-English printing's language is its own."
+  },
+  {
+   "id": "collection-18",
+   "s": "collection",
+   "h": "The card page",
+   "t": "Picks change your copies.",
+   "x": "On a card you own, picking another set, language, condition or finish changes the copies on screen, each staying in its binder. With several copies it asks One copy or All; with several different versions it asks before changing them all. Undo puts them back. Changing the set keeps the finish if the new printing has it."
+  },
+  {
+   "id": "collection-19",
+   "s": "collection",
+   "h": "The card page",
+   "t": "The bar",
+   "x": "− count + for the copies on screen. + adds one more of that version, − takes one away; at 0 the page keeps that version so + puts it back. New cards start as the card's original printing, in the condition and language you last added in."
+  },
+  {
+   "id": "collection-20",
+   "s": "collection",
+   "h": "The card page",
+   "t": "Several versions",
+   "x": "own it in more than one printing, finish, condition or language and they show two across, each with its count. Tap one to select it (an outline in teal): the row then shows and changes only that one, and − count + count and change that version's copies. Tap it again to go back to all of them."
+  },
+  {
+   "id": "collection-21",
+   "s": "collection",
+   "h": "The card page",
+   "t": "Add a different version",
+   "x": "hold + (on a computer, hold or right-click it). A copy of the version on screen (the selected one, or the one you have most of) appears as its own card, dimmed and selected, with a count of one; nothing is added yet. Change its set, language, condition or finish (in a deck or cube: set, language, finish or section). While it matches a version you already have it stays dimmed; the first change that makes it new adds it, in the binder or section you're in, with Undo. Before that, − and + set how many it will add, − at one drops it, and leaving the page drops it too."
+  },
+  {
+   "id": "collection-22",
+   "s": "collection",
+   "h": "The card page",
+   "t": "Where you opened it from",
+   "x": "from a deck or cube the page counts that list's copies and its row is Set, Finish and Section (Main, Sideboard, Considering): no Language or Condition there, even when the deck records one; from a binder it counts and changes that binder's copies. From All cards, Add cards or a link it's your whole collection."
+  },
+  {
+   "id": "collection-23",
+   "s": "collection",
+   "h": "The card page",
+   "t": "Match collection",
+   "x": "(from a deck or cube): when you own the card in printings or finishes the list doesn't name, a strip over the row reads \"You own N in other printings · Match collection\", and the details have the same row. It opens a grid of every version you own (printing and finish, all conditions and languages together), two across, each with \"Own N\" and how many are picked in teal. It starts filled in: the versions the list already uses, then the ones you hold most of. Tap a tile for one more of it; once you've picked all you own of it, or every copy the list needs, a tap puts it back to none. Clear and Auto start over; a card in more than one section picks the section first. Use these printings changes the list's copies to your picks in one edit (each keeps its language, copies not picked stay as they are) with Undo; with nothing to change it reads Already matches."
+  },
+  {
+   "id": "collection-24",
+   "s": "collection",
+   "h": "The card page",
+   "t": "One or all",
+   "x": "with more than one copy on screen, the + at the top asks One copy or All N copies first. With a version selected it's that version's copies; otherwise All adds every version on screen with its count, to whichever place you pick next."
+  },
+  {
+   "id": "collection-25",
+   "s": "collection",
+   "h": "The card page",
+   "t": "Add to",
+   "x": "the + at the top (or the bottom bar, on a card from your wants, Missing, a friend or a shared link) adds the copies you chose (one, from the bottom bar) to your Collection, a Deck (then Main deck, Sideboard or Considering), a Cube, a Binder, your Wants (any printing, this printing, or this printing and finish) or a Trade (an open one or a new one, as a get, or a give when you own it). Undo works for collection, binder, deck and cube adds."
+  },
+  {
+   "id": "collection-26",
+   "s": "collection",
+   "h": "The card page",
+   "t": "Details",
+   "x": "(the list icon): the rules text (read from Scryfall when you open it; it needs a connection), price (in the copy's condition, with near mint beside it when it isn't NM: \"$9.00 · LP (NM $10.00)\"), type, mana cost, rarity, artist and printing. Under them: Add to collection when opened from a deck or cube, which decks and cubes use the card (warning when they ask for more than you own), your copies with where they are and Move, Add to wants, Make it a hero, and the history of the printing on screen."
+  },
+  {
+   "id": "collection-27",
+   "s": "collection",
+   "h": "The card page",
+   "x": "Double-faced cards have Flip under the card; tap the card to zoom in on it."
+  },
+  {
+   "id": "collection-28",
+   "s": "collection",
+   "h": "The card page",
+   "t": "Add cards",
+   "x": "search the catalog by name or with Scryfall syntax, or scan with the camera (phones)."
+  },
+  {
+   "id": "binders-1",
+   "s": "binders",
+   "x": "Binders say where your copies are; wants say what you're after. Both sync to every device and feed trades and trade matches."
+  },
+  {
+   "id": "binders-2",
+   "s": "binders",
+   "h": "Binders",
+   "x": "Make up to 200, named as you like. A binder holds some of your copies; the rest are Unsorted."
+  },
+  {
+   "id": "binders-3",
+   "s": "binders",
+   "h": "Binders",
+   "x": "Mark a binder For trade: its copies are what trades give first and what friends can match."
+  },
+  {
+   "id": "binders-4",
+   "s": "binders",
+   "h": "Binders",
+   "x": "When copies leave your collection, they come out of Unsorted first, then binders not for trade, then for-trade binders."
+  },
+  {
+   "id": "binders-5",
+   "s": "binders",
+   "h": "Binders",
+   "t": "Add cards",
+   "x": "in a binder: Move in a copy you own elsewhere (Unsorted first), or + New to add one straight into the binder. Scan adds the cards you scan, new, straight into the binder as one batch. Undo any of them."
+  },
+  {
+   "id": "binders-6",
+   "s": "binders",
+   "h": "Binders",
+   "t": "View",
+   "x": "shows a binder's cards as a list, a grid or stacks, and can expand every card's printings."
+  },
+  {
+   "id": "binders-7",
+   "s": "binders",
+   "h": "Binders",
+   "x": "Deleting a binder puts its copies back in Unsorted."
+  },
+  {
+   "id": "binders-8",
+   "s": "binders",
+   "h": "Wants",
+   "x": "Want a card in any printing, a printing, or a printing in one finish, with a quantity and an optional max price."
+  },
+  {
+   "id": "binders-9",
+   "s": "binders",
+   "h": "Wants",
+   "x": "The printing picker lists every printing with rarity, year, language and price, and filters by set, number or year when there are many."
+  },
+  {
+   "id": "binders-10",
+   "s": "binders",
+   "h": "Wants",
+   "x": "Your max price is never shown to anyone else; it only flags matches \"over your max\" for you."
+  },
+  {
+   "id": "binders-11",
+   "s": "binders",
+   "h": "Wants",
+   "t": "Add a want",
+   "x": "can scan: each card you scan is wanted once, any printing (phones)."
+  },
+  {
+   "id": "binders-12",
+   "s": "binders",
+   "h": "Wants",
+   "t": "Prices and trend",
+   "x": "each want shows its near-mint price (Now $12.40 for a printing, From $3.20 for any printing: the cheapest English printing and finish), and under it the change over the last 7 days: \"▼ 8% this week\" (in teal), \"▲ 12% this week\" or \"Flat this week\". While a card has less than a week of history it says \"since yesterday\" or \"in 3 days\". Moves under 5 cents count as flat."
+  },
+  {
+   "id": "binders-13",
+   "s": "binders",
+   "h": "Missing",
+   "x": "Worked out, never stored: every card your decks and cubes ask for more copies of than you own, in any printing, one line per card with the largest shortfall and the lists that need it. Shown in the printing the list that needs most names."
+  },
+  {
+   "id": "binders-14",
+   "s": "binders",
+   "h": "Missing",
+   "t": "Basic lands never show here",
+   "x": "everyone has basics, so a deck's Islands are never missing, even if your collection has none. A want you add for a basic yourself still shows."
+  },
+  {
+   "id": "binders-15",
+   "s": "binders",
+   "h": "Missing",
+   "x": "One tap adds a Missing card to your wants."
+  },
+  {
+   "id": "binders-16",
+   "s": "binders",
+   "h": "Missing",
+   "x": "In a trade, cards you get that meet a want or a Missing line (in any printing of the card) are highlighted (\"Want\", \"Missing · Burn\"), and confirming the trade takes them off your wants. Undo puts them back."
+  },
+  {
+   "id": "binders-17",
+   "s": "binders",
+   "h": "Buy on TCGplayer",
+   "t": "The Buy screen",
+   "x": "decks and cubes (a Buy row under Add to collection, \"12 to buy · $83.40\"), Wants and Missing all open one screen before TCGplayer: the total large with \"60 cards · 48 owned · 12 to buy\"; Skip cards I own (decks and cubes, on to start, basic lands left out while on), Any printing I own counts (on: any printing, finish or language of the card covers a line, its own printing first; off: only that printing and finish), Exact printings (off: one Mass Entry cart by name; on: each printing on its own product page; on to start for Wants), Tokens (decks, off to start: the tokens the main deck, commander and sideboard make, one each in their catalog printing, always on their own pages) and Boards (decks: command zone, main deck and sideboard on to start, Considering off). Then the cards to buy by board (\"Main deck · 12 to buy · 48 owned\"), each with its count and \"Own 2 of 4\" when you have some (a tap opens the card), Price (every listed copy at its printing's near-mint market price), Owned (minus the copies you own) and Total, and Buy on TCGplayer along the bottom, which opens the cart or the menu of links as below. The options are remembered on the device for decks, cubes, Wants and Missing separately."
+  },
+  {
+   "id": "binders-18",
+   "s": "binders",
+   "h": "Buy on TCGplayer",
+   "t": "From a card",
+   "x": "Add to → TCGplayer on any card's page opens the version on screen (one copy or all) on its TCGplayer product page; a printing TCGplayer has no page for goes into Mass Entry by name."
+  },
+  {
+   "id": "binders-19",
+   "s": "binders",
+   "h": "Buy on TCGplayer",
+   "t": "Buy on TCGplayer",
+   "x": "(on Wants) puts every want for any printing into TCGplayer's Mass Entry, the right count of each card by name, and opens a want for a specific printing on that printing's own TCGplayer product page. With more than one link a menu lists them: Mass Entry first, then each printing with its count. Buy missing on TCGplayer (above Missing from decks and cubes) does the same for what your decks and cubes are short."
+  },
+  {
+   "id": "binders-20",
+   "s": "binders",
+   "h": "Buy on TCGplayer",
+   "x": "It opens in your browser, so TCGplayer's sign-in and cart are your own. There, pick Normal or Foil and a condition for the list, tap Add to Cart, then Optimize on the cart to find the cheapest mix of sellers. TCGplayer doesn't let another app start the optimizer, so that tap is yours."
+  },
+  {
+   "id": "binders-21",
+   "s": "binders",
+   "h": "Buy on TCGplayer",
+   "x": "A very long list comes in parts (\"Part 1 of 3\"), each adding to the same cart: tap Buy again for the next part."
+  },
+  {
+   "id": "binders-22",
+   "s": "binders",
+   "h": "Buy on TCGplayer",
+   "x": "Prices on TCGplayer are its live listings, so they can differ from the market price your wants show."
+  },
+  {
+   "id": "binders-23",
+   "s": "binders",
+   "h": "Buy on TCGplayer",
+   "t": "Supports Table 1",
+   "x": "the links go through Table 1's TCGplayer affiliate link, which sends you on to the same page; buying from it earns Table 1 a commission at no cost to you. The link names only the app (iPhone, Android or website) and the screen (a deck, a cube, a card, Wants or Missing), never you."
+  },
+  {
+   "id": "binders-24",
+   "s": "binders",
+   "h": "Price alerts",
+   "x": "Once a day (late afternoon in Europe, midday in the US) you get one notification listing the wants that got cheaper: \"Counterspell is $7.50, 25% under its 30-day average.\" or \"Lightning Bolt is $1.40, under your max of $1.50. Also cheaper: Opt and Ponder.\" Tapping it opens Wants."
+  },
+  {
+   "id": "binders-25",
+   "s": "binders",
+   "h": "Price alerts",
+   "t": "Cheaper",
+   "x": "means at least 15% and at least $1 under the want's average over the last 30 days (it needs a week of prices first). Each want alerts at most once a week, and after that only when it's 5% lower than the price it last alerted at, so a card that stays low doesn't repeat."
+  },
+  {
+   "id": "binders-26",
+   "s": "binders",
+   "h": "Price alerts",
+   "t": "Your max price",
+   "x": "a want with a max alerts when its price falls to it or below, once; it can alert again only after the price has gone back over the max."
+  },
+  {
+   "id": "binders-27",
+   "s": "binders",
+   "h": "Price alerts",
+   "t": "Price alerts",
+   "x": "on the Wants screen turns them on or off for your account (on to start)."
+  },
+  {
+   "id": "binders-28",
+   "s": "binders",
+   "h": "Price alerts",
+   "x": "Prices are TCGplayer's market price as Scryfall publishes it each night, near mint. Table 1 starts keeping a card's daily prices once anyone wants it, so a card you've just added shows its trend after a day, and its alerts after a week. Individual TCGplayer listings aren't read."
+  },
+  {
+   "id": "csv-1",
+   "s": "csv",
+   "x": "Collection → Import. Bring a whole collection over from another app as one change you can undo, or take it out again."
+  },
+  {
+   "id": "csv-2",
+   "s": "csv",
+   "t": "Reads",
+   "x": "CSV exports from ManaBox, Moxfield, Archidekt, Deckbox, Dragon Shield, TCGplayer and Delver Lens, telling the format apart by its header. Any other CSV with a name column works too."
+  },
+  {
+   "id": "csv-3",
+   "s": "csv",
+   "x": "Each line matches by Scryfall id, then set and collector number, then set and name, then name (the original printing). Condition and language carry over, on each app's own grading scale."
+  },
+  {
+   "id": "csv-4",
+   "s": "csv",
+   "t": "Preview",
+   "x": "before anything is written: matched cards and printings, unmatched lines (each with Fix or Skip), and the total value."
+  },
+  {
+   "id": "csv-5",
+   "s": "csv",
+   "t": "Add to collection",
+   "x": "or Replace collection (asks first and says how many cards that removes). Large files go in parts; a failure partway can be retried without doubling anything. One Undo takes it all back."
+  },
+  {
+   "id": "csv-6",
+   "s": "csv",
+   "t": "Binders and wants come too",
+   "x": "ManaBox binders and wishlists, Dragon Shield folders, and Moxfield/Deckbox tradelist counts (into a for-trade \"Trade binder\")."
+  },
+  {
+   "id": "csv-7",
+   "s": "csv",
+   "t": "Export",
+   "x": "for Moxfield or ManaBox, with binder and tradelist columns. Both read back to the same collection."
+  },
+  {
+   "id": "scanning-1",
+   "s": "scanning",
+   "x": "Point the camera at a card, or a stack you flip through. Recognition happens on the phone against the downloaded card file: no photo leaves the device and nothing waits on the network."
+  },
+  {
+   "id": "scanning-2",
+   "s": "scanning",
+   "h": "Which card",
+   "x": "The camera reads only the card inside the outline on screen: of the cards it can see, the one nearest the outline's center, so cards lying around it are ignored. It reads that card's text and matches the name to the catalog, handling double-faced cards, names cut off at the edge, and a misread letter or so. Tokens and art cards aren't scanned."
+  },
+  {
+   "id": "scanning-3",
+   "s": "scanning",
+   "h": "Which card",
+   "t": "Split cards, and cards held turned",
+   "x": "when most of the text in view reads sideways (a split card held upright) or upside down, the scanner reads the lines in the text's own direction, title first. Every half of a split card (Fire // Ice, fuse and Aftermath cards, Rooms) names it: the first half as before, a later half (Ice, Memory) when it's read whole and no other card has that name, and any two halves read anywhere on the card. Upright cards read as before."
+  },
+  {
+   "id": "scanning-4",
+   "s": "scanning",
+   "h": "Which printing",
+   "x": "The set code and collector number at the bottom pick the printing (the copyright year and prerelease date stamps help); otherwise the original printing. A card with no readable English name can match by set and number alone."
+  },
+  {
+   "id": "scanning-5",
+   "s": "scanning",
+   "h": "Which printing",
+   "t": "Old cards",
+   "x": "Alpha, Beta, Unlimited and Revised print no set, number or year, so the scanner guesses the most printed, Revised (then Unlimited, Beta, Alpha), and a foreign one its Foreign Black Border printing. An artist line with no copyright year tells it the card is from 1993–94 (4th Edition on prints a year)."
+  },
+  {
+   "id": "scanning-6",
+   "s": "scanning",
+   "h": "Which printing",
+   "t": "The border",
+   "x": "when nothing printed names the set, the scanner reads the card's border color from the camera picture (a few brightness points around the card; on Android along the outline). Black goes in as Beta, white as Revised, a French name with a black border as Foreign Black Border. A border it can't tell (dim light, a sleeve) falls back to Revised, and your fix still sets the next guess."
+  },
+  {
+   "id": "scanning-7",
+   "s": "scanning",
+   "h": "Which printing",
+   "t": "Your fix is the next guess",
+   "x": "change a scanned card's printing and the next card the scanner can't tell apart goes in as that set, nearest that collector number. Fix one Beta card and a Beta stack follows; fix one retro fetchland and the rest come in retro. Anything the camera does read still wins."
+  },
+  {
+   "id": "scanning-8",
+   "s": "scanning",
+   "h": "Which printing",
+   "t": "Frame and artist",
+   "x": "the card file carries each printing's illustrator and frame. An \"Illus.\" credit means a 1993 or 1997 frame, old cards and retro-frame reprints alike, so a retro Misty Rainforest goes in as MH2's even when only its name, rules and credit were read; an artist after a brush means a 2003-or-newer frame; and the artist's name read (a letter or two off is fine) tells variants of one set apart. The number at the end of a copyright line (\"© 2024 Wizards of the Coast 407\"), lone numbers on cards without power and toughness, and more spellings of the set code count too, and what the last frames of the same card read is remembered, so a set code in one frame and the number in another pick the printing together. What no text tells is left: The List reprints, prerelease stamps the camera can't read, Unlimited from Revised."
+  },
+  {
+   "id": "scanning-9",
+   "s": "scanning",
+   "h": "When it counts",
+   "x": "A card counts once its name holds steady: 0.2 s when two frames read the same exact printing, 0.4 s when one did, 0.8 s without (and read at least three times). A second of misreads doesn't start it over. It can't count again until it has left the frame for a second, so holding it still never adds two."
+  },
+  {
+   "id": "scanning-10",
+   "s": "scanning",
+   "h": "When it counts",
+   "t": "Never from the flavor text",
+   "x": "a card's name is only ever taken from above its type line, so a name in the flavor text never names the card."
+  },
+  {
+   "id": "scanning-11",
+   "s": "scanning",
+   "h": "When it counts",
+   "t": "The screen stays on",
+   "x": "while the camera is scanning, so a long stack never locks the phone halfway. Changing a row's printing or language, or closing the scanner, lets it dim again."
+  },
+  {
+   "id": "scanning-12",
+   "s": "scanning",
+   "h": "Any language, no setting",
+   "x": "Cards in German, Spanish, French, Italian, Portuguese, Russian, Japanese, Korean and Chinese match by their printed name. Nobody picks a language."
+  },
+  {
+   "id": "scanning-13",
+   "s": "scanning",
+   "h": "Any language, no setting",
+   "t": "The copy goes in as the language the card says.",
+   "x": "A language code next to the set code (\"WAR • JP\") decides it; otherwise the language of the name the camera read, so a card read by its German name goes in as German. An English name doesn't say, since many cards print the English name in every language, so those go in as the language you add new copies in. When a name reads the same in two languages (often Spanish and Portuguese once accents are dropped), your new-copies language wins if it's one of the two."
+  },
+  {
+   "id": "scanning-14",
+   "s": "scanning",
+   "h": "Any language, no setting",
+   "x": "The camera reads Latin and Cyrillic first. When the text in view names no card for 0.6 s it switches to reading Chinese, Japanese and Korean, stays there while cards match, and switches back after 1.2 s of misses."
+  },
+  {
+   "id": "scanning-15",
+   "s": "scanning",
+   "h": "Any language, no setting",
+   "t": "On Android",
+   "x": "Japanese, Chinese and Korean are three readers, one a frame in turn. The reader that names a card stays; a frame read before a switch counts for the reader that read it; every reader gets a frame before it goes back to Latin; and the next switch starts with the reader that named the last card. The three language models come from Google Play services: the app asks for them at install and again when the scanner opens if they're missing (until they arrive those scripts can't be read)."
+  },
+  {
+   "id": "scanning-16",
+   "s": "scanning",
+   "h": "Where scanning is used",
+   "t": "The Collection bar",
+   "x": "the camera at the top of the Collection tab scans a pile, then Add opens Add to over the scanner for every card at once: Collection, Deck (then its section), Cube, Binder, Want (any printing, these printings, or these printings and finishes; one want per card) or Trade (new or open; Get, or Give when you own every card). The camera takes nothing while the list is open, and closing it goes back to scanning with the cards kept. A pick adds everything in one go, each card as its row shows it (printing, finish, condition, language), closes the scanner, and the Collection tab says what went where, with Undo for the collection, a binder, a deck or a cube."
+  },
+  {
+   "id": "scanning-17",
+   "s": "scanning",
+   "h": "Where scanning is used",
+   "t": "Prices",
+   "x": "every scanner shows each card's price on its own line under the row: one copy in its finish and condition (\"$9.00\"; \"≈ $7,992.55\" when it's Cardmarket's converted; \"No price\" when there's none), and the bar adds the total (\"12 scanned · $83.40\"). Prices load in the background, so with no signal the rows just have no price line."
+  },
+  {
+   "id": "scanning-18",
+   "s": "scanning",
+   "h": "Where scanning is used",
+   "t": "Add cards",
+   "x": "everything scanned goes in as one batch when you tap Done, and one Undo takes it all back. The cards show in your collection (and binder) straight away, without waiting for the server."
+  },
+  {
+   "id": "scanning-19",
+   "s": "scanning",
+   "h": "Where scanning is used",
+   "t": "Decks and cubes",
+   "x": "(Add, remove or replace): scanned cards go into the section you picked as one edit, in the printing and finish the scanner read."
+  },
+  {
+   "id": "scanning-20",
+   "s": "scanning",
+   "h": "Where scanning is used",
+   "t": "Binders",
+   "x": "scanned cards go in new, straight into the binder. Wants: each scanned card becomes a want."
+  },
+  {
+   "id": "scanning-21",
+   "s": "scanning",
+   "h": "Where scanning is used",
+   "t": "Trades",
+   "x": "cards you give match only cards (and printings) you own, preferring copies in a for-trade binder; cards you get match any card."
+  },
+  {
+   "id": "scanning-22",
+   "s": "scanning",
+   "h": "Where scanning is used",
+   "t": "Redraft",
+   "x": "piles after a set draft."
+  },
+  {
+   "id": "scanning-23",
+   "s": "scanning",
+   "h": "Where scanning is used",
+   "x": "Each scanned row shows its language (the one the card says, else the one you add new copies in); tap it to change it. When you give cards in a trade, the scan keeps the language of the copy you own."
+  },
+  {
+   "id": "scanning-24",
+   "s": "scanning",
+   "h": "Where scanning is used",
+   "x": "The camera can't tell foil, so each scanned row has a finish toggle. Tap a row to change its printing; rows marked \"Check printing\" are the ones it wasn't sure of."
+  },
+  {
+   "id": "scanning-25",
+   "s": "scanning",
+   "h": "Where scanning is used",
+   "t": "Back asks first",
+   "x": "with cards scanned, the back arrow (or Android's Back) asks \"Add the N cards you scanned?\" with Add N, Leave without adding and Keep scanning; no card is taken while it asks. With nothing scanned it just closes."
+  },
+  {
+   "id": "scanning-26",
+   "s": "scanning",
+   "h": "Learning from corrections",
+   "x": "Nobody is asked to report a bad scan; what people already do says it. Changing a scanned row's printing, deleting a row and adding the right card by hand, or adding a card by hand after the scanner couldn't read it (backing out with nothing taken, or a couple of seconds of a card it couldn't name since the last one it took) each send a small report: the text the camera read (never an image), what it picked and what the right card was. Reports go in the background and can be turned off in Account → Settings → Improve scanning."
+  },
+  {
+   "id": "trades-1",
+   "s": "trades",
+   "x": "A trade is your record of a swap: the cards you give and the cards you get, side by side in two columns. Confirming it updates your collection."
+  },
+  {
+   "id": "trades-2",
+   "s": "trades",
+   "x": "Add cards to either side by search or by scanning. What you give comes from your own copies, for-trade binders first (the binder is named); what you get can be any card and printing, and can go straight into a binder."
+  },
+  {
+   "id": "trades-3",
+   "s": "trades",
+   "x": "Each line keeps its printing, finish, condition and language; a card you get can be set to another condition or language from its menu. Each side shows its total value from market prices, each card priced in its condition. Gets that meet a want or a Missing line are marked, with \"over your max\" when the price is above your limit."
+  },
+  {
+   "id": "trades-4",
+   "s": "trades",
+   "x": "Name the other person and add a note if you like, or start the trade from a trade match. Drafts save as you edit; you can keep up to 50 open."
+  },
+  {
+   "id": "trades-5",
+   "s": "trades",
+   "t": "Confirm",
+   "x": "applies the whole trade to your collection as one change: given copies come off, received copies go on, and the wants they meet come off your list. If you no longer own something you're giving, nothing changes. Undo reverses the whole trade."
+  },
+  {
+   "id": "trades-6",
+   "s": "trades",
+   "x": "The Trades screen lists your trade matches first (each person, what they have that you want and what they want of yours, and the value; with none, a row explains how matches start), then drafts, then confirmed trades as your history. Trade history is always private."
+  },
+  {
+   "id": "trades-7",
+   "s": "trades",
+   "h": "Cards your decks need",
+   "x": "Decks and cubes don't reserve copies. Before confirming, the app checks every card you're giving: if a deck or cube would need more copies than you'll have left, it names them and asks whether to remove them from the lists (sideboard first, then main) or keep them listed (they then show as missing). Considering cards don't count. Cancel keeps the draft."
+  },
+  {
+   "id": "decks-1",
+   "s": "decks",
+   "h": "Sections",
+   "x": "Decks have Main deck, Sideboard and Considering, and Commander and Oathbreaker decks a command zone. Cubes have Main and Considering. Considering is ideas: it never counts as missing."
+  },
+  {
+   "id": "decks-2",
+   "s": "decks",
+   "h": "Organized",
+   "x": "Decks start grouped by type (creatures, instants, lands…), cubes by color; View → Group by switches either to type, color, color identity (each color combination, Azorius to Five-color) or mana value (0 to 7+, then lands). Inside each group, cards go by name, or by mana value or set from View → Sort. The grid and stacks keep the same groups, and the sideboard shows its own cards."
+  },
+  {
+   "id": "decks-3",
+   "s": "decks",
+   "h": "Missing",
+   "x": "Each line says what you own and what's missing, and the Decks list shows the total. Any copy of the card covers a line: any printing, finish or language. Copies of the printing and finish the line names count first, then your other copies of that card, line by line; one copy covers one line. \"Owned N\" on a row counts the card in any printing; a printing's own row, opened under a card with several, counts that printing. Basic lands are never missing: their lines just say how many you own, and in Grid and Stacks they never get the red short mark."
+  },
+  {
+   "id": "decks-4",
+   "s": "decks",
+   "h": "Building and editing",
+   "t": "New deck / New cube",
+   "x": "name it, pick a format, then add cards. Or import a list, or (decks) find one online."
+  },
+  {
+   "id": "decks-5",
+   "s": "decks",
+   "h": "Building and editing",
+   "t": "Command zone",
+   "x": "pick Commander or Oathbreaker for a new deck and choose its command zone right there. A Commander deck takes a commander (a legendary creature or planeswalker) and, if it can have one, a partner or background. An Oathbreaker deck takes an oathbreaker (a planeswalker) and a signature spell (an instant or sorcery). Each goes in as the card's original printing. On the deck's screen, Command zone sits above the cards in every view, as two cards side by side (commander and partner, or oathbreaker and signature spell): tap a card for Open card, Change or Remove, or an empty slot to choose one. A change is one edit in the version history. An imported deck's commander shows there too. Oathbreaker is new as a format; Table 1 doesn't check Oathbreaker legality yet."
+  },
+  {
+   "id": "decks-6",
+   "s": "decks",
+   "h": "Building and editing",
+   "t": "Name",
+   "x": "a deck's or cube's Edit has a Name row; Change renames it (trimmed, up to 60 characters). The new name shows everywhere at once and the lists re-sort."
+  },
+  {
+   "id": "decks-7",
+   "s": "decks",
+   "h": "Building and editing",
+   "t": "Format",
+   "x": "a deck's or cube's Edit has a Format row; pick another format and the deck keeps its cards. Switching a deck to Commander or Oathbreaker brings up its command zone to fill."
+  },
+  {
+   "id": "decks-8",
+   "s": "decks",
+   "h": "Building and editing",
+   "t": "In this deck",
+   "x": "choosing a commander (or partner, oathbreaker or signature spell) from the deck's screen lists the deck's own cards that fit first, then every card. Tapping one of the deck's own moves that copy in, out of the main deck or sideboard; replacing a commander sends the old one back to the main deck. In Commander and Oathbreaker decks, Edit's Move to and a card's Section offer the command zone too."
+  },
+  {
+   "id": "decks-9",
+   "s": "decks",
+   "h": "Building and editing",
+   "t": "Partners",
+   "x": "the partner slot appears only when the commander can have one (Partner, Partner with, a partner group such as Partner—Father & son, Friends forever, Choose a Background, Doctor's companion, or a Time Lord Doctor), and its search offers only cards that pair: another card with partner (or the same group, or Friends forever), the card named by Partner with (the search opens on it), a Background, the Doctor, or a Doctor's companion. The empty slot says which."
+  },
+  {
+   "id": "decks-10",
+   "s": "decks",
+   "h": "Building and editing",
+   "t": "Who sees this",
+   "x": "sits at the top of every deck, cube and binder: Private, Friends or Anyone. New decks start Private, so a brew never leaks."
+  },
+  {
+   "id": "decks-11",
+   "s": "decks",
+   "h": "Building and editing",
+   "t": "Add, remove or replace",
+   "x": "works like Cube Cobra's: an Add box (the catalog, Scryfall syntax, or Scan) and a Remove or replace box (only the list's own cards) on one screen. Pick a card in either. With only a card to remove, the button removes one copy; with both picked it reads Replace and swaps that copy for the new card in the same section, as one edit. The + on a search result adds a card at once."
+  },
+  {
+   "id": "decks-12",
+   "s": "decks",
+   "h": "Building and editing",
+   "t": "Printings, collapsed",
+   "x": "a card with several printings or finishes in a section is one row (total, \"3 printings\", what's missing) with a chevron that opens each line; View → Expand all printings opens them all. Edit mode always shows every line."
+  },
+  {
+   "id": "decks-13",
+   "s": "decks",
+   "h": "Building and editing",
+   "t": "Search",
+   "x": "inside the list hides sections with no match; stats, Missing and legality still count the whole list."
+  },
+  {
+   "id": "decks-14",
+   "s": "decks",
+   "h": "Building and editing",
+   "t": "Edit",
+   "x": "mode: steppers on every line; tap a line to move it between sections, remove it, or change its printing or finish."
+  },
+  {
+   "id": "decks-15",
+   "s": "decks",
+   "h": "Building and editing",
+   "t": "Split finishes",
+   "x": "on the printing screen choose how many copies to change, then the printing and finish. Moving 2 of 4 to foil leaves 2 non-foil and 2 foil as separate lines."
+  },
+  {
+   "id": "decks-16",
+   "s": "decks",
+   "h": "Building and editing",
+   "t": "Languages",
+   "x": "each line has a language as well as a printing and finish, so 3 English and 1 Japanese copy of a card are two lines. Lines in another language show it (\"JA\") in the list, edit mode and version history. Cards added from search start in English unless the printing exists only in another language; a card added from your collection keeps its language; scanned cards go in as the language they were read as. Changing a line's printing keeps its language, unless the new printing has its own. Missing counts your copies in any language. Exports and shared links don't carry the language yet."
+  },
+  {
+   "id": "decks-17",
+   "s": "decks",
+   "h": "Building and editing",
+   "t": "Conditions",
+   "x": "each line also has a condition (NM, LP, MP, HP, DMG), so 2 near-mint and 1 lightly played copy are two lines. A copy added from your collection or a binder keeps its condition, and scanned cards take the one picked in the scanner; anything else starts near mint. Rows, edit mode, version history and Change printing show it when it isn't near mint (\"LP\"). Nothing on the deck picks it: the card's page from a deck shows no Condition. Changing the printing, Match collection, moving sections and Sync with Cube Cobra keep it. Exports and shared links don't carry it yet."
+  },
+  {
+   "id": "decks-18",
+   "s": "decks",
+   "h": "Building and editing",
+   "t": "Duplicate",
+   "x": "a deck or cube from Edit mode; the copy starts its own history. Delete removes it from every device."
+  },
+  {
+   "id": "decks-19",
+   "s": "decks",
+   "h": "Building and editing",
+   "t": "Export",
+   "x": "the current version (see Importing and exporting lists), or make a deck image."
+  },
+  {
+   "id": "decks-20",
+   "s": "decks",
+   "h": "Building and editing",
+   "t": "Buy",
+   "x": "under Add to collection, \"12 to buy · $83.40\" opens the Buy screen: skip what you own, exact printings or one cart, tokens and boards, the total, then TCGplayer."
+  },
+  {
+   "id": "decks-21",
+   "s": "decks",
+   "h": "Sideboard guide",
+   "x": "A plan for each matchup: what comes in, what goes out, and notes. Sideboard guide sits under Stats on every deck except Commander and Oathbreaker (\"3 matchups · sideboard 15\")."
+  },
+  {
+   "id": "decks-22",
+   "s": "decks",
+   "h": "Sideboard guide",
+   "t": "Matchups",
+   "x": "+ adds one, picked from the format's Insights archetypes by share (when Insights covers the format) or typed (up to 40 characters). Each row reads \"IN 3 · OUT 3\" or \"NO CHANGES\", with Check when something's off. A matchup's Edit renames it, moves it up or down, or deletes it. Up to 40 matchups."
+  },
+  {
+   "id": "decks-23",
+   "s": "decks",
+   "h": "Sideboard guide",
+   "t": "In and Out",
+   "x": "a matchup opens on two cells, In and Out, and its plan below them (\"+2 Fury\", \"−1 Ragavan\"). In lists your sideboard, then Considering, each with − and + up to the copies in the deck; Out lists the main deck. Cards stay in the order you added them. Ins needn't match outs: the rules let you change the deck's size as long as it stays legal."
+  },
+  {
+   "id": "decks-24",
+   "s": "decks",
+   "h": "Sideboard guide",
+   "t": "Cards past 15",
+   "x": "the In screen's search adds any card to Considering and brings one in, so you can try more than 15 cards while you work the guide out. The Sideboard screen lists Sideboard and Considering with \"In 4 matchups\" on each card; tap one to move a copy (or all) to the other section."
+  },
+  {
+   "id": "decks-25",
+   "s": "decks",
+   "h": "Sideboard guide",
+   "t": "What it checks",
+   "x": "a card no longer in the deck, more copies than you have, copies coming from Considering (\"not printed until it's in the sideboard\"), and the deck going under 60 cards after sideboarding (100 for Canadian Highlander; Other isn't checked). The guide screen also says when the sideboard is over 15 in a Constructed format."
+  },
+  {
+   "id": "decks-26",
+   "s": "decks",
+   "h": "Sideboard guide",
+   "t": "Notes",
+   "x": "per matchup, up to 1,000 characters: play or draw, what to watch for, what to keep."
+  },
+  {
+   "id": "decks-27",
+   "s": "decks",
+   "h": "Sideboard guide",
+   "t": "Print",
+   "x": "the print icon opens the page as it will print, then Print (the phone's print sheet, or the browser's). White paper in Table 1's mono type with uppercase labels and thin boxes, the teal only as the line under the header; matchups in two columns, each box kept whole, then your sideboard. Only what you can bring in at a tournament is printed: cards still in Considering, and cards no longer in the deck, are left off and counted above the preview. Under the header: \"MTR 2.11 · Between games only · Remove from the play area before each game\" (the rules allow brief notes made before the match, read between games). It warns past two pages (\"a sheet or two\") and when the sideboard has more than 15 cards. A guide on your phone is fine at Regular REL; at Competitive REL bring it printed."
+  },
+  {
+   "id": "decks-28",
+   "s": "decks",
+   "h": "Sideboard guide",
+   "x": "The guide saves with the deck, syncs to your devices and works offline. Only you see it: shared decks and links don't include it."
+  },
+  {
+   "id": "decks-29",
+   "s": "decks",
+   "h": "In the meta",
+   "x": "Under Stats, each of your decks in an Insights format (Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Canadian Highlander) shows the archetype it plays as, by the same rules Insights uses."
+  },
+  {
+   "id": "decks-30",
+   "s": "decks",
+   "h": "In the meta",
+   "t": "The archetype",
+   "x": "with its win rate over the last 30 days (\"Win 53.3%\": matches against other archetypes in every event Insights reads, draws counting as not won; shown from 20 matches) and its change on last week (\"▲ 2.1 pts on last week\": this week's win rate against the week before's, when both have 20 matches; \"Same as last week\" when flat)."
+  },
+  {
+   "id": "decks-31",
+   "s": "decks",
+   "h": "In the meta",
+   "t": "Good against",
+   "x": "and Bad against: its three best and three worst matchups over 90 days, one a line (\"Boros Energy 58%\"), each from at least 20 decided matches."
+  },
+  {
+   "id": "decks-32",
+   "s": "decks",
+   "h": "In the meta",
+   "t": "How similar",
+   "x": "the archetype row reads \"88% similar\" on its own line above the win rate: the deck against the archetype's 10 closest lists of the last 90 days (the year when there are none), each the share of copies the two have in common out of the larger deck, basic lands and the sideboard left out, averaged over the ten. A deck copied from a recent list reads 100%."
+  },
+  {
+   "id": "decks-33",
+   "s": "decks",
+   "h": "In the meta",
+   "t": "Brews",
+   "x": "a deck Spice calls a Brew (50 or more) shows no In the meta rows; the archetype's numbers say little about a deck that plays mostly other cards."
+  },
+  {
+   "id": "decks-34",
+   "s": "decks",
+   "h": "In the meta",
+   "x": "Tap any of the rows to open the archetype's Insights page over the deck; Back returns to the deck. A deck no archetype rule names reads \"In the meta · Doesn't match an archetype Insights knows\"; decks in other formats, and roto decks, show nothing."
+  },
+  {
+   "id": "decks-35",
+   "s": "decks",
+   "h": "Add to collection",
+   "x": "Built a deck or cube you now own in paper? Add to collection on its screen says how many copies of its exact printings you're missing and opens a screen to add them."
+  },
+  {
+   "id": "decks-36",
+   "s": "decks",
+   "h": "Add to collection",
+   "t": "Missing",
+   "x": "adds only what your collection lacks of the exact printing, finish and language the list names: a copy you own in another printing, finish or language doesn't count here, so a deck listing a Japanese foil Ragavan adds one even if you own an English one (basic lands are never missing, so it leaves them out). That differs on purpose from the deck's own \"missing\", which counts any copy of the card; Every card adds every copy the list holds, basics included, for when you've bought or opened another set of it."
+  },
+  {
+   "id": "decks-37",
+   "s": "decks",
+   "h": "Add to collection",
+   "x": "Each card goes in as the printing, finish, language and condition the list records. A deck's Sideboard switch decides whether its sideboard comes too; Considering is never added."
+  },
+  {
+   "id": "decks-38",
+   "s": "decks",
+   "h": "Add to collection",
+   "x": "There's no condition or language to pick: each copy goes in as the condition its line records (near mint unless it came from your collection or a scan with another condition) and the line's language. With Missing, copies you own in any condition count, those in the line's own condition first. The screen lists every card it will add with its count and language."
+  },
+  {
+   "id": "decks-39",
+   "s": "decks",
+   "h": "Add to collection",
+   "x": "It all goes in as one change: Undo takes it back out."
+  },
+  {
+   "id": "decks-40",
+   "s": "decks",
+   "h": "Add to collection",
+   "t": "From one card",
+   "x": "a card opened from a deck or cube has Add to collection in its details (the list icon): add the copies you're missing of the listed printings (by the same exact rule, in each line's condition and language), every copy the list holds, or one copy of a listed printing. A basic land never has copies missing, so its row reads \"Basic land · add the copies listed here\" and offers every copy or one."
+  },
+  {
+   "id": "decks-41",
+   "s": "decks",
+   "h": "Add to collection",
+   "x": "Roto decks don't offer it: their cards belong to the cube."
+  },
+  {
+   "id": "decks-42",
+   "s": "decks",
+   "h": "Sync with Cube Cobra",
+   "x": "A cube you keep on Cube Cobra too can be brought up to date from there. Sync with Cube Cobra sits on every cube of your own (not roto decks), under Export, and says which Cube Cobra cube it follows (\"cubecobra.com · lindmark\")."
+  },
+  {
+   "id": "decks-43",
+   "s": "decks",
+   "h": "Sync with Cube Cobra",
+   "t": "The link",
+   "x": "a cube imported from a Cube Cobra link remembers it. Change link points it at another cube."
+  },
+  {
+   "id": "decks-44",
+   "s": "decks",
+   "h": "Sync with Cube Cobra",
+   "t": "What changed",
+   "x": "a summary (\"2 in · 2 out · 1 new printing\", or \"Up to date\"), then In (on Cube Cobra, not in your cube), Out (in your cube, not on Cube Cobra) and New printing or finish (the same card in another printing or finish: \"2ED #266 → LEA #265\", \"Non-foil → Foil\"). Main and Considering are compared on their own: a card moved from one to the other is Out of one and In the other. Tap a card for its page. Cards Cube Cobra lists that aren't in the card data are named and left out, as on import."
+  },
+  {
+   "id": "decks-45",
+   "s": "decks",
+   "h": "Sync with Cube Cobra",
+   "t": "Languages",
+   "x": "stay as you set them: Cube Cobra doesn't record languages, so a Japanese Mana Drain that Cube Cobra still lists stays Japanese. A new printing that exists only in one language takes that language."
+  },
+  {
+   "id": "decks-46",
+   "s": "decks",
+   "h": "Sync with Cube Cobra",
+   "t": "Accept changes",
+   "x": "saves the whole cube as one new version, \"Synced with Cube Cobra\"; Restore in Version history puts the old one back. Keep as it is goes back without changing anything."
+  },
+  {
+   "id": "decks-47",
+   "s": "decks",
+   "h": "Sync with Cube Cobra",
+   "x": "If the cube changed on another device between checking and accepting, nothing is saved: it says so and offers Check again."
+  },
+  {
+   "id": "decks-48",
+   "s": "decks",
+   "h": "Version history",
+   "x": "Every change is kept. Edits within 10 minutes of each other become one version, so a run of +1s is one entry."
+  },
+  {
+   "id": "decks-49",
+   "s": "decks",
+   "h": "Version history",
+   "x": "Open any version to see what was added and removed; Restore makes it current again as a new version. Nothing is ever overwritten."
+  },
+  {
+   "id": "heroes-1",
+   "s": "heroes",
+   "x": "The few cards that stand for a deck, a cube, a binder or your whole collection, picked by you."
+  },
+  {
+   "id": "heroes-2",
+   "s": "heroes",
+   "x": "On a card's page, under the list icon, Make it a hero makes it a hero of where you opened it from: that deck or cube, that binder, or (from anywhere else) your collection. Tap again to stop. A deck's Edit mode offers it on each line too."
+  },
+  {
+   "id": "heroes-3",
+   "s": "heroes",
+   "x": "Up to 10 per place. A hero is the card, not a printing, so changing a printing keeps it; the art shown is the printing that deck or binder holds."
+  },
+  {
+   "id": "heroes-4",
+   "s": "heroes",
+   "t": "Listed",
+   "x": "up to three hero cards fan out next to the name in Decks, Cubes and Binders, and on the Collection home's All cards row."
+  },
+  {
+   "id": "heroes-5",
+   "s": "heroes",
+   "t": "Inside",
+   "x": "a hero's row is a shade lighter with a white edge; in the grid and stacks it gets a white outline."
+  },
+  {
+   "id": "heroes-6",
+   "s": "heroes",
+   "x": "Deleting a deck, cube or binder drops its heroes. Heroes are private like the rest of your Library."
+  },
+  {
+   "id": "heroes-7",
+   "s": "heroes",
+   "x": "Heroes save to your account and follow you to every device, on iPhone, Android and the web."
+  },
+  {
+   "id": "search-1",
+   "s": "search",
+   "x": "Every Add cards search (collection, decks and cubes, binders, wants) takes Scryfall's search syntax. Adv opens a form that writes it for you."
+  },
+  {
+   "id": "search-2",
+   "s": "search",
+   "h": "The form",
+   "x": "Card name, card text, type line, colors (exactly, including or at most), mana value, rarity, set code and the format it's legal in. Search puts the syntax in the box, so you can tweak it there."
+  },
+  {
+   "id": "search-3",
+   "s": "search",
+   "h": "Offline",
+   "x": "Name, type (t:dragon), colors (c:r, c=wu, c:izzet), mana value (mv<=3), mana cost, rarity, set, collector number, year, language, foil, format legality (f:modern, banned:), mana produced, with -, or and parentheses. Instant, from the card file on your phone."
+  },
+  {
+   "id": "search-4",
+   "s": "search",
+   "h": "Online",
+   "x": "Anything else, such as card text (o:\"draw a card\"), power or color identity, is asked of Scryfall once you stop typing, and shows \"from Scryfall\". It needs a connection."
+  },
+  {
+   "id": "search-5",
+   "s": "search",
+   "h": "Online",
+   "x": "A plain name is the usual name search. When a search names a set, rarity or year, the result shows (and adds) that printing."
+  },
+  {
+   "id": "stats-1",
+   "s": "stats",
+   "x": "A Stats row under each deck (\"24 lands · avg MV 1.72 · $1,535.36\") or cube (\"W 44 · U 56 · …\") opens the numbers. Everything is worked out on your device from the card file, so it's instant and offline."
+  },
+  {
+   "id": "stats-2",
+   "s": "stats",
+   "h": "Decks",
+   "t": "Curve",
+   "x": "by mana value, creatures against other spells; types; average mana value with and without lands."
+  },
+  {
+   "id": "stats-3",
+   "s": "stats",
+   "h": "Decks",
+   "t": "Pips against sources",
+   "x": "colored symbols in the costs next to the lands, dorks and rocks that make each color (fetch lands count for the colors they find)."
+  },
+  {
+   "id": "stats-4",
+   "s": "stats",
+   "h": "Decks",
+   "t": "Legality",
+   "x": "per format with reasons, including copy limits."
+  },
+  {
+   "id": "stats-5",
+   "s": "stats",
+   "h": "Decks",
+   "t": "Price",
+   "x": "at market for each printing and finish, leaving out basic lands (your collection's value still counts the basics you own), and the tokens the deck makes."
+  },
+  {
+   "id": "stats-6",
+   "s": "stats",
+   "h": "Practice",
+   "t": "Sample hand",
+   "x": "with London mulligans: draw seven, mulligan, put cards on the bottom, keep drawing."
+  },
+  {
+   "id": "stats-7",
+   "s": "stats",
+   "h": "Practice",
+   "t": "Draw odds",
+   "x": "the chance of seeing at least k of a card or card type by each turn, on the play or the draw."
+  },
+  {
+   "id": "stats-8",
+   "s": "stats",
+   "h": "Cubes",
+   "t": "Color balance",
+   "x": ", curve per color and type mix."
+  },
+  {
+   "id": "stats-9",
+   "s": "stats",
+   "h": "Cubes",
+   "t": "Asfan",
+   "x": "expected copies per pack by color, type or mana value, for a pack size you set."
+  },
+  {
+   "id": "stats-10",
+   "s": "stats",
+   "h": "Cubes",
+   "t": "Sample pack",
+   "x": "drawn from the cube."
+  },
+  {
+   "id": "stats-11",
+   "s": "stats",
+   "h": "Spice",
+   "x": "How far a deck or cube strays from the ones like it, from 0 to 100. Each non-basic card in the main deck (and the command zone) counts by its copies. A card played in a quarter or more of the similar lists is stock and adds nothing. A rarer card adds more, up to its full weight for a card never seen. Basic lands never count, and sideboard cards are listed but not scored."
+  },
+  {
+   "id": "stats-12",
+   "s": "stats",
+   "h": "Spice",
+   "t": "The words",
+   "x": "Stock 0–9 (nine in ten tournament lists), Tuned 10–24, Spicy 25–49, Brew 50 and up."
+  },
+  {
+   "id": "stats-13",
+   "s": "stats",
+   "h": "Spice",
+   "t": "Similar decks",
+   "x": "are the tournament lists Insights reads, never older than a year. First the deck's own archetype, named by the same rules as Insights: its lists from the last 90 days, or the year if that's under 30 lists. A deck that comes out as Other, or whose archetype has too few lists, is compared with the archetype that plays the most of its cards. If even that one plays under a quarter of them, it's compared with the whole format, and Spice says \"Nothing close in Modern\". A deck copied from an Insights list isn't compared with that list."
+  },
+  {
+   "id": "stats-14",
+   "s": "stats",
+   "h": "Spice",
+   "t": "Canadian Highlander",
+   "x": "decks are one-ofs that share few cards, so each card is compared with the year's lists that could play it (their colors include the card's), and a card counts as stock from a tenth of them."
+  },
+  {
+   "id": "stats-15",
+   "s": "stats",
+   "h": "Spice",
+   "t": "Where",
+   "x": "the Stats row ends with \"Spice 34\". Stats opens on the score and word in teal, then what it was compared with (\"412 Boros Energy lists · last 90 days · MTGO and TopDeck.gg\"). Under that come Spiciest cards (\"4 Ancient Grudge · in 2 of 412 lists\", \"never seen\"; the first eight, then Show all) and Stock cards you don't play (cards in half the similar lists or more, up to 12; none when the comparison is the whole format). Tap a card for its page. A deck or cube shared with you, on a profile or through a link, has a Spice row that opens the same."
+  },
+  {
+   "id": "stats-16",
+   "s": "stats",
+   "h": "Spice",
+   "t": "Other formats",
+   "x": "(Commander, Premodern and the rest) say \"No tournament lists for this format yet\"."
+  },
+  {
+   "id": "stats-17",
+   "s": "stats",
+   "h": "Spice",
+   "t": "Cubes",
+   "x": "are to be compared with the 20 most similar of Cube Cobra's popular public cubes, each counted by how alike it is, with the nearest named (\"LSVCube · 62% alike\"). Cube Cobra's terms don't allow reading its cubes without permission, so Table 1 is asking first. Until then a cube's Spice says \"No cubes to compare with yet\"."
+  },
+  {
+   "id": "stats-18",
+   "s": "stats",
+   "h": "Spice",
+   "x": "Worked out on the server, at most once a day for each version of a deck. Anyone who can see the deck or cube can see its Spice."
+  },
+  {
+   "id": "deckimage-1",
+   "s": "deckimage",
+   "x": "A deck as one picture, laid out the way tournament sites show decklists, to post or send. On every deck (yours, or one a friend shares) tap Deck image."
+  },
+  {
+   "id": "deckimage-2",
+   "s": "deckimage",
+   "t": "The picture",
+   "x": "is wide (16:9, 2400 × 1350): the deck's name, \"By\" the player, then the date, format, deck count and sideboard count, with the Table 1 mark in the corner."
+  },
+  {
+   "id": "deckimage-3",
+   "s": "deckimage",
+   "t": "Cards",
+   "x": "each card once with its count on the corner, creatures first, then spells, then lands. A line labelled Sideboard sets off the sideboard, shown as one overlapping column. Cards grow as large as the picture allows; very big decks make the picture taller instead."
+  },
+  {
+   "id": "deckimage-4",
+   "s": "deckimage",
+   "t": "Stacks",
+   "x": "instead lays the deck out in overlapping columns, one per group, each titled with its count."
+  },
+  {
+   "id": "deckimage-5",
+   "s": "deckimage",
+   "t": "Options",
+   "x": "Cards or Stacks; order by type, mana value, color or color identity; sideboard on or off; your name on or off (a friend's deck shows the owner's name). The preview updates as you change them."
+  },
+  {
+   "id": "deckimage-6",
+   "s": "deckimage",
+   "t": "Phones",
+   "x": "Save to Photos (iPhone asks once, only to add photos; Android saves to Pictures › Table 1) or Share to Messages, Discord, Files and anything else, as a JPEG named for the deck."
+  },
+  {
+   "id": "deckimage-7",
+   "s": "deckimage",
+   "t": "Web",
+   "x": "Download the JPEG, Share it where the browser can, or Copy image to paste it anywhere. Your options are remembered."
+  },
+  {
+   "id": "deckimage-8",
+   "s": "deckimage",
+   "t": "Zoom",
+   "x": "tap the preview to open the picture full screen. Pinch (or scroll, on a computer) to zoom up to 8×, drag to look around, and double-tap (double-click) to jump to 3× and back. On the web, + and − zoom, 0 fits it again, and Esc closes the zoom. The top 100 (or 50) image of a cube ranking zooms the same way."
+  },
+  {
+   "id": "deckimage-9",
+   "s": "deckimage",
+   "t": "Hold to copy, save or share",
+   "x": "a long press on the preview or the zoomed picture (the deck image and a ranking's top 100 image alike) offers Copy, Save to Photos and Share. On iPhone it's the phone's own menu with the picture above it (VoiceOver lists the three as actions); on the website it's the browser's own picture menu (hold on a phone, right-click with a mouse); on Android a Table 1 menu whose Copy puts the picture on the clipboard and whose Share shows it in the share sheet. Under the preview: \"Tap to zoom · hold to copy, save or share\"."
+  },
+  {
+   "id": "deckimage-10",
+   "s": "deckimage",
+   "x": "Made on your device from the card file and card images; nothing is uploaded. Considering cards are left out."
+  },
+  {
+   "id": "rankings-1",
+   "s": "rankings",
+   "x": "Put a cube's cards in order, best first, the way cuberanker.com does for one famous cube, for any cube on Table 1. A ranking is one person's run through a cube, made of quick screens of up to four cards."
+  },
+  {
+   "id": "rankings-2",
+   "s": "rankings",
+   "h": "Where",
+   "x": "A Rankings row on every cube you can see: your own, or one a friend or someone you've played with shares on their profile. A cube shared with you by link gets it as soon as you follow it, on the link's own screen; it stays while the link is live and you follow."
+  },
+  {
+   "id": "rankings-3",
+   "s": "rankings",
+   "h": "Where",
+   "t": "Cubes → Rankings",
+   "x": "lists your rankings across every cube, then Cubes you can rank, with each cube's owner, size and rankings. Rank <owner>'s cube starts your own."
+  },
+  {
+   "id": "rankings-4",
+   "s": "rankings",
+   "h": "Where",
+   "x": "A ranking of someone else's cube is wholly yours: they can see it (when it's shared with the cube) but never change it."
+  },
+  {
+   "id": "rankings-5",
+   "s": "rankings",
+   "h": "Where",
+   "t": "Named after you",
+   "x": "a ranking is titled with the name of the person who made it (\"Mara Quinn\"), everywhere it shows. An optional label follows the name (\"Mara Quinn · Power only\") to tell your rankings of one cube apart."
+  },
+  {
+   "id": "rankings-6",
+   "s": "rankings",
+   "h": "Ranking",
+   "x": "Sort each color (White, Blue, Black, Red, Green, Multicolor, Colorless, Lands): its Top 1/4, Top 1/3, Top half or Every card. Then the Final: a top 100 (or 50) across the whole cube. New rankings start at a quarter for a top 50 and a third for a top 100, until you pick."
+  },
+  {
+   "id": "rankings-7",
+   "s": "rankings",
+   "h": "Ranking",
+   "x": "The final always comes out exact, whatever the depth: when a color has more cards in your top 50 than it sorted, the final asks about them itself. A quarter takes about a third fewer screens than a half on a 540-card cube."
+  },
+  {
+   "id": "rankings-8",
+   "s": "rankings",
+   "h": "Ranking",
+   "t": "Checks",
+   "x": "the final places a card only once its order against the other colors was asked directly (see Checks in the final, below), so one answer can't settle a whole run of cards."
+  },
+  {
+   "id": "rankings-9",
+   "s": "rankings",
+   "h": "Ranking",
+   "x": "Cards show in the printing the cube holds (a card with several printings shows the one it has most copies of)."
+  },
+  {
+   "id": "rankings-10",
+   "s": "rankings",
+   "h": "Ranking",
+   "x": "Each screen shows up to four cards. Drag them into order (or tap two to swap), then Lock in. The app works out everything that follows, so it never asks the same thing twice, and says about how many screens are left."
+  },
+  {
+   "id": "rankings-11",
+   "s": "rankings",
+   "h": "Ranking",
+   "x": "Sometimes cards already in order show a lock, and only one card moves to find its place."
+  },
+  {
+   "id": "rankings-12",
+   "s": "rankings",
+   "h": "Ranking",
+   "t": "Undo",
+   "x": "the last screen; on any card's history, Redo an earlier screen to answer it again. On the web, keys 1–4, the arrows, Enter and Z do it all."
+  },
+  {
+   "id": "rankings-13",
+   "s": "rankings",
+   "h": "Lists and why",
+   "x": "Lists for the final and each color, then the cards \"below the top N, in no particular order\". Copy list copies it as text; Top 100 image makes a picture of it, which you can tap to zoom in on, or hold to copy, save or share."
+  },
+  {
+   "id": "rankings-14",
+   "s": "rankings",
+   "h": "Lists and why",
+   "x": "Tap a card for its history and Why is it above…: the chain of screens that put one card over another."
+  },
+  {
+   "id": "rankings-15",
+   "s": "rankings",
+   "h": "Lists and why",
+   "x": "Watch anyone's ranking live as they go."
+  },
+  {
+   "id": "rankings-16",
+   "s": "rankings",
+   "h": "Lists and why",
+   "t": "Post it in Discord",
+   "x": "/ranking puts your top 50, top 100 or one color's list in a Discord channel (see Discord)."
+  },
+  {
+   "id": "rankings-17",
+   "s": "rankings",
+   "h": "Rank a Limited set",
+   "x": "From Insights → Limited (Rank this set, or New sets to rank) or Rankings (Sets you can rank: sets from the last year with 60 or more cards, sets due in the next 75 days once 20 of their cards are out, and every Arena cube run). The set's Rankings works like a cube's: Rank <set> starts yours, then sort each color and the final."
+  },
+  {
+   "id": "rankings-18",
+   "s": "rankings",
+   "h": "Rank a Limited set",
+   "x": "A set ranks its cards once each, English, no basic lands, tokens or art cards, each drawn in its regular frame. A cube run ranks the cards 17Lands lists for it."
+  },
+  {
+   "id": "rankings-19",
+   "s": "rankings",
+   "h": "Rank a Limited set",
+   "x": "Spoiler season works: cards the set gains after you start wait outside your lists until you place them, like a cube's new cards."
+  },
+  {
+   "id": "rankings-20",
+   "s": "rankings",
+   "h": "Rank a Limited set",
+   "t": "Shared with friends",
+   "x": "to start (or Only me): everyone can see a set, so your ranking goes to your friends rather than to everyone on Table 1. Your friends' rankings of the set are listed under yours, to watch and compare."
+  },
+  {
+   "id": "rankings-21",
+   "s": "rankings",
+   "h": "Checks in the final",
+   "x": "Before the final places a card, it looks at each other color's best card still in. If no screen ever put your card's color and that color side by side, and the order came only from a third color between them, the next screen is a check: your card with those cards (and its own color's next card when only the color's sort put it above), nothing locked, read \"Final · checking #31 of the top 50\". An order that cards of two or more other colors already back up isn't checked."
+  },
+  {
+   "id": "rankings-22",
+   "s": "rankings",
+   "h": "Checks in the final",
+   "x": "Your answer on a check wins: if you now put Counterspell above Novice Inspector, the earlier answers that said otherwise give way. A check can also reorder two cards of one color the color's own sort got wrong."
+  },
+  {
+   "id": "rankings-23",
+   "s": "rankings",
+   "h": "Checks in the final",
+   "x": "The list keeps every place it already knows while the checks run; the final reads done once every place is checked. \"About N to go\" counts the places still to check."
+  },
+  {
+   "id": "rankings-24",
+   "s": "rankings",
+   "h": "Checks in the final",
+   "x": "A ranker who answers the same way every time gets the same list as before, after the checks."
+  },
+  {
+   "id": "rankings-25",
+   "s": "rankings",
+   "h": "Checks in the final",
+   "x": "Finished finals reopen for their checks."
+  },
+  {
+   "id": "rankings-26",
+   "s": "rankings",
+   "h": "Refine with first picks",
+   "x": "Once the final is done, Open a pack: 15 cards from the cube. Pick the one you'd take first. The pick refines your ranking like any screen."
+  },
+  {
+   "id": "rankings-27",
+   "s": "rankings",
+   "h": "Refine with first picks",
+   "x": "When your ranking already puts a card in the pack above your pick, it says so, for example \"You ranked Mana Drain #3 and Fury #20, but picked Fury\". Keep my ranking, or Let the pick win: the screens behind the disagreement come out and those cards are asked again."
+  },
+  {
+   "id": "rankings-28",
+   "s": "rankings",
+   "h": "Refine with first picks",
+   "t": "Pick history",
+   "x": "lists every pick, the pack's best card by your ranking, and whether it disagreed."
+  },
+  {
+   "id": "rankings-29",
+   "s": "rankings",
+   "h": "Change log",
+   "x": "Every place change is kept, newest first by day, and filterable by list: \"Mana Drain · Final: #5 (new)\", \"Fury · Final: #4 → #9 (redo screen 12)\". A card's history shows its own changes."
+  },
+  {
+   "id": "rankings-30",
+   "s": "rankings",
+   "h": "Compare, with a brief",
+   "t": "Compare with another ranking",
+   "x": "on any list: how many cards both have placed, how far apart they sit on average, the ten biggest differences, and the cards in one top half but not the other."
+  },
+  {
+   "id": "rankings-31",
+   "s": "rankings",
+   "h": "Compare, with a brief",
+   "t": "In brief",
+   "x": "comes first: two to four short sentences written by Claude on where the two of you agree and the one or two clearest differences (colors, mana fixing, aggro or control, cheap interaction or big threats, the curve), naming a few cards. It knows which lands fix your mana and which are utility lands like Strip Mine or Karakas, and it gives each card's color as the card has it. It's written from both rankings' places, kept until either ranking changes, and refers to people only by name."
+  },
+  {
+   "id": "rankings-32",
+   "s": "rankings",
+   "h": "When the cube changes",
+   "x": "Cards that leave the cube drop out of your lists; what they told the ranking still counts, so your order stays. If one left your top 100 (or a color's top half), that list asks a screen or two to fill the place."
+  },
+  {
+   "id": "rankings-33",
+   "s": "rankings",
+   "h": "When the cube changes",
+   "x": "Cards that join wait under New in the cube, not placed yet, and the list keeps showing your order around them."
+  },
+  {
+   "id": "rankings-34",
+   "s": "rankings",
+   "h": "When the cube changes",
+   "x": "The ranking says what changed (\"3 cards joined … and 2 cards left …\"). Re-rank asks only about the new cards, mostly one new card against cards you've already ordered, then Next moves on to the next list that has one. Once every new card has a place, the note goes away."
+  },
+  {
+   "id": "rankings-35",
+   "s": "rankings",
+   "h": "When the cube changes",
+   "x": "When someone else starts a ranking of your cube that you can see, you get a notification (at most one a week per person). Tapping it opens their ranking on iPhone."
+  },
+  {
+   "id": "rankings-36",
+   "s": "rankings",
+   "h": "Saving",
+   "x": "Each screen saves as you lock it in, one at a time. Undo and Redo take out only the screen you chose."
+  },
+  {
+   "id": "rankings-37",
+   "s": "rankings",
+   "h": "Saving",
+   "x": "What isn't saved yet stays on your phone (or in your browser) through a crash, a force-quit, a closed tab or no signal, and is sent again until it's saved. A ranking with screens still to save says so, and tries again after a few seconds, then every minute."
+  },
+  {
+   "id": "rankings-38",
+   "s": "rankings",
+   "h": "Saving",
+   "x": "If the ranking changed on another device, the app reads it again and adds your screens on top, rather than throwing them away."
+  },
+  {
+   "id": "rankings-39",
+   "s": "rankings",
+   "h": "Saving",
+   "x": "A second tap on Lock in, or Enter pressed before the next screen draws, is ignored rather than locking the old order in again."
+  },
+  {
+   "id": "rankings-40",
+   "s": "rankings",
+   "h": "Saving",
+   "x": "The server refuses any save that would take out screens you didn't take out, from any version of the app, and keeps every screen that leaves a ranking, so one can always be put back."
+  },
+  {
+   "id": "rankings-41",
+   "s": "rankings",
+   "h": "Who sees a ranking",
+   "x": "A ranking starts Shared with the cube: everyone who can see the cube can see it, so a cube's owner sees every ranking of it. Switch to Only me in Settings, where you can also give it a Label (optional) or remove one, change its depth or size, or delete it. Labels others can see are checked like deck names."
+  },
+  {
+   "id": "legality-1",
+   "s": "legality",
+   "x": "Decks check every card against their format and call out problems at the top of the deck and on each card's row; Stats shows the same check for every other format."
+  },
+  {
+   "id": "legality-2",
+   "s": "legality",
+   "t": "Banned or not legal",
+   "x": "What you see: \"1 card isn't legal in Modern: Seething Song\"; the row says Banned or Not legal. Formats: Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Commander, Premodern, Canadian Highlander."
+  },
+  {
+   "id": "legality-3",
+   "s": "legality",
+   "t": "Restricted",
+   "x": "What you see: \"Restricted to 1\" when a deck holds more than one copy across main and sideboard. Formats: Vintage."
+  },
+  {
+   "id": "legality-4",
+   "s": "legality",
+   "t": "Copy limits",
+   "x": "What you see: \"More than 4 copies\", with exceptions for basics and cards like Relentless Rats. Formats: Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Premodern."
+  },
+  {
+   "id": "legality-5",
+   "s": "legality",
+   "t": "Points",
+   "x": "What you see: \"Points: 7 of 10\" with the pointed cards, turning red as \"Over the points limit: 20 of 10\"; each row shows its points. Formats: Canadian Highlander."
+  },
+  {
+   "id": "legality-6",
+   "s": "legality",
+   "t": "Singleton",
+   "x": "What you see: \"Singleton\" on a second copy of any non-basic card. Formats: Canadian Highlander, Commander."
+  },
+  {
+   "id": "legality-7",
+   "s": "legality",
+   "t": "Deck size",
+   "x": "What you see: \"Canadian Highlander decks need at least 100 cards: 87 so far.\". Formats: Canadian Highlander."
+  },
+  {
+   "id": "legality-8",
+   "s": "legality",
+   "x": "Legality comes from Scryfall and updates daily. Canadian Highlander points come from the official list at canadianhighlander.ca and refresh with every catalog update. Considering cards are flagged on their rows but don't make a deck illegal."
+  },
+  {
+   "id": "finder-1",
+   "s": "finder",
+   "x": "New deck → Find a deck online. Describe what you want (\"latest Boros Energy from a big Modern event\") and pick a format."
+  },
+  {
+   "id": "finder-2",
+   "s": "finder",
+   "x": "An AI agent (Claude) looks in Table 1's own results first: every Magic Online Challenge, Showcase, Qualifier and League decklist, and Melee.gg and TopDeck.gg paper events, read within the hour of being published, for Standard, Pioneer, Modern, Legacy, Vintage, Pauper and Canadian Highlander (the same results Insights is built on). A list found there is copied exactly as published, with its event, date, finish and the page it came from. Then the web: mtgdecks.net, melee.gg, MTGGoldfish and official MTGO results, for Commander, Premodern, a paper event that isn't in, or a particular player's list."
+  },
+  {
+   "id": "finder-3",
+   "s": "finder",
+   "t": "Recency first",
+   "x": "lists from the last week, then 30 days, then 90. Among those it prefers strong finishes at large events (Pro Tour, Regional Championships, big opens, MTGO Challenges and Showcases)."
+  },
+  {
+   "id": "finder-4",
+   "s": "finder",
+   "x": "If your request could mean different decks, it asks a short follow-up with suggested answers, and you can type your own."
+  },
+  {
+   "id": "finder-5",
+   "s": "finder",
+   "x": "You see the list with its event, date, placement, player and source link before creating the deck. Cards resolve to their original printings; any card it can't match is listed, never silently dropped."
+  },
+  {
+   "id": "finder-6",
+   "s": "finder",
+   "t": "The search runs on the server",
+   "x": "tap Find deck and the phone is free. Lock it, switch apps or close the tab and the search goes on; a Deck found notification brings you back to the list when it's ready (a follow-up question comes as \"Which deck?\", a miss as \"No list found\"). While you stay on the screen it fills in by itself and no notification is shown."
+  },
+  {
+   "id": "finder-7",
+   "s": "finder",
+   "t": "It shows its work",
+   "x": "under the searching notice, a Working list grows as the finder goes, the latest step marked \"…\": its own short remarks (\"Let me check Table 1's results first.\"), \"Checking Table 1's results: Modern, last 30 days, \\\"Energy\\\"\", what it found there (\"12 events with 190 decks, newest Modern Challenge 32 · 2026-10-31\"), \"Reading deck 169410 from Table 1's results\" then \"Read Boros Energy · 1st at Modern Challenge 32\", \"Searching the web: boros energy modern challenge\" and \"Reading www.mtgo.com/decklist/…\". The steps stay with the search, so a search picked up again shows how it went. Open Find a deck again and a search still running, or finished in the last hour, is right there; on the website too, in a new tab. A search can take a minute or two; one that can't finish in four is called off and you're told."
+  },
+  {
+   "id": "finder-8",
+   "s": "finder",
+   "x": "Each account gets 20 searches a day; a second tap on the same search costs nothing."
+  },
+  {
+   "id": "import-1",
+   "s": "import",
+   "x": "New deck or New cube → Import from a link or list. Paste a link or the list itself, check the preview, rename it and pick the format, then create."
+  },
+  {
+   "id": "import-2",
+   "s": "import",
+   "t": "Cube Cobra",
+   "x": "How it works: Paste the cube's link, or its CSV export. Exact printings and foils carry over; the maybeboard goes to Considering. A cube made from a link remembers it, for Sync with Cube Cobra later (see Decks and cubes)."
+  },
+  {
+   "id": "import-3",
+   "s": "import",
+   "t": "Archidekt",
+   "x": "How it works: Paste the deck link. Exact printings, foils, sideboard, maybeboard, commander and format carry over."
+  },
+  {
+   "id": "import-4",
+   "s": "import",
+   "t": "MTGGoldfish",
+   "x": "How it works: Paste the deck link."
+  },
+  {
+   "id": "import-5",
+   "s": "import",
+   "t": "ManaBox and other sites",
+   "x": "How it works: Paste a public link; the page is read automatically."
+  },
+  {
+   "id": "import-6",
+   "s": "import",
+   "t": "Moxfield",
+   "x": "How it works: Moxfield doesn't let other apps read its decks. In Moxfield choose Export, copy the list as text, and paste it."
+  },
+  {
+   "id": "import-7",
+   "s": "import",
+   "t": "Pasted text or CSV",
+   "x": "How it works: Moxfield, ManaBox, Arena and MTGO exports: \"4 Lightning Bolt (2X2) 117 *F*\", section headers, a blank line before the sideboard, a plain one-card-per-line cube list, or a pasted card CSV."
+  },
+  {
+   "id": "import-8",
+   "s": "import",
+   "x": "When a list names a set and collector number, that exact printing is used; otherwise the original printing. A foil marking carries over when that printing comes in foil, and a card whose printing only comes in foil or etched is saved that way even when the list doesn't say."
+  },
+  {
+   "id": "import-9",
+   "s": "import",
+   "h": "Export",
+   "t": "Export",
+   "x": "on each deck or cube (yours, or one a friend shares with you) opens a screen that shows the current version as text in the format you pick (Text, Arena, Moxfield or MTGO for decks; Text or Cube Cobra for cubes). Under it: To Arena copies the Arena list (Arena imports from the clipboard) and To MTGO saves the MTGO .txt file; cubes get To Cube Cobra (the CSV). Download saves the text shown as a file and Copy text copies it."
+  },
+  {
+   "id": "import-10",
+   "s": "import",
+   "h": "Export",
+   "t": "Arena",
+   "x": "For: Decks. What you get: Deck, Sideboard (and Commander) sections with set and number, ready to paste into Arena."
+  },
+  {
+   "id": "import-11",
+   "s": "import",
+   "h": "Export",
+   "t": "Moxfield",
+   "x": "For: Decks. What you get: Arena's layout plus foil markers and a Maybeboard for Considering."
+  },
+  {
+   "id": "import-12",
+   "s": "import",
+   "h": "Export",
+   "t": "MTGO",
+   "x": "For: Decks. What you get: A .txt file: main deck, blank line, sideboard."
+  },
+  {
+   "id": "import-13",
+   "s": "import",
+   "h": "Export",
+   "t": "Cube Cobra",
+   "x": "For: Cubes. What you get: A CSV in Cube Cobra's own columns, main then Considering, with finishes."
+  },
+  {
+   "id": "import-14",
+   "s": "import",
+   "h": "Export",
+   "t": "Plain text",
+   "x": "For: Decks, cubes. What you get: \"4 Lightning Bolt\", one line per card."
+  },
+  {
+   "id": "friends-1",
+   "s": "friends",
+   "t": "Friends are mutual",
+   "x": "one asks, the other accepts. Either can unfriend at any time; it's never announced."
+  },
+  {
+   "id": "friends-2",
+   "s": "friends",
+   "t": "Find people",
+   "x": "among those you've played with, by name or handle among profiles open to anyone, or by email. An email search never says whether an account exists. Nobody can browse all accounts."
+  },
+  {
+   "id": "friends-3",
+   "s": "friends",
+   "t": "Requests carry no pressure",
+   "x": "they show Accept · Ignore and how you know the person (\"3 events together\"). Ignoring is quiet; friend counts are never shown to anyone else."
+  },
+  {
+   "id": "friends-4",
+   "s": "friends",
+   "t": "Account → Friends",
+   "x": "requests, friends, sent requests (Cancel), Add a friend, and Blocked (Unblock)."
+  },
+  {
+   "id": "friends-5",
+   "s": "friends",
+   "t": "Profile",
+   "x": "avatar, name, handle, your relationship (Add friend, Requested, Accept, Friends), their record if shared, then each part of their Library they've shared with you, read-only. Tap a card to see your own copies of it. View shows their cards as a list, grid or stacks, grouped by type, color, color identity or mana value."
+  },
+  {
+   "id": "friends-6",
+   "s": "friends",
+   "t": "Tap a person",
+   "x": "a player's row in standings (teams too), the organizer's Players lists, the waitlist, your opponent at the top of your match, roto pick order (iPhone), Head-to-head and Add a friend's results open that person's profile, ready for Add friend. Where the row's own tap does something else (Add players, Rankings, Trade matches), the avatar opens the profile. Guests can't be opened, and signed out nothing is tappable. A profile only friends can open says \"Only Ana Lind's friends can see their profile.\" under Add friend."
+  },
+  {
+   "id": "friends-7",
+   "s": "friends",
+   "t": "Their decks and cubes",
+   "x": "Export one (text, Arena, MTGO, Cube Cobra, download or copy), make a deck image of a deck, or Copy to my Library: a new deck (private) or cube with the same name, format and cards, whose history says whose it was. Copies come in non-foil. The owner isn't told."
+  },
+  {
+   "id": "friends-8",
+   "s": "friends",
+   "t": "View your profile",
+   "x": "as You · A friend · Anyone, to see exactly what others see."
+  },
+  {
+   "id": "friends-9",
+   "s": "friends",
+   "t": "Their friends",
+   "x": "a Friends row on a friend's profile (lists show to friends by default), or any profile whose owner shares their list with you (\"3 mutual\" when some are your friends too; on your own, who sees it). It opens Friends · <name>: mutual friends first, then by name, each with \"Mutual friend\" or their handle; you're there as \"You\" if you're one of them. A tap opens that person's profile; a long press offers Unfriend, Block and Report. Someone shows only if their own You in friends' lists setting reaches you (see Sharing). No totals, nothing about who's hidden, never across a block."
+  },
+  {
+   "id": "friends-10",
+   "s": "friends",
+   "t": "Avatars",
+   "x": "initials on a muted tile picked from your account, or a photo (take one or choose from your library). Shown on your profile and next to names in players lists and standings."
+  },
+  {
+   "id": "friends-11",
+   "s": "friends",
+   "t": "Add players",
+   "x": "to an event lists friends first."
+  },
+  {
+   "id": "sharing-1",
+   "s": "sharing",
+   "x": "Everything in your Library starts private. Account → Sharing sets who sees each part, and every deck, cube and binder has its own Who sees this row."
+  },
+  {
+   "id": "sharing-2",
+   "s": "sharing",
+   "t": "Profile",
+   "x": "Starts as: Friends. What it shows: Who can open your profile at all. It caps everything below."
+  },
+  {
+   "id": "sharing-3",
+   "s": "sharing",
+   "t": "Library",
+   "x": "Starts as: Private. What it shows: The default for every part below."
+  },
+  {
+   "id": "sharing-4",
+   "s": "sharing",
+   "t": "All cards",
+   "x": "Starts as: Same as Library. What it shows: Your whole collection (never your total value)."
+  },
+  {
+   "id": "sharing-5",
+   "s": "sharing",
+   "t": "For trade",
+   "x": "Starts as: Same as Library. What it shows: Copies in your for-trade binders, as one list; what trade matches read."
+  },
+  {
+   "id": "sharing-6",
+   "s": "sharing",
+   "t": "Wants",
+   "x": "Starts as: Same as Library. What it shows: Your wishlist, never your max prices."
+  },
+  {
+   "id": "sharing-7",
+   "s": "sharing",
+   "t": "Binders, Decks, Cubes",
+   "x": "Starts as: Same as Library. What it shows: A default for each binder, deck or cube, which can set its own. New decks are always Private."
+  },
+  {
+   "id": "sharing-8",
+   "s": "sharing",
+   "t": "Record",
+   "x": "Starts as: Private. What it shows: Your lifetime match record."
+  },
+  {
+   "id": "sharing-9",
+   "s": "sharing",
+   "t": "Friends",
+   "x": "Starts as: Friends. What it shows: Your friends list on your profile (each friend shows only as their own setting allows)."
+  },
+  {
+   "id": "sharing-10",
+   "s": "sharing",
+   "t": "You in friends' lists",
+   "x": "Starts as: Friends (friends of friends). What it shows: Who sees you when they open one of your friends' lists: Friends means friends of friends (your friends and that friend's friends); Anyone, anyone who can see that list; Private, only you and that friend. Only a Private profile holds it back. The apps still call the middle choice \"Friends\"."
+  },
+  {
+   "id": "sharing-11",
+   "s": "sharing",
+   "x": "The choices read Private · Friends · Anyone, where Anyone means anyone signed in to Table 1. Each one says what it does in a line underneath."
+  },
+  {
+   "id": "sharing-12",
+   "s": "sharing",
+   "t": "Widening asks first",
+   "x": "any change that shows more to more people lists what newly shows (\"Friends will see: All cards, Wants, 3 decks, 2 binders\") with Show / Cancel. Narrowing applies at once."
+  },
+  {
+   "id": "sharing-13",
+   "s": "sharing",
+   "x": "When your profile caps a part, the row says so: \"Set to Anyone, but only friends see it: your profile is Friends.\""
+  },
+  {
+   "id": "sharing-14",
+   "s": "sharing",
+   "t": "Friends",
+   "x": "sits in its own section under Record, with both friends settings. Widening either asks first: \"Friends will see: your friends.\", \"Anyone on Table 1 will see: you in your friends' lists.\" The summary at the top names \"your friends\" when your list reaches someone."
+  },
+  {
+   "id": "sharing-15",
+   "s": "sharing",
+   "x": "The app offers to share just once, when it helps: when you mark a binder For trade, when trade matches have nothing to work with, and after your first event (your record)."
+  },
+  {
+   "id": "sharing-16",
+   "s": "sharing",
+   "x": "Anything hidden or gone reads \"This isn't available\", never which. A profile you can't see past its name and photo says only friends can see it, under Add friend."
+  },
+  {
+   "id": "sharing-17",
+   "s": "sharing",
+   "h": "Share, and Anyone with the link",
+   "t": "Share",
+   "x": "is on All cards, Wants, Binders (to share For trade), and every binder, deck and cube. It opens one screen with everything about who can see that part."
+  },
+  {
+   "id": "sharing-18",
+   "s": "sharing",
+   "h": "Share, and Anyone with the link",
+   "t": "Anyone with the link",
+   "x": "Make a link (it asks first, saying what the link shows) and send it anywhere. Whoever opens it sees that part and nothing else on your profile, even without a Table 1 account and even if your profile is Friends or Private. Your settings stay as they are: a deck can be Private on Table 1 and still have a link."
+  },
+  {
+   "id": "sharing-19",
+   "s": "sharing",
+   "h": "Share, and Anyone with the link",
+   "t": "One link per part.",
+   "x": "Share link and Copy link send it; New link makes a fresh one and the old one stops working; Stop sharing link turns it off at once. Deleting the deck, cube or binder, or your account, ends its link too."
+  },
+  {
+   "id": "sharing-20",
+   "s": "sharing",
+   "h": "Share, and Anyone with the link",
+   "t": "On Table 1",
+   "x": "the same screen shows who sees the part there (Private, Friends or Anyone) and, when it reaches someone, Send profile link, which only those people can open."
+  },
+  {
+   "id": "sharing-21",
+   "s": "sharing",
+   "h": "Share, and Anyone with the link",
+   "t": "As a copy",
+   "x": "(decks and cubes): Export and Deck image, as on the deck's own screen."
+  },
+  {
+   "id": "sharing-22",
+   "s": "sharing",
+   "h": "Share, and Anyone with the link",
+   "x": "\"Who sees this\" says Link on while a part has a live link, and so does its Share row."
+  },
+  {
+   "id": "sharing-23",
+   "s": "sharing",
+   "h": "Share, and Anyone with the link",
+   "t": "Opening a link",
+   "x": "the part's name, \"Shared by\" with the owner's name and photo, then the cards with search, View and Group by. Decks and cubes can be exported, and signed in you can Copy to my Library. A link that's off reads \"This isn't available\"."
+  },
+  {
+   "id": "sharing-24",
+   "s": "sharing",
+   "h": "Share, and Anyone with the link",
+   "t": "Never through a link",
+   "x": "your handle, your total value or your max prices. If you've blocked someone (or they you), your links don't open for them while they're signed in."
+  },
+  {
+   "id": "sharing-25",
+   "s": "sharing",
+   "h": "Share, and Anyone with the link",
+   "x": "A deck, cube or binder name behind a link is checked like any name others can see."
+  },
+  {
+   "id": "matches-1",
+   "s": "matches",
+   "x": "Collection → Trade, under Matches: who has what you want, and who wants what you have for trade."
+  },
+  {
+   "id": "matches-2",
+   "s": "matches",
+   "t": "They have",
+   "x": "your wants against their for-trade copies. They want: their wants against your for-trade copies."
+  },
+  {
+   "id": "matches-3",
+   "s": "matches",
+   "x": "Looks only at your friends and people you've played an event with in the last 90 days, and only at what each has shared with you."
+  },
+  {
+   "id": "matches-4",
+   "s": "matches",
+   "x": "One block per person: \"Has 3 · wants 2\" and the value. Open it to see each card, which want it meets, and \"Over your max\" flags. Each copy is priced in its condition, so a Heavily Played copy can come in under your max where a near-mint one wouldn't."
+  },
+  {
+   "id": "matches-5",
+   "s": "matches",
+   "t": "Start a trade",
+   "x": "makes the draft for you, gives from your for-trade binders and gets from theirs, ready in the trade editor."
+  },
+  {
+   "id": "matches-6",
+   "s": "matches",
+   "x": "Matching follows the same order as confirming a trade: an exact printing and finish first, then that printing, then any printing; near-mint copies first."
+  },
+  {
+   "id": "matches-7",
+   "s": "matches",
+   "t": "A notification when a friend puts up a card you want",
+   "x": "see Following."
+  },
+  {
+   "id": "following-1",
+   "s": "following",
+   "x": "Keep up with a friend's deck, cube or binder without checking it: follow it, and hear once they've finished a round of changes."
+  },
+  {
+   "id": "following-2",
+   "s": "following",
+   "h": "Follow",
+   "x": "On any binder, deck or cube someone else shares with you (on their profile, or a link you opened), Follow sits above Export. Signed out on the website, it says to sign in."
+  },
+  {
+   "id": "following-3",
+   "s": "following",
+   "h": "Follow",
+   "x": "Following, the row reads Following with a check; tap it to turn notifications off or on, or Unfollow. Under it, Changes shows the latest update (\"+12 −8 · 2 h ago\") and how many are new. What following brings shows at once, on the same screen."
+  },
+  {
+   "id": "following-4",
+   "s": "following",
+   "h": "Follow",
+   "t": "A cube by link",
+   "x": "following it also lets you rank it, and its Follow row says so (\"…and rank it\"). Rankings appears the moment you follow, and goes if you unfollow or the link stops."
+  },
+  {
+   "id": "following-5",
+   "s": "following",
+   "h": "Follow",
+   "x": "You keep a follow only while you can see it. If the owner makes it private, stops the link you followed through, blocks you or deletes it, it reads \"This isn't available\" and sends nothing; if they share it again, it comes back. The owner is never told who follows, or how many."
+  },
+  {
+   "id": "following-6",
+   "s": "following",
+   "h": "Follow",
+   "x": "Up to 500 follows."
+  },
+  {
+   "id": "following-7",
+   "s": "following",
+   "h": "Grouped changes",
+   "x": "Changes are gathered, not sent one by one: an update goes out once the list has had no changes for 30 minutes, and a list sends at most one update every 6 hours (later changes wait and join the next one)."
+  },
+  {
+   "id": "following-8",
+   "s": "following",
+   "h": "Grouped changes",
+   "x": "An update is what changed overall since the last one: a card added and taken out again doesn't count, and a run of edits that ends where it began sends nothing."
+  },
+  {
+   "id": "following-9",
+   "s": "following",
+   "h": "Grouped changes",
+   "x": "Decks and cubes compare each card in each section (Main, Sideboard, Commander; Considering is left out); binders compare copies of each printing. Renaming doesn't count."
+  },
+  {
+   "id": "following-10",
+   "s": "following",
+   "h": "Grouped changes",
+   "x": "The notification names the list and says what came in and went out, with up to three card names. Turn one follow's notifications off and its updates still show in Following."
+  },
+  {
+   "id": "following-11",
+   "s": "following",
+   "h": "Following and Changes",
+   "x": "On the Collection tab, each followed deck, binder or cube sits on its row after your own, with its art (the owner's hero card, else its top card by copies), the owner's name and \"N new\"."
+  },
+  {
+   "id": "following-12",
+   "s": "following",
+   "h": "Following and Changes",
+   "x": "The Following screen (from a follow notification, or the sidebar on a computer) lists each follow (updated first) with whose it is, its latest change and \"N new\". Tap to open it; More (or a long press) turns notifications off or unfollows."
+  },
+  {
+   "id": "following-13",
+   "s": "following",
+   "h": "Following and Changes",
+   "t": "Changes",
+   "x": "lists each update since you followed, newest first, with Added and Taken out cards (in a deck, which section). Tap a card for its page. Updates from before you followed aren't shown."
+  },
+  {
+   "id": "following-14",
+   "s": "following",
+   "h": "A friend puts up a card you want",
+   "x": "When a friend adds cards to a for-trade binder you can see (by hand, by scanning, by import, by moving them in, or from a trade), and they meet one of your wants, you get one notification: \"Ana Lind put 3 cards you want up for trade: Counterspell, Opt and Ponder.\" Tapping it opens your trade match with them."
+  },
+  {
+   "id": "following-15",
+   "s": "following",
+   "h": "A friend puts up a card you want",
+   "x": "A want for any printing, that printing, or that printing and finish counts; a want with a max price counts only when the copy's price at its condition is at or under it."
+  },
+  {
+   "id": "following-16",
+   "s": "following",
+   "h": "A friend puts up a card you want",
+   "x": "Their adds go out once they've stopped adding for 30 minutes; you hear from each friend at most once every 12 hours (Trade matches still shows everything). Cards they take back out before then, or move from one trade binder to another, don't count. Marking a whole binder For trade doesn't notify yet."
+  },
+  {
+   "id": "following-17",
+   "s": "following",
+   "h": "A friend puts up a card you want",
+   "x": "Friends only, and never across a block."
+  },
+  {
+   "id": "safety-1",
+   "s": "safety",
+   "h": "Block and report",
+   "x": "Wherever a person appears (profile, friend rows, requests, search results, trade matches) a long press or More offers Block and Report. Blocking hides your Library and profile from them and stops requests; they aren't told, and you can still both play the same event. A report picks a reason, takes an optional note, and can also block."
+  },
+  {
+   "id": "safety-2",
+   "s": "safety",
+   "h": "Automatic checks",
+   "x": "Only what other people can see is checked: names, handles, photos, shared deck, cube and binder names, event and guest names, shared deck photos. Private things are never sent anywhere. Claude judges each as allow, review or block, and knows that Murder, Thoughtseize and Death and Taxes are just Magic."
+  },
+  {
+   "id": "safety-3",
+   "s": "safety",
+   "h": "Fair outcomes",
+   "x": "Content gets the least drastic, reversible fix (a name reset, a photo taken down, a deck name unshared); nobody is ever removed from an event. The owner gets a notice under Account → From Table 1 with one appeal. Restricting an account is always a person's decision."
+  },
+  {
+   "id": "safety-4",
+   "s": "safety",
+   "h": "Fair outcomes",
+   "x": "Enforcement switches on after a week of verdicts has been checked."
+  },
+  {
+   "id": "push-1",
+   "s": "push",
+   "x": "The app asks for permission on the screen after sign-in that says what notifications are for, only when you tap Turn on. Skip it and the app doesn't ask again on its own; turn them on in iOS Settings."
+  },
+  {
+   "id": "push-2",
+   "s": "push",
+   "t": "Sign-ups and drops",
+   "x": "(organizers): \"Ana signed up · 12/16 players\", \"Bea joined the waitlist · 16/16 players · 3 waiting\", \"Cal dropped · 7/8 players\", \"Dee left the waitlist\". Each new one replaces the last for that event, and a tap opens it. There's no switch to turn them off in the apps yet."
+  },
+  {
+   "id": "push-3",
+   "s": "push",
+   "t": "You're in",
+   "x": "when a place opens in an event you're waiting for. A top 8 round's alert says \"Quarterfinals is up\", \"Semifinals is up\" or \"The final is up\"."
+  },
+  {
+   "id": "push-4",
+   "s": "push",
+   "x": "Alerts arrive within seconds: invitations, a new round's pairing, results reported, disputed or changed, a cancelled event, a new event from an organizer you've played with in the last 90 days (never for private events), friend requests and accepts, and notices from Table 1."
+  },
+  {
+   "id": "push-5",
+   "s": "push",
+   "t": "New in Insights",
+   "x": "a new format, set data, Arena cube run or set to rank, once each, for people who've opened Insights in the last 60 days. A tap opens Insights on it (or the set's Rankings). Off with the switch at the bottom of Insights → Limited; on Android it has its own group, New in Insights."
+  },
+  {
+   "id": "push-6",
+   "s": "push",
+   "t": "Price alerts",
+   "x": "one a day at most, when wants got meaningfully cheaper or reached your max (see Binders and wants). Off with the Price alerts switch on Wants."
+  },
+  {
+   "id": "push-7",
+   "s": "push",
+   "t": "Deck found",
+   "x": "a deck finder search you started has finished (\"Boros Energy · 1st · Modern Challenge 32 · 2026-10-30. Tap to create it.\", \"Which deck?\", \"No list found\"). A tap opens Find a deck on that search; on Android it's in the Collection group."
+  },
+  {
+   "id": "push-8",
+   "s": "push",
+   "t": "Grouped alerts",
+   "x": "a round of changes to a deck, cube or binder you follow, and a friend putting up cards you want, come as one alert each, not one per card. Tapping opens the Changes or the trade match."
+  },
+  {
+   "id": "push-9",
+   "s": "push",
+   "x": "Tapping an alert opens the event, Friends or Notices. Alerts older than 30 minutes are dropped rather than arriving late."
+  },
+  {
+   "id": "push-10",
+   "s": "push",
+   "t": "On Android",
+   "x": "the same notifications with the same wording, in four groups you can turn off one by one in Android's settings: Events (pairings, results, invitations, sign-ups; shown at the top of the screen), Collection (follows, trade wants, price alerts, cube rankings), Friends and From Table 1. A newer one about the same thing replaces the older, and a tap opens the same screen as on iPhone; notices from Table 1 open From Table 1 and a moderator's review alert opens Review. The phone is signed up for notifications while you're signed in and taken off at sign-out."
+  },
+  {
+   "id": "push-11",
+   "s": "push",
+   "x": "The web has no notifications."
+  },
+  {
+   "id": "sync-1",
+   "s": "sync",
+   "x": "Your collection, binders, wants, decks, cubes and trades live in your account on the server and appear on every device you sign in to."
+  },
+  {
+   "id": "sync-2",
+   "s": "sync",
+   "x": "Each device keeps a copy so the Library opens instantly and works offline; changes show right away and are confirmed by the server. Cards you add (by hand or by scanning) show before the server answers, and come back off if the change fails."
+  },
+  {
+   "id": "sync-3",
+   "s": "sync",
+   "x": "Other devices pick up only what changed since they last checked, so syncing stays quick for large collections."
+  },
+  {
+   "id": "sync-4",
+   "s": "sync",
+   "x": "Repeated taps or retries never double-count: every change is applied exactly once."
+  },
+  {
+   "id": "sync-5",
+   "s": "sync",
+   "x": "Undo reverses a whole action (an add, a scan session, an import, a binder move, a trade) in one step."
+  },
+  {
+   "id": "sync-6",
+   "s": "sync",
+   "t": "Back where you were",
+   "x": "reopening the app (after the screen slept, or from another app) brings you back to the same screen, mid-ranking included. On Android, after 30 minutes or more away it starts on Events again; the iPhone always keeps your place."
+  },
+  {
+   "id": "sync-7",
+   "s": "sync",
+   "t": "Lists keep their place",
+   "x": "(Android): back from a card's page, a deck, cube, binder, All cards or a shared list opens where you left it, in any view, with opened printings and your search kept."
+  },
+  {
+   "id": "sync-8",
+   "s": "sync",
+   "x": "The web app loads the Library only when you open it, so players who just use events get a smaller, faster app."
+  },
+  {
+   "id": "sync-9",
+   "s": "sync",
+   "h": "With no signal",
+   "t": "What you last saw stays",
+   "x": "the Events tab, every event you've opened (your match and the standings, or the organizer's round) and Insights keep their last answer on the device and open on it at once, then ask the server. When the server can't be reached, the screen keeps what it has and says Couldn't refresh · last updated 3 min ago (Events and Insights at the top, an event along the bottom); with nothing saved yet it shows the error with Try again."
+  },
+  {
+   "id": "sync-10",
+   "s": "sync",
+   "h": "With no signal",
+   "t": "Coming back refreshes",
+   "x": "an event refreshes when the app comes to the front (or the website's tab is shown again, or the browser says it's back online), and picks up live updates again."
+  },
+  {
+   "id": "sync-11",
+   "s": "sync",
+   "h": "With no signal",
+   "t": "No endless Loading…",
+   "x": "a request with no answer after 25 seconds fails, so you see the saved screen or the error (uploads get two minutes)."
+  },
+  {
+   "id": "sync-12",
+   "s": "sync",
+   "h": "With no signal",
+   "t": "Cards you add offline are kept",
+   "x": "an add or a scan session that can't reach the server stays on screen and waits on the device, with the Collection home reading \"3 changes waiting to send\", and is sent in order with the next sync (opening the app, the Collection tab, or any later change). It can't go in twice. Undo on a waiting change takes it back out. Removals and count changes still need a connection, as do trades, binder moves and wants."
+  },
+  {
+   "id": "sync-13",
+   "s": "sync",
+   "h": "With no signal",
+   "t": "Decks and cubes offline",
+   "x": "a deck or cube you make, and every change to one (cards, format, a restore, a delete), is applied on the device and sent before the next sync, on iPhone, Android and the website; a deck not yet on your account says so at the top. A change the server refuses is dropped and the deck re-read from the server."
+  },
+  {
+   "id": "sync-14",
+   "s": "sync",
+   "h": "With no signal",
+   "t": "The website without a connection",
+   "x": "once you've visited table-1.site, the site itself is kept by your browser, so it opens with no connection and every page shows what it has saved. A new version of the site takes over the next time you open it."
+  },
+  {
+   "id": "account-1",
+   "s": "account",
+   "x": "Sign in with Apple, Google, Discord or email. Any of them makes an account the first time. Android has no Apple button: Google, Discord or email there. An Apple account signs in on Android by email with the same address."
+  },
+  {
+   "id": "account-2",
+   "s": "account",
+   "t": "Discord",
+   "x": "Continue with Discord opens Discord's own page (in a sheet on iPhone, a browser tab on Android, the same tab on the website), where you approve Table 1, then brings you back signed in. If your Discord email is verified and matches an existing Table 1 account, you sign in to that account; otherwise you get a new one. Closing the page or pressing Cancel on it simply takes you back."
+  },
+  {
+   "id": "account-3",
+   "s": "account",
+   "t": "Google",
+   "x": "in the apps, Google's own sign-in sheet; on the website, Continue with Google goes straight to Google, which says \"to continue to table-1.site\" (and will name Table 1 once Google has verified the brand), then brings you back to the page you were on. Cancel at Google and you're back there, signed out."
+  },
+  {
+   "id": "account-4",
+   "s": "account",
+   "t": "Email is passwordless.",
+   "x": "Enter your address and you get one email from Table 1 with both a Sign in button and a one-time code. Type the code on any device, or tap the button: with the app installed it opens the app and signs you in; on a computer it signs you in on the website."
+  },
+  {
+   "id": "account-5",
+   "s": "account",
+   "t": "Asked too soon?",
+   "x": "A sign-in email can go to an address once a minute. Ask again sooner and you go straight to the code step, with Resend counting down to when you can ask again, because the email is already on its way. If too many sign-in emails have gone out from Table 1 in the last hour, it says \"Too many sign-in emails right now. Wait a few minutes, or continue with Apple or Google.\" (on Android: \"with Google or Discord\") A double tap (or Return as well as Send) sends one email."
+  },
+  {
+   "id": "account-6",
+   "s": "account",
+   "t": "The code step waits for you",
+   "x": "after an email is sent, leave for your mail app and come back (even if your phone closed the app, or you reloaded the page) and you're on the code step for that address, for the code's hour. Change email, signing in, or the hour passing clears it. Not there? Check spam."
+  },
+  {
+   "id": "account-7",
+   "s": "account",
+   "x": "A new email or Discord account asks for your first and last name before anything else, so organizers and opponents see a real name (Discord only shares your username). Apple and Google accounts skip this."
+  },
+  {
+   "id": "account-8",
+   "s": "account",
+   "t": "Notifications and location",
+   "x": "(iPhone and Android): next comes one screen on why each helps (your pairings, results and invitations; events near you and pinning your venue, with only a rough area kept). Turn on shows the phone's own questions, Skip for now goes straight in. It shows once per phone, only while one of them is unanswered, and a join QR or link you opened waits behind it. Nothing else asks for either on its own; Nearby, Create event and the venue pin ask when you tap them."
+  },
+  {
+   "id": "account-9",
+   "s": "account",
+   "x": "Signing in by email with the same address as your Apple or Google account reaches the same account."
+  },
+  {
+   "id": "account-10",
+   "s": "account",
+   "x": "The Account tab has your avatar, Friends, Sharing, View your profile, and notices from Table 1 when there are any."
+  },
+  {
+   "id": "account-11",
+   "s": "account",
+   "t": "Deck photos",
+   "x": "under your lifetime record, every photo of a deck you played, by event (see After the event)."
+  },
+  {
+   "id": "account-12",
+   "s": "account",
+   "x": "Settings: choose whether you track games in the app (life tracker first) or elsewhere (result reporting first); turn usage and crash data and scan reports on or off."
+  },
+  {
+   "id": "account-13",
+   "s": "account",
+   "x": "Delete your account in the app or on the website. Your match history stays as \"Deleted player\"; your collection, binders, wants, decks, cubes, trades, friendships, sharing settings and photos are removed, and Apple sign-in access is revoked."
+  },
+  {
+   "id": "account-14",
+   "s": "account",
+   "t": "About",
+   "x": "at the bottom of Account, Wizards of the Coast's fan-content notice (\"Table 1 is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards.\"), Privacy policy, and the app's version (for example \"Version 0.1.0 (32)\"). On the website the notice is also at the foot of the home page and on the privacy and deletion pages."
+  },
+  {
+   "id": "privacy-1",
+   "s": "privacy",
+   "x": "Your Library is private until you share it, and the apps send two kinds of data to help fix and improve them, both with an off switch."
+  },
+  {
+   "id": "privacy-2",
+   "s": "privacy",
+   "h": "Usage and crashes",
+   "x": "Which screens and features are used (PostHog) and crash and error reports (Sentry), identified only by your account's internal id. Turn off in Account → Share usage and crash data."
+  },
+  {
+   "id": "privacy-3",
+   "s": "privacy",
+   "h": "Scan reports",
+   "x": "The text the camera read when a scan needed correcting, to improve recognition. Never images. Turn off in Account → Settings → Improve scanning."
+  },
+  {
+   "id": "privacy-4",
+   "s": "privacy",
+   "h": "Never sent",
+   "x": "No email, names (yours, guests' or trade partners'), event or deck names, notes, search text, join codes or record ids. No advertising id, no session replay, no tap recording."
+  },
+  {
+   "id": "privacy-5",
+   "s": "privacy",
+   "h": "Never sent",
+   "x": "Business numbers (events run, matches played, trades confirmed) are counted from the database itself; telemetry only shows how people get there. Names and photos others can see are checked by Anthropic's Claude for moderation, sent without ids or emails; the privacy policy names this."
+  },
+  {
+   "id": "links-1",
+   "s": "links",
+   "x": "Every Table 1 link is a table-1.site address. Tap one and it opens in the app if you have it, and on the website if you don't. There's nothing extra to share: the join QR, a copied join or standings link, or an address copied from the website all work."
+  },
+  {
+   "id": "links-2",
+   "s": "links",
+   "h": "Opens in the app",
+   "x": "Events, an event (organizer or player), Add players, and the life tracker."
+  },
+  {
+   "id": "links-3",
+   "s": "links",
+   "h": "Opens in the app",
+   "t": "Join links",
+   "x": "the QR joins as before; a link with just the code joins with your account's name and opens the event. Already in it? It just opens. Can't join (private, finished, cancelled)? It says why."
+  },
+  {
+   "id": "links-4",
+   "s": "links",
+   "h": "Opens in the app",
+   "t": "Standings links",
+   "x": "the event screen if you organize or play in it; the standings page for everyone else, and for anyone not signed in."
+  },
+  {
+   "id": "links-5",
+   "s": "links",
+   "h": "Opens in the app",
+   "x": "The whole Collection: All cards, Add cards, a card, decks and cubes with their stats, versions and rankings, a ranking and its screens, binders, wants, trades and trade matches."
+  },
+  {
+   "id": "links-6",
+   "s": "links",
+   "h": "Opens in the app",
+   "x": "Account, Friends, Sharing, and anyone's profile (a link to one part of a profile opens the profile)."
+  },
+  {
+   "id": "links-7",
+   "s": "links",
+   "h": "Opens in the app",
+   "t": "Share links",
+   "x": "(table-1.site/l/…): what the link shares, when you're signed in. Signed out, they open on the website, which needs no account."
+  },
+  {
+   "id": "links-8",
+   "s": "links",
+   "h": "Stays on the website",
+   "x": "The privacy policy, account deletion, and any page the app doesn't have."
+  },
+  {
+   "id": "links-9",
+   "s": "links",
+   "h": "Stays on the website",
+   "x": "Signing in with Apple, Google or Discord on the website keeps you on the website, and so do the Discord bot's pages (table-1.site/discord and the link it sends you to)."
+  },
+  {
+   "id": "links-10",
+   "s": "links",
+   "h": "Stays on the website",
+   "x": "A link the app can't show opens the website instead: in a browser window inside the app on iPhone, in your browser on Android."
+  },
+  {
+   "id": "links-11",
+   "s": "links",
+   "h": "Good to know",
+   "x": "Signed out? The app signs you in first, then opens the screen. A join QR names the event above the sign-in."
+  },
+  {
+   "id": "links-12",
+   "s": "links",
+   "h": "Good to know",
+   "x": "Installed the Android app from a website Get the app link? It opens that event the first time you open it."
+  },
+  {
+   "id": "links-13",
+   "s": "links",
+   "h": "Good to know",
+   "x": "Works for both table-1.site and www.table-1.site."
+  },
+  {
+   "id": "links-14",
+   "s": "links",
+   "h": "Good to know",
+   "x": "Back goes where it would on the website: a deck's stats lead back to the deck, a binder back to Binders. On the website, a page opened straight from a shared link has Back to the home page (a profile link: to the profile, then Account)."
+  },
+  {
+   "id": "links-15",
+   "s": "links",
+   "h": "Good to know",
+   "x": "Older iPhone builds open on their home screen for the new links, so update."
+  },
+  {
+   "id": "web-1",
+   "s": "web",
+   "t": "table-1.site",
+   "x": "has a landing page, a privacy policy and an account-deletion page."
+  },
+  {
+   "id": "web-2",
+   "s": "web",
+   "t": "Join by code",
+   "x": "on the web, for players without the app."
+  },
+  {
+   "id": "web-3",
+   "s": "web",
+   "t": "Icon and install",
+   "x": "the Table 1 mark shows in the browser tab and on an iPhone's Home Screen when the site is added there; on Chrome and Android the site can be installed as its own app."
+  },
+  {
+   "id": "web-4",
+   "s": "web",
+   "t": "On a phone",
+   "x": "signed in, Events · Collection · Insights · Account sit along the bottom, as in the apps, and stay there as you scroll."
+  },
+  {
+   "id": "web-5",
+   "s": "web",
+   "x": "The Library, friends, trade matches, cube rankings and roto run on the web too. Card scanning, the Live Activity, widgets and push notifications are phone-only."
+  },
+  {
+   "id": "web-6",
+   "s": "web",
+   "h": "On a computer",
+   "x": "On a window at least 1024 pixels wide, once you're signed in, the site is laid out for a computer. On a phone or a narrower window it stays exactly as it was."
+  },
+  {
+   "id": "web-7",
+   "s": "web",
+   "h": "On a computer",
+   "t": "Sidebar",
+   "x": "a sidebar on the left replaces the Events · Collection · Account tabs. It has Play (Events, Life tracker), Collection (Overview, All cards, Add cards, Binders, Wants, Decks, Cubes, Rankings, Trades, Trade matches, Import and export) and Account (Account, Friends, Sharing). The section you're in stays marked as you go deeper: a deck under Decks, a card under All cards."
+  },
+  {
+   "id": "web-8",
+   "s": "web",
+   "h": "On a computer",
+   "t": "Events",
+   "x": "your live, invited, upcoming and past events on the left; join with a code, create an event and the life tracker on the right."
+  },
+  {
+   "id": "web-9",
+   "s": "web",
+   "h": "On a computer",
+   "t": "Running an event",
+   "x": "on the Live round, the clock and matches sit on the left and the standings, updating as results come in, on the right. On a window under 1280 pixels they stack."
+  },
+  {
+   "id": "web-10",
+   "s": "web",
+   "h": "On a computer",
+   "t": "Playing in an event",
+   "x": "your match and reporting on the left; seating and standings on the right."
+  },
+  {
+   "id": "web-11",
+   "s": "web",
+   "h": "On a computer",
+   "t": "Collection",
+   "x": "the summary across the top and the sections two across. A card's page shows the card large in its own column; pick a printing to see it there."
+  },
+  {
+   "id": "web-12",
+   "s": "web",
+   "h": "On a computer",
+   "t": "Decks and cubes",
+   "x": "in the list view each section's groups (creatures, instants, lands…) flow into columns side by side, and the deck's actions sit three across. Grid and stacks fill the wider screen, as do All cards and binders in grid or stacks."
+  },
+  {
+   "id": "web-13",
+   "s": "web",
+   "h": "On a computer",
+   "t": "See the whole card",
+   "x": "rest the pointer on any card in a list or a stack and the full card appears beside it."
+  },
+  {
+   "id": "web-14",
+   "s": "web",
+   "h": "On a computer",
+   "t": "Keyboard",
+   "x": "/ jumps to the screen's search and Esc closes a menu or dialog. Menus open in the middle of the screen."
+  },
+  {
+   "id": "discord-1",
+   "s": "discord",
+   "x": "Table 1 as a bot in your Discord server: make events, sign up and drop with a button, see who's in, and post the results with a link to the event, all from the channel. The bot acts as each person's own Table 1 account, with the same rules as the apps."
+  },
+  {
+   "id": "discord-2",
+   "s": "discord",
+   "h": "Getting it",
+   "x": "Anyone with Manage Server adds it from table-1.site/discord (Add to your server). It asks only to send messages and embed links; it never reads anyone's messages."
+  },
+  {
+   "id": "discord-3",
+   "s": "discord",
+   "h": "Getting it",
+   "t": "/link",
+   "x": "once: the bot answers you, and only you, with a link that works for 10 minutes. Open it, sign in to Table 1 (Apple, Google, email or Discord; it makes the account if you're new) and you're linked. If you sign in to Table 1 with Discord anyway, you're linked already and can skip this. /unlink undoes it, as does Account → Discord on the website."
+  },
+  {
+   "id": "discord-4",
+   "s": "discord",
+   "h": "Getting it",
+   "t": "/settings timezone",
+   "x": "(Manage Server) sets the zone the server's event times are typed in; everyone sees posted times in their own."
+  },
+  {
+   "id": "discord-5",
+   "s": "discord",
+   "h": "Getting it",
+   "t": "The Table 1 server",
+   "x": "table-1.site/discord and Account → Discord offer Join the Table 1 server until you're in. With your Discord account linked, the site asks Discord whether you're a member (nothing about the answer is kept); members see \"You're in the Table 1 server · Open it in Discord\" on /discord and nothing on Account. Signed out or not linked, the invite always shows."
+  },
+  {
+   "id": "discord-6",
+   "s": "discord",
+   "h": "Events",
+   "t": "/event create",
+   "x": "pick the format (Standard to Canadian Highlander, Other, Draft or Sealed), and if you like a name, when (\"2026-11-07 18:30\"), where, a player cap, top 8, the number of rounds (left out, it follows the sign-ups), a set code or a cube. For a draft, pods and pairing (Inside pods or Across pods), as in the app. You're seated as the organizer, and the event is a real Table 1 event you also run from the app."
+  },
+  {
+   "id": "discord-7",
+   "s": "discord",
+   "h": "Events",
+   "t": "The card",
+   "x": "the bot posts shows the name, format, when (in each reader's own time zone) and where, the organizer, the players by name with \"3/8\", the waitlist, rounds, top cut and the join code, with Sign up and Open in Table 1; a draft with more than one pod adds a Pods line (the split before the draw, the pods as seated after). It redraws itself whenever the event changes, from anywhere: a sign-up or drop in the app, on the website, through the link or here; the waitlist moving up; the organizer's changes to players, cap, name, time or venue; each round; the finish. Once round 1 is paired only the link stays. If someone deletes the card, the bot stops updating it; /event post puts up a new one."
+  },
+  {
+   "id": "discord-8",
+   "s": "discord",
+   "h": "Events",
+   "t": "Sign up",
+   "x": "seats you (or puts you on the waitlist when the event is full: \"You're number 2 on the waitlist\"). Already in? The bot tells you so, privately, with a Drop button. Drop leaves before round 1 and moves the next person up. The same as the app's sign-up link. /event signup and /event drop do the same by name."
+  },
+  {
+   "id": "discord-9",
+   "s": "discord",
+   "h": "Events",
+   "t": "/event post",
+   "x": "puts the card of an event you made in the app in the channel: pick it from your own events (the ones you run or play in, open ones first) or paste its link. A player can post an event they're in unless it's private. /event list shows the server's open events; /event show shows one card just to you."
+  },
+  {
+   "id": "discord-10",
+   "s": "discord",
+   "h": "Events",
+   "t": "/event results",
+   "x": "posts the final standings (rank, name, record and points, the winner with a trophy, the top 8 in full) with a link to the standings on Table 1. The picker offers the server's events and your own (run or played in), finished first, so an event run from the app can have its results posted here; it joins the server as they're posted. Before the event ends, the organizer can post standings so far. A draft with two or more pods puts each player's pod beside their name (\"1. Ana · P1 · 3-0 · 9 pts\"). Team events (team draft, team sealed) show each team on its own instead, with its record, points and match wins, and its players under it best first with their records."
+  },
+  {
+   "id": "discord-11",
+   "s": "discord",
+   "h": "Cards and decks",
+   "t": "/deck",
+   "x": "posts one of your decks: name, format, card counts, its Spice, the whole deck as a picture (the deck image's cards layout, drawn on the server) and Open on Table 1. The link is the same \"Anyone with the link\" as in Sharing, so the bot asks before it makes one, and you can stop sharing it there any time."
+  },
+  {
+   "id": "discord-12",
+   "s": "discord",
+   "h": "Cards and decks",
+   "t": "/wants",
+   "x": "and /trades post your wants or your cards for trade: the whole list (25 lines, then \"and N more\"), or one card picked as you type. Each line has the printing (or \"any printing\"), the finish, the condition for trade, and the price: the cheapest near-mint price a want takes, or a for-trade copy's price at its condition, with the list's value at market. Open on Table 1 opens the part's link; the bot asks before it makes one. Your max prices never show."
+  },
+  {
+   "id": "discord-13",
+   "s": "discord",
+   "h": "Cards and decks",
+   "t": "/card",
+   "x": "looks a card up: cost, type, cheapest TCGplayer price (and foil), how many printings, the card's picture."
+  },
+  {
+   "id": "discord-14",
+   "s": "discord",
+   "h": "Cards and decks",
+   "t": "/meta",
+   "x": "posts Insights as a picture: matchups (the grid: every archetype with 1% of the decks against the 10 most played, each square's win rate and record, faded under 30 matches; each row's name carries its overall win rate and record, tinted like a square ), deck (one archetype, picked as you type, against each other: bars with the record and a 95% likely range, the matchups with 30+ matches first) or winrates (every archetype with 20+ matches: record, win rate and 95% range, best first, Other last; teal when the whole range is above 50%, pink when below). Choose the format (Standard, Pioneer, Modern, Legacy, Vintage, Pauper or Canadian Highlander), All or Big events, and 7, 14, 30 or 90 days (All events and 30 days when left out). The post links to the same view in Table 1. Anyone can use it, linked or not."
+  },
+  {
+   "id": "discord-15",
+   "s": "discord",
+   "h": "Cards and decks",
+   "t": "/ranking",
+   "x": "posts one of your cube or set rankings: pick it as you type from the ones you made (\"Lindmark Cube · Summer · 50/50 ranked\"; sets with their code), and show its Top 50, Top 100 or one color's list (left out, its own top 50 or 100). The post is a picture of the list, the same as the app's Top 100 image (piles of ten in rank order, name bars showing, a rank on each card, in the cube's own printings) for a top 50, a top 100 or a color, under the cube or set and the list, \"Ranking by\" you and your label, and how far along it is (\"37 of 50 placed so far.\", \"The top quarter of 68 white cards.\", \"This ranking's final is a top 50.\" when you ask a top-50 ranking for 100). Open in Table 1 shows only when the ranking is shared. Only your own rankings, and posting one changes nothing on Table 1. The places come out exactly as the app shows them."
+  },
+  {
+   "id": "discord-16",
+   "s": "discord",
+   "h": "Cards and decks",
+   "t": "/help",
+   "x": "lists every command, just for you."
+  },
+  {
+   "id": "discord-17",
+   "s": "discord",
+   "h": "Who sees what",
+   "x": "Everything the bot tells you about yourself is visible to you alone. The event card, the results post and a deck you post are public in the channel, because you asked for them."
+  },
+  {
+   "id": "discord-18",
+   "s": "discord",
+   "h": "Who sees what",
+   "x": "The card shows players by their Table 1 display name, as the event already does for its players. Nobody is ever mentioned or pinged."
+  },
+  {
+   "id": "discord-19",
+   "s": "discord",
+   "h": "Who sees what",
+   "x": "Table 1 keeps which Discord account is which Table 1 account, where it posted each card, and the server's time zone: no usernames, no server names, no messages. Deleting your Table 1 account removes the link."
+  },
+  {
+   "id": "discord-20",
+   "s": "discord",
+   "h": "Who sees what",
+   "x": "The bot only acts on events posted in that server, and every request from Discord is signed and checked before anything happens."
+  },
+  {
+   "id": "discord-21",
+   "s": "discord",
+   "h": "Who sees what",
+   "x": "The link page needs the website; the apps have no Discord screen of their own."
+  }
+ ]
+}

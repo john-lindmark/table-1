@@ -86,7 +86,15 @@ struct EventsDemoRoot: View {
                     AccountView(path: $accountPath)
                         .navigationDestination(for: LibraryRoute.self) { LibraryDestination(route: $0, path: $accountPath) }
                         // `-T1Open deckphotos`: Account → Deck photos opened once the stack is up.
-                        .task { if Self.arg("-T1Open") == "deckphotos", accountPath.isEmpty { accountPath = [.myDeckPhotos] } }
+                        // `-T1Open support[:<section>[:<entry>]]`: Account → Support, or a guide section scrolled to an entry.
+                        .task {
+                            guard accountPath.isEmpty, let open = Self.arg("-T1Open") else { return }
+                            if open == "deckphotos" { accountPath = [.myDeckPhotos] }
+                            let parts = open.split(separator: ":").map(String.init)
+                            if parts.first == "support" {
+                                accountPath = [.support] + (parts.count > 1 ? [.supportGuide(parts[1], parts.count > 2 ? parts[2] : nil, "demo")] : [])
+                            }
+                        }
                 }
                 .environment(\.openProfile) { accountPath.append(.social(.profile($0))) }
                 T1TabBar(items: SignedInView.tabs, selection: .account) { _ in }
