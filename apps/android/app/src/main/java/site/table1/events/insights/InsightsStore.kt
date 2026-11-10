@@ -181,6 +181,11 @@ object InsightsStore {
         Telemetry.capture("insights_picker_edited", mapOf("picker" to if (format) "formats" else "sets", "hidden" to (if (format) hiddenFormats else hiddenSets).size))
     }
 
+    /** The Limited page's Sort, Rarity and Color for this session; a tapped Limited cards widget sets them to its own. */
+    var limitedSort by mutableStateOf("gih")
+    var limitedRarity by mutableStateOf(emptyList<String>())
+    var limitedColor by mutableStateOf(emptyList<String>())
+
     fun pickSet(v: String) { setCode = v; save("set", v); Telemetry.capture("insights_set_changed", mapOf("set" to v, "event" to event)) }
     fun pickEvent(v: String) { event = v; save("event", v); Telemetry.capture("insights_set_changed", mapOf("set" to (setCode ?: ""), "event" to v)) }
     fun pickGroup(v: String) { group = v; save("group", v) }

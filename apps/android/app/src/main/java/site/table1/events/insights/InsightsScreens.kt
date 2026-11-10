@@ -682,9 +682,10 @@ private fun Credit(url: String) {
 private fun LimitedHome(navigate: (String) -> Unit) {
     val s = InsightsStore
     val retryScope = rememberCoroutineScope()
-    var sort by remember { mutableStateOf("gih") }
-    var rarity by remember { mutableStateOf(emptyList<String>()) }
-    var color by remember { mutableStateOf(emptyList<String>()) }
+    // Kept on the store so a Limited cards widget's tap opens the page on its picks (contract/widgets-2026-10-22.md).
+    var sort by s::limitedSort
+    var rarity by s::limitedRarity
+    var color by s::limitedColor
     var query by remember { mutableStateOf("") }
     var all by remember { mutableStateOf(false) }
     // The picker waits for the sets to rank (kept on the device after the first visit) so it draws whole.

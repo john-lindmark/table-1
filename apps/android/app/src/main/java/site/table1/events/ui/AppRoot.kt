@@ -267,6 +267,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
             is WebLink.Insights -> if (link.set != null) {
                 InsightsStore.pickSection("limited")
                 InsightsStore.pickSet(link.set)
+                link.limited?.let { InsightsStore.limitedSort = it.sort; InsightsStore.limitedRarity = it.rarity; InsightsStore.limitedColor = it.color }
                 show("insights", emptyList())
             } else {
                 InsightsStore.pickSection("constructed")

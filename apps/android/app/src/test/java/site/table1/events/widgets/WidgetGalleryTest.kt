@@ -122,6 +122,9 @@ class WidgetGalleryTest {
         draw("limited-wu", "Limited cards · IWD, commons and uncommons, W + U", limited) { size, p ->
             LimitedContent(p, LimitedPicks("FRA", "iwd", listOf("common", "uncommon"), listOf("W", "U")), size, tap)
         }
+        draw("limited-one", "Limited cards · buttons on one pick: uncommon, colorless", limited) { size, p ->
+            LimitedContent(p, LimitedPicks("FRA", rarity = listOf("uncommon"), color = listOf("C")), size, tap)
+        }
         draw("limited-none", "Limited cards · no set yet", null as LimitedWidgetPack?) { size, p -> LimitedContent(p, LimitedPicks(), size, tap) }
     }
 

@@ -23,6 +23,7 @@ struct WidgetsDemoRoot: View {
                 if only == nil || only == "archetype" { archetype }
                 if only == nil || only == "limited" { limited }
                 if only == nil || only == "icon" { IconDemo() }
+                if only == "limitedlarge" { limitedLarge }
                 if only == "tinted" { tintedAll }
             }
             .padding(16)
@@ -141,6 +142,14 @@ struct WidgetsDemoRoot: View {
         }
         tile(.systemLarge) { LimitedCardsWidgetView(family: .systemLarge, pack: Self.limitedPack, picks: LimitedPicks(set: "FRA", sort: "ata", color: ["R", "M"])) }
         tinted(.systemMedium) { LimitedCardsWidgetView(family: .systemMedium, pack: Self.limitedPack, picks: picks, tintedPreview: true) }
+    }
+
+    /// The Limited cards widget's longest button words (large) and its tinted look.
+    @ViewBuilder private var limitedLarge: some View {
+        caption("Limited cards · large: uncommon, colorless; any; tinted")
+        tile(.systemLarge) { LimitedCardsWidgetView(family: .systemLarge, pack: Self.limitedPack, picks: LimitedPicks(set: "FRA", rarity: ["uncommon"], color: ["C"])) }
+        tile(.systemLarge) { LimitedCardsWidgetView(family: .systemLarge, pack: Self.limitedPack, picks: LimitedPicks(set: "FRA")) }
+        tinted(.systemMedium) { LimitedCardsWidgetView(family: .systemMedium, pack: Self.limitedPack, picks: LimitedPicks(set: "FRA", color: ["U"]), tintedPreview: true) }
     }
 
     /// Every Insights widget on a tinted Home Screen, a square and a row tapped.

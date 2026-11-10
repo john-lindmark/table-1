@@ -202,6 +202,8 @@ struct InsightsPush: Equatable {
     /// A widget's picks (contract/widgets-2026-10-22.md § Meta widgets): big or all, and the window in days.
     var tier: String? = nil
     var days: Int? = nil
+    /// A Limited cards widget's Sort, Rarity and Color (contract/widgets-2026-10-22.md § Limited cards widget "Tap").
+    var limited: LimitedPicks? = nil
 }
 
 enum PushRoutes {
@@ -211,8 +213,21 @@ enum PushRoutes {
         let p = url.pathComponents.filter { $0 != "/" }
         guard let format = p.first, !format.isEmpty else { return nil }
         // The Limited cards widget: table1://insights/limited/<SET> (contract/widgets-2026-10-22.md § Limited cards).
-        if format == "limited", p.count > 1 { return InsightsPush(section: "limited", key: p[1].uppercased(), what: "data") }
         let q = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        if format == "limited", p.count > 1 {
+            let set = p[1].uppercased()
+            // ?sort=iwd&rarity=common&color=W,U: the widget's picks (blank = Any); old widgets send none.
+            func list(_ name: String) -> [String]? {
+                q.first { $0.name == name }.map { ($0.value ?? "").split(separator: ",").map(String.init) }
+            }
+            var picks: LimitedPicks?
+            if let sort = q.first(where: { $0.name == "sort" })?.value, LimitedFilter.sorts.contains(where: { $0.key == sort }) {
+                picks = LimitedPicks(set: set, sort: sort,
+                                     rarity: LimitedFilter.rarities.filter { (list("rarity") ?? []).contains($0) },
+                                     color: LimitedFilter.colors.filter { (list("color") ?? []).contains($0) })
+            }
+            return InsightsPush(section: "limited", key: set, what: "data", limited: picks)
+        }
         let tier = q.first { $0.name == "tier" }?.value.flatMap { ["big", "all"].contains($0) ? $0 : nil }
         let days = q.first { $0.name == "days" }?.value.flatMap(Int.init).flatMap { [7, 14, 30, 90].contains($0) ? $0 : nil }
         let what = switch p.dropFirst().first {

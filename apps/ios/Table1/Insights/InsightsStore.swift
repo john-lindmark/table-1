@@ -51,6 +51,10 @@ final class InsightsStore {
     var days: Int = { let d = UserDefaults.standard.integer(forKey: "insights.days"); return Insights.windows.contains(d) ? d : 30 }() {
         didSet { UserDefaults.standard.set(days, forKey: "insights.days"); if !applying { Telemetry.capture("insights_window_changed", ["days": days]) }; picksChanged() }
     }
+    /// The Limited page's Sort, Rarity and Color for this session; a tapped Limited cards widget sets them to its own.
+    var limitedSort = "gih"
+    var limitedRarity: [String] = []
+    var limitedColor: [String] = []
     /// Formats and sets kept out of the pickers on this device (Insights → Edit).
     var hiddenFormats: [String] = UserDefaults.standard.stringArray(forKey: "insights.hiddenFormats") ?? [] {
         didSet { UserDefaults.standard.set(hiddenFormats, forKey: "insights.hiddenFormats"); picksChanged() }

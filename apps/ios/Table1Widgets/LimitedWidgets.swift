@@ -3,8 +3,9 @@ import SwiftUI
 import WidgetKit
 
 // Limited cards (contract/widgets-2026-10-22.md § Limited cards widget): a set's best cards in draft, set up from the
-// widget's own settings (long press → Edit Widget): the set, the sort, and any rarities and colors. The packs are
-// public, so it draws signed out too; the set list comes from Insights' index (signed in) or what the app last saw.
+// widget's own settings (long press → Edit Widget): the set, the sort, and any rarities and colors; then its Set, Rarity
+// and Color buttons switch one tap at a time (LimitedPickIntent). The packs are public, so it draws signed out too; the
+// set list comes from Insights' index (signed in) or what the app last saw.
 
 /// A Limited set from Insights' index.
 struct LimitedSetEntity: AppEntity {
@@ -63,10 +64,17 @@ struct LimitedWidgetIntent: WidgetConfigurationIntent {
     @Parameter(title: "Rarity", default: []) var rarity: [LimitedRarityOption]
     @Parameter(title: "Color", default: []) var color: [LimitedColorOption]
 
+    private var rarities: [String] { LimitedFilter.rarities.filter { r in rarity.contains { $0.rawValue == r } } }
+    private var colors: [String] { LimitedFilter.colors.filter { c in color.contains { $0.rawValue == c } } }
+
+    /// These settings as the key the buttons' picks are kept under.
+    var key: String { LimitedWidgetSelection.key(set: set?.id, sort: sort.rawValue, rarity: rarities, color: colors) }
+
+    /// The settings with the buttons' picks over them.
     var picks: LimitedPicks {
-        LimitedPicks(set: set?.id ?? LimitedSetsStore.load().first?.key, sort: sort.rawValue,
-                     rarity: LimitedFilter.rarities.filter { r in rarity.contains { $0.rawValue == r } },
-                     color: LimitedFilter.colors.filter { c in color.contains { $0.rawValue == c } })
+        LimitedWidgetSelection.applied(
+            LimitedPicks(set: set?.id ?? LimitedSetsStore.load().first?.key, sort: sort.rawValue, rarity: rarities, color: colors),
+            LimitedWidgetSelection.get(key))
     }
 }
 
@@ -74,6 +82,8 @@ struct LimitedEntry: TimelineEntry {
     let date: Date
     let picks: LimitedPicks
     let pack: LimitedWidgetPack?
+    /// The settings' key, for the buttons.
+    var key = ""
 }
 
 struct LimitedProvider: AppIntentTimelineProvider {
@@ -87,7 +97,7 @@ struct LimitedProvider: AppIntentTimelineProvider {
         if picks.set == nil { picks.set = await LimitedSetsStore.fresh().first?.key }
         var pack = picks.set.flatMap(LimitedPackStore.load)
         if pack == nil, let s = picks.set { pack = await LimitedPackStore.fresh(s) }
-        return LimitedEntry(date: .now, picks: picks, pack: pack)
+        return LimitedEntry(date: .now, picks: picks, pack: pack, key: c.key)
     }
 
     /// Every 6 hours; a set's numbers change once a day.
@@ -95,7 +105,7 @@ struct LimitedProvider: AppIntentTimelineProvider {
         var picks = c.picks
         if picks.set == nil { picks.set = await LimitedSetsStore.fresh().first?.key }
         let pack = await picks.set.asyncMap { await LimitedPackStore.fresh($0) } ?? nil
-        return Timeline(entries: [LimitedEntry(date: .now, picks: picks, pack: pack)], policy: .after(.now.addingTimeInterval(6 * 3600)))
+        return Timeline(entries: [LimitedEntry(date: .now, picks: picks, pack: pack, key: c.key)], policy: .after(.now.addingTimeInterval(6 * 3600)))
     }
 }
 
@@ -109,11 +119,11 @@ private extension Optional {
 struct LimitedCardsWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "site.table1.limited", intent: LimitedWidgetIntent.self, provider: LimitedProvider()) { e in
-            LimitedFrame { family in LimitedCardsWidgetView(family: family, pack: e.pack, picks: e.picks) }
-                .widgetURL(LimitedWidgets.link(e.pack?.set_code ?? e.picks.set, src: "widget_limited"))
+            LimitedFrame { family in LimitedCardsWidgetView(family: family, pack: e.pack, picks: e.picks, key: e.key) }
+                .widgetURL(LimitedWidgets.link(e.pack?.set_code ?? e.picks.set, src: "widget_limited", picks: e.picks))
         }
         .configurationDisplayName("Limited cards")
-        .description("A set's best cards in draft from 17Lands data. Pick the set, rarities and colors in its settings.")
+        .description("A set's best cards in draft from 17Lands data. Tap its buttons to switch the set, rarity and color.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

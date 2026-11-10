@@ -98,7 +98,7 @@ final class LimitedHomeTests: XCTestCase {
 }
 
 /// The Limited cards widget (contract/widgets-2026-10-22.md § Limited cards widget): the app's Top cards order, its
-/// caption, and the tap that opens the set in Insights.
+/// buttons, and the tap that opens the set in Insights.
 final class LimitedWidgetTests: XCTestCase {
     func testWidgetRowsAreTheAppsTopCards() throws {
         let url = Bundle.main.url(forResource: "insights-demo-limited-FRA", withExtension: "json")!
@@ -112,9 +112,48 @@ final class LimitedWidgetTests: XCTestCase {
             XCTAssertEqual(rows.map(\.name), want.map(\.n), sort)
             XCTAssertEqual(rows.map(\.value), want.map { Insights.limitedValue($0, sort: sort, average: v.wr).value }, sort)
         }
-        XCTAssertEqual(LimitedWidgets.caption(sort: "gih", rarity: [], color: []), "GIH WR")
-        XCTAssertEqual(LimitedWidgets.caption(sort: "ata", rarity: ["common", "uncommon"], color: ["U", "W"]), "ATA · C · U · WU")
         let link = LimitedWidgets.link("FRA", src: "widget_limited")
         XCTAssertEqual(PushRoutes.insightsWidget(link), InsightsPush(section: "limited", key: "FRA", what: "data"))
+    }
+
+    /// The Set, Rarity and Color buttons: one pick per tap, round to Any; several picks from the settings go to Any.
+    func testButtonsStepOnePickAtATime() {
+        let r = LimitedFilter.rarities
+        XCTAssertEqual(LimitedWidgets.next([], in: r), ["common"])
+        XCTAssertEqual(LimitedWidgets.next(["common"], in: r), ["uncommon"])
+        XCTAssertEqual(LimitedWidgets.next(["mythic"], in: r), [])
+        XCTAssertEqual(LimitedWidgets.next(["common", "rare"], in: r), [])
+        XCTAssertEqual(LimitedWidgets.next(["G"], in: LimitedFilter.colors), ["M"])
+        XCTAssertEqual(LimitedWidgets.next(["C"], in: LimitedFilter.colors), [])
+        XCTAssertEqual(LimitedWidgets.nextSet("FRA", in: ["TRK", "FRA", "HOB"]), "HOB")
+        XCTAssertEqual(LimitedWidgets.nextSet("HOB", in: ["TRK", "FRA", "HOB"]), "TRK")
+        XCTAssertEqual(LimitedWidgets.nextSet("OLD", in: ["TRK", "FRA"]), "TRK")
+        XCTAssertEqual(LimitedWidgets.nextSet("FRA", in: []), "FRA")
+        XCTAssertEqual(LimitedWidgets.rarityButton([], small: true), "C·U·R·M")
+        XCTAssertEqual(LimitedWidgets.rarityButton([], small: true, tiny: true), "All")
+        XCTAssertEqual(LimitedWidgets.rarityButton([], small: false), "Any rarity")
+        XCTAssertEqual(LimitedWidgets.rarityButton(["rare"], small: false), "Rare")
+        XCTAssertEqual(LimitedWidgets.rarityButton(["uncommon", "common"], small: true), "C·U")
+    }
+
+    /// The buttons' picks lie over the widget's settings, kept per settings.
+    func testButtonPicksOverTheSettings() {
+        let key = LimitedWidgetSelection.key(set: nil, sort: "gih", rarity: ["rare", "common"], color: [])
+        XCTAssertEqual(key, "|gih|common,rare|")
+        let settings = LimitedPicks(set: "FRA", sort: "gih", rarity: ["common", "rare"], color: [])
+        XCTAssertEqual(LimitedWidgetSelection.applied(settings, [:]), settings)
+        let picked = LimitedWidgetSelection.applied(settings, ["set": "HOB", "rarity": "", "color": "U"])
+        XCTAssertEqual(picked, LimitedPicks(set: "HOB", sort: "gih", rarity: [], color: ["U"]))
+    }
+
+    /// The body tap opens Limited on the widget's set, sort, rarity and color; Any travels as a blank.
+    func testTapCarriesThePicks() {
+        let picks = LimitedPicks(set: "FRA", sort: "iwd", rarity: ["uncommon"], color: ["W", "U"])
+        let link = LimitedWidgets.link("FRA", src: "widget_limited", picks: picks)
+        XCTAssertEqual(link.absoluteString, "table1://insights/limited/FRA?sort=iwd&rarity=uncommon&color=W,U&src=widget_limited")
+        XCTAssertEqual(PushRoutes.insightsWidget(link)?.limited, picks)
+        let any = LimitedWidgets.link("FRA", src: "widget_limited", picks: LimitedPicks(set: "FRA"))
+        XCTAssertEqual(PushRoutes.insightsWidget(any)?.limited, LimitedPicks(set: "FRA"))
+        XCTAssertNil(PushRoutes.insightsWidget(URL(string: "table1://insights/limited/FRA?sort=nope")!)?.limited)
     }
 }

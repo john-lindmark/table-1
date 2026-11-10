@@ -30,6 +30,11 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.LocalSize
 import androidx.glance.action.Action
+import androidx.glance.action.ActionParameters
+import androidx.glance.action.actionParametersOf
+import androidx.glance.action.clickable
+import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
@@ -45,6 +50,7 @@ import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
+import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
 import androidx.glance.text.Text
@@ -73,7 +79,7 @@ import kotlin.math.floor
 
 /* The Limited cards widget (contract/widgets-2026-10-22.md § Limited cards widget): a set's best cards in draft from its
    public Limited pack, cut by the widget's own Set, Sort, Rarity and Color (several of each), set up on
-   LimitedWidgetConfigActivity. The order and the numbers are the app's Top cards (LimitedCards.cards / .value). */
+   LimitedWidgetConfigActivity; its Set, Rarity and Color buttons then switch one tap at a time (LimitedPickAction). The order and the numbers are the app's Top cards (LimitedCards.cards / .value). */
 
 /** What a Limited cards widget shows; null [set] = the newest set the device knows. */
 @Serializable
@@ -104,18 +110,75 @@ object LimitedWidgets {
         }
     }
 
-    /** "GIH WR · C · U · WU": the sort, then each filter that isn't Any. */
-    fun caption(picks: LimitedPicks): String =
-        (listOf(LimitedCards.sorts.firstOrNull { it.first == picks.sort }?.third ?: picks.sort.uppercase()) +
-            listOfNotNull(picks.rarity.takeIf { it.isNotEmpty() }?.let(LimitedCards::rarityLabel),
-                picks.color.takeIf { it.isNotEmpty() }?.let(LimitedCards::colorLabel))).joinToString(" · ")
+    /** Opens Insights → Limited on the set; with [picks], on the widget's Sort, Rarity and Color too (blank = Any). */
+    fun link(set: String?, src: String, picks: LimitedPicks? = null): String {
+        val q = picks?.let { "sort=${it.sort}&rarity=${it.rarity.joinToString(",")}&color=${it.color.joinToString(",")}&" } ?: ""
+        return "table1://insights/limited${set?.let { "/$it" } ?: ""}?${q}src=$src"
+    }
 
-    fun link(set: String?, src: String) = "table1://insights/limited${set?.let { "/$it" } ?: ""}?src=$src"
+    /** Picks in the pickers' order (a link's or a button's). */
+    fun picks(set: String?, sort: String, rarity: List<String>, color: List<String>) = LimitedPicks(set, sort,
+        RARITIES.filter { it in rarity }, COLORS.filter { it in color })
+
+    val RARITIES = LimitedCards.rarities.map { it.first }.filter { it != LimitedCards.ANY }
+    val COLORS = LimitedCards.colors.map { it.first }.filter { it != LimitedCards.ANY }
+
+    /** The buttons step through one pick at a time: Any → the first → … → the last → Any; several picks step to Any. */
+    fun next(picked: List<String>, options: List<String>): List<String> {
+        val shown = options.filter { it in picked }
+        if (shown.isEmpty()) return options.take(1)
+        if (shown.size != 1) return emptyList()
+        val i = options.indexOf(shown[0])
+        return if (i + 1 < options.size) listOf(options[i + 1]) else emptyList()
+    }
+
+    /** The set after [current] in the device's Limited sets, round to the first; [current] when there's no other. */
+    fun nextSet(current: String?, sets: List<String>): String? {
+        val first = sets.firstOrNull() ?: return current
+        val i = sets.indexOf(current)
+        return if (i < 0) first else sets[(i + 1) % sets.size]
+    }
+
+    /** The Rarity button: All, the one picked (Common on wide widgets, C on narrow ones), or the picks' letters (C·U). */
+    fun rarityButton(rarity: List<String>, wide: Boolean): String {
+        val picked = RARITIES.filter { it in rarity }
+        if (picked.isEmpty()) return if (wide) "Any rarity" else "All"
+        if (picked.size == 1 && wide) return picked[0].replaceFirstChar { it.uppercase() }
+        return picked.joinToString("·") { it.take(1).uppercase() }
+    }
 
     /** The five colors' pips, as Scryfall's mana symbols draw them; colorless grey. */
     fun pip(c: Char): Color = when (c) {
         'W' -> Color(0xFFF8F6D8); 'U' -> Color(0xFFC1D7E9); 'B' -> Color(0xFFBAB1AB); 'R' -> Color(0xFFE49977); 'G' -> Color(0xFFA3C095)
+        'M' -> Color(0xFFE0C46C)
         else -> Color(0xFFCAC5C0)
+    }
+}
+
+/** A tap on one of the widget's buttons (Set, Rarity, Color): saves the next pick on that widget and redraws it. */
+class LimitedPickAction : ActionCallback {
+    companion object {
+        val What = ActionParameters.Key<String>("what")
+        val Value = ActionParameters.Key<String>("value")
+        fun of(what: String, value: String) = actionRunCallback<LimitedPickAction>(actionParametersOf(What to what, Value to value))
+    }
+
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val what = parameters[What] ?: return
+        val value = parameters[Value] ?: ""
+        val widgetId = GlanceAppWidgetManager(context).getAppWidgetId(glanceId)
+        val p = LimitedPacks.picks(context, widgetId)
+        val list = value.split(",").filter { it.isNotEmpty() }
+        val next = when (what) {
+            "set" -> p.copy(set = value.ifEmpty { p.set })
+            "rarity" -> p.copy(rarity = LimitedWidgets.RARITIES.filter { it in list })
+            "color" -> p.copy(color = LimitedWidgets.COLORS.filter { it in list })
+            else -> return
+        }
+        LimitedPacks.savePicks(context, widgetId, next)
+        if (what == "set" && value.isNotEmpty()) withContext(Dispatchers.IO) { LimitedPacks.fresh(context, value) }
+        Telemetry.capture("widget_switched", mapOf("widget" to "limited", "what" to what, "value" to value))
+        LimitedWidget().update(context, glanceId)
     }
 }
 
@@ -200,9 +263,11 @@ class LimitedWidget : GlanceAppWidget() {
         val saved = LimitedPacks.picks(context, widgetId)
         val picks = if (saved.set != null) saved else saved.copy(set = LimitedPacks.sets(context).firstOrNull()?.key)
         val pack = picks.set?.let { s -> withContext(Dispatchers.IO) { LimitedPacks.fresh(context, s) } }
+        val sets = LimitedPacks.sets(context).map { it.key }
         provideContent {
             LimitedContent(pack, picks, LocalSize.current,
-                actionStartActivity(Widgets.open(context, LimitedWidgets.link(pack?.set_code ?: picks.set, "widget_limited"))))
+                actionStartActivity(Widgets.open(context, LimitedWidgets.link(pack?.set_code ?: picks.set, "widget_limited", picks))),
+                sets = sets, switch = LimitedPickAction::of)
         }
     }
 }
@@ -222,7 +287,8 @@ private fun LT(text: String, size: TextUnit = 11.sp, color: Color = W1.text, bol
 
 /** What the widget draws, on a pack passed in so WidgetGalleryTest can draw it. Rows fill the height it's given. */
 @androidx.compose.runtime.Composable
-internal fun LimitedContent(pack: LimitedWidgetPack?, picks: LimitedPicks, size: DpSize, tap: Action) {
+internal fun LimitedContent(pack: LimitedWidgetPack?, picks: LimitedPicks, size: DpSize, tap: Action,
+                            sets: List<String> = emptyList(), switch: ((String, String) -> Action)? = null) {
     val shape = WShape.of(size)
     WidgetFrame(shape, tap) {
         if (pack?.view == null) {
@@ -234,16 +300,31 @@ internal fun LimitedContent(pack: LimitedWidgetPack?, picks: LimitedPicks, size:
         }
         val n = when (shape) {
             WShape.STRIP, WShape.WIDE_STRIP -> 1
-            else -> floor((size.height.value - 70f) / 19f).toInt().coerceIn(2, 12)
+            // The header is the buttons (and on narrow widgets the sort's line under them).
+            else -> floor((size.height.value - (if (shape.wide) 76f else 90f)) / 19f).toInt().coerceIn(2, 12)
         }
         val rows = LimitedWidgets.rows(pack, picks, n)
         val narrow = !shape.wide
-        Row(GlanceModifier.fillMaxWidth()) {
-            Label(pack.set_code, W1.text)
-            Spacer(GlanceModifier.defaultWeight())
-            // The narrowest strip has room for the set only.
-            if (shape != WShape.STRIP) Label(LimitedWidgets.caption(picks))
+        // Set · Rarity · Color buttons, each a tap to the next pick, and the sort's code (contract § Limited cards widget
+        // "Buttons"). The narrowest strip has room for the set only.
+        val rated = pack.view?.cards?.any { it.r != null } == true
+        val sortCode = LimitedCards.sorts.firstOrNull { it.first == picks.sort }?.third ?: picks.sort.uppercase()
+        Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            PickButton(switch?.invoke("set", LimitedWidgets.nextSet(pack.set_code, sets) ?: pack.set_code)) { Label(pack.set_code, W1.text) }
+            if (shape != WShape.STRIP) {
+                if (rated) {
+                    Spacer(GlanceModifier.width(4.dp))
+                    PickButton(switch?.invoke("rarity", LimitedWidgets.next(picks.rarity, LimitedWidgets.RARITIES).joinToString(","))) {
+                        Label(LimitedWidgets.rarityButton(picks.rarity, shape.wide), W1.text)
+                    }
+                }
+                Spacer(GlanceModifier.width(4.dp))
+                PickButton(switch?.invoke("color", LimitedWidgets.next(picks.color, LimitedWidgets.COLORS).joinToString(","))) { ColorButton(picks.color, shape.wide) }
+                Spacer(GlanceModifier.defaultWeight())
+                if (shape.wide) Label(sortCode)
+            }
         }
+        if (!shape.wide && !shape.strip) { Spacer(GlanceModifier.height(3.dp)); Label(sortCode) }
         Spacer(GlanceModifier.height(6.dp))
         if (rows.isEmpty()) LT("No card matches these filters.", 11.sp, W1.muted, lines = 2)
         // Glance draws at most ten children per column: group the rows.
@@ -257,14 +338,48 @@ internal fun LimitedContent(pack: LimitedWidgetPack?, picks: LimitedPicks, size:
     }
 }
 
+/** One header button: a hairline box around its pick (a muted box with the background inside). */
+@androidx.compose.runtime.Composable
+private fun PickButton(action: Action?, content: @Composable () -> Unit) {
+    val outer = GlanceModifier.background(W1.muted.copy(alpha = 0.5f)).padding(1.dp)
+    Box(if (action != null) outer.clickable(action) else outer) {
+        Box(GlanceModifier.background(W1.bg).height(18.dp).padding(horizontal = 5.dp), contentAlignment = Alignment.Center) { content() }
+    }
+}
+
+/** The Color button: the five pips for Any, else the pick's pip (gold for Multi) and its code; several picks as codes. */
+@androidx.compose.runtime.Composable
+private fun ColorButton(color: List<String>, wide: Boolean) {
+    val picked = LimitedWidgets.COLORS.filter { it in color }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        when {
+            picked.isEmpty() -> {
+                if (wide) { Label("Any", W1.text); Spacer(GlanceModifier.width(4.dp)) }
+                // Glance draws at most ten children per row: the pips in their own row, spaced by padding.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    "WUBRG".forEach { c -> Box(GlanceModifier.padding(end = 2.dp)) { Box(GlanceModifier.size(5.dp).cornerRadius(3.dp).background(LimitedWidgets.pip(c))) {} } }
+                }
+            }
+            picked.size == 1 -> {
+                Box(GlanceModifier.size(6.dp).cornerRadius(3.dp).background(LimitedWidgets.pip(picked[0][0]))) {}
+                Spacer(GlanceModifier.width(3.dp))
+                Label(picked[0], W1.text)
+            }
+            else -> Label(LimitedCards.colorLabel(picked), W1.text)
+        }
+    }
+}
+
 @androidx.compose.runtime.Composable
 private fun LimitedRow(r: LimitedWidgets.Row, narrow: Boolean) {
     Row(GlanceModifier.fillMaxWidth().height(19.dp), verticalAlignment = Alignment.CenterVertically) {
         if (!narrow) LT("${r.place}", 9.sp, W1.muted, modifier = GlanceModifier.width(16.dp), end = true)
         if (!narrow) Spacer(GlanceModifier.width(5.dp))
-        r.col.take(3).forEach { c ->
-            Box(GlanceModifier.size(7.dp).cornerRadius(4.dp).background(LimitedWidgets.pip(c))) {}
-            Spacer(GlanceModifier.width(2.dp))
+        // Glance draws at most ten children per row: the pips in a row of their own (two-color rows lost their number).
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            r.col.take(3).forEach { c ->
+                Box(GlanceModifier.padding(end = 2.dp)) { Box(GlanceModifier.size(7.dp).cornerRadius(4.dp).background(LimitedWidgets.pip(c))) {} }
+            }
         }
         Spacer(GlanceModifier.width(3.dp))
         LT(r.name, if (narrow) 10.sp else 11.sp, modifier = GlanceModifier.defaultWeight())

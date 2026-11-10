@@ -5,9 +5,10 @@ import SwiftUI
 struct LimitedHomeSection: View {
     @Binding var path: [InsightsRoute]
     @Bindable private var store = InsightsStore.shared
-    @State private var sort = "gih"
-    @State private var rarity: [String] = []
-    @State private var color: [String] = []
+    // Kept on the store so a Limited cards widget's tap opens the page on its picks (contract/widgets-2026-10-22.md).
+    private var sort: String { get { store.limitedSort } nonmutating set { store.limitedSort = newValue } }
+    private var rarity: [String] { get { store.limitedRarity } nonmutating set { store.limitedRarity = newValue } }
+    private var color: [String] { get { store.limitedColor } nonmutating set { store.limitedColor = newValue } }
     @State private var editing = false
     @State private var query = ""
     @State private var all = false

@@ -1,5 +1,7 @@
+import AppIntents
 import Foundation
 import Supabase
+import WidgetKit
 
 /* The Limited cards widget (contract/widgets-2026-10-22.md § Limited cards widget): a set's best cards in draft from
    its public Limited pack (the file Insights → Limited reads), cut by the widget's own Set, Rarity, Color and Sort.
@@ -90,16 +92,96 @@ enum LimitedWidgets {
         }
     }
 
-    /// The widget's second line: "GIH WR · C · U · WU" (the sort, then each filter that isn't Any).
-    static func caption(sort: String, rarity: [String], color: [String]) -> String {
-        let code = LimitedFilter.sorts.first { $0.key == sort }?.code ?? sort.uppercased()
-        return ([code] + (rarity.isEmpty ? [] : [LimitedFilter.rarityLabel(rarity)]) + (color.isEmpty ? [] : [LimitedFilter.colorLabel(color)]))
-            .joined(separator: " · ")
+    /// Opens Insights → Limited on the set; with `picks`, on the widget's Sort, Rarity and Color too (empty = Any):
+    /// `table1://insights/limited/FRA?sort=gih&rarity=common&color=W,U&src=widget_limited`.
+    static func link(_ set: String?, src: String, picks: LimitedPicks? = nil) -> URL {
+        var c = URLComponents(string: "table1://insights/limited\(set.map { "/\($0)" } ?? "")")!
+        var q: [URLQueryItem] = []
+        if let picks {
+            q += [URLQueryItem(name: "sort", value: picks.sort), URLQueryItem(name: "rarity", value: picks.rarity.joined(separator: ",")),
+                  URLQueryItem(name: "color", value: picks.color.joined(separator: ","))]
+        }
+        c.queryItems = q + [URLQueryItem(name: "src", value: src)]
+        return c.url!
     }
 
-    /// Opens Insights → Limited on the set.
-    static func link(_ set: String?, src: String) -> URL {
-        URL(string: "table1://insights/limited\(set.map { "/\($0)" } ?? "")?src=\(src)")!
+    /// The widget's one-tap buttons step through one pick at a time (contract § Limited cards widget "Buttons"):
+    /// Any → the first option → … → the last → Any. Several picks from the widget's settings step to Any.
+    static func next(_ picked: [String], in options: [String]) -> [String] {
+        let shown = options.filter { picked.contains($0) }
+        if shown.isEmpty { return options.first.map { [$0] } ?? [] }
+        guard shown.count == 1, let i = options.firstIndex(of: shown[0]) else { return [] }
+        return i + 1 < options.count ? [options[i + 1]] : []
+    }
+
+    /// The set after `current` in the device's Limited sets, round to the first; `current` when there's no other.
+    static func nextSet(_ current: String?, in sets: [String]) -> String? {
+        guard let first = sets.first else { return current }
+        guard let current, let i = sets.firstIndex(of: current) else { return first }
+        return sets[(i + 1) % sets.count]
+    }
+
+    /// The Rarity button: Any rarity, the one picked (Common), or the picks' letters (C · U). Compact widgets (medium)
+    /// always use letters, every letter for Any, as the Color button shows every pip; small ones say All for Any.
+    static func rarityButton(_ rarity: [String], small: Bool, tiny: Bool = false) -> String {
+        let picked = LimitedFilter.rarities.filter { rarity.contains($0) }
+        if picked.isEmpty { return tiny ? "All" : small ? "C·U·R·M" : "Any rarity" }
+        if picked.count == 1, !small { return picked[0].capitalized }
+        return picked.map { String($0.prefix(1)).uppercased() }.joined(separator: small ? "·" : " · ")
+    }
+}
+
+/// What a widget's buttons picked, kept in the App Group per widget settings (an intent can't name the widget it's
+/// on, so two widgets with the same settings share it). Editing a widget's settings starts it over from them.
+enum LimitedWidgetSelection {
+    private static var defaults: UserDefaults? { UserDefaults(suiteName: T1Shared.appGroup) }
+
+    /// A widget's settings as a key: the set it names (blank = the newest), sort, rarities, colors.
+    static func key(set: String?, sort: String, rarity: [String], color: [String]) -> String {
+        [set ?? "", sort, LimitedFilter.rarities.filter { rarity.contains($0) }.joined(separator: ","),
+         LimitedFilter.colors.filter { color.contains($0) }.joined(separator: ",")].joined(separator: "|")
+    }
+
+    static func get(_ key: String) -> [String: String] {
+        defaults?.dictionary(forKey: "limited.sel.\(key)") as? [String: String] ?? [:]
+    }
+
+    static func set(_ key: String, _ what: String, _ value: String) {
+        var d = get(key)
+        d[what] = value
+        defaults?.set(d, forKey: "limited.sel.\(key)")
+    }
+
+    /// The settings' picks with the buttons' over them.
+    static func applied(_ picks: LimitedPicks, _ sel: [String: String]) -> LimitedPicks {
+        var p = picks
+        func list(_ s: String) -> [String] { s.split(separator: ",").map(String.init) }
+        if let s = sel["set"], !s.isEmpty { p.set = s }
+        if let r = sel["rarity"] { p.rarity = LimitedFilter.rarities.filter { list(r).contains($0) } }
+        if let c = sel["color"] { p.color = LimitedFilter.colors.filter { list(c).contains($0) } }
+        return p
+    }
+}
+
+/// A tap on one of the widget's buttons (Set, Rarity, Color): saves the next pick, and the widget redraws. A new set's
+/// pack is fetched before the redraw. Runs in the widget, which has no telemetry of its own (like the Meta widgets' taps).
+struct LimitedPickIntent: AppIntent {
+    static var title: LocalizedStringResource = "Switch a Limited cards widget"
+    static var isDiscoverable = false
+
+    @Parameter(title: "Key") var key: String
+    /// set, rarity or color
+    @Parameter(title: "What") var what: String
+    /// The set code, or the picks joined with commas (blank = Any).
+    @Parameter(title: "Value") var value: String
+
+    init() {}
+    init(key: String, what: String, value: String) { self.key = key; self.what = what; self.value = value }
+
+    func perform() async throws -> some IntentResult {
+        LimitedWidgetSelection.set(key, what, value)
+        if what == "set", !value.isEmpty { _ = await LimitedPackStore.fresh(value) }
+        return .result()
     }
 }
 

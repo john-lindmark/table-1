@@ -21,6 +21,7 @@ enum LimitedLook {
         case "B": Color(red: 0xBA / 255, green: 0xB1 / 255, blue: 0xAB / 255)
         case "R": Color(red: 0xE4 / 255, green: 0x99 / 255, blue: 0x77 / 255)
         case "G": Color(red: 0xA3 / 255, green: 0xC0 / 255, blue: 0x95 / 255)
+        case "M": Color(red: 0xE0 / 255, green: 0xC4 / 255, blue: 0x6C / 255)
         default: Color(red: 0xCA / 255, green: 0xC5 / 255, blue: 0xC0 / 255)
         }
     }
@@ -31,13 +32,15 @@ struct LimitedPips: View {
     let col: String
     var size: CGFloat = 7
     var tinted = false
+    /// The most pips the width is kept for.
+    var max: Int = 3
     var body: some View {
         HStack(spacing: 2) {
             ForEach(Array(col.enumerated()), id: \.offset) { _, c in
                 Circle().fill(tinted ? Color.white.opacity(0.7) : LimitedLook.pip(c)).frame(width: size, height: size)
             }
         }
-        .frame(width: CGFloat(max(1, min(col.count, 3))) * (size + 2), alignment: .leading)
+        .frame(width: CGFloat(Swift.max(1, Swift.min(col.count, max))) * (size + 2), alignment: .leading)
         .accessibilityHidden(true)
     }
 }
@@ -46,6 +49,10 @@ struct LimitedCardsWidgetView: View {
     let family: WidgetFamily
     let pack: LimitedWidgetPack?
     let picks: LimitedPicks
+    /// The widget settings' key the buttons save under (LimitedWidgetSelection).
+    var key = ""
+    /// The sets the Set button steps through; the device's Limited sets.
+    var sets: [String] = LimitedSetsStore.load().map(\.key)
     /// The gallery's stand-in for a tinted Home Screen.
     var tintedPreview: Bool? = nil
     @Environment(\.widgetRenderingMode) private var mode
@@ -63,7 +70,7 @@ struct LimitedCardsWidgetView: View {
         if let pack, pack.view != nil {
             let rows = LimitedWidgets.rows(pack, sort: picks.sort, rarity: picks.rarity, color: picks.color, n: count)
             VStack(alignment: .leading, spacing: family == .systemSmall ? 5 : 6) {
-                header(pack)
+                header(pack, tinted: tinted)
                 if rows.isEmpty {
                     Spacer(minLength: 0)
                     Text("No card matches these filters.").font(W1.mono(10)).foregroundStyle(W1.muted)
@@ -89,20 +96,69 @@ struct LimitedCardsWidgetView: View {
         }
     }
 
-    @ViewBuilder private func header(_ pack: LimitedWidgetPack) -> some View {
-        let caption = LimitedWidgets.caption(sort: picks.sort, rarity: picks.rarity, color: picks.color)
-        if family == .systemSmall {
-            VStack(alignment: .leading, spacing: 2) {
+    /// Set · Rarity · Color buttons, each a tap to the next pick (contract § Limited cards widget "Buttons"), and the
+    /// sort's code. Small widgets put the sort on a line of its own.
+    @ViewBuilder private func header(_ pack: LimitedWidgetPack, tinted: Bool) -> some View {
+        let small = family == .systemSmall
+        // Small and medium widgets use codes on the buttons, large ones words.
+        let compact = family != .systemLarge
+        let rated = pack.view?.cards.contains { $0.r != nil } ?? false
+        let sortCode = LimitedFilter.sorts.first { $0.key == picks.sort }?.code ?? picks.sort.uppercased()
+        let buttons = HStack(spacing: 4) {
+            button("set", LimitedWidgets.nextSet(pack.set_code, in: sets) ?? pack.set_code, tinted: tinted) {
                 WLabel(pack.set_code, color: W1.text)
-                WLabel(caption)
+            }
+            if rated {
+                button("rarity", LimitedWidgets.next(picks.rarity, in: LimitedFilter.rarities).joined(separator: ","), tinted: tinted) {
+                    WLabel(LimitedWidgets.rarityButton(picks.rarity, small: compact, tiny: small), color: W1.text)
+                }
+            }
+            button("color", LimitedWidgets.next(picks.color, in: LimitedFilter.colors).joined(separator: ","), tinted: tinted) {
+                colorLabel(small: compact, tinted: tinted)
+            }
+        }
+        if small {
+            VStack(alignment: .leading, spacing: 3) {
+                buttons
+                WLabel(sortCode)
             }
         } else {
             HStack(spacing: 6) {
-                WLabel(pack.set_code, color: W1.text)
-                if let name = pack.name, family == .systemLarge { WLabel(name) }
+                buttons
                 Spacer(minLength: 4)
-                WLabel(caption)
+                WLabel(sortCode)
             }
+        }
+    }
+
+    /// One header button: a hairline box around its pick.
+    private func button(_ what: String, _ value: String, tinted: Bool, @ViewBuilder _ label: () -> some View) -> some View {
+        Button(intent: LimitedPickIntent(key: key, what: what, value: value)) {
+            label()
+                .padding(.horizontal, 5)
+                .frame(height: 18)
+                .overlay(Rectangle().strokeBorder(tinted ? W1.text.opacity(0.6) : W1.muted.opacity(0.5), lineWidth: 1))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// The Color button: the five pips for Any, else the pick's pip (gold for Multi) and its code (W, M, C).
+    @ViewBuilder private func colorLabel(small: Bool, tinted: Bool) -> some View {
+        let picked = LimitedFilter.colors.filter { picks.color.contains($0) }
+        if picked.isEmpty {
+            HStack(spacing: 4) {
+                if !small { WLabel("Any", color: W1.text) }
+                LimitedPips(col: "WUBRG", size: 5, tinted: tinted, max: 5)
+            }
+            .accessibilityLabel("Any color")
+        } else if picked.count == 1 {
+            HStack(spacing: 3) {
+                LimitedPips(col: picked[0] == "M" ? "M" : picked[0], size: 6, tinted: tinted)
+                WLabel(picked[0], color: W1.text)
+            }
+        } else {
+            WLabel(LimitedFilter.colorLabel(picked), color: W1.text)
         }
     }
 

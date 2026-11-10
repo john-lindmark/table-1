@@ -517,6 +517,7 @@ struct SignedInView: View {
                 if p.section == "constructed" { store.format = p.key } else { store.setCode = p.key }
                 if let t = p.tier.flatMap(Insights.Tier.init) { store.tierPicked = t }
                 if let d = p.days { store.days = d }
+                if let l = p.limited { store.limitedSort = l.sort; store.limitedRarity = l.rarity; store.limitedColor = l.color }
                 tab = .insights
                 insightsPath = switch p.what {
                 case "rank": [.library(.rankings(RankSubject.setId(p.key)))]
