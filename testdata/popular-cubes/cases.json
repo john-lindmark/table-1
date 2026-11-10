@@ -1,0 +1,16 @@
+{
+  "_about": "Popular cubes (contract/cube-rankings-2026-10-21.md § Popular cubes): a cube's row detail on the profile and the Rankings home, and the word a ranking subject goes by. Hand-written; iOS PopularCubesTests, web popularCubes.test.ts, Android PopularCubesTest.",
+  "detail": [
+    {"cube": {"key": "PLSV", "name": "PowerLSV", "curator": "LSV", "cards": 528, "mine": 0, "rankings": 0, "friends": 0}, "want": "LSV · 528 cards"},
+    {"cube": {"key": "LSV", "name": "LSVCube", "curator": "LSV", "cards": 516, "mine": 1, "rankings": 1, "friends": 0}, "want": "LSV · 516 cards · 1 yours"},
+    {"cube": {"key": "VCUBE", "name": "MTGO Vintage Cube", "curator": "Magic Online", "cards": 540, "mine": 0, "rankings": 1, "friends": 1}, "want": "Magic Online · 540 cards · 1 friend's ranking"},
+    {"cube": {"key": "APCUBE", "name": "Arena Powered Cube", "curator": "MTG Arena", "cards": 539, "mine": 2, "rankings": 5, "friends": 3}, "want": "MTG Arena · 539 cards · 3 friends' rankings · 2 yours"},
+    {"cube": {"key": "X", "name": "No curator", "curator": null, "cards": 360, "mine": 0, "rankings": 0, "friends": 0}, "want": "360 cards"}
+  ],
+  "noun": [
+    {"kind": "popular", "want": "cube"},
+    {"kind": "cube", "want": "cube"},
+    {"kind": "set", "want": "set"},
+    {"kind": null, "want": "set"}
+  ]
+}

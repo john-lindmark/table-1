@@ -6,9 +6,9 @@ import { cardImageUrl, cornerRatio, type Catalog } from "../lib/catalog";
 import { JOB_TITLE, compare, depthPhrase, suggestedDepth, why, type Link, type RankChange, type RankDepth, type RankJob, type RankSession, type RankingState } from "../lib/cubeRanking";
 import { fileName } from "../lib/deckImage";
 import {
-  createRanking, deleteRanking, fetchBrief, fetchRankable, fetchRankableSets, fetchRankings, progressText, rankableDetail, rankingLabel, rankingModel,
-  rankingTitle, setKeyOf, setSubjectId, sharingLabel, shortDate, UNNAMED, useRanking,
-  type CubeRankings, type RankCard, type RankableCube, type RankableSet, type RankingBrief, type RankingModel, type RankingRow,
+  createRanking, deleteRanking, fetchBrief, fetchPopularCubes, fetchRankable, fetchRankableSets, fetchRankings, popularDetail, progressText, rankableDetail,
+  rankingLabel, rankingModel, rankingTitle, setKeyOf, setSubjectId, sharingLabel, shortDate, subjectNoun, UNNAMED, useRanking,
+  type CubeRankings, type PopularCube, type RankCard, type RankableCube, type RankableSet, type RankingBrief, type RankingModel, type RankingRow,
 } from "../lib/rankings";
 
 const DEPTH_OPTIONS: { value: RankDepth; label: string }[] = [
@@ -55,15 +55,18 @@ export function RankingsRow({ listId, onOpen }: { listId: string; onOpen: () => 
 
 /* ── a cube's rankings, or all of yours ─────────────────────────────── */
 
-export function RankingsScreen({ listId, onBack, onOpen, onCube }: {
+export function RankingsScreen({ listId, onBack, onOpen, onCube, onPopular }: {
   listId: string | null; onBack: () => void; onOpen: (id: string) => void;
   /** Your rankings: open someone else's cube's rankings, to rank it. */
   onCube?: (listId: string) => void;
+  /** Your rankings: open a popular cube's rankings ("set:PLSV"). */
+  onPopular?: (id: string) => void;
 }) {
   const [data, setData] = useState<CubeRankings | null>(null);
   /** Every ranking of yours: other people's cubes you can rank too, and Limited sets. */
   const [others2, setOthers2] = useState<RankableCube[]>([]);
   const [sets, setSets] = useState<RankableSet[]>([]);
+  const [popular, setPopular] = useState<PopularCube[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [top, setTop] = useState(100);
@@ -73,17 +76,20 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube }: {
   const [sharing, setSharing] = useState<"cube" | "private">("cube");
   const [busy, setBusy] = useState(false);
   const load = () => Promise.all([fetchRankings(listId), listId == null ? fetchRankable() : Promise.resolve([]),
-                                  listId == null ? fetchRankableSets().catch(() => []) : Promise.resolve([])])
-    .then(([d, r, s]) => { setData(d); setOthers2(r); setSets(s); setError(null); }).catch((e) => setError((e as Error).message));
+                                  listId == null ? fetchRankableSets().catch(() => []) : Promise.resolve([]),
+                                  listId == null ? fetchPopularCubes().catch(() => []) : Promise.resolve([])])
+    .then(([d, r, s, p]) => { setData(d); setOthers2(r); setSets(s); setPopular(p); setError(null); }).catch((e) => setError((e as Error).message));
   useEffect(() => { void load(); }, [listId]);
   const cube = data?.cube ?? null;
   const isSet = !!setKeyOf(listId);
+  /** A set's screen says "set"; a popular cube's or an Arena cube version's says "cube". */
+  const noun = subjectNoun(cube?.kind);
   const mine = data?.rankings.filter((r) => r.mine) ?? [], others = data?.rankings.filter((r) => !r.mine) ?? [];
   const create = async () => {
     if (!cube || busy) return;
     setBusy(true);
     try {
-      const r = await createRanking({ listId: cube.id, name: "", depth, top, sharing, ownCube: cube.mine });
+      const r = await createRanking({ listId: cube.id, name: "", depth, top, sharing, ownCube: cube.mine, kind: cube.kind });
       setCreating(false);
       onOpen(r.id);
     } catch (e) {
@@ -105,7 +111,7 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube }: {
         {error && <Notice tone="error">{error}</Notice>}
         {!data && !error && <Notice tone="info">Loading rankings…</Notice>}
         {data && listId != null && (isSet
-          ? <Notice tone="info">Sort each color by putting up to four cards in order at a time, then rank the best cards across the whole set.
+          ? <Notice tone="info">Sort each color by putting up to four cards in order at a time, then rank the best cards across the whole {noun}.
               Your friends can watch and compare the rankings you share.</Notice>
           : <Notice tone="info">Sort each color by putting up to four cards in order at a time, then rank the best cards across the whole cube.
               Everyone who can see this cube can watch and compare the rankings shared with it.</Notice>
@@ -127,7 +133,7 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube }: {
         {data && mine.length > 0 && (<>{listId != null && <Section title="Yours" />}{mine.map(row)}</>)}
         {data && listId != null && (<>
           <Section title={isSet ? "Your friends'" : "Everyone else's"} />
-          {!others.length && <Notice tone="info">{isSet ? "None of your friends has ranked this set yet." : "Nobody else has ranked this cube yet."}</Notice>}
+          {!others.length && <Notice tone="info">{isSet ? `None of your friends has ranked this ${noun} yet.` : "Nobody else has ranked this cube yet."}</Notice>}
           {others.map(row)}
         </>)}
         {data && listId == null && !mine.length && <Notice tone="info">No rankings yet. Open one of your cubes and choose Rankings, or rank a friend's cube below.</Notice>}
@@ -140,6 +146,10 @@ export function RankingsScreen({ listId, onBack, onOpen, onCube }: {
                  detail={[c.owner?.display_name, plural(c.cards, "card"), c.rankings ? plural(c.rankings, "ranking") : "no rankings yet", c.mine ? `${c.mine} yours` : null]
                    .filter(Boolean).join(" · ")} />
           ))}
+        </>)}
+        {data && listId == null && popular.length > 0 && (<>
+          <Section title="Popular cubes" />
+          {popular.map((c) => <Row key={c.key} title={c.name} detail={popularDetail(c)} onClick={() => (onPopular ?? onCube)?.(c.id)} />)}
         </>)}
         {data && listId == null && sets.length > 0 && (<>
           <Section title="Sets you can rank" />

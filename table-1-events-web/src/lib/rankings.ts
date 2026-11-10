@@ -9,7 +9,8 @@ import {
   COLOR_JOBS, JOB_TITLE, Knowledge, RankingState, diffPlaces, disagreements as disagreementsOf, pack as packOf, pickWins, reaskOpen,
   jobOfColor, type RankChange, type RankDepth, type RankJob, type RankScreen, type RankSession,
 } from "./cubeRanking";
-import { setKeyOf, setSubjectId, subjectRow, type RankableSet } from "./limitedRank";
+import { isLibraryDemo } from "./libraryDemo";
+import { setKeyOf, setSubjectId, subjectRow, type PopularCube, type RankableSet } from "./limitedRank";
 import { RankSaver, pendingStore, screenKey, type PushArgs } from "./rankSync";
 import { supabase } from "./supabaseClient";
 import { capture } from "./telemetry";
@@ -18,8 +19,9 @@ export interface Person { user_id: string; display_name: string; handle?: string
 export interface RankingCube {
   /** A cube's list id, or a Limited set's "set:<key>" (contract/cube-rankings-2026-10-21.md § Sets). */
   id: string; name: string; mine: boolean; owner?: Person | null; can_see?: boolean; cards?: string[];
-  /** A Limited set's key (FRA, PWR-2510) and kind (set, or cube: an Arena cube version); absent for a cube. */
-  set?: string; kind?: "set" | "cube";
+  /** A Limited set's key (FRA, PWR-2510) and kind (set; cube: an Arena cube version; popular: a popular cube, with its
+   *  curator and page); absent for a cube. */
+  set?: string; kind?: "set" | "cube" | "popular"; curator?: string | null; url?: string;
   /** cube_ranking_get only: Oracle id → the printing the cube holds, so cards show as they are in the cube. */
   printings?: Record<string, string>;
 }
@@ -62,8 +64,11 @@ async function rpc<T>(name: string, params: Record<string, unknown>): Promise<T>
 
 /* ── Limited sets (contract/cube-rankings-2026-10-21.md § Sets): subject ids and rows in lib/limitedRank.ts ── */
 
-export { rankableDetail, setKeyOf, setSubjectId, sharingLabel, subjectRow, type RankableSet } from "./limitedRank";
+export { popularDetail, rankableDetail, setKeyOf, setSubjectId, sharingLabel, subjectNoun, subjectRow, type PopularCube, type RankableSet } from "./limitedRank";
 export const fetchRankableSets = (): Promise<RankableSet[]> => (demo ? Promise.resolve(demo.rankableSets()) : rpc("limited_rankable", {}));
+/** The popular cubes (PowerLSV, LSVCube, MTGO Vintage Cube, Arena Powered Cube) with your and your friends' rankings. */
+export const fetchPopularCubes = (): Promise<PopularCube[]> =>
+  (demo ? Promise.resolve(demo.popularCubes()) : isLibraryDemo() ? Promise.resolve(DemoRankings.popular) : rpc("popular_cubes", {}));
 
 /** A cube's rankings, a set's ("set:FRA"), or (null) all of yours, set rankings included. */
 export const fetchRankings = async (listId: string | null): Promise<CubeRankings> => {
@@ -117,13 +122,14 @@ export function cubeChangeOf(cubeCards: string[] | null | undefined, baseline: s
   return { added: [...now].filter((c) => !then.has(c)).sort(), removed: [...then].filter((c) => !now.has(c)).sort() };
 }
 
-export async function createRanking(o: { listId: string; name: string; depth: RankDepth; top: number; sharing: "cube" | "private"; ownCube: boolean }) {
+export async function createRanking(o: { listId: string; name: string; depth: RankDepth; top: number; sharing: "cube" | "private"; ownCube: boolean; kind?: string }) {
   const id = crypto.randomUUID().toLowerCase();
   const set = setKeyOf(o.listId);
   const row: RankingRow = demo ? demo.create(id, o.listId, o.name, o.depth, o.top, o.sharing)
     : subjectRow(await rpc<RankingRow>("cube_ranking_create", { p_id: id, p_list_id: set ? null : o.listId, p_set: set, p_name: o.name,
                                                                 p_depth: o.depth, p_top: o.top, p_sharing: o.sharing }));
-  capture("ranking_created", { depth: o.depth, top: o.top, sharing: o.sharing, own_cube: o.ownCube, subject: set ? "set" : "cube" });
+  capture("ranking_created", { depth: o.depth, top: o.top, sharing: o.sharing, own_cube: o.ownCube,
+                              subject: o.kind === "popular" ? "popular" : set ? "set" : "cube" });
   return row;
 }
 
@@ -608,9 +614,23 @@ export class DemoRankings {
     run(DemoRankings.mine, { user_id: "d0000000-0000-0000-0000-0000000f0000", display_name: "You" }, "My ranking", "half", 100, true, 0, mixed("me"));
     run("d0000000-0000-0000-0000-0000000aa004", DemoRankings.maraPerson, "Mara's own order", "half", 100, false, 0, mixed("mara2"), DemoRankings.maraCube, "U");
     run("d0000000-0000-0000-0000-0000000aa005", DemoRankings.maraPerson, "My ranking", "third", 100, false, 0, mixed("mara3"), DemoRankings.demoSet, "W");
+    run("d0000000-0000-0000-0000-0000000aa006", DemoRankings.maraPerson, "Power first", "half", 50, false, 0, mixed("mara4"), "set:PLSV", "B");
   }
 
+  /** The demo's popular cubes rank the demo cube's cards. */
+  static readonly popular: PopularCube[] = [
+    { key: "PLSV", id: "set:PLSV", name: "PowerLSV", curator: "LSV", url: "https://cubecobra.com/cube/list/786d3a10-43bd-438e-acf4-bb150b881254", cards: 528, updated: "2026-11-02", mine: 0, rankings: 0, friends: 0 },
+    { key: "LSV", id: "set:LSV", name: "LSVCube", curator: "LSV", url: "https://cubecobra.com/cube/list/a525ebe1-c9c0-471c-aca3-772f91bf4145", cards: 516, updated: "2026-11-02", mine: 0, rankings: 0, friends: 0 },
+    { key: "VCUBE", id: "set:VCUBE", name: "MTGO Vintage Cube", curator: "Magic Online", url: "https://www.mtgo.com/vintage-cube-cardlist", cards: 540, updated: "2026-10-07", mine: 0, rankings: 0, friends: 0 },
+    { key: "APCUBE", id: "set:APCUBE", name: "Arena Powered Cube", curator: "MTG Arena", url: "https://scryfall.com/cubes/apcube", cards: 539, updated: "2026-10-30", mine: 0, rankings: 0, friends: 0 },
+  ];
+
   private cube(listId: string, cards: boolean): RankingCube {
+    const popular = DemoRankings.popular.find((c) => c.id === listId);
+    if (popular) {
+      return { id: listId, set: popular.key, kind: "popular", name: popular.name, curator: popular.curator, url: popular.url, mine: false, owner: null,
+               can_see: true, ...(cards ? { cards: this.now } : {}) };
+    }
     if (listId === DemoRankings.demoSet) {
       return { id: listId, set: "FRA", kind: "set", name: DemoRankings.demoSetName, mine: false, owner: null, can_see: true, ...(cards ? { cards: this.now } : {}) };
     }
@@ -623,7 +643,8 @@ export class DemoRankings {
   rankings(listId: string | null): CubeRankings {
     const all = [...this.rows.values()].sort((a, b) => (a.mine === b.mine ? a.name.localeCompare(b.name) : a.mine ? -1 : 1));
     if (listId == null) return { cube: null, can_rank: false, rankings: all.filter((r) => r.mine).map((r) => ({ ...r, cube: this.cube(r.list_id, false) })) };
-    if (listId !== this.cubeId && listId !== DemoRankings.maraCube && listId !== DemoRankings.demoSet) return { cube: null, can_rank: false, rankings: [] };
+    if (listId !== this.cubeId && listId !== DemoRankings.maraCube && listId !== DemoRankings.demoSet
+        && !DemoRankings.popular.some((c) => c.id === listId)) return { cube: null, can_rank: false, rankings: [] };
     return { cube: this.cube(listId, false), can_rank: true, rankings: all.filter((r) => r.list_id === listId) };
   }
 
@@ -651,6 +672,14 @@ export class DemoRankings {
             { key: "FRA", name: DemoRankings.demoSetName, released: "2026-09-23", kind: "set", cards: this.now.length, pack: true,
               mine: of.filter((r) => r.mine).length, rankings: of.length },
             { key: "PWR-2510", name: "Arena Powered Cube · Oct 2025", released: "2025-10-30", kind: "cube", cards: 540, pack: true, mine: 0, rankings: 0 }];
+  }
+
+  /** The popular cubes with the demo's rankings of each (Mara ranks PowerLSV). */
+  popularCubes(): PopularCube[] {
+    return DemoRankings.popular.map((c) => {
+      const of = [...this.rows.values()].filter((r) => r.list_id === c.id);
+      return { ...c, mine: of.filter((r) => r.mine).length, rankings: of.length, friends: of.filter((r) => !r.mine).length };
+    });
   }
 
   get(id: string): RankingDetail {

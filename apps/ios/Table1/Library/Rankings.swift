@@ -17,10 +17,16 @@ struct RankingCube: Decodable, Hashable, Sendable {
     var cards: [String]?
     /// cube_ranking_get only: Oracle id → the printing the cube holds, so cards show as they are in the cube.
     var printings: [String: String]?
-    /// A Limited set's key (FRA, PWR-2510) and kind ("set" or "cube": an Arena cube version); nil for a cube.
+    /// A Limited set's key (FRA, PWR-2510) and kind ("set"; "cube": an Arena cube version; "popular": a popular cube);
+    /// nil for a cube.
     var set: String?
     var kind: String?
+    /// A popular cube's curator and page.
+    var curator: String?
+    var url: String?
     var isSet: Bool { self.set != nil }
+    /// What a set subject is called on screen: "cube" for a popular cube or an Arena cube version, else "set".
+    var noun: String { isSet ? RankSubject.noun(kind) : "cube" }
 }
 
 struct RankingRow: Decodable, Hashable, Identifiable, Sendable {
@@ -96,6 +102,30 @@ enum RankSubject {
     /// "Shared with the cube" reaches a set ranking's maker's friends (everyone can see a set).
     static func sharingLabel(_ sharing: String, set: Bool) -> String {
         sharing == "private" ? "Only me" : set ? "Shared with friends" : "Shared with the cube"
+    }
+    /// What a set subject is called (cases testdata/popular-cubes/cases.json `noun`).
+    static func noun(_ kind: String?) -> String { kind == "popular" || kind == "cube" ? "cube" : "set" }
+}
+
+/// A popular cube you can rank (popular_cubes; contract/cube-rankings-2026-10-21.md § Popular cubes): PowerLSV,
+/// LSVCube, MTGO Vintage Cube, Arena Powered Cube. Opens as the subject "set:<key>".
+struct PopularCube: Codable, Hashable, Identifiable, Sendable {
+    let key: String
+    var name: String
+    var curator: String?
+    var url: String?
+    var cards: Int
+    var updated: String?
+    /// Your rankings of it; all you can see (yours too); your friends'.
+    var mine: Int
+    var rankings: Int
+    var friends: Int
+    var id: String { key }
+    var subjectId: String { RankSubject.setId(key) }
+    /// "LSV · 528 cards · 3 friends' rankings · 1 yours" (cases testdata/popular-cubes/cases.json `detail`).
+    var detail: String {
+        [curator, "\(cards) cards", friends == 0 ? nil : friends == 1 ? "1 friend's ranking" : "\(friends) friends' rankings",
+         mine == 0 ? nil : "\(mine) yours"].compactMap { $0 }.joined(separator: " · ")
     }
 }
 
@@ -311,6 +341,15 @@ final class RankingsStore {
         return try await supabase.rpc("limited_rankable").execute().value
     }
 
+    /// The popular cubes with your and your friends' rankings of each.
+    func popularCubes() async throws -> [PopularCube] {
+        #if DEBUG
+        if let demo { return demo.popularCubes() }
+        if FriendsStore.shared.demo != nil { return RankingsDemoBackend.popular }
+        #endif
+        return try await supabase.rpc("popular_cubes").execute().value
+    }
+
     /// Briefs already fetched this session, by "a|b|list".
     @ObservationIgnored private var briefs: [String: RankingBrief] = [:]
 
@@ -365,7 +404,7 @@ final class RankingsStore {
         return r.baseline
     }
 
-    func create(listId: String, name: String, depth: String, top: Int, sharing: String, ownCube: Bool) async throws -> RankingRow {
+    func create(listId: String, name: String, depth: String, top: Int, sharing: String, ownCube: Bool, kind: String? = nil) async throws -> RankingRow {
         let id = UUID().uuidString.lowercased()
         let row: RankingRow
         #if DEBUG
@@ -376,7 +415,7 @@ final class RankingsStore {
         row = try await createLive(id: id, listId: listId, name: name, depth: depth, top: top, sharing: sharing)
         #endif
         Telemetry.capture("ranking_created", ["depth": depth, "top": top, "sharing": sharing, "own_cube": ownCube,
-                                              "subject": RankSubject.setKey(listId) == nil ? "cube" : "set"])
+                                              "subject": kind == "popular" ? "popular" : RankSubject.setKey(listId) == nil ? "cube" : "set"])
         return row
     }
 
@@ -1015,9 +1054,39 @@ final class RankingsDemoBackend: @unchecked Sendable {
             taste: mixed("mara2"), cube: Self.maraCube, stopAfter: .u)
         run("d0000000-0000-0000-0000-0000000aa005", mara, RankingName.unnamed, "third", 100, mine: false, finalScreens: 0,
             taste: mixed("mara3"), cube: Self.demoSet, stopAfter: .w)
+        run("d0000000-0000-0000-0000-0000000aa006", mara, "Power first", "half", 50, mine: false, finalScreens: 0,
+            taste: mixed("mara4"), cube: RankSubject.setId("PLSV"), stopAfter: .b)
+    }
+
+    /// The demo's popular cubes rank the demo cube's cards.
+    static let popular: [PopularCube] = [
+        PopularCube(key: "PLSV", name: "PowerLSV", curator: "LSV", url: "https://cubecobra.com/cube/list/786d3a10-43bd-438e-acf4-bb150b881254",
+                    cards: 528, updated: "2026-11-02", mine: 0, rankings: 0, friends: 0),
+        PopularCube(key: "LSV", name: "LSVCube", curator: "LSV", url: "https://cubecobra.com/cube/list/a525ebe1-c9c0-471c-aca3-772f91bf4145",
+                    cards: 516, updated: "2026-11-02", mine: 0, rankings: 0, friends: 0),
+        PopularCube(key: "VCUBE", name: "MTGO Vintage Cube", curator: "Magic Online", url: "https://www.mtgo.com/vintage-cube-cardlist",
+                    cards: 540, updated: "2026-10-07", mine: 0, rankings: 0, friends: 0),
+        PopularCube(key: "APCUBE", name: "Arena Powered Cube", curator: "MTG Arena", url: "https://scryfall.com/cubes/apcube",
+                    cards: 539, updated: "2026-10-30", mine: 0, rankings: 0, friends: 0),
+    ]
+
+    /// The popular cubes with the demo's rankings of each (Mara ranks PowerLSV).
+    func popularCubes() -> [PopularCube] {
+        Self.popular.map { c in
+            var c = c
+            let of = rows.values.filter { $0.listId == c.subjectId }
+            c.mine = of.filter(\.mine).count
+            c.rankings = of.count
+            c.friends = of.filter { !$0.mine }.count
+            return c
+        }
     }
 
     private func cube(_ listId: String, withCards: Bool) -> RankingCube {
+        if let p = Self.popular.first(where: { $0.subjectId == listId }) {
+            return RankingCube(id: listId, name: p.name, mine: false, owner: nil, canSee: true, cards: withCards ? cards : nil,
+                               set: p.key, kind: "popular", curator: p.curator, url: p.url)
+        }
         if listId == Self.demoSet {
             return RankingCube(id: listId, name: Self.demoSetName, mine: false, owner: nil, canSee: true, cards: withCards ? cards : nil,
                                set: "FRA", kind: "set")
@@ -1034,7 +1103,8 @@ final class RankingsDemoBackend: @unchecked Sendable {
         if listId == nil {
             return CubeRankings(cube: nil, canRank: false, rankings: all.filter(\.mine).map { var r = $0; r.cube = cube(r.listId, withCards: false); return r })
         }
-        guard listId == cubeId || listId == Self.maraCube || listId == Self.demoSet else { return CubeRankings(cube: nil, canRank: false, rankings: []) }
+        guard listId == cubeId || listId == Self.maraCube || listId == Self.demoSet || Self.popular.contains(where: { $0.subjectId == listId })
+        else { return CubeRankings(cube: nil, canRank: false, rankings: []) }
         return CubeRankings(cube: cube(listId!, withCards: false), canRank: true, rankings: all.filter { $0.listId == listId })
     }
 

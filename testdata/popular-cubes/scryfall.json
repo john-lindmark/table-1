@@ -1,0 +1,31 @@
+{
+ "object": "list",
+ "total_cards": 539,
+ "has_more": true,
+ "next_page": "https://api.scryfall.com/cards/search?format=json&include_extras=true&include_multilingual=false&include_variations=false&order=name&page=2&q=cube%3Aapcube&unique=cards",
+ "data": [
+  {
+   "id": "0d16e8e0-31b2-4389-afd6-783c501f6fa0",
+   "oracle_id": "2588f348-d7a3-46c8-9ace-dca53ed5ef99",
+   "name": "Ajani, Nacatl Pariah // Ajani, Nacatl Avenger",
+   "card_faces": [
+    {
+     "name": "Ajani, Nacatl Pariah"
+    },
+    {
+     "name": "Ajani, Nacatl Avenger"
+    }
+   ]
+  },
+  {
+   "id": "d2705b43-a94a-44c0-8740-82e0b296820c",
+   "oracle_id": "b1a0e129-27f0-4a09-b00d-497e18777306",
+   "name": "Abhorrent Oculus"
+  },
+  {
+   "id": "6ef4ac5a-71bd-4b75-a949-084160ef7b7a",
+   "oracle_id": "f9db72dc-9a5b-48a4-a86e-7464d9a2166a",
+   "name": "Abrade"
+  }
+ ]
+}

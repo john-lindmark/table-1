@@ -438,6 +438,7 @@ struct LibraryDemoRoot: View {
                     case "rankmine": path = [.lists(.cube), .rankings(nil)]
                     case "rankfriend": path = [.lists(.cube), .rankings(nil), .rankings(RankingsDemoBackend.maraCube)]
                     case "rankset": path = [.lists(.cube), .rankings(nil), .rankings(RankingsDemoBackend.demoSet)]
+                    case "rankpopular": path = [.lists(.cube), .rankings(nil), .rankings(RankSubject.setId("PLSV"))]
                     case "ranking", "rankchanged": path = base + [.ranking(mine)]
                     case "rankchangedlist": path = base + [.ranking(mine), .rankingLists(mine, "W")]
                     case "rankpick": path = base + [.ranking(mine), .rankingPick(mine, "R")]

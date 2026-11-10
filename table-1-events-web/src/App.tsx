@@ -283,6 +283,7 @@ function ProfileUserRoute() {
   return <ProfileScreen userId={userId} onBack={back} onSharing={() => navigate("/sharing")}
                         onMatch={() => navigate(`/library/match/${userId}`)} onFriends={() => navigate(`/u/${userId}/friends`)}
                         onRanking={(id) => navigate(`/library/ranking/${id}`)}
+                        onPopular={(id) => navigate(`/library/list/${encodeURIComponent(id)}/rankings`)}
                         onSection={(kind, id) => navigate(`/u/${userId}/${kind}${id ? `/${id}` : ""}`)} />;
 }
 function ProfileFriendsRoute() {
@@ -457,9 +458,11 @@ function RankingsRoute() {
   const { listId, set } = useParams();
   const navigate = useNavigate();
   const subject = set ? `set:${set.toUpperCase()}` : listId ?? null;
-  const back = useBack(set ? "/insights/limited" : listId ? `/library/list/${listId}` : "/library/cubes");
+  // A popular cube's Rankings ("set:PLSV" as the list id, from the profile) falls back to your rankings.
+  const back = useBack(set ? "/insights/limited" : listId?.startsWith("set:") ? "/library/rankings" : listId ? `/library/list/${listId}` : "/library/cubes");
   return <RankingsScreens><RankingsList key={subject ?? "mine"} listId={subject} onBack={back} onOpen={(id) => navigate(`/library/ranking/${id}`)}
-                                        onCube={(id) => navigate(subjectRankings(id))} /></RankingsScreens>;
+                                        onCube={(id) => navigate(subjectRankings(id))}
+                                        onPopular={(id) => navigate(`/library/list/${encodeURIComponent(id)}/rankings`)} /></RankingsScreens>;
 }
 function RankingRoute() {
   const { rankingId, job, oracleId, otherId } = useParams();

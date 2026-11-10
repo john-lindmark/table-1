@@ -76,6 +76,33 @@ an Arena cube version (PWR-2510, contract/insights-2026-10-24.md § Arena cubes)
   rarities.
 - Telemetry: `ranking_created` gains `subject`: cube / set.
 
+## Popular cubes (John, 2026-11-10: "From my rankings on profile, I should have the ability to rank and see friends rankings of popular cubes")
+
+Four cubes nobody on Table 1 owns, ranked like a Limited set (§ Sets): **PowerLSV** and **LSVCube** (Cube Cobra
+786d3a10… / a525ebe1…), **MTGO Vintage Cube** (mtgo.com's card list) and **Arena Powered Cube** (Scryfall's cube list
+`apcube`). Migration `20261110140000_popular_cubes.sql`, tests `supabase/tests/57c_popular_cubes_test.sql`, Deno
+`limited-sync/popular.test.ts` (trimmed real pages in `testdata/popular-cubes/`), shared cases
+`testdata/popular-cubes/cases.json` (iOS `PopularCubesTests`, web `popularCubes.test.ts`, Android `PopularCubesTest`).
+- **The lists:** `t1_private.popular_cubes` (key PLSV / LSV / VCUBE / APCUBE, name, curator, source, link, cards as Oracle
+  ids, the printing each is drawn in, names nothing matched). limited-sync `{step:"popular"}` reads them weekly
+  (pg_cron `t1-popular-cubes`, Mondays 06:41 UTC; `{step:"popular", set:"PLSV"}` reads one): Cube Cobra's cube JSON (main
+  board, in the cube's printings), mtgo.com's first table under a "Full Card List" heading (the page also keeps the last
+  list and a change list; names only, usual art), Scryfall's `cube:apcube` search (Scryfall's printing). Scryfall's
+  `cube:vintage` is behind MTGO's list (540 cards, ~40 differ on 2026-11-10), so MTGO is read directly.
+  `popular_cube_put` (service role) refuses a list under 300 matched cards, so a page that changes shape never empties
+  a cube. The key stays as the list changes: cards that join or leave work like a changed cube (§ Cube changes).
+- **Ranking one:** the subject `set:<key>`, `kind: popular`, with `curator` and `url`; created, saved, seen, compared
+  and shared exactly like a set ranking (Shared with friends, plus whoever your Rankings profile part reaches). Words
+  say "cube" for `popular` (and for Arena cube versions), "set" for sets.
+- **`popular_cubes()`** → `[{key, id, name, curator, url, cards, updated, mine, rankings, friends}]` in the order above:
+  `mine` your rankings, `rankings` all you can see, `friends` your friends'. A cube whose list hasn't been read is left out.
+  Popular cubes are never in `limited_rankable` (they're not Limited sets).
+- **Where:** your own profile's **Rankings** section always shows (also with none of your own yet) and ends with
+  **Popular cubes**: one row each, "LSV · 528 cards · 3 friends' rankings · 1 yours" (`popularDetail`); a tap opens the
+  cube's Rankings (Rank PowerLSV, Yours, Your friends'). Not in View as. Rankings (yours) has the same **Popular cubes**
+  section above Sets you can rank. A friend's profile lists their popular-cube rankings like any other.
+- Telemetry: `profile_section_opened` `section: popular_cube`; `ranking_created` `subject: popular`.
+
 ## Cube changes and telling the owner (John, 2026-10-22)
 
 - **A card leaves the cube:** it's in no list any more, and what it settled still counts (knowledge covers the cube's

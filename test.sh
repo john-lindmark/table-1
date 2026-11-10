@@ -58,7 +58,7 @@ staged() {
   local files; files=$(git diff --cached --name-only)
   [ -z "$files" ] && { echo "nothing staged"; return; }
   grep -qE '^(table-1-events-web/|supabase/functions/(events-engine|ranking-brief)/)' <<<"$files" && { run "web types + unit" web_unit; run "rules parity" parity; }
-  grep -qE '^(supabase/functions/(events-engine|list-import|cards-sync|moderate|bugs|ranking-brief|live-activity|notify-worker|meta-sync|limited-sync|insight-brief|discord-bot|discord-community|deck-image|meta-image|ranking-image|deck-finder)/|testdata/(list-export|moderation|bugs|cube-ranking|insights|deck-image|insight-charts)/)' <<<"$files" && run "engine (deno)" engine
+  grep -qE '^(supabase/functions/(events-engine|list-import|cards-sync|moderate|bugs|ranking-brief|live-activity|notify-worker|meta-sync|limited-sync|insight-brief|discord-bot|discord-community|deck-image|meta-image|ranking-image|deck-finder)/|testdata/(list-export|moderation|bugs|cube-ranking|insights|deck-image|insight-charts|popular-cubes)/)' <<<"$files" && run "engine (deno)" engine
   grep -qE '^supabase/(migrations|tests)/' <<<"$files" && run "database" database
   true
 }

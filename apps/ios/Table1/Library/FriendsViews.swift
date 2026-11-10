@@ -363,6 +363,8 @@ struct ProfileScreen: View {
     @State private var error: String?
     /// Your own profile as: 3 you, 1 a friend, 0 anyone (contract § UX rules 5).
     @State private var viewAs = 3
+    /// Your own profile ends its Rankings with the popular cubes (contract/cube-rankings-2026-10-21.md § Popular cubes).
+    @State private var popular: [PopularCube] = []
 
     var body: some View {
         T1Screen {
@@ -389,7 +391,10 @@ struct ProfileScreen: View {
         }
         .task {
             await load()
-            if data?.relation == .me, store.sharing == nil { await store.loadSharing() }
+            if data?.relation == .me {
+                if store.sharing == nil { await store.loadSharing() }
+                popular = (try? await RankingsStore.shared.popularCubes()) ?? []
+            }
         }
         .refreshable { await load() }
     }
@@ -506,6 +511,16 @@ struct ProfileScreen: View {
                     Telemetry.capture("profile_section_opened", ["section": "ranking", "kind": x.subject.kind])
                     path.append(.ranking(x.id))
                 } label: { ListRow(title: x.subject.name, detail: ProfileRankings.detail(x)) }
+                .buttonStyle(.plain)
+            }
+        }
+        if d.relation == .me, !asOther, !popular.isEmpty {
+            Section1("Popular cubes")
+            ForEach(popular) { c in
+                Button {
+                    Telemetry.capture("profile_section_opened", ["section": "popular_cube"])
+                    path.append(.rankings(c.subjectId))
+                } label: { ListRow(title: c.name, detail: c.detail) }
                 .buttonStyle(.plain)
             }
         }

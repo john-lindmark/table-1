@@ -18,6 +18,7 @@ import {
 } from "../lib/friends";
 import { startFriendsDemo } from "../lib/friendsDemo";
 import { RankingsRow } from "./Rankings";
+import { fetchPopularCubes, popularDetail, type PopularCube } from "../lib/rankings";
 import { FollowRows } from "./Follows";
 import { SpiceRow } from "./Spice";
 import { capture } from "../lib/telemetry";
@@ -285,15 +286,19 @@ function FriendAddBody({ onBack }: { onBack: () => void }) {
 export function ProfileScreen(props: {
   userId: string; onBack: () => void; onSection: (kind: SectionKind, id: string | null) => void; onMatch: () => void; onSharing: () => void;
   onFriends: () => void; onRanking: (id: string) => void;
+  /** Your own profile: a popular cube's Rankings ("set:PLSV"). */
+  onPopular: (id: string) => void;
 }) {
   return <Gate title="Profile" onBack={props.onBack}>{() => <ProfileBody key={props.userId} {...props} />}</Gate>;
 }
 
-function ProfileBody({ userId, onBack, onSection, onMatch, onSharing, onFriends, onRanking }: {
+function ProfileBody({ userId, onBack, onSection, onMatch, onSharing, onFriends, onRanking, onPopular }: {
   userId: string; onBack: () => void; onSection: (kind: SectionKind, id: string | null) => void; onMatch: () => void; onSharing: () => void;
-  onFriends: () => void; onRanking: (id: string) => void;
+  onFriends: () => void; onRanking: (id: string) => void; onPopular: (id: string) => void;
 }) {
   const [own, setD] = useState<ProfileData | null>(null);
+  /** Your own profile ends its Rankings with the popular cubes (contract/cube-rankings-2026-10-21.md § Popular cubes). */
+  const [popular, setPopular] = useState<PopularCube[]>([]);
   const [match, setMatch] = useState<TradeMatch | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [menu, setMenu] = useState(false);
@@ -302,6 +307,7 @@ function ProfileBody({ userId, onBack, onSection, onMatch, onSharing, onFriends,
   const [as, setAs] = useState(2);
   const sharing = useFriends().sharing;
   useEffect(() => { if (own?.relation === "self") void loadSharing(); }, [own?.relation]);
+  useEffect(() => { if (own?.relation === "self") fetchPopularCubes().then(setPopular).catch(() => setPopular([])); }, [own?.relation]);
   const d = own && own.relation === "self" && as < 2 && sharing ? viewAs(own, sharing, as) : own;
   const load = async (first = false) => {
     try {
@@ -405,6 +411,13 @@ function ProfileBody({ userId, onBack, onSection, onMatch, onSharing, onFriends,
           <Row key={`ranking-${r.id}`} title={r.subject.name} detail={profileRankingDetail(r)}
                onClick={() => { capture("profile_section_opened", { section: "ranking", kind: r.subject.kind }); onRanking(r.id); }} />
         ))}
+        {d?.relation === "self" && as === 2 && popular.length > 0 && (<>
+          <Section title="Popular cubes" />
+          {popular.map((c) => (
+            <Row key={`popular-${c.key}`} title={c.name} detail={popularDetail(c)}
+                 onClick={() => { capture("profile_section_opened", { section: "popular_cube" }); onPopular(c.id); }} />
+          ))}
+        </>)}
       </div>
       <PersonMenu person={menu && d ? { userId, displayName: d.display_name, relation: d.relation } : null} from="profile"
                   onClose={() => setMenu(false)} changed={() => void load()} />

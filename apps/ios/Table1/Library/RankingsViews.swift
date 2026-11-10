@@ -52,6 +52,7 @@ struct RankingsView: View {
     /// Every ranking of yours: other people's cubes you can rank too, and Limited sets.
     @State private var others: [RankableCube] = []
     @State private var sets: [RankableSet] = []
+    @State private var popular: [PopularCube] = []
     @State private var error: String?
     @State private var creating = false
     @State private var top = 100
@@ -74,7 +75,7 @@ struct RankingsView: View {
                     if listId != nil {
                         Notice(cube?.isSet == true
                                ? "Sort each color by putting up to four cards in order at a time, then rank the best cards across " +
-                                 "the whole set. Your friends can watch and compare the rankings you share."
+                                 "the whole \(cube?.noun ?? "set"). Your friends can watch and compare the rankings you share."
                                : "Sort each color by putting up to four cards in order at a time, then rank the best cards across " +
                                  "the whole cube. Everyone who can see this cube can watch and compare the rankings shared with it.")
                     }
@@ -86,12 +87,12 @@ struct RankingsView: View {
                     }
                     if listId != nil {
                         Section1(cube?.isSet == true ? "Your friends'" : "Everyone else's")
-                        if others.isEmpty { Notice(cube?.isSet == true ? "None of your friends has ranked this set yet." : "Nobody else has ranked this cube yet.") }
+                        if others.isEmpty { Notice(cube?.isSet == true ? "None of your friends has ranked this \(cube?.noun ?? "set") yet." : "Nobody else has ranked this cube yet.") }
                         ForEach(others) { row($0) }
                     } else if mine.isEmpty {
                         Notice("No rankings yet. Open one of your cubes and tap Rankings, or rank a friend's cube below.")
                     }
-                    if listId == nil { rankable; rankableSets }
+                    if listId == nil { rankable; popularCubes; rankableSets }
                 }
             }
         }
@@ -109,8 +110,10 @@ struct RankingsView: View {
             if listId == nil {
                 async let cubes = RankingsStore.shared.rankable()
                 async let limited = RankingsStore.shared.rankableSets()
+                async let pop = RankingsStore.shared.popularCubes()
                 others = try await cubes
                 sets = (try? await limited) ?? []
+                popular = (try? await pop) ?? []
             }
             error = nil
         } catch where !error.isCancellation {
@@ -131,6 +134,16 @@ struct RankingsView: View {
                                                 c.mine > 0 ? "\(c.mine) yours" : nil].compactMap { $0 }.joined(separator: " · "),
                         avatar: AvatarView(name: c.owner?.displayName ?? "?", userId: c.owner?.userId, size: 28, opensFrom: "rankings"))
             }.buttonStyle(.plain)
+        }
+    }
+
+    /// PowerLSV, LSVCube, MTGO Vintage Cube, Arena Powered Cube (contract/cube-rankings-2026-10-21.md § Popular cubes).
+    @ViewBuilder private var popularCubes: some View {
+        if !popular.isEmpty {
+            Section1("Popular cubes")
+            ForEach(popular) { c in
+                Button { path.append(.rankings(c.subjectId)) } label: { ListRow(title: c.name, detail: c.detail) }.buttonStyle(.plain)
+            }
         }
     }
 
@@ -171,7 +184,7 @@ struct RankingsView: View {
         defer { busy = false }
         do {
             let r = try await RankingsStore.shared.create(listId: cube.id, name: "",
-                                                          depth: depth, top: top, sharing: sharing, ownCube: cube.mine)
+                                                          depth: depth, top: top, sharing: sharing, ownCube: cube.mine, kind: cube.kind)
             creating = false
             await load()
             path.append(.ranking(r.id))
@@ -366,7 +379,7 @@ struct RankingView: View {
                 T1MenuItem(title: o.title) { path.append(.rankingCompare(rankingId, o.id, "F")) }
             })
         } label: {
-            ListRow(title: "Compare with another ranking…", detail: others.isEmpty ? "No other rankings of this \(row.isSet ? "set" : "cube") yet" : plural(others.count, "other ranking"))
+            ListRow(title: "Compare with another ranking…", detail: others.isEmpty ? "No other rankings of this \(model.cube?.noun ?? (row.isSet ? "set" : "cube")) yet" : plural(others.count, "other ranking"))
         }.buttonStyle(.plain)
     }
 
@@ -379,7 +392,7 @@ struct RankingView: View {
                 Task { await model.update(name: n.isEmpty ? RankingName.unnamed : n); newName = nil }
             }
         }
-        Notice("Rankings are titled by who ranked them. A label tells your rankings of this \(row.isSet ? "set" : "cube") apart.")
+        Notice("Rankings are titled by who ranked them. A label tells your rankings of this \(model.cube?.noun ?? (row.isSet ? "set" : "cube")) apart.")
         T1Segmented(options: depthOptions,
                     selection: Binding(get: { row.depth }, set: { d in Task { await model.update(depth: d) } }))
         Notice(depthNote(row.depth, top: row.top))

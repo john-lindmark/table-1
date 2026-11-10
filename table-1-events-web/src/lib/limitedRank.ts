@@ -70,3 +70,18 @@ export function insightsPush(info: Record<string, unknown>): InsightsPush | null
   if (info.kind !== "insights.new" || (section !== "constructed" && section !== "limited") || typeof key !== "string" || !key) return null;
   return { section, key, what: info.what === "rank" ? "rank" : "data" };
 }
+
+/** A popular cube you can rank (popular_cubes; contract/cube-rankings-2026-10-21.md § Popular cubes): PowerLSV, LSVCube,
+ *  MTGO Vintage Cube, Arena Powered Cube. Opens as the subject "set:<key>". */
+export interface PopularCube {
+  key: string; id: string; name: string; curator: string | null; url: string; cards: number; updated: string | null;
+  /** Your rankings of it; all you can see (yours too); your friends'. */
+  mine: number; rankings: number; friends: number;
+}
+/** "LSV · 528 cards · 3 friends' rankings · 1 yours" (cases testdata/popular-cubes/cases.json). */
+export function popularDetail(c: Pick<PopularCube, "curator" | "cards" | "mine" | "friends">): string {
+  return [c.curator, `${c.cards} cards`, c.friends ? (c.friends === 1 ? "1 friend's ranking" : `${c.friends} friends' rankings`) : null,
+          c.mine ? `${c.mine} yours` : null].filter(Boolean).join(" · ");
+}
+/** What a ranked subject is called in the Rankings screen's words: "cube" for a popular cube or an Arena cube version. */
+export const subjectNoun = (kind: string | null | undefined): "cube" | "set" => (kind === "popular" || kind === "cube" ? "cube" : "set");
