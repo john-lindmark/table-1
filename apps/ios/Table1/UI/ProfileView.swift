@@ -101,6 +101,10 @@ struct AccountView: View {
 
                 Section1("About")
                 Notice(Legal.fanContent)
+                Link(destination: Legal.termsURL) {
+                    ListRow(title: "Terms of service", detail: "table-1.site/terms") { LabelText("Open", color: T1.text) }
+                }
+                .buttonStyle(.plain)
                 Link(destination: Legal.privacyURL) {
                     ListRow(title: "Privacy policy", detail: "table-1.site/privacy") { LabelText("Open", color: T1.text) }
                 }

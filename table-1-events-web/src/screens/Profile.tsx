@@ -397,6 +397,10 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
         </div>
         <div className="bg-t1-surface px-4 py-2 t1-label">About</div>
         <Notice tone="info">{FAN_CONTENT}</Notice>
+        <a href="/terms" className="bg-t1-surface px-4 py-3.5 flex justify-between t1-label hover:bg-t1-surface-hover">
+          <span className="text-t1-text!">Terms of service</span>
+          <span>Open</span>
+        </a>
         <a href="/privacy" className="bg-t1-surface px-4 py-3.5 flex justify-between t1-label hover:bg-t1-surface-hover">
           <span className="text-t1-text!">Privacy policy</span>
           <span>Open</span>

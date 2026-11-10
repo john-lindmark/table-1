@@ -22,7 +22,7 @@ import { AddPlayers } from "./screens/AddPlayers";
 import { LifeTracker } from "./screens/LifeTracker";
 import { AuthConfirm } from "./screens/AuthConfirm";
 import { GoogleReturn } from "./screens/GoogleReturn";
-import { DeleteAccountPage, PrivacyPolicy } from "./screens/Legal";
+import { DeleteAccountPage, PrivacyPolicy, TermsOfService } from "./screens/Legal";
 import { SignInPage } from "./screens/Landing";
 import { NameGate } from "./components/NameGate";
 import { DesktopShell } from "./components/DesktopShell";
@@ -623,6 +623,7 @@ export default function App() {
         <Route path="/me/deck-photos" element={<MyDeckPhotosRoute />} />
         <Route path="/me/review" element={<ReviewRoute />} />
         <Route path="/sign-in" element={<SignInPage />} />
+        <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/delete-account" element={<DeleteAccountPage />} />
         <Route path="/p/:eventId" element={<PlayerRoute />} />
@@ -682,8 +683,8 @@ export default function App() {
         <Route path="/friends/add" element={<FriendAddRoute />} />
         <Route path="/sharing" element={<SharingRoute />} />
         <Route path="/u/:userId" element={<ProfileUserRoute />} />
-        <Route path="/u/:userId/:section" element={<ProfileCardsRoute />} />
         <Route path="/u/:userId/friends" element={<ProfileFriendsRoute />} />
+        <Route path="/u/:userId/:section" element={<ProfileCardsRoute />} />
         <Route path="/u/:userId/:section/:itemId" element={<ProfileCardsRoute />} />
         <Route path="/library/trade/:tradeId" element={<TradeRoute />} />
         <Route path="/insights" element={<InsightsHome section="constructed" />} />

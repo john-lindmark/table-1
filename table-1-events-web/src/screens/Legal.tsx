@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabaseClient";
 import { useSession } from "../lib/useSession";
 import { SignInButtons } from "../components/SignInButtons";
 import { Notice, Screen, T1Logo } from "../components/kit";
-import { FAN_CONTENT } from "../lib/legal";
+import { AFFILIATE_NOTE, FAN_CONTENT, OWNER, copyrightLine } from "../lib/legal";
 
 /*
  * Public pages linked from Google's OAuth consent screen and Play Console's App content:
@@ -17,7 +17,7 @@ import { FAN_CONTENT } from "../lib/legal";
  */
 
 export const CONTACT_EMAIL = "privacy@table-1.site";
-const UPDATED = "15 October 2026";
+const UPDATED = "9 November 2026";
 
 function LegalScreen({ title, children }: { title: string; children: ReactNode }) {
   const tab = (to: string, label: string) => (
@@ -31,6 +31,7 @@ function LegalScreen({ title, children }: { title: string; children: ReactNode }
         <Link to="/" className="bg-t1-surface px-4 flex items-center" aria-label="Table 1 home">
           <T1Logo className="h-4 w-auto" />
         </Link>
+        {tab("/terms", "Terms")}
         {tab("/privacy", "Privacy")}
         {tab("/delete-account", "Delete account")}
       </nav>
@@ -45,6 +46,7 @@ function LegalScreen({ title, children }: { title: string; children: ReactNode }
       <div className="bg-t1-surface px-4 py-4 t1-label">
         Questions: <a className="text-t1-text underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
         <p className="mt-2 normal-case tracking-normal">{FAN_CONTENT}</p>
+        <p className="mt-2 normal-case tracking-normal">{copyrightLine()}</p>
       </div>
     </Screen>
   );
@@ -89,6 +91,150 @@ function DeletionScope() {
   );
 }
 
+/*
+ * Terms of Service. DRAFT written 2026-11-09 for a lawyer's review (legal/README.md): the owner is OWNER until the
+ * company exists, and "Governing law" names no state yet. Sign-in screens say continuing agrees to these.
+ */
+export function TermsOfService() {
+  return (
+    <LegalScreen title="Terms of service">
+      <Section title="The agreement">
+        <p>
+          These terms are an agreement between you and {OWNER}, who runs Table 1 ("Table 1", "we"). They cover the iOS
+          and Android apps, table-1.site and Table 1 for Discord. By making an account or using Table 1 you agree to
+          them and to the <Link className="underline" to="/privacy">privacy policy</Link>. If you don't agree, don't
+          use Table 1.
+        </p>
+        <p>You must be 13 or older. If you're under 18, a parent or guardian must agree for you.</p>
+      </Section>
+
+      <Section title="Your account">
+        <p>
+          Keep your sign-in to yourself; what happens on your account is your responsibility. One person, one account.
+          You can delete your account at any time (<Link className="underline" to="/delete-account">how</Link>).
+        </p>
+      </Section>
+
+      <Section title="What you may do">
+        <p>
+          We give you a personal, non-exclusive, non-transferable, revocable license to use Table 1 for your own play,
+          collecting and organizing, including running events for your store or group.
+        </p>
+      </Section>
+
+      <Section title="What you may not do">
+        <ul>
+          <li>Copy, sell, rent or sublicense Table 1, or build a competing product or dataset from it.</li>
+          <li>
+            Scrape, crawl or collect data from Table 1 by automated means, or call its servers from anything but our
+            apps, site and bot, without written permission.
+          </li>
+          <li>
+            Decompile or reverse engineer the apps or the service, or get around limits, access rules or security,
+            except where the law says this can't be forbidden.
+          </li>
+          <li>Enter results you know are wrong, join events as someone else, or interfere with an event you aren't running.</li>
+          <li>Harass, threaten or impersonate people, post hateful, sexual or illegal content, or spam.</li>
+          <li>Use Table 1 to run gambling, or anything unlawful where you are.</li>
+          <li>Use our name or logo in a way that suggests we endorse you.</li>
+        </ul>
+      </Section>
+
+      <Section title="What's yours">
+        <p>
+          Your collection, decks, cubes, binders, rankings, notes, photos and names stay yours. You give us a
+          worldwide, royalty-free license to store, copy, show and process them only to run Table 1 for you and the
+          people you share with, as your sharing settings say. Match results and standings are part of other players'
+          records, so they stay with the event after you leave (without your name once your account is deleted).
+        </p>
+        <p>
+          Only post what you have the right to post. If you send us ideas or feedback, we may use them without owing
+          you anything.
+        </p>
+      </Section>
+
+      <Section title="What's ours">
+        <p>
+          The Table 1 software, design, name and logo, and the data Table 1 compiles (metagame shares, matchups,
+          archetype definitions, rankings summaries and the like) belong to {OWNER} and are protected by copyright,
+          trademark and other laws. These terms give you no rights in them beyond the license above.
+        </p>
+      </Section>
+
+      <Section title="Magic and other people's material">
+        <p>{FAN_CONTENT}</p>
+        <p>
+          Card data, images and prices come from Scryfall; Limited statistics from 17Lands (CC BY 4.0); tournament
+          results from Magic Online, TopDeck.gg and Melee. Those belong to their owners, and none of them endorse
+          Table 1. Links to other sites (TCGplayer, Cube Cobra, deck sites) take you to services with their own terms.
+        </p>
+        <p>{AFFILIATE_NOTE} It doesn't change the price you pay.</p>
+      </Section>
+
+      <Section title="Prices, trades and events">
+        <p>
+          Prices are estimates from third parties and can be wrong or out of date; they are not offers or appraisals.
+          Trades happen between players: we don't take part, hold cards or money, or guarantee anyone's cards or
+          conduct. Organizers are responsible for their events, including venues, entry fees, prizes and local law;
+          Table 1 only keeps the pairings and results.
+        </p>
+      </Section>
+
+      <Section title="Moderation and ending accounts">
+        <p>
+          We may remove or stop sharing content that breaks these terms, limit features, or suspend or close an
+          account that breaks them or puts others at risk. You're told in Account → From Table 1 and can appeal once.
+          We may change or stop any part of Table 1; if we shut it down we'll give notice so you can export your data.
+        </p>
+      </Section>
+
+      <Section title="Copyright complaints">
+        <p>
+          If you believe something on Table 1 infringes your copyright, email{" "}
+          <a className="underline" href={`mailto:${CONTACT_EMAIL}?subject=Copyright%20complaint`}>{CONTACT_EMAIL}</a>{" "}
+          with what the work is, where it appears on Table 1, your contact details, a statement that you believe in
+          good faith the use isn't authorized, and a statement under penalty of perjury that your notice is accurate
+          and you are the owner or act for them. We remove infringing material and close repeat infringers' accounts.
+        </p>
+      </Section>
+
+      <Section title="No warranty">
+        <p>
+          Table 1 is provided "as is" and "as available", without warranties of any kind, express or implied, including
+          merchantability, fitness for a particular purpose and non-infringement. We don't promise it will be
+          uninterrupted, error-free, or that pairings, standings, prices or statistics will always be right.
+        </p>
+      </Section>
+
+      <Section title="Limit of liability">
+        <p>
+          As far as the law allows, {OWNER} is not liable for indirect, incidental, special, consequential or punitive
+          damages, or for lost data, cards, prizes or profits, and total liability for any claim about Table 1 is
+          limited to the greater of what you paid us in the 12 months before the claim and US $50. Some places don't
+          allow these limits, so they may not apply to you.
+        </p>
+      </Section>
+
+      <Section title="Changes">
+        <p>
+          We may update these terms. We'll change the date above and, when a change matters, tell you in the app before
+          it takes effect. Using Table 1 after that means you accept the new terms.
+        </p>
+      </Section>
+
+      <Section title="The fine print">
+        <p>
+          The laws of the United States and of the state where {OWNER} is based govern these terms, and disputes go to
+          the courts there, unless your local consumer law says otherwise. If part of these terms can't be enforced,
+          the rest stays. Not enforcing a term isn't giving it up. You can't transfer this agreement; we can, to a
+          company that takes over Table 1. Apple and Google are not parties to these terms and aren't responsible for
+          Table 1; Apple may enforce them against you as a third-party beneficiary for the iOS app.
+        </p>
+      </Section>
+    </LegalScreen>
+  );
+}
+
 export function PrivacyPolicy() {
   return (
     <LegalScreen title="Privacy policy">
@@ -106,8 +252,8 @@ export function PrivacyPolicy() {
 
       <Section title="Your account">
         <p>
-          You sign in with Apple, Google or an email code. We receive your email address and, from Apple or Google, your
-          name. With an email code, you type your name. If you use Apple's "Hide My Email", we only see the relay address.
+          You sign in with Apple, Google, Discord or an email code. We receive your email address and, from Apple or
+          Google, your name; from Discord, your username and Discord id. With an email code or Discord, you type your name. If you use Apple's "Hide My Email", we only see the relay address.
           We never see a password.
         </p>
       </Section>
@@ -127,7 +273,13 @@ export function PrivacyPolicy() {
       <Section title="Your Library">
         <p>
           Your collection (cards, printings, finish, condition and the history of changes), decks, cubes and their saved
-          versions, and trades are stored so they sync between your devices. They are private to your account.
+          versions, binders, wants, rankings and trades are stored so they sync between your devices. They are private
+          to your account until you share them: each part can be shown to friends, to anyone on Table 1, or to anyone
+          with a link you make, and you can stop sharing at any time.
+        </p>
+        <p>
+          Buy links open TCGplayer with the cards you chose. The link carries which Table 1 screen it came from, not
+          who you are. {AFFILIATE_NOTE}
         </p>
       </Section>
 
@@ -192,7 +344,9 @@ export function PrivacyPolicy() {
       <Section title="Who processes data for us">
         <ul>
           <li>Supabase: database, sign-in and server functions, hosted on Amazon Web Services in the United States (us-east-1).</li>
-          <li>Apple and Google: sign-in, and push notifications and Live Activities on iOS.</li>
+          <li>Apple, Google and Discord: sign-in; push notifications (Apple on iOS, Google's Firebase on Android) and Live Activities on iOS.</li>
+          <li>Discord: if you link your account, the Table 1 bot posts what you ask it to in your server.</li>
+          <li>TCGplayer and Impact (its affiliate network): reached only when you open a Buy link.</li>
           <li>Our email provider: sends sign-in codes and links.</li>
           <li>Anthropic: deck finder, link imports and safety checks, as described above.</li>
           <li>PostHog, Sentry and Google Analytics: usage and crash data, as described above.</li>

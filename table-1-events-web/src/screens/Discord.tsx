@@ -211,6 +211,7 @@ export function DiscordPage({ onBack }: { onBack: () => void }) {
       <LinkStatus />
       <div className="flex-1 bg-t1-surface" />
       <footer className="bg-t1-surface px-4 py-4 flex flex-wrap gap-x-6 gap-y-2 t1-label">
+        <Link to="/terms" className="hover:text-t1-text">Terms</Link>
         <Link to="/privacy" className="hover:text-t1-text">Privacy</Link>
         <Link to="/" className="hover:text-t1-text">Table 1</Link>
       </footer>

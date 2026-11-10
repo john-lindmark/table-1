@@ -304,6 +304,11 @@ fun AccountScreen(foregrounds: Int, onFriends: () -> Unit, onSharing: () -> Unit
             item { Section("About") }
             item { Notice(Legal.FAN_CONTENT) }
             item {
+                ListRow("Terms of service", "table-1.site/terms", onClick = {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Legal.TERMS_URL)))
+                }) { Label("Open", color = T1.text) }
+            }
+            item {
                 ListRow("Privacy policy", "table-1.site/privacy", onClick = {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Legal.PRIVACY_URL)))
                 }) { Label("Open", color = T1.text) }

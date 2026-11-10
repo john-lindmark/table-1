@@ -206,6 +206,11 @@ export function SignInButtons({ returnTo }: { returnTo?: string }) {
       >
         Continue with email
       </button>
+      <p className="bg-t1-surface px-4 py-3 t1-label">
+        Continuing agrees to the{" "}
+        <a href="/terms" target="_blank" rel="noreferrer" className="text-t1-text underline">Terms</a> and{" "}
+        <a href="/privacy" target="_blank" rel="noreferrer" className="text-t1-text underline">Privacy policy</a>
+      </p>
       {error && <Notice tone="error">{error}</Notice>}
     </div>
   );

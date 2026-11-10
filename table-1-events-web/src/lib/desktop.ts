@@ -159,7 +159,7 @@ export function navKeyFor(pathname: string, listKind?: (id: string) => "deck" | 
 export function sidebarOn(pathname: string): boolean {
   const p = pathname.replace(/\/+$/, "") || "/";
   if (p === "/life" || p.startsWith("/life/")) return false;
-  if (["/sign-in", "/privacy", "/delete-account"].includes(p)) return false;
+  if (["/sign-in", "/terms", "/privacy", "/delete-account"].includes(p)) return false;
   if (/^\/(auth|s|dev)\//.test(p)) return false;
   return true;
 }

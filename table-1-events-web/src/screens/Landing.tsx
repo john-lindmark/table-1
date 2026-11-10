@@ -3,7 +3,7 @@ import { useSession } from "../lib/useSession";
 import { SignInButtons } from "../components/SignInButtons";
 import { JoinByCode } from "../components/JoinByCode";
 import { BackArrow, BigAction, Screen, T1Logo } from "../components/kit";
-import { FAN_CONTENT } from "../lib/legal";
+import { FAN_CONTENT, copyrightLine } from "../lib/legal";
 import { SPOTS, shotUrl, spots } from "../lib/spots";
 
 /** table-1.site for signed-out visitors: what Table 1 is, with sign-in one tap away. */
@@ -36,9 +36,10 @@ export function Landing() {
 
       <div className="flex-1 bg-t1-surface" />
       <footer className="bg-t1-surface px-4 py-4 flex flex-wrap gap-x-6 gap-y-2 t1-label">
+        <Link to="/terms" className="hover:text-t1-text">Terms</Link>
         <Link to="/privacy" className="hover:text-t1-text">Privacy</Link>
         <Link to="/delete-account" className="hover:text-t1-text">Delete account</Link>
-        <span>© {new Date().getFullYear()} Table 1</span>
+        <span>{copyrightLine()}</span>
         <p className="basis-full normal-case tracking-normal">{FAN_CONTENT}</p>
       </footer>
     </Screen>

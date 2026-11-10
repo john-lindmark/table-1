@@ -68,6 +68,7 @@
     { "url": "https://table-1.site/u/U1/deck/L1", "to": "account > profile U1" },
     { "url": "https://table-1.site/u/U1/wants", "to": "account > profile U1" },
 
+    { "url": "https://table-1.site/terms", "to": "web", "browser": true },
     { "url": "https://table-1.site/privacy", "to": "web", "browser": true },
     { "url": "https://table-1.site/delete-account", "to": "web", "browser": true },
     { "url": "https://table-1.site/dev/events", "to": "web", "browser": true },

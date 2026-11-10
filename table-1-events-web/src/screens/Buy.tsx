@@ -9,6 +9,7 @@ import { BOARD_ORDER, buyCalls, buyMoney, buyRows, buyTotals, cents, mergeAnswer
 import { boardTitle, entriesOf, finishOf, type Board } from "../lib/lists";
 import { cardOfCatalog, holdings } from "../lib/ownedByCard";
 import { usdPrice, usePrices } from "../lib/prices";
+import { AFFILIATE_NOTE } from "../lib/legal";
 import { capture } from "../lib/telemetry";
 import { cartDirect, cartMenu, loadWantPrices, tcgplayerCart, useWantPrices, wantPrice, type CartEntry } from "../lib/wantPrices";
 import { CardRow, LibScreen, SignedOut, useCatalog, useLibrarySession } from "./Library";
@@ -188,6 +189,7 @@ export function BuyScreen({ source, onBack, onCard }: { source: BuySource; onBac
           <Row title="Price" value={buyMoney(t.price)} />
           {t.ownedValue > 0 && <Row title="Owned" value={`−${buyMoney(t.ownedValue)}`} />}
           <Row title="Total" value={buyMoney(t.total)} accentValue />
+          <p className="bg-t1-surface px-4 py-3 text-[11px] leading-4 text-t1-muted">{AFFILIATE_NOTE}</p>
         </>}
       </div>
       <button type="button" onClick={() => void buy()} disabled={busy || t.buy === 0}
