@@ -79,8 +79,19 @@ class SharingRulesTest {
             assertEquals(name, strings(want["cubes"]), v.sections.cubes.orEmpty().map { it.name })
             assertEquals(name, want["record"]!!.jsonPrimitive.boolean, v.sections.record != null)
             assertEquals(name, want["friends"]!!.jsonPrimitive.boolean, v.sections.friends != null)
+            assertEquals(name, strings(want["rankings"]), v.sections.rankings.orEmpty().map { it.subject.name })
             assertEquals(name, if (level >= 1) "friend" else "none", v.relation)
         }
+    }
+
+    /** § Rankings on profiles: a ranking row's words and the part's default. */
+    @Test fun profileRankingsSharedCases() {
+        for (r in all["profile_rankings"]!!.jsonObject["rows"]!!.jsonArray) {
+            val o = r.jsonObject
+            assertEquals(o["want"]!!.jsonPrimitive.content, ProfileRankings.detail(o["name"]!!.jsonPrimitive.content, o["sharing"]!!.jsonPrimitive.content,
+                o["mine"]!!.jsonPrimitive.boolean, o["top"]!!.jsonPrimitive.int, o["ranked"]!!.jsonPrimitive.int))
+        }
+        assertEquals(false, SharePart.Rankings.inherits)
     }
 
     /** § Friends on profiles: the row and list words, a server without the new keys, and profile_friends rows. */

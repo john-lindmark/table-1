@@ -122,6 +122,9 @@ struct FilterCell {
     let value: String
     let options: [SelectorOption]
     let current: String?
+    /// A filter that takes several picks (Rarity, Color): what's picked, empty = the Any option. Its picker stays open,
+    /// each tap puts an option in or out, and Any clears the picks and closes it.
+    var picked: [String]? = nil
     let pick: (String) -> Void
 }
 
@@ -133,12 +136,21 @@ struct FilterRow: View {
             ForEach(cells, id: \.name) { c in
                 Button {
                     T1Overlays.shared.present {
-                        SelectorPanel(title: c.name, options: c.options, current: c.current) { v in
-                            T1Overlays.shared.dismissPanel()
-                            if v != c.current { Telemetry.capture("insights_filter_changed", ["filter": c.name.lowercased(), "value": v]) }
-                            c.pick(v)
+                        if let picked = c.picked {
+                            MultiSelectorPanel(title: c.name, options: c.options, picked: picked) { v, on in
+                                if v == LimitedFilter.any { T1Overlays.shared.dismissPanel() }
+                                Telemetry.capture("insights_filter_changed", ["filter": c.name.lowercased(), "value": v, "on": on])
+                                c.pick(v)
+                            }
+                            .screen("insights_filter_picker")
+                        } else {
+                            SelectorPanel(title: c.name, options: c.options, current: c.current) { v in
+                                T1Overlays.shared.dismissPanel()
+                                if v != c.current { Telemetry.capture("insights_filter_changed", ["filter": c.name.lowercased(), "value": v]) }
+                                c.pick(v)
+                            }
+                            .screen("insights_filter_picker")
                         }
-                        .screen("insights_filter_picker")
                     }
                 } label: {
                     HStack(spacing: 2) {
@@ -152,6 +164,49 @@ struct FilterRow: View {
                 .accessibilityLabel("\(c.name): \(c.value)")
             }
         }
+        .background(T1.bg)
+    }
+}
+
+/// A picker of several: every picked option outlined (Any when none is), a tap puts one in or out, Done closes.
+struct MultiSelectorPanel: View {
+    let title: String
+    let options: [SelectorOption]
+    @State var picked: [String]
+    let pick: (String, Bool) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(title.uppercased()).font(T1.mono(12)).tracking(1.5).foregroundStyle(T1.muted)
+                Spacer()
+                Button { T1Overlays.shared.dismissPanel() } label: {
+                    Text("DONE").font(T1.mono(12)).tracking(1.5).foregroundStyle(T1.text).padding(.vertical, 4).contentShape(Rectangle())
+                }.buttonStyle(.plain)
+            }
+            .frame(height: 18)
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(options) { o in
+                        let on = picked.isEmpty ? o.value == LimitedFilter.any : picked.contains(o.value)
+                        Button {
+                            picked = LimitedFilter.toggle(picked, o.value)
+                            pick(o.value, o.value == LimitedFilter.any || !on)
+                        } label: {
+                            Text(o.label.uppercased()).font(T1.mono(12)).tracking(1.5).foregroundStyle(on ? T1.text : T1.muted).lineLimit(1)
+                                .frame(maxWidth: .infinity).frame(height: 50)
+                                .overlay { if on { Rectangle().stroke(T1.accent, lineWidth: 1) } }
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(on ? .isSelected : [])
+                    }
+                }
+            }
+            .frame(height: CGFloat(min(options.count * 50, 400)))
+            .scrollBounceBehavior(.basedOnSize)
+        }
+        .padding(16)
         .background(T1.bg)
     }
 }

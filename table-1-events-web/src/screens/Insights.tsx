@@ -4,7 +4,7 @@ import { Bar as ShareBar, Heatmap, LineChart, Scatter, SlopeChart, type Marker }
 import { Bar, GhostAction, Notice, Row, Screen, Section, Segmented, Stat, SwitchRow, TabNav } from "../components/kit";
 import { cardImageUrl, printingsByName, type Catalog } from "../lib/catalog";
 import { EDIT_VALUE, FilterRow, ManaCost, type FilterCell } from "../components/FilterRow";
-import { LIMITED_COLORS, LIMITED_RARITIES, LIMITED_SORTS, LIMITED_TOP, MIN_QUERY, limitedCards, limitedSearch, limitedValue, overall, searchNorm } from "../lib/limitedCards";
+import { LIMITED_COLORS, LIMITED_RARITIES, LIMITED_SORTS, LIMITED_TOP, MIN_QUERY, colorLabel, limitedCards, rarityLabel, togglePick, limitedSearch, limitedValue, overall, searchNorm } from "../lib/limitedCards";
 import { delta, months, pct, pct1, rates, seriesWindow, shortDay, wilson } from "../lib/insightCharts";
 import {
   EVENT_LABELS, EVENT_ORDER, FORMATS, PAIR_NAMES, WINDOWS, canHide, exampleFinish, formatParts, place, setHidden, sourcesCredit, visibleKeys, type Finish, type PartKey, afterWindow, archetypeName, archetypePage, cardPage, changeWords, colorsName, isBan,
@@ -819,8 +819,8 @@ function LimitedHome() {
   const rank = useRankSet();
   useEffect(() => { void loadInsightsExtras(); }, []);
   const [sort, setSort] = useState("gih");
-  const [rarity, setRarity] = useState("all");
-  const [color, setColor] = useState("all");
+  const [rarity, setRarity] = useState<string[]>([]);
+  const [color, setColor] = useState<string[]>([]);
   const [editing, setEditing] = useState(false);
   const [query, setQuery] = useState("");
   const [all, setAll] = useState(false);
@@ -900,10 +900,10 @@ function LimitedHome() {
       <FilterRow cells={[
         { name: "Sort", value: sortOpt?.code ?? sort, current: sort, options: LIMITED_SORTS.map((x) => ({ value: x.value, label: x.label, detail: x.code })),
           onPick: (v) => { setSort(v); setAll(false); capture("insights_sort_changed", { sort: v }); } },
-        ...(rated ? [{ name: "Rarity", value: LIMITED_RARITIES.find((x) => x.value === rarity)?.label ?? rarity, current: rarity, options: LIMITED_RARITIES,
-                       onPick: (v: string) => { setRarity(v); setAll(false); } }] : []),
-        { name: "Color", value: LIMITED_COLORS.find((x) => x.value === color)?.code ?? color, current: color, options: LIMITED_COLORS.map((x) => ({ value: x.value, label: x.label })),
-          onPick: (v) => { setColor(v); setAll(false); } },
+        ...(rated ? [{ name: "Rarity", value: rarityLabel(rarity), current: null, picked: rarity, options: LIMITED_RARITIES,
+                       onPick: (v: string) => { setRarity((p) => togglePick(p, v)); setAll(false); } }] : []),
+        { name: "Color", value: colorLabel(color), current: null, picked: color, options: LIMITED_COLORS.map((x) => ({ value: x.value, label: x.label })),
+          onPick: (v) => { setColor((p) => togglePick(p, v)); setAll(false); } },
       ]} />
       <label className="flex items-center gap-2 bg-t1-surface px-4">
         <Icon d={ICON.search} />
@@ -941,9 +941,6 @@ function LimitedHome() {
         </>
       )}
       <Notice tone="info">GIH WR: win rate with the card in hand · OH: in the opening hand · IWD: improvement when drawn · ATA: average pick taken · under it: points above or below the average</Notice>
-      <RankAction title={`Rank this ${kind === "cube" ? "cube" : "set"}`} onClick={() => rank(pack.set_code, kind, "set")}
-                  detail={r && r.rankings > 0 ? rankableDetail(r) : "Stack-rank its cards by color, then a top 100. Compare with friends."} />
-      <NewSetsToRank />
       <Section title="Color pairs · game win rate" />
       {shown.map((p) => (
         <ShareBar key={p.p} label={`${PAIR_NAMES[p.p] ?? p.p} ${p.p === "3C" ? "" : p.p}`} value={p.wr} max={hi} min={lo} reference={view.wr} format={pct1}
@@ -985,6 +982,9 @@ function LimitedHome() {
              credit={{ label: "Data from 17Lands", url: pack.credit.url }} />
       <Stats items={[["Games", view.games.toLocaleString()], ["Average", pct1(view.wr)], ["Weeks", String(view.weeks)]]} />
       {alertsRow}
+      <RankAction title={`Rank this ${kind === "cube" ? "cube" : "set"}`} onClick={() => rank(pack.set_code, kind, "set")}
+                  detail={r && r.rankings > 0 ? rankableDetail(r) : "Stack-rank its cards by color, then a top 100. Compare with friends."} />
+      <NewSetsToRank />
     </Scroll>
   );
 }

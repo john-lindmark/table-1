@@ -66,15 +66,53 @@ object LimitedCards {
     val colors = listOf(Triple("all", "Any color", "Any color"), Triple("W", "White", "W"), Triple("U", "Blue", "U"), Triple("B", "Black", "B"),
         Triple("R", "Red", "R"), Triple("G", "Green", "G"), Triple("M", "Multicolor", "Multi"), Triple("C", "Colorless", "C"))
 
-    /** The cards the filters keep, best first: the sort's value high to low (ATA low to high), cards without one last;
-     *  ties by games in hand, then name. A cube's cards have no rarity, so the rarity filter is ignored there. */
-    fun cards(cards: List<LCard>, sort: String, rarity: String, color: String): List<LCard> {
-        val rated = cards.any { it.r != null }
-        val kept = cards.filter { c ->
-            if (rated && rarity != "all" && c.r != rarity) return@filter false
-            val col = c.col?.takeIf { it.isNotEmpty() } ?: "C"
-            when (color) { "all" -> true; "M" -> col.length > 1 && col != "C"; else -> col == color }
+    /** The pickers' "Any" option: clears the picks (Rarity and Color take several). */
+    const val ANY = "all"
+    private val rarityOrder = listOf("common", "uncommon", "rare", "mythic")
+    private const val COLOR_ORDER = "WUBRGMC"
+
+    /** A multi-pick after a tap: Any clears, another option goes in or out. */
+    fun toggle(picked: List<String>, v: String): List<String> =
+        if (v == ANY) emptyList() else if (v in picked) picked - v else picked + v
+
+    /** Color picks keep a colorless card when C is picked, a one-color card when its color is, and a multicolor card
+     *  when Multi is picked or every one of its colors is (W + U keeps white, blue and Azorius gold cards). */
+    fun keepsColor(col: String?, color: List<String>): Boolean {
+        if (color.isEmpty()) return true
+        val c = col?.takeIf { it.isNotEmpty() } ?: "C"
+        return when {
+            c == "C" -> "C" in color
+            c.length == 1 -> c in color
+            else -> "M" in color || c.all { it.toString() in color }
         }
+    }
+
+    /** The Rarity cell: Any rarity, the one picked, or the picks' first letters in rarity order (C · U). */
+    fun rarityLabel(rarity: List<String>): String {
+        val picked = rarityOrder.filter { it in rarity }
+        return when (picked.size) {
+            0 -> "Any rarity"
+            1 -> picked[0].replaceFirstChar { it.uppercase() }
+            else -> picked.joinToString(" · ") { it.take(1).uppercase() }
+        }
+    }
+
+    /** The Color cell: Any color, Multi or Colorless alone, else the colors in WUBRG order then Multi and C (WU · Multi). */
+    fun colorLabel(color: List<String>): String {
+        val picked = COLOR_ORDER.map { it.toString() }.filter { it in color }
+        if (picked.isEmpty()) return "Any color"
+        val letters = picked.filter { it in "WUBRG" }.joinToString("")
+        val rest = picked.filter { it == "M" || it == "C" }.map { if (it == "M") "Multi" else "C" }
+        if (letters.isEmpty() && rest.size == 1) return if (rest[0] == "Multi") "Multi" else "Colorless"
+        return (listOfNotNull(letters.takeIf { it.isNotEmpty() }) + rest).joinToString(" · ")
+    }
+
+    /** The cards the filters keep, best first: the sort's value high to low (ATA low to high), cards without one last;
+     *  ties by games in hand, then name. Rarity and color are picks of several, empty = any. A cube's cards have no
+     *  rarity, so the rarity filter is ignored there. The Limited cards widget shows the same list. */
+    fun cards(cards: List<LCard>, sort: String, rarity: List<String>, color: List<String>): List<LCard> {
+        val rated = cards.any { it.r != null }
+        val kept = cards.filter { c -> (!rated || rarity.isEmpty() || c.r in rarity) && keepsColor(c.col, color) }
         fun key(c: LCard): Double? = when (sort) { "oh" -> c.oh; "iwd" -> c.iwd; "ata" -> c.ata?.let { -it }; else -> c.gih }
         return kept.sortedWith { a, b ->
             val x = key(a); val y = key(b)
@@ -163,7 +201,10 @@ fun ManaCost(cost: String, size: Dp = 13.dp) {
 
 /** A filter as an attribute cell: its value, and the picker it opens (design guidance § Attribute row, § Picker).
  *  Options are (value, label, detail). */
-class FilterCell(val name: String, val value: String, val options: List<Triple<String, String, String?>>, val current: String?, val onPick: (String) -> Unit) {
+/** `picked`: a filter that takes several picks (Rarity, Color), empty = the "all" option. Its picker stays open, each tap
+ *  puts an option in or out, and "all" clears the picks and closes it. */
+class FilterCell(val name: String, val value: String, val options: List<Triple<String, String, String?>>, val current: String?,
+                 val picked: List<String>? = null, val onPick: (String) -> Unit) {
     companion object {
         /** The option at the end of the format and set pickers that opens Edit. */
         const val EDIT = "__edit"
@@ -173,10 +214,12 @@ class FilterCell(val name: String, val value: String, val options: List<Triple<S
 /** Insights' filters: one row of equal cells, 50 dp tall and 1 dp apart, each a dropdown that opens its picker. */
 @Composable
 fun FilterRow(cells: List<FilterCell>) {
-    var open by remember { mutableStateOf<FilterCell?>(null) }
+    // By name, so a multi-pick picker shows the picks as they change.
+    var openName by remember { mutableStateOf<String?>(null) }
+    val open = cells.firstOrNull { it.name == openName }
     Row(Modifier.fillMaxWidth().background(T1.bg), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
         cells.forEach { c ->
-            Row(Modifier.weight(1f).height(50.dp).background(T1.surface).clickable(onClickLabel = c.name) { open = c }
+            Row(Modifier.weight(1f).height(50.dp).background(T1.surface).clickable(onClickLabel = c.name) { openName = c.name }
                 .semantics { contentDescription = "${c.name}: ${c.value}" }.padding(horizontal = 6.dp),
                 horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 Text(c.value.uppercase(), Modifier.weight(1f, fill = false), color = T1.text, fontFamily = T1.mono, fontSize = 11.sp, letterSpacing = 1.5.sp,
@@ -186,11 +229,21 @@ fun FilterRow(cells: List<FilterCell>) {
         }
     }
     open?.let { c ->
-        Sheet({ open = null }) {
-            SelectorRows(c.options, c.current, title = c.name) { v ->
-                open = null
-                if (v != c.current && v != FilterCell.EDIT) Telemetry.capture("insights_filter_changed", mapOf("filter" to c.name.lowercase(), "value" to v))
-                c.onPick(v)
+        Sheet({ openName = null }) {
+            val many = c.picked
+            if (many != null) {
+                SelectorRows(c.options, null, title = c.name, selected = if (many.isEmpty()) setOf(LimitedCards.ANY) else many.toSet(),
+                    onDone = { openName = null }) { v ->
+                    if (v == LimitedCards.ANY) openName = null
+                    Telemetry.capture("insights_filter_changed", mapOf("filter" to c.name.lowercase(), "value" to v, "on" to (v == LimitedCards.ANY || v !in many)))
+                    c.onPick(v)
+                }
+            } else {
+                SelectorRows(c.options, c.current, title = c.name) { v ->
+                    openName = null
+                    if (v != c.current && v != FilterCell.EDIT) Telemetry.capture("insights_filter_changed", mapOf("filter" to c.name.lowercase(), "value" to v))
+                    c.onPick(v)
+                }
             }
         }
     }

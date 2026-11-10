@@ -210,6 +210,8 @@ enum PushRoutes {
         guard url.scheme == "table1", url.host() == "insights" else { return nil }
         let p = url.pathComponents.filter { $0 != "/" }
         guard let format = p.first, !format.isEmpty else { return nil }
+        // The Limited cards widget: table1://insights/limited/<SET> (contract/widgets-2026-10-22.md § Limited cards).
+        if format == "limited", p.count > 1 { return InsightsPush(section: "limited", key: p[1].uppercased(), what: "data") }
         let q = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
         let tier = q.first { $0.name == "tier" }?.value.flatMap { ["big", "all"].contains($0) ? $0 : nil }
         let days = q.first { $0.name == "days" }?.value.flatMap(Int.init).flatMap { [7, 14, 30, 90].contains($0) ? $0 : nil }

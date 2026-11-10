@@ -234,6 +234,30 @@ friends and the ability to set who can see their friends on their own profile." 
 - **Telemetry:** `profile_section_opened` `section: friends`, `profile_friends_viewed` (`people`, `mutual`: counts),
   `person_tapped` `from: profile_friends`, `sharing_changed` `part: friends | listed`. Screen `profile_friends`.
 
+## Rankings on profiles (John, 2026-11-10)
+
+"Add my rankings to my profile and set the visibility to friends but have the ability to set visibility like the other
+pieces of the profile." Migration `20261110120000_profile_rankings.sql`, tests `supabase/tests/80c_profile_rankings_test.sql`;
+shared cases in `testdata/sharing/cases.json` (`widening`, `sees`, `view_as` gain the part; `profile_rankings` for the words).
+
+- **A new part, `rankings`** (default **friends**), on Account → Sharing after Record: who sees your Rankings section.
+  Capped by the profile like every part; `sharing_get` returns it, `sharing_set` takes it (a value is required). A
+  missing key (an older server, which has no section) reads as private on every client.
+- **Which rankings show:** the ones you share (a ranking set to **Only me** never shows to anyone else), that the viewer
+  may open: a cube ranking only to people who can see its cube (the part narrows a cube ranking, never widens it); a
+  set ranking to your friends as before, and now also to whoever the Rankings part reaches (Anyone on a public profile),
+  so the part means what it says (`t1_private.ranking_seen` changed with it). Newest first, at most 50. Your own profile
+  lists all of yours, Only me too. Blocks, restricted accounts as everywhere.
+- **`profile_view`** gains `sections.rankings`: `[ranking as cube_rankings lists it + subject {id, kind (list | set |
+  cube), name, set}]`, when the part reaches you.
+- **Clients.** A **Rankings · N** section after Cubes: each row the subject's name ("Lindmark Cube", "Foundations"),
+  then the label if it has one, "40/100 ranked" and "Only me" on your own (`ProfileRankings.detail` iOS/Android,
+  `profileRankingDetail` web); a tap opens the ranking (iOS `LibraryRoute.ranking`, web `/library/ranking/<id>`,
+  Android `collection/ranking/<id>`). View as keeps shared rankings only, a cube ranking only while that cube reaches
+  the viewer (a cube of someone else's: its owner decides, so View as can't tell and shows it). Widening asks first:
+  "Friends will see: your rankings."; the Sharing summary lines name "your rankings" after "your friends".
+- Telemetry: `profile_section_opened` `section: ranking` {kind}, `sharing_changed` `part: rankings`.
+
 ## Account deletion
 
 `delete_account` removes your friendships, requests, blocks (both ways), sharing settings and audit rows, and clears

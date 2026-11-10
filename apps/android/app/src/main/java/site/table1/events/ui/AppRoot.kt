@@ -261,7 +261,11 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                     show("events", listOf("eventpage/$eventId?signup=false"))
                 else show(link.tab, link.stack)
             }
-            is WebLink.Insights -> {
+            is WebLink.Insights -> if (link.set != null) {
+                InsightsStore.pickSection("limited")
+                InsightsStore.pickSet(link.set)
+                show("insights", emptyList())
+            } else {
                 InsightsStore.pickSection("constructed")
                 InsightsStore.pickFormat(link.format)
                 link.tier?.let(InsightsStore::pickTier)
@@ -390,7 +394,7 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                     ProfileUserScreen(id, onBack = { nav.popBackStack() },
                         onSection = { kind, item -> nav.navigate("profile/$id/$kind/${item ?: "-"}") },
                         onMatch = { nav.navigate("collection/match/$id") }, onSharing = { nav.navigate("sharing") },
-                        onFriends = { nav.navigate("profile/$id/friends") })
+                        onFriends = { nav.navigate("profile/$id/friends") }, onRanking = { nav.navigate("collection/ranking/$it") })
                 }
                 composable("profile/{id}/friends") { e ->
                     ProfileFriendsScreen(e.arguments?.getString("id") ?: "", onBack = { nav.popBackStack() }, onProfile = { nav.navigate("profile/$it") })

@@ -53,7 +53,8 @@ an Arena cube version (PWR-2510, contract/insights-2026-10-24.md § Arena cubes)
   engine, saving, screens, picks, compare, briefs and the top-100 image are the cube ranker's. Cards Scryfall adds later
   (spoiler season) join like cards added to a cube: they wait outside the lists until placed.
 - **Who sees one:** its maker, and with sharing `cube`, shown as **Shared with friends**, their friends (blocks and
-  restrictions as before). Everyone can see a set, so "shared with the set" would have meant everyone on Table 1. Names are
+  restrictions as before); since 2026-11-10 also whoever the maker's Rankings profile part reaches (Anyone on a public
+  profile; contract/friends-sharing-2026-10-18.md § Rankings on profiles). Everyone can see a set, so "shared with the set" would have meant everyone on Table 1. Names are
   moderated whenever shared.
 - **Subject ids:** clients treat a set as the subject `set:<KEY>` wherever a cube's list id goes (`RankSubject` iOS /
   Android, `lib/limitedRank.ts` web), so the Rankings screens open either by one id. The server's subject is

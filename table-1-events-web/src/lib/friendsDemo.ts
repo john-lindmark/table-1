@@ -182,6 +182,15 @@ class Demo implements FriendsDemo {
       sections.cubes = [];
       if (lv >= 1 && s.record) sections.record = s.record;
       if (lv >= 1 && uid === DEMO_FRIEND) sections.friends = { mutual: this.friendsOf(uid).filter((f) => f.mutual).length };
+      // Mara's rankings in the rankings demo: her own cube's and a Limited set's.
+      if (lv >= 1 && uid === DEMO_FRIEND) {
+        sections.rankings = [
+          { id: "d0000000-0000-0000-0000-0000000aa005", name: "My ranking", sharing: "cube", mine: false, top: 100, ranked: 0,
+            subject: { id: "set:FRA", kind: "set", name: "Foundations Remastered", set: "FRA" } },
+          { id: "d0000000-0000-0000-0000-0000000aa004", name: "Mara's own order", sharing: "cube", mine: false, top: 100, ranked: 0,
+            subject: { id: "d0000000-0000-0000-0000-0000000fc001", kind: "list", name: "Mara's Legacy Cube" } },
+        ];
+      }
       // Older servers sent value_usd to everyone who sees All cards: the profile must still hide it.
       if (lv >= 1 && uid === DEMO_FRIEND) {
         sections.all_cards = { cards: s.copies.reduce((n, c) => n + c.qty, 0), printings: s.copies.length,

@@ -685,15 +685,20 @@ internal fun Sheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() ->
  *  Options are (value, label, detail). */
 @Composable
 internal fun SelectorRows(options: List<Triple<String, String, String?>>, current: String?, title: String? = null, onBack: (() -> Unit)? = null,
-                         onPick: (String) -> Unit) {
+                         selected: Set<String>? = null, onDone: (() -> Unit)? = null, onPick: (String) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (title != null || onBack != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             onBack?.let { Box(Modifier.size(24.dp).clickable(onClickLabel = "Back", onClick = it), contentAlignment = Alignment.Center) { BackArrowGlyph() } }
-            Text((title ?: "").uppercase(), color = T1.muted, fontFamily = T1.mono, fontSize = 12.sp, letterSpacing = 1.5.sp)
+            Text((title ?: "").uppercase(), Modifier.weight(1f), color = T1.muted, fontFamily = T1.mono, fontSize = 12.sp, letterSpacing = 1.5.sp)
+            onDone?.let {
+                Text("DONE", Modifier.clickable(onClickLabel = "Done", onClick = it).padding(vertical = 4.dp), color = T1.text,
+                    fontFamily = T1.mono, fontSize = 12.sp, letterSpacing = 1.5.sp)
+            }
         }
         Column(Modifier.fillMaxWidth().heightIn(max = 400.dp).verticalScroll(rememberScrollState())) {
             options.forEach { (value, label, detail) ->
-                val on = value == current
+                // Several picks (Rarity, Color): every picked option outlined.
+                val on = selected?.contains(value) ?: (value == current)
                 val source = remember { MutableInteractionSource() }
                 val pressed by source.collectIsPressedAsState()
                 Column(Modifier.fillMaxWidth().height(if (detail == null) 50.dp else 62.dp)

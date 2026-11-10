@@ -215,7 +215,12 @@ object InsightsStore {
         try {
             val raw = T1App.supabase.postgrest.rpc("insights_index").data
             index = withContext(Dispatchers.Default) { json.decodeFromString<List<IndexEntry>>(raw) }
-            withContext(Dispatchers.IO) { OfflineCache.save("_", INDEX_KEY, raw) }
+            withContext(Dispatchers.IO) {
+                OfflineCache.save("_", INDEX_KEY, raw)
+                // The Limited cards widget's set picker reads the sets from here.
+                site.table1.events.widgets.LimitedPacks.saveSets(site.table1.events.T1App.instance,
+                    limitedSets.map { site.table1.events.widgets.LimitedPacks.SetRow(it.key, it.name) })
+            }
             error = null
             stale = null
             loadedAt = System.currentTimeMillis()

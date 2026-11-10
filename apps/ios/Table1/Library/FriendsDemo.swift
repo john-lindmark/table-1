@@ -185,6 +185,15 @@ final class FriendsDemoBackend {
                 }
             }
             if id == Self.mara, lv >= 1 { sec.friends = .init(mutual: friends(of: id).filter { $0.mutual == true }.count) }
+            // Mara's rankings in the rankings demo: a Limited set's and her own cube's.
+            if id == Self.mara, lv >= 1 {
+                sec.rankings = [
+                    .init(id: "d0000000-0000-0000-0000-0000000aa005", name: RankingName.unnamed, sharing: "cube", mine: false, top: 100, ranked: 0,
+                          subject: .init(id: "set:FRA", kind: "set", name: "Foundations Remastered", set: "FRA")),
+                    .init(id: "d0000000-0000-0000-0000-0000000aa004", name: "Mara's own order", sharing: "cube", mine: false, top: 100, ranked: 0,
+                          subject: .init(id: "d0000000-0000-0000-0000-0000000fc001", kind: "list", name: "Mara's Legacy Cube")),
+                ]
+            }
             sec.decks = sec.decks ?? []
             sec.cubes = []
             sec.binders = sec.binders ?? []

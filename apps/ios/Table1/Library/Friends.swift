@@ -109,6 +109,8 @@ enum SharePart: String, CaseIterable, Sendable {
     case profile, library, allCards = "all_cards", forTrade = "for_trade", wants, binders, decks, cubes, record
     /// Who sees your friends list on your profile; who sees you in your friends' lists (§ Friends on profiles).
     case friends, listed
+    /// Who sees your Rankings section (§ Rankings on profiles).
+    case rankings
 
     var label: String {
         switch self {
@@ -123,6 +125,7 @@ enum SharePart: String, CaseIterable, Sendable {
         case .record: "Record"
         case .friends: "Friends"
         case .listed: "You in friends' lists"
+        case .rankings: "Rankings"
         }
     }
 
@@ -139,11 +142,12 @@ enum SharePart: String, CaseIterable, Sendable {
         case .record: "Lifetime wins, losses and draws"
         case .friends: "Your list, on your profile"
         case .listed: "You, on friends' profiles"
+        case .rankings: "Your cube and set rankings, except Only me"
         }
     }
 
     /// Library parts can be "Same as Library".
-    var inherits: Bool { ![.profile, .library, .record, .friends, .listed].contains(self) }
+    var inherits: Bool { ![.profile, .library, .record, .friends, .listed, .rankings].contains(self) }
     static let libraryParts: [SharePart] = [.allCards, .forTrade, .wants, .binders, .decks, .cubes]
 }
 
@@ -170,6 +174,8 @@ struct SharingSettings: Codable, Equatable, Sendable {
     /// nil from a server without them: private and friends (the server's defaults).
     var friends: Visibility?
     var listed: Visibility?
+    /// nil from a server without the Rankings part (which has no section): private.
+    var rankings: Visibility?
     var items: [ShareItem] = []
     /// Live share links (contract/share-links-2026-10-23.md); nil from a server without them.
     var links: [PartLink]?
@@ -188,6 +194,7 @@ struct SharingSettings: Codable, Equatable, Sendable {
         case .record: record
         case .friends: friends ?? .private
         case .listed: listed ?? .friends
+        case .rankings: rankings ?? .private
         }
     }
 
@@ -204,6 +211,7 @@ struct SharingSettings: Codable, Equatable, Sendable {
         case .record: record = v ?? .private
         case .friends: friends = v ?? .private
         case .listed: listed = v ?? .friends
+        case .rankings: rankings = v ?? .private
         }
     }
 }
@@ -233,7 +241,7 @@ enum SharingRules {
 
     /// How many parts, binders, decks and cubes reach someone besides you.
     static func sharedCount(_ s: SharingSettings) -> Int {
-        let parts = (SharePart.libraryParts + [.record, .friends]).filter { reach(s, effective(s, $0)) != .private }.count
+        let parts = (SharePart.libraryParts + [.record, .friends, .rankings]).filter { reach(s, effective(s, $0)) != .private }.count
         let items = s.items.filter { $0.visibility != nil && reach(s, effective(s, $0)) != .private }.count
         return parts + items
     }
@@ -274,7 +282,7 @@ enum SharingRules {
     }
 
     static let shownParts: [(SharePart, String)] = [(.profile, "your profile"), (.record, "your record"), (.friends, "your friends"),
-                                                     (.allCards, "All cards"), (.forTrade, "For trade"), (.wants, "Wants")]
+                                                     (.rankings, "your rankings"), (.allCards, "All cards"), (.forTrade, "For trade"), (.wants, "Wants")]
     /// Widening also names you in your friends' lists (the Sharing summary lines don't: it shows on their profiles).
     static let wideningParts: [(SharePart, String)] = Array(shownParts.prefix(3)) + [(.listed, "you in your friends' lists")]
         + Array(shownParts.dropFirst(3))
@@ -346,6 +354,10 @@ enum SharingRules {
         if ok(s.record) { x.record = d.sections.record }
         // How many of them a viewer would see depends on each friend's own setting, which isn't yours to know.
         if ok(effective(s, .friends)) { x.friends = ProfileData.FriendsCount() }
+        // Shared rankings only; a ranking of one of your cubes only while that cube reaches them.
+        if let r = d.sections.rankings, ok(effective(s, .rankings)) {
+            x.rankings = r.filter { $0.sharing != "private" && ($0.subject.kind != "list" || itemOk($0.subject.id, "cube", .cubes)) }
+        }
         out.sections = x
         return out
     }
@@ -424,6 +436,18 @@ enum ProfileFriends {
     }
 }
 
+/// A ranking's row on a profile (contract § Rankings on profiles; cases in testdata/sharing/cases.json `profile_rankings`):
+/// under the subject's name, the label (RankingName), how far it is, and Only me on your own.
+enum ProfileRankings {
+    static func detail(name: String, sharing: String, mine: Bool, top: Int, ranked: Int) -> String {
+        [RankingName.label(name), "\(ranked)/\(top) ranked", mine && sharing == "private" ? "Only me" : nil].compactMap { $0 }
+            .joined(separator: " · ")
+    }
+    static func detail(_ r: ProfileData.RankingSummary) -> String {
+        detail(name: r.name, sharing: r.sharing, mine: r.mine, top: r.top, ranked: r.ranked)
+    }
+}
+
 /// What players are told before joining an event (contract § UX rules 9).
 enum JoinNotice {
     static let text = "Your name shows in this event's pairings and standings, to its players and anyone with its standings link."
@@ -467,6 +491,12 @@ struct ProfileData: Decodable, Sendable {
     struct Record: Decodable, Sendable { let matchWins: Int; let matchLosses: Int; let matchDraws: Int; let eventsPlayed: Int }
     /// The friends list reaches you; `mutual`: how many shown are your friends too (nil in View as).
     struct FriendsCount: Decodable, Sendable { var mutual: Int? }
+    /// A ranking the viewer may open: as Rankings lists it, plus what it ranks (a cube's list id, or `set:<KEY>`).
+    struct RankingSummary: Decodable, Identifiable, Sendable {
+        struct Subject: Decodable, Sendable { let id: String; let kind: String; let name: String; var set: String? }
+        let id: String; let name: String; let sharing: String; let mine: Bool; let top: Int; let ranked: Int
+        let subject: Subject
+    }
     struct Sections: Decodable, Sendable {
         var allCards: Counts?
         var forTrade: Counts?
@@ -476,6 +506,7 @@ struct ProfileData: Decodable, Sendable {
         var cubes: [ListSummary]?
         var record: Record?
         var friends: FriendsCount?
+        var rankings: [RankingSummary]?
     }
 
     var person: Person { Person(userId: userId, displayName: displayName, handle: handle, avatarUrl: avatarUrl, relation: relation) }
@@ -488,7 +519,7 @@ struct ProfileData: Decodable, Sendable {
     var sectionCount: Int {
         [sections.allCards != nil, sections.forTrade != nil, sections.wants != nil, sections.record != nil, sections.friends != nil]
             .filter { $0 }.count
-            + (sections.binders?.count ?? 0) + (sections.decks?.count ?? 0) + (sections.cubes?.count ?? 0)
+            + (sections.binders?.count ?? 0) + (sections.decks?.count ?? 0) + (sections.cubes?.count ?? 0) + (sections.rankings?.count ?? 0)
     }
 }
 

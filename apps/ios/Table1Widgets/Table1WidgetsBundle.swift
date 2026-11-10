@@ -10,6 +10,7 @@ struct Table1WidgetsBundle: WidgetBundle {
         MetaBreakdownWidget()
         MatchupGridWidget()
         ArchetypeMatchupsWidget()
+        LimitedCardsWidget()
         IconWidget()
         PlayerLiveActivity()
         OrganizerLiveActivity()

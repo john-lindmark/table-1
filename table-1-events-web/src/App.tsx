@@ -282,6 +282,7 @@ function ProfileUserRoute() {
   if (!userId) return <Navigate to="/friends" replace />;
   return <ProfileScreen userId={userId} onBack={back} onSharing={() => navigate("/sharing")}
                         onMatch={() => navigate(`/library/match/${userId}`)} onFriends={() => navigate(`/u/${userId}/friends`)}
+                        onRanking={(id) => navigate(`/library/ranking/${id}`)}
                         onSection={(kind, id) => navigate(`/u/${userId}/${kind}${id ? `/${id}` : ""}`)} />;
 }
 function ProfileFriendsRoute() {

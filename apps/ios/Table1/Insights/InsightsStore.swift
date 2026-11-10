@@ -181,6 +181,8 @@ final class InsightsStore {
             let data = try await supabase.rpc("insights_index").execute().data
             index = try wireDecoder.decode([Insights.IndexEntry].self, from: data)
             OfflineCache.save("_", Self.indexKey, data)
+            // The Limited cards widget's set picker reads the sets from here.
+            LimitedSetsStore.save(limitedSets.map { LimitedSetsStore.Set(key: $0.key, name: $0.name) })
             error = nil
             stale = nil
             loadedAt = .now

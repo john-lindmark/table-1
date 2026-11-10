@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
-  LIMITED_TOP, MANA_SYMBOLS, MIN_QUERY, OTHERS_MAX, limitedCards, limitedSearch, limitedValue, manaSymbols, overall, parseJoinCode,
+  LIMITED_TOP, MANA_SYMBOLS, MIN_QUERY, OTHERS_MAX, colorLabel, limitedCards, rarityLabel, togglePick, limitedSearch, limitedValue, manaSymbols, overall, parseJoinCode,
 } from "./limitedCards";
 import type { Matchups } from "./insights";
 
@@ -11,7 +11,8 @@ type Card = { n: string; r: string | null; col: string | null; gih: number | nul
 describe("the Limited page's cards (testdata/insights/limited-home.json)", () => {
   const f = read("insights/limited-home.json") as {
     top: number; others_max: number; min_query: number; avg: number; cards: Card[]; others: { key: string; cards: { n: string }[] }[];
-    filters: { name: string; sort: string; rarity: string; color: string; unrated?: boolean; want: string[] }[];
+    filters: { name: string; sort: string; rarity: string[]; color: string[]; unrated?: boolean; want: string[] }[];
+    labels: { rarity: { picked: string[]; want: string }[]; color: { picked: string[]; want: string }[] };
     values: { card: string; sort: string; want: { value: string; vs: string | null } }[];
     search: { query: string; want: { here: string[]; elsewhere: [string, string][] } }[];
   };
@@ -23,6 +24,15 @@ describe("the Limited page's cards (testdata/insights/limited-home.json)", () =>
       const cards = c.unrated ? f.cards.slice(0, 12).map((x) => ({ ...x, r: null })) : f.cards;
       expect(limitedCards(cards, c.sort, c.rarity, c.color).map((x) => x.n), c.name).toEqual(c.want);
     }
+  });
+  it("words the Rarity and Color cells", () => {
+    for (const l of f.labels.rarity) expect(rarityLabel(l.picked), l.picked.join("+")).toBe(l.want);
+    for (const l of f.labels.color) expect(colorLabel(l.picked), l.picked.join("+")).toBe(l.want);
+  });
+  it("toggles picks, Any clears", () => {
+    expect(togglePick([], "W")).toEqual(["W"]);
+    expect(togglePick(["W", "U"], "W")).toEqual(["U"]);
+    expect(togglePick(["W", "U"], "all")).toEqual([]);
   });
   it("words the values", () => {
     for (const v of f.values) expect(limitedValue(f.cards.find((c) => c.n === v.card)!, v.sort, f.avg), `${v.card} ${v.sort}`).toEqual(v.want);

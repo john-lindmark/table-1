@@ -119,6 +119,8 @@ enum class SharePart(val wire: String, val label: String, val detail: String) {
     /** Who sees your friends list on your profile; who sees you in your friends' lists (§ Friends on profiles). */
     Friends("friends", "Friends", "Your list, on your profile"),
     Listed("listed", "You in friends' lists", "You, on friends' profiles"),
+    /** Who sees your Rankings section (§ Rankings on profiles). */
+    Rankings("rankings", "Rankings", "Your cube and set rankings, except Only me"),
     Library("library", "Library", "The default for everything in it"),
     AllCards("all_cards", "All cards", "Your whole collection"),
     ForTrade("for_trade", "For trade", "Copies in for-trade binders, as one list. Trade matches read this"),
@@ -150,6 +152,8 @@ data class Sharing(
     val record: String = "private",
     /** null from a server without them: private and friends (the server's defaults). */
     val friends: String? = null, val listed: String? = null,
+    /** null from a server without the Rankings part (which has no section): private. */
+    val rankings: String? = null,
     val items: List<ShareItem> = emptyList(),
     /** Live share links (contract/share-links-2026-10-23.md); null from a server without them. */
     val links: List<PartLink>? = null,
@@ -160,6 +164,7 @@ data class Sharing(
         SharePart.AllCards -> allCards; SharePart.ForTrade -> forTrade; SharePart.Wants -> wants
         SharePart.Binders -> binders; SharePart.Decks -> decks; SharePart.Cubes -> cubes
         SharePart.Friends -> friends ?: "private"; SharePart.Listed -> listed ?: "friends"
+        SharePart.Rankings -> rankings ?: "private"
     })
 
     fun with(p: SharePart, v: Visibility?): Sharing {
@@ -170,6 +175,7 @@ data class Sharing(
             SharePart.ForTrade -> copy(forTrade = w); SharePart.Wants -> copy(wants = w); SharePart.Binders -> copy(binders = w)
             SharePart.Decks -> copy(decks = w); SharePart.Cubes -> copy(cubes = w)
             SharePart.Friends -> copy(friends = w ?: "private"); SharePart.Listed -> copy(listed = w ?: "friends")
+            SharePart.Rankings -> copy(rankings = w ?: "private")
         }
     }
 }
@@ -247,7 +253,7 @@ object SharingRules {
     fun sees(level: Int, profile: Visibility, part: Visibility) = level >= 3 || (level >= 0 && level >= profile.asks && level >= part.asks)
 
     fun sharedCount(s: Sharing): Int =
-        (SharePart.libraryParts + SharePart.Record + SharePart.Friends).count { reach(s, effective(s, it)) != Visibility.Private } +
+        (SharePart.libraryParts + SharePart.Record + SharePart.Friends + SharePart.Rankings).count { reach(s, effective(s, it)) != Visibility.Private } +
             s.items.count { it.vis != null && reach(s, effective(s, it)) != Visibility.Private }
 
     fun summary(s: Sharing): String {
@@ -275,7 +281,7 @@ object SharingRules {
         ).joinToString("\n\n")
     }
 
-    val shownParts = listOf(SharePart.Profile to "your profile", SharePart.Record to "your record", SharePart.Friends to "your friends",
+    val shownParts = listOf(SharePart.Profile to "your profile", SharePart.Record to "your record", SharePart.Friends to "your friends", SharePart.Rankings to "your rankings",
         SharePart.AllCards to "All cards", SharePart.ForTrade to "For trade", SharePart.Wants to "Wants")
     /** Widening also names you in your friends' lists (the Sharing summary lines don't: it shows on their profiles). */
     val wideningParts = shownParts.take(3) + (SharePart.Listed to "you in your friends' lists") + shownParts.drop(3)
@@ -337,6 +343,9 @@ object SharingRules {
             record = src.record?.takeIf { ok(s.own(SharePart.Record)!!) },
             // How many a viewer would see depends on each friend's own setting, which isn't yours to know.
             friends = if (ok(effective(s, SharePart.Friends))) ProfileData.FriendsCount() else null,
+            // Shared rankings only; a ranking of one of your cubes only while that cube reaches them.
+            rankings = src.rankings?.takeIf { ok(effective(s, SharePart.Rankings)) }
+                ?.filter { it.sharing != "private" && (it.subject.kind != "list" || itemOk(it.subject.id, SharePart.Cubes)) },
         ))
     }
 
@@ -355,6 +364,14 @@ object SharingRules {
 /* ── profiles ── */
 
 /** Words for friends lists on profiles (contract § Friends on profiles; cases in testdata/sharing/cases.json `profile_friends`). */
+/** A ranking's row on a profile (contract § Rankings on profiles; cases in testdata/sharing/cases.json `profile_rankings`):
+ *  under the subject's name, the label (RankingName), how far it is, and Only me on your own. */
+object ProfileRankings {
+    fun detail(name: String, sharing: String, mine: Boolean, top: Int, ranked: Int): String =
+        listOfNotNull(RankingName.label(name), "$ranked/$top ranked", "Only me".takeIf { mine && sharing == "private" }).joinToString(" · ")
+    fun detail(r: ProfileData.RankingSummary) = detail(r.name, r.sharing, r.mine, r.top, r.ranked)
+}
+
 object ProfileFriends {
     /** The Friends row on someone's profile: "3 mutual", or nothing. */
     fun detail(mutual: Int?): String? = mutual?.takeIf { it > 0 }?.let { "$it mutual" }
@@ -397,10 +414,18 @@ data class ProfileData(
     )
     /** The friends list reaches you; [mutual]: how many shown are your friends too (null in View as). */
     @Serializable data class FriendsCount(val mutual: Int? = null)
+    /** A ranking the viewer may open: as Rankings lists it, plus what it ranks (a cube's list id, or `set:<KEY>`). */
+    @Serializable data class RankingSummary(
+        val id: String, val name: String = "", val sharing: String = "cube", val mine: Boolean = false, val top: Int = 100,
+        val ranked: Int = 0, val subject: Subject,
+    ) {
+        @Serializable data class Subject(val id: String, val kind: String, val name: String, val set: String? = null)
+    }
     @Serializable data class Sections(
         @SerialName("all_cards") val allCards: Counts? = null, @SerialName("for_trade") val forTrade: Counts? = null,
         val wants: Counts? = null, val binders: List<BinderSummary>? = null, val decks: List<ListSummary>? = null,
         val cubes: List<ListSummary>? = null, val record: Record? = null, val friends: FriendsCount? = null,
+        val rankings: List<RankingSummary>? = null,
     )
 
     /** The collection's value, on your own profile only (the server sends it only there now; older servers sent it to
@@ -409,7 +434,7 @@ data class ProfileData(
 
     /** Sections that reach you (binders, decks and cubes count one each). */
     val sectionCount get() = listOf(sections.allCards, sections.forTrade, sections.wants, sections.record, sections.friends).count { it != null } +
-        (sections.binders?.size ?: 0) + (sections.decks?.size ?: 0) + (sections.cubes?.size ?: 0)
+        (sections.binders?.size ?: 0) + (sections.decks?.size ?: 0) + (sections.cubes?.size ?: 0) + (sections.rankings?.size ?: 0)
 }
 
 /** One row of profile_cards, whatever the section's shape. */

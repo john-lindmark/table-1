@@ -12,7 +12,7 @@ import {
   fetchProfileCards, fetchSharedCards, sharedByline, sharedTitle, type SharedLinkData, groupOf, inherits, loadFriends, loadMatches, loadSharing, matchShort, matchSummary, matchWith, reach,
   cancelSent, profileValue, removeFriend, requestFriend, requestFriendByEmail, respondFriend, searchPeople, sectionCount, sentLabel,
   setItem, setPart, sharingSummary, setAll, answerOffer, reachOf, seesLine, viewAs, widening, withItem, withPart, offerAnswered,
-  fetchProfileFriends, friendsDetail, friendsOwnDetail, friendRowDetail,
+  fetchProfileFriends, friendsDetail, friendsOwnDetail, friendRowDetail, profileRankingDetail,
   startTradeFromMatch, useFriends, friendsNow, wantTier, copyNote, sharedCardCount, sharedEntries, sharedListKind, type MatchLine, type Person, type ProfileCard, type ProfileData, type SectionKind,
   type SharePart, type ShareItem, type Sharing, type TradeMatch, type Visibility,
 } from "../lib/friends";
@@ -284,14 +284,14 @@ function FriendAddBody({ onBack }: { onBack: () => void }) {
 
 export function ProfileScreen(props: {
   userId: string; onBack: () => void; onSection: (kind: SectionKind, id: string | null) => void; onMatch: () => void; onSharing: () => void;
-  onFriends: () => void;
+  onFriends: () => void; onRanking: (id: string) => void;
 }) {
   return <Gate title="Profile" onBack={props.onBack}>{() => <ProfileBody key={props.userId} {...props} />}</Gate>;
 }
 
-function ProfileBody({ userId, onBack, onSection, onMatch, onSharing, onFriends }: {
+function ProfileBody({ userId, onBack, onSection, onMatch, onSharing, onFriends, onRanking }: {
   userId: string; onBack: () => void; onSection: (kind: SectionKind, id: string | null) => void; onMatch: () => void; onSharing: () => void;
-  onFriends: () => void;
+  onFriends: () => void; onRanking: (id: string) => void;
 }) {
   const [own, setD] = useState<ProfileData | null>(null);
   const [match, setMatch] = useState<TradeMatch | null>(null);
@@ -400,6 +400,11 @@ function ProfileBody({ userId, onBack, onSection, onMatch, onSharing, onFriends 
         {s?.decks?.map((l) => open(l.name, `${l.format} · ${plural(l.cards, "card")}`, "deck", l.id))}
         {!!s?.cubes?.length && <Section title="Cubes" count={s.cubes.length} />}
         {s?.cubes?.map((l) => open(l.name, plural(l.cards, "card"), "cube", l.id))}
+        {!!s?.rankings?.length && <Section title="Rankings" count={s.rankings.length} />}
+        {s?.rankings?.map((r) => (
+          <Row key={`ranking-${r.id}`} title={r.subject.name} detail={profileRankingDetail(r)}
+               onClick={() => { capture("profile_section_opened", { section: "ranking", kind: r.subject.kind }); onRanking(r.id); }} />
+        ))}
       </div>
       <PersonMenu person={menu && d ? { userId, displayName: d.display_name, relation: d.relation } : null} from="profile"
                   onClose={() => setMenu(false)} changed={() => void load()} />
@@ -817,6 +822,7 @@ function SharingBody({ onBack }: { onBack: () => void }) {
             <Notice tone="info">{seesLine(s, 0)}</Notice>
             {part("profile")}
             {part("record")}
+            {part("rankings")}
             <Section title="Friends" />
             {part("friends")}
             {part("listed")}

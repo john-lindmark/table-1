@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SHARING, capped, copyNote, effective, sharedCardCount, sharedEntries, sharedListKind, effectiveItem, linesValue, matchLines, matchShort, parseCardRow, parseFriendsList, profileValue,
-  friendRowDetail, friendsDetail, friendsOwnDetail, type Person,
+  friendRowDetail, friendsDetail, friendsOwnDetail, profileRankingDetail, type Person,
   reach, sees, seesLine, sentLabel, sharedCount, sharingSummary, viewAs, VIS_LABEL, widening, wideningMessage, type ProfileData, shownLines, wantTier, type CopyIn, type MatchLine, type Sharing, type TradeMatch, type WantIn,
 } from "./friends";
 import { redactPath, screenName } from "./analytics";
@@ -202,6 +202,7 @@ describe("sharing UX rules (shared cases)", () => {
         visible: v.visible, all_cards: s.all_cards?.cards ?? null, value: s.all_cards?.value_usd ?? null, for_trade: s.for_trade?.cards ?? null,
         wants: s.wants?.cards ?? null, binders: (s.binders ?? []).map((b) => b.name), decks: (s.decks ?? []).map((b) => b.name),
         cubes: (s.cubes ?? []).map((b) => b.name), record: !!s.record, friends: !!s.friends,
+        rankings: (s.rankings ?? []).map((r) => r.subject.name),
       }).toEqual(c.want);
     });
   }
@@ -213,6 +214,10 @@ describe("sharing UX rules (shared cases)", () => {
       const p: Person = { user_id: "u", display_name: "N", handle: r.handle, avatar_url: null, relation: r.relation, mutual: r.mutual };
       expect(friendRowDetail(p)).toBe(r.want);
     }
+  });
+  /* Rankings on profiles (contract § Rankings on profiles). */
+  it("ranking rows", () => {
+    for (const r of sc.profile_rankings.rows) expect(profileRankingDetail(r as never), r.name).toBe(r.want);
   });
   it("reads a server without the friends settings as their defaults", () => {
     const old = { profile: "public", library: "private", all_cards: null, for_trade: null, wants: null, binders: null, decks: null, cubes: null,

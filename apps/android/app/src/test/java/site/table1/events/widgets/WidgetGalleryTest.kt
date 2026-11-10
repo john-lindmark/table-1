@@ -114,6 +114,17 @@ class WidgetGalleryTest {
         draw("archetype-boros", "Archetype matchups · Boros Energy", meta) { size, p -> ArchetypeContent(p, MetaPicks(tier = "all", archetype = 17), size, tap) }
     }
 
+    private val limited: LimitedWidgetPack? = LimitedPacks.decode(File(generateSequence(File("").absoluteFile) { it.parentFile }
+        .first { File(it, "testdata").isDirectory }, "testdata/insights/limited-FRA.json").readText())
+
+    @Test fun limitedCards() {
+        draw("limited", "Limited cards · FRA, GIH WR", limited) { size, p -> LimitedContent(p, LimitedPicks("FRA"), size, tap) }
+        draw("limited-wu", "Limited cards · IWD, commons and uncommons, W + U", limited) { size, p ->
+            LimitedContent(p, LimitedPicks("FRA", "iwd", listOf("common", "uncommon"), listOf("W", "U")), size, tap)
+        }
+        draw("limited-none", "Limited cards · no set yet", null as LimitedWidgetPack?) { size, p -> LimitedContent(p, LimitedPicks(), size, tap) }
+    }
+
     /** Stand-in art (no card images in the repo): a red-to-blue wash with streaks, about an art crop's shape. */
     private val art: Bitmap = Bitmap.createBitmap(626, 457, Bitmap.Config.ARGB_8888).also { b ->
         val c = Canvas(b)

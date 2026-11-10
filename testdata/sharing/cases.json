@@ -1,38 +1,135 @@
 {
-  "about": "Sharing UX rules (contract/friends-sharing-2026-10-18.md § UX rules). widening: what newly reaches friends / anyone when settings change (parts in the order your profile, your record, your friends, you in your friends' lists, All cards, For trade, Wants; then binders, decks, cubes, one item by name, more as a count; group defaults never listed on their own). sees: the summary line per audience at the top of Sharing. view_as: your own profile as a friend (level 1) or anyone (level 0) would get it from profile_view; value is never shown to others. Settings are sharing_get's shape. Friends on profiles (2026-11-09): friends (who sees your friends list, default private) and listed (who sees you in your friends' lists, default friends) are capped by the profile; a missing key reads as its default. sees never names listed (it is about other people's profiles); view_as gains friends (the section shows). Read by iOS FriendsTests, web friends.test.ts, Android FriendsTest.",
+  "about": "Sharing UX rules (contract/friends-sharing-2026-10-18.md § UX rules). widening: what newly reaches friends / anyone when settings change (parts in the order your profile, your record, your friends, you in your friends' lists, All cards, For trade, Wants; then binders, decks, cubes, one item by name, more as a count; group defaults never listed on their own). sees: the summary line per audience at the top of Sharing. view_as: your own profile as a friend (level 1) or anyone (level 0) would get it from profile_view; value is never shown to others. Settings are sharing_get's shape. Friends on profiles (2026-11-09): friends (who sees your friends list, default private) and listed (who sees you in your friends' lists, default friends) are capped by the profile; a missing key reads as its default. sees never names listed (it is about other people's profiles); view_as gains friends (the section shows). Rankings on profiles (2026-11-10): rankings (who sees your Rankings section, default friends; missing key = an older server with no section) capped by the profile; view_as keeps shared rankings only (never Only me), a cube ranking only while its cube reaches the viewer; widening and sees name \"your rankings\" after your friends. Read by iOS FriendsTests, web friends.test.ts, Android FriendsTest.",
   "widening": [
     {
       "name": "Library to friends opens the parts and items that follow it",
-      "before": {"profile": "friends", "library": "private", "record": "private", "items": [
-        {"kind": "binder", "id": "b1", "name": "Trades", "for_trade": true, "visibility": null},
-        {"kind": "deck", "id": "d1", "name": "Burn", "visibility": null},
-        {"kind": "deck", "id": "d2", "name": "Brew", "visibility": null},
-        {"kind": "cube", "id": "c1", "name": "Vintage", "visibility": "private"}]},
-      "after": {"profile": "friends", "library": "friends", "record": "private", "items": [
-        {"kind": "binder", "id": "b1", "name": "Trades", "for_trade": true, "visibility": null},
-        {"kind": "deck", "id": "d1", "name": "Burn", "visibility": null},
-        {"kind": "deck", "id": "d2", "name": "Brew", "visibility": null},
-        {"kind": "cube", "id": "c1", "name": "Vintage", "visibility": "private"}]},
-      "friends": ["All cards", "For trade", "Wants", "Trades", "2 decks"],
+      "before": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "items": [
+          {
+            "kind": "binder",
+            "id": "b1",
+            "name": "Trades",
+            "for_trade": true,
+            "visibility": null
+          },
+          {
+            "kind": "deck",
+            "id": "d1",
+            "name": "Burn",
+            "visibility": null
+          },
+          {
+            "kind": "deck",
+            "id": "d2",
+            "name": "Brew",
+            "visibility": null
+          },
+          {
+            "kind": "cube",
+            "id": "c1",
+            "name": "Vintage",
+            "visibility": "private"
+          }
+        ]
+      },
+      "after": {
+        "profile": "friends",
+        "library": "friends",
+        "record": "private",
+        "items": [
+          {
+            "kind": "binder",
+            "id": "b1",
+            "name": "Trades",
+            "for_trade": true,
+            "visibility": null
+          },
+          {
+            "kind": "deck",
+            "id": "d1",
+            "name": "Burn",
+            "visibility": null
+          },
+          {
+            "kind": "deck",
+            "id": "d2",
+            "name": "Brew",
+            "visibility": null
+          },
+          {
+            "kind": "cube",
+            "id": "c1",
+            "name": "Vintage",
+            "visibility": "private"
+          }
+        ]
+      },
+      "friends": [
+        "All cards",
+        "For trade",
+        "Wants",
+        "Trades",
+        "2 decks"
+      ],
       "anyone": [],
       "all_cards_to_anyone": false,
       "profile_to_anyone": false
     },
     {
       "name": "profile to anyone releases what the cap held back",
-      "before": {"profile": "friends", "library": "private", "wants": "friends", "record": "private", "items": [
-        {"kind": "deck", "id": "d1", "name": "Burn", "visibility": "public"}]},
-      "after": {"profile": "public", "library": "private", "wants": "friends", "record": "private", "items": [
-        {"kind": "deck", "id": "d1", "name": "Burn", "visibility": "public"}]},
+      "before": {
+        "profile": "friends",
+        "library": "private",
+        "wants": "friends",
+        "record": "private",
+        "items": [
+          {
+            "kind": "deck",
+            "id": "d1",
+            "name": "Burn",
+            "visibility": "public"
+          }
+        ]
+      },
+      "after": {
+        "profile": "public",
+        "library": "private",
+        "wants": "friends",
+        "record": "private",
+        "items": [
+          {
+            "kind": "deck",
+            "id": "d1",
+            "name": "Burn",
+            "visibility": "public"
+          }
+        ]
+      },
       "friends": [],
-      "anyone": ["your profile", "Burn"],
+      "anyone": [
+        "your profile",
+        "Burn"
+      ],
       "all_cards_to_anyone": false,
       "profile_to_anyone": true
     },
     {
       "name": "narrowing asks nothing",
-      "before": {"profile": "public", "library": "friends", "record": "friends", "items": []},
-      "after": {"profile": "public", "library": "private", "record": "private", "items": []},
+      "before": {
+        "profile": "public",
+        "library": "friends",
+        "record": "friends",
+        "items": []
+      },
+      "after": {
+        "profile": "public",
+        "library": "private",
+        "record": "private",
+        "items": []
+      },
       "friends": [],
       "anyone": [],
       "all_cards_to_anyone": false,
@@ -40,30 +137,90 @@
     },
     {
       "name": "All cards to anyone gets its own line",
-      "before": {"profile": "public", "library": "private", "record": "private", "items": []},
-      "after": {"profile": "public", "library": "private", "all_cards": "public", "record": "private", "items": []},
+      "before": {
+        "profile": "public",
+        "library": "private",
+        "record": "private",
+        "items": []
+      },
+      "after": {
+        "profile": "public",
+        "library": "private",
+        "all_cards": "public",
+        "record": "private",
+        "items": []
+      },
       "friends": [],
-      "anyone": ["All cards"],
+      "anyone": [
+        "All cards"
+      ],
       "all_cards_to_anyone": true,
       "profile_to_anyone": false
     },
     {
       "name": "the profile caps a deck set to anyone at friends",
-      "before": {"profile": "friends", "library": "private", "record": "private", "items": [
-        {"kind": "deck", "id": "d1", "name": "Burn", "visibility": null}]},
-      "after": {"profile": "friends", "library": "private", "record": "private", "items": [
-        {"kind": "deck", "id": "d1", "name": "Burn", "visibility": "public"}]},
-      "friends": ["Burn"],
+      "before": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "items": [
+          {
+            "kind": "deck",
+            "id": "d1",
+            "name": "Burn",
+            "visibility": null
+          }
+        ]
+      },
+      "after": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "items": [
+          {
+            "kind": "deck",
+            "id": "d1",
+            "name": "Burn",
+            "visibility": "public"
+          }
+        ]
+      },
+      "friends": [
+        "Burn"
+      ],
       "anyone": [],
       "all_cards_to_anyone": false,
       "profile_to_anyone": false
     },
     {
       "name": "opening Decks opens nothing when every deck has its own setting",
-      "before": {"profile": "friends", "library": "private", "record": "private", "items": [
-        {"kind": "deck", "id": "d1", "name": "Burn", "visibility": "private"}]},
-      "after": {"profile": "friends", "library": "private", "decks": "friends", "record": "private", "items": [
-        {"kind": "deck", "id": "d1", "name": "Burn", "visibility": "private"}]},
+      "before": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "items": [
+          {
+            "kind": "deck",
+            "id": "d1",
+            "name": "Burn",
+            "visibility": "private"
+          }
+        ]
+      },
+      "after": {
+        "profile": "friends",
+        "library": "private",
+        "decks": "friends",
+        "record": "private",
+        "items": [
+          {
+            "kind": "deck",
+            "id": "d1",
+            "name": "Burn",
+            "visibility": "private"
+          }
+        ]
+      },
       "friends": [],
       "anyone": [],
       "all_cards_to_anyone": false,
@@ -71,26 +228,67 @@
     },
     {
       "name": "friends list to friends, from a server without the key",
-      "before": {"profile": "friends", "library": "private", "record": "private", "items": []},
-      "after": {"profile": "friends", "library": "private", "record": "private", "friends": "friends", "items": []},
-      "friends": ["your friends"],
+      "before": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "items": []
+      },
+      "after": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "friends": "friends",
+        "items": []
+      },
+      "friends": [
+        "your friends"
+      ],
       "anyone": [],
       "all_cards_to_anyone": false,
       "profile_to_anyone": false
     },
     {
       "name": "listed to anyone on a public profile",
-      "before": {"profile": "public", "library": "private", "record": "private", "friends": "private", "listed": "friends", "items": []},
-      "after": {"profile": "public", "library": "private", "record": "private", "friends": "private", "listed": "public", "items": []},
+      "before": {
+        "profile": "public",
+        "library": "private",
+        "record": "private",
+        "friends": "private",
+        "listed": "friends",
+        "items": []
+      },
+      "after": {
+        "profile": "public",
+        "library": "private",
+        "record": "private",
+        "friends": "private",
+        "listed": "public",
+        "items": []
+      },
       "friends": [],
-      "anyone": ["you in your friends' lists"],
+      "anyone": [
+        "you in your friends' lists"
+      ],
       "all_cards_to_anyone": false,
       "profile_to_anyone": false
     },
     {
       "name": "listed to anyone on a friends profile is capped: nothing new",
-      "before": {"profile": "friends", "library": "private", "record": "private", "listed": "friends", "items": []},
-      "after": {"profile": "friends", "library": "private", "record": "private", "listed": "public", "items": []},
+      "before": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "listed": "friends",
+        "items": []
+      },
+      "after": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "listed": "public",
+        "items": []
+      },
       "friends": [],
       "anyone": [],
       "all_cards_to_anyone": false,
@@ -98,18 +296,113 @@
     },
     {
       "name": "listed from private to friends",
-      "before": {"profile": "friends", "library": "private", "record": "private", "listed": "private", "items": []},
-      "after": {"profile": "friends", "library": "private", "record": "private", "listed": "friends", "items": []},
-      "friends": ["you in your friends' lists"],
+      "before": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "listed": "private",
+        "items": []
+      },
+      "after": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "listed": "friends",
+        "items": []
+      },
+      "friends": [
+        "you in your friends' lists"
+      ],
       "anyone": [],
       "all_cards_to_anyone": false,
       "profile_to_anyone": false
     },
     {
       "name": "record to friends",
-      "before": {"profile": "friends", "library": "private", "record": "private", "items": []},
-      "after": {"profile": "friends", "library": "private", "record": "friends", "items": []},
-      "friends": ["your record"],
+      "before": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "items": []
+      },
+      "after": {
+        "profile": "friends",
+        "library": "private",
+        "record": "friends",
+        "items": []
+      },
+      "friends": [
+        "your record"
+      ],
+      "anyone": [],
+      "all_cards_to_anyone": false,
+      "profile_to_anyone": false
+    },
+    {
+      "name": "rankings to anyone on a public profile",
+      "before": {
+        "profile": "public",
+        "library": "private",
+        "record": "private",
+        "friends": "private",
+        "rankings": "friends",
+        "items": []
+      },
+      "after": {
+        "profile": "public",
+        "library": "private",
+        "record": "private",
+        "friends": "private",
+        "rankings": "public",
+        "items": []
+      },
+      "friends": [],
+      "anyone": [
+        "your rankings"
+      ],
+      "all_cards_to_anyone": false,
+      "profile_to_anyone": false
+    },
+    {
+      "name": "rankings from private to friends",
+      "before": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "rankings": "private",
+        "items": []
+      },
+      "after": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "rankings": "friends",
+        "items": []
+      },
+      "friends": [
+        "your rankings"
+      ],
+      "anyone": [],
+      "all_cards_to_anyone": false,
+      "profile_to_anyone": false
+    },
+    {
+      "name": "rankings to anyone on a friends profile is capped: nothing new",
+      "before": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "rankings": "friends",
+        "items": []
+      },
+      "after": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "rankings": "public",
+        "items": []
+      },
+      "friends": [],
       "anyone": [],
       "all_cards_to_anyone": false,
       "profile_to_anyone": false
@@ -118,104 +411,640 @@
   "sees": [
     {
       "name": "defaults show only name and photo",
-      "settings": {"profile": "friends", "library": "private", "record": "private", "items": [
-        {"kind": "deck", "id": "d1", "name": "Burn", "visibility": "private"}]},
+      "settings": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "items": [
+          {
+            "kind": "deck",
+            "id": "d1",
+            "name": "Burn",
+            "visibility": "private"
+          }
+        ]
+      },
       "friends": "Friends see: your name and photo.",
       "anyone": "Anyone on Table 1 sees: your name and photo."
     },
     {
       "name": "a friends-only profile shows strangers nothing more",
-      "settings": {"profile": "friends", "library": "private", "for_trade": "friends", "wants": "friends", "record": "private", "items": [
-        {"kind": "binder", "id": "b1", "name": "Trades", "for_trade": true, "visibility": null},
-        {"kind": "deck", "id": "d1", "name": "Burn", "visibility": "friends"},
-        {"kind": "deck", "id": "d2", "name": "Brew", "visibility": null}]},
+      "settings": {
+        "profile": "friends",
+        "library": "private",
+        "for_trade": "friends",
+        "wants": "friends",
+        "record": "private",
+        "items": [
+          {
+            "kind": "binder",
+            "id": "b1",
+            "name": "Trades",
+            "for_trade": true,
+            "visibility": null
+          },
+          {
+            "kind": "deck",
+            "id": "d1",
+            "name": "Burn",
+            "visibility": "friends"
+          },
+          {
+            "kind": "deck",
+            "id": "d2",
+            "name": "Brew",
+            "visibility": null
+          }
+        ]
+      },
       "friends": "Friends see: your name and photo, For trade, Wants, 1 deck.",
       "anyone": "Anyone on Table 1 sees: your name and photo."
     },
     {
       "name": "a public profile",
-      "settings": {"profile": "public", "library": "friends", "record": "public", "items": [
-        {"kind": "binder", "id": "b1", "name": "Trades", "for_trade": true, "visibility": null},
-        {"kind": "deck", "id": "d1", "name": "Burn", "visibility": "public"},
-        {"kind": "deck", "id": "d2", "name": "Brew", "visibility": null}]},
+      "settings": {
+        "profile": "public",
+        "library": "friends",
+        "record": "public",
+        "items": [
+          {
+            "kind": "binder",
+            "id": "b1",
+            "name": "Trades",
+            "for_trade": true,
+            "visibility": null
+          },
+          {
+            "kind": "deck",
+            "id": "d1",
+            "name": "Burn",
+            "visibility": "public"
+          },
+          {
+            "kind": "deck",
+            "id": "d2",
+            "name": "Brew",
+            "visibility": null
+          }
+        ]
+      },
       "friends": "Friends see: your name and photo, your record, All cards, For trade, Wants, 1 binder, 2 decks.",
       "anyone": "Anyone on Table 1 sees: your name and photo, your record, 1 deck."
     },
     {
       "name": "a shared friends list, listed never named",
-      "settings": {"profile": "public", "library": "private", "record": "friends", "friends": "public", "listed": "public", "items": []},
+      "settings": {
+        "profile": "public",
+        "library": "private",
+        "record": "friends",
+        "friends": "public",
+        "listed": "public",
+        "items": []
+      },
       "friends": "Friends see: your name and photo, your record, your friends.",
       "anyone": "Anyone on Table 1 sees: your name and photo, your friends."
+    },
+    {
+      "name": "shared rankings",
+      "settings": {
+        "profile": "public",
+        "library": "private",
+        "record": "friends",
+        "friends": "private",
+        "rankings": "public",
+        "items": []
+      },
+      "friends": "Friends see: your name and photo, your record, your rankings.",
+      "anyone": "Anyone on Table 1 sees: your name and photo, your rankings."
     }
   ],
   "profile_friends": {
     "about": "Words for friends lists on profiles: the Friends row on someone's profile (mutual count; nothing at 0 or unknown), on your own (who it reaches), and each person in the list.",
-    "detail": [{"mutual": 0, "want": null}, {"mutual": 3, "want": "3 mutual"}, {"mutual": null, "want": null}, {"mutual": 1, "want": "1 mutual"}],
-    "own": {"private": "Only you", "friends": "Seen by friends", "public": "Seen by anyone"},
+    "detail": [
+      {
+        "mutual": 0,
+        "want": null
+      },
+      {
+        "mutual": 3,
+        "want": "3 mutual"
+      },
+      {
+        "mutual": null,
+        "want": null
+      },
+      {
+        "mutual": 1,
+        "want": "1 mutual"
+      }
+    ],
+    "own": {
+      "private": "Only you",
+      "friends": "Seen by friends",
+      "public": "Seen by anyone"
+    },
     "rows": [
-      {"relation": "self", "mutual": false, "handle": "ana", "want": "You"},
-      {"relation": "friend", "mutual": true, "handle": "cal", "want": "Mutual friend"},
-      {"relation": "none", "mutual": false, "handle": "bo", "want": "@bo"},
-      {"relation": "requested", "mutual": false, "handle": null, "want": null}
+      {
+        "relation": "self",
+        "mutual": false,
+        "handle": "ana",
+        "want": "You"
+      },
+      {
+        "relation": "friend",
+        "mutual": true,
+        "handle": "cal",
+        "want": "Mutual friend"
+      },
+      {
+        "relation": "none",
+        "mutual": false,
+        "handle": "bo",
+        "want": "@bo"
+      },
+      {
+        "relation": "requested",
+        "mutual": false,
+        "handle": null,
+        "want": null
+      }
     ]
   },
   "view_as_profile": {
-    "user_id": "me", "display_name": "Ana Lind", "handle": "ana", "avatar_url": null, "relation": "self",
-    "friends_since": null, "visible": true,
+    "user_id": "me",
+    "display_name": "Ana Lind",
+    "handle": "ana",
+    "avatar_url": null,
+    "relation": "self",
+    "friends_since": null,
+    "visible": true,
     "sections": {
-      "all_cards": {"cards": 120, "printings": 80, "value_usd": 450.5},
-      "for_trade": {"cards": 7},
-      "wants": {"cards": 3},
-      "binders": [{"id": "b1", "name": "Trades", "for_trade": true, "cards": 7}, {"id": "b2", "name": "Box", "for_trade": false, "cards": 50}],
-      "decks": [{"id": "d1", "name": "Burn", "format": "modern", "cards": 60}, {"id": "d2", "name": "Brew", "format": "modern", "cards": 60}],
+      "all_cards": {
+        "cards": 120,
+        "printings": 80,
+        "value_usd": 450.5
+      },
+      "for_trade": {
+        "cards": 7
+      },
+      "wants": {
+        "cards": 3
+      },
+      "binders": [
+        {
+          "id": "b1",
+          "name": "Trades",
+          "for_trade": true,
+          "cards": 7
+        },
+        {
+          "id": "b2",
+          "name": "Box",
+          "for_trade": false,
+          "cards": 50
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "name": "Burn",
+          "format": "modern",
+          "cards": 60
+        },
+        {
+          "id": "d2",
+          "name": "Brew",
+          "format": "modern",
+          "cards": 60
+        }
+      ],
       "cubes": [],
-      "record": {"match_wins": 5, "match_losses": 3, "match_draws": 0, "events_played": 2},
-      "friends": {"mutual": 0}
+      "record": {
+        "match_wins": 5,
+        "match_losses": 3,
+        "match_draws": 0,
+        "events_played": 2
+      },
+      "friends": {
+        "mutual": 0
+      },
+      "rankings": [
+        {
+          "id": "r1",
+          "name": "My ranking",
+          "sharing": "cube",
+          "mine": true,
+          "top": 100,
+          "ranked": 40,
+          "sorted": 3,
+          "categories": 8,
+          "subject": {
+            "id": "set:FDN",
+            "kind": "set",
+            "name": "Foundations",
+            "set": "FDN"
+          }
+        },
+        {
+          "id": "r2",
+          "name": "Draft prep",
+          "sharing": "private",
+          "mine": true,
+          "top": 50,
+          "ranked": 50,
+          "sorted": 8,
+          "categories": 8,
+          "subject": {
+            "id": "set:BLB",
+            "kind": "set",
+            "name": "Bloomburrow",
+            "set": "BLB"
+          }
+        },
+        {
+          "id": "r3",
+          "name": "My ranking",
+          "sharing": "cube",
+          "mine": true,
+          "top": 100,
+          "ranked": 0,
+          "sorted": 0,
+          "categories": 8,
+          "subject": {
+            "id": "c1",
+            "kind": "list",
+            "name": "Vintage"
+          }
+        }
+      ]
     }
   },
   "view_as": [
     {
       "name": "friend: For trade through the part, one deck",
-      "settings": {"profile": "friends", "library": "private", "for_trade": "friends", "record": "private", "items": [
-        {"kind": "binder", "id": "b1", "name": "Trades", "for_trade": true, "visibility": null},
-        {"kind": "binder", "id": "b2", "name": "Box", "for_trade": false, "visibility": null},
-        {"kind": "deck", "id": "d1", "name": "Burn", "visibility": "friends"},
-        {"kind": "deck", "id": "d2", "name": "Brew", "visibility": "private"}]},
+      "settings": {
+        "profile": "friends",
+        "library": "private",
+        "for_trade": "friends",
+        "record": "private",
+        "items": [
+          {
+            "kind": "binder",
+            "id": "b1",
+            "name": "Trades",
+            "for_trade": true,
+            "visibility": null
+          },
+          {
+            "kind": "binder",
+            "id": "b2",
+            "name": "Box",
+            "for_trade": false,
+            "visibility": null
+          },
+          {
+            "kind": "deck",
+            "id": "d1",
+            "name": "Burn",
+            "visibility": "friends"
+          },
+          {
+            "kind": "deck",
+            "id": "d2",
+            "name": "Brew",
+            "visibility": "private"
+          }
+        ]
+      },
       "level": 1,
-      "want": {"visible": true, "all_cards": null, "value": null, "for_trade": 7, "wants": null, "binders": [], "decks": ["Burn"], "cubes": [], "record": false, "friends": false}
+      "want": {
+        "visible": true,
+        "all_cards": null,
+        "value": null,
+        "for_trade": 7,
+        "wants": null,
+        "binders": [],
+        "decks": [
+          "Burn"
+        ],
+        "cubes": [],
+        "record": false,
+        "friends": false,
+        "rankings": []
+      }
     },
     {
       "name": "anyone: a friends-only profile shows nothing",
-      "settings": {"profile": "friends", "library": "public", "record": "public", "items": []},
+      "settings": {
+        "profile": "friends",
+        "library": "public",
+        "record": "public",
+        "items": []
+      },
       "level": 0,
-      "want": {"visible": false, "all_cards": null, "value": null, "for_trade": null, "wants": null, "binders": [], "decks": [], "cubes": [], "record": false, "friends": false}
+      "want": {
+        "visible": false,
+        "all_cards": null,
+        "value": null,
+        "for_trade": null,
+        "wants": null,
+        "binders": [],
+        "decks": [],
+        "cubes": [],
+        "record": false,
+        "friends": false,
+        "rankings": []
+      }
     },
     {
       "name": "anyone: a public Library, never the value",
-      "settings": {"profile": "public", "library": "public", "record": "friends", "items": [
-        {"kind": "binder", "id": "b2", "name": "Box", "for_trade": false, "visibility": "private"},
-        {"kind": "deck", "id": "d2", "name": "Brew", "visibility": "private"}]},
+      "settings": {
+        "profile": "public",
+        "library": "public",
+        "record": "friends",
+        "items": [
+          {
+            "kind": "binder",
+            "id": "b2",
+            "name": "Box",
+            "for_trade": false,
+            "visibility": "private"
+          },
+          {
+            "kind": "deck",
+            "id": "d2",
+            "name": "Brew",
+            "visibility": "private"
+          }
+        ]
+      },
       "level": 0,
-      "want": {"visible": true, "all_cards": 120, "value": null, "for_trade": 7, "wants": 3, "binders": ["Trades"], "decks": ["Burn"], "cubes": [], "record": false, "friends": false}
+      "want": {
+        "visible": true,
+        "all_cards": 120,
+        "value": null,
+        "for_trade": 7,
+        "wants": 3,
+        "binders": [
+          "Trades"
+        ],
+        "decks": [
+          "Burn"
+        ],
+        "cubes": [],
+        "record": false,
+        "friends": false,
+        "rankings": []
+      }
     },
     {
       "name": "friend: a for-trade binder shared on its own counts as For trade",
-      "settings": {"profile": "friends", "library": "private", "record": "friends", "items": [
-        {"kind": "binder", "id": "b1", "name": "Trades", "for_trade": true, "visibility": "friends"}]},
+      "settings": {
+        "profile": "friends",
+        "library": "private",
+        "record": "friends",
+        "items": [
+          {
+            "kind": "binder",
+            "id": "b1",
+            "name": "Trades",
+            "for_trade": true,
+            "visibility": "friends"
+          }
+        ]
+      },
       "level": 1,
-      "want": {"visible": true, "all_cards": null, "value": null, "for_trade": 7, "wants": null, "binders": ["Trades"], "decks": [], "cubes": [], "record": true, "friends": false}
+      "want": {
+        "visible": true,
+        "all_cards": null,
+        "value": null,
+        "for_trade": 7,
+        "wants": null,
+        "binders": [
+          "Trades"
+        ],
+        "decks": [],
+        "cubes": [],
+        "record": true,
+        "friends": false,
+        "rankings": []
+      }
     },
     {
       "name": "friend: a friends list shared with friends",
-      "settings": {"profile": "friends", "library": "private", "record": "private", "friends": "friends", "items": []},
+      "settings": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "friends": "friends",
+        "items": []
+      },
       "level": 1,
-      "want": {"visible": true, "all_cards": null, "value": null, "for_trade": null, "wants": null, "binders": [], "decks": [], "cubes": [], "record": false, "friends": true}
+      "want": {
+        "visible": true,
+        "all_cards": null,
+        "value": null,
+        "for_trade": null,
+        "wants": null,
+        "binders": [],
+        "decks": [],
+        "cubes": [],
+        "record": false,
+        "friends": true,
+        "rankings": []
+      }
     },
     {
       "name": "anyone: a friends list shared with friends stays hidden",
-      "settings": {"profile": "public", "library": "private", "record": "private", "friends": "friends", "items": []},
+      "settings": {
+        "profile": "public",
+        "library": "private",
+        "record": "private",
+        "friends": "friends",
+        "items": []
+      },
       "level": 0,
-      "want": {"visible": true, "all_cards": null, "value": null, "for_trade": null, "wants": null, "binders": [], "decks": [], "cubes": [], "record": false, "friends": false}
+      "want": {
+        "visible": true,
+        "all_cards": null,
+        "value": null,
+        "for_trade": null,
+        "wants": null,
+        "binders": [],
+        "decks": [],
+        "cubes": [],
+        "record": false,
+        "friends": false,
+        "rankings": []
+      }
+    },
+    {
+      "name": "friend: rankings to friends, a cube ranking with its cube, never Only me",
+      "settings": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "items": [
+          {
+            "kind": "cube",
+            "id": "c1",
+            "name": "Vintage",
+            "visibility": "friends"
+          }
+        ],
+        "rankings": "friends"
+      },
+      "level": 1,
+      "want": {
+        "visible": true,
+        "all_cards": null,
+        "value": null,
+        "for_trade": null,
+        "wants": null,
+        "binders": [],
+        "decks": [],
+        "cubes": [],
+        "record": false,
+        "friends": false,
+        "rankings": [
+          "Foundations",
+          "Vintage"
+        ]
+      }
+    },
+    {
+      "name": "friend: rankings private",
+      "settings": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "items": [
+          {
+            "kind": "cube",
+            "id": "c1",
+            "name": "Vintage",
+            "visibility": "friends"
+          }
+        ],
+        "rankings": "private"
+      },
+      "level": 1,
+      "want": {
+        "visible": true,
+        "all_cards": null,
+        "value": null,
+        "for_trade": null,
+        "wants": null,
+        "binders": [],
+        "decks": [],
+        "cubes": [],
+        "record": false,
+        "friends": false,
+        "rankings": []
+      }
+    },
+    {
+      "name": "friend: a cube ranking stays hidden while its cube is",
+      "settings": {
+        "profile": "friends",
+        "library": "private",
+        "record": "private",
+        "items": [
+          {
+            "kind": "cube",
+            "id": "c1",
+            "name": "Vintage",
+            "visibility": "private"
+          }
+        ],
+        "rankings": "friends"
+      },
+      "level": 1,
+      "want": {
+        "visible": true,
+        "all_cards": null,
+        "value": null,
+        "for_trade": null,
+        "wants": null,
+        "binders": [],
+        "decks": [],
+        "cubes": [],
+        "record": false,
+        "friends": false,
+        "rankings": [
+          "Foundations"
+        ]
+      }
+    },
+    {
+      "name": "anyone: rankings to anyone on a public profile, the friends cube's ranking still hidden",
+      "settings": {
+        "profile": "public",
+        "library": "private",
+        "record": "private",
+        "items": [
+          {
+            "kind": "cube",
+            "id": "c1",
+            "name": "Vintage",
+            "visibility": "friends"
+          }
+        ],
+        "rankings": "public"
+      },
+      "level": 0,
+      "want": {
+        "visible": true,
+        "all_cards": null,
+        "value": null,
+        "for_trade": null,
+        "wants": null,
+        "binders": [],
+        "decks": [],
+        "cubes": [],
+        "record": false,
+        "friends": false,
+        "rankings": [
+          "Foundations"
+        ]
+      }
     }
-  ]
+  ],
+  "profile_rankings": {
+    "about": "A ranking's row on a profile: the subject's name, then the label (if any; RankingName rules), how far it is, and Only me on your own profile.",
+    "rows": [
+      {
+        "name": "My ranking",
+        "sharing": "cube",
+        "mine": false,
+        "top": 100,
+        "ranked": 40,
+        "want": "40/100 ranked"
+      },
+      {
+        "name": "Draft prep",
+        "sharing": "private",
+        "mine": true,
+        "top": 50,
+        "ranked": 50,
+        "want": "Draft prep · 50/50 ranked · Only me"
+      },
+      {
+        "name": "  ",
+        "sharing": "cube",
+        "mine": true,
+        "top": 50,
+        "ranked": 0,
+        "want": "0/50 ranked"
+      },
+      {
+        "name": "Sunday pod",
+        "sharing": "cube",
+        "mine": false,
+        "top": 100,
+        "ranked": 100,
+        "want": "Sunday pod · 100/100 ranked"
+      }
+    ]
+  }
 }

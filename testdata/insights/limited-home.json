@@ -1,5 +1,5 @@
 {
- "about": "The Limited page's cards (contract/insights-2026-10-24.md § The Limited page). `cards` are a pack view's cards; each `filters` case is limitedCards(cards, sort, rarity, color) → names in order (`unrated`: the cards with rarity removed, as in an Arena cube). `values` are the row's number and how far it sits from `avg` (the view's average game win rate). `search` cases are limitedSearch(query, cards, others).",
+ "about": "The Limited page's cards (contract/insights-2026-10-24.md § The Limited page). `cards` are a pack view's cards; each `filters` case is limitedCards(cards, sort, rarity, color) → names in order, rarity and color each a list of picks, empty = any (`unrated`: the cards with rarity removed, as in an Arena cube). `labels` are the Rarity and Color cells' words for a pick. `values` are the row's number and how far it sits from `avg` (the view's average game win rate). `search` cases are limitedSearch(query, cards, others).",
  "top": 10,
  "others_max": 20,
  "min_query": 2,
@@ -624,6 +624,26 @@
    "oh": null,
    "iwd": null,
    "ata": 2.0
+  },
+  {
+   "n": "Azorius Pact",
+   "r": "uncommon",
+   "col": "WU",
+   "gih": 0.58,
+   "gih_n": 900,
+   "oh": null,
+   "iwd": null,
+   "ata": 4.1
+  },
+  {
+   "n": "Esper Pact",
+   "r": "rare",
+   "col": "WUB",
+   "gih": 0.57,
+   "gih_n": 400,
+   "oh": null,
+   "iwd": null,
+   "ata": 3.2
   }
  ],
  "others": [
@@ -895,10 +915,10 @@
  ],
  "filters": [
   {
-   "name": "gih · all · all",
+   "name": "gih · any · any",
    "sort": "gih",
-   "rarity": "all",
-   "color": "all",
+   "rarity": [],
+   "color": [],
    "want": [
     "Kiora of Fire and Ashes",
     "Recursive Recruitment",
@@ -920,6 +940,7 @@
     "Hexhaven Battalion",
     "Unsummon",
     "Surveillance Phantasm",
+    "Azorius Pact",
     "Surgical Precision",
     "Fblthp, Knows the Way",
     "Last Gasp",
@@ -927,6 +948,7 @@
     "Murmuring Volume",
     "No Admittance",
     "Fatehold Chronologist",
+    "Esper Pact",
     "Tam's Resistance",
     "Theorix Annex",
     "Keeper of the Quiet Hour",
@@ -965,10 +987,10 @@
    ]
   },
   {
-   "name": "oh · all · all",
+   "name": "oh · any · any",
    "sort": "oh",
-   "rarity": "all",
-   "color": "all",
+   "rarity": [],
+   "color": [],
    "want": [
     "Mindseeker Oculus",
     "Recursive Recruitment",
@@ -1031,14 +1053,16 @@
     "Semester Foreseer",
     "Silence the Echo",
     "Tied Twin",
+    "Azorius Pact",
+    "Esper Pact",
     "Rare Sight"
    ]
   },
   {
-   "name": "iwd · all · all",
+   "name": "iwd · any · any",
    "sort": "iwd",
-   "rarity": "all",
-   "color": "all",
+   "rarity": [],
+   "color": [],
    "want": [
     "Kiora of Fire and Ashes",
     "Recursive Recruitment",
@@ -1101,18 +1125,21 @@
     "Sureshot Sower",
     "Skilled Battlecarver",
     "Tied Twin",
+    "Azorius Pact",
+    "Esper Pact",
     "Rare Sight"
    ]
   },
   {
-   "name": "ata · all · all",
+   "name": "ata · any · any",
    "sort": "ata",
-   "rarity": "all",
-   "color": "all",
+   "rarity": [],
+   "color": [],
    "want": [
     "Rare Sight",
     "Kiora of Fire and Ashes",
     "Multiply by Zero",
+    "Esper Pact",
     "Violent Echoes",
     "Plan for All Outcomes",
     "Break Under Pressure",
@@ -1121,6 +1148,7 @@
     "Mindseeker Oculus",
     "Memory Trap",
     "Recursive Recruitment",
+    "Azorius Pact",
     "No Admittance",
     "Proft, Consulting Detective",
     "Countersculpt",
@@ -1175,10 +1203,12 @@
    ]
   },
   {
-   "name": "gih · common · all",
+   "name": "gih · common · any",
    "sort": "gih",
-   "rarity": "common",
-   "color": "all",
+   "rarity": [
+    "common"
+   ],
+   "color": [],
    "want": [
     "Mindseeker Oculus",
     "Extended Absence",
@@ -1231,10 +1261,12 @@
    ]
   },
   {
-   "name": "gih · all · W",
+   "name": "gih · any · W",
    "sort": "gih",
-   "rarity": "all",
-   "color": "W",
+   "rarity": [],
+   "color": [
+    "W"
+   ],
    "want": [
     "Hexhaven Battalion",
     "Surgical Precision",
@@ -1245,25 +1277,31 @@
    ]
   },
   {
-   "name": "gih · all · M",
+   "name": "gih · any · M",
    "sort": "gih",
-   "rarity": "all",
-   "color": "M",
+   "rarity": [],
+   "color": [
+    "M"
+   ],
    "want": [
     "Recursive Recruitment",
     "Hapatra, the Desert Fang",
     "Twinned Vision",
+    "Azorius Pact",
     "Fatehold Chronologist",
+    "Esper Pact",
     "Tam's Resistance",
     "Konstrari Improviser",
     "Theorix Metamage"
    ]
   },
   {
-   "name": "gih · all · C",
+   "name": "gih · any · C",
    "sort": "gih",
-   "rarity": "all",
-   "color": "C",
+   "rarity": [],
+   "color": [
+    "C"
+   ],
    "want": [
     "Murmuring Volume",
     "Theorix Annex",
@@ -1280,9 +1318,211 @@
   {
    "name": "gih · rare · G",
    "sort": "gih",
-   "rarity": "rare",
-   "color": "G",
+   "rarity": [
+    "rare"
+   ],
+   "color": [
+    "G"
+   ],
    "want": [
+    "Rare Sight"
+   ]
+  },
+  {
+   "name": "gih · common+uncommon · any",
+   "sort": "gih",
+   "rarity": [
+    "common",
+    "uncommon"
+   ],
+   "color": [],
+   "want": [
+    "Kiora of Fire and Ashes",
+    "Recursive Recruitment",
+    "Break Under Pressure",
+    "Hapatra, the Desert Fang",
+    "Countersculpt",
+    "Mindseeker Oculus",
+    "Extended Absence",
+    "Plan for All Outcomes",
+    "Violent Echoes",
+    "Multiply by Zero",
+    "Rewrite Regrets",
+    "Protege's Awakening",
+    "Way of the Mind Sculptor",
+    "Twinned Vision",
+    "Icy Reception",
+    "Fblthp, Impossibly Lost",
+    "Proft, Consulting Detective",
+    "Hexhaven Battalion",
+    "Unsummon",
+    "Surveillance Phantasm",
+    "Azorius Pact",
+    "Surgical Precision",
+    "Fblthp, Knows the Way",
+    "Last Gasp",
+    "Something Worth Saving",
+    "Murmuring Volume",
+    "No Admittance",
+    "Fatehold Chronologist",
+    "Tam's Resistance",
+    "Theorix Annex",
+    "Keeper of the Quiet Hour",
+    "Memory Trap",
+    "Formidable Commons",
+    "Bestial Incursion",
+    "Awaken the Inferno",
+    "Wrath of the Bloodmane",
+    "Infinite Coursework",
+    "Arcane Amphisbaena",
+    "Undulating Witness",
+    "Void Extrapolator",
+    "Room of Refuge",
+    "Vinelasher Adept",
+    "Campus Crier",
+    "Apex Witchstalker",
+    "Island",
+    "Blossom-Blessed Angel",
+    "Swamp",
+    "Theoretical Necromancer",
+    "Forest",
+    "Compel Brutality",
+    "Rank Rat",
+    "Mountain",
+    "Tied Twin",
+    "Plains",
+    "Heartstring Puller",
+    "Konstrari Improviser",
+    "Greenhouse Propagator",
+    "Theorix Metamage",
+    "Sureshot Sower",
+    "Semester Foreseer",
+    "Silence the Echo",
+    "Skilled Battlecarver"
+   ]
+  },
+  {
+   "name": "gih · any · W+U",
+   "sort": "gih",
+   "rarity": [],
+   "color": [
+    "W",
+    "U"
+   ],
+   "want": [
+    "Countersculpt",
+    "Mindseeker Oculus",
+    "Plan for All Outcomes",
+    "Protege's Awakening",
+    "Way of the Mind Sculptor",
+    "Icy Reception",
+    "Fblthp, Impossibly Lost",
+    "Proft, Consulting Detective",
+    "Hexhaven Battalion",
+    "Unsummon",
+    "Surveillance Phantasm",
+    "Azorius Pact",
+    "Surgical Precision",
+    "Fatehold Chronologist",
+    "Memory Trap",
+    "Infinite Coursework",
+    "Undulating Witness",
+    "Campus Crier",
+    "Blossom-Blessed Angel",
+    "Tied Twin",
+    "Semester Foreseer"
+   ]
+  },
+  {
+   "name": "gih · any · U+B+C",
+   "sort": "gih",
+   "rarity": [],
+   "color": [
+    "U",
+    "B",
+    "C"
+   ],
+   "want": [
+    "Recursive Recruitment",
+    "Break Under Pressure",
+    "Countersculpt",
+    "Mindseeker Oculus",
+    "Extended Absence",
+    "Plan for All Outcomes",
+    "Multiply by Zero",
+    "Rewrite Regrets",
+    "Protege's Awakening",
+    "Way of the Mind Sculptor",
+    "Icy Reception",
+    "Fblthp, Impossibly Lost",
+    "Proft, Consulting Detective",
+    "Unsummon",
+    "Surveillance Phantasm",
+    "Last Gasp",
+    "Murmuring Volume",
+    "Theorix Annex",
+    "Keeper of the Quiet Hour",
+    "Formidable Commons",
+    "Infinite Coursework",
+    "Undulating Witness",
+    "Void Extrapolator",
+    "Room of Refuge",
+    "Apex Witchstalker",
+    "Island",
+    "Swamp",
+    "Theoretical Necromancer",
+    "Forest",
+    "Rank Rat",
+    "Mountain",
+    "Plains",
+    "Theorix Metamage",
+    "Semester Foreseer",
+    "Silence the Echo"
+   ]
+  },
+  {
+   "name": "gih · any · R+M",
+   "sort": "gih",
+   "rarity": [],
+   "color": [
+    "R",
+    "M"
+   ],
+   "want": [
+    "Kiora of Fire and Ashes",
+    "Recursive Recruitment",
+    "Hapatra, the Desert Fang",
+    "Violent Echoes",
+    "Twinned Vision",
+    "Azorius Pact",
+    "No Admittance",
+    "Fatehold Chronologist",
+    "Esper Pact",
+    "Tam's Resistance",
+    "Awaken the Inferno",
+    "Wrath of the Bloodmane",
+    "Heartstring Puller",
+    "Konstrari Improviser",
+    "Theorix Metamage",
+    "Skilled Battlecarver"
+   ]
+  },
+  {
+   "name": "gih · rare+mythic · W+U+B+R+G",
+   "sort": "gih",
+   "rarity": [
+    "rare",
+    "mythic"
+   ],
+   "color": [
+    "W",
+    "U",
+    "B",
+    "R",
+    "G"
+   ],
+   "want": [
+    "Esper Pact",
     "Rare Sight"
    ]
   },
@@ -1290,8 +1530,10 @@
    "name": "a cube: no rarity, so no rarity filter",
    "unrated": true,
    "sort": "gih",
-   "rarity": "common",
-   "color": "all",
+   "rarity": [
+    "common"
+   ],
+   "color": [],
    "want": [
     "Mindseeker Oculus",
     "Extended Absence",
@@ -1308,6 +1550,100 @@
    ]
   }
  ],
+ "labels": {
+  "rarity": [
+   {
+    "picked": [],
+    "want": "Any rarity"
+   },
+   {
+    "picked": [
+     "common"
+    ],
+    "want": "Common"
+   },
+   {
+    "picked": [
+     "uncommon",
+     "common"
+    ],
+    "want": "C · U"
+   },
+   {
+    "picked": [
+     "mythic",
+     "rare",
+     "uncommon",
+     "common"
+    ],
+    "want": "C · U · R · M"
+   }
+  ],
+  "color": [
+   {
+    "picked": [],
+    "want": "Any color"
+   },
+   {
+    "picked": [
+     "W"
+    ],
+    "want": "W"
+   },
+   {
+    "picked": [
+     "M"
+    ],
+    "want": "Multi"
+   },
+   {
+    "picked": [
+     "C"
+    ],
+    "want": "Colorless"
+   },
+   {
+    "picked": [
+     "U",
+     "W"
+    ],
+    "want": "WU"
+   },
+   {
+    "picked": [
+     "G",
+     "M"
+    ],
+    "want": "G · Multi"
+   },
+   {
+    "picked": [
+     "B",
+     "C"
+    ],
+    "want": "B · C"
+   },
+   {
+    "picked": [
+     "M",
+     "C"
+    ],
+    "want": "Multi · C"
+   },
+   {
+    "picked": [
+     "W",
+     "U",
+     "B",
+     "R",
+     "G",
+     "M",
+     "C"
+    ],
+    "want": "WUBRG · Multi · C"
+   }
+  ]
+ },
  "values": [
   {
    "card": "Island",
@@ -1334,11 +1670,11 @@
    }
   },
   {
-   "card": "Rare Sight",
+   "card": "Esper Pact",
    "sort": "gih",
    "want": {
-    "value": "–",
-    "vs": null
+    "value": "57.0%",
+    "vs": "+1.6"
    }
   },
   {
@@ -1366,7 +1702,7 @@
    }
   },
   {
-   "card": "Rare Sight",
+   "card": "Esper Pact",
    "sort": "oh",
    "want": {
     "value": "–",
@@ -1398,7 +1734,7 @@
    }
   },
   {
-   "card": "Rare Sight",
+   "card": "Esper Pact",
    "sort": "iwd",
    "want": {
     "value": "–",
@@ -1430,10 +1766,10 @@
    }
   },
   {
-   "card": "Rare Sight",
+   "card": "Esper Pact",
    "sort": "ata",
    "want": {
-    "value": "2.0",
+    "value": "3.2",
     "vs": null
    }
   }

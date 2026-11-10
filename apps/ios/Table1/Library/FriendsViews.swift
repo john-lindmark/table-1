@@ -499,6 +499,16 @@ struct ProfileScreen: View {
             Section1("Cubes · \(l.count)")
             ForEach(l) { x in open(x.name, detail: plural(x.cards, "card"), kind: "cube", id: x.id, list: shared(d, x)) }
         }
+        if let r = s.rankings, !r.isEmpty {
+            Section1("Rankings · \(r.count)")
+            ForEach(r) { x in
+                Button {
+                    Telemetry.capture("profile_section_opened", ["section": "ranking", "kind": x.subject.kind])
+                    path.append(.ranking(x.id))
+                } label: { ListRow(title: x.subject.name, detail: ProfileRankings.detail(x)) }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     /// "3 mutual" on someone else's profile; who sees it on your own.
@@ -918,6 +928,7 @@ struct SharingView: View {
                     Notice("Everything starts private, and new decks stay private until you share them. Your profile caps the rest.")
                     part(.profile, s)
                     part(.record, s)
+                    part(.rankings, s)
                     Section1("Friends")
                     part(.friends, s)
                     part(.listed, s)
@@ -972,6 +983,7 @@ struct SharingView: View {
         case .record: "your lifetime record"
         case .friends: "your friends list"
         case .listed: "you in your friends' lists"
+        case .rankings: "your shared rankings"
         }
     }
 }

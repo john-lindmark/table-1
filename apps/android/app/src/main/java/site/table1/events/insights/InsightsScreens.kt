@@ -683,8 +683,8 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     val s = InsightsStore
     val retryScope = rememberCoroutineScope()
     var sort by remember { mutableStateOf("gih") }
-    var rarity by remember { mutableStateOf("all") }
-    var color by remember { mutableStateOf("all") }
+    var rarity by remember { mutableStateOf(emptyList<String>()) }
+    var color by remember { mutableStateOf(emptyList<String>()) }
     var query by remember { mutableStateOf("") }
     var all by remember { mutableStateOf(false) }
     // The picker waits for the sets to rank (kept on the device after the first visit) so it draws whole.
@@ -763,10 +763,10 @@ private fun LimitedHome(navigate: (String) -> Unit) {
         add(FilterCell("Sort", sortOpt?.third ?: sort, LimitedCards.sorts.map { Triple(it.first, it.second, it.third) }, sort) {
             sort = it; all = false; Telemetry.capture("insights_sort_changed", mapOf("sort" to it))
         })
-        if (rated) add(FilterCell("Rarity", LimitedCards.rarities.firstOrNull { it.first == rarity }?.second ?: rarity,
-            LimitedCards.rarities.map { Triple(it.first, it.second, null) }, rarity) { rarity = it; all = false })
-        add(FilterCell("Color", LimitedCards.colors.firstOrNull { it.first == color }?.third ?: color,
-            LimitedCards.colors.map { Triple(it.first, it.second, null) }, color) { color = it; all = false })
+        if (rated) add(FilterCell("Rarity", LimitedCards.rarityLabel(rarity), LimitedCards.rarities.map { Triple(it.first, it.second, null) },
+            null, picked = rarity) { rarity = LimitedCards.toggle(rarity, it); all = false })
+        add(FilterCell("Color", LimitedCards.colorLabel(color), LimitedCards.colors.map { Triple(it.first, it.second, null) },
+            null, picked = color) { color = LimitedCards.toggle(color, it); all = false })
     })
     SearchBand(query, "Search cards") { query = it }
     @Composable fun row(c: LCard, i: Int?) {
@@ -802,11 +802,6 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     }
     Notice("GIH WR: win rate with the card in hand · OH: in the opening hand · IWD: improvement when drawn · ATA: average pick taken · under it: points above or below the average")
 
-    val ranked = s.rankable.firstOrNull { it.key == pack.set_code }
-    val kind = ranked?.kind ?: if (pack.cube != null) "cube" else "set"
-    RankAction("Rank this ${if (kind == "cube") "cube" else "set"}",
-        ranked?.takeIf { it.rankings > 0 }?.detail() ?: "Stack-rank its cards by color, then a top 100. Compare with friends.") { rank(pack.set_code, kind, "set") }
-    newSets()
     Section("Color pairs · game win rate")
     val shown = v.pairs.filter { it.share >= 0.01 }.sortedByDescending { it.wr }
     val lo = maxOf(0.4, (shown.minOfOrNull { it.wr } ?: 0.5) - 0.02)
@@ -842,6 +837,12 @@ private fun LimitedHome(navigate: (String) -> Unit) {
     Brief(v.brief, "${pack.name ?: pack.set_code} ${Insights.eventLabels[ev] ?: ev}" + if (grp == "top") ", top players (60%+)" else "", v.games < 20000, "Data from 17Lands" to pack.credit.url)
     Stats("Games" to "%,d".format(v.games), "Average" to InsightCharts.pct1(v.wr), "Weeks" to "${v.weeks}")
     alertsRow()
+    // Rank this set ends the page (John, 2026-11-10: "move rank set all the way to the bottom").
+    val ranked = s.rankable.firstOrNull { it.key == pack.set_code }
+    val kind = ranked?.kind ?: if (pack.cube != null) "cube" else "set"
+    RankAction("Rank this ${if (kind == "cube") "cube" else "set"}",
+        ranked?.takeIf { it.rankings > 0 }?.detail() ?: "Stack-rank its cards by color, then a top 100. Compare with friends.") { rank(pack.set_code, kind, "set") }
+    newSets()
 }
 
 @Composable

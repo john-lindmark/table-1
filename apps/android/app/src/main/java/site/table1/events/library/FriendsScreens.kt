@@ -253,7 +253,7 @@ fun FriendAddScreen(onBack: () -> Unit) {
 
 @Composable
 fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: String, id: String?) -> Unit, onMatch: () -> Unit, onSharing: () -> Unit,
-                      onFriends: () -> Unit = {}) {
+                      onFriends: () -> Unit = {}, onRanking: (String) -> Unit = {}) {
     val scope = rememberCoroutineScope()
     var d by remember { mutableStateOf<ProfileData?>(null) }
     var match by remember { mutableStateOf<TradeMatch?>(null) }
@@ -376,6 +376,17 @@ fun ProfileUserScreen(userId: String, onBack: () -> Unit, onSection: (kind: Stri
             s.cubes?.takeIf { it.isNotEmpty() }?.let { l ->
                 item { Section("Cubes · ${l.size}") }
                 l.forEach { x -> open(x.name, plural(x.cards, "card"), "cube", x.id) }
+            }
+            s.rankings?.takeIf { it.isNotEmpty() }?.let { l ->
+                item { Section("Rankings · ${l.size}") }
+                l.forEach { r ->
+                    item(key = "ranking-${r.id}") {
+                        ListRow(r.subject.name, ProfileRankings.detail(r), onClick = {
+                            Telemetry.capture("profile_section_opened", mapOf("section" to "ranking", "kind" to r.subject.kind))
+                            onRanking(r.id)
+                        })
+                    }
+                }
             }
         }
     }
@@ -715,6 +726,7 @@ fun SharingScreen(onBack: () -> Unit) {
             }
             part(SharePart.Profile)
             part(SharePart.Record)
+            part(SharePart.Rankings)
             item { Section("Friends") }
             part(SharePart.Friends)
             part(SharePart.Listed)

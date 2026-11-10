@@ -23,41 +23,14 @@ extension Insights {
         ("G", "Green", "G"), ("M", "Multicolor", "Multi"), ("C", "Colorless", "C"),
     ]
 
-    /// The cards the filters keep, best first: the sort's value high to low (ATA low to high), cards without one last;
-    /// ties by games in hand, then name. A cube's cards have no rarity, so the rarity filter is ignored there.
-    static func limitedCards(_ cards: [LCard], sort: String, rarity: String, color: String) -> [LCard] {
-        let rated = cards.contains { $0.r != nil }
-        let kept = cards.filter { c in
-            if rated && rarity != "all" && c.r != rarity { return false }
-            let col = c.col.flatMap { $0.isEmpty ? nil : $0 } ?? "C"
-            switch color {
-            case "all": return true
-            case "M": return col.count > 1 && col != "C"
-            default: return col == color
-            }
-        }
-        func key(_ c: LCard) -> Double? {
-            switch sort { case "oh": c.oh; case "iwd": c.iwd; case "ata": c.ata.map { -$0 }; default: c.gih }
-        }
-        return kept.sorted { a, b in
-            switch (key(a), key(b)) {
-            case let (x?, y?) where x != y: return x > y
-            case (_?, nil): return true
-            case (nil, _?): return false
-            default: return a.gih_n != b.gih_n ? a.gih_n > b.gih_n : a.n < b.n
-            }
-        }
+    /// The cards the filters keep, best first (LimitedFilter.cards, shared with the Limited cards widget).
+    static func limitedCards(_ cards: [LCard], sort: String, rarity: [String], color: [String]) -> [LCard] {
+        LimitedFilter.cards(cards, sort: sort, rarity: rarity, color: color)
     }
 
     /// A row's number for the sort, and for the win rates how far it sits from the view's average, in points.
     static func limitedValue(_ c: LCard, sort: String, average: Double) -> (value: String, vs: String?) {
-        switch sort {
-        case "ata": return (c.ata.map { String(format: "%.1f", $0) } ?? "–", nil)
-        case "iwd": return (c.iwd.map { InsightCharts.delta($0) } ?? "–", nil)
-        default:
-            let x = sort == "oh" ? c.oh : c.gih
-            return (InsightCharts.pct1(x), x.map { InsightCharts.delta($0 - average) })
-        }
+        LimitedFilter.value(c, sort: sort, average: average)
     }
 
     /// Lower case, accents and apostrophes gone, everything else but letters and digits a single space.
@@ -183,3 +156,5 @@ enum JoinCode: Equatable {
         return nil
     }
 }
+
+extension Insights.LCard: LimitedSortable {}

@@ -6,8 +6,8 @@ struct LimitedHomeSection: View {
     @Binding var path: [InsightsRoute]
     @Bindable private var store = InsightsStore.shared
     @State private var sort = "gih"
-    @State private var rarity = "all"
-    @State private var color = "all"
+    @State private var rarity: [String] = []
+    @State private var color: [String] = []
     @State private var editing = false
     @State private var query = ""
     @State private var all = false
@@ -91,6 +91,7 @@ struct LimitedHomeSection: View {
                 .task { await store.load(force: true) }
         }
         alertsRow
+        if soon == nil { rankLast(store.limited[current]) }
         Color.clear.frame(height: 24)
     }
 
@@ -116,8 +117,8 @@ struct LimitedHomeSection: View {
         }
     }
 
-    /// Cards first (the best of them, then search and Show all), then Rank this set, the color pairs and the rest, the
-    /// brief last (John's friend, 2026-11-09).
+    /// Cards first (the best of them, then search and Show all), then the color pairs and the rest, the brief, and Rank
+    /// this set at the very bottom (John, 2026-11-10).
     @ViewBuilder
     private func content(_ pack: Insights.LimitedPack, _ setCell: FilterCell) -> some View {
         let events = store.events(of: pack)
@@ -134,14 +135,21 @@ struct LimitedHomeSection: View {
                     CatalogStore.shared.load(userInitiated: true)
                     faces = await LimitedFace.load(set: pack.set_code, cards: v.cards)
                 }
-            rankBlock(pack)
-            newSets
             pairs(pack, ev, grp, v)
             scatter(pack, ev, grp, v)
             facts(v)
             BriefBlock(brief: v.brief, scope: "\(pack.name ?? pack.set_code) \(Insights.eventLabels[ev] ?? ev)\(grp == "top" ? ", top players (60%+)" : "")",
                        thin: v.games < 20000, credit: ("Data from 17Lands", URL(string: pack.credit.url)!))
             Stats3(items: [("Games", v.games.formatted()), ("Average", InsightCharts.pct1(v.wr)), ("Weeks", "\(v.weeks)")])
+        }
+    }
+
+    /// Rank this set (and New sets to rank) end the page, under New in Insights (John, 2026-11-10: "move rank set all
+    /// the way to the bottom").
+    @ViewBuilder private func rankLast(_ pack: Insights.LimitedPack?) -> some View {
+        if let pack {
+            rankBlock(pack)
+            newSets
         }
     }
 
@@ -187,10 +195,12 @@ struct LimitedHomeSection: View {
         FilterRow(cells: [
             FilterCell(name: "Sort", value: sortLabel?.code ?? sort, options: Insights.limitedSorts.map { SelectorOption(value: $0.key, label: $0.label, detail: $0.code) },
                        current: sort) { sort = $0; all = false; Telemetry.capture("insights_sort_changed", ["sort": $0]) },
-        ] + (rated ? [FilterCell(name: "Rarity", value: Insights.limitedRarities.first { $0.key == rarity }?.code ?? rarity,
-                                 options: Insights.limitedRarities.map { SelectorOption(value: $0.key, label: $0.label) }, current: rarity) { rarity = $0; all = false }] : []) + [
-            FilterCell(name: "Color", value: Insights.limitedColors.first { $0.key == color }?.code ?? color,
-                       options: Insights.limitedColors.map { SelectorOption(value: $0.key, label: $0.label) }, current: color) { color = $0; all = false },
+        ] + (rated ? [FilterCell(name: "Rarity", value: LimitedFilter.rarityLabel(rarity),
+                                 options: Insights.limitedRarities.map { SelectorOption(value: $0.key, label: $0.label) }, current: nil,
+                                 picked: rarity) { rarity = LimitedFilter.toggle(rarity, $0); all = false }] : []) + [
+            FilterCell(name: "Color", value: LimitedFilter.colorLabel(color),
+                       options: Insights.limitedColors.map { SelectorOption(value: $0.key, label: $0.label) }, current: nil,
+                       picked: color) { color = LimitedFilter.toggle(color, $0); all = false },
         ])
         T1SearchField(text: $query, prompt: "Search cards")
         let q = Insights.searchNorm(query)

@@ -273,10 +273,10 @@ select public.wants_apply(jsonb_build_array(
 -- Visibility: everything private by default ---------------------------------------------------------
 select pg_temp.eq('owner sees every part of her own profile',
   (select string_agg(k, ',' order by k) from jsonb_object_keys(public.profile_view(:ANA)->'sections') k),
-  'all_cards,binders,cubes,decks,for_trade,friends,record,wants');
+  'all_cards,binders,cubes,decks,for_trade,friends,rankings,record,wants');
 select pg_temp.eq('friend sees the profile (friends default)', public.profile_view(:BEN)->>'visible', 'true');
-select pg_temp.eq('… but only the friends list in it (friends see it by default since 2026-11-09)', (public.profile_view(:BEN)->'sections')::text,
-  '{"cubes": [], "decks": [], "binders": [], "friends": {"mutual": 0}}');
+select pg_temp.eq('… but only the friends list and rankings in it (friends see both by default since 2026-11-09/10)', (public.profile_view(:BEN)->'sections')::text,
+  '{"cubes": [], "decks": [], "binders": [], "friends": {"mutual": 0}, "rankings": []}');
 select pg_temp.eq('stranger: profile not visible', public.profile_view(:CAL)->>'visible', 'false');
 select pg_temp.eq('… only name and avatar', public.profile_view(:CAL)->>'display_name', 'Cal Reyes');
 select pg_temp.throws('private for-trade list refused', $$select public.profile_cards('00000000-0000-0000-0000-0000000000b1', 'for_trade')$$, '42501');
@@ -292,7 +292,7 @@ select pg_temp.as_user(:BEN);
 -- `links` (share links, 89_share_links_test.sql) start empty.
 select pg_temp.eq('no links yet', (public.sharing_get()->'links')::text, '[]');
 select pg_temp.eq('defaults', (public.sharing_get() - 'items' - 'links')::text,
-  '{"cubes": null, "decks": null, "wants": null, "listed": "friends", "record": "private", "binders": null, "friends": "friends", "library": "private", "profile": "friends", "all_cards": null, "for_trade": null}');
+  '{"cubes": null, "decks": null, "wants": null, "listed": "friends", "record": "private", "binders": null, "friends": "friends", "library": "private", "profile": "friends", "rankings": "friends", "all_cards": null, "for_trade": null}');
 select pg_temp.eq('items list binders and decks', jsonb_array_length(public.sharing_get()->'items')::text, '3');
 select pg_temp.throws('bad value refused', $$select public.sharing_set('{"wants": "everyone"}')$$, '22023');
 select pg_temp.throws('unknown key refused', $$select public.sharing_set('{"trades": "public"}')$$, '22023');
@@ -319,7 +319,7 @@ set role authenticated;
 select pg_temp.as_user(:ANA);
 select pg_temp.eq('friend sees for trade + wants + the public binder + the friends list',
   (select string_agg(k, ',' order by k) from jsonb_object_keys(public.profile_view(:BEN)->'sections') k),
-  'binders,cubes,decks,for_trade,friends,wants');
+  'binders,cubes,decks,for_trade,friends,rankings,wants');
 select pg_temp.eq('friend sees one binder', jsonb_array_length(public.profile_view(:BEN)->'sections'->'binders')::text, '1');
 select pg_temp.eq('for-trade copies counted', pg_temp.j(public.profile_view(:BEN), '{sections,for_trade,cards}'), '7');
 select pg_temp.eq('friend reads for trade', jsonb_array_length(public.profile_cards(:BEN, 'for_trade')->'rows')::text, '4');

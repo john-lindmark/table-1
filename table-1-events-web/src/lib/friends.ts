@@ -10,6 +10,7 @@ import { isLibraryDemo } from "./libraryDemo";
 import { loadTrades, saveTrade, type Trade, type TradeLine } from "./trades";
 import type { Condition, Finish } from "./collection";
 import type { Board, Entry, ListKind } from "./lists";
+import { rankingLabel } from "./rankings";
 
 export type Visibility = "private" | "friends" | "public";
 export const VISIBILITIES: Visibility[] = ["private", "friends", "public"];
@@ -57,11 +58,11 @@ export function parseFriendsList(w: FriendsListWire): FriendsList {
 /* ── sharing ─────────────────────────────────────────────────────────── */
 
 export type SharePart = "profile" | "library" | "all_cards" | "for_trade" | "wants" | "binders" | "decks" | "cubes" | "record"
-  | "friends" | "listed";
+  | "friends" | "listed" | "rankings";
 export const LIBRARY_PARTS: SharePart[] = ["all_cards", "for_trade", "wants", "binders", "decks", "cubes"];
 export const PART_LABEL: Record<SharePart, string> = {
   profile: "Profile", library: "Library", all_cards: "All cards", for_trade: "For trade", wants: "Wants", binders: "Binders",
-  decks: "Decks", cubes: "Cubes", record: "Record", friends: "Friends", listed: "You in friends' lists",
+  decks: "Decks", cubes: "Cubes", record: "Record", friends: "Friends", listed: "You in friends' lists", rankings: "Rankings",
 };
 export const PART_DETAIL: Record<SharePart, string> = {
   profile: "Who can open your profile at all",
@@ -75,11 +76,12 @@ export const PART_DETAIL: Record<SharePart, string> = {
   record: "Lifetime wins, losses and draws",
   friends: "Your list, on your profile",
   listed: "You, on friends' profiles",
+  rankings: "Your cube and set rankings, except Only me",
 };
 /** Library parts can be "Same as Library". */
 export const inherits = (p: SharePart) => LIBRARY_PARTS.includes(p);
 /** Friends on profiles (§ Friends on profiles): missing from an older server, read as the server's defaults. */
-const PART_DEFAULT: Partial<Record<SharePart, Visibility>> = { friends: "private", listed: "friends" };
+const PART_DEFAULT: Partial<Record<SharePart, Visibility>> = { friends: "private", listed: "friends", rankings: "private" };
 
 export interface ShareItem { kind: "binder" | "deck" | "cube"; id: string; name: string; for_trade?: boolean; visibility: Visibility | null }
 
@@ -96,6 +98,8 @@ export interface Sharing {
   /** Who sees your friends list on your profile; who sees you in your friends' lists. */
   friends?: Visibility;
   listed?: Visibility;
+  /** Who sees your Rankings section (contract § Rankings on profiles); missing from an older server, which has none. */
+  rankings?: Visibility;
   items: ShareItem[];
   /** Live share links (contract/share-links-2026-10-23.md); missing from a server without them. */
   links?: PartLink[];
@@ -156,7 +160,7 @@ export const sharedByline = (d: SharedLinkData) => (d.mine ? "Your link · anyon
 
 export const DEFAULT_SHARING: Sharing = {
   profile: "friends", library: "private", all_cards: null, for_trade: null, wants: null, binders: null, decks: null, cubes: null,
-  record: "private", friends: "private", listed: "friends", items: [],
+  record: "private", friends: "private", listed: "friends", rankings: "private", items: [],
 };
 
 export const groupOf = (kind: ShareItem["kind"]): SharePart => (kind === "binder" ? "binders" : kind === "cube" ? "cubes" : "decks");
@@ -178,7 +182,7 @@ export const sees = (level: number, profile: Visibility, part: Visibility) =>
   level >= 3 || (level >= 0 && level >= asks(profile) && level >= asks(part));
 
 export function sharedCount(s: Sharing): number {
-  const parts = [...LIBRARY_PARTS, "record" as SharePart, "friends" as SharePart].filter((p) => reach(s, effective(s, p)) !== "private").length;
+  const parts = [...LIBRARY_PARTS, "record" as SharePart, "friends" as SharePart, "rankings" as SharePart].filter((p) => reach(s, effective(s, p)) !== "private").length;
   return parts + s.items.filter((i) => i.visibility != null && reach(s, effectiveItem(s, i)) !== "private").length;
 }
 
@@ -200,7 +204,7 @@ export const withItem = (s: Sharing, item: ShareItem, v: Visibility | null): Sha
 export interface Widening { friends: string[]; anyone: string[]; all_cards_to_anyone: boolean; profile_to_anyone: boolean }
 
 const SHOWN_PARTS: [SharePart, string][] = [["profile", "your profile"], ["record", "your record"], ["friends", "your friends"],
-  ["all_cards", "All cards"], ["for_trade", "For trade"], ["wants", "Wants"]];
+  ["rankings", "your rankings"], ["all_cards", "All cards"], ["for_trade", "For trade"], ["wants", "Wants"]];
 /** Widening also names you in your friends' lists (the Sharing summary lines don't: it shows on their profiles). */
 const WIDENING_PARTS: [SharePart, string][] = [...SHOWN_PARTS.slice(0, 3), ["listed", "you in your friends' lists"], ...SHOWN_PARTS.slice(3)];
 
@@ -278,6 +282,10 @@ export function viewAs(d: ProfileData, s: Sharing, level: number): ProfileData {
       ...(src.record && ok(s.record) ? { record: src.record } : {}),
       // How many a viewer would see depends on each friend's own setting, which isn't yours to know.
       ...(ok(effective(s, "friends")) ? { friends: {} } : {}),
+      // Shared rankings only; a ranking of one of your cubes only while that cube reaches them.
+      ...(src.rankings && ok(effective(s, "rankings"))
+        ? { rankings: src.rankings.filter((r) => r.sharing !== "private" && (r.subject.kind !== "list" || itemOk(r.subject.id, "cubes"))) }
+        : {}),
     },
   };
 }
@@ -303,7 +311,16 @@ export interface ProfileData {
     record?: { match_wins: number; match_losses: number; match_draws: number; events_played: number };
     /** The friends list reaches you; mutual: how many shown are your friends too (missing in View as). */
     friends?: { mutual?: number };
+    /** Rankings the viewer may open, newest first (contract § Rankings on profiles). */
+    rankings?: ProfileRanking[];
   };
+}
+
+/** A ranking on a profile: as Rankings lists it, plus what it ranks (a cube by list id, or a set as `set:<KEY>`). */
+export interface ProfileRanking {
+  id: string; name: string; sharing: "cube" | "private"; mine: boolean; top: number; ranked: number;
+  sorted?: number; categories?: number; updated_at?: string;
+  subject: { id: string; kind: "list" | "set" | "cube"; name: string; set?: string | null };
 }
 
 /** The collection's value, shown on your own profile only. */
@@ -311,7 +328,11 @@ export const profileValue = (p: ProfileData): number | null => (p.relation === "
 
 export const sectionCount = (p: ProfileData) =>
   [p.sections.all_cards, p.sections.for_trade, p.sections.wants, p.sections.record, p.sections.friends].filter(Boolean).length
-  + (p.sections.binders?.length ?? 0) + (p.sections.decks?.length ?? 0) + (p.sections.cubes?.length ?? 0);
+  + (p.sections.binders?.length ?? 0) + (p.sections.decks?.length ?? 0) + (p.sections.cubes?.length ?? 0) + (p.sections.rankings?.length ?? 0);
+
+/** A ranking's row on a profile, under its subject's name: the label, how far it is, and Only me on your own. */
+export const profileRankingDetail = (r: Pick<ProfileRanking, "name" | "sharing" | "mine" | "top" | "ranked">) =>
+  [rankingLabel(r.name), `${r.ranked}/${r.top} ranked`, r.mine && r.sharing === "private" ? "Only me" : null].filter(Boolean).join(" · ");
 
 export type SectionKind = "all_cards" | "for_trade" | "wants" | "binder" | "deck" | "cube";
 

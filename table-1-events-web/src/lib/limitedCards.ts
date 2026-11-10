@@ -14,28 +14,64 @@ export const LIMITED_SORTS = [
   { value: "gih", label: "Win rate in hand", code: "GIH WR" }, { value: "oh", label: "Win rate in opening hand", code: "OH WR" },
   { value: "iwd", label: "Improvement when drawn", code: "IWD" }, { value: "ata", label: "Average pick taken", code: "ATA" },
 ] as const;
+/** The Rarity and Color pickers' options; "all" (Any) clears the picks, the rest are picked several at a time. */
+export const ANY = "all";
 export const LIMITED_RARITIES = [
-  { value: "all", label: "Any rarity" }, { value: "common", label: "Common" }, { value: "uncommon", label: "Uncommon" },
+  { value: ANY, label: "Any rarity" }, { value: "common", label: "Common" }, { value: "uncommon", label: "Uncommon" },
   { value: "rare", label: "Rare" }, { value: "mythic", label: "Mythic" },
 ];
 export const LIMITED_COLORS = [
-  { value: "all", label: "Any color", code: "Any color" }, { value: "W", label: "White", code: "W" }, { value: "U", label: "Blue", code: "U" },
+  { value: ANY, label: "Any color", code: "Any color" }, { value: "W", label: "White", code: "W" }, { value: "U", label: "Blue", code: "U" },
   { value: "B", label: "Black", code: "B" }, { value: "R", label: "Red", code: "R" }, { value: "G", label: "Green", code: "G" },
   { value: "M", label: "Multicolor", code: "Multi" }, { value: "C", label: "Colorless", code: "C" },
 ];
+const RARITY_ORDER = ["common", "uncommon", "rare", "mythic"];
+const COLOR_ORDER = "WUBRGMC";
+
+/** A multi-pick after a tap: Any clears, another option goes in or out. */
+export function togglePick(picked: readonly string[], v: string): string[] {
+  if (v === ANY) return [];
+  return picked.includes(v) ? picked.filter((x) => x !== v) : [...picked, v];
+}
+
+/** The Rarity cell: Any rarity, the one picked, or the picks' first letters in rarity order (C · U). */
+export function rarityLabel(rarity: readonly string[]): string {
+  const picked = RARITY_ORDER.filter((r) => rarity.includes(r));
+  if (!picked.length) return "Any rarity";
+  const word = (r: string) => r[0].toUpperCase() + r.slice(1);
+  return picked.length === 1 ? word(picked[0]) : picked.map((r) => r[0].toUpperCase()).join(" · ");
+}
+
+/** The Color cell: Any color, Multi or Colorless alone, else the colors in WUBRG order then Multi and C (WU · Multi). */
+export function colorLabel(color: readonly string[]): string {
+  const picked = [...COLOR_ORDER].filter((k) => color.includes(k));
+  if (!picked.length) return "Any color";
+  const letters = picked.filter((k) => "WUBRG".includes(k)).join("");
+  const rest = picked.filter((k) => k === "M" || k === "C").map((k) => (k === "M" ? "Multi" : "C"));
+  if (!letters && rest.length === 1) return rest[0] === "Multi" ? "Multi" : "Colorless";
+  return [...(letters ? [letters] : []), ...rest].join(" · ");
+}
+
+/** Color picks keep a colorless card when C is picked, a one-color card when its color is, and a multicolor card when
+ *  Multi is picked or every one of its colors is (W + U keeps white, blue and Azorius gold cards). */
+export function colorKeeps(col: string | null | undefined, color: readonly string[]): boolean {
+  if (!color.length) return true;
+  const c = col || "C";
+  if (c === "C") return color.includes("C");
+  if (c.length === 1) return color.includes(c);
+  return color.includes("M") || [...c].every((ch) => color.includes(ch));
+}
 
 type Sortable = Pick<LCard, "n" | "r" | "col" | "gih" | "gih_n" | "oh" | "iwd" | "ata">;
 
 /** The cards the filters keep, best first: the sort's value high to low (ATA low to high), cards without one last;
- *  ties by games in hand, then name. A cube's cards have no rarity, so the rarity filter is ignored there. */
-export function limitedCards<T extends Sortable>(cards: T[], sort: string, rarity: string, color: string): T[] {
+ *  ties by games in hand, then name. Rarity and color are picks of several, empty = any. A cube's cards have no rarity,
+ *  so the rarity filter is ignored there. */
+export function limitedCards<T extends Sortable>(cards: T[], sort: string, rarity: readonly string[], color: readonly string[]): T[] {
   const rated = cards.some((c) => c.r);
   const kept = cards.filter((c) => {
-    if (rated && rarity !== "all" && c.r !== rarity) return false;
-    const col = c.col || "C";
-    if (color === "all") return true;
-    if (color === "M") return col.length > 1 && col !== "C";
-    return col === color;
+    if (rated && rarity.length && !rarity.includes(c.r ?? "")) return false;
+    return colorKeeps(c.col, color);
   });
   const key = (c: T) => (sort === "oh" ? c.oh : sort === "iwd" ? c.iwd : sort === "ata" ? (c.ata == null ? null : -c.ata) : c.gih);
   return [...kept].sort((a, b) => {

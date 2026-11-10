@@ -25,6 +25,7 @@ private struct SharingCases: Decodable {
         let binders: [String], decks: [String], cubes: [String]
         let record: Bool
         let friends: Bool
+        let rankings: [String]
     }
     struct V: Decodable { let name: String; let settings: SharingSettings; let level: Int; let want: Want }
     let widening: [W]
@@ -39,6 +40,11 @@ private struct SharingCases: Decodable {
         let rows: [R]
     }
     let profileFriends: PF
+    struct PR: Decodable {
+        struct R: Decodable { let name: String; let sharing: String; let mine: Bool; let top: Int; let ranked: Int; let want: String }
+        let rows: [R]
+    }
+    let profileRankings: PR
 }
 
 private struct Cases: Decodable {
@@ -219,7 +225,8 @@ final class FriendsTests: XCTestCase {
                                         forTrade: v.sections.forTrade?.cards, wants: v.sections.wants?.cards,
                                         binders: (v.sections.binders ?? []).map(\.name), decks: (v.sections.decks ?? []).map(\.name),
                                         cubes: (v.sections.cubes ?? []).map(\.name), record: v.sections.record != nil,
-                                        friends: v.sections.friends != nil)
+                                        friends: v.sections.friends != nil,
+                                        rankings: (v.sections.rankings ?? []).map(\.subject.name))
             XCTAssertEqual(got, c.want, c.name)
             XCTAssertEqual(v.relation, c.level >= 1 ? .friend : Relation.none, c.name)
         }
@@ -234,6 +241,19 @@ final class FriendsTests: XCTestCase {
             let p = Person(userId: "u", displayName: "N", handle: r.handle, relation: r.relation, mutual: r.mutual)
             XCTAssertEqual(ProfileFriends.rowDetail(p), r.want)
         }
+    }
+
+    /// § Rankings on profiles: a ranking row's words, and the part's defaults.
+    func testProfileRankingsSharedCases() throws {
+        for r in try sharingCases().profileRankings.rows {
+            XCTAssertEqual(ProfileRankings.detail(name: r.name, sharing: r.sharing, mine: r.mine, top: r.top, ranked: r.ranked), r.want, r.name)
+        }
+        let old = try decode(SharingSettings.self, #"{"profile": "friends", "library": "private", "record": "private", "items": []}"#)
+        XCTAssertEqual(old.own(.rankings), .private)
+        XCTAssertFalse(SharePart.rankings.inherits)
+        let d = try decode(ProfileData.self, #"{"user_id": "u", "display_name": "Ana", "relation": "friend", "visible": true, "sections": {"rankings": [{"id": "r", "name": "My ranking", "sharing": "cube", "mine": false, "top": 50, "ranked": 3, "screens": 4, "subject": {"id": "set:FRA", "kind": "set", "name": "Foundations Remastered", "set": "FRA"}}]}}"#)
+        XCTAssertEqual(d.sections.rankings?.first?.subject.name, "Foundations Remastered")
+        XCTAssertEqual(d.sectionCount, 1)
     }
 
     func testFriendsSettingsDefaults() throws {

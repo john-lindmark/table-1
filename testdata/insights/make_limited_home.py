@@ -22,15 +22,47 @@ def load(name):
 
 # ---------------------------------------------------------------- cards: filter and sort
 
+COLOR_ORDER = "WUBRGMC"
+RARITY_ORDER = ["common", "uncommon", "rare", "mythic"]
+RARITY_WORD = {"common": "Common", "uncommon": "Uncommon", "rare": "Rare", "mythic": "Mythic"}
+
+
 def matches(c, rarity, color, rated):
-    if rated and rarity != "all" and c.get("r") != rarity:
+    """Rarity and Color are both picks of several (empty = any). Rarity keeps a card of any picked rarity. Color keeps
+    a colorless card when C is picked, a one-color card when its color is, and a multicolor card when Multi (M) is
+    picked or every one of its colors is (W + U keeps white, blue and Azorius gold cards)."""
+    if rated and rarity and c.get("r") not in rarity:
         return False
-    col = c.get("col") or "C"
-    if color == "all":
+    if not color:
         return True
-    if color == "M":
-        return len(col) > 1 and col != "C"
-    return col == color
+    col = c.get("col") or "C"
+    if col == "C":
+        return "C" in color
+    if len(col) == 1:
+        return col in color
+    return "M" in color or all(ch in color for ch in col)
+
+
+def rarity_label(rarity):
+    """The Rarity cell: Any rarity, the one picked, or the picks' first letters in rarity order (C · U)."""
+    picked = [r for r in RARITY_ORDER if r in rarity]
+    if not picked:
+        return "Any rarity"
+    if len(picked) == 1:
+        return RARITY_WORD[picked[0]]
+    return " · ".join(RARITY_WORD[r][0] for r in picked)
+
+
+def color_label(color):
+    """The Color cell: Any color, Multi or Colorless alone, else the colors in WUBRG order then Multi and C (WU · Multi)."""
+    picked = [k for k in COLOR_ORDER if k in color]
+    if not picked:
+        return "Any color"
+    letters = "".join(k for k in picked if k in "WUBRG")
+    rest = ["Multi" if k == "M" else "C" for k in picked if k in "MC"]
+    if not letters and len(rest) == 1:
+        return "Multi" if rest[0] == "Multi" else "Colorless"
+    return " · ".join(([letters] if letters else []) + rest)
 
 
 def key(c, sort):
@@ -150,12 +182,22 @@ def main():
     cards.append({"n": "Tied Twin", "r": "common", "col": "W", "gih": cards[3]["gih"], "gih_n": cards[3]["gih_n"], "oh": None, "iwd": None, "ata": None})
     cards.append({"n": "Rare Sight", "r": "rare", "col": "G", "gih": None, "gih_n": 120, "oh": None, "iwd": None, "ata": 2.0})
     avg = v["wr"]
-    sorts = [("gih", "all", "all"), ("oh", "all", "all"), ("iwd", "all", "all"), ("ata", "all", "all"),
-             ("gih", "common", "all"), ("gih", "all", "W"), ("gih", "all", "M"), ("gih", "all", "C"), ("gih", "rare", "G")]
+    sorts = [("gih", [], []), ("oh", [], []), ("iwd", [], []), ("ata", [], []),
+             ("gih", ["common"], []), ("gih", [], ["W"]), ("gih", [], ["M"]), ("gih", [], ["C"]), ("gih", ["rare"], ["G"]),
+             ("gih", ["common", "uncommon"], []), ("gih", [], ["W", "U"]), ("gih", [], ["U", "B", "C"]), ("gih", [], ["R", "M"]),
+             ("gih", ["rare", "mythic"], ["W", "U", "B", "R", "G"])]
+    # gold cards to pin "every one of its colors"
+    cards.append({"n": "Azorius Pact", "r": "uncommon", "col": "WU", "gih": 0.58, "gih_n": 900, "oh": None, "iwd": None, "ata": 4.1})
+    cards.append({"n": "Esper Pact", "r": "rare", "col": "WUB", "gih": 0.57, "gih_n": 400, "oh": None, "iwd": None, "ata": 3.2})
     rated_less = [{**c, "r": None} for c in cards[:12]]
-    case_cards = [{"name": f"{s} · {r} · {col}", "sort": s, "rarity": r, "color": col, "want": limited_cards(cards, s, r, col)} for s, r, col in sorts]
-    case_cards.append({"name": "a cube: no rarity, so no rarity filter", "unrated": True, "sort": "gih", "rarity": "common", "color": "all",
-                       "want": limited_cards(rated_less, "gih", "common", "all")})
+    case_cards = [{"name": f"{s} · {'+'.join(r) or 'any'} · {'+'.join(col) or 'any'}", "sort": s, "rarity": r, "color": col,
+                   "want": limited_cards(cards, s, r, col)} for s, r, col in sorts]
+    case_cards.append({"name": "a cube: no rarity, so no rarity filter", "unrated": True, "sort": "gih", "rarity": ["common"], "color": [],
+                       "want": limited_cards(rated_less, "gih", ["common"], [])})
+    picks = [[], ["common"], ["uncommon", "common"], ["mythic", "rare", "uncommon", "common"]]
+    case_rarity = [{"picked": r, "want": rarity_label(r)} for r in picks]
+    cpicks = [[], ["W"], ["M"], ["C"], ["U", "W"], ["G", "M"], ["B", "C"], ["M", "C"], ["W", "U", "B", "R", "G", "M", "C"]]
+    case_color = [{"picked": c, "want": color_label(c)} for c in cpicks]
     values = []
     for s in ("gih", "oh", "iwd", "ata"):
         for c in cards[:3] + cards[-1:]:
@@ -167,12 +209,13 @@ def main():
     case_search = [{"query": q, "want": search(q, here, other_sets)} for q in queries]
     out = {
         "about": "The Limited page's cards (contract/insights-2026-10-24.md § The Limited page). `cards` are a pack view's cards; "
-                 "each `filters` case is limitedCards(cards, sort, rarity, color) → names in order (`unrated`: the cards with "
-                 "rarity removed, as in an Arena cube). `values` are the row's number and how far it sits from `avg` (the view's "
+                 "each `filters` case is limitedCards(cards, sort, rarity, color) → names in order, rarity and color "
+                 "each a list of picks, empty = any (`unrated`: the cards with rarity removed, as in an Arena cube). `labels` are the "
+                 "Rarity and Color cells' words for a pick. `values` are the row's number and how far it sits from `avg` (the view's "
                  "average game win rate). `search` cases are limitedSearch(query, cards, others).",
         "top": TOP, "others_max": OTHERS_MAX, "min_query": MIN_QUERY, "avg": avg,
         "cards": cards, "others": other_sets,
-        "filters": case_cards, "values": values, "search": case_search,
+        "filters": case_cards, "labels": {"rarity": case_rarity, "color": case_color}, "values": values, "search": case_search,
     }
     with open(os.path.join(HERE, "limited-home.json"), "w") as f:
         json.dump(out, f, indent=1, ensure_ascii=False)

@@ -2,7 +2,7 @@
 import SwiftUI
 import WidgetKit
 
-/// Design QA for the widgets batch without a home screen: `-T1WidgetsDemo [organizer|next|value|meta|grid|archetype|icon|tinted]`
+/// Design QA for the widgets batch without a home screen: `-T1WidgetsDemo [organizer|next|value|meta|grid|archetype|limited|icon|tinted]`
 /// draws every family on sample data at its real size (iPhone 17 points); the Insights widgets on the live Modern pack
 /// of 2026-11-02 (DebugResources/insights-demo-widget-modern.json). Debug only.
 struct WidgetsDemoRoot: View {
@@ -21,6 +21,7 @@ struct WidgetsDemoRoot: View {
                 if only == nil || only == "meta" { meta }
                 if only == nil || only == "grid" { grid }
                 if only == nil || only == "archetype" { archetype }
+                if only == nil || only == "limited" { limited }
                 if only == nil || only == "icon" { IconDemo() }
                 if only == "tinted" { tintedAll }
             }
@@ -118,6 +119,28 @@ struct WidgetsDemoRoot: View {
         tile(.systemMedium) { ArchetypeWidgetView(family: .systemMedium, pack: Self.pack, picks: picks) }
         tile(.systemLarge) { ArchetypeWidgetView(family: .systemLarge, pack: Self.pack, picks: MetaPicks(tier: "all", days: 30, archetype: 17)) }
         tinted(.systemMedium) { ArchetypeWidgetView(family: .systemMedium, pack: Self.pack, picks: picks, tintedPreview: true) }
+    }
+
+    private static let limitedPack: LimitedWidgetPack? = Bundle.main.url(forResource: "insights-demo-limited-FRA", withExtension: "json")
+        .flatMap { try? Data(contentsOf: $0) }.flatMap(LimitedPackStore.decode)
+
+    @ViewBuilder private var limited: some View {
+        let picks = LimitedPicks(set: "FRA")
+        caption("Limited cards · small, medium, large; commons and uncommons in W + U; no match; no set")
+        HStack(spacing: 16) {
+            tile(.systemSmall) { LimitedCardsWidgetView(family: .systemSmall, pack: Self.limitedPack, picks: picks) }
+            tile(.systemSmall) { LimitedCardsWidgetView(family: .systemSmall, pack: nil, picks: LimitedPicks()) }
+        }
+        tile(.systemMedium) { LimitedCardsWidgetView(family: .systemMedium, pack: Self.limitedPack, picks: picks) }
+        tile(.systemMedium) {
+            LimitedCardsWidgetView(family: .systemMedium, pack: Self.limitedPack,
+                                   picks: LimitedPicks(set: "FRA", sort: "iwd", rarity: ["common", "uncommon"], color: ["W", "U"]))
+        }
+        tile(.systemMedium) {
+            LimitedCardsWidgetView(family: .systemMedium, pack: Self.limitedPack, picks: LimitedPicks(set: "FRA", rarity: ["mythic"], color: ["C"]))
+        }
+        tile(.systemLarge) { LimitedCardsWidgetView(family: .systemLarge, pack: Self.limitedPack, picks: LimitedPicks(set: "FRA", sort: "ata", color: ["R", "M"])) }
+        tinted(.systemMedium) { LimitedCardsWidgetView(family: .systemMedium, pack: Self.limitedPack, picks: picks, tintedPreview: true) }
     }
 
     /// Every Insights widget on a tinted Home Screen, a square and a row tapped.

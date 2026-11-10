@@ -18,14 +18,16 @@ final class LimitedHomeTests: XCTestCase {
     }
 
     func testLimitedCardsSharedCases() throws {
-        struct Filter: Decodable { let name: String; let sort: String; let rarity: String; let color: String; var unrated: Bool?; let want: [String] }
+        struct Filter: Decodable { let name: String; let sort: String; let rarity: [String]; let color: [String]; var unrated: Bool?; let want: [String] }
+        struct Label: Decodable { let picked: [String]; let want: String }
+        struct Labels: Decodable { let rarity: [Label]; let color: [Label] }
         struct Value: Decodable { let card: String; let sort: String; let want: Want; struct Want: Decodable { let value: String; let vs: String? } }
         struct Hit: Decodable { let here: [String]; let elsewhere: [[String]] }
         struct Search: Decodable { let query: String; let want: Hit }
         struct Other: Decodable { let key: String; let cards: [Name]; struct Name: Decodable { let n: String } }
         struct File: Decodable {
             let top: Int; let others_max: Int; let min_query: Int; let avg: Double
-            let cards: [Card]; let others: [Other]; let filters: [Filter]; let values: [Value]; let search: [Search]
+            let cards: [Card]; let others: [Other]; let filters: [Filter]; let labels: Labels; let values: [Value]; let search: [Search]
         }
         let f = try JSONDecoder().decode(File.self, from: json("testdata/insights/limited-home.json"))
         XCTAssertEqual(Insights.limitedTop, f.top)
@@ -35,6 +37,10 @@ final class LimitedHomeTests: XCTestCase {
             let cards = c.unrated == true ? f.cards.prefix(12).map { $0.lcard(rated: false) } : f.cards.map { $0.lcard() }
             XCTAssertEqual(Insights.limitedCards(cards, sort: c.sort, rarity: c.rarity, color: c.color).map(\.n), c.want, c.name)
         }
+        for l in f.labels.rarity { XCTAssertEqual(LimitedFilter.rarityLabel(l.picked), l.want, l.picked.joined(separator: "+")) }
+        for l in f.labels.color { XCTAssertEqual(LimitedFilter.colorLabel(l.picked), l.want, l.picked.joined(separator: "+")) }
+        XCTAssertEqual(LimitedFilter.toggle(["W", "U"], "W"), ["U"])
+        XCTAssertEqual(LimitedFilter.toggle(["W"], LimitedFilter.any), [])
         let byName = Dictionary(f.cards.map { ($0.n, $0.lcard()) }, uniquingKeysWith: { a, _ in a })
         for v in f.values {
             let got = Insights.limitedValue(byName[v.card]!, sort: v.sort, average: f.avg)
@@ -88,5 +94,27 @@ final class LimitedHomeTests: XCTestCase {
             XCTAssertEqual(got?.code, c.want?.code, c.text)
             XCTAssertEqual(got?.secret, c.want?.secret, c.text)
         }
+    }
+}
+
+/// The Limited cards widget (contract/widgets-2026-10-22.md § Limited cards widget): the app's Top cards order, its
+/// caption, and the tap that opens the set in Insights.
+final class LimitedWidgetTests: XCTestCase {
+    func testWidgetRowsAreTheAppsTopCards() throws {
+        let url = Bundle.main.url(forResource: "insights-demo-limited-FRA", withExtension: "json")!
+        let data = try Data(contentsOf: url)
+        let pack = try XCTUnwrap(LimitedPackStore.decode(data))
+        let app = try JSONDecoder().decode(Insights.LimitedPack.self, from: data)
+        let v = try XCTUnwrap(app.events["PremierDraft"]?.groups["all"])
+        for (sort, rarity, color) in [("gih", [String](), [String]()), ("ata", ["common", "uncommon"], ["W", "U"]), ("iwd", [], ["M"])] {
+            let rows = LimitedWidgets.rows(pack, sort: sort, rarity: rarity, color: color, n: 12)
+            let want = Insights.limitedCards(v.cards, sort: sort, rarity: rarity, color: color).prefix(12)
+            XCTAssertEqual(rows.map(\.name), want.map(\.n), sort)
+            XCTAssertEqual(rows.map(\.value), want.map { Insights.limitedValue($0, sort: sort, average: v.wr).value }, sort)
+        }
+        XCTAssertEqual(LimitedWidgets.caption(sort: "gih", rarity: [], color: []), "GIH WR")
+        XCTAssertEqual(LimitedWidgets.caption(sort: "ata", rarity: ["common", "uncommon"], color: ["U", "W"]), "ATA · C · U · WU")
+        let link = LimitedWidgets.link("FRA", src: "widget_limited")
+        XCTAssertEqual(PushRoutes.insightsWidget(link), InsightsPush(section: "limited", key: "FRA", what: "data"))
     }
 }

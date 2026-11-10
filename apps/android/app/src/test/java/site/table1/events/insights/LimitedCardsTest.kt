@@ -39,9 +39,21 @@ class LimitedCardsTest {
         for (c in f["filters"]!!.jsonArray.map { it.jsonObject }) {
             val unrated = c["unrated"]?.jsonPrimitive?.booleanOrNull == true
             val input = if (unrated) raw.take(12).map { card(it, rated = false) } else cards
-            val got = LimitedCards.cards(input, str(c, "sort")!!, str(c, "rarity")!!, str(c, "color")!!).map { it.n }
+            fun picks(k: String) = c[k]!!.jsonArray.map { it.jsonPrimitive.content }
+            val got = LimitedCards.cards(input, str(c, "sort")!!, picks("rarity"), picks("color")).map { it.n }
             assertEquals(str(c, "name"), c["want"]!!.jsonArray.map { it.jsonPrimitive.content }, got)
         }
+        val labels = f["labels"]!!.jsonObject
+        for (l in labels["rarity"]!!.jsonArray.map { it.jsonObject }) {
+            val picked = l["picked"]!!.jsonArray.map { it.jsonPrimitive.content }
+            assertEquals(picked.toString(), str(l, "want"), LimitedCards.rarityLabel(picked))
+        }
+        for (l in labels["color"]!!.jsonArray.map { it.jsonObject }) {
+            val picked = l["picked"]!!.jsonArray.map { it.jsonPrimitive.content }
+            assertEquals(picked.toString(), str(l, "want"), LimitedCards.colorLabel(picked))
+        }
+        assertEquals(listOf("U"), LimitedCards.toggle(listOf("W", "U"), "W"))
+        assertEquals(emptyList<String>(), LimitedCards.toggle(listOf("W"), LimitedCards.ANY))
         for (v in f["values"]!!.jsonArray.map { it.jsonObject }) {
             val want = v["want"]!!.jsonObject
             val got = LimitedCards.value(cards.first { it.n == str(v, "card") }, str(v, "sort")!!, avg)

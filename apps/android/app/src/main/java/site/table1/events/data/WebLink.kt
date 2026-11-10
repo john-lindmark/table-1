@@ -20,7 +20,8 @@ sealed interface WebLink {
     data class Screens(val tab: String, val stack: List<String>) : WebLink
     data class Tracker(val matchId: String?) : WebLink
     /** An Insights widget's tap: the format on the widget's events and window, then the grid or an archetype's page. */
-    data class Insights(val format: String, val tier: String?, val days: Int?, val stack: List<String>) : WebLink
+    /** [set]: the Limited cards widget's set (table1://insights/limited/<SET>); [format] is then "limited". */
+    data class Insights(val format: String, val tier: String?, val days: Int?, val stack: List<String>, val set: String? = null) : WebLink
     /** table-1.site, but no screen in the app (privacy policy, account deletion, a web sign-in's return): the browser. */
     data object Web : WebLink
 
@@ -63,6 +64,8 @@ sealed interface WebLink {
                 "scan" -> Screens("collection", listOf("collection/add/scan"))
                 // Insights widgets: table1://insights/<format>[/matchups | /archetype/<id>]?tier=big&days=30
                 "insights" -> p.firstOrNull()?.let { f ->
+                    // The Limited cards widget: table1://insights/limited/<SET>.
+                    if (f == "limited") return@let p.getOrNull(1)?.takeIf { it.isNotEmpty() }?.let { Insights("limited", null, null, emptyList(), it.uppercase()) }
                     val q = (u.rawQuery ?: "").split("&").associate { it.substringBefore("=") to it.substringAfter("=", "") }
                     val stack = when {
                         p.getOrNull(1) == "matchups" -> listOf("insights/matchups/$f")
