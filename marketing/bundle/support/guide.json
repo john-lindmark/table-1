@@ -886,65 +886,72 @@
    "s": "widgets",
    "h": "Limited cards",
    "t": "What it shows",
-   "x": "a Limited set's best cards in draft (Premier draft when the set has it; all players): place, color dots, name, rarity letter, points above or below the set's average win rate, and the sort's number in teal. The set code and what's picked across the top (\"FRA · IWD · C · U · WU\"), \"Data from 17Lands\" at the bottom."
+   "x": "a Limited set's best cards in draft (Premier draft when the set has it; all players): place, color dots, name, rarity letter, points above or below the set's average win rate, and the sort's number in teal. The Set, Rarity and Color buttons and the sort's code across the top, \"Data from 17Lands\" at the bottom."
   },
   {
    "id": "widgets-31",
+   "s": "widgets",
+   "h": "Limited cards",
+   "t": "Tap to switch",
+   "x": "three small boxed buttons across the top. Set (its code) steps through the Limited sets Insights has, round to the first; Rarity steps Any → Common → Uncommon → Rare → Mythic → Any (hidden for an Arena cube, which has none); Color steps Any (five dots) → White → Blue → Black → Red → Green → Multicolor → Colorless → Any. One choice at a time; several rarities or colors from the settings go to Any on the next tap. The cards change at once, a new set's after its cards are fetched. Small widgets use letters (\"All\", \"U\", \"C·U\"), the large one words (\"Any rarity\", \"Uncommon\"). On iPhone the buttons' picks belong to the widget's settings: editing them starts over, and two widgets with the same settings share them. On Android they're the widget's own picks, so its settings screen shows them."
+  },
+  {
+   "id": "widgets-32",
    "s": "widgets",
    "h": "Limited cards",
    "t": "Set up in the widget",
    "x": "Set (the Limited sets in Insights), Sort (win rate in hand, in the opening hand, improvement when drawn, average pick), and Rarity and Color, several of each, none picked meaning all (iPhone: Edit Widget; Android: its settings screen). With no set picked it shows the newest set the phone knows."
   },
   {
-   "id": "widgets-32",
+   "id": "widgets-33",
    "s": "widgets",
    "h": "Limited cards",
    "t": "The same cards as the app",
    "x": "the widget and Insights → Limited's Top cards use one rule for the filters and the order, so they always agree."
   },
   {
-   "id": "widgets-33",
+   "id": "widgets-34",
    "s": "widgets",
    "h": "Limited cards",
    "t": "Sizes",
    "x": "iPhone small (4 cards), medium (6) and large (12); Android any size from 2×1, rows filling the height (up to 12), the one-row strip showing the set and the best card."
   },
   {
-   "id": "widgets-34",
+   "id": "widgets-35",
    "s": "widgets",
    "h": "Limited cards",
-   "x": "A tap opens Insights → Limited on that set. The set list comes from Insights (signed in, or what the app kept the last time Insights → Limited was opened); the cards need no sign-in and refresh every six hours, and offline the widget keeps its last answer."
+   "x": "A tap anywhere but a button opens Insights → Limited on that set with the widget's sort, rarity and color picked (a widget from before this update opens on the set alone). The set list comes from Insights (signed in, or what the app kept the last time Insights → Limited was opened); the cards need no sign-in and refresh every six hours, and offline the widget keeps its last answer."
   },
   {
-   "id": "widgets-35",
+   "id": "widgets-36",
    "s": "widgets",
    "h": "On Android",
    "t": "A live notification",
    "x": "for each event you play in or run, in its own quiet Live events group (alerts still come as ordinary notifications). Playing: \"R2/4 · T3 · vs Ana\", where the result stands, ranks and records, and the round clock counting down; Won 2–0, Won 2–1 and Other result while the match is open, Confirm and Dispute when your opponent has reported. Running: \"5/8 in\" with a bar, the next step, disputes and results to enter yourself, and the clock. A tap opens the event. When the event ends the last line stays half an hour, then goes. On Android 16 both show as Live Updates."
   },
   {
-   "id": "widgets-36",
+   "id": "widgets-37",
    "s": "widgets",
    "h": "On Android",
    "t": "Home screen widgets",
    "x": "Next event, Collection value and Current match, drawn like the iPhone's (same labels, order, colors and buttons) with the same rules. Current match ticks the round clock and, from the wider size, reports (2-0 to 0-2), confirms or disputes without opening the app. Android has no lock screen widgets; the live notification covers the match there."
   },
   {
-   "id": "widgets-37",
+   "id": "widgets-38",
    "s": "widgets",
    "h": "On Android",
    "t": "Any size",
    "x": "long-press a widget and drag its edges, from one row up to the full width and any height. One row: Next event shows when and the name, Collection value the amount (wide: with the line and the week's change), Current match the round, table and clock. 2×2 and 4×2 are the iPhone's small and medium. Three rows and up: Next event lists the later events that fit under the first (tap one to open it, \"+2 more\" for the rest), Collection value grows the amount and the 30-day line, and Current match shows the big clock, where the result stands and all five result buttons (on a narrow one, Confirm above Dispute)."
   },
   {
-   "id": "widgets-38",
+   "id": "widgets-39",
    "s": "widgets",
    "h": "On Android",
    "t": "Quick Settings tiles",
    "x": "and long-press shortcuts on the app icon: Life tracker and Scan cards."
   },
   {
-   "id": "widgets-39",
+   "id": "widgets-40",
    "s": "widgets",
    "h": "On Android",
    "x": "The app refreshes them whenever it reads your events, when it comes back to the front, and when a notification about an event arrives. A widget fetches for itself when its copy is old (Next event 15 minutes, Collection value 6 hours, Current match 5 minutes). Signing out clears them."
@@ -3738,6 +3745,12 @@
    "s": "account",
    "t": "About",
    "x": "at the bottom of Account, Wizards of the Coast's fan-content notice (\"Table 1 is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards.\"), Privacy policy, and the app's version (for example \"Version 0.1.0 (32)\"). On the website the notice is also at the foot of the home page and on the privacy and deletion pages."
+  },
+  {
+   "id": "account-15",
+   "s": "account",
+   "t": "Terms of service",
+   "x": "Account has a Terms of service row under the privacy policy that opens table-1.site/terms; the website links it from sign-in (\"Continuing agrees to the Terms and Privacy policy\"), the home page's foot, Discord, Buy and your profile."
   },
   {
    "id": "support-1",
