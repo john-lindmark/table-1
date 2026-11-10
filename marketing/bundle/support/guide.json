@@ -6,6 +6,10 @@
    "title": "Overview"
   },
   {
+   "id": "foldables",
+   "title": "Foldable phones"
+  },
+  {
    "id": "create",
    "title": "Creating an event"
   },
@@ -130,6 +134,10 @@
    "title": "Account and sign-in"
   },
   {
+   "id": "support",
+   "title": "Support"
+  },
+  {
    "id": "privacy",
    "title": "Privacy and telemetry"
   },
@@ -182,6 +190,92 @@
    "s": "overview",
    "h": "Account",
    "x": "The tab bar runs along the bottom (on the website on a phone too): an icon over each tab's name, the tab you're on in white under a thin teal line, the others with icon and name in the same light grey. It shows only on those four screens. Every screen you open from them has a back arrow on the left, and on iPhone a swipe from the left edge goes back too (the camera is the exception)."
+  },
+  {
+   "id": "foldables-1",
+   "s": "foldables",
+   "x": "Table 1 lays itself out from the space it actually has and where the fold is, never from which phone it's on, as Apple and Google ask. Fold, unfold, turn or half-close the phone and the screen you're on adapts in place."
+  },
+  {
+   "id": "foldables-2",
+   "s": "foldables",
+   "h": "Tabletop · half folded on a table",
+   "t": "Life tracker",
+   "x": "every seat stands upright on the top half, in a row, each named (the opponent first, you last; P1 to P5 at a bigger table), with the usual taps and counters. The flat half holds the round clock large, the match line (\"Game 2 · 1–0\") and big Record, Options and Reset buttons."
+  },
+  {
+   "id": "foldables-3",
+   "s": "foldables",
+   "h": "Tabletop · half folded on a table",
+   "t": "A card's page",
+   "x": "the card (or your versions) alone on the top half; the bar, its set · language · condition · finish row and the − count + stepper on the flat half."
+  },
+  {
+   "id": "foldables-4",
+   "s": "foldables",
+   "h": "Tabletop · half folded on a table",
+   "t": "Running a round",
+   "x": "while the clock runs, the top half is a big round clock with the round's name, readable across the room; pause, +5 and the matches are on the flat half."
+  },
+  {
+   "id": "foldables-5",
+   "s": "foldables",
+   "h": "Tabletop · half folded on a table",
+   "x": "The tab bar stays along the bottom, on the flat half."
+  },
+  {
+   "id": "foldables-6",
+   "s": "foldables",
+   "h": "Book · fold running top to bottom",
+   "t": "Life tracker",
+   "x": "the seats stacked upright on the left page, the clock and controls on the right."
+  },
+  {
+   "id": "foldables-7",
+   "s": "foldables",
+   "h": "Book · fold running top to bottom",
+   "t": "A card's page",
+   "x": "the card on the left, everything you do with it on the right; Details opens on the right and keeps the card in view."
+  },
+  {
+   "id": "foldables-8",
+   "s": "foldables",
+   "h": "Book · fold running top to bottom",
+   "t": "Running a round",
+   "x": "the round on the left, the standings on the right."
+  },
+  {
+   "id": "foldables-9",
+   "s": "foldables",
+   "h": "Unfolded and wide windows",
+   "x": "A window at least 840 wide and 480 tall splits in two down the middle, where an inner display's crease is: a card's page and a running round (round | standings) use both halves."
+  },
+  {
+   "id": "foldables-10",
+   "s": "foldables",
+   "h": "Unfolded and wide windows",
+   "t": "Landscape",
+   "x": "windows put the tab bar down the side as a rail: on iPhone Duo on the edge the system uses for its own bars, otherwise the right on iPhone and the left on Android."
+  },
+  {
+   "id": "foldables-11",
+   "s": "foldables",
+   "h": "Unfolded and wide windows",
+   "x": "Nothing is drawn on the fold, and buttons keep a margin from it."
+  },
+  {
+   "id": "foldables-12",
+   "s": "foldables",
+   "h": "Staying where you were",
+   "t": "iPhone",
+   "x": "the app turns with the phone on a large inner display (iPhone Duo open); ordinary iPhones and the outer display stay upright."
+  },
+  {
+   "id": "foldables-13",
+   "s": "foldables",
+   "h": "Staying where you were",
+   "t": "Website",
+   "x": "Chrome on a folded phone reports the fold, and the life tracker uses the same tabletop and book layouts."
   },
   {
    "id": "create-1",
@@ -790,33 +884,67 @@
   {
    "id": "widgets-30",
    "s": "widgets",
+   "h": "Limited cards",
+   "t": "What it shows",
+   "x": "a Limited set's best cards in draft (Premier draft when the set has it; all players): place, color dots, name, rarity letter, points above or below the set's average win rate, and the sort's number in teal. The set code and what's picked across the top (\"FRA · IWD · C · U · WU\"), \"Data from 17Lands\" at the bottom."
+  },
+  {
+   "id": "widgets-31",
+   "s": "widgets",
+   "h": "Limited cards",
+   "t": "Set up in the widget",
+   "x": "Set (the Limited sets in Insights), Sort (win rate in hand, in the opening hand, improvement when drawn, average pick), and Rarity and Color, several of each, none picked meaning all (iPhone: Edit Widget; Android: its settings screen). With no set picked it shows the newest set the phone knows."
+  },
+  {
+   "id": "widgets-32",
+   "s": "widgets",
+   "h": "Limited cards",
+   "t": "The same cards as the app",
+   "x": "the widget and Insights → Limited's Top cards use one rule for the filters and the order, so they always agree."
+  },
+  {
+   "id": "widgets-33",
+   "s": "widgets",
+   "h": "Limited cards",
+   "t": "Sizes",
+   "x": "iPhone small (4 cards), medium (6) and large (12); Android any size from 2×1, rows filling the height (up to 12), the one-row strip showing the set and the best card."
+  },
+  {
+   "id": "widgets-34",
+   "s": "widgets",
+   "h": "Limited cards",
+   "x": "A tap opens Insights → Limited on that set. The set list comes from Insights (signed in, or what the app kept the last time Insights → Limited was opened); the cards need no sign-in and refresh every six hours, and offline the widget keeps its last answer."
+  },
+  {
+   "id": "widgets-35",
+   "s": "widgets",
    "h": "On Android",
    "t": "A live notification",
    "x": "for each event you play in or run, in its own quiet Live events group (alerts still come as ordinary notifications). Playing: \"R2/4 · T3 · vs Ana\", where the result stands, ranks and records, and the round clock counting down; Won 2–0, Won 2–1 and Other result while the match is open, Confirm and Dispute when your opponent has reported. Running: \"5/8 in\" with a bar, the next step, disputes and results to enter yourself, and the clock. A tap opens the event. When the event ends the last line stays half an hour, then goes. On Android 16 both show as Live Updates."
   },
   {
-   "id": "widgets-31",
+   "id": "widgets-36",
    "s": "widgets",
    "h": "On Android",
    "t": "Home screen widgets",
    "x": "Next event, Collection value and Current match, drawn like the iPhone's (same labels, order, colors and buttons) with the same rules. Current match ticks the round clock and, from the wider size, reports (2-0 to 0-2), confirms or disputes without opening the app. Android has no lock screen widgets; the live notification covers the match there."
   },
   {
-   "id": "widgets-32",
+   "id": "widgets-37",
    "s": "widgets",
    "h": "On Android",
    "t": "Any size",
    "x": "long-press a widget and drag its edges, from one row up to the full width and any height. One row: Next event shows when and the name, Collection value the amount (wide: with the line and the week's change), Current match the round, table and clock. 2×2 and 4×2 are the iPhone's small and medium. Three rows and up: Next event lists the later events that fit under the first (tap one to open it, \"+2 more\" for the rest), Collection value grows the amount and the 30-day line, and Current match shows the big clock, where the result stands and all five result buttons (on a narrow one, Confirm above Dispute)."
   },
   {
-   "id": "widgets-33",
+   "id": "widgets-38",
    "s": "widgets",
    "h": "On Android",
    "t": "Quick Settings tiles",
    "x": "and long-press shortcuts on the app icon: Life tracker and Scan cards."
   },
   {
-   "id": "widgets-34",
+   "id": "widgets-39",
    "s": "widgets",
    "h": "On Android",
    "x": "The app refreshes them whenever it reads your events, when it comes back to the front, and when a notification about an event arrives. A widget fetches for itself when its copy is old (Next event 15 minutes, Collection value 6 hours, Current match 5 minutes). Signing out clears them."
@@ -1158,7 +1286,7 @@
    "s": "insights",
    "h": "Limited",
    "t": "Cards first",
-   "x": "Top cards leads the page, with Sort (win rate in hand, in the opening hand, improvement when drawn, average pick), Rarity (not for a cube) and Color (W U B R G, Multicolor, Colorless) dropdowns, a search box, and the ten best cards for them. Each row: its place, the art of the set's own printing, the name, the mana cost in Scryfall's symbols, rarity and games in hand, and the sort's number with, for the win rates, the points above or below the format's average under it (\"+4.1\"). Show all N opens the rest. Art and mana costs come from the card file on your device (the page fetches it if it's missing)."
+   "x": "Top cards leads the page, with Sort (win rate in hand, in the opening hand, improvement when drawn, average pick), Rarity (not for a cube) and Color (W U B R G, Multicolor, Colorless) dropdowns, each taking several picks (the list stays open; a tap puts an option in or out, Any clears, Done closes; the cell reads \"C · U\" or \"WU · Multi\"), a search box, and the ten best cards for them. Each row: its place, the art of the set's own printing, the name, the mana cost in Scryfall's symbols, rarity and games in hand, and the sort's number with, for the win rates, the points above or below the format's average under it (\"+4.1\"). Show all N opens the rest. Art and mana costs come from the card file on your device (the page fetches it if it's missing)."
   },
   {
    "id": "insights-19",
@@ -1171,112 +1299,118 @@
    "id": "insights-20",
    "s": "insights",
    "h": "Limited",
-   "t": "Rank this set",
-   "x": "comes right after the cards as the page's big action, with who has ranked it under the words. Then the color pairs and the rest; In brief and Games · Average · Weeks close the page."
+   "t": "Colors, several at once",
+   "x": "a card is kept when all its colors are picked, so White + Blue keeps white, blue and Azorius gold cards; Multicolor keeps every gold card, Colorless the colorless ones."
   },
   {
    "id": "insights-21",
+   "s": "insights",
+   "h": "Limited",
+   "x": "After the cards: the color pairs and the rest, In brief and Games · Average · Weeks, New in Insights, and at the very bottom Rank this set, the page's big action, with who has ranked it under the words, then New sets to rank."
+  },
+  {
+   "id": "insights-22",
    "s": "insights",
    "h": "Limited",
    "t": "A card's page",
    "x": "opens on the card's picture in the set's printing and its mana cost, then its win rates."
   },
   {
-   "id": "insights-22",
+   "id": "insights-23",
    "s": "insights",
    "h": "Limited",
    "t": "Color pairs",
    "x": "against the set's average, Deck colors (every main-color combination with its splash), and pairs week by week: the chart's scale fits the win rates shown, with the average as a dashed AVG line."
   },
   {
-   "id": "insights-23",
+   "id": "insights-24",
    "s": "insights",
    "h": "Limited",
    "t": "Cards",
    "x": "win rate in hand, in the opening hand, the gain from drawing it, and how early it's taken, with rarity and color filters (a cube has no rarities, so no rarity filter). Taken vs win rate shows which cards go later than they should."
   },
   {
-   "id": "insights-24",
+   "id": "insights-25",
    "s": "insights",
    "h": "Limited",
    "t": "Game facts",
    "x": "on the play and on the draw, mulligans, game length."
   },
   {
-   "id": "insights-25",
+   "id": "insights-26",
    "s": "insights",
    "h": "Limited",
    "t": "Rank this set",
    "x": "(Rank this cube for a cube run) opens its Rankings, and New sets to rank lists sets with no 17Lands data yet (\"Out Nov 13 · 286 cards\")."
   },
   {
-   "id": "insights-26",
+   "id": "insights-27",
    "s": "insights",
    "h": "Limited",
    "t": "Spoiler season",
    "x": "a set still to come, or out in the last four weeks, with no 17Lands data yet leads the set row by its code (TRK for Star Trek). Picking it says when it's out, that draft data follows about three weeks after a set reaches Arena (some never do), and how many cards Scryfall has so far, with Rank this set and the New in Insights switch. The row still opens on the newest set with data. Shown sets… lists them with the other sets, so they can be hidden the same way. The row draws once it knows which sets are coming, which it remembers on your device after your first visit, so they never jump in at the front a moment later."
   },
   {
-   "id": "insights-27",
+   "id": "insights-28",
    "s": "insights",
    "h": "Limited",
    "t": "Arena cubes, run by run",
    "x": "each cube Arena runs (Powered, Arena Cube, Planar, and any other 17Lands adds) gets an entry per run, named by its month (\"Arena Powered Cube · Oct 2025\"), with weeks counted from that run's first draft. A later run is a new entry; the old one stays as it was."
   },
   {
-   "id": "insights-28",
+   "id": "insights-29",
    "s": "insights",
    "h": "Limited",
    "t": "New in Insights",
    "x": "(at the bottom of Limited): a notification when a new Constructed format, a set's first draft data, a new cube run, or a set ready to rank (within 10 days of release) arrives. Once each, to people who opened Insights in the last 60 days; the switch turns it off."
   },
   {
-   "id": "insights-29",
+   "id": "insights-30",
    "s": "insights",
    "h": "Where it comes from",
    "x": "Constructed: published Magic Online results (Challenges, Qualifiers, Showcases and Leagues), plus paper events of 32 or more players from TopDeck.gg and from Melee.gg, a year back. Bigger events count for more: 128 or more players four times a regular event, 64 or more twice, Regional Championships and other championships four times at any size, and a top 8 finish double."
   },
   {
-   "id": "insights-30",
+   "id": "insights-31",
    "s": "insights",
    "h": "Where it comes from",
    "t": "Melee",
    "x": "events come from MTG_decklistcache, an open collection of tournament results kept on GitHub and updated daily; Table 1 reads it, not Melee. Every public list, the standings and every round count (byes left out). Melee numbers its playoff rounds like Swiss ones, so a top 8 is marked when the last three rounds are a quarterfinal, semifinal and final among the top eight. A deck's record is its paper record (TopDeck.gg and Melee) when it has one, else its Magic Online top-32 record."
   },
   {
-   "id": "insights-31",
+   "id": "insights-32",
    "s": "insights",
    "h": "Where it comes from",
    "t": "Legacy and Vintage",
    "x": "come from the same three sources as the other formats. Some paper events are listed as Vintage when they're really 7-point Highlander or Commander, where nearly every card is a single copy; events where half or more of the decks are like that are left out, in every format but Canadian Highlander."
   },
   {
-   "id": "insights-32",
+   "id": "insights-33",
    "s": "insights",
    "h": "Where it comes from",
    "t": "Canadian Highlander",
    "x": "isn't played on Magic Online, so it comes from TopDeck.gg alone, from 16 players up (its events are smaller), and its screens say \"Results from TopDeck.gg\". Its events are small, so most windows say the numbers rest on few events."
   },
   {
-   "id": "insights-33",
+   "id": "insights-34",
    "s": "insights",
    "h": "Where it comes from",
    "x": "Decks are named by rules for each format's known archetypes. Canadian Highlander decks are singletons that share few cards, so they're named by their colors and plan (Esper Control, Bant Midrange, Red Deck Wins, Jeskai Black), and a color pair or shard's own name (Izzet, Naya) for the rarer ones. New groups of decks are named by Claude and checked by a person before they show."
   },
   {
-   "id": "insights-34",
+   "id": "insights-35",
    "s": "insights",
    "h": "Where it comes from",
    "x": "Limited: 17Lands' public data, credited on every Limited screen. Its files come out about two weeks after a set reaches Arena, then keep updating. Each cube run's data is from that run; when 17Lands publishes a new file for a cube, Table 1 reads its first rows to tell whether it's the same run updated or a new one."
   },
   {
-   "id": "insights-35",
+   "id": "insights-36",
    "s": "insights",
    "h": "Where it comes from",
    "x": "No player names, anywhere."
   },
   {
-   "id": "insights-36",
+   "id": "insights-37",
    "s": "insights",
    "h": "In brief",
    "x": "Every view opens with two or three short sentences, written by Claude from that view's numbers: what moved, and one deck, card or pair worth knowing."
@@ -2656,131 +2790,158 @@
   {
    "id": "rankings-21",
    "s": "rankings",
-   "h": "Checks in the final",
-   "x": "Before the final places a card, it looks at each other color's best card still in. If no screen ever put your card's color and that color side by side, and the order came only from a third color between them, the next screen is a check: your card with those cards (and its own color's next card when only the color's sort put it above), nothing locked, read \"Final · checking #31 of the top 50\". An order that cards of two or more other colors already back up isn't checked."
+   "h": "Popular cubes",
+   "t": "Four cubes nobody on Table 1 owns",
+   "x": "PowerLSV and LSVCube (LSV's, on Cube Cobra), the MTGO Vintage Cube and the Arena Powered Cube. They're listed under Popular cubes at the end of your own profile (not in View as) and on Rankings, above Sets you can rank: \"LSV · 528 cards · 3 friends' rankings · 1 yours\"."
   },
   {
    "id": "rankings-22",
    "s": "rankings",
-   "h": "Checks in the final",
-   "x": "Your answer on a check wins: if you now put Counterspell above Novice Inspector, the earlier answers that said otherwise give way. A check can also reorder two cards of one color the color's own sort got wrong."
+   "h": "Popular cubes",
+   "x": "A tap opens the cube's Rankings: Rank PowerLSV starts yours (depth, top 50 or 100, Shared with friends or Only me), then Yours and Your friends'. Everything else is the cube ranker: colors, the final and its checks, first picks, compare with a brief, the Top 100 image, Discord's /ranking."
   },
   {
    "id": "rankings-23",
    "s": "rankings",
-   "h": "Checks in the final",
-   "x": "The list keeps every place it already knows while the checks run; the final reads done once every place is checked. \"About N to go\" counts the places still to check."
+   "h": "Popular cubes",
+   "t": "Who sees one",
+   "x": "like a set ranking: your friends, and whoever your profile's Rankings setting reaches. It shows on your profile's Rankings with the others."
   },
   {
    "id": "rankings-24",
    "s": "rankings",
-   "h": "Checks in the final",
-   "x": "A ranker who answers the same way every time gets the same list as before, after the checks."
+   "h": "Popular cubes",
+   "t": "The lists",
+   "x": "read from where each cube lives: Cube Cobra's lists (in the printings those cubes use), mtgo.com's current Vintage Cube list (Scryfall's copy is behind it), and Scryfall's Arena Powered Cube. They're read again every Monday; cards that join wait to be placed and cards that leave drop out, as with any cube. A source that can't be read, or reads under 300 cards, keeps the list as it was. Two of LSV's cards aren't in the card data and are left out."
   },
   {
    "id": "rankings-25",
    "s": "rankings",
    "h": "Checks in the final",
-   "x": "Finished finals reopen for their checks."
+   "x": "Before the final places a card, it looks at each other color's best card still in. If no screen ever put your card's color and that color side by side, and the order came only from a third color between them, the next screen is a check: your card with those cards (and its own color's next card when only the color's sort put it above), nothing locked, read \"Final · checking #31 of the top 50\". An order that cards of two or more other colors already back up isn't checked."
   },
   {
    "id": "rankings-26",
+   "s": "rankings",
+   "h": "Checks in the final",
+   "x": "Your answer on a check wins: if you now put Counterspell above Novice Inspector, the earlier answers that said otherwise give way. A check can also reorder two cards of one color the color's own sort got wrong."
+  },
+  {
+   "id": "rankings-27",
+   "s": "rankings",
+   "h": "Checks in the final",
+   "x": "The list keeps every place it already knows while the checks run; the final reads done once every place is checked. \"About N to go\" counts the places still to check."
+  },
+  {
+   "id": "rankings-28",
+   "s": "rankings",
+   "h": "Checks in the final",
+   "x": "A ranker who answers the same way every time gets the same list as before, after the checks."
+  },
+  {
+   "id": "rankings-29",
+   "s": "rankings",
+   "h": "Checks in the final",
+   "x": "Finished finals reopen for their checks."
+  },
+  {
+   "id": "rankings-30",
    "s": "rankings",
    "h": "Refine with first picks",
    "x": "Once the final is done, Open a pack: 15 cards from the cube. Pick the one you'd take first. The pick refines your ranking like any screen."
   },
   {
-   "id": "rankings-27",
+   "id": "rankings-31",
    "s": "rankings",
    "h": "Refine with first picks",
    "x": "When your ranking already puts a card in the pack above your pick, it says so, for example \"You ranked Mana Drain #3 and Fury #20, but picked Fury\". Keep my ranking, or Let the pick win: the screens behind the disagreement come out and those cards are asked again."
   },
   {
-   "id": "rankings-28",
+   "id": "rankings-32",
    "s": "rankings",
    "h": "Refine with first picks",
    "t": "Pick history",
    "x": "lists every pick, the pack's best card by your ranking, and whether it disagreed."
   },
   {
-   "id": "rankings-29",
+   "id": "rankings-33",
    "s": "rankings",
    "h": "Change log",
    "x": "Every place change is kept, newest first by day, and filterable by list: \"Mana Drain · Final: #5 (new)\", \"Fury · Final: #4 → #9 (redo screen 12)\". A card's history shows its own changes."
   },
   {
-   "id": "rankings-30",
+   "id": "rankings-34",
    "s": "rankings",
    "h": "Compare, with a brief",
    "t": "Compare with another ranking",
    "x": "on any list: how many cards both have placed, how far apart they sit on average, the ten biggest differences, and the cards in one top half but not the other."
   },
   {
-   "id": "rankings-31",
+   "id": "rankings-35",
    "s": "rankings",
    "h": "Compare, with a brief",
    "t": "In brief",
    "x": "comes first: two to four short sentences written by Claude on where the two of you agree and the one or two clearest differences (colors, mana fixing, aggro or control, cheap interaction or big threats, the curve), naming a few cards. It knows which lands fix your mana and which are utility lands like Strip Mine or Karakas, and it gives each card's color as the card has it. It's written from both rankings' places, kept until either ranking changes, and refers to people only by name."
   },
   {
-   "id": "rankings-32",
+   "id": "rankings-36",
    "s": "rankings",
    "h": "When the cube changes",
    "x": "Cards that leave the cube drop out of your lists; what they told the ranking still counts, so your order stays. If one left your top 100 (or a color's top half), that list asks a screen or two to fill the place."
   },
   {
-   "id": "rankings-33",
+   "id": "rankings-37",
    "s": "rankings",
    "h": "When the cube changes",
    "x": "Cards that join wait under New in the cube, not placed yet, and the list keeps showing your order around them."
   },
   {
-   "id": "rankings-34",
+   "id": "rankings-38",
    "s": "rankings",
    "h": "When the cube changes",
    "x": "The ranking says what changed (\"3 cards joined … and 2 cards left …\"). Re-rank asks only about the new cards, mostly one new card against cards you've already ordered, then Next moves on to the next list that has one. Once every new card has a place, the note goes away."
   },
   {
-   "id": "rankings-35",
+   "id": "rankings-39",
    "s": "rankings",
    "h": "When the cube changes",
    "x": "When someone else starts a ranking of your cube that you can see, you get a notification (at most one a week per person). Tapping it opens their ranking on iPhone."
   },
   {
-   "id": "rankings-36",
+   "id": "rankings-40",
    "s": "rankings",
    "h": "Saving",
    "x": "Each screen saves as you lock it in, one at a time. Undo and Redo take out only the screen you chose."
   },
   {
-   "id": "rankings-37",
+   "id": "rankings-41",
    "s": "rankings",
    "h": "Saving",
    "x": "What isn't saved yet stays on your phone (or in your browser) through a crash, a force-quit, a closed tab or no signal, and is sent again until it's saved. A ranking with screens still to save says so, and tries again after a few seconds, then every minute."
   },
   {
-   "id": "rankings-38",
+   "id": "rankings-42",
    "s": "rankings",
    "h": "Saving",
    "x": "If the ranking changed on another device, the app reads it again and adds your screens on top, rather than throwing them away."
   },
   {
-   "id": "rankings-39",
+   "id": "rankings-43",
    "s": "rankings",
    "h": "Saving",
    "x": "A second tap on Lock in, or Enter pressed before the next screen draws, is ignored rather than locking the old order in again."
   },
   {
-   "id": "rankings-40",
+   "id": "rankings-44",
    "s": "rankings",
    "h": "Saving",
    "x": "The server refuses any save that would take out screens you didn't take out, from any version of the app, and keeps every screen that leaves a ranking, so one can always be put back."
   },
   {
-   "id": "rankings-41",
+   "id": "rankings-45",
    "s": "rankings",
    "h": "Who sees a ranking",
-   "x": "A ranking starts Shared with the cube: everyone who can see the cube can see it, so a cube's owner sees every ranking of it. Switch to Only me in Settings, where you can also give it a Label (optional) or remove one, change its depth or size, or delete it. Labels others can see are checked like deck names."
+   "x": "Your rankings show on your profile, under Rankings, to whoever your Rankings setting in Sharing reaches (Friends to start; see Sharing); a shared set ranking reaches those people too, not only your friends. A ranking starts Shared with the cube: everyone who can see the cube can see it, so a cube's owner sees every ranking of it. Switch to Only me in Settings, where you can also give it a Label (optional) or remove one, change its depth or size, or delete it. Labels others can see are checked like deck names."
   },
   {
    "id": "legality-1",
@@ -3016,11 +3177,17 @@
   {
    "id": "friends-10",
    "s": "friends",
+   "t": "Their rankings",
+   "x": "a Rankings section after Cubes, newest first: each ranking under what it ranks, with its label and \"40/100 ranked\"; a tap opens it. It shows to friends by default (their Rankings setting in Sharing decides), only rankings they share (never Only me), and a cube ranking only when you can see that cube. On your own profile it lists all of yours, the Only me ones marked \"Only me\", then Popular cubes to rank (PowerLSV, LSVCube, MTGO Vintage Cube, Arena Powered Cube; see Rankings); View as shows what a friend or anyone would see."
+  },
+  {
+   "id": "friends-11",
+   "s": "friends",
    "t": "Avatars",
    "x": "initials on a muted tile picked from your account, or a photo (take one or choose from your library). Shown on your profile and next to names in players lists and standings."
   },
   {
-   "id": "friends-11",
+   "id": "friends-12",
    "s": "friends",
    "t": "Add players",
    "x": "to an event lists friends first."
@@ -3075,104 +3242,110 @@
   {
    "id": "sharing-9",
    "s": "sharing",
+   "t": "Rankings",
+   "x": "Starts as: Friends. What it shows: Your cube and set rankings on your profile, except those set to Only me (a cube ranking only to people who see the cube). Also who can open your shared set rankings."
+  },
+  {
+   "id": "sharing-10",
+   "s": "sharing",
    "t": "Friends",
    "x": "Starts as: Friends. What it shows: Your friends list on your profile (each friend shows only as their own setting allows)."
   },
   {
-   "id": "sharing-10",
+   "id": "sharing-11",
    "s": "sharing",
    "t": "You in friends' lists",
    "x": "Starts as: Friends (friends of friends). What it shows: Who sees you when they open one of your friends' lists: Friends means friends of friends (your friends and that friend's friends); Anyone, anyone who can see that list; Private, only you and that friend. Only a Private profile holds it back. The apps still call the middle choice \"Friends\"."
   },
   {
-   "id": "sharing-11",
+   "id": "sharing-12",
    "s": "sharing",
    "x": "The choices read Private · Friends · Anyone, where Anyone means anyone signed in to Table 1. Each one says what it does in a line underneath."
   },
   {
-   "id": "sharing-12",
+   "id": "sharing-13",
    "s": "sharing",
    "t": "Widening asks first",
    "x": "any change that shows more to more people lists what newly shows (\"Friends will see: All cards, Wants, 3 decks, 2 binders\") with Show / Cancel. Narrowing applies at once."
   },
   {
-   "id": "sharing-13",
+   "id": "sharing-14",
    "s": "sharing",
    "x": "When your profile caps a part, the row says so: \"Set to Anyone, but only friends see it: your profile is Friends.\""
   },
   {
-   "id": "sharing-14",
+   "id": "sharing-15",
    "s": "sharing",
    "t": "Friends",
    "x": "sits in its own section under Record, with both friends settings. Widening either asks first: \"Friends will see: your friends.\", \"Anyone on Table 1 will see: you in your friends' lists.\" The summary at the top names \"your friends\" when your list reaches someone."
   },
   {
-   "id": "sharing-15",
+   "id": "sharing-16",
    "s": "sharing",
    "x": "The app offers to share just once, when it helps: when you mark a binder For trade, when trade matches have nothing to work with, and after your first event (your record)."
   },
   {
-   "id": "sharing-16",
+   "id": "sharing-17",
    "s": "sharing",
    "x": "Anything hidden or gone reads \"This isn't available\", never which. A profile you can't see past its name and photo says only friends can see it, under Add friend."
   },
   {
-   "id": "sharing-17",
+   "id": "sharing-18",
    "s": "sharing",
    "h": "Share, and Anyone with the link",
    "t": "Share",
    "x": "is on All cards, Wants, Binders (to share For trade), and every binder, deck and cube. It opens one screen with everything about who can see that part."
   },
   {
-   "id": "sharing-18",
+   "id": "sharing-19",
    "s": "sharing",
    "h": "Share, and Anyone with the link",
    "t": "Anyone with the link",
    "x": "Make a link (it asks first, saying what the link shows) and send it anywhere. Whoever opens it sees that part and nothing else on your profile, even without a Table 1 account and even if your profile is Friends or Private. Your settings stay as they are: a deck can be Private on Table 1 and still have a link."
   },
   {
-   "id": "sharing-19",
+   "id": "sharing-20",
    "s": "sharing",
    "h": "Share, and Anyone with the link",
    "t": "One link per part.",
    "x": "Share link and Copy link send it; New link makes a fresh one and the old one stops working; Stop sharing link turns it off at once. Deleting the deck, cube or binder, or your account, ends its link too."
   },
   {
-   "id": "sharing-20",
+   "id": "sharing-21",
    "s": "sharing",
    "h": "Share, and Anyone with the link",
    "t": "On Table 1",
    "x": "the same screen shows who sees the part there (Private, Friends or Anyone) and, when it reaches someone, Send profile link, which only those people can open."
   },
   {
-   "id": "sharing-21",
+   "id": "sharing-22",
    "s": "sharing",
    "h": "Share, and Anyone with the link",
    "t": "As a copy",
    "x": "(decks and cubes): Export and Deck image, as on the deck's own screen."
   },
   {
-   "id": "sharing-22",
+   "id": "sharing-23",
    "s": "sharing",
    "h": "Share, and Anyone with the link",
    "x": "\"Who sees this\" says Link on while a part has a live link, and so does its Share row."
   },
   {
-   "id": "sharing-23",
+   "id": "sharing-24",
    "s": "sharing",
    "h": "Share, and Anyone with the link",
    "t": "Opening a link",
    "x": "the part's name, \"Shared by\" with the owner's name and photo, then the cards with search, View and Group by. Decks and cubes can be exported, and signed in you can Copy to my Library. A link that's off reads \"This isn't available\"."
   },
   {
-   "id": "sharing-24",
+   "id": "sharing-25",
    "s": "sharing",
    "h": "Share, and Anyone with the link",
    "t": "Never through a link",
    "x": "your handle, your total value or your max prices. If you've blocked someone (or they you), your links don't open for them while they're signed in."
   },
   {
-   "id": "sharing-25",
+   "id": "sharing-26",
    "s": "sharing",
    "h": "Share, and Anyone with the link",
    "x": "A deck, cube or binder name behind a link is checked like any name others can see."
@@ -3565,6 +3738,40 @@
    "s": "account",
    "t": "About",
    "x": "at the bottom of Account, Wizards of the Coast's fan-content notice (\"Table 1 is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards.\"), Privacy policy, and the app's version (for example \"Version 0.1.0 (32)\"). On the website the notice is also at the foot of the home page and on the privacy and deletion pages."
+  },
+  {
+   "id": "support-1",
+   "s": "support",
+   "x": "Answers to the common questions, and the Feature Guide, in the app. Account → Support, or table-1.site/support on the web, signed in or not."
+  },
+  {
+   "id": "support-2",
+   "s": "support",
+   "t": "Search",
+   "x": "at the top looks through every answer and the guide at once, from two letters. Results come best match first, each saying where it's from (\"FAQ · Running events\", \"Guide · Card scanning\"). Every word you type has to match the start of a word, so \"scan japanese\" finds the scanner's languages; small words like \"how\" and \"the\" are left out, and plurals match (\"decks\" finds \"deck\"). When nothing matches every word, it shows the closest matches instead."
+  },
+  {
+   "id": "support-3",
+   "s": "support",
+   "t": "Questions",
+   "x": "14 topics (Getting started, Playing in events, Running events, Life tracker, Collection and scanning, Decks and cubes, Trades, wants and buying, Rankings, Insights, Friends and sharing, Notifications, Sync and offline, Discord, Account and privacy), each with its count. A question opens its answer, then In the guide for more."
+  },
+  {
+   "id": "support-4",
+   "s": "support",
+   "t": "Guide",
+   "x": "Everything Table 1 does lists every part of the Feature Guide. A part reads whole, by its headings; opened from a search, it scrolls to the paragraph that matched, marked with a teal line."
+  },
+  {
+   "id": "support-5",
+   "s": "support",
+   "t": "Still stuck",
+   "x": "Ask in the Table 1 Discord opens the server's invite; Account and privacy writes to privacy@table-1.site."
+  },
+  {
+   "id": "support-6",
+   "s": "support",
+   "x": "It's carried in the app, so it opens with no signal. The guide inside it is refreshed each time the Feature Guide is."
   },
   {
    "id": "privacy-1",

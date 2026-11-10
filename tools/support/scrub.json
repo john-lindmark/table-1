@@ -120,6 +120,21 @@
       "section": "csv",
       "from": "Library → Import and export.",
       "to": "Collection → Import."
+    },
+    {
+      "section": "support",
+      "from": "and this guide, in the app",
+      "to": "and the Feature Guide, in the app"
+    },
+    {
+      "section": "support",
+      "from": "every part of this guide",
+      "to": "every part of the Feature Guide"
+    },
+    {
+      "section": "support",
+      "from": "each time this guide is",
+      "to": "each time the Feature Guide is"
     }
   ],
   "forbidden": [

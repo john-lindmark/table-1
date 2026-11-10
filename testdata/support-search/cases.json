@@ -95,7 +95,7 @@
     "join"
    ],
    "partial": false,
-   "count": 34,
+   "count": 35,
    "top": [
     "faq:play-join:9",
     "guide:links-3:6",
@@ -164,13 +164,14 @@
     "cards"
    ],
    "partial": false,
-   "count": 5,
+   "count": 6,
    "top": [
     "faq:collection-scan-languages:23",
     "guide:scanning-12:10",
     "guide:scanning-14:10",
     "guide:scanning-15:10",
-    "guide:decks-16:6"
+    "guide:decks-16:6",
+    "guide:support-2:6"
    ]
   },
   {
@@ -273,7 +274,7 @@
     "cobra"
    ],
    "partial": false,
-   "count": 18,
+   "count": 20,
    "top": [
     "faq:decks-import:23",
     "faq:decks-cube-cobra-sync:23",
@@ -309,7 +310,7 @@
     "offline"
    ],
    "partial": false,
-   "count": 23,
+   "count": 25,
    "top": [
     "faq:offline-no-signal:7",
     "guide:sync-12:6",
@@ -328,7 +329,7 @@
     "signal"
    ],
    "partial": false,
-   "count": 9,
+   "count": 10,
    "top": [
     "faq:offline-no-signal:23",
     "guide:sync-11:10",
@@ -373,7 +374,7 @@
     "guide:play-5:6",
     "faq:decks-image:3",
     "guide:run-6:2",
-    "guide:insights-30:2"
+    "guide:insights-31:2"
    ]
   },
   {
@@ -409,8 +410,8 @@
     "guide:friends-1:6",
     "guide:friends-4:6",
     "guide:friends-9:6",
-    "guide:sharing-9:6",
-    "guide:sharing-10:6"
+    "guide:sharing-10:6",
+    "guide:sharing-11:6"
    ]
   },
   {
@@ -426,10 +427,10 @@
     "guide:links-7:18",
     "faq:organize-schedule:17",
     "faq:friends-link:15",
-    "guide:sharing-17:10",
     "guide:sharing-18:10",
     "guide:sharing-19:10",
-    "guide:sharing-23:10"
+    "guide:sharing-20:10",
+    "guide:sharing-24:10"
    ]
   },
   {
@@ -489,7 +490,7 @@
    "top": [
     "faq:rankings-mistake:11",
     "guide:rankings-12:10",
-    "guide:rankings-36:6"
+    "guide:rankings-40:6"
    ]
   },
   {
@@ -547,16 +548,16 @@
     "life"
    ],
    "partial": false,
-   "count": 43,
+   "count": 48,
    "top": [
     "faq:tracker-open:9",
     "faq:account-track-games:9",
+    "guide:foldables-2:6",
+    "guide:foldables-6:6",
     "guide:widgets-14:6",
     "faq:tracker-counters:5",
     "faq:tracker-first:5",
-    "faq:tracker-reset:5",
-    "faq:tracker-sync:5",
-    "guide:tracker-1:4"
+    "faq:tracker-reset:5"
    ]
   },
   {
@@ -600,7 +601,7 @@
    "count": 8,
    "top": [
     "faq:insights-what:11",
-    "guide:insights-31:10",
+    "guide:insights-32:10",
     "guide:overview-4:6",
     "guide:widgets-21:6",
     "guide:insights-2:6",
@@ -636,7 +637,7 @@
    "top": [
     "faq:friends-block:17",
     "guide:friends-9:4",
-    "guide:sharing-24:4"
+    "guide:sharing-25:4"
    ]
   },
   {
@@ -659,11 +660,11 @@
    "top": [
     "faq:start-platforms:11",
     "faq:notifications-on:11",
-    "guide:widgets-30:10",
+    "guide:widgets-35:10",
     "guide:push-10:10",
     "guide:account-8:8",
-    "guide:widgets-31:6",
-    "guide:widgets-34:6",
+    "guide:widgets-36:6",
+    "guide:widgets-39:6",
     "guide:push-5:6"
    ]
   },
