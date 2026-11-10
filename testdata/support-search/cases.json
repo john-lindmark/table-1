@@ -1,0 +1,721 @@
+{
+ "about": "Support search cases (contract/support-2026-11-10.md § Search), from make_cases.py over the bundled faq.json and guide.json. top: kind:id:score, best first, at most 8.",
+ "stop": [
+  "a",
+  "an",
+  "and",
+  "are",
+  "as",
+  "at",
+  "be",
+  "by",
+  "can",
+  "do",
+  "does",
+  "for",
+  "from",
+  "how",
+  "i",
+  "if",
+  "in",
+  "is",
+  "it",
+  "me",
+  "my",
+  "not",
+  "of",
+  "on",
+  "or",
+  "that",
+  "the",
+  "there",
+  "this",
+  "to",
+  "what",
+  "when",
+  "where",
+  "why",
+  "with",
+  "you",
+  "your"
+ ],
+ "limit": 50,
+ "normalize": [
+  {
+   "text": "Goryo's Vengeance",
+   "words": [
+    "goryos",
+    "vengeance"
+   ]
+  },
+  {
+   "text": "Æther Vial — Lim-Dûl",
+   "words": [
+    "ther",
+    "vial",
+    "lim",
+    "dul"
+   ]
+  },
+  {
+   "text": "re-pair round 3",
+   "words": [
+    "re",
+    "pair",
+    "round",
+    "3"
+   ]
+  },
+  {
+   "text": "don’t",
+   "words": [
+    "dont"
+   ]
+  },
+  {
+   "text": "MH2 · EN · NM",
+   "words": [
+    "mh2",
+    "en",
+    "nm"
+   ]
+  },
+  {
+   "text": "Ça va?",
+   "words": [
+    "ca",
+    "va"
+   ]
+  }
+ ],
+ "cases": [
+  {
+   "query": "join",
+   "words": [
+    "join"
+   ],
+   "partial": false,
+   "count": 34,
+   "top": [
+    "faq:play-join:9",
+    "guide:links-3:6",
+    "guide:web-2:6",
+    "faq:start-same-account:3",
+    "faq:play-no-account:3",
+    "faq:play-waitlist:3",
+    "faq:organize-create:3",
+    "faq:organize-drop:3"
+   ]
+  },
+  {
+   "query": "how do I join an event",
+   "words": [
+    "join",
+    "event"
+   ],
+   "partial": false,
+   "count": 27,
+   "top": [
+    "faq:play-join:23",
+    "faq:play-waitlist:11",
+    "faq:organize-create:11",
+    "guide:play-8:8",
+    "guide:links-3:8",
+    "guide:web-8:8",
+    "guide:discord-10:8",
+    "faq:play-no-account:7"
+   ]
+  },
+  {
+   "query": "delete my account",
+   "words": [
+    "delete",
+    "account"
+   ],
+   "partial": false,
+   "count": 3,
+   "top": [
+    "faq:account-delete:23",
+    "guide:account-13:6",
+    "guide:sync-13:4"
+   ]
+  },
+  {
+   "query": "commander damage",
+   "words": [
+    "commander",
+    "damage"
+   ],
+   "partial": false,
+   "count": 5,
+   "top": [
+    "faq:tracker-counters:23",
+    "guide:tracker-9:14",
+    "guide:tracker-10:14",
+    "guide:tracker-11:8",
+    "guide:tracker-13:4"
+   ]
+  },
+  {
+   "query": "scan japanese cards",
+   "words": [
+    "scan",
+    "japanese",
+    "cards"
+   ],
+   "partial": false,
+   "count": 5,
+   "top": [
+    "faq:collection-scan-languages:23",
+    "guide:scanning-12:10",
+    "guide:scanning-14:10",
+    "guide:scanning-15:10",
+    "guide:decks-16:6"
+   ]
+  },
+  {
+   "query": "pods",
+   "words": [
+    "pods"
+   ],
+   "partial": false,
+   "count": 10,
+   "top": [
+    "faq:organize-pods:9",
+    "guide:create-9:6",
+    "guide:run-4:6",
+    "guide:run-30:6",
+    "guide:run-3:2",
+    "guide:run-15:2",
+    "guide:play-18:2",
+    "guide:discord-6:2"
+   ]
+  },
+  {
+   "query": "re-pair",
+   "words": [
+    "re",
+    "pair"
+   ],
+   "partial": false,
+   "count": 31,
+   "top": [
+    "guide:run-20:18",
+    "faq:play-standings:15",
+    "faq:organize-fix-result:15",
+    "faq:play-dispute:11",
+    "faq:organize-pair:11",
+    "faq:start-name:9",
+    "faq:organize-schedule:9",
+    "faq:organize-drop:9"
+   ]
+  },
+  {
+   "query": "top 8",
+   "words": [
+    "top",
+    "8"
+   ],
+   "partial": false,
+   "count": 20,
+   "top": [
+    "faq:organize-top8:23",
+    "guide:run-21:18",
+    "faq:play-standings:13",
+    "guide:create-11:8",
+    "guide:run-23:4",
+    "guide:run-30:4",
+    "guide:run-32:4",
+    "guide:play-3:4"
+   ]
+  },
+  {
+   "query": "moxfield",
+   "words": [
+    "moxfield"
+   ],
+   "partial": false,
+   "count": 13,
+   "top": [
+    "faq:decks-import:9",
+    "faq:collection-import:7",
+    "guide:import-6:6",
+    "guide:import-11:6",
+    "faq:play-decklist:3",
+    "faq:collection-export:3",
+    "faq:decks-export:3",
+    "guide:play-5:2"
+   ]
+  },
+  {
+   "query": "price alert",
+   "words": [
+    "price",
+    "alert"
+   ],
+   "partial": false,
+   "count": 11,
+   "top": [
+    "faq:trades-price-alerts:23",
+    "guide:binders-27:18",
+    "guide:push-6:18",
+    "guide:binders-24:14",
+    "guide:binders-28:14",
+    "guide:binders-26:10",
+    "faq:notifications-on:9",
+    "faq:notifications-what:9"
+   ]
+  },
+  {
+   "query": "Cube Cobra",
+   "words": [
+    "cube",
+    "cobra"
+   ],
+   "partial": false,
+   "count": 18,
+   "top": [
+    "faq:decks-import:23",
+    "faq:decks-cube-cobra-sync:23",
+    "guide:import-2:18",
+    "guide:import-13:18",
+    "guide:decks-42:14",
+    "guide:decks-47:14",
+    "guide:decks-43:8",
+    "guide:decks-44:8"
+   ]
+  },
+  {
+   "query": "dispute",
+   "words": [
+    "dispute"
+   ],
+   "partial": false,
+   "count": 17,
+   "top": [
+    "faq:play-dispute:7",
+    "faq:play-report:3",
+    "faq:organize-pair:3",
+    "guide:run-12:2",
+    "guide:run-20:2",
+    "guide:run-22:2",
+    "guide:run-26:2",
+    "guide:run-27:2"
+   ]
+  },
+  {
+   "query": "offline",
+   "words": [
+    "offline"
+   ],
+   "partial": false,
+   "count": 23,
+   "top": [
+    "faq:offline-no-signal:7",
+    "guide:sync-12:6",
+    "guide:sync-13:6",
+    "faq:offline-sync:5",
+    "faq:offline-waiting:5",
+    "guide:search-3:4",
+    "guide:sync-1:4",
+    "guide:sync-2:4"
+   ]
+  },
+  {
+   "query": "no signal",
+   "words": [
+    "no",
+    "signal"
+   ],
+   "partial": false,
+   "count": 9,
+   "top": [
+    "faq:offline-no-signal:23",
+    "guide:sync-11:10",
+    "guide:sync-9:8",
+    "guide:sync-10:8",
+    "guide:sync-12:8",
+    "guide:sync-13:8",
+    "guide:sync-14:8",
+    "guide:scanning-17:4"
+   ]
+  },
+  {
+   "query": "waitlist",
+   "words": [
+    "waitlist"
+   ],
+   "partial": false,
+   "count": 13,
+   "top": [
+    "faq:play-waitlist:7",
+    "guide:run-9:6",
+    "faq:play-leave:3",
+    "faq:notifications-what:3",
+    "guide:create-4:2",
+    "guide:run-8:2",
+    "guide:play-3:2",
+    "guide:play-4:2"
+   ]
+  },
+  {
+   "query": "decklist",
+   "words": [
+    "decklist"
+   ],
+   "partial": false,
+   "count": 11,
+   "top": [
+    "faq:play-decklist:9",
+    "faq:decks-import:7",
+    "guide:create-12:6",
+    "guide:run-10:6",
+    "guide:play-5:6",
+    "faq:decks-image:3",
+    "guide:run-6:2",
+    "guide:insights-30:2"
+   ]
+  },
+  {
+   "query": "sideboard guide",
+   "words": [
+    "sideboard",
+    "guide"
+   ],
+   "partial": false,
+   "count": 9,
+   "top": [
+    "faq:decks-sideboard:23",
+    "guide:decks-21:14",
+    "guide:decks-28:14",
+    "guide:decks-22:8",
+    "guide:decks-23:8",
+    "guide:decks-24:8",
+    "guide:decks-25:8",
+    "guide:decks-26:8"
+   ]
+  },
+  {
+   "query": "friends of friends",
+   "words": [
+    "friends"
+   ],
+   "partial": false,
+   "count": 50,
+   "top": [
+    "faq:friends-add:9",
+    "faq:friends-follow:9",
+    "guide:rankings-20:6",
+    "guide:friends-1:6",
+    "guide:friends-4:6",
+    "guide:friends-9:6",
+    "guide:sharing-9:6",
+    "guide:sharing-10:6"
+   ]
+  },
+  {
+   "query": "share link",
+   "words": [
+    "share",
+    "link"
+   ],
+   "partial": false,
+   "count": 27,
+   "top": [
+    "guide:run-7:18",
+    "guide:links-7:18",
+    "faq:organize-schedule:17",
+    "faq:friends-link:15",
+    "guide:sharing-17:10",
+    "guide:sharing-18:10",
+    "guide:sharing-19:10",
+    "guide:sharing-23:10"
+   ]
+  },
+  {
+   "query": "discord bot",
+   "words": [
+    "discord",
+    "bot"
+   ],
+   "partial": false,
+   "count": 11,
+   "top": [
+    "faq:discord-commands:23",
+    "faq:discord-add:15",
+    "guide:discord-1:6",
+    "guide:discord-3:6",
+    "guide:discord-7:6",
+    "guide:discord-8:6",
+    "guide:discord-11:6",
+    "guide:discord-12:6"
+   ]
+  },
+  {
+   "query": "dont",
+   "words": [
+    "dont"
+   ],
+   "partial": false,
+   "count": 24,
+   "top": [
+    "faq:organize-guests:9",
+    "faq:trades-deck-cards:3",
+    "guide:run-22:2",
+    "guide:play-3:2",
+    "guide:play-10:2",
+    "guide:play-11:2",
+    "guide:widgets-1:2",
+    "guide:widgets-20:2"
+   ]
+  },
+  {
+   "query": "Goryo's",
+   "words": [
+    "goryos"
+   ],
+   "partial": false,
+   "count": 0,
+   "top": []
+  },
+  {
+   "query": "ranking undo",
+   "words": [
+    "ranking",
+    "undo"
+   ],
+   "partial": false,
+   "count": 3,
+   "top": [
+    "faq:rankings-mistake:11",
+    "guide:rankings-12:10",
+    "guide:rankings-36:6"
+   ]
+  },
+  {
+   "query": "tcgplayer optimize",
+   "words": [
+    "tcgplayer",
+    "optimize"
+   ],
+   "partial": false,
+   "count": 2,
+   "top": [
+    "faq:trades-buy:9",
+    "guide:binders-20:6"
+   ]
+  },
+  {
+   "query": "zzzz",
+   "words": [
+    "zzzz"
+   ],
+   "partial": false,
+   "count": 0,
+   "top": []
+  },
+  {
+   "query": "a",
+   "words": [
+    "a"
+   ],
+   "partial": false,
+   "count": 0,
+   "top": []
+  },
+  {
+   "query": "how",
+   "words": [
+    "how"
+   ],
+   "partial": false,
+   "count": 50,
+   "top": [
+    "faq:start-sign-in:9",
+    "faq:play-join:9",
+    "faq:play-report:9",
+    "faq:play-leave:9",
+    "faq:play-decklist:9",
+    "faq:play-tiebreakers:9",
+    "faq:play-deck-photo:9",
+    "faq:organize-create:9"
+   ]
+  },
+  {
+   "query": "life",
+   "words": [
+    "life"
+   ],
+   "partial": false,
+   "count": 43,
+   "top": [
+    "faq:tracker-open:9",
+    "faq:account-track-games:9",
+    "guide:widgets-14:6",
+    "faq:tracker-counters:5",
+    "faq:tracker-first:5",
+    "faq:tracker-reset:5",
+    "faq:tracker-sync:5",
+    "guide:tracker-1:4"
+   ]
+  },
+  {
+   "query": "decks",
+   "words": [
+    "decks"
+   ],
+   "partial": false,
+   "count": 50,
+   "top": [
+    "faq:play-decklist:9",
+    "faq:play-deck-photo:9",
+    "faq:collection-scan-pile:9",
+    "faq:collection-search:9",
+    "faq:decks-new:9",
+    "faq:decks-import:9",
+    "faq:decks-export:9",
+    "faq:decks-missing:9"
+   ]
+  },
+  {
+   "query": "foil scanner",
+   "words": [
+    "foil",
+    "scanner"
+   ],
+   "partial": false,
+   "count": 2,
+   "top": [
+    "faq:collection-scan:11",
+    "guide:after-3:4"
+   ]
+  },
+  {
+   "query": "insights legacy",
+   "words": [
+    "insights",
+    "legacy"
+   ],
+   "partial": false,
+   "count": 8,
+   "top": [
+    "faq:insights-what:11",
+    "guide:insights-31:10",
+    "guide:overview-4:6",
+    "guide:widgets-21:6",
+    "guide:insights-2:6",
+    "guide:decks-29:4",
+    "guide:finder-2:4",
+    "guide:discord-14:4"
+   ]
+  },
+  {
+   "query": "import csv manabox",
+   "words": [
+    "import",
+    "csv",
+    "manabox"
+   ],
+   "partial": false,
+   "count": 4,
+   "top": [
+    "faq:collection-import:21",
+    "guide:import-7:12",
+    "faq:collection-export:11",
+    "guide:csv-2:8"
+   ]
+  },
+  {
+   "query": "block someone",
+   "words": [
+    "block",
+    "someone"
+   ],
+   "partial": false,
+   "count": 3,
+   "top": [
+    "faq:friends-block:17",
+    "guide:friends-9:4",
+    "guide:sharing-24:4"
+   ]
+  },
+  {
+   "query": "colour",
+   "words": [
+    "colour"
+   ],
+   "partial": false,
+   "count": 0,
+   "top": []
+  },
+  {
+   "query": "notifications android",
+   "words": [
+    "notifications",
+    "android"
+   ],
+   "partial": false,
+   "count": 9,
+   "top": [
+    "faq:start-platforms:11",
+    "faq:notifications-on:11",
+    "guide:widgets-30:10",
+    "guide:push-10:10",
+    "guide:account-8:8",
+    "guide:widgets-31:6",
+    "guide:widgets-34:6",
+    "guide:push-5:6"
+   ]
+  },
+  {
+   "query": "bolt",
+   "words": [
+    "bolt"
+   ],
+   "partial": false,
+   "count": 7,
+   "top": [
+    "guide:insights-3:2",
+    "guide:library-6:2",
+    "guide:collection-8:2",
+    "guide:collection-11:2",
+    "guide:binders-24:2",
+    "guide:import-7:2",
+    "guide:import-14:2"
+   ]
+  },
+  {
+   "query": "spice brew",
+   "words": [
+    "spice",
+    "brew"
+   ],
+   "partial": false,
+   "count": 3,
+   "top": [
+    "faq:decks-stats:9",
+    "guide:decks-33:8",
+    "guide:stats-12:6"
+   ]
+  },
+  {
+   "query": "xyzzy deck",
+   "words": [
+    "xyzzy",
+    "deck"
+   ],
+   "partial": true,
+   "count": 50,
+   "top": [
+    "faq:play-decklist:9",
+    "faq:play-deck-photo:9",
+    "faq:collection-scan-pile:9",
+    "faq:collection-search:9",
+    "faq:decks-new:9",
+    "faq:decks-import:9",
+    "faq:decks-export:9",
+    "faq:decks-missing:9"
+   ]
+  }
+ ]
+}

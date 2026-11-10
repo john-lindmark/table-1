@@ -99,6 +99,11 @@ const RankingChanges = lazyNamed(rankings, "RankingChangesScreen");
 const DeckFinderScreen = lazyNamed(() => import("./screens/DeckFinder"), "DeckFinderScreen");
 const DeckPhotosScreen = lazyNamed(() => import("./screens/DeckPhotos"), "DeckPhotosScreen");
 const MyDeckPhotosScreen = lazyNamed(() => import("./screens/DeckPhotos"), "MyDeckPhotosScreen");
+const SupportHome = lazyNamed(() => import("./screens/Support"), "SupportHome");
+const SupportTopicScreen = lazyNamed(() => import("./screens/Support"), "SupportTopicScreen");
+const SupportFaqScreen = lazyNamed(() => import("./screens/Support"), "SupportFaqScreen");
+const SupportGuideScreen = lazyNamed(() => import("./screens/Support"), "SupportGuideScreen");
+const SupportGuideIndex = lazyNamed(() => import("./screens/Support"), "SupportGuideIndex");
 const ListImportScreen = lazyNamed(() => import("./screens/ListImport"), "ListImportScreen");
 const CubeSyncScreen = lazyNamed(() => import("./screens/CubeSync"), "CubeSyncScreen");
 const insights = () => import("./screens/Insights");
@@ -212,7 +217,40 @@ function ProfileRoute() {
   return <Profile onSignedOut={() => navigate("/")} onFriends={() => navigate("/friends")} onSharing={() => navigate("/sharing")}
                   onProfile={(id) => navigate(`/u/${id}`)} onDiscord={() => navigate("/discord")}
                   onNotices={() => navigate("/me/notices")} onReview={() => navigate("/me/review")}
-                  onDeckPhotos={() => navigate("/me/deck-photos")} />;
+                  onDeckPhotos={() => navigate("/me/deck-photos")} onSupport={() => navigate("/support")} />;
+}
+
+/* Support (contract/support-2026-11-10.md): /support, signed in or out; a topic, an answer, a guide section
+   (?e=<entry> scrolls to the entry a search found; ?from= says how it was reached, for telemetry). */
+function useSupportGo() {
+  const navigate = useNavigate();
+  return {
+    topic: (key: string) => navigate(`/support/topic/${key}`),
+    guides: () => navigate("/support/guide"),
+    faq: (id: string, from: string) => navigate(`/support/faq/${id}?from=${from}`),
+    guide: (section: string, entry: string | null, from: string) =>
+      navigate(`/support/guide/${section}?from=${from}${entry ? `&e=${entry}` : ""}`),
+  };
+}
+function SupportRoute() {
+  return <SupportHome onBack={useBack("/me")} go={useSupportGo()} />;
+}
+function SupportTopicRoute() {
+  const { key = "" } = useParams();
+  return <SupportTopicScreen topic={key} onBack={useBack("/support")} go={useSupportGo()} />;
+}
+function SupportFaqRoute() {
+  const { id = "" } = useParams();
+  const from = new URLSearchParams(useLocation().search).get("from") ?? "link";
+  return <SupportFaqScreen id={id} from={from} onBack={useBack("/support")} go={useSupportGo()} />;
+}
+function SupportGuideIndexRoute() {
+  return <SupportGuideIndex onBack={useBack("/support")} go={useSupportGo()} />;
+}
+function SupportGuideRoute() {
+  const { section = "" } = useParams();
+  const params = new URLSearchParams(useLocation().search);
+  return <SupportGuideScreen section={section} entry={params.get("e")} from={params.get("from") ?? "link"} onBack={useBack("/support")} />;
 }
 
 /** /me/deck-photos: every photo of your decks (Account → Deck photos). */
@@ -621,6 +659,11 @@ export default function App() {
         <Route path="/me/notices" element={<NoticesRoute />} />
         <Route path="/me/deck-photos" element={<MyDeckPhotosRoute />} />
         <Route path="/me/review" element={<ReviewRoute />} />
+        <Route path="/support" element={<SupportRoute />} />
+        <Route path="/support/topic/:key" element={<SupportTopicRoute />} />
+        <Route path="/support/faq/:id" element={<SupportFaqRoute />} />
+        <Route path="/support/guide" element={<SupportGuideIndexRoute />} />
+        <Route path="/support/guide/:section" element={<SupportGuideRoute />} />
         <Route path="/sign-in" element={<SignInPage />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/delete-account" element={<DeleteAccountPage />} />

@@ -1,0 +1,146 @@
+{
+  "about": "Rules for tools/support/make_guide.py: guide entries Support leaves out (a section and the start of the entry's title or text, or a whole subheading), text it rewrites, and section titles it renames.",
+  "titles": {
+    "library": "Card data and prices",
+    "csv": "Collection import and export"
+  },
+  "skip_sections": [],
+  "drop": [
+    {
+      "section": "overview",
+      "starts": "Rules are enforced on the server"
+    },
+    {
+      "section": "run",
+      "starts": "Game and match times are recorded"
+    },
+    {
+      "section": "run",
+      "starts": "Older app versions"
+    },
+    {
+      "section": "insights",
+      "starts": "Names players use"
+    },
+    {
+      "section": "insights",
+      "starts": "On the first day"
+    },
+    {
+      "section": "collection",
+      "starts": "The home summary"
+    },
+    {
+      "section": "scanning",
+      "starts": "Steady speed"
+    },
+    {
+      "section": "scanning",
+      "starts": "The button stays in reach"
+    },
+    {
+      "section": "scanning",
+      "heading": "Accuracy on 291 real photos"
+    },
+    {
+      "section": "rankings",
+      "starts": "For now the comparison"
+    },
+    {
+      "section": "safety",
+      "starts": "Enforcement switches on"
+    },
+    {
+      "section": "account",
+      "starts": "Store review sign-in"
+    },
+    {
+      "section": "account",
+      "starts": "What Table 1 does, before you sign in"
+    },
+    {
+      "section": "links",
+      "starts": "Older iPhone builds"
+    },
+    {
+      "section": "web",
+      "starts": "The landing page"
+    },
+    {
+      "section": "web",
+      "starts": "The site serves the files"
+    },
+    {
+      "section": "web",
+      "starts": "Same as the apps"
+    }
+  ],
+  "replace": [
+    {
+      "section": "binders",
+      "from": " (Mass Entry rejected whole carts over one exact-printing line)",
+      "to": ""
+    },
+    {
+      "section": "binders",
+      "from": "Individual TCGplayer listings aren't read: TCGplayer doesn't give new apps access to them. If that changes, an alert for a single listing well under market can be added.",
+      "to": "Individual TCGplayer listings aren't read."
+    },
+    {
+      "section": "scanning",
+      "from": " (it was half a second, which kept old cards from ever counting)",
+      "to": ""
+    },
+    {
+      "section": "scanning",
+      "from": ". Flavor text names people who are cards too (an Ice Age Counterspell whose title didn't read went in as Gustha Ebbasdotter), and that can't happen now, on iPhone and Android.",
+      "to": ", so a name in the flavor text never names the card."
+    },
+    {
+      "section": "rankings",
+      "from": " (about 40 to 95 screens each on the rankings so far)",
+      "to": ""
+    },
+    {
+      "section": "privacy",
+      "from": "Development builds send nothing. On Android only crash and error reports are sent so far; usage analytics follow. ",
+      "to": ""
+    },
+    {
+      "section": "web",
+      "from": " (the app stores require both)",
+      "to": ""
+    },
+    {
+      "section": "discord",
+      "from": " Next: decklists for events from Discord, results posts with decks, trade matches within a server.",
+      "to": ""
+    },
+    {
+      "section": "csv",
+      "from": "Library → Import and export.",
+      "to": "Collection → Import."
+    }
+  ],
+  "forbidden": [
+    "\\bbuild \\d",
+    "\\bbundle \\d",
+    "TestFlight",
+    "Simulator",
+    "\\bJohn\\b",
+    "\\b(?=[0-9a-f]*\\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\\b",
+    "\\bmigration",
+    "\\bdeploy",
+    "\\bRPC\\b",
+    "\\bsmoke",
+    "\\bv\\d+\\b",
+    "colour",
+    "\\bOctober \\d",
+    "\\d October\\b",
+    "\\bNovember \\d",
+    "\\d November\\b",
+    "\\btested\\b",
+    "\\bnot yet (tried|seen|run|uploaded|live)",
+    "\\bnext build"
+  ]
+}

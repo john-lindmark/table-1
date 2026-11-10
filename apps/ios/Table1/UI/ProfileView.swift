@@ -45,6 +45,7 @@ struct AccountView: View {
                 AccountSocialRows(path: $path)
                 ModerationAccountRows(path: $path)
                 BugsAccountRow(path: $path)
+                SupportAccountRow(path: $path)
 
                 Section1("Head-to-head")
                 if overview == nil {

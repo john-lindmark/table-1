@@ -55,13 +55,15 @@ const FriendsAccountRows = lazy(() => import("./Friends").then((m) => ({ default
 const ModerationAccountRows = lazy(() => import("./Moderation").then((m) => ({ default: m.ModerationAccountRows })));
 const CommunityJoin = lazy(() => import("./Discord").then((m) => ({ default: m.CommunityJoin })));
 
-export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscord, onNotices, onReview, onDeckPhotos }: {
+export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscord, onNotices, onReview, onDeckPhotos, onSupport }: {
   onSignedOut: () => void; onFriends: () => void; onSharing: () => void; onProfile: (userId: string) => void;
   onDiscord?: () => void;
   onNotices?: () => void;
   /** Account → Deck photos (/me/deck-photos). */
   onDeckPhotos?: () => void;
   onReview?: () => void;
+  /** Account → Support (/support): questions and the guide (contract/support-2026-11-10.md). */
+  onSupport?: () => void;
 }) {
   const real = useSession();
   // Dev server, `?demo`: the account on sample results (the feature-spot shot of the record), no sign-in.
@@ -274,6 +276,8 @@ export function Profile({ onSignedOut, onFriends, onSharing, onProfile, onDiscor
             </Suspense>
           </>
         )}
+
+        {onSupport && <Row title="Support" detail="Questions and the guide" onClick={onSupport} />}
 
         <div className="bg-t1-surface px-4 py-2 t1-label">Head-to-head</div>
         {overview === null && <div className="bg-t1-surface px-4 py-4 t1-label">Loading…</div>}

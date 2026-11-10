@@ -120,6 +120,11 @@ describe("screenName", () => {
     expect(screenName(`/e/${UUID}/photos`)).toBe("deck_photos");
     expect(screenName(`/p/${UUID}/photos`)).toBe("deck_photos");
     expect(screenName("/me/deck-photos")).toBe("my_deck_photos");
+    expect(screenName("/support")).toBe("support");
+    expect(screenName("/support/guide")).toBe("support_guides");
+    expect(screenName("/support/topic/play")).toBe("support_topic");
+    expect(screenName("/support/faq/play-join")).toBe("support_faq");
+    expect(screenName("/support/guide/scanning")).toBe("support_guide");
     expect(screenName("/life")).toBe("life_tracker");
     expect(screenName("/library/rankings")).toBe("rankings");
     expect(screenName(`/library/list/${UUID}/rankings`)).toBe("rankings");

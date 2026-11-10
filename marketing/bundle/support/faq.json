@@ -1,0 +1,745 @@
+{
+  "updated": "2026-11-10",
+  "contact": {
+    "discord": "https://discord.gg/SEYnjHTGVr",
+    "email": "privacy@table-1.site"
+  },
+  "topics": [
+    { "key": "start", "title": "Getting started" },
+    { "key": "play", "title": "Playing in events" },
+    { "key": "organize", "title": "Running events" },
+    { "key": "tracker", "title": "Life tracker" },
+    { "key": "collection", "title": "Collection and scanning" },
+    { "key": "decks", "title": "Decks and cubes" },
+    { "key": "trades", "title": "Trades, wants and buying" },
+    { "key": "rankings", "title": "Rankings" },
+    { "key": "insights", "title": "Insights" },
+    { "key": "friends", "title": "Friends and sharing" },
+    { "key": "notifications", "title": "Notifications" },
+    { "key": "offline", "title": "Sync and offline" },
+    { "key": "discord", "title": "Discord" },
+    { "key": "account", "title": "Account and privacy" }
+  ],
+  "faqs": [
+    {
+      "id": "start-what",
+      "topic": "start",
+      "q": "What is Table 1?",
+      "a": "Table 1 runs Magic: The Gathering tournaments and keeps your cards. The Events tab is for playing in and running events, Collection holds your cards, binders, wants, decks, cubes and trades, Insights shows what's winning in Constructed and Arena drafts, and Account has your record, friends and settings.\n\nThe same account works in the iPhone app, the Android app and on table-1.site.",
+      "keywords": ["about", "overview", "app", "tabs"],
+      "guide": "overview"
+    },
+    {
+      "id": "start-sign-in",
+      "topic": "start",
+      "q": "How do I sign in?",
+      "a": "Continue with Apple, Google, Discord or email. Any of them makes an account the first time. Android has Google, Discord and email; an Apple account signs in there by email with the same address.\n\nEmail has no password: you get one email with a Sign in button and a one-time code. Type the code on any device, or tap the button.",
+      "keywords": ["login", "log in", "sign up", "register", "create account", "apple", "google", "email", "password"],
+      "guide": "account"
+    },
+    {
+      "id": "start-no-email",
+      "topic": "start",
+      "q": "I didn't get the sign-in email.",
+      "a": "Check your spam folder first. A sign-in email can go to an address once a minute, so asking again sooner takes you straight to the code step with a countdown until Resend works: the first email is already on its way.\n\nIf you leave for your mail app and come back, the app opens on the code step for that address for the code's hour. If it says too many sign-in emails have gone out, wait a few minutes or continue with Apple, Google or Discord.",
+      "keywords": ["email", "code", "spam", "magic link", "resend", "not received", "missing"],
+      "guide": "account"
+    },
+    {
+      "id": "start-same-account",
+      "topic": "start",
+      "q": "Will email and Apple or Google reach the same account?",
+      "a": "Yes, when the email address is the same. Signing in by email with the address of your Apple or Google account reaches that account. Discord joins an existing account when your Discord email is verified and matches it.",
+      "keywords": ["merge", "duplicate", "two accounts", "link accounts"],
+      "guide": "account"
+    },
+    {
+      "id": "start-name",
+      "topic": "start",
+      "q": "Why does it ask for my first and last name?",
+      "a": "New email and Discord accounts are asked for a name before anything else, so organizers and opponents see a real name in pairings and standings. Apple and Google accounts bring one. Change it any time in Account → Display name.",
+      "keywords": ["display name", "rename", "change name"],
+      "guide": "account"
+    },
+    {
+      "id": "start-platforms",
+      "topic": "start",
+      "q": "What's different between the iPhone, Android and web versions?",
+      "a": "Almost everything is on all three. Card scanning, widgets, Live Activities and push notifications are phone-only; the website has no camera scanner, so there you add cards by search or import. On a computer the website lays itself out with a sidebar and two columns.",
+      "keywords": ["website", "web", "iphone", "android", "ios", "computer", "desktop"],
+      "guide": "web"
+    },
+    {
+      "id": "play-join",
+      "topic": "play",
+      "q": "How do I join an event?",
+      "a": "Scan the organizer's QR code, open their link, tap Nearby on the Events tab for open events within 150 m, or type the 4-character event code and tap Join.\n\nCopied the code or a message with it? Paste finds the code in what you copied and joins straight away.",
+      "keywords": ["join", "code", "qr", "nearby", "enter event", "sign up", "paste"],
+      "guide": "play"
+    },
+    {
+      "id": "play-no-account",
+      "topic": "play",
+      "q": "Can I play without an account?",
+      "a": "On the website you can join as a guest with just a name. An organizer can also add you by name, and you can claim that seat on your account later with the link they share.\n\nWith an account your results go on your lifetime record and the event shows up in the app.",
+      "keywords": ["guest", "without account", "no account", "claim"],
+      "guide": "play"
+    },
+    {
+      "id": "play-report",
+      "topic": "play",
+      "q": "How do I report my match result?",
+      "a": "The live card on the Events tab leads with reporting your result. One player's report counts; when your opponent reports the same score it's confirmed, and a different score is a dispute for the organizer to settle.\n\nResults that nobody disputes confirm themselves when the round ends.",
+      "keywords": ["result", "score", "submit", "report", "win", "loss", "draw"],
+      "guide": "run"
+    },
+    {
+      "id": "play-dispute",
+      "topic": "play",
+      "q": "My opponent reported the wrong score. What happens?",
+      "a": "A different score from each player is a dispute. The organizer sees it under Disputed and sets the right result; every change is recorded. The next round can't be paired until disputes are settled.",
+      "keywords": ["dispute", "wrong score", "mistake", "incorrect", "disagree"],
+      "guide": "run"
+    },
+    {
+      "id": "play-waitlist",
+      "topic": "play",
+      "q": "The event is full. Can I still get in?",
+      "a": "Join the waitlist from the event's sign-up page. It tells you your place (\"You're number 2 on the waitlist\"), and when a place opens you're seated and get a \"You're in\" notification. The waitlist closes once round 1 is paired.",
+      "keywords": ["full", "waitlist", "cap", "capacity", "waiting list"],
+      "guide": "play"
+    },
+    {
+      "id": "play-leave",
+      "topic": "play",
+      "q": "How do I leave an event?",
+      "a": "Until round 1, Leave event on the event screen gives up your seat or your place on the waitlist, and the next person moves up. Once the event has started, ask the organizer to drop you: your results still count but you won't be paired again.",
+      "keywords": ["leave", "drop", "quit", "withdraw", "cancel signup"],
+      "guide": "play"
+    },
+    {
+      "id": "play-decklist",
+      "topic": "play",
+      "q": "How do I submit my decklist?",
+      "a": "In a Constructed event that takes decklists, the Decklist row on the event screen opens it. Paste a list (Arena, MTGO and Moxfield exports all read) or pick one of your own decks in the event's format. You can change it until round 1; after that, ask the organizer. Only you and the organizer see it.",
+      "keywords": ["decklist", "deck list", "submit deck", "registration"],
+      "guide": "play"
+    },
+    {
+      "id": "play-standings",
+      "topic": "play",
+      "q": "Where are the standings and pairings?",
+      "a": "On the event screen while you play, and on the event's link for everyone else: before round 1 it's the sign-up page, after it Standings and Matchups with every round's tables and scores. Anyone with the link can follow along, signed in or not.",
+      "keywords": ["standings", "pairings", "matchups", "results", "bracket", "top 8"],
+      "guide": "play"
+    },
+    {
+      "id": "play-tiebreakers",
+      "topic": "play",
+      "q": "How are points and tiebreakers worked out?",
+      "a": "By the Magic Tournament Rules: 3 points for a win, 1 for a draw, and a bye counts as a win. Tiebreakers are opponents' match-win percentage, game-win percentage and opponents' game-win percentage, each with a 33% floor.",
+      "keywords": ["points", "tiebreaker", "omw", "gw", "ogw", "scoring", "bye"],
+      "guide": "run"
+    },
+    {
+      "id": "play-follow",
+      "topic": "play",
+      "q": "Can I follow an event I'm not playing in?",
+      "a": "Yes. Open its link signed in and tap Follow. It shows on the Events tab under Following, with a notification when each round is paired, when it finishes and if it's cancelled. Tap Following to turn its notifications off or unfollow. Nobody, the organizer included, sees who follows.",
+      "keywords": ["follow event", "watch", "spectate", "spectator"],
+      "guide": "play"
+    },
+    {
+      "id": "play-deck-photo",
+      "topic": "play",
+      "q": "How do I add a photo of my deck?",
+      "a": "On the event screen, Deck photo lets you take or pick a photo with a note, and turn it upright before saving. Only you and the organizer see it until the event is over; then everyone in the event does. Account → Deck photos lists every photo of a deck you've played.",
+      "keywords": ["photo", "picture", "deck photo", "camera"],
+      "guide": "after"
+    },
+    {
+      "id": "organize-create",
+      "topic": "organize",
+      "q": "How do I create an event?",
+      "a": "On the Events tab, tap + New. Pick Constructed or Limited, the format, and for Limited a set or cube. Leave the name empty and it names itself. You're in as a player by default; switch that off to only run it. Add players by name, invite by email, or let them join by code, QR or Nearby.",
+      "keywords": ["create", "new event", "host", "tournament", "start event"],
+      "guide": "create"
+    },
+    {
+      "id": "organize-schedule",
+      "topic": "organize",
+      "q": "Can I schedule an event for later and share a sign-up link?",
+      "a": "Yes. Set When to Later with a day and time, and optionally Where and a player cap. Share link gives you the event's link, which is a sign-up page until round 1. Nothing starts by itself: you still pair round 1.",
+      "keywords": ["schedule", "later", "sign up link", "registration", "cap", "share link"],
+      "guide": "run"
+    },
+    {
+      "id": "organize-rounds",
+      "topic": "organize",
+      "q": "How many rounds will my event have?",
+      "a": "With Automatic rounds on, the count follows the players signed up: 2 players play 1 round, 3–4 play 2, 5–8 play 3, 9–16 play 4, 17–32 play 5, 33–64 play 6 and 65–128 play 7. It's fixed when round 1 is paired. Switch it off to set the rounds yourself, from 1 to 15.",
+      "keywords": ["rounds", "swiss", "how many", "number of rounds"],
+      "guide": "create"
+    },
+    {
+      "id": "organize-pair",
+      "topic": "organize",
+      "q": "How do I pair the next round?",
+      "a": "The big button on the organizer screen moves from \"Waiting on 2 results\" to Pair round 3 and finally Finish event. Pairings are worked out by Table 1 by the Magic Tournament Rules. Open disputes have to be settled first.",
+      "keywords": ["pair", "next round", "pairings", "finish"],
+      "guide": "run"
+    },
+    {
+      "id": "organize-fix-result",
+      "topic": "organize",
+      "q": "A result was entered wrong. How do I fix it?",
+      "a": "Tap any match to set its result; every change is recorded. Matches from earlier rounds are under the Earlier tab. If the next round was already paired from the wrong result, the Round tab offers Re-pair round N (also in More): it pairs the round again from the standings as they are now, with a fresh clock, and tells players their new tables.",
+      "keywords": ["wrong result", "correct", "fix", "edit result", "re-pair", "repair", "undo"],
+      "guide": "run"
+    },
+    {
+      "id": "organize-drop",
+      "topic": "organize",
+      "q": "How do I drop a player or add someone late?",
+      "a": "Before round 1, add or remove players in Setup; anyone joining by code or link goes in too. During the event, drop a player from Players: they're not paired again but their results still count, and you can reinstate them. Players past the cap can always be added by you.",
+      "keywords": ["drop player", "remove player", "add player", "late", "reinstate"],
+      "guide": "run"
+    },
+    {
+      "id": "organize-top8",
+      "topic": "organize",
+      "q": "How does a top 8 work?",
+      "a": "Pick Top 8 when you create the event (it needs 9 or more players). After the last Swiss round the button reads Cut to top 8, which pairs 1 v 8, 4 v 5, 2 v 7 and 3 v 6, the higher seed choosing to play or draw. Then semifinals and the final. Playoff matches can't end in a draw.",
+      "keywords": ["top 8", "top cut", "playoffs", "elimination", "bracket"],
+      "guide": "run"
+    },
+    {
+      "id": "organize-pods",
+      "topic": "organize",
+      "q": "How do drafts with several pods work?",
+      "a": "On Create (Draft) or in Setup → Seating, Pods is Auto (pods of up to 8) or a number you choose. Pairings is Inside pods (after round 1 you play your own pod) or Across pods (Swiss over everyone). Round 1 is across each table either way.\n\nIn Seating, Randomize draws every pod and seat again, and tapping a seat lets you move that player to another pod or swap them with someone.",
+      "keywords": ["pods", "draft", "seating", "seats", "cross pod", "multiple pods"],
+      "guide": "run"
+    },
+    {
+      "id": "organize-teams",
+      "topic": "organize",
+      "q": "Can I run a team draft or team sealed?",
+      "a": "Yes: pick Team draft or Team sealed, with teams of 3 or 4. In Setup you can randomize teams, move players and rename teams. A team wins a round by winning more of its matches. When one team can no longer be caught, the event offers Finish event straight away.",
+      "keywords": ["team", "team draft", "team sealed", "3v3", "4v4"],
+      "guide": "run"
+    },
+    {
+      "id": "organize-guests",
+      "topic": "organize",
+      "q": "Some players don't have the app. Can I still run the event?",
+      "a": "Yes. Add them by name as guests. When neither player in a match has an account, your phone keeps score with the life tracker and reports the result, or you set the result yourself.",
+      "keywords": ["guest", "no app", "without app", "paper"],
+      "guide": "run"
+    },
+    {
+      "id": "organize-roto",
+      "topic": "organize",
+      "q": "What is a roto draft?",
+      "a": "A rotisserie draft: the whole cube is laid out face up and players take turns picking from it in snake order. Pick one of your Library cubes, set picks per player and an optional pick clock, then Start draft. Each player's picks fill a deck in their Library, and the rounds run like any other event.",
+      "keywords": ["roto", "rotisserie", "cube draft", "pick clock"],
+      "guide": "roto"
+    },
+    {
+      "id": "organize-cancel",
+      "topic": "organize",
+      "q": "How do I cancel an event?",
+      "a": "Cancel it from the organizer screen and give a reason. Players are told, and the event keeps the standings after the last completed round.",
+      "keywords": ["cancel", "delete event", "stop"],
+      "guide": "run"
+    },
+    {
+      "id": "tracker-open",
+      "topic": "tracker",
+      "q": "How do I use the life tracker?",
+      "a": "Tap Life on the Events tab, or open it from your match. Tap the top of a number for +1 and the bottom for −1; hold to repeat. Without an event it starts on Setup: pick 2 to 5 players and 20, 30 or 40 life, then Start.",
+      "keywords": ["life", "life counter", "tracker", "counter"],
+      "guide": "tracker"
+    },
+    {
+      "id": "tracker-counters",
+      "topic": "tracker",
+      "q": "How do I track poison, energy or commander damage?",
+      "a": "Swipe toward yourself on your half to open the counter picker and turn on up to three counters: poison, energy, experience, rad and speed. At 30 or 40 starting life, commander damage from each opponent is listed first; it comes off your life too, and 21 from one opponent loses. Done closes the picker.",
+      "keywords": ["poison", "energy", "commander damage", "counters", "experience", "rad"],
+      "guide": "tracker"
+    },
+    {
+      "id": "tracker-first",
+      "topic": "tracker",
+      "q": "How do we pick who goes first or roll dice?",
+      "a": "Options → Chooser: everyone puts a finger on the screen and one is picked at random after two seconds. Options → Roll dice rolls 1 to 10 dice from D4 to D20 and shows the total.",
+      "keywords": ["first player", "random", "chooser", "dice", "roll", "d20"],
+      "guide": "tracker"
+    },
+    {
+      "id": "tracker-reset",
+      "topic": "tracker",
+      "q": "How do I undo a mistake or reset the game?",
+      "a": "History lists every change and lets you undo. Reset asks first, then puts life and counters back for this game; in a game on your own phone it also offers Reset match to clear recorded games. In an event, recorded games stay: they're the event's record.",
+      "keywords": ["undo", "reset", "mistake", "history", "new game"],
+      "guide": "tracker"
+    },
+    {
+      "id": "tracker-sync",
+      "topic": "tracker",
+      "q": "Do both players' trackers stay in sync?",
+      "a": "In an event, yes: both phones show the same life totals, and the organizer can watch. When a match is decided the tracker offers to report it to the event.",
+      "keywords": ["sync", "opponent", "both phones", "shared"],
+      "guide": "tracker"
+    },
+    {
+      "id": "collection-add",
+      "topic": "collection",
+      "q": "How do I add cards to my collection?",
+      "a": "On the Collection tab, + → Add cards: search by name (Scryfall's syntax works too) or scan with the camera. Everything you add in one go can be undone in one step. A card starts as its original printing; tap it to change the printing, condition, language or finish.",
+      "keywords": ["add cards", "collection", "search", "new cards"],
+      "guide": "collection"
+    },
+    {
+      "id": "collection-scan",
+      "topic": "collection",
+      "q": "How does the card scanner work?",
+      "a": "Hold the card inside the outline on screen. The phone reads the card's name and set details and matches them against the card data on your device; no photo leaves the phone. A card counts once its name holds steady for a moment, so you can flip through a stack.\n\nThe camera can't tell foil, so set the finish on the row. Rows marked Check printing are the ones it wasn't sure of: tap to fix them.",
+      "keywords": ["scan", "scanner", "camera", "photo", "recognize"],
+      "guide": "scanning"
+    },
+    {
+      "id": "collection-scan-wrong",
+      "topic": "collection",
+      "q": "The scanner picked the wrong printing or card.",
+      "a": "Tap the row to change its printing. Your fix becomes the next guess, so the rest of a stack from the same set follows it. Old cards like Alpha, Beta, Unlimited and Revised print no set or year, so the scanner guesses from the border color; fix one and the rest follow.\n\nWhen you correct a scan, the app sends the text it read (never a picture) to help improve recognition. Turn that off in Account → Improve scanning.",
+      "keywords": ["wrong printing", "wrong card", "misread", "scanner mistake", "alpha", "beta", "revised"],
+      "guide": "scanning"
+    },
+    {
+      "id": "collection-scan-languages",
+      "topic": "collection",
+      "q": "Can I scan cards in other languages?",
+      "a": "Yes, with no setting: German, Spanish, French, Italian, Portuguese, Russian, Japanese, Korean and Chinese cards match by their printed name, and the copy goes in as the language the card says. On Android the Japanese, Chinese and Korean readers come from Google Play services and download when the scanner first needs them.",
+      "keywords": ["language", "japanese", "chinese", "korean", "german", "foreign"],
+      "guide": "scanning"
+    },
+    {
+      "id": "collection-scan-pile",
+      "topic": "collection",
+      "q": "Can I scan a pile and put it in a deck, binder or trade?",
+      "a": "Yes. The camera at the top of the Collection tab scans as many cards as you like; then Add puts them all in your collection, a deck, a cube, a binder, your wants or a trade at once, each in the printing and finish its row shows. The Collection tab says what went where, with Undo.",
+      "keywords": ["scan pile", "bulk", "many cards", "batch"],
+      "guide": "scanning"
+    },
+    {
+      "id": "collection-import",
+      "topic": "collection",
+      "q": "Can I import my collection from another app?",
+      "a": "Collection → Import reads CSV exports from ManaBox, Moxfield, Archidekt, Deckbox, Dragon Shield, TCGplayer and Delver Lens, and most other CSVs with a card name column. You see a preview of matched and unmatched cards and the value before anything is added, then choose Add to collection or Replace collection. One Undo takes it all back.",
+      "keywords": ["import", "csv", "manabox", "moxfield", "deckbox", "dragon shield", "delver", "archidekt", "export"],
+      "guide": "csv"
+    },
+    {
+      "id": "collection-export",
+      "topic": "collection",
+      "q": "Can I export my collection?",
+      "a": "Yes. Import and export writes a CSV for Moxfield or ManaBox, with binder and tradelist columns.",
+      "keywords": ["export", "csv", "backup", "download"],
+      "guide": "csv"
+    },
+    {
+      "id": "collection-prices",
+      "topic": "collection",
+      "q": "Where do prices come from?",
+      "a": "Dollar prices are TCGplayer's market price and euro prices Cardmarket's, both by way of Scryfall, updated daily. They're near-mint prices; a copy in your collection is valued by its condition (LP 90%, MP 75%, HP 60%, DMG 40%). When TCGplayer has no price, Cardmarket's is converted to dollars and marked with ≈.",
+      "keywords": ["price", "value", "tcgplayer", "cardmarket", "worth", "market"],
+      "guide": "library"
+    },
+    {
+      "id": "collection-binders",
+      "topic": "collection",
+      "q": "What are binders?",
+      "a": "Binders say where your copies are. A binder holds some of your copies and the rest are Unsorted. Mark a binder For trade and its copies are what trades give first and what friends can match against their wants. Deleting a binder puts its copies back in Unsorted.",
+      "keywords": ["binder", "for trade", "trade binder", "unsorted", "folder"],
+      "guide": "binders"
+    },
+    {
+      "id": "collection-change-copy",
+      "topic": "collection",
+      "q": "How do I change a card's printing, condition or language?",
+      "a": "Open the card. The row under it holds Set, Language, Condition and Finish; picking another one changes the copies on screen, each staying in its binder. With several copies it asks One copy or All. Undo puts them back.",
+      "keywords": ["printing", "condition", "language", "foil", "edition", "set", "change"],
+      "guide": "collection"
+    },
+    {
+      "id": "collection-search",
+      "topic": "collection",
+      "q": "How do I search for cards, decks or binders?",
+      "a": "The magnifier on the Collection tab searches every card, with how many you own. It also finds your decks, cubes and binders, ones you follow, friends' shared ones, the lists that hold a card you name, Insights archetypes and rankings. Add cards searches take Scryfall's syntax (t:dragon, c:r, mv<=3); Adv writes it for you.",
+      "keywords": ["search", "find", "scryfall syntax", "advanced", "filter"],
+      "guide": "search"
+    },
+    {
+      "id": "collection-widget",
+      "topic": "collection",
+      "q": "Are there home screen widgets?",
+      "a": "Yes, on iPhone and Android: Next event, Collection value, the Card icon (any card's art behind the Table 1 mark), and three Insights widgets (Meta, Matchup grid and Archetype matchups). On iPhone your match and the round you're running also show on the Lock Screen. Add them from your home screen like any widget.",
+      "keywords": ["widget", "home screen", "lock screen", "live activity", "icon"],
+      "guide": "widgets"
+    },
+    {
+      "id": "decks-new",
+      "topic": "decks",
+      "q": "How do I make a deck or cube?",
+      "a": "Collection → + → New deck or New cube. Name it, pick a format, then add cards by search or scan. Or import a list, or for decks find one online with the deck finder. New decks start Private.",
+      "keywords": ["new deck", "create deck", "build", "cube"],
+      "guide": "decks"
+    },
+    {
+      "id": "decks-import",
+      "topic": "decks",
+      "q": "How do I import a deck from Moxfield, Archidekt or Cube Cobra?",
+      "a": "New deck or New cube → Import from a link or list. Paste a Cube Cobra, Archidekt, MTGGoldfish or ManaBox link, or paste the list itself. Moxfield doesn't let other apps read its decks: in Moxfield choose Export, copy the list as text, and paste it here. Exact printings carry over when the list names them.",
+      "keywords": ["import deck", "moxfield", "archidekt", "cube cobra", "mtggoldfish", "paste list", "decklist"],
+      "guide": "import"
+    },
+    {
+      "id": "decks-export",
+      "topic": "decks",
+      "q": "How do I export a deck to Arena or MTGO?",
+      "a": "Export on the deck's screen shows the list in the format you pick: Text, Arena, Moxfield or MTGO for decks, Text or Cube Cobra for cubes. To Arena copies the Arena list for Arena's import; To MTGO saves the .txt file.",
+      "keywords": ["export", "arena", "mtgo", "copy list", "text"],
+      "guide": "import"
+    },
+    {
+      "id": "decks-missing",
+      "topic": "decks",
+      "q": "Why does my deck say cards are missing?",
+      "a": "Each line counts what you own against what it lists. Any copy of the card covers a line, in any printing, finish or language. Basic lands are never missing, and Considering cards never count. Wants → Missing lists every card your decks and cubes need more of, with one tap to add it to your wants.",
+      "keywords": ["missing", "owned", "need", "short", "red"],
+      "guide": "decks"
+    },
+    {
+      "id": "decks-commander",
+      "topic": "decks",
+      "q": "How do I set a commander?",
+      "a": "Pick Commander or Oathbreaker as the format and choose the command zone right there: a commander and, if it can have one, a partner or background; or an oathbreaker and a signature spell. On an older deck, Edit → Format switches it to Commander and brings up the command zone to fill; the deck's own cards that fit are listed first.",
+      "keywords": ["commander", "edh", "partner", "background", "oathbreaker", "command zone"],
+      "guide": "decks"
+    },
+    {
+      "id": "decks-stats",
+      "topic": "decks",
+      "q": "What's in a deck's Stats?",
+      "a": "Mana curve, card types, average mana value, colored pips against mana sources, legality in every format with reasons, price, a sample hand with mulligans, and draw odds. Cubes add color balance, Asfan and a sample pack. Spice scores how far the deck strays from similar tournament lists, from Stock to Brew.",
+      "keywords": ["stats", "curve", "legality", "sample hand", "odds", "spice", "mana"],
+      "guide": "stats"
+    },
+    {
+      "id": "decks-sideboard",
+      "topic": "decks",
+      "q": "How do I make a sideboard guide?",
+      "a": "Sideboard guide sits under Stats on every deck except Commander and Oathbreaker. Add a matchup, set what comes In and goes Out, and add notes. Print shows the page first and prints it on white paper, with only the cards in your sideboard, following the tournament rules on notes.",
+      "keywords": ["sideboard", "guide", "matchup", "print", "sideboarding"],
+      "guide": "decks"
+    },
+    {
+      "id": "decks-history",
+      "topic": "decks",
+      "q": "Can I get an older version of my deck back?",
+      "a": "Yes. Every change is kept in Version history, with edits close together grouped into one version. Open any version to see what was added and removed, and Restore makes it current again as a new version. Nothing is ever overwritten.",
+      "keywords": ["history", "version", "restore", "undo", "previous"],
+      "guide": "decks"
+    },
+    {
+      "id": "decks-image",
+      "topic": "decks",
+      "q": "How do I share my deck as a picture?",
+      "a": "Deck image on the deck's screen makes a wide picture laid out like a tournament decklist, as Cards or Stacks. Save to Photos or Share it on a phone, or Download, Share or Copy image on the website. Hold the picture to copy, save or share it.",
+      "keywords": ["image", "picture", "screenshot", "share deck", "post"],
+      "guide": "deckimage"
+    },
+    {
+      "id": "decks-add-to-collection",
+      "topic": "decks",
+      "q": "I built a deck in paper. Can I add it to my collection?",
+      "a": "Add to collection on the deck's screen adds the copies you're missing of the exact printings, finishes and languages the list names, or every card. It's one change you can undo.",
+      "keywords": ["add to collection", "own deck", "bought", "paper"],
+      "guide": "decks"
+    },
+    {
+      "id": "decks-cube-cobra-sync",
+      "topic": "decks",
+      "q": "Can I keep a cube in step with Cube Cobra?",
+      "a": "Yes. Sync with Cube Cobra on your cube shows what's in, what's out and what changed printing on Cube Cobra, and Accept changes saves it as one new version you can restore from. A cube imported from a Cube Cobra link remembers it; otherwise it asks for the link once.",
+      "keywords": ["cube cobra", "sync", "update cube", "cubecobra"],
+      "guide": "decks"
+    },
+    {
+      "id": "decks-finder",
+      "topic": "decks",
+      "q": "What is Find a deck online?",
+      "a": "New deck → Find a deck online. Describe what you want (\"latest Boros Energy from a big Modern event\") and pick a format. It looks through recent tournament results first, then the web, and shows the list with its event, date and placement before you create it. You can leave the screen: a notification tells you when it's found. Each account gets 20 searches a day.",
+      "keywords": ["deck finder", "find deck", "netdeck", "latest list", "ai"],
+      "guide": "finder"
+    },
+    {
+      "id": "trades-how",
+      "topic": "trades",
+      "q": "How do trades work?",
+      "a": "A trade is your record of a swap: what you give and what you get, side by side. Add cards to either side by search or scan; what you give comes from your own copies, for-trade binders first. Confirm applies the whole trade to your collection in one change and takes met wants off your list. Undo reverses it.",
+      "keywords": ["trade", "swap", "give", "get", "confirm"],
+      "guide": "trades"
+    },
+    {
+      "id": "trades-deck-cards",
+      "topic": "trades",
+      "q": "What happens if I trade away a card my deck uses?",
+      "a": "Decks don't reserve copies. Before confirming, the app names any deck or cube that would need more copies than you'll have left, and asks whether to remove them from those lists or keep them listed as missing.",
+      "keywords": ["trade deck card", "warning", "reserve"],
+      "guide": "trades"
+    },
+    {
+      "id": "trades-matches",
+      "topic": "trades",
+      "q": "What are trade matches?",
+      "a": "Collection → Trade, under Matches: who has what you want, and who wants what you have for trade. It looks only at your friends and people you've played an event with in the last 90 days, and only at what they've shared with you. Start a trade makes the draft for you.",
+      "keywords": ["trade matches", "match", "who has", "wants"],
+      "guide": "matches"
+    },
+    {
+      "id": "trades-wants",
+      "topic": "trades",
+      "q": "How do I keep a wishlist?",
+      "a": "Wants: add a card in any printing, a specific printing, or a printing in one finish, with a quantity and an optional max price. Your max price is never shown to anyone. Each want shows its price and how it moved this week.",
+      "keywords": ["wants", "wishlist", "want list", "max price"],
+      "guide": "binders"
+    },
+    {
+      "id": "trades-price-alerts",
+      "topic": "trades",
+      "q": "How do price alerts work?",
+      "a": "Once a day at most you get one notification listing wants that got meaningfully cheaper (at least 15% and $1 under their 30-day average) or reached your max price. Turn them on or off with Price alerts on the Wants screen.",
+      "keywords": ["price alert", "cheaper", "drop", "notification", "deal"],
+      "guide": "binders"
+    },
+    {
+      "id": "trades-buy",
+      "topic": "trades",
+      "q": "How do I buy the cards I'm missing?",
+      "a": "Buy on a deck, a cube, Wants or Missing opens the Buy screen: choose to skip cards you own, exact printings or one cart by name, and see the total. Buy on TCGplayer opens TCGplayer's own site with the cart filled in; there, pick a condition, Add to Cart, then Optimize to find the cheapest sellers. Buying through these links supports Table 1 at no cost to you.",
+      "keywords": ["buy", "purchase", "tcgplayer", "cart", "missing", "shop"],
+      "guide": "binders"
+    },
+    {
+      "id": "rankings-what",
+      "topic": "rankings",
+      "q": "What is a cube ranking?",
+      "a": "Your own order of a cube's cards, best first. You sort each color by putting up to four cards in order per screen, then a final top 100 (or 50) across the whole cube. The app works out everything that follows from your answers, so it never asks the same thing twice, and says about how many screens are left.",
+      "keywords": ["ranking", "cube ranking", "rank", "tier list", "order"],
+      "guide": "rankings"
+    },
+    {
+      "id": "rankings-start",
+      "topic": "rankings",
+      "q": "How do I rank a cube or a Limited set?",
+      "a": "Open a cube you can see (yours, or one shared with you) and tap Rankings, then Rank to start yours. For a set, Insights → Limited → Rank this set, or Rankings → Sets you can rank. Upcoming sets can be ranked during spoiler season; new cards wait until you place them.",
+      "keywords": ["rank set", "limited set", "start ranking", "spoiler"],
+      "guide": "rankings"
+    },
+    {
+      "id": "rankings-mistake",
+      "topic": "rankings",
+      "q": "I put two cards in the wrong order. Can I fix it?",
+      "a": "Undo takes back the last screen. Any card's history has Redo on the screens that placed it, so you can answer one again. Why is it above… shows the chain of screens that put one card over another.",
+      "keywords": ["undo", "redo", "wrong order", "mistake"],
+      "guide": "rankings"
+    },
+    {
+      "id": "rankings-share",
+      "topic": "rankings",
+      "q": "Who sees my ranking?",
+      "a": "A cube ranking starts Shared with the cube, so everyone who can see the cube can see it. A set ranking starts shared with friends. Switch to Only me in its Settings. Top 100 image makes a picture to post, and Discord's /ranking posts it in a channel.",
+      "keywords": ["share ranking", "private", "who sees", "image"],
+      "guide": "rankings"
+    },
+    {
+      "id": "insights-what",
+      "topic": "insights",
+      "q": "What does Insights show?",
+      "a": "Constructed: what's winning in Standard, Pioneer, Modern, Legacy, Vintage, Pauper and Canadian Highlander, with each deck's share, win rate, the matchup grid, rising cards and ban studies. Limited: card and color-pair win rates for Arena sets and cubes from 17Lands. Each view opens with a short written summary.",
+      "keywords": ["insights", "meta", "metagame", "win rate", "17lands", "limited"],
+      "guide": "insights"
+    },
+    {
+      "id": "insights-data",
+      "topic": "insights",
+      "q": "Where does the Insights data come from?",
+      "a": "Constructed comes from published Magic Online results and paper events from TopDeck.gg and Melee.gg, a year back; bigger events count for more. Limited comes from 17Lands' public data, which appears about two weeks after a set reaches Arena. No player names are shown anywhere.",
+      "keywords": ["data", "source", "mtgo", "topdeck", "melee", "17lands"],
+      "guide": "insights"
+    },
+    {
+      "id": "insights-card",
+      "topic": "insights",
+      "q": "How do I see how much a card is played?",
+      "a": "The search icon at the top of Insights → Constructed finds any card played in that format this year. Its page shows its share of lists week by week, every archetype that plays it, and the best lists with it, each of which you can add to your decks.",
+      "keywords": ["card search", "played", "prevalence", "card page"],
+      "guide": "insights"
+    },
+    {
+      "id": "insights-my-deck",
+      "topic": "insights",
+      "q": "How does my deck do in the meta?",
+      "a": "Under Stats, each of your decks in an Insights format shows the archetype it plays as, how similar it is, its win rate over the last 30 days, and its best and worst matchups. A deck that strays far from any archetype (a Brew) shows none of this.",
+      "keywords": ["my deck", "archetype", "matchups", "similar", "meta"],
+      "guide": "decks"
+    },
+    {
+      "id": "insights-faded",
+      "topic": "insights",
+      "q": "Why are some matchup squares faded?",
+      "a": "A pairing with fewer than 30 matches is faded: a hint, not a verdict. Tap a square for its record and likely range.",
+      "keywords": ["faded", "grid", "sample size", "matchup grid"],
+      "guide": "insights"
+    },
+    {
+      "id": "friends-add",
+      "topic": "friends",
+      "q": "How do I add a friend?",
+      "a": "Account → Friends → Add a friend: find people you've played with, search profiles by name or handle, or ask by email. Tapping a player in standings or a players list opens their profile, with Add friend. Friends are mutual: they accept, or quietly ignore.",
+      "keywords": ["friend", "add friend", "find people", "request"],
+      "guide": "friends"
+    },
+    {
+      "id": "friends-share",
+      "topic": "friends",
+      "q": "Who can see my collection and decks?",
+      "a": "Everything in your Library starts private. Account → Sharing sets who sees each part (Private, Friends or Anyone on Table 1), and every deck, cube and binder has its own Who sees this. New decks always start Private. View your profile as a friend or anyone to check what others see.",
+      "keywords": ["privacy", "sharing", "who sees", "private", "public", "visible"],
+      "guide": "sharing"
+    },
+    {
+      "id": "friends-link",
+      "topic": "friends",
+      "q": "How do I share a deck with someone who isn't on Table 1?",
+      "a": "Share on the deck (or a binder, cube, All cards or Wants) → Make a link. Anyone who opens it sees that part only, even without an account. New link replaces it and Stop sharing link turns it off at once.",
+      "keywords": ["share link", "link", "send deck", "public link"],
+      "guide": "sharing"
+    },
+    {
+      "id": "friends-follow",
+      "topic": "friends",
+      "q": "Can I follow a friend's deck or binder?",
+      "a": "Yes: Follow sits on any deck, cube or binder someone shares with you. You get one notification once they've finished a round of changes, and the Changes screen lists what came in and went out. The owner is never told who follows.",
+      "keywords": ["follow", "updates", "changes", "watch deck"],
+      "guide": "following"
+    },
+    {
+      "id": "friends-block",
+      "topic": "friends",
+      "q": "How do I block or report someone?",
+      "a": "Long-press a person wherever they appear (or use More; right-click on a computer) for Block and Report. Blocking hides your Library and profile from them and stops requests; they aren't told. A report picks a reason and can also block.",
+      "keywords": ["block", "report", "harassment", "abuse", "safety"],
+      "guide": "safety"
+    },
+    {
+      "id": "notifications-on",
+      "topic": "notifications",
+      "q": "How do I turn notifications on or off?",
+      "a": "The app asks after sign-in, on a screen that says what notifications are for. If you skipped it, turn them on in your phone's Settings for Table 1. On Android each group (Events, Collection, Friends, From Table 1) can be turned off on its own in Android's settings. Price alerts and New in Insights have their own switches in the app.",
+      "keywords": ["notifications", "push", "alerts", "turn off", "mute"],
+      "guide": "push"
+    },
+    {
+      "id": "notifications-what",
+      "topic": "notifications",
+      "q": "What will Table 1 notify me about?",
+      "a": "Pairings and results, invitations, a place opening on a waitlist, cancelled events, events you follow, friend requests, changes to lists you follow, friends putting up cards you want, price drops on your wants, a finished deck finder search and notices from Table 1. Organizers also hear about sign-ups and drops. The website has no notifications.",
+      "keywords": ["notifications", "which", "pairing", "alerts"],
+      "guide": "push"
+    },
+    {
+      "id": "offline-sync",
+      "topic": "offline",
+      "q": "Does my collection sync between devices?",
+      "a": "Yes. Your collection, binders, wants, decks, cubes and trades live in your account and appear on every device you sign in to. Each device keeps its own copy, so the Collection opens instantly and changes show at once.",
+      "keywords": ["sync", "devices", "tablet", "computer", "backup"],
+      "guide": "sync"
+    },
+    {
+      "id": "offline-no-signal",
+      "topic": "offline",
+      "q": "Does the app work with no signal?",
+      "a": "Mostly. Search, card pages, deck stats and the scanner work offline. The Events tab, your events and Insights keep what you last saw and say when they couldn't refresh. Cards you add offline wait on the device and are sent with the next sync, and deck and cube changes do too. Removals, trades, binder moves and wants need a connection.",
+      "keywords": ["offline", "no internet", "no signal", "airplane", "connection"],
+      "guide": "sync"
+    },
+    {
+      "id": "offline-waiting",
+      "topic": "offline",
+      "q": "It says changes are waiting to send.",
+      "a": "Those are cards you added while the server couldn't be reached. They stay on screen and go in order with the next sync (opening the app, the Collection tab, or any later change), and can never go in twice. Undo on a waiting change takes it back out.",
+      "keywords": ["waiting", "pending", "not saved", "sending"],
+      "guide": "sync"
+    },
+    {
+      "id": "discord-add",
+      "topic": "discord",
+      "q": "How do I add Table 1 to my Discord server?",
+      "a": "Anyone with Manage Server adds it from table-1.site/discord (Add to your server). It only sends messages and embeds links; it never reads anyone's messages. Then each person runs /link once to connect their Table 1 account, or signs in to Table 1 with Discord.",
+      "keywords": ["discord", "bot", "server", "add bot", "link"],
+      "guide": "discord"
+    },
+    {
+      "id": "discord-commands",
+      "topic": "discord",
+      "q": "What can the Discord bot do?",
+      "a": "/event create, post, signup, drop and results run events from a channel, with a card that updates itself as people sign up. /deck posts a deck as a picture, /wants and /trades post your lists, /card looks up a card, /meta posts Insights charts and /ranking posts a ranking. /help lists everything.",
+      "keywords": ["discord", "commands", "slash", "event", "help"],
+      "guide": "discord"
+    },
+    {
+      "id": "account-delete",
+      "topic": "account",
+      "q": "How do I delete my account?",
+      "a": "Account → Delete account, in the app or on the website (table-1.site/delete-account). Your collection, binders, wants, decks, cubes, trades, friendships, sharing settings and photos are removed. Results you played stay in their events as \"Deleted player\". It can't be undone.",
+      "keywords": ["delete account", "remove account", "close account", "erase data", "gdpr"],
+      "guide": "account"
+    },
+    {
+      "id": "account-data",
+      "topic": "account",
+      "q": "What data does Table 1 collect?",
+      "a": "Which screens and features are used, and crash reports, tied only to your account's internal id; never your email, names, cards, events or what you search. Turn it off in Account → Share usage and crash data. Scan corrections send the text the camera read, never images; turn that off in Account → Improve scanning. The privacy policy has the details.",
+      "keywords": ["privacy", "data", "tracking", "analytics", "telemetry", "crash"],
+      "guide": "privacy"
+    },
+    {
+      "id": "account-photo",
+      "topic": "account",
+      "q": "How do I change my profile photo?",
+      "a": "Tap your avatar at the top of Account to take a photo, choose one, or go back to your initials.",
+      "keywords": ["avatar", "photo", "picture", "profile picture"],
+      "guide": "friends"
+    },
+    {
+      "id": "account-track-games",
+      "topic": "account",
+      "q": "Can the Events tab open the life tracker instead of reporting?",
+      "a": "Yes. Account → Track games chooses whether you track games in the app (the life tracker comes first) or elsewhere (reporting the result comes first).",
+      "keywords": ["track games", "settings", "life tracker first"],
+      "guide": "account"
+    },
+    {
+      "id": "account-official",
+      "topic": "account",
+      "q": "Is Table 1 official Wizards of the Coast software?",
+      "a": "No. Table 1 is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Tournament rules follow the published Magic Tournament Rules.",
+      "keywords": ["official", "wizards", "wotc", "fan content"],
+      "guide": "account"
+    }
+  ]
+}

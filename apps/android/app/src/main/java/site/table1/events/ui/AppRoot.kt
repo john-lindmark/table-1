@@ -364,8 +364,10 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
                 composable("account") {
                     AccountScreen(foregrounds = foregrounds, onFriends = { nav.navigate("friends") }, onSharing = { nav.navigate("sharing") },
                         onProfile = { nav.navigate("profile/$it") }, onNotices = { nav.navigate("notices") }, onReview = { nav.navigate("review") }, onBugs = { nav.navigate("bugs") },
-                        onDeckPhotos = { nav.navigate("mydeckphotos") })
+                        onDeckPhotos = { nav.navigate("mydeckphotos") }, onSupport = { nav.navigate("support") })
                 }
+                // Support (contract/support-2026-11-10.md): questions and the guide.
+                supportGraph(nav)
                 // Account → Deck photos (contract/event-night-2026-10-16.md § 7 On your account).
                 composable("mydeckphotos") {
                     site.table1.events.ui.screens.MyDeckPhotosScreen(onBack = { nav.popBackStack() },
@@ -683,4 +685,27 @@ private fun SignedInApp(pendingJoin: JoinLink?, onJoinConsumed: () -> Unit, pend
 /** A sign-up link opened signed out: its event, shown over sign-in; signing in signs you up. */
 object PendingSignUp {
     var page by androidx.compose.runtime.mutableStateOf<site.table1.events.data.EventPage?>(null)
+}
+
+/** Account → Support's screens: the home, the guide's sections, a topic, an answer, a guide section (`e` = the entry to
+ *  scroll to, `from` = how it was reached, for telemetry). */
+private fun androidx.navigation.NavGraphBuilder.supportGraph(nav: androidx.navigation.NavHostController) {
+    val go = site.table1.events.ui.support.SupportNav(
+        back = { nav.popBackStack() },
+        topic = { nav.navigate("support/topic/$it") },
+        guides = { nav.navigate("support/guide") },
+        faq = { id, from -> nav.navigate("support/faq/$id?from=$from") },
+        guide = { section, entry, from -> nav.navigate("support/guide/$section?from=$from" + (entry?.let { "&e=$it" } ?: "")) },
+    )
+    composable("support") { site.table1.events.ui.support.SupportScreen(go) }
+    composable("support/guide") { site.table1.events.ui.support.SupportGuidesScreen(go) }
+    composable("support/topic/{key}") { e -> site.table1.events.ui.support.SupportTopicScreen(e.arguments?.getString("key") ?: "", go) }
+    val optional = { name: String -> navArgument(name) { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null } }
+    composable("support/faq/{id}?from={from}", arguments = listOf(optional("from"))) { e ->
+        site.table1.events.ui.support.SupportFaqScreen(e.arguments?.getString("id") ?: "", e.arguments?.getString("from") ?: "link", go)
+    }
+    composable("support/guide/{section}?from={from}&e={e}", arguments = listOf(optional("from"), optional("e"))) { e ->
+        site.table1.events.ui.support.SupportGuideScreen(e.arguments?.getString("section") ?: "", e.arguments?.getString("e"),
+            e.arguments?.getString("from") ?: "link", go)
+    }
 }
